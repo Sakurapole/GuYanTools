@@ -1,0 +1,9 @@
+@use "../../assets/layout.scss";
+@use "../../assets/cssvars.scss" as *;
+
+.bottombar-container {
+  @include layout.flex-row();
+  width: 100%;
+  height: $btmbar-height;
+  background-color: var(--bottombar-bg-color);
+}

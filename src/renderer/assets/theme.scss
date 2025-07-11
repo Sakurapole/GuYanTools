@@ -1,0 +1,34 @@
+.light {
+  --background-color: #fff;
+  --sidebar-bg-color: #cdcbcb;
+  --bottombar-bg-color: #cdcbcb;
+}
+
+.dark {
+  --background-color: #363131;
+  --sidebar-bg-color: #514646;
+  --bottombar-bg-color: #514646;
+}
+
+/** Animated Theme Toggle */
+::view-transition-old(root),
+::view-transition-new(root) {
+  animation: none;
+  mix-blend-mode: normal;
+}
+
+.dark::view-transition-old(root) {
+  z-index: 1;
+}
+
+.dark::view-transition-new(root) {
+  z-index: 999;
+}
+
+.light::view-transition-old(root) {
+  z-index: 999;
+}
+
+.light::view-transition-new(root) {
+  z-index: 1;
+}

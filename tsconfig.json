@@ -1,0 +1,27 @@
+{
+  "compilerOptions": {
+    "target": "ESNext",
+    "module": "commonjs",
+    "allowJs": true,
+    "skipLibCheck": true,
+    "esModuleInterop": true,
+    "noImplicitAny": true,
+    "sourceMap": true,
+    "baseUrl": ".",
+    "outDir": "dist",
+    "moduleResolution": "node",
+    "resolveJsonModule": true,
+    "noEmit": true,
+    "allowImportingTsExtensions": true,
+
+    "paths": {
+      "@/*": ["src/*"]
+    }
+  },
+  "include": [
+    "src/core/@types/index.d.ts",
+    "src/**/*.d.ts",
+    "src/**/*.ts",
+    "./forge.env.d.ts"
+  ]
+}

@@ -1,0 +1,58 @@
+{
+  "name": "guyantools",
+  "productName": "guyantools",
+  "version": "1.0.0",
+  "description": "My Electron application description",
+  "main": ".vite/build/index.js",
+  "scripts": {
+    "start": "electron-forge start",
+    "package": "electron-forge package",
+    "make": "electron-forge make",
+    "publish": "electron-forge publish",
+    "lint": "eslint --ext .ts,.tsx ."
+  },
+  "devDependencies": {
+    "@electron-forge/cli": "^7.6.1",
+    "@electron-forge/maker-deb": "^7.6.1",
+    "@electron-forge/maker-rpm": "^7.6.1",
+    "@electron-forge/maker-squirrel": "^7.6.1",
+    "@electron-forge/maker-zip": "^7.6.1",
+    "@electron-forge/plugin-auto-unpack-natives": "^7.6.1",
+    "@electron-forge/plugin-fuses": "^7.6.1",
+    "@electron-forge/plugin-vite": "^7.6.1",
+    "@electron/fuses": "^1.8.0",
+    "@iconify/vue": "^4.3.0",
+    "@types/cross-spawn": "^6.0.6",
+    "@types/electron-squirrel-startup": "^1.0.2",
+    "@typescript-eslint/eslint-plugin": "^8.21.0",
+    "@typescript-eslint/parser": "^8.21.0",
+    "@vitejs/plugin-vue": "^5.2.1",
+    "@vue/tsconfig": "^0.7.0",
+    "electron": "34.0.1",
+    "eslint": "^8.57.1",
+    "eslint-plugin-import": "^2.31.0",
+    "sass-embedded": "^1.83.4",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.7.3",
+    "vite": "^5.4.14"
+  },
+  "dependencies": {
+    "@vueuse/core": "^12.5.0",
+    "axios": "^1.7.9",
+    "electron-squirrel-startup": "^1.0.1",
+    "gsap": "^3.12.7",
+    "pinia": "^2.3.1",
+    "vue": "^3.5.13",
+    "vue-router": "^4.5.0"
+  },
+  "keywords": [
+    "GuYan",
+    "Tools",
+    "Bili"
+  ],
+  "author": {
+    "name": "laityh",
+    "email": "1831495788@qq.com"
+  },
+  "license": "MIT"
+}

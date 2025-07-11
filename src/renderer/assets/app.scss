@@ -1,0 +1,25 @@
+@use "./cssvars.scss" as *;
+
+html,
+body,
+#guyan-tools {
+  width: 100vw;
+  height: 100vh;
+  margin: 0;
+  padding: 0;
+  overflow: hidden;
+}
+
+.page-container {
+  background: var(--background-color);
+  display: flex;
+  flex-direction: row;
+  width: 100vw;
+  height: calc(100vh - $btmbar-height);
+}
+
+.content-wrapper {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+}

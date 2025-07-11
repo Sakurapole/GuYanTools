@@ -1,0 +1,63 @@
+@use "../../assets/layout.scss";
+
+$small-sidebar-btn-size: 48px;
+
+// .sidebar-container {
+//   // @include layout.flex-row();
+//   @include layout.abs-position(50%, 0px, 0px, -96px);
+//   transform: translateY(-50%);
+//   width: 192px;
+//   height: 192px;
+//   background-color: var(--sidebar-bg-color);
+//   border-radius: 0 50% 50% 0;
+// }
+
+.sidebar-container {
+  @include layout.abs-position(50%, 0px, 0px, 0);
+  width: 0;
+  height: 0;
+  background-color: var(--sidebar-bg-color);
+}
+
+.sidebar-container.active {
+  width: 192px;
+  height: 192px;
+  border-radius: 0 50% 50% 0;
+}
+
+.small-sidebar-btn {
+  @include layout.abs-position(50%, 0px, 0px, 0px);
+  @include layout.flex-col();
+  width: $small-sidebar-btn-size;
+  height: $small-sidebar-btn-size;
+  background-color: var(--sidebar-bg-color);
+  // border-radius: 50%;
+  cursor: pointer;
+  z-index: 2;
+
+  & .navigation-icon {
+    @include layout.flex-center();
+  }
+
+  & .small-sidebar-btn-text {
+    @include layout.flex-row();
+    gap: 6px;
+    width: 32px;
+    height: 32px;
+    transform: translateX(62.5%);
+
+    & .circle {
+      width: 4px;
+      height: 4px;
+      border-radius: 50%;
+      background-color: lightblue;
+      transition: all 0.3s ease;
+    }
+
+    @for $i from 1 through 3 {
+      & .circle:nth-child(#{$i}) {
+        transition-delay: 0.1s * ($i - 1);
+      }
+    }
+  }
+}
