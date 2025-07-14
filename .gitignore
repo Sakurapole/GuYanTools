@@ -1,0 +1,92 @@
+# ====================================
+# 根目录常用忽略
+# ====================================
+
+# macOS 文件系统生成的文件
+.DS_Store
+
+# 操作系统生成的缩略图
+Thumbs.db
+
+# 日志文件
+*.log
+
+# node_modules（Electron 项目依赖）
+**/node_modules/
+
+# 构建输出文件夹
+**/dist/
+**/build/
+
+# npm/yarn/pnpm 锁文件（根据项目需要选择跟踪或忽略）
+# package-lock.json
+# yarn.lock
+# pnpm-lock.yaml
+
+# ====================================
+# Rust 忽略
+# ====================================
+
+# Rust 编译输出目录
+**/target/
+
+# Cargo 锁文件一般建议跟踪，除非你特别想忽略
+# Cargo.lock
+
+# Rust 生成的编辑器备份文件
+**/*.rs.bk
+
+# ====================================
+# Flutter 忽略
+# ====================================
+
+# Flutter/Dart 相关
+**/.dart_tool/
+**/.flutter-plugins
+**/.flutter-plugins-dependencies
+**/build/
+**/ios/Flutter/Flutter.framework
+**/ios/Flutter/Flutter.podspec
+**/.packages
+**/.pub-cache/
+
+# Android 编译输出目录
+**/android/.gradle/
+**/android/app/build/
+**/android/build/
+
+# IntelliJ / Android Studio
+**/.idea/
+**/*.iml
+**/local.properties
+
+# VS Code
+**/.vscode/
+
+# Flutter 本地会生成的临时文件
+**/flutter_export_environment.sh
+
+# ====================================
+# Electron 相关
+# ====================================
+
+# Electron 打包输出目录（根据你具体配置，常见是 dist 或 release）
+electron-app/dist/
+electron-app/build/
+
+# 环境变量配置文件（通常包含机密）
+**/.env
+**/.env.local
+**/.env.*.local
+
+# ====================================
+# 其他通用忽略
+# ====================================
+
+# 临时文件
+*.tmp
+*.temp
+*.swp
+
+# 编辑器相关（视具体编辑器加减）
+*~
