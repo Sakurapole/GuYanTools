@@ -19,6 +19,9 @@ class App {
       app.quit()
     } else {
       this.beforeReady()
+      app.on('ready', () => {
+        this.onReady();
+      })
     }
   }
 
@@ -28,7 +31,7 @@ class App {
   }
 
   onReady() {
-
+    this.mainWindowCreator.init()
   }
 
   onRunning() {
