@@ -17,6 +17,7 @@ export default () => {
         preload: path.join(__dirname, 'preload.js'),
       },
       frame: false,
+      show: false, // 初始不显示，等待splash结束后显示
     });
 
     // and load the index.html of the app.

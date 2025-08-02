@@ -38,6 +38,10 @@ const config: ForgeConfig = {
         {
           name: 'func_window',
           config: 'vite.renderer.func.config.ts',
+        },
+        {
+          name: 'splash_window',
+          config: 'vite.renderer.splash.config.ts',
         }
       ],
     }),

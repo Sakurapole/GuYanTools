@@ -1,10 +1,14 @@
-import { app, BrowserWindow, protocol } from "electron";
-import { main_window } from "./browsers";
+import { app, BrowserWindow, protocol, ipcMain } from "electron";
+import { main_window, splash_window } from "./browsers";
 
 class App {
   public mainWindowCreator: {
     init: () => void;
     getWindow: () => BrowserWindow
+  };
+  private splashWindowCreator: {
+    create: () => Promise<BrowserWindow>;
+    close: () => void;
   };
   private systemPlugins: any;
 
@@ -13,25 +17,49 @@ class App {
       { scheme: 'app', privileges: { secure: true, standard: true } }
     ]);
     this.mainWindowCreator = main_window();
+    this.splashWindowCreator = splash_window();
 
     const singleLock = app.requestSingleInstanceLock();
     if (!singleLock) {
       app.quit()
     } else {
-      this.beforeReady()
-      app.on('ready', () => {
-        this.onReady();
-      })
+      this.beforeReady();
+      this.onReady();
+      this.onRunning();
+      this.onQuit();
     }
   }
 
   // Lifecycle Funcs
   beforeReady() {
-
   }
 
   onReady() {
-    this.mainWindowCreator.init()
+    const readyFunc = async () => {
+      // 显示开屏窗口
+      const splashWindow = await this.splashWindowCreator.create();
+      
+      // 监听开屏动画完成事件
+      ipcMain.once('splash-animation-finished', () => {
+        // 初始化主窗口
+        this.mainWindowCreator.init();
+        
+        // 主窗口准备好后关闭开屏窗口
+        const mainWindow = this.mainWindowCreator.getWindow();
+        mainWindow.once('ready-to-show', () => {
+          mainWindow.show();
+          setTimeout(() => {
+            this.splashWindowCreator.close();
+          }, 500);
+        });
+      });
+    }
+
+    if (!app.isReady()) {
+      app.on('ready', readyFunc);
+    } else {
+      readyFunc();
+    }
   }
 
   onRunning() {
@@ -39,7 +67,15 @@ class App {
   }
 
   onQuit() {
+    app.on('window-all-closed', () => {
+      if (process.platform !== 'darwin') {
+        app.quit();
+      }
+    });
 
+    app.on('will-quit', () => {
+      // globalShortcut.unregisterAll();
+    });
   }
 }
 
