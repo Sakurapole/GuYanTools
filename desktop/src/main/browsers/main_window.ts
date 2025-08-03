@@ -1,4 +1,4 @@
-import { BrowserWindow } from "electron";
+import { BrowserWindow, WebContentsView } from "electron";
 import path from 'path';
 
 export default () => {
@@ -21,6 +21,7 @@ export default () => {
     });
 
     // and load the index.html of the app.
+
     console.log(MAIN_WINDOW_VITE_DEV_SERVER_URL);
     console.log(FUNC_WINDOW_VITE_DEV_SERVER_URL, FUNC_WINDOW_VITE_NAME);
     if (FUNC_WINDOW_VITE_DEV_SERVER_URL) {
@@ -31,6 +32,11 @@ export default () => {
 
     // Open the DevTools.
     mainWindow.webContents.openDevTools();
+
+    console.log(global.LOCAL_PLUGINS);
+    console.log(global.LOCAL_PLUGINS.plguins[0].name, global.LOCAL_PLUGINS.plguins[0].main);
+    const pluginWebContentsView = await global.LOCAL_PLUGINS.getPluginWebContentsView(global.LOCAL_PLUGINS.plguins[0], { width: 1366, height: 768, x: 0, y: 0 });
+    mainWindow.contentView.addChildView(pluginWebContentsView);
   }
 
   const getWindow = () => mainWindow;

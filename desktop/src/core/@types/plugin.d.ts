@@ -14,8 +14,8 @@ interface PluginCache {
 
 interface PluginInfo {
   // 插件类型
-  type: "adapter";
-  // 插件名称 rubick-adapter-xxx
+  type: "ui" | "system";
+  // 插件名称 guyan-xxx
   name: string;
   // 可读插件名称
   pluginName: string;
