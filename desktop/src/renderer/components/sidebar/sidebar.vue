@@ -14,16 +14,36 @@
 </template>
 
 <script lang="ts" setup>
-import { useDraggable } from '@vueuse/core';
+import { useDraggable, useElementSize } from '@vueuse/core';
 import { gsap } from 'gsap';
-import { onMounted, useTemplateRef } from 'vue';
+import { onMounted, toRefs, useTemplateRef } from 'vue';
 import { useTheme } from '../../composables/theme';
 
+const props = withDefaults(defineProps<{
+  boundsTop?: number;
+  boundsLeft?: number;
+  parentWidth?: number;
+  parentHeight?: number;
+}>(), {
+});
+const { parentWidth, parentHeight } = toRefs(props);
+
 const smallSidebarBtn = useTemplateRef<HTMLDivElement>('small-sidebar-btn-ref');
+const { width: elWidth, height: elHeight } = useElementSize(smallSidebarBtn);
+
 const { x, y, style } = useDraggable(smallSidebarBtn, {
-  initialValue: { x: 0, y: window.innerHeight / 2 - 18 },
+  initialValue: { x: 0, y: parentHeight.value / 2 },
   preventDefault: true,
-  // containerElement: document.querySelector('.page-container') as HTMLElement,
+  onMove: (position) => {
+    // 计算 x 和 y 的最大可移动值
+    const maxX = parentWidth.value - elWidth.value;
+    const maxY = parentHeight.value - elHeight.value;
+    // 限制 x 的范围
+    position.x = 0;
+
+    // 限制 y 的范围
+    position.y = Math.max(0, Math.min(position.y, maxY));
+  }
 });
 
 const { toggleTheme } = useTheme();
@@ -41,7 +61,7 @@ onMounted(() => {
       ease: 'power1.inOut' // 动画缓动效果
     })
     console.log(tl);
-  })
+  });
 })
 </script>
 

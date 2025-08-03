@@ -16,6 +16,7 @@ body,
   flex-direction: row;
   width: 100vw;
   height: calc(100vh - $btmbar-height - $topbar-height);
+  position: relative;
 }
 
 .content-wrapper {

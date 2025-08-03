@@ -1,22 +1,30 @@
 <script setup lang="ts">
-import { onBeforeMount } from 'vue';
+import { useElementBounding, useElementSize } from '@vueuse/core';
+import { onBeforeMount, onMounted, ref } from 'vue';
 import bottombar from './components/bottombar/bottombar.vue';
 import Sidebar from './components/sidebar/sidebar.vue';
 import Topbar from './components/topbar/topbar.vue';
 import { useTheme } from './composables/theme';
-import { i } from 'vite/dist/node/types.d-aGj9QkWt';
 
 const { theme, toggleTheme } = useTheme();
+const pageContainerRef = ref<HTMLElement | null>(null);
+const { top: boundsTop, left: boundsLeft } = useElementBounding(pageContainerRef);
+const { width: containerWidth, height: containerHeight } = useElementSize(pageContainerRef);
 
 onBeforeMount(() => {
   document.documentElement.classList.add(theme.value);
 });
+
+onMounted(() => {
+  console.log(boundsLeft.value, boundsTop.value);
+  console.log(containerWidth.value, containerHeight.value);
+})
 </script>
 
 <template>
   <Topbar />
-  <div class="page-container">
-    <Sidebar />
+  <div class="page-container" ref="pageContainerRef">
+    <Sidebar :parent-height="containerHeight" :parent-width="containerWidth" />
     <!-- <div class="container-wrapper"> -->
     <router-view></router-view>
     <!-- </div> -->
