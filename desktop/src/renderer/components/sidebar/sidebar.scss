@@ -27,6 +27,7 @@ $small-sidebar-btn-size: 48px;
 
 .small-sidebar-btn {
   @include layout.abs-position(50%, 0px, 0px, 0px);
+  z-index: 999;
   @include layout.flex-col();
   width: $small-sidebar-btn-size;
   height: $small-sidebar-btn-size;

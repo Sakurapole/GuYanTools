@@ -33,10 +33,10 @@ export default () => {
     // Open the DevTools.
     mainWindow.webContents.openDevTools();
 
-    console.log(global.LOCAL_PLUGINS);
-    console.log(global.LOCAL_PLUGINS.plguins[0].name, global.LOCAL_PLUGINS.plguins[0].main);
-    const pluginWebContentsView = await global.LOCAL_PLUGINS.getPluginWebContentsView(global.LOCAL_PLUGINS.plguins[0], { width: 1366, height: 768, x: 0, y: 0 });
-    mainWindow.contentView.addChildView(pluginWebContentsView);
+    // console.log(global.LOCAL_PLUGINS);
+    // console.log(global.LOCAL_PLUGINS.plguins[0].name, global.LOCAL_PLUGINS.plguins[0].main);
+    // const pluginWebContentsView = await global.LOCAL_PLUGINS.getPluginWebContentsView(global.LOCAL_PLUGINS.plguins[0], { width: 1366, height: 768, x: 0, y: 0 });
+    // mainWindow.contentView.addChildView(pluginWebContentsView);
   }
 
   const getWindow = () => mainWindow;

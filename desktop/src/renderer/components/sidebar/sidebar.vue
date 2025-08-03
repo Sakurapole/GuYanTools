@@ -21,9 +21,9 @@ import { useTheme } from '../../composables/theme';
 
 const smallSidebarBtn = useTemplateRef<HTMLDivElement>('small-sidebar-btn-ref');
 const { x, y, style } = useDraggable(smallSidebarBtn, {
-  initialValue: { x: 0, y: 0 },
+  initialValue: { x: 0, y: window.innerHeight / 2 - 18 },
   preventDefault: true,
-  containerElement: document.documentElement,
+  // containerElement: document.querySelector('.page-container') as HTMLElement,
 });
 
 const { toggleTheme } = useTheme();

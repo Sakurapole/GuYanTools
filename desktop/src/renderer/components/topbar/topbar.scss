@@ -1,0 +1,7 @@
+@use "../../assets/layout.scss";
+@use "../../assets/cssvars.scss" as *;
+
+#topbar-container {
+  width: 100%;
+  height: $topbar-height;
+}

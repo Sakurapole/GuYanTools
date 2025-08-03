@@ -2,7 +2,9 @@
 import { onBeforeMount } from 'vue';
 import bottombar from './components/bottombar/bottombar.vue';
 import Sidebar from './components/sidebar/sidebar.vue';
+import Topbar from './components/topbar/topbar.vue';
 import { useTheme } from './composables/theme';
+import { i } from 'vite/dist/node/types.d-aGj9QkWt';
 
 const { theme, toggleTheme } = useTheme();
 
@@ -12,8 +14,9 @@ onBeforeMount(() => {
 </script>
 
 <template>
-  <Sidebar />
+  <Topbar />
   <div class="page-container">
+    <Sidebar />
     <!-- <div class="container-wrapper"> -->
     <router-view></router-view>
     <!-- </div> -->
