@@ -3,7 +3,7 @@ import spwan from 'cross-spawn';
 import fs from 'fs-extra';
 import path from 'path';
 
-class PluginMananger {
+class PluginManager {
   public baseDir: string;
   readonly registry: string;
 
@@ -22,7 +22,7 @@ class PluginMananger {
     this.registry = options.registry || 'https://registry.npmmirror.com/'
   }
 
-  async getPluginInfo(pluginName: string, pluginPath: string): Promise<PluginInfo> {
+  async getPluginInfo(pluginName: string, pluginPath?: string): Promise<PluginInfo> {
     let pluginInfo: PluginInfo;
     const infoPath = pluginPath || path.resolve(this.baseDir, 'node_modules', pluginName, 'package.json');
     if (await fs.pathExists(infoPath)) {
@@ -121,4 +121,4 @@ class PluginMananger {
   }
 }
 
-export default PluginMananger;
+export default PluginManager;
