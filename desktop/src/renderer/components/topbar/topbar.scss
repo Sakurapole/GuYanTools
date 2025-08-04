@@ -2,6 +2,50 @@
 @use "../../assets/cssvars.scss" as *;
 
 #topbar-container {
+  @include layout.flex-row($justify-content: space-between, $align-items: center);
   width: 100%;
   height: $topbar-height;
+  background-color: var(--topbar-bg-color);
+}
+
+.window-title-container {
+  @include layout.flex-row($justify-content: space-between, $align-items: center);
+  padding-left: 20px;
+  height: 100%;
+
+  & .window-title {
+    font-size: 20px;
+    font-weight: 500;
+    color: var(--main-title-text-color);
+    user-select: none;
+  }
+
+  & .window-subtitle {
+    font-size: 16px;
+    color: var(--sub-title-text-color);
+    user-select: none;
+  }
+}
+
+.application-func-container {
+  flex: 1;
+}
+
+.window-btn-group {
+  @include layout.flex-row($justify-content: flex-end, $align-items: center);
+  height: 100%;
+
+  & .mini-btn,
+  .max-btn,
+  .close-btn {
+    @include layout.flex-center();
+    width: 36px;
+    height: 36px;
+    cursor: pointer;
+    transition: background-color 0.3s ease;
+
+    &:hover {
+      background-color: var(--window-btn-hover-bg-color);
+    }
+  }
 }

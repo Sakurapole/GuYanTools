@@ -1,4 +1,4 @@
-import { BrowserWindow, WebContentsView } from "electron";
+import { BrowserWindow, ipcMain } from "electron";
 import path from 'path';
 
 export default () => {
@@ -37,6 +37,40 @@ export default () => {
     // console.log(global.LOCAL_PLUGINS.plguins[0].name, global.LOCAL_PLUGINS.plguins[0].main);
     // const pluginWebContentsView = await global.LOCAL_PLUGINS.getPluginWebContentsView(global.LOCAL_PLUGINS.plguins[0], { width: 1366, height: 768, x: 0, y: 0 });
     // mainWindow.contentView.addChildView(pluginWebContentsView);
+
+    mainWindow.on('close', (event) => {
+      // 阻止窗口关闭
+      event.preventDefault();
+      // 最小化窗口而不是关闭
+      mainWindow.hide();
+    });
+
+    // 监听窗口关闭事件
+    mainWindow.on('closed', () => {
+      mainWindow = null; // 清理引用
+    });
+
+    ipcMain.on('main-renderer-minimize', () => {
+      // 最小化窗口时的处理逻辑
+      mainWindow.minimize();
+      console.log('Window minimized');
+    });
+
+    ipcMain.on('main-renderer-maximize', () => {
+      // 切换窗口最大化状态
+      if (mainWindow.isMaximized()) {
+        mainWindow.unmaximize();
+      } else {
+        mainWindow.maximize();
+      }
+      console.log('Window maximized');
+    });
+
+    ipcMain.on('main-renderer-close', () => {
+      // 关闭窗口时的处理逻辑
+      mainWindow.close();
+      console.log('Window closed');
+    });
   }
 
   const getWindow = () => mainWindow;

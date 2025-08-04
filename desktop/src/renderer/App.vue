@@ -16,8 +16,6 @@ onBeforeMount(() => {
 });
 
 onMounted(() => {
-  console.log(boundsLeft.value, boundsTop.value);
-  console.log(containerWidth.value, containerHeight.value);
 })
 </script>
 
