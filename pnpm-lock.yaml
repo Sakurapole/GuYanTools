@@ -14,6 +14,9 @@ importers:
       '@commitlint/config-conventional':
         specifier: ^19.8.1
         version: 19.8.1
+      cz-git:
+        specifier: ^1.12.0
+        version: 1.12.0
       husky:
         specifier: ^9.1.7
         version: 9.1.7
@@ -175,6 +178,10 @@ packages:
     peerDependenciesMeta:
       typescript:
         optional: true
+
+  cz-git@1.12.0:
+    resolution: {integrity: sha512-LaZ+8whPPUOo6Y0Zy4nIbf6JOleV3ejp41sT6N4RPKiKKA+ICWf4ueeIlxIO8b6JtdlDxRzHH/EcRji07nDxcg==}
+    engines: {node: '>=v12.20.0'}
 
   dargs@8.1.0:
     resolution: {integrity: sha512-wAV9QHOsNbwnWdNW2FYvE1P56wtgSbM+3SZcdGiWQILwVjACCXDCI3Ai8QlCjMDB8YK5zySiXZYBiwGmNY3lnw==}
@@ -613,6 +620,8 @@ snapshots:
       parse-json: 5.2.0
     optionalDependencies:
       typescript: 5.9.2
+
+  cz-git@1.12.0: {}
 
   dargs@8.1.0: {}
 
