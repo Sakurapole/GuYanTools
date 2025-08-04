@@ -34,15 +34,13 @@ const { width: elWidth, height: elHeight } = useElementSize(smallSidebarBtn);
 const { x, y, style } = useDraggable(smallSidebarBtn, {
   initialValue: { x: 0, y: parentHeight.value / 2 },
   preventDefault: true,
-  onMove: (position) => {
-    // 计算 x 和 y 的最大可移动值
-    const maxX = parentWidth.value - elWidth.value;
+  axis: 'y',
+  onMove: (position, e) => {
+    // 计算 y 的最大可移动值
     const maxY = parentHeight.value - elHeight.value;
-    // 限制 x 的范围
-    position.x = 0;
 
     // 限制 y 的范围
-    position.y = Math.max(0, Math.min(position.y, maxY));
+    position.y = Math.max(0, Math.min(position.y - 30, maxY));
   }
 });
 
