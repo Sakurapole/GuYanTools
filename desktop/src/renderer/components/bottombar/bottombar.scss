@@ -2,9 +2,10 @@
 @use "../../assets/cssvars.scss" as *;
 
 .bottombar-container {
-  @include layout.flex-row($justify-content: space-between);
+  @include layout.flex-row($justify-content: flex-start, $align-items: center);
   width: 100%;
   height: $btmbar-height;
+  border-top: 1px solid var(--bar-border-color);
   background-color: var(--bottombar-bg-color);
 }
 
@@ -24,10 +25,16 @@
     }
 
     &:hover {
-      background-color: #e2e2e2;
+      background-color: var(--bar-btn-hover-bg-color);
       & svg {
         fill: var(--primary-color);
       }
     }
   }
+}
+
+.bottombar-running-tool-container {
+  @include layout.flex-row($justify-content: flex-start, $align-items: center);
+  height: 100%;
+  overflow-x: auto;
 }

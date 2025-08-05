@@ -6,7 +6,7 @@
   width: 100%;
   height: $topbar-height;
   background-color: var(--topbar-bg-color);
-  border-bottom: 1px solid #ccc;
+  border-bottom: 1px solid var(--bar-border-color);
 }
 
 .window-title-container {
@@ -42,17 +42,30 @@
   @include layout.flex-row($justify-content: flex-end, $align-items: center);
   height: 100%;
 
+  & .theme-btn {
+    @include layout.flex-center();
+    width: calc($topbar-height - 12px);
+    height: calc($topbar-height - 12px);
+    cursor: pointer;
+    transition: background-color 0.3s ease;
+    border-radius: 50%;
+
+    &:hover {
+      background-color: var(--bar-btn-hover-bg-color);
+    }
+  }
+
   & .mini-btn,
   .max-btn,
   .close-btn {
     @include layout.flex-center();
-    width: 36px;
-    height: 36px;
+    width: $topbar-height;
+    height: $topbar-height;
     cursor: pointer;
     transition: background-color 0.3s ease;
 
     &:hover {
-      background-color: var(--window-btn-hover-bg-color);
+      background-color: var(--bar-btn-hover-bg-color);
     }
   }
 }

@@ -14,12 +14,11 @@
 </template>
 
 <script lang="ts" setup>
-import { useDraggable, useElementSize } from '@vueuse/core';
-import { gsap } from 'gsap';
-import { onMounted, toRefs, useTemplateRef } from 'vue';
-import { useTheme } from '../../composables/theme';
 import { bottombarHeight, sidebarBtnSize, topbarHeight } from '@/common/constants/renderer_process_constants';
 import { useBarStore } from '@/renderer/stores/bar_store';
+import { useDraggable, useElementSize } from '@vueuse/core';
+import { onMounted, toRefs, useTemplateRef } from 'vue';
+import { useTheme } from '../../composables/theme';
 
 const props = withDefaults(defineProps<{
   boundsTop?: number;
@@ -31,6 +30,7 @@ const props = withDefaults(defineProps<{
 const { parentWidth, parentHeight } = toRefs(props);
 
 const { sidebarVisible } = toRefs(useBarStore());
+const { setSidebarVisible } = useBarStore();
 const smallSidebarBtn = useTemplateRef<HTMLDivElement>('small-sidebar-btn-ref');
 const { width: elWidth, height: elHeight } = useElementSize(smallSidebarBtn);
 
@@ -49,24 +49,16 @@ const { x, y, style } = useDraggable(smallSidebarBtn, {
 
 const { toggleTheme } = useTheme();
 
-const sidebarClick = () => {
-  document.querySelector('.sidebar-container')?.classList.toggle('visible');
-}
-
 onMounted(() => {
-  setTimeout(() => {
-    const tl = gsap.timeline();
-    const path: SVGPathElement = document.querySelector('path');
-    const pathLength = path.getTotalLength();
-    path.style.strokeDasharray = pathLength.toString();
-    path.style.strokeDashoffset = pathLength.toString();
-    gsap.to(path, {
-      strokeDashoffset: 0,
-      duration: 1, // 动画持续时间，单位为秒
-      ease: 'power1.inOut' // 动画缓动效果
-    })
-  });
   y.value = window.innerHeight - bottombarHeight - topbarHeight - sidebarBtnSize;
+  document.addEventListener('mousedown', (e) => {
+    const container = document.querySelector('.sidebar-container');
+    const bottombarContainer = document.querySelector('.bottombar-container');
+    const switchSidebarBtn = document.querySelector('.switch-sidebar-btn');
+    if (!container.contains(e.target as Node) && !switchSidebarBtn.contains(e.target as Node)) {
+      setSidebarVisible(false);
+    }
+  })
 })
 </script>
 

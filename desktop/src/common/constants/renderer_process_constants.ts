@@ -1,9 +1,8 @@
-const topbarHeight = 36;
+const topbarHeight = 48;
 const bottombarHeight = 40;
 const sidebarBtnSize = 48;
 
 export {
-    topbarHeight,
     bottombarHeight,
-    sidebarBtnSize
-}
+    sidebarBtnSize, topbarHeight
+};
