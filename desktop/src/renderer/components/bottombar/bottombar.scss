@@ -2,8 +2,32 @@
 @use "../../assets/cssvars.scss" as *;
 
 .bottombar-container {
-  @include layout.flex-row();
+  @include layout.flex-row($justify-content: space-between);
   width: 100%;
   height: $btmbar-height;
   background-color: var(--bottombar-bg-color);
+}
+
+.bottombar-app-func-container {
+  height: 100%;
+  @include layout.flex-row();
+  & .bottombar-app-func-item {
+    @include layout.flex-row();
+    width: calc($btmbar-height + 12px);
+    height: $btmbar-height;
+    cursor: pointer;
+    background-color: var(--bottombar-bg-color);
+    transition: background-color 0.3s ease;
+
+    & svg {
+      transition: fill 0.3s ease;
+    }
+
+    &:hover {
+      background-color: #e2e2e2;
+      & svg {
+        fill: var(--primary-color);
+      }
+    }
+  }
 }

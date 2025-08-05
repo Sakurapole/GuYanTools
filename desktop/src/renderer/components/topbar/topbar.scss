@@ -6,6 +6,7 @@
   width: 100%;
   height: $topbar-height;
   background-color: var(--topbar-bg-color);
+  border-bottom: 1px solid #ccc;
 }
 
 .window-title-container {
@@ -28,7 +29,13 @@
 }
 
 .application-func-container {
+  height: 100%;
+}
+
+.drag-area {
   flex: 1;
+  height: 100%;
+  -webkit-app-region: drag;
 }
 
 .window-btn-group {

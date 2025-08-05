@@ -1,12 +1,12 @@
 <template>
-  <div ref="small-sidebar-btn-ref" class="small-sidebar-btn" :style="style" @click="toggleTheme">
+  <!-- <div ref="small-sidebar-btn-ref" class="small-sidebar-btn" :style="style" @click="sidebarClick">
     <svg class="navigation-icon" xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="-2 -2 28 28">
       <path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
         d="m3 11l19-9l-9 19l-2-8z" />
     </svg>
-  </div>
+  </div> -->
 
-  <div class="sidebar-container">
+  <div class="sidebar-container" :class="{ 'visible': sidebarVisible }">
     <div class="sidebar-expand">
 
     </div>
@@ -18,6 +18,8 @@ import { useDraggable, useElementSize } from '@vueuse/core';
 import { gsap } from 'gsap';
 import { onMounted, toRefs, useTemplateRef } from 'vue';
 import { useTheme } from '../../composables/theme';
+import { bottombarHeight, sidebarBtnSize, topbarHeight } from '@/common/constants/renderer_process_constants';
+import { useBarStore } from '@/renderer/stores/bar_store';
 
 const props = withDefaults(defineProps<{
   boundsTop?: number;
@@ -28,6 +30,7 @@ const props = withDefaults(defineProps<{
 });
 const { parentWidth, parentHeight } = toRefs(props);
 
+const { sidebarVisible } = toRefs(useBarStore());
 const smallSidebarBtn = useTemplateRef<HTMLDivElement>('small-sidebar-btn-ref');
 const { width: elWidth, height: elHeight } = useElementSize(smallSidebarBtn);
 
@@ -46,6 +49,10 @@ const { x, y, style } = useDraggable(smallSidebarBtn, {
 
 const { toggleTheme } = useTheme();
 
+const sidebarClick = () => {
+  document.querySelector('.sidebar-container')?.classList.toggle('visible');
+}
+
 onMounted(() => {
   setTimeout(() => {
     const tl = gsap.timeline();
@@ -58,8 +65,8 @@ onMounted(() => {
       duration: 1, // 动画持续时间，单位为秒
       ease: 'power1.inOut' // 动画缓动效果
     })
-    console.log(tl);
   });
+  y.value = window.innerHeight - bottombarHeight - topbarHeight - sidebarBtnSize;
 })
 </script>
 

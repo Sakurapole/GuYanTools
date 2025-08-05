@@ -13,10 +13,20 @@ $small-sidebar-btn-size: 48px;
 // }
 
 .sidebar-container {
-  @include layout.abs-position(50%, 0px, 0px, 0);
-  width: 0;
-  height: 0;
+  @include layout.abs-position(50%, 0px, 0px, 50%);
+  transform: translate(-100%, 100%); /* 向上和向左移动自身宽高的一半，实现居中 */
+  opacity: 0;
+  width: 90%;
+  height: 90%;
   background-color: var(--sidebar-bg-color);
+  border-radius: 4px;
+  border: 1px solid #ccc;
+  box-shadow: 0 0 10px 0 rgba(0, 0, 0, 0.1);
+  transition: transform 0.3s ease, opacity 0.3s ease;
+}
+.sidebar-container.visible {
+  transform: translate(-50%, -50%);
+  opacity: 1;
 }
 
 .sidebar-container.active {
@@ -31,9 +41,10 @@ $small-sidebar-btn-size: 48px;
   width: $small-sidebar-btn-size;
   height: $small-sidebar-btn-size;
   background-color: var(--sidebar-bg-color);
-  // border-radius: 50%;
+  border-radius: 0 12px 12px 0;
   cursor: pointer;
   z-index: 2;
+  display: none;
 
   & .navigation-icon {
     @include layout.flex-center();
