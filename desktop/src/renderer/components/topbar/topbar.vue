@@ -7,7 +7,7 @@ import Spacer from '../Spacer.vue';
 
 const { ipcRenderer } = window;
 const { currentPage } = toRefs(useGlobalStore());
-const { theme } = toRefs(useTheme());
+const { theme } = useTheme();
 const { toggleTheme } = useTheme()
 </script>
 
