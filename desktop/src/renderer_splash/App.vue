@@ -20,8 +20,8 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from 'vue';
 import { gsap } from 'gsap';
+import { onMounted, ref } from 'vue';
 
 const appVersion = '1.0.0';
 const currentYear = new Date().getFullYear();
@@ -30,9 +30,12 @@ const logoContainer = ref<HTMLElement | null>(null);
 const progressBar = ref<HTMLElement | null>(null);
 
 onMounted(() => {
-  const tl = gsap.timeline();
+  const tl = gsap.timeline({
+    onComplete: () => {
+      window.ipcRenderer?.send('splash-animation-finished');
+    }
+  });
 
-  // 动画序列
   tl.fromTo(logoContainer.value,
     { opacity: 0, scale: 0.5 },
     { opacity: 1, scale: 1, duration: 0.8, ease: "back.out" }
@@ -47,17 +50,13 @@ onMounted(() => {
     { scaleX: 0 },
     { scaleX: 1, duration: 1, ease: "power1.inOut" }
   );
-
-  // 通知主进程准备就绪
-  setTimeout(() => {
-    window.ipcRenderer?.send('splash-animation-finished');
-  }, 2500);
 });
 </script>
 
 <style>
 /* 全局样式 - 确保整个页面透明 */
-html, body {
+html,
+body {
   margin: 0;
   padding: 0;
   background: transparent !important;
@@ -155,4 +154,4 @@ html, body {
   background: linear-gradient(90deg, #61dafb, #f06292);
   transform-origin: left center;
 }
-</style> 
+</style>
