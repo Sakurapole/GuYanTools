@@ -1,7 +1,8 @@
 import { createRouter, createWebHashHistory, RouteRecordRaw } from "vue-router"
 
 const routes: Readonly<RouteRecordRaw[]> = [
-  { path: '/', component: () => import('../pages/Home.vue') },
+  { path: '/', redirect: '/home' },
+  { path: '/home', component: () => import('../pages/Home/Home.vue') },
   { path: '/settings', component: () => import('../pages/Settings.vue') },
 ]
 

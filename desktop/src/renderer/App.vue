@@ -42,10 +42,10 @@ onMounted(() => {
 }
 
 .logo:hover {
-  filter: drop-shadow(0 0 2em #646cffaa);
+  filter: drop-shadow(0 0 2em rgba(102, 204, 255, 0.6));
 }
 
 .logo.vue:hover {
-  filter: drop-shadow(0 0 2em #42b883aa);
+  filter: drop-shadow(0 0 2.4em rgba(102, 204, 255, 0.85));
 }
 </style>

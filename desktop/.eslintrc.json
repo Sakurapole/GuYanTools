@@ -16,5 +16,16 @@
   "rules": {
     "@typescript-eslint/no-explicit-any": "off",
     "no-var": "off"
+  },
+  "settings": {
+    "import/resolver": {
+      "typescript": {
+        "project": "./tsconfig.json"
+      },
+      "alias": {
+        "map": [["@", "./src"]],
+        "extensions": [".ts", ".js", ".vue", ".json"]
+      }
+    }
   }
 }

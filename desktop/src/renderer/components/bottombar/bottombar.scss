@@ -8,6 +8,7 @@
   // border-top: $border-size solid var(--bar-border-color);
   background-color: var(--bottombar-bg-color);
   position: relative;
+  backdrop-filter: blur(10px);
   &::before {
     content: "";
     position: absolute;
@@ -29,14 +30,20 @@
     height: 100%;
     cursor: pointer;
     background-color: var(--bottombar-bg-color);
-    transition: background-color 0.3s ease;
+    transition:
+      background-color 0.3s ease,
+      color 0.3s ease;
+    color: var(--text-muted-color);
+    border-right: 1px solid var(--bar-border-color);
 
     & svg {
+      fill: currentColor;
       transition: fill 0.3s ease;
     }
 
     &:hover {
       background-color: var(--bar-btn-hover-bg-color);
+      color: var(--primary-color);
       & svg {
         fill: var(--primary-color);
       }

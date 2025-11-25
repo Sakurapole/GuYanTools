@@ -1,5 +1,6 @@
 import { defineStore } from "pinia";
 import { ref } from "vue";
+import { useI18n } from "vue-i18n";
 
 interface TabPageInfo {
     id: number;
@@ -7,9 +8,12 @@ interface TabPageInfo {
     url: string;
     icon?: string;
     active: boolean;
+    closable?: boolean; // 是否可关闭，默认为 true
 }
 
 export const useBarStore = defineStore('bar', () => {
+    const { t } = useI18n()
+
     const sidebarVisible = ref(false);
     const toggleSidebar = () => {
         sidebarVisible.value = !sidebarVisible.value;
@@ -21,24 +25,11 @@ export const useBarStore = defineStore('bar', () => {
     const tabPages = ref<TabPageInfo[]>([
         {
             id: 1,
-            name: 'Home',
+            name: t('tab.home'),
             url: '/home',
             icon: 'home',
-            active: true
-        },
-        {
-            id: 2,
-            name: 'Settings',
-            url: '/settings',
-            icon: 'settings',
-            active: false
-        },
-        {
-            id: 3,
-            name: 'About',
-            url: '/about',
-            icon: 'info',
-            active: false
+            active: true,
+            closable: false // 首页不可关闭
         }
     ]);
 

@@ -7,6 +7,7 @@
   height: $topbar-height;
   background-color: var(--topbar-bg-color);
   border-bottom: 1px solid var(--bar-border-color);
+  backdrop-filter: blur(12px);
 }
 
 .window-title-container {
