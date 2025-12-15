@@ -1,5 +1,6 @@
 import { BrowserWindow, ipcMain } from "electron";
 import path from 'path';
+import { dbManager } from "../../core/database";
 
 export default () => {
   let mainWindow: BrowserWindow;
@@ -32,6 +33,10 @@ export default () => {
 
     // Open the DevTools.
     mainWindow.webContents.openDevTools();
+
+    mainWindow.on('ready-to-show', () => {
+      dbManager.initializeInMemory();
+    });
 
     // console.log(global.LOCAL_PLUGINS);
     // console.log(global.LOCAL_PLUGINS.plguins[0].name, global.LOCAL_PLUGINS.plguins[0].main);

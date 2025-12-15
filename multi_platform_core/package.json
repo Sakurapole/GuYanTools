@@ -1,0 +1,35 @@
+{
+  "name": "@guyantools/core",
+  "version": "0.1.0",
+  "main": "index.js",
+  "types": "index.d.ts",
+  "files": [
+    "index.js",
+    "index.d.ts",
+    "multi-platform-core.win32-x64-msvc.node",
+    "multi-platform-core.win32-arm64-msvc.node",
+    "multi-platform-core.darwin-x64.node",
+    "multi-platform-core.darwin-arm64.node",
+    "multi-platform-core.linux-x64-gnu.node",
+    "multi-platform-core.linux-arm64-gnu.node"
+  ],
+  "napi": {
+    "name": "multi-platform-core",
+    "triples": {
+      "defaults": true,
+      "additional": [
+        "x86_64-pc-windows-msvc",
+        "aarch64-apple-darwin",
+        "x86_64-apple-darwin",
+        "x86_64-unknown-linux-gnu"
+      ]
+    }
+  },
+  "scripts": {
+    "build": "napi build --platform --release",
+    "build:debug": "napi build --platform"
+  },
+  "devDependencies": {
+    "@napi-rs/cli": "^3.4.1"
+  }
+}

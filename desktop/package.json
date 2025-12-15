@@ -32,6 +32,7 @@
     "@vitejs/plugin-vue": "^6.0.1",
     "@vue/tsconfig": "^0.7.0",
     "electron": "37.2.1",
+    "electron-rebuild": "^3.2.9",
     "eslint": "^8.57.0",
     "eslint-import-resolver-alias": "^1.1.2",
     "eslint-import-resolver-typescript": "^4.4.4",
@@ -43,6 +44,7 @@
     "vite-plugin-vue-devtools": "^8.0.0"
   },
   "dependencies": {
+    "@guyantools/core": "file:../multi_platform_core",
     "@vueuse/core": "^12.5.0",
     "axios": "^1.7.9",
     "electron-squirrel-startup": "^1.0.1",

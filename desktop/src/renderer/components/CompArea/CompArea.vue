@@ -37,12 +37,6 @@ const {
   isWithinBounds,
 } = layoutHelpers;
 
-const gridHeight = computed(() => {
-  const rows = visibleGridItems.value.map(item => item.row + item.rowSpan - 1);
-  const maxRow = rows.length > 0 ? Math.max(...rows) : 0;
-  return maxRow * cellSize.value + props.config.GRID_PADDING * 2;
-});
-
 // 碰撞检测
 const { hasCollision, findAvailablePosition, canPlaceAt, occupySlot } = useGridCollision(
   gridItems,
@@ -189,7 +183,7 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-  <div class="comp-area" ref="compArea" :style="{...compAreaStyle, overflow: 'auto', height: `${gridHeight}px`}">
+  <div class="comp-area" ref="compArea" :style="{ ...compAreaStyle, overflow: 'auto' }">
     <GridItemComponent v-for="item in visibleGridItems" :key="item.id" :item="item"
       :isDragging="draggingItem?.id === item.id" :style="getItemStyle(item)"
       @pointerdown="handleItemPointerDown(item, $event)" @pointermove="handleItemPointerMove($event)"
