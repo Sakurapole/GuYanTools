@@ -27,6 +27,54 @@ pub fn run_migrations(conn: &Connection) -> DbResult<()> {
             "003_add_settings",
             include_str!("../../migrations/003_add_settings.sql"),
         ),
+        (
+            "004_add_home_layout",
+            include_str!("../../migrations/004_add_home_layout.sql"),
+        ),
+        (
+            "005_add_background_fields",
+            include_str!("../../migrations/005_add_background_fields.sql"),
+        ),
+        (
+            "006_add_todo",
+            include_str!("../../migrations/006_add_todo.sql"),
+        ),
+        (
+            "007_extend_home_widgets_builtin",
+            include_str!("../../migrations/007_extend_home_widgets_builtin.sql"),
+        ),
+        (
+            "008_extend_home_workspace_bg",
+            include_str!("../../migrations/008_extend_home_workspace_bg.sql"),
+        ),
+        (
+            "009_add_plugins_table",
+            include_str!("../../migrations/009_add_plugins_table.sql"),
+        ),
+        (
+            "010_add_ssh_profiles",
+            include_str!("../../migrations/010_add_ssh_profiles.sql"),
+        ),
+        (
+            "011_add_ftp_client",
+            include_str!("../../migrations/011_add_ftp_client.sql"),
+        ),
+        (
+            "012_add_ssh_port_forwards",
+            include_str!("../../migrations/012_add_ssh_port_forwards.sql"),
+        ),
+        (
+            "013_add_ssh_certificate_paths",
+            include_str!("../../migrations/013_add_ssh_certificate_paths.sql"),
+        ),
+        (
+            "014_add_ssh_managed_keys",
+            include_str!("../../migrations/014_add_ssh_managed_keys.sql"),
+        ),
+        (
+            "015_add_host_ca_key_paths",
+            include_str!("../../migrations/015_add_host_ca_key_paths.sql"),
+        ),
     ];
 
     // 执行每个迁移

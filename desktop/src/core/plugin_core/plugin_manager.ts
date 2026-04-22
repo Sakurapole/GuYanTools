@@ -39,7 +39,7 @@ class PluginManager {
     const pluginPackageJson = JSON.parse(
       fs.readFileSync(`${this.baseDir}/package.json`, 'utf-8')
     );
-    const pluginRegistryUrl = `https://registry.npmmirror.com/{pluginName}`
+    const pluginRegistryUrl = `https://registry.npmmirror.com/${pluginName}`
 
     try {
       const installedVersion = pluginPackageJson.dependencies[pluginName].replace('^', '');

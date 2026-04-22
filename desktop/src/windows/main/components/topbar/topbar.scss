@@ -1,0 +1,80 @@
+@use "../../assets/layout.scss";
+@use "../../assets/cssvars.scss" as *;
+
+#topbar-container {
+  @include layout.flex-row($justify-content: space-between, $align-items: center);
+  width: 100%;
+  height: $topbar-height;
+  flex: 0 0 $topbar-height;
+  background-color: var(--topbar-bg-color);
+  border-bottom: var(--ui-border-width-thin) solid var(--ui-border-accent);
+  backdrop-filter: var(--ui-backdrop-blur-md);
+  box-sizing: border-box;
+  transition: background-color 0.4s ease;
+}
+
+.window-title-container {
+  @include layout.flex-row($justify-content: space-between, $align-items: center);
+  padding-left: 20px;
+  height: 100%;
+
+  & .window-title {
+    font-size: 20px;
+    font-weight: 500;
+    color: var(--main-title-text-color);
+    user-select: none;
+  }
+
+  & .window-subtitle {
+    font-size: 16px;
+    color: var(--sub-title-text-color);
+    user-select: none;
+  }
+}
+
+.application-func-container {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  height: 100%;
+  padding: 0 16px;
+  min-width: 160px;
+}
+
+.drag-area {
+  flex: 1;
+  height: 100%;
+  -webkit-app-region: drag;
+}
+
+.window-btn-group {
+  @include layout.flex-row($justify-content: flex-end, $align-items: center);
+  height: 100%;
+
+  & .theme-btn {
+    @include layout.flex-center();
+    width: calc($topbar-height - 12px);
+    height: calc($topbar-height - 12px);
+    cursor: pointer;
+    transition: background-color 0.3s ease;
+    border-radius: var(--ui-radius-full);
+
+    &:hover {
+      background-color: var(--bar-btn-hover-bg-color);
+    }
+  }
+
+  & .mini-btn,
+  .max-btn,
+  .close-btn {
+    @include layout.flex-center();
+    width: $topbar-height;
+    height: $topbar-height;
+    cursor: pointer;
+    transition: background-color 0.3s ease;
+
+    &:hover {
+      background-color: var(--bar-btn-hover-bg-color);
+    }
+  }
+}

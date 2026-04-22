@@ -1,0 +1,37 @@
+.ui-glass-surface {
+  border: var(--ui-border-width-thin) solid color-mix(in srgb, var(--ui-border-accent) 70%, var(--ui-border-subtle));
+  border-radius: var(--ui-radius-lg);
+  background: var(--ui-surface-glass);
+  box-shadow: var(--ui-panel-shadow);
+  backdrop-filter: var(--ui-backdrop-blur-md);
+}
+
+.ui-glass-surface--strong {
+  background: color-mix(in srgb, var(--ui-surface-glass-strong) 92%, var(--ui-surface-base));
+}
+
+.ui-soft-surface {
+  border: var(--ui-border-width-thin) solid var(--ui-border-subtle);
+  border-radius: var(--ui-radius-md);
+  background: var(--ui-surface-panel-muted);
+  box-shadow: var(--ui-shadow-sm);
+}
+
+.ui-status-banner {
+  padding: 12px 14px;
+  border-radius: var(--ui-radius-sm);
+  backdrop-filter: var(--ui-backdrop-blur-sm);
+}
+
+.ui-status-banner--danger {
+  background: var(--ui-status-danger-bg);
+  color: var(--ui-status-danger-text);
+}
+
+.ui-status-hint {
+  padding: 10px 12px;
+  border-radius: var(--ui-radius-sm);
+  background: var(--ui-surface-overlay);
+  color: var(--ui-text-muted);
+  backdrop-filter: var(--ui-backdrop-blur-md);
+}

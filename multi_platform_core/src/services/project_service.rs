@@ -98,7 +98,7 @@ impl ProjectService {
     pub fn list(db: &Database, offset: i64, limit: i64) -> DbResult<Vec<Project>> {
         db.with_connection(|conn| {
             let mut stmt = conn.prepare(
-                "SELECT id, name, description, owner_id, status, created_at, updated_at 
+                "SELECT id, name, description, owner_id, status, created_at, updated_at
                  FROM projects 
                  ORDER BY created_at DESC 
                  LIMIT ?1 OFFSET ?2",

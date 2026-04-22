@@ -1,70 +1,94 @@
+const scopes = [
+  'desktop',
+  'mobile',
+  'core',
+  'docs',
+  'openspec',
+  'build',
+  'deps',
+  'git',
+  'config',
+  'ui',
+  'terminal',
+  'ssh',
+  'ftp',
+  'webview',
+  'todo',
+  'plugins',
+  'home',
+  'media',
+  'notification',
+  'tray',
+  'tests',
+];
+
+const types = [
+  'build',
+  'feat',
+  'fix',
+  'docs',
+  'style',
+  'refactor',
+  'perf',
+  'test',
+  'revert',
+  'ci',
+  'config',
+  'chore',
+];
+
 module.exports = {
   extends: ['@commitlint/config-conventional'],
   rules: {
-    'type-enum': [ // type枚举
-        2,
-        'always',
-        [
-          'build', // 编译相关的修改，例如发布版本、对项目构建或者依赖的改动
-          'feat', // 新功能
-          'fix', // 修补bug
-          'docs', // 文档修改
-          'style', // 代码格式修改, 注意不是 css 修改
-          'refactor', // 重构
-          'perf', // 优化相关，比如提升性能、体验
-          'test', // 测试用例修改
-          'revert', // 代码回滚
-          'ci', // 持续集成修改
-          'config', // 配置修改
-          'chore', // 其他改动
-        ],
-    ],
-    'type-empty': [2, 'never'], // never: type不能为空; always: type必须为空
-    'type-case': [0, 'always', 'lower-case'], // type必须小写，upper-case大写，camel-case小驼峰，kebab-case短横线，pascal-case大驼峰，等等
+    'type-enum': [2, 'always', types],
+    'type-empty': [2, 'never'],
+    'type-case': [2, 'always', 'lower-case'],
     'scope-empty': [0],
+    'scope-enum': [1, 'always', scopes],
     'scope-case': [0],
-    'subject-empty': [2, 'never'], // subject不能为空
+    'subject-empty': [2, 'never'],
     'subject-case': [0],
-    'subject-full-stop': [0, 'never', '.'], // subject以.为结束标记
-    'header-max-length': [2, 'always', 72], // header最长72
-    'body-leading-blank': [0], // body换行
-    'footer-leading-blank': [0, 'always'], // footer以空行开头
+    'subject-full-stop': [0, 'never', '.'],
+    'header-max-length': [2, 'always', 72],
+    'body-leading-blank': [2, 'always'],
+    'body-max-line-length': [1, 'always', 100],
+    'footer-leading-blank': [2, 'always'],
+    'footer-max-line-length': [0],
   },
   prompt: {
     messages: {
-      type: '选择你要提交的类型 :',
-      scope: '选择一个提交范围（可选）:',
-      customScope: '请输入自定义的提交范围 :',
-      subject: '填写简短精炼的变更描述 :\n',
-      body: '填写更加详细的变更描述（可选）。使用 "|" 换行 :\n',
-      breaking: '列举非兼容性重大的变更（可选）。使用 "|" 换行 :\n',
-      footerPrefixesSelect: '选择关联issue前缀（可选）:',
-      customFooterPrefix: '输入自定义issue前缀 :',
-      footer: '列举关联issue (可选) 例如: #31, #I3244 :\n',
-      generatingByAI: '正在通过 AI 生成你的提交简短描述...',
-      generatedSelectByAI: '选择一个 AI 生成的简短描述:',
-      confirmCommit: '是否提交或修改commit ?',
+      type: '选择提交类型:',
+      scope: '选择影响范围（可选）:',
+      customScope: '请输入自定义范围:',
+      subject: '用一句话说明为什么做这次变更:\n',
+      body: '补充背景、约束、取舍（可选）。使用 "|" 换行:\n',
+      breaking: '列出破坏性变更（可选）。使用 "|" 换行:\n',
+      footerPrefixesSelect: '选择 Git trailer / issue 前缀（可选）:',
+      customFooterPrefix: '输入自定义 trailer 前缀:',
+      footer: '填写 Lore trailer 或关联 issue（可选），例如 "Confidence: high"、"Tested: pnpm test":\n',
+      generatingByAI: '正在通过 AI 生成提交描述...',
+      generatedSelectByAI: '选择一个 AI 生成的提交描述:',
+      confirmCommit: '确认提交?',
     },
-    // prettier-ignore
     types: [
-      { value: "feat",     name: "特性:     ✨  新增功能", emoji: ":sparkles:" },
-      { value: "fix",      name: "修复:     🐛  修复缺陷", emoji: ":bug:" },
-      { value: "docs",     name: "文档:     📝  文档变更", emoji: ":memo:" },
-      { value: "style",    name: "格式:     💄  代码格式（不影响功能，例如空格、分号等格式修正）", emoji: ":lipstick:" },
-      { value: "refactor", name: "重构:     ♻️  代码重构（不包括 bug 修复、功能新增）", emoji: ":recycle:" },
-      { value: "perf",     name: "性能:     ⚡️  性能优化", emoji: ":zap:" },
-      { value: "test",     name: "测试:     ✅  添加疏漏测试或已有测试改动", emoji: ":white_check_mark:"},
-      { value: "build",    name: "构建:     📦️  构建流程、外部依赖变更（如升级 npm 包、修改 vite 配置等）", emoji: ":package:"},
-      { value: "ci",       name: "集成:     🎡  修改 CI 配置、脚本",  emoji: ":ferris_wheel:"},
-      { value: "revert",   name: "回退:     ⏪️  回滚 commit",emoji: ":rewind:"},
-      { value: "chore",    name: "其他:     🔨  对构建过程或辅助工具和库的更改（不影响源文件、测试用例）", emoji: ":hammer:"},
+      { value: 'feat', name: 'feat:     新功能' },
+      { value: 'fix', name: 'fix:      缺陷修复' },
+      { value: 'docs', name: 'docs:     文档变更' },
+      { value: 'style', name: 'style:    代码格式（不影响功能）' },
+      { value: 'refactor', name: 'refactor: 重构（不含新功能或修复）' },
+      { value: 'perf', name: 'perf:     性能优化' },
+      { value: 'test', name: 'test:     测试相关' },
+      { value: 'build', name: 'build:    构建系统或外部依赖' },
+      { value: 'ci', name: 'ci:       CI 配置' },
+      { value: 'config', name: 'config:   项目配置' },
+      { value: 'chore', name: 'chore:    维护性改动' },
+      { value: 'revert', name: 'revert:   回滚提交' },
     ],
-    useEmoji: true,
-    emojiAlign: 'center',
+    useEmoji: false,
     useAI: false,
     aiNumber: 1,
     themeColorCode: '',
-    scopes: [],
+    scopes: scopes.map((scope) => ({ name: scope, value: scope })),
     allowCustomScopes: true,
     allowEmptyScopes: true,
     customScopesAlign: 'bottom',
@@ -72,24 +96,29 @@ module.exports = {
     emptyScopesAlias: 'empty',
     upperCaseSubject: false,
     markBreakingChangeMode: false,
-    allowBreakingChanges: ['feat', 'fix'],
+    allowBreakingChanges: ['feat', 'fix', 'refactor'],
     breaklineNumber: 100,
     breaklineChar: '|',
     skipQuestions: [],
-    issuePrefixes: [{ value: 'closed', name: 'closed:   ISSUES has been processed' }],
+    issuePrefixes: [
+      { value: 'Related', name: 'Related: 关联提交、issue 或决策' },
+      { value: 'Constraint', name: 'Constraint: 外部约束' },
+      { value: 'Rejected', name: 'Rejected: 被放弃的方案' },
+      { value: 'Tested', name: 'Tested: 已验证内容' },
+      { value: 'Not-tested', name: 'Not-tested: 未验证风险' },
+    ],
     customIssuePrefixAlign: 'top',
     emptyIssuePrefixAlias: 'skip',
     customIssuePrefixAlias: 'custom',
     allowCustomIssuePrefix: true,
     allowEmptyIssuePrefix: true,
     confirmColorize: true,
-    maxHeaderLength: Infinity,
-    maxSubjectLength: Infinity,
-    minSubjectLength: 0,
-    scopeOverrides: undefined,
+    maxHeaderLength: 72,
+    maxSubjectLength: 72,
+    minSubjectLength: 4,
     defaultBody: '',
     defaultIssues: '',
     defaultScope: '',
     defaultSubject: '',
-  }
-}
+  },
+};

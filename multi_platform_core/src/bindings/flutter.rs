@@ -217,3 +217,66 @@ pub fn delete_setting(db_path: String, key: String) -> anyhow::Result<()> {
     let db = Database::new(&db_path)?;
     SettingService::delete(&db, &key).map_err(|e| anyhow::anyhow!("{}", e))
 }
+
+// ==================== 首页布局相关函数 ====================
+
+pub fn get_home_layout(db_path: String, workspace_key: String) -> anyhow::Result<HomeLayout> {
+    let db = Database::new(&db_path)?;
+    HomeLayoutService::get_layout_by_workspace_key(&db, &workspace_key)
+        .map_err(|e| anyhow::anyhow!("{}", e))
+}
+
+pub fn create_home_category(
+    db_path: String,
+    input: CreateHomeCategoryInput,
+) -> anyhow::Result<HomeCategory> {
+    let db = Database::new(&db_path)?;
+    HomeLayoutService::create_category(&db, input).map_err(|e| anyhow::anyhow!("{}", e))
+}
+
+pub fn update_home_category(
+    db_path: String,
+    category_id: String,
+    input: UpdateHomeCategoryInput,
+) -> anyhow::Result<HomeCategory> {
+    let db = Database::new(&db_path)?;
+    HomeLayoutService::update_category(&db, &category_id, input)
+        .map_err(|e| anyhow::anyhow!("{}", e))
+}
+
+pub fn delete_home_category(db_path: String, category_id: String) -> anyhow::Result<()> {
+    let db = Database::new(&db_path)?;
+    HomeLayoutService::delete_category(&db, &category_id).map_err(|e| anyhow::anyhow!("{}", e))
+}
+
+pub fn create_home_widget(
+    db_path: String,
+    input: CreateHomeWidgetInput,
+) -> anyhow::Result<HomeWidget> {
+    let db = Database::new(&db_path)?;
+    HomeLayoutService::create_widget(&db, input).map_err(|e| anyhow::anyhow!("{}", e))
+}
+
+pub fn update_home_widget(
+    db_path: String,
+    widget_id: String,
+    input: UpdateHomeWidgetInput,
+) -> anyhow::Result<HomeWidget> {
+    let db = Database::new(&db_path)?;
+    HomeLayoutService::update_widget(&db, &widget_id, input).map_err(|e| anyhow::anyhow!("{}", e))
+}
+
+pub fn delete_home_widget(db_path: String, widget_id: String) -> anyhow::Result<()> {
+    let db = Database::new(&db_path)?;
+    HomeLayoutService::delete_widget(&db, &widget_id).map_err(|e| anyhow::anyhow!("{}", e))
+}
+
+pub fn import_home_layout(
+    db_path: String,
+    workspace_key: String,
+    input: ImportHomeLayoutInput,
+) -> anyhow::Result<HomeLayout> {
+    let db = Database::new(&db_path)?;
+    HomeLayoutService::import_layout(&db, &workspace_key, input)
+        .map_err(|e| anyhow::anyhow!("{}", e))
+}

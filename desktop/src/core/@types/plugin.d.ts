@@ -9,24 +9,25 @@ interface PluginManagerOptions {
 }
 
 interface PluginCache {
-  [key: string]: number;
+  [key: string]: string;
 }
 
 interface PluginInfo {
-  // 插件类型
-  type: "ui" | "system";
-  // 插件名称 guyan-xxx
+  id?: string;
+  type?: "ui" | "system";
   name: string;
-  // 可读插件名称
-  pluginName: string;
-  // 作者
-  author: string;
-  // 描述
-  description: string;
-  // 入口文件
+  pluginName?: string;
+  author?: string;
+  description?: string;
   main: string;
-  // 版本
-  version: string;
-  // logo地址
-  logo: string;
+  version?: string;
+  logo?: string;
+  displayName?: string;
+  pluginApiVersion?: string;
+  hostVersionRange?: string;
+  trustLevel?: "sandboxed" | "trusted";
+  runtime?: "ui" | "worker" | "hybrid" | "host";
+  entry?: string;
+  permissions?: string[];
+  contributes?: Record<string, unknown>;
 }

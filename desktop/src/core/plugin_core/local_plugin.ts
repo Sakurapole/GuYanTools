@@ -1,6 +1,6 @@
 import fs from "fs-extra";
 import path from "path";
-import { PLUGIN_INSTALL_DIR } from "../../common/constants/main_process_constants";
+import { PLUGIN_INSTALL_DIR } from "../../main/constants/paths";
 import PluginManager from "./plugin_manager";
 import { WebContentsView } from "electron";
 

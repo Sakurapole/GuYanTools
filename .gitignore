@@ -1,92 +1,125 @@
-# ====================================
-# 根目录常用忽略
-# ====================================
-
-# macOS 文件系统生成的文件
+# Operating system
 .DS_Store
-
-# 操作系统生成的缩略图
 Thumbs.db
+ehthumbs.db
+Desktop.ini
 
-# 日志文件
+# Editor / IDE
+.idea/
+.vscode/
+*.iml
+*.ipr
+*.iws
+*.swp
+*.swo
+*~
+
+# Local environment and secrets
+.env
+.env.*
+!.env.example
+!.env.*.example
+
+# Logs and diagnostic reports
+logs/
 *.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+report.[0-9]*.[0-9]*.[0-9]*.[0-9]*.json
 
-# node_modules（Electron 项目依赖）
+# Node / package managers
+node_modules/
 **/node_modules/
+.npm/
+.pnpm-store/
+.yarn/
+!.yarn/patches/
+!.yarn/plugins/
+!.yarn/releases/
+!.yarn/sdks/
+jspm_packages/
+*.tgz
+.yarn-integrity
 
-# 构建输出文件夹
-**/dist/
-**/build/
+# Coverage and tool caches
+coverage/
+**/coverage/
+*.lcov
+.nyc_output/
+.eslintcache
+.cache/
+.parcel-cache/
+*.tsbuildinfo
 
-# npm/yarn/pnpm 锁文件（根据项目需要选择跟踪或忽略）
-# package-lock.json
-# yarn.lock
-# pnpm-lock.yaml
+# Vite / Electron / Electron Forge
+desktop/.vite/
+desktop/dist/
+desktop/out/
+desktop/release/
+desktop/.webpack/
+desktop/build/
+desktop/output/
+desktop/**/*.asar
+desktop/**/*.asar.unpacked/
 
-# ====================================
-# Rust 忽略
-# ====================================
-
-# Rust 编译输出目录
+# Native Node / Rust artifacts
+target/
 **/target/
+multi_platform_core/temp_napi/
+*.node
+*.pdb
+*.dll
+*.dylib
+*.so
+*.a
+*.lib
+*.rs.bk
 
-# Cargo 锁文件一般建议跟踪，除非你特别想忽略
-# Cargo.lock
-
-# Rust 生成的编辑器备份文件
-**/*.rs.bk
-
-# ====================================
-# Flutter 忽略
-# ====================================
-
-# Flutter/Dart 相关
+# Flutter / Dart
+.dart_tool/
 **/.dart_tool/
+.flutter-plugins
+.flutter-plugins-dependencies
 **/.flutter-plugins
 **/.flutter-plugins-dependencies
-**/build/
-**/ios/Flutter/Flutter.framework
-**/ios/Flutter/Flutter.podspec
+.packages
 **/.packages
+.pub-cache/
 **/.pub-cache/
+.pub/
+**/.pub/
+build/
+**/build/
+mobile/**/Flutter/Flutter.framework
+mobile/**/Flutter/Flutter.podspec
+mobile/**/Flutter/.last_build_id
+mobile/**/flutter_export_environment.sh
+mobile/**/Generated.xcconfig
+mobile/android/.gradle/
+mobile/android/app/build/
+mobile/android/build/
 
-# Android 编译输出目录
-**/android/.gradle/
-**/android/app/build/
-**/android/build/
+# Databases and app runtime state
+*.db
+*.db-shm
+*.db-wal
+*.sqlite
+*.sqlite3
+*.pid
+*.pid.lock
+*.seed
+pids/
 
-# IntelliJ / Android Studio
-**/.idea/
-**/*.iml
-**/local.properties
+# Local agent / workflow runtime state
+.omx/state/
+.omx/logs/
+.omx/notepad.md
+.omx/project-memory.json
+.omx/metrics.json
 
-# VS Code
-**/.vscode/
-
-# Flutter 本地会生成的临时文件
-**/flutter_export_environment.sh
-
-# ====================================
-# Electron 相关
-# ====================================
-
-# Electron 打包输出目录（根据你具体配置，常见是 dist 或 release）
-electron-app/dist/
-electron-app/build/
-
-# 环境变量配置文件（通常包含机密）
-**/.env
-**/.env.local
-**/.env.*.local
-
-# ====================================
-# 其他通用忽略
-# ====================================
-
-# 临时文件
+# Temporary files
 *.tmp
 *.temp
-*.swp
-
-# 编辑器相关（视具体编辑器加减）
-*~

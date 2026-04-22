@@ -1,8 +1,0 @@
-onlyBuiltDependencies:
-  - '@parcel/watcher'
-  - electron
-  - electron-winstaller
-  - esbuild
-  - lzma-native
-  - unrs-resolver
-  - vue-demi

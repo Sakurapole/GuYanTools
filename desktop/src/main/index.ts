@@ -1,17 +1,63 @@
 import { app, BrowserWindow, ipcMain, protocol } from "electron";
-import "../core/plugin_core/index";
-import { main_window, splash_window } from "./browsers";
+import { randomUUID } from 'node:crypto';
+import * as fs from 'node:fs/promises';
+import * as os from 'node:os';
+import * as path from 'node:path';
+import { dbManager } from "../core/database";
+import { registerAppConfigIpcHandlers } from "./app-config/ipc";
+import { appConfigManager } from "./app-config/manager";
+import { registerHomeLayoutIpcHandlers } from "./home-layout/ipc";
+import { registerHomeWorkspaceIpcHandlers } from "./home-workspace/ipc";
+import { registerMediaIpcHandlers } from "./media/ipc";
+import { registerNotificationIpcHandlers } from "./notification/ipc";
+import { registerShellIpcHandlers } from "./shell/ipc";
+import { shortcutService } from "./shortcuts/service";
+import { registerTerminalIpcHandlers } from "./terminal/ipc";
+import { registerTodoIpcHandlers, initializeTodoData } from "./todo/ipc";
+import { startTodoScheduler, stopTodoScheduler } from "./todo/scheduler";
+import { registerPluginHostIpcHandlers } from "./plugin-host/ipc";
+import { pluginHost } from "./plugin-host";
+import { registerWebviewIpcHandlers } from "./webview/ipc";
+import { webViewManager } from "./webview/manager";
+import { registerWebScriptBridge } from "./webview/script-bridge";
+import { registerSshIpcHandlers } from "./ssh/ipc";
+import { sshHost } from "./ssh/host";
+import { registerFtpIpcHandlers } from "./ftp/ipc";
+import { ftpHost } from "./ftp/host";
+import { handleFtpCliArgs, resolveCliExitCode, type FtpCliInvocationResult } from "./ftp/integration";
+import { ftpSchedulerService } from "./ftp/scheduler";
+import { main_window, splash_window } from "./windows";
+import { initializeTray, destroyTray } from "./tray";
+import { registerTrayIpcHandlers } from "./tray/ipc";
+import { registerTrayMenuWindowHandlers } from "./tray/tray_menu_window";
+
+const delay = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms));
+
+type FtpCliRelayAdditionalData = {
+  ftpCliResponsePath?: string;
+};
+
+type FtpCliRelayResponse = {
+  exitCode: number;
+  stdoutLines?: string[];
+  stderrLines?: string[];
+};
 
 class App {
   public mainWindowCreator: {
-    init: () => void;
-    getWindow: () => BrowserWindow
+    init: () => Promise<void>;
+    getWindow: () => BrowserWindow;
+    showWindow: () => void;
+    navigateToHash: (hashPath: string) => Promise<void>;
   };
   private splashWindowCreator: {
     create: () => Promise<BrowserWindow>;
     close: () => void;
   };
   private systemPlugins: any;
+  private readonly cliRelayResponsePath = hasFtpCliArgs(process.argv)
+    ? createFtpCliRelayResponsePath()
+    : undefined;
 
   constructor() {
     protocol.registerSchemesAsPrivileged([
@@ -19,9 +65,50 @@ class App {
     ]);
     this.mainWindowCreator = main_window();
     this.splashWindowCreator = splash_window();
+    registerAppConfigIpcHandlers();
+    registerHomeLayoutIpcHandlers();
+    registerHomeWorkspaceIpcHandlers();
+    registerMediaIpcHandlers();
+    registerNotificationIpcHandlers(() => {
+      try {
+        return this.mainWindowCreator.getWindow();
+      } catch {
+        return null;
+      }
+    });
+    registerShellIpcHandlers();
+    registerTerminalIpcHandlers();
+    registerTodoIpcHandlers();
+    registerSshIpcHandlers();
+    registerFtpIpcHandlers();
+    registerTrayIpcHandlers(() => {
+      try {
+        return this.mainWindowCreator.getWindow();
+      } catch {
+        return null;
+      }
+    });
+    registerTrayMenuWindowHandlers();
+    registerPluginHostIpcHandlers(() => {
+      try {
+        return this.mainWindowCreator.getWindow();
+      } catch {
+        return null;
+      }
+    });
+    registerWebviewIpcHandlers(() => {
+      return this.mainWindowCreator.getWindow();
+    });
+    registerWebScriptBridge();
 
-    const singleLock = app.requestSingleInstanceLock();
+    const singleLock = app.requestSingleInstanceLock(
+      this.cliRelayResponsePath ? { ftpCliResponsePath: this.cliRelayResponsePath } : undefined,
+    );
     if (!singleLock) {
+      if (this.cliRelayResponsePath) {
+        void this.awaitCliRelayAndExit(this.cliRelayResponsePath);
+        return;
+      }
       app.quit()
     } else {
       this.beforeReady();
@@ -33,27 +120,81 @@ class App {
 
   // Lifecycle Funcs
   beforeReady() {
+    // 禁用自动化检测标志，避免 Google 等第三方服务识别为嵌入式浏览器
+    app.commandLine.appendSwitch('disable-blink-features', 'AutomationControlled');
   }
 
   onReady() {
     const readyFunc = async () => {
-      // 显示开屏窗口
-      const splashWindow = await this.splashWindowCreator.create();
+      try {
+        if (!dbManager.isInitialized()) {
+          await dbManager.initialize();
+        }
+        await appConfigManager.initialize();
+        // 数据库就绪后，初始化 Todo 系统数据（确保 default-tasks 列表存在）
+        await initializeTodoData();
+        // 初始化 SSH 宿主（依赖数据库）
+        sshHost.initialize();
+        ftpHost.initialize();
+        await ftpSchedulerService.initialize();
+        await pluginHost.initialize();
+        await shortcutService.initialize(() => {
+          try {
+            return this.mainWindowCreator.getWindow();
+          } catch {
+            return null;
+          }
+        });
 
-      // 监听开屏动画完成事件
-      ipcMain.once('splash-animation-finished', () => {
-        // 初始化主窗口
-        this.mainWindowCreator.init();
+        // ─── 初始化共享 webview session ───
+        // 集中管理 UA 清洗、请求头改写等，避免 Google 等第三方服务拦截嵌入式 WebView
+        await webViewManager.initSharedSession();
 
-        // 主窗口准备好后关闭开屏窗口
-        const mainWindow = this.mainWindowCreator.getWindow();
-        mainWindow.once('ready-to-show', () => {
-          mainWindow.show();
+        // 显示开屏窗口
+        await this.splashWindowCreator.create();
+
+        // 主窗口在 splash 动画期间后台加载，避免切换时卡住
+        const mainWindowInitPromise = this.mainWindowCreator.init();
+        const splashDonePromise = new Promise<void>((resolve) => {
+          ipcMain.once('splash-animation-finished', () => resolve());
+        });
+
+        try {
+          await Promise.race([splashDonePromise, delay(4000)]);
+          await mainWindowInitPromise;
+
+          const mainWindow = this.mainWindowCreator.getWindow();
+          pluginHost.bindMainWindow(mainWindow);
+          if (!mainWindow.isVisible()) {
+            mainWindow.show();
+          }
+
+          // Initialize system tray after main window is ready
+          initializeTray(() => {
+            try {
+              return this.mainWindowCreator.getWindow();
+            } catch {
+              return null;
+            }
+          });
+
           setTimeout(() => {
             this.splashWindowCreator.close();
-          }, 500);
-        });
-      });
+          }, 300);
+
+          // Start Todo reminder scheduler
+          startTodoScheduler();
+          await this.processLaunchArgs(process.argv, { printOutput: true });
+        } catch (error) {
+          console.error('Failed to initialize main window after splash:', error);
+          this.splashWindowCreator.close();
+          app.quit();
+        }
+      } catch (error) {
+        console.error('Failed during app ready sequence:', error);
+        this.splashWindowCreator.close();
+        app.quit();
+      }
     }
 
     if (!app.isReady()) {
@@ -64,20 +205,139 @@ class App {
   }
 
   onRunning() {
-
+    app.on('second-instance', async (_event, argv, _workingDirectory, additionalData: FtpCliRelayAdditionalData) => {
+      try {
+        await this.processLaunchArgs(argv, {
+          responsePath: additionalData?.ftpCliResponsePath,
+          printOutput: false,
+        });
+      } catch (error) {
+        console.error('Failed to process second-instance FTP args:', error);
+      }
+      try {
+        this.mainWindowCreator.showWindow();
+      } catch {
+        // ignore
+      }
+    });
   }
 
   onQuit() {
+    // Do not quit when all windows are closed — app lives in the system tray
     app.on('window-all-closed', () => {
-      if (process.platform !== 'darwin') {
-        app.quit();
-      }
+      // macOS: standard behavior, do nothing here
+      // Windows/Linux: keep process alive (tray icon remains)
     });
 
     app.on('will-quit', () => {
-      // globalShortcut.unregisterAll();
+      stopTodoScheduler();
+      ftpSchedulerService.dispose();
+      shortcutService.dispose();
+      destroyTray();
     });
   }
+
+  private async processLaunchArgs(
+    argv: string[],
+    options: {
+      responsePath?: string;
+      printOutput?: boolean;
+    } = {},
+  ) {
+    try {
+      const result = await handleFtpCliArgs(argv);
+      if (!result) return null;
+      this.emitCliOutput(result, options.printOutput !== false);
+      if (options.responsePath) {
+        await writeFtpCliRelayResponse(options.responsePath, {
+          exitCode: result.exitCode ?? 0,
+          stdoutLines: result.stdoutLines,
+          stderrLines: result.stderrLines,
+        });
+      } else if (typeof result.exitCode === 'number') {
+        process.exitCode = result.exitCode;
+      }
+      this.mainWindowCreator.showWindow();
+      if (result.route) {
+        await this.mainWindowCreator.navigateToHash(result.route);
+      }
+      return result;
+    } catch (error) {
+      const exitCode = resolveCliExitCode(error);
+      const stderrLines = [error instanceof Error ? error.message : String(error)];
+      if (options.printOutput !== false) {
+        for (const line of stderrLines) {
+          console.error(line);
+        }
+      }
+      if (options.responsePath) {
+        await writeFtpCliRelayResponse(options.responsePath, {
+          exitCode,
+          stderrLines,
+        });
+      } else {
+        process.exitCode = exitCode;
+      }
+      return null;
+    }
+  }
+
+  private emitCliOutput(result: FtpCliInvocationResult, printOutput: boolean) {
+    if (!printOutput) return;
+    for (const line of result.stdoutLines ?? []) {
+      console.log(line);
+    }
+    for (const line of result.stderrLines ?? []) {
+      console.error(line);
+    }
+    if (!result.stdoutLines?.length && result.summary) {
+      console.log(result.summary);
+    }
+  }
+
+  private async awaitCliRelayAndExit(responsePath: string) {
+    try {
+      const response = await waitForFtpCliRelayResponse(responsePath, 20_000);
+      for (const line of response.stdoutLines ?? []) {
+        console.log(line);
+      }
+      for (const line of response.stderrLines ?? []) {
+        console.error(line);
+      }
+      app.exit(response.exitCode);
+    } catch (error) {
+      console.error(error instanceof Error ? error.message : String(error));
+      app.exit(3);
+    }
+  }
+}
+
+function hasFtpCliArgs(argv: string[]) {
+  return argv.includes('ftp');
+}
+
+function createFtpCliRelayResponsePath() {
+  return path.join(os.tmpdir(), 'guyantools-cli', `${randomUUID()}.json`);
+}
+
+async function writeFtpCliRelayResponse(responsePath: string, response: FtpCliRelayResponse) {
+  await fs.mkdir(path.dirname(responsePath), { recursive: true });
+  await fs.writeFile(responsePath, JSON.stringify(response, null, 2), 'utf8');
+}
+
+async function waitForFtpCliRelayResponse(responsePath: string, timeoutMs: number) {
+  const deadline = Date.now() + timeoutMs;
+  while (Date.now() < deadline) {
+    try {
+      const raw = await fs.readFile(responsePath, 'utf8');
+      const parsed = JSON.parse(raw) as FtpCliRelayResponse;
+      await fs.rm(responsePath, { force: true });
+      return parsed;
+    } catch {
+      await delay(100);
+    }
+  }
+  throw new Error('等待主实例返回 FTP CLI 结果超时');
 }
 
 export default new App();

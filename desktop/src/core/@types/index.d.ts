@@ -1,3 +1,11 @@
+import type { HomeLayoutApi } from '@/contracts/home_layout';
+import type { AppConfigApi } from '@/contracts/app_config';
+import type { HomeWorkspaceApi } from '@/contracts/home_workspace';
+import type { PluginHostApi, PluginRuntimeApi, PluginRuntimeContext } from '@/contracts/plugin_host';
+import type { NotificationApi } from '@/contracts/notification';
+import type { TrayApi } from '@/contracts/tray';
+import type { FtpApi } from '@/contracts/ftp';
+
 // export * from './plugin.d.ts';
 export { };
 
@@ -7,8 +15,15 @@ interface IpcRenderer {
 }
 
 interface PluginAPI {
-  getPluginInfo: () => void;
-  send: (message: string) => void;
+  getContext: () => Promise<PluginRuntimeContext>;
+  workspace: PluginRuntimeApi['workspace'];
+  data: PluginRuntimeApi['data'];
+  storage: PluginRuntimeApi['storage'];
+  navigation: PluginRuntimeApi['navigation'];
+  commands: PluginRuntimeApi['commands'];
+  ui: PluginRuntimeApi['ui'];
+  system: PluginRuntimeApi['system'];
+  logger: PluginRuntimeApi['logger'];
 }
 
 declare global {
@@ -24,6 +39,13 @@ declare global {
   interface Window {
     ipcRenderer?: IpcRenderer;
     pluginAPI?: PluginAPI;
+    homeLayoutApi?: HomeLayoutApi;
+    pluginHostApi?: PluginHostApi;
+    appConfigApi?: AppConfigApi;
+    notificationApi?: NotificationApi;
+    homeWorkspaceApi?: HomeWorkspaceApi;
+    trayApi?: TrayApi;
+    ftpApi: FtpApi;
   }
 }
 

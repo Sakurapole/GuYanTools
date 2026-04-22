@@ -1,0 +1,97 @@
+@mixin page-scroll() {
+  overflow-y: auto;
+
+  &::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+
+    &-thumb {
+      background: var(--workspace-scrollbar-thumb-color, var(--scrollbar-thumb));
+      border-radius: var(--ui-radius-xs);
+
+      &:hover {
+        background: var(--workspace-scrollbar-thumb-hover-color, var(--scrollbar-thumb-hover));
+      }
+    }
+  }
+  &::-webkit-scrollbar-track {
+    background: var(--workspace-scrollbar-track-color, var(--scrollbar-track));
+    border-radius: var(--ui-radius-xs);
+    box-shadow: inset 0 0 5px rgba(0, 0, 0, 0.08);
+    margin: 2px;
+    border-radius: var(--ui-radius-xs);
+    &:hover {
+      background: var(--workspace-scrollbar-track-color, var(--scrollbar-track));
+    }
+
+    &-thumb {
+      background: var(--workspace-scrollbar-thumb-color, var(--scrollbar-thumb));
+      border-radius: var(--ui-radius-xs);
+
+      &:hover {
+        background: var(--workspace-scrollbar-thumb-hover-color, var(--scrollbar-thumb-hover));
+      }
+    }
+
+    &-corner {
+      background: transparent;
+    }
+
+    &-button {
+      display: none;
+    }
+
+    &-horizontal {
+      height: 8px;
+      width: 100%;
+    }
+
+    &-vertical {
+      width: 8px;
+      height: 100%;
+    }
+
+    &-corner {
+      background: transparent;
+    }
+  }
+}
+
+/// 精简滚动条 — 适用于面板、对话框等内部滚动区域
+/// @param {Length} $size [6px] - 滑块宽度
+/// @example
+///   .my-panel { @include thin-scroll; }
+///   .my-wide-panel { @include thin-scroll(8px); }
+@mixin thin-scroll($size: 6px) {
+  overflow-y: auto;
+  overflow-x: hidden;
+  scroll-behavior: smooth;
+
+  /* Webkit (Chrome / Edge / Electron) */
+  &::-webkit-scrollbar {
+    width: $size;
+  }
+
+  &::-webkit-scrollbar-track {
+    background: transparent;
+    margin: 4px 0;
+  }
+
+  &::-webkit-scrollbar-thumb {
+    background: var(--ui-text-quaternary, rgba(128, 128, 128, 0.25));
+    border-radius: calc(#{$size} / 2);
+    transition: background 0.2s;
+
+    &:hover {
+      background: var(--ui-text-tertiary, rgba(128, 128, 128, 0.45));
+    }
+
+    &:active {
+      background: var(--ui-text-muted, rgba(128, 128, 128, 0.6));
+    }
+  }
+
+  /* Firefox */
+  scrollbar-width: thin;
+  scrollbar-color: var(--ui-text-quaternary, rgba(128, 128, 128, 0.25)) transparent;
+}

@@ -1,0 +1,28 @@
+:root {
+  /* ─── Premium Font Stack ─── */
+  --app-font-sans: 'Geist Variable', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --app-font-mono: 'Geist Mono Variable', 'Cascadia Mono', Consolas, monospace;
+
+  font-family: var(--app-font-family, var(--app-font-sans));
+  font-size: 16px;
+  line-height: 1.5;
+  font-weight: 400;
+  color: black;
+
+  color-scheme: light dark;
+
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+
+  /* ─── Global Motion ─── */
+  --home-transition-curve: cubic-bezier(0.32, 0.72, 0, 1);
+  --home-transition-fast: 200ms var(--home-transition-curve);
+  --home-transition-normal: 320ms var(--home-transition-curve);
+  --home-transition-slow: 500ms var(--home-transition-curve);
+}
+
+body {
+  margin: 0;
+}

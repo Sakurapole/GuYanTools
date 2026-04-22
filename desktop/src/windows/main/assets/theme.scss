@@ -1,0 +1,465 @@
+.light {
+  --primary-color: #66ccff;
+  --background-color: #f7fbff;
+
+  --ui-text-primary: rgba(30, 70, 90, 0.9);
+  --ui-text-muted: rgba(30, 70, 90, 0.65);
+  --ui-text-subtle: rgba(30, 70, 90, 0.48);
+  --ui-text-inverse: #ffffff;
+
+  --ui-surface-base: #ffffff;
+  --ui-surface-base-muted: #f7fafe;
+  --ui-surface-panel: #ffffff;
+  --ui-surface-panel-muted: #f7fafe;
+  --ui-surface-glass: rgba(255, 255, 255, 0.72);
+  --ui-surface-glass-strong: rgba(255, 255, 255, 0.9);
+  --ui-surface-overlay: rgba(15, 23, 42, 0.08);
+
+  --ui-border-subtle: rgba(15, 23, 42, 0.08);
+  --ui-border-accent: rgba(102, 204, 255, 0.4);
+  --ui-border-accent-soft: rgba(102, 204, 255, 0.25);
+
+  --ui-panel-shadow: var(--ui-shadow-md);
+  --ui-panel-shadow-hover: var(--ui-shadow-lg);
+  --ui-focus-ring-color: rgba(92, 157, 237, 0.16);
+  --ui-focus-ring: 0 0 0 var(--ui-focus-ring-width) var(--ui-focus-ring-color);
+
+  --ui-dialog-overlay: rgba(9, 38, 64, 0.4);
+  --ui-field-label: rgba(30, 70, 90, 0.9);
+  --ui-field-hint: rgba(30, 70, 90, 0.55);
+  --ui-field-error: #dc2626;
+
+  --ui-card-bg: var(--ui-surface-panel);
+  --ui-card-border: var(--ui-border-subtle);
+  --ui-card-divider: var(--ui-border-subtle);
+  --ui-card-shadow: var(--ui-panel-shadow);
+  --ui-card-shadow-hover: var(--ui-panel-shadow-hover);
+
+  --ui-button-primary-bg: #5c9ded;
+  --ui-button-primary-hover-bg: #4f90e1;
+  --ui-button-primary-text: var(--ui-text-inverse);
+  --ui-button-primary-border: rgba(92, 157, 237, 0.48);
+  --ui-button-primary-shadow: 0 6px 14px rgba(92, 157, 237, 0.18);
+  --ui-button-secondary-bg: #f4f8fc;
+  --ui-button-secondary-hover-bg: #edf4fb;
+  --ui-button-secondary-text: var(--ui-text-primary);
+  --ui-button-secondary-border: var(--ui-border-subtle);
+  --ui-button-secondary-hover-border: rgba(92, 157, 237, 0.22);
+  --ui-button-secondary-shadow: 0 4px 12px rgba(15, 23, 42, 0.03);
+  --ui-button-ghost-text: rgba(30, 70, 90, 0.7);
+  --ui-button-ghost-hover-bg: rgba(102, 204, 255, 0.12);
+  --ui-button-ghost-hover-text: rgba(30, 70, 90, 0.95);
+  --ui-button-danger-bg: rgba(239, 68, 68, 0.12);
+  --ui-button-danger-hover-bg: rgba(239, 68, 68, 0.18);
+  --ui-button-danger-text: #c53c3c;
+  --ui-button-danger-border: rgba(239, 68, 68, 0.18);
+  --ui-button-danger-shadow: none;
+
+  --ui-icon-button-text: rgba(30, 70, 90, 0.72);
+  --ui-icon-button-hover-text: rgba(30, 70, 90, 0.95);
+  --ui-icon-button-hover-bg: rgba(102, 204, 255, 0.12);
+  --ui-icon-button-secondary-bg: #f4f8fc;
+  --ui-icon-button-secondary-border: var(--ui-border-subtle);
+  --ui-icon-button-secondary-text: rgba(30, 70, 90, 0.88);
+  --ui-icon-button-secondary-hover-bg: #edf4fb;
+  --ui-icon-button-secondary-hover-border: rgba(92, 157, 237, 0.22);
+  --ui-icon-button-danger-text: #dc2626;
+  --ui-icon-button-danger-hover-bg: rgba(239, 68, 68, 0.12);
+  --ui-icon-button-danger-hover-text: #c53c3c;
+
+  --ui-input-bg: rgba(255, 255, 255, 0.92);
+  --ui-input-border: var(--ui-border-subtle);
+  --ui-input-text: var(--ui-text-primary);
+  --ui-input-placeholder: rgba(30, 70, 90, 0.48);
+  --ui-input-focus-border: rgba(92, 157, 237, 0.52);
+  --ui-input-disabled-bg: rgba(241, 246, 251, 0.9);
+  --ui-input-disabled-text: rgba(30, 70, 90, 0.58);
+
+  --ui-select-bg: rgba(255, 255, 255, 0.92);
+  --ui-select-border: var(--ui-border-subtle);
+  --ui-select-text: var(--ui-text-primary);
+  --ui-select-arrow: rgba(30, 70, 90, 0.65);
+  --ui-select-focus-border: rgba(92, 157, 237, 0.52);
+  --ui-select-disabled-bg: rgba(241, 246, 251, 0.9);
+  --ui-select-disabled-text: rgba(30, 70, 90, 0.58);
+  --ui-select-hover-border: rgba(92, 157, 237, 0.32);
+  --ui-select-placeholder: rgba(30, 70, 90, 0.48);
+  --ui-select-dropdown-bg: rgba(255, 255, 255, 0.98);
+  --ui-select-dropdown-border: rgba(15, 23, 42, 0.06);
+  --ui-select-dropdown-shadow: 0 12px 32px rgba(9, 38, 64, 0.14), 0 0 0 1px rgba(15, 23, 42, 0.04);
+  --ui-select-option-hover-bg: rgba(102, 204, 255, 0.12);
+  --ui-select-option-selected-bg: rgba(102, 204, 255, 0.18);
+  --ui-select-option-selected-text: rgba(30, 70, 90, 0.95);
+  --ui-select-option-disabled-text: rgba(30, 70, 90, 0.38);
+
+  --ui-checkbox-bg: rgba(255, 255, 255, 0.92);
+  --ui-checkbox-border: var(--ui-border-subtle);
+  --ui-checkbox-hover-border: rgba(92, 157, 237, 0.52);
+  --ui-checkbox-focus-border: rgba(92, 157, 237, 0.52);
+  --ui-checkbox-checked-bg: var(--primary-color);
+  --ui-checkbox-checked-border: var(--primary-color);
+  --ui-checkbox-check-color: #fff;
+
+  --ui-tabs-border: var(--ui-border-subtle);
+  --ui-tabs-text: rgba(30, 70, 90, 0.64);
+  --ui-tabs-hover-text: rgba(30, 70, 90, 0.9);
+  --ui-tabs-active-text: rgba(30, 70, 90, 0.95);
+  --ui-tabs-active-bg: rgba(102, 204, 255, 0.15);
+  --ui-tabs-active-indicator: #66ccff;
+  --ui-tabs-segmented-bg: rgba(15, 23, 42, 0.04);
+
+  --ui-state-title: rgba(30, 70, 90, 0.95);
+  --ui-state-muted: rgba(30, 70, 90, 0.6);
+  --ui-state-error: #dc2626;
+
+  --ui-menu-bg: rgba(255, 255, 255, 0.48);
+  --ui-menu-shadow: 0 8px 20px rgba(9, 38, 64, 0.12), 0 0 0 1px var(--ui-border-subtle);
+  --ui-menu-divider: rgba(102, 204, 255, 0.25);
+  --ui-menu-item-text: rgba(30, 70, 90, 0.9);
+  --ui-menu-item-hover-bg: rgba(102, 204, 255, 0.12);
+  --ui-menu-icon-bg: transparent;
+  --ui-menu-danger-hover-bg: rgba(239, 68, 68, 0.12);
+  --ui-menu-danger-text: #dc2626;
+
+  --scrollbar-thumb: rgba(30, 70, 90, 0.28);
+  --scrollbar-thumb-hover: rgba(30, 70, 90, 0.44);
+  --scrollbar-track: rgba(30, 70, 90, 0.08);
+
+  --surface-color: rgba(255, 255, 255, 0.82);
+  --surface-hover-color: rgba(102, 204, 255, 0.18);
+  --bar-border-color: var(--ui-border-accent);
+  --bar-btn-hover-bg-color: rgba(102, 204, 255, 0.16);
+  --sidebar-bg-color: rgba(239, 250, 255, 0.78);
+  --topbar-bg-color: rgba(255, 255, 255, 0.9);
+  --main-title-text-color: var(--primary-color);
+  --sub-title-text-color: rgba(30, 90, 120, 0.82);
+  --window-btn-hover-bg-color: rgba(102, 204, 255, 0.22);
+  --bottombar-bg-color: rgba(255, 255, 255, 0.92);
+  --divider-color: rgba(102, 204, 255, 0.72);
+  --text-primary-color: var(--ui-text-primary);
+  --text-muted-color: var(--ui-text-muted);
+  --text-secondary-color: var(--ui-text-muted);
+
+  --comp-area-shadow-color: rgba(102, 204, 255, 0.16);
+  --grid-item-text-color: #ffffff;
+  --grid-item-shadow-color: rgba(9, 38, 64, 0.1);
+  --grid-item-shadow-dragging-color: rgba(9, 38, 64, 0.15);
+  --home-ambient-primary: rgba(90, 140, 180, 0.035);
+  --home-ambient-secondary: rgba(120, 160, 200, 0.02);
+  --home-ambient-tertiary: transparent;
+  --home-shell-border-color: rgba(15, 23, 42, 0.04);
+  --home-shell-shadow-color: rgba(15, 23, 42, 0.08);
+  --home-panel-bg-color: var(--ui-surface-panel);
+  --home-panel-strong-bg-color: var(--ui-surface-panel-muted);
+  --home-panel-border-color: var(--ui-border-subtle);
+  --home-grid-line-color: rgba(15, 23, 42, 0.05);
+  --home-grid-highlight-color: transparent;
+  --home-sidebar-item-bg-color: transparent;
+  --home-sidebar-item-hover-bg-color: rgba(102, 204, 255, 0.06);
+  --home-sidebar-item-active-bg-color: rgba(102, 204, 255, 0.10);
+  --home-sidebar-icon-bg-color: transparent;
+  --home-sidebar-icon-active-bg-color: transparent;
+  --home-sidebar-active-shadow-color: rgba(15, 23, 42, 0.06);
+  --home-sidebar-glass-border: rgba(255, 255, 255, 0.45);
+  --home-sidebar-inner-glow: inset 0 1px 0 rgba(255, 255, 255, 0.55);
+  --home-sidebar-active-glow: 0 0 8px rgba(102, 204, 255, 0.18);
+  --home-grain-opacity: 0.025;
+  --home-summary-chip-bg-color: transparent;
+  --home-summary-chip-border-color: transparent;
+  --home-state-card-bg-color: var(--ui-card-bg);
+  --home-state-card-shadow-color: rgba(15, 23, 42, 0.08);
+  --widget-border-color: var(--ui-border-subtle);
+  --widget-border-hover-color: rgba(102, 204, 255, 0.34);
+  --widget-overlay-color: transparent;
+  --widget-overlay-image-color: rgba(5, 15, 27, 0.26);
+  --widget-sheen-color: transparent;
+  --widget-shadow-color: rgba(15, 23, 42, 0.08);
+  --widget-shadow-hover-color: rgba(15, 23, 42, 0.12);
+  --widget-shadow-dragging-color: rgba(15, 23, 42, 0.18);
+  --widget-icon-bg-color: rgba(255, 255, 255, 0.16);
+  --widget-icon-ring-color: rgba(255, 255, 255, 0.2);
+  --widget-meta-text-color: rgba(255, 255, 255, 0.76);
+  --workspace-scrollbar-thumb-color: rgba(102, 204, 255, 0.32);
+  --workspace-scrollbar-thumb-hover-color: rgba(102, 204, 255, 0.52);
+  --workspace-scrollbar-track-color: rgba(102, 204, 255, 0.06);
+
+  --menu-bg-color: var(--ui-menu-bg);
+  --menu-border-color: var(--ui-border-subtle);
+  --menu-shadow-color: rgba(9, 38, 64, 0.15);
+  --menu-item-text-color: var(--ui-menu-item-text);
+  --menu-item-hover-bg-color: var(--ui-menu-item-hover-bg);
+  --menu-divider-color: var(--ui-menu-divider);
+  --menu-danger-hover-bg-color: var(--ui-menu-danger-hover-bg);
+  --menu-danger-color: var(--ui-menu-danger-text);
+
+  --modal-overlay-bg-color: var(--ui-dialog-overlay);
+  --modal-bg-color: rgba(255, 255, 255, 0.98);
+  --modal-border-color: var(--ui-border-subtle);
+  --modal-shadow-color: rgba(9, 38, 64, 0.2);
+  --modal-header-border-color: var(--ui-border-accent-soft);
+  --modal-close-btn-color: rgba(30, 70, 90, 0.6);
+  --modal-close-btn-hover-bg-color: rgba(102, 204, 255, 0.15);
+  --modal-tab-text-color: rgba(30, 70, 90, 0.6);
+  --modal-tab-active-bg-color: rgba(102, 204, 255, 0.15);
+  --modal-tab-active-color: rgba(30, 70, 90, 0.95);
+  --modal-preview-bg-color: rgba(102, 204, 255, 0.08);
+  --modal-section-title-color: rgba(30, 70, 90, 0.8);
+  --modal-upload-border-color: rgba(102, 204, 255, 0.4);
+  --modal-upload-bg-color: rgba(102, 204, 255, 0.06);
+  --modal-upload-hover-bg-color: rgba(102, 204, 255, 0.12);
+  --modal-hint-color: rgba(30, 70, 90, 0.5);
+  --modal-btn-cancel-bg-color: var(--ui-button-secondary-bg);
+  --modal-btn-cancel-hover-bg-color: var(--ui-button-secondary-hover-bg);
+  --modal-btn-confirm-shadow-color: rgba(102, 204, 255, 0.3);
+
+  --ui-surface-bg: var(--ui-surface-base);
+  --ui-surface-bg-muted: var(--ui-surface-base-muted);
+  --ui-surface-border: var(--ui-border-subtle);
+  --ui-surface-shadow: var(--ui-panel-shadow);
+  --ui-dialog-header-border: var(--ui-border-accent-soft);
+  --ui-dialog-footer-border: var(--ui-border-accent-soft);
+}
+
+.dark {
+  --primary-color: #66ccff;
+  --background-color: #101821;
+
+  --ui-text-primary: rgba(220, 240, 255, 0.92);
+  --ui-text-muted: rgba(220, 240, 255, 0.65);
+  --ui-text-subtle: rgba(220, 240, 255, 0.46);
+  --ui-text-inverse: #f5fbff;
+
+  --ui-surface-base: #16222d;
+  --ui-surface-base-muted: #1a2834;
+  --ui-surface-panel: #16222d;
+  --ui-surface-panel-muted: #1a2834;
+  --ui-surface-glass: rgba(17, 24, 39, 0.72);
+  --ui-surface-glass-strong: rgba(20, 35, 45, 0.9);
+  --ui-surface-overlay: rgba(255, 255, 255, 0.08);
+
+  --ui-border-subtle: rgba(255, 255, 255, 0.08);
+  --ui-border-accent: rgba(102, 204, 255, 0.2);
+  --ui-border-accent-soft: rgba(102, 204, 255, 0.2);
+
+  --ui-panel-shadow: 0 14px 30px rgba(0, 0, 0, 0.24);
+  --ui-panel-shadow-hover: 0 18px 40px rgba(0, 0, 0, 0.3);
+  --ui-focus-ring-color: rgba(102, 204, 255, 0.22);
+  --ui-focus-ring: 0 0 0 var(--ui-focus-ring-width) var(--ui-focus-ring-color);
+
+  --ui-dialog-overlay: rgba(0, 0, 0, 0.6);
+  --ui-field-label: rgba(220, 240, 255, 0.92);
+  --ui-field-hint: rgba(220, 240, 255, 0.55);
+  --ui-field-error: #ff9c9c;
+
+  --ui-card-bg: var(--ui-surface-panel);
+  --ui-card-border: var(--ui-border-subtle);
+  --ui-card-divider: var(--ui-border-subtle);
+  --ui-card-shadow: var(--ui-panel-shadow);
+  --ui-card-shadow-hover: var(--ui-panel-shadow-hover);
+
+  --ui-button-primary-bg: #3f8fca;
+  --ui-button-primary-hover-bg: #4c9bd6;
+  --ui-button-primary-text: var(--ui-text-inverse);
+  --ui-button-primary-border: rgba(102, 204, 255, 0.28);
+  --ui-button-primary-shadow: 0 6px 14px rgba(0, 0, 0, 0.2);
+  --ui-button-secondary-bg: #1b2a36;
+  --ui-button-secondary-hover-bg: #213544;
+  --ui-button-secondary-text: var(--ui-text-primary);
+  --ui-button-secondary-border: var(--ui-border-subtle);
+  --ui-button-secondary-hover-border: rgba(102, 204, 255, 0.24);
+  --ui-button-secondary-shadow: 0 6px 12px rgba(0, 0, 0, 0.12);
+  --ui-button-ghost-text: rgba(220, 240, 255, 0.68);
+  --ui-button-ghost-hover-bg: rgba(102, 204, 255, 0.16);
+  --ui-button-ghost-hover-text: rgba(220, 240, 255, 0.94);
+  --ui-button-danger-bg: rgba(239, 68, 68, 0.16);
+  --ui-button-danger-hover-bg: rgba(239, 68, 68, 0.22);
+  --ui-button-danger-text: #ff9c9c;
+  --ui-button-danger-border: rgba(239, 68, 68, 0.22);
+  --ui-button-danger-shadow: none;
+
+  --ui-icon-button-text: rgba(220, 240, 255, 0.72);
+  --ui-icon-button-hover-text: rgba(220, 240, 255, 0.95);
+  --ui-icon-button-hover-bg: rgba(102, 204, 255, 0.16);
+  --ui-icon-button-secondary-bg: #1b2a36;
+  --ui-icon-button-secondary-border: var(--ui-border-subtle);
+  --ui-icon-button-secondary-text: rgba(220, 240, 255, 0.9);
+  --ui-icon-button-secondary-hover-bg: #213544;
+  --ui-icon-button-secondary-hover-border: rgba(102, 204, 255, 0.24);
+  --ui-icon-button-danger-text: #ff9c9c;
+  --ui-icon-button-danger-hover-bg: rgba(239, 68, 68, 0.18);
+  --ui-icon-button-danger-hover-text: #ffb2b2;
+
+  --ui-input-bg: rgba(20, 35, 45, 0.92);
+  --ui-input-border: var(--ui-border-subtle);
+  --ui-input-text: var(--ui-text-primary);
+  --ui-input-placeholder: rgba(220, 240, 255, 0.46);
+  --ui-input-focus-border: rgba(102, 204, 255, 0.5);
+  --ui-input-disabled-bg: rgba(26, 40, 52, 0.92);
+  --ui-input-disabled-text: rgba(220, 240, 255, 0.58);
+
+  --ui-select-bg: rgba(20, 35, 45, 0.92);
+  --ui-select-border: var(--ui-border-subtle);
+  --ui-select-text: var(--ui-text-primary);
+  --ui-select-arrow: rgba(220, 240, 255, 0.68);
+  --ui-select-focus-border: rgba(102, 204, 255, 0.5);
+  --ui-select-disabled-bg: rgba(26, 40, 52, 0.92);
+  --ui-select-disabled-text: rgba(220, 240, 255, 0.58);
+  --ui-select-hover-border: rgba(102, 204, 255, 0.28);
+  --ui-select-placeholder: rgba(220, 240, 255, 0.46);
+  --ui-select-dropdown-bg: rgba(20, 35, 45, 0.98);
+  --ui-select-dropdown-border: rgba(255, 255, 255, 0.06);
+  --ui-select-dropdown-shadow: 0 12px 32px rgba(0, 0, 0, 0.36), 0 0 0 1px rgba(255, 255, 255, 0.04);
+  --ui-select-option-hover-bg: rgba(102, 204, 255, 0.15);
+  --ui-select-option-selected-bg: rgba(102, 204, 255, 0.22);
+  --ui-select-option-selected-text: rgba(220, 240, 255, 0.96);
+  --ui-select-option-disabled-text: rgba(220, 240, 255, 0.36);
+
+  --ui-checkbox-bg: rgba(20, 35, 45, 0.92);
+  --ui-checkbox-border: var(--ui-border-subtle);
+  --ui-checkbox-hover-border: rgba(102, 204, 255, 0.5);
+  --ui-checkbox-focus-border: rgba(102, 204, 255, 0.5);
+  --ui-checkbox-checked-bg: var(--primary-color);
+  --ui-checkbox-checked-border: var(--primary-color);
+  --ui-checkbox-check-color: #fff;
+
+  --ui-tabs-border: var(--ui-border-subtle);
+  --ui-tabs-text: rgba(220, 240, 255, 0.62);
+  --ui-tabs-hover-text: rgba(220, 240, 255, 0.9);
+  --ui-tabs-active-text: rgba(220, 240, 255, 0.96);
+  --ui-tabs-active-bg: rgba(102, 204, 255, 0.2);
+  --ui-tabs-active-indicator: #66ccff;
+  --ui-tabs-segmented-bg: rgba(255, 255, 255, 0.04);
+
+  --ui-state-title: rgba(220, 240, 255, 0.96);
+  --ui-state-muted: rgba(220, 240, 255, 0.58);
+  --ui-state-error: #ff9c9c;
+
+  --ui-menu-bg: rgba(20, 35, 45, 0.72);
+  --ui-menu-shadow: 0 8px 20px rgba(0, 0, 0, 0.3), 0 0 0 1px var(--ui-border-subtle);
+  --ui-menu-divider: rgba(102, 204, 255, 0.2);
+  --ui-menu-item-text: rgba(220, 240, 255, 0.9);
+  --ui-menu-item-hover-bg: rgba(102, 204, 255, 0.15);
+  --ui-menu-icon-bg: transparent;
+  --ui-menu-danger-hover-bg: rgba(239, 68, 68, 0.18);
+  --ui-menu-danger-text: #ff9c9c;
+
+  --scrollbar-thumb: rgba(220, 240, 255, 0.22);
+  --scrollbar-thumb-hover: rgba(220, 240, 255, 0.38);
+  --scrollbar-track: rgba(220, 240, 255, 0.08);
+
+  --surface-color: rgba(20, 35, 45, 0.88);
+  --surface-hover-color: rgba(102, 204, 255, 0.14);
+  --bar-border-color: var(--ui-border-accent);
+  --sidebar-bg-color: rgba(20, 35, 45, 0.82);
+  --topbar-bg-color: rgba(16, 28, 36, 0.92);
+  --main-title-text-color: var(--primary-color);
+  --sub-title-text-color: rgba(171, 226, 255, 0.9);
+  --window-btn-hover-bg-color: rgba(102, 204, 255, 0.18);
+  --bottombar-bg-color: rgba(16, 28, 36, 0.94);
+  --divider-color: rgba(102, 204, 255, 0.82);
+  --text-primary-color: var(--ui-text-primary);
+  --text-muted-color: var(--ui-text-muted);
+  --text-secondary-color: var(--ui-text-muted);
+
+  --comp-area-shadow-color: rgba(102, 204, 255, 0.12);
+  --grid-item-text-color: rgba(240, 250, 255, 0.95);
+  --grid-item-shadow-color: rgba(0, 0, 0, 0.2);
+  --grid-item-shadow-dragging-color: rgba(0, 0, 0, 0.3);
+  --home-ambient-primary: rgba(90, 160, 220, 0.04);
+  --home-ambient-secondary: rgba(70, 130, 190, 0.025);
+  --home-ambient-tertiary: transparent;
+  --home-shell-border-color: rgba(255, 255, 255, 0.03);
+  --home-shell-shadow-color: rgba(0, 0, 0, 0.24);
+  --home-panel-bg-color: var(--ui-surface-panel);
+  --home-panel-strong-bg-color: var(--ui-surface-panel-muted);
+  --home-panel-border-color: var(--ui-border-subtle);
+  --home-grid-line-color: rgba(255, 255, 255, 0.06);
+  --home-grid-highlight-color: transparent;
+  --home-sidebar-item-bg-color: transparent;
+  --home-sidebar-item-hover-bg-color: rgba(102, 204, 255, 0.08);
+  --home-sidebar-item-active-bg-color: rgba(102, 204, 255, 0.12);
+  --home-sidebar-icon-bg-color: transparent;
+  --home-sidebar-icon-active-bg-color: transparent;
+  --home-sidebar-active-shadow-color: rgba(0, 0, 0, 0.12);
+  --home-sidebar-glass-border: rgba(255, 255, 255, 0.08);
+  --home-sidebar-inner-glow: inset 0 1px 0 rgba(255, 255, 255, 0.06);
+  --home-sidebar-active-glow: 0 0 10px rgba(102, 204, 255, 0.14);
+  --home-grain-opacity: 0.03;
+  --home-summary-chip-bg-color: transparent;
+  --home-summary-chip-border-color: transparent;
+  --home-state-card-bg-color: var(--ui-card-bg);
+  --home-state-card-shadow-color: rgba(0, 0, 0, 0.24);
+  --widget-border-color: rgba(255, 255, 255, 0.1);
+  --widget-border-hover-color: rgba(102, 204, 255, 0.3);
+  --widget-overlay-color: transparent;
+  --widget-overlay-image-color: rgba(2, 7, 13, 0.34);
+  --widget-sheen-color: transparent;
+  --widget-shadow-color: rgba(0, 0, 0, 0.18);
+  --widget-shadow-hover-color: rgba(0, 0, 0, 0.24);
+  --widget-shadow-dragging-color: rgba(0, 0, 0, 0.32);
+  --widget-icon-bg-color: rgba(255, 255, 255, 0.08);
+  --widget-icon-ring-color: rgba(255, 255, 255, 0.1);
+  --widget-meta-text-color: rgba(240, 250, 255, 0.7);
+  --workspace-scrollbar-thumb-color: rgba(102, 204, 255, 0.28);
+  --workspace-scrollbar-thumb-hover-color: rgba(102, 204, 255, 0.48);
+  --workspace-scrollbar-track-color: rgba(102, 204, 255, 0.06);
+
+  --menu-bg-color: var(--ui-menu-bg);
+  --menu-border-color: var(--ui-border-subtle);
+  --menu-shadow-color: rgba(0, 0, 0, 0.4);
+  --menu-item-text-color: var(--ui-menu-item-text);
+  --menu-item-hover-bg-color: var(--ui-menu-item-hover-bg);
+  --menu-divider-color: var(--ui-menu-divider);
+  --menu-danger-hover-bg-color: var(--ui-menu-danger-hover-bg);
+  --menu-danger-color: #ef4444;
+
+  --modal-overlay-bg-color: var(--ui-dialog-overlay);
+  --modal-bg-color: rgba(20, 35, 45, 0.98);
+  --modal-border-color: var(--ui-border-subtle);
+  --modal-shadow-color: rgba(0, 0, 0, 0.5);
+  --modal-header-border-color: var(--ui-border-accent-soft);
+  --modal-close-btn-color: rgba(220, 240, 255, 0.6);
+  --modal-close-btn-hover-bg-color: rgba(102, 204, 255, 0.18);
+  --modal-tab-text-color: rgba(220, 240, 255, 0.6);
+  --modal-tab-active-bg-color: rgba(102, 204, 255, 0.2);
+  --modal-tab-active-color: rgba(220, 240, 255, 0.95);
+  --modal-preview-bg-color: rgba(0, 0, 0, 0.3);
+  --modal-section-title-color: rgba(220, 240, 255, 0.8);
+  --modal-upload-border-color: rgba(102, 204, 255, 0.35);
+  --modal-upload-bg-color: rgba(102, 204, 255, 0.08);
+  --modal-upload-hover-bg-color: rgba(102, 204, 255, 0.15);
+  --modal-hint-color: rgba(220, 240, 255, 0.5);
+  --modal-btn-cancel-bg-color: var(--ui-button-secondary-bg);
+  --modal-btn-cancel-hover-bg-color: var(--ui-button-secondary-hover-bg);
+  --modal-btn-confirm-shadow-color: rgba(102, 204, 255, 0.4);
+
+  --ui-surface-bg: var(--ui-surface-base);
+  --ui-surface-bg-muted: var(--ui-surface-base-muted);
+  --ui-surface-border: var(--ui-border-subtle);
+  --ui-surface-shadow: var(--ui-panel-shadow);
+  --ui-dialog-header-border: var(--ui-border-accent-soft);
+  --ui-dialog-footer-border: var(--ui-border-accent-soft);
+}
+
+/** Animated Theme Toggle */
+::view-transition-old(root),
+::view-transition-new(root) {
+  animation: none;
+  mix-blend-mode: normal;
+}
+
+.dark::view-transition-old(root) {
+  z-index: 1;
+}
+
+.dark::view-transition-new(root) {
+  z-index: 999;
+}
+
+.light::view-transition-old(root) {
+  z-index: 999;
+}
+
+.light::view-transition-new(root) {
+  z-index: 1;
+}

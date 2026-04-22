@@ -1,0 +1,202 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@200;300;400;500;600;700;800&amp;family=Inter:wght@300;400;500;600&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            colors: {
+              "primary-fixed": "#e0e3e5",
+              "on-primary-container": "#7e8183",
+              "primary-fixed-dim": "#c4c7c9",
+              "tertiary-fixed-dim": "#bdc2ff",
+              "secondary-fixed-dim": "#7bd0ff",
+              "on-secondary": "#00354a",
+              "surface-container-lowest": "#070d1f",
+              "surface-container-high": "#23293c",
+              "on-primary-fixed": "#191c1e",
+              "inverse-primary": "#5c5f61",
+              "error": "#ffb4ab",
+              "on-primary-fixed-variant": "#444749",
+              "on-error": "#690005",
+              "tertiary-container": "#00055c",
+              "surface-bright": "#33394c",
+              "outline-variant": "#45464d",
+              "surface": "#0c1324",
+              "secondary": "#7bd0ff",
+              "tertiary": "#bdc2ff",
+              "on-surface-variant": "#c6c6cd",
+              "secondary-fixed": "#c4e7ff",
+              "secondary-container": "#00a6e0",
+              "on-secondary-container": "#00374d",
+              "primary": "#c4c7c9",
+              "tertiary-fixed": "#e0e0ff",
+              "on-tertiary-container": "#6c77e1",
+              "on-tertiary-fixed": "#000767",
+              "surface-container": "#191f31",
+              "on-surface": "#dce1fb",
+              "error-container": "#93000a",
+              "on-tertiary-fixed-variant": "#2f3aa3",
+              "inverse-on-surface": "#2a3043",
+              "surface-container-highest": "#2e3447",
+              "surface-container-low": "#151b2d",
+              "inverse-surface": "#dce1fb",
+              "outline": "#909097",
+              "surface-dim": "#0c1324",
+              "on-secondary-fixed": "#001e2c",
+              "on-background": "#dce1fb",
+              "primary-container": "#15181a",
+              "surface-variant": "#2e3447",
+              "surface-tint": "#c4c7c9",
+              "background": "#0c1324",
+              "on-tertiary": "#131e8c",
+              "on-primary": "#2d3133",
+              "on-error-container": "#ffdad6",
+              "on-secondary-fixed-variant": "#004c69"
+            },
+            fontFamily: {
+              "headline": ["Manrope"],
+              "body": ["Manrope"],
+              "label": ["Inter"]
+            },
+            borderRadius: {"DEFAULT": "0.25rem", "lg": "0.5rem", "xl": "0.75rem", "full": "9999px"},
+            boxShadow: {
+              'ambient': '0px 20px 40px rgba(7, 13, 31, 0.4)'
+            }
+          },
+        },
+      }
+    </script>
+<style>
+      .glass-card {
+        background: rgba(46, 52, 71, 0.6);
+        backdrop-filter: blur(24px);
+      }
+      .ghost-border {
+        box-shadow: inset 0 0 0 1px rgba(69, 70, 77, 0.15);
+      }
+      .material-symbols-outlined {
+        font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+      }
+    </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head>
+<body class="bg-background text-on-background font-body selection:bg-secondary/30 min-h-screen">
+<!-- TopAppBar -->
+<header class="sticky top-0 z-50 flex items-center justify-between px-6 h-16 w-full bg-slate-900/60 dark:bg-slate-950/60 backdrop-blur-3xl">
+<div class="flex items-center gap-4">
+<button class="text-sky-400 dark:text-sky-300 hover:bg-white/10 transition-colors p-2 rounded-full active:scale-95 duration-200">
+<span class="material-symbols-outlined" data-icon="menu">menu</span>
+</button>
+<h1 class="text-xl font-black text-white tracking-tighter">Lucid Architect</h1>
+</div>
+<div class="flex items-center gap-3">
+<button class="text-sky-400 dark:text-sky-300 hover:bg-white/10 transition-colors p-2 rounded-full active:scale-95 duration-200">
+<span class="material-symbols-outlined" data-icon="dark_mode">dark_mode</span>
+</button>
+<img alt="User Profile" class="w-8 h-8 rounded-full border border-outline-variant/20" data-alt="Portrait of a modern professional architect with glasses and a friendly expression, soft cinematic lighting" src="https://lh3.googleusercontent.com/aida-public/AB6AXuAnyfSe3srSE3s1e2wsofQ-OM0axoPIap3PKe7JORLufF9UDY20DEn_zk87TG4ZSXu7W68i0OtsQMWIN2DfO8xuk8snukmy-jTN3c5O0ohHEr09MsBqKlKa77vKMLtAKsOt2XVWWn-skOgSxC9_g2BkILORJ9Tuw-sHvlqjowxG9CHEFagauh3a39m6sWVqQrA0KirpsuYD-4prHR7InkK5sK6JwW_ZhK4j_FedtNpeyBDGvTTbgFS74SMJHQom2Ua1HOCTIoKOteTj"/>
+</div>
+</header>
+<main class="px-6 pt-6 pb-32 max-w-5xl mx-auto">
+<!-- Search Section -->
+<section class="mb-10">
+<div class="relative group">
+<div class="absolute inset-y-0 left-4 flex items-center pointer-events-none">
+<span class="material-symbols-outlined text-on-surface-variant/50" data-icon="search">search</span>
+</div>
+<input class="w-full bg-surface-container-lowest border-none rounded-xl py-4 pl-12 pr-4 text-on-surface placeholder:text-on-surface-variant/40 focus:ring-1 focus:ring-outline-variant/40 transition-all outline-none font-label" placeholder="Search modules &amp; plugins..." type="text"/>
+</div>
+</section>
+<!-- Bento Grid App Gallery -->
+<section>
+<div class="flex items-baseline justify-between mb-8">
+<h2 class="text-3xl font-headline font-extrabold tracking-tight text-white">All Apps</h2>
+<span class="text-sm font-label text-primary-fixed-dim uppercase tracking-widest opacity-60">6 Active Modules</span>
+</div>
+<div class="grid grid-cols-2 md:grid-cols-3 gap-5">
+<!-- Web Enhancer -->
+<div class="glass-card ghost-border rounded-xl p-6 flex flex-col items-center justify-center gap-4 hover:bg-surface-container-highest transition-all duration-300 cursor-pointer group">
+<div class="w-16 h-16 rounded-2xl bg-gradient-to-br from-secondary to-secondary-container flex items-center justify-center shadow-ambient group-hover:scale-110 transition-transform duration-300">
+<span class="material-symbols-outlined text-on-secondary text-3xl" data-icon="language">language</span>
+</div>
+<span class="font-headline font-bold text-on-surface text-center leading-tight">Web Enhancer</span>
+</div>
+<!-- Knowledge Base -->
+<div class="glass-card ghost-border rounded-xl p-6 flex flex-col items-center justify-center gap-4 hover:bg-surface-container-highest transition-all duration-300 cursor-pointer group">
+<div class="w-16 h-16 rounded-2xl bg-surface-container-lowest flex items-center justify-center shadow-ambient group-hover:scale-110 transition-transform duration-300">
+<span class="material-symbols-outlined text-tertiary text-3xl" data-icon="library_books" data-weight="fill" style="font-variation-settings: 'FILL' 1;">library_books</span>
+</div>
+<span class="font-headline font-bold text-on-surface text-center leading-tight">Knowledge Base</span>
+</div>
+<!-- Clipboard Sync -->
+<div class="glass-card ghost-border rounded-xl p-6 flex flex-col items-center justify-center gap-4 hover:bg-surface-container-highest transition-all duration-300 cursor-pointer group">
+<div class="w-16 h-16 rounded-2xl bg-surface-container-lowest flex items-center justify-center shadow-ambient group-hover:scale-110 transition-transform duration-300">
+<span class="material-symbols-outlined text-secondary text-3xl" data-icon="content_paste" data-weight="fill" style="font-variation-settings: 'FILL' 1;">content_paste</span>
+</div>
+<span class="font-headline font-bold text-on-surface text-center leading-tight">Clipboard Sync</span>
+</div>
+<!-- FTP Client -->
+<div class="glass-card ghost-border rounded-xl p-6 flex flex-col items-center justify-center gap-4 hover:bg-surface-container-highest transition-all duration-300 cursor-pointer group">
+<div class="w-16 h-16 rounded-2xl bg-surface-container-lowest flex items-center justify-center shadow-ambient group-hover:scale-110 transition-transform duration-300">
+<span class="material-symbols-outlined text-primary-fixed-dim text-3xl" data-icon="cloud_upload">cloud_upload</span>
+</div>
+<span class="font-headline font-bold text-on-surface text-center leading-tight">FTP Client</span>
+</div>
+<!-- BiliBili Downloader -->
+<div class="glass-card ghost-border rounded-xl p-6 flex flex-col items-center justify-center gap-4 hover:bg-surface-container-highest transition-all duration-300 cursor-pointer group">
+<div class="w-16 h-16 rounded-2xl bg-surface-container-lowest flex items-center justify-center shadow-ambient group-hover:scale-110 transition-transform duration-300">
+<span class="material-symbols-outlined text-error text-3xl" data-icon="download_for_offline" data-weight="fill" style="font-variation-settings: 'FILL' 1;">download_for_offline</span>
+</div>
+<span class="font-headline font-bold text-on-surface text-center leading-tight">BiliBili Downloader</span>
+</div>
+<!-- Image Hosting -->
+<div class="glass-card ghost-border rounded-xl p-6 flex flex-col items-center justify-center gap-4 hover:bg-surface-container-highest transition-all duration-300 cursor-pointer group">
+<div class="w-16 h-16 rounded-2xl bg-surface-container-lowest flex items-center justify-center shadow-ambient group-hover:scale-110 transition-transform duration-300">
+<span class="material-symbols-outlined text-sky-300 text-3xl" data-icon="image">image</span>
+</div>
+<span class="font-headline font-bold text-on-surface text-center leading-tight">Image Hosting</span>
+</div>
+</div>
+</section>
+<!-- Feature Spotlight (Asymmetric Element) -->
+<section class="mt-12">
+<div class="relative overflow-hidden rounded-2xl h-48 flex items-end p-8">
+<div class="absolute inset-0 bg-gradient-to-tr from-surface-container-lowest to-surface-container opacity-90 z-0"></div>
+<div class="absolute inset-0 z-10 opacity-30 mix-blend-overlay">
+<div class="w-full h-full" data-alt="abstract architectural glass structures with glowing light reflections and deep blue shadows" style="background-image: url('https://lh3.googleusercontent.com/aida-public/AB6AXuCf_OnDLeAZfcZ7Ua9jPKmvkeF1b6p2PHz5ta2plzBaAf9P1apGTiUaLXeYT33KAxpVVatTf7-kJTay9LZrN8g8xvE50VeVFtgkypZn73BZJNCsXch4l7Y3Ro4RM5i4F1j1DA4UX-QPY9GDA-KSpCBD3L1BHKJnLxdWMQG0gtElHxYebIHIDungsOfIdb6eNLLpmAmp1aULde7thC2muBMNFPrd6dTDIgECt31moBx5CzE9OT7egAgt_MmjyaWBO5t0TB-SDr58pFp8')"></div>
+</div>
+<div class="relative z-20">
+<p class="text-secondary font-label text-xs font-bold uppercase tracking-[0.2em] mb-2">New Release</p>
+<h3 class="text-2xl font-headline font-bold text-white max-w-xs">Quantum Vector Engine is now live.</h3>
+</div>
+</div>
+</section>
+</main>
+<!-- BottomNavBar -->
+<nav class="fixed bottom-0 left-0 w-full z-50 flex justify-around items-center px-4 pb-6 pt-3 bg-slate-900/60 dark:bg-slate-950/60 backdrop-blur-3xl rounded-t-2xl shadow-ambient">
+<a class="flex flex-col items-center justify-center text-slate-500 hover:text-sky-200 active:scale-90 duration-150" href="#">
+<span class="material-symbols-outlined text-2xl mb-1" data-icon="home_app_logo">home_app_logo</span>
+<span class="font-manrope text-[11px] font-semibold uppercase tracking-wider">Home</span>
+</a>
+<a class="flex flex-col items-center justify-center text-slate-500 hover:text-sky-200 active:scale-90 duration-150" href="#">
+<span class="material-symbols-outlined text-2xl mb-1" data-icon="auto_awesome">auto_awesome</span>
+<span class="font-manrope text-[11px] font-semibold uppercase tracking-wider">AI Chat</span>
+</a>
+<!-- Active State for All Apps -->
+<a class="flex flex-col items-center justify-center text-sky-400 bg-sky-500/10 rounded-xl px-4 py-1 active:scale-90 duration-150" href="#">
+<span class="material-symbols-outlined text-2xl mb-1" data-icon="grid_view" data-weight="fill" style="font-variation-settings: 'FILL' 1;">grid_view</span>
+<span class="font-manrope text-[11px] font-semibold uppercase tracking-wider">All Apps</span>
+</a>
+</nav>
+</body></html>

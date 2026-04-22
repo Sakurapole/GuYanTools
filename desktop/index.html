@@ -4,13 +4,13 @@
     <meta charset="UTF-8" />
     <meta
       http-equiv="Content-Security-Policy"
-      content="default-src 'self' http://localhost:8097 ws://localhost:8097; style-src 'self' 'unsafe-inline'; img-src 'self' data:;"
+      content="default-src 'self' http://localhost:8097 ws://localhost:8097; script-src 'self' http://localhost:8097 'unsafe-inline' 'wasm-unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; media-src 'self' blob: data:; connect-src 'self' http://localhost:8097 ws://localhost:8097 https://api.iconify.design https://api.unisvg.com https://api.simplesvg.com https://geocoding-api.open-meteo.com https://api.open-meteo.com;"
     />
     <title>GuYan</title>
   </head>
   <body>
     <div id="guyan-tools"></div>
-    <script type="module" src="/src/renderer.ts"></script>
+    <script type="module" src="/src/windows/main/main.ts"></script>
     <!-- <script src="http://localhost:8097"></script> -->
   </body>
 </html>

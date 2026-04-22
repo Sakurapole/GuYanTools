@@ -1,0 +1,43 @@
+:root {
+  --ui-radius-xs: 6px;
+  --ui-radius-sm: 10px;
+  --ui-radius-md: 14px;
+  --ui-radius-lg: 18px;
+  --ui-radius-full: 999px;
+
+  --ui-border-width-thin: 1px;
+  --ui-border-width-strong: 2px;
+
+  --ui-control-height-sm: 34px;
+  --ui-control-height-md: 42px;
+  --ui-control-height-lg: 46px;
+  --ui-control-padding-x-sm: 12px;
+  --ui-control-padding-x-md: 14px;
+  --ui-control-padding-x-lg: 16px;
+  --ui-control-padding-y-sm: 7px;
+  --ui-control-padding-y-md: 10px;
+  --ui-control-padding-y-lg: 12px;
+
+  --ui-card-padding-sm: 12px;
+  --ui-card-padding-md: 16px;
+  --ui-card-padding-lg: 20px;
+
+  --ui-shadow-sm: 0 6px 14px rgba(0, 0, 0, 0.08);
+  --ui-shadow-md: 0 10px 24px rgba(0, 0, 0, 0.12);
+  --ui-shadow-lg: 0 14px 30px rgba(0, 0, 0, 0.16);
+  --ui-shadow-xl: 0 18px 40px rgba(0, 0, 0, 0.2);
+
+  --ui-focus-ring-width: 3px;
+
+  --ui-status-danger-bg: rgba(220, 38, 38, 0.12);
+  --ui-status-danger-bg-strong: rgba(220, 38, 38, 0.18);
+  --ui-status-danger-text: rgb(185, 28, 28);
+
+  --ui-overlay-mask-soft: rgba(0, 0, 0, 0.3);
+  --ui-overlay-mask-medium: rgba(0, 0, 0, 0.5);
+  --ui-overlay-mask-strong: rgba(0, 0, 0, 0.6);
+
+  --ui-backdrop-blur-sm: blur(4px);
+  --ui-backdrop-blur-md: blur(10px);
+  --ui-backdrop-blur-lg: blur(16px);
+}
