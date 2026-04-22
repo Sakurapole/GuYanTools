@@ -1,10 +1,15 @@
-import { BrowserWindow, ipcMain } from "electron";
+import { app, BrowserWindow, ipcMain } from "electron";
 import path from 'path';
 import { dbManager } from "../../core/database";
 import { waitForDevServer } from "./wait_for_dev_server";
 
 export default () => {
   let mainWindow: BrowserWindow;
+  let isQuitting = false;
+
+  app.on('before-quit', () => {
+    isQuitting = true;
+  });
 
   const init = async () => {
     await createWindow();
@@ -50,6 +55,8 @@ export default () => {
     // mainWindow.contentView.addChildView(pluginWebContentsView);
 
     mainWindow.on('close', (event) => {
+      if (isQuitting) return;
+
       // 阻止窗口关闭
       event.preventDefault();
       // 最小化窗口而不是关闭
