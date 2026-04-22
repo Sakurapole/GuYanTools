@@ -1,20 +1,83 @@
 import { MakerDeb } from '@electron-forge/maker-deb';
 import { MakerRpm } from '@electron-forge/maker-rpm';
-import { MakerSquirrel } from '@electron-forge/maker-squirrel';
 import { MakerZIP } from '@electron-forge/maker-zip';
+import { MakerWix } from '@electron-forge/maker-wix';
 import { AutoUnpackNativesPlugin } from '@electron-forge/plugin-auto-unpack-natives';
 import { FusesPlugin } from '@electron-forge/plugin-fuses';
 import { VitePlugin } from '@electron-forge/plugin-vite';
 import type { ForgeConfig } from '@electron-forge/shared-types';
 import { FuseV1Options, FuseVersion } from '@electron/fuses';
+import fs from 'node:fs/promises';
+import path from 'node:path';
+
+async function copyNativeCorePackageFiles(buildPath: string) {
+  const coreRoot = path.resolve(__dirname, '..', 'multi_platform_core');
+  const packageRoot = path.join(buildPath, 'node_modules', '@guyantools', 'core');
+  const files = [
+    'index.js',
+    'index.d.ts',
+    'package.json',
+    'multi-platform-core.win32-x64-msvc.node',
+    'multi-platform-core.win32-arm64-msvc.node',
+    'multi-platform-core.darwin-x64.node',
+    'multi-platform-core.darwin-arm64.node',
+    'multi-platform-core.linux-x64-gnu.node',
+    'multi-platform-core.linux-arm64-gnu.node',
+  ];
+
+  await fs.rm(packageRoot, { recursive: true, force: true });
+  await fs.mkdir(packageRoot, { recursive: true });
+
+  for (const file of files) {
+    const source = path.join(coreRoot, file);
+    try {
+      await fs.copyFile(source, path.join(packageRoot, file));
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code === 'ENOENT' && file.endsWith('.node')) {
+        continue;
+      }
+      throw error;
+    }
+  }
+}
+
+function copyNativeCorePackage(
+  buildPath: string,
+  _electronVersion: string,
+  _platform: string,
+  _arch: string,
+  callback: (error?: Error | null) => void,
+) {
+  copyNativeCorePackageFiles(buildPath).then(() => callback()).catch(callback);
+}
 
 const config: ForgeConfig = {
   outDir: process.env.FORGE_OUT_DIR || undefined,
   packagerConfig: {
     asar: true,
+    afterCopy: [copyNativeCorePackage],
   },
   rebuildConfig: {},
-  makers: [new MakerSquirrel({}), new MakerZIP({}, ['darwin']), new MakerRpm({}), new MakerDeb({})],
+  makers: [
+    new MakerWix(
+      {
+        language: 1033,
+        manufacturer: 'Sakurapole',
+        name: 'GuYanTools',
+        exe: 'guyantools.exe',
+        icon: path.resolve(__dirname, '..', 'mobile', 'windows', 'runner', 'resources', 'app_icon.ico'),
+        shortcutFolderName: 'GuYanTools',
+        shortcutName: 'GuYanTools',
+        ui: {
+          chooseDirectory: true,
+        },
+      },
+      ['win32'],
+    ),
+    new MakerZIP({}, ['darwin']),
+    new MakerRpm({}),
+    new MakerDeb({}),
+  ],
   publishers: [
     {
       name: '@electron-forge/publisher-github',
