@@ -1,7 +1,7 @@
 {
   "name": "guyantools",
   "productName": "guyantools",
-  "version": "1.0.0",
+  "version": "0.0.1",
   "description": "My Electron application description",
   "main": ".vite/build/index.js",
   "scripts": {
@@ -11,7 +11,10 @@
     "package": "electron-forge package",
     "premake": "pnpm --dir .. run native:build",
     "make": "electron-forge make",
+    "prepublish": "pnpm --dir .. run native:build",
     "publish": "electron-forge publish",
+    "prepublish:github": "pnpm --dir .. run native:build",
+    "publish:github": "electron-forge publish",
     "lint": "eslint --ext .ts,.tsx .",
     "build:preload-plugin": "vite build --config vite.preload-plugin.config.ts"
   },
@@ -24,6 +27,7 @@
     "@electron-forge/plugin-auto-unpack-natives": "^7.8.1",
     "@electron-forge/plugin-fuses": "^7.8.1",
     "@electron-forge/plugin-vite": "^7.8.1",
+    "@electron-forge/publisher-github": "^7.11.1",
     "@electron/fuses": "^1.8.0",
     "@iconify/vue": "^5.0.0",
     "@intlify/unplugin-vue-i18n": "^6.0.8",

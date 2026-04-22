@@ -1,6 +1,7 @@
 {
     "name": "guyantools-workspace",
     "private": true,
+    "packageManager": "pnpm@10.33.0",
     "devDependencies": {
         "@commitlint/cli": "^19.8.1",
         "@commitlint/config-conventional": "^19.8.1",
@@ -13,11 +14,14 @@
         "commit": "git-cz",
         "commitlint": "commitlint --config commitlint.config.js",
         "commitlint:edit": "commitlint --config commitlint.config.js --edit",
-        "native:build": "pnpm --dir multi_platform_core build",
-        "native:build:debug": "pnpm --dir multi_platform_core build:debug",
+        "native:clean": "pnpm --dir multi_platform_core clean",
+        "native:build": "pnpm run native:clean && pnpm --dir multi_platform_core build",
+        "native:build:debug": "pnpm run native:clean && pnpm --dir multi_platform_core build:debug",
         "desktop:start": "pnpm --dir desktop start",
         "desktop:package": "pnpm --dir desktop package",
         "desktop:make": "pnpm --dir desktop make",
+        "desktop:publish": "pnpm --dir desktop run publish:github",
+        "release:desktop": "pnpm run desktop:publish",
         "start:desktop": "pnpm run desktop:start"
     },
     "pnpm": {

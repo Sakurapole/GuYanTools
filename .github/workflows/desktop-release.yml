@@ -1,0 +1,69 @@
+name: Desktop Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: Desktop app version to release
+        required: true
+        default: '0.0.1'
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+jobs:
+  build-and-publish:
+    name: Build and publish desktop app
+    runs-on: windows-latest
+    env:
+      CI: true
+      GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Enable pnpm
+        shell: pwsh
+        run: |
+          corepack enable
+          corepack prepare pnpm@10.33.0 --activate
+
+      - name: Setup Rust
+        shell: pwsh
+        run: rustup default stable
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Validate release version
+        shell: pwsh
+        run: |
+          $packageVersion = node -p "require('./desktop/package.json').version"
+          if ('${{ github.event_name }}' -eq 'workflow_dispatch') {
+            $requestedVersion = '${{ inputs.version }}'
+            if ($requestedVersion -ne $packageVersion) {
+              throw "Workflow input version '$requestedVersion' does not match desktop/package.json version '$packageVersion'."
+            }
+          }
+          if ('${{ github.ref_type }}' -eq 'tag') {
+            $expectedTag = "v$packageVersion"
+            $actualTag = '${{ github.ref_name }}'
+            if ($actualTag -ne $expectedTag) {
+              throw "Git tag '$actualTag' does not match desktop/package.json version '$packageVersion' (expected '$expectedTag')."
+            }
+          }
+          "RELEASE_VERSION=$packageVersion" >> $env:GITHUB_ENV
+
+      - name: Build and publish GitHub release
+        run: pnpm run desktop:publish

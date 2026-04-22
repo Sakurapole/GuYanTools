@@ -28,7 +28,7 @@
     "build": "napi build --platform --release --features napi",
     "build:debug": "napi build --platform --features napi",
     "artifacts": "node -e \"const fs=require('fs'); console.log(fs.readdirSync('.').filter((file)=>file.endsWith('.node')).join('\\n'))\"",
-    "clean": "node -e \"const fs=require('fs'); for (const file of fs.readdirSync('.').filter((name)=>name.endsWith('.node'))) fs.unlinkSync(file)\""
+    "clean": "node scripts/clean-native-artifacts.cjs"
   },
   "devDependencies": {
     "@napi-rs/cli": "^3.4.1"

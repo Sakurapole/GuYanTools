@@ -9,11 +9,28 @@ import type { ForgeConfig } from '@electron-forge/shared-types';
 import { FuseV1Options, FuseVersion } from '@electron/fuses';
 
 const config: ForgeConfig = {
+  outDir: process.env.FORGE_OUT_DIR || undefined,
   packagerConfig: {
     asar: true,
   },
   rebuildConfig: {},
   makers: [new MakerSquirrel({}), new MakerZIP({}, ['darwin']), new MakerRpm({}), new MakerDeb({})],
+  publishers: [
+    {
+      name: '@electron-forge/publisher-github',
+      config: {
+        repository: {
+          owner: 'Sakurapole',
+          name: 'GuYanTools',
+        },
+        draft: false,
+        prerelease: false,
+        tagPrefix: 'v',
+        force: true,
+        generateReleaseNotes: true,
+      },
+    },
+  ],
   plugins: [
     new AutoUnpackNativesPlugin({}),
     new VitePlugin({

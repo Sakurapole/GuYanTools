@@ -58,6 +58,7 @@ coverage/
 desktop/.vite/
 desktop/dist/
 desktop/out/
+desktop/out-*/
 desktop/release/
 desktop/.webpack/
 desktop/build/
