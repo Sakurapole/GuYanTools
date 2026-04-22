@@ -43,6 +43,17 @@ jobs:
         shell: pwsh
         run: rustup default stable
 
+      - name: Setup WiX Toolset
+        shell: pwsh
+        run: |
+          $wixRoot = Join-Path $env:RUNNER_TEMP 'wix-3.14.1'
+          $zip = Join-Path $env:RUNNER_TEMP 'wix314-binaries.zip'
+          Invoke-WebRequest `
+            -Uri 'https://github.com/wixtoolset/wix3/releases/download/wix3141rtm/wix314-binaries.zip' `
+            -OutFile $zip
+          Expand-Archive -LiteralPath $zip -DestinationPath $wixRoot -Force
+          "$wixRoot" >> $env:GITHUB_PATH
+
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
