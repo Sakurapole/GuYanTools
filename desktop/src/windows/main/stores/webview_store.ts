@@ -26,6 +26,12 @@ export interface WebviewInstance {
   domain: string;
   /** 是否处于激活（可见）状态 */
   active: boolean;
+  /** 最近一次页面标题，用于后台列表恢复展示 */
+  title?: string;
+  /** 创建时间 */
+  createdAt: number;
+  /** 最近一次转入后台的时间 */
+  hiddenAt?: number;
 }
 
 export const useWebviewStore = defineStore('webview', () => {
@@ -79,6 +85,7 @@ export const useWebviewStore = defineStore('webview', () => {
     const existing = instances.value.find(inst => inst.url === url);
     if (existing) {
       existing.active = true;
+      existing.hiddenAt = undefined;
       activeUrl.value = url;
       return true;
     }
@@ -88,6 +95,7 @@ export const useWebviewStore = defineStore('webview', () => {
       url,
       domain,
       active: true,
+      createdAt: Date.now(),
     });
     activeUrl.value = url;
     return true;
@@ -96,9 +104,24 @@ export const useWebviewStore = defineStore('webview', () => {
   /** 取消所有保活 webview 的激活状态 */
   function deactivateAll() {
     for (const inst of instances.value) {
-      inst.active = false;
+      if (inst.active) {
+        inst.active = false;
+        inst.hiddenAt = Date.now();
+      }
     }
     activeUrl.value = null;
+  }
+
+  /** 隐藏一个保活实例，并保留在后台列表中以便后续恢复 */
+  function hideInstance(url: string) {
+    const inst = instances.value.find(item => item.url === url);
+    if (!inst) return;
+
+    inst.active = false;
+    inst.hiddenAt = Date.now();
+    if (activeUrl.value === url) {
+      activeUrl.value = null;
+    }
   }
 
   /** 移除一个保活实例（关闭 tab 时调用） */
@@ -112,11 +135,24 @@ export const useWebviewStore = defineStore('webview', () => {
     }
   }
 
+  /** 更新实例标题，供后台列表恢复入口展示 */
+  function updateInstanceTitle(url: string, title: string) {
+    const inst = instances.value.find(item => item.url === url);
+    if (!inst || !title) return;
+    inst.title = title;
+  }
+
   /** 是否有保活 webview 处于激活状态 */
   const hasActiveInstance = computed(() => activeUrl.value !== null);
 
+  /** 已隐藏但仍保留加载状态的网页列表，后续恢复入口可直接使用 */
+  const backgroundInstances = computed(() =>
+    instances.value.filter(inst => !inst.active),
+  );
+
   return {
     instances,
+    backgroundInstances,
     activeUrl,
     keepAliveDomains,
     hasActiveInstance,
@@ -124,6 +160,8 @@ export const useWebviewStore = defineStore('webview', () => {
     extractDomain,
     activate,
     deactivateAll,
+    hideInstance,
     removeInstance,
+    updateInstanceTitle,
   };
 });

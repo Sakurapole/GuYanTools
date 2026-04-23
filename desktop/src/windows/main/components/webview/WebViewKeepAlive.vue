@@ -105,6 +105,7 @@ function syncPageTitle(wvEl: any, instanceUrl: string) {
   if (!title || title === lastSyncedTitles[instanceUrl]) return;
 
   lastSyncedTitles[instanceUrl] = title;
+  webviewStore.updateInstanceTitle(instanceUrl, title);
 
   // 构造路由路径
   const encodedUrl = encodeURIComponent(instanceUrl);
@@ -155,6 +156,23 @@ function stopAllPolling() {
     clearInterval(pollTimers.value[url]);
   }
   pollTimers.value = {};
+}
+
+function cleanupInstanceState(instanceUrl: string) {
+  stopPolling(instanceUrl);
+  delete webviewRefs.value[instanceUrl];
+  delete navStates.value[instanceUrl];
+  delete domainStatuses.value[instanceUrl];
+  delete injectedScriptsMap.value[instanceUrl];
+  delete lastSyncedTitles[instanceUrl];
+  initializedUrls.value.delete(instanceUrl);
+
+  if (showScriptsDrawerFor.value === instanceUrl) {
+    showScriptsDrawerFor.value = null;
+  }
+  if (showGoogleLoginHintFor.value === instanceUrl) {
+    showGoogleLoginHintFor.value = null;
+  }
 }
 
 // ─── 初始化 webview 实例 ───
@@ -313,6 +331,28 @@ watch(
     }
   },
   { immediate: true },
+);
+
+watch(
+  () => webviewStore.instances.map(inst => inst.url),
+  (urls) => {
+    const liveUrls = new Set(urls);
+    const trackedUrls = new Set([
+      ...Object.keys(webviewRefs.value),
+      ...Object.keys(navStates.value),
+      ...Object.keys(domainStatuses.value),
+      ...Object.keys(injectedScriptsMap.value),
+      ...Object.keys(pollTimers.value),
+      ...Array.from(initializedUrls.value),
+      ...Object.keys(lastSyncedTitles),
+    ]);
+
+    for (const instanceUrl of trackedUrls) {
+      if (!liveUrls.has(instanceUrl)) {
+        cleanupInstanceState(instanceUrl);
+      }
+    }
+  },
 );
 
 onBeforeUnmount(() => {
