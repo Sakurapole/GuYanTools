@@ -983,6 +983,8 @@
 .ftp-panels {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(min(420px, 100%), 1fr));
+  width: 100%;
+  min-width: 0;
   gap: 0;
   min-height: 0;
   flex: 1;
@@ -1060,10 +1062,10 @@
 }
 
 /* 双端模式：两列，左本地、分割条、右堆叠双远程
-   实际列宽由父元素 inline style 覆盖： ${pct}% 5px ${100-pct}% */
+   实际比例由父元素 inline style 覆盖： minmax(0, ${pct}fr) 5px minmax(0, ${100-pct}fr) */
 .ftp-panels--parallel {
-  /* 默认 50/5px/50，拖拽时被内联样式实时覆盖 */
-  grid-template-columns: 50% 5px 50%;
+  /* 固定分割条从剩余宽度外扣除，避免 50% + 5px + 50% 超出容器 */
+  grid-template-columns: minmax(0, 1fr) 5px minmax(0, 1fr);
 
   /* remote-stack 是最右边的列，无需右边分割线 */
   > .ftp-panels__remote-stack {
@@ -1081,6 +1083,7 @@
   display: flex;
   flex-direction: column;
   gap: 0;
+  min-width: 0;
   min-height: 0;
   overflow: hidden;
 

@@ -769,6 +769,15 @@ const {
 const visibleBrowserPanelCount = computed(() =>
   Number(showLocalPanel.value) + Number(showRemotePanel.value) + Number(dualRemoteMode.value),
 );
+const browserPanelGridStyle = computed(() => {
+  if (!showLocalPanel.value || (!showRemotePanel.value && !dualRemoteMode.value) || panelLayoutMode.value !== 'columns') {
+    return undefined;
+  }
+
+  return {
+    gridTemplateColumns: `minmax(0, ${panelHSplitPct.value}fr) 5px minmax(0, ${100 - panelHSplitPct.value}fr)`,
+  };
+});
 const panelLayoutSummary = computed(() => (
   panelLayoutMode.value === 'columns' ? '当前为水平双栏布局' : '当前为纵向堆叠布局'
 ));
@@ -2564,7 +2573,7 @@ onBeforeUnmount(() => {
           `ftp-panels--${panelLayoutMode}`,
           { 'ftp-panels--single': visibleBrowserPanelCount <= 1, 'ftp-panels--parallel': dualRemoteMode },
         ]"
-        :style="(showLocalPanel && showRemotePanel) ? { gridTemplateColumns: `${panelHSplitPct}% 5px ${100 - panelHSplitPct}%` } : undefined"
+        :style="browserPanelGridStyle"
       >
         <!-- 双端模式：本地面板占第一列，两个远程面板在第二列垂直堆叠 -->
         <FtpBrowserPanel
@@ -2653,7 +2662,7 @@ onBeforeUnmount(() => {
 
         <!-- 水平分割条（只在并联模式且本地面板可见时显示） -->
         <div
-          v-if="dualRemoteMode && showLocalPanel"
+          v-if="dualRemoteMode && showLocalPanel && panelLayoutMode === 'columns'"
           class="ftp-panels__h-divider"
           @mousedown="startHDrag"
         />
@@ -2831,7 +2840,7 @@ onBeforeUnmount(() => {
 
         <!-- 非并联模式下本地与远程之间的水平分割条 -->
         <div
-          v-if="showLocalPanel && showRemotePanel && !dualRemoteMode"
+          v-if="showLocalPanel && showRemotePanel && !dualRemoteMode && panelLayoutMode === 'columns'"
           class="ftp-panels__h-divider"
           @mousedown="startHDrag"
         />
