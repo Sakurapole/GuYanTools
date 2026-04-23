@@ -4,6 +4,15 @@ import type { BrowserWindow } from 'electron';
 import { showTrayMenu, closeTrayMenu } from './tray_menu_window';
 
 let tray: Tray | null = null;
+const TRAY_ICON_FILENAME = 'icon_32.png';
+
+function resolveTrayIconPath(): string {
+  if (app.isPackaged) {
+    return path.join(process.resourcesPath, 'icons', TRAY_ICON_FILENAME);
+  }
+
+  return path.join(app.getAppPath(), 'src', 'assets', 'icons', TRAY_ICON_FILENAME);
+}
 
 /**
  * Initialize the system tray icon.
@@ -12,10 +21,12 @@ let tray: Tray | null = null;
  *   positioned directly next to the tray icon (screen coordinates).
  */
 export function initializeTray(getWindow: () => BrowserWindow | null) {
-  // Resolve icon relative to the app root directory
-  const appRoot = app.getAppPath();
-  const iconPath = path.join(appRoot, 'src/assets/icons/icon_32.png');
+  const iconPath = resolveTrayIconPath();
   const icon = nativeImage.createFromPath(iconPath);
+
+  if (icon.isEmpty()) {
+    console.warn(`[tray] Failed to load tray icon from ${iconPath}`);
+  }
 
   tray = new Tray(icon);
   tray.setToolTip('GuYan Tools');

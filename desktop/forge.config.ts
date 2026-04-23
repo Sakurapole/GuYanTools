@@ -55,6 +55,9 @@ const config: ForgeConfig = {
   outDir: process.env.FORGE_OUT_DIR || undefined,
   packagerConfig: {
     asar: true,
+    extraResource: [
+      path.resolve(__dirname, 'src', 'assets', 'icons'),
+    ],
     afterCopy: [copyNativeCorePackage],
   },
   rebuildConfig: {},
