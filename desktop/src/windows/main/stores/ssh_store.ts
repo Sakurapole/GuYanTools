@@ -37,6 +37,8 @@ export const useSshStore = defineStore('ssh', () => {
   // Per-session data buffers (stdout content for the Viewport)
   const sessionBuffers = ref<Record<string, string>>({});
   const sessionErrors = ref<Record<string, string>>({});
+  const sessionWorkingDirectories = ref<Record<string, string>>({});
+  const pendingInputLines = ref<Record<string, string>>({});
 
   // Port forwarding state
   const portForwards = ref<Record<string, SshPortForward[]>>({});
@@ -133,6 +135,7 @@ export const useSshStore = defineStore('ssh', () => {
   // ── I/O ──────────────────────────────────────────────────────
 
   async function write(sessionId: string, data: string) {
+    trackWorkingDirectoryFromInput(sessionId, data);
     await window.sshApi.write(sessionId, data);
   }
 
@@ -152,6 +155,10 @@ export const useSshStore = defineStore('ssh', () => {
 
   function getError(sessionId: string) {
     return sessionErrors.value[sessionId] ?? '';
+  }
+
+  function getSessionWorkingDirectory(sessionId: string) {
+    return sessionWorkingDirectories.value[sessionId] ?? '';
   }
 
   // ── Known hosts ───────────────────────────────────────────────
@@ -212,6 +219,7 @@ export const useSshStore = defineStore('ssh', () => {
   function handleEvent(event: SshEventEnvelope) {
     switch (event.eventType) {
       case 'data': {
+        updateWorkingDirectoryFromOutput(event.sessionId, event.data ?? '');
         sessionBuffers.value = {
           ...sessionBuffers.value,
           [event.sessionId]: `${sessionBuffers.value[event.sessionId] ?? ''}${event.data ?? ''}`,
@@ -288,6 +296,14 @@ export const useSshStore = defineStore('ssh', () => {
     const nextErrors = { ...sessionErrors.value };
     delete nextErrors[sessionId];
     sessionErrors.value = nextErrors;
+
+    const nextDirectories = { ...sessionWorkingDirectories.value };
+    delete nextDirectories[sessionId];
+    sessionWorkingDirectories.value = nextDirectories;
+
+    const nextPendingInputs = { ...pendingInputLines.value };
+    delete nextPendingInputs[sessionId];
+    pendingInputLines.value = nextPendingInputs;
 
     if (activeSshSessionId.value === sessionId) {
       activeSshSessionId.value =
@@ -421,6 +437,140 @@ export const useSshStore = defineStore('ssh', () => {
     return count;
   }
 
+  function trackWorkingDirectoryFromInput(sessionId: string, data: string) {
+    let pending = pendingInputLines.value[sessionId] ?? '';
+
+    for (const char of data) {
+      if (char === '\r' || char === '\n') {
+        applyCdCommand(sessionId, pending);
+        pending = '';
+        continue;
+      }
+
+      if (char === '\b' || char === '\u007f') {
+        pending = pending.slice(0, -1);
+        continue;
+      }
+
+      if (char >= ' ') {
+        pending += char;
+      }
+    }
+
+    pendingInputLines.value = {
+      ...pendingInputLines.value,
+      [sessionId]: pending,
+    };
+  }
+
+  function updateWorkingDirectoryFromOutput(sessionId: string, data: string) {
+    if (!data) return;
+
+    const currentDir = extractOscValue(data, ']1337;CurrentDir=');
+    if (currentDir) {
+      setSessionWorkingDirectory(sessionId, currentDir);
+    }
+
+    const osc7 = extractOscValue(data, ']7;file://');
+    if (osc7) {
+      const pathStart = osc7.indexOf('/');
+      const decodedPath = pathStart === -1 ? '' : safeDecodeOscPath(osc7.slice(pathStart));
+      if (decodedPath) {
+        setSessionWorkingDirectory(sessionId, decodedPath);
+      }
+    }
+  }
+
+  function extractOscValue(data: string, marker: string) {
+    const start = data.indexOf(`\u001b${marker}`);
+    if (start === -1) return '';
+
+    const valueStart = start + marker.length + 1;
+    const belEnd = data.indexOf('\u0007', valueStart);
+    const stEnd = data.indexOf('\u001b\\', valueStart);
+    const ends = [belEnd, stEnd].filter((index) => index !== -1);
+    const valueEnd = ends.length ? Math.min(...ends) : data.length;
+
+    return data.slice(valueStart, valueEnd);
+  }
+
+  function safeDecodeOscPath(path: string) {
+    try {
+      return decodeURIComponent(path);
+    } catch {
+      return path;
+    }
+  }
+
+  function setSessionWorkingDirectory(sessionId: string, value: string) {
+    const normalized = normalizeRemoteDirectory(value);
+    if (!normalized) return;
+    sessionWorkingDirectories.value = {
+      ...sessionWorkingDirectories.value,
+      [sessionId]: normalized,
+    };
+  }
+
+  function applyCdCommand(sessionId: string, line: string) {
+    const trimmed = line.trim();
+    if (!trimmed || trimmed === 'cd' || trimmed.startsWith('cd -')) {
+      return;
+    }
+
+    const match = trimmed.match(/^cd(?:\s+--)?\s+(.+)$/);
+    if (!match) return;
+
+    const rawTarget = stripWrappingQuotes(match[1].trim());
+    if (!rawTarget || rawTarget.startsWith('$')) return;
+
+    if (rawTarget === '~') {
+      return;
+    }
+
+    const current = sessionWorkingDirectories.value[sessionId] || '/';
+    const next = resolveRemoteDirectory(current, rawTarget);
+    if (!next) return;
+    setSessionWorkingDirectory(sessionId, next);
+  }
+
+  function stripWrappingQuotes(value: string) {
+    if (
+      (value.startsWith('"') && value.endsWith('"'))
+      || (value.startsWith('\'') && value.endsWith('\''))
+    ) {
+      return value.slice(1, -1);
+    }
+    return value;
+  }
+
+  function resolveRemoteDirectory(current: string, target: string) {
+    if (!target) return current;
+    if (target.startsWith('/')) {
+      return normalizeRemoteDirectory(target);
+    }
+    if (target.startsWith('~/')) {
+      return normalizeRemoteDirectory(target.slice(1));
+    }
+    return normalizeRemoteDirectory(`${current.replace(/\/+$/, '')}/${target}`);
+  }
+
+  function normalizeRemoteDirectory(path: string) {
+    const trimmed = path.trim();
+    if (!trimmed) return '';
+
+    const parts = trimmed.split('/').filter((part) => part.length > 0 && part !== '.');
+    const normalized: string[] = [];
+    for (const part of parts) {
+      if (part === '..') {
+        normalized.pop();
+      } else {
+        normalized.push(part);
+      }
+    }
+
+    return `/${normalized.join('/')}`.replace(/\/{2,}/g, '/');
+  }
+
   // ── Expose ────────────────────────────────────────────────────
 
   return {
@@ -454,6 +604,7 @@ export const useSshStore = defineStore('ssh', () => {
     clearBuffer,
     getBuffer,
     getError,
+    getSessionWorkingDirectory,
 
     // Known hosts
     refreshKnownHosts,

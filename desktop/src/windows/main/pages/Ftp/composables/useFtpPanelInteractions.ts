@@ -2,7 +2,7 @@ import { computed, ref, watch, type ComputedRef, type Ref } from 'vue';
 import DeleteIcon from '@/windows/main/components/svgs/icons/DeleteIcon.vue';
 import EditIcon from '@/windows/main/components/svgs/icons/EditIcon.vue';
 import { joinLocalPath, joinRemotePath, parentLocalPath, parentRemotePath } from '../utils/ftpPaths';
-import type { FileTransferEntry, FtpConnectionDescriptor, FtpProfile } from '@/contracts/ftp';
+import type { FileTransferEntry, FtpConnectionDescriptor } from '@/contracts/ftp';
 import type { useFtpStore } from '@/windows/main/stores/ftp_store';
 import type { ContextMenuItem } from '@/windows/main/composables/useContextMenu';
 import type { EntrySortKey, PanelKind } from '../types';

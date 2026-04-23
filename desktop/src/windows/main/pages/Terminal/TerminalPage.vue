@@ -347,69 +347,32 @@ function clearTerminal() {
   viewportRef.value?.clear();
 }
 
-function findMatchingFtpProfile(session: SshSessionDescriptor) {
-  const sessionHost = session.host.toLowerCase();
-  const sessionUser = session.username.toLowerCase();
-  return ftpStore.profiles.find((profile) => (
-    profile.protocol.toLowerCase() === 'sftp'
-    && (
-      profile.sshProfileId === session.profileId
-      || (
-        profile.host.toLowerCase() === sessionHost
-        && profile.username.toLowerCase() === sessionUser
-      )
-    )
-  )) ?? null;
-}
-
-async function ensureFtpProfileForSsh(profile: SshProfile, session: SshSessionDescriptor) {
-  const existing = findMatchingFtpProfile(session);
-  if (existing) return existing;
-  const baseLabel = `${profile.label} · SFTP`;
-  const label = ftpStore.profiles.some((item) => item.label === baseLabel)
-    ? `${baseLabel} (${session.host})`
-    : baseLabel;
-  return ftpStore.createProfile({
-    label,
-    protocol: 'sftp',
-    host: profile.host,
-    port: profile.port,
-    username: profile.username,
-    authType: profile.authType,
-    savePassword: profile.savePassword,
-    privateKeyPath: profile.privateKeyPath,
-    certificatePath: profile.certificatePath,
-    hostCaKeyPath: profile.hostCaKeyPath,
-    sshProfileId: profile.id,
-    defaultRemotePath: '/',
-    maxConcurrent: 2,
-  });
-}
-
-function canAutoConnectFtp(profile: SshProfile | null) {
-  if (!profile) return false;
-  return profile.authType !== 'password' || profile.savePassword;
-}
-
 async function openFileManagerForCurrentSsh() {
   const sshSession = activeSshSession.value;
   if (!sshSession) return;
-  await ftpStore.initialize();
   const sshProfile = activeSshProfile.value ?? sshStore.profiles.find((profile) => profile.id === sshSession.profileId) ?? null;
-  const targetProfile = sshProfile ? await ensureFtpProfileForSsh(sshProfile, sshSession) : findMatchingFtpProfile(sshSession);
-  if (targetProfile) {
-    const existingSession = ftpStore.sessions.find((session) => session.profileId === targetProfile.id) ?? null;
-    if (existingSession) {
-      ftpStore.focusSession(existingSession.sessionId);
-    } else if (canAutoConnectFtp(sshProfile)) {
-      try {
-        await ftpStore.connect({ profileId: targetProfile.id });
-      } catch (error) {
-        console.warn('[TerminalPage] auto-open FTP failed:', error);
-      }
-    }
+  if (!sshProfile) return;
+
+  ftpStore.setPendingOpenRequest({
+    requestId: crypto.randomUUID(),
+    source: 'ssh',
+    sshSessionId: sshSession.sessionId,
+    sshProfileId: sshProfile.id,
+    label: sshProfile.label,
+    host: sshProfile.host,
+    port: sshProfile.port,
+    username: sshProfile.username,
+    authType: sshProfile.authType,
+    savePassword: sshProfile.savePassword,
+    privateKeyPath: sshProfile.privateKeyPath,
+    certificatePath: sshProfile.certificatePath,
+    hostCaKeyPath: sshProfile.hostCaKeyPath,
+    remotePath: sshStore.getSessionWorkingDirectory(sshSession.sessionId) || '/',
+  });
+
+  if (route.path !== '/ftp') {
+    await router.push('/ftp');
   }
-  await router.push('/ftp');
 }
 
 onMounted(() => {

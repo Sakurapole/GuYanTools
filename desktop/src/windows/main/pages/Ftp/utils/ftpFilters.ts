@@ -31,7 +31,7 @@ export function highlightEntryName(name: string, query: string) {
 
   const tokens = hasWildcardQuery(normalizedQuery)
     ? normalizedQuery
-      .split(/[\*\?]+/)
+      .split(/[*?]+/)
       .map((token) => token.trim())
       .filter(Boolean)
     : [normalizedQuery];

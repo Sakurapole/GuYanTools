@@ -437,7 +437,10 @@ class FtpHost {
 export const ftpHost = new FtpHost();
 
 function sanitizeDraftFileName(fileName: string) {
-  return fileName.replace(/[<>:"/\\|?*\u0000-\u001F]/g, '_');
+  const reservedChars = new Set(['<', '>', ':', '"', '/', '\\', '|', '?', '*']);
+  return [...fileName]
+    .map((char) => (reservedChars.has(char) || char.charCodeAt(0) < 32 ? '_' : char))
+    .join('');
 }
 
 function uniqueLocalName(baseName: string, usedNames: Set<string>) {
