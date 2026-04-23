@@ -366,6 +366,20 @@ function handleTitleKeydown(e: KeyboardEvent) {
 
 <style lang="scss" scoped>
 .terminal-toolbar {
+  --terminal-toolbar-action-bg: transparent;
+  --terminal-toolbar-action-border: transparent;
+  --terminal-toolbar-action-text: var(--ui-button-ghost-text);
+  --terminal-toolbar-action-hover-bg: var(--ui-button-ghost-hover-bg);
+  --terminal-toolbar-action-hover-border: transparent;
+  --terminal-toolbar-action-hover-text: var(--ui-button-ghost-hover-text);
+  --terminal-toolbar-action-active-bg: var(--ui-tabs-active-bg);
+  --terminal-toolbar-action-active-border: var(--ui-border-accent-soft);
+  --terminal-toolbar-action-active-text: var(--primary-color);
+  --terminal-toolbar-action-disabled-text: var(--ui-text-subtle);
+  --terminal-toolbar-overflow-bg: var(--ui-menu-bg);
+  --terminal-toolbar-overflow-border: var(--ui-border-subtle);
+  --terminal-toolbar-overflow-shadow: var(--ui-menu-shadow);
+
   display: flex;
   justify-content: space-between;
   align-items: center;
@@ -374,6 +388,30 @@ function handleTitleKeydown(e: KeyboardEvent) {
   border-bottom: 1px solid var(--ui-border-subtle);
   min-height: 54px;
   box-sizing: border-box;
+}
+
+:global(.light) .terminal-toolbar {
+  --terminal-toolbar-action-text: rgba(30, 70, 90, 0.7);
+  --terminal-toolbar-action-hover-bg: rgba(102, 204, 255, 0.12);
+  --terminal-toolbar-action-hover-text: rgba(30, 70, 90, 0.95);
+  --terminal-toolbar-action-active-bg: rgba(102, 204, 255, 0.18);
+  --terminal-toolbar-action-active-border: rgba(92, 157, 237, 0.28);
+  --terminal-toolbar-action-active-text: #1d6fa5;
+  --terminal-toolbar-overflow-bg: rgba(255, 255, 255, 0.98);
+  --terminal-toolbar-overflow-border: rgba(15, 23, 42, 0.08);
+  --terminal-toolbar-overflow-shadow: 0 12px 32px rgba(9, 38, 64, 0.14);
+}
+
+:global(.dark) .terminal-toolbar {
+  --terminal-toolbar-action-text: rgba(220, 240, 255, 0.72);
+  --terminal-toolbar-action-hover-bg: rgba(102, 204, 255, 0.16);
+  --terminal-toolbar-action-hover-text: rgba(240, 250, 255, 0.96);
+  --terminal-toolbar-action-active-bg: rgba(102, 204, 255, 0.2);
+  --terminal-toolbar-action-active-border: rgba(102, 204, 255, 0.28);
+  --terminal-toolbar-action-active-text: #8edcff;
+  --terminal-toolbar-overflow-bg: rgba(20, 35, 45, 0.98);
+  --terminal-toolbar-overflow-border: rgba(255, 255, 255, 0.08);
+  --terminal-toolbar-overflow-shadow: 0 12px 32px rgba(0, 0, 0, 0.36);
 }
 
 .terminal-toolbar__left {
@@ -440,9 +478,9 @@ function handleTitleKeydown(e: KeyboardEvent) {
   gap: 5px;
   padding: 4px 10px;
   border-radius: 6px;
-  background: transparent;
-  border: 1px solid transparent;
-  color: var(--ui-text-secondary);
+  background: var(--terminal-toolbar-action-bg);
+  border: 1px solid var(--terminal-toolbar-action-border);
+  color: var(--terminal-toolbar-action-text);
   cursor: pointer;
   transition: all 0.2s ease;
   white-space: nowrap;
@@ -450,19 +488,21 @@ function handleTitleKeydown(e: KeyboardEvent) {
   height: 28px;
 
   &:hover:not(:disabled) {
-    background: var(--ui-button-ghost-hover-bg);
-    color: var(--ui-text-primary);
+    background: var(--terminal-toolbar-action-hover-bg);
+    border-color: var(--terminal-toolbar-action-hover-border);
+    color: var(--terminal-toolbar-action-hover-text);
   }
 
   &:disabled {
-    opacity: 0.4;
+    color: var(--terminal-toolbar-action-disabled-text);
+    opacity: 0.52;
     cursor: not-allowed;
   }
 
   &--active {
-    background: rgba(var(--primary-rgb, 99 102 241), 0.15);
-    color: var(--primary-color);
-    border-color: rgba(var(--primary-rgb, 99 102 241), 0.3);
+    background: var(--terminal-toolbar-action-active-bg);
+    color: var(--terminal-toolbar-action-active-text);
+    border-color: var(--terminal-toolbar-action-active-border);
   }
 
   &__label {
@@ -479,26 +519,28 @@ function handleTitleKeydown(e: KeyboardEvent) {
   width: 28px;
   height: 28px;
   border-radius: 6px;
-  background: transparent;
-  border: 1px solid transparent;
-  color: var(--ui-text-secondary);
+  background: var(--terminal-toolbar-action-bg);
+  border: 1px solid var(--terminal-toolbar-action-border);
+  color: var(--terminal-toolbar-action-text);
   cursor: pointer;
   transition: all 0.2s ease;
 
   &:hover:not(:disabled) {
-    background: var(--ui-button-ghost-hover-bg);
-    color: var(--ui-text-primary);
+    background: var(--terminal-toolbar-action-hover-bg);
+    border-color: var(--terminal-toolbar-action-hover-border);
+    color: var(--terminal-toolbar-action-hover-text);
   }
 
   &:disabled {
-    opacity: 0.4;
+    color: var(--terminal-toolbar-action-disabled-text);
+    opacity: 0.52;
     cursor: not-allowed;
   }
 
   &--active {
-    background: rgba(var(--primary-rgb, 99 102 241), 0.15);
-    color: var(--primary-color);
-    border-color: rgba(var(--primary-rgb, 99 102 241), 0.3);
+    background: var(--terminal-toolbar-action-active-bg);
+    color: var(--terminal-toolbar-action-active-text);
+    border-color: var(--terminal-toolbar-action-active-border);
   }
 }
 
@@ -528,9 +570,9 @@ function handleTitleKeydown(e: KeyboardEvent) {
   min-width: 160px;
   padding: 6px;
   border-radius: var(--ui-radius-lg, 10px);
-  background: var(--ui-surface-panel);
-  border: 1px solid var(--ui-border-subtle);
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.24), 0 2px 8px rgba(0, 0, 0, 0.12);
+  background: var(--terminal-toolbar-overflow-bg);
+  border: 1px solid var(--terminal-toolbar-overflow-border);
+  box-shadow: var(--terminal-toolbar-overflow-shadow);
   backdrop-filter: blur(12px);
 
   // Hidden by default
@@ -550,24 +592,26 @@ function handleTitleKeydown(e: KeyboardEvent) {
   border: none;
   border-radius: var(--ui-radius-md, 6px);
   background: transparent;
-  color: var(--ui-text-secondary);
+  color: var(--terminal-toolbar-action-text);
   cursor: pointer;
   transition: all 0.15s ease;
   font-size: 12px;
   white-space: nowrap;
 
   &:hover:not(:disabled) {
-    background: var(--ui-button-ghost-hover-bg);
-    color: var(--ui-text-primary);
+    background: var(--terminal-toolbar-action-hover-bg);
+    color: var(--terminal-toolbar-action-hover-text);
   }
 
   &:disabled {
-    opacity: 0.4;
+    color: var(--terminal-toolbar-action-disabled-text);
+    opacity: 0.52;
     cursor: not-allowed;
   }
 
   &--active {
-    color: var(--primary-color);
+    background: var(--terminal-toolbar-action-active-bg);
+    color: var(--terminal-toolbar-action-active-text);
   }
 
   &__label {
