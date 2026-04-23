@@ -1,5 +1,5 @@
 <script lang="ts" setup>
-import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch, shallowRef } from 'vue';
+import { computed, nextTick, onActivated, onBeforeUnmount, onDeactivated, onMounted, ref, watch, shallowRef } from 'vue';
 import { useGridCollision } from '../../composables/useGridCollision';
 import { useGridDrag } from '../../composables/useGridDrag';
 import { useGridLayout } from '../../composables/useGridLayout';
@@ -395,6 +395,7 @@ watch(() => props.category.id, () => {
 });
 
 onMounted(() => {
+  enableCategoryVideoAutoplay();
   compAreaViewport.value = compAreaScrollbar.value?.viewportRef ?? null;
   updateUnitSize(() => {
     lastColNum = colNum.value;
@@ -410,6 +411,7 @@ onMounted(() => {
 });
 
 onBeforeUnmount(() => {
+  disableCategoryVideoAutoplay();
   window.removeEventListener('resize', handleResize);
   cancelReflow();
   cleanupDrag();
@@ -422,6 +424,10 @@ const catBgSize = shallowRef('cover');
 const catBgPosition = shallowRef('center');
 const catBgRepeat = shallowRef('no-repeat');
 const catBgOpacity = shallowRef(1);
+const categoryBgVideoRef = ref<HTMLVideoElement | null>(null);
+const shouldAutoPlayCategoryVideo = ref(false);
+let categoryVideoResumeTimer: ReturnType<typeof setTimeout> | null = null;
+let categoryVideoWatchdogTimer: ReturnType<typeof setInterval> | null = null;
 
 function syncCategoryBackground() {
   const cat = props.category;
@@ -478,6 +484,78 @@ const categoryBackgroundMemoKey = computed(() => [
   catBgRepeat.value,
   String(catBgOpacity.value),
 ].join('::'));
+
+function clearCategoryVideoResumeTimer() {
+  if (categoryVideoResumeTimer) {
+    clearTimeout(categoryVideoResumeTimer);
+    categoryVideoResumeTimer = null;
+  }
+}
+
+function ensureCategoryVideoPlayback() {
+  const video = categoryBgVideoRef.value;
+  if (!video || !shouldAutoPlayCategoryVideo.value || !catBgVideo.value) return;
+
+  video.muted = true;
+  video.loop = true;
+  video.autoplay = true;
+  video.playsInline = true;
+
+  if (video.paused || video.ended) {
+    void video.play().catch(() => {
+      scheduleCategoryVideoPlayback(500);
+    });
+  }
+}
+
+function scheduleCategoryVideoPlayback(delay = 0) {
+  clearCategoryVideoResumeTimer();
+  categoryVideoResumeTimer = setTimeout(() => {
+    categoryVideoResumeTimer = null;
+    ensureCategoryVideoPlayback();
+  }, delay);
+}
+
+function startCategoryVideoWatchdog() {
+  if (categoryVideoWatchdogTimer) return;
+
+  categoryVideoWatchdogTimer = setInterval(() => {
+    const video = categoryBgVideoRef.value;
+    if (!video || !catBgVideo.value || !shouldAutoPlayCategoryVideo.value) return;
+
+    if (video.paused || video.ended || video.readyState < video.HAVE_CURRENT_DATA) {
+      ensureCategoryVideoPlayback();
+    }
+  }, 1000);
+}
+
+function stopCategoryVideoWatchdog() {
+  if (categoryVideoWatchdogTimer) {
+    clearInterval(categoryVideoWatchdogTimer);
+    categoryVideoWatchdogTimer = null;
+  }
+  clearCategoryVideoResumeTimer();
+}
+
+function enableCategoryVideoAutoplay() {
+  shouldAutoPlayCategoryVideo.value = true;
+  startCategoryVideoWatchdog();
+  void nextTick(() => scheduleCategoryVideoPlayback());
+}
+
+function disableCategoryVideoAutoplay() {
+  shouldAutoPlayCategoryVideo.value = false;
+  stopCategoryVideoWatchdog();
+}
+
+watch(catBgVideo, () => {
+  if (shouldAutoPlayCategoryVideo.value) {
+    void nextTick(() => scheduleCategoryVideoPlayback());
+  }
+});
+
+onActivated(enableCategoryVideoAutoplay);
+onDeactivated(disableCategoryVideoAutoplay);
 </script>
 
 <template>
@@ -489,8 +567,22 @@ const categoryBackgroundMemoKey = computed(() => [
   >
     <!-- 类别背景层 -->
     <div v-if="hasCategoryBackground" v-memo="[categoryBackgroundMemoKey]" class="comp-area-bg" :style="categoryBgStyle">
-      <video v-if="catBgVideo" class="comp-area-bg__video" :src="catBgVideo"
-        autoplay loop muted playsinline />
+      <video
+        v-if="catBgVideo"
+        ref="categoryBgVideoRef"
+        class="comp-area-bg__video"
+        :src="catBgVideo"
+        autoplay
+        loop
+        muted
+        playsinline
+        @loadedmetadata="scheduleCategoryVideoPlayback()"
+        @canplay="scheduleCategoryVideoPlayback()"
+        @pause="scheduleCategoryVideoPlayback(250)"
+        @ended="scheduleCategoryVideoPlayback()"
+        @stalled="scheduleCategoryVideoPlayback(500)"
+        @error="scheduleCategoryVideoPlayback(1000)"
+      />
     </div>
 
     <div class="comp-area" ref="compArea" :style="compAreaStyle" @contextmenu="handleAreaContextMenu">
