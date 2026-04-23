@@ -314,6 +314,94 @@ const {
   showConfirm,
   changeRemotePermissions,
 });
+const processingPendingOpenRequest = ref(false);
+
+function findSftpProfileForPendingOpenRequest(request: NonNullable<typeof ftpStore.pendingOpenRequest>) {
+  const requestHost = request.host.toLowerCase();
+  const requestUser = request.username.toLowerCase();
+  return ftpStore.profiles.find((profile) => (
+    profile.protocol.toLowerCase() === 'sftp'
+    && (
+      profile.sshProfileId === request.sshProfileId
+      || (
+        profile.host.toLowerCase() === requestHost
+        && profile.username.toLowerCase() === requestUser
+      )
+    )
+  )) ?? null;
+}
+
+async function ensureSftpProfileForPendingOpenRequest(request: NonNullable<typeof ftpStore.pendingOpenRequest>) {
+  const existing = findSftpProfileForPendingOpenRequest(request);
+  if (existing) return existing;
+
+  const baseLabel = `${request.label} · SFTP`;
+  const label = ftpStore.profiles.some((profile) => profile.label === baseLabel)
+    ? `${baseLabel} (${request.host})`
+    : baseLabel;
+
+  return ftpStore.createProfile({
+    label,
+    protocol: 'sftp',
+    host: request.host,
+    port: request.port,
+    username: request.username,
+    authType: request.authType,
+    savePassword: request.savePassword,
+    privateKeyPath: request.privateKeyPath,
+    certificatePath: request.certificatePath,
+    hostCaKeyPath: request.hostCaKeyPath,
+    sshProfileId: request.sshProfileId,
+    defaultRemotePath: request.remotePath || '/',
+    defaultLocalPath: ftpStore.localPath || '',
+    maxConcurrent: 2,
+  });
+}
+
+async function processPendingOpenRequest() {
+  const request = ftpStore.pendingOpenRequest;
+  if (!request || route.name !== 'FileTransfer' || processingPendingOpenRequest.value) return;
+
+  processingPendingOpenRequest.value = true;
+  actionError.value = '';
+
+  try {
+    busyMessage.value = `正在打开 ${request.label}...`;
+    const targetProfile = await ensureSftpProfileForPendingOpenRequest(request);
+    const existingSession = ftpStore.sessions.find((session) => session.profileId === targetProfile.id) ?? null;
+
+    if (existingSession) {
+      ftpStore.focusSession(existingSession.sessionId, request.remotePath || existingSession.remoteRoot);
+      if (request.remotePath && request.remotePath !== (ftpStore.remotePath || existingSession.remoteRoot)) {
+        busyMessage.value = `正在打开 ${request.remotePath}...`;
+        await ftpStore.refreshRemoteDirectory(request.remotePath);
+      }
+      ftpStore.clearPendingOpenRequest(request.requestId);
+      return;
+    }
+
+    await connectProfile(targetProfile);
+
+    const connectedSession = ftpStore.sessions.find((session) => session.profileId === targetProfile.id) ?? null;
+    if (!connectedSession) {
+      return;
+    }
+
+    ftpStore.focusSession(connectedSession.sessionId, request.remotePath || connectedSession.remoteRoot);
+    if (request.remotePath && request.remotePath !== connectedSession.remoteRoot) {
+      busyMessage.value = `正在打开 ${request.remotePath}...`;
+      await ftpStore.refreshRemoteDirectory(request.remotePath);
+    }
+    ftpStore.clearPendingOpenRequest(request.requestId);
+  } catch (error) {
+    actionError.value = error instanceof Error ? error.message : String(error);
+  } finally {
+    processingPendingOpenRequest.value = false;
+    if (!ftpStore.pendingOpenRequest) {
+      busyMessage.value = '';
+    }
+  }
+}
 
 const sortedTransferTasks = computed(() =>
   [...ftpStore.transferTasks].sort((left, right) =>
@@ -2235,6 +2323,25 @@ watch([showQueuePanel, showLogPanel], ([queueVisible, logVisible]) => {
   }
 });
 
+watch(
+  [
+    () => route.name,
+    () => ftpStore.initialized,
+    () => ftpStore.pendingOpenRequest?.requestId || '',
+    () => ftpStore.sessions.map((session) => session.sessionId).join('|'),
+  ],
+  ([routeName, initialized]) => {
+    if (routeName !== 'FileTransfer' || !initialized) return;
+    void processPendingOpenRequest();
+  },
+  { immediate: false },
+);
+
+async function initializeFtpPage() {
+  await initializePage();
+  await processPendingOpenRequest();
+}
+
 onMounted(() => {
   globalStore.setTopbarColor('');
   loadPanelLayout();
@@ -2245,7 +2352,7 @@ onMounted(() => {
   void reloadScheduledTasks();
   void reloadWindowsContextMenuStatus();
   void reloadPendingExternalPaths();
-  void initializePage();
+  void initializeFtpPage();
   window.addEventListener('keydown', handleExplorerPasteShortcut);
   window.addEventListener('resize', updateViewportState);
 });

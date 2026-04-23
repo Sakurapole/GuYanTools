@@ -3,7 +3,7 @@ import * as fs from 'node:fs/promises';
 import * as path from 'node:path';
 import { ftpHost } from './host';
 import { runFtpTransfer } from './runner';
-import type { FtpEventEnvelope, TransferTask } from '@/contracts/ftp';
+import type { FtpEventEnvelope } from '@/contracts/ftp';
 
 export type FtpScheduleType = 'once' | 'hourly' | 'daily' | 'weekly' | 'cron';
 

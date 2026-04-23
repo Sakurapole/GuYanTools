@@ -15,6 +15,7 @@ import type {
   UpdateFtpProfileInput,
   UpdateFtpSessionFolderInput,
 } from '@/contracts/ftp';
+import type { SshProfile } from '@/contracts/ssh';
 
 const LOCAL_WORKSPACE_STORAGE_KEY = 'guyantools.ftp.local-workspaces';
 const MAX_FTP_LOGS = 200;
@@ -26,6 +27,23 @@ type FtpLogEntry = {
   message: string;
 };
 
+export type PendingFtpOpenRequest = {
+  requestId: string;
+  source: 'ssh';
+  sshSessionId: string;
+  sshProfileId: string;
+  label: string;
+  host: string;
+  port: number;
+  username: string;
+  authType: SshProfile['authType'];
+  savePassword: boolean;
+  privateKeyPath?: string;
+  certificatePath?: string;
+  hostCaKeyPath?: string;
+  remotePath: string;
+};
+
 export const useFtpStore = defineStore('ftp', () => {
   const profiles = ref<FtpProfile[]>([]);
   const folders = ref<FtpSessionFolder[]>([]);
@@ -35,6 +53,7 @@ export const useFtpStore = defineStore('ftp', () => {
   const restoreFailures = ref<Array<{ profileId: string; errorMessage: string }>>([]);
   const logs = ref<FtpLogEntry[]>([]);
   const activeSessionId = ref('');
+  const pendingOpenRequest = ref<PendingFtpOpenRequest | null>(null);
 
   const localPath = ref('');
   const remotePath = ref('');
@@ -155,8 +174,10 @@ export const useFtpStore = defineStore('ftp', () => {
     await window.ftpApi.disconnect(sessionId);
     sessions.value = sessions.value.filter((session) => session.sessionId !== sessionId);
     if (session) {
-      const { [sessionId]: _local, ...nextLocal } = sessionLocalPaths.value;
-      const { [sessionId]: _remote, ...nextRemote } = sessionRemotePaths.value;
+      const nextLocal = { ...sessionLocalPaths.value };
+      const nextRemote = { ...sessionRemotePaths.value };
+      delete nextLocal[sessionId];
+      delete nextRemote[sessionId];
       sessionLocalPaths.value = nextLocal;
       sessionRemotePaths.value = nextRemote;
       await window.ftpApi.deleteRestoreState(session.profileId);
@@ -176,11 +197,11 @@ export const useFtpStore = defineStore('ftp', () => {
     }
   }
 
-  function focusSession(sessionId: string) {
+  function focusSession(sessionId: string, preferredRemotePath?: string) {
     const session = sessions.value.find((item) => item.sessionId === sessionId);
     if (!session) return;
     activeSessionId.value = sessionId;
-    remotePath.value = sessionRemotePaths.value[sessionId] || session.remoteRoot;
+    remotePath.value = preferredRemotePath || sessionRemotePaths.value[sessionId] || session.remoteRoot;
     localPath.value = sessionLocalPaths.value[sessionId] || localPath.value || session.localRoot;
     void Promise.all([
       refreshRemoteDirectory(remotePath.value || session.remoteRoot),
@@ -481,6 +502,16 @@ export const useFtpStore = defineStore('ftp', () => {
     logs.value = [];
   }
 
+  function setPendingOpenRequest(request: PendingFtpOpenRequest) {
+    pendingOpenRequest.value = request;
+  }
+
+  function clearPendingOpenRequest(requestId?: string) {
+    if (!pendingOpenRequest.value) return;
+    if (requestId && pendingOpenRequest.value.requestId !== requestId) return;
+    pendingOpenRequest.value = null;
+  }
+
   async function restorePreviousSessions() {
     if (!restoreStates.value.length) return;
 
@@ -577,6 +608,7 @@ export const useFtpStore = defineStore('ftp', () => {
     logs,
     activeSessionId,
     activeSession,
+    pendingOpenRequest,
     localPath,
     remotePath,
     localEntries,
@@ -624,6 +656,8 @@ export const useFtpStore = defineStore('ftp', () => {
     pauseAllTasks,
     resumeAllTasks,
     clearLogs,
+    setPendingOpenRequest,
+    clearPendingOpenRequest,
     addLocalWorkspace,
     pickLocalWorkspace,
     removeLocalWorkspace,

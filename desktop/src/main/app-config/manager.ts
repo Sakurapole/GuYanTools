@@ -483,7 +483,7 @@ export class AppConfigManager {
         shortcuts: normalizeShortcuts(JSON.parse(payload)),
         shouldPersist: false,
       };
-    } catch (error) {
+    } catch {
       return {
         shortcuts: cloneConfig(defaults),
         shouldPersist: true,

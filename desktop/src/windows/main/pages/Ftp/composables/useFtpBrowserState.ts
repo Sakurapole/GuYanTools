@@ -2,7 +2,7 @@ import { computed, onMounted, reactive, ref, watch, type ComputedRef } from 'vue
 import { panelFilterSummary, clonePanelFilterState, matchesPanelFilter } from '../utils/ftpFilters';
 import { baseName, buildPathSuggestions } from '../utils/ftpPaths';
 import { sortEntries } from '../utils/ftpSort';
-import type { FileTransferEntry, FtpConnectionDescriptor } from '@/contracts/ftp';
+import type { FtpConnectionDescriptor } from '@/contracts/ftp';
 import type { useFtpStore } from '@/windows/main/stores/ftp_store';
 import type { EntrySortKey, PanelFilterMode, PanelFilterPreset, PanelFilterState } from '../types';
 
