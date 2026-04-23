@@ -1,5 +1,10 @@
 <script setup lang="ts">
 import { computed, reactive, ref, watch } from 'vue';
+import UiButton from '@/windows/main/components/ui/UiButton.vue';
+import UiCheckbox from '@/windows/main/components/ui/UiCheckbox.vue';
+import UiInput from '@/windows/main/components/ui/UiInput.vue';
+import UiScrollbar from '@/windows/main/components/ui/UiScrollbar.vue';
+import UiSelect from '@/windows/main/components/ui/UiSelect.vue';
 import { useSshStore } from '@/windows/main/stores/ssh_store';
 import type { CreateSshProfileInput, SshProfile, UpdateSshProfileInput } from '@/contracts/ssh';
 
@@ -68,6 +73,23 @@ const dialogTitle = computed(() => (isEdit.value ? '编辑 SSH 配置' : '新建
 const privateKeyPlaceholder = computed(() =>
   isEdit.value ? '未重新选择则保持当前私钥文件' : '请选择私钥文件',
 );
+const authTypeOptions = computed(() =>
+  AUTH_TYPES.map((item) => ({ label: item.label, value: item.value })),
+);
+
+function updatePort(value: string) {
+  const next = Number(value);
+  form.port = Number.isFinite(next) ? next : 0;
+}
+
+function updateJumpPort(value: string) {
+  const next = Number(value);
+  form.jumpPort = Number.isFinite(next) ? next : 0;
+}
+
+function updateJumpAuthType(value: string | number) {
+  form.jumpAuthType = String(value) as AuthType;
+}
 
 // ── Populate form when dialog opens ──────────────────────────
 
@@ -310,25 +332,35 @@ function clearSelectedCertificate() {
 
           <!-- Body -->
           <div class="sp-dialog__body">
-            <!-- Basic info -->
-            <div class="sp-section">
+            <UiScrollbar class="sp-dialog__scroll" :x="false" :size="6">
+              <div class="sp-dialog__content">
+                <!-- Basic info -->
+                <div class="sp-section">
               <div class="sp-section__title">基本信息</div>
               <div class="sp-grid sp-grid--2">
                 <div class="sp-field sp-field--full">
                   <label class="sp-label">配置名称 <span class="sp-required">*</span></label>
-                  <input v-model="form.label" class="sp-input" placeholder="例如：我的服务器" id="ssh-profile-label" />
+                  <UiInput v-model="form.label" size="sm" placeholder="例如：我的服务器" id="ssh-profile-label" />
                 </div>
                 <div class="sp-field">
                   <label class="sp-label">主机地址 <span class="sp-required">*</span></label>
-                  <input v-model="form.host" class="sp-input" placeholder="192.168.1.1 或 example.com" id="ssh-profile-host" />
+                  <UiInput v-model="form.host" size="sm" placeholder="192.168.1.1 或 example.com" id="ssh-profile-host" />
                 </div>
                 <div class="sp-field">
                   <label class="sp-label">端口</label>
-                  <input v-model.number="form.port" class="sp-input" type="number" min="1" max="65535" id="ssh-profile-port" />
+                  <UiInput
+                    :model-value="String(form.port)"
+                    size="sm"
+                    type="number"
+                    :min="1"
+                    :max="65535"
+                    id="ssh-profile-port"
+                    @update:modelValue="updatePort"
+                  />
                 </div>
                 <div class="sp-field">
                   <label class="sp-label">用户名 <span class="sp-required">*</span></label>
-                  <input v-model="form.username" class="sp-input" placeholder="root" id="ssh-profile-username" />
+                  <UiInput v-model="form.username" size="sm" placeholder="root" id="ssh-profile-username" />
                 </div>
                 <!-- Color tag -->
                 <div class="sp-field">
@@ -372,13 +404,12 @@ function clearSelectedCertificate() {
                 <div class="sp-grid sp-grid--1" style="margin-top: 12px">
                   <div class="sp-field">
                     <label class="sp-label">密码</label>
-                    <input v-model="form.password" class="sp-input" type="password"
+                    <UiInput v-model="form.password" size="sm" type="password"
                       :placeholder="isEdit ? '留空则保持不变' : '输入密码'" id="ssh-profile-password" />
                   </div>
-                  <label class="sp-checkbox">
-                    <input v-model="form.savePassword" type="checkbox" id="ssh-save-password" />
-                    <span>记住密码（加密存储到系统密钥链）</span>
-                  </label>
+                  <UiCheckbox v-model="form.savePassword" size="sm" id="ssh-save-password">
+                    记住密码（加密存储到系统密钥链）
+                  </UiCheckbox>
                 </div>
               </template>
 
@@ -388,29 +419,33 @@ function clearSelectedCertificate() {
                   <div class="sp-field">
                     <label class="sp-label">私钥文件路径</label>
                     <div class="sp-input-action">
-                      <input
-                        :value="form.privateKeyPath"
-                        class="sp-input"
+                      <UiInput
+                        :model-value="form.privateKeyPath"
+                        size="sm"
                         :placeholder="privateKeyPlaceholder"
                         id="ssh-private-key-path"
                         readonly
                       />
-                      <button
-                        class="sp-btn sp-btn--ghost sp-btn--inline"
+                      <UiButton
+                        class="sp-inline-btn"
+                        variant="ghost"
+                        size="sm"
                         type="button"
                         :disabled="pickingPrivateKey"
                         @click="handleSelectPrivateKey"
                       >
                         {{ pickingPrivateKey ? '选择中...' : '选择文件' }}
-                      </button>
-                      <button
+                      </UiButton>
+                      <UiButton
                         v-if="form.privateKeyPath"
-                        class="sp-btn sp-btn--ghost sp-btn--inline"
+                        class="sp-inline-btn"
+                        variant="ghost"
+                        size="sm"
                         type="button"
                         @click="clearSelectedPrivateKey"
                       >
                         清空
-                      </button>
+                      </UiButton>
                     </div>
                     <span v-if="isEdit && !form.privateKeyPath" class="sp-hint">
                       未重新选择时，将继续使用当前已保存的私钥文件。
@@ -418,12 +453,12 @@ function clearSelectedCertificate() {
                   </div>
                   <div class="sp-field">
                     <label class="sp-label">私钥密码短语（可留空）</label>
-                    <input v-model="form.privateKeyPassphrase" class="sp-input" type="password"
+                    <UiInput v-model="form.privateKeyPassphrase" size="sm" type="password"
                       placeholder="Passphrase" id="ssh-key-passphrase" />
                   </div>
                   <div class="sp-field">
                     <label class="sp-label">主机 CA 公钥（可选）</label>
-                    <input v-model="form.hostCaKeyPath" class="sp-input"
+                    <UiInput v-model="form.hostCaKeyPath" size="sm"
                       placeholder="C:\\Users\\me\\.ssh\\ssh_host_ca.pub" id="ssh-host-ca-path" />
                     <span class="sp-hint">
                       服务器使用 OpenSSH Host Certificate 时，可指定签发该证书的 CA 公钥路径。
@@ -432,29 +467,33 @@ function clearSelectedCertificate() {
                   <div class="sp-field">
                     <label class="sp-label">OpenSSH 用户证书（可选）</label>
                     <div class="sp-input-action">
-                      <input
-                        :value="form.certificatePath"
-                        class="sp-input"
+                      <UiInput
+                        :model-value="form.certificatePath"
+                        size="sm"
                         placeholder="选择 *-cert.pub 证书文件"
                         id="ssh-certificate-path"
                         readonly
                       />
-                      <button
-                        class="sp-btn sp-btn--ghost sp-btn--inline"
+                      <UiButton
+                        class="sp-inline-btn"
+                        variant="ghost"
+                        size="sm"
                         type="button"
                         :disabled="pickingCertificate"
                         @click="handleSelectCertificate"
                       >
                         {{ pickingCertificate ? '选择中...' : '选择文件' }}
-                      </button>
-                      <button
+                      </UiButton>
+                      <UiButton
                         v-if="form.certificatePath"
-                        class="sp-btn sp-btn--ghost sp-btn--inline"
+                        class="sp-inline-btn"
+                        variant="ghost"
+                        size="sm"
                         type="button"
                         @click="clearSelectedCertificate"
                       >
                         清空
-                      </button>
+                      </UiButton>
                     </div>
                     <span class="sp-hint">
                       选择 OpenSSH CA 签发的用户证书后，会改用证书认证；未选择时继续使用普通公钥认证。
@@ -479,33 +518,44 @@ function clearSelectedCertificate() {
 
             <!-- Jump host -->
             <div class="sp-section">
-              <label class="sp-checkbox">
-                <input v-model="form.useJumpHost" type="checkbox" id="ssh-use-jump-host" />
-                <span class="sp-section__title" style="margin-bottom: 0">启用跳板机（JumpHost）</span>
-              </label>
+              <UiCheckbox v-model="form.useJumpHost" size="sm" id="ssh-use-jump-host">
+                <span class="sp-section__title sp-section__title--inline">启用跳板机（JumpHost）</span>
+              </UiCheckbox>
 
               <div v-if="form.useJumpHost" class="sp-grid sp-grid--2" style="margin-top: 12px">
                 <div class="sp-field">
                   <label class="sp-label">跳板机地址</label>
-                  <input v-model="form.jumpHost" class="sp-input" placeholder="jump.example.com" id="ssh-jump-host" />
+                  <UiInput v-model="form.jumpHost" size="sm" placeholder="jump.example.com" id="ssh-jump-host" />
                 </div>
                 <div class="sp-field">
                   <label class="sp-label">端口</label>
-                  <input v-model.number="form.jumpPort" class="sp-input" type="number" min="1" max="65535" id="ssh-jump-port" />
+                  <UiInput
+                    :model-value="String(form.jumpPort)"
+                    size="sm"
+                    type="number"
+                    :min="1"
+                    :max="65535"
+                    id="ssh-jump-port"
+                    @update:modelValue="updateJumpPort"
+                  />
                 </div>
                 <div class="sp-field">
                   <label class="sp-label">用户名</label>
-                  <input v-model="form.jumpUsername" class="sp-input" placeholder="root" id="ssh-jump-username" />
+                  <UiInput v-model="form.jumpUsername" size="sm" placeholder="root" id="ssh-jump-username" />
                 </div>
                 <div class="sp-field">
                   <label class="sp-label">认证方式</label>
-                  <select v-model="form.jumpAuthType" class="sp-select" id="ssh-jump-auth-type">
-                    <option v-for="at in AUTH_TYPES" :key="at.value" :value="at.value">{{ at.label }}</option>
-                  </select>
+                  <UiSelect
+                    :model-value="form.jumpAuthType"
+                    :options="authTypeOptions"
+                    size="sm"
+                    id="ssh-jump-auth-type"
+                    @update:modelValue="updateJumpAuthType"
+                  />
                 </div>
                 <div class="sp-field sp-field--full">
                   <label class="sp-label">跳板机 Host CA 公钥（可选）</label>
-                  <input v-model="form.jumpHostCaKeyPath" class="sp-input"
+                  <UiInput v-model="form.jumpHostCaKeyPath" size="sm"
                     placeholder="C:\\Users\\me\\.ssh\\jump_host_ca.pub" id="ssh-jump-host-ca-path" />
                 </div>
               </div>
@@ -514,10 +564,9 @@ function clearSelectedCertificate() {
             <!-- Advanced -->
             <div class="sp-section">
               <div class="sp-section__title">高级选项</div>
-              <label class="sp-checkbox">
-                <input v-model="form.autoReconnect" type="checkbox" id="ssh-auto-reconnect" />
-                <span>连接断开后自动重连</span>
-              </label>
+              <UiCheckbox v-model="form.autoReconnect" size="sm" id="ssh-auto-reconnect">
+                连接断开后自动重连
+              </UiCheckbox>
             </div>
 
             <!-- Error -->
@@ -530,20 +579,22 @@ function clearSelectedCertificate() {
               </svg>
               {{ error }}
             </div>
+              </div>
+            </UiScrollbar>
           </div>
 
           <!-- Footer -->
           <div class="sp-dialog__footer">
             <!-- Delete button (edit mode only) -->
-            <button v-if="isEdit" class="sp-btn sp-btn--danger" :disabled="deleting"
+            <UiButton v-if="isEdit" variant="danger" size="sm" :disabled="deleting"
               @click="handleDelete">
               {{ confirmDelete ? '确认删除' : '删除配置' }}
-            </button>
+            </UiButton>
             <div class="sp-dialog__footer-right">
-              <button class="sp-btn sp-btn--ghost" @click="emit('close')">取消</button>
-              <button class="sp-btn sp-btn--primary" :disabled="saving" @click="save" id="ssh-save-btn">
+              <UiButton variant="ghost" size="sm" @click="emit('close')">取消</UiButton>
+              <UiButton variant="primary" size="sm" :disabled="saving" @click="save" id="ssh-save-btn">
                 {{ saving ? '保存中...' : '保存' }}
-              </button>
+              </UiButton>
             </div>
           </div>
         </div>
@@ -569,10 +620,11 @@ function clearSelectedCertificate() {
 .sp-dialog {
   width: 560px;
   max-width: calc(100vw - 32px);
+  height: calc(100vh - 64px);
   max-height: calc(100vh - 64px);
   display: flex;
   flex-direction: column;
-  border-radius: var(--ui-radius-xl);
+  border-radius: var(--ui-radius-xs, 6px);
   background: var(--ui-surface-dialog, var(--ui-surface-panel));
   border: 1px solid var(--ui-border-subtle);
   box-shadow: 0 24px 64px rgba(0, 0, 0, 0.4), 0 4px 16px rgba(0, 0, 0, 0.2);
@@ -596,11 +648,21 @@ function clearSelectedCertificate() {
 
   &__body {
     flex: 1;
-    overflow-y: auto;
+    min-height: 0;
+    overflow: hidden;
     padding: 16px 20px;
+    box-sizing: border-box;
+  }
+
+  &__scroll {
+    height: 100%;
+  }
+
+  &__content {
     display: flex;
     flex-direction: column;
     gap: 20px;
+    padding: 14px;
   }
 
   &__footer {
@@ -653,6 +715,10 @@ function clearSelectedCertificate() {
     text-transform: uppercase;
     color: var(--ui-text-muted);
     margin-bottom: 4px;
+
+    &--inline {
+      margin-bottom: 0;
+    }
   }
 }
 
@@ -687,60 +753,27 @@ function clearSelectedCertificate() {
   margin-left: 2px;
 }
 
-.sp-input,
-.sp-select {
-  padding: 7px 10px;
-  border: 1px solid var(--ui-border-subtle);
-  border-radius: var(--ui-radius-md);
-  background: var(--ui-surface-overlay);
-  color: var(--ui-text-primary);
-  font-size: 13px;
-  outline: none;
-  transition: border-color 0.18s;
-  width: 100%;
-  box-sizing: border-box;
-
-  &:focus {
-    border-color: var(--primary-color);
-    box-shadow: 0 0 0 2px rgba(var(--primary-rgb, 99 102 241), 0.15);
-  }
-
-  &::placeholder {
-    color: var(--ui-text-subtle);
-  }
-}
-
 .sp-input-action {
   display: flex;
   gap: 8px;
   align-items: center;
 
-  .sp-input {
+  :deep(.ui-input),
+  :deep(.ui-input-number-wrapper),
+  :deep(.ui-select-wrap) {
     flex: 1;
     min-width: 0;
   }
+}
+
+.sp-inline-btn {
+  flex-shrink: 0;
 }
 
 .sp-hint {
   font-size: 12px;
   color: var(--ui-text-muted);
   line-height: 1.5;
-}
-
-.sp-checkbox {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  font-size: 13px;
-  color: var(--ui-text-secondary);
-  cursor: pointer;
-  user-select: none;
-
-  input[type="checkbox"] {
-    width: 15px;
-    height: 15px;
-    accent-color: var(--primary-color);
-  }
 }
 
 // ── Auth type tabs ────────────────────────────────────────────
@@ -838,60 +871,6 @@ function clearSelectedCertificate() {
   border-radius: var(--ui-radius-md);
   font-size: 12px;
   color: var(--ui-state-error, #ef4444);
-}
-
-// ── Buttons ───────────────────────────────────────────────────
-
-.sp-btn {
-  padding: 7px 18px;
-  border-radius: var(--ui-radius-md);
-  font-size: 13px;
-  font-weight: 600;
-  cursor: pointer;
-  border: 1px solid transparent;
-  transition: all 0.18s;
-  white-space: nowrap;
-
-  &:disabled {
-    opacity: 0.5;
-    cursor: not-allowed;
-  }
-
-  &--primary {
-    background: var(--primary-color);
-    color: #fff;
-    border-color: var(--primary-color);
-
-    &:hover:not(:disabled) {
-      filter: brightness(1.1);
-    }
-  }
-
-  &--ghost {
-    background: transparent;
-    color: var(--ui-text-secondary);
-    border-color: var(--ui-border-subtle);
-
-    &:hover:not(:disabled) {
-      background: var(--ui-button-ghost-hover-bg);
-      color: var(--ui-text-primary);
-    }
-  }
-
-  &--danger {
-    background: transparent;
-    color: var(--ui-state-error, #ef4444);
-    border-color: rgba(var(--ui-state-error-rgb, 239 68 68), 0.3);
-
-    &:hover:not(:disabled) {
-      background: rgba(var(--ui-state-error-rgb, 239 68 68), 0.1);
-    }
-  }
-
-  &--inline {
-    padding: 7px 12px;
-    flex-shrink: 0;
-  }
 }
 
 // ── Transition ────────────────────────────────────────────────
