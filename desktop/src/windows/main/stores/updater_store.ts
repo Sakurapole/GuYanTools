@@ -1,6 +1,6 @@
 import { computed, ref } from 'vue';
 import { defineStore } from 'pinia';
-import type { UpdateInfo, UpdateProgress, UpdateStatus } from '@/contracts/updater';
+import type { UpdateInfo, UpdateProgress, UpdateStatus, UpdaterAuthInfo } from '@/contracts/updater';
 
 function defaultState(): UpdateInfo {
   return {
@@ -18,8 +18,17 @@ function defaultState(): UpdateInfo {
   };
 }
 
+function defaultAuth(): UpdaterAuthInfo {
+  return {
+    required: true,
+    hasToken: false,
+    source: 'none',
+  };
+}
+
 export const useUpdaterStore = defineStore('updater', () => {
   const info = ref<UpdateInfo>(defaultState());
+  const auth = ref<UpdaterAuthInfo>(defaultAuth());
   const initialized = ref(false);
   const isBusy = ref(false);
   const notifiedVersion = ref('');
@@ -65,6 +74,7 @@ export const useUpdaterStore = defineStore('updater', () => {
     });
 
     applyInfo(await window.updateApi.getStatus());
+    auth.value = await window.updateApi.getAuth();
   }
 
   async function checkForUpdates() {
@@ -93,6 +103,16 @@ export const useUpdaterStore = defineStore('updater', () => {
     await window.updateApi.openReleasePage();
   }
 
+  async function saveGithubToken(token: string) {
+    auth.value = await window.updateApi.setGithubToken(token);
+    applyInfo(await window.updateApi.getStatus());
+  }
+
+  async function clearGithubToken() {
+    auth.value = await window.updateApi.clearGithubToken();
+    applyInfo(await window.updateApi.getStatus());
+  }
+
   function dispose() {
     removeListener?.();
     removeListener = null;
@@ -101,6 +121,7 @@ export const useUpdaterStore = defineStore('updater', () => {
 
   return {
     info,
+    auth,
     status,
     progress,
     releaseNotesSummary,
@@ -111,6 +132,8 @@ export const useUpdaterStore = defineStore('updater', () => {
     downloadUpdate,
     installUpdate,
     openReleasePage,
+    saveGithubToken,
+    clearGithubToken,
     dispose,
   };
 });

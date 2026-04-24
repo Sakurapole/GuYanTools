@@ -35,6 +35,9 @@ const pluginConfigDrafts = ref<Record<string, string>>({});
 const pluginConfigErrors = ref<Record<string, string>>({});
 const terminalProfiles = ref<TerminalProfile[]>([]);
 const terminalDefaultCwdInput = ref(appConfigStore.config.features.terminal.defaultCwd || '');
+const githubTokenInput = ref('');
+const updaterAuthMessage = ref('');
+const updaterAuthSaving = ref(false);
 
 const settingsTabs: UiTabItem[] = [
   { key: 'general', label: '基础设置' },
@@ -95,6 +98,11 @@ const updateReleaseDateText = computed(() => {
 const canCheckUpdate = computed(() => !updaterStore.isBusy && updaterStore.status !== 'downloaded');
 const canDownloadUpdate = computed(() => updaterStore.status === 'available' && !updaterStore.isBusy);
 const canInstallUpdate = computed(() => updaterStore.status === 'downloaded');
+const updaterAuthSourceText = computed(() => {
+  if (!updaterStore.auth.hasToken) return '未配置';
+  return updaterStore.auth.source === 'environment' ? '环境变量' : '本机安全存储';
+});
+const canSaveGithubToken = computed(() => Boolean(githubTokenInput.value.trim()) && !updaterAuthSaving.value);
 
 const activePlugin = computed(() => installedPlugins.value.find(
   (plugin) => plugin.manifest.id === settingsStore.activePluginConfigId,
@@ -303,6 +311,36 @@ async function commitAndVerifyFfmpeg() {
   } catch (error: any) {
     ffmpegStatus.value = 'invalid';
     ffmpegError.value = error.message || '验证失败';
+  }
+}
+
+async function saveGithubToken() {
+  if (!canSaveGithubToken.value) return;
+
+  updaterAuthSaving.value = true;
+  updaterAuthMessage.value = '';
+  try {
+    await updaterStore.saveGithubToken(githubTokenInput.value);
+    githubTokenInput.value = '';
+    updaterAuthMessage.value = 'GitHub Token 已保存。';
+  } catch (error: any) {
+    updaterAuthMessage.value = error?.message || 'GitHub Token 保存失败';
+  } finally {
+    updaterAuthSaving.value = false;
+  }
+}
+
+async function clearGithubToken() {
+  updaterAuthSaving.value = true;
+  updaterAuthMessage.value = '';
+  try {
+    await updaterStore.clearGithubToken();
+    githubTokenInput.value = '';
+    updaterAuthMessage.value = '本机保存的 GitHub Token 已清除。';
+  } catch (error: any) {
+    updaterAuthMessage.value = error?.message || 'GitHub Token 清除失败';
+  } finally {
+    updaterAuthSaving.value = false;
   }
 }
 
@@ -658,6 +696,45 @@ function scriptTypeLabel(type: string) {
             <UiField label="更新说明" hint="展示最新发布附带的摘要。">
               <div class="update-release-notes">
                 {{ updaterStore.releaseNotesSummary }}
+              </div>
+            </UiField>
+
+            <UiField label="私有仓库 Token" hint="用于读取私有 GitHub Release，不会回显已保存的 Token。">
+              <div class="update-auth">
+                <div class="update-auth__status">
+                  <span>认证状态</span>
+                  <strong>{{ updaterAuthSourceText }}</strong>
+                </div>
+                <div class="update-auth__controls">
+                  <UiInput
+                    v-model="githubTokenInput"
+                    type="password"
+                    placeholder="GitHub fine-grained token 或 classic PAT"
+                    size="sm"
+                    :disabled="updaterAuthSaving || updaterStore.auth.source === 'environment'"
+                    @keydown.enter.prevent="saveGithubToken"
+                  />
+                  <UiButton
+                    variant="primary"
+                    size="sm"
+                    :disabled="!canSaveGithubToken || updaterStore.auth.source === 'environment'"
+                    @click="saveGithubToken"
+                  >
+                    保存
+                  </UiButton>
+                  <UiButton
+                    variant="danger"
+                    size="sm"
+                    :disabled="updaterAuthSaving || !updaterStore.auth.hasToken || updaterStore.auth.source === 'environment'"
+                    @click="clearGithubToken"
+                  >
+                    清除
+                  </UiButton>
+                </div>
+                <p v-if="updaterStore.auth.source === 'environment'" class="update-auth__hint">
+                  当前使用环境变量中的 Token，不能从设置页清除。
+                </p>
+                <p v-else-if="updaterAuthMessage" class="update-auth__hint">{{ updaterAuthMessage }}</p>
               </div>
             </UiField>
 
@@ -1410,6 +1487,40 @@ function scriptTypeLabel(type: string) {
   color: var(--ui-text-secondary);
   font-size: 12px;
   line-height: 1.6;
+}
+
+.update-auth {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.update-auth__status {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 12px;
+  border-radius: var(--ui-radius-md);
+  background: var(--ui-input-bg);
+  font-size: 12px;
+
+  span {
+    color: var(--ui-text-muted);
+  }
+}
+
+.update-auth__controls {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  gap: 8px;
+  align-items: center;
+}
+
+.update-auth__hint {
+  margin: 0;
+  color: var(--ui-text-muted);
+  font-size: 12px;
+  line-height: 1.5;
 }
 
 .update-actions {

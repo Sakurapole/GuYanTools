@@ -29,8 +29,17 @@ export interface UpdateInfo {
   error?: string | null;
 }
 
+export interface UpdaterAuthInfo {
+  required: boolean;
+  hasToken: boolean;
+  source: 'none' | 'environment' | 'stored';
+}
+
 export interface UpdateApi {
   getStatus: () => Promise<UpdateInfo>;
+  getAuth: () => Promise<UpdaterAuthInfo>;
+  setGithubToken: (token: string) => Promise<UpdaterAuthInfo>;
+  clearGithubToken: () => Promise<UpdaterAuthInfo>;
   check: () => Promise<UpdateInfo>;
   download: () => Promise<UpdateInfo>;
   install: () => Promise<{ ok: boolean }>;
