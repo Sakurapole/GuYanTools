@@ -9,6 +9,7 @@ import { registerPluginRoutes, router } from './routes/router'
 import { useAppConfigStore } from './stores/app_config_store'
 import { useBarStore } from './stores/bar_store'
 import { useGlobalStore } from './stores/global_store'
+import { useUpdaterStore } from './stores/updater_store'
 
 import en from './i18n/en'
 import zh from './i18n/zh'
@@ -51,6 +52,9 @@ async function bootstrap() {
 
   const barStore = useBarStore(pinia);
   barStore.ensureFixedTabs();
+
+  const updaterStore = useUpdaterStore(pinia);
+  await updaterStore.initialize();
 
   router.afterEach((to) => {
     const globalStore = useGlobalStore(pinia);

@@ -13,6 +13,7 @@ import type { PluginHostApi } from '@/contracts/plugin_host';
 import type { NotificationApi, NotificationPayload } from '@/contracts/notification';
 import type { SaveFileOptions, SelectFileOptions } from '@/contracts/shell';
 import type { HomeWorkspaceApi } from '@/contracts/home_workspace';
+import type { UpdateApi } from '@/contracts/updater';
 import type {
   TodoApi,
   CreateTodoListPayload,
@@ -109,6 +110,20 @@ const notificationApi: NotificationApi = {
   show: (payload: NotificationPayload) => ipcRenderer.invoke('notification:show', payload),
 };
 contextBridge.exposeInMainWorld('notificationApi', notificationApi);
+
+const updateApi: UpdateApi = {
+  getStatus: () => ipcRenderer.invoke('updater:get-status'),
+  check: () => ipcRenderer.invoke('updater:check'),
+  download: () => ipcRenderer.invoke('updater:download'),
+  install: () => ipcRenderer.invoke('updater:install'),
+  openReleasePage: () => ipcRenderer.invoke('updater:open-release-page'),
+  onEvent: (listener) => {
+    const wrappedListener = (_event: Electron.IpcRendererEvent, payload: Awaited<ReturnType<UpdateApi['getStatus']>>) => listener(payload);
+    ipcRenderer.on('updater:event', wrappedListener);
+    return () => ipcRenderer.removeListener('updater:event', wrappedListener);
+  },
+};
+contextBridge.exposeInMainWorld('updateApi', updateApi);
 
 const shellApi = {
   openPath: (targetPath: string) => ipcRenderer.invoke('shell:open-path', targetPath),
