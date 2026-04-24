@@ -13,11 +13,13 @@ import UiTabs, { type UiTabItem } from '../components/ui/UiTabs.vue';
 import { useAppConfigStore } from '../stores/app_config_store';
 import { useGlobalStore } from '../stores/global_store';
 import { useSettingStore } from '../stores/settings_store';
+import { useUpdaterStore } from '../stores/updater_store';
 import { createDefaultAppConfig } from '@/contracts/app_config';
 
 const settingsStore = useSettingStore();
 const appConfigStore = useAppConfigStore();
 const globalStore = useGlobalStore();
+const updaterStore = useUpdaterStore();
 const defaultShortcuts = createDefaultAppConfig().shortcuts;
 
 const hostSummary = ref<PluginHostSummary | null>(null);
@@ -57,6 +59,17 @@ const terminalRendererOptions = [
   { label: 'WebGL', value: 'webgl' },
 ];
 
+const updateStatusLabels: Record<string, string> = {
+  idle: '空闲',
+  unsupported: '当前环境不支持自动更新',
+  checking: '正在检查更新',
+  available: '发现可用更新',
+  downloading: '正在下载更新',
+  downloaded: '更新已下载，等待安装',
+  'not-available': '当前已是最新版本',
+  error: '更新失败',
+};
+
 const pluginTabs = computed<UiTabItem[]>(() => installedPlugins.value.map((plugin) => ({
   key: plugin.manifest.id,
   label: plugin.manifest.displayName,
@@ -65,6 +78,23 @@ const terminalProfileOptions = computed(() => terminalProfiles.value.map((profil
   label: profile.label,
   value: profile.id,
 })));
+const updateStatusLabel = computed(() => updateStatusLabels[updaterStore.status] ?? updaterStore.status);
+const updateProgressPercent = computed(() => Math.round(updaterStore.progress?.percent ?? 0));
+const updateReleaseDateText = computed(() => {
+  if (!updaterStore.info.releaseDate) {
+    return '未提供';
+  }
+
+  const releaseDate = new Date(updaterStore.info.releaseDate);
+  if (Number.isNaN(releaseDate.getTime())) {
+    return updaterStore.info.releaseDate;
+  }
+
+  return releaseDate.toLocaleString();
+});
+const canCheckUpdate = computed(() => !updaterStore.isBusy && updaterStore.status !== 'downloaded');
+const canDownloadUpdate = computed(() => updaterStore.status === 'available' && !updaterStore.isBusy);
+const canInstallUpdate = computed(() => updaterStore.status === 'downloaded');
 
 const activePlugin = computed(() => installedPlugins.value.find(
   (plugin) => plugin.manifest.id === settingsStore.activePluginConfigId,
@@ -582,6 +612,69 @@ function scriptTypeLabel(type: string) {
                 ❌ FFmpeg 无效: {{ ffmpegError }}
               </div>
             </UiField>
+          </div>
+
+          <div class="settings-card ui-glass-surface ui-glass-surface--strong">
+            <div class="settings-card__head">
+              <span class="settings-card__icon">🆕</span>
+              <h3>软件更新</h3>
+            </div>
+            <p class="settings-card__desc">正式发布包使用 GitHub Release 检查和下载新版本。</p>
+
+            <div class="update-summary-grid">
+              <div class="meta-item ui-soft-surface">
+                <span>当前版本</span>
+                <strong>v{{ updaterStore.info.currentVersion }}</strong>
+              </div>
+              <div class="meta-item ui-soft-surface">
+                <span>最新版本</span>
+                <strong>{{ updaterStore.info.latestVersion ? `v${updaterStore.info.latestVersion}` : '未知' }}</strong>
+              </div>
+              <div class="meta-item ui-soft-surface">
+                <span>发布时间</span>
+                <strong>{{ updateReleaseDateText }}</strong>
+              </div>
+            </div>
+
+            <div class="update-status" :class="`update-status--${updaterStore.status}`">
+              <strong>{{ updateStatusLabel }}</strong>
+              <span v-if="updaterStore.info.error">{{ updaterStore.info.error }}</span>
+            </div>
+
+            <div v-if="updaterStore.status === 'downloading' && updaterStore.progress" class="update-progress">
+              <div class="update-progress__head">
+                <span>下载进度</span>
+                <strong>{{ updateProgressPercent }}%</strong>
+              </div>
+              <div class="update-progress__bar">
+                <div class="update-progress__bar-fill" :style="{ width: `${updateProgressPercent}%` }" />
+              </div>
+              <div class="update-progress__meta">
+                <span>{{ (updaterStore.progress.transferred / 1024 / 1024).toFixed(1) }} MB / {{ (updaterStore.progress.total / 1024 / 1024).toFixed(1) }} MB</span>
+                <span>{{ (updaterStore.progress.bytesPerSecond / 1024 / 1024).toFixed(2) }} MB/s</span>
+              </div>
+            </div>
+
+            <UiField label="更新说明" hint="展示最新发布附带的摘要。">
+              <div class="update-release-notes">
+                {{ updaterStore.releaseNotesSummary }}
+              </div>
+            </UiField>
+
+            <div class="update-actions">
+              <UiButton variant="secondary" size="sm" :disabled="!canCheckUpdate" @click="updaterStore.checkForUpdates">
+                检查更新
+              </UiButton>
+              <UiButton variant="primary" size="sm" :disabled="!canDownloadUpdate" @click="updaterStore.downloadUpdate">
+                下载更新
+              </UiButton>
+              <UiButton variant="primary" size="sm" :disabled="!canInstallUpdate" @click="updaterStore.installUpdate">
+                重启安装
+              </UiButton>
+              <UiButton variant="secondary" size="sm" @click="updaterStore.openReleasePage">
+                打开 Release 页
+              </UiButton>
+            </div>
           </div>
 
           <div class="settings-card ui-glass-surface ui-glass-surface--strong">
@@ -1233,6 +1326,95 @@ function scriptTypeLabel(type: string) {
   &--invalid {
     color: var(--ui-danger-color, #f56c6c);
   }
+}
+
+.update-summary-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.update-status {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 12px 14px;
+  border-radius: var(--ui-radius-md, 6px);
+  background: var(--ui-input-bg, rgba(128, 128, 128, 0.06));
+  border: 1px solid var(--ui-border-subtle, rgba(128, 128, 128, 0.1));
+
+  strong {
+    font-size: 13px;
+  }
+
+  span {
+    color: var(--ui-text-muted);
+    font-size: 12px;
+    line-height: 1.5;
+  }
+}
+
+.update-status--error {
+  border-color: color-mix(in srgb, var(--ui-danger-color, #f56c6c) 40%, transparent);
+}
+
+.update-status--downloaded {
+  border-color: color-mix(in srgb, var(--ui-success-color, #67c23a) 40%, transparent);
+}
+
+.update-progress {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.update-progress__head,
+.update-progress__meta,
+.update-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.update-progress__head,
+.update-progress__meta {
+  font-size: 12px;
+  color: var(--ui-text-muted);
+}
+
+.update-progress__bar {
+  position: relative;
+  width: 100%;
+  height: 8px;
+  border-radius: 999px;
+  overflow: hidden;
+  background: var(--ui-input-bg, rgba(128, 128, 128, 0.1));
+}
+
+.update-progress__bar-fill {
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, #4f8cff 0%, #78c3ff 100%);
+}
+
+.update-release-notes {
+  min-height: 88px;
+  max-height: 180px;
+  overflow: auto;
+  white-space: pre-wrap;
+  padding: 12px 14px;
+  border: var(--ui-border-width-thin) solid var(--ui-input-border);
+  border-radius: var(--ui-radius-md);
+  background: var(--ui-input-bg);
+  color: var(--ui-text-secondary);
+  font-size: 12px;
+  line-height: 1.6;
+}
+
+.update-actions {
+  flex-wrap: wrap;
+  justify-content: flex-end;
 }
 
 .terminal-settings-toggles {

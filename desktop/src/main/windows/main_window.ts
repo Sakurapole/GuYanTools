@@ -110,10 +110,15 @@ export default () => {
     );
   }
 
+  const prepareForQuit = () => {
+    isQuitting = true;
+  }
+
   return {
     init,
     getWindow,
     showWindow,
     navigateToHash,
+    prepareForQuit,
   }
 }

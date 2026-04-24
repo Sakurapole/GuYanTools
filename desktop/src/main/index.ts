@@ -30,6 +30,7 @@ import { main_window, splash_window } from "./windows";
 import { initializeTray, destroyTray } from "./tray";
 import { registerTrayIpcHandlers } from "./tray/ipc";
 import { registerTrayMenuWindowHandlers } from "./tray/tray_menu_window";
+import { setupAutoUpdater } from "./updater";
 
 const delay = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms));
 
@@ -49,6 +50,7 @@ class App {
     getWindow: () => BrowserWindow;
     showWindow: () => void;
     navigateToHash: (hashPath: string) => Promise<void>;
+    prepareForQuit: () => void;
   };
   private splashWindowCreator: {
     create: () => Promise<BrowserWindow>;
@@ -149,6 +151,19 @@ class App {
         // ─── 初始化共享 webview session ───
         // 集中管理 UA 清洗、请求头改写等，避免 Google 等第三方服务拦截嵌入式 WebView
         await webViewManager.initSharedSession();
+
+        setupAutoUpdater({
+          getMainWindow: () => {
+            try {
+              return this.mainWindowCreator.getWindow();
+            } catch {
+              return null;
+            }
+          },
+          prepareForQuit: () => {
+            this.mainWindowCreator.prepareForQuit();
+          },
+        });
 
         // 显示开屏窗口
         await this.splashWindowCreator.create();

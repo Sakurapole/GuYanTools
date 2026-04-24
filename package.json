@@ -20,6 +20,7 @@
         "desktop:start": "pnpm --dir desktop start",
         "desktop:package": "pnpm --dir desktop package",
         "desktop:make": "pnpm --dir desktop make",
+        "desktop:dist:win": "pnpm --dir desktop run dist:win",
         "desktop:publish": "pnpm --dir desktop run publish:github",
         "release:desktop": "pnpm run desktop:publish",
         "start:desktop": "pnpm run desktop:start"

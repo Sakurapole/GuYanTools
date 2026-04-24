@@ -3,8 +3,11 @@ import path from 'path';
 import { defineConfig } from 'vite';
 import vueDevTools from 'vite-plugin-vue-devtools';
 
+const isBuilderElectron = process.env.BUILDER_ELECTRON === 'true';
+
 // https://vitejs.dev/config
 export default defineConfig({
+  base: isBuilderElectron ? './' : '/',
   cacheDir: '.vite/cache/main_window',
   optimizeDeps: {
     include: ['pinia']
@@ -37,6 +40,10 @@ export default defineConfig({
     strictPort: true,
   },
   build: {
+    ...(isBuilderElectron ? {
+      outDir: path.resolve(__dirname, '.vite/renderer/main_window'),
+      emptyOutDir: true,
+    } : {}),
     rollupOptions: {
       input: {
         main: path.resolve(__dirname, 'index.html'),
