@@ -113,6 +113,9 @@ contextBridge.exposeInMainWorld('notificationApi', notificationApi);
 
 const updateApi: UpdateApi = {
   getStatus: () => ipcRenderer.invoke('updater:get-status'),
+  getAuth: () => ipcRenderer.invoke('updater:get-auth'),
+  setGithubToken: (token) => ipcRenderer.invoke('updater:set-github-token', token),
+  clearGithubToken: () => ipcRenderer.invoke('updater:clear-github-token'),
   check: () => ipcRenderer.invoke('updater:check'),
   download: () => ipcRenderer.invoke('updater:download'),
   install: () => ipcRenderer.invoke('updater:install'),
