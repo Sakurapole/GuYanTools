@@ -192,22 +192,25 @@ impl super::FtpManager {
     }
 
     pub fn delete_transfer_task(&self, task_id: String) -> Result<()> {
-        {
-            let tasks = self
-                .inner
-                .tasks
-                .read()
-                .map_err(|_| anyhow!("ftp tasks lock poisoned"))?;
-            if let Some(task) = tasks.get(&task_id) {
-                if matches!(task.status.as_str(), "pending" | "transferring" | "paused") {
-                    return Err(anyhow!("Only completed or failed tasks can be deleted"));
-                }
-            }
+        if let Ok(control) = self.get_task_control(&task_id) {
+            control.pause_requested.store(true, Ordering::SeqCst);
+        }
+
+        if let Ok(mut pending_jobs) = self.inner.pending_jobs.lock() {
+            pending_jobs.remove(&task_id);
         }
 
         if let Ok(mut tasks) = self.inner.tasks.write() {
-            tasks.remove(&task_id);
+            if tasks.remove(&task_id).is_some() {
+                self.emit_event(FtpEventEnvelope {
+                    event_type: "taskState".to_string(),
+                    session: None,
+                    task: None,
+                    message: Some(format!("Transfer task {} deleted", task_id)),
+                });
+            }
         }
+
         self.unregister_transfer_job(&task_id);
 
         self.inner
@@ -220,7 +223,9 @@ impl super::FtpManager {
                 .map_err(|e| crate::db::DbError::QueryFailed(e.to_string()))?;
                 Ok(())
             })
-            .map_err(|e| anyhow!("{}", e))
+            .map_err(|e| anyhow!("{}", e))?;
+        let _ = self.schedule_pending_tasks();
+        Ok(())
     }
     pub async fn upload_file(
         &self,
@@ -2580,6 +2585,10 @@ impl super::FtpManager {
         let manager = self.clone();
         tokio::spawn(async move {
             let task_id = job.task_id.clone();
+            if manager.get_task(&task_id).is_err() {
+                manager.unregister_transfer_job(&task_id);
+                return;
+            }
             if let Ok(control) = manager.get_task_control(&task_id) {
                 control.pause_requested.store(false, Ordering::SeqCst);
             }
