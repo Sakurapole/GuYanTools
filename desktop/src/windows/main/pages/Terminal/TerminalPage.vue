@@ -52,6 +52,9 @@ const sshProfileDialogTarget = ref<SshProfile | null>(null);
 const sshKeyManagerVisible = ref(false);
 const sshFingerprintVisible = ref(false);
 const sshFingerprintInfo = ref({ host: '', port: 22, algorithm: '', fingerprint: '' });
+const sshConnectError = ref('');
+const sshConnectingProfileId = ref('');
+const sshLastFailedProfile = ref<SshProfile | null>(null);
 /** Pending connect callback resolved after fingerprint is trusted */
 let sshFingerprintResolve: (() => void) | null = null;
 let sshFingerprintReject: (() => void) | null = null;
@@ -100,12 +103,18 @@ function openSshProfileDialog(profile: SshProfile | null) {
 async function handleSshConnect(profile: SshProfile) {
   if (!sshStore) return;
   sidebarTab.value = 'ssh';
+  sshConnectError.value = '';
+  sshConnectingProfileId.value = profile.id;
+  sshLastFailedProfile.value = null;
 
   // If password auth and password not saved, prompt the user
   let password: string | undefined;
   if (profile.authType === 'password' && !profile.savePassword) {
     const input = await promptSshPassword(profile);
-    if (input === null) return; // user cancelled
+    if (input === null) {
+      sshConnectingProfileId.value = '';
+      return;
+    }
     password = input;
   }
 
@@ -115,25 +124,91 @@ async function handleSshConnect(profile: SshProfile) {
 
   try {
     await doConnect(password);
+    sshConnectError.value = '';
   } catch (err: unknown) {
-    const msg = err instanceof Error ? err.message : String(err);
-    if (msg.includes('unknown_host') || msg.includes('mismatch')) {
-      try {
-        const info = JSON.parse(msg.replace(/^.*?({.*)$/s, '$1'));
-        sshFingerprintInfo.value = info;
-        sshFingerprintVisible.value = true;
-        await new Promise<void>((resolve, reject) => {
-          sshFingerprintResolve = resolve;
-          sshFingerprintReject = reject;
-        });
-        await doConnect(password);
-      } catch {
-        sshFingerprintVisible.value = false;
-      }
-    } else {
-      console.error('[TerminalPage] SSH connect error:', msg);
+    await handleSshConnectFailure(profile, password, err, doConnect);
+  } finally {
+    if (sshConnectingProfileId.value === profile.id) {
+      sshConnectingProfileId.value = '';
     }
   }
+}
+
+async function handleSshConnectFailure(
+  profile: SshProfile,
+  password: string | undefined,
+  err: unknown,
+  doConnect: (pwd?: string) => Promise<void>,
+) {
+  const msg = err instanceof Error ? err.message : String(err);
+  const hostVerification = extractSshHostVerification(msg);
+  if (hostVerification) {
+    try {
+      sshFingerprintInfo.value = hostVerification;
+      sshFingerprintVisible.value = true;
+      await new Promise<void>((resolve, reject) => {
+        sshFingerprintResolve = resolve;
+        sshFingerprintReject = reject;
+      });
+      try {
+        await doConnect(password);
+        sshConnectError.value = '';
+      } catch (retryErr) {
+        showSshConnectError(profile, retryErr);
+      }
+    } catch {
+      sshFingerprintVisible.value = false;
+    }
+    return;
+  }
+
+  showSshConnectError(profile, err);
+}
+
+function extractSshHostVerification(message: string) {
+  const jsonStart = message.indexOf('{');
+  if ((message.includes('unknown_host') || message.includes('mismatch')) && jsonStart !== -1) {
+    try {
+      const parsed = JSON.parse(message.slice(jsonStart)) as Partial<typeof sshFingerprintInfo.value>;
+      if (
+        typeof parsed.host === 'string'
+        && typeof parsed.port === 'number'
+        && typeof parsed.algorithm === 'string'
+        && typeof parsed.fingerprint === 'string'
+      ) {
+        return {
+          host: parsed.host,
+          port: parsed.port,
+          algorithm: parsed.algorithm,
+          fingerprint: parsed.fingerprint,
+        };
+      }
+    } catch {
+      // Fall through to the native colon-delimited format.
+    }
+  }
+
+  const match = message.match(/host_verification_(?:required|mismatch):([^:]+):(\d+):([^:]+):([^\s]+)/);
+  if (!match) return null;
+
+  return {
+    host: match[1],
+    port: Number(match[2]),
+    algorithm: match[3],
+    fingerprint: match[4],
+  };
+}
+
+function showSshConnectError(profile: SshProfile, err: unknown) {
+  const raw = err instanceof Error ? err.message : String(err);
+  const message = raw
+    .replace(/^Error invoking remote method 'ssh:connect': Error:\s*/i, '')
+    .replace(/^connect failed:\s*/i, '')
+    .replace(/^host_verification_(?:required|mismatch):/i, '需要确认服务器主机指纹：')
+    .trim();
+  sshLastFailedProfile.value = profile;
+  sshConnectError.value = `SSH 连接失败：${message || '未知错误'}`;
+  console.warn('[TerminalPage] SSH connect failed:', message || raw);
 }
 
 function handleSshFingerprintTrusted() {
@@ -151,6 +226,8 @@ function handleSshFingerprintRejected() {
 }
 
 function handleSshFocusSession(session: SshSessionDescriptor) {
+  sshConnectError.value = '';
+  sshLastFailedProfile.value = null;
   sshStore?.focusSession(session.sessionId);
   sidebarTab.value = 'ssh';
 }
@@ -536,15 +613,31 @@ onMounted(() => {
 
         <div v-else class="terminal-empty ui-glass-surface ui-glass-surface--strong">
           <div class="terminal-empty__title">
-            {{ sidebarTab === 'ssh' ? '没有活跃的 SSH 连接' : '没有可用的终端会话' }}
+            {{ sidebarTab === 'ssh'
+              ? (sshConnectingProfileId ? '正在连接 SSH' : '没有活跃的 SSH 连接')
+              : '没有可用的终端会话' }}
+          </div>
+          <div v-if="sidebarTab === 'ssh' && sshConnectError" class="terminal-empty__error">
+            {{ sshConnectError }}
           </div>
           <div class="terminal-empty__desc">
             {{ sidebarTab === 'ssh'
-              ? '从左侧 SSH 配置列表点击连接，或新建一个 SSH 配置。'
+              ? (sshConnectingProfileId ? '正在建立连接，请稍候。' : '从左侧 SSH 配置列表点击连接，或新建一个 SSH 配置。')
               : '创建一个新的本地终端会话开始使用。' }}
           </div>
           <UiButton v-if="sidebarTab === 'terminal'" variant="primary" size="sm" @click="createSession">创建会话</UiButton>
-          <UiButton v-else variant="primary" size="sm" @click="openSshProfileDialog(null)">添加 SSH 配置</UiButton>
+          <div v-else class="terminal-empty__actions">
+            <UiButton
+              v-if="sshLastFailedProfile"
+              variant="primary"
+              size="sm"
+              :disabled="Boolean(sshConnectingProfileId)"
+              @click="handleSshConnect(sshLastFailedProfile)"
+            >
+              重新连接
+            </UiButton>
+            <UiButton variant="secondary" size="sm" @click="openSshProfileDialog(null)">添加 SSH 配置</UiButton>
+          </div>
         </div>
 
         <div class="terminal-statusbar">
@@ -1022,6 +1115,25 @@ onMounted(() => {
   color: var(--ui-text-muted);
   font-size: 13px;
   line-height: 1.6;
+}
+
+.terminal-empty__error {
+  max-width: min(560px, 80%);
+  padding: 10px 12px;
+  border: 1px solid rgba(var(--ui-state-error-rgb, 239 68 68), 0.28);
+  border-radius: var(--ui-radius-md);
+  background: rgba(var(--ui-state-error-rgb, 239 68 68), 0.1);
+  color: var(--ui-state-error, #ef4444);
+  font-size: 12px;
+  line-height: 1.5;
+  text-align: center;
+  overflow-wrap: anywhere;
+}
+
+.terminal-empty__actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
 }
 
 /* Status Bar Styles */
