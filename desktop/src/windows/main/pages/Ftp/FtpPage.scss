@@ -566,8 +566,8 @@
   align-items: center;
   justify-content: flex-end;
   gap: 10px;
-  min-height: 46px;
-  padding: 8px var(--ftp-page-gutter-inline);
+  min-height: 34px;
+  padding: 3px var(--ftp-page-gutter-inline);
   border-bottom: 1px solid var(--ui-border-subtle);
 }
 
@@ -2512,8 +2512,9 @@
 
 .ftp-page--dense .ftp-hero {
   gap: 6px;
-  padding-top: 4px;
-  padding-bottom: 4px;
+  min-height: 32px;
+  padding-top: 2px;
+  padding-bottom: 2px;
 }
 
 .ftp-page--dense .ftp-hero__actions {
@@ -3014,6 +3015,7 @@
 
   /* 超小窗口：进一步压缩 hero 和 session 区域 */
   .ftp-hero {
+    min-height: 32px;
     padding-top: 2px;
     padding-bottom: 2px;
   }

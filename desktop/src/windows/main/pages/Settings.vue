@@ -1,6 +1,7 @@
 <script lang="ts" setup>
 import { computed, onMounted, ref, watch } from 'vue';
 import type { AppLanguage, AppTheme } from '@/contracts/app_config';
+import type { FtpWindowsContextMenuStatus } from '@/contracts/ftp';
 import type { TerminalProfile, TerminalRendererMode } from '@/contracts/terminal';
 import type { WebScriptRule } from '@/contracts/webview';
 import type { InstalledPluginRecord, PluginHostSummary } from '@/contracts/plugin_host';
@@ -74,6 +75,12 @@ const ftpCleanupExternalDraftsOnClose = ref(false);
 const ftpRetryMaxRetries = ref('3');
 const ftpRetryBaseDelaySecs = ref('5');
 const ftpKnownHostsLoading = ref(false);
+const ftpWindowsContextMenuStatus = ref<FtpWindowsContextMenuStatus>({
+  installed: false,
+  command: '',
+});
+const ftpWindowsContextMenuLoading = ref(false);
+const ftpWindowsContextMenuError = ref('');
 const ftpSettingsLoaded = ref(false);
 
 const settingsTabs: UiTabItem[] = [
@@ -180,6 +187,14 @@ const ftpKnownHostSummary = computed(() => {
   return `已信任 ${sshStore.knownHosts.length} 条主机指纹`;
 });
 const ftpRetryPolicySummary = computed(() => `失败后最多自动重试 ${ftpRetryMaxRetries.value} 次，基础等待 ${ftpRetryBaseDelaySecs.value} 秒`);
+const ftpWindowsContextMenuSummary = computed(() => (
+  ftpWindowsContextMenuStatus.value.installed
+    ? '已安装到 Windows 资源管理器右键菜单'
+    : '尚未安装 Windows 资源管理器右键菜单'
+));
+const ftpWindowsContextMenuCommandSummary = computed(() => (
+  ftpWindowsContextMenuStatus.value.command || '暂无可用命令'
+));
 const ftpVisibleBrowserPanelCount = computed(() =>
   Number(ftpShowLocalPanel.value) + Number(ftpShowRemotePanel.value) + Number(ftpDualRemoteMode.value),
 );
@@ -466,6 +481,42 @@ async function applyFtpRetryPolicy() {
   });
   ftpRetryMaxRetries.value = String(policy.maxRetries);
   ftpRetryBaseDelaySecs.value = String(policy.baseDelaySecs);
+}
+
+async function refreshFtpWindowsContextMenuStatus() {
+  try {
+    ftpWindowsContextMenuLoading.value = true;
+    ftpWindowsContextMenuError.value = '';
+    ftpWindowsContextMenuStatus.value = await window.ftpApi.getWindowsContextMenuStatus();
+  } catch (error) {
+    ftpWindowsContextMenuError.value = error instanceof Error ? error.message : String(error);
+  } finally {
+    ftpWindowsContextMenuLoading.value = false;
+  }
+}
+
+async function installFtpWindowsContextMenu() {
+  try {
+    ftpWindowsContextMenuLoading.value = true;
+    ftpWindowsContextMenuError.value = '';
+    ftpWindowsContextMenuStatus.value = await window.ftpApi.installWindowsContextMenu();
+  } catch (error) {
+    ftpWindowsContextMenuError.value = error instanceof Error ? error.message : String(error);
+  } finally {
+    ftpWindowsContextMenuLoading.value = false;
+  }
+}
+
+async function uninstallFtpWindowsContextMenu() {
+  try {
+    ftpWindowsContextMenuLoading.value = true;
+    ftpWindowsContextMenuError.value = '';
+    ftpWindowsContextMenuStatus.value = await window.ftpApi.uninstallWindowsContextMenu();
+  } catch (error) {
+    ftpWindowsContextMenuError.value = error instanceof Error ? error.message : String(error);
+  } finally {
+    ftpWindowsContextMenuLoading.value = false;
+  }
 }
 
 async function pickFtpExternalEditor() {
@@ -804,6 +855,7 @@ onMounted(() => {
   void ftpStore.initialize();
   void sshStore.initialize();
   void loadFtpRetryPolicy();
+  void refreshFtpWindowsContextMenuStatus();
   void refreshFtpKnownHosts();
   if (appConfigStore.fontOptions.length === 0) {
     void appConfigStore.loadLocalFonts();
@@ -1473,6 +1525,37 @@ function scriptTypeLabel(type: string) {
               <div class="settings-row__control settings-row__control--wide">
                 <div class="settings-inline-badges">
                   <span class="settings-badge" :class="{ 'settings-badge--accent': ftpThumbnailsEnabled }">{{ ftpThumbnailSummary }}</span>
+                </div>
+              </div>
+            </div>
+
+            <div class="settings-row settings-row--wide">
+              <div class="settings-row__label">
+                <span>Windows 右键菜单</span>
+                <small>从资源管理器右键菜单发送文件或目录到传输页。</small>
+              </div>
+              <div class="settings-row__control settings-row__control--wide">
+                <div class="settings-inline-badges">
+                  <span class="settings-badge" :class="{ 'settings-badge--accent': ftpWindowsContextMenuStatus.installed }">
+                    {{ ftpWindowsContextMenuSummary }}
+                  </span>
+                  <UiButton
+                    size="sm"
+                    variant="secondary"
+                    :disabled="ftpWindowsContextMenuLoading"
+                    @click="ftpWindowsContextMenuStatus.installed ? uninstallFtpWindowsContextMenu() : installFtpWindowsContextMenu()"
+                  >
+                    {{ ftpWindowsContextMenuStatus.installed ? '移除右键菜单' : '安装右键菜单' }}
+                  </UiButton>
+                  <UiButton size="sm" variant="ghost" :disabled="ftpWindowsContextMenuLoading" @click="refreshFtpWindowsContextMenuStatus">
+                    刷新状态
+                  </UiButton>
+                </div>
+                <div class="settings-inline-badges settings-inline-badges--mt">
+                  <span class="settings-badge settings-badge--code">{{ ftpWindowsContextMenuCommandSummary }}</span>
+                  <span v-if="ftpWindowsContextMenuError" class="settings-badge settings-badge--danger">
+                    {{ ftpWindowsContextMenuError }}
+                  </span>
                 </div>
               </div>
             </div>
@@ -2760,6 +2843,20 @@ function scriptTypeLabel(type: string) {
   border-color: color-mix(in srgb, var(--primary-color) 34%, var(--ui-border-subtle));
   background: color-mix(in srgb, var(--primary-color) 12%, var(--ui-surface-panel));
   color: var(--primary-color);
+}
+
+.settings-badge--danger {
+  border-color: color-mix(in srgb, #ef4444 40%, var(--ui-border-subtle));
+  background: color-mix(in srgb, #ef4444 10%, var(--ui-surface-panel));
+  color: #dc2626;
+}
+
+.settings-badge--code {
+  max-width: min(100%, 720px);
+  border-radius: var(--ui-radius-sm);
+  font-family: var(--ui-font-family-mono);
+  line-height: 1.45;
+  overflow-wrap: anywhere;
 }
 
 .settings-check {

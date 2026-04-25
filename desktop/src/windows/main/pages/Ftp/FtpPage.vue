@@ -2,7 +2,6 @@
 import type {
   FileTransferEntry,
   FtpScheduledTask,
-  FtpWindowsContextMenuStatus,
   TransferTask,
   UpsertFtpScheduledTaskInput,
 } from '@/contracts/ftp';
@@ -246,10 +245,6 @@ const recentlyClosedSessions = ref<ClosedSessionSnapshot[]>([]);
 const scheduledTasks = ref<FtpScheduledTask[]>([]);
 const scheduleDialogVisible = ref(false);
 const editingScheduledTaskId = ref('');
-const windowsContextMenuStatus = ref<FtpWindowsContextMenuStatus>({
-  installed: false,
-  command: '',
-});
 const pendingExternalPaths = ref<string[]>([]);
 const viewportWidth = ref(typeof window === 'undefined' ? 0 : window.innerWidth);
 const viewportHeight = ref(typeof window === 'undefined' ? 0 : window.innerHeight);
@@ -1021,10 +1016,6 @@ async function reloadScheduledTasks() {
   scheduledTasks.value = await window.ftpApi.listScheduledTasks();
 }
 
-async function reloadWindowsContextMenuStatus() {
-  windowsContextMenuStatus.value = await window.ftpApi.getWindowsContextMenuStatus();
-}
-
 async function reloadPendingExternalPaths() {
   pendingExternalPaths.value = await window.ftpApi.getPendingExternalPaths();
 }
@@ -1106,24 +1097,6 @@ async function runScheduledTaskNow(taskId: string) {
     if (!expandedTaskIds.value.includes(task.id)) {
       expandedTaskIds.value = [...expandedTaskIds.value, task.id];
     }
-  } catch (error) {
-    actionError.value = error instanceof Error ? error.message : String(error);
-  }
-}
-
-async function installContextMenuIntegration() {
-  actionError.value = '';
-  try {
-    windowsContextMenuStatus.value = await window.ftpApi.installWindowsContextMenu();
-  } catch (error) {
-    actionError.value = error instanceof Error ? error.message : String(error);
-  }
-}
-
-async function uninstallContextMenuIntegration() {
-  actionError.value = '';
-  try {
-    windowsContextMenuStatus.value = await window.ftpApi.uninstallWindowsContextMenu();
   } catch (error) {
     actionError.value = error instanceof Error ? error.message : String(error);
   }
@@ -2127,7 +2100,6 @@ onMounted(() => {
   loadFtpPreferences();
   updateViewportState();
   void reloadScheduledTasks();
-  void reloadWindowsContextMenuStatus();
   void reloadPendingExternalPaths();
   void initializeFtpPage();
   window.addEventListener('keydown', handleExplorerPasteShortcut);
@@ -2197,40 +2169,6 @@ onBeforeUnmount(() => {
                     stroke-linecap="round" stroke-linejoin="round">
                     <path d="M3.5 8A4.5 4.5 0 1 0 5 4.2L3.5 5.5" />
                     <path d="M3.5 2.8v2.7H6.2" />
-                  </svg>
-                </UiIconButton>
-              </UiTooltip>
-              <UiTooltip
-                :content="windowsContextMenuStatus.installed ? `移除右键菜单 · ${windowsContextMenuStatus.command}` : `安装右键菜单 · ${windowsContextMenuStatus.command}`"
-                placement="bottom">
-                <UiIconButton size="sm" variant="ghost"
-                  :title="windowsContextMenuStatus.installed ? `移除右键菜单 · ${windowsContextMenuStatus.command}` : `安装右键菜单 · ${windowsContextMenuStatus.command}`"
-                  @click="windowsContextMenuStatus.installed ? uninstallContextMenuIntegration() : installContextMenuIntegration()">
-                  <svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.6"
-                    stroke-linecap="round" stroke-linejoin="round">
-                    <rect x="2" y="2" width="12" height="12" rx="1.5" />
-                    <path d="M5 6h6M5 10h4" />
-                  </svg>
-                </UiIconButton>
-              </UiTooltip>
-              <UiTooltip content="粘贴上传" placement="bottom">
-                <UiIconButton size="sm" variant="ghost" :disabled="!activeSession" title="粘贴上传"
-                  @click="pasteClipboardToRemote()">
-                  <svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.6"
-                    stroke-linecap="round" stroke-linejoin="round">
-                    <path d="M6 2h4v2H6zM4 3H3a1 1 0 0 0-1 1v9a1 1 0 0 0 1 1h10a1 1 0 0 0 1-1V4a1 1 0 0 0-1-1h-1" />
-                    <path d="M8 8v4M6 10l2 2 2-2" />
-                  </svg>
-                </UiIconButton>
-              </UiTooltip>
-              <UiTooltip content="复制信息" placement="bottom">
-                <UiIconButton size="sm" variant="ghost"
-                  :disabled="!selectedLocalEntries.length && !selectedRemoteEntries.length" title="复制信息"
-                  @click="copySelectionInfo(selectedRemoteEntries.length ? 'remote' : 'local')">
-                  <svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.6"
-                    stroke-linecap="round" stroke-linejoin="round">
-                    <rect x="5" y="5" width="8" height="9" rx="1" />
-                    <path d="M3 11H2a1 1 0 0 1-1-1V2a1 1 0 0 1 1-1h8a1 1 0 0 1 1 1v1" />
                   </svg>
                 </UiIconButton>
               </UiTooltip>
