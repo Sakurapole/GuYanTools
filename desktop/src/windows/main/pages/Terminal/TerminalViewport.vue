@@ -187,9 +187,7 @@ async function createTerminal() {
 
     const row = terminal.buffer.active.cursorY + 1;
     const col = terminal.buffer.active.cursorX + 1;
-    void window.terminalApi.write(props.sessionId, `\u001b[${row};${col}R`).catch((error) => {
-      console.warn('[TerminalViewport] Failed to respond to DSR request:', error);
-    });
+    void writeToActiveSession(`\u001b[${row};${col}R`, 'respond to DSR request');
     return true;
   });
 
@@ -200,9 +198,7 @@ async function createTerminal() {
 
     const row = terminal.buffer.active.cursorY + 1;
     const col = terminal.buffer.active.cursorX + 1;
-    void window.terminalApi.write(props.sessionId, `\u001b[?${row};${col}R`).catch((error) => {
-      console.warn('[TerminalViewport] Failed to respond to DEC DSR request:', error);
-    });
+    void writeToActiveSession(`\u001b[?${row};${col}R`, 'respond to DEC DSR request');
     return true;
   });
 
@@ -216,9 +212,7 @@ async function createTerminal() {
         return;
       }
 
-      void window.terminalApi.write(props.sessionId, '\u001b[I').catch((error) => {
-        console.warn('[TerminalViewport] Failed to report terminal focus state:', error);
-      });
+      void writeToActiveSession('\u001b[I', 'report terminal focus state');
     });
 
     return false;
@@ -248,11 +242,7 @@ async function createTerminal() {
   }
 
   terminal.onData((data) => {
-    if (props.writeHandler) {
-      void props.writeHandler(data);
-    } else {
-      void window.terminalApi.write(props.sessionId, data);
-    }
+    void writeToActiveSession(data, 'write terminal input');
   });
 
   terminal.onResize(({ cols, rows }) => {
@@ -265,16 +255,34 @@ async function sendResize(cols?: number, rows?: number) {
   if (!terminal || !hostRef.value) return;
   const nextCols = cols ?? terminal.cols;
   const nextRows = rows ?? terminal.rows;
-  if (props.resizeHandler) {
-    await props.resizeHandler(nextCols, nextRows);
-  } else {
-    await window.terminalApi.resizeSession({
-      sessionId: props.sessionId,
-      cols: nextCols,
-      rows: nextRows,
-      pixelWidth: Math.max(1, Math.round(hostRef.value.clientWidth)),
-      pixelHeight: Math.max(1, Math.round(hostRef.value.clientHeight)),
-    });
+  try {
+    if (props.resizeHandler) {
+      await props.resizeHandler(nextCols, nextRows);
+    } else {
+      await window.terminalApi.resizeSession({
+        sessionId: props.sessionId,
+        cols: nextCols,
+        rows: nextRows,
+        pixelWidth: Math.max(1, Math.round(hostRef.value.clientWidth)),
+        pixelHeight: Math.max(1, Math.round(hostRef.value.clientHeight)),
+      });
+    }
+  } catch (error) {
+    console.warn('[TerminalViewport] Failed to resize session:', error);
+  }
+}
+
+async function writeToActiveSession(data: string, context: string) {
+  if (!data) return;
+
+  try {
+    if (props.writeHandler) {
+      await props.writeHandler(data);
+    } else {
+      await window.terminalApi.write(props.sessionId, data);
+    }
+  } catch (error) {
+    console.warn(`[TerminalViewport] Failed to ${context}:`, error);
   }
 }
 
@@ -283,11 +291,7 @@ async function writeInput(data: string) {
     return;
   }
 
-  if (props.writeHandler) {
-    await props.writeHandler(data);
-  } else {
-    await window.terminalApi.write(props.sessionId, data);
-  }
+  await writeToActiveSession(data, 'write terminal input');
 }
 
 async function copySelection() {
