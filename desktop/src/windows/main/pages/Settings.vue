@@ -10,9 +10,12 @@ import UiInput from '../components/ui/UiInput.vue';
 import ShortcutRecorder from '../components/ui/ShortcutRecorder.vue';
 import UiSelect from '../components/ui/UiSelect.vue';
 import UiTabs, { type UiTabItem } from '../components/ui/UiTabs.vue';
+import { useConfirmDialog } from '../composables/useConfirmDialog';
 import { useAppConfigStore } from '../stores/app_config_store';
+import { useFtpStore } from '../stores/ftp_store';
 import { useGlobalStore } from '../stores/global_store';
 import { useSettingStore, type SettingsTabKey } from '../stores/settings_store';
+import { useSshStore } from '../stores/ssh_store';
 import { useUpdaterStore } from '../stores/updater_store';
 import { createDefaultAppConfig } from '@/contracts/app_config';
 
@@ -20,7 +23,18 @@ const settingsStore = useSettingStore();
 const appConfigStore = useAppConfigStore();
 const globalStore = useGlobalStore();
 const updaterStore = useUpdaterStore();
+const ftpStore = useFtpStore();
+const sshStore = useSshStore();
+const { show: showConfirm } = useConfirmDialog();
 const defaultShortcuts = createDefaultAppConfig().shortcuts;
+
+type FtpPanelLayoutMode = 'columns' | 'stacked';
+type FtpSidebarDockSide = 'left' | 'right';
+type FtpAuxiliaryDockSide = 'bottom' | 'right';
+
+const FTP_LAYOUT_STORAGE_KEY = 'guyantools.ftp.layout';
+const FTP_PREFERENCES_STORAGE_KEY = 'guyantools.ftp.preferences';
+const FTP_THUMBNAIL_STORAGE_KEY = 'guyantools.ftp.thumbnail-preferences';
 
 const hostSummary = ref<PluginHostSummary | null>(null);
 const installedPlugins = ref<InstalledPluginRecord[]>([]);
@@ -39,9 +53,32 @@ const sshReconnectMaxAttemptsInput = ref(String(appConfigStore.config.features.t
 const githubTokenInput = ref('');
 const updaterAuthMessage = ref('');
 const updaterAuthSaving = ref(false);
+const ftpLinkNavigationEnabled = ref(false);
+const ftpPanelLayoutMode = ref<FtpPanelLayoutMode>('columns');
+const ftpSidebarDockSide = ref<FtpSidebarDockSide>('left');
+const ftpAuxiliaryDockSide = ref<FtpAuxiliaryDockSide>('bottom');
+const ftpSidebarSize = ref('296');
+const ftpAuxiliaryDockSize = ref('260');
+const ftpShowSidebarPanel = ref(true);
+const ftpShowLocalPanel = ref(true);
+const ftpShowRemotePanel = ref(true);
+const ftpAuxiliaryDockCollapsed = ref(false);
+const ftpDualRemoteMode = ref(false);
+const ftpSecondaryRemoteProfileId = ref('');
+const ftpSecondaryTabGroupProfileIds = ref<string[]>([]);
+const ftpThumbnailsEnabled = ref(true);
+const ftpThumbnailMaxBytesKb = ref('256');
+const ftpThumbnailPrefetchLimit = ref('18');
+const ftpExternalEditorPath = ref('');
+const ftpCleanupExternalDraftsOnClose = ref(false);
+const ftpRetryMaxRetries = ref('3');
+const ftpRetryBaseDelaySecs = ref('5');
+const ftpKnownHostsLoading = ref(false);
+const ftpSettingsLoaded = ref(false);
 
 const settingsTabs: UiTabItem[] = [
   { key: 'general', label: '基础设置' },
+  { key: 'file-transfer', label: '文件传输' },
   { key: 'web-security', label: 'WebView' },
   { key: 'ai-agent', label: 'Agent' },
   { key: 'plugins', label: '插件配置' },
@@ -87,6 +124,65 @@ const terminalProfileOptions = computed(() => terminalProfiles.value.map((profil
   label: profile.label,
   value: profile.id,
 })));
+const ftpSecondaryRemoteSessionOptions = computed(() => [
+  { label: '自动选择第二标签组会话', value: '' },
+  ...ftpStore.sessions.map((session) => ({
+    label: `${session.profileLabel} · ${session.protocol.toUpperCase()} · ${session.username}@${session.host}:${session.port}`,
+    value: session.profileId,
+  })),
+]);
+const ftpLinkNavigationSummary = computed(() => {
+  if (!ftpLinkNavigationEnabled.value) return '联动导航已关闭';
+  return ftpDualRemoteMode.value ? '主标签组和第二标签组联动已开启' : '本地和远程联动已开启';
+});
+const ftpDualRemoteSummary = computed(() => {
+  if (!ftpDualRemoteMode.value) return '当前为单标签组工作区';
+  if (!ftpStore.sessions.length) return '并行标签组已开启，返回传输页后会在连接可用时生效';
+  const selectedSession = ftpStore.sessions.find((session) => session.profileId === ftpSecondaryRemoteProfileId.value);
+  return selectedSession
+    ? `并行标签组已开启 · 第二组当前为 ${selectedSession.profileLabel}`
+    : '并行标签组已开启 · 自动选择第二组会话';
+});
+const ftpThumbnailSummary = computed(() => (
+  ftpThumbnailsEnabled.value
+    ? `图片缩略图已开启 · 单张最多 ${ftpThumbnailMaxBytesKb.value} KB · 每侧预加载 ${ftpThumbnailPrefetchLimit.value} 张`
+    : '图片缩略图已关闭'
+));
+const ftpPanelLayoutSummary = computed(() => (
+  ftpPanelLayoutMode.value === 'columns' ? '当前为水平双栏布局' : '当前为纵向堆叠布局'
+));
+const ftpSidebarDockSummary = computed(() => (
+  `会话侧栏停靠在${ftpSidebarDockSide.value === 'left' ? '左侧' : '右侧'} · 宽度 ${ftpSidebarSize.value}px`
+));
+const ftpAuxiliaryDockSummary = computed(() => {
+  const positionLabel = ftpAuxiliaryDockSide.value === 'bottom' ? '底部停靠区' : '右侧停靠区';
+  const sizeLabel = ftpAuxiliaryDockSide.value === 'bottom' ? `高度 ${ftpAuxiliaryDockSize.value}px` : `宽度 ${ftpAuxiliaryDockSize.value}px`;
+  return `${positionLabel} · ${sizeLabel}`;
+});
+const ftpBrowserPanelSummary = computed(() => {
+  if (ftpDualRemoteMode.value && ftpShowLocalPanel.value && ftpShowRemotePanel.value) return '本地、主远程与第二标签组面板均显示';
+  if (ftpDualRemoteMode.value && ftpShowRemotePanel.value) return ftpShowLocalPanel.value ? '本地、主远程与第二标签组并行显示' : '当前显示主远程与第二标签组';
+  if (ftpDualRemoteMode.value && ftpShowLocalPanel.value) return '当前显示本地与第二标签组';
+  if (ftpDualRemoteMode.value) return '当前仅显示第二标签组';
+  if (ftpShowLocalPanel.value && ftpShowRemotePanel.value) return '本地与远程面板均显示';
+  if (ftpShowLocalPanel.value) return '当前仅显示本地面板';
+  if (ftpShowRemotePanel.value) return '当前仅显示远程面板';
+  return '至少需要保留一个文件面板';
+});
+const ftpExternalEditorSummary = computed(() => (
+  ftpExternalEditorPath.value
+    ? `自定义编辑器：${ftpExternalEditorPath.value}${ftpCleanupExternalDraftsOnClose.value ? ' · 关闭后清理临时文件' : ''}`
+    : '当前使用系统默认编辑器'
+));
+const ftpKnownHostSummary = computed(() => {
+  if (ftpKnownHostsLoading.value) return '正在加载已信任主机指纹';
+  if (!sshStore.knownHosts.length) return '当前没有已信任的主机指纹';
+  return `已信任 ${sshStore.knownHosts.length} 条主机指纹`;
+});
+const ftpRetryPolicySummary = computed(() => `失败后最多自动重试 ${ftpRetryMaxRetries.value} 次，基础等待 ${ftpRetryBaseDelaySecs.value} 秒`);
+const ftpVisibleBrowserPanelCount = computed(() =>
+  Number(ftpShowLocalPanel.value) + Number(ftpShowRemotePanel.value) + Number(ftpDualRemoteMode.value),
+);
 const updateStatusLabel = computed(() => updateStatusLabels[updaterStore.status] ?? updaterStore.status);
 const updateProgressPercent = computed(() => Math.round(updaterStore.progress?.percent ?? 0));
 const updateReleaseDateText = computed(() => {
@@ -178,6 +274,233 @@ function handleSettingsTabChange(value: string) {
   settingsTabTransition.value = nextIndex >= currentIndex ? 'settings-tab-forward' : 'settings-tab-back';
   settingsNavDirection.value = nextIndex >= currentIndex ? 'forward' : 'back';
   settingsStore.setActiveSettingsTab(nextTab);
+}
+
+function normalizeFtpPanelSize(value: string | undefined, min: number, max: number, fallback: string) {
+  const parsed = Number.parseInt(value ?? fallback, 10);
+  if (!Number.isFinite(parsed)) return fallback;
+  return String(Math.min(max, Math.max(min, parsed)));
+}
+
+function loadFtpSettingsDraft() {
+  try {
+    const rawLayout = window.localStorage.getItem(FTP_LAYOUT_STORAGE_KEY);
+    if (rawLayout) {
+      const parsed = JSON.parse(rawLayout) as Partial<{
+        mode: FtpPanelLayoutMode;
+        sidebarDockSide: FtpSidebarDockSide;
+        auxiliaryDockSide: FtpAuxiliaryDockSide;
+        sidebarSize: string;
+        auxiliaryDockSize: string;
+        showSidebar: boolean;
+        showLocal: boolean;
+        showRemote: boolean;
+        auxCollapsed: boolean;
+      }>;
+      ftpPanelLayoutMode.value = parsed.mode === 'stacked' ? 'stacked' : 'columns';
+      ftpSidebarDockSide.value = parsed.sidebarDockSide === 'right' ? 'right' : 'left';
+      ftpAuxiliaryDockSide.value = parsed.auxiliaryDockSide === 'right' ? 'right' : 'bottom';
+      ftpSidebarSize.value = normalizeFtpPanelSize(parsed.sidebarSize, 220, 420, '296');
+      ftpAuxiliaryDockSize.value = normalizeFtpPanelSize(parsed.auxiliaryDockSize, 180, 420, '260');
+      ftpShowSidebarPanel.value = parsed.showSidebar ?? true;
+      ftpShowLocalPanel.value = parsed.showLocal ?? true;
+      ftpShowRemotePanel.value = parsed.showRemote ?? true;
+      ftpAuxiliaryDockCollapsed.value = parsed.auxCollapsed ?? false;
+    }
+
+    const rawPreferences = window.localStorage.getItem(FTP_PREFERENCES_STORAGE_KEY);
+    if (rawPreferences) {
+      const parsed = JSON.parse(rawPreferences) as Partial<{
+        externalEditorPath: string;
+        cleanupExternalDraftsOnClose: boolean;
+        linkNavigationEnabled: boolean;
+        dualRemoteMode: boolean;
+        secondaryTabGroupProfileIds: string[];
+        secondaryRemoteProfileId: string;
+      }>;
+      ftpExternalEditorPath.value = typeof parsed.externalEditorPath === 'string' ? parsed.externalEditorPath : '';
+      ftpCleanupExternalDraftsOnClose.value = Boolean(parsed.cleanupExternalDraftsOnClose);
+      ftpLinkNavigationEnabled.value = Boolean(parsed.linkNavigationEnabled);
+      ftpDualRemoteMode.value = Boolean(parsed.dualRemoteMode);
+      ftpSecondaryTabGroupProfileIds.value = Array.isArray(parsed.secondaryTabGroupProfileIds)
+        ? parsed.secondaryTabGroupProfileIds.filter((item): item is string => typeof item === 'string' && item.length > 0)
+        : [];
+      ftpSecondaryRemoteProfileId.value = typeof parsed.secondaryRemoteProfileId === 'string' ? parsed.secondaryRemoteProfileId : '';
+    }
+
+    const rawThumbnail = window.localStorage.getItem(FTP_THUMBNAIL_STORAGE_KEY);
+    if (rawThumbnail) {
+      const parsed = JSON.parse(rawThumbnail) as Partial<{
+        enabled: boolean;
+        maxBytesKb: string;
+        prefetchLimit: string;
+      }>;
+      ftpThumbnailsEnabled.value = parsed.enabled !== false;
+      ftpThumbnailMaxBytesKb.value = typeof parsed.maxBytesKb === 'string' ? parsed.maxBytesKb : '256';
+      ftpThumbnailPrefetchLimit.value = typeof parsed.prefetchLimit === 'string' ? parsed.prefetchLimit : '18';
+    }
+  } catch {
+    ftpLinkNavigationEnabled.value = false;
+    ftpPanelLayoutMode.value = 'columns';
+    ftpSidebarDockSide.value = 'left';
+    ftpAuxiliaryDockSide.value = 'bottom';
+    ftpSidebarSize.value = '296';
+    ftpAuxiliaryDockSize.value = '260';
+    ftpShowSidebarPanel.value = true;
+    ftpShowLocalPanel.value = true;
+    ftpShowRemotePanel.value = true;
+    ftpAuxiliaryDockCollapsed.value = false;
+    ftpDualRemoteMode.value = false;
+    ftpSecondaryRemoteProfileId.value = '';
+    ftpSecondaryTabGroupProfileIds.value = [];
+    ftpThumbnailsEnabled.value = true;
+    ftpThumbnailMaxBytesKb.value = '256';
+    ftpThumbnailPrefetchLimit.value = '18';
+    ftpExternalEditorPath.value = '';
+    ftpCleanupExternalDraftsOnClose.value = false;
+  } finally {
+    ftpSettingsLoaded.value = true;
+  }
+}
+
+function persistFtpLayoutSettings() {
+  if (!ftpSettingsLoaded.value) return;
+  window.localStorage.setItem(FTP_LAYOUT_STORAGE_KEY, JSON.stringify({
+    mode: ftpPanelLayoutMode.value,
+    sidebarDockSide: ftpSidebarDockSide.value,
+    auxiliaryDockSide: ftpAuxiliaryDockSide.value,
+    sidebarSize: ftpSidebarSize.value,
+    auxiliaryDockSize: ftpAuxiliaryDockSize.value,
+    showSidebar: ftpShowSidebarPanel.value,
+    showLocal: ftpShowLocalPanel.value,
+    showRemote: ftpShowRemotePanel.value,
+    auxCollapsed: ftpAuxiliaryDockCollapsed.value,
+  }));
+}
+
+function persistFtpPreferenceSettings() {
+  if (!ftpSettingsLoaded.value) return;
+  const secondaryTabGroupProfileIds = ftpDualRemoteMode.value && ftpSecondaryRemoteProfileId.value
+    ? Array.from(new Set([...ftpSecondaryTabGroupProfileIds.value, ftpSecondaryRemoteProfileId.value]))
+    : ftpSecondaryTabGroupProfileIds.value;
+  window.localStorage.setItem(FTP_PREFERENCES_STORAGE_KEY, JSON.stringify({
+    externalEditorPath: ftpExternalEditorPath.value,
+    cleanupExternalDraftsOnClose: ftpCleanupExternalDraftsOnClose.value,
+    linkNavigationEnabled: ftpLinkNavigationEnabled.value,
+    dualRemoteMode: ftpDualRemoteMode.value,
+    secondaryTabGroupProfileIds,
+    secondaryRemoteProfileId: ftpSecondaryRemoteProfileId.value,
+  }));
+}
+
+function persistFtpThumbnailSettings() {
+  if (!ftpSettingsLoaded.value) return;
+  window.localStorage.setItem(FTP_THUMBNAIL_STORAGE_KEY, JSON.stringify({
+    enabled: ftpThumbnailsEnabled.value,
+    maxBytesKb: ftpThumbnailMaxBytesKb.value,
+    prefetchLimit: ftpThumbnailPrefetchLimit.value,
+  }));
+}
+
+function setFtpPanelLayoutMode(mode: FtpPanelLayoutMode) {
+  ftpPanelLayoutMode.value = mode;
+}
+
+function setFtpSidebarDockSide(side: FtpSidebarDockSide) {
+  ftpSidebarDockSide.value = side;
+}
+
+function setFtpAuxiliaryDockSide(side: FtpAuxiliaryDockSide) {
+  ftpAuxiliaryDockSide.value = side;
+}
+
+function setFtpSidebarSize(value: string) {
+  ftpSidebarSize.value = normalizeFtpPanelSize(value, 220, 420, ftpSidebarSize.value);
+}
+
+function setFtpAuxiliaryDockSize(value: string) {
+  ftpAuxiliaryDockSize.value = normalizeFtpPanelSize(value, 180, 420, ftpAuxiliaryDockSize.value);
+}
+
+function toggleFtpLocalPanel() {
+  if (ftpShowLocalPanel.value && ftpVisibleBrowserPanelCount.value <= 1) return;
+  ftpShowLocalPanel.value = !ftpShowLocalPanel.value;
+}
+
+function toggleFtpRemotePanel() {
+  if (ftpShowRemotePanel.value && ftpVisibleBrowserPanelCount.value <= 1) return;
+  ftpShowRemotePanel.value = !ftpShowRemotePanel.value;
+}
+
+function setFtpThumbnailMaxBytesKb(value: string) {
+  ftpThumbnailMaxBytesKb.value = String(Math.max(1, Number(value.replace(/\D/g, '')) || 256));
+}
+
+function setFtpThumbnailPrefetchLimit(value: string) {
+  ftpThumbnailPrefetchLimit.value = String(Math.max(1, Number(value.replace(/\D/g, '')) || 18));
+}
+
+function setFtpRetryMaxRetries(value: string) {
+  ftpRetryMaxRetries.value = String(Math.max(0, Number(value.replace(/\D/g, '')) || 0));
+}
+
+function setFtpRetryBaseDelaySecs(value: string) {
+  ftpRetryBaseDelaySecs.value = String(Math.max(1, Number(value.replace(/\D/g, '')) || 1));
+}
+
+async function loadFtpRetryPolicy() {
+  try {
+    const policy = await window.ftpApi.getRetryPolicy();
+    ftpRetryMaxRetries.value = String(policy.maxRetries);
+    ftpRetryBaseDelaySecs.value = String(policy.baseDelaySecs);
+  } catch {
+    ftpRetryMaxRetries.value = '3';
+    ftpRetryBaseDelaySecs.value = '5';
+  }
+}
+
+async function applyFtpRetryPolicy() {
+  const policy = await window.ftpApi.updateRetryPolicy({
+    maxRetries: Math.max(0, Number(ftpRetryMaxRetries.value) || 0),
+    baseDelaySecs: Math.max(1, Number(ftpRetryBaseDelaySecs.value) || 1),
+  });
+  ftpRetryMaxRetries.value = String(policy.maxRetries);
+  ftpRetryBaseDelaySecs.value = String(policy.baseDelaySecs);
+}
+
+async function pickFtpExternalEditor() {
+  const selected = await window.shellApi.selectFile({
+    title: '选择外部编辑器',
+    filters: [
+      { name: '应用程序', extensions: ['exe', 'cmd', 'bat'] },
+      { name: '所有文件', extensions: ['*'] },
+    ],
+    defaultPath: ftpExternalEditorPath.value || undefined,
+  });
+  if (!selected) return;
+  ftpExternalEditorPath.value = selected;
+}
+
+async function refreshFtpKnownHosts() {
+  try {
+    ftpKnownHostsLoading.value = true;
+    await sshStore.refreshKnownHosts();
+  } finally {
+    ftpKnownHostsLoading.value = false;
+  }
+}
+
+async function deleteFtpKnownHost(id: string) {
+  const knownHost = sshStore.knownHosts.find((item) => item.id === id);
+  const targetLabel = knownHost ? `${knownHost.host}:${knownHost.port}` : '这条主机指纹';
+  const confirmed = await showConfirm({
+    title: '删除已信任主机指纹',
+    message: `删除 ${targetLabel} 的已信任指纹后，下次连接将重新要求确认主机密钥。是否继续？`,
+    confirmText: '删除指纹',
+    danger: true,
+  });
+  if (!confirmed) return;
+  await sshStore.deleteKnownHost(id);
 }
 
 async function handleFontChange(value: string) {
@@ -430,8 +753,58 @@ watch(() => appConfigStore.config.features.terminal.sshReconnectMaxAttempts, (va
   sshReconnectMaxAttemptsInput.value = String(value || 3);
 }, { immediate: true });
 
+watch(
+  [
+    ftpPanelLayoutMode,
+    ftpSidebarDockSide,
+    ftpAuxiliaryDockSide,
+    ftpSidebarSize,
+    ftpAuxiliaryDockSize,
+    ftpAuxiliaryDockCollapsed,
+    ftpShowSidebarPanel,
+    ftpShowLocalPanel,
+    ftpShowRemotePanel,
+  ],
+  () => {
+    if (!ftpShowLocalPanel.value && !ftpShowRemotePanel.value && !ftpDualRemoteMode.value) {
+      ftpShowRemotePanel.value = true;
+      return;
+    }
+    persistFtpLayoutSettings();
+  },
+  { immediate: false },
+);
+
+watch(
+  [
+    ftpExternalEditorPath,
+    ftpCleanupExternalDraftsOnClose,
+    ftpLinkNavigationEnabled,
+    ftpDualRemoteMode,
+    ftpSecondaryRemoteProfileId,
+    ftpSecondaryTabGroupProfileIds,
+  ],
+  persistFtpPreferenceSettings,
+  { immediate: false },
+);
+
+watch(
+  [
+    ftpThumbnailsEnabled,
+    ftpThumbnailMaxBytesKb,
+    ftpThumbnailPrefetchLimit,
+  ],
+  persistFtpThumbnailSettings,
+  { immediate: false },
+);
+
 onMounted(() => {
   globalStore.setTopbarColor('');
+  loadFtpSettingsDraft();
+  void ftpStore.initialize();
+  void sshStore.initialize();
+  void loadFtpRetryPolicy();
+  void refreshFtpKnownHosts();
   if (appConfigStore.fontOptions.length === 0) {
     void appConfigStore.loadLocalFonts();
   }
@@ -854,6 +1227,350 @@ function scriptTypeLabel(type: string) {
                     打开 Release 页
                   </UiButton>
                 </div>
+              </div>
+            </div>
+          </section>
+        </div>
+      </section>
+
+      <section v-else-if="settingsStore.activeSettingsTab === 'file-transfer'" key="file-transfer" class="settings-section">
+        <div class="section-head section-head--standalone">
+          <h2>文件传输</h2>
+          <p>配置传输页布局、浏览行为、缩略图、重试策略和主机信任。</p>
+        </div>
+
+        <div class="settings-form">
+          <section class="settings-group">
+            <h3>浏览行为</h3>
+            <div class="settings-row">
+              <div class="settings-row__label">
+                <span>联动导航</span>
+                <small>切换目录时同步本地与远程浏览节奏。</small>
+              </div>
+              <div class="settings-row__control settings-row__control--switch">
+                <label class="settings-switch">
+                  <input v-model="ftpLinkNavigationEnabled" type="checkbox" />
+                  <span aria-hidden="true" />
+                </label>
+              </div>
+            </div>
+            <div class="settings-row settings-row--wide">
+              <div class="settings-row__label">
+                <span>联动状态</span>
+                <small>传输页重新激活后会读取该偏好。</small>
+              </div>
+              <div class="settings-row__control settings-row__control--wide">
+                <div class="settings-inline-badges">
+                  <span class="settings-badge" :class="{ 'settings-badge--accent': ftpLinkNavigationEnabled }">{{ ftpLinkNavigationSummary }}</span>
+                </div>
+              </div>
+            </div>
+
+            <div class="settings-row">
+              <div class="settings-row__label">
+                <span>并行标签组</span>
+                <small>允许主工作区外再显示第二个远程标签组。</small>
+              </div>
+              <div class="settings-row__control settings-row__control--switch">
+                <label class="settings-switch">
+                  <input v-model="ftpDualRemoteMode" type="checkbox" />
+                  <span aria-hidden="true" />
+                </label>
+              </div>
+            </div>
+            <div class="settings-row settings-row--wide">
+              <div class="settings-row__label">
+                <span>第二标签组焦点</span>
+                <small>可指定当前已连接会话，留空时自动选择。</small>
+              </div>
+              <div class="settings-row__control settings-row__control--wide">
+                <UiSelect
+                  :model-value="ftpSecondaryRemoteProfileId"
+                  :options="ftpSecondaryRemoteSessionOptions"
+                  @update:modelValue="ftpSecondaryRemoteProfileId = String($event)"
+                />
+                <div class="settings-inline-badges settings-inline-badges--mt">
+                  <span class="settings-badge" :class="{ 'settings-badge--accent': ftpDualRemoteMode }">{{ ftpDualRemoteSummary }}</span>
+                </div>
+              </div>
+            </div>
+          </section>
+
+          <section class="settings-group">
+            <h3>布局与面板</h3>
+            <div class="settings-row">
+              <div class="settings-row__label">
+                <span>工作区拆分</span>
+                <small>选择水平双栏或纵向堆叠。</small>
+              </div>
+              <div class="settings-row__control">
+                <div class="segmented-actions">
+                  <UiButton size="sm" variant="secondary" :active="ftpPanelLayoutMode === 'columns'" @click="setFtpPanelLayoutMode('columns')">水平双栏</UiButton>
+                  <UiButton size="sm" variant="secondary" :active="ftpPanelLayoutMode === 'stacked'" @click="setFtpPanelLayoutMode('stacked')">纵向堆叠</UiButton>
+                </div>
+              </div>
+            </div>
+            <div class="settings-row settings-row--wide">
+              <div class="settings-row__label">
+                <span>布局状态</span>
+                <small>用于传输页主内容区。</small>
+              </div>
+              <div class="settings-row__control settings-row__control--wide">
+                <div class="settings-inline-badges">
+                  <span class="settings-badge settings-badge--accent">{{ ftpPanelLayoutSummary }}</span>
+                  <span class="settings-badge">{{ ftpBrowserPanelSummary }}</span>
+                </div>
+              </div>
+            </div>
+
+            <div class="settings-row">
+              <div class="settings-row__label">
+                <span>会话侧栏停靠</span>
+                <small>控制服务器列表在传输页的停靠位置。</small>
+              </div>
+              <div class="settings-row__control">
+                <div class="segmented-actions">
+                  <UiButton size="sm" variant="secondary" :active="ftpSidebarDockSide === 'left'" @click="setFtpSidebarDockSide('left')">左侧</UiButton>
+                  <UiButton size="sm" variant="secondary" :active="ftpSidebarDockSide === 'right'" @click="setFtpSidebarDockSide('right')">右侧</UiButton>
+                </div>
+              </div>
+            </div>
+            <div class="settings-row">
+              <div class="settings-row__label">
+                <span>侧栏宽度</span>
+                <small>输入 220 到 420 像素。</small>
+              </div>
+              <div class="settings-row__control settings-row__control--compact">
+                <UiInput
+                  :model-value="ftpSidebarSize"
+                  type="number"
+                  :min="220"
+                  :max="420"
+                  @update:modelValue="setFtpSidebarSize(String($event))"
+                />
+              </div>
+            </div>
+            <div class="settings-row settings-row--wide">
+              <div class="settings-row__label">
+                <span>侧栏状态</span>
+                <small>隐藏侧栏后仍保留当前工作区。</small>
+              </div>
+              <div class="settings-row__control settings-row__control--wide">
+                <div class="settings-inline-badges">
+                  <span class="settings-badge">{{ ftpSidebarDockSummary }}</span>
+                  <label class="settings-check">
+                    <input v-model="ftpShowSidebarPanel" type="checkbox" />
+                    <span>显示会话侧栏</span>
+                  </label>
+                </div>
+              </div>
+            </div>
+
+            <div class="settings-row settings-row--wide">
+              <div class="settings-row__label">
+                <span>文件面板</span>
+                <small>至少保留一个浏览面板。</small>
+              </div>
+              <div class="settings-row__control settings-row__control--wide">
+                <div class="settings-inline-badges">
+                  <UiButton size="sm" variant="secondary" :active="ftpShowLocalPanel" @click="toggleFtpLocalPanel">{{ ftpShowLocalPanel ? '隐藏本地' : '显示本地' }}</UiButton>
+                  <UiButton size="sm" variant="secondary" :active="ftpShowRemotePanel" @click="toggleFtpRemotePanel">{{ ftpShowRemotePanel ? '隐藏远程' : '显示远程' }}</UiButton>
+                </div>
+              </div>
+            </div>
+
+            <div class="settings-row">
+              <div class="settings-row__label">
+                <span>辅助停靠区</span>
+                <small>传输队列和日志面板的位置。</small>
+              </div>
+              <div class="settings-row__control">
+                <div class="segmented-actions">
+                  <UiButton size="sm" variant="secondary" :active="ftpAuxiliaryDockSide === 'bottom'" @click="setFtpAuxiliaryDockSide('bottom')">底部</UiButton>
+                  <UiButton size="sm" variant="secondary" :active="ftpAuxiliaryDockSide === 'right'" @click="setFtpAuxiliaryDockSide('right')">右侧</UiButton>
+                </div>
+              </div>
+            </div>
+            <div class="settings-row">
+              <div class="settings-row__label">
+                <span>辅助区尺寸</span>
+                <small>输入 180 到 420 像素。</small>
+              </div>
+              <div class="settings-row__control settings-row__control--compact">
+                <UiInput
+                  :model-value="ftpAuxiliaryDockSize"
+                  type="number"
+                  :min="180"
+                  :max="420"
+                  @update:modelValue="setFtpAuxiliaryDockSize(String($event))"
+                />
+              </div>
+            </div>
+            <div class="settings-row settings-row--wide">
+              <div class="settings-row__label">
+                <span>辅助区状态</span>
+                <small>影响传输页底部或右侧工作区。</small>
+              </div>
+              <div class="settings-row__control settings-row__control--wide">
+                <div class="settings-inline-badges">
+                  <span class="settings-badge">{{ ftpAuxiliaryDockSummary }}</span>
+                  <label class="settings-check">
+                    <input v-model="ftpAuxiliaryDockCollapsed" type="checkbox" />
+                    <span>默认折叠辅助区</span>
+                  </label>
+                </div>
+              </div>
+            </div>
+          </section>
+
+          <section class="settings-group">
+            <h3>预览与传输</h3>
+            <div class="settings-row">
+              <div class="settings-row__label">
+                <span>图片缩略图</span>
+                <small>控制文件列表中的图片预览加载。</small>
+              </div>
+              <div class="settings-row__control settings-row__control--switch">
+                <label class="settings-switch">
+                  <input v-model="ftpThumbnailsEnabled" type="checkbox" />
+                  <span aria-hidden="true" />
+                </label>
+              </div>
+            </div>
+            <div class="settings-row">
+              <div class="settings-row__label">
+                <span>单张最大 KB</span>
+                <small>避免大图片拖慢浏览。</small>
+              </div>
+              <div class="settings-row__control settings-row__control--compact">
+                <UiInput
+                  :model-value="ftpThumbnailMaxBytesKb"
+                  type="number"
+                  :min="1"
+                  @update:modelValue="setFtpThumbnailMaxBytesKb(String($event))"
+                />
+              </div>
+            </div>
+            <div class="settings-row">
+              <div class="settings-row__label">
+                <span>每侧预加载数量</span>
+                <small>限制本地和远程预取数量。</small>
+              </div>
+              <div class="settings-row__control settings-row__control--compact">
+                <UiInput
+                  :model-value="ftpThumbnailPrefetchLimit"
+                  type="number"
+                  :min="1"
+                  @update:modelValue="setFtpThumbnailPrefetchLimit(String($event))"
+                />
+              </div>
+            </div>
+            <div class="settings-row settings-row--wide">
+              <div class="settings-row__label">
+                <span>缩略图状态</span>
+                <small>传输页文件列表会读取该偏好。</small>
+              </div>
+              <div class="settings-row__control settings-row__control--wide">
+                <div class="settings-inline-badges">
+                  <span class="settings-badge" :class="{ 'settings-badge--accent': ftpThumbnailsEnabled }">{{ ftpThumbnailSummary }}</span>
+                </div>
+              </div>
+            </div>
+
+            <div class="settings-row">
+              <div class="settings-row__label">
+                <span>最大重试次数</span>
+                <small>传输失败后的自动重试上限。</small>
+              </div>
+              <div class="settings-row__control settings-row__control--compact">
+                <UiInput
+                  :model-value="ftpRetryMaxRetries"
+                  type="number"
+                  :min="0"
+                  :max="10"
+                  @update:modelValue="setFtpRetryMaxRetries(String($event))"
+                />
+              </div>
+            </div>
+            <div class="settings-row">
+              <div class="settings-row__label">
+                <span>基础等待秒数</span>
+                <small>指数退避的初始等待时间。</small>
+              </div>
+              <div class="settings-row__control settings-row__control--compact">
+                <UiInput
+                  :model-value="ftpRetryBaseDelaySecs"
+                  type="number"
+                  :min="1"
+                  :max="300"
+                  @update:modelValue="setFtpRetryBaseDelaySecs(String($event))"
+                />
+              </div>
+            </div>
+            <div class="settings-row settings-row--wide">
+              <div class="settings-row__label">
+                <span>重试策略</span>
+                <small>策略保存后立即作用于后续失败任务。</small>
+              </div>
+              <div class="settings-row__control settings-row__control--wide">
+                <div class="settings-inline-badges">
+                  <span class="settings-badge settings-badge--accent">{{ ftpRetryPolicySummary }}</span>
+                  <UiButton size="sm" variant="secondary" @click="applyFtpRetryPolicy">应用策略</UiButton>
+                </div>
+              </div>
+            </div>
+          </section>
+
+          <section class="settings-group">
+            <h3>编辑器与安全</h3>
+            <div class="settings-row settings-row--wide">
+              <div class="settings-row__label">
+                <span>外部编辑器</span>
+                <small>留空时使用系统默认关联程序。</small>
+              </div>
+              <div class="settings-row__control settings-row__control--wide">
+                <div class="settings-path-row">
+                  <div class="settings-path-display" :class="{ 'settings-path-display--empty': !ftpExternalEditorPath }">
+                    {{ ftpExternalEditorPath || '未配置' }}
+                  </div>
+                  <UiButton size="sm" variant="secondary" @click="pickFtpExternalEditor">选择</UiButton>
+                  <UiButton size="sm" variant="ghost" :disabled="!ftpExternalEditorPath" @click="ftpExternalEditorPath = ''">清空</UiButton>
+                </div>
+                <div class="settings-inline-badges settings-inline-badges--mt">
+                  <span class="settings-badge settings-badge--accent">{{ ftpExternalEditorSummary }}</span>
+                  <label class="settings-check">
+                    <input v-model="ftpCleanupExternalDraftsOnClose" type="checkbox" />
+                    <span>关闭后清理临时文件</span>
+                  </label>
+                </div>
+              </div>
+            </div>
+
+            <div class="settings-row settings-row--wide">
+              <div class="settings-row__label">
+                <span>已信任主机指纹</span>
+                <small>删除后下次连接会重新确认主机密钥。</small>
+              </div>
+              <div class="settings-row__control settings-row__control--wide">
+                <div class="settings-inline-badges">
+                  <span class="settings-badge" :class="{ 'settings-badge--accent': sshStore.knownHosts.length > 0 }">{{ ftpKnownHostSummary }}</span>
+                  <UiButton size="sm" variant="secondary" :disabled="ftpKnownHostsLoading" @click="refreshFtpKnownHosts">
+                    {{ ftpKnownHostsLoading ? '刷新中' : '刷新列表' }}
+                  </UiButton>
+                </div>
+                <div v-if="sshStore.knownHosts.length" class="settings-known-hosts">
+                  <div v-for="host in sshStore.knownHosts" :key="host.id" class="settings-known-host">
+                    <div class="settings-known-host__main">
+                      <div class="settings-known-host__title">{{ host.host }}:{{ host.port }}</div>
+                      <div class="settings-known-host__meta">
+                        算法 {{ host.algorithm }} · {{ host.trustMode === 'session' ? '仅本次会话信任' : '永久信任' }}
+                      </div>
+                      <div class="settings-known-host__fingerprint">{{ host.fingerprint }}</div>
+                    </div>
+                    <UiButton size="sm" variant="danger" @click="deleteFtpKnownHost(host.id)">删除</UiButton>
+                  </div>
+                </div>
+                <div v-else class="settings-muted-empty">当前还没有已信任的主机指纹。</div>
               </div>
             </div>
           </section>
@@ -2010,6 +2727,120 @@ function scriptTypeLabel(type: string) {
     color: var(--ui-text-muted);
     font-style: italic;
   }
+}
+
+.segmented-actions,
+.settings-inline-badges,
+.settings-path-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  min-width: 0;
+}
+
+.settings-inline-badges--mt {
+  margin-top: 8px;
+}
+
+.settings-badge {
+  display: inline-flex;
+  align-items: center;
+  min-height: 26px;
+  padding: 0 10px;
+  border: 1px solid var(--ui-border-subtle);
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--ui-surface-panel-muted) 88%, transparent);
+  color: var(--ui-text-primary);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.settings-badge--accent {
+  border-color: color-mix(in srgb, var(--primary-color) 34%, var(--ui-border-subtle));
+  background: color-mix(in srgb, var(--primary-color) 12%, var(--ui-surface-panel));
+  color: var(--primary-color);
+}
+
+.settings-check {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--ui-text-primary);
+  font-size: 13px;
+  cursor: pointer;
+
+  input {
+    width: 14px;
+    height: 14px;
+    accent-color: var(--primary-color);
+  }
+}
+
+.settings-path-display {
+  flex: 1;
+  min-width: 0;
+  padding: 8px 12px;
+  border: var(--ui-border-width-thin) solid var(--ui-input-border);
+  border-radius: var(--ui-radius-md);
+  background: var(--ui-input-bg);
+  color: var(--ui-text-primary);
+  font-size: 13px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+
+  &--empty {
+    color: var(--ui-text-muted);
+    font-style: italic;
+  }
+}
+
+.settings-muted-empty {
+  margin-top: 10px;
+  color: var(--ui-text-muted);
+  font-size: 13px;
+}
+
+.settings-known-hosts {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.settings-known-host {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 12px;
+  border: 1px solid var(--ui-border-subtle);
+  border-radius: 6px;
+  background: color-mix(in srgb, var(--ui-surface-panel-muted) 88%, transparent);
+}
+
+.settings-known-host__main {
+  min-width: 0;
+  flex: 1;
+}
+
+.settings-known-host__title {
+  color: var(--ui-text-primary);
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.settings-known-host__meta,
+.settings-known-host__fingerprint {
+  margin-top: 3px;
+  color: var(--ui-text-muted);
+  font-size: 12px;
+}
+
+.settings-known-host__fingerprint {
+  overflow-wrap: anywhere;
+  font-family: var(--ui-font-mono, monospace);
 }
 
 .ffmpeg-status {
