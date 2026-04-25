@@ -1,15 +1,32 @@
 <script setup lang="ts">
-import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue';
-import { useRoute, useRouter } from 'vue-router';
+import type {
+  FileTransferEntry,
+  FtpScheduledTask,
+  FtpWindowsContextMenuStatus,
+  TransferTask,
+  UpsertFtpScheduledTaskInput,
+} from '@/contracts/ftp';
+import type { SshKnownHost } from '@/contracts/ssh';
+import DeleteIcon from '@/windows/main/components/svgs/icons/DeleteIcon.vue';
+import UiButton from '@/windows/main/components/ui/UiButton.vue';
+import UiCheckbox from '@/windows/main/components/ui/UiCheckbox.vue';
+import UiDateTimePicker from '@/windows/main/components/ui/UiDateTimePicker.vue';
+import UiDialog from '@/windows/main/components/ui/UiDialog.vue';
+import UiIconButton from '@/windows/main/components/ui/UiIconButton.vue';
+import UiInput from '@/windows/main/components/ui/UiInput.vue';
+import UiSelect from '@/windows/main/components/ui/UiSelect.vue';
+import UiTimePicker from '@/windows/main/components/ui/UiTimePicker.vue';
+import { useConfirmDialog } from '@/windows/main/composables/useConfirmDialog';
+import { useContextMenu } from '@/windows/main/composables/useContextMenu';
 import FtpBrowserPanel from '@/windows/main/pages/Ftp/components/FtpBrowserPanel.vue';
 import FtpCodeEditor from '@/windows/main/pages/Ftp/components/FtpCodeEditor.vue';
 import FtpConfigSidebar from '@/windows/main/pages/Ftp/components/FtpConfigSidebar.vue';
 import FtpSettingsDrawer from '@/windows/main/pages/Ftp/components/FtpSettingsDrawer.vue';
 import FtpSyncPanel from '@/windows/main/pages/Ftp/components/FtpSyncPanel.vue';
 import FtpTransferQueue from '@/windows/main/pages/Ftp/components/FtpTransferQueue.vue';
+import FtpAuthChallengeDialog from '@/windows/main/pages/Ftp/components/dialogs/FtpAuthChallengeDialog.vue';
 import FtpEntryNameDialog from '@/windows/main/pages/Ftp/components/dialogs/FtpEntryNameDialog.vue';
 import FtpFolderDialog from '@/windows/main/pages/Ftp/components/dialogs/FtpFolderDialog.vue';
-import FtpAuthChallengeDialog from '@/windows/main/pages/Ftp/components/dialogs/FtpAuthChallengeDialog.vue';
 import FtpPasswordDialog from '@/windows/main/pages/Ftp/components/dialogs/FtpPasswordDialog.vue';
 import FtpProfileDialog from '@/windows/main/pages/Ftp/components/dialogs/FtpProfileDialog.vue';
 import { useFtpBrowserState } from '@/windows/main/pages/Ftp/composables/useFtpBrowserState';
@@ -17,22 +34,22 @@ import { useFtpConfigFlow } from '@/windows/main/pages/Ftp/composables/useFtpCon
 import { useFtpPanelInteractions } from '@/windows/main/pages/Ftp/composables/useFtpPanelInteractions';
 import { useFtpSidebar } from '@/windows/main/pages/Ftp/composables/useFtpSidebar';
 import { useFtpThumbnails } from '@/windows/main/pages/Ftp/composables/useFtpThumbnails';
-import UiButton from '@/windows/main/components/ui/UiButton.vue';
-import UiIconButton from '@/windows/main/components/ui/UiIconButton.vue';
-import UiTimePicker from '@/windows/main/components/ui/UiTimePicker.vue';
-import UiDateTimePicker from '@/windows/main/components/ui/UiDateTimePicker.vue';
-import UiCheckbox from '@/windows/main/components/ui/UiCheckbox.vue';
-import UiDialog from '@/windows/main/components/ui/UiDialog.vue';
-import UiInput from '@/windows/main/components/ui/UiInput.vue';
-import UiSelect from '@/windows/main/components/ui/UiSelect.vue';
-import { useConfirmDialog } from '@/windows/main/composables/useConfirmDialog';
-import { useContextMenu } from '@/windows/main/composables/useContextMenu';
-import { formatSize, formatTime } from '@/windows/main/pages/Ftp/utils/ftpFormat';
+import type {
+  PanelFilterState,
+  PanelViewMode,
+  SyncActionKind,
+  SyncComparisonItem,
+  SyncConflictPolicy,
+  SyncDirection,
+  SyncPreviewItem,
+  TaskSortKey,
+} from '@/windows/main/pages/Ftp/types';
 import { highlightEntryName, isRuleFilterActive, matchesPanelFilter, panelFilterSummary } from '@/windows/main/pages/Ftp/utils/ftpFilters';
+import { formatSize, formatTime } from '@/windows/main/pages/Ftp/utils/ftpFormat';
 import {
   baseName,
-  buildPathSuggestions,
   buildLocalBreadcrumbs,
+  buildPathSuggestions,
   buildRemoteBreadcrumbs,
   joinLocalPath,
   joinRemotePath,
@@ -44,8 +61,8 @@ import {
   canResumeTask,
   canRetryTask,
   compareTaskValues,
-  sortEntries,
   sessionStatusLabel,
+  sortEntries,
   taskPriorityLabel,
   taskStatusLabel,
 } from '@/windows/main/pages/Ftp/utils/ftpSort';
@@ -58,27 +75,11 @@ import {
   syncStatusLabel,
   verifySyncComparisonContent,
 } from '@/windows/main/pages/Ftp/utils/ftpSync';
-import { useGlobalStore } from '@/windows/main/stores/global_store';
 import { useFtpStore } from '@/windows/main/stores/ftp_store';
+import { useGlobalStore } from '@/windows/main/stores/global_store';
 import { useSshStore } from '@/windows/main/stores/ssh_store';
-import type {
-  FileTransferEntry,
-  FtpScheduledTask,
-  FtpWindowsContextMenuStatus,
-  TransferTask,
-  UpsertFtpScheduledTaskInput,
-} from '@/contracts/ftp';
-import type { SshKnownHost } from '@/contracts/ssh';
-import type {
-  PanelViewMode,
-  PanelFilterState,
-  SyncActionKind,
-  SyncComparisonItem,
-  SyncConflictPolicy,
-  SyncDirection,
-  SyncPreviewItem,
-  TaskSortKey,
-} from '@/windows/main/pages/Ftp/types';
+import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue';
+import { useRoute, useRouter } from 'vue-router';
 
 type PanelLayoutMode = 'columns' | 'stacked';
 type SessionTabGroup = 'primary' | 'secondary';
@@ -112,7 +113,7 @@ const syncPanelVisible = ref(false);
 const linkNavigationEnabled = ref(false);
 const taskSortKey = ref<TaskSortKey>('createdAt');
 const taskSortDirection = ref<'asc' | 'desc'>('desc');
-const queueCollapsed = ref(true);
+const auxiliaryDockCollapsed = ref(false);
 const expandedTaskIds = ref<string[]>([]);
 const syncDirection = ref<SyncDirection>('localToRemote');
 const syncConflictPolicy = ref<SyncConflictPolicy>('keepNewer');
@@ -146,6 +147,7 @@ const dualRemoteMode = ref(false);
 const panelHSplitPct = ref(50);
 /** 垂直分割：远程堆叠中第二远程面板占总高的百分比 (20-80) */
 const remoteVSplitPct = ref(50);
+let stopAuxiliaryDockResize: (() => void) | null = null;
 
 function startHDrag(e: MouseEvent) {
   e.preventDefault();
@@ -188,6 +190,33 @@ function startVDrag(e: MouseEvent) {
   document.addEventListener('mousemove', onMove);
   document.addEventListener('mouseup', onUp);
 }
+
+function startAuxiliaryDockResize(e: MouseEvent) {
+  if (auxiliaryDockSide.value !== 'bottom' || auxiliaryDockCollapsed.value) return;
+  e.preventDefault();
+  stopAuxiliaryDockResize?.();
+
+  const startY = e.clientY;
+  const startSize = Number.parseInt(auxiliaryDockSize.value, 10) || 260;
+  document.body.classList.add('ftp-aux-dock-resizing');
+
+  function onMove(ev: MouseEvent) {
+    const viewportLimit = Math.max(180, Math.min(420, window.innerHeight - 220));
+    const nextSize = Math.min(viewportLimit, Math.max(180, startSize + startY - ev.clientY));
+    auxiliaryDockSize.value = String(Math.round(nextSize));
+  }
+
+  function onUp() {
+    document.removeEventListener('mousemove', onMove);
+    document.removeEventListener('mouseup', onUp);
+    document.body.classList.remove('ftp-aux-dock-resizing');
+    stopAuxiliaryDockResize = null;
+  }
+
+  stopAuxiliaryDockResize = onUp;
+  document.addEventListener('mousemove', onMove);
+  document.addEventListener('mouseup', onUp);
+}
 const secondaryTabGroupProfileIds = ref<string[]>([]);
 const secondaryRemoteProfileId = ref('');
 const secondaryRemoteSessionId = ref('');
@@ -210,9 +239,7 @@ const secondaryRemoteRuleFilter = ref<PanelFilterState>({
 const showSidebarPanel = ref(true);
 const showLocalPanel = ref(true);
 const showRemotePanel = ref(true);
-const showQueuePanel = ref(true);
-const showLogPanel = ref(false);
-const logPanelCollapsed = ref(false);
+const showLogPanel = ref(true);
 const auxDockActiveTab = ref<AuxiliaryDockTab>('queue');
 const draggedSessionId = ref('');
 const recentlyClosedSessions = ref<ClosedSessionSnapshot[]>([]);
@@ -422,13 +449,9 @@ const failedTaskCount = computed(() =>
 );
 const isDenseViewport = computed(() => viewportHeight.value > 0 && (viewportHeight.value < 980 || viewportWidth.value < 1480));
 const showHeroMetrics = computed(() => !isDenseViewport.value);
-const useAuxDockTabs = computed(() => isDenseViewport.value && showQueuePanel.value && showLogPanel.value);
-const showQueuePanelInDock = computed(() =>
-  showQueuePanel.value && (!useAuxDockTabs.value || auxDockActiveTab.value === 'queue'),
-);
-const showLogPanelInDock = computed(() =>
-  showLogPanel.value && (!useAuxDockTabs.value || auxDockActiveTab.value === 'log'),
-);
+const useAuxDockTabs = computed(() => showLogPanel.value);
+const showQueuePanelInDock = computed(() => auxDockActiveTab.value === 'queue');
+const showLogPanelInDock = computed(() => auxDockActiveTab.value === 'log');
 const activeSession = computed(() => ftpStore.activeSession);
 const {
   localPathInput,
@@ -797,8 +820,6 @@ const browserPanelSummary = computed(() => {
 });
 const localBreadcrumbs = computed(() => buildLocalBreadcrumbs(ftpStore.localPath));
 const remoteBreadcrumbs = computed(() => buildRemoteBreadcrumbs(ftpStore.remotePath || activeSession.value?.remoteRoot || '/'));
-const queuePanelSummary = computed(() => (showQueuePanel.value ? '传输队列面板已显示' : '传输队列面板已隐藏'));
-const logPanelSummary = computed(() => (showLogPanel.value ? `日志面板已显示 · ${ftpStore.logs.length} 条记录` : '日志面板已隐藏'));
 const auxiliaryDockSummary = computed(() => {
   const positionLabel = auxiliaryDockSide.value === 'bottom' ? '底部停靠区' : '右侧停靠区';
   const sizeLabel = auxiliaryDockSide.value === 'bottom' ? `高度 ${auxiliaryDockSize.value}px` : `宽度 ${auxiliaryDockSize.value}px`;
@@ -1162,7 +1183,8 @@ async function runScheduledTaskNow(taskId: string) {
   try {
     const task = await window.ftpApi.runScheduledTaskNow(taskId);
     await reloadScheduledTasks();
-    queueCollapsed.value = false;
+    auxiliaryDockCollapsed.value = false;
+    auxDockActiveTab.value = 'queue';
     if (!expandedTaskIds.value.includes(task.id)) {
       expandedTaskIds.value = [...expandedTaskIds.value, task.id];
     }
@@ -1219,7 +1241,8 @@ function focusTaskFromRoute(taskId: string) {
   if (matchedTask.sessionId && ftpStore.sessions.some((item) => item.sessionId === matchedTask.sessionId)) {
     ftpStore.focusSession(matchedTask.sessionId);
   }
-  queueCollapsed.value = false;
+  auxiliaryDockCollapsed.value = false;
+  auxDockActiveTab.value = 'queue';
   if (!expandedTaskIds.value.includes(taskId)) {
     expandedTaskIds.value = [...expandedTaskIds.value, taskId];
   }
@@ -1238,8 +1261,7 @@ function loadPanelLayout() {
       showSidebar: boolean;
       showLocal: boolean;
       showRemote: boolean;
-      showQueue: boolean;
-      showLog: boolean;
+      auxCollapsed: boolean;
     }>;
     if (parsed.mode === 'columns' || parsed.mode === 'stacked') {
       panelLayoutMode.value = parsed.mode;
@@ -1251,8 +1273,8 @@ function loadPanelLayout() {
     showSidebarPanel.value = parsed.showSidebar ?? true;
     showLocalPanel.value = parsed.showLocal ?? true;
     showRemotePanel.value = parsed.showRemote ?? true;
-    showQueuePanel.value = parsed.showQueue ?? true;
-    showLogPanel.value = parsed.showLog ?? false;
+    auxiliaryDockCollapsed.value = parsed.auxCollapsed ?? false;
+    showLogPanel.value = true;
     if (!showLocalPanel.value && !showRemotePanel.value) {
       showRemotePanel.value = true;
     }
@@ -1265,8 +1287,8 @@ function loadPanelLayout() {
     showSidebarPanel.value = true;
     showLocalPanel.value = true;
     showRemotePanel.value = true;
-    showQueuePanel.value = true;
-    showLogPanel.value = false;
+    auxiliaryDockCollapsed.value = false;
+    showLogPanel.value = true;
   }
 }
 
@@ -1280,8 +1302,7 @@ function persistPanelLayout() {
     showSidebar: showSidebarPanel.value,
     showLocal: showLocalPanel.value,
     showRemote: showRemotePanel.value,
-    showQueue: showQueuePanel.value,
-    showLog: showLogPanel.value,
+    auxCollapsed: auxiliaryDockCollapsed.value,
   }));
 }
 
@@ -1319,16 +1340,8 @@ function toggleRemotePanel() {
   showRemotePanel.value = !showRemotePanel.value;
 }
 
-function toggleQueuePanel() {
-  showQueuePanel.value = !showQueuePanel.value;
-}
-
-function toggleLogPanel() {
-  showLogPanel.value = !showLogPanel.value;
-}
-
-function toggleLogPanelCollapsed() {
-  logPanelCollapsed.value = !logPanelCollapsed.value;
+function toggleAuxiliaryDockCollapsed() {
+  auxiliaryDockCollapsed.value = !auxiliaryDockCollapsed.value;
 }
 
 function updateViewportState() {
@@ -2262,10 +2275,10 @@ watch(
     auxiliaryDockSide,
     sidebarSize,
     auxiliaryDockSize,
+    auxiliaryDockCollapsed,
     showSidebarPanel,
     showLocalPanel,
     showRemotePanel,
-    showQueuePanel,
     showLogPanel,
     dualRemoteMode,
   ],
@@ -2313,23 +2326,7 @@ watch(
 
 watch(isDenseViewport, (dense, previousDense) => {
   if (!dense || dense === previousDense) return;
-  queueCollapsed.value = true;
-  if (showLogPanel.value) {
-    logPanelCollapsed.value = true;
-  }
-  if (showQueuePanel.value) {
-    auxDockActiveTab.value = 'queue';
-  } else if (showLogPanel.value) {
-    auxDockActiveTab.value = 'log';
-  }
-});
-
-watch([showQueuePanel, showLogPanel], ([queueVisible, logVisible]) => {
-  if (auxDockActiveTab.value === 'queue' && !queueVisible && logVisible) {
-    auxDockActiveTab.value = 'log';
-  } else if (auxDockActiveTab.value === 'log' && !logVisible && queueVisible) {
-    auxDockActiveTab.value = 'queue';
-  }
+  auxDockActiveTab.value = 'queue';
 });
 
 watch(
@@ -2369,827 +2366,583 @@ onMounted(() => {
 onBeforeUnmount(() => {
   window.removeEventListener('keydown', handleExplorerPasteShortcut);
   window.removeEventListener('resize', updateViewportState);
+  stopAuxiliaryDockResize?.();
 });
 </script>
 
 <template>
-  <div
-    class="ftp-page"
-    :class="{
-      'ftp-page--sidebar-hidden': !showSidebarPanel,
-      'ftp-page--sidebar-right': sidebarDockSide === 'right',
-      'ftp-page--dense': isDenseViewport,
-    }"
-    :style="{
+  <div class="ftp-page" :class="{
+    'ftp-page--sidebar-hidden': !showSidebarPanel,
+    'ftp-page--sidebar-right': sidebarDockSide === 'right',
+    'ftp-page--dense': isDenseViewport,
+  }" :style="{
       '--ftp-sidebar-size': `${sidebarSize}px`,
       '--ftp-aux-dock-size': `${auxiliaryDockSize}px`,
-    }"
-  >
-    <FtpConfigSidebar
-      v-if="showSidebarPanel"
-      :sidebar-collapsed="sidebarCollapsed"
-      :profiles-count="ftpStore.profiles.length"
-      :sessions-count="ftpStore.sessions.length"
-      :config-tree-nodes="configTreeNodes"
-      :selected-config-tree-node-id="selectedConfigTreeNodeId"
-      :config-tree-expanded-ids="configTreeExpandedIds"
-      :sessions="ftpStore.sessions"
-      :active-session-id="ftpStore.activeSessionId"
-      :secondary-tab-group-profile-ids="secondaryTabGroupProfileIds"
-      :dual-remote-mode="dualRemoteMode"
-      :secondary-remote-session-id="secondaryRemoteSessionId"
-      :restore-failure-profiles="restoreFailureProfiles"
-      :session-status-label="sessionStatusLabel"
-      :session-status-tone="sessionStatusTone"
-      @toggle-sidebar="toggleSidebarCollapsed"
-      @open-create-dialog="openCreateDialog($event)"
-      @open-create-folder-dialog="openCreateFolderDialog($event)"
-      @open-collapsed-configs-menu="openCollapsedConfigsMenu"
-      @update:expandedIds="configTreeExpandedIds = $event"
-      @select-config="handleConfigTreeSelect"
-      @activate-config="handleConfigTreeActivate"
-      @contextmenu-config="openConfigNodeContextMenu"
-      @drop-config="handleConfigTreeDrop"
-      @focus-session="ftpStore.focusSession($event)"
-      @focus-secondary-session="setSecondaryRemoteSession($event)"
-      @disconnect-session="disconnectSession"
-      @reconnect-profile="connectProfile"
+    }">
+    <FtpConfigSidebar v-if="showSidebarPanel" :sidebar-collapsed="sidebarCollapsed"
+      :profiles-count="ftpStore.profiles.length" :sessions-count="ftpStore.sessions.length"
+      :config-tree-nodes="configTreeNodes" :selected-config-tree-node-id="selectedConfigTreeNodeId"
+      :config-tree-expanded-ids="configTreeExpandedIds" :sessions="ftpStore.sessions"
+      :active-session-id="ftpStore.activeSessionId" :secondary-tab-group-profile-ids="secondaryTabGroupProfileIds"
+      :dual-remote-mode="dualRemoteMode" :secondary-remote-session-id="secondaryRemoteSessionId"
+      :restore-failure-profiles="restoreFailureProfiles" :session-status-label="sessionStatusLabel"
+      :session-status-tone="sessionStatusTone" @toggle-sidebar="toggleSidebarCollapsed"
+      @open-create-dialog="openCreateDialog($event)" @open-create-folder-dialog="openCreateFolderDialog($event)"
+      @open-collapsed-configs-menu="openCollapsedConfigsMenu" @update:expandedIds="configTreeExpandedIds = $event"
+      @select-config="handleConfigTreeSelect" @activate-config="handleConfigTreeActivate"
+      @contextmenu-config="openConfigNodeContextMenu" @drop-config="handleConfigTreeDrop"
+      @focus-session="ftpStore.focusSession($event)" @focus-secondary-session="setSecondaryRemoteSession($event)"
+      @disconnect-session="disconnectSession" @reconnect-profile="connectProfile"
       @session-contextmenu="openSessionTabContextMenu($event.event, $event.sessionId)"
-      @session-dragstart="handleSessionTabDragStart($event)"
-      @session-drop="handleSessionTabDrop($event)"
-    />
+      @session-dragstart="handleSessionTabDragStart($event)" @session-drop="handleSessionTabDrop($event)" />
 
     <main class="ftp-main">
-      <div
-        class="ftp-workspace-shell"
-        :class="{
-          'ftp-workspace-shell--aux-right': auxiliaryDockSide === 'right' && (showQueuePanel || showLogPanel),
-          'ftp-workspace-shell--aux-bottom': auxiliaryDockSide === 'bottom' && (showQueuePanel || showLogPanel),
-        }"
-      >
+      <div class="ftp-workspace-shell" :class="{
+        'ftp-workspace-shell--aux-right': auxiliaryDockSide === 'right',
+        'ftp-workspace-shell--aux-bottom': auxiliaryDockSide === 'bottom',
+      }">
         <div class="ftp-workspace">
-      <section class="ftp-hero">
-        <div class="ftp-hero__status">
-          <span class="ftp-hero__signal" :class="{ 'ftp-hero__signal--online': activeSession }" />
-          <div class="ftp-hero__copy">
-            <div class="ftp-hero__title">{{ heroTitle }}</div>
-            <div v-if="!isDenseViewport" class="ftp-hero__meta">{{ heroMeta }}</div>
-          </div>
-          <div class="ftp-hero__actions">
-            <span v-if="busyMessage" class="ftp-badge ftp-badge--accent ftp-hero__busy">{{ busyMessage }}</span>
-            <UiIconButton size="sm" variant="ghost" label="定时任务" @click="openScheduleDialog()">
-              <svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
-                <circle cx="8" cy="8" r="6" />
-                <path d="M8 5v3l2 1.5" />
-              </svg>
-            </UiIconButton>
-            <UiIconButton
-              size="sm"
-              variant="ghost"
-              :disabled="!recentlyClosedSessions.length"
-              :title="recentClosedSessionSummary"
-              label="恢复标签"
-              @click="reopenLastClosedSession()"
-            >
-              <svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
-                <path d="M3.5 8A4.5 4.5 0 1 0 5 4.2L3.5 5.5" />
-                <path d="M3.5 2.8v2.7H6.2" />
-              </svg>
-            </UiIconButton>
-            <UiIconButton
-              size="sm"
-              variant="ghost"
-              :title="windowsContextMenuStatus.command"
-              :label="windowsContextMenuStatus.installed ? '移除右键菜单' : '安装右键菜单'"
-              @click="windowsContextMenuStatus.installed ? uninstallContextMenuIntegration() : installContextMenuIntegration()"
-            >
-              <svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
-                <rect x="2" y="2" width="12" height="12" rx="1.5" />
-                <path d="M5 6h6M5 10h4" />
-              </svg>
-            </UiIconButton>
-            <UiIconButton size="sm" variant="ghost" :disabled="!activeSession" label="粘贴上传" @click="pasteClipboardToRemote()">
-              <svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
-                <path d="M6 2h4v2H6zM4 3H3a1 1 0 0 0-1 1v9a1 1 0 0 0 1 1h10a1 1 0 0 0 1-1V4a1 1 0 0 0-1-1h-1" />
-                <path d="M8 8v4M6 10l2 2 2-2" />
-              </svg>
-            </UiIconButton>
-            <UiIconButton
-              size="sm"
-              variant="ghost"
-              :disabled="!selectedLocalEntries.length && !selectedRemoteEntries.length"
-              label="复制信息"
-              @click="copySelectionInfo(selectedRemoteEntries.length ? 'remote' : 'local')"
-            >
-              <svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
-                <rect x="5" y="5" width="8" height="9" rx="1" />
-                <path d="M3 11H2a1 1 0 0 1-1-1V2a1 1 0 0 1 1-1h8a1 1 0 0 1 1 1v1" />
-              </svg>
-            </UiIconButton>
-            <UiIconButton size="sm" variant="ghost" :disabled="!canEditRemoteFile" label="编辑远程" @click="openRemoteEditor()">
-              <svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
-                <path d="M11 2.5l2.5 2.5-7 7-3 .5.5-3z" />
-                <path d="M9.5 4l2.5 2.5" />
-              </svg>
-            </UiIconButton>
-            <UiIconButton size="sm" variant="ghost" :disabled="!canEditRemoteFile" label="外部编辑" @click="openExternalEditor()">
-              <svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
-                <path d="M9 2h5v5M9 7l5-5M7 4H3a1 1 0 0 0-1 1v8a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1V9" />
-              </svg>
-            </UiIconButton>
-            <UiIconButton size="sm" variant="ghost" :disabled="!canChmodRemoteFile" label="修改权限" @click="changeRemotePermissions()">
-              <svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
-                <path d="M8 1L6 3v2L4.5 6.5A5 5 0 1 0 9.5 11.5L11 10h2l2-2-2-2h-1V4z" />
-                <circle cx="10" cy="10" r="1.5" />
-              </svg>
-            </UiIconButton>
-            <UiIconButton
-              v-if="dualRemoteMode"
-              size="sm"
-              variant="ghost"
-              :disabled="!canTriggerFxp"
-              :label="fxpActionLabel"
-              @click="triggerFxpTransfer()"
-            >
-              <svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
-                <path d="M2 5h12M2 11h12M11 2l3 3-3 3M5 8l-3 3 3 3" />
-              </svg>
-            </UiIconButton>
-            <UiIconButton size="sm" variant="secondary" :disabled="!canOpenTerminalFromFtp" label="在终端中打开" @click="openTerminalForCurrentFtp">
-              <svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
-                <rect x="1" y="2" width="14" height="12" rx="1.5" />
-                <path d="M4 6l3 2.5L4 11M9 11h3" />
-              </svg>
-            </UiIconButton>
-            <UiIconButton size="sm" variant="secondary" label="目录比较/同步" @click="openSyncPanel">
-              <svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
-                <path d="M2 4h5v8H2zM9 4h5v8H9M7 8h2" />
-              </svg>
-            </UiIconButton>
-            <UiIconButton size="sm" variant="secondary" label="传输设置" @click="openTransferSettingsDrawer">
-              <svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
-                <circle cx="8" cy="8" r="2" />
-                <path d="M8 1v2M8 13v2M1 8h2M13 8h2M3.4 3.4l1.4 1.4M11.2 11.2l1.4 1.4M3.4 12.6l1.4-1.4M11.2 4.8l1.4-1.4" />
-              </svg>
-            </UiIconButton>
-          </div>
-        </div>
-        <div v-if="showHeroMetrics" class="ftp-hero__metrics">
-          <div class="ftp-hero__metric">
-            <span class="ftp-hero__metric-label">{{ dualRemoteMode ? '第二标签组条目' : '本地条目' }}</span>
-            <strong>{{ dualRemoteMode ? filteredSecondaryRemoteEntries.length : filteredLocalEntries.length }}</strong>
-          </div>
-          <div class="ftp-hero__metric">
-            <span class="ftp-hero__metric-label">远程条目</span>
-            <strong>{{ activeSession ? filteredRemoteEntries.length : 0 }}</strong>
-          </div>
-          <div class="ftp-hero__metric">
-            <span class="ftp-hero__metric-label">队列活动</span>
-            <strong>{{ activeTaskCount }}</strong>
-          </div>
-        </div>
-      </section>
-
-      <div v-if="actionError" class="ftp-alert ftp-alert--error">{{ actionError }}</div>
-      <div v-if="pendingExternalSummary" class="ftp-alert ftp-alert--info">
-        <span>{{ pendingExternalSummary }}</span>
-        <div class="ftp-alert__actions">
-          <UiIconButton size="sm" variant="secondary" :disabled="!activeSession" label="上传到当前远程" @click="uploadPendingExternalPaths()">
-            <svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
-              <path d="M8 11V3M4.5 6.5L8 3l3.5 3.5M3 13h10" />
-            </svg>
-          </UiIconButton>
-          <UiIconButton size="sm" variant="ghost" label="忽略" @click="discardPendingExternalPaths()">
-            <svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round">
-              <path d="M3 3l10 10M13 3 3 13" />
-            </svg>
-          </UiIconButton>
-        </div>
-      </div>
-
-      <section
-        class="ftp-panels"
-        :class="[
-          `ftp-panels--${panelLayoutMode}`,
-          { 'ftp-panels--single': visibleBrowserPanelCount <= 1, 'ftp-panels--parallel': dualRemoteMode },
-        ]"
-        :style="browserPanelGridStyle"
-      >
-        <!-- 双端模式：本地面板占第一列，两个远程面板在第二列垂直堆叠 -->
-        <FtpBrowserPanel
-          v-if="showLocalPanel"
-          kind="local"
-          title="本地目录"
-          :badges="[{ text: `${filteredLocalEntries.length} 项` }]"
-          :drop-active="localDropActive"
-          :breadcrumbs="localBreadcrumbs"
-          :path-input="localPathInput"
-          :path-suggestions="localPathSuggestions"
-          path-placeholder="输入本地目录"
-          :view-mode="localPanelViewMode"
-          :search-expanded="localSearchExpanded"
-          :search-active="localSearchExpanded || !!localFilterQuery"
-          :filter-expanded="localRuleFilterExpanded"
-          :filter-active="localRuleFilterExpanded || isRuleFilterActive(localRuleFilter)"
-          :filter-query="localFilterQuery"
-          :filter-state="localRuleFilter"
-          :filter-summary="localFilterSummary"
-          :filter-preset-id="localFilterPresetId"
-          :filter-preset-options="filterPresetOptions"
-          :entries="filteredLocalEntries"
-          :loading="ftpStore.localLoading"
-          loading-text="正在读取本地目录..."
-          :empty-text="localFilterQuery || isRuleFilterActive(localRuleFilter) ? '没有匹配的本地文件。' : '本地目录为空。'"
-          drop-hint="释放后下载到当前本地目录"
-          :selected-paths="localSelectedPaths"
-          :selected-count="localSelectedPaths.length"
-          :primary-action-label="uploadActionLabel"
-          primary-action-variant="primary"
-          :primary-action-disabled="!canUpload"
-          :show-workspace-controls="true"
-          :workspace-select-value="localWorkspaceSelectValue"
-          :workspace-options="localWorkspaceOptions"
-          :bookmark-disabled="!ftpStore.localPath"
-          :remove-bookmark-disabled="!currentLocalWorkspaceBookmarked"
-          secondary-meta-label="大小"
-          tertiary-meta-label="修改时间"
-          :size-value="(entry) => (entry.isDir ? '--' : formatSize(entry.size))"
-          :modified-value="(entry) => formatTime(entry.modifiedAt)"
-          :permissions-value="(entry) => entry.permissions || '--'"
-          :owner-value="(entry) => entry.owner || '--'"
-          :secondary-meta-value="(entry) => (entry.isDir ? '--' : formatSize(entry.size))"
-          :tertiary-meta-value="(entry) => formatTime(entry.modifiedAt)"
-          :thumbnail-url-for="(entry) => thumbnailUrlFor('local', entry)"
-          :is-thumbnail-loading="(entry) => isThumbnailLoading('local', entry)"
-          :highlight-entry-name="highlightEntryName"
-          @dragenter="handleLocalDragEnter"
-          @dragleave="handleLocalDragLeave"
-          @dragover="localDropActive = true"
-          @drop="handleLocalDrop"
-          @update:pathInput="localPathInput = $event"
-          @update:filterQuery="localFilterQuery = $event"
-          @update:extensionQuery="localRuleFilter.extensionQuery = $event"
-          @update:minSizeKb="localRuleFilter.minSizeKb = $event"
-          @update:maxSizeKb="localRuleFilter.maxSizeKb = $event"
-          @update:modifiedWithinDays="localRuleFilter.modifiedWithinDays = $event"
-          @primary-action="uploadSelected"
-          @create-directory="createLocalDirectory"
-          @switch-workspace="switchLocalWorkspace"
-          @bookmark-current="addCurrentLocalWorkspace"
-          @pick-workspace="pickLocalWorkspace"
-          @remove-workspace="removeCurrentLocalWorkspace"
-          @open-breadcrumb="openLocalBreadcrumb"
-          @open-path="openLocalPath"
-          @go-parent="goLocalParent"
-          @refresh="ftpStore.refreshLocalDirectory()"
-          @toggle-search="toggleSearch('local')"
-          @toggle-filter="toggleRuleFilter('local')"
-          @set-view-mode="localPanelViewMode = $event"
-          @set-filter-mode="setRuleFilterMode('local', $event)"
-          @set-filter-operator="setRuleFilterOperator('local', $event)"
-          @toggle-hide-hidden="toggleHideHidden('local')"
-          @apply-filter-preset="applyFilterPreset('local', $event)"
-          @save-filter-preset="saveFilterPreset('local')"
-          @delete-filter-preset="deleteSelectedFilterPreset('local')"
-          @reset-filter="resetRuleFilter('local')"
-          @panel-activate="setActiveBrowserPanel('local')"
-          @list-contextmenu="handlePanelListContextMenu($event, 'local')"
-          @entry-click="handleLocalEntryClick($event.event, $event.entry, $event.index)"
-          @entry-dblclick="openLocalEntry"
-          @entry-dragstart="handleLocalDragStart($event.event, $event.entry)"
-          @entry-contextmenu="handleEntryContextMenu($event.event, 'local', $event.entry, $event.index)"
-        />
-
-        <!-- 水平分割条（只在并联模式且本地面板可见时显示） -->
-        <div
-          v-if="dualRemoteMode && showLocalPanel && panelLayoutMode === 'columns'"
-          class="ftp-panels__h-divider"
-          @mousedown="startHDrag"
-        />
-
-        <!-- 双端模式：两个远程面板的堆叠容器（第二列） -->
-        <div
-          v-if="dualRemoteMode"
-          class="ftp-panels__remote-stack"
-          :style="{ '--ftp-remote-top-pct': `${remoteVSplitPct}%` }"
-        >
-
-        <FtpBrowserPanel
-          v-if="dualRemoteMode"
-          kind="remote"
-          :title="secondaryRemoteSession ? `${secondaryRemoteSession.profileLabel} · 第二标签组` : '第二标签组目录'"
-          :badges="[
-            { text: '第二组', accent: true },
-            { text: secondaryRemoteSession ? secondaryRemoteSession.protocol.toUpperCase() : 'SFTP' },
-            { text: `${secondaryRemoteSession ? filteredSecondaryRemoteEntries.length : 0} 项` },
-          ]"
-          :drop-active="false"
-          :breadcrumbs="secondaryRemoteBreadcrumbs"
-          :path-input="secondaryRemotePathInput"
-          :path-suggestions="secondaryRemotePathSuggestions"
-          path-placeholder="输入第二远程目录"
-          :view-mode="remotePanelViewMode"
-          :path-input-disabled="!secondaryRemoteSession"
-          :open-path-disabled="!secondaryRemoteSession"
-          :go-parent-disabled="!secondaryRemoteSession"
-          :refresh-disabled="!secondaryRemoteSession"
-          :show-search-control="false"
-          :show-filter-control="false"
-          :show-create-directory-action="false"
-          :search-expanded="false"
-          :search-active="false"
-          :filter-expanded="false"
-          :filter-active="false"
-          filter-query=""
-          :filter-state="secondaryRemoteRuleFilter"
-          :filter-summary="secondaryRemoteFilterSummary"
-          filter-preset-id=""
-          :filter-preset-options="[]"
-          :entries="filteredSecondaryRemoteEntries"
-          :loading="secondaryRemoteLoading"
-          loading-text="正在读取第二标签组目录..."
-          :empty-text="secondaryRemoteSession ? '第二标签组目录为空。' : '请先把会话移到第二标签组。'"
-          drop-hint=""
-          :selected-paths="secondaryRemoteSelectedPaths"
-          :selected-count="secondaryRemoteSelectedPaths.length"
-          primary-action-label="切到主标签组"
-          primary-action-variant="secondary"
-          :primary-action-disabled="!secondaryRemoteSession"
-          secondary-meta-label="权限"
-          tertiary-meta-label="大小"
-          :size-value="(entry) => (entry.isDir ? '--' : formatSize(entry.size))"
-          :modified-value="(entry) => formatTime(entry.modifiedAt)"
-          :permissions-value="(entry) => entry.permissions || '--'"
-          :owner-value="(entry) => entry.owner || '--'"
-          :secondary-meta-value="(entry) => entry.permissions || '--'"
-          :tertiary-meta-value="(entry) => (entry.isDir ? '--' : formatSize(entry.size))"
-          secondary-meta-class="ftp-entry__meta--mono"
-          :thumbnail-url-for="(entry) => thumbnailUrlFor('secondaryRemote', entry)"
-          :is-thumbnail-loading="(entry) => isThumbnailLoading('secondaryRemote', entry)"
-          :highlight-entry-name="highlightEntryName"
-          @update:pathInput="secondaryRemotePathInput = $event"
-          @primary-action="focusSecondaryRemoteAsPrimary"
-          @open-breadcrumb="openSecondaryRemoteBreadcrumb"
-          @open-path="openSecondaryRemotePath"
-          @go-parent="goSecondaryRemoteParent"
-          @refresh="refreshSecondaryRemoteDirectory()"
-          @set-view-mode="remotePanelViewMode = $event"
-          @panel-activate="setActiveBrowserPanel('secondaryRemote')"
-          @list-contextmenu="() => undefined"
-          @entry-click="handleSecondaryRemoteEntryClick($event.event, $event.entry, $event.index)"
-          @entry-dblclick="openSecondaryRemoteEntry"
-          @entry-dragstart="() => undefined"
-          @entry-contextmenu="() => undefined"
-        />
-
-        <!-- 垂直分割条（双远程面板之间） -->
-        <div class="ftp-panels__v-divider" @mousedown="startVDrag" />
-
-
-        <!-- 双端模式堆叠容器（第二列）包含第二远程 + 主远程，形成上下排列 -->
-        <!-- 非双端模式：主远程直接作为 section 子元素 -->
-        <FtpBrowserPanel
-          v-if="showRemotePanel && dualRemoteMode"
-          kind="remote"
-          title="远程目录"
-          :badges="[
-            { text: activeSession ? activeSession.protocol.toUpperCase() : 'SFTP', accent: true },
-            { text: `${activeSession ? filteredRemoteEntries.length : 0} 项` },
-          ]"
-          :drop-active="remoteDropActive"
-          :breadcrumbs="remoteBreadcrumbs"
-          :path-input="remotePathInput"
-          :path-suggestions="remotePathSuggestions"
-          path-placeholder="输入远程目录"
-          :view-mode="remotePanelViewMode"
-          :path-input-disabled="!activeSession"
-          :open-path-disabled="!activeSession"
-          :go-parent-disabled="!activeSession"
-          :refresh-disabled="!activeSession"
-          :search-expanded="remoteSearchExpanded"
-          :search-active="remoteSearchExpanded || !!remoteFilterQuery"
-          :filter-expanded="remoteRuleFilterExpanded"
-          :filter-active="remoteRuleFilterExpanded || isRuleFilterActive(remoteRuleFilter)"
-          :filter-query="remoteFilterQuery"
-          :filter-state="remoteRuleFilter"
-          :filter-summary="remoteFilterSummary"
-          :filter-preset-id="remoteFilterPresetId"
-          :filter-preset-options="filterPresetOptions"
-          :entries="filteredRemoteEntries"
-          :loading="Boolean(activeSession) && ftpStore.remoteLoading"
-          loading-text="正在读取远程目录..."
-          :empty-text="activeSession
-            ? (remoteFilterQuery || isRuleFilterActive(remoteRuleFilter) ? '没有匹配的远程文件。' : '远程目录为空。')
-            : '连接后显示远程目录。'"
-          drop-hint="释放后上传到当前远程目录"
-          :selected-paths="remoteSelectedPaths"
-          :selected-count="remoteSelectedPaths.length"
-          :primary-action-label="downloadActionLabel"
-          :primary-action-disabled="!canDownload"
-          :create-directory-disabled="!activeSession"
-          secondary-meta-label="权限"
-          tertiary-meta-label="大小"
-          :size-value="(entry) => (entry.isDir ? '--' : formatSize(entry.size))"
-          :modified-value="(entry) => formatTime(entry.modifiedAt)"
-          :permissions-value="(entry) => entry.permissions || '--'"
-          :owner-value="(entry) => entry.owner || '--'"
-          :secondary-meta-value="(entry) => entry.permissions || '--'"
-          :tertiary-meta-value="(entry) => (entry.isDir ? '--' : formatSize(entry.size))"
-          secondary-meta-class="ftp-entry__meta--mono"
-          :thumbnail-url-for="(entry) => thumbnailUrlFor('remote', entry)"
-          :is-thumbnail-loading="(entry) => isThumbnailLoading('remote', entry)"
-          :highlight-entry-name="highlightEntryName"
-          :show-connecting-overlay="isConnecting"
-          :connecting-message="busyMessage"
-          @dragenter="handleRemoteDragEnter"
-          @dragleave="handleRemoteDragLeave"
-          @dragover="remoteDropActive = true"
-          @drop="handleRemoteDrop"
-          @update:pathInput="remotePathInput = $event"
-          @update:filterQuery="remoteFilterQuery = $event"
-          @update:extensionQuery="remoteRuleFilter.extensionQuery = $event"
-          @update:minSizeKb="remoteRuleFilter.minSizeKb = $event"
-          @update:maxSizeKb="remoteRuleFilter.maxSizeKb = $event"
-          @update:modifiedWithinDays="remoteRuleFilter.modifiedWithinDays = $event"
-          @primary-action="downloadSelected"
-          @create-directory="createRemoteDirectory"
-          @open-breadcrumb="openRemoteBreadcrumb"
-          @open-path="openRemotePath"
-          @go-parent="goRemoteParent"
-          @refresh="ftpStore.refreshRemoteDirectory()"
-          @toggle-search="toggleSearch('remote')"
-          @toggle-filter="toggleRuleFilter('remote')"
-          @set-view-mode="remotePanelViewMode = $event"
-          @set-filter-mode="setRuleFilterMode('remote', $event)"
-          @set-filter-operator="setRuleFilterOperator('remote', $event)"
-          @toggle-hide-hidden="toggleHideHidden('remote')"
-          @apply-filter-preset="applyFilterPreset('remote', $event)"
-          @save-filter-preset="saveFilterPreset('remote')"
-          @delete-filter-preset="deleteSelectedFilterPreset('remote')"
-          @reset-filter="resetRuleFilter('remote')"
-          @panel-activate="setActiveBrowserPanel('remote')"
-          @list-contextmenu="handlePanelListContextMenu($event, 'remote')"
-          @entry-click="handleRemoteEntryClick($event.event, $event.entry, $event.index)"
-          @entry-dblclick="openRemoteEntry"
-          @entry-dragstart="handleRemoteDragStart($event.event, $event.entry)"
-          @entry-contextmenu="handleEntryContextMenu($event.event, 'remote', $event.entry, $event.index)"
-        />
-
-        <!-- 双端模式：关闭 ftp-panels__remote-stack 容器 -->
-        </div>
-
-        <!-- 非并联模式下本地与远程之间的水平分割条 -->
-        <div
-          v-if="showLocalPanel && showRemotePanel && !dualRemoteMode && panelLayoutMode === 'columns'"
-          class="ftp-panels__h-divider"
-          @mousedown="startHDrag"
-        />
-
-        <!-- 非双端模式：主远程面板直接作为 section 子元素（第二列）-->
-        <FtpBrowserPanel
-          v-if="showRemotePanel && !dualRemoteMode"
-          kind="remote"
-          title="远程目录"
-          :badges="[
-            { text: activeSession ? activeSession.protocol.toUpperCase() : 'SFTP', accent: true },
-            { text: `${activeSession ? filteredRemoteEntries.length : 0} 项` },
-          ]"
-          :drop-active="remoteDropActive"
-          :breadcrumbs="remoteBreadcrumbs"
-          :path-input="remotePathInput"
-          :path-suggestions="remotePathSuggestions"
-          path-placeholder="输入远程目录"
-          :view-mode="remotePanelViewMode"
-          :path-input-disabled="!activeSession"
-          :open-path-disabled="!activeSession"
-          :go-parent-disabled="!activeSession"
-          :refresh-disabled="!activeSession"
-          :search-expanded="remoteSearchExpanded"
-          :search-active="remoteSearchExpanded || !!remoteFilterQuery"
-          :filter-expanded="remoteRuleFilterExpanded"
-          :filter-active="remoteRuleFilterExpanded || isRuleFilterActive(remoteRuleFilter)"
-          :filter-query="remoteFilterQuery"
-          :filter-state="remoteRuleFilter"
-          :filter-summary="remoteFilterSummary"
-          :filter-preset-id="remoteFilterPresetId"
-          :filter-preset-options="filterPresetOptions"
-          :entries="filteredRemoteEntries"
-          :loading="ftpStore.remoteLoading"
-          loading-text="正在读取远程目录..."
-          :empty-text="remoteFilterQuery || isRuleFilterActive(remoteRuleFilter) ? '没有匹配的远程文件。' : (activeSession ? '远程目录为空。' : '连接后即可浏览远程目录。')"
-          drop-hint="释放后上传到当前远程目录"
-          :selected-paths="remoteSelectedPaths"
-          :selected-count="remoteSelectedPaths.length"
-          :primary-action-label="downloadActionLabel"
-          primary-action-variant="secondary"
-          :primary-action-disabled="!canDownload"
-          :show-create-directory-action="true"
-          :create-directory-disabled="!activeSession"
-          secondary-meta-label="权限"
-          tertiary-meta-label="大小"
-          :size-value="(entry) => (entry.isDir ? '--' : formatSize(entry.size))"
-          :modified-value="(entry) => formatTime(entry.modifiedAt)"
-          :permissions-value="(entry) => entry.permissions || '--'"
-          :owner-value="(entry) => entry.owner || '--'"
-          :secondary-meta-value="(entry) => entry.permissions || '--'"
-          :tertiary-meta-value="(entry) => (entry.isDir ? '--' : formatSize(entry.size))"
-          secondary-meta-class="ftp-entry__meta--mono"
-          :thumbnail-url-for="(entry) => thumbnailUrlFor('remote', entry)"
-          :is-thumbnail-loading="(entry) => isThumbnailLoading('remote', entry)"
-          :highlight-entry-name="highlightEntryName"
-          :show-connecting-overlay="isConnecting"
-          :connecting-message="busyMessage"
-          @dragenter="handleRemoteDragEnter"
-          @dragleave="handleRemoteDragLeave"
-          @dragover="remoteDropActive = true"
-          @drop="handleRemoteDrop"
-          @update:pathInput="remotePathInput = $event"
-          @update:filterQuery="remoteFilterQuery = $event"
-          @update:extensionQuery="remoteRuleFilter.extensionQuery = $event"
-          @update:minSizeKb="remoteRuleFilter.minSizeKb = $event"
-          @update:maxSizeKb="remoteRuleFilter.maxSizeKb = $event"
-          @update:modifiedWithinDays="remoteRuleFilter.modifiedWithinDays = $event"
-          @primary-action="downloadSelected"
-          @create-directory="createRemoteDirectory"
-          @open-breadcrumb="openRemoteBreadcrumb"
-          @open-path="openRemotePath"
-          @go-parent="goRemoteParent"
-          @refresh="ftpStore.refreshRemoteDirectory()"
-          @set-view-mode="remotePanelViewMode = $event"
-          @toggle-search="toggleSearch('remote')"
-          @toggle-filter="toggleRuleFilter('remote')"
-          @set-filter-mode="setRuleFilterMode('remote', $event)"
-          @toggle-hide-hidden="toggleHideHidden('remote')"
-          @apply-filter-preset="applyFilterPreset('remote', $event)"
-          @save-filter-preset="saveFilterPreset('remote')"
-          @delete-filter-preset="deleteSelectedFilterPreset('remote')"
-          @reset-filter="resetRuleFilter('remote')"
-          @set-filter-operator="setRuleFilterOperator('remote', $event)"
-          @panel-activate="setActiveBrowserPanel('remote')"
-          @list-contextmenu="handlePanelListContextMenu($event, 'remote')"
-          @entry-click="handleRemoteEntryClick($event.event, $event.entry, $event.index)"
-          @entry-dblclick="openRemoteEntry"
-          @entry-dragstart="handleRemoteDragStart($event.event, $event.entry)"
-          @entry-contextmenu="handleEntryContextMenu($event.event, 'remote', $event.entry, $event.index)"
-        />
-
-      </section>
-
-        </div>
-
-        <section
-          v-if="showQueuePanel || showLogPanel"
-          class="ftp-aux-dock"
-          :class="[
-            `ftp-aux-dock--${auxiliaryDockSide}`,
-            { 'ftp-aux-dock--tabbed': useAuxDockTabs },
-          ]"
-        >
-          <div v-if="useAuxDockTabs" class="ftp-aux-dock__tabs">
-            <button
-              v-if="showQueuePanel"
-              type="button"
-              class="ftp-aux-dock__tab"
-              :class="{ 'ftp-aux-dock__tab--active': auxDockActiveTab === 'queue' }"
-              @click="auxDockActiveTab = 'queue'"
-            >
-              传输队列
-              <span class="ftp-badge ftp-badge--accent">{{ activeTaskCount }}</span>
-            </button>
-            <button
-              v-if="showLogPanel"
-              type="button"
-              class="ftp-aux-dock__tab"
-              :class="{ 'ftp-aux-dock__tab--active': auxDockActiveTab === 'log' }"
-              @click="auxDockActiveTab = 'log'"
-            >
-              操作日志
-              <span class="ftp-badge">{{ ftpStore.logs.length }}</span>
-            </button>
-          </div>
-          <FtpTransferQueue
-            v-if="showQueuePanelInDock"
-            :collapsed="queueCollapsed"
-            :active-task-count="activeTaskCount"
-            :paused-task-count="pausedTaskCount"
-            :completed-task-count="completedTaskCount"
-            :failed-task-count="failedTaskCount"
-            :tasks="sortedTransferTasks"
-            :sort-key="taskSortKey"
-            :sort-options="taskSortOptions"
-            :sort-direction="taskSortDirection"
-            :is-task-expanded="isTaskExpanded"
-            :task-priority-label="taskPriorityLabel"
-            :task-status-label="taskStatusLabel"
-            :can-pause-task="canPauseTask"
-            :can-resume-task="canResumeTask"
-            :can-retry-task="canRetryTask"
-            :format-size="formatSize"
-            :format-eta="formatTaskEta"
-            @toggle-collapsed="queueCollapsed = !queueCollapsed"
-            @delete-completed="deleteCompletedTasks()"
-            @pause-all="pauseAllTasks()"
-            @resume-all="resumeAllTasks()"
-            @update:sortKey="taskSortKey = $event"
-            @toggle-sort-direction="toggleTaskSortDirection"
-            @refresh="ftpStore.reloadRuntimeState()"
-            @toggle-task-expanded="toggleTaskExpanded"
-            @update-task-priority="updateTaskPriority($event.taskId, $event.priority)"
-            @pause-task="pauseTask"
-            @resume-task="resumeTask"
-            @retry-task="retryTask"
-            @delete-task="deleteTransferTask"
-          />
-
-          <section v-if="showLogPanelInDock" class="ftp-log-panel ftp-inner-card" :class="{ 'ftp-log-panel--collapsed': logPanelCollapsed }">
-            <div class="ftp-log-panel__header">
-              <div class="ftp-log-panel__copy">
-                <div class="ftp-log-panel__title">操作日志</div>
-                <div class="ftp-log-panel__caption">展示最近的连接状态、传输任务和同步动作，便于快速定位问题。</div>
+          <section class="ftp-hero">
+            <div class="ftp-hero__status">
+              <span class="ftp-hero__signal" :class="{ 'ftp-hero__signal--online': activeSession }" />
+              <div class="ftp-hero__copy">
+                <div class="ftp-hero__title">{{ heroTitle }}</div>
+                <div v-if="!isDenseViewport" class="ftp-hero__meta">{{ heroMeta }}</div>
               </div>
-              <div class="ftp-log-panel__actions">
-                <UiButton size="sm" variant="ghost" @click="toggleLogPanelCollapsed()">
-                  {{ logPanelCollapsed ? '展开日志' : '收起日志' }}
-                </UiButton>
-                <UiButton size="sm" variant="ghost" :disabled="!ftpStore.logs.length" @click="ftpStore.clearLogs()">清空日志</UiButton>
+              <div class="ftp-hero__actions">
+                <span v-if="busyMessage" class="ftp-badge ftp-badge--accent ftp-hero__busy">{{ busyMessage }}</span>
+                <UiIconButton size="sm" variant="ghost" label="定时任务" @click="openScheduleDialog()">
+                  <svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.6"
+                    stroke-linecap="round" stroke-linejoin="round">
+                    <circle cx="8" cy="8" r="6" />
+                    <path d="M8 5v3l2 1.5" />
+                  </svg>
+                </UiIconButton>
+                <UiIconButton size="sm" variant="ghost" :disabled="!recentlyClosedSessions.length"
+                  :title="recentClosedSessionSummary" label="恢复标签" @click="reopenLastClosedSession()">
+                  <svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.6"
+                    stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M3.5 8A4.5 4.5 0 1 0 5 4.2L3.5 5.5" />
+                    <path d="M3.5 2.8v2.7H6.2" />
+                  </svg>
+                </UiIconButton>
+                <UiIconButton size="sm" variant="ghost" :title="windowsContextMenuStatus.command"
+                  :label="windowsContextMenuStatus.installed ? '移除右键菜单' : '安装右键菜单'"
+                  @click="windowsContextMenuStatus.installed ? uninstallContextMenuIntegration() : installContextMenuIntegration()">
+                  <svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.6"
+                    stroke-linecap="round" stroke-linejoin="round">
+                    <rect x="2" y="2" width="12" height="12" rx="1.5" />
+                    <path d="M5 6h6M5 10h4" />
+                  </svg>
+                </UiIconButton>
+                <UiIconButton size="sm" variant="ghost" :disabled="!activeSession" label="粘贴上传"
+                  @click="pasteClipboardToRemote()">
+                  <svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.6"
+                    stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M6 2h4v2H6zM4 3H3a1 1 0 0 0-1 1v9a1 1 0 0 0 1 1h10a1 1 0 0 0 1-1V4a1 1 0 0 0-1-1h-1" />
+                    <path d="M8 8v4M6 10l2 2 2-2" />
+                  </svg>
+                </UiIconButton>
+                <UiIconButton size="sm" variant="ghost"
+                  :disabled="!selectedLocalEntries.length && !selectedRemoteEntries.length" label="复制信息"
+                  @click="copySelectionInfo(selectedRemoteEntries.length ? 'remote' : 'local')">
+                  <svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.6"
+                    stroke-linecap="round" stroke-linejoin="round">
+                    <rect x="5" y="5" width="8" height="9" rx="1" />
+                    <path d="M3 11H2a1 1 0 0 1-1-1V2a1 1 0 0 1 1-1h8a1 1 0 0 1 1 1v1" />
+                  </svg>
+                </UiIconButton>
+                <UiIconButton size="sm" variant="ghost" :disabled="!canEditRemoteFile" label="编辑远程"
+                  @click="openRemoteEditor()">
+                  <svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.6"
+                    stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M11 2.5l2.5 2.5-7 7-3 .5.5-3z" />
+                    <path d="M9.5 4l2.5 2.5" />
+                  </svg>
+                </UiIconButton>
+                <UiIconButton size="sm" variant="ghost" :disabled="!canEditRemoteFile" label="外部编辑"
+                  @click="openExternalEditor()">
+                  <svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.6"
+                    stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M9 2h5v5M9 7l5-5M7 4H3a1 1 0 0 0-1 1v8a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1V9" />
+                  </svg>
+                </UiIconButton>
+                <UiIconButton size="sm" variant="ghost" :disabled="!canChmodRemoteFile" label="修改权限"
+                  @click="changeRemotePermissions()">
+                  <svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.6"
+                    stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M8 1L6 3v2L4.5 6.5A5 5 0 1 0 9.5 11.5L11 10h2l2-2-2-2h-1V4z" />
+                    <circle cx="10" cy="10" r="1.5" />
+                  </svg>
+                </UiIconButton>
+                <UiIconButton v-if="dualRemoteMode" size="sm" variant="ghost" :disabled="!canTriggerFxp"
+                  :label="fxpActionLabel" @click="triggerFxpTransfer()">
+                  <svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.6"
+                    stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M2 5h12M2 11h12M11 2l3 3-3 3M5 8l-3 3 3 3" />
+                  </svg>
+                </UiIconButton>
+                <UiIconButton size="sm" variant="secondary" :disabled="!canOpenTerminalFromFtp" label="在终端中打开"
+                  @click="openTerminalForCurrentFtp">
+                  <svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.6"
+                    stroke-linecap="round" stroke-linejoin="round">
+                    <rect x="1" y="2" width="14" height="12" rx="1.5" />
+                    <path d="M4 6l3 2.5L4 11M9 11h3" />
+                  </svg>
+                </UiIconButton>
+                <UiIconButton size="sm" variant="secondary" label="目录比较/同步" @click="openSyncPanel">
+                  <svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.6"
+                    stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M2 4h5v8H2zM9 4h5v8H9M7 8h2" />
+                  </svg>
+                </UiIconButton>
+                <UiIconButton size="sm" variant="secondary" label="传输设置" @click="openTransferSettingsDrawer">
+                  <svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.6"
+                    stroke-linecap="round" stroke-linejoin="round">
+                    <circle cx="8" cy="8" r="2" />
+                    <path
+                      d="M8 1v2M8 13v2M1 8h2M13 8h2M3.4 3.4l1.4 1.4M11.2 11.2l1.4 1.4M3.4 12.6l1.4-1.4M11.2 4.8l1.4-1.4" />
+                  </svg>
+                </UiIconButton>
               </div>
             </div>
-            <div v-if="!logPanelCollapsed" class="ftp-log-panel__body">
-              <div v-if="!ftpStore.logs.length" class="ftp-empty-state">当前还没有 FTP 操作日志。</div>
-              <div v-else class="ftp-log-panel__list">
-                <div v-for="entry in ftpStore.logs" :key="entry.id" class="ftp-log-panel__entry" :class="`ftp-log-panel__entry--${entry.tone}`">
-                  <span class="ftp-log-panel__time">{{ formatLogTime(entry.timestamp) }}</span>
-                  <span class="ftp-log-panel__message">{{ entry.message }}</span>
-                </div>
+            <div v-if="showHeroMetrics" class="ftp-hero__metrics">
+              <div class="ftp-hero__metric">
+                <span class="ftp-hero__metric-label">{{ dualRemoteMode ? '第二标签组条目' : '本地条目' }}</span>
+                <strong>{{ dualRemoteMode ? filteredSecondaryRemoteEntries.length : filteredLocalEntries.length
+                  }}</strong>
+              </div>
+              <div class="ftp-hero__metric">
+                <span class="ftp-hero__metric-label">远程条目</span>
+                <strong>{{ activeSession ? filteredRemoteEntries.length : 0 }}</strong>
+              </div>
+              <div class="ftp-hero__metric">
+                <span class="ftp-hero__metric-label">队列活动</span>
+                <strong>{{ activeTaskCount }}</strong>
               </div>
             </div>
           </section>
+
+          <div v-if="actionError" class="ftp-alert ftp-alert--error">{{ actionError }}</div>
+          <div v-if="pendingExternalSummary" class="ftp-alert ftp-alert--info">
+            <span>{{ pendingExternalSummary }}</span>
+            <div class="ftp-alert__actions">
+              <UiIconButton size="sm" variant="secondary" :disabled="!activeSession" label="上传到当前远程"
+                @click="uploadPendingExternalPaths()">
+                <svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.6"
+                  stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M8 11V3M4.5 6.5L8 3l3.5 3.5M3 13h10" />
+                </svg>
+              </UiIconButton>
+              <UiIconButton size="sm" variant="ghost" label="忽略" @click="discardPendingExternalPaths()">
+                <svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.6"
+                  stroke-linecap="round">
+                  <path d="M3 3l10 10M13 3 3 13" />
+                </svg>
+              </UiIconButton>
+            </div>
+          </div>
+
+          <section class="ftp-panels" :class="[
+            `ftp-panels--${panelLayoutMode}`,
+            { 'ftp-panels--single': visibleBrowserPanelCount <= 1, 'ftp-panels--parallel': dualRemoteMode },
+          ]" :style="browserPanelGridStyle">
+            <!-- 双端模式：本地面板占第一列，两个远程面板在第二列垂直堆叠 -->
+            <FtpBrowserPanel v-if="showLocalPanel" kind="local" title="本地目录"
+              :badges="[{ text: `${filteredLocalEntries.length} 项` }]" :drop-active="localDropActive"
+              :breadcrumbs="localBreadcrumbs" :path-input="localPathInput" :path-suggestions="localPathSuggestions"
+              path-placeholder="输入本地目录" :view-mode="localPanelViewMode" :search-expanded="localSearchExpanded"
+              :search-active="localSearchExpanded || !!localFilterQuery" :filter-expanded="localRuleFilterExpanded"
+              :filter-active="localRuleFilterExpanded || isRuleFilterActive(localRuleFilter)"
+              :filter-query="localFilterQuery" :filter-state="localRuleFilter" :filter-summary="localFilterSummary"
+              :filter-preset-id="localFilterPresetId" :filter-preset-options="filterPresetOptions"
+              :entries="filteredLocalEntries" :loading="ftpStore.localLoading" loading-text="正在读取本地目录..."
+              :empty-text="localFilterQuery || isRuleFilterActive(localRuleFilter) ? '没有匹配的本地文件。' : '本地目录为空。'"
+              drop-hint="释放后下载到当前本地目录" :selected-paths="localSelectedPaths" :selected-count="localSelectedPaths.length"
+              :primary-action-label="uploadActionLabel" primary-action-variant="primary"
+              :primary-action-disabled="!canUpload" :show-workspace-controls="true"
+              :workspace-select-value="localWorkspaceSelectValue" :workspace-options="localWorkspaceOptions"
+              :bookmark-disabled="!ftpStore.localPath" :remove-bookmark-disabled="!currentLocalWorkspaceBookmarked"
+              secondary-meta-label="大小" tertiary-meta-label="修改时间"
+              :size-value="(entry) => (entry.isDir ? '--' : formatSize(entry.size))"
+              :modified-value="(entry) => formatTime(entry.modifiedAt)"
+              :permissions-value="(entry) => entry.permissions || '--'" :owner-value="(entry) => entry.owner || '--'"
+              :secondary-meta-value="(entry) => (entry.isDir ? '--' : formatSize(entry.size))"
+              :tertiary-meta-value="(entry) => formatTime(entry.modifiedAt)"
+              :thumbnail-url-for="(entry) => thumbnailUrlFor('local', entry)"
+              :is-thumbnail-loading="(entry) => isThumbnailLoading('local', entry)"
+              :highlight-entry-name="highlightEntryName" @dragenter="handleLocalDragEnter"
+              @dragleave="handleLocalDragLeave" @dragover="localDropActive = true" @drop="handleLocalDrop"
+              @update:pathInput="localPathInput = $event" @update:filterQuery="localFilterQuery = $event"
+              @update:extensionQuery="localRuleFilter.extensionQuery = $event"
+              @update:minSizeKb="localRuleFilter.minSizeKb = $event"
+              @update:maxSizeKb="localRuleFilter.maxSizeKb = $event"
+              @update:modifiedWithinDays="localRuleFilter.modifiedWithinDays = $event" @primary-action="uploadSelected"
+              @create-directory="createLocalDirectory" @switch-workspace="switchLocalWorkspace"
+              @bookmark-current="addCurrentLocalWorkspace" @pick-workspace="pickLocalWorkspace"
+              @remove-workspace="removeCurrentLocalWorkspace" @open-breadcrumb="openLocalBreadcrumb"
+              @open-path="openLocalPath" @go-parent="goLocalParent" @refresh="ftpStore.refreshLocalDirectory()"
+              @toggle-search="toggleSearch('local')" @toggle-filter="toggleRuleFilter('local')"
+              @set-view-mode="localPanelViewMode = $event" @set-filter-mode="setRuleFilterMode('local', $event)"
+              @set-filter-operator="setRuleFilterOperator('local', $event)"
+              @toggle-hide-hidden="toggleHideHidden('local')" @apply-filter-preset="applyFilterPreset('local', $event)"
+              @save-filter-preset="saveFilterPreset('local')"
+              @delete-filter-preset="deleteSelectedFilterPreset('local')" @reset-filter="resetRuleFilter('local')"
+              @panel-activate="setActiveBrowserPanel('local')"
+              @list-contextmenu="handlePanelListContextMenu($event, 'local')"
+              @entry-click="handleLocalEntryClick($event.event, $event.entry, $event.index)"
+              @entry-dblclick="openLocalEntry" @entry-dragstart="handleLocalDragStart($event.event, $event.entry)"
+              @entry-contextmenu="handleEntryContextMenu($event.event, 'local', $event.entry, $event.index)" />
+
+            <!-- 水平分割条（只在并联模式且本地面板可见时显示） -->
+            <div v-if="dualRemoteMode && showLocalPanel && panelLayoutMode === 'columns'" class="ftp-panels__h-divider"
+              @mousedown="startHDrag" />
+
+            <!-- 双端模式：两个远程面板的堆叠容器（第二列） -->
+            <div v-if="dualRemoteMode" class="ftp-panels__remote-stack"
+              :style="{ '--ftp-remote-top-pct': `${remoteVSplitPct}%` }">
+
+              <FtpBrowserPanel v-if="dualRemoteMode" kind="remote"
+                :title="secondaryRemoteSession ? `${secondaryRemoteSession.profileLabel} · 第二标签组` : '第二标签组目录'" :badges="[
+                  { text: '第二组', accent: true },
+                  { text: secondaryRemoteSession ? secondaryRemoteSession.protocol.toUpperCase() : 'SFTP' },
+                  { text: `${secondaryRemoteSession ? filteredSecondaryRemoteEntries.length : 0} 项` },
+                ]" :drop-active="false" :breadcrumbs="secondaryRemoteBreadcrumbs" :path-input="secondaryRemotePathInput"
+                :path-suggestions="secondaryRemotePathSuggestions" path-placeholder="输入第二远程目录"
+                :view-mode="remotePanelViewMode" :path-input-disabled="!secondaryRemoteSession"
+                :open-path-disabled="!secondaryRemoteSession" :go-parent-disabled="!secondaryRemoteSession"
+                :refresh-disabled="!secondaryRemoteSession" :show-search-control="false" :show-filter-control="false"
+                :show-create-directory-action="false" :search-expanded="false" :search-active="false"
+                :filter-expanded="false" :filter-active="false" filter-query=""
+                :filter-state="secondaryRemoteRuleFilter" :filter-summary="secondaryRemoteFilterSummary"
+                filter-preset-id="" :filter-preset-options="[]" :entries="filteredSecondaryRemoteEntries"
+                :loading="secondaryRemoteLoading" loading-text="正在读取第二标签组目录..."
+                :empty-text="secondaryRemoteSession ? '第二标签组目录为空。' : '请先把会话移到第二标签组。'" drop-hint=""
+                :selected-paths="secondaryRemoteSelectedPaths" :selected-count="secondaryRemoteSelectedPaths.length"
+                primary-action-label="切到主标签组" primary-action-variant="secondary"
+                :primary-action-disabled="!secondaryRemoteSession" secondary-meta-label="权限" tertiary-meta-label="大小"
+                :size-value="(entry) => (entry.isDir ? '--' : formatSize(entry.size))"
+                :modified-value="(entry) => formatTime(entry.modifiedAt)"
+                :permissions-value="(entry) => entry.permissions || '--'" :owner-value="(entry) => entry.owner || '--'"
+                :secondary-meta-value="(entry) => entry.permissions || '--'"
+                :tertiary-meta-value="(entry) => (entry.isDir ? '--' : formatSize(entry.size))"
+                secondary-meta-class="ftp-entry__meta--mono"
+                :thumbnail-url-for="(entry) => thumbnailUrlFor('secondaryRemote', entry)"
+                :is-thumbnail-loading="(entry) => isThumbnailLoading('secondaryRemote', entry)"
+                :highlight-entry-name="highlightEntryName" @update:pathInput="secondaryRemotePathInput = $event"
+                @primary-action="focusSecondaryRemoteAsPrimary" @open-breadcrumb="openSecondaryRemoteBreadcrumb"
+                @open-path="openSecondaryRemotePath" @go-parent="goSecondaryRemoteParent"
+                @refresh="refreshSecondaryRemoteDirectory()" @set-view-mode="remotePanelViewMode = $event"
+                @panel-activate="setActiveBrowserPanel('secondaryRemote')" @list-contextmenu="() => undefined"
+                @entry-click="handleSecondaryRemoteEntryClick($event.event, $event.entry, $event.index)"
+                @entry-dblclick="openSecondaryRemoteEntry" @entry-dragstart="() => undefined"
+                @entry-contextmenu="() => undefined" />
+
+              <!-- 垂直分割条（双远程面板之间） -->
+              <div class="ftp-panels__v-divider" @mousedown="startVDrag" />
+
+
+              <!-- 双端模式堆叠容器（第二列）包含第二远程 + 主远程，形成上下排列 -->
+              <!-- 非双端模式：主远程直接作为 section 子元素 -->
+              <FtpBrowserPanel v-if="showRemotePanel && dualRemoteMode" kind="remote" title="远程目录" :badges="[
+                { text: activeSession ? activeSession.protocol.toUpperCase() : 'SFTP', accent: true },
+                { text: `${activeSession ? filteredRemoteEntries.length : 0} 项` },
+              ]" :drop-active="remoteDropActive" :breadcrumbs="remoteBreadcrumbs" :path-input="remotePathInput"
+                :path-suggestions="remotePathSuggestions" path-placeholder="输入远程目录" :view-mode="remotePanelViewMode"
+                :path-input-disabled="!activeSession" :open-path-disabled="!activeSession"
+                :go-parent-disabled="!activeSession" :refresh-disabled="!activeSession"
+                :search-expanded="remoteSearchExpanded" :search-active="remoteSearchExpanded || !!remoteFilterQuery"
+                :filter-expanded="remoteRuleFilterExpanded"
+                :filter-active="remoteRuleFilterExpanded || isRuleFilterActive(remoteRuleFilter)"
+                :filter-query="remoteFilterQuery" :filter-state="remoteRuleFilter" :filter-summary="remoteFilterSummary"
+                :filter-preset-id="remoteFilterPresetId" :filter-preset-options="filterPresetOptions"
+                :entries="filteredRemoteEntries" :loading="Boolean(activeSession) && ftpStore.remoteLoading"
+                loading-text="正在读取远程目录..." :empty-text="activeSession
+                  ? (remoteFilterQuery || isRuleFilterActive(remoteRuleFilter) ? '没有匹配的远程文件。' : '远程目录为空。')
+                  : '连接后显示远程目录。'" drop-hint="释放后上传到当前远程目录" :selected-paths="remoteSelectedPaths"
+                :selected-count="remoteSelectedPaths.length" :primary-action-label="downloadActionLabel"
+                :primary-action-disabled="!canDownload" :create-directory-disabled="!activeSession"
+                secondary-meta-label="权限" tertiary-meta-label="大小"
+                :size-value="(entry) => (entry.isDir ? '--' : formatSize(entry.size))"
+                :modified-value="(entry) => formatTime(entry.modifiedAt)"
+                :permissions-value="(entry) => entry.permissions || '--'" :owner-value="(entry) => entry.owner || '--'"
+                :secondary-meta-value="(entry) => entry.permissions || '--'"
+                :tertiary-meta-value="(entry) => (entry.isDir ? '--' : formatSize(entry.size))"
+                secondary-meta-class="ftp-entry__meta--mono"
+                :thumbnail-url-for="(entry) => thumbnailUrlFor('remote', entry)"
+                :is-thumbnail-loading="(entry) => isThumbnailLoading('remote', entry)"
+                :highlight-entry-name="highlightEntryName" :show-connecting-overlay="isConnecting"
+                :connecting-message="busyMessage" @dragenter="handleRemoteDragEnter" @dragleave="handleRemoteDragLeave"
+                @dragover="remoteDropActive = true" @drop="handleRemoteDrop"
+                @update:pathInput="remotePathInput = $event" @update:filterQuery="remoteFilterQuery = $event"
+                @update:extensionQuery="remoteRuleFilter.extensionQuery = $event"
+                @update:minSizeKb="remoteRuleFilter.minSizeKb = $event"
+                @update:maxSizeKb="remoteRuleFilter.maxSizeKb = $event"
+                @update:modifiedWithinDays="remoteRuleFilter.modifiedWithinDays = $event"
+                @primary-action="downloadSelected" @create-directory="createRemoteDirectory"
+                @open-breadcrumb="openRemoteBreadcrumb" @open-path="openRemotePath" @go-parent="goRemoteParent"
+                @refresh="ftpStore.refreshRemoteDirectory()" @toggle-search="toggleSearch('remote')"
+                @toggle-filter="toggleRuleFilter('remote')" @set-view-mode="remotePanelViewMode = $event"
+                @set-filter-mode="setRuleFilterMode('remote', $event)"
+                @set-filter-operator="setRuleFilterOperator('remote', $event)"
+                @toggle-hide-hidden="toggleHideHidden('remote')"
+                @apply-filter-preset="applyFilterPreset('remote', $event)"
+                @save-filter-preset="saveFilterPreset('remote')"
+                @delete-filter-preset="deleteSelectedFilterPreset('remote')" @reset-filter="resetRuleFilter('remote')"
+                @panel-activate="setActiveBrowserPanel('remote')"
+                @list-contextmenu="handlePanelListContextMenu($event, 'remote')"
+                @entry-click="handleRemoteEntryClick($event.event, $event.entry, $event.index)"
+                @entry-dblclick="openRemoteEntry" @entry-dragstart="handleRemoteDragStart($event.event, $event.entry)"
+                @entry-contextmenu="handleEntryContextMenu($event.event, 'remote', $event.entry, $event.index)" />
+
+              <!-- 双端模式：关闭 ftp-panels__remote-stack 容器 -->
+            </div>
+
+            <!-- 非并联模式下本地与远程之间的水平分割条 -->
+            <div v-if="showLocalPanel && showRemotePanel && !dualRemoteMode && panelLayoutMode === 'columns'"
+              class="ftp-panels__h-divider" @mousedown="startHDrag" />
+
+            <!-- 非双端模式：主远程面板直接作为 section 子元素（第二列）-->
+            <FtpBrowserPanel v-if="showRemotePanel && !dualRemoteMode" kind="remote" title="远程目录" :badges="[
+              { text: activeSession ? activeSession.protocol.toUpperCase() : 'SFTP', accent: true },
+              { text: `${activeSession ? filteredRemoteEntries.length : 0} 项` },
+            ]" :drop-active="remoteDropActive" :breadcrumbs="remoteBreadcrumbs" :path-input="remotePathInput"
+              :path-suggestions="remotePathSuggestions" path-placeholder="输入远程目录" :view-mode="remotePanelViewMode"
+              :path-input-disabled="!activeSession" :open-path-disabled="!activeSession"
+              :go-parent-disabled="!activeSession" :refresh-disabled="!activeSession"
+              :search-expanded="remoteSearchExpanded" :search-active="remoteSearchExpanded || !!remoteFilterQuery"
+              :filter-expanded="remoteRuleFilterExpanded"
+              :filter-active="remoteRuleFilterExpanded || isRuleFilterActive(remoteRuleFilter)"
+              :filter-query="remoteFilterQuery" :filter-state="remoteRuleFilter" :filter-summary="remoteFilterSummary"
+              :filter-preset-id="remoteFilterPresetId" :filter-preset-options="filterPresetOptions"
+              :entries="filteredRemoteEntries" :loading="ftpStore.remoteLoading" loading-text="正在读取远程目录..."
+              :empty-text="remoteFilterQuery || isRuleFilterActive(remoteRuleFilter) ? '没有匹配的远程文件。' : (activeSession ? '远程目录为空。' : '连接后即可浏览远程目录。')"
+              drop-hint="释放后上传到当前远程目录" :selected-paths="remoteSelectedPaths"
+              :selected-count="remoteSelectedPaths.length" :primary-action-label="downloadActionLabel"
+              primary-action-variant="secondary" :primary-action-disabled="!canDownload"
+              :show-create-directory-action="true" :create-directory-disabled="!activeSession" secondary-meta-label="权限"
+              tertiary-meta-label="大小" :size-value="(entry) => (entry.isDir ? '--' : formatSize(entry.size))"
+              :modified-value="(entry) => formatTime(entry.modifiedAt)"
+              :permissions-value="(entry) => entry.permissions || '--'" :owner-value="(entry) => entry.owner || '--'"
+              :secondary-meta-value="(entry) => entry.permissions || '--'"
+              :tertiary-meta-value="(entry) => (entry.isDir ? '--' : formatSize(entry.size))"
+              secondary-meta-class="ftp-entry__meta--mono"
+              :thumbnail-url-for="(entry) => thumbnailUrlFor('remote', entry)"
+              :is-thumbnail-loading="(entry) => isThumbnailLoading('remote', entry)"
+              :highlight-entry-name="highlightEntryName" :show-connecting-overlay="isConnecting"
+              :connecting-message="busyMessage" @dragenter="handleRemoteDragEnter" @dragleave="handleRemoteDragLeave"
+              @dragover="remoteDropActive = true" @drop="handleRemoteDrop" @update:pathInput="remotePathInput = $event"
+              @update:filterQuery="remoteFilterQuery = $event"
+              @update:extensionQuery="remoteRuleFilter.extensionQuery = $event"
+              @update:minSizeKb="remoteRuleFilter.minSizeKb = $event"
+              @update:maxSizeKb="remoteRuleFilter.maxSizeKb = $event"
+              @update:modifiedWithinDays="remoteRuleFilter.modifiedWithinDays = $event"
+              @primary-action="downloadSelected" @create-directory="createRemoteDirectory"
+              @open-breadcrumb="openRemoteBreadcrumb" @open-path="openRemotePath" @go-parent="goRemoteParent"
+              @refresh="ftpStore.refreshRemoteDirectory()" @set-view-mode="remotePanelViewMode = $event"
+              @toggle-search="toggleSearch('remote')" @toggle-filter="toggleRuleFilter('remote')"
+              @set-filter-mode="setRuleFilterMode('remote', $event)" @toggle-hide-hidden="toggleHideHidden('remote')"
+              @apply-filter-preset="applyFilterPreset('remote', $event)"
+              @save-filter-preset="saveFilterPreset('remote')"
+              @delete-filter-preset="deleteSelectedFilterPreset('remote')" @reset-filter="resetRuleFilter('remote')"
+              @set-filter-operator="setRuleFilterOperator('remote', $event)"
+              @panel-activate="setActiveBrowserPanel('remote')"
+              @list-contextmenu="handlePanelListContextMenu($event, 'remote')"
+              @entry-click="handleRemoteEntryClick($event.event, $event.entry, $event.index)"
+              @entry-dblclick="openRemoteEntry" @entry-dragstart="handleRemoteDragStart($event.event, $event.entry)"
+              @entry-contextmenu="handleEntryContextMenu($event.event, 'remote', $event.entry, $event.index)" />
+
+          </section>
+
+        </div>
+
+        <section class="ftp-aux-dock" :class="[
+          `ftp-aux-dock--${auxiliaryDockSide}`,
+          {
+            'ftp-aux-dock--tabbed': useAuxDockTabs,
+            'ftp-aux-dock--collapsed': auxiliaryDockCollapsed,
+          },
+        ]">
+          <div
+            v-if="auxiliaryDockSide === 'bottom' && !auxiliaryDockCollapsed"
+            class="ftp-aux-dock__resize-handle"
+            role="separator"
+            aria-orientation="horizontal"
+            aria-label="调整底部栏高度"
+            title="拖拽调整底部栏高度"
+            @mousedown="startAuxiliaryDockResize"
+          />
+          <div v-if="useAuxDockTabs" class="ftp-aux-dock__tabs">
+            <div class="ftp-aux-dock__tab-list">
+              <button type="button" class="ftp-aux-dock__tab"
+                :class="{ 'ftp-aux-dock__tab--active': auxDockActiveTab === 'queue' }"
+                @click="auxDockActiveTab = 'queue'">
+                传输队列
+                <span class="ftp-badge ftp-badge--accent">{{ activeTaskCount }}</span>
+              </button>
+              <button v-if="showLogPanel" type="button" class="ftp-aux-dock__tab"
+                :class="{ 'ftp-aux-dock__tab--active': auxDockActiveTab === 'log' }" @click="auxDockActiveTab = 'log'">
+                操作日志
+                <span class="ftp-badge">{{ ftpStore.logs.length }}</span>
+              </button>
+            </div>
+            <div class="ftp-aux-dock__toolbar">
+              <template v-if="auxDockActiveTab === 'queue' && !auxiliaryDockCollapsed">
+                <UiIconButton
+                  v-if="completedTaskCount"
+                  size="sm"
+                  variant="ghost"
+                  title="清除已完成"
+                  @click="deleteCompletedTasks()"
+                >
+                  <svg viewBox="0 0 24 24" aria-hidden="true">
+                    <path d="M5 7h14M9 7V5h6v2M8 7l1 12h6l1-12M10.5 10v6M13.5 10v6" />
+                  </svg>
+                </UiIconButton>
+                <UiIconButton size="sm" variant="ghost" title="全部暂停" @click="pauseAllTasks()">
+                  <svg viewBox="0 0 24 24" aria-hidden="true">
+                    <path d="M9 5v14M15 5v14" />
+                  </svg>
+                </UiIconButton>
+                <UiIconButton size="sm" variant="ghost" title="全部恢复" @click="resumeAllTasks()">
+                  <svg viewBox="0 0 24 24" aria-hidden="true">
+                    <path d="M8 5v14l11-7-11-7z" />
+                  </svg>
+                </UiIconButton>
+                <UiSelect class="ftp-aux-dock__sort-select" size="sm" :model-value="taskSortKey" :options="taskSortOptions"
+                  @change="taskSortKey = String($event) as TaskSortKey" />
+                <UiIconButton
+                  size="sm"
+                  variant="ghost"
+                  :title="taskSortDirection === 'asc' ? '升序' : '降序'"
+                  @click="toggleTaskSortDirection"
+                >
+                  <svg viewBox="0 0 24 24" aria-hidden="true" :class="{ 'ftp-aux-dock__sort-icon--desc': taskSortDirection === 'desc' }">
+                    <path d="M12 19V5M7.5 9.5 12 5l4.5 4.5" />
+                  </svg>
+                </UiIconButton>
+                <UiIconButton size="sm" variant="ghost" title="刷新任务" @click="ftpStore.reloadRuntimeState()">
+                  <svg viewBox="0 0 24 24" aria-hidden="true">
+                    <path d="M19 8a7 7 0 1 0 1 4M19 5v3h-3" />
+                  </svg>
+                </UiIconButton>
+              </template>
+              <template v-else-if="auxDockActiveTab === 'log' && !auxiliaryDockCollapsed">
+                <UiButton size="sm" variant="ghost" :disabled="!ftpStore.logs.length" @click="ftpStore.clearLogs()">
+                  <template #prefix>
+                    <DeleteIcon width="14" height="14" />
+                  </template>
+                  清空日志
+                </UiButton>
+              </template>
+              <UiIconButton class="ftp-aux-dock__collapse-button" size="sm" variant="ghost"
+                title="切换底部栏" aria-label="切换底部栏" @click="toggleAuxiliaryDockCollapsed">
+                <svg viewBox="0 0 24 24" aria-hidden="true"
+                  :class="{ 'ftp-aux-dock__collapse-icon--collapsed': auxiliaryDockCollapsed }">
+                  <path d="m7 10 5 5 5-5" />
+                </svg>
+              </UiIconButton>
+            </div>
+          </div>
+          <template v-if="!auxiliaryDockCollapsed">
+            <FtpTransferQueue v-if="showQueuePanelInDock" :collapsed="false" :active-task-count="activeTaskCount"
+              :paused-task-count="pausedTaskCount" :completed-task-count="completedTaskCount"
+              :failed-task-count="failedTaskCount" :tasks="sortedTransferTasks" :is-task-expanded="isTaskExpanded"
+              :task-priority-label="taskPriorityLabel" :task-status-label="taskStatusLabel"
+              :can-pause-task="canPauseTask" :can-resume-task="canResumeTask" :can-retry-task="canRetryTask"
+              :format-size="formatSize" :format-eta="formatTaskEta" @toggle-task-expanded="toggleTaskExpanded"
+              @update-task-priority="updateTaskPriority($event.taskId, $event.priority)" @pause-task="pauseTask"
+              @resume-task="resumeTask" @retry-task="retryTask" @delete-task="deleteTransferTask" />
+
+            <section v-if="showLogPanelInDock" class="ftp-log-panel ftp-inner-card">
+              <div class="ftp-log-panel__body">
+                <div v-if="!ftpStore.logs.length" class="ftp-empty-state">当前还没有 FTP 操作日志。</div>
+                <div v-else class="ftp-log-panel__list">
+                  <div v-for="entry in ftpStore.logs" :key="entry.id" class="ftp-log-panel__entry"
+                    :class="`ftp-log-panel__entry--${entry.tone}`">
+                    <span class="ftp-log-panel__time">{{ formatLogTime(entry.timestamp) }}</span>
+                    <span class="ftp-log-panel__message">{{ entry.message }}</span>
+                  </div>
+                </div>
+              </div>
+            </section>
+          </template>
         </section>
       </div>
 
-      <FtpSyncPanel
-        :model-value="syncPanelVisible"
-        :active-session="Boolean(activeSession)"
-        :sync-direction="syncDirection"
-        :sync-direction-options="syncDirectionOptions"
-        :sync-conflict-policy="syncConflictPolicy"
-        :sync-conflict-policy-options="syncConflictPolicyOptions"
-        :recursive-compare-enabled="recursiveCompareEnabled"
-        :checksum-compare-enabled="checksumCompareEnabled"
-        :sync-executable-count="syncExecutableCount"
-        :sync-executing="syncExecuting"
-        :checksum-compare-running="checksumCompareRunning"
-        :sync-execution-summary="syncExecutionSummary"
-        :sync-cancel-requested="syncCancelRequested"
-        :sync-comparison-expanded="syncComparisonExpanded"
-        :sync-summary="syncSummary"
-        :sync-preview-summary="syncPreviewSummary"
-        :sync-preview-items="syncPreviewItems"
-        :selected-preview-keys="syncSelectedKeys"
-        :format-size="formatSize"
-        :sync-status-label="syncStatusLabel"
-        :sync-action-label="syncActionLabel"
-        :sync-difference-label="syncDifferenceLabel"
-        @update:modelValue="syncPanelVisible = $event"
-        @update:syncDirection="syncDirection = $event"
+      <FtpSyncPanel :model-value="syncPanelVisible" :active-session="Boolean(activeSession)"
+        :sync-direction="syncDirection" :sync-direction-options="syncDirectionOptions"
+        :sync-conflict-policy="syncConflictPolicy" :sync-conflict-policy-options="syncConflictPolicyOptions"
+        :recursive-compare-enabled="recursiveCompareEnabled" :checksum-compare-enabled="checksumCompareEnabled"
+        :sync-executable-count="syncExecutableCount" :sync-executing="syncExecuting"
+        :checksum-compare-running="checksumCompareRunning" :sync-execution-summary="syncExecutionSummary"
+        :sync-cancel-requested="syncCancelRequested" :sync-comparison-expanded="syncComparisonExpanded"
+        :sync-summary="syncSummary" :sync-preview-summary="syncPreviewSummary" :sync-preview-items="syncPreviewItems"
+        :selected-preview-keys="syncSelectedKeys" :format-size="formatSize" :sync-status-label="syncStatusLabel"
+        :sync-action-label="syncActionLabel" :sync-difference-label="syncDifferenceLabel"
+        @update:modelValue="syncPanelVisible = $event" @update:syncDirection="syncDirection = $event"
         @update:syncConflictPolicy="syncConflictPolicy = $event"
         @update:recursiveCompareEnabled="recursiveCompareEnabled = $event"
-        @update:checksumCompareEnabled="checksumCompareEnabled = $event"
-        @compare="compareCurrentDirectories"
-        @execute="executeSyncPreview"
-        @cancel="cancelSyncExecution"
-        @toggle-preview-item="toggleSyncPreviewItem"
-        @set-all-preview-items="setAllSyncPreviewItems"
-      />
+        @update:checksumCompareEnabled="checksumCompareEnabled = $event" @compare="compareCurrentDirectories"
+        @execute="executeSyncPreview" @cancel="cancelSyncExecution" @toggle-preview-item="toggleSyncPreviewItem"
+        @set-all-preview-items="setAllSyncPreviewItems" />
 
-        <FtpSettingsDrawer
-          :model-value="transferSettingsDrawerVisible"
-          :link-navigation-enabled="linkNavigationEnabled"
-          :dual-remote-mode="dualRemoteMode"
-        :dual-remote-mode-available="secondaryRemoteModeAvailable"
-        :dual-remote-summary="dualRemoteSummary"
-        :secondary-remote-session-id="secondaryRemoteSessionId"
-        :secondary-remote-session-options="secondaryRemoteSessionOptions"
-        :thumbnails-enabled="thumbnailsEnabled"
-        :thumbnail-max-bytes-kb="thumbnailMaxBytesKb"
-        :thumbnail-prefetch-limit="thumbnailPrefetchLimit"
-        :retry-max-retries="retryMaxRetries"
-        :retry-base-delay-secs="retryBaseDelaySecs"
-        :retry-policy-summary="retryPolicySummary"
-        :panel-layout-mode="panelLayoutMode"
-        :sidebar-dock-side="sidebarDockSide"
-        :sidebar-size="sidebarSize"
-        :sidebar-dock-summary="sidebarDockSummary"
-        :auxiliary-dock-side="auxiliaryDockSide"
-        :auxiliary-dock-size="auxiliaryDockSize"
-        :auxiliary-dock-summary="auxiliaryDockSummary"
-        :show-sidebar-panel="showSidebarPanel"
-        :show-local-panel="showLocalPanel"
-        :show-remote-panel="showRemotePanel"
-        :show-queue-panel="showQueuePanel"
-        :show-log-panel="showLogPanel"
-        :panel-layout-summary="panelLayoutSummary"
-        :sidebar-summary="sidebarSummary"
-        :browser-panel-summary="browserPanelSummary"
-        :queue-panel-summary="queuePanelSummary"
-        :log-panel-summary="logPanelSummary"
-        :link-navigation-summary="linkNavigationSummary"
-        :thumbnail-summary="thumbnailSummary"
-        :external-editor-path="externalEditorPath"
+      <FtpSettingsDrawer :model-value="transferSettingsDrawerVisible" :link-navigation-enabled="linkNavigationEnabled"
+        :dual-remote-mode="dualRemoteMode" :dual-remote-mode-available="secondaryRemoteModeAvailable"
+        :dual-remote-summary="dualRemoteSummary" :secondary-remote-session-id="secondaryRemoteSessionId"
+        :secondary-remote-session-options="secondaryRemoteSessionOptions" :thumbnails-enabled="thumbnailsEnabled"
+        :thumbnail-max-bytes-kb="thumbnailMaxBytesKb" :thumbnail-prefetch-limit="thumbnailPrefetchLimit"
+        :retry-max-retries="retryMaxRetries" :retry-base-delay-secs="retryBaseDelaySecs"
+        :retry-policy-summary="retryPolicySummary" :panel-layout-mode="panelLayoutMode"
+        :sidebar-dock-side="sidebarDockSide" :sidebar-size="sidebarSize" :sidebar-dock-summary="sidebarDockSummary"
+        :auxiliary-dock-side="auxiliaryDockSide" :auxiliary-dock-size="auxiliaryDockSize"
+        :auxiliary-dock-summary="auxiliaryDockSummary" :show-sidebar-panel="showSidebarPanel"
+        :show-local-panel="showLocalPanel" :show-remote-panel="showRemotePanel"
+        :panel-layout-summary="panelLayoutSummary" :sidebar-summary="sidebarSummary"
+        :browser-panel-summary="browserPanelSummary" :link-navigation-summary="linkNavigationSummary"
+        :thumbnail-summary="thumbnailSummary" :external-editor-path="externalEditorPath"
         :external-editor-summary="externalEditorSummary"
-        :cleanup-external-drafts-on-close="cleanupExternalDraftsOnClose"
-        :known-hosts="knownHosts"
-        :known-host-summary="knownHostSummary"
-        :known-hosts-loading="knownHostsLoading"
+        :cleanup-external-drafts-on-close="cleanupExternalDraftsOnClose" :known-hosts="knownHosts"
+        :known-host-summary="knownHostSummary" :known-hosts-loading="knownHostsLoading"
         :local-entry-count="dualRemoteMode ? filteredSecondaryRemoteEntries.length : filteredLocalEntries.length"
-        :remote-entry-count="activeSession ? filteredRemoteEntries.length : 0"
-        :active-task-count="activeTaskCount"
-        :log-entry-count="ftpStore.logs.length"
-        @update:modelValue="transferSettingsDrawerVisible = $event"
-        @toggle-link-navigation="toggleLinkNavigation"
-        @toggle-dual-remote-mode="toggleDualRemoteMode"
-        @update:secondaryRemoteSessionId="setSecondaryRemoteSession"
-        @toggle-thumbnails="toggleThumbnails"
-        @update:thumbnailMaxBytesKb="setThumbnailMaxBytesKb"
-        @update:thumbnailPrefetchLimit="setThumbnailPrefetchLimit"
-        @update:retryMaxRetries="setRetryMaxRetries"
-        @update:retryBaseDelaySecs="setRetryBaseDelaySecs"
-        @apply-retry-policy="applyRetryPolicy"
-        @set-panel-layout-mode="setPanelLayoutMode"
-        @set-sidebar-dock-side="setSidebarDockSide"
-        @update:sidebarSize="setSidebarSize"
-        @set-auxiliary-dock-side="setAuxiliaryDockSide"
-        @update:auxiliaryDockSize="setAuxiliaryDockSize"
-        @toggle-sidebar-panel="toggleSidebarPanel"
-        @toggle-local-panel="toggleLocalPanel"
-        @toggle-remote-panel="toggleRemotePanel"
-        @toggle-queue-panel="toggleQueuePanel"
-        @toggle-log-panel="toggleLogPanel"
-        @pick-external-editor="pickExternalEditor"
-        @clear-external-editor="clearExternalEditor"
-        @toggle-cleanup-external-drafts="toggleCleanupExternalDrafts"
-        @refresh-known-hosts="reloadKnownHosts"
-        @delete-known-host="deleteKnownHost"
-      />
+        :remote-entry-count="activeSession ? filteredRemoteEntries.length : 0" :active-task-count="activeTaskCount"
+        :log-entry-count="ftpStore.logs.length" @update:modelValue="transferSettingsDrawerVisible = $event"
+        @toggle-link-navigation="toggleLinkNavigation" @toggle-dual-remote-mode="toggleDualRemoteMode"
+        @update:secondaryRemoteSessionId="setSecondaryRemoteSession" @toggle-thumbnails="toggleThumbnails"
+        @update:thumbnailMaxBytesKb="setThumbnailMaxBytesKb" @update:thumbnailPrefetchLimit="setThumbnailPrefetchLimit"
+        @update:retryMaxRetries="setRetryMaxRetries" @update:retryBaseDelaySecs="setRetryBaseDelaySecs"
+        @apply-retry-policy="applyRetryPolicy" @set-panel-layout-mode="setPanelLayoutMode"
+        @set-sidebar-dock-side="setSidebarDockSide" @update:sidebarSize="setSidebarSize"
+        @set-auxiliary-dock-side="setAuxiliaryDockSide" @update:auxiliaryDockSize="setAuxiliaryDockSize"
+        @toggle-sidebar-panel="toggleSidebarPanel" @toggle-local-panel="toggleLocalPanel"
+        @toggle-remote-panel="toggleRemotePanel" @pick-external-editor="pickExternalEditor"
+        @clear-external-editor="clearExternalEditor" @toggle-cleanup-external-drafts="toggleCleanupExternalDrafts"
+        @refresh-known-hosts="reloadKnownHosts" @delete-known-host="deleteKnownHost" />
 
     </main>
 
-    <FtpProfileDialog
-      :model-value="profileDialogVisible"
-      :title="editingProfileId ? '编辑传输配置' : '新建传输配置'"
-      :form="profileForm"
-      :protocol-options="protocolOptions"
-      :ssh-profile-options="sshProfileOptions"
-      :folder-select-options="folderSelectOptions"
-      :auth-type-options="authTypeOptions"
-      :ssh-profile-enabled="sshProfileEnabled"
-      :ssh-profile-label="sshProfileLabel"
-      @update:modelValue="profileDialogVisible = $event"
-      @apply-ssh-profile="applySshProfile"
-      @save="saveProfile"
-    />
+    <FtpProfileDialog :model-value="profileDialogVisible" :title="editingProfileId ? '编辑传输配置' : '新建传输配置'"
+      :form="profileForm" :protocol-options="protocolOptions" :ssh-profile-options="sshProfileOptions"
+      :folder-select-options="folderSelectOptions" :auth-type-options="authTypeOptions"
+      :ssh-profile-enabled="sshProfileEnabled" :ssh-profile-label="sshProfileLabel"
+      @update:modelValue="profileDialogVisible = $event" @apply-ssh-profile="applySshProfile" @save="saveProfile" />
 
-    <FtpFolderDialog
-      :model-value="folderDialogVisible"
-      :title="editingFolderId ? '编辑文件夹' : '新建文件夹'"
-      :form="folderForm"
-      :parent-options="folderParentOptions"
-      @update:modelValue="folderDialogVisible = $event"
-      @save="saveFolder"
-    />
+    <FtpFolderDialog :model-value="folderDialogVisible" :title="editingFolderId ? '编辑文件夹' : '新建文件夹'" :form="folderForm"
+      :parent-options="folderParentOptions" @update:modelValue="folderDialogVisible = $event" @save="saveFolder" />
 
-    <FtpEntryNameDialog
-      :model-value="entryNameDialogVisible"
-      :title="entryNameDialogTitle"
-      :label="entryNameDialogLabel"
-      :confirm-text="entryNameDialogConfirmText"
-      :value="entryNameDialogValue"
-      :placeholder="entryNameDialogPlaceholder"
-      @update:modelValue="(value) => !value && cancelEntryNameDialog()"
-      @update:value="entryNameDialogValue = $event"
-      @submit="submitEntryNameDialog"
-      @cancel="cancelEntryNameDialog"
-    />
+    <FtpEntryNameDialog :model-value="entryNameDialogVisible" :title="entryNameDialogTitle"
+      :label="entryNameDialogLabel" :confirm-text="entryNameDialogConfirmText" :value="entryNameDialogValue"
+      :placeholder="entryNameDialogPlaceholder" @update:modelValue="(value) => !value && cancelEntryNameDialog()"
+      @update:value="entryNameDialogValue = $event" @submit="submitEntryNameDialog" @cancel="cancelEntryNameDialog" />
 
-    <FtpPasswordDialog
-      :model-value="passwordDialogVisible"
+    <FtpPasswordDialog :model-value="passwordDialogVisible"
       :label="pendingConnectProfile ? `${pendingConnectProfile.username}@${pendingConnectProfile.host}` : '密码'"
-      :password="connectPassword"
-      @update:modelValue="passwordDialogVisible = $event"
-      @update:password="connectPassword = $event"
-      @submit="submitPasswordConnect"
-      @cancel="cancelPasswordPrompt"
-    />
+      :password="connectPassword" @update:modelValue="passwordDialogVisible = $event"
+      @update:password="connectPassword = $event" @submit="submitPasswordConnect" @cancel="cancelPasswordPrompt" />
 
-    <FtpAuthChallengeDialog
-      :model-value="authChallengeDialogVisible"
-      :challenge="pendingAuthChallenge"
-      :responses="authChallengeResponses"
-      @update:modelValue="(value) => !value && cancelAuthChallenge()"
-      @update:responses="authChallengeResponses = $event"
-      @submit="submitAuthChallenge"
-      @cancel="cancelAuthChallenge"
-    />
+    <FtpAuthChallengeDialog :model-value="authChallengeDialogVisible" :challenge="pendingAuthChallenge"
+      :responses="authChallengeResponses" @update:modelValue="(value) => !value && cancelAuthChallenge()"
+      @update:responses="authChallengeResponses = $event" @submit="submitAuthChallenge" @cancel="cancelAuthChallenge" />
 
     <UiDialog v-model="scheduleDialogVisible" width="880" max-width="96vw">
       <template #header>
@@ -3199,60 +2952,65 @@ onBeforeUnmount(() => {
         <div class="ftp-dialog__grid">
           <label class="ftp-form-field">
             <span>任务名称</span>
-            <UiInput :model-value="scheduleForm.label" placeholder="例如：夜间日志下载" @update:modelValue="scheduleForm.label = String($event)" />
+            <UiInput :model-value="scheduleForm.label" placeholder="例如：夜间日志下载"
+              @update:modelValue="scheduleForm.label = String($event)" />
           </label>
           <label class="ftp-form-field">
             <span>传输配置</span>
-            <UiSelect :model-value="scheduleForm.profileId" :options="scheduledTaskProfileOptions" @change="scheduleForm.profileId = String($event)" />
+            <UiSelect :model-value="scheduleForm.profileId" :options="scheduledTaskProfileOptions"
+              @change="scheduleForm.profileId = String($event)" />
           </label>
           <label class="ftp-form-field">
             <span>执行方向</span>
-            <UiSelect :model-value="scheduleForm.direction" :options="scheduledDirectionOptions" @change="scheduleForm.direction = String($event)" />
+            <UiSelect :model-value="scheduleForm.direction" :options="scheduledDirectionOptions"
+              @change="scheduleForm.direction = String($event)" />
           </label>
           <label class="ftp-form-field">
             <span>计划类型</span>
-            <UiSelect :model-value="scheduleForm.scheduleType" :options="scheduledTypeOptions" @change="scheduleForm.scheduleType = String($event)" />
+            <UiSelect :model-value="scheduleForm.scheduleType" :options="scheduledTypeOptions"
+              @change="scheduleForm.scheduleType = String($event)" />
           </label>
           <label class="ftp-form-field">
             <span>冲突策略</span>
-            <UiSelect :model-value="scheduleForm.conflictPolicy || 'skip'" :options="scheduledConflictPolicyOptions" @change="scheduleForm.conflictPolicy = String($event) as 'skip' | 'parallel'" />
+            <UiSelect :model-value="scheduleForm.conflictPolicy || 'skip'" :options="scheduledConflictPolicyOptions"
+              @change="scheduleForm.conflictPolicy = String($event) as 'skip' | 'parallel'" />
           </label>
           <label class="ftp-form-field ftp-form-field--full">
             <span>本地路径</span>
-            <UiInput :model-value="scheduleForm.localPath" placeholder="本地文件或目录路径" @update:modelValue="scheduleForm.localPath = String($event)" />
+            <UiInput :model-value="scheduleForm.localPath" placeholder="本地文件或目录路径"
+              @update:modelValue="scheduleForm.localPath = String($event)" />
           </label>
           <label class="ftp-form-field ftp-form-field--full">
             <span>远程路径</span>
-            <UiInput :model-value="scheduleForm.remotePath" placeholder="远程文件或目录路径" @update:modelValue="scheduleForm.remotePath = String($event)" />
+            <UiInput :model-value="scheduleForm.remotePath" placeholder="远程文件或目录路径"
+              @update:modelValue="scheduleForm.remotePath = String($event)" />
           </label>
           <label v-if="scheduleForm.scheduleType === 'once'" class="ftp-form-field">
             <span>执行时间</span>
-            <UiDateTimePicker
-              :model-value="scheduleForm.onceAt"
-              value-type="timestamp"
-              placeholder="选择执行日期和时间"
-              @update:model-value="scheduleForm.onceAt = ($event as number | undefined)"
-            />
+            <UiDateTimePicker :model-value="scheduleForm.onceAt" value-type="timestamp" placeholder="选择执行日期和时间"
+              @update:model-value="scheduleForm.onceAt = ($event as number | undefined)" />
           </label>
           <label v-if="scheduleForm.scheduleType === 'hourly'" class="ftp-form-field">
             <span>间隔小时</span>
-            <input class="ftp-native-input" type="number" min="1" :value="scheduleForm.intervalHours || 1" @input="scheduleForm.intervalHours = Number(($event.target as HTMLInputElement).value) || 1" />
+            <input class="ftp-native-input" type="number" min="1" :value="scheduleForm.intervalHours || 1"
+              @input="scheduleForm.intervalHours = Number(($event.target as HTMLInputElement).value) || 1" />
           </label>
-          <label v-if="scheduleForm.scheduleType === 'daily' || scheduleForm.scheduleType === 'weekly'" class="ftp-form-field">
+          <label v-if="scheduleForm.scheduleType === 'daily' || scheduleForm.scheduleType === 'weekly'"
+            class="ftp-form-field">
             <span>执行时刻</span>
-            <UiTimePicker
-              :model-value="scheduleForm.timeOfDay || '09:00'"
-              :minute-step="1"
-              @update:model-value="scheduleForm.timeOfDay = String($event)"
-            />
+            <UiTimePicker :model-value="scheduleForm.timeOfDay || '09:00'" :minute-step="1"
+              @update:model-value="scheduleForm.timeOfDay = String($event)" />
           </label>
           <label v-if="scheduleForm.scheduleType === 'weekly'" class="ftp-form-field">
             <span>每周执行日</span>
-            <UiSelect :model-value="String(scheduleForm.dayOfWeek ?? 1)" :options="weekDayOptions.map((item) => ({ ...item, value: String(item.value) }))" @change="scheduleForm.dayOfWeek = Number($event)" />
+            <UiSelect :model-value="String(scheduleForm.dayOfWeek ?? 1)"
+              :options="weekDayOptions.map((item) => ({ ...item, value: String(item.value) }))"
+              @change="scheduleForm.dayOfWeek = Number($event)" />
           </label>
           <label v-if="scheduleForm.scheduleType === 'cron'" class="ftp-form-field ftp-form-field--full">
             <span>Cron 表达式</span>
-            <UiInput :model-value="scheduleForm.cronExpression || ''" :placeholder="cronExpressionHint" @update:modelValue="scheduleForm.cronExpression = String($event)" />
+            <UiInput :model-value="scheduleForm.cronExpression || ''" :placeholder="cronExpressionHint"
+              @update:modelValue="scheduleForm.cronExpression = String($event)" />
             <div class="ftp-schedule-form__hint">{{ cronExpressionHint }}</div>
           </label>
         </div>
@@ -3264,7 +3022,8 @@ onBeforeUnmount(() => {
             <div class="ftp-schedule-item__main">
               <div class="ftp-schedule-item__title">{{ task.label }}</div>
               <div class="ftp-schedule-item__meta">
-                {{ task.direction === 'upload' ? '上传' : '下载' }} · {{ formatScheduledTaskRule(task) }} · 下次执行 {{ task.nextRunAt ? formatTime(task.nextRunAt) : '未计划' }}
+                {{ task.direction === 'upload' ? '上传' : '下载' }} · {{ formatScheduledTaskRule(task) }} · 下次执行 {{
+                  task.nextRunAt ? formatTime(task.nextRunAt) : '未计划' }}
               </div>
               <div class="ftp-schedule-item__meta">
                 冲突策略：{{ task.conflictPolicy === 'parallel' ? '允许并行' : '冲突时跳过' }} · 最近结果：{{ task.lastResult || '暂无' }}
@@ -3282,7 +3041,8 @@ onBeforeUnmount(() => {
       <template #footer>
         <div class="ftp-dialog__footer">
           <UiButton variant="ghost" @click="scheduleDialogVisible = false">关闭</UiButton>
-          <UiButton variant="primary" @click="saveScheduledTask">{{ editingScheduledTaskId ? '保存修改' : '创建任务' }}</UiButton>
+          <UiButton variant="primary" @click="saveScheduledTask">{{ editingScheduledTaskId ? '保存修改' : '创建任务' }}
+          </UiButton>
         </div>
       </template>
     </UiDialog>
@@ -3299,12 +3059,8 @@ onBeforeUnmount(() => {
           </span>
         </div>
         <div v-if="remoteEditorLoading" class="ftp-empty-state">正在加载远程文件...</div>
-        <FtpCodeEditor
-          v-else
-          v-model="remoteEditorContent"
-          :file-path="remoteEditorPath"
-          @save-requested="saveRemoteEditor"
-        />
+        <FtpCodeEditor v-else v-model="remoteEditorContent" :file-path="remoteEditorPath"
+          @save-requested="saveRemoteEditor" />
       </div>
       <template #footer>
         <div class="ftp-dialog__footer">
@@ -3329,14 +3085,18 @@ onBeforeUnmount(() => {
           <div class="ftp-permission-grid__head">执行</div>
           <template v-for="bucket in permissionMatrix" :key="bucket.key">
             <div class="ftp-permission-grid__label">{{ bucket.label }}</div>
-            <UiCheckbox size="sm" :checked="bucket.read" @change="updatePermissionMatrix(bucket.key, 'read', $event as boolean)" />
-            <UiCheckbox size="sm" :checked="bucket.write" @change="updatePermissionMatrix(bucket.key, 'write', $event as boolean)" />
-            <UiCheckbox size="sm" :checked="bucket.execute" @change="updatePermissionMatrix(bucket.key, 'execute', $event as boolean)" />
+            <UiCheckbox size="sm" :checked="bucket.read"
+              @change="updatePermissionMatrix(bucket.key, 'read', $event as boolean)" />
+            <UiCheckbox size="sm" :checked="bucket.write"
+              @change="updatePermissionMatrix(bucket.key, 'write', $event as boolean)" />
+            <UiCheckbox size="sm" :checked="bucket.execute"
+              @change="updatePermissionMatrix(bucket.key, 'execute', $event as boolean)" />
           </template>
         </div>
         <label class="ftp-form-field ftp-form-field--full">
           <span>数字权限</span>
-          <UiInput :model-value="permissionModeInput" placeholder="例如：755" @update:modelValue="handlePermissionModeInput(String($event))" />
+          <UiInput :model-value="permissionModeInput" placeholder="例如：755"
+            @update:modelValue="handlePermissionModeInput(String($event))" />
         </label>
       </div>
       <template #footer>
