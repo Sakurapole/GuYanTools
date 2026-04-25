@@ -58,6 +58,8 @@ export interface TerminalFeatureConfig {
   rendererMode: TerminalRendererMode;
   enableSixel: boolean;
   detachToWindowByDefault: boolean;
+  /** Max automatic SSH reconnect attempts before waiting for manual input */
+  sshReconnectMaxAttempts: number;
   /** Active terminal color scheme identifier */
   colorSchemeId: string;
   /** Viewport background type: color, image, or video */

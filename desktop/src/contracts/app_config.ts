@@ -100,6 +100,7 @@ export function createDefaultAppConfig(): AppConfig {
         rendererMode: 'auto',
         enableSixel: true,
         detachToWindowByDefault: false,
+        sshReconnectMaxAttempts: 3,
         colorSchemeId: 'dark-default',
         viewportBgType: 'color',
         viewportBgColor: '',

@@ -35,6 +35,7 @@ const pluginConfigDrafts = ref<Record<string, string>>({});
 const pluginConfigErrors = ref<Record<string, string>>({});
 const terminalProfiles = ref<TerminalProfile[]>([]);
 const terminalDefaultCwdInput = ref(appConfigStore.config.features.terminal.defaultCwd || '');
+const sshReconnectMaxAttemptsInput = ref(String(appConfigStore.config.features.terminal.sshReconnectMaxAttempts || 3));
 const githubTokenInput = ref('');
 const updaterAuthMessage = ref('');
 const updaterAuthSaving = ref(false);
@@ -241,6 +242,21 @@ async function handleTerminalDetachChange(event: Event) {
   });
 }
 
+async function commitSshReconnectMaxAttempts() {
+  const numeric = Number(sshReconnectMaxAttemptsInput.value);
+  const nextValue = Number.isFinite(numeric)
+    ? Math.max(1, Math.min(20, Math.round(numeric)))
+    : 3;
+  sshReconnectMaxAttemptsInput.value = String(nextValue);
+  await appConfigStore.updateConfig({
+    features: {
+      terminal: {
+        sshReconnectMaxAttempts: nextValue,
+      },
+    },
+  });
+}
+
 async function commitBaseFontSize() {
   const numeric = Number(baseFontSizeInput.value);
   await appConfigStore.updateConfig({
@@ -408,6 +424,10 @@ watch(() => appConfigStore.config.plugins.items, (items) => {
 
 watch(() => appConfigStore.config.features.terminal.defaultCwd, (value) => {
   terminalDefaultCwdInput.value = value || '';
+}, { immediate: true });
+
+watch(() => appConfigStore.config.features.terminal.sshReconnectMaxAttempts, (value) => {
+  sshReconnectMaxAttemptsInput.value = String(value || 3);
 }, { immediate: true });
 
 onMounted(() => {
@@ -924,6 +944,23 @@ function scriptTypeLabel(type: string) {
                   />
                   <span aria-hidden="true" />
                 </label>
+              </div>
+            </div>
+            <div class="settings-row">
+              <div class="settings-row__label">
+                <span>SSH 自动重连次数</span>
+                <small>超过次数后暂停，并在终端等待任意键手动重连。</small>
+              </div>
+              <div class="settings-row__control settings-row__control--compact">
+                <UiInput
+                  v-model="sshReconnectMaxAttemptsInput"
+                  type="number"
+                  :min="1"
+                  :max="20"
+                  @blur="commitSshReconnectMaxAttempts"
+                  @change="commitSshReconnectMaxAttempts"
+                  @keydown.enter.prevent="commitSshReconnectMaxAttempts"
+                />
               </div>
             </div>
           </section>

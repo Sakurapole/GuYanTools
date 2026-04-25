@@ -132,6 +132,9 @@ function normalizeTerminalFeature(value: unknown): AppFeaturesConfig['terminal']
   const detachToWindowByDefault = typeof value.detachToWindowByDefault === 'boolean'
     ? value.detachToWindowByDefault
     : defaults.detachToWindowByDefault;
+  const sshReconnectMaxAttempts = Number.isFinite(Number(value.sshReconnectMaxAttempts))
+    ? Math.max(1, Math.min(20, Math.round(Number(value.sshReconnectMaxAttempts))))
+    : defaults.sshReconnectMaxAttempts;
   const colorSchemeId = typeof value.colorSchemeId === 'string' && value.colorSchemeId
     ? value.colorSchemeId
     : defaults.colorSchemeId;
@@ -158,6 +161,7 @@ function normalizeTerminalFeature(value: unknown): AppFeaturesConfig['terminal']
     rendererMode,
     enableSixel,
     detachToWindowByDefault,
+    sshReconnectMaxAttempts,
     colorSchemeId,
     viewportBgType,
     viewportBgColor,

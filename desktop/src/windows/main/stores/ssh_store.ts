@@ -1,5 +1,6 @@
 import { defineStore, acceptHMRUpdate } from 'pinia';
 import { computed, ref } from 'vue';
+import { useAppConfigStore } from './app_config_store';
 import type {
   ConnectSshInput,
   CreateSshProfileInput,
@@ -26,7 +27,24 @@ import type {
 // Manages SSH profiles, active sessions, and event bus routing.
 // SSH events arrive via window.sshApi.onEvent (session IDs prefixed "ssh-").
 
+type ReconnectStatus = 'auto' | 'manual-wait' | 'manual';
+
+interface SshReconnectState {
+  profileId: string;
+  password?: string;
+  rows: number;
+  cols: number;
+  attempts: number;
+  maxAttempts: number;
+  status: ReconnectStatus;
+  lastError?: string;
+}
+
+const SSH_RECONNECT_DELAY_MS = 2000;
+
 export const useSshStore = defineStore('ssh', () => {
+  const appConfigStore = useAppConfigStore();
+
   // ── State ─────────────────────────────────────────────────────
   const profiles = ref<SshProfile[]>([]);
   const sessions = ref<SshSessionDescriptor[]>([]);
@@ -48,6 +66,10 @@ export const useSshStore = defineStore('ssh', () => {
 
   const initialized = ref(false);
   let removeListener: (() => void) | null = null;
+  const sessionConnectInputs = new Map<string, ConnectSshInput>();
+  const reconnectStates = ref<Record<string, SshReconnectState>>({});
+  const reconnectTimers = new Map<string, number>();
+  const manualDisconnectSessionIds = new Set<string>();
 
   // ── Derived ───────────────────────────────────────────────────
   const activeSshSession = computed(
@@ -108,11 +130,18 @@ export const useSshStore = defineStore('ssh', () => {
   async function connect(input: ConnectSshInput): Promise<SshSessionDescriptor> {
     const descriptor = await window.sshApi.connect(input);
     upsertSession(descriptor);
+    sessionConnectInputs.set(descriptor.sessionId, {
+      ...input,
+      rows: input.rows || 32,
+      cols: input.cols || 120,
+    });
     activeSshSessionId.value = descriptor.sessionId;
     return descriptor;
   }
 
   async function disconnect(sessionId: string) {
+    manualDisconnectSessionIds.add(sessionId);
+    clearReconnectState(sessionId);
     // If the session is no longer tracked locally, just clean up local state
     const exists = sessions.value.some((s) => s.sessionId === sessionId);
     if (!exists) {
@@ -135,12 +164,40 @@ export const useSshStore = defineStore('ssh', () => {
   // ── I/O ──────────────────────────────────────────────────────
 
   async function write(sessionId: string, data: string) {
-    trackWorkingDirectoryFromInput(sessionId, data);
-    await window.sshApi.write(sessionId, data);
+    const reconnectState = reconnectStates.value[sessionId];
+    if (reconnectState) {
+      if (reconnectState.status === 'manual-wait' && data) {
+        void restartReconnectManually(sessionId);
+      }
+      return;
+    }
+
+    if (!hasSession(sessionId)) return;
+
+    try {
+      await window.sshApi.write(sessionId, data);
+      trackWorkingDirectoryFromInput(sessionId, data);
+    } catch (err) {
+      if (handleMissingSessionError(sessionId, err)) return;
+      throw err;
+    }
   }
 
   async function resizeSession(input: ResizeSshSessionInput) {
-    await window.sshApi.resizeSession(input);
+    const connectInput = sessionConnectInputs.get(input.sessionId);
+    if (connectInput) {
+      connectInput.rows = input.rows;
+      connectInput.cols = input.cols;
+    }
+
+    if (!hasSession(input.sessionId)) return;
+
+    try {
+      await window.sshApi.resizeSession(input);
+    } catch (err) {
+      if (handleMissingSessionError(input.sessionId, err)) return;
+      throw err;
+    }
   }
 
   function clearBuffer(sessionId: string) {
@@ -230,14 +287,18 @@ export const useSshStore = defineStore('ssh', () => {
         updateSessionFromEvent(event);
         // Auto-start port forwards when session becomes connected
         if (event.status === 'connected') {
+          clearReconnectState(event.sessionId);
           autoStartPortForwards(event.sessionId).catch((err) =>
             console.warn('[SshStore] auto-start forwards error:', err),
           );
+        } else if (event.status === 'disconnected') {
+          handleUnexpectedDisconnect(event);
         }
         break;
       case 'exit':
         updateSessionFromEvent(event);
         // Delay removal so the user can read the exit status
+        clearReconnectState(event.sessionId);
         setTimeout(() => removeSessionLocal(event.sessionId), 3000);
         break;
       case 'error':
@@ -246,6 +307,7 @@ export const useSshStore = defineStore('ssh', () => {
           ...sessionErrors.value,
           [event.sessionId]: event.message ?? 'SSH connection error',
         };
+        handleUnexpectedDisconnect(event);
         break;
       case 'forward-state':
       case 'forward-error': {
@@ -287,6 +349,9 @@ export const useSshStore = defineStore('ssh', () => {
   }
 
   function removeSessionLocal(sessionId: string) {
+    clearReconnectState(sessionId);
+    sessionConnectInputs.delete(sessionId);
+    manualDisconnectSessionIds.delete(sessionId);
     sessions.value = sessions.value.filter((s) => s.sessionId !== sessionId);
 
     const nextBuffers = { ...sessionBuffers.value };
@@ -314,6 +379,10 @@ export const useSshStore = defineStore('ssh', () => {
     const nextFwdStatuses = { ...forwardStatuses.value };
     delete nextFwdStatuses[sessionId];
     forwardStatuses.value = nextFwdStatuses;
+
+    const nextFwdTraffic = { ...forwardTraffic.value };
+    delete nextFwdTraffic[sessionId];
+    forwardTraffic.value = nextFwdTraffic;
   }
 
   function updateForwardStatus(sessionId: string, status: PortForwardStatus) {
@@ -336,6 +405,171 @@ export const useSshStore = defineStore('ssh', () => {
         [sessionId]: updated,
       };
     }
+  }
+
+  function hasSession(sessionId: string) {
+    return sessions.value.some((session) => session.sessionId === sessionId);
+  }
+
+  function isMissingSessionError(err: unknown) {
+    const message = err instanceof Error ? err.message : String(err);
+    return /SSH session ['"][^'"]+['"] not found/i.test(message)
+      || /session ['"][^'"]+['"] not found/i.test(message);
+  }
+
+  function handleMissingSessionError(sessionId: string, err: unknown) {
+    if (!isMissingSessionError(err)) return false;
+    console.warn(`[SshStore] SSH session ${sessionId} is no longer available; removing local state.`);
+    removeSessionLocal(sessionId);
+    return true;
+  }
+
+  function handleUnexpectedDisconnect(event: SshEventEnvelope) {
+    if (manualDisconnectSessionIds.has(event.sessionId)) return;
+    if (reconnectStates.value[event.sessionId]) return;
+
+    const session = sessions.value.find((item) => item.sessionId === event.sessionId);
+    if (!session) return;
+
+    const profile = profiles.value.find((item) => item.id === session.profileId);
+    if (!profile?.autoReconnect) return;
+
+    const connectInput = sessionConnectInputs.get(event.sessionId);
+    const state: SshReconnectState = {
+      profileId: session.profileId,
+      password: connectInput?.password,
+      rows: connectInput?.rows || 32,
+      cols: connectInput?.cols || 120,
+      attempts: 0,
+      maxAttempts: appConfigStore.config.features.terminal.sshReconnectMaxAttempts || 3,
+      status: 'auto',
+      lastError: event.message,
+    };
+
+    reconnectStates.value = {
+      ...reconnectStates.value,
+      [event.sessionId]: state,
+    };
+    appendSystemMessage(event.sessionId, `连接已断开：${event.message || 'SSH session closed'}`);
+    scheduleReconnectAttempt(event.sessionId);
+  }
+
+  function scheduleReconnectAttempt(sessionId: string) {
+    clearReconnectTimer(sessionId);
+    const timerId = window.setTimeout(() => {
+      reconnectTimers.delete(sessionId);
+      void runReconnectAttempt(sessionId);
+    }, SSH_RECONNECT_DELAY_MS);
+    reconnectTimers.set(sessionId, timerId);
+  }
+
+  async function runReconnectAttempt(sessionId: string) {
+    const state = reconnectStates.value[sessionId];
+    if (!state || state.status === 'manual-wait') return;
+
+    if (state.attempts >= state.maxAttempts) {
+      pauseReconnect(sessionId, state);
+      return;
+    }
+
+    const nextAttempt = state.attempts + 1;
+    updateReconnectState(sessionId, {
+      attempts: nextAttempt,
+      status: state.status === 'manual' ? 'manual' : 'auto',
+    });
+    appendSystemMessage(
+      sessionId,
+      `${state.status === 'manual' ? '手动' : '自动'}重连中（${nextAttempt}/${state.maxAttempts}）...`,
+    );
+
+    try {
+      const descriptor = await connect({
+        profileId: state.profileId,
+        password: state.password,
+        rows: state.rows,
+        cols: state.cols,
+      });
+      transferReconnectSession(sessionId, descriptor.sessionId);
+      appendSystemMessage(descriptor.sessionId, 'SSH 重连成功。');
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      updateReconnectState(sessionId, { lastError: message });
+      appendSystemMessage(sessionId, `重连失败：${message}`);
+
+      const nextState = reconnectStates.value[sessionId];
+      if (!nextState) return;
+      if (nextState.attempts >= nextState.maxAttempts) {
+        pauseReconnect(sessionId, nextState);
+        return;
+      }
+      scheduleReconnectAttempt(sessionId);
+    }
+  }
+
+  function pauseReconnect(sessionId: string, state: SshReconnectState) {
+    clearReconnectTimer(sessionId);
+    updateReconnectState(sessionId, { status: 'manual-wait' });
+    appendSystemMessage(
+      sessionId,
+      `自动重连 ${state.maxAttempts} 次仍未成功${state.lastError ? `：${state.lastError}` : ''}。按任意键手动重连。`,
+    );
+  }
+
+  async function restartReconnectManually(sessionId: string) {
+    const state = reconnectStates.value[sessionId];
+    if (!state || state.status !== 'manual-wait') return;
+    updateReconnectState(sessionId, {
+      attempts: 0,
+      status: 'manual',
+      maxAttempts: appConfigStore.config.features.terminal.sshReconnectMaxAttempts || state.maxAttempts,
+    });
+    appendSystemMessage(sessionId, '收到输入，开始手动重连。');
+    await runReconnectAttempt(sessionId);
+  }
+
+  function transferReconnectSession(oldSessionId: string, newSessionId: string) {
+    const oldBuffer = sessionBuffers.value[oldSessionId] ?? '';
+    const newBuffer = sessionBuffers.value[newSessionId] ?? '';
+    sessionBuffers.value = {
+      ...sessionBuffers.value,
+      [newSessionId]: `${oldBuffer}${newBuffer}`,
+    };
+    clearReconnectState(oldSessionId);
+    removeSessionLocal(oldSessionId);
+    activeSshSessionId.value = newSessionId;
+  }
+
+  function updateReconnectState(sessionId: string, patch: Partial<SshReconnectState>) {
+    const current = reconnectStates.value[sessionId];
+    if (!current) return;
+    reconnectStates.value = {
+      ...reconnectStates.value,
+      [sessionId]: { ...current, ...patch },
+    };
+  }
+
+  function clearReconnectState(sessionId: string) {
+    clearReconnectTimer(sessionId);
+    if (!reconnectStates.value[sessionId]) return;
+    const next = { ...reconnectStates.value };
+    delete next[sessionId];
+    reconnectStates.value = next;
+  }
+
+  function clearReconnectTimer(sessionId: string) {
+    const timerId = reconnectTimers.get(sessionId);
+    if (timerId === undefined) return;
+    window.clearTimeout(timerId);
+    reconnectTimers.delete(sessionId);
+  }
+
+  function appendSystemMessage(sessionId: string, message: string) {
+    const timestamp = new Date().toLocaleTimeString();
+    const line = `\r\n\u001b[33m[SSH ${timestamp}] ${message}\u001b[0m\r\n`;
+    sessionBuffers.value = {
+      ...sessionBuffers.value,
+      [sessionId]: `${sessionBuffers.value[sessionId] ?? ''}${line}`,
+    };
   }
 
   // ── Port forwarding ──────────────────────────────────────────
@@ -377,17 +611,41 @@ export const useSshStore = defineStore('ssh', () => {
   }
 
   async function startPortForward(sessionId: string, forwardId: string) {
-    await window.sshApi.startPortForward(sessionId, forwardId);
+    if (!hasSession(sessionId)) return;
+
+    try {
+      await window.sshApi.startPortForward(sessionId, forwardId);
+    } catch (err) {
+      if (handleMissingSessionError(sessionId, err)) return;
+      throw err;
+    }
   }
 
   async function stopPortForward(sessionId: string, forwardId: string) {
-    await window.sshApi.stopPortForward(sessionId, forwardId);
+    if (!hasSession(sessionId)) return;
+
+    try {
+      await window.sshApi.stopPortForward(sessionId, forwardId);
+    } catch (err) {
+      if (handleMissingSessionError(sessionId, err)) return;
+      throw err;
+    }
   }
 
   async function refreshForwardStatus(sessionId: string) {
-    const statuses = await window.sshApi.listForwardStatus(sessionId);
-    forwardStatuses.value = { ...forwardStatuses.value, [sessionId]: statuses };
-    return statuses;
+    if (!hasSession(sessionId)) {
+      forwardStatuses.value = { ...forwardStatuses.value, [sessionId]: [] };
+      return [];
+    }
+
+    try {
+      const statuses = await window.sshApi.listForwardStatus(sessionId);
+      forwardStatuses.value = { ...forwardStatuses.value, [sessionId]: statuses };
+      return statuses;
+    } catch (err) {
+      if (handleMissingSessionError(sessionId, err)) return [];
+      throw err;
+    }
   }
 
   function togglePortForwardPanel(open?: boolean) {
@@ -419,9 +677,19 @@ export const useSshStore = defineStore('ssh', () => {
   // ── Traffic statistics ─────────────────────────────────────────
 
   async function refreshForwardTraffic(sessionId: string) {
-    const traffic = await window.sshApi.getForwardTraffic(sessionId);
-    forwardTraffic.value = { ...forwardTraffic.value, [sessionId]: traffic };
-    return traffic;
+    if (!hasSession(sessionId)) {
+      forwardTraffic.value = { ...forwardTraffic.value, [sessionId]: [] };
+      return [];
+    }
+
+    try {
+      const traffic = await window.sshApi.getForwardTraffic(sessionId);
+      forwardTraffic.value = { ...forwardTraffic.value, [sessionId]: traffic };
+      return traffic;
+    } catch (err) {
+      if (handleMissingSessionError(sessionId, err)) return [];
+      throw err;
+    }
   }
 
   // ── Port forward import/export ─────────────────────────────────

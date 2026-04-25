@@ -32,13 +32,17 @@ onMounted(async () => {
     await sshStore.loadPortForwards(props.profileId);
     await sshStore.refreshForwardStatus(props.sessionId);
     await sshStore.refreshForwardTraffic(props.sessionId);
+  } catch (err: unknown) {
+    showError(`刷新端口转发失败: ${getErrorMessage(err)}`);
   } finally {
     loading.value = false;
   }
   // Start traffic polling interval (every 2 seconds)
   trafficInterval = window.setInterval(() => {
     if (statuses.value.length > 0) {
-      sshStore.refreshForwardTraffic(props.sessionId);
+      void sshStore.refreshForwardTraffic(props.sessionId).catch((err) => {
+        console.warn('[PortForwardPanel] refresh traffic failed:', err);
+      });
     }
   }, 2000);
 });
@@ -55,8 +59,12 @@ onUnmounted(() => {
 // Reload when profileId changes
 watch(() => props.profileId, async (pid) => {
   if (pid) {
-    await sshStore.loadPortForwards(pid);
-    await sshStore.refreshForwardStatus(props.sessionId);
+    try {
+      await sshStore.loadPortForwards(pid);
+      await sshStore.refreshForwardStatus(props.sessionId);
+    } catch (err: unknown) {
+      showError(`刷新端口转发失败: ${getErrorMessage(err)}`);
+    }
   }
 });
 
@@ -88,6 +96,18 @@ function showError(msg: string) {
   setTimeout(() => { errorMessage.value = ''; }, 5000);
 }
 
+function getErrorMessage(err: unknown) {
+  return err instanceof Error ? err.message : String(err);
+}
+
+function refreshStatusSoon() {
+  window.setTimeout(() => {
+    void sshStore.refreshForwardStatus(props.sessionId).catch((err) => {
+      console.warn('[PortForwardPanel] refresh status failed:', err);
+    });
+  }, 300);
+}
+
 async function toggleForward(forwardId: string) {
   try {
     if (isRunning(forwardId)) {
@@ -96,7 +116,7 @@ async function toggleForward(forwardId: string) {
       await sshStore.startPortForward(props.sessionId, forwardId);
     }
   } catch (err: unknown) {
-    const msg = err instanceof Error ? err.message : String(err);
+    const msg = getErrorMessage(err);
     // Extract user-friendly error message
     if (msg.includes('port may be in use') || msg.includes('failed to bind')) {
       showError(`端口已被占用，请更换其他端口`);
@@ -104,7 +124,7 @@ async function toggleForward(forwardId: string) {
       showError(`操作失败: ${msg}`);
     }
   }
-  setTimeout(() => sshStore.refreshForwardStatus(props.sessionId), 300);
+  refreshStatusSoon();
 }
 
 async function startAllForwards() {
@@ -113,11 +133,11 @@ async function startAllForwards() {
     try {
       await sshStore.startPortForward(props.sessionId, rule.id);
     } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : String(err);
+      const msg = getErrorMessage(err);
       showError(`启动 "${rule.label || rule.id}" 失败: ${msg}`);
     }
   }
-  setTimeout(() => sshStore.refreshForwardStatus(props.sessionId), 300);
+  refreshStatusSoon();
 }
 
 async function stopAllForwards() {
@@ -127,7 +147,7 @@ async function stopAllForwards() {
       await sshStore.stopPortForward(props.sessionId, rule.id);
     } catch { /* ignore stop errors */ }
   }
-  setTimeout(() => sshStore.refreshForwardStatus(props.sessionId), 300);
+  refreshStatusSoon();
 }
 
 async function deleteForward(fwd: SshPortForward) {
@@ -137,7 +157,7 @@ async function deleteForward(fwd: SshPortForward) {
     }
     await sshStore.deletePortForward(props.profileId, fwd.id);
   } catch (err: unknown) {
-    showError(`删除失败: ${err instanceof Error ? err.message : String(err)}`);
+    showError(`删除失败: ${getErrorMessage(err)}`);
   }
 }
 
@@ -471,7 +491,7 @@ async function handleImport() {
   left: 16px;
   right: 16px;
   z-index: 100;
-  border-radius: var(--ui-radius-lg);
+  border-radius: var(--ui-radius-md);
   background: var(--ui-surface-panel);
   border: 1px solid var(--ui-border-subtle);
   box-shadow: 0 -4px 24px rgba(0, 0, 0, 0.25), 0 0 0 1px rgba(255,255,255,0.03);
