@@ -32,9 +32,6 @@
 .category-sidebar {
   width: 96px;
   min-width: 96px;
-  // Enable CSS 3D tilt from usePerspectiveTilt composable
-  transform-style: preserve-3d;
-  will-change: transform;
 }
 
 .sidebar-panel {
@@ -110,9 +107,6 @@
   scrollbar-width: none;
   -ms-overflow-style: none;
   position: relative;
-  // 3D perspective context for child button transforms
-  perspective: 600px;
-  transform-style: preserve-3d;
 
   &::-webkit-scrollbar {
     width: 0;
@@ -224,38 +218,25 @@
   padding: 10px 6px 12px;
   border: none;
   border-radius: var(--ui-radius-md);
-  background: transparent;
+  background: var(--home-sidebar-item-bg-color);
   color: var(--ui-text-primary);
   cursor: pointer;
   font: inherit;
   outline: none;
   box-sizing: border-box;
 
-  // 3D transform setup
-  transform-style: preserve-3d;
   will-change: transform, box-shadow;
   transition:
     background var(--home-transition-fast),
     color var(--home-transition-fast),
+    transform var(--home-transition-fast),
     box-shadow 320ms cubic-bezier(0.32, 0.72, 0, 1);
 
-  // ─── 3D continuous floating animation (infinite loop) ───
-  animation: categoryItem3DFloat 3.2s ease-in-out infinite;
-  animation-delay: calc(var(--category-index, 0) * -400ms);
-
-  // ─── 3D hover protrusion effect — dramatic pop-out ───
   &:hover {
     background: var(--home-sidebar-item-hover-bg-color);
-    animation-play-state: paused;
-    transform:
-      perspective(400px)
-      translateZ(28px)
-      rotateX(-6deg)
-      rotateY(3deg)
-      scale(1.08);
+    transform: translateY(-1px);
     box-shadow:
-      0 12px 28px -6px rgba(0, 0, 0, 0.35),
-      0 4px 10px -2px rgba(0, 0, 0, 0.18),
+      0 6px 16px -8px var(--home-sidebar-active-shadow-color),
       0 0 0 1px rgba(255, 255, 255, 0.08),
       inset 0 1px 0 rgba(255, 255, 255, 0.1);
     transition: transform 280ms cubic-bezier(0.32, 0.72, 0, 1), box-shadow 280ms ease;
@@ -266,19 +247,12 @@
 
     .category-icon {
       color: var(--ui-text-primary);
-      // Icon lifts higher for strong depth illusion
-      transform: translateZ(12px) scale(1.12);
+      background: var(--home-sidebar-icon-active-bg-color);
     }
   }
 
-  // Tactile press feedback — pushes back into surface
   &:active {
-    animation-play-state: paused;
-    transform:
-      perspective(400px)
-      translateZ(6px)
-      rotateX(2deg)
-      scale(0.95);
+    transform: translateY(0);
     box-shadow:
       0 2px 4px -2px rgba(0, 0, 0, 0.22),
       0 0 0 1px rgba(255, 255, 255, 0.04);
@@ -291,9 +265,10 @@
   }
 
   &.active {
-    // Background is now handled by .category-slider
-    background: transparent;
-    box-shadow: none;
+    background: var(--home-sidebar-item-active-bg-color);
+    box-shadow:
+      0 8px 20px -12px var(--home-sidebar-active-shadow-color),
+      inset 0 1px 0 rgba(255, 255, 255, 0.1);
 
     // Left accent bar with glow — grows from center
     &::before {
@@ -312,6 +287,7 @@
 
     .category-icon {
       color: var(--primary-color);
+      background: var(--home-sidebar-icon-active-bg-color);
     }
 
     .category-label {
@@ -319,16 +295,10 @@
       font-weight: 600;
     }
 
-    // Active item has distinct raised hover
     &:hover {
-      transform:
-        perspective(400px)
-        translateZ(20px)
-        rotateX(-4deg)
-        rotateY(2deg)
-        scale(1.05);
+      transform: translateY(-1px);
       box-shadow:
-        0 8px 20px -4px rgba(0, 0, 0, 0.25),
+        0 8px 20px -10px var(--home-sidebar-active-shadow-color),
         0 0 0 1px rgba(255, 255, 255, 0.06);
     }
   }
@@ -341,11 +311,10 @@
     justify-content: center;
     color: var(--ui-text-muted);
     border-radius: var(--ui-radius-sm);
-    // 3D sub-element transform
-    transform-style: preserve-3d;
+    background: var(--home-sidebar-icon-bg-color);
     transition:
       color var(--home-transition-fast),
-      transform 320ms cubic-bezier(0.32, 0.72, 0, 1);
+      background var(--home-transition-fast);
 
     .icon-emoji {
       font-size: 1.3rem;
@@ -381,7 +350,7 @@
   min-width: 0;
   display: flex;
   flex-direction: column;
-  gap: 0;
+  gap: 12px;
 }
 
 /* ─── Stage Header — Premium editorial style ─── */
@@ -389,11 +358,15 @@
 .home-stage__header {
   position: relative;
   overflow: hidden;
-  background: transparent;
-  border: none;
-  border-radius: 0;
-  box-shadow: none;
+  width: calc(100% - 8px);
+  margin: 0 4px;
+  box-sizing: border-box;
+  background: color-mix(in srgb, var(--home-panel-bg-color) 92%, transparent);
+  border: 1px solid var(--home-panel-border-color);
+  border-radius: var(--ui-radius-lg);
+  box-shadow: 0 12px 28px -22px var(--home-shell-shadow-color);
   padding: 20px 24px 20px;
+  backdrop-filter: var(--ui-backdrop-blur-sm);
 
   // Bottom separator — luminous gradient line
   &::after {
@@ -554,7 +527,6 @@
   flex: 1;
   min-height: 0;
   position: relative;
-  // Prevent layout shift from bottom separator
   margin-top: 0;
 }
 
@@ -766,60 +738,6 @@
   to {
     transform: scaleY(1);
     opacity: 1;
-  }
-}
-
-/* ─── 3D Category Button Float — continuous looping wave ─── */
-
-@keyframes categoryItem3DFloat {
-  0% {
-    transform:
-      perspective(500px)
-      translateZ(0px)
-      translateY(0px)
-      rotateX(0deg)
-      rotateY(0deg);
-    box-shadow: 0 2px 6px -2px rgba(0, 0, 0, 0.08);
-  }
-
-  25% {
-    transform:
-      perspective(500px)
-      translateZ(10px)
-      translateY(-3px)
-      rotateX(-4deg)
-      rotateY(1.5deg);
-    box-shadow: 0 6px 14px -4px rgba(0, 0, 0, 0.16);
-  }
-
-  50% {
-    transform:
-      perspective(500px)
-      translateZ(16px)
-      translateY(-5px)
-      rotateX(-2deg)
-      rotateY(0deg);
-    box-shadow: 0 10px 22px -6px rgba(0, 0, 0, 0.22);
-  }
-
-  75% {
-    transform:
-      perspective(500px)
-      translateZ(8px)
-      translateY(-2px)
-      rotateX(2deg)
-      rotateY(-1.5deg);
-    box-shadow: 0 5px 12px -3px rgba(0, 0, 0, 0.14);
-  }
-
-  100% {
-    transform:
-      perspective(500px)
-      translateZ(0px)
-      translateY(0px)
-      rotateX(0deg)
-      rotateY(0deg);
-    box-shadow: 0 2px 6px -2px rgba(0, 0, 0, 0.08);
   }
 }
 

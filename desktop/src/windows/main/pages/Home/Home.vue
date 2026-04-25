@@ -14,7 +14,6 @@ import IconRenderer from '../../components/ui/IconRenderer.vue';
 import EditIcon from '../../components/svgs/icons/EditIcon.vue';
 import { useGridPersistence } from '../../composables/useGridPersistence';
 import { useContextMenu, type ContextMenuItem } from '../../composables/useContextMenu';
-import { usePerspectiveTilt } from '../../composables/usePerspectiveTilt';
 import { useGlobalStore } from '../../stores/global_store';
 import type { CategoryItem, GridConfig, GridItem, BackgroundConfirmPayload } from '../../types/grid';
 import type { CreateHomeWidgetPayload } from '@/contracts/home_layout';
@@ -52,13 +51,6 @@ const Ui3DFloatingShapesComponent = defineAsyncComponent(() => import('../../com
 const homeShellRef = ref<HTMLElement | null>(null);
 const compAreaWrapper = ref<HTMLElement | null>(null);
 const categoryListRef = ref<HTMLElement | null>(null);
-
-// Sidebar perspective tilt effect
-const { tiltRef: sidebarTiltRef, tiltStyle: sidebarTiltStyle } = usePerspectiveTilt({
-  maxTilt: 4,
-  perspective: 600,
-  resetDuration: 500,
-});
 
 // 3D scene objects for header decoration
 const header3DScene = shallowRef<THREE.Scene | null>(null);
@@ -741,7 +733,7 @@ watch(() => activeCategory.value?.backgroundColor, (bgColor) => {
 <template>
   <div class="home-shell" ref="homeShellRef">
     <div class="home-container">
-      <aside class="category-sidebar" ref="sidebarTiltRef" :style="sidebarTiltStyle" @contextmenu="handleSidebarContextMenu">
+      <aside class="category-sidebar" @contextmenu="handleSidebarContextMenu">
         <UiCard class="sidebar-panel" variant="elevated" :bordered="false" padding="none" radius="lg" :style="sidebarBgStyle">
           <video v-if="sidebarBg.video" class="sidebar-panel__video" :src="sidebarBg.video" autoplay loop muted
             playsinline />
@@ -768,7 +760,6 @@ watch(() => activeCategory.value?.backgroundColor, (bgColor) => {
               />
               <button v-for="(category, index) in categories" :key="category.id" class="category-item"
                 :class="{ active: index === activeCategoryIndex }" :title="category.label"
-                :style="{ '--category-index': index }"
                 @click="switchCategory(index)">
                 <div class="category-icon">
                   <IconRenderer :icon="category.icon" :size="26" />
