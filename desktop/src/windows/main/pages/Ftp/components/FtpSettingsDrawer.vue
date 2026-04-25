@@ -30,13 +30,9 @@ defineProps<{
   showSidebarPanel: boolean;
   showLocalPanel: boolean;
   showRemotePanel: boolean;
-  showQueuePanel: boolean;
-  showLogPanel: boolean;
   panelLayoutSummary: string;
   sidebarSummary: string;
   browserPanelSummary: string;
-  queuePanelSummary: string;
-  logPanelSummary: string;
   linkNavigationSummary: string;
   thumbnailSummary: string;
   externalEditorPath: string;
@@ -70,8 +66,6 @@ const emit = defineEmits<{
   'toggle-sidebar-panel': [];
   'toggle-local-panel': [];
   'toggle-remote-panel': [];
-  'toggle-queue-panel': [];
-  'toggle-log-panel': [];
   'pick-external-editor': [];
   'clear-external-editor': [];
   'toggle-cleanup-external-drafts': [];
@@ -299,19 +293,6 @@ function closeDrawer() {
 
                 <div class="ftp-settings-drawer__option">
                   <div class="ftp-settings-drawer__option-copy">
-                    <div class="ftp-settings-drawer__option-title">传输队列面板</div>
-                    <div class="ftp-settings-drawer__option-desc">可隐藏底部任务面板，只在需要查看明细时再展开。</div>
-                  </div>
-                  <UiButton size="sm" variant="secondary" :active="showQueuePanel" @click="emit('toggle-queue-panel')">
-                    {{ showQueuePanel ? '隐藏队列' : '显示队列' }}
-                  </UiButton>
-                </div>
-                <div class="ftp-settings-drawer__summary">
-                  <span class="ftp-badge" :class="{ 'ftp-badge--accent': showQueuePanel }">{{ queuePanelSummary }}</span>
-                </div>
-
-                <div class="ftp-settings-drawer__option">
-                  <div class="ftp-settings-drawer__option-copy">
                     <div class="ftp-settings-drawer__option-title">辅助停靠区</div>
                     <div class="ftp-settings-drawer__option-desc">传输队列和日志面板可停靠在底部或右侧，共享同一个辅助区域。</div>
                   </div>
@@ -351,18 +332,6 @@ function closeDrawer() {
                   </div>
                 </div>
 
-                <div class="ftp-settings-drawer__option">
-                  <div class="ftp-settings-drawer__option-copy">
-                    <div class="ftp-settings-drawer__option-title">日志面板</div>
-                    <div class="ftp-settings-drawer__option-desc">显示最近的连接、队列和同步事件，便于快速查看传输过程。</div>
-                  </div>
-                  <UiButton size="sm" variant="secondary" :active="showLogPanel" @click="emit('toggle-log-panel')">
-                    {{ showLogPanel ? '隐藏日志' : '显示日志' }}
-                  </UiButton>
-                </div>
-                <div class="ftp-settings-drawer__summary">
-                  <span class="ftp-badge" :class="{ 'ftp-badge--accent': showLogPanel }">{{ logPanelSummary }}</span>
-                </div>
               </section>
 
               <section class="ftp-settings-drawer__section">
