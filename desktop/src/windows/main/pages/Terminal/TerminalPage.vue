@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, defineAsyncComponent, nextTick, onMounted, ref, watch } from 'vue';
+import { computed, defineAsyncComponent, nextTick, onActivated, onMounted, ref, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import UiButton from '@/windows/main/components/ui/UiButton.vue';
 import { useGlobalStore } from '@/windows/main/stores/global_store';
@@ -44,6 +44,16 @@ const newSessionProfileId = ref('');
 const sidebarCollapsed = ref(false);
 /** 'terminal' | 'ssh' */
 const sidebarTab = ref<'terminal' | 'ssh'>('terminal');
+
+function syncSidebarTabFromRoute() {
+  const tab = Array.isArray(route.query.tab) ? route.query.tab[0] : route.query.tab;
+  if (tab === 'ssh' || tab === 'terminal') {
+    sidebarTab.value = tab;
+  }
+}
+
+watch(() => route.query.tab, syncSidebarTabFromRoute, { immediate: true });
+onActivated(syncSidebarTabFromRoute);
 
 // ── SSH dialog state ──────────────────────────────────────────
 
@@ -802,8 +812,8 @@ onMounted(() => {
   gap: 2px;
   background: var(--ui-surface-overlay);
   border: 1px solid var(--ui-border-subtle);
-  border-radius: var(--ui-radius-md);
-  padding: 2px;
+  border-radius: 7px;
+  padding: 3px;
 }
 
 .sidebar-tab {
@@ -812,9 +822,10 @@ onMounted(() => {
   align-items: center;
   justify-content: center;
   gap: 4px;
-  padding: 4px 8px;
+  min-height: 32px;
+  padding: 8px 12px;
   border: none;
-  border-radius: calc(var(--ui-radius-md) - 2px);
+  border-radius: 5px;
   background: transparent;
   color: var(--ui-text-muted);
   font-size: 11px;

@@ -2,11 +2,9 @@
 import type {
   FileTransferEntry,
   FtpScheduledTask,
-  FtpWindowsContextMenuStatus,
   TransferTask,
   UpsertFtpScheduledTaskInput,
 } from '@/contracts/ftp';
-import type { SshKnownHost } from '@/contracts/ssh';
 import DeleteIcon from '@/windows/main/components/svgs/icons/DeleteIcon.vue';
 import UiButton from '@/windows/main/components/ui/UiButton.vue';
 import UiCheckbox from '@/windows/main/components/ui/UiCheckbox.vue';
@@ -15,13 +13,13 @@ import UiDialog from '@/windows/main/components/ui/UiDialog.vue';
 import UiIconButton from '@/windows/main/components/ui/UiIconButton.vue';
 import UiInput from '@/windows/main/components/ui/UiInput.vue';
 import UiSelect from '@/windows/main/components/ui/UiSelect.vue';
+import UiTooltip from '@/windows/main/components/ui/UiTooltip.vue';
 import UiTimePicker from '@/windows/main/components/ui/UiTimePicker.vue';
 import { useConfirmDialog } from '@/windows/main/composables/useConfirmDialog';
 import { useContextMenu } from '@/windows/main/composables/useContextMenu';
 import FtpBrowserPanel from '@/windows/main/pages/Ftp/components/FtpBrowserPanel.vue';
 import FtpCodeEditor from '@/windows/main/pages/Ftp/components/FtpCodeEditor.vue';
 import FtpConfigSidebar from '@/windows/main/pages/Ftp/components/FtpConfigSidebar.vue';
-import FtpSettingsDrawer from '@/windows/main/pages/Ftp/components/FtpSettingsDrawer.vue';
 import FtpSyncPanel from '@/windows/main/pages/Ftp/components/FtpSyncPanel.vue';
 import FtpTransferQueue from '@/windows/main/pages/Ftp/components/FtpTransferQueue.vue';
 import FtpAuthChallengeDialog from '@/windows/main/pages/Ftp/components/dialogs/FtpAuthChallengeDialog.vue';
@@ -77,8 +75,10 @@ import {
 } from '@/windows/main/pages/Ftp/utils/ftpSync';
 import { useFtpStore } from '@/windows/main/stores/ftp_store';
 import { useGlobalStore } from '@/windows/main/stores/global_store';
+import { useSettingStore } from '@/windows/main/stores/settings_store';
 import { useSshStore } from '@/windows/main/stores/ssh_store';
-import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue';
+import { useTerminalStore } from '@/windows/main/stores/terminal_store';
+import { computed, onActivated, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 
 type PanelLayoutMode = 'columns' | 'stacked';
@@ -87,6 +87,22 @@ type SidebarDockSide = 'left' | 'right';
 type AuxiliaryDockSide = 'bottom' | 'right';
 type ActiveBrowserPanel = 'local' | 'remote' | 'secondaryRemote';
 type AuxiliaryDockTab = 'queue' | 'log';
+type TransferTaskRefreshSnapshot = Pick<TransferTask, 'id' | 'status' | 'direction' | 'sessionId' | 'remotePath'>;
+type RemoteRefreshTarget = {
+  panel: 'primary' | 'secondary';
+  sessionId: string;
+  path: string;
+};
+type TerminalOpenTarget =
+  | { kind: 'local'; path: string }
+  | { kind: 'ssh'; path: string; sshProfileId: string };
+type DisconnectedSessionNotice = {
+  sessionId: string;
+  profileId: string;
+  label: string;
+  remotePath: string;
+  message: string;
+};
 type ClosedSessionSnapshot = {
   profileId: string;
   profileLabel: string;
@@ -100,6 +116,8 @@ const FTP_PREFERENCES_STORAGE_KEY = 'guyantools.ftp.preferences';
 const globalStore = useGlobalStore();
 const ftpStore = useFtpStore();
 const sshStore = useSshStore();
+const terminalStore = useTerminalStore();
+const settingsStore = useSettingStore();
 const router = useRouter();
 const route = useRoute();
 const { show: showConfirm } = useConfirmDialog();
@@ -107,7 +125,9 @@ const { open: openContextMenu, close: closeContextMenu } = useContextMenu();
 
 const busyMessage = ref('');
 const actionError = ref('');
-const transferSettingsDrawerVisible = ref(false);
+const disconnectedSessionNotice = ref<DisconnectedSessionNotice | null>(null);
+const disconnectedSessionDialogVisible = ref(false);
+const reconnectingDisconnectedSession = ref(false);
 const remoteEditorDialogVisible = ref(false);
 const syncPanelVisible = ref(false);
 const linkNavigationEnabled = ref(false);
@@ -246,18 +266,11 @@ const recentlyClosedSessions = ref<ClosedSessionSnapshot[]>([]);
 const scheduledTasks = ref<FtpScheduledTask[]>([]);
 const scheduleDialogVisible = ref(false);
 const editingScheduledTaskId = ref('');
-const windowsContextMenuStatus = ref<FtpWindowsContextMenuStatus>({
-  installed: false,
-  command: '',
-});
 const pendingExternalPaths = ref<string[]>([]);
 const viewportWidth = ref(typeof window === 'undefined' ? 0 : window.innerWidth);
 const viewportHeight = ref(typeof window === 'undefined' ? 0 : window.innerHeight);
 const externalEditorPath = ref('');
 const cleanupExternalDraftsOnClose = ref(false);
-const knownHostsLoading = ref(false);
-const retryMaxRetries = ref('3');
-const retryBaseDelaySecs = ref('5');
 const syncSelectedKeys = ref<string[]>([]);
 const permissionDialogVisible = ref(false);
 const permissionDialogTargetPath = ref('');
@@ -283,6 +296,9 @@ const scheduleForm = ref<UpsertFtpScheduledTaskInput>({
   dayOfWeek: 1,
   cronExpression: '0 2 * * *',
 });
+const pendingRemoteRefreshTargets = new Map<string, RemoteRefreshTarget>();
+let remoteRefreshTimer: number | null = null;
+let transferTaskRefreshWatcherInitialized = false;
 
 const taskSortOptions = [
   { label: '创建时间', value: 'createdAt' },
@@ -401,7 +417,7 @@ async function processPendingOpenRequest() {
       ftpStore.focusSession(existingSession.sessionId, request.remotePath || existingSession.remoteRoot);
       if (request.remotePath && request.remotePath !== (ftpStore.remotePath || existingSession.remoteRoot)) {
         busyMessage.value = `正在打开 ${request.remotePath}...`;
-        await ftpStore.refreshRemoteDirectory(request.remotePath);
+        await refreshPrimaryRemoteDirectory(request.remotePath);
       }
       ftpStore.clearPendingOpenRequest(request.requestId);
       return;
@@ -417,11 +433,11 @@ async function processPendingOpenRequest() {
     ftpStore.focusSession(connectedSession.sessionId, request.remotePath || connectedSession.remoteRoot);
     if (request.remotePath && request.remotePath !== connectedSession.remoteRoot) {
       busyMessage.value = `正在打开 ${request.remotePath}...`;
-      await ftpStore.refreshRemoteDirectory(request.remotePath);
+      await refreshPrimaryRemoteDirectory(request.remotePath);
     }
     ftpStore.clearPendingOpenRequest(request.requestId);
   } catch (error) {
-    actionError.value = error instanceof Error ? error.message : String(error);
+    handleFtpOperationError(error);
   } finally {
     processingPendingOpenRequest.value = false;
     if (!ftpStore.pendingOpenRequest) {
@@ -448,7 +464,6 @@ const failedTaskCount = computed(() =>
   ftpStore.transferTasks.filter((task) => task.status === 'failed').length,
 );
 const isDenseViewport = computed(() => viewportHeight.value > 0 && (viewportHeight.value < 980 || viewportWidth.value < 1480));
-const showHeroMetrics = computed(() => !isDenseViewport.value);
 const useAuxDockTabs = computed(() => showLogPanel.value);
 const showQueuePanelInDock = computed(() => auxDockActiveTab.value === 'queue');
 const showLogPanelInDock = computed(() => auxDockActiveTab.value === 'log');
@@ -564,27 +579,17 @@ const {
     await ftpStore.refreshLocalDirectory(ftpStore.localPath);
   },
 });
-const heroTitle = computed(() =>
-  activeSession.value ? `${activeSession.value.profileLabel} 已连接` : '等待连接到远程服务器',
-);
-const heroMeta = computed(() => {
-  if (activeSession.value) {
-    return `${activeSession.value.protocol.toUpperCase()} · ${activeSession.value.username}@${activeSession.value.host}:${activeSession.value.port}`;
-  }
-
-  if (ftpStore.profiles.length) {
-    return `已保存 ${ftpStore.profiles.length} 个配置，选择左侧服务器即可连接`;
-  }
-
-  return '还没有传输配置，先创建一个 SFTP 连接';
-});
 const activeFtpProfile = computed(() =>
   activeSession.value
     ? ftpStore.profiles.find((profile) => profile.id === activeSession.value?.profileId) ?? null
     : null,
 );
+const disconnectedSessionProfile = computed(() =>
+  disconnectedSessionNotice.value
+    ? ftpStore.profiles.find((profile) => profile.id === disconnectedSessionNotice.value?.profileId) ?? null
+    : null,
+);
 const canEditRemoteFile = computed(() => isEditableTextEntry(selectedRemoteEntry.value));
-const canOpenTerminalFromFtp = computed(() => Boolean(activeFtpProfile.value?.sshProfileId && activeSession.value));
 const canChmodRemoteFile = computed(() => Boolean(activeSession.value && selectedRemoteEntry.value));
 const primarySessionTabs = computed(() =>
   ftpStore.sessions.filter((session) => !secondaryTabGroupProfileIds.value.includes(session.profileId)),
@@ -601,14 +606,40 @@ const secondaryRemoteSession = computed(() =>
     ? secondarySessionTabs.value.find((session) => session.profileId === secondaryRemoteProfileId.value) ?? null
     : null),
 );
-const secondaryRemoteModeAvailable = computed(() => availableSecondaryRemoteSessions.value.length > 0);
-const secondaryRemoteSessionOptions = computed(() => [
-  { label: '选择第二远程会话', value: '' },
-  ...availableSecondaryRemoteSessions.value.map((session) => ({
-    label: `${session.profileLabel} · ${session.protocol.toUpperCase()} · ${session.username}@${session.host}:${session.port}`,
-    value: session.sessionId,
-  })),
-]);
+const terminalOpenTarget = computed<TerminalOpenTarget | null>(() => {
+  if (activeBrowserPanel.value === 'local') {
+    return showLocalPanel.value && ftpStore.localPath ? { kind: 'local', path: ftpStore.localPath } : null;
+  }
+
+  if (activeBrowserPanel.value === 'secondaryRemote') {
+    const session = secondaryRemoteSession.value;
+    const profile = session ? ftpStore.profiles.find((item) => item.id === session.profileId) ?? null : null;
+    if (!dualRemoteMode.value || !session || !profile?.sshProfileId) return null;
+    return {
+      kind: 'ssh',
+      sshProfileId: profile.sshProfileId,
+      path: secondaryRemotePath.value || session.remoteRoot || '/',
+    };
+  }
+
+  if (!showRemotePanel.value || !activeSession.value || !activeFtpProfile.value?.sshProfileId) return null;
+  return {
+    kind: 'ssh',
+    sshProfileId: activeFtpProfile.value.sshProfileId,
+    path: ftpStore.remotePath || activeSession.value.remoteRoot || '/',
+  };
+});
+const terminalOpenTooltip = computed(() => {
+  const target = terminalOpenTarget.value;
+  if (target) {
+    return target.kind === 'local'
+      ? `在本地终端中打开：${target.path}`
+      : `在 SSH 终端中打开：${target.path}`;
+  }
+  if (activeBrowserPanel.value === 'local') return '当前本地目录不可用';
+  return '当前远程连接未绑定 SSH Profile';
+});
+const canOpenTerminalFromFtp = computed(() => Boolean(terminalOpenTarget.value));
 const secondaryRemoteBreadcrumbs = computed(() =>
   buildRemoteBreadcrumbs(secondaryRemotePath.value || secondaryRemoteSession.value?.remoteRoot || '/'),
 );
@@ -704,6 +735,88 @@ function resolveRemotePasteTarget(panel = activeBrowserPanel.value) {
   };
 }
 
+function errorMessage(error: unknown) {
+  return error instanceof Error ? error.message : String(error);
+}
+
+function isFtpSessionClosedError(error: unknown) {
+  return /session closed|connection closed|not connected|broken pipe|connection reset/i.test(errorMessage(error));
+}
+
+function noticeDisconnectedSession(error: unknown, session = activeSession.value, remotePath = ftpStore.remotePath) {
+  if (!isFtpSessionClosedError(error)) return false;
+
+  const message = errorMessage(error);
+  const targetSession = session ?? activeSession.value ?? secondaryRemoteSession.value;
+  disconnectedSessionNotice.value = {
+    sessionId: targetSession?.sessionId ?? '',
+    profileId: targetSession?.profileId ?? '',
+    label: targetSession?.profileLabel ?? 'FTP 连接',
+    remotePath: remotePath || targetSession?.remoteRoot || '/',
+    message,
+  };
+  disconnectedSessionDialogVisible.value = true;
+  actionError.value = `${disconnectedSessionNotice.value.label} 连接已断开，请重连后继续操作。`;
+  return true;
+}
+
+function handleFtpOperationError(error: unknown, session = activeSession.value, remotePath = ftpStore.remotePath) {
+  if (noticeDisconnectedSession(error, session, remotePath)) return;
+  actionError.value = errorMessage(error);
+}
+
+function handleUnhandledFtpRejection(event: PromiseRejectionEvent) {
+  if (!isFtpSessionClosedError(event.reason)) return;
+  event.preventDefault();
+  noticeDisconnectedSession(event.reason);
+}
+
+async function reconnectDisconnectedSession() {
+  const notice = disconnectedSessionNotice.value;
+  const profile = disconnectedSessionProfile.value;
+  if (!notice || !profile) {
+    actionError.value = '找不到原连接配置，无法自动重连。请从左侧配置列表重新连接。';
+    disconnectedSessionDialogVisible.value = false;
+    return;
+  }
+
+  reconnectingDisconnectedSession.value = true;
+  actionError.value = '';
+  try {
+    if (notice.sessionId && ftpStore.sessions.some((session) => session.sessionId === notice.sessionId)) {
+      try {
+        await ftpStore.disconnect(notice.sessionId);
+      } catch {
+        // The backend may already have closed the stale session; reconnecting can continue.
+      }
+    }
+    await connectProfile(profile);
+    const nextSession = ftpStore.sessions.find((session) => session.profileId === profile.id) ?? activeSession.value;
+    if (nextSession) {
+      ftpStore.focusSession(nextSession.sessionId, notice.remotePath || nextSession.remoteRoot);
+      if (notice.remotePath) {
+        await refreshPrimaryRemoteDirectory(notice.remotePath);
+      }
+    }
+    disconnectedSessionNotice.value = null;
+    disconnectedSessionDialogVisible.value = false;
+  } catch (error) {
+    actionError.value = errorMessage(error);
+    disconnectedSessionDialogVisible.value = true;
+  } finally {
+    reconnectingDisconnectedSession.value = false;
+  }
+}
+
+async function refreshPrimaryRemoteDirectory(path = ftpStore.remotePath) {
+  const session = activeSession.value;
+  try {
+    await ftpStore.refreshRemoteDirectory(path);
+  } catch (error) {
+    handleFtpOperationError(error, session, path);
+  }
+}
+
 async function triggerFxpTransfer() {
   if (!dualRemoteMode.value || !fxpSourceSession.value || !fxpTargetSession.value || !fxpSourceEntries.value.length) {
     return;
@@ -730,7 +843,7 @@ async function triggerFxpTransfer() {
       );
     }
   } catch (error) {
-    actionError.value = error instanceof Error ? error.message : String(error);
+    handleFtpOperationError(error, fxpSourceSession.value, targetBasePath);
   } finally {
     busyMessage.value = '';
   }
@@ -754,7 +867,6 @@ function shouldIgnoreExplorerPasteShortcut(target: EventTarget | null) {
     || passwordDialogVisible.value
     || authChallengeDialogVisible.value
     || entryNameDialogVisible.value
-    || transferSettingsDrawerVisible.value
     || syncPanelVisible.value;
 }
 
@@ -774,12 +886,6 @@ function handleExplorerPasteShortcut(event: KeyboardEvent) {
 }
 const secondaryRemoteFilterSummary = computed(() => panelFilterSummary(secondaryRemoteRuleFilter.value));
 const {
-  thumbnailsEnabled,
-  thumbnailMaxBytesKb,
-  thumbnailPrefetchLimit,
-  toggleThumbnails,
-  setThumbnailMaxBytesKb,
-  setThumbnailPrefetchLimit,
   thumbnailUrlFor,
   isThumbnailLoading,
 } = useFtpThumbnails({
@@ -801,63 +907,14 @@ const browserPanelGridStyle = computed(() => {
     gridTemplateColumns: `minmax(0, ${panelHSplitPct.value}fr) 5px minmax(0, ${100 - panelHSplitPct.value}fr)`,
   };
 });
-const panelLayoutSummary = computed(() => (
-  panelLayoutMode.value === 'columns' ? '当前为水平双栏布局' : '当前为纵向堆叠布局'
-));
-const sidebarSummary = computed(() => (showSidebarPanel.value ? '会话侧栏已显示' : '会话侧栏已隐藏'));
-const sidebarDockSummary = computed(() => (
-  `会话侧栏停靠在${sidebarDockSide.value === 'left' ? '左侧' : '右侧'} · 宽度 ${sidebarSize.value}px`
-));
-const browserPanelSummary = computed(() => {
-  if (dualRemoteMode.value && showLocalPanel.value && showRemotePanel.value) return '本地、主远程与第二标签组面板均已显示';
-  if (dualRemoteMode.value && showRemotePanel.value) return showLocalPanel.value ? '本地、主远程与第二标签组正在并行显示' : '当前显示主远程与第二标签组面板';
-  if (dualRemoteMode.value && showLocalPanel.value) return '当前显示本地与第二标签组面板';
-  if (dualRemoteMode.value) return '当前仅显示第二标签组面板';
-  if (showLocalPanel.value && showRemotePanel.value) return '本地与远程面板均已显示';
-  if (showLocalPanel.value) return '当前仅显示本地面板';
-  if (showRemotePanel.value) return '当前仅显示远程面板';
-  return '至少需要保留一个文件面板';
-});
 const localBreadcrumbs = computed(() => buildLocalBreadcrumbs(ftpStore.localPath));
 const remoteBreadcrumbs = computed(() => buildRemoteBreadcrumbs(ftpStore.remotePath || activeSession.value?.remoteRoot || '/'));
-const auxiliaryDockSummary = computed(() => {
-  const positionLabel = auxiliaryDockSide.value === 'bottom' ? '底部停靠区' : '右侧停靠区';
-  const sizeLabel = auxiliaryDockSide.value === 'bottom' ? `高度 ${auxiliaryDockSize.value}px` : `宽度 ${auxiliaryDockSize.value}px`;
-  return `${positionLabel} · ${sizeLabel}`;
-});
-const linkNavigationSummary = computed(() => {
-  if (!linkNavigationEnabled.value) return '联动导航已关闭';
-  return dualRemoteMode.value ? '主标签组 ↔ 第二标签组联动已开启' : '本地 ↔ 远程联动已开启';
-});
-const dualRemoteSummary = computed(() => {
-  if (!secondaryRemoteModeAvailable.value) return '至少需要 2 个已连接会话才能启用并行标签组';
-  if (!dualRemoteMode.value) return '当前为单标签组工作区';
-  if (!secondaryRemoteSession.value) return '并行标签组已开启，等待选择第二组焦点会话';
-  return `并行标签组已开启 · 第二组当前为 ${secondaryRemoteSession.value.profileLabel}`;
-});
-const thumbnailSummary = computed(() => (
-  thumbnailsEnabled.value
-    ? `图片缩略图已开启 · 单张最多 ${thumbnailMaxBytesKb.value} KB · 每侧预加载 ${thumbnailPrefetchLimit.value} 张 · 预览将本地压缩缓存`
-    : '图片缩略图已关闭'
-));
 const recentClosedSessionSummary = computed(() => (
   recentlyClosedSessions.value.length
     ? `最近关闭 ${recentlyClosedSessions.value[0]?.profileLabel}`
     : '当前没有可恢复的最近关闭标签'
 ));
-const externalEditorSummary = computed(() => (
-  externalEditorPath.value
-    ? `自定义编辑器：${externalEditorPath.value}${cleanupExternalDraftsOnClose.value ? ' · 关闭后清理临时文件' : ''}`
-    : '当前使用系统默认编辑器'
-));
-const knownHosts = computed<SshKnownHost[]>(() => sshStore.knownHosts);
-const knownHostSummary = computed(() => {
-  if (knownHostsLoading.value) return '正在加载已信任主机指纹';
-  if (!knownHosts.value.length) return '当前没有已信任的主机指纹';
-  return `已信任 ${knownHosts.value.length} 条主机指纹`;
-});
 const remoteEditorDirty = computed(() => remoteEditorContent.value !== remoteEditorOriginalContent.value);
-const retryPolicySummary = computed(() => `失败后最多自动重试 ${retryMaxRetries.value} 次，基础等待 ${retryBaseDelaySecs.value} 秒，并按指数退避延长等待`);
 const isConnecting = computed(() => busyMessage.value.startsWith('正在连接 '));
 const sessionTabs = computed(() => ftpStore.sessions);
 const scheduledTaskProfileOptions = computed(() =>
@@ -1031,7 +1088,7 @@ async function openRemoteEditor(entry = selectedRemoteEntry.value) {
     remoteEditorOriginalContent.value = remoteEditorContent.value;
   } catch (error) {
     remoteEditorDialogVisible.value = false;
-    actionError.value = error instanceof Error ? error.message : String(error);
+    handleFtpOperationError(error, activeSession.value, entry.path);
   } finally {
     remoteEditorLoading.value = false;
   }
@@ -1044,10 +1101,10 @@ async function saveRemoteEditor() {
   try {
     await window.ftpApi.saveRemoteTextFile(activeSession.value.sessionId, remoteEditorPath.value, remoteEditorContent.value);
     remoteEditorOriginalContent.value = remoteEditorContent.value;
-    await ftpStore.refreshRemoteDirectory();
+    await refreshPrimaryRemoteDirectory();
     remoteEditorDialogVisible.value = false;
   } catch (error) {
-    actionError.value = error instanceof Error ? error.message : String(error);
+    handleFtpOperationError(error);
   } finally {
     remoteEditorSaving.value = false;
   }
@@ -1065,26 +1122,41 @@ async function openExternalEditor() {
       await window.shellApi.openPath(tempPath);
     }
   } catch (error) {
-    actionError.value = error instanceof Error ? error.message : String(error);
+    handleFtpOperationError(error, activeSession.value, selectedRemoteEntry.value.path);
   }
 }
 
 async function openTerminalForCurrentFtp() {
-  if (!activeFtpProfile.value?.sshProfileId || !activeSession.value) {
-    actionError.value = '当前连接未绑定 SSH Profile，无法直接打开联动终端';
+  const target = terminalOpenTarget.value;
+  if (!target) {
+    actionError.value = terminalOpenTooltip.value;
     return;
   }
   actionError.value = '';
-  await sshStore.initialize();
-  const existing = sshStore.sessions.find((session) => session.profileId === activeFtpProfile.value?.sshProfileId);
-  const session = existing ?? await sshStore.connect({
-    profileId: activeFtpProfile.value.sshProfileId,
-    rows: 32,
-    cols: 120,
-  });
-  sshStore.focusSession(session.sessionId);
-  await router.push('/terminal');
-  await sshStore.write(session.sessionId, `cd ${shellQuote(ftpStore.remotePath || activeSession.value.remoteRoot)}\n`);
+  try {
+    if (target.kind === 'local') {
+      await terminalStore.initialize();
+      const session = await terminalStore.createSession({ cwd: target.path });
+      terminalStore.focusSession(session.sessionId);
+      await router.push({ path: '/terminal', query: { tab: 'terminal' } });
+      return;
+    }
+
+    await sshStore.initialize();
+    const existing = sshStore.sessions.find(
+      (session) => session.profileId === target.sshProfileId && session.status === 'connected',
+    ) ?? sshStore.sessions.find((session) => session.profileId === target.sshProfileId);
+    const session = existing ?? await sshStore.connect({
+      profileId: target.sshProfileId,
+      rows: 32,
+      cols: 120,
+    });
+    sshStore.focusSession(session.sessionId);
+    await router.push({ path: '/terminal', query: { tab: 'ssh' } });
+    await sshStore.write(session.sessionId, `cd ${shellQuote(target.path)}\n`);
+  } catch (error) {
+    actionError.value = errorMessage(error);
+  }
 }
 
 function shellQuote(path: string) {
@@ -1101,10 +1173,6 @@ async function changeRemotePermissions(entry = selectedRemoteEntry.value) {
 
 async function reloadScheduledTasks() {
   scheduledTasks.value = await window.ftpApi.listScheduledTasks();
-}
-
-async function reloadWindowsContextMenuStatus() {
-  windowsContextMenuStatus.value = await window.ftpApi.getWindowsContextMenuStatus();
 }
 
 async function reloadPendingExternalPaths() {
@@ -1162,7 +1230,7 @@ async function saveScheduledTask() {
     await reloadScheduledTasks();
     scheduleDialogVisible.value = false;
   } catch (error) {
-    actionError.value = error instanceof Error ? error.message : String(error);
+    handleFtpOperationError(error);
   }
 }
 
@@ -1189,25 +1257,7 @@ async function runScheduledTaskNow(taskId: string) {
       expandedTaskIds.value = [...expandedTaskIds.value, task.id];
     }
   } catch (error) {
-    actionError.value = error instanceof Error ? error.message : String(error);
-  }
-}
-
-async function installContextMenuIntegration() {
-  actionError.value = '';
-  try {
-    windowsContextMenuStatus.value = await window.ftpApi.installWindowsContextMenu();
-  } catch (error) {
-    actionError.value = error instanceof Error ? error.message : String(error);
-  }
-}
-
-async function uninstallContextMenuIntegration() {
-  actionError.value = '';
-  try {
-    windowsContextMenuStatus.value = await window.ftpApi.uninstallWindowsContextMenu();
-  } catch (error) {
-    actionError.value = error instanceof Error ? error.message : String(error);
+    handleFtpOperationError(error);
   }
 }
 
@@ -1226,7 +1276,7 @@ async function uploadPendingExternalPaths() {
     await window.ftpApi.clearPendingExternalPaths(pendingExternalPaths.value);
     pendingExternalPaths.value = [];
   } catch (error) {
-    actionError.value = error instanceof Error ? error.message : String(error);
+    handleFtpOperationError(error);
   }
 }
 
@@ -1306,40 +1356,6 @@ function persistPanelLayout() {
   }));
 }
 
-function setPanelLayoutMode(mode: PanelLayoutMode) {
-  panelLayoutMode.value = mode;
-}
-
-function setSidebarDockSide(side: SidebarDockSide) {
-  sidebarDockSide.value = side;
-}
-
-function setAuxiliaryDockSide(side: AuxiliaryDockSide) {
-  auxiliaryDockSide.value = side;
-}
-
-function setSidebarSize(value: string) {
-  sidebarSize.value = normalizePanelSize(value, 220, 420, sidebarSize.value);
-}
-
-function setAuxiliaryDockSize(value: string) {
-  auxiliaryDockSize.value = normalizePanelSize(value, 180, 420, auxiliaryDockSize.value);
-}
-
-function toggleSidebarPanel() {
-  showSidebarPanel.value = !showSidebarPanel.value;
-}
-
-function toggleLocalPanel() {
-  if (showLocalPanel.value && visibleBrowserPanelCount.value <= 1) return;
-  showLocalPanel.value = !showLocalPanel.value;
-}
-
-function toggleRemotePanel() {
-  if (showRemotePanel.value && visibleBrowserPanelCount.value <= 1) return;
-  showRemotePanel.value = !showRemotePanel.value;
-}
-
 function toggleAuxiliaryDockCollapsed() {
   auxiliaryDockCollapsed.value = !auxiliaryDockCollapsed.value;
 }
@@ -1380,6 +1396,7 @@ function loadFtpPreferences() {
     const parsed = JSON.parse(raw) as Partial<{
       externalEditorPath: string;
       cleanupExternalDraftsOnClose: boolean;
+      linkNavigationEnabled: boolean;
       localPanelViewMode: PanelViewMode;
       remotePanelViewMode: PanelViewMode;
       dualRemoteMode: boolean;
@@ -1388,6 +1405,7 @@ function loadFtpPreferences() {
     }>;
     externalEditorPath.value = typeof parsed.externalEditorPath === 'string' ? parsed.externalEditorPath : '';
     cleanupExternalDraftsOnClose.value = Boolean(parsed.cleanupExternalDraftsOnClose);
+    linkNavigationEnabled.value = Boolean(parsed.linkNavigationEnabled);
     localPanelViewMode.value = parsed.localPanelViewMode === 'list' ? 'list' : 'details';
     remotePanelViewMode.value = parsed.remotePanelViewMode === 'list' ? 'list' : 'details';
     dualRemoteMode.value = Boolean(parsed.dualRemoteMode);
@@ -1398,6 +1416,7 @@ function loadFtpPreferences() {
   } catch {
     externalEditorPath.value = '';
     cleanupExternalDraftsOnClose.value = false;
+    linkNavigationEnabled.value = false;
     localPanelViewMode.value = 'details';
     remotePanelViewMode.value = 'details';
     dualRemoteMode.value = false;
@@ -1410,6 +1429,7 @@ function persistFtpPreferences() {
   window.localStorage.setItem(FTP_PREFERENCES_STORAGE_KEY, JSON.stringify({
     externalEditorPath: externalEditorPath.value,
     cleanupExternalDraftsOnClose: cleanupExternalDraftsOnClose.value,
+    linkNavigationEnabled: linkNavigationEnabled.value,
     localPanelViewMode: localPanelViewMode.value,
     remotePanelViewMode: remotePanelViewMode.value,
     dualRemoteMode: dualRemoteMode.value,
@@ -1464,7 +1484,7 @@ async function openLocalBreadcrumb(path: string) {
 
 async function openRemoteBreadcrumb(path: string) {
   if (!activeSession.value) return;
-  await ftpStore.refreshRemoteDirectory(path);
+  await refreshPrimaryRemoteDirectory(path);
 }
 
 async function refreshSecondaryRemoteDirectory(
@@ -1491,8 +1511,82 @@ async function refreshSecondaryRemoteDirectory(
     };
     secondaryRemoteSelectedPaths.value = [];
     secondaryRemoteLastSelectedIndex.value = -1;
+  } catch (error) {
+    handleFtpOperationError(error, session, nextPath);
   } finally {
     secondaryRemoteLoading.value = false;
+  }
+}
+
+function normalizeRemoteDirectoryPath(path: string) {
+  const normalized = `/${(path || '/').replace(/\\/g, '/').replace(/^\/+/, '').replace(/\/+$/, '')}`;
+  return normalized === '/' ? '/' : normalized.replace(/\/{2,}/g, '/');
+}
+
+function isRemotePathWithin(path: string, parentPath: string) {
+  if (parentPath === '/') return path.startsWith('/');
+  return path === parentPath || path.startsWith(`${parentPath}/`);
+}
+
+function remoteTransferAffectsDirectory(taskRemotePath: string, directoryPath: string) {
+  const targetPath = normalizeRemoteDirectoryPath(taskRemotePath);
+  const currentDirectory = normalizeRemoteDirectoryPath(directoryPath);
+  const targetParent = normalizeRemoteDirectoryPath(parentRemotePath(targetPath));
+  return currentDirectory === targetParent
+    || isRemotePathWithin(currentDirectory, targetPath)
+    || isRemotePathWithin(targetPath, currentDirectory);
+}
+
+function shouldRefreshRemoteDirectoryForTask(task: TransferTaskRefreshSnapshot) {
+  return ['upload', 'fxp', 'remote_copy'].includes(task.direction) && task.status === 'completed' && Boolean(task.remotePath);
+}
+
+function queueRemoteDirectoryRefresh(panel: RemoteRefreshTarget['panel'], sessionId: string, path: string) {
+  if (!sessionId || !path) return;
+  const normalizedPath = normalizeRemoteDirectoryPath(path);
+  const key = `${panel}:${sessionId}:${normalizedPath}`;
+  pendingRemoteRefreshTargets.set(key, { panel, sessionId, path: normalizedPath });
+  if (remoteRefreshTimer !== null) return;
+  remoteRefreshTimer = window.setTimeout(() => {
+    remoteRefreshTimer = null;
+    void flushRemoteDirectoryRefreshes();
+  }, 180);
+}
+
+async function flushRemoteDirectoryRefreshes() {
+  const targets = [...pendingRemoteRefreshTargets.values()];
+  pendingRemoteRefreshTargets.clear();
+  for (const target of targets) {
+    if (target.panel === 'primary') {
+      if (activeSession.value?.sessionId !== target.sessionId) continue;
+      if (normalizeRemoteDirectoryPath(ftpStore.remotePath || activeSession.value.remoteRoot) !== target.path) continue;
+      await refreshPrimaryRemoteDirectory(target.path);
+      continue;
+    }
+
+    if (secondaryRemoteSessionId.value !== target.sessionId) continue;
+    if (normalizeRemoteDirectoryPath(secondaryRemotePath.value || secondaryRemoteSession.value?.remoteRoot || '/') !== target.path) continue;
+    await refreshSecondaryRemoteDirectory(target.path, target.sessionId);
+  }
+}
+
+function refreshVisibleRemoteDirectoriesForCompletedTask(task: TransferTaskRefreshSnapshot) {
+  if (!shouldRefreshRemoteDirectoryForTask(task)) return;
+
+  const primarySession = activeSession.value;
+  const primaryPath = ftpStore.remotePath || primarySession?.remoteRoot || '';
+  if (primarySession
+    && (task.direction !== 'upload' || task.sessionId === primarySession.sessionId)
+    && remoteTransferAffectsDirectory(task.remotePath, primaryPath)) {
+    queueRemoteDirectoryRefresh('primary', primarySession.sessionId, primaryPath);
+  }
+
+  const secondarySession = secondaryRemoteSession.value;
+  const secondaryPath = secondaryRemotePath.value || secondarySession?.remoteRoot || '';
+  if (secondarySession
+    && (task.direction !== 'upload' || task.sessionId === secondarySession.sessionId)
+    && remoteTransferAffectsDirectory(task.remotePath, secondaryPath)) {
+    queueRemoteDirectoryRefresh('secondary', secondarySession.sessionId, secondaryPath);
   }
 }
 
@@ -1625,27 +1719,6 @@ async function openSecondaryRemotePath() {
   await refreshSecondaryRemoteDirectory(secondaryRemotePathInput.value.trim() || secondaryRemoteSession.value.remoteRoot);
 }
 
-function toggleDualRemoteMode() {
-  if (!dualRemoteMode.value && !secondaryRemoteModeAvailable.value) {
-    actionError.value = '至少需要两个已连接的远程会话才能启用并行标签组';
-    return;
-  }
-  dualRemoteMode.value = !dualRemoteMode.value;
-  if (dualRemoteMode.value) {
-    showLocalPanel.value = true;
-    showRemotePanel.value = true;
-    if (!secondaryTabGroupProfileIds.value.length) {
-      const fallbackSession = availableSecondaryRemoteSessions.value[0] ?? null;
-      if (fallbackSession) {
-        secondaryTabGroupProfileIds.value = [fallbackSession.profileId];
-      }
-    }
-    void ensureSecondaryRemoteSession();
-    return;
-  }
-  clearSecondaryRemoteState();
-}
-
 async function focusSecondaryRemoteAsPrimary() {
   const nextPrimary = secondaryRemoteSession.value;
   const previousPrimary = activeSession.value;
@@ -1658,88 +1731,6 @@ async function focusSecondaryRemoteAsPrimary() {
     secondaryRemoteSessionId.value = previousPrimary.sessionId;
     secondaryRemoteProfileId.value = previousPrimary.profileId;
     await refreshSecondaryRemoteDirectory(previousPrimaryPath, previousPrimary.sessionId);
-  }
-}
-
-async function pickExternalEditor() {
-  const selected = await window.shellApi.selectFile({
-    title: '选择外部编辑器',
-    filters: [
-      { name: '应用程序', extensions: ['exe', 'cmd', 'bat'] },
-      { name: '所有文件', extensions: ['*'] },
-    ],
-    defaultPath: externalEditorPath.value || undefined,
-  });
-  if (!selected) return;
-  externalEditorPath.value = selected;
-}
-
-function clearExternalEditor() {
-  externalEditorPath.value = '';
-}
-
-function toggleCleanupExternalDrafts() {
-  cleanupExternalDraftsOnClose.value = !cleanupExternalDraftsOnClose.value;
-}
-
-async function reloadKnownHosts() {
-  try {
-    knownHostsLoading.value = true;
-    await sshStore.refreshKnownHosts();
-  } catch (error) {
-    actionError.value = error instanceof Error ? error.message : String(error);
-  } finally {
-    knownHostsLoading.value = false;
-  }
-}
-
-async function deleteKnownHost(id: string) {
-  const knownHost = sshStore.knownHosts.find((item) => item.id === id);
-  const targetLabel = knownHost ? `${knownHost.host}:${knownHost.port}` : '这条主机指纹';
-  const confirmed = await showConfirm({
-    title: '删除已信任主机指纹',
-    message: `删除 ${targetLabel} 的已信任指纹后，下次连接将重新要求确认主机密钥。是否继续？`,
-    confirmText: '删除指纹',
-    danger: true,
-  });
-  if (!confirmed) return;
-  try {
-    await sshStore.deleteKnownHost(id);
-  } catch (error) {
-    actionError.value = error instanceof Error ? error.message : String(error);
-  }
-}
-
-async function loadRetryPolicy() {
-  try {
-    const policy = await window.ftpApi.getRetryPolicy();
-    retryMaxRetries.value = String(policy.maxRetries);
-    retryBaseDelaySecs.value = String(policy.baseDelaySecs);
-  } catch {
-    retryMaxRetries.value = '3';
-    retryBaseDelaySecs.value = '5';
-  }
-}
-
-function setRetryMaxRetries(value: string) {
-  retryMaxRetries.value = String(Math.max(0, Number(value.replace(/\D/g, '')) || 0));
-}
-
-function setRetryBaseDelaySecs(value: string) {
-  retryBaseDelaySecs.value = String(Math.max(1, Number(value.replace(/\D/g, '')) || 1));
-}
-
-async function applyRetryPolicy() {
-  actionError.value = '';
-  try {
-    const policy = await window.ftpApi.updateRetryPolicy({
-      maxRetries: Math.max(0, Number(retryMaxRetries.value) || 0),
-      baseDelaySecs: Math.max(1, Number(retryBaseDelaySecs.value) || 1),
-    });
-    retryMaxRetries.value = String(policy.maxRetries);
-    retryBaseDelaySecs.value = String(policy.baseDelaySecs);
-  } catch (error) {
-    actionError.value = error instanceof Error ? error.message : String(error);
   }
 }
 
@@ -1785,7 +1776,7 @@ async function applyRemotePermissionDialog() {
     await ftpStore.chmodRemotePath(permissionDialogTargetPath.value, permissionModeInput.value);
     permissionDialogVisible.value = false;
   } catch (error) {
-    actionError.value = error instanceof Error ? error.message : String(error);
+    handleFtpOperationError(error);
   }
 }
 
@@ -1888,7 +1879,25 @@ function openSessionTabContextMenu(event: MouseEvent, sessionId: string) {
   const hasClosedSession = Boolean(recentlyClosedSessions.value.length);
   const group = sessionTabGroup(sessionId);
   const moveToSecondaryDisabled = group === 'primary' && primarySessionTabs.value.length <= 1;
+  const reconnectProfile = ftpStore.profiles.find((profile) => profile.id === session.profileId) ?? null;
   openContextMenu(event.clientX, event.clientY, [
+    {
+      id: `ftp-tab-reconnect-${sessionId}`,
+      label: '重连',
+      disabled: !reconnectProfile,
+      action: () => {
+        if (reconnectProfile) {
+          disconnectedSessionNotice.value = {
+            sessionId: session.sessionId,
+            profileId: session.profileId,
+            label: session.profileLabel,
+            remotePath: sessionRemotePaths.value[session.sessionId] || session.remoteRoot,
+            message: '用户手动重连',
+          };
+          void reconnectDisconnectedSession();
+        }
+      },
+    },
     {
       id: `ftp-tab-move-${sessionId}`,
       label: group === 'secondary' ? '移回主标签组' : '移到第二标签组',
@@ -1965,20 +1974,20 @@ async function compareCurrentDirectories() {
       .map((item) => item.key);
     syncComparisonExpanded.value = true;
   } catch (error) {
-    actionError.value = error instanceof Error ? error.message : String(error);
+    handleFtpOperationError(error);
   } finally {
     checksumCompareRunning.value = false;
     busyMessage.value = '';
   }
 }
 
-function openTransferSettingsDrawer() {
+function openTransferSettingsPage() {
   syncPanelVisible.value = false;
-  transferSettingsDrawerVisible.value = true;
+  settingsStore.setActiveSettingsTab('file-transfer');
+  void router.push('/settings');
 }
 
 function openSyncPanel() {
-  transferSettingsDrawerVisible.value = false;
   syncPanelVisible.value = true;
   if (activeSession.value) {
     void compareCurrentDirectories();
@@ -2018,11 +2027,11 @@ async function executeSyncPreview() {
     }
     await Promise.all([
       ftpStore.refreshLocalDirectory(),
-      ftpStore.refreshRemoteDirectory(),
+      refreshPrimaryRemoteDirectory(),
     ]);
     await compareCurrentDirectories();
   } catch (error) {
-    actionError.value = error instanceof Error ? error.message : String(error);
+    handleFtpOperationError(error);
   } finally {
     syncExecuting.value = false;
     syncExecutionLabel.value = '';
@@ -2096,15 +2105,11 @@ async function executeSyncAction(item: SyncPreviewItem) {
   }
 }
 
-function toggleLinkNavigation() {
-  linkNavigationEnabled.value = !linkNavigationEnabled.value;
-}
-
 async function syncRemotePanelToChild(entryName: string) {
   if (!linkNavigationEnabled.value || !activeSession.value) return;
   const matchedEntry = ftpStore.remoteEntries.find((entry) => entry.isDir && entry.name === entryName);
   if (!matchedEntry) return;
-  await ftpStore.refreshRemoteDirectory(matchedEntry.path);
+  await refreshPrimaryRemoteDirectory(matchedEntry.path);
 }
 
 async function syncLocalPanelToChild(entryName: string) {
@@ -2122,7 +2127,7 @@ async function syncLocalPanelToChild(entryName: string) {
 
 async function syncRemotePanelToParent() {
   if (!linkNavigationEnabled.value || !activeSession.value) return;
-  await ftpStore.refreshRemoteDirectory(parentRemotePath(ftpStore.remotePath || activeSession.value.remoteRoot));
+  await refreshPrimaryRemoteDirectory(parentRemotePath(ftpStore.remotePath || activeSession.value.remoteRoot));
 }
 
 async function syncLocalPanelToParent() {
@@ -2151,18 +2156,18 @@ function toggleTaskSortDirection() {
 async function disconnectSession(sessionId: string, remember = true) {
   actionError.value = '';
   busyMessage.value = '正在断开连接...';
+  const session = ftpStore.sessions.find((item) => item.sessionId === sessionId) ?? null;
   try {
     if (remember) {
       rememberClosedSession(sessionId);
     }
-    const session = ftpStore.sessions.find((item) => item.sessionId === sessionId) ?? null;
     await ftpStore.disconnect(sessionId);
     if (session && secondaryTabGroupProfileIds.value.includes(session.profileId)) {
       secondaryTabGroupProfileIds.value = secondaryTabGroupProfileIds.value.filter((profileId) => profileId !== session.profileId);
       await ensureSecondaryRemoteSession();
     }
   } catch (error) {
-    actionError.value = error instanceof Error ? error.message : String(error);
+    handleFtpOperationError(error, session);
   } finally {
     busyMessage.value = '';
   }
@@ -2197,11 +2202,11 @@ async function reopenLastClosedSession() {
       await ftpStore.refreshLocalDirectory(snapshot.localPath);
     }
     if (snapshot.remotePath) {
-      await ftpStore.refreshRemoteDirectory(snapshot.remotePath);
+      await refreshPrimaryRemoteDirectory(snapshot.remotePath);
     }
     recentlyClosedSessions.value = recentlyClosedSessions.value.slice(1);
   } catch (error) {
-    actionError.value = error instanceof Error ? error.message : String(error);
+    handleFtpOperationError(error);
   } finally {
     busyMessage.value = '';
   }
@@ -2250,6 +2255,29 @@ watch(() => ftpStore.transferTasks.map((task) => task.id), (taskIds) => {
 }, { immediate: true });
 
 watch(
+  () => ftpStore.transferTasks.map((task): TransferTaskRefreshSnapshot => ({
+    id: task.id,
+    status: task.status,
+    direction: task.direction,
+    sessionId: task.sessionId,
+    remotePath: task.remotePath,
+  })),
+  (tasks, previousTasks) => {
+    if (!transferTaskRefreshWatcherInitialized) {
+      transferTaskRefreshWatcherInitialized = true;
+      return;
+    }
+    const previousStatusById = new Map((previousTasks ?? []).map((task) => [task.id, task.status]));
+    for (const task of tasks) {
+      if (task.status !== 'completed') continue;
+      if (previousStatusById.get(task.id) === 'completed') continue;
+      refreshVisibleRemoteDirectoriesForCompletedTask(task);
+    }
+  },
+  { immediate: true },
+);
+
+watch(
   [() => route.query.taskId, () => ftpStore.transferTasks.length],
   ([taskId]) => {
     if (typeof taskId === 'string' && taskId) {
@@ -2257,15 +2285,6 @@ watch(
     }
   },
   { immediate: true },
-);
-
-watch(
-  transferSettingsDrawerVisible,
-  (visible) => {
-    if (visible) {
-      void reloadKnownHosts();
-    }
-  },
 );
 
 watch(
@@ -2296,6 +2315,7 @@ watch(
   [
     externalEditorPath,
     cleanupExternalDraftsOnClose,
+    linkNavigationEnabled,
     localPanelViewMode,
     remotePanelViewMode,
     dualRemoteMode,
@@ -2353,18 +2373,27 @@ onMounted(() => {
   loadPanelLayout();
   loadFtpPreferences();
   updateViewportState();
-  void reloadKnownHosts();
-  void loadRetryPolicy();
   void reloadScheduledTasks();
-  void reloadWindowsContextMenuStatus();
   void reloadPendingExternalPaths();
   void initializeFtpPage();
   window.addEventListener('keydown', handleExplorerPasteShortcut);
+  window.addEventListener('unhandledrejection', handleUnhandledFtpRejection);
   window.addEventListener('resize', updateViewportState);
 });
 
+onActivated(() => {
+  loadPanelLayout();
+  loadFtpPreferences();
+});
+
 onBeforeUnmount(() => {
+  if (remoteRefreshTimer !== null) {
+    window.clearTimeout(remoteRefreshTimer);
+    remoteRefreshTimer = null;
+  }
+  pendingRemoteRefreshTargets.clear();
   window.removeEventListener('keydown', handleExplorerPasteShortcut);
+  window.removeEventListener('unhandledrejection', handleUnhandledFtpRejection);
   window.removeEventListener('resize', updateViewportState);
   stopAuxiliaryDockResize?.();
 });
@@ -2403,56 +2432,29 @@ onBeforeUnmount(() => {
       }">
         <div class="ftp-workspace">
           <section class="ftp-hero">
-            <div class="ftp-hero__status">
-              <span class="ftp-hero__signal" :class="{ 'ftp-hero__signal--online': activeSession }" />
-              <div class="ftp-hero__copy">
-                <div class="ftp-hero__title">{{ heroTitle }}</div>
-                <div v-if="!isDenseViewport" class="ftp-hero__meta">{{ heroMeta }}</div>
-              </div>
-              <div class="ftp-hero__actions">
-                <span v-if="busyMessage" class="ftp-badge ftp-badge--accent ftp-hero__busy">{{ busyMessage }}</span>
-                <UiIconButton size="sm" variant="ghost" label="定时任务" @click="openScheduleDialog()">
+            <div class="ftp-hero__actions" aria-label="文件传输快捷操作">
+              <span v-if="busyMessage" class="ftp-badge ftp-badge--accent ftp-hero__busy">{{ busyMessage }}</span>
+              <UiTooltip content="定时任务" placement="bottom">
+                <UiIconButton size="sm" variant="ghost" title="定时任务" @click="openScheduleDialog()">
                   <svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.6"
                     stroke-linecap="round" stroke-linejoin="round">
                     <circle cx="8" cy="8" r="6" />
                     <path d="M8 5v3l2 1.5" />
                   </svg>
                 </UiIconButton>
+              </UiTooltip>
+              <UiTooltip :content="`恢复标签 · ${recentClosedSessionSummary}`" placement="bottom">
                 <UiIconButton size="sm" variant="ghost" :disabled="!recentlyClosedSessions.length"
-                  :title="recentClosedSessionSummary" label="恢复标签" @click="reopenLastClosedSession()">
+                  :title="`恢复标签 · ${recentClosedSessionSummary}`" @click="reopenLastClosedSession()">
                   <svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.6"
                     stroke-linecap="round" stroke-linejoin="round">
                     <path d="M3.5 8A4.5 4.5 0 1 0 5 4.2L3.5 5.5" />
                     <path d="M3.5 2.8v2.7H6.2" />
                   </svg>
                 </UiIconButton>
-                <UiIconButton size="sm" variant="ghost" :title="windowsContextMenuStatus.command"
-                  :label="windowsContextMenuStatus.installed ? '移除右键菜单' : '安装右键菜单'"
-                  @click="windowsContextMenuStatus.installed ? uninstallContextMenuIntegration() : installContextMenuIntegration()">
-                  <svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.6"
-                    stroke-linecap="round" stroke-linejoin="round">
-                    <rect x="2" y="2" width="12" height="12" rx="1.5" />
-                    <path d="M5 6h6M5 10h4" />
-                  </svg>
-                </UiIconButton>
-                <UiIconButton size="sm" variant="ghost" :disabled="!activeSession" label="粘贴上传"
-                  @click="pasteClipboardToRemote()">
-                  <svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.6"
-                    stroke-linecap="round" stroke-linejoin="round">
-                    <path d="M6 2h4v2H6zM4 3H3a1 1 0 0 0-1 1v9a1 1 0 0 0 1 1h10a1 1 0 0 0 1-1V4a1 1 0 0 0-1-1h-1" />
-                    <path d="M8 8v4M6 10l2 2 2-2" />
-                  </svg>
-                </UiIconButton>
-                <UiIconButton size="sm" variant="ghost"
-                  :disabled="!selectedLocalEntries.length && !selectedRemoteEntries.length" label="复制信息"
-                  @click="copySelectionInfo(selectedRemoteEntries.length ? 'remote' : 'local')">
-                  <svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.6"
-                    stroke-linecap="round" stroke-linejoin="round">
-                    <rect x="5" y="5" width="8" height="9" rx="1" />
-                    <path d="M3 11H2a1 1 0 0 1-1-1V2a1 1 0 0 1 1-1h8a1 1 0 0 1 1 1v1" />
-                  </svg>
-                </UiIconButton>
-                <UiIconButton size="sm" variant="ghost" :disabled="!canEditRemoteFile" label="编辑远程"
+              </UiTooltip>
+              <UiTooltip content="编辑远程" placement="bottom">
+                <UiIconButton size="sm" variant="ghost" :disabled="!canEditRemoteFile" title="编辑远程"
                   @click="openRemoteEditor()">
                   <svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.6"
                     stroke-linecap="round" stroke-linejoin="round">
@@ -2460,14 +2462,18 @@ onBeforeUnmount(() => {
                     <path d="M9.5 4l2.5 2.5" />
                   </svg>
                 </UiIconButton>
-                <UiIconButton size="sm" variant="ghost" :disabled="!canEditRemoteFile" label="外部编辑"
+              </UiTooltip>
+              <UiTooltip content="外部编辑" placement="bottom">
+                <UiIconButton size="sm" variant="ghost" :disabled="!canEditRemoteFile" title="外部编辑"
                   @click="openExternalEditor()">
                   <svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.6"
                     stroke-linecap="round" stroke-linejoin="round">
                     <path d="M9 2h5v5M9 7l5-5M7 4H3a1 1 0 0 0-1 1v8a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1V9" />
                   </svg>
                 </UiIconButton>
-                <UiIconButton size="sm" variant="ghost" :disabled="!canChmodRemoteFile" label="修改权限"
+              </UiTooltip>
+              <UiTooltip content="修改权限" placement="bottom">
+                <UiIconButton size="sm" variant="ghost" :disabled="!canChmodRemoteFile" title="修改权限"
                   @click="changeRemotePermissions()">
                   <svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.6"
                     stroke-linecap="round" stroke-linejoin="round">
@@ -2475,28 +2481,36 @@ onBeforeUnmount(() => {
                     <circle cx="10" cy="10" r="1.5" />
                   </svg>
                 </UiIconButton>
+              </UiTooltip>
+              <UiTooltip v-if="dualRemoteMode" :content="fxpActionLabel" placement="bottom">
                 <UiIconButton v-if="dualRemoteMode" size="sm" variant="ghost" :disabled="!canTriggerFxp"
-                  :label="fxpActionLabel" @click="triggerFxpTransfer()">
+                  :title="fxpActionLabel" @click="triggerFxpTransfer()">
                   <svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.6"
                     stroke-linecap="round" stroke-linejoin="round">
                     <path d="M2 5h12M2 11h12M11 2l3 3-3 3M5 8l-3 3 3 3" />
                   </svg>
                 </UiIconButton>
-                <UiIconButton size="sm" variant="secondary" :disabled="!canOpenTerminalFromFtp" label="在终端中打开"
-                  @click="openTerminalForCurrentFtp">
+              </UiTooltip>
+              <UiTooltip :content="terminalOpenTooltip" placement="bottom">
+                <UiIconButton size="sm" variant="secondary" :disabled="!canOpenTerminalFromFtp"
+                  :title="terminalOpenTooltip" @click="openTerminalForCurrentFtp">
                   <svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.6"
                     stroke-linecap="round" stroke-linejoin="round">
                     <rect x="1" y="2" width="14" height="12" rx="1.5" />
                     <path d="M4 6l3 2.5L4 11M9 11h3" />
                   </svg>
                 </UiIconButton>
-                <UiIconButton size="sm" variant="secondary" label="目录比较/同步" @click="openSyncPanel">
+              </UiTooltip>
+              <UiTooltip content="目录比较/同步" placement="bottom">
+                <UiIconButton size="sm" variant="secondary" title="目录比较/同步" @click="openSyncPanel">
                   <svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.6"
                     stroke-linecap="round" stroke-linejoin="round">
                     <path d="M2 4h5v8H2zM9 4h5v8H9M7 8h2" />
                   </svg>
                 </UiIconButton>
-                <UiIconButton size="sm" variant="secondary" label="传输设置" @click="openTransferSettingsDrawer">
+              </UiTooltip>
+              <UiTooltip content="传输设置" placement="bottom">
+                <UiIconButton size="sm" variant="secondary" title="传输设置" @click="openTransferSettingsPage">
                   <svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.6"
                     stroke-linecap="round" stroke-linejoin="round">
                     <circle cx="8" cy="8" r="2" />
@@ -2504,26 +2518,24 @@ onBeforeUnmount(() => {
                       d="M8 1v2M8 13v2M1 8h2M13 8h2M3.4 3.4l1.4 1.4M11.2 11.2l1.4 1.4M3.4 12.6l1.4-1.4M11.2 4.8l1.4-1.4" />
                   </svg>
                 </UiIconButton>
-              </div>
-            </div>
-            <div v-if="showHeroMetrics" class="ftp-hero__metrics">
-              <div class="ftp-hero__metric">
-                <span class="ftp-hero__metric-label">{{ dualRemoteMode ? '第二标签组条目' : '本地条目' }}</span>
-                <strong>{{ dualRemoteMode ? filteredSecondaryRemoteEntries.length : filteredLocalEntries.length
-                  }}</strong>
-              </div>
-              <div class="ftp-hero__metric">
-                <span class="ftp-hero__metric-label">远程条目</span>
-                <strong>{{ activeSession ? filteredRemoteEntries.length : 0 }}</strong>
-              </div>
-              <div class="ftp-hero__metric">
-                <span class="ftp-hero__metric-label">队列活动</span>
-                <strong>{{ activeTaskCount }}</strong>
-              </div>
+              </UiTooltip>
             </div>
           </section>
 
-          <div v-if="actionError" class="ftp-alert ftp-alert--error">{{ actionError }}</div>
+          <div v-if="actionError" class="ftp-alert ftp-alert--error">
+            <span>{{ actionError }}</span>
+            <div v-if="disconnectedSessionNotice" class="ftp-alert__actions">
+              <UiButton
+                size="sm"
+                variant="secondary"
+                :disabled="reconnectingDisconnectedSession || !disconnectedSessionProfile"
+                @click="reconnectDisconnectedSession"
+              >
+                {{ reconnectingDisconnectedSession ? '重连中' : '重连' }}
+              </UiButton>
+              <UiButton size="sm" variant="ghost" @click="disconnectedSessionDialogVisible = true">详情</UiButton>
+            </div>
+          </div>
           <div v-if="pendingExternalSummary" class="ftp-alert ftp-alert--info">
             <span>{{ pendingExternalSummary }}</span>
             <div class="ftp-alert__actions">
@@ -2550,6 +2562,7 @@ onBeforeUnmount(() => {
             <!-- 双端模式：本地面板占第一列，两个远程面板在第二列垂直堆叠 -->
             <FtpBrowserPanel v-if="showLocalPanel" kind="local" title="本地目录"
               :badges="[{ text: `${filteredLocalEntries.length} 项` }]" :drop-active="localDropActive"
+              :active="activeBrowserPanel === 'local'"
               :breadcrumbs="localBreadcrumbs" :path-input="localPathInput" :path-suggestions="localPathSuggestions"
               path-placeholder="输入本地目录" :view-mode="localPanelViewMode" :search-expanded="localSearchExpanded"
               :search-active="localSearchExpanded || !!localFilterQuery" :filter-expanded="localRuleFilterExpanded"
@@ -2607,7 +2620,8 @@ onBeforeUnmount(() => {
                   { text: '第二组', accent: true },
                   { text: secondaryRemoteSession ? secondaryRemoteSession.protocol.toUpperCase() : 'SFTP' },
                   { text: `${secondaryRemoteSession ? filteredSecondaryRemoteEntries.length : 0} 项` },
-                ]" :drop-active="false" :breadcrumbs="secondaryRemoteBreadcrumbs" :path-input="secondaryRemotePathInput"
+                ]" :drop-active="false" :active="activeBrowserPanel === 'secondaryRemote'"
+                :breadcrumbs="secondaryRemoteBreadcrumbs" :path-input="secondaryRemotePathInput"
                 :path-suggestions="secondaryRemotePathSuggestions" path-placeholder="输入第二远程目录"
                 :view-mode="remotePanelViewMode" :path-input-disabled="!secondaryRemoteSession"
                 :open-path-disabled="!secondaryRemoteSession" :go-parent-disabled="!secondaryRemoteSession"
@@ -2647,7 +2661,8 @@ onBeforeUnmount(() => {
               <FtpBrowserPanel v-if="showRemotePanel && dualRemoteMode" kind="remote" title="远程目录" :badges="[
                 { text: activeSession ? activeSession.protocol.toUpperCase() : 'SFTP', accent: true },
                 { text: `${activeSession ? filteredRemoteEntries.length : 0} 项` },
-              ]" :drop-active="remoteDropActive" :breadcrumbs="remoteBreadcrumbs" :path-input="remotePathInput"
+              ]" :drop-active="remoteDropActive" :active="activeBrowserPanel === 'remote'"
+                :breadcrumbs="remoteBreadcrumbs" :path-input="remotePathInput"
                 :path-suggestions="remotePathSuggestions" path-placeholder="输入远程目录" :view-mode="remotePanelViewMode"
                 :path-input-disabled="!activeSession" :open-path-disabled="!activeSession"
                 :go-parent-disabled="!activeSession" :refresh-disabled="!activeSession"
@@ -2681,7 +2696,7 @@ onBeforeUnmount(() => {
                 @update:modifiedWithinDays="remoteRuleFilter.modifiedWithinDays = $event"
                 @primary-action="downloadSelected" @create-directory="createRemoteDirectory"
                 @open-breadcrumb="openRemoteBreadcrumb" @open-path="openRemotePath" @go-parent="goRemoteParent"
-                @refresh="ftpStore.refreshRemoteDirectory()" @toggle-search="toggleSearch('remote')"
+                @refresh="refreshPrimaryRemoteDirectory()" @toggle-search="toggleSearch('remote')"
                 @toggle-filter="toggleRuleFilter('remote')" @set-view-mode="remotePanelViewMode = $event"
                 @set-filter-mode="setRuleFilterMode('remote', $event)"
                 @set-filter-operator="setRuleFilterOperator('remote', $event)"
@@ -2706,7 +2721,8 @@ onBeforeUnmount(() => {
             <FtpBrowserPanel v-if="showRemotePanel && !dualRemoteMode" kind="remote" title="远程目录" :badges="[
               { text: activeSession ? activeSession.protocol.toUpperCase() : 'SFTP', accent: true },
               { text: `${activeSession ? filteredRemoteEntries.length : 0} 项` },
-            ]" :drop-active="remoteDropActive" :breadcrumbs="remoteBreadcrumbs" :path-input="remotePathInput"
+            ]" :drop-active="remoteDropActive" :active="activeBrowserPanel === 'remote'"
+              :breadcrumbs="remoteBreadcrumbs" :path-input="remotePathInput"
               :path-suggestions="remotePathSuggestions" path-placeholder="输入远程目录" :view-mode="remotePanelViewMode"
               :path-input-disabled="!activeSession" :open-path-disabled="!activeSession"
               :go-parent-disabled="!activeSession" :refresh-disabled="!activeSession"
@@ -2739,7 +2755,7 @@ onBeforeUnmount(() => {
               @update:modifiedWithinDays="remoteRuleFilter.modifiedWithinDays = $event"
               @primary-action="downloadSelected" @create-directory="createRemoteDirectory"
               @open-breadcrumb="openRemoteBreadcrumb" @open-path="openRemotePath" @go-parent="goRemoteParent"
-              @refresh="ftpStore.refreshRemoteDirectory()" @set-view-mode="remotePanelViewMode = $event"
+              @refresh="refreshPrimaryRemoteDirectory()" @set-view-mode="remotePanelViewMode = $event"
               @toggle-search="toggleSearch('remote')" @toggle-filter="toggleRuleFilter('remote')"
               @set-filter-mode="setRuleFilterMode('remote', $event)" @toggle-hide-hidden="toggleHideHidden('remote')"
               @apply-filter-preset="applyFilterPreset('remote', $event)"
@@ -2887,38 +2903,6 @@ onBeforeUnmount(() => {
         @execute="executeSyncPreview" @cancel="cancelSyncExecution" @toggle-preview-item="toggleSyncPreviewItem"
         @set-all-preview-items="setAllSyncPreviewItems" />
 
-      <FtpSettingsDrawer :model-value="transferSettingsDrawerVisible" :link-navigation-enabled="linkNavigationEnabled"
-        :dual-remote-mode="dualRemoteMode" :dual-remote-mode-available="secondaryRemoteModeAvailable"
-        :dual-remote-summary="dualRemoteSummary" :secondary-remote-session-id="secondaryRemoteSessionId"
-        :secondary-remote-session-options="secondaryRemoteSessionOptions" :thumbnails-enabled="thumbnailsEnabled"
-        :thumbnail-max-bytes-kb="thumbnailMaxBytesKb" :thumbnail-prefetch-limit="thumbnailPrefetchLimit"
-        :retry-max-retries="retryMaxRetries" :retry-base-delay-secs="retryBaseDelaySecs"
-        :retry-policy-summary="retryPolicySummary" :panel-layout-mode="panelLayoutMode"
-        :sidebar-dock-side="sidebarDockSide" :sidebar-size="sidebarSize" :sidebar-dock-summary="sidebarDockSummary"
-        :auxiliary-dock-side="auxiliaryDockSide" :auxiliary-dock-size="auxiliaryDockSize"
-        :auxiliary-dock-summary="auxiliaryDockSummary" :show-sidebar-panel="showSidebarPanel"
-        :show-local-panel="showLocalPanel" :show-remote-panel="showRemotePanel"
-        :panel-layout-summary="panelLayoutSummary" :sidebar-summary="sidebarSummary"
-        :browser-panel-summary="browserPanelSummary" :link-navigation-summary="linkNavigationSummary"
-        :thumbnail-summary="thumbnailSummary" :external-editor-path="externalEditorPath"
-        :external-editor-summary="externalEditorSummary"
-        :cleanup-external-drafts-on-close="cleanupExternalDraftsOnClose" :known-hosts="knownHosts"
-        :known-host-summary="knownHostSummary" :known-hosts-loading="knownHostsLoading"
-        :local-entry-count="dualRemoteMode ? filteredSecondaryRemoteEntries.length : filteredLocalEntries.length"
-        :remote-entry-count="activeSession ? filteredRemoteEntries.length : 0" :active-task-count="activeTaskCount"
-        :log-entry-count="ftpStore.logs.length" @update:modelValue="transferSettingsDrawerVisible = $event"
-        @toggle-link-navigation="toggleLinkNavigation" @toggle-dual-remote-mode="toggleDualRemoteMode"
-        @update:secondaryRemoteSessionId="setSecondaryRemoteSession" @toggle-thumbnails="toggleThumbnails"
-        @update:thumbnailMaxBytesKb="setThumbnailMaxBytesKb" @update:thumbnailPrefetchLimit="setThumbnailPrefetchLimit"
-        @update:retryMaxRetries="setRetryMaxRetries" @update:retryBaseDelaySecs="setRetryBaseDelaySecs"
-        @apply-retry-policy="applyRetryPolicy" @set-panel-layout-mode="setPanelLayoutMode"
-        @set-sidebar-dock-side="setSidebarDockSide" @update:sidebarSize="setSidebarSize"
-        @set-auxiliary-dock-side="setAuxiliaryDockSide" @update:auxiliaryDockSize="setAuxiliaryDockSize"
-        @toggle-sidebar-panel="toggleSidebarPanel" @toggle-local-panel="toggleLocalPanel"
-        @toggle-remote-panel="toggleRemotePanel" @pick-external-editor="pickExternalEditor"
-        @clear-external-editor="clearExternalEditor" @toggle-cleanup-external-drafts="toggleCleanupExternalDrafts"
-        @refresh-known-hosts="reloadKnownHosts" @delete-known-host="deleteKnownHost" />
-
     </main>
 
     <FtpProfileDialog :model-value="profileDialogVisible" :title="editingProfileId ? '编辑传输配置' : '新建传输配置'"
@@ -2943,6 +2927,35 @@ onBeforeUnmount(() => {
     <FtpAuthChallengeDialog :model-value="authChallengeDialogVisible" :challenge="pendingAuthChallenge"
       :responses="authChallengeResponses" @update:modelValue="(value) => !value && cancelAuthChallenge()"
       @update:responses="authChallengeResponses = $event" @submit="submitAuthChallenge" @cancel="cancelAuthChallenge" />
+
+    <UiDialog v-model="disconnectedSessionDialogVisible" width="520" max-width="92vw">
+      <template #header>
+        <div class="ftp-dialog__header">FTP 连接已断开</div>
+      </template>
+      <div class="ftp-dialog__body">
+        <div class="ftp-disconnect-dialog">
+          <p>
+            {{ disconnectedSessionNotice?.label || '当前 FTP 连接' }} 长时间不活动后已断开，远程目录操作无法继续。
+          </p>
+          <div class="ftp-disconnect-dialog__meta">
+            <span>目录：{{ disconnectedSessionNotice?.remotePath || '/' }}</span>
+            <span>错误：{{ disconnectedSessionNotice?.message || 'session closed' }}</span>
+          </div>
+        </div>
+      </div>
+      <template #footer>
+        <div class="ftp-dialog__footer">
+          <UiButton variant="ghost" @click="disconnectedSessionDialogVisible = false">稍后处理</UiButton>
+          <UiButton
+            variant="primary"
+            :disabled="reconnectingDisconnectedSession || !disconnectedSessionProfile"
+            @click="reconnectDisconnectedSession"
+          >
+            {{ reconnectingDisconnectedSession ? '重连中...' : '立即重连' }}
+          </UiButton>
+        </div>
+      </template>
+    </UiDialog>
 
     <UiDialog v-model="scheduleDialogVisible" width="880" max-width="96vw">
       <template #header>

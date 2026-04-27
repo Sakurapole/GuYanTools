@@ -127,7 +127,7 @@ const emit = defineEmits<{
               <UiButton v-if="canPauseTask(task)" size="sm" variant="ghost" @click.stop="$emit('pause-task', task.id)">暂停</UiButton>
               <UiButton v-else-if="canResumeTask(task)" size="sm" variant="ghost" @click.stop="$emit('resume-task', task.id)">恢复</UiButton>
               <UiButton v-else-if="canRetryTask(task)" size="sm" variant="ghost" @click.stop="$emit('retry-task', task.id)">续传</UiButton>
-              <UiButton v-if="task.status === 'completed'" size="sm" variant="danger" @click.stop="$emit('delete-task', task.id)">删除</UiButton>
+              <UiButton size="sm" variant="danger" @click.stop="$emit('delete-task', task.id)">删除</UiButton>
             </div>
             <div v-if="task.errorMessage" class="ftp-task-item__error">{{ task.errorMessage }}</div>
           </div>
