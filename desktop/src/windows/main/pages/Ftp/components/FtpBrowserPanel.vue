@@ -21,6 +21,7 @@ const props = withDefaults(defineProps<{
   kind: PanelKind;
   title: string;
   badges: PanelBadge[];
+  active?: boolean;
   dropActive: boolean;
   breadcrumbs: PathBreadcrumb[];
   pathInput: string;
@@ -91,6 +92,7 @@ const props = withDefaults(defineProps<{
   secondaryMetaClass: '',
   showConnectingOverlay: false,
   connectingMessage: '',
+  active: false,
 });
 
 const emit = defineEmits<{
@@ -136,7 +138,10 @@ const panelClass = computed(() => [
   'ftp-inner-card',
   'ftp-panel',
   `ftp-panel--${props.kind}`,
-  { 'ftp-panel--drop-active': props.dropActive },
+  {
+    'ftp-panel--active': props.active,
+    'ftp-panel--drop-active': props.dropActive,
+  },
 ]);
 
 const iconClass = computed(() => `ftp-pane-identity__icon--${props.kind}`);

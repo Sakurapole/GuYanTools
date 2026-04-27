@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, defineAsyncComponent, nextTick, onMounted, ref, watch } from 'vue';
+import { computed, defineAsyncComponent, nextTick, onActivated, onMounted, ref, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import UiButton from '@/windows/main/components/ui/UiButton.vue';
 import { useGlobalStore } from '@/windows/main/stores/global_store';
@@ -44,6 +44,16 @@ const newSessionProfileId = ref('');
 const sidebarCollapsed = ref(false);
 /** 'terminal' | 'ssh' */
 const sidebarTab = ref<'terminal' | 'ssh'>('terminal');
+
+function syncSidebarTabFromRoute() {
+  const tab = Array.isArray(route.query.tab) ? route.query.tab[0] : route.query.tab;
+  if (tab === 'ssh' || tab === 'terminal') {
+    sidebarTab.value = tab;
+  }
+}
+
+watch(() => route.query.tab, syncSidebarTabFromRoute, { immediate: true });
+onActivated(syncSidebarTabFromRoute);
 
 // ── SSH dialog state ──────────────────────────────────────────
 
