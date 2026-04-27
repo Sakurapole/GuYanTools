@@ -774,6 +774,10 @@
   background: color-mix(in srgb, var(--ui-surface-panel) 96%, transparent);
 }
 
+.ftp-aux-dock--collapsed {
+  overflow: hidden;
+}
+
 .ftp-aux-dock__resize-handle {
   position: absolute;
   z-index: 4;
@@ -977,6 +981,7 @@
 .ftp-aux-dock--bottom.ftp-aux-dock--collapsed {
   height: 37px;
   min-height: 37px;
+  max-height: 37px;
 }
 
 .ftp-aux-dock--right {
@@ -2606,8 +2611,9 @@
 }
 
 .ftp-page--dense .ftp-aux-dock--bottom.ftp-aux-dock--collapsed {
-  height: 48px;
-  min-height: 48px;
+  height: 35px;
+  min-height: 35px;
+  max-height: 35px;
 }
 
 .ftp-page--dense .ftp-aux-dock--bottom:has(.ftp-tasks:not(.ftp-tasks--collapsed)),
@@ -3040,6 +3046,12 @@
   .ftp-aux-dock--bottom {
     height: clamp(100px, var(--ftp-aux-dock-size), min(420px, 48vh));
     max-height: min(420px, 48vh);
+  }
+
+  .ftp-aux-dock--bottom.ftp-aux-dock--collapsed {
+    height: 35px;
+    min-height: 35px;
+    max-height: 35px;
   }
 
   .ftp-panel {
