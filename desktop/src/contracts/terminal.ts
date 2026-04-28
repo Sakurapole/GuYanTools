@@ -79,12 +79,15 @@ export interface TerminalApi {
   listProfiles: () => Promise<TerminalProfile[]>;
   listSessions: () => Promise<TerminalSessionDescriptor[]>;
   createSession: (payload: CreateTerminalSessionPayload) => Promise<TerminalSessionDescriptor>;
+  getBuffer: (sessionId: string) => Promise<string>;
+  clearBuffer: (sessionId: string) => Promise<void>;
   write: (sessionId: string, data: string) => Promise<void>;
   resizeSession: (payload: ResizeTerminalSessionPayload) => Promise<void>;
   killSession: (sessionId: string) => Promise<void>;
   attachSession: (sessionId: string, target: string) => Promise<void>;
   attachToMain: (sessionId: string) => Promise<void>;
   detachToWindow: (sessionId: string, kind?: DetachedTerminalSessionKind, label?: string) => Promise<void>;
+  returnDetachedToMain: (sessionId: string, target: string, kind?: DetachedTerminalSessionKind) => Promise<void>;
   readClipboardText: () => Promise<string>;
   writeClipboardText: (text: string) => Promise<void>;
   onEvent: (listener: (event: TerminalEventEnvelope) => void) => () => void;

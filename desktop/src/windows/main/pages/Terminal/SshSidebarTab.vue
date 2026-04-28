@@ -38,7 +38,7 @@ function statusColor(status: string) {
 }
 
 function profileSessionId(profileId: string): string | null {
-  return sshStore.sessions.find((s) => s.profileId === profileId)?.sessionId ?? null;
+  return sshStore.mainSessions.find((s) => s.profileId === profileId)?.sessionId ?? null;
 }
 
 function isSessionActive(sessionId: string) {
@@ -49,10 +49,10 @@ function isSessionActive(sessionId: string) {
 <template>
   <div class="ssh-tab">
     <!-- Active sessions section -->
-    <template v-if="sshStore.sessions.length > 0">
+    <template v-if="sshStore.mainSessions.length > 0">
       <div class="ssh-tab__section-label">活跃连接</div>
       <div
-        v-for="session in sshStore.sessions"
+        v-for="session in sshStore.mainSessions"
         :key="session.sessionId"
         class="ssh-session-item"
         :class="{ 'ssh-session-item--active': isSessionActive(session.sessionId) }"

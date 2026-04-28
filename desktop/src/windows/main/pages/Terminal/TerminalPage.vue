@@ -298,7 +298,14 @@ const colorSchemeId = computed(() => appConfigStore.config.features.terminal.col
 const forwardedPortSummaries = computed(() => sshStore.runningPortForwardSummaries);
 
 watch(() => sshStore.activeSshSessionId, (sessionId) => {
-  if (sessionId || sidebarTab.value !== 'ssh' || !activeSession.value) {
+  if (sessionId) {
+    if (sshStore.mainSessions.some((session) => session.sessionId === sessionId)) {
+      sidebarTab.value = 'ssh';
+    }
+    return;
+  }
+
+  if (sidebarTab.value !== 'ssh' || !activeSession.value) {
     return;
   }
 
@@ -598,7 +605,7 @@ onBeforeUnmount(() => {
                 <line x1="6" y1="6" x2="6.01" y2="6"/><line x1="6" y1="18" x2="6.01" y2="18"/>
               </svg>
               SSH
-              <span v-if="sshStore.sessions.length > 0" class="sidebar-tab__badge">{{ sshStore.sessions.length }}</span>
+              <span v-if="sshStore.mainSessions.length > 0" class="sidebar-tab__badge">{{ sshStore.mainSessions.length }}</span>
             </button>
           </div>
         </div>

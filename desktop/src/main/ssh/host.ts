@@ -69,8 +69,12 @@ type JsSshHostInstance = InstanceType<JsSshHostConstructor>;
 // ── SSH host singleton ────────────────────────────────────────
 
 class SshHost {
+  private static readonly MAX_SESSION_BUFFER_CHARS = 2_000_000;
+
   private host!: JsSshHostInstance;
   private readonly emitter = new EventEmitter();
+  private readonly sessionBuffers = new Map<string, string>();
+  private readonly attachedTargets = new Map<string, string>();
   private initialized = false;
 
   /** Lazy initialization — call after dbManager.initialize() */
@@ -80,7 +84,9 @@ class SshHost {
     this.host = new JsSshHost(db);
     this.host.registerEventSink((payload: string) => {
       try {
-        const event = JSON.parse(payload) as SshEventEnvelope;
+        const rawEvent = JSON.parse(payload) as SshEventEnvelope;
+        this.updateSessionBuffer(rawEvent);
+        const event = this.withAttachedTarget(rawEvent);
         this.emitter.emit('event', event);
         this.broadcast(event);
       } catch (err) {
@@ -119,11 +125,16 @@ class SshHost {
   // ── Connection management ─────────────────────────────────────
 
   listSessions(): SshSessionDescriptor[] {
-    return this.host.listSessions();
+    return this.host.listSessions().map((session) => this.withSessionAttachedTarget(session));
   }
 
   async connect(input: ConnectSshInput): Promise<SshSessionDescriptor> {
-    return this.host.connect(input);
+    const session = await this.host.connect(input);
+    this.attachedTargets.set(session.sessionId, 'main');
+    if (!this.sessionBuffers.has(session.sessionId)) {
+      this.sessionBuffers.set(session.sessionId, '');
+    }
+    return this.withSessionAttachedTarget(session);
   }
 
   disconnect(sessionId: string): void {
@@ -143,6 +154,32 @@ class SshHost {
 
   resizeSession(input: ResizeSshSessionInput): void {
     this.host.resizeSession(input);
+  }
+
+  getBuffer(sessionId: string) {
+    return this.sessionBuffers.get(sessionId) ?? '';
+  }
+
+  clearBuffer(sessionId: string) {
+    this.sessionBuffers.set(sessionId, '');
+  }
+
+  attachSession(sessionId: string, target: string) {
+    this.attachedTargets.set(sessionId, normalizeTarget(target));
+    this.emitSessionState(sessionId, 'session attached');
+  }
+
+  attachToMain(sessionId: string) {
+    this.attachSession(sessionId, 'main');
+  }
+
+  closeDetachedView(sessionId: string, target: string) {
+    if (this.attachedTargets.get(sessionId) !== target) {
+      return;
+    }
+
+    this.attachedTargets.set(sessionId, 'main');
+    this.emitSessionState(sessionId, 'detached view closed');
   }
 
   // ── Known hosts ───────────────────────────────────────────────
@@ -238,6 +275,61 @@ class SshHost {
 
   // ── Internal ─────────────────────────────────────────────
 
+  private withAttachedTarget(event: SshEventEnvelope): SshEventEnvelope {
+    return {
+      ...event,
+      attachedTarget: event.attachedTarget ?? this.attachedTargets.get(event.sessionId) ?? 'main',
+    };
+  }
+
+  private withSessionAttachedTarget(session: SshSessionDescriptor): SshSessionDescriptor {
+    return {
+      ...session,
+      attachedTarget: this.attachedTargets.get(session.sessionId) ?? session.attachedTarget ?? 'main',
+    };
+  }
+
+  private emitSessionState(sessionId: string, message: string) {
+    const session = this.host.listSessions().find((item) => item.sessionId === sessionId);
+    if (!session) return;
+
+    const event: SshEventEnvelope = {
+      eventType: 'state',
+      sessionId,
+      status: session.status,
+      attachedTarget: this.attachedTargets.get(sessionId) ?? 'main',
+      message,
+    };
+
+    this.emitter.emit('event', event);
+    this.broadcast(event);
+  }
+
+  private updateSessionBuffer(event: SshEventEnvelope) {
+    if (event.eventType === 'data') {
+      this.appendSessionBuffer(event.sessionId, event.data ?? '');
+      return;
+    }
+
+    if (event.eventType === 'exit') {
+      this.attachedTargets.delete(event.sessionId);
+      this.sessionBuffers.delete(event.sessionId);
+    }
+  }
+
+  private appendSessionBuffer(sessionId: string, data: string) {
+    if (!data) return;
+
+    const previous = this.sessionBuffers.get(sessionId) ?? '';
+    const next = `${previous}${data}`;
+    if (next.length <= SshHost.MAX_SESSION_BUFFER_CHARS) {
+      this.sessionBuffers.set(sessionId, next);
+      return;
+    }
+
+    this.sessionBuffers.set(sessionId, next.slice(next.length - SshHost.MAX_SESSION_BUFFER_CHARS));
+  }
+
   /** Broadcast an SSH event to all renderer windows */
   private broadcast(event: SshEventEnvelope) {
     for (const win of BrowserWindow.getAllWindows()) {
@@ -249,3 +341,8 @@ class SshHost {
 }
 
 export const sshHost = new SshHost();
+
+function normalizeTarget(value: string) {
+  const trimmed = value.trim();
+  return trimmed || 'main';
+}

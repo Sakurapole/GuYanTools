@@ -88,8 +88,12 @@ export const useSshStore = defineStore('ssh', () => {
     () => sessions.value.find((s) => s.sessionId === activeSshSessionId.value) ?? null,
   );
 
+  const mainSessions = computed(() =>
+    sessions.value.filter((session) => !isDetachedTarget(session.attachedTarget)),
+  );
+
   const connectedSessions = computed(
-    () => sessions.value.filter((s) => s.status === 'connected'),
+    () => mainSessions.value.filter((s) => s.status === 'connected'),
   );
 
   const runningPortForwardSummaries = computed<RunningPortForwardSummary[]>(() => {
@@ -142,6 +146,7 @@ export const useSshStore = defineStore('ssh', () => {
     sessions.value = await window.sshApi.listSessions();
     managedKeys.value = await window.sshApi.listManagedKeys();
     ensureEventSubscription();
+    await hydrateSessionBuffers(sessions.value.map((session) => session.sessionId));
     await hydratePortForwardRuntimeState();
     initialized.value = true;
   }
@@ -259,6 +264,7 @@ export const useSshStore = defineStore('ssh', () => {
     const next = { ...sessionBuffers.value };
     delete next[sessionId];
     sessionBuffers.value = next;
+    void window.sshApi.clearBuffer(sessionId);
   }
 
   function getBuffer(sessionId: string) {
@@ -332,6 +338,10 @@ export const useSshStore = defineStore('ssh', () => {
     switch (event.eventType) {
       case 'data': {
         updateWorkingDirectoryFromOutput(event.sessionId, event.data ?? '');
+        const matchedSession = sessions.value.find((session) => session.sessionId === event.sessionId);
+        if (matchedSession && isDetachedTarget(matchedSession.attachedTarget)) {
+          break;
+        }
         sessionBuffers.value = {
           ...sessionBuffers.value,
           [event.sessionId]: `${sessionBuffers.value[event.sessionId] ?? ''}${event.data ?? ''}`,
@@ -340,6 +350,17 @@ export const useSshStore = defineStore('ssh', () => {
       }
       case 'state':
         updateSessionFromEvent(event);
+        if (event.attachedTarget && !isDetachedTarget(event.attachedTarget)) {
+          focusReturnedSessionIfNeeded(event.sessionId);
+          void hydrateSessionBuffer(event.sessionId);
+        } else if (
+          event.attachedTarget
+          && isDetachedTarget(event.attachedTarget)
+          && activeSshSessionId.value === event.sessionId
+        ) {
+          const nextSession = mainSessions.value.find((session) => session.sessionId !== event.sessionId);
+          activeSshSessionId.value = nextSession?.sessionId ?? '';
+        }
         // Auto-start port forwards when session becomes connected
         if (event.status === 'connected') {
           clearReconnectState(event.sessionId);
@@ -398,9 +419,40 @@ export const useSshStore = defineStore('ssh', () => {
     const current = sessions.value[index];
     sessions.value = sessions.value.map((s, i) =>
       i === index
-        ? { ...current, status: event.status ?? current.status }
+        ? {
+          ...current,
+          status: event.status ?? current.status,
+          attachedTarget: event.attachedTarget ?? current.attachedTarget,
+        }
         : s,
     );
+  }
+
+  function isDetachedTarget(target: string | undefined) {
+    return typeof target === 'string' && target.startsWith('popup:');
+  }
+
+  function focusReturnedSessionIfNeeded(sessionId: string) {
+    const activeMainSession = mainSessions.value.find((session) => session.sessionId === activeSshSessionId.value);
+    if (activeMainSession) {
+      return;
+    }
+
+    if (mainSessions.value.some((session) => session.sessionId === sessionId)) {
+      activeSshSessionId.value = sessionId;
+    }
+  }
+
+  async function hydrateSessionBuffers(sessionIds: string[]) {
+    await Promise.all(sessionIds.map((sessionId) => hydrateSessionBuffer(sessionId)));
+  }
+
+  async function hydrateSessionBuffer(sessionId: string) {
+    const buffer = await window.sshApi.getBuffer(sessionId);
+    sessionBuffers.value = {
+      ...sessionBuffers.value,
+      [sessionId]: buffer,
+    };
   }
 
   function removeSessionLocal(sessionId: string) {
@@ -994,6 +1046,7 @@ export const useSshStore = defineStore('ssh', () => {
     sessions,
     activeSshSessionId,
     activeSshSession,
+    mainSessions,
     connectedSessions,
     runningPortForwardSummaries,
     reconnectStates,

@@ -9,6 +9,7 @@ import type {
 } from '@/contracts/terminal';
 
 let registered = false;
+const detachedWindowCloseModes = new Map<number, 'close-session' | 'return-to-main'>();
 
 function buildPopupTarget(sessionId: string, kind: DetachedTerminalSessionKind) {
   return `popup:${kind}:${sessionId}:${Date.now()}`;
@@ -29,6 +30,7 @@ async function openDetachedTerminalWindow(
     const session = sessions.find((s) => s.sessionId === sessionId);
     label = session?.profileLabel ?? label;
   } else {
+    sshHost.attachSession(sessionId, target);
     const sessions = sshHost.listSessions();
     const session = sessions.find((s) => s.sessionId === sessionId);
     label = session?.profileLabel ?? label;
@@ -55,13 +57,26 @@ async function openDetachedTerminalWindow(
       y: parentBounds.y + Math.round((parentBounds.height - height) / 2),
     } : {}),
   });
+  detachedWindowCloseModes.set(win.id, 'close-session');
 
   win.on('closed', () => {
+    const closeMode = detachedWindowCloseModes.get(win.id) ?? 'close-session';
+    detachedWindowCloseModes.delete(win.id);
+    if (closeMode === 'return-to-main') {
+      return;
+    }
+
     if (kind === 'local') {
       try {
-        terminalHost.closeDetachedView(sessionId, target);
+        terminalHost.killSession(sessionId);
       } catch (error) {
-        console.error('[terminal] Failed to close detached terminal view:', error);
+        console.error('[terminal] Failed to close detached terminal session:', error);
+      }
+    } else {
+      try {
+        sshHost.disconnect(sessionId);
+      } catch (error) {
+        console.error('[terminal] Failed to close detached SSH session:', error);
       }
     }
   });
@@ -99,6 +114,14 @@ export function registerTerminalIpcHandlers() {
     return terminalHost.createSession(payload);
   });
 
+  ipcMain.handle('terminal:get-buffer', async (_event, sessionId: string) => {
+    return terminalHost.getBuffer(sessionId);
+  });
+
+  ipcMain.handle('terminal:clear-buffer', async (_event, sessionId: string) => {
+    terminalHost.clearBuffer(sessionId);
+  });
+
   ipcMain.handle('terminal:write', async (_event, sessionId: string, data: string) => {
     terminalHost.write(sessionId, data);
   });
@@ -131,6 +154,26 @@ export function registerTerminalIpcHandlers() {
     }
     const sessionKind = kind === 'ssh' ? 'ssh' : 'local';
     await openDetachedTerminalWindow(sourceWindow, sessionId, sessionKind, label);
+  });
+
+  ipcMain.handle('terminal:return-detached-to-main', async (
+    event,
+    sessionId: string,
+    target: string,
+    kind: DetachedTerminalSessionKind = 'local',
+  ) => {
+    const sourceWindow = BrowserWindow.fromWebContents(event.sender);
+    const sessionKind = kind === 'ssh' ? 'ssh' : 'local';
+    if (sessionKind === 'ssh') {
+      sshHost.closeDetachedView(sessionId, target);
+    } else {
+      terminalHost.closeDetachedView(sessionId, target);
+    }
+
+    if (sourceWindow && !sourceWindow.isDestroyed()) {
+      detachedWindowCloseModes.set(sourceWindow.id, 'return-to-main');
+      sourceWindow.close();
+    }
   });
 
   ipcMain.handle('terminal:clipboard-read', async () => {

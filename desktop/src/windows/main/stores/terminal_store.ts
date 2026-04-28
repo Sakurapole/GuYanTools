@@ -48,6 +48,7 @@ export const useTerminalStore = defineStore('terminal', () => {
       profiles.value = await window.terminalApi.listProfiles();
       sessions.value = await window.terminalApi.listSessions();
       ensureEventSubscription();
+      await hydrateSessionBuffers(sessions.value.map((session) => session.sessionId));
       initialized.value = true;
     }
 
@@ -169,6 +170,7 @@ export const useTerminalStore = defineStore('terminal', () => {
       ...sessionBuffers.value,
       [sessionId]: '',
     };
+    void window.terminalApi.clearBuffer(sessionId);
   }
 
   function getBuffer(sessionId: string) {
@@ -196,6 +198,10 @@ export const useTerminalStore = defineStore('terminal', () => {
       }
       case 'state':
         updateSessionFromEvent(event);
+        if (event.attachedTarget && !isDetachedTarget(event.attachedTarget)) {
+          focusReturnedSessionIfNeeded(event.sessionId);
+          void hydrateSessionBuffer(event.sessionId);
+        }
         break;
       case 'exit':
         removeSessionLocal(event.sessionId);
@@ -237,6 +243,29 @@ export const useTerminalStore = defineStore('terminal', () => {
     }
 
     sessions.value = sessions.value.map((item, itemIndex) => itemIndex === index ? session : item);
+  }
+
+  function focusReturnedSessionIfNeeded(sessionId: string) {
+    const activeMainSession = mainSessions.value.find((session) => session.sessionId === activeSessionId.value);
+    if (activeMainSession) {
+      return;
+    }
+
+    if (mainSessions.value.some((session) => session.sessionId === sessionId)) {
+      activeSessionId.value = sessionId;
+    }
+  }
+
+  async function hydrateSessionBuffers(sessionIds: string[]) {
+    await Promise.all(sessionIds.map((sessionId) => hydrateSessionBuffer(sessionId)));
+  }
+
+  async function hydrateSessionBuffer(sessionId: string) {
+    const buffer = await window.terminalApi.getBuffer(sessionId);
+    sessionBuffers.value = {
+      ...sessionBuffers.value,
+      [sessionId]: buffer,
+    };
   }
 
   function removeSessionLocal(sessionId: string) {

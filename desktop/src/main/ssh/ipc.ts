@@ -49,6 +49,14 @@ export function registerSshIpcHandlers() {
     return sshHost.disconnect(sessionId);
   });
 
+  ipcMain.handle('ssh:get-buffer', async (_event, sessionId: string) => {
+    return sshHost.getBuffer(sessionId);
+  });
+
+  ipcMain.handle('ssh:clear-buffer', async (_event, sessionId: string) => {
+    sshHost.clearBuffer(sessionId);
+  });
+
   // ── I/O ──────────────────────────────────────────────────────
 
   ipcMain.handle('ssh:write', async (_event, sessionId: string, data: string) => {

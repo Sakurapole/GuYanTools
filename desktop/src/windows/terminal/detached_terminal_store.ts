@@ -59,6 +59,8 @@ export const useDetachedTerminalStore = defineStore('detached-terminal', () => {
       profileLabel.value = label;
     }
 
+    ensureEventSubscription();
+
     if (kind === 'local') {
       profiles.value = await window.terminalApi.listProfiles();
 
@@ -72,6 +74,7 @@ export const useDetachedTerminalStore = defineStore('detached-terminal', () => {
           profileLabel.value = match.profileLabel;
         }
       }
+      buffer.value = await window.terminalApi.getBuffer(sid);
     } else {
       profiles.value = [];
       const sessions = await window.sshApi.listSessions();
@@ -82,9 +85,8 @@ export const useDetachedTerminalStore = defineStore('detached-terminal', () => {
           profileLabel.value = match.profileLabel;
         }
       }
+      buffer.value = await window.sshApi.getBuffer(sid);
     }
-
-    ensureEventSubscription();
   }
 
   function ensureEventSubscription() {
@@ -200,6 +202,11 @@ export const useDetachedTerminalStore = defineStore('detached-terminal', () => {
 
   function clearBuffer() {
     buffer.value = '';
+    if (sessionKind.value === 'local') {
+      void window.terminalApi.clearBuffer(sessionId.value);
+    } else {
+      void window.sshApi.clearBuffer(sessionId.value);
+    }
   }
 
   /**

@@ -74,6 +74,14 @@ function closeWindow() {
 
 // ── Terminal actions ──────────────────────────────────────────
 
+async function returnToMainWindow() {
+  await window.terminalApi.returnDetachedToMain(
+    props.sessionId,
+    props.target,
+    props.sessionKind ?? 'local',
+  );
+}
+
 function clearTerminal() {
   store.clearBuffer();
   viewportRef.value?.clear();
@@ -146,6 +154,14 @@ onBeforeUnmount(() => {
       </div>
       <div class="detached-titlebar__drag" />
       <div class="detached-titlebar__actions">
+        <button class="detached-titlebar__btn" title="返回主窗口" @click="returnToMainWindow">
+          <svg viewBox="0 0 24 24" width="14" height="14" stroke="currentColor" stroke-width="2"
+            fill="none" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M9 14l-4-4 4-4" />
+            <path d="M5 10h11a4 4 0 0 1 0 8h-1" />
+            <rect x="14" y="4" width="7" height="5" rx="1" />
+          </svg>
+        </button>
         <button class="detached-titlebar__btn" title="最小化" @click="minimizeWindow">
           <svg width="10" height="1" viewBox="0 0 10 1">
             <line x1="0" y1="0.5" x2="10" y2="0.5" stroke="currentColor" stroke-width="1"/>

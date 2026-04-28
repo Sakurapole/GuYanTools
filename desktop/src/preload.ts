@@ -219,6 +219,8 @@ const terminalApi: TerminalApi = {
   listProfiles: () => ipcRenderer.invoke('terminal:list-profiles'),
   listSessions: () => ipcRenderer.invoke('terminal:list-sessions'),
   createSession: (payload: CreateTerminalSessionPayload) => ipcRenderer.invoke('terminal:create-session', payload),
+  getBuffer: (sessionId: string) => ipcRenderer.invoke('terminal:get-buffer', sessionId),
+  clearBuffer: (sessionId: string) => ipcRenderer.invoke('terminal:clear-buffer', sessionId),
   write: (sessionId: string, data: string) => ipcRenderer.invoke('terminal:write', sessionId, data),
   resizeSession: (payload: ResizeTerminalSessionPayload) => ipcRenderer.invoke('terminal:resize-session', payload),
   killSession: (sessionId: string) => ipcRenderer.invoke('terminal:kill-session', sessionId),
@@ -226,6 +228,8 @@ const terminalApi: TerminalApi = {
   attachToMain: (sessionId: string) => ipcRenderer.invoke('terminal:attach-main', sessionId),
   detachToWindow: (sessionId: string, kind?: DetachedTerminalSessionKind, label?: string) =>
     ipcRenderer.invoke('terminal:detach-to-window', sessionId, kind ?? 'local', label ?? ''),
+  returnDetachedToMain: (sessionId: string, target: string, kind?: DetachedTerminalSessionKind) =>
+    ipcRenderer.invoke('terminal:return-detached-to-main', sessionId, target, kind ?? 'local'),
   readClipboardText: () => ipcRenderer.invoke('terminal:clipboard-read'),
   writeClipboardText: (text: string) => ipcRenderer.invoke('terminal:clipboard-write', text),
   onEvent: (listener: (event: TerminalEventEnvelope) => void) => {
@@ -251,6 +255,8 @@ const sshApi: SshApi = {
   disconnect: (sessionId: string) => ipcRenderer.invoke('ssh:disconnect', sessionId),
   detachToWindow: (sessionId: string, label?: string) =>
     ipcRenderer.invoke('terminal:detach-to-window', sessionId, 'ssh', label ?? ''),
+  getBuffer: (sessionId: string) => ipcRenderer.invoke('ssh:get-buffer', sessionId),
+  clearBuffer: (sessionId: string) => ipcRenderer.invoke('ssh:clear-buffer', sessionId),
 
   // I/O
   write: (sessionId: string, data: string) => ipcRenderer.invoke('ssh:write', sessionId, data),

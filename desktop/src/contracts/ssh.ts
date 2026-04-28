@@ -99,6 +99,7 @@ export interface SshSessionDescriptor {
   username: string;
   status: SshSessionStatus | string;
   viaJumpHost: boolean;
+  attachedTarget?: string;
 }
 
 // ── Connect input (runtime only) ──────────────────────────────
@@ -201,6 +202,7 @@ export interface SshEventEnvelope {
   sessionId: string;
   data?: string;
   status?: SshSessionStatus | string;
+  attachedTarget?: string;
   message?: string;
   exitCode?: number;
 }
@@ -282,6 +284,8 @@ export interface SshApi {
   connect: (input: ConnectSshInput) => Promise<SshSessionDescriptor>;
   disconnect: (sessionId: string) => Promise<void>;
   detachToWindow: (sessionId: string, label?: string) => Promise<void>;
+  getBuffer: (sessionId: string) => Promise<string>;
+  clearBuffer: (sessionId: string) => Promise<void>;
 
   // I/O (writes go through the same pipe as terminal writes)
   write: (sessionId: string, data: string) => Promise<void>;
