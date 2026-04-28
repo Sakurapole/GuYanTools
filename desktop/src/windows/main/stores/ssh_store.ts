@@ -80,6 +80,8 @@ export const useSshStore = defineStore('ssh', () => {
   const reconnectStates = ref<Record<string, SshReconnectState>>({});
   const reconnectTimers = new Map<string, number>();
   const manualDisconnectSessionIds = new Set<string>();
+  const autoStartedPortForwardSessionIds = new Set<string>();
+  const autoStartingPortForwardSessionIds = new Set<string>();
 
   // ── Derived ───────────────────────────────────────────────────
   const activeSshSession = computed(
@@ -184,6 +186,11 @@ export const useSshStore = defineStore('ssh', () => {
       cols: input.cols || 120,
     });
     activeSshSessionId.value = descriptor.sessionId;
+    if (descriptor.status === 'connected') {
+      autoStartPortForwards(descriptor.sessionId).catch((err) =>
+        console.warn('[SshStore] auto-start forwards error:', err),
+      );
+    }
     return descriptor;
   }
 
@@ -398,6 +405,8 @@ export const useSshStore = defineStore('ssh', () => {
 
   function removeSessionLocal(sessionId: string) {
     clearReconnectState(sessionId);
+    autoStartedPortForwardSessionIds.delete(sessionId);
+    autoStartingPortForwardSessionIds.delete(sessionId);
     sessionConnectInputs.delete(sessionId);
     manualDisconnectSessionIds.delete(sessionId);
     sessions.value = sessions.value.filter((s) => s.sessionId !== sessionId);
@@ -476,6 +485,8 @@ export const useSshStore = defineStore('ssh', () => {
   function handleUnexpectedDisconnect(event: SshEventEnvelope) {
     if (manualDisconnectSessionIds.has(event.sessionId)) return;
     if (reconnectStates.value[event.sessionId]) return;
+    autoStartedPortForwardSessionIds.delete(event.sessionId);
+    autoStartingPortForwardSessionIds.delete(event.sessionId);
 
     const session = sessions.value.find((item) => item.sessionId === event.sessionId);
     if (!session) return;
@@ -508,6 +519,8 @@ export const useSshStore = defineStore('ssh', () => {
 
   function markSessionUnavailable(sessionId: string, message: string) {
     const session = sessions.value.find((item) => item.sessionId === sessionId);
+    autoStartedPortForwardSessionIds.delete(sessionId);
+    autoStartingPortForwardSessionIds.delete(sessionId);
 
     const nextFwdStatuses = { ...forwardStatuses.value };
     delete nextFwdStatuses[sessionId];
@@ -767,20 +780,44 @@ export const useSshStore = defineStore('ssh', () => {
    * Called when the SSH session state becomes 'connected'.
    */
   async function autoStartPortForwards(sessionId: string) {
+    if (
+      autoStartedPortForwardSessionIds.has(sessionId)
+      || autoStartingPortForwardSessionIds.has(sessionId)
+    ) {
+      return;
+    }
+
     const session = sessions.value.find((s) => s.sessionId === sessionId);
     if (!session) return;
-    const rules = await loadPortForwards(session.profileId);
-    const autoRules = rules.filter((r) => r.autoStart && r.enabled);
-    for (const rule of autoRules) {
-      try {
-        await startPortForward(sessionId, rule.id);
-      } catch (err: unknown) {
-        console.warn(`[SshStore] auto-start forward '${rule.label ?? rule.id}' failed:`, err);
+
+    autoStartingPortForwardSessionIds.add(sessionId);
+    try {
+      const rules = await loadPortForwards(session.profileId);
+      const autoRules = rules.filter((r) => r.autoStart && r.enabled);
+      const currentStatuses = autoRules.length > 0
+        ? await refreshForwardStatus(sessionId)
+        : [];
+      const runningForwardIds = new Set(
+        currentStatuses
+          .filter((status) => status.status === 'running' || status.status === 'starting')
+          .map((status) => status.forwardId),
+      );
+      const pendingRules = autoRules.filter((rule) => !runningForwardIds.has(rule.id));
+
+      for (const rule of pendingRules) {
+        try {
+          await startPortForward(sessionId, rule.id);
+        } catch (err: unknown) {
+          console.warn(`[SshStore] auto-start forward '${rule.label ?? rule.id}' failed:`, err);
+        }
       }
-    }
-    // Refresh status after all auto-starts
-    if (autoRules.length > 0) {
-      await refreshForwardStatus(sessionId);
+      // Refresh status after all auto-starts
+      if (pendingRules.length > 0) {
+        await refreshForwardStatus(sessionId);
+      }
+      autoStartedPortForwardSessionIds.add(sessionId);
+    } finally {
+      autoStartingPortForwardSessionIds.delete(sessionId);
     }
   }
 

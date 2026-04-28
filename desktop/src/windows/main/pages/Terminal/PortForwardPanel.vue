@@ -5,6 +5,7 @@
  */
 import { computed, onMounted, onUnmounted, ref, watch } from 'vue';
 import { useSshStore } from '@/windows/main/stores/ssh_store';
+import UiScrollbar from '@/windows/main/components/ui/UiScrollbar.vue';
 import type { SshPortForward, PortForwardStatus, PortForwardTrafficInfo } from '@/contracts/ssh';
 
 const props = defineProps<{
@@ -360,7 +361,7 @@ async function handleImport() {
     </Transition>
 
     <!-- Content area -->
-    <div class="pfp__body">
+    <UiScrollbar class="pfp__body" :x="false" :size="6">
       <div v-if="loading" class="pfp__empty">
         加载中...
       </div>
@@ -468,7 +469,7 @@ async function handleImport() {
           </div>
         </div>
       </div>
-    </div>
+    </UiScrollbar>
   </div>
 </template>
 
@@ -583,10 +584,10 @@ async function handleImport() {
 }
 
 .pfp__body {
-  flex: 1;
-  min-height: 0;
+  flex: 0 1 auto;
+  height: clamp(240px, 48vh, 500px);
+  min-height: 240px;
   max-height: min(500px, calc(100vh - 180px));
-  overflow-y: auto;
 }
 
 .pfp__empty {
@@ -594,6 +595,7 @@ async function handleImport() {
   align-items: center;
   justify-content: center;
   gap: 10px;
+  min-height: 100%;
   padding: 20px 12px;
   font-size: 12px;
   color: var(--ui-text-muted);

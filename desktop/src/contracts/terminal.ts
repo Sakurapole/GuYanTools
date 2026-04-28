@@ -1,5 +1,6 @@
 export type TerminalRendererMode = 'auto' | 'standard' | 'webgl';
 export type TerminalSessionStatus = 'running' | 'terminating' | 'exited' | 'failed';
+export type DetachedTerminalSessionKind = 'local' | 'ssh';
 
 export interface TerminalProfile {
   id: string;
@@ -83,7 +84,7 @@ export interface TerminalApi {
   killSession: (sessionId: string) => Promise<void>;
   attachSession: (sessionId: string, target: string) => Promise<void>;
   attachToMain: (sessionId: string) => Promise<void>;
-  detachToWindow: (sessionId: string) => Promise<void>;
+  detachToWindow: (sessionId: string, kind?: DetachedTerminalSessionKind, label?: string) => Promise<void>;
   readClipboardText: () => Promise<string>;
   writeClipboardText: (text: string) => Promise<void>;
   onEvent: (listener: (event: TerminalEventEnvelope) => void) => () => void;

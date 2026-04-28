@@ -15,6 +15,8 @@ const props = defineProps<{
 
   /** Whether the current session is SSH mode */
   sshMode?: boolean;
+  /** Whether the current view can be detached into an independent window */
+  canDetach?: boolean;
   /** Whether port forward panel is open */
   portForwardOpen?: boolean;
 }>();
@@ -157,7 +159,7 @@ const actionItems = computed<ActionItem[]>(() => [
     icon: 'detach',
     event: 'detach',
     show: () => true,
-    disabled: () => !props.activeSession,
+    disabled: () => !(props.activeSession || props.canDetach),
   },
   {
     id: 'clear',

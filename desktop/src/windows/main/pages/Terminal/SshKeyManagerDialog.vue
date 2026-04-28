@@ -1,6 +1,8 @@
 <script setup lang="ts">
 import { computed, reactive, ref, watch } from 'vue';
 import { useSshStore } from '@/windows/main/stores/ssh_store';
+import UiSelect from '@/windows/main/components/ui/UiSelect.vue';
+import type { UiSelectOption } from '@/windows/main/components/ui/UiSelect.vue';
 import type { SshManagedKey } from '@/contracts/ssh';
 
 const props = defineProps<{
@@ -13,11 +15,11 @@ const emit = defineEmits<{
 
 const sshStore = useSshStore();
 
-const ALGORITHMS = [
+const algorithmOptions: UiSelectOption[] = [
   { value: 'ed25519', label: 'Ed25519' },
   { value: 'ecdsa', label: 'ECDSA P-256' },
   { value: 'rsa', label: 'RSA' },
-] as const;
+];
 
 const generateForm = reactive({
   label: '',
@@ -65,6 +67,10 @@ function resetGenerateForm() {
 function clearMessages() {
   error.value = '';
   success.value = '';
+}
+
+function updateAlgorithm(value: string | number) {
+  generateForm.algorithm = String(value);
 }
 
 function formatDate(timestamp: number) {
@@ -228,11 +234,12 @@ async function handleDeleteKey(key: SshManagedKey) {
               </label>
               <label class="key-field">
                 <span>算法</span>
-                <select v-model="generateForm.algorithm">
-                  <option v-for="item in ALGORITHMS" :key="item.value" :value="item.value">
-                    {{ item.label }}
-                  </option>
-                </select>
+                <UiSelect
+                  :model-value="generateForm.algorithm"
+                  :options="algorithmOptions"
+                  size="md"
+                  @update:modelValue="updateAlgorithm"
+                />
               </label>
               <label class="key-field">
                 <span>注释</span>
@@ -334,8 +341,8 @@ async function handleDeleteKey(key: SshManagedKey) {
   align-items: center;
   justify-content: center;
   padding: 28px;
-  background: rgba(8, 13, 23, 0.58);
-  backdrop-filter: blur(10px);
+  background: var(--ui-dialog-overlay, var(--modal-overlay-bg-color));
+  backdrop-filter: var(--ui-backdrop-blur-md);
 }
 
 .key-manager {
@@ -344,9 +351,17 @@ async function handleDeleteKey(key: SshManagedKey) {
   display: flex;
   flex-direction: column;
   overflow: hidden;
-  border-radius: 18px;
-  border: 1px solid var(--ui-border-subtle);
-  background: linear-gradient(180deg, rgba(17, 24, 39, 0.96), rgba(9, 14, 24, 0.96));
+  border-radius: var(--ui-radius-lg);
+  border: 1px solid var(--modal-border-color, var(--ui-border-subtle));
+  background: var(--modal-bg-color, var(--ui-surface-glass-strong));
+  box-shadow: 0 22px 60px var(--modal-shadow-color, rgba(9, 38, 64, 0.2));
+
+  &,
+  *,
+  *::before,
+  *::after {
+    box-sizing: border-box;
+  }
 
   &__header {
     display: flex;
@@ -354,11 +369,13 @@ async function handleDeleteKey(key: SshManagedKey) {
     justify-content: space-between;
     gap: 16px;
     padding: 22px 24px 18px;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+    border-bottom: 1px solid var(--modal-header-border-color, var(--ui-border-subtle));
+    background: color-mix(in srgb, var(--ui-surface-panel-muted) 72%, transparent);
 
     h3 {
       margin: 0;
       font-size: 20px;
+      font-weight: 700;
       color: var(--ui-text-primary);
     }
 
@@ -366,24 +383,40 @@ async function handleDeleteKey(key: SshManagedKey) {
       margin: 6px 0 0;
       font-size: 13px;
       line-height: 1.6;
-      color: var(--ui-text-secondary);
+      color: var(--ui-text-muted);
     }
   }
 
   &__close {
     padding: 8px 12px;
-    border: 1px solid var(--ui-border-subtle);
-    border-radius: 10px;
+    border: 1px solid transparent;
+    border-radius: var(--ui-radius-sm);
     background: transparent;
-    color: var(--ui-text-secondary);
+    color: var(--modal-close-btn-color, var(--ui-button-ghost-text));
     cursor: pointer;
+    transition:
+      background 0.18s ease,
+      color 0.18s ease,
+      border-color 0.18s ease;
+
+    &:hover {
+      border-color: var(--ui-border-subtle);
+      background: var(--modal-close-btn-hover-bg-color, var(--ui-button-ghost-hover-bg));
+      color: var(--ui-button-ghost-hover-text);
+    }
+
+    &:focus-visible {
+      outline: none;
+      box-shadow: var(--ui-focus-ring);
+    }
   }
 
   &__body {
     display: grid;
-    grid-template-columns: 320px minmax(0, 1fr);
+    grid-template-columns: minmax(300px, 340px) minmax(0, 1fr);
     gap: 18px;
     padding: 20px 24px 24px;
+    width: 100%;
     min-height: 0;
     overflow: hidden;
   }
@@ -393,10 +426,12 @@ async function handleDeleteKey(key: SshManagedKey) {
     flex-direction: column;
     gap: 12px;
     min-height: 0;
+    min-width: 0;
     padding: 16px;
-    border: 1px solid rgba(255, 255, 255, 0.07);
-    border-radius: 16px;
-    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid var(--ui-border-subtle);
+    border-radius: var(--ui-radius-md);
+    background: var(--ui-surface-panel);
+    box-shadow: var(--ui-button-secondary-shadow);
   }
 
   &__panel--list {
@@ -406,16 +441,30 @@ async function handleDeleteKey(key: SshManagedKey) {
   &__panel-title {
     font-size: 14px;
     font-weight: 700;
-    color: var(--ui-text-primary);
+    color: var(--modal-section-title-color, var(--ui-text-primary));
+  }
+
+  &__panel-title::before {
+    content: "";
+    display: inline-block;
+    width: 3px;
+    height: 12px;
+    margin-right: 8px;
+    border-radius: var(--ui-radius-full);
+    background: var(--ui-tabs-active-indicator, var(--primary-color));
+    vertical-align: -1px;
   }
 
   &__panel-title--spaced {
-    margin-top: 8px;
+    margin-top: 10px;
+    padding-top: 14px;
+    border-top: 1px solid var(--ui-border-subtle);
   }
 
   &__actions {
     display: flex;
     gap: 10px;
+    flex-wrap: wrap;
   }
 
   &__list-header {
@@ -433,19 +482,22 @@ async function handleDeleteKey(key: SshManagedKey) {
 
   &__message {
     padding: 10px 12px;
-    border-radius: 12px;
+    border-radius: var(--ui-radius-sm);
+    border: 1px solid transparent;
     font-size: 12px;
     line-height: 1.5;
   }
 
   &__message--error {
-    background: rgba(239, 68, 68, 0.16);
-    color: #fecaca;
+    border-color: var(--ui-button-danger-border);
+    background: var(--ui-button-danger-bg);
+    color: var(--ui-button-danger-text);
   }
 
   &__message--success {
-    background: rgba(34, 197, 94, 0.16);
-    color: #bbf7d0;
+    border-color: color-mix(in srgb, #16a34a 22%, var(--ui-border-subtle));
+    background: color-mix(in srgb, #22c55e 12%, var(--ui-surface-panel));
+    color: color-mix(in srgb, #15803d 82%, var(--ui-text-primary));
   }
 
   &__empty {
@@ -453,8 +505,9 @@ async function handleDeleteKey(key: SshManagedKey) {
     align-items: center;
     justify-content: center;
     min-height: 180px;
-    border: 1px dashed rgba(255, 255, 255, 0.09);
-    border-radius: 14px;
+    border: 1px dashed var(--ui-border-accent-soft);
+    border-radius: var(--ui-radius-md);
+    background: color-mix(in srgb, var(--ui-surface-panel-muted) 74%, transparent);
     color: var(--ui-text-muted);
     text-align: center;
     padding: 18px;
@@ -476,37 +529,74 @@ async function handleDeleteKey(key: SshManagedKey) {
   display: flex;
   flex-direction: column;
   gap: 6px;
+  min-width: 0;
 
   span {
     font-size: 12px;
     font-weight: 600;
-    color: var(--ui-text-secondary);
+    color: var(--ui-field-label);
   }
 
-  input,
-  select {
+  input {
     width: 100%;
     min-width: 0;
-    padding: 10px 12px;
-    border: 1px solid rgba(255, 255, 255, 0.08);
-    border-radius: 12px;
-    background: rgba(15, 23, 42, 0.78);
-    color: var(--ui-text-primary);
+    min-height: var(--ui-control-height-md);
+    padding: var(--ui-control-padding-y-md) var(--ui-control-padding-x-md);
+    border: 1px solid var(--ui-input-border);
+    border-radius: var(--ui-radius-sm);
+    background: var(--ui-input-bg);
+    color: var(--ui-input-text);
     font-size: 13px;
     outline: none;
+    transition:
+      border-color 0.18s ease,
+      background 0.18s ease,
+      box-shadow 0.18s ease;
+
+    &:hover {
+      border-color: var(--ui-select-hover-border, var(--ui-border-accent-soft));
+    }
+
+    &:focus {
+      border-color: var(--ui-input-focus-border);
+      box-shadow: var(--ui-focus-ring);
+    }
+
+    &::placeholder {
+      color: var(--ui-input-placeholder);
+    }
   }
 }
 
 .key-primary-btn,
 .key-secondary-btn,
 .key-danger-btn {
-  padding: 10px 12px;
-  border-radius: 12px;
+  min-height: var(--ui-control-height-sm);
+  padding: 9px 12px;
+  border-radius: var(--ui-radius-sm);
   border: 1px solid transparent;
   font-size: 12px;
   font-weight: 700;
   cursor: pointer;
-  transition: 0.18s ease;
+  transition:
+    background 0.18s ease,
+    border-color 0.18s ease,
+    color 0.18s ease,
+    transform 0.18s ease,
+    box-shadow 0.18s ease;
+
+  &:not(:disabled):hover {
+    transform: translateY(-1px);
+  }
+
+  &:not(:disabled):active {
+    transform: translateY(0);
+  }
+
+  &:focus-visible {
+    outline: none;
+    box-shadow: var(--ui-focus-ring);
+  }
 
   &:disabled {
     opacity: 0.6;
@@ -515,20 +605,37 @@ async function handleDeleteKey(key: SshManagedKey) {
 }
 
 .key-primary-btn {
-  background: linear-gradient(135deg, #2563eb, #0f766e);
-  color: #fff;
+  background: var(--ui-button-primary-bg);
+  color: var(--ui-button-primary-text);
+  border-color: var(--ui-button-primary-border);
+  box-shadow: var(--ui-button-primary-shadow);
+
+  &:not(:disabled):hover {
+    background: var(--ui-button-primary-hover-bg);
+  }
 }
 
 .key-secondary-btn {
-  background: rgba(255, 255, 255, 0.04);
-  color: var(--ui-text-secondary);
-  border-color: rgba(255, 255, 255, 0.08);
+  background: var(--ui-button-secondary-bg);
+  color: var(--ui-button-secondary-text);
+  border-color: var(--ui-button-secondary-border);
+  box-shadow: var(--ui-button-secondary-shadow);
+
+  &:not(:disabled):hover {
+    background: var(--ui-button-secondary-hover-bg);
+    border-color: var(--ui-button-secondary-hover-border);
+  }
 }
 
 .key-danger-btn {
-  background: rgba(239, 68, 68, 0.12);
-  color: #fecaca;
-  border-color: rgba(239, 68, 68, 0.22);
+  background: var(--ui-button-danger-bg);
+  color: var(--ui-button-danger-text);
+  border-color: var(--ui-button-danger-border);
+  box-shadow: var(--ui-button-danger-shadow);
+
+  &:not(:disabled):hover {
+    background: var(--ui-button-danger-hover-bg);
+  }
 }
 
 .managed-key-card {
@@ -536,9 +643,10 @@ async function handleDeleteKey(key: SshManagedKey) {
   flex-direction: column;
   gap: 10px;
   padding: 16px;
-  border-radius: 14px;
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  background: rgba(255, 255, 255, 0.03);
+  border-radius: var(--ui-radius-md);
+  border: 1px solid var(--ui-card-border);
+  background: color-mix(in srgb, var(--ui-card-bg) 88%, var(--ui-surface-panel-muted));
+  box-shadow: var(--ui-button-secondary-shadow);
 
   &__top {
     display: flex;
@@ -560,9 +668,10 @@ async function handleDeleteKey(key: SshManagedKey) {
 
     span {
       padding: 3px 8px;
-      border-radius: 999px;
-      background: rgba(255, 255, 255, 0.06);
-      color: var(--ui-text-secondary);
+      border: 1px solid var(--ui-border-subtle);
+      border-radius: var(--ui-radius-full);
+      background: var(--ui-surface-overlay);
+      color: var(--ui-text-muted);
       font-size: 11px;
     }
   }
@@ -576,13 +685,14 @@ async function handleDeleteKey(key: SshManagedKey) {
   &__fingerprint {
     font-family: Consolas, 'Cascadia Mono', monospace;
     font-size: 12px;
-    color: #93c5fd;
+    color: var(--ui-input-focus-border);
     word-break: break-all;
+    font-variant-numeric: tabular-nums;
   }
 
   &__comment {
     font-size: 12px;
-    color: var(--ui-text-secondary);
+    color: var(--ui-text-muted);
   }
 
   &__actions {

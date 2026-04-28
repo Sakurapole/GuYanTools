@@ -352,6 +352,10 @@ function findPrevious() {
 }
 
 async function detachActiveSession() {
+  if (isSshMode.value && activeSshSession.value) {
+    await window.sshApi.detachToWindow(activeSshSession.value.sessionId, activeSshSession.value.profileLabel);
+    return;
+  }
   if (!activeSession.value) return;
   await terminalStore.detachToWindow(activeSession.value.sessionId);
 }
@@ -658,6 +662,7 @@ onBeforeUnmount(() => {
           :renderer-mode="rendererMode" :new-session-profile-id="newSessionProfileId"
           :color-scheme-id="colorSchemeId"
           :ssh-mode="isSshMode" :port-forward-open="sshStore.portForwardPanelOpen"
+          :can-detach="isSshMode && !!activeSshSession"
           @update:newSessionProfileId="newSessionProfileId = $event" @create="createSession"
           @search="searchVisible = !searchVisible" @clear="clearTerminal" @detach="detachActiveSession"
           @rename="handleRenameSession" @update:rendererMode="updateRendererMode"

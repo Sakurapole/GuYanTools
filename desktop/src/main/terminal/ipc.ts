@@ -1,22 +1,38 @@
 import { BrowserWindow, clipboard, ipcMain } from 'electron';
 import path from 'path';
 import { terminalHost } from './host';
-import type { CreateTerminalSessionPayload, ResizeTerminalSessionPayload } from '@/contracts/terminal';
+import { sshHost } from '../ssh/host';
+import type {
+  CreateTerminalSessionPayload,
+  DetachedTerminalSessionKind,
+  ResizeTerminalSessionPayload,
+} from '@/contracts/terminal';
 
 let registered = false;
 
-function buildPopupTarget(sessionId: string) {
-  return `popup:${sessionId}:${Date.now()}`;
+function buildPopupTarget(sessionId: string, kind: DetachedTerminalSessionKind) {
+  return `popup:${kind}:${sessionId}:${Date.now()}`;
 }
 
-async function openDetachedTerminalWindow(sourceWindow: BrowserWindow, sessionId: string) {
-  const target = buildPopupTarget(sessionId);
-  terminalHost.attachSession(sessionId, target);
+async function openDetachedTerminalWindow(
+  sourceWindow: BrowserWindow,
+  sessionId: string,
+  kind: DetachedTerminalSessionKind = 'local',
+  requestedLabel = '',
+) {
+  const target = buildPopupTarget(sessionId, kind);
+  let label = requestedLabel || 'Terminal';
 
-  // Resolve session metadata for the detached window title
-  const sessions = terminalHost.listSessions();
-  const session = sessions.find((s) => s.sessionId === sessionId);
-  const label = session?.profileLabel ?? 'Terminal';
+  if (kind === 'local') {
+    terminalHost.attachSession(sessionId, target);
+    const sessions = terminalHost.listSessions();
+    const session = sessions.find((s) => s.sessionId === sessionId);
+    label = session?.profileLabel ?? label;
+  } else {
+    const sessions = sshHost.listSessions();
+    const session = sessions.find((s) => s.sessionId === sessionId);
+    label = session?.profileLabel ?? label;
+  }
 
   const preloadPath = path.join(__dirname, 'preload.js');
   const parentBounds = sourceWindow.getBounds();
@@ -41,10 +57,12 @@ async function openDetachedTerminalWindow(sourceWindow: BrowserWindow, sessionId
   });
 
   win.on('closed', () => {
-    try {
-      terminalHost.closeDetachedView(sessionId, target);
-    } catch (error) {
-      console.error('[terminal] Failed to close detached terminal view:', error);
+    if (kind === 'local') {
+      try {
+        terminalHost.closeDetachedView(sessionId, target);
+      } catch (error) {
+        console.error('[terminal] Failed to close detached terminal view:', error);
+      }
     }
   });
 
@@ -53,7 +71,7 @@ async function openDetachedTerminalWindow(sourceWindow: BrowserWindow, sessionId
    * The detached window has its own independent Vue app / Pinia store
    * that is completely isolated from the main window.
    */
-  const queryParams = new URLSearchParams({ sessionId, target, label });
+  const queryParams = new URLSearchParams({ sessionId, target, label, kind });
   const query = `?${queryParams.toString()}`;
   if (MAIN_WINDOW_VITE_DEV_SERVER_URL) {
     const terminalUrl = `${MAIN_WINDOW_VITE_DEV_SERVER_URL}/index_terminal.html${query}`;
@@ -62,7 +80,7 @@ async function openDetachedTerminalWindow(sourceWindow: BrowserWindow, sessionId
   } else {
     const terminalHtmlPath = path.join(__dirname, `../renderer/${MAIN_WINDOW_VITE_NAME}/index_terminal.html`);
     console.log('[terminal] Opening detached window from file:', terminalHtmlPath);
-    await win.loadFile(terminalHtmlPath, { query: { sessionId, target, label } });
+    await win.loadFile(terminalHtmlPath, { query: { sessionId, target, label, kind } });
   }
 }
 
@@ -101,12 +119,18 @@ export function registerTerminalIpcHandlers() {
     terminalHost.attachToMain(sessionId);
   });
 
-  ipcMain.handle('terminal:detach-to-window', async (event, sessionId: string) => {
+  ipcMain.handle('terminal:detach-to-window', async (
+    event,
+    sessionId: string,
+    kind: DetachedTerminalSessionKind = 'local',
+    label = '',
+  ) => {
     const sourceWindow = BrowserWindow.fromWebContents(event.sender);
     if (!sourceWindow || sourceWindow.isDestroyed()) {
       throw new Error('无法获取当前窗口');
     }
-    await openDetachedTerminalWindow(sourceWindow, sessionId);
+    const sessionKind = kind === 'ssh' ? 'ssh' : 'local';
+    await openDetachedTerminalWindow(sourceWindow, sessionId, sessionKind, label);
   });
 
   ipcMain.handle('terminal:clipboard-read', async () => {

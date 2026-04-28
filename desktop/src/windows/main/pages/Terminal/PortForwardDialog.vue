@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { reactive, ref, watch, computed } from 'vue';
 import { useSshStore } from '@/windows/main/stores/ssh_store';
+import UiCheckbox from '@/windows/main/components/ui/UiCheckbox.vue';
 import type { CreatePortForwardInput, SshPortForward, UpdatePortForwardInput, PortForwardType } from '@/contracts/ssh';
 
 /** Well-known wildcard addresses that listen on all interfaces */
@@ -381,11 +382,15 @@ async function save() {
             </div>
 
             <div class="pfd-section">
-              <label class="pfd-checkbox"
-                title="启用后，SSH 连接建立时将自动启动此转发规则">
-                <input v-model="form.autoStart" type="checkbox" id="pf-auto-start" />
-                <span>连接后自动启用该转发</span>
-              </label>
+              <UiCheckbox
+                v-model="form.autoStart"
+                class="pfd-auto-start"
+                size="sm"
+                id="pf-auto-start"
+                title="启用后，SSH 连接建立时将自动启动此转发规则"
+              >
+                连接后自动启用该转发
+              </UiCheckbox>
             </div>
 
             <!-- Error -->
@@ -431,7 +436,7 @@ async function save() {
   max-height: calc(100vh - 64px);
   display: flex;
   flex-direction: column;
-  border-radius: var(--ui-radius-xl);
+  border-radius: var(--ui-radius-md);
   background: var(--ui-surface-dialog, var(--ui-surface-panel));
   border: 1px solid var(--ui-border-subtle);
   box-shadow: 0 24px 64px rgba(0, 0, 0, 0.4), 0 4px 16px rgba(0, 0, 0, 0.2);
@@ -685,20 +690,12 @@ async function save() {
   &::placeholder { color: var(--ui-text-subtle); }
 }
 
-.pfd-checkbox {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  font-size: 13px;
-  color: var(--ui-text-secondary);
-  cursor: pointer;
-  user-select: none;
-
-  input[type="checkbox"] {
-    width: 15px;
-    height: 15px;
-    accent-color: var(--primary-color);
-  }
+.pfd-auto-start {
+  align-self: flex-start;
+  padding: 8px 10px;
+  border: 1px solid var(--ui-border-subtle);
+  border-radius: var(--ui-radius-md);
+  background: var(--ui-surface-overlay);
 }
 
 .pfd-error {
