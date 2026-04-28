@@ -4,6 +4,7 @@ import { useRoute } from 'vue-router';
 import type { DomainCheckResult, WebScriptRule } from '@/contracts/webview';
 import UiButton from '../components/ui/UiButton.vue';
 import UiIconButton from '../components/ui/UiIconButton.vue';
+import UiPopupSurface from '../components/ui/UiPopupSurface.vue';
 import { useAppConfigStore } from '../stores/app_config_store';
 import { useBarStore } from '../stores/bar_store';
 import { useGlobalStore } from '../stores/global_store';
@@ -447,10 +448,17 @@ watch(targetUrl, () => {
       </div>
 
       <!-- 脚本管理抽屉（内联，仅覆盖 webview 区域） -->
-      <Transition name="sd-fade">
-        <div v-if="showScriptsDrawer" class="sd-overlay" @click="showScriptsDrawer = false">
-          <Transition name="sd-slide">
-            <div v-if="showScriptsDrawer" class="sd-panel" @click.stop>
+      <UiPopupSurface
+        :model-value="showScriptsDrawer"
+        variant="drawer"
+        placement="right"
+        :teleported="false"
+        :fixed="false"
+        width="380px"
+        :z-index="100"
+        aria-label="注入脚本"
+        @close="showScriptsDrawer = false"
+      >
               <div class="sd-header">
                 <div class="sd-header__info">
                   <h3>注入脚本</h3>
@@ -486,10 +494,7 @@ watch(targetUrl, () => {
                   📜 管理所有脚本
                 </UiButton>
               </div>
-            </div>
-          </Transition>
-        </div>
-      </Transition>
+      </UiPopupSurface>
     </div>
   </div>
 </template>
@@ -730,27 +735,7 @@ watch(targetUrl, () => {
   to   { opacity: 0; transform: translateY(8px) scale(0.97); }
 }
 
-/* ─── Script Drawer (内联，仅覆盖 webview-content) ─── */
-.sd-overlay {
-  position: absolute;
-  inset: 0;
-  background: rgba(0, 0, 0, 0.3);
-  z-index: 100;
-  display: flex;
-  justify-content: flex-end;
-}
-
-.sd-panel {
-  width: 380px;
-  max-width: 90%;
-  height: 100%;
-  display: flex;
-  flex-direction: column;
-  background: var(--ui-card-bg, var(--background-color));
-  border-left: 1px solid var(--ui-border-subtle, rgba(128, 128, 128, 0.12));
-  box-shadow: -4px 0 20px rgba(0, 0, 0, 0.2);
-}
-
+/* ─── Script Drawer ─── */
 .sd-header {
   display: flex;
   align-items: center;
@@ -920,15 +905,4 @@ watch(targetUrl, () => {
   border-top: 1px solid var(--ui-border-subtle, rgba(128, 128, 128, 0.1));
   flex-shrink: 0;
 }
-
-/* ─── Drawer 过渡动画 ─── */
-.sd-fade-enter-active,
-.sd-fade-leave-active { transition: opacity 0.2s ease; }
-.sd-fade-enter-from,
-.sd-fade-leave-to { opacity: 0; }
-
-.sd-slide-enter-active,
-.sd-slide-leave-active { transition: transform 0.25s cubic-bezier(0.25, 0.8, 0.25, 1); }
-.sd-slide-enter-from,
-.sd-slide-leave-to { transform: translateX(100%); }
 </style>

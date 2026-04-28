@@ -1,6 +1,7 @@
 <script lang="ts" setup>
-import { computed, onBeforeUnmount, useAttrs, watch } from 'vue';
+import { computed, useAttrs } from 'vue';
 import UiCard from './UiCard.vue';
+import UiPopupSurface from './UiPopupSurface.vue';
 
 defineOptions({
   inheritAttrs: false,
@@ -13,12 +14,20 @@ const props = withDefaults(defineProps<{
   closeOnMask?: boolean;
   closeOnEsc?: boolean;
   persistent?: boolean;
+  role?: string;
+  ariaLabel?: string;
+  ariaLabelledby?: string;
+  zIndex?: number;
 }>(), {
   width: '',
   maxWidth: '',
   closeOnMask: true,
   closeOnEsc: true,
   persistent: false,
+  role: 'dialog',
+  ariaLabel: '',
+  ariaLabelledby: '',
+  zIndex: 10000,
 });
 
 const emit = defineEmits<{
@@ -37,95 +46,63 @@ function normalizeSize(value: string | number | undefined) {
   return typeof value === 'number' ? `${value}px` : value;
 }
 
-const dialogStyle = computed(() => ({
+const dialogShellStyle = computed(() => ({
   width: normalizeSize(props.width),
   maxWidth: normalizeSize(props.maxWidth),
 }));
-
-function requestClose() {
-  if (props.persistent) {
-    return;
-  }
-
-  emit('update:modelValue', false);
-  emit('close');
-}
-
-function handleMaskClick() {
-  if (!props.closeOnMask) {
-    return;
-  }
-
-  requestClose();
-}
-
-function handleKeydown(event: KeyboardEvent) {
-  if (!props.modelValue || !props.closeOnEsc || event.key !== 'Escape') {
-    return;
-  }
-
-  event.preventDefault();
-  requestClose();
-}
-
-watch(() => props.modelValue, value => {
-  if (value) {
-    emit('open');
-  }
-}, { immediate: false });
-
-watch(() => props.modelValue, value => {
-  if (value) {
-    window.addEventListener('keydown', handleKeydown);
-    return;
-  }
-
-  window.removeEventListener('keydown', handleKeydown);
-});
-
-onBeforeUnmount(() => {
-  window.removeEventListener('keydown', handleKeydown);
-});
 </script>
 
 <template>
-  <Teleport to="body">
-    <div v-if="modelValue" class="ui-dialog-overlay" @click="handleMaskClick">
-      <UiCard class="ui-dialog" variant="elevated" padding="none" radius="lg" v-bind="attrs" :style="dialogStyle"
-        @click.stop>
-        <div v-if="$slots.header" class="ui-dialog__header">
-          <slot name="header" />
-        </div>
-        <div class="ui-dialog__body">
-          <slot />
-        </div>
-        <div v-if="$slots.footer" class="ui-dialog__footer">
-          <slot name="footer" />
-        </div>
-      </UiCard>
-    </div>
-  </Teleport>
+  <UiPopupSurface
+    :model-value="modelValue"
+    variant="dialog"
+    placement="center"
+    panel-class="ui-dialog-shell"
+    :panel-style="dialogShellStyle"
+    :close-on-mask="closeOnMask"
+    :close-on-esc="closeOnEsc"
+    :persistent="persistent"
+    :role="role"
+    :aria-label="ariaLabel"
+    :aria-labelledby="ariaLabelledby"
+    :z-index="zIndex"
+    @update:modelValue="emit('update:modelValue', $event)"
+    @open="emit('open')"
+    @close="emit('close')"
+  >
+    <UiCard
+      class="ui-dialog"
+      variant="elevated"
+      padding="none"
+      radius="lg"
+      v-bind="attrs"
+    >
+      <div v-if="$slots.header" class="ui-dialog__header">
+        <slot name="header" />
+      </div>
+      <div class="ui-dialog__body">
+        <slot />
+      </div>
+      <div v-if="$slots.footer" class="ui-dialog__footer">
+        <slot name="footer" />
+      </div>
+    </UiCard>
+  </UiPopupSurface>
 </template>
 
 <style lang="scss" scoped>
-.ui-dialog-overlay {
-  position: fixed;
-  inset: 0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 24px;
-  box-sizing: border-box;
-  background: var(--ui-dialog-overlay);
-  z-index: 10000;
-  animation: uiDialogFadeIn 0.18s ease-out;
+.ui-dialog-shell {
+  width: min(100%, 560px);
+  max-height: calc(100vh - 48px);
 }
 
 .ui-dialog {
-  width: min(100%, 560px);
-  max-height: calc(100vh - 48px);
+  width: 100%;
+  max-width: 100%;
+  max-height: inherit;
+  display: flex;
+  flex-direction: column;
   overflow: hidden;
-  animation: uiDialogSlideIn 0.22s ease-out;
 }
 
 .ui-dialog__header,
@@ -144,27 +121,5 @@ onBeforeUnmount(() => {
 
 .ui-dialog__footer {
   border-top: var(--ui-border-width-thin) solid var(--ui-dialog-footer-border);
-}
-
-@keyframes uiDialogFadeIn {
-  from {
-    opacity: 0;
-  }
-
-  to {
-    opacity: 1;
-  }
-}
-
-@keyframes uiDialogSlideIn {
-  from {
-    opacity: 0;
-    transform: translateY(18px) scale(0.98);
-  }
-
-  to {
-    opacity: 1;
-    transform: translateY(0) scale(1);
-  }
 }
 </style>

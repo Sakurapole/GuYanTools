@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { ref } from 'vue';
 import { useSshStore } from '@/windows/main/stores/ssh_store';
+import UiPopupSurface from '@/windows/main/components/ui/UiPopupSurface.vue';
 import type { TrustHostInput } from '@/contracts/ssh';
 
 // ── Props & Emits ─────────────────────────────────────────────
@@ -52,10 +53,16 @@ function reject() {
 </script>
 
 <template>
-  <Teleport to="body">
-    <Transition name="fp-fade">
-      <div v-if="visible" class="fp-overlay">
-        <div class="fp-dialog" role="alertdialog" aria-labelledby="fp-title">
+  <UiPopupSurface
+    :model-value="visible"
+    variant="dialog"
+    overlay-class="fp-overlay"
+    panel-class="fp-dialog"
+    role="alertdialog"
+    aria-labelledby="fp-title"
+    :close-on-mask="false"
+    :z-index="1100"
+  >
           <!-- Warning icon -->
           <div class="fp-icon-wrap">
             <div class="fp-icon">
@@ -116,13 +123,10 @@ function reject() {
               {{ saving ? '保存中...' : '信任并连接' }}
             </button>
           </div>
-        </div>
-      </div>
-    </Transition>
-  </Teleport>
+  </UiPopupSurface>
 </template>
 
-<style lang="scss" scoped>
+<style lang="scss">
 .fp-overlay {
   position: fixed;
   inset: 0;

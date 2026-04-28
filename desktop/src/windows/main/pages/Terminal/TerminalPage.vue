@@ -2,6 +2,7 @@
 import { computed, defineAsyncComponent, nextTick, onActivated, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import UiButton from '@/windows/main/components/ui/UiButton.vue';
+import UiPopupSurface from '@/windows/main/components/ui/UiPopupSurface.vue';
 import { useGlobalStore } from '@/windows/main/stores/global_store';
 import { useTerminalStore } from '@/windows/main/stores/terminal_store';
 import { useAppConfigStore } from '@/windows/main/stores/app_config_store';
@@ -820,9 +821,15 @@ onBeforeUnmount(() => {
       />
 
       <!-- SSH Password Prompt Dialog -->
-      <Teleport to="body">
-        <Transition name="dialog-fade">
-          <div v-if="sshPasswordPromptVisible" class="ssh-pwd-overlay" @click.self="handleSshPasswordCancel">
+      <UiPopupSurface
+        :model-value="sshPasswordPromptVisible"
+        variant="dialog"
+        width="340px"
+        max-width="calc(100vw - 48px)"
+        :z-index="9000"
+        aria-label="输入 SSH 密码"
+        @close="handleSshPasswordCancel"
+      >
             <div class="ssh-pwd-dialog ui-glass-surface ui-glass-surface--strong">
               <div class="ssh-pwd-dialog__header">
                 <svg viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" stroke-width="2"
@@ -848,9 +855,7 @@ onBeforeUnmount(() => {
                 <button class="ssh-pwd-btn ssh-pwd-btn--confirm" @click="handleSshPasswordConfirm">连接</button>
               </div>
             </div>
-          </div>
-        </Transition>
-      </Teleport>
+      </UiPopupSurface>
 
       <!-- Port Forward Dialog -->
       <PortForwardDialog
@@ -1394,19 +1399,8 @@ onBeforeUnmount(() => {
 
 // ── SSH Password Prompt ───────────────────────────────────────
 
-.ssh-pwd-overlay {
-  position: fixed;
-  inset: 0;
-  z-index: 9000;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: rgba(0, 0, 0, 0.45);
-  backdrop-filter: blur(4px);
-}
-
 .ssh-pwd-dialog {
-  width: 340px;
+  width: 100%;
   border-radius: var(--ui-radius-lg);
   padding: 24px;
   display: flex;

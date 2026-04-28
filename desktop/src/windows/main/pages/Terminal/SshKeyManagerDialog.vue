@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, reactive, ref, watch } from 'vue';
+import UiPopupSurface from '@/windows/main/components/ui/UiPopupSurface.vue';
 import { useSshStore } from '@/windows/main/stores/ssh_store';
 import UiSelect from '@/windows/main/components/ui/UiSelect.vue';
 import type { UiSelectOption } from '@/windows/main/components/ui/UiSelect.vue';
@@ -213,10 +214,17 @@ async function handleDeleteKey(key: SshManagedKey) {
 </script>
 
 <template>
-  <Teleport to="body">
-    <Transition name="dialog-fade">
-      <div v-if="visible" class="key-manager-overlay" @click.self="emit('close')">
-        <div class="key-manager ui-glass-surface ui-glass-surface--strong">
+  <UiPopupSurface
+    :model-value="visible"
+    variant="dialog"
+    overlay-class="key-manager-overlay"
+    :panel-class="['key-manager', 'ui-glass-surface', 'ui-glass-surface--strong']"
+    width="min(1100px, calc(100vw - 48px))"
+    max-height="calc(100vh - 56px)"
+    aria-label="SSH 密钥管理"
+    :z-index="2400"
+    @close="emit('close')"
+  >
           <div class="key-manager__header">
             <div>
               <h3>SSH 密钥管理</h3>
@@ -326,13 +334,10 @@ async function handleDeleteKey(key: SshManagedKey) {
               </div>
             </section>
           </div>
-        </div>
-      </div>
-    </Transition>
-  </Teleport>
+  </UiPopupSurface>
 </template>
 
-<style lang="scss" scoped>
+<style lang="scss">
 .key-manager-overlay {
   position: fixed;
   inset: 0;

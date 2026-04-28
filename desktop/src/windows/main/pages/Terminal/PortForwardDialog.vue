@@ -2,6 +2,7 @@
 import { reactive, ref, watch, computed } from 'vue';
 import { useSshStore } from '@/windows/main/stores/ssh_store';
 import UiCheckbox from '@/windows/main/components/ui/UiCheckbox.vue';
+import UiPopupSurface from '@/windows/main/components/ui/UiPopupSurface.vue';
 import type { CreatePortForwardInput, SshPortForward, UpdatePortForwardInput, PortForwardType } from '@/contracts/ssh';
 
 /** Well-known wildcard addresses that listen on all interfaces */
@@ -201,10 +202,15 @@ async function save() {
 </script>
 
 <template>
-  <Teleport to="body">
-    <Transition name="dialog-fade">
-      <div v-if="visible" class="pfd-overlay" @click.self="emit('close')">
-        <div class="pfd-dialog" role="dialog" :aria-label="dialogTitle">
+  <UiPopupSurface
+    :model-value="visible"
+    variant="dialog"
+    overlay-class="pfd-overlay"
+    panel-class="pfd-dialog"
+    :aria-label="dialogTitle"
+    :z-index="1000"
+    @close="emit('close')"
+  >
           <!-- Header -->
           <div class="pfd-dialog__header">
             <h3 class="pfd-dialog__title">{{ dialogTitle }}</h3>
@@ -412,13 +418,10 @@ async function save() {
               {{ saving ? '保存中...' : '保存' }}
             </button>
           </div>
-        </div>
-      </div>
-    </Transition>
-  </Teleport>
+  </UiPopupSurface>
 </template>
 
-<style lang="scss" scoped>
+<style lang="scss">
 .pfd-overlay {
   position: fixed;
   inset: 0;

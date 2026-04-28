@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { useTodoStore } from '@/windows/main/stores/todo_store';
+import UiPopupSurface from '@/windows/main/components/ui/UiPopupSurface.vue';
 import UiScrollbar from '@/windows/main/components/ui/UiScrollbar.vue';
 
 const todoStore = useTodoStore();
@@ -19,8 +20,15 @@ function dismiss() {
 </script>
 
 <template>
-  <div class="prompt-overlay" @click.self="dismiss">
-    <div class="prompt-card">
+  <UiPopupSurface
+    :model-value="true"
+    variant="dialog"
+    overlay-class="prompt-overlay"
+    panel-class="prompt-card"
+    aria-label="昨天未完成任务"
+    :z-index="1000"
+    @close="dismiss"
+  >
       <!-- 标题区域 -->
       <div class="prompt-header">
         <div class="prompt-icon">
@@ -72,11 +80,10 @@ function dismiss() {
           全部添加到今天
         </button>
       </div>
-    </div>
-  </div>
+  </UiPopupSurface>
 </template>
 
-<style scoped>
+<style>
 .prompt-overlay {
   position: fixed;
   top: 0;

@@ -3,6 +3,7 @@ import { computed, reactive, ref, watch } from 'vue';
 import UiButton from '@/windows/main/components/ui/UiButton.vue';
 import UiCheckbox from '@/windows/main/components/ui/UiCheckbox.vue';
 import UiInput from '@/windows/main/components/ui/UiInput.vue';
+import UiPopupSurface from '@/windows/main/components/ui/UiPopupSurface.vue';
 import UiScrollbar from '@/windows/main/components/ui/UiScrollbar.vue';
 import UiSelect from '@/windows/main/components/ui/UiSelect.vue';
 import { useSshStore } from '@/windows/main/stores/ssh_store';
@@ -314,10 +315,15 @@ function clearSelectedCertificate() {
 </script>
 
 <template>
-  <Teleport to="body">
-    <Transition name="dialog-fade">
-      <div v-if="visible" class="sp-overlay" @click.self="emit('close')">
-        <div class="sp-dialog" role="dialog" :aria-label="dialogTitle">
+  <UiPopupSurface
+    :model-value="visible"
+    variant="dialog"
+    overlay-class="sp-overlay"
+    panel-class="sp-dialog"
+    :aria-label="dialogTitle"
+    :z-index="1000"
+    @close="emit('close')"
+  >
           <!-- Header -->
           <div class="sp-dialog__header">
             <h3 class="sp-dialog__title">{{ dialogTitle }}</h3>
@@ -597,13 +603,10 @@ function clearSelectedCertificate() {
               </UiButton>
             </div>
           </div>
-        </div>
-      </div>
-    </Transition>
-  </Teleport>
+  </UiPopupSurface>
 </template>
 
-<style lang="scss" scoped>
+<style lang="scss">
 // ── Dialog overlay ────────────────────────────────────────────
 
 .sp-overlay {

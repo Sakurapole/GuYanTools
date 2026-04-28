@@ -3,6 +3,7 @@ import { onBeforeUnmount, ref } from 'vue';
 import type { ContextMenuItem } from '../../composables/useContextMenu';
 import UiMenuDivider from './UiMenuDivider.vue';
 import UiMenuItem from './UiMenuItem.vue';
+import UiPopupSurface from './UiPopupSurface.vue';
 
 defineOptions({ name: 'ContextMenuBranch' });
 
@@ -106,19 +107,22 @@ onBeforeUnmount(() => {
           </template>
         </UiMenuItem>
 
-        <Teleport to="body">
-          <div
-          v-if="hasChildren(item) && openSubmenuId === item.id"
-          class="context-menu-branch__submenu"
-          :style="submenuStyle[item.id]"
+        <UiPopupSurface
+          :model-value="hasChildren(item) && openSubmenuId === item.id"
+          variant="floating"
+          :overlay="false"
+          :close-on-outside="false"
+          :close-on-esc="false"
+          :panel-style="submenuStyle[item.id]"
+          :z-index="10000"
+          role="menu"
           @mouseenter="clearCloseTimer"
           @mouseleave="scheduleClose(item.id)"
         >
           <div class="context-menu-branch__panel">
             <ContextMenuBranch :items="item.children || []" nested :close-menu="closeMenu" />
           </div>
-          </div>
-        </Teleport>
+        </UiPopupSurface>
       </div>
     </template>
   </div>
@@ -152,11 +156,6 @@ onBeforeUnmount(() => {
   backdrop-filter: blur(16px) saturate(1.6);
   -webkit-backdrop-filter: blur(16px) saturate(1.6);
   box-shadow: var(--ui-menu-shadow);
-}
-
-.context-menu-branch__submenu {
-  position: fixed;
-  z-index: 10000;
 }
 
 .context-menu-branch__arrow {
