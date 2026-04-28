@@ -40,6 +40,16 @@ interface SshReconnectState {
   lastError?: string;
 }
 
+export interface RunningPortForwardSummary {
+  sessionId: string;
+  forwardId: string;
+  profileLabel: string;
+  label: string;
+  forwardType: SshPortForward['forwardType'];
+  port: number;
+  address: string;
+}
+
 const SSH_RECONNECT_DELAY_MS = 2000;
 
 export const useSshStore = defineStore('ssh', () => {
@@ -80,6 +90,43 @@ export const useSshStore = defineStore('ssh', () => {
     () => sessions.value.filter((s) => s.status === 'connected'),
   );
 
+  const runningPortForwardSummaries = computed<RunningPortForwardSummary[]>(() => {
+    const summaries: RunningPortForwardSummary[] = [];
+
+    for (const session of sessions.value) {
+      const statuses = forwardStatuses.value[session.sessionId] ?? [];
+      const rules = portForwards.value[session.profileId] ?? [];
+
+      for (const status of statuses) {
+        if (status.status !== 'running') continue;
+
+        const rule = rules.find((item) => item.id === status.forwardId);
+        if (!rule) continue;
+
+        const port = rule.forwardType === 'remote'
+          ? rule.remotePort
+          : rule.localPort;
+        if (typeof port !== 'number') continue;
+
+        const host = rule.forwardType === 'remote'
+          ? (rule.remoteHost || '0.0.0.0')
+          : rule.localHost;
+
+        summaries.push({
+          sessionId: session.sessionId,
+          forwardId: rule.id,
+          profileLabel: session.profileLabel,
+          label: rule.label || `${host}:${port}`,
+          forwardType: rule.forwardType,
+          port,
+          address: `${host}:${port}`,
+        });
+      }
+    }
+
+    return summaries;
+  });
+
   // ── Lifecycle ─────────────────────────────────────────────────
 
   function ensureEventSubscription() {
@@ -93,6 +140,7 @@ export const useSshStore = defineStore('ssh', () => {
     sessions.value = await window.sshApi.listSessions();
     managedKeys.value = await window.sshApi.listManagedKeys();
     ensureEventSubscription();
+    await hydratePortForwardRuntimeState();
     initialized.value = true;
   }
 
@@ -419,8 +467,9 @@ export const useSshStore = defineStore('ssh', () => {
 
   function handleMissingSessionError(sessionId: string, err: unknown) {
     if (!isMissingSessionError(err)) return false;
-    console.warn(`[SshStore] SSH session ${sessionId} is no longer available; removing local state.`);
-    removeSessionLocal(sessionId);
+    const message = err instanceof Error ? err.message : String(err);
+    console.warn(`[SshStore] SSH session ${sessionId} is no longer available; marking disconnected.`);
+    markSessionUnavailable(sessionId, message);
     return true;
   }
 
@@ -432,7 +481,10 @@ export const useSshStore = defineStore('ssh', () => {
     if (!session) return;
 
     const profile = profiles.value.find((item) => item.id === session.profileId);
-    if (!profile?.autoReconnect) return;
+    if (!profile?.autoReconnect) {
+      markSessionUnavailable(event.sessionId, event.message || 'SSH session closed');
+      return;
+    }
 
     const connectInput = sessionConnectInputs.get(event.sessionId);
     const state: SshReconnectState = {
@@ -452,6 +504,55 @@ export const useSshStore = defineStore('ssh', () => {
     };
     appendSystemMessage(event.sessionId, `连接已断开：${event.message || 'SSH session closed'}`);
     scheduleReconnectAttempt(event.sessionId);
+  }
+
+  function markSessionUnavailable(sessionId: string, message: string) {
+    const session = sessions.value.find((item) => item.sessionId === sessionId);
+
+    const nextFwdStatuses = { ...forwardStatuses.value };
+    delete nextFwdStatuses[sessionId];
+    forwardStatuses.value = nextFwdStatuses;
+
+    const nextFwdTraffic = { ...forwardTraffic.value };
+    delete nextFwdTraffic[sessionId];
+    forwardTraffic.value = nextFwdTraffic;
+
+    sessionErrors.value = {
+      ...sessionErrors.value,
+      [sessionId]: message || 'SSH session closed',
+    };
+
+    if (!session) return;
+
+    sessions.value = sessions.value.map((item) =>
+      item.sessionId === sessionId
+        ? { ...item, status: 'disconnected' }
+        : item,
+    );
+
+    if (reconnectStates.value[sessionId]) {
+      return;
+    }
+
+    const connectInput = sessionConnectInputs.get(sessionId);
+    reconnectStates.value = {
+      ...reconnectStates.value,
+      [sessionId]: {
+        profileId: session.profileId,
+        password: connectInput?.password,
+        rows: connectInput?.rows || 32,
+        cols: connectInput?.cols || 120,
+        attempts: 0,
+        maxAttempts: appConfigStore.config.features.terminal.sshReconnectMaxAttempts || 3,
+        status: 'manual-wait',
+        lastError: message,
+      },
+    };
+
+    appendSystemMessage(
+      sessionId,
+      `连接已断开：${message || 'SSH session closed'}。请点击重连后继续操作。`,
+    );
   }
 
   function scheduleReconnectAttempt(sessionId: string) {
@@ -573,6 +674,15 @@ export const useSshStore = defineStore('ssh', () => {
   }
 
   // ── Port forwarding ──────────────────────────────────────────
+
+  async function hydratePortForwardRuntimeState() {
+    await Promise.allSettled(
+      connectedSessions.value.map(async (session) => {
+        await loadPortForwards(session.profileId);
+        await refreshForwardStatus(session.sessionId);
+      }),
+    );
+  }
 
   async function loadPortForwards(profileId: string) {
     const list = await window.sshApi.listPortForwards(profileId);
@@ -848,6 +958,8 @@ export const useSshStore = defineStore('ssh', () => {
     activeSshSessionId,
     activeSshSession,
     connectedSessions,
+    runningPortForwardSummaries,
+    reconnectStates,
     knownHosts,
     managedKeys,
     initialized,
@@ -899,6 +1011,7 @@ export const useSshStore = defineStore('ssh', () => {
     refreshForwardStatus,
     refreshForwardTraffic,
     togglePortForwardPanel,
+    markSessionUnavailable,
 
     // Import/export
     exportPortForwards,
