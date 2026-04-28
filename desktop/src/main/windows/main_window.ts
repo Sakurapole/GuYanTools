@@ -3,6 +3,14 @@ import path from 'path';
 import { dbManager } from "../../core/database";
 import { waitForDevServer } from "./wait_for_dev_server";
 
+function resolveWindowIconPath(): string {
+  if (app.isPackaged) {
+    return path.join(process.resourcesPath, 'icons', 'app_icon.ico');
+  }
+
+  return path.join(app.getAppPath(), 'src', 'assets', 'icons', 'app_icon.ico');
+}
+
 export default () => {
   let mainWindow: BrowserWindow;
   let isQuitting = false;
@@ -29,6 +37,7 @@ export default () => {
     mainWindow = new BrowserWindow({
       width: 1366,
       height: 768,
+      icon: resolveWindowIconPath(),
       webPreferences: {
         preload: path.join(__dirname, 'preload.js'),
         webviewTag: true,
