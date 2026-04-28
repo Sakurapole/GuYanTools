@@ -3,6 +3,7 @@ import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { Terminal } from '@xterm/xterm';
 import { FitAddon } from '@xterm/addon-fit';
 import { SearchAddon } from '@xterm/addon-search';
+import type { ISearchOptions, ISearchResultChangeEvent } from '@xterm/addon-search';
 import { Unicode11Addon } from '@xterm/addon-unicode11';
 import { WebglAddon } from '@xterm/addon-webgl';
 import { ImageAddon } from '@xterm/addon-image';
@@ -57,6 +58,7 @@ const props = withDefaults(defineProps<{
 
 const emit = defineEmits<{
   rendererFallback: [mode: Exclude<TerminalRendererMode, 'webgl'>];
+  searchResults: [value: ISearchResultChangeEvent];
 }>();
 
 const hostRef = ref<HTMLElement | null>(null);
@@ -64,11 +66,20 @@ const { open: openContextMenu } = useContextMenu();
 let terminal: Terminal | null = null;
 let fitAddon: FitAddon | null = null;
 let searchAddon: SearchAddon | null = null;
+let searchResultsDisposable: { dispose: () => void } | null = null;
 let resizeObserver: ResizeObserver | null = null;
 let lastRenderedBuffer = '';
 let wasmDecoderAvailability: Promise<boolean> | null = null;
 let renderQueue = Promise.resolve();
 const TRANSPARENT_BG = 'rgba(0, 0, 0, 0)';
+const SEARCH_DECORATIONS: NonNullable<ISearchOptions['decorations']> = {
+  matchBackground: '#334155',
+  matchBorder: '#64748b',
+  matchOverviewRuler: '#64748b',
+  activeMatchBackground: '#f59e0b',
+  activeMatchBorder: '#fbbf24',
+  activeMatchColorOverviewRuler: '#f59e0b',
+};
 
 function hasParam(params: ReadonlyArray<number | number[]>, expected: number) {
   return params.some((param) => Array.isArray(param)
@@ -179,6 +190,9 @@ async function createTerminal() {
   terminal.loadAddon(fitAddon);
   terminal.loadAddon(searchAddon);
   terminal.loadAddon(new Unicode11Addon());
+  searchResultsDisposable = searchAddon.onDidChangeResults((value) => {
+    emit('searchResults', value);
+  });
 
   terminal.parser.registerCsiHandler({ final: 'n' }, (params) => {
     if (params[0] !== 6 || !terminal) {
@@ -414,17 +428,38 @@ function clear() {
   lastRenderedBuffer = '';
 }
 
-function findNext(query: string) {
-  if (!query.trim() || !searchAddon) return;
-  searchAddon.findNext(query);
+function clearSearchResults() {
+  searchAddon?.clearDecorations();
+  emit('searchResults', { resultIndex: -1, resultCount: 0 });
+}
+
+function findNext(query: string, incremental = false) {
+  const term = query.trim();
+  if (!term || !searchAddon) {
+    clearSearchResults();
+    return false;
+  }
+
+  return searchAddon.findNext(term, {
+    decorations: SEARCH_DECORATIONS,
+    incremental,
+  });
 }
 
 function findPrevious(query: string) {
-  if (!query.trim() || !searchAddon) return;
-  searchAddon.findPrevious(query);
+  const term = query.trim();
+  if (!term || !searchAddon) {
+    clearSearchResults();
+    return false;
+  }
+
+  return searchAddon.findPrevious(term, {
+    decorations: SEARCH_DECORATIONS,
+  });
 }
 
 defineExpose({
+  clearSearchResults,
   clear,
   findNext,
   findPrevious,
@@ -462,6 +497,8 @@ onMounted(async () => {
 onBeforeUnmount(() => {
   resizeObserver?.disconnect();
   resizeObserver = null;
+  searchResultsDisposable?.dispose();
+  searchResultsDisposable = null;
   renderQueue = Promise.resolve();
   terminal?.dispose();
   terminal = null;

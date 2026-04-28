@@ -1,10 +1,10 @@
 <script setup lang="ts">
-import UiButton from '@/windows/main/components/ui/UiButton.vue';
 import UiSelect from '@/windows/main/components/ui/UiSelect.vue';
 import type { TerminalProfile, TerminalRendererMode, TerminalSessionDescriptor } from '@/contracts/terminal';
 import type { UiSelectOption } from '@/windows/main/components/ui/UiSelect.vue';
 import { computed, nextTick, onBeforeUnmount, onMounted, ref } from 'vue';
 import { BUILTIN_SCHEMES } from './terminal-themes';
+import TerminalProfileIcon from './TerminalProfileIcon.vue';
 
 const props = defineProps<{
   profiles: TerminalProfile[];
@@ -24,7 +24,7 @@ const props = defineProps<{
 const emit = defineEmits<{
   'update:newSessionProfileId': [value: string];
   'update:colorSchemeId': [value: string];
-  create: [];
+  create: [profileId?: string];
   detach: [];
   clear: [];
   search: [];
@@ -34,13 +34,6 @@ const emit = defineEmits<{
   rename: [sessionId: string, newLabel: string];
   'update:rendererMode': [value: TerminalRendererMode];
 }>();
-
-const profileOptions = computed<UiSelectOption[]>(() =>
-  props.profiles.map((profile) => ({
-    label: profile.label,
-    value: profile.id,
-  })),
-);
 
 const rendererOptions: UiSelectOption[] = [
   { label: '自动', value: 'auto' },
@@ -92,6 +85,7 @@ function updateActionMode(width: number) {
 }
 
 onMounted(() => {
+  document.addEventListener('pointerdown', handleDocumentPointerDown, true);
   if (toolbarRef.value) {
     resizeObserver = new ResizeObserver((entries) => {
       for (const entry of entries) {
@@ -105,6 +99,7 @@ onMounted(() => {
 });
 
 onBeforeUnmount(() => {
+  document.removeEventListener('pointerdown', handleDocumentPointerDown, true);
   resizeObserver?.disconnect();
 });
 
@@ -172,10 +167,55 @@ const actionItems = computed<ActionItem[]>(() => [
 ]);
 
 const visibleActions = computed(() => actionItems.value.filter((a) => a.show()));
+const profilePickerOpen = ref(false);
+const pendingProfileId = ref('');
+const profilePickerRef = ref<HTMLElement | null>(null);
+
+const selectedProfileId = computed(() =>
+  pendingProfileId.value || props.newSessionProfileId || props.profiles.find((profile) => profile.isDefault)?.id || props.profiles[0]?.id || '',
+);
 
 function handleAction(action: ActionItem) {
   if (action.disabled()) return;
   emit(action.event as any);
+}
+
+function openProfilePicker() {
+  if (props.sshMode || props.profiles.length === 0) {
+    return;
+  }
+
+  if (profilePickerOpen.value) {
+    profilePickerOpen.value = false;
+    return;
+  }
+
+  pendingProfileId.value = selectedProfileId.value;
+  profilePickerOpen.value = true;
+}
+
+function confirmProfileCreate() {
+  const profileId = selectedProfileId.value;
+  if (!profileId) {
+    return;
+  }
+
+  emit('update:newSessionProfileId', profileId);
+  emit('create', profileId);
+  profilePickerOpen.value = false;
+}
+
+function handleDocumentPointerDown(event: PointerEvent) {
+  if (!profilePickerOpen.value) {
+    return;
+  }
+
+  const target = event.target;
+  if (target instanceof Node && profilePickerRef.value?.contains(target)) {
+    return;
+  }
+
+  profilePickerOpen.value = false;
 }
 
 // ── Inline rename state ───────────────────────────────────────
@@ -214,17 +254,58 @@ function handleTitleKeydown(e: KeyboardEvent) {
 <template>
   <div ref="toolbarRef" class="terminal-toolbar">
     <div class="terminal-toolbar__left">
-      <UiSelect
-        v-if="!sshMode"
-        :model-value="newSessionProfileId"
-        :options="profileOptions"
-        size="sm"
-        placeholder="终端类型"
-        @update:modelValue="emit('update:newSessionProfileId', $event as string)"
-      />
-      <UiButton variant="primary" size="sm" @click="emit('create')">
-        新建会话
-      </UiButton>
+      <button class="terminal-create-btn" type="button" title="新建默认会话" aria-label="新建默认会话" @click="emit('create')">
+        <svg viewBox="0 0 24 24" width="15" height="15" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M12 5v14" />
+          <path d="M5 12h14" />
+        </svg>
+      </button>
+      <div v-if="!sshMode" ref="profilePickerRef" class="terminal-profile-create">
+        <button
+          class="terminal-create-other-btn"
+          type="button"
+          title="新建其他类型终端"
+          aria-label="新建其他类型终端"
+          :disabled="profiles.length === 0"
+          @click="openProfilePicker"
+        >
+          <svg viewBox="0 0 24 24" width="15" height="15" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M3 6h13" />
+            <path d="M3 12h10" />
+            <path d="M3 18h7" />
+            <path d="M18 14v7" />
+            <path d="M14.5 17.5h7" />
+          </svg>
+        </button>
+        <div v-if="profilePickerOpen" class="terminal-profile-create__panel" @keydown.escape="profilePickerOpen = false">
+          <div class="terminal-profile-create__options" role="listbox" aria-label="选择终端类型">
+            <button
+              v-for="profile in profiles"
+              :key="profile.id"
+              class="terminal-profile-create__option"
+              :class="{ 'terminal-profile-create__option--active': profile.id === selectedProfileId }"
+              type="button"
+              role="option"
+              :aria-selected="profile.id === selectedProfileId"
+              @click="pendingProfileId = profile.id"
+            >
+              <TerminalProfileIcon :profile-id="profile.id" :command="profile.command" :label="profile.label" :size="16" />
+              <span class="terminal-profile-create__option-label">{{ profile.label }}</span>
+            </button>
+          </div>
+          <button class="terminal-profile-create__confirm" type="button" title="确认创建" aria-label="确认创建" @click="confirmProfileCreate">
+            <svg viewBox="0 0 24 24" width="15" height="15" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M20 6 9 17l-5-5" />
+            </svg>
+          </button>
+          <button class="terminal-profile-create__cancel" type="button" title="取消" aria-label="取消" @click="profilePickerOpen = false">
+            <svg viewBox="0 0 24 24" width="15" height="15" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M18 6 6 18" />
+              <path d="m6 6 12 12" />
+            </svg>
+          </button>
+        </div>
+      </div>
       <div v-if="activeSession" class="terminal-toolbar__title">
         <input
           v-if="titleEditing"
@@ -234,9 +315,7 @@ function handleTitleKeydown(e: KeyboardEvent) {
           @blur="commitTitleEdit"
           @keydown="handleTitleKeydown"
         />
-        <span v-else class="title-name title-name--editable" @click="startTitleEdit">{{ activeSession.profileLabel }}</span>
-        <span class="title-divider">|</span>
-        <span class="title-status">{{ activeSession.status === 'running' ? 'Running' : 'Stopped' }}</span>
+        <span v-else class="title-name title-name--editable" :title="activeSession.profileLabel" @click="startTitleEdit">{{ activeSession.profileLabel }}</span>
       </div>
     </div>
 
@@ -254,7 +333,7 @@ function handleTitleKeydown(e: KeyboardEvent) {
         @update:modelValue="emit('update:rendererMode', $event as TerminalRendererMode)"
       />
 
-      <!-- Full mode: icon + text buttons -->
+      <!-- Full mode keeps all commands as icon buttons; text is exposed through title/aria-label. -->
       <template v-if="actionMode === 'full'">
         <button
           v-for="action in visibleActions"
@@ -288,7 +367,6 @@ function handleTitleKeydown(e: KeyboardEvent) {
           <svg v-else-if="action.icon === 'kill'" viewBox="0 0 24 24" width="14" height="14" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round">
             <line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" />
           </svg>
-          <span class="toolbar-action-btn__label">{{ action.label }}</span>
         </button>
       </template>
 
@@ -428,19 +506,27 @@ function handleTitleKeydown(e: KeyboardEvent) {
   display: flex;
   align-items: center;
   gap: 16px;
-  flex-shrink: 0;
+  flex: 1 1 auto;
+  min-width: 0;
 }
 
 .terminal-toolbar__title {
   display: flex;
   align-items: center;
   gap: 8px;
+  min-width: 0;
   font-size: 13px;
   color: var(--ui-text-secondary);
 
   .title-name {
+    display: inline-block;
+    max-width: min(320px, 32vw);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
     color: var(--ui-text-primary);
     font-weight: 500;
+    vertical-align: bottom;
   }
 
   .title-name--editable {
@@ -464,13 +550,159 @@ function handleTitleKeydown(e: KeyboardEvent) {
     border-radius: 4px;
     padding: 1px 4px;
     outline: none;
-    width: 120px;
+    width: min(220px, 32vw);
+    min-width: 80px;
     font-family: inherit;
   }
 
   .title-divider {
     color: var(--ui-text-subtle);
   }
+}
+
+.terminal-create-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  width: 30px;
+  height: 30px;
+  border-radius: 6px;
+  border: 1px solid var(--ui-button-primary-border);
+  background: var(--ui-button-primary-bg);
+  color: var(--ui-button-primary-text);
+  box-shadow: var(--ui-button-primary-shadow);
+  cursor: pointer;
+  transition:
+    background-color 0.18s ease,
+    border-color 0.18s ease,
+    box-shadow 0.18s ease,
+    transform 0.18s ease;
+
+  &:hover {
+    background: var(--ui-button-primary-hover-bg);
+    transform: translateY(-1px);
+  }
+
+  &:focus-visible {
+    outline: none;
+    box-shadow: var(--ui-focus-ring);
+  }
+}
+
+.terminal-profile-create {
+  position: relative;
+  display: inline-flex;
+  flex: 0 0 auto;
+}
+
+.terminal-create-other-btn,
+.terminal-profile-create__confirm,
+.terminal-profile-create__cancel {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  border-radius: 6px;
+  border: 1px solid var(--terminal-toolbar-action-border);
+  background: var(--terminal-toolbar-action-bg);
+  color: var(--terminal-toolbar-action-text);
+  cursor: pointer;
+  transition:
+    background-color 0.18s ease,
+    border-color 0.18s ease,
+    color 0.18s ease,
+    transform 0.18s ease;
+
+  &:hover:not(:disabled) {
+    background: var(--terminal-toolbar-action-hover-bg);
+    color: var(--terminal-toolbar-action-hover-text);
+    transform: translateY(-1px);
+  }
+
+  &:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+    transform: none;
+  }
+
+  &:focus-visible {
+    outline: none;
+    box-shadow: var(--ui-focus-ring);
+  }
+}
+
+.terminal-profile-create__panel {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  z-index: 120;
+  display: grid;
+  grid-template-columns: minmax(210px, 280px) 30px 30px;
+  align-items: start;
+  gap: 6px;
+  padding: 8px;
+  border: 1px solid color-mix(in srgb, var(--ui-border-subtle) 84%, transparent);
+  border-radius: 6px;
+  background: var(--ui-surface-panel);
+  box-shadow: 0 14px 34px rgba(0, 0, 0, 0.22);
+}
+
+.terminal-profile-create__options {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  max-height: 220px;
+  overflow-y: auto;
+  padding: 4px;
+  border: 1px solid var(--ui-input-border, var(--ui-border-subtle));
+  border-radius: 6px;
+  background: var(--ui-input-bg);
+}
+
+.terminal-profile-create__option {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  width: 100%;
+  min-height: 30px;
+  padding: 6px 8px;
+  border: 1px solid transparent;
+  border-radius: 5px;
+  background: transparent;
+  color: var(--ui-text-secondary);
+  font: inherit;
+  font-size: 12px;
+  text-align: left;
+  cursor: pointer;
+  transition:
+    background-color 0.16s ease,
+    border-color 0.16s ease,
+    color 0.16s ease;
+
+  &:hover,
+  &--active {
+    border-color: var(--ui-border-accent-soft);
+    background: var(--ui-tabs-active-bg);
+    color: var(--ui-text-primary);
+  }
+}
+
+.terminal-profile-create__option-label {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.terminal-profile-create__confirm {
+  color: var(--primary-color);
+}
+
+.terminal-profile-create__cancel {
+  color: var(--ui-text-muted);
 }
 
 .terminal-toolbar__right {
@@ -485,8 +717,9 @@ function handleTitleKeydown(e: KeyboardEvent) {
 .toolbar-action-btn {
   display: inline-flex;
   align-items: center;
-  gap: 5px;
-  padding: 4px 10px;
+  justify-content: center;
+  min-width: 32px;
+  padding: 0 8px;
   border-radius: 6px;
   background: var(--terminal-toolbar-action-bg);
   border: 1px solid var(--terminal-toolbar-action-border);
@@ -495,7 +728,7 @@ function handleTitleKeydown(e: KeyboardEvent) {
   transition: all 0.2s ease;
   white-space: nowrap;
   font-size: 12px;
-  height: 28px;
+  height: 30px;
 
   &:hover:not(:disabled) {
     background: var(--terminal-toolbar-action-hover-bg);
@@ -514,10 +747,6 @@ function handleTitleKeydown(e: KeyboardEvent) {
     color: var(--terminal-toolbar-action-active-text);
     border-color: var(--terminal-toolbar-action-active-border);
   }
-
-  &__label {
-    line-height: 1;
-  }
 }
 
 // ── Icon-only mode ────────────────────────────────────────────
@@ -526,8 +755,9 @@ function handleTitleKeydown(e: KeyboardEvent) {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 28px;
-  height: 28px;
+  width: 32px;
+  height: 30px;
+  padding: 0 8px;
   border-radius: 6px;
   background: var(--terminal-toolbar-action-bg);
   border: 1px solid var(--terminal-toolbar-action-border);

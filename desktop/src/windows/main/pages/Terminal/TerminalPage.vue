@@ -3,16 +3,18 @@ import { computed, defineAsyncComponent, nextTick, onActivated, onBeforeUnmount,
 import { useRoute, useRouter } from 'vue-router';
 import UiButton from '@/windows/main/components/ui/UiButton.vue';
 import UiPopupSurface from '@/windows/main/components/ui/UiPopupSurface.vue';
+import UiTooltip from '@/windows/main/components/ui/UiTooltip.vue';
 import { useGlobalStore } from '@/windows/main/stores/global_store';
 import { useTerminalStore } from '@/windows/main/stores/terminal_store';
 import { useAppConfigStore } from '@/windows/main/stores/app_config_store';
 import { useFtpStore } from '@/windows/main/stores/ftp_store';
 import { useSshStore } from '@/windows/main/stores/ssh_store';
-import type { TerminalRendererMode } from '@/contracts/terminal';
+import type { TerminalRendererMode, TerminalSessionDescriptor } from '@/contracts/terminal';
 import type { BackgroundConfirmPayload } from '@/contracts/background';
 import type { SshProfile, SshSessionDescriptor } from '@/contracts/ssh';
 import TerminalSearchPanel from './TerminalSearchPanel.vue';
 import TerminalToolbar from './TerminalToolbar.vue';
+import TerminalProfileIcon from './TerminalProfileIcon.vue';
 import TerminalViewport from './TerminalViewport.vue';
 import SshSidebarTab from './SshSidebarTab.vue';
 import SshProfileDialog from './SshProfileDialog.vue';
@@ -39,8 +41,11 @@ const ftpStore = useFtpStore();
 const appConfigStore = useAppConfigStore();
 
 const viewportRef = ref<InstanceType<typeof TerminalViewport> | null>(null);
+const searchPanelRef = ref<InstanceType<typeof TerminalSearchPanel> | null>(null);
 const searchVisible = ref(false);
 const searchQuery = ref('');
+const searchResultIndex = ref(-1);
+const searchResultCount = ref(0);
 const newSessionProfileId = ref('');
 const sidebarCollapsed = ref(false);
 /** 'terminal' | 'ssh' */
@@ -345,6 +350,10 @@ const termBgVideo = computed(() => activeTerminalBackground.value.video);
 const termBgStyle = computed(() => activeTerminalBackground.value.style);
 const bgPickerVisible = ref(false);
 
+function findProfileForSession(session: TerminalSessionDescriptor) {
+  return terminalStore.profiles.find((profile) => profile.id === session.profileId) ?? null;
+}
+
 // Whether a user-defined background is active (drives WebGL skip + terminal key)
 const hasCustomBg = computed(() => {
   if (termBgType.value === 'image' && termBgImage.value) return true;
@@ -362,9 +371,10 @@ async function initializePage() {
   }
 }
 
-async function createSession() {
+async function createSession(profileId?: string) {
+  const requestedProfileId = profileId || appConfigStore.config.features.terminal.defaultProfileId || undefined;
   const session = await terminalStore.createSession({
-    profileId: newSessionProfileId.value || undefined,
+    profileId: requestedProfileId,
   });
   if (appConfigStore.config.features.terminal.detachToWindowByDefault) {
     await terminalStore.detachToWindow(session.sessionId);
@@ -381,6 +391,71 @@ function findNext() {
 
 function findPrevious() {
   viewportRef.value?.findPrevious(searchQuery.value);
+}
+
+function resetSearchResults() {
+  searchResultIndex.value = -1;
+  searchResultCount.value = 0;
+}
+
+function handleSearchResults(value: { resultIndex: number; resultCount: number }) {
+  searchResultIndex.value = value.resultIndex;
+  searchResultCount.value = value.resultCount;
+}
+
+function updateSearchQuery(value: string) {
+  searchQuery.value = value;
+  if (!value.trim()) {
+    resetSearchResults();
+    viewportRef.value?.clearSearchResults();
+    return;
+  }
+
+  void nextTick(() => {
+    viewportRef.value?.findNext(value, true);
+  });
+}
+
+async function openSearchPanel() {
+  searchVisible.value = true;
+  await nextTick();
+  await searchPanelRef.value?.focusInput();
+  if (searchQuery.value.trim()) {
+    viewportRef.value?.findNext(searchQuery.value, true);
+  }
+}
+
+async function toggleSearchPanel() {
+  if (searchVisible.value) {
+    closeSearchPanel();
+    return;
+  }
+
+  await openSearchPanel();
+}
+
+function closeSearchPanel() {
+  searchVisible.value = false;
+  resetSearchResults();
+  viewportRef.value?.clearSearchResults();
+}
+
+function handleTerminalPageKeydown(event: KeyboardEvent) {
+  if (event.defaultPrevented || event.isComposing) {
+    return;
+  }
+
+  if (!event.ctrlKey || event.altKey || event.shiftKey || event.metaKey || event.key.toLowerCase() !== 'f') {
+    return;
+  }
+
+  event.preventDefault();
+  event.stopPropagation();
+  if (event.repeat) {
+    return;
+  }
+
+  void toggleSearchPanel();
 }
 
 async function detachActiveSession() {
@@ -600,12 +675,14 @@ function handleUnhandledSshRejection(event: PromiseRejectionEvent) {
 
 onMounted(() => {
   globalStore.setTopbarColor('');
+  window.addEventListener('keydown', handleTerminalPageKeydown, true);
   window.addEventListener('unhandledrejection', handleUnhandledSshRejection);
   void initializePage();
   void sshStore.initialize();
 });
 
 onBeforeUnmount(() => {
+  window.removeEventListener('keydown', handleTerminalPageKeydown, true);
   window.removeEventListener('unhandledrejection', handleUnhandledSshRejection);
 });
 </script>
@@ -616,16 +693,42 @@ onBeforeUnmount(() => {
       <!-- Sidebar -->
       <div class="terminal-sidebar" :class="{ 'terminal-sidebar--collapsed': sidebarCollapsed }">
         <div class="terminal-sidebar__header">
-          <svg class="icon-btn" viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" stroke-width="2"
-            fill="none" stroke-linecap="round" stroke-linejoin="round" @click="toggleSidebar"
-            :title="sidebarCollapsed ? '展开侧边栏' : '收起侧边栏'">
-            <line x1="3" y1="6" x2="21" y2="6" class="menu-line menu-line--top"
-              :class="{ 'menu-line--collapsed': sidebarCollapsed }" />
-            <line x1="3" y1="12" x2="21" y2="12" class="menu-line menu-line--mid"
-              :class="{ 'menu-line--collapsed': sidebarCollapsed }" />
-            <line x1="3" y1="18" x2="21" y2="18" class="menu-line menu-line--bot"
-              :class="{ 'menu-line--collapsed': sidebarCollapsed }" />
-          </svg>
+          <button
+            class="terminal-sidebar__toggle"
+            type="button"
+            :aria-label="sidebarCollapsed ? '展开侧边栏' : '收起侧边栏'"
+            :title="sidebarCollapsed ? '展开侧边栏' : '收起侧边栏'"
+            @click="toggleSidebar"
+          >
+            <svg
+              v-if="sidebarCollapsed"
+              viewBox="0 0 24 24"
+              width="18"
+              height="18"
+              stroke="currentColor"
+              stroke-width="2"
+              fill="none"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            >
+              <path d="m9 18 6-6-6-6" />
+            </svg>
+            <svg
+              v-else
+              viewBox="0 0 24 24"
+              width="18"
+              height="18"
+              stroke="currentColor"
+              stroke-width="2"
+              fill="none"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            >
+              <rect x="4" y="4" width="16" height="16" rx="2" />
+              <path d="M9 4v16" />
+              <path d="m15 9-3 3 3 3" />
+            </svg>
+          </button>
           <!-- Tab switcher (only visible when sidebar is expanded) -->
           <div v-show="!sidebarCollapsed" class="sidebar-tabs">
             <button
@@ -662,45 +765,66 @@ onBeforeUnmount(() => {
 
         <!-- Terminal Tab: local sessions -->
         <div v-show="sidebarTab === 'terminal'" class="terminal-sidebar__sessions">
-          <div v-for="session in displaySessions" :key="session.sessionId" class="terminal-session-item"
-            :class="{ 'terminal-session-item--active': session.sessionId === activeSession?.sessionId }"
-            :title="sidebarCollapsed ? session.profileLabel : ''" @click="focusSession(session.sessionId)">
-            <div class="terminal-session-item__left">
-              <span class="status-dot"
-                :class="session.status === 'running' ? 'status-dot--running' : 'status-dot--stopped'"></span>
-              <template v-if="!sidebarCollapsed">
-                <input
-                  v-if="sidebarEditingId === session.sessionId"
-                  ref="sidebarInputRef"
-                  v-model="sidebarEditValue"
-                  class="terminal-session-item__input"
-                  @blur="commitSidebarRename(session.sessionId)"
-                  @keydown="handleSidebarKeydown($event, session.sessionId)"
-                  @click.stop
-                />
+          <UiTooltip
+            v-for="session in displaySessions"
+            :key="session.sessionId"
+            :content="session.profileLabel"
+            placement="right"
+            :delay="350"
+            :disabled="!sidebarCollapsed"
+            block
+          >
+            <div
+              class="terminal-session-item"
+              :class="{ 'terminal-session-item--active': session.sessionId === activeSession?.sessionId }"
+              @click="focusSession(session.sessionId)"
+            >
+              <div class="terminal-session-item__left">
                 <span
-                  v-else
-                  class="terminal-session-item__title terminal-session-item__title--editable"
-                  @click.stop="startSidebarRename(session, $event)"
-                >{{ session.profileLabel }}</span>
-              </template>
+                  class="status-dot"
+                  :class="session.status === 'running' ? 'status-dot--running' : 'status-dot--stopped'"
+                />
+                <template v-if="!sidebarCollapsed">
+                  <TerminalProfileIcon
+                    class="terminal-session-item__profile-icon"
+                    :profile-id="session.profileId"
+                    :command="findProfileForSession(session)?.command"
+                    :label="session.profileLabel"
+                    :size="16"
+                  />
+                  <input
+                    v-if="sidebarEditingId === session.sessionId"
+                    ref="sidebarInputRef"
+                    v-model="sidebarEditValue"
+                    class="terminal-session-item__input"
+                    @blur="commitSidebarRename(session.sessionId)"
+                    @keydown="handleSidebarKeydown($event, session.sessionId)"
+                    @click.stop
+                  />
+                  <span
+                    v-else
+                    class="terminal-session-item__title terminal-session-item__title--editable"
+                    @click.stop="startSidebarRename(session, $event)"
+                  >{{ session.profileLabel }}</span>
+                </template>
+              </div>
+              <div v-show="!sidebarCollapsed" class="terminal-session-item__right">
+                <span class="terminal-session-item__badge"
+                  :class="session.status === 'running' ? 'badge--running' : 'badge--stopped'">
+                  {{ session.status === 'running' ? 'Running' : 'Stopped' }}
+                </span>
+                <button
+                  class="terminal-session-item__close"
+                  title="关闭会话"
+                  @click.stop="closeSession(session.sessionId)"
+                >
+                  <svg viewBox="0 0 24 24" width="12" height="12" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round">
+                    <line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" />
+                  </svg>
+                </button>
+              </div>
             </div>
-            <div v-show="!sidebarCollapsed" class="terminal-session-item__right">
-              <span class="terminal-session-item__badge"
-                :class="session.status === 'running' ? 'badge--running' : 'badge--stopped'">
-                {{ session.status === 'running' ? 'Running' : 'Stopped' }}
-              </span>
-              <button
-                class="terminal-session-item__close"
-                title="关闭会话"
-                @click.stop="closeSession(session.sessionId)"
-              >
-                <svg viewBox="0 0 24 24" width="12" height="12" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round">
-                  <line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" />
-                </svg>
-              </button>
-            </div>
-          </div>
+          </UiTooltip>
         </div>
 
         <!-- SSH Tab -->
@@ -722,14 +846,23 @@ onBeforeUnmount(() => {
           :ssh-mode="isSshMode" :port-forward-open="sshStore.portForwardPanelOpen"
           :can-detach="isSshMode && !!activeSshSession"
           @update:newSessionProfileId="newSessionProfileId = $event" @create="createSession"
-          @search="searchVisible = !searchVisible" @clear="clearTerminal" @detach="detachActiveSession"
+          @search="toggleSearchPanel" @clear="clearTerminal" @detach="detachActiveSession"
           @rename="handleRenameSession" @update:rendererMode="updateRendererMode"
           @update:colorSchemeId="updateColorScheme" @background="bgPickerVisible = true"
           @port-forward="sshStore.togglePortForwardPanel()"
           @open-file-manager="openFileManagerForCurrentSsh" />
 
-        <TerminalSearchPanel v-if="searchVisible" :query="searchQuery" @update:query="searchQuery = $event"
-          @next="findNext" @previous="findPrevious" @close="searchVisible = false" />
+        <TerminalSearchPanel
+          v-if="searchVisible"
+          ref="searchPanelRef"
+          :query="searchQuery"
+          :result-index="searchResultIndex"
+          :result-count="searchResultCount"
+          @update:query="updateSearchQuery"
+          @next="findNext"
+          @previous="findPrevious"
+          @close="closeSearchPanel"
+        />
 
         <div v-if="isSshMode && activeSshReconnectState && activeSshSession" class="terminal-alert terminal-alert--error">
           <span>
@@ -767,7 +900,9 @@ onBeforeUnmount(() => {
             :resize-handler="isSshMode
               ? (cols: number, rows: number) => sshStore.resizeSession({ sessionId: activeViewportSessionId, cols, rows })
               : undefined"
-            @renderer-fallback="handleRendererFallback" />
+            @renderer-fallback="handleRendererFallback"
+            @search-results="handleSearchResults"
+          />
 
           <!-- Port forward floating panel (SSH mode only, main window) -->
           <div
@@ -972,16 +1107,40 @@ onBeforeUnmount(() => {
   padding: 10px 12px;
   border-bottom: 1px solid var(--ui-border-subtle);
   gap: 8px;
+}
 
-  .icon-btn {
-    cursor: pointer;
-    color: var(--ui-text-muted);
-    transition: color 0.2s, transform 0.28s cubic-bezier(0.4, 0, 0.2, 1);
-    flex-shrink: 0;
+.terminal-sidebar--collapsed .terminal-sidebar__header {
+  justify-content: center;
+  padding: 10px 0;
+}
 
-    &:hover {
-      color: var(--ui-text-primary);
-    }
+.terminal-sidebar__toggle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--ui-text-muted);
+  cursor: pointer;
+  transition:
+    background-color 0.18s ease,
+    border-color 0.18s ease,
+    color 0.18s ease;
+
+  &:hover {
+    border-color: var(--ui-border-subtle);
+    background: var(--ui-button-ghost-hover-bg);
+    color: var(--ui-text-primary);
+  }
+
+  &:focus-visible {
+    outline: none;
+    box-shadow: var(--ui-focus-ring);
   }
 }
 
@@ -1064,24 +1223,6 @@ onBeforeUnmount(() => {
 }
 
 
-/* Menu icon line animation - collapses into left-arrow indicator */
-.menu-line {
-  transition: all 0.28s cubic-bezier(0.4, 0, 0.2, 1);
-  transform-origin: center;
-}
-
-.menu-line--top.menu-line--collapsed {
-  transform: rotate(-30deg) translateY(2px) scaleX(0.55);
-}
-
-.menu-line--mid.menu-line--collapsed {
-  transform: scaleX(0.7);
-}
-
-.menu-line--bot.menu-line--collapsed {
-  transform: rotate(30deg) translateY(-2px) scaleX(0.55);
-}
-
 .terminal-sidebar__sessions {
   display: flex;
   flex-direction: column;
@@ -1089,6 +1230,10 @@ onBeforeUnmount(() => {
   overflow-y: auto;
   padding: 12px;
   gap: 6px;
+
+  :deep(.ui-tooltip-trigger) {
+    width: 100%;
+  }
 }
 
 .terminal-session-item {
@@ -1104,6 +1249,8 @@ onBeforeUnmount(() => {
   transition: all 0.2s ease;
   white-space: nowrap;
   overflow: hidden;
+  width: 100%;
+  box-sizing: border-box;
 
   &:hover {
     background: var(--ui-button-ghost-hover-bg);
@@ -1126,16 +1273,25 @@ onBeforeUnmount(() => {
 
 /* Collapsed sidebar: center session item status dots */
 .terminal-sidebar--collapsed .terminal-session-item {
+  width: 32px;
+  min-height: 32px;
   justify-content: center;
-  padding: 8px;
+  padding: 0;
+  border-radius: 8px;
 }
 
 .terminal-sidebar--collapsed .terminal-session-item__left {
+  flex: 0 0 auto;
   justify-content: center;
 }
 
 .terminal-sidebar--collapsed .terminal-sidebar__sessions {
-  padding: 12px 8px;
+  align-items: center;
+  padding: 12px 0;
+}
+
+.terminal-sidebar--collapsed .terminal-sidebar__sessions :deep(.ui-tooltip-trigger) {
+  justify-content: center;
 }
 
 .terminal-session-item__left {
@@ -1144,6 +1300,10 @@ onBeforeUnmount(() => {
   gap: 8px;
   min-width: 0;
   flex: 1;
+}
+
+.terminal-session-item__profile-icon {
+  flex-shrink: 0;
 }
 
 .terminal-session-item__right {

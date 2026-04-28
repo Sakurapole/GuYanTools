@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onBeforeUnmount, onMounted, ref } from 'vue';
+import { computed, nextTick, onBeforeUnmount, onMounted, ref } from 'vue';
 import { useDetachedTerminalStore } from './detached_terminal_store';
 import { useAppConfigStore } from '@/windows/main/stores/app_config_store';
 import type { DetachedTerminalSessionKind, TerminalRendererMode } from '@/contracts/terminal';
@@ -26,8 +26,11 @@ const store = useDetachedTerminalStore();
 const appConfigStore = useAppConfigStore();
 
 const viewportRef = ref<InstanceType<typeof TerminalViewport> | null>(null);
+const searchPanelRef = ref<InstanceType<typeof TerminalSearchPanel> | null>(null);
 const searchVisible = ref(false);
 const searchQuery = ref('');
+const searchResultIndex = ref(-1);
+const searchResultCount = ref(0);
 
 // ── App config derived values ─────────────────────────────────
 const rendererMode = computed(() => appConfigStore.config.features.terminal.rendererMode);
@@ -97,6 +100,47 @@ function findNext() {
 
 function findPrevious() {
   viewportRef.value?.findPrevious(searchQuery.value);
+}
+
+function resetSearchResults() {
+  searchResultIndex.value = -1;
+  searchResultCount.value = 0;
+}
+
+function handleSearchResults(value: { resultIndex: number; resultCount: number }) {
+  searchResultIndex.value = value.resultIndex;
+  searchResultCount.value = value.resultCount;
+}
+
+function updateSearchQuery(value: string) {
+  searchQuery.value = value;
+  if (!value.trim()) {
+    resetSearchResults();
+    viewportRef.value?.clearSearchResults();
+    return;
+  }
+
+  viewportRef.value?.findNext(value, true);
+}
+
+async function toggleSearchPanel() {
+  if (searchVisible.value) {
+    closeSearchPanel();
+    return;
+  }
+
+  searchVisible.value = true;
+  await nextTick();
+  await searchPanelRef.value?.focusInput();
+  if (searchQuery.value.trim()) {
+    viewportRef.value?.findNext(searchQuery.value, true);
+  }
+}
+
+function closeSearchPanel() {
+  searchVisible.value = false;
+  resetSearchResults();
+  viewportRef.value?.clearSearchResults();
 }
 
 async function updateRendererMode(mode: TerminalRendererMode) {
@@ -187,7 +231,7 @@ onBeforeUnmount(() => {
       :session-running="store.isRunning"
       @update:colorSchemeId="updateColorScheme"
       @update:rendererMode="updateRendererMode"
-      @search="searchVisible = !searchVisible"
+      @search="toggleSearchPanel"
       @clear="clearTerminal"
       @kill="killSession"
     />
@@ -195,11 +239,14 @@ onBeforeUnmount(() => {
     <!-- Search panel -->
     <TerminalSearchPanel
       v-if="searchVisible"
+      ref="searchPanelRef"
       :query="searchQuery"
-      @update:query="searchQuery = $event"
+      :result-index="searchResultIndex"
+      :result-count="searchResultCount"
+      @update:query="updateSearchQuery"
       @next="findNext"
       @previous="findPrevious"
-      @close="searchVisible = false"
+      @close="closeSearchPanel"
     />
 
     <!-- Terminal viewport -->
@@ -222,6 +269,7 @@ onBeforeUnmount(() => {
         :write-handler="writeHandler"
         :resize-handler="resizeHandler"
         @renderer-fallback="handleRendererFallback"
+        @search-results="handleSearchResults"
       />
     </div>
 
