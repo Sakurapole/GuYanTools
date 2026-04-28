@@ -28,6 +28,7 @@ import type { MediaApi, CompressImageOptions, CompressVideoOptions } from '@/con
 import type {
   TerminalApi,
   CreateTerminalSessionPayload,
+  DetachedTerminalSessionKind,
   ResizeTerminalSessionPayload,
   TerminalEventEnvelope,
 } from '@/contracts/terminal';
@@ -223,7 +224,8 @@ const terminalApi: TerminalApi = {
   killSession: (sessionId: string) => ipcRenderer.invoke('terminal:kill-session', sessionId),
   attachSession: (sessionId: string, target: string) => ipcRenderer.invoke('terminal:attach-session', sessionId, target),
   attachToMain: (sessionId: string) => ipcRenderer.invoke('terminal:attach-main', sessionId),
-  detachToWindow: (sessionId: string) => ipcRenderer.invoke('terminal:detach-to-window', sessionId),
+  detachToWindow: (sessionId: string, kind?: DetachedTerminalSessionKind, label?: string) =>
+    ipcRenderer.invoke('terminal:detach-to-window', sessionId, kind ?? 'local', label ?? ''),
   readClipboardText: () => ipcRenderer.invoke('terminal:clipboard-read'),
   writeClipboardText: (text: string) => ipcRenderer.invoke('terminal:clipboard-write', text),
   onEvent: (listener: (event: TerminalEventEnvelope) => void) => {
@@ -247,6 +249,8 @@ const sshApi: SshApi = {
   listSessions: () => ipcRenderer.invoke('ssh:list-sessions'),
   connect: (input: ConnectSshInput) => ipcRenderer.invoke('ssh:connect', input),
   disconnect: (sessionId: string) => ipcRenderer.invoke('ssh:disconnect', sessionId),
+  detachToWindow: (sessionId: string, label?: string) =>
+    ipcRenderer.invoke('terminal:detach-to-window', sessionId, 'ssh', label ?? ''),
 
   // I/O
   write: (sessionId: string, data: string) => ipcRenderer.invoke('ssh:write', sessionId, data),

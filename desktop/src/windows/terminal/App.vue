@@ -3,6 +3,7 @@
     :session-id="sessionId"
     :target="popupTarget"
     :initial-label="initialLabel"
+    :session-kind="sessionKind"
   />
 </template>
 
@@ -20,6 +21,16 @@ const searchParams = new URLSearchParams(window.location.search);
 const sessionId = searchParams.get('sessionId') ?? '';
 const popupTarget = searchParams.get('target') ?? '';
 const initialLabel = searchParams.get('label') ?? '';
+const sessionKind = searchParams.get('kind') === 'ssh' ? 'ssh' : 'local';
 
-console.log('[TerminalWindow] Loaded. sessionId:', sessionId, 'target:', popupTarget, 'label:', initialLabel);
+console.log(
+  '[TerminalWindow] Loaded. sessionId:',
+  sessionId,
+  'target:',
+  popupTarget,
+  'label:',
+  initialLabel,
+  'kind:',
+  sessionKind,
+);
 </script>

@@ -2,7 +2,7 @@
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue';
 import { useDetachedTerminalStore } from './detached_terminal_store';
 import { useAppConfigStore } from '@/windows/main/stores/app_config_store';
-import type { TerminalRendererMode } from '@/contracts/terminal';
+import type { DetachedTerminalSessionKind, TerminalRendererMode } from '@/contracts/terminal';
 import TerminalViewport from '@/windows/main/pages/Terminal/TerminalViewport.vue';
 import TerminalSearchPanel from '@/windows/main/pages/Terminal/TerminalSearchPanel.vue';
 import DetachedTerminalToolbar from './DetachedTerminalToolbar.vue';
@@ -19,6 +19,7 @@ const props = defineProps<{
   sessionId: string;
   target: string;
   initialLabel?: string;
+  sessionKind?: DetachedTerminalSessionKind;
 }>();
 
 const store = useDetachedTerminalStore();
@@ -32,6 +33,8 @@ const searchQuery = ref('');
 const rendererMode = computed(() => appConfigStore.config.features.terminal.rendererMode);
 const enableSixel = computed(() => appConfigStore.config.features.terminal.enableSixel);
 const colorSchemeId = computed(() => appConfigStore.config.features.terminal.colorSchemeId ?? 'dark-default');
+const writeHandler = computed(() => (store.sessionKind === 'ssh' ? store.write : undefined));
+const resizeHandler = computed(() => (store.sessionKind === 'ssh' ? store.resize : undefined));
 
 // Background config (read-only in detached window)
 const termBgType = computed(() => appConfigStore.config.features.terminal.viewportBgType ?? 'color');
@@ -50,7 +53,7 @@ const hasCustomBg = computed(() => {
 // ── Window title display ──────────────────────────────────────
 const windowTitle = computed(() => {
   const label = store.profileLabel || 'Terminal';
-  const statusText = store.isRunning ? 'Running' : 'Stopped';
+  const statusText = store.isRunning ? (store.sessionKind === 'ssh' ? 'Connected' : 'Running') : 'Stopped';
   return `${label} — ${statusText}`;
 });
 
@@ -116,7 +119,7 @@ function handleRendererFallback(nextMode: Exclude<TerminalRendererMode, 'webgl'>
 
 // ── Lifecycle ─────────────────────────────────────────────────
 onMounted(async () => {
-  await store.initialize(props.sessionId, props.target, props.initialLabel);
+  await store.initialize(props.sessionId, props.target, props.initialLabel, props.sessionKind ?? 'local');
 });
 
 onBeforeUnmount(() => {
@@ -200,6 +203,8 @@ onBeforeUnmount(() => {
         :bg-style="termBgStyle"
         :copy-shortcut="appConfigStore.config.shortcuts.internal.terminalCopy"
         :paste-shortcut="appConfigStore.config.shortcuts.internal.terminalPaste"
+        :write-handler="writeHandler"
+        :resize-handler="resizeHandler"
         @renderer-fallback="handleRendererFallback"
       />
     </div>
@@ -218,7 +223,7 @@ onBeforeUnmount(() => {
         <span class="detached-statusbar__label">Detached</span>
       </div>
       <div class="detached-statusbar__right">
-        <span>Local</span>
+        <span>{{ store.sessionKind === 'ssh' ? 'SSH' : 'Local' }}</span>
       </div>
     </div>
   </div>

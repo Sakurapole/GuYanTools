@@ -1,11 +1,11 @@
 <script setup lang="ts">
 /**
- * Port Forward floating panel — hovers above the terminal viewport bottom,
- * does not occupy terminal space. Supports collapse/expand, shows real-time
- * forwarding rules and runtime status.
+ * Port Forward floating panel — centered above the terminal viewport and
+ * shows real-time forwarding rules and runtime status.
  */
 import { computed, onMounted, onUnmounted, ref, watch } from 'vue';
 import { useSshStore } from '@/windows/main/stores/ssh_store';
+import UiScrollbar from '@/windows/main/components/ui/UiScrollbar.vue';
 import type { SshPortForward, PortForwardStatus, PortForwardTrafficInfo } from '@/contracts/ssh';
 
 const props = defineProps<{
@@ -20,7 +20,6 @@ const emit = defineEmits<{
 }>();
 
 const sshStore = useSshStore();
-const collapsed = ref(false);
 const loading = ref(false);
 const errorMessage = ref('');
 const copiedId = ref('');
@@ -195,10 +194,6 @@ async function copyAddress(fwd: SshPortForward) {
   }
 }
 
-function toggleCollapse() {
-  collapsed.value = !collapsed.value;
-}
-
 /** Get traffic info for a forward */
 function getTraffic(forwardId: string): PortForwardTrafficInfo | undefined {
   return traffic.value.find((t) => t.forwardId === forwardId);
@@ -291,14 +286,10 @@ async function handleImport() {
 </script>
 
 <template>
-  <div class="pfp" :class="{ 'pfp--collapsed': collapsed }">
+  <div class="pfp">
     <!-- Header bar (always visible) -->
-    <div class="pfp__header" @click="toggleCollapse">
+    <div class="pfp__header">
       <div class="pfp__header-left">
-        <svg class="pfp__chevron" viewBox="0 0 24 24" width="14" height="14" stroke="currentColor"
-          stroke-width="2.5" fill="none" stroke-linecap="round" stroke-linejoin="round">
-          <polyline points="6 9 12 15 18 9" />
-        </svg>
         <svg viewBox="0 0 24 24" width="14" height="14" stroke="currentColor" stroke-width="2"
           fill="none" stroke-linecap="round" stroke-linejoin="round">
           <circle cx="12" cy="12" r="2"/>
@@ -370,140 +361,136 @@ async function handleImport() {
     </Transition>
 
     <!-- Content area -->
-    <Transition name="panel-slide">
-      <div v-show="!collapsed" class="pfp__body">
-        <div v-if="loading" class="pfp__empty">
-          加载中...
-        </div>
+    <UiScrollbar class="pfp__body" :x="false" :size="6">
+      <div v-if="loading" class="pfp__empty">
+        加载中...
+      </div>
 
-        <div v-else-if="forwards.length === 0" class="pfp__empty">
-          <span>暂无端口转发规则</span>
-          <button class="pfp__empty-add" @click="emit('addForward')">
-            <svg viewBox="0 0 24 24" width="12" height="12" stroke="currentColor" stroke-width="2"
-              fill="none" stroke-linecap="round" stroke-linejoin="round">
-              <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
-            </svg>
-            添加规则
-          </button>
-        </div>
+      <div v-else-if="forwards.length === 0" class="pfp__empty">
+        <span>暂无端口转发规则</span>
+        <button class="pfp__empty-add" @click="emit('addForward')">
+          <svg viewBox="0 0 24 24" width="12" height="12" stroke="currentColor" stroke-width="2"
+            fill="none" stroke-linecap="round" stroke-linejoin="round">
+            <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
+          </svg>
+          添加规则
+        </button>
+      </div>
 
-        <div v-else class="pfp__list">
-          <div
-            v-for="fwd in forwards"
-            :key="fwd.id"
-            class="pfp__item"
-            :class="{ 'pfp__item--running': isRunning(fwd.id) }"
-          >
-            <!-- Status indicator -->
-            <div class="pfp__item-status"
-              :title="isRunning(fwd.id) ? '运行中' : '已停止'">
-              <span class="pfp__dot" :class="isRunning(fwd.id) ? 'pfp__dot--running' : 'pfp__dot--stopped'" />
+      <div v-else class="pfp__list">
+        <div
+          v-for="fwd in forwards"
+          :key="fwd.id"
+          class="pfp__item"
+          :class="{ 'pfp__item--running': isRunning(fwd.id) }"
+        >
+          <!-- Status indicator -->
+          <div class="pfp__item-status"
+            :title="isRunning(fwd.id) ? '运行中' : '已停止'">
+            <span class="pfp__dot" :class="isRunning(fwd.id) ? 'pfp__dot--running' : 'pfp__dot--stopped'" />
+          </div>
+
+          <!-- Forward type badge + Info -->
+          <div class="pfp__item-info" @click="emit('editForward', fwd)"
+            title="点击编辑转发规则">
+            <div class="pfp__item-top">
+              <span class="pfp__item-type-badge"
+                :class="getTypeBadgeClass(fwd)"
+                :title="getTypeTooltip(fwd)">{{ getTypeBadge(fwd) }}</span>
+              <span class="pfp__item-label">{{ fwd.label || '未命名' }}</span>
+              <span v-if="fwd.autoStart" class="pfp__item-auto"
+                title="连接后自动启动此转发">A</span>
             </div>
-
-            <!-- Forward type badge + Info -->
-            <div class="pfp__item-info" @click="emit('editForward', fwd)"
-              title="点击编辑转发规则">
-              <div class="pfp__item-top">
-                <span class="pfp__item-type-badge"
-                  :class="getTypeBadgeClass(fwd)"
-                  :title="getTypeTooltip(fwd)">{{ getTypeBadge(fwd) }}</span>
-                <span class="pfp__item-label">{{ fwd.label || '未命名' }}</span>
-                <span v-if="fwd.autoStart" class="pfp__item-auto"
-                  title="连接后自动启动此转发">A</span>
-              </div>
-              <div class="pfp__item-addrs">
-                <template v-if="fwd.forwardType === 'dynamic'">
-                  <span class="pfp__addr pfp__addr--local"
-                    title="SOCKS5 代理地址">{{ formatListenAddressForDynamic(fwd) }}</span>
-                  <span class="pfp__addr-socks-label">SOCKS5</span>
-                </template>
-                <template v-else>
-                  <span class="pfp__addr pfp__addr--local"
-                    :title="fwd.forwardType === 'local' ? '本地监听地址' : '远程监听地址'">{{ formatListenAddress(fwd) }}</span>
-                  <svg viewBox="0 0 24 24" width="12" height="12" stroke="currentColor" stroke-width="2"
-                    fill="none" stroke-linecap="round" stroke-linejoin="round">
-                    <line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/>
-                  </svg>
-                  <span class="pfp__addr pfp__addr--remote"
-                    :title="fwd.forwardType === 'local' ? '远程目标地址' : '本地目标地址'">{{ formatTargetAddress(fwd) }}</span>
-                </template>
-              </div>
-              <div v-if="isRunning(fwd.id)" class="pfp__item-meta">
-                <span class="pfp__item-conns">{{ getStatus(fwd.id)?.activeConnections ?? 0 }} 连接</span>
-                <template v-if="getTraffic(fwd.id)">
-                  <span class="pfp__item-traffic">
-                    <span class="pfp__traffic-up" title="上行 (发送)">↑ {{ formatBytes(getTraffic(fwd.id)!.bytesSent) }}</span>
-                    <span class="pfp__traffic-down" title="下行 (接收)">↓ {{ formatBytes(getTraffic(fwd.id)!.bytesReceived) }}</span>
-                  </span>
-                </template>
-              </div>
-            </div>
-
-            <!-- Actions -->
-            <div class="pfp__item-actions">
-              <!-- Copy address button -->
-              <button class="pfp__copy-btn"
-                :title="copiedId === fwd.id ? '已复制!' : `复制地址 ${getCopyableAddress(fwd)}`"
-                :class="{ 'pfp__copy-btn--copied': copiedId === fwd.id }"
-                @click="copyAddress(fwd)">
-                <svg v-if="copiedId !== fwd.id" viewBox="0 0 24 24" width="12" height="12"
-                  stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round">
-                  <rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>
-                </svg>
-                <svg v-else viewBox="0 0 24 24" width="12" height="12"
-                  stroke="currentColor" stroke-width="2.5" fill="none" stroke-linecap="round" stroke-linejoin="round">
-                  <polyline points="20 6 9 17 4 12"/>
-                </svg>
-              </button>
-              <button
-                class="pfp__toggle-btn"
-                :class="isRunning(fwd.id) ? 'pfp__toggle-btn--stop' : 'pfp__toggle-btn--start'"
-                :title="isRunning(fwd.id) ? '停止转发' : '启动转发'"
-                @click="toggleForward(fwd.id)"
-              >
-                <svg v-if="!isRunning(fwd.id)" viewBox="0 0 24 24" width="13" height="13"
-                  fill="currentColor" stroke="none">
-                  <polygon points="6,4 20,12 6,20"/>
-                </svg>
-                <svg v-else viewBox="0 0 24 24" width="13" height="13"
-                  fill="currentColor" stroke="none">
-                  <rect x="5" y="4" width="5" height="16" rx="1"/><rect x="14" y="4" width="5" height="16" rx="1"/>
-                </svg>
-              </button>
-              <button class="pfp__del-btn" title="删除此转发规则" @click="deleteForward(fwd)">
+            <div class="pfp__item-addrs">
+              <template v-if="fwd.forwardType === 'dynamic'">
+                <span class="pfp__addr pfp__addr--local"
+                  title="SOCKS5 代理地址">{{ formatListenAddressForDynamic(fwd) }}</span>
+                <span class="pfp__addr-socks-label">SOCKS5</span>
+              </template>
+              <template v-else>
+                <span class="pfp__addr pfp__addr--local"
+                  :title="fwd.forwardType === 'local' ? '本地监听地址' : '远程监听地址'">{{ formatListenAddress(fwd) }}</span>
                 <svg viewBox="0 0 24 24" width="12" height="12" stroke="currentColor" stroke-width="2"
                   fill="none" stroke-linecap="round" stroke-linejoin="round">
-                  <polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>
+                  <line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/>
                 </svg>
-              </button>
+                <span class="pfp__addr pfp__addr--remote"
+                  :title="fwd.forwardType === 'local' ? '远程目标地址' : '本地目标地址'">{{ formatTargetAddress(fwd) }}</span>
+              </template>
             </div>
+            <div v-if="isRunning(fwd.id)" class="pfp__item-meta">
+              <span class="pfp__item-conns">{{ getStatus(fwd.id)?.activeConnections ?? 0 }} 连接</span>
+              <template v-if="getTraffic(fwd.id)">
+                <span class="pfp__item-traffic">
+                  <span class="pfp__traffic-up" title="上行 (发送)">↑ {{ formatBytes(getTraffic(fwd.id)!.bytesSent) }}</span>
+                  <span class="pfp__traffic-down" title="下行 (接收)">↓ {{ formatBytes(getTraffic(fwd.id)!.bytesReceived) }}</span>
+                </span>
+              </template>
+            </div>
+          </div>
+
+          <!-- Actions -->
+          <div class="pfp__item-actions">
+            <!-- Copy address button -->
+            <button class="pfp__copy-btn"
+              :title="copiedId === fwd.id ? '已复制!' : `复制地址 ${getCopyableAddress(fwd)}`"
+              :class="{ 'pfp__copy-btn--copied': copiedId === fwd.id }"
+              @click="copyAddress(fwd)">
+              <svg v-if="copiedId !== fwd.id" viewBox="0 0 24 24" width="12" height="12"
+                stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round">
+                <rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>
+              </svg>
+              <svg v-else viewBox="0 0 24 24" width="12" height="12"
+                stroke="currentColor" stroke-width="2.5" fill="none" stroke-linecap="round" stroke-linejoin="round">
+                <polyline points="20 6 9 17 4 12"/>
+              </svg>
+            </button>
+            <button
+              class="pfp__toggle-btn"
+              :class="isRunning(fwd.id) ? 'pfp__toggle-btn--stop' : 'pfp__toggle-btn--start'"
+              :title="isRunning(fwd.id) ? '停止转发' : '启动转发'"
+              @click="toggleForward(fwd.id)"
+            >
+              <svg v-if="!isRunning(fwd.id)" viewBox="0 0 24 24" width="13" height="13"
+                fill="currentColor" stroke="none">
+                <polygon points="6,4 20,12 6,20"/>
+              </svg>
+              <svg v-else viewBox="0 0 24 24" width="13" height="13"
+                fill="currentColor" stroke="none">
+                <rect x="5" y="4" width="5" height="16" rx="1"/><rect x="14" y="4" width="5" height="16" rx="1"/>
+              </svg>
+            </button>
+            <button class="pfp__del-btn" title="删除此转发规则" @click="deleteForward(fwd)">
+              <svg viewBox="0 0 24 24" width="12" height="12" stroke="currentColor" stroke-width="2"
+                  fill="none" stroke-linecap="round" stroke-linejoin="round">
+                <polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>
+              </svg>
+            </button>
           </div>
         </div>
       </div>
-    </Transition>
+    </UiScrollbar>
   </div>
 </template>
 
 <style lang="scss" scoped>
 .pfp {
   position: absolute;
-  bottom: 36px;
-  left: 16px;
-  right: 16px;
+  top: 50%;
+  left: 50%;
+  width: min(560px, calc(100% - 48px));
+  max-height: min(620px, calc(100% - 48px));
   z-index: 100;
+  display: flex;
+  flex-direction: column;
   border-radius: var(--ui-radius-md);
   background: var(--ui-surface-panel);
   border: 1px solid var(--ui-border-subtle);
-  box-shadow: 0 -4px 24px rgba(0, 0, 0, 0.25), 0 0 0 1px rgba(255,255,255,0.03);
+  box-shadow: 0 24px 80px rgba(0, 0, 0, 0.34), 0 0 0 1px rgba(255,255,255,0.03);
   backdrop-filter: blur(16px);
   overflow: hidden;
+  transform: translate(-50%, -50%);
   transition: box-shadow 0.2s;
-
-  &--collapsed {
-    .pfp__chevron {
-      transform: rotate(180deg);
-    }
-  }
 }
 
 .pfp__header {
@@ -511,14 +498,8 @@ async function handleImport() {
   align-items: center;
   justify-content: space-between;
   padding: 8px 12px;
-  cursor: pointer;
   user-select: none;
   border-bottom: 1px solid var(--ui-border-subtle);
-  transition: background 0.15s;
-
-  &:hover {
-    background: var(--ui-surface-overlay);
-  }
 }
 
 .pfp__header-left {
@@ -526,10 +507,6 @@ async function handleImport() {
   align-items: center;
   gap: 6px;
   color: var(--ui-text-secondary);
-}
-
-.pfp__chevron {
-  transition: transform 0.25s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .pfp__title {
@@ -607,8 +584,10 @@ async function handleImport() {
 }
 
 .pfp__body {
-  max-height: 220px;
-  overflow-y: auto;
+  flex: 0 1 auto;
+  height: clamp(240px, 48vh, 500px);
+  min-height: 240px;
+  max-height: min(500px, calc(100vh - 180px));
 }
 
 .pfp__empty {
@@ -616,6 +595,7 @@ async function handleImport() {
   align-items: center;
   justify-content: center;
   gap: 10px;
+  min-height: 100%;
   padding: 20px 12px;
   font-size: 12px;
   color: var(--ui-text-muted);
@@ -859,21 +839,10 @@ async function handleImport() {
   }
 }
 
-.panel-slide-enter-active,
-.panel-slide-leave-active {
-  transition: max-height 0.25s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.2s;
-  overflow: hidden;
-}
-
-.panel-slide-enter-from,
-.panel-slide-leave-to {
-  max-height: 0;
-  opacity: 0;
-}
-
-.panel-slide-enter-to,
-.panel-slide-leave-from {
-  max-height: 220px;
-  opacity: 1;
+@media (max-width: 720px) {
+  .pfp {
+    width: calc(100% - 24px);
+    max-height: calc(100% - 24px);
+  }
 }
 </style>

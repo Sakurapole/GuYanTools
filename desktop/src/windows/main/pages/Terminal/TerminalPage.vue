@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, defineAsyncComponent, nextTick, onActivated, onMounted, ref, watch } from 'vue';
+import { computed, defineAsyncComponent, nextTick, onActivated, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import UiButton from '@/windows/main/components/ui/UiButton.vue';
 import { useGlobalStore } from '@/windows/main/stores/global_store';
@@ -65,6 +65,7 @@ const sshFingerprintInfo = ref({ host: '', port: 22, algorithm: '', fingerprint:
 const sshConnectError = ref('');
 const sshConnectingProfileId = ref('');
 const sshLastFailedProfile = ref<SshProfile | null>(null);
+const sshReconnectingSessionId = ref('');
 /** Pending connect callback resolved after fingerprint is trusted */
 let sshFingerprintResolve: (() => void) | null = null;
 let sshFingerprintReject: (() => void) | null = null;
@@ -246,6 +247,28 @@ async function handleSshDisconnect(sessionId: string) {
   await sshStore?.disconnect(sessionId);
 }
 
+async function reconnectActiveSshSession() {
+  const session = activeSshSession.value;
+  const profile = activeSshProfile.value;
+  if (!session || !profile) {
+    sshConnectError.value = '找不到原 SSH 配置，无法自动重连。请从左侧 SSH 配置列表重新连接。';
+    return;
+  }
+
+  sshReconnectingSessionId.value = session.sessionId;
+  sshConnectError.value = '';
+  try {
+    try {
+      await sshStore.disconnect(session.sessionId);
+    } catch {
+      // The backend may already have dropped this session; reconnecting can continue.
+    }
+    await handleSshConnect(profile);
+  } finally {
+    sshReconnectingSessionId.value = '';
+  }
+}
+
 function toggleSidebar() {
   sidebarCollapsed.value = !sidebarCollapsed.value;
 }
@@ -257,10 +280,30 @@ const activeSshProfile = computed(() =>
     ? sshStore.profiles.find((profile) => profile.id === activeSshSession.value?.profileId) ?? null
     : null,
 );
+const activeSshReconnectState = computed(() =>
+  activeSshSession.value
+    ? sshStore.reconnectStates[activeSshSession.value.sessionId] ?? null
+    : null,
+);
+const activeSshDisconnectMessage = computed(() =>
+  activeSshSession.value
+    ? sshStore.getError(activeSshSession.value.sessionId) || activeSshReconnectState.value?.lastError || ''
+    : '',
+);
 const displaySessions = computed(() => terminalStore.mainSessions);
 const rendererMode = computed(() => appConfigStore.config.features.terminal.rendererMode);
 const enableSixel = computed(() => appConfigStore.config.features.terminal.enableSixel);
 const colorSchemeId = computed(() => appConfigStore.config.features.terminal.colorSchemeId ?? 'dark-default');
+const forwardedPortSummaries = computed(() => sshStore.runningPortForwardSummaries);
+
+watch(() => sshStore.activeSshSessionId, (sessionId) => {
+  if (sessionId || sidebarTab.value !== 'ssh' || !activeSession.value) {
+    return;
+  }
+
+  sidebarTab.value = 'terminal';
+  sshStore.togglePortForwardPanel(false);
+});
 
 // Background config derived from app config
 const termBgType = computed(() => appConfigStore.config.features.terminal.viewportBgType ?? 'color');
@@ -309,6 +352,10 @@ function findPrevious() {
 }
 
 async function detachActiveSession() {
+  if (isSshMode.value && activeSshSession.value) {
+    await window.sshApi.detachToWindow(activeSshSession.value.sessionId, activeSshSession.value.profileLabel);
+    return;
+  }
   if (!activeSession.value) return;
   await terminalStore.detachToWindow(activeSession.value.sessionId);
 }
@@ -319,6 +366,12 @@ async function closeSession(sessionId: string) {
 
 function handleRenameSession(sessionId: string, newLabel: string) {
   terminalStore.renameSession(sessionId, newLabel);
+}
+
+function openPortForwardPanelForSession(sessionId: string) {
+  sshStore.focusSession(sessionId);
+  sidebarTab.value = 'ssh';
+  sshStore.togglePortForwardPanel(true);
 }
 
 // ── Sidebar inline rename ───────────────────────────────────────
@@ -462,10 +515,40 @@ async function openFileManagerForCurrentSsh() {
   }
 }
 
+function getErrorMessage(error: unknown) {
+  return error instanceof Error ? error.message : String(error);
+}
+
+function isSshSessionClosedError(error: unknown) {
+  return /SSH session ['"][^'"]+['"] not found|session ['"][^'"]+['"] not found|connection closed|broken pipe|connection reset/i
+    .test(getErrorMessage(error));
+}
+
+function extractSshSessionIdFromError(error: unknown) {
+  const message = getErrorMessage(error);
+  return message.match(/SSH session ['"]([^'"]+)['"] not found/i)?.[1]
+    ?? message.match(/session ['"]([^'"]+)['"] not found/i)?.[1]
+    ?? activeSshSession.value?.sessionId
+    ?? '';
+}
+
+function handleUnhandledSshRejection(event: PromiseRejectionEvent) {
+  if (!isSshSessionClosedError(event.reason)) return;
+  event.preventDefault();
+  const sessionId = extractSshSessionIdFromError(event.reason);
+  if (!sessionId) return;
+  sshStore.markSessionUnavailable(sessionId, getErrorMessage(event.reason));
+}
+
 onMounted(() => {
   globalStore.setTopbarColor('');
+  window.addEventListener('unhandledrejection', handleUnhandledSshRejection);
   void initializePage();
   void sshStore.initialize();
+});
+
+onBeforeUnmount(() => {
+  window.removeEventListener('unhandledrejection', handleUnhandledSshRejection);
 });
 </script>
 
@@ -579,6 +662,7 @@ onMounted(() => {
           :renderer-mode="rendererMode" :new-session-profile-id="newSessionProfileId"
           :color-scheme-id="colorSchemeId"
           :ssh-mode="isSshMode" :port-forward-open="sshStore.portForwardPanelOpen"
+          :can-detach="isSshMode && !!activeSshSession"
           @update:newSessionProfileId="newSessionProfileId = $event" @create="createSession"
           @search="searchVisible = !searchVisible" @clear="clearTerminal" @detach="detachActiveSession"
           @rename="handleRenameSession" @update:rendererMode="updateRendererMode"
@@ -588,6 +672,23 @@ onMounted(() => {
 
         <TerminalSearchPanel v-if="searchVisible" :query="searchQuery" @update:query="searchQuery = $event"
           @next="findNext" @previous="findPrevious" @close="searchVisible = false" />
+
+        <div v-if="isSshMode && activeSshReconnectState && activeSshSession" class="terminal-alert terminal-alert--error">
+          <span>
+            {{ activeSshSession.profileLabel }} 连接已断开，请重连后继续操作。
+            <span v-if="activeSshDisconnectMessage" class="terminal-alert__detail">{{ activeSshDisconnectMessage }}</span>
+          </span>
+          <div class="terminal-alert__actions">
+            <UiButton
+              size="sm"
+              variant="secondary"
+              :disabled="sshReconnectingSessionId === activeSshSession.sessionId || !activeSshProfile"
+              @click="reconnectActiveSshSession"
+            >
+              {{ sshReconnectingSessionId === activeSshSession.sessionId ? '重连中' : '重连' }}
+            </UiButton>
+          </div>
+        </div>
 
         <div v-if="activeViewportSessionId" class="terminal-stage">
           <TerminalViewport
@@ -611,14 +712,19 @@ onMounted(() => {
             @renderer-fallback="handleRendererFallback" />
 
           <!-- Port forward floating panel (SSH mode only, main window) -->
-          <PortForwardPanel
+          <div
             v-if="isSshMode && sshStore.portForwardPanelOpen && sshStore.activeSshSession"
-            :session-id="sshStore.activeSshSessionId"
-            :profile-id="sshStore.activeSshSession.profileId"
-            @close="sshStore.togglePortForwardPanel(false)"
-            @add-forward="openPortForwardDialog(null)"
-            @edit-forward="openPortForwardDialog($event)"
-          />
+            class="terminal-port-forward-overlay"
+            @click.self="sshStore.togglePortForwardPanel(false)"
+          >
+            <PortForwardPanel
+              :session-id="sshStore.activeSshSessionId"
+              :profile-id="sshStore.activeSshSession.profileId"
+              @close="sshStore.togglePortForwardPanel(false)"
+              @add-forward="openPortForwardDialog(null)"
+              @edit-forward="openPortForwardDialog($event)"
+            />
+          </div>
         </div>
 
         <div v-else class="terminal-empty ui-glass-surface ui-glass-surface--strong">
@@ -658,6 +764,19 @@ onMounted(() => {
             </span>
           </div>
           <div class="terminal-statusbar__right">
+            <div v-if="forwardedPortSummaries.length > 0" class="statusbar-forward-list">
+              <span class="statusbar-forward-list__label">转发</span>
+              <button
+                v-for="port in forwardedPortSummaries"
+                :key="`${port.sessionId}:${port.forwardId}`"
+                class="statusbar-forward-chip"
+                :title="`${port.profileLabel} · ${port.label} · ${port.address}`"
+                @click="openPortForwardPanelForSession(port.sessionId)"
+              >
+                <span class="statusbar-forward-chip__type">{{ port.forwardType.slice(0, 1).toUpperCase() }}</span>
+                <span class="statusbar-forward-chip__port">{{ port.port }}</span>
+              </button>
+            </div>
             <span>{{ isSshMode ? 'SSH' : 'Local' }}</span>
           </div>
         </div>
@@ -1078,6 +1197,14 @@ onMounted(() => {
   min-width: 0;
   min-height: 0;
   flex-direction: column;
+  position: relative;
+}
+
+.terminal-port-forward-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 100;
+  background: rgba(0, 0, 0, 0.12);
 }
 
 .terminal-stage__path {
@@ -1147,11 +1274,46 @@ onMounted(() => {
   gap: 8px;
 }
 
+.terminal-alert {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-shrink: 0;
+  margin: 10px 12px 0;
+  padding: 9px 12px;
+  border-radius: var(--ui-radius-md);
+  font-size: 12px;
+  line-height: 1.5;
+
+  &--error {
+    border: 1px solid rgba(var(--ui-state-error-rgb, 239 68 68), 0.28);
+    background: rgba(var(--ui-state-error-rgb, 239 68 68), 0.1);
+    color: var(--ui-state-error, #ef4444);
+  }
+}
+
+.terminal-alert__detail {
+  display: inline-block;
+  margin-left: 6px;
+  color: var(--ui-text-muted);
+  font-family: Consolas, 'Cascadia Mono', monospace;
+  overflow-wrap: anywhere;
+}
+
+.terminal-alert__actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 0 0 auto;
+}
+
 /* Status Bar Styles */
 .terminal-statusbar {
   display: flex;
   justify-content: space-between;
   align-items: center;
+  gap: 12px;
   padding: 6px 16px;
   background: var(--ui-surface-panel-muted);
   border-top: 1px solid var(--ui-border-subtle);
@@ -1159,10 +1321,75 @@ onMounted(() => {
   color: var(--ui-text-muted);
 }
 
+.terminal-statusbar__left {
+  display: flex;
+  align-items: center;
+  min-width: 0;
+}
+
 .terminal-statusbar__right {
   display: flex;
   gap: 12px;
   align-items: center;
+  min-width: 0;
+}
+
+.statusbar-forward-list {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  max-width: min(420px, 48vw);
+  overflow-x: auto;
+  overflow-y: hidden;
+
+  &::-webkit-scrollbar {
+    height: 0;
+  }
+}
+
+.statusbar-forward-list__label {
+  flex: 0 0 auto;
+  color: var(--ui-text-muted);
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.statusbar-forward-chip {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  gap: 4px;
+  height: 22px;
+  padding: 0 7px;
+  border: 1px solid rgba(34, 197, 94, 0.34);
+  border-radius: var(--ui-radius-sm);
+  background: rgba(34, 197, 94, 0.12);
+  color: #22c55e;
+  cursor: pointer;
+  font-family: Consolas, 'Cascadia Mono', monospace;
+  transition:
+    background-color 0.18s ease,
+    border-color 0.18s ease,
+    color 0.18s ease;
+
+  &:hover {
+    border-color: rgba(34, 197, 94, 0.62);
+    background: rgba(34, 197, 94, 0.2);
+    color: #4ade80;
+  }
+}
+
+.statusbar-forward-chip__type {
+  color: var(--ui-text-muted);
+  font-size: 9px;
+  font-weight: 800;
+}
+
+.statusbar-forward-chip__port {
+  font-size: 11px;
+  font-weight: 700;
 }
 
 // ── SSH Password Prompt ───────────────────────────────────────

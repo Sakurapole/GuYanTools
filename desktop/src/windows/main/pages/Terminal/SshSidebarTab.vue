@@ -167,6 +167,8 @@ function isSessionActive(sessionId: string) {
 
 <style lang="scss" scoped>
 .ssh-tab {
+  --ssh-sidebar-item-radius: var(--ui-radius-sm);
+
   display: flex;
   flex-direction: column;
   flex: 1;
@@ -271,7 +273,7 @@ function isSessionActive(sessionId: string) {
   justify-content: space-between;
   padding: 7px 8px;
   border: 1px solid transparent;
-  border-radius: var(--ui-radius-md);
+  border-radius: var(--ssh-sidebar-item-radius);
   background: transparent;
   color: var(--ui-text-secondary);
   cursor: pointer;
@@ -360,13 +362,14 @@ function isSessionActive(sessionId: string) {
   display: flex;
   align-items: stretch;
   border: 1px solid transparent;
-  border-radius: var(--ui-radius-md);
+  border-radius: var(--ssh-sidebar-item-radius);
+  background: color-mix(in srgb, var(--ui-tabs-active-bg) 58%, transparent);
   overflow: hidden;
   transition: all 0.18s;
 
   &:hover {
-    background: var(--ui-button-ghost-hover-bg);
-    border-color: var(--ui-border-subtle);
+    background: color-mix(in srgb, var(--ui-button-ghost-hover-bg) 72%, var(--ui-tabs-active-bg));
+    border-color: var(--ui-border-accent-soft);
 
     .ssh-profile-item__edit {
       opacity: 1;
