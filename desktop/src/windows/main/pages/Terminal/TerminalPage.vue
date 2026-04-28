@@ -296,6 +296,23 @@ const rendererMode = computed(() => appConfigStore.config.features.terminal.rend
 const enableSixel = computed(() => appConfigStore.config.features.terminal.enableSixel);
 const colorSchemeId = computed(() => appConfigStore.config.features.terminal.colorSchemeId ?? 'dark-default');
 const forwardedPortSummaries = computed(() => sshStore.runningPortForwardSummaries);
+/** Whether the active viewport is for an SSH session */
+const isSshMode = computed(() => {
+  if (sidebarTab.value === 'ssh' && sshStore.activeSshSessionId) return true;
+  return false;
+});
+const activeLocalTerminalProfile = computed(() => {
+  if (isSshMode.value) {
+    return null;
+  }
+
+  const profileId = activeSession.value?.profileId;
+  if (!profileId) {
+    return null;
+  }
+
+  return appConfigStore.config.features.terminal.localProfiles.find((profile) => profile.id === profileId) ?? null;
+});
 
 watch(() => sshStore.activeSshSessionId, (sessionId) => {
   if (sessionId) {
@@ -313,12 +330,19 @@ watch(() => sshStore.activeSshSessionId, (sessionId) => {
   sshStore.togglePortForwardPanel(false);
 });
 
-// Background config derived from app config
-const termBgType = computed(() => appConfigStore.config.features.terminal.viewportBgType ?? 'color');
-const termBgColor = computed(() => appConfigStore.config.features.terminal.viewportBgColor ?? '');
-const termBgImage = computed(() => appConfigStore.config.features.terminal.viewportBgImage ?? '');
-const termBgVideo = computed(() => appConfigStore.config.features.terminal.viewportBgVideo ?? '');
-const termBgStyle = computed(() => appConfigStore.config.features.terminal.viewportBgStyle ?? {});
+// Background config derived from the active local terminal profile, falling back to global app config.
+const activeTerminalBackground = computed(() => activeLocalTerminalProfile.value?.background ?? {
+  type: appConfigStore.config.features.terminal.viewportBgType ?? 'color',
+  color: appConfigStore.config.features.terminal.viewportBgColor ?? '',
+  image: appConfigStore.config.features.terminal.viewportBgImage ?? '',
+  video: appConfigStore.config.features.terminal.viewportBgVideo ?? '',
+  style: appConfigStore.config.features.terminal.viewportBgStyle ?? {},
+});
+const termBgType = computed(() => activeTerminalBackground.value.type);
+const termBgColor = computed(() => activeTerminalBackground.value.color);
+const termBgImage = computed(() => activeTerminalBackground.value.image);
+const termBgVideo = computed(() => activeTerminalBackground.value.video);
+const termBgStyle = computed(() => activeTerminalBackground.value.style);
 const bgPickerVisible = ref(false);
 
 // Whether a user-defined background is active (drives WebGL skip + terminal key)
@@ -440,6 +464,31 @@ async function updateColorScheme(schemeId: string) {
 }
 
 async function handleBgConfirm(payload: BackgroundConfirmPayload) {
+  const localProfile = activeLocalTerminalProfile.value;
+  if (localProfile) {
+    await appConfigStore.updateConfig({
+      features: {
+        terminal: {
+          localProfiles: appConfigStore.config.features.terminal.localProfiles.map((profile) =>
+            profile.id === localProfile.id
+              ? {
+                  ...profile,
+                  background: {
+                    type: payload.type,
+                    color: payload.color ?? '',
+                    image: payload.image ?? '',
+                    video: payload.video ?? '',
+                    style: payload.backgroundStyle ?? {},
+                  },
+                }
+              : profile,
+          ),
+        },
+      },
+    });
+    return;
+  }
+
   await appConfigStore.updateConfig({
     features: {
       terminal: {
@@ -456,18 +505,19 @@ async function handleBgConfirm(payload: BackgroundConfirmPayload) {
 
 
 watch(() => terminalStore.profiles, (profiles) => {
-  if (!newSessionProfileId.value && profiles.length > 0) {
-    newSessionProfileId.value = profiles.find((profile) => profile.isDefault)?.id ?? profiles[0].id;
+  if (profiles.length === 0) {
+    newSessionProfileId.value = '';
+    return;
+  }
+
+  if (!newSessionProfileId.value || !profiles.some((profile) => profile.id === newSessionProfileId.value)) {
+    newSessionProfileId.value = appConfigStore.config.features.terminal.defaultProfileId
+      || profiles.find((profile) => profile.isDefault)?.id
+      || profiles[0].id;
   }
 }, { deep: true });
 
 // ── Computed: which session & buffer to show ──────────────────
-
-/** Whether the active viewport is for an SSH session */
-const isSshMode = computed(() => {
-  if (sidebarTab.value === 'ssh' && sshStore.activeSshSessionId) return true;
-  return false;
-});
 
 /** Buffer content for the active viewport */
 const activeViewportBuffer = computed(() => {

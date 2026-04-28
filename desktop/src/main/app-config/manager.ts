@@ -14,6 +14,7 @@ import type {
   AppToolsConfig,
   LocalFontOption,
 } from '@/contracts/app_config';
+import type { LocalTerminalProfileConfig, TerminalBackgroundConfig } from '@/contracts/terminal';
 import type { AppWebConfig, ChromeExtensionRecord, WebScriptRule } from '@/contracts/webview';
 import {
   createDefaultAppConfig,
@@ -153,11 +154,13 @@ function normalizeTerminalFeature(value: unknown): AppFeaturesConfig['terminal']
       Object.entries(value.env).filter((entry): entry is [string, string] => typeof entry[1] === 'string'),
     )
     : cloneConfig(defaults.env);
+  const localProfiles = normalizeLocalTerminalProfiles(value.localProfiles);
 
   return {
     defaultProfileId,
     defaultCwd,
     env,
+    localProfiles,
     rendererMode,
     enableSixel,
     detachToWindowByDefault,
@@ -168,6 +171,87 @@ function normalizeTerminalFeature(value: unknown): AppFeaturesConfig['terminal']
     viewportBgImage,
     viewportBgVideo,
     viewportBgStyle,
+  };
+}
+
+function normalizeStringArray(value: unknown): string[] {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+
+  return value
+    .filter((item): item is string => typeof item === 'string')
+    .map((item) => item.trim())
+    .filter(Boolean);
+}
+
+function normalizeStringRecord(value: unknown): Record<string, string> {
+  if (!isRecord(value)) {
+    return {};
+  }
+
+  return Object.fromEntries(
+    Object.entries(value)
+      .filter((entry): entry is [string, string] => typeof entry[1] === 'string' && entry[0].trim().length > 0),
+  );
+}
+
+function normalizeLocalTerminalProfiles(value: unknown): LocalTerminalProfileConfig[] {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+
+  const profiles: LocalTerminalProfileConfig[] = [];
+  const seenIds = new Set<string>();
+
+  for (const item of value) {
+    if (!isRecord(item)) {
+      continue;
+    }
+
+    const rawId = typeof item.id === 'string' ? item.id.trim() : '';
+    const label = typeof item.label === 'string' ? item.label.trim() : '';
+    const command = typeof item.command === 'string' ? item.command.trim() : '';
+    const id = rawId.startsWith('local:') ? rawId : `local:${rawId}`;
+    if (!rawId || !label || !command || seenIds.has(id)) {
+      continue;
+    }
+
+    seenIds.add(id);
+    profiles.push({
+      id,
+      label,
+      command,
+      args: normalizeStringArray(item.args),
+      cwd: typeof item.cwd === 'string' ? item.cwd.trim() : '',
+      env: normalizeStringRecord(item.env),
+      configFilePath: typeof item.configFilePath === 'string' ? item.configFilePath.trim() : '',
+      background: normalizeTerminalBackground(item.background),
+    });
+  }
+
+  return profiles;
+}
+
+function normalizeTerminalBackground(value: unknown): TerminalBackgroundConfig {
+  if (!isRecord(value)) {
+    return {
+      type: 'color',
+      color: '',
+      image: '',
+      video: '',
+      style: {},
+    };
+  }
+
+  const type = value.type === 'image' || value.type === 'video' ? value.type : 'color';
+  const style = isRecord(value.style) ? cloneConfig(value.style) as Record<string, unknown> : {};
+  return {
+    type,
+    color: typeof value.color === 'string' ? value.color : '',
+    image: typeof value.image === 'string' ? value.image : '',
+    video: typeof value.video === 'string' ? value.video : '',
+    style,
   };
 }
 

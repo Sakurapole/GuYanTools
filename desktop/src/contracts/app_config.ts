@@ -97,6 +97,7 @@ export function createDefaultAppConfig(): AppConfig {
         defaultProfileId: '',
         defaultCwd: '',
         env: {},
+        localProfiles: [],
         rendererMode: 'auto',
         enableSixel: true,
         detachToWindowByDefault: false,

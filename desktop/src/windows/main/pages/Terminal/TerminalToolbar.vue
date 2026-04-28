@@ -214,6 +214,14 @@ function handleTitleKeydown(e: KeyboardEvent) {
 <template>
   <div ref="toolbarRef" class="terminal-toolbar">
     <div class="terminal-toolbar__left">
+      <UiSelect
+        v-if="!sshMode"
+        :model-value="newSessionProfileId"
+        :options="profileOptions"
+        size="sm"
+        placeholder="终端类型"
+        @update:modelValue="emit('update:newSessionProfileId', $event as string)"
+      />
       <UiButton variant="primary" size="sm" @click="emit('create')">
         新建会话
       </UiButton>

@@ -2,7 +2,12 @@
 import { computed, onMounted, ref, watch } from 'vue';
 import type { AppLanguage, AppTheme } from '@/contracts/app_config';
 import type { FtpWindowsContextMenuStatus } from '@/contracts/ftp';
-import type { TerminalProfile, TerminalRendererMode } from '@/contracts/terminal';
+import type {
+  LocalTerminalProfileConfig,
+  TerminalBackgroundConfig,
+  TerminalProfile,
+  TerminalRendererMode,
+} from '@/contracts/terminal';
 import type { WebScriptRule } from '@/contracts/webview';
 import type { InstalledPluginRecord, PluginHostSummary } from '@/contracts/plugin_host';
 import UiButton from '../components/ui/UiButton.vue';
@@ -50,6 +55,17 @@ const pluginConfigDrafts = ref<Record<string, string>>({});
 const pluginConfigErrors = ref<Record<string, string>>({});
 const terminalProfiles = ref<TerminalProfile[]>([]);
 const terminalDefaultCwdInput = ref(appConfigStore.config.features.terminal.defaultCwd || '');
+const localTerminalBaseProfileId = ref('');
+const localTerminalEditingId = ref('');
+const localTerminalProfileError = ref('');
+const localTerminalProfileForm = ref({
+  label: '',
+  command: '',
+  argsText: '',
+  cwd: '',
+  envText: '{}',
+  configFilePath: '',
+});
 const sshReconnectMaxAttemptsInput = ref(String(appConfigStore.config.features.terminal.sshReconnectMaxAttempts || 3));
 const githubTokenInput = ref('');
 const updaterAuthMessage = ref('');
@@ -127,10 +143,17 @@ const pluginTabs = computed<UiTabItem[]>(() => installedPlugins.value.map((plugi
   key: plugin.manifest.id,
   label: plugin.manifest.displayName,
 })));
-const terminalProfileOptions = computed(() => terminalProfiles.value.map((profile) => ({
-  label: profile.label,
-  value: profile.id,
-})));
+const customTerminalProfiles = computed(() => appConfigStore.config.features.terminal.localProfiles ?? []);
+const terminalProfileOptions = computed(() => [
+  ...terminalProfiles.value.map((profile) => ({
+    label: profile.label,
+    value: profile.id,
+  })),
+  ...customTerminalProfiles.value.map((profile) => ({
+    label: `${profile.label}（自定义）`,
+    value: profile.id,
+  })),
+]);
 const ftpSecondaryRemoteSessionOptions = computed(() => [
   { label: '自动选择第二标签组会话', value: '' },
   ...ftpStore.sessions.map((session) => ({
@@ -564,6 +587,10 @@ async function handleFontChange(value: string) {
 
 async function loadTerminalProfiles() {
   terminalProfiles.value = await window.terminalApi.listProfiles();
+  if (!localTerminalBaseProfileId.value && terminalProfiles.value.length > 0) {
+    localTerminalBaseProfileId.value = terminalProfiles.value[0].id;
+    fillLocalTerminalProfileFromBase(localTerminalBaseProfileId.value);
+  }
 }
 
 async function handleTerminalProfileChange(value: string) {
@@ -594,6 +621,193 @@ async function commitTerminalDefaultCwd() {
       },
     },
   });
+}
+
+function fillLocalTerminalProfileFromBase(profileId: string) {
+  localTerminalBaseProfileId.value = profileId;
+  if (localTerminalEditingId.value) {
+    return;
+  }
+
+  const profile = terminalProfiles.value.find((item) => item.id === profileId);
+  if (!profile) {
+    return;
+  }
+
+  localTerminalProfileForm.value = {
+    ...localTerminalProfileForm.value,
+    label: `${profile.label} 自定义`,
+    command: profile.command,
+    argsText: profile.args.join(' '),
+  };
+}
+
+function createDefaultTerminalBackground(): TerminalBackgroundConfig {
+  return {
+    type: appConfigStore.config.features.terminal.viewportBgType ?? 'color',
+    color: appConfigStore.config.features.terminal.viewportBgColor ?? '',
+    image: appConfigStore.config.features.terminal.viewportBgImage ?? '',
+    video: appConfigStore.config.features.terminal.viewportBgVideo ?? '',
+    style: appConfigStore.config.features.terminal.viewportBgStyle ?? {},
+  };
+}
+
+function resetLocalTerminalProfileForm() {
+  localTerminalEditingId.value = '';
+  localTerminalProfileError.value = '';
+  const profile = terminalProfiles.value.find((item) => item.id === localTerminalBaseProfileId.value)
+    ?? terminalProfiles.value[0];
+  localTerminalProfileForm.value = {
+    label: profile ? `${profile.label} 自定义` : '',
+    command: profile?.command ?? '',
+    argsText: profile?.args.join(' ') ?? '',
+    cwd: '',
+    envText: '{}',
+    configFilePath: '',
+  };
+}
+
+function parseTerminalArgs(value: string) {
+  const args: string[] = [];
+  let current = '';
+  let quote: '"' | "'" | '' = '';
+  let escaping = false;
+
+  for (const char of value) {
+    if (escaping) {
+      current += char;
+      escaping = false;
+      continue;
+    }
+
+    if (quote && char === '\\') {
+      escaping = true;
+      continue;
+    }
+
+    if ((char === '"' || char === "'") && (!quote || quote === char)) {
+      quote = quote ? '' : char;
+      continue;
+    }
+
+    if (!quote && /\s/.test(char)) {
+      if (current) {
+        args.push(current);
+        current = '';
+      }
+      continue;
+    }
+
+    current += char;
+  }
+
+  if (escaping) {
+    current += '\\';
+  }
+  if (current) {
+    args.push(current);
+  }
+
+  return args;
+}
+
+function parseTerminalEnv(value: string) {
+  const trimmed = value.trim();
+  if (!trimmed) {
+    return {};
+  }
+
+  const parsed = JSON.parse(trimmed) as unknown;
+  if (!isRecord(parsed)) {
+    throw new Error('环境变量必须是 JSON 对象');
+  }
+
+  return Object.fromEntries(
+    Object.entries(parsed)
+      .filter((entry): entry is [string, string] => typeof entry[1] === 'string' && entry[0].trim().length > 0),
+  );
+}
+
+async function saveLocalTerminalProfile() {
+  const label = localTerminalProfileForm.value.label.trim();
+  const command = localTerminalProfileForm.value.command.trim();
+  if (!label || !command) {
+    localTerminalProfileError.value = '名称和命令不能为空。';
+    return;
+  }
+
+  let env: Record<string, string>;
+  try {
+    env = parseTerminalEnv(localTerminalProfileForm.value.envText);
+  } catch (error) {
+    localTerminalProfileError.value = error instanceof Error ? error.message : '环境变量格式不正确。';
+    return;
+  }
+
+  const id = localTerminalEditingId.value || `local:${Date.now().toString(36)}`;
+  const nextProfile: LocalTerminalProfileConfig = {
+    id,
+    label,
+    command,
+    args: parseTerminalArgs(localTerminalProfileForm.value.argsText),
+    cwd: localTerminalProfileForm.value.cwd.trim(),
+    env,
+    configFilePath: localTerminalProfileForm.value.configFilePath.trim(),
+    background: localTerminalEditingId.value
+      ? customTerminalProfiles.value.find((profile) => profile.id === localTerminalEditingId.value)?.background ?? createDefaultTerminalBackground()
+      : createDefaultTerminalBackground(),
+  };
+  const nextProfiles = localTerminalEditingId.value
+    ? customTerminalProfiles.value.map((profile) => profile.id === localTerminalEditingId.value ? nextProfile : profile)
+    : [...customTerminalProfiles.value, nextProfile];
+
+  await appConfigStore.updateConfig({
+    features: {
+      terminal: {
+        localProfiles: nextProfiles,
+      },
+    },
+  });
+  resetLocalTerminalProfileForm();
+}
+
+function editLocalTerminalProfile(profile: LocalTerminalProfileConfig) {
+  localTerminalEditingId.value = profile.id;
+  localTerminalProfileError.value = '';
+  localTerminalProfileForm.value = {
+    label: profile.label,
+    command: profile.command,
+    argsText: profile.args.join(' '),
+    cwd: profile.cwd ?? '',
+    envText: JSON.stringify(profile.env ?? {}, null, 2),
+    configFilePath: profile.configFilePath ?? '',
+  };
+}
+
+async function deleteLocalTerminalProfile(profile: LocalTerminalProfileConfig) {
+  const confirmed = await showConfirm({
+    title: '删除本地终端类型',
+    message: `删除 ${profile.label} 后，新建会话列表中将不再显示这个类型。是否继续？`,
+    confirmText: '删除',
+    danger: true,
+  });
+  if (!confirmed) return;
+
+  const nextProfiles = customTerminalProfiles.value.filter((item) => item.id !== profile.id);
+  const fallbackProfileId = appConfigStore.config.features.terminal.defaultProfileId === profile.id
+    ? terminalProfiles.value[0]?.id ?? ''
+    : appConfigStore.config.features.terminal.defaultProfileId;
+  await appConfigStore.updateConfig({
+    features: {
+      terminal: {
+        localProfiles: nextProfiles,
+        defaultProfileId: fallbackProfileId,
+      },
+    },
+  });
+  if (localTerminalEditingId.value === profile.id) {
+    resetLocalTerminalProfileForm();
+  }
 }
 
 async function handleTerminalSixelChange(event: Event) {
@@ -1710,6 +1924,61 @@ function scriptTypeLabel(type: string) {
                 />
               </div>
             </div>
+            <div class="settings-row settings-row--wide">
+              <div class="settings-row__label">
+                <span>本地终端类型</span>
+                <small>为不同本地终端保存独立命令、参数、工作目录、环境变量、启动配置文件和背景配置。</small>
+              </div>
+              <div class="settings-row__control settings-row__control--wide">
+                <div class="terminal-profile-editor">
+                  <div class="terminal-profile-editor__grid">
+                    <UiSelect
+                      :model-value="localTerminalBaseProfileId"
+                      :options="terminalProfiles.map((profile) => ({ label: profile.label, value: profile.id }))"
+                      placeholder="从系统终端复制"
+                      @update:modelValue="fillLocalTerminalProfileFromBase(String($event))"
+                    />
+                    <UiInput v-model="localTerminalProfileForm.label" placeholder="类型名称，例如：项目 PowerShell" />
+                    <UiInput v-model="localTerminalProfileForm.command" placeholder="命令，例如：pwsh.exe" />
+                    <UiInput v-model="localTerminalProfileForm.argsText" placeholder="启动参数，例如：-NoLogo" />
+                    <UiInput v-model="localTerminalProfileForm.cwd" placeholder="工作目录，可留空" />
+                    <UiInput v-model="localTerminalProfileForm.configFilePath" placeholder="启动配置文件路径，例如：D:\\profiles\\project.ps1" />
+                  </div>
+                  <textarea
+                    v-model="localTerminalProfileForm.envText"
+                    class="terminal-profile-editor__env"
+                    rows="4"
+                    placeholder='环境变量 JSON，例如：{"NODE_ENV":"development"}'
+                  />
+                  <p v-if="localTerminalProfileError" class="settings-error">{{ localTerminalProfileError }}</p>
+                  <div class="terminal-profile-editor__actions">
+                    <UiButton size="sm" variant="primary" @click="saveLocalTerminalProfile">
+                      {{ localTerminalEditingId ? '保存类型' : '添加类型' }}
+                    </UiButton>
+                    <UiButton size="sm" variant="ghost" @click="resetLocalTerminalProfileForm">重置</UiButton>
+                  </div>
+                </div>
+                <div v-if="customTerminalProfiles.length" class="terminal-profile-list">
+                  <div
+                    v-for="profile in customTerminalProfiles"
+                    :key="profile.id"
+                    class="terminal-profile-list__item"
+                  >
+                    <div class="terminal-profile-list__main">
+                      <strong>{{ profile.label }}</strong>
+                      <span>{{ profile.command }} {{ profile.args.join(' ') }}</span>
+                      <small v-if="profile.configFilePath">启动配置文件：{{ profile.configFilePath }}</small>
+                      <small>背景：{{ profile.background.type === 'image' ? '图片' : profile.background.type === 'video' ? '视频' : '颜色' }}</small>
+                    </div>
+                    <div class="terminal-profile-list__actions">
+                      <UiButton size="sm" variant="ghost" @click="handleTerminalProfileChange(profile.id)">设为默认</UiButton>
+                      <UiButton size="sm" variant="ghost" @click="editLocalTerminalProfile(profile)">编辑</UiButton>
+                      <UiButton size="sm" variant="danger" @click="deleteLocalTerminalProfile(profile)">删除</UiButton>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
           </section>
 
           <section class="settings-group">
@@ -2506,6 +2775,96 @@ function scriptTypeLabel(type: string) {
   display: flex;
   justify-content: flex-end;
   max-width: 360px;
+}
+
+.settings-error {
+  margin: 0;
+  color: var(--ui-danger-color, #dc2626);
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.terminal-profile-editor {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.terminal-profile-editor__grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.terminal-profile-editor__env {
+  width: 100%;
+  min-height: 92px;
+  padding: 10px 12px;
+  border: var(--ui-border-width-thin) solid var(--ui-input-border);
+  border-radius: 6px;
+  background: var(--ui-input-bg);
+  color: var(--ui-input-text);
+  resize: vertical;
+  box-sizing: border-box;
+  font: inherit;
+  line-height: 1.5;
+}
+
+.terminal-profile-editor__env:focus {
+  outline: none;
+  border-color: var(--ui-input-focus-border);
+  box-shadow: var(--ui-focus-ring);
+}
+
+.terminal-profile-editor__actions,
+.terminal-profile-list__actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.terminal-profile-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.terminal-profile-list__item {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 12px;
+  border: 1px solid var(--ui-border-subtle);
+  border-radius: 6px;
+  background: color-mix(in srgb, var(--ui-surface-muted, var(--ui-input-bg)) 70%, transparent);
+}
+
+.terminal-profile-list__main {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+
+  strong,
+  span,
+  small {
+    overflow-wrap: anywhere;
+  }
+
+  strong {
+    color: var(--ui-text-primary);
+    font-size: 13px;
+  }
+
+  span,
+  small {
+    color: var(--ui-text-muted);
+    font-size: 12px;
+  }
 }
 
 .settings-switch {
@@ -3353,5 +3712,16 @@ function scriptTypeLabel(type: string) {
   cursor: pointer;
 
   input { cursor: pointer; }
+}
+
+@media (max-width: 760px) {
+  .terminal-profile-editor__grid,
+  .terminal-profile-list__item {
+    grid-template-columns: 1fr;
+  }
+
+  .terminal-profile-list__actions {
+    justify-content: flex-start;
+  }
 }
 </style>

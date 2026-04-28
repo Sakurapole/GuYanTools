@@ -8,6 +8,30 @@ export interface TerminalProfile {
   command: string;
   args: string[];
   isDefault: boolean;
+  source?: 'system' | 'custom';
+  cwd?: string;
+  env?: Record<string, string>;
+  configFilePath?: string;
+  background?: TerminalBackgroundConfig;
+}
+
+export interface TerminalBackgroundConfig {
+  type: 'color' | 'image' | 'video';
+  color: string;
+  image: string;
+  video: string;
+  style: import('./background').BackgroundStyleConfig;
+}
+
+export interface LocalTerminalProfileConfig {
+  id: string;
+  label: string;
+  command: string;
+  args: string[];
+  cwd?: string;
+  env: Record<string, string>;
+  configFilePath?: string;
+  background: TerminalBackgroundConfig;
 }
 
 export interface TerminalSessionDescriptor {
@@ -22,6 +46,8 @@ export interface TerminalSessionDescriptor {
 
 export interface CreateTerminalSessionPayload {
   profileId?: string;
+  profileLabel?: string;
+  command?: string;
   cwd?: string;
   args?: string[];
   env?: Record<string, string>;
@@ -56,6 +82,7 @@ export interface TerminalFeatureConfig {
   defaultProfileId?: string;
   defaultCwd?: string;
   env: Record<string, string>;
+  localProfiles: LocalTerminalProfileConfig[];
   rendererMode: TerminalRendererMode;
   enableSixel: boolean;
   detachToWindowByDefault: boolean;
