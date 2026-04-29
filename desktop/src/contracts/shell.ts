@@ -17,6 +17,7 @@ export interface ShellApi {
   selectFile: (options?: SelectFileOptions) => Promise<string | null>;
   saveFile: (options?: SaveFileOptions) => Promise<string | null>;
   selectDirectory: (title?: string) => Promise<string | null>;
+  readTextFile: (path: string, maxBytes?: number) => Promise<string>;
   writeTextFile: (path: string, content: string) => Promise<void>;
   readClipboardText: () => Promise<string>;
   writeClipboardText: (text: string) => Promise<void>;

@@ -74,7 +74,6 @@ const ftpLinkNavigationEnabled = ref(false);
 const ftpPanelLayoutMode = ref<FtpPanelLayoutMode>('columns');
 const ftpSidebarDockSide = ref<FtpSidebarDockSide>('left');
 const ftpAuxiliaryDockSide = ref<FtpAuxiliaryDockSide>('bottom');
-const ftpSidebarSize = ref('296');
 const ftpAuxiliaryDockSize = ref('260');
 const ftpShowSidebarPanel = ref(true);
 const ftpShowLocalPanel = ref(true);
@@ -182,7 +181,7 @@ const ftpPanelLayoutSummary = computed(() => (
   ftpPanelLayoutMode.value === 'columns' ? '当前为水平双栏布局' : '当前为纵向堆叠布局'
 ));
 const ftpSidebarDockSummary = computed(() => (
-  `会话侧栏停靠在${ftpSidebarDockSide.value === 'left' ? '左侧' : '右侧'} · 宽度 ${ftpSidebarSize.value}px`
+  `会话侧栏停靠在${ftpSidebarDockSide.value === 'left' ? '左侧' : '右侧'}`
 ));
 const ftpAuxiliaryDockSummary = computed(() => {
   const positionLabel = ftpAuxiliaryDockSide.value === 'bottom' ? '底部停靠区' : '右侧停靠区';
@@ -328,7 +327,6 @@ function loadFtpSettingsDraft() {
         mode: FtpPanelLayoutMode;
         sidebarDockSide: FtpSidebarDockSide;
         auxiliaryDockSide: FtpAuxiliaryDockSide;
-        sidebarSize: string;
         auxiliaryDockSize: string;
         showSidebar: boolean;
         showLocal: boolean;
@@ -338,7 +336,6 @@ function loadFtpSettingsDraft() {
       ftpPanelLayoutMode.value = parsed.mode === 'stacked' ? 'stacked' : 'columns';
       ftpSidebarDockSide.value = parsed.sidebarDockSide === 'right' ? 'right' : 'left';
       ftpAuxiliaryDockSide.value = parsed.auxiliaryDockSide === 'right' ? 'right' : 'bottom';
-      ftpSidebarSize.value = normalizeFtpPanelSize(parsed.sidebarSize, 220, 420, '296');
       ftpAuxiliaryDockSize.value = normalizeFtpPanelSize(parsed.auxiliaryDockSize, 180, 420, '260');
       ftpShowSidebarPanel.value = parsed.showSidebar ?? true;
       ftpShowLocalPanel.value = parsed.showLocal ?? true;
@@ -382,7 +379,6 @@ function loadFtpSettingsDraft() {
     ftpPanelLayoutMode.value = 'columns';
     ftpSidebarDockSide.value = 'left';
     ftpAuxiliaryDockSide.value = 'bottom';
-    ftpSidebarSize.value = '296';
     ftpAuxiliaryDockSize.value = '260';
     ftpShowSidebarPanel.value = true;
     ftpShowLocalPanel.value = true;
@@ -407,7 +403,6 @@ function persistFtpLayoutSettings() {
     mode: ftpPanelLayoutMode.value,
     sidebarDockSide: ftpSidebarDockSide.value,
     auxiliaryDockSide: ftpAuxiliaryDockSide.value,
-    sidebarSize: ftpSidebarSize.value,
     auxiliaryDockSize: ftpAuxiliaryDockSize.value,
     showSidebar: ftpShowSidebarPanel.value,
     showLocal: ftpShowLocalPanel.value,
@@ -450,10 +445,6 @@ function setFtpSidebarDockSide(side: FtpSidebarDockSide) {
 
 function setFtpAuxiliaryDockSide(side: FtpAuxiliaryDockSide) {
   ftpAuxiliaryDockSide.value = side;
-}
-
-function setFtpSidebarSize(value: string) {
-  ftpSidebarSize.value = normalizeFtpPanelSize(value, 220, 420, ftpSidebarSize.value);
 }
 
 function setFtpAuxiliaryDockSize(value: string) {
@@ -1023,7 +1014,6 @@ watch(
     ftpPanelLayoutMode,
     ftpSidebarDockSide,
     ftpAuxiliaryDockSide,
-    ftpSidebarSize,
     ftpAuxiliaryDockSize,
     ftpAuxiliaryDockCollapsed,
     ftpShowSidebarPanel,
@@ -1599,21 +1589,6 @@ function scriptTypeLabel(type: string) {
                   <UiButton size="sm" variant="secondary" :active="ftpSidebarDockSide === 'left'" @click="setFtpSidebarDockSide('left')">左侧</UiButton>
                   <UiButton size="sm" variant="secondary" :active="ftpSidebarDockSide === 'right'" @click="setFtpSidebarDockSide('right')">右侧</UiButton>
                 </div>
-              </div>
-            </div>
-            <div class="settings-row">
-              <div class="settings-row__label">
-                <span>侧栏宽度</span>
-                <small>输入 220 到 420 像素。</small>
-              </div>
-              <div class="settings-row__control settings-row__control--compact">
-                <UiInput
-                  :model-value="ftpSidebarSize"
-                  type="number"
-                  :min="220"
-                  :max="420"
-                  @update:modelValue="setFtpSidebarSize(String($event))"
-                />
               </div>
             </div>
             <div class="settings-row settings-row--wide">

@@ -135,6 +135,7 @@ const shellApi = {
   selectFile: (options?: SelectFileOptions) => ipcRenderer.invoke('shell:select-file', options),
   saveFile: (options?: SaveFileOptions) => ipcRenderer.invoke('shell:save-file', options),
   selectDirectory: (title?: string) => ipcRenderer.invoke('shell:select-directory', title),
+  readTextFile: (path: string, maxBytes?: number) => ipcRenderer.invoke('shell:read-text-file', path, maxBytes),
   writeTextFile: (path: string, content: string) => ipcRenderer.invoke('shell:write-text-file', path, content),
   readClipboardText: () => ipcRenderer.invoke('shell:clipboard-read-text'),
   writeClipboardText: (text: string) => ipcRenderer.invoke('shell:clipboard-write-text', text),

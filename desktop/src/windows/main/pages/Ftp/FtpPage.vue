@@ -5,7 +5,11 @@ import type {
   TransferTask,
   UpsertFtpScheduledTaskInput,
 } from '@/contracts/ftp';
+import CategoryMediaIcon from '@/windows/main/components/svgs/icons/CategoryMediaIcon.vue';
+import CategoryTextIcon from '@/windows/main/components/svgs/icons/CategoryTextIcon.vue';
+import ConvertIcon from '@/windows/main/components/svgs/icons/ConvertIcon.vue';
 import DeleteIcon from '@/windows/main/components/svgs/icons/DeleteIcon.vue';
+import OpenIcon from '@/windows/main/components/svgs/icons/OpenIcon.vue';
 import UiButton from '@/windows/main/components/ui/UiButton.vue';
 import UiCheckbox from '@/windows/main/components/ui/UiCheckbox.vue';
 import UiDateTimePicker from '@/windows/main/components/ui/UiDateTimePicker.vue';
@@ -34,6 +38,7 @@ import { useFtpSidebar } from '@/windows/main/pages/Ftp/composables/useFtpSideba
 import { useFtpThumbnails } from '@/windows/main/pages/Ftp/composables/useFtpThumbnails';
 import type {
   PanelFilterState,
+  PanelKind,
   PanelViewMode,
   SyncActionKind,
   SyncComparisonItem,
@@ -86,6 +91,8 @@ type SessionTabGroup = 'primary' | 'secondary';
 type SidebarDockSide = 'left' | 'right';
 type AuxiliaryDockSide = 'bottom' | 'right';
 type ActiveBrowserPanel = 'local' | 'remote' | 'secondaryRemote';
+type EditorTargetKind = 'local' | 'remote';
+type RemotePreviewKind = 'image' | 'text';
 type AuxiliaryDockTab = 'queue' | 'log';
 type TransferTaskRefreshSnapshot = Pick<TransferTask, 'id' | 'status' | 'direction' | 'sessionId' | 'remotePath'>;
 type RemoteRefreshTarget = {
@@ -112,6 +119,8 @@ type ClosedSessionSnapshot = {
 
 const FTP_LAYOUT_STORAGE_KEY = 'guyantools.ftp.layout';
 const FTP_PREFERENCES_STORAGE_KEY = 'guyantools.ftp.preferences';
+const IMAGE_PREVIEW_MAX_BYTES = 10 * 1024 * 1024;
+const REMOTE_TEXT_PREVIEW_MAX_BYTES = 2 * 1024 * 1024;
 
 const globalStore = useGlobalStore();
 const ftpStore = useFtpStore();
@@ -129,6 +138,7 @@ const disconnectedSessionNotice = ref<DisconnectedSessionNotice | null>(null);
 const disconnectedSessionDialogVisible = ref(false);
 const reconnectingDisconnectedSession = ref(false);
 const remoteEditorDialogVisible = ref(false);
+const remotePreviewDialogVisible = ref(false);
 const syncPanelVisible = ref(false);
 const linkNavigationEnabled = ref(false);
 const taskSortKey = ref<TaskSortKey>('createdAt');
@@ -152,11 +162,19 @@ const remoteEditorContent = ref('');
 const remoteEditorOriginalContent = ref('');
 const remoteEditorLoading = ref(false);
 const remoteEditorSaving = ref(false);
+const editorTargetKind = ref<EditorTargetKind>('remote');
+const remotePreviewSource = ref<EditorTargetKind>('remote');
+const remotePreviewKind = ref<RemotePreviewKind>('image');
+const remotePreviewPath = ref('');
+const remotePreviewName = ref('');
+const remotePreviewImageSrc = ref('');
+const remotePreviewText = ref('');
+const remotePreviewLoading = ref(false);
+const remotePreviewError = ref('');
 const panelLayoutMode = ref<PanelLayoutMode>('columns');
 const sidebarDockSide = ref<SidebarDockSide>('left');
 const auxiliaryDockSide = ref<AuxiliaryDockSide>('bottom');
 const activeBrowserPanel = ref<ActiveBrowserPanel>('remote');
-const sidebarSize = ref('296');
 const auxiliaryDockSize = ref('260');
 const localPanelViewMode = ref<PanelViewMode>('details');
 const remotePanelViewMode = ref<PanelViewMode>('details');
@@ -525,6 +543,7 @@ const {
   remoteSelectedPaths,
   selectedLocalEntries,
   selectedRemoteEntries,
+  selectedLocalEntry,
   selectedRemoteEntry,
   canUpload,
   canDownload,
@@ -532,6 +551,10 @@ const {
   downloadActionLabel,
   clearLocalSelection,
   clearRemoteSelection,
+  selectAllLocalEntries,
+  selectAllRemoteEntries,
+  handleLocalMarqueeSelect,
+  handleRemoteMarqueeSelect,
   handleLocalEntryClick,
   handleRemoteEntryClick,
   handlePanelListContextMenu,
@@ -547,11 +570,14 @@ const {
   handleLocalDragStart,
   handleRemoteDragStart,
   handleRemoteDragEnter,
+  handleRemoteDragOver,
   handleRemoteDragLeave,
   handleRemoteDrop,
   handleLocalDragEnter,
+  handleLocalDragOver,
   handleLocalDragLeave,
   handleLocalDrop,
+  handleEntryDragEnd,
 } = useFtpPanelInteractions({
   ftpStore,
   activeSession,
@@ -570,6 +596,18 @@ const {
   changeRemotePermissions,
   pasteClipboardToRemote,
   copySelectionInfo,
+  canOpenTerminalForPanel,
+  openTerminalForPanel,
+  canPreviewLocalImage: canPreviewLocalImageEntry,
+  previewLocalImage,
+  canPreviewRemoteImage: canPreviewRemoteImageEntry,
+  previewRemoteImage,
+  canPreviewRemoteText: canPreviewRemoteTextEntry,
+  previewRemoteText,
+  canOpenInternalEditor,
+  openInternalEditor,
+  canOpenExternalEditor,
+  openExternalEditor: openExternalEditorForEntry,
   prepareRemoteDragExport: (sessionId, remotePaths) => window.ftpApi.prepareRemoteDragExport(sessionId, remotePaths),
   startPreparedDrag: (localPaths) => window.ftpApi.startPreparedDrag(localPaths),
   copyLocalPathsToCurrentLocal: async (paths) => {
@@ -590,6 +628,17 @@ const disconnectedSessionProfile = computed(() =>
     : null,
 );
 const canEditRemoteFile = computed(() => isEditableTextEntry(selectedRemoteEntry.value));
+const canPreviewRemoteImage = computed(() => canPreviewRemoteImageEntry(selectedRemoteEntry.value));
+const canPreviewRemoteText = computed(() => canPreviewRemoteTextEntry(selectedRemoteEntry.value));
+const canPreviewActiveImage = computed(() => {
+  if (activeBrowserPanel.value === 'local') {
+    return canPreviewLocalImageEntry(selectedLocalEntry.value);
+  }
+  if (activeBrowserPanel.value === 'remote') {
+    return canPreviewRemoteImage.value;
+  }
+  return false;
+});
 const canChmodRemoteFile = computed(() => Boolean(activeSession.value && selectedRemoteEntry.value));
 const primarySessionTabs = computed(() =>
   ftpStore.sessions.filter((session) => !secondaryTabGroupProfileIds.value.includes(session.profileId)),
@@ -606,12 +655,12 @@ const secondaryRemoteSession = computed(() =>
     ? secondarySessionTabs.value.find((session) => session.profileId === secondaryRemoteProfileId.value) ?? null
     : null),
 );
-const terminalOpenTarget = computed<TerminalOpenTarget | null>(() => {
-  if (activeBrowserPanel.value === 'local') {
+function resolveTerminalOpenTarget(panel: ActiveBrowserPanel = activeBrowserPanel.value): TerminalOpenTarget | null {
+  if (panel === 'local') {
     return showLocalPanel.value && ftpStore.localPath ? { kind: 'local', path: ftpStore.localPath } : null;
   }
 
-  if (activeBrowserPanel.value === 'secondaryRemote') {
+  if (panel === 'secondaryRemote') {
     const session = secondaryRemoteSession.value;
     const profile = session ? ftpStore.profiles.find((item) => item.id === session.profileId) ?? null : null;
     if (!dualRemoteMode.value || !session || !profile?.sshProfileId) return null;
@@ -628,7 +677,8 @@ const terminalOpenTarget = computed<TerminalOpenTarget | null>(() => {
     sshProfileId: activeFtpProfile.value.sshProfileId,
     path: ftpStore.remotePath || activeSession.value.remoteRoot || '/',
   };
-});
+}
+const terminalOpenTarget = computed<TerminalOpenTarget | null>(() => resolveTerminalOpenTarget());
 const terminalOpenTooltip = computed(() => {
   const target = terminalOpenTarget.value;
   if (target) {
@@ -857,9 +907,10 @@ function isEditableKeyboardTarget(target: EventTarget | null) {
   ));
 }
 
-function shouldIgnoreExplorerPasteShortcut(target: EventTarget | null) {
+function shouldIgnoreExplorerShortcut(target: EventTarget | null) {
   return isEditableKeyboardTarget(target)
     || remoteEditorDialogVisible.value
+    || remotePreviewDialogVisible.value
     || scheduleDialogVisible.value
     || permissionDialogVisible.value
     || profileDialogVisible.value
@@ -878,11 +929,37 @@ function isExplorerPasteShortcut(event: KeyboardEvent) {
 
 function handleExplorerPasteShortcut(event: KeyboardEvent) {
   if (event.defaultPrevented || event.repeat || !isExplorerPasteShortcut(event)) return;
-  if (shouldIgnoreExplorerPasteShortcut(event.target)) return;
+  if (shouldIgnoreExplorerShortcut(event.target)) return;
   const target = resolveRemotePasteTarget();
   if (!target) return;
   event.preventDefault();
   void pasteClipboardToRemote(target.panel);
+}
+
+function isExplorerSelectAllShortcut(event: KeyboardEvent) {
+  return (event.ctrlKey || event.metaKey)
+    && !event.altKey
+    && !event.shiftKey
+    && event.key.toLowerCase() === 'a';
+}
+
+function selectAllActiveBrowserEntries() {
+  if (activeBrowserPanel.value === 'local') {
+    selectAllLocalEntries();
+    return;
+  }
+  if (activeBrowserPanel.value === 'secondaryRemote') {
+    selectAllSecondaryRemoteEntries();
+    return;
+  }
+  selectAllRemoteEntries();
+}
+
+function handleExplorerSelectAllShortcut(event: KeyboardEvent) {
+  if (event.defaultPrevented || event.repeat || !isExplorerSelectAllShortcut(event)) return;
+  if (shouldIgnoreExplorerShortcut(event.target)) return;
+  event.preventDefault();
+  selectAllActiveBrowserEntries();
 }
 const secondaryRemoteFilterSummary = computed(() => panelFilterSummary(secondaryRemoteRuleFilter.value));
 const {
@@ -915,6 +992,25 @@ const recentClosedSessionSummary = computed(() => (
     : '当前没有可恢复的最近关闭标签'
 ));
 const remoteEditorDirty = computed(() => remoteEditorContent.value !== remoteEditorOriginalContent.value);
+const editorDialogTitle = computed(() => (editorTargetKind.value === 'local' ? '编辑本地文件' : '编辑远程文件'));
+const remotePreviewImageScopeLabel = computed(() => (remotePreviewSource.value === 'local' ? '本地图片预览' : '远程图片预览'));
+const remotePreviewTitle = computed(() => {
+  if (remotePreviewKind.value === 'text') return '预览远程文本';
+  return remotePreviewSource.value === 'local' ? '预览本地图片' : '预览远程图片';
+});
+const remotePreviewLoadingText = computed(() => {
+  if (remotePreviewKind.value === 'text') return '正在加载远程文本...';
+  return remotePreviewSource.value === 'local' ? '正在加载本地图片...' : '正在加载远程图片...';
+});
+const editorSyncLabel = computed(() => {
+  if (remoteEditorDirty.value) return '有未保存修改';
+  return editorTargetKind.value === 'local' ? '已与本地文件同步' : '已与远程同步';
+});
+const editorLoadingText = computed(() => (editorTargetKind.value === 'local' ? '正在加载本地文件...' : '正在加载远程文件...'));
+const editorSaveText = computed(() => {
+  if (remoteEditorSaving.value) return '保存中...';
+  return editorTargetKind.value === 'local' ? '保存到本地' : '保存并回传';
+});
 const isConnecting = computed(() => busyMessage.value.startsWith('正在连接 '));
 const sessionTabs = computed(() => ftpStore.sessions);
 const scheduledTaskProfileOptions = computed(() =>
@@ -1075,8 +1171,55 @@ function isEditableTextEntry(entry: { name: string; isDir: boolean } | null) {
   return /\.(txt|md|markdown|mdx|json|jsonc|ya?ml|toml|ini|conf|cfg|log|csv|env|xml|svg|html?|css|scss|sass|less|js|jsx|mjs|cjs|ts|tsx|mts|cts|vue|rs|py|sh|bash|zsh|sql)$/i.test(entry.name);
 }
 
+function isPreviewableImageEntry(entry: { name: string; isDir: boolean } | null) {
+  return Boolean(entry && !entry.isDir && /\.(jpg|jpeg|png|gif|bmp|webp|svg|ico|avif)$/i.test(entry.name));
+}
+
+function canPreviewRemoteImageEntry(entry: FileTransferEntry | null) {
+  return Boolean(activeSession.value && isPreviewableImageEntry(entry));
+}
+
+function canPreviewLocalImageEntry(entry: FileTransferEntry | null) {
+  return isPreviewableImageEntry(entry);
+}
+
+function canPreviewRemoteTextEntry(entry: FileTransferEntry | null) {
+  return Boolean(activeSession.value && isEditableTextEntry(entry));
+}
+
+function canOpenInternalEditor(kind: PanelKind, entry: FileTransferEntry | null) {
+  if (!isEditableTextEntry(entry)) return false;
+  return kind === 'local' || Boolean(activeSession.value);
+}
+
+function canOpenExternalEditor(kind: PanelKind, entry: FileTransferEntry | null) {
+  if (!entry || entry.isDir) return false;
+  return kind === 'local' || Boolean(activeSession.value && isEditableTextEntry(entry));
+}
+
+async function openLocalEditor(entry = selectedLocalEntry.value) {
+  if (!isEditableTextEntry(entry)) return;
+  editorTargetKind.value = 'local';
+  remoteEditorLoading.value = true;
+  remoteEditorDialogVisible.value = true;
+  remoteEditorPath.value = entry.path;
+  remoteEditorContent.value = '';
+  remoteEditorOriginalContent.value = '';
+  actionError.value = '';
+  try {
+    remoteEditorContent.value = await window.shellApi.readTextFile(entry.path, 2_000_000);
+    remoteEditorOriginalContent.value = remoteEditorContent.value;
+  } catch (error) {
+    remoteEditorDialogVisible.value = false;
+    actionError.value = errorMessage(error);
+  } finally {
+    remoteEditorLoading.value = false;
+  }
+}
+
 async function openRemoteEditor(entry = selectedRemoteEntry.value) {
   if (!activeSession.value || !isEditableTextEntry(entry)) return;
+  editorTargetKind.value = 'remote';
   remoteEditorLoading.value = true;
   remoteEditorDialogVisible.value = true;
   remoteEditorPath.value = entry.path;
@@ -1094,14 +1237,120 @@ async function openRemoteEditor(entry = selectedRemoteEntry.value) {
   }
 }
 
+function resetRemotePreviewContent() {
+  remotePreviewImageSrc.value = '';
+  remotePreviewText.value = '';
+  remotePreviewError.value = '';
+}
+
+async function previewRemoteImage(entry = selectedRemoteEntry.value) {
+  if (!activeSession.value || !isPreviewableImageEntry(entry)) return;
+  const session = activeSession.value;
+  remotePreviewSource.value = 'remote';
+  remotePreviewKind.value = 'image';
+  remotePreviewDialogVisible.value = true;
+  remotePreviewLoading.value = true;
+  remotePreviewPath.value = entry.path;
+  remotePreviewName.value = entry.name;
+  resetRemotePreviewContent();
+  actionError.value = '';
+  try {
+    const dataUrl = await window.ftpApi.loadRemoteImagePreview(session.sessionId, entry.path, IMAGE_PREVIEW_MAX_BYTES);
+    if (!dataUrl) {
+      remotePreviewError.value = '该图片无法预览，可能超过大小限制或格式不受支持。';
+      return;
+    }
+    remotePreviewImageSrc.value = dataUrl;
+  } catch (error) {
+    remotePreviewError.value = errorMessage(error);
+    handleFtpOperationError(error, session, entry.path);
+  } finally {
+    remotePreviewLoading.value = false;
+  }
+}
+
+async function previewLocalImage(entry = selectedLocalEntry.value) {
+  if (!isPreviewableImageEntry(entry)) return;
+  remotePreviewSource.value = 'local';
+  remotePreviewKind.value = 'image';
+  remotePreviewDialogVisible.value = true;
+  remotePreviewLoading.value = true;
+  remotePreviewPath.value = entry.path;
+  remotePreviewName.value = entry.name;
+  resetRemotePreviewContent();
+  actionError.value = '';
+  try {
+    const dataUrl = await window.ftpApi.loadLocalImagePreview(entry.path, IMAGE_PREVIEW_MAX_BYTES);
+    if (!dataUrl) {
+      remotePreviewError.value = '该图片无法预览，可能超过大小限制或格式不受支持。';
+      return;
+    }
+    remotePreviewImageSrc.value = dataUrl;
+  } catch (error) {
+    remotePreviewError.value = errorMessage(error);
+    actionError.value = errorMessage(error);
+  } finally {
+    remotePreviewLoading.value = false;
+  }
+}
+
+async function previewActiveImage() {
+  if (activeBrowserPanel.value === 'local') {
+    await previewLocalImage(selectedLocalEntry.value);
+    return;
+  }
+  if (activeBrowserPanel.value === 'remote') {
+    await previewRemoteImage(selectedRemoteEntry.value);
+  }
+}
+
+async function previewRemoteText(entry = selectedRemoteEntry.value) {
+  if (!activeSession.value || !isEditableTextEntry(entry)) return;
+  const session = activeSession.value;
+  remotePreviewSource.value = 'remote';
+  remotePreviewKind.value = 'text';
+  remotePreviewDialogVisible.value = true;
+  remotePreviewLoading.value = true;
+  remotePreviewPath.value = entry.path;
+  remotePreviewName.value = entry.name;
+  resetRemotePreviewContent();
+  actionError.value = '';
+  try {
+    remotePreviewText.value = await window.ftpApi.loadRemoteTextFile(
+      session.sessionId,
+      entry.path,
+      REMOTE_TEXT_PREVIEW_MAX_BYTES,
+    );
+  } catch (error) {
+    remotePreviewError.value = errorMessage(error);
+    handleFtpOperationError(error, session, entry.path);
+  } finally {
+    remotePreviewLoading.value = false;
+  }
+}
+
+async function openInternalEditor(kind: PanelKind, entry: FileTransferEntry) {
+  if (kind === 'local') {
+    await openLocalEditor(entry);
+    return;
+  }
+  await openRemoteEditor(entry);
+}
+
 async function saveRemoteEditor() {
-  if (!activeSession.value || !remoteEditorPath.value) return;
+  if (!remoteEditorPath.value) return;
   remoteEditorSaving.value = true;
   actionError.value = '';
   try {
-    await window.ftpApi.saveRemoteTextFile(activeSession.value.sessionId, remoteEditorPath.value, remoteEditorContent.value);
+    if (editorTargetKind.value === 'local') {
+      await window.shellApi.writeTextFile(remoteEditorPath.value, remoteEditorContent.value);
+      await ftpStore.refreshLocalDirectory(ftpStore.localPath);
+    } else {
+      if (!activeSession.value) return;
+      await window.ftpApi.saveRemoteTextFile(activeSession.value.sessionId, remoteEditorPath.value, remoteEditorContent.value);
+      await refreshPrimaryRemoteDirectory();
+    }
     remoteEditorOriginalContent.value = remoteEditorContent.value;
-    await refreshPrimaryRemoteDirectory();
     remoteEditorDialogVisible.value = false;
   } catch (error) {
     handleFtpOperationError(error);
@@ -1110,11 +1359,24 @@ async function saveRemoteEditor() {
   }
 }
 
-async function openExternalEditor() {
-  if (!activeSession.value || !isEditableTextEntry(selectedRemoteEntry.value)) return;
+async function openLocalExternalEditor(entry = selectedLocalEntry.value) {
+  if (!entry || entry.isDir) return;
   actionError.value = '';
   try {
-    const tempPath = await window.ftpApi.openExternalEditorDraft(activeSession.value.sessionId, selectedRemoteEntry.value.path, {
+    const result = await window.shellApi.openPath(entry.path);
+    if (result) {
+      actionError.value = result;
+    }
+  } catch (error) {
+    actionError.value = errorMessage(error);
+  }
+}
+
+async function openRemoteExternalEditor(entry = selectedRemoteEntry.value) {
+  if (!activeSession.value || !isEditableTextEntry(entry)) return;
+  actionError.value = '';
+  try {
+    const tempPath = await window.ftpApi.openExternalEditorDraft(activeSession.value.sessionId, entry.path, {
       editorPath: externalEditorPath.value || undefined,
       cleanupOnClose: cleanupExternalDraftsOnClose.value,
     });
@@ -1122,14 +1384,34 @@ async function openExternalEditor() {
       await window.shellApi.openPath(tempPath);
     }
   } catch (error) {
-    handleFtpOperationError(error, activeSession.value, selectedRemoteEntry.value.path);
+    handleFtpOperationError(error, activeSession.value, entry.path);
   }
 }
 
-async function openTerminalForCurrentFtp() {
-  const target = terminalOpenTarget.value;
+async function openExternalEditor() {
+  await openRemoteExternalEditor(selectedRemoteEntry.value);
+}
+
+async function openExternalEditorForEntry(kind: PanelKind, entry: FileTransferEntry) {
+  if (kind === 'local') {
+    await openLocalExternalEditor(entry);
+    return;
+  }
+  await openRemoteExternalEditor(entry);
+}
+
+function canOpenTerminalForPanel(panel: PanelKind) {
+  return Boolean(resolveTerminalOpenTarget(panel));
+}
+
+async function openTerminalForPanel(panel: PanelKind | ActiveBrowserPanel = activeBrowserPanel.value) {
+  const target = resolveTerminalOpenTarget(panel);
   if (!target) {
-    actionError.value = terminalOpenTooltip.value;
+    actionError.value = panel === activeBrowserPanel.value
+      ? terminalOpenTooltip.value
+      : panel === 'local'
+        ? '当前本地目录不可用'
+        : '当前远程连接未绑定 SSH Profile';
     return;
   }
   actionError.value = '';
@@ -1157,6 +1439,10 @@ async function openTerminalForCurrentFtp() {
   } catch (error) {
     actionError.value = errorMessage(error);
   }
+}
+
+async function openTerminalForCurrentFtp() {
+  await openTerminalForPanel(activeBrowserPanel.value);
 }
 
 function shellQuote(path: string) {
@@ -1306,7 +1592,6 @@ function loadPanelLayout() {
       mode: PanelLayoutMode;
       sidebarDockSide: SidebarDockSide;
       auxiliaryDockSide: AuxiliaryDockSide;
-      sidebarSize: string;
       auxiliaryDockSize: string;
       showSidebar: boolean;
       showLocal: boolean;
@@ -1318,7 +1603,6 @@ function loadPanelLayout() {
     }
     sidebarDockSide.value = parsed.sidebarDockSide === 'right' ? 'right' : 'left';
     auxiliaryDockSide.value = parsed.auxiliaryDockSide === 'right' ? 'right' : 'bottom';
-    sidebarSize.value = normalizePanelSize(parsed.sidebarSize, 220, 420, '296');
     auxiliaryDockSize.value = normalizePanelSize(parsed.auxiliaryDockSize, 180, 420, '260');
     showSidebarPanel.value = parsed.showSidebar ?? true;
     showLocalPanel.value = parsed.showLocal ?? true;
@@ -1332,7 +1616,6 @@ function loadPanelLayout() {
     panelLayoutMode.value = 'columns';
     sidebarDockSide.value = 'left';
     auxiliaryDockSide.value = 'bottom';
-    sidebarSize.value = '296';
     auxiliaryDockSize.value = '260';
     showSidebarPanel.value = true;
     showLocalPanel.value = true;
@@ -1347,7 +1630,6 @@ function persistPanelLayout() {
     mode: panelLayoutMode.value,
     sidebarDockSide: sidebarDockSide.value,
     auxiliaryDockSide: auxiliaryDockSide.value,
-    sidebarSize: sidebarSize.value,
     auxiliaryDockSize: auxiliaryDockSize.value,
     showSidebar: showSidebarPanel.value,
     showLocal: showLocalPanel.value,
@@ -1675,6 +1957,25 @@ function updateSecondaryRemoteSelection(paths: string[], primaryPath: string, in
   secondaryRemoteLastSelectedIndex.value = index;
 }
 
+function updateSecondaryRemotePathsSelection(paths: string[], additive = false) {
+  const nextPaths = additive
+    ? [...new Set([...secondaryRemoteSelectedPaths.value, ...paths])]
+    : paths;
+  const primaryPath = nextPaths[nextPaths.length - 1] ?? '';
+  const primaryIndex = primaryPath
+    ? filteredSecondaryRemoteEntries.value.findIndex((entry) => entry.path === primaryPath)
+    : -1;
+  updateSecondaryRemoteSelection(nextPaths, primaryPath, primaryIndex);
+}
+
+function selectAllSecondaryRemoteEntries() {
+  updateSecondaryRemotePathsSelection(filteredSecondaryRemoteEntries.value.map((entry) => entry.path));
+}
+
+function handleSecondaryRemoteMarqueeSelect(payload: { paths: string[]; additive: boolean }) {
+  updateSecondaryRemotePathsSelection(payload.paths, payload.additive);
+}
+
 function handleSecondaryRemoteEntryClick(event: MouseEvent, entry: FileTransferEntry, index: number) {
   if (event.shiftKey && secondaryRemoteLastSelectedIndex.value >= 0) {
     const [start, end] = [secondaryRemoteLastSelectedIndex.value, index].sort((left, right) => left - right);
@@ -1884,6 +2185,7 @@ function openSessionTabContextMenu(event: MouseEvent, sessionId: string) {
     {
       id: `ftp-tab-reconnect-${sessionId}`,
       label: '重连',
+      icon: OpenIcon,
       disabled: !reconnectProfile,
       action: () => {
         if (reconnectProfile) {
@@ -1901,6 +2203,7 @@ function openSessionTabContextMenu(event: MouseEvent, sessionId: string) {
     {
       id: `ftp-tab-move-${sessionId}`,
       label: group === 'secondary' ? '移回主标签组' : '移到第二标签组',
+      icon: ConvertIcon,
       disabled: group === 'primary' ? moveToSecondaryDisabled : false,
       action: () => {
         void setSessionTabGroup(sessionId, group === 'secondary' ? 'primary' : 'secondary');
@@ -1909,6 +2212,7 @@ function openSessionTabContextMenu(event: MouseEvent, sessionId: string) {
     {
       id: `ftp-tab-close-${sessionId}`,
       label: '关闭标签',
+      icon: DeleteIcon,
       divided: true,
       action: () => {
         void disconnectSession(sessionId);
@@ -1917,6 +2221,7 @@ function openSessionTabContextMenu(event: MouseEvent, sessionId: string) {
     {
       id: `ftp-tab-close-others-${sessionId}`,
       label: '关闭其他标签',
+      icon: DeleteIcon,
       disabled: sessionTabs.value.length <= 1,
       action: () => {
         void closeOtherSessionTabs(sessionId);
@@ -1925,6 +2230,7 @@ function openSessionTabContextMenu(event: MouseEvent, sessionId: string) {
     {
       id: `ftp-tab-close-right-${sessionId}`,
       label: '关闭右侧标签',
+      icon: DeleteIcon,
       disabled: sessionIndex < 0 || sessionIndex === sessionTabs.value.length - 1,
       action: () => {
         void closeSessionTabsToRight(sessionId);
@@ -1933,6 +2239,7 @@ function openSessionTabContextMenu(event: MouseEvent, sessionId: string) {
     {
       id: `ftp-tab-reopen-last`,
       label: hasClosedSession ? `重新打开 ${recentlyClosedSessions.value[0]?.profileLabel}` : '重新打开最近关闭标签',
+      icon: OpenIcon,
       disabled: !hasClosedSession,
       divided: true,
       action: () => {
@@ -2292,7 +2599,6 @@ watch(
     panelLayoutMode,
     sidebarDockSide,
     auxiliaryDockSide,
-    sidebarSize,
     auxiliaryDockSize,
     auxiliaryDockCollapsed,
     showSidebarPanel,
@@ -2377,6 +2683,7 @@ onMounted(() => {
   void reloadPendingExternalPaths();
   void initializeFtpPage();
   window.addEventListener('keydown', handleExplorerPasteShortcut);
+  window.addEventListener('keydown', handleExplorerSelectAllShortcut);
   window.addEventListener('unhandledrejection', handleUnhandledFtpRejection);
   window.addEventListener('resize', updateViewportState);
 });
@@ -2393,6 +2700,7 @@ onBeforeUnmount(() => {
   }
   pendingRemoteRefreshTargets.clear();
   window.removeEventListener('keydown', handleExplorerPasteShortcut);
+  window.removeEventListener('keydown', handleExplorerSelectAllShortcut);
   window.removeEventListener('unhandledrejection', handleUnhandledFtpRejection);
   window.removeEventListener('resize', updateViewportState);
   stopAuxiliaryDockResize?.();
@@ -2405,7 +2713,6 @@ onBeforeUnmount(() => {
     'ftp-page--sidebar-right': sidebarDockSide === 'right',
     'ftp-page--dense': isDenseViewport,
   }" :style="{
-      '--ftp-sidebar-size': `${sidebarSize}px`,
       '--ftp-aux-dock-size': `${auxiliaryDockSize}px`,
     }">
     <FtpConfigSidebar v-if="showSidebarPanel" :sidebar-collapsed="sidebarCollapsed"
@@ -2451,6 +2758,18 @@ onBeforeUnmount(() => {
                     <path d="M3.5 8A4.5 4.5 0 1 0 5 4.2L3.5 5.5" />
                     <path d="M3.5 2.8v2.7H6.2" />
                   </svg>
+                </UiIconButton>
+              </UiTooltip>
+              <UiTooltip content="预览图片" placement="bottom">
+                <UiIconButton size="sm" variant="ghost" :disabled="!canPreviewActiveImage" title="预览图片"
+                  @click="previewActiveImage()">
+                  <CategoryMediaIcon width="14" height="14" />
+                </UiIconButton>
+              </UiTooltip>
+              <UiTooltip content="预览文本" placement="bottom">
+                <UiIconButton size="sm" variant="ghost" :disabled="!canPreviewRemoteText" title="预览文本"
+                  @click="previewRemoteText()">
+                  <CategoryTextIcon width="14" height="14" />
                 </UiIconButton>
               </UiTooltip>
               <UiTooltip content="编辑远程" placement="bottom">
@@ -2585,7 +2904,7 @@ onBeforeUnmount(() => {
               :thumbnail-url-for="(entry) => thumbnailUrlFor('local', entry)"
               :is-thumbnail-loading="(entry) => isThumbnailLoading('local', entry)"
               :highlight-entry-name="highlightEntryName" @dragenter="handleLocalDragEnter"
-              @dragleave="handleLocalDragLeave" @dragover="localDropActive = true" @drop="handleLocalDrop"
+              @dragleave="handleLocalDragLeave" @dragover="handleLocalDragOver" @drop="handleLocalDrop"
               @update:pathInput="localPathInput = $event" @update:filterQuery="localFilterQuery = $event"
               @update:extensionQuery="localRuleFilter.extensionQuery = $event"
               @update:minSizeKb="localRuleFilter.minSizeKb = $event"
@@ -2602,9 +2921,12 @@ onBeforeUnmount(() => {
               @save-filter-preset="saveFilterPreset('local')"
               @delete-filter-preset="deleteSelectedFilterPreset('local')" @reset-filter="resetRuleFilter('local')"
               @panel-activate="setActiveBrowserPanel('local')"
+              @select-all="selectAllLocalEntries"
+              @marquee-select="handleLocalMarqueeSelect"
               @list-contextmenu="handlePanelListContextMenu($event, 'local')"
               @entry-click="handleLocalEntryClick($event.event, $event.entry, $event.index)"
               @entry-dblclick="openLocalEntry" @entry-dragstart="handleLocalDragStart($event.event, $event.entry)"
+              @entry-dragend="handleEntryDragEnd"
               @entry-contextmenu="handleEntryContextMenu($event.event, 'local', $event.entry, $event.index)" />
 
             <!-- 水平分割条（只在并联模式且本地面板可见时显示） -->
@@ -2648,6 +2970,7 @@ onBeforeUnmount(() => {
                 @open-path="openSecondaryRemotePath" @go-parent="goSecondaryRemoteParent"
                 @refresh="refreshSecondaryRemoteDirectory()" @set-view-mode="remotePanelViewMode = $event"
                 @panel-activate="setActiveBrowserPanel('secondaryRemote')" @list-contextmenu="() => undefined"
+                @select-all="selectAllSecondaryRemoteEntries" @marquee-select="handleSecondaryRemoteMarqueeSelect"
                 @entry-click="handleSecondaryRemoteEntryClick($event.event, $event.entry, $event.index)"
                 @entry-dblclick="openSecondaryRemoteEntry" @entry-dragstart="() => undefined"
                 @entry-contextmenu="() => undefined" />
@@ -2688,7 +3011,7 @@ onBeforeUnmount(() => {
                 :is-thumbnail-loading="(entry) => isThumbnailLoading('remote', entry)"
                 :highlight-entry-name="highlightEntryName" :show-connecting-overlay="isConnecting"
                 :connecting-message="busyMessage" @dragenter="handleRemoteDragEnter" @dragleave="handleRemoteDragLeave"
-                @dragover="remoteDropActive = true" @drop="handleRemoteDrop"
+                @dragover="handleRemoteDragOver" @drop="handleRemoteDrop"
                 @update:pathInput="remotePathInput = $event" @update:filterQuery="remoteFilterQuery = $event"
                 @update:extensionQuery="remoteRuleFilter.extensionQuery = $event"
                 @update:minSizeKb="remoteRuleFilter.minSizeKb = $event"
@@ -2705,9 +3028,12 @@ onBeforeUnmount(() => {
                 @save-filter-preset="saveFilterPreset('remote')"
                 @delete-filter-preset="deleteSelectedFilterPreset('remote')" @reset-filter="resetRuleFilter('remote')"
                 @panel-activate="setActiveBrowserPanel('remote')"
+                @select-all="selectAllRemoteEntries"
+                @marquee-select="handleRemoteMarqueeSelect"
                 @list-contextmenu="handlePanelListContextMenu($event, 'remote')"
                 @entry-click="handleRemoteEntryClick($event.event, $event.entry, $event.index)"
                 @entry-dblclick="openRemoteEntry" @entry-dragstart="handleRemoteDragStart($event.event, $event.entry)"
+                @entry-dragend="handleEntryDragEnd"
                 @entry-contextmenu="handleEntryContextMenu($event.event, 'remote', $event.entry, $event.index)" />
 
               <!-- 双端模式：关闭 ftp-panels__remote-stack 容器 -->
@@ -2747,7 +3073,7 @@ onBeforeUnmount(() => {
               :is-thumbnail-loading="(entry) => isThumbnailLoading('remote', entry)"
               :highlight-entry-name="highlightEntryName" :show-connecting-overlay="isConnecting"
               :connecting-message="busyMessage" @dragenter="handleRemoteDragEnter" @dragleave="handleRemoteDragLeave"
-              @dragover="remoteDropActive = true" @drop="handleRemoteDrop" @update:pathInput="remotePathInput = $event"
+              @dragover="handleRemoteDragOver" @drop="handleRemoteDrop" @update:pathInput="remotePathInput = $event"
               @update:filterQuery="remoteFilterQuery = $event"
               @update:extensionQuery="remoteRuleFilter.extensionQuery = $event"
               @update:minSizeKb="remoteRuleFilter.minSizeKb = $event"
@@ -2763,9 +3089,12 @@ onBeforeUnmount(() => {
               @delete-filter-preset="deleteSelectedFilterPreset('remote')" @reset-filter="resetRuleFilter('remote')"
               @set-filter-operator="setRuleFilterOperator('remote', $event)"
               @panel-activate="setActiveBrowserPanel('remote')"
+              @select-all="selectAllRemoteEntries"
+              @marquee-select="handleRemoteMarqueeSelect"
               @list-contextmenu="handlePanelListContextMenu($event, 'remote')"
               @entry-click="handleRemoteEntryClick($event.event, $event.entry, $event.index)"
               @entry-dblclick="openRemoteEntry" @entry-dragstart="handleRemoteDragStart($event.event, $event.entry)"
+              @entry-dragend="handleEntryDragEnd"
               @entry-contextmenu="handleEntryContextMenu($event.event, 'remote', $event.entry, $event.index)" />
 
           </section>
@@ -3060,18 +3389,51 @@ onBeforeUnmount(() => {
       </template>
     </UiDialog>
 
-    <UiDialog v-model="remoteEditorDialogVisible" width="960" max-width="96vw">
+    <UiDialog v-model="remotePreviewDialogVisible" width="960" max-width="96vw">
       <template #header>
-        <div class="ftp-dialog__header">编辑远程文件</div>
+        <div class="ftp-dialog__header">{{ remotePreviewTitle }}</div>
+      </template>
+      <div class="ftp-remote-preview">
+        <div class="ftp-remote-editor__path-wrap">
+          <div class="ftp-remote-editor__path">{{ remotePreviewPath }}</div>
+          <span class="ftp-badge ftp-badge--accent">
+            {{ remotePreviewKind === 'image' ? remotePreviewImageScopeLabel : '远程文本预览' }}
+          </span>
+        </div>
+        <div v-if="remotePreviewLoading" class="ftp-empty-state">
+          {{ remotePreviewLoadingText }}
+        </div>
+        <div v-else-if="remotePreviewError" class="ftp-empty-state ftp-empty-state--danger">
+          {{ remotePreviewError }}
+        </div>
+        <div v-else-if="remotePreviewKind === 'image'" class="ftp-remote-preview__image-shell">
+          <img v-if="remotePreviewImageSrc" class="ftp-remote-preview__image" :src="remotePreviewImageSrc"
+            :alt="remotePreviewName" />
+        </div>
+        <pre v-else class="ftp-remote-preview__text">{{ remotePreviewText }}</pre>
+      </div>
+      <template #footer>
+        <div class="ftp-dialog__footer">
+          <UiButton variant="ghost" @click="remotePreviewDialogVisible = false">关闭</UiButton>
+        </div>
+      </template>
+    </UiDialog>
+
+    <UiDialog v-model="remoteEditorDialogVisible" width="min(1280px, calc(100vw - 32px))" max-width="98vw">
+      <template #header>
+        <div class="ftp-dialog__header">{{ editorDialogTitle }}</div>
       </template>
       <div class="ftp-remote-editor">
         <div class="ftp-remote-editor__path-wrap">
           <div class="ftp-remote-editor__path">{{ remoteEditorPath }}</div>
           <span class="ftp-badge" :class="{ 'ftp-badge--accent': remoteEditorDirty }">
-            {{ remoteEditorDirty ? '有未保存修改' : '已与远程同步' }}
+            {{ editorSyncLabel }}
           </span>
         </div>
-        <div v-if="remoteEditorLoading" class="ftp-empty-state">正在加载远程文件...</div>
+        <div v-if="remoteEditorLoading" class="ftp-loading-state ftp-remote-editor__loading">
+          <span class="ftp-loading-state__spinner" />
+          <span class="ftp-loading-state__text">{{ editorLoadingText }}</span>
+        </div>
         <FtpCodeEditor v-else v-model="remoteEditorContent" :file-path="remoteEditorPath"
           @save-requested="saveRemoteEditor" />
       </div>
@@ -3079,7 +3441,7 @@ onBeforeUnmount(() => {
         <div class="ftp-dialog__footer">
           <UiButton variant="ghost" @click="remoteEditorDialogVisible = false">关闭</UiButton>
           <UiButton variant="primary" :disabled="remoteEditorLoading || remoteEditorSaving" @click="saveRemoteEditor">
-            {{ remoteEditorSaving ? '保存中...' : '保存并回传' }}
+            {{ editorSaveText }}
           </UiButton>
         </div>
       </template>

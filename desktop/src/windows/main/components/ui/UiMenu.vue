@@ -93,5 +93,13 @@ watch(() => props.visible, visible => {
   max-height: inherit;
   overflow-y: auto;
   overflow-x: hidden;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+
+  &::-webkit-scrollbar {
+    display: none;
+    width: 0;
+    height: 0;
+  }
 }
 </style>

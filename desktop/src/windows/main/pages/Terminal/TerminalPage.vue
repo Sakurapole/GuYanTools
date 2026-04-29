@@ -1088,7 +1088,7 @@ onBeforeUnmount(() => {
 .terminal-sidebar {
   display: flex;
   flex-direction: column;
-  width: 240px;
+  width: var(--ui-page-sidebar-width);
   flex-shrink: 0;
   border-right: 1px solid var(--ui-border-subtle);
   background: var(--ui-surface-panel);
@@ -1096,7 +1096,7 @@ onBeforeUnmount(() => {
   overflow: hidden;
 
   &--collapsed {
-    width: 56px;
+    width: var(--ui-page-sidebar-collapsed-width);
   }
 }
 

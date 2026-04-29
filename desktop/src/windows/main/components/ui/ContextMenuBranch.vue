@@ -149,6 +149,8 @@ onBeforeUnmount(() => {
   max-height: min(60vh, 360px);
   overflow-y: auto;
   overflow-x: hidden;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
   padding: 4px;
   border: 1px solid color-mix(in srgb, var(--ui-border-subtle) 90%, transparent);
   border-radius: var(--ui-radius-sm);
@@ -156,6 +158,12 @@ onBeforeUnmount(() => {
   backdrop-filter: blur(16px) saturate(1.6);
   -webkit-backdrop-filter: blur(16px) saturate(1.6);
   box-shadow: var(--ui-menu-shadow);
+
+  &::-webkit-scrollbar {
+    display: none;
+    width: 0;
+    height: 0;
+  }
 }
 
 .context-menu-branch__arrow {
