@@ -143,11 +143,18 @@ export interface TransferTask {
   transferredSize: number;
   progress: number;
   speedBytesPerSec: number;
+  transferMethod?: 'direct' | 'archive' | string;
+  transferTreeJson?: string | null;
+  currentRelativePath?: string | null;
   status: 'pending' | 'retrying' | 'transferring' | 'completed' | 'failed' | string;
   errorMessage?: string;
   createdAt: number;
   startedAt?: number;
   completedAt?: number;
+}
+
+export interface FtpTransferOptions {
+  method?: 'direct' | 'archive' | string;
 }
 
 export interface FtpRetryPolicy {
@@ -254,8 +261,8 @@ export interface FtpApi {
   copyLocalPath: (sourcePath: string, targetPath: string) => Promise<void>;
   getDefaultLocalPath: () => Promise<string>;
 
-  uploadFile: (sessionId: string, localPath: string, remotePath: string) => Promise<TransferTask>;
-  downloadFile: (sessionId: string, remotePath: string, localPath: string) => Promise<TransferTask>;
+  uploadFile: (sessionId: string, localPath: string, remotePath: string, options?: FtpTransferOptions) => Promise<TransferTask>;
+  downloadFile: (sessionId: string, remotePath: string, localPath: string, options?: FtpTransferOptions) => Promise<TransferTask>;
   fxpTransfer: (sourceSessionId: string, sourcePath: string, targetSessionId: string, targetPath: string) => Promise<TransferTask>;
   listTransferTasks: () => Promise<TransferTask[]>;
   getRetryPolicy: () => Promise<FtpRetryPolicy>;

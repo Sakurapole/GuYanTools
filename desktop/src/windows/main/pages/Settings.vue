@@ -336,7 +336,7 @@ function loadFtpSettingsDraft() {
       ftpPanelLayoutMode.value = parsed.mode === 'stacked' ? 'stacked' : 'columns';
       ftpSidebarDockSide.value = parsed.sidebarDockSide === 'right' ? 'right' : 'left';
       ftpAuxiliaryDockSide.value = parsed.auxiliaryDockSide === 'right' ? 'right' : 'bottom';
-      ftpAuxiliaryDockSize.value = normalizeFtpPanelSize(parsed.auxiliaryDockSize, 180, 420, '260');
+      ftpAuxiliaryDockSize.value = normalizeFtpPanelSize(parsed.auxiliaryDockSize, 180, 1200, '260');
       ftpShowSidebarPanel.value = parsed.showSidebar ?? true;
       ftpShowLocalPanel.value = parsed.showLocal ?? true;
       ftpShowRemotePanel.value = parsed.showRemote ?? true;

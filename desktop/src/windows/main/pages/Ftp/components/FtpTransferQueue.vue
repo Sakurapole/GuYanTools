@@ -5,6 +5,25 @@ import UiSelect from '@/windows/main/components/ui/UiSelect.vue';
 import type { TransferTask } from '@/contracts/ftp';
 import { baseName } from '../utils/ftpPaths';
 import { taskDirectionLabel } from '../utils/ftpSort';
+import FtpTransferTreeNode from './FtpTransferTreeNode.vue';
+
+type RawTransferTreeNode = {
+  name: string;
+  relativePath: string;
+  kind: 'directory' | 'file' | string;
+  size: number;
+  children?: RawTransferTreeNode[];
+};
+
+type FtpTransferTreeNodeView = {
+  name: string;
+  relativePath: string;
+  kind: 'directory' | 'file' | string;
+  size: number;
+  transferredSize: number;
+  status: 'pending' | 'transferring' | 'completed' | 'failed' | string;
+  children: FtpTransferTreeNodeView[];
+};
 
 defineProps<{
   collapsed: boolean;
@@ -31,6 +50,90 @@ const emit = defineEmits<{
   'retry-task': [taskId: string];
   'delete-task': [taskId: string];
 }>();
+
+function parseTransferTree(task: TransferTask): RawTransferTreeNode[] {
+  if (!task.transferTreeJson) return [];
+  try {
+    const parsed = JSON.parse(task.transferTreeJson) as RawTransferTreeNode[];
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+}
+
+function transferTreeRootsForTask(task: TransferTask): RawTransferTreeNode[] {
+  const children = parseTransferTree(task);
+  const rootName = task.fileName || baseName(task.direction === 'download' ? task.remotePath : task.localPath) || '传输目录';
+  const rootSize = children.reduce((total, child) => total + Math.max(0, Number(child.size) || 0), 0);
+  return [{
+    name: rootName,
+    relativePath: '',
+    kind: 'directory',
+    size: rootSize,
+    children,
+  }];
+}
+
+function transferTreeForTask(task: TransferTask): FtpTransferTreeNodeView[] {
+  if (task.transferMethod === 'archive') {
+    const archiveStatus = task.status === 'completed'
+      ? 'completed'
+      : task.status === 'failed'
+        ? 'failed'
+        : ['pending', 'retrying', 'paused'].includes(task.status)
+          ? 'pending'
+          : 'transferring';
+    const decorateArchive = (node: RawTransferTreeNode): FtpTransferTreeNodeView => {
+      const children = (node.children ?? []).map(decorateArchive);
+      const size = Math.max(0, Number(node.size) || 0);
+      return {
+        ...node,
+        size,
+        transferredSize: archiveStatus === 'completed' ? size : 0,
+        status: archiveStatus,
+        children,
+      };
+    };
+    return transferTreeRootsForTask(task).map(decorateArchive);
+  }
+
+  let remaining = Math.max(0, task.transferredSize || 0);
+  const currentRelativePath = task.currentRelativePath ?? '';
+  const decorate = (node: RawTransferTreeNode): FtpTransferTreeNodeView => {
+    const children = (node.children ?? []).map(decorate);
+    const size = Math.max(0, Number(node.size) || 0);
+    if (node.kind === 'directory') {
+      const transferredSize = children.reduce((total, child) => total + child.transferredSize, 0);
+      const childStatuses = children.map((child) => child.status);
+      const status = task.status === 'completed' || (children.length > 0 && childStatuses.every((item) => item === 'completed'))
+        ? 'completed'
+        : task.status === 'failed' && currentRelativePath.startsWith(node.relativePath)
+          ? 'failed'
+          : childStatuses.some((item) => item === 'transferring' || item === 'failed' || item === 'completed')
+            ? 'transferring'
+            : 'pending';
+      return { ...node, size, transferredSize, status, children };
+    }
+
+    const transferredSize = task.status === 'completed'
+      ? size
+      : Math.max(0, Math.min(size, remaining));
+    remaining = Math.max(0, remaining - size);
+    const status = task.status === 'completed' || transferredSize >= size
+      ? 'completed'
+      : task.status === 'failed' && currentRelativePath === node.relativePath
+        ? 'failed'
+        : transferredSize > 0 || currentRelativePath === node.relativePath
+          ? 'transferring'
+          : 'pending';
+    return { ...node, size, transferredSize, status, children: [] };
+  };
+  return transferTreeRootsForTask(task).map(decorate);
+}
+
+function hasTransferTree(task: TransferTask) {
+  return Boolean(task.transferTreeJson);
+}
 </script>
 
 <template>
@@ -111,6 +214,15 @@ const emit = defineEmits<{
 
           <div v-if="isTaskExpanded(task.id)" class="ftp-task-item__details">
             <div class="ftp-task-item__path">{{ task.localPath }} -> {{ task.remotePath }}</div>
+            <div v-if="task.transferMethod === 'archive'" class="ftp-task-item__method">打包传输：先生成临时压缩包，传输后解压并清理两端临时文件。</div>
+            <div v-if="hasTransferTree(task)" class="ftp-task-tree">
+              <FtpTransferTreeNode
+                v-for="node in transferTreeForTask(task)"
+                :key="node.relativePath || task.id"
+                :node="node"
+                :format-size="formatSize"
+              />
+            </div>
             <div class="ftp-task-item__actions">
               <UiSelect
                 size="sm"

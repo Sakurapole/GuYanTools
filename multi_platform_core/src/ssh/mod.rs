@@ -20,8 +20,8 @@ use crate::event::EventSink;
 use self::handler::SshClientHandler;
 use self::port_forward::PortForwardHandle;
 
-pub use self::models::*;
 pub(crate) use self::host_certificate::validate_host_certificate;
+pub use self::models::*;
 
 type SessionsMap = HashMap<String, Arc<SshSession>>;
 pub(super) type RemoteForwardMapping = Arc<RwLock<HashMap<(String, u32), (String, u32, String)>>>;

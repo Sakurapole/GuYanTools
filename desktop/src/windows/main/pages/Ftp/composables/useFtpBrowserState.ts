@@ -109,13 +109,27 @@ export function useFtpBrowserState(options: UseFtpBrowserStateOptions) {
     ),
   );
   const currentLocalWorkspaceBookmarked = computed(() => options.ftpStore.localWorkspaces.includes(options.ftpStore.localPath));
-  const localWorkspaceSelectValue = computed(() => (
-    options.ftpStore.localWorkspaces.includes(options.ftpStore.localPath) ? options.ftpStore.localPath : ''
-  ));
+  const localWorkspacePaths = computed(() => {
+    const seen = new Set<string>();
+    const paths: string[] = [];
+    const appendPath = (path: string) => {
+      const key = workspacePathKey(path);
+      if (!key || seen.has(key)) return;
+      seen.add(key);
+      paths.push(path);
+    };
+    options.ftpStore.localRootPaths.forEach(appendPath);
+    options.ftpStore.localWorkspaces.forEach(appendPath);
+    return paths;
+  });
+  const localWorkspaceSelectValue = computed(() => {
+    const currentKey = workspacePathKey(options.ftpStore.localPath);
+    return localWorkspacePaths.value.find((path) => workspacePathKey(path) === currentKey) ?? '';
+  });
   const localWorkspaceOptions = computed(() => [
-    { label: '快速切换工作目录', value: '' },
-    ...options.ftpStore.localWorkspaces.map((path) => ({
-      label: `${baseName(path) || path} · ${path}`,
+    { label: '快速切换工作目录', value: '', disabled: true },
+    ...localWorkspacePaths.value.map((path) => ({
+      label: `${workspaceOptionLabel(path)} · ${path}`,
       value: path,
     })),
   ]);
@@ -401,4 +415,19 @@ export function useFtpBrowserState(options: UseFtpBrowserStateOptions) {
     setPanelSortKey,
     togglePanelSortDirection,
   };
+}
+
+function workspacePathKey(path: string) {
+  const normalized = path.trim();
+  if (!normalized) return '';
+  if (normalized === '/') return '/';
+  return normalized.replace(/[\\/]+$/, '').toLowerCase();
+}
+
+function workspaceOptionLabel(path: string) {
+  const normalized = path.trim();
+  if (/^[A-Za-z]:\\?$/.test(normalized)) {
+    return `磁盘 ${normalized.slice(0, 2).toUpperCase()}`;
+  }
+  return baseName(normalized) || normalized;
 }

@@ -8,10 +8,12 @@ const props = withDefaults(defineProps<{
   x?: number;
   y?: number;
   closeOnClickOutside?: boolean;
+  outsideIgnoreSelector?: string | string[];
 }>(), {
   x: 0,
   y: 0,
   closeOnClickOutside: true,
+  outsideIgnoreSelector: '',
 });
 
 const emit = defineEmits<{
@@ -62,6 +64,7 @@ watch(() => props.visible, visible => {
     variant="floating"
     :overlay="false"
     :close-on-outside="closeOnClickOutside"
+    :outside-ignore-selector="outsideIgnoreSelector"
     :panel-style="menuStyle"
     panel-class="ui-menu-shell"
     @close="emit('close')"

@@ -1113,7 +1113,7 @@
 }
 
 .ftp-aux-dock--bottom {
-  height: clamp(180px, var(--ftp-aux-dock-size), min(420px, 48vh));
+  height: max(37px, var(--ftp-aux-dock-size));
   flex-direction: column;
   border-top: 1px solid var(--ui-border-subtle);
 }
@@ -1121,18 +1121,18 @@
 .ftp-aux-dock--bottom.ftp-aux-dock--collapsed {
   height: 37px;
   min-height: 37px;
-  max-height: 37px;
+  max-height: none;
 }
 
 .ftp-aux-dock--right {
-  width: clamp(220px, var(--ftp-aux-dock-size), 32vw);
+  width: max(37px, var(--ftp-aux-dock-size));
   flex-direction: column;
   border-left: 1px solid var(--ui-border-subtle);
 }
 
 .ftp-aux-dock--right.ftp-aux-dock--collapsed {
-  width: clamp(220px, var(--ftp-aux-dock-size), 32vw);
-  min-height: 37px;
+  width: 37px;
+  min-height: 0;
 }
 
 /* 双端模式：两列，左本地、分割条、右堆叠双远程
@@ -1513,6 +1513,41 @@
   padding-inline: 0;
 }
 
+.ftp-panel__breadcrumb-picker.ui-icon-button {
+  flex: 0 0 auto;
+  min-width: 24px;
+  min-height: 20px;
+  padding-inline: 0;
+}
+
+.ftp-panel__breadcrumb-directory-select.ui-select-wrap {
+  flex: 0 1 132px;
+  width: auto;
+  min-width: 92px;
+  max-width: 150px;
+}
+
+.ftp-panel__breadcrumb-directory-select .ui-select-trigger--sm {
+  min-height: 20px;
+  padding: 0 20px 0 6px;
+  border-color: transparent;
+  background: transparent;
+  color: var(--ui-text-secondary);
+  font-size: 0.62rem;
+}
+
+.ftp-panel__breadcrumb-directory-select .ui-select-trigger--sm:hover,
+.ftp-panel__breadcrumb-directory-select .ui-select-trigger--open {
+  border-color: var(--ui-border-subtle);
+  background: var(--ui-button-ghost-hover-bg);
+}
+
+.ftp-panel__breadcrumb-directory-select .ui-select-trigger__arrow {
+  right: 8px;
+  width: 6px;
+  height: 6px;
+}
+
 .ftp-panel__breadcrumbs > .ui-tooltip-trigger {
   min-width: 0;
   flex: 0 1 auto;
@@ -1584,6 +1619,7 @@
 
 .ftp-panel__path-input-wrap .ui-input,
 .ftp-panel__path-input-wrap .ui-suggest-input,
+.ftp-panel__path-input-wrap .ui-select-wrap,
 .ftp-panel__search-wrap .ui-input {
   width: 100%;
 }
@@ -1850,7 +1886,9 @@
     linear-gradient(var(--ftp-table-line-color), var(--ftp-table-line-color)),
     linear-gradient(var(--ftp-table-line-color), var(--ftp-table-line-color));
   background-repeat: no-repeat;
-  background-size: 1px 100%, 1px 100%;
+  background-size:
+    1px 100%,
+    1px 100%;
   background-position:
     calc(100% - var(--ftp-table-inline-padding) - var(--ftp-col-2, 110px) - var(--ftp-col-3, 170px)) 0,
     calc(100% - var(--ftp-table-inline-padding) - var(--ftp-col-3, 170px)) 0;
@@ -1864,10 +1902,26 @@
     linear-gradient(var(--ftp-table-line-color), var(--ftp-table-line-color)),
     linear-gradient(var(--ftp-table-line-color), var(--ftp-table-line-color)),
     linear-gradient(var(--ftp-table-line-color), var(--ftp-table-line-color));
-  background-size: 1px 100%, 1px 100%, 1px 100%, 1px 100%;
+  background-size:
+    1px 100%,
+    1px 100%,
+    1px 100%,
+    1px 100%;
   background-position:
-    calc(100% - var(--ftp-table-inline-padding) - var(--ftp-col-2, 110px) - var(--ftp-col-3, 150px) - var(--ftp-col-4, 90px) - var(--ftp-col-5, 120px)) 0,
-    calc(100% - var(--ftp-table-inline-padding) - var(--ftp-col-3, 150px) - var(--ftp-col-4, 90px) - var(--ftp-col-5, 120px)) 0,
+    calc(
+        100% - var(--ftp-table-inline-padding) - var(--ftp-col-2, 110px) - var(--ftp-col-3, 150px) - var(
+            --ftp-col-4,
+            90px
+          ) - var(--ftp-col-5, 120px)
+      )
+      0,
+    calc(
+        100% - var(--ftp-table-inline-padding) - var(--ftp-col-3, 150px) - var(--ftp-col-4, 90px) - var(
+            --ftp-col-5,
+            120px
+          )
+      )
+      0,
     calc(100% - var(--ftp-table-inline-padding) - var(--ftp-col-4, 90px) - var(--ftp-col-5, 120px)) 0,
     calc(100% - var(--ftp-table-inline-padding) - var(--ftp-col-5, 120px)) 0;
 }
@@ -1886,7 +1940,7 @@
 .ftp-table__head {
   position: sticky;
   top: 0;
-  z-index: 1;
+  z-index: 2;
   min-width: 0;
   min-height: 30px;
   border-top: 1px solid var(--ui-border-subtle);
@@ -1911,8 +1965,7 @@
 
 .ftp-table__head--details,
 .ftp-entry--details {
-  --ftp-table-columns:
-    minmax(0, 1fr) var(--ftp-col-2, 110px) var(--ftp-col-3, 150px) var(--ftp-col-4, 90px)
+  --ftp-table-columns: minmax(0, 1fr) var(--ftp-col-2, 110px) var(--ftp-col-3, 150px) var(--ftp-col-4, 90px)
     var(--ftp-col-5, 120px);
 }
 
@@ -2014,6 +2067,33 @@
 
 .ftp-entry--selected:hover {
   background-color: color-mix(in srgb, var(--primary-color) 12%, var(--ui-surface-panel));
+}
+
+.ftp-entry--parent {
+  position: sticky;
+  top: 30px;
+  z-index: 1;
+  background-color: color-mix(in srgb, var(--ui-surface-panel) 96%, transparent);
+  color: var(--ui-text-secondary);
+  font-weight: 700;
+}
+
+.ftp-entry--parent:hover {
+  background-color: var(--ui-button-ghost-hover-bg);
+}
+
+.ftp-entry--parent .ftp-entry__name-text {
+  font-family: var(--ui-font-family-mono);
+  font-weight: 800;
+}
+
+.ftp-entry--disabled {
+  cursor: default;
+  opacity: 0.5;
+}
+
+.ftp-entry--disabled:hover {
+  background-color: color-mix(in srgb, var(--ui-surface-panel) 96%, transparent);
 }
 
 .ftp-entry__name {
@@ -2476,6 +2556,177 @@
   font-size: 0.74rem;
   line-height: 1.45;
   word-break: break-all;
+}
+
+.ftp-task-item__method {
+  color: var(--ui-text-muted);
+  font-size: 0.72rem;
+  line-height: 1.45;
+}
+
+.ftp-task-tree {
+  display: grid;
+  gap: 1px;
+  padding: 4px;
+  border: 1px solid color-mix(in srgb, var(--ui-border-subtle) 78%, transparent);
+  border-radius: var(--ui-radius-sm);
+  background: color-mix(in srgb, var(--ui-surface-panel-muted) 68%, transparent);
+  overflow: visible;
+}
+
+.ftp-task-tree-node {
+  display: grid;
+  gap: 1px;
+}
+
+.ftp-task-tree-node__row {
+  position: relative;
+  display: grid;
+  grid-template-columns: 14px 16px minmax(0, 1fr) minmax(62px, 92px) auto auto;
+  align-items: center;
+  gap: 4px;
+  min-height: 20px;
+  padding: 1px 5px 1px calc(4px + var(--ftp-task-tree-level, 0) * 8px);
+  border-radius: 4px;
+  color: var(--ui-text-muted);
+  font-size: 0.68rem;
+}
+
+.ftp-task-tree-node__row--expandable {
+  cursor: pointer;
+
+  &:hover,
+  &:focus-visible {
+    outline: none;
+    background: var(--ui-button-ghost-hover-bg);
+  }
+}
+
+.ftp-task-tree-node__children {
+  display: grid;
+  gap: 1px;
+  margin-left: calc(10px + var(--ftp-task-tree-level, 0) * 8px);
+  padding-left: 6px;
+  border-left: 1px solid color-mix(in srgb, var(--ui-border-subtle) 80%, transparent);
+}
+
+.ftp-task-tree-node--transferring > .ftp-task-tree-node__row {
+  background: color-mix(in srgb, var(--primary-color) 9%, transparent);
+  color: var(--ui-text-primary);
+}
+
+.ftp-task-tree-node--completed > .ftp-task-tree-node__row {
+  color: color-mix(in srgb, var(--ui-status-success-text) 82%, var(--ui-text-muted));
+}
+
+.ftp-task-tree-node--failed > .ftp-task-tree-node__row {
+  color: var(--ui-status-danger-text);
+}
+
+.ftp-task-tree-node__toggle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  padding: 0;
+  border: none;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--ui-text-muted);
+  cursor: inherit;
+  transition:
+    background-color 0.16s ease,
+    color 0.16s ease;
+
+  &:hover,
+  &:focus-visible {
+    outline: none;
+    background: var(--ui-button-ghost-hover-bg);
+    color: var(--ui-text-primary);
+  }
+
+  svg {
+    width: 12px;
+    height: 12px;
+    fill: none;
+    stroke: currentColor;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+    stroke-width: 1.8;
+    transition: transform 0.16s ease;
+  }
+}
+
+.ftp-task-tree-node__toggle--expanded svg {
+  transform: rotate(90deg);
+}
+
+.ftp-task-tree-node__toggle--hidden {
+  pointer-events: none;
+  visibility: hidden;
+}
+
+.ftp-task-tree-node__glyph {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 16px;
+  color: currentColor;
+
+  svg {
+    width: 13px;
+    height: 13px;
+    fill: none;
+    stroke: currentColor;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+    stroke-width: 1.6;
+  }
+}
+
+.ftp-task-tree-node__name {
+  min-width: 0;
+  overflow: hidden;
+  color: var(--ui-text-primary);
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ftp-task-tree-node__progress {
+  position: relative;
+  display: block;
+  width: 100%;
+  height: 4px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--ui-border-subtle) 54%, transparent);
+}
+
+.ftp-task-tree-node__progress-fill {
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 0;
+  border-radius: inherit;
+  background: color-mix(in srgb, var(--primary-color) 72%, #22c55e);
+  transition: width 0.18s ease;
+}
+
+.ftp-task-tree-node--completed > .ftp-task-tree-node__row .ftp-task-tree-node__progress-fill {
+  background: color-mix(in srgb, var(--ui-status-success-text) 78%, #22c55e);
+}
+
+.ftp-task-tree-node--failed > .ftp-task-tree-node__row .ftp-task-tree-node__progress-fill {
+  background: var(--ui-status-danger-text);
+}
+
+.ftp-task-tree-node__meta,
+.ftp-task-tree-node__status {
+  color: var(--ui-text-muted);
+  font-size: 0.64rem;
+  white-space: nowrap;
 }
 
 .ftp-task-item__chevron {
@@ -3064,22 +3315,24 @@
 }
 
 .ftp-page--dense .ftp-aux-dock--bottom {
-  height: clamp(120px, var(--ftp-aux-dock-size), min(420px, 46vh));
+  height: max(37px, var(--ftp-aux-dock-size));
 }
 
 .ftp-page--dense .ftp-aux-dock--bottom.ftp-aux-dock--collapsed {
-  height: 35px;
-  min-height: 35px;
-  max-height: 35px;
+  height: 37px;
+  min-height: 37px;
+  max-height: none;
 }
 
 .ftp-page--dense .ftp-aux-dock--bottom:has(.ftp-tasks:not(.ftp-tasks--collapsed)),
 .ftp-page--dense .ftp-aux-dock--bottom:has(.ftp-log-panel:not(.ftp-log-panel--collapsed)) {
-  height: clamp(120px, var(--ftp-aux-dock-size), min(420px, 46vh));
+  height: max(37px, var(--ftp-aux-dock-size));
+  max-height: none;
 }
 
 .ftp-page--dense .ftp-aux-dock--right {
-  width: clamp(200px, 22vw, 260px);
+  width: max(37px, var(--ftp-aux-dock-size));
+  max-height: none;
 }
 
 .ftp-page--dense .ftp-aux-dock__tabs {
@@ -3134,12 +3387,12 @@
   }
 
   .ftp-aux-dock--right {
-    width: auto;
-    min-height: 200px;
-    max-height: min(30vh, 280px);
-    padding-inline: var(--ftp-page-gutter-inline);
-    border-left: none;
-    border-top: 1px solid var(--ui-border-subtle);
+    width: max(37px, var(--ftp-aux-dock-size));
+    min-height: 0;
+    max-height: none;
+    padding-inline: 0;
+    border-left: 1px solid var(--ui-border-subtle);
+    border-top: none;
   }
 }
 
@@ -3184,16 +3437,16 @@
   .ftp-aux-dock--bottom {
     width: auto;
     height: auto;
-    min-height: 180px;
-    max-height: min(30vh, 280px);
+    min-height: 0;
+    max-height: none;
     border-left: none;
     border-top: 1px solid var(--ui-border-subtle);
-    padding-inline: var(--ftp-page-gutter-inline);
+    padding-inline: 0;
   }
 
   .ftp-aux-dock--bottom {
-    height: clamp(180px, var(--ftp-aux-dock-size), min(420px, 48vh));
-    max-height: min(420px, 48vh);
+    height: max(37px, var(--ftp-aux-dock-size));
+    max-height: none;
     padding-inline: 0;
   }
 
@@ -3422,12 +3675,13 @@
   }
 
   .ftp-aux-dock--bottom {
-    height: clamp(120px, var(--ftp-aux-dock-size), min(420px, 48vh));
+    height: max(37px, var(--ftp-aux-dock-size));
   }
 
   .ftp-aux-dock--bottom:has(.ftp-tasks:not(.ftp-tasks--collapsed)),
   .ftp-aux-dock--bottom:has(.ftp-log-panel:not(.ftp-log-panel--collapsed)) {
-    height: clamp(120px, var(--ftp-aux-dock-size), min(420px, 48vh));
+    height: max(37px, var(--ftp-aux-dock-size));
+    max-height: none;
   }
 }
 
@@ -3449,11 +3703,11 @@
   }
 
   .ftp-aux-dock--bottom {
-    height: clamp(120px, var(--ftp-aux-dock-size), min(420px, 48vh));
+    height: max(37px, var(--ftp-aux-dock-size));
   }
 
   .ftp-aux-dock--right {
-    width: min(24vw, 260px);
+    width: max(37px, var(--ftp-aux-dock-size));
   }
 }
 
@@ -3491,22 +3745,22 @@
   .ftp-aux-dock--bottom {
     width: auto;
     height: auto;
-    min-height: 100px;
-    max-height: min(22vh, 150px);
+    min-height: 0;
+    max-height: none;
     border-left: none;
     border-top: 1px solid var(--ui-border-subtle);
     padding-inline: 0;
   }
 
   .ftp-aux-dock--bottom {
-    height: clamp(100px, var(--ftp-aux-dock-size), min(420px, 48vh));
-    max-height: min(420px, 48vh);
+    height: max(37px, var(--ftp-aux-dock-size));
+    max-height: none;
   }
 
   .ftp-aux-dock--bottom.ftp-aux-dock--collapsed {
-    height: 35px;
-    min-height: 35px;
-    max-height: 35px;
+    height: 37px;
+    min-height: 37px;
+    max-height: none;
   }
 
   .ftp-panel {
@@ -3517,4 +3771,89 @@
   .ftp-panel__commandrow > .ui-button:is([title="收藏当前"], [title="添加目录"], [title="移除书签"]) {
     display: none;
   }
+}
+
+/* 传输队列从普通布局流中独立出来，目录区域和队列共用同一个工作区高度。 */
+.ftp-workspace-shell,
+.ftp-workspace-shell--aux-right {
+  position: relative;
+  flex-direction: column;
+}
+
+.ftp-workspace {
+  flex: 1 1 auto;
+  height: 100%;
+}
+
+.ftp-aux-dock,
+.ftp-aux-dock--right,
+.ftp-aux-dock--bottom {
+  position: absolute;
+  z-index: 16;
+  min-width: 0;
+  min-height: 0;
+  max-width: none;
+  max-height: none;
+  padding-inline: 0;
+}
+
+.ftp-aux-dock--bottom {
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: max(37px, var(--ftp-aux-dock-size));
+  flex-direction: column;
+  border-top: 1px solid var(--ui-border-subtle);
+}
+
+.ftp-aux-dock--bottom:has(.ftp-tasks:not(.ftp-tasks--collapsed)),
+.ftp-aux-dock--bottom:has(.ftp-log-panel:not(.ftp-log-panel--collapsed)),
+.ftp-page--dense .ftp-aux-dock--bottom,
+.ftp-page--dense .ftp-aux-dock--bottom:has(.ftp-tasks:not(.ftp-tasks--collapsed)),
+.ftp-page--dense .ftp-aux-dock--bottom:has(.ftp-log-panel:not(.ftp-log-panel--collapsed)) {
+  height: max(37px, var(--ftp-aux-dock-size));
+  max-height: none;
+}
+
+.ftp-aux-dock--bottom.ftp-aux-dock--collapsed {
+  height: 37px;
+  min-height: 37px;
+  max-height: none;
+}
+
+.ftp-page--dense .ftp-aux-dock--bottom.ftp-aux-dock--collapsed {
+  height: 37px;
+  min-height: 37px;
+  max-height: none;
+}
+
+.ftp-aux-dock--right {
+  top: 0;
+  right: 0;
+  bottom: 0;
+  width: max(37px, var(--ftp-aux-dock-size));
+  height: auto;
+  flex-direction: column;
+  border-top: none;
+  border-left: 1px solid var(--ui-border-subtle);
+}
+
+.ftp-page--dense .ftp-aux-dock--right {
+  width: max(37px, var(--ftp-aux-dock-size));
+  max-height: none;
+}
+
+.ftp-aux-dock--right.ftp-aux-dock--collapsed {
+  width: 37px;
+  min-height: 0;
+}
+
+.ftp-aux-dock .ftp-tasks,
+.ftp-aux-dock .ftp-log-panel {
+  min-height: 0;
+  flex: 1 1 auto;
+}
+
+.ftp-task-tree {
+  max-height: none;
 }

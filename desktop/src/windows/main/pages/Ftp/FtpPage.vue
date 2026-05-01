@@ -145,6 +145,7 @@ const taskSortKey = ref<TaskSortKey>('createdAt');
 const taskSortDirection = ref<'asc' | 'desc'>('desc');
 const auxiliaryDockCollapsed = ref(false);
 const expandedTaskIds = ref<string[]>([]);
+const autoExpandedTreeTaskIds = ref<string[]>([]);
 const syncDirection = ref<SyncDirection>('localToRemote');
 const syncConflictPolicy = ref<SyncConflictPolicy>('keepNewer');
 const recursiveCompareEnabled = ref(false);
@@ -239,8 +240,7 @@ function startAuxiliaryDockResize(e: MouseEvent) {
   document.body.classList.add('ftp-aux-dock-resizing');
 
   function onMove(ev: MouseEvent) {
-    const viewportLimit = Math.max(180, Math.min(420, window.innerHeight - 220));
-    const nextSize = Math.min(viewportLimit, Math.max(180, startSize + startY - ev.clientY));
+    const nextSize = Math.max(180, startSize + startY - ev.clientY);
     auxiliaryDockSize.value = String(Math.round(nextSize));
   }
 
@@ -317,6 +317,7 @@ const scheduleForm = ref<UpsertFtpScheduledTaskInput>({
 const pendingRemoteRefreshTargets = new Map<string, RemoteRefreshTarget>();
 let remoteRefreshTimer: number | null = null;
 let transferTaskRefreshWatcherInitialized = false;
+let transferTaskListWatcherInitialized = false;
 
 const taskSortOptions = [
   { label: '创建时间', value: 'createdAt' },
@@ -588,6 +589,7 @@ const {
   remoteSortKey,
   localSortDirection,
   remoteSortDirection,
+  busyMessage,
   setPanelSortKey,
   togglePanelSortDirection,
   openContextMenu,
@@ -1012,6 +1014,7 @@ const editorSaveText = computed(() => {
   return editorTargetKind.value === 'local' ? '保存到本地' : '保存并回传';
 });
 const isConnecting = computed(() => busyMessage.value.startsWith('正在连接 '));
+const isDeletingRemote = computed(() => busyMessage.value.startsWith('正在删除远程'));
 const sessionTabs = computed(() => ftpStore.sessions);
 const scheduledTaskProfileOptions = computed(() =>
   ftpStore.profiles.map((profile) => ({ label: profile.label, value: profile.id })),
@@ -1537,8 +1540,7 @@ async function runScheduledTaskNow(taskId: string) {
   try {
     const task = await window.ftpApi.runScheduledTaskNow(taskId);
     await reloadScheduledTasks();
-    auxiliaryDockCollapsed.value = false;
-    auxDockActiveTab.value = 'queue';
+    openTransferQueuePanel();
     if (!expandedTaskIds.value.includes(task.id)) {
       expandedTaskIds.value = [...expandedTaskIds.value, task.id];
     }
@@ -1577,8 +1579,7 @@ function focusTaskFromRoute(taskId: string) {
   if (matchedTask.sessionId && ftpStore.sessions.some((item) => item.sessionId === matchedTask.sessionId)) {
     ftpStore.focusSession(matchedTask.sessionId);
   }
-  auxiliaryDockCollapsed.value = false;
-  auxDockActiveTab.value = 'queue';
+  openTransferQueuePanel();
   if (!expandedTaskIds.value.includes(taskId)) {
     expandedTaskIds.value = [...expandedTaskIds.value, taskId];
   }
@@ -1603,7 +1604,7 @@ function loadPanelLayout() {
     }
     sidebarDockSide.value = parsed.sidebarDockSide === 'right' ? 'right' : 'left';
     auxiliaryDockSide.value = parsed.auxiliaryDockSide === 'right' ? 'right' : 'bottom';
-    auxiliaryDockSize.value = normalizePanelSize(parsed.auxiliaryDockSize, 180, 420, '260');
+    auxiliaryDockSize.value = normalizePanelSize(parsed.auxiliaryDockSize, 180, '260');
     showSidebarPanel.value = parsed.showSidebar ?? true;
     showLocalPanel.value = parsed.showLocal ?? true;
     showRemotePanel.value = parsed.showRemote ?? true;
@@ -1640,6 +1641,11 @@ function persistPanelLayout() {
 
 function toggleAuxiliaryDockCollapsed() {
   auxiliaryDockCollapsed.value = !auxiliaryDockCollapsed.value;
+}
+
+function openTransferQueuePanel() {
+  auxiliaryDockCollapsed.value = false;
+  auxDockActiveTab.value = 'queue';
 }
 
 function updateViewportState() {
@@ -1734,10 +1740,10 @@ function uniqueProfileIds(profileIds: string[]) {
   return Array.from(new Set(profileIds.filter(Boolean)));
 }
 
-function normalizePanelSize(value: string | undefined, min: number, max: number, fallback: string) {
+function normalizePanelSize(value: string | undefined, min: number, fallback: string) {
   const parsed = Number.parseInt(value ?? fallback, 10);
   if (!Number.isFinite(parsed)) return fallback;
-  return String(Math.min(max, Math.max(min, parsed)));
+  return String(Math.max(min, parsed));
 }
 
 function normalizeSecondaryTabGroupProfiles() {
@@ -2557,9 +2563,36 @@ async function deleteCompletedTasks() {
   }
 }
 
-watch(() => ftpStore.transferTasks.map((task) => task.id), (taskIds) => {
+watch(() => ftpStore.transferTasks.map((task) => task.id), (taskIds, previousTaskIds) => {
   expandedTaskIds.value = expandedTaskIds.value.filter((id) => taskIds.includes(id));
+  autoExpandedTreeTaskIds.value = autoExpandedTreeTaskIds.value.filter((id) => taskIds.includes(id));
+  if (!transferTaskListWatcherInitialized) {
+    transferTaskListWatcherInitialized = true;
+    return;
+  }
+  if (!ftpStore.initialized) return;
+  const previousTaskIdSet = new Set(previousTaskIds ?? []);
+  const hasNewTask = taskIds.some((taskId) => !previousTaskIdSet.has(taskId));
+  if (hasNewTask) {
+    openTransferQueuePanel();
+  }
 }, { immediate: true });
+
+watch(
+  () => ftpStore.transferTasks.map((task) => ({
+    id: task.id,
+    hasTree: Boolean(task.transferTreeJson),
+  })),
+  (tasks) => {
+    const treeTaskIds = tasks.filter((task) => task.hasTree).map((task) => task.id);
+    const nextAutoExpandedIds = treeTaskIds.filter((taskId) => !autoExpandedTreeTaskIds.value.includes(taskId));
+    if (!nextAutoExpandedIds.length) return;
+    autoExpandedTreeTaskIds.value = [...autoExpandedTreeTaskIds.value, ...nextAutoExpandedIds];
+    expandedTaskIds.value = [...new Set([...expandedTaskIds.value, ...nextAutoExpandedIds])];
+    openTransferQueuePanel();
+  },
+  { immediate: true },
+);
 
 watch(
   () => ftpStore.transferTasks.map((task): TransferTaskRefreshSnapshot => ({
@@ -3009,7 +3042,8 @@ onBeforeUnmount(() => {
                 secondary-meta-class="ftp-entry__meta--mono"
                 :thumbnail-url-for="(entry) => thumbnailUrlFor('remote', entry)"
                 :is-thumbnail-loading="(entry) => isThumbnailLoading('remote', entry)"
-                :highlight-entry-name="highlightEntryName" :show-connecting-overlay="isConnecting"
+                :highlight-entry-name="highlightEntryName" :show-connecting-overlay="isConnecting || isDeletingRemote"
+                :connecting-title="isDeletingRemote ? '正在删除远程条目' : '正在建立连接'"
                 :connecting-message="busyMessage" @dragenter="handleRemoteDragEnter" @dragleave="handleRemoteDragLeave"
                 @dragover="handleRemoteDragOver" @drop="handleRemoteDrop"
                 @update:pathInput="remotePathInput = $event" @update:filterQuery="remoteFilterQuery = $event"
@@ -3071,7 +3105,8 @@ onBeforeUnmount(() => {
               secondary-meta-class="ftp-entry__meta--mono"
               :thumbnail-url-for="(entry) => thumbnailUrlFor('remote', entry)"
               :is-thumbnail-loading="(entry) => isThumbnailLoading('remote', entry)"
-              :highlight-entry-name="highlightEntryName" :show-connecting-overlay="isConnecting"
+              :highlight-entry-name="highlightEntryName" :show-connecting-overlay="isConnecting || isDeletingRemote"
+              :connecting-title="isDeletingRemote ? '正在删除远程条目' : '正在建立连接'"
               :connecting-message="busyMessage" @dragenter="handleRemoteDragEnter" @dragleave="handleRemoteDragLeave"
               @dragover="handleRemoteDragOver" @drop="handleRemoteDrop" @update:pathInput="remotePathInput = $event"
               @update:filterQuery="remoteFilterQuery = $event"

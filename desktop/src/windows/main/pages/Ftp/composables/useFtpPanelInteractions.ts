@@ -8,7 +8,7 @@ import OpenIcon from '@/windows/main/components/svgs/icons/OpenIcon.vue';
 import SettingsIcon from '@/windows/main/components/svgs/icons/SettingsIcon.vue';
 import ToolIcon from '@/windows/main/components/svgs/icons/ToolIcon.vue';
 import { joinLocalPath, joinRemotePath, parentLocalPath, parentRemotePath } from '../utils/ftpPaths';
-import type { FileTransferEntry, FtpConnectionDescriptor } from '@/contracts/ftp';
+import type { FileTransferEntry, FtpConnectionDescriptor, FtpTransferOptions } from '@/contracts/ftp';
 import type { useFtpStore } from '@/windows/main/stores/ftp_store';
 import type { ContextMenuItem } from '@/windows/main/composables/useContextMenu';
 import type { EntrySortKey, PanelKind } from '../types';
@@ -23,6 +23,7 @@ type UseFtpPanelInteractionsOptions = {
   remoteSortKey: Ref<EntrySortKey>;
   localSortDirection: Ref<'asc' | 'desc'>;
   remoteSortDirection: Ref<'asc' | 'desc'>;
+  busyMessage?: Ref<string>;
   setPanelSortKey: (kind: 'local' | 'remote', sortKey: EntrySortKey) => void;
   togglePanelSortDirection: (kind: 'local' | 'remote') => void;
   openContextMenu: (x: number, y: number, items: ContextMenuItem[]) => void;
@@ -78,6 +79,15 @@ export function useFtpPanelInteractions(options: UseFtpPanelInteractionsOptions)
   const preparedRemoteDragKey = ref('');
   const preparedRemoteDragPaths = ref<string[]>([]);
   const preparingRemoteDragKey = ref('');
+
+  function getErrorMessage(error: unknown) {
+    return error instanceof Error ? error.message : String(error);
+  }
+
+  function remotePathDepth(path: string) {
+    return path.replace(/\\/g, '/').split('/').filter(Boolean).length;
+  }
+
   const canUpload = computed(() => Boolean(options.activeSession.value && selectedLocalEntries.value.length));
   const canDownload = computed(() => Boolean(options.activeSession.value && selectedRemoteEntries.value.length));
   const uploadActionLabel = computed(() => {
@@ -373,9 +383,18 @@ export function useFtpPanelInteractions(options: UseFtpPanelInteractionsOptions)
 
   async function deleteRemoteSelected() {
     if (!selectedRemoteEntries.value.length) return;
-    const message = selectedRemoteEntries.value.length === 1
-      ? `确认删除远程条目“${selectedRemoteEntries.value[0].name}”吗？`
-      : `确认删除选中的 ${selectedRemoteEntries.value.length} 个远程条目吗？`;
+    const entries = [...selectedRemoteEntries.value];
+    const directories = entries.filter((entry) => entry.isDir);
+    const directoryCount = directories.length;
+    const deepDirectoryCount = directories.filter((entry) => remotePathDepth(entry.path) > 3).length;
+    const targetMessage = entries.length === 1
+      ? `确认删除远程条目“${entries[0].name}”吗？`
+      : `确认删除选中的 ${entries.length} 个远程条目吗？`;
+    const message = deepDirectoryCount > 0 && options.activeSession.value?.protocol === 'sftp'
+      ? `${targetMessage} 检测到超过 3 层深度的远程目录，接下来会执行类似 rm -rf ./ 的整体删除效果，目录内全部子目录和文件都会被删除，此操作不可撤销。`
+      : directoryCount > 0
+        ? `${targetMessage} 目录内全部子目录和文件都会被删除，此操作不可撤销。`
+        : `${targetMessage} 此操作不可撤销。`;
     const confirmed = await options.showConfirm({
       title: '删除远程条目',
       message,
@@ -383,25 +402,63 @@ export function useFtpPanelInteractions(options: UseFtpPanelInteractionsOptions)
       danger: true,
     });
     if (!confirmed) return;
-    for (const entry of selectedRemoteEntries.value) {
-      await options.ftpStore.deleteRemotePath(entry.path);
+    const failures: string[] = [];
+    const previousBusyMessage = options.busyMessage?.value ?? '';
+    try {
+      for (const [index, entry] of entries.entries()) {
+        if (options.busyMessage) {
+          const targetType = entry.isDir ? '目录' : '文件';
+          const progress = entries.length > 1 ? ` (${index + 1}/${entries.length})` : '';
+          options.busyMessage.value = `正在删除远程${targetType}${progress}：${entry.name}`;
+        }
+        try {
+          await options.ftpStore.deleteRemotePath(entry.path);
+        } catch (error) {
+          failures.push(`${entry.name}: ${getErrorMessage(error)}`);
+        }
+      }
+      if (failures.length > 0) {
+        throw new Error(`部分远程条目删除失败：${failures.join('；')}`);
+      }
+    } finally {
+      if (options.busyMessage) {
+        options.busyMessage.value = previousBusyMessage;
+      }
     }
   }
 
-  async function uploadSelected() {
+  async function uploadSelected(transferOptions?: FtpTransferOptions) {
     if (!options.activeSession.value || !selectedLocalEntries.value.length) return;
     for (const entry of selectedLocalEntries.value) {
       await options.ftpStore.uploadFile(
         entry.path,
         joinRemotePath(options.ftpStore.remotePath || options.activeSession.value.remoteRoot, entry.name),
+        transferOptions,
       );
     }
   }
 
-  async function downloadSelected() {
+  async function downloadSelected(transferOptions?: FtpTransferOptions) {
     if (!selectedRemoteEntries.value.length) return;
     for (const entry of selectedRemoteEntries.value) {
-      await options.ftpStore.downloadFile(entry.path, joinLocalPath(options.ftpStore.localPath, entry.name));
+      await options.ftpStore.downloadFile(entry.path, joinLocalPath(options.ftpStore.localPath, entry.name), transferOptions);
+    }
+  }
+
+  async function uploadSelectedDirectories(transferOptions?: FtpTransferOptions) {
+    if (!options.activeSession.value) return;
+    for (const entry of selectedLocalEntries.value.filter((item) => item.isDir)) {
+      await options.ftpStore.uploadFile(
+        entry.path,
+        joinRemotePath(options.ftpStore.remotePath || options.activeSession.value.remoteRoot, entry.name),
+        transferOptions,
+      );
+    }
+  }
+
+  async function downloadSelectedDirectories(transferOptions?: FtpTransferOptions) {
+    for (const entry of selectedRemoteEntries.value.filter((item) => item.isDir)) {
+      await options.ftpStore.downloadFile(entry.path, joinLocalPath(options.ftpStore.localPath, entry.name), transferOptions);
     }
   }
 
@@ -419,6 +476,10 @@ export function useFtpPanelInteractions(options: UseFtpPanelInteractionsOptions)
     const canPreviewText = Boolean(selectedEntry && !isLocal && options.canPreviewRemoteText?.(selectedEntry));
     const canInternalEdit = Boolean(selectedEntry && options.canOpenInternalEditor?.(kind, selectedEntry));
     const canExternalEdit = Boolean(selectedEntry && options.canOpenExternalEditor?.(kind, selectedEntry));
+    const selectedDirectoryCount = selectedEntries.filter((entry) => entry.isDir).length;
+    const directoryTransferLabel = isLocal
+      ? (selectedDirectoryCount > 1 ? `上传所选 ${selectedDirectoryCount} 个目录` : '上传目录')
+      : (selectedDirectoryCount > 1 ? `下载所选 ${selectedDirectoryCount} 个目录` : '下载目录');
 
     return [
       {
@@ -434,7 +495,7 @@ export function useFtpPanelInteractions(options: UseFtpPanelInteractionsOptions)
         },
         disabled: disabledRemoteAction,
       },
-      ...(isLocal ? [{
+      ...(isLocal && selectedDirectoryCount < selectedEntries.length ? [{
         id: `${kind}-upload-selected`,
         label: selectedEntries.length > 1 ? `上传所选 ${selectedEntries.length} 项` : '上传所选文件',
         icon: AddIcon,
@@ -443,6 +504,39 @@ export function useFtpPanelInteractions(options: UseFtpPanelInteractionsOptions)
           void uploadSelected();
         },
       }] : []),
+      ...((selectedDirectoryCount ? [{
+        id: `${kind}-directory-transfer`,
+        label: directoryTransferLabel,
+        icon: AddIcon,
+        disabled: disabledRemoteAction || (isLocal && !options.activeSession.value),
+        children: [
+          {
+            id: `${kind}-directory-transfer-direct`,
+            label: '直接传输',
+            icon: AddIcon,
+            action: () => {
+              if (isLocal) {
+                void uploadSelectedDirectories();
+              } else {
+                void downloadSelectedDirectories();
+              }
+            },
+          },
+          {
+            id: `${kind}-directory-transfer-archive`,
+            label: '打包传输(SFTP)',
+            icon: AddIcon,
+            action: () => {
+              const transferOptions = { method: 'archive' as const };
+              if (isLocal) {
+                void uploadSelectedDirectories(transferOptions);
+              } else {
+                void downloadSelectedDirectories(transferOptions);
+              }
+            },
+          },
+        ],
+      }] : []) satisfies ContextMenuItem[]),
       {
         id: `${kind}-open-terminal`,
         label: isLocal ? '在本地终端打开' : '在 SSH 终端打开',
@@ -744,7 +838,10 @@ export function useFtpPanelInteractions(options: UseFtpPanelInteractionsOptions)
     for (const file of files) {
       const externalPath = (file as File & { path?: string }).path;
       if (!externalPath) continue;
-      await options.ftpStore.uploadFile(externalPath, joinRemotePath(options.ftpStore.remotePath || options.activeSession.value.remoteRoot, file.name));
+      await options.ftpStore.uploadFile(
+        externalPath,
+        joinRemotePath(options.ftpStore.remotePath || options.activeSession.value.remoteRoot, file.name),
+      );
     }
   }
 

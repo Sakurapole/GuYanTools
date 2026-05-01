@@ -7,7 +7,14 @@ const { visible, position, items, close } = useContextMenu();
 </script>
 
 <template>
-  <UiMenu :visible="visible" :x="position.x" :y="position.y" @close="close">
+  <UiMenu
+    :visible="visible"
+    :x="position.x"
+    :y="position.y"
+    outside-ignore-selector="[data-context-menu-surface='true']"
+    data-context-menu-surface="true"
+    @close="close"
+  >
     <ContextMenuBranch :items="items" :close-menu="close" />
   </UiMenu>
 </template>

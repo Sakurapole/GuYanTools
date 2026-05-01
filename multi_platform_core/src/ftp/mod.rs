@@ -123,7 +123,12 @@ struct SshClientHandler {
 }
 
 impl SshClientHandler {
-    fn new() -> (Self, Arc<Mutex<String>>, Arc<Mutex<String>>, Arc<Mutex<Vec<u8>>>) {
+    fn new() -> (
+        Self,
+        Arc<Mutex<String>>,
+        Arc<Mutex<String>>,
+        Arc<Mutex<Vec<u8>>>,
+    ) {
         let alg = Arc::new(Mutex::new(String::new()));
         let fp = Arc::new(Mutex::new(String::new()));
         let raw = Arc::new(Mutex::new(Vec::new()));

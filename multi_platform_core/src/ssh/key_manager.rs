@@ -1,6 +1,6 @@
 use anyhow::{anyhow, Result};
 use rusqlite::OptionalExtension;
-use ssh_key::{Algorithm, EcdsaCurve, HashAlg, LineEnding, PrivateKey, rand_core::OsRng};
+use ssh_key::{rand_core::OsRng, Algorithm, EcdsaCurve, HashAlg, LineEnding, PrivateKey};
 use uuid::Uuid;
 
 use super::credentials::{encrypt_credential, unix_now};
@@ -45,17 +45,15 @@ impl super::SshConnectionManager {
             .map_err(|e| anyhow!("{}", e))
     }
 
-    pub fn generate_managed_key(
-        &self,
-        input: GenerateSshManagedKeyInput,
-    ) -> Result<SshManagedKey> {
+    pub fn generate_managed_key(&self, input: GenerateSshManagedKeyInput) -> Result<SshManagedKey> {
         let label = input.label.trim();
         if label.is_empty() {
             return Err(anyhow!("key label is required"));
         }
 
-        let mut private_key = PrivateKey::random(&mut OsRng, parse_generation_algorithm(&input.algorithm)?)
-            .map_err(|e| anyhow!("failed to generate SSH key: {}", e))?;
+        let mut private_key =
+            PrivateKey::random(&mut OsRng, parse_generation_algorithm(&input.algorithm)?)
+                .map_err(|e| anyhow!("failed to generate SSH key: {}", e))?;
         let comment = input
             .comment
             .as_deref()

@@ -32,6 +32,7 @@ const props = withDefaults(defineProps<{
   overlayClass?: string | string[] | Record<string, boolean>;
   panelClass?: string | string[] | Record<string, boolean>;
   panelStyle?: StyleValue;
+  outsideIgnoreSelector?: string | string[];
   transitionName?: string;
   panelTransitionName?: string;
 }>(), {
@@ -56,6 +57,7 @@ const props = withDefaults(defineProps<{
   overlayClass: '',
   panelClass: '',
   panelStyle: undefined,
+  outsideIgnoreSelector: '',
   transitionName: '',
   panelTransitionName: '',
 });
@@ -147,7 +149,19 @@ function handleDocumentPointerdown(event: PointerEvent) {
     return;
   }
 
-  if (panelRef.value?.contains(event.target as Node)) {
+  const target = event.target as Node | null;
+  if (target && panelRef.value?.contains(target)) {
+    return;
+  }
+
+  const targetElement = target instanceof Element
+    ? target
+    : target?.parentElement;
+  const ignoreSelectors = Array.isArray(props.outsideIgnoreSelector)
+    ? props.outsideIgnoreSelector
+    : [props.outsideIgnoreSelector];
+
+  if (targetElement && ignoreSelectors.some(selector => selector && targetElement.closest(selector))) {
     return;
   }
 

@@ -116,6 +116,7 @@ onBeforeUnmount(() => {
           :panel-style="submenuStyle[item.id]"
           :z-index="10000"
           role="menu"
+          data-context-menu-surface="true"
           @mouseenter="clearCloseTimer"
           @mouseleave="scheduleClose(item.id)"
         >

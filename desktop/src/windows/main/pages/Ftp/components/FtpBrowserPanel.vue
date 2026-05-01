@@ -80,6 +80,7 @@ const props = withDefaults(defineProps<{
   isThumbnailLoading: (entry: FileTransferEntry) => boolean;
   highlightEntryName: (name: string, query: string) => string;
   showConnectingOverlay?: boolean;
+  connectingTitle?: string;
   connectingMessage?: string;
 }>(), {
   pathInputDisabled: false,
@@ -98,6 +99,7 @@ const props = withDefaults(defineProps<{
   removeBookmarkDisabled: false,
   secondaryMetaClass: '',
   showConnectingOverlay: false,
+  connectingTitle: '正在建立连接',
   connectingMessage: '',
   active: false,
 });
@@ -174,6 +176,20 @@ const compactBreadcrumbs = computed<CompactBreadcrumb[]>(() => {
     ...props.breadcrumbs.slice(-3),
   ];
 });
+const breadcrumbDirectoryOptions = computed(() => [
+  { label: '下级目录', value: '', disabled: true },
+  ...props.entries
+    .filter((entry) => entry.isDir)
+    .slice()
+    .sort((left, right) => left.name.localeCompare(right.name, 'zh-CN', { numeric: true, sensitivity: 'base' }))
+    .map((entry) => ({
+      label: entry.name,
+      value: entry.path,
+    })),
+]);
+const showBreadcrumbDirectorySelect = computed(() =>
+  props.kind === 'remote' && !props.pathInputDisabled && breadcrumbDirectoryOptions.value.length > 1,
+);
 const filterOperatorOptions = [
   { label: '全部条件 (AND)', value: 'and' },
   { label: '任一条件 (OR)', value: 'or' },
@@ -312,6 +328,17 @@ function handlePanelKeydown(event: KeyboardEvent): void {
   if (!isSelectAll || isEditableTarget(event.target)) return;
   event.preventDefault();
   emit('select-all');
+}
+
+function openParentDirectory(): void {
+  if (props.goParentDisabled) return;
+  emit('go-parent');
+}
+
+function openBreadcrumbDirectory(value: string | number): void {
+  const path = String(value);
+  if (!path) return;
+  emit('open-breadcrumb', path);
 }
 
 function entryIntersectsSelection(entryRect: DOMRect, selectionRect: DOMRect): boolean {
@@ -453,6 +480,27 @@ onBeforeUnmount(() => {
             <span v-if="index < compactBreadcrumbs.length - 1" class="ftp-panel__breadcrumb-separator">/</span>
           </template>
           <span v-if="!breadcrumbs.length" class="ftp-panel__breadcrumb-empty">未选择路径</span>
+          <UiSelect
+            v-if="showBreadcrumbDirectorySelect"
+            class="ftp-panel__breadcrumb-directory-select"
+            size="sm"
+            :model-value="''"
+            :options="breadcrumbDirectoryOptions"
+            @change="openBreadcrumbDirectory"
+          />
+          <UiIconButton
+            v-if="showWorkspaceControls"
+            class="ftp-panel__breadcrumb-picker"
+            size="sm"
+            variant="ghost"
+            title="选择目录"
+            @click="$emit('pick-workspace')"
+          >
+            <svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M2 4.5a1 1 0 0 1 1-1h3.5l1.5 1.5H13a1 1 0 0 1 1 1V12a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1V4.5z" />
+              <path d="M9.5 8.8h-3M8 7.3v3" />
+            </svg>
+          </UiIconButton>
         </div>
 
         <div class="ftp-panel__actions">
@@ -492,21 +540,9 @@ onBeforeUnmount(() => {
         </UiIconButton>
 
         <template v-if="showWorkspaceControls">
-          <UiSelect
-            size="sm"
-            :model-value="workspaceSelectValue"
-            :options="workspaceOptions"
-            @change="$emit('switch-workspace', String($event))"
-          />
           <UiIconButton size="sm" variant="ghost" :disabled="bookmarkDisabled" title="收藏当前" @click="$emit('bookmark-current')">
             <svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
               <path d="M4 2h8a1 1 0 0 1 1 1v11l-5-3-5 3V3a1 1 0 0 1 1-1z" />
-            </svg>
-          </UiIconButton>
-          <UiIconButton size="sm" variant="ghost" title="添加目录" @click="$emit('pick-workspace')">
-            <svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
-              <path d="M2 4.5a1 1 0 0 1 1-1h3.5l1.5 1.5H13a1 1 0 0 1 1 1V12a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1V4.5z" />
-              <path d="M8 7.5v3M6.5 9h3" />
             </svg>
           </UiIconButton>
           <UiIconButton size="sm" variant="ghost" :disabled="removeBookmarkDisabled" title="移除书签" @click="$emit('remove-workspace')">
@@ -518,7 +554,15 @@ onBeforeUnmount(() => {
         </template>
 
         <div class="ftp-panel__path-input-wrap">
+          <UiSelect
+            v-if="showWorkspaceControls"
+            size="sm"
+            :model-value="workspaceSelectValue"
+            :options="workspaceOptions"
+            @change="$emit('switch-workspace', String($event))"
+          />
           <UiSuggestInput
+            v-else
             :model-value="pathInput"
             :suggestions="pathSuggestions"
             :placeholder="pathPlaceholder"
@@ -527,7 +571,7 @@ onBeforeUnmount(() => {
             @enter="$emit('open-path')"
           />
         </div>
-        <UiIconButton size="sm" variant="secondary" :disabled="openPathDisabled" title="打开" @click="$emit('open-path')">
+        <UiIconButton v-if="!showWorkspaceControls" size="sm" variant="secondary" :disabled="openPathDisabled" title="打开" @click="$emit('open-path')">
           <svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
             <path d="M2 4.5a1 1 0 0 1 1-1h3.5l1.5 1.5H13a1 1 0 0 1 1 1V12a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1V4.5z" />
           </svg>
@@ -772,6 +816,35 @@ onBeforeUnmount(() => {
 
           <div ref="entryListRef" class="ftp-entry-list">
             <div
+              class="ftp-entry ftp-entry--parent"
+              :class="[entryClass, { 'ftp-entry--details': viewMode === 'details', 'ftp-entry--disabled': goParentDisabled }]"
+              :role="goParentDisabled ? undefined : 'button'"
+              :tabindex="goParentDisabled ? undefined : 0"
+              :aria-disabled="goParentDisabled ? 'true' : undefined"
+              title="返回上一级目录"
+              @click="openParentDirectory"
+              @dblclick="openParentDirectory"
+              @keydown.enter.prevent="openParentDirectory"
+              @keydown.space.prevent="openParentDirectory"
+              @contextmenu.prevent.stop
+            >
+              <div class="ftp-entry__name">
+                <UiFileIcon name=".." :is-dir="true" />
+                <span class="ftp-entry__name-text">..</span>
+              </div>
+              <template v-if="viewMode === 'details'">
+                <div class="ftp-entry__meta ftp-entry__meta--align-right">上级目录</div>
+                <div class="ftp-entry__meta ftp-entry__meta--align-right" />
+                <div class="ftp-entry__meta ftp-entry__meta--align-right ftp-entry__meta--mono" />
+                <div class="ftp-entry__meta ftp-entry__meta--align-right" />
+              </template>
+              <template v-else>
+                <div class="ftp-entry__meta ftp-entry__meta--align-right" :class="secondaryMetaClass">上级目录</div>
+                <div class="ftp-entry__meta ftp-entry__meta--align-right" />
+              </template>
+            </div>
+
+            <div
               v-for="(entry, index) in entries"
               :key="entry.path"
               class="ftp-entry"
@@ -831,7 +904,7 @@ onBeforeUnmount(() => {
       <div v-if="showConnectingOverlay" class="ftp-panel__connecting-overlay">
         <div class="ftp-panel__connecting-card">
           <span class="ftp-panel__connecting-spinner" />
-          <strong>正在建立连接</strong>
+          <strong>{{ connectingTitle }}</strong>
           <span>{{ connectingMessage }}</span>
         </div>
       </div>

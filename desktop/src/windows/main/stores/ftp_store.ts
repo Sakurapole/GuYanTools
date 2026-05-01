@@ -10,6 +10,7 @@ import type {
   FtpProfile,
   FtpRestoreState,
   FtpSessionFolder,
+  FtpTransferOptions,
   TransferTask,
   UpsertFtpRestoreStateInput,
   UpdateFtpProfileInput,
@@ -61,6 +62,7 @@ export const useFtpStore = defineStore('ftp', () => {
   const remoteEntries = ref<FileTransferEntry[]>([]);
   const selectedLocalPath = ref('');
   const selectedRemotePath = ref('');
+  const localRootPaths = ref<string[]>([]);
   const localWorkspaces = ref<string[]>([]);
 
   const localLoading = ref(false);
@@ -78,6 +80,7 @@ export const useFtpStore = defineStore('ftp', () => {
   async function initialize() {
     if (initialized.value) return;
     loadLocalWorkspaces();
+    await refreshLocalRootPaths();
     ensureEventSubscription();
     profiles.value = await window.ftpApi.listProfiles();
     folders.value = await window.ftpApi.listFolders();
@@ -103,6 +106,17 @@ export const useFtpStore = defineStore('ftp', () => {
 
   async function refreshFolders() {
     folders.value = await window.ftpApi.listFolders();
+  }
+
+  async function refreshLocalRootPaths() {
+    try {
+      const roots = await window.shellApi.listLocalRoots();
+      localRootPaths.value = roots
+        .map((item) => normalizeWorkspacePath(item))
+        .filter((item, index, array): item is string => Boolean(item) && array.indexOf(item) === index);
+    } catch {
+      localRootPaths.value = [];
+    }
   }
 
   async function reloadRuntimeState() {
@@ -298,21 +312,21 @@ export const useFtpStore = defineStore('ftp', () => {
     await refreshLocalDirectory(localPath.value);
   }
 
-  async function uploadFileToSession(sessionId: string, localFilePath: string, remoteFilePath: string) {
+  async function uploadFileToSession(sessionId: string, localFilePath: string, remoteFilePath: string, options?: FtpTransferOptions) {
     if (!sessionId) return null;
-    const task = await window.ftpApi.uploadFile(sessionId, localFilePath, remoteFilePath);
+    const task = await window.ftpApi.uploadFile(sessionId, localFilePath, remoteFilePath, options);
     upsertTask(task);
     return task;
   }
 
-  async function uploadFile(localFilePath: string, remoteFilePath: string) {
+  async function uploadFile(localFilePath: string, remoteFilePath: string, options?: FtpTransferOptions) {
     if (!activeSessionId.value) return null;
-    return uploadFileToSession(activeSessionId.value, localFilePath, remoteFilePath);
+    return uploadFileToSession(activeSessionId.value, localFilePath, remoteFilePath, options);
   }
 
-  async function downloadFile(remoteFilePath: string, localFilePath: string) {
+  async function downloadFile(remoteFilePath: string, localFilePath: string, options?: FtpTransferOptions) {
     if (!activeSessionId.value) return null;
-    const task = await window.ftpApi.downloadFile(activeSessionId.value, remoteFilePath, localFilePath);
+    const task = await window.ftpApi.downloadFile(activeSessionId.value, remoteFilePath, localFilePath, options);
     upsertTask(task);
     return task;
   }
@@ -440,7 +454,12 @@ export const useFtpStore = defineStore('ftp', () => {
       transferTasks.value = [task, ...transferTasks.value];
       return;
     }
-    transferTasks.value = transferTasks.value.map((item, itemIndex) => (itemIndex === index ? task : item));
+    const previous = transferTasks.value[index];
+    const mergedTask = {
+      ...task,
+      transferTreeJson: task.transferTreeJson ?? previous.transferTreeJson,
+    };
+    transferTasks.value = transferTasks.value.map((item, itemIndex) => (itemIndex === index ? mergedTask : item));
   }
 
   function maybeNotifyTaskState(task: TransferTask) {
@@ -615,6 +634,7 @@ export const useFtpStore = defineStore('ftp', () => {
     remoteEntries,
     selectedLocalPath,
     selectedRemotePath,
+    localRootPaths,
     localWorkspaces,
     localLoading,
     remoteLoading,
@@ -622,6 +642,7 @@ export const useFtpStore = defineStore('ftp', () => {
     initialize,
     refreshProfiles,
     refreshFolders,
+    refreshLocalRootPaths,
     reloadRuntimeState,
     restorePreviousSessions,
     persistRestoreStates,

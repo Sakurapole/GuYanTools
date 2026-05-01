@@ -1050,7 +1050,10 @@ impl super::FtpManager {
         server_key_bytes: &[u8],
         host_ca_key_path: Option<&str>,
     ) -> Result<()> {
-        if let Some(path) = host_ca_key_path.map(str::trim).filter(|value| !value.is_empty()) {
+        if let Some(path) = host_ca_key_path
+            .map(str::trim)
+            .filter(|value| !value.is_empty())
+        {
             crate::ssh::validate_host_certificate(server_key_bytes, host, path)
                 .map_err(|e| anyhow!("host CA validation failed: {}", e))?;
             return Ok(());

@@ -17,6 +17,21 @@ export function registerShellIpcHandlers() {
     await shell.openExternal(url);
   });
 
+  ipcMain.handle('shell:list-local-roots', async () => {
+    if (process.platform !== 'win32') {
+      return ['/'];
+    }
+
+    const roots: string[] = [];
+    for (let code = 65; code <= 90; code += 1) {
+      const root = `${String.fromCharCode(code)}:\\`;
+      if (existsSync(root)) {
+        roots.push(root);
+      }
+    }
+    return roots;
+  });
+
   ipcMain.handle('shell:select-file', async (_event, options?: SelectFileOptions) => {
     const result = await dialog.showOpenDialog({
       title: options?.title ?? '选择文件',

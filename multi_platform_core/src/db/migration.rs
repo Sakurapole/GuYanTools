@@ -75,6 +75,10 @@ pub fn run_migrations(conn: &Connection) -> DbResult<()> {
             "015_add_host_ca_key_paths",
             include_str!("../../migrations/015_add_host_ca_key_paths.sql"),
         ),
+        (
+            "016_extend_ftp_transfer_tree_history",
+            include_str!("../../migrations/016_extend_ftp_transfer_tree_history.sql"),
+        ),
     ];
 
     // 执行每个迁移

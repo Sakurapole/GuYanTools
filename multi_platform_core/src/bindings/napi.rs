@@ -1035,8 +1035,8 @@ impl JsDatabase {
 use crate::ftp::{
     ConnectFtpInput, CreateFtpProfileInput, CreateFtpSessionFolderInput, FileTransferEntry,
     FtpConnectionDescriptor, FtpManager, FtpProfile, FtpRestoreState, FtpRetryPolicy,
-    FtpSessionFolder, TransferTask, UpdateFtpProfileInput, UpdateFtpSessionFolderInput,
-    UpsertFtpRestoreStateInput,
+    FtpSessionFolder, TransferOptions, TransferTask, UpdateFtpProfileInput,
+    UpdateFtpSessionFolderInput, UpsertFtpRestoreStateInput,
 };
 use crate::ssh::{
     ConnectSshInput, CreatePortForwardInput, CreateSshProfileInput, ExportSshManagedKeyData,
@@ -1733,9 +1733,10 @@ impl JsFtpHost {
         session_id: String,
         local_path: String,
         remote_path: String,
+        options: Option<TransferOptions>,
     ) -> Result<TransferTask> {
         self.inner
-            .upload_file(session_id, local_path, remote_path)
+            .upload_file(session_id, local_path, remote_path, options)
             .await
             .map_err(|e| Error::from_reason(format!("uploadFile failed: {}", e)))
     }
@@ -1746,9 +1747,10 @@ impl JsFtpHost {
         session_id: String,
         remote_path: String,
         local_path: String,
+        options: Option<TransferOptions>,
     ) -> Result<TransferTask> {
         self.inner
-            .download_file(session_id, remote_path, local_path)
+            .download_file(session_id, remote_path, local_path, options)
             .await
             .map_err(|e| Error::from_reason(format!("downloadFile failed: {}", e)))
     }
@@ -1762,7 +1764,12 @@ impl JsFtpHost {
         target_path: String,
     ) -> Result<TransferTask> {
         self.inner
-            .fxp_transfer(source_session_id, source_path, target_session_id, target_path)
+            .fxp_transfer(
+                source_session_id,
+                source_path,
+                target_session_id,
+                target_path,
+            )
             .await
             .map_err(|e| Error::from_reason(format!("fxpTransfer failed: {}", e)))
     }

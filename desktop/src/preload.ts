@@ -11,7 +11,7 @@ import type {
 import type { AppConfigApi } from '@/contracts/app_config';
 import type { PluginHostApi } from '@/contracts/plugin_host';
 import type { NotificationApi, NotificationPayload } from '@/contracts/notification';
-import type { SaveFileOptions, SelectFileOptions } from '@/contracts/shell';
+import type { SaveFileOptions, SelectFileOptions, ShellApi } from '@/contracts/shell';
 import type { HomeWorkspaceApi } from '@/contracts/home_workspace';
 import type { UpdateApi } from '@/contracts/updater';
 import type {
@@ -51,6 +51,7 @@ import type {
   FtpEventEnvelope,
   FtpExternalEditorOptions,
   FtpRetryPolicy,
+  FtpTransferOptions,
   UpsertFtpRestoreStateInput,
   UpdateFtpProfileInput,
   UpdateFtpSessionFolderInput,
@@ -129,9 +130,10 @@ const updateApi: UpdateApi = {
 };
 contextBridge.exposeInMainWorld('updateApi', updateApi);
 
-const shellApi = {
+const shellApi: ShellApi = {
   openPath: (targetPath: string) => ipcRenderer.invoke('shell:open-path', targetPath),
   openExternal: (url: string) => ipcRenderer.invoke('shell:open-external', url),
+  listLocalRoots: () => ipcRenderer.invoke('shell:list-local-roots'),
   selectFile: (options?: SelectFileOptions) => ipcRenderer.invoke('shell:select-file', options),
   saveFile: (options?: SaveFileOptions) => ipcRenderer.invoke('shell:save-file', options),
   selectDirectory: (title?: string) => ipcRenderer.invoke('shell:select-directory', title),
@@ -357,10 +359,10 @@ const ftpApi: FtpApi = {
     ipcRenderer.invoke('ftp:copy-local-path', sourcePath, targetPath),
   getDefaultLocalPath: () => ipcRenderer.invoke('ftp:get-default-local-path'),
 
-  uploadFile: (sessionId: string, localPath: string, remotePath: string) =>
-    ipcRenderer.invoke('ftp:upload-file', sessionId, localPath, remotePath),
-  downloadFile: (sessionId: string, remotePath: string, localPath: string) =>
-    ipcRenderer.invoke('ftp:download-file', sessionId, remotePath, localPath),
+  uploadFile: (sessionId: string, localPath: string, remotePath: string, options?: FtpTransferOptions) =>
+    ipcRenderer.invoke('ftp:upload-file', sessionId, localPath, remotePath, options),
+  downloadFile: (sessionId: string, remotePath: string, localPath: string, options?: FtpTransferOptions) =>
+    ipcRenderer.invoke('ftp:download-file', sessionId, remotePath, localPath, options),
   fxpTransfer: (sourceSessionId: string, sourcePath: string, targetSessionId: string, targetPath: string) =>
     ipcRenderer.invoke('ftp:fxp-transfer', sourceSessionId, sourcePath, targetSessionId, targetPath),
   listTransferTasks: () => ipcRenderer.invoke('ftp:list-transfer-tasks'),
