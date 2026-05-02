@@ -2,21 +2,156 @@
 import SvgIcon from '@/windows/main/components/svgs/svgicon.vue';
 import { useTheme } from '@/windows/main/composables/theme';
 import { useGlobalStore } from '@/windows/main/stores/global_store';
-import { computed } from 'vue';
+import { useHomeProfileStore } from '@/windows/main/stores/home_profile_store';
+import { computed, onMounted, onUnmounted, ref } from 'vue';
 import { storeToRefs } from 'pinia';
 import Spacer from '../Spacer.vue';
+import UiButton from '../ui/UiButton.vue';
 import UiIconButton from '../ui/UiIconButton.vue';
+import UiInput from '../ui/UiInput.vue';
 
 const { ipcRenderer } = window;
 const globalStore = useGlobalStore();
+const homeProfileStore = useHomeProfileStore();
 const { currentPage, topbarColor } = storeToRefs(globalStore);
 const { theme, toggleTheme } = useTheme();
+const profilePanelRef = ref<HTMLElement | null>(null);
+const profilePanelOpen = ref(false);
+const createProfileName = ref('');
+const editingProfileKey = ref('');
+const editingProfileName = ref('');
+const profilePanelError = ref('');
 
 const topbarStyle = computed(() => {
   if (!topbarColor.value) return {};
   return {
     '--topbar-bg-color': topbarColor.value,
   };
+});
+
+const activeProfileName = computed(() => homeProfileStore.activeProfile?.name ?? 'Default Workspace');
+const profileButtonLabel = computed(() => `配置文件：${activeProfileName.value}`);
+const isProfileBusy = computed(() => homeProfileStore.loading || homeProfileStore.switching);
+
+function openProfilePanel() {
+  profilePanelOpen.value = true;
+  profilePanelError.value = '';
+  if (homeProfileStore.profiles.length === 0 && !homeProfileStore.loading) {
+    void homeProfileStore.loadProfiles().catch(error => {
+      profilePanelError.value = error instanceof Error ? error.message : String(error);
+    });
+  }
+}
+
+function toggleProfilePanel() {
+  if (profilePanelOpen.value) {
+    profilePanelOpen.value = false;
+    return;
+  }
+  openProfilePanel();
+}
+
+function closeProfilePanel() {
+  profilePanelOpen.value = false;
+  editingProfileKey.value = '';
+  editingProfileName.value = '';
+}
+
+function handleDocumentPointerDown(event: PointerEvent) {
+  if (!profilePanelOpen.value) {
+    return;
+  }
+
+  const target = event.target as Node | null;
+  if (target && profilePanelRef.value?.contains(target)) {
+    return;
+  }
+
+  closeProfilePanel();
+}
+
+function handleWindowKeydown(event: KeyboardEvent) {
+  if (event.key === 'Escape' && profilePanelOpen.value) {
+    closeProfilePanel();
+  }
+}
+
+async function switchProfile(key: string) {
+  profilePanelError.value = '';
+  try {
+    await homeProfileStore.switchProfile(key);
+  } catch (error) {
+    profilePanelError.value = error instanceof Error ? error.message : String(error);
+  }
+}
+
+async function createProfile() {
+  const name = createProfileName.value.trim();
+  if (!name) {
+    return;
+  }
+
+  profilePanelError.value = '';
+  try {
+    await homeProfileStore.createProfile(name);
+    createProfileName.value = '';
+  } catch (error) {
+    profilePanelError.value = error instanceof Error ? error.message : String(error);
+  }
+}
+
+function startRenameProfile(key: string, name: string) {
+  editingProfileKey.value = key;
+  editingProfileName.value = name;
+  profilePanelError.value = '';
+}
+
+async function confirmRenameProfile() {
+  const key = editingProfileKey.value;
+  const name = editingProfileName.value.trim();
+  if (!key || !name) {
+    return;
+  }
+
+  profilePanelError.value = '';
+  try {
+    await homeProfileStore.renameProfile(key, name);
+    editingProfileKey.value = '';
+    editingProfileName.value = '';
+  } catch (error) {
+    profilePanelError.value = error instanceof Error ? error.message : String(error);
+  }
+}
+
+async function deleteProfile(key: string) {
+  if (homeProfileStore.profiles.length <= 1) {
+    profilePanelError.value = '至少保留一个配置文件。';
+    return;
+  }
+
+  profilePanelError.value = '';
+  try {
+    await homeProfileStore.deleteProfile(key);
+    if (editingProfileKey.value === key) {
+      editingProfileKey.value = '';
+      editingProfileName.value = '';
+    }
+  } catch (error) {
+    profilePanelError.value = error instanceof Error ? error.message : String(error);
+  }
+}
+
+onMounted(() => {
+  window.addEventListener('pointerdown', handleDocumentPointerDown, true);
+  window.addEventListener('keydown', handleWindowKeydown);
+  void homeProfileStore.loadProfiles().catch(error => {
+    profilePanelError.value = error instanceof Error ? error.message : String(error);
+  });
+});
+
+onUnmounted(() => {
+  window.removeEventListener('pointerdown', handleDocumentPointerDown, true);
+  window.removeEventListener('keydown', handleWindowKeydown);
 });
 </script>
 
@@ -31,7 +166,83 @@ const topbarStyle = computed(() => {
         {{ currentPage }}
       </div>
     </div>
-    <div class="application-func-container" aria-label="应用功能区"></div>
+    <div class="application-func-container" aria-label="应用功能区">
+      <div ref="profilePanelRef" class="home-profile-switcher">
+        <button
+          class="home-profile-switcher__trigger"
+          type="button"
+          :class="{ active: profilePanelOpen }"
+          :title="profileButtonLabel"
+          @click="toggleProfilePanel"
+        >
+          <span class="home-profile-switcher__dot" />
+          <span class="home-profile-switcher__label">{{ activeProfileName }}</span>
+          <span class="home-profile-switcher__chevron" :class="{ open: profilePanelOpen }">⌄</span>
+        </button>
+
+        <div v-if="profilePanelOpen" class="home-profile-panel" role="menu">
+          <div class="home-profile-panel__header">
+            <div>
+              <div class="home-profile-panel__eyebrow">首页配置文件</div>
+              <div class="home-profile-panel__current">{{ activeProfileName }}</div>
+            </div>
+            <span v-if="isProfileBusy" class="home-profile-panel__status">同步中</span>
+          </div>
+
+          <div class="home-profile-panel__list">
+            <div
+              v-for="profile in homeProfileStore.profiles"
+              :key="profile.key"
+              class="home-profile-row"
+              :class="{ active: profile.key === homeProfileStore.activeProfileKey }"
+            >
+              <template v-if="editingProfileKey === profile.key">
+                <UiInput
+                  v-model="editingProfileName"
+                  class="home-profile-row__input"
+                  size="sm"
+                  placeholder="配置文件名称"
+                  @keydown.enter="confirmRenameProfile"
+                />
+                <UiButton size="sm" variant="primary" :disabled="!editingProfileName.trim()" @click="confirmRenameProfile">保存</UiButton>
+                <UiButton size="sm" variant="ghost" @click="editingProfileKey = ''">取消</UiButton>
+              </template>
+              <template v-else>
+                <button class="home-profile-row__main" type="button" @click="switchProfile(profile.key)">
+                  <span class="home-profile-row__check">{{ profile.key === homeProfileStore.activeProfileKey ? '✓' : '' }}</span>
+                  <span class="home-profile-row__name">{{ profile.name }}</span>
+                  <span v-if="profile.isDefault" class="home-profile-row__badge">默认</span>
+                </button>
+                <button class="home-profile-row__action" type="button" title="重命名" @click="startRenameProfile(profile.key, profile.name)">改名</button>
+                <button
+                  class="home-profile-row__action danger"
+                  type="button"
+                  :disabled="homeProfileStore.profiles.length <= 1"
+                  :title="homeProfileStore.profiles.length <= 1 ? '至少保留一个配置文件' : '删除'"
+                  @click="deleteProfile(profile.key)"
+                >
+                  删除
+                </button>
+              </template>
+            </div>
+          </div>
+
+          <div class="home-profile-panel__create">
+            <UiInput
+              v-model="createProfileName"
+              size="sm"
+              placeholder="新配置文件名称"
+              @keydown.enter="createProfile"
+            />
+            <UiButton size="sm" variant="primary" :disabled="!createProfileName.trim() || isProfileBusy" @click="createProfile">新建</UiButton>
+          </div>
+
+          <div v-if="profilePanelError || homeProfileStore.error" class="home-profile-panel__error">
+            {{ profilePanelError || homeProfileStore.error }}
+          </div>
+        </div>
+      </div>
+    </div>
     <div class="drag-area"></div>
     <div class="window-btn-group">
       <UiIconButton class="theme-btn" variant="ghost" size="lg" shape="circle" title="切换主题" @click="toggleTheme">

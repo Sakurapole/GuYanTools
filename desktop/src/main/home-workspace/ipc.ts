@@ -1,8 +1,7 @@
 import { ipcMain } from 'electron';
 import type { HomeWorkspaceBackground, HomeWorkspaceBgState } from '@/contracts/home_workspace';
 import { dbManager } from '../../core/database';
-
-const WORKSPACE_KEY = 'default';
+import { getActiveHomeWorkspaceKey } from '../home-profile/ipc';
 
 function parseBackground(raw: string | null | undefined): HomeWorkspaceBackground {
   if (!raw) return {};
@@ -23,7 +22,8 @@ export function registerHomeWorkspaceIpcHandlers() {
    */
   ipcMain.handle('home-workspace:get-background', async () => {
     const db = dbManager.getDatabase();
-    const raw = await db.getHomeWorkspaceBackground(WORKSPACE_KEY);
+    const workspaceKey = await getActiveHomeWorkspaceKey();
+    const raw = await db.getHomeWorkspaceBackground(workspaceKey);
 
     if (!raw) {
       return { header: {}, sidebar: {} } satisfies HomeWorkspaceBgState;
@@ -47,9 +47,10 @@ export function registerHomeWorkspaceIpcHandlers() {
     'home-workspace:update-background',
     async (_event, payload: { header?: HomeWorkspaceBackground; sidebar?: HomeWorkspaceBackground }) => {
       const db = dbManager.getDatabase();
+      const workspaceKey = await getActiveHomeWorkspaceKey();
 
       // 先读取现有值再合并，避免只更新其中一方时另一方丢失
-      const existing = await db.getHomeWorkspaceBackground(WORKSPACE_KEY);
+      const existing = await db.getHomeWorkspaceBackground(workspaceKey);
       let currentHeader: HomeWorkspaceBackground = {};
       let currentSidebar: HomeWorkspaceBackground = {};
 
@@ -67,7 +68,7 @@ export function registerHomeWorkspaceIpcHandlers() {
       const nextSidebar = payload.sidebar !== undefined ? payload.sidebar : currentSidebar;
 
       await db.updateHomeWorkspaceBackground(
-        WORKSPACE_KEY,
+        workspaceKey,
         serializeBackground(nextHeader),
         serializeBackground(nextSidebar),
       );

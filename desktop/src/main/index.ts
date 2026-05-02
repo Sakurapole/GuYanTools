@@ -7,6 +7,7 @@ import { dbManager } from "../core/database";
 import { registerAppConfigIpcHandlers } from "./app-config/ipc";
 import { appConfigManager } from "./app-config/manager";
 import { registerHomeLayoutIpcHandlers } from "./home-layout/ipc";
+import { registerHomeProfileIpcHandlers } from "./home-profile/ipc";
 import { registerHomeWorkspaceIpcHandlers } from "./home-workspace/ipc";
 import { registerMediaIpcHandlers } from "./media/ipc";
 import { registerNotificationIpcHandlers } from "./notification/ipc";
@@ -68,6 +69,7 @@ class App {
     this.mainWindowCreator = main_window();
     this.splashWindowCreator = splash_window();
     registerAppConfigIpcHandlers();
+    registerHomeProfileIpcHandlers();
     registerHomeLayoutIpcHandlers();
     registerHomeWorkspaceIpcHandlers();
     registerMediaIpcHandlers();

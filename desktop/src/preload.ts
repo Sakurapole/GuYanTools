@@ -12,6 +12,7 @@ import type { AppConfigApi } from '@/contracts/app_config';
 import type { PluginHostApi } from '@/contracts/plugin_host';
 import type { NotificationApi, NotificationPayload } from '@/contracts/notification';
 import type { SaveFileOptions, SelectFileOptions, ShellApi } from '@/contracts/shell';
+import type { HomeProfileApi } from '@/contracts/home_profile';
 import type { HomeWorkspaceApi } from '@/contracts/home_workspace';
 import type { UpdateApi } from '@/contracts/updater';
 import type {
@@ -85,6 +86,16 @@ contextBridge.exposeInMainWorld('homeLayoutApi', {
   importLegacyLayout: (input: ImportHomeLayoutPayload) =>
     ipcRenderer.invoke('home-layout:import-layout', input),
 });
+
+const homeProfileApi: HomeProfileApi = {
+  listProfiles: () => ipcRenderer.invoke('home-profile:list'),
+  getActiveProfileKey: () => ipcRenderer.invoke('home-profile:get-active'),
+  setActiveProfile: (key: string) => ipcRenderer.invoke('home-profile:set-active', key),
+  createProfile: (input: { name: string }) => ipcRenderer.invoke('home-profile:create', input),
+  renameProfile: (key: string, name: string) => ipcRenderer.invoke('home-profile:rename', key, name),
+  deleteProfile: (key: string) => ipcRenderer.invoke('home-profile:delete', key),
+};
+contextBridge.exposeInMainWorld('homeProfileApi', homeProfileApi);
 
 const pluginHostApi: PluginHostApi = {
   getHostSummary: () => ipcRenderer.invoke('plugin-host:get-summary'),

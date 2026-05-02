@@ -15,6 +15,7 @@ import EditIcon from '../../components/svgs/icons/EditIcon.vue';
 import { useGridPersistence } from '../../composables/useGridPersistence';
 import { useContextMenu, type ContextMenuItem } from '../../composables/useContextMenu';
 import { useGlobalStore } from '../../stores/global_store';
+import { useHomeProfileStore } from '../../stores/home_profile_store';
 import type { CategoryItem, GridConfig, GridItem, BackgroundConfirmPayload } from '../../types/grid';
 import type { CreateHomeWidgetPayload } from '@/contracts/home_layout';
 import type * as THREE from 'three';
@@ -128,6 +129,8 @@ const {
 const showCategoryBgPicker = ref(false);
 const contextMenu = useContextMenu();
 const globalStore = useGlobalStore();
+const homeProfileStore = useHomeProfileStore();
+let profileReloadReady = false;
 
 // ─── 顶栏背景 ───
 const HEADER_BG_STORAGE_KEY = 'home-header-background';
@@ -274,14 +277,30 @@ function handleSidebarBgConfirm(payload: BackgroundConfirmPayload) {
   } catch { /* ignore */ }
 }
 
-function applyCategories(nextCategories: CategoryItem[]) {
+function resetCategorySelection(hasCategories: boolean) {
+  activeCategoryIndex.value = 0;
+  slotAIndex.value = hasCategories ? 0 : -1;
+  slotBIndex.value = -1;
+  activeSlot.value = 'A';
+  isTransitioning.value = false;
+  transitionDirection.value = 'down';
+}
+
+function applyCategories(nextCategories: CategoryItem[], options: { resetActive?: boolean } = {}) {
   const previousActiveCategoryId = categories[activeCategoryIndex.value]?.id;
   categories.splice(0, categories.length, ...nextCategories);
 
   if (categories.length === 0) {
-    activeCategoryIndex.value = 0;
-    slotAIndex.value = -1;
-    slotBIndex.value = -1;
+    resetCategorySelection(false);
+    return;
+  }
+
+  if (options.resetActive) {
+    resetCategorySelection(true);
+    void nextTick(() => {
+      updateCategoryScrollState();
+      updateSliderPosition();
+    });
     return;
   }
 
@@ -302,9 +321,9 @@ function applyCategories(nextCategories: CategoryItem[]) {
   });
 }
 
-async function reloadHomeLayout() {
+async function reloadHomeLayout(options: { resetActive?: boolean } = {}) {
   const nextCategories = await loadHomeLayout();
-  applyCategories(nextCategories);
+  applyCategories(nextCategories, options);
   loadError.value = '';
 }
 
@@ -325,67 +344,82 @@ function enqueueMutation(task: () => Promise<void>) {
   return mutationQueue;
 }
 
-async function initializeHomeLayout() {
+async function loadWorkspaceBackgrounds() {
+  headerBg.color = '';
+  headerBg.image = '';
+  headerBg.video = '';
+  headerBg.style = undefined;
+  sidebarBg.color = '';
+  sidebarBg.image = '';
+  sidebarBg.video = '';
+  sidebarBg.style = undefined;
+
+  if (!window.homeWorkspaceApi) {
+    return;
+  }
+
+  try {
+    const bgState = await window.homeWorkspaceApi.getBackground();
+    const h = bgState.header;
+    const s = bgState.sidebar;
+
+    // 旧版 localStorage 迁移只归入 default 配置，避免新配置被旧数据污染。
+    if (homeProfileStore.activeProfileKey === 'default') {
+      const hasDbHeader = h.color || h.image || h.video;
+      const hasDbSidebar = s.color || s.image || s.video;
+
+      if (!hasDbHeader) {
+        const raw = localStorage.getItem(HEADER_BG_STORAGE_KEY);
+        if (raw) {
+          const saved = JSON.parse(raw);
+          h.color = saved.color || '';
+          h.image = saved.image || '';
+          h.video = saved.video || '';
+          h.style = saved.style;
+          await window.homeWorkspaceApi.updateBackground({ header: h });
+          localStorage.removeItem(HEADER_BG_STORAGE_KEY);
+        }
+      }
+      if (!hasDbSidebar) {
+        const raw = localStorage.getItem(SIDEBAR_BG_STORAGE_KEY);
+        if (raw) {
+          const saved = JSON.parse(raw);
+          s.color = saved.color || '';
+          s.image = saved.image || '';
+          s.video = saved.video || '';
+          s.style = saved.style;
+          await window.homeWorkspaceApi.updateBackground({ sidebar: s });
+          localStorage.removeItem(SIDEBAR_BG_STORAGE_KEY);
+        }
+      }
+    }
+
+    headerBg.color = h.color || '';
+    headerBg.image = h.image || '';
+    headerBg.video = h.video || '';
+    headerBg.style = h.style as import('../../types/grid').BackgroundStyleConfig | undefined;
+
+    sidebarBg.color = s.color || '';
+    sidebarBg.image = s.image || '';
+    sidebarBg.video = s.video || '';
+    sidebarBg.style = s.style as import('../../types/grid').BackgroundStyleConfig | undefined;
+  } catch (e) {
+    console.warn('[Home] 加载工作区背景失败，使用空背景:', e);
+  }
+}
+
+async function initializeHomeLayout(options: { resetActive?: boolean } = {}) {
   isLoading.value = true;
   loadError.value = '';
 
   try {
-    // 加载 SQLite 中的背景配置（兼容旧版 localStorage 的一次性迁移）
-    if (window.homeWorkspaceApi) {
-      try {
-        const bgState = await window.homeWorkspaceApi.getBackground();
-        const h = bgState.header;
-        const s = bgState.sidebar;
-
-        // 若 SQLite 为空，尝试从 localStorage 迁移
-        const hasDbHeader = h.color || h.image || h.video;
-        const hasDbSidebar = s.color || s.image || s.video;
-
-        if (!hasDbHeader) {
-          const raw = localStorage.getItem(HEADER_BG_STORAGE_KEY);
-          if (raw) {
-            const saved = JSON.parse(raw);
-            h.color = saved.color || '';
-            h.image = saved.image || '';
-            h.video = saved.video || '';
-            h.style = saved.style;
-            // 迁移进 SQLite
-            await window.homeWorkspaceApi.updateBackground({ header: h });
-            localStorage.removeItem(HEADER_BG_STORAGE_KEY);
-          }
-        }
-        if (!hasDbSidebar) {
-          const raw = localStorage.getItem(SIDEBAR_BG_STORAGE_KEY);
-          if (raw) {
-            const saved = JSON.parse(raw);
-            s.color = saved.color || '';
-            s.image = saved.image || '';
-            s.video = saved.video || '';
-            s.style = saved.style;
-            // 迁移进 SQLite
-            await window.homeWorkspaceApi.updateBackground({ sidebar: s });
-            localStorage.removeItem(SIDEBAR_BG_STORAGE_KEY);
-          }
-        }
-
-        headerBg.color = h.color || '';
-        headerBg.image = h.image || '';
-        headerBg.video = h.video || '';
-        headerBg.style = h.style as import('../../types/grid').BackgroundStyleConfig | undefined;
-
-        sidebarBg.color = s.color || '';
-        sidebarBg.image = s.image || '';
-        sidebarBg.video = s.video || '';
-        sidebarBg.style = s.style as import('../../types/grid').BackgroundStyleConfig | undefined;
-      } catch (e) {
-        console.warn('[Home] 加载工作区背景失败，使用 localStorage 降级:', e);
-      }
-    }
-
-    await reloadHomeLayout();
-    const migrated = await migrateLegacyLayoutIfNeeded();
+    await loadWorkspaceBackgrounds();
+    await reloadHomeLayout({ resetActive: options.resetActive });
+    const migrated = homeProfileStore.activeProfileKey === 'default'
+      ? await migrateLegacyLayoutIfNeeded()
+      : false;
     if (migrated) {
-      await reloadHomeLayout();
+      await reloadHomeLayout({ resetActive: options.resetActive });
     }
   } catch (error) {
     console.error('Failed to initialize home layout:', error);
@@ -629,7 +663,15 @@ function handleWheel(event: WheelEvent) {
 
 // ─── 首次挂载：仅初始化数据 ───
 onMounted(() => {
-  void initializeHomeLayout();
+  void (async () => {
+    try {
+      await homeProfileStore.loadProfiles();
+    } catch (error) {
+      console.warn('[Home] 首页配置文件初始化失败，继续尝试加载默认布局:', error);
+    }
+    await initializeHomeLayout();
+    profileReloadReady = true;
+  })();
 });
 
 // ─── 辅助函数：绑定/解绑事件监听 ───
@@ -727,6 +769,14 @@ watch(activeCategoryIndex, async () => {
 // ─── 监听活跃分类背景色变化，同步到顶栏沉浸色 ───
 watch(() => activeCategory.value?.backgroundColor, (bgColor) => {
   globalStore.setTopbarColor(bgColor || '');
+});
+
+watch(() => homeProfileStore.activeProfileKey, (key, previousKey) => {
+  if (!profileReloadReady || key === previousKey) {
+    return;
+  }
+
+  void initializeHomeLayout({ resetActive: true });
 });
 </script>
 

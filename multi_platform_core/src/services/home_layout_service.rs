@@ -1,13 +1,90 @@
 use crate::db::{Database, DbError, DbResult};
 use crate::models::{
     CreateHomeCategoryInput, CreateHomeWidgetInput, HomeCategory, HomeLayout, HomeLayoutCategory,
-    HomeWidget, ImportHomeLayoutInput, UpdateHomeCategoryInput, UpdateHomeWidgetInput,
+    HomeWidget, HomeWorkspace, ImportHomeLayoutInput, UpdateHomeCategoryInput, UpdateHomeWidgetInput,
 };
 use rusqlite::{params, Connection, OptionalExtension};
+use uuid::Uuid;
 
 pub struct HomeLayoutService;
 
 impl HomeLayoutService {
+    const DEFAULT_WORKSPACE_KEY: &'static str = "default";
+    const ACTIVE_WORKSPACE_SETTING_KEY: &'static str = "home.activeWorkspaceKey";
+
+    pub fn list_workspaces(db: &Database) -> DbResult<Vec<HomeWorkspace>> {
+        db.with_connection(|conn| Self::list_workspaces_with_conn(conn))
+    }
+
+    pub fn create_workspace(db: &Database, name: String) -> DbResult<HomeWorkspace> {
+        db.transaction(|conn| {
+            let name = Self::normalize_required_name(name)?;
+            let key = format!("home-{}", Uuid::new_v4().simple());
+
+            conn.execute(
+                "INSERT INTO home_workspaces (key, name, is_default) VALUES (?1, ?2, 0)",
+                params![key, name],
+            )?;
+
+            Self::get_workspace_by_key(conn, &key)
+        })
+    }
+
+    pub fn rename_workspace(db: &Database, key: &str, name: String) -> DbResult<HomeWorkspace> {
+        db.transaction(|conn| {
+            let name = Self::normalize_required_name(name)?;
+            let affected = conn.execute(
+                "UPDATE home_workspaces SET name = ?1, updated_at = datetime('now') WHERE key = ?2",
+                params![name, key],
+            )?;
+
+            if affected == 0 {
+                return Err(DbError::NotFound(format!("首页配置文件 {} 不存在", key)));
+            }
+
+            Self::get_workspace_by_key(conn, key)
+        })
+    }
+
+    pub fn delete_workspace(db: &Database, key: &str) -> DbResult<String> {
+        db.transaction(|conn| {
+            let count: i64 = conn.query_row("SELECT COUNT(*) FROM home_workspaces", [], |row| {
+                row.get(0)
+            })?;
+            if count <= 1 {
+                return Err(DbError::InvalidParameter(
+                    "至少需要保留一个首页配置文件".to_string(),
+                ));
+            }
+
+            Self::get_workspace_by_key(conn, key)?;
+            let active_key = Self::get_active_workspace_key_with_conn(conn)?;
+
+            conn.execute("DELETE FROM home_workspaces WHERE key = ?1", params![key])?;
+
+            let next_active_key = if active_key == key {
+                Self::fallback_workspace_key(conn)?
+            } else {
+                active_key
+            };
+            Self::set_active_workspace_key_with_conn(conn, &next_active_key)?;
+
+            Ok(next_active_key)
+        })
+    }
+
+    pub fn get_active_workspace_key(db: &Database) -> DbResult<String> {
+        db.with_connection(|conn| Self::get_active_workspace_key_with_conn(conn))
+    }
+
+    pub fn set_active_workspace_key(db: &Database, key: &str) -> DbResult<HomeWorkspace> {
+        db.transaction(|conn| {
+            let workspace = Self::get_workspace_by_key(conn, key)?;
+            Self::set_active_workspace_key_with_conn(conn, key)?;
+            Ok(workspace)
+        })
+    }
+
     pub fn get_layout_by_workspace_key(db: &Database, workspace_key: &str) -> DbResult<HomeLayout> {
         db.with_connection(|conn| {
             let workspace_id = Self::get_workspace_id(conn, workspace_key)?;
@@ -354,6 +431,102 @@ impl HomeLayoutService {
         .map_err(DbError::from)
     }
 
+    fn list_workspaces_with_conn(conn: &Connection) -> DbResult<Vec<HomeWorkspace>> {
+        let mut stmt = conn.prepare(
+            "SELECT id, key, name, is_default, created_at, updated_at
+             FROM home_workspaces
+             ORDER BY is_default DESC, created_at ASC, id ASC",
+        )?;
+
+        let workspaces = stmt
+            .query_map([], Self::map_workspace)?
+            .collect::<Result<Vec<_>, _>>()?;
+
+        Ok(workspaces)
+    }
+
+    fn get_workspace_by_key(conn: &Connection, key: &str) -> DbResult<HomeWorkspace> {
+        conn.query_row(
+            "SELECT id, key, name, is_default, created_at, updated_at
+             FROM home_workspaces WHERE key = ?1",
+            params![key],
+            Self::map_workspace,
+        )
+        .map_err(DbError::from)
+    }
+
+    fn workspace_exists(conn: &Connection, key: &str) -> DbResult<bool> {
+        let exists: Option<i64> = conn
+            .query_row(
+                "SELECT id FROM home_workspaces WHERE key = ?1",
+                params![key],
+                |row| row.get(0),
+            )
+            .optional()?;
+
+        Ok(exists.is_some())
+    }
+
+    fn fallback_workspace_key(conn: &Connection) -> DbResult<String> {
+        if Self::workspace_exists(conn, Self::DEFAULT_WORKSPACE_KEY)? {
+            return Ok(Self::DEFAULT_WORKSPACE_KEY.to_string());
+        }
+
+        conn.query_row(
+            "SELECT key FROM home_workspaces ORDER BY is_default DESC, created_at ASC, id ASC LIMIT 1",
+            [],
+            |row| row.get(0),
+        )
+        .map_err(DbError::from)
+    }
+
+    fn get_active_workspace_key_with_conn(conn: &Connection) -> DbResult<String> {
+        let stored_key: Option<String> = conn
+            .query_row(
+                "SELECT value FROM settings WHERE key = ?1",
+                params![Self::ACTIVE_WORKSPACE_SETTING_KEY],
+                |row| row.get(0),
+            )
+            .optional()?;
+
+        if let Some(key) = stored_key {
+            if Self::workspace_exists(conn, &key)? {
+                return Ok(key);
+            }
+        }
+
+        let fallback_key = Self::fallback_workspace_key(conn)?;
+        Self::set_active_workspace_key_with_conn(conn, &fallback_key)?;
+        Ok(fallback_key)
+    }
+
+    fn set_active_workspace_key_with_conn(conn: &Connection, key: &str) -> DbResult<()> {
+        conn.execute(
+            "INSERT INTO settings (key, value, description) VALUES (?1, ?2, ?3)
+             ON CONFLICT(key) DO UPDATE SET
+                value = excluded.value,
+                description = excluded.description,
+                updated_at = datetime('now')",
+            params![
+                Self::ACTIVE_WORKSPACE_SETTING_KEY,
+                key,
+                "当前首页配置文件"
+            ],
+        )?;
+        Ok(())
+    }
+
+    fn map_workspace(row: &rusqlite::Row<'_>) -> rusqlite::Result<HomeWorkspace> {
+        Ok(HomeWorkspace {
+            id: row.get(0)?,
+            key: row.get(1)?,
+            name: row.get(2)?,
+            is_default: row.get::<_, i64>(3)? != 0,
+            created_at: row.get(4)?,
+            updated_at: row.get(5)?,
+        })
+    }
+
     fn ensure_category_in_workspace(
         conn: &Connection,
         category_id: &str,
@@ -516,6 +689,15 @@ impl HomeLayoutService {
             }
         })
     }
+
+    fn normalize_required_name(value: String) -> DbResult<String> {
+        let name = value.trim().to_string();
+        if name.is_empty() {
+            Err(DbError::InvalidParameter("首页配置文件名称不能为空".to_string()))
+        } else {
+            Ok(name)
+        }
+    }
 }
 
 #[cfg(test)]
@@ -537,6 +719,47 @@ mod tests {
         assert_eq!(layout.categories[1].widgets.len(), 2);
         assert_eq!(layout.categories[2].widgets.len(), 2);
         assert_eq!(layout.categories[3].widgets.len(), 1);
+    }
+
+    #[test]
+    fn test_home_workspace_profile_lifecycle() {
+        let db = Database::new_in_memory().unwrap();
+
+        assert_eq!(
+            HomeLayoutService::get_active_workspace_key(&db).unwrap(),
+            "default"
+        );
+
+        let created =
+            HomeLayoutService::create_workspace(&db, "  个人工作台  ".to_string()).unwrap();
+        assert_eq!(created.name, "个人工作台");
+        assert!(!created.is_default);
+
+        let blank_layout =
+            HomeLayoutService::get_layout_by_workspace_key(&db, &created.key).unwrap();
+        assert!(blank_layout.categories.is_empty());
+
+        let active = HomeLayoutService::set_active_workspace_key(&db, &created.key).unwrap();
+        assert_eq!(active.key, created.key);
+        assert_eq!(
+            HomeLayoutService::get_active_workspace_key(&db).unwrap(),
+            created.key
+        );
+
+        let renamed =
+            HomeLayoutService::rename_workspace(&db, &created.key, "项目配置".to_string())
+                .unwrap();
+        assert_eq!(renamed.name, "项目配置");
+
+        let fallback_key = HomeLayoutService::delete_workspace(&db, &created.key).unwrap();
+        assert_eq!(fallback_key, "default");
+        assert_eq!(
+            HomeLayoutService::get_active_workspace_key(&db).unwrap(),
+            "default"
+        );
+
+        let delete_last = HomeLayoutService::delete_workspace(&db, "default");
+        assert!(delete_last.is_err());
     }
 
     #[test]

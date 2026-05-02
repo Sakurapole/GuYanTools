@@ -1,5 +1,6 @@
 import type { HomeLayoutApi } from '@/contracts/home_layout';
 import type { AppConfigApi } from '@/contracts/app_config';
+import type { HomeProfileApi } from '@/contracts/home_profile';
 import type { HomeWorkspaceApi } from '@/contracts/home_workspace';
 import type { PluginHostApi, PluginRuntimeApi, PluginRuntimeContext } from '@/contracts/plugin_host';
 import type { NotificationApi } from '@/contracts/notification';
@@ -40,6 +41,7 @@ declare global {
     ipcRenderer?: IpcRenderer;
     pluginAPI?: PluginAPI;
     homeLayoutApi?: HomeLayoutApi;
+    homeProfileApi?: HomeProfileApi;
     pluginHostApi?: PluginHostApi;
     appConfigApi?: AppConfigApi;
     notificationApi?: NotificationApi;

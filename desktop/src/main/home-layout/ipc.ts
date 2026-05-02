@@ -7,8 +7,7 @@ import type {
   UpdateHomeCategoryPayload,
   UpdateHomeWidgetPayload,
 } from '@/contracts/home_layout';
-
-const DEFAULT_WORKSPACE_KEY = 'default';
+import { getActiveHomeWorkspaceKey } from '../home-profile/ipc';
 
 let registered = false;
 
@@ -53,14 +52,16 @@ export function registerHomeLayoutIpcHandlers() {
   }
 
   ipcMain.handle('home-layout:get', async () => {
-    const layout = await dbManager.getDatabase().getHomeLayout(DEFAULT_WORKSPACE_KEY);
+    const workspaceKey = await getActiveHomeWorkspaceKey();
+    const layout = await dbManager.getDatabase().getHomeLayout(workspaceKey);
     return deserializeLayout(layout);
   });
 
   ipcMain.handle('home-layout:create-category', async (_event, input: CreateHomeCategoryPayload) => {
+    const workspaceKey = await getActiveHomeWorkspaceKey();
     return dbManager.getDatabase().createHomeCategory({
       id: input.id,
-      workspaceKey: DEFAULT_WORKSPACE_KEY,
+      workspaceKey,
       label: input.label,
       icon: input.icon,
       sortOrder: input.sortOrder,
@@ -91,9 +92,10 @@ export function registerHomeLayoutIpcHandlers() {
   });
 
   ipcMain.handle('home-layout:create-widget', async (_event, input: CreateHomeWidgetPayload) => {
+    const workspaceKey = await getActiveHomeWorkspaceKey();
     return dbManager.getDatabase().createHomeWidget({
       id: input.id,
-      workspaceKey: DEFAULT_WORKSPACE_KEY,
+      workspaceKey,
       categoryId: input.categoryId,
       label: input.label,
       icon: input.icon,
@@ -150,7 +152,8 @@ export function registerHomeLayoutIpcHandlers() {
   });
 
   ipcMain.handle('home-layout:import-layout', async (_event, input: ImportHomeLayoutPayload) => {
-    const result = dbManager.getDatabase().importHomeLayout(DEFAULT_WORKSPACE_KEY, {
+    const workspaceKey = await getActiveHomeWorkspaceKey();
+    const result = dbManager.getDatabase().importHomeLayout(workspaceKey, {
       categories: input.categories.map(category => ({
         id: category.id,
         label: category.label,

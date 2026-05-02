@@ -402,6 +402,60 @@ impl JsDatabase {
 
     // ==================== 首页布局相关方法 ====================
 
+    #[napi(js_name = "listHomeWorkspaces")]
+    pub async fn list_home_workspaces(&self) -> Result<Vec<HomeWorkspace>> {
+        let db = self.inner.clone();
+        tokio::task::spawn_blocking(move || HomeLayoutService::list_workspaces(&db))
+            .await
+            .map_err(|e| Error::from_reason(format!("任务执行失败: {}", e)))?
+            .map_err(|e| Error::from_reason(format!("列出首页配置文件失败: {}", e)))
+    }
+
+    #[napi(js_name = "createHomeWorkspace")]
+    pub async fn create_home_workspace(&self, name: String) -> Result<HomeWorkspace> {
+        let db = self.inner.clone();
+        tokio::task::spawn_blocking(move || HomeLayoutService::create_workspace(&db, name))
+            .await
+            .map_err(|e| Error::from_reason(format!("任务执行失败: {}", e)))?
+            .map_err(|e| Error::from_reason(format!("创建首页配置文件失败: {}", e)))
+    }
+
+    #[napi(js_name = "renameHomeWorkspace")]
+    pub async fn rename_home_workspace(&self, key: String, name: String) -> Result<HomeWorkspace> {
+        let db = self.inner.clone();
+        tokio::task::spawn_blocking(move || HomeLayoutService::rename_workspace(&db, &key, name))
+            .await
+            .map_err(|e| Error::from_reason(format!("任务执行失败: {}", e)))?
+            .map_err(|e| Error::from_reason(format!("重命名首页配置文件失败: {}", e)))
+    }
+
+    #[napi(js_name = "deleteHomeWorkspace")]
+    pub async fn delete_home_workspace(&self, key: String) -> Result<String> {
+        let db = self.inner.clone();
+        tokio::task::spawn_blocking(move || HomeLayoutService::delete_workspace(&db, &key))
+            .await
+            .map_err(|e| Error::from_reason(format!("任务执行失败: {}", e)))?
+            .map_err(|e| Error::from_reason(format!("删除首页配置文件失败: {}", e)))
+    }
+
+    #[napi(js_name = "getActiveHomeWorkspaceKey")]
+    pub async fn get_active_home_workspace_key(&self) -> Result<String> {
+        let db = self.inner.clone();
+        tokio::task::spawn_blocking(move || HomeLayoutService::get_active_workspace_key(&db))
+            .await
+            .map_err(|e| Error::from_reason(format!("任务执行失败: {}", e)))?
+            .map_err(|e| Error::from_reason(format!("获取当前首页配置文件失败: {}", e)))
+    }
+
+    #[napi(js_name = "setActiveHomeWorkspaceKey")]
+    pub async fn set_active_home_workspace_key(&self, key: String) -> Result<HomeWorkspace> {
+        let db = self.inner.clone();
+        tokio::task::spawn_blocking(move || HomeLayoutService::set_active_workspace_key(&db, &key))
+            .await
+            .map_err(|e| Error::from_reason(format!("任务执行失败: {}", e)))?
+            .map_err(|e| Error::from_reason(format!("切换首页配置文件失败: {}", e)))
+    }
+
     #[napi(js_name = "getHomeLayout")]
     pub async fn get_home_layout(&self, workspace_key: String) -> Result<HomeLayout> {
         let db = self.inner.clone();
