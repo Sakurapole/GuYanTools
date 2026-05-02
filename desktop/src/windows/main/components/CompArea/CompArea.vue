@@ -38,8 +38,22 @@ const shouldEmitLayoutChangeAfterReflow = ref(false);
 const layoutReady = ref(false);
 const gridItems = computed(() => props.category.gridItems);
 const visibleGridItems = computed(() => gridItems.value.filter(item => !item.hidden));
+const isAreaPanning = ref(false);
 
 type ItemStyle = Record<string, string | number>;
+
+type AreaPanState = {
+  pointerId: number;
+  startClientX: number;
+  startClientY: number;
+  startScrollLeft: number;
+  startScrollTop: number;
+  moved: boolean;
+};
+
+const AREA_PAN_THRESHOLD = 4;
+let areaPanState: AreaPanState | null = null;
+let suppressNextAreaContextMenu = false;
 
 // 布局记忆
 const { saveSnapshot, restoreSnapshot, clearCategory: clearLayoutMemory } = useGridLayoutMemory();
@@ -206,6 +220,107 @@ function handleResize() {
   compAreaScrollbar.value?.refresh();
 }
 
+function isBlankCompAreaTarget(target: EventTarget | null) {
+  return target instanceof HTMLElement && !target.closest('.grid-item');
+}
+
+function stopAreaPan() {
+  areaPanState = null;
+  isAreaPanning.value = false;
+  window.removeEventListener('pointermove', handleAreaPanPointerMove);
+  window.removeEventListener('pointerup', handleAreaPanPointerEnd);
+  window.removeEventListener('pointercancel', handleAreaPanPointerEnd);
+}
+
+function handleAreaPointerDown(event: PointerEvent) {
+  if (event.button !== 2 || !isBlankCompAreaTarget(event.target)) {
+    return;
+  }
+
+  const viewport = compAreaScrollbar.value?.viewportRef;
+  if (!viewport) {
+    return;
+  }
+
+  const canPanX = viewport.scrollWidth - viewport.clientWidth > 1;
+  const canPanY = viewport.scrollHeight - viewport.clientHeight > 1;
+  if (!canPanX && !canPanY) {
+    return;
+  }
+
+  areaPanState = {
+    pointerId: event.pointerId,
+    startClientX: event.clientX,
+    startClientY: event.clientY,
+    startScrollLeft: viewport.scrollLeft,
+    startScrollTop: viewport.scrollTop,
+    moved: false,
+  };
+
+  window.addEventListener('pointermove', handleAreaPanPointerMove);
+  window.addEventListener('pointerup', handleAreaPanPointerEnd);
+  window.addEventListener('pointercancel', handleAreaPanPointerEnd);
+}
+
+function handleAreaPanPointerMove(event: PointerEvent) {
+  if (!areaPanState || event.pointerId !== areaPanState.pointerId) {
+    return;
+  }
+
+  const viewport = compAreaScrollbar.value?.viewportRef;
+  if (!viewport) {
+    stopAreaPan();
+    return;
+  }
+
+  const deltaX = event.clientX - areaPanState.startClientX;
+  const deltaY = event.clientY - areaPanState.startClientY;
+  if (!areaPanState.moved && Math.max(Math.abs(deltaX), Math.abs(deltaY)) < AREA_PAN_THRESHOLD) {
+    return;
+  }
+
+  areaPanState.moved = true;
+  isAreaPanning.value = true;
+  suppressNextAreaContextMenu = true;
+  viewport.scrollTo({
+    left: areaPanState.startScrollLeft - deltaX,
+    top: areaPanState.startScrollTop - deltaY,
+    behavior: 'auto',
+  });
+  compAreaScrollbar.value?.refresh();
+  event.preventDefault();
+}
+
+function handleAreaPanPointerEnd(event: PointerEvent) {
+  if (!areaPanState || event.pointerId !== areaPanState.pointerId) {
+    return;
+  }
+
+  if (areaPanState.moved) {
+    suppressNextAreaContextMenu = true;
+    window.setTimeout(() => {
+      suppressNextAreaContextMenu = false;
+    }, 300);
+  }
+
+  stopAreaPan();
+}
+
+function handleAreaPanContextMenu(event: MouseEvent) {
+  if (!suppressNextAreaContextMenu) {
+    return;
+  }
+
+  const viewport = compAreaScrollbar.value?.viewportRef;
+  if (!viewport || !(event.target instanceof Node) || !viewport.contains(event.target)) {
+    return;
+  }
+
+  event.preventDefault();
+  event.stopImmediatePropagation();
+  suppressNextAreaContextMenu = false;
+}
+
 // 打开小组件
 const barStore = useBarStore();
 
@@ -304,6 +419,11 @@ function handleAreaContextMenu(event: MouseEvent) {
 
   event.preventDefault();
   event.stopPropagation();
+
+  if (suppressNextAreaContextMenu) {
+    suppressNextAreaContextMenu = false;
+    return;
+  }
 
   const menuItems: ContextMenuItem[] = [
     {
@@ -404,6 +524,7 @@ onMounted(() => {
     void nextTick(() => { layoutReady.value = true; });
   });
   window.addEventListener('resize', handleResize);
+  window.addEventListener('contextmenu', handleAreaPanContextMenu, true);
   void nextTick(() => {
     compAreaViewport.value = compAreaScrollbar.value?.viewportRef ?? null;
     compAreaScrollbar.value?.refresh();
@@ -413,8 +534,10 @@ onMounted(() => {
 onBeforeUnmount(() => {
   disableCategoryVideoAutoplay();
   window.removeEventListener('resize', handleResize);
+  window.removeEventListener('contextmenu', handleAreaPanContextMenu, true);
   cancelReflow();
   cleanupDrag();
+  stopAreaPan();
 });
 // 类别背景 —— 独立追踪，避免拖拽时 gridItems 变化导致重新 diff 巨大 base64
 const catBgColor = shallowRef('');
@@ -585,7 +708,8 @@ onDeactivated(disableCategoryVideoAutoplay);
       />
     </div>
 
-    <div class="comp-area" ref="compArea" :style="compAreaStyle" @contextmenu="handleAreaContextMenu">
+    <div class="comp-area" :class="{ 'comp-area--panning': isAreaPanning }" ref="compArea" :style="compAreaStyle"
+      @pointerdown="handleAreaPointerDown" @contextmenu="handleAreaContextMenu">
       <template v-if="layoutReady">
         <GridItemComponent v-for="item in visibleGridItems" :key="item.id" :item="item"
           :isDragging="draggingItem?.id === item.id" :style="getItemStyle(item)"
@@ -613,6 +737,11 @@ onDeactivated(disableCategoryVideoAutoplay);
   min-width: 100%;
   min-height: 100%;
   z-index: 1;
+}
+
+.comp-area--panning {
+  cursor: grabbing;
+  user-select: none;
 }
 
 .comp-area-bg {

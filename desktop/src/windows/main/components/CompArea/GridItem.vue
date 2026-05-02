@@ -8,6 +8,7 @@ import UiScrollbar from '../ui/UiScrollbar.vue';
 import OpenIcon from '../svgs/icons/OpenIcon.vue';
 import EditIcon from '../svgs/icons/EditIcon.vue';
 import DeleteIcon from '../svgs/icons/DeleteIcon.vue';
+import { getHomeWidgetDefinition } from '../../widgets/home/registry';
 
 const props = defineProps<{
   item: GridItem;
@@ -56,6 +57,32 @@ const itemClass = computed(() => ({
 
 const itemWidth = computed(() => parseStyleSize(props.style.width, 72));
 const itemHeight = computed(() => parseStyleSize(props.style.height, 72));
+const hasOpenAction = computed(() => {
+  const definition = getHomeWidgetDefinition(props.item.widgetType);
+  const action = props.item.action;
+
+  if (!definition.allowAction || !action || action.type === 'none') {
+    return false;
+  }
+
+  if (action.type === 'external_app' || action.type === 'internal_route') {
+    return Boolean(action.target);
+  }
+
+  if (action.type === 'open_webpage') {
+    return Boolean(action.url);
+  }
+
+  if (action.type === 'plugin_page') {
+    return Boolean(action.pluginId && action.pageId);
+  }
+
+  if (action.type === 'plugin_command') {
+    return Boolean(action.pluginId && action.commandId);
+  }
+
+  return false;
+});
 
 const backgroundSize = computed(() => props.item.backgroundStyle?.backgroundSize || 'cover');
 const backgroundPosition = computed(() => props.item.backgroundStyle?.backgroundPosition || 'center');
@@ -122,18 +149,23 @@ function handleContextMenu(event: MouseEvent) {
   event.preventDefault();
   event.stopPropagation();
 
-  const menuItems: ContextMenuItem[] = [
-    {
+  const menuItems: ContextMenuItem[] = [];
+
+  if (hasOpenAction.value) {
+    menuItems.push({
       id: `open-${props.item.id}`,
       label: '打开',
       icon: OpenIcon,
       action: () => { emit('open', props.item); },
-    },
+    });
+  }
+
+  menuItems.push(
     {
       id: `edit-${props.item.id}`,
       label: '编辑组件',
       icon: EditIcon,
-      divided: true,
+      divided: hasOpenAction.value,
       action: () => { showWidgetEditor.value = true; },
     },
     {
@@ -144,7 +176,7 @@ function handleContextMenu(event: MouseEvent) {
       divided: true,
       action: () => { emit('delete', props.item); },
     },
-  ];
+  );
 
   contextMenu.open(event.clientX, event.clientY, menuItems);
 }
