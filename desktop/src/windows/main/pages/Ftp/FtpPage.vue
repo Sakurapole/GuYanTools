@@ -78,7 +78,7 @@ import {
   syncStatusLabel,
   verifySyncComparisonContent,
 } from '@/windows/main/pages/Ftp/utils/ftpSync';
-import { useFtpStore } from '@/windows/main/stores/ftp_store';
+import { useFtpStore, type PendingFtpOpenRequest } from '@/windows/main/stores/ftp_store';
 import { useGlobalStore } from '@/windows/main/stores/global_store';
 import { useSettingStore } from '@/windows/main/stores/settings_store';
 import { useSshStore } from '@/windows/main/stores/ssh_store';
@@ -116,6 +116,8 @@ type ClosedSessionSnapshot = {
   localPath: string;
   remotePath: string;
 };
+type PendingSshOpenRequest = Extract<PendingFtpOpenRequest, { source: 'ssh' }>;
+type PendingProfileOpenRequest = Extract<PendingFtpOpenRequest, { source: 'profile' }>;
 
 const FTP_LAYOUT_STORAGE_KEY = 'guyantools.ftp.layout';
 const FTP_PREFERENCES_STORAGE_KEY = 'guyantools.ftp.preferences';
@@ -378,7 +380,7 @@ const {
 });
 const processingPendingOpenRequest = ref(false);
 
-function findSftpProfileForPendingOpenRequest(request: NonNullable<typeof ftpStore.pendingOpenRequest>) {
+function findSftpProfileForPendingOpenRequest(request: PendingSshOpenRequest) {
   const requestHost = request.host.toLowerCase();
   const requestUser = request.username.toLowerCase();
   return ftpStore.profiles.find((profile) => (
@@ -393,7 +395,7 @@ function findSftpProfileForPendingOpenRequest(request: NonNullable<typeof ftpSto
   )) ?? null;
 }
 
-async function ensureSftpProfileForPendingOpenRequest(request: NonNullable<typeof ftpStore.pendingOpenRequest>) {
+async function ensureSftpProfileForPendingOpenRequest(request: PendingSshOpenRequest) {
   const existing = findSftpProfileForPendingOpenRequest(request);
   if (existing) return existing;
 
@@ -420,6 +422,43 @@ async function ensureSftpProfileForPendingOpenRequest(request: NonNullable<typeo
   });
 }
 
+async function processPendingProfileOpenRequest(request: PendingProfileOpenRequest) {
+  let targetProfile = ftpStore.profiles.find((profile) => profile.id === request.profileId) ?? null;
+  if (!targetProfile) {
+    await ftpStore.refreshProfiles();
+    targetProfile = ftpStore.profiles.find((profile) => profile.id === request.profileId) ?? null;
+  }
+  if (!targetProfile) {
+    throw new Error(`未找到传输配置：${request.label || request.profileId}`);
+  }
+
+  const targetPath = request.remotePath || targetProfile.defaultRemotePath || '/';
+  const existingSession = ftpStore.sessions.find((session) => session.profileId === targetProfile.id) ?? null;
+  if (existingSession) {
+    ftpStore.focusSession(existingSession.sessionId, targetPath || existingSession.remoteRoot);
+    if (targetPath && targetPath !== (ftpStore.remotePath || existingSession.remoteRoot)) {
+      busyMessage.value = `正在打开 ${targetPath}...`;
+      await refreshPrimaryRemoteDirectory(targetPath);
+    }
+    ftpStore.clearPendingOpenRequest(request.requestId);
+    return;
+  }
+
+  await connectProfile(targetProfile);
+
+  const connectedSession = ftpStore.sessions.find((session) => session.profileId === targetProfile.id) ?? null;
+  if (!connectedSession) {
+    return;
+  }
+
+  ftpStore.focusSession(connectedSession.sessionId, targetPath || connectedSession.remoteRoot);
+  if (targetPath && targetPath !== connectedSession.remoteRoot) {
+    busyMessage.value = `正在打开 ${targetPath}...`;
+    await refreshPrimaryRemoteDirectory(targetPath);
+  }
+  ftpStore.clearPendingOpenRequest(request.requestId);
+}
+
 async function processPendingOpenRequest() {
   const request = ftpStore.pendingOpenRequest;
   if (!request || route.name !== 'FileTransfer' || processingPendingOpenRequest.value) return;
@@ -429,6 +468,11 @@ async function processPendingOpenRequest() {
 
   try {
     busyMessage.value = `正在打开 ${request.label}...`;
+    if (request.source === 'profile') {
+      await processPendingProfileOpenRequest(request);
+      return;
+    }
+
     const targetProfile = await ensureSftpProfileForPendingOpenRequest(request);
     const existingSession = ftpStore.sessions.find((session) => session.profileId === targetProfile.id) ?? null;
 

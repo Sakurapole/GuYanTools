@@ -176,20 +176,6 @@ const compactBreadcrumbs = computed<CompactBreadcrumb[]>(() => {
     ...props.breadcrumbs.slice(-3),
   ];
 });
-const breadcrumbDirectoryOptions = computed(() => [
-  { label: '下级目录', value: '', disabled: true },
-  ...props.entries
-    .filter((entry) => entry.isDir)
-    .slice()
-    .sort((left, right) => left.name.localeCompare(right.name, 'zh-CN', { numeric: true, sensitivity: 'base' }))
-    .map((entry) => ({
-      label: entry.name,
-      value: entry.path,
-    })),
-]);
-const showBreadcrumbDirectorySelect = computed(() =>
-  props.kind === 'remote' && !props.pathInputDisabled && breadcrumbDirectoryOptions.value.length > 1,
-);
 const filterOperatorOptions = [
   { label: '全部条件 (AND)', value: 'and' },
   { label: '任一条件 (OR)', value: 'or' },
@@ -335,12 +321,6 @@ function openParentDirectory(): void {
   emit('go-parent');
 }
 
-function openBreadcrumbDirectory(value: string | number): void {
-  const path = String(value);
-  if (!path) return;
-  emit('open-breadcrumb', path);
-}
-
 function entryIntersectsSelection(entryRect: DOMRect, selectionRect: DOMRect): boolean {
   return entryRect.left < selectionRect.right
     && entryRect.right > selectionRect.left
@@ -480,14 +460,6 @@ onBeforeUnmount(() => {
             <span v-if="index < compactBreadcrumbs.length - 1" class="ftp-panel__breadcrumb-separator">/</span>
           </template>
           <span v-if="!breadcrumbs.length" class="ftp-panel__breadcrumb-empty">未选择路径</span>
-          <UiSelect
-            v-if="showBreadcrumbDirectorySelect"
-            class="ftp-panel__breadcrumb-directory-select"
-            size="sm"
-            :model-value="''"
-            :options="breadcrumbDirectoryOptions"
-            @change="openBreadcrumbDirectory"
-          />
           <UiIconButton
             v-if="showWorkspaceControls"
             class="ftp-panel__breadcrumb-picker"

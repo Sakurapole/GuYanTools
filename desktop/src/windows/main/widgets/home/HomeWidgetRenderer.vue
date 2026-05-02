@@ -5,6 +5,8 @@ import BuiltinDateWidget from './renderers/BuiltinDateWidget.vue';
 import BuiltinPomodoroWidget from './renderers/BuiltinPomodoroWidget.vue';
 import BuiltinTodoWidget from './renderers/BuiltinTodoWidget.vue';
 import BuiltinWeatherWidget from './renderers/BuiltinWeatherWidget.vue';
+import FtpProfileGroupWidget from './renderers/FtpProfileGroupWidget.vue';
+import FtpProfileWidget from './renderers/FtpProfileWidget.vue';
 import ShortcutWidget from './renderers/ShortcutWidget.vue';
 
 const props = withDefaults(defineProps<{
@@ -19,6 +21,8 @@ const rendererComponent = computed(() => {
   if (props.item.widgetType === 'date') return BuiltinDateWidget;
   if (props.item.widgetType === 'weather') return BuiltinWeatherWidget;
   if (props.item.widgetType === 'todo') return BuiltinTodoWidget;
+  if (props.item.widgetType === 'ftp_profile_group') return FtpProfileGroupWidget;
+  if (props.item.widgetType === 'ftp_profile') return FtpProfileWidget;
   return ShortcutWidget;
 });
 </script>

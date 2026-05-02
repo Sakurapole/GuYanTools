@@ -1520,34 +1520,6 @@
   padding-inline: 0;
 }
 
-.ftp-panel__breadcrumb-directory-select.ui-select-wrap {
-  flex: 0 1 132px;
-  width: auto;
-  min-width: 92px;
-  max-width: 150px;
-}
-
-.ftp-panel__breadcrumb-directory-select .ui-select-trigger--sm {
-  min-height: 20px;
-  padding: 0 20px 0 6px;
-  border-color: transparent;
-  background: transparent;
-  color: var(--ui-text-secondary);
-  font-size: 0.62rem;
-}
-
-.ftp-panel__breadcrumb-directory-select .ui-select-trigger--sm:hover,
-.ftp-panel__breadcrumb-directory-select .ui-select-trigger--open {
-  border-color: var(--ui-border-subtle);
-  background: var(--ui-button-ghost-hover-bg);
-}
-
-.ftp-panel__breadcrumb-directory-select .ui-select-trigger__arrow {
-  right: 8px;
-  width: 6px;
-  height: 6px;
-}
-
 .ftp-panel__breadcrumbs > .ui-tooltip-trigger {
   min-width: 0;
   flex: 0 1 auto;

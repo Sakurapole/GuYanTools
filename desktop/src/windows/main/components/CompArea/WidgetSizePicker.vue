@@ -6,6 +6,8 @@ import UiDialog from '../ui/UiDialog.vue';
 import UiField from '../ui/UiField.vue';
 import UiIconButton from '../ui/UiIconButton.vue';
 import UiInput from '../ui/UiInput.vue';
+import UiScrollbar from '../ui/UiScrollbar.vue';
+import UiSelect from '../ui/UiSelect.vue';
 import IconPicker from '../ui/IconPicker.vue';
 import HomeWidgetRenderer from '../../widgets/home/HomeWidgetRenderer.vue';
 import HomeWidgetConfigFields from '../../widgets/home/HomeWidgetConfigFields.vue';
@@ -33,6 +35,12 @@ const showIconPicker = ref(false);
 const selectedDefinition = computed(() => getHomeWidgetDefinition(selectedWidgetType.value));
 const sizeOptions = computed(() => selectedDefinition.value.supportedSizes);
 const isShortcutWidget = computed(() => selectedWidgetType.value === 'shortcut');
+const widgetTypeOptions = computed(() =>
+  HOME_WIDGET_DEFINITIONS.map((definition) => ({
+    label: definition.title,
+    value: definition.widgetType,
+  })),
+);
 
 const PRESET_GRADIENTS = [
   'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
@@ -61,6 +69,10 @@ function applyWidgetDefaults(widgetType: HomeWidgetType) {
   editIcon.value = definition.defaultIcon || '';
   editColor.value = definition.defaultColor;
   widgetConfig.value = normalizeWidgetConfig(widgetType, definition.createDefaultConfig());
+}
+
+function handleWidgetTypeChange(value: string | number) {
+  applyWidgetDefaults(String(value) as HomeWidgetType);
 }
 
 function handleConfirm() {
@@ -151,91 +163,96 @@ watch(() => props.visible, (visible) => {
       </div>
     </template>
 
-    <div class="widget-size-picker__body">
-      <div class="widget-size-picker__column">
-        <div class="widget-size-picker__section-title">组件类型</div>
-        <div class="widget-size-picker__type-grid">
-          <button v-for="definition in HOME_WIDGET_DEFINITIONS" :key="definition.widgetType" type="button"
-            class="widget-size-picker__type-card"
-            :class="{ 'widget-size-picker__type-card--active': selectedWidgetType === definition.widgetType }"
-            @click="applyWidgetDefaults(definition.widgetType)">
-            <strong>{{ definition.title }}</strong>
-            <span>{{ definition.description }}</span>
-          </button>
-        </div>
-
-        <div v-if="!isShortcutWidget" class="widget-size-picker__section-title">尺寸</div>
-        <div v-if="!isShortcutWidget" class="widget-size-picker__size-grid">
-          <button v-for="size in sizeOptions" :key="size.preset" type="button" class="widget-size-picker__size-card"
-            :class="{ 'widget-size-picker__size-card--active': selectedSizePreset === size.preset }"
-            @click="selectedSizePreset = size.preset">
-            <strong>{{ size.label }}</strong>
-            <span>{{ size.description }}</span>
-          </button>
-        </div>
-
-        <div v-else class="widget-size-picker__shortcut-size">
-          <div class="widget-size-picker__section-title">尺寸</div>
-          <div class="widget-size-picker__size-fields">
-            <UiField label="宽度 (列数)">
-              <UiInput :model-value="String(editColSpan)" type="number" :min="1" :max="6" size="md"
-                @update:modelValue="updateShortcutColSpan" />
+    <UiScrollbar class="widget-size-picker__scroll" :x="false" :y="true" :size="6">
+      <div class="widget-size-picker__body">
+        <div class="widget-size-picker__form">
+          <section class="widget-size-picker__panel widget-size-picker__panel--primary">
+            <div class="widget-size-picker__section-title">组件类型</div>
+            <UiField label="类型">
+              <UiSelect :model-value="selectedWidgetType" :options="widgetTypeOptions" size="md"
+                @update:modelValue="handleWidgetTypeChange" />
             </UiField>
-            <UiField label="高度 (行数)">
-              <UiInput :model-value="String(editRowSpan)" type="number" :min="1" :max="6" size="md"
-                @update:modelValue="updateShortcutRowSpan" />
+            <div class="widget-size-picker__type-summary">
+              <strong>{{ selectedDefinition.title }}</strong>
+              <span>{{ selectedDefinition.description }}</span>
+            </div>
+          </section>
+
+          <section class="widget-size-picker__panel">
+            <div v-if="!isShortcutWidget" class="widget-size-picker__section-title">尺寸</div>
+            <div v-if="!isShortcutWidget" class="widget-size-picker__size-grid">
+              <button v-for="size in sizeOptions" :key="size.preset" type="button" class="widget-size-picker__size-card"
+                :class="{ 'widget-size-picker__size-card--active': selectedSizePreset === size.preset }"
+                @click="selectedSizePreset = size.preset">
+                <strong>{{ size.label }}</strong>
+                <span>{{ size.description }}</span>
+              </button>
+            </div>
+
+            <div v-else class="widget-size-picker__shortcut-size">
+              <div class="widget-size-picker__section-title">尺寸</div>
+              <div class="widget-size-picker__size-fields">
+                <UiField label="宽度 (列数)">
+                  <UiInput :model-value="String(editColSpan)" type="number" :min="1" :max="6" size="md"
+                    @update:modelValue="updateShortcutColSpan" />
+                </UiField>
+                <UiField label="高度 (行数)">
+                  <UiInput :model-value="String(editRowSpan)" type="number" :min="1" :max="6" size="md"
+                    @update:modelValue="updateShortcutRowSpan" />
+                </UiField>
+              </div>
+            </div>
+          </section>
+
+          <section class="widget-size-picker__panel">
+            <div class="widget-size-picker__section-title">基础信息</div>
+            <UiField label="名称" required>
+              <UiInput v-model="editLabel" size="md" placeholder="输入组件名称" />
             </UiField>
-          </div>
+
+            <UiField v-if="selectedDefinition.allowCustomIcon" label="图标">
+              <div class="widget-size-picker__icon-trigger" @click="showIconPicker = true">
+                <span>{{ editIcon ? '更换图标' : '点击选择图标' }}</span>
+              </div>
+            </UiField>
+
+            <template v-if="selectedWidgetType === 'shortcut'">
+              <div class="widget-size-picker__section-title">卡片颜色</div>
+              <div class="widget-size-picker__swatch-grid">
+                <button v-for="gradient in PRESET_GRADIENTS" :key="gradient" type="button" class="widget-size-picker__swatch"
+                  :class="{ 'widget-size-picker__swatch--selected': editColor === gradient }"
+                  :style="{ background: gradient }" @click="editColor = gradient" />
+              </div>
+              <div class="widget-size-picker__swatch-grid widget-size-picker__swatch-grid--solid">
+                <button v-for="color in PRESET_COLORS" :key="color" type="button" class="widget-size-picker__swatch"
+                  :class="{ 'widget-size-picker__swatch--selected': editColor === color }"
+                  :style="{ background: color }" @click="editColor = color" />
+              </div>
+            </template>
+
+            <div v-if="selectedWidgetType !== 'shortcut'" class="widget-size-picker__section-title">组件配置</div>
+            <HomeWidgetConfigFields v-if="selectedWidgetType !== 'shortcut'" v-model="widgetConfig"
+              :widget-type="selectedWidgetType" />
+          </section>
         </div>
+
+        <aside class="widget-size-picker__preview-column">
+          <div class="widget-size-picker__section-title">预览</div>
+          <div class="widget-size-picker__preview-shell">
+            <div class="widget-size-picker__preview-box" :class="{
+              'widget-size-picker__preview-box--wide': previewItem.colSpan >= 4 && previewItem.rowSpan === 2,
+              'widget-size-picker__preview-box--large': previewItem.colSpan >= 4 && previewItem.rowSpan >= 3,
+            }">
+              <HomeWidgetRenderer :item="previewItem" :interactive="false" />
+            </div>
+            <div class="widget-size-picker__preview-meta">
+              <strong>{{ selectedDefinition.title }}</strong>
+              <span>{{ previewItem.colSpan }} × {{ previewItem.rowSpan }}</span>
+            </div>
+          </div>
+        </aside>
       </div>
-
-      <div class="widget-size-picker__column">
-        <div class="widget-size-picker__section-title">基础信息</div>
-        <UiField label="名称" required>
-          <UiInput v-model="editLabel" size="md" placeholder="输入组件名称" />
-        </UiField>
-
-        <UiField v-if="selectedDefinition.allowCustomIcon" label="图标">
-          <div class="widget-size-picker__icon-trigger" @click="showIconPicker = true">
-            <span>{{ editIcon ? '更换图标' : '点击选择图标' }}</span>
-          </div>
-        </UiField>
-
-        <template v-if="selectedWidgetType === 'shortcut'">
-          <div class="widget-size-picker__section-title">卡片颜色</div>
-          <div class="widget-size-picker__swatch-grid">
-            <button v-for="gradient in PRESET_GRADIENTS" :key="gradient" type="button" class="widget-size-picker__swatch"
-              :class="{ 'widget-size-picker__swatch--selected': editColor === gradient }"
-              :style="{ background: gradient }" @click="editColor = gradient" />
-          </div>
-          <div class="widget-size-picker__swatch-grid widget-size-picker__swatch-grid--solid">
-            <button v-for="color in PRESET_COLORS" :key="color" type="button" class="widget-size-picker__swatch"
-              :class="{ 'widget-size-picker__swatch--selected': editColor === color }"
-              :style="{ background: color }" @click="editColor = color" />
-          </div>
-        </template>
-
-        <div v-if="selectedWidgetType !== 'shortcut'" class="widget-size-picker__section-title">组件配置</div>
-        <HomeWidgetConfigFields v-if="selectedWidgetType !== 'shortcut'" v-model="widgetConfig"
-          :widget-type="selectedWidgetType" />
-      </div>
-
-      <div class="widget-size-picker__column">
-        <div class="widget-size-picker__section-title">预览</div>
-        <div class="widget-size-picker__preview-shell">
-          <div class="widget-size-picker__preview-box" :class="{
-            'widget-size-picker__preview-box--wide': previewItem.colSpan >= 4 && previewItem.rowSpan === 2,
-            'widget-size-picker__preview-box--large': previewItem.colSpan >= 4 && previewItem.rowSpan >= 3,
-          }">
-            <HomeWidgetRenderer :item="previewItem" :interactive="false" />
-          </div>
-          <div class="widget-size-picker__preview-meta">
-            <strong>{{ selectedDefinition.title }}</strong>
-            <span>{{ previewItem.colSpan }} × {{ previewItem.rowSpan }}</span>
-          </div>
-        </div>
-      </div>
-    </div>
+    </UiScrollbar>
 
     <template #footer>
       <div class="widget-size-picker__footer">
@@ -263,31 +280,78 @@ watch(() => props.visible, (visible) => {
   }
 }
 
-.widget-size-picker__body {
-  display: grid;
-  grid-template-columns: 1.1fr 1fr 0.9fr;
-  gap: 18px;
-  padding: 0 24px 20px;
-  max-height: min(60vh, 680px);
-  overflow-y: auto;
+.widget-size-picker__scroll {
+  height: min(62vh, 680px);
+  min-height: 420px;
 }
 
-.widget-size-picker__column {
+.widget-size-picker__body {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(300px, 360px);
+  gap: 18px;
+  padding: 0 24px 20px;
+}
+
+.widget-size-picker__form,
+.widget-size-picker__preview-column {
   display: flex;
   flex-direction: column;
   gap: 14px;
   min-width: 0;
 }
 
-.widget-size-picker__section-title {
-  color: var(--modal-section-title-color);
-  font-size: 13px;
-  font-weight: 600;
+.widget-size-picker__preview-column {
+  position: sticky;
+  top: 0;
+  align-self: start;
 }
 
-.widget-size-picker__type-grid,
+.widget-size-picker__panel {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  min-width: 0;
+  padding: 16px;
+  border: var(--ui-border-width-thin) solid var(--ui-border-subtle);
+  border-radius: var(--ui-radius-sm);
+  background: var(--ui-surface-overlay);
+}
+
+.widget-size-picker__panel--primary {
+  gap: 12px;
+}
+
+.widget-size-picker__section-title {
+  color: var(--modal-section-title-color);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0;
+}
+
+.widget-size-picker__type-summary {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 12px;
+  border-radius: var(--ui-radius-sm);
+  background: var(--ui-surface-panel-muted);
+  color: var(--ui-text-primary);
+
+  strong {
+    font-size: 13px;
+    font-weight: 700;
+  }
+
+  span {
+    color: var(--ui-text-secondary);
+    font-size: 12px;
+    line-height: 1.5;
+  }
+}
+
 .widget-size-picker__size-grid {
   display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 10px;
 }
 
@@ -297,26 +361,28 @@ watch(() => props.visible, (visible) => {
   gap: 14px;
 }
 
-.widget-size-picker__type-card,
 .widget-size-picker__size-card {
   display: flex;
   flex-direction: column;
-  gap: 6px;
-  padding: 14px;
-  border-radius: var(--ui-radius-sm);
+  gap: 5px;
+  min-height: 70px;
+  padding: 12px;
   border: var(--ui-border-width-thin) solid var(--ui-border-subtle);
-  background: var(--ui-surface-overlay);
+  border-radius: var(--ui-radius-sm);
+  background: var(--ui-surface-panel-muted);
   color: var(--ui-text-primary);
   text-align: left;
   cursor: pointer;
 
   span {
-    font-size: 12px;
     color: var(--ui-text-secondary);
+    font-size: 12px;
+    line-height: 1.4;
   }
 
   &--active {
     border-color: var(--ui-button-primary-border);
+    background: var(--ui-button-ghost-hover-bg);
     box-shadow: var(--ui-shadow-sm);
   }
 }
@@ -356,13 +422,14 @@ watch(() => props.visible, (visible) => {
   display: flex;
   flex-direction: column;
   gap: 12px;
-  padding: 18px;
+  padding: 16px;
+  border: var(--ui-border-width-thin) solid var(--ui-border-subtle);
   border-radius: var(--ui-radius-sm);
   background: var(--ui-surface-overlay);
 }
 
 .widget-size-picker__preview-box {
-  width: 176px;
+  width: min(100%, 176px);
   height: 176px;
   margin: 0 auto;
   border-radius: var(--ui-radius-sm);
@@ -370,12 +437,12 @@ watch(() => props.visible, (visible) => {
   box-shadow: var(--ui-shadow-md);
 
   &--wide {
-    width: 320px;
+    width: min(100%, 320px);
     height: 164px;
   }
 
   &--large {
-    width: 320px;
+    width: min(100%, 320px);
     height: 248px;
   }
 }

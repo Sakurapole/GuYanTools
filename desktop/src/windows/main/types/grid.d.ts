@@ -11,6 +11,8 @@ export type { BackgroundStyleConfig, BackgroundConfirmPayload } from '@/contract
 
 export type {
   DateWidgetConfig,
+  FtpProfileGroupWidgetConfig,
+  FtpProfileWidgetConfig,
   HomeWidgetSourceType,
   HomeWidgetType,
   PomodoroWidgetConfig,

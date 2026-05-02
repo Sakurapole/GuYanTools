@@ -43,6 +43,12 @@ export type PendingFtpOpenRequest = {
   certificatePath?: string;
   hostCaKeyPath?: string;
   remotePath: string;
+} | {
+  requestId: string;
+  source: 'profile';
+  profileId: string;
+  label: string;
+  remotePath?: string;
 };
 
 export const useFtpStore = defineStore('ftp', () => {

@@ -11,7 +11,15 @@ export type WidgetActionType =
 export type WebpageOpenMode = 'main_window' | 'new_window';
 
 export type HomeWidgetSourceType = 'builtin' | 'shortcut' | 'plugin';
-export type HomeWidgetType = 'shortcut' | 'pomodoro' | 'date' | 'weather' | 'todo' | 'plugin';
+export type HomeWidgetType =
+  | 'shortcut'
+  | 'pomodoro'
+  | 'date'
+  | 'weather'
+  | 'todo'
+  | 'ftp_profile_group'
+  | 'ftp_profile'
+  | 'plugin';
 export type WidgetSizePreset = '2x2' | '4x2' | '4x3' | 'custom';
 
 export type PomodoroWidgetConfig = {
@@ -44,11 +52,21 @@ export type TodoWidgetConfig = {
   showCompleted: boolean;
 };
 
+export type FtpProfileGroupWidgetConfig = {
+  folderId: string;
+};
+
+export type FtpProfileWidgetConfig = {
+  profileId: string;
+};
+
 export type WidgetConfig =
   | PomodoroWidgetConfig
   | DateWidgetConfig
   | WeatherWidgetConfig
   | TodoWidgetConfig
+  | FtpProfileGroupWidgetConfig
+  | FtpProfileWidgetConfig
   | Record<string, unknown>;
 
 export type WidgetAction = {

@@ -1,5 +1,7 @@
 import type {
   DateWidgetConfig,
+  FtpProfileGroupWidgetConfig,
+  FtpProfileWidgetConfig,
   HomeWidgetSourceType,
   HomeWidgetType,
   PomodoroWidgetConfig,
@@ -113,6 +115,42 @@ export const HOME_WIDGET_DEFINITIONS: HomeWidgetDefinition[] = [
     }),
   },
   {
+    sourceType: 'builtin',
+    widgetType: 'ftp_profile_group',
+    title: '传输分组',
+    description: '展示某个分组下的传输配置，双击配置直接打开连接。',
+    defaultLabel: '传输分组',
+    defaultIcon: 'mdi:folder-network-outline',
+    defaultColor: 'linear-gradient(135deg, #155e75 0%, #22c55e 100%)',
+    allowAction: false,
+    allowCustomIcon: false,
+    supportedSizes: [
+      { preset: '4x2', label: '4 × 2', description: '分组列表', colSpan: 4, rowSpan: 2 },
+      { preset: '4x3', label: '4 × 3', description: '更多配置', colSpan: 4, rowSpan: 3 },
+    ],
+    createDefaultConfig: (): FtpProfileGroupWidgetConfig => ({
+      folderId: '',
+    }),
+  },
+  {
+    sourceType: 'builtin',
+    widgetType: 'ftp_profile',
+    title: '传输配置',
+    description: '固定一个远程配置，双击组件即可打开连接。',
+    defaultLabel: '传输配置',
+    defaultIcon: 'mdi:server-network',
+    defaultColor: 'linear-gradient(135deg, #1d4ed8 0%, #06b6d4 100%)',
+    allowAction: false,
+    allowCustomIcon: false,
+    supportedSizes: [
+      { preset: '2x2', label: '2 × 2', description: '快速连接', colSpan: 2, rowSpan: 2 },
+      { preset: '4x2', label: '4 × 2', description: '连接详情', colSpan: 4, rowSpan: 2 },
+    ],
+    createDefaultConfig: (): FtpProfileWidgetConfig => ({
+      profileId: '',
+    }),
+  },
+  {
     sourceType: 'shortcut',
     widgetType: 'shortcut',
     title: '快捷卡片',
@@ -201,6 +239,20 @@ export function normalizeWidgetConfig(widgetType: HomeWidgetType, value: WidgetC
       allowQuickAdd: toBoolean(raw.allowQuickAdd, true),
       showCompleted: toBoolean(raw.showCompleted, false),
     } satisfies TodoWidgetConfig;
+  }
+
+  if (widgetType === 'ftp_profile_group') {
+    const raw = (value ?? {}) as Partial<FtpProfileGroupWidgetConfig>;
+    return {
+      folderId: typeof raw.folderId === 'string' ? raw.folderId : '',
+    } satisfies FtpProfileGroupWidgetConfig;
+  }
+
+  if (widgetType === 'ftp_profile') {
+    const raw = (value ?? {}) as Partial<FtpProfileWidgetConfig>;
+    return {
+      profileId: typeof raw.profileId === 'string' ? raw.profileId : '',
+    } satisfies FtpProfileWidgetConfig;
   }
 
   return value;
