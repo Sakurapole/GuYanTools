@@ -34,7 +34,7 @@
 
 .application-func-container {
   display: flex;
-  align-items: center;
+  align-items: stretch;
   gap: 8px;
   height: 100%;
   padding: 0 16px;
@@ -45,7 +45,7 @@
 .home-profile-switcher {
   position: relative;
   display: flex;
-  align-items: center;
+  align-items: stretch;
   height: 100%;
   -webkit-app-region: no-drag;
 }
@@ -56,10 +56,12 @@
   align-items: center;
   gap: 8px;
   max-width: 220px;
-  height: 32px;
+  height: 100%;
   padding: 0 10px;
   border: var(--ui-border-width-thin) solid var(--ui-border-subtle);
-  border-radius: var(--ui-radius-sm);
+  border-top: 0;
+  border-bottom: 0;
+  border-radius: 0;
   background: color-mix(in srgb, var(--ui-surface-glass-strong) 80%, transparent);
   color: var(--ui-text-primary);
   font: inherit;
@@ -96,9 +98,18 @@
 }
 
 .home-profile-switcher__chevron {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 16px;
+  width: 16px;
+  height: 16px;
   color: var(--ui-text-muted);
-  line-height: 1;
   transition: transform 0.18s ease;
+
+  svg {
+    display: block;
+  }
 
   &.open {
     transform: rotate(180deg);
@@ -106,19 +117,45 @@
 }
 
 .home-profile-panel {
-  position: absolute;
-  top: calc(100% + 8px);
-  left: 0;
-  z-index: 80;
-  width: 360px;
+  position: fixed;
+  z-index: 3000;
   max-width: calc(100vw - 32px);
   padding: 12px;
   border: var(--ui-border-width-thin) solid var(--ui-border-subtle);
-  border-radius: var(--ui-radius-md);
+  border-radius: 0;
   background: var(--ui-surface-glass-strong);
   box-shadow: var(--ui-shadow-xl);
   color: var(--ui-text-primary);
   -webkit-app-region: no-drag;
+  transform-origin: top left;
+}
+
+.home-profile-panel-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 2999;
+  background: transparent;
+  cursor: default;
+  -webkit-app-region: no-drag;
+}
+
+.home-profile-panel-enter-active,
+.home-profile-panel-leave-active {
+  transition:
+    opacity 0.16s ease,
+    transform 0.16s ease;
+}
+
+.home-profile-panel-enter-from,
+.home-profile-panel-leave-to {
+  opacity: 0;
+  transform: translateY(-4px);
+}
+
+.home-profile-panel-enter-to,
+.home-profile-panel-leave-from {
+  opacity: 1;
+  transform: translateY(0);
 }
 
 .home-profile-panel__header {
@@ -185,10 +222,54 @@
   padding: 4px;
   border-radius: var(--ui-radius-sm);
   background: transparent;
+  transition:
+    background-color 0.18s ease,
+    opacity 0.18s ease,
+    transform 0.18s ease;
 
   &.active {
     background: var(--ui-button-secondary-hover-bg);
   }
+}
+
+.home-profile-row-enter-active,
+.home-profile-row-leave-active {
+  transition:
+    opacity 0.18s ease,
+    transform 0.18s ease,
+    max-height 0.18s ease,
+    margin 0.18s ease,
+    padding 0.18s ease;
+}
+
+.home-profile-row-move {
+  transition: transform 0.18s ease;
+}
+
+.home-profile-row-enter-from {
+  max-height: 0;
+  opacity: 0;
+  transform: translateY(-6px);
+}
+
+.home-profile-row-enter-to {
+  max-height: 44px;
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.home-profile-row-leave-from {
+  max-height: 44px;
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.home-profile-row-leave-to {
+  max-height: 0;
+  opacity: 0;
+  padding-top: 0;
+  padding-bottom: 0;
+  transform: translateY(-6px);
 }
 
 .home-profile-row__main {
@@ -215,6 +296,22 @@
   height: 18px;
   color: var(--primary-color);
   font-weight: 700;
+  opacity: 0;
+  transform: scale(0.72);
+  transition:
+    opacity 0.16s ease,
+    transform 0.16s ease;
+
+  &.active {
+    opacity: 1;
+    transform: scale(1);
+  }
+
+  svg {
+    display: block;
+    width: 16px;
+    height: 16px;
+  }
 }
 
 .home-profile-row__name {
@@ -287,30 +384,22 @@
 }
 
 .window-btn-group {
-  @include layout.flex-row($justify-content: flex-end, $align-items: center);
+  @include layout.flex-row($justify-content: flex-end, $align-items: stretch);
   height: 100%;
+  -webkit-app-region: no-drag;
 
-  & .theme-btn {
+  & .ui-icon-button.theme-btn,
+  & .ui-icon-button.mini-btn,
+  & .ui-icon-button.max-btn,
+  & .ui-icon-button.close-btn {
     @include layout.flex-center();
-    width: calc($topbar-height - 12px);
-    height: calc($topbar-height - 12px);
+    width: $topbar-height !important;
+    height: 100% !important;
     cursor: pointer;
     transition: background-color 0.3s ease;
-    border-radius: var(--ui-radius-full);
-
-    &:hover {
-      background-color: var(--bar-btn-hover-bg-color);
-    }
-  }
-
-  & .mini-btn,
-  .max-btn,
-  .close-btn {
-    @include layout.flex-center();
-    width: $topbar-height;
-    height: $topbar-height;
-    cursor: pointer;
-    transition: background-color 0.3s ease;
+    border-radius: 0 !important;
+    border-top: 0;
+    border-bottom: 0;
 
     &:hover {
       background-color: var(--bar-btn-hover-bg-color);

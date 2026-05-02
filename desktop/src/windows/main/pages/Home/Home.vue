@@ -552,9 +552,18 @@ function confirmAddCategory() {
     gridItems: [],
   };
 
+  const wasEmpty = categories.length === 0;
   categories.push(newCategory);
   closeAddCategoryDialog();
-  switchCategory(categories.length - 1);
+  if (wasEmpty) {
+    resetCategorySelection(true);
+    void nextTick(() => {
+      updateCategoryScrollState();
+      updateSliderPosition();
+    });
+  } else {
+    switchCategory(categories.length - 1);
+  }
 
   void enqueueMutation(async () => {
     await createCategory(newCategory);

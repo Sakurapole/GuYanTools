@@ -3,7 +3,7 @@ import SvgIcon from '@/windows/main/components/svgs/svgicon.vue';
 import { useTheme } from '@/windows/main/composables/theme';
 import { useGlobalStore } from '@/windows/main/stores/global_store';
 import { useHomeProfileStore } from '@/windows/main/stores/home_profile_store';
-import { computed, onMounted, onUnmounted, ref } from 'vue';
+import { computed, nextTick, onMounted, onUnmounted, ref, watch, type CSSProperties } from 'vue';
 import { storeToRefs } from 'pinia';
 import Spacer from '../Spacer.vue';
 import UiButton from '../ui/UiButton.vue';
@@ -15,12 +15,14 @@ const globalStore = useGlobalStore();
 const homeProfileStore = useHomeProfileStore();
 const { currentPage, topbarColor } = storeToRefs(globalStore);
 const { theme, toggleTheme } = useTheme();
-const profilePanelRef = ref<HTMLElement | null>(null);
+const profileSwitcherRef = ref<HTMLElement | null>(null);
+const profilePanelSurfaceRef = ref<HTMLElement | null>(null);
 const profilePanelOpen = ref(false);
 const createProfileName = ref('');
 const editingProfileKey = ref('');
 const editingProfileName = ref('');
 const profilePanelError = ref('');
+const profilePanelStyle = ref<CSSProperties>({});
 
 const topbarStyle = computed(() => {
   if (!topbarColor.value) return {};
@@ -36,6 +38,7 @@ const isProfileBusy = computed(() => homeProfileStore.loading || homeProfileStor
 function openProfilePanel() {
   profilePanelOpen.value = true;
   profilePanelError.value = '';
+  void nextTick(updateProfilePanelPosition);
   if (homeProfileStore.profiles.length === 0 && !homeProfileStore.loading) {
     void homeProfileStore.loadProfiles().catch(error => {
       profilePanelError.value = error instanceof Error ? error.message : String(error);
@@ -63,7 +66,10 @@ function handleDocumentPointerDown(event: PointerEvent) {
   }
 
   const target = event.target as Node | null;
-  if (target && profilePanelRef.value?.contains(target)) {
+  if (
+    target
+    && (profileSwitcherRef.value?.contains(target) || profilePanelSurfaceRef.value?.contains(target))
+  ) {
     return;
   }
 
@@ -141,9 +147,31 @@ async function deleteProfile(key: string) {
   }
 }
 
+function updateProfilePanelPosition() {
+  const trigger = profileSwitcherRef.value;
+  if (!trigger) {
+    return;
+  }
+
+  const rect = trigger.getBoundingClientRect();
+  const panelWidth = 360;
+  const viewportPadding = 12;
+  const left = Math.min(
+    Math.max(viewportPadding, rect.left),
+    Math.max(viewportPadding, window.innerWidth - panelWidth - viewportPadding),
+  );
+
+  profilePanelStyle.value = {
+    left: `${left}px`,
+    top: `${rect.bottom}px`,
+    width: `${Math.min(panelWidth, window.innerWidth - viewportPadding * 2)}px`,
+  };
+}
+
 onMounted(() => {
   window.addEventListener('pointerdown', handleDocumentPointerDown, true);
   window.addEventListener('keydown', handleWindowKeydown);
+  window.addEventListener('resize', updateProfilePanelPosition);
   void homeProfileStore.loadProfiles().catch(error => {
     profilePanelError.value = error instanceof Error ? error.message : String(error);
   });
@@ -152,6 +180,13 @@ onMounted(() => {
 onUnmounted(() => {
   window.removeEventListener('pointerdown', handleDocumentPointerDown, true);
   window.removeEventListener('keydown', handleWindowKeydown);
+  window.removeEventListener('resize', updateProfilePanelPosition);
+});
+
+watch(profilePanelOpen, (open) => {
+  if (open) {
+    void nextTick(updateProfilePanelPosition);
+  }
 });
 </script>
 
@@ -167,7 +202,7 @@ onUnmounted(() => {
       </div>
     </div>
     <div class="application-func-container" aria-label="应用功能区">
-      <div ref="profilePanelRef" class="home-profile-switcher">
+      <div ref="profileSwitcherRef" class="home-profile-switcher">
         <button
           class="home-profile-switcher__trigger"
           type="button"
@@ -177,71 +212,112 @@ onUnmounted(() => {
         >
           <span class="home-profile-switcher__dot" />
           <span class="home-profile-switcher__label">{{ activeProfileName }}</span>
-          <span class="home-profile-switcher__chevron" :class="{ open: profilePanelOpen }">⌄</span>
+          <span class="home-profile-switcher__chevron" :class="{ open: profilePanelOpen }">
+            <svg width="12" height="12" viewBox="0 0 12 12" aria-hidden="true" focusable="false">
+              <path
+                d="M3 4.5L6 7.5L9 4.5"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="1.4"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              />
+            </svg>
+          </span>
         </button>
-
-        <div v-if="profilePanelOpen" class="home-profile-panel" role="menu">
-          <div class="home-profile-panel__header">
-            <div>
-              <div class="home-profile-panel__eyebrow">首页配置文件</div>
-              <div class="home-profile-panel__current">{{ activeProfileName }}</div>
+      </div>
+      <Teleport to="body">
+        <div
+          v-if="profilePanelOpen"
+          class="home-profile-panel-backdrop"
+          aria-hidden="true"
+          @pointerdown="closeProfilePanel"
+        />
+        <Transition name="home-profile-panel">
+          <div
+            v-if="profilePanelOpen"
+            ref="profilePanelSurfaceRef"
+            class="home-profile-panel"
+            :style="profilePanelStyle"
+            role="menu"
+          >
+            <div class="home-profile-panel__header">
+              <div>
+                <div class="home-profile-panel__eyebrow">首页配置文件</div>
+                <div class="home-profile-panel__current">{{ activeProfileName }}</div>
+              </div>
+              <span v-if="isProfileBusy" class="home-profile-panel__status">同步中</span>
             </div>
-            <span v-if="isProfileBusy" class="home-profile-panel__status">同步中</span>
-          </div>
 
-          <div class="home-profile-panel__list">
-            <div
-              v-for="profile in homeProfileStore.profiles"
-              :key="profile.key"
-              class="home-profile-row"
-              :class="{ active: profile.key === homeProfileStore.activeProfileKey }"
-            >
-              <template v-if="editingProfileKey === profile.key">
-                <UiInput
-                  v-model="editingProfileName"
-                  class="home-profile-row__input"
-                  size="sm"
-                  placeholder="配置文件名称"
-                  @keydown.enter="confirmRenameProfile"
-                />
-                <UiButton size="sm" variant="primary" :disabled="!editingProfileName.trim()" @click="confirmRenameProfile">保存</UiButton>
-                <UiButton size="sm" variant="ghost" @click="editingProfileKey = ''">取消</UiButton>
-              </template>
+            <TransitionGroup class="home-profile-panel__list" name="home-profile-row" tag="div">
+              <div
+                v-for="profile in homeProfileStore.profiles"
+                :key="profile.key"
+                class="home-profile-row"
+                :class="{ active: profile.key === homeProfileStore.activeProfileKey }"
+              >
+                <template v-if="editingProfileKey === profile.key">
+                  <UiInput
+                    v-model="editingProfileName"
+                    class="home-profile-row__input"
+                    size="sm"
+                    placeholder="配置文件名称"
+                    @keydown.enter="confirmRenameProfile"
+                  />
+                  <UiButton size="sm" variant="primary" :disabled="!editingProfileName.trim()" @click="confirmRenameProfile">保存</UiButton>
+                  <UiButton size="sm" variant="ghost" @click="editingProfileKey = ''">取消</UiButton>
+                </template>
               <template v-else>
                 <button class="home-profile-row__main" type="button" @click="switchProfile(profile.key)">
-                  <span class="home-profile-row__check">{{ profile.key === homeProfileStore.activeProfileKey ? '✓' : '' }}</span>
+                    <span
+                      class="home-profile-row__check"
+                      :class="{ active: profile.key === homeProfileStore.activeProfileKey }"
+                      aria-hidden="true"
+                    >
+                      <svg viewBox="0 0 16 16" focusable="false">
+                        <path
+                          d="M3.5 8.2L6.4 11L12.5 5"
+                          fill="none"
+                          stroke="currentColor"
+                          stroke-width="1.8"
+                          stroke-linecap="round"
+                          stroke-linejoin="round"
+                        />
+                      </svg>
+                    </span>
                   <span class="home-profile-row__name">{{ profile.name }}</span>
                   <span v-if="profile.isDefault" class="home-profile-row__badge">默认</span>
                 </button>
-                <button class="home-profile-row__action" type="button" title="重命名" @click="startRenameProfile(profile.key, profile.name)">改名</button>
-                <button
-                  class="home-profile-row__action danger"
-                  type="button"
-                  :disabled="homeProfileStore.profiles.length <= 1"
-                  :title="homeProfileStore.profiles.length <= 1 ? '至少保留一个配置文件' : '删除'"
-                  @click="deleteProfile(profile.key)"
-                >
-                  删除
-                </button>
-              </template>
+                  <button class="home-profile-row__action" type="button" title="重命名" @click="startRenameProfile(profile.key, profile.name)">改名</button>
+                  <button
+                    class="home-profile-row__action danger"
+                    type="button"
+                    :disabled="homeProfileStore.profiles.length <= 1"
+                    :title="homeProfileStore.profiles.length <= 1 ? '至少保留一个配置文件' : '删除'"
+                    @click="deleteProfile(profile.key)"
+                  >
+                    删除
+                  </button>
+                </template>
+              </div>
+            </TransitionGroup>
+
+            <div class="home-profile-panel__create">
+              <UiInput
+                v-model="createProfileName"
+                size="sm"
+                placeholder="新配置文件名称"
+                @keydown.enter="createProfile"
+              />
+              <UiButton size="sm" variant="primary" :disabled="!createProfileName.trim() || isProfileBusy" @click="createProfile">新建</UiButton>
+            </div>
+
+            <div v-if="profilePanelError || homeProfileStore.error" class="home-profile-panel__error">
+              {{ profilePanelError || homeProfileStore.error }}
             </div>
           </div>
-
-          <div class="home-profile-panel__create">
-            <UiInput
-              v-model="createProfileName"
-              size="sm"
-              placeholder="新配置文件名称"
-              @keydown.enter="createProfile"
-            />
-            <UiButton size="sm" variant="primary" :disabled="!createProfileName.trim() || isProfileBusy" @click="createProfile">新建</UiButton>
-          </div>
-
-          <div v-if="profilePanelError || homeProfileStore.error" class="home-profile-panel__error">
-            {{ profilePanelError || homeProfileStore.error }}
-          </div>
-        </div>
-      </div>
+        </Transition>
+      </Teleport>
     </div>
     <div class="drag-area"></div>
     <div class="window-btn-group">
