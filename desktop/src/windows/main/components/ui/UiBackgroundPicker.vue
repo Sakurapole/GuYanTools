@@ -36,6 +36,8 @@ const emit = defineEmits<{
 type BackgroundTab = 'color' | 'image' | 'video';
 
 const activeTab = ref<BackgroundTab>('color');
+const activeTabTransition = ref('ui-tab-forward');
+const activeTabOrder: BackgroundTab[] = ['color', 'image', 'video'];
 const selectedColor = ref(props.currentBackground || 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)');
 const selectedImage = ref(props.currentBackgroundImage || '');
 const selectedVideo = ref(props.currentBackgroundVideo || '');
@@ -451,10 +453,16 @@ const backgroundPickerTabs = [
   { key: 'video', label: '视频' },
 ];
 
+watch(activeTab, (next, previous) => {
+  activeTabTransition.value = activeTabOrder.indexOf(next) >= activeTabOrder.indexOf(previous)
+    ? 'ui-tab-forward'
+    : 'ui-tab-back';
+});
+
 // 预览框按目标区域等比缩放，最大宽度 100%, 最大高度 160px
 const previewBoxStyle = computed(() => {
-  const maxW = 552; // picker内容区宽度减去padding
-  const maxH = 160;
+  const maxW = 500;
+  const maxH = 130;
   const aspect = props.previewWidth / props.previewHeight;
   let w = maxW;
   let h = w / aspect;
@@ -627,19 +635,19 @@ watch(() => props.visible, (visible) => {
 </script>
 
 <template>
-  <UiDialog class="bg-picker" :model-value="visible" width="620px" max-width="620px" :close-on-mask="false"
+  <UiDialog class="bg-picker" :model-value="visible" width="580px" max-width="580px" :close-on-mask="false"
     @update:modelValue="handleDialogModelValueChange">
     <template #header>
       <div class="bg-picker__header">
         <h3>更换背景</h3>
-        <UiIconButton class="close-btn" variant="ghost" size="md" shape="square" title="关闭" @click="handleClose">
+        <UiIconButton class="close-btn" variant="ghost" size="sm" shape="square" title="关闭" @click="handleClose">
           ✕
         </UiIconButton>
       </div>
     </template>
 
     <div class="bg-picker__tabs">
-      <UiTabs v-model="activeTab" :items="backgroundPickerTabs" variant="line" size="md" stretch />
+      <UiTabs v-model="activeTab" :items="backgroundPickerTabs" variant="line" size="sm" stretch />
     </div>
 
     <!-- 预览区域 -->
@@ -654,6 +662,7 @@ watch(() => props.visible, (visible) => {
     </div>
 
     <div class="bg-picker__content">
+      <Transition :name="activeTabTransition" mode="out-in">
       <!-- 颜色选择 -->
       <div v-if="activeTab === 'color'" class="bg-picker__color-section">
         <div class="bg-picker__section-title">渐变色</div>
@@ -744,14 +753,14 @@ watch(() => props.visible, (visible) => {
       </div>
 
       <!-- 图片选择 + CSS 参数 -->
-      <div v-if="activeTab === 'image'" class="bg-picker__image-section">
+      <div v-else-if="activeTab === 'image'" class="bg-picker__image-section">
         <div class="bg-picker__image-actions">
           <input ref="imageInput" type="file" accept="image/*" style="display: none" @change="handleImageChange" />
-          <UiButton class="bg-picker__upload-btn" variant="secondary" size="md" @click="handleImageSelect">
+          <UiButton class="bg-picker__upload-btn" variant="secondary" size="sm" @click="handleImageSelect">
             <span class="upload-icon">📁</span>
             <span>选择图片</span>
           </UiButton>
-          <UiButton v-if="selectedImage" variant="danger" size="md" @click="handleClearImage">
+          <UiButton v-if="selectedImage" variant="danger" size="sm" @click="handleClearImage">
             清除
           </UiButton>
         </div>
@@ -799,14 +808,14 @@ watch(() => props.visible, (visible) => {
       </div>
 
       <!-- 视频选择 -->
-      <div v-if="activeTab === 'video'" class="bg-picker__video-section">
+      <div v-else class="bg-picker__video-section">
         <div class="bg-picker__image-actions">
           <input ref="videoInput" type="file" accept="video/*" style="display: none" @change="handleVideoChange" />
-          <UiButton class="bg-picker__upload-btn" variant="secondary" size="md" @click="handleVideoSelect">
+          <UiButton class="bg-picker__upload-btn" variant="secondary" size="sm" @click="handleVideoSelect">
             <span class="upload-icon">🎬</span>
             <span>选择视频</span>
           </UiButton>
-          <UiButton v-if="selectedVideo" variant="danger" size="md" @click="handleClearVideo">
+          <UiButton v-if="selectedVideo" variant="danger" size="sm" @click="handleClearVideo">
             清除
           </UiButton>
         </div>
@@ -827,6 +836,7 @@ watch(() => props.visible, (visible) => {
           <p v-if="!ffmpegAvailable" class="bg-picker__hint bg-picker__hint--warn">⚠️ 未配置 FFmpeg 路径，请前往 设置 → 工具 进行配置</p>
         </div>
       </div>
+      </Transition>
 
       <!-- 透明度设置（所有 tab 通用） -->
       <div class="bg-picker__opacity-panel">
@@ -841,8 +851,8 @@ watch(() => props.visible, (visible) => {
 
     <template #footer>
       <div class="bg-picker__footer">
-        <UiButton variant="secondary" @click="handleClose">取消</UiButton>
-        <UiButton variant="primary" @click="handleConfirm">确认</UiButton>
+        <UiButton variant="secondary" size="sm" @click="handleClose">取消</UiButton>
+        <UiButton variant="primary" size="sm" @click="handleConfirm">确认</UiButton>
       </div>
     </template>
 
@@ -875,39 +885,41 @@ export default {
 <style lang="scss" scoped>
 @use '../../assets/scroll' as *;
 
-.bg-picker {
-  max-height: 80vh;
+.bg-picker,
+.bg-picker.ui-card {
+  max-height: 74vh;
   display: flex;
   flex-direction: column;
+  border-radius: var(--ui-radius-md);
 }
 
 .bg-picker__header {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 20px 24px;
+  padding: 14px 18px;
   border-bottom: var(--ui-border-width-thin) solid var(--modal-header-border-color);
 
   h3 {
     margin: 0;
     color: var(--ui-text-primary);
-    font-size: 18px;
+    font-size: 16px;
     font-weight: 600;
   }
 }
 
 .bg-picker__tabs {
-  padding: 16px 24px 0;
+  padding: 10px 18px 0;
 }
 
 .bg-picker__preview {
-  padding: 20px 24px;
+  padding: 12px 18px;
   background: var(--modal-preview-bg-color);
 
   .bg-picker__preview-wrapper {
-    border-radius: var(--ui-radius-sm);
+    border-radius: var(--ui-radius-xs);
     overflow: hidden;
-    box-shadow: var(--ui-shadow-md);
+    box-shadow: var(--ui-shadow-sm);
 
     &--checker {
       background-image: repeating-conic-gradient(rgba(128, 128, 128, 0.15) 0% 25%,
@@ -917,7 +929,7 @@ export default {
   }
 
   .bg-picker__preview-box {
-    border-radius: var(--ui-radius-sm);
+    border-radius: var(--ui-radius-xs);
     display: flex;
     align-items: center;
     justify-content: center;
@@ -934,7 +946,7 @@ export default {
 
   .bg-picker__preview-text {
     color: var(--grid-item-text-color);
-    font-size: 15px;
+    font-size: 13px;
     font-weight: 600;
     text-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
   }
@@ -943,16 +955,16 @@ export default {
 .bg-picker__content {
   flex: 1;
   @include thin-scroll;
-  padding: 20px 24px;
-  max-height: calc(80vh - 380px);
+  padding: 14px 18px;
+  max-height: calc(74vh - 300px);
 }
 
 .bg-picker__section-title {
   color: var(--modal-section-title-color);
-  font-size: 13px;
+  font-size: 12px;
   font-weight: 500;
-  margin-bottom: 10px;
-  margin-top: 16px;
+  margin-bottom: 8px;
+  margin-top: 12px;
 
   &:first-child {
     margin-top: 0;
@@ -962,14 +974,14 @@ export default {
 .bg-picker__gradient-grid,
 .bg-picker__color-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(68px, 1fr));
-  gap: 10px;
-  margin-bottom: 16px;
+  grid-template-columns: repeat(auto-fill, minmax(56px, 1fr));
+  gap: 8px;
+  margin-bottom: 12px;
 }
 
 .bg-picker__swatch {
   aspect-ratio: 1;
-  border-radius: var(--ui-radius-sm);
+  border-radius: var(--ui-radius-xs);
   cursor: pointer;
   position: relative;
   transition: all 0.2s;
@@ -992,7 +1004,7 @@ export default {
   left: 50%;
   transform: translate(-50%, -50%);
   color: white;
-  font-size: 22px;
+  font-size: 18px;
   font-weight: bold;
   text-shadow: 0 2px 4px rgba(0, 0, 0, 0.5);
 }
@@ -1045,9 +1057,9 @@ export default {
 }
 
 .bg-picker__palette-panel {
-  margin-top: 12px;
-  padding: 14px;
-  border-radius: var(--ui-radius-sm);
+  margin-top: 8px;
+  padding: 10px;
+  border-radius: var(--ui-radius-xs);
   background: var(--ui-surface-overlay);
   animation: fadeSlideIn 0.2s ease;
 }
@@ -1065,7 +1077,7 @@ export default {
 
 .bg-picker__palette-row {
   display: flex;
-  gap: 12px;
+  gap: 10px;
   align-items: flex-start;
 }
 
@@ -1079,7 +1091,7 @@ export default {
   .bg-picker__sb-canvas {
     display: block;
     width: 100%;
-    height: 160px;
+    height: 132px;
     border-radius: var(--ui-radius-xs);
   }
 }
@@ -1104,17 +1116,17 @@ export default {
 }
 
 .bg-picker__color-swatch-preview {
-  width: 48px;
-  height: 48px;
-  border-radius: var(--ui-radius-sm);
+  width: 40px;
+  height: 40px;
+  border-radius: var(--ui-radius-xs);
   border: 2px solid var(--ui-border-subtle);
   box-shadow: var(--ui-shadow-sm);
   transition: background 0.15s ease;
 }
 
 .bg-picker__apply-color-btn {
-  padding: 4px 12px;
-  border-radius: var(--ui-radius-sm);
+  padding: 3px 10px;
+  border-radius: var(--ui-radius-xs);
   border: var(--ui-border-width-thin) solid var(--ui-select-focus-border);
   background: var(--ui-button-primary-bg);
   color: var(--ui-button-primary-text);
@@ -1131,14 +1143,14 @@ export default {
 
 .bg-picker__hue-wrapper {
   position: relative;
-  margin-top: 10px;
+  margin-top: 8px;
   cursor: crosshair;
 
   .bg-picker__hue-canvas {
     display: block;
     width: 100%;
-    height: 14px;
-    border-radius: 7px;
+    height: 12px;
+    border-radius: 6px;
   }
 }
 
@@ -1158,7 +1170,7 @@ export default {
   display: flex;
   align-items: center;
   gap: 8px;
-  margin-top: 10px;
+  margin-top: 8px;
 }
 
 .bg-picker__alpha-label {
@@ -1211,7 +1223,7 @@ export default {
 }
 
 .bg-picker__input-row {
-  margin-top: 10px;
+  margin-top: 8px;
   display: flex;
   gap: 8px;
   align-items: center;
@@ -1274,8 +1286,8 @@ export default {
 
 .bg-picker__image-actions {
   display: flex;
-  gap: 10px;
-  margin-bottom: 10px;
+  gap: 8px;
+  margin-bottom: 8px;
 }
 
 .bg-picker__upload-btn {
@@ -1289,7 +1301,7 @@ export default {
   background: var(--modal-upload-bg-color);
 
   .upload-icon {
-    font-size: 17px;
+    font-size: 15px;
   }
 }
 
@@ -1306,30 +1318,30 @@ export default {
 }
 
 .bg-picker__process-options {
-  margin-top: 12px;
-  padding: 14px;
-  border-radius: var(--ui-radius-sm);
+  margin-top: 10px;
+  padding: 10px;
+  border-radius: var(--ui-radius-xs);
   background: var(--ui-surface-overlay);
 }
 
 /* ─── CSS 背景参数面板 ─── */
 .bg-picker__style-panel {
   margin-top: 4px;
-  padding: 14px;
-  border-radius: var(--ui-radius-sm);
+  padding: 10px;
+  border-radius: var(--ui-radius-xs);
   background: var(--ui-surface-overlay);
 }
 
 .bg-picker__style-grid {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 12px;
+  gap: 10px;
 }
 
 .bg-picker__style-field {
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 4px;
 
   label {
     font-size: 12px;
@@ -1342,7 +1354,9 @@ export default {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
   gap: 4px;
-  max-width: 160px;
+  width: 132px;
+  max-width: 132px;
+  margin: 0 auto;
 }
 
 .bg-picker__pos-cell {
@@ -1350,7 +1364,7 @@ export default {
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 15px;
+  font-size: 13px;
   border: var(--ui-border-width-thin) solid var(--ui-border-subtle);
   border-radius: calc(var(--ui-radius-xs) - 2px);
   background: transparent;
@@ -1373,16 +1387,16 @@ export default {
 
 /* ─── 透明度面板 ─── */
 .bg-picker__opacity-panel {
-  margin-top: 16px;
-  padding: 14px;
-  border-radius: var(--ui-radius-sm);
+  margin-top: 12px;
+  padding: 10px;
+  border-radius: var(--ui-radius-xs);
   background: var(--ui-surface-overlay);
 }
 
 .bg-picker__opacity-row {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 10px;
 }
 
 .bg-picker__opacity-slider {
@@ -1399,8 +1413,8 @@ export default {
   &::-webkit-slider-thumb {
     -webkit-appearance: none;
     appearance: none;
-    width: 18px;
-    height: 18px;
+    width: 16px;
+    height: 16px;
     border-radius: 50%;
     background: var(--primary-color, #667eea);
     border: 2px solid var(--ui-text-inverse);
@@ -1415,8 +1429,8 @@ export default {
   }
 
   &::-moz-range-thumb {
-    width: 18px;
-    height: 18px;
+    width: 16px;
+    height: 16px;
     border-radius: 50%;
     background: var(--primary-color, #667eea);
     border: 2px solid var(--ui-text-inverse);
@@ -1433,9 +1447,9 @@ export default {
 }
 
 .bg-picker__opacity-value {
-  min-width: 42px;
+  min-width: 38px;
   text-align: right;
-  font-size: 13px;
+  font-size: 12px;
   font-weight: 600;
   color: var(--ui-text-primary);
   font-variant-numeric: tabular-nums;
@@ -1443,8 +1457,8 @@ export default {
 
 .bg-picker__footer {
   display: flex;
-  gap: 12px;
-  padding: 16px 24px;
+  gap: 10px;
+  padding: 12px 18px;
   border-top: var(--ui-border-width-thin) solid var(--modal-header-border-color);
 
   .ui-button {

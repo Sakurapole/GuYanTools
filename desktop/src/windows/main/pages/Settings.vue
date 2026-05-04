@@ -108,8 +108,7 @@ const settingsTabs: UiTabItem[] = [
   { key: 'shortcuts', label: '快捷键' },
 ];
 const settingsTabOrder = settingsTabs.map(tab => tab.key) as SettingsTabKey[];
-const settingsTabTransition = ref('settings-tab-forward');
-const settingsNavDirection = ref<'forward' | 'back'>('forward');
+const settingsTabTransition = ref('ui-tab-forward');
 
 const themeOptions = [
   { label: '浅色主题', value: 'light' },
@@ -308,8 +307,7 @@ function handleSettingsTabChange(value: string) {
   const currentIndex = settingsTabOrder.indexOf(settingsStore.activeSettingsTab);
   const nextIndex = settingsTabOrder.indexOf(nextTab);
 
-  settingsTabTransition.value = nextIndex >= currentIndex ? 'settings-tab-forward' : 'settings-tab-back';
-  settingsNavDirection.value = nextIndex >= currentIndex ? 'forward' : 'back';
+  settingsTabTransition.value = nextIndex >= currentIndex ? 'ui-tab-forward' : 'ui-tab-back';
   settingsStore.setActiveSettingsTab(nextTab);
 }
 
@@ -1256,7 +1254,6 @@ function scriptTypeLabel(type: string) {
       </div>
       <nav
         class="settings-nav"
-        :class="`settings-nav--${settingsNavDirection}`"
         aria-label="设置分类"
       >
         <UiTabs
@@ -2500,74 +2497,10 @@ function scriptTypeLabel(type: string) {
     background: transparent;
   }
 
-  :deep(.ui-tabs--line .ui-tabs__item::after) {
-    content: "";
-    position: absolute;
-    left: 0;
-    right: 0;
-    bottom: -1px;
+  :deep(.ui-tabs--line .ui-tabs__active-indicator) {
     height: 3px;
     border-radius: 3px 3px 0 0;
     background: #0b67d8;
-    opacity: 0;
-    transform: translateX(0) scaleX(0.36);
-    transform-origin: center;
-    transition:
-      opacity 0.28s ease,
-      transform 0.42s cubic-bezier(0.2, 0.8, 0.2, 1);
-  }
-
-  :deep(.ui-tabs--line .ui-tabs__item.is-active::after) {
-    opacity: 1;
-    transform: translateX(0) scaleX(1);
-  }
-}
-
-.settings-nav--forward {
-  :deep(.ui-tabs--line .ui-tabs__item::after) {
-    transform: translateX(14px) scaleX(0.34);
-    transform-origin: right;
-  }
-
-  :deep(.ui-tabs--line .ui-tabs__item.is-active::after) {
-    animation: settingsUnderlineInForward 0.46s cubic-bezier(0.2, 0.8, 0.2, 1) both;
-    transform-origin: left;
-  }
-}
-
-.settings-nav--back {
-  :deep(.ui-tabs--line .ui-tabs__item::after) {
-    transform: translateX(-14px) scaleX(0.34);
-    transform-origin: left;
-  }
-
-  :deep(.ui-tabs--line .ui-tabs__item.is-active::after) {
-    animation: settingsUnderlineInBack 0.46s cubic-bezier(0.2, 0.8, 0.2, 1) both;
-    transform-origin: right;
-  }
-}
-
-@keyframes settingsUnderlineInForward {
-  from {
-    opacity: 0;
-    transform: translateX(-14px) scaleX(0.34);
-  }
-
-  to {
-    opacity: 1;
-    transform: translateX(0) scaleX(1);
-  }
-}
-
-@keyframes settingsUnderlineInBack {
-  from {
-    opacity: 0;
-    transform: translateX(14px) scaleX(0.34);
-  }
-
-  to {
-    opacity: 1;
-    transform: translateX(0) scaleX(1);
   }
 }
 
@@ -2579,59 +2512,6 @@ function scriptTypeLabel(type: string) {
   padding: 18px 28px 42px;
   box-sizing: border-box;
   overflow-x: hidden;
-}
-
-.settings-tab-forward-enter-active,
-.settings-tab-forward-leave-active,
-.settings-tab-back-enter-active,
-.settings-tab-back-leave-active {
-  transition:
-    opacity 0.22s ease,
-    transform 0.26s cubic-bezier(0.2, 0.8, 0.2, 1);
-  will-change: opacity, transform;
-}
-
-.settings-tab-forward-enter-from {
-  opacity: 0;
-  transform: translateX(28px);
-}
-
-.settings-tab-forward-leave-to {
-  opacity: 0;
-  transform: translateX(-20px);
-}
-
-.settings-tab-back-enter-from {
-  opacity: 0;
-  transform: translateX(-28px);
-}
-
-.settings-tab-back-leave-to {
-  opacity: 0;
-  transform: translateX(20px);
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .settings-nav :deep(.ui-tabs__item),
-  .settings-nav :deep(.ui-tabs--line .ui-tabs__item::after),
-  .settings-tab-forward-enter-active,
-  .settings-tab-forward-leave-active,
-  .settings-tab-back-enter-active,
-  .settings-tab-back-leave-active {
-    transition: none;
-  }
-
-  .settings-nav :deep(.ui-tabs--line .ui-tabs__item.is-active::after) {
-    animation: none;
-  }
-
-  .settings-nav :deep(.ui-tabs__item.is-active),
-  .settings-tab-forward-enter-from,
-  .settings-tab-forward-leave-to,
-  .settings-tab-back-enter-from,
-  .settings-tab-back-leave-to {
-    transform: none;
-  }
 }
 
 /* ─── Section ─── */

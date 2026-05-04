@@ -764,6 +764,7 @@ onBeforeUnmount(() => {
         </div>
 
         <!-- Terminal Tab: local sessions -->
+        <Transition name="ui-tab-fade">
         <div v-show="sidebarTab === 'terminal'" class="terminal-sidebar__sessions">
           <UiTooltip
             v-for="session in displaySessions"
@@ -826,8 +827,10 @@ onBeforeUnmount(() => {
             </div>
           </UiTooltip>
         </div>
+        </Transition>
 
         <!-- SSH Tab -->
+        <Transition name="ui-tab-fade">
         <SshSidebarTab
           v-show="!sidebarCollapsed && sidebarTab === 'ssh'"
           @edit-profile="openSshProfileDialog"
@@ -836,6 +839,7 @@ onBeforeUnmount(() => {
           @focus-session="handleSshFocusSession"
           @disconnect="handleSshDisconnect"
         />
+        </Transition>
       </div>
 
       <!-- Main content area -->
@@ -852,18 +856,21 @@ onBeforeUnmount(() => {
           @port-forward="sshStore.togglePortForwardPanel()"
           @open-file-manager="openFileManagerForCurrentSsh" />
 
-        <TerminalSearchPanel
-          v-if="searchVisible"
-          ref="searchPanelRef"
-          :query="searchQuery"
-          :result-index="searchResultIndex"
-          :result-count="searchResultCount"
-          @update:query="updateSearchQuery"
-          @next="findNext"
-          @previous="findPrevious"
-          @close="closeSearchPanel"
-        />
+        <Transition name="ui-panel-pop">
+          <TerminalSearchPanel
+            v-if="searchVisible"
+            ref="searchPanelRef"
+            :query="searchQuery"
+            :result-index="searchResultIndex"
+            :result-count="searchResultCount"
+            @update:query="updateSearchQuery"
+            @next="findNext"
+            @previous="findPrevious"
+            @close="closeSearchPanel"
+          />
+        </Transition>
 
+        <Transition name="ui-tab-fade">
         <div v-if="isSshMode && activeSshReconnectState && activeSshSession" class="terminal-alert terminal-alert--error">
           <span>
             {{ activeSshSession.profileLabel }} 连接已断开，请重连后继续操作。
@@ -880,6 +887,7 @@ onBeforeUnmount(() => {
             </UiButton>
           </div>
         </div>
+        </Transition>
 
         <div v-if="activeViewportSessionId" class="terminal-stage">
           <TerminalViewport
@@ -905,6 +913,7 @@ onBeforeUnmount(() => {
           />
 
           <!-- Port forward floating panel (SSH mode only, main window) -->
+          <Transition name="ui-pop">
           <div
             v-if="isSshMode && sshStore.portForwardPanelOpen && sshStore.activeSshSession"
             class="terminal-port-forward-overlay"
@@ -918,6 +927,7 @@ onBeforeUnmount(() => {
               @edit-forward="openPortForwardDialog($event)"
             />
           </div>
+          </Transition>
         </div>
 
         <div v-else class="terminal-empty ui-glass-surface ui-glass-surface--strong">

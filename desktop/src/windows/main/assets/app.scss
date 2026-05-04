@@ -31,6 +31,21 @@ body,
   overflow: hidden;
 }
 
+.page-router-viewport {
+  position: relative;
+  display: flex;
+  flex: 1 1 auto;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.page-router-viewport > * {
+  flex: 1 1 auto;
+  min-width: 0;
+  min-height: 0;
+}
+
 .content-wrapper {
   flex: 1;
   display: flex;

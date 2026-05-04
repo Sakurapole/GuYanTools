@@ -34,6 +34,8 @@ const emit = defineEmits<{
 type EditorTab = 'basic' | 'size' | 'background';
 
 const activeTab = ref<EditorTab>('basic');
+const editorTabTransition = ref('ui-tab-forward');
+const editorTabOrder: EditorTab[] = ['basic', 'size', 'background'];
 
 // ─── 基础信息 ───
 const editLabel = ref('');
@@ -62,6 +64,8 @@ const editWidgetConfig = ref<WidgetConfig | undefined>(undefined);
 // ─── 背景 ───
 type BackgroundTab = 'color' | 'image' | 'video';
 const bgTab = ref<BackgroundTab>('color');
+const bgTabTransition = ref('ui-tab-forward');
+const bgTabOrder: BackgroundTab[] = ['color', 'image', 'video'];
 const selectedColor = ref('');
 const selectedImage = ref('');
 const selectedVideo = ref('');
@@ -119,6 +123,18 @@ const backgroundSubTabs = [
   { key: 'image', label: '图片' },
   { key: 'video', label: '视频' },
 ];
+
+watch(activeTab, (next, previous) => {
+  editorTabTransition.value = editorTabOrder.indexOf(next) >= editorTabOrder.indexOf(previous)
+    ? 'ui-tab-forward'
+    : 'ui-tab-back';
+});
+
+watch(bgTab, (next, previous) => {
+  bgTabTransition.value = bgTabOrder.indexOf(next) >= bgTabOrder.indexOf(previous)
+    ? 'ui-tab-forward'
+    : 'ui-tab-back';
+});
 
 const showIconPicker = ref(false);
 const widgetDefinition = computed(() => getHomeWidgetDefinition(props.item.widgetType));
@@ -527,6 +543,7 @@ watch(() => props.visible, (visible) => {
     </div>
 
     <div class="widget-editor__content">
+      <Transition :name="editorTabTransition" mode="out-in">
       <!-- ═══ 基础信息 ═══ -->
       <div v-if="activeTab === 'basic'" class="widget-editor__section">
         <UiField label="组件名称" required>
@@ -602,7 +619,7 @@ watch(() => props.visible, (visible) => {
       </div>
 
       <!-- ═══ 尺寸配置 ═══ -->
-      <div v-if="activeTab === 'size'" class="widget-editor__section">
+      <div v-else-if="activeTab === 'size'" class="widget-editor__section">
         <div v-if="sizePresetOptions.length" class="widget-editor__size-preset-grid">
           <button v-for="size in sizePresetOptions" :key="size.preset" type="button" class="widget-editor__size-preset"
             :class="{ 'widget-editor__size-preset--active': editSizePreset === size.preset }"
@@ -638,7 +655,7 @@ watch(() => props.visible, (visible) => {
       </div>
 
       <!-- ═══ 背景设置 ═══ -->
-      <div v-if="activeTab === 'background'" class="widget-editor__section">
+      <div v-else class="widget-editor__section">
         <div class="widget-editor__bg-tabs">
           <UiTabs v-model="bgTab" :items="backgroundSubTabs" variant="segmented" size="sm" stretch />
         </div>
@@ -655,6 +672,7 @@ watch(() => props.visible, (visible) => {
           </div>
         </div>
 
+        <Transition :name="bgTabTransition" mode="out-in">
         <!-- 颜色选择 -->
         <div v-if="bgTab === 'color'" class="widget-editor__color-section">
           <div class="widget-editor__section-title">渐变色</div>
@@ -677,7 +695,7 @@ watch(() => props.visible, (visible) => {
         </div>
 
         <!-- 图片选择 -->
-        <div v-if="bgTab === 'image'" class="widget-editor__image-section">
+        <div v-else-if="bgTab === 'image'" class="widget-editor__image-section">
           <div class="widget-editor__image-actions">
             <input ref="imageInput" type="file" accept="image/*" style="display: none" @change="handleImageChange" />
             <UiButton class="widget-editor__upload-btn" variant="secondary" size="md" @click="handleImageSelect">
@@ -729,7 +747,7 @@ watch(() => props.visible, (visible) => {
         </div>
 
         <!-- 视频选择 -->
-        <div v-if="bgTab === 'video'" class="widget-editor__video-section">
+        <div v-else class="widget-editor__video-section">
           <div class="widget-editor__image-actions">
             <input ref="videoInput" type="file" accept="video/*" style="display: none" @change="handleVideoChange" />
             <UiButton class="widget-editor__upload-btn" variant="secondary" size="md" @click="handleVideoSelect">
@@ -755,6 +773,7 @@ watch(() => props.visible, (visible) => {
             <p v-if="!ffmpegAvailable" class="widget-editor__hint widget-editor__hint--warn">⚠️ 未配置 FFmpeg 路径，请前往 设置 → 工具 进行配置</p>
           </div>
         </div>
+        </Transition>
 
         <!-- 透明度（通用） -->
         <div class="widget-editor__opacity-panel">
@@ -766,6 +785,7 @@ watch(() => props.visible, (visible) => {
           </div>
         </div>
       </div>
+      </Transition>
     </div>
 
     <template #footer>

@@ -244,13 +244,7 @@ function handleDragEnter(targetTabId: string, _e: DragEvent) {
   if (now - lastSwapTime < 150) return;
   lastSwapTime = now;
 
-  const tabs = tabPages.value;
-  const sourceIdx = tabs.findIndex(t => t.id === sourceId);
-  const targetIdx = tabs.findIndex(t => t.id === targetTabId);
-  if (sourceIdx === -1 || targetIdx === -1) return;
-
-  const [moved] = tabs.splice(sourceIdx, 1);
-  tabs.splice(targetIdx, 0, moved);
+  barStore.moveTabToDragTarget(sourceId, targetTabId);
 }
 
 function handleDragEnd() {

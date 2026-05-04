@@ -151,7 +151,7 @@ function handleBlur() {
       @blur="handleBlur"
     />
 
-    <transition name="ui-suggest-dropdown">
+    <transition name="ui-dropdown">
       <div v-if="open && normalizedSuggestions.length" class="ui-suggest-input__dropdown">
         <UiScrollbar :x="false" :size="6" class="ui-suggest-input__scroll">
           <div class="ui-suggest-input__list">
@@ -226,16 +226,4 @@ function handleBlur() {
   }
 }
 
-.ui-suggest-dropdown-enter-active,
-.ui-suggest-dropdown-leave-active {
-  transition:
-    opacity 0.16s ease,
-    transform 0.16s ease;
-}
-
-.ui-suggest-dropdown-enter-from,
-.ui-suggest-dropdown-leave-to {
-  opacity: 0;
-  transform: translateY(-4px) scale(0.98);
-}
 </style>

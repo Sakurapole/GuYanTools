@@ -349,7 +349,7 @@ async function handleImport() {
     </div>
 
     <!-- Error toast -->
-    <Transition name="toast-fade">
+    <Transition name="ui-panel-pop">
       <div v-if="errorMessage" class="pfp__toast" @click="errorMessage = ''">
         <svg viewBox="0 0 24 24" width="13" height="13" stroke="currentColor" stroke-width="2"
           fill="none" stroke-linecap="round">
@@ -569,18 +569,6 @@ async function handleImport() {
   font-size: 11px;
   color: #f87171;
   cursor: pointer;
-}
-
-.toast-fade-enter-active,
-.toast-fade-leave-active {
-  transition: all 0.2s;
-}
-.toast-fade-enter-from,
-.toast-fade-leave-to {
-  opacity: 0;
-  max-height: 0;
-  padding-top: 0;
-  padding-bottom: 0;
 }
 
 .pfp__body {

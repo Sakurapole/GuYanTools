@@ -104,7 +104,7 @@ onBeforeUnmount(() => document.removeEventListener('mousedown', onSortClickOutsi
               </svg>
               <span class="sort-label">{{ currentSortLabel }}</span>
             </button>
-            <Transition name="sort-drop">
+            <Transition name="ui-dropdown">
               <div v-if="showSortMenu" ref="sortMenuRef" class="sort-menu">
                 <button v-for="opt in sortOptions" :key="opt.value" class="sort-option"
                   :class="{ active: todoStore.sortBy === opt.value }" @click="selectSort(opt.value)">
@@ -256,15 +256,6 @@ onBeforeUnmount(() => document.removeEventListener('mousedown', onSortClickOutsi
 }
 .sort-option:hover { background: var(--ui-button-ghost-hover-bg); }
 .sort-option.active { color: var(--ui-input-focus-border); font-weight: 600; }
-
-.sort-drop-enter-active, .sort-drop-leave-active {
-  transition: all 0.15s cubic-bezier(0.4, 0, 0.2, 1);
-  transform-origin: top right;
-}
-.sort-drop-enter-from, .sort-drop-leave-to {
-  opacity: 0;
-  transform: translateY(-4px) scale(0.97);
-}
 
 .todo-list-area {
   flex: 1;

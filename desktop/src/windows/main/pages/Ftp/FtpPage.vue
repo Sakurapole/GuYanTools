@@ -3268,8 +3268,8 @@ onBeforeUnmount(() => {
               </UiIconButton>
             </div>
           </div>
-          <template v-if="!auxiliaryDockCollapsed">
-            <FtpTransferQueue v-if="showQueuePanelInDock" :collapsed="false" :active-task-count="activeTaskCount"
+          <Transition name="ui-tab-fade" mode="out-in">
+            <FtpTransferQueue v-if="!auxiliaryDockCollapsed && showQueuePanelInDock" :collapsed="false" :active-task-count="activeTaskCount"
               :paused-task-count="pausedTaskCount" :completed-task-count="completedTaskCount"
               :failed-task-count="failedTaskCount" :tasks="sortedTransferTasks" :is-task-expanded="isTaskExpanded"
               :task-priority-label="taskPriorityLabel" :task-status-label="taskStatusLabel"
@@ -3278,7 +3278,7 @@ onBeforeUnmount(() => {
               @update-task-priority="updateTaskPriority($event.taskId, $event.priority)" @pause-task="pauseTask"
               @resume-task="resumeTask" @retry-task="retryTask" @delete-task="deleteTransferTask" />
 
-            <section v-if="showLogPanelInDock" class="ftp-log-panel ftp-inner-card">
+            <section v-else-if="!auxiliaryDockCollapsed && showLogPanelInDock" class="ftp-log-panel ftp-inner-card">
               <div class="ftp-log-panel__body">
                 <div v-if="!ftpStore.logs.length" class="ftp-empty-state">当前还没有 FTP 操作日志。</div>
                 <div v-else class="ftp-log-panel__list">
@@ -3290,7 +3290,7 @@ onBeforeUnmount(() => {
                 </div>
               </div>
             </section>
-          </template>
+          </Transition>
         </section>
       </div>
 

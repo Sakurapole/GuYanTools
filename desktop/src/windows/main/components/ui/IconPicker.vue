@@ -28,6 +28,8 @@ const emit = defineEmits<{
 type PickerTab = 'library' | 'svg' | 'image';
 
 const activeTab = ref<PickerTab>('library');
+const activeTabTransition = ref('ui-tab-forward');
+const activeTabOrder: PickerTab[] = ['library', 'svg', 'image'];
 const selectedIcon = ref('');
 
 // ─── 图标库 Tab ───
@@ -46,6 +48,12 @@ const pickerTabs = [
   { key: 'svg', label: '上传 SVG' },
   { key: 'image', label: '上传图片' },
 ];
+
+watch(activeTab, (next, previous) => {
+  activeTabTransition.value = activeTabOrder.indexOf(next) >= activeTabOrder.indexOf(previous)
+    ? 'ui-tab-forward'
+    : 'ui-tab-back';
+});
 
 const displayIcons = computed(() => {
   if (searchQuery.value.trim()) {
@@ -256,6 +264,7 @@ watch(() => props.visible, (visible) => {
     </div>
 
     <div class="icon-picker__content">
+      <Transition :name="activeTabTransition" mode="out-in">
       <!-- ═══ 图标库 ═══ -->
       <div v-if="activeTab === 'library'" class="icon-picker__library">
         <div class="icon-picker__search">
@@ -311,7 +320,7 @@ watch(() => props.visible, (visible) => {
       </div>
 
       <!-- ═══ 上传 SVG ═══ -->
-      <div v-if="activeTab === 'svg'" class="icon-picker__upload-section">
+      <div v-else-if="activeTab === 'svg'" class="icon-picker__upload-section">
         <input ref="svgInput" type="file" accept=".svg" style="display: none" @change="handleSvgChange" />
         <UiButton class="icon-picker__upload-btn" variant="secondary" size="md" @click="handleSvgSelect">
           <span class="upload-icon">📄</span>
@@ -328,7 +337,7 @@ watch(() => props.visible, (visible) => {
       </div>
 
       <!-- ═══ 上传图片 ═══ -->
-      <div v-if="activeTab === 'image'" class="icon-picker__upload-section">
+      <div v-else class="icon-picker__upload-section">
         <input ref="imageInput" type="file" accept="image/*" style="display: none" @change="handleImageChange" />
         <UiButton class="icon-picker__upload-btn" variant="secondary" size="md" @click="handleImageSelect">
           <span class="upload-icon">🖼️</span>
@@ -345,6 +354,7 @@ watch(() => props.visible, (visible) => {
 
         <p class="icon-picker__hint">支持 JPG, PNG, GIF, WebP, SVG 等格式</p>
       </div>
+      </Transition>
     </div>
 
     <template #footer>

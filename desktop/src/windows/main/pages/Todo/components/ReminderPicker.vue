@@ -112,7 +112,7 @@ onBeforeUnmount(() => document.removeEventListener('mousedown', onClickOutside, 
     </div>
 
     <!-- 下拉面板 -->
-    <Transition name="picker-drop">
+    <Transition name="ui-dropdown">
       <div v-if="isOpen" ref="panelRef" class="reminder-panel">
         <div class="panel-title">设置提醒</div>
         <button v-for="opt in quickOptions" :key="opt.dateTime" class="panel-option" @click="selectQuickOption(opt.dateTime)">
@@ -268,12 +268,4 @@ onBeforeUnmount(() => document.removeEventListener('mousedown', onClickOutside, 
 .custom-confirm:disabled { opacity: 0.4; cursor: not-allowed; }
 .custom-confirm:hover:not(:disabled) { opacity: 0.9; }
 
-.picker-drop-enter-active, .picker-drop-leave-active {
-  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
-  transform-origin: top left;
-}
-.picker-drop-enter-from, .picker-drop-leave-to {
-  opacity: 0;
-  transform: translateY(-4px) scale(0.97);
-}
 </style>

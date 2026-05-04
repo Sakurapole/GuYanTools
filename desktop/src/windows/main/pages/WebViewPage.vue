@@ -417,7 +417,7 @@ watch(targetUrl, () => {
       />
 
       <!-- Google 登录引导提示 -->
-      <Transition name="login-hint">
+      <Transition name="ui-panel-pop">
         <div v-if="showGoogleLoginHint" class="webview-login-hint">
           <div class="webview-login-hint__card">
             <div class="webview-login-hint__header">
@@ -716,23 +716,6 @@ watch(targetUrl, () => {
   align-items: center;
   gap: 8px;
   margin-top: 2px;
-}
-
-/* Vue Transition */
-.login-hint-enter-active {
-  animation: login-hint-in 0.35s cubic-bezier(0.34, 1.56, 0.64, 1);
-}
-.login-hint-leave-active {
-  animation: login-hint-out 0.2s ease-in forwards;
-}
-
-@keyframes login-hint-in {
-  from { opacity: 0; transform: translateY(16px) scale(0.96); }
-  to   { opacity: 1; transform: translateY(0) scale(1); }
-}
-@keyframes login-hint-out {
-  from { opacity: 1; transform: translateY(0) scale(1); }
-  to   { opacity: 0; transform: translateY(8px) scale(0.97); }
 }
 
 /* ─── Script Drawer ─── */

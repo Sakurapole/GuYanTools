@@ -89,7 +89,11 @@ const panelTransition = computed(() => {
   }
 
   if (props.variant === 'drawer') {
-    return `ui-popup-drawer-${props.placement === 'left' ? 'left' : 'right'}`;
+    if (props.placement === 'left' || props.placement === 'top' || props.placement === 'bottom') {
+      return `ui-popup-drawer-${props.placement}`;
+    }
+
+    return 'ui-popup-drawer-right';
   }
 
   if (props.variant === 'floating') {
@@ -320,52 +324,4 @@ onBeforeUnmount(() => {
   position: fixed;
 }
 
-.ui-popup-fade-enter-active,
-.ui-popup-fade-leave-active {
-  transition: opacity 0.18s ease;
-}
-
-.ui-popup-fade-enter-from,
-.ui-popup-fade-leave-to {
-  opacity: 0;
-}
-
-.ui-popup-dialog-enter-active,
-.ui-popup-dialog-leave-active {
-  transition: opacity 0.18s ease, transform 0.18s ease;
-}
-
-.ui-popup-dialog-enter-from,
-.ui-popup-dialog-leave-to {
-  opacity: 0;
-  transform: translateY(14px) scale(0.98);
-}
-
-.ui-popup-drawer-right-enter-active,
-.ui-popup-drawer-right-leave-active,
-.ui-popup-drawer-left-enter-active,
-.ui-popup-drawer-left-leave-active {
-  transition: transform 0.25s cubic-bezier(0.25, 0.8, 0.25, 1);
-}
-
-.ui-popup-drawer-right-enter-from,
-.ui-popup-drawer-right-leave-to {
-  transform: translateX(100%);
-}
-
-.ui-popup-drawer-left-enter-from,
-.ui-popup-drawer-left-leave-to {
-  transform: translateX(-100%);
-}
-
-.ui-popup-float-enter-active,
-.ui-popup-float-leave-active {
-  transition: opacity 0.12s ease, transform 0.12s ease;
-}
-
-.ui-popup-float-enter-from,
-.ui-popup-float-leave-to {
-  opacity: 0;
-  transform: scale(0.96);
-}
 </style>

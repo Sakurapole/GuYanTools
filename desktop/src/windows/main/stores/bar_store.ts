@@ -57,8 +57,60 @@ if (import.meta.env.DEV) {
     });
 }
 
+const TAB_ORDER_STORAGE_KEY = 'guyantools.bottombar.tab-order';
+
+function cloneTab(tab: AppTabDefinition) {
+    return { ...tab };
+}
+
+function readSavedTabOrder(): string[] {
+    try {
+        const raw = window.localStorage.getItem(TAB_ORDER_STORAGE_KEY);
+        const parsed = raw ? JSON.parse(raw) : [];
+        if (!Array.isArray(parsed)) return [];
+
+        const seen = new Set<string>();
+        return parsed.filter((id): id is string => {
+            if (typeof id !== 'string' || seen.has(id)) return false;
+            seen.add(id);
+            return true;
+        });
+    } catch {
+        return [];
+    }
+}
+
+function persistTabOrder(tabs: AppTabDefinition[]) {
+    try {
+        window.localStorage.setItem(TAB_ORDER_STORAGE_KEY, JSON.stringify(tabs.map(tab => tab.id)));
+    } catch {
+        // localStorage can fail in restricted contexts; runtime order still remains valid.
+    }
+}
+
+function orderTabs(tabs: AppTabDefinition[], savedOrder = readSavedTabOrder()) {
+    if (!savedOrder.length) {
+        return tabs.map(cloneTab);
+    }
+
+    const indexById = new Map(savedOrder.map((id, index) => [id, index]));
+    return tabs
+        .map((tab, index) => ({ tab: cloneTab(tab), index }))
+        .sort((left, right) => {
+            const leftIndex = indexById.get(left.tab.id);
+            const rightIndex = indexById.get(right.tab.id);
+            if (leftIndex !== undefined && rightIndex !== undefined) {
+                return leftIndex - rightIndex;
+            }
+            if (leftIndex !== undefined) return -1;
+            if (rightIndex !== undefined) return 1;
+            return left.index - right.index;
+        })
+        .map(item => item.tab);
+}
+
 function cloneFixedTabs() {
-    return FIXED_TABS.map(tab => ({ ...tab }));
+    return orderTabs(FIXED_TABS);
 }
 
 export const useBarStore = defineStore('bar', () => {
@@ -74,10 +126,12 @@ export const useBarStore = defineStore('bar', () => {
 
     const ensureFixedTabs = () => {
         const existingMap = new Map(tabPages.value.map(tab => [tab.id, tab]));
-        tabPages.value = FIXED_TABS.map(tab => ({
+        const fixedTabs = FIXED_TABS.map(tab => ({
             ...tab,
             active: existingMap.get(tab.id)?.active ?? tab.active,
-        })).concat(tabPages.value.filter(tab => !FIXED_TABS.some(fixed => fixed.id === tab.id)));
+        }));
+        const runtimeTabs = tabPages.value.filter(tab => !FIXED_TABS.some(fixed => fixed.id === tab.id));
+        tabPages.value = orderTabs(fixedTabs.concat(runtimeTabs));
     };
 
     const activateTabByUrl = (url: string) => {
@@ -125,6 +179,7 @@ export const useBarStore = defineStore('bar', () => {
 
         const wasActive = target.active;
         tabPages.value = tabPages.value.filter(tab => tab.id !== id);
+        persistTabOrder(tabPages.value);
 
         if (wasActive) {
             const fallback = tabPages.value.find(tab => !tab.closable) ?? tabPages.value[0];
@@ -158,7 +213,22 @@ export const useBarStore = defineStore('bar', () => {
             closable: true,
         };
         tabPages.value.push(newTab);
+        persistTabOrder(tabPages.value);
         activateTabByUrl(url);
+    };
+
+    const moveTabToDragTarget = (sourceId: string, targetId: string) => {
+        if (sourceId === targetId) return;
+
+        const sourceIdx = tabPages.value.findIndex(tab => tab.id === sourceId);
+        const targetIdx = tabPages.value.findIndex(tab => tab.id === targetId);
+        if (sourceIdx === -1 || targetIdx === -1) return;
+
+        const nextTabs = tabPages.value.slice();
+        const [moved] = nextTabs.splice(sourceIdx, 1);
+        nextTabs.splice(targetIdx, 0, moved);
+        tabPages.value = nextTabs;
+        persistTabOrder(tabPages.value);
     };
 
     /** 更新匹配 URL 的 Tab 名称（用于 webview 页面标题动态更新） */
@@ -180,6 +250,7 @@ export const useBarStore = defineStore('bar', () => {
         activateTabByUrl,
         openTab,
         updateTabName,
+        moveTabToDragTarget,
         closeTab,
         getActiveTab,
     }

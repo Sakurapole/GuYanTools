@@ -98,7 +98,7 @@ onBeforeUnmount(() => document.removeEventListener('mousedown', onClickOutside, 
       <span :class="{ 'has-value': hasRule }">{{ currentLabel }}</span>
     </button>
 
-    <Transition name="picker-drop">
+    <Transition name="ui-dropdown">
       <div v-if="isOpen" ref="panelRef" class="repeat-panel">
         <div class="panel-title">重复规则</div>
         <button v-for="opt in presetOptions" :key="opt.value" class="panel-option"
@@ -245,12 +245,4 @@ onBeforeUnmount(() => document.removeEventListener('mousedown', onClickOutside, 
 }
 .custom-confirm:hover { opacity: 0.9; }
 
-.picker-drop-enter-active, .picker-drop-leave-active {
-  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
-  transform-origin: top left;
-}
-.picker-drop-enter-from, .picker-drop-leave-to {
-  opacity: 0;
-  transform: translateY(-4px) scale(0.97);
-}
 </style>
