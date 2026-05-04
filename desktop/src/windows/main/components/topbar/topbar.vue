@@ -18,11 +18,13 @@ const { theme, toggleTheme } = useTheme();
 const profileSwitcherRef = ref<HTMLElement | null>(null);
 const profilePanelSurfaceRef = ref<HTMLElement | null>(null);
 const profilePanelOpen = ref(false);
+const profileRowsTransitionEnabled = ref(false);
 const createProfileName = ref('');
 const editingProfileKey = ref('');
 const editingProfileName = ref('');
 const profilePanelError = ref('');
 const profilePanelStyle = ref<CSSProperties>({});
+let profileRowsTransitionTimer: number | undefined;
 
 const topbarStyle = computed(() => {
   if (!topbarColor.value) return {};
@@ -36,9 +38,14 @@ const profileButtonLabel = computed(() => `配置文件：${activeProfileName.va
 const isProfileBusy = computed(() => homeProfileStore.loading || homeProfileStore.switching);
 
 function openProfilePanel() {
-  profilePanelOpen.value = true;
   profilePanelError.value = '';
-  void nextTick(updateProfilePanelPosition);
+  profileRowsTransitionEnabled.value = false;
+  window.clearTimeout(profileRowsTransitionTimer);
+  updateProfilePanelPosition();
+  profilePanelOpen.value = true;
+  profileRowsTransitionTimer = window.setTimeout(() => {
+    profileRowsTransitionEnabled.value = true;
+  }, 200);
   if (homeProfileStore.profiles.length === 0 && !homeProfileStore.loading) {
     void homeProfileStore.loadProfiles().catch(error => {
       profilePanelError.value = error instanceof Error ? error.message : String(error);
@@ -56,6 +63,8 @@ function toggleProfilePanel() {
 
 function closeProfilePanel() {
   profilePanelOpen.value = false;
+  profileRowsTransitionEnabled.value = false;
+  window.clearTimeout(profileRowsTransitionTimer);
   editingProfileKey.value = '';
   editingProfileName.value = '';
 }
@@ -181,6 +190,7 @@ onUnmounted(() => {
   window.removeEventListener('pointerdown', handleDocumentPointerDown, true);
   window.removeEventListener('keydown', handleWindowKeydown);
   window.removeEventListener('resize', updateProfilePanelPosition);
+  window.clearTimeout(profileRowsTransitionTimer);
 });
 
 watch(profilePanelOpen, (open) => {
@@ -249,7 +259,12 @@ watch(profilePanelOpen, (open) => {
               <span v-if="isProfileBusy" class="home-profile-panel__status">同步中</span>
             </div>
 
-            <TransitionGroup class="home-profile-panel__list" name="home-profile-row" tag="div">
+            <TransitionGroup
+              class="home-profile-panel__list"
+              name="home-profile-row"
+              tag="div"
+              :css="profileRowsTransitionEnabled"
+            >
               <div
                 v-for="profile in homeProfileStore.profiles"
                 :key="profile.key"
@@ -288,16 +303,45 @@ watch(profilePanelOpen, (open) => {
                   <span class="home-profile-row__name">{{ profile.name }}</span>
                   <span v-if="profile.isDefault" class="home-profile-row__badge">默认</span>
                 </button>
-                  <button class="home-profile-row__action" type="button" title="重命名" @click="startRenameProfile(profile.key, profile.name)">改名</button>
-                  <button
+                  <UiIconButton
+                    class="home-profile-row__action"
+                    size="sm"
+                    variant="ghost"
+                    shape="square"
+                    title="重命名"
+                    @click="startRenameProfile(profile.key, profile.name)"
+                  >
+                    <svg width="15" height="15" viewBox="0 0 16 16" aria-hidden="true" focusable="false">
+                      <path
+                        d="M9.9 3.1L12.9 6.1M2.75 13.25L5.95 12.55L12.35 6.15C13.15 5.35 13.15 4.15 12.35 3.35L12.1 3.1C11.3 2.3 10.1 2.3 9.3 3.1L2.9 9.5L2.75 13.25Z"
+                        fill="none"
+                        stroke="currentColor"
+                        stroke-width="1.4"
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                      />
+                    </svg>
+                  </UiIconButton>
+                  <UiIconButton
                     class="home-profile-row__action danger"
-                    type="button"
+                    size="sm"
+                    variant="danger"
+                    shape="square"
                     :disabled="homeProfileStore.profiles.length <= 1"
                     :title="homeProfileStore.profiles.length <= 1 ? '至少保留一个配置文件' : '删除'"
                     @click="deleteProfile(profile.key)"
                   >
-                    删除
-                  </button>
+                    <svg width="15" height="15" viewBox="0 0 16 16" aria-hidden="true" focusable="false">
+                      <path
+                        d="M3 4.25H13M6.25 4.25V3.2C6.25 2.75 6.6 2.4 7.05 2.4H8.95C9.4 2.4 9.75 2.75 9.75 3.2V4.25M5 6.1L5.35 12.45C5.4 13.15 5.9 13.6 6.6 13.6H9.4C10.1 13.6 10.6 13.15 10.65 12.45L11 6.1M7 7.25V11.35M9 7.25V11.35"
+                        fill="none"
+                        stroke="currentColor"
+                        stroke-width="1.35"
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                      />
+                    </svg>
+                  </UiIconButton>
                 </template>
               </div>
             </TransitionGroup>
