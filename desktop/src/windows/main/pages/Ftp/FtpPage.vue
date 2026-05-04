@@ -17,7 +17,6 @@ import UiDialog from '@/windows/main/components/ui/UiDialog.vue';
 import UiIconButton from '@/windows/main/components/ui/UiIconButton.vue';
 import UiInput from '@/windows/main/components/ui/UiInput.vue';
 import UiSelect from '@/windows/main/components/ui/UiSelect.vue';
-import UiTooltip from '@/windows/main/components/ui/UiTooltip.vue';
 import UiTimePicker from '@/windows/main/components/ui/UiTimePicker.vue';
 import { useConfirmDialog } from '@/windows/main/composables/useConfirmDialog';
 import { useContextMenu } from '@/windows/main/composables/useContextMenu';
@@ -2818,7 +2817,7 @@ onBeforeUnmount(() => {
           <section class="ftp-hero">
             <div class="ftp-hero__actions" aria-label="文件传输快捷操作">
               <span v-if="busyMessage" class="ftp-badge ftp-badge--accent ftp-hero__busy">{{ busyMessage }}</span>
-              <UiTooltip content="定时任务" placement="bottom">
+              <span v-tooltip="{ content: '定时任务', placement: 'bottom' }">
                 <UiIconButton size="sm" variant="ghost" title="定时任务" @click="openScheduleDialog()">
                   <svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.6"
                     stroke-linecap="round" stroke-linejoin="round">
@@ -2826,8 +2825,8 @@ onBeforeUnmount(() => {
                     <path d="M8 5v3l2 1.5" />
                   </svg>
                 </UiIconButton>
-              </UiTooltip>
-              <UiTooltip :content="`恢复标签 · ${recentClosedSessionSummary}`" placement="bottom">
+              </span>
+              <span v-tooltip="{ content: `恢复标签 · ${recentClosedSessionSummary}`, placement: 'bottom' }">
                 <UiIconButton size="sm" variant="ghost" :disabled="!recentlyClosedSessions.length"
                   :title="`恢复标签 · ${recentClosedSessionSummary}`" @click="reopenLastClosedSession()">
                   <svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.6"
@@ -2836,20 +2835,20 @@ onBeforeUnmount(() => {
                     <path d="M3.5 2.8v2.7H6.2" />
                   </svg>
                 </UiIconButton>
-              </UiTooltip>
-              <UiTooltip content="预览图片" placement="bottom">
+              </span>
+              <span v-tooltip="{ content: '预览图片', placement: 'bottom' }">
                 <UiIconButton size="sm" variant="ghost" :disabled="!canPreviewActiveImage" title="预览图片"
                   @click="previewActiveImage()">
                   <CategoryMediaIcon width="14" height="14" />
                 </UiIconButton>
-              </UiTooltip>
-              <UiTooltip content="预览文本" placement="bottom">
+              </span>
+              <span v-tooltip="{ content: '预览文本', placement: 'bottom' }">
                 <UiIconButton size="sm" variant="ghost" :disabled="!canPreviewRemoteText" title="预览文本"
                   @click="previewRemoteText()">
                   <CategoryTextIcon width="14" height="14" />
                 </UiIconButton>
-              </UiTooltip>
-              <UiTooltip content="编辑远程" placement="bottom">
+              </span>
+              <span v-tooltip="{ content: '编辑远程', placement: 'bottom' }">
                 <UiIconButton size="sm" variant="ghost" :disabled="!canEditRemoteFile" title="编辑远程"
                   @click="openRemoteEditor()">
                   <svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.6"
@@ -2858,8 +2857,8 @@ onBeforeUnmount(() => {
                     <path d="M9.5 4l2.5 2.5" />
                   </svg>
                 </UiIconButton>
-              </UiTooltip>
-              <UiTooltip content="外部编辑" placement="bottom">
+              </span>
+              <span v-tooltip="{ content: '外部编辑', placement: 'bottom' }">
                 <UiIconButton size="sm" variant="ghost" :disabled="!canEditRemoteFile" title="外部编辑"
                   @click="openExternalEditor()">
                   <svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.6"
@@ -2867,8 +2866,8 @@ onBeforeUnmount(() => {
                     <path d="M9 2h5v5M9 7l5-5M7 4H3a1 1 0 0 0-1 1v8a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1V9" />
                   </svg>
                 </UiIconButton>
-              </UiTooltip>
-              <UiTooltip content="修改权限" placement="bottom">
+              </span>
+              <span v-tooltip="{ content: '修改权限', placement: 'bottom' }">
                 <UiIconButton size="sm" variant="ghost" :disabled="!canChmodRemoteFile" title="修改权限"
                   @click="changeRemotePermissions()">
                   <svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.6"
@@ -2877,17 +2876,17 @@ onBeforeUnmount(() => {
                     <circle cx="10" cy="10" r="1.5" />
                   </svg>
                 </UiIconButton>
-              </UiTooltip>
-              <UiTooltip v-if="dualRemoteMode" :content="fxpActionLabel" placement="bottom">
-                <UiIconButton v-if="dualRemoteMode" size="sm" variant="ghost" :disabled="!canTriggerFxp"
+              </span>
+              <span v-if="dualRemoteMode" v-tooltip="{ content: fxpActionLabel, placement: 'bottom' }">
+                <UiIconButton size="sm" variant="ghost" :disabled="!canTriggerFxp"
                   :title="fxpActionLabel" @click="triggerFxpTransfer()">
                   <svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.6"
                     stroke-linecap="round" stroke-linejoin="round">
                     <path d="M2 5h12M2 11h12M11 2l3 3-3 3M5 8l-3 3 3 3" />
                   </svg>
                 </UiIconButton>
-              </UiTooltip>
-              <UiTooltip :content="terminalOpenTooltip" placement="bottom">
+              </span>
+              <span v-tooltip="{ content: terminalOpenTooltip, placement: 'bottom' }">
                 <UiIconButton size="sm" variant="secondary" :disabled="!canOpenTerminalFromFtp"
                   :title="terminalOpenTooltip" @click="openTerminalForCurrentFtp">
                   <svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.6"
@@ -2896,16 +2895,16 @@ onBeforeUnmount(() => {
                     <path d="M4 6l3 2.5L4 11M9 11h3" />
                   </svg>
                 </UiIconButton>
-              </UiTooltip>
-              <UiTooltip content="目录比较/同步" placement="bottom">
+              </span>
+              <span v-tooltip="{ content: '目录比较/同步', placement: 'bottom' }">
                 <UiIconButton size="sm" variant="secondary" title="目录比较/同步" @click="openSyncPanel">
                   <svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.6"
                     stroke-linecap="round" stroke-linejoin="round">
                     <path d="M2 4h5v8H2zM9 4h5v8H9M7 8h2" />
                   </svg>
                 </UiIconButton>
-              </UiTooltip>
-              <UiTooltip content="传输设置" placement="bottom">
+              </span>
+              <span v-tooltip="{ content: '传输设置', placement: 'bottom' }">
                 <UiIconButton size="sm" variant="secondary" title="传输设置" @click="openTransferSettingsPage">
                   <svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.6"
                     stroke-linecap="round" stroke-linejoin="round">
@@ -2914,7 +2913,7 @@ onBeforeUnmount(() => {
                       d="M8 1v2M8 13v2M1 8h2M13 8h2M3.4 3.4l1.4 1.4M11.2 11.2l1.4 1.4M3.4 12.6l1.4-1.4M11.2 4.8l1.4-1.4" />
                   </svg>
                 </UiIconButton>
-              </UiTooltip>
+              </span>
             </div>
           </section>
 

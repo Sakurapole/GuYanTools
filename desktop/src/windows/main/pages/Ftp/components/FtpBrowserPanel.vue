@@ -9,7 +9,6 @@ import UiInput from '@/windows/main/components/ui/UiInput.vue';
 import UiScrollbar from '@/windows/main/components/ui/UiScrollbar.vue';
 import UiSelect from '@/windows/main/components/ui/UiSelect.vue';
 import UiSuggestInput from '@/windows/main/components/ui/UiSuggestInput.vue';
-import UiTooltip from '@/windows/main/components/ui/UiTooltip.vue';
 import type { FileTransferEntry } from '@/contracts/ftp';
 import type { PanelFilterMode, PanelFilterState, PanelKind, PanelFilterOperator, PanelViewMode } from '../types';
 import type { PathBreadcrumb } from '../utils/ftpPaths';
@@ -446,7 +445,7 @@ onBeforeUnmount(() => {
       <div class="ftp-panel__toolrow">
         <div class="ftp-panel__breadcrumbs" :class="{ 'ftp-panel__breadcrumbs--disabled': pathInputDisabled }">
           <template v-for="(breadcrumb, index) in compactBreadcrumbs" :key="`${breadcrumb.path}:${index}`">
-            <UiTooltip :content="breadcrumb.collapsed ? pathInput : breadcrumb.label" placement="bottom" :delay="450">
+            <span v-tooltip="{ content: breadcrumb.collapsed ? pathInput : breadcrumb.label, placement: 'bottom', delay: 450 }">
               <UiIconButton
                 size="sm"
                 variant="ghost"
@@ -456,7 +455,7 @@ onBeforeUnmount(() => {
                 :label="breadcrumb.label"
                 @click="$emit('open-breadcrumb', breadcrumb.path)"
               />
-            </UiTooltip>
+            </span>
             <span v-if="index < compactBreadcrumbs.length - 1" class="ftp-panel__breadcrumb-separator">/</span>
           </template>
           <span v-if="!breadcrumbs.length" class="ftp-panel__breadcrumb-empty">未选择路径</span>
@@ -844,9 +843,11 @@ onBeforeUnmount(() => {
                 />
                 <span v-else-if="isThumbnailLoading(entry)" class="ftp-entry__thumb ftp-entry__thumb--loading" />
                 <UiFileIcon v-else :name="entry.name" :is-dir="entry.isDir" />
-                <UiTooltip :content="entry.name" placement="right" :delay="700" block>
-                  <span class="ftp-entry__name-text" v-html="highlightEntryName(entry.name, filterQuery)" />
-                </UiTooltip>
+                <span
+                  v-tooltip="{ content: entry.name, placement: 'right', delay: 700, block: true }"
+                  class="ftp-entry__name-text"
+                  v-html="highlightEntryName(entry.name, filterQuery)"
+                />
               </div>
               <template v-if="viewMode === 'details'">
                 <div class="ftp-entry__meta ftp-entry__meta--align-right">{{ sizeValue(entry) }}</div>

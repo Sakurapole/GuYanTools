@@ -1,6 +1,5 @@
 <script setup lang="ts">
 import { computed } from 'vue';
-import UiTooltip from './UiTooltip.vue';
 import type { UiTreeEventPayload, UiTreeNodeData } from './ui_tree';
 
 defineOptions({ name: 'UiTreeNodeItem' });
@@ -131,10 +130,10 @@ function handleDrop(event: DragEvent) {
       </span>
 
       <span class="ui-tree-node__content">
-        <UiTooltip v-if="node.tooltip" :content="node.tooltip" placement="right" :delay="450" block>
-          <span class="ui-tree-node__label">{{ node.label }}</span>
-        </UiTooltip>
-        <span v-else class="ui-tree-node__label">{{ node.label }}</span>
+        <span
+          v-tooltip="{ content: node.tooltip, placement: 'right', delay: 450, block: true, disabled: !node.tooltip }"
+          class="ui-tree-node__label"
+        >{{ node.label }}</span>
         <span v-if="node.meta" class="ui-tree-node__meta">{{ node.meta }}</span>
       </span>
 

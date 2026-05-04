@@ -2094,7 +2094,7 @@
   border: 1px dashed var(--ui-border-subtle);
 }
 
-// UiTooltip block 容器占满剩余宽度
+// tooltip block 触发区域占满剩余宽度
 .ftp-entry__name .ui-tooltip-trigger--block {
   flex: 1;
   min-width: 0;

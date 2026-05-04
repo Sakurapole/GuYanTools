@@ -3,7 +3,6 @@ import { computed, defineAsyncComponent, nextTick, onActivated, onBeforeUnmount,
 import { useRoute, useRouter } from 'vue-router';
 import UiButton from '@/windows/main/components/ui/UiButton.vue';
 import UiPopupSurface from '@/windows/main/components/ui/UiPopupSurface.vue';
-import UiTooltip from '@/windows/main/components/ui/UiTooltip.vue';
 import { useGlobalStore } from '@/windows/main/stores/global_store';
 import { useTerminalStore } from '@/windows/main/stores/terminal_store';
 import { useAppConfigStore } from '@/windows/main/stores/app_config_store';
@@ -766,66 +765,59 @@ onBeforeUnmount(() => {
         <!-- Terminal Tab: local sessions -->
         <Transition name="ui-tab-fade">
         <div v-show="sidebarTab === 'terminal'" class="terminal-sidebar__sessions">
-          <UiTooltip
+          <div
             v-for="session in displaySessions"
             :key="session.sessionId"
-            :content="session.profileLabel"
-            placement="right"
-            :delay="350"
-            :disabled="!sidebarCollapsed"
-            block
+            v-tooltip="{ content: session.profileLabel, placement: 'right', delay: 350, disabled: !sidebarCollapsed, block: true }"
+            class="terminal-session-item"
+            :class="{ 'terminal-session-item--active': session.sessionId === activeSession?.sessionId }"
+            @click="focusSession(session.sessionId)"
           >
-            <div
-              class="terminal-session-item"
-              :class="{ 'terminal-session-item--active': session.sessionId === activeSession?.sessionId }"
-              @click="focusSession(session.sessionId)"
-            >
-              <div class="terminal-session-item__left">
-                <span
-                  class="status-dot"
-                  :class="session.status === 'running' ? 'status-dot--running' : 'status-dot--stopped'"
+            <div class="terminal-session-item__left">
+              <span
+                class="status-dot"
+                :class="session.status === 'running' ? 'status-dot--running' : 'status-dot--stopped'"
+              />
+              <template v-if="!sidebarCollapsed">
+                <TerminalProfileIcon
+                  class="terminal-session-item__profile-icon"
+                  :profile-id="session.profileId"
+                  :command="findProfileForSession(session)?.command"
+                  :label="session.profileLabel"
+                  :size="16"
                 />
-                <template v-if="!sidebarCollapsed">
-                  <TerminalProfileIcon
-                    class="terminal-session-item__profile-icon"
-                    :profile-id="session.profileId"
-                    :command="findProfileForSession(session)?.command"
-                    :label="session.profileLabel"
-                    :size="16"
-                  />
-                  <input
-                    v-if="sidebarEditingId === session.sessionId"
-                    ref="sidebarInputRef"
-                    v-model="sidebarEditValue"
-                    class="terminal-session-item__input"
-                    @blur="commitSidebarRename(session.sessionId)"
-                    @keydown="handleSidebarKeydown($event, session.sessionId)"
-                    @click.stop
-                  />
-                  <span
-                    v-else
-                    class="terminal-session-item__title terminal-session-item__title--editable"
-                    @click.stop="startSidebarRename(session, $event)"
-                  >{{ session.profileLabel }}</span>
-                </template>
-              </div>
-              <div v-show="!sidebarCollapsed" class="terminal-session-item__right">
-                <span class="terminal-session-item__badge"
-                  :class="session.status === 'running' ? 'badge--running' : 'badge--stopped'">
-                  {{ session.status === 'running' ? 'Running' : 'Stopped' }}
-                </span>
-                <button
-                  class="terminal-session-item__close"
-                  title="关闭会话"
-                  @click.stop="closeSession(session.sessionId)"
-                >
-                  <svg viewBox="0 0 24 24" width="12" height="12" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round">
-                    <line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" />
-                  </svg>
-                </button>
-              </div>
+                <input
+                  v-if="sidebarEditingId === session.sessionId"
+                  ref="sidebarInputRef"
+                  v-model="sidebarEditValue"
+                  class="terminal-session-item__input"
+                  @blur="commitSidebarRename(session.sessionId)"
+                  @keydown="handleSidebarKeydown($event, session.sessionId)"
+                  @click.stop
+                />
+                <span
+                  v-else
+                  class="terminal-session-item__title terminal-session-item__title--editable"
+                  @click.stop="startSidebarRename(session, $event)"
+                >{{ session.profileLabel }}</span>
+              </template>
             </div>
-          </UiTooltip>
+            <div v-show="!sidebarCollapsed" class="terminal-session-item__right">
+              <span class="terminal-session-item__badge"
+                :class="session.status === 'running' ? 'badge--running' : 'badge--stopped'">
+                {{ session.status === 'running' ? 'Running' : 'Stopped' }}
+              </span>
+              <button
+                class="terminal-session-item__close"
+                title="关闭会话"
+                @click.stop="closeSession(session.sessionId)"
+              >
+                <svg viewBox="0 0 24 24" width="12" height="12" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round">
+                  <line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" />
+                </svg>
+              </button>
+            </div>
+          </div>
         </div>
         </Transition>
 

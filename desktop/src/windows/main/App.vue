@@ -139,6 +139,7 @@ onBeforeUnmount(() => {
 @use './assets/theme.scss';
 @use './assets/patterns.scss';
 @use './assets/motion.scss';
+@use './assets/tooltip.scss';
 @use './assets/app.scss';
 
 .logo {

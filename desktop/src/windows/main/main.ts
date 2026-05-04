@@ -4,6 +4,7 @@ import { createPinia } from 'pinia'
 import { createApp } from 'vue'
 import App from './App.vue'
 import ripple from './directives/ripple'
+import tooltip from './directives/tooltip'
 import './global.css'
 import { registerPluginRoutes, router } from './routes/router'
 import { useAppConfigStore } from './stores/app_config_store'
@@ -39,6 +40,7 @@ async function bootstrap() {
   const pinia = createPinia();
   const app = createApp(App);
   app.directive('ripple', ripple);
+  app.directive('tooltip', tooltip);
   app.use(router);
   app.use(pinia);
   app.use(i18n);
