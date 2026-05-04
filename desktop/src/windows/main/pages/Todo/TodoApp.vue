@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { onActivated, onDeactivated, onMounted, ref, provide, watch } from 'vue';
+import { computed, onActivated, onDeactivated, onMounted, ref, provide, watch } from 'vue';
 import { useTodoStore } from '@/windows/main/stores/todo_store';
 import { useTodoListStore } from '@/windows/main/stores/todo_list_store';
 import { useTodoSettings, type AreaBackground } from '@/windows/main/composables/useTodoSettings';
@@ -20,6 +20,10 @@ const globalStore = useGlobalStore();
 
 const bgPickerVisible = ref(false);
 const currentBgTarget = ref<'app' | 'sidebar' | 'content' | 'detail'>('app');
+const todoAppRef = ref<HTMLElement | null>(null);
+const todoSidebarRef = ref<{ $el?: Element } | null>(null);
+const todoContentRef = ref<{ $el?: Element } | null>(null);
+const todoDetailRef = ref<{ $el?: Element } | null>(null);
 
 function openBgPicker(target: 'app' | 'sidebar' | 'content' | 'detail') {
   currentBgTarget.value = target;
@@ -59,6 +63,28 @@ const currentBgConfig = () => {
   return detailBg.value;
 };
 
+function getMeasuredSize(target: HTMLElement | { $el?: Element } | null, fallback: { width: number; height: number }) {
+  const element = target instanceof HTMLElement
+    ? target
+    : target?.$el instanceof HTMLElement
+      ? target.$el
+      : null;
+
+  if (!element) return fallback;
+
+  const rect = element.getBoundingClientRect();
+  return rect.width > 0 && rect.height > 0
+    ? { width: Math.round(rect.width), height: Math.round(rect.height) }
+    : fallback;
+}
+
+const currentBgPreviewSize = computed(() => {
+  if (currentBgTarget.value === 'app') return getMeasuredSize(todoAppRef.value, { width: 960, height: 640 });
+  if (currentBgTarget.value === 'sidebar') return getMeasuredSize(todoSidebarRef.value, { width: 260, height: 640 });
+  if (currentBgTarget.value === 'content') return getMeasuredSize(todoContentRef.value, { width: 640, height: 640 });
+  return getMeasuredSize(todoDetailRef.value, { width: 320, height: 640 });
+});
+
 function syncTopbarColor() {
   const bg = appBg.value;
   globalStore.setTopbarColor(bg.type === 'color' && bg.color ? bg.color : '');
@@ -87,12 +113,12 @@ watch(() => appBg.value, () => {
 </script>
 
 <template>
-  <div class="todo-app" @contextmenu.prevent="handleContextMenu">
+  <div ref="todoAppRef" class="todo-app" @contextmenu.prevent="handleContextMenu">
     <TodoBackground :config="appBg" />
-    <TodoSidebar />
-    <TodoContent />
+    <TodoSidebar ref="todoSidebarRef" />
+    <TodoContent ref="todoContentRef" />
     <transition name="slide-right">
-      <TodoDetail v-if="todoStore.selectedTodo" />
+      <TodoDetail v-if="todoStore.selectedTodo" ref="todoDetailRef" />
     </transition>
     <YesterdayPrompt v-if="todoStore.showYesterdayPrompt" />
 
@@ -102,6 +128,8 @@ watch(() => appBg.value, () => {
       :current-background-image="currentBgConfig().type === 'image' ? currentBgConfig().image : ''"
       :current-background-video="currentBgConfig().type === 'video' ? currentBgConfig().video : ''"
       :current-background-style="currentBgConfig().backgroundStyle"
+      :preview-width="currentBgPreviewSize.width"
+      :preview-height="currentBgPreviewSize.height"
       @close="bgPickerVisible = false"
       @confirm="handleBgConfirm"
     />

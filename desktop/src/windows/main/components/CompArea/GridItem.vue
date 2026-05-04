@@ -199,7 +199,7 @@ function handleWidgetEditorConfirm(payload: WidgetEditPayload) {
       <img v-if="useImgTag" class="grid-item__background-image" :src="props.item.backgroundImage" alt=""
         :style="backgroundImageStyle" decoding="async" draggable="false" />
       <video v-if="props.item.backgroundVideo" class="grid-item__background-video" :src="props.item.backgroundVideo" autoplay loop
-        muted playsinline />
+        muted playsinline :style="backgroundImageStyle" />
     </div>
 
     <div class="grid-item__content">

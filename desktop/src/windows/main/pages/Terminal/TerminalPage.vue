@@ -41,6 +41,8 @@ const appConfigStore = useAppConfigStore();
 
 const viewportRef = ref<InstanceType<typeof TerminalViewport> | null>(null);
 const searchPanelRef = ref<InstanceType<typeof TerminalSearchPanel> | null>(null);
+const terminalMainRef = ref<HTMLElement | null>(null);
+const terminalStageRef = ref<HTMLElement | null>(null);
 const searchVisible = ref(false);
 const searchQuery = ref('');
 const searchResultIndex = ref(-1);
@@ -348,6 +350,19 @@ const termBgImage = computed(() => activeTerminalBackground.value.image);
 const termBgVideo = computed(() => activeTerminalBackground.value.video);
 const termBgStyle = computed(() => activeTerminalBackground.value.style);
 const bgPickerVisible = ref(false);
+
+function getMeasuredElementSize(element: HTMLElement | null, fallback: { width: number; height: number }) {
+  if (!element) return fallback;
+
+  const rect = element.getBoundingClientRect();
+  return rect.width > 0 && rect.height > 0
+    ? { width: Math.round(rect.width), height: Math.round(rect.height) }
+    : fallback;
+}
+
+const terminalBgPreviewSize = computed(() => (
+  getMeasuredElementSize(terminalStageRef.value ?? terminalMainRef.value, { width: 320, height: 200 })
+));
 
 function findProfileForSession(session: TerminalSessionDescriptor) {
   return terminalStore.profiles.find((profile) => profile.id === session.profileId) ?? null;
@@ -835,7 +850,7 @@ onBeforeUnmount(() => {
       </div>
 
       <!-- Main content area -->
-      <div class="terminal-main">
+      <div ref="terminalMainRef" class="terminal-main">
         <TerminalToolbar :profiles="terminalStore.profiles" :active-session="activeSession"
           :renderer-mode="rendererMode" :new-session-profile-id="newSessionProfileId"
           :color-scheme-id="colorSchemeId"
@@ -881,7 +896,7 @@ onBeforeUnmount(() => {
         </div>
         </Transition>
 
-        <div v-if="activeViewportSessionId" class="terminal-stage">
+        <div v-if="activeViewportSessionId" ref="terminalStageRef" class="terminal-stage">
           <TerminalViewport
             :key="`${activeViewportSessionId}:${rendererMode}:${enableSixel}:${hasCustomBg}`"
             ref="viewportRef"
@@ -985,6 +1000,8 @@ onBeforeUnmount(() => {
       :current-background-image="termBgImage"
       :current-background-video="termBgVideo"
       :current-background-style="termBgStyle"
+      :preview-width="terminalBgPreviewSize.width"
+      :preview-height="terminalBgPreviewSize.height"
       @close="bgPickerVisible = false"
       @confirm="handleBgConfirm"
     />

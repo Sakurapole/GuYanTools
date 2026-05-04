@@ -44,6 +44,13 @@ const isProcessing = ref(false);
 const processingProgress = ref(0);
 const needsCrop = ref(false);
 
+const targetAspect = computed(() => {
+  if (props.targetWidth > 0 && props.targetHeight > 0) {
+    return props.targetWidth / props.targetHeight;
+  }
+  return 1;
+});
+
 const cropBoxStyle = computed(() => ({
   left: `${cropBox.value.x}px`,
   top: `${cropBox.value.y}px`,
@@ -71,8 +78,11 @@ function initializeVideo() {
   const natH = video.videoHeight;
   videoNaturalSize.value = { width: natW, height: natH };
 
-  // 检查是否需要裁剪
-  needsCrop.value = natW > props.targetWidth || natH > props.targetHeight;
+  // 检查是否需要裁剪：尺寸超出或比例与目标区域不一致时，都需要按目标比例框选。
+  const videoAspect = natW / natH;
+  needsCrop.value = natW > props.targetWidth
+    || natH > props.targetHeight
+    || Math.abs(videoAspect - targetAspect.value) > 0.01;
 
   // 缩放以适配容器
   const vRatio = natW / natH;
@@ -91,19 +101,13 @@ function initializeVideo() {
   videoOffset.value = { x: (cW - dW) / 2, y: (cH - dH) / 2 };
 
   // 初始化裁剪框 — 使用目标区域的宽高比
-  const targetAspect = props.targetWidth / props.targetHeight;
   let boxW: number, boxH: number;
 
   if (needsCrop.value) {
     // 按目标比例设置裁剪框，占显示区域 70%
-    const maxDim = Math.min(dW, dH) * 0.7;
-    if (targetAspect > 1) {
-      boxW = maxDim;
-      boxH = maxDim / targetAspect;
-    } else {
-      boxH = maxDim;
-      boxW = maxDim * targetAspect;
-    }
+    const fitted = getFittedCropSize(dW, dH, targetAspect.value, 0.7);
+    boxW = fitted.width;
+    boxH = fitted.height;
   } else {
     boxW = dW;
     boxH = dH;
@@ -115,6 +119,21 @@ function initializeVideo() {
     width: boxW,
     height: boxH,
   };
+}
+
+function getFittedCropSize(maxWidth: number, maxHeight: number, aspect: number, scale = 1) {
+  const boundedAspect = aspect > 0 ? aspect : 1;
+  const scaledMaxWidth = maxWidth * scale;
+  const scaledMaxHeight = maxHeight * scale;
+  let width = scaledMaxWidth;
+  let height = width / boundedAspect;
+
+  if (height > scaledMaxHeight) {
+    height = scaledMaxHeight;
+    width = height * boundedAspect;
+  }
+
+  return { width, height };
 }
 
 function handleMouseDown(e: MouseEvent, handle?: 'tl' | 'tr' | 'bl' | 'br') {
@@ -148,33 +167,42 @@ function handleMouseMove(e: MouseEvent) {
     cropBox.value.y = Math.max(minY, Math.min(maxY, newY));
   } else if (isResizing.value && resizeHandle.value) {
     const handle = resizeHandle.value;
-    let newX = cropBox.value.x;
-    let newY = cropBox.value.y;
-    let newW = cropBox.value.width;
-    let newH = cropBox.value.height;
+    const aspect = targetAspect.value;
+    const minX = videoOffset.value.x;
+    const minY = videoOffset.value.y;
+    const maxX = videoOffset.value.x + videoDisplaySize.value.width;
+    const maxY = videoOffset.value.y + videoDisplaySize.value.height;
+    const fromLeft = handle.includes('l');
+    const fromTop = handle.includes('t');
+    const anchorX = fromLeft ? cropBox.value.x + cropBox.value.width : cropBox.value.x;
+    const anchorY = fromTop ? cropBox.value.y + cropBox.value.height : cropBox.value.y;
+    const maxWidth = fromLeft ? anchorX - minX : maxX - anchorX;
+    const maxHeight = fromTop ? anchorY - minY : maxY - anchorY;
+    const proposedWidth = fromLeft ? cropBox.value.width - dx : cropBox.value.width + dx;
+    const proposedHeight = fromTop ? cropBox.value.height - dy : cropBox.value.height + dy;
+    const minWidth = Math.min(40, maxWidth);
+    const minHeight = Math.min(minWidth / aspect, maxHeight);
+    let nextWidth = Math.abs(dx) >= Math.abs(dy)
+      ? proposedWidth
+      : proposedHeight * aspect;
+    nextWidth = Math.max(minWidth, Math.min(maxWidth, nextWidth));
+    let nextHeight = nextWidth / aspect;
 
-    if (handle.includes('l')) { newX += dx; newW -= dx; }
-    else if (handle.includes('r')) { newW += dx; }
-
-    if (handle.includes('t')) { newY += dy; newH -= dy; }
-    else if (handle.includes('b')) { newH += dy; }
-
-    const minSize = 40;
-    if (newW >= minSize && newH >= minSize) {
-      const minX = videoOffset.value.x;
-      const minY = videoOffset.value.y;
-      const maxX = videoOffset.value.x + videoDisplaySize.value.width;
-      const maxY = videoOffset.value.y + videoDisplaySize.value.height;
-
-      if (newX >= minX && newX + newW <= maxX) {
-        cropBox.value.x = newX;
-        cropBox.value.width = newW;
-      }
-      if (newY >= minY && newY + newH <= maxY) {
-        cropBox.value.y = newY;
-        cropBox.value.height = newH;
+    if (nextHeight > maxHeight) {
+      nextHeight = Math.max(minHeight, maxHeight);
+      nextWidth = nextHeight * aspect;
+      if (nextWidth > maxWidth) {
+        nextWidth = maxWidth;
+        nextHeight = nextWidth / aspect;
       }
     }
+
+    cropBox.value = {
+      x: fromLeft ? anchorX - nextWidth : anchorX,
+      y: fromTop ? anchorY - nextHeight : anchorY,
+      width: nextWidth,
+      height: nextHeight,
+    };
   }
 
   dragStart.value = { x: e.clientX, y: e.clientY };

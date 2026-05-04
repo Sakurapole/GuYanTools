@@ -594,6 +594,24 @@ const categoryBgStyle = computed(() => {
   return style;
 });
 
+function toObjectFit(backgroundSizeValue: string): 'contain' | 'cover' | 'fill' | 'none' {
+  switch (backgroundSizeValue) {
+    case 'contain':
+      return 'contain';
+    case '100% 100%':
+      return 'fill';
+    case 'auto':
+      return 'none';
+    default:
+      return 'cover';
+  }
+}
+
+const categoryBgVideoStyle = computed(() => ({
+  objectFit: toObjectFit(catBgSize.value),
+  objectPosition: catBgPosition.value,
+}));
+
 const hasCategoryBackground = computed(() => {
   return Boolean(catBgColor.value || catBgImage.value || catBgVideo.value);
 });
@@ -695,6 +713,7 @@ onDeactivated(disableCategoryVideoAutoplay);
         ref="categoryBgVideoRef"
         class="comp-area-bg__video"
         :src="catBgVideo"
+        :style="categoryBgVideoStyle"
         autoplay
         loop
         muted

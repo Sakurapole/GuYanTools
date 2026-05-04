@@ -27,6 +27,24 @@ const baseStyle = computed(() => {
 
   return style;
 });
+
+function toObjectFit(backgroundSizeValue: string): 'contain' | 'cover' | 'fill' | 'none' {
+  switch (backgroundSizeValue) {
+    case 'contain':
+      return 'contain';
+    case '100% 100%':
+      return 'fill';
+    case 'auto':
+      return 'none';
+    default:
+      return 'cover';
+  }
+}
+
+const videoStyle = computed(() => ({
+  objectFit: toObjectFit(props.config.backgroundStyle?.backgroundSize || 'cover'),
+  objectPosition: props.config.backgroundStyle?.backgroundPosition || 'center',
+}));
 </script>
 
 <template>
@@ -35,6 +53,7 @@ const baseStyle = computed(() => {
       v-if="config.type === 'video' && config.video"
       :src="config.video"
       class="bg-video"
+      :style="videoStyle"
       autoplay
       loop
       muted

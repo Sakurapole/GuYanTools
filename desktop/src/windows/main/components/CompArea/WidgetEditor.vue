@@ -797,6 +797,7 @@ watch(() => props.visible, (visible) => {
 
     <!-- 图片裁剪器 -->
     <ImageCropper v-if="showCropper" :visible="showCropper" :image="originalImage"
+      :target-width="props.previewWidth" :target-height="props.previewHeight"
       :processing-mode="imageProcessMode" :quality="compressQuality"
       @close="handleCropperClose" @confirm="handleCropperConfirm" />
 

@@ -3,6 +3,7 @@ export type BackgroundStyleConfig = {
   backgroundPosition?: string;
   backgroundRepeat?: string;
   opacity?: number;
+  fitMode?: 'crop' | 'style';
 };
 
 export type BackgroundConfirmPayload = {

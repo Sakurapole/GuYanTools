@@ -51,7 +51,10 @@ const Ui3DFloatingShapesComponent = defineAsyncComponent(() => import('../../com
 
 const homeShellRef = ref<HTMLElement | null>(null);
 const compAreaWrapper = ref<HTMLElement | null>(null);
+const compAreaStageRef = ref<HTMLElement | null>(null);
 const categoryListRef = ref<HTMLElement | null>(null);
+const homeHeaderRef = ref<HTMLElement | null>(null);
+const sidebarPanelRef = ref<{ $el?: Element } | null>(null);
 
 // 3D scene objects for header decoration
 const header3DScene = shallowRef<THREE.Scene | null>(null);
@@ -132,6 +135,38 @@ const globalStore = useGlobalStore();
 const homeProfileStore = useHomeProfileStore();
 let profileReloadReady = false;
 
+function getMeasuredSize(target: HTMLElement | { $el?: Element } | null, fallback: { width: number; height: number }) {
+  const element = target instanceof HTMLElement
+    ? target
+    : target?.$el instanceof HTMLElement
+      ? target.$el
+      : null;
+
+  if (!element) return fallback;
+
+  const rect = element.getBoundingClientRect();
+  return rect.width > 0 && rect.height > 0
+    ? { width: Math.round(rect.width), height: Math.round(rect.height) }
+    : fallback;
+}
+
+const categoryBgPreviewSize = computed(() => getMeasuredSize(compAreaStageRef.value ?? compAreaWrapper.value, { width: 800, height: 500 }));
+const headerBgPreviewSize = computed(() => getMeasuredSize(homeHeaderRef.value, { width: 800, height: 120 }));
+const sidebarBgPreviewSize = computed(() => getMeasuredSize(sidebarPanelRef.value, { width: 200, height: 600 }));
+
+function toObjectFit(backgroundSizeValue?: string): 'contain' | 'cover' | 'fill' | 'none' {
+  switch (backgroundSizeValue) {
+    case 'contain':
+      return 'contain';
+    case '100% 100%':
+      return 'fill';
+    case 'auto':
+      return 'none';
+    default:
+      return 'cover';
+  }
+}
+
 // ─── 顶栏背景 ───
 const HEADER_BG_STORAGE_KEY = 'home-header-background';
 const headerBg = reactive({
@@ -157,6 +192,11 @@ const headerBgStyle = computed(() => {
   }
   return s;
 });
+
+const headerBgVideoStyle = computed(() => ({
+  objectFit: toObjectFit(headerBg.style?.backgroundSize),
+  objectPosition: headerBg.style?.backgroundPosition || 'center',
+}));
 
 function handleHeaderContextMenu(e: MouseEvent) {
   e.preventDefault();
@@ -227,6 +267,11 @@ const sidebarBgStyle = computed(() => {
   }
   return s;
 });
+
+const sidebarBgVideoStyle = computed(() => ({
+  objectFit: toObjectFit(sidebarBg.style?.backgroundSize),
+  objectPosition: sidebarBg.style?.backgroundPosition || 'center',
+}));
 
 function handleSidebarContextMenu(e: MouseEvent) {
   e.preventDefault();
@@ -793,9 +838,9 @@ watch(() => homeProfileStore.activeProfileKey, (key, previousKey) => {
   <div class="home-shell" ref="homeShellRef">
     <div class="home-container">
       <aside class="category-sidebar" @contextmenu="handleSidebarContextMenu">
-        <UiCard class="sidebar-panel" variant="elevated" :bordered="false" padding="none" radius="lg" :style="sidebarBgStyle">
-          <video v-if="sidebarBg.video" class="sidebar-panel__video" :src="sidebarBg.video" autoplay loop muted
-            playsinline />
+        <UiCard ref="sidebarPanelRef" class="sidebar-panel" variant="elevated" :bordered="false" padding="none" radius="lg" :style="sidebarBgStyle">
+          <video v-if="sidebarBg.video" class="sidebar-panel__video" :src="sidebarBg.video" :style="sidebarBgVideoStyle"
+            autoplay loop muted playsinline />
           <div class="sidebar-heading">
             <span class="sidebar-heading__title">分类导航</span>
           </div>
@@ -838,9 +883,9 @@ watch(() => homeProfileStore.activeProfileKey, (key, previousKey) => {
       </aside>
 
       <section class="home-stage">
-        <header class="home-stage__header" :style="headerBgStyle" @contextmenu="handleHeaderContextMenu">
-          <video v-if="headerBg.video" class="home-stage__header-video" :src="headerBg.video" autoplay loop muted
-            playsinline />
+        <header ref="homeHeaderRef" class="home-stage__header" :style="headerBgStyle" @contextmenu="handleHeaderContextMenu">
+          <video v-if="headerBg.video" class="home-stage__header-video" :src="headerBg.video" :style="headerBgVideoStyle"
+            autoplay loop muted playsinline />
           <!-- 3D ambient decoration behind header content -->
           <Ui3DSceneComponent
             class="home-stage__header-3d"
@@ -892,7 +937,7 @@ watch(() => homeProfileStore.activeProfileKey, (key, previousKey) => {
                 :description="loadError ? '请稍后重试，或检查布局数据。' : '从左侧添加一个类别，开始组织你的工具。'" />
             </div>
 
-            <div v-else class="comp-area-stage">
+            <div v-else ref="compAreaStageRef" class="comp-area-stage">
               <!-- Slot A -->
               <div class="comp-area-container" :class="getSlotClasses('A')" :style="getSlotStyle('A')">
                 <CompArea v-if="slotACategory" :category="slotACategory" :config="gridConfig"
@@ -957,19 +1002,22 @@ watch(() => homeProfileStore.activeProfileKey, (key, previousKey) => {
     <UiBackgroundPicker :visible="showCategoryBgPicker" :currentBackground="activeCategory?.backgroundColor"
       :currentBackgroundImage="activeCategory?.backgroundImage"
       :currentBackgroundVideo="activeCategory?.backgroundVideo"
-      :currentBackgroundStyle="activeCategory?.backgroundStyle" :preview-width="800" :preview-height="500"
+      :currentBackgroundStyle="activeCategory?.backgroundStyle"
+      :preview-width="categoryBgPreviewSize.width" :preview-height="categoryBgPreviewSize.height"
       @close="closeCategoryBgPicker" @confirm="handleCategoryBgConfirm" />
 
     <!-- 顶栏背景选择器 -->
     <UiBackgroundPicker :visible="showHeaderBgPicker" :currentBackground="headerBg.color"
       :currentBackgroundImage="headerBg.image" :currentBackgroundVideo="headerBg.video"
-      :currentBackgroundStyle="headerBg.style" :preview-width="800" :preview-height="120"
+      :currentBackgroundStyle="headerBg.style"
+      :preview-width="headerBgPreviewSize.width" :preview-height="headerBgPreviewSize.height"
       @close="showHeaderBgPicker = false" @confirm="handleHeaderBgConfirm" />
 
     <!-- 侧边栏背景选择器 -->
     <UiBackgroundPicker :visible="showSidebarBgPicker" :currentBackground="sidebarBg.color"
       :currentBackgroundImage="sidebarBg.image" :currentBackgroundVideo="sidebarBg.video"
-      :currentBackgroundStyle="sidebarBg.style" :preview-width="200" :preview-height="600"
+      :currentBackgroundStyle="sidebarBg.style"
+      :preview-width="sidebarBgPreviewSize.width" :preview-height="sidebarBgPreviewSize.height"
       @close="showSidebarBgPicker = false" @confirm="handleSidebarBgConfirm" />
   </div>
 </template>

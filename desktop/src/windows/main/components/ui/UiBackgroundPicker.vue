@@ -34,6 +34,7 @@ const emit = defineEmits<{
 }>();
 
 type BackgroundTab = 'color' | 'image' | 'video';
+type BackgroundFitMode = 'crop' | 'style';
 
 const activeTab = ref<BackgroundTab>('color');
 const activeTabTransition = ref('ui-tab-forward');
@@ -58,6 +59,7 @@ const bgSize = ref(props.currentBackgroundStyle?.backgroundSize || 'cover');
 const bgPosition = ref(props.currentBackgroundStyle?.backgroundPosition || 'center');
 const bgRepeat = ref(props.currentBackgroundStyle?.backgroundRepeat || 'no-repeat');
 const bgOpacity = ref(props.currentBackgroundStyle?.opacity ?? 1);
+const bgFitMode = ref<BackgroundFitMode>('crop');
 
 // ─── FFmpeg 处理选项 ───
 const appConfigStore = useAppConfigStore();
@@ -90,6 +92,11 @@ const bgSizeOptions = [
   { label: '适应 (contain)', value: 'contain' },
   { label: '原始 (auto)', value: 'auto' },
   { label: '拉伸 (100% 100%)', value: '100% 100%' },
+];
+
+const bgFitModeOptions = [
+  { label: '按比例裁剪', key: 'crop' },
+  { label: '填充模式', key: 'style' },
 ];
 
 const bgRepeatOptions = [
@@ -459,11 +466,17 @@ watch(activeTab, (next, previous) => {
     : 'ui-tab-back';
 });
 
-// 预览框按目标区域等比缩放，最大宽度 100%, 最大高度 160px
-const previewBoxStyle = computed(() => {
+const targetPreviewSize = computed(() => {
+  const width = Number.isFinite(props.previewWidth) && props.previewWidth > 0 ? props.previewWidth : 320;
+  const height = Number.isFinite(props.previewHeight) && props.previewHeight > 0 ? props.previewHeight : 200;
+  return { width, height };
+});
+
+// 预览框按目标区域等比缩放，外层框本身保持真实区域比例。
+const previewFrameStyle = computed(() => {
   const maxW = 500;
   const maxH = 130;
-  const aspect = props.previewWidth / props.previewHeight;
+  const aspect = targetPreviewSize.value.width / targetPreviewSize.value.height;
   let w = maxW;
   let h = w / aspect;
 
@@ -472,20 +485,30 @@ const previewBoxStyle = computed(() => {
     w = h * aspect;
   }
 
-  const base: Record<string, string> = {
+  return {
     width: `${w}px`,
     height: `${h}px`,
     margin: '0 auto',
   };
+});
+
+const previewBoxStyle = computed(() => {
+  const base: Record<string, string> = {
+    width: '100%',
+    height: '100%',
+  };
+  const effectiveSize = bgFitMode.value === 'crop' ? 'cover' : bgSize.value;
+  const effectivePosition = bgFitMode.value === 'crop' ? 'center' : bgPosition.value;
+  const effectiveRepeat = bgFitMode.value === 'crop' ? 'no-repeat' : bgRepeat.value;
 
   if (activeTab.value === 'color') {
     base.background = selectedColor.value;
     if (bgOpacity.value < 1) base.opacity = String(bgOpacity.value);
   } else if (activeTab.value === 'image' && selectedImage.value) {
     base.backgroundImage = `url(${selectedImage.value})`;
-    base.backgroundSize = bgSize.value;
-    base.backgroundPosition = bgPosition.value;
-    base.backgroundRepeat = bgRepeat.value;
+    base.backgroundSize = effectiveSize;
+    base.backgroundPosition = effectivePosition;
+    base.backgroundRepeat = effectiveRepeat;
     if (bgOpacity.value < 1) base.opacity = String(bgOpacity.value);
   } else if (activeTab.value === 'video') {
     base.background = '#1a1a2e';
@@ -496,6 +519,24 @@ const previewBoxStyle = computed(() => {
 
   return base;
 });
+
+function toObjectFit(backgroundSizeValue: string): 'contain' | 'cover' | 'fill' | 'none' {
+  switch (backgroundSizeValue) {
+    case 'contain':
+      return 'contain';
+    case '100% 100%':
+      return 'fill';
+    case 'auto':
+      return 'none';
+    default:
+      return 'cover';
+  }
+}
+
+const previewVideoStyle = computed(() => ({
+  objectFit: toObjectFit(bgFitMode.value === 'crop' ? 'cover' : bgSize.value),
+  objectPosition: bgFitMode.value === 'crop' ? 'center' : bgPosition.value,
+}));
 
 function handleColorSelect(color: string) {
   selectedColor.value = color;
@@ -513,7 +554,13 @@ function handleImageChange(event: Event) {
   const reader = new FileReader();
   reader.onload = (e) => {
     originalImage.value = e.target?.result as string;
-    showCropper.value = true;
+    if (bgFitMode.value === 'crop') {
+      showCropper.value = true;
+    } else {
+      selectedImage.value = originalImage.value;
+      originalImage.value = '';
+      if (imageInput.value) imageInput.value.value = '';
+    }
   };
   reader.readAsDataURL(file);
 }
@@ -543,6 +590,16 @@ function handleVideoChange(event: Event) {
   const target = event.target as HTMLInputElement;
   const file = target.files?.[0];
   if (!file) return;
+
+  if (bgFitMode.value === 'style') {
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      selectedVideo.value = e.target?.result as string;
+      if (videoInput.value) videoInput.value.value = '';
+    };
+    reader.readAsDataURL(file);
+    return;
+  }
 
   const url = URL.createObjectURL(file);
   originalVideoUrl.value = url;
@@ -577,11 +634,13 @@ function handleClearVideo() {
 }
 
 function handleConfirm() {
+  const usesCropMode = bgFitMode.value === 'crop' && activeTab.value !== 'color';
   const backgroundStyle: BackgroundStyleConfig = {
-    backgroundSize: bgSize.value,
-    backgroundPosition: bgPosition.value,
-    backgroundRepeat: bgRepeat.value,
+    backgroundSize: usesCropMode ? 'cover' : bgSize.value,
+    backgroundPosition: usesCropMode ? 'center' : bgPosition.value,
+    backgroundRepeat: usesCropMode || activeTab.value === 'video' ? 'no-repeat' : bgRepeat.value,
     opacity: bgOpacity.value,
+    fitMode: activeTab.value === 'color' ? undefined : bgFitMode.value,
   };
 
   if (activeTab.value === 'color') {
@@ -613,6 +672,12 @@ watch(() => props.visible, (visible) => {
     bgPosition.value = props.currentBackgroundStyle?.backgroundPosition || 'center';
     bgRepeat.value = props.currentBackgroundStyle?.backgroundRepeat || 'no-repeat';
     bgOpacity.value = props.currentBackgroundStyle?.opacity ?? 1;
+    bgFitMode.value = props.currentBackgroundStyle?.fitMode
+      ?? (
+        props.currentBackgroundStyle?.backgroundSize && props.currentBackgroundStyle.backgroundSize !== 'cover'
+          ? 'style'
+          : 'crop'
+      );
 
     // 自动选择合适的 tab
     if (props.currentBackgroundVideo) {
@@ -652,10 +717,14 @@ watch(() => props.visible, (visible) => {
 
     <!-- 预览区域 -->
     <div class="bg-picker__preview">
-      <div class="bg-picker__preview-wrapper" :class="{ 'bg-picker__preview-wrapper--checker': bgOpacity < 1 }">
+      <div
+        class="bg-picker__preview-wrapper"
+        :class="{ 'bg-picker__preview-wrapper--checker': bgOpacity < 1 }"
+        :style="previewFrameStyle"
+      >
         <div class="bg-picker__preview-box" :style="previewBoxStyle">
           <video v-if="activeTab === 'video' && selectedVideo" :src="selectedVideo" class="bg-picker__preview-video"
-            autoplay loop muted playsinline />
+            :style="previewVideoStyle" autoplay loop muted playsinline />
           <span v-else class="bg-picker__preview-text">预览</span>
         </div>
       </div>
@@ -754,6 +823,11 @@ watch(() => props.visible, (visible) => {
 
       <!-- 图片选择 + CSS 参数 -->
       <div v-else-if="activeTab === 'image'" class="bg-picker__image-section">
+        <div class="bg-picker__fit-panel">
+          <div class="bg-picker__section-title">适配方式</div>
+          <UiTabs v-model="bgFitMode" :items="bgFitModeOptions" variant="segmented" size="sm" stretch />
+        </div>
+
         <div class="bg-picker__image-actions">
           <input ref="imageInput" type="file" accept="image/*" style="display: none" @change="handleImageChange" />
           <UiButton class="bg-picker__upload-btn" variant="secondary" size="sm" @click="handleImageSelect">
@@ -766,7 +840,7 @@ watch(() => props.visible, (visible) => {
         </div>
 
         <!-- CSS 背景参数面板 -->
-        <div v-if="selectedImage" class="bg-picker__style-panel">
+        <div v-if="selectedImage && bgFitMode === 'style'" class="bg-picker__style-panel">
           <div class="bg-picker__section-title">背景样式</div>
           <div class="bg-picker__style-grid">
             <div class="bg-picker__style-field">
@@ -791,7 +865,7 @@ watch(() => props.visible, (visible) => {
 
         <p class="bg-picker__hint">支持 JPG, PNG, GIF, WebP 格式</p>
 
-        <div class="bg-picker__process-options">
+        <div v-if="bgFitMode === 'crop'" class="bg-picker__process-options">
           <div class="bg-picker__section-title">处理方式</div>
           <div class="bg-picker__style-grid">
             <div class="bg-picker__style-field">
@@ -809,6 +883,11 @@ watch(() => props.visible, (visible) => {
 
       <!-- 视频选择 -->
       <div v-else class="bg-picker__video-section">
+        <div class="bg-picker__fit-panel">
+          <div class="bg-picker__section-title">适配方式</div>
+          <UiTabs v-model="bgFitMode" :items="bgFitModeOptions" variant="segmented" size="sm" stretch />
+        </div>
+
         <div class="bg-picker__image-actions">
           <input ref="videoInput" type="file" accept="video/*" style="display: none" @change="handleVideoChange" />
           <UiButton class="bg-picker__upload-btn" variant="secondary" size="sm" @click="handleVideoSelect">
@@ -819,9 +898,28 @@ watch(() => props.visible, (visible) => {
             清除
           </UiButton>
         </div>
-        <p class="bg-picker__hint">支持 MP4, WebM, MOV 格式。超出区域的视频将进入裁剪模式。</p>
+        <p class="bg-picker__hint">支持 MP4, WebM, MOV 格式</p>
 
-        <div class="bg-picker__process-options">
+        <div v-if="selectedVideo && bgFitMode === 'style'" class="bg-picker__style-panel">
+          <div class="bg-picker__section-title">背景样式</div>
+          <div class="bg-picker__style-grid">
+            <div class="bg-picker__style-field">
+              <label>填充模式</label>
+              <UiSelect v-model="bgSize" :options="bgSizeOptions" size="sm" />
+            </div>
+          </div>
+
+          <div class="bg-picker__section-title">定位</div>
+          <div class="bg-picker__position-grid">
+            <button v-for="pos in positionGrid" :key="pos.value" class="bg-picker__pos-cell"
+              :class="{ 'bg-picker__pos-cell--active': bgPosition === pos.value }" :title="pos.value"
+              @click="bgPosition = pos.value">
+              {{ pos.label }}
+            </button>
+          </div>
+        </div>
+
+        <div v-if="bgFitMode === 'crop'" class="bg-picker__process-options">
           <div class="bg-picker__section-title">处理方式</div>
           <div class="bg-picker__style-grid">
             <div class="bg-picker__style-field">
@@ -858,13 +956,14 @@ watch(() => props.visible, (visible) => {
 
     <!-- 图片裁剪器（保留原有组件） -->
     <ImageCropper v-if="showCropper" :visible="showCropper" :image="originalImage"
+      :target-width="targetPreviewSize.width" :target-height="targetPreviewSize.height"
       :processing-mode="imageProcessMode" :quality="compressQuality"
       @close="handleCropperClose" @confirm="handleCropperConfirm" />
 
     <!-- 视频裁剪器 -->
     <VideoCropper v-if="showVideoCropper" :visible="showVideoCropper" :video-url="originalVideoUrl"
       :file-path="originalVideoFilePath"
-      :target-width="previewWidth" :target-height="previewHeight"
+      :target-width="targetPreviewSize.width" :target-height="targetPreviewSize.height"
       :processing-mode="videoProcessMode" :quality="compressQuality"
       @close="handleVideoCropperClose"
       @confirm="handleVideoCropperConfirm" />
@@ -1319,6 +1418,13 @@ export default {
 
 .bg-picker__process-options {
   margin-top: 10px;
+  padding: 10px;
+  border-radius: var(--ui-radius-xs);
+  background: var(--ui-surface-overlay);
+}
+
+.bg-picker__fit-panel {
+  margin-bottom: 10px;
   padding: 10px;
   border-radius: var(--ui-radius-xs);
   background: var(--ui-surface-overlay);

@@ -171,6 +171,31 @@ const backgroundLayerStyle = computed(() => {
   return style;
 });
 
+function toObjectFit(backgroundSizeValue?: string): 'contain' | 'cover' | 'fill' | 'none' {
+  switch (backgroundSizeValue) {
+    case 'contain':
+      return 'contain';
+    case '100% 100%':
+      return 'fill';
+    case 'auto':
+      return 'none';
+    default:
+      return 'cover';
+  }
+}
+
+const backgroundVideoStyle = computed(() => {
+  const style: Record<string, string> = {
+    objectFit: toObjectFit(props.bgStyle?.backgroundSize),
+    objectPosition: props.bgStyle?.backgroundPosition || 'center',
+  };
+  const opacity = props.bgStyle?.opacity;
+  if (typeof opacity === 'number' && opacity < 1) {
+    style.opacity = String(opacity);
+  }
+  return style;
+});
+
 async function createTerminal() {
   const scheme = activeScheme.value;
   terminal = new Terminal({
@@ -514,7 +539,7 @@ onBeforeUnmount(() => {
 
     <!-- Video background layer (only for video type) -->
     <video v-if="showVideo" class="terminal-viewport__bg-video" :src="bgVideo" autoplay loop muted playsinline
-      :style="{ opacity: (bgStyle?.opacity ?? 1) < 1 ? String(bgStyle?.opacity) : undefined }" />
+      :style="backgroundVideoStyle" />
 
     <!-- xterm host -->
     <div ref="hostRef" class="terminal-viewport__host" />
