@@ -1,6 +1,6 @@
 <script lang="ts" setup>
 import { computed, onMounted, ref, watch } from 'vue';
-import type { AppLanguage, AppTheme } from '@/contracts/app_config';
+import type { AppBottomBarTabId, AppLanguage, AppTheme } from '@/contracts/app_config';
 import type { FtpWindowsContextMenuStatus } from '@/contracts/ftp';
 import type {
   LocalTerminalProfileConfig,
@@ -15,7 +15,9 @@ import UiField from '../components/ui/UiField.vue';
 import UiInput from '../components/ui/UiInput.vue';
 import ShortcutRecorder from '../components/ui/ShortcutRecorder.vue';
 import UiSelect from '../components/ui/UiSelect.vue';
+import UiScrollbar from '../components/ui/UiScrollbar.vue';
 import UiTabs, { type UiTabItem } from '../components/ui/UiTabs.vue';
+import UiTransferBox from '../components/ui/UiTransferBox.vue';
 import { useConfirmDialog } from '../composables/useConfirmDialog';
 import { useAppConfigStore } from '../stores/app_config_store';
 import { useFtpStore } from '../stores/ftp_store';
@@ -23,7 +25,11 @@ import { useGlobalStore } from '../stores/global_store';
 import { useSettingStore, type SettingsTabKey } from '../stores/settings_store';
 import { useSshStore } from '../stores/ssh_store';
 import { useUpdaterStore } from '../stores/updater_store';
-import { createDefaultAppConfig } from '@/contracts/app_config';
+import {
+  APP_INTERNAL_FUNCTIONS,
+  APP_BOTTOM_BAR_REQUIRED_TAB_IDS,
+  createDefaultAppConfig,
+} from '@/contracts/app_config';
 
 const settingsStore = useSettingStore();
 const appConfigStore = useAppConfigStore();
@@ -37,6 +43,12 @@ const defaultShortcuts = createDefaultAppConfig().shortcuts;
 type FtpPanelLayoutMode = 'columns' | 'stacked';
 type FtpSidebarDockSide = 'left' | 'right';
 type FtpAuxiliaryDockSide = 'bottom' | 'right';
+type TransferBoxItem = {
+  key: string;
+  label: string;
+  description?: string;
+  locked?: boolean;
+};
 
 const FTP_LAYOUT_STORAGE_KEY = 'guyantools.ftp.layout';
 const FTP_PREFERENCES_STORAGE_KEY = 'guyantools.ftp.preferences';
@@ -114,6 +126,52 @@ const themeOptions = [
   { label: '浅色主题', value: 'light' },
   { label: '深色主题', value: 'dark' },
 ];
+
+const bottomBarTabOptions = computed(() => APP_INTERNAL_FUNCTIONS
+  .filter(item => !item.devOnly || import.meta.env.DEV)
+  .map(item => ({
+    id: item.id,
+    label: item.label,
+    description: item.description,
+    locked: APP_BOTTOM_BAR_REQUIRED_TAB_IDS.includes(item.id),
+  })));
+
+const bottomBarTransferItems = computed<TransferBoxItem[]>(() => bottomBarTabOptions.value.map(item => ({
+  key: item.id,
+  label: item.label,
+  description: item.description,
+  locked: item.locked,
+})));
+
+const bottomBarVisibleTabIds = computed(() => {
+  const validIds = new Set(bottomBarTabOptions.value.map(item => item.id));
+  const seen = new Set<AppBottomBarTabId>();
+  const result: AppBottomBarTabId[] = [];
+
+  for (const tabId of appConfigStore.config.bottomBar.defaultVisibleTabIds) {
+    if (validIds.has(tabId) && !seen.has(tabId)) {
+      seen.add(tabId);
+      result.push(tabId);
+    }
+  }
+
+  for (const tabId of APP_BOTTOM_BAR_REQUIRED_TAB_IDS) {
+    if (validIds.has(tabId) && !seen.has(tabId)) {
+      seen.add(tabId);
+      result.push(tabId);
+    }
+  }
+
+  return result;
+});
+
+const bottomBarVisibleSummary = computed(() => {
+  const labelMap = new Map(bottomBarTabOptions.value.map(tab => [tab.id, tab.label]));
+  const labels = bottomBarVisibleTabIds.value
+    .map(tabId => labelMap.get(tabId))
+    .filter((label): label is string => Boolean(label));
+  return labels.length ? `默认显示：${labels.join('、')}` : '默认显示：首页、设置';
+});
 
 const languageOptions = [
   { label: '简体中文', value: 'zh' },
@@ -298,6 +356,34 @@ async function handleLanguageChange(value: string) {
   await appConfigStore.updateConfig({
     appearance: {
       language: value as AppLanguage,
+    },
+  });
+}
+
+async function handleBottomBarVisibleTabsChange(value: string[]) {
+  const validIds = new Set(bottomBarTabOptions.value.map(tab => tab.id));
+  const seen = new Set<AppBottomBarTabId>();
+  const nextIds: AppBottomBarTabId[] = [];
+  let candidateIds = value;
+  for (const requiredId of APP_BOTTOM_BAR_REQUIRED_TAB_IDS) {
+    if (validIds.has(requiredId) && !candidateIds.includes(requiredId)) {
+      candidateIds = [...candidateIds, requiredId];
+    }
+  }
+
+  for (const id of candidateIds) {
+    if (!validIds.has(id as AppBottomBarTabId) || seen.has(id as AppBottomBarTabId)) {
+      continue;
+    }
+
+    const tabId = id as AppBottomBarTabId;
+    seen.add(tabId);
+    nextIds.push(tabId);
+  }
+
+  await appConfigStore.updateConfig({
+    bottomBar: {
+      defaultVisibleTabIds: nextIds,
     },
   });
 }
@@ -1243,7 +1329,7 @@ function scriptTypeLabel(type: string) {
 </script>
 
 <template>
-  <div class="settings-page">
+  <UiScrollbar class="settings-page" :x="false" :y="true" :size="8">
     <header class="page-header">
       <div class="page-title-row">
         <h1>设置</h1>
@@ -1295,6 +1381,26 @@ function scriptTypeLabel(type: string) {
               <div class="settings-row__control">
                 <UiSelect :model-value="appConfigStore.config.appearance.theme" :options="themeOptions"
                   @update:modelValue="handleThemeChange" />
+              </div>
+            </div>
+            <div class="settings-row settings-row--wide">
+              <div class="settings-row__label">
+                <span>底栏默认标签</span>
+                <small>控制应用底栏启动后默认显示的固定标签。</small>
+              </div>
+              <div class="settings-row__control settings-row__control--wide">
+                <UiTransferBox
+                  :model-value="bottomBarVisibleTabIds"
+                  :items="bottomBarTransferItems"
+                  source-title="所有内部功能"
+                  target-title="固定显示"
+                  target-empty-text="至少保留首页和设置"
+                  @update:modelValue="handleBottomBarVisibleTabsChange"
+                />
+                <div class="settings-inline-badges settings-inline-badges--mt">
+                  <span class="settings-badge settings-badge--accent">{{ bottomBarVisibleSummary }}</span>
+                  <span class="settings-badge">右侧上下顺序同步为底栏显示顺序</span>
+                </div>
               </div>
             </div>
           </section>
@@ -1409,9 +1515,9 @@ function scriptTypeLabel(type: string) {
                 <small>展示最新发布附带的摘要。</small>
               </div>
               <div class="settings-row__control settings-row__control--wide">
-                <div class="update-release-notes">
+                <UiScrollbar class="update-release-notes" :x="false" :y="true" :size="6">
                   {{ updaterStore.releaseNotesSummary }}
-                </div>
+                </UiScrollbar>
               </div>
             </div>
 
@@ -2363,7 +2469,7 @@ function scriptTypeLabel(type: string) {
       </section>
       </Transition>
     </div>
-  </div>
+  </UiScrollbar>
 </template>
 
 <style lang="scss" scoped>
@@ -2374,8 +2480,7 @@ function scriptTypeLabel(type: string) {
   color: var(--ui-text-primary);
   background:
     linear-gradient(180deg, color-mix(in srgb, var(--background-color) 90%, #ffffff 10%) 0%, var(--background-color) 100%);
-  overflow-y: auto;
-  overflow-x: hidden;
+  overflow: hidden;
 }
 
 .page-header {
@@ -3256,9 +3361,8 @@ function scriptTypeLabel(type: string) {
 }
 
 .update-release-notes {
-  min-height: 88px;
-  max-height: 180px;
-  overflow: auto;
+  height: clamp(88px, 22vh, 180px);
+  overflow: hidden;
   white-space: pre-wrap;
   padding: 12px 14px;
   border: var(--ui-border-width-thin) solid var(--ui-input-border);

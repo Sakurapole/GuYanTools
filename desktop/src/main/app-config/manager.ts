@@ -5,6 +5,8 @@ import { dbManager } from '@/core/database';
 import { APP_CONFIG_FILE } from '../constants/paths';
 import type {
   AppAppearanceConfig,
+  AppBottomBarConfig,
+  AppBottomBarTabId,
   AppConfig,
   AppConfigPatch,
   AppFeaturesConfig,
@@ -17,6 +19,8 @@ import type {
 import type { LocalTerminalProfileConfig, TerminalBackgroundConfig } from '@/contracts/terminal';
 import type { AppWebConfig, ChromeExtensionRecord, WebScriptRule } from '@/contracts/webview';
 import {
+  APP_BOTTOM_BAR_REQUIRED_TAB_IDS,
+  APP_INTERNAL_FUNCTIONS,
   createDefaultAppConfig,
   getSystemDefaultFontOption,
   SYSTEM_FONT_OPTION_VALUE,
@@ -57,6 +61,36 @@ function normalizeBaseFontSize(value: unknown): number {
   }
 
   return Math.min(24, Math.max(12, Math.round(numeric)));
+}
+
+function normalizeBottomBar(value: unknown): AppBottomBarConfig {
+  const defaults = createDefaultAppConfig().bottomBar;
+  const rawIds = isRecord(value) && Array.isArray(value.defaultVisibleTabIds)
+    ? value.defaultVisibleTabIds
+    : defaults.defaultVisibleTabIds;
+  const allowedIds = new Set<AppBottomBarTabId>(APP_INTERNAL_FUNCTIONS.map(item => item.id));
+  const seen = new Set<AppBottomBarTabId>();
+  const defaultVisibleTabIds: AppBottomBarTabId[] = [];
+
+  for (const id of rawIds) {
+    if (typeof id !== 'string' || !allowedIds.has(id as AppBottomBarTabId)) {
+      continue;
+    }
+
+    const tabId = id as AppBottomBarTabId;
+    if (!seen.has(tabId)) {
+      seen.add(tabId);
+      defaultVisibleTabIds.push(tabId);
+    }
+  }
+
+  for (const tabId of APP_BOTTOM_BAR_REQUIRED_TAB_IDS) {
+    if (!seen.has(tabId)) {
+      defaultVisibleTabIds.push(tabId);
+    }
+  }
+
+  return { defaultVisibleTabIds };
 }
 
 function normalizePluginItems(value: unknown): AppPluginsConfig['items'] {
@@ -369,6 +403,7 @@ function normalizeAppConfig(value: unknown): AppConfig {
   return {
     version: defaults.version,
     appearance: normalizeAppearance(value.appearance),
+    bottomBar: normalizeBottomBar(value.bottomBar),
     features: normalizeFeatures(value.features),
     shortcuts: normalizeShortcuts(value.shortcuts),
     plugins: normalizePlugins(value.plugins),
@@ -384,6 +419,10 @@ function mergeConfig(current: AppConfig, patch: AppConfigPatch): AppConfig {
       ...current.appearance,
       ...(patch.appearance ?? {}),
     },
+    bottomBar: normalizeBottomBar({
+      ...current.bottomBar,
+      ...(patch.bottomBar ?? {}),
+    }),
     features: {
       aiAgent: patch.features?.aiAgent ? cloneConfig(patch.features.aiAgent) : cloneConfig(current.features.aiAgent),
       terminal: normalizeTerminalFeature({

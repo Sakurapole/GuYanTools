@@ -23,6 +23,12 @@
   --home-transition-slow: 500ms var(--home-transition-curve);
 }
 
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
 body {
   margin: 0;
 }

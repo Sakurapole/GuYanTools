@@ -1,5 +1,10 @@
 import { defineStore } from "pinia";
-import { ref } from "vue";
+import { ref, watch } from "vue";
+import {
+    APP_INTERNAL_FUNCTIONS,
+    type AppBottomBarTabId,
+} from '@/contracts/app_config';
+import { useAppConfigStore } from './app_config_store';
 
 export interface AppTabDefinition {
     id: string;
@@ -10,57 +15,25 @@ export interface AppTabDefinition {
     closable: boolean;
 }
 
-const FIXED_TABS: AppTabDefinition[] = [
-    {
-        id: 'home',
-        name: '首页',
-        url: '/home',
-        icon: 'home',
-        active: true,
+const INTERNAL_TABS: AppTabDefinition[] = APP_INTERNAL_FUNCTIONS
+    .filter(item => !item.devOnly || import.meta.env.DEV)
+    .map(item => ({
+        id: item.id,
+        name: item.label,
+        url: item.route,
+        icon: item.icon,
+        active: item.id === 'home',
         closable: false,
-    },
-    {
-        id: 'terminal',
-        name: '终端',
-        url: '/terminal',
-        icon: 'terminal',
-        active: false,
-        closable: false,
-    },
-    {
-        id: 'settings',
-        name: '设置',
-        url: '/settings',
-        icon: 'settings',
-        active: false,
-        closable: false,
-    },
-    {
-        id: 'ftp',
-        name: '传输',
-        url: '/ftp',
-        icon: 'ftp',
-        active: false,
-        closable: false,
-    }
-];
-
-// 开发模式下添加调试工具标签
-if (import.meta.env.DEV) {
-    FIXED_TABS.push({
-        id: 'devtools',
-        name: '🛠 调试',
-        url: '/devtools',
-        icon: 'devtools',
-        active: false,
-        closable: false,
-    });
-}
+    }));
 
 const TAB_ORDER_STORAGE_KEY = 'guyantools.bottombar.tab-order';
 
 function cloneTab(tab: AppTabDefinition) {
     return { ...tab };
+}
+
+function isFixedTabId(id: string): id is AppBottomBarTabId {
+    return INTERNAL_TABS.some(tab => tab.id === id);
 }
 
 function readSavedTabOrder(): string[] {
@@ -97,6 +70,10 @@ function orderTabs(tabs: AppTabDefinition[], savedOrder = readSavedTabOrder()) {
     return tabs
         .map((tab, index) => ({ tab: cloneTab(tab), index }))
         .sort((left, right) => {
+            if (isFixedTabId(left.tab.id) && isFixedTabId(right.tab.id)) {
+                return left.index - right.index;
+            }
+
             const leftIndex = indexById.get(left.tab.id);
             const rightIndex = indexById.get(right.tab.id);
             if (leftIndex !== undefined && rightIndex !== undefined) {
@@ -109,11 +86,16 @@ function orderTabs(tabs: AppTabDefinition[], savedOrder = readSavedTabOrder()) {
         .map(item => item.tab);
 }
 
-function cloneFixedTabs() {
-    return orderTabs(FIXED_TABS);
+function resolveVisibleFixedTabs(visibleTabIds: string[]) {
+    const visibleSet = new Set(visibleTabIds);
+
+    return visibleTabIds
+        .map(tabId => INTERNAL_TABS.find(tab => tab.id === tabId))
+        .filter((tab): tab is AppTabDefinition => Boolean(tab) && visibleSet.has(tab.id));
 }
 
 export const useBarStore = defineStore('bar', () => {
+    const appConfigStore = useAppConfigStore();
     const sidebarVisible = ref(false);
     const toggleSidebar = () => {
         sidebarVisible.value = !sidebarVisible.value;
@@ -122,17 +104,23 @@ export const useBarStore = defineStore('bar', () => {
         sidebarVisible.value = visible;
     }
 
-    const tabPages = ref<AppTabDefinition[]>(cloneFixedTabs());
+    const getConfiguredFixedTabs = () => resolveVisibleFixedTabs(appConfigStore.config.bottomBar.defaultVisibleTabIds);
+    const tabPages = ref<AppTabDefinition[]>(orderTabs(getConfiguredFixedTabs()));
 
     const ensureFixedTabs = () => {
         const existingMap = new Map(tabPages.value.map(tab => [tab.id, tab]));
-        const fixedTabs = FIXED_TABS.map(tab => ({
+        const fixedTabs = getConfiguredFixedTabs().map(tab => ({
             ...tab,
             active: existingMap.get(tab.id)?.active ?? tab.active,
         }));
-        const runtimeTabs = tabPages.value.filter(tab => !FIXED_TABS.some(fixed => fixed.id === tab.id));
+        const runtimeTabs = tabPages.value.filter(tab => !isFixedTabId(tab.id));
         tabPages.value = orderTabs(fixedTabs.concat(runtimeTabs));
     };
+
+    watch(
+        () => appConfigStore.config.bottomBar.defaultVisibleTabIds.slice(),
+        ensureFixedTabs,
+    );
 
     const activateTabByUrl = (url: string) => {
         ensureFixedTabs();
@@ -229,6 +217,15 @@ export const useBarStore = defineStore('bar', () => {
         nextTabs.splice(targetIdx, 0, moved);
         tabPages.value = nextTabs;
         persistTabOrder(tabPages.value);
+
+        const fixedOrder = nextTabs
+            .filter(tab => isFixedTabId(tab.id) && !tab.closable)
+            .map(tab => tab.id as AppBottomBarTabId);
+        void appConfigStore.updateConfig({
+            bottomBar: {
+                defaultVisibleTabIds: fixedOrder,
+            },
+        });
     };
 
     /** 更新匹配 URL 的 Tab 名称（用于 webview 页面标题动态更新） */
