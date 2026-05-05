@@ -9,6 +9,7 @@ import OpenIcon from '../svgs/icons/OpenIcon.vue';
 import EditIcon from '../svgs/icons/EditIcon.vue';
 import DeleteIcon from '../svgs/icons/DeleteIcon.vue';
 import { getHomeWidgetDefinition } from '../../widgets/home/registry';
+import { buildBackgroundTextVars } from '../../utils/backgroundTextColor';
 
 const props = defineProps<{
   item: GridItem;
@@ -91,6 +92,18 @@ const backgroundOpacity = computed(() => {
   const val = props.item.backgroundStyle?.opacity;
   return val != null && Number.isFinite(val) ? val : 1;
 });
+
+const itemStyle = computed(() => ({
+  ...props.style,
+  ...buildBackgroundTextVars(props.item.backgroundStyle?.textColor, {
+    aliases: {
+      primary: ['--widget-text-primary', '--ui-text-primary'],
+      secondary: ['--widget-text-secondary', '--ui-text-secondary'],
+      muted: ['--widget-text-muted', '--ui-text-muted'],
+      subtle: ['--widget-text-subtle', '--ui-text-subtle'],
+    },
+  }),
+}));
 
 function toObjectFit(backgroundSizeValue: string): 'contain' | 'cover' | 'fill' | 'none' {
   switch (backgroundSizeValue) {
@@ -191,7 +204,7 @@ function handleWidgetEditorConfirm(payload: WidgetEditPayload) {
 </script>
 
 <template>
-  <div :class="itemClass" :style="props.style" @pointerdown="emit('pointerdown', $event)"
+  <div :class="itemClass" :style="itemStyle" @pointerdown="emit('pointerdown', $event)"
     @pointermove="emit('pointermove', $event)" @pointerup="emit('pointerup', $event)"
     @pointercancel="emit('pointercancel', $event)" @pointerleave="emit('pointerleave', $event)"
     @contextmenu="handleContextMenu" @dblclick="emit('open', props.item)">
@@ -258,6 +271,7 @@ function handleWidgetEditorConfirm(payload: WidgetEditPayload) {
   width: 100%;
   height: 100%;
   overflow: hidden;
+  color: var(--widget-text-primary, inherit);
 }
 
 .grid-item__scrollbar {

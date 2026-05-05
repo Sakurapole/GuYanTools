@@ -15,6 +15,7 @@ import IconPicker from '../ui/IconPicker.vue';
 import IconRenderer from '../ui/IconRenderer.vue';
 import HomeWidgetConfigFields from '../../widgets/home/HomeWidgetConfigFields.vue';
 import { findWidgetSizePreset, getHomeWidgetDefinition, getWidgetSizeDefinition, normalizeWidgetConfig } from '../../widgets/home/registry';
+import { buildBackgroundTextVars } from '../../utils/backgroundTextColor';
 
 const props = withDefaults(defineProps<{
   visible: boolean;
@@ -73,6 +74,7 @@ const bgSize = ref('cover');
 const bgPosition = ref('center');
 const bgRepeat = ref('no-repeat');
 const bgOpacity = ref(1);
+const selectedTextColor = ref('');
 
 const imageInput = ref<HTMLInputElement | null>(null);
 const videoInput = ref<HTMLInputElement | null>(null);
@@ -115,7 +117,7 @@ const qualityOptions = [
 const editorTabs = [
   { key: 'basic', label: '基础信息' },
   { key: 'size', label: '尺寸配置' },
-  { key: 'background', label: '背景设置' },
+  { key: 'background', label: '个性化配置' },
 ];
 
 const backgroundSubTabs = [
@@ -309,6 +311,11 @@ const bgPreviewBoxStyle = computed(() => {
     width: `${w}px`,
     height: `${h}px`,
     margin: '0 auto',
+    ...buildBackgroundTextVars(selectedTextColor.value, {
+      aliases: {
+        primary: ['--grid-item-text-color'],
+      },
+    }),
   };
 
   if (bgTab.value === 'color') {
@@ -430,11 +437,13 @@ function buildAction(): WidgetAction | undefined {
 }
 
 function handleConfirm() {
+  const textColor = selectedTextColor.value.trim() || undefined;
   const backgroundStyle: BackgroundStyleConfig = {
     backgroundSize: bgSize.value,
     backgroundPosition: bgPosition.value,
     backgroundRepeat: bgRepeat.value,
     opacity: bgOpacity.value,
+    textColor,
   };
 
   // 根据当前 bgTab 来决定保留哪些背景数据
@@ -445,7 +454,7 @@ function handleConfirm() {
 
   if (bgTab.value === 'color') {
     color = selectedColor.value;
-    finalBgStyle = { opacity: bgOpacity.value };
+    finalBgStyle = { opacity: bgOpacity.value, textColor };
   } else if (bgTab.value === 'image') {
     backgroundImage = selectedImage.value;
   } else if (bgTab.value === 'video') {
@@ -511,6 +520,7 @@ watch(() => props.visible, (visible) => {
     bgPosition.value = props.item.backgroundStyle?.backgroundPosition || 'center';
     bgRepeat.value = props.item.backgroundStyle?.backgroundRepeat || 'no-repeat';
     bgOpacity.value = props.item.backgroundStyle?.opacity ?? 1;
+    selectedTextColor.value = props.item.backgroundStyle?.textColor || '';
 
     if (props.item.backgroundVideo) {
       bgTab.value = 'video';
@@ -654,7 +664,7 @@ watch(() => props.visible, (visible) => {
         </div>
       </div>
 
-      <!-- ═══ 背景设置 ═══ -->
+      <!-- ═══ 个性化配置 ═══ -->
       <div v-else class="widget-editor__section">
         <div class="widget-editor__bg-tabs">
           <UiTabs v-model="bgTab" :items="backgroundSubTabs" variant="segmented" size="sm" stretch />
@@ -782,6 +792,22 @@ watch(() => props.visible, (visible) => {
             <input type="range" class="widget-editor__opacity-slider" :value="Math.round(bgOpacity * 100)" min="0"
               max="100" step="1" @input="bgOpacity = Number(($event.target as HTMLInputElement).value) / 100" />
             <span class="widget-editor__opacity-value">{{ Math.round(bgOpacity * 100) }}%</span>
+          </div>
+        </div>
+
+        <div class="widget-editor__text-color-panel">
+          <div class="widget-editor__section-title">文字颜色</div>
+          <div class="widget-editor__text-color-row">
+            <input
+              class="widget-editor__text-color-swatch"
+              type="color"
+              :value="selectedTextColor || '#ffffff'"
+              @input="selectedTextColor = ($event.target as HTMLInputElement).value"
+            />
+            <input v-model="selectedTextColor" class="widget-editor__text-color-input" placeholder="默认文字颜色" />
+            <button class="widget-editor__text-color-reset" type="button" @click="selectedTextColor = ''">
+              重置
+            </button>
           </div>
         </div>
       </div>
@@ -973,7 +999,7 @@ export default {
   font-variant-numeric: tabular-nums;
 }
 
-/* ─── 背景设置 ─── */
+/* ─── 个性化配置 ─── */
 .widget-editor__bg-tabs {
   margin-bottom: 16px;
 }
@@ -1159,6 +1185,73 @@ export default {
   padding: 14px;
   border-radius: var(--ui-radius-sm);
   background: var(--ui-surface-overlay);
+}
+
+.widget-editor__text-color-panel {
+  margin-top: 16px;
+  padding: 14px;
+  border-radius: var(--ui-radius-sm);
+  background: var(--ui-surface-overlay);
+}
+
+.widget-editor__text-color-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.widget-editor__text-color-swatch {
+  flex: 0 0 38px;
+  width: 38px;
+  height: 32px;
+  padding: 0;
+  border: var(--ui-border-width-thin) solid var(--ui-border-subtle);
+  border-radius: var(--ui-radius-xs);
+  background: transparent;
+  cursor: pointer;
+}
+
+.widget-editor__text-color-input {
+  flex: 1;
+  min-width: 0;
+  height: 32px;
+  padding: 5px 10px;
+  border-radius: var(--ui-radius-xs);
+  border: var(--ui-border-width-thin) solid var(--ui-border-subtle);
+  background: var(--ui-input-bg, transparent);
+  color: var(--ui-text-primary);
+  font-size: 12px;
+  font-family: 'Consolas', 'Monaco', monospace;
+  outline: none;
+
+  &:focus {
+    border-color: var(--ui-select-focus-border);
+    box-shadow: var(--ui-focus-ring);
+  }
+
+  &::placeholder {
+    color: var(--ui-text-muted);
+    opacity: 0.65;
+  }
+}
+
+.widget-editor__text-color-reset {
+  flex: 0 0 auto;
+  height: 32px;
+  padding: 0 10px;
+  border-radius: var(--ui-radius-xs);
+  border: var(--ui-border-width-thin) solid var(--ui-border-subtle);
+  background: transparent;
+  color: var(--ui-text-muted);
+  font-size: 12px;
+  cursor: pointer;
+  transition: all 0.18s ease;
+
+  &:hover {
+    border-color: var(--ui-select-focus-border);
+    color: var(--ui-text-primary);
+    background: var(--ui-select-option-hover-bg);
+  }
 }
 
 .widget-editor__opacity-row {

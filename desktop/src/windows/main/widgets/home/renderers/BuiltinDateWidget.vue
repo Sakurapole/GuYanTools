@@ -99,7 +99,7 @@ onBeforeUnmount(() => {
   height: 100%;
   padding: 16px;
   box-sizing: border-box;
-  color: #eff6ff;
+  color: var(--widget-text-primary, #eff6ff);
 }
 
 .date-widget__top {
@@ -157,12 +157,12 @@ onBeforeUnmount(() => {
   justify-content: center;
   min-height: 0;
   border-radius: 8px;
-  background: rgba(255, 255, 255, 0.08);
+  background: color-mix(in srgb, var(--widget-text-primary, #eff6ff) 8%, transparent);
   line-height: 1;
 }
 
 .date-widget__grid span.active {
-  background: rgba(255, 255, 255, 0.22);
+  background: color-mix(in srgb, var(--widget-text-primary, #eff6ff) 22%, transparent);
   font-weight: 700;
 }
 

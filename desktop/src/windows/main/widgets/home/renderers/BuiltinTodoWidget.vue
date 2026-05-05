@@ -297,7 +297,7 @@ watch(todoMutationTick, () => {
   height: 100%;
   padding: 14px;
   box-sizing: border-box;
-  color: #fff;
+  color: var(--widget-text-primary, #fff);
   overflow: hidden;
 }
 
@@ -352,7 +352,7 @@ watch(todoMutationTick, () => {
 .todo-widget__skeleton {
   height: 28px;
   border-radius: 8px;
-  background: rgba(255, 255, 255, 0.1);
+  background: color-mix(in srgb, var(--widget-text-primary, #fff) 10%, transparent);
   animation: skeleton-pulse 1.6s ease-in-out infinite;
   flex-shrink: 0;
 }
@@ -395,7 +395,7 @@ watch(todoMutationTick, () => {
   min-width: 0;
 
   &:hover {
-    background: rgba(255, 255, 255, 0.1);
+    background: color-mix(in srgb, var(--widget-text-primary, #fff) 10%, transparent);
   }
 
   &--done .todo-widget__item-title {
@@ -409,7 +409,7 @@ watch(todoMutationTick, () => {
   width: 16px;
   height: 16px;
   border-radius: 50%;
-  border: 1.5px solid rgba(255, 255, 255, 0.5);
+  border: 1.5px solid color-mix(in srgb, var(--widget-text-primary, #fff) 50%, transparent);
   flex-shrink: 0;
   display: flex;
   align-items: center;
@@ -419,11 +419,11 @@ watch(todoMutationTick, () => {
   svg {
     width: 10px;
     height: 10px;
-    color: #fff;
+    color: var(--widget-text-primary, #fff);
   }
 
   &--done {
-    background: rgba(255, 255, 255, 0.7);
+    background: color-mix(in srgb, var(--widget-text-primary, #fff) 70%, transparent);
     border-color: transparent;
   }
 }
@@ -467,22 +467,22 @@ watch(todoMutationTick, () => {
 .todo-widget__input {
   flex: 1;
   min-width: 0;
-  background: rgba(255, 255, 255, 0.12);
-  border: 1px solid rgba(255, 255, 255, 0.22);
+  background: color-mix(in srgb, var(--widget-text-primary, #fff) 12%, transparent);
+  border: 1px solid color-mix(in srgb, var(--widget-text-primary, #fff) 22%, transparent);
   border-radius: 8px;
   padding: 5px 10px;
-  color: #fff;
+  color: var(--widget-text-primary, #fff);
   font-size: 12px;
   outline: none;
   transition: background 0.18s ease, border-color 0.18s ease;
 
   &::placeholder {
-    color: rgba(255, 255, 255, 0.4);
+    color: var(--widget-text-subtle, rgba(255, 255, 255, 0.4));
   }
 
   &:focus {
-    background: rgba(255, 255, 255, 0.18);
-    border-color: rgba(255, 255, 255, 0.38);
+    background: color-mix(in srgb, var(--widget-text-primary, #fff) 18%, transparent);
+    border-color: color-mix(in srgb, var(--widget-text-primary, #fff) 38%, transparent);
   }
 }
 
@@ -490,11 +490,11 @@ watch(todoMutationTick, () => {
   display: flex;
   align-items: center;
   gap: 5px;
-  background: rgba(255, 255, 255, 0.12);
+  background: color-mix(in srgb, var(--widget-text-primary, #fff) 12%, transparent);
   border: none;
   border-radius: 8px;
   padding: 5px 10px;
-  color: rgba(255, 255, 255, 0.72);
+  color: var(--widget-text-secondary, rgba(255, 255, 255, 0.72));
   font-size: 12px;
   cursor: pointer;
   transition: background 0.18s ease, color 0.18s ease;
@@ -507,14 +507,14 @@ watch(todoMutationTick, () => {
   }
 
   &:hover {
-    background: rgba(255, 255, 255, 0.2);
-    color: #fff;
+    background: color-mix(in srgb, var(--widget-text-primary, #fff) 20%, transparent);
+    color: var(--widget-text-primary, #fff);
   }
 
   &--confirm {
     padding: 5px 8px;
-    background: rgba(255, 255, 255, 0.2);
-    color: #fff;
+    background: color-mix(in srgb, var(--widget-text-primary, #fff) 20%, transparent);
+    color: var(--widget-text-primary, #fff);
   }
 }
 

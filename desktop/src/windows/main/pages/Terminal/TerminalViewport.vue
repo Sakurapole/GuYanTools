@@ -116,6 +116,17 @@ async function canUseWasmDecoder() {
 
 const activeScheme = computed(() => resolveScheme(props.colorSchemeId));
 
+function resolveTerminalTheme() {
+  const theme = { ...activeScheme.value.theme };
+  const textColor = props.bgStyle?.textColor?.trim();
+  if (textColor) {
+    theme.foreground = textColor;
+    theme.cursor = textColor;
+    theme.selectionForeground = textColor;
+  }
+  return theme;
+}
+
 /** Whether a user-defined background is active */
 const hasCustomBg = computed(() => {
   if (props.bgType === 'image' && props.bgImage) return true;
@@ -197,7 +208,6 @@ const backgroundVideoStyle = computed(() => {
 });
 
 async function createTerminal() {
-  const scheme = activeScheme.value;
   terminal = new Terminal({
     allowProposedApi: true,
     fontFamily: 'Consolas, "Cascadia Mono", "JetBrains Mono", monospace',
@@ -206,7 +216,7 @@ async function createTerminal() {
     allowTransparency: true,
     scrollback: 5000,
     convertEol: false,
-    theme: { ...scheme.theme },
+    theme: resolveTerminalTheme(),
   });
 
   fitAddon = new FitAddon();
@@ -495,10 +505,9 @@ watch(() => props.buffer, (value) => {
 }, { flush: 'post' });
 
 // Live-update xterm theme + viewport background when scheme changes
-watch(() => props.colorSchemeId, () => {
+watch(() => [props.colorSchemeId, props.bgStyle?.textColor], () => {
   if (!terminal) return;
-  const scheme = activeScheme.value;
-  terminal.options.theme = { ...scheme.theme };
+  terminal.options.theme = resolveTerminalTheme();
   terminal.refresh(0, terminal.rows - 1);
 });
 

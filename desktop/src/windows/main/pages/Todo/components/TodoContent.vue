@@ -8,10 +8,19 @@ import TodoItem from './TodoItem.vue';
 import QuickAdd from './QuickAdd.vue';
 import TodoBackground from './TodoBackground.vue';
 import UiScrollbar from '@/windows/main/components/ui/UiScrollbar.vue';
+import { buildBackgroundTextVars } from '@/windows/main/utils/backgroundTextColor';
 
 const todoStore = useTodoStore();
 const listStore = useTodoListStore();
 const { contentBg } = useTodoSettings();
+const contentTextStyle = computed(() => buildBackgroundTextVars(contentBg.value.backgroundStyle?.textColor, {
+  aliases: {
+    primary: ['--ui-text-primary'],
+    secondary: ['--ui-text-secondary'],
+    muted: ['--ui-text-muted'],
+    subtle: ['--ui-text-subtle'],
+  },
+}));
 const openBgPicker = inject<Function>('openTodoBgPicker');
 const { open: openMenu } = useContextMenu();
 
@@ -20,7 +29,7 @@ function handleContextMenu(e: MouseEvent) {
   openMenu(e.clientX, e.clientY, [
     {
       id: 'content-bg',
-      label: '更换内容区背景',
+      label: '内容区个性化配置',
       action: () => openBgPicker && openBgPicker('content'),
     }
   ]);
@@ -86,7 +95,7 @@ onBeforeUnmount(() => document.removeEventListener('mousedown', onSortClickOutsi
 </script>
 
 <template>
-  <main class="todo-content" @contextmenu.prevent.stop="handleContextMenu">
+  <main class="todo-content" :style="contentTextStyle" @contextmenu.prevent.stop="handleContextMenu">
     <TodoBackground :config="contentBg" />
     <div class="content-inner" style="position: relative; z-index: 1; display: flex; flex-direction: column; height: 100%;">
       <header class="content-header">

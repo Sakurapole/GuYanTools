@@ -21,7 +21,7 @@ const isHorizontal = computed(() => props.item.colSpan > 1 && props.item.rowSpan
     'shortcut-widget--horizontal': isHorizontal,
   }" :title="isIconOnly ? props.item.label : undefined">
     <div class="shortcut-widget__icon">
-      <IconRenderer v-if="hasIcon" :icon="props.item.icon!" :size="isIconOnly || isHorizontal ? 20 : (props.item.colSpan >= 4 ? 32 : 24)" color="white" />
+      <IconRenderer v-if="hasIcon" :icon="props.item.icon!" :size="isIconOnly || isHorizontal ? 20 : (props.item.colSpan >= 4 ? 32 : 24)" color="var(--widget-text-primary, white)" />
       <span v-else class="shortcut-widget__text-icon">{{ props.item.label.slice(0, 1) }}</span>
     </div>
     <div v-if="!isIconOnly" class="shortcut-widget__label" :title="props.item.label">{{ props.item.label }}</div>
@@ -40,7 +40,7 @@ const isHorizontal = computed(() => props.item.colSpan > 1 && props.item.rowSpan
   height: 100%;
   padding: 16px 14px;
   box-sizing: border-box;
-  color: white;
+  color: var(--widget-text-primary, white);
   text-align: center;
   overflow: hidden;
   isolation: isolate;
@@ -67,7 +67,7 @@ const isHorizontal = computed(() => props.item.colSpan > 1 && props.item.rowSpan
   width: 72%;
   height: 72%;
   border-radius: 999px;
-  background: radial-gradient(circle, rgba(255, 255, 255, 0.26) 0%, rgba(255, 255, 255, 0) 70%);
+  background: radial-gradient(circle, color-mix(in srgb, var(--widget-text-primary, white) 26%, transparent) 0%, transparent 70%);
   transform: translate3d(-8px, 10px, 0) scale(0.92);
   z-index: 0;
 }
@@ -77,7 +77,7 @@ const isHorizontal = computed(() => props.item.colSpan > 1 && props.item.rowSpan
   left: -140%;
   width: 90%;
   height: 100%;
-  background: linear-gradient(115deg, transparent 0%, rgba(255, 255, 255, 0.08) 42%, rgba(255, 255, 255, 0.24) 50%, transparent 58%);
+  background: linear-gradient(115deg, transparent 0%, color-mix(in srgb, var(--widget-text-primary, white) 8%, transparent) 42%, color-mix(in srgb, var(--widget-text-primary, white) 24%, transparent) 50%, transparent 58%);
   transform: skewX(-20deg);
   z-index: 1;
 }
@@ -91,8 +91,8 @@ const isHorizontal = computed(() => props.item.colSpan > 1 && props.item.rowSpan
   align-items: center;
   justify-content: center;
   border-radius: 14px;
-  background: rgba(255, 255, 255, 0.14);
-  border: 1px solid rgba(255, 255, 255, 0.16);
+  background: color-mix(in srgb, var(--widget-text-primary, white) 14%, transparent);
+  border: 1px solid color-mix(in srgb, var(--widget-text-primary, white) 16%, transparent);
   box-shadow: var(--ui-shadow-sm);
   transition:
     transform 0.24s ease,
@@ -139,11 +139,11 @@ const isHorizontal = computed(() => props.item.colSpan > 1 && props.item.rowSpan
 
 .shortcut-widget--interactive:hover .shortcut-widget__icon {
   transform: translateY(-4px) scale(1.08);
-  background: rgba(255, 255, 255, 0.22);
-  border-color: rgba(255, 255, 255, 0.3);
+  background: color-mix(in srgb, var(--widget-text-primary, white) 22%, transparent);
+  border-color: color-mix(in srgb, var(--widget-text-primary, white) 30%, transparent);
   box-shadow:
     0 14px 28px rgba(15, 23, 42, 0.24),
-    0 0 0 1px rgba(255, 255, 255, 0.08);
+    0 0 0 1px color-mix(in srgb, var(--widget-text-primary, white) 8%, transparent);
 }
 
 .shortcut-widget--interactive:hover .shortcut-widget__label {

@@ -10,7 +10,8 @@ import TodoContent from './components/TodoContent.vue';
 import TodoDetail from './components/TodoDetail.vue';
 import YesterdayPrompt from './components/YesterdayPrompt.vue';
 import TodoBackground from './components/TodoBackground.vue';
-import UiBackgroundPicker from '@/windows/main/components/ui/UiBackgroundPicker.vue';
+import UiPersonalizationConfig from '@/windows/main/components/ui/UiPersonalizationConfig.vue';
+import { buildBackgroundTextVars } from '@/windows/main/utils/backgroundTextColor';
 
 const todoStore = useTodoStore();
 const listStore = useTodoListStore();
@@ -36,7 +37,7 @@ function handleContextMenu(e: MouseEvent) {
   openMenu(e.clientX, e.clientY, [
     {
       id: 'app-bg',
-      label: '更换全局背景',
+      label: '全局个性化配置',
       action: () => openBgPicker('app'),
     }
   ]);
@@ -85,6 +86,15 @@ const currentBgPreviewSize = computed(() => {
   return getMeasuredSize(todoDetailRef.value, { width: 320, height: 640 });
 });
 
+const appTextStyle = computed(() => buildBackgroundTextVars(appBg.value.backgroundStyle?.textColor, {
+  aliases: {
+    primary: ['--color-text-primary', '--ui-text-primary'],
+    secondary: ['--color-text-secondary', '--ui-text-secondary'],
+    muted: ['--color-text-muted', '--ui-text-muted'],
+    subtle: ['--color-text-subtle', '--ui-text-subtle'],
+  },
+}));
+
 function syncTopbarColor() {
   const bg = appBg.value;
   globalStore.setTopbarColor(bg.type === 'color' && bg.color ? bg.color : '');
@@ -113,7 +123,7 @@ watch(() => appBg.value, () => {
 </script>
 
 <template>
-  <div ref="todoAppRef" class="todo-app" @contextmenu.prevent="handleContextMenu">
+  <div ref="todoAppRef" class="todo-app" :style="appTextStyle" @contextmenu.prevent="handleContextMenu">
     <TodoBackground :config="appBg" />
     <TodoSidebar ref="todoSidebarRef" />
     <TodoContent ref="todoContentRef" />
@@ -122,7 +132,7 @@ watch(() => appBg.value, () => {
     </transition>
     <YesterdayPrompt v-if="todoStore.showYesterdayPrompt" />
 
-    <UiBackgroundPicker
+    <UiPersonalizationConfig
       :visible="bgPickerVisible"
       :current-background="currentBgConfig().type === 'color' ? currentBgConfig().color : ''"
       :current-background-image="currentBgConfig().type === 'image' ? currentBgConfig().image : ''"

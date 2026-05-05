@@ -8,7 +8,7 @@ import UiField from '../../components/ui/UiField.vue';
 import UiIconButton from '../../components/ui/UiIconButton.vue';
 import UiInput from '../../components/ui/UiInput.vue';
 import UiStateCard from '../../components/ui/UiStateCard.vue';
-import UiBackgroundPicker from '../../components/ui/UiBackgroundPicker.vue';
+import UiPersonalizationConfig from '../../components/ui/UiPersonalizationConfig.vue';
 import IconPicker from '../../components/ui/IconPicker.vue';
 import IconRenderer from '../../components/ui/IconRenderer.vue';
 import EditIcon from '../../components/svgs/icons/EditIcon.vue';
@@ -18,6 +18,7 @@ import { useGlobalStore } from '../../stores/global_store';
 import { useHomeProfileStore } from '../../stores/home_profile_store';
 import type { CategoryItem, GridConfig, GridItem, BackgroundConfirmPayload } from '../../types/grid';
 import type { CreateHomeWidgetPayload } from '@/contracts/home_layout';
+import { buildBackgroundTextVars } from '../../utils/backgroundTextColor';
 import type * as THREE from 'three';
 
 const GRID_GAP = 8;
@@ -167,6 +168,17 @@ function toObjectFit(backgroundSizeValue?: string): 'contain' | 'cover' | 'fill'
   }
 }
 
+function buildPanelTextStyle(textColor?: string) {
+  return buildBackgroundTextVars(textColor, {
+    aliases: {
+      primary: ['--ui-text-primary'],
+      secondary: ['--ui-text-secondary'],
+      muted: ['--ui-text-muted'],
+      subtle: ['--ui-text-subtle'],
+    },
+  });
+}
+
 // ─── 顶栏背景 ───
 const HEADER_BG_STORAGE_KEY = 'home-header-background';
 const headerBg = reactive({
@@ -190,6 +202,7 @@ const headerBgStyle = computed(() => {
   if (headerBg.style?.opacity !== undefined && headerBg.style.opacity < 1) {
     s.opacity = String(headerBg.style.opacity);
   }
+  Object.assign(s, buildPanelTextStyle(headerBg.style?.textColor));
   return s;
 });
 
@@ -203,7 +216,7 @@ function handleHeaderContextMenu(e: MouseEvent) {
   const menuItems: ContextMenuItem[] = [
     {
       id: 'header-bg',
-      label: '自定义顶栏背景',
+      label: '顶栏个性化配置',
       icon: EditIcon,
       action: () => { showHeaderBgPicker.value = true; },
     },
@@ -265,6 +278,7 @@ const sidebarBgStyle = computed(() => {
   if (sidebarBg.style?.opacity !== undefined && sidebarBg.style.opacity < 1) {
     s.opacity = String(sidebarBg.style.opacity);
   }
+  Object.assign(s, buildPanelTextStyle(sidebarBg.style?.textColor));
   return s;
 });
 
@@ -284,7 +298,7 @@ function handleSidebarContextMenu(e: MouseEvent) {
     },
     {
       id: 'sidebar-bg',
-      label: '自定义侧边栏背景',
+      label: '侧边栏个性化配置',
       icon: EditIcon,
       action: () => { showSidebarBgPicker.value = true; },
     },
@@ -998,23 +1012,23 @@ watch(() => homeProfileStore.activeProfileKey, (key, previousKey) => {
       </template>
     </UiDialog>
 
-    <!-- 类别区域背景选择器 -->
-    <UiBackgroundPicker :visible="showCategoryBgPicker" :currentBackground="activeCategory?.backgroundColor"
+    <!-- 类别区域个性化配置 -->
+    <UiPersonalizationConfig :visible="showCategoryBgPicker" :currentBackground="activeCategory?.backgroundColor"
       :currentBackgroundImage="activeCategory?.backgroundImage"
       :currentBackgroundVideo="activeCategory?.backgroundVideo"
       :currentBackgroundStyle="activeCategory?.backgroundStyle"
       :preview-width="categoryBgPreviewSize.width" :preview-height="categoryBgPreviewSize.height"
       @close="closeCategoryBgPicker" @confirm="handleCategoryBgConfirm" />
 
-    <!-- 顶栏背景选择器 -->
-    <UiBackgroundPicker :visible="showHeaderBgPicker" :currentBackground="headerBg.color"
+    <!-- 顶栏个性化配置 -->
+    <UiPersonalizationConfig :visible="showHeaderBgPicker" :currentBackground="headerBg.color"
       :currentBackgroundImage="headerBg.image" :currentBackgroundVideo="headerBg.video"
       :currentBackgroundStyle="headerBg.style"
       :preview-width="headerBgPreviewSize.width" :preview-height="headerBgPreviewSize.height"
       @close="showHeaderBgPicker = false" @confirm="handleHeaderBgConfirm" />
 
-    <!-- 侧边栏背景选择器 -->
-    <UiBackgroundPicker :visible="showSidebarBgPicker" :currentBackground="sidebarBg.color"
+    <!-- 侧边栏个性化配置 -->
+    <UiPersonalizationConfig :visible="showSidebarBgPicker" :currentBackground="sidebarBg.color"
       :currentBackgroundImage="sidebarBg.image" :currentBackgroundVideo="sidebarBg.video"
       :currentBackgroundStyle="sidebarBg.style"
       :preview-width="sidebarBgPreviewSize.width" :preview-height="sidebarBgPreviewSize.height"

@@ -4,6 +4,7 @@ export type BackgroundStyleConfig = {
   backgroundRepeat?: string;
   opacity?: number;
   fitMode?: 'crop' | 'style';
+  textColor?: string;
 };
 
 export type BackgroundConfirmPayload = {

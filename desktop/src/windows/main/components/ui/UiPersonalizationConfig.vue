@@ -8,6 +8,7 @@ import UiDialog from './UiDialog.vue';
 import UiIconButton from './UiIconButton.vue';
 import UiSelect from './UiSelect.vue';
 import UiTabs from './UiTabs.vue';
+import { buildBackgroundTextVars } from '../../utils/backgroundTextColor';
 
 const props = withDefaults(defineProps<{
   visible: boolean;
@@ -60,6 +61,7 @@ const bgPosition = ref(props.currentBackgroundStyle?.backgroundPosition || 'cent
 const bgRepeat = ref(props.currentBackgroundStyle?.backgroundRepeat || 'no-repeat');
 const bgOpacity = ref(props.currentBackgroundStyle?.opacity ?? 1);
 const bgFitMode = ref<BackgroundFitMode>('crop');
+const selectedTextColor = ref(props.currentBackgroundStyle?.textColor || '');
 
 // ─── FFmpeg 处理选项 ───
 const appConfigStore = useAppConfigStore();
@@ -454,7 +456,7 @@ onBeforeUnmount(() => {
   window.removeEventListener('mouseup', handleHueMouseUp);
 });
 
-const backgroundPickerTabs = [
+const personalizationTabs = [
   { key: 'color', label: '颜色' },
   { key: 'image', label: '图片' },
   { key: 'video', label: '视频' },
@@ -496,6 +498,11 @@ const previewBoxStyle = computed(() => {
   const base: Record<string, string> = {
     width: '100%',
     height: '100%',
+    ...buildBackgroundTextVars(selectedTextColor.value, {
+      aliases: {
+        primary: ['--grid-item-text-color'],
+      },
+    }),
   };
   const effectiveSize = bgFitMode.value === 'crop' ? 'cover' : bgSize.value;
   const effectivePosition = bgFitMode.value === 'crop' ? 'center' : bgPosition.value;
@@ -635,16 +642,18 @@ function handleClearVideo() {
 
 function handleConfirm() {
   const usesCropMode = bgFitMode.value === 'crop' && activeTab.value !== 'color';
+  const textColor = selectedTextColor.value.trim() || undefined;
   const backgroundStyle: BackgroundStyleConfig = {
     backgroundSize: usesCropMode ? 'cover' : bgSize.value,
     backgroundPosition: usesCropMode ? 'center' : bgPosition.value,
     backgroundRepeat: usesCropMode || activeTab.value === 'video' ? 'no-repeat' : bgRepeat.value,
     opacity: bgOpacity.value,
     fitMode: activeTab.value === 'color' ? undefined : bgFitMode.value,
+    textColor,
   };
 
   if (activeTab.value === 'color') {
-    const colorStyle: BackgroundStyleConfig = { opacity: bgOpacity.value };
+    const colorStyle: BackgroundStyleConfig = { opacity: bgOpacity.value, textColor };
     emit('confirm', { type: 'color', color: selectedColor.value, image: '', video: '', backgroundStyle: colorStyle });
   } else if (activeTab.value === 'image') {
     emit('confirm', { type: 'image', color: '', image: selectedImage.value, video: '', backgroundStyle });
@@ -672,6 +681,7 @@ watch(() => props.visible, (visible) => {
     bgPosition.value = props.currentBackgroundStyle?.backgroundPosition || 'center';
     bgRepeat.value = props.currentBackgroundStyle?.backgroundRepeat || 'no-repeat';
     bgOpacity.value = props.currentBackgroundStyle?.opacity ?? 1;
+    selectedTextColor.value = props.currentBackgroundStyle?.textColor || '';
     bgFitMode.value = props.currentBackgroundStyle?.fitMode
       ?? (
         props.currentBackgroundStyle?.backgroundSize && props.currentBackgroundStyle.backgroundSize !== 'cover'
@@ -704,7 +714,7 @@ watch(() => props.visible, (visible) => {
     @update:modelValue="handleDialogModelValueChange">
     <template #header>
       <div class="bg-picker__header">
-        <h3>更换背景</h3>
+        <h3>个性化配置</h3>
         <UiIconButton class="close-btn" variant="ghost" size="sm" shape="square" title="关闭" @click="handleClose">
           ✕
         </UiIconButton>
@@ -712,7 +722,7 @@ watch(() => props.visible, (visible) => {
     </template>
 
     <div class="bg-picker__tabs">
-      <UiTabs v-model="activeTab" :items="backgroundPickerTabs" variant="line" size="sm" stretch />
+      <UiTabs v-model="activeTab" :items="personalizationTabs" variant="line" size="sm" stretch />
     </div>
 
     <!-- 预览区域 -->
@@ -943,6 +953,26 @@ watch(() => props.visible, (visible) => {
           <input type="range" class="bg-picker__opacity-slider" :value="Math.round(bgOpacity * 100)" min="0" max="100"
             step="1" @input="bgOpacity = Number(($event.target as HTMLInputElement).value) / 100" />
           <span class="bg-picker__opacity-value">{{ Math.round(bgOpacity * 100) }}%</span>
+        </div>
+      </div>
+
+      <div class="bg-picker__text-color-panel">
+        <div class="bg-picker__section-title">文字颜色</div>
+        <div class="bg-picker__text-color-row">
+          <input
+            class="bg-picker__text-color-swatch"
+            type="color"
+            :value="selectedTextColor || '#ffffff'"
+            @input="selectedTextColor = ($event.target as HTMLInputElement).value"
+          />
+          <input
+            v-model="selectedTextColor"
+            class="bg-picker__text-color-input"
+            placeholder="默认文字颜色"
+          />
+          <button class="bg-picker__text-color-reset" type="button" @click="selectedTextColor = ''">
+            重置
+          </button>
         </div>
       </div>
     </div>
@@ -1497,6 +1527,73 @@ export default {
   padding: 10px;
   border-radius: var(--ui-radius-xs);
   background: var(--ui-surface-overlay);
+}
+
+.bg-picker__text-color-panel {
+  margin-top: 12px;
+  padding: 10px;
+  border-radius: var(--ui-radius-xs);
+  background: var(--ui-surface-overlay);
+}
+
+.bg-picker__text-color-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.bg-picker__text-color-swatch {
+  flex: 0 0 36px;
+  width: 36px;
+  height: 30px;
+  padding: 0;
+  border: var(--ui-border-width-thin) solid var(--ui-border-subtle);
+  border-radius: var(--ui-radius-xs);
+  background: transparent;
+  cursor: pointer;
+}
+
+.bg-picker__text-color-input {
+  flex: 1;
+  min-width: 0;
+  height: 30px;
+  padding: 5px 10px;
+  border-radius: var(--ui-radius-xs);
+  border: var(--ui-border-width-thin) solid var(--ui-border-subtle);
+  background: var(--ui-input-bg, transparent);
+  color: var(--ui-text-primary);
+  font-size: 12px;
+  font-family: 'Consolas', 'Monaco', monospace;
+  outline: none;
+
+  &:focus {
+    border-color: var(--ui-select-focus-border);
+    box-shadow: var(--ui-focus-ring);
+  }
+
+  &::placeholder {
+    color: var(--ui-text-muted);
+    opacity: 0.65;
+  }
+}
+
+.bg-picker__text-color-reset {
+  flex: 0 0 auto;
+  height: 30px;
+  padding: 0 10px;
+  border-radius: var(--ui-radius-xs);
+  border: var(--ui-border-width-thin) solid var(--ui-border-subtle);
+  background: transparent;
+  color: var(--ui-text-muted);
+  font-size: 12px;
+  cursor: pointer;
+  transition: all 0.18s ease;
+
+  &:hover {
+    border-color: var(--ui-select-focus-border);
+    color: var(--ui-text-primary);
+    background: var(--ui-select-option-hover-bg);
+  }
 }
 
 .bg-picker__opacity-row {

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, inject } from 'vue';
+import { computed, ref, inject } from 'vue';
 import { useTodoStore, type SmartListType } from '@/windows/main/stores/todo_store';
 import { useTodoListStore } from '@/windows/main/stores/todo_list_store';
 import { useContextMenu } from '@/windows/main/composables/useContextMenu';
@@ -8,10 +8,19 @@ import TodoBackground from './TodoBackground.vue';
 import TodoSearch from './TodoSearch.vue';
 import UiScrollbar from '@/windows/main/components/ui/UiScrollbar.vue';
 import { useConfirmDialog } from '@/windows/main/composables/useConfirmDialog';
+import { buildBackgroundTextVars } from '@/windows/main/utils/backgroundTextColor';
 
 const todoStore = useTodoStore();
 const listStore = useTodoListStore();
 const { sidebarBg, isSidebarCollapsed } = useTodoSettings();
+const sidebarTextStyle = computed(() => buildBackgroundTextVars(sidebarBg.value.backgroundStyle?.textColor, {
+  aliases: {
+    primary: ['--ui-text-primary'],
+    secondary: ['--ui-text-secondary'],
+    muted: ['--ui-text-muted'],
+    subtle: ['--ui-text-subtle'],
+  },
+}));
 const openBgPicker = inject<Function>('openTodoBgPicker');
 const { open: openMenu } = useContextMenu();
 const { show: showConfirm } = useConfirmDialog();
@@ -20,7 +29,7 @@ function handleContextMenu(e: MouseEvent) {
   openMenu(e.clientX, e.clientY, [
     {
       id: 'sidebar-bg',
-      label: '更换侧边栏背景',
+      label: '侧边栏个性化配置',
       action: () => openBgPicker && openBgPicker('sidebar'),
     }
   ]);
@@ -123,7 +132,7 @@ function handleListContextMenu(e: MouseEvent, list: { id: string; name: string }
 </script>
 
 <template>
-  <aside class="todo-sidebar" :class="{ 'collapsed': isSidebarCollapsed }" @contextmenu.prevent.stop="handleContextMenu">
+  <aside class="todo-sidebar" :class="{ 'collapsed': isSidebarCollapsed }" :style="sidebarTextStyle" @contextmenu.prevent.stop="handleContextMenu">
     <TodoBackground :config="sidebarBg" />
     <div class="sidebar-content" style="position: relative; z-index: 1; display: flex; flex-direction: column; height: 100%;">
       <div class="sidebar-header">
@@ -312,7 +321,7 @@ function handleListContextMenu(e: MouseEvent, list: { id: string; name: string }
   margin: 0;
   font-size: 1.3em;
   font-weight: 700;
-  background: linear-gradient(135deg, #4A90D9, #6EBFB5);
+  background: linear-gradient(135deg, var(--ui-text-primary), var(--ui-text-secondary));
   -webkit-background-clip: text;
   background-clip: text;
   -webkit-text-fill-color: transparent;

@@ -10,9 +10,18 @@ import UiDatePicker from '@/windows/main/components/ui/UiDatePicker.vue';
 import UiScrollbar from '@/windows/main/components/ui/UiScrollbar.vue';
 import { marked } from 'marked';
 import { useConfirmDialog } from '@/windows/main/composables/useConfirmDialog';
+import { buildBackgroundTextVars } from '@/windows/main/utils/backgroundTextColor';
 
 const todoStore = useTodoStore();
 const { detailBg } = useTodoSettings();
+const detailTextStyle = computed(() => buildBackgroundTextVars(detailBg.value.backgroundStyle?.textColor, {
+  aliases: {
+    primary: ['--ui-text-primary'],
+    secondary: ['--ui-text-secondary'],
+    muted: ['--ui-text-muted'],
+    subtle: ['--ui-text-subtle'],
+  },
+}));
 const openBgPicker = inject<Function>('openTodoBgPicker');
 const { open: openMenu } = useContextMenu();
 
@@ -49,7 +58,7 @@ function handleContextMenu(e: MouseEvent) {
   openMenu(e.clientX, e.clientY, [
     {
       id: 'detail-bg',
-      label: '更换详情面板背景',
+      label: '详情面板个性化配置',
       action: () => openBgPicker && openBgPicker('detail'),
     }
   ]);
@@ -123,7 +132,7 @@ async function onDueDateChange(val: string) {
 </script>
 
 <template>
-  <aside class="todo-detail" v-if="todoStore.selectedTodo" @contextmenu.prevent.stop="handleContextMenu">
+  <aside class="todo-detail" v-if="todoStore.selectedTodo" :style="detailTextStyle" @contextmenu.prevent.stop="handleContextMenu">
     <TodoBackground :config="detailBg" />
     <div class="detail-inner" style="position: relative; z-index: 1; display: flex; flex-direction: column; height: 100%;">
       <div class="detail-header">

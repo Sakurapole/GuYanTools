@@ -1,5 +1,5 @@
 <script lang="ts" setup>
-import UiBackgroundPicker from '../ui/UiBackgroundPicker.vue';
+import UiPersonalizationConfig from '../ui/UiPersonalizationConfig.vue';
 import type { BackgroundConfirmPayload, BackgroundStyleConfig } from '../../types/grid';
 
 withDefaults(defineProps<{
@@ -30,7 +30,7 @@ function handleConfirm(payload: BackgroundConfirmPayload) {
 </script>
 
 <template>
-  <UiBackgroundPicker
+  <UiPersonalizationConfig
     :visible="visible"
     :current-background="currentBackground"
     :current-background-image="currentBackgroundImage"

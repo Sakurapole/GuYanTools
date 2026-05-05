@@ -117,7 +117,7 @@ interface ActionItem {
 const actionItems = computed<ActionItem[]>(() => [
   {
     id: 'background',
-    label: '背景',
+    label: '个性化',
     icon: 'background',
     event: 'background',
     show: () => true,

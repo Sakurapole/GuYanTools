@@ -14,6 +14,7 @@ import AddIcon from '../svgs/icons/AddIcon.vue';
 import EditIcon from '../svgs/icons/EditIcon.vue';
 import { router } from '../../routes/router';
 import { useBarStore } from '../../stores/bar_store';
+import { buildBackgroundTextVars } from '../../utils/backgroundTextColor';
 
 const props = defineProps<{
   category: CategoryItem;
@@ -434,7 +435,7 @@ function handleAreaContextMenu(event: MouseEvent) {
     },
     {
       id: 'area-bg',
-      label: '更换区域背景',
+      label: '区域个性化配置',
       icon: EditIcon,
       divided: true,
       action: () => { emit('changeBackground'); },
@@ -547,6 +548,7 @@ const catBgSize = shallowRef('cover');
 const catBgPosition = shallowRef('center');
 const catBgRepeat = shallowRef('no-repeat');
 const catBgOpacity = shallowRef(1);
+const catBgTextColor = shallowRef('');
 const categoryBgVideoRef = ref<HTMLVideoElement | null>(null);
 const shouldAutoPlayCategoryVideo = ref(false);
 let categoryVideoResumeTimer: ReturnType<typeof setTimeout> | null = null;
@@ -563,6 +565,7 @@ function syncCategoryBackground() {
   catBgOpacity.value = cat.backgroundStyle?.opacity != null && Number.isFinite(cat.backgroundStyle.opacity)
     ? cat.backgroundStyle.opacity
     : 1;
+  catBgTextColor.value = cat.backgroundStyle?.textColor || '';
 }
 
 syncCategoryBackground();
@@ -594,6 +597,15 @@ const categoryBgStyle = computed(() => {
   return style;
 });
 
+const categoryTextStyle = computed(() => buildBackgroundTextVars(catBgTextColor.value, {
+  aliases: {
+    primary: ['--ui-text-primary'],
+    secondary: ['--ui-text-secondary'],
+    muted: ['--ui-text-muted'],
+    subtle: ['--ui-text-subtle'],
+  },
+}));
+
 function toObjectFit(backgroundSizeValue: string): 'contain' | 'cover' | 'fill' | 'none' {
   switch (backgroundSizeValue) {
     case 'contain':
@@ -624,6 +636,7 @@ const categoryBackgroundMemoKey = computed(() => [
   catBgPosition.value,
   catBgRepeat.value,
   String(catBgOpacity.value),
+  catBgTextColor.value,
 ].join('::'));
 
 function clearCategoryVideoResumeTimer() {
@@ -700,7 +713,7 @@ onDeactivated(disableCategoryVideoAutoplay);
 </script>
 
 <template>
-  <UiScrollbar ref="compAreaScrollbar" class="comp-area-viewport" :x="true" :y="true" :show-on-hover="true"
+  <UiScrollbar ref="compAreaScrollbar" class="comp-area-viewport" :style="categoryTextStyle" :x="true" :y="true" :show-on-hover="true"
     :size="6"
     thumb-color="var(--workspace-scrollbar-thumb-color)"
     thumb-hover-color="var(--workspace-scrollbar-thumb-hover-color)"

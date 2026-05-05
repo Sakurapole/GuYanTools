@@ -22,7 +22,7 @@ import SshFingerprintDialog from './SshFingerprintDialog.vue';
 import PortForwardPanel from './PortForwardPanel.vue';
 import PortForwardDialog from './PortForwardDialog.vue';
 
-const UiBackgroundPicker = defineAsyncComponent(() => import('@/windows/main/components/ui/UiBackgroundPicker.vue'));
+const UiPersonalizationConfig = defineAsyncComponent(() => import('@/windows/main/components/ui/UiPersonalizationConfig.vue'));
 
 /**
  * Main-window terminal page.
@@ -993,8 +993,8 @@ onBeforeUnmount(() => {
       </div>
     </div>
 
-    <!-- Background Picker Dialog -->
-    <UiBackgroundPicker
+    <!-- Personalization Dialog -->
+    <UiPersonalizationConfig
       :visible="bgPickerVisible"
       :current-background="termBgColor"
       :current-background-image="termBgImage"

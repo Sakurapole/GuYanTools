@@ -217,7 +217,7 @@ onBeforeUnmount(() => {
   height: 100%;
   padding: 16px;
   box-sizing: border-box;
-  color: #fff7ed;
+  color: var(--widget-text-primary, #fff7ed);
 }
 
 .pomodoro-widget__header,
@@ -249,14 +249,14 @@ onBeforeUnmount(() => {
   border: none;
   border-radius: 999px;
   padding: 7px 12px;
-  background: rgba(255, 255, 255, 0.14);
+  background: color-mix(in srgb, var(--widget-text-primary, #fff7ed) 14%, transparent);
   color: inherit;
   cursor: pointer;
 }
 
 .pomodoro-widget__modes button.active,
 .pomodoro-widget__actions button.primary {
-  background: rgba(255, 255, 255, 0.26);
+  background: color-mix(in srgb, var(--widget-text-primary, #fff7ed) 26%, transparent);
 }
 
 .pomodoro-widget--compact .pomodoro-widget__time {

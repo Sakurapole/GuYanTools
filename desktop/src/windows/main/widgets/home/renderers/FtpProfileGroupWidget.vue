@@ -120,7 +120,7 @@ onMounted(() => {
   height: 100%;
   min-height: 0;
   padding: 14px;
-  color: rgba(255, 255, 255, 0.94);
+  color: var(--widget-text-primary, rgba(255, 255, 255, 0.94));
   overflow: hidden;
 }
 
@@ -138,7 +138,7 @@ onMounted(() => {
 }
 
 .ftp-group-widget__eyebrow {
-  color: rgba(255, 255, 255, 0.66);
+  color: var(--widget-text-muted, rgba(255, 255, 255, 0.66));
   font-size: 0.68rem;
   font-weight: 700;
 }
@@ -160,9 +160,9 @@ onMounted(() => {
   justify-content: center;
   min-width: 24px;
   height: 22px;
-  border: 1px solid rgba(255, 255, 255, 0.24);
+  border: 1px solid color-mix(in srgb, var(--widget-text-primary, white) 24%, transparent);
   border-radius: 6px;
-  background: rgba(255, 255, 255, 0.12);
+  background: color-mix(in srgb, var(--widget-text-primary, white) 12%, transparent);
   font-size: 0.72rem;
   font-weight: 800;
 }
@@ -185,20 +185,20 @@ onMounted(() => {
   align-items: center;
   min-height: 38px;
   padding: 7px 8px;
-  border: 1px solid rgba(255, 255, 255, 0.16);
+  border: 1px solid color-mix(in srgb, var(--widget-text-primary, white) 16%, transparent);
   border-radius: 7px;
-  background: rgba(255, 255, 255, 0.1);
+  background: color-mix(in srgb, var(--widget-text-primary, white) 10%, transparent);
 }
 
 .ftp-group-widget__item:hover {
-  background: rgba(255, 255, 255, 0.17);
+  background: color-mix(in srgb, var(--widget-text-primary, white) 17%, transparent);
 }
 
 .ftp-group-widget__status {
   width: 7px;
   height: 7px;
   border-radius: 999px;
-  background: rgba(255, 255, 255, 0.42);
+  background: color-mix(in srgb, var(--widget-text-primary, white) 42%, transparent);
 }
 
 .ftp-group-widget__status--connected {
@@ -225,7 +225,7 @@ onMounted(() => {
 
 .ftp-group-widget__item-meta {
   margin-top: 1px;
-  color: rgba(255, 255, 255, 0.64);
+  color: var(--widget-text-muted, rgba(255, 255, 255, 0.64));
   font-size: 0.68rem;
 }
 
@@ -235,7 +235,7 @@ onMounted(() => {
   align-items: center;
   min-height: 0;
   overflow: hidden;
-  color: rgba(255, 255, 255, 0.72);
+  color: var(--widget-text-secondary, rgba(255, 255, 255, 0.72));
   font-size: 0.8rem;
 }
 

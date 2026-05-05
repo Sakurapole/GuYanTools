@@ -93,7 +93,7 @@ onMounted(() => {
   height: 100%;
   min-height: 0;
   padding: 14px;
-  color: rgba(255, 255, 255, 0.95);
+  color: var(--widget-text-primary, rgba(255, 255, 255, 0.95));
   overflow: hidden;
 }
 
@@ -113,9 +113,9 @@ onMounted(() => {
   justify-content: center;
   width: 32px;
   height: 32px;
-  border: 1px solid rgba(255, 255, 255, 0.22);
+  border: 1px solid color-mix(in srgb, var(--widget-text-primary, white) 22%, transparent);
   border-radius: 8px;
-  background: rgba(255, 255, 255, 0.14);
+  background: color-mix(in srgb, var(--widget-text-primary, white) 14%, transparent);
 }
 
 .ftp-profile-widget__mark svg {
@@ -131,11 +131,11 @@ onMounted(() => {
 .ftp-profile-widget__state {
   min-width: 0;
   overflow: hidden;
-  border: 1px solid rgba(255, 255, 255, 0.2);
+  border: 1px solid color-mix(in srgb, var(--widget-text-primary, white) 20%, transparent);
   border-radius: 999px;
   padding: 3px 8px;
-  background: rgba(255, 255, 255, 0.1);
-  color: rgba(255, 255, 255, 0.72);
+  background: color-mix(in srgb, var(--widget-text-primary, white) 10%, transparent);
+  color: var(--widget-text-secondary, rgba(255, 255, 255, 0.72));
   font-size: 0.68rem;
   font-weight: 700;
   text-overflow: ellipsis;
@@ -170,14 +170,14 @@ onMounted(() => {
 
 .ftp-profile-widget__meta {
   margin-top: 5px;
-  color: rgba(255, 255, 255, 0.7);
+  color: var(--widget-text-secondary, rgba(255, 255, 255, 0.7));
   font-size: 0.76rem;
 }
 
 .ftp-profile-widget__path {
   flex: 0 0 auto;
   min-width: 0;
-  color: rgba(255, 255, 255, 0.62);
+  color: var(--widget-text-muted, rgba(255, 255, 255, 0.62));
   font-family: var(--ui-font-mono);
   font-size: 0.68rem;
 }
@@ -187,17 +187,17 @@ onMounted(() => {
   box-sizing: border-box;
   width: 100%;
   min-height: 30px;
-  border: 1px solid rgba(255, 255, 255, 0.24);
+  border: 1px solid color-mix(in srgb, var(--widget-text-primary, white) 24%, transparent);
   border-radius: 7px;
-  background: rgba(255, 255, 255, 0.14);
-  color: rgba(255, 255, 255, 0.92);
+  background: color-mix(in srgb, var(--widget-text-primary, white) 14%, transparent);
+  color: var(--widget-text-primary, rgba(255, 255, 255, 0.92));
   font-size: 0.76rem;
   font-weight: 760;
   cursor: pointer;
 }
 
 .ftp-profile-widget__action:hover:not(:disabled) {
-  background: rgba(255, 255, 255, 0.22);
+  background: color-mix(in srgb, var(--widget-text-primary, white) 22%, transparent);
 }
 
 .ftp-profile-widget__action:disabled {
@@ -246,9 +246,9 @@ onMounted(() => {
   grid-column: 1 / -1;
   grid-row: 2;
   padding: 6px 8px;
-  border: 1px solid rgba(255, 255, 255, 0.14);
+  border: 1px solid color-mix(in srgb, var(--widget-text-primary, white) 14%, transparent);
   border-radius: 7px;
-  background: rgba(255, 255, 255, 0.1);
+  background: color-mix(in srgb, var(--widget-text-primary, white) 10%, transparent);
 }
 
 .ftp-profile-widget--compact {
@@ -292,8 +292,8 @@ onMounted(() => {
 
 .ftp-profile-widget--compact .ftp-profile-widget__action {
   min-height: 42px;
-  border-color: rgba(255, 255, 255, 0.34);
-  background: rgba(255, 255, 255, 0.22);
+  border-color: color-mix(in srgb, var(--widget-text-primary, white) 34%, transparent);
+  background: color-mix(in srgb, var(--widget-text-primary, white) 22%, transparent);
   font-size: 0.86rem;
   box-shadow: 0 8px 20px rgba(0, 0, 0, 0.14);
 }
