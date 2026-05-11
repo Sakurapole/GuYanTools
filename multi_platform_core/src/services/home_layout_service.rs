@@ -1,7 +1,8 @@
 use crate::db::{Database, DbError, DbResult};
 use crate::models::{
     CreateHomeCategoryInput, CreateHomeWidgetInput, HomeCategory, HomeLayout, HomeLayoutCategory,
-    HomeWidget, HomeWorkspace, ImportHomeLayoutInput, UpdateHomeCategoryInput, UpdateHomeWidgetInput,
+    HomeWidget, HomeWorkspace, ImportHomeLayoutInput, UpdateHomeCategoryInput,
+    UpdateHomeWidgetInput,
 };
 use rusqlite::{params, Connection, OptionalExtension};
 use uuid::Uuid;
@@ -48,9 +49,8 @@ impl HomeLayoutService {
 
     pub fn delete_workspace(db: &Database, key: &str) -> DbResult<String> {
         db.transaction(|conn| {
-            let count: i64 = conn.query_row("SELECT COUNT(*) FROM home_workspaces", [], |row| {
-                row.get(0)
-            })?;
+            let count: i64 =
+                conn.query_row("SELECT COUNT(*) FROM home_workspaces", [], |row| row.get(0))?;
             if count <= 1 {
                 return Err(DbError::InvalidParameter(
                     "至少需要保留一个首页配置文件".to_string(),
@@ -507,11 +507,7 @@ impl HomeLayoutService {
                 value = excluded.value,
                 description = excluded.description,
                 updated_at = datetime('now')",
-            params![
-                Self::ACTIVE_WORKSPACE_SETTING_KEY,
-                key,
-                "当前首页配置文件"
-            ],
+            params![Self::ACTIVE_WORKSPACE_SETTING_KEY, key, "当前首页配置文件"],
         )?;
         Ok(())
     }
@@ -693,7 +689,9 @@ impl HomeLayoutService {
     fn normalize_required_name(value: String) -> DbResult<String> {
         let name = value.trim().to_string();
         if name.is_empty() {
-            Err(DbError::InvalidParameter("首页配置文件名称不能为空".to_string()))
+            Err(DbError::InvalidParameter(
+                "首页配置文件名称不能为空".to_string(),
+            ))
         } else {
             Ok(name)
         }
@@ -747,8 +745,7 @@ mod tests {
         );
 
         let renamed =
-            HomeLayoutService::rename_workspace(&db, &created.key, "项目配置".to_string())
-                .unwrap();
+            HomeLayoutService::rename_workspace(&db, &created.key, "项目配置".to_string()).unwrap();
         assert_eq!(renamed.name, "项目配置");
 
         let fallback_key = HomeLayoutService::delete_workspace(&db, &created.key).unwrap();

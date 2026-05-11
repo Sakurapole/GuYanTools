@@ -6,6 +6,7 @@ import type { PluginHostApi, PluginRuntimeApi, PluginRuntimeContext } from '@/co
 import type { NotificationApi } from '@/contracts/notification';
 import type { TrayApi } from '@/contracts/tray';
 import type { FtpApi } from '@/contracts/ftp';
+import type { MultiDeviceClipboardApi } from '@/contracts/multi_device_clipboard';
 
 // export * from './plugin.d.ts';
 export { };
@@ -47,6 +48,7 @@ declare global {
     notificationApi?: NotificationApi;
     homeWorkspaceApi?: HomeWorkspaceApi;
     trayApi?: TrayApi;
+    multiDeviceClipboardApi?: MultiDeviceClipboardApi;
     ftpApi: FtpApi;
   }
 }

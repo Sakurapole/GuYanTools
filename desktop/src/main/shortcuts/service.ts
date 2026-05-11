@@ -4,20 +4,22 @@ import { normalizeAccelerator } from '@/shared/shortcuts';
 import { appConfigManager } from '@/main/app-config/manager';
 
 type WindowGetter = () => BrowserWindow | null;
+type ClipboardWindowToggle = () => void;
 
 class ShortcutService {
   private toggleVisibilityShortcut = '';
+  private toggleClipboardShortcut = '';
   private unsubscribeConfig?: () => void;
   private initialized = false;
 
-  async initialize(getMainWindow: WindowGetter) {
+  async initialize(getMainWindow: WindowGetter, toggleClipboardWindow?: ClipboardWindowToggle) {
     if (this.initialized) {
       return;
     }
 
-    await this.refresh(await appConfigManager.getConfig(), getMainWindow);
+    await this.refresh(await appConfigManager.getConfig(), getMainWindow, toggleClipboardWindow);
     this.unsubscribeConfig = appConfigManager.subscribe((config) => {
-      void this.refresh(config, getMainWindow);
+      void this.refresh(config, getMainWindow, toggleClipboardWindow);
     });
     this.initialized = true;
   }
@@ -30,11 +32,18 @@ class ShortcutService {
       globalShortcut.unregister(this.toggleVisibilityShortcut);
       this.toggleVisibilityShortcut = '';
     }
+
+    if (this.toggleClipboardShortcut) {
+      globalShortcut.unregister(this.toggleClipboardShortcut);
+      this.toggleClipboardShortcut = '';
+    }
   }
 
-  private async refresh(config: AppConfig, getMainWindow: WindowGetter) {
+  private async refresh(config: AppConfig, getMainWindow: WindowGetter, toggleClipboardWindow?: ClipboardWindowToggle) {
     const accelerator = normalizeAccelerator(config.shortcuts.system.toggleAppVisibility);
     await this.registerToggleVisibilityShortcut(accelerator, getMainWindow);
+    const clipboardAccelerator = normalizeAccelerator(config.shortcuts.system.toggleMultiDeviceClipboard);
+    await this.registerToggleClipboardShortcut(clipboardAccelerator, toggleClipboardWindow);
   }
 
   private async registerToggleVisibilityShortcut(accelerator: string, getMainWindow: WindowGetter) {
@@ -75,6 +84,28 @@ class ShortcutService {
     }
 
     this.toggleVisibilityShortcut = accelerator;
+  }
+
+  private async registerToggleClipboardShortcut(accelerator: string, toggleClipboardWindow?: ClipboardWindowToggle) {
+    if (this.toggleClipboardShortcut) {
+      globalShortcut.unregister(this.toggleClipboardShortcut);
+      this.toggleClipboardShortcut = '';
+    }
+
+    if (!accelerator || !toggleClipboardWindow) {
+      return;
+    }
+
+    const registered = globalShortcut.register(accelerator, () => {
+      toggleClipboardWindow();
+    });
+
+    if (!registered) {
+      console.warn(`[ShortcutService] Failed to register multi-device clipboard shortcut: ${accelerator}`);
+      return;
+    }
+
+    this.toggleClipboardShortcut = accelerator;
   }
 }
 

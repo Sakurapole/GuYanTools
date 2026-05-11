@@ -1,5 +1,6 @@
 use crate::db::Database;
 use crate::models::*;
+use crate::multi_device_clipboard::*;
 use crate::services::*;
 use crate::terminal::*;
 use napi::bindgen_prelude::*;
@@ -1079,6 +1080,182 @@ impl JsDatabase {
         .await
         .map_err(|e| Error::from_reason(format!("任务执行失败: {}", e)))?
         .map_err(|e| Error::from_reason(format!("删除插件状态失败: {}", e)))
+    }
+}
+
+// ============================================================
+// Multi-device clipboard NAPI host
+// ============================================================
+
+#[napi(js_name = "JsMultiDeviceClipboardHost")]
+pub struct JsMultiDeviceClipboardHost {
+    inner: Arc<MultiDeviceClipboardManager>,
+}
+
+#[napi]
+impl JsMultiDeviceClipboardHost {
+    #[napi(constructor)]
+    pub fn new(db: &JsDatabase) -> Self {
+        Self {
+            inner: Arc::new(MultiDeviceClipboardManager::new(db.inner.clone())),
+        }
+    }
+
+    #[napi(js_name = "getOrCreateLocalDevice")]
+    pub async fn get_or_create_local_device(
+        &self,
+        name: String,
+    ) -> Result<MultiDeviceClipboardDevice> {
+        let manager = self.inner.clone();
+        tokio::task::spawn_blocking(move || manager.get_or_create_local_device(name))
+            .await
+            .map_err(|e| Error::from_reason(format!("task failed: {}", e)))?
+            .map_err(|e| Error::from_reason(format!("getOrCreateLocalDevice failed: {}", e)))
+    }
+
+    #[napi(js_name = "startDiscovery")]
+    pub fn start_discovery(&self, config: MultiDeviceClipboardDiscoveryConfig) -> Result<()> {
+        self.inner
+            .start_discovery(config)
+            .map_err(|e| Error::from_reason(format!("startDiscovery failed: {}", e)))
+    }
+
+    #[napi(js_name = "stopDiscovery")]
+    pub fn stop_discovery(&self) {
+        self.inner.stop_discovery();
+    }
+
+    #[napi(js_name = "listDiscoveredDevices")]
+    pub fn list_discovered_devices(&self) -> Vec<MultiDeviceClipboardDiscoveredDevice> {
+        self.inner.list_discovered_devices()
+    }
+
+    #[napi(js_name = "listDevices")]
+    pub async fn list_devices(&self) -> Result<Vec<MultiDeviceClipboardDevice>> {
+        let manager = self.inner.clone();
+        tokio::task::spawn_blocking(move || manager.list_devices())
+            .await
+            .map_err(|e| Error::from_reason(format!("task failed: {}", e)))?
+            .map_err(|e| Error::from_reason(format!("listDevices failed: {}", e)))
+    }
+
+    #[napi(js_name = "listDeviceStatuses")]
+    pub async fn list_device_statuses(
+        &self,
+        online_window_seconds: i64,
+    ) -> Result<Vec<MultiDeviceClipboardDeviceStatus>> {
+        let manager = self.inner.clone();
+        tokio::task::spawn_blocking(move || manager.list_device_statuses(online_window_seconds))
+            .await
+            .map_err(|e| Error::from_reason(format!("task failed: {}", e)))?
+            .map_err(|e| Error::from_reason(format!("listDeviceStatuses failed: {}", e)))
+    }
+
+    #[napi(js_name = "upsertDevice")]
+    pub async fn upsert_device(
+        &self,
+        input: UpsertMultiDeviceClipboardDeviceInput,
+    ) -> Result<MultiDeviceClipboardDevice> {
+        let manager = self.inner.clone();
+        tokio::task::spawn_blocking(move || manager.upsert_device(input))
+            .await
+            .map_err(|e| Error::from_reason(format!("task failed: {}", e)))?
+            .map_err(|e| Error::from_reason(format!("upsertDevice failed: {}", e)))
+    }
+
+    #[napi(js_name = "setDeviceTrusted")]
+    pub async fn set_device_trusted(
+        &self,
+        id: String,
+        trusted: bool,
+    ) -> Result<MultiDeviceClipboardDevice> {
+        let manager = self.inner.clone();
+        tokio::task::spawn_blocking(move || manager.set_device_trusted(id, trusted))
+            .await
+            .map_err(|e| Error::from_reason(format!("task failed: {}", e)))?
+            .map_err(|e| Error::from_reason(format!("setDeviceTrusted failed: {}", e)))
+    }
+
+    #[napi(js_name = "forgetDevice")]
+    pub async fn forget_device(&self, id: String) -> Result<()> {
+        let manager = self.inner.clone();
+        tokio::task::spawn_blocking(move || manager.forget_device(id))
+            .await
+            .map_err(|e| Error::from_reason(format!("task failed: {}", e)))?
+            .map_err(|e| Error::from_reason(format!("forgetDevice failed: {}", e)))
+    }
+
+    #[napi(js_name = "listItems")]
+    pub async fn list_items(&self, limit: i64) -> Result<Vec<MultiDeviceClipboardItem>> {
+        let manager = self.inner.clone();
+        tokio::task::spawn_blocking(move || manager.list_items(limit))
+            .await
+            .map_err(|e| Error::from_reason(format!("task failed: {}", e)))?
+            .map_err(|e| Error::from_reason(format!("listItems failed: {}", e)))
+    }
+
+    #[napi(js_name = "getItem")]
+    pub async fn get_item(&self, id: String) -> Result<MultiDeviceClipboardItem> {
+        let manager = self.inner.clone();
+        tokio::task::spawn_blocking(move || manager.get_item(id))
+            .await
+            .map_err(|e| Error::from_reason(format!("task failed: {}", e)))?
+            .map_err(|e| Error::from_reason(format!("getItem failed: {}", e)))
+    }
+
+    #[napi(js_name = "upsertItem")]
+    pub async fn upsert_item(
+        &self,
+        input: UpsertMultiDeviceClipboardItemInput,
+    ) -> Result<MultiDeviceClipboardItem> {
+        let manager = self.inner.clone();
+        tokio::task::spawn_blocking(move || manager.upsert_item(input))
+            .await
+            .map_err(|e| Error::from_reason(format!("task failed: {}", e)))?
+            .map_err(|e| Error::from_reason(format!("upsertItem failed: {}", e)))
+    }
+
+    #[napi(js_name = "deleteItem")]
+    pub async fn delete_item(&self, id: String) -> Result<()> {
+        let manager = self.inner.clone();
+        tokio::task::spawn_blocking(move || manager.delete_item(id))
+            .await
+            .map_err(|e| Error::from_reason(format!("task failed: {}", e)))?
+            .map_err(|e| Error::from_reason(format!("deleteItem failed: {}", e)))
+    }
+
+    #[napi(js_name = "clearHistory")]
+    pub async fn clear_history(&self) -> Result<()> {
+        let manager = self.inner.clone();
+        tokio::task::spawn_blocking(move || manager.clear_history())
+            .await
+            .map_err(|e| Error::from_reason(format!("task failed: {}", e)))?
+            .map_err(|e| Error::from_reason(format!("clearHistory failed: {}", e)))
+    }
+
+    #[napi(js_name = "pruneHistory")]
+    pub async fn prune_history(&self, history_limit: i64) -> Result<()> {
+        let manager = self.inner.clone();
+        tokio::task::spawn_blocking(move || manager.prune_history(history_limit))
+            .await
+            .map_err(|e| Error::from_reason(format!("task failed: {}", e)))?
+            .map_err(|e| Error::from_reason(format!("pruneHistory failed: {}", e)))
+    }
+
+    #[napi(js_name = "computeContentHash")]
+    pub fn compute_content_hash(&self, parts: Vec<String>) -> String {
+        MultiDeviceClipboardManager::compute_content_hash(parts)
+    }
+
+    #[napi(js_name = "registerEventSink")]
+    pub fn register_event_sink(&self, callback: JsFunction) -> Result<()> {
+        let tsfn: ThreadsafeFunction<String, ErrorStrategy::Fatal> = callback
+            .create_threadsafe_function(0, |ctx: ThreadSafeCallContext<String>| {
+                Ok(vec![ctx.value])
+            })?;
+        self.inner
+            .register_event_sink(tsfn)
+            .map_err(|e| Error::from_reason(format!("registerEventSink failed: {}", e)))
     }
 }
 

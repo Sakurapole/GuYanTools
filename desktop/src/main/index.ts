@@ -10,6 +10,9 @@ import { registerHomeLayoutIpcHandlers } from "./home-layout/ipc";
 import { registerHomeProfileIpcHandlers } from "./home-profile/ipc";
 import { registerHomeWorkspaceIpcHandlers } from "./home-workspace/ipc";
 import { registerMediaIpcHandlers } from "./media/ipc";
+import { registerMultiDeviceClipboardIpcHandlers } from "./multi-device-clipboard/ipc";
+import { multiDeviceClipboardService } from "./multi-device-clipboard/service";
+import { registerMultiDeviceClipboardWindowHandlers, toggleMultiDeviceClipboardWindow } from "./multi-device-clipboard/window";
 import { registerNotificationIpcHandlers } from "./notification/ipc";
 import { registerShellIpcHandlers } from "./shell/ipc";
 import { shortcutService } from "./shortcuts/service";
@@ -34,6 +37,7 @@ import { registerTrayMenuWindowHandlers } from "./tray/tray_menu_window";
 import { setupAutoUpdater } from "./updater";
 
 const delay = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms));
+const MULTI_DEVICE_CLIPBOARD_ASSET_HOST = 'multi-device-clipboard-assets';
 
 type FtpCliRelayAdditionalData = {
   ftpCliResponsePath?: string;
@@ -73,6 +77,8 @@ class App {
     registerHomeLayoutIpcHandlers();
     registerHomeWorkspaceIpcHandlers();
     registerMediaIpcHandlers();
+    registerMultiDeviceClipboardIpcHandlers();
+    registerMultiDeviceClipboardWindowHandlers();
     registerNotificationIpcHandlers(() => {
       try {
         return this.mainWindowCreator.getWindow();
@@ -131,6 +137,7 @@ class App {
   onReady() {
     const readyFunc = async () => {
       try {
+        this.registerAppProtocolHandlers();
         if (!dbManager.isInitialized()) {
           await dbManager.initialize();
         }
@@ -142,13 +149,14 @@ class App {
         ftpHost.initialize();
         await ftpSchedulerService.initialize();
         await pluginHost.initialize();
+        await multiDeviceClipboardService.initialize();
         await shortcutService.initialize(() => {
           try {
             return this.mainWindowCreator.getWindow();
           } catch {
             return null;
           }
-        });
+        }, toggleMultiDeviceClipboardWindow);
 
         // ─── 初始化共享 webview session ───
         // 集中管理 UA 清洗、请求头改写等，避免 Google 等第三方服务拦截嵌入式 WebView
@@ -249,8 +257,41 @@ class App {
     app.on('will-quit', () => {
       stopTodoScheduler();
       ftpSchedulerService.dispose();
+      void multiDeviceClipboardService.dispose();
       shortcutService.dispose();
       destroyTray();
+    });
+  }
+
+  private registerAppProtocolHandlers() {
+    if (protocol.isProtocolHandled('app')) {
+      return;
+    }
+
+    protocol.handle('app', async (request) => {
+      const url = new URL(request.url);
+      if (url.hostname !== MULTI_DEVICE_CLIPBOARD_ASSET_HOST) {
+        return new Response('Not found', { status: 404 });
+      }
+
+      const assetRoot = path.resolve(app.getPath('userData'), 'multi-device-clipboard-assets');
+      const requestedPath = decodeURIComponent(url.pathname.slice(1));
+      const resolvedPath = path.resolve(requestedPath);
+      if (resolvedPath !== assetRoot && !resolvedPath.startsWith(`${assetRoot}${path.sep}`)) {
+        return new Response('Forbidden', { status: 403 });
+      }
+
+      try {
+        const bytes = await fs.readFile(resolvedPath);
+        return new Response(new Uint8Array(bytes), {
+          headers: {
+            'Content-Type': guessLocalAssetMimeType(resolvedPath),
+            'Cache-Control': 'no-store',
+          },
+        });
+      } catch {
+        return new Response('Not found', { status: 404 });
+      }
     });
   }
 
@@ -355,6 +396,16 @@ async function waitForFtpCliRelayResponse(responsePath: string, timeoutMs: numbe
     }
   }
   throw new Error('等待主实例返回 FTP CLI 结果超时');
+}
+
+function guessLocalAssetMimeType(filePath: string) {
+  const ext = path.extname(filePath).toLowerCase();
+  if (ext === '.png') return 'image/png';
+  if (ext === '.jpg' || ext === '.jpeg') return 'image/jpeg';
+  if (ext === '.gif') return 'image/gif';
+  if (ext === '.webp') return 'image/webp';
+  if (ext === '.svg') return 'image/svg+xml';
+  return 'application/octet-stream';
 }
 
 export default new App();

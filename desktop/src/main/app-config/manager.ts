@@ -15,6 +15,7 @@ import type {
   AppTheme,
   AppToolsConfig,
   LocalFontOption,
+  MultiDeviceClipboardFeatureConfig,
 } from '@/contracts/app_config';
 import type { LocalTerminalProfileConfig, TerminalBackgroundConfig } from '@/contracts/terminal';
 import type { AppWebConfig, ChromeExtensionRecord, WebScriptRule } from '@/contracts/webview';
@@ -135,6 +136,10 @@ function normalizeShortcuts(value: unknown): AppShortcutsConfig {
     },
     system: {
       toggleAppVisibility: normalizeShortcutValue(system.toggleAppVisibility, defaults.system.toggleAppVisibility),
+      toggleMultiDeviceClipboard: normalizeShortcutValue(
+        system.toggleMultiDeviceClipboard,
+        defaults.system.toggleMultiDeviceClipboard,
+      ),
     },
   };
 }
@@ -148,6 +153,36 @@ function normalizeFeatures(value: unknown): AppFeaturesConfig {
   return {
     aiAgent: isRecord(value.aiAgent) ? cloneConfig(value.aiAgent) : cloneConfig(defaultConfig.aiAgent),
     terminal: normalizeTerminalFeature(value.terminal),
+    multiDeviceClipboard: normalizeMultiDeviceClipboardFeature(value.multiDeviceClipboard),
+  };
+}
+
+function normalizeMultiDeviceClipboardFeature(value: unknown): MultiDeviceClipboardFeatureConfig {
+  const defaults = createDefaultAppConfig().features.multiDeviceClipboard;
+  if (!isRecord(value)) {
+    return cloneConfig(defaults);
+  }
+
+  const rawMaxSyncBytes = Number(value.maxSyncBytes);
+  const maxSyncBytes = Number.isFinite(rawMaxSyncBytes)
+    ? Math.max(1, Math.min(1024 * 1024 * 1024, Math.round(rawMaxSyncBytes)))
+    : defaults.maxSyncBytes;
+  const rawHistoryLimit = Number(value.historyLimit);
+  const historyLimit = Number.isFinite(rawHistoryLimit)
+    ? Math.max(1, Math.min(5000, Math.round(rawHistoryLimit)))
+    : defaults.historyLimit;
+  const deviceName = typeof value.deviceName === 'string' ? value.deviceName.trim() : defaults.deviceName;
+
+  return {
+    enabled: typeof value.enabled === 'boolean' ? value.enabled : defaults.enabled,
+    deviceName,
+    maxSyncBytes,
+    historyLimit,
+    networkInterfacePriority: Array.isArray(value.networkInterfacePriority)
+      ? value.networkInterfacePriority
+        .filter((item): item is string => typeof item === 'string' && item.trim().length > 0)
+        .map(item => item.trim())
+      : [...defaults.networkInterfacePriority],
   };
 }
 
@@ -428,6 +463,10 @@ function mergeConfig(current: AppConfig, patch: AppConfigPatch): AppConfig {
       terminal: normalizeTerminalFeature({
         ...current.features.terminal,
         ...(patch.features?.terminal ?? {}),
+      }),
+      multiDeviceClipboard: normalizeMultiDeviceClipboardFeature({
+        ...current.features.multiDeviceClipboard,
+        ...(patch.features?.multiDeviceClipboard ?? {}),
       }),
     },
     shortcuts: normalizeShortcuts({

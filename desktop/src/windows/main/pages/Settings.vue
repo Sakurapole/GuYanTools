@@ -1,7 +1,8 @@
 <script lang="ts" setup>
 import { computed, onMounted, ref, watch } from 'vue';
-import type { AppBottomBarTabId, AppLanguage, AppTheme } from '@/contracts/app_config';
+import type { AppBottomBarTabId, AppLanguage, AppTheme, LocalNetworkInterfaceOption } from '@/contracts/app_config';
 import type { FtpWindowsContextMenuStatus } from '@/contracts/ftp';
+import type { MultiDeviceClipboardDeviceStatus } from '@/contracts/multi_device_clipboard';
 import type {
   LocalTerminalProfileConfig,
   TerminalBackgroundConfig,
@@ -67,6 +68,14 @@ const pluginConfigDrafts = ref<Record<string, string>>({});
 const pluginConfigErrors = ref<Record<string, string>>({});
 const terminalProfiles = ref<TerminalProfile[]>([]);
 const terminalDefaultCwdInput = ref(appConfigStore.config.features.terminal.defaultCwd || '');
+const multiDeviceClipboardDeviceNameInput = ref(appConfigStore.config.features.multiDeviceClipboard.deviceName || '');
+const multiDeviceClipboardMaxSyncMbInput = ref(String(Math.round(appConfigStore.config.features.multiDeviceClipboard.maxSyncBytes / 1024 / 1024)));
+const multiDeviceClipboardHistoryLimitInput = ref(String(appConfigStore.config.features.multiDeviceClipboard.historyLimit));
+const localNetworkInterfaces = ref<LocalNetworkInterfaceOption[]>([]);
+const networkInterfacesLoading = ref(false);
+const draggedNetworkInterfaceKey = ref('');
+const multiDeviceClipboardDevices = ref<MultiDeviceClipboardDeviceStatus[]>([]);
+const multiDeviceClipboardDevicesLoading = ref(false);
 const localTerminalBaseProfileId = ref('');
 const localTerminalEditingId = ref('');
 const localTerminalProfileError = ref('');
@@ -117,6 +126,7 @@ const settingsTabs: UiTabItem[] = [
   { key: 'ai-agent', label: 'Agent' },
   { key: 'plugins', label: '插件配置' },
   { key: 'terminal', label: '终端' },
+  { key: 'multi-device-clipboard', label: '多设备剪贴板' },
   { key: 'shortcuts', label: '快捷键' },
 ];
 const settingsTabOrder = settingsTabs.map(tab => tab.key) as SettingsTabKey[];
@@ -172,6 +182,20 @@ const bottomBarVisibleSummary = computed(() => {
     .filter((label): label is string => Boolean(label));
   return labels.length ? `默认显示：${labels.join('、')}` : '默认显示：首页、设置';
 });
+
+const orderedNetworkInterfaces = computed(() => {
+  const priority = appConfigStore.config.features.multiDeviceClipboard.networkInterfacePriority ?? [];
+  return [...localNetworkInterfaces.value].sort((a, b) => {
+    const aIndex = networkInterfacePriorityIndex(a, priority);
+    const bIndex = networkInterfacePriorityIndex(b, priority);
+    if (aIndex !== bIndex) return aIndex - bIndex;
+    return a.name.localeCompare(b.name) || a.address.localeCompare(b.address);
+  });
+});
+
+const activeNetworkInterface = computed(() => orderedNetworkInterfaces.value.find(item => !item.internal));
+const pairedMultiDeviceClipboardDevices = computed(() =>
+  multiDeviceClipboardDevices.value.filter(device => device.trusted && !device.isSelf));
 
 const languageOptions = [
   { label: '简体中文', value: 'zh' },
@@ -920,6 +944,163 @@ async function commitSshReconnectMaxAttempts() {
   });
 }
 
+async function handleMultiDeviceClipboardEnabledChange(event: Event) {
+  await appConfigStore.updateConfig({
+    features: {
+      multiDeviceClipboard: {
+        enabled: (event.target as HTMLInputElement).checked,
+      },
+    },
+  });
+}
+
+async function commitMultiDeviceClipboardDeviceName() {
+  await appConfigStore.updateConfig({
+    features: {
+      multiDeviceClipboard: {
+        deviceName: multiDeviceClipboardDeviceNameInput.value.trim(),
+      },
+    },
+  });
+}
+
+async function commitMultiDeviceClipboardMaxSyncMb() {
+  const numeric = Number(multiDeviceClipboardMaxSyncMbInput.value);
+  const mb = Number.isFinite(numeric)
+    ? Math.max(1, Math.min(1024, Math.round(numeric)))
+    : 100;
+  multiDeviceClipboardMaxSyncMbInput.value = String(mb);
+  await appConfigStore.updateConfig({
+    features: {
+      multiDeviceClipboard: {
+        maxSyncBytes: mb * 1024 * 1024,
+      },
+    },
+  });
+}
+
+async function commitMultiDeviceClipboardHistoryLimit() {
+  const numeric = Number(multiDeviceClipboardHistoryLimitInput.value);
+  const limit = Number.isFinite(numeric)
+    ? Math.max(1, Math.min(5000, Math.round(numeric)))
+    : 200;
+  multiDeviceClipboardHistoryLimitInput.value = String(limit);
+  await appConfigStore.updateConfig({
+    features: {
+      multiDeviceClipboard: {
+        historyLimit: limit,
+      },
+    },
+  });
+}
+
+async function loadNetworkInterfaces() {
+  if (!window.appConfigApi?.listNetworkInterfaces) return;
+  networkInterfacesLoading.value = true;
+  try {
+    localNetworkInterfaces.value = await window.appConfigApi.listNetworkInterfaces();
+  } finally {
+    networkInterfacesLoading.value = false;
+  }
+}
+
+function networkInterfacePriorityIndex(
+  item: LocalNetworkInterfaceOption,
+  priority: string[],
+) {
+  const index = priority.findIndex(value => value === item.key || value === item.address);
+  return index === -1 ? Number.MAX_SAFE_INTEGER : index;
+}
+
+async function saveNetworkInterfacePriority(keys: string[]) {
+  await appConfigStore.updateConfig({
+    features: {
+      multiDeviceClipboard: {
+        networkInterfacePriority: keys,
+      },
+    },
+  });
+}
+
+async function moveNetworkInterface(fromIndex: number, toIndex: number) {
+  if (fromIndex === toIndex) return;
+  const items = orderedNetworkInterfaces.value;
+  if (!items[fromIndex] || !items[toIndex]) return;
+  const keys = items.map(item => item.key);
+  const [moved] = keys.splice(fromIndex, 1);
+  keys.splice(toIndex, 0, moved);
+  await saveNetworkInterfacePriority(keys);
+}
+
+function handleNetworkInterfaceDragStart(key: string, event: DragEvent) {
+  draggedNetworkInterfaceKey.value = key;
+  event.dataTransfer?.setData('text/plain', key);
+  if (event.dataTransfer) {
+    event.dataTransfer.effectAllowed = 'move';
+  }
+}
+
+async function handleNetworkInterfaceDrop(targetKey: string, event: DragEvent) {
+  event.preventDefault();
+  const sourceKey = draggedNetworkInterfaceKey.value || event.dataTransfer?.getData('text/plain') || '';
+  draggedNetworkInterfaceKey.value = '';
+  if (!sourceKey || sourceKey === targetKey) return;
+  const items = orderedNetworkInterfaces.value;
+  const fromIndex = items.findIndex(item => item.key === sourceKey);
+  const toIndex = items.findIndex(item => item.key === targetKey);
+  await moveNetworkInterface(fromIndex, toIndex);
+}
+
+async function resetNetworkInterfacePriority() {
+  await saveNetworkInterfacePriority([]);
+}
+
+async function loadMultiDeviceClipboardDevices() {
+  if (!window.multiDeviceClipboardApi?.listDeviceStatuses) return;
+  multiDeviceClipboardDevicesLoading.value = true;
+  try {
+    multiDeviceClipboardDevices.value = await window.multiDeviceClipboardApi.listDeviceStatuses(60);
+  } finally {
+    multiDeviceClipboardDevicesLoading.value = false;
+  }
+}
+
+async function forgetMultiDeviceClipboardDevice(device: MultiDeviceClipboardDeviceStatus) {
+  if (!window.multiDeviceClipboardApi?.forgetDevice) return;
+  const confirmed = await showConfirm({
+    title: '移除已配对设备',
+    message: `确定移除「${device.name}」吗？移除后该设备不能继续同步剪贴板，需要重新配对。`,
+    confirmText: '移除',
+    cancelText: '取消',
+    danger: true,
+  });
+  if (!confirmed) return;
+  await window.multiDeviceClipboardApi.forgetDevice(device.deviceId);
+  await loadMultiDeviceClipboardDevices();
+}
+
+function multiDeviceClipboardDeviceStatusLabel(device: MultiDeviceClipboardDeviceStatus) {
+  if (device.state === 'trustedOnline') return '在线';
+  if (device.state === 'trustedOffline') return '离线';
+  if (device.state === 'available') return '可配对';
+  return '未知';
+}
+
+function multiDeviceClipboardDeviceMeta(device: MultiDeviceClipboardDeviceStatus) {
+  const endpoint = device.lastAddress ? `${device.lastAddress}${device.lastPort ? `:${device.lastPort}` : ''}` : '';
+  const seen = device.secondsSinceSeen == null
+    ? ''
+    : device.secondsSinceSeen < 60
+      ? `${Math.round(device.secondsSinceSeen)} 秒前`
+      : `${Math.round(device.secondsSinceSeen / 60)} 分钟前`;
+  return [
+    multiDeviceClipboardDeviceStatusLabel(device),
+    device.platform || 'unknown',
+    endpoint,
+    seen ? `上次发现 ${seen}` : '',
+  ].filter(Boolean).join(' · ');
+}
+
 async function commitBaseFontSize() {
   const numeric = Number(baseFontSizeInput.value);
   await appConfigStore.updateConfig({
@@ -1093,6 +1274,18 @@ watch(() => appConfigStore.config.features.terminal.sshReconnectMaxAttempts, (va
   sshReconnectMaxAttemptsInput.value = String(value || 3);
 }, { immediate: true });
 
+watch(() => appConfigStore.config.features.multiDeviceClipboard.deviceName, (value) => {
+  multiDeviceClipboardDeviceNameInput.value = value || '';
+}, { immediate: true });
+
+watch(() => appConfigStore.config.features.multiDeviceClipboard.maxSyncBytes, (value) => {
+  multiDeviceClipboardMaxSyncMbInput.value = String(Math.round((value || 0) / 1024 / 1024));
+}, { immediate: true });
+
+watch(() => appConfigStore.config.features.multiDeviceClipboard.historyLimit, (value) => {
+  multiDeviceClipboardHistoryLimitInput.value = String(value || 200);
+}, { immediate: true });
+
 watch(
   [
     ftpPanelLayoutMode,
@@ -1151,6 +1344,8 @@ onMounted(() => {
 
   void loadPluginContext();
   void loadTerminalProfiles();
+  void loadNetworkInterfaces();
+  void loadMultiDeviceClipboardDevices();
 
   // 如果已配置 FFmpeg 路径，则自动验证
   if (ffmpegPathInput.value) {
@@ -2114,6 +2309,195 @@ function scriptTypeLabel(type: string) {
         </div>
       </section>
 
+      <section v-else-if="settingsStore.activeSettingsTab === 'multi-device-clipboard'" key="multi-device-clipboard" class="settings-section">
+        <div class="section-head section-head--standalone">
+          <h2>多设备剪贴板</h2>
+          <p>配置局域网发现、同步大小和历史记录。</p>
+        </div>
+
+        <div class="settings-form">
+          <section class="settings-group">
+            <h3>同步</h3>
+            <div class="settings-row">
+              <div class="settings-row__label">
+                <span>启用多设备剪贴板</span>
+                <small>启用后会通过 mDNS 在局域网发布和发现设备。</small>
+              </div>
+              <div class="settings-row__control settings-row__control--switch">
+                <label class="settings-switch">
+                  <input
+                    type="checkbox"
+                    :checked="appConfigStore.config.features.multiDeviceClipboard.enabled"
+                    @change="handleMultiDeviceClipboardEnabledChange"
+                  />
+                  <span aria-hidden="true" />
+                </label>
+              </div>
+            </div>
+            <div class="settings-row">
+              <div class="settings-row__label">
+                <span>设备名称</span>
+                <small>为空时使用当前系统主机名。</small>
+              </div>
+              <div class="settings-row__control settings-row__control--wide">
+                <UiInput
+                  v-model="multiDeviceClipboardDeviceNameInput"
+                  placeholder="例如：工作笔记本"
+                  @blur="commitMultiDeviceClipboardDeviceName"
+                  @keydown.enter.prevent="commitMultiDeviceClipboardDeviceName"
+                />
+              </div>
+            </div>
+            <div class="settings-row">
+              <div class="settings-row__label">
+                <span>唤出快捷键</span>
+                <small>系统级快捷键；如果 Alt+V 已被系统占用，可以改成其他组合。</small>
+              </div>
+              <div class="settings-row__control settings-row__control--wide">
+                <ShortcutRecorder
+                  :model-value="appConfigStore.config.shortcuts.system.toggleMultiDeviceClipboard"
+                  :default-value="defaultShortcuts.system.toggleMultiDeviceClipboard"
+                  @update:modelValue="updateSystemShortcut('toggleMultiDeviceClipboard', $event)"
+                />
+              </div>
+            </div>
+            <div class="settings-row">
+              <div class="settings-row__label">
+                <span>最大同步大小</span>
+                <small>单位 MB，最大 1024 MB；超限内容只保留本机历史。</small>
+              </div>
+              <div class="settings-row__control settings-row__control--compact">
+                <UiInput
+                  v-model="multiDeviceClipboardMaxSyncMbInput"
+                  type="number"
+                  :min="1"
+                  :max="1024"
+                  @blur="commitMultiDeviceClipboardMaxSyncMb"
+                  @change="commitMultiDeviceClipboardMaxSyncMb"
+                  @keydown.enter.prevent="commitMultiDeviceClipboardMaxSyncMb"
+                />
+              </div>
+            </div>
+            <div class="settings-row">
+              <div class="settings-row__label">
+                <span>历史记录数量</span>
+                <small>最多保留 5000 条，多余记录会自动裁剪。</small>
+              </div>
+              <div class="settings-row__control settings-row__control--compact">
+                <UiInput
+                  v-model="multiDeviceClipboardHistoryLimitInput"
+                  type="number"
+                  :min="1"
+                  :max="5000"
+                  @blur="commitMultiDeviceClipboardHistoryLimit"
+                  @change="commitMultiDeviceClipboardHistoryLimit"
+                  @keydown.enter.prevent="commitMultiDeviceClipboardHistoryLimit"
+                />
+              </div>
+            </div>
+          </section>
+
+          <section class="settings-group">
+            <h3>已配对设备</h3>
+            <div class="settings-row settings-row--wide">
+              <div class="settings-row__label">
+                <span>可信设备列表</span>
+                <small>移除后会停止向该设备发送剪贴板，也会拒收它的同步内容。</small>
+              </div>
+              <div class="settings-row__control settings-row__control--wide">
+                <div class="clipboard-device-panel">
+                  <div class="clipboard-device-panel__actions">
+                    <UiButton
+                      size="sm"
+                      variant="secondary"
+                      :disabled="multiDeviceClipboardDevicesLoading"
+                      @click="loadMultiDeviceClipboardDevices"
+                    >
+                      刷新设备
+                    </UiButton>
+                  </div>
+
+                  <div v-if="pairedMultiDeviceClipboardDevices.length" class="clipboard-device-list">
+                    <article
+                      v-for="device in pairedMultiDeviceClipboardDevices"
+                      :key="device.deviceId"
+                      class="clipboard-device-item"
+                    >
+                      <div class="clipboard-device-item__body">
+                        <strong>{{ device.name }}</strong>
+                        <small>{{ multiDeviceClipboardDeviceMeta(device) }}</small>
+                      </div>
+                      <UiButton
+                        size="sm"
+                        variant="danger"
+                        @click="forgetMultiDeviceClipboardDevice(device)"
+                      >
+                        移除
+                      </UiButton>
+                    </article>
+                  </div>
+                  <p v-else class="clipboard-device-empty">
+                    {{ multiDeviceClipboardDevicesLoading ? '正在读取已配对设备...' : '暂无已配对设备' }}
+                  </p>
+                </div>
+              </div>
+            </div>
+          </section>
+
+          <section class="settings-group">
+            <h3>局域网网卡优先级</h3>
+            <div class="settings-row settings-row--wide">
+              <div class="settings-row__label">
+                <span>自动发现广播地址</span>
+                <small>
+                  拖动排序，排在最上方的可用 IPv4 会优先用于 mDNS 广播；当前首选：
+                  {{ activeNetworkInterface ? `${activeNetworkInterface.name} · ${activeNetworkInterface.address}` : '未检测到可用网卡' }}
+                </small>
+              </div>
+              <div class="settings-row__control settings-row__control--wide">
+                <div class="network-priority-panel">
+                  <div class="network-priority-panel__actions">
+                    <UiButton size="sm" variant="secondary" :disabled="networkInterfacesLoading" @click="loadNetworkInterfaces">
+                      刷新网卡
+                    </UiButton>
+                    <UiButton size="sm" variant="ghost" @click="resetNetworkInterfacePriority">
+                      恢复自动
+                    </UiButton>
+                  </div>
+
+                  <div v-if="orderedNetworkInterfaces.length" class="network-priority-list">
+                    <article
+                      v-for="(networkInterface, index) in orderedNetworkInterfaces"
+                      :key="networkInterface.key"
+                      class="network-priority-item"
+                      :class="{ 'network-priority-item--active': index === 0 }"
+                      draggable="true"
+                      @dragstart="handleNetworkInterfaceDragStart(networkInterface.key, $event)"
+                      @dragend="draggedNetworkInterfaceKey = ''"
+                      @dragover.prevent
+                      @drop="handleNetworkInterfaceDrop(networkInterface.key, $event)"
+                    >
+                      <span class="network-priority-item__handle" aria-hidden="true">⋮⋮</span>
+                      <div class="network-priority-item__body">
+                        <strong>{{ networkInterface.name }}</strong>
+                        <small>{{ networkInterface.address }} · {{ networkInterface.cidr || 'IPv4' }}</small>
+                      </div>
+                      <div class="network-priority-item__actions">
+                        <UiButton size="sm" variant="ghost" :disabled="index === 0" @click="moveNetworkInterface(index, index - 1)">上移</UiButton>
+                        <UiButton size="sm" variant="ghost" :disabled="index === orderedNetworkInterfaces.length - 1" @click="moveNetworkInterface(index, index + 1)">下移</UiButton>
+                      </div>
+                    </article>
+                  </div>
+                  <p v-else class="network-priority-empty">
+                    {{ networkInterfacesLoading ? '正在读取本机网卡...' : '未检测到 IPv4 网卡' }}
+                  </p>
+                </div>
+              </div>
+            </div>
+          </section>
+        </div>
+      </section>
+
       <section v-else-if="settingsStore.activeSettingsTab === 'shortcuts'" key="shortcuts" class="settings-section">
         <div class="section-head section-head--standalone">
           <h2>快捷键</h2>
@@ -2163,6 +2547,19 @@ function scriptTypeLabel(type: string) {
                   :model-value="appConfigStore.config.shortcuts.system.toggleAppVisibility"
                   :default-value="defaultShortcuts.system.toggleAppVisibility"
                   @update:modelValue="updateSystemShortcut('toggleAppVisibility', $event)"
+                />
+              </div>
+            </div>
+            <div class="settings-row">
+              <div class="settings-row__label">
+                <span>多设备剪贴板</span>
+                <small>系统级快捷键，默认 Alt+V 唤出右下角窗口。</small>
+              </div>
+              <div class="settings-row__control settings-row__control--wide">
+                <ShortcutRecorder
+                  :model-value="appConfigStore.config.shortcuts.system.toggleMultiDeviceClipboard"
+                  :default-value="defaultShortcuts.system.toggleMultiDeviceClipboard"
+                  @update:modelValue="updateSystemShortcut('toggleMultiDeviceClipboard', $event)"
                 />
               </div>
             </div>
@@ -2721,6 +3118,90 @@ function scriptTypeLabel(type: string) {
 .settings-row__control {
   min-width: 0;
   width: 100%;
+}
+
+.clipboard-device-panel,
+.network-priority-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  width: 100%;
+}
+
+.clipboard-device-panel__actions,
+.network-priority-panel__actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.clipboard-device-list,
+.network-priority-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.clipboard-device-item,
+.network-priority-item {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+  min-height: 48px;
+  padding: 8px 10px;
+  border: 1px solid var(--ui-border-subtle);
+  border-radius: 6px;
+  background: color-mix(in srgb, var(--ui-panel-bg) 92%, transparent);
+}
+
+.clipboard-device-item {
+  grid-template-columns: minmax(0, 1fr) auto;
+}
+
+.network-priority-item--active {
+  border-color: color-mix(in srgb, #0b67d8 46%, var(--ui-border-subtle));
+  background: color-mix(in srgb, #0b67d8 8%, var(--ui-panel-bg));
+}
+
+.network-priority-item__handle {
+  color: var(--ui-text-muted);
+  cursor: grab;
+  letter-spacing: -2px;
+  user-select: none;
+}
+
+.clipboard-device-item__body,
+.network-priority-item__body {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+
+  strong {
+    overflow: hidden;
+    color: var(--ui-text-primary);
+    font-size: 13px;
+    font-weight: 600;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  small {
+    color: var(--ui-text-muted);
+    font-size: 12px;
+  }
+}
+
+.network-priority-item__actions {
+  display: flex;
+  gap: 6px;
+}
+
+.clipboard-device-empty,
+.network-priority-empty {
+  margin: 0;
+  color: var(--ui-text-muted);
+  font-size: 12px;
 }
 
 .settings-row__control--compact {

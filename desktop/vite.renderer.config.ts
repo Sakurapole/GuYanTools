@@ -51,6 +51,8 @@ export default defineConfig({
         terminal: path.resolve(__dirname, 'index_terminal.html'),
         splash: path.resolve(__dirname, 'splash.html'),
         notification: path.resolve(__dirname, 'notification.html'),
+        clipboard: path.resolve(__dirname, 'clipboard.html'),
+        clipboard_text_preview: path.resolve(__dirname, 'clipboard_text_preview.html'),
         tray_menu: path.resolve(__dirname, 'tray_menu.html'),
       }
     }

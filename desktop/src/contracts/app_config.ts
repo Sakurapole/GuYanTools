@@ -102,6 +102,7 @@ export interface AppInternalShortcutsConfig {
 
 export interface AppSystemShortcutsConfig {
   toggleAppVisibility: string;
+  toggleMultiDeviceClipboard: string;
 }
 
 export interface AppShortcutsConfig {
@@ -112,6 +113,25 @@ export interface AppShortcutsConfig {
 export interface AppFeaturesConfig {
   aiAgent: Record<string, unknown>;
   terminal: TerminalFeatureConfig;
+  multiDeviceClipboard: MultiDeviceClipboardFeatureConfig;
+}
+
+export interface MultiDeviceClipboardFeatureConfig {
+  enabled: boolean;
+  deviceName: string;
+  maxSyncBytes: number;
+  historyLimit: number;
+  networkInterfacePriority: string[];
+}
+
+export interface LocalNetworkInterfaceOption {
+  key: string;
+  name: string;
+  address: string;
+  family: 'IPv4' | 'IPv6';
+  internal: boolean;
+  mac?: string;
+  cidr?: string;
 }
 
 export interface AppPluginsConfig {
@@ -149,6 +169,7 @@ export interface AppConfigPatch {
   features?: {
     aiAgent?: Record<string, unknown>;
     terminal?: Partial<TerminalFeatureConfig>;
+    multiDeviceClipboard?: Partial<MultiDeviceClipboardFeatureConfig>;
   };
   shortcuts?: {
     internal?: Partial<AppInternalShortcutsConfig>;
@@ -166,6 +187,8 @@ export interface AppConfigApi {
   getConfig: () => Promise<AppConfig>;
   updateConfig: (patch: AppConfigPatch) => Promise<AppConfig>;
   listLocalFonts: () => Promise<LocalFontOption[]>;
+  listNetworkInterfaces: () => Promise<LocalNetworkInterfaceOption[]>;
+  onDidChange: (listener: (config: AppConfig) => void) => () => void;
 }
 
 export function createDefaultAppConfig(): AppConfig {
@@ -198,6 +221,13 @@ export function createDefaultAppConfig(): AppConfig {
         viewportBgVideo: '',
         viewportBgStyle: {},
       },
+      multiDeviceClipboard: {
+        enabled: true,
+        deviceName: '',
+        maxSyncBytes: 100 * 1024 * 1024,
+        historyLimit: 200,
+        networkInterfacePriority: [],
+      },
     },
     shortcuts: {
       internal: {
@@ -206,6 +236,7 @@ export function createDefaultAppConfig(): AppConfig {
       },
       system: {
         toggleAppVisibility: 'CommandOrControl+Alt+G',
+        toggleMultiDeviceClipboard: 'Alt+V',
       },
     },
     plugins: {

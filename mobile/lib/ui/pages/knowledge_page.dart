@@ -76,11 +76,17 @@ class KnowledgePage extends StatelessWidget {
                 ),
                 actions: [
                   IconButton(
-                    icon: Icon(Icons.edit_outlined, color: cs.onSurfaceVariant.withValues(alpha: 0.6)),
+                    icon: Icon(
+                      Icons.edit_outlined,
+                      color: cs.onSurfaceVariant.withValues(alpha: 0.6),
+                    ),
                     onPressed: () {},
                   ),
                   IconButton(
-                    icon: Icon(Icons.more_vert, color: cs.onSurfaceVariant.withValues(alpha: 0.6)),
+                    icon: Icon(
+                      Icons.more_vert,
+                      color: cs.onSurfaceVariant.withValues(alpha: 0.6),
+                    ),
                     onPressed: () {},
                   ),
                 ],
@@ -234,9 +240,7 @@ class KnowledgePage extends StatelessWidget {
         Container(
           padding: const EdgeInsets.only(left: 20),
           decoration: BoxDecoration(
-            border: Border(
-              left: BorderSide(color: cs.primary, width: 3),
-            ),
+            border: Border(left: BorderSide(color: cs.primary, width: 3)),
           ),
           child: Text(
             '"建筑师不用木头和石头建造，而是用光和空间。软件必须反映这种纯粹。"',
@@ -431,7 +435,11 @@ class KnowledgePage extends StatelessWidget {
                     ],
                   ),
                   child: IconButton(
-                    icon: const Icon(Icons.note_add, size: 22, color: Color(0xFF00354A)),
+                    icon: const Icon(
+                      Icons.note_add,
+                      size: 22,
+                      color: Color(0xFF00354A),
+                    ),
                     onPressed: () {},
                   ),
                 ),
@@ -456,7 +464,11 @@ class KnowledgePage extends StatelessWidget {
       width: 44,
       height: 44,
       child: IconButton(
-        icon: Icon(icon, size: 22, color: cs.onSurfaceVariant.withValues(alpha: 0.6)),
+        icon: Icon(
+          icon,
+          size: 22,
+          color: cs.onSurfaceVariant.withValues(alpha: 0.6),
+        ),
         onPressed: () {},
       ),
     );

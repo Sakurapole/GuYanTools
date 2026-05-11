@@ -1,7 +1,7 @@
 import { defineStore } from "pinia";
 import { ref } from "vue";
 
-export type SettingsTabKey = 'general' | 'file-transfer' | 'web-security' | 'ai-agent' | 'plugins' | 'terminal' | 'shortcuts';
+export type SettingsTabKey = 'general' | 'file-transfer' | 'web-security' | 'ai-agent' | 'plugins' | 'terminal' | 'multi-device-clipboard' | 'shortcuts';
 
 export const useSettingStore = defineStore('settings', () => {
     const activeSettingsTab = ref<SettingsTabKey>('general');

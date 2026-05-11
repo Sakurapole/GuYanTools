@@ -23,7 +23,15 @@
         "desktop:dist:win": "pnpm --dir desktop run dist:win",
         "desktop:publish": "pnpm --dir desktop run publish:github",
         "release:desktop": "pnpm run desktop:publish",
-        "start:desktop": "pnpm run desktop:start"
+        "start:desktop": "pnpm run desktop:start",
+        "mobile:devices": "cd mobile && flutter devices",
+        "mobile:android": "cd mobile && flutter run",
+        "mobile:dev:android": "powershell.exe -NoProfile -ExecutionPolicy Bypass -File scripts/mobile-dev-android.ps1",
+        "mobile:dev:android:no-resident": "powershell.exe -NoProfile -ExecutionPolicy Bypass -File scripts/mobile-dev-android.ps1 -NoResident",
+        "mobile:dev:android:skip-frb": "powershell.exe -NoProfile -ExecutionPolicy Bypass -File scripts/mobile-dev-android.ps1 -SkipFrb",
+        "mobile:frb:gen": "powershell.exe -NoProfile -ExecutionPolicy Bypass -File scripts/mobile-dev-android.ps1 -SkipAnalyze -SkipRun",
+        "mobile:android:precache": "cd mobile && flutter precache --android",
+        "mobile:android:precache:google": "powershell -NoProfile -ExecutionPolicy Bypass -Command \"$env:FLUTTER_STORAGE_BASE_URL='https://storage.googleapis.com'; Set-Location mobile; flutter precache --android\""
     },
     "pnpm": {
         "onlyBuiltDependencies": [

@@ -37,8 +37,31 @@ android {
             signingConfig = signingConfigs.getByName("debug")
         }
     }
+
+    sourceSets {
+        getByName("main") {
+            jniLibs.srcDirs("src/main/jniLibs")
+        }
+    }
 }
 
 flutter {
     source = "../.."
+}
+
+val buildRustAndroidLibraries by tasks.registering(Exec::class) {
+    val script = rootProject.file("../../scripts/build-mobile-rust-android.ps1")
+    workingDir = rootProject.file("../..")
+    commandLine(
+        "powershell.exe",
+        "-NoProfile",
+        "-ExecutionPolicy",
+        "Bypass",
+        "-File",
+        script.absolutePath,
+    )
+}
+
+tasks.matching { it.name == "preBuild" }.configureEach {
+    dependsOn(buildRustAndroidLibraries)
 }

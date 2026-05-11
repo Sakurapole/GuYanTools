@@ -17,15 +17,29 @@ class _AppsPageState extends State<AppsPage> {
 
   static const _apps = [
     _AppData('Web Enhancer', Icons.language, _AppIconStyle.gradient),
-    _AppData('Knowledge Base', Icons.library_books, _AppIconStyle.tertiary, route: '/knowledge'),
+    _AppData(
+      'Knowledge Base',
+      Icons.library_books,
+      _AppIconStyle.tertiary,
+      route: '/knowledge',
+    ),
     _AppData('Clipboard Sync', Icons.content_paste, _AppIconStyle.secondary),
     _AppData('FTP Client', Icons.cloud_upload, _AppIconStyle.neutral),
-    _AppData('BiliBili Downloader', Icons.download_for_offline, _AppIconStyle.error),
+    _AppData(
+      'BiliBili Downloader',
+      Icons.download_for_offline,
+      _AppIconStyle.error,
+    ),
     _AppData('Image Hosting', Icons.image, _AppIconStyle.primary),
   ];
 
-  List<_AppData> get _filteredApps =>
-      _searchQuery.isEmpty ? _apps : _apps.where((a) => a.name.toLowerCase().contains(_searchQuery.toLowerCase())).toList();
+  List<_AppData> get _filteredApps => _searchQuery.isEmpty
+      ? _apps
+      : _apps
+            .where(
+              (a) => a.name.toLowerCase().contains(_searchQuery.toLowerCase()),
+            )
+            .toList();
 
   @override
   Widget build(BuildContext context) {
@@ -50,10 +64,7 @@ class _AppsPageState extends State<AppsPage> {
                 ),
               ),
             ),
-            leading: IconButton(
-              icon: const Icon(Icons.menu),
-              onPressed: () {},
-            ),
+            leading: IconButton(icon: const Icon(Icons.menu), onPressed: () {}),
             title: Text(
               'Lucid Architect',
               style: TextStyle(
@@ -74,7 +85,11 @@ class _AppsPageState extends State<AppsPage> {
                 child: CircleAvatar(
                   radius: 16,
                   backgroundColor: cs.surfaceContainerHighest,
-                  child: Icon(Icons.person, size: 20, color: cs.onSurfaceVariant),
+                  child: Icon(
+                    Icons.person,
+                    size: 20,
+                    color: cs.onSurfaceVariant,
+                  ),
                 ),
               ),
             ],
@@ -94,8 +109,13 @@ class _AppsPageState extends State<AppsPage> {
                   style: TextStyle(color: cs.onSurface, fontSize: 14),
                   decoration: InputDecoration(
                     hintText: '搜索模块与插件...',
-                    hintStyle: TextStyle(color: cs.onSurfaceVariant.withValues(alpha: 0.4)),
-                    prefixIcon: Icon(Icons.search, color: cs.onSurfaceVariant.withValues(alpha: 0.5)),
+                    hintStyle: TextStyle(
+                      color: cs.onSurfaceVariant.withValues(alpha: 0.4),
+                    ),
+                    prefixIcon: Icon(
+                      Icons.search,
+                      color: cs.onSurfaceVariant.withValues(alpha: 0.5),
+                    ),
                     border: InputBorder.none,
                     filled: false,
                     contentPadding: const EdgeInsets.symmetric(vertical: 16),
@@ -117,10 +137,10 @@ class _AppsPageState extends State<AppsPage> {
                   Text(
                     '所有应用',
                     style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                          color: cs.onSurface,
-                          fontWeight: FontWeight.w800,
-                          letterSpacing: -0.5,
-                        ),
+                      color: cs.onSurface,
+                      fontWeight: FontWeight.w800,
+                      letterSpacing: -0.5,
+                    ),
                   ),
                   Text(
                     '${_filteredApps.length} 个活跃模块',
@@ -146,20 +166,17 @@ class _AppsPageState extends State<AppsPage> {
                 mainAxisSpacing: 14,
                 childAspectRatio: 0.95,
               ),
-              delegate: SliverChildBuilderDelegate(
-                (context, index) {
-                  final app = _filteredApps[index];
-                  return AppCard(
-                    name: app.name,
-                    icon: app.icon,
-                    iconStyle: app.iconStyle,
-                    onTap: app.route != null
-                        ? () => Navigator.pushNamed(context, app.route!)
-                        : null,
-                  );
-                },
-                childCount: _filteredApps.length,
-              ),
+              delegate: SliverChildBuilderDelegate((context, index) {
+                final app = _filteredApps[index];
+                return AppCard(
+                  name: app.name,
+                  icon: app.icon,
+                  iconStyle: app.iconStyle,
+                  onTap: app.route != null
+                      ? () => Navigator.pushNamed(context, app.route!)
+                      : null,
+                );
+              }, childCount: _filteredApps.length),
             ),
           ),
 
@@ -185,10 +202,7 @@ class _AppsPageState extends State<AppsPage> {
         gradient: LinearGradient(
           begin: Alignment.topRight,
           end: Alignment.bottomLeft,
-          colors: [
-            cs.surfaceContainerLowest,
-            cs.surfaceContainer,
-          ],
+          colors: [cs.surfaceContainerLowest, cs.surfaceContainer],
         ),
       ),
       child: Stack(
@@ -225,9 +239,9 @@ class _AppsPageState extends State<AppsPage> {
                 Text(
                   '量子矢量引擎已上线。',
                   style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                        color: cs.onSurface,
-                        fontWeight: FontWeight.w700,
-                      ),
+                    color: cs.onSurface,
+                    fontWeight: FontWeight.w700,
+                  ),
                 ),
               ],
             ),
