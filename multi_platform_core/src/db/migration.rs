@@ -79,6 +79,10 @@ pub fn run_migrations(conn: &Connection) -> DbResult<()> {
             "016_extend_ftp_transfer_tree_history",
             include_str!("../../migrations/016_extend_ftp_transfer_tree_history.sql"),
         ),
+        (
+            "017_add_multi_device_clipboard",
+            include_str!("../../migrations/017_add_multi_device_clipboard.sql"),
+        ),
     ];
 
     // 执行每个迁移

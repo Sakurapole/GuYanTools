@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../core/theme/app_colors.dart';
 
-
 /// 毛玻璃应用卡片组件
 /// 参照 Stitch all_apps_gallery glass-card 设计
 class AppCard extends StatefulWidget {
@@ -43,9 +42,7 @@ class _AppCardState extends State<AppCard> {
         decoration: BoxDecoration(
           color: _isHovered
               ? cs.surfaceContainerHighest
-              : (isDark
-                  ? AppColors.glassPanel(true)
-                  : cs.surfaceContainerLow),
+              : (isDark ? AppColors.glassPanel(true) : cs.surfaceContainerLow),
           borderRadius: BorderRadius.circular(16),
           border: Border.all(color: AppColors.ghostBorder(isDark)),
         ),
@@ -64,11 +61,7 @@ class _AppCardState extends State<AppCard> {
                   color: _isGradient ? null : cs.surfaceContainerLowest,
                   boxShadow: [AppColors.ambientShadow(isDark)],
                 ),
-                child: Icon(
-                  widget.icon,
-                  size: 28,
-                  color: _iconColor(cs),
-                ),
+                child: Icon(widget.icon, size: 28, color: _iconColor(cs)),
               ),
             ),
             const SizedBox(height: 14),

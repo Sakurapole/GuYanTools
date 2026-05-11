@@ -1,5 +1,3 @@
-
-
 import 'package:flutter/material.dart';
 import '../../core/grid_item.dart';
 import '../../core/grid_config.dart';
@@ -17,18 +15,26 @@ class GridDragController {
   Offset areaOrigin = Offset.zero;
   Map<String, int> initialPosition = {'col': 1, 'row': 1};
 
-  GridDragController({required this.layout, required this.collision, required this.config});
+  GridDragController({
+    required this.layout,
+    required this.collision,
+    required this.config,
+  });
 
   void setAreaOrigin(Offset origin) {
     areaOrigin = origin;
   }
 
-  void beginDrag(GridItem item, LongPressStartDetails details, RenderBox targetBox) {
+  void beginDrag(
+    GridItem item,
+    LongPressStartDetails details,
+    RenderBox targetBox,
+  ) {
     draggingItem = item;
     item.isDragging = true;
     item.hidden = false;
     initialPosition = {'col': item.col, 'row': item.row};
-    
+
     pointerOffset = details.localPosition;
     draggingPosition = layout.syncDraggingPosition(item);
   }
@@ -36,8 +42,16 @@ class GridDragController {
   void updateDrag(LongPressMoveUpdateDetails details) {
     final item = draggingItem;
     if (item == null) return;
-    final rawX = details.globalPosition.dx - areaOrigin.dx - layout.horizontalOffset - pointerOffset.dx;
-    final rawY = details.globalPosition.dy - areaOrigin.dy - config.gridPadding - pointerOffset.dy;
+    final rawX =
+        details.globalPosition.dx -
+        areaOrigin.dx -
+        layout.horizontalOffset -
+        pointerOffset.dx;
+    final rawY =
+        details.globalPosition.dy -
+        areaOrigin.dy -
+        config.gridPadding -
+        pointerOffset.dy;
     final maxX = (layout.colNum - item.colSpan) * layout.cellSize;
     final maxY = (layout.rowNum - item.rowSpan) * layout.cellSize;
     draggingPosition = Offset(
@@ -49,17 +63,26 @@ class GridDragController {
   void stopDrag(LongPressEndDetails details) {
     final item = draggingItem;
     if (item == null) return;
-    final snappedCol = layout.clampCoordinate(
-      layout.toGridPosition(draggingPosition.dx).toDouble(),
-      1,
-      (layout.colNum - item.colSpan + 1).toDouble(),
-    ).toInt();
-    final snappedRow = layout.clampCoordinate(
-      layout.toGridPosition(draggingPosition.dy).toDouble(),
-      1,
-      (layout.rowNum - item.rowSpan + 1).toDouble(),
-    ).toInt();
-    final finalPos = collision.findAvailablePosition(item, snappedCol, snappedRow, initialPosition);
+    final snappedCol = layout
+        .clampCoordinate(
+          layout.toGridPosition(draggingPosition.dx).toDouble(),
+          1,
+          (layout.colNum - item.colSpan + 1).toDouble(),
+        )
+        .toInt();
+    final snappedRow = layout
+        .clampCoordinate(
+          layout.toGridPosition(draggingPosition.dy).toDouble(),
+          1,
+          (layout.rowNum - item.rowSpan + 1).toDouble(),
+        )
+        .toInt();
+    final finalPos = collision.findAvailablePosition(
+      item,
+      snappedCol,
+      snappedRow,
+      initialPosition,
+    );
     item.col = finalPos['col']!;
     item.row = finalPos['row']!;
     item.isDragging = false;

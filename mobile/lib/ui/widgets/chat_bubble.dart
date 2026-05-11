@@ -35,11 +35,11 @@ class ChatBubble extends StatelessWidget {
               decoration: BoxDecoration(
                 color: isUser
                     ? (isDark
-                        ? cs.primary.withValues(alpha: 0.15)
-                        : cs.primary.withValues(alpha: 0.12))
+                          ? cs.primary.withValues(alpha: 0.15)
+                          : cs.primary.withValues(alpha: 0.12))
                     : (isDark
-                        ? const Color(0xFF191F31).withValues(alpha: 0.7)
-                        : cs.surfaceContainerHigh.withValues(alpha: 0.8)),
+                          ? const Color(0xFF191F31).withValues(alpha: 0.7)
+                          : cs.surfaceContainerHigh.withValues(alpha: 0.8)),
                 border: Border.all(
                   color: isUser
                       ? cs.primary.withValues(alpha: isDark ? 0.2 : 0.15)

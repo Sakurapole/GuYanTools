@@ -31,10 +31,13 @@ class GridCollision {
     int targetRow,
     Map<String, int> initialPosition,
   ) {
-    if (layout.isWithinBounds(item, targetCol, targetRow) && !hasCollision(item, targetCol, targetRow)) {
+    if (layout.isWithinBounds(item, targetCol, targetRow) &&
+        !hasCollision(item, targetCol, targetRow)) {
       return {'col': targetCol, 'row': targetRow};
     }
-    final maxRadius = layout.colNum > layout.rowNum ? layout.colNum : layout.rowNum;
+    final maxRadius = layout.colNum > layout.rowNum
+        ? layout.colNum
+        : layout.rowNum;
     for (int radius = 1; radius < maxRadius; radius += 1) {
       for (int dx = -radius; dx <= radius; dx += 1) {
         for (int dy = -radius; dy <= radius; dy += 1) {
@@ -51,7 +54,12 @@ class GridCollision {
     return {'col': initialPosition['col']!, 'row': initialPosition['row']!};
   }
 
-  bool canPlaceAt(List<List<String?>> occupancy, GridItem item, int col, int row) {
+  bool canPlaceAt(
+    List<List<String?>> occupancy,
+    GridItem item,
+    int col,
+    int row,
+  ) {
     if (!layout.isWithinBounds(item, col, row)) return false;
     for (int r = 0; r < item.rowSpan; r += 1) {
       for (int c = 0; c < item.colSpan; c += 1) {
@@ -65,12 +73,20 @@ class GridCollision {
     return true;
   }
 
-  void occupySlot(List<List<String?>> occupancy, GridItem item, int col, int row) {
+  void occupySlot(
+    List<List<String?>> occupancy,
+    GridItem item,
+    int col,
+    int row,
+  ) {
     for (int r = 0; r < item.rowSpan; r += 1) {
       for (int c = 0; c < item.colSpan; c += 1) {
         final occRow = row + r - 1;
         final occCol = col + c - 1;
-        if (occRow >= 0 && occRow < occupancy.length && occCol >= 0 && occCol < occupancy[0].length) {
+        if (occRow >= 0 &&
+            occRow < occupancy.length &&
+            occCol >= 0 &&
+            occCol < occupancy[0].length) {
           occupancy[occRow][occCol] = item.id;
         }
       }

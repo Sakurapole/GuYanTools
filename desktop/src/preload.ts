@@ -27,6 +27,10 @@ import type {
 } from '@/contracts/todo';
 import type { MediaApi, CompressImageOptions, CompressVideoOptions } from '@/contracts/media';
 import type {
+  MultiDeviceClipboardApi,
+  MultiDeviceClipboardEvent,
+} from '@/contracts/multi_device_clipboard';
+import type {
   TerminalApi,
   CreateTerminalSessionPayload,
   DetachedTerminalSessionKind,
@@ -114,6 +118,12 @@ const appConfigApi: AppConfigApi = {
   getConfig: () => ipcRenderer.invoke('app-config:get'),
   updateConfig: (patch) => ipcRenderer.invoke('app-config:update', patch),
   listLocalFonts: () => ipcRenderer.invoke('app-config:list-fonts'),
+  listNetworkInterfaces: () => ipcRenderer.invoke('app-config:list-network-interfaces'),
+  onDidChange: (listener) => {
+    const wrappedListener = (_event: Electron.IpcRendererEvent, config: Awaited<ReturnType<AppConfigApi['getConfig']>>) => listener(config);
+    ipcRenderer.on('app-config:changed', wrappedListener);
+    return () => ipcRenderer.removeListener('app-config:changed', wrappedListener);
+  },
 };
 
 contextBridge.exposeInMainWorld('pluginHostApi', pluginHostApi);
@@ -214,6 +224,35 @@ const mediaApi: MediaApi = {
   checkFfmpeg: () => ipcRenderer.invoke('media:check-ffmpeg'),
 };
 contextBridge.exposeInMainWorld('mediaApi', mediaApi);
+
+const multiDeviceClipboardApi: MultiDeviceClipboardApi = {
+  listItems: () => ipcRenderer.invoke('multi-device-clipboard:list-items'),
+  applyItem: (itemId: string) => ipcRenderer.invoke('multi-device-clipboard:apply-item', itemId),
+  showItemPreview: (itemId: string) => ipcRenderer.invoke('multi-device-clipboard:show-item-preview', itemId),
+  deleteItem: (itemId: string) => ipcRenderer.invoke('multi-device-clipboard:delete-item', itemId),
+  clearHistory: () => ipcRenderer.invoke('multi-device-clipboard:clear-history'),
+  listDevices: () => ipcRenderer.invoke('multi-device-clipboard:list-devices'),
+  listDeviceStatuses: (onlineWindowSeconds: number) =>
+    ipcRenderer.invoke('multi-device-clipboard:list-device-statuses', onlineWindowSeconds),
+  listDiscoveredDevices: () => ipcRenderer.invoke('multi-device-clipboard:list-discovered-devices'),
+  listPairingRequests: () => ipcRenderer.invoke('multi-device-clipboard:list-pairing-requests'),
+  startPairing: (deviceId: string) => ipcRenderer.invoke('multi-device-clipboard:start-pairing', deviceId),
+  startPairingByAddress: (endpoint: string) => ipcRenderer.invoke('multi-device-clipboard:start-pairing-by-address', endpoint),
+  approvePairing: (requestId: string) => ipcRenderer.invoke('multi-device-clipboard:approve-pairing', requestId),
+  rejectPairing: (requestId: string) => ipcRenderer.invoke('multi-device-clipboard:reject-pairing', requestId),
+  forgetDevice: (deviceId: string) => ipcRenderer.invoke('multi-device-clipboard:forget-device', deviceId),
+  showWindow: () => ipcRenderer.invoke('multi-device-clipboard:show-window'),
+  closeWindow: () => ipcRenderer.invoke('multi-device-clipboard:close-window'),
+  dockWindow: () => ipcRenderer.invoke('multi-device-clipboard:dock-window'),
+  expandWindow: () => ipcRenderer.invoke('multi-device-clipboard:expand-window'),
+  openDevTools: () => ipcRenderer.invoke('multi-device-clipboard:open-devtools'),
+  onEvent: (listener: (event: MultiDeviceClipboardEvent) => void) => {
+    const wrappedListener = (_event: Electron.IpcRendererEvent, payload: MultiDeviceClipboardEvent) => listener(payload);
+    ipcRenderer.on('multi-device-clipboard:event', wrappedListener);
+    return () => ipcRenderer.removeListener('multi-device-clipboard:event', wrappedListener);
+  },
+};
+contextBridge.exposeInMainWorld('multiDeviceClipboardApi', multiDeviceClipboardApi);
 
 const webviewApi = {
   checkDomain: (domain: string) => ipcRenderer.invoke('webview:check-domain', domain),

@@ -11,21 +11,21 @@ crate-type = ["cdylib", "rlib", "staticlib"]
 rusqlite = { version = "0.32", features = ["bundled"] }
 r2d2 = "0.8"
 r2d2_sqlite = "0.25"
-portable-pty = "0.9"
+portable-pty = { version = "0.9", optional = true }
 
 # SSH client (pure Rust, no system library dependency)
-russh = "0.49"
-russh-keys = "0.49"
-ssh-key = { version = "0.6", features = ["std", "ed25519", "ecdsa", "rsa", "getrandom"] }
+russh = { version = "0.49", optional = true }
+russh-keys = { version = "0.49", optional = true }
+ssh-key = { version = "0.6", features = ["std", "ed25519", "ecdsa", "rsa", "getrandom"], optional = true }
 # russh-sftp reserved for future SFTP file browser feature (actual crate version series is 2.x)
-russh-sftp = "2"
-suppaftp = { version = "6", features = ["async", "async-native-tls"] }
+russh-sftp = { version = "2", optional = true }
+suppaftp = { version = "6", features = ["async", "async-native-tls"], optional = true }
 # Required by russh Handler trait
-async-trait = "0.1"
-async-std = "1"
+async-trait = { version = "0.1", optional = true }
+async-std = { version = "1", optional = true }
 
 # System keychain for credential storage (cross-platform)
-keyring = "3"
+keyring = { version = "3", optional = true }
 
 # UUID for SSH profile IDs
 uuid = { version = "1", features = ["v4"] }
@@ -38,6 +38,7 @@ thiserror = "1.0"
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
 sha2 = "0.10"
+mdns-sd = "0.19"
 
 # Async runtime
 tokio = { version = "1.48", features = ["full"] }
@@ -47,7 +48,7 @@ napi = { version = "2", features = ["tokio_rt"], optional = true }
 napi-derive = { version = "2", optional = true }
 
 # Flutter bindings
-flutter_rust_bridge = { version = "2", optional = true }
+flutter_rust_bridge = { version = "=2.12.0", optional = true }
 
 [build-dependencies]
 napi-build = { version = "2", optional = true }
@@ -57,7 +58,18 @@ tempfile = "3.8"
 
 [features]
 default = []
-napi = ["dep:napi", "dep:napi-derive", "dep:napi-build"]
+desktop-native = [
+    "dep:portable-pty",
+    "dep:russh",
+    "dep:russh-keys",
+    "dep:ssh-key",
+    "dep:russh-sftp",
+    "dep:suppaftp",
+    "dep:async-trait",
+    "dep:async-std",
+    "dep:keyring",
+]
+napi = ["dep:napi", "dep:napi-derive", "dep:napi-build", "desktop-native"]
 flutter = ["dep:flutter_rust_bridge"]
 
 [patch.crates-io]
