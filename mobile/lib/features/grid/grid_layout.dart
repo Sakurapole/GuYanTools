@@ -46,7 +46,10 @@ class GridLayout {
     colNum = config.fixedColumns;
 
     final maxColsGap = config.gridGap * max(0, config.fixedColumns - 1);
-    final widthAvailable = max(0, clientWidth - maxColsGap);
+    final widthAvailable = max(
+      0,
+      clientWidth - config.gridPadding * 2 - maxColsGap,
+    );
     final widthUnit = config.fixedColumns > 0
         ? widthAvailable / config.fixedColumns
         : 0;
