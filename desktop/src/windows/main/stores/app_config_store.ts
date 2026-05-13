@@ -1,6 +1,6 @@
-import { defineStore } from 'pinia';
+import { acceptHMRUpdate, defineStore } from 'pinia';
 import { ref } from 'vue';
-import type { AppConfig, AppConfigPatch, AppLanguage, LocalFontOption } from '@/contracts/app_config';
+import type { AppAppearanceConfig, AppConfig, AppConfigPatch, AppLanguage, LocalFontOption } from '@/contracts/app_config';
 import {
   createDefaultAppConfig,
   getSystemDefaultFontOption,
@@ -48,6 +48,16 @@ export const useAppConfigStore = defineStore('app-config', () => {
     applyRuntimeConfig(config.value);
   }
 
+  function applyLocalAppearanceConfig(appearance: Partial<AppAppearanceConfig>) {
+    const nextConfig = cloneConfig(config.value);
+    nextConfig.appearance = {
+      ...nextConfig.appearance,
+      ...appearance,
+    };
+    hydrate(nextConfig);
+    return config.value;
+  }
+
   async function refreshConfig() {
     if (!window.appConfigApi) {
       hydrate(createDefaultAppConfig());
@@ -73,6 +83,15 @@ export const useAppConfigStore = defineStore('app-config', () => {
     return config.value;
   }
 
+  async function persistConfigPatch(patch: AppConfigPatch) {
+    if (!window.appConfigApi) {
+      return config.value;
+    }
+
+    const plainPatch = cloneConfig(patch);
+    return window.appConfigApi.updateConfig(plainPatch);
+  }
+
   async function loadLocalFonts() {
     if (!window.appConfigApi) {
       fontOptions.value = [getSystemDefaultFontOption()];
@@ -90,8 +109,14 @@ export const useAppConfigStore = defineStore('app-config', () => {
     hydrate,
     refreshConfig,
     updateConfig,
+    persistConfigPatch,
     loadLocalFonts,
     setLanguageApplier,
     applyRuntimeConfig,
+    applyLocalAppearanceConfig,
   };
 });
+
+if (import.meta.hot) {
+  import.meta.hot.accept(acceptHMRUpdate(useAppConfigStore, import.meta.hot));
+}

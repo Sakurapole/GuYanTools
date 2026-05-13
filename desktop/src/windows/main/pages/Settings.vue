@@ -19,6 +19,7 @@ import UiSelect from '../components/ui/UiSelect.vue';
 import UiScrollbar from '../components/ui/UiScrollbar.vue';
 import UiTabs, { type UiTabItem } from '../components/ui/UiTabs.vue';
 import UiTransferBox from '../components/ui/UiTransferBox.vue';
+import { useTheme } from '../composables/theme';
 import { useConfirmDialog } from '../composables/useConfirmDialog';
 import { useAppConfigStore } from '../stores/app_config_store';
 import { useFtpStore } from '../stores/ftp_store';
@@ -39,6 +40,7 @@ const updaterStore = useUpdaterStore();
 const ftpStore = useFtpStore();
 const sshStore = useSshStore();
 const { show: showConfirm } = useConfirmDialog();
+const { setTheme } = useTheme();
 const defaultShortcuts = createDefaultAppConfig().shortcuts;
 
 type FtpPanelLayoutMode = 'columns' | 'stacked';
@@ -131,6 +133,7 @@ const settingsTabs: UiTabItem[] = [
 ];
 const settingsTabOrder = settingsTabs.map(tab => tab.key) as SettingsTabKey[];
 const settingsTabTransition = ref('ui-tab-forward');
+const loadedSettingsTabs = new Set<SettingsTabKey>();
 
 const themeOptions = [
   { label: '浅色主题', value: 'light' },
@@ -369,11 +372,7 @@ async function loadPluginContext() {
 }
 
 async function handleThemeChange(value: string) {
-  await appConfigStore.updateConfig({
-    appearance: {
-      theme: value as AppTheme,
-    },
-  });
+  await setTheme(value as AppTheme);
 }
 
 async function handleLanguageChange(value: string) {
@@ -419,6 +418,57 @@ function handleSettingsTabChange(value: string) {
 
   settingsTabTransition.value = nextIndex >= currentIndex ? 'ui-tab-forward' : 'ui-tab-back';
   settingsStore.setActiveSettingsTab(nextTab);
+  scheduleSettingsTabLoad(nextTab);
+}
+
+function runSettingsIdleTask(task: () => void) {
+  window.setTimeout(() => {
+    window.requestAnimationFrame(task);
+  }, 0);
+}
+
+function scheduleSettingsTabLoad(tab: SettingsTabKey, force = false) {
+  if (!force && loadedSettingsTabs.has(tab)) {
+    return;
+  }
+
+  loadedSettingsTabs.add(tab);
+  runSettingsIdleTask(() => {
+    switch (tab) {
+      case 'general':
+        if (appConfigStore.fontOptions.length === 0) {
+          void appConfigStore.loadLocalFonts();
+        }
+        break;
+      case 'file-transfer':
+        loadFtpSettingsDraft();
+        void ftpStore.initialize();
+        void sshStore.initialize();
+        void loadFtpRetryPolicy();
+        void refreshFtpWindowsContextMenuStatus();
+        void refreshFtpKnownHosts();
+        break;
+      case 'terminal':
+        void sshStore.initialize();
+        void loadTerminalProfiles();
+        break;
+      case 'multi-device-clipboard':
+        void loadNetworkInterfaces();
+        void loadMultiDeviceClipboardDevices();
+        break;
+      case 'plugins':
+        void loadPluginContext();
+        break;
+      case 'web-security':
+        void loadExtensions();
+        break;
+      case 'ai-agent':
+      case 'shortcuts':
+        break;
+      default:
+        break;
+    }
+  });
 }
 
 function normalizeFtpPanelSize(value: string | undefined, min: number, max: number, fallback: string) {
@@ -1332,25 +1382,7 @@ watch(
 
 onMounted(() => {
   globalStore.setTopbarColor('');
-  loadFtpSettingsDraft();
-  void ftpStore.initialize();
-  void sshStore.initialize();
-  void loadFtpRetryPolicy();
-  void refreshFtpWindowsContextMenuStatus();
-  void refreshFtpKnownHosts();
-  if (appConfigStore.fontOptions.length === 0) {
-    void appConfigStore.loadLocalFonts();
-  }
-
-  void loadPluginContext();
-  void loadTerminalProfiles();
-  void loadNetworkInterfaces();
-  void loadMultiDeviceClipboardDevices();
-
-  // 如果已配置 FFmpeg 路径，则自动验证
-  if (ffmpegPathInput.value) {
-    void commitAndVerifyFfmpeg();
-  }
+  scheduleSettingsTabLoad(settingsStore.activeSettingsTab);
 });
 
 // ─── 网页安全配置 ───
@@ -1389,6 +1421,11 @@ const chromeExtensions = ref<ChromeExtensionRecord[]>([]);
 const extensionInstalling = ref(false);
 
 async function loadExtensions() {
+  if (!window.webviewApi?.getExtensions) {
+    chromeExtensions.value = [];
+    return;
+  }
+
   try {
     chromeExtensions.value = await window.webviewApi.getExtensions();
   } catch (err) {
@@ -1430,9 +1467,6 @@ async function toggleExtension(id: string, enabled: boolean) {
     console.error('Toggle extension failed:', err);
   }
 }
-
-// 初始化加载
-loadExtensions();
 
 async function addWhiteDomain() {
   const d = newWhiteDomain.value.trim();

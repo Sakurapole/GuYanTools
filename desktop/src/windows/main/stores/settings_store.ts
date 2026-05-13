@@ -1,5 +1,5 @@
-import { defineStore } from "pinia";
-import { ref } from "vue";
+import { acceptHMRUpdate, defineStore } from 'pinia';
+import { ref } from 'vue';
 
 export type SettingsTabKey = 'general' | 'file-transfer' | 'web-security' | 'ai-agent' | 'plugins' | 'terminal' | 'multi-device-clipboard' | 'shortcuts';
 
@@ -20,5 +20,9 @@ export const useSettingStore = defineStore('settings', () => {
         activePluginConfigId,
         setActiveSettingsTab,
         setActivePluginConfigId,
-    }
-})
+    };
+});
+
+if (import.meta.hot) {
+    import.meta.hot.accept(acceptHMRUpdate(useSettingStore, import.meta.hot));
+}

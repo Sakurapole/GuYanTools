@@ -18,7 +18,11 @@ class ShortcutService {
     }
 
     await this.refresh(await appConfigManager.getConfig(), getMainWindow, toggleClipboardWindow);
-    this.unsubscribeConfig = appConfigManager.subscribe((config) => {
+    this.unsubscribeConfig = appConfigManager.subscribe((config, patch) => {
+      if (!patch?.shortcuts) {
+        return;
+      }
+
       void this.refresh(config, getMainWindow, toggleClipboardWindow);
     });
     this.initialized = true;

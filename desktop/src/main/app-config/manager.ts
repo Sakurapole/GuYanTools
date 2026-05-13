@@ -30,6 +30,8 @@ import { normalizeAccelerator } from '@/shared/shortcuts';
 
 const SHORTCUTS_SETTING_KEY = 'app.shortcuts';
 
+export type AppConfigChangeListener = (config: AppConfig, patch?: AppConfigPatch) => void;
+
 function cloneConfig<T>(value: T): T {
   return JSON.parse(JSON.stringify(value)) as T;
 }
@@ -508,7 +510,7 @@ function mergeConfig(current: AppConfig, patch: AppConfigPatch): AppConfig {
 export class AppConfigManager {
   private config: AppConfig = createDefaultAppConfig();
   private initialized = false;
-  private readonly listeners = new Set<(config: AppConfig) => void>();
+  private readonly listeners = new Set<AppConfigChangeListener>();
 
   async initialize() {
     if (this.initialized) {
@@ -546,12 +548,12 @@ export class AppConfigManager {
     }
 
     this.config = mergeConfig(this.config, patch);
-    await this.persist();
-    this.emitChange();
+    await this.persist(patch);
+    this.emitChange(patch);
     return this.getCachedConfig();
   }
 
-  subscribe(listener: (config: AppConfig) => void): () => void {
+  subscribe(listener: AppConfigChangeListener): () => void {
     this.listeners.add(listener);
     return () => this.listeners.delete(listener);
   }
@@ -624,11 +626,16 @@ export class AppConfigManager {
     }
   }
 
-  private async persist() {
-    await Promise.all([
+  private async persist(patch?: AppConfigPatch) {
+    const tasks: Array<Promise<unknown>> = [
       fs.writeJSON(APP_CONFIG_FILE, this.serializeConfigForDisk(this.config), { spaces: 2 }),
-      this.writeShortcutConfigToDb(this.config.shortcuts),
-    ]);
+    ];
+
+    if (patch?.shortcuts) {
+      tasks.push(this.writeShortcutConfigToDb(this.config.shortcuts));
+    }
+
+    await Promise.all(tasks);
   }
 
   private serializeConfigForDisk(config: AppConfig) {
@@ -669,11 +676,11 @@ export class AppConfigManager {
     );
   }
 
-  private emitChange() {
+  private emitChange(patch?: AppConfigPatch) {
     const snapshot = this.getCachedConfig();
     for (const listener of this.listeners) {
       try {
-        listener(snapshot);
+        listener(snapshot, patch);
       } catch (error) {
         console.error('AppConfig listener failed:', error);
       }

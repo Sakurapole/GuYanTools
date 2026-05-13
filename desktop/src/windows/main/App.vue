@@ -9,7 +9,7 @@ import Sidebar from './components/sidebar/sidebar.vue';
 import Topbar from './components/topbar/topbar.vue';
 import TrayContextMenu from './components/TrayContextMenu.vue';
 import WebViewKeepAlive from './components/webview/WebViewKeepAlive.vue';
-import { capturePageSnapshot } from './composables/useTabSnapshot';
+import { schedulePageSnapshot } from './composables/useTabSnapshot';
 import { useBarStore } from './stores/bar_store';
 import { useWebviewStore } from './stores/webview_store';
 
@@ -22,6 +22,7 @@ let removeNavigationListener: (() => void) | undefined;
 const webviewStore = useWebviewStore();
 const barStore = useBarStore();
 const pageTransitionName = ref('ui-page-forward');
+let routeRenderTimer: number | undefined;
 const fallbackPageRouteOrder = [
   '/home',
   '/terminal',
@@ -53,12 +54,22 @@ function getPageRouteOrder() {
   );
 }
 
-// 路由切换时，对当前页面截图缓存
+function markRouteRenderBusy() {
+  const root = document.documentElement;
+  root.classList.add('app-rendering-busy');
+  window.clearTimeout(routeRenderTimer);
+  routeRenderTimer = window.setTimeout(() => {
+    root.classList.remove('app-rendering-busy');
+  }, 700);
+}
+
 let removeBeforeEach: (() => void) | undefined;
 removeBeforeEach = router.beforeEach((to, from, next) => {
-  if (from.path && from.path !== '/') {
-    void capturePageSnapshot(from.path);
+  if (to.path && to.path !== '/') {
+    schedulePageSnapshot(to.path);
   }
+
+  markRouteRenderBusy();
 
   const pageRouteOrder = getPageRouteOrder();
   const fromIndex = pageRouteOrder.indexOf(from.path);
@@ -78,15 +89,16 @@ onMounted(() => {
     ipcRenderer?.send('plugin-host:navigate-complete');
   });
 
-  // 初始页面也截一次
   setTimeout(() => {
-    void capturePageSnapshot(router.currentRoute.value.path);
+    schedulePageSnapshot(router.currentRoute.value.path, 0);
   }, 1500);
 })
 
 onBeforeUnmount(() => {
   removeNavigationListener?.();
   removeBeforeEach?.();
+  window.clearTimeout(routeRenderTimer);
+  document.documentElement.classList.remove('app-rendering-busy');
 })
 </script>
 

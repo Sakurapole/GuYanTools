@@ -94,7 +94,11 @@ class MultiDeviceClipboardService {
     this.host = new NativeMultiDeviceClipboardHostConstructor(dbManager.getDatabase());
     this.host.registerEventSink((payload) => this.handleNativeEvent(payload));
     this.config = await appConfigManager.getConfig();
-    this.unsubscribeConfig = appConfigManager.subscribe((config) => {
+    this.unsubscribeConfig = appConfigManager.subscribe((config, patch) => {
+      if (!patch?.features?.multiDeviceClipboard) {
+        return;
+      }
+
       void this.applyConfig(config);
     });
     await this.applyConfig(this.config);
