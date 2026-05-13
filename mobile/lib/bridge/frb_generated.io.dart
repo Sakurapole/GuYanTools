@@ -3,11 +3,12 @@
 
 // ignore_for_file: unused_import, unused_element, unnecessary_import, duplicate_ignore, invalid_use_of_internal_member, annotate_overrides, non_constant_identifier_names, curly_braces_in_flow_control_structures, prefer_const_literals_to_create_immutables, unused_field
 
-import 'bindings/mobile_clipboard.dart';
+import 'bindings/mobile_api.dart';
 import 'dart:async';
 import 'dart:convert';
 import 'dart:ffi' as ffi;
 import 'frb_generated.dart';
+import 'models/home_layout.dart';
 import 'models/multi_device_clipboard.dart';
 import 'package:flutter_rust_bridge/flutter_rust_bridge_for_generated_io.dart';
 
@@ -39,6 +40,10 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   dco_decode_box_autoadd_multi_device_clipboard_discovery_config(dynamic raw);
 
   @protected
+  SaveMobileHomeCategoryLayoutInput
+  dco_decode_box_autoadd_save_mobile_home_category_layout_input(dynamic raw);
+
+  @protected
   int dco_decode_box_autoadd_u_32(dynamic raw);
 
   @protected
@@ -52,10 +57,25 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   dco_decode_box_autoadd_upsert_multi_device_clipboard_item_input(dynamic raw);
 
   @protected
+  HomeLayout dco_decode_home_layout(dynamic raw);
+
+  @protected
+  HomeLayoutCategory dco_decode_home_layout_category(dynamic raw);
+
+  @protected
+  HomeWidget dco_decode_home_widget(dynamic raw);
+
+  @protected
   PlatformInt64 dco_decode_i_64(dynamic raw);
 
   @protected
   List<String> dco_decode_list_String(dynamic raw);
+
+  @protected
+  List<HomeLayoutCategory> dco_decode_list_home_layout_category(dynamic raw);
+
+  @protected
+  List<HomeWidget> dco_decode_list_home_widget(dynamic raw);
 
   @protected
   List<MultiDeviceClipboardDevice>
@@ -76,6 +96,10 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   Uint8List dco_decode_list_prim_u_8_strict(dynamic raw);
+
+  @protected
+  List<SaveMobileHomeWidgetLayoutInput>
+  dco_decode_list_save_mobile_home_widget_layout_input(dynamic raw);
 
   @protected
   MultiDeviceClipboardDevice dco_decode_multi_device_clipboard_device(
@@ -108,6 +132,14 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   int? dco_decode_opt_box_autoadd_u_32(dynamic raw);
+
+  @protected
+  SaveMobileHomeCategoryLayoutInput
+  dco_decode_save_mobile_home_category_layout_input(dynamic raw);
+
+  @protected
+  SaveMobileHomeWidgetLayoutInput
+  dco_decode_save_mobile_home_widget_layout_input(dynamic raw);
 
   @protected
   int dco_decode_u_32(dynamic raw);
@@ -148,6 +180,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
+  SaveMobileHomeCategoryLayoutInput
+  sse_decode_box_autoadd_save_mobile_home_category_layout_input(
+    SseDeserializer deserializer,
+  );
+
+  @protected
   int sse_decode_box_autoadd_u_32(SseDeserializer deserializer);
 
   @protected
@@ -163,10 +201,29 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
+  HomeLayout sse_decode_home_layout(SseDeserializer deserializer);
+
+  @protected
+  HomeLayoutCategory sse_decode_home_layout_category(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  HomeWidget sse_decode_home_widget(SseDeserializer deserializer);
+
+  @protected
   PlatformInt64 sse_decode_i_64(SseDeserializer deserializer);
 
   @protected
   List<String> sse_decode_list_String(SseDeserializer deserializer);
+
+  @protected
+  List<HomeLayoutCategory> sse_decode_list_home_layout_category(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  List<HomeWidget> sse_decode_list_home_widget(SseDeserializer deserializer);
 
   @protected
   List<MultiDeviceClipboardDevice>
@@ -191,6 +248,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   Uint8List sse_decode_list_prim_u_8_strict(SseDeserializer deserializer);
+
+  @protected
+  List<SaveMobileHomeWidgetLayoutInput>
+  sse_decode_list_save_mobile_home_widget_layout_input(
+    SseDeserializer deserializer,
+  );
 
   @protected
   MultiDeviceClipboardDevice sse_decode_multi_device_clipboard_device(
@@ -229,6 +292,16 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   int? sse_decode_opt_box_autoadd_u_32(SseDeserializer deserializer);
+
+  @protected
+  SaveMobileHomeCategoryLayoutInput
+  sse_decode_save_mobile_home_category_layout_input(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  SaveMobileHomeWidgetLayoutInput
+  sse_decode_save_mobile_home_widget_layout_input(SseDeserializer deserializer);
 
   @protected
   int sse_decode_u_32(SseDeserializer deserializer);
@@ -282,6 +355,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
+  void sse_encode_box_autoadd_save_mobile_home_category_layout_input(
+    SaveMobileHomeCategoryLayoutInput self,
+    SseSerializer serializer,
+  );
+
+  @protected
   void sse_encode_box_autoadd_u_32(int self, SseSerializer serializer);
 
   @protected
@@ -297,10 +376,34 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
+  void sse_encode_home_layout(HomeLayout self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_home_layout_category(
+    HomeLayoutCategory self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_home_widget(HomeWidget self, SseSerializer serializer);
+
+  @protected
   void sse_encode_i_64(PlatformInt64 self, SseSerializer serializer);
 
   @protected
   void sse_encode_list_String(List<String> self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_list_home_layout_category(
+    List<HomeLayoutCategory> self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_list_home_widget(
+    List<HomeWidget> self,
+    SseSerializer serializer,
+  );
 
   @protected
   void sse_encode_list_multi_device_clipboard_device(
@@ -329,6 +432,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   @protected
   void sse_encode_list_prim_u_8_strict(
     Uint8List self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_list_save_mobile_home_widget_layout_input(
+    List<SaveMobileHomeWidgetLayoutInput> self,
     SseSerializer serializer,
   );
 
@@ -376,6 +485,18 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   void sse_encode_opt_box_autoadd_u_32(int? self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_save_mobile_home_category_layout_input(
+    SaveMobileHomeCategoryLayoutInput self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_save_mobile_home_widget_layout_input(
+    SaveMobileHomeWidgetLayoutInput self,
+    SseSerializer serializer,
+  );
 
   @protected
   void sse_encode_u_32(int self, SseSerializer serializer);

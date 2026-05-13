@@ -83,6 +83,10 @@ pub fn run_migrations(conn: &Connection) -> DbResult<()> {
             "017_add_multi_device_clipboard",
             include_str!("../../migrations/017_add_multi_device_clipboard.sql"),
         ),
+        (
+            "018_add_mobile_home_layouts",
+            include_str!("../../migrations/018_add_mobile_home_layouts.sql"),
+        ),
     ];
 
     // 执行每个迁移

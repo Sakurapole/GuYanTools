@@ -38,7 +38,7 @@ flutter_rust_bridge::frb_generated_boilerplate!(
     default_rust_auto_opaque = RustAutoOpaqueMoi,
 );
 pub(crate) const FLUTTER_RUST_BRIDGE_CODEGEN_VERSION: &str = "2.12.0";
-pub(crate) const FLUTTER_RUST_BRIDGE_CODEGEN_CONTENT_HASH: i32 = 515536374;
+pub(crate) const FLUTTER_RUST_BRIDGE_CODEGEN_CONTENT_HASH: i32 = 397776622;
 
 // Section: executor
 
@@ -46,7 +46,7 @@ flutter_rust_bridge::frb_generated_default_handler!();
 
 // Section: wire_funcs
 
-fn wire__crate__bindings__mobile_clipboard__clamp_mobile_clipboard_sync_bytes_impl(
+fn wire__crate__bindings__mobile_api__clamp_mobile_clipboard_sync_bytes_impl(
     port_: flutter_rust_bridge::for_generated::MessagePort,
     ptr_: flutter_rust_bridge::for_generated::PlatformGeneralizedUint8ListPtr,
     rust_vec_len_: i32,
@@ -73,9 +73,7 @@ fn wire__crate__bindings__mobile_clipboard__clamp_mobile_clipboard_sync_bytes_im
             move |context| {
                 transform_result_sse::<_, ()>((move || {
                     let output_ok = Result::<_, ()>::Ok(
-                        crate::bindings::mobile_clipboard::clamp_mobile_clipboard_sync_bytes(
-                            api_value,
-                        ),
+                        crate::bindings::mobile_api::clamp_mobile_clipboard_sync_bytes(api_value),
                     )?;
                     Ok(output_ok)
                 })())
@@ -83,7 +81,7 @@ fn wire__crate__bindings__mobile_clipboard__clamp_mobile_clipboard_sync_bytes_im
         },
     )
 }
-fn wire__crate__bindings__mobile_clipboard__classify_mobile_clipboard_text_impl(
+fn wire__crate__bindings__mobile_api__classify_mobile_clipboard_text_impl(
     port_: flutter_rust_bridge::for_generated::MessagePort,
     ptr_: flutter_rust_bridge::for_generated::PlatformGeneralizedUint8ListPtr,
     rust_vec_len_: i32,
@@ -110,7 +108,7 @@ fn wire__crate__bindings__mobile_clipboard__classify_mobile_clipboard_text_impl(
             move |context| {
                 transform_result_sse::<_, ()>((move || {
                     let output_ok = Result::<_, ()>::Ok(
-                        crate::bindings::mobile_clipboard::classify_mobile_clipboard_text(api_text),
+                        crate::bindings::mobile_api::classify_mobile_clipboard_text(api_text),
                     )?;
                     Ok(output_ok)
                 })())
@@ -118,7 +116,7 @@ fn wire__crate__bindings__mobile_clipboard__classify_mobile_clipboard_text_impl(
         },
     )
 }
-fn wire__crate__bindings__mobile_clipboard__clear_mobile_clipboard_history_impl(
+fn wire__crate__bindings__mobile_api__clear_mobile_clipboard_history_impl(
     port_: flutter_rust_bridge::for_generated::MessagePort,
     ptr_: flutter_rust_bridge::for_generated::PlatformGeneralizedUint8ListPtr,
     rust_vec_len_: i32,
@@ -146,7 +144,7 @@ fn wire__crate__bindings__mobile_clipboard__clear_mobile_clipboard_history_impl(
                 transform_result_sse::<_, flutter_rust_bridge::for_generated::anyhow::Error>(
                     (move || {
                         let output_ok =
-                            crate::bindings::mobile_clipboard::clear_mobile_clipboard_history(
+                            crate::bindings::mobile_api::clear_mobile_clipboard_history(
                                 api_host_id,
                             )?;
                         Ok(output_ok)
@@ -156,7 +154,7 @@ fn wire__crate__bindings__mobile_clipboard__clear_mobile_clipboard_history_impl(
         },
     )
 }
-fn wire__crate__bindings__mobile_clipboard__compute_mobile_clipboard_content_hash_impl(
+fn wire__crate__bindings__mobile_api__compute_mobile_clipboard_content_hash_impl(
     port_: flutter_rust_bridge::for_generated::MessagePort,
     ptr_: flutter_rust_bridge::for_generated::PlatformGeneralizedUint8ListPtr,
     rust_vec_len_: i32,
@@ -183,7 +181,7 @@ fn wire__crate__bindings__mobile_clipboard__compute_mobile_clipboard_content_has
             move |context| {
                 transform_result_sse::<_, ()>((move || {
                     let output_ok = Result::<_, ()>::Ok(
-                        crate::bindings::mobile_clipboard::compute_mobile_clipboard_content_hash(
+                        crate::bindings::mobile_api::compute_mobile_clipboard_content_hash(
                             api_parts,
                         ),
                     )?;
@@ -193,7 +191,7 @@ fn wire__crate__bindings__mobile_clipboard__compute_mobile_clipboard_content_has
         },
     )
 }
-fn wire__crate__bindings__mobile_clipboard__create_mobile_clipboard_host_impl(
+fn wire__crate__bindings__mobile_api__create_mobile_clipboard_host_impl(
     port_: flutter_rust_bridge::for_generated::MessagePort,
     ptr_: flutter_rust_bridge::for_generated::PlatformGeneralizedUint8ListPtr,
     rust_vec_len_: i32,
@@ -221,9 +219,7 @@ fn wire__crate__bindings__mobile_clipboard__create_mobile_clipboard_host_impl(
                 transform_result_sse::<_, flutter_rust_bridge::for_generated::anyhow::Error>(
                     (move || {
                         let output_ok =
-                            crate::bindings::mobile_clipboard::create_mobile_clipboard_host(
-                                api_db_path,
-                            )?;
+                            crate::bindings::mobile_api::create_mobile_clipboard_host(api_db_path)?;
                         Ok(output_ok)
                     })(),
                 )
@@ -231,7 +227,7 @@ fn wire__crate__bindings__mobile_clipboard__create_mobile_clipboard_host_impl(
         },
     )
 }
-fn wire__crate__bindings__mobile_clipboard__delete_mobile_clipboard_item_impl(
+fn wire__crate__bindings__mobile_api__delete_mobile_clipboard_item_impl(
     port_: flutter_rust_bridge::for_generated::MessagePort,
     ptr_: flutter_rust_bridge::for_generated::PlatformGeneralizedUint8ListPtr,
     rust_vec_len_: i32,
@@ -259,11 +255,10 @@ fn wire__crate__bindings__mobile_clipboard__delete_mobile_clipboard_item_impl(
             move |context| {
                 transform_result_sse::<_, flutter_rust_bridge::for_generated::anyhow::Error>(
                     (move || {
-                        let output_ok =
-                            crate::bindings::mobile_clipboard::delete_mobile_clipboard_item(
-                                api_host_id,
-                                api_id,
-                            )?;
+                        let output_ok = crate::bindings::mobile_api::delete_mobile_clipboard_item(
+                            api_host_id,
+                            api_id,
+                        )?;
                         Ok(output_ok)
                     })(),
                 )
@@ -271,7 +266,7 @@ fn wire__crate__bindings__mobile_clipboard__delete_mobile_clipboard_item_impl(
         },
     )
 }
-fn wire__crate__bindings__mobile_clipboard__dispose_mobile_clipboard_host_impl(
+fn wire__crate__bindings__mobile_api__dispose_mobile_clipboard_host_impl(
     port_: flutter_rust_bridge::for_generated::MessagePort,
     ptr_: flutter_rust_bridge::for_generated::PlatformGeneralizedUint8ListPtr,
     rust_vec_len_: i32,
@@ -298,10 +293,9 @@ fn wire__crate__bindings__mobile_clipboard__dispose_mobile_clipboard_host_impl(
             move |context| {
                 transform_result_sse::<_, flutter_rust_bridge::for_generated::anyhow::Error>(
                     (move || {
-                        let output_ok =
-                            crate::bindings::mobile_clipboard::dispose_mobile_clipboard_host(
-                                api_host_id,
-                            )?;
+                        let output_ok = crate::bindings::mobile_api::dispose_mobile_clipboard_host(
+                            api_host_id,
+                        )?;
                         Ok(output_ok)
                     })(),
                 )
@@ -309,7 +303,7 @@ fn wire__crate__bindings__mobile_clipboard__dispose_mobile_clipboard_host_impl(
         },
     )
 }
-fn wire__crate__bindings__mobile_clipboard__forget_mobile_clipboard_device_impl(
+fn wire__crate__bindings__mobile_api__forget_mobile_clipboard_device_impl(
     port_: flutter_rust_bridge::for_generated::MessagePort,
     ptr_: flutter_rust_bridge::for_generated::PlatformGeneralizedUint8ListPtr,
     rust_vec_len_: i32,
@@ -338,7 +332,7 @@ fn wire__crate__bindings__mobile_clipboard__forget_mobile_clipboard_device_impl(
                 transform_result_sse::<_, flutter_rust_bridge::for_generated::anyhow::Error>(
                     (move || {
                         let output_ok =
-                            crate::bindings::mobile_clipboard::forget_mobile_clipboard_device(
+                            crate::bindings::mobile_api::forget_mobile_clipboard_device(
                                 api_host_id,
                                 api_id,
                             )?;
@@ -349,7 +343,7 @@ fn wire__crate__bindings__mobile_clipboard__forget_mobile_clipboard_device_impl(
         },
     )
 }
-fn wire__crate__bindings__mobile_clipboard__get_mobile_clipboard_item_impl(
+fn wire__crate__bindings__mobile_api__get_mobile_clipboard_item_impl(
     port_: flutter_rust_bridge::for_generated::MessagePort,
     ptr_: flutter_rust_bridge::for_generated::PlatformGeneralizedUint8ListPtr,
     rust_vec_len_: i32,
@@ -377,10 +371,106 @@ fn wire__crate__bindings__mobile_clipboard__get_mobile_clipboard_item_impl(
             move |context| {
                 transform_result_sse::<_, flutter_rust_bridge::for_generated::anyhow::Error>(
                     (move || {
+                        let output_ok = crate::bindings::mobile_api::get_mobile_clipboard_item(
+                            api_host_id,
+                            api_id,
+                        )?;
+                        Ok(output_ok)
+                    })(),
+                )
+            }
+        },
+    )
+}
+fn wire__crate__bindings__mobile_api__get_mobile_home_layout_impl(
+    port_: flutter_rust_bridge::for_generated::MessagePort,
+    ptr_: flutter_rust_bridge::for_generated::PlatformGeneralizedUint8ListPtr,
+    rust_vec_len_: i32,
+    data_len_: i32,
+) {
+    FLUTTER_RUST_BRIDGE_HANDLER.wrap_normal::<flutter_rust_bridge::for_generated::SseCodec, _, _>(
+        flutter_rust_bridge::for_generated::TaskInfo {
+            debug_name: "get_mobile_home_layout",
+            port: Some(port_),
+            mode: flutter_rust_bridge::for_generated::FfiCallMode::Normal,
+        },
+        move || {
+            let message = unsafe {
+                flutter_rust_bridge::for_generated::Dart2RustMessageSse::from_wire(
+                    ptr_,
+                    rust_vec_len_,
+                    data_len_,
+                )
+            };
+            let mut deserializer =
+                flutter_rust_bridge::for_generated::SseDeserializer::new(message);
+            let api_db_path = <String>::sse_decode(&mut deserializer);
+            let api_workspace_key = <String>::sse_decode(&mut deserializer);
+            let api_layout_scope = <String>::sse_decode(&mut deserializer);
+            deserializer.end();
+            move |context| {
+                transform_result_sse::<_, flutter_rust_bridge::for_generated::anyhow::Error>(
+                    (move || {
+                        let output_ok = crate::bindings::mobile_api::get_mobile_home_layout(
+                            api_db_path,
+                            api_workspace_key,
+                            api_layout_scope,
+                        )?;
+                        Ok(output_ok)
+                    })(),
+                )
+            }
+        },
+    )
+}
+fn wire__crate__bindings__mobile_api__get_or_create_mobile_clipboard_local_device_impl(
+    port_: flutter_rust_bridge::for_generated::MessagePort,
+    ptr_: flutter_rust_bridge::for_generated::PlatformGeneralizedUint8ListPtr,
+    rust_vec_len_: i32,
+    data_len_: i32,
+) {
+    FLUTTER_RUST_BRIDGE_HANDLER.wrap_normal::<flutter_rust_bridge::for_generated::SseCodec,_,_>(flutter_rust_bridge::for_generated::TaskInfo{ debug_name: "get_or_create_mobile_clipboard_local_device", port: Some(port_), mode: flutter_rust_bridge::for_generated::FfiCallMode::Normal }, move || {
+            let message = unsafe { flutter_rust_bridge::for_generated::Dart2RustMessageSse::from_wire(ptr_, rust_vec_len_, data_len_) };
+            let mut deserializer = flutter_rust_bridge::for_generated::SseDeserializer::new(message);
+            let api_host_id = <String>::sse_decode(&mut deserializer);
+let api_name = <String>::sse_decode(&mut deserializer);deserializer.end(); move |context|  {
+                    transform_result_sse::<_, flutter_rust_bridge::for_generated::anyhow::Error>((move ||  {
+                         let output_ok = crate::bindings::mobile_api::get_or_create_mobile_clipboard_local_device(api_host_id, api_name)?;   Ok(output_ok)
+                    })())
+                } })
+}
+fn wire__crate__bindings__mobile_api__list_mobile_clipboard_device_statuses_impl(
+    port_: flutter_rust_bridge::for_generated::MessagePort,
+    ptr_: flutter_rust_bridge::for_generated::PlatformGeneralizedUint8ListPtr,
+    rust_vec_len_: i32,
+    data_len_: i32,
+) {
+    FLUTTER_RUST_BRIDGE_HANDLER.wrap_normal::<flutter_rust_bridge::for_generated::SseCodec, _, _>(
+        flutter_rust_bridge::for_generated::TaskInfo {
+            debug_name: "list_mobile_clipboard_device_statuses",
+            port: Some(port_),
+            mode: flutter_rust_bridge::for_generated::FfiCallMode::Normal,
+        },
+        move || {
+            let message = unsafe {
+                flutter_rust_bridge::for_generated::Dart2RustMessageSse::from_wire(
+                    ptr_,
+                    rust_vec_len_,
+                    data_len_,
+                )
+            };
+            let mut deserializer =
+                flutter_rust_bridge::for_generated::SseDeserializer::new(message);
+            let api_host_id = <String>::sse_decode(&mut deserializer);
+            let api_online_window_seconds = <i64>::sse_decode(&mut deserializer);
+            deserializer.end();
+            move |context| {
+                transform_result_sse::<_, flutter_rust_bridge::for_generated::anyhow::Error>(
+                    (move || {
                         let output_ok =
-                            crate::bindings::mobile_clipboard::get_mobile_clipboard_item(
+                            crate::bindings::mobile_api::list_mobile_clipboard_device_statuses(
                                 api_host_id,
-                                api_id,
+                                api_online_window_seconds,
                             )?;
                         Ok(output_ok)
                     })(),
@@ -389,39 +479,7 @@ fn wire__crate__bindings__mobile_clipboard__get_mobile_clipboard_item_impl(
         },
     )
 }
-fn wire__crate__bindings__mobile_clipboard__get_or_create_mobile_clipboard_local_device_impl(
-    port_: flutter_rust_bridge::for_generated::MessagePort,
-    ptr_: flutter_rust_bridge::for_generated::PlatformGeneralizedUint8ListPtr,
-    rust_vec_len_: i32,
-    data_len_: i32,
-) {
-    FLUTTER_RUST_BRIDGE_HANDLER.wrap_normal::<flutter_rust_bridge::for_generated::SseCodec,_,_>(flutter_rust_bridge::for_generated::TaskInfo{ debug_name: "get_or_create_mobile_clipboard_local_device", port: Some(port_), mode: flutter_rust_bridge::for_generated::FfiCallMode::Normal }, move || { 
-            let message = unsafe { flutter_rust_bridge::for_generated::Dart2RustMessageSse::from_wire(ptr_, rust_vec_len_, data_len_) };
-            let mut deserializer = flutter_rust_bridge::for_generated::SseDeserializer::new(message);
-            let api_host_id = <String>::sse_decode(&mut deserializer);
-let api_name = <String>::sse_decode(&mut deserializer);deserializer.end(); move |context|  {
-                    transform_result_sse::<_, flutter_rust_bridge::for_generated::anyhow::Error>((move ||  {
-                         let output_ok = crate::bindings::mobile_clipboard::get_or_create_mobile_clipboard_local_device(api_host_id, api_name)?;   Ok(output_ok)
-                    })())
-                } })
-}
-fn wire__crate__bindings__mobile_clipboard__list_mobile_clipboard_device_statuses_impl(
-    port_: flutter_rust_bridge::for_generated::MessagePort,
-    ptr_: flutter_rust_bridge::for_generated::PlatformGeneralizedUint8ListPtr,
-    rust_vec_len_: i32,
-    data_len_: i32,
-) {
-    FLUTTER_RUST_BRIDGE_HANDLER.wrap_normal::<flutter_rust_bridge::for_generated::SseCodec,_,_>(flutter_rust_bridge::for_generated::TaskInfo{ debug_name: "list_mobile_clipboard_device_statuses", port: Some(port_), mode: flutter_rust_bridge::for_generated::FfiCallMode::Normal }, move || { 
-            let message = unsafe { flutter_rust_bridge::for_generated::Dart2RustMessageSse::from_wire(ptr_, rust_vec_len_, data_len_) };
-            let mut deserializer = flutter_rust_bridge::for_generated::SseDeserializer::new(message);
-            let api_host_id = <String>::sse_decode(&mut deserializer);
-let api_online_window_seconds = <i64>::sse_decode(&mut deserializer);deserializer.end(); move |context|  {
-                    transform_result_sse::<_, flutter_rust_bridge::for_generated::anyhow::Error>((move ||  {
-                         let output_ok = crate::bindings::mobile_clipboard::list_mobile_clipboard_device_statuses(api_host_id, api_online_window_seconds)?;   Ok(output_ok)
-                    })())
-                } })
-}
-fn wire__crate__bindings__mobile_clipboard__list_mobile_clipboard_devices_impl(
+fn wire__crate__bindings__mobile_api__list_mobile_clipboard_devices_impl(
     port_: flutter_rust_bridge::for_generated::MessagePort,
     ptr_: flutter_rust_bridge::for_generated::PlatformGeneralizedUint8ListPtr,
     rust_vec_len_: i32,
@@ -448,8 +506,45 @@ fn wire__crate__bindings__mobile_clipboard__list_mobile_clipboard_devices_impl(
             move |context| {
                 transform_result_sse::<_, flutter_rust_bridge::for_generated::anyhow::Error>(
                     (move || {
+                        let output_ok = crate::bindings::mobile_api::list_mobile_clipboard_devices(
+                            api_host_id,
+                        )?;
+                        Ok(output_ok)
+                    })(),
+                )
+            }
+        },
+    )
+}
+fn wire__crate__bindings__mobile_api__list_mobile_clipboard_discovered_devices_impl(
+    port_: flutter_rust_bridge::for_generated::MessagePort,
+    ptr_: flutter_rust_bridge::for_generated::PlatformGeneralizedUint8ListPtr,
+    rust_vec_len_: i32,
+    data_len_: i32,
+) {
+    FLUTTER_RUST_BRIDGE_HANDLER.wrap_normal::<flutter_rust_bridge::for_generated::SseCodec, _, _>(
+        flutter_rust_bridge::for_generated::TaskInfo {
+            debug_name: "list_mobile_clipboard_discovered_devices",
+            port: Some(port_),
+            mode: flutter_rust_bridge::for_generated::FfiCallMode::Normal,
+        },
+        move || {
+            let message = unsafe {
+                flutter_rust_bridge::for_generated::Dart2RustMessageSse::from_wire(
+                    ptr_,
+                    rust_vec_len_,
+                    data_len_,
+                )
+            };
+            let mut deserializer =
+                flutter_rust_bridge::for_generated::SseDeserializer::new(message);
+            let api_host_id = <String>::sse_decode(&mut deserializer);
+            deserializer.end();
+            move |context| {
+                transform_result_sse::<_, flutter_rust_bridge::for_generated::anyhow::Error>(
+                    (move || {
                         let output_ok =
-                            crate::bindings::mobile_clipboard::list_mobile_clipboard_devices(
+                            crate::bindings::mobile_api::list_mobile_clipboard_discovered_devices(
                                 api_host_id,
                             )?;
                         Ok(output_ok)
@@ -459,22 +554,7 @@ fn wire__crate__bindings__mobile_clipboard__list_mobile_clipboard_devices_impl(
         },
     )
 }
-fn wire__crate__bindings__mobile_clipboard__list_mobile_clipboard_discovered_devices_impl(
-    port_: flutter_rust_bridge::for_generated::MessagePort,
-    ptr_: flutter_rust_bridge::for_generated::PlatformGeneralizedUint8ListPtr,
-    rust_vec_len_: i32,
-    data_len_: i32,
-) {
-    FLUTTER_RUST_BRIDGE_HANDLER.wrap_normal::<flutter_rust_bridge::for_generated::SseCodec,_,_>(flutter_rust_bridge::for_generated::TaskInfo{ debug_name: "list_mobile_clipboard_discovered_devices", port: Some(port_), mode: flutter_rust_bridge::for_generated::FfiCallMode::Normal }, move || { 
-            let message = unsafe { flutter_rust_bridge::for_generated::Dart2RustMessageSse::from_wire(ptr_, rust_vec_len_, data_len_) };
-            let mut deserializer = flutter_rust_bridge::for_generated::SseDeserializer::new(message);
-            let api_host_id = <String>::sse_decode(&mut deserializer);deserializer.end(); move |context|  {
-                    transform_result_sse::<_, flutter_rust_bridge::for_generated::anyhow::Error>((move ||  {
-                         let output_ok = crate::bindings::mobile_clipboard::list_mobile_clipboard_discovered_devices(api_host_id)?;   Ok(output_ok)
-                    })())
-                } })
-}
-fn wire__crate__bindings__mobile_clipboard__list_mobile_clipboard_items_impl(
+fn wire__crate__bindings__mobile_api__list_mobile_clipboard_items_impl(
     port_: flutter_rust_bridge::for_generated::MessagePort,
     ptr_: flutter_rust_bridge::for_generated::PlatformGeneralizedUint8ListPtr,
     rust_vec_len_: i32,
@@ -502,11 +582,10 @@ fn wire__crate__bindings__mobile_clipboard__list_mobile_clipboard_items_impl(
             move |context| {
                 transform_result_sse::<_, flutter_rust_bridge::for_generated::anyhow::Error>(
                     (move || {
-                        let output_ok =
-                            crate::bindings::mobile_clipboard::list_mobile_clipboard_items(
-                                api_host_id,
-                                api_limit,
-                            )?;
+                        let output_ok = crate::bindings::mobile_api::list_mobile_clipboard_items(
+                            api_host_id,
+                            api_limit,
+                        )?;
                         Ok(output_ok)
                     })(),
                 )
@@ -514,7 +593,7 @@ fn wire__crate__bindings__mobile_clipboard__list_mobile_clipboard_items_impl(
         },
     )
 }
-fn wire__crate__bindings__mobile_clipboard__prune_mobile_clipboard_history_impl(
+fn wire__crate__bindings__mobile_api__prune_mobile_clipboard_history_impl(
     port_: flutter_rust_bridge::for_generated::MessagePort,
     ptr_: flutter_rust_bridge::for_generated::PlatformGeneralizedUint8ListPtr,
     rust_vec_len_: i32,
@@ -543,7 +622,7 @@ fn wire__crate__bindings__mobile_clipboard__prune_mobile_clipboard_history_impl(
                 transform_result_sse::<_, flutter_rust_bridge::for_generated::anyhow::Error>(
                     (move || {
                         let output_ok =
-                            crate::bindings::mobile_clipboard::prune_mobile_clipboard_history(
+                            crate::bindings::mobile_api::prune_mobile_clipboard_history(
                                 api_host_id,
                                 api_history_limit,
                             )?;
@@ -554,7 +633,96 @@ fn wire__crate__bindings__mobile_clipboard__prune_mobile_clipboard_history_impl(
         },
     )
 }
-fn wire__crate__bindings__mobile_clipboard__set_mobile_clipboard_device_trusted_impl(
+fn wire__crate__bindings__mobile_api__reset_mobile_category_layout_impl(
+    port_: flutter_rust_bridge::for_generated::MessagePort,
+    ptr_: flutter_rust_bridge::for_generated::PlatformGeneralizedUint8ListPtr,
+    rust_vec_len_: i32,
+    data_len_: i32,
+) {
+    FLUTTER_RUST_BRIDGE_HANDLER.wrap_normal::<flutter_rust_bridge::for_generated::SseCodec, _, _>(
+        flutter_rust_bridge::for_generated::TaskInfo {
+            debug_name: "reset_mobile_category_layout",
+            port: Some(port_),
+            mode: flutter_rust_bridge::for_generated::FfiCallMode::Normal,
+        },
+        move || {
+            let message = unsafe {
+                flutter_rust_bridge::for_generated::Dart2RustMessageSse::from_wire(
+                    ptr_,
+                    rust_vec_len_,
+                    data_len_,
+                )
+            };
+            let mut deserializer =
+                flutter_rust_bridge::for_generated::SseDeserializer::new(message);
+            let api_db_path = <String>::sse_decode(&mut deserializer);
+            let api_workspace_key = <String>::sse_decode(&mut deserializer);
+            let api_layout_scope = <String>::sse_decode(&mut deserializer);
+            let api_category_id = <String>::sse_decode(&mut deserializer);
+            deserializer.end();
+            move |context| {
+                transform_result_sse::<_, flutter_rust_bridge::for_generated::anyhow::Error>(
+                    (move || {
+                        let output_ok = crate::bindings::mobile_api::reset_mobile_category_layout(
+                            api_db_path,
+                            api_workspace_key,
+                            api_layout_scope,
+                            api_category_id,
+                        )?;
+                        Ok(output_ok)
+                    })(),
+                )
+            }
+        },
+    )
+}
+fn wire__crate__bindings__mobile_api__save_mobile_category_layout_impl(
+    port_: flutter_rust_bridge::for_generated::MessagePort,
+    ptr_: flutter_rust_bridge::for_generated::PlatformGeneralizedUint8ListPtr,
+    rust_vec_len_: i32,
+    data_len_: i32,
+) {
+    FLUTTER_RUST_BRIDGE_HANDLER.wrap_normal::<flutter_rust_bridge::for_generated::SseCodec, _, _>(
+        flutter_rust_bridge::for_generated::TaskInfo {
+            debug_name: "save_mobile_category_layout",
+            port: Some(port_),
+            mode: flutter_rust_bridge::for_generated::FfiCallMode::Normal,
+        },
+        move || {
+            let message = unsafe {
+                flutter_rust_bridge::for_generated::Dart2RustMessageSse::from_wire(
+                    ptr_,
+                    rust_vec_len_,
+                    data_len_,
+                )
+            };
+            let mut deserializer =
+                flutter_rust_bridge::for_generated::SseDeserializer::new(message);
+            let api_db_path = <String>::sse_decode(&mut deserializer);
+            let api_workspace_key = <String>::sse_decode(&mut deserializer);
+            let api_layout_scope = <String>::sse_decode(&mut deserializer);
+            let api_input =
+                <crate::models::home_layout::SaveMobileHomeCategoryLayoutInput>::sse_decode(
+                    &mut deserializer,
+                );
+            deserializer.end();
+            move |context| {
+                transform_result_sse::<_, flutter_rust_bridge::for_generated::anyhow::Error>(
+                    (move || {
+                        let output_ok = crate::bindings::mobile_api::save_mobile_category_layout(
+                            api_db_path,
+                            api_workspace_key,
+                            api_layout_scope,
+                            api_input,
+                        )?;
+                        Ok(output_ok)
+                    })(),
+                )
+            }
+        },
+    )
+}
+fn wire__crate__bindings__mobile_api__set_mobile_clipboard_device_trusted_impl(
     port_: flutter_rust_bridge::for_generated::MessagePort,
     ptr_: flutter_rust_bridge::for_generated::PlatformGeneralizedUint8ListPtr,
     rust_vec_len_: i32,
@@ -584,7 +752,7 @@ fn wire__crate__bindings__mobile_clipboard__set_mobile_clipboard_device_trusted_
                 transform_result_sse::<_, flutter_rust_bridge::for_generated::anyhow::Error>(
                     (move || {
                         let output_ok =
-                            crate::bindings::mobile_clipboard::set_mobile_clipboard_device_trusted(
+                            crate::bindings::mobile_api::set_mobile_clipboard_device_trusted(
                                 api_host_id,
                                 api_id,
                                 api_trusted,
@@ -596,7 +764,7 @@ fn wire__crate__bindings__mobile_clipboard__set_mobile_clipboard_device_trusted_
         },
     )
 }
-fn wire__crate__bindings__mobile_clipboard__start_mobile_clipboard_discovery_impl(
+fn wire__crate__bindings__mobile_api__start_mobile_clipboard_discovery_impl(
     port_: flutter_rust_bridge::for_generated::MessagePort,
     ptr_: flutter_rust_bridge::for_generated::PlatformGeneralizedUint8ListPtr,
     rust_vec_len_: i32,
@@ -608,11 +776,11 @@ fn wire__crate__bindings__mobile_clipboard__start_mobile_clipboard_discovery_imp
             let api_host_id = <String>::sse_decode(&mut deserializer);
 let api_config = <crate::models::multi_device_clipboard::MultiDeviceClipboardDiscoveryConfig>::sse_decode(&mut deserializer);deserializer.end(); move |context|  {
                     transform_result_sse::<_, flutter_rust_bridge::for_generated::anyhow::Error>((move ||  {
-                         let output_ok = crate::bindings::mobile_clipboard::start_mobile_clipboard_discovery(api_host_id, api_config)?;   Ok(output_ok)
+                         let output_ok = crate::bindings::mobile_api::start_mobile_clipboard_discovery(api_host_id, api_config)?;   Ok(output_ok)
                     })())
                 } })
 }
-fn wire__crate__bindings__mobile_clipboard__stop_mobile_clipboard_discovery_impl(
+fn wire__crate__bindings__mobile_api__stop_mobile_clipboard_discovery_impl(
     port_: flutter_rust_bridge::for_generated::MessagePort,
     ptr_: flutter_rust_bridge::for_generated::PlatformGeneralizedUint8ListPtr,
     rust_vec_len_: i32,
@@ -640,7 +808,7 @@ fn wire__crate__bindings__mobile_clipboard__stop_mobile_clipboard_discovery_impl
                 transform_result_sse::<_, flutter_rust_bridge::for_generated::anyhow::Error>(
                     (move || {
                         let output_ok =
-                            crate::bindings::mobile_clipboard::stop_mobile_clipboard_discovery(
+                            crate::bindings::mobile_api::stop_mobile_clipboard_discovery(
                                 api_host_id,
                             )?;
                         Ok(output_ok)
@@ -650,7 +818,7 @@ fn wire__crate__bindings__mobile_clipboard__stop_mobile_clipboard_discovery_impl
         },
     )
 }
-fn wire__crate__bindings__mobile_clipboard__upsert_mobile_clipboard_device_impl(
+fn wire__crate__bindings__mobile_api__upsert_mobile_clipboard_device_impl(
     port_: flutter_rust_bridge::for_generated::MessagePort,
     ptr_: flutter_rust_bridge::for_generated::PlatformGeneralizedUint8ListPtr,
     rust_vec_len_: i32,
@@ -662,11 +830,11 @@ fn wire__crate__bindings__mobile_clipboard__upsert_mobile_clipboard_device_impl(
             let api_host_id = <String>::sse_decode(&mut deserializer);
 let api_input = <crate::models::multi_device_clipboard::UpsertMultiDeviceClipboardDeviceInput>::sse_decode(&mut deserializer);deserializer.end(); move |context|  {
                     transform_result_sse::<_, flutter_rust_bridge::for_generated::anyhow::Error>((move ||  {
-                         let output_ok = crate::bindings::mobile_clipboard::upsert_mobile_clipboard_device(api_host_id, api_input)?;   Ok(output_ok)
+                         let output_ok = crate::bindings::mobile_api::upsert_mobile_clipboard_device(api_host_id, api_input)?;   Ok(output_ok)
                     })())
                 } })
 }
-fn wire__crate__bindings__mobile_clipboard__upsert_mobile_clipboard_item_impl(
+fn wire__crate__bindings__mobile_api__upsert_mobile_clipboard_item_impl(
     port_: flutter_rust_bridge::for_generated::MessagePort,
     ptr_: flutter_rust_bridge::for_generated::PlatformGeneralizedUint8ListPtr,
     rust_vec_len_: i32,
@@ -678,7 +846,7 @@ fn wire__crate__bindings__mobile_clipboard__upsert_mobile_clipboard_item_impl(
             let api_host_id = <String>::sse_decode(&mut deserializer);
 let api_input = <crate::models::multi_device_clipboard::UpsertMultiDeviceClipboardItemInput>::sse_decode(&mut deserializer);deserializer.end(); move |context|  {
                     transform_result_sse::<_, flutter_rust_bridge::for_generated::anyhow::Error>((move ||  {
-                         let output_ok = crate::bindings::mobile_clipboard::upsert_mobile_clipboard_item(api_host_id, api_input)?;   Ok(output_ok)
+                         let output_ok = crate::bindings::mobile_api::upsert_mobile_clipboard_item(api_host_id, api_input)?;   Ok(output_ok)
                     })())
                 } })
 }
@@ -708,6 +876,104 @@ impl SseDecode for bool {
     }
 }
 
+impl SseDecode for crate::models::home_layout::HomeLayout {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
+        let mut var_workspaceKey = <String>::sse_decode(deserializer);
+        let mut var_categories =
+            <Vec<crate::models::home_layout::HomeLayoutCategory>>::sse_decode(deserializer);
+        return crate::models::home_layout::HomeLayout {
+            workspace_key: var_workspaceKey,
+            categories: var_categories,
+        };
+    }
+}
+
+impl SseDecode for crate::models::home_layout::HomeLayoutCategory {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
+        let mut var_id = <String>::sse_decode(deserializer);
+        let mut var_workspaceId = <i64>::sse_decode(deserializer);
+        let mut var_label = <String>::sse_decode(deserializer);
+        let mut var_icon = <String>::sse_decode(deserializer);
+        let mut var_sortOrder = <i64>::sse_decode(deserializer);
+        let mut var_backgroundColor = <Option<String>>::sse_decode(deserializer);
+        let mut var_backgroundImage = <Option<String>>::sse_decode(deserializer);
+        let mut var_backgroundVideo = <Option<String>>::sse_decode(deserializer);
+        let mut var_backgroundStyle = <Option<String>>::sse_decode(deserializer);
+        let mut var_widgets =
+            <Vec<crate::models::home_layout::HomeWidget>>::sse_decode(deserializer);
+        return crate::models::home_layout::HomeLayoutCategory {
+            id: var_id,
+            workspace_id: var_workspaceId,
+            label: var_label,
+            icon: var_icon,
+            sort_order: var_sortOrder,
+            background_color: var_backgroundColor,
+            background_image: var_backgroundImage,
+            background_video: var_backgroundVideo,
+            background_style: var_backgroundStyle,
+            widgets: var_widgets,
+        };
+    }
+}
+
+impl SseDecode for crate::models::home_layout::HomeWidget {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
+        let mut var_id = <String>::sse_decode(deserializer);
+        let mut var_workspaceId = <i64>::sse_decode(deserializer);
+        let mut var_categoryId = <String>::sse_decode(deserializer);
+        let mut var_label = <String>::sse_decode(deserializer);
+        let mut var_icon = <Option<String>>::sse_decode(deserializer);
+        let mut var_action = <Option<String>>::sse_decode(deserializer);
+        let mut var_sourceType = <String>::sse_decode(deserializer);
+        let mut var_widgetType = <String>::sse_decode(deserializer);
+        let mut var_sizePreset = <Option<String>>::sse_decode(deserializer);
+        let mut var_widgetConfig = <Option<String>>::sse_decode(deserializer);
+        let mut var_col = <i64>::sse_decode(deserializer);
+        let mut var_row = <i64>::sse_decode(deserializer);
+        let mut var_colSpan = <i64>::sse_decode(deserializer);
+        let mut var_rowSpan = <i64>::sse_decode(deserializer);
+        let mut var_preferredCol = <i64>::sse_decode(deserializer);
+        let mut var_preferredRow = <i64>::sse_decode(deserializer);
+        let mut var_priority = <i64>::sse_decode(deserializer);
+        let mut var_color = <String>::sse_decode(deserializer);
+        let mut var_backgroundImage = <Option<String>>::sse_decode(deserializer);
+        let mut var_backgroundVideo = <Option<String>>::sse_decode(deserializer);
+        let mut var_backgroundStyle = <Option<String>>::sse_decode(deserializer);
+        let mut var_hidden = <bool>::sse_decode(deserializer);
+        let mut var_createdAt = <String>::sse_decode(deserializer);
+        let mut var_updatedAt = <String>::sse_decode(deserializer);
+        return crate::models::home_layout::HomeWidget {
+            id: var_id,
+            workspace_id: var_workspaceId,
+            category_id: var_categoryId,
+            label: var_label,
+            icon: var_icon,
+            action: var_action,
+            source_type: var_sourceType,
+            widget_type: var_widgetType,
+            size_preset: var_sizePreset,
+            widget_config: var_widgetConfig,
+            col: var_col,
+            row: var_row,
+            col_span: var_colSpan,
+            row_span: var_rowSpan,
+            preferred_col: var_preferredCol,
+            preferred_row: var_preferredRow,
+            priority: var_priority,
+            color: var_color,
+            background_image: var_backgroundImage,
+            background_video: var_backgroundVideo,
+            background_style: var_backgroundStyle,
+            hidden: var_hidden,
+            created_at: var_createdAt,
+            updated_at: var_updatedAt,
+        };
+    }
+}
+
 impl SseDecode for i64 {
     // Codec=Sse (Serialization based), see doc to use other codecs
     fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
@@ -722,6 +988,32 @@ impl SseDecode for Vec<String> {
         let mut ans_ = Vec::with_capacity(len_ as usize);
         for idx_ in 0..len_ {
             ans_.push(<String>::sse_decode(deserializer));
+        }
+        return ans_;
+    }
+}
+
+impl SseDecode for Vec<crate::models::home_layout::HomeLayoutCategory> {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
+        let mut len_ = <i32>::sse_decode(deserializer);
+        let mut ans_ = Vec::with_capacity(len_ as usize);
+        for idx_ in 0..len_ {
+            ans_.push(<crate::models::home_layout::HomeLayoutCategory>::sse_decode(deserializer));
+        }
+        return ans_;
+    }
+}
+
+impl SseDecode for Vec<crate::models::home_layout::HomeWidget> {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
+        let mut len_ = <i32>::sse_decode(deserializer);
+        let mut ans_ = Vec::with_capacity(len_ as usize);
+        for idx_ in 0..len_ {
+            ans_.push(<crate::models::home_layout::HomeWidget>::sse_decode(
+                deserializer,
+            ));
         }
         return ans_;
     }
@@ -792,6 +1084,22 @@ impl SseDecode for Vec<u8> {
         let mut ans_ = Vec::with_capacity(len_ as usize);
         for idx_ in 0..len_ {
             ans_.push(<u8>::sse_decode(deserializer));
+        }
+        return ans_;
+    }
+}
+
+impl SseDecode for Vec<crate::models::home_layout::SaveMobileHomeWidgetLayoutInput> {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
+        let mut len_ = <i32>::sse_decode(deserializer);
+        let mut ans_ = Vec::with_capacity(len_ as usize);
+        for idx_ in 0..len_ {
+            ans_.push(
+                <crate::models::home_layout::SaveMobileHomeWidgetLayoutInput>::sse_decode(
+                    deserializer,
+                ),
+            );
         }
         return ans_;
     }
@@ -983,6 +1291,47 @@ impl SseDecode for Option<u32> {
     }
 }
 
+impl SseDecode for crate::models::home_layout::SaveMobileHomeCategoryLayoutInput {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
+        let mut var_categoryId = <String>::sse_decode(deserializer);
+        let mut var_widgets =
+            <Vec<crate::models::home_layout::SaveMobileHomeWidgetLayoutInput>>::sse_decode(
+                deserializer,
+            );
+        return crate::models::home_layout::SaveMobileHomeCategoryLayoutInput {
+            category_id: var_categoryId,
+            widgets: var_widgets,
+        };
+    }
+}
+
+impl SseDecode for crate::models::home_layout::SaveMobileHomeWidgetLayoutInput {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
+        let mut var_widgetId = <String>::sse_decode(deserializer);
+        let mut var_col = <i64>::sse_decode(deserializer);
+        let mut var_row = <i64>::sse_decode(deserializer);
+        let mut var_colSpan = <i64>::sse_decode(deserializer);
+        let mut var_rowSpan = <i64>::sse_decode(deserializer);
+        let mut var_preferredCol = <i64>::sse_decode(deserializer);
+        let mut var_preferredRow = <i64>::sse_decode(deserializer);
+        let mut var_priority = <i64>::sse_decode(deserializer);
+        let mut var_hidden = <bool>::sse_decode(deserializer);
+        return crate::models::home_layout::SaveMobileHomeWidgetLayoutInput {
+            widget_id: var_widgetId,
+            col: var_col,
+            row: var_row,
+            col_span: var_colSpan,
+            row_span: var_rowSpan,
+            preferred_col: var_preferredCol,
+            preferred_row: var_preferredRow,
+            priority: var_priority,
+            hidden: var_hidden,
+        };
+    }
+}
+
 impl SseDecode for u32 {
     // Codec=Sse (Serialization based), see doc to use other codecs
     fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
@@ -1080,28 +1429,146 @@ fn pde_ffi_dispatcher_primary_impl(
 ) {
     // Codec=Pde (Serialization + dispatch), see doc to use other codecs
     match func_id {
-                        1 => wire__crate__bindings__mobile_clipboard__clamp_mobile_clipboard_sync_bytes_impl(port, ptr, rust_vec_len, data_len),
-2 => wire__crate__bindings__mobile_clipboard__classify_mobile_clipboard_text_impl(port, ptr, rust_vec_len, data_len),
-3 => wire__crate__bindings__mobile_clipboard__clear_mobile_clipboard_history_impl(port, ptr, rust_vec_len, data_len),
-4 => wire__crate__bindings__mobile_clipboard__compute_mobile_clipboard_content_hash_impl(port, ptr, rust_vec_len, data_len),
-5 => wire__crate__bindings__mobile_clipboard__create_mobile_clipboard_host_impl(port, ptr, rust_vec_len, data_len),
-6 => wire__crate__bindings__mobile_clipboard__delete_mobile_clipboard_item_impl(port, ptr, rust_vec_len, data_len),
-7 => wire__crate__bindings__mobile_clipboard__dispose_mobile_clipboard_host_impl(port, ptr, rust_vec_len, data_len),
-8 => wire__crate__bindings__mobile_clipboard__forget_mobile_clipboard_device_impl(port, ptr, rust_vec_len, data_len),
-9 => wire__crate__bindings__mobile_clipboard__get_mobile_clipboard_item_impl(port, ptr, rust_vec_len, data_len),
-10 => wire__crate__bindings__mobile_clipboard__get_or_create_mobile_clipboard_local_device_impl(port, ptr, rust_vec_len, data_len),
-11 => wire__crate__bindings__mobile_clipboard__list_mobile_clipboard_device_statuses_impl(port, ptr, rust_vec_len, data_len),
-12 => wire__crate__bindings__mobile_clipboard__list_mobile_clipboard_devices_impl(port, ptr, rust_vec_len, data_len),
-13 => wire__crate__bindings__mobile_clipboard__list_mobile_clipboard_discovered_devices_impl(port, ptr, rust_vec_len, data_len),
-14 => wire__crate__bindings__mobile_clipboard__list_mobile_clipboard_items_impl(port, ptr, rust_vec_len, data_len),
-15 => wire__crate__bindings__mobile_clipboard__prune_mobile_clipboard_history_impl(port, ptr, rust_vec_len, data_len),
-16 => wire__crate__bindings__mobile_clipboard__set_mobile_clipboard_device_trusted_impl(port, ptr, rust_vec_len, data_len),
-17 => wire__crate__bindings__mobile_clipboard__start_mobile_clipboard_discovery_impl(port, ptr, rust_vec_len, data_len),
-18 => wire__crate__bindings__mobile_clipboard__stop_mobile_clipboard_discovery_impl(port, ptr, rust_vec_len, data_len),
-19 => wire__crate__bindings__mobile_clipboard__upsert_mobile_clipboard_device_impl(port, ptr, rust_vec_len, data_len),
-20 => wire__crate__bindings__mobile_clipboard__upsert_mobile_clipboard_item_impl(port, ptr, rust_vec_len, data_len),
-                        _ => unreachable!(),
-                    }
+        1 => wire__crate__bindings__mobile_api__clamp_mobile_clipboard_sync_bytes_impl(
+            port,
+            ptr,
+            rust_vec_len,
+            data_len,
+        ),
+        2 => wire__crate__bindings__mobile_api__classify_mobile_clipboard_text_impl(
+            port,
+            ptr,
+            rust_vec_len,
+            data_len,
+        ),
+        3 => wire__crate__bindings__mobile_api__clear_mobile_clipboard_history_impl(
+            port,
+            ptr,
+            rust_vec_len,
+            data_len,
+        ),
+        4 => wire__crate__bindings__mobile_api__compute_mobile_clipboard_content_hash_impl(
+            port,
+            ptr,
+            rust_vec_len,
+            data_len,
+        ),
+        5 => wire__crate__bindings__mobile_api__create_mobile_clipboard_host_impl(
+            port,
+            ptr,
+            rust_vec_len,
+            data_len,
+        ),
+        6 => wire__crate__bindings__mobile_api__delete_mobile_clipboard_item_impl(
+            port,
+            ptr,
+            rust_vec_len,
+            data_len,
+        ),
+        7 => wire__crate__bindings__mobile_api__dispose_mobile_clipboard_host_impl(
+            port,
+            ptr,
+            rust_vec_len,
+            data_len,
+        ),
+        8 => wire__crate__bindings__mobile_api__forget_mobile_clipboard_device_impl(
+            port,
+            ptr,
+            rust_vec_len,
+            data_len,
+        ),
+        9 => wire__crate__bindings__mobile_api__get_mobile_clipboard_item_impl(
+            port,
+            ptr,
+            rust_vec_len,
+            data_len,
+        ),
+        10 => wire__crate__bindings__mobile_api__get_mobile_home_layout_impl(
+            port,
+            ptr,
+            rust_vec_len,
+            data_len,
+        ),
+        11 => wire__crate__bindings__mobile_api__get_or_create_mobile_clipboard_local_device_impl(
+            port,
+            ptr,
+            rust_vec_len,
+            data_len,
+        ),
+        12 => wire__crate__bindings__mobile_api__list_mobile_clipboard_device_statuses_impl(
+            port,
+            ptr,
+            rust_vec_len,
+            data_len,
+        ),
+        13 => wire__crate__bindings__mobile_api__list_mobile_clipboard_devices_impl(
+            port,
+            ptr,
+            rust_vec_len,
+            data_len,
+        ),
+        14 => wire__crate__bindings__mobile_api__list_mobile_clipboard_discovered_devices_impl(
+            port,
+            ptr,
+            rust_vec_len,
+            data_len,
+        ),
+        15 => wire__crate__bindings__mobile_api__list_mobile_clipboard_items_impl(
+            port,
+            ptr,
+            rust_vec_len,
+            data_len,
+        ),
+        16 => wire__crate__bindings__mobile_api__prune_mobile_clipboard_history_impl(
+            port,
+            ptr,
+            rust_vec_len,
+            data_len,
+        ),
+        17 => wire__crate__bindings__mobile_api__reset_mobile_category_layout_impl(
+            port,
+            ptr,
+            rust_vec_len,
+            data_len,
+        ),
+        18 => wire__crate__bindings__mobile_api__save_mobile_category_layout_impl(
+            port,
+            ptr,
+            rust_vec_len,
+            data_len,
+        ),
+        19 => wire__crate__bindings__mobile_api__set_mobile_clipboard_device_trusted_impl(
+            port,
+            ptr,
+            rust_vec_len,
+            data_len,
+        ),
+        20 => wire__crate__bindings__mobile_api__start_mobile_clipboard_discovery_impl(
+            port,
+            ptr,
+            rust_vec_len,
+            data_len,
+        ),
+        21 => wire__crate__bindings__mobile_api__stop_mobile_clipboard_discovery_impl(
+            port,
+            ptr,
+            rust_vec_len,
+            data_len,
+        ),
+        22 => wire__crate__bindings__mobile_api__upsert_mobile_clipboard_device_impl(
+            port,
+            ptr,
+            rust_vec_len,
+            data_len,
+        ),
+        23 => wire__crate__bindings__mobile_api__upsert_mobile_clipboard_item_impl(
+            port,
+            ptr,
+            rust_vec_len,
+            data_len,
+        ),
+        _ => unreachable!(),
+    }
 }
 
 fn pde_ffi_dispatcher_sync_impl(
@@ -1118,6 +1585,99 @@ fn pde_ffi_dispatcher_sync_impl(
 
 // Section: rust2dart
 
+// Codec=Dco (DartCObject based), see doc to use other codecs
+impl flutter_rust_bridge::IntoDart for crate::models::home_layout::HomeLayout {
+    fn into_dart(self) -> flutter_rust_bridge::for_generated::DartAbi {
+        [
+            self.workspace_key.into_into_dart().into_dart(),
+            self.categories.into_into_dart().into_dart(),
+        ]
+        .into_dart()
+    }
+}
+impl flutter_rust_bridge::for_generated::IntoDartExceptPrimitive
+    for crate::models::home_layout::HomeLayout
+{
+}
+impl flutter_rust_bridge::IntoIntoDart<crate::models::home_layout::HomeLayout>
+    for crate::models::home_layout::HomeLayout
+{
+    fn into_into_dart(self) -> crate::models::home_layout::HomeLayout {
+        self
+    }
+}
+// Codec=Dco (DartCObject based), see doc to use other codecs
+impl flutter_rust_bridge::IntoDart for crate::models::home_layout::HomeLayoutCategory {
+    fn into_dart(self) -> flutter_rust_bridge::for_generated::DartAbi {
+        [
+            self.id.into_into_dart().into_dart(),
+            self.workspace_id.into_into_dart().into_dart(),
+            self.label.into_into_dart().into_dart(),
+            self.icon.into_into_dart().into_dart(),
+            self.sort_order.into_into_dart().into_dart(),
+            self.background_color.into_into_dart().into_dart(),
+            self.background_image.into_into_dart().into_dart(),
+            self.background_video.into_into_dart().into_dart(),
+            self.background_style.into_into_dart().into_dart(),
+            self.widgets.into_into_dart().into_dart(),
+        ]
+        .into_dart()
+    }
+}
+impl flutter_rust_bridge::for_generated::IntoDartExceptPrimitive
+    for crate::models::home_layout::HomeLayoutCategory
+{
+}
+impl flutter_rust_bridge::IntoIntoDart<crate::models::home_layout::HomeLayoutCategory>
+    for crate::models::home_layout::HomeLayoutCategory
+{
+    fn into_into_dart(self) -> crate::models::home_layout::HomeLayoutCategory {
+        self
+    }
+}
+// Codec=Dco (DartCObject based), see doc to use other codecs
+impl flutter_rust_bridge::IntoDart for crate::models::home_layout::HomeWidget {
+    fn into_dart(self) -> flutter_rust_bridge::for_generated::DartAbi {
+        [
+            self.id.into_into_dart().into_dart(),
+            self.workspace_id.into_into_dart().into_dart(),
+            self.category_id.into_into_dart().into_dart(),
+            self.label.into_into_dart().into_dart(),
+            self.icon.into_into_dart().into_dart(),
+            self.action.into_into_dart().into_dart(),
+            self.source_type.into_into_dart().into_dart(),
+            self.widget_type.into_into_dart().into_dart(),
+            self.size_preset.into_into_dart().into_dart(),
+            self.widget_config.into_into_dart().into_dart(),
+            self.col.into_into_dart().into_dart(),
+            self.row.into_into_dart().into_dart(),
+            self.col_span.into_into_dart().into_dart(),
+            self.row_span.into_into_dart().into_dart(),
+            self.preferred_col.into_into_dart().into_dart(),
+            self.preferred_row.into_into_dart().into_dart(),
+            self.priority.into_into_dart().into_dart(),
+            self.color.into_into_dart().into_dart(),
+            self.background_image.into_into_dart().into_dart(),
+            self.background_video.into_into_dart().into_dart(),
+            self.background_style.into_into_dart().into_dart(),
+            self.hidden.into_into_dart().into_dart(),
+            self.created_at.into_into_dart().into_dart(),
+            self.updated_at.into_into_dart().into_dart(),
+        ]
+        .into_dart()
+    }
+}
+impl flutter_rust_bridge::for_generated::IntoDartExceptPrimitive
+    for crate::models::home_layout::HomeWidget
+{
+}
+impl flutter_rust_bridge::IntoIntoDart<crate::models::home_layout::HomeWidget>
+    for crate::models::home_layout::HomeWidget
+{
+    fn into_into_dart(self) -> crate::models::home_layout::HomeWidget {
+        self
+    }
+}
 // Codec=Dco (DartCObject based), see doc to use other codecs
 impl flutter_rust_bridge::IntoDart
     for crate::models::multi_device_clipboard::MultiDeviceClipboardDevice
@@ -1292,6 +1852,58 @@ impl
 }
 // Codec=Dco (DartCObject based), see doc to use other codecs
 impl flutter_rust_bridge::IntoDart
+    for crate::models::home_layout::SaveMobileHomeCategoryLayoutInput
+{
+    fn into_dart(self) -> flutter_rust_bridge::for_generated::DartAbi {
+        [
+            self.category_id.into_into_dart().into_dart(),
+            self.widgets.into_into_dart().into_dart(),
+        ]
+        .into_dart()
+    }
+}
+impl flutter_rust_bridge::for_generated::IntoDartExceptPrimitive
+    for crate::models::home_layout::SaveMobileHomeCategoryLayoutInput
+{
+}
+impl
+    flutter_rust_bridge::IntoIntoDart<crate::models::home_layout::SaveMobileHomeCategoryLayoutInput>
+    for crate::models::home_layout::SaveMobileHomeCategoryLayoutInput
+{
+    fn into_into_dart(self) -> crate::models::home_layout::SaveMobileHomeCategoryLayoutInput {
+        self
+    }
+}
+// Codec=Dco (DartCObject based), see doc to use other codecs
+impl flutter_rust_bridge::IntoDart for crate::models::home_layout::SaveMobileHomeWidgetLayoutInput {
+    fn into_dart(self) -> flutter_rust_bridge::for_generated::DartAbi {
+        [
+            self.widget_id.into_into_dart().into_dart(),
+            self.col.into_into_dart().into_dart(),
+            self.row.into_into_dart().into_dart(),
+            self.col_span.into_into_dart().into_dart(),
+            self.row_span.into_into_dart().into_dart(),
+            self.preferred_col.into_into_dart().into_dart(),
+            self.preferred_row.into_into_dart().into_dart(),
+            self.priority.into_into_dart().into_dart(),
+            self.hidden.into_into_dart().into_dart(),
+        ]
+        .into_dart()
+    }
+}
+impl flutter_rust_bridge::for_generated::IntoDartExceptPrimitive
+    for crate::models::home_layout::SaveMobileHomeWidgetLayoutInput
+{
+}
+impl flutter_rust_bridge::IntoIntoDart<crate::models::home_layout::SaveMobileHomeWidgetLayoutInput>
+    for crate::models::home_layout::SaveMobileHomeWidgetLayoutInput
+{
+    fn into_into_dart(self) -> crate::models::home_layout::SaveMobileHomeWidgetLayoutInput {
+        self
+    }
+}
+// Codec=Dco (DartCObject based), see doc to use other codecs
+impl flutter_rust_bridge::IntoDart
     for crate::models::multi_device_clipboard::UpsertMultiDeviceClipboardDeviceInput
 {
     fn into_dart(self) -> flutter_rust_bridge::for_generated::DartAbi {
@@ -1385,6 +1997,63 @@ impl SseEncode for bool {
     }
 }
 
+impl SseEncode for crate::models::home_layout::HomeLayout {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
+        <String>::sse_encode(self.workspace_key, serializer);
+        <Vec<crate::models::home_layout::HomeLayoutCategory>>::sse_encode(
+            self.categories,
+            serializer,
+        );
+    }
+}
+
+impl SseEncode for crate::models::home_layout::HomeLayoutCategory {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
+        <String>::sse_encode(self.id, serializer);
+        <i64>::sse_encode(self.workspace_id, serializer);
+        <String>::sse_encode(self.label, serializer);
+        <String>::sse_encode(self.icon, serializer);
+        <i64>::sse_encode(self.sort_order, serializer);
+        <Option<String>>::sse_encode(self.background_color, serializer);
+        <Option<String>>::sse_encode(self.background_image, serializer);
+        <Option<String>>::sse_encode(self.background_video, serializer);
+        <Option<String>>::sse_encode(self.background_style, serializer);
+        <Vec<crate::models::home_layout::HomeWidget>>::sse_encode(self.widgets, serializer);
+    }
+}
+
+impl SseEncode for crate::models::home_layout::HomeWidget {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
+        <String>::sse_encode(self.id, serializer);
+        <i64>::sse_encode(self.workspace_id, serializer);
+        <String>::sse_encode(self.category_id, serializer);
+        <String>::sse_encode(self.label, serializer);
+        <Option<String>>::sse_encode(self.icon, serializer);
+        <Option<String>>::sse_encode(self.action, serializer);
+        <String>::sse_encode(self.source_type, serializer);
+        <String>::sse_encode(self.widget_type, serializer);
+        <Option<String>>::sse_encode(self.size_preset, serializer);
+        <Option<String>>::sse_encode(self.widget_config, serializer);
+        <i64>::sse_encode(self.col, serializer);
+        <i64>::sse_encode(self.row, serializer);
+        <i64>::sse_encode(self.col_span, serializer);
+        <i64>::sse_encode(self.row_span, serializer);
+        <i64>::sse_encode(self.preferred_col, serializer);
+        <i64>::sse_encode(self.preferred_row, serializer);
+        <i64>::sse_encode(self.priority, serializer);
+        <String>::sse_encode(self.color, serializer);
+        <Option<String>>::sse_encode(self.background_image, serializer);
+        <Option<String>>::sse_encode(self.background_video, serializer);
+        <Option<String>>::sse_encode(self.background_style, serializer);
+        <bool>::sse_encode(self.hidden, serializer);
+        <String>::sse_encode(self.created_at, serializer);
+        <String>::sse_encode(self.updated_at, serializer);
+    }
+}
+
 impl SseEncode for i64 {
     // Codec=Sse (Serialization based), see doc to use other codecs
     fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
@@ -1398,6 +2067,26 @@ impl SseEncode for Vec<String> {
         <i32>::sse_encode(self.len() as _, serializer);
         for item in self {
             <String>::sse_encode(item, serializer);
+        }
+    }
+}
+
+impl SseEncode for Vec<crate::models::home_layout::HomeLayoutCategory> {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
+        <i32>::sse_encode(self.len() as _, serializer);
+        for item in self {
+            <crate::models::home_layout::HomeLayoutCategory>::sse_encode(item, serializer);
+        }
+    }
+}
+
+impl SseEncode for Vec<crate::models::home_layout::HomeWidget> {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
+        <i32>::sse_encode(self.len() as _, serializer);
+        for item in self {
+            <crate::models::home_layout::HomeWidget>::sse_encode(item, serializer);
         }
     }
 }
@@ -1456,6 +2145,18 @@ impl SseEncode for Vec<u8> {
         <i32>::sse_encode(self.len() as _, serializer);
         for item in self {
             <u8>::sse_encode(item, serializer);
+        }
+    }
+}
+
+impl SseEncode for Vec<crate::models::home_layout::SaveMobileHomeWidgetLayoutInput> {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
+        <i32>::sse_encode(self.len() as _, serializer);
+        for item in self {
+            <crate::models::home_layout::SaveMobileHomeWidgetLayoutInput>::sse_encode(
+                item, serializer,
+            );
         }
     }
 }
@@ -1578,6 +2279,32 @@ impl SseEncode for Option<u32> {
         if let Some(value) = self {
             <u32>::sse_encode(value, serializer);
         }
+    }
+}
+
+impl SseEncode for crate::models::home_layout::SaveMobileHomeCategoryLayoutInput {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
+        <String>::sse_encode(self.category_id, serializer);
+        <Vec<crate::models::home_layout::SaveMobileHomeWidgetLayoutInput>>::sse_encode(
+            self.widgets,
+            serializer,
+        );
+    }
+}
+
+impl SseEncode for crate::models::home_layout::SaveMobileHomeWidgetLayoutInput {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
+        <String>::sse_encode(self.widget_id, serializer);
+        <i64>::sse_encode(self.col, serializer);
+        <i64>::sse_encode(self.row, serializer);
+        <i64>::sse_encode(self.col_span, serializer);
+        <i64>::sse_encode(self.row_span, serializer);
+        <i64>::sse_encode(self.preferred_col, serializer);
+        <i64>::sse_encode(self.preferred_row, serializer);
+        <i64>::sse_encode(self.priority, serializer);
+        <bool>::sse_encode(self.hidden, serializer);
     }
 }
 

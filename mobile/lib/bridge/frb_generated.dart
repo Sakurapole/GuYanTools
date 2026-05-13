@@ -3,12 +3,13 @@
 
 // ignore_for_file: unused_import, unused_element, unnecessary_import, duplicate_ignore, invalid_use_of_internal_member, annotate_overrides, non_constant_identifier_names, curly_braces_in_flow_control_structures, prefer_const_literals_to_create_immutables, unused_field
 
-import 'bindings/mobile_clipboard.dart';
+import 'bindings/mobile_api.dart';
 import 'dart:async';
 import 'dart:convert';
 import 'frb_generated.dart';
 import 'frb_generated.io.dart'
     if (dart.library.js_interop) 'frb_generated.web.dart';
+import 'models/home_layout.dart';
 import 'models/multi_device_clipboard.dart';
 import 'package:flutter_rust_bridge/flutter_rust_bridge_for_generated.dart';
 
@@ -65,7 +66,7 @@ class RustLib extends BaseEntrypoint<RustLibApi, RustLibApiImpl, RustLibWire> {
   String get codegenVersion => '2.12.0';
 
   @override
-  int get rustContentHash => 515536374;
+  int get rustContentHash => 397776622;
 
   static const kDefaultExternalLibraryLoaderConfig =
       ExternalLibraryLoaderConfig(
@@ -77,104 +78,121 @@ class RustLib extends BaseEntrypoint<RustLibApi, RustLibApiImpl, RustLibWire> {
 }
 
 abstract class RustLibApi extends BaseApi {
-  Future<PlatformInt64>
-  crateBindingsMobileClipboardClampMobileClipboardSyncBytes({
+  Future<PlatformInt64> crateBindingsMobileApiClampMobileClipboardSyncBytes({
     required PlatformInt64 value,
   });
 
-  Future<List<String>> crateBindingsMobileClipboardClassifyMobileClipboardText({
+  Future<List<String>> crateBindingsMobileApiClassifyMobileClipboardText({
     required String text,
   });
 
-  Future<void> crateBindingsMobileClipboardClearMobileClipboardHistory({
+  Future<void> crateBindingsMobileApiClearMobileClipboardHistory({
     required String hostId,
   });
 
-  Future<String> crateBindingsMobileClipboardComputeMobileClipboardContentHash({
+  Future<String> crateBindingsMobileApiComputeMobileClipboardContentHash({
     required List<String> parts,
   });
 
-  Future<String> crateBindingsMobileClipboardCreateMobileClipboardHost({
+  Future<String> crateBindingsMobileApiCreateMobileClipboardHost({
     required String dbPath,
   });
 
-  Future<void> crateBindingsMobileClipboardDeleteMobileClipboardItem({
+  Future<void> crateBindingsMobileApiDeleteMobileClipboardItem({
     required String hostId,
     required String id,
   });
 
-  Future<void> crateBindingsMobileClipboardDisposeMobileClipboardHost({
+  Future<void> crateBindingsMobileApiDisposeMobileClipboardHost({
     required String hostId,
   });
 
-  Future<void> crateBindingsMobileClipboardForgetMobileClipboardDevice({
+  Future<void> crateBindingsMobileApiForgetMobileClipboardDevice({
     required String hostId,
     required String id,
   });
 
   Future<MultiDeviceClipboardItem>
-  crateBindingsMobileClipboardGetMobileClipboardItem({
+  crateBindingsMobileApiGetMobileClipboardItem({
     required String hostId,
     required String id,
   });
 
+  Future<HomeLayout> crateBindingsMobileApiGetMobileHomeLayout({
+    required String dbPath,
+    required String workspaceKey,
+    required String layoutScope,
+  });
+
   Future<MultiDeviceClipboardDevice>
-  crateBindingsMobileClipboardGetOrCreateMobileClipboardLocalDevice({
+  crateBindingsMobileApiGetOrCreateMobileClipboardLocalDevice({
     required String hostId,
     required String name,
   });
 
   Future<List<MultiDeviceClipboardDeviceStatus>>
-  crateBindingsMobileClipboardListMobileClipboardDeviceStatuses({
+  crateBindingsMobileApiListMobileClipboardDeviceStatuses({
     required String hostId,
     required PlatformInt64 onlineWindowSeconds,
   });
 
   Future<List<MultiDeviceClipboardDevice>>
-  crateBindingsMobileClipboardListMobileClipboardDevices({
-    required String hostId,
-  });
+  crateBindingsMobileApiListMobileClipboardDevices({required String hostId});
 
   Future<List<MultiDeviceClipboardDiscoveredDevice>>
-  crateBindingsMobileClipboardListMobileClipboardDiscoveredDevices({
+  crateBindingsMobileApiListMobileClipboardDiscoveredDevices({
     required String hostId,
   });
 
   Future<List<MultiDeviceClipboardItem>>
-  crateBindingsMobileClipboardListMobileClipboardItems({
+  crateBindingsMobileApiListMobileClipboardItems({
     required String hostId,
     required PlatformInt64 limit,
   });
 
-  Future<void> crateBindingsMobileClipboardPruneMobileClipboardHistory({
+  Future<void> crateBindingsMobileApiPruneMobileClipboardHistory({
     required String hostId,
     required PlatformInt64 historyLimit,
   });
 
+  Future<HomeLayoutCategory> crateBindingsMobileApiResetMobileCategoryLayout({
+    required String dbPath,
+    required String workspaceKey,
+    required String layoutScope,
+    required String categoryId,
+  });
+
+  Future<HomeLayoutCategory> crateBindingsMobileApiSaveMobileCategoryLayout({
+    required String dbPath,
+    required String workspaceKey,
+    required String layoutScope,
+    required SaveMobileHomeCategoryLayoutInput input,
+  });
+
   Future<MultiDeviceClipboardDevice>
-  crateBindingsMobileClipboardSetMobileClipboardDeviceTrusted({
+  crateBindingsMobileApiSetMobileClipboardDeviceTrusted({
     required String hostId,
     required String id,
     required bool trusted,
   });
 
-  Future<void> crateBindingsMobileClipboardStartMobileClipboardDiscovery({
+  Future<void> crateBindingsMobileApiStartMobileClipboardDiscovery({
     required String hostId,
     required MultiDeviceClipboardDiscoveryConfig config,
   });
 
-  Future<void> crateBindingsMobileClipboardStopMobileClipboardDiscovery({
+  Future<void> crateBindingsMobileApiStopMobileClipboardDiscovery({
     required String hostId,
   });
 
   Future<MultiDeviceClipboardDevice>
-  crateBindingsMobileClipboardUpsertMobileClipboardDevice({
+  crateBindingsMobileApiUpsertMobileClipboardDevice({
     required String hostId,
     required UpsertMultiDeviceClipboardDeviceInput input,
   });
 
   Future<MultiDeviceClipboardItem>
-  crateBindingsMobileClipboardUpsertMobileClipboardItem({
+  crateBindingsMobileApiUpsertMobileClipboardItem({
     required String hostId,
     required UpsertMultiDeviceClipboardItemInput input,
   });
@@ -189,8 +207,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   });
 
   @override
-  Future<PlatformInt64>
-  crateBindingsMobileClipboardClampMobileClipboardSyncBytes({
+  Future<PlatformInt64> crateBindingsMobileApiClampMobileClipboardSyncBytes({
     required PlatformInt64 value,
   }) {
     return handler.executeNormal(
@@ -210,7 +227,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           decodeErrorData: null,
         ),
         constMeta:
-            kCrateBindingsMobileClipboardClampMobileClipboardSyncBytesConstMeta,
+            kCrateBindingsMobileApiClampMobileClipboardSyncBytesConstMeta,
         argValues: [value],
         apiImpl: this,
       ),
@@ -218,14 +235,14 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   TaskConstMeta
-  get kCrateBindingsMobileClipboardClampMobileClipboardSyncBytesConstMeta =>
+  get kCrateBindingsMobileApiClampMobileClipboardSyncBytesConstMeta =>
       const TaskConstMeta(
         debugName: "clamp_mobile_clipboard_sync_bytes",
         argNames: ["value"],
       );
 
   @override
-  Future<List<String>> crateBindingsMobileClipboardClassifyMobileClipboardText({
+  Future<List<String>> crateBindingsMobileApiClassifyMobileClipboardText({
     required String text,
   }) {
     return handler.executeNormal(
@@ -244,8 +261,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           decodeSuccessData: sse_decode_list_String,
           decodeErrorData: null,
         ),
-        constMeta:
-            kCrateBindingsMobileClipboardClassifyMobileClipboardTextConstMeta,
+        constMeta: kCrateBindingsMobileApiClassifyMobileClipboardTextConstMeta,
         argValues: [text],
         apiImpl: this,
       ),
@@ -253,14 +269,14 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   TaskConstMeta
-  get kCrateBindingsMobileClipboardClassifyMobileClipboardTextConstMeta =>
+  get kCrateBindingsMobileApiClassifyMobileClipboardTextConstMeta =>
       const TaskConstMeta(
         debugName: "classify_mobile_clipboard_text",
         argNames: ["text"],
       );
 
   @override
-  Future<void> crateBindingsMobileClipboardClearMobileClipboardHistory({
+  Future<void> crateBindingsMobileApiClearMobileClipboardHistory({
     required String hostId,
   }) {
     return handler.executeNormal(
@@ -279,8 +295,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           decodeSuccessData: sse_decode_unit,
           decodeErrorData: sse_decode_AnyhowException,
         ),
-        constMeta:
-            kCrateBindingsMobileClipboardClearMobileClipboardHistoryConstMeta,
+        constMeta: kCrateBindingsMobileApiClearMobileClipboardHistoryConstMeta,
         argValues: [hostId],
         apiImpl: this,
       ),
@@ -288,14 +303,14 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   TaskConstMeta
-  get kCrateBindingsMobileClipboardClearMobileClipboardHistoryConstMeta =>
+  get kCrateBindingsMobileApiClearMobileClipboardHistoryConstMeta =>
       const TaskConstMeta(
         debugName: "clear_mobile_clipboard_history",
         argNames: ["hostId"],
       );
 
   @override
-  Future<String> crateBindingsMobileClipboardComputeMobileClipboardContentHash({
+  Future<String> crateBindingsMobileApiComputeMobileClipboardContentHash({
     required List<String> parts,
   }) {
     return handler.executeNormal(
@@ -315,7 +330,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           decodeErrorData: null,
         ),
         constMeta:
-            kCrateBindingsMobileClipboardComputeMobileClipboardContentHashConstMeta,
+            kCrateBindingsMobileApiComputeMobileClipboardContentHashConstMeta,
         argValues: [parts],
         apiImpl: this,
       ),
@@ -323,14 +338,14 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   TaskConstMeta
-  get kCrateBindingsMobileClipboardComputeMobileClipboardContentHashConstMeta =>
+  get kCrateBindingsMobileApiComputeMobileClipboardContentHashConstMeta =>
       const TaskConstMeta(
         debugName: "compute_mobile_clipboard_content_hash",
         argNames: ["parts"],
       );
 
   @override
-  Future<String> crateBindingsMobileClipboardCreateMobileClipboardHost({
+  Future<String> crateBindingsMobileApiCreateMobileClipboardHost({
     required String dbPath,
   }) {
     return handler.executeNormal(
@@ -349,23 +364,21 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           decodeSuccessData: sse_decode_String,
           decodeErrorData: sse_decode_AnyhowException,
         ),
-        constMeta:
-            kCrateBindingsMobileClipboardCreateMobileClipboardHostConstMeta,
+        constMeta: kCrateBindingsMobileApiCreateMobileClipboardHostConstMeta,
         argValues: [dbPath],
         apiImpl: this,
       ),
     );
   }
 
-  TaskConstMeta
-  get kCrateBindingsMobileClipboardCreateMobileClipboardHostConstMeta =>
+  TaskConstMeta get kCrateBindingsMobileApiCreateMobileClipboardHostConstMeta =>
       const TaskConstMeta(
         debugName: "create_mobile_clipboard_host",
         argNames: ["dbPath"],
       );
 
   @override
-  Future<void> crateBindingsMobileClipboardDeleteMobileClipboardItem({
+  Future<void> crateBindingsMobileApiDeleteMobileClipboardItem({
     required String hostId,
     required String id,
   }) {
@@ -386,23 +399,21 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           decodeSuccessData: sse_decode_unit,
           decodeErrorData: sse_decode_AnyhowException,
         ),
-        constMeta:
-            kCrateBindingsMobileClipboardDeleteMobileClipboardItemConstMeta,
+        constMeta: kCrateBindingsMobileApiDeleteMobileClipboardItemConstMeta,
         argValues: [hostId, id],
         apiImpl: this,
       ),
     );
   }
 
-  TaskConstMeta
-  get kCrateBindingsMobileClipboardDeleteMobileClipboardItemConstMeta =>
+  TaskConstMeta get kCrateBindingsMobileApiDeleteMobileClipboardItemConstMeta =>
       const TaskConstMeta(
         debugName: "delete_mobile_clipboard_item",
         argNames: ["hostId", "id"],
       );
 
   @override
-  Future<void> crateBindingsMobileClipboardDisposeMobileClipboardHost({
+  Future<void> crateBindingsMobileApiDisposeMobileClipboardHost({
     required String hostId,
   }) {
     return handler.executeNormal(
@@ -421,8 +432,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           decodeSuccessData: sse_decode_unit,
           decodeErrorData: sse_decode_AnyhowException,
         ),
-        constMeta:
-            kCrateBindingsMobileClipboardDisposeMobileClipboardHostConstMeta,
+        constMeta: kCrateBindingsMobileApiDisposeMobileClipboardHostConstMeta,
         argValues: [hostId],
         apiImpl: this,
       ),
@@ -430,14 +440,14 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   TaskConstMeta
-  get kCrateBindingsMobileClipboardDisposeMobileClipboardHostConstMeta =>
+  get kCrateBindingsMobileApiDisposeMobileClipboardHostConstMeta =>
       const TaskConstMeta(
         debugName: "dispose_mobile_clipboard_host",
         argNames: ["hostId"],
       );
 
   @override
-  Future<void> crateBindingsMobileClipboardForgetMobileClipboardDevice({
+  Future<void> crateBindingsMobileApiForgetMobileClipboardDevice({
     required String hostId,
     required String id,
   }) {
@@ -458,8 +468,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           decodeSuccessData: sse_decode_unit,
           decodeErrorData: sse_decode_AnyhowException,
         ),
-        constMeta:
-            kCrateBindingsMobileClipboardForgetMobileClipboardDeviceConstMeta,
+        constMeta: kCrateBindingsMobileApiForgetMobileClipboardDeviceConstMeta,
         argValues: [hostId, id],
         apiImpl: this,
       ),
@@ -467,7 +476,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   TaskConstMeta
-  get kCrateBindingsMobileClipboardForgetMobileClipboardDeviceConstMeta =>
+  get kCrateBindingsMobileApiForgetMobileClipboardDeviceConstMeta =>
       const TaskConstMeta(
         debugName: "forget_mobile_clipboard_device",
         argNames: ["hostId", "id"],
@@ -475,7 +484,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
 
   @override
   Future<MultiDeviceClipboardItem>
-  crateBindingsMobileClipboardGetMobileClipboardItem({
+  crateBindingsMobileApiGetMobileClipboardItem({
     required String hostId,
     required String id,
   }) {
@@ -496,23 +505,59 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           decodeSuccessData: sse_decode_multi_device_clipboard_item,
           decodeErrorData: sse_decode_AnyhowException,
         ),
-        constMeta: kCrateBindingsMobileClipboardGetMobileClipboardItemConstMeta,
+        constMeta: kCrateBindingsMobileApiGetMobileClipboardItemConstMeta,
         argValues: [hostId, id],
         apiImpl: this,
       ),
     );
   }
 
-  TaskConstMeta
-  get kCrateBindingsMobileClipboardGetMobileClipboardItemConstMeta =>
+  TaskConstMeta get kCrateBindingsMobileApiGetMobileClipboardItemConstMeta =>
       const TaskConstMeta(
         debugName: "get_mobile_clipboard_item",
         argNames: ["hostId", "id"],
       );
 
   @override
+  Future<HomeLayout> crateBindingsMobileApiGetMobileHomeLayout({
+    required String dbPath,
+    required String workspaceKey,
+    required String layoutScope,
+  }) {
+    return handler.executeNormal(
+      NormalTask(
+        callFfi: (port_) {
+          final serializer = SseSerializer(generalizedFrbRustBinding);
+          sse_encode_String(dbPath, serializer);
+          sse_encode_String(workspaceKey, serializer);
+          sse_encode_String(layoutScope, serializer);
+          pdeCallFfi(
+            generalizedFrbRustBinding,
+            serializer,
+            funcId: 10,
+            port: port_,
+          );
+        },
+        codec: SseCodec(
+          decodeSuccessData: sse_decode_home_layout,
+          decodeErrorData: sse_decode_AnyhowException,
+        ),
+        constMeta: kCrateBindingsMobileApiGetMobileHomeLayoutConstMeta,
+        argValues: [dbPath, workspaceKey, layoutScope],
+        apiImpl: this,
+      ),
+    );
+  }
+
+  TaskConstMeta get kCrateBindingsMobileApiGetMobileHomeLayoutConstMeta =>
+      const TaskConstMeta(
+        debugName: "get_mobile_home_layout",
+        argNames: ["dbPath", "workspaceKey", "layoutScope"],
+      );
+
+  @override
   Future<MultiDeviceClipboardDevice>
-  crateBindingsMobileClipboardGetOrCreateMobileClipboardLocalDevice({
+  crateBindingsMobileApiGetOrCreateMobileClipboardLocalDevice({
     required String hostId,
     required String name,
   }) {
@@ -525,7 +570,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 10,
+            funcId: 11,
             port: port_,
           );
         },
@@ -534,7 +579,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           decodeErrorData: sse_decode_AnyhowException,
         ),
         constMeta:
-            kCrateBindingsMobileClipboardGetOrCreateMobileClipboardLocalDeviceConstMeta,
+            kCrateBindingsMobileApiGetOrCreateMobileClipboardLocalDeviceConstMeta,
         argValues: [hostId, name],
         apiImpl: this,
       ),
@@ -542,7 +587,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   TaskConstMeta
-  get kCrateBindingsMobileClipboardGetOrCreateMobileClipboardLocalDeviceConstMeta =>
+  get kCrateBindingsMobileApiGetOrCreateMobileClipboardLocalDeviceConstMeta =>
       const TaskConstMeta(
         debugName: "get_or_create_mobile_clipboard_local_device",
         argNames: ["hostId", "name"],
@@ -550,7 +595,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
 
   @override
   Future<List<MultiDeviceClipboardDeviceStatus>>
-  crateBindingsMobileClipboardListMobileClipboardDeviceStatuses({
+  crateBindingsMobileApiListMobileClipboardDeviceStatuses({
     required String hostId,
     required PlatformInt64 onlineWindowSeconds,
   }) {
@@ -563,7 +608,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 11,
+            funcId: 12,
             port: port_,
           );
         },
@@ -573,7 +618,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           decodeErrorData: sse_decode_AnyhowException,
         ),
         constMeta:
-            kCrateBindingsMobileClipboardListMobileClipboardDeviceStatusesConstMeta,
+            kCrateBindingsMobileApiListMobileClipboardDeviceStatusesConstMeta,
         argValues: [hostId, onlineWindowSeconds],
         apiImpl: this,
       ),
@@ -581,7 +626,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   TaskConstMeta
-  get kCrateBindingsMobileClipboardListMobileClipboardDeviceStatusesConstMeta =>
+  get kCrateBindingsMobileApiListMobileClipboardDeviceStatusesConstMeta =>
       const TaskConstMeta(
         debugName: "list_mobile_clipboard_device_statuses",
         argNames: ["hostId", "onlineWindowSeconds"],
@@ -589,45 +634,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
 
   @override
   Future<List<MultiDeviceClipboardDevice>>
-  crateBindingsMobileClipboardListMobileClipboardDevices({
-    required String hostId,
-  }) {
-    return handler.executeNormal(
-      NormalTask(
-        callFfi: (port_) {
-          final serializer = SseSerializer(generalizedFrbRustBinding);
-          sse_encode_String(hostId, serializer);
-          pdeCallFfi(
-            generalizedFrbRustBinding,
-            serializer,
-            funcId: 12,
-            port: port_,
-          );
-        },
-        codec: SseCodec(
-          decodeSuccessData: sse_decode_list_multi_device_clipboard_device,
-          decodeErrorData: sse_decode_AnyhowException,
-        ),
-        constMeta:
-            kCrateBindingsMobileClipboardListMobileClipboardDevicesConstMeta,
-        argValues: [hostId],
-        apiImpl: this,
-      ),
-    );
-  }
-
-  TaskConstMeta
-  get kCrateBindingsMobileClipboardListMobileClipboardDevicesConstMeta =>
-      const TaskConstMeta(
-        debugName: "list_mobile_clipboard_devices",
-        argNames: ["hostId"],
-      );
-
-  @override
-  Future<List<MultiDeviceClipboardDiscoveredDevice>>
-  crateBindingsMobileClipboardListMobileClipboardDiscoveredDevices({
-    required String hostId,
-  }) {
+  crateBindingsMobileApiListMobileClipboardDevices({required String hostId}) {
     return handler.executeNormal(
       NormalTask(
         callFfi: (port_) {
@@ -641,12 +648,10 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           );
         },
         codec: SseCodec(
-          decodeSuccessData:
-              sse_decode_list_multi_device_clipboard_discovered_device,
+          decodeSuccessData: sse_decode_list_multi_device_clipboard_device,
           decodeErrorData: sse_decode_AnyhowException,
         ),
-        constMeta:
-            kCrateBindingsMobileClipboardListMobileClipboardDiscoveredDevicesConstMeta,
+        constMeta: kCrateBindingsMobileApiListMobileClipboardDevicesConstMeta,
         argValues: [hostId],
         apiImpl: this,
       ),
@@ -654,7 +659,44 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   TaskConstMeta
-  get kCrateBindingsMobileClipboardListMobileClipboardDiscoveredDevicesConstMeta =>
+  get kCrateBindingsMobileApiListMobileClipboardDevicesConstMeta =>
+      const TaskConstMeta(
+        debugName: "list_mobile_clipboard_devices",
+        argNames: ["hostId"],
+      );
+
+  @override
+  Future<List<MultiDeviceClipboardDiscoveredDevice>>
+  crateBindingsMobileApiListMobileClipboardDiscoveredDevices({
+    required String hostId,
+  }) {
+    return handler.executeNormal(
+      NormalTask(
+        callFfi: (port_) {
+          final serializer = SseSerializer(generalizedFrbRustBinding);
+          sse_encode_String(hostId, serializer);
+          pdeCallFfi(
+            generalizedFrbRustBinding,
+            serializer,
+            funcId: 14,
+            port: port_,
+          );
+        },
+        codec: SseCodec(
+          decodeSuccessData:
+              sse_decode_list_multi_device_clipboard_discovered_device,
+          decodeErrorData: sse_decode_AnyhowException,
+        ),
+        constMeta:
+            kCrateBindingsMobileApiListMobileClipboardDiscoveredDevicesConstMeta,
+        argValues: [hostId],
+        apiImpl: this,
+      ),
+    );
+  }
+
+  TaskConstMeta
+  get kCrateBindingsMobileApiListMobileClipboardDiscoveredDevicesConstMeta =>
       const TaskConstMeta(
         debugName: "list_mobile_clipboard_discovered_devices",
         argNames: ["hostId"],
@@ -662,7 +704,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
 
   @override
   Future<List<MultiDeviceClipboardItem>>
-  crateBindingsMobileClipboardListMobileClipboardItems({
+  crateBindingsMobileApiListMobileClipboardItems({
     required String hostId,
     required PlatformInt64 limit,
   }) {
@@ -675,7 +717,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 14,
+            funcId: 15,
             port: port_,
           );
         },
@@ -683,23 +725,21 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           decodeSuccessData: sse_decode_list_multi_device_clipboard_item,
           decodeErrorData: sse_decode_AnyhowException,
         ),
-        constMeta:
-            kCrateBindingsMobileClipboardListMobileClipboardItemsConstMeta,
+        constMeta: kCrateBindingsMobileApiListMobileClipboardItemsConstMeta,
         argValues: [hostId, limit],
         apiImpl: this,
       ),
     );
   }
 
-  TaskConstMeta
-  get kCrateBindingsMobileClipboardListMobileClipboardItemsConstMeta =>
+  TaskConstMeta get kCrateBindingsMobileApiListMobileClipboardItemsConstMeta =>
       const TaskConstMeta(
         debugName: "list_mobile_clipboard_items",
         argNames: ["hostId", "limit"],
       );
 
   @override
-  Future<void> crateBindingsMobileClipboardPruneMobileClipboardHistory({
+  Future<void> crateBindingsMobileApiPruneMobileClipboardHistory({
     required String hostId,
     required PlatformInt64 historyLimit,
   }) {
@@ -712,7 +752,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 15,
+            funcId: 16,
             port: port_,
           );
         },
@@ -720,8 +760,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           decodeSuccessData: sse_decode_unit,
           decodeErrorData: sse_decode_AnyhowException,
         ),
-        constMeta:
-            kCrateBindingsMobileClipboardPruneMobileClipboardHistoryConstMeta,
+        constMeta: kCrateBindingsMobileApiPruneMobileClipboardHistoryConstMeta,
         argValues: [hostId, historyLimit],
         apiImpl: this,
       ),
@@ -729,15 +768,96 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   TaskConstMeta
-  get kCrateBindingsMobileClipboardPruneMobileClipboardHistoryConstMeta =>
+  get kCrateBindingsMobileApiPruneMobileClipboardHistoryConstMeta =>
       const TaskConstMeta(
         debugName: "prune_mobile_clipboard_history",
         argNames: ["hostId", "historyLimit"],
       );
 
   @override
+  Future<HomeLayoutCategory> crateBindingsMobileApiResetMobileCategoryLayout({
+    required String dbPath,
+    required String workspaceKey,
+    required String layoutScope,
+    required String categoryId,
+  }) {
+    return handler.executeNormal(
+      NormalTask(
+        callFfi: (port_) {
+          final serializer = SseSerializer(generalizedFrbRustBinding);
+          sse_encode_String(dbPath, serializer);
+          sse_encode_String(workspaceKey, serializer);
+          sse_encode_String(layoutScope, serializer);
+          sse_encode_String(categoryId, serializer);
+          pdeCallFfi(
+            generalizedFrbRustBinding,
+            serializer,
+            funcId: 17,
+            port: port_,
+          );
+        },
+        codec: SseCodec(
+          decodeSuccessData: sse_decode_home_layout_category,
+          decodeErrorData: sse_decode_AnyhowException,
+        ),
+        constMeta: kCrateBindingsMobileApiResetMobileCategoryLayoutConstMeta,
+        argValues: [dbPath, workspaceKey, layoutScope, categoryId],
+        apiImpl: this,
+      ),
+    );
+  }
+
+  TaskConstMeta get kCrateBindingsMobileApiResetMobileCategoryLayoutConstMeta =>
+      const TaskConstMeta(
+        debugName: "reset_mobile_category_layout",
+        argNames: ["dbPath", "workspaceKey", "layoutScope", "categoryId"],
+      );
+
+  @override
+  Future<HomeLayoutCategory> crateBindingsMobileApiSaveMobileCategoryLayout({
+    required String dbPath,
+    required String workspaceKey,
+    required String layoutScope,
+    required SaveMobileHomeCategoryLayoutInput input,
+  }) {
+    return handler.executeNormal(
+      NormalTask(
+        callFfi: (port_) {
+          final serializer = SseSerializer(generalizedFrbRustBinding);
+          sse_encode_String(dbPath, serializer);
+          sse_encode_String(workspaceKey, serializer);
+          sse_encode_String(layoutScope, serializer);
+          sse_encode_box_autoadd_save_mobile_home_category_layout_input(
+            input,
+            serializer,
+          );
+          pdeCallFfi(
+            generalizedFrbRustBinding,
+            serializer,
+            funcId: 18,
+            port: port_,
+          );
+        },
+        codec: SseCodec(
+          decodeSuccessData: sse_decode_home_layout_category,
+          decodeErrorData: sse_decode_AnyhowException,
+        ),
+        constMeta: kCrateBindingsMobileApiSaveMobileCategoryLayoutConstMeta,
+        argValues: [dbPath, workspaceKey, layoutScope, input],
+        apiImpl: this,
+      ),
+    );
+  }
+
+  TaskConstMeta get kCrateBindingsMobileApiSaveMobileCategoryLayoutConstMeta =>
+      const TaskConstMeta(
+        debugName: "save_mobile_category_layout",
+        argNames: ["dbPath", "workspaceKey", "layoutScope", "input"],
+      );
+
+  @override
   Future<MultiDeviceClipboardDevice>
-  crateBindingsMobileClipboardSetMobileClipboardDeviceTrusted({
+  crateBindingsMobileApiSetMobileClipboardDeviceTrusted({
     required String hostId,
     required String id,
     required bool trusted,
@@ -752,7 +872,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 16,
+            funcId: 19,
             port: port_,
           );
         },
@@ -761,7 +881,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           decodeErrorData: sse_decode_AnyhowException,
         ),
         constMeta:
-            kCrateBindingsMobileClipboardSetMobileClipboardDeviceTrustedConstMeta,
+            kCrateBindingsMobileApiSetMobileClipboardDeviceTrustedConstMeta,
         argValues: [hostId, id, trusted],
         apiImpl: this,
       ),
@@ -769,14 +889,14 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   TaskConstMeta
-  get kCrateBindingsMobileClipboardSetMobileClipboardDeviceTrustedConstMeta =>
+  get kCrateBindingsMobileApiSetMobileClipboardDeviceTrustedConstMeta =>
       const TaskConstMeta(
         debugName: "set_mobile_clipboard_device_trusted",
         argNames: ["hostId", "id", "trusted"],
       );
 
   @override
-  Future<void> crateBindingsMobileClipboardStartMobileClipboardDiscovery({
+  Future<void> crateBindingsMobileApiStartMobileClipboardDiscovery({
     required String hostId,
     required MultiDeviceClipboardDiscoveryConfig config,
   }) {
@@ -792,7 +912,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 17,
+            funcId: 20,
             port: port_,
           );
         },
@@ -801,7 +921,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           decodeErrorData: sse_decode_AnyhowException,
         ),
         constMeta:
-            kCrateBindingsMobileClipboardStartMobileClipboardDiscoveryConstMeta,
+            kCrateBindingsMobileApiStartMobileClipboardDiscoveryConstMeta,
         argValues: [hostId, config],
         apiImpl: this,
       ),
@@ -809,14 +929,14 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   TaskConstMeta
-  get kCrateBindingsMobileClipboardStartMobileClipboardDiscoveryConstMeta =>
+  get kCrateBindingsMobileApiStartMobileClipboardDiscoveryConstMeta =>
       const TaskConstMeta(
         debugName: "start_mobile_clipboard_discovery",
         argNames: ["hostId", "config"],
       );
 
   @override
-  Future<void> crateBindingsMobileClipboardStopMobileClipboardDiscovery({
+  Future<void> crateBindingsMobileApiStopMobileClipboardDiscovery({
     required String hostId,
   }) {
     return handler.executeNormal(
@@ -827,7 +947,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 18,
+            funcId: 21,
             port: port_,
           );
         },
@@ -835,8 +955,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           decodeSuccessData: sse_decode_unit,
           decodeErrorData: sse_decode_AnyhowException,
         ),
-        constMeta:
-            kCrateBindingsMobileClipboardStopMobileClipboardDiscoveryConstMeta,
+        constMeta: kCrateBindingsMobileApiStopMobileClipboardDiscoveryConstMeta,
         argValues: [hostId],
         apiImpl: this,
       ),
@@ -844,7 +963,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   TaskConstMeta
-  get kCrateBindingsMobileClipboardStopMobileClipboardDiscoveryConstMeta =>
+  get kCrateBindingsMobileApiStopMobileClipboardDiscoveryConstMeta =>
       const TaskConstMeta(
         debugName: "stop_mobile_clipboard_discovery",
         argNames: ["hostId"],
@@ -852,7 +971,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
 
   @override
   Future<MultiDeviceClipboardDevice>
-  crateBindingsMobileClipboardUpsertMobileClipboardDevice({
+  crateBindingsMobileApiUpsertMobileClipboardDevice({
     required String hostId,
     required UpsertMultiDeviceClipboardDeviceInput input,
   }) {
@@ -868,7 +987,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 19,
+            funcId: 22,
             port: port_,
           );
         },
@@ -876,8 +995,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           decodeSuccessData: sse_decode_multi_device_clipboard_device,
           decodeErrorData: sse_decode_AnyhowException,
         ),
-        constMeta:
-            kCrateBindingsMobileClipboardUpsertMobileClipboardDeviceConstMeta,
+        constMeta: kCrateBindingsMobileApiUpsertMobileClipboardDeviceConstMeta,
         argValues: [hostId, input],
         apiImpl: this,
       ),
@@ -885,7 +1003,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   TaskConstMeta
-  get kCrateBindingsMobileClipboardUpsertMobileClipboardDeviceConstMeta =>
+  get kCrateBindingsMobileApiUpsertMobileClipboardDeviceConstMeta =>
       const TaskConstMeta(
         debugName: "upsert_mobile_clipboard_device",
         argNames: ["hostId", "input"],
@@ -893,7 +1011,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
 
   @override
   Future<MultiDeviceClipboardItem>
-  crateBindingsMobileClipboardUpsertMobileClipboardItem({
+  crateBindingsMobileApiUpsertMobileClipboardItem({
     required String hostId,
     required UpsertMultiDeviceClipboardItemInput input,
   }) {
@@ -909,7 +1027,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 20,
+            funcId: 23,
             port: port_,
           );
         },
@@ -917,16 +1035,14 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           decodeSuccessData: sse_decode_multi_device_clipboard_item,
           decodeErrorData: sse_decode_AnyhowException,
         ),
-        constMeta:
-            kCrateBindingsMobileClipboardUpsertMobileClipboardItemConstMeta,
+        constMeta: kCrateBindingsMobileApiUpsertMobileClipboardItemConstMeta,
         argValues: [hostId, input],
         apiImpl: this,
       ),
     );
   }
 
-  TaskConstMeta
-  get kCrateBindingsMobileClipboardUpsertMobileClipboardItemConstMeta =>
+  TaskConstMeta get kCrateBindingsMobileApiUpsertMobileClipboardItemConstMeta =>
       const TaskConstMeta(
         debugName: "upsert_mobile_clipboard_item",
         argNames: ["hostId", "input"],
@@ -970,6 +1086,13 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
+  SaveMobileHomeCategoryLayoutInput
+  dco_decode_box_autoadd_save_mobile_home_category_layout_input(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    return dco_decode_save_mobile_home_category_layout_input(raw);
+  }
+
+  @protected
   int dco_decode_box_autoadd_u_32(dynamic raw) {
     // Codec=Dco (DartCObject based), see doc to use other codecs
     return raw as int;
@@ -992,6 +1115,72 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
+  HomeLayout dco_decode_home_layout(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    final arr = raw as List<dynamic>;
+    if (arr.length != 2)
+      throw Exception('unexpected arr length: expect 2 but see ${arr.length}');
+    return HomeLayout(
+      workspaceKey: dco_decode_String(arr[0]),
+      categories: dco_decode_list_home_layout_category(arr[1]),
+    );
+  }
+
+  @protected
+  HomeLayoutCategory dco_decode_home_layout_category(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    final arr = raw as List<dynamic>;
+    if (arr.length != 10)
+      throw Exception('unexpected arr length: expect 10 but see ${arr.length}');
+    return HomeLayoutCategory(
+      id: dco_decode_String(arr[0]),
+      workspaceId: dco_decode_i_64(arr[1]),
+      label: dco_decode_String(arr[2]),
+      icon: dco_decode_String(arr[3]),
+      sortOrder: dco_decode_i_64(arr[4]),
+      backgroundColor: dco_decode_opt_String(arr[5]),
+      backgroundImage: dco_decode_opt_String(arr[6]),
+      backgroundVideo: dco_decode_opt_String(arr[7]),
+      backgroundStyle: dco_decode_opt_String(arr[8]),
+      widgets: dco_decode_list_home_widget(arr[9]),
+    );
+  }
+
+  @protected
+  HomeWidget dco_decode_home_widget(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    final arr = raw as List<dynamic>;
+    if (arr.length != 24)
+      throw Exception('unexpected arr length: expect 24 but see ${arr.length}');
+    return HomeWidget(
+      id: dco_decode_String(arr[0]),
+      workspaceId: dco_decode_i_64(arr[1]),
+      categoryId: dco_decode_String(arr[2]),
+      label: dco_decode_String(arr[3]),
+      icon: dco_decode_opt_String(arr[4]),
+      action: dco_decode_opt_String(arr[5]),
+      sourceType: dco_decode_String(arr[6]),
+      widgetType: dco_decode_String(arr[7]),
+      sizePreset: dco_decode_opt_String(arr[8]),
+      widgetConfig: dco_decode_opt_String(arr[9]),
+      col: dco_decode_i_64(arr[10]),
+      row: dco_decode_i_64(arr[11]),
+      colSpan: dco_decode_i_64(arr[12]),
+      rowSpan: dco_decode_i_64(arr[13]),
+      preferredCol: dco_decode_i_64(arr[14]),
+      preferredRow: dco_decode_i_64(arr[15]),
+      priority: dco_decode_i_64(arr[16]),
+      color: dco_decode_String(arr[17]),
+      backgroundImage: dco_decode_opt_String(arr[18]),
+      backgroundVideo: dco_decode_opt_String(arr[19]),
+      backgroundStyle: dco_decode_opt_String(arr[20]),
+      hidden: dco_decode_bool(arr[21]),
+      createdAt: dco_decode_String(arr[22]),
+      updatedAt: dco_decode_String(arr[23]),
+    );
+  }
+
+  @protected
   PlatformInt64 dco_decode_i_64(dynamic raw) {
     // Codec=Dco (DartCObject based), see doc to use other codecs
     return dcoDecodeI64(raw);
@@ -1001,6 +1190,18 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   List<String> dco_decode_list_String(dynamic raw) {
     // Codec=Dco (DartCObject based), see doc to use other codecs
     return (raw as List<dynamic>).map(dco_decode_String).toList();
+  }
+
+  @protected
+  List<HomeLayoutCategory> dco_decode_list_home_layout_category(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    return (raw as List<dynamic>).map(dco_decode_home_layout_category).toList();
+  }
+
+  @protected
+  List<HomeWidget> dco_decode_list_home_widget(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    return (raw as List<dynamic>).map(dco_decode_home_widget).toList();
   }
 
   @protected
@@ -1044,6 +1245,15 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   Uint8List dco_decode_list_prim_u_8_strict(dynamic raw) {
     // Codec=Dco (DartCObject based), see doc to use other codecs
     return raw as Uint8List;
+  }
+
+  @protected
+  List<SaveMobileHomeWidgetLayoutInput>
+  dco_decode_list_save_mobile_home_widget_layout_input(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    return (raw as List<dynamic>)
+        .map(dco_decode_save_mobile_home_widget_layout_input)
+        .toList();
   }
 
   @protected
@@ -1177,6 +1387,39 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
+  SaveMobileHomeCategoryLayoutInput
+  dco_decode_save_mobile_home_category_layout_input(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    final arr = raw as List<dynamic>;
+    if (arr.length != 2)
+      throw Exception('unexpected arr length: expect 2 but see ${arr.length}');
+    return SaveMobileHomeCategoryLayoutInput(
+      categoryId: dco_decode_String(arr[0]),
+      widgets: dco_decode_list_save_mobile_home_widget_layout_input(arr[1]),
+    );
+  }
+
+  @protected
+  SaveMobileHomeWidgetLayoutInput
+  dco_decode_save_mobile_home_widget_layout_input(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    final arr = raw as List<dynamic>;
+    if (arr.length != 9)
+      throw Exception('unexpected arr length: expect 9 but see ${arr.length}');
+    return SaveMobileHomeWidgetLayoutInput(
+      widgetId: dco_decode_String(arr[0]),
+      col: dco_decode_i_64(arr[1]),
+      row: dco_decode_i_64(arr[2]),
+      colSpan: dco_decode_i_64(arr[3]),
+      rowSpan: dco_decode_i_64(arr[4]),
+      preferredCol: dco_decode_i_64(arr[5]),
+      preferredRow: dco_decode_i_64(arr[6]),
+      priority: dco_decode_i_64(arr[7]),
+      hidden: dco_decode_bool(arr[8]),
+    );
+  }
+
+  @protected
   int dco_decode_u_32(dynamic raw) {
     // Codec=Dco (DartCObject based), see doc to use other codecs
     return raw as int;
@@ -1281,6 +1524,15 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
+  SaveMobileHomeCategoryLayoutInput
+  sse_decode_box_autoadd_save_mobile_home_category_layout_input(
+    SseDeserializer deserializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    return (sse_decode_save_mobile_home_category_layout_input(deserializer));
+  }
+
+  @protected
   int sse_decode_box_autoadd_u_32(SseDeserializer deserializer) {
     // Codec=Sse (Serialization based), see doc to use other codecs
     return (sse_decode_u_32(deserializer));
@@ -1307,6 +1559,101 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
+  HomeLayout sse_decode_home_layout(SseDeserializer deserializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    var var_workspaceKey = sse_decode_String(deserializer);
+    var var_categories = sse_decode_list_home_layout_category(deserializer);
+    return HomeLayout(
+      workspaceKey: var_workspaceKey,
+      categories: var_categories,
+    );
+  }
+
+  @protected
+  HomeLayoutCategory sse_decode_home_layout_category(
+    SseDeserializer deserializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    var var_id = sse_decode_String(deserializer);
+    var var_workspaceId = sse_decode_i_64(deserializer);
+    var var_label = sse_decode_String(deserializer);
+    var var_icon = sse_decode_String(deserializer);
+    var var_sortOrder = sse_decode_i_64(deserializer);
+    var var_backgroundColor = sse_decode_opt_String(deserializer);
+    var var_backgroundImage = sse_decode_opt_String(deserializer);
+    var var_backgroundVideo = sse_decode_opt_String(deserializer);
+    var var_backgroundStyle = sse_decode_opt_String(deserializer);
+    var var_widgets = sse_decode_list_home_widget(deserializer);
+    return HomeLayoutCategory(
+      id: var_id,
+      workspaceId: var_workspaceId,
+      label: var_label,
+      icon: var_icon,
+      sortOrder: var_sortOrder,
+      backgroundColor: var_backgroundColor,
+      backgroundImage: var_backgroundImage,
+      backgroundVideo: var_backgroundVideo,
+      backgroundStyle: var_backgroundStyle,
+      widgets: var_widgets,
+    );
+  }
+
+  @protected
+  HomeWidget sse_decode_home_widget(SseDeserializer deserializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    var var_id = sse_decode_String(deserializer);
+    var var_workspaceId = sse_decode_i_64(deserializer);
+    var var_categoryId = sse_decode_String(deserializer);
+    var var_label = sse_decode_String(deserializer);
+    var var_icon = sse_decode_opt_String(deserializer);
+    var var_action = sse_decode_opt_String(deserializer);
+    var var_sourceType = sse_decode_String(deserializer);
+    var var_widgetType = sse_decode_String(deserializer);
+    var var_sizePreset = sse_decode_opt_String(deserializer);
+    var var_widgetConfig = sse_decode_opt_String(deserializer);
+    var var_col = sse_decode_i_64(deserializer);
+    var var_row = sse_decode_i_64(deserializer);
+    var var_colSpan = sse_decode_i_64(deserializer);
+    var var_rowSpan = sse_decode_i_64(deserializer);
+    var var_preferredCol = sse_decode_i_64(deserializer);
+    var var_preferredRow = sse_decode_i_64(deserializer);
+    var var_priority = sse_decode_i_64(deserializer);
+    var var_color = sse_decode_String(deserializer);
+    var var_backgroundImage = sse_decode_opt_String(deserializer);
+    var var_backgroundVideo = sse_decode_opt_String(deserializer);
+    var var_backgroundStyle = sse_decode_opt_String(deserializer);
+    var var_hidden = sse_decode_bool(deserializer);
+    var var_createdAt = sse_decode_String(deserializer);
+    var var_updatedAt = sse_decode_String(deserializer);
+    return HomeWidget(
+      id: var_id,
+      workspaceId: var_workspaceId,
+      categoryId: var_categoryId,
+      label: var_label,
+      icon: var_icon,
+      action: var_action,
+      sourceType: var_sourceType,
+      widgetType: var_widgetType,
+      sizePreset: var_sizePreset,
+      widgetConfig: var_widgetConfig,
+      col: var_col,
+      row: var_row,
+      colSpan: var_colSpan,
+      rowSpan: var_rowSpan,
+      preferredCol: var_preferredCol,
+      preferredRow: var_preferredRow,
+      priority: var_priority,
+      color: var_color,
+      backgroundImage: var_backgroundImage,
+      backgroundVideo: var_backgroundVideo,
+      backgroundStyle: var_backgroundStyle,
+      hidden: var_hidden,
+      createdAt: var_createdAt,
+      updatedAt: var_updatedAt,
+    );
+  }
+
+  @protected
   PlatformInt64 sse_decode_i_64(SseDeserializer deserializer) {
     // Codec=Sse (Serialization based), see doc to use other codecs
     return deserializer.buffer.getPlatformInt64();
@@ -1320,6 +1667,32 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
     var ans_ = <String>[];
     for (var idx_ = 0; idx_ < len_; ++idx_) {
       ans_.add(sse_decode_String(deserializer));
+    }
+    return ans_;
+  }
+
+  @protected
+  List<HomeLayoutCategory> sse_decode_list_home_layout_category(
+    SseDeserializer deserializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+
+    var len_ = sse_decode_i_32(deserializer);
+    var ans_ = <HomeLayoutCategory>[];
+    for (var idx_ = 0; idx_ < len_; ++idx_) {
+      ans_.add(sse_decode_home_layout_category(deserializer));
+    }
+    return ans_;
+  }
+
+  @protected
+  List<HomeWidget> sse_decode_list_home_widget(SseDeserializer deserializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+
+    var len_ = sse_decode_i_32(deserializer);
+    var ans_ = <HomeWidget>[];
+    for (var idx_ = 0; idx_ < len_; ++idx_) {
+      ans_.add(sse_decode_home_widget(deserializer));
     }
     return ans_;
   }
@@ -1388,6 +1761,21 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
     // Codec=Sse (Serialization based), see doc to use other codecs
     var len_ = sse_decode_i_32(deserializer);
     return deserializer.buffer.getUint8List(len_);
+  }
+
+  @protected
+  List<SaveMobileHomeWidgetLayoutInput>
+  sse_decode_list_save_mobile_home_widget_layout_input(
+    SseDeserializer deserializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+
+    var len_ = sse_decode_i_32(deserializer);
+    var ans_ = <SaveMobileHomeWidgetLayoutInput>[];
+    for (var idx_ = 0; idx_ < len_; ++idx_) {
+      ans_.add(sse_decode_save_mobile_home_widget_layout_input(deserializer));
+    }
+    return ans_;
   }
 
   @protected
@@ -1585,6 +1973,50 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
+  SaveMobileHomeCategoryLayoutInput
+  sse_decode_save_mobile_home_category_layout_input(
+    SseDeserializer deserializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    var var_categoryId = sse_decode_String(deserializer);
+    var var_widgets = sse_decode_list_save_mobile_home_widget_layout_input(
+      deserializer,
+    );
+    return SaveMobileHomeCategoryLayoutInput(
+      categoryId: var_categoryId,
+      widgets: var_widgets,
+    );
+  }
+
+  @protected
+  SaveMobileHomeWidgetLayoutInput
+  sse_decode_save_mobile_home_widget_layout_input(
+    SseDeserializer deserializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    var var_widgetId = sse_decode_String(deserializer);
+    var var_col = sse_decode_i_64(deserializer);
+    var var_row = sse_decode_i_64(deserializer);
+    var var_colSpan = sse_decode_i_64(deserializer);
+    var var_rowSpan = sse_decode_i_64(deserializer);
+    var var_preferredCol = sse_decode_i_64(deserializer);
+    var var_preferredRow = sse_decode_i_64(deserializer);
+    var var_priority = sse_decode_i_64(deserializer);
+    var var_hidden = sse_decode_bool(deserializer);
+    return SaveMobileHomeWidgetLayoutInput(
+      widgetId: var_widgetId,
+      col: var_col,
+      row: var_row,
+      colSpan: var_colSpan,
+      rowSpan: var_rowSpan,
+      preferredCol: var_preferredCol,
+      preferredRow: var_preferredRow,
+      priority: var_priority,
+      hidden: var_hidden,
+    );
+  }
+
+  @protected
   int sse_decode_u_32(SseDeserializer deserializer) {
     // Codec=Sse (Serialization based), see doc to use other codecs
     return deserializer.buffer.getUint32();
@@ -1719,6 +2151,15 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
+  void sse_encode_box_autoadd_save_mobile_home_category_layout_input(
+    SaveMobileHomeCategoryLayoutInput self,
+    SseSerializer serializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_save_mobile_home_category_layout_input(self, serializer);
+  }
+
+  @protected
   void sse_encode_box_autoadd_u_32(int self, SseSerializer serializer) {
     // Codec=Sse (Serialization based), see doc to use other codecs
     sse_encode_u_32(self, serializer);
@@ -1743,6 +2184,60 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
+  void sse_encode_home_layout(HomeLayout self, SseSerializer serializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_String(self.workspaceKey, serializer);
+    sse_encode_list_home_layout_category(self.categories, serializer);
+  }
+
+  @protected
+  void sse_encode_home_layout_category(
+    HomeLayoutCategory self,
+    SseSerializer serializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_String(self.id, serializer);
+    sse_encode_i_64(self.workspaceId, serializer);
+    sse_encode_String(self.label, serializer);
+    sse_encode_String(self.icon, serializer);
+    sse_encode_i_64(self.sortOrder, serializer);
+    sse_encode_opt_String(self.backgroundColor, serializer);
+    sse_encode_opt_String(self.backgroundImage, serializer);
+    sse_encode_opt_String(self.backgroundVideo, serializer);
+    sse_encode_opt_String(self.backgroundStyle, serializer);
+    sse_encode_list_home_widget(self.widgets, serializer);
+  }
+
+  @protected
+  void sse_encode_home_widget(HomeWidget self, SseSerializer serializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_String(self.id, serializer);
+    sse_encode_i_64(self.workspaceId, serializer);
+    sse_encode_String(self.categoryId, serializer);
+    sse_encode_String(self.label, serializer);
+    sse_encode_opt_String(self.icon, serializer);
+    sse_encode_opt_String(self.action, serializer);
+    sse_encode_String(self.sourceType, serializer);
+    sse_encode_String(self.widgetType, serializer);
+    sse_encode_opt_String(self.sizePreset, serializer);
+    sse_encode_opt_String(self.widgetConfig, serializer);
+    sse_encode_i_64(self.col, serializer);
+    sse_encode_i_64(self.row, serializer);
+    sse_encode_i_64(self.colSpan, serializer);
+    sse_encode_i_64(self.rowSpan, serializer);
+    sse_encode_i_64(self.preferredCol, serializer);
+    sse_encode_i_64(self.preferredRow, serializer);
+    sse_encode_i_64(self.priority, serializer);
+    sse_encode_String(self.color, serializer);
+    sse_encode_opt_String(self.backgroundImage, serializer);
+    sse_encode_opt_String(self.backgroundVideo, serializer);
+    sse_encode_opt_String(self.backgroundStyle, serializer);
+    sse_encode_bool(self.hidden, serializer);
+    sse_encode_String(self.createdAt, serializer);
+    sse_encode_String(self.updatedAt, serializer);
+  }
+
+  @protected
   void sse_encode_i_64(PlatformInt64 self, SseSerializer serializer) {
     // Codec=Sse (Serialization based), see doc to use other codecs
     serializer.buffer.putPlatformInt64(self);
@@ -1754,6 +2249,30 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
     sse_encode_i_32(self.length, serializer);
     for (final item in self) {
       sse_encode_String(item, serializer);
+    }
+  }
+
+  @protected
+  void sse_encode_list_home_layout_category(
+    List<HomeLayoutCategory> self,
+    SseSerializer serializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_i_32(self.length, serializer);
+    for (final item in self) {
+      sse_encode_home_layout_category(item, serializer);
+    }
+  }
+
+  @protected
+  void sse_encode_list_home_widget(
+    List<HomeWidget> self,
+    SseSerializer serializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_i_32(self.length, serializer);
+    for (final item in self) {
+      sse_encode_home_widget(item, serializer);
     }
   }
 
@@ -1813,6 +2332,18 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
     // Codec=Sse (Serialization based), see doc to use other codecs
     sse_encode_i_32(self.length, serializer);
     serializer.buffer.putUint8List(self);
+  }
+
+  @protected
+  void sse_encode_list_save_mobile_home_widget_layout_input(
+    List<SaveMobileHomeWidgetLayoutInput> self,
+    SseSerializer serializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_i_32(self.length, serializer);
+    for (final item in self) {
+      sse_encode_save_mobile_home_widget_layout_input(item, serializer);
+    }
   }
 
   @protected
@@ -1947,6 +2478,36 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
     if (self != null) {
       sse_encode_box_autoadd_u_32(self, serializer);
     }
+  }
+
+  @protected
+  void sse_encode_save_mobile_home_category_layout_input(
+    SaveMobileHomeCategoryLayoutInput self,
+    SseSerializer serializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_String(self.categoryId, serializer);
+    sse_encode_list_save_mobile_home_widget_layout_input(
+      self.widgets,
+      serializer,
+    );
+  }
+
+  @protected
+  void sse_encode_save_mobile_home_widget_layout_input(
+    SaveMobileHomeWidgetLayoutInput self,
+    SseSerializer serializer,
+  ) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    sse_encode_String(self.widgetId, serializer);
+    sse_encode_i_64(self.col, serializer);
+    sse_encode_i_64(self.row, serializer);
+    sse_encode_i_64(self.colSpan, serializer);
+    sse_encode_i_64(self.rowSpan, serializer);
+    sse_encode_i_64(self.preferredCol, serializer);
+    sse_encode_i_64(self.preferredRow, serializer);
+    sse_encode_i_64(self.priority, serializer);
+    sse_encode_bool(self.hidden, serializer);
   }
 
   @protected

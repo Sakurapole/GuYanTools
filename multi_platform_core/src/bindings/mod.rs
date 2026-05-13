@@ -5,4 +5,7 @@ pub mod napi;
 pub mod flutter;
 
 #[cfg(feature = "flutter")]
+pub mod mobile_api;
+
+#[cfg(feature = "flutter")]
 pub mod mobile_clipboard;

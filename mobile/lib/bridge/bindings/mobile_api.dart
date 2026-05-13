@@ -4,24 +4,59 @@
 // ignore_for_file: invalid_use_of_internal_member, unused_import, unnecessary_import
 
 import '../frb_generated.dart';
+import '../models/home_layout.dart';
 import '../models/multi_device_clipboard.dart';
 import 'package:flutter_rust_bridge/flutter_rust_bridge_for_generated.dart';
+
+Future<HomeLayout> getMobileHomeLayout({
+  required String dbPath,
+  required String workspaceKey,
+  required String layoutScope,
+}) => RustLib.instance.api.crateBindingsMobileApiGetMobileHomeLayout(
+  dbPath: dbPath,
+  workspaceKey: workspaceKey,
+  layoutScope: layoutScope,
+);
+
+Future<HomeLayoutCategory> saveMobileCategoryLayout({
+  required String dbPath,
+  required String workspaceKey,
+  required String layoutScope,
+  required SaveMobileHomeCategoryLayoutInput input,
+}) => RustLib.instance.api.crateBindingsMobileApiSaveMobileCategoryLayout(
+  dbPath: dbPath,
+  workspaceKey: workspaceKey,
+  layoutScope: layoutScope,
+  input: input,
+);
+
+Future<HomeLayoutCategory> resetMobileCategoryLayout({
+  required String dbPath,
+  required String workspaceKey,
+  required String layoutScope,
+  required String categoryId,
+}) => RustLib.instance.api.crateBindingsMobileApiResetMobileCategoryLayout(
+  dbPath: dbPath,
+  workspaceKey: workspaceKey,
+  layoutScope: layoutScope,
+  categoryId: categoryId,
+);
 
 Future<String> createMobileClipboardHost({required String dbPath}) => RustLib
     .instance
     .api
-    .crateBindingsMobileClipboardCreateMobileClipboardHost(dbPath: dbPath);
+    .crateBindingsMobileApiCreateMobileClipboardHost(dbPath: dbPath);
 
 Future<void> disposeMobileClipboardHost({required String hostId}) => RustLib
     .instance
     .api
-    .crateBindingsMobileClipboardDisposeMobileClipboardHost(hostId: hostId);
+    .crateBindingsMobileApiDisposeMobileClipboardHost(hostId: hostId);
 
 Future<MultiDeviceClipboardDevice> getOrCreateMobileClipboardLocalDevice({
   required String hostId,
   required String name,
 }) => RustLib.instance.api
-    .crateBindingsMobileClipboardGetOrCreateMobileClipboardLocalDevice(
+    .crateBindingsMobileApiGetOrCreateMobileClipboardLocalDevice(
       hostId: hostId,
       name: name,
     );
@@ -29,36 +64,34 @@ Future<MultiDeviceClipboardDevice> getOrCreateMobileClipboardLocalDevice({
 Future<void> startMobileClipboardDiscovery({
   required String hostId,
   required MultiDeviceClipboardDiscoveryConfig config,
-}) => RustLib.instance.api
-    .crateBindingsMobileClipboardStartMobileClipboardDiscovery(
-      hostId: hostId,
-      config: config,
-    );
+}) => RustLib.instance.api.crateBindingsMobileApiStartMobileClipboardDiscovery(
+  hostId: hostId,
+  config: config,
+);
 
 Future<void> stopMobileClipboardDiscovery({required String hostId}) => RustLib
     .instance
     .api
-    .crateBindingsMobileClipboardStopMobileClipboardDiscovery(hostId: hostId);
+    .crateBindingsMobileApiStopMobileClipboardDiscovery(hostId: hostId);
 
 Future<List<MultiDeviceClipboardDiscoveredDevice>>
 listMobileClipboardDiscoveredDevices({required String hostId}) => RustLib
     .instance
     .api
-    .crateBindingsMobileClipboardListMobileClipboardDiscoveredDevices(
-      hostId: hostId,
-    );
+    .crateBindingsMobileApiListMobileClipboardDiscoveredDevices(hostId: hostId);
 
 Future<List<MultiDeviceClipboardDevice>> listMobileClipboardDevices({
   required String hostId,
-}) => RustLib.instance.api
-    .crateBindingsMobileClipboardListMobileClipboardDevices(hostId: hostId);
+}) => RustLib.instance.api.crateBindingsMobileApiListMobileClipboardDevices(
+  hostId: hostId,
+);
 
 Future<List<MultiDeviceClipboardDeviceStatus>>
 listMobileClipboardDeviceStatuses({
   required String hostId,
   required PlatformInt64 onlineWindowSeconds,
 }) => RustLib.instance.api
-    .crateBindingsMobileClipboardListMobileClipboardDeviceStatuses(
+    .crateBindingsMobileApiListMobileClipboardDeviceStatuses(
       hostId: hostId,
       onlineWindowSeconds: onlineWindowSeconds,
     );
@@ -66,18 +99,17 @@ listMobileClipboardDeviceStatuses({
 Future<MultiDeviceClipboardDevice> upsertMobileClipboardDevice({
   required String hostId,
   required UpsertMultiDeviceClipboardDeviceInput input,
-}) => RustLib.instance.api
-    .crateBindingsMobileClipboardUpsertMobileClipboardDevice(
-      hostId: hostId,
-      input: input,
-    );
+}) => RustLib.instance.api.crateBindingsMobileApiUpsertMobileClipboardDevice(
+  hostId: hostId,
+  input: input,
+);
 
 Future<MultiDeviceClipboardDevice> setMobileClipboardDeviceTrusted({
   required String hostId,
   required String id,
   required bool trusted,
-}) => RustLib.instance.api
-    .crateBindingsMobileClipboardSetMobileClipboardDeviceTrusted(
+}) =>
+    RustLib.instance.api.crateBindingsMobileApiSetMobileClipboardDeviceTrusted(
       hostId: hostId,
       id: id,
       trusted: trusted,
@@ -86,16 +118,15 @@ Future<MultiDeviceClipboardDevice> setMobileClipboardDeviceTrusted({
 Future<void> forgetMobileClipboardDevice({
   required String hostId,
   required String id,
-}) => RustLib.instance.api
-    .crateBindingsMobileClipboardForgetMobileClipboardDevice(
-      hostId: hostId,
-      id: id,
-    );
+}) => RustLib.instance.api.crateBindingsMobileApiForgetMobileClipboardDevice(
+  hostId: hostId,
+  id: id,
+);
 
 Future<List<MultiDeviceClipboardItem>> listMobileClipboardItems({
   required String hostId,
   required PlatformInt64 limit,
-}) => RustLib.instance.api.crateBindingsMobileClipboardListMobileClipboardItems(
+}) => RustLib.instance.api.crateBindingsMobileApiListMobileClipboardItems(
   hostId: hostId,
   limit: limit,
 );
@@ -103,7 +134,7 @@ Future<List<MultiDeviceClipboardItem>> listMobileClipboardItems({
 Future<MultiDeviceClipboardItem> getMobileClipboardItem({
   required String hostId,
   required String id,
-}) => RustLib.instance.api.crateBindingsMobileClipboardGetMobileClipboardItem(
+}) => RustLib.instance.api.crateBindingsMobileApiGetMobileClipboardItem(
   hostId: hostId,
   id: id,
 );
@@ -111,47 +142,44 @@ Future<MultiDeviceClipboardItem> getMobileClipboardItem({
 Future<MultiDeviceClipboardItem> upsertMobileClipboardItem({
   required String hostId,
   required UpsertMultiDeviceClipboardItemInput input,
-}) =>
-    RustLib.instance.api.crateBindingsMobileClipboardUpsertMobileClipboardItem(
-      hostId: hostId,
-      input: input,
-    );
+}) => RustLib.instance.api.crateBindingsMobileApiUpsertMobileClipboardItem(
+  hostId: hostId,
+  input: input,
+);
 
 Future<void> deleteMobileClipboardItem({
   required String hostId,
   required String id,
-}) =>
-    RustLib.instance.api.crateBindingsMobileClipboardDeleteMobileClipboardItem(
-      hostId: hostId,
-      id: id,
-    );
+}) => RustLib.instance.api.crateBindingsMobileApiDeleteMobileClipboardItem(
+  hostId: hostId,
+  id: id,
+);
 
 Future<void> clearMobileClipboardHistory({required String hostId}) => RustLib
     .instance
     .api
-    .crateBindingsMobileClipboardClearMobileClipboardHistory(hostId: hostId);
+    .crateBindingsMobileApiClearMobileClipboardHistory(hostId: hostId);
 
 Future<void> pruneMobileClipboardHistory({
   required String hostId,
   required PlatformInt64 historyLimit,
-}) => RustLib.instance.api
-    .crateBindingsMobileClipboardPruneMobileClipboardHistory(
-      hostId: hostId,
-      historyLimit: historyLimit,
-    );
+}) => RustLib.instance.api.crateBindingsMobileApiPruneMobileClipboardHistory(
+  hostId: hostId,
+  historyLimit: historyLimit,
+);
 
 Future<String> computeMobileClipboardContentHash({
   required List<String> parts,
 }) => RustLib.instance.api
-    .crateBindingsMobileClipboardComputeMobileClipboardContentHash(
-      parts: parts,
-    );
+    .crateBindingsMobileApiComputeMobileClipboardContentHash(parts: parts);
 
 Future<List<String>> classifyMobileClipboardText({required String text}) =>
-    RustLib.instance.api
-        .crateBindingsMobileClipboardClassifyMobileClipboardText(text: text);
+    RustLib.instance.api.crateBindingsMobileApiClassifyMobileClipboardText(
+      text: text,
+    );
 
 Future<PlatformInt64> clampMobileClipboardSyncBytes({
   required PlatformInt64 value,
-}) => RustLib.instance.api
-    .crateBindingsMobileClipboardClampMobileClipboardSyncBytes(value: value);
+}) => RustLib.instance.api.crateBindingsMobileApiClampMobileClipboardSyncBytes(
+  value: value,
+);

@@ -266,6 +266,16 @@ pub fn get_home_layout(db_path: String, workspace_key: String) -> anyhow::Result
         .map_err(|e| anyhow::anyhow!("{}", e))
 }
 
+pub fn get_mobile_home_layout(
+    db_path: String,
+    workspace_key: String,
+    layout_scope: String,
+) -> anyhow::Result<HomeLayout> {
+    let db = Database::new(&db_path)?;
+    HomeLayoutService::get_mobile_layout_by_workspace_key(&db, &workspace_key, &layout_scope)
+        .map_err(|e| anyhow::anyhow!("{}", e))
+}
+
 pub fn create_home_category(
     db_path: String,
     input: CreateHomeCategoryInput,
@@ -319,6 +329,33 @@ pub fn import_home_layout(
     let db = Database::new(&db_path)?;
     HomeLayoutService::import_layout(&db, &workspace_key, input)
         .map_err(|e| anyhow::anyhow!("{}", e))
+}
+
+pub fn save_mobile_category_layout(
+    db_path: String,
+    workspace_key: String,
+    layout_scope: String,
+    input: SaveMobileHomeCategoryLayoutInput,
+) -> anyhow::Result<HomeLayoutCategory> {
+    let db = Database::new(&db_path)?;
+    HomeLayoutService::save_mobile_category_layout(&db, &workspace_key, &layout_scope, input)
+        .map_err(|e| anyhow::anyhow!("{}", e))
+}
+
+pub fn reset_mobile_category_layout(
+    db_path: String,
+    workspace_key: String,
+    layout_scope: String,
+    category_id: String,
+) -> anyhow::Result<HomeLayoutCategory> {
+    let db = Database::new(&db_path)?;
+    HomeLayoutService::reset_mobile_category_layout(
+        &db,
+        &workspace_key,
+        &layout_scope,
+        &category_id,
+    )
+    .map_err(|e| anyhow::anyhow!("{}", e))
 }
 
 // ==================== 多设备剪贴板可复用核心 ====================

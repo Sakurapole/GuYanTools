@@ -112,7 +112,7 @@ function Generate-FrbBindings {
         & flutter_rust_bridge_codegen @(
             "generate",
             "--rust-root", ".",
-            "--rust-input", "crate::bindings::mobile_clipboard",
+            "--rust-input", "crate::bindings::mobile_api",
             "--rust-features", "flutter",
             "--dart-output", "../mobile/lib/bridge",
             "--no-web"

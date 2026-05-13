@@ -5,9 +5,9 @@ import 'dart:typed_data';
 
 import 'package:crypto/crypto.dart';
 
-import '../../../bridge/bindings/mobile_clipboard.dart' as bridge;
-import '../../../bridge/frb_generated.dart';
+import '../../../bridge/bindings/mobile_api.dart' as bridge;
 import '../../../bridge/models/multi_device_clipboard.dart' as frb;
+import '../../../core/rust_bridge_initializer.dart';
 import '../domain/clipboard_models.dart';
 
 abstract class ClipboardCoreBridge {
@@ -146,10 +146,8 @@ class RustClipboardRepository {
 }
 
 class FlutterRustClipboardCoreBridge implements ClipboardCoreBridge {
-  static Future<void>? _initFuture;
-
   Future<void> _ensureInitialized() {
-    return _initFuture ??= RustLib.init();
+    return RustBridgeInitializer.ensureInitialized();
   }
 
   @override
