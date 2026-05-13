@@ -29,55 +29,57 @@ class _AppCardState extends State<AppCard> {
     final cs = Theme.of(context).colorScheme;
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
-    return GestureDetector(
-      onTapDown: (_) => setState(() => _isHovered = true),
-      onTapUp: (_) {
-        setState(() => _isHovered = false);
-        widget.onTap?.call();
-      },
-      onTapCancel: () => setState(() => _isHovered = false),
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 200),
-        padding: const EdgeInsets.all(20),
-        decoration: BoxDecoration(
-          color: _isHovered
-              ? cs.surfaceContainerHighest
-              : (isDark ? AppColors.glassPanel(true) : cs.surfaceContainerLow),
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: AppColors.ghostBorder(isDark)),
-        ),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            AnimatedScale(
-              scale: _isHovered ? 1.1 : 1.0,
-              duration: const Duration(milliseconds: 200),
-              child: Container(
-                width: 56,
-                height: 56,
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(16),
-                  gradient: _isGradient ? AppColors.signatureGradient : null,
-                  color: _isGradient ? null : cs.surfaceContainerLowest,
-                  boxShadow: [AppColors.ambientShadow(isDark)],
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: widget.onTap,
+        onTapDown: (_) => setState(() => _isHovered = true),
+        onTapCancel: () => setState(() => _isHovered = false),
+        onTapUp: (_) => setState(() => _isHovered = false),
+        borderRadius: BorderRadius.circular(16),
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 200),
+          padding: const EdgeInsets.all(20),
+          decoration: BoxDecoration(
+            color: _isHovered
+                ? cs.surfaceContainerHighest
+                : (isDark ? cs.surfaceContainer : cs.surfaceContainerLow),
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(
+              color: cs.outlineVariant.withValues(alpha: isDark ? 0.34 : 0.26),
+            ),
+          ),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              AnimatedScale(
+                scale: _isHovered ? 1.06 : 1.0,
+                duration: const Duration(milliseconds: 200),
+                child: Container(
+                  width: 56,
+                  height: 56,
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(16),
+                    gradient: _isGradient ? AppColors.signatureGradient : null,
+                    color: _isGradient ? null : cs.surfaceContainerLowest,
+                    boxShadow: [AppColors.ambientShadow(isDark)],
+                  ),
+                  child: Icon(widget.icon, size: 28, color: _iconColor(cs)),
                 ),
-                child: Icon(widget.icon, size: 28, color: _iconColor(cs)),
               ),
-            ),
-            const SizedBox(height: 14),
-            Text(
-              widget.name,
-              style: TextStyle(
-                fontFamily: 'Manrope',
-                fontSize: 14,
-                fontWeight: FontWeight.w700,
-                color: cs.onSurface,
+              const SizedBox(height: 14),
+              Text(
+                widget.name,
+                style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                  color: cs.onSurface,
+                  fontWeight: FontWeight.w700,
+                ),
+                textAlign: TextAlign.center,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
               ),
-              textAlign: TextAlign.center,
-              maxLines: 2,
-              overflow: TextOverflow.ellipsis,
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );

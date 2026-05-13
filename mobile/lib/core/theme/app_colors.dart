@@ -26,7 +26,7 @@ class AppColors {
   static const Color lightOnSurfaceVariant = Color(0xFF3E484E);
   static const Color lightOutline = Color(0xFF6E787F);
   static const Color lightOutlineVariant = Color(0xFFBEC8D0);
-  static const Color lightOnPrimary = Color(0xFFFFFFFF);
+  static const Color lightOnPrimary = Color(0xFF00354A);
   static const Color lightOnSecondary = Color(0xFFFFFFFF);
   static const Color inverseSurface = Color(0xFF28313F);
   static const Color inverseOnSurface = Color(0xFFEBF1FF);
@@ -45,7 +45,7 @@ class AppColors {
   static const Color darkOnSurfaceVariant = Color(0xFFBEC8D0);
   static const Color darkOutline = Color(0xFF9BA7B0);
   static const Color darkOutlineVariant = Color(0xFF465360);
-  static const Color darkOnPrimary = Color(0xFFFFFFFF);
+  static const Color darkOnPrimary = Color(0xFF00354A);
   static const Color darkOnSecondary = Color(0xFFFFFFFF);
 
   static const LinearGradient signatureGradient = LinearGradient(

@@ -67,7 +67,6 @@ class KnowledgePage extends StatelessWidget {
                 title: Text(
                   'Project Plan.md',
                   style: TextStyle(
-                    fontFamily: 'Manrope',
                     fontSize: 18,
                     fontWeight: FontWeight.w700,
                     letterSpacing: -0.3,
@@ -155,7 +154,6 @@ class KnowledgePage extends StatelessWidget {
         Text(
           '第一阶段：架构基础',
           style: TextStyle(
-            fontFamily: 'Manrope',
             fontSize: 32,
             fontWeight: FontWeight.w800,
             letterSpacing: -0.8,
@@ -181,7 +179,6 @@ class KnowledgePage extends StatelessWidget {
         Text(
           '设计哲学',
           style: TextStyle(
-            fontFamily: 'Manrope',
             fontSize: 22,
             fontWeight: FontWeight.w700,
             color: cs.primary,
@@ -258,7 +255,6 @@ class KnowledgePage extends StatelessWidget {
         Text(
           '结构里程碑',
           style: TextStyle(
-            fontFamily: 'Manrope',
             fontSize: 22,
             fontWeight: FontWeight.w700,
             color: cs.primary,
@@ -314,7 +310,6 @@ class KnowledgePage extends StatelessWidget {
                   child: Text(
                     '概念参考：虚空与体量',
                     style: TextStyle(
-                      fontFamily: 'Manrope',
                       fontSize: 13,
                       fontWeight: FontWeight.w700,
                       letterSpacing: 0.3,
@@ -332,7 +327,6 @@ class KnowledgePage extends StatelessWidget {
         Text(
           '关键交付物',
           style: TextStyle(
-            fontFamily: 'Manrope',
             fontSize: 22,
             fontWeight: FontWeight.w700,
             color: cs.primary,

@@ -23,7 +23,11 @@ class _AppsPageState extends State<AppsPage> {
       _AppIconStyle.tertiary,
       route: '/knowledge',
     ),
-    _AppData('Clipboard Sync', Icons.content_paste, _AppIconStyle.secondary),
+    _AppData(
+      'Clipboard Sync',
+      Icons.content_paste_outlined,
+      _AppIconStyle.secondary,
+    ),
     _AppData('FTP Client', Icons.cloud_upload, _AppIconStyle.neutral),
     _AppData(
       'BiliBili Downloader',
@@ -68,7 +72,6 @@ class _AppsPageState extends State<AppsPage> {
             title: Text(
               'Lucid Architect',
               style: TextStyle(
-                fontFamily: 'Manrope',
                 fontSize: 20,
                 fontWeight: FontWeight.w900,
                 letterSpacing: -0.5,

@@ -1,8 +1,5 @@
-import 'dart:ui';
-
 import 'package:flutter/material.dart';
 
-import '../../core/theme/app_colors.dart';
 import '../tokens/app_tokens.dart';
 
 class AppTopBar extends StatelessWidget {
@@ -15,48 +12,47 @@ class AppTopBar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-
-    return ClipRRect(
-      child: BackdropFilter(
-        filter: ImageFilter.blur(sigmaX: 18, sigmaY: 18),
-        child: Container(
-          padding: EdgeInsets.fromLTRB(
-            8,
-            MediaQuery.of(context).padding.top + 8,
-            8,
-            10,
-          ),
-          decoration: BoxDecoration(
-            color: AppColors.glassPanel(isDark),
-            border: Border(
-              bottom: BorderSide(color: AppColors.ghostBorder(isDark)),
+    return Material(
+      color: cs.surface,
+      child: Container(
+        padding: EdgeInsets.fromLTRB(
+          8,
+          MediaQuery.of(context).padding.top + 8,
+          8,
+          10,
+        ),
+        decoration: BoxDecoration(
+          border: Border(
+            bottom: BorderSide(
+              color: cs.outlineVariant.withValues(alpha: 0.32),
             ),
           ),
-          child: Row(
-            children: [
-              IconButton(
-                icon: Icon(onBack == null ? Icons.menu : Icons.arrow_back),
-                color: cs.onSurfaceVariant,
-                onPressed: onBack ?? () {},
+        ),
+        child: Row(
+          children: [
+            IconButton(
+              icon: Icon(
+                onBack == null ? Icons.menu_rounded : Icons.arrow_back_rounded,
               ),
-              Expanded(
-                child: Text(
-                  title,
-                  textAlign: TextAlign.center,
-                  style: Theme.of(
-                    context,
-                  ).textTheme.titleLarge?.copyWith(color: cs.primary),
+              color: cs.onSurfaceVariant,
+              onPressed: onBack ?? () {},
+            ),
+            Expanded(
+              child: Text(
+                title,
+                textAlign: TextAlign.center,
+                style: Theme.of(
+                  context,
+                ).textTheme.titleLarge?.copyWith(color: cs.primary),
+              ),
+            ),
+            trailing ??
+                IconButton(
+                  icon: const Icon(Icons.more_vert_rounded),
+                  color: cs.onSurfaceVariant,
+                  onPressed: () {},
                 ),
-              ),
-              trailing ??
-                  IconButton(
-                    icon: const Icon(Icons.more_vert),
-                    color: cs.onSurfaceVariant,
-                    onPressed: () {},
-                  ),
-            ],
-          ),
+          ],
         ),
       ),
     );
@@ -88,7 +84,9 @@ class AppCard extends StatelessWidget {
       decoration: BoxDecoration(
         color: color ?? cs.surfaceContainerLowest,
         borderRadius: BorderRadius.circular(radius),
-        border: Border.all(color: AppColors.ghostBorder(isDark)),
+        border: Border.all(
+          color: cs.outlineVariant.withValues(alpha: isDark ? 0.34 : 0.26),
+        ),
         boxShadow: context.elevation.card,
       ),
       child: child,
@@ -149,14 +147,16 @@ class AppFilterChip extends StatelessWidget {
     return ActionChip(
       label: Text(label),
       onPressed: onTap,
-      backgroundColor: selected ? cs.primaryContainer : Colors.transparent,
+      backgroundColor: selected
+          ? cs.secondaryContainer
+          : cs.surfaceContainerLow,
       side: BorderSide(
         color: selected
             ? Colors.transparent
             : cs.outlineVariant.withValues(alpha: 0.5),
       ),
       labelStyle: Theme.of(context).textTheme.labelMedium?.copyWith(
-        color: selected ? const Color(0xFF005573) : cs.onSurfaceVariant,
+        color: selected ? cs.onSecondary : cs.onSurfaceVariant,
         fontWeight: FontWeight.w600,
       ),
       shape: const StadiumBorder(),

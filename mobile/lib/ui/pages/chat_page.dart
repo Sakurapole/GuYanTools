@@ -145,7 +145,6 @@ class _ChatPageState extends State<ChatPage> {
                     Text(
                       'Architect AI',
                       style: TextStyle(
-                        fontFamily: 'Manrope',
                         fontSize: 18,
                         fontWeight: FontWeight.w700,
                         color: cs.onSurface,

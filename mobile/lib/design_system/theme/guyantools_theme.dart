@@ -13,7 +13,7 @@ class GuYanTheme {
     final isLight = brightness == Brightness.light;
     final scheme = isLight
         ? const ColorScheme.light(
-            primary: AppColors.primary,
+            primary: AppColors.primaryContainer,
             primaryContainer: AppColors.primaryContainer,
             secondary: AppColors.secondary,
             secondaryContainer: AppColors.secondaryContainer,
@@ -40,7 +40,7 @@ class GuYanTheme {
           )
         : const ColorScheme.dark(
             primary: AppColors.primaryContainer,
-            primaryContainer: AppColors.primary,
+            primaryContainer: AppColors.primaryContainer,
             secondary: AppColors.secondaryContainer,
             secondaryContainer: AppColors.secondary,
             tertiary: AppColors.tertiaryContainer,
@@ -69,6 +69,7 @@ class GuYanTheme {
       useMaterial3: true,
       brightness: brightness,
       colorScheme: scheme,
+      splashFactory: InkRipple.splashFactory,
       scaffoldBackgroundColor: isLight
           ? AppColors.lightBackground
           : AppColors.darkBackground,
@@ -86,18 +87,41 @@ class GuYanTheme {
         scrolledUnderElevation: 0,
         centerTitle: false,
       ),
+      iconButtonTheme: IconButtonThemeData(
+        style: IconButton.styleFrom(
+          foregroundColor: scheme.onSurfaceVariant,
+          shape: const CircleBorder(),
+        ),
+      ),
       cardTheme: CardThemeData(
         color: isLight
             ? AppColors.lightSurfaceContainerLowest
             : AppColors.darkSurfaceContainer,
         elevation: 0,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      ),
+      chipTheme: ChipThemeData(
+        backgroundColor: scheme.surfaceContainerLow,
+        selectedColor: scheme.secondaryContainer,
+        disabledColor: scheme.surfaceContainerHighest.withValues(alpha: 0.48),
+        side: BorderSide(color: scheme.outlineVariant.withValues(alpha: 0.45)),
+        shape: const StadiumBorder(),
+        labelStyle: TextStyle(
+          fontFamily: 'MiSans',
+          color: scheme.onSurfaceVariant,
+          fontWeight: FontWeight.w500,
+        ),
+        secondaryLabelStyle: TextStyle(
+          fontFamily: 'MiSans',
+          color: scheme.onSecondary,
+          fontWeight: FontWeight.w600,
+        ),
       ),
       inputDecorationTheme: InputDecorationTheme(
         filled: true,
-        fillColor: scheme.surfaceContainerLowest,
+        fillColor: scheme.surfaceContainerLow,
         border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(8),
+          borderRadius: BorderRadius.circular(12),
           borderSide: BorderSide(
             color: scheme.outlineVariant.withValues(
               alpha: isLight ? 0.3 : 0.45,
@@ -105,7 +129,7 @@ class GuYanTheme {
           ),
         ),
         enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(8),
+          borderRadius: BorderRadius.circular(12),
           borderSide: BorderSide(
             color: scheme.outlineVariant.withValues(
               alpha: isLight ? 0.3 : 0.45,
@@ -113,8 +137,8 @@ class GuYanTheme {
           ),
         ),
         focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(8),
-          borderSide: BorderSide(color: scheme.primary),
+          borderRadius: BorderRadius.circular(12),
+          borderSide: BorderSide(color: scheme.primary, width: 1.4),
         ),
         contentPadding: const EdgeInsets.symmetric(
           horizontal: 16,
@@ -123,12 +147,35 @@ class GuYanTheme {
       ),
       filledButtonTheme: FilledButtonThemeData(
         style: FilledButton.styleFrom(
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+          textStyle: const TextStyle(
+            fontFamily: 'MiSans',
+            fontWeight: FontWeight.w600,
+          ),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(14),
+          ),
         ),
       ),
       outlinedButtonTheme: OutlinedButtonThemeData(
         style: OutlinedButton.styleFrom(
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+          textStyle: const TextStyle(
+            fontFamily: 'MiSans',
+            fontWeight: FontWeight.w600,
+          ),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(14),
+          ),
+        ),
+      ),
+      textButtonTheme: TextButtonThemeData(
+        style: TextButton.styleFrom(
+          textStyle: const TextStyle(
+            fontFamily: 'MiSans',
+            fontWeight: FontWeight.w600,
+          ),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(14),
+          ),
         ),
       ),
     );
@@ -150,7 +197,7 @@ class GuYanTheme {
       required Color color,
     }) {
       return TextStyle(
-        fontFamily: 'Inter',
+        fontFamily: 'MiSans',
         fontSize: size,
         fontWeight: weight,
         height: height,

@@ -81,12 +81,12 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
                 clipboard.when(
                   loading: () => const AppSettingSection(
                     title: '剪贴板',
-                    icon: Icons.content_paste,
+                    icon: Icons.content_paste_outlined,
                     children: [AppSettingRow(title: '正在加载剪贴板配置')],
                   ),
                   error: (error, stackTrace) => AppSettingSection(
                     title: '剪贴板',
-                    icon: Icons.content_paste,
+                    icon: Icons.content_paste_outlined,
                     children: [
                       AppSettingRow(
                         title: '剪贴板初始化失败',
@@ -134,7 +134,7 @@ class _ClipboardSettingsSection extends ConsumerWidget {
 
     return AppSettingSection(
       title: '剪贴板',
-      icon: Icons.content_paste,
+      icon: Icons.content_paste_outlined,
       children: [
         AppSettingRow(
           title: '多设备剪贴板',
