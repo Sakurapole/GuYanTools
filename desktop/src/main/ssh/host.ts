@@ -1,10 +1,13 @@
 import { BrowserWindow } from 'electron';
+import { execFile } from 'node:child_process';
 import { EventEmitter } from 'node:events';
+import { promisify } from 'node:util';
 import * as nativeCore from '@guyantools/core';
 import { dbManager } from '../../core/database';
 import type {
   ConnectSshInput,
   CreateSshProfileInput,
+  CreateSshProfileFolderInput,
   CreatePortForwardInput,
   ExportSshManagedKeyData,
   GenerateSshManagedKeyInput,
@@ -12,6 +15,7 @@ import type {
   ImportSshManagedKeyInput,
   PortForwardStatus,
   PortForwardTrafficInfo,
+  PortOccupantInfo,
   ResizeSshSessionInput,
   SshAgentIdentity,
   SshEventEnvelope,
@@ -19,15 +23,23 @@ import type {
   SshManagedKey,
   SshPortForward,
   SshProfile,
+  SshProfileFolder,
   SshSessionDescriptor,
   TrustHostInput,
   UpdateSshProfileInput,
+  UpdateSshProfileFolderInput,
   UpdatePortForwardInput,
 } from '@/contracts/ssh';
+
+const execFileAsync = promisify(execFile);
 
 type JsSshHostConstructor = new (db: unknown) => {
   registerEventSink(callback: (payload: string) => void): void;
   listProfiles(): Promise<SshProfile[]>;
+  listFolders(): Promise<SshProfileFolder[]>;
+  createFolder(input: unknown): Promise<SshProfileFolder>;
+  updateFolder(input: unknown): Promise<SshProfileFolder>;
+  deleteFolder(id: string): Promise<void>;
   createProfile(input: unknown): Promise<SshProfile>;
   updateProfile(input: unknown): Promise<SshProfile>;
   deleteProfile(id: string): Promise<void>;
@@ -108,6 +120,22 @@ class SshHost {
 
   async listProfiles(): Promise<SshProfile[]> {
     return this.host.listProfiles();
+  }
+
+  async listFolders(): Promise<SshProfileFolder[]> {
+    return this.host.listFolders();
+  }
+
+  async createFolder(input: CreateSshProfileFolderInput): Promise<SshProfileFolder> {
+    return this.host.createFolder(input);
+  }
+
+  async updateFolder(input: UpdateSshProfileFolderInput): Promise<SshProfileFolder> {
+    return this.host.updateFolder(input);
+  }
+
+  async deleteFolder(id: string): Promise<void> {
+    return this.host.deleteFolder(id);
   }
 
   async createProfile(input: CreateSshProfileInput): Promise<SshProfile> {
@@ -261,6 +289,14 @@ class SshHost {
     return this.host.listForwardStatus(sessionId);
   }
 
+  async getPortOccupant(host: string, port: number): Promise<PortOccupantInfo | null> {
+    return findPortOccupant(host, port);
+  }
+
+  async killPortOccupant(pid: number): Promise<void> {
+    await killProcess(pid);
+  }
+
   getForwardTraffic(sessionId: string): PortForwardTrafficInfo[] {
     return this.host.getForwardTraffic(sessionId);
   }
@@ -345,4 +381,114 @@ export const sshHost = new SshHost();
 function normalizeTarget(value: string) {
   const trimmed = value.trim();
   return trimmed || 'main';
+}
+
+async function findPortOccupant(host: string, port: number): Promise<PortOccupantInfo | null> {
+  if (!Number.isInteger(port) || port <= 0 || port > 65535) {
+    return null;
+  }
+
+  if (process.platform === 'win32') {
+    return findWindowsPortOccupant(host, port);
+  }
+
+  return findUnixPortOccupant(port);
+}
+
+async function findWindowsPortOccupant(host: string, port: number): Promise<PortOccupantInfo | null> {
+  const escapedHost = host.replace(/'/g, "''");
+  const command = [
+    `$connections = Get-NetTCPConnection -State Listen -LocalPort ${port} -ErrorAction SilentlyContinue`,
+    `$connections = @($connections | Where-Object { '${escapedHost}' -eq '' -or $_.LocalAddress -eq '${escapedHost}' -or $_.LocalAddress -eq '0.0.0.0' -or $_.LocalAddress -eq '::' -or '${escapedHost}' -eq '127.0.0.1' -or '${escapedHost}' -eq 'localhost' })`,
+    'if ($connections.Count -eq 0) { exit 0 }',
+    '$connection = $connections | Select-Object -First 1',
+    '$process = Get-Process -Id $connection.OwningProcess -ErrorAction SilentlyContinue',
+    '[PSCustomObject]@{',
+    '  pid = [int]$connection.OwningProcess;',
+    '  name = if ($process) { $process.ProcessName } else { "" };',
+    '  command = if ($process) { $process.Path } else { "" };',
+    '  localAddress = [string]$connection.LocalAddress;',
+    `  localPort = ${port}`,
+    '} | ConvertTo-Json -Compress',
+  ].join('; ');
+
+  try {
+    const { stdout } = await execFileAsync('powershell.exe', ['-NoProfile', '-Command', command], {
+      windowsHide: true,
+      timeout: 4000,
+    });
+    return parsePortOccupantJson(stdout, port);
+  } catch {
+    return null;
+  }
+}
+
+async function findUnixPortOccupant(port: number): Promise<PortOccupantInfo | null> {
+  try {
+    const { stdout } = await execFileAsync('lsof', ['-nP', `-iTCP:${port}`, '-sTCP:LISTEN'], {
+      timeout: 4000,
+    });
+    const rows = stdout.split(/\r?\n/).filter(Boolean);
+    const line = rows.find((row, index) => index > 0 && row.includes(`:${port}`));
+    if (!line) {
+      return null;
+    }
+    const parts = line.trim().split(/\s+/);
+    const pid = Number(parts[1]);
+    if (!Number.isInteger(pid) || pid <= 0) {
+      return null;
+    }
+    return {
+      pid,
+      name: parts[0] ?? '',
+      command: parts.slice(8).join(' '),
+      localPort: port,
+    };
+  } catch {
+    return null;
+  }
+}
+
+function parsePortOccupantJson(stdout: string, port: number): PortOccupantInfo | null {
+  const trimmed = stdout.trim();
+  if (!trimmed) {
+    return null;
+  }
+
+  try {
+    const parsed = JSON.parse(trimmed) as Partial<PortOccupantInfo>;
+    const pid = Number(parsed.pid);
+    if (!Number.isInteger(pid) || pid <= 0) {
+      return null;
+    }
+    return {
+      pid,
+      name: typeof parsed.name === 'string' ? parsed.name : '',
+      command: typeof parsed.command === 'string' ? parsed.command : '',
+      localAddress: typeof parsed.localAddress === 'string' ? parsed.localAddress : undefined,
+      localPort: Number(parsed.localPort) || port,
+    };
+  } catch {
+    return null;
+  }
+}
+
+async function killProcess(pid: number): Promise<void> {
+  if (!Number.isInteger(pid) || pid <= 0) {
+    throw new Error('Invalid process id');
+  }
+
+  if (pid === process.pid) {
+    throw new Error('Refusing to terminate the current application process');
+  }
+
+  if (process.platform === 'win32') {
+    await execFileAsync('taskkill.exe', ['/PID', String(pid), '/F'], {
+      windowsHide: true,
+      timeout: 5000,
+    });
+    return;
+  }
+
+  process.kill(pid, 'SIGTERM');
 }

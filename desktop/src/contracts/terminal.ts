@@ -1,4 +1,5 @@
 export type TerminalRendererMode = 'auto' | 'standard' | 'webgl';
+export type TerminalLayoutMode = 'tabbed' | 'split-horizontal' | 'split-vertical' | 'master-stack' | 'dwindle' | 'grid';
 export type TerminalSessionStatus = 'running' | 'terminating' | 'exited' | 'failed';
 export type DetachedTerminalSessionKind = 'local' | 'ssh';
 
@@ -32,6 +33,14 @@ export interface LocalTerminalProfileConfig {
   env: Record<string, string>;
   configFilePath?: string;
   background: TerminalBackgroundConfig;
+}
+
+export interface TerminalSshProfileGroupConfig {
+  id: string;
+  label: string;
+  parentId?: string;
+  sortOrder: number;
+  createdAt: number;
 }
 
 export interface TerminalSessionDescriptor {
@@ -83,7 +92,13 @@ export interface TerminalFeatureConfig {
   defaultCwd?: string;
   env: Record<string, string>;
   localProfiles: LocalTerminalProfileConfig[];
+  sshProfileGroups: TerminalSshProfileGroupConfig[];
+  sshProfileGroupMap: Record<string, string>;
   rendererMode: TerminalRendererMode;
+  /** How multiple local/SSH terminal sessions are arranged in the main viewport */
+  layoutMode: TerminalLayoutMode;
+  /** Whether BEL/control-sequence terminal sound is allowed */
+  enableBell: boolean;
   enableSixel: boolean;
   detachToWindowByDefault: boolean;
   /** Max automatic SSH reconnect attempts before waiting for manual input */

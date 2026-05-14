@@ -7,15 +7,19 @@ import UiPopupSurface from '@/windows/main/components/ui/UiPopupSurface.vue';
 import UiScrollbar from '@/windows/main/components/ui/UiScrollbar.vue';
 import UiSelect from '@/windows/main/components/ui/UiSelect.vue';
 import { useSshStore } from '@/windows/main/stores/ssh_store';
-import type { CreateSshProfileInput, SshProfile, UpdateSshProfileInput } from '@/contracts/ssh';
+import type { CreateSshProfileInput, SshProfile, SshProfileFolder, UpdateSshProfileInput } from '@/contracts/ssh';
 
 // ── Props & Emits ─────────────────────────────────────────────
 
-const props = defineProps<{
+const props = withDefaults(defineProps<{
   visible: boolean;
   /** Pass null to create a new profile, pass profile to edit */
   profile: SshProfile | null;
-}>();
+  /** Initial group when creating from a group node */
+  initialGroupId?: string;
+}>(), {
+  initialGroupId: '',
+});
 
 const emit = defineEmits<{
   close: [];
@@ -68,6 +72,7 @@ const confirmDelete = ref(false);
 const error = ref('');
 const pickingPrivateKey = ref(false);
 const pickingCertificate = ref(false);
+const selectedGroupId = ref('');
 
 const isEdit = computed(() => props.profile !== null);
 const dialogTitle = computed(() => (isEdit.value ? '编辑 SSH 配置' : '新建 SSH 配置'));
@@ -77,6 +82,31 @@ const privateKeyPlaceholder = computed(() =>
 const authTypeOptions = computed(() =>
   AUTH_TYPES.map((item) => ({ label: item.label, value: item.value })),
 );
+const sshGroups = computed(() =>
+  [...sshStore.folders]
+    .sort((a, b) => a.sortOrder - b.sortOrder || a.createdAt - b.createdAt || a.label.localeCompare(b.label, 'zh-CN')),
+);
+const sshGroupIds = computed(() => new Set(sshGroups.value.map((group) => group.id)));
+const groupOptions = computed(() => [
+  { label: '未分组', value: '' },
+  ...flattenGroups().map((item) => ({
+    label: `${'  '.repeat(item.depth)}${item.group.label}`,
+    value: item.group.id,
+  })),
+]);
+
+function groupsByParent(parentId = '') {
+  return sshGroups.value.filter((group) => (group.parentId ?? '') === parentId);
+}
+
+function flattenGroups(parentId = '', depth = 0): Array<{ group: SshProfileFolder; depth: number }> {
+  const output: Array<{ group: SshProfileFolder; depth: number }> = [];
+  for (const group of groupsByParent(parentId)) {
+    output.push({ group, depth });
+    output.push(...flattenGroups(group.id, depth + 1));
+  }
+  return output;
+}
 
 function updatePort(value: string) {
   const next = Number(value);
@@ -115,6 +145,7 @@ watch(
       form.privateKeyPassphrase = '';
       form.autoReconnect = p.autoReconnect;
       form.color = p.color ?? '';
+      selectedGroupId.value = p.folderId && sshGroupIds.value.has(p.folderId) ? p.folderId : '';
       form.useJumpHost = !!p.jumpHostJson;
       if (p.jumpHostJson) {
         try {
@@ -136,6 +167,9 @@ watch(
       }
     } else {
       Object.assign(form, blankForm());
+      selectedGroupId.value = props.initialGroupId && sshGroupIds.value.has(props.initialGroupId)
+        ? props.initialGroupId
+        : '';
     }
   },
   { immediate: true },
@@ -195,6 +229,7 @@ async function save() {
         ...(form.privateKeyPassphrase ? { privateKeyPassphrase: form.privateKeyPassphrase } : {}),
         jumpHostJson,
         autoReconnect: form.autoReconnect,
+        folderId: selectedGroupId.value,
         color: form.color || undefined,
       };
       const updated = await sshStore.updateProfile(input);
@@ -214,6 +249,7 @@ async function save() {
         privateKeyPassphrase: form.privateKeyPassphrase || undefined,
         jumpHostJson,
         autoReconnect: form.autoReconnect,
+        folderId: selectedGroupId.value || undefined,
         color: form.color || undefined,
       };
       const created = await sshStore.createProfile(input);
@@ -367,6 +403,15 @@ function clearSelectedCertificate() {
                 <div class="sp-field">
                   <label class="sp-label">用户名 <span class="sp-required">*</span></label>
                   <UiInput v-model="form.username" size="sm" placeholder="root" id="ssh-profile-username" />
+                </div>
+                <div class="sp-field">
+                  <label class="sp-label">所属分组</label>
+                  <UiSelect
+                    v-model="selectedGroupId"
+                    :options="groupOptions"
+                    size="sm"
+                    id="ssh-profile-group"
+                  />
                 </div>
                 <!-- Color tag -->
                 <div class="sp-field">

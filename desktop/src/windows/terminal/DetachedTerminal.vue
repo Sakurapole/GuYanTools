@@ -34,6 +34,7 @@ const searchResultCount = ref(0);
 
 // ── App config derived values ─────────────────────────────────
 const rendererMode = computed(() => appConfigStore.config.features.terminal.rendererMode);
+const enableBell = computed(() => appConfigStore.config.features.terminal.enableBell);
 const enableSixel = computed(() => appConfigStore.config.features.terminal.enableSixel);
 const colorSchemeId = computed(() => appConfigStore.config.features.terminal.colorSchemeId ?? 'dark-default');
 const writeHandler = computed(() => (store.sessionKind === 'ssh' ? store.write : undefined));
@@ -252,11 +253,12 @@ onBeforeUnmount(() => {
     <!-- Terminal viewport -->
     <div v-if="store.sessionId" class="detached-stage">
       <TerminalViewport
-        :key="`${store.sessionId}:${rendererMode}:${enableSixel}:${hasCustomBg}`"
+        :key="`${store.sessionId}:${rendererMode}:${enableBell}:${enableSixel}:${hasCustomBg}`"
         ref="viewportRef"
         :session-id="store.sessionId"
         :buffer="store.buffer"
         :renderer-mode="rendererMode"
+        :enable-bell="enableBell"
         :enable-sixel="enableSixel"
         :color-scheme-id="colorSchemeId"
         :bg-type="termBgType"

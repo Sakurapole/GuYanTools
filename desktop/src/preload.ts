@@ -40,11 +40,13 @@ import type {
 import type {
   SshApi,
   ConnectSshInput,
+  CreateSshProfileFolderInput,
   CreateSshProfileInput,
   CreatePortForwardInput,
   ResizeSshSessionInput,
   SshEventEnvelope,
   TrustHostInput,
+  UpdateSshProfileFolderInput,
   UpdateSshProfileInput,
   UpdatePortForwardInput,
 } from '@/contracts/ssh';
@@ -298,6 +300,10 @@ contextBridge.exposeInMainWorld('terminalApi', terminalApi);
 const sshApi: SshApi = {
   // Profile CRUD
   listProfiles: () => ipcRenderer.invoke('ssh:list-profiles'),
+  listFolders: () => ipcRenderer.invoke('ssh:list-folders'),
+  createFolder: (input: CreateSshProfileFolderInput) => ipcRenderer.invoke('ssh:create-folder', input),
+  updateFolder: (input: UpdateSshProfileFolderInput) => ipcRenderer.invoke('ssh:update-folder', input),
+  deleteFolder: (id: string) => ipcRenderer.invoke('ssh:delete-folder', id),
   createProfile: (input: CreateSshProfileInput) => ipcRenderer.invoke('ssh:create-profile', input),
   updateProfile: (input: UpdateSshProfileInput) => ipcRenderer.invoke('ssh:update-profile', input),
   deleteProfile: (id: string) => ipcRenderer.invoke('ssh:delete-profile', id),
@@ -338,6 +344,8 @@ const sshApi: SshApi = {
   startPortForward: (sessionId: string, forwardId: string) => ipcRenderer.invoke('ssh:start-port-forward', sessionId, forwardId),
   stopPortForward: (sessionId: string, forwardId: string) => ipcRenderer.invoke('ssh:stop-port-forward', sessionId, forwardId),
   listForwardStatus: (sessionId: string) => ipcRenderer.invoke('ssh:list-forward-status', sessionId),
+  getPortOccupant: (host: string, port: number) => ipcRenderer.invoke('ssh:get-port-occupant', host, port),
+  killPortOccupant: (pid: number) => ipcRenderer.invoke('ssh:kill-port-occupant', pid),
 
   // Traffic statistics
   getForwardTraffic: (sessionId: string) => ipcRenderer.invoke('ssh:get-forward-traffic', sessionId),

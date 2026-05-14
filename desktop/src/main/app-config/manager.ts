@@ -17,7 +17,7 @@ import type {
   LocalFontOption,
   MultiDeviceClipboardFeatureConfig,
 } from '@/contracts/app_config';
-import type { LocalTerminalProfileConfig, TerminalBackgroundConfig } from '@/contracts/terminal';
+import type { LocalTerminalProfileConfig, TerminalBackgroundConfig, TerminalSshProfileGroupConfig } from '@/contracts/terminal';
 import type { AppWebConfig, ChromeExtensionRecord, WebScriptRule } from '@/contracts/webview';
 import {
   APP_BOTTOM_BAR_REQUIRED_TAB_IDS,
@@ -197,9 +197,20 @@ function normalizeTerminalFeature(value: unknown): AppFeaturesConfig['terminal']
   const rendererMode = value.rendererMode === 'standard' || value.rendererMode === 'webgl'
     ? value.rendererMode
     : defaults.rendererMode;
+  const layoutMode = (
+    value.layoutMode === 'split-horizontal'
+    || value.layoutMode === 'split-vertical'
+    || value.layoutMode === 'master-stack'
+    || value.layoutMode === 'dwindle'
+    || value.layoutMode === 'grid'
+    || value.layoutMode === 'tabbed'
+  )
+    ? value.layoutMode
+    : defaults.layoutMode;
 
   const defaultProfileId = typeof value.defaultProfileId === 'string' ? value.defaultProfileId : defaults.defaultProfileId;
   const defaultCwd = typeof value.defaultCwd === 'string' ? value.defaultCwd : defaults.defaultCwd;
+  const enableBell = typeof value.enableBell === 'boolean' ? value.enableBell : defaults.enableBell;
   const enableSixel = typeof value.enableSixel === 'boolean' ? value.enableSixel : defaults.enableSixel;
   const detachToWindowByDefault = typeof value.detachToWindowByDefault === 'boolean'
     ? value.detachToWindowByDefault
@@ -226,13 +237,19 @@ function normalizeTerminalFeature(value: unknown): AppFeaturesConfig['terminal']
     )
     : cloneConfig(defaults.env);
   const localProfiles = normalizeLocalTerminalProfiles(value.localProfiles);
+  const sshProfileGroups = normalizeSshProfileGroups(value.sshProfileGroups);
+  const sshProfileGroupMap = normalizeStringRecord(value.sshProfileGroupMap);
 
   return {
     defaultProfileId,
     defaultCwd,
     env,
     localProfiles,
+    sshProfileGroups,
+    sshProfileGroupMap,
     rendererMode,
+    layoutMode,
+    enableBell,
     enableSixel,
     detachToWindowByDefault,
     sshReconnectMaxAttempts,
@@ -265,6 +282,49 @@ function normalizeStringRecord(value: unknown): Record<string, string> {
     Object.entries(value)
       .filter((entry): entry is [string, string] => typeof entry[1] === 'string' && entry[0].trim().length > 0),
   );
+}
+
+function normalizeSshProfileGroups(value: unknown): TerminalSshProfileGroupConfig[] {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+
+  const groups: TerminalSshProfileGroupConfig[] = [];
+  const seenIds = new Set<string>();
+  const now = Date.now();
+
+  for (const item of value) {
+    if (!isRecord(item)) {
+      continue;
+    }
+
+    const id = typeof item.id === 'string' ? item.id.trim() : '';
+    const label = typeof item.label === 'string' ? item.label.trim() : '';
+    if (!id || !label || seenIds.has(id)) {
+      continue;
+    }
+
+    seenIds.add(id);
+    const parentId = typeof item.parentId === 'string' ? item.parentId.trim() : '';
+    const sortOrder = Number.isFinite(Number(item.sortOrder))
+      ? Math.max(0, Math.round(Number(item.sortOrder)))
+      : groups.length;
+    const createdAt = Number.isFinite(Number(item.createdAt))
+      ? Math.max(0, Math.round(Number(item.createdAt)))
+      : now + groups.length;
+    groups.push({
+      id,
+      label,
+      parentId: parentId || undefined,
+      sortOrder,
+      createdAt,
+    });
+  }
+
+  const validIds = new Set(groups.map((group) => group.id));
+  return groups
+    .map((group) => (group.parentId && !validIds.has(group.parentId) ? { ...group, parentId: undefined } : group))
+    .sort((a, b) => a.sortOrder - b.sortOrder || a.createdAt - b.createdAt || a.label.localeCompare(b.label));
 }
 
 function normalizeLocalTerminalProfiles(value: unknown): LocalTerminalProfileConfig[] {

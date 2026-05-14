@@ -1270,11 +1270,11 @@ use crate::ftp::{
     UpdateFtpSessionFolderInput, UpsertFtpRestoreStateInput,
 };
 use crate::ssh::{
-    ConnectSshInput, CreatePortForwardInput, CreateSshProfileInput, ExportSshManagedKeyData,
+    ConnectSshInput, CreatePortForwardInput, CreateSshProfileFolderInput, CreateSshProfileInput, ExportSshManagedKeyData,
     GenerateSshManagedKeyInput, HostVerifyResult, ImportSshManagedKeyInput, PortForwardStatus,
     PortForwardTrafficInfo, ResizeSshSessionInput, SshAgentIdentity, SshConnectionManager,
-    SshKnownHost, SshManagedKey, SshPortForward, SshProfile, SshSessionDescriptor, TrustHostInput,
-    UpdatePortForwardInput, UpdateSshProfileInput,
+    SshKnownHost, SshManagedKey, SshPortForward, SshProfile, SshProfileFolder, SshSessionDescriptor, TrustHostInput,
+    UpdatePortForwardInput, UpdateSshProfileFolderInput, UpdateSshProfileInput,
 };
 
 /// NAPI wrapper for the SSH connection manager.
@@ -1303,6 +1303,46 @@ impl JsSshHost {
             .await
             .map_err(|e| Error::from_reason(format!("task failed: {}", e)))?
             .map_err(|e| Error::from_reason(format!("listSshProfiles failed: {}", e)))
+    }
+
+    /// List all SSH profile folders ordered by sort_order.
+    #[napi(js_name = "listFolders")]
+    pub async fn list_folders(&self) -> Result<Vec<SshProfileFolder>> {
+        let manager = self.inner.clone();
+        tokio::task::spawn_blocking(move || manager.list_folders())
+            .await
+            .map_err(|e| Error::from_reason(format!("task failed: {}", e)))?
+            .map_err(|e| Error::from_reason(format!("listSshProfileFolders failed: {}", e)))
+    }
+
+    /// Create a new SSH profile folder.
+    #[napi(js_name = "createFolder")]
+    pub async fn create_folder(&self, input: CreateSshProfileFolderInput) -> Result<SshProfileFolder> {
+        let manager = self.inner.clone();
+        tokio::task::spawn_blocking(move || manager.create_folder(input))
+            .await
+            .map_err(|e| Error::from_reason(format!("task failed: {}", e)))?
+            .map_err(|e| Error::from_reason(format!("createSshProfileFolder failed: {}", e)))
+    }
+
+    /// Update an existing SSH profile folder.
+    #[napi(js_name = "updateFolder")]
+    pub async fn update_folder(&self, input: UpdateSshProfileFolderInput) -> Result<SshProfileFolder> {
+        let manager = self.inner.clone();
+        tokio::task::spawn_blocking(move || manager.update_folder(input))
+            .await
+            .map_err(|e| Error::from_reason(format!("task failed: {}", e)))?
+            .map_err(|e| Error::from_reason(format!("updateSshProfileFolder failed: {}", e)))
+    }
+
+    /// Delete an SSH profile folder and move contained profiles to ungrouped.
+    #[napi(js_name = "deleteFolder")]
+    pub async fn delete_folder(&self, id: String) -> Result<()> {
+        let manager = self.inner.clone();
+        tokio::task::spawn_blocking(move || manager.delete_folder(id))
+            .await
+            .map_err(|e| Error::from_reason(format!("task failed: {}", e)))?
+            .map_err(|e| Error::from_reason(format!("deleteSshProfileFolder failed: {}", e)))
     }
 
     /// Create a new SSH profile.

@@ -18,6 +18,7 @@ const props = withDefaults(defineProps<{
   sessionId: string;
   buffer: string;
   rendererMode: TerminalRendererMode;
+  enableBell: boolean;
   enableSixel: boolean;
   colorSchemeId: string;
   /** Viewport background type */
@@ -42,6 +43,7 @@ const props = withDefaults(defineProps<{
    * window.terminalApi.resizeSession().
    */
   resizeHandler?: (cols: number, rows: number) => void | Promise<void>;
+  autoFocus?: boolean;
   copyShortcut?: string;
   pasteShortcut?: string;
 }>(), {
@@ -52,6 +54,7 @@ const props = withDefaults(defineProps<{
   bgStyle: () => ({}),
   writeHandler: undefined,
   resizeHandler: undefined,
+  autoFocus: true,
   copyShortcut: 'CommandOrControl+Shift+C',
   pasteShortcut: 'CommandOrControl+Shift+V',
 });
@@ -63,6 +66,9 @@ const emit = defineEmits<{
 
 const hostRef = ref<HTMLElement | null>(null);
 const { open: openContextMenu } = useContextMenu();
+const hoveredViewportRow = ref<number | null>(null);
+const hoveredLineText = ref('');
+const hoveredSuggestion = ref('');
 let terminal: Terminal | null = null;
 let fitAddon: FitAddon | null = null;
 let searchAddon: SearchAddon | null = null;
@@ -72,6 +78,20 @@ let lastRenderedBuffer = '';
 let wasmDecoderAvailability: Promise<boolean> | null = null;
 let renderQueue = Promise.resolve();
 const TRANSPARENT_BG = 'rgba(0, 0, 0, 0)';
+const COMMON_COMMANDS = [
+  'cd',
+  'clear',
+  'code',
+  'cargo',
+  'git',
+  'ls',
+  'npm',
+  'pnpm',
+  'pwd',
+  'python',
+  'ssh',
+  'uv',
+];
 const SEARCH_DECORATIONS: NonNullable<ISearchOptions['decorations']> = {
   matchBackground: '#334155',
   matchBorder: '#64748b',
@@ -214,6 +234,7 @@ async function createTerminal() {
     fontSize: 14,
     cursorBlink: true,
     allowTransparency: true,
+    bellStyle: props.enableBell ? 'sound' : 'none',
     scrollback: 5000,
     convertEol: false,
     theme: resolveTerminalTheme(),
@@ -298,6 +319,98 @@ async function createTerminal() {
     void sendResize(cols, rows);
   });
   terminal.attachCustomKeyEventHandler(handleShortcutKey);
+}
+
+function getTerminalRowHeight() {
+  const rowElement = hostRef.value?.querySelector('.xterm-rows > div');
+  const rowHeight = rowElement?.getBoundingClientRect().height ?? 0;
+  if (rowHeight > 0) {
+    return rowHeight;
+  }
+  if (!terminal || !hostRef.value || terminal.rows <= 0) {
+    return 0;
+  }
+  return hostRef.value.clientHeight / terminal.rows;
+}
+
+function getHoveredBufferLine() {
+  if (!terminal || hoveredViewportRow.value === null) {
+    return null;
+  }
+  return terminal.buffer.active.viewportY + hoveredViewportRow.value;
+}
+
+function readBufferLine(bufferLine: number) {
+  if (!terminal) {
+    return '';
+  }
+  return terminal.buffer.active.getLine(bufferLine)?.translateToString(true).trim() ?? '';
+}
+
+function buildCommandSuggestion(lineText: string, bufferLine: number) {
+  if (!terminal || bufferLine !== terminal.buffer.active.baseY + terminal.buffer.active.cursorY) {
+    return '';
+  }
+
+  const inputMatch = lineText.match(/(?:^|[>$#]\s+)([A-Za-z][\w.-]*)$/);
+  const prefix = inputMatch?.[1]?.toLowerCase() ?? '';
+  if (prefix.length < 1) {
+    return '';
+  }
+
+  const suggestion = COMMON_COMMANDS.find((command) => command.startsWith(prefix) && command !== prefix);
+  return suggestion ?? '';
+}
+
+function handleMouseMove(event: MouseEvent) {
+  if (!terminal || !hostRef.value) {
+    hoveredViewportRow.value = null;
+    hoveredLineText.value = '';
+    hoveredSuggestion.value = '';
+    return;
+  }
+
+  const rowHeight = getTerminalRowHeight();
+  if (rowHeight <= 0) {
+    return;
+  }
+
+  const rect = hostRef.value.getBoundingClientRect();
+  const nextRow = Math.max(0, Math.min(terminal.rows - 1, Math.floor((event.clientY - rect.top) / rowHeight)));
+  hoveredViewportRow.value = nextRow;
+  const bufferLine = getHoveredBufferLine();
+  const lineText = bufferLine === null ? '' : readBufferLine(bufferLine);
+  hoveredLineText.value = lineText;
+  hoveredSuggestion.value = bufferLine === null ? '' : buildCommandSuggestion(lineText, bufferLine);
+}
+
+function clearHoveredLine() {
+  hoveredViewportRow.value = null;
+  hoveredLineText.value = '';
+  hoveredSuggestion.value = '';
+}
+
+function selectHoveredLine() {
+  const bufferLine = getHoveredBufferLine();
+  if (!terminal || bufferLine === null) {
+    return;
+  }
+  terminal.selectLines(bufferLine, bufferLine);
+  terminal.focus();
+}
+
+function acceptSuggestion() {
+  if (!hoveredSuggestion.value || !hoveredLineText.value) {
+    return;
+  }
+
+  const inputMatch = hoveredLineText.value.match(/([A-Za-z][\w.-]*)$/);
+  const prefix = inputMatch?.[1] ?? '';
+  if (!prefix || !hoveredSuggestion.value.startsWith(prefix)) {
+    return;
+  }
+
+  void writeInput(hoveredSuggestion.value.slice(prefix.length));
 }
 
 async function sendResize(cols?: number, rows?: number) {
@@ -457,6 +570,15 @@ function fitTerminal() {
   fitAddon.fit();
 }
 
+function refit() {
+  fitTerminal();
+  void sendResize();
+}
+
+function focus() {
+  terminal?.focus();
+}
+
 function clear() {
   terminal?.clear();
   terminal?.reset();
@@ -496,6 +618,8 @@ function findPrevious(query: string) {
 defineExpose({
   clearSearchResults,
   clear,
+  focus,
+  refit,
   findNext,
   findPrevious,
 });
@@ -511,11 +635,18 @@ watch(() => [props.colorSchemeId, props.bgStyle?.textColor], () => {
   terminal.refresh(0, terminal.rows - 1);
 });
 
+watch(() => props.enableBell, (value) => {
+  if (!terminal) return;
+  terminal.options.bellStyle = value ? 'sound' : 'none';
+});
+
 onMounted(async () => {
   await createTerminal();
   if (!terminal || !hostRef.value) return;
   terminal.open(hostRef.value);
-  terminal.focus();
+  if (props.autoFocus) {
+    terminal.focus();
+  }
   await nextTick();
   fitTerminal();
   renderBuffer(props.buffer);
@@ -543,7 +674,7 @@ onBeforeUnmount(() => {
   <div class="terminal-viewport" :class="{
     'terminal-viewport--no-grid': !activeScheme.showGrid || hasCustomBg,
     'terminal-viewport--custom-bg': hasCustomBg,
-  }" :style="viewportInlineStyle" @contextmenu="handleContextMenu">
+  }" :style="viewportInlineStyle" @mousemove="handleMouseMove" @mouseleave="clearHoveredLine" @contextmenu="handleContextMenu">
     <div v-if="hasCustomBg && !showVideo" class="terminal-viewport__bg-layer" :style="backgroundLayerStyle" />
 
     <!-- Video background layer (only for video type) -->
@@ -552,6 +683,33 @@ onBeforeUnmount(() => {
 
     <!-- xterm host -->
     <div ref="hostRef" class="terminal-viewport__host" />
+
+    <div
+      v-if="hoveredViewportRow !== null"
+      class="terminal-viewport__row-highlight"
+      :style="{ top: `${hoveredViewportRow * getTerminalRowHeight()}px`, height: `${getTerminalRowHeight()}px` }"
+      aria-hidden="true"
+    />
+
+    <button
+      v-if="hoveredViewportRow !== null && hoveredLineText"
+      class="terminal-viewport__line-action"
+      type="button"
+      title="选择此行"
+      @click.stop="selectHoveredLine"
+    >
+      行
+    </button>
+
+    <button
+      v-if="hoveredSuggestion"
+      class="terminal-viewport__suggestion"
+      type="button"
+      :title="`补齐 ${hoveredSuggestion}`"
+      @click.stop="acceptSuggestion"
+    >
+      Tab {{ hoveredSuggestion }}
+    </button>
   </div>
 </template>
 
@@ -641,6 +799,50 @@ onBeforeUnmount(() => {
   :deep(.xterm-viewport) {
     overflow-y: auto;
     overflow-x: hidden;
+  }
+}
+
+.terminal-viewport__row-highlight {
+  position: absolute;
+  left: 0;
+  right: 0;
+  z-index: 2;
+  border-top: 1px solid rgba(102, 204, 255, 0.12);
+  border-bottom: 1px solid rgba(102, 204, 255, 0.1);
+  background: rgba(102, 204, 255, 0.08);
+  pointer-events: none;
+}
+
+.terminal-viewport__line-action,
+.terminal-viewport__suggestion {
+  position: absolute;
+  z-index: 3;
+  height: 24px;
+  border: 1px solid rgba(102, 204, 255, 0.28);
+  border-radius: 6px;
+  background: rgba(15, 23, 42, 0.78);
+  color: #d8f3ff;
+  cursor: pointer;
+  font-family: Consolas, "Cascadia Mono", monospace;
+  font-size: 11px;
+  line-height: 22px;
+  backdrop-filter: blur(12px);
+}
+
+.terminal-viewport__line-action {
+  top: 8px;
+  right: 8px;
+  padding: 0 8px;
+}
+
+.terminal-viewport__suggestion {
+  right: 48px;
+  bottom: 8px;
+  padding: 0 10px;
+
+  &:hover {
+    border-color: rgba(102, 204, 255, 0.52);
+    background: rgba(14, 116, 144, 0.72);
   }
 }
 </style>

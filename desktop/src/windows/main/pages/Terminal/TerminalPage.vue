@@ -3,12 +3,13 @@ import { computed, defineAsyncComponent, nextTick, onActivated, onBeforeUnmount,
 import { useRoute, useRouter } from 'vue-router';
 import UiButton from '@/windows/main/components/ui/UiButton.vue';
 import UiPopupSurface from '@/windows/main/components/ui/UiPopupSurface.vue';
+import { notifyError } from '@/windows/main/composables/useInAppNotification';
 import { useGlobalStore } from '@/windows/main/stores/global_store';
 import { useTerminalStore } from '@/windows/main/stores/terminal_store';
 import { useAppConfigStore } from '@/windows/main/stores/app_config_store';
 import { useFtpStore } from '@/windows/main/stores/ftp_store';
 import { useSshStore } from '@/windows/main/stores/ssh_store';
-import type { TerminalRendererMode, TerminalSessionDescriptor } from '@/contracts/terminal';
+import type { TerminalLayoutMode, TerminalRendererMode, TerminalSessionDescriptor } from '@/contracts/terminal';
 import type { BackgroundConfirmPayload } from '@/contracts/background';
 import type { SshProfile, SshSessionDescriptor } from '@/contracts/ssh';
 import TerminalSearchPanel from './TerminalSearchPanel.vue';
@@ -39,7 +40,7 @@ const sshStore = useSshStore();
 const ftpStore = useFtpStore();
 const appConfigStore = useAppConfigStore();
 
-const viewportRef = ref<InstanceType<typeof TerminalViewport> | null>(null);
+const viewportRefs = new Map<string, InstanceType<typeof TerminalViewport>>();
 const searchPanelRef = ref<InstanceType<typeof TerminalSearchPanel> | null>(null);
 const terminalMainRef = ref<HTMLElement | null>(null);
 const terminalStageRef = ref<HTMLElement | null>(null);
@@ -47,16 +48,80 @@ const searchVisible = ref(false);
 const searchQuery = ref('');
 const searchResultIndex = ref(-1);
 const searchResultCount = ref(0);
-const newSessionProfileId = ref('');
 const sidebarCollapsed = ref(false);
-/** 'terminal' | 'ssh' */
-const sidebarTab = ref<'terminal' | 'ssh'>('terminal');
+const sidebarTab = ref<'config'>('config');
+type TerminalPaneKind = 'local' | 'ssh' | 'ssh-pending';
+
+interface TerminalPane {
+  key: string;
+  kind: TerminalPaneKind;
+  sessionId: string;
+  profileId: string;
+  title: string;
+  subtitle: string;
+  status: string;
+  buffer: string;
+  session: TerminalSessionDescriptor | SshSessionDescriptor | SshProfile;
+}
+
+interface TerminalPaneLayoutItem {
+  pane: TerminalPane;
+  style: Record<string, string>;
+}
+
+type PaneResizeKind = 'split' | 'master-main' | 'grid' | 'dwindle';
+type PaneResizeOrientation = 'horizontal' | 'vertical';
+
+interface TerminalPaneResizeHandle {
+  id: string;
+  kind: PaneResizeKind;
+  orientation: PaneResizeOrientation;
+  style: Record<string, string>;
+  bounds?: { left: number; top: number; width: number; height: number };
+  stateKey?: string;
+  index?: number;
+  splitIndex?: number;
+}
+
+interface PaneResizeInteraction {
+  handle: TerminalPaneResizeHandle;
+  startX: number;
+  startY: number;
+  startSizes: number[];
+  rect: DOMRect;
+}
+
+interface DwindleLayoutModel {
+  items: TerminalPaneLayoutItem[];
+  handles: TerminalPaneResizeHandle[];
+}
+
+const focusedTerminalPaneKey = ref('');
+const paneOrder = ref<string[]>([]);
+const draggingPaneKey = ref('');
+const dropTargetPaneKey = ref('');
+const paneDragPreview = ref({
+  visible: false,
+  left: 0,
+  top: 0,
+  title: '',
+  kind: '' as TerminalPaneKind | '',
+});
+const layoutSizeState = ref<Record<string, number[]>>({});
+const masterMainRatio = ref(66);
+const dwindleSplitRatios = ref<number[]>([]);
+const resizeInteraction = ref<PaneResizeInteraction | null>(null);
+let transparentDragImage: HTMLElement | null = null;
 
 function syncSidebarTabFromRoute() {
   const tab = Array.isArray(route.query.tab) ? route.query.tab[0] : route.query.tab;
-  if (tab === 'ssh' || tab === 'terminal') {
-    sidebarTab.value = tab;
+  if (tab === 'config' || tab === 'terminal' || tab === 'ssh' || tab === 'connections') {
+    sidebarTab.value = 'config';
   }
+}
+
+function activateSidebarTab() {
+  sidebarTab.value = 'config';
 }
 
 watch(() => route.query.tab, syncSidebarTabFromRoute, { immediate: true });
@@ -66,16 +131,33 @@ onActivated(syncSidebarTabFromRoute);
 
 const sshProfileDialogVisible = ref(false);
 const sshProfileDialogTarget = ref<SshProfile | null>(null);
+const sshProfileDialogGroupId = ref('');
 const sshKeyManagerVisible = ref(false);
 const sshFingerprintVisible = ref(false);
 const sshFingerprintInfo = ref({ host: '', port: 22, algorithm: '', fingerprint: '' });
 const sshConnectError = ref('');
-const sshConnectingProfileId = ref('');
+const sshConnectingProfileIds = ref<string[]>([]);
 const sshLastFailedProfile = ref<SshProfile | null>(null);
 const sshReconnectingSessionId = ref('');
 /** Pending connect callback resolved after fingerprint is trusted */
 let sshFingerprintResolve: (() => void) | null = null;
 let sshFingerprintReject: (() => void) | null = null;
+
+const isAnySshProfileConnecting = computed(() => sshConnectingProfileIds.value.length > 0);
+
+function isSshProfileConnecting(profileId: string) {
+  return sshConnectingProfileIds.value.includes(profileId);
+}
+
+function markSshProfileConnecting(profileId: string) {
+  if (!isSshProfileConnecting(profileId)) {
+    sshConnectingProfileIds.value = [...sshConnectingProfileIds.value, profileId];
+  }
+}
+
+function clearSshProfileConnecting(profileId: string) {
+  sshConnectingProfileIds.value = sshConnectingProfileIds.value.filter((id) => id !== profileId);
+}
 
 // ── Port forward dialog state ─────────────────────────────────
 const pfDialogVisible = ref(false);
@@ -113,16 +195,22 @@ function handleSshPasswordCancel() {
   sshPasswordResolve = null;
 }
 
-function openSshProfileDialog(profile: SshProfile | null) {
+function openSshProfileDialog(profile: SshProfile | null, groupId = '') {
   sshProfileDialogTarget.value = profile;
+  sshProfileDialogGroupId.value = profile ? '' : groupId;
   sshProfileDialogVisible.value = true;
+}
+
+function handleSshProfileSaved() {
+  sshProfileDialogVisible.value = false;
+  sshProfileDialogGroupId.value = '';
 }
 
 async function handleSshConnect(profile: SshProfile) {
   if (!sshStore) return;
-  sidebarTab.value = 'ssh';
   sshConnectError.value = '';
-  sshConnectingProfileId.value = profile.id;
+  markSshProfileConnecting(profile.id);
+  focusedTerminalPaneKey.value = makePaneKey('ssh-pending', profile.id);
   sshLastFailedProfile.value = null;
 
   // If password auth and password not saved, prompt the user
@@ -130,25 +218,26 @@ async function handleSshConnect(profile: SshProfile) {
   if (profile.authType === 'password' && !profile.savePassword) {
     const input = await promptSshPassword(profile);
     if (input === null) {
-      sshConnectingProfileId.value = '';
+      clearSshProfileConnecting(profile.id);
       return;
     }
     password = input;
   }
 
-  const doConnect = async (pwd?: string) => {
-    await sshStore!.connect({ profileId: profile.id, rows: 32, cols: 120, password: pwd });
-  };
+  const doConnect = async (pwd?: string) =>
+    sshStore!.connect({ profileId: profile.id, rows: 32, cols: 120, password: pwd });
 
   try {
-    await doConnect(password);
+    const descriptor = await doConnect(password);
+    focusSshSession(descriptor.sessionId, true);
     sshConnectError.value = '';
   } catch (err: unknown) {
-    await handleSshConnectFailure(profile, password, err, doConnect);
-  } finally {
-    if (sshConnectingProfileId.value === profile.id) {
-      sshConnectingProfileId.value = '';
+    const descriptor = await handleSshConnectFailure(profile, password, err, doConnect);
+    if (descriptor) {
+      focusSshSession(descriptor.sessionId, true);
     }
+  } finally {
+    clearSshProfileConnecting(profile.id);
   }
 }
 
@@ -156,8 +245,8 @@ async function handleSshConnectFailure(
   profile: SshProfile,
   password: string | undefined,
   err: unknown,
-  doConnect: (pwd?: string) => Promise<void>,
-) {
+  doConnect: (pwd?: string) => Promise<SshSessionDescriptor>,
+): Promise<SshSessionDescriptor | null> {
   const msg = err instanceof Error ? err.message : String(err);
   const hostVerification = extractSshHostVerification(msg);
   if (hostVerification) {
@@ -169,18 +258,20 @@ async function handleSshConnectFailure(
         sshFingerprintReject = reject;
       });
       try {
-        await doConnect(password);
+        const descriptor = await doConnect(password);
         sshConnectError.value = '';
+        return descriptor;
       } catch (retryErr) {
         showSshConnectError(profile, retryErr);
       }
     } catch {
       sshFingerprintVisible.value = false;
     }
-    return;
+    return null;
   }
 
   showSshConnectError(profile, err);
+  return null;
 }
 
 function extractSshHostVerification(message: string) {
@@ -226,6 +317,9 @@ function showSshConnectError(profile: SshProfile, err: unknown) {
     .trim();
   sshLastFailedProfile.value = profile;
   sshConnectError.value = `SSH 连接失败：${message || '未知错误'}`;
+  notifyError(new Error(`${profile.label}: ${message || '未知错误'}`), 'SSH 连接失败', {
+    dedupeKey: `ssh-connect:${profile.id}:${message || raw}`,
+  });
   console.warn('[TerminalPage] SSH connect failed:', message || raw);
 }
 
@@ -246,8 +340,7 @@ function handleSshFingerprintRejected() {
 function handleSshFocusSession(session: SshSessionDescriptor) {
   sshConnectError.value = '';
   sshLastFailedProfile.value = null;
-  sshStore?.focusSession(session.sessionId);
-  sidebarTab.value = 'ssh';
+  focusSshSession(session.sessionId, true);
 }
 
 async function handleSshDisconnect(sessionId: string) {
@@ -255,7 +348,7 @@ async function handleSshDisconnect(sessionId: string) {
 }
 
 async function reconnectActiveSshSession() {
-  const session = activeSshSession.value;
+  const session = activeSshSessionForPane.value;
   const profile = activeSshProfile.value;
   if (!session || !profile) {
     sshConnectError.value = '找不到原 SSH 配置，无法自动重连。请从左侧 SSH 配置列表重新连接。';
@@ -281,59 +374,267 @@ function toggleSidebar() {
 }
 
 const activeSession = computed(() => terminalStore.activeSession);
-const activeSshSession = computed(() => sshStore.activeSshSession ?? null);
-const activeSshProfile = computed(() =>
-  activeSshSession.value
-    ? sshStore.profiles.find((profile) => profile.id === activeSshSession.value?.profileId) ?? null
-    : null,
-);
-const activeSshReconnectState = computed(() =>
-  activeSshSession.value
-    ? sshStore.reconnectStates[activeSshSession.value.sessionId] ?? null
-    : null,
-);
-const activeSshDisconnectMessage = computed(() =>
-  activeSshSession.value
-    ? sshStore.getError(activeSshSession.value.sessionId) || activeSshReconnectState.value?.lastError || ''
-    : '',
-);
-const displaySessions = computed(() => terminalStore.mainSessions);
 const rendererMode = computed(() => appConfigStore.config.features.terminal.rendererMode);
+const layoutMode = computed(() => appConfigStore.config.features.terminal.layoutMode ?? 'tabbed');
+const enableBell = computed(() => appConfigStore.config.features.terminal.enableBell);
 const enableSixel = computed(() => appConfigStore.config.features.terminal.enableSixel);
 const colorSchemeId = computed(() => appConfigStore.config.features.terminal.colorSchemeId ?? 'dark-default');
 const forwardedPortSummaries = computed(() => sshStore.runningPortForwardSummaries);
-/** Whether the active viewport is for an SSH session */
-const isSshMode = computed(() => {
-  if (sidebarTab.value === 'ssh' && sshStore.activeSshSessionId) return true;
-  return false;
+const localTerminalPanes = computed<TerminalPane[]>(() =>
+  terminalStore.mainSessions.map((session) => ({
+    key: makePaneKey('local', session.sessionId),
+    kind: 'local',
+    sessionId: session.sessionId,
+    profileId: session.profileId,
+    title: session.profileLabel,
+    subtitle: session.cwd || '本地终端',
+    status: session.status,
+    buffer: terminalStore.getBuffer(session.sessionId),
+    session,
+  })),
+);
+const sshTerminalPanes = computed<TerminalPane[]>(() =>
+  sshStore.mainSessions.map((session) => ({
+    key: makePaneKey('ssh', session.sessionId),
+    kind: 'ssh',
+    sessionId: session.sessionId,
+    profileId: session.profileId,
+    title: session.profileLabel,
+    subtitle: `${session.username}@${session.host}:${session.port}`,
+    status: session.status,
+    buffer: sshStore.getBuffer(session.sessionId),
+    session,
+  })),
+);
+const pendingSshTerminalPanes = computed<TerminalPane[]>(() =>
+  sshConnectingProfileIds.value
+    .map((profileId) => sshStore.profiles.find((profile) => profile.id === profileId))
+    .filter((profile): profile is SshProfile => Boolean(profile))
+    .map((profile) => ({
+      key: makePaneKey('ssh-pending', profile.id),
+      kind: 'ssh-pending',
+      sessionId: profile.id,
+      profileId: profile.id,
+      title: profile.label,
+      subtitle: `${profile.username}@${profile.host}:${profile.port}`,
+      status: 'connecting',
+      buffer: '',
+      session: profile,
+    })),
+);
+const terminalPanes = computed<TerminalPane[]>(() => [
+  ...localTerminalPanes.value,
+  ...pendingSshTerminalPanes.value,
+  ...sshTerminalPanes.value,
+]);
+const orderedTerminalPanes = computed<TerminalPane[]>(() => {
+  const paneByKey = new Map(terminalPanes.value.map((pane) => [pane.key, pane]));
+  const ordered = paneOrder.value
+    .map((key) => paneByKey.get(key))
+    .filter((pane): pane is TerminalPane => Boolean(pane));
+  const orderedKeys = new Set(ordered.map((pane) => pane.key));
+  const appended = terminalPanes.value.filter((pane) => !orderedKeys.has(pane.key));
+  return [...ordered, ...appended];
 });
+const activeTerminalPane = computed<TerminalPane | null>(() => {
+  const panes = terminalPanes.value;
+  return panes.find((pane) => pane.key === focusedTerminalPaneKey.value)
+    ?? panes.find((pane) => pane.kind === 'ssh' && pane.sessionId === sshStore.activeSshSessionId)
+    ?? panes.find((pane) => pane.kind === 'local' && pane.sessionId === terminalStore.activeSessionId)
+    ?? panes.find((pane) => pane.kind === 'ssh-pending')
+    ?? panes[0]
+    ?? null;
+});
+const activeToolbarSession = computed<TerminalSessionDescriptor | null>(() => {
+  const pane = activeTerminalPane.value;
+  if (!pane) return null;
+  if (pane.kind === 'local') {
+    return pane.session as TerminalSessionDescriptor;
+  }
+  if (pane.kind === 'ssh-pending') {
+    const profile = pane.session as SshProfile;
+    return {
+      sessionId: pane.sessionId,
+      profileId: profile.id,
+      profileLabel: profile.label,
+      cwd: pane.subtitle,
+      attachedTarget: 'main',
+      status: 'connecting',
+    };
+  }
+
+  const session = pane.session as SshSessionDescriptor;
+  return {
+    sessionId: session.sessionId,
+    profileId: session.profileId,
+    profileLabel: session.profileLabel,
+    cwd: pane.subtitle,
+    attachedTarget: session.attachedTarget ?? 'main',
+    status: session.status,
+  };
+});
+const visibleTerminalPanes = computed<TerminalPane[]>(() => {
+  const activePane = activeTerminalPane.value;
+  if (layoutMode.value === 'tabbed') {
+    return activePane ? [activePane] : [];
+  }
+
+  return orderedTerminalPanes.value;
+});
+const gridColumnCount = computed(() => {
+  const count = visibleTerminalPanes.value.length;
+  return Math.max(1, Math.ceil(Math.sqrt(count)));
+});
+const gridRowCount = computed(() => {
+  const count = visibleTerminalPanes.value.length;
+  return Math.max(1, Math.ceil(count / gridColumnCount.value));
+});
+const masterStackCount = computed(() => Math.max(0, visibleTerminalPanes.value.length - 1));
+const terminalPaneWorkspaceStyle = computed<Record<string, string>>(() => {
+  const count = visibleTerminalPanes.value.length;
+  if (layoutMode.value === 'split-horizontal') {
+    return {
+      gridTemplateRows: toGridTemplate(ensureLayoutSizes('split-horizontal:rows', count)),
+      gridTemplateColumns: 'minmax(0, 1fr)',
+    };
+  }
+
+  if (layoutMode.value === 'split-vertical') {
+    return {
+      gridTemplateColumns: toGridTemplate(ensureLayoutSizes('split-vertical:columns', count)),
+      gridTemplateRows: 'minmax(0, 1fr)',
+    };
+  }
+
+  if (layoutMode.value === 'master-stack' && count > 1) {
+    return {
+      gridTemplateColumns: `${masterMainRatio.value}% ${100 - masterMainRatio.value}%`,
+      gridTemplateRows: toGridTemplate(ensureLayoutSizes('master-stack:stack-rows', masterStackCount.value)),
+    };
+  }
+
+  if (layoutMode.value === 'grid') {
+    return {
+      gridTemplateColumns: toGridTemplate(ensureLayoutSizes('grid:columns', gridColumnCount.value)),
+      gridTemplateRows: toGridTemplate(ensureLayoutSizes('grid:rows', gridRowCount.value)),
+    };
+  }
+
+  return {};
+});
+const dwindleLayoutModel = computed<DwindleLayoutModel>(() => buildDwindleLayout(visibleTerminalPanes.value));
+const terminalPaneLayoutItems = computed<TerminalPaneLayoutItem[]>(() => {
+  if (layoutMode.value === 'dwindle') {
+    return dwindleLayoutModel.value.items;
+  }
+
+  return visibleTerminalPanes.value.map((pane, index) => ({
+    pane,
+    style: getGridPaneStyle(index),
+  }));
+});
+const terminalPaneResizeHandles = computed<TerminalPaneResizeHandle[]>(() => {
+  const count = visibleTerminalPanes.value.length;
+  if (count <= 1 || layoutMode.value === 'tabbed') {
+    return [];
+  }
+
+  if (layoutMode.value === 'split-horizontal') {
+    return buildLinearResizeHandles('split-horizontal:rows', 'horizontal');
+  }
+
+  if (layoutMode.value === 'split-vertical') {
+    return buildLinearResizeHandles('split-vertical:columns', 'vertical');
+  }
+
+  if (layoutMode.value === 'master-stack') {
+    const handles: TerminalPaneResizeHandle[] = [{
+      id: 'master-stack:main',
+      kind: 'master-main',
+      orientation: 'vertical',
+      style: {
+        left: `${masterMainRatio.value}%`,
+        top: '0%',
+        height: '100%',
+      },
+    }];
+    return [
+      ...handles,
+      ...buildLinearResizeHandles('master-stack:stack-rows', 'horizontal', {
+        left: `${masterMainRatio.value}%`,
+        width: `${100 - masterMainRatio.value}%`,
+      }),
+    ];
+  }
+
+  if (layoutMode.value === 'grid') {
+    return [
+      ...buildLinearResizeHandles('grid:columns', 'vertical'),
+      ...buildLinearResizeHandles('grid:rows', 'horizontal'),
+    ];
+  }
+
+  if (layoutMode.value === 'dwindle') {
+    return dwindleLayoutModel.value.handles;
+  }
+
+  return [];
+});
+const activeSshSessionForPane = computed(() =>
+  activeTerminalPane.value?.kind === 'ssh'
+    ? (activeTerminalPane.value.session as SshSessionDescriptor)
+    : null,
+);
+const activeSshProfile = computed(() =>
+  activeSshSessionForPane.value
+    ? sshStore.profiles.find((profile) => profile.id === activeSshSessionForPane.value?.profileId) ?? null
+    : null,
+);
+const activeSshReconnectState = computed(() =>
+  activeSshSessionForPane.value
+    ? sshStore.reconnectStates[activeSshSessionForPane.value.sessionId] ?? null
+    : null,
+);
+const activeSshDisconnectMessage = computed(() =>
+  activeSshSessionForPane.value
+    ? sshStore.getError(activeSshSessionForPane.value.sessionId) || activeSshReconnectState.value?.lastError || ''
+    : '',
+);
+/** Whether the active viewport is for an SSH session */
+const isSshMode = computed(() => activeTerminalPane.value?.kind === 'ssh');
 const activeLocalTerminalProfile = computed(() => {
-  if (isSshMode.value) {
+  const activePane = activeTerminalPane.value;
+  if (!activePane || activePane.kind !== 'local') {
     return null;
   }
 
-  const profileId = activeSession.value?.profileId;
-  if (!profileId) {
-    return null;
-  }
-
-  return appConfigStore.config.features.terminal.localProfiles.find((profile) => profile.id === profileId) ?? null;
+  return appConfigStore.config.features.terminal.localProfiles.find((profile) => profile.id === activePane.profileId) ?? null;
 });
 
 watch(() => sshStore.activeSshSessionId, (sessionId) => {
-  if (sessionId) {
-    if (sshStore.mainSessions.some((session) => session.sessionId === sessionId)) {
-      sidebarTab.value = 'ssh';
-    }
+  if (sessionId || activeSession.value) {
     return;
   }
 
-  if (sidebarTab.value !== 'ssh' || !activeSession.value) {
-    return;
-  }
-
-  sidebarTab.value = 'terminal';
   sshStore.togglePortForwardPanel(false);
+});
+
+watch(terminalPanes, (panes) => {
+  const activePane = activeTerminalPane.value;
+  const currentKeys = panes.map((pane) => pane.key);
+  paneOrder.value = [
+    ...paneOrder.value.filter((key) => currentKeys.includes(key)),
+    ...currentKeys.filter((key) => !paneOrder.value.includes(key)),
+  ];
+
+  if (!activePane) {
+    focusedTerminalPaneKey.value = '';
+    return;
+  }
+
+  if (!panes.some((pane) => pane.key === focusedTerminalPaneKey.value)) {
+    focusedTerminalPaneKey.value = activePane.key;
+  }
 });
 
 // Background config derived from the active local terminal profile, falling back to global app config.
@@ -364,8 +665,243 @@ const terminalBgPreviewSize = computed(() => (
   getMeasuredElementSize(terminalStageRef.value ?? terminalMainRef.value, { width: 320, height: 200 })
 ));
 
-function findProfileForSession(session: TerminalSessionDescriptor) {
-  return terminalStore.profiles.find((profile) => profile.id === session.profileId) ?? null;
+function makePaneKey(kind: TerminalPaneKind, sessionId: string) {
+  return `${kind}:${sessionId}`;
+}
+
+function parsePaneKey(key: string): { kind: TerminalPaneKind; sessionId: string } | null {
+  const index = key.indexOf(':');
+  if (index <= 0) return null;
+  const kind = key.slice(0, index);
+  const sessionId = key.slice(index + 1);
+  if ((kind !== 'local' && kind !== 'ssh' && kind !== 'ssh-pending') || !sessionId) {
+    return null;
+  }
+  return { kind, sessionId };
+}
+
+function isTerminalViewportInstance(value: unknown): value is InstanceType<typeof TerminalViewport> {
+  return Boolean(value)
+    && typeof (value as { focus?: unknown }).focus === 'function'
+    && typeof (value as { clear?: unknown }).clear === 'function';
+}
+
+function setViewportRef(key: string, instance: unknown) {
+  if (isTerminalViewportInstance(instance)) {
+    viewportRefs.set(key, instance);
+    return;
+  }
+  viewportRefs.delete(key);
+}
+
+function getActiveViewportRef() {
+  const key = activeTerminalPane.value?.key;
+  return key ? viewportRefs.get(key) ?? null : null;
+}
+
+function refitTerminalViewports() {
+  viewportRefs.forEach((viewport) => {
+    (viewport as { refit?: () => void }).refit?.();
+  });
+}
+
+function toGridTemplate(sizes: number[]) {
+  return sizes.map((size) => `minmax(0, ${size}fr)`).join(' ');
+}
+
+function ensureLayoutSizes(key: string, count: number) {
+  if (count <= 0) return [];
+  const current = layoutSizeState.value[key] ?? [];
+  if (current.length === count && current.every((size) => size > 0)) {
+    return current;
+  }
+
+  const next = Array.from({ length: count }, (_, index) => current[index] || 1);
+  layoutSizeState.value = {
+    ...layoutSizeState.value,
+    [key]: normalizeSizes(next),
+  };
+  return layoutSizeState.value[key];
+}
+
+function normalizeSizes(sizes: number[]) {
+  const safeSizes = sizes.map((size) => Math.max(0.1, Number.isFinite(size) ? size : 1));
+  const total = safeSizes.reduce((sum, size) => sum + size, 0) || 1;
+  return safeSizes.map((size) => size / total);
+}
+
+function updateLayoutSizes(key: string, sizes: number[]) {
+  layoutSizeState.value = {
+    ...layoutSizeState.value,
+    [key]: normalizeSizes(sizes),
+  };
+}
+
+function getGridPaneStyle(index: number): Record<string, string> {
+  if (layoutMode.value === 'master-stack' && visibleTerminalPanes.value.length > 1) {
+    if (index === 0) {
+      return {
+        gridColumn: '1',
+        gridRow: `1 / ${masterStackCount.value + 1}`,
+      };
+    }
+
+    return {
+      gridColumn: '2',
+      gridRow: `${index} / ${index + 1}`,
+    };
+  }
+
+  if (layoutMode.value === 'grid') {
+    const column = (index % gridColumnCount.value) + 1;
+    const row = Math.floor(index / gridColumnCount.value) + 1;
+    return {
+      gridColumn: `${column} / ${column + 1}`,
+      gridRow: `${row} / ${row + 1}`,
+    };
+  }
+
+  return {};
+}
+
+function buildLinearResizeHandles(
+  stateKey: string,
+  orientation: PaneResizeOrientation,
+  bounds: Record<string, string> = {},
+): TerminalPaneResizeHandle[] {
+  const sizes = ensureLayoutSizes(
+    stateKey,
+    stateKey === 'grid:columns'
+      ? gridColumnCount.value
+      : stateKey === 'grid:rows'
+        ? gridRowCount.value
+        : stateKey === 'master-stack:stack-rows'
+          ? masterStackCount.value
+          : visibleTerminalPanes.value.length,
+  );
+
+  if (sizes.length <= 1) return [];
+
+  let offset = 0;
+  return sizes.slice(0, -1).map((size, index) => {
+    offset += size;
+    const percent = offset * 100;
+    return {
+      id: `${stateKey}:${index}`,
+      kind: stateKey.startsWith('grid') ? 'grid' : 'split',
+      orientation,
+      stateKey,
+      index,
+      style: orientation === 'vertical'
+        ? { left: `${percent}%`, top: '0%', height: '100%', ...bounds }
+        : { top: `${percent}%`, left: '0%', width: '100%', ...bounds },
+    };
+  });
+}
+
+function buildDwindleLayout(panes: TerminalPane[]): DwindleLayoutModel {
+  const rects: Record<string, string>[] = [];
+  const handles: TerminalPaneResizeHandle[] = [];
+  let left = 0;
+  let top = 0;
+  let width = 100;
+  let height = 100;
+
+  panes.forEach((pane, index) => {
+    const isLast = index === panes.length - 1;
+    if (isLast) {
+      rects.push(toDwindleStyle(left, top, width, height));
+      return;
+    }
+
+    const ratio = ensureDwindleRatio(index);
+    if (index % 2 === 0) {
+      const paneWidth = width * ratio;
+      rects.push(toDwindleStyle(left, top, paneWidth, height));
+      handles.push({
+        id: `dwindle:${index}`,
+        kind: 'dwindle',
+        orientation: 'vertical',
+        splitIndex: index,
+        bounds: { left, top, width, height },
+        style: {
+          left: `${left + paneWidth}%`,
+          top: `${top}%`,
+          height: `${height}%`,
+        },
+      });
+      left += paneWidth;
+      width -= paneWidth;
+    } else {
+      const paneHeight = height * ratio;
+      rects.push(toDwindleStyle(left, top, width, paneHeight));
+      handles.push({
+        id: `dwindle:${index}`,
+        kind: 'dwindle',
+        orientation: 'horizontal',
+        splitIndex: index,
+        bounds: { left, top, width, height },
+        style: {
+          left: `${left}%`,
+          top: `${top + paneHeight}%`,
+          width: `${width}%`,
+        },
+      });
+      top += paneHeight;
+      height -= paneHeight;
+    }
+  });
+
+  return {
+    items: panes.map((pane, index) => ({ pane, style: rects[index] ?? {} })),
+    handles,
+  };
+}
+
+function ensureDwindleRatio(index: number) {
+  const current = dwindleSplitRatios.value[index];
+  if (typeof current === 'number' && Number.isFinite(current)) {
+    return current;
+  }
+
+  const next = [...dwindleSplitRatios.value];
+  next[index] = 0.5;
+  dwindleSplitRatios.value = next;
+  return 0.5;
+}
+
+function toDwindleStyle(left: number, top: number, width: number, height: number) {
+  return {
+    left: `${left}%`,
+    top: `${top}%`,
+    width: `${width}%`,
+    height: `${height}%`,
+  };
+}
+
+function resolvePaneBackground(pane: TerminalPane) {
+  if (pane.kind === 'local') {
+    const localProfile = appConfigStore.config.features.terminal.localProfiles.find((profile) => profile.id === pane.profileId);
+    if (localProfile?.background) {
+      return localProfile.background;
+    }
+  }
+
+  return {
+    type: appConfigStore.config.features.terminal.viewportBgType ?? 'color',
+    color: appConfigStore.config.features.terminal.viewportBgColor ?? '',
+    image: appConfigStore.config.features.terminal.viewportBgImage ?? '',
+    video: appConfigStore.config.features.terminal.viewportBgVideo ?? '',
+    style: appConfigStore.config.features.terminal.viewportBgStyle ?? {},
+  };
+}
+
+function paneHasCustomBg(pane: TerminalPane) {
+  const background = resolvePaneBackground(pane);
+  if (background.type === 'image' && background.image) return true;
+  if (background.type === 'video' && background.video) return true;
+  if (background.type === 'color' && background.color) return true;
+  return false;
 }
 
 // Whether a user-defined background is active (drives WebGL skip + terminal key)
@@ -378,11 +914,6 @@ const hasCustomBg = computed(() => {
 
 async function initializePage() {
   await terminalStore.ensureSession();
-  if (!newSessionProfileId.value && terminalStore.profiles.length > 0) {
-    newSessionProfileId.value = appConfigStore.config.features.terminal.defaultProfileId
-      || terminalStore.profiles.find((profile) => profile.isDefault)?.id
-      || terminalStore.profiles[0].id;
-  }
 }
 
 async function createSession(profileId?: string) {
@@ -392,19 +923,227 @@ async function createSession(profileId?: string) {
   });
   if (appConfigStore.config.features.terminal.detachToWindowByDefault) {
     await terminalStore.detachToWindow(session.sessionId);
+    return;
+  }
+  focusLocalSession(session.sessionId, true);
+}
+
+function focusLocalSession(sessionId: string, focusViewport = false) {
+  terminalStore.focusSession(sessionId);
+  focusedTerminalPaneKey.value = makePaneKey('local', sessionId);
+  if (focusViewport) {
+    void focusActiveTerminalViewport();
   }
 }
 
-function focusSession(sessionId: string) {
-  terminalStore.focusSession(sessionId);
+function focusSshSession(sessionId: string, focusViewport = false) {
+  sshStore.focusSession(sessionId);
+  focusedTerminalPaneKey.value = makePaneKey('ssh', sessionId);
+  sshConnectError.value = '';
+  sshLastFailedProfile.value = null;
+  if (focusViewport) {
+    void focusActiveTerminalViewport();
+  }
+}
+
+function focusPane(pane: TerminalPane, focusViewport = true) {
+  if (pane.kind === 'ssh-pending') {
+    focusedTerminalPaneKey.value = pane.key;
+    return;
+  }
+  if (pane.kind === 'ssh') {
+    focusSshSession(pane.sessionId, focusViewport);
+    return;
+  }
+  focusLocalSession(pane.sessionId, focusViewport);
+}
+
+function handlePaneDragStart(event: DragEvent, pane: TerminalPane) {
+  if (visibleTerminalPanes.value.length <= 1) return;
+  draggingPaneKey.value = pane.key;
+  dropTargetPaneKey.value = pane.key;
+  updatePaneDragPreview(event, pane);
+  event.dataTransfer?.setData('text/plain', pane.key);
+  if (event.dataTransfer) {
+    event.dataTransfer.effectAllowed = 'move';
+    event.dataTransfer.setDragImage(getTransparentDragImage(), 0, 0);
+  }
+}
+
+function handlePaneDragOver(event: DragEvent, pane: TerminalPane) {
+  if (!draggingPaneKey.value) return;
+  event.preventDefault();
+  updatePaneDragPreview(event, pane);
+  if (draggingPaneKey.value === pane.key) return;
+  if (dropTargetPaneKey.value !== pane.key) {
+    reorderPane(draggingPaneKey.value, pane.key);
+  }
+  dropTargetPaneKey.value = pane.key;
+}
+
+function handlePaneDrop(event: DragEvent, pane: TerminalPane) {
+  event.preventDefault();
+  const sourceKey = event.dataTransfer?.getData('text/plain') || draggingPaneKey.value;
+  reorderPane(sourceKey, pane.key);
+  clearPaneDragState();
+}
+
+function handlePaneDragMove(event: DragEvent) {
+  if (!draggingPaneKey.value) return;
+  updatePaneDragPreview(event);
+}
+
+function handlePaneWorkspaceDragOver(event: DragEvent) {
+  if (!draggingPaneKey.value) return;
+  event.preventDefault();
+  updatePaneDragPreview(event);
+}
+
+function clearPaneDragState() {
+  draggingPaneKey.value = '';
+  dropTargetPaneKey.value = '';
+  paneDragPreview.value = {
+    ...paneDragPreview.value,
+    visible: false,
+  };
+}
+
+function reorderPane(sourceKey: string, targetKey: string) {
+  if (!sourceKey || !targetKey || sourceKey === targetKey) return;
+  const keys = orderedTerminalPanes.value.map((pane) => pane.key);
+  const sourceIndex = keys.indexOf(sourceKey);
+  const targetIndex = keys.indexOf(targetKey);
+  if (sourceIndex < 0 || targetIndex < 0) return;
+
+  keys.splice(sourceIndex, 1);
+  keys.splice(targetIndex, 0, sourceKey);
+  paneOrder.value = keys;
+}
+
+function updatePaneDragPreview(event: DragEvent, pane?: TerminalPane) {
+  if (event.clientX === 0 && event.clientY === 0) return;
+  const draggedPane = orderedTerminalPanes.value.find((item) => item.key === draggingPaneKey.value);
+  const sourcePane = draggedPane ?? pane ?? null;
+  paneDragPreview.value = {
+    visible: true,
+    left: event.clientX + 14,
+    top: event.clientY + 14,
+    title: sourcePane?.title ?? paneDragPreview.value.title,
+    kind: sourcePane?.kind ?? paneDragPreview.value.kind,
+  };
+}
+
+function getTransparentDragImage() {
+  if (transparentDragImage) return transparentDragImage;
+  transparentDragImage = document.createElement('div');
+  transparentDragImage.style.position = 'fixed';
+  transparentDragImage.style.left = '-100px';
+  transparentDragImage.style.top = '-100px';
+  transparentDragImage.style.width = '1px';
+  transparentDragImage.style.height = '1px';
+  transparentDragImage.style.opacity = '0';
+  document.body.appendChild(transparentDragImage);
+  return transparentDragImage;
+}
+
+function startPaneResize(event: PointerEvent, handle: TerminalPaneResizeHandle) {
+  const workspace = terminalStageRef.value?.querySelector('.terminal-pane-workspace');
+  if (!(workspace instanceof HTMLElement)) return;
+
+  event.preventDefault();
+  event.stopPropagation();
+
+  resizeInteraction.value = {
+    handle,
+    startX: event.clientX,
+    startY: event.clientY,
+    startSizes: handle.stateKey ? [...ensureLayoutSizes(handle.stateKey, getResizeStateCount(handle.stateKey))] : [],
+    rect: workspace.getBoundingClientRect(),
+  };
+
+  document.body.classList.add('terminal-pane-resizing');
+  window.addEventListener('pointermove', handlePaneResizeMove, true);
+  window.addEventListener('pointerup', stopPaneResize, true);
+  window.addEventListener('pointercancel', stopPaneResize, true);
+}
+
+function handlePaneResizeMove(event: PointerEvent) {
+  const interaction = resizeInteraction.value;
+  if (!interaction) return;
+
+  const { handle, rect } = interaction;
+  if (handle.kind === 'master-main') {
+    masterMainRatio.value = clamp(((event.clientX - rect.left) / rect.width) * 100, 24, 76);
+    return;
+  }
+
+  if (handle.kind === 'dwindle' && typeof handle.splitIndex === 'number') {
+    const next = [...dwindleSplitRatios.value];
+    const bounds = handle.bounds;
+    if (!bounds) return;
+    const ratio = handle.orientation === 'vertical'
+      ? ((event.clientX - rect.left) / rect.width * 100 - bounds.left) / bounds.width
+      : ((event.clientY - rect.top) / rect.height * 100 - bounds.top) / bounds.height;
+    next[handle.splitIndex] = clamp(ratio, 0.18, 0.82);
+    dwindleSplitRatios.value = next;
+    return;
+  }
+
+  if (!handle.stateKey || typeof handle.index !== 'number') return;
+  const delta = handle.orientation === 'vertical'
+    ? (event.clientX - interaction.startX) / rect.width
+    : (event.clientY - interaction.startY) / rect.height;
+  resizeAdjacentSizes(handle.stateKey, handle.index, interaction.startSizes, delta);
+}
+
+function stopPaneResize() {
+  resizeInteraction.value = null;
+  document.body.classList.remove('terminal-pane-resizing');
+  window.removeEventListener('pointermove', handlePaneResizeMove, true);
+  window.removeEventListener('pointerup', stopPaneResize, true);
+  window.removeEventListener('pointercancel', stopPaneResize, true);
+}
+
+function resizeAdjacentSizes(stateKey: string, index: number, startSizes: number[], delta: number) {
+  const next = [...startSizes];
+  const pairTotal = next[index] + next[index + 1];
+  const minSize = Math.min(0.12, pairTotal / 3);
+  next[index] = clamp(next[index] + delta, minSize, pairTotal - minSize);
+  next[index + 1] = pairTotal - next[index];
+  updateLayoutSizes(stateKey, next);
+}
+
+function getResizeStateCount(stateKey: string) {
+  if (stateKey === 'grid:columns') return gridColumnCount.value;
+  if (stateKey === 'grid:rows') return gridRowCount.value;
+  if (stateKey === 'master-stack:stack-rows') return masterStackCount.value;
+  return visibleTerminalPanes.value.length;
+}
+
+async function resetTerminalLayoutSize() {
+  stopPaneResize();
+  layoutSizeState.value = {};
+  masterMainRatio.value = 66;
+  dwindleSplitRatios.value = [];
+  await nextTick();
+  window.requestAnimationFrame(refitTerminalViewports);
+}
+
+function clamp(value: number, min: number, max: number) {
+  return Math.min(max, Math.max(min, value));
+}
+
+async function focusActiveTerminalViewport() {
+  await nextTick();
+  getActiveViewportRef()?.focus();
 }
 
 function findNext() {
-  viewportRef.value?.findNext(searchQuery.value);
+  getActiveViewportRef()?.findNext(searchQuery.value);
 }
 
 function findPrevious() {
-  viewportRef.value?.findPrevious(searchQuery.value);
+  getActiveViewportRef()?.findPrevious(searchQuery.value);
 }
 
 function resetSearchResults() {
@@ -421,12 +1160,12 @@ function updateSearchQuery(value: string) {
   searchQuery.value = value;
   if (!value.trim()) {
     resetSearchResults();
-    viewportRef.value?.clearSearchResults();
+    getActiveViewportRef()?.clearSearchResults();
     return;
   }
 
   void nextTick(() => {
-    viewportRef.value?.findNext(value, true);
+    getActiveViewportRef()?.findNext(value, true);
   });
 }
 
@@ -435,7 +1174,7 @@ async function openSearchPanel() {
   await nextTick();
   await searchPanelRef.value?.focusInput();
   if (searchQuery.value.trim()) {
-    viewportRef.value?.findNext(searchQuery.value, true);
+    getActiveViewportRef()?.findNext(searchQuery.value, true);
   }
 }
 
@@ -451,7 +1190,7 @@ async function toggleSearchPanel() {
 function closeSearchPanel() {
   searchVisible.value = false;
   resetSearchResults();
-  viewportRef.value?.clearSearchResults();
+  getActiveViewportRef()?.clearSearchResults();
 }
 
 function handleTerminalPageKeydown(event: KeyboardEvent) {
@@ -473,16 +1212,35 @@ function handleTerminalPageKeydown(event: KeyboardEvent) {
 }
 
 async function detachActiveSession() {
-  if (isSshMode.value && activeSshSession.value) {
-    await window.sshApi.detachToWindow(activeSshSession.value.sessionId, activeSshSession.value.profileLabel);
+  const activePane = activeTerminalPane.value;
+  if (!activePane) return;
+  if (activePane.kind === 'ssh-pending') return;
+  if (activePane.kind === 'ssh') {
+    await window.sshApi.detachToWindow(activePane.sessionId, activePane.title);
     return;
   }
-  if (!activeSession.value) return;
-  await terminalStore.detachToWindow(activeSession.value.sessionId);
+  await terminalStore.detachToWindow(activePane.sessionId);
 }
 
 async function closeSession(sessionId: string) {
   await terminalStore.killSession(sessionId);
+}
+
+async function closePane(pane: TerminalPane) {
+  if (pane.kind === 'ssh-pending') {
+    clearSshProfileConnecting(pane.profileId);
+    if (focusedTerminalPaneKey.value === pane.key) {
+      focusedTerminalPaneKey.value = '';
+    }
+    return;
+  }
+
+  if (pane.kind === 'ssh') {
+    await handleSshDisconnect(pane.sessionId);
+    return;
+  }
+
+  await closeSession(pane.sessionId);
 }
 
 function handleRenameSession(sessionId: string, newLabel: string) {
@@ -490,40 +1248,8 @@ function handleRenameSession(sessionId: string, newLabel: string) {
 }
 
 function openPortForwardPanelForSession(sessionId: string) {
-  sshStore.focusSession(sessionId);
-  sidebarTab.value = 'ssh';
+  focusSshSession(sessionId, true);
   sshStore.togglePortForwardPanel(true);
-}
-
-// ── Sidebar inline rename ───────────────────────────────────────
-const sidebarEditingId = ref<string | null>(null);
-const sidebarEditValue = ref('');
-const sidebarInputRef = ref<HTMLInputElement | null>(null);
-
-function startSidebarRename(session: { sessionId: string; profileLabel: string }, event: MouseEvent) {
-  event.stopPropagation();
-  sidebarEditingId.value = session.sessionId;
-  sidebarEditValue.value = session.profileLabel;
-  void nextTick(() => {
-    sidebarInputRef.value?.focus();
-    sidebarInputRef.value?.select();
-  });
-}
-
-function commitSidebarRename(sessionId: string) {
-  const trimmed = sidebarEditValue.value.trim();
-  if (trimmed && sidebarEditingId.value === sessionId) {
-    terminalStore.renameSession(sessionId, trimmed);
-  }
-  sidebarEditingId.value = null;
-}
-
-function handleSidebarKeydown(e: KeyboardEvent, sessionId: string) {
-  if (e.key === 'Enter') {
-    (e.target as HTMLInputElement)?.blur();
-  } else if (e.key === 'Escape') {
-    sidebarEditingId.value = null;
-  }
 }
 
 async function updateRendererMode(nextMode: TerminalRendererMode) {
@@ -531,6 +1257,16 @@ async function updateRendererMode(nextMode: TerminalRendererMode) {
     features: {
       terminal: {
         rendererMode: nextMode,
+      },
+    },
+  });
+}
+
+async function updateLayoutMode(nextMode: TerminalLayoutMode) {
+  await appConfigStore.updateConfig({
+    features: {
+      terminal: {
+        layoutMode: nextMode,
       },
     },
   });
@@ -593,49 +1329,20 @@ async function handleBgConfirm(payload: BackgroundConfirmPayload) {
 
 
 
-watch(() => terminalStore.profiles, (profiles) => {
-  if (profiles.length === 0) {
-    newSessionProfileId.value = '';
-    return;
-  }
-
-  if (!newSessionProfileId.value || !profiles.some((profile) => profile.id === newSessionProfileId.value)) {
-    newSessionProfileId.value = appConfigStore.config.features.terminal.defaultProfileId
-      || profiles.find((profile) => profile.isDefault)?.id
-      || profiles[0].id;
-  }
-}, { deep: true });
-
-// ── Computed: which session & buffer to show ──────────────────
-
-/** Buffer content for the active viewport */
-const activeViewportBuffer = computed(() => {
-  if (isSshMode.value) {
-    return sshStore.getBuffer(sshStore.activeSshSessionId);
-  }
-  const sid = activeSession.value?.sessionId;
-  return sid ? terminalStore.getBuffer(sid) : '';
-});
-
-/** Session ID for the active viewport */
-const activeViewportSessionId = computed(() => {
-  if (isSshMode.value) return sshStore.activeSshSessionId;
-  return activeSession.value?.sessionId ?? '';
-});
-
 function clearTerminal() {
-  if (isSshMode.value) {
-    sshStore.clearBuffer(sshStore.activeSshSessionId);
+  const activePane = activeTerminalPane.value;
+  if (!activePane) return;
+  if (activePane.kind === 'ssh-pending') return;
+  if (activePane.kind === 'ssh') {
+    sshStore.clearBuffer(activePane.sessionId);
   } else {
-    const sessionId = activeSession.value?.sessionId;
-    if (!sessionId) return;
-    terminalStore.clearLocalBuffer(sessionId);
+    terminalStore.clearLocalBuffer(activePane.sessionId);
   }
-  viewportRef.value?.clear();
+  getActiveViewportRef()?.clear();
 }
 
 async function openFileManagerForCurrentSsh() {
-  const sshSession = activeSshSession.value;
+  const sshSession = activeSshSessionForPane.value;
   if (!sshSession) return;
   const sshProfile = activeSshProfile.value ?? sshStore.profiles.find((profile) => profile.id === sshSession.profileId) ?? null;
   if (!sshProfile) return;
@@ -675,7 +1382,7 @@ function extractSshSessionIdFromError(error: unknown) {
   const message = getErrorMessage(error);
   return message.match(/SSH session ['"]([^'"]+)['"] not found/i)?.[1]
     ?? message.match(/session ['"]([^'"]+)['"] not found/i)?.[1]
-    ?? activeSshSession.value?.sessionId
+    ?? activeSshSessionForPane.value?.sessionId
     ?? '';
 }
 
@@ -698,6 +1405,9 @@ onMounted(() => {
 onBeforeUnmount(() => {
   window.removeEventListener('keydown', handleTerminalPageKeydown, true);
   window.removeEventListener('unhandledrejection', handleUnhandledSshRejection);
+  stopPaneResize();
+  transparentDragImage?.remove();
+  transparentDragImage = null;
 });
 </script>
 
@@ -747,118 +1457,135 @@ onBeforeUnmount(() => {
           <div v-show="!sidebarCollapsed" class="sidebar-tabs">
             <button
               class="sidebar-tab"
-              :class="{ 'sidebar-tab--active': sidebarTab === 'terminal' }"
-              id="sidebar-tab-terminal"
-              @click="sidebarTab = 'terminal'"
+              :class="{ 'sidebar-tab--active': sidebarTab === 'config' }"
+              id="sidebar-tab-config"
+              @click="activateSidebarTab()"
             >
-              <!-- Terminal icon -->
               <svg viewBox="0 0 24 24" width="13" height="13" stroke="currentColor" stroke-width="2"
                 fill="none" stroke-linecap="round" stroke-linejoin="round">
-                <polyline points="4 17 10 11 4 5" /><line x1="12" y1="19" x2="20" y2="19" />
+                <path d="M12 15.5A3.5 3.5 0 1 0 12 8a3.5 3.5 0 0 0 0 7.5Z" />
+                <path d="M19.4 15a1.7 1.7 0 0 0 .34 1.88l.04.04a2 2 0 1 1-2.83 2.83l-.04-.04A1.7 1.7 0 0 0 15 19.4a1.7 1.7 0 0 0-1 .6l-.06.06a2 2 0 1 1-3.88 0L10 20a1.7 1.7 0 0 0-1-.6 1.7 1.7 0 0 0-1.88.34l-.04.04a2 2 0 1 1-2.83-2.83l.04-.04A1.7 1.7 0 0 0 4.6 15a1.7 1.7 0 0 0-.6-1l-.06-.06a2 2 0 1 1 0-3.88L4 10a1.7 1.7 0 0 0 .6-1 1.7 1.7 0 0 0-.34-1.88l-.04-.04a2 2 0 1 1 2.83-2.83l.04.04A1.7 1.7 0 0 0 9 4.6a1.7 1.7 0 0 0 1-.6l.06-.06a2 2 0 1 1 3.88 0L14 4a1.7 1.7 0 0 0 1 .6 1.7 1.7 0 0 0 1.88-.34l.04-.04a2 2 0 1 1 2.83 2.83l-.04.04A1.7 1.7 0 0 0 19.4 9c.19.35.4.69.6 1l.06.06a2 2 0 1 1 0 3.88L20 14a1.7 1.7 0 0 0-.6 1Z" />
               </svg>
-              终端
-            </button>
-            <button
-              class="sidebar-tab"
-              :class="{ 'sidebar-tab--active': sidebarTab === 'ssh' }"
-              id="sidebar-tab-ssh"
-              @click="sidebarTab = 'ssh'"
-            >
-              <!-- SSH / server icon -->
-              <svg viewBox="0 0 24 24" width="13" height="13" stroke="currentColor" stroke-width="2"
-                fill="none" stroke-linecap="round" stroke-linejoin="round">
-                <rect x="2" y="2" width="20" height="8" rx="2" ry="2"/>
-                <rect x="2" y="14" width="20" height="8" rx="2" ry="2"/>
-                <line x1="6" y1="6" x2="6.01" y2="6"/><line x1="6" y1="18" x2="6.01" y2="18"/>
-              </svg>
-              SSH
-              <span v-if="sshStore.mainSessions.length > 0" class="sidebar-tab__badge">{{ sshStore.mainSessions.length }}</span>
+              配置
             </button>
           </div>
         </div>
 
-        <!-- Terminal Tab: local sessions -->
-        <Transition name="ui-tab-fade">
-        <div v-show="sidebarTab === 'terminal'" class="terminal-sidebar__sessions">
-          <div
-            v-for="session in displaySessions"
-            :key="session.sessionId"
-            v-tooltip="{ content: session.profileLabel, placement: 'right', delay: 350, disabled: !sidebarCollapsed, block: true }"
-            class="terminal-session-item"
-            :class="{ 'terminal-session-item--active': session.sessionId === activeSession?.sessionId }"
-            @click="focusSession(session.sessionId)"
-          >
-            <div class="terminal-session-item__left">
-              <span
-                class="status-dot"
-                :class="session.status === 'running' ? 'status-dot--running' : 'status-dot--stopped'"
+        <div class="terminal-sidebar__tab-panels">
+          <!-- Config tab -->
+          <div class="terminal-sidebar__panel terminal-sidebar__panel--config">
+            <template v-if="sidebarCollapsed">
+              <div class="terminal-sidebar__collapsed-rail">
+                <button
+                  v-for="profile in terminalStore.profiles"
+                  :key="profile.id"
+                  class="terminal-sidebar__collapsed-action"
+                  type="button"
+                  :title="`新建本地终端：${profile.label}`"
+                  @click="createSession(profile.id)"
+                >
+                  <TerminalProfileIcon
+                    :profile-id="profile.id"
+                    :command="profile.command"
+                    :label="profile.label"
+                    :size="18"
+                  />
+                </button>
+                <div class="terminal-sidebar__collapsed-divider" />
+                <button
+                  v-for="profile in sshStore.profiles"
+                  :key="profile.id"
+                  class="terminal-sidebar__collapsed-action terminal-sidebar__collapsed-action--ssh"
+                  :class="{ 'terminal-sidebar__collapsed-action--connecting': isSshProfileConnecting(profile.id) }"
+                  type="button"
+                  :title="isSshProfileConnecting(profile.id)
+                    ? `正在连接 SSH：${profile.label}`
+                    : `连接 SSH：${profile.label}`"
+                  :disabled="isSshProfileConnecting(profile.id)"
+                  @click="handleSshConnect(profile)"
+                >
+                  <span v-if="profile.color" class="terminal-sidebar__collapsed-color" :style="{ background: profile.color }" />
+                  <svg viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" stroke-width="2"
+                    fill="none" stroke-linecap="round" stroke-linejoin="round">
+                    <polyline points="4 17 10 11 4 5" />
+                    <line x1="12" y1="19" x2="20" y2="19" />
+                  </svg>
+                </button>
+                <div class="terminal-sidebar__collapsed-divider" />
+                <button
+                  class="terminal-sidebar__collapsed-action terminal-sidebar__collapsed-action--muted"
+                  type="button"
+                  title="新建 SSH 配置"
+                  @click="openSshProfileDialog(null)"
+                >
+                  <svg viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" stroke-width="2"
+                    fill="none" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M12 5v14" />
+                    <path d="M5 12h14" />
+                  </svg>
+                </button>
+              </div>
+            </template>
+            <template v-else>
+              <div class="terminal-sidebar__sessions terminal-sidebar__config-list">
+                <div class="terminal-sidebar__section-header">
+                  <span class="terminal-sidebar__section-label">本地终端配置</span>
+                </div>
+                <button
+                  v-for="profile in terminalStore.profiles"
+                  :key="profile.id"
+                  class="terminal-profile-item"
+                  type="button"
+                  @click="createSession(profile.id)"
+                >
+                  <TerminalProfileIcon
+                    class="terminal-profile-item__icon"
+                    :profile-id="profile.id"
+                    :command="profile.command"
+                    :label="profile.label"
+                    :size="16"
+                  />
+                  <span class="terminal-profile-item__text">
+                    <span class="terminal-profile-item__label">{{ profile.label }}</span>
+                    <span class="terminal-profile-item__command">{{ profile.command || profile.id }}</span>
+                  </span>
+                  <svg class="terminal-profile-item__launch" viewBox="0 0 24 24" width="14" height="14" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M5 12h14" />
+                    <path d="m13 6 6 6-6 6" />
+                  </svg>
+                </button>
+                <div class="terminal-sidebar__divider" />
+              </div>
+              <SshSidebarTab
+                class="terminal-sidebar__ssh-configs"
+                :show-active-sessions="false"
+                :profile-section-label="'SSH 配置'"
+                :connecting-profile-ids="sshConnectingProfileIds"
+                @edit-profile="openSshProfileDialog"
+                @create-profile-in-group="openSshProfileDialog(null, $event)"
+                @open-key-manager="sshKeyManagerVisible = true"
+                @connect="handleSshConnect"
+                @focus-session="handleSshFocusSession"
+                @disconnect="handleSshDisconnect"
               />
-              <template v-if="!sidebarCollapsed">
-                <TerminalProfileIcon
-                  class="terminal-session-item__profile-icon"
-                  :profile-id="session.profileId"
-                  :command="findProfileForSession(session)?.command"
-                  :label="session.profileLabel"
-                  :size="16"
-                />
-                <input
-                  v-if="sidebarEditingId === session.sessionId"
-                  ref="sidebarInputRef"
-                  v-model="sidebarEditValue"
-                  class="terminal-session-item__input"
-                  @blur="commitSidebarRename(session.sessionId)"
-                  @keydown="handleSidebarKeydown($event, session.sessionId)"
-                  @click.stop
-                />
-                <span
-                  v-else
-                  class="terminal-session-item__title terminal-session-item__title--editable"
-                  @click.stop="startSidebarRename(session, $event)"
-                >{{ session.profileLabel }}</span>
-              </template>
-            </div>
-            <div v-show="!sidebarCollapsed" class="terminal-session-item__right">
-              <span class="terminal-session-item__badge"
-                :class="session.status === 'running' ? 'badge--running' : 'badge--stopped'">
-                {{ session.status === 'running' ? 'Running' : 'Stopped' }}
-              </span>
-              <button
-                class="terminal-session-item__close"
-                title="关闭会话"
-                @click.stop="closeSession(session.sessionId)"
-              >
-                <svg viewBox="0 0 24 24" width="12" height="12" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round">
-                  <line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" />
-                </svg>
-              </button>
-            </div>
+            </template>
           </div>
         </div>
-        </Transition>
-
-        <!-- SSH Tab -->
-        <Transition name="ui-tab-fade">
-        <SshSidebarTab
-          v-show="!sidebarCollapsed && sidebarTab === 'ssh'"
-          @edit-profile="openSshProfileDialog"
-          @open-key-manager="sshKeyManagerVisible = true"
-          @connect="handleSshConnect"
-          @focus-session="handleSshFocusSession"
-          @disconnect="handleSshDisconnect"
-        />
-        </Transition>
       </div>
 
       <!-- Main content area -->
       <div ref="terminalMainRef" class="terminal-main">
-        <TerminalToolbar :profiles="terminalStore.profiles" :active-session="activeSession"
-          :renderer-mode="rendererMode" :new-session-profile-id="newSessionProfileId"
+        <TerminalToolbar :active-session="activeToolbarSession"
+          :renderer-mode="rendererMode"
+          :layout-mode="layoutMode"
           :color-scheme-id="colorSchemeId"
           :ssh-mode="isSshMode" :port-forward-open="sshStore.portForwardPanelOpen"
-          :can-detach="isSshMode && !!activeSshSession"
-          @update:newSessionProfileId="newSessionProfileId = $event" @create="createSession"
+          :can-detach="!!activeTerminalPane && activeTerminalPane.kind !== 'ssh-pending'"
+          :title-editable="activeTerminalPane?.kind === 'local'"
           @search="toggleSearchPanel" @clear="clearTerminal" @detach="detachActiveSession"
           @rename="handleRenameSession" @update:rendererMode="updateRendererMode"
+          @update:layoutMode="updateLayoutMode"
+          @reset-layout-size="resetTerminalLayoutSize"
           @update:colorSchemeId="updateColorScheme" @background="bgPickerVisible = true"
           @port-forward="sshStore.togglePortForwardPanel()"
           @open-file-manager="openFileManagerForCurrentSsh" />
@@ -878,57 +1605,173 @@ onBeforeUnmount(() => {
         </Transition>
 
         <Transition name="ui-tab-fade">
-        <div v-if="isSshMode && activeSshReconnectState && activeSshSession" class="terminal-alert terminal-alert--error">
+        <div v-if="isSshMode && activeSshReconnectState && activeSshSessionForPane" class="terminal-alert terminal-alert--error">
           <span>
-            {{ activeSshSession.profileLabel }} 连接已断开，请重连后继续操作。
+            {{ activeSshSessionForPane.profileLabel }} 连接已断开，请重连后继续操作。
             <span v-if="activeSshDisconnectMessage" class="terminal-alert__detail">{{ activeSshDisconnectMessage }}</span>
           </span>
           <div class="terminal-alert__actions">
             <UiButton
               size="sm"
               variant="secondary"
-              :disabled="sshReconnectingSessionId === activeSshSession.sessionId || !activeSshProfile"
+              :disabled="sshReconnectingSessionId === activeSshSessionForPane.sessionId || !activeSshProfile"
               @click="reconnectActiveSshSession"
             >
-              {{ sshReconnectingSessionId === activeSshSession.sessionId ? '重连中' : '重连' }}
+              {{ sshReconnectingSessionId === activeSshSessionForPane.sessionId ? '重连中' : '重连' }}
             </UiButton>
           </div>
         </div>
         </Transition>
 
-        <div v-if="activeViewportSessionId" ref="terminalStageRef" class="terminal-stage">
-          <TerminalViewport
-            :key="`${activeViewportSessionId}:${rendererMode}:${enableSixel}:${hasCustomBg}`"
-            ref="viewportRef"
-            :session-id="activeViewportSessionId"
-            :buffer="activeViewportBuffer"
-            :renderer-mode="rendererMode"
-            :enable-sixel="enableSixel"
-            :color-scheme-id="colorSchemeId"
-            :bg-type="termBgType" :bg-color="termBgColor" :bg-image="termBgImage"
-            :bg-video="termBgVideo" :bg-style="termBgStyle"
-            :copy-shortcut="appConfigStore.config.shortcuts.internal.terminalCopy"
-            :paste-shortcut="appConfigStore.config.shortcuts.internal.terminalPaste"
-            :write-handler="isSshMode
-              ? (data: string) => sshStore.write(activeViewportSessionId, data)
-              : undefined"
-            :resize-handler="isSshMode
-              ? (cols: number, rows: number) => sshStore.resizeSession({ sessionId: activeViewportSessionId, cols, rows })
-              : undefined"
-            @renderer-fallback="handleRendererFallback"
-            @search-results="handleSearchResults"
-          />
+        <div
+          v-if="terminalPanes.length"
+          ref="terminalStageRef"
+          class="terminal-stage"
+          :class="[
+            `terminal-stage--${layoutMode}`,
+            { 'terminal-stage--single': visibleTerminalPanes.length === 1 },
+          ]"
+        >
+          <div v-if="layoutMode === 'tabbed' && terminalPanes.length > 1" class="terminal-pane-tabs">
+            <button
+              v-for="pane in orderedTerminalPanes"
+              :key="pane.key"
+              class="terminal-pane-tab"
+              :class="{
+                'terminal-pane-tab--active': pane.key === activeTerminalPane?.key,
+                'terminal-pane-tab--drop-target': pane.key === dropTargetPaneKey,
+              }"
+              type="button"
+              draggable="true"
+              @dragstart="handlePaneDragStart($event, pane)"
+              @drag="handlePaneDragMove"
+              @dragover="handlePaneDragOver($event, pane)"
+              @drop="handlePaneDrop($event, pane)"
+              @dragend="clearPaneDragState"
+              @click="focusPane(pane, true)"
+            >
+              <span class="terminal-pane-tab__kind">{{ pane.kind === 'local' ? '本地' : 'SSH' }}</span>
+              <span class="terminal-pane-tab__title">{{ pane.title }}</span>
+            </button>
+          </div>
+
+          <div
+            class="terminal-pane-workspace"
+            :style="terminalPaneWorkspaceStyle"
+            @dragover="handlePaneWorkspaceDragOver"
+          >
+            <div
+              v-for="item in terminalPaneLayoutItems"
+              :key="item.pane.key"
+              class="terminal-pane"
+              :class="{
+                'terminal-pane--active': item.pane.key === activeTerminalPane?.key,
+                'terminal-pane--ssh': item.pane.kind === 'ssh',
+                'terminal-pane--pending': item.pane.kind === 'ssh-pending',
+                'terminal-pane--dragging': item.pane.key === draggingPaneKey,
+                'terminal-pane--drop-target': item.pane.key === dropTargetPaneKey,
+              }"
+              :style="item.style"
+              @dragover="handlePaneDragOver($event, item.pane)"
+              @drop="handlePaneDrop($event, item.pane)"
+              @pointerdown.capture="focusPane(item.pane, false)"
+            >
+              <div
+                class="terminal-pane__header"
+                draggable="true"
+                title="拖动以调整终端位置"
+                @dragstart="handlePaneDragStart($event, item.pane)"
+                @drag="handlePaneDragMove"
+                @dragover="handlePaneDragOver($event, item.pane)"
+                @drop="handlePaneDrop($event, item.pane)"
+                @dragend="clearPaneDragState"
+              >
+                <span class="terminal-pane__kind">{{ item.pane.kind === 'local' ? '本地' : 'SSH' }}</span>
+                <span class="terminal-pane__title">{{ item.pane.title }}</span>
+                <span class="terminal-pane__status">{{ item.pane.status }}</span>
+                <button
+                  class="terminal-pane__close"
+                  type="button"
+                  title="关闭终端"
+                  aria-label="关闭终端"
+                  draggable="false"
+                  @click.stop="closePane(item.pane)"
+                  @dragstart.prevent
+                >
+                  <svg viewBox="0 0 24 24" width="13" height="13" stroke="currentColor" stroke-width="2.2" fill="none" stroke-linecap="round" stroke-linejoin="round">
+                    <line x1="18" y1="6" x2="6" y2="18" />
+                    <line x1="6" y1="6" x2="18" y2="18" />
+                  </svg>
+                </button>
+              </div>
+              <div v-if="item.pane.kind === 'ssh-pending'" class="terminal-pane__connecting">
+                <span class="terminal-pane__connecting-spinner" aria-hidden="true" />
+                <div class="terminal-pane__connecting-text">
+                  <strong>正在连接 {{ item.pane.title }}</strong>
+                  <span>{{ item.pane.subtitle }}</span>
+                </div>
+              </div>
+              <TerminalViewport
+                v-else
+                :key="`${item.pane.key}:${rendererMode}:${enableBell}:${enableSixel}:${paneHasCustomBg(item.pane)}`"
+                :ref="(instance) => setViewportRef(item.pane.key, instance)"
+                :session-id="item.pane.sessionId"
+                :buffer="item.pane.buffer"
+                :renderer-mode="rendererMode"
+                :enable-bell="enableBell"
+                :enable-sixel="enableSixel"
+                :color-scheme-id="colorSchemeId"
+                :bg-type="resolvePaneBackground(item.pane).type"
+                :bg-color="resolvePaneBackground(item.pane).color"
+                :bg-image="resolvePaneBackground(item.pane).image"
+                :bg-video="resolvePaneBackground(item.pane).video"
+                :bg-style="resolvePaneBackground(item.pane).style"
+                :copy-shortcut="appConfigStore.config.shortcuts.internal.terminalCopy"
+                :paste-shortcut="appConfigStore.config.shortcuts.internal.terminalPaste"
+                :auto-focus="item.pane.key === activeTerminalPane?.key"
+                :write-handler="item.pane.kind === 'ssh'
+                  ? (data: string) => sshStore.write(item.pane.sessionId, data)
+                  : undefined"
+                :resize-handler="item.pane.kind === 'ssh'
+                  ? (cols: number, rows: number) => sshStore.resizeSession({ sessionId: item.pane.sessionId, cols, rows })
+                  : undefined"
+                @renderer-fallback="handleRendererFallback"
+                @search-results="item.pane.key === activeTerminalPane?.key ? handleSearchResults($event) : undefined"
+              />
+            </div>
+            <button
+              v-for="handle in terminalPaneResizeHandles"
+              :key="handle.id"
+              class="terminal-pane-resizer"
+              :class="`terminal-pane-resizer--${handle.orientation}`"
+              :style="handle.style"
+              type="button"
+              aria-label="调整终端区域大小"
+              @pointerdown="startPaneResize($event, handle)"
+            />
+            <div
+              v-if="paneDragPreview.visible"
+              class="terminal-pane-drag-preview"
+              :style="{
+                left: `${paneDragPreview.left}px`,
+                top: `${paneDragPreview.top}px`,
+              }"
+            >
+              <span class="terminal-pane-drag-preview__kind">{{ paneDragPreview.kind === 'local' ? '本地' : 'SSH' }}</span>
+              <span class="terminal-pane-drag-preview__title">{{ paneDragPreview.title }}</span>
+            </div>
+          </div>
 
           <!-- Port forward floating panel (SSH mode only, main window) -->
           <Transition name="ui-pop">
           <div
-            v-if="isSshMode && sshStore.portForwardPanelOpen && sshStore.activeSshSession"
+            v-if="isSshMode && sshStore.portForwardPanelOpen && activeSshSessionForPane"
             class="terminal-port-forward-overlay"
             @click.self="sshStore.togglePortForwardPanel(false)"
           >
             <PortForwardPanel
-              :session-id="sshStore.activeSshSessionId"
-              :profile-id="sshStore.activeSshSession.profileId"
+              :session-id="activeSshSessionForPane.sessionId"
+              :profile-id="activeSshSessionForPane.profileId"
               @close="sshStore.togglePortForwardPanel(false)"
               @add-forward="openPortForwardDialog(null)"
               @edit-forward="openPortForwardDialog($event)"
@@ -939,38 +1782,33 @@ onBeforeUnmount(() => {
 
         <div v-else class="terminal-empty ui-glass-surface ui-glass-surface--strong">
           <div class="terminal-empty__title">
-            {{ sidebarTab === 'ssh'
-              ? (sshConnectingProfileId ? '正在连接 SSH' : '没有活跃的 SSH 连接')
-              : '没有可用的终端会话' }}
+            {{ isAnySshProfileConnecting ? '正在连接 SSH' : '没有活跃连接' }}
           </div>
-          <div v-if="sidebarTab === 'ssh' && sshConnectError" class="terminal-empty__error">
+          <div v-if="sshConnectError" class="terminal-empty__error">
             {{ sshConnectError }}
           </div>
           <div class="terminal-empty__desc">
-            {{ sidebarTab === 'ssh'
-              ? (sshConnectingProfileId ? '正在建立连接，请稍候。' : '从左侧 SSH 配置列表点击连接，或新建一个 SSH 配置。')
-              : '创建一个新的本地终端会话开始使用。' }}
+            {{ isAnySshProfileConnecting ? '正在建立连接，请稍候。' : '从左侧配置列表点击本地终端或 SSH 配置来创建连接。' }}
           </div>
-          <UiButton v-if="sidebarTab === 'terminal'" variant="primary" size="sm" @click="createSession">创建会话</UiButton>
-          <div v-else class="terminal-empty__actions">
+          <div class="terminal-empty__actions">
+            <UiButton variant="primary" size="sm" @click="activateSidebarTab()">查看配置</UiButton>
             <UiButton
               v-if="sshLastFailedProfile"
-              variant="primary"
+              variant="secondary"
               size="sm"
-              :disabled="Boolean(sshConnectingProfileId)"
+              :disabled="isSshProfileConnecting(sshLastFailedProfile.id)"
               @click="handleSshConnect(sshLastFailedProfile)"
             >
               重新连接
             </UiButton>
-            <UiButton variant="secondary" size="sm" @click="openSshProfileDialog(null)">添加 SSH 配置</UiButton>
           </div>
         </div>
 
         <div class="terminal-statusbar">
           <div class="terminal-statusbar__left">
-            <span v-if="isSshMode && sshStore.activeSshSession" class="statusbar-ssh-indicator">
+            <span v-if="isSshMode && activeSshSessionForPane" class="statusbar-ssh-indicator">
               <span class="ssh-dot ssh-dot--connected" />
-              SSH: {{ sshStore.activeSshSession.username }}@{{ sshStore.activeSshSession.host }}
+              SSH: {{ activeSshSessionForPane.username }}@{{ activeSshSessionForPane.host }}
             </span>
           </div>
           <div class="terminal-statusbar__right">
@@ -987,7 +1825,7 @@ onBeforeUnmount(() => {
                 <span class="statusbar-forward-chip__port">{{ port.port }}</span>
               </button>
             </div>
-            <span>{{ isSshMode ? 'SSH' : 'Local' }}</span>
+            <span>{{ activeTerminalPane?.kind === 'local' ? '本地' : 'SSH' }}</span>
           </div>
         </div>
       </div>
@@ -1011,8 +1849,9 @@ onBeforeUnmount(() => {
       <SshProfileDialog
         :visible="sshProfileDialogVisible"
         :profile="sshProfileDialogTarget"
+        :initial-group-id="sshProfileDialogGroupId"
         @close="sshProfileDialogVisible = false"
-        @saved="sshProfileDialogVisible = false"
+        @saved="handleSshProfileSaved"
         @deleted="sshProfileDialogVisible = false"
       />
 
@@ -1071,7 +1910,7 @@ onBeforeUnmount(() => {
       <!-- Port Forward Dialog -->
       <PortForwardDialog
         :visible="pfDialogVisible"
-        :profile-id="sshStore.activeSshSession?.profileId ?? ''"
+        :profile-id="activeSshSessionForPane?.profileId ?? ''"
         :forward="pfDialogTarget"
         @close="pfDialogVisible = false"
         @saved="pfDialogVisible = false"
@@ -1241,6 +2080,28 @@ onBeforeUnmount(() => {
   }
 }
 
+.terminal-sidebar__tab-panels {
+  position: relative;
+  display: flex;
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.terminal-sidebar__panel {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  min-width: 0;
+  transition: transform var(--ui-motion-duration-base) var(--ui-motion-ease-emphasized);
+  will-change: transform;
+}
+
+.terminal-sidebar__panel--config {
+  transform: translateX(0);
+  display: flex;
+  flex-direction: column;
+}
 
 .terminal-sidebar__sessions {
   display: flex;
@@ -1255,53 +2116,102 @@ onBeforeUnmount(() => {
   }
 }
 
-.terminal-session-item {
+.terminal-sidebar__config-list {
+  flex: 0 0 auto;
+  overflow: visible;
+  padding-bottom: 0;
+}
+
+.terminal-sidebar__ssh-configs {
+  min-height: 0;
+}
+
+.terminal-sidebar__section-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
+}
+
+.terminal-sidebar__section-label {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--ui-text-muted);
+  padding: 4px 8px 6px;
+}
+
+.terminal-sidebar__divider {
+  height: 1px;
+  margin: 6px 0 2px;
+  background: var(--ui-border-subtle);
+}
+
+.terminal-profile-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  min-width: 0;
   padding: 8px 10px;
   border: 1px solid transparent;
   border-radius: var(--ui-radius-md);
   background: transparent;
   color: var(--ui-text-secondary);
   cursor: pointer;
-  transition: all 0.2s ease;
-  white-space: nowrap;
-  overflow: hidden;
-  width: 100%;
-  box-sizing: border-box;
+  text-align: left;
+  transition: all 0.18s ease;
 
   &:hover {
-    background: var(--ui-button-ghost-hover-bg);
-
-    .terminal-session-item__close {
-      opacity: 1;
-    }
-  }
-
-  &.terminal-session-item--active {
-    background: var(--ui-tabs-active-bg);
     border-color: var(--ui-border-accent-soft);
+    background: var(--ui-button-ghost-hover-bg);
     color: var(--ui-text-primary);
 
-    .terminal-session-item__close {
+    .terminal-profile-item__launch {
       opacity: 1;
+      transform: translateX(0);
     }
   }
 }
 
-/* Collapsed sidebar: center session item status dots */
-.terminal-sidebar--collapsed .terminal-session-item {
-  width: 32px;
-  min-height: 32px;
-  justify-content: center;
-  padding: 0;
-  border-radius: 8px;
+.terminal-profile-item__icon {
+  flex-shrink: 0;
 }
 
-.terminal-sidebar--collapsed .terminal-session-item__left {
-  flex: 0 0 auto;
-  justify-content: center;
+.terminal-profile-item__text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.terminal-profile-item__label,
+.terminal-profile-item__command {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.terminal-profile-item__label {
+  color: var(--ui-text-primary);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.terminal-profile-item__command {
+  color: var(--ui-text-muted);
+  font-family: Consolas, 'Cascadia Mono', monospace;
+  font-size: 11px;
+}
+
+.terminal-profile-item__launch {
+  margin-left: auto;
+  color: var(--ui-text-subtle);
+  flex-shrink: 0;
+  opacity: 0;
+  transform: translateX(-3px);
+  transition: all 0.16s ease;
 }
 
 .terminal-sidebar--collapsed .terminal-sidebar__sessions {
@@ -1313,111 +2223,101 @@ onBeforeUnmount(() => {
   justify-content: center;
 }
 
-.terminal-session-item__left {
+.terminal-sidebar__collapsed-rail {
   display: flex;
   align-items: center;
   gap: 8px;
-  min-width: 0;
-  flex: 1;
-}
-
-.terminal-session-item__profile-icon {
-  flex-shrink: 0;
-}
-
-.terminal-session-item__right {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  flex-shrink: 0;
-}
-
-.status-dot {
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  flex-shrink: 0;
-
-  &--running {
-    background-color: #22c55e;
-    box-shadow: 0 0 6px rgba(34, 197, 94, 0.4);
-  }
-
-  &--stopped {
-    background-color: var(--ui-text-subtle);
-  }
-}
-
-.terminal-session-item__title {
-  font-size: 13px;
-  font-weight: 500;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-
-  &--editable {
-    cursor: text;
-    border-radius: 3px;
-    padding: 0 3px;
-    margin: 0 -3px;
-    transition: background 0.15s;
-
-    &:hover {
-      background: var(--ui-surface-overlay);
-    }
-  }
-}
-
-.terminal-session-item__input {
-  font-size: 13px;
-  font-weight: 500;
-  color: var(--ui-text-primary);
-  background: var(--ui-input-bg);
-  border: 1px solid var(--ui-input-focus-border, var(--primary-color));
-  border-radius: 3px;
-  padding: 0 3px;
-  outline: none;
   width: 100%;
-  min-width: 0;
-  font-family: inherit;
+  min-height: 0;
+  flex: 1;
+  flex-direction: column;
+  overflow-x: hidden;
+  overflow-y: auto;
+  padding: 12px 6px;
+  box-sizing: border-box;
 }
 
-.terminal-session-item__close {
-  display: flex;
+.terminal-sidebar__collapsed-action {
+  position: relative;
+  display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 20px;
-  height: 20px;
-  border: none;
-  border-radius: 4px;
+  width: 36px;
+  height: 36px;
+  min-width: 36px;
+  min-height: 36px;
+  padding: 0;
+  border: 1px solid transparent;
+  border-radius: var(--ui-radius-md);
   background: transparent;
-  color: var(--ui-text-muted);
+  color: var(--ui-text-secondary);
   cursor: pointer;
-  opacity: 0;
-  transition: opacity 0.15s, background 0.15s, color 0.15s;
-  flex-shrink: 0;
+  transition:
+    background-color 0.16s ease,
+    border-color 0.16s ease,
+    color 0.16s ease,
+    transform 0.16s ease;
 
-  &:hover {
-    background: rgba(239, 68, 68, 0.18);
-    color: #ef4444;
+  &:hover:not(:disabled) {
+    border-color: var(--ui-border-accent-soft);
+    background: var(--ui-button-ghost-hover-bg);
+    color: var(--ui-text-primary);
+    transform: translateY(-1px);
+  }
+
+  &:focus-visible {
+    outline: none;
+    box-shadow: var(--ui-focus-ring);
+  }
+
+  &:disabled {
+    cursor: progress;
+    opacity: 0.72;
+  }
+
+  &--ssh {
+    color: var(--primary-color);
+    background: color-mix(in srgb, var(--primary-color) 8%, transparent);
+  }
+
+  &--connecting::after {
+    content: '';
+    position: absolute;
+    right: 5px;
+    top: 5px;
+    width: 7px;
+    height: 7px;
+    border-radius: 999px;
+    background: #f59e0b;
+    box-shadow: 0 0 6px rgba(245, 158, 11, 0.55);
+    animation: terminal-collapsed-pulse 0.9s ease-in-out infinite;
+  }
+
+  &--muted {
+    color: var(--ui-text-muted);
+    background: color-mix(in srgb, var(--ui-surface-overlay) 72%, transparent);
   }
 }
 
-.terminal-session-item__badge {
-  font-size: 11px;
-  padding: 2px 6px;
-  border-radius: 4px;
-  font-weight: 600;
+.terminal-sidebar__collapsed-color {
+  position: absolute;
+  left: 4px;
+  top: 8px;
+  bottom: 8px;
+  width: 3px;
+  border-radius: 999px;
+}
 
-  &.badge--running {
-    background: rgba(34, 197, 94, 0.16);
-    color: #4ade80;
-  }
+.terminal-sidebar__collapsed-divider {
+  width: 28px;
+  height: 1px;
+  flex: 0 0 auto;
+  background: var(--ui-border-subtle);
+}
 
-  &.badge--stopped {
-    background: var(--ui-surface-overlay);
-    color: var(--ui-text-muted);
-  }
+@keyframes terminal-collapsed-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.45; }
 }
 
 /* Main Content Styles */
@@ -1439,6 +2339,380 @@ onBeforeUnmount(() => {
   min-height: 0;
   flex-direction: column;
   position: relative;
+  padding: 0;
+  gap: 0;
+  overflow: hidden;
+}
+
+.terminal-pane-tabs {
+  display: flex;
+  align-items: center;
+  gap: 0;
+  min-height: 30px;
+  flex-shrink: 0;
+  overflow-x: auto;
+  border-bottom: 1px solid var(--ui-border-subtle);
+  background: color-mix(in srgb, var(--ui-surface-panel) 84%, transparent);
+}
+
+.terminal-pane-tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  max-width: 220px;
+  min-width: 0;
+  height: 30px;
+  padding: 0 10px;
+  border: none;
+  border-right: 1px solid var(--ui-border-subtle);
+  border-radius: 0;
+  background: transparent;
+  color: var(--ui-text-muted);
+  cursor: pointer;
+  font-size: 12px;
+  transition: all 0.16s ease;
+
+  &:hover {
+    border-color: var(--ui-border-accent-soft);
+    color: var(--ui-text-secondary);
+  }
+
+  &--active {
+    border-color: var(--ui-border-subtle);
+    background: color-mix(in srgb, var(--ui-tabs-active-bg) 84%, transparent);
+    color: var(--ui-text-primary);
+  }
+
+  &--drop-target {
+    box-shadow: inset 2px 0 0 var(--primary-color);
+  }
+}
+
+.terminal-pane-tab__kind {
+  color: var(--primary-color);
+  font-size: 10px;
+  font-weight: 800;
+  text-transform: uppercase;
+  flex-shrink: 0;
+}
+
+.terminal-pane-tab__title {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.terminal-pane-workspace {
+  position: relative;
+  display: grid;
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+  gap: 0;
+  overflow: hidden;
+  transition: grid-template-columns 0.18s ease, grid-template-rows 0.18s ease;
+}
+
+.terminal-stage--tabbed .terminal-pane-workspace,
+.terminal-stage--single .terminal-pane-workspace {
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-rows: minmax(0, 1fr);
+}
+
+.terminal-stage--split-horizontal .terminal-pane-workspace {
+  grid-auto-flow: row;
+  grid-auto-rows: minmax(0, 1fr);
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.terminal-stage--split-vertical .terminal-pane-workspace {
+  grid-auto-flow: column;
+  grid-auto-columns: minmax(0, 1fr);
+  grid-template-rows: minmax(0, 1fr);
+}
+
+.terminal-stage--grid .terminal-pane-workspace {
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  grid-auto-rows: minmax(220px, 1fr);
+}
+
+.terminal-stage--master-stack .terminal-pane-workspace {
+  grid-template-columns: minmax(0, 2fr) minmax(220px, 1fr);
+  grid-auto-rows: minmax(0, 1fr);
+}
+
+.terminal-stage--single.terminal-stage--master-stack .terminal-pane-workspace {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.terminal-stage--master-stack .terminal-pane:first-child {
+  grid-row: 1 / -1;
+}
+
+.terminal-stage--dwindle .terminal-pane-workspace {
+  display: block;
+}
+
+.terminal-pane {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+  border: 1px solid rgba(148, 163, 184, 0.18);
+  border-radius: 0;
+  background: var(--ui-surface-panel);
+  transition:
+    border-color 0.16s ease,
+    box-shadow 0.16s ease,
+    opacity 0.16s ease,
+    transform 0.18s ease,
+    left 0.18s ease,
+    top 0.18s ease,
+    width 0.18s ease,
+    height 0.18s ease;
+}
+
+.terminal-stage--dwindle .terminal-pane {
+  position: absolute;
+}
+
+.terminal-pane--active {
+  border-color: rgba(102, 204, 255, 0.48);
+  box-shadow: inset 0 0 0 1px rgba(102, 204, 255, 0.2);
+}
+
+.terminal-pane--dragging {
+  opacity: 0.55;
+  transform: scale(0.985);
+}
+
+.terminal-pane--drop-target {
+  box-shadow: inset 0 0 0 2px rgba(102, 204, 255, 0.55);
+}
+
+.terminal-pane__header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 30px;
+  padding: 0 10px;
+  border-bottom: 1px solid rgba(148, 163, 184, 0.14);
+  background: color-mix(in srgb, var(--ui-surface-panel) 86%, rgba(15, 23, 42, 0.34));
+  color: var(--ui-text-secondary);
+  cursor: grab;
+  user-select: none;
+  flex-shrink: 0;
+  font-size: 12px;
+
+  &:active {
+    cursor: grabbing;
+  }
+}
+
+.terminal-pane__kind {
+  color: var(--primary-color);
+  font-size: 10px;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.terminal-pane__title {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-weight: 600;
+}
+
+.terminal-pane__status {
+  margin-left: auto;
+  color: var(--ui-text-muted);
+  font-size: 10px;
+  text-transform: uppercase;
+}
+
+.terminal-pane__close {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  margin-left: 2px;
+  border: none;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--ui-text-muted);
+  cursor: pointer;
+  opacity: 0.72;
+  transition: background-color 0.14s ease, color 0.14s ease, opacity 0.14s ease;
+
+  &:hover {
+    background: rgba(239, 68, 68, 0.16);
+    color: #ef4444;
+    opacity: 1;
+  }
+
+  &:focus-visible {
+    outline: none;
+    box-shadow: var(--ui-focus-ring);
+  }
+}
+
+.terminal-pane :deep(.terminal-viewport) {
+  border: none;
+  border-radius: 0;
+}
+
+.terminal-pane__connecting {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+  background:
+    radial-gradient(circle at 50% 42%, rgba(102, 204, 255, 0.12), transparent 34%),
+    var(--ui-surface-panel);
+  color: var(--ui-text-primary);
+}
+
+.terminal-pane__connecting-spinner {
+  width: 28px;
+  height: 28px;
+  border: 2px solid rgba(102, 204, 255, 0.22);
+  border-top-color: var(--primary-color);
+  border-radius: 50%;
+  animation: terminal-connecting-spin 0.9s linear infinite;
+  flex-shrink: 0;
+}
+
+.terminal-pane__connecting-text {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+
+  strong,
+  span {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  strong {
+    font-size: 13px;
+    font-weight: 700;
+  }
+
+  span {
+    color: var(--ui-text-muted);
+    font-family: Consolas, 'Cascadia Mono', monospace;
+    font-size: 12px;
+  }
+}
+
+@keyframes terminal-connecting-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.terminal-pane-drag-preview {
+  position: fixed;
+  z-index: 1000;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  max-width: 260px;
+  height: 32px;
+  padding: 0 11px;
+  border: 1px solid rgba(102, 204, 255, 0.42);
+  background: color-mix(in srgb, var(--ui-surface-panel) 90%, rgba(102, 204, 255, 0.12));
+  color: var(--ui-text-primary);
+  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.24), 0 0 0 1px rgba(102, 204, 255, 0.1);
+  pointer-events: none;
+  transform: translate3d(0, 0, 0);
+  transition: opacity 0.12s ease, box-shadow 0.12s ease;
+  backdrop-filter: blur(14px);
+}
+
+.terminal-pane-drag-preview__kind {
+  color: var(--primary-color);
+  font-size: 10px;
+  font-weight: 800;
+  text-transform: uppercase;
+  flex-shrink: 0;
+}
+
+.terminal-pane-drag-preview__title {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.terminal-pane-resizer {
+  position: absolute;
+  z-index: 40;
+  padding: 0;
+  border: none;
+  border-radius: 0;
+  background: transparent;
+  transition: background-color 0.12s ease, box-shadow 0.12s ease;
+
+  &::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: transparent;
+    transition: background-color 0.12s ease, box-shadow 0.12s ease;
+  }
+
+  &:hover::after,
+  &:focus-visible::after {
+    background: rgba(102, 204, 255, 0.55);
+    box-shadow: 0 0 10px rgba(102, 204, 255, 0.28);
+  }
+}
+
+.terminal-pane-resizer--vertical {
+  width: 8px;
+  min-height: 100%;
+  transform: translateX(-50%);
+  cursor: col-resize;
+
+  &::after {
+    left: 3px;
+    right: 3px;
+  }
+}
+
+.terminal-pane-resizer--horizontal {
+  min-width: 100%;
+  height: 8px;
+  transform: translateY(-50%);
+  cursor: row-resize;
+
+  &::after {
+    top: 3px;
+    bottom: 3px;
+  }
+}
+
+:global(body.terminal-pane-resizing) {
+  cursor: grabbing;
+  user-select: none;
+}
+
+:global(body.terminal-pane-resizing) .terminal-pane,
+:global(body.terminal-pane-resizing) .terminal-pane-workspace {
+  transition: none;
 }
 
 .terminal-port-forward-overlay {

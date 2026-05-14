@@ -87,6 +87,10 @@ pub fn run_migrations(conn: &Connection) -> DbResult<()> {
             "018_add_mobile_home_layouts",
             include_str!("../../migrations/018_add_mobile_home_layouts.sql"),
         ),
+        (
+            "019_add_ssh_profile_folders",
+            include_str!("../../migrations/019_add_ssh_profile_folders.sql"),
+        ),
     ];
 
     // 执行每个迁移

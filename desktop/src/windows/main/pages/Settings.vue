@@ -20,6 +20,7 @@ import UiScrollbar from '../components/ui/UiScrollbar.vue';
 import UiTabs, { type UiTabItem } from '../components/ui/UiTabs.vue';
 import UiTransferBox from '../components/ui/UiTransferBox.vue';
 import { useTheme } from '../composables/theme';
+import { notifyError } from '../composables/useInAppNotification';
 import { useConfirmDialog } from '../composables/useConfirmDialog';
 import { useAppConfigStore } from '../stores/app_config_store';
 import { useFtpStore } from '../stores/ftp_store';
@@ -368,6 +369,7 @@ async function loadPluginContext() {
     pluginLoadError.value = '';
   } catch (error) {
     pluginLoadError.value = error instanceof Error ? error.message : '插件配置读取失败';
+    notifyError(error, '插件配置读取失败');
   }
 }
 
@@ -662,6 +664,7 @@ async function refreshFtpWindowsContextMenuStatus() {
     ftpWindowsContextMenuStatus.value = await window.ftpApi.getWindowsContextMenuStatus();
   } catch (error) {
     ftpWindowsContextMenuError.value = error instanceof Error ? error.message : String(error);
+    notifyError(error, 'FTP 右键菜单状态读取失败');
   } finally {
     ftpWindowsContextMenuLoading.value = false;
   }
@@ -674,6 +677,7 @@ async function installFtpWindowsContextMenu() {
     ftpWindowsContextMenuStatus.value = await window.ftpApi.installWindowsContextMenu();
   } catch (error) {
     ftpWindowsContextMenuError.value = error instanceof Error ? error.message : String(error);
+    notifyError(error, 'FTP 右键菜单安装失败');
   } finally {
     ftpWindowsContextMenuLoading.value = false;
   }
@@ -686,6 +690,7 @@ async function uninstallFtpWindowsContextMenu() {
     ftpWindowsContextMenuStatus.value = await window.ftpApi.uninstallWindowsContextMenu();
   } catch (error) {
     ftpWindowsContextMenuError.value = error instanceof Error ? error.message : String(error);
+    notifyError(error, 'FTP 右键菜单卸载失败');
   } finally {
     ftpWindowsContextMenuLoading.value = false;
   }
@@ -964,6 +969,16 @@ async function handleTerminalSixelChange(event: Event) {
     features: {
       terminal: {
         enableSixel: (event.target as HTMLInputElement).checked,
+      },
+    },
+  });
+}
+
+async function handleTerminalBellChange(event: Event) {
+  await appConfigStore.updateConfig({
+    features: {
+      terminal: {
+        enableBell: (event.target as HTMLInputElement).checked,
       },
     },
   });
@@ -1295,6 +1310,7 @@ async function savePluginConfig(pluginId: string) {
     syncPluginDraft(pluginId);
   } catch (error) {
     pluginConfigErrors.value[pluginId] = error instanceof Error ? error.message : '插件配置保存失败';
+    notifyError(error, '插件配置保存失败');
   }
 }
 
@@ -1430,6 +1446,7 @@ async function loadExtensions() {
     chromeExtensions.value = await window.webviewApi.getExtensions();
   } catch (err) {
     console.error('Failed to load extensions:', err);
+    notifyError(err, '扩展列表加载失败');
   }
 }
 
@@ -1444,7 +1461,7 @@ async function installExtension() {
     await loadExtensions();
   } catch (err: any) {
     console.error('Install extension failed:', err);
-    alert(err.message || '安装扩展失败');
+    notifyError(err, '扩展安装失败');
   } finally {
     extensionInstalling.value = false;
   }
@@ -1456,6 +1473,7 @@ async function removeExtension(id: string) {
     await loadExtensions();
   } catch (err) {
     console.error('Remove extension failed:', err);
+    notifyError(err, '扩展移除失败');
   }
 }
 
@@ -1465,6 +1483,7 @@ async function toggleExtension(id: string, enabled: boolean) {
     await loadExtensions();
   } catch (err) {
     console.error('Toggle extension failed:', err);
+    notifyError(err, '扩展状态切换失败');
   }
 }
 
@@ -2290,6 +2309,22 @@ function scriptTypeLabel(type: string) {
 
           <section class="settings-group">
             <h3>行为偏好</h3>
+            <div class="settings-row">
+              <div class="settings-row__label">
+                <span>终端提示音</span>
+                <small>允许 BEL 提示音；关闭后保留终端输出但不播放滴声。</small>
+              </div>
+              <div class="settings-row__control settings-row__control--switch">
+                <label class="settings-switch">
+                  <input
+                    type="checkbox"
+                    :checked="appConfigStore.config.features.terminal.enableBell"
+                    @change="handleTerminalBellChange"
+                  />
+                  <span aria-hidden="true" />
+                </label>
+              </div>
+            </div>
             <div class="settings-row">
               <div class="settings-row__label">
                 <span>图像扩展</span>

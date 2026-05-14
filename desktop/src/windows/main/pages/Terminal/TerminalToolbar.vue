@@ -1,16 +1,14 @@
 <script setup lang="ts">
 import UiSelect from '@/windows/main/components/ui/UiSelect.vue';
-import type { TerminalProfile, TerminalRendererMode, TerminalSessionDescriptor } from '@/contracts/terminal';
+import type { TerminalLayoutMode, TerminalRendererMode, TerminalSessionDescriptor } from '@/contracts/terminal';
 import type { UiSelectOption } from '@/windows/main/components/ui/UiSelect.vue';
 import { computed, nextTick, onBeforeUnmount, onMounted, ref } from 'vue';
 import { BUILTIN_SCHEMES } from './terminal-themes';
-import TerminalProfileIcon from './TerminalProfileIcon.vue';
 
 const props = defineProps<{
-  profiles: TerminalProfile[];
   activeSession: TerminalSessionDescriptor | null;
   rendererMode: TerminalRendererMode;
-  newSessionProfileId: string;
+  layoutMode: TerminalLayoutMode;
   colorSchemeId: string;
 
   /** Whether the current session is SSH mode */
@@ -19,26 +17,37 @@ const props = defineProps<{
   canDetach?: boolean;
   /** Whether port forward panel is open */
   portForwardOpen?: boolean;
+  /** Whether the toolbar title can be renamed inline */
+  titleEditable?: boolean;
 }>();
 
 const emit = defineEmits<{
-  'update:newSessionProfileId': [value: string];
   'update:colorSchemeId': [value: string];
-  create: [profileId?: string];
   detach: [];
   clear: [];
   search: [];
   background: [];
   portForward: [];
   openFileManager: [];
+  resetLayoutSize: [];
   rename: [sessionId: string, newLabel: string];
   'update:rendererMode': [value: TerminalRendererMode];
+  'update:layoutMode': [value: TerminalLayoutMode];
 }>();
 
 const rendererOptions: UiSelectOption[] = [
   { label: '自动', value: 'auto' },
   { label: '标准', value: 'standard' },
   { label: 'WebGL', value: 'webgl' },
+];
+
+const layoutOptions: UiSelectOption[] = [
+  { label: '标签布局', value: 'tabbed' },
+  { label: '水平分屏', value: 'split-horizontal' },
+  { label: '垂直分屏', value: 'split-vertical' },
+  { label: '主从布局', value: 'master-stack' },
+  { label: '递减布局', value: 'dwindle' },
+  { label: '网格布局', value: 'grid' },
 ];
 
 const schemeOptions = computed<UiSelectOption[]>(() => {
@@ -71,7 +80,7 @@ const toolbarRef = ref<HTMLElement | null>(null);
 let resizeObserver: ResizeObserver | null = null;
 
 // Breakpoints for the right section (px)
-const FULL_BREAKPOINT = 720;
+const FULL_BREAKPOINT = 820;
 const ICON_BREAKPOINT = 460;
 
 function updateActionMode(width: number) {
@@ -85,7 +94,6 @@ function updateActionMode(width: number) {
 }
 
 onMounted(() => {
-  document.addEventListener('pointerdown', handleDocumentPointerDown, true);
   if (toolbarRef.value) {
     resizeObserver = new ResizeObserver((entries) => {
       for (const entry of entries) {
@@ -99,7 +107,6 @@ onMounted(() => {
 });
 
 onBeforeUnmount(() => {
-  document.removeEventListener('pointerdown', handleDocumentPointerDown, true);
   resizeObserver?.disconnect();
 });
 
@@ -141,6 +148,14 @@ const actionItems = computed<ActionItem[]>(() => [
     disabled: () => false,
   },
   {
+    id: 'resetLayoutSize',
+    label: '恢复布局大小',
+    icon: 'resetLayoutSize',
+    event: 'resetLayoutSize',
+    show: () => props.layoutMode !== 'tabbed',
+    disabled: () => false,
+  },
+  {
     id: 'search',
     label: '搜索',
     icon: 'search',
@@ -167,55 +182,10 @@ const actionItems = computed<ActionItem[]>(() => [
 ]);
 
 const visibleActions = computed(() => actionItems.value.filter((a) => a.show()));
-const profilePickerOpen = ref(false);
-const pendingProfileId = ref('');
-const profilePickerRef = ref<HTMLElement | null>(null);
-
-const selectedProfileId = computed(() =>
-  pendingProfileId.value || props.newSessionProfileId || props.profiles.find((profile) => profile.isDefault)?.id || props.profiles[0]?.id || '',
-);
 
 function handleAction(action: ActionItem) {
   if (action.disabled()) return;
   emit(action.event as any);
-}
-
-function openProfilePicker() {
-  if (props.sshMode || props.profiles.length === 0) {
-    return;
-  }
-
-  if (profilePickerOpen.value) {
-    profilePickerOpen.value = false;
-    return;
-  }
-
-  pendingProfileId.value = selectedProfileId.value;
-  profilePickerOpen.value = true;
-}
-
-function confirmProfileCreate() {
-  const profileId = selectedProfileId.value;
-  if (!profileId) {
-    return;
-  }
-
-  emit('update:newSessionProfileId', profileId);
-  emit('create', profileId);
-  profilePickerOpen.value = false;
-}
-
-function handleDocumentPointerDown(event: PointerEvent) {
-  if (!profilePickerOpen.value) {
-    return;
-  }
-
-  const target = event.target;
-  if (target instanceof Node && profilePickerRef.value?.contains(target)) {
-    return;
-  }
-
-  profilePickerOpen.value = false;
 }
 
 // ── Inline rename state ───────────────────────────────────────
@@ -224,6 +194,7 @@ const titleEditValue = ref('');
 const titleInputRef = ref<HTMLInputElement | null>(null);
 
 function startTitleEdit() {
+  if (!props.titleEditable) return;
   if (!props.activeSession) return;
   titleEditValue.value = props.activeSession.profileLabel;
   titleEditing.value = true;
@@ -254,58 +225,6 @@ function handleTitleKeydown(e: KeyboardEvent) {
 <template>
   <div ref="toolbarRef" class="terminal-toolbar">
     <div class="terminal-toolbar__left">
-      <button class="terminal-create-btn" type="button" title="新建默认会话" aria-label="新建默认会话" @click="emit('create')">
-        <svg viewBox="0 0 24 24" width="15" height="15" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round">
-          <path d="M12 5v14" />
-          <path d="M5 12h14" />
-        </svg>
-      </button>
-      <div v-if="!sshMode" ref="profilePickerRef" class="terminal-profile-create">
-        <button
-          class="terminal-create-other-btn"
-          type="button"
-          title="新建其他类型终端"
-          aria-label="新建其他类型终端"
-          :disabled="profiles.length === 0"
-          @click="openProfilePicker"
-        >
-          <svg viewBox="0 0 24 24" width="15" height="15" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round">
-            <path d="M3 6h13" />
-            <path d="M3 12h10" />
-            <path d="M3 18h7" />
-            <path d="M18 14v7" />
-            <path d="M14.5 17.5h7" />
-          </svg>
-        </button>
-        <div v-if="profilePickerOpen" class="terminal-profile-create__panel" @keydown.escape="profilePickerOpen = false">
-          <div class="terminal-profile-create__options" role="listbox" aria-label="选择终端类型">
-            <button
-              v-for="profile in profiles"
-              :key="profile.id"
-              class="terminal-profile-create__option"
-              :class="{ 'terminal-profile-create__option--active': profile.id === selectedProfileId }"
-              type="button"
-              role="option"
-              :aria-selected="profile.id === selectedProfileId"
-              @click="pendingProfileId = profile.id"
-            >
-              <TerminalProfileIcon :profile-id="profile.id" :command="profile.command" :label="profile.label" :size="16" />
-              <span class="terminal-profile-create__option-label">{{ profile.label }}</span>
-            </button>
-          </div>
-          <button class="terminal-profile-create__confirm" type="button" title="确认创建" aria-label="确认创建" @click="confirmProfileCreate">
-            <svg viewBox="0 0 24 24" width="15" height="15" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round">
-              <path d="M20 6 9 17l-5-5" />
-            </svg>
-          </button>
-          <button class="terminal-profile-create__cancel" type="button" title="取消" aria-label="取消" @click="profilePickerOpen = false">
-            <svg viewBox="0 0 24 24" width="15" height="15" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round">
-              <path d="M18 6 6 18" />
-              <path d="m6 6 12 12" />
-            </svg>
-          </button>
-        </div>
-      </div>
       <div v-if="activeSession" class="terminal-toolbar__title">
         <input
           v-if="titleEditing"
@@ -315,7 +234,13 @@ function handleTitleKeydown(e: KeyboardEvent) {
           @blur="commitTitleEdit"
           @keydown="handleTitleKeydown"
         />
-        <span v-else class="title-name title-name--editable" :title="activeSession.profileLabel" @click="startTitleEdit">{{ activeSession.profileLabel }}</span>
+        <span
+          v-else
+          class="title-name"
+          :class="{ 'title-name--editable': titleEditable }"
+          :title="activeSession.profileLabel"
+          @click="startTitleEdit"
+        >{{ activeSession.profileLabel }}</span>
       </div>
     </div>
 
@@ -331,6 +256,12 @@ function handleTitleKeydown(e: KeyboardEvent) {
         :options="rendererOptions"
         size="sm"
         @update:modelValue="emit('update:rendererMode', $event as TerminalRendererMode)"
+      />
+      <UiSelect
+        :model-value="layoutMode"
+        :options="layoutOptions"
+        size="sm"
+        @update:modelValue="emit('update:layoutMode', $event as TerminalLayoutMode)"
       />
 
       <!-- Full mode keeps all commands as icon buttons; text is exposed through title/aria-label. -->
@@ -354,6 +285,12 @@ function handleTitleKeydown(e: KeyboardEvent) {
           <svg v-else-if="action.icon === 'fileManager'" viewBox="0 0 24 24" width="14" height="14" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round">
             <path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
             <path d="M3 10h18" />
+          </svg>
+          <svg v-else-if="action.icon === 'resetLayoutSize'" viewBox="0 0 24 24" width="14" height="14" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M3 12a9 9 0 1 0 3-6.7" />
+            <path d="M3 3v6h6" />
+            <path d="M8 12h8" />
+            <path d="M12 8v8" />
           </svg>
           <svg v-else-if="action.icon === 'search'" viewBox="0 0 24 24" width="14" height="14" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round">
             <circle cx="11" cy="11" r="8" /><line x1="21" y1="21" x2="16.65" y2="16.65" />
@@ -390,6 +327,12 @@ function handleTitleKeydown(e: KeyboardEvent) {
           <svg v-else-if="action.icon === 'fileManager'" viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round">
             <path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
             <path d="M3 10h18" />
+          </svg>
+          <svg v-else-if="action.icon === 'resetLayoutSize'" viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M3 12a9 9 0 1 0 3-6.7" />
+            <path d="M3 3v6h6" />
+            <path d="M8 12h8" />
+            <path d="M12 8v8" />
           </svg>
           <svg v-else-if="action.icon === 'search'" viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round">
             <circle cx="11" cy="11" r="8" /><line x1="21" y1="21" x2="16.65" y2="16.65" />
@@ -432,6 +375,12 @@ function handleTitleKeydown(e: KeyboardEvent) {
               <path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
               <path d="M3 10h18" />
             </svg>
+            <svg v-else-if="action.icon === 'resetLayoutSize'" viewBox="0 0 24 24" width="14" height="14" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M3 12a9 9 0 1 0 3-6.7" />
+              <path d="M3 3v6h6" />
+              <path d="M8 12h8" />
+              <path d="M12 8v8" />
+            </svg>
             <svg v-else-if="action.icon === 'search'" viewBox="0 0 24 24" width="14" height="14" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round">
               <circle cx="11" cy="11" r="8" /><line x1="21" y1="21" x2="16.65" y2="16.65" />
             </svg>
@@ -471,11 +420,15 @@ function handleTitleKeydown(e: KeyboardEvent) {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 12px 16px;
-  background: transparent;
+  gap: 10px;
+  padding: 8px 10px;
+  background: color-mix(in srgb, var(--ui-surface-panel) 88%, transparent);
   border-bottom: 1px solid var(--ui-border-subtle);
-  min-height: 54px;
+  min-height: 46px;
   box-sizing: border-box;
+  backdrop-filter: blur(12px);
+  position: relative;
+  z-index: 320;
 }
 
 :global(.light) .terminal-toolbar {
@@ -505,7 +458,7 @@ function handleTitleKeydown(e: KeyboardEvent) {
 .terminal-toolbar__left {
   display: flex;
   align-items: center;
-  gap: 16px;
+  gap: 10px;
   flex: 1 1 auto;
   min-width: 0;
 }
@@ -560,156 +513,15 @@ function handleTitleKeydown(e: KeyboardEvent) {
   }
 }
 
-.terminal-create-btn {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  flex: 0 0 auto;
-  width: 30px;
-  height: 30px;
-  border-radius: 6px;
-  border: 1px solid var(--ui-button-primary-border);
-  background: var(--ui-button-primary-bg);
-  color: var(--ui-button-primary-text);
-  box-shadow: var(--ui-button-primary-shadow);
-  cursor: pointer;
-  transition:
-    background-color 0.18s ease,
-    border-color 0.18s ease,
-    box-shadow 0.18s ease,
-    transform 0.18s ease;
-
-  &:hover {
-    background: var(--ui-button-primary-hover-bg);
-    transform: translateY(-1px);
-  }
-
-  &:focus-visible {
-    outline: none;
-    box-shadow: var(--ui-focus-ring);
-  }
-}
-
-.terminal-profile-create {
-  position: relative;
-  display: inline-flex;
-  flex: 0 0 auto;
-}
-
-.terminal-create-other-btn,
-.terminal-profile-create__confirm,
-.terminal-profile-create__cancel {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 30px;
-  height: 30px;
-  border-radius: 6px;
-  border: 1px solid var(--terminal-toolbar-action-border);
-  background: var(--terminal-toolbar-action-bg);
-  color: var(--terminal-toolbar-action-text);
-  cursor: pointer;
-  transition:
-    background-color 0.18s ease,
-    border-color 0.18s ease,
-    color 0.18s ease,
-    transform 0.18s ease;
-
-  &:hover:not(:disabled) {
-    background: var(--terminal-toolbar-action-hover-bg);
-    color: var(--terminal-toolbar-action-hover-text);
-    transform: translateY(-1px);
-  }
-
-  &:disabled {
-    opacity: 0.5;
-    cursor: not-allowed;
-    transform: none;
-  }
-
-  &:focus-visible {
-    outline: none;
-    box-shadow: var(--ui-focus-ring);
-  }
-}
-
-.terminal-profile-create__panel {
-  position: absolute;
-  top: calc(100% + 6px);
-  left: 0;
-  z-index: 120;
-  display: grid;
-  grid-template-columns: minmax(210px, 280px) 30px 30px;
-  align-items: start;
-  gap: 6px;
-  padding: 8px;
-  border: 1px solid color-mix(in srgb, var(--ui-border-subtle) 84%, transparent);
-  border-radius: 6px;
-  background: var(--ui-surface-panel);
-  box-shadow: 0 14px 34px rgba(0, 0, 0, 0.22);
-}
-
-.terminal-profile-create__options {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  max-height: 220px;
-  overflow-y: auto;
-  padding: 4px;
-  border: 1px solid var(--ui-input-border, var(--ui-border-subtle));
-  border-radius: 6px;
-  background: var(--ui-input-bg);
-}
-
-.terminal-profile-create__option {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  min-width: 0;
-  width: 100%;
-  min-height: 30px;
-  padding: 6px 8px;
-  border: 1px solid transparent;
-  border-radius: 5px;
-  background: transparent;
-  color: var(--ui-text-secondary);
-  font: inherit;
-  font-size: 12px;
-  text-align: left;
-  cursor: pointer;
-  transition:
-    background-color 0.16s ease,
-    border-color 0.16s ease,
-    color 0.16s ease;
-
-  &:hover,
-  &--active {
-    border-color: var(--ui-border-accent-soft);
-    background: var(--ui-tabs-active-bg);
-    color: var(--ui-text-primary);
-  }
-}
-
-.terminal-profile-create__option-label {
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.terminal-profile-create__confirm {
-  color: var(--primary-color);
-}
-
-.terminal-profile-create__cancel {
-  color: var(--ui-text-muted);
-}
-
 .terminal-toolbar__right {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 6px;
   flex-shrink: 0;
+
+  :deep(.ui-select) {
+    min-height: 30px;
+  }
 }
 
 // ── Full mode: icon + text button ─────────────────────────────
@@ -720,7 +532,7 @@ function handleTitleKeydown(e: KeyboardEvent) {
   justify-content: center;
   min-width: 32px;
   padding: 0 8px;
-  border-radius: 6px;
+  border-radius: 4px;
   background: var(--terminal-toolbar-action-bg);
   border: 1px solid var(--terminal-toolbar-action-border);
   color: var(--terminal-toolbar-action-text);
@@ -758,7 +570,7 @@ function handleTitleKeydown(e: KeyboardEvent) {
   width: 32px;
   height: 30px;
   padding: 0 8px;
-  border-radius: 6px;
+  border-radius: 4px;
   background: var(--terminal-toolbar-action-bg);
   border: 1px solid var(--terminal-toolbar-action-border);
   color: var(--terminal-toolbar-action-text);

@@ -42,6 +42,7 @@ pub struct SshProfile {
     /// Serialized jump host JSON (optional)
     pub jump_host_json: Option<String>,
     pub auto_reconnect: bool,
+    pub folder_id: Option<String>,
     pub sort_order: i64,
     pub color: Option<String>,
     /// Serialized tags JSON array string (optional)
@@ -68,6 +69,7 @@ pub struct CreateSshProfileInput {
     pub private_key_passphrase: Option<String>,
     pub jump_host_json: Option<String>,
     pub auto_reconnect: bool,
+    pub folder_id: Option<String>,
     pub color: Option<String>,
     pub tags: Option<String>,
 }
@@ -91,8 +93,41 @@ pub struct UpdateSshProfileInput {
     pub private_key_passphrase: Option<String>,
     pub jump_host_json: Option<String>,
     pub auto_reconnect: Option<bool>,
+    pub folder_id: Option<String>,
     pub color: Option<String>,
     pub tags: Option<String>,
+}
+
+/// Folder/group for saved SSH profiles.
+#[cfg_attr(feature = "napi", napi(object))]
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SshProfileFolder {
+    pub id: String,
+    pub label: String,
+    pub parent_id: Option<String>,
+    pub sort_order: i64,
+    pub created_at: i64,
+}
+
+/// Input for creating an SSH profile folder.
+#[cfg_attr(feature = "napi", napi(object))]
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+#[serde(rename_all = "camelCase")]
+pub struct CreateSshProfileFolderInput {
+    pub label: String,
+    pub parent_id: Option<String>,
+}
+
+/// Input for updating an SSH profile folder.
+#[cfg_attr(feature = "napi", napi(object))]
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+#[serde(rename_all = "camelCase")]
+pub struct UpdateSshProfileFolderInput {
+    pub id: String,
+    pub label: Option<String>,
+    pub parent_id: Option<String>,
+    pub sort_order: Option<i64>,
 }
 
 // ============================================================
