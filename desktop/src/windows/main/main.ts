@@ -6,6 +6,7 @@ import App from './App.vue'
 import ripple from './directives/ripple'
 import tooltip from './directives/tooltip'
 import './global.css'
+import { installInAppErrorHandlers } from './composables/useInAppNotification'
 import { registerPluginRoutes, router } from './routes/router'
 import { useAppConfigStore } from './stores/app_config_store'
 import { useBarStore } from './stores/bar_store'
@@ -44,6 +45,7 @@ async function bootstrap() {
   app.use(router);
   app.use(pinia);
   app.use(i18n);
+  installInAppErrorHandlers(app);
 
   const appConfigStore = useAppConfigStore(pinia);
   appConfigStore.setLanguageApplier((language) => {

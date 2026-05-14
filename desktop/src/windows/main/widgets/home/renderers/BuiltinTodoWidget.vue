@@ -4,6 +4,7 @@ import type { GridItem, TodoWidgetConfig } from '../../../types/grid';
 import { normalizeWidgetConfig } from '../registry';
 import type { Todo, TodoList } from '@/contracts/todo';
 import { useTodoEvents } from '../../../composables/useTodoEvents';
+import { notifyError } from '../../../composables/useInAppNotification';
 
 declare const todoApi: import('@/contracts/todo').TodoApi;
 
@@ -82,6 +83,7 @@ async function loadTodos() {
     else                        todos.value = await todoApi.getTodosByList(v, config.value.showCompleted);
   } catch (err) {
     console.error('[TodoWidget] Failed to load todos:', err);
+    notifyError(err, '待办组件加载失败');
   } finally {
     loading.value = false;
   }
@@ -112,6 +114,7 @@ async function toggleComplete(todo: Todo) {
     notifyTodoMutated();
   } catch (err) {
     console.error('[TodoWidget] Toggle failed:', err);
+    notifyError(err, '待办状态更新失败');
   }
 }
 
@@ -142,6 +145,7 @@ async function quickAdd() {
     notifyTodoMutated();
   } catch (err) {
     console.error('[TodoWidget] Quick add failed:', err);
+    notifyError(err, '待办创建失败');
   }
 }
 

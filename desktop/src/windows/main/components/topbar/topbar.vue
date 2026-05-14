@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import SvgIcon from '@/windows/main/components/svgs/svgicon.vue';
 import { useTheme } from '@/windows/main/composables/theme';
+import { getErrorMessage, notifyError, notifyWarning } from '@/windows/main/composables/useInAppNotification';
 import { useGlobalStore } from '@/windows/main/stores/global_store';
 import { useHomeProfileStore } from '@/windows/main/stores/home_profile_store';
 import { computed, nextTick, onMounted, onUnmounted, ref, watch, type CSSProperties } from 'vue';
@@ -37,6 +38,11 @@ const activeProfileName = computed(() => homeProfileStore.activeProfile?.name ??
 const profileButtonLabel = computed(() => `配置文件：${activeProfileName.value}`);
 const isProfileBusy = computed(() => homeProfileStore.loading || homeProfileStore.switching);
 
+function setProfilePanelError(error: unknown, title: string) {
+  profilePanelError.value = getErrorMessage(error);
+  notifyError(error, title);
+}
+
 function openProfilePanel() {
   profilePanelError.value = '';
   profileRowsTransitionEnabled.value = false;
@@ -48,7 +54,7 @@ function openProfilePanel() {
   }, 200);
   if (homeProfileStore.profiles.length === 0 && !homeProfileStore.loading) {
     void homeProfileStore.loadProfiles().catch(error => {
-      profilePanelError.value = error instanceof Error ? error.message : String(error);
+      setProfilePanelError(error, '首页配置文件加载失败');
     });
   }
 }
@@ -96,7 +102,7 @@ async function switchProfile(key: string) {
   try {
     await homeProfileStore.switchProfile(key);
   } catch (error) {
-    profilePanelError.value = error instanceof Error ? error.message : String(error);
+    setProfilePanelError(error, '首页配置文件切换失败');
   }
 }
 
@@ -111,7 +117,7 @@ async function createProfile() {
     await homeProfileStore.createProfile(name);
     createProfileName.value = '';
   } catch (error) {
-    profilePanelError.value = error instanceof Error ? error.message : String(error);
+    setProfilePanelError(error, '首页配置文件创建失败');
   }
 }
 
@@ -134,13 +140,14 @@ async function confirmRenameProfile() {
     editingProfileKey.value = '';
     editingProfileName.value = '';
   } catch (error) {
-    profilePanelError.value = error instanceof Error ? error.message : String(error);
+    setProfilePanelError(error, '首页配置文件重命名失败');
   }
 }
 
 async function deleteProfile(key: string) {
   if (homeProfileStore.profiles.length <= 1) {
     profilePanelError.value = '至少保留一个配置文件。';
+    notifyWarning(profilePanelError.value, '无法删除配置文件');
     return;
   }
 
@@ -152,7 +159,7 @@ async function deleteProfile(key: string) {
       editingProfileName.value = '';
     }
   } catch (error) {
-    profilePanelError.value = error instanceof Error ? error.message : String(error);
+    setProfilePanelError(error, '首页配置文件删除失败');
   }
 }
 
@@ -182,7 +189,7 @@ onMounted(() => {
   window.addEventListener('keydown', handleWindowKeydown);
   window.addEventListener('resize', updateProfilePanelPosition);
   void homeProfileStore.loadProfiles().catch(error => {
-    profilePanelError.value = error instanceof Error ? error.message : String(error);
+    setProfilePanelError(error, '首页配置文件加载失败');
   });
 });
 

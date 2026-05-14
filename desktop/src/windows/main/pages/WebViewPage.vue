@@ -10,6 +10,7 @@ import { useBarStore } from '../stores/bar_store';
 import { useGlobalStore } from '../stores/global_store';
 import { useWebviewStore } from '../stores/webview_store';
 import { router } from '../routes/router';
+import { notifyError } from '../composables/useInAppNotification';
 
 const route = useRoute();
 const barStore = useBarStore();
@@ -200,6 +201,7 @@ async function loadWebview() {
         }
       } catch (err) {
         console.error('[WebView] Script injection failed:', script.name, err);
+        notifyError(err, `脚本注入失败：${script.name}`);
       }
     }
     // 页面加载完成后同步标题

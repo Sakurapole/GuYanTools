@@ -11,6 +11,7 @@ import UiStateCard from '../../components/ui/UiStateCard.vue';
 import UiPersonalizationConfig from '../../components/ui/UiPersonalizationConfig.vue';
 import IconPicker from '../../components/ui/IconPicker.vue';
 import IconRenderer from '../../components/ui/IconRenderer.vue';
+import { notifyError } from '../../composables/useInAppNotification';
 import EditIcon from '../../components/svgs/icons/EditIcon.vue';
 import { useGridPersistence } from '../../composables/useGridPersistence';
 import { useContextMenu, type ContextMenuItem } from '../../composables/useContextMenu';
@@ -392,11 +393,13 @@ function enqueueMutation(task: () => Promise<void>) {
     .catch(async error => {
       console.error('Failed to persist home layout mutation:', error);
       loadError.value = '首页布局保存失败，已自动重新加载。';
+      notifyError(error, '首页布局保存失败');
 
       try {
         await reloadHomeLayout();
       } catch (reloadError) {
         console.error('Failed to reload home layout after mutation error:', reloadError);
+        notifyError(reloadError, '首页布局重新加载失败');
       }
     });
 
@@ -464,6 +467,7 @@ async function loadWorkspaceBackgrounds() {
     sidebarBg.style = s.style as import('../../types/grid').BackgroundStyleConfig | undefined;
   } catch (e) {
     console.warn('[Home] 加载工作区背景失败，使用空背景:', e);
+    notifyError(e, '首页背景加载失败');
   }
 }
 
@@ -483,6 +487,7 @@ async function initializeHomeLayout(options: { resetActive?: boolean } = {}) {
   } catch (error) {
     console.error('Failed to initialize home layout:', error);
     loadError.value = '首页布局加载失败。';
+    notifyError(error, '首页布局加载失败');
   } finally {
     isLoading.value = false;
   }
@@ -736,6 +741,7 @@ onMounted(() => {
       await homeProfileStore.loadProfiles();
     } catch (error) {
       console.warn('[Home] 首页配置文件初始化失败，继续尝试加载默认布局:', error);
+      notifyError(error, '首页配置文件加载失败');
     }
     await initializeHomeLayout();
     profileReloadReady = true;

@@ -9,6 +9,7 @@ import { useBarStore } from '../../stores/bar_store';
 import { useGlobalStore } from '../../stores/global_store';
 import { useWebviewStore } from '../../stores/webview_store';
 import { router } from '../../routes/router';
+import { notifyError } from '../../composables/useInAppNotification';
 
 const route = useRoute();
 const barStore = useBarStore();
@@ -220,6 +221,7 @@ async function initWebview(instanceUrl: string) {
       }
     } catch (err) {
       console.error('[WebView:KeepAlive] Script injection failed:', script.name, err);
+      notifyError(err, `脚本注入失败：${script.name}`);
     }
   }
 

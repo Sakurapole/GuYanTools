@@ -3,6 +3,7 @@ import { ref, computed, watch } from 'vue';
 import type { Todo, CompleteTodoResult } from '@/contracts/todo';
 import { useTodoListStore } from './todo_list_store';
 import { useTodoEvents } from '@/windows/main/composables/useTodoEvents';
+import { notifyError } from '@/windows/main/composables/useInAppNotification';
 
 declare const todoApi: import('@/contracts/todo').TodoApi;
 
@@ -78,6 +79,7 @@ export const useTodoStore = defineStore('todo', () => {
       todos.value = await getTodosForView(currentView.value);
     } catch (err) {
       console.error('Failed to load todos:', err);
+      notifyError(err, '待办列表加载失败');
     } finally {
       loading.value = false;
     }
@@ -249,6 +251,7 @@ export const useTodoStore = defineStore('todo', () => {
       };
     } catch (err) {
       console.error('Failed to load smart list counts:', err);
+      notifyError(err, '待办统计加载失败');
     }
   }
 

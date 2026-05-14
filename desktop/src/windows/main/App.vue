@@ -2,6 +2,7 @@
 import { useElementSize } from '@vueuse/core';
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
+import AppNotificationHost from './components/AppNotificationHost.vue';
 import bottombar from './components/bottombar/bottombar.vue';
 import ConfirmDialog from './components/ui/ConfirmDialog.vue';
 import GlobalContextMenu from './components/ui/GlobalContextMenu.vue';
@@ -74,8 +75,10 @@ removeBeforeEach = router.beforeEach((to, from, next) => {
   const pageRouteOrder = getPageRouteOrder();
   const fromIndex = pageRouteOrder.indexOf(from.path);
   const toIndex = pageRouteOrder.indexOf(to.path);
-  if (fromIndex === -1 || toIndex === -1 || from.path === to.path) {
+  if (from.path === to.path) {
     pageTransitionName.value = 'ui-fade';
+  } else if (fromIndex === -1 || toIndex === -1) {
+    pageTransitionName.value = 'ui-page-forward';
   } else {
     pageTransitionName.value = toIndex >= fromIndex ? 'ui-page-forward' : 'ui-page-back';
   }
@@ -143,6 +146,7 @@ onBeforeUnmount(() => {
     <ConfirmDialog />
     <!-- Tray context menu (custom renderer-side popup) -->
     <TrayContextMenu />
+    <AppNotificationHost :popup="isPopupMode" />
   </div>
 </template>
 

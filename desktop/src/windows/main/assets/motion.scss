@@ -148,24 +148,42 @@
   inset: 0;
   width: 100%;
   height: 100%;
-  transition: transform var(--ui-motion-duration-slow) var(--ui-motion-ease-emphasized);
-  will-change: transform;
+  pointer-events: none;
+  transition:
+    opacity var(--ui-motion-duration-slow) var(--ui-motion-ease-standard),
+    transform var(--ui-motion-duration-slow) var(--ui-motion-ease-emphasized);
+  will-change: opacity, transform;
+  backface-visibility: hidden;
+  contain: layout paint;
+}
+
+.ui-page-forward-enter-active,
+.ui-page-back-enter-active {
+  z-index: 2;
+}
+
+.ui-page-forward-leave-active,
+.ui-page-back-leave-active {
+  z-index: 1;
 }
 
 .ui-page-forward-enter-to,
 .ui-page-forward-leave-from,
 .ui-page-back-enter-to,
 .ui-page-back-leave-from {
+  opacity: 1;
   transform: translateX(0);
 }
 
 .ui-page-forward-enter-from,
 .ui-page-back-leave-to {
+  opacity: 0.96;
   transform: translateX(100%);
 }
 
 .ui-page-forward-leave-to,
 .ui-page-back-enter-from {
+  opacity: 0.96;
   transform: translateX(-100%);
 }
 

@@ -20,6 +20,7 @@ import UiSelect from '@/windows/main/components/ui/UiSelect.vue';
 import UiTimePicker from '@/windows/main/components/ui/UiTimePicker.vue';
 import { useConfirmDialog } from '@/windows/main/composables/useConfirmDialog';
 import { useContextMenu } from '@/windows/main/composables/useContextMenu';
+import { notifyError } from '@/windows/main/composables/useInAppNotification';
 import FtpBrowserPanel from '@/windows/main/pages/Ftp/components/FtpBrowserPanel.vue';
 import FtpCodeEditor from '@/windows/main/pages/Ftp/components/FtpCodeEditor.vue';
 import FtpConfigSidebar from '@/windows/main/pages/Ftp/components/FtpConfigSidebar.vue';
@@ -858,6 +859,7 @@ function noticeDisconnectedSession(error: unknown, session = activeSession.value
 function handleFtpOperationError(error: unknown, session = activeSession.value, remotePath = ftpStore.remotePath) {
   if (noticeDisconnectedSession(error, session, remotePath)) return;
   actionError.value = errorMessage(error);
+  notifyError(error, 'FTP 操作失败');
 }
 
 function handleUnhandledFtpRejection(event: PromiseRejectionEvent) {

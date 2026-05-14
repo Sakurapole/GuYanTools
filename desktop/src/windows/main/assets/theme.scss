@@ -464,8 +464,7 @@
   z-index: 1;
 }
 
-.theme-transitioning,
-.app-rendering-busy {
+.theme-transitioning {
   --ui-backdrop-blur-sm: none;
   --ui-backdrop-blur-md: none;
   --ui-backdrop-blur-lg: none;
@@ -473,10 +472,7 @@
 
 .theme-transitioning *,
 .theme-transitioning *::before,
-.theme-transitioning *::after,
-.app-rendering-busy *,
-.app-rendering-busy *::before,
-.app-rendering-busy *::after {
+.theme-transitioning *::after {
   animation: none !important;
   backdrop-filter: none !important;
   -webkit-backdrop-filter: none !important;

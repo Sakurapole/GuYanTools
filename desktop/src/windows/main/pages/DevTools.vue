@@ -73,12 +73,62 @@
           </div>
         </div>
       </section>
+
+      <section class="devtools-section">
+        <h3 class="devtools-section-title">页内通知测试</h3>
+
+        <div class="devtools-form">
+          <div class="devtools-row">
+            <label class="devtools-label">标题</label>
+            <input type="text" class="devtools-input" v-model="inAppForm.title" placeholder="页内通知标题" />
+          </div>
+
+          <div class="devtools-row">
+            <label class="devtools-label">内容</label>
+            <textarea class="devtools-input devtools-textarea" v-model="inAppForm.message"
+              placeholder="页内通知内容" rows="3" />
+          </div>
+
+          <div class="devtools-row">
+            <label class="devtools-label">自动关闭(ms)</label>
+            <input type="number" class="devtools-input devtools-input--short" v-model.number="inAppForm.duration"
+              placeholder="5000" />
+          </div>
+
+          <div class="devtools-actions devtools-actions--wrap">
+            <button class="devtools-btn devtools-btn--secondary" @click="sendInAppInfo">
+              Info
+            </button>
+            <button class="devtools-btn devtools-btn--success" @click="sendInAppSuccess">
+              Success
+            </button>
+            <button class="devtools-btn devtools-btn--warning" @click="sendInAppWarning">
+              Warning
+            </button>
+            <button class="devtools-btn devtools-btn--danger" @click="sendInAppError">
+              Error
+            </button>
+            <button class="devtools-btn devtools-btn--secondary" @click="throwVueError">
+              触发组件异常
+            </button>
+            <button class="devtools-btn devtools-btn--secondary" @click="rejectPromise">
+              触发 Promise 异常
+            </button>
+          </div>
+        </div>
+      </section>
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
 import { onMounted, reactive } from 'vue';
+import {
+  notifyError,
+  notifyInfo,
+  notifySuccess,
+  notifyWarning,
+} from '../composables/useInAppNotification';
 import { useGlobalStore } from '../stores/global_store';
 import type { NotificationPayload, NotificationType, NotificationSize } from '@/contracts/notification';
 
@@ -109,6 +159,12 @@ const notifForm = reactive({
   message: '这是一条测试通知消息',
   imageUrl: '',
   icon: '🔔',
+  duration: 5000,
+});
+
+const inAppForm = reactive({
+  title: '页内通知测试',
+  message: '这是一条显示在应用右上角的页内通知。',
   duration: 5000,
 });
 
@@ -149,6 +205,37 @@ function sendQuickRich() {
     icon: '🚀',
     duration: 8000,
   });
+}
+
+function inAppOptions() {
+  return {
+    duration: Math.max(0, Number(inAppForm.duration) || 0),
+    dedupeKey: `devtools:${Date.now()}`,
+  };
+}
+
+function sendInAppInfo() {
+  notifyInfo(inAppForm.message, inAppForm.title || '提示', inAppOptions());
+}
+
+function sendInAppSuccess() {
+  notifySuccess(inAppForm.message, inAppForm.title || '已完成', inAppOptions());
+}
+
+function sendInAppWarning() {
+  notifyWarning(inAppForm.message, inAppForm.title || '请注意', inAppOptions());
+}
+
+function sendInAppError() {
+  notifyError(new Error(inAppForm.message), inAppForm.title || '操作失败', inAppOptions());
+}
+
+function throwVueError() {
+  throw new Error('DevTools 手动触发的组件异常');
+}
+
+function rejectPromise() {
+  void Promise.reject(new Error('DevTools 手动触发的 Promise 异常'));
 }
 </script>
 
@@ -307,6 +394,10 @@ function sendQuickRich() {
   padding-left: 112px;
 }
 
+.devtools-actions--wrap {
+  flex-wrap: wrap;
+}
+
 .devtools-btn {
   padding: 8px 18px;
   border-radius: var(--ui-radius-sm);
@@ -336,6 +427,36 @@ function sendQuickRich() {
   &:hover {
     background: var(--ui-button-secondary-hover-bg);
     border-color: var(--ui-button-secondary-hover-border);
+  }
+}
+
+.devtools-btn--success {
+  background: rgba(16, 185, 129, 0.12);
+  color: #047857;
+  border-color: rgba(16, 185, 129, 0.22);
+
+  &:hover {
+    background: rgba(16, 185, 129, 0.18);
+  }
+}
+
+.devtools-btn--warning {
+  background: rgba(245, 158, 11, 0.13);
+  color: #92400e;
+  border-color: rgba(245, 158, 11, 0.24);
+
+  &:hover {
+    background: rgba(245, 158, 11, 0.2);
+  }
+}
+
+.devtools-btn--danger {
+  background: var(--ui-button-danger-bg);
+  color: var(--ui-button-danger-text);
+  border-color: var(--ui-button-danger-border);
+
+  &:hover {
+    background: var(--ui-button-danger-hover-bg);
   }
 }
 </style>
