@@ -156,7 +156,7 @@ watch(() => appBg.value, () => {
   gap: 16px;
   overflow: hidden;
   background: transparent;
-  color: var(--color-text-primary, #1e1e1e);
+  color: var(--color-text-primary, var(--ui-text-primary));
   position: relative;
 }
 

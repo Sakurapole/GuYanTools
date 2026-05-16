@@ -3,6 +3,7 @@
   --background-color: #f7fbff;
 
   --ui-text-primary: rgba(30, 70, 90, 0.9);
+  --ui-text-secondary: rgba(30, 70, 90, 0.72);
   --ui-text-muted: rgba(30, 70, 90, 0.65);
   --ui-text-subtle: rgba(30, 70, 90, 0.48);
   --ui-text-inverse: #ffffff;
@@ -14,6 +15,19 @@
   --ui-surface-glass: rgba(255, 255, 255, 0.72);
   --ui-surface-glass-strong: rgba(255, 255, 255, 0.9);
   --ui-surface-overlay: rgba(15, 23, 42, 0.08);
+
+  --todo-app-bg: var(--background-color);
+  --todo-panel-bg: rgba(255, 255, 255, 0.65);
+  --todo-panel-shadow: 0 8px 32px rgba(0, 0, 0, 0.05);
+  --todo-item-shadow: 0 4px 12px rgba(0, 0, 0, 0.03), 0 1px 2px rgba(0, 0, 0, 0.02);
+  --todo-item-shadow-hover: 0 8px 24px rgba(0, 0, 0, 0.06), 0 3px 6px rgba(0, 0, 0, 0.03);
+  --todo-accent-bg-soft: rgba(102, 204, 255, 0.08);
+  --todo-accent-bg: rgba(102, 204, 255, 0.12);
+  --todo-accent-ring: rgba(102, 204, 255, 0.16);
+  --todo-danger-bg: rgba(239, 68, 68, 0.1);
+  --todo-warning-bg: rgba(245, 158, 11, 0.06);
+  --todo-warning-border: rgba(245, 158, 11, 0.15);
+  --todo-popup-shadow: 0 8px 24px rgba(0, 0, 0, 0.1), 0 2px 8px rgba(0, 0, 0, 0.06);
 
   --ui-border-subtle: rgba(15, 23, 42, 0.08);
   --ui-border-accent: rgba(102, 204, 255, 0.4);
@@ -225,6 +239,7 @@
   --background-color: #101821;
 
   --ui-text-primary: rgba(220, 240, 255, 0.92);
+  --ui-text-secondary: rgba(220, 240, 255, 0.74);
   --ui-text-muted: rgba(220, 240, 255, 0.65);
   --ui-text-subtle: rgba(220, 240, 255, 0.46);
   --ui-text-inverse: #f5fbff;
@@ -236,6 +251,19 @@
   --ui-surface-glass: rgba(17, 24, 39, 0.72);
   --ui-surface-glass-strong: rgba(20, 35, 45, 0.9);
   --ui-surface-overlay: rgba(255, 255, 255, 0.08);
+
+  --todo-app-bg: var(--background-color);
+  --todo-panel-bg: rgba(20, 35, 45, 0.72);
+  --todo-panel-shadow: 0 8px 32px rgba(0, 0, 0, 0.26);
+  --todo-item-shadow: 0 4px 14px rgba(0, 0, 0, 0.2), 0 1px 2px rgba(255, 255, 255, 0.02);
+  --todo-item-shadow-hover: 0 8px 28px rgba(0, 0, 0, 0.28), 0 3px 8px rgba(0, 0, 0, 0.18);
+  --todo-accent-bg-soft: rgba(102, 204, 255, 0.1);
+  --todo-accent-bg: rgba(102, 204, 255, 0.16);
+  --todo-accent-ring: rgba(102, 204, 255, 0.22);
+  --todo-danger-bg: rgba(239, 68, 68, 0.18);
+  --todo-warning-bg: rgba(245, 158, 11, 0.12);
+  --todo-warning-border: rgba(245, 158, 11, 0.24);
+  --todo-popup-shadow: 0 8px 24px rgba(0, 0, 0, 0.36), 0 2px 8px rgba(0, 0, 0, 0.22);
 
   --ui-border-subtle: rgba(255, 255, 255, 0.08);
   --ui-border-accent: rgba(102, 204, 255, 0.2);

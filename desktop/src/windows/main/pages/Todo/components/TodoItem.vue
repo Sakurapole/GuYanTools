@@ -127,14 +127,14 @@ function handleContextMenu(e: MouseEvent) {
   -webkit-backdrop-filter: blur(10px);
   border: 1px solid var(--ui-border-subtle);
   border-radius: 12px;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.03), 0 1px 2px rgba(0, 0, 0, 0.02);
+  box-shadow: var(--todo-item-shadow);
   cursor: pointer;
   transition: all 0.25s cubic-bezier(0.25, 0.8, 0.25, 1);
 }
 .todo-item:hover {
   background: var(--ui-surface-glass-strong);
   transform: translateY(-2px);
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.06), 0 3px 6px rgba(0, 0, 0, 0.03);
+  box-shadow: var(--todo-item-shadow-hover);
   border-color: var(--ui-border-accent-soft);
 }
 .todo-item.completed .item-title {

@@ -218,7 +218,7 @@ function handleListContextMenu(e: MouseEvent, list: { id: string; name: string }
   flex-direction: column;
   background: transparent;
   border-radius: 16px;
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.05);
+  box-shadow: var(--todo-panel-shadow);
   overflow: hidden;
   box-sizing: border-box;
   position: relative;
@@ -415,7 +415,7 @@ function handleListContextMenu(e: MouseEvent, list: { id: string; name: string }
 }
 
 .add-list-btn:hover {
-  background: rgba(74, 144, 217, 0.06);
+  background: var(--todo-accent-bg-soft);
   border-color: var(--ui-border-accent-soft);
 }
 
@@ -429,12 +429,12 @@ function handleListContextMenu(e: MouseEvent, list: { id: string; name: string }
   background: var(--ui-input-bg);
   color: var(--ui-text-primary);
   box-sizing: border-box;
-  box-shadow: 0 0 0 3px rgba(74, 144, 217, 0.12);
+  box-shadow: 0 0 0 3px var(--todo-accent-ring);
   animation: list-input-in 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
   transition: box-shadow 0.2s ease, border-color 0.2s ease;
 }
 .new-list-input:focus {
-  box-shadow: 0 0 0 3px rgba(74, 144, 217, 0.18);
+  box-shadow: 0 0 0 3px var(--todo-accent-ring);
 }
 .new-list-input::placeholder {
   color: var(--ui-input-placeholder);

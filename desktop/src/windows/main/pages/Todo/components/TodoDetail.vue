@@ -255,7 +255,7 @@ async function onDueDateChange(val: string) {
   position: relative;
   background: transparent;
   border-radius: 16px;
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.05);
+  box-shadow: var(--todo-panel-shadow);
   box-sizing: border-box;
 }
 .detail-inner {

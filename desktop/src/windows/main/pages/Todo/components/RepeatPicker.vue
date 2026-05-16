@@ -168,7 +168,7 @@ onBeforeUnmount(() => document.removeEventListener('mousedown', onClickOutside, 
   background: var(--ui-surface-glass-strong, #fff);
   border: 1px solid var(--ui-border-subtle);
   border-radius: 10px;
-  box-shadow: 0 8px 24px rgba(0,0,0,0.1), 0 2px 8px rgba(0,0,0,0.06);
+  box-shadow: var(--todo-popup-shadow);
 }
 .panel-title {
   padding: 6px 14px;
@@ -195,7 +195,7 @@ onBeforeUnmount(() => document.removeEventListener('mousedown', onClickOutside, 
 .panel-option:hover { background: var(--ui-button-ghost-hover-bg); }
 .panel-option.selected { color: var(--ui-input-focus-border); font-weight: 600; }
 .panel-option--danger { color: #ef4444; }
-.panel-option--danger:hover { background: rgba(239, 68, 68, 0.06); }
+.panel-option--danger:hover { background: var(--todo-danger-bg); }
 .panel-divider {
   height: 1px;
   background: var(--ui-border-subtle);

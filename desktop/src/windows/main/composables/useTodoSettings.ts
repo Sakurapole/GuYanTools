@@ -9,9 +9,14 @@ export interface AreaBackground {
   backgroundStyle: BackgroundStyleConfig;
 }
 
+const defaultAppColor = 'var(--todo-app-bg, var(--background-color))';
+const defaultPanelColor = 'var(--todo-panel-bg, var(--ui-surface-glass))';
+const legacyDefaultAppColor = 'var(--color-bg-primary, #f5f7fa)';
+const legacyDefaultPanelColor = 'rgba(255, 255, 255, 0.65)';
+
 const defaultGlassBackground: AreaBackground = {
   type: 'color',
-  color: 'rgba(255, 255, 255, 0.65)',
+  color: defaultPanelColor,
   image: '',
   video: '',
   backgroundStyle: { opacity: 1 },
@@ -19,11 +24,30 @@ const defaultGlassBackground: AreaBackground = {
 
 const defaultAppBackground: AreaBackground = {
   type: 'color',
-  color: 'var(--color-bg-primary, #f5f7fa)',
+  color: defaultAppColor,
   image: '',
   video: '',
   backgroundStyle: { opacity: 1 },
 };
+
+function migrateLegacyDefaultBackground(
+  storage: { value: AreaBackground },
+  legacyColor: string,
+  nextColor: string,
+) {
+  const bg = storage.value;
+  const isLegacyDefault =
+    bg.type === 'color' &&
+    bg.color === legacyColor &&
+    !bg.image &&
+    !bg.video &&
+    (bg.backgroundStyle?.opacity ?? 1) === 1 &&
+    !bg.backgroundStyle?.textColor;
+
+  if (isLegacyDefault) {
+    storage.value = { ...bg, color: nextColor };
+  }
+}
 
 export function useTodoSettings() {
   const isSidebarCollapsed = useLocalStorage('todo_sidebar_collapsed', false);
@@ -32,6 +56,11 @@ export function useTodoSettings() {
   const sidebarBg = useLocalStorage<AreaBackground>('todo_bg_sidebar', defaultGlassBackground);
   const contentBg = useLocalStorage<AreaBackground>('todo_bg_content', defaultGlassBackground);
   const detailBg = useLocalStorage<AreaBackground>('todo_bg_detail', defaultGlassBackground);
+
+  migrateLegacyDefaultBackground(appBg, legacyDefaultAppColor, defaultAppColor);
+  migrateLegacyDefaultBackground(sidebarBg, legacyDefaultPanelColor, defaultPanelColor);
+  migrateLegacyDefaultBackground(contentBg, legacyDefaultPanelColor, defaultPanelColor);
+  migrateLegacyDefaultBackground(detailBg, legacyDefaultPanelColor, defaultPanelColor);
 
   return {
     isSidebarCollapsed,

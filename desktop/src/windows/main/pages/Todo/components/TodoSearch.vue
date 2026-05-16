@@ -85,7 +85,7 @@ function clearSearch() {
   transition: all 0.15s ease;
 }
 .search-clear:hover {
-  background: rgba(0, 0, 0, 0.08);
+  background: var(--todo-accent-bg-soft);
   color: var(--ui-text-primary);
 }
 </style>

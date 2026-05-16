@@ -53,13 +53,13 @@ async function handleSubmit() {
 .quick-add:hover {
   border-color: var(--ui-input-focus-border);
   border-style: solid;
-  background: rgba(74, 144, 217, 0.04);
+  background: var(--todo-accent-bg-soft);
 }
 .quick-add.focused {
   border-color: var(--ui-input-focus-border);
   border-style: solid;
-  background: rgba(74, 144, 217, 0.06);
-  box-shadow: 0 0 0 3px rgba(74, 144, 217, 0.1);
+  background: var(--todo-accent-bg);
+  box-shadow: 0 0 0 3px var(--todo-accent-ring);
 }
 
 .add-icon-wrap {
@@ -76,7 +76,7 @@ async function handleSubmit() {
 .quick-add.focused .add-icon-wrap,
 .quick-add:hover .add-icon-wrap {
   color: var(--ui-input-focus-border);
-  background: rgba(74, 144, 217, 0.1);
+  background: var(--todo-accent-bg);
 }
 
 .add-input {

@@ -115,8 +115,7 @@ function dismiss() {
   max-width: 460px;
   width: 90%;
   box-shadow:
-    0 8px 32px rgba(0, 0, 0, 0.12),
-    0 2px 8px rgba(0, 0, 0, 0.06);
+    var(--todo-popup-shadow);
   animation: card-in 0.35s cubic-bezier(0.34, 1.56, 0.64, 1);
   overflow: hidden;
 }
@@ -219,8 +218,8 @@ function dismiss() {
 }
 
 .prompt-item:hover {
-  background: rgba(245, 158, 11, 0.06);
-  border-color: rgba(245, 158, 11, 0.15);
+  background: var(--todo-warning-bg);
+  border-color: var(--todo-warning-border);
   transform: translateX(2px);
 }
 
@@ -267,10 +266,10 @@ function dismiss() {
 
 .prompt-add-btn:hover {
   background: var(--ui-input-focus-border);
-  color: white;
+  color: var(--ui-button-primary-text);
   border-color: var(--ui-input-focus-border);
   transform: scale(1.02);
-  box-shadow: 0 2px 8px rgba(74, 144, 217, 0.3);
+  box-shadow: 0 2px 8px var(--todo-accent-ring);
 }
 
 .prompt-add-btn:active {
@@ -291,26 +290,26 @@ function dismiss() {
   align-items: center;
   gap: 6px;
   padding: 9px 20px;
-  background: linear-gradient(135deg, #4A90D9, #357abd);
-  color: white;
+  background: var(--ui-button-primary-bg);
+  color: var(--ui-button-primary-text);
   border: none;
   border-radius: 10px;
   cursor: pointer;
   font-size: 0.85em;
   font-weight: 500;
   transition: all 0.2s ease;
-  box-shadow: 0 2px 8px rgba(74, 144, 217, 0.25);
+  box-shadow: var(--ui-button-primary-shadow);
 }
 
 .btn-primary:hover {
-  background: linear-gradient(135deg, #357abd, #2a69a3);
+  background: var(--ui-button-primary-hover-bg);
   transform: translateY(-1px);
-  box-shadow: 0 4px 14px rgba(74, 144, 217, 0.35);
+  box-shadow: var(--todo-popup-shadow);
 }
 
 .btn-primary:active {
   transform: translateY(0);
-  box-shadow: 0 1px 4px rgba(74, 144, 217, 0.2);
+  box-shadow: var(--ui-button-primary-shadow);
 }
 
 .btn-secondary {
