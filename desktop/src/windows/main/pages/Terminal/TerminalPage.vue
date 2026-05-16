@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, defineAsyncComponent, nextTick, onActivated, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
+import MainPageLayout from '@/windows/main/components/layout/MainPageLayout.vue';
 import UiButton from '@/windows/main/components/ui/UiButton.vue';
 import UiPopupSurface from '@/windows/main/components/ui/UiPopupSurface.vue';
 import { notifyError } from '@/windows/main/composables/useInAppNotification';
@@ -40,10 +41,15 @@ const sshStore = useSshStore();
 const ftpStore = useFtpStore();
 const appConfigStore = useAppConfigStore();
 
+type MainPageLayoutExpose = {
+  mainElement: HTMLElement | null;
+  stageElement: HTMLElement | null;
+};
+
 const viewportRefs = new Map<string, InstanceType<typeof TerminalViewport>>();
 const searchPanelRef = ref<InstanceType<typeof TerminalSearchPanel> | null>(null);
-const terminalMainRef = ref<HTMLElement | null>(null);
-const terminalStageRef = ref<HTMLElement | null>(null);
+const terminalLayoutRef = ref<MainPageLayoutExpose | null>(null);
+const handledTerminalOpenRequestIds = new Set<string>();
 const searchVisible = ref(false);
 const searchQuery = ref('');
 const searchResultIndex = ref(-1);
@@ -91,6 +97,17 @@ interface PaneResizeInteraction {
   rect: DOMRect;
 }
 
+interface PaneDragInteraction {
+  pointerId: number;
+  pane: TerminalPane;
+  startX: number;
+  startY: number;
+  focusViewportOnClick: boolean;
+  moved: boolean;
+  originalOrder: string[];
+  previewOrder: string[];
+}
+
 interface DwindleLayoutModel {
   items: TerminalPaneLayoutItem[];
   handles: TerminalPaneResizeHandle[];
@@ -98,6 +115,7 @@ interface DwindleLayoutModel {
 
 const focusedTerminalPaneKey = ref('');
 const paneOrder = ref<string[]>([]);
+const paneDragPreviewOrder = ref<string[]>([]);
 const draggingPaneKey = ref('');
 const dropTargetPaneKey = ref('');
 const paneDragPreview = ref({
@@ -110,14 +128,25 @@ const paneDragPreview = ref({
 const layoutSizeState = ref<Record<string, number[]>>({});
 const masterMainRatio = ref(66);
 const dwindleSplitRatios = ref<number[]>([]);
+const paneDragInteraction = ref<PaneDragInteraction | null>(null);
 const resizeInteraction = ref<PaneResizeInteraction | null>(null);
-let transparentDragImage: HTMLElement | null = null;
 
 function syncSidebarTabFromRoute() {
   const tab = Array.isArray(route.query.tab) ? route.query.tab[0] : route.query.tab;
   if (tab === 'config' || tab === 'terminal' || tab === 'ssh' || tab === 'connections') {
     sidebarTab.value = 'config';
   }
+}
+
+function routeQueryString(key: string) {
+  const value = route.query[key];
+  return Array.isArray(value) ? value[0] ?? '' : typeof value === 'string' ? value : '';
+}
+
+function hasTerminalOpenRequest() {
+  return Boolean(routeQueryString('openTerminalRequestId') && (
+    routeQueryString('openLocalCwd') || routeQueryString('connectSshProfileId')
+  ));
 }
 
 function activateSidebarTab() {
@@ -429,7 +458,8 @@ const terminalPanes = computed<TerminalPane[]>(() => [
 ]);
 const orderedTerminalPanes = computed<TerminalPane[]>(() => {
   const paneByKey = new Map(terminalPanes.value.map((pane) => [pane.key, pane]));
-  const ordered = paneOrder.value
+  const orderKeys = paneOrder.value;
+  const ordered = orderKeys
     .map((key) => paneByKey.get(key))
     .filter((pane): pane is TerminalPane => Boolean(pane));
   const orderedKeys = new Set(ordered.map((pane) => pane.key));
@@ -662,7 +692,10 @@ function getMeasuredElementSize(element: HTMLElement | null, fallback: { width: 
 }
 
 const terminalBgPreviewSize = computed(() => (
-  getMeasuredElementSize(terminalStageRef.value ?? terminalMainRef.value, { width: 320, height: 200 })
+  getMeasuredElementSize(
+    terminalLayoutRef.value?.stageElement ?? terminalLayoutRef.value?.mainElement ?? null,
+    { width: 320, height: 200 },
+  )
 ));
 
 function makePaneKey(kind: TerminalPaneKind, sessionId: string) {
@@ -958,96 +991,227 @@ function focusPane(pane: TerminalPane, focusViewport = true) {
   focusLocalSession(pane.sessionId, focusViewport);
 }
 
-function handlePaneDragStart(event: DragEvent, pane: TerminalPane) {
-  if (visibleTerminalPanes.value.length <= 1) return;
-  draggingPaneKey.value = pane.key;
-  dropTargetPaneKey.value = pane.key;
-  updatePaneDragPreview(event, pane);
-  event.dataTransfer?.setData('text/plain', pane.key);
-  if (event.dataTransfer) {
-    event.dataTransfer.effectAllowed = 'move';
-    event.dataTransfer.setDragImage(getTransparentDragImage(), 0, 0);
+function shellQuote(path: string) {
+  return `'${path.replaceAll("'", `'\"'\"'`)}'`;
+}
+
+async function cdSshSession(sessionId: string, cwd: string) {
+  if (!cwd.trim()) return;
+  try {
+    await sshStore.write(sessionId, `cd ${shellQuote(cwd)}\n`);
+  } catch (error) {
+    if (isSshSessionClosedError(error)) {
+      sshStore.markSessionUnavailable(sessionId, getErrorMessage(error));
+      return;
+    }
+    notifyError(error, '切换 SSH 目录失败');
   }
 }
 
-function handlePaneDragOver(event: DragEvent, pane: TerminalPane) {
-  if (!draggingPaneKey.value) return;
-  event.preventDefault();
-  updatePaneDragPreview(event, pane);
-  if (draggingPaneKey.value === pane.key) return;
-  if (dropTargetPaneKey.value !== pane.key) {
-    reorderPane(draggingPaneKey.value, pane.key);
+async function handleTerminalOpenRequestFromRoute() {
+  if (route.path !== '/terminal') return;
+  const requestId = routeQueryString('openTerminalRequestId');
+  if (!requestId || handledTerminalOpenRequestIds.has(requestId)) return;
+
+  const localCwd = routeQueryString('openLocalCwd');
+  const sshProfileId = routeQueryString('connectSshProfileId');
+  const cwd = routeQueryString('cwd');
+  if (!localCwd && !sshProfileId) return;
+
+  handledTerminalOpenRequestIds.add(requestId);
+
+  try {
+    if (localCwd) {
+      await terminalStore.initialize();
+      const session = await terminalStore.createSession({ cwd: localCwd });
+      focusLocalSession(session.sessionId, true);
+      return;
+    }
+
+    await sshStore.initialize();
+    const existing = sshStore.sessions.find(
+      (session) => session.profileId === sshProfileId && session.status === 'connected',
+    );
+    if (existing) {
+      focusSshSession(existing.sessionId, true);
+      await cdSshSession(existing.sessionId, cwd);
+      return;
+    }
+
+    const profile = sshStore.profiles.find((item) => item.id === sshProfileId);
+    if (!profile) {
+      sshConnectError.value = '找不到对应的 SSH 配置，无法打开终端。';
+      return;
+    }
+
+    await handleSshConnect(profile);
+    const connectedSession = sshStore.sessions.find(
+      (session) => session.profileId === profile.id
+        && session.status === 'connected'
+        && session.sessionId === sshStore.activeSshSessionId,
+    ) ?? sshStore.sessions.find(
+      (session) => session.profileId === profile.id && session.status === 'connected',
+    );
+    if (connectedSession) {
+      await cdSshSession(connectedSession.sessionId, cwd);
+    }
+  } catch (error) {
+    notifyError(error, '打开终端失败');
   }
-  dropTargetPaneKey.value = pane.key;
 }
 
-function handlePaneDrop(event: DragEvent, pane: TerminalPane) {
+function startPanePointerDrag(event: PointerEvent, pane: TerminalPane, focusViewportOnClick = false) {
+  if (orderedTerminalPanes.value.length <= 1 || event.button !== 0) return;
+  if (event.target instanceof Element) {
+    const control = event.target.closest('button, input, textarea, select, a');
+    if (control && control !== event.currentTarget) {
+      return;
+    }
+  }
+
+  const currentOrder = orderedTerminalPanes.value.map((item) => item.key);
+  paneDragInteraction.value = {
+    pointerId: event.pointerId,
+    pane,
+    startX: event.clientX,
+    startY: event.clientY,
+    focusViewportOnClick,
+    moved: false,
+    originalOrder: currentOrder,
+    previewOrder: currentOrder,
+  };
+  window.addEventListener('pointermove', handlePanePointerMove, true);
+  window.addEventListener('pointerup', finishPanePointerDrag, true);
+  window.addEventListener('pointercancel', cancelPanePointerDrag, true);
+}
+
+function handlePanePointerMove(event: PointerEvent) {
+  const interaction = paneDragInteraction.value;
+  if (!interaction || interaction.pointerId !== event.pointerId) return;
+
+  const deltaX = event.clientX - interaction.startX;
+  const deltaY = event.clientY - interaction.startY;
+  if (!interaction.moved && Math.hypot(deltaX, deltaY) < 4) {
+    return;
+  }
+
   event.preventDefault();
-  const sourceKey = event.dataTransfer?.getData('text/plain') || draggingPaneKey.value;
-  reorderPane(sourceKey, pane.key);
+  if (!interaction.moved) {
+    interaction.moved = true;
+    draggingPaneKey.value = interaction.pane.key;
+    dropTargetPaneKey.value = interaction.pane.key;
+    paneDragPreviewOrder.value = interaction.previewOrder;
+    document.body.classList.add('terminal-pane-dragging-active');
+  }
+
+  updatePaneDragPreview(event.clientX, event.clientY, interaction.pane);
+  const dropTarget = findPaneDropTargetAtPoint(event.clientX, event.clientY);
+  if (!dropTarget) {
+    interaction.previewOrder = interaction.originalOrder;
+    paneDragPreviewOrder.value = interaction.previewOrder;
+    dropTargetPaneKey.value = '';
+    return;
+  }
+
+  const nextOrder = dropTarget.key === draggingPaneKey.value
+    ? interaction.originalOrder
+    : makePanePreviewOrder(
+      interaction.originalOrder,
+      draggingPaneKey.value,
+      dropTarget.key,
+      dropTarget.insertAfter,
+    );
+  if (!areStringArraysEqual(nextOrder, interaction.previewOrder)) {
+    interaction.previewOrder = nextOrder;
+    paneDragPreviewOrder.value = nextOrder;
+  }
+  dropTargetPaneKey.value = dropTarget.key;
+}
+
+function finishPanePointerDrag(event: PointerEvent) {
+  const interaction = paneDragInteraction.value;
+  if (!interaction || interaction.pointerId !== event.pointerId) return;
+
+  if (interaction.moved && interaction.previewOrder.length) {
+    paneOrder.value = interaction.previewOrder;
+  }
+  const shouldFocus = !interaction.moved;
+  const pane = interaction.pane;
   clearPaneDragState();
+  removePaneDragListeners();
+  if (shouldFocus) {
+    focusPane(pane, interaction.focusViewportOnClick);
+  }
 }
 
-function handlePaneDragMove(event: DragEvent) {
-  if (!draggingPaneKey.value) return;
-  updatePaneDragPreview(event);
+function cancelPanePointerDrag() {
+  clearPaneDragState();
+  removePaneDragListeners();
 }
 
-function handlePaneWorkspaceDragOver(event: DragEvent) {
-  if (!draggingPaneKey.value) return;
-  event.preventDefault();
-  updatePaneDragPreview(event);
+function removePaneDragListeners() {
+  window.removeEventListener('pointermove', handlePanePointerMove, true);
+  window.removeEventListener('pointerup', finishPanePointerDrag, true);
+  window.removeEventListener('pointercancel', cancelPanePointerDrag, true);
 }
 
 function clearPaneDragState() {
+  paneDragInteraction.value = null;
+  paneDragPreviewOrder.value = [];
   draggingPaneKey.value = '';
   dropTargetPaneKey.value = '';
   paneDragPreview.value = {
     ...paneDragPreview.value,
     visible: false,
   };
+  document.body.classList.remove('terminal-pane-dragging-active');
 }
 
-function reorderPane(sourceKey: string, targetKey: string) {
-  if (!sourceKey || !targetKey || sourceKey === targetKey) return;
-  const keys = orderedTerminalPanes.value.map((pane) => pane.key);
+function makePanePreviewOrder(order: string[], sourceKey: string, targetKey: string, insertAfter: boolean) {
+  if (!sourceKey || !targetKey || sourceKey === targetKey) return order;
+  const keys = [...order];
   const sourceIndex = keys.indexOf(sourceKey);
   const targetIndex = keys.indexOf(targetKey);
-  if (sourceIndex < 0 || targetIndex < 0) return;
+  if (sourceIndex < 0 || targetIndex < 0) return keys;
 
   keys.splice(sourceIndex, 1);
-  keys.splice(targetIndex, 0, sourceKey);
-  paneOrder.value = keys;
+  const adjustedTargetIndex = keys.indexOf(targetKey);
+  keys.splice(adjustedTargetIndex + (insertAfter ? 1 : 0), 0, sourceKey);
+  return keys;
 }
 
-function updatePaneDragPreview(event: DragEvent, pane?: TerminalPane) {
-  if (event.clientX === 0 && event.clientY === 0) return;
+function areStringArraysEqual(left: string[], right: string[]) {
+  return left.length === right.length && left.every((item, index) => item === right[index]);
+}
+
+function updatePaneDragPreview(clientX: number, clientY: number, pane?: TerminalPane) {
   const draggedPane = orderedTerminalPanes.value.find((item) => item.key === draggingPaneKey.value);
   const sourcePane = draggedPane ?? pane ?? null;
   paneDragPreview.value = {
     visible: true,
-    left: event.clientX + 14,
-    top: event.clientY + 14,
+    left: clientX + 14,
+    top: clientY + 14,
     title: sourcePane?.title ?? paneDragPreview.value.title,
     kind: sourcePane?.kind ?? paneDragPreview.value.kind,
   };
 }
 
-function getTransparentDragImage() {
-  if (transparentDragImage) return transparentDragImage;
-  transparentDragImage = document.createElement('div');
-  transparentDragImage.style.position = 'fixed';
-  transparentDragImage.style.left = '-100px';
-  transparentDragImage.style.top = '-100px';
-  transparentDragImage.style.width = '1px';
-  transparentDragImage.style.height = '1px';
-  transparentDragImage.style.opacity = '0';
-  document.body.appendChild(transparentDragImage);
-  return transparentDragImage;
+function findPaneDropTargetAtPoint(clientX: number, clientY: number): { key: string; insertAfter: boolean } | null {
+  const target = document.elementFromPoint(clientX, clientY);
+  if (!(target instanceof Element)) return null;
+  const paneElement = target.closest<HTMLElement>('[data-terminal-pane-key]');
+  const key = paneElement?.dataset.terminalPaneKey ?? '';
+  if (!key) return null;
+  const rect = paneElement.getBoundingClientRect();
+  const useHorizontalAxis = rect.width >= rect.height;
+  const insertAfter = useHorizontalAxis
+    ? clientX > rect.left + rect.width / 2
+    : clientY > rect.top + rect.height / 2;
+  return { key, insertAfter };
 }
 
 function startPaneResize(event: PointerEvent, handle: TerminalPaneResizeHandle) {
-  const workspace = terminalStageRef.value?.querySelector('.terminal-pane-workspace');
+  const workspace = terminalLayoutRef.value?.stageElement?.querySelector('.terminal-pane-workspace');
   if (!(workspace instanceof HTMLElement)) return;
 
   event.preventDefault();
@@ -1394,11 +1558,33 @@ function handleUnhandledSshRejection(event: PromiseRejectionEvent) {
   sshStore.markSessionUnavailable(sessionId, getErrorMessage(event.reason));
 }
 
+watch(
+  () => [
+    route.path,
+    route.query.openTerminalRequestId,
+    route.query.openLocalCwd,
+    route.query.connectSshProfileId,
+    route.query.cwd,
+  ],
+  () => {
+    void handleTerminalOpenRequestFromRoute();
+  },
+  { immediate: true },
+);
+
+onActivated(() => {
+  void handleTerminalOpenRequestFromRoute();
+});
+
 onMounted(() => {
   globalStore.setTopbarColor('');
   window.addEventListener('keydown', handleTerminalPageKeydown, true);
   window.addEventListener('unhandledrejection', handleUnhandledSshRejection);
-  void initializePage();
+  if (hasTerminalOpenRequest()) {
+    void terminalStore.initialize();
+  } else {
+    void initializePage();
+  }
   void sshStore.initialize();
 });
 
@@ -1406,16 +1592,27 @@ onBeforeUnmount(() => {
   window.removeEventListener('keydown', handleTerminalPageKeydown, true);
   window.removeEventListener('unhandledrejection', handleUnhandledSshRejection);
   stopPaneResize();
-  transparentDragImage?.remove();
-  transparentDragImage = null;
+  cancelPanePointerDrag();
 });
 </script>
 
 <template>
-  <div class="terminal-page">
-    <div class="terminal-layout">
-      <!-- Sidebar -->
-      <div class="terminal-sidebar" :class="{ 'terminal-sidebar--collapsed': sidebarCollapsed }">
+  <MainPageLayout
+    ref="terminalLayoutRef"
+    page-class="terminal-page"
+    layout-class="terminal-layout"
+    sidebar-class="terminal-sidebar"
+    sidebar-collapsed-class="terminal-sidebar--collapsed"
+    main-class="terminal-main"
+    :sidebar-collapsed="sidebarCollapsed"
+    :stage-visible="terminalPanes.length > 0"
+    :stage-class="[
+      'terminal-stage',
+      `terminal-stage--${layoutMode}`,
+      { 'terminal-stage--single': visibleTerminalPanes.length === 1 },
+    ]"
+  >
+    <template #sidebar>
         <div class="terminal-sidebar__header">
           <button
             class="terminal-sidebar__toggle"
@@ -1481,8 +1678,8 @@ onBeforeUnmount(() => {
                   :key="profile.id"
                   class="terminal-sidebar__collapsed-action"
                   type="button"
-                  :title="`新建本地终端：${profile.label}`"
-                  @click="createSession(profile.id)"
+                  :title="`双击新建本地终端：${profile.label}`"
+                  @dblclick="createSession(profile.id)"
                 >
                   <TerminalProfileIcon
                     :profile-id="profile.id"
@@ -1536,7 +1733,7 @@ onBeforeUnmount(() => {
                   :key="profile.id"
                   class="terminal-profile-item"
                   type="button"
-                  @click="createSession(profile.id)"
+                  @dblclick="createSession(profile.id)"
                 >
                   <TerminalProfileIcon
                     class="terminal-profile-item__icon"
@@ -1571,10 +1768,9 @@ onBeforeUnmount(() => {
             </template>
           </div>
         </div>
-      </div>
+    </template>
 
-      <!-- Main content area -->
-      <div ref="terminalMainRef" class="terminal-main">
+    <template #main-before>
         <TerminalToolbar :active-session="activeToolbarSession"
           :renderer-mode="rendererMode"
           :layout-mode="layoutMode"
@@ -1622,33 +1818,22 @@ onBeforeUnmount(() => {
           </div>
         </div>
         </Transition>
+    </template>
 
-        <div
-          v-if="terminalPanes.length"
-          ref="terminalStageRef"
-          class="terminal-stage"
-          :class="[
-            `terminal-stage--${layoutMode}`,
-            { 'terminal-stage--single': visibleTerminalPanes.length === 1 },
-          ]"
-        >
+    <template #stage>
           <div v-if="layoutMode === 'tabbed' && terminalPanes.length > 1" class="terminal-pane-tabs">
             <button
               v-for="pane in orderedTerminalPanes"
               :key="pane.key"
               class="terminal-pane-tab"
+              :data-terminal-pane-key="pane.key"
               :class="{
                 'terminal-pane-tab--active': pane.key === activeTerminalPane?.key,
                 'terminal-pane-tab--drop-target': pane.key === dropTargetPaneKey,
+                'terminal-pane-tab--drag-placeholder': pane.key === draggingPaneKey,
               }"
               type="button"
-              draggable="true"
-              @dragstart="handlePaneDragStart($event, pane)"
-              @drag="handlePaneDragMove"
-              @dragover="handlePaneDragOver($event, pane)"
-              @drop="handlePaneDrop($event, pane)"
-              @dragend="clearPaneDragState"
-              @click="focusPane(pane, true)"
+              @pointerdown="startPanePointerDrag($event, pane, true)"
             >
               <span class="terminal-pane-tab__kind">{{ pane.kind === 'local' ? '本地' : 'SSH' }}</span>
               <span class="terminal-pane-tab__title">{{ pane.title }}</span>
@@ -1658,45 +1843,36 @@ onBeforeUnmount(() => {
           <div
             class="terminal-pane-workspace"
             :style="terminalPaneWorkspaceStyle"
-            @dragover="handlePaneWorkspaceDragOver"
           >
             <div
               v-for="item in terminalPaneLayoutItems"
               :key="item.pane.key"
               class="terminal-pane"
+              :data-terminal-pane-key="item.pane.key"
               :class="{
                 'terminal-pane--active': item.pane.key === activeTerminalPane?.key,
                 'terminal-pane--ssh': item.pane.kind === 'ssh',
                 'terminal-pane--pending': item.pane.kind === 'ssh-pending',
-                'terminal-pane--dragging': item.pane.key === draggingPaneKey,
+                'terminal-pane--drag-placeholder': item.pane.key === draggingPaneKey,
                 'terminal-pane--drop-target': item.pane.key === dropTargetPaneKey,
               }"
               :style="item.style"
-              @dragover="handlePaneDragOver($event, item.pane)"
-              @drop="handlePaneDrop($event, item.pane)"
               @pointerdown.capture="focusPane(item.pane, false)"
             >
               <div
                 class="terminal-pane__header"
-                draggable="true"
                 title="拖动以调整终端位置"
-                @dragstart="handlePaneDragStart($event, item.pane)"
-                @drag="handlePaneDragMove"
-                @dragover="handlePaneDragOver($event, item.pane)"
-                @drop="handlePaneDrop($event, item.pane)"
-                @dragend="clearPaneDragState"
+                @pointerdown="startPanePointerDrag($event, item.pane)"
               >
                 <span class="terminal-pane__kind">{{ item.pane.kind === 'local' ? '本地' : 'SSH' }}</span>
                 <span class="terminal-pane__title">{{ item.pane.title }}</span>
-                <span class="terminal-pane__status">{{ item.pane.status }}</span>
+                <span class="terminal-pane__status">{{ item.pane.key === draggingPaneKey ? '占位' : item.pane.status }}</span>
                 <button
                   class="terminal-pane__close"
                   type="button"
                   title="关闭终端"
                   aria-label="关闭终端"
-                  draggable="false"
                   @click.stop="closePane(item.pane)"
-                  @dragstart.prevent
                 >
                   <svg viewBox="0 0 24 24" width="13" height="13" stroke="currentColor" stroke-width="2.2" fill="none" stroke-linecap="round" stroke-linejoin="round">
                     <line x1="18" y1="6" x2="6" y2="18" />
@@ -1778,9 +1954,10 @@ onBeforeUnmount(() => {
             />
           </div>
           </Transition>
-        </div>
+    </template>
 
-        <div v-else class="terminal-empty ui-glass-surface ui-glass-surface--strong">
+    <template #main-after>
+        <div v-if="!terminalPanes.length" class="terminal-empty ui-glass-surface ui-glass-surface--strong">
           <div class="terminal-empty__title">
             {{ isAnySshProfileConnecting ? '正在连接 SSH' : '没有活跃连接' }}
           </div>
@@ -1828,9 +2005,9 @@ onBeforeUnmount(() => {
             <span>{{ activeTerminalPane?.kind === 'local' ? '本地' : 'SSH' }}</span>
           </div>
         </div>
-      </div>
-    </div>
+    </template>
 
+    <template #overlays>
     <!-- Personalization Dialog -->
     <UiPersonalizationConfig
       :visible="bgPickerVisible"
@@ -1916,11 +2093,11 @@ onBeforeUnmount(() => {
         @saved="pfDialogVisible = false"
       />
     </template>
-
-  </div>
+    </template>
+  </MainPageLayout>
 </template>
 
-<style lang="scss" scoped>
+<style lang="scss">
 .terminal-page {
   display: flex;
   flex: 1;
@@ -2370,7 +2547,12 @@ onBeforeUnmount(() => {
   color: var(--ui-text-muted);
   cursor: pointer;
   font-size: 12px;
+  user-select: none;
   transition: all 0.16s ease;
+
+  &:active {
+    cursor: pointer;
+  }
 
   &:hover {
     border-color: var(--ui-border-accent-soft);
@@ -2378,13 +2560,36 @@ onBeforeUnmount(() => {
   }
 
   &--active {
-    border-color: var(--ui-border-subtle);
-    background: color-mix(in srgb, var(--ui-tabs-active-bg) 84%, transparent);
-    color: var(--ui-text-primary);
+    border-color: color-mix(in srgb, var(--primary-color) 28%, var(--ui-border-subtle));
+    background: color-mix(in srgb, var(--primary-color) 10%, var(--ui-tabs-active-bg));
+    color: color-mix(in srgb, var(--primary-color) 72%, var(--ui-text-primary));
+    box-shadow:
+      inset 0 -2px 0 var(--primary-color),
+      inset 0 1px 0 rgba(255, 255, 255, 0.08),
+      0 0 0 1px color-mix(in srgb, var(--primary-color) 12%, transparent);
   }
 
   &--drop-target {
     box-shadow: inset 2px 0 0 var(--primary-color);
+  }
+
+  &--drag-placeholder {
+    border-right-color: color-mix(in srgb, var(--primary-color) 34%, var(--ui-border-subtle));
+    background:
+      repeating-linear-gradient(
+        135deg,
+        color-mix(in srgb, var(--primary-color) 12%, transparent) 0 6px,
+        transparent 6px 12px
+      ),
+      color-mix(in srgb, var(--ui-surface-panel-muted) 84%, transparent);
+    color: color-mix(in srgb, var(--ui-text-muted) 72%, transparent);
+    outline: 1px dashed color-mix(in srgb, var(--primary-color) 52%, transparent);
+    outline-offset: -4px;
+  }
+
+  &--drag-placeholder .terminal-pane-tab__kind,
+  &--drag-placeholder .terminal-pane-tab__title {
+    opacity: 0.58;
   }
 }
 
@@ -2480,13 +2685,49 @@ onBeforeUnmount(() => {
 }
 
 .terminal-pane--active {
-  border-color: rgba(102, 204, 255, 0.48);
-  box-shadow: inset 0 0 0 1px rgba(102, 204, 255, 0.2);
+  border-color: rgba(102, 204, 255, 0.66);
+  box-shadow:
+    inset 0 0 0 1px rgba(102, 204, 255, 0.3),
+    inset 0 1px 0 rgba(255, 255, 255, 0.06),
+    0 0 0 1px color-mix(in srgb, var(--primary-color) 18%, transparent),
+    0 8px 22px color-mix(in srgb, var(--primary-color) 10%, transparent);
 }
 
-.terminal-pane--dragging {
-  opacity: 0.55;
-  transform: scale(0.985);
+.terminal-pane--active .terminal-pane__header {
+  border-bottom-color: color-mix(in srgb, var(--primary-color) 38%, var(--ui-border-subtle));
+  background:
+    linear-gradient(
+      90deg,
+      color-mix(in srgb, var(--primary-color) 18%, var(--ui-surface-panel)) 0%,
+      color-mix(in srgb, var(--primary-color) 9%, var(--ui-surface-panel)) 100%
+    );
+  color: var(--ui-text-primary);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.08),
+    inset 0 -1px 0 color-mix(in srgb, var(--primary-color) 22%, transparent);
+}
+
+.terminal-pane--drag-placeholder {
+  border-style: dashed;
+  border-color: color-mix(in srgb, var(--primary-color) 48%, rgba(148, 163, 184, 0.22));
+  background:
+    repeating-linear-gradient(
+      135deg,
+      color-mix(in srgb, var(--primary-color) 10%, transparent) 0 8px,
+      transparent 8px 16px
+    ),
+    color-mix(in srgb, var(--ui-surface-panel-muted) 90%, transparent);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--primary-color) 18%, transparent);
+}
+
+.terminal-pane--drag-placeholder > :not(.terminal-pane__header) {
+  opacity: 0;
+  pointer-events: none;
+}
+
+.terminal-pane--drag-placeholder .terminal-pane__header {
+  border-bottom-color: color-mix(in srgb, var(--primary-color) 24%, transparent);
+  background: color-mix(in srgb, var(--ui-surface-panel-muted) 86%, transparent);
 }
 
 .terminal-pane--drop-target {
@@ -2506,6 +2747,11 @@ onBeforeUnmount(() => {
   user-select: none;
   flex-shrink: 0;
   font-size: 12px;
+  transition:
+    background 0.2s ease,
+    border-color 0.2s ease,
+    box-shadow 0.2s ease,
+    color 0.2s ease;
 
   &:active {
     cursor: grabbing;
@@ -2628,14 +2874,16 @@ onBeforeUnmount(() => {
   align-items: center;
   gap: 8px;
   max-width: 260px;
-  height: 32px;
+  height: 30px;
   padding: 0 11px;
   border: 1px solid rgba(102, 204, 255, 0.42);
+  border-radius: 0;
   background: color-mix(in srgb, var(--ui-surface-panel) 90%, rgba(102, 204, 255, 0.12));
   color: var(--ui-text-primary);
   box-shadow: 0 10px 28px rgba(0, 0, 0, 0.24), 0 0 0 1px rgba(102, 204, 255, 0.1);
   pointer-events: none;
-  transform: translate3d(0, 0, 0);
+  transform: translate3d(0, 0, 0) scale(0.94);
+  transform-origin: top left;
   transition: opacity 0.12s ease, box-shadow 0.12s ease;
   backdrop-filter: blur(14px);
 }
@@ -2705,14 +2953,24 @@ onBeforeUnmount(() => {
   }
 }
 
-:global(body.terminal-pane-resizing) {
+body.terminal-pane-resizing {
   cursor: grabbing;
   user-select: none;
 }
 
-:global(body.terminal-pane-resizing) .terminal-pane,
-:global(body.terminal-pane-resizing) .terminal-pane-workspace {
+body.terminal-pane-resizing .terminal-pane,
+body.terminal-pane-resizing .terminal-pane-workspace {
   transition: none;
+}
+
+body.terminal-pane-dragging-active {
+  cursor: grabbing;
+  user-select: none;
+}
+
+body.terminal-pane-dragging-active .terminal-pane,
+body.terminal-pane-dragging-active .terminal-pane-tab {
+  cursor: grabbing;
 }
 
 .terminal-port-forward-overlay {
