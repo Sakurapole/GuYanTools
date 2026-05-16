@@ -1,8 +1,10 @@
 import type { AppWebConfig } from './webview';
 import type { TerminalFeatureConfig } from './terminal';
+import type { BackgroundStyleConfig } from './background';
 
 export type AppTheme = 'light' | 'dark';
 export type AppLanguage = 'zh' | 'en';
+export type AppSettingsTabId = 'general' | 'file-transfer' | 'web-security' | 'ai-agent' | 'plugins' | 'terminal' | 'multi-device-clipboard' | 'shortcuts';
 export type AppBottomBarTabId =
   | 'home'
   | 'terminal'
@@ -112,8 +114,21 @@ export interface AppShortcutsConfig {
 
 export interface AppFeaturesConfig {
   aiAgent: Record<string, unknown>;
+  settings: AppSettingsFeatureConfig;
   terminal: TerminalFeatureConfig;
   multiDeviceClipboard: MultiDeviceClipboardFeatureConfig;
+}
+
+export interface AppSettingsTabPersonalizationConfig {
+  type: 'color' | 'image' | 'video';
+  color: string;
+  image: string;
+  video: string;
+  style: BackgroundStyleConfig;
+}
+
+export interface AppSettingsFeatureConfig {
+  tabs: Record<AppSettingsTabId, AppSettingsTabPersonalizationConfig>;
 }
 
 export interface MultiDeviceClipboardFeatureConfig {
@@ -168,6 +183,9 @@ export interface AppConfigPatch {
   bottomBar?: Partial<AppBottomBarConfig>;
   features?: {
     aiAgent?: Record<string, unknown>;
+    settings?: {
+      tabs?: Partial<Record<AppSettingsTabId, Partial<AppSettingsTabPersonalizationConfig>>>;
+    };
     terminal?: Partial<TerminalFeatureConfig>;
     multiDeviceClipboard?: Partial<MultiDeviceClipboardFeatureConfig>;
   };
@@ -205,6 +223,18 @@ export function createDefaultAppConfig(): AppConfig {
     },
     features: {
       aiAgent: {},
+      settings: {
+        tabs: {
+          general: createDefaultSettingsTabPersonalization(),
+          'file-transfer': createDefaultSettingsTabPersonalization(),
+          'web-security': createDefaultSettingsTabPersonalization(),
+          'ai-agent': createDefaultSettingsTabPersonalization(),
+          plugins: createDefaultSettingsTabPersonalization(),
+          terminal: createDefaultSettingsTabPersonalization(),
+          'multi-device-clipboard': createDefaultSettingsTabPersonalization(),
+          shortcuts: createDefaultSettingsTabPersonalization(),
+        },
+      },
       terminal: {
         defaultProfileId: '',
         defaultCwd: '',
@@ -259,6 +289,16 @@ export function createDefaultAppConfig(): AppConfig {
       keepAliveDomains: [],
       chromeExtensions: [],
     },
+  };
+}
+
+export function createDefaultSettingsTabPersonalization(): AppSettingsTabPersonalizationConfig {
+  return {
+    type: 'color',
+    color: '',
+    image: '',
+    video: '',
+    style: {},
   };
 }
 

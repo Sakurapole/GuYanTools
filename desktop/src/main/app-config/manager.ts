@@ -11,6 +11,9 @@ import type {
   AppConfigPatch,
   AppFeaturesConfig,
   AppPluginsConfig,
+  AppSettingsFeatureConfig,
+  AppSettingsTabId,
+  AppSettingsTabPersonalizationConfig,
   AppShortcutsConfig,
   AppTheme,
   AppToolsConfig,
@@ -23,12 +26,23 @@ import {
   APP_BOTTOM_BAR_REQUIRED_TAB_IDS,
   APP_INTERNAL_FUNCTIONS,
   createDefaultAppConfig,
+  createDefaultSettingsTabPersonalization,
   getSystemDefaultFontOption,
   SYSTEM_FONT_OPTION_VALUE,
 } from '@/contracts/app_config';
 import { normalizeAccelerator } from '@/shared/shortcuts';
 
 const SHORTCUTS_SETTING_KEY = 'app.shortcuts';
+const SETTINGS_TAB_IDS: AppSettingsTabId[] = [
+  'general',
+  'file-transfer',
+  'web-security',
+  'ai-agent',
+  'plugins',
+  'terminal',
+  'multi-device-clipboard',
+  'shortcuts',
+];
 
 export type AppConfigChangeListener = (config: AppConfig, patch?: AppConfigPatch) => void;
 
@@ -154,8 +168,39 @@ function normalizeFeatures(value: unknown): AppFeaturesConfig {
 
   return {
     aiAgent: isRecord(value.aiAgent) ? cloneConfig(value.aiAgent) : cloneConfig(defaultConfig.aiAgent),
+    settings: normalizeSettingsFeature(value.settings),
     terminal: normalizeTerminalFeature(value.terminal),
     multiDeviceClipboard: normalizeMultiDeviceClipboardFeature(value.multiDeviceClipboard),
+  };
+}
+
+function normalizeSettingsFeature(value: unknown): AppSettingsFeatureConfig {
+  const defaults = createDefaultAppConfig().features.settings;
+  const rawTabs = isRecord(value) && isRecord(value.tabs) ? value.tabs : {};
+  const tabs = {} as Record<AppSettingsTabId, AppSettingsTabPersonalizationConfig>;
+
+  for (const tabId of SETTINGS_TAB_IDS) {
+    tabs[tabId] = normalizeSettingsTabPersonalization(rawTabs[tabId], defaults.tabs[tabId]);
+  }
+
+  return { tabs };
+}
+
+function normalizeSettingsTabPersonalization(
+  value: unknown,
+  fallback: AppSettingsTabPersonalizationConfig = createDefaultSettingsTabPersonalization(),
+): AppSettingsTabPersonalizationConfig {
+  if (!isRecord(value)) {
+    return cloneConfig(fallback);
+  }
+
+  const type = value.type === 'image' || value.type === 'video' ? value.type : 'color';
+  return {
+    type,
+    color: typeof value.color === 'string' ? value.color : fallback.color,
+    image: typeof value.image === 'string' ? value.image : fallback.image,
+    video: typeof value.video === 'string' ? value.video : fallback.video,
+    style: isRecord(value.style) ? cloneConfig(value.style) : cloneConfig(fallback.style),
   };
 }
 
@@ -522,6 +567,13 @@ function mergeConfig(current: AppConfig, patch: AppConfigPatch): AppConfig {
     }),
     features: {
       aiAgent: patch.features?.aiAgent ? cloneConfig(patch.features.aiAgent) : cloneConfig(current.features.aiAgent),
+      settings: normalizeSettingsFeature({
+        ...current.features.settings,
+        tabs: {
+          ...current.features.settings.tabs,
+          ...(patch.features?.settings?.tabs ?? {}),
+        },
+      }),
       terminal: normalizeTerminalFeature({
         ...current.features.terminal,
         ...(patch.features?.terminal ?? {}),

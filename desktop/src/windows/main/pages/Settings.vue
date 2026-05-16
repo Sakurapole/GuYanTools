@@ -1,6 +1,15 @@
 <script lang="ts" setup>
-import { computed, onMounted, ref, watch } from 'vue';
-import type { AppBottomBarTabId, AppLanguage, AppTheme, LocalNetworkInterfaceOption } from '@/contracts/app_config';
+import { computed, nextTick, onMounted, ref, watch } from 'vue';
+import type { CSSProperties } from 'vue';
+import type {
+  AppBottomBarTabId,
+  AppLanguage,
+  AppSettingsTabId,
+  AppSettingsTabPersonalizationConfig,
+  AppTheme,
+  LocalNetworkInterfaceOption,
+} from '@/contracts/app_config';
+import type { BackgroundConfirmPayload } from '@/contracts/background';
 import type { FtpWindowsContextMenuStatus } from '@/contracts/ftp';
 import type { MultiDeviceClipboardDeviceStatus } from '@/contracts/multi_device_clipboard';
 import type {
@@ -19,11 +28,11 @@ import UiSelect from '../components/ui/UiSelect.vue';
 import UiScrollbar from '../components/ui/UiScrollbar.vue';
 import UiTabs, { type UiTabItem } from '../components/ui/UiTabs.vue';
 import UiTransferBox from '../components/ui/UiTransferBox.vue';
+import UiPersonalizationConfig from '../components/ui/UiPersonalizationConfig.vue';
 import { useTheme } from '../composables/theme';
 import { notifyError } from '../composables/useInAppNotification';
 import { useConfirmDialog } from '../composables/useConfirmDialog';
 import { useAppConfigStore } from '../stores/app_config_store';
-import { useFtpStore } from '../stores/ftp_store';
 import { useGlobalStore } from '../stores/global_store';
 import { useSettingStore, type SettingsTabKey } from '../stores/settings_store';
 import { useSshStore } from '../stores/ssh_store';
@@ -38,15 +47,11 @@ const settingsStore = useSettingStore();
 const appConfigStore = useAppConfigStore();
 const globalStore = useGlobalStore();
 const updaterStore = useUpdaterStore();
-const ftpStore = useFtpStore();
 const sshStore = useSshStore();
 const { show: showConfirm } = useConfirmDialog();
 const { setTheme } = useTheme();
 const defaultShortcuts = createDefaultAppConfig().shortcuts;
 
-type FtpPanelLayoutMode = 'columns' | 'stacked';
-type FtpSidebarDockSide = 'left' | 'right';
-type FtpAuxiliaryDockSide = 'bottom' | 'right';
 type TransferBoxItem = {
   key: string;
   label: string;
@@ -54,7 +59,6 @@ type TransferBoxItem = {
   locked?: boolean;
 };
 
-const FTP_LAYOUT_STORAGE_KEY = 'guyantools.ftp.layout';
 const FTP_PREFERENCES_STORAGE_KEY = 'guyantools.ftp.preferences';
 const FTP_THUMBNAIL_STORAGE_KEY = 'guyantools.ftp.thumbnail-preferences';
 
@@ -95,17 +99,6 @@ const githubTokenInput = ref('');
 const updaterAuthMessage = ref('');
 const updaterAuthSaving = ref(false);
 const ftpLinkNavigationEnabled = ref(false);
-const ftpPanelLayoutMode = ref<FtpPanelLayoutMode>('columns');
-const ftpSidebarDockSide = ref<FtpSidebarDockSide>('left');
-const ftpAuxiliaryDockSide = ref<FtpAuxiliaryDockSide>('bottom');
-const ftpAuxiliaryDockSize = ref('260');
-const ftpShowSidebarPanel = ref(true);
-const ftpShowLocalPanel = ref(true);
-const ftpShowRemotePanel = ref(true);
-const ftpAuxiliaryDockCollapsed = ref(false);
-const ftpDualRemoteMode = ref(false);
-const ftpSecondaryRemoteProfileId = ref('');
-const ftpSecondaryTabGroupProfileIds = ref<string[]>([]);
 const ftpThumbnailsEnabled = ref(true);
 const ftpThumbnailMaxBytesKb = ref('256');
 const ftpThumbnailPrefetchLimit = ref('18');
@@ -135,6 +128,20 @@ const settingsTabs: UiTabItem[] = [
 const settingsTabOrder = settingsTabs.map(tab => tab.key) as SettingsTabKey[];
 const settingsTabTransition = ref('ui-tab-forward');
 const loadedSettingsTabs = new Set<SettingsTabKey>();
+const searchTabItem: UiTabItem = { key: 'search', label: '搜索' };
+const settingsSearchQuery = ref('');
+const settingsSearchHasMatches = ref(true);
+const settingsBodyRef = ref<HTMLElement | null>(null);
+const personalizationTab = ref<SettingsTabKey>('general');
+const personalizationDialogVisible = ref(false);
+const settingsPersonalizationPreviewWidth = ref(960);
+const settingsPersonalizationPreviewHeight = ref(560);
+
+const isSearchingSettings = computed(() => settingsSearchQuery.value.trim().length > 0);
+const normalizedSettingsSearchQuery = computed(() => settingsSearchQuery.value.trim().toLocaleLowerCase());
+const displayedSettingsTabs = computed<UiTabItem[]>(() => (isSearchingSettings.value ? [searchTabItem] : settingsTabs));
+const activeSettingsTabForView = computed(() => (isSearchingSettings.value ? 'search' : settingsStore.activeSettingsTab));
+const settingsContentKey = computed(() => (isSearchingSettings.value ? 'search' : settingsStore.activeSettingsTab));
 
 const themeOptions = [
   { label: '浅色主题', value: 'light' },
@@ -238,51 +245,15 @@ const terminalProfileOptions = computed(() => [
     value: profile.id,
   })),
 ]);
-const ftpSecondaryRemoteSessionOptions = computed(() => [
-  { label: '自动选择第二标签组会话', value: '' },
-  ...ftpStore.sessions.map((session) => ({
-    label: `${session.profileLabel} · ${session.protocol.toUpperCase()} · ${session.username}@${session.host}:${session.port}`,
-    value: session.profileId,
-  })),
-]);
 const ftpLinkNavigationSummary = computed(() => {
   if (!ftpLinkNavigationEnabled.value) return '联动导航已关闭';
-  return ftpDualRemoteMode.value ? '主标签组和第二标签组联动已开启' : '本地和远程联动已开启';
-});
-const ftpDualRemoteSummary = computed(() => {
-  if (!ftpDualRemoteMode.value) return '当前为单标签组工作区';
-  if (!ftpStore.sessions.length) return '并行标签组已开启，返回传输页后会在连接可用时生效';
-  const selectedSession = ftpStore.sessions.find((session) => session.profileId === ftpSecondaryRemoteProfileId.value);
-  return selectedSession
-    ? `并行标签组已开启 · 第二组当前为 ${selectedSession.profileLabel}`
-    : '并行标签组已开启 · 自动选择第二组会话';
+  return '当前工作区内的文件面板会联动导航';
 });
 const ftpThumbnailSummary = computed(() => (
   ftpThumbnailsEnabled.value
     ? `图片缩略图已开启 · 单张最多 ${ftpThumbnailMaxBytesKb.value} KB · 每侧预加载 ${ftpThumbnailPrefetchLimit.value} 张`
     : '图片缩略图已关闭'
 ));
-const ftpPanelLayoutSummary = computed(() => (
-  ftpPanelLayoutMode.value === 'columns' ? '当前为水平双栏布局' : '当前为纵向堆叠布局'
-));
-const ftpSidebarDockSummary = computed(() => (
-  `会话侧栏停靠在${ftpSidebarDockSide.value === 'left' ? '左侧' : '右侧'}`
-));
-const ftpAuxiliaryDockSummary = computed(() => {
-  const positionLabel = ftpAuxiliaryDockSide.value === 'bottom' ? '底部停靠区' : '右侧停靠区';
-  const sizeLabel = ftpAuxiliaryDockSide.value === 'bottom' ? `高度 ${ftpAuxiliaryDockSize.value}px` : `宽度 ${ftpAuxiliaryDockSize.value}px`;
-  return `${positionLabel} · ${sizeLabel}`;
-});
-const ftpBrowserPanelSummary = computed(() => {
-  if (ftpDualRemoteMode.value && ftpShowLocalPanel.value && ftpShowRemotePanel.value) return '本地、主远程与第二标签组面板均显示';
-  if (ftpDualRemoteMode.value && ftpShowRemotePanel.value) return ftpShowLocalPanel.value ? '本地、主远程与第二标签组并行显示' : '当前显示主远程与第二标签组';
-  if (ftpDualRemoteMode.value && ftpShowLocalPanel.value) return '当前显示本地与第二标签组';
-  if (ftpDualRemoteMode.value) return '当前仅显示第二标签组';
-  if (ftpShowLocalPanel.value && ftpShowRemotePanel.value) return '本地与远程面板均显示';
-  if (ftpShowLocalPanel.value) return '当前仅显示本地面板';
-  if (ftpShowRemotePanel.value) return '当前仅显示远程面板';
-  return '至少需要保留一个文件面板';
-});
 const ftpExternalEditorSummary = computed(() => (
   ftpExternalEditorPath.value
     ? `自定义编辑器：${ftpExternalEditorPath.value}${ftpCleanupExternalDraftsOnClose.value ? ' · 关闭后清理临时文件' : ''}`
@@ -302,9 +273,6 @@ const ftpWindowsContextMenuSummary = computed(() => (
 const ftpWindowsContextMenuCommandSummary = computed(() => (
   ftpWindowsContextMenuStatus.value.command || '暂无可用命令'
 ));
-const ftpVisibleBrowserPanelCount = computed(() =>
-  Number(ftpShowLocalPanel.value) + Number(ftpShowRemotePanel.value) + Number(ftpDualRemoteMode.value),
-);
 const updateStatusLabel = computed(() => updateStatusLabels[updaterStore.status] ?? updaterStore.status);
 const updateProgressPercent = computed(() => Math.round(updaterStore.progress?.percent ?? 0));
 const updateReleaseDateText = computed(() => {
@@ -331,9 +299,120 @@ const canSaveGithubToken = computed(() => Boolean(githubTokenInput.value.trim())
 const activePlugin = computed(() => installedPlugins.value.find(
   (plugin) => plugin.manifest.id === settingsStore.activePluginConfigId,
 ) ?? null);
+const activeSettingsTabPersonalization = computed(() => getSettingsTabPersonalization(settingsStore.activeSettingsTab));
+const personalizationDialogConfig = computed(() => getSettingsTabPersonalization(personalizationTab.value));
+const activeSettingsPageStyle = computed<CSSProperties>(() => buildSettingsTabBackgroundStyle(activeSettingsTabPersonalization.value));
+const activeSettingsBackgroundVideo = computed(() => (
+  activeSettingsTabPersonalization.value.type === 'video' ? activeSettingsTabPersonalization.value.video : ''
+));
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return Boolean(value) && typeof value === 'object' && !Array.isArray(value);
+}
+
+function getSettingsTabPersonalization(tab: AppSettingsTabId): AppSettingsTabPersonalizationConfig {
+  return appConfigStore.config.features.settings.tabs[tab];
+}
+
+function buildSettingsTabBackgroundStyle(config: AppSettingsTabPersonalizationConfig): CSSProperties {
+  const style: CSSProperties = {};
+
+  if (config.type === 'image' && config.image) {
+    style.backgroundImage = `url(${config.image})`;
+    style.backgroundSize = config.style?.backgroundSize || 'cover';
+    style.backgroundPosition = config.style?.backgroundPosition || 'center';
+    style.backgroundRepeat = config.style?.backgroundRepeat || 'no-repeat';
+  } else if (config.color) {
+    style.background = config.color;
+  }
+
+  return style;
+}
+
+function describeSettingsTabPersonalization(config: AppSettingsTabPersonalizationConfig) {
+  if (config.type === 'image' && config.image) return '当前使用图片背景';
+  if (config.type === 'video' && config.video) return '当前使用视频背景';
+  if (config.color) return '当前使用颜色或渐变背景';
+  return '当前跟随设置页默认背景';
+}
+
+function isSettingsTabRendered(tab: SettingsTabKey) {
+  return isSearchingSettings.value || settingsStore.activeSettingsTab === tab;
+}
+
+function getSettingsTabLabel(tab: SettingsTabKey) {
+  return settingsTabs.find(item => item.key === tab)?.label ?? tab;
+}
+
+function openSettingsTabPersonalization(tab: SettingsTabKey) {
+  personalizationTab.value = tab;
+  const element = settingsBodyRef.value;
+  if (element) {
+    const rect = element.getBoundingClientRect();
+    settingsPersonalizationPreviewWidth.value = Math.max(320, Math.round(rect.width));
+    settingsPersonalizationPreviewHeight.value = Math.max(200, Math.round(rect.height));
+  }
+  personalizationDialogVisible.value = true;
+}
+
+async function handleSettingsTabPersonalizationConfirm(payload: BackgroundConfirmPayload) {
+  await appConfigStore.updateConfig({
+    features: {
+      settings: {
+        tabs: {
+          [personalizationTab.value]: {
+            type: payload.type,
+            color: payload.color ?? '',
+            image: payload.image ?? '',
+            video: payload.video ?? '',
+            style: payload.backgroundStyle ?? {},
+          },
+        },
+      },
+    },
+  });
+  personalizationDialogVisible.value = false;
+}
+
+function collectSettingTitle(element: Element) {
+  return Array.from(element.querySelectorAll('.settings-row__label > span, .settings-card__head h3, .ui-field__label'))
+    .map(item => item.textContent?.trim() ?? '')
+    .filter(Boolean)
+    .join(' ');
+}
+
+function applySettingsSearchFilter() {
+  const root = settingsBodyRef.value;
+  if (!root) return;
+
+  const query = normalizedSettingsSearchQuery.value;
+  const settingItems = Array.from(root.querySelectorAll<HTMLElement>('.settings-row, .settings-card'));
+
+  for (const item of settingItems) {
+    const title = collectSettingTitle(item).toLocaleLowerCase();
+    item.classList.toggle('is-search-hidden', Boolean(query) && (!title || !title.includes(query)));
+  }
+
+  const groups = Array.from(root.querySelectorAll<HTMLElement>('.settings-group'));
+  for (const group of groups) {
+    const hasVisibleItem = Array.from(group.querySelectorAll<HTMLElement>('.settings-row, .settings-card'))
+      .some(item => !item.classList.contains('is-search-hidden'));
+    group.classList.toggle('is-search-hidden', Boolean(query) && !hasVisibleItem);
+  }
+
+  const sections = Array.from(root.querySelectorAll<HTMLElement>('.settings-section'));
+  let hasAnyVisibleSection = false;
+  for (const section of sections) {
+    const hasVisibleItem = Array.from(section.querySelectorAll<HTMLElement>('.settings-row, .settings-card'))
+      .some(item => !item.classList.contains('is-search-hidden'));
+    section.classList.toggle('settings-section--search-empty', Boolean(query) && !hasVisibleItem);
+    hasAnyVisibleSection ||= hasVisibleItem;
+  }
+  settingsSearchHasMatches.value = !query || hasAnyVisibleSection;
+}
+
+function queueSettingsSearchFilter() {
+  void nextTick(applySettingsSearchFilter);
 }
 
 function syncPluginDraft(pluginId: string) {
@@ -414,6 +493,10 @@ async function handleBottomBarVisibleTabsChange(value: string[]) {
 }
 
 function handleSettingsTabChange(value: string) {
+  if (value === 'search') {
+    return;
+  }
+
   const nextTab = value as SettingsTabKey;
   const currentIndex = settingsTabOrder.indexOf(settingsStore.activeSettingsTab);
   const nextIndex = settingsTabOrder.indexOf(nextTab);
@@ -444,7 +527,6 @@ function scheduleSettingsTabLoad(tab: SettingsTabKey, force = false) {
         break;
       case 'file-transfer':
         loadFtpSettingsDraft();
-        void ftpStore.initialize();
         void sshStore.initialize();
         void loadFtpRetryPolicy();
         void refreshFtpWindowsContextMenuStatus();
@@ -473,54 +555,16 @@ function scheduleSettingsTabLoad(tab: SettingsTabKey, force = false) {
   });
 }
 
-function normalizeFtpPanelSize(value: string | undefined, min: number, max: number, fallback: string) {
-  const parsed = Number.parseInt(value ?? fallback, 10);
-  if (!Number.isFinite(parsed)) return fallback;
-  return String(Math.min(max, Math.max(min, parsed)));
-}
-
 function loadFtpSettingsDraft() {
   try {
-    const rawLayout = window.localStorage.getItem(FTP_LAYOUT_STORAGE_KEY);
-    if (rawLayout) {
-      const parsed = JSON.parse(rawLayout) as Partial<{
-        mode: FtpPanelLayoutMode;
-        sidebarDockSide: FtpSidebarDockSide;
-        auxiliaryDockSide: FtpAuxiliaryDockSide;
-        auxiliaryDockSize: string;
-        showSidebar: boolean;
-        showLocal: boolean;
-        showRemote: boolean;
-        auxCollapsed: boolean;
-      }>;
-      ftpPanelLayoutMode.value = parsed.mode === 'stacked' ? 'stacked' : 'columns';
-      ftpSidebarDockSide.value = parsed.sidebarDockSide === 'right' ? 'right' : 'left';
-      ftpAuxiliaryDockSide.value = parsed.auxiliaryDockSide === 'right' ? 'right' : 'bottom';
-      ftpAuxiliaryDockSize.value = normalizeFtpPanelSize(parsed.auxiliaryDockSize, 180, 1200, '260');
-      ftpShowSidebarPanel.value = parsed.showSidebar ?? true;
-      ftpShowLocalPanel.value = parsed.showLocal ?? true;
-      ftpShowRemotePanel.value = parsed.showRemote ?? true;
-      ftpAuxiliaryDockCollapsed.value = parsed.auxCollapsed ?? false;
-    }
-
     const rawPreferences = window.localStorage.getItem(FTP_PREFERENCES_STORAGE_KEY);
     if (rawPreferences) {
-      const parsed = JSON.parse(rawPreferences) as Partial<{
-        externalEditorPath: string;
-        cleanupExternalDraftsOnClose: boolean;
-        linkNavigationEnabled: boolean;
-        dualRemoteMode: boolean;
-        secondaryTabGroupProfileIds: string[];
-        secondaryRemoteProfileId: string;
-      }>;
-      ftpExternalEditorPath.value = typeof parsed.externalEditorPath === 'string' ? parsed.externalEditorPath : '';
-      ftpCleanupExternalDraftsOnClose.value = Boolean(parsed.cleanupExternalDraftsOnClose);
-      ftpLinkNavigationEnabled.value = Boolean(parsed.linkNavigationEnabled);
-      ftpDualRemoteMode.value = Boolean(parsed.dualRemoteMode);
-      ftpSecondaryTabGroupProfileIds.value = Array.isArray(parsed.secondaryTabGroupProfileIds)
-        ? parsed.secondaryTabGroupProfileIds.filter((item): item is string => typeof item === 'string' && item.length > 0)
-        : [];
-      ftpSecondaryRemoteProfileId.value = typeof parsed.secondaryRemoteProfileId === 'string' ? parsed.secondaryRemoteProfileId : '';
+      const parsed = JSON.parse(rawPreferences) as unknown;
+      if (isRecord(parsed)) {
+        ftpExternalEditorPath.value = typeof parsed.externalEditorPath === 'string' ? parsed.externalEditorPath : '';
+        ftpCleanupExternalDraftsOnClose.value = Boolean(parsed.cleanupExternalDraftsOnClose);
+        ftpLinkNavigationEnabled.value = Boolean(parsed.linkNavigationEnabled);
+      }
     }
 
     const rawThumbnail = window.localStorage.getItem(FTP_THUMBNAIL_STORAGE_KEY);
@@ -536,17 +580,6 @@ function loadFtpSettingsDraft() {
     }
   } catch {
     ftpLinkNavigationEnabled.value = false;
-    ftpPanelLayoutMode.value = 'columns';
-    ftpSidebarDockSide.value = 'left';
-    ftpAuxiliaryDockSide.value = 'bottom';
-    ftpAuxiliaryDockSize.value = '260';
-    ftpShowSidebarPanel.value = true;
-    ftpShowLocalPanel.value = true;
-    ftpShowRemotePanel.value = true;
-    ftpAuxiliaryDockCollapsed.value = false;
-    ftpDualRemoteMode.value = false;
-    ftpSecondaryRemoteProfileId.value = '';
-    ftpSecondaryTabGroupProfileIds.value = [];
     ftpThumbnailsEnabled.value = true;
     ftpThumbnailMaxBytesKb.value = '256';
     ftpThumbnailPrefetchLimit.value = '18';
@@ -557,32 +590,21 @@ function loadFtpSettingsDraft() {
   }
 }
 
-function persistFtpLayoutSettings() {
-  if (!ftpSettingsLoaded.value) return;
-  window.localStorage.setItem(FTP_LAYOUT_STORAGE_KEY, JSON.stringify({
-    mode: ftpPanelLayoutMode.value,
-    sidebarDockSide: ftpSidebarDockSide.value,
-    auxiliaryDockSide: ftpAuxiliaryDockSide.value,
-    auxiliaryDockSize: ftpAuxiliaryDockSize.value,
-    showSidebar: ftpShowSidebarPanel.value,
-    showLocal: ftpShowLocalPanel.value,
-    showRemote: ftpShowRemotePanel.value,
-    auxCollapsed: ftpAuxiliaryDockCollapsed.value,
-  }));
-}
-
 function persistFtpPreferenceSettings() {
   if (!ftpSettingsLoaded.value) return;
-  const secondaryTabGroupProfileIds = ftpDualRemoteMode.value && ftpSecondaryRemoteProfileId.value
-    ? Array.from(new Set([...ftpSecondaryTabGroupProfileIds.value, ftpSecondaryRemoteProfileId.value]))
-    : ftpSecondaryTabGroupProfileIds.value;
+  let existingPreferences: Record<string, unknown> = {};
+  try {
+    const rawPreferences = window.localStorage.getItem(FTP_PREFERENCES_STORAGE_KEY);
+    const parsed = rawPreferences ? JSON.parse(rawPreferences) as unknown : {};
+    existingPreferences = isRecord(parsed) ? parsed : {};
+  } catch {
+    existingPreferences = {};
+  }
   window.localStorage.setItem(FTP_PREFERENCES_STORAGE_KEY, JSON.stringify({
+    ...existingPreferences,
     externalEditorPath: ftpExternalEditorPath.value,
     cleanupExternalDraftsOnClose: ftpCleanupExternalDraftsOnClose.value,
     linkNavigationEnabled: ftpLinkNavigationEnabled.value,
-    dualRemoteMode: ftpDualRemoteMode.value,
-    secondaryTabGroupProfileIds,
-    secondaryRemoteProfileId: ftpSecondaryRemoteProfileId.value,
   }));
 }
 
@@ -593,32 +615,6 @@ function persistFtpThumbnailSettings() {
     maxBytesKb: ftpThumbnailMaxBytesKb.value,
     prefetchLimit: ftpThumbnailPrefetchLimit.value,
   }));
-}
-
-function setFtpPanelLayoutMode(mode: FtpPanelLayoutMode) {
-  ftpPanelLayoutMode.value = mode;
-}
-
-function setFtpSidebarDockSide(side: FtpSidebarDockSide) {
-  ftpSidebarDockSide.value = side;
-}
-
-function setFtpAuxiliaryDockSide(side: FtpAuxiliaryDockSide) {
-  ftpAuxiliaryDockSide.value = side;
-}
-
-function setFtpAuxiliaryDockSize(value: string) {
-  ftpAuxiliaryDockSize.value = normalizeFtpPanelSize(value, 180, 420, ftpAuxiliaryDockSize.value);
-}
-
-function toggleFtpLocalPanel() {
-  if (ftpShowLocalPanel.value && ftpVisibleBrowserPanelCount.value <= 1) return;
-  ftpShowLocalPanel.value = !ftpShowLocalPanel.value;
-}
-
-function toggleFtpRemotePanel() {
-  if (ftpShowRemotePanel.value && ftpVisibleBrowserPanelCount.value <= 1) return;
-  ftpShowRemotePanel.value = !ftpShowRemotePanel.value;
 }
 
 function setFtpThumbnailMaxBytesKb(value: string) {
@@ -1354,33 +1350,9 @@ watch(() => appConfigStore.config.features.multiDeviceClipboard.historyLimit, (v
 
 watch(
   [
-    ftpPanelLayoutMode,
-    ftpSidebarDockSide,
-    ftpAuxiliaryDockSide,
-    ftpAuxiliaryDockSize,
-    ftpAuxiliaryDockCollapsed,
-    ftpShowSidebarPanel,
-    ftpShowLocalPanel,
-    ftpShowRemotePanel,
-  ],
-  () => {
-    if (!ftpShowLocalPanel.value && !ftpShowRemotePanel.value && !ftpDualRemoteMode.value) {
-      ftpShowRemotePanel.value = true;
-      return;
-    }
-    persistFtpLayoutSettings();
-  },
-  { immediate: false },
-);
-
-watch(
-  [
     ftpExternalEditorPath,
     ftpCleanupExternalDraftsOnClose,
     ftpLinkNavigationEnabled,
-    ftpDualRemoteMode,
-    ftpSecondaryRemoteProfileId,
-    ftpSecondaryTabGroupProfileIds,
   ],
   persistFtpPreferenceSettings,
   { immediate: false },
@@ -1396,9 +1368,29 @@ watch(
   { immediate: false },
 );
 
+watch(settingsSearchQuery, () => {
+  if (isSearchingSettings.value) {
+    for (const tab of settingsTabOrder) {
+      scheduleSettingsTabLoad(tab);
+    }
+  }
+  queueSettingsSearchFilter();
+});
+
+watch(
+  [
+    () => settingsStore.activeSettingsTab,
+    () => installedPlugins.value.length,
+    () => hostSummary.value,
+    () => pluginLoadError.value,
+  ],
+  queueSettingsSearchFilter,
+);
+
 onMounted(() => {
   globalStore.setTopbarColor('');
   scheduleSettingsTabLoad(settingsStore.activeSettingsTab);
+  queueSettingsSearchFilter();
 });
 
 // ─── 网页安全配置 ───
@@ -1577,13 +1569,22 @@ function scriptTypeLabel(type: string) {
 </script>
 
 <template>
-  <UiScrollbar class="settings-page" :x="false" :y="true" :size="8">
+  <UiScrollbar class="settings-page" :style="activeSettingsPageStyle" :x="false" :y="true" :size="8">
+    <video
+      v-if="activeSettingsBackgroundVideo && !isSearchingSettings"
+      class="settings-page__background-video"
+      :src="activeSettingsBackgroundVideo"
+      autoplay
+      muted
+      loop
+      playsinline
+    />
     <header class="page-header">
       <div class="page-title-row">
         <h1>设置</h1>
         <div class="settings-search" role="search">
           <span class="settings-search__icon" aria-hidden="true" />
-          <input type="search" placeholder="搜索设置" aria-label="搜索设置" />
+          <input v-model="settingsSearchQuery" type="search" placeholder="搜索设置" aria-label="搜索设置" />
         </div>
       </div>
       <nav
@@ -1591,8 +1592,8 @@ function scriptTypeLabel(type: string) {
         aria-label="设置分类"
       >
         <UiTabs
-          :model-value="settingsStore.activeSettingsTab"
-          :items="settingsTabs"
+          :model-value="activeSettingsTabForView"
+          :items="displayedSettingsTabs"
           variant="line"
           size="md"
           @update:modelValue="handleSettingsTabChange"
@@ -1602,11 +1603,33 @@ function scriptTypeLabel(type: string) {
 
     <div class="page-body">
       <Transition :name="settingsTabTransition" mode="out-in">
-      <section v-if="settingsStore.activeSettingsTab === 'general'" key="general" class="settings-section">
+      <div
+        :key="settingsContentKey"
+        ref="settingsBodyRef"
+        class="settings-content-stack"
+        :class="{ 'settings-content-stack--search': isSearchingSettings }"
+      >
+      <section v-if="isSettingsTabRendered('general')" key="general" class="settings-section">
         <div class="section-head section-head--standalone">
           <h2>基础设置</h2>
           <p>配置应用外观、字体、系统依赖路径和更新策略。</p>
         </div>
+
+        <section class="settings-group settings-group--personalization">
+          <h3>个性化</h3>
+          <div class="settings-row settings-row--wide">
+            <div class="settings-row__label">
+              <span>个性化配置</span>
+              <small>单独配置{{ getSettingsTabLabel('general') }}页背景。</small>
+            </div>
+            <div class="settings-row__control settings-row__control--wide">
+              <div class="settings-inline-badges">
+                <span class="settings-badge">{{ describeSettingsTabPersonalization(getSettingsTabPersonalization('general')) }}</span>
+                <UiButton size="sm" variant="secondary" @click="openSettingsTabPersonalization('general')">配置</UiButton>
+              </div>
+            </div>
+          </div>
+        </section>
 
         <div class="settings-form">
           <section class="settings-group">
@@ -1840,11 +1863,27 @@ function scriptTypeLabel(type: string) {
         </div>
       </section>
 
-      <section v-else-if="settingsStore.activeSettingsTab === 'file-transfer'" key="file-transfer" class="settings-section">
+      <section v-if="isSettingsTabRendered('file-transfer')" key="file-transfer" class="settings-section">
         <div class="section-head section-head--standalone">
           <h2>文件传输</h2>
-          <p>配置传输页布局、浏览行为、缩略图、重试策略和主机信任。</p>
+          <p>配置传输页浏览行为、缩略图、重试策略和主机信任。</p>
         </div>
+
+        <section class="settings-group settings-group--personalization">
+          <h3>个性化</h3>
+          <div class="settings-row settings-row--wide">
+            <div class="settings-row__label">
+              <span>个性化配置</span>
+              <small>单独配置{{ getSettingsTabLabel('file-transfer') }}页背景。</small>
+            </div>
+            <div class="settings-row__control settings-row__control--wide">
+              <div class="settings-inline-badges">
+                <span class="settings-badge">{{ describeSettingsTabPersonalization(getSettingsTabPersonalization('file-transfer')) }}</span>
+                <UiButton size="sm" variant="secondary" @click="openSettingsTabPersonalization('file-transfer')">配置</UiButton>
+              </div>
+            </div>
+          </div>
+        </section>
 
         <div class="settings-form">
           <section class="settings-group">
@@ -1869,147 +1908,6 @@ function scriptTypeLabel(type: string) {
               <div class="settings-row__control settings-row__control--wide">
                 <div class="settings-inline-badges">
                   <span class="settings-badge" :class="{ 'settings-badge--accent': ftpLinkNavigationEnabled }">{{ ftpLinkNavigationSummary }}</span>
-                </div>
-              </div>
-            </div>
-
-            <div class="settings-row">
-              <div class="settings-row__label">
-                <span>并行标签组</span>
-                <small>允许主工作区外再显示第二个远程标签组。</small>
-              </div>
-              <div class="settings-row__control settings-row__control--switch">
-                <label class="settings-switch">
-                  <input v-model="ftpDualRemoteMode" type="checkbox" />
-                  <span aria-hidden="true" />
-                </label>
-              </div>
-            </div>
-            <div class="settings-row settings-row--wide">
-              <div class="settings-row__label">
-                <span>第二标签组焦点</span>
-                <small>可指定当前已连接会话，留空时自动选择。</small>
-              </div>
-              <div class="settings-row__control settings-row__control--wide">
-                <UiSelect
-                  :model-value="ftpSecondaryRemoteProfileId"
-                  :options="ftpSecondaryRemoteSessionOptions"
-                  @update:modelValue="ftpSecondaryRemoteProfileId = String($event)"
-                />
-                <div class="settings-inline-badges settings-inline-badges--mt">
-                  <span class="settings-badge" :class="{ 'settings-badge--accent': ftpDualRemoteMode }">{{ ftpDualRemoteSummary }}</span>
-                </div>
-              </div>
-            </div>
-          </section>
-
-          <section class="settings-group">
-            <h3>布局与面板</h3>
-            <div class="settings-row">
-              <div class="settings-row__label">
-                <span>工作区拆分</span>
-                <small>选择水平双栏或纵向堆叠。</small>
-              </div>
-              <div class="settings-row__control">
-                <div class="segmented-actions">
-                  <UiButton size="sm" variant="secondary" :active="ftpPanelLayoutMode === 'columns'" @click="setFtpPanelLayoutMode('columns')">水平双栏</UiButton>
-                  <UiButton size="sm" variant="secondary" :active="ftpPanelLayoutMode === 'stacked'" @click="setFtpPanelLayoutMode('stacked')">纵向堆叠</UiButton>
-                </div>
-              </div>
-            </div>
-            <div class="settings-row settings-row--wide">
-              <div class="settings-row__label">
-                <span>布局状态</span>
-                <small>用于传输页主内容区。</small>
-              </div>
-              <div class="settings-row__control settings-row__control--wide">
-                <div class="settings-inline-badges">
-                  <span class="settings-badge settings-badge--accent">{{ ftpPanelLayoutSummary }}</span>
-                  <span class="settings-badge">{{ ftpBrowserPanelSummary }}</span>
-                </div>
-              </div>
-            </div>
-
-            <div class="settings-row">
-              <div class="settings-row__label">
-                <span>会话侧栏停靠</span>
-                <small>控制服务器列表在传输页的停靠位置。</small>
-              </div>
-              <div class="settings-row__control">
-                <div class="segmented-actions">
-                  <UiButton size="sm" variant="secondary" :active="ftpSidebarDockSide === 'left'" @click="setFtpSidebarDockSide('left')">左侧</UiButton>
-                  <UiButton size="sm" variant="secondary" :active="ftpSidebarDockSide === 'right'" @click="setFtpSidebarDockSide('right')">右侧</UiButton>
-                </div>
-              </div>
-            </div>
-            <div class="settings-row settings-row--wide">
-              <div class="settings-row__label">
-                <span>侧栏状态</span>
-                <small>隐藏侧栏后仍保留当前工作区。</small>
-              </div>
-              <div class="settings-row__control settings-row__control--wide">
-                <div class="settings-inline-badges">
-                  <span class="settings-badge">{{ ftpSidebarDockSummary }}</span>
-                  <label class="settings-check">
-                    <input v-model="ftpShowSidebarPanel" type="checkbox" />
-                    <span>显示会话侧栏</span>
-                  </label>
-                </div>
-              </div>
-            </div>
-
-            <div class="settings-row settings-row--wide">
-              <div class="settings-row__label">
-                <span>文件面板</span>
-                <small>至少保留一个浏览面板。</small>
-              </div>
-              <div class="settings-row__control settings-row__control--wide">
-                <div class="settings-inline-badges">
-                  <UiButton size="sm" variant="secondary" :active="ftpShowLocalPanel" @click="toggleFtpLocalPanel">{{ ftpShowLocalPanel ? '隐藏本地' : '显示本地' }}</UiButton>
-                  <UiButton size="sm" variant="secondary" :active="ftpShowRemotePanel" @click="toggleFtpRemotePanel">{{ ftpShowRemotePanel ? '隐藏远程' : '显示远程' }}</UiButton>
-                </div>
-              </div>
-            </div>
-
-            <div class="settings-row">
-              <div class="settings-row__label">
-                <span>辅助停靠区</span>
-                <small>传输队列和日志面板的位置。</small>
-              </div>
-              <div class="settings-row__control">
-                <div class="segmented-actions">
-                  <UiButton size="sm" variant="secondary" :active="ftpAuxiliaryDockSide === 'bottom'" @click="setFtpAuxiliaryDockSide('bottom')">底部</UiButton>
-                  <UiButton size="sm" variant="secondary" :active="ftpAuxiliaryDockSide === 'right'" @click="setFtpAuxiliaryDockSide('right')">右侧</UiButton>
-                </div>
-              </div>
-            </div>
-            <div class="settings-row">
-              <div class="settings-row__label">
-                <span>辅助区尺寸</span>
-                <small>输入 180 到 420 像素。</small>
-              </div>
-              <div class="settings-row__control settings-row__control--compact">
-                <UiInput
-                  :model-value="ftpAuxiliaryDockSize"
-                  type="number"
-                  :min="180"
-                  :max="420"
-                  @update:modelValue="setFtpAuxiliaryDockSize(String($event))"
-                />
-              </div>
-            </div>
-            <div class="settings-row settings-row--wide">
-              <div class="settings-row__label">
-                <span>辅助区状态</span>
-                <small>影响传输页底部或右侧工作区。</small>
-              </div>
-              <div class="settings-row__control settings-row__control--wide">
-                <div class="settings-inline-badges">
-                  <span class="settings-badge">{{ ftpAuxiliaryDockSummary }}</span>
-                  <label class="settings-check">
-                    <input v-model="ftpAuxiliaryDockCollapsed" type="checkbox" />
-                    <span>默认折叠辅助区</span>
-                  </label>
                 </div>
               </div>
             </div>
@@ -2200,11 +2098,27 @@ function scriptTypeLabel(type: string) {
         </div>
       </section>
 
-      <section v-else-if="settingsStore.activeSettingsTab === 'terminal'" key="terminal" class="settings-section">
+      <section v-if="isSettingsTabRendered('terminal')" key="terminal" class="settings-section">
         <div class="section-head section-head--standalone">
           <h2>终端</h2>
           <p>配置终端默认会话、渲染器、工作目录与图像显示行为。</p>
         </div>
+
+        <section class="settings-group settings-group--personalization">
+          <h3>个性化</h3>
+          <div class="settings-row settings-row--wide">
+            <div class="settings-row__label">
+              <span>个性化配置</span>
+              <small>单独配置{{ getSettingsTabLabel('terminal') }}页背景。</small>
+            </div>
+            <div class="settings-row__control settings-row__control--wide">
+              <div class="settings-inline-badges">
+                <span class="settings-badge">{{ describeSettingsTabPersonalization(getSettingsTabPersonalization('terminal')) }}</span>
+                <UiButton size="sm" variant="secondary" @click="openSettingsTabPersonalization('terminal')">配置</UiButton>
+              </div>
+            </div>
+          </div>
+        </section>
 
         <div class="settings-form">
           <section class="settings-group">
@@ -2378,11 +2292,27 @@ function scriptTypeLabel(type: string) {
         </div>
       </section>
 
-      <section v-else-if="settingsStore.activeSettingsTab === 'multi-device-clipboard'" key="multi-device-clipboard" class="settings-section">
+      <section v-if="isSettingsTabRendered('multi-device-clipboard')" key="multi-device-clipboard" class="settings-section">
         <div class="section-head section-head--standalone">
           <h2>多设备剪贴板</h2>
           <p>配置局域网发现、同步大小和历史记录。</p>
         </div>
+
+        <section class="settings-group settings-group--personalization">
+          <h3>个性化</h3>
+          <div class="settings-row settings-row--wide">
+            <div class="settings-row__label">
+              <span>个性化配置</span>
+              <small>单独配置{{ getSettingsTabLabel('multi-device-clipboard') }}页背景。</small>
+            </div>
+            <div class="settings-row__control settings-row__control--wide">
+              <div class="settings-inline-badges">
+                <span class="settings-badge">{{ describeSettingsTabPersonalization(getSettingsTabPersonalization('multi-device-clipboard')) }}</span>
+                <UiButton size="sm" variant="secondary" @click="openSettingsTabPersonalization('multi-device-clipboard')">配置</UiButton>
+              </div>
+            </div>
+          </div>
+        </section>
 
         <div class="settings-form">
           <section class="settings-group">
@@ -2567,11 +2497,27 @@ function scriptTypeLabel(type: string) {
         </div>
       </section>
 
-      <section v-else-if="settingsStore.activeSettingsTab === 'shortcuts'" key="shortcuts" class="settings-section">
+      <section v-if="isSettingsTabRendered('shortcuts')" key="shortcuts" class="settings-section">
         <div class="section-head section-head--standalone">
           <h2>快捷键</h2>
           <p>配置终端内快捷键和系统级显示隐藏快捷键。</p>
         </div>
+
+        <section class="settings-group settings-group--personalization">
+          <h3>个性化</h3>
+          <div class="settings-row settings-row--wide">
+            <div class="settings-row__label">
+              <span>个性化配置</span>
+              <small>单独配置{{ getSettingsTabLabel('shortcuts') }}页背景。</small>
+            </div>
+            <div class="settings-row__control settings-row__control--wide">
+              <div class="settings-inline-badges">
+                <span class="settings-badge">{{ describeSettingsTabPersonalization(getSettingsTabPersonalization('shortcuts')) }}</span>
+                <UiButton size="sm" variant="secondary" @click="openSettingsTabPersonalization('shortcuts')">配置</UiButton>
+              </div>
+            </div>
+          </div>
+        </section>
 
         <div class="settings-form">
           <section class="settings-group">
@@ -2636,11 +2582,27 @@ function scriptTypeLabel(type: string) {
         </div>
       </section>
 
-      <section v-else-if="settingsStore.activeSettingsTab === 'ai-agent'" key="ai-agent" class="settings-section">
+      <section v-if="isSettingsTabRendered('ai-agent')" key="ai-agent" class="settings-section">
         <div class="section-head section-head--standalone">
           <h2>AI Agent</h2>
           <p>AI 推理策略与上下文配置。</p>
         </div>
+
+        <section class="settings-group settings-group--personalization">
+          <h3>个性化</h3>
+          <div class="settings-row settings-row--wide">
+            <div class="settings-row__label">
+              <span>个性化配置</span>
+              <small>单独配置{{ getSettingsTabLabel('ai-agent') }}页背景。</small>
+            </div>
+            <div class="settings-row__control settings-row__control--wide">
+              <div class="settings-inline-badges">
+                <span class="settings-badge">{{ describeSettingsTabPersonalization(getSettingsTabPersonalization('ai-agent')) }}</span>
+                <UiButton size="sm" variant="secondary" @click="openSettingsTabPersonalization('ai-agent')">配置</UiButton>
+              </div>
+            </div>
+          </div>
+        </section>
 
         <div class="cards-grid cards-grid--3col">
           <div class="settings-card settings-card--placeholder ui-glass-surface ui-glass-surface--strong">
@@ -2667,11 +2629,27 @@ function scriptTypeLabel(type: string) {
         </div>
       </section>
 
-      <section v-else-if="settingsStore.activeSettingsTab === 'plugins'" key="plugins" class="settings-section">
+      <section v-if="isSettingsTabRendered('plugins')" key="plugins" class="settings-section">
         <div class="section-head section-head--standalone">
           <h2>插件配置</h2>
           <p>插件策略和每个插件的独立 JSON 配置。</p>
         </div>
+
+        <section class="settings-group settings-group--personalization">
+          <h3>个性化</h3>
+          <div class="settings-row settings-row--wide">
+            <div class="settings-row__label">
+              <span>个性化配置</span>
+              <small>单独配置{{ getSettingsTabLabel('plugins') }}页背景。</small>
+            </div>
+            <div class="settings-row__control settings-row__control--wide">
+              <div class="settings-inline-badges">
+                <span class="settings-badge">{{ describeSettingsTabPersonalization(getSettingsTabPersonalization('plugins')) }}</span>
+                <UiButton size="sm" variant="secondary" @click="openSettingsTabPersonalization('plugins')">配置</UiButton>
+              </div>
+            </div>
+          </div>
+        </section>
 
         <div class="cards-grid cards-grid--1col">
           <!-- 插件通用策略 -->
@@ -2751,11 +2729,27 @@ function scriptTypeLabel(type: string) {
         </div>
       </section>
 
-      <section v-else-if="settingsStore.activeSettingsTab === 'web-security'" key="web-security" class="settings-section">
+      <section v-if="isSettingsTabRendered('web-security')" key="web-security" class="settings-section">
         <div class="section-head section-head--standalone">
           <h2>外部网页配置</h2>
           <p>管理域名策略、保活规则、Chrome 扩展和增强脚本。</p>
         </div>
+
+        <section class="settings-group settings-group--personalization">
+          <h3>个性化</h3>
+          <div class="settings-row settings-row--wide">
+            <div class="settings-row__label">
+              <span>个性化配置</span>
+              <small>单独配置{{ getSettingsTabLabel('web-security') }}页背景。</small>
+            </div>
+            <div class="settings-row__control settings-row__control--wide">
+              <div class="settings-inline-badges">
+                <span class="settings-badge">{{ describeSettingsTabPersonalization(getSettingsTabPersonalization('web-security')) }}</span>
+                <UiButton size="sm" variant="secondary" @click="openSettingsTabPersonalization('web-security')">配置</UiButton>
+              </div>
+            </div>
+          </div>
+        </section>
 
         <div class="settings-form">
           <section class="settings-group">
@@ -2933,13 +2927,30 @@ function scriptTypeLabel(type: string) {
           </section>
         </div>
       </section>
+      <div v-if="isSearchingSettings && !settingsSearchHasMatches" class="settings-search-empty">
+        未找到匹配的设置项
+      </div>
+      </div>
       </Transition>
     </div>
+
+    <UiPersonalizationConfig
+      :visible="personalizationDialogVisible"
+      :current-background="personalizationDialogConfig.color"
+      :current-background-image="personalizationDialogConfig.image"
+      :current-background-video="personalizationDialogConfig.video"
+      :current-background-style="personalizationDialogConfig.style"
+      :preview-width="settingsPersonalizationPreviewWidth"
+      :preview-height="settingsPersonalizationPreviewHeight"
+      @close="personalizationDialogVisible = false"
+      @confirm="handleSettingsTabPersonalizationConfirm"
+    />
   </UiScrollbar>
 </template>
 
 <style lang="scss" scoped>
 .settings-page {
+  position: relative;
   width: 100%;
   height: 100%;
   box-sizing: border-box;
@@ -2947,6 +2958,16 @@ function scriptTypeLabel(type: string) {
   background:
     linear-gradient(180deg, color-mix(in srgb, var(--background-color) 90%, #ffffff 10%) 0%, var(--background-color) 100%);
   overflow: hidden;
+}
+
+.settings-page__background-video {
+  position: fixed;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  pointer-events: none;
+  z-index: 0;
 }
 
 .page-header {
@@ -3076,6 +3097,8 @@ function scriptTypeLabel(type: string) {
 }
 
 .page-body {
+  position: relative;
+  z-index: 1;
   display: block;
   width: 100%;
   max-width: 1440px;
@@ -3083,6 +3106,30 @@ function scriptTypeLabel(type: string) {
   padding: 18px 28px 42px;
   box-sizing: border-box;
   overflow-x: hidden;
+}
+
+.settings-content-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.settings-content-stack--search {
+  gap: 24px;
+}
+
+.is-search-hidden,
+.settings-section--search-empty {
+  display: none !important;
+}
+
+.settings-search-empty {
+  padding: 34px 18px;
+  border: 1px dashed var(--ui-border-subtle);
+  border-radius: 8px;
+  color: var(--ui-text-muted);
+  text-align: center;
+  background: color-mix(in srgb, var(--ui-surface-panel) 74%, transparent);
 }
 
 /* ─── Section ─── */
