@@ -52,6 +52,15 @@
   min-width: var(--ui-page-sidebar-collapsed-width);
 }
 
+.ftp-sidebar__content {
+  display: flex;
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+  flex-direction: column;
+  overflow: hidden;
+}
+
 .ftp-sidebar__header {
   display: flex;
   align-items: center;
@@ -196,6 +205,10 @@
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 8px;
+}
+
+.ftp-sidebar__section--actions .ui-button:only-child {
+  grid-column: 1 / -1;
 }
 
 .ftp-sidebar__section--quick,
@@ -694,14 +707,70 @@
   overflow: hidden;
 }
 
-.ftp-hero {
+.ftp-toolbar.terminal-toolbar {
+  --terminal-toolbar-action-bg: transparent;
+  --terminal-toolbar-action-border: transparent;
+  --terminal-toolbar-action-text: var(--ui-button-ghost-text);
+  --terminal-toolbar-action-hover-bg: var(--ui-button-ghost-hover-bg);
+  --terminal-toolbar-action-hover-border: transparent;
+  --terminal-toolbar-action-hover-text: var(--ui-button-ghost-hover-text);
+  --terminal-toolbar-action-active-bg: var(--ui-tabs-active-bg);
+  --terminal-toolbar-action-active-border: var(--ui-border-accent-soft);
+  --terminal-toolbar-action-active-text: var(--primary-color);
+  --terminal-toolbar-action-disabled-text: var(--ui-text-subtle);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  box-sizing: border-box;
+  min-height: 46px;
+  padding: 8px 10px;
+  border-bottom: 1px solid var(--ui-border-subtle);
+  background: color-mix(in srgb, var(--ui-surface-panel) 88%, transparent);
+  backdrop-filter: blur(12px);
+  position: relative;
+  z-index: 320;
+}
+
+.ftp-toolbar .terminal-toolbar__left {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.ftp-toolbar .terminal-toolbar__title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  color: var(--ui-text-secondary);
+  font-size: 13px;
+}
+
+.ftp-toolbar .title-name {
+  display: inline-block;
+  max-width: min(320px, 32vw);
+  overflow: hidden;
+  color: var(--ui-text-primary);
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ftp-toolbar .terminal-toolbar__right {
   display: flex;
   align-items: center;
   justify-content: flex-end;
-  gap: 10px;
-  min-height: 34px;
-  padding: 3px var(--ftp-page-gutter-inline);
-  border-bottom: 1px solid var(--ui-border-subtle);
+  gap: 6px;
+  flex: 0 1 auto;
+  min-width: 0;
+  overflow: hidden;
+}
+
+.ftp-toolbar .ui-icon-button svg {
+  fill: none !important;
 }
 
 .ftp-hero__busy {
@@ -712,9 +781,9 @@
   display: flex;
   align-items: center;
   justify-content: flex-end;
-  gap: 8px;
-  flex-wrap: wrap;
-  width: 100%;
+  gap: 6px;
+  flex-wrap: nowrap;
+  width: auto;
   min-width: 0;
 }
 
@@ -888,9 +957,10 @@
 }
 
 .ftp-panels {
+  position: relative;
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(min(420px, 100%), 1fr));
-  grid-auto-rows: minmax(0, 1fr);
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-rows: minmax(0, 1fr);
   width: 100%;
   min-width: 0;
   gap: 0;
@@ -899,8 +969,435 @@
   align-content: stretch;
   align-items: stretch;
   padding: 0;
-  /* 面板区域的分割线由各面板 border 自行负责 */
   border-top: 1px solid var(--ui-border-subtle);
+  overflow: hidden;
+  transition:
+    grid-template-columns 0.18s ease,
+    grid-template-rows 0.18s ease;
+}
+
+.ftp-workspace-tabs {
+  flex-shrink: 0;
+}
+
+.terminal-stage--tabbed .ftp-panels,
+.terminal-stage--single .ftp-panels {
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-rows: minmax(0, 1fr);
+}
+
+.terminal-stage--split-horizontal .ftp-panels {
+  grid-auto-flow: row;
+  grid-auto-rows: minmax(0, 1fr);
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.terminal-stage--split-vertical .ftp-panels {
+  grid-auto-flow: column;
+  grid-auto-columns: minmax(0, 1fr);
+  grid-template-rows: minmax(0, 1fr);
+}
+
+.terminal-stage--grid .ftp-panels {
+  grid-auto-rows: minmax(220px, 1fr);
+}
+
+.terminal-stage--master-stack .ftp-panels {
+  grid-auto-rows: minmax(0, 1fr);
+}
+
+.terminal-stage--dwindle .ftp-panels {
+  display: block;
+}
+
+.ftp-workspace-pane.terminal-pane {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  height: 100%;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+  border: 1px solid rgba(148, 163, 184, 0.18);
+  border-radius: 0;
+  background: var(--ui-surface-panel);
+  transition:
+    border-color 0.16s ease,
+    box-shadow 0.16s ease,
+    opacity 0.16s ease,
+    transform 0.18s ease,
+    left 0.18s ease,
+    top 0.18s ease,
+    width 0.18s ease,
+    height 0.18s ease;
+}
+
+.ftp-workspace-pane.terminal-pane--active {
+  border-color: rgba(102, 204, 255, 0.48);
+  box-shadow: inset 0 0 0 1px rgba(102, 204, 255, 0.2);
+}
+
+.ftp-workspace-pane.terminal-pane--drag-placeholder {
+  border-style: dashed;
+  border-color: color-mix(in srgb, var(--primary-color) 48%, rgba(148, 163, 184, 0.22));
+  background:
+    repeating-linear-gradient(
+      135deg,
+      color-mix(in srgb, var(--primary-color) 10%, transparent) 0 8px,
+      transparent 8px 16px
+    ),
+    color-mix(in srgb, var(--ui-surface-panel-muted) 90%, transparent);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--primary-color) 18%, transparent);
+}
+
+.ftp-workspace-pane.terminal-pane--drag-placeholder > :not(.terminal-pane__header) {
+  opacity: 0;
+  pointer-events: none;
+}
+
+.ftp-workspace-pane.terminal-pane--drag-placeholder .terminal-pane__header {
+  border-bottom-color: color-mix(in srgb, var(--primary-color) 24%, transparent);
+  background: color-mix(in srgb, var(--ui-surface-panel-muted) 86%, transparent);
+}
+
+.ftp-workspace-pane.terminal-pane--drop-target {
+  box-shadow: inset 0 0 0 2px rgba(102, 204, 255, 0.55);
+}
+
+.ftp-workspace-pane > .ftp-panel {
+  flex: 1;
+  width: 100%;
+  min-height: 0;
+  border-right: none;
+  border-radius: 0;
+}
+
+.ftp-workspace-pane .terminal-pane__header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 30px;
+  flex-shrink: 0;
+  padding: 0 10px;
+  border-bottom: 1px solid rgba(148, 163, 184, 0.14);
+  background: color-mix(in srgb, var(--ui-surface-panel) 86%, rgba(15, 23, 42, 0.34));
+  color: var(--ui-text-secondary);
+  cursor: pointer;
+  font-size: 12px;
+  user-select: none;
+}
+
+.ftp-workspace-pane .terminal-pane__header:active {
+  cursor: grabbing;
+}
+
+.ftp-workspace-pane .terminal-pane__kind {
+  color: var(--primary-color);
+  font-size: 10px;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.ftp-workspace-pane .terminal-pane__title {
+  min-width: 0;
+  overflow: hidden;
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ftp-workspace-pane .terminal-pane__status {
+  margin-left: auto;
+  color: var(--ui-text-muted);
+  font-size: 10px;
+  text-transform: uppercase;
+}
+
+.ftp-workspace-pane .terminal-pane__close {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  flex-shrink: 0;
+  padding: 0;
+  border: none;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--ui-text-muted);
+  cursor: pointer;
+}
+
+.ftp-workspace-pane .terminal-pane__close:hover {
+  background: rgba(239, 68, 68, 0.14);
+  color: #f87171;
+}
+
+.ftp-pane-connection-state {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+  padding: 24px;
+  background: color-mix(in srgb, var(--ui-surface-panel) 94%, transparent);
+  color: var(--ui-text-secondary);
+  text-align: left;
+
+  svg {
+    flex: 0 0 auto;
+    color: var(--ui-warning-color, #f59e0b);
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 1.8;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+  }
+}
+
+.ftp-pane-connection-state--disconnected {
+  flex-direction: column;
+  text-align: center;
+}
+
+.ftp-pane-connection-state__spinner {
+  width: 24px;
+  height: 24px;
+  flex: 0 0 auto;
+  border: 2px solid color-mix(in srgb, var(--primary-color) 24%, transparent);
+  border-top-color: var(--primary-color);
+  border-radius: 999px;
+  animation: ftpSpin 0.9s linear infinite;
+}
+
+.ftp-pane-connection-state__text {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+
+  strong {
+    color: var(--ui-text-primary);
+    font-size: 13px;
+    font-weight: 700;
+  }
+
+  span {
+    max-width: min(420px, 70vw);
+    overflow: hidden;
+    font-size: 12px;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+}
+
+.terminal-stage--dwindle .ftp-workspace-pane {
+  position: absolute;
+}
+
+.terminal-pane-tabs {
+  display: flex;
+  align-items: center;
+  gap: 0;
+  min-height: 30px;
+  overflow-x: auto;
+  border-bottom: 1px solid var(--ui-border-subtle);
+  background: color-mix(in srgb, var(--ui-surface-panel) 84%, transparent);
+}
+
+.terminal-pane-tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  max-width: 220px;
+  height: 30px;
+  min-width: 0;
+  padding: 0 10px;
+  border: none;
+  border-right: 1px solid var(--ui-border-subtle);
+  border-radius: 0;
+  background: transparent;
+  color: var(--ui-text-muted);
+  cursor: grab;
+  font-size: 12px;
+  user-select: none;
+  transition:
+    background-color 0.16s ease,
+    border-color 0.16s ease,
+    color 0.16s ease;
+}
+
+.terminal-pane-tab:active {
+  cursor: pointer;
+}
+
+.terminal-pane-tab:hover {
+  border-color: var(--ui-border-accent-soft);
+  color: var(--ui-text-secondary);
+}
+
+.terminal-pane-tab--active {
+  background: color-mix(in srgb, var(--ui-tabs-active-bg) 84%, transparent);
+  color: var(--ui-text-primary);
+}
+
+.terminal-pane-tab--drop-target {
+  box-shadow: inset 2px 0 0 var(--primary-color);
+}
+
+.terminal-pane-tab--drag-placeholder {
+  border-right-color: color-mix(in srgb, var(--primary-color) 34%, var(--ui-border-subtle));
+  outline: 1px dashed color-mix(in srgb, var(--primary-color) 52%, transparent);
+  outline-offset: -4px;
+  background:
+    repeating-linear-gradient(
+      135deg,
+      color-mix(in srgb, var(--primary-color) 12%, transparent) 0 6px,
+      transparent 6px 12px
+    ),
+    color-mix(in srgb, var(--ui-surface-panel-muted) 84%, transparent);
+  color: color-mix(in srgb, var(--ui-text-muted) 72%, transparent);
+}
+
+.terminal-pane-tab--drag-placeholder .terminal-pane-tab__kind,
+.terminal-pane-tab--drag-placeholder .terminal-pane-tab__title {
+  opacity: 0.58;
+}
+
+.terminal-pane-tab__kind {
+  flex-shrink: 0;
+  color: var(--primary-color);
+  font-size: 10px;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.terminal-pane-tab__title {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.terminal-pane-tab__close {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  width: 18px;
+  height: 18px;
+  border-radius: var(--ui-radius-sm);
+  color: var(--ui-text-muted);
+
+  svg {
+    stroke: currentColor;
+    stroke-width: 2;
+    stroke-linecap: round;
+  }
+}
+
+.terminal-pane-tab__close:hover {
+  background: color-mix(in srgb, var(--ui-danger-color, #f56c6c) 12%, transparent);
+  color: var(--ui-danger-color, #f56c6c);
+}
+
+.terminal-pane-drag-preview {
+  position: fixed;
+  z-index: 1000;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  max-width: 260px;
+  height: 30px;
+  padding: 0 11px;
+  border: 1px solid rgba(102, 204, 255, 0.42);
+  border-radius: 0;
+  background: color-mix(in srgb, var(--ui-surface-panel) 90%, rgba(102, 204, 255, 0.12));
+  color: var(--ui-text-primary);
+  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.24), 0 0 0 1px rgba(102, 204, 255, 0.1);
+  pointer-events: none;
+  transform: translate3d(0, 0, 0) scale(0.94);
+  transform-origin: top left;
+  transition: opacity 0.12s ease, box-shadow 0.12s ease;
+  backdrop-filter: blur(14px);
+}
+
+.terminal-pane-drag-preview__kind {
+  flex-shrink: 0;
+  color: var(--primary-color);
+  font-size: 10px;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.terminal-pane-drag-preview__title {
+  min-width: 0;
+  overflow: hidden;
+  font-size: 12px;
+  font-weight: 700;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.terminal-pane-resizer {
+  position: absolute;
+  z-index: 8;
+  border: none;
+  border-radius: 0;
+  background: transparent;
+  touch-action: none;
+}
+
+.terminal-pane-resizer::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: color-mix(in srgb, var(--primary-color) 44%, transparent);
+  opacity: 0;
+  transition: opacity 0.16s ease;
+}
+
+.terminal-pane-resizer:hover::after,
+.terminal-pane-resizer:focus-visible::after {
+  opacity: 1;
+}
+
+.terminal-pane-resizer--vertical {
+  top: 0;
+  width: 8px;
+  height: 100%;
+  margin-left: -4px;
+  cursor: col-resize;
+}
+
+.terminal-pane-resizer--horizontal {
+  left: 0;
+  width: 100%;
+  height: 8px;
+  margin-top: -4px;
+  cursor: row-resize;
+}
+
+body.terminal-pane-resizing {
+  cursor: col-resize;
+  user-select: none;
+}
+
+body.terminal-pane-resizing .terminal-pane,
+body.terminal-pane-resizing .terminal-pane-workspace {
+  pointer-events: none;
+}
+
+body.terminal-pane-dragging-active {
+  cursor: grabbing;
+  user-select: none;
+}
+
+body.terminal-pane-dragging-active .terminal-pane,
+body.terminal-pane-dragging-active .terminal-pane-tab {
+  cursor: grabbing;
 }
 
 .ftp-aux-dock {
@@ -1135,48 +1632,8 @@
   min-height: 0;
 }
 
-/* 双端模式：两列，左本地、分割条、右堆叠双远程
-   实际比例由父元素 inline style 覆盖： minmax(0, ${pct}fr) 5px minmax(0, ${100-pct}fr) */
 .ftp-panels--parallel {
-  /* 固定分割条从剩余宽度外扣除，避免 50% + 5px + 50% 超出容器 */
-  grid-template-columns: minmax(0, 1fr) 5px minmax(0, 1fr);
-
-  /* remote-stack 是最右边的列，无需右边分割线 */
-  > .ftp-panels__remote-stack {
-    border-right: none;
-
-    /* remote-stack 内部的 ftp-panel 不需要右边 border */
-    > .ftp-panel {
-      border-right: none;
-    }
-  }
-}
-
-/* 双端模式下两个远程面板的堆叠容器 */
-.ftp-panels__remote-stack {
-  display: flex;
-  flex-direction: column;
-  gap: 0;
-  min-width: 0;
-  min-height: 0;
-  overflow: hidden;
-
-  /* 第二个远程（上方）面板：占总高 --ftp-remote-top-pct，默认 50% */
-  > .ftp-panel:first-child {
-    flex: 0 0 var(--ftp-remote-top-pct, 50%);
-    min-height: 0;
-  }
-
-  /* 下方分割条 */
-  > .ftp-panels__v-divider {
-    flex: 0 0 5px;
-  }
-
-  /* 主远程（下方）面板：占剩余空间 */
-  > .ftp-panel:last-child {
-    flex: 1;
-    min-height: 0;
-  }
+  grid-auto-flow: row;
 }
 
 .ftp-panels--single,
@@ -1561,11 +2018,73 @@
 }
 
 .ftp-panel__path-input-wrap {
+  align-items: center;
   flex: 1 1 240px;
+  gap: 6px;
+}
+
+.ftp-panel__bookmark-manager.ui-icon-button {
+  align-self: center;
+  flex: 0 0 auto;
+  width: var(--ui-control-height-sm);
+  height: var(--ui-control-height-sm);
+  min-width: var(--ui-control-height-sm);
+  padding-inline: 0;
+}
+
+.ftp-panel__path-input {
+  flex: 1 1 180px;
+  min-width: 120px;
 }
 
 .ftp-panel__search-wrap {
   flex: 1 1 180px;
+}
+
+.ftp-panel__floating-search {
+  position: absolute;
+  top: 44px;
+  right: 12px;
+  z-index: 90;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  box-sizing: border-box;
+  width: min(360px, calc(100% - 24px));
+  min-height: 40px;
+  padding: 7px 8px;
+  border: 1px solid var(--ui-border-subtle);
+  border-radius: 6px;
+  background: color-mix(in srgb, var(--ui-surface-panel) 92%, transparent);
+  box-shadow: 0 14px 36px color-mix(in srgb, #000 18%, transparent);
+  backdrop-filter: blur(14px);
+}
+
+.ftp-panel__floating-search-icon {
+  flex: 0 0 auto;
+  color: var(--ui-text-muted);
+}
+
+.ftp-panel__floating-search-input {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.ftp-panel__floating-search-input .ui-input {
+  width: 100%;
+}
+
+.ftp-floating-search-enter-active,
+.ftp-floating-search-leave-active {
+  transition:
+    opacity 0.16s ease,
+    transform 0.18s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.ftp-floating-search-enter-from,
+.ftp-floating-search-leave-to {
+  opacity: 0;
+  transform: translateY(-6px) scale(0.98);
 }
 
 .ftp-panel__search-shell {
@@ -1594,6 +2113,7 @@
 .ftp-panel__path-input-wrap .ui-select-wrap,
 .ftp-panel__search-wrap .ui-input {
   width: 100%;
+  min-width: 0;
 }
 
 .ftp-panel__icon-action {
@@ -1640,6 +2160,146 @@
 
 .ftp-filter-dialog {
   color: var(--ui-text-primary);
+}
+
+.ftp-workspace-dialog {
+  color: var(--ui-text-primary);
+}
+
+.ftp-workspace-dialog .ui-dialog__header,
+.ftp-workspace-dialog .ui-dialog__footer {
+  background: color-mix(in srgb, var(--ui-surface-panel-muted) 88%, transparent);
+}
+
+.ftp-workspace-dialog__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 14px 16px 12px;
+}
+
+.ftp-workspace-dialog__title-group {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.ftp-workspace-dialog__eyebrow,
+.ftp-workspace-dialog__section-label {
+  color: var(--ui-text-muted);
+  font-size: 0.66rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.ftp-workspace-dialog__title {
+  margin: 0;
+  color: var(--ui-text-primary);
+  font-size: 1rem;
+  font-weight: 800;
+  line-height: 1.2;
+}
+
+.ftp-workspace-dialog__body {
+  display: grid;
+  gap: 12px;
+  padding: 14px 16px;
+}
+
+.ftp-workspace-dialog__current {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+  padding: 12px;
+  border: 1px solid color-mix(in srgb, var(--ui-border-subtle) 82%, transparent);
+  border-radius: var(--ui-radius-md);
+  background: color-mix(in srgb, var(--ui-surface-panel) 92%, transparent);
+
+  code {
+    min-width: 0;
+    overflow: hidden;
+    color: var(--ui-text-primary);
+    font-family: Consolas, "Cascadia Mono", monospace;
+    font-size: 0.78rem;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+}
+
+.ftp-workspace-dialog__scroll {
+  max-height: min(48vh, 420px);
+}
+
+.ftp-workspace-dialog__list {
+  display: grid;
+  gap: 8px;
+  padding-right: 8px;
+}
+
+.ftp-workspace-dialog__item {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  border: 1px solid color-mix(in srgb, var(--ui-border-subtle) 76%, transparent);
+  border-radius: var(--ui-radius-md);
+  background: color-mix(in srgb, var(--ui-surface-panel) 94%, transparent);
+}
+
+.ftp-workspace-dialog__item--active {
+  border-color: color-mix(in srgb, var(--primary-color) 36%, var(--ui-border-subtle));
+  background: color-mix(in srgb, var(--primary-color) 8%, var(--ui-surface-panel));
+}
+
+.ftp-workspace-dialog__item-copy {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+
+  strong,
+  span {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  strong {
+    color: var(--ui-text-primary);
+    font-size: 0.84rem;
+  }
+
+  span {
+    color: var(--ui-text-muted);
+    font-family: Consolas, "Cascadia Mono", monospace;
+    font-size: 0.72rem;
+  }
+}
+
+.ftp-workspace-dialog__item-actions,
+.ftp-workspace-dialog__footer {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  min-width: 0;
+}
+
+.ftp-workspace-dialog__empty {
+  padding: 20px 12px;
+  border: 1px dashed var(--ui-border-subtle);
+  border-radius: var(--ui-radius-md);
+  color: var(--ui-text-muted);
+  font-size: 0.82rem;
+  text-align: center;
+}
+
+.ftp-workspace-dialog__footer {
+  padding: 10px 16px;
 }
 
 .ftp-filter-dialog .ui-dialog__header,
@@ -1786,6 +2446,28 @@
 }
 
 @media (max-width: 720px) {
+  .ftp-workspace-dialog__header,
+  .ftp-workspace-dialog__body,
+  .ftp-workspace-dialog__footer {
+    padding-inline: 12px;
+  }
+
+  .ftp-workspace-dialog__current,
+  .ftp-workspace-dialog__item {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .ftp-workspace-dialog__item-actions,
+  .ftp-workspace-dialog__footer {
+    justify-content: stretch;
+    flex-wrap: wrap;
+  }
+
+  .ftp-workspace-dialog__item-actions .ui-button,
+  .ftp-workspace-dialog__footer .ui-button {
+    flex: 1 1 auto;
+  }
+
   .ftp-filter-dialog__header,
   .ftp-filter-dialog__body,
   .ftp-filter-dialog__footer {
@@ -1823,6 +2505,7 @@
 .ftp-table {
   --ftp-table-inline-padding: 14px;
   --ftp-table-line-color: color-mix(in srgb, var(--ui-border-subtle) 82%, transparent);
+  position: relative;
   display: flex;
   flex-direction: column;
   box-sizing: border-box;
@@ -1836,15 +2519,13 @@
 }
 
 .ftp-table__scroll .ui-scrollbar__content {
-  display: flex;
-  flex-direction: column;
+  display: block;
+  min-height: 100%;
 }
 
 .ftp-table__content {
   position: relative;
-  display: flex;
-  flex: 1 0 auto;
-  flex-direction: column;
+  display: block;
   box-sizing: border-box;
   width: 100%;
   min-width: 0;
@@ -1910,9 +2591,9 @@
 }
 
 .ftp-table__head {
-  position: sticky;
-  top: 0;
+  position: relative;
   z-index: 2;
+  flex: 0 0 auto;
   min-width: 0;
   min-height: 30px;
   border-top: 1px solid var(--ui-border-subtle);
@@ -1927,18 +2608,18 @@
 
 .ftp-table__head--local,
 .ftp-entry--local {
-  --ftp-table-columns: minmax(0, 1fr) var(--ftp-col-2, 110px) var(--ftp-col-3, 170px);
+  --ftp-table-columns: minmax(var(--ftp-name-col-min, 72px), 1fr) var(--ftp-col-2, 110px) var(--ftp-col-3, 170px);
 }
 
 .ftp-table__head--remote,
 .ftp-entry--remote {
-  --ftp-table-columns: minmax(0, 1fr) var(--ftp-col-2, 150px) var(--ftp-col-3, 110px);
+  --ftp-table-columns: minmax(var(--ftp-name-col-min, 72px), 1fr) var(--ftp-col-2, 150px) var(--ftp-col-3, 110px);
 }
 
 .ftp-table__head--details,
 .ftp-entry--details {
-  --ftp-table-columns: minmax(0, 1fr) var(--ftp-col-2, 110px) var(--ftp-col-3, 150px) var(--ftp-col-4, 90px)
-    var(--ftp-col-5, 120px);
+  --ftp-table-columns: minmax(var(--ftp-name-col-min, 72px), 1fr) var(--ftp-col-2, 110px) var(--ftp-col-3, 150px)
+    var(--ftp-col-4, 90px) var(--ftp-col-5, 120px);
 }
 
 // Column header cell wrapper inside the grid
@@ -1959,9 +2640,65 @@
 }
 
 .ftp-col-header--right {
-  justify-content: flex-end;
+  justify-content: flex-start;
   padding-left: 10px;
   padding-right: 10px;
+}
+
+.ftp-col-sort-button {
+  appearance: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  max-width: 100%;
+  min-width: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+  font: inherit;
+  letter-spacing: inherit;
+  text-transform: inherit;
+
+  > span:first-child {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  &:hover,
+  &:focus-visible,
+  &--active {
+    color: var(--ui-text-primary);
+  }
+
+  &:focus-visible {
+    outline: none;
+    box-shadow: 0 1px 0 var(--primary-color);
+  }
+}
+
+.ftp-col-sort-button__indicator {
+  width: 12px;
+  height: 12px;
+  flex: 0 0 auto;
+  color: var(--primary-color);
+  fill: none;
+  stroke: currentColor;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 1.6;
+  transform: rotate(0deg) translateZ(0);
+  transform-origin: 50% 50%;
+  transition:
+    transform 0.22s cubic-bezier(0.22, 1, 0.36, 1),
+    opacity 0.16s ease;
+}
+
+.ftp-col-sort-button__indicator--desc {
+  transform: rotate(180deg) translateZ(0);
 }
 
 // Drag handle at the right edge of each resizable column header
@@ -1996,9 +2733,8 @@
   }
 }
 
-// Entry meta cells: right-aligned text + left border separator
 .ftp-entry__meta--align-right {
-  text-align: right;
+  text-align: left;
 }
 
 // Vertical border between columns in every entry row
@@ -2010,9 +2746,7 @@
 
 .ftp-entry-list {
   position: relative;
-  display: flex;
-  flex: 1 0 auto;
-  flex-direction: column;
+  display: block;
   box-sizing: border-box;
   width: 100%;
   min-height: 100%;
@@ -2043,7 +2777,7 @@
 
 .ftp-entry--parent {
   position: sticky;
-  top: 30px;
+  top: 0;
   z-index: 1;
   background-color: color-mix(in srgb, var(--ui-surface-panel) 96%, transparent);
   color: var(--ui-text-secondary);
@@ -2155,7 +2889,7 @@
 
 .ftp-panel__connecting-overlay {
   position: absolute;
-  inset: 40px 0 0 0;
+  inset: 0;
   z-index: 3;
   display: flex;
   align-items: center;

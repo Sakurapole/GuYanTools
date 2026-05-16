@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onBeforeUnmount, reactive, ref } from 'vue';
+import { computed, nextTick, onBeforeUnmount, reactive, ref, watch } from 'vue';
 import UiButton from '@/windows/main/components/ui/UiButton.vue';
 import UiCheckbox from '@/windows/main/components/ui/UiCheckbox.vue';
 import UiDialog from '@/windows/main/components/ui/UiDialog.vue';
@@ -10,7 +10,7 @@ import UiScrollbar from '@/windows/main/components/ui/UiScrollbar.vue';
 import UiSelect from '@/windows/main/components/ui/UiSelect.vue';
 import UiSuggestInput from '@/windows/main/components/ui/UiSuggestInput.vue';
 import type { FileTransferEntry } from '@/contracts/ftp';
-import type { PanelFilterMode, PanelFilterState, PanelKind, PanelFilterOperator, PanelViewMode } from '../types';
+import type { EntrySortKey, PanelFilterMode, PanelFilterState, PanelKind, PanelFilterOperator, PanelViewMode } from '../types';
 import type { PathBreadcrumb } from '../utils/ftpPaths';
 
 type PanelBadge = {
@@ -34,6 +34,8 @@ const props = withDefaults(defineProps<{
   pathSuggestions: string[];
   pathPlaceholder: string;
   viewMode: PanelViewMode;
+  sortKey: EntrySortKey;
+  sortDirection: 'asc' | 'desc';
   pathInputDisabled?: boolean;
   openPathDisabled?: boolean;
   goParentDisabled?: boolean;
@@ -63,7 +65,9 @@ const props = withDefaults(defineProps<{
   createDirectoryDisabled?: boolean;
   showWorkspaceControls?: boolean;
   workspaceSelectValue?: string;
-  workspaceOptions?: Array<{ label: string; value: string }>;
+  workspaceOptions?: Array<{ label: string; value: string; disabled?: boolean }>;
+  workspaceRemovableValues?: string[];
+  showWorkspacePicker?: boolean;
   bookmarkDisabled?: boolean;
   removeBookmarkDisabled?: boolean;
   secondaryMetaLabel: string;
@@ -81,6 +85,7 @@ const props = withDefaults(defineProps<{
   showConnectingOverlay?: boolean;
   connectingTitle?: string;
   connectingMessage?: string;
+  showTitlebar?: boolean;
 }>(), {
   pathInputDisabled: false,
   openPathDisabled: false,
@@ -94,6 +99,8 @@ const props = withDefaults(defineProps<{
   showWorkspaceControls: false,
   workspaceSelectValue: '',
   workspaceOptions: () => [],
+  workspaceRemovableValues: () => [],
+  showWorkspacePicker: true,
   bookmarkDisabled: false,
   removeBookmarkDisabled: false,
   secondaryMetaClass: '',
@@ -101,6 +108,7 @@ const props = withDefaults(defineProps<{
   connectingTitle: '正在建立连接',
   connectingMessage: '',
   active: false,
+  showTitlebar: true,
 });
 
 const emit = defineEmits<{
@@ -125,7 +133,7 @@ const emit = defineEmits<{
   'switch-workspace': [value: string];
   'bookmark-current': [];
   'pick-workspace': [];
-  'remove-workspace': [];
+  'remove-workspace': [value?: string];
   'open-breadcrumb': [path: string];
   'open-path': [];
   'go-parent': [];
@@ -133,6 +141,7 @@ const emit = defineEmits<{
   'toggle-search': [];
   'toggle-filter': [];
   'set-view-mode': [mode: PanelViewMode];
+  'sort-column': [sortKey: EntrySortKey];
   'set-filter-mode': [mode: PanelFilterMode];
   'set-filter-operator': [operator: PanelFilterOperator];
   'toggle-hide-hidden': [];
@@ -147,6 +156,7 @@ const emit = defineEmits<{
 
 const panelRootRef = ref<HTMLElement | null>(null);
 const entryListRef = ref<HTMLElement | null>(null);
+const floatingSearchRef = ref<HTMLElement | null>(null);
 const panelClass = computed(() => [
   'ftp-inner-card',
   'ftp-panel',
@@ -186,6 +196,11 @@ const filterModeOptions: Array<{ label: string; value: PanelFilterMode }> = [
 ];
 const filterDialogTitle = computed(() => (props.kind === 'local' ? '本地目录过滤' : '远程目录过滤'));
 const filterDialogScope = computed(() => (props.kind === 'local' ? '本地目录' : '远程目录'));
+const workspaceDialogOpen = ref(false);
+const workspaceDialogTitle = computed(() => (props.kind === 'local' ? '本地快速目录' : '远程快速目录'));
+const workspaceDialogScope = computed(() => (props.kind === 'local' ? '本地目录' : '远程目录'));
+const workspaceEntries = computed(() => props.workspaceOptions.filter((option) => option.value && !option.disabled));
+const workspaceRemovableValueSet = computed(() => new Set(props.workspaceRemovableValues));
 const hasRuleFilter = computed(() =>
   props.filterState.mode !== 'all'
   || props.filterState.hideHidden
@@ -195,8 +210,16 @@ const hasRuleFilter = computed(() =>
   || Boolean(props.filterState.modifiedWithinDays.trim()),
 );
 
-// Minimum column width in pixels
-const MIN_COL_WIDTH = 56;
+const NAME_COL_MIN_WIDTH = 72;
+
+const COL_MIN_WIDTHS: Record<ResizableCol, number> = {
+  detailsSize: 48,
+  detailsModified: 76,
+  detailsPerms: 48,
+  detailsOwner: 58,
+  listSecondary: 48,
+  listTertiary: 76,
+};
 
 // Column widths for details view (name column stays flexible)
 const detailsColWidths = reactive({ size: 110, modified: 150, perms: 90, owner: 120 });
@@ -215,15 +238,21 @@ const tableVars = computed(() => {
       '--ftp-col-3': `${detailsColWidths.modified}px`,
       '--ftp-col-4': `${detailsColWidths.perms}px`,
       '--ftp-col-5': `${detailsColWidths.owner}px`,
+      '--ftp-name-col-min': `${NAME_COL_MIN_WIDTH}px`,
     };
   }
   return {
     '--ftp-col-2': `${listColWidths.secondary}px`,
     '--ftp-col-3': `${listColWidths.tertiary}px`,
+    '--ftp-name-col-min': `${NAME_COL_MIN_WIDTH}px`,
   };
 });
 
 type ResizableCol = 'detailsSize' | 'detailsModified' | 'detailsPerms' | 'detailsOwner' | 'listSecondary' | 'listTertiary';
+
+function getColMinWidth(col: ResizableCol): number {
+  return COL_MIN_WIDTHS[col];
+}
 
 function getColWidth(col: ResizableCol): number {
   switch (col) {
@@ -234,6 +263,40 @@ function getColWidth(col: ResizableCol): number {
     case 'listSecondary': return listColWidths.secondary;
     case 'listTertiary': return listColWidths.tertiary;
   }
+}
+
+function getFixedWidthForNameBoundary(col: ResizableCol): number {
+  if (props.viewMode === 'details') {
+    const detailWidths: Array<[ResizableCol, number]> = [
+      ['detailsSize', detailsColWidths.size],
+      ['detailsModified', detailsColWidths.modified],
+      ['detailsPerms', detailsColWidths.perms],
+      ['detailsOwner', detailsColWidths.owner],
+    ];
+    return detailWidths
+      .filter(([key]) => key !== col)
+      .reduce((sum, [, width]) => sum + width, 0);
+  }
+
+  const listWidths: Array<[ResizableCol, number]> = [
+    ['listSecondary', listColWidths.secondary],
+    ['listTertiary', listColWidths.tertiary],
+  ];
+  return listWidths
+    .filter(([key]) => key !== col)
+    .reduce((sum, [, width]) => sum + width, 0);
+}
+
+function getAvailableTableWidth(event: MouseEvent): number {
+  const target = event.currentTarget;
+  if (!(target instanceof HTMLElement)) return Number.POSITIVE_INFINITY;
+  const tableHead = target.closest('.ftp-table__head') as HTMLElement | null;
+  if (!tableHead) return Number.POSITIVE_INFINITY;
+
+  const style = window.getComputedStyle(tableHead);
+  const paddingLeft = Number.parseFloat(style.paddingLeft) || 0;
+  const paddingRight = Number.parseFloat(style.paddingRight) || 0;
+  return Math.max(0, tableHead.clientWidth - paddingLeft - paddingRight);
 }
 
 function setColWidth(col: ResizableCol, width: number): void {
@@ -250,12 +313,44 @@ function setColWidth(col: ResizableCol, width: number): void {
 function startResize(event: MouseEvent, col: ResizableCol, invert = false): void {
   const startX = event.clientX;
   const startWidth = getColWidth(col);
+  const minWidth = getColMinWidth(col);
+  const maxWidth = invert
+    ? Math.max(minWidth, getAvailableTableWidth(event) - getFixedWidthForNameBoundary(col) - NAME_COL_MIN_WIDTH)
+    : Number.POSITIVE_INFINITY;
 
   const onMouseMove = (e: MouseEvent): void => {
     // When invert is true (name-column boundary), negate the delta so that
     // dragging right shrinks the adjacent fixed column, growing the flexible name column.
     const delta = invert ? startX - e.clientX : e.clientX - startX;
-    setColWidth(col, Math.max(MIN_COL_WIDTH, startWidth + delta));
+    setColWidth(col, Math.min(maxWidth, Math.max(minWidth, startWidth + delta)));
+  };
+
+  const onMouseUp = (): void => {
+    document.removeEventListener('mousemove', onMouseMove);
+    document.removeEventListener('mouseup', onMouseUp);
+  };
+
+  document.addEventListener('mousemove', onMouseMove);
+  document.addEventListener('mouseup', onMouseUp);
+}
+
+watch(() => props.searchExpanded, async (expanded) => {
+  if (!expanded) return;
+  await nextTick();
+  floatingSearchRef.value?.querySelector<HTMLInputElement>('input')?.focus();
+});
+
+function startBoundaryResize(event: MouseEvent, leftCol: ResizableCol, rightCol: ResizableCol): void {
+  const startX = event.clientX;
+  const startLeftWidth = getColWidth(leftCol);
+  const startRightWidth = getColWidth(rightCol);
+  const maxDelta = startRightWidth - getColMinWidth(rightCol);
+  const minDelta = getColMinWidth(leftCol) - startLeftWidth;
+
+  const onMouseMove = (e: MouseEvent): void => {
+    const delta = Math.min(maxDelta, Math.max(minDelta, e.clientX - startX));
+    setColWidth(leftCol, startLeftWidth + delta);
+    setColWidth(rightCol, startRightWidth - delta);
   };
 
   const onMouseUp = (): void => {
@@ -271,6 +366,38 @@ function setFilterDialogOpen(value: boolean): void {
   if (value !== props.filterExpanded) {
     emit('toggle-filter');
   }
+}
+
+function setWorkspaceDialogOpen(value: boolean): void {
+  workspaceDialogOpen.value = value;
+}
+
+function openWorkspace(value: string): void {
+  if (!value) return;
+  emit('switch-workspace', value);
+  workspaceDialogOpen.value = false;
+}
+
+function removeWorkspace(value: string): void {
+  if (!value) return;
+  emit('remove-workspace', value);
+}
+
+function canRemoveWorkspace(value: string): boolean {
+  return workspaceRemovableValueSet.value.has(value);
+}
+
+function isSortedBy(sortKey: EntrySortKey): boolean {
+  return props.sortKey === sortKey;
+}
+
+function sortLabel(sortKey: EntrySortKey, label: string): string {
+  if (!isSortedBy(sortKey)) return label;
+  return `${label} ${props.sortDirection === 'asc' ? '升序' : '降序'}`;
+}
+
+function emitSortColumn(sortKey: EntrySortKey): void {
+  emit('sort-column', sortKey);
 }
 
 const marqueeState = reactive({
@@ -422,7 +549,7 @@ onBeforeUnmount(() => {
     @dragover.prevent="$emit('dragover', $event)"
     @drop="$emit('drop', $event)"
   >
-    <div class="ftp-panel__titlebar">
+    <div v-if="showTitlebar" class="ftp-panel__titlebar">
       <div class="ftp-pane-identity">
         <span class="ftp-pane-identity__icon" :class="iconClass">{{ panelIconLabel }}</span>
         <div class="ftp-pane-identity__copy">
@@ -460,7 +587,7 @@ onBeforeUnmount(() => {
           </template>
           <span v-if="!breadcrumbs.length" class="ftp-panel__breadcrumb-empty">未选择路径</span>
           <UiIconButton
-            v-if="showWorkspaceControls"
+            v-if="showWorkspaceControls && showWorkspacePicker"
             class="ftp-panel__breadcrumb-picker"
             size="sm"
             variant="ghost"
@@ -510,39 +637,34 @@ onBeforeUnmount(() => {
           </svg>
         </UiIconButton>
 
-        <template v-if="showWorkspaceControls">
-          <UiIconButton size="sm" variant="ghost" :disabled="bookmarkDisabled" title="收藏当前" @click="$emit('bookmark-current')">
-            <svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
-              <path d="M4 2h8a1 1 0 0 1 1 1v11l-5-3-5 3V3a1 1 0 0 1 1-1z" />
-            </svg>
-          </UiIconButton>
-          <UiIconButton size="sm" variant="ghost" :disabled="removeBookmarkDisabled" title="移除书签" @click="$emit('remove-workspace')">
-            <svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
-              <path d="M4 2h8a1 1 0 0 1 1 1v11l-5-3-5 3V3a1 1 0 0 1 1-1z" />
-              <path d="M6 9h4" />
-            </svg>
-          </UiIconButton>
-        </template>
-
         <div class="ftp-panel__path-input-wrap">
-          <UiSelect
+          <UiIconButton
             v-if="showWorkspaceControls"
+            class="ftp-panel__bookmark-manager"
             size="sm"
-            :model-value="workspaceSelectValue"
-            :options="workspaceOptions"
-            @change="$emit('switch-workspace', String($event))"
-          />
+            variant="secondary"
+            title="管理快速目录"
+            @click="setWorkspaceDialogOpen(true)"
+          >
+            <svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M4 2h8a1 1 0 0 1 1 1v11l-5-3-5 3V3a1 1 0 0 1 1-1z" />
+              <path d="M6 6h4M6 8.5h4" />
+            </svg>
+          </UiIconButton>
           <UiSuggestInput
-            v-else
+            class="ftp-panel__path-input"
             :model-value="pathInput"
             :suggestions="pathSuggestions"
             :placeholder="pathPlaceholder"
             :disabled="pathInputDisabled"
+            :spellcheck="false"
+            autocorrect="off"
+            autocapitalize="off"
             @update:modelValue="$emit('update:pathInput', $event)"
             @enter="$emit('open-path')"
           />
         </div>
-        <UiIconButton v-if="!showWorkspaceControls" size="sm" variant="secondary" :disabled="openPathDisabled" title="打开" @click="$emit('open-path')">
+        <UiIconButton size="sm" variant="secondary" :disabled="openPathDisabled" title="打开" @click="$emit('open-path')">
           <svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
             <path d="M2 4.5a1 1 0 0 1 1-1h3.5l1.5 1.5H13a1 1 0 0 1 1 1V12a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1V4.5z" />
           </svg>
@@ -576,7 +698,7 @@ onBeforeUnmount(() => {
           </svg>
         </UiIconButton>
         <UiIconButton
-          v-if="showFilterControl"
+          v-if="showSearchControl"
           class="ftp-panel__icon-action"
           size="sm"
           variant="ghost"
@@ -602,18 +724,108 @@ onBeforeUnmount(() => {
           </svg>
         </UiIconButton>
 
-        <div
-          v-if="showSearchControl"
-          class="ftp-panel__search-shell"
-          :class="{ 'ftp-panel__search-shell--expanded': searchExpanded }"
-        >
-          <div class="ftp-panel__search-wrap">
-            <UiInput :model-value="filterQuery" placeholder="搜索当前目录" @update:modelValue="$emit('update:filterQuery', $event)" />
-          </div>
-        </div>
-
       </div>
     </div>
+
+    <Transition name="ftp-floating-search">
+      <div
+        v-if="showSearchControl && searchExpanded"
+        ref="floatingSearchRef"
+        class="ftp-panel__floating-search ui-glass-surface"
+      >
+        <svg class="ftp-panel__floating-search-icon" viewBox="0 0 16 16" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round">
+          <circle cx="7" cy="7" r="3.75" />
+          <path d="M10.2 10.2L13 13" />
+        </svg>
+        <UiInput
+          class="ftp-panel__floating-search-input"
+          :model-value="filterQuery"
+          placeholder="搜索当前目录"
+          @keydown.esc.stop.prevent="$emit('toggle-search')"
+          @update:modelValue="$emit('update:filterQuery', $event)"
+        />
+        <UiIconButton size="sm" variant="ghost" title="关闭搜索" @click="$emit('toggle-search')">
+          <svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round">
+            <path d="M4 4l8 8M12 4l-8 8" />
+          </svg>
+        </UiIconButton>
+      </div>
+    </Transition>
+
+    <UiDialog
+      v-if="showWorkspaceControls"
+      class="ftp-workspace-dialog"
+      :model-value="workspaceDialogOpen"
+      width="min(680px, calc(100vw - 32px))"
+      max-width="680px"
+      aria-label="快速目录管理"
+      @update:modelValue="setWorkspaceDialogOpen"
+    >
+      <template #header>
+        <div class="ftp-workspace-dialog__header">
+          <div class="ftp-workspace-dialog__title-group">
+            <span class="ftp-workspace-dialog__eyebrow">{{ workspaceDialogScope }}</span>
+            <h2 class="ftp-workspace-dialog__title">{{ workspaceDialogTitle }}</h2>
+          </div>
+          <UiIconButton size="sm" variant="ghost" title="关闭" @click="setWorkspaceDialogOpen(false)">
+            <svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round">
+              <path d="M4 4l8 8M12 4l-8 8" />
+            </svg>
+          </UiIconButton>
+        </div>
+      </template>
+
+      <div class="ftp-workspace-dialog__body">
+        <div class="ftp-workspace-dialog__current">
+          <span class="ftp-workspace-dialog__section-label">当前目录</span>
+          <code>{{ pathInput || '未选择路径' }}</code>
+          <UiButton size="sm" variant="secondary" :disabled="bookmarkDisabled" @click="$emit('bookmark-current')">
+            收藏当前
+          </UiButton>
+        </div>
+
+        <UiScrollbar v-if="workspaceEntries.length" class="ftp-workspace-dialog__scroll" :x="false" :size="6">
+          <div class="ftp-workspace-dialog__list">
+            <div
+              v-for="option in workspaceEntries"
+              :key="option.value"
+              class="ftp-workspace-dialog__item"
+              :class="{ 'ftp-workspace-dialog__item--active': option.value === workspaceSelectValue }"
+            >
+              <div class="ftp-workspace-dialog__item-copy">
+                <strong>{{ option.label.split(' · ')[0] || option.value }}</strong>
+                <span>{{ option.value }}</span>
+              </div>
+              <div class="ftp-workspace-dialog__item-actions">
+                <UiButton size="sm" variant="ghost" @click="openWorkspace(option.value)">打开</UiButton>
+                <UiIconButton
+                  size="sm"
+                  variant="ghost"
+                  :disabled="!canRemoveWorkspace(option.value) || (option.value === workspaceSelectValue && removeBookmarkDisabled)"
+                  title="移除"
+                  @click="removeWorkspace(option.value)"
+                >
+                  <svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M4 2h8a1 1 0 0 1 1 1v11l-5-3-5 3V3a1 1 0 0 1 1-1z" />
+                    <path d="M6 9h4" />
+                  </svg>
+                </UiIconButton>
+              </div>
+            </div>
+          </div>
+        </UiScrollbar>
+        <div v-else class="ftp-workspace-dialog__empty">暂无快速目录。</div>
+      </div>
+
+      <template #footer>
+        <div class="ftp-workspace-dialog__footer">
+          <UiButton v-if="showWorkspacePicker" size="sm" variant="ghost" @click="$emit('pick-workspace')">
+            添加目录
+          </UiButton>
+          <UiButton size="sm" variant="primary" @click="setWorkspaceDialogOpen(false)">完成</UiButton>
+        </div>
+      </template>
+    </UiDialog>
 
     <UiDialog
       v-if="showFilterControl"
@@ -741,50 +953,153 @@ onBeforeUnmount(() => {
       </template>
     </UiDialog>
 
-    <div class="ftp-table" :class="{ 'ftp-table--details': viewMode === 'details' }" :style="tableVars">
-      <UiScrollbar class="ftp-table__scroll" :x="false" :size="6">
-        <div class="ftp-table__content" @mousedown="handleTableContentMouseDown" @contextmenu="handleTableContentContextMenu">
-          <!-- 表头在可滚动区域内，横向滚动时与列表同步 -->
-          <div class="ftp-table__head" :class="[tableHeadClass, { 'ftp-table__head--details': viewMode === 'details' }]">
-            <template v-if="viewMode === 'details'">
-              <!-- Resizer on the name column uses invert=true: dragging right shrinks the next
-                   fixed column, which lets the flexible name column grow. -->
-              <div class="ftp-col-header">
-                <span>名称</span>
-                <div class="ftp-col-resizer" @mousedown.prevent="startResize($event, 'detailsSize', true)" />
-              </div>
-              <!-- Each fixed column's resizer controls that column's own width (drag right = column grows). -->
-              <div class="ftp-col-header ftp-col-header--right">
-                <span>大小</span>
-                <div class="ftp-col-resizer" @mousedown.prevent="startResize($event, 'detailsSize', false)" />
-              </div>
-              <div class="ftp-col-header ftp-col-header--right">
-                <span>修改时间</span>
-                <div class="ftp-col-resizer" @mousedown.prevent="startResize($event, 'detailsModified', false)" />
-              </div>
-              <div class="ftp-col-header ftp-col-header--right">
-                <span>权限</span>
-                <div class="ftp-col-resizer" @mousedown.prevent="startResize($event, 'detailsPerms', false)" />
-              </div>
-              <div class="ftp-col-header ftp-col-header--right">
-                <span>所有者</span>
-              </div>
-            </template>
-            <template v-else>
-              <div class="ftp-col-header">
-                <span>名称</span>
-                <div class="ftp-col-resizer" @mousedown.prevent="startResize($event, 'listSecondary', true)" />
-              </div>
-              <div class="ftp-col-header ftp-col-header--right">
-                <span>{{ secondaryMetaLabel }}</span>
-                <div class="ftp-col-resizer" @mousedown.prevent="startResize($event, 'listSecondary', false)" />
-              </div>
-              <div class="ftp-col-header ftp-col-header--right">
-                <span>{{ tertiaryMetaLabel }}</span>
-              </div>
-            </template>
+    <div
+      class="ftp-table"
+      :class="{ 'ftp-table--details': viewMode === 'details' }"
+      :style="tableVars"
+      @contextmenu="handleTableContentContextMenu"
+    >
+      <div class="ftp-table__head" :class="[tableHeadClass, { 'ftp-table__head--details': viewMode === 'details' }]">
+        <template v-if="viewMode === 'details'">
+          <div class="ftp-col-header">
+            <button
+              type="button"
+              class="ftp-col-sort-button"
+              :class="{ 'ftp-col-sort-button--active': isSortedBy('name') }"
+              :aria-label="sortLabel('name', '按名称排序')"
+              @click="emitSortColumn('name')"
+            >
+              <span>名称</span>
+              <svg
+                v-if="isSortedBy('name')"
+                class="ftp-col-sort-button__indicator"
+                :class="{ 'ftp-col-sort-button__indicator--desc': sortDirection === 'desc' }"
+                viewBox="0 0 12 12"
+                aria-hidden="true"
+              >
+                <path d="M6 10V2M3 5l3-3 3 3" />
+              </svg>
+            </button>
+            <div class="ftp-col-resizer" @mousedown.prevent="startResize($event, 'detailsSize', true)" />
           </div>
+          <div class="ftp-col-header ftp-col-header--right">
+            <button
+              type="button"
+              class="ftp-col-sort-button"
+              :class="{ 'ftp-col-sort-button--active': isSortedBy('size') }"
+              :aria-label="sortLabel('size', '按大小排序')"
+              @click="emitSortColumn('size')"
+            >
+              <span>大小</span>
+              <svg
+                v-if="isSortedBy('size')"
+                class="ftp-col-sort-button__indicator"
+                :class="{ 'ftp-col-sort-button__indicator--desc': sortDirection === 'desc' }"
+                viewBox="0 0 12 12"
+                aria-hidden="true"
+              >
+                <path d="M6 10V2M3 5l3-3 3 3" />
+              </svg>
+            </button>
+            <div class="ftp-col-resizer" @mousedown.prevent="startBoundaryResize($event, 'detailsSize', 'detailsModified')" />
+          </div>
+          <div class="ftp-col-header ftp-col-header--right">
+            <button
+              type="button"
+              class="ftp-col-sort-button"
+              :class="{ 'ftp-col-sort-button--active': isSortedBy('modifiedAt') }"
+              :aria-label="sortLabel('modifiedAt', '按修改时间排序')"
+              @click="emitSortColumn('modifiedAt')"
+            >
+              <span>修改时间</span>
+              <svg
+                v-if="isSortedBy('modifiedAt')"
+                class="ftp-col-sort-button__indicator"
+                :class="{ 'ftp-col-sort-button__indicator--desc': sortDirection === 'desc' }"
+                viewBox="0 0 12 12"
+                aria-hidden="true"
+              >
+                <path d="M6 10V2M3 5l3-3 3 3" />
+              </svg>
+            </button>
+            <div class="ftp-col-resizer" @mousedown.prevent="startBoundaryResize($event, 'detailsModified', 'detailsPerms')" />
+          </div>
+          <div class="ftp-col-header ftp-col-header--right">
+            <span>权限</span>
+            <div class="ftp-col-resizer" @mousedown.prevent="startBoundaryResize($event, 'detailsPerms', 'detailsOwner')" />
+          </div>
+          <div class="ftp-col-header ftp-col-header--right">
+            <span>所有者</span>
+          </div>
+        </template>
+        <template v-else>
+          <div class="ftp-col-header">
+            <button
+              type="button"
+              class="ftp-col-sort-button"
+              :class="{ 'ftp-col-sort-button--active': isSortedBy('name') }"
+              :aria-label="sortLabel('name', '按名称排序')"
+              @click="emitSortColumn('name')"
+            >
+              <span>名称</span>
+              <svg
+                v-if="isSortedBy('name')"
+                class="ftp-col-sort-button__indicator"
+                :class="{ 'ftp-col-sort-button__indicator--desc': sortDirection === 'desc' }"
+                viewBox="0 0 12 12"
+                aria-hidden="true"
+              >
+                <path d="M6 10V2M3 5l3-3 3 3" />
+              </svg>
+            </button>
+            <div class="ftp-col-resizer" @mousedown.prevent="startResize($event, 'listSecondary', true)" />
+          </div>
+          <div class="ftp-col-header ftp-col-header--right">
+            <button
+              type="button"
+              class="ftp-col-sort-button"
+              :class="{ 'ftp-col-sort-button--active': isSortedBy('size') }"
+              :aria-label="sortLabel('size', `按${secondaryMetaLabel}排序`)"
+              @click="emitSortColumn('size')"
+            >
+              <span>{{ secondaryMetaLabel }}</span>
+              <svg
+                v-if="isSortedBy('size')"
+                class="ftp-col-sort-button__indicator"
+                :class="{ 'ftp-col-sort-button__indicator--desc': sortDirection === 'desc' }"
+                viewBox="0 0 12 12"
+                aria-hidden="true"
+              >
+                <path d="M6 10V2M3 5l3-3 3 3" />
+              </svg>
+            </button>
+            <div class="ftp-col-resizer" @mousedown.prevent="startBoundaryResize($event, 'listSecondary', 'listTertiary')" />
+          </div>
+          <div class="ftp-col-header ftp-col-header--right">
+            <button
+              type="button"
+              class="ftp-col-sort-button"
+              :class="{ 'ftp-col-sort-button--active': isSortedBy('modifiedAt') }"
+              :aria-label="sortLabel('modifiedAt', `按${tertiaryMetaLabel}排序`)"
+              @click="emitSortColumn('modifiedAt')"
+            >
+              <span>{{ tertiaryMetaLabel }}</span>
+              <svg
+                v-if="isSortedBy('modifiedAt')"
+                class="ftp-col-sort-button__indicator"
+                :class="{ 'ftp-col-sort-button__indicator--desc': sortDirection === 'desc' }"
+                viewBox="0 0 12 12"
+                aria-hidden="true"
+              >
+                <path d="M6 10V2M3 5l3-3 3 3" />
+              </svg>
+            </button>
+          </div>
+        </template>
+      </div>
 
+      <UiScrollbar class="ftp-table__scroll" :x="false" :size="6">
+        <div class="ftp-table__content" @mousedown="handleTableContentMouseDown">
           <div ref="entryListRef" class="ftp-entry-list">
             <div
               class="ftp-entry ftp-entry--parent"

@@ -109,6 +109,11 @@ export function useFtpBrowserState(options: UseFtpBrowserStateOptions) {
     ),
   );
   const currentLocalWorkspaceBookmarked = computed(() => options.ftpStore.localWorkspaces.includes(options.ftpStore.localPath));
+  const currentRemoteWorkspaceBookmarked = computed(() => {
+    const profileId = options.activeSession.value?.profileId;
+    if (!profileId || !options.ftpStore.remotePath) return false;
+    return options.ftpStore.getRemoteWorkspaces(profileId).includes(normalizeRemoteWorkspacePath(options.ftpStore.remotePath));
+  });
   const localWorkspacePaths = computed(() => {
     const seen = new Set<string>();
     const paths: string[] = [];
@@ -133,6 +138,39 @@ export function useFtpBrowserState(options: UseFtpBrowserStateOptions) {
       value: path,
     })),
   ]);
+  const localWorkspaceBookmarkValues = computed(() => [...options.ftpStore.localWorkspaces]);
+  const remoteWorkspacePaths = computed(() => {
+    const session = options.activeSession.value;
+    if (!session) return [];
+    const seen = new Set<string>();
+    const paths: string[] = [];
+    const appendPath = (path: string) => {
+      const normalized = normalizeRemoteWorkspacePath(path);
+      const key = workspacePathKey(normalized);
+      if (!key || seen.has(key)) return;
+      seen.add(key);
+      paths.push(normalized);
+    };
+    const profile = options.ftpStore.profiles.find((item) => item.id === session.profileId);
+    appendPath(profile?.defaultRemotePath || session.remoteRoot);
+    options.ftpStore.getRemoteWorkspaces(session.profileId).forEach(appendPath);
+    return paths;
+  });
+  const remoteWorkspaceSelectValue = computed(() => {
+    const currentKey = workspacePathKey(normalizeRemoteWorkspacePath(options.ftpStore.remotePath));
+    return remoteWorkspacePaths.value.find((path) => workspacePathKey(path) === currentKey) ?? '';
+  });
+  const remoteWorkspaceOptions = computed(() => [
+    { label: '快速切换远程目录', value: '', disabled: true },
+    ...remoteWorkspacePaths.value.map((path) => ({
+      label: `${workspaceOptionLabel(path)} · ${path}`,
+      value: path,
+    })),
+  ]);
+  const remoteWorkspaceBookmarkValues = computed(() => {
+    const profileId = options.activeSession.value?.profileId;
+    return profileId ? [...options.ftpStore.getRemoteWorkspaces(profileId)] : [];
+  });
   const localPathSuggestions = computed(() =>
     buildPathSuggestions(options.ftpStore.localEntries, localPathInput.value),
   );
@@ -304,6 +342,11 @@ export function useFtpBrowserState(options: UseFtpBrowserStateOptions) {
     await options.ftpStore.openLocalWorkspace(path);
   }
 
+  async function switchRemoteWorkspace(path: string) {
+    if (!path) return;
+    await options.ftpStore.openRemoteWorkspace(path);
+  }
+
   async function addCurrentLocalWorkspace() {
     await options.ftpStore.addLocalWorkspace(options.ftpStore.localPath);
   }
@@ -314,8 +357,16 @@ export function useFtpBrowserState(options: UseFtpBrowserStateOptions) {
     await options.ftpStore.openLocalWorkspace(nextPath);
   }
 
-  async function removeCurrentLocalWorkspace() {
-    await options.ftpStore.removeLocalWorkspace(options.ftpStore.localPath);
+  async function removeCurrentLocalWorkspace(path?: string) {
+    await options.ftpStore.removeLocalWorkspace(path || options.ftpStore.localPath);
+  }
+
+  async function addCurrentRemoteWorkspace() {
+    await options.ftpStore.addRemoteWorkspace(options.ftpStore.remotePath);
+  }
+
+  async function removeCurrentRemoteWorkspace(path?: string) {
+    await options.ftpStore.removeRemoteWorkspace(path || options.ftpStore.remotePath);
   }
 
   async function openLocalPath() {
@@ -388,8 +439,13 @@ export function useFtpBrowserState(options: UseFtpBrowserStateOptions) {
     filteredLocalEntries,
     filteredRemoteEntries,
     currentLocalWorkspaceBookmarked,
+    currentRemoteWorkspaceBookmarked,
     localWorkspaceSelectValue,
     localWorkspaceOptions,
+    localWorkspaceBookmarkValues,
+    remoteWorkspaceSelectValue,
+    remoteWorkspaceOptions,
+    remoteWorkspaceBookmarkValues,
     localPathSuggestions,
     remotePathSuggestions,
     localFilterSummary,
@@ -404,9 +460,12 @@ export function useFtpBrowserState(options: UseFtpBrowserStateOptions) {
     applyFilterPreset,
     deleteSelectedFilterPreset,
     switchLocalWorkspace,
+    switchRemoteWorkspace,
     addCurrentLocalWorkspace,
     pickLocalWorkspace,
     removeCurrentLocalWorkspace,
+    addCurrentRemoteWorkspace,
+    removeCurrentRemoteWorkspace,
     openLocalPath,
     openRemotePath,
     toggleLocalSortDirection,
@@ -422,6 +481,13 @@ function workspacePathKey(path: string) {
   if (!normalized) return '';
   if (normalized === '/') return '/';
   return normalized.replace(/[\\/]+$/, '').toLowerCase();
+}
+
+function normalizeRemoteWorkspacePath(path: string) {
+  const trimmed = path.trim();
+  if (!trimmed) return '';
+  if (trimmed === '/') return '/';
+  return trimmed.replace(/\/+$/, '');
 }
 
 function workspaceOptionLabel(path: string) {

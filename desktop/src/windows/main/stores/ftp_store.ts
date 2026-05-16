@@ -19,6 +19,7 @@ import type {
 import type { SshProfile } from '@/contracts/ssh';
 
 const LOCAL_WORKSPACE_STORAGE_KEY = 'guyantools.ftp.local-workspaces';
+const REMOTE_WORKSPACE_STORAGE_KEY = 'guyantools.ftp.remote-workspaces';
 const MAX_FTP_LOGS = 200;
 
 type FtpLogEntry = {
@@ -70,6 +71,7 @@ export const useFtpStore = defineStore('ftp', () => {
   const selectedRemotePath = ref('');
   const localRootPaths = ref<string[]>([]);
   const localWorkspaces = ref<string[]>([]);
+  const remoteWorkspaces = ref<Record<string, string[]>>({});
 
   const localLoading = ref(false);
   const remoteLoading = ref(false);
@@ -86,6 +88,7 @@ export const useFtpStore = defineStore('ftp', () => {
   async function initialize() {
     if (initialized.value) return;
     loadLocalWorkspaces();
+    loadRemoteWorkspaces();
     await refreshLocalRootPaths();
     ensureEventSubscription();
     profiles.value = await window.ftpApi.listProfiles();
@@ -164,6 +167,10 @@ export const useFtpStore = defineStore('ftp', () => {
   async function deleteProfile(id: string) {
     await window.ftpApi.deleteProfile(id);
     profiles.value = profiles.value.filter((item) => item.id !== id);
+    const nextRemoteWorkspaces = { ...remoteWorkspaces.value };
+    delete nextRemoteWorkspaces[id];
+    remoteWorkspaces.value = nextRemoteWorkspaces;
+    persistRemoteWorkspaces();
   }
 
   async function connect(input: ConnectFtpInput) {
@@ -224,9 +231,9 @@ export const useFtpStore = defineStore('ftp', () => {
     remotePath.value = preferredRemotePath || sessionRemotePaths.value[sessionId] || session.remoteRoot;
     localPath.value = sessionLocalPaths.value[sessionId] || localPath.value || session.localRoot;
     void Promise.all([
-      refreshRemoteDirectory(remotePath.value || session.remoteRoot),
+      refreshRemoteDirectory(remotePath.value || session.remoteRoot, sessionId),
       refreshLocalDirectory(localPath.value || session.localRoot),
-    ]);
+    ]).catch(() => undefined);
   }
 
   async function reorderSessions(sessionIds: string[]) {
@@ -259,23 +266,34 @@ export const useFtpStore = defineStore('ftp', () => {
     }
   }
 
-  async function refreshRemoteDirectory(path = remotePath.value) {
-    if (!activeSessionId.value) {
+  async function refreshRemoteDirectory(path = remotePath.value, sessionId = activeSessionId.value) {
+    if (!sessionId) {
       remoteEntries.value = [];
       return;
     }
     remoteLoading.value = true;
     try {
-      remoteEntries.value = await window.ftpApi.listRemoteDirectory(activeSessionId.value, path);
+      const entries = await window.ftpApi.listRemoteDirectory(sessionId, path);
+      if (activeSessionId.value !== sessionId) {
+        sessionRemotePaths.value = {
+          ...sessionRemotePaths.value,
+          [sessionId]: path,
+        };
+        await persistRestoreStates();
+        return;
+      }
+      remoteEntries.value = entries;
       remotePath.value = path;
       sessionRemotePaths.value = {
         ...sessionRemotePaths.value,
-        [activeSessionId.value]: path,
+        [sessionId]: path,
       };
       await persistRestoreStates();
       selectedRemotePath.value = '';
     } finally {
-      remoteLoading.value = false;
+      if (activeSessionId.value === sessionId) {
+        remoteLoading.value = false;
+      }
     }
   }
 
@@ -332,7 +350,12 @@ export const useFtpStore = defineStore('ftp', () => {
 
   async function downloadFile(remoteFilePath: string, localFilePath: string, options?: FtpTransferOptions) {
     if (!activeSessionId.value) return null;
-    const task = await window.ftpApi.downloadFile(activeSessionId.value, remoteFilePath, localFilePath, options);
+    return downloadFileFromSession(activeSessionId.value, remoteFilePath, localFilePath, options);
+  }
+
+  async function downloadFileFromSession(sessionId: string, remoteFilePath: string, localFilePath: string, options?: FtpTransferOptions) {
+    if (!sessionId) return null;
+    const task = await window.ftpApi.downloadFile(sessionId, remoteFilePath, localFilePath, options);
     upsertTask(task);
     return task;
   }
@@ -410,6 +433,43 @@ export const useFtpStore = defineStore('ftp', () => {
     if (!candidate) return;
     await refreshLocalDirectory(candidate);
     await addLocalWorkspace(candidate);
+  }
+
+  function getRemoteWorkspaces(profileId?: string) {
+    const key = profileId || activeSession.value?.profileId || '';
+    if (!key) return [];
+    return remoteWorkspaces.value[key] ?? [];
+  }
+
+  async function addRemoteWorkspace(path?: string, profileId?: string) {
+    const key = profileId || activeSession.value?.profileId || '';
+    const candidate = normalizeRemoteWorkspacePath(path || remotePath.value);
+    if (!key || !candidate) return null;
+    const current = remoteWorkspaces.value[key] ?? [];
+    remoteWorkspaces.value = {
+      ...remoteWorkspaces.value,
+      [key]: [candidate, ...current.filter((item) => item !== candidate)],
+    };
+    persistRemoteWorkspaces();
+    return candidate;
+  }
+
+  async function removeRemoteWorkspace(path: string, profileId?: string) {
+    const key = profileId || activeSession.value?.profileId || '';
+    const candidate = normalizeRemoteWorkspacePath(path);
+    if (!key || !candidate) return;
+    remoteWorkspaces.value = {
+      ...remoteWorkspaces.value,
+      [key]: (remoteWorkspaces.value[key] ?? []).filter((item) => item !== candidate),
+    };
+    persistRemoteWorkspaces();
+  }
+
+  async function openRemoteWorkspace(path: string) {
+    const candidate = normalizeRemoteWorkspacePath(path);
+    if (!candidate) return;
+    await refreshRemoteDirectory(candidate);
+    await addRemoteWorkspace(candidate);
   }
 
   function selectLocal(path: string) {
@@ -623,6 +683,32 @@ export const useFtpStore = defineStore('ftp', () => {
     window.localStorage.setItem(LOCAL_WORKSPACE_STORAGE_KEY, JSON.stringify(localWorkspaces.value));
   }
 
+  function loadRemoteWorkspaces() {
+    try {
+      const raw = window.localStorage.getItem(REMOTE_WORKSPACE_STORAGE_KEY);
+      if (!raw) return;
+      const parsed = JSON.parse(raw);
+      if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) return;
+      const nextWorkspaces: Record<string, string[]> = {};
+      for (const [profileId, paths] of Object.entries(parsed)) {
+        if (!Array.isArray(paths)) continue;
+        const normalizedPaths = paths
+          .map((item) => normalizeRemoteWorkspacePath(String(item)))
+          .filter((item, index, array): item is string => Boolean(item) && array.indexOf(item) === index);
+        if (normalizedPaths.length) {
+          nextWorkspaces[profileId] = normalizedPaths;
+        }
+      }
+      remoteWorkspaces.value = nextWorkspaces;
+    } catch {
+      remoteWorkspaces.value = {};
+    }
+  }
+
+  function persistRemoteWorkspaces() {
+    window.localStorage.setItem(REMOTE_WORKSPACE_STORAGE_KEY, JSON.stringify(remoteWorkspaces.value));
+  }
+
   return {
     profiles,
     folders,
@@ -642,6 +728,7 @@ export const useFtpStore = defineStore('ftp', () => {
     selectedRemotePath,
     localRootPaths,
     localWorkspaces,
+    remoteWorkspaces,
     localLoading,
     remoteLoading,
     initialized,
@@ -674,6 +761,7 @@ export const useFtpStore = defineStore('ftp', () => {
     uploadFileToSession,
     uploadFile,
     downloadFile,
+    downloadFileFromSession,
     fxpTransfer,
     deleteTransferTask,
     updateTaskPriority,
@@ -689,6 +777,10 @@ export const useFtpStore = defineStore('ftp', () => {
     pickLocalWorkspace,
     removeLocalWorkspace,
     openLocalWorkspace,
+    getRemoteWorkspaces,
+    addRemoteWorkspace,
+    removeRemoteWorkspace,
+    openRemoteWorkspace,
     selectLocal,
     selectRemote,
   };
@@ -704,6 +796,13 @@ function normalizeWorkspacePath(path: string) {
     return `${trimmed}\\`;
   }
   return trimmed.replace(/[\\/]+$/, '');
+}
+
+function normalizeRemoteWorkspacePath(path: string) {
+  const trimmed = path.trim();
+  if (!trimmed) return '';
+  if (trimmed === '/') return '/';
+  return trimmed.replace(/\/+$/, '');
 }
 
 function taskDirectionLabel(direction: string) {

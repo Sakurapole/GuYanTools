@@ -191,6 +191,12 @@ export function useFtpPanelInteractions(options: UseFtpPanelInteractionsOptions)
         preparedRemoteDragPaths.value = localPaths;
       }
       return localPaths;
+    } catch {
+      if (preparingRemoteDragKey.value === key) {
+        preparedRemoteDragKey.value = '';
+        preparedRemoteDragPaths.value = [];
+      }
+      return [];
     } finally {
       if (preparingRemoteDragKey.value === key) {
         preparingRemoteDragKey.value = '';
@@ -737,7 +743,12 @@ export function useFtpPanelInteractions(options: UseFtpPanelInteractionsOptions)
     event.dataTransfer.setData('application/x-guyantools-remote-entries', JSON.stringify(entries));
     const dragKey = buildRemoteDragKey(entries);
     if (preparedRemoteDragKey.value === dragKey && preparedRemoteDragPaths.value.length && options.startPreparedDrag) {
-      options.startPreparedDrag(preparedRemoteDragPaths.value);
+      try {
+        options.startPreparedDrag([...preparedRemoteDragPaths.value]);
+      } catch {
+        preparedRemoteDragKey.value = '';
+        preparedRemoteDragPaths.value = [];
+      }
       return;
     }
     void primeRemoteDragExport(entries);
