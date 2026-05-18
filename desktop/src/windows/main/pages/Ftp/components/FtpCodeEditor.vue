@@ -1,9 +1,33 @@
 <script setup lang="ts">
-import { autocompletion, completeFromList, type Completion } from '@codemirror/autocomplete';
-import { defaultHighlightStyle, syntaxHighlighting } from '@codemirror/language';
+import {
+  autocompletion,
+  closeBrackets,
+  closeBracketsKeymap,
+  completeFromList,
+  completionKeymap,
+  type Completion,
+} from '@codemirror/autocomplete';
+import {
+  bracketMatching,
+  defaultHighlightStyle,
+  foldGutter,
+  foldKeymap,
+  indentOnInput,
+  syntaxHighlighting,
+} from '@codemirror/language';
 import { Compartment, EditorSelection, EditorState, type Extension } from '@codemirror/state';
-import { EditorView, keymap } from '@codemirror/view';
-import { basicSetup } from 'codemirror';
+import {
+  crosshairCursor,
+  drawSelection,
+  dropCursor,
+  EditorView,
+  highlightActiveLine,
+  highlightActiveLineGutter,
+  highlightSpecialChars,
+  keymap,
+  lineNumbers,
+  rectangularSelection,
+} from '@codemirror/view';
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 
 const props = withDefaults(defineProps<{
@@ -29,6 +53,28 @@ let updatingFromOutside = false;
 const languageCompartment = new Compartment();
 const completionCompartment = new Compartment();
 const editableCompartment = new Compartment();
+
+const ftpBaseEditorExtensions: Extension[] = [
+  lineNumbers(),
+  highlightSpecialChars(),
+  foldGutter(),
+  drawSelection(),
+  dropCursor(),
+  EditorState.allowMultipleSelections.of(true),
+  indentOnInput(),
+  syntaxHighlighting(defaultHighlightStyle, { fallback: true }),
+  bracketMatching(),
+  closeBrackets(),
+  rectangularSelection(),
+  crosshairCursor(),
+  highlightActiveLine(),
+  highlightActiveLineGutter(),
+  keymap.of([
+    ...closeBracketsKeymap,
+    ...foldKeymap,
+    ...completionKeymap,
+  ]),
+];
 
 const ftpCodeEditorTheme = EditorView.theme({
   '&': {
@@ -111,9 +157,8 @@ onMounted(() => {
     state: EditorState.create({
       doc: props.modelValue,
       extensions: [
-        basicSetup,
+        ftpBaseEditorExtensions,
         ftpCodeEditorTheme,
-        syntaxHighlighting(defaultHighlightStyle, { fallback: true }),
         EditorView.lineWrapping,
         saveKeymap,
         editableCompartment.of([
@@ -361,7 +406,7 @@ const rustKeywords = [
 <style scoped lang="scss">
 .ftp-code-editor {
   display: flex;
-  flex: 1;
+  flex: 1 1 auto;
   min-height: 0;
   flex-direction: column;
   gap: 10px;
@@ -380,11 +425,20 @@ const rustKeywords = [
 }
 
 .ftp-code-editor__surface {
-  flex: 1;
-  min-height: 420px;
+  flex: 1 1 auto;
+  min-height: 0;
+  height: 100%;
   border: 1px solid var(--ui-border-subtle);
   border-radius: var(--ui-radius-md);
   overflow: hidden;
   background: var(--ui-surface-panel);
+}
+
+.ftp-code-editor__surface :deep(.cm-editor) {
+  height: 100%;
+}
+
+.ftp-code-editor__surface :deep(.cm-scroller) {
+  overflow: auto;
 }
 </style>

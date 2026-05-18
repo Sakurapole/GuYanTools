@@ -15,6 +15,9 @@ const props = withDefaults(defineProps<{
   min?: number;
   max?: number;
   step?: number;
+  spellcheck?: boolean | 'true' | 'false';
+  autocorrect?: string;
+  autocapitalize?: string;
 }>(), {
   placeholder: '',
   disabled: false,
@@ -26,6 +29,9 @@ const props = withDefaults(defineProps<{
   min: undefined,
   max: undefined,
   step: 1,
+  spellcheck: undefined,
+  autocorrect: undefined,
+  autocapitalize: undefined,
 });
 
 const emit = defineEmits<{
@@ -95,6 +101,9 @@ function stepValue(direction: 1 | -1) {
       :min="min"
       :max="max"
       :step="step"
+      :spellcheck="spellcheck"
+      :autocorrect="autocorrect"
+      :autocapitalize="autocapitalize"
       @input="handleInput"
       @focus="handleFocus"
       @blur="handleBlur"
@@ -137,6 +146,9 @@ function stepValue(direction: 1 | -1) {
     :readonly="readonly"
     :list="list || undefined"
     :type="type"
+    :spellcheck="spellcheck"
+    :autocorrect="autocorrect"
+    :autocapitalize="autocapitalize"
     @input="handleInput"
     @focus="emit('focus', $event)"
     @blur="emit('blur', $event)"

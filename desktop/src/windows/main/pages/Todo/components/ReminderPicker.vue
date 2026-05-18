@@ -112,7 +112,7 @@ onBeforeUnmount(() => document.removeEventListener('mousedown', onClickOutside, 
     </div>
 
     <!-- 下拉面板 -->
-    <Transition name="picker-drop">
+    <Transition name="ui-dropdown">
       <div v-if="isOpen" ref="panelRef" class="reminder-panel">
         <div class="panel-title">设置提醒</div>
         <button v-for="opt in quickOptions" :key="opt.dateTime" class="panel-option" @click="selectQuickOption(opt.dateTime)">
@@ -192,8 +192,8 @@ onBeforeUnmount(() => document.removeEventListener('mousedown', onClickOutside, 
   border-radius: 50%;
 }
 .reminder-remove:hover {
-  background: rgba(239, 68, 68, 0.1);
-  color: #ef4444;
+  background: var(--todo-danger-bg);
+  color: var(--ui-button-danger-text);
 }
 
 .reminder-panel {
@@ -206,7 +206,7 @@ onBeforeUnmount(() => document.removeEventListener('mousedown', onClickOutside, 
   background: var(--ui-surface-glass-strong, #fff);
   border: 1px solid var(--ui-border-subtle);
   border-radius: 10px;
-  box-shadow: 0 8px 24px rgba(0,0,0,0.1), 0 2px 8px rgba(0,0,0,0.06);
+  box-shadow: var(--todo-popup-shadow);
 }
 .panel-title {
   padding: 6px 14px;
@@ -268,12 +268,4 @@ onBeforeUnmount(() => document.removeEventListener('mousedown', onClickOutside, 
 .custom-confirm:disabled { opacity: 0.4; cursor: not-allowed; }
 .custom-confirm:hover:not(:disabled) { opacity: 0.9; }
 
-.picker-drop-enter-active, .picker-drop-leave-active {
-  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
-  transform-origin: top left;
-}
-.picker-drop-enter-from, .picker-drop-leave-to {
-  opacity: 0;
-  transform: translateY(-4px) scale(0.97);
-}
 </style>

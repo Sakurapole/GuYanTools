@@ -222,7 +222,7 @@ onBeforeUnmount(() => {
     </div>
 
     <!-- 弹出日历面板（fixed 定位） -->
-    <Transition :name="placement === 'top' ? 'ui-datepicker-drop-up' : 'ui-datepicker-drop'">
+    <Transition :name="placement === 'top' ? 'ui-dropdown-up' : 'ui-dropdown'">
       <div v-if="isOpen" ref="panelRef" class="ui-datepicker__panel" :style="{ ...panelStyle, position: 'fixed' }">
         <!-- 月份导航 -->
         <div class="ui-datepicker__nav">
@@ -498,27 +498,4 @@ onBeforeUnmount(() => {
   }
 }
 
-/* ─── 展开/收起动画：向下 ─── */
-.ui-datepicker-drop-enter-active,
-.ui-datepicker-drop-leave-active {
-  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
-  transform-origin: top center;
-}
-.ui-datepicker-drop-enter-from,
-.ui-datepicker-drop-leave-to {
-  opacity: 0;
-  transform: translateY(-6px) scale(0.97);
-}
-
-/* ─── 展开/收起动画：向上 ─── */
-.ui-datepicker-drop-up-enter-active,
-.ui-datepicker-drop-up-leave-active {
-  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
-  transform-origin: bottom center;
-}
-.ui-datepicker-drop-up-enter-from,
-.ui-datepicker-drop-up-leave-to {
-  opacity: 0;
-  transform: translateY(6px) scale(0.97);
-}
 </style>

@@ -1,6 +1,7 @@
 import { computed, reactive, ref, watch, type Ref } from 'vue';
 import type { FtpAuthChallenge, FtpProfile, FtpSessionFolder } from '@/contracts/ftp';
 import type { SshProfile } from '@/contracts/ssh';
+import { getErrorMessage, notifyError } from '@/windows/main/composables/useInAppNotification';
 import type { useFtpStore } from '@/windows/main/stores/ftp_store';
 import type { FtpFolderFormState, FtpProfileFormState } from '../types';
 
@@ -52,6 +53,11 @@ export function useFtpConfigFlow(options: UseFtpConfigFlowOptions) {
   const entryNameDialogValue = ref('');
   const entryNameDialogPlaceholder = ref('');
   let resolveEntryNameDialog: ((value: string | null) => void) | null = null;
+
+  function setActionError(error: unknown, title = 'FTP 配置操作失败') {
+    options.actionError.value = getErrorMessage(error);
+    notifyError(error, title);
+  }
 
   const profileForm = reactive<FtpProfileFormState>({
     label: '',
@@ -271,7 +277,7 @@ export function useFtpConfigFlow(options: UseFtpConfigFlowOptions) {
 
       profileDialogVisible.value = false;
     } catch (error) {
-      options.actionError.value = error instanceof Error ? error.message : String(error);
+      setActionError(error, 'FTP 配置保存失败');
     } finally {
       options.busyMessage.value = '';
     }
@@ -297,7 +303,7 @@ export function useFtpConfigFlow(options: UseFtpConfigFlowOptions) {
 
       folderDialogVisible.value = false;
     } catch (error) {
-      options.actionError.value = error instanceof Error ? error.message : String(error);
+      setActionError(error, 'FTP 文件夹保存失败');
     } finally {
       options.busyMessage.value = '';
     }
@@ -317,7 +323,7 @@ export function useFtpConfigFlow(options: UseFtpConfigFlowOptions) {
       await options.ftpStore.deleteFolder(folder.id);
       await options.ftpStore.refreshProfiles();
     } catch (error) {
-      options.actionError.value = error instanceof Error ? error.message : String(error);
+      setActionError(error, 'FTP 文件夹删除失败');
     } finally {
       options.busyMessage.value = '';
     }
@@ -336,7 +342,7 @@ export function useFtpConfigFlow(options: UseFtpConfigFlowOptions) {
     try {
       await options.ftpStore.deleteProfile(profile.id);
     } catch (error) {
-      options.actionError.value = error instanceof Error ? error.message : String(error);
+      setActionError(error, 'FTP 配置删除失败');
     } finally {
       options.busyMessage.value = '';
     }
@@ -432,7 +438,7 @@ export function useFtpConfigFlow(options: UseFtpConfigFlowOptions) {
         passwordDialogVisible.value = true;
         return;
       } else {
-        options.actionError.value = message;
+        setActionError(error, 'FTP 连接失败');
       }
     } finally {
       options.busyMessage.value = '';

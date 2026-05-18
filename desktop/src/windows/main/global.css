@@ -23,6 +23,22 @@
   --home-transition-slow: 500ms var(--home-transition-curve);
 }
 
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
 body {
   margin: 0;
+  user-select: none;
+}
+
+input,
+textarea,
+select,
+[contenteditable=""],
+[contenteditable="true"],
+[contenteditable="plaintext-only"] {
+  user-select: text;
 }

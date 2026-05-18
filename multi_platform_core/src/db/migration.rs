@@ -75,6 +75,22 @@ pub fn run_migrations(conn: &Connection) -> DbResult<()> {
             "015_add_host_ca_key_paths",
             include_str!("../../migrations/015_add_host_ca_key_paths.sql"),
         ),
+        (
+            "016_extend_ftp_transfer_tree_history",
+            include_str!("../../migrations/016_extend_ftp_transfer_tree_history.sql"),
+        ),
+        (
+            "017_add_multi_device_clipboard",
+            include_str!("../../migrations/017_add_multi_device_clipboard.sql"),
+        ),
+        (
+            "018_add_mobile_home_layouts",
+            include_str!("../../migrations/018_add_mobile_home_layouts.sql"),
+        ),
+        (
+            "019_add_ssh_profile_folders",
+            include_str!("../../migrations/019_add_ssh_profile_folders.sql"),
+        ),
     ];
 
     // 执行每个迁移

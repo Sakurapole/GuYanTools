@@ -1,4 +1,5 @@
 export type TerminalRendererMode = 'auto' | 'standard' | 'webgl';
+export type TerminalLayoutMode = 'tabbed' | 'split-horizontal' | 'split-vertical' | 'master-stack' | 'dwindle' | 'grid';
 export type TerminalSessionStatus = 'running' | 'terminating' | 'exited' | 'failed';
 export type DetachedTerminalSessionKind = 'local' | 'ssh';
 
@@ -8,6 +9,38 @@ export interface TerminalProfile {
   command: string;
   args: string[];
   isDefault: boolean;
+  source?: 'system' | 'custom';
+  cwd?: string;
+  env?: Record<string, string>;
+  configFilePath?: string;
+  background?: TerminalBackgroundConfig;
+}
+
+export interface TerminalBackgroundConfig {
+  type: 'color' | 'image' | 'video';
+  color: string;
+  image: string;
+  video: string;
+  style: import('./background').BackgroundStyleConfig;
+}
+
+export interface LocalTerminalProfileConfig {
+  id: string;
+  label: string;
+  command: string;
+  args: string[];
+  cwd?: string;
+  env: Record<string, string>;
+  configFilePath?: string;
+  background: TerminalBackgroundConfig;
+}
+
+export interface TerminalSshProfileGroupConfig {
+  id: string;
+  label: string;
+  parentId?: string;
+  sortOrder: number;
+  createdAt: number;
 }
 
 export interface TerminalSessionDescriptor {
@@ -22,6 +55,8 @@ export interface TerminalSessionDescriptor {
 
 export interface CreateTerminalSessionPayload {
   profileId?: string;
+  profileLabel?: string;
+  command?: string;
   cwd?: string;
   args?: string[];
   env?: Record<string, string>;
@@ -56,7 +91,14 @@ export interface TerminalFeatureConfig {
   defaultProfileId?: string;
   defaultCwd?: string;
   env: Record<string, string>;
+  localProfiles: LocalTerminalProfileConfig[];
+  sshProfileGroups: TerminalSshProfileGroupConfig[];
+  sshProfileGroupMap: Record<string, string>;
   rendererMode: TerminalRendererMode;
+  /** How multiple local/SSH terminal sessions are arranged in the main viewport */
+  layoutMode: TerminalLayoutMode;
+  /** Whether BEL/control-sequence terminal sound is allowed */
+  enableBell: boolean;
   enableSixel: boolean;
   detachToWindowByDefault: boolean;
   /** Max automatic SSH reconnect attempts before waiting for manual input */
@@ -79,12 +121,15 @@ export interface TerminalApi {
   listProfiles: () => Promise<TerminalProfile[]>;
   listSessions: () => Promise<TerminalSessionDescriptor[]>;
   createSession: (payload: CreateTerminalSessionPayload) => Promise<TerminalSessionDescriptor>;
+  getBuffer: (sessionId: string) => Promise<string>;
+  clearBuffer: (sessionId: string) => Promise<void>;
   write: (sessionId: string, data: string) => Promise<void>;
   resizeSession: (payload: ResizeTerminalSessionPayload) => Promise<void>;
   killSession: (sessionId: string) => Promise<void>;
   attachSession: (sessionId: string, target: string) => Promise<void>;
   attachToMain: (sessionId: string) => Promise<void>;
   detachToWindow: (sessionId: string, kind?: DetachedTerminalSessionKind, label?: string) => Promise<void>;
+  returnDetachedToMain: (sessionId: string, target: string, kind?: DetachedTerminalSessionKind) => Promise<void>;
   readClipboardText: () => Promise<string>;
   writeClipboardText: (text: string) => Promise<void>;
   onEvent: (listener: (event: TerminalEventEnvelope) => void) => () => void;

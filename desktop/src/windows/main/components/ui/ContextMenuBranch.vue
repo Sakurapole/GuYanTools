@@ -3,6 +3,7 @@ import { onBeforeUnmount, ref } from 'vue';
 import type { ContextMenuItem } from '../../composables/useContextMenu';
 import UiMenuDivider from './UiMenuDivider.vue';
 import UiMenuItem from './UiMenuItem.vue';
+import UiPopupSurface from './UiPopupSurface.vue';
 
 defineOptions({ name: 'ContextMenuBranch' });
 
@@ -106,19 +107,23 @@ onBeforeUnmount(() => {
           </template>
         </UiMenuItem>
 
-        <Teleport to="body">
-          <div
-          v-if="hasChildren(item) && openSubmenuId === item.id"
-          class="context-menu-branch__submenu"
-          :style="submenuStyle[item.id]"
+        <UiPopupSurface
+          :model-value="hasChildren(item) && openSubmenuId === item.id"
+          variant="floating"
+          :overlay="false"
+          :close-on-outside="false"
+          :close-on-esc="false"
+          :panel-style="submenuStyle[item.id]"
+          :z-index="10000"
+          role="menu"
+          data-context-menu-surface="true"
           @mouseenter="clearCloseTimer"
           @mouseleave="scheduleClose(item.id)"
         >
           <div class="context-menu-branch__panel">
             <ContextMenuBranch :items="item.children || []" nested :close-menu="closeMenu" />
           </div>
-          </div>
-        </Teleport>
+        </UiPopupSurface>
       </div>
     </template>
   </div>
@@ -145,6 +150,8 @@ onBeforeUnmount(() => {
   max-height: min(60vh, 360px);
   overflow-y: auto;
   overflow-x: hidden;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
   padding: 4px;
   border: 1px solid color-mix(in srgb, var(--ui-border-subtle) 90%, transparent);
   border-radius: var(--ui-radius-sm);
@@ -152,11 +159,12 @@ onBeforeUnmount(() => {
   backdrop-filter: blur(16px) saturate(1.6);
   -webkit-backdrop-filter: blur(16px) saturate(1.6);
   box-shadow: var(--ui-menu-shadow);
-}
 
-.context-menu-branch__submenu {
-  position: fixed;
-  z-index: 10000;
+  &::-webkit-scrollbar {
+    display: none;
+    width: 0;
+    height: 0;
+  }
 }
 
 .context-menu-branch__arrow {

@@ -1,132 +1,133 @@
-import 'dart:ui';
 import 'package:flutter/material.dart';
-import 'pages/home_page.dart';
-import 'pages/chat_page.dart';
-import 'pages/apps_page.dart';
+import 'package:go_router/go_router.dart';
 
-/// 主导航壳：3 Tab 底部导航 (HOME / AI CHAT / ALL APPS)
-/// 毛玻璃底栏 + 圆角样式，参照 Stitch 设计
 class MainShell extends StatefulWidget {
-  const MainShell({super.key});
+  final String location;
+  final Widget child;
+
+  const MainShell({super.key, required this.location, required this.child});
 
   @override
   State<MainShell> createState() => _MainShellState();
 }
 
 class _MainShellState extends State<MainShell> {
-  int _currentIndex = 0;
+  @override
+  Widget build(BuildContext context) {
+    final currentIndex = _indexForLocation(widget.location);
+    return Scaffold(
+      extendBody: true,
+      body: widget.child,
+      bottomNavigationBar: _BottomNav(currentIndex: currentIndex),
+    );
+  }
 
-  final _pages = const [
-    HomePage(),
-    ChatPage(),
-    AppsPage(),
-  ];
+  int _indexForLocation(String location) {
+    if (location.startsWith('/clipboard')) return 1;
+    if (location.startsWith('/settings')) return 2;
+    return 0;
+  }
+}
+
+class _BottomNav extends StatelessWidget {
+  final int currentIndex;
+
+  const _BottomNav({required this.currentIndex});
 
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
-    final isDark = Theme.of(context).brightness == Brightness.dark;
 
-    return Scaffold(
-      body: IndexedStack(
-        index: _currentIndex,
-        children: _pages,
-      ),
-      extendBody: true,
-      bottomNavigationBar: ClipRRect(
-        borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
-        child: BackdropFilter(
-          filter: ImageFilter.blur(sigmaX: 30, sigmaY: 30),
-          child: Container(
-            decoration: BoxDecoration(
-              color: isDark
-                  ? const Color(0xFF020617).withValues(alpha: 0.6)
-                  : Colors.white.withValues(alpha: 0.8),
-              borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withValues(alpha: isDark ? 0.3 : 0.05),
-                  blurRadius: 40,
-                  offset: const Offset(0, -10),
+    return Material(
+      color: cs.surface,
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          border: Border(
+            top: BorderSide(color: cs.outlineVariant.withValues(alpha: 0.32)),
+          ),
+        ),
+        child: SafeArea(
+          top: false,
+          child: SizedBox(
+            height: 64,
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Expanded(
+                  child: _NavItem(
+                    index: 0,
+                    currentIndex: currentIndex,
+                    icon: Icons.home_outlined,
+                    label: '首页',
+                    location: '/',
+                  ),
+                ),
+                Expanded(
+                  child: _NavItem(
+                    index: 1,
+                    currentIndex: currentIndex,
+                    icon: Icons.content_paste_outlined,
+                    label: '剪贴板',
+                    location: '/clipboard',
+                  ),
+                ),
+                Expanded(
+                  child: _NavItem(
+                    index: 2,
+                    currentIndex: currentIndex,
+                    icon: Icons.settings_outlined,
+                    label: '设置',
+                    location: '/settings',
+                  ),
                 ),
               ],
-            ),
-            child: SafeArea(
-              top: false,
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceAround,
-                  children: [
-                    _buildNavItem(
-                      index: 0,
-                      icon: Icons.home_outlined,
-                      activeIcon: Icons.home,
-                      label: 'HOME',
-                      cs: cs,
-                    ),
-                    _buildNavItem(
-                      index: 1,
-                      icon: Icons.auto_awesome_outlined,
-                      activeIcon: Icons.auto_awesome,
-                      label: 'AI CHAT',
-                      cs: cs,
-                    ),
-                    _buildNavItem(
-                      index: 2,
-                      icon: Icons.grid_view_outlined,
-                      activeIcon: Icons.grid_view,
-                      label: 'ALL APPS',
-                      cs: cs,
-                    ),
-                  ],
-                ),
-              ),
             ),
           ),
         ),
       ),
     );
   }
+}
 
-  Widget _buildNavItem({
-    required int index,
-    required IconData icon,
-    required IconData activeIcon,
-    required String label,
-    required ColorScheme cs,
-  }) {
-    final isActive = _currentIndex == index;
-    return GestureDetector(
-      onTap: () => setState(() => _currentIndex = index),
-      behavior: HitTestBehavior.opaque,
+class _NavItem extends StatelessWidget {
+  final int index;
+  final int currentIndex;
+  final IconData icon;
+  final String label;
+  final String location;
+
+  const _NavItem({
+    required this.index,
+    required this.currentIndex,
+    required this.icon,
+    required this.label,
+    required this.location,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final active = index == currentIndex;
+    final color = active ? cs.primary : cs.onSurfaceVariant;
+
+    return InkWell(
+      key: ValueKey('nav-$index'),
+      onTap: () => context.go(location),
+      borderRadius: BorderRadius.zero,
       child: AnimatedContainer(
-        duration: const Duration(milliseconds: 200),
-        padding: EdgeInsets.symmetric(
-          horizontal: isActive ? 16 : 12,
-          vertical: 6,
-        ),
-        decoration: BoxDecoration(
-          color: isActive ? cs.primary.withValues(alpha: 0.1) : Colors.transparent,
-          borderRadius: BorderRadius.circular(12),
-        ),
+        key: ValueKey('nav-container-$index'),
+        duration: const Duration(milliseconds: 160),
+        decoration: const BoxDecoration(color: Colors.transparent),
         child: Column(
-          mainAxisSize: MainAxisSize.min,
+          mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(
-              isActive ? activeIcon : icon,
-              color: isActive ? cs.primary : cs.onSurfaceVariant.withValues(alpha: 0.5),
-              size: 24,
-            ),
-            const SizedBox(height: 4),
+            Icon(icon, size: 22, color: color),
+            const SizedBox(height: 2),
             Text(
               label,
-              style: TextStyle(
-                fontFamily: 'Manrope',
-                fontSize: 10,
-                fontWeight: FontWeight.w700,
-                letterSpacing: 1.0,
-                color: isActive ? cs.primary : cs.onSurfaceVariant.withValues(alpha: 0.5),
+              style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                color: color,
+                fontWeight: active ? FontWeight.w700 : FontWeight.w500,
               ),
             ),
           ],

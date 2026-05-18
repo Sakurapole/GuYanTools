@@ -14,6 +14,7 @@ import type {
   CreateFtpSessionFolderInput,
   FtpExternalEditorOptions,
   FtpRetryPolicy,
+  FtpTransferOptions,
   UpsertFtpScheduledTaskInput,
   UpdateFtpProfileInput,
   UpdateFtpSessionFolderInput,
@@ -92,11 +93,11 @@ export function registerFtpIpcHandlers() {
   );
   ipcMain.handle('ftp:get-default-local-path', async () => ftpHost.getDefaultLocalPath());
 
-  ipcMain.handle('ftp:upload-file', async (_event, sessionId: string, localPath: string, remotePath: string) =>
-    ftpHost.uploadFile(sessionId, localPath, remotePath),
+  ipcMain.handle('ftp:upload-file', async (_event, sessionId: string, localPath: string, remotePath: string, options?: FtpTransferOptions) =>
+    ftpHost.uploadFile(sessionId, localPath, remotePath, options),
   );
-  ipcMain.handle('ftp:download-file', async (_event, sessionId: string, remotePath: string, localPath: string) =>
-    ftpHost.downloadFile(sessionId, remotePath, localPath),
+  ipcMain.handle('ftp:download-file', async (_event, sessionId: string, remotePath: string, localPath: string, options?: FtpTransferOptions) =>
+    ftpHost.downloadFile(sessionId, remotePath, localPath, options),
   );
   ipcMain.handle('ftp:fxp-transfer', async (_event, sourceSessionId: string, sourcePath: string, targetSessionId: string, targetPath: string) =>
     ftpHost.fxpTransfer(sourceSessionId, sourcePath, targetSessionId, targetPath),

@@ -11,10 +11,16 @@ const props = withDefaults(defineProps<{
   placeholder?: string;
   disabled?: boolean;
   size?: InputSize;
+  spellcheck?: boolean | 'true' | 'false';
+  autocorrect?: string;
+  autocapitalize?: string;
 }>(), {
   placeholder: '',
   disabled: false,
   size: 'md',
+  spellcheck: undefined,
+  autocorrect: undefined,
+  autocapitalize: undefined,
 });
 
 const emit = defineEmits<{
@@ -34,6 +40,9 @@ let blurTimer: number | null = null;
 const normalizedSuggestions = computed(() =>
   props.suggestions.filter((item, index, array) => item && array.indexOf(item) === index),
 );
+const dropdownStyle = computed(() => ({
+  '--ui-suggest-input-dropdown-height': `${Math.min(normalizedSuggestions.value.length, 5) * 44 + 10}px`,
+}));
 
 function clearBlurTimer() {
   if (blurTimer !== null) {
@@ -145,14 +154,17 @@ function handleBlur() {
       :placeholder="placeholder"
       :disabled="disabled"
       :size="size"
+      :spellcheck="spellcheck"
+      :autocorrect="autocorrect"
+      :autocapitalize="autocapitalize"
       @update:modelValue="handleInput"
       @keydown="handleKeydown"
       @focus="handleFocus"
       @blur="handleBlur"
     />
 
-    <transition name="ui-suggest-dropdown">
-      <div v-if="open && normalizedSuggestions.length" class="ui-suggest-input__dropdown">
+    <transition name="ui-dropdown">
+      <div v-if="open && normalizedSuggestions.length" class="ui-suggest-input__dropdown" :style="dropdownStyle">
         <UiScrollbar :x="false" :size="6" class="ui-suggest-input__scroll">
           <div class="ui-suggest-input__list">
             <button
@@ -191,10 +203,12 @@ function handleBlur() {
   backdrop-filter: var(--ui-backdrop-blur-md);
   box-shadow: var(--ui-select-dropdown-shadow);
   overflow: hidden;
+  --ui-suggest-input-dropdown-height: 230px;
 }
 
 .ui-suggest-input__scroll {
-  max-height: 220px;
+  height: min(var(--ui-suggest-input-dropdown-height), 45vh);
+  max-height: min(260px, 45vh);
 }
 
 .ui-suggest-input__list {
@@ -226,16 +240,4 @@ function handleBlur() {
   }
 }
 
-.ui-suggest-dropdown-enter-active,
-.ui-suggest-dropdown-leave-active {
-  transition:
-    opacity 0.16s ease,
-    transform 0.16s ease;
-}
-
-.ui-suggest-dropdown-enter-from,
-.ui-suggest-dropdown-leave-to {
-  opacity: 0;
-  transform: translateY(-4px) scale(0.98);
-}
 </style>

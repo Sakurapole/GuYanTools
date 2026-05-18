@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, reactive, ref, watch } from 'vue';
+import UiPopupSurface from '@/windows/main/components/ui/UiPopupSurface.vue';
 import { useSshStore } from '@/windows/main/stores/ssh_store';
 import UiSelect from '@/windows/main/components/ui/UiSelect.vue';
 import type { UiSelectOption } from '@/windows/main/components/ui/UiSelect.vue';
@@ -213,10 +214,17 @@ async function handleDeleteKey(key: SshManagedKey) {
 </script>
 
 <template>
-  <Teleport to="body">
-    <Transition name="dialog-fade">
-      <div v-if="visible" class="key-manager-overlay" @click.self="emit('close')">
-        <div class="key-manager ui-glass-surface ui-glass-surface--strong">
+  <UiPopupSurface
+    :model-value="visible"
+    variant="dialog"
+    overlay-class="key-manager-overlay"
+    :panel-class="['key-manager', 'ui-glass-surface', 'ui-glass-surface--strong']"
+    width="min(1100px, calc(100vw - 48px))"
+    max-height="calc(100vh - 56px)"
+    aria-label="SSH 密钥管理"
+    :z-index="2400"
+    @close="emit('close')"
+  >
           <div class="key-manager__header">
             <div>
               <h3>SSH 密钥管理</h3>
@@ -326,13 +334,10 @@ async function handleDeleteKey(key: SshManagedKey) {
               </div>
             </section>
           </div>
-        </div>
-      </div>
-    </Transition>
-  </Teleport>
+  </UiPopupSurface>
 </template>
 
-<style lang="scss" scoped>
+<style lang="scss">
 .key-manager-overlay {
   position: fixed;
   inset: 0;
@@ -351,7 +356,7 @@ async function handleDeleteKey(key: SshManagedKey) {
   display: flex;
   flex-direction: column;
   overflow: hidden;
-  border-radius: var(--ui-radius-lg);
+  border-radius: 6px;
   border: 1px solid var(--modal-border-color, var(--ui-border-subtle));
   background: var(--modal-bg-color, var(--ui-surface-glass-strong));
   box-shadow: 0 22px 60px var(--modal-shadow-color, rgba(9, 38, 64, 0.2));
@@ -429,7 +434,7 @@ async function handleDeleteKey(key: SshManagedKey) {
     min-width: 0;
     padding: 16px;
     border: 1px solid var(--ui-border-subtle);
-    border-radius: var(--ui-radius-md);
+    border-radius: 4px;
     background: var(--ui-surface-panel);
     box-shadow: var(--ui-button-secondary-shadow);
   }
@@ -506,7 +511,7 @@ async function handleDeleteKey(key: SshManagedKey) {
     justify-content: center;
     min-height: 180px;
     border: 1px dashed var(--ui-border-accent-soft);
-    border-radius: var(--ui-radius-md);
+    border-radius: 4px;
     background: color-mix(in srgb, var(--ui-surface-panel-muted) 74%, transparent);
     color: var(--ui-text-muted);
     text-align: center;

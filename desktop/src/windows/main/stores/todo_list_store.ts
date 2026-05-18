@@ -1,6 +1,7 @@
 import { acceptHMRUpdate, defineStore } from 'pinia';
 import { ref } from 'vue';
 import type { TodoList } from '@/contracts/todo';
+import { notifyError } from '@/windows/main/composables/useInAppNotification';
 
 declare const todoApi: import('@/contracts/todo').TodoApi;
 
@@ -18,6 +19,7 @@ export const useTodoListStore = defineStore('todoList', () => {
       lists.value = await todoApi.getAllLists();
     } catch (err) {
       console.error('Failed to load todo lists:', err);
+      notifyError(err, '待办清单加载失败');
     } finally {
       loading.value = false;
     }

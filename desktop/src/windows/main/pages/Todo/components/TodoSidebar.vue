@@ -1,18 +1,29 @@
 <script setup lang="ts">
-import { ref, inject } from 'vue';
+import { computed, ref, inject } from 'vue';
 import { useTodoStore, type SmartListType } from '@/windows/main/stores/todo_store';
 import { useTodoListStore } from '@/windows/main/stores/todo_list_store';
 import { useContextMenu } from '@/windows/main/composables/useContextMenu';
-import { useTodoSettings } from '@/windows/main/composables/useTodoSettings';
+import { resolveTodoAreaBackground, useTodoSettings } from '@/windows/main/composables/useTodoSettings';
+import { useAppConfigStore } from '@/windows/main/stores/app_config_store';
 import TodoBackground from './TodoBackground.vue';
 import TodoSearch from './TodoSearch.vue';
 import UiScrollbar from '@/windows/main/components/ui/UiScrollbar.vue';
-import UiTooltip from '@/windows/main/components/ui/UiTooltip.vue';
 import { useConfirmDialog } from '@/windows/main/composables/useConfirmDialog';
+import { buildBackgroundTextVars } from '@/windows/main/utils/backgroundTextColor';
 
 const todoStore = useTodoStore();
 const listStore = useTodoListStore();
 const { sidebarBg, isSidebarCollapsed } = useTodoSettings();
+const appConfigStore = useAppConfigStore();
+const activeSidebarBg = computed(() => resolveTodoAreaBackground(sidebarBg.value, appConfigStore.config.appearance.theme));
+const sidebarTextStyle = computed(() => buildBackgroundTextVars(activeSidebarBg.value.backgroundStyle?.textColor, {
+  aliases: {
+    primary: ['--ui-text-primary'],
+    secondary: ['--ui-text-secondary'],
+    muted: ['--ui-text-muted'],
+    subtle: ['--ui-text-subtle'],
+  },
+}));
 const openBgPicker = inject<Function>('openTodoBgPicker');
 const { open: openMenu } = useContextMenu();
 const { show: showConfirm } = useConfirmDialog();
@@ -21,7 +32,7 @@ function handleContextMenu(e: MouseEvent) {
   openMenu(e.clientX, e.clientY, [
     {
       id: 'sidebar-bg',
-      label: '更换侧边栏背景',
+      label: '侧边栏个性化配置',
       action: () => openBgPicker && openBgPicker('sidebar'),
     }
   ]);
@@ -124,19 +135,25 @@ function handleListContextMenu(e: MouseEvent, list: { id: string; name: string }
 </script>
 
 <template>
-  <aside class="todo-sidebar" :class="{ 'collapsed': isSidebarCollapsed }" @contextmenu.prevent.stop="handleContextMenu">
-    <TodoBackground :config="sidebarBg" />
+  <aside class="todo-sidebar" :class="{ 'collapsed': isSidebarCollapsed }" :style="sidebarTextStyle" @contextmenu.prevent.stop="handleContextMenu">
+    <TodoBackground :config="activeSidebarBg" />
     <div class="sidebar-content" style="position: relative; z-index: 1; display: flex; flex-direction: column; height: 100%;">
       <div class="sidebar-header">
         <h2 v-if="!isSidebarCollapsed">Todo</h2>
-        <UiTooltip :content="isSidebarCollapsed ? '展开侧边栏' : '收起侧边栏'" :placement="isSidebarCollapsed ? 'right' : 'bottom'" :delay="400">
-        <button class="collapse-btn" @click="isSidebarCollapsed = !isSidebarCollapsed">
+        <button
+          v-tooltip="{
+            content: isSidebarCollapsed ? '展开侧边栏' : '收起侧边栏',
+            placement: isSidebarCollapsed ? 'right' : 'bottom',
+            delay: 400,
+          }"
+          class="collapse-btn"
+          @click="isSidebarCollapsed = !isSidebarCollapsed"
+        >
           <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
             :class="{ 'collapse-icon-rotated': isSidebarCollapsed }" class="collapse-icon">
             <polyline points="15 18 9 12 15 6"/>
           </svg>
         </button>
-        </UiTooltip>
       </div>
 
       <!-- 搜索框 -->
@@ -144,29 +161,35 @@ function handleListContextMenu(e: MouseEvent, list: { id: string; name: string }
 
     <UiScrollbar :x="false" :size="6" class="sidebar-scroll-area">
     <nav class="smart-lists">
-      <UiTooltip v-for="item in smartLists" :key="item.id" :content="item.label" placement="right" :disabled="!isSidebarCollapsed" block>
-      <button class="nav-item"
+      <button
+        v-for="item in smartLists"
+        :key="item.id"
+        v-tooltip="{ content: item.label, placement: 'right', disabled: !isSidebarCollapsed, block: true }"
+        class="nav-item"
         :class="{ active: todoStore.currentView === item.id }" @click="handleSmartListClick(item.id)"
-        @contextmenu.prevent.stop="handleSmartListContextMenu($event, item)">
+        @contextmenu.prevent.stop="handleSmartListContextMenu($event, item)"
+      >
         <span class="nav-icon" v-html="item.svgIcon"></span>
         <span class="nav-label">{{ item.label }}</span>
         <span v-if="todoStore.smartListCounts[item.id] > 0" class="nav-badge">{{ todoStore.smartListCounts[item.id] }}</span>
       </button>
-      </UiTooltip>
     </nav>
 
     <div class="divider" />
 
     <nav class="user-lists">
-      <UiTooltip v-for="list in listStore.lists" :key="list.id" :content="list.name" placement="right" :disabled="!isSidebarCollapsed" block>
-      <button class="nav-item"
+      <button
+        v-for="list in listStore.lists"
+        :key="list.id"
+        v-tooltip="{ content: list.name, placement: 'right', disabled: !isSidebarCollapsed, block: true }"
+        class="nav-item"
         :class="{ active: todoStore.currentView === list.id }" @click="handleUserListClick(list.id)"
-        @contextmenu.prevent.stop="handleListContextMenu($event, list)">
+        @contextmenu.prevent.stop="handleListContextMenu($event, list)"
+      >
         <span class="nav-icon" v-html="`<svg xmlns='http://www.w3.org/2000/svg' width='20' height='20' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><path d='M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z'/><polyline points='14 2 14 8 20 8'/></svg>`"></span>
         <span class="nav-label">{{ list.name }}</span>
         <span class="nav-badge" v-if="list.incompleteCount > 0">{{ list.incompleteCount }}</span>
       </button>
-      </UiTooltip>
     </nav>
     </UiScrollbar>
 
@@ -175,12 +198,15 @@ function handleListContextMenu(e: MouseEvent, list: { id: string; name: string }
         <input v-model="newListName" class="new-list-input" placeholder="输入列表名称..." @keydown="handleNewListKeydown"
           @blur="() => { if (!newListName.trim()) showNewListInput = false }" autofocus />
       </template>
-      <UiTooltip v-else content="新建列表" placement="right" :disabled="!isSidebarCollapsed" block>
-      <button class="add-list-btn" @click="showNewListInput = true">
+      <button
+        v-else
+        v-tooltip="{ content: '新建列表', placement: 'right', disabled: !isSidebarCollapsed, block: true }"
+        class="add-list-btn"
+        @click="showNewListInput = true"
+      >
         <span class="nav-icon" v-html="`<svg xmlns='http://www.w3.org/2000/svg' width='20' height='20' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><line x1='12' x2='12' y1='5' y2='19'/><line x1='5' x2='19' y1='12' y2='12'/></svg>`"></span>
         <span class="nav-label">新建列表</span>
       </button>
-      </UiTooltip>
     </div>
     </div>
   </aside>
@@ -195,7 +221,7 @@ function handleListContextMenu(e: MouseEvent, list: { id: string; name: string }
   flex-direction: column;
   background: transparent;
   border-radius: 16px;
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.05);
+  box-shadow: var(--todo-panel-shadow);
   overflow: hidden;
   box-sizing: border-box;
   position: relative;
@@ -298,7 +324,7 @@ function handleListContextMenu(e: MouseEvent, list: { id: string; name: string }
   margin: 0;
   font-size: 1.3em;
   font-weight: 700;
-  background: linear-gradient(135deg, #4A90D9, #6EBFB5);
+  background: linear-gradient(135deg, var(--ui-text-primary), var(--ui-text-secondary));
   -webkit-background-clip: text;
   background-clip: text;
   -webkit-text-fill-color: transparent;
@@ -392,7 +418,7 @@ function handleListContextMenu(e: MouseEvent, list: { id: string; name: string }
 }
 
 .add-list-btn:hover {
-  background: rgba(74, 144, 217, 0.06);
+  background: var(--todo-accent-bg-soft);
   border-color: var(--ui-border-accent-soft);
 }
 
@@ -406,12 +432,12 @@ function handleListContextMenu(e: MouseEvent, list: { id: string; name: string }
   background: var(--ui-input-bg);
   color: var(--ui-text-primary);
   box-sizing: border-box;
-  box-shadow: 0 0 0 3px rgba(74, 144, 217, 0.12);
+  box-shadow: 0 0 0 3px var(--todo-accent-ring);
   animation: list-input-in 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
   transition: box-shadow 0.2s ease, border-color 0.2s ease;
 }
 .new-list-input:focus {
-  box-shadow: 0 0 0 3px rgba(74, 144, 217, 0.18);
+  box-shadow: 0 0 0 3px var(--todo-accent-ring);
 }
 .new-list-input::placeholder {
   color: var(--ui-input-placeholder);

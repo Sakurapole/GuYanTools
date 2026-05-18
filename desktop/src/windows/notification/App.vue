@@ -1,5 +1,13 @@
 <template>
-  <div class="notification-wrapper" :class="[`notification--${data.size}`, `notification--${data.type}`, { 'notification--visible': visible }]">
+  <div
+    class="notification-wrapper"
+    :class="[
+      `notification--${data.size}`,
+      `notification--${data.type}`,
+      `notification-theme--${theme}`,
+      { 'notification--visible': visible },
+    ]"
+  >
     <div class="notification-card" @mouseenter="pauseAutoClose" @mouseleave="resumeAutoClose" @click="activateNotification">
       <!-- 关闭按钮 -->
       <button class="notification-close" @click.stop="close" title="关闭">
@@ -58,7 +66,7 @@
 
 <script setup lang="ts">
 import { onBeforeUnmount, onMounted, reactive, ref } from 'vue';
-import type { NotificationPayload } from '@/contracts/notification';
+import type { NotificationPayload, NotificationTheme } from '@/contracts/notification';
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 const ipc = (window as any).ipcRenderer as {
@@ -77,6 +85,7 @@ const data = reactive<NotificationPayload>({
 const visible = ref(false);
 const paused = ref(false);
 const duration = ref(5000);
+const theme = ref<NotificationTheme>('dark');
 
 let autoCloseTimer: ReturnType<typeof setTimeout> | null = null;
 let remainingTime = 0;
@@ -131,6 +140,7 @@ onMounted(() => {
   const removeListener = ipc?.on('notification:data', (payload: NotificationPayload) => {
     Object.assign(data, payload);
     duration.value = payload.duration ?? 5000;
+    theme.value = payload.theme ?? 'dark';
 
     // 触发入场动画
     requestAnimationFrame(() => {
@@ -140,9 +150,14 @@ onMounted(() => {
     startAutoClose();
   });
 
+  const removeThemeListener = ipc?.on('notification:theme', (nextTheme: NotificationTheme) => {
+    theme.value = nextTheme === 'dark' ? 'dark' : 'light';
+  });
+
   // cleanup
   onBeforeUnmount(() => {
     removeListener?.();
+    removeThemeListener?.();
     if (autoCloseTimer) clearTimeout(autoCloseTimer);
   });
 });
@@ -192,25 +207,25 @@ body {
   display: flex;
   flex-direction: column;
   border-radius: 12px;
-  border: 1px solid rgba(102, 204, 255, 0.22);
-  background: rgba(20, 35, 45, 0.88);
+  border: 1px solid var(--notification-border);
+  background: var(--notification-card-bg);
   box-shadow:
-    0 14px 36px rgba(0, 0, 0, 0.32),
-    0 0 0 1px rgba(255, 255, 255, 0.04),
-    inset 0 1px 0 rgba(255, 255, 255, 0.06);
+    0 14px 36px var(--notification-shadow),
+    0 0 0 1px var(--notification-ring),
+    inset 0 1px 0 var(--notification-inner-glow);
   backdrop-filter: blur(18px) saturate(1.6);
   overflow: hidden;
-  color: rgba(220, 240, 255, 0.92);
+  color: var(--notification-text);
   cursor: default;
   user-select: none;
 }
 
 .notification-card:hover {
-  border-color: rgba(102, 204, 255, 0.36);
+  border-color: var(--notification-border-hover);
   box-shadow:
-    0 18px 42px rgba(0, 0, 0, 0.38),
-    0 0 0 1px rgba(255, 255, 255, 0.06),
-    inset 0 1px 0 rgba(255, 255, 255, 0.08);
+    0 18px 42px var(--notification-shadow-hover),
+    0 0 0 1px var(--notification-ring-hover),
+    inset 0 1px 0 var(--notification-inner-glow-hover);
 }
 
 /* ─── Close ─── */
@@ -227,14 +242,14 @@ body {
   border: none;
   border-radius: 8px;
   background: transparent;
-  color: rgba(220, 240, 255, 0.5);
+  color: var(--notification-close-text);
   cursor: pointer;
   transition: all 0.18s ease;
 }
 
 .notification-close:hover {
-  background: rgba(102, 204, 255, 0.18);
-  color: rgba(220, 240, 255, 0.92);
+  background: var(--notification-control-hover-bg);
+  color: var(--notification-text);
 }
 
 /* ─── Title & Message ─── */
@@ -242,7 +257,7 @@ body {
   font-size: 14px;
   font-weight: 600;
   line-height: 1.4;
-  color: rgba(220, 240, 255, 0.95);
+  color: var(--notification-title);
   margin-bottom: 4px;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -252,7 +267,7 @@ body {
 .notification-message {
   font-size: 12.5px;
   line-height: 1.5;
-  color: rgba(220, 240, 255, 0.65);
+  color: var(--notification-message);
   overflow: hidden;
   display: -webkit-box;
   line-clamp: 3;
@@ -318,8 +333,8 @@ body {
   align-items: center;
   justify-content: center;
   border-radius: 10px;
-  background: rgba(102, 204, 255, 0.14);
-  border: 1px solid rgba(102, 204, 255, 0.18);
+  background: var(--notification-icon-bg);
+  border: 1px solid var(--notification-icon-border);
 }
 
 .notification-rich__icon-glyph {
@@ -337,7 +352,7 @@ body {
   height: 52px;
   border-radius: 8px;
   object-fit: cover;
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  border: 1px solid var(--notification-thumb-border);
 }
 
 /* ─── Size Variants ─── */
@@ -373,15 +388,59 @@ body {
 /* ─── Progress Bar ─── */
 .notification-progress {
   height: 3px;
-  background: rgba(255, 255, 255, 0.06);
+  background: var(--notification-progress-track);
 }
 
 .notification-progress__bar {
   height: 100%;
-  background: linear-gradient(90deg, #66ccff, #a78bfa);
+  background: var(--notification-progress-bar);
   transform-origin: left center;
   animation: notificationShrink linear forwards;
   border-radius: 0 2px 2px 0;
+}
+
+.notification-theme--light {
+  --notification-card-bg: rgba(255, 255, 255, 0.92);
+  --notification-border: rgba(15, 23, 42, 0.08);
+  --notification-border-hover: rgba(102, 204, 255, 0.42);
+  --notification-shadow: rgba(9, 38, 64, 0.16);
+  --notification-shadow-hover: rgba(9, 38, 64, 0.2);
+  --notification-ring: rgba(15, 23, 42, 0.04);
+  --notification-ring-hover: rgba(102, 204, 255, 0.14);
+  --notification-inner-glow: rgba(255, 255, 255, 0.72);
+  --notification-inner-glow-hover: rgba(255, 255, 255, 0.86);
+  --notification-text: rgba(30, 70, 90, 0.9);
+  --notification-title: rgba(30, 70, 90, 0.95);
+  --notification-message: rgba(30, 70, 90, 0.68);
+  --notification-close-text: rgba(30, 70, 90, 0.5);
+  --notification-control-hover-bg: rgba(102, 204, 255, 0.14);
+  --notification-icon-bg: rgba(102, 204, 255, 0.14);
+  --notification-icon-border: rgba(102, 204, 255, 0.22);
+  --notification-thumb-border: rgba(15, 23, 42, 0.08);
+  --notification-progress-track: rgba(30, 70, 90, 0.08);
+  --notification-progress-bar: linear-gradient(90deg, #5c9ded, #66ccff);
+}
+
+.notification-theme--dark {
+  --notification-card-bg: rgba(20, 35, 45, 0.88);
+  --notification-border: rgba(102, 204, 255, 0.22);
+  --notification-border-hover: rgba(102, 204, 255, 0.36);
+  --notification-shadow: rgba(0, 0, 0, 0.32);
+  --notification-shadow-hover: rgba(0, 0, 0, 0.38);
+  --notification-ring: rgba(255, 255, 255, 0.04);
+  --notification-ring-hover: rgba(255, 255, 255, 0.06);
+  --notification-inner-glow: rgba(255, 255, 255, 0.06);
+  --notification-inner-glow-hover: rgba(255, 255, 255, 0.08);
+  --notification-text: rgba(220, 240, 255, 0.92);
+  --notification-title: rgba(220, 240, 255, 0.95);
+  --notification-message: rgba(220, 240, 255, 0.65);
+  --notification-close-text: rgba(220, 240, 255, 0.5);
+  --notification-control-hover-bg: rgba(102, 204, 255, 0.18);
+  --notification-icon-bg: rgba(102, 204, 255, 0.14);
+  --notification-icon-border: rgba(102, 204, 255, 0.18);
+  --notification-thumb-border: rgba(255, 255, 255, 0.08);
+  --notification-progress-track: rgba(255, 255, 255, 0.06);
+  --notification-progress-bar: linear-gradient(90deg, #66ccff, #a78bfa);
 }
 
 @keyframes notificationShrink {

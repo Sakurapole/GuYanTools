@@ -2,6 +2,7 @@ import { defineStore, acceptHMRUpdate } from 'pinia';
 import { computed, ref } from 'vue';
 import type {
   CreateTerminalSessionPayload,
+  LocalTerminalProfileConfig,
   TerminalEventEnvelope,
   TerminalProfile,
   TerminalSessionDescriptor,
@@ -12,7 +13,7 @@ const DEFAULT_COLS = 120;
 const DEFAULT_ROWS = 32;
 
 export const useTerminalStore = defineStore('terminal', () => {
-  const profiles = ref<TerminalProfile[]>([]);
+  const systemProfiles = ref<TerminalProfile[]>([]);
   const sessions = ref<TerminalSessionDescriptor[]>([]);
   const activeSessionId = ref('');
   const sessionBuffers = ref<Record<string, string>>({});
@@ -21,6 +22,15 @@ export const useTerminalStore = defineStore('terminal', () => {
   const sessionBootReported = ref<Record<string, boolean>>({});
   const initialized = ref(false);
   let removeListener: (() => void) | null = null;
+  const appConfigStore = useAppConfigStore();
+
+  const profiles = computed<TerminalProfile[]>(() =>
+    mergeTerminalProfiles(
+      systemProfiles.value,
+      appConfigStore.config.features.terminal.localProfiles,
+      appConfigStore.config.features.terminal.defaultProfileId,
+    ),
+  );
 
   const activeSession = computed(() =>
     sessions.value.find((session) => session.sessionId === activeSessionId.value) ?? null,
@@ -45,9 +55,10 @@ export const useTerminalStore = defineStore('terminal', () => {
 
   async function initialize(preferredSessionId?: string) {
     if (!initialized.value) {
-      profiles.value = await window.terminalApi.listProfiles();
+      systemProfiles.value = await window.terminalApi.listProfiles();
       sessions.value = await window.terminalApi.listSessions();
       ensureEventSubscription();
+      await hydrateSessionBuffers(sessions.value.map((session) => session.sessionId));
       initialized.value = true;
     }
 
@@ -84,17 +95,24 @@ export const useTerminalStore = defineStore('terminal', () => {
   }
 
   async function createSession(payload: Partial<CreateTerminalSessionPayload> = {}) {
-    const appConfigStore = useAppConfigStore();
     const defaultProfileId = appConfigStore.config.features.terminal.defaultProfileId || undefined;
     const defaultCwd = appConfigStore.config.features.terminal.defaultCwd || undefined;
+    const profile = profiles.value.find((item) => item.id === (payload.profileId ?? defaultProfileId));
+    const localProfile = findLocalProfile(appConfigStore.config.features.terminal.localProfiles, profile?.id);
+    const launchArgs = payload.args ?? buildLocalProfileArgs(localProfile);
+    const launchEnv = {
+      ...appConfigStore.config.features.terminal.env,
+      ...(localProfile?.env ?? {}),
+      ...(localProfile?.configFilePath ? { GUYANTOOLS_TERMINAL_CONFIG_FILE: localProfile.configFilePath } : {}),
+      ...(payload.env ?? {}),
+    };
     const descriptor = await window.terminalApi.createSession({
       profileId: payload.profileId ?? defaultProfileId,
-      cwd: payload.cwd ?? defaultCwd,
-      args: payload.args,
-      env: {
-        ...appConfigStore.config.features.terminal.env,
-        ...(payload.env ?? {}),
-      },
+      profileLabel: payload.profileLabel ?? localProfile?.label,
+      command: payload.command ?? localProfile?.command,
+      cwd: payload.cwd ?? localProfile?.cwd ?? defaultCwd,
+      args: launchArgs.length > 0 ? launchArgs : undefined,
+      env: Object.keys(launchEnv).length > 0 ? launchEnv : undefined,
       rows: payload.rows ?? DEFAULT_ROWS,
       cols: payload.cols ?? DEFAULT_COLS,
       pixelWidth: payload.pixelWidth ?? DEFAULT_COLS * 8,
@@ -169,6 +187,7 @@ export const useTerminalStore = defineStore('terminal', () => {
       ...sessionBuffers.value,
       [sessionId]: '',
     };
+    void window.terminalApi.clearBuffer(sessionId);
   }
 
   function getBuffer(sessionId: string) {
@@ -196,6 +215,10 @@ export const useTerminalStore = defineStore('terminal', () => {
       }
       case 'state':
         updateSessionFromEvent(event);
+        if (event.attachedTarget && !isDetachedTarget(event.attachedTarget)) {
+          focusReturnedSessionIfNeeded(event.sessionId);
+          void hydrateSessionBuffer(event.sessionId);
+        }
         break;
       case 'exit':
         removeSessionLocal(event.sessionId);
@@ -237,6 +260,29 @@ export const useTerminalStore = defineStore('terminal', () => {
     }
 
     sessions.value = sessions.value.map((item, itemIndex) => itemIndex === index ? session : item);
+  }
+
+  function focusReturnedSessionIfNeeded(sessionId: string) {
+    const activeMainSession = mainSessions.value.find((session) => session.sessionId === activeSessionId.value);
+    if (activeMainSession) {
+      return;
+    }
+
+    if (mainSessions.value.some((session) => session.sessionId === sessionId)) {
+      activeSessionId.value = sessionId;
+    }
+  }
+
+  async function hydrateSessionBuffers(sessionIds: string[]) {
+    await Promise.all(sessionIds.map((sessionId) => hydrateSessionBuffer(sessionId)));
+  }
+
+  async function hydrateSessionBuffer(sessionId: string) {
+    const buffer = await window.terminalApi.getBuffer(sessionId);
+    sessionBuffers.value = {
+      ...sessionBuffers.value,
+      [sessionId]: buffer,
+    };
   }
 
   function removeSessionLocal(sessionId: string) {
@@ -317,6 +363,7 @@ export const useTerminalStore = defineStore('terminal', () => {
 
   return {
     profiles,
+    systemProfiles,
     sessions,
     activeSessionId,
     activeSession,
@@ -338,6 +385,73 @@ export const useTerminalStore = defineStore('terminal', () => {
     renameSession,
   };
 });
+
+function mergeTerminalProfiles(
+  systemProfiles: TerminalProfile[],
+  localProfiles: LocalTerminalProfileConfig[],
+  defaultProfileId?: string,
+) {
+  return [
+    ...systemProfiles.map((profile) => ({
+      ...profile,
+      isDefault: defaultProfileId ? profile.id === defaultProfileId : profile.isDefault,
+      source: 'system' as const,
+    })),
+    ...localProfiles.map((profile) => ({
+      id: profile.id,
+      label: profile.label,
+      command: profile.command,
+      args: profile.args,
+      cwd: profile.cwd,
+      env: profile.env,
+      configFilePath: profile.configFilePath,
+      background: profile.background,
+      isDefault: Boolean(defaultProfileId && profile.id === defaultProfileId),
+      source: 'custom' as const,
+    })),
+  ];
+}
+
+function findLocalProfile(localProfiles: LocalTerminalProfileConfig[], profileId?: string) {
+  if (!profileId) {
+    return null;
+  }
+
+  return localProfiles.find((profile) => profile.id === profileId) ?? null;
+}
+
+function buildLocalProfileArgs(profile: LocalTerminalProfileConfig | null) {
+  if (!profile) {
+    return [];
+  }
+
+  return [
+    ...profile.args,
+    ...buildConfigFileArgs(profile.command, profile.configFilePath),
+  ];
+}
+
+function buildConfigFileArgs(command: string, configFilePath?: string) {
+  const configPath = configFilePath?.trim();
+  if (!configPath) {
+    return [];
+  }
+
+  const commandName = command.toLowerCase().replace(/\\/g, '/').split('/').pop() ?? command.toLowerCase();
+  if (commandName === 'cmd.exe' || commandName === 'cmd') {
+    return ['/K', configPath];
+  }
+
+  if (commandName === 'pwsh.exe' || commandName === 'pwsh' || commandName === 'powershell.exe' || commandName === 'powershell') {
+    return ['-NoProfile', '-NoExit', '-ExecutionPolicy', 'Bypass', '-File', configPath];
+  }
+
+  if (commandName === 'bash.exe' || commandName === 'bash') {
+    return ['--rcfile', configPath];
+  }
+
+  return [];
+}
 
 if (import.meta.hot) {
   import.meta.hot.accept(acceptHMRUpdate(useTerminalStore, import.meta.hot));

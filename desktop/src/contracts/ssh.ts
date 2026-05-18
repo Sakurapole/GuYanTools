@@ -32,6 +32,7 @@ export interface SshProfile {
   /** JSON-serialized SshJumpHost */
   jumpHostJson?: string;
   autoReconnect: boolean;
+  folderId?: string;
   sortOrder: number;
   color?: string;
   /** JSON-serialized string[] */
@@ -57,6 +58,7 @@ export interface CreateSshProfileInput {
   privateKeyPassphrase?: string;
   jumpHostJson?: string;
   autoReconnect: boolean;
+  folderId?: string;
   color?: string;
   tags?: string;
 }
@@ -76,8 +78,29 @@ export interface UpdateSshProfileInput {
   privateKeyPassphrase?: string;
   jumpHostJson?: string;
   autoReconnect?: boolean;
+  folderId?: string;
   color?: string;
   tags?: string;
+}
+
+export interface SshProfileFolder {
+  id: string;
+  label: string;
+  parentId?: string;
+  sortOrder: number;
+  createdAt: number;
+}
+
+export interface CreateSshProfileFolderInput {
+  label: string;
+  parentId?: string;
+}
+
+export interface UpdateSshProfileFolderInput {
+  id: string;
+  label?: string;
+  parentId?: string;
+  sortOrder?: number;
 }
 
 // ── Active session ────────────────────────────────────────────
@@ -99,6 +122,7 @@ export interface SshSessionDescriptor {
   username: string;
   status: SshSessionStatus | string;
   viaJumpHost: boolean;
+  attachedTarget?: string;
 }
 
 // ── Connect input (runtime only) ──────────────────────────────
@@ -201,6 +225,7 @@ export interface SshEventEnvelope {
   sessionId: string;
   data?: string;
   status?: SshSessionStatus | string;
+  attachedTarget?: string;
   message?: string;
   exitCode?: number;
 }
@@ -257,6 +282,14 @@ export interface PortForwardStatus {
   errorMessage?: string;
 }
 
+export interface PortOccupantInfo {
+  pid: number;
+  name: string;
+  command?: string;
+  localAddress?: string;
+  localPort: number;
+}
+
 /** 端口转发实时流量统计 */
 export interface PortForwardTrafficInfo {
   forwardId: string;
@@ -273,6 +306,10 @@ export interface PortForwardTrafficInfo {
 export interface SshApi {
   // Profile CRUD
   listProfiles: () => Promise<SshProfile[]>;
+  listFolders: () => Promise<SshProfileFolder[]>;
+  createFolder: (input: CreateSshProfileFolderInput) => Promise<SshProfileFolder>;
+  updateFolder: (input: UpdateSshProfileFolderInput) => Promise<SshProfileFolder>;
+  deleteFolder: (id: string) => Promise<void>;
   createProfile: (input: CreateSshProfileInput) => Promise<SshProfile>;
   updateProfile: (input: UpdateSshProfileInput) => Promise<SshProfile>;
   deleteProfile: (id: string) => Promise<void>;
@@ -282,6 +319,8 @@ export interface SshApi {
   connect: (input: ConnectSshInput) => Promise<SshSessionDescriptor>;
   disconnect: (sessionId: string) => Promise<void>;
   detachToWindow: (sessionId: string, label?: string) => Promise<void>;
+  getBuffer: (sessionId: string) => Promise<string>;
+  clearBuffer: (sessionId: string) => Promise<void>;
 
   // I/O (writes go through the same pipe as terminal writes)
   write: (sessionId: string, data: string) => Promise<void>;
@@ -309,6 +348,8 @@ export interface SshApi {
   startPortForward: (sessionId: string, forwardId: string) => Promise<void>;
   stopPortForward: (sessionId: string, forwardId: string) => Promise<void>;
   listForwardStatus: (sessionId: string) => Promise<PortForwardStatus[]>;
+  getPortOccupant: (host: string, port: number) => Promise<PortOccupantInfo | null>;
+  killPortOccupant: (pid: number) => Promise<void>;
 
   // Traffic statistics
   getForwardTraffic: (sessionId: string) => Promise<PortForwardTrafficInfo[]>;

@@ -86,6 +86,7 @@ const iconType = computed(() => {
 
 <style lang="scss" scoped>
 .ui-file-icon {
+  position: relative;
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -97,6 +98,10 @@ const iconType = computed(() => {
   color: var(--primary-color);
 
   svg {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    display: block;
     width: 16px;
     height: 16px;
     fill: none;
@@ -104,9 +109,16 @@ const iconType = computed(() => {
     stroke-linecap: round;
     stroke-linejoin: round;
     stroke-width: 1.5;
+    overflow: visible;
+    transform: translate(
+      calc(-50% + var(--ui-file-icon-glyph-x, 0px)),
+      calc(-50% + var(--ui-file-icon-glyph-y, 0px))
+    );
   }
 
   &--dir {
+    --ui-file-icon-glyph-y: -0.5px;
+
     color: #52a8ff;
   }
 
@@ -123,6 +135,8 @@ const iconType = computed(() => {
   }
 
   &--archive {
+    --ui-file-icon-glyph-y: -0.25px;
+
     color: #fb7185;
   }
 
@@ -131,14 +145,20 @@ const iconType = computed(() => {
   }
 
   &--document {
+    --ui-file-icon-glyph-y: -0.35px;
+
     color: #94a3b8;
   }
 
   &--config {
+    --ui-file-icon-glyph-y: 0.45px;
+
     color: #22c55e;
   }
 
   &--shell {
+    --ui-file-icon-glyph-y: -0.25px;
+
     color: #f97316;
   }
 }

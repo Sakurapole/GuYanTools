@@ -86,7 +86,9 @@ class _ChatPageState extends State<ChatPage> {
                               _formatTime(msg.timestamp),
                               style: TextStyle(
                                 fontSize: 10,
-                                color: cs.onSurfaceVariant.withValues(alpha: 0.5),
+                                color: cs.onSurfaceVariant.withValues(
+                                  alpha: 0.5,
+                                ),
                               ),
                             ),
                           ),
@@ -95,7 +97,9 @@ class _ChatPageState extends State<ChatPage> {
                             const SizedBox(height: 8),
                             Wrap(
                               spacing: 8,
-                              children: msg.suggestions!.map((s) => _buildChip(context, s)).toList(),
+                              children: msg.suggestions!
+                                  .map((s) => _buildChip(context, s))
+                                  .toList(),
                             ),
                           ],
                         ],
@@ -141,7 +145,6 @@ class _ChatPageState extends State<ChatPage> {
                     Text(
                       'Architect AI',
                       style: TextStyle(
-                        fontFamily: 'Manrope',
                         fontSize: 18,
                         fontWeight: FontWeight.w700,
                         color: cs.onSurface,
@@ -161,7 +164,10 @@ class _ChatPageState extends State<ChatPage> {
                 ),
                 const Spacer(),
                 IconButton(
-                  icon: Icon(Icons.settings_outlined, color: cs.onSurfaceVariant.withValues(alpha: 0.6)),
+                  icon: Icon(
+                    Icons.settings_outlined,
+                    color: cs.onSurfaceVariant.withValues(alpha: 0.6),
+                  ),
                   onPressed: () {},
                 ),
               ],
@@ -193,23 +199,27 @@ class _ChatPageState extends State<ChatPage> {
                 ),
               ],
             ),
-            child: const Icon(Icons.smart_toy, size: 36, color: Color(0xFF00354A)),
+            child: const Icon(
+              Icons.smart_toy,
+              size: 36,
+              color: Color(0xFF00354A),
+            ),
           ),
           const SizedBox(height: 16),
           Text(
             '今天我们来构建什么？',
             style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                  fontWeight: FontWeight.w800,
-                  color: cs.onSurface,
-                  letterSpacing: -0.5,
-                ),
+              fontWeight: FontWeight.w800,
+              color: cs.onSurface,
+              letterSpacing: -0.5,
+            ),
           ),
           const SizedBox(height: 6),
           Text(
             '我的神经架构已准备好协助你的下一个杰作。',
             style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                  color: cs.onSurfaceVariant.withValues(alpha: 0.7),
-                ),
+              color: cs.onSurfaceVariant.withValues(alpha: 0.7),
+            ),
             textAlign: TextAlign.center,
           ),
         ],
@@ -225,7 +235,11 @@ class _ChatPageState extends State<ChatPage> {
       decoration: BoxDecoration(
         color: cs.surfaceContainerHigh.withValues(alpha: 0.4),
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: AppColors.ghostBorder(Theme.of(context).brightness == Brightness.dark)),
+        border: Border.all(
+          color: AppColors.ghostBorder(
+            Theme.of(context).brightness == Brightness.dark,
+          ),
+        ),
       ),
       child: Text(
         text.toUpperCase(),
@@ -260,7 +274,10 @@ class _ChatPageState extends State<ChatPage> {
             child: Row(
               children: [
                 IconButton(
-                  icon: Icon(Icons.attach_file, color: cs.onSurfaceVariant.withValues(alpha: 0.5)),
+                  icon: Icon(
+                    Icons.attach_file,
+                    color: cs.onSurfaceVariant.withValues(alpha: 0.5),
+                  ),
                   onPressed: () {},
                 ),
                 Expanded(
@@ -269,10 +286,15 @@ class _ChatPageState extends State<ChatPage> {
                     style: TextStyle(fontSize: 14, color: cs.onSurface),
                     decoration: InputDecoration(
                       hintText: '输入你的想法...',
-                      hintStyle: TextStyle(color: cs.onSurfaceVariant.withValues(alpha: 0.4)),
+                      hintStyle: TextStyle(
+                        color: cs.onSurfaceVariant.withValues(alpha: 0.4),
+                      ),
                       border: InputBorder.none,
                       filled: false,
-                      contentPadding: const EdgeInsets.symmetric(horizontal: 4, vertical: 10),
+                      contentPadding: const EdgeInsets.symmetric(
+                        horizontal: 4,
+                        vertical: 10,
+                      ),
                     ),
                     onSubmitted: (_) => _sendMessage(),
                   ),
@@ -292,7 +314,11 @@ class _ChatPageState extends State<ChatPage> {
                     ],
                   ),
                   child: IconButton(
-                    icon: const Icon(Icons.send, size: 20, color: Color(0xFF00354A)),
+                    icon: const Icon(
+                      Icons.send,
+                      size: 20,
+                      color: Color(0xFF00354A),
+                    ),
                     onPressed: _sendMessage,
                   ),
                 ),

@@ -8,15 +8,19 @@ import UiField from '../../components/ui/UiField.vue';
 import UiIconButton from '../../components/ui/UiIconButton.vue';
 import UiInput from '../../components/ui/UiInput.vue';
 import UiStateCard from '../../components/ui/UiStateCard.vue';
-import UiBackgroundPicker from '../../components/ui/UiBackgroundPicker.vue';
+import UiPersonalizationConfig from '../../components/ui/UiPersonalizationConfig.vue';
 import IconPicker from '../../components/ui/IconPicker.vue';
 import IconRenderer from '../../components/ui/IconRenderer.vue';
+import { notifyError } from '../../composables/useInAppNotification';
 import EditIcon from '../../components/svgs/icons/EditIcon.vue';
 import { useGridPersistence } from '../../composables/useGridPersistence';
 import { useContextMenu, type ContextMenuItem } from '../../composables/useContextMenu';
-import { useGlobalStore } from '../../stores/global_store';
+import { useHomeProfileStore } from '../../stores/home_profile_store';
+import { useAppConfigStore } from '../../stores/app_config_store';
 import type { CategoryItem, GridConfig, GridItem, BackgroundConfirmPayload } from '../../types/grid';
 import type { CreateHomeWidgetPayload } from '@/contracts/home_layout';
+import { resolveThemeBackground, withThemeBackground } from '@/contracts/background';
+import { buildBackgroundTextVars } from '../../utils/backgroundTextColor';
 import type * as THREE from 'three';
 
 const GRID_GAP = 8;
@@ -50,7 +54,10 @@ const Ui3DFloatingShapesComponent = defineAsyncComponent(() => import('../../com
 
 const homeShellRef = ref<HTMLElement | null>(null);
 const compAreaWrapper = ref<HTMLElement | null>(null);
+const compAreaStageRef = ref<HTMLElement | null>(null);
 const categoryListRef = ref<HTMLElement | null>(null);
+const homeHeaderRef = ref<HTMLElement | null>(null);
+const sidebarPanelRef = ref<{ $el?: Element } | null>(null);
 
 // 3D scene objects for header decoration
 const header3DScene = shallowRef<THREE.Scene | null>(null);
@@ -90,6 +97,16 @@ const slotACategory = computed<CategoryItem | null>(() => slotAIndex.value >= 0 
 const slotBCategory = computed<CategoryItem | null>(() => slotBIndex.value >= 0 ? categories[slotBIndex.value] ?? null : null);
 const activeSlotCategory = computed<CategoryItem | null>(() => activeSlot.value === 'A' ? slotACategory.value : slotBCategory.value);
 const activeCategory = computed<CategoryItem | null>(() => categories[activeCategoryIndex.value] ?? activeSlotCategory.value);
+const activeCategoryBackground = computed(() => {
+  const category = activeCategory.value;
+  return resolveThemeBackground({
+    type: category?.backgroundVideo ? 'video' : category?.backgroundImage ? 'image' : 'color',
+    color: category?.backgroundColor,
+    image: category?.backgroundImage,
+    video: category?.backgroundVideo,
+    backgroundStyle: category?.backgroundStyle,
+  }, appConfigStore.config.appearance.theme);
+});
 const activeCategoryDescription = computed(() => {
   if (!activeCategory.value) {
     return '从左侧选择分类，进入你的桌面工作台。';
@@ -127,7 +144,52 @@ const {
 
 const showCategoryBgPicker = ref(false);
 const contextMenu = useContextMenu();
-const globalStore = useGlobalStore();
+const homeProfileStore = useHomeProfileStore();
+const appConfigStore = useAppConfigStore();
+let profileReloadReady = false;
+
+function getMeasuredSize(target: HTMLElement | { $el?: Element } | null, fallback: { width: number; height: number }) {
+  const element = target instanceof HTMLElement
+    ? target
+    : target?.$el instanceof HTMLElement
+      ? target.$el
+      : null;
+
+  if (!element) return fallback;
+
+  const rect = element.getBoundingClientRect();
+  return rect.width > 0 && rect.height > 0
+    ? { width: Math.round(rect.width), height: Math.round(rect.height) }
+    : fallback;
+}
+
+const categoryBgPreviewSize = computed(() => getMeasuredSize(compAreaStageRef.value ?? compAreaWrapper.value, { width: 800, height: 500 }));
+const headerBgPreviewSize = computed(() => getMeasuredSize(homeHeaderRef.value, { width: 800, height: 120 }));
+const sidebarBgPreviewSize = computed(() => getMeasuredSize(sidebarPanelRef.value, { width: 200, height: 600 }));
+
+function toObjectFit(backgroundSizeValue?: string): 'contain' | 'cover' | 'fill' | 'none' {
+  switch (backgroundSizeValue) {
+    case 'contain':
+      return 'contain';
+    case '100% 100%':
+      return 'fill';
+    case 'auto':
+      return 'none';
+    default:
+      return 'cover';
+  }
+}
+
+function buildPanelTextStyle(textColor?: string) {
+  return buildBackgroundTextVars(textColor, {
+    aliases: {
+      primary: ['--ui-text-primary'],
+      secondary: ['--ui-text-secondary'],
+      muted: ['--ui-text-muted'],
+      subtle: ['--ui-text-subtle'],
+    },
+  });
+}
 
 // ─── 顶栏背景 ───
 const HEADER_BG_STORAGE_KEY = 'home-header-background';
@@ -138,29 +200,43 @@ const headerBg = reactive({
   style: undefined as import('../../types/grid').BackgroundStyleConfig | undefined,
 });
 const showHeaderBgPicker = ref(false);
+const activeHeaderBg = computed(() => resolveThemeBackground({
+  type: headerBg.video ? 'video' : headerBg.image ? 'image' : 'color',
+  color: headerBg.color,
+  image: headerBg.image,
+  video: headerBg.video,
+  backgroundStyle: headerBg.style,
+}, appConfigStore.config.appearance.theme));
 
 const headerBgStyle = computed(() => {
+  const background = activeHeaderBg.value;
   const s: Record<string, string> = {};
-  if (headerBg.image) {
-    s.backgroundImage = `url(${headerBg.image})`;
-    s.backgroundSize = headerBg.style?.backgroundSize || 'cover';
-    s.backgroundPosition = headerBg.style?.backgroundPosition || 'center';
-    s.backgroundRepeat = headerBg.style?.backgroundRepeat || 'no-repeat';
-  } else if (headerBg.color) {
-    s.background = headerBg.color;
+  if (background.image) {
+    s.backgroundImage = `url(${background.image})`;
+    s.backgroundSize = background.backgroundStyle?.backgroundSize || 'cover';
+    s.backgroundPosition = background.backgroundStyle?.backgroundPosition || 'center';
+    s.backgroundRepeat = background.backgroundStyle?.backgroundRepeat || 'no-repeat';
+  } else if (background.color) {
+    s.background = background.color;
   }
-  if (headerBg.style?.opacity !== undefined && headerBg.style.opacity < 1) {
-    s.opacity = String(headerBg.style.opacity);
+  if (background.backgroundStyle?.opacity !== undefined && background.backgroundStyle.opacity < 1) {
+    s.opacity = String(background.backgroundStyle.opacity);
   }
+  Object.assign(s, buildPanelTextStyle(background.backgroundStyle?.textColor));
   return s;
 });
+
+const headerBgVideoStyle = computed(() => ({
+  objectFit: toObjectFit(activeHeaderBg.value.backgroundStyle?.backgroundSize),
+  objectPosition: activeHeaderBg.value.backgroundStyle?.backgroundPosition || 'center',
+}));
 
 function handleHeaderContextMenu(e: MouseEvent) {
   e.preventDefault();
   const menuItems: ContextMenuItem[] = [
     {
       id: 'header-bg',
-      label: '自定义顶栏背景',
+      label: '顶栏个性化配置',
       icon: EditIcon,
       action: () => { showHeaderBgPicker.value = true; },
     },
@@ -169,20 +245,24 @@ function handleHeaderContextMenu(e: MouseEvent) {
 }
 
 function handleHeaderBgConfirm(payload: BackgroundConfirmPayload) {
-  if (payload.type === 'color') {
-    headerBg.color = payload.color || '';
-    headerBg.image = '';
-    headerBg.video = '';
-    headerBg.style = payload.backgroundStyle;
-  } else if (payload.type === 'image') {
-    headerBg.image = payload.image || '';
-    headerBg.video = '';
-    headerBg.style = payload.backgroundStyle;
-  } else if (payload.type === 'video') {
-    headerBg.video = payload.video || '';
-    headerBg.image = '';
-    headerBg.style = payload.backgroundStyle;
-  }
+  const background = withThemeBackground({
+    type: headerBg.video ? 'video' : headerBg.image ? 'image' : 'color',
+    color: headerBg.color,
+    image: headerBg.image,
+    video: headerBg.video,
+    backgroundStyle: headerBg.style,
+  }, appConfigStore.config.appearance.theme, {
+    type: payload.type,
+    color: payload.color ?? '',
+    image: payload.image ?? '',
+    video: payload.video ?? '',
+    backgroundStyle: payload.backgroundStyle ?? {},
+  });
+
+  headerBg.color = background.color;
+  headerBg.image = background.image;
+  headerBg.video = background.video;
+  headerBg.style = background.backgroundStyle;
 
   try {
     window.homeWorkspaceApi?.updateBackground({
@@ -190,7 +270,7 @@ function handleHeaderBgConfirm(payload: BackgroundConfirmPayload) {
         color: headerBg.color,
         image: headerBg.image,
         video: headerBg.video,
-        style: headerBg.style as Record<string, unknown> | undefined,
+        style: background.backgroundStyle as Record<string, unknown>,
       },
     }).catch(() => {
       // fallback: 写 localStorage
@@ -208,22 +288,36 @@ const sidebarBg = reactive({
   style: undefined as import('../../types/grid').BackgroundStyleConfig | undefined,
 });
 const showSidebarBgPicker = ref(false);
+const activeSidebarBg = computed(() => resolveThemeBackground({
+  type: sidebarBg.video ? 'video' : sidebarBg.image ? 'image' : 'color',
+  color: sidebarBg.color,
+  image: sidebarBg.image,
+  video: sidebarBg.video,
+  backgroundStyle: sidebarBg.style,
+}, appConfigStore.config.appearance.theme));
 
 const sidebarBgStyle = computed(() => {
+  const background = activeSidebarBg.value;
   const s: Record<string, string> = {};
-  if (sidebarBg.image) {
-    s.backgroundImage = `url(${sidebarBg.image})`;
-    s.backgroundSize = sidebarBg.style?.backgroundSize || 'cover';
-    s.backgroundPosition = sidebarBg.style?.backgroundPosition || 'center';
-    s.backgroundRepeat = sidebarBg.style?.backgroundRepeat || 'no-repeat';
-  } else if (sidebarBg.color) {
-    s.background = sidebarBg.color;
+  if (background.image) {
+    s.backgroundImage = `url(${background.image})`;
+    s.backgroundSize = background.backgroundStyle?.backgroundSize || 'cover';
+    s.backgroundPosition = background.backgroundStyle?.backgroundPosition || 'center';
+    s.backgroundRepeat = background.backgroundStyle?.backgroundRepeat || 'no-repeat';
+  } else if (background.color) {
+    s.background = background.color;
   }
-  if (sidebarBg.style?.opacity !== undefined && sidebarBg.style.opacity < 1) {
-    s.opacity = String(sidebarBg.style.opacity);
+  if (background.backgroundStyle?.opacity !== undefined && background.backgroundStyle.opacity < 1) {
+    s.opacity = String(background.backgroundStyle.opacity);
   }
+  Object.assign(s, buildPanelTextStyle(background.backgroundStyle?.textColor));
   return s;
 });
+
+const sidebarBgVideoStyle = computed(() => ({
+  objectFit: toObjectFit(activeSidebarBg.value.backgroundStyle?.backgroundSize),
+  objectPosition: activeSidebarBg.value.backgroundStyle?.backgroundPosition || 'center',
+}));
 
 function handleSidebarContextMenu(e: MouseEvent) {
   e.preventDefault();
@@ -236,7 +330,7 @@ function handleSidebarContextMenu(e: MouseEvent) {
     },
     {
       id: 'sidebar-bg',
-      label: '自定义侧边栏背景',
+      label: '侧边栏个性化配置',
       icon: EditIcon,
       action: () => { showSidebarBgPicker.value = true; },
     },
@@ -245,20 +339,24 @@ function handleSidebarContextMenu(e: MouseEvent) {
 }
 
 function handleSidebarBgConfirm(payload: BackgroundConfirmPayload) {
-  if (payload.type === 'color') {
-    sidebarBg.color = payload.color || '';
-    sidebarBg.image = '';
-    sidebarBg.video = '';
-    sidebarBg.style = payload.backgroundStyle;
-  } else if (payload.type === 'image') {
-    sidebarBg.image = payload.image || '';
-    sidebarBg.video = '';
-    sidebarBg.style = payload.backgroundStyle;
-  } else if (payload.type === 'video') {
-    sidebarBg.video = payload.video || '';
-    sidebarBg.image = '';
-    sidebarBg.style = payload.backgroundStyle;
-  }
+  const background = withThemeBackground({
+    type: sidebarBg.video ? 'video' : sidebarBg.image ? 'image' : 'color',
+    color: sidebarBg.color,
+    image: sidebarBg.image,
+    video: sidebarBg.video,
+    backgroundStyle: sidebarBg.style,
+  }, appConfigStore.config.appearance.theme, {
+    type: payload.type,
+    color: payload.color ?? '',
+    image: payload.image ?? '',
+    video: payload.video ?? '',
+    backgroundStyle: payload.backgroundStyle ?? {},
+  });
+
+  sidebarBg.color = background.color;
+  sidebarBg.image = background.image;
+  sidebarBg.video = background.video;
+  sidebarBg.style = background.backgroundStyle;
 
   try {
     window.homeWorkspaceApi?.updateBackground({
@@ -266,7 +364,7 @@ function handleSidebarBgConfirm(payload: BackgroundConfirmPayload) {
         color: sidebarBg.color,
         image: sidebarBg.image,
         video: sidebarBg.video,
-        style: sidebarBg.style as Record<string, unknown> | undefined,
+        style: background.backgroundStyle as Record<string, unknown>,
       },
     }).catch(() => {
       localStorage.setItem(SIDEBAR_BG_STORAGE_KEY, JSON.stringify({ color: sidebarBg.color, image: sidebarBg.image, video: sidebarBg.video, style: sidebarBg.style }));
@@ -274,14 +372,30 @@ function handleSidebarBgConfirm(payload: BackgroundConfirmPayload) {
   } catch { /* ignore */ }
 }
 
-function applyCategories(nextCategories: CategoryItem[]) {
+function resetCategorySelection(hasCategories: boolean) {
+  activeCategoryIndex.value = 0;
+  slotAIndex.value = hasCategories ? 0 : -1;
+  slotBIndex.value = -1;
+  activeSlot.value = 'A';
+  isTransitioning.value = false;
+  transitionDirection.value = 'down';
+}
+
+function applyCategories(nextCategories: CategoryItem[], options: { resetActive?: boolean } = {}) {
   const previousActiveCategoryId = categories[activeCategoryIndex.value]?.id;
   categories.splice(0, categories.length, ...nextCategories);
 
   if (categories.length === 0) {
-    activeCategoryIndex.value = 0;
-    slotAIndex.value = -1;
-    slotBIndex.value = -1;
+    resetCategorySelection(false);
+    return;
+  }
+
+  if (options.resetActive) {
+    resetCategorySelection(true);
+    void nextTick(() => {
+      updateCategoryScrollState();
+      updateSliderPosition();
+    });
     return;
   }
 
@@ -302,9 +416,9 @@ function applyCategories(nextCategories: CategoryItem[]) {
   });
 }
 
-async function reloadHomeLayout() {
+async function reloadHomeLayout(options: { resetActive?: boolean } = {}) {
   const nextCategories = await loadHomeLayout();
-  applyCategories(nextCategories);
+  applyCategories(nextCategories, options);
   loadError.value = '';
 }
 
@@ -314,82 +428,101 @@ function enqueueMutation(task: () => Promise<void>) {
     .catch(async error => {
       console.error('Failed to persist home layout mutation:', error);
       loadError.value = '首页布局保存失败，已自动重新加载。';
+      notifyError(error, '首页布局保存失败');
 
       try {
         await reloadHomeLayout();
       } catch (reloadError) {
         console.error('Failed to reload home layout after mutation error:', reloadError);
+        notifyError(reloadError, '首页布局重新加载失败');
       }
     });
 
   return mutationQueue;
 }
 
-async function initializeHomeLayout() {
+async function loadWorkspaceBackgrounds() {
+  headerBg.color = '';
+  headerBg.image = '';
+  headerBg.video = '';
+  headerBg.style = undefined;
+  sidebarBg.color = '';
+  sidebarBg.image = '';
+  sidebarBg.video = '';
+  sidebarBg.style = undefined;
+
+  if (!window.homeWorkspaceApi) {
+    return;
+  }
+
+  try {
+    const bgState = await window.homeWorkspaceApi.getBackground();
+    const h = bgState.header;
+    const s = bgState.sidebar;
+
+    // 旧版 localStorage 迁移只归入 default 配置，避免新配置被旧数据污染。
+    if (homeProfileStore.activeProfileKey === 'default') {
+      const hasDbHeader = h.color || h.image || h.video;
+      const hasDbSidebar = s.color || s.image || s.video;
+
+      if (!hasDbHeader) {
+        const raw = localStorage.getItem(HEADER_BG_STORAGE_KEY);
+        if (raw) {
+          const saved = JSON.parse(raw);
+          h.color = saved.color || '';
+          h.image = saved.image || '';
+          h.video = saved.video || '';
+          h.style = saved.style;
+          await window.homeWorkspaceApi.updateBackground({ header: h });
+          localStorage.removeItem(HEADER_BG_STORAGE_KEY);
+        }
+      }
+      if (!hasDbSidebar) {
+        const raw = localStorage.getItem(SIDEBAR_BG_STORAGE_KEY);
+        if (raw) {
+          const saved = JSON.parse(raw);
+          s.color = saved.color || '';
+          s.image = saved.image || '';
+          s.video = saved.video || '';
+          s.style = saved.style;
+          await window.homeWorkspaceApi.updateBackground({ sidebar: s });
+          localStorage.removeItem(SIDEBAR_BG_STORAGE_KEY);
+        }
+      }
+    }
+
+    headerBg.color = h.color || '';
+    headerBg.image = h.image || '';
+    headerBg.video = h.video || '';
+    headerBg.style = h.style as import('../../types/grid').BackgroundStyleConfig | undefined;
+
+    sidebarBg.color = s.color || '';
+    sidebarBg.image = s.image || '';
+    sidebarBg.video = s.video || '';
+    sidebarBg.style = s.style as import('../../types/grid').BackgroundStyleConfig | undefined;
+  } catch (e) {
+    console.warn('[Home] 加载工作区背景失败，使用空背景:', e);
+    notifyError(e, '首页背景加载失败');
+  }
+}
+
+async function initializeHomeLayout(options: { resetActive?: boolean } = {}) {
   isLoading.value = true;
   loadError.value = '';
 
   try {
-    // 加载 SQLite 中的背景配置（兼容旧版 localStorage 的一次性迁移）
-    if (window.homeWorkspaceApi) {
-      try {
-        const bgState = await window.homeWorkspaceApi.getBackground();
-        const h = bgState.header;
-        const s = bgState.sidebar;
-
-        // 若 SQLite 为空，尝试从 localStorage 迁移
-        const hasDbHeader = h.color || h.image || h.video;
-        const hasDbSidebar = s.color || s.image || s.video;
-
-        if (!hasDbHeader) {
-          const raw = localStorage.getItem(HEADER_BG_STORAGE_KEY);
-          if (raw) {
-            const saved = JSON.parse(raw);
-            h.color = saved.color || '';
-            h.image = saved.image || '';
-            h.video = saved.video || '';
-            h.style = saved.style;
-            // 迁移进 SQLite
-            await window.homeWorkspaceApi.updateBackground({ header: h });
-            localStorage.removeItem(HEADER_BG_STORAGE_KEY);
-          }
-        }
-        if (!hasDbSidebar) {
-          const raw = localStorage.getItem(SIDEBAR_BG_STORAGE_KEY);
-          if (raw) {
-            const saved = JSON.parse(raw);
-            s.color = saved.color || '';
-            s.image = saved.image || '';
-            s.video = saved.video || '';
-            s.style = saved.style;
-            // 迁移进 SQLite
-            await window.homeWorkspaceApi.updateBackground({ sidebar: s });
-            localStorage.removeItem(SIDEBAR_BG_STORAGE_KEY);
-          }
-        }
-
-        headerBg.color = h.color || '';
-        headerBg.image = h.image || '';
-        headerBg.video = h.video || '';
-        headerBg.style = h.style as import('../../types/grid').BackgroundStyleConfig | undefined;
-
-        sidebarBg.color = s.color || '';
-        sidebarBg.image = s.image || '';
-        sidebarBg.video = s.video || '';
-        sidebarBg.style = s.style as import('../../types/grid').BackgroundStyleConfig | undefined;
-      } catch (e) {
-        console.warn('[Home] 加载工作区背景失败，使用 localStorage 降级:', e);
-      }
-    }
-
-    await reloadHomeLayout();
-    const migrated = await migrateLegacyLayoutIfNeeded();
+    await loadWorkspaceBackgrounds();
+    await reloadHomeLayout({ resetActive: options.resetActive });
+    const migrated = homeProfileStore.activeProfileKey === 'default'
+      ? await migrateLegacyLayoutIfNeeded()
+      : false;
     if (migrated) {
-      await reloadHomeLayout();
+      await reloadHomeLayout({ resetActive: options.resetActive });
     }
   } catch (error) {
     console.error('Failed to initialize home layout:', error);
     loadError.value = '首页布局加载失败。';
+    notifyError(error, '首页布局加载失败');
   } finally {
     isLoading.value = false;
   }
@@ -518,9 +651,18 @@ function confirmAddCategory() {
     gridItems: [],
   };
 
+  const wasEmpty = categories.length === 0;
   categories.push(newCategory);
   closeAddCategoryDialog();
-  switchCategory(categories.length - 1);
+  if (wasEmpty) {
+    resetCategorySelection(true);
+    void nextTick(() => {
+      updateCategoryScrollState();
+      updateSliderPosition();
+    });
+  } else {
+    switchCategory(categories.length - 1);
+  }
 
   void enqueueMutation(async () => {
     await createCategory(newCategory);
@@ -580,22 +722,24 @@ function handleCategoryBgConfirm(payload: BackgroundConfirmPayload) {
   const cat = activeCategory.value;
   if (!cat) return;
 
-  if (payload.type === 'color') {
-    cat.backgroundColor = payload.color || '';
-    cat.backgroundImage = '';
-    cat.backgroundVideo = '';
-    cat.backgroundStyle = payload.backgroundStyle;
-  } else if (payload.type === 'image') {
-    cat.backgroundColor = '';
-    cat.backgroundImage = payload.image || '';
-    cat.backgroundVideo = '';
-    cat.backgroundStyle = payload.backgroundStyle;
-  } else if (payload.type === 'video') {
-    cat.backgroundColor = '';
-    cat.backgroundVideo = payload.video || '';
-    cat.backgroundImage = '';
-    cat.backgroundStyle = payload.backgroundStyle;
-  }
+  const background = withThemeBackground({
+    type: cat.backgroundVideo ? 'video' : cat.backgroundImage ? 'image' : 'color',
+    color: cat.backgroundColor,
+    image: cat.backgroundImage,
+    video: cat.backgroundVideo,
+    backgroundStyle: cat.backgroundStyle,
+  }, appConfigStore.config.appearance.theme, {
+    type: payload.type,
+    color: payload.color ?? '',
+    image: payload.image ?? '',
+    video: payload.video ?? '',
+    backgroundStyle: payload.backgroundStyle ?? {},
+  });
+
+  cat.backgroundColor = background.color;
+  cat.backgroundImage = background.image;
+  cat.backgroundVideo = background.video;
+  cat.backgroundStyle = background.backgroundStyle;
 
   void enqueueMutation(async () => {
     await updateCategoryBackground(cat.id, {
@@ -629,7 +773,16 @@ function handleWheel(event: WheelEvent) {
 
 // ─── 首次挂载：仅初始化数据 ───
 onMounted(() => {
-  void initializeHomeLayout();
+  void (async () => {
+    try {
+      await homeProfileStore.loadProfiles();
+    } catch (error) {
+      console.warn('[Home] 首页配置文件初始化失败，继续尝试加载默认布局:', error);
+      notifyError(error, '首页配置文件加载失败');
+    }
+    await initializeHomeLayout();
+    profileReloadReady = true;
+  })();
 });
 
 // ─── 辅助函数：绑定/解绑事件监听 ───
@@ -692,8 +845,6 @@ onActivated(() => {
   attachEventListeners();
   // 恢复所有背景视频播放
   void nextTick(() => resumeAllVideos());
-  // 恢复顶栏沉浸色
-  globalStore.setTopbarColor(activeCategory.value?.backgroundColor || '');
   // 恢复滑块位置
   void nextTick(updateSliderPosition);
 });
@@ -702,8 +853,6 @@ onDeactivated(() => {
   detachEventListeners();
   // 暂停所有背景视频以节省资源
   pauseAllVideos();
-  // 离开时清除沉浸色
-  globalStore.setTopbarColor('');
 });
 
 // ─── 最终销毁时兜底清理 ───
@@ -724,9 +873,12 @@ watch(activeCategoryIndex, async () => {
   updateSliderPosition();
 });
 
-// ─── 监听活跃分类背景色变化，同步到顶栏沉浸色 ───
-watch(() => activeCategory.value?.backgroundColor, (bgColor) => {
-  globalStore.setTopbarColor(bgColor || '');
+watch(() => homeProfileStore.activeProfileKey, (key, previousKey) => {
+  if (!profileReloadReady || key === previousKey) {
+    return;
+  }
+
+  void initializeHomeLayout({ resetActive: true });
 });
 </script>
 
@@ -734,9 +886,9 @@ watch(() => activeCategory.value?.backgroundColor, (bgColor) => {
   <div class="home-shell" ref="homeShellRef">
     <div class="home-container">
       <aside class="category-sidebar" @contextmenu="handleSidebarContextMenu">
-        <UiCard class="sidebar-panel" variant="elevated" :bordered="false" padding="none" radius="lg" :style="sidebarBgStyle">
-          <video v-if="sidebarBg.video" class="sidebar-panel__video" :src="sidebarBg.video" autoplay loop muted
-            playsinline />
+        <UiCard ref="sidebarPanelRef" class="sidebar-panel" variant="elevated" :bordered="false" padding="none" radius="lg" :style="sidebarBgStyle">
+          <video v-if="activeSidebarBg.video" class="sidebar-panel__video" :src="activeSidebarBg.video" :style="sidebarBgVideoStyle"
+            autoplay loop muted playsinline />
           <div class="sidebar-heading">
             <span class="sidebar-heading__title">分类导航</span>
           </div>
@@ -779,9 +931,9 @@ watch(() => activeCategory.value?.backgroundColor, (bgColor) => {
       </aside>
 
       <section class="home-stage">
-        <header class="home-stage__header" :style="headerBgStyle" @contextmenu="handleHeaderContextMenu">
-          <video v-if="headerBg.video" class="home-stage__header-video" :src="headerBg.video" autoplay loop muted
-            playsinline />
+        <header ref="homeHeaderRef" class="home-stage__header" :style="headerBgStyle" @contextmenu="handleHeaderContextMenu">
+          <video v-if="activeHeaderBg.video" class="home-stage__header-video" :src="activeHeaderBg.video" :style="headerBgVideoStyle"
+            autoplay loop muted playsinline />
           <!-- 3D ambient decoration behind header content -->
           <Ui3DSceneComponent
             class="home-stage__header-3d"
@@ -833,7 +985,7 @@ watch(() => activeCategory.value?.backgroundColor, (bgColor) => {
                 :description="loadError ? '请稍后重试，或检查布局数据。' : '从左侧添加一个类别，开始组织你的工具。'" />
             </div>
 
-            <div v-else class="comp-area-stage">
+            <div v-else ref="compAreaStageRef" class="comp-area-stage">
               <!-- Slot A -->
               <div class="comp-area-container" :class="getSlotClasses('A')" :style="getSlotStyle('A')">
                 <CompArea v-if="slotACategory" :category="slotACategory" :config="gridConfig"
@@ -894,23 +1046,26 @@ watch(() => activeCategory.value?.backgroundColor, (bgColor) => {
       </template>
     </UiDialog>
 
-    <!-- 类别区域背景选择器 -->
-    <UiBackgroundPicker :visible="showCategoryBgPicker" :currentBackground="activeCategory?.backgroundColor"
-      :currentBackgroundImage="activeCategory?.backgroundImage"
-      :currentBackgroundVideo="activeCategory?.backgroundVideo"
-      :currentBackgroundStyle="activeCategory?.backgroundStyle" :preview-width="800" :preview-height="500"
+    <!-- 类别区域个性化配置 -->
+    <UiPersonalizationConfig :visible="showCategoryBgPicker" :currentBackground="activeCategoryBackground.color"
+      :currentBackgroundImage="activeCategoryBackground.image"
+      :currentBackgroundVideo="activeCategoryBackground.video"
+      :currentBackgroundStyle="activeCategoryBackground.backgroundStyle"
+      :preview-width="categoryBgPreviewSize.width" :preview-height="categoryBgPreviewSize.height"
       @close="closeCategoryBgPicker" @confirm="handleCategoryBgConfirm" />
 
-    <!-- 顶栏背景选择器 -->
-    <UiBackgroundPicker :visible="showHeaderBgPicker" :currentBackground="headerBg.color"
-      :currentBackgroundImage="headerBg.image" :currentBackgroundVideo="headerBg.video"
-      :currentBackgroundStyle="headerBg.style" :preview-width="800" :preview-height="120"
+    <!-- 顶栏个性化配置 -->
+    <UiPersonalizationConfig :visible="showHeaderBgPicker" :currentBackground="activeHeaderBg.color"
+      :currentBackgroundImage="activeHeaderBg.image" :currentBackgroundVideo="activeHeaderBg.video"
+      :currentBackgroundStyle="activeHeaderBg.backgroundStyle"
+      :preview-width="headerBgPreviewSize.width" :preview-height="headerBgPreviewSize.height"
       @close="showHeaderBgPicker = false" @confirm="handleHeaderBgConfirm" />
 
-    <!-- 侧边栏背景选择器 -->
-    <UiBackgroundPicker :visible="showSidebarBgPicker" :currentBackground="sidebarBg.color"
-      :currentBackgroundImage="sidebarBg.image" :currentBackgroundVideo="sidebarBg.video"
-      :currentBackgroundStyle="sidebarBg.style" :preview-width="200" :preview-height="600"
+    <!-- 侧边栏个性化配置 -->
+    <UiPersonalizationConfig :visible="showSidebarBgPicker" :currentBackground="activeSidebarBg.color"
+      :currentBackgroundImage="activeSidebarBg.image" :currentBackgroundVideo="activeSidebarBg.video"
+      :currentBackgroundStyle="activeSidebarBg.backgroundStyle"
+      :preview-width="sidebarBgPreviewSize.width" :preview-height="sidebarBgPreviewSize.height"
       @close="showSidebarBgPicker = false" @confirm="handleSidebarBgConfirm" />
   </div>
 </template>

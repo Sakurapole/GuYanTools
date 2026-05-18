@@ -1,10 +1,12 @@
 import type { HomeLayoutApi } from '@/contracts/home_layout';
 import type { AppConfigApi } from '@/contracts/app_config';
+import type { HomeProfileApi } from '@/contracts/home_profile';
 import type { HomeWorkspaceApi } from '@/contracts/home_workspace';
 import type { PluginHostApi, PluginRuntimeApi, PluginRuntimeContext } from '@/contracts/plugin_host';
 import type { NotificationApi } from '@/contracts/notification';
 import type { TrayApi } from '@/contracts/tray';
 import type { FtpApi } from '@/contracts/ftp';
+import type { MultiDeviceClipboardApi } from '@/contracts/multi_device_clipboard';
 
 // export * from './plugin.d.ts';
 export { };
@@ -40,11 +42,13 @@ declare global {
     ipcRenderer?: IpcRenderer;
     pluginAPI?: PluginAPI;
     homeLayoutApi?: HomeLayoutApi;
+    homeProfileApi?: HomeProfileApi;
     pluginHostApi?: PluginHostApi;
     appConfigApi?: AppConfigApi;
     notificationApi?: NotificationApi;
     homeWorkspaceApi?: HomeWorkspaceApi;
     trayApi?: TrayApi;
+    multiDeviceClipboardApi?: MultiDeviceClipboardApi;
     ftpApi: FtpApi;
   }
 }

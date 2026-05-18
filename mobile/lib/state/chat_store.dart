@@ -1,25 +1,17 @@
 import 'package:flutter/foundation.dart';
 import '../core/models/chat_model.dart';
-import '../core/database/database_helper.dart';
 
 class ChatStore extends ChangeNotifier {
   final List<ChatMessage> _messages = [];
   List<ChatMessage> get messages => _messages;
 
   Future<void> loadFromDb() async {
-    final db = await DatabaseHelper.database;
-    final maps = await db.query('chat_messages', orderBy: 'timestamp ASC');
-    _messages
-      ..clear()
-      ..addAll(maps.map(ChatMessage.fromMap));
     notifyListeners();
   }
 
   Future<void> addMessage(ChatMessage msg) async {
     _messages.add(msg);
     notifyListeners();
-    final db = await DatabaseHelper.database;
-    await db.insert('chat_messages', msg.toMap());
   }
 
   /// 模拟 AI 回复
@@ -59,11 +51,8 @@ class ChatStore extends ChangeNotifier {
     return '收到你的消息："$input"。\n\n我正在分析你的需求，请稍候...';
   }
 
-  /// 初始化模拟数据
   Future<void> seedIfEmpty() async {
-    final db = await DatabaseHelper.database;
-    final count = (await db.rawQuery('SELECT COUNT(*) as c FROM chat_messages')).first['c'] as int;
-    if (count > 0) return;
+    if (_messages.isNotEmpty) return;
 
     final now = DateTime.now();
     final samples = [
@@ -81,7 +70,8 @@ class ChatStore extends ChangeNotifier {
       ),
       ChatMessage(
         id: 'seed_3',
-        content: '明白了。我已经生成了概念视觉稿，展示了玻璃面板如何与黄昏渐变交互。\n\n'
+        content:
+            '明白了。我已经生成了概念视觉稿，展示了玻璃面板如何与黄昏渐变交互。\n\n'
             '关键特性：\n'
             '• 深度层叠的毛玻璃容器\n'
             '• 青色到深蓝的渐变色调\n'
@@ -92,9 +82,6 @@ class ChatStore extends ChangeNotifier {
       ),
     ];
 
-    for (final msg in samples) {
-      await db.insert('chat_messages', msg.toMap());
-    }
     _messages
       ..clear()
       ..addAll(samples);

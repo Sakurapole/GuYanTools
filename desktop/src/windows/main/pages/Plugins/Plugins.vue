@@ -6,6 +6,7 @@ import { useGlobalStore } from '../../stores/global_store';
 import type { InstalledPluginRecord, PluginHostSummary, PluginPageDescriptor } from '@/contracts/plugin_host';
 import UiButton from '../../components/ui/UiButton.vue';
 import UiInput from '../../components/ui/UiInput.vue';
+import { notifyError } from '../../composables/useInAppNotification';
 
 const router = useRouter();
 
@@ -40,6 +41,7 @@ async function runMutation(task: () => Promise<void>) {
     await refresh();
   } catch (error) {
     errorMessage.value = error instanceof Error ? error.message : '插件操作失败';
+    notifyError(error, '插件操作失败');
   } finally {
     isBusy.value = false;
   }

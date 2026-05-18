@@ -11,14 +11,18 @@ const GENERATED_THUMBNAIL_MAX_EDGE_PX = 160;
 const GENERATED_THUMBNAIL_MIN_EDGE_PX = 24;
 const GENERATED_THUMBNAIL_QUALITY_STEPS = [0.82, 0.7, 0.58, 0.46];
 
-type ThumbnailPanelKind = PanelKind | 'secondaryRemote';
+type ThumbnailPanelKind = PanelKind;
+type ThumbnailWorkspacePane = {
+  kind: PanelKind;
+  sessionId?: string;
+  entries: FileTransferEntry[];
+};
 
 type UseFtpThumbnailsOptions = {
   ftpStore: ReturnType<typeof useFtpStore>;
   filteredLocalEntries: ComputedRef<FileTransferEntry[]>;
   filteredRemoteEntries: ComputedRef<FileTransferEntry[]>;
-  filteredSecondaryRemoteEntries: ComputedRef<FileTransferEntry[]>;
-  secondaryRemoteSessionId: ComputedRef<string>;
+  workspacePanes?: ComputedRef<ThumbnailWorkspacePane[]>;
 };
 
 export function useFtpThumbnails(options: UseFtpThumbnailsOptions) {
@@ -57,12 +61,9 @@ export function useFtpThumbnails(options: UseFtpThumbnailsOptions) {
     persistThumbnailPreferences();
   }
 
-  function thumbnailCacheKey(kind: ThumbnailPanelKind, entry: FileTransferEntry) {
+  function thumbnailCacheKey(kind: ThumbnailPanelKind, entry: FileTransferEntry, sessionId = '') {
     if (kind === 'remote') {
-      return `remote:${options.ftpStore.activeSessionId}:${entry.path}`;
-    }
-    if (kind === 'secondaryRemote') {
-      return `secondaryRemote:${options.secondaryRemoteSessionId.value}:${entry.path}`;
+      return `remote:${sessionId || options.ftpStore.activeSessionId}:${entry.path}`;
     }
     return `local:${entry.path}`;
   }
@@ -71,12 +72,12 @@ export function useFtpThumbnails(options: UseFtpThumbnailsOptions) {
     return /\.(jpg|jpeg|png|gif|bmp|webp|svg)$/i.test(entry.name);
   }
 
-  function thumbnailUrlFor(kind: ThumbnailPanelKind, entry: FileTransferEntry) {
-    return thumbnailUrls.value[thumbnailCacheKey(kind, entry)] || '';
+  function thumbnailUrlFor(kind: ThumbnailPanelKind, entry: FileTransferEntry, sessionId = '') {
+    return thumbnailUrls.value[thumbnailCacheKey(kind, entry, sessionId)] || '';
   }
 
-  function isThumbnailLoading(kind: ThumbnailPanelKind, entry: FileTransferEntry) {
-    return thumbnailLoadingKeys.value.includes(thumbnailCacheKey(kind, entry));
+  function isThumbnailLoading(kind: ThumbnailPanelKind, entry: FileTransferEntry, sessionId = '') {
+    return thumbnailLoadingKeys.value.includes(thumbnailCacheKey(kind, entry, sessionId));
   }
 
   function parsedThumbnailMaxBytes() {
@@ -163,16 +164,14 @@ export function useFtpThumbnails(options: UseFtpThumbnailsOptions) {
     );
   }
 
-  async function ensureEntryThumbnail(kind: ThumbnailPanelKind, entry: FileTransferEntry) {
+  async function ensureEntryThumbnail(kind: ThumbnailPanelKind, entry: FileTransferEntry, sessionId = '') {
     if (!thumbnailsEnabled.value || entry.isDir || !isImageEntry(entry)) return;
-    const cacheKey = thumbnailCacheKey(kind, entry);
+    const cacheKey = thumbnailCacheKey(kind, entry, sessionId);
     if (thumbnailUrls.value[cacheKey] || thumbnailLoadingKeys.value.includes(cacheKey)) return;
     thumbnailLoadingKeys.value = [...thumbnailLoadingKeys.value, cacheKey];
     try {
       const maxBytes = parsedThumbnailMaxBytes();
-      const remoteSessionId = kind === 'remote'
-        ? options.ftpStore.activeSessionId
-        : options.secondaryRemoteSessionId.value;
+      const remoteSessionId = sessionId || options.ftpStore.activeSessionId;
       const dataUrl = kind === 'local'
         ? await window.ftpApi.loadLocalImagePreview(entry.path, maxBytes)
         : remoteSessionId
@@ -193,24 +192,30 @@ export function useFtpThumbnails(options: UseFtpThumbnailsOptions) {
   async function ensureVisibleThumbnails() {
     if (!thumbnailsEnabled.value) return;
     const prefetchLimit = parsedThumbnailPrefetchLimit();
-    const localImages = options.filteredLocalEntries.value
-      .filter((entry) => !entry.isDir && isImageEntry(entry))
-      .slice(0, prefetchLimit);
-    const remoteImages = options.filteredRemoteEntries.value
-      .filter((entry) => !entry.isDir && isImageEntry(entry))
-      .slice(0, prefetchLimit);
-    const secondaryRemoteImages = options.filteredSecondaryRemoteEntries.value
-      .filter((entry) => !entry.isDir && isImageEntry(entry))
-      .slice(0, prefetchLimit);
+    const paneTargets = options.workspacePanes?.value.flatMap((pane) => (
+      pane.entries
+        .filter((entry) => !entry.isDir && isImageEntry(entry))
+        .slice(0, prefetchLimit)
+        .map((entry) => ({ kind: pane.kind, sessionId: pane.sessionId ?? '', entry }))
+    )) ?? [];
+    const fallbackTargets = paneTargets.length
+      ? []
+      : [
+        ...options.filteredLocalEntries.value
+          .filter((entry) => !entry.isDir && isImageEntry(entry))
+          .slice(0, prefetchLimit)
+          .map((entry) => ({ kind: 'local' as const, sessionId: '', entry })),
+        ...options.filteredRemoteEntries.value
+          .filter((entry) => !entry.isDir && isImageEntry(entry))
+          .slice(0, prefetchLimit)
+          .map((entry) => ({ kind: 'remote' as const, sessionId: options.ftpStore.activeSessionId, entry })),
+      ];
+    const thumbnailTargets = paneTargets.length ? paneTargets : fallbackTargets;
     trimThumbnailCache([
-      ...localImages.map((entry) => thumbnailCacheKey('local', entry)),
-      ...remoteImages.map((entry) => thumbnailCacheKey('remote', entry)),
-      ...secondaryRemoteImages.map((entry) => thumbnailCacheKey('secondaryRemote', entry)),
+      ...thumbnailTargets.map((target) => thumbnailCacheKey(target.kind, target.entry, target.sessionId)),
     ]);
     await Promise.allSettled([
-      ...localImages.map((entry) => ensureEntryThumbnail('local', entry)),
-      ...remoteImages.map((entry) => ensureEntryThumbnail('remote', entry)),
-      ...secondaryRemoteImages.map((entry) => ensureEntryThumbnail('secondaryRemote', entry)),
+      ...thumbnailTargets.map((target) => ensureEntryThumbnail(target.kind, target.entry, target.sessionId)),
     ]);
   }
 
@@ -220,10 +225,9 @@ export function useFtpThumbnails(options: UseFtpThumbnailsOptions) {
       thumbnailMaxBytesKb.value,
       thumbnailPrefetchLimit.value,
       options.ftpStore.activeSessionId,
-      options.secondaryRemoteSessionId.value,
+      options.workspacePanes?.value.map((pane) => `${pane.kind}:${pane.sessionId ?? ''}:${pane.entries.map((entry) => entry.path).join('|')}`).join('||') ?? '',
       options.filteredLocalEntries.value.map((entry) => entry.path).join('|'),
       options.filteredRemoteEntries.value.map((entry) => entry.path).join('|'),
-      options.filteredSecondaryRemoteEntries.value.map((entry) => entry.path).join('|'),
     ],
     () => {
       void ensureVisibleThumbnails();

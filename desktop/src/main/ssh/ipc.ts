@@ -2,12 +2,14 @@ import { ipcMain } from 'electron';
 import { sshHost } from './host';
 import type {
   ConnectSshInput,
+  CreateSshProfileFolderInput,
   CreateSshProfileInput,
   CreatePortForwardInput,
   GenerateSshManagedKeyInput,
   ImportSshManagedKeyInput,
   ResizeSshSessionInput,
   TrustHostInput,
+  UpdateSshProfileFolderInput,
   UpdateSshProfileInput,
   UpdatePortForwardInput,
 } from '@/contracts/ssh';
@@ -21,6 +23,22 @@ export function registerSshIpcHandlers() {
 
   ipcMain.handle('ssh:list-profiles', async () => {
     return sshHost.listProfiles();
+  });
+
+  ipcMain.handle('ssh:list-folders', async () => {
+    return sshHost.listFolders();
+  });
+
+  ipcMain.handle('ssh:create-folder', async (_event, input: CreateSshProfileFolderInput) => {
+    return sshHost.createFolder(input);
+  });
+
+  ipcMain.handle('ssh:update-folder', async (_event, input: UpdateSshProfileFolderInput) => {
+    return sshHost.updateFolder(input);
+  });
+
+  ipcMain.handle('ssh:delete-folder', async (_event, id: string) => {
+    return sshHost.deleteFolder(id);
   });
 
   ipcMain.handle('ssh:create-profile', async (_event, input: CreateSshProfileInput) => {
@@ -47,6 +65,14 @@ export function registerSshIpcHandlers() {
 
   ipcMain.handle('ssh:disconnect', async (_event, sessionId: string) => {
     return sshHost.disconnect(sessionId);
+  });
+
+  ipcMain.handle('ssh:get-buffer', async (_event, sessionId: string) => {
+    return sshHost.getBuffer(sessionId);
+  });
+
+  ipcMain.handle('ssh:clear-buffer', async (_event, sessionId: string) => {
+    sshHost.clearBuffer(sessionId);
   });
 
   // ── I/O ──────────────────────────────────────────────────────
@@ -137,6 +163,14 @@ export function registerSshIpcHandlers() {
 
   ipcMain.handle('ssh:list-forward-status', async (_event, sessionId: string) => {
     return sshHost.listForwardStatus(sessionId);
+  });
+
+  ipcMain.handle('ssh:get-port-occupant', async (_event, host: string, port: number) => {
+    return sshHost.getPortOccupant(host, port);
+  });
+
+  ipcMain.handle('ssh:kill-port-occupant', async (_event, pid: number) => {
+    return sshHost.killPortOccupant(pid);
   });
 
   // ── Traffic statistics ────────────────────────────────────────

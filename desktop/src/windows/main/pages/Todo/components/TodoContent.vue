@@ -2,16 +2,28 @@
 import { computed, ref, inject, onMounted, onBeforeUnmount } from 'vue';
 import { useTodoStore, type SortBy } from '@/windows/main/stores/todo_store';
 import { useContextMenu } from '@/windows/main/composables/useContextMenu';
-import { useTodoSettings } from '@/windows/main/composables/useTodoSettings';
+import { resolveTodoAreaBackground, useTodoSettings } from '@/windows/main/composables/useTodoSettings';
 import { useTodoListStore } from '@/windows/main/stores/todo_list_store';
+import { useAppConfigStore } from '@/windows/main/stores/app_config_store';
 import TodoItem from './TodoItem.vue';
 import QuickAdd from './QuickAdd.vue';
 import TodoBackground from './TodoBackground.vue';
 import UiScrollbar from '@/windows/main/components/ui/UiScrollbar.vue';
+import { buildBackgroundTextVars } from '@/windows/main/utils/backgroundTextColor';
 
 const todoStore = useTodoStore();
 const listStore = useTodoListStore();
 const { contentBg } = useTodoSettings();
+const appConfigStore = useAppConfigStore();
+const activeContentBg = computed(() => resolveTodoAreaBackground(contentBg.value, appConfigStore.config.appearance.theme));
+const contentTextStyle = computed(() => buildBackgroundTextVars(activeContentBg.value.backgroundStyle?.textColor, {
+  aliases: {
+    primary: ['--ui-text-primary'],
+    secondary: ['--ui-text-secondary'],
+    muted: ['--ui-text-muted'],
+    subtle: ['--ui-text-subtle'],
+  },
+}));
 const openBgPicker = inject<Function>('openTodoBgPicker');
 const { open: openMenu } = useContextMenu();
 
@@ -20,7 +32,7 @@ function handleContextMenu(e: MouseEvent) {
   openMenu(e.clientX, e.clientY, [
     {
       id: 'content-bg',
-      label: '更换内容区背景',
+      label: '内容区个性化配置',
       action: () => openBgPicker && openBgPicker('content'),
     }
   ]);
@@ -86,8 +98,8 @@ onBeforeUnmount(() => document.removeEventListener('mousedown', onSortClickOutsi
 </script>
 
 <template>
-  <main class="todo-content" @contextmenu.prevent.stop="handleContextMenu">
-    <TodoBackground :config="contentBg" />
+  <main class="todo-content" :style="contentTextStyle" @contextmenu.prevent.stop="handleContextMenu">
+    <TodoBackground :config="activeContentBg" />
     <div class="content-inner" style="position: relative; z-index: 1; display: flex; flex-direction: column; height: 100%;">
       <header class="content-header">
         <div class="header-info">
@@ -104,7 +116,7 @@ onBeforeUnmount(() => document.removeEventListener('mousedown', onSortClickOutsi
               </svg>
               <span class="sort-label">{{ currentSortLabel }}</span>
             </button>
-            <Transition name="sort-drop">
+            <Transition name="ui-dropdown">
               <div v-if="showSortMenu" ref="sortMenuRef" class="sort-menu">
                 <button v-for="opt in sortOptions" :key="opt.value" class="sort-option"
                   :class="{ active: todoStore.sortBy === opt.value }" @click="selectSort(opt.value)">
@@ -185,7 +197,7 @@ onBeforeUnmount(() => document.removeEventListener('mousedown', onSortClickOutsi
   position: relative;
   background: transparent;
   border-radius: 16px;
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.05);
+  box-shadow: var(--todo-panel-shadow);
   box-sizing: border-box;
 }
 .content-header {
@@ -238,7 +250,7 @@ onBeforeUnmount(() => document.removeEventListener('mousedown', onSortClickOutsi
   background: var(--ui-surface-glass-strong, #fff);
   border: 1px solid var(--ui-border-subtle);
   border-radius: 10px;
-  box-shadow: 0 8px 24px rgba(0,0,0,0.1);
+  box-shadow: var(--todo-popup-shadow);
 }
 .sort-option {
   display: flex;
@@ -256,15 +268,6 @@ onBeforeUnmount(() => document.removeEventListener('mousedown', onSortClickOutsi
 }
 .sort-option:hover { background: var(--ui-button-ghost-hover-bg); }
 .sort-option.active { color: var(--ui-input-focus-border); font-weight: 600; }
-
-.sort-drop-enter-active, .sort-drop-leave-active {
-  transition: all 0.15s cubic-bezier(0.4, 0, 0.2, 1);
-  transform-origin: top right;
-}
-.sort-drop-enter-from, .sort-drop-leave-to {
-  opacity: 0;
-  transform: translateY(-4px) scale(0.97);
-}
 
 .todo-list-area {
   flex: 1;

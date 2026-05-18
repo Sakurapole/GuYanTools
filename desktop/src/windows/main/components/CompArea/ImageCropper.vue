@@ -8,9 +8,13 @@ import UiIconButton from '../ui/UiIconButton.vue';
 const props = withDefaults(defineProps<{
   visible: boolean;
   image: string;
+  targetWidth?: number;
+  targetHeight?: number;
   processingMode?: 'canvas' | 'ffmpeg';
   quality?: CompressQuality;
 }>(), {
+  targetWidth: 1,
+  targetHeight: 1,
   processingMode: 'canvas',
   quality: 'high',
 });
@@ -44,6 +48,13 @@ const containerSize = ref({ width: 0, height: 0 });
 const imageSize = ref({ width: 0, height: 0 });
 const imageOffset = ref({ x: 0, y: 0 });
 const MAX_CROPPED_OUTPUT_SIZE = 1920;
+
+const targetAspect = computed(() => {
+  if (props.targetWidth > 0 && props.targetHeight > 0) {
+    return props.targetWidth / props.targetHeight;
+  }
+  return 1;
+});
 
 // 计算裁剪框样式
 const cropBoxStyle = computed(() => ({
@@ -110,17 +121,32 @@ const initializeImage = () => {
       y: (containerHeight - displayHeight) / 2,
     };
 
-    // 初始化裁剪框位置（居中，占图片60%）
-    const initialSize = Math.min(displayWidth, displayHeight) * 0.6;
+    // 初始化裁剪框位置（按目标区域比例居中）
+    const { width: initialWidth, height: initialHeight } = getFittedCropSize(displayWidth, displayHeight, targetAspect.value, 0.72);
     cropBox.value = {
-      x: imageOffset.value.x + (displayWidth - initialSize) / 2,
-      y: imageOffset.value.y + (displayHeight - initialSize) / 2,
-      width: initialSize,
-      height: initialSize,
+      x: imageOffset.value.x + (displayWidth - initialWidth) / 2,
+      y: imageOffset.value.y + (displayHeight - initialHeight) / 2,
+      width: initialWidth,
+      height: initialHeight,
     };
   };
   img.src = props.image;
 };
+
+function getFittedCropSize(maxWidth: number, maxHeight: number, aspect: number, scale = 1) {
+  const boundedAspect = aspect > 0 ? aspect : 1;
+  const scaledMaxWidth = maxWidth * scale;
+  const scaledMaxHeight = maxHeight * scale;
+  let width = scaledMaxWidth;
+  let height = width / boundedAspect;
+
+  if (height > scaledMaxHeight) {
+    height = scaledMaxHeight;
+    width = height * boundedAspect;
+  }
+
+  return { width, height };
+}
 
 // 处理拖动开始
 const handleMouseDown = (e: MouseEvent, handle?: 'tl' | 'tr' | 'bl' | 'br') => {
@@ -163,44 +189,42 @@ const handleMouseMove = (e: MouseEvent) => {
   } else if (isResizing.value && resizeHandle.value) {
     // 调整裁剪框大小
     const handle = resizeHandle.value;
-    let newX = cropBox.value.x;
-    let newY = cropBox.value.y;
-    let newWidth = cropBox.value.width;
-    let newHeight = cropBox.value.height;
+    const aspect = targetAspect.value;
+    const minX = imageOffset.value.x;
+    const minY = imageOffset.value.y;
+    const maxX = imageOffset.value.x + imageSize.value.width;
+    const maxY = imageOffset.value.y + imageSize.value.height;
+    const fromLeft = handle.includes('l');
+    const fromTop = handle.includes('t');
+    const anchorX = fromLeft ? cropBox.value.x + cropBox.value.width : cropBox.value.x;
+    const anchorY = fromTop ? cropBox.value.y + cropBox.value.height : cropBox.value.y;
+    const maxWidth = fromLeft ? anchorX - minX : maxX - anchorX;
+    const maxHeight = fromTop ? anchorY - minY : maxY - anchorY;
+    const proposedWidth = fromLeft ? cropBox.value.width - deltaX : cropBox.value.width + deltaX;
+    const proposedHeight = fromTop ? cropBox.value.height - deltaY : cropBox.value.height + deltaY;
+    const minWidth = Math.min(50, maxWidth);
+    const minHeight = Math.min(minWidth / aspect, maxHeight);
+    let nextWidth = Math.abs(deltaX) >= Math.abs(deltaY)
+      ? proposedWidth
+      : proposedHeight * aspect;
+    nextWidth = Math.max(minWidth, Math.min(maxWidth, nextWidth));
+    let nextHeight = nextWidth / aspect;
 
-    if (handle.includes('l')) {
-      newX += deltaX;
-      newWidth -= deltaX;
-    } else if (handle.includes('r')) {
-      newWidth += deltaX;
-    }
-
-    if (handle.includes('t')) {
-      newY += deltaY;
-      newHeight -= deltaY;
-    } else if (handle.includes('b')) {
-      newHeight += deltaY;
-    }
-
-    // 限制最小尺寸
-    const minSize = 50;
-    if (newWidth >= minSize && newHeight >= minSize) {
-      // 限制在图片范围内
-      const minX = imageOffset.value.x;
-      const minY = imageOffset.value.y;
-      const maxX = imageOffset.value.x + imageSize.value.width;
-      const maxY = imageOffset.value.y + imageSize.value.height;
-
-      if (newX >= minX && newX + newWidth <= maxX) {
-        cropBox.value.x = newX;
-        cropBox.value.width = newWidth;
-      }
-
-      if (newY >= minY && newY + newHeight <= maxY) {
-        cropBox.value.y = newY;
-        cropBox.value.height = newHeight;
+    if (nextHeight > maxHeight) {
+      nextHeight = Math.max(minHeight, maxHeight);
+      nextWidth = nextHeight * aspect;
+      if (nextWidth > maxWidth) {
+        nextWidth = maxWidth;
+        nextHeight = nextWidth / aspect;
       }
     }
+
+    cropBox.value = {
+      x: fromLeft ? anchorX - nextWidth : anchorX,
+      y: fromTop ? anchorY - nextHeight : anchorY,
+      width: nextWidth,
+      height: nextHeight,
+    };
   }
 
   dragStart.value = {

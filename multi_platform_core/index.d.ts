@@ -1,26 +1,26 @@
-export interface NativeTodoList {
-  id: string;
-  [field: string]: any;
-}
-
 export class JsTerminalHost {
-  constructor(...args: any[]);
-  [method: string]: any;
+  constructor(...args: unknown[]);
+  [key: string]: any;
 }
 
 export class JsDatabase {
-  constructor(...args: any[]);
+  constructor(path: string);
   static newInMemory(): JsDatabase;
-  getAllTodoLists(): Promise<NativeTodoList[]>;
-  [method: string]: any;
+  getAllTodoLists(): Promise<Array<{ id: string }>>;
+  [key: string]: any;
 }
 
 export class JsSshHost {
-  constructor(...args: any[]);
-  [method: string]: any;
+  constructor(db: JsDatabase);
+  [key: string]: any;
 }
 
 export class JsFtpHost {
-  constructor(...args: any[]);
-  [method: string]: any;
+  constructor(db: JsDatabase);
+  [key: string]: any;
+}
+
+export class JsMultiDeviceClipboardHost {
+  constructor(db: JsDatabase);
+  [key: string]: any;
 }

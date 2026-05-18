@@ -1,4 +1,5 @@
-mod home_layout;
+pub mod home_layout;
+pub mod multi_device_clipboard;
 mod project;
 mod setting;
 mod todo;
@@ -7,7 +8,14 @@ mod user;
 pub use home_layout::{
     CreateHomeCategoryInput, CreateHomeWidgetInput, HomeCategory, HomeLayout, HomeLayoutCategory,
     HomeWidget, HomeWorkspace, ImportHomeCategoryInput, ImportHomeLayoutInput,
-    ImportHomeWidgetInput, UpdateHomeCategoryInput, UpdateHomeWidgetInput,
+    ImportHomeWidgetInput, MobileHomeWidgetLayout, SaveMobileHomeCategoryLayoutInput,
+    SaveMobileHomeWidgetLayoutInput, UpdateHomeCategoryInput, UpdateHomeWidgetInput,
+};
+pub use multi_device_clipboard::{
+    MultiDeviceClipboardDevice, MultiDeviceClipboardDeviceStatus,
+    MultiDeviceClipboardDiscoveredDevice, MultiDeviceClipboardDiscoveryConfig,
+    MultiDeviceClipboardEvent, MultiDeviceClipboardItem, UpsertMultiDeviceClipboardDeviceInput,
+    UpsertMultiDeviceClipboardItemInput,
 };
 pub use project::{CreateProjectInput, Project, UpdateProjectInput};
 pub use setting::{Setting, UpsertSettingInput};

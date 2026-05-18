@@ -4,11 +4,13 @@ import { useRoute } from 'vue-router';
 import type { DomainCheckResult, WebScriptRule } from '@/contracts/webview';
 import UiButton from '../components/ui/UiButton.vue';
 import UiIconButton from '../components/ui/UiIconButton.vue';
+import UiPopupSurface from '../components/ui/UiPopupSurface.vue';
 import { useAppConfigStore } from '../stores/app_config_store';
 import { useBarStore } from '../stores/bar_store';
 import { useGlobalStore } from '../stores/global_store';
 import { useWebviewStore } from '../stores/webview_store';
 import { router } from '../routes/router';
+import { notifyError } from '../composables/useInAppNotification';
 
 const route = useRoute();
 const barStore = useBarStore();
@@ -87,6 +89,13 @@ const showScriptsDrawer = ref(false);
 // ─── Google 登录引导提示 ───
 const showGoogleLoginHint = ref(false);
 
+const currentKeepAliveTargetUrl = computed(() => targetUrl.value);
+const canKeepAliveTemporarily = computed(() =>
+  Boolean(currentKeepAliveTargetUrl.value)
+  && (pageState.value === 'loaded' || pageState.value === 'loading')
+  && !webviewStore.isManagedKeepAliveUrl(currentKeepAliveTargetUrl.value),
+);
+
 function openGoogleLoginTab() {
   // 在应用内新 tab 打开 Google 登录（共享同一 partition，登录态自动互通）
   const googleUrl = encodeURIComponent('https://accounts.google.com');
@@ -129,7 +138,7 @@ async function checkAndLoad() {
   if (!targetUrl.value) return;
 
   // 保活域名由 WebViewKeepAlive 容器接管
-  if (webviewStore.isKeepAliveDomain(domain.value)) {
+  if (webviewStore.isManagedKeepAliveUrl(targetUrl.value)) {
     pageState.value = 'keep-alive';
     return;
   }
@@ -199,6 +208,7 @@ async function loadWebview() {
         }
       } catch (err) {
         console.error('[WebView] Script injection failed:', script.name, err);
+        notifyError(err, `脚本注入失败：${script.name}`);
       }
     }
     // 页面加载完成后同步标题
@@ -243,6 +253,16 @@ function goForward() {
 function reload() {
   const wv = webviewRef.value as any;
   if (wv) wv.reload();
+}
+
+function keepAliveTemporarily() {
+  const keepAliveUrl = currentKeepAliveTargetUrl.value;
+  if (!keepAliveUrl) return;
+
+  const title = navState.value.title || lastSyncedTitle || domain.value || keepAliveUrl;
+  stopNavPolling();
+  webviewStore.keepAliveTemporary(keepAliveUrl, title);
+  pageState.value = 'keep-alive';
 }
 
 function startNavPolling() {
@@ -376,6 +396,9 @@ watch(targetUrl, () => {
         <UiIconButton variant="ghost" size="sm" shape="square" title="打开 DevTools" @click="openDevTools">
           <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M6 2H3a1 1 0 0 0-1 1v10a1 1 0 0 0 1 1h10a1 1 0 0 0 1-1v-3M9 2h5v5M14 2L7 9" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/></svg>
         </UiIconButton>
+        <UiButton v-if="canKeepAliveTemporarily" variant="secondary" size="sm" @click="keepAliveTemporarily">
+          临时保活
+        </UiButton>
       </div>
     </div>
 
@@ -416,7 +439,7 @@ watch(targetUrl, () => {
       />
 
       <!-- Google 登录引导提示 -->
-      <Transition name="login-hint">
+      <Transition name="ui-panel-pop">
         <div v-if="showGoogleLoginHint" class="webview-login-hint">
           <div class="webview-login-hint__card">
             <div class="webview-login-hint__header">
@@ -447,10 +470,17 @@ watch(targetUrl, () => {
       </div>
 
       <!-- 脚本管理抽屉（内联，仅覆盖 webview 区域） -->
-      <Transition name="sd-fade">
-        <div v-if="showScriptsDrawer" class="sd-overlay" @click="showScriptsDrawer = false">
-          <Transition name="sd-slide">
-            <div v-if="showScriptsDrawer" class="sd-panel" @click.stop>
+      <UiPopupSurface
+        :model-value="showScriptsDrawer"
+        variant="drawer"
+        placement="right"
+        :teleported="false"
+        :fixed="false"
+        width="380px"
+        :z-index="100"
+        aria-label="注入脚本"
+        @close="showScriptsDrawer = false"
+      >
               <div class="sd-header">
                 <div class="sd-header__info">
                   <h3>注入脚本</h3>
@@ -486,10 +516,7 @@ watch(targetUrl, () => {
                   📜 管理所有脚本
                 </UiButton>
               </div>
-            </div>
-          </Transition>
-        </div>
-      </Transition>
+      </UiPopupSurface>
     </div>
   </div>
 </template>
@@ -713,44 +740,7 @@ watch(targetUrl, () => {
   margin-top: 2px;
 }
 
-/* Vue Transition */
-.login-hint-enter-active {
-  animation: login-hint-in 0.35s cubic-bezier(0.34, 1.56, 0.64, 1);
-}
-.login-hint-leave-active {
-  animation: login-hint-out 0.2s ease-in forwards;
-}
-
-@keyframes login-hint-in {
-  from { opacity: 0; transform: translateY(16px) scale(0.96); }
-  to   { opacity: 1; transform: translateY(0) scale(1); }
-}
-@keyframes login-hint-out {
-  from { opacity: 1; transform: translateY(0) scale(1); }
-  to   { opacity: 0; transform: translateY(8px) scale(0.97); }
-}
-
-/* ─── Script Drawer (内联，仅覆盖 webview-content) ─── */
-.sd-overlay {
-  position: absolute;
-  inset: 0;
-  background: rgba(0, 0, 0, 0.3);
-  z-index: 100;
-  display: flex;
-  justify-content: flex-end;
-}
-
-.sd-panel {
-  width: 380px;
-  max-width: 90%;
-  height: 100%;
-  display: flex;
-  flex-direction: column;
-  background: var(--ui-card-bg, var(--background-color));
-  border-left: 1px solid var(--ui-border-subtle, rgba(128, 128, 128, 0.12));
-  box-shadow: -4px 0 20px rgba(0, 0, 0, 0.2);
-}
-
+/* ─── Script Drawer ─── */
 .sd-header {
   display: flex;
   align-items: center;
@@ -920,15 +910,4 @@ watch(targetUrl, () => {
   border-top: 1px solid var(--ui-border-subtle, rgba(128, 128, 128, 0.1));
   flex-shrink: 0;
 }
-
-/* ─── Drawer 过渡动画 ─── */
-.sd-fade-enter-active,
-.sd-fade-leave-active { transition: opacity 0.2s ease; }
-.sd-fade-enter-from,
-.sd-fade-leave-to { opacity: 0; }
-
-.sd-slide-enter-active,
-.sd-slide-leave-active { transition: transform 0.25s cubic-bezier(0.25, 0.8, 0.25, 1); }
-.sd-slide-enter-from,
-.sd-slide-leave-to { transform: translateX(100%); }
 </style>

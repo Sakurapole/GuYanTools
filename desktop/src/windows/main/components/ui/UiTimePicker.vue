@@ -171,7 +171,7 @@ onBeforeUnmount(() => document.removeEventListener('mousedown', onClickOutside, 
     </div>
 
     <!-- 下拉面板（fixed 定位，脱离父容器溢出限制） -->
-    <Transition :name="placement === 'top' ? 'ui-timepicker-drop-up' : 'ui-timepicker-drop'">
+    <Transition :name="placement === 'top' ? 'ui-dropdown-up' : 'ui-dropdown'">
       <div v-if="isOpen" ref="panelRef" class="ui-timepicker__panel" :style="{ ...panelStyle, position: 'fixed' }">
         <div class="ui-timepicker__columns">
           <!-- 小时列 -->
@@ -421,27 +421,4 @@ onBeforeUnmount(() => document.removeEventListener('mousedown', onClickOutside, 
   }
 }
 
-/* ─── 动画：向下展开 ─── */
-.ui-timepicker-drop-enter-active,
-.ui-timepicker-drop-leave-active {
-  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
-  transform-origin: top center;
-}
-.ui-timepicker-drop-enter-from,
-.ui-timepicker-drop-leave-to {
-  opacity: 0;
-  transform: translateY(-6px) scale(0.97);
-}
-
-/* ─── 动画：向上展开 ─── */
-.ui-timepicker-drop-up-enter-active,
-.ui-timepicker-drop-up-leave-active {
-  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
-  transform-origin: bottom center;
-}
-.ui-timepicker-drop-up-enter-from,
-.ui-timepicker-drop-up-leave-to {
-  opacity: 0;
-  transform: translateY(6px) scale(0.97);
-}
 </style>

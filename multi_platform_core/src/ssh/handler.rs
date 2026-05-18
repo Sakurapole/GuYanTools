@@ -22,7 +22,12 @@ pub(super) struct SshClientHandler {
 impl SshClientHandler {
     pub(super) fn new(
         remote_forward_map: RemoteForwardMapping,
-    ) -> (Self, Arc<Mutex<String>>, Arc<Mutex<String>>, Arc<Mutex<Vec<u8>>>) {
+    ) -> (
+        Self,
+        Arc<Mutex<String>>,
+        Arc<Mutex<String>>,
+        Arc<Mutex<Vec<u8>>>,
+    ) {
         let alg = Arc::new(Mutex::new(String::new()));
         let fp = Arc::new(Mutex::new(String::new()));
         let raw = Arc::new(Mutex::new(Vec::new()));

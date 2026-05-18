@@ -14,6 +14,9 @@ import AddIcon from '../svgs/icons/AddIcon.vue';
 import EditIcon from '../svgs/icons/EditIcon.vue';
 import { router } from '../../routes/router';
 import { useBarStore } from '../../stores/bar_store';
+import { useAppConfigStore } from '../../stores/app_config_store';
+import { buildBackgroundTextVars } from '../../utils/backgroundTextColor';
+import { resolveThemeBackground } from '@/contracts/background';
 
 const props = defineProps<{
   category: CategoryItem;
@@ -38,8 +41,30 @@ const shouldEmitLayoutChangeAfterReflow = ref(false);
 const layoutReady = ref(false);
 const gridItems = computed(() => props.category.gridItems);
 const visibleGridItems = computed(() => gridItems.value.filter(item => !item.hidden));
+const isAreaPanning = ref(false);
+const appConfigStore = useAppConfigStore();
+const activeCategoryBackground = computed(() => resolveThemeBackground({
+  type: props.category.backgroundVideo ? 'video' : props.category.backgroundImage ? 'image' : 'color',
+  color: props.category.backgroundColor,
+  image: props.category.backgroundImage,
+  video: props.category.backgroundVideo,
+  backgroundStyle: props.category.backgroundStyle,
+}, appConfigStore.config.appearance.theme));
 
 type ItemStyle = Record<string, string | number>;
+
+type AreaPanState = {
+  pointerId: number;
+  startClientX: number;
+  startClientY: number;
+  startScrollLeft: number;
+  startScrollTop: number;
+  moved: boolean;
+};
+
+const AREA_PAN_THRESHOLD = 4;
+let areaPanState: AreaPanState | null = null;
+let suppressNextAreaContextMenu = false;
 
 // 布局记忆
 const { saveSnapshot, restoreSnapshot, clearCategory: clearLayoutMemory } = useGridLayoutMemory();
@@ -206,6 +231,107 @@ function handleResize() {
   compAreaScrollbar.value?.refresh();
 }
 
+function isBlankCompAreaTarget(target: EventTarget | null) {
+  return target instanceof HTMLElement && !target.closest('.grid-item');
+}
+
+function stopAreaPan() {
+  areaPanState = null;
+  isAreaPanning.value = false;
+  window.removeEventListener('pointermove', handleAreaPanPointerMove);
+  window.removeEventListener('pointerup', handleAreaPanPointerEnd);
+  window.removeEventListener('pointercancel', handleAreaPanPointerEnd);
+}
+
+function handleAreaPointerDown(event: PointerEvent) {
+  if (event.button !== 2 || !isBlankCompAreaTarget(event.target)) {
+    return;
+  }
+
+  const viewport = compAreaScrollbar.value?.viewportRef;
+  if (!viewport) {
+    return;
+  }
+
+  const canPanX = viewport.scrollWidth - viewport.clientWidth > 1;
+  const canPanY = viewport.scrollHeight - viewport.clientHeight > 1;
+  if (!canPanX && !canPanY) {
+    return;
+  }
+
+  areaPanState = {
+    pointerId: event.pointerId,
+    startClientX: event.clientX,
+    startClientY: event.clientY,
+    startScrollLeft: viewport.scrollLeft,
+    startScrollTop: viewport.scrollTop,
+    moved: false,
+  };
+
+  window.addEventListener('pointermove', handleAreaPanPointerMove);
+  window.addEventListener('pointerup', handleAreaPanPointerEnd);
+  window.addEventListener('pointercancel', handleAreaPanPointerEnd);
+}
+
+function handleAreaPanPointerMove(event: PointerEvent) {
+  if (!areaPanState || event.pointerId !== areaPanState.pointerId) {
+    return;
+  }
+
+  const viewport = compAreaScrollbar.value?.viewportRef;
+  if (!viewport) {
+    stopAreaPan();
+    return;
+  }
+
+  const deltaX = event.clientX - areaPanState.startClientX;
+  const deltaY = event.clientY - areaPanState.startClientY;
+  if (!areaPanState.moved && Math.max(Math.abs(deltaX), Math.abs(deltaY)) < AREA_PAN_THRESHOLD) {
+    return;
+  }
+
+  areaPanState.moved = true;
+  isAreaPanning.value = true;
+  suppressNextAreaContextMenu = true;
+  viewport.scrollTo({
+    left: areaPanState.startScrollLeft - deltaX,
+    top: areaPanState.startScrollTop - deltaY,
+    behavior: 'auto',
+  });
+  compAreaScrollbar.value?.refresh();
+  event.preventDefault();
+}
+
+function handleAreaPanPointerEnd(event: PointerEvent) {
+  if (!areaPanState || event.pointerId !== areaPanState.pointerId) {
+    return;
+  }
+
+  if (areaPanState.moved) {
+    suppressNextAreaContextMenu = true;
+    window.setTimeout(() => {
+      suppressNextAreaContextMenu = false;
+    }, 300);
+  }
+
+  stopAreaPan();
+}
+
+function handleAreaPanContextMenu(event: MouseEvent) {
+  if (!suppressNextAreaContextMenu) {
+    return;
+  }
+
+  const viewport = compAreaScrollbar.value?.viewportRef;
+  if (!viewport || !(event.target instanceof Node) || !viewport.contains(event.target)) {
+    return;
+  }
+
+  event.preventDefault();
+  event.stopImmediatePropagation();
+  suppressNextAreaContextMenu = false;
+}
+
 // 打开小组件
 const barStore = useBarStore();
 
@@ -305,6 +431,11 @@ function handleAreaContextMenu(event: MouseEvent) {
   event.preventDefault();
   event.stopPropagation();
 
+  if (suppressNextAreaContextMenu) {
+    suppressNextAreaContextMenu = false;
+    return;
+  }
+
   const menuItems: ContextMenuItem[] = [
     {
       id: 'area-create',
@@ -314,7 +445,7 @@ function handleAreaContextMenu(event: MouseEvent) {
     },
     {
       id: 'area-bg',
-      label: '更换区域背景',
+      label: '区域个性化配置',
       icon: EditIcon,
       divided: true,
       action: () => { emit('changeBackground'); },
@@ -404,6 +535,7 @@ onMounted(() => {
     void nextTick(() => { layoutReady.value = true; });
   });
   window.addEventListener('resize', handleResize);
+  window.addEventListener('contextmenu', handleAreaPanContextMenu, true);
   void nextTick(() => {
     compAreaViewport.value = compAreaScrollbar.value?.viewportRef ?? null;
     compAreaScrollbar.value?.refresh();
@@ -413,8 +545,10 @@ onMounted(() => {
 onBeforeUnmount(() => {
   disableCategoryVideoAutoplay();
   window.removeEventListener('resize', handleResize);
+  window.removeEventListener('contextmenu', handleAreaPanContextMenu, true);
   cancelReflow();
   cleanupDrag();
+  stopAreaPan();
 });
 // 类别背景 —— 独立追踪，避免拖拽时 gridItems 变化导致重新 diff 巨大 base64
 const catBgColor = shallowRef('');
@@ -424,22 +558,24 @@ const catBgSize = shallowRef('cover');
 const catBgPosition = shallowRef('center');
 const catBgRepeat = shallowRef('no-repeat');
 const catBgOpacity = shallowRef(1);
+const catBgTextColor = shallowRef('');
 const categoryBgVideoRef = ref<HTMLVideoElement | null>(null);
 const shouldAutoPlayCategoryVideo = ref(false);
 let categoryVideoResumeTimer: ReturnType<typeof setTimeout> | null = null;
 let categoryVideoWatchdogTimer: ReturnType<typeof setInterval> | null = null;
 
 function syncCategoryBackground() {
-  const cat = props.category;
-  catBgColor.value = cat.backgroundColor || '';
-  catBgImage.value = cat.backgroundImage || '';
-  catBgVideo.value = cat.backgroundVideo || '';
-  catBgSize.value = cat.backgroundStyle?.backgroundSize || 'cover';
-  catBgPosition.value = cat.backgroundStyle?.backgroundPosition || 'center';
-  catBgRepeat.value = cat.backgroundStyle?.backgroundRepeat || 'no-repeat';
-  catBgOpacity.value = cat.backgroundStyle?.opacity != null && Number.isFinite(cat.backgroundStyle.opacity)
-    ? cat.backgroundStyle.opacity
+  const background = activeCategoryBackground.value;
+  catBgColor.value = background.color || '';
+  catBgImage.value = background.image || '';
+  catBgVideo.value = background.video || '';
+  catBgSize.value = background.backgroundStyle?.backgroundSize || 'cover';
+  catBgPosition.value = background.backgroundStyle?.backgroundPosition || 'center';
+  catBgRepeat.value = background.backgroundStyle?.backgroundRepeat || 'no-repeat';
+  catBgOpacity.value = background.backgroundStyle?.opacity != null && Number.isFinite(background.backgroundStyle.opacity)
+    ? background.backgroundStyle.opacity
     : 1;
+  catBgTextColor.value = background.backgroundStyle?.textColor || '';
 }
 
 syncCategoryBackground();
@@ -449,6 +585,7 @@ watch(() => props.category.backgroundColor, syncCategoryBackground);
 watch(() => props.category.backgroundImage, syncCategoryBackground);
 watch(() => props.category.backgroundVideo, syncCategoryBackground);
 watch(() => props.category.backgroundStyle, syncCategoryBackground, { deep: true });
+watch(() => appConfigStore.config.appearance.theme, syncCategoryBackground);
 
 const categoryBgStyle = computed(() => {
   const style: Record<string, string> = {};
@@ -471,6 +608,33 @@ const categoryBgStyle = computed(() => {
   return style;
 });
 
+const categoryTextStyle = computed(() => buildBackgroundTextVars(catBgTextColor.value, {
+  aliases: {
+    primary: ['--ui-text-primary'],
+    secondary: ['--ui-text-secondary'],
+    muted: ['--ui-text-muted'],
+    subtle: ['--ui-text-subtle'],
+  },
+}));
+
+function toObjectFit(backgroundSizeValue: string): 'contain' | 'cover' | 'fill' | 'none' {
+  switch (backgroundSizeValue) {
+    case 'contain':
+      return 'contain';
+    case '100% 100%':
+      return 'fill';
+    case 'auto':
+      return 'none';
+    default:
+      return 'cover';
+  }
+}
+
+const categoryBgVideoStyle = computed(() => ({
+  objectFit: toObjectFit(catBgSize.value),
+  objectPosition: catBgPosition.value,
+}));
+
 const hasCategoryBackground = computed(() => {
   return Boolean(catBgColor.value || catBgImage.value || catBgVideo.value);
 });
@@ -483,6 +647,7 @@ const categoryBackgroundMemoKey = computed(() => [
   catBgPosition.value,
   catBgRepeat.value,
   String(catBgOpacity.value),
+  catBgTextColor.value,
 ].join('::'));
 
 function clearCategoryVideoResumeTimer() {
@@ -559,7 +724,7 @@ onDeactivated(disableCategoryVideoAutoplay);
 </script>
 
 <template>
-  <UiScrollbar ref="compAreaScrollbar" class="comp-area-viewport" :x="true" :y="true" :show-on-hover="true"
+  <UiScrollbar ref="compAreaScrollbar" class="comp-area-viewport" :style="categoryTextStyle" :x="true" :y="true" :show-on-hover="true"
     :size="6"
     thumb-color="var(--workspace-scrollbar-thumb-color)"
     thumb-hover-color="var(--workspace-scrollbar-thumb-hover-color)"
@@ -572,6 +737,7 @@ onDeactivated(disableCategoryVideoAutoplay);
         ref="categoryBgVideoRef"
         class="comp-area-bg__video"
         :src="catBgVideo"
+        :style="categoryBgVideoStyle"
         autoplay
         loop
         muted
@@ -585,7 +751,8 @@ onDeactivated(disableCategoryVideoAutoplay);
       />
     </div>
 
-    <div class="comp-area" ref="compArea" :style="compAreaStyle" @contextmenu="handleAreaContextMenu">
+    <div class="comp-area" :class="{ 'comp-area--panning': isAreaPanning }" ref="compArea" :style="compAreaStyle"
+      @pointerdown="handleAreaPointerDown" @contextmenu="handleAreaContextMenu">
       <template v-if="layoutReady">
         <GridItemComponent v-for="item in visibleGridItems" :key="item.id" :item="item"
           :isDragging="draggingItem?.id === item.id" :style="getItemStyle(item)"
@@ -613,6 +780,11 @@ onDeactivated(disableCategoryVideoAutoplay);
   min-width: 100%;
   min-height: 100%;
   z-index: 1;
+}
+
+.comp-area--panning {
+  cursor: grabbing;
+  user-select: none;
 }
 
 .comp-area-bg {

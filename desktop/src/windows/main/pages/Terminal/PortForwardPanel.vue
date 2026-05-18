@@ -5,8 +5,10 @@
  */
 import { computed, onMounted, onUnmounted, ref, watch } from 'vue';
 import { useSshStore } from '@/windows/main/stores/ssh_store';
+import { useConfirmDialog } from '@/windows/main/composables/useConfirmDialog';
 import UiScrollbar from '@/windows/main/components/ui/UiScrollbar.vue';
 import type { SshPortForward, PortForwardStatus, PortForwardTrafficInfo } from '@/contracts/ssh';
+import type { PortForwardConflict } from '@/windows/main/stores/ssh_store';
 
 const props = defineProps<{
   sessionId: string;
@@ -20,9 +22,11 @@ const emit = defineEmits<{
 }>();
 
 const sshStore = useSshStore();
+const { show: showConfirm } = useConfirmDialog();
 const loading = ref(false);
 const errorMessage = ref('');
 const copiedId = ref('');
+const resolvingConflictId = ref('');
 
 // Load and refresh status on mount
 onMounted(async () => {
@@ -79,11 +83,36 @@ const traffic = computed<PortForwardTrafficInfo[]>(
   () => sshStore.forwardTraffic[props.sessionId] ?? [],
 );
 
+const conflicts = computed(() =>
+  Object.values(sshStore.portConflicts)
+    .filter((conflict) => conflict.sessionId === props.sessionId)
+    .sort((a, b) => b.detectedAt - a.detectedAt),
+);
+
 const runningCount = computed(() => statuses.value.length);
 const hasAnyRunning = computed(() => runningCount.value > 0);
 
 function getStatus(forwardId: string): PortForwardStatus | undefined {
   return statuses.value.find((s) => s.forwardId === forwardId);
+}
+
+function getConflict(forwardId: string) {
+  return conflicts.value.find((conflict) => conflict.forwardId === forwardId);
+}
+
+function getConflictProcessText(conflict?: PortForwardConflict) {
+  if (!conflict?.occupant) {
+    return '未解析到占用进程';
+  }
+  return `${conflict.occupant.name || '未知进程'} (PID ${conflict.occupant.pid})`;
+}
+
+function getConflictAddress(conflict?: PortForwardConflict) {
+  return conflict ? `${conflict.host}:${conflict.port}` : '';
+}
+
+function canResolveConflict(conflict?: PortForwardConflict) {
+  return Boolean(conflict?.occupant?.pid);
 }
 
 function isRunning(forwardId: string): boolean {
@@ -118,12 +147,41 @@ async function toggleForward(forwardId: string) {
     const msg = getErrorMessage(err);
     // Extract user-friendly error message
     if (msg.includes('port may be in use') || msg.includes('failed to bind')) {
-      showError(`端口已被占用，请更换其他端口`);
+      showError('端口已被占用，已尝试解析占用进程');
     } else {
       showError(`操作失败: ${msg}`);
     }
   }
   refreshStatusSoon();
+}
+
+async function resolveConflict(forwardId: string) {
+  const conflict = getConflict(forwardId);
+  if (!conflict) {
+    return;
+  }
+  if (conflict.occupant) {
+    const confirmed = await showConfirm({
+      title: '结束占用进程',
+      message: `是否结束 ${conflict.occupant.name || '未知进程'} (PID ${conflict.occupant.pid})，释放 ${conflict.host}:${conflict.port} 后重新启动端口转发？`,
+      confirmText: '结束并重试',
+      cancelText: '取消',
+      danger: true,
+    });
+    if (!confirmed) {
+      return;
+    }
+  }
+
+  resolvingConflictId.value = forwardId;
+  try {
+    await sshStore.resolvePortConflict(props.sessionId, forwardId);
+  } catch (err: unknown) {
+    showError(`释放端口失败: ${getErrorMessage(err)}`);
+  } finally {
+    resolvingConflictId.value = '';
+    refreshStatusSoon();
+  }
 }
 
 async function startAllForwards() {
@@ -349,7 +407,7 @@ async function handleImport() {
     </div>
 
     <!-- Error toast -->
-    <Transition name="toast-fade">
+    <Transition name="ui-panel-pop">
       <div v-if="errorMessage" class="pfp__toast" @click="errorMessage = ''">
         <svg viewBox="0 0 24 24" width="13" height="13" stroke="currentColor" stroke-width="2"
           fill="none" stroke-linecap="round">
@@ -362,6 +420,50 @@ async function handleImport() {
 
     <!-- Content area -->
     <UiScrollbar class="pfp__body" :x="false" :size="6">
+      <div v-if="conflicts.length" class="pfp__conflicts">
+        <div
+          v-for="conflict in conflicts"
+          :key="`${conflict.sessionId}:${conflict.forwardId}`"
+          class="pfp__conflict"
+        >
+          <div class="pfp__conflict-main">
+            <strong>{{ conflict.forwardLabel }} 启动失败</strong>
+            <span>
+              {{ conflict.host }}:{{ conflict.port }} 被
+              <template v-if="conflict.occupant">
+                {{ conflict.occupant.name || '未知进程' }} (PID {{ conflict.occupant.pid }})
+              </template>
+              <template v-else>其他进程</template>
+              占用
+            </span>
+            <div v-if="conflict.occupant" class="pfp__conflict-process">
+              <span class="pfp__process-chip">PID {{ conflict.occupant.pid }}</span>
+              <span class="pfp__process-chip">{{ conflict.occupant.name || '未知进程' }}</span>
+            </div>
+            <small v-if="conflict.occupant?.command">{{ conflict.occupant.command }}</small>
+            <small v-else>未解析到占用进程，请手动释放 {{ conflict.host }}:{{ conflict.port }} 后重试。</small>
+          </div>
+          <div class="pfp__conflict-actions">
+            <button
+              v-if="canResolveConflict(conflict)"
+              class="pfp__conflict-btn pfp__conflict-btn--danger"
+              :disabled="resolvingConflictId === conflict.forwardId"
+              title="结束占用进程并重新启动此转发"
+              @click="resolveConflict(conflict.forwardId)"
+            >
+              {{ resolvingConflictId === conflict.forwardId ? '处理中' : '结束进程并重试' }}
+            </button>
+            <button
+              class="pfp__conflict-btn"
+              title="忽略这条端口占用提示"
+              @click="sshStore.clearPortConflict(conflict.sessionId, conflict.forwardId)"
+            >
+              忽略
+            </button>
+          </div>
+        </div>
+      </div>
+
       <div v-if="loading" class="pfp__empty">
         加载中...
       </div>
@@ -426,6 +528,21 @@ async function handleImport() {
                   <span class="pfp__traffic-down" title="下行 (接收)">↓ {{ formatBytes(getTraffic(fwd.id)!.bytesReceived) }}</span>
                 </span>
               </template>
+            </div>
+            <div v-else-if="getConflict(fwd.id)" class="pfp__item-meta pfp__item-meta--error pfp__item-meta--conflict">
+              <span>
+                {{ getConflictAddress(getConflict(fwd.id)) }} 被
+                {{ getConflictProcessText(getConflict(fwd.id)) }} 占用
+              </span>
+              <button
+                v-if="canResolveConflict(getConflict(fwd.id))"
+                class="pfp__item-conflict-action"
+                :disabled="resolvingConflictId === fwd.id"
+                title="结束占用进程并重新启动此转发"
+                @click.stop="resolveConflict(fwd.id)"
+              >
+                {{ resolvingConflictId === fwd.id ? '处理中' : '结束进程' }}
+              </button>
             </div>
           </div>
 
@@ -571,23 +688,112 @@ async function handleImport() {
   cursor: pointer;
 }
 
-.toast-fade-enter-active,
-.toast-fade-leave-active {
-  transition: all 0.2s;
-}
-.toast-fade-enter-from,
-.toast-fade-leave-to {
-  opacity: 0;
-  max-height: 0;
-  padding-top: 0;
-  padding-bottom: 0;
-}
-
 .pfp__body {
   flex: 0 1 auto;
   height: clamp(240px, 48vh, 500px);
   min-height: 240px;
   max-height: min(500px, calc(100vh - 180px));
+}
+
+.pfp__conflicts {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 10px 12px;
+  border-bottom: 1px solid rgba(239, 68, 68, 0.18);
+  background: rgba(239, 68, 68, 0.06);
+}
+
+.pfp__conflict {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 10px;
+  align-items: center;
+  padding: 9px 10px;
+  border: 1px solid rgba(239, 68, 68, 0.24);
+  border-radius: var(--ui-radius-md);
+  background: color-mix(in srgb, var(--ui-surface-panel) 88%, rgba(239, 68, 68, 0.12));
+}
+
+.pfp__conflict-main {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+
+  strong {
+    color: var(--ui-text-primary);
+    font-size: 12px;
+  }
+
+  span,
+  small {
+    color: var(--ui-text-muted);
+    font-size: 11px;
+    overflow-wrap: anywhere;
+  }
+
+  small {
+    font-family: Consolas, "Cascadia Mono", monospace;
+  }
+}
+
+.pfp__conflict-process {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-top: 2px;
+}
+
+.pfp__process-chip {
+  max-width: 100%;
+  padding: 2px 6px;
+  border-radius: var(--ui-radius-sm);
+  background: rgba(239, 68, 68, 0.1);
+  color: #f87171;
+  font-family: Consolas, "Cascadia Mono", monospace;
+  font-size: 10px;
+  font-weight: 700;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.pfp__conflict-actions {
+  display: flex;
+  gap: 6px;
+}
+
+.pfp__conflict-btn {
+  height: 26px;
+  padding: 0 9px;
+  border: 1px solid var(--ui-border-subtle);
+  border-radius: var(--ui-radius-sm);
+  background: var(--ui-button-ghost-bg, transparent);
+  color: var(--ui-text-secondary);
+  cursor: pointer;
+  font-size: 11px;
+  font-weight: 600;
+
+  &:hover:not(:disabled) {
+    background: var(--ui-button-ghost-hover-bg);
+    color: var(--ui-text-primary);
+  }
+
+  &:disabled {
+    cursor: progress;
+    opacity: 0.65;
+  }
+
+  &--danger {
+    border-color: rgba(239, 68, 68, 0.34);
+    color: #ef4444;
+
+    &:hover:not(:disabled) {
+      background: rgba(239, 68, 68, 0.12);
+      color: #f87171;
+    }
+  }
 }
 
 .pfp__empty {
@@ -748,6 +954,40 @@ async function handleImport() {
   align-items: center;
   gap: 8px;
   margin-top: 1px;
+
+  &--error {
+    color: #ef4444;
+    font-size: 10px;
+    font-weight: 600;
+  }
+
+  &--conflict {
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 6px;
+  }
+}
+
+.pfp__item-conflict-action {
+  height: 20px;
+  padding: 0 7px;
+  border: 1px solid rgba(239, 68, 68, 0.34);
+  border-radius: var(--ui-radius-sm);
+  background: rgba(239, 68, 68, 0.08);
+  color: #ef4444;
+  cursor: pointer;
+  font-size: 10px;
+  font-weight: 700;
+
+  &:hover:not(:disabled) {
+    background: rgba(239, 68, 68, 0.16);
+    color: #f87171;
+  }
+
+  &:disabled {
+    cursor: progress;
+    opacity: 0.65;
+  }
 }
 
 .pfp__item-conns {

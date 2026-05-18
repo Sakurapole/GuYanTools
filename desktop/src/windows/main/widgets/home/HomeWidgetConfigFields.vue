@@ -1,9 +1,18 @@
 <script lang="ts" setup>
-import { computed } from 'vue';
+import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 import type { HomeWidgetType, WidgetConfig } from '../../types/grid';
 import UiField from '../../components/ui/UiField.vue';
 import UiInput from '../../components/ui/UiInput.vue';
 import UiSelect from '../../components/ui/UiSelect.vue';
+import { useFtpStore } from '../../stores/ftp_store';
+import { useSshStore } from '../../stores/ssh_store';
+import { useTerminalStore } from '../../stores/terminal_store';
+import {
+  CONNECTION_LAYOUTS_CHANGED_EVENT,
+  describeConnectionLayoutConfig,
+  listConnectionLayoutConfigs,
+  type ConnectionLayoutConfig,
+} from '../../session_layouts';
 import { normalizeWidgetConfig } from './registry';
 import { weatherCityOptions } from './weather_city_options';
 
@@ -20,8 +29,68 @@ const booleanOptions = [
   { label: '开启', value: 'true' },
   { label: '关闭', value: 'false' },
 ];
+const ftpStore = useFtpStore();
+const sshStore = useSshStore();
+const terminalStore = useTerminalStore();
+const ftpConfigLoading = ref(false);
+const terminalConfigLoading = ref(false);
+const connectionLayouts = ref<ConnectionLayoutConfig[]>([]);
 
 const normalizedConfig = computed(() => normalizeWidgetConfig(props.widgetType, props.modelValue));
+const ftpFolderOptions = computed(() => [
+  { label: '未分组', value: '' },
+  ...flattenFtpFolders().map(({ id, label, depth }) => ({
+    label: `${'  '.repeat(depth)}${label}`,
+    value: id,
+  })),
+]);
+const ftpProfileOptions = computed(() =>
+  [...ftpStore.profiles]
+    .sort((left, right) => left.sortOrder - right.sortOrder || left.label.localeCompare(right.label, 'zh-CN'))
+    .map((profile) => ({
+      label: `${profile.label} (${profile.protocol.toUpperCase()} · ${profile.username}@${profile.host})`,
+      value: profile.id,
+    })),
+);
+const sshFolderOptions = computed(() => [
+  { label: '未分组', value: '' },
+  ...flattenSshFolders().map(({ id, label, depth }) => ({
+    label: `${'  '.repeat(depth)}${label}`,
+    value: id,
+  })),
+]);
+const terminalProfileKindOptions = [
+  { label: '本地终端', value: 'local' },
+  { label: 'SSH 配置', value: 'ssh' },
+];
+const terminalLocalProfileOptions = computed(() =>
+  [...terminalStore.profiles]
+    .sort((left, right) => Number(right.isDefault) - Number(left.isDefault) || left.label.localeCompare(right.label, 'zh-CN'))
+    .map((profile) => ({
+      label: `${profile.label}${profile.isDefault ? '（默认）' : ''} · ${profile.command || profile.id}`,
+      value: profile.id,
+    })),
+);
+const terminalSshProfileOptions = computed(() =>
+  [...sshStore.profiles]
+    .sort((left, right) => left.sortOrder - right.sortOrder || left.label.localeCompare(right.label, 'zh-CN'))
+    .map((profile) => ({
+      label: `${profile.label} (${profile.username}@${profile.host}:${profile.port})`,
+      value: profile.id,
+    })),
+);
+const terminalProfileOptions = computed(() =>
+  ((normalizedConfig.value as any)?.profileKind === 'ssh')
+    ? terminalSshProfileOptions.value
+    : terminalLocalProfileOptions.value,
+);
+const connectionLayoutOptions = computed(() => [
+  { label: '未选择', value: '' },
+  ...connectionLayouts.value.map((layout) => ({
+    label: `${layout.name} · ${describeConnectionLayoutConfig(layout)}`,
+    value: layout.id,
+  })),
+]);
 
 function updateConfigField(key: string, value: unknown) {
   const next = {
@@ -30,6 +99,80 @@ function updateConfigField(key: string, value: unknown) {
   };
   emit('update:modelValue', normalizeWidgetConfig(props.widgetType, next));
 }
+
+function updateTerminalProfileKind(value: string | number) {
+  emit('update:modelValue', normalizeWidgetConfig(props.widgetType, {
+    ...(normalizedConfig.value && typeof normalizedConfig.value === 'object' ? normalizedConfig.value : {}),
+    profileKind: value === 'ssh' ? 'ssh' : 'local',
+    profileId: '',
+  }));
+}
+
+function loadConnectionLayouts() {
+  connectionLayouts.value = listConnectionLayoutConfigs();
+}
+
+function flattenFtpFolders(parentId = '', depth = 0): Array<{ id: string; label: string; depth: number }> {
+  return ftpStore.folders
+    .filter((folder) => (folder.parentId ?? '') === parentId)
+    .sort((left, right) => left.sortOrder - right.sortOrder || left.createdAt - right.createdAt)
+    .flatMap((folder) => [
+      { id: folder.id, label: folder.label, depth },
+      ...flattenFtpFolders(folder.id, depth + 1),
+    ]);
+}
+
+function flattenSshFolders(parentId = '', depth = 0): Array<{ id: string; label: string; depth: number }> {
+  return sshStore.folders
+    .filter((folder) => (folder.parentId ?? '') === parentId)
+    .sort((left, right) => left.sortOrder - right.sortOrder || left.createdAt - right.createdAt)
+    .flatMap((folder) => [
+      { id: folder.id, label: folder.label, depth },
+      ...flattenSshFolders(folder.id, depth + 1),
+    ]);
+}
+
+async function loadFtpConfigOptions() {
+  if (props.widgetType !== 'ftp_profile_group' && props.widgetType !== 'ftp_profile') return;
+  ftpConfigLoading.value = true;
+  try {
+    await Promise.all([
+      ftpStore.refreshProfiles(),
+      ftpStore.refreshFolders(),
+    ]);
+  } finally {
+    ftpConfigLoading.value = false;
+  }
+}
+
+async function loadTerminalConfigOptions() {
+  if (props.widgetType !== 'terminal_profile_group' && props.widgetType !== 'terminal_profile') return;
+  terminalConfigLoading.value = true;
+  try {
+    await Promise.all([
+      terminalStore.initialize(),
+      sshStore.initialize(),
+    ]);
+  } finally {
+    terminalConfigLoading.value = false;
+  }
+}
+
+onMounted(() => {
+  void loadFtpConfigOptions();
+  void loadTerminalConfigOptions();
+  loadConnectionLayouts();
+  window.addEventListener(CONNECTION_LAYOUTS_CHANGED_EVENT, loadConnectionLayouts);
+});
+
+onBeforeUnmount(() => {
+  window.removeEventListener(CONNECTION_LAYOUTS_CHANGED_EVENT, loadConnectionLayouts);
+});
+
+watch(() => props.widgetType, () => {
+  void loadFtpConfigOptions();
+  void loadTerminalConfigOptions();
+});
 </script>
 
 <template>
@@ -125,6 +268,51 @@ function updateConfigField(key: string, value: unknown) {
     <UiField label="显示已完成任务">
       <UiSelect :model-value="String((normalizedConfig as any)?.showCompleted ?? false)"
         :options="booleanOptions" size="md" @update:modelValue="updateConfigField('showCompleted', $event === 'true')" />
+    </UiField>
+  </div>
+
+  <div v-else-if="props.widgetType === 'ftp_profile_group'" class="home-widget-config-fields">
+    <UiField label="配置分组">
+      <UiSelect :model-value="(normalizedConfig as any)?.folderId ?? ''" size="md" :options="ftpFolderOptions"
+        :placeholder="ftpConfigLoading ? '正在读取分组...' : '请选择分组'"
+        @update:modelValue="updateConfigField('folderId', $event)" />
+    </UiField>
+  </div>
+
+  <div v-else-if="props.widgetType === 'ftp_profile'" class="home-widget-config-fields">
+    <UiField label="配置文件">
+      <UiSelect :model-value="(normalizedConfig as any)?.profileId ?? ''" size="md" :options="ftpProfileOptions"
+        :placeholder="ftpConfigLoading ? '正在读取配置...' : '请选择配置文件'"
+        @update:modelValue="updateConfigField('profileId', $event)" />
+    </UiField>
+  </div>
+
+  <div v-else-if="props.widgetType === 'terminal_profile_group'" class="home-widget-config-fields">
+    <UiField label="SSH 分组">
+      <UiSelect :model-value="(normalizedConfig as any)?.folderId ?? ''" size="md" :options="sshFolderOptions"
+        :placeholder="terminalConfigLoading ? '正在读取分组...' : '请选择 SSH 分组'"
+        @update:modelValue="updateConfigField('folderId', $event)" />
+    </UiField>
+  </div>
+
+  <div v-else-if="props.widgetType === 'terminal_profile'" class="home-widget-config-fields">
+    <UiField label="配置类型">
+      <UiSelect :model-value="(normalizedConfig as any)?.profileKind ?? 'local'" size="md"
+        :options="terminalProfileKindOptions"
+        @update:modelValue="updateTerminalProfileKind" />
+    </UiField>
+    <UiField label="配置文件">
+      <UiSelect :model-value="(normalizedConfig as any)?.profileId ?? ''" size="md" :options="terminalProfileOptions"
+        :placeholder="terminalConfigLoading ? '正在读取配置...' : '请选择终端配置'"
+        @update:modelValue="updateConfigField('profileId', $event)" />
+    </UiField>
+  </div>
+
+  <div v-else-if="props.widgetType === 'connection_layout'" class="home-widget-config-fields">
+    <UiField label="连接布局">
+      <UiSelect :model-value="(normalizedConfig as any)?.layoutId ?? ''" size="md" :options="connectionLayoutOptions"
+        placeholder="请选择已保存的连接布局"
+        @update:modelValue="updateConfigField('layoutId', $event)" />
     </UiField>
   </div>
 </template>

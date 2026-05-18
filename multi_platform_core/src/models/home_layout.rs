@@ -4,6 +4,7 @@ use serde::{Deserialize, Serialize};
 use napi_derive::napi;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 #[cfg_attr(feature = "napi", napi(object))]
 pub struct HomeWorkspace {
     pub id: i64,
@@ -15,6 +16,7 @@ pub struct HomeWorkspace {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 #[cfg_attr(feature = "napi", napi(object))]
 pub struct HomeCategory {
     pub id: String,
@@ -31,6 +33,7 @@ pub struct HomeCategory {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 #[cfg_attr(feature = "napi", napi(object))]
 pub struct HomeWidget {
     pub id: String,
@@ -60,6 +63,7 @@ pub struct HomeWidget {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 #[cfg_attr(feature = "napi", napi(object))]
 pub struct HomeLayoutCategory {
     pub id: String,
@@ -75,6 +79,7 @@ pub struct HomeLayoutCategory {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 #[cfg_attr(feature = "napi", napi(object))]
 pub struct HomeLayout {
     pub workspace_key: String,
@@ -82,6 +87,49 @@ pub struct HomeLayout {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+#[cfg_attr(feature = "napi", napi(object))]
+pub struct MobileHomeWidgetLayout {
+    pub widget_id: String,
+    pub workspace_id: i64,
+    pub layout_scope: String,
+    pub col: i64,
+    pub row: i64,
+    pub col_span: i64,
+    pub row_span: i64,
+    pub preferred_col: i64,
+    pub preferred_row: i64,
+    pub priority: i64,
+    pub hidden: bool,
+    pub created_at: String,
+    pub updated_at: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+#[cfg_attr(feature = "napi", napi(object))]
+pub struct SaveMobileHomeWidgetLayoutInput {
+    pub widget_id: String,
+    pub col: i64,
+    pub row: i64,
+    pub col_span: i64,
+    pub row_span: i64,
+    pub preferred_col: i64,
+    pub preferred_row: i64,
+    pub priority: i64,
+    pub hidden: bool,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+#[cfg_attr(feature = "napi", napi(object))]
+pub struct SaveMobileHomeCategoryLayoutInput {
+    pub category_id: String,
+    pub widgets: Vec<SaveMobileHomeWidgetLayoutInput>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 #[cfg_attr(feature = "napi", napi(object))]
 pub struct CreateHomeCategoryInput {
     pub id: String,
@@ -96,6 +144,7 @@ pub struct CreateHomeCategoryInput {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 #[cfg_attr(feature = "napi", napi(object))]
 pub struct UpdateHomeCategoryInput {
     pub label: Option<String>,
@@ -108,6 +157,7 @@ pub struct UpdateHomeCategoryInput {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 #[cfg_attr(feature = "napi", napi(object))]
 pub struct CreateHomeWidgetInput {
     pub id: String,
@@ -135,6 +185,7 @@ pub struct CreateHomeWidgetInput {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 #[cfg_attr(feature = "napi", napi(object))]
 pub struct UpdateHomeWidgetInput {
     pub category_id: Option<String>,
@@ -160,6 +211,7 @@ pub struct UpdateHomeWidgetInput {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 #[cfg_attr(feature = "napi", napi(object))]
 pub struct ImportHomeWidgetInput {
     pub id: String,
@@ -185,6 +237,7 @@ pub struct ImportHomeWidgetInput {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 #[cfg_attr(feature = "napi", napi(object))]
 pub struct ImportHomeCategoryInput {
     pub id: String,
@@ -199,6 +252,7 @@ pub struct ImportHomeCategoryInput {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 #[cfg_attr(feature = "napi", napi(object))]
 pub struct ImportHomeLayoutInput {
     pub categories: Vec<ImportHomeCategoryInput>,

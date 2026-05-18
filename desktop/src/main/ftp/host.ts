@@ -19,6 +19,7 @@ import type {
   FtpRetryPolicy,
   FtpRestoreState,
   FtpSessionFolder,
+  FtpTransferOptions,
   TransferTask,
   UpsertFtpRestoreStateInput,
   UpdateFtpProfileInput,
@@ -61,8 +62,8 @@ type JsFtpHostConstructor = new (db: unknown) => {
   deleteLocalPath(path: string): Promise<void>;
   copyLocalPath?(sourcePath: string, targetPath: string): Promise<void>;
   getDefaultLocalPath(): string;
-  uploadFile(sessionId: string, localPath: string, remotePath: string): Promise<TransferTask>;
-  downloadFile(sessionId: string, remotePath: string, localPath: string): Promise<TransferTask>;
+  uploadFile(sessionId: string, localPath: string, remotePath: string, options?: FtpTransferOptions): Promise<TransferTask>;
+  downloadFile(sessionId: string, remotePath: string, localPath: string, options?: FtpTransferOptions): Promise<TransferTask>;
   fxpTransfer(sourceSessionId: string, sourcePath: string, targetSessionId: string, targetPath: string): Promise<TransferTask>;
   listTransferTasks(): TransferTask[];
   getRetryPolicy(): FtpRetryPolicy;
@@ -256,12 +257,12 @@ class FtpHost {
     return this.host.getDefaultLocalPath();
   }
 
-  async uploadFile(sessionId: string, localPath: string, remotePath: string) {
-    return this.host.uploadFile(sessionId, localPath, remotePath);
+  async uploadFile(sessionId: string, localPath: string, remotePath: string, options?: FtpTransferOptions) {
+    return this.host.uploadFile(sessionId, localPath, remotePath, options);
   }
 
-  async downloadFile(sessionId: string, remotePath: string, localPath: string) {
-    return this.host.downloadFile(sessionId, remotePath, localPath);
+  async downloadFile(sessionId: string, remotePath: string, localPath: string, options?: FtpTransferOptions) {
+    return this.host.downloadFile(sessionId, remotePath, localPath, options);
   }
 
   async fxpTransfer(sourceSessionId: string, sourcePath: string, targetSessionId: string, targetPath: string) {

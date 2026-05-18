@@ -1,41 +1,73 @@
 <script lang="ts" setup>
-import { computed, onMounted, ref, watch } from 'vue';
-import type { AppLanguage, AppTheme } from '@/contracts/app_config';
+import { computed, nextTick, onMounted, ref, watch } from 'vue';
+import type { CSSProperties } from 'vue';
+import type {
+  AppBottomBarTabId,
+  AppLanguage,
+  AppSettingsTabId,
+  AppSettingsTabPersonalizationConfig,
+  AppTheme,
+  LocalNetworkInterfaceOption,
+} from '@/contracts/app_config';
 import type { FtpWindowsContextMenuStatus } from '@/contracts/ftp';
-import type { TerminalProfile, TerminalRendererMode } from '@/contracts/terminal';
+import type { MultiDeviceClipboardDeviceStatus } from '@/contracts/multi_device_clipboard';
+import type {
+  LocalTerminalProfileConfig,
+  TerminalBackgroundConfig,
+  TerminalProfile,
+  TerminalRendererMode,
+} from '@/contracts/terminal';
 import type { WebScriptRule } from '@/contracts/webview';
 import type { InstalledPluginRecord, PluginHostSummary } from '@/contracts/plugin_host';
+import { resolveThemeBackground } from '@/contracts/background';
 import UiButton from '../components/ui/UiButton.vue';
 import UiField from '../components/ui/UiField.vue';
 import UiInput from '../components/ui/UiInput.vue';
 import ShortcutRecorder from '../components/ui/ShortcutRecorder.vue';
 import UiSelect from '../components/ui/UiSelect.vue';
+import UiScrollbar from '../components/ui/UiScrollbar.vue';
 import UiTabs, { type UiTabItem } from '../components/ui/UiTabs.vue';
+import UiTransferBox from '../components/ui/UiTransferBox.vue';
+import WebViewKeepAliveList from '../components/webview/WebViewKeepAliveList.vue';
+import { useTheme } from '../composables/theme';
+import { notifyError } from '../composables/useInAppNotification';
 import { useConfirmDialog } from '../composables/useConfirmDialog';
 import { useAppConfigStore } from '../stores/app_config_store';
-import { useFtpStore } from '../stores/ftp_store';
 import { useGlobalStore } from '../stores/global_store';
 import { useSettingStore, type SettingsTabKey } from '../stores/settings_store';
 import { useSshStore } from '../stores/ssh_store';
 import { useUpdaterStore } from '../stores/updater_store';
-import { createDefaultAppConfig } from '@/contracts/app_config';
+import {
+  APP_INTERNAL_FUNCTIONS,
+  APP_BOTTOM_BAR_REQUIRED_TAB_IDS,
+  createDefaultAppConfig,
+} from '@/contracts/app_config';
 
 const settingsStore = useSettingStore();
 const appConfigStore = useAppConfigStore();
 const globalStore = useGlobalStore();
 const updaterStore = useUpdaterStore();
-const ftpStore = useFtpStore();
 const sshStore = useSshStore();
 const { show: showConfirm } = useConfirmDialog();
+const { setTheme } = useTheme();
 const defaultShortcuts = createDefaultAppConfig().shortcuts;
 
-type FtpPanelLayoutMode = 'columns' | 'stacked';
-type FtpSidebarDockSide = 'left' | 'right';
-type FtpAuxiliaryDockSide = 'bottom' | 'right';
+type TransferBoxItem = {
+  key: string;
+  label: string;
+  description?: string;
+  locked?: boolean;
+};
 
-const FTP_LAYOUT_STORAGE_KEY = 'guyantools.ftp.layout';
 const FTP_PREFERENCES_STORAGE_KEY = 'guyantools.ftp.preferences';
 const FTP_THUMBNAIL_STORAGE_KEY = 'guyantools.ftp.thumbnail-preferences';
+const SETTINGS_SEARCH_HIGHLIGHT_NAME = 'settings-search-match';
+
+type CssHighlightConstructor = new (...ranges: Range[]) => unknown;
+type CssHighlightRegistry = {
+  delete(name: string): void;
+  set(name: string, highlight: unknown): void;
+};
 
 const hostSummary = ref<PluginHostSummary | null>(null);
 const installedPlugins = ref<InstalledPluginRecord[]>([]);
@@ -50,23 +82,30 @@ const pluginConfigDrafts = ref<Record<string, string>>({});
 const pluginConfigErrors = ref<Record<string, string>>({});
 const terminalProfiles = ref<TerminalProfile[]>([]);
 const terminalDefaultCwdInput = ref(appConfigStore.config.features.terminal.defaultCwd || '');
+const multiDeviceClipboardDeviceNameInput = ref(appConfigStore.config.features.multiDeviceClipboard.deviceName || '');
+const multiDeviceClipboardMaxSyncMbInput = ref(String(Math.round(appConfigStore.config.features.multiDeviceClipboard.maxSyncBytes / 1024 / 1024)));
+const multiDeviceClipboardHistoryLimitInput = ref(String(appConfigStore.config.features.multiDeviceClipboard.historyLimit));
+const localNetworkInterfaces = ref<LocalNetworkInterfaceOption[]>([]);
+const networkInterfacesLoading = ref(false);
+const draggedNetworkInterfaceKey = ref('');
+const multiDeviceClipboardDevices = ref<MultiDeviceClipboardDeviceStatus[]>([]);
+const multiDeviceClipboardDevicesLoading = ref(false);
+const localTerminalBaseProfileId = ref('');
+const localTerminalEditingId = ref('');
+const localTerminalProfileError = ref('');
+const localTerminalProfileForm = ref({
+  label: '',
+  command: '',
+  argsText: '',
+  cwd: '',
+  envText: '{}',
+  configFilePath: '',
+});
 const sshReconnectMaxAttemptsInput = ref(String(appConfigStore.config.features.terminal.sshReconnectMaxAttempts || 3));
 const githubTokenInput = ref('');
 const updaterAuthMessage = ref('');
 const updaterAuthSaving = ref(false);
 const ftpLinkNavigationEnabled = ref(false);
-const ftpPanelLayoutMode = ref<FtpPanelLayoutMode>('columns');
-const ftpSidebarDockSide = ref<FtpSidebarDockSide>('left');
-const ftpAuxiliaryDockSide = ref<FtpAuxiliaryDockSide>('bottom');
-const ftpSidebarSize = ref('296');
-const ftpAuxiliaryDockSize = ref('260');
-const ftpShowSidebarPanel = ref(true);
-const ftpShowLocalPanel = ref(true);
-const ftpShowRemotePanel = ref(true);
-const ftpAuxiliaryDockCollapsed = ref(false);
-const ftpDualRemoteMode = ref(false);
-const ftpSecondaryRemoteProfileId = ref('');
-const ftpSecondaryTabGroupProfileIds = ref<string[]>([]);
 const ftpThumbnailsEnabled = ref(true);
 const ftpThumbnailMaxBytesKb = ref('256');
 const ftpThumbnailPrefetchLimit = ref('18');
@@ -90,16 +129,87 @@ const settingsTabs: UiTabItem[] = [
   { key: 'ai-agent', label: 'Agent' },
   { key: 'plugins', label: '插件配置' },
   { key: 'terminal', label: '终端' },
+  { key: 'multi-device-clipboard', label: '多设备剪贴板' },
   { key: 'shortcuts', label: '快捷键' },
 ];
 const settingsTabOrder = settingsTabs.map(tab => tab.key) as SettingsTabKey[];
-const settingsTabTransition = ref('settings-tab-forward');
-const settingsNavDirection = ref<'forward' | 'back'>('forward');
+const settingsTabTransition = ref('ui-tab-forward');
+const loadedSettingsTabs = new Set<SettingsTabKey>();
+const searchTabItem: UiTabItem = { key: 'search', label: '搜索' };
+const settingsSearchQuery = ref('');
+const settingsSearchHasMatches = ref(true);
+const settingsBodyRef = ref<HTMLElement | null>(null);
+
+const isSearchingSettings = computed(() => settingsSearchQuery.value.trim().length > 0);
+const normalizedSettingsSearchQuery = computed(() => settingsSearchQuery.value.trim().toLocaleLowerCase());
+const displayedSettingsTabs = computed<UiTabItem[]>(() => (isSearchingSettings.value ? [searchTabItem] : settingsTabs));
+const activeSettingsTabForView = computed(() => (isSearchingSettings.value ? 'search' : settingsStore.activeSettingsTab));
+const settingsContentKey = computed(() => (isSearchingSettings.value ? 'search' : settingsStore.activeSettingsTab));
 
 const themeOptions = [
   { label: '浅色主题', value: 'light' },
   { label: '深色主题', value: 'dark' },
 ];
+
+const bottomBarTabOptions = computed(() => APP_INTERNAL_FUNCTIONS
+  .filter(item => !item.devOnly || import.meta.env.DEV)
+  .map(item => ({
+    id: item.id,
+    label: item.label,
+    description: item.description,
+    locked: APP_BOTTOM_BAR_REQUIRED_TAB_IDS.includes(item.id),
+  })));
+
+const bottomBarTransferItems = computed<TransferBoxItem[]>(() => bottomBarTabOptions.value.map(item => ({
+  key: item.id,
+  label: item.label,
+  description: item.description,
+  locked: item.locked,
+})));
+
+const bottomBarVisibleTabIds = computed(() => {
+  const validIds = new Set(bottomBarTabOptions.value.map(item => item.id));
+  const seen = new Set<AppBottomBarTabId>();
+  const result: AppBottomBarTabId[] = [];
+
+  for (const tabId of appConfigStore.config.bottomBar.defaultVisibleTabIds) {
+    if (validIds.has(tabId) && !seen.has(tabId)) {
+      seen.add(tabId);
+      result.push(tabId);
+    }
+  }
+
+  for (const tabId of APP_BOTTOM_BAR_REQUIRED_TAB_IDS) {
+    if (validIds.has(tabId) && !seen.has(tabId)) {
+      seen.add(tabId);
+      result.push(tabId);
+    }
+  }
+
+  return result;
+});
+
+const bottomBarVisibleSummary = computed(() => {
+  const labelMap = new Map(bottomBarTabOptions.value.map(tab => [tab.id, tab.label]));
+  const labels = bottomBarVisibleTabIds.value
+    .map(tabId => labelMap.get(tabId))
+    .filter((label): label is string => Boolean(label));
+  return labels.length ? `默认显示：${labels.join('、')}` : '默认显示：首页、设置';
+});
+
+const orderedNetworkInterfaces = computed(() => {
+  const priority = appConfigStore.config.features.multiDeviceClipboard.networkInterfacePriority ?? [];
+  return [...localNetworkInterfaces.value].sort((a, b) => {
+    const aIndex = networkInterfacePriorityIndex(a, priority);
+    const bIndex = networkInterfacePriorityIndex(b, priority);
+    if (aIndex !== bIndex) return aIndex - bIndex;
+    return a.name.localeCompare(b.name) || a.address.localeCompare(b.address);
+  });
+});
+
+const activeNetworkInterface = computed(() => orderedNetworkInterfaces.value.find(item => !item.internal));
+const pairedMultiDeviceClipboardDevices = computed(() =>
+  multiDeviceClipboardDevices.value.filter(device => device.trusted && !device.isSelf));
 
 const languageOptions = [
   { label: '简体中文', value: 'zh' },
@@ -127,55 +237,26 @@ const pluginTabs = computed<UiTabItem[]>(() => installedPlugins.value.map((plugi
   key: plugin.manifest.id,
   label: plugin.manifest.displayName,
 })));
-const terminalProfileOptions = computed(() => terminalProfiles.value.map((profile) => ({
-  label: profile.label,
-  value: profile.id,
-})));
-const ftpSecondaryRemoteSessionOptions = computed(() => [
-  { label: '自动选择第二标签组会话', value: '' },
-  ...ftpStore.sessions.map((session) => ({
-    label: `${session.profileLabel} · ${session.protocol.toUpperCase()} · ${session.username}@${session.host}:${session.port}`,
-    value: session.profileId,
+const customTerminalProfiles = computed(() => appConfigStore.config.features.terminal.localProfiles ?? []);
+const terminalProfileOptions = computed(() => [
+  ...terminalProfiles.value.map((profile) => ({
+    label: profile.label,
+    value: profile.id,
+  })),
+  ...customTerminalProfiles.value.map((profile) => ({
+    label: `${profile.label}（自定义）`,
+    value: profile.id,
   })),
 ]);
 const ftpLinkNavigationSummary = computed(() => {
   if (!ftpLinkNavigationEnabled.value) return '联动导航已关闭';
-  return ftpDualRemoteMode.value ? '主标签组和第二标签组联动已开启' : '本地和远程联动已开启';
-});
-const ftpDualRemoteSummary = computed(() => {
-  if (!ftpDualRemoteMode.value) return '当前为单标签组工作区';
-  if (!ftpStore.sessions.length) return '并行标签组已开启，返回传输页后会在连接可用时生效';
-  const selectedSession = ftpStore.sessions.find((session) => session.profileId === ftpSecondaryRemoteProfileId.value);
-  return selectedSession
-    ? `并行标签组已开启 · 第二组当前为 ${selectedSession.profileLabel}`
-    : '并行标签组已开启 · 自动选择第二组会话';
+  return '当前工作区内的文件面板会联动导航';
 });
 const ftpThumbnailSummary = computed(() => (
   ftpThumbnailsEnabled.value
     ? `图片缩略图已开启 · 单张最多 ${ftpThumbnailMaxBytesKb.value} KB · 每侧预加载 ${ftpThumbnailPrefetchLimit.value} 张`
     : '图片缩略图已关闭'
 ));
-const ftpPanelLayoutSummary = computed(() => (
-  ftpPanelLayoutMode.value === 'columns' ? '当前为水平双栏布局' : '当前为纵向堆叠布局'
-));
-const ftpSidebarDockSummary = computed(() => (
-  `会话侧栏停靠在${ftpSidebarDockSide.value === 'left' ? '左侧' : '右侧'} · 宽度 ${ftpSidebarSize.value}px`
-));
-const ftpAuxiliaryDockSummary = computed(() => {
-  const positionLabel = ftpAuxiliaryDockSide.value === 'bottom' ? '底部停靠区' : '右侧停靠区';
-  const sizeLabel = ftpAuxiliaryDockSide.value === 'bottom' ? `高度 ${ftpAuxiliaryDockSize.value}px` : `宽度 ${ftpAuxiliaryDockSize.value}px`;
-  return `${positionLabel} · ${sizeLabel}`;
-});
-const ftpBrowserPanelSummary = computed(() => {
-  if (ftpDualRemoteMode.value && ftpShowLocalPanel.value && ftpShowRemotePanel.value) return '本地、主远程与第二标签组面板均显示';
-  if (ftpDualRemoteMode.value && ftpShowRemotePanel.value) return ftpShowLocalPanel.value ? '本地、主远程与第二标签组并行显示' : '当前显示主远程与第二标签组';
-  if (ftpDualRemoteMode.value && ftpShowLocalPanel.value) return '当前显示本地与第二标签组';
-  if (ftpDualRemoteMode.value) return '当前仅显示第二标签组';
-  if (ftpShowLocalPanel.value && ftpShowRemotePanel.value) return '本地与远程面板均显示';
-  if (ftpShowLocalPanel.value) return '当前仅显示本地面板';
-  if (ftpShowRemotePanel.value) return '当前仅显示远程面板';
-  return '至少需要保留一个文件面板';
-});
 const ftpExternalEditorSummary = computed(() => (
   ftpExternalEditorPath.value
     ? `自定义编辑器：${ftpExternalEditorPath.value}${ftpCleanupExternalDraftsOnClose.value ? ' · 关闭后清理临时文件' : ''}`
@@ -195,9 +276,6 @@ const ftpWindowsContextMenuSummary = computed(() => (
 const ftpWindowsContextMenuCommandSummary = computed(() => (
   ftpWindowsContextMenuStatus.value.command || '暂无可用命令'
 ));
-const ftpVisibleBrowserPanelCount = computed(() =>
-  Number(ftpShowLocalPanel.value) + Number(ftpShowRemotePanel.value) + Number(ftpDualRemoteMode.value),
-);
 const updateStatusLabel = computed(() => updateStatusLabels[updaterStore.status] ?? updaterStore.status);
 const updateProgressPercent = computed(() => Math.round(updaterStore.progress?.percent ?? 0));
 const updateReleaseDateText = computed(() => {
@@ -224,9 +302,182 @@ const canSaveGithubToken = computed(() => Boolean(githubTokenInput.value.trim())
 const activePlugin = computed(() => installedPlugins.value.find(
   (plugin) => plugin.manifest.id === settingsStore.activePluginConfigId,
 ) ?? null);
+const activeSettingsTabPersonalization = computed(() => getSettingsTabPersonalization(settingsStore.activeSettingsTab));
+const activeSettingsPageStyle = computed<CSSProperties>(() => buildSettingsTabBackgroundStyle(activeSettingsTabPersonalization.value));
+const activeSettingsBackgroundVideo = computed(() => (
+  activeSettingsTabPersonalization.value.type === 'video' ? activeSettingsTabPersonalization.value.video : ''
+));
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return Boolean(value) && typeof value === 'object' && !Array.isArray(value);
+}
+
+function getSettingsTabPersonalization(tab: AppSettingsTabId): AppSettingsTabPersonalizationConfig {
+  const config = appConfigStore.config.features.settings.tabs[tab];
+  const background = resolveThemeBackground({
+    type: config.type,
+    color: config.color,
+    image: config.image,
+    video: config.video,
+    backgroundStyle: config.style,
+  }, appConfigStore.config.appearance.theme);
+  return {
+    type: background.type,
+    color: background.color,
+    image: background.image,
+    video: background.video,
+    style: background.backgroundStyle,
+  };
+}
+
+function buildSettingsTabBackgroundStyle(config: AppSettingsTabPersonalizationConfig): CSSProperties {
+  const style: CSSProperties = {};
+
+  if (config.type === 'image' && config.image) {
+    style.backgroundImage = `url(${config.image})`;
+    style.backgroundSize = config.style?.backgroundSize || 'cover';
+    style.backgroundPosition = config.style?.backgroundPosition || 'center';
+    style.backgroundRepeat = config.style?.backgroundRepeat || 'no-repeat';
+  } else if (config.color) {
+    style.background = config.color;
+  }
+
+  return style;
+}
+
+function isSettingsTabRendered(tab: SettingsTabKey) {
+  return isSearchingSettings.value || settingsStore.activeSettingsTab === tab;
+}
+
+function isSearchContainerCard(element: HTMLElement) {
+  return element.classList.contains('settings-card')
+    && Boolean(element.querySelector('.settings-row, .ui-field'));
+}
+
+function getSearchableSettingItems(root: HTMLElement) {
+  return Array.from(root.querySelectorAll<HTMLElement>('.settings-row, .ui-field, .settings-card'))
+    .filter(item => !isSearchContainerCard(item));
+}
+
+function collectSettingSearchText(element: HTMLElement) {
+  return (element.textContent ?? '').trim().replace(/\s+/g, ' ');
+}
+
+function getCssHighlightApi() {
+  const highlightConstructor = (window as typeof window & { Highlight?: CssHighlightConstructor }).Highlight;
+  const highlightRegistry = (CSS as typeof CSS & { highlights?: CssHighlightRegistry }).highlights;
+
+  if (!highlightConstructor || !highlightRegistry) {
+    return null;
+  }
+
+  return {
+    Highlight: highlightConstructor,
+    registry: highlightRegistry,
+  };
+}
+
+function clearSettingsSearchHighlights() {
+  getCssHighlightApi()?.registry.delete(SETTINGS_SEARCH_HIGHLIGHT_NAME);
+}
+
+function shouldHighlightSearchNode(node: Node) {
+  const parentElement = node.parentElement;
+  if (!parentElement) return false;
+
+  return !parentElement.closest('input, textarea, select, option, button, script, style, .is-search-hidden');
+}
+
+function collectSettingHighlightRanges(element: HTMLElement, query: string) {
+  const ranges: Range[] = [];
+  const walker = document.createTreeWalker(
+    element,
+    NodeFilter.SHOW_TEXT,
+    {
+      acceptNode(node) {
+        return shouldHighlightSearchNode(node) ? NodeFilter.FILTER_ACCEPT : NodeFilter.FILTER_REJECT;
+      },
+    },
+  );
+
+  while (walker.nextNode()) {
+    const textNode = walker.currentNode;
+    const text = textNode.textContent ?? '';
+    const normalizedText = text.toLocaleLowerCase();
+    let matchIndex = normalizedText.indexOf(query);
+
+    while (matchIndex >= 0) {
+      const range = document.createRange();
+      range.setStart(textNode, matchIndex);
+      range.setEnd(textNode, matchIndex + query.length);
+      ranges.push(range);
+      matchIndex = normalizedText.indexOf(query, matchIndex + query.length);
+    }
+  }
+
+  return ranges;
+}
+
+function updateSettingsSearchHighlights(query: string, settingItems: HTMLElement[]) {
+  const cssHighlightApi = getCssHighlightApi();
+  if (!cssHighlightApi) return;
+
+  cssHighlightApi.registry.delete(SETTINGS_SEARCH_HIGHLIGHT_NAME);
+  if (!query) return;
+
+  const ranges = settingItems
+    .filter(item => !item.classList.contains('is-search-hidden'))
+    .flatMap(item => collectSettingHighlightRanges(item, query));
+
+  if (ranges.length) {
+    cssHighlightApi.registry.set(SETTINGS_SEARCH_HIGHLIGHT_NAME, new cssHighlightApi.Highlight(...ranges));
+  }
+}
+
+function applySettingsSearchFilter() {
+  const root = settingsBodyRef.value;
+  if (!root) {
+    clearSettingsSearchHighlights();
+    return;
+  }
+
+  const query = normalizedSettingsSearchQuery.value;
+  const settingItems = getSearchableSettingItems(root);
+
+  for (const item of settingItems) {
+    const searchText = collectSettingSearchText(item).toLocaleLowerCase();
+    item.classList.toggle('is-search-hidden', Boolean(query) && (!searchText || !searchText.includes(query)));
+  }
+
+  const containerCards = Array.from(root.querySelectorAll<HTMLElement>('.settings-card'))
+    .filter(isSearchContainerCard);
+  for (const card of containerCards) {
+    const hasVisibleItem = Array.from(card.querySelectorAll<HTMLElement>('.settings-row, .ui-field'))
+      .some(item => !item.classList.contains('is-search-hidden'));
+    card.classList.toggle('is-search-hidden', Boolean(query) && !hasVisibleItem);
+  }
+
+  const groups = Array.from(root.querySelectorAll<HTMLElement>('.settings-group'));
+  for (const group of groups) {
+    const hasVisibleItem = getSearchableSettingItems(group)
+      .some(item => !item.classList.contains('is-search-hidden'));
+    group.classList.toggle('is-search-hidden', Boolean(query) && !hasVisibleItem);
+  }
+
+  const sections = Array.from(root.querySelectorAll<HTMLElement>('.settings-section'));
+  let hasAnyVisibleSection = false;
+  for (const section of sections) {
+    const hasVisibleItem = getSearchableSettingItems(section)
+      .some(item => !item.classList.contains('is-search-hidden'));
+    section.classList.toggle('settings-section--search-empty', Boolean(query) && !hasVisibleItem);
+    hasAnyVisibleSection ||= hasVisibleItem;
+  }
+  settingsSearchHasMatches.value = !query || hasAnyVisibleSection;
+  updateSettingsSearchHighlights(query, settingItems);
+}
+
+function queueSettingsSearchFilter() {
+  void nextTick(applySettingsSearchFilter);
 }
 
 function syncPluginDraft(pluginId: string) {
@@ -262,15 +513,12 @@ async function loadPluginContext() {
     pluginLoadError.value = '';
   } catch (error) {
     pluginLoadError.value = error instanceof Error ? error.message : '插件配置读取失败';
+    notifyError(error, '插件配置读取失败');
   }
 }
 
 async function handleThemeChange(value: string) {
-  await appConfigStore.updateConfig({
-    appearance: {
-      theme: value as AppTheme,
-    },
-  });
+  await setTheme(value as AppTheme);
 }
 
 async function handleLanguageChange(value: string) {
@@ -281,66 +529,107 @@ async function handleLanguageChange(value: string) {
   });
 }
 
+async function handleBottomBarVisibleTabsChange(value: string[]) {
+  const validIds = new Set(bottomBarTabOptions.value.map(tab => tab.id));
+  const seen = new Set<AppBottomBarTabId>();
+  const nextIds: AppBottomBarTabId[] = [];
+  let candidateIds = value;
+  for (const requiredId of APP_BOTTOM_BAR_REQUIRED_TAB_IDS) {
+    if (validIds.has(requiredId) && !candidateIds.includes(requiredId)) {
+      candidateIds = [...candidateIds, requiredId];
+    }
+  }
+
+  for (const id of candidateIds) {
+    if (!validIds.has(id as AppBottomBarTabId) || seen.has(id as AppBottomBarTabId)) {
+      continue;
+    }
+
+    const tabId = id as AppBottomBarTabId;
+    seen.add(tabId);
+    nextIds.push(tabId);
+  }
+
+  await appConfigStore.updateConfig({
+    bottomBar: {
+      defaultVisibleTabIds: nextIds,
+    },
+  });
+}
+
 function handleSettingsTabChange(value: string) {
+  if (value === 'search') {
+    return;
+  }
+
   const nextTab = value as SettingsTabKey;
   const currentIndex = settingsTabOrder.indexOf(settingsStore.activeSettingsTab);
   const nextIndex = settingsTabOrder.indexOf(nextTab);
 
-  settingsTabTransition.value = nextIndex >= currentIndex ? 'settings-tab-forward' : 'settings-tab-back';
-  settingsNavDirection.value = nextIndex >= currentIndex ? 'forward' : 'back';
+  settingsTabTransition.value = nextIndex >= currentIndex ? 'ui-tab-forward' : 'ui-tab-back';
   settingsStore.setActiveSettingsTab(nextTab);
+  scheduleSettingsTabLoad(nextTab);
 }
 
-function normalizeFtpPanelSize(value: string | undefined, min: number, max: number, fallback: string) {
-  const parsed = Number.parseInt(value ?? fallback, 10);
-  if (!Number.isFinite(parsed)) return fallback;
-  return String(Math.min(max, Math.max(min, parsed)));
+function runSettingsIdleTask(task: () => void) {
+  window.setTimeout(() => {
+    window.requestAnimationFrame(task);
+  }, 0);
+}
+
+function scheduleSettingsTabLoad(tab: SettingsTabKey, force = false) {
+  if (!force && loadedSettingsTabs.has(tab)) {
+    return;
+  }
+
+  loadedSettingsTabs.add(tab);
+  runSettingsIdleTask(() => {
+    switch (tab) {
+      case 'general':
+        if (appConfigStore.fontOptions.length === 0) {
+          void appConfigStore.loadLocalFonts();
+        }
+        break;
+      case 'file-transfer':
+        loadFtpSettingsDraft();
+        void sshStore.initialize();
+        void loadFtpRetryPolicy();
+        void refreshFtpWindowsContextMenuStatus();
+        void refreshFtpKnownHosts();
+        break;
+      case 'terminal':
+        void sshStore.initialize();
+        void loadTerminalProfiles();
+        break;
+      case 'multi-device-clipboard':
+        void loadNetworkInterfaces();
+        void loadMultiDeviceClipboardDevices();
+        break;
+      case 'plugins':
+        void loadPluginContext();
+        break;
+      case 'web-security':
+        void loadExtensions();
+        break;
+      case 'ai-agent':
+      case 'shortcuts':
+        break;
+      default:
+        break;
+    }
+  });
 }
 
 function loadFtpSettingsDraft() {
   try {
-    const rawLayout = window.localStorage.getItem(FTP_LAYOUT_STORAGE_KEY);
-    if (rawLayout) {
-      const parsed = JSON.parse(rawLayout) as Partial<{
-        mode: FtpPanelLayoutMode;
-        sidebarDockSide: FtpSidebarDockSide;
-        auxiliaryDockSide: FtpAuxiliaryDockSide;
-        sidebarSize: string;
-        auxiliaryDockSize: string;
-        showSidebar: boolean;
-        showLocal: boolean;
-        showRemote: boolean;
-        auxCollapsed: boolean;
-      }>;
-      ftpPanelLayoutMode.value = parsed.mode === 'stacked' ? 'stacked' : 'columns';
-      ftpSidebarDockSide.value = parsed.sidebarDockSide === 'right' ? 'right' : 'left';
-      ftpAuxiliaryDockSide.value = parsed.auxiliaryDockSide === 'right' ? 'right' : 'bottom';
-      ftpSidebarSize.value = normalizeFtpPanelSize(parsed.sidebarSize, 220, 420, '296');
-      ftpAuxiliaryDockSize.value = normalizeFtpPanelSize(parsed.auxiliaryDockSize, 180, 420, '260');
-      ftpShowSidebarPanel.value = parsed.showSidebar ?? true;
-      ftpShowLocalPanel.value = parsed.showLocal ?? true;
-      ftpShowRemotePanel.value = parsed.showRemote ?? true;
-      ftpAuxiliaryDockCollapsed.value = parsed.auxCollapsed ?? false;
-    }
-
     const rawPreferences = window.localStorage.getItem(FTP_PREFERENCES_STORAGE_KEY);
     if (rawPreferences) {
-      const parsed = JSON.parse(rawPreferences) as Partial<{
-        externalEditorPath: string;
-        cleanupExternalDraftsOnClose: boolean;
-        linkNavigationEnabled: boolean;
-        dualRemoteMode: boolean;
-        secondaryTabGroupProfileIds: string[];
-        secondaryRemoteProfileId: string;
-      }>;
-      ftpExternalEditorPath.value = typeof parsed.externalEditorPath === 'string' ? parsed.externalEditorPath : '';
-      ftpCleanupExternalDraftsOnClose.value = Boolean(parsed.cleanupExternalDraftsOnClose);
-      ftpLinkNavigationEnabled.value = Boolean(parsed.linkNavigationEnabled);
-      ftpDualRemoteMode.value = Boolean(parsed.dualRemoteMode);
-      ftpSecondaryTabGroupProfileIds.value = Array.isArray(parsed.secondaryTabGroupProfileIds)
-        ? parsed.secondaryTabGroupProfileIds.filter((item): item is string => typeof item === 'string' && item.length > 0)
-        : [];
-      ftpSecondaryRemoteProfileId.value = typeof parsed.secondaryRemoteProfileId === 'string' ? parsed.secondaryRemoteProfileId : '';
+      const parsed = JSON.parse(rawPreferences) as unknown;
+      if (isRecord(parsed)) {
+        ftpExternalEditorPath.value = typeof parsed.externalEditorPath === 'string' ? parsed.externalEditorPath : '';
+        ftpCleanupExternalDraftsOnClose.value = Boolean(parsed.cleanupExternalDraftsOnClose);
+        ftpLinkNavigationEnabled.value = Boolean(parsed.linkNavigationEnabled);
+      }
     }
 
     const rawThumbnail = window.localStorage.getItem(FTP_THUMBNAIL_STORAGE_KEY);
@@ -356,18 +645,6 @@ function loadFtpSettingsDraft() {
     }
   } catch {
     ftpLinkNavigationEnabled.value = false;
-    ftpPanelLayoutMode.value = 'columns';
-    ftpSidebarDockSide.value = 'left';
-    ftpAuxiliaryDockSide.value = 'bottom';
-    ftpSidebarSize.value = '296';
-    ftpAuxiliaryDockSize.value = '260';
-    ftpShowSidebarPanel.value = true;
-    ftpShowLocalPanel.value = true;
-    ftpShowRemotePanel.value = true;
-    ftpAuxiliaryDockCollapsed.value = false;
-    ftpDualRemoteMode.value = false;
-    ftpSecondaryRemoteProfileId.value = '';
-    ftpSecondaryTabGroupProfileIds.value = [];
     ftpThumbnailsEnabled.value = true;
     ftpThumbnailMaxBytesKb.value = '256';
     ftpThumbnailPrefetchLimit.value = '18';
@@ -378,33 +655,21 @@ function loadFtpSettingsDraft() {
   }
 }
 
-function persistFtpLayoutSettings() {
-  if (!ftpSettingsLoaded.value) return;
-  window.localStorage.setItem(FTP_LAYOUT_STORAGE_KEY, JSON.stringify({
-    mode: ftpPanelLayoutMode.value,
-    sidebarDockSide: ftpSidebarDockSide.value,
-    auxiliaryDockSide: ftpAuxiliaryDockSide.value,
-    sidebarSize: ftpSidebarSize.value,
-    auxiliaryDockSize: ftpAuxiliaryDockSize.value,
-    showSidebar: ftpShowSidebarPanel.value,
-    showLocal: ftpShowLocalPanel.value,
-    showRemote: ftpShowRemotePanel.value,
-    auxCollapsed: ftpAuxiliaryDockCollapsed.value,
-  }));
-}
-
 function persistFtpPreferenceSettings() {
   if (!ftpSettingsLoaded.value) return;
-  const secondaryTabGroupProfileIds = ftpDualRemoteMode.value && ftpSecondaryRemoteProfileId.value
-    ? Array.from(new Set([...ftpSecondaryTabGroupProfileIds.value, ftpSecondaryRemoteProfileId.value]))
-    : ftpSecondaryTabGroupProfileIds.value;
+  let existingPreferences: Record<string, unknown> = {};
+  try {
+    const rawPreferences = window.localStorage.getItem(FTP_PREFERENCES_STORAGE_KEY);
+    const parsed = rawPreferences ? JSON.parse(rawPreferences) as unknown : {};
+    existingPreferences = isRecord(parsed) ? parsed : {};
+  } catch {
+    existingPreferences = {};
+  }
   window.localStorage.setItem(FTP_PREFERENCES_STORAGE_KEY, JSON.stringify({
+    ...existingPreferences,
     externalEditorPath: ftpExternalEditorPath.value,
     cleanupExternalDraftsOnClose: ftpCleanupExternalDraftsOnClose.value,
     linkNavigationEnabled: ftpLinkNavigationEnabled.value,
-    dualRemoteMode: ftpDualRemoteMode.value,
-    secondaryTabGroupProfileIds,
-    secondaryRemoteProfileId: ftpSecondaryRemoteProfileId.value,
   }));
 }
 
@@ -415,36 +680,6 @@ function persistFtpThumbnailSettings() {
     maxBytesKb: ftpThumbnailMaxBytesKb.value,
     prefetchLimit: ftpThumbnailPrefetchLimit.value,
   }));
-}
-
-function setFtpPanelLayoutMode(mode: FtpPanelLayoutMode) {
-  ftpPanelLayoutMode.value = mode;
-}
-
-function setFtpSidebarDockSide(side: FtpSidebarDockSide) {
-  ftpSidebarDockSide.value = side;
-}
-
-function setFtpAuxiliaryDockSide(side: FtpAuxiliaryDockSide) {
-  ftpAuxiliaryDockSide.value = side;
-}
-
-function setFtpSidebarSize(value: string) {
-  ftpSidebarSize.value = normalizeFtpPanelSize(value, 220, 420, ftpSidebarSize.value);
-}
-
-function setFtpAuxiliaryDockSize(value: string) {
-  ftpAuxiliaryDockSize.value = normalizeFtpPanelSize(value, 180, 420, ftpAuxiliaryDockSize.value);
-}
-
-function toggleFtpLocalPanel() {
-  if (ftpShowLocalPanel.value && ftpVisibleBrowserPanelCount.value <= 1) return;
-  ftpShowLocalPanel.value = !ftpShowLocalPanel.value;
-}
-
-function toggleFtpRemotePanel() {
-  if (ftpShowRemotePanel.value && ftpVisibleBrowserPanelCount.value <= 1) return;
-  ftpShowRemotePanel.value = !ftpShowRemotePanel.value;
 }
 
 function setFtpThumbnailMaxBytesKb(value: string) {
@@ -490,6 +725,7 @@ async function refreshFtpWindowsContextMenuStatus() {
     ftpWindowsContextMenuStatus.value = await window.ftpApi.getWindowsContextMenuStatus();
   } catch (error) {
     ftpWindowsContextMenuError.value = error instanceof Error ? error.message : String(error);
+    notifyError(error, 'FTP 右键菜单状态读取失败');
   } finally {
     ftpWindowsContextMenuLoading.value = false;
   }
@@ -502,6 +738,7 @@ async function installFtpWindowsContextMenu() {
     ftpWindowsContextMenuStatus.value = await window.ftpApi.installWindowsContextMenu();
   } catch (error) {
     ftpWindowsContextMenuError.value = error instanceof Error ? error.message : String(error);
+    notifyError(error, 'FTP 右键菜单安装失败');
   } finally {
     ftpWindowsContextMenuLoading.value = false;
   }
@@ -514,6 +751,7 @@ async function uninstallFtpWindowsContextMenu() {
     ftpWindowsContextMenuStatus.value = await window.ftpApi.uninstallWindowsContextMenu();
   } catch (error) {
     ftpWindowsContextMenuError.value = error instanceof Error ? error.message : String(error);
+    notifyError(error, 'FTP 右键菜单卸载失败');
   } finally {
     ftpWindowsContextMenuLoading.value = false;
   }
@@ -564,6 +802,10 @@ async function handleFontChange(value: string) {
 
 async function loadTerminalProfiles() {
   terminalProfiles.value = await window.terminalApi.listProfiles();
+  if (!localTerminalBaseProfileId.value && terminalProfiles.value.length > 0) {
+    localTerminalBaseProfileId.value = terminalProfiles.value[0].id;
+    fillLocalTerminalProfileFromBase(localTerminalBaseProfileId.value);
+  }
 }
 
 async function handleTerminalProfileChange(value: string) {
@@ -596,11 +838,215 @@ async function commitTerminalDefaultCwd() {
   });
 }
 
+function fillLocalTerminalProfileFromBase(profileId: string) {
+  localTerminalBaseProfileId.value = profileId;
+  if (localTerminalEditingId.value) {
+    return;
+  }
+
+  const profile = terminalProfiles.value.find((item) => item.id === profileId);
+  if (!profile) {
+    return;
+  }
+
+  localTerminalProfileForm.value = {
+    ...localTerminalProfileForm.value,
+    label: `${profile.label} 自定义`,
+    command: profile.command,
+    argsText: profile.args.join(' '),
+  };
+}
+
+function createDefaultTerminalBackground(): TerminalBackgroundConfig {
+  const background = resolveThemeBackground({
+    type: appConfigStore.config.features.terminal.viewportBgType ?? 'color',
+    color: appConfigStore.config.features.terminal.viewportBgColor ?? '',
+    image: appConfigStore.config.features.terminal.viewportBgImage ?? '',
+    video: appConfigStore.config.features.terminal.viewportBgVideo ?? '',
+    backgroundStyle: appConfigStore.config.features.terminal.viewportBgStyle ?? {},
+  }, appConfigStore.config.appearance.theme);
+  return {
+    type: background.type,
+    color: background.color,
+    image: background.image,
+    video: background.video,
+    style: background.backgroundStyle,
+  };
+}
+
+function resetLocalTerminalProfileForm() {
+  localTerminalEditingId.value = '';
+  localTerminalProfileError.value = '';
+  const profile = terminalProfiles.value.find((item) => item.id === localTerminalBaseProfileId.value)
+    ?? terminalProfiles.value[0];
+  localTerminalProfileForm.value = {
+    label: profile ? `${profile.label} 自定义` : '',
+    command: profile?.command ?? '',
+    argsText: profile?.args.join(' ') ?? '',
+    cwd: '',
+    envText: '{}',
+    configFilePath: '',
+  };
+}
+
+function parseTerminalArgs(value: string) {
+  const args: string[] = [];
+  let current = '';
+  let quote: '"' | "'" | '' = '';
+  let escaping = false;
+
+  for (const char of value) {
+    if (escaping) {
+      current += char;
+      escaping = false;
+      continue;
+    }
+
+    if (quote && char === '\\') {
+      escaping = true;
+      continue;
+    }
+
+    if ((char === '"' || char === "'") && (!quote || quote === char)) {
+      quote = quote ? '' : char;
+      continue;
+    }
+
+    if (!quote && /\s/.test(char)) {
+      if (current) {
+        args.push(current);
+        current = '';
+      }
+      continue;
+    }
+
+    current += char;
+  }
+
+  if (escaping) {
+    current += '\\';
+  }
+  if (current) {
+    args.push(current);
+  }
+
+  return args;
+}
+
+function parseTerminalEnv(value: string) {
+  const trimmed = value.trim();
+  if (!trimmed) {
+    return {};
+  }
+
+  const parsed = JSON.parse(trimmed) as unknown;
+  if (!isRecord(parsed)) {
+    throw new Error('环境变量必须是 JSON 对象');
+  }
+
+  return Object.fromEntries(
+    Object.entries(parsed)
+      .filter((entry): entry is [string, string] => typeof entry[1] === 'string' && entry[0].trim().length > 0),
+  );
+}
+
+async function saveLocalTerminalProfile() {
+  const label = localTerminalProfileForm.value.label.trim();
+  const command = localTerminalProfileForm.value.command.trim();
+  if (!label || !command) {
+    localTerminalProfileError.value = '名称和命令不能为空。';
+    return;
+  }
+
+  let env: Record<string, string>;
+  try {
+    env = parseTerminalEnv(localTerminalProfileForm.value.envText);
+  } catch (error) {
+    localTerminalProfileError.value = error instanceof Error ? error.message : '环境变量格式不正确。';
+    return;
+  }
+
+  const id = localTerminalEditingId.value || `local:${Date.now().toString(36)}`;
+  const nextProfile: LocalTerminalProfileConfig = {
+    id,
+    label,
+    command,
+    args: parseTerminalArgs(localTerminalProfileForm.value.argsText),
+    cwd: localTerminalProfileForm.value.cwd.trim(),
+    env,
+    configFilePath: localTerminalProfileForm.value.configFilePath.trim(),
+    background: localTerminalEditingId.value
+      ? customTerminalProfiles.value.find((profile) => profile.id === localTerminalEditingId.value)?.background ?? createDefaultTerminalBackground()
+      : createDefaultTerminalBackground(),
+  };
+  const nextProfiles = localTerminalEditingId.value
+    ? customTerminalProfiles.value.map((profile) => profile.id === localTerminalEditingId.value ? nextProfile : profile)
+    : [...customTerminalProfiles.value, nextProfile];
+
+  await appConfigStore.updateConfig({
+    features: {
+      terminal: {
+        localProfiles: nextProfiles,
+      },
+    },
+  });
+  resetLocalTerminalProfileForm();
+}
+
+function editLocalTerminalProfile(profile: LocalTerminalProfileConfig) {
+  localTerminalEditingId.value = profile.id;
+  localTerminalProfileError.value = '';
+  localTerminalProfileForm.value = {
+    label: profile.label,
+    command: profile.command,
+    argsText: profile.args.join(' '),
+    cwd: profile.cwd ?? '',
+    envText: JSON.stringify(profile.env ?? {}, null, 2),
+    configFilePath: profile.configFilePath ?? '',
+  };
+}
+
+async function deleteLocalTerminalProfile(profile: LocalTerminalProfileConfig) {
+  const confirmed = await showConfirm({
+    title: '删除本地终端类型',
+    message: `删除 ${profile.label} 后，新建会话列表中将不再显示这个类型。是否继续？`,
+    confirmText: '删除',
+    danger: true,
+  });
+  if (!confirmed) return;
+
+  const nextProfiles = customTerminalProfiles.value.filter((item) => item.id !== profile.id);
+  const fallbackProfileId = appConfigStore.config.features.terminal.defaultProfileId === profile.id
+    ? terminalProfiles.value[0]?.id ?? ''
+    : appConfigStore.config.features.terminal.defaultProfileId;
+  await appConfigStore.updateConfig({
+    features: {
+      terminal: {
+        localProfiles: nextProfiles,
+        defaultProfileId: fallbackProfileId,
+      },
+    },
+  });
+  if (localTerminalEditingId.value === profile.id) {
+    resetLocalTerminalProfileForm();
+  }
+}
+
 async function handleTerminalSixelChange(event: Event) {
   await appConfigStore.updateConfig({
     features: {
       terminal: {
         enableSixel: (event.target as HTMLInputElement).checked,
+      },
+    },
+  });
+}
+
+async function handleTerminalBellChange(event: Event) {
+  await appConfigStore.updateConfig({
+    features: {
+      terminal: {
+        enableBell: (event.target as HTMLInputElement).checked,
       },
     },
   });
@@ -629,6 +1075,163 @@ async function commitSshReconnectMaxAttempts() {
       },
     },
   });
+}
+
+async function handleMultiDeviceClipboardEnabledChange(event: Event) {
+  await appConfigStore.updateConfig({
+    features: {
+      multiDeviceClipboard: {
+        enabled: (event.target as HTMLInputElement).checked,
+      },
+    },
+  });
+}
+
+async function commitMultiDeviceClipboardDeviceName() {
+  await appConfigStore.updateConfig({
+    features: {
+      multiDeviceClipboard: {
+        deviceName: multiDeviceClipboardDeviceNameInput.value.trim(),
+      },
+    },
+  });
+}
+
+async function commitMultiDeviceClipboardMaxSyncMb() {
+  const numeric = Number(multiDeviceClipboardMaxSyncMbInput.value);
+  const mb = Number.isFinite(numeric)
+    ? Math.max(1, Math.min(1024, Math.round(numeric)))
+    : 100;
+  multiDeviceClipboardMaxSyncMbInput.value = String(mb);
+  await appConfigStore.updateConfig({
+    features: {
+      multiDeviceClipboard: {
+        maxSyncBytes: mb * 1024 * 1024,
+      },
+    },
+  });
+}
+
+async function commitMultiDeviceClipboardHistoryLimit() {
+  const numeric = Number(multiDeviceClipboardHistoryLimitInput.value);
+  const limit = Number.isFinite(numeric)
+    ? Math.max(1, Math.min(5000, Math.round(numeric)))
+    : 200;
+  multiDeviceClipboardHistoryLimitInput.value = String(limit);
+  await appConfigStore.updateConfig({
+    features: {
+      multiDeviceClipboard: {
+        historyLimit: limit,
+      },
+    },
+  });
+}
+
+async function loadNetworkInterfaces() {
+  if (!window.appConfigApi?.listNetworkInterfaces) return;
+  networkInterfacesLoading.value = true;
+  try {
+    localNetworkInterfaces.value = await window.appConfigApi.listNetworkInterfaces();
+  } finally {
+    networkInterfacesLoading.value = false;
+  }
+}
+
+function networkInterfacePriorityIndex(
+  item: LocalNetworkInterfaceOption,
+  priority: string[],
+) {
+  const index = priority.findIndex(value => value === item.key || value === item.address);
+  return index === -1 ? Number.MAX_SAFE_INTEGER : index;
+}
+
+async function saveNetworkInterfacePriority(keys: string[]) {
+  await appConfigStore.updateConfig({
+    features: {
+      multiDeviceClipboard: {
+        networkInterfacePriority: keys,
+      },
+    },
+  });
+}
+
+async function moveNetworkInterface(fromIndex: number, toIndex: number) {
+  if (fromIndex === toIndex) return;
+  const items = orderedNetworkInterfaces.value;
+  if (!items[fromIndex] || !items[toIndex]) return;
+  const keys = items.map(item => item.key);
+  const [moved] = keys.splice(fromIndex, 1);
+  keys.splice(toIndex, 0, moved);
+  await saveNetworkInterfacePriority(keys);
+}
+
+function handleNetworkInterfaceDragStart(key: string, event: DragEvent) {
+  draggedNetworkInterfaceKey.value = key;
+  event.dataTransfer?.setData('text/plain', key);
+  if (event.dataTransfer) {
+    event.dataTransfer.effectAllowed = 'move';
+  }
+}
+
+async function handleNetworkInterfaceDrop(targetKey: string, event: DragEvent) {
+  event.preventDefault();
+  const sourceKey = draggedNetworkInterfaceKey.value || event.dataTransfer?.getData('text/plain') || '';
+  draggedNetworkInterfaceKey.value = '';
+  if (!sourceKey || sourceKey === targetKey) return;
+  const items = orderedNetworkInterfaces.value;
+  const fromIndex = items.findIndex(item => item.key === sourceKey);
+  const toIndex = items.findIndex(item => item.key === targetKey);
+  await moveNetworkInterface(fromIndex, toIndex);
+}
+
+async function resetNetworkInterfacePriority() {
+  await saveNetworkInterfacePriority([]);
+}
+
+async function loadMultiDeviceClipboardDevices() {
+  if (!window.multiDeviceClipboardApi?.listDeviceStatuses) return;
+  multiDeviceClipboardDevicesLoading.value = true;
+  try {
+    multiDeviceClipboardDevices.value = await window.multiDeviceClipboardApi.listDeviceStatuses(60);
+  } finally {
+    multiDeviceClipboardDevicesLoading.value = false;
+  }
+}
+
+async function forgetMultiDeviceClipboardDevice(device: MultiDeviceClipboardDeviceStatus) {
+  if (!window.multiDeviceClipboardApi?.forgetDevice) return;
+  const confirmed = await showConfirm({
+    title: '移除已配对设备',
+    message: `确定移除「${device.name}」吗？移除后该设备不能继续同步剪贴板，需要重新配对。`,
+    confirmText: '移除',
+    cancelText: '取消',
+    danger: true,
+  });
+  if (!confirmed) return;
+  await window.multiDeviceClipboardApi.forgetDevice(device.deviceId);
+  await loadMultiDeviceClipboardDevices();
+}
+
+function multiDeviceClipboardDeviceStatusLabel(device: MultiDeviceClipboardDeviceStatus) {
+  if (device.state === 'trustedOnline') return '在线';
+  if (device.state === 'trustedOffline') return '离线';
+  if (device.state === 'available') return '可配对';
+  return '未知';
+}
+
+function multiDeviceClipboardDeviceMeta(device: MultiDeviceClipboardDeviceStatus) {
+  const endpoint = device.lastAddress ? `${device.lastAddress}${device.lastPort ? `:${device.lastPort}` : ''}` : '';
+  const seen = device.secondsSinceSeen == null
+    ? ''
+    : device.secondsSinceSeen < 60
+      ? `${Math.round(device.secondsSinceSeen)} 秒前`
+      : `${Math.round(device.secondsSinceSeen / 60)} 分钟前`;
+  return [
+    multiDeviceClipboardDeviceStatusLabel(device),
+    device.platform || 'unknown',
+    endpoint,
+    seen ? `上次发现 ${seen}` : '',
+  ].filter(Boolean).join(' · ');
 }
 
 async function commitBaseFontSize() {
@@ -775,6 +1378,7 @@ async function savePluginConfig(pluginId: string) {
     syncPluginDraft(pluginId);
   } catch (error) {
     pluginConfigErrors.value[pluginId] = error instanceof Error ? error.message : '插件配置保存失败';
+    notifyError(error, '插件配置保存失败');
   }
 }
 
@@ -804,36 +1408,23 @@ watch(() => appConfigStore.config.features.terminal.sshReconnectMaxAttempts, (va
   sshReconnectMaxAttemptsInput.value = String(value || 3);
 }, { immediate: true });
 
-watch(
-  [
-    ftpPanelLayoutMode,
-    ftpSidebarDockSide,
-    ftpAuxiliaryDockSide,
-    ftpSidebarSize,
-    ftpAuxiliaryDockSize,
-    ftpAuxiliaryDockCollapsed,
-    ftpShowSidebarPanel,
-    ftpShowLocalPanel,
-    ftpShowRemotePanel,
-  ],
-  () => {
-    if (!ftpShowLocalPanel.value && !ftpShowRemotePanel.value && !ftpDualRemoteMode.value) {
-      ftpShowRemotePanel.value = true;
-      return;
-    }
-    persistFtpLayoutSettings();
-  },
-  { immediate: false },
-);
+watch(() => appConfigStore.config.features.multiDeviceClipboard.deviceName, (value) => {
+  multiDeviceClipboardDeviceNameInput.value = value || '';
+}, { immediate: true });
+
+watch(() => appConfigStore.config.features.multiDeviceClipboard.maxSyncBytes, (value) => {
+  multiDeviceClipboardMaxSyncMbInput.value = String(Math.round((value || 0) / 1024 / 1024));
+}, { immediate: true });
+
+watch(() => appConfigStore.config.features.multiDeviceClipboard.historyLimit, (value) => {
+  multiDeviceClipboardHistoryLimitInput.value = String(value || 200);
+}, { immediate: true });
 
 watch(
   [
     ftpExternalEditorPath,
     ftpCleanupExternalDraftsOnClose,
     ftpLinkNavigationEnabled,
-    ftpDualRemoteMode,
-    ftpSecondaryRemoteProfileId,
-    ftpSecondaryTabGroupProfileIds,
   ],
   persistFtpPreferenceSettings,
   { immediate: false },
@@ -849,25 +1440,29 @@ watch(
   { immediate: false },
 );
 
+watch(settingsSearchQuery, () => {
+  if (isSearchingSettings.value) {
+    for (const tab of settingsTabOrder) {
+      scheduleSettingsTabLoad(tab);
+    }
+  }
+  queueSettingsSearchFilter();
+});
+
+watch(
+  [
+    () => settingsStore.activeSettingsTab,
+    () => installedPlugins.value.length,
+    () => hostSummary.value,
+    () => pluginLoadError.value,
+  ],
+  queueSettingsSearchFilter,
+);
+
 onMounted(() => {
   globalStore.setTopbarColor('');
-  loadFtpSettingsDraft();
-  void ftpStore.initialize();
-  void sshStore.initialize();
-  void loadFtpRetryPolicy();
-  void refreshFtpWindowsContextMenuStatus();
-  void refreshFtpKnownHosts();
-  if (appConfigStore.fontOptions.length === 0) {
-    void appConfigStore.loadLocalFonts();
-  }
-
-  void loadPluginContext();
-  void loadTerminalProfiles();
-
-  // 如果已配置 FFmpeg 路径，则自动验证
-  if (ffmpegPathInput.value) {
-    void commitAndVerifyFfmpeg();
-  }
+  scheduleSettingsTabLoad(settingsStore.activeSettingsTab);
+  queueSettingsSearchFilter();
 });
 
 // ─── 网页安全配置 ───
@@ -906,10 +1501,16 @@ const chromeExtensions = ref<ChromeExtensionRecord[]>([]);
 const extensionInstalling = ref(false);
 
 async function loadExtensions() {
+  if (!window.webviewApi?.getExtensions) {
+    chromeExtensions.value = [];
+    return;
+  }
+
   try {
     chromeExtensions.value = await window.webviewApi.getExtensions();
   } catch (err) {
     console.error('Failed to load extensions:', err);
+    notifyError(err, '扩展列表加载失败');
   }
 }
 
@@ -924,7 +1525,7 @@ async function installExtension() {
     await loadExtensions();
   } catch (err: any) {
     console.error('Install extension failed:', err);
-    alert(err.message || '安装扩展失败');
+    notifyError(err, '扩展安装失败');
   } finally {
     extensionInstalling.value = false;
   }
@@ -936,6 +1537,7 @@ async function removeExtension(id: string) {
     await loadExtensions();
   } catch (err) {
     console.error('Remove extension failed:', err);
+    notifyError(err, '扩展移除失败');
   }
 }
 
@@ -945,11 +1547,9 @@ async function toggleExtension(id: string, enabled: boolean) {
     await loadExtensions();
   } catch (err) {
     console.error('Toggle extension failed:', err);
+    notifyError(err, '扩展状态切换失败');
   }
 }
-
-// 初始化加载
-loadExtensions();
 
 async function addWhiteDomain() {
   const d = newWhiteDomain.value.trim();
@@ -1041,23 +1641,31 @@ function scriptTypeLabel(type: string) {
 </script>
 
 <template>
-  <div class="settings-page">
+  <UiScrollbar class="settings-page" :style="activeSettingsPageStyle" :x="false" :y="true" :size="8">
+    <video
+      v-if="activeSettingsBackgroundVideo && !isSearchingSettings"
+      class="settings-page__background-video"
+      :src="activeSettingsBackgroundVideo"
+      autoplay
+      muted
+      loop
+      playsinline
+    />
     <header class="page-header">
       <div class="page-title-row">
         <h1>设置</h1>
         <div class="settings-search" role="search">
           <span class="settings-search__icon" aria-hidden="true" />
-          <input type="search" placeholder="搜索设置" aria-label="搜索设置" />
+          <input v-model="settingsSearchQuery" type="search" placeholder="搜索设置" aria-label="搜索设置" />
         </div>
       </div>
       <nav
         class="settings-nav"
-        :class="`settings-nav--${settingsNavDirection}`"
         aria-label="设置分类"
       >
         <UiTabs
-          :model-value="settingsStore.activeSettingsTab"
-          :items="settingsTabs"
+          :model-value="activeSettingsTabForView"
+          :items="displayedSettingsTabs"
           variant="line"
           size="md"
           @update:modelValue="handleSettingsTabChange"
@@ -1066,8 +1674,14 @@ function scriptTypeLabel(type: string) {
     </header>
 
     <div class="page-body">
-      <Transition :name="settingsTabTransition" mode="out-in">
-      <section v-if="settingsStore.activeSettingsTab === 'general'" key="general" class="settings-section">
+      <Transition :name="settingsTabTransition" mode="out-in" @after-enter="queueSettingsSearchFilter">
+      <div
+        :key="settingsContentKey"
+        ref="settingsBodyRef"
+        class="settings-content-stack"
+        :class="{ 'settings-content-stack--search': isSearchingSettings }"
+      >
+      <section v-if="isSettingsTabRendered('general')" key="general" class="settings-section">
         <div class="section-head section-head--standalone">
           <h2>基础设置</h2>
           <p>配置应用外观、字体、系统依赖路径和更新策略。</p>
@@ -1094,6 +1708,26 @@ function scriptTypeLabel(type: string) {
               <div class="settings-row__control">
                 <UiSelect :model-value="appConfigStore.config.appearance.theme" :options="themeOptions"
                   @update:modelValue="handleThemeChange" />
+              </div>
+            </div>
+            <div class="settings-row settings-row--wide">
+              <div class="settings-row__label">
+                <span>底栏默认标签</span>
+                <small>控制应用底栏启动后默认显示的固定标签。</small>
+              </div>
+              <div class="settings-row__control settings-row__control--wide">
+                <UiTransferBox
+                  :model-value="bottomBarVisibleTabIds"
+                  :items="bottomBarTransferItems"
+                  source-title="所有内部功能"
+                  target-title="固定显示"
+                  target-empty-text="至少保留首页和设置"
+                  @update:modelValue="handleBottomBarVisibleTabsChange"
+                />
+                <div class="settings-inline-badges settings-inline-badges--mt">
+                  <span class="settings-badge settings-badge--accent">{{ bottomBarVisibleSummary }}</span>
+                  <span class="settings-badge">右侧上下顺序同步为底栏显示顺序</span>
+                </div>
               </div>
             </div>
           </section>
@@ -1208,9 +1842,9 @@ function scriptTypeLabel(type: string) {
                 <small>展示最新发布附带的摘要。</small>
               </div>
               <div class="settings-row__control settings-row__control--wide">
-                <div class="update-release-notes">
+                <UiScrollbar class="update-release-notes" :x="false" :y="true" :size="6">
                   {{ updaterStore.releaseNotesSummary }}
-                </div>
+                </UiScrollbar>
               </div>
             </div>
 
@@ -1285,10 +1919,10 @@ function scriptTypeLabel(type: string) {
         </div>
       </section>
 
-      <section v-else-if="settingsStore.activeSettingsTab === 'file-transfer'" key="file-transfer" class="settings-section">
+      <section v-if="isSettingsTabRendered('file-transfer')" key="file-transfer" class="settings-section">
         <div class="section-head section-head--standalone">
           <h2>文件传输</h2>
-          <p>配置传输页布局、浏览行为、缩略图、重试策略和主机信任。</p>
+          <p>配置传输页浏览行为、缩略图、重试策略和主机信任。</p>
         </div>
 
         <div class="settings-form">
@@ -1314,162 +1948,6 @@ function scriptTypeLabel(type: string) {
               <div class="settings-row__control settings-row__control--wide">
                 <div class="settings-inline-badges">
                   <span class="settings-badge" :class="{ 'settings-badge--accent': ftpLinkNavigationEnabled }">{{ ftpLinkNavigationSummary }}</span>
-                </div>
-              </div>
-            </div>
-
-            <div class="settings-row">
-              <div class="settings-row__label">
-                <span>并行标签组</span>
-                <small>允许主工作区外再显示第二个远程标签组。</small>
-              </div>
-              <div class="settings-row__control settings-row__control--switch">
-                <label class="settings-switch">
-                  <input v-model="ftpDualRemoteMode" type="checkbox" />
-                  <span aria-hidden="true" />
-                </label>
-              </div>
-            </div>
-            <div class="settings-row settings-row--wide">
-              <div class="settings-row__label">
-                <span>第二标签组焦点</span>
-                <small>可指定当前已连接会话，留空时自动选择。</small>
-              </div>
-              <div class="settings-row__control settings-row__control--wide">
-                <UiSelect
-                  :model-value="ftpSecondaryRemoteProfileId"
-                  :options="ftpSecondaryRemoteSessionOptions"
-                  @update:modelValue="ftpSecondaryRemoteProfileId = String($event)"
-                />
-                <div class="settings-inline-badges settings-inline-badges--mt">
-                  <span class="settings-badge" :class="{ 'settings-badge--accent': ftpDualRemoteMode }">{{ ftpDualRemoteSummary }}</span>
-                </div>
-              </div>
-            </div>
-          </section>
-
-          <section class="settings-group">
-            <h3>布局与面板</h3>
-            <div class="settings-row">
-              <div class="settings-row__label">
-                <span>工作区拆分</span>
-                <small>选择水平双栏或纵向堆叠。</small>
-              </div>
-              <div class="settings-row__control">
-                <div class="segmented-actions">
-                  <UiButton size="sm" variant="secondary" :active="ftpPanelLayoutMode === 'columns'" @click="setFtpPanelLayoutMode('columns')">水平双栏</UiButton>
-                  <UiButton size="sm" variant="secondary" :active="ftpPanelLayoutMode === 'stacked'" @click="setFtpPanelLayoutMode('stacked')">纵向堆叠</UiButton>
-                </div>
-              </div>
-            </div>
-            <div class="settings-row settings-row--wide">
-              <div class="settings-row__label">
-                <span>布局状态</span>
-                <small>用于传输页主内容区。</small>
-              </div>
-              <div class="settings-row__control settings-row__control--wide">
-                <div class="settings-inline-badges">
-                  <span class="settings-badge settings-badge--accent">{{ ftpPanelLayoutSummary }}</span>
-                  <span class="settings-badge">{{ ftpBrowserPanelSummary }}</span>
-                </div>
-              </div>
-            </div>
-
-            <div class="settings-row">
-              <div class="settings-row__label">
-                <span>会话侧栏停靠</span>
-                <small>控制服务器列表在传输页的停靠位置。</small>
-              </div>
-              <div class="settings-row__control">
-                <div class="segmented-actions">
-                  <UiButton size="sm" variant="secondary" :active="ftpSidebarDockSide === 'left'" @click="setFtpSidebarDockSide('left')">左侧</UiButton>
-                  <UiButton size="sm" variant="secondary" :active="ftpSidebarDockSide === 'right'" @click="setFtpSidebarDockSide('right')">右侧</UiButton>
-                </div>
-              </div>
-            </div>
-            <div class="settings-row">
-              <div class="settings-row__label">
-                <span>侧栏宽度</span>
-                <small>输入 220 到 420 像素。</small>
-              </div>
-              <div class="settings-row__control settings-row__control--compact">
-                <UiInput
-                  :model-value="ftpSidebarSize"
-                  type="number"
-                  :min="220"
-                  :max="420"
-                  @update:modelValue="setFtpSidebarSize(String($event))"
-                />
-              </div>
-            </div>
-            <div class="settings-row settings-row--wide">
-              <div class="settings-row__label">
-                <span>侧栏状态</span>
-                <small>隐藏侧栏后仍保留当前工作区。</small>
-              </div>
-              <div class="settings-row__control settings-row__control--wide">
-                <div class="settings-inline-badges">
-                  <span class="settings-badge">{{ ftpSidebarDockSummary }}</span>
-                  <label class="settings-check">
-                    <input v-model="ftpShowSidebarPanel" type="checkbox" />
-                    <span>显示会话侧栏</span>
-                  </label>
-                </div>
-              </div>
-            </div>
-
-            <div class="settings-row settings-row--wide">
-              <div class="settings-row__label">
-                <span>文件面板</span>
-                <small>至少保留一个浏览面板。</small>
-              </div>
-              <div class="settings-row__control settings-row__control--wide">
-                <div class="settings-inline-badges">
-                  <UiButton size="sm" variant="secondary" :active="ftpShowLocalPanel" @click="toggleFtpLocalPanel">{{ ftpShowLocalPanel ? '隐藏本地' : '显示本地' }}</UiButton>
-                  <UiButton size="sm" variant="secondary" :active="ftpShowRemotePanel" @click="toggleFtpRemotePanel">{{ ftpShowRemotePanel ? '隐藏远程' : '显示远程' }}</UiButton>
-                </div>
-              </div>
-            </div>
-
-            <div class="settings-row">
-              <div class="settings-row__label">
-                <span>辅助停靠区</span>
-                <small>传输队列和日志面板的位置。</small>
-              </div>
-              <div class="settings-row__control">
-                <div class="segmented-actions">
-                  <UiButton size="sm" variant="secondary" :active="ftpAuxiliaryDockSide === 'bottom'" @click="setFtpAuxiliaryDockSide('bottom')">底部</UiButton>
-                  <UiButton size="sm" variant="secondary" :active="ftpAuxiliaryDockSide === 'right'" @click="setFtpAuxiliaryDockSide('right')">右侧</UiButton>
-                </div>
-              </div>
-            </div>
-            <div class="settings-row">
-              <div class="settings-row__label">
-                <span>辅助区尺寸</span>
-                <small>输入 180 到 420 像素。</small>
-              </div>
-              <div class="settings-row__control settings-row__control--compact">
-                <UiInput
-                  :model-value="ftpAuxiliaryDockSize"
-                  type="number"
-                  :min="180"
-                  :max="420"
-                  @update:modelValue="setFtpAuxiliaryDockSize(String($event))"
-                />
-              </div>
-            </div>
-            <div class="settings-row settings-row--wide">
-              <div class="settings-row__label">
-                <span>辅助区状态</span>
-                <small>影响传输页底部或右侧工作区。</small>
-              </div>
-              <div class="settings-row__control settings-row__control--wide">
-                <div class="settings-inline-badges">
-                  <span class="settings-badge">{{ ftpAuxiliaryDockSummary }}</span>
-                  <label class="settings-check">
-                    <input v-model="ftpAuxiliaryDockCollapsed" type="checkbox" />
-                    <span>默认折叠辅助区</span>
-                  </label>
                 </div>
               </div>
             </div>
@@ -1660,7 +2138,7 @@ function scriptTypeLabel(type: string) {
         </div>
       </section>
 
-      <section v-else-if="settingsStore.activeSettingsTab === 'terminal'" key="terminal" class="settings-section">
+      <section v-if="isSettingsTabRendered('terminal')" key="terminal" class="settings-section">
         <div class="section-head section-head--standalone">
           <h2>终端</h2>
           <p>配置终端默认会话、渲染器、工作目录与图像显示行为。</p>
@@ -1710,10 +2188,81 @@ function scriptTypeLabel(type: string) {
                 />
               </div>
             </div>
+            <div class="settings-row settings-row--wide">
+              <div class="settings-row__label">
+                <span>本地终端类型</span>
+                <small>为不同本地终端保存独立命令、参数、工作目录、环境变量、启动配置文件和背景配置。</small>
+              </div>
+              <div class="settings-row__control settings-row__control--wide">
+                <div class="terminal-profile-editor">
+                  <div class="terminal-profile-editor__grid">
+                    <UiSelect
+                      :model-value="localTerminalBaseProfileId"
+                      :options="terminalProfiles.map((profile) => ({ label: profile.label, value: profile.id }))"
+                      placeholder="从系统终端复制"
+                      @update:modelValue="fillLocalTerminalProfileFromBase(String($event))"
+                    />
+                    <UiInput v-model="localTerminalProfileForm.label" placeholder="类型名称，例如：项目 PowerShell" />
+                    <UiInput v-model="localTerminalProfileForm.command" placeholder="命令，例如：pwsh.exe" />
+                    <UiInput v-model="localTerminalProfileForm.argsText" placeholder="启动参数，例如：-NoLogo" />
+                    <UiInput v-model="localTerminalProfileForm.cwd" placeholder="工作目录，可留空" />
+                    <UiInput v-model="localTerminalProfileForm.configFilePath" placeholder="启动配置文件路径，例如：D:\\profiles\\project.ps1" />
+                  </div>
+                  <textarea
+                    v-model="localTerminalProfileForm.envText"
+                    class="terminal-profile-editor__env"
+                    rows="4"
+                    placeholder='环境变量 JSON，例如：{"NODE_ENV":"development"}'
+                  />
+                  <p v-if="localTerminalProfileError" class="settings-error">{{ localTerminalProfileError }}</p>
+                  <div class="terminal-profile-editor__actions">
+                    <UiButton size="sm" variant="primary" @click="saveLocalTerminalProfile">
+                      {{ localTerminalEditingId ? '保存类型' : '添加类型' }}
+                    </UiButton>
+                    <UiButton size="sm" variant="ghost" @click="resetLocalTerminalProfileForm">重置</UiButton>
+                  </div>
+                </div>
+                <div v-if="customTerminalProfiles.length" class="terminal-profile-list">
+                  <div
+                    v-for="profile in customTerminalProfiles"
+                    :key="profile.id"
+                    class="terminal-profile-list__item"
+                  >
+                    <div class="terminal-profile-list__main">
+                      <strong>{{ profile.label }}</strong>
+                      <span>{{ profile.command }} {{ profile.args.join(' ') }}</span>
+                      <small v-if="profile.configFilePath">启动配置文件：{{ profile.configFilePath }}</small>
+                      <small>背景：{{ profile.background.type === 'image' ? '图片' : profile.background.type === 'video' ? '视频' : '颜色' }}</small>
+                    </div>
+                    <div class="terminal-profile-list__actions">
+                      <UiButton size="sm" variant="ghost" @click="handleTerminalProfileChange(profile.id)">设为默认</UiButton>
+                      <UiButton size="sm" variant="ghost" @click="editLocalTerminalProfile(profile)">编辑</UiButton>
+                      <UiButton size="sm" variant="danger" @click="deleteLocalTerminalProfile(profile)">删除</UiButton>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
           </section>
 
           <section class="settings-group">
             <h3>行为偏好</h3>
+            <div class="settings-row">
+              <div class="settings-row__label">
+                <span>终端提示音</span>
+                <small>允许 BEL 提示音；关闭后保留终端输出但不播放滴声。</small>
+              </div>
+              <div class="settings-row__control settings-row__control--switch">
+                <label class="settings-switch">
+                  <input
+                    type="checkbox"
+                    :checked="appConfigStore.config.features.terminal.enableBell"
+                    @change="handleTerminalBellChange"
+                  />
+                  <span aria-hidden="true" />
+                </label>
+              </div>
+            </div>
             <div class="settings-row">
               <div class="settings-row__label">
                 <span>图像扩展</span>
@@ -1767,7 +2316,196 @@ function scriptTypeLabel(type: string) {
         </div>
       </section>
 
-      <section v-else-if="settingsStore.activeSettingsTab === 'shortcuts'" key="shortcuts" class="settings-section">
+      <section v-if="isSettingsTabRendered('multi-device-clipboard')" key="multi-device-clipboard" class="settings-section">
+        <div class="section-head section-head--standalone">
+          <h2>多设备剪贴板</h2>
+          <p>配置局域网发现、同步大小和历史记录。</p>
+        </div>
+
+        <div class="settings-form">
+          <section class="settings-group">
+            <h3>同步</h3>
+            <div class="settings-row">
+              <div class="settings-row__label">
+                <span>启用多设备剪贴板</span>
+                <small>启用后会通过 mDNS 在局域网发布和发现设备。</small>
+              </div>
+              <div class="settings-row__control settings-row__control--switch">
+                <label class="settings-switch">
+                  <input
+                    type="checkbox"
+                    :checked="appConfigStore.config.features.multiDeviceClipboard.enabled"
+                    @change="handleMultiDeviceClipboardEnabledChange"
+                  />
+                  <span aria-hidden="true" />
+                </label>
+              </div>
+            </div>
+            <div class="settings-row">
+              <div class="settings-row__label">
+                <span>设备名称</span>
+                <small>为空时使用当前系统主机名。</small>
+              </div>
+              <div class="settings-row__control settings-row__control--wide">
+                <UiInput
+                  v-model="multiDeviceClipboardDeviceNameInput"
+                  placeholder="例如：工作笔记本"
+                  @blur="commitMultiDeviceClipboardDeviceName"
+                  @keydown.enter.prevent="commitMultiDeviceClipboardDeviceName"
+                />
+              </div>
+            </div>
+            <div class="settings-row">
+              <div class="settings-row__label">
+                <span>唤出快捷键</span>
+                <small>系统级快捷键；如果 Alt+V 已被系统占用，可以改成其他组合。</small>
+              </div>
+              <div class="settings-row__control settings-row__control--wide">
+                <ShortcutRecorder
+                  :model-value="appConfigStore.config.shortcuts.system.toggleMultiDeviceClipboard"
+                  :default-value="defaultShortcuts.system.toggleMultiDeviceClipboard"
+                  @update:modelValue="updateSystemShortcut('toggleMultiDeviceClipboard', $event)"
+                />
+              </div>
+            </div>
+            <div class="settings-row">
+              <div class="settings-row__label">
+                <span>最大同步大小</span>
+                <small>单位 MB，最大 1024 MB；超限内容只保留本机历史。</small>
+              </div>
+              <div class="settings-row__control settings-row__control--compact">
+                <UiInput
+                  v-model="multiDeviceClipboardMaxSyncMbInput"
+                  type="number"
+                  :min="1"
+                  :max="1024"
+                  @blur="commitMultiDeviceClipboardMaxSyncMb"
+                  @change="commitMultiDeviceClipboardMaxSyncMb"
+                  @keydown.enter.prevent="commitMultiDeviceClipboardMaxSyncMb"
+                />
+              </div>
+            </div>
+            <div class="settings-row">
+              <div class="settings-row__label">
+                <span>历史记录数量</span>
+                <small>最多保留 5000 条，多余记录会自动裁剪。</small>
+              </div>
+              <div class="settings-row__control settings-row__control--compact">
+                <UiInput
+                  v-model="multiDeviceClipboardHistoryLimitInput"
+                  type="number"
+                  :min="1"
+                  :max="5000"
+                  @blur="commitMultiDeviceClipboardHistoryLimit"
+                  @change="commitMultiDeviceClipboardHistoryLimit"
+                  @keydown.enter.prevent="commitMultiDeviceClipboardHistoryLimit"
+                />
+              </div>
+            </div>
+          </section>
+
+          <section class="settings-group">
+            <h3>已配对设备</h3>
+            <div class="settings-row settings-row--wide">
+              <div class="settings-row__label">
+                <span>可信设备列表</span>
+                <small>移除后会停止向该设备发送剪贴板，也会拒收它的同步内容。</small>
+              </div>
+              <div class="settings-row__control settings-row__control--wide">
+                <div class="clipboard-device-panel">
+                  <div class="clipboard-device-panel__actions">
+                    <UiButton
+                      size="sm"
+                      variant="secondary"
+                      :disabled="multiDeviceClipboardDevicesLoading"
+                      @click="loadMultiDeviceClipboardDevices"
+                    >
+                      刷新设备
+                    </UiButton>
+                  </div>
+
+                  <div v-if="pairedMultiDeviceClipboardDevices.length" class="clipboard-device-list">
+                    <article
+                      v-for="device in pairedMultiDeviceClipboardDevices"
+                      :key="device.deviceId"
+                      class="clipboard-device-item"
+                    >
+                      <div class="clipboard-device-item__body">
+                        <strong>{{ device.name }}</strong>
+                        <small>{{ multiDeviceClipboardDeviceMeta(device) }}</small>
+                      </div>
+                      <UiButton
+                        size="sm"
+                        variant="danger"
+                        @click="forgetMultiDeviceClipboardDevice(device)"
+                      >
+                        移除
+                      </UiButton>
+                    </article>
+                  </div>
+                  <p v-else class="clipboard-device-empty">
+                    {{ multiDeviceClipboardDevicesLoading ? '正在读取已配对设备...' : '暂无已配对设备' }}
+                  </p>
+                </div>
+              </div>
+            </div>
+          </section>
+
+          <section class="settings-group">
+            <h3>局域网网卡优先级</h3>
+            <div class="settings-row settings-row--wide">
+              <div class="settings-row__label">
+                <span>自动发现广播地址</span>
+                <small>
+                  拖动排序，排在最上方的可用 IPv4 会优先用于 mDNS 广播；当前首选：
+                  {{ activeNetworkInterface ? `${activeNetworkInterface.name} · ${activeNetworkInterface.address}` : '未检测到可用网卡' }}
+                </small>
+              </div>
+              <div class="settings-row__control settings-row__control--wide">
+                <div class="network-priority-panel">
+                  <div class="network-priority-panel__actions">
+                    <UiButton size="sm" variant="secondary" :disabled="networkInterfacesLoading" @click="loadNetworkInterfaces">
+                      刷新网卡
+                    </UiButton>
+                    <UiButton size="sm" variant="ghost" @click="resetNetworkInterfacePriority">
+                      恢复自动
+                    </UiButton>
+                  </div>
+
+                  <div v-if="orderedNetworkInterfaces.length" class="network-priority-list">
+                    <article
+                      v-for="(networkInterface, index) in orderedNetworkInterfaces"
+                      :key="networkInterface.key"
+                      class="network-priority-item"
+                      :class="{ 'network-priority-item--active': index === 0 }"
+                      draggable="true"
+                      @dragstart="handleNetworkInterfaceDragStart(networkInterface.key, $event)"
+                      @dragend="draggedNetworkInterfaceKey = ''"
+                      @dragover.prevent
+                      @drop="handleNetworkInterfaceDrop(networkInterface.key, $event)"
+                    >
+                      <span class="network-priority-item__handle" aria-hidden="true">⋮⋮</span>
+                      <div class="network-priority-item__body">
+                        <strong>{{ networkInterface.name }}</strong>
+                        <small>{{ networkInterface.address }} · {{ networkInterface.cidr || 'IPv4' }}</small>
+                      </div>
+                      <div class="network-priority-item__actions">
+                        <UiButton size="sm" variant="ghost" :disabled="index === 0" @click="moveNetworkInterface(index, index - 1)">上移</UiButton>
+                        <UiButton size="sm" variant="ghost" :disabled="index === orderedNetworkInterfaces.length - 1" @click="moveNetworkInterface(index, index + 1)">下移</UiButton>
+                      </div>
+                    </article>
+                  </div>
+                  <p v-else class="network-priority-empty">
+                    {{ networkInterfacesLoading ? '正在读取本机网卡...' : '未检测到 IPv4 网卡' }}
+                  </p>
+                </div>
+              </div>
+            </div>
+          </section>
+        </div>
+      </section>
+
+      <section v-if="isSettingsTabRendered('shortcuts')" key="shortcuts" class="settings-section">
         <div class="section-head section-head--standalone">
           <h2>快捷键</h2>
           <p>配置终端内快捷键和系统级显示隐藏快捷键。</p>
@@ -1819,11 +2557,24 @@ function scriptTypeLabel(type: string) {
                 />
               </div>
             </div>
+            <div class="settings-row">
+              <div class="settings-row__label">
+                <span>多设备剪贴板</span>
+                <small>系统级快捷键，默认 Alt+V 唤出右下角窗口。</small>
+              </div>
+              <div class="settings-row__control settings-row__control--wide">
+                <ShortcutRecorder
+                  :model-value="appConfigStore.config.shortcuts.system.toggleMultiDeviceClipboard"
+                  :default-value="defaultShortcuts.system.toggleMultiDeviceClipboard"
+                  @update:modelValue="updateSystemShortcut('toggleMultiDeviceClipboard', $event)"
+                />
+              </div>
+            </div>
           </section>
         </div>
       </section>
 
-      <section v-else-if="settingsStore.activeSettingsTab === 'ai-agent'" key="ai-agent" class="settings-section">
+      <section v-if="isSettingsTabRendered('ai-agent')" key="ai-agent" class="settings-section">
         <div class="section-head section-head--standalone">
           <h2>AI Agent</h2>
           <p>AI 推理策略与上下文配置。</p>
@@ -1854,7 +2605,7 @@ function scriptTypeLabel(type: string) {
         </div>
       </section>
 
-      <section v-else-if="settingsStore.activeSettingsTab === 'plugins'" key="plugins" class="settings-section">
+      <section v-if="isSettingsTabRendered('plugins')" key="plugins" class="settings-section">
         <div class="section-head section-head--standalone">
           <h2>插件配置</h2>
           <p>插件策略和每个插件的独立 JSON 配置。</p>
@@ -1938,7 +2689,7 @@ function scriptTypeLabel(type: string) {
         </div>
       </section>
 
-      <section v-else-if="settingsStore.activeSettingsTab === 'web-security'" key="web-security" class="settings-section">
+      <section v-if="isSettingsTabRendered('web-security')" key="web-security" class="settings-section">
         <div class="section-head section-head--standalone">
           <h2>外部网页配置</h2>
           <p>管理域名策略、保活规则、Chrome 扩展和增强脚本。</p>
@@ -1996,6 +2747,15 @@ function scriptTypeLabel(type: string) {
 
           <section class="settings-group">
             <h3>保活规则</h3>
+            <div class="settings-row settings-row--wide">
+              <div class="settings-row__label">
+                <span>运行中的保活页面</span>
+                <small>显示当前仍保留 WebView 状态的页面，可恢复或关闭释放。</small>
+              </div>
+              <div class="settings-row__control settings-row__control--wide">
+                <WebViewKeepAliveList />
+              </div>
+            </div>
             <div class="settings-row settings-row--wide">
               <div class="settings-row__label">
                 <span>保活域名</span>
@@ -2120,21 +2880,36 @@ function scriptTypeLabel(type: string) {
           </section>
         </div>
       </section>
+      <div v-if="isSearchingSettings && !settingsSearchHasMatches" class="settings-search-empty">
+        未找到匹配的设置项
+      </div>
+      </div>
       </Transition>
     </div>
-  </div>
+
+  </UiScrollbar>
 </template>
 
 <style lang="scss" scoped>
 .settings-page {
+  position: relative;
   width: 100%;
   height: 100%;
   box-sizing: border-box;
   color: var(--ui-text-primary);
   background:
     linear-gradient(180deg, color-mix(in srgb, var(--background-color) 90%, #ffffff 10%) 0%, var(--background-color) 100%);
-  overflow-y: auto;
-  overflow-x: hidden;
+  overflow: hidden;
+}
+
+.settings-page__background-video {
+  position: fixed;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  pointer-events: none;
+  z-index: 0;
 }
 
 .page-header {
@@ -2256,78 +3031,16 @@ function scriptTypeLabel(type: string) {
     background: transparent;
   }
 
-  :deep(.ui-tabs--line .ui-tabs__item::after) {
-    content: "";
-    position: absolute;
-    left: 0;
-    right: 0;
-    bottom: -1px;
+  :deep(.ui-tabs--line .ui-tabs__active-indicator) {
     height: 3px;
     border-radius: 3px 3px 0 0;
     background: #0b67d8;
-    opacity: 0;
-    transform: translateX(0) scaleX(0.36);
-    transform-origin: center;
-    transition:
-      opacity 0.28s ease,
-      transform 0.42s cubic-bezier(0.2, 0.8, 0.2, 1);
-  }
-
-  :deep(.ui-tabs--line .ui-tabs__item.is-active::after) {
-    opacity: 1;
-    transform: translateX(0) scaleX(1);
-  }
-}
-
-.settings-nav--forward {
-  :deep(.ui-tabs--line .ui-tabs__item::after) {
-    transform: translateX(14px) scaleX(0.34);
-    transform-origin: right;
-  }
-
-  :deep(.ui-tabs--line .ui-tabs__item.is-active::after) {
-    animation: settingsUnderlineInForward 0.46s cubic-bezier(0.2, 0.8, 0.2, 1) both;
-    transform-origin: left;
-  }
-}
-
-.settings-nav--back {
-  :deep(.ui-tabs--line .ui-tabs__item::after) {
-    transform: translateX(-14px) scaleX(0.34);
-    transform-origin: left;
-  }
-
-  :deep(.ui-tabs--line .ui-tabs__item.is-active::after) {
-    animation: settingsUnderlineInBack 0.46s cubic-bezier(0.2, 0.8, 0.2, 1) both;
-    transform-origin: right;
-  }
-}
-
-@keyframes settingsUnderlineInForward {
-  from {
-    opacity: 0;
-    transform: translateX(-14px) scaleX(0.34);
-  }
-
-  to {
-    opacity: 1;
-    transform: translateX(0) scaleX(1);
-  }
-}
-
-@keyframes settingsUnderlineInBack {
-  from {
-    opacity: 0;
-    transform: translateX(14px) scaleX(0.34);
-  }
-
-  to {
-    opacity: 1;
-    transform: translateX(0) scaleX(1);
   }
 }
 
 .page-body {
+  position: relative;
+  z-index: 1;
   display: block;
   width: 100%;
   max-width: 1440px;
@@ -2337,57 +3050,37 @@ function scriptTypeLabel(type: string) {
   overflow-x: hidden;
 }
 
-.settings-tab-forward-enter-active,
-.settings-tab-forward-leave-active,
-.settings-tab-back-enter-active,
-.settings-tab-back-leave-active {
-  transition:
-    opacity 0.22s ease,
-    transform 0.26s cubic-bezier(0.2, 0.8, 0.2, 1);
-  will-change: opacity, transform;
+.settings-content-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
 }
 
-.settings-tab-forward-enter-from {
-  opacity: 0;
-  transform: translateX(28px);
+.settings-content-stack--search {
+  gap: 24px;
 }
 
-.settings-tab-forward-leave-to {
-  opacity: 0;
-  transform: translateX(-20px);
+.is-search-hidden,
+.settings-section--search-empty {
+  display: none !important;
 }
 
-.settings-tab-back-enter-from {
-  opacity: 0;
-  transform: translateX(-28px);
+:global(::highlight(settings-search-match)) {
+  color: var(--ui-text-primary);
+  background: color-mix(in srgb, #facc15 42%, transparent);
+  text-decoration: underline;
+  text-decoration-color: color-mix(in srgb, #f59e0b 62%, transparent);
+  text-decoration-thickness: 2px;
+  text-underline-offset: 2px;
 }
 
-.settings-tab-back-leave-to {
-  opacity: 0;
-  transform: translateX(20px);
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .settings-nav :deep(.ui-tabs__item),
-  .settings-nav :deep(.ui-tabs--line .ui-tabs__item::after),
-  .settings-tab-forward-enter-active,
-  .settings-tab-forward-leave-active,
-  .settings-tab-back-enter-active,
-  .settings-tab-back-leave-active {
-    transition: none;
-  }
-
-  .settings-nav :deep(.ui-tabs--line .ui-tabs__item.is-active::after) {
-    animation: none;
-  }
-
-  .settings-nav :deep(.ui-tabs__item.is-active),
-  .settings-tab-forward-enter-from,
-  .settings-tab-forward-leave-to,
-  .settings-tab-back-enter-from,
-  .settings-tab-back-leave-to {
-    transform: none;
-  }
+.settings-search-empty {
+  padding: 34px 18px;
+  border: 1px dashed var(--ui-border-subtle);
+  border-radius: 8px;
+  color: var(--ui-text-muted);
+  text-align: center;
+  background: color-mix(in srgb, var(--ui-surface-panel) 74%, transparent);
 }
 
 /* ─── Section ─── */
@@ -2494,6 +3187,90 @@ function scriptTypeLabel(type: string) {
   width: 100%;
 }
 
+.clipboard-device-panel,
+.network-priority-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  width: 100%;
+}
+
+.clipboard-device-panel__actions,
+.network-priority-panel__actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.clipboard-device-list,
+.network-priority-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.clipboard-device-item,
+.network-priority-item {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+  min-height: 48px;
+  padding: 8px 10px;
+  border: 1px solid var(--ui-border-subtle);
+  border-radius: 6px;
+  background: color-mix(in srgb, var(--ui-panel-bg) 92%, transparent);
+}
+
+.clipboard-device-item {
+  grid-template-columns: minmax(0, 1fr) auto;
+}
+
+.network-priority-item--active {
+  border-color: color-mix(in srgb, #0b67d8 46%, var(--ui-border-subtle));
+  background: color-mix(in srgb, #0b67d8 8%, var(--ui-panel-bg));
+}
+
+.network-priority-item__handle {
+  color: var(--ui-text-muted);
+  cursor: grab;
+  letter-spacing: -2px;
+  user-select: none;
+}
+
+.clipboard-device-item__body,
+.network-priority-item__body {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+
+  strong {
+    overflow: hidden;
+    color: var(--ui-text-primary);
+    font-size: 13px;
+    font-weight: 600;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  small {
+    color: var(--ui-text-muted);
+    font-size: 12px;
+  }
+}
+
+.network-priority-item__actions {
+  display: flex;
+  gap: 6px;
+}
+
+.clipboard-device-empty,
+.network-priority-empty {
+  margin: 0;
+  color: var(--ui-text-muted);
+  font-size: 12px;
+}
+
 .settings-row__control--compact {
   max-width: 220px;
 }
@@ -2506,6 +3283,96 @@ function scriptTypeLabel(type: string) {
   display: flex;
   justify-content: flex-end;
   max-width: 360px;
+}
+
+.settings-error {
+  margin: 0;
+  color: var(--ui-danger-color, #dc2626);
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.terminal-profile-editor {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.terminal-profile-editor__grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.terminal-profile-editor__env {
+  width: 100%;
+  min-height: 92px;
+  padding: 10px 12px;
+  border: var(--ui-border-width-thin) solid var(--ui-input-border);
+  border-radius: 6px;
+  background: var(--ui-input-bg);
+  color: var(--ui-input-text);
+  resize: vertical;
+  box-sizing: border-box;
+  font: inherit;
+  line-height: 1.5;
+}
+
+.terminal-profile-editor__env:focus {
+  outline: none;
+  border-color: var(--ui-input-focus-border);
+  box-shadow: var(--ui-focus-ring);
+}
+
+.terminal-profile-editor__actions,
+.terminal-profile-list__actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.terminal-profile-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.terminal-profile-list__item {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 12px;
+  border: 1px solid var(--ui-border-subtle);
+  border-radius: 6px;
+  background: color-mix(in srgb, var(--ui-surface-muted, var(--ui-input-bg)) 70%, transparent);
+}
+
+.terminal-profile-list__main {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+
+  strong,
+  span,
+  small {
+    overflow-wrap: anywhere;
+  }
+
+  strong {
+    color: var(--ui-text-primary);
+    font-size: 13px;
+  }
+
+  span,
+  small {
+    color: var(--ui-text-muted);
+    font-size: 12px;
+  }
 }
 
 .settings-switch {
@@ -3042,9 +3909,8 @@ function scriptTypeLabel(type: string) {
 }
 
 .update-release-notes {
-  min-height: 88px;
-  max-height: 180px;
-  overflow: auto;
+  height: clamp(88px, 22vh, 180px);
+  overflow: hidden;
   white-space: pre-wrap;
   padding: 12px 14px;
   border: var(--ui-border-width-thin) solid var(--ui-input-border);
@@ -3353,5 +4219,16 @@ function scriptTypeLabel(type: string) {
   cursor: pointer;
 
   input { cursor: pointer; }
+}
+
+@media (max-width: 760px) {
+  .terminal-profile-editor__grid,
+  .terminal-profile-list__item {
+    grid-template-columns: 1fr;
+  }
+
+  .terminal-profile-list__actions {
+    justify-content: flex-start;
+  }
 }
 </style>

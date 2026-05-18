@@ -402,8 +402,7 @@ impl super::SshConnectionManager {
             .map(|value| value.clone())
             .unwrap_or_default();
         let host_ca_key_path = profile.host_ca_key_path.as_deref().map(str::trim);
-        let ca_validation_requested =
-            host_ca_key_path.is_some_and(|value| !value.is_empty());
+        let ca_validation_requested = host_ca_key_path.is_some_and(|value| !value.is_empty());
         if ca_validation_requested {
             super::validate_host_certificate(
                 &server_key_bytes,
@@ -412,8 +411,12 @@ impl super::SshConnectionManager {
             )
             .map_err(|e| anyhow!("host CA validation failed: {}", e))?;
         } else {
-            let host_status =
-                self.verify_host_fingerprint(&profile.host, profile.port, &algorithm, &fingerprint)?;
+            let host_status = self.verify_host_fingerprint(
+                &profile.host,
+                profile.port,
+                &algorithm,
+                &fingerprint,
+            )?;
             match host_status.status.as_str() {
                 "trusted" => {}
                 "unknown" => {

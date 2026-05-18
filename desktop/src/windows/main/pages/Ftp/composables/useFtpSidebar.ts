@@ -1,6 +1,9 @@
 import { computed, ref, watch, type ComputedRef, type Ref } from 'vue';
+import AddIcon from '@/windows/main/components/svgs/icons/AddIcon.vue';
 import DeleteIcon from '@/windows/main/components/svgs/icons/DeleteIcon.vue';
 import EditIcon from '@/windows/main/components/svgs/icons/EditIcon.vue';
+import OpenIcon from '@/windows/main/components/svgs/icons/OpenIcon.vue';
+import SettingsIcon from '@/windows/main/components/svgs/icons/SettingsIcon.vue';
 import { useFtpStore } from '@/windows/main/stores/ftp_store';
 import type { ContextMenuItem } from '@/windows/main/composables/useContextMenu';
 import type { UiTreeDropPayload, UiTreeEventPayload, UiTreeNodeData } from '@/windows/main/components/ui/ui_tree';
@@ -114,12 +117,10 @@ export function useFtpSidebar(options: UseFtpSidebarOptions) {
   }
 
   function buildProfileTreeNode(profile: FtpProfile): ConfigTreeNode {
-    const linkedSession = options.ftpStore.sessions.find((session) => session.profileId === profile.id);
     return {
       id: profileTreeNodeId(profile.id),
       label: profile.label,
-      meta: `${profile.username}@${profile.host}:${profile.port}`,
-      badge: linkedSession ? '已连接' : profile.protocol.toUpperCase(),
+      tooltip: profile.label,
       iconText: profile.protocol.toUpperCase(),
       selectable: true,
       kind: 'profile',
@@ -138,9 +139,7 @@ export function useFtpSidebar(options: UseFtpSidebarOptions) {
     return {
       id: folderTreeNodeId(folder.id),
       label: folder.label,
-      meta: totalProfiles ? `${totalProfiles} 个配置` : '空分组',
       badge: totalProfiles ? String(totalProfiles) : '',
-      iconText: 'DIR',
       selectable: false,
       kind: 'folder',
       data: folder,
@@ -159,9 +158,7 @@ export function useFtpSidebar(options: UseFtpSidebarOptions) {
       rootFolders.unshift({
         id: CONFIG_TREE_UNGROUPED_ID,
         label: '未分组',
-        meta: `${rootProfiles.length} 个配置`,
         badge: String(rootProfiles.length),
-        iconText: 'ROOT',
         selectable: false,
         kind: 'group',
         children: rootProfiles,
@@ -231,6 +228,7 @@ export function useFtpSidebar(options: UseFtpSidebarOptions) {
         {
           id: `config-new-connection-${profile.id}`,
           label: '新建连接',
+          icon: AddIcon,
           action: () => {
             void options.connectProfile(profile);
           },
@@ -238,6 +236,7 @@ export function useFtpSidebar(options: UseFtpSidebarOptions) {
         ...(latestSession ? [{
           id: `config-focus-latest-${profile.id}`,
           label: '切换到最近会话',
+          icon: OpenIcon,
           action: () => {
             options.ftpStore.focusSession(latestSession.sessionId);
           },
@@ -268,11 +267,13 @@ export function useFtpSidebar(options: UseFtpSidebarOptions) {
         {
           id: `folder-new-profile-${folder.id}`,
           label: '新建连接',
+          icon: AddIcon,
           action: () => options.openCreateDialog(folder.id),
         },
         {
           id: `folder-new-child-${folder.id}`,
           label: '新建子分组',
+          icon: AddIcon,
           action: () => options.openCreateFolderDialog(folder.id),
         },
         {
@@ -300,11 +301,13 @@ export function useFtpSidebar(options: UseFtpSidebarOptions) {
         {
           id: 'group-new-profile',
           label: '新建未分组连接',
+          icon: AddIcon,
           action: () => options.openCreateDialog(),
         },
         {
           id: 'group-new-folder',
           label: '新建分组',
+          icon: AddIcon,
           divided: true,
           action: () => options.openCreateFolderDialog(),
         },
@@ -320,6 +323,7 @@ export function useFtpSidebar(options: UseFtpSidebarOptions) {
         return {
           id: `collapsed-${node.id}`,
           label: linkedSession ? `${profile.label} · 已连接` : profile.label,
+          icon: linkedSession ? OpenIcon : SettingsIcon,
           action: () => runProfilePrimaryAction(profile),
         } satisfies ContextMenuItem;
       }
@@ -327,6 +331,7 @@ export function useFtpSidebar(options: UseFtpSidebarOptions) {
       return {
         id: `collapsed-${node.id}`,
         label: node.label,
+        icon: OpenIcon,
         children: node.children?.length ? buildCollapsedConfigMenuItems(node.children as ConfigTreeNode[]) : undefined,
       } satisfies ContextMenuItem;
     });

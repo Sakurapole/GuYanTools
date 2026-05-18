@@ -5,24 +5,46 @@ import { dbManager } from '@/core/database';
 import { APP_CONFIG_FILE } from '../constants/paths';
 import type {
   AppAppearanceConfig,
+  AppBottomBarConfig,
+  AppBottomBarTabId,
   AppConfig,
   AppConfigPatch,
   AppFeaturesConfig,
   AppPluginsConfig,
+  AppSettingsFeatureConfig,
+  AppSettingsTabId,
+  AppSettingsTabPersonalizationConfig,
   AppShortcutsConfig,
   AppTheme,
   AppToolsConfig,
   LocalFontOption,
+  MultiDeviceClipboardFeatureConfig,
 } from '@/contracts/app_config';
+import type { LocalTerminalProfileConfig, TerminalBackgroundConfig, TerminalSshProfileGroupConfig } from '@/contracts/terminal';
 import type { AppWebConfig, ChromeExtensionRecord, WebScriptRule } from '@/contracts/webview';
 import {
+  APP_BOTTOM_BAR_REQUIRED_TAB_IDS,
+  APP_INTERNAL_FUNCTIONS,
   createDefaultAppConfig,
+  createDefaultSettingsTabPersonalization,
   getSystemDefaultFontOption,
   SYSTEM_FONT_OPTION_VALUE,
 } from '@/contracts/app_config';
 import { normalizeAccelerator } from '@/shared/shortcuts';
 
 const SHORTCUTS_SETTING_KEY = 'app.shortcuts';
+const SETTINGS_TAB_IDS: AppSettingsTabId[] = [
+  'general',
+  'file-transfer',
+  'web-security',
+  'ai-agent',
+  'plugins',
+  'terminal',
+  'multi-device-clipboard',
+  'shortcuts',
+];
+
+export type AppConfigChangeListener = (config: AppConfig, patch?: AppConfigPatch) => void;
 
 function cloneConfig<T>(value: T): T {
   return JSON.parse(JSON.stringify(value)) as T;
@@ -56,6 +78,36 @@ function normalizeBaseFontSize(value: unknown): number {
   }
 
   return Math.min(24, Math.max(12, Math.round(numeric)));
+}
+
+function normalizeBottomBar(value: unknown): AppBottomBarConfig {
+  const defaults = createDefaultAppConfig().bottomBar;
+  const rawIds = isRecord(value) && Array.isArray(value.defaultVisibleTabIds)
+    ? value.defaultVisibleTabIds
+    : defaults.defaultVisibleTabIds;
+  const allowedIds = new Set<AppBottomBarTabId>(APP_INTERNAL_FUNCTIONS.map(item => item.id));
+  const seen = new Set<AppBottomBarTabId>();
+  const defaultVisibleTabIds: AppBottomBarTabId[] = [];
+
+  for (const id of rawIds) {
+    if (typeof id !== 'string' || !allowedIds.has(id as AppBottomBarTabId)) {
+      continue;
+    }
+
+    const tabId = id as AppBottomBarTabId;
+    if (!seen.has(tabId)) {
+      seen.add(tabId);
+      defaultVisibleTabIds.push(tabId);
+    }
+  }
+
+  for (const tabId of APP_BOTTOM_BAR_REQUIRED_TAB_IDS) {
+    if (!seen.has(tabId)) {
+      defaultVisibleTabIds.push(tabId);
+    }
+  }
+
+  return { defaultVisibleTabIds };
 }
 
 function normalizePluginItems(value: unknown): AppPluginsConfig['items'] {
@@ -100,6 +152,10 @@ function normalizeShortcuts(value: unknown): AppShortcutsConfig {
     },
     system: {
       toggleAppVisibility: normalizeShortcutValue(system.toggleAppVisibility, defaults.system.toggleAppVisibility),
+      toggleMultiDeviceClipboard: normalizeShortcutValue(
+        system.toggleMultiDeviceClipboard,
+        defaults.system.toggleMultiDeviceClipboard,
+      ),
     },
   };
 }
@@ -112,7 +168,68 @@ function normalizeFeatures(value: unknown): AppFeaturesConfig {
 
   return {
     aiAgent: isRecord(value.aiAgent) ? cloneConfig(value.aiAgent) : cloneConfig(defaultConfig.aiAgent),
+    settings: normalizeSettingsFeature(value.settings),
     terminal: normalizeTerminalFeature(value.terminal),
+    multiDeviceClipboard: normalizeMultiDeviceClipboardFeature(value.multiDeviceClipboard),
+  };
+}
+
+function normalizeSettingsFeature(value: unknown): AppSettingsFeatureConfig {
+  const defaults = createDefaultAppConfig().features.settings;
+  const rawTabs = isRecord(value) && isRecord(value.tabs) ? value.tabs : {};
+  const tabs = {} as Record<AppSettingsTabId, AppSettingsTabPersonalizationConfig>;
+
+  for (const tabId of SETTINGS_TAB_IDS) {
+    tabs[tabId] = normalizeSettingsTabPersonalization(rawTabs[tabId], defaults.tabs[tabId]);
+  }
+
+  return { tabs };
+}
+
+function normalizeSettingsTabPersonalization(
+  value: unknown,
+  fallback: AppSettingsTabPersonalizationConfig = createDefaultSettingsTabPersonalization(),
+): AppSettingsTabPersonalizationConfig {
+  if (!isRecord(value)) {
+    return cloneConfig(fallback);
+  }
+
+  const type = value.type === 'image' || value.type === 'video' ? value.type : 'color';
+  return {
+    type,
+    color: typeof value.color === 'string' ? value.color : fallback.color,
+    image: typeof value.image === 'string' ? value.image : fallback.image,
+    video: typeof value.video === 'string' ? value.video : fallback.video,
+    style: isRecord(value.style) ? cloneConfig(value.style) : cloneConfig(fallback.style),
+  };
+}
+
+function normalizeMultiDeviceClipboardFeature(value: unknown): MultiDeviceClipboardFeatureConfig {
+  const defaults = createDefaultAppConfig().features.multiDeviceClipboard;
+  if (!isRecord(value)) {
+    return cloneConfig(defaults);
+  }
+
+  const rawMaxSyncBytes = Number(value.maxSyncBytes);
+  const maxSyncBytes = Number.isFinite(rawMaxSyncBytes)
+    ? Math.max(1, Math.min(1024 * 1024 * 1024, Math.round(rawMaxSyncBytes)))
+    : defaults.maxSyncBytes;
+  const rawHistoryLimit = Number(value.historyLimit);
+  const historyLimit = Number.isFinite(rawHistoryLimit)
+    ? Math.max(1, Math.min(5000, Math.round(rawHistoryLimit)))
+    : defaults.historyLimit;
+  const deviceName = typeof value.deviceName === 'string' ? value.deviceName.trim() : defaults.deviceName;
+
+  return {
+    enabled: typeof value.enabled === 'boolean' ? value.enabled : defaults.enabled,
+    deviceName,
+    maxSyncBytes,
+    historyLimit,
+    networkInterfacePriority: Array.isArray(value.networkInterfacePriority)
+      ? value.networkInterfacePriority
+        .filter((item): item is string => typeof item === 'string' && item.trim().length > 0)
+        .map(item => item.trim())
+      : [...defaults.networkInterfacePriority],
   };
 }
 
@@ -125,9 +242,20 @@ function normalizeTerminalFeature(value: unknown): AppFeaturesConfig['terminal']
   const rendererMode = value.rendererMode === 'standard' || value.rendererMode === 'webgl'
     ? value.rendererMode
     : defaults.rendererMode;
+  const layoutMode = (
+    value.layoutMode === 'split-horizontal'
+    || value.layoutMode === 'split-vertical'
+    || value.layoutMode === 'master-stack'
+    || value.layoutMode === 'dwindle'
+    || value.layoutMode === 'grid'
+    || value.layoutMode === 'tabbed'
+  )
+    ? value.layoutMode
+    : defaults.layoutMode;
 
   const defaultProfileId = typeof value.defaultProfileId === 'string' ? value.defaultProfileId : defaults.defaultProfileId;
   const defaultCwd = typeof value.defaultCwd === 'string' ? value.defaultCwd : defaults.defaultCwd;
+  const enableBell = typeof value.enableBell === 'boolean' ? value.enableBell : defaults.enableBell;
   const enableSixel = typeof value.enableSixel === 'boolean' ? value.enableSixel : defaults.enableSixel;
   const detachToWindowByDefault = typeof value.detachToWindowByDefault === 'boolean'
     ? value.detachToWindowByDefault
@@ -153,12 +281,20 @@ function normalizeTerminalFeature(value: unknown): AppFeaturesConfig['terminal']
       Object.entries(value.env).filter((entry): entry is [string, string] => typeof entry[1] === 'string'),
     )
     : cloneConfig(defaults.env);
+  const localProfiles = normalizeLocalTerminalProfiles(value.localProfiles);
+  const sshProfileGroups = normalizeSshProfileGroups(value.sshProfileGroups);
+  const sshProfileGroupMap = normalizeStringRecord(value.sshProfileGroupMap);
 
   return {
     defaultProfileId,
     defaultCwd,
     env,
+    localProfiles,
+    sshProfileGroups,
+    sshProfileGroupMap,
     rendererMode,
+    layoutMode,
+    enableBell,
     enableSixel,
     detachToWindowByDefault,
     sshReconnectMaxAttempts,
@@ -168,6 +304,130 @@ function normalizeTerminalFeature(value: unknown): AppFeaturesConfig['terminal']
     viewportBgImage,
     viewportBgVideo,
     viewportBgStyle,
+  };
+}
+
+function normalizeStringArray(value: unknown): string[] {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+
+  return value
+    .filter((item): item is string => typeof item === 'string')
+    .map((item) => item.trim())
+    .filter(Boolean);
+}
+
+function normalizeStringRecord(value: unknown): Record<string, string> {
+  if (!isRecord(value)) {
+    return {};
+  }
+
+  return Object.fromEntries(
+    Object.entries(value)
+      .filter((entry): entry is [string, string] => typeof entry[1] === 'string' && entry[0].trim().length > 0),
+  );
+}
+
+function normalizeSshProfileGroups(value: unknown): TerminalSshProfileGroupConfig[] {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+
+  const groups: TerminalSshProfileGroupConfig[] = [];
+  const seenIds = new Set<string>();
+  const now = Date.now();
+
+  for (const item of value) {
+    if (!isRecord(item)) {
+      continue;
+    }
+
+    const id = typeof item.id === 'string' ? item.id.trim() : '';
+    const label = typeof item.label === 'string' ? item.label.trim() : '';
+    if (!id || !label || seenIds.has(id)) {
+      continue;
+    }
+
+    seenIds.add(id);
+    const parentId = typeof item.parentId === 'string' ? item.parentId.trim() : '';
+    const sortOrder = Number.isFinite(Number(item.sortOrder))
+      ? Math.max(0, Math.round(Number(item.sortOrder)))
+      : groups.length;
+    const createdAt = Number.isFinite(Number(item.createdAt))
+      ? Math.max(0, Math.round(Number(item.createdAt)))
+      : now + groups.length;
+    groups.push({
+      id,
+      label,
+      parentId: parentId || undefined,
+      sortOrder,
+      createdAt,
+    });
+  }
+
+  const validIds = new Set(groups.map((group) => group.id));
+  return groups
+    .map((group) => (group.parentId && !validIds.has(group.parentId) ? { ...group, parentId: undefined } : group))
+    .sort((a, b) => a.sortOrder - b.sortOrder || a.createdAt - b.createdAt || a.label.localeCompare(b.label));
+}
+
+function normalizeLocalTerminalProfiles(value: unknown): LocalTerminalProfileConfig[] {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+
+  const profiles: LocalTerminalProfileConfig[] = [];
+  const seenIds = new Set<string>();
+
+  for (const item of value) {
+    if (!isRecord(item)) {
+      continue;
+    }
+
+    const rawId = typeof item.id === 'string' ? item.id.trim() : '';
+    const label = typeof item.label === 'string' ? item.label.trim() : '';
+    const command = typeof item.command === 'string' ? item.command.trim() : '';
+    const id = rawId.startsWith('local:') ? rawId : `local:${rawId}`;
+    if (!rawId || !label || !command || seenIds.has(id)) {
+      continue;
+    }
+
+    seenIds.add(id);
+    profiles.push({
+      id,
+      label,
+      command,
+      args: normalizeStringArray(item.args),
+      cwd: typeof item.cwd === 'string' ? item.cwd.trim() : '',
+      env: normalizeStringRecord(item.env),
+      configFilePath: typeof item.configFilePath === 'string' ? item.configFilePath.trim() : '',
+      background: normalizeTerminalBackground(item.background),
+    });
+  }
+
+  return profiles;
+}
+
+function normalizeTerminalBackground(value: unknown): TerminalBackgroundConfig {
+  if (!isRecord(value)) {
+    return {
+      type: 'color',
+      color: '',
+      image: '',
+      video: '',
+      style: {},
+    };
+  }
+
+  const type = value.type === 'image' || value.type === 'video' ? value.type : 'color';
+  const style = isRecord(value.style) ? cloneConfig(value.style) as Record<string, unknown> : {};
+  return {
+    type,
+    color: typeof value.color === 'string' ? value.color : '',
+    image: typeof value.image === 'string' ? value.image : '',
+    video: typeof value.video === 'string' ? value.video : '',
+    style,
   };
 }
 
@@ -285,6 +545,7 @@ function normalizeAppConfig(value: unknown): AppConfig {
   return {
     version: defaults.version,
     appearance: normalizeAppearance(value.appearance),
+    bottomBar: normalizeBottomBar(value.bottomBar),
     features: normalizeFeatures(value.features),
     shortcuts: normalizeShortcuts(value.shortcuts),
     plugins: normalizePlugins(value.plugins),
@@ -300,11 +561,26 @@ function mergeConfig(current: AppConfig, patch: AppConfigPatch): AppConfig {
       ...current.appearance,
       ...(patch.appearance ?? {}),
     },
+    bottomBar: normalizeBottomBar({
+      ...current.bottomBar,
+      ...(patch.bottomBar ?? {}),
+    }),
     features: {
       aiAgent: patch.features?.aiAgent ? cloneConfig(patch.features.aiAgent) : cloneConfig(current.features.aiAgent),
+      settings: normalizeSettingsFeature({
+        ...current.features.settings,
+        tabs: {
+          ...current.features.settings.tabs,
+          ...(patch.features?.settings?.tabs ?? {}),
+        },
+      }),
       terminal: normalizeTerminalFeature({
         ...current.features.terminal,
         ...(patch.features?.terminal ?? {}),
+      }),
+      multiDeviceClipboard: normalizeMultiDeviceClipboardFeature({
+        ...current.features.multiDeviceClipboard,
+        ...(patch.features?.multiDeviceClipboard ?? {}),
       }),
     },
     shortcuts: normalizeShortcuts({
@@ -346,7 +622,7 @@ function mergeConfig(current: AppConfig, patch: AppConfigPatch): AppConfig {
 export class AppConfigManager {
   private config: AppConfig = createDefaultAppConfig();
   private initialized = false;
-  private readonly listeners = new Set<(config: AppConfig) => void>();
+  private readonly listeners = new Set<AppConfigChangeListener>();
 
   async initialize() {
     if (this.initialized) {
@@ -384,12 +660,12 @@ export class AppConfigManager {
     }
 
     this.config = mergeConfig(this.config, patch);
-    await this.persist();
-    this.emitChange();
+    await this.persist(patch);
+    this.emitChange(patch);
     return this.getCachedConfig();
   }
 
-  subscribe(listener: (config: AppConfig) => void): () => void {
+  subscribe(listener: AppConfigChangeListener): () => void {
     this.listeners.add(listener);
     return () => this.listeners.delete(listener);
   }
@@ -462,11 +738,16 @@ export class AppConfigManager {
     }
   }
 
-  private async persist() {
-    await Promise.all([
+  private async persist(patch?: AppConfigPatch) {
+    const tasks: Array<Promise<unknown>> = [
       fs.writeJSON(APP_CONFIG_FILE, this.serializeConfigForDisk(this.config), { spaces: 2 }),
-      this.writeShortcutConfigToDb(this.config.shortcuts),
-    ]);
+    ];
+
+    if (patch?.shortcuts) {
+      tasks.push(this.writeShortcutConfigToDb(this.config.shortcuts));
+    }
+
+    await Promise.all(tasks);
   }
 
   private serializeConfigForDisk(config: AppConfig) {
@@ -507,11 +788,11 @@ export class AppConfigManager {
     );
   }
 
-  private emitChange() {
+  private emitChange(patch?: AppConfigPatch) {
     const snapshot = this.getCachedConfig();
     for (const listener of this.listeners) {
       try {
-        listener(snapshot);
+        listener(snapshot, patch);
       } catch (error) {
         console.error('AppConfig listener failed:', error);
       }

@@ -44,6 +44,8 @@ pub struct TerminalSessionDescriptor {
 #[serde(rename_all = "camelCase")]
 pub struct CreateTerminalSessionInput {
     pub profile_id: Option<String>,
+    pub profile_label: Option<String>,
+    pub command: Option<String>,
     pub cwd: Option<String>,
     pub args: Option<Vec<String>>,
     pub env: Option<HashMap<String, String>>,
@@ -147,11 +149,20 @@ impl TerminalSessionManager {
         input: CreateTerminalSessionInput,
     ) -> Result<TerminalSessionDescriptor> {
         let profiles = self.list_profiles();
-        if profiles.is_empty() {
+        let has_command_override = input
+            .command
+            .as_deref()
+            .is_some_and(|value| !value.trim().is_empty());
+        if profiles.is_empty() && !has_command_override {
             return Err(anyhow!("no terminal profiles available for this platform"));
         }
 
-        let profile = resolve_profile(&profiles, input.profile_id.as_deref())?;
+        let profile = resolve_profile(
+            &profiles,
+            input.profile_id.as_deref(),
+            input.command.as_deref(),
+            input.profile_label.as_deref(),
+        )?;
         let session_id = self.next_session_id();
         let cwd = normalize_cwd(input.cwd.clone())?;
         let attached_target = input
@@ -172,7 +183,7 @@ impl TerminalSessionManager {
             .context("failed to open portable pty")?;
 
         let mut command = CommandBuilder::new(profile.command.clone());
-        for arg in build_command_args(profile, input.args.as_ref()) {
+        for arg in build_command_args(&profile, input.args.as_ref()) {
             command.arg(arg);
         }
         if let Some(cwd_value) = cwd.as_ref() {
@@ -474,13 +485,33 @@ impl TerminalSessionManager {
     }
 }
 
-fn resolve_profile<'a>(
-    profiles: &'a [TerminalProfile],
+fn resolve_profile(
+    profiles: &[TerminalProfile],
     profile_id: Option<&str>,
-) -> Result<&'a TerminalProfile> {
+    command: Option<&str>,
+    profile_label: Option<&str>,
+) -> Result<TerminalProfile> {
+    if let Some(command) = command.map(str::trim).filter(|value| !value.is_empty()) {
+        let id = profile_id
+            .map(str::trim)
+            .filter(|value| !value.is_empty())
+            .unwrap_or("custom");
+        let label = profile_label
+            .map(str::trim)
+            .filter(|value| !value.is_empty())
+            .unwrap_or(command);
+        return Ok(TerminalProfile {
+            id: id.to_string(),
+            label: label.to_string(),
+            command: command.to_string(),
+            args: Vec::new(),
+            is_default: false,
+        });
+    }
+
     if let Some(profile_id) = profile_id {
         if let Some(profile) = profiles.iter().find(|profile| profile.id == profile_id) {
-            return Ok(profile);
+            return Ok(profile.clone());
         }
     }
 
@@ -488,6 +519,7 @@ fn resolve_profile<'a>(
         .iter()
         .find(|profile| profile.is_default)
         .or_else(|| profiles.first())
+        .cloned()
         .ok_or_else(|| anyhow!("no terminal profile found"))
 }
 

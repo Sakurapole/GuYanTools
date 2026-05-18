@@ -1,5 +1,6 @@
 use crate::db::Database;
 use crate::models::*;
+use crate::multi_device_clipboard::*;
 use crate::services::*;
 use crate::terminal::*;
 use napi::bindgen_prelude::*;
@@ -401,6 +402,60 @@ impl JsDatabase {
     }
 
     // ==================== 首页布局相关方法 ====================
+
+    #[napi(js_name = "listHomeWorkspaces")]
+    pub async fn list_home_workspaces(&self) -> Result<Vec<HomeWorkspace>> {
+        let db = self.inner.clone();
+        tokio::task::spawn_blocking(move || HomeLayoutService::list_workspaces(&db))
+            .await
+            .map_err(|e| Error::from_reason(format!("任务执行失败: {}", e)))?
+            .map_err(|e| Error::from_reason(format!("列出首页配置文件失败: {}", e)))
+    }
+
+    #[napi(js_name = "createHomeWorkspace")]
+    pub async fn create_home_workspace(&self, name: String) -> Result<HomeWorkspace> {
+        let db = self.inner.clone();
+        tokio::task::spawn_blocking(move || HomeLayoutService::create_workspace(&db, name))
+            .await
+            .map_err(|e| Error::from_reason(format!("任务执行失败: {}", e)))?
+            .map_err(|e| Error::from_reason(format!("创建首页配置文件失败: {}", e)))
+    }
+
+    #[napi(js_name = "renameHomeWorkspace")]
+    pub async fn rename_home_workspace(&self, key: String, name: String) -> Result<HomeWorkspace> {
+        let db = self.inner.clone();
+        tokio::task::spawn_blocking(move || HomeLayoutService::rename_workspace(&db, &key, name))
+            .await
+            .map_err(|e| Error::from_reason(format!("任务执行失败: {}", e)))?
+            .map_err(|e| Error::from_reason(format!("重命名首页配置文件失败: {}", e)))
+    }
+
+    #[napi(js_name = "deleteHomeWorkspace")]
+    pub async fn delete_home_workspace(&self, key: String) -> Result<String> {
+        let db = self.inner.clone();
+        tokio::task::spawn_blocking(move || HomeLayoutService::delete_workspace(&db, &key))
+            .await
+            .map_err(|e| Error::from_reason(format!("任务执行失败: {}", e)))?
+            .map_err(|e| Error::from_reason(format!("删除首页配置文件失败: {}", e)))
+    }
+
+    #[napi(js_name = "getActiveHomeWorkspaceKey")]
+    pub async fn get_active_home_workspace_key(&self) -> Result<String> {
+        let db = self.inner.clone();
+        tokio::task::spawn_blocking(move || HomeLayoutService::get_active_workspace_key(&db))
+            .await
+            .map_err(|e| Error::from_reason(format!("任务执行失败: {}", e)))?
+            .map_err(|e| Error::from_reason(format!("获取当前首页配置文件失败: {}", e)))
+    }
+
+    #[napi(js_name = "setActiveHomeWorkspaceKey")]
+    pub async fn set_active_home_workspace_key(&self, key: String) -> Result<HomeWorkspace> {
+        let db = self.inner.clone();
+        tokio::task::spawn_blocking(move || HomeLayoutService::set_active_workspace_key(&db, &key))
+            .await
+            .map_err(|e| Error::from_reason(format!("任务执行失败: {}", e)))?
+            .map_err(|e| Error::from_reason(format!("切换首页配置文件失败: {}", e)))
+    }
 
     #[napi(js_name = "getHomeLayout")]
     pub async fn get_home_layout(&self, workspace_key: String) -> Result<HomeLayout> {
@@ -1029,21 +1084,197 @@ impl JsDatabase {
 }
 
 // ============================================================
+// Multi-device clipboard NAPI host
+// ============================================================
+
+#[napi(js_name = "JsMultiDeviceClipboardHost")]
+pub struct JsMultiDeviceClipboardHost {
+    inner: Arc<MultiDeviceClipboardManager>,
+}
+
+#[napi]
+impl JsMultiDeviceClipboardHost {
+    #[napi(constructor)]
+    pub fn new(db: &JsDatabase) -> Self {
+        Self {
+            inner: Arc::new(MultiDeviceClipboardManager::new(db.inner.clone())),
+        }
+    }
+
+    #[napi(js_name = "getOrCreateLocalDevice")]
+    pub async fn get_or_create_local_device(
+        &self,
+        name: String,
+    ) -> Result<MultiDeviceClipboardDevice> {
+        let manager = self.inner.clone();
+        tokio::task::spawn_blocking(move || manager.get_or_create_local_device(name))
+            .await
+            .map_err(|e| Error::from_reason(format!("task failed: {}", e)))?
+            .map_err(|e| Error::from_reason(format!("getOrCreateLocalDevice failed: {}", e)))
+    }
+
+    #[napi(js_name = "startDiscovery")]
+    pub fn start_discovery(&self, config: MultiDeviceClipboardDiscoveryConfig) -> Result<()> {
+        self.inner
+            .start_discovery(config)
+            .map_err(|e| Error::from_reason(format!("startDiscovery failed: {}", e)))
+    }
+
+    #[napi(js_name = "stopDiscovery")]
+    pub fn stop_discovery(&self) {
+        self.inner.stop_discovery();
+    }
+
+    #[napi(js_name = "listDiscoveredDevices")]
+    pub fn list_discovered_devices(&self) -> Vec<MultiDeviceClipboardDiscoveredDevice> {
+        self.inner.list_discovered_devices()
+    }
+
+    #[napi(js_name = "listDevices")]
+    pub async fn list_devices(&self) -> Result<Vec<MultiDeviceClipboardDevice>> {
+        let manager = self.inner.clone();
+        tokio::task::spawn_blocking(move || manager.list_devices())
+            .await
+            .map_err(|e| Error::from_reason(format!("task failed: {}", e)))?
+            .map_err(|e| Error::from_reason(format!("listDevices failed: {}", e)))
+    }
+
+    #[napi(js_name = "listDeviceStatuses")]
+    pub async fn list_device_statuses(
+        &self,
+        online_window_seconds: i64,
+    ) -> Result<Vec<MultiDeviceClipboardDeviceStatus>> {
+        let manager = self.inner.clone();
+        tokio::task::spawn_blocking(move || manager.list_device_statuses(online_window_seconds))
+            .await
+            .map_err(|e| Error::from_reason(format!("task failed: {}", e)))?
+            .map_err(|e| Error::from_reason(format!("listDeviceStatuses failed: {}", e)))
+    }
+
+    #[napi(js_name = "upsertDevice")]
+    pub async fn upsert_device(
+        &self,
+        input: UpsertMultiDeviceClipboardDeviceInput,
+    ) -> Result<MultiDeviceClipboardDevice> {
+        let manager = self.inner.clone();
+        tokio::task::spawn_blocking(move || manager.upsert_device(input))
+            .await
+            .map_err(|e| Error::from_reason(format!("task failed: {}", e)))?
+            .map_err(|e| Error::from_reason(format!("upsertDevice failed: {}", e)))
+    }
+
+    #[napi(js_name = "setDeviceTrusted")]
+    pub async fn set_device_trusted(
+        &self,
+        id: String,
+        trusted: bool,
+    ) -> Result<MultiDeviceClipboardDevice> {
+        let manager = self.inner.clone();
+        tokio::task::spawn_blocking(move || manager.set_device_trusted(id, trusted))
+            .await
+            .map_err(|e| Error::from_reason(format!("task failed: {}", e)))?
+            .map_err(|e| Error::from_reason(format!("setDeviceTrusted failed: {}", e)))
+    }
+
+    #[napi(js_name = "forgetDevice")]
+    pub async fn forget_device(&self, id: String) -> Result<()> {
+        let manager = self.inner.clone();
+        tokio::task::spawn_blocking(move || manager.forget_device(id))
+            .await
+            .map_err(|e| Error::from_reason(format!("task failed: {}", e)))?
+            .map_err(|e| Error::from_reason(format!("forgetDevice failed: {}", e)))
+    }
+
+    #[napi(js_name = "listItems")]
+    pub async fn list_items(&self, limit: i64) -> Result<Vec<MultiDeviceClipboardItem>> {
+        let manager = self.inner.clone();
+        tokio::task::spawn_blocking(move || manager.list_items(limit))
+            .await
+            .map_err(|e| Error::from_reason(format!("task failed: {}", e)))?
+            .map_err(|e| Error::from_reason(format!("listItems failed: {}", e)))
+    }
+
+    #[napi(js_name = "getItem")]
+    pub async fn get_item(&self, id: String) -> Result<MultiDeviceClipboardItem> {
+        let manager = self.inner.clone();
+        tokio::task::spawn_blocking(move || manager.get_item(id))
+            .await
+            .map_err(|e| Error::from_reason(format!("task failed: {}", e)))?
+            .map_err(|e| Error::from_reason(format!("getItem failed: {}", e)))
+    }
+
+    #[napi(js_name = "upsertItem")]
+    pub async fn upsert_item(
+        &self,
+        input: UpsertMultiDeviceClipboardItemInput,
+    ) -> Result<MultiDeviceClipboardItem> {
+        let manager = self.inner.clone();
+        tokio::task::spawn_blocking(move || manager.upsert_item(input))
+            .await
+            .map_err(|e| Error::from_reason(format!("task failed: {}", e)))?
+            .map_err(|e| Error::from_reason(format!("upsertItem failed: {}", e)))
+    }
+
+    #[napi(js_name = "deleteItem")]
+    pub async fn delete_item(&self, id: String) -> Result<()> {
+        let manager = self.inner.clone();
+        tokio::task::spawn_blocking(move || manager.delete_item(id))
+            .await
+            .map_err(|e| Error::from_reason(format!("task failed: {}", e)))?
+            .map_err(|e| Error::from_reason(format!("deleteItem failed: {}", e)))
+    }
+
+    #[napi(js_name = "clearHistory")]
+    pub async fn clear_history(&self) -> Result<()> {
+        let manager = self.inner.clone();
+        tokio::task::spawn_blocking(move || manager.clear_history())
+            .await
+            .map_err(|e| Error::from_reason(format!("task failed: {}", e)))?
+            .map_err(|e| Error::from_reason(format!("clearHistory failed: {}", e)))
+    }
+
+    #[napi(js_name = "pruneHistory")]
+    pub async fn prune_history(&self, history_limit: i64) -> Result<()> {
+        let manager = self.inner.clone();
+        tokio::task::spawn_blocking(move || manager.prune_history(history_limit))
+            .await
+            .map_err(|e| Error::from_reason(format!("task failed: {}", e)))?
+            .map_err(|e| Error::from_reason(format!("pruneHistory failed: {}", e)))
+    }
+
+    #[napi(js_name = "computeContentHash")]
+    pub fn compute_content_hash(&self, parts: Vec<String>) -> String {
+        MultiDeviceClipboardManager::compute_content_hash(parts)
+    }
+
+    #[napi(js_name = "registerEventSink")]
+    pub fn register_event_sink(&self, callback: JsFunction) -> Result<()> {
+        let tsfn: ThreadsafeFunction<String, ErrorStrategy::Fatal> = callback
+            .create_threadsafe_function(0, |ctx: ThreadSafeCallContext<String>| {
+                Ok(vec![ctx.value])
+            })?;
+        self.inner
+            .register_event_sink(tsfn)
+            .map_err(|e| Error::from_reason(format!("registerEventSink failed: {}", e)))
+    }
+}
+
+// ============================================================
 // SSH client NAPI host
 // ============================================================
 
 use crate::ftp::{
     ConnectFtpInput, CreateFtpProfileInput, CreateFtpSessionFolderInput, FileTransferEntry,
     FtpConnectionDescriptor, FtpManager, FtpProfile, FtpRestoreState, FtpRetryPolicy,
-    FtpSessionFolder, TransferTask, UpdateFtpProfileInput, UpdateFtpSessionFolderInput,
-    UpsertFtpRestoreStateInput,
+    FtpSessionFolder, TransferOptions, TransferTask, UpdateFtpProfileInput,
+    UpdateFtpSessionFolderInput, UpsertFtpRestoreStateInput,
 };
 use crate::ssh::{
-    ConnectSshInput, CreatePortForwardInput, CreateSshProfileInput, ExportSshManagedKeyData,
+    ConnectSshInput, CreatePortForwardInput, CreateSshProfileFolderInput, CreateSshProfileInput, ExportSshManagedKeyData,
     GenerateSshManagedKeyInput, HostVerifyResult, ImportSshManagedKeyInput, PortForwardStatus,
     PortForwardTrafficInfo, ResizeSshSessionInput, SshAgentIdentity, SshConnectionManager,
-    SshKnownHost, SshManagedKey, SshPortForward, SshProfile, SshSessionDescriptor, TrustHostInput,
-    UpdatePortForwardInput, UpdateSshProfileInput,
+    SshKnownHost, SshManagedKey, SshPortForward, SshProfile, SshProfileFolder, SshSessionDescriptor, TrustHostInput,
+    UpdatePortForwardInput, UpdateSshProfileFolderInput, UpdateSshProfileInput,
 };
 
 /// NAPI wrapper for the SSH connection manager.
@@ -1072,6 +1303,46 @@ impl JsSshHost {
             .await
             .map_err(|e| Error::from_reason(format!("task failed: {}", e)))?
             .map_err(|e| Error::from_reason(format!("listSshProfiles failed: {}", e)))
+    }
+
+    /// List all SSH profile folders ordered by sort_order.
+    #[napi(js_name = "listFolders")]
+    pub async fn list_folders(&self) -> Result<Vec<SshProfileFolder>> {
+        let manager = self.inner.clone();
+        tokio::task::spawn_blocking(move || manager.list_folders())
+            .await
+            .map_err(|e| Error::from_reason(format!("task failed: {}", e)))?
+            .map_err(|e| Error::from_reason(format!("listSshProfileFolders failed: {}", e)))
+    }
+
+    /// Create a new SSH profile folder.
+    #[napi(js_name = "createFolder")]
+    pub async fn create_folder(&self, input: CreateSshProfileFolderInput) -> Result<SshProfileFolder> {
+        let manager = self.inner.clone();
+        tokio::task::spawn_blocking(move || manager.create_folder(input))
+            .await
+            .map_err(|e| Error::from_reason(format!("task failed: {}", e)))?
+            .map_err(|e| Error::from_reason(format!("createSshProfileFolder failed: {}", e)))
+    }
+
+    /// Update an existing SSH profile folder.
+    #[napi(js_name = "updateFolder")]
+    pub async fn update_folder(&self, input: UpdateSshProfileFolderInput) -> Result<SshProfileFolder> {
+        let manager = self.inner.clone();
+        tokio::task::spawn_blocking(move || manager.update_folder(input))
+            .await
+            .map_err(|e| Error::from_reason(format!("task failed: {}", e)))?
+            .map_err(|e| Error::from_reason(format!("updateSshProfileFolder failed: {}", e)))
+    }
+
+    /// Delete an SSH profile folder and move contained profiles to ungrouped.
+    #[napi(js_name = "deleteFolder")]
+    pub async fn delete_folder(&self, id: String) -> Result<()> {
+        let manager = self.inner.clone();
+        tokio::task::spawn_blocking(move || manager.delete_folder(id))
+            .await
+            .map_err(|e| Error::from_reason(format!("task failed: {}", e)))?
+            .map_err(|e| Error::from_reason(format!("deleteSshProfileFolder failed: {}", e)))
     }
 
     /// Create a new SSH profile.
@@ -1733,9 +2004,10 @@ impl JsFtpHost {
         session_id: String,
         local_path: String,
         remote_path: String,
+        options: Option<TransferOptions>,
     ) -> Result<TransferTask> {
         self.inner
-            .upload_file(session_id, local_path, remote_path)
+            .upload_file(session_id, local_path, remote_path, options)
             .await
             .map_err(|e| Error::from_reason(format!("uploadFile failed: {}", e)))
     }
@@ -1746,9 +2018,10 @@ impl JsFtpHost {
         session_id: String,
         remote_path: String,
         local_path: String,
+        options: Option<TransferOptions>,
     ) -> Result<TransferTask> {
         self.inner
-            .download_file(session_id, remote_path, local_path)
+            .download_file(session_id, remote_path, local_path, options)
             .await
             .map_err(|e| Error::from_reason(format!("downloadFile failed: {}", e)))
     }
@@ -1762,7 +2035,12 @@ impl JsFtpHost {
         target_path: String,
     ) -> Result<TransferTask> {
         self.inner
-            .fxp_transfer(source_session_id, source_path, target_session_id, target_path)
+            .fxp_transfer(
+                source_session_id,
+                source_path,
+                target_session_id,
+                target_path,
+            )
             .await
             .map_err(|e| Error::from_reason(format!("fxpTransfer failed: {}", e)))
     }

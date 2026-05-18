@@ -4,6 +4,7 @@ import type { GridItem, WidgetConfig, WidgetEditPayload, BackgroundStyleConfig, 
 import type { InstalledPluginRecord, PluginPageDescriptor, PluginCommandContribution } from '@/contracts/plugin_host';
 import type { CompressQuality } from '@/contracts/media';
 import { useAppConfigStore } from '../../stores/app_config_store';
+import { resolveThemeBackground, withThemeBackground } from '@/contracts/background';
 import UiButton from '../ui/UiButton.vue';
 import UiDialog from '../ui/UiDialog.vue';
 import UiField from '../ui/UiField.vue';
@@ -15,6 +16,7 @@ import IconPicker from '../ui/IconPicker.vue';
 import IconRenderer from '../ui/IconRenderer.vue';
 import HomeWidgetConfigFields from '../../widgets/home/HomeWidgetConfigFields.vue';
 import { findWidgetSizePreset, getHomeWidgetDefinition, getWidgetSizeDefinition, normalizeWidgetConfig } from '../../widgets/home/registry';
+import { buildBackgroundTextVars } from '../../utils/backgroundTextColor';
 
 const props = withDefaults(defineProps<{
   visible: boolean;
@@ -34,6 +36,8 @@ const emit = defineEmits<{
 type EditorTab = 'basic' | 'size' | 'background';
 
 const activeTab = ref<EditorTab>('basic');
+const editorTabTransition = ref('ui-tab-forward');
+const editorTabOrder: EditorTab[] = ['basic', 'size', 'background'];
 
 // ─── 基础信息 ───
 const editLabel = ref('');
@@ -62,6 +66,8 @@ const editWidgetConfig = ref<WidgetConfig | undefined>(undefined);
 // ─── 背景 ───
 type BackgroundTab = 'color' | 'image' | 'video';
 const bgTab = ref<BackgroundTab>('color');
+const bgTabTransition = ref('ui-tab-forward');
+const bgTabOrder: BackgroundTab[] = ['color', 'image', 'video'];
 const selectedColor = ref('');
 const selectedImage = ref('');
 const selectedVideo = ref('');
@@ -69,6 +75,7 @@ const bgSize = ref('cover');
 const bgPosition = ref('center');
 const bgRepeat = ref('no-repeat');
 const bgOpacity = ref(1);
+const selectedTextColor = ref('');
 
 const imageInput = ref<HTMLInputElement | null>(null);
 const videoInput = ref<HTMLInputElement | null>(null);
@@ -84,6 +91,13 @@ const originalVideoFilePath = ref('');
 
 // ─── FFmpeg 处理选项 ───
 const appConfigStore = useAppConfigStore();
+const activeWidgetBackground = computed(() => resolveThemeBackground({
+  type: props.item.backgroundVideo ? 'video' : props.item.backgroundImage ? 'image' : 'color',
+  color: props.item.color,
+  image: props.item.backgroundImage,
+  video: props.item.backgroundVideo,
+  backgroundStyle: props.item.backgroundStyle,
+}, appConfigStore.config.appearance.theme));
 const imageProcessMode = ref<'canvas' | 'ffmpeg'>('canvas');
 const videoProcessMode = ref<'browser' | 'ffmpeg'>('browser');
 const compressQuality = ref<CompressQuality>('high');
@@ -111,7 +125,7 @@ const qualityOptions = [
 const editorTabs = [
   { key: 'basic', label: '基础信息' },
   { key: 'size', label: '尺寸配置' },
-  { key: 'background', label: '背景设置' },
+  { key: 'background', label: '个性化配置' },
 ];
 
 const backgroundSubTabs = [
@@ -120,9 +134,22 @@ const backgroundSubTabs = [
   { key: 'video', label: '视频' },
 ];
 
+watch(activeTab, (next, previous) => {
+  editorTabTransition.value = editorTabOrder.indexOf(next) >= editorTabOrder.indexOf(previous)
+    ? 'ui-tab-forward'
+    : 'ui-tab-back';
+});
+
+watch(bgTab, (next, previous) => {
+  bgTabTransition.value = bgTabOrder.indexOf(next) >= bgTabOrder.indexOf(previous)
+    ? 'ui-tab-forward'
+    : 'ui-tab-back';
+});
+
 const showIconPicker = ref(false);
 const widgetDefinition = computed(() => getHomeWidgetDefinition(props.item.widgetType));
 const isShortcutWidget = computed(() => props.item.widgetType === 'shortcut');
+const hasWidgetConfig = computed(() => !isShortcutWidget.value && props.item.widgetType !== 'webview_keepalive');
 const sizePresetOptions = computed(() => widgetDefinition.value.supportedSizes);
 
 const actionTypeOptions = [
@@ -293,6 +320,11 @@ const bgPreviewBoxStyle = computed(() => {
     width: `${w}px`,
     height: `${h}px`,
     margin: '0 auto',
+    ...buildBackgroundTextVars(selectedTextColor.value, {
+      aliases: {
+        primary: ['--grid-item-text-color'],
+      },
+    }),
   };
 
   if (bgTab.value === 'color') {
@@ -414,11 +446,13 @@ function buildAction(): WidgetAction | undefined {
 }
 
 function handleConfirm() {
+  const textColor = selectedTextColor.value.trim() || undefined;
   const backgroundStyle: BackgroundStyleConfig = {
     backgroundSize: bgSize.value,
     backgroundPosition: bgPosition.value,
     backgroundRepeat: bgRepeat.value,
     opacity: bgOpacity.value,
+    textColor,
   };
 
   // 根据当前 bgTab 来决定保留哪些背景数据
@@ -429,12 +463,26 @@ function handleConfirm() {
 
   if (bgTab.value === 'color') {
     color = selectedColor.value;
-    finalBgStyle = { opacity: bgOpacity.value };
+    finalBgStyle = { opacity: bgOpacity.value, textColor };
   } else if (bgTab.value === 'image') {
     backgroundImage = selectedImage.value;
   } else if (bgTab.value === 'video') {
     backgroundVideo = selectedVideo.value;
   }
+
+  const scopedBackground = withThemeBackground({
+    type: props.item.backgroundVideo ? 'video' : props.item.backgroundImage ? 'image' : 'color',
+    color: props.item.color,
+    image: props.item.backgroundImage,
+    video: props.item.backgroundVideo,
+    backgroundStyle: props.item.backgroundStyle,
+  }, appConfigStore.config.appearance.theme, {
+    type: bgTab.value,
+    color,
+    image: backgroundImage,
+    video: backgroundVideo,
+    backgroundStyle: finalBgStyle,
+  });
 
   const payload: WidgetEditPayload = {
     label: editLabel.value,
@@ -444,10 +492,10 @@ function handleConfirm() {
     rowSpan: editRowSpan.value,
     sizePreset: editSizePreset.value === 'custom' ? undefined : editSizePreset.value,
     widgetConfig: normalizeWidgetConfig(props.item.widgetType, editWidgetConfig.value),
-    color,
-    backgroundImage: backgroundImage || undefined,
-    backgroundVideo: backgroundVideo || undefined,
-    backgroundStyle: finalBgStyle,
+    color: scopedBackground.color,
+    backgroundImage: scopedBackground.image || undefined,
+    backgroundVideo: scopedBackground.video || undefined,
+    backgroundStyle: scopedBackground.backgroundStyle,
   };
 
   emit('confirm', payload);
@@ -488,17 +536,19 @@ watch(() => props.visible, (visible) => {
     editWidgetConfig.value = normalizeWidgetConfig(props.item.widgetType, props.item.widgetConfig);
 
     // 背景
-    selectedColor.value = props.item.color || 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)';
-    selectedImage.value = props.item.backgroundImage || '';
-    selectedVideo.value = props.item.backgroundVideo || '';
-    bgSize.value = props.item.backgroundStyle?.backgroundSize || 'cover';
-    bgPosition.value = props.item.backgroundStyle?.backgroundPosition || 'center';
-    bgRepeat.value = props.item.backgroundStyle?.backgroundRepeat || 'no-repeat';
-    bgOpacity.value = props.item.backgroundStyle?.opacity ?? 1;
+    const background = activeWidgetBackground.value;
+    selectedColor.value = background.color || 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)';
+    selectedImage.value = background.image || '';
+    selectedVideo.value = background.video || '';
+    bgSize.value = background.backgroundStyle?.backgroundSize || 'cover';
+    bgPosition.value = background.backgroundStyle?.backgroundPosition || 'center';
+    bgRepeat.value = background.backgroundStyle?.backgroundRepeat || 'no-repeat';
+    bgOpacity.value = background.backgroundStyle?.opacity ?? 1;
+    selectedTextColor.value = background.backgroundStyle?.textColor || '';
 
-    if (props.item.backgroundVideo) {
+    if (background.video) {
       bgTab.value = 'video';
-    } else if (props.item.backgroundImage) {
+    } else if (background.image) {
       bgTab.value = 'image';
     } else {
       bgTab.value = 'color';
@@ -527,6 +577,7 @@ watch(() => props.visible, (visible) => {
     </div>
 
     <div class="widget-editor__content">
+      <Transition :name="editorTabTransition" mode="out-in">
       <!-- ═══ 基础信息 ═══ -->
       <div v-if="activeTab === 'basic'" class="widget-editor__section">
         <UiField label="组件名称" required>
@@ -550,7 +601,7 @@ watch(() => props.visible, (visible) => {
           <div class="widget-editor__builtin-desc">{{ widgetDefinition.description }}</div>
         </div>
 
-        <HomeWidgetConfigFields v-if="!isShortcutWidget" v-model="editWidgetConfig" :widget-type="props.item.widgetType" />
+        <HomeWidgetConfigFields v-if="hasWidgetConfig" v-model="editWidgetConfig" :widget-type="props.item.widgetType" />
 
         <UiField v-if="isShortcutWidget" label="动作类型">
           <UiSelect v-model="editActionType" :options="actionTypeOptions" size="md" />
@@ -602,7 +653,7 @@ watch(() => props.visible, (visible) => {
       </div>
 
       <!-- ═══ 尺寸配置 ═══ -->
-      <div v-if="activeTab === 'size'" class="widget-editor__section">
+      <div v-else-if="activeTab === 'size'" class="widget-editor__section">
         <div v-if="sizePresetOptions.length" class="widget-editor__size-preset-grid">
           <button v-for="size in sizePresetOptions" :key="size.preset" type="button" class="widget-editor__size-preset"
             :class="{ 'widget-editor__size-preset--active': editSizePreset === size.preset }"
@@ -637,8 +688,8 @@ watch(() => props.visible, (visible) => {
         </div>
       </div>
 
-      <!-- ═══ 背景设置 ═══ -->
-      <div v-if="activeTab === 'background'" class="widget-editor__section">
+      <!-- ═══ 个性化配置 ═══ -->
+      <div v-else class="widget-editor__section">
         <div class="widget-editor__bg-tabs">
           <UiTabs v-model="bgTab" :items="backgroundSubTabs" variant="segmented" size="sm" stretch />
         </div>
@@ -655,6 +706,7 @@ watch(() => props.visible, (visible) => {
           </div>
         </div>
 
+        <Transition :name="bgTabTransition" mode="out-in">
         <!-- 颜色选择 -->
         <div v-if="bgTab === 'color'" class="widget-editor__color-section">
           <div class="widget-editor__section-title">渐变色</div>
@@ -677,7 +729,7 @@ watch(() => props.visible, (visible) => {
         </div>
 
         <!-- 图片选择 -->
-        <div v-if="bgTab === 'image'" class="widget-editor__image-section">
+        <div v-else-if="bgTab === 'image'" class="widget-editor__image-section">
           <div class="widget-editor__image-actions">
             <input ref="imageInput" type="file" accept="image/*" style="display: none" @change="handleImageChange" />
             <UiButton class="widget-editor__upload-btn" variant="secondary" size="md" @click="handleImageSelect">
@@ -729,7 +781,7 @@ watch(() => props.visible, (visible) => {
         </div>
 
         <!-- 视频选择 -->
-        <div v-if="bgTab === 'video'" class="widget-editor__video-section">
+        <div v-else class="widget-editor__video-section">
           <div class="widget-editor__image-actions">
             <input ref="videoInput" type="file" accept="video/*" style="display: none" @change="handleVideoChange" />
             <UiButton class="widget-editor__upload-btn" variant="secondary" size="md" @click="handleVideoSelect">
@@ -755,6 +807,7 @@ watch(() => props.visible, (visible) => {
             <p v-if="!ffmpegAvailable" class="widget-editor__hint widget-editor__hint--warn">⚠️ 未配置 FFmpeg 路径，请前往 设置 → 工具 进行配置</p>
           </div>
         </div>
+        </Transition>
 
         <!-- 透明度（通用） -->
         <div class="widget-editor__opacity-panel">
@@ -765,7 +818,24 @@ watch(() => props.visible, (visible) => {
             <span class="widget-editor__opacity-value">{{ Math.round(bgOpacity * 100) }}%</span>
           </div>
         </div>
+
+        <div class="widget-editor__text-color-panel">
+          <div class="widget-editor__section-title">文字颜色</div>
+          <div class="widget-editor__text-color-row">
+            <input
+              class="widget-editor__text-color-swatch"
+              type="color"
+              :value="selectedTextColor || '#ffffff'"
+              @input="selectedTextColor = ($event.target as HTMLInputElement).value"
+            />
+            <input v-model="selectedTextColor" class="widget-editor__text-color-input" placeholder="默认文字颜色" />
+            <button class="widget-editor__text-color-reset" type="button" @click="selectedTextColor = ''">
+              重置
+            </button>
+          </div>
+        </div>
       </div>
+      </Transition>
     </div>
 
     <template #footer>
@@ -777,6 +847,7 @@ watch(() => props.visible, (visible) => {
 
     <!-- 图片裁剪器 -->
     <ImageCropper v-if="showCropper" :visible="showCropper" :image="originalImage"
+      :target-width="props.previewWidth" :target-height="props.previewHeight"
       :processing-mode="imageProcessMode" :quality="compressQuality"
       @close="handleCropperClose" @confirm="handleCropperConfirm" />
 
@@ -952,7 +1023,7 @@ export default {
   font-variant-numeric: tabular-nums;
 }
 
-/* ─── 背景设置 ─── */
+/* ─── 个性化配置 ─── */
 .widget-editor__bg-tabs {
   margin-bottom: 16px;
 }
@@ -1138,6 +1209,73 @@ export default {
   padding: 14px;
   border-radius: var(--ui-radius-sm);
   background: var(--ui-surface-overlay);
+}
+
+.widget-editor__text-color-panel {
+  margin-top: 16px;
+  padding: 14px;
+  border-radius: var(--ui-radius-sm);
+  background: var(--ui-surface-overlay);
+}
+
+.widget-editor__text-color-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.widget-editor__text-color-swatch {
+  flex: 0 0 38px;
+  width: 38px;
+  height: 32px;
+  padding: 0;
+  border: var(--ui-border-width-thin) solid var(--ui-border-subtle);
+  border-radius: var(--ui-radius-xs);
+  background: transparent;
+  cursor: pointer;
+}
+
+.widget-editor__text-color-input {
+  flex: 1;
+  min-width: 0;
+  height: 32px;
+  padding: 5px 10px;
+  border-radius: var(--ui-radius-xs);
+  border: var(--ui-border-width-thin) solid var(--ui-border-subtle);
+  background: var(--ui-input-bg, transparent);
+  color: var(--ui-text-primary);
+  font-size: 12px;
+  font-family: 'Consolas', 'Monaco', monospace;
+  outline: none;
+
+  &:focus {
+    border-color: var(--ui-select-focus-border);
+    box-shadow: var(--ui-focus-ring);
+  }
+
+  &::placeholder {
+    color: var(--ui-text-muted);
+    opacity: 0.65;
+  }
+}
+
+.widget-editor__text-color-reset {
+  flex: 0 0 auto;
+  height: 32px;
+  padding: 0 10px;
+  border-radius: var(--ui-radius-xs);
+  border: var(--ui-border-width-thin) solid var(--ui-border-subtle);
+  background: transparent;
+  color: var(--ui-text-muted);
+  font-size: 12px;
+  cursor: pointer;
+  transition: all 0.18s ease;
+
+  &:hover {
+    border-color: var(--ui-select-focus-border);
+    color: var(--ui-text-primary);
+    background: var(--ui-select-option-hover-bg);
+  }
 }
 
 .widget-editor__opacity-row {

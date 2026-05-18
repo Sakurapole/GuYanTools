@@ -29,6 +29,10 @@ const emit = defineEmits<{
 const hasChildren = computed(() => Boolean(props.node.children?.length));
 const expanded = computed(() => props.expandedIds.includes(props.node.id));
 const selected = computed(() => props.selectedId === props.node.id);
+const nodeClass = computed(() => [
+  'ui-tree-node',
+  props.node.kind ? `ui-tree-node--${props.node.kind}` : '',
+]);
 const rowStyle = computed(() => ({
   paddingLeft: `${12 + props.level * props.indentSize}px`,
 }));
@@ -104,38 +108,18 @@ function handleDrop(event: DragEvent) {
 </script>
 
 <template>
-  <div class="ui-tree-node">
-    <div
-      class="ui-tree-node__row"
-      :class="{
-        'ui-tree-node__row--selected': selected,
-        'ui-tree-node__row--disabled': node.disabled,
-      }"
-      :style="rowStyle"
-      role="treeitem"
-      :aria-expanded="hasChildren ? expanded : undefined"
-      :aria-selected="selected"
-      :draggable="!node.disabled"
-      tabindex="0"
-      @click="handleRowClick"
-      @dblclick="handleRowDoubleClick"
-      @keydown="handleRowKeydown"
-      @contextmenu.prevent="handleContextMenu"
-      @dragstart="handleDragStart"
-      @dragover.prevent
-      @drop="handleDrop"
-    >
-      <button
-        class="ui-tree-node__toggle"
-        :class="{
-          'ui-tree-node__toggle--hidden': !hasChildren,
-          'ui-tree-node__toggle--expanded': expanded,
-        }"
-        type="button"
-        tabindex="-1"
-        :disabled="!hasChildren || node.disabled"
-        @click="handleToggle"
-      >
+  <div :class="nodeClass">
+    <div class="ui-tree-node__row" :class="{
+      'ui-tree-node__row--selected': selected,
+      'ui-tree-node__row--disabled': node.disabled,
+    }" :style="rowStyle" role="treeitem" :aria-expanded="hasChildren ? expanded : undefined" :aria-selected="selected"
+      :draggable="!node.disabled" tabindex="0" @click="handleRowClick" @dblclick="handleRowDoubleClick"
+      @keydown="handleRowKeydown" @contextmenu.prevent="handleContextMenu" @dragstart="handleDragStart"
+      @dragover.prevent @drop="handleDrop">
+      <button class="ui-tree-node__toggle" :class="{
+        'ui-tree-node__toggle--hidden': !hasChildren,
+        'ui-tree-node__toggle--expanded': expanded,
+      }" type="button" tabindex="-1" :disabled="!hasChildren || node.disabled" @click="handleToggle">
         <svg viewBox="0 0 16 16" aria-hidden="true">
           <path d="M5.5 3.5L10.5 8L5.5 12.5" />
         </svg>
@@ -146,7 +130,10 @@ function handleDrop(event: DragEvent) {
       </span>
 
       <span class="ui-tree-node__content">
-        <span class="ui-tree-node__label">{{ node.label }}</span>
+        <span
+          v-tooltip="{ content: node.tooltip, placement: 'right', delay: 450, block: true, disabled: !node.tooltip }"
+          class="ui-tree-node__label"
+        >{{ node.label }}</span>
         <span v-if="node.meta" class="ui-tree-node__meta">{{ node.meta }}</span>
       </span>
 
@@ -154,21 +141,10 @@ function handleDrop(event: DragEvent) {
     </div>
 
     <div v-if="hasChildren && expanded" class="ui-tree-node__children" role="group">
-      <UiTreeNodeItem
-        v-for="child in node.children"
-        :key="child.id"
-        :node="child"
-        :level="level + 1"
-        :indent-size="indentSize"
-        :expanded-ids="expandedIds"
-        :selected-id="selectedId"
-        @toggle="emit('toggle', $event)"
-        @select="emit('select', $event)"
-        @activate="emit('activate', $event)"
-        @contextmenu="emit('contextmenu', $event)"
-        @dragstart="emit('dragstart', $event)"
-        @drop="emit('drop', $event)"
-      />
+      <UiTreeNodeItem v-for="child in node.children" :key="child.id" :node="child" :level="level + 1"
+        :indent-size="indentSize" :expanded-ids="expandedIds" :selected-id="selectedId" @toggle="emit('toggle', $event)"
+        @select="emit('select', $event)" @activate="emit('activate', $event)" @contextmenu="emit('contextmenu', $event)"
+        @dragstart="emit('dragstart', $event)" @drop="emit('drop', $event)" />
     </div>
   </div>
 </template>
@@ -274,6 +250,7 @@ function handleDrop(event: DragEvent) {
 }
 
 .ui-tree-node__label {
+  min-width: 0;
   color: var(--ui-text-primary);
   font-size: 0.84rem;
   font-weight: 600;

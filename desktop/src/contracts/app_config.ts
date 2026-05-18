@@ -1,12 +1,94 @@
 import type { AppWebConfig } from './webview';
 import type { TerminalFeatureConfig } from './terminal';
+import type { BackgroundStyleConfig } from './background';
 
 export type AppTheme = 'light' | 'dark';
 export type AppLanguage = 'zh' | 'en';
+export type AppSettingsTabId = 'general' | 'file-transfer' | 'web-security' | 'ai-agent' | 'plugins' | 'terminal' | 'multi-device-clipboard' | 'shortcuts';
+export type AppBottomBarTabId =
+  | 'home'
+  | 'terminal'
+  | 'settings'
+  | 'ftp'
+  | 'plugins'
+  | 'todo'
+  | 'script-editor'
+  | 'devtools';
 
 export const APP_CONFIG_VERSION = 1;
 export const SYSTEM_FONT_OPTION_VALUE = 'system-default';
 export const SYSTEM_FONT_STACK = "'Geist Variable', system-ui, -apple-system, 'Segoe UI', sans-serif";
+export const APP_BOTTOM_BAR_REQUIRED_TAB_IDS: AppBottomBarTabId[] = ['home', 'settings'];
+export const APP_BOTTOM_BAR_DEFAULT_VISIBLE_TAB_IDS: AppBottomBarTabId[] = ['home', 'terminal', 'settings', 'ftp', 'devtools'];
+
+export interface AppInternalFunctionDefinition {
+  id: AppBottomBarTabId;
+  label: string;
+  route: string;
+  icon: string;
+  description: string;
+  devOnly?: boolean;
+}
+
+export const APP_INTERNAL_FUNCTIONS: AppInternalFunctionDefinition[] = [
+  {
+    id: 'home',
+    label: '首页',
+    route: '/home',
+    icon: 'home',
+    description: '工具组件、快捷入口和工作区。',
+  },
+  {
+    id: 'terminal',
+    label: '终端',
+    route: '/terminal',
+    icon: 'terminal',
+    description: '本地终端、SSH 会话和端口转发。',
+  },
+  {
+    id: 'settings',
+    label: '设置',
+    route: '/settings',
+    icon: 'settings',
+    description: '应用基础配置、插件、终端与快捷键。',
+  },
+  {
+    id: 'ftp',
+    label: '传输',
+    route: '/ftp',
+    icon: 'ftp',
+    description: 'FTP/SFTP 文件浏览、同步与传输队列。',
+  },
+  {
+    id: 'plugins',
+    label: '插件',
+    route: '/plugins',
+    icon: 'plugins',
+    description: '插件安装、启停和运行状态。',
+  },
+  {
+    id: 'todo',
+    label: '待办',
+    route: '/todo',
+    icon: 'todo',
+    description: '任务列表、详情和日程整理。',
+  },
+  {
+    id: 'script-editor',
+    label: '脚本编辑器',
+    route: '/script-editor',
+    icon: 'script',
+    description: '管理 WebView 注入脚本。',
+  },
+  {
+    id: 'devtools',
+    label: '调试',
+    route: '/devtools',
+    icon: 'devtools',
+    description: '开发环境调试工具。',
+    devOnly: true,
+  },
+];
 
 export interface AppAppearanceConfig {
   theme: AppTheme;
@@ -22,6 +104,7 @@ export interface AppInternalShortcutsConfig {
 
 export interface AppSystemShortcutsConfig {
   toggleAppVisibility: string;
+  toggleMultiDeviceClipboard: string;
 }
 
 export interface AppShortcutsConfig {
@@ -31,7 +114,39 @@ export interface AppShortcutsConfig {
 
 export interface AppFeaturesConfig {
   aiAgent: Record<string, unknown>;
+  settings: AppSettingsFeatureConfig;
   terminal: TerminalFeatureConfig;
+  multiDeviceClipboard: MultiDeviceClipboardFeatureConfig;
+}
+
+export interface AppSettingsTabPersonalizationConfig {
+  type: 'color' | 'image' | 'video';
+  color: string;
+  image: string;
+  video: string;
+  style: BackgroundStyleConfig;
+}
+
+export interface AppSettingsFeatureConfig {
+  tabs: Record<AppSettingsTabId, AppSettingsTabPersonalizationConfig>;
+}
+
+export interface MultiDeviceClipboardFeatureConfig {
+  enabled: boolean;
+  deviceName: string;
+  maxSyncBytes: number;
+  historyLimit: number;
+  networkInterfacePriority: string[];
+}
+
+export interface LocalNetworkInterfaceOption {
+  key: string;
+  name: string;
+  address: string;
+  family: 'IPv4' | 'IPv6';
+  internal: boolean;
+  mac?: string;
+  cidr?: string;
 }
 
 export interface AppPluginsConfig {
@@ -43,9 +158,14 @@ export interface AppToolsConfig {
   ffmpegPath: string;
 }
 
+export interface AppBottomBarConfig {
+  defaultVisibleTabIds: AppBottomBarTabId[];
+}
+
 export interface AppConfig {
   version: number;
   appearance: AppAppearanceConfig;
+  bottomBar: AppBottomBarConfig;
   features: AppFeaturesConfig;
   shortcuts: AppShortcutsConfig;
   plugins: AppPluginsConfig;
@@ -60,9 +180,14 @@ export interface LocalFontOption {
 
 export interface AppConfigPatch {
   appearance?: Partial<AppAppearanceConfig>;
+  bottomBar?: Partial<AppBottomBarConfig>;
   features?: {
     aiAgent?: Record<string, unknown>;
+    settings?: {
+      tabs?: Partial<Record<AppSettingsTabId, Partial<AppSettingsTabPersonalizationConfig>>>;
+    };
     terminal?: Partial<TerminalFeatureConfig>;
+    multiDeviceClipboard?: Partial<MultiDeviceClipboardFeatureConfig>;
   };
   shortcuts?: {
     internal?: Partial<AppInternalShortcutsConfig>;
@@ -80,6 +205,8 @@ export interface AppConfigApi {
   getConfig: () => Promise<AppConfig>;
   updateConfig: (patch: AppConfigPatch) => Promise<AppConfig>;
   listLocalFonts: () => Promise<LocalFontOption[]>;
+  listNetworkInterfaces: () => Promise<LocalNetworkInterfaceOption[]>;
+  onDidChange: (listener: (config: AppConfig) => void) => () => void;
 }
 
 export function createDefaultAppConfig(): AppConfig {
@@ -91,13 +218,33 @@ export function createDefaultAppConfig(): AppConfig {
       fontFamily: SYSTEM_FONT_OPTION_VALUE,
       baseFontSize: 16,
     },
+    bottomBar: {
+      defaultVisibleTabIds: [...APP_BOTTOM_BAR_DEFAULT_VISIBLE_TAB_IDS],
+    },
     features: {
       aiAgent: {},
+      settings: {
+        tabs: {
+          general: createDefaultSettingsTabPersonalization(),
+          'file-transfer': createDefaultSettingsTabPersonalization(),
+          'web-security': createDefaultSettingsTabPersonalization(),
+          'ai-agent': createDefaultSettingsTabPersonalization(),
+          plugins: createDefaultSettingsTabPersonalization(),
+          terminal: createDefaultSettingsTabPersonalization(),
+          'multi-device-clipboard': createDefaultSettingsTabPersonalization(),
+          shortcuts: createDefaultSettingsTabPersonalization(),
+        },
+      },
       terminal: {
         defaultProfileId: '',
         defaultCwd: '',
         env: {},
+        localProfiles: [],
+        sshProfileGroups: [],
+        sshProfileGroupMap: {},
         rendererMode: 'auto',
+        layoutMode: 'tabbed',
+        enableBell: false,
         enableSixel: true,
         detachToWindowByDefault: false,
         sshReconnectMaxAttempts: 3,
@@ -108,6 +255,13 @@ export function createDefaultAppConfig(): AppConfig {
         viewportBgVideo: '',
         viewportBgStyle: {},
       },
+      multiDeviceClipboard: {
+        enabled: true,
+        deviceName: '',
+        maxSyncBytes: 100 * 1024 * 1024,
+        historyLimit: 200,
+        networkInterfacePriority: [],
+      },
     },
     shortcuts: {
       internal: {
@@ -116,6 +270,7 @@ export function createDefaultAppConfig(): AppConfig {
       },
       system: {
         toggleAppVisibility: 'CommandOrControl+Alt+G',
+        toggleMultiDeviceClipboard: 'Alt+V',
       },
     },
     plugins: {
@@ -134,6 +289,16 @@ export function createDefaultAppConfig(): AppConfig {
       keepAliveDomains: [],
       chromeExtensions: [],
     },
+  };
+}
+
+export function createDefaultSettingsTabPersonalization(): AppSettingsTabPersonalizationConfig {
+  return {
+    type: 'color',
+    color: '',
+    image: '',
+    video: '',
+    style: {},
   };
 }
 

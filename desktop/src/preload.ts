@@ -11,7 +11,8 @@ import type {
 import type { AppConfigApi } from '@/contracts/app_config';
 import type { PluginHostApi } from '@/contracts/plugin_host';
 import type { NotificationApi, NotificationPayload } from '@/contracts/notification';
-import type { SaveFileOptions, SelectFileOptions } from '@/contracts/shell';
+import type { SaveFileOptions, SelectFileOptions, ShellApi } from '@/contracts/shell';
+import type { HomeProfileApi } from '@/contracts/home_profile';
 import type { HomeWorkspaceApi } from '@/contracts/home_workspace';
 import type { UpdateApi } from '@/contracts/updater';
 import type {
@@ -26,6 +27,10 @@ import type {
 } from '@/contracts/todo';
 import type { MediaApi, CompressImageOptions, CompressVideoOptions } from '@/contracts/media';
 import type {
+  MultiDeviceClipboardApi,
+  MultiDeviceClipboardEvent,
+} from '@/contracts/multi_device_clipboard';
+import type {
   TerminalApi,
   CreateTerminalSessionPayload,
   DetachedTerminalSessionKind,
@@ -35,11 +40,13 @@ import type {
 import type {
   SshApi,
   ConnectSshInput,
+  CreateSshProfileFolderInput,
   CreateSshProfileInput,
   CreatePortForwardInput,
   ResizeSshSessionInput,
   SshEventEnvelope,
   TrustHostInput,
+  UpdateSshProfileFolderInput,
   UpdateSshProfileInput,
   UpdatePortForwardInput,
 } from '@/contracts/ssh';
@@ -51,6 +58,7 @@ import type {
   FtpEventEnvelope,
   FtpExternalEditorOptions,
   FtpRetryPolicy,
+  FtpTransferOptions,
   UpsertFtpRestoreStateInput,
   UpdateFtpProfileInput,
   UpdateFtpSessionFolderInput,
@@ -85,6 +93,16 @@ contextBridge.exposeInMainWorld('homeLayoutApi', {
     ipcRenderer.invoke('home-layout:import-layout', input),
 });
 
+const homeProfileApi: HomeProfileApi = {
+  listProfiles: () => ipcRenderer.invoke('home-profile:list'),
+  getActiveProfileKey: () => ipcRenderer.invoke('home-profile:get-active'),
+  setActiveProfile: (key: string) => ipcRenderer.invoke('home-profile:set-active', key),
+  createProfile: (input: { name: string }) => ipcRenderer.invoke('home-profile:create', input),
+  renameProfile: (key: string, name: string) => ipcRenderer.invoke('home-profile:rename', key, name),
+  deleteProfile: (key: string) => ipcRenderer.invoke('home-profile:delete', key),
+};
+contextBridge.exposeInMainWorld('homeProfileApi', homeProfileApi);
+
 const pluginHostApi: PluginHostApi = {
   getHostSummary: () => ipcRenderer.invoke('plugin-host:get-summary'),
   listPlugins: () => ipcRenderer.invoke('plugin-host:list-plugins'),
@@ -102,6 +120,12 @@ const appConfigApi: AppConfigApi = {
   getConfig: () => ipcRenderer.invoke('app-config:get'),
   updateConfig: (patch) => ipcRenderer.invoke('app-config:update', patch),
   listLocalFonts: () => ipcRenderer.invoke('app-config:list-fonts'),
+  listNetworkInterfaces: () => ipcRenderer.invoke('app-config:list-network-interfaces'),
+  onDidChange: (listener) => {
+    const wrappedListener = (_event: Electron.IpcRendererEvent, config: Awaited<ReturnType<AppConfigApi['getConfig']>>) => listener(config);
+    ipcRenderer.on('app-config:changed', wrappedListener);
+    return () => ipcRenderer.removeListener('app-config:changed', wrappedListener);
+  },
 };
 
 contextBridge.exposeInMainWorld('pluginHostApi', pluginHostApi);
@@ -129,12 +153,14 @@ const updateApi: UpdateApi = {
 };
 contextBridge.exposeInMainWorld('updateApi', updateApi);
 
-const shellApi = {
+const shellApi: ShellApi = {
   openPath: (targetPath: string) => ipcRenderer.invoke('shell:open-path', targetPath),
   openExternal: (url: string) => ipcRenderer.invoke('shell:open-external', url),
+  listLocalRoots: () => ipcRenderer.invoke('shell:list-local-roots'),
   selectFile: (options?: SelectFileOptions) => ipcRenderer.invoke('shell:select-file', options),
   saveFile: (options?: SaveFileOptions) => ipcRenderer.invoke('shell:save-file', options),
   selectDirectory: (title?: string) => ipcRenderer.invoke('shell:select-directory', title),
+  readTextFile: (path: string, maxBytes?: number) => ipcRenderer.invoke('shell:read-text-file', path, maxBytes),
   writeTextFile: (path: string, content: string) => ipcRenderer.invoke('shell:write-text-file', path, content),
   readClipboardText: () => ipcRenderer.invoke('shell:clipboard-read-text'),
   writeClipboardText: (text: string) => ipcRenderer.invoke('shell:clipboard-write-text', text),
@@ -201,6 +227,35 @@ const mediaApi: MediaApi = {
 };
 contextBridge.exposeInMainWorld('mediaApi', mediaApi);
 
+const multiDeviceClipboardApi: MultiDeviceClipboardApi = {
+  listItems: () => ipcRenderer.invoke('multi-device-clipboard:list-items'),
+  applyItem: (itemId: string) => ipcRenderer.invoke('multi-device-clipboard:apply-item', itemId),
+  showItemPreview: (itemId: string) => ipcRenderer.invoke('multi-device-clipboard:show-item-preview', itemId),
+  deleteItem: (itemId: string) => ipcRenderer.invoke('multi-device-clipboard:delete-item', itemId),
+  clearHistory: () => ipcRenderer.invoke('multi-device-clipboard:clear-history'),
+  listDevices: () => ipcRenderer.invoke('multi-device-clipboard:list-devices'),
+  listDeviceStatuses: (onlineWindowSeconds: number) =>
+    ipcRenderer.invoke('multi-device-clipboard:list-device-statuses', onlineWindowSeconds),
+  listDiscoveredDevices: () => ipcRenderer.invoke('multi-device-clipboard:list-discovered-devices'),
+  listPairingRequests: () => ipcRenderer.invoke('multi-device-clipboard:list-pairing-requests'),
+  startPairing: (deviceId: string) => ipcRenderer.invoke('multi-device-clipboard:start-pairing', deviceId),
+  startPairingByAddress: (endpoint: string) => ipcRenderer.invoke('multi-device-clipboard:start-pairing-by-address', endpoint),
+  approvePairing: (requestId: string) => ipcRenderer.invoke('multi-device-clipboard:approve-pairing', requestId),
+  rejectPairing: (requestId: string) => ipcRenderer.invoke('multi-device-clipboard:reject-pairing', requestId),
+  forgetDevice: (deviceId: string) => ipcRenderer.invoke('multi-device-clipboard:forget-device', deviceId),
+  showWindow: () => ipcRenderer.invoke('multi-device-clipboard:show-window'),
+  closeWindow: () => ipcRenderer.invoke('multi-device-clipboard:close-window'),
+  dockWindow: () => ipcRenderer.invoke('multi-device-clipboard:dock-window'),
+  expandWindow: () => ipcRenderer.invoke('multi-device-clipboard:expand-window'),
+  openDevTools: () => ipcRenderer.invoke('multi-device-clipboard:open-devtools'),
+  onEvent: (listener: (event: MultiDeviceClipboardEvent) => void) => {
+    const wrappedListener = (_event: Electron.IpcRendererEvent, payload: MultiDeviceClipboardEvent) => listener(payload);
+    ipcRenderer.on('multi-device-clipboard:event', wrappedListener);
+    return () => ipcRenderer.removeListener('multi-device-clipboard:event', wrappedListener);
+  },
+};
+contextBridge.exposeInMainWorld('multiDeviceClipboardApi', multiDeviceClipboardApi);
+
 const webviewApi = {
   checkDomain: (domain: string) => ipcRenderer.invoke('webview:check-domain', domain),
   getInjectedScripts: (domain: string) => ipcRenderer.invoke('webview:get-injected-scripts', domain),
@@ -219,6 +274,8 @@ const terminalApi: TerminalApi = {
   listProfiles: () => ipcRenderer.invoke('terminal:list-profiles'),
   listSessions: () => ipcRenderer.invoke('terminal:list-sessions'),
   createSession: (payload: CreateTerminalSessionPayload) => ipcRenderer.invoke('terminal:create-session', payload),
+  getBuffer: (sessionId: string) => ipcRenderer.invoke('terminal:get-buffer', sessionId),
+  clearBuffer: (sessionId: string) => ipcRenderer.invoke('terminal:clear-buffer', sessionId),
   write: (sessionId: string, data: string) => ipcRenderer.invoke('terminal:write', sessionId, data),
   resizeSession: (payload: ResizeTerminalSessionPayload) => ipcRenderer.invoke('terminal:resize-session', payload),
   killSession: (sessionId: string) => ipcRenderer.invoke('terminal:kill-session', sessionId),
@@ -226,6 +283,8 @@ const terminalApi: TerminalApi = {
   attachToMain: (sessionId: string) => ipcRenderer.invoke('terminal:attach-main', sessionId),
   detachToWindow: (sessionId: string, kind?: DetachedTerminalSessionKind, label?: string) =>
     ipcRenderer.invoke('terminal:detach-to-window', sessionId, kind ?? 'local', label ?? ''),
+  returnDetachedToMain: (sessionId: string, target: string, kind?: DetachedTerminalSessionKind) =>
+    ipcRenderer.invoke('terminal:return-detached-to-main', sessionId, target, kind ?? 'local'),
   readClipboardText: () => ipcRenderer.invoke('terminal:clipboard-read'),
   writeClipboardText: (text: string) => ipcRenderer.invoke('terminal:clipboard-write', text),
   onEvent: (listener: (event: TerminalEventEnvelope) => void) => {
@@ -241,6 +300,10 @@ contextBridge.exposeInMainWorld('terminalApi', terminalApi);
 const sshApi: SshApi = {
   // Profile CRUD
   listProfiles: () => ipcRenderer.invoke('ssh:list-profiles'),
+  listFolders: () => ipcRenderer.invoke('ssh:list-folders'),
+  createFolder: (input: CreateSshProfileFolderInput) => ipcRenderer.invoke('ssh:create-folder', input),
+  updateFolder: (input: UpdateSshProfileFolderInput) => ipcRenderer.invoke('ssh:update-folder', input),
+  deleteFolder: (id: string) => ipcRenderer.invoke('ssh:delete-folder', id),
   createProfile: (input: CreateSshProfileInput) => ipcRenderer.invoke('ssh:create-profile', input),
   updateProfile: (input: UpdateSshProfileInput) => ipcRenderer.invoke('ssh:update-profile', input),
   deleteProfile: (id: string) => ipcRenderer.invoke('ssh:delete-profile', id),
@@ -251,6 +314,8 @@ const sshApi: SshApi = {
   disconnect: (sessionId: string) => ipcRenderer.invoke('ssh:disconnect', sessionId),
   detachToWindow: (sessionId: string, label?: string) =>
     ipcRenderer.invoke('terminal:detach-to-window', sessionId, 'ssh', label ?? ''),
+  getBuffer: (sessionId: string) => ipcRenderer.invoke('ssh:get-buffer', sessionId),
+  clearBuffer: (sessionId: string) => ipcRenderer.invoke('ssh:clear-buffer', sessionId),
 
   // I/O
   write: (sessionId: string, data: string) => ipcRenderer.invoke('ssh:write', sessionId, data),
@@ -279,6 +344,8 @@ const sshApi: SshApi = {
   startPortForward: (sessionId: string, forwardId: string) => ipcRenderer.invoke('ssh:start-port-forward', sessionId, forwardId),
   stopPortForward: (sessionId: string, forwardId: string) => ipcRenderer.invoke('ssh:stop-port-forward', sessionId, forwardId),
   listForwardStatus: (sessionId: string) => ipcRenderer.invoke('ssh:list-forward-status', sessionId),
+  getPortOccupant: (host: string, port: number) => ipcRenderer.invoke('ssh:get-port-occupant', host, port),
+  killPortOccupant: (pid: number) => ipcRenderer.invoke('ssh:kill-port-occupant', pid),
 
   // Traffic statistics
   getForwardTraffic: (sessionId: string) => ipcRenderer.invoke('ssh:get-forward-traffic', sessionId),
@@ -350,10 +417,10 @@ const ftpApi: FtpApi = {
     ipcRenderer.invoke('ftp:copy-local-path', sourcePath, targetPath),
   getDefaultLocalPath: () => ipcRenderer.invoke('ftp:get-default-local-path'),
 
-  uploadFile: (sessionId: string, localPath: string, remotePath: string) =>
-    ipcRenderer.invoke('ftp:upload-file', sessionId, localPath, remotePath),
-  downloadFile: (sessionId: string, remotePath: string, localPath: string) =>
-    ipcRenderer.invoke('ftp:download-file', sessionId, remotePath, localPath),
+  uploadFile: (sessionId: string, localPath: string, remotePath: string, options?: FtpTransferOptions) =>
+    ipcRenderer.invoke('ftp:upload-file', sessionId, localPath, remotePath, options),
+  downloadFile: (sessionId: string, remotePath: string, localPath: string, options?: FtpTransferOptions) =>
+    ipcRenderer.invoke('ftp:download-file', sessionId, remotePath, localPath, options),
   fxpTransfer: (sourceSessionId: string, sourcePath: string, targetSessionId: string, targetPath: string) =>
     ipcRenderer.invoke('ftp:fxp-transfer', sourceSessionId, sourcePath, targetSessionId, targetPath),
   listTransferTasks: () => ipcRenderer.invoke('ftp:list-transfer-tasks'),

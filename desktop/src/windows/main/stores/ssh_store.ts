@@ -1,8 +1,10 @@
 import { defineStore, acceptHMRUpdate } from 'pinia';
 import { computed, ref } from 'vue';
 import { useAppConfigStore } from './app_config_store';
+import { notifyError, notifyWarning } from '../composables/useInAppNotification';
 import type {
   ConnectSshInput,
+  CreateSshProfileFolderInput,
   CreateSshProfileInput,
   CreatePortForwardInput,
   ExportSshManagedKeyData,
@@ -11,17 +13,21 @@ import type {
   ImportSshManagedKeyInput,
   PortForwardStatus,
   PortForwardTrafficInfo,
+  PortOccupantInfo,
   ResizeSshSessionInput,
   SshEventEnvelope,
   SshKnownHost,
   SshManagedKey,
   SshPortForward,
   SshProfile,
+  SshProfileFolder,
   SshSessionDescriptor,
   TrustHostInput,
   UpdateSshProfileInput,
+  UpdateSshProfileFolderInput,
   UpdatePortForwardInput,
 } from '@/contracts/ssh';
+import type { TerminalSshProfileGroupConfig } from '@/contracts/terminal';
 
 // ── SSH Store ─────────────────────────────────────────────────
 // Manages SSH profiles, active sessions, and event bus routing.
@@ -50,6 +56,18 @@ export interface RunningPortForwardSummary {
   address: string;
 }
 
+export interface PortForwardConflict {
+  sessionId: string;
+  profileId: string;
+  forwardId: string;
+  forwardLabel: string;
+  host: string;
+  port: number;
+  occupant: PortOccupantInfo | null;
+  message: string;
+  detectedAt: number;
+}
+
 const SSH_RECONNECT_DELAY_MS = 2000;
 
 export const useSshStore = defineStore('ssh', () => {
@@ -57,6 +75,7 @@ export const useSshStore = defineStore('ssh', () => {
 
   // ── State ─────────────────────────────────────────────────────
   const profiles = ref<SshProfile[]>([]);
+  const folders = ref<SshProfileFolder[]>([]);
   const sessions = ref<SshSessionDescriptor[]>([]);
   const activeSshSessionId = ref<string>('');
   const knownHosts = ref<SshKnownHost[]>([]);
@@ -72,6 +91,7 @@ export const useSshStore = defineStore('ssh', () => {
   const portForwards = ref<Record<string, SshPortForward[]>>({});
   const forwardStatuses = ref<Record<string, PortForwardStatus[]>>({});
   const forwardTraffic = ref<Record<string, PortForwardTrafficInfo[]>>({});
+  const portConflicts = ref<Record<string, PortForwardConflict>>({});
   const portForwardPanelOpen = ref(false);
 
   const initialized = ref(false);
@@ -88,8 +108,12 @@ export const useSshStore = defineStore('ssh', () => {
     () => sessions.value.find((s) => s.sessionId === activeSshSessionId.value) ?? null,
   );
 
+  const mainSessions = computed(() =>
+    sessions.value.filter((session) => !isDetachedTarget(session.attachedTarget)),
+  );
+
   const connectedSessions = computed(
-    () => sessions.value.filter((s) => s.status === 'connected'),
+    () => mainSessions.value.filter((s) => s.status === 'connected'),
   );
 
   const runningPortForwardSummaries = computed<RunningPortForwardSummary[]>(() => {
@@ -138,10 +162,13 @@ export const useSshStore = defineStore('ssh', () => {
 
   async function initialize() {
     if (initialized.value) return;
+    folders.value = await window.sshApi.listFolders();
     profiles.value = await window.sshApi.listProfiles();
+    await migrateLegacyTerminalSshGroups();
     sessions.value = await window.sshApi.listSessions();
     managedKeys.value = await window.sshApi.listManagedKeys();
     ensureEventSubscription();
+    await hydrateSessionBuffers(sessions.value.map((session) => session.sessionId));
     await hydratePortForwardRuntimeState();
     initialized.value = true;
   }
@@ -150,6 +177,107 @@ export const useSshStore = defineStore('ssh', () => {
 
   async function refreshProfiles() {
     profiles.value = await window.sshApi.listProfiles();
+  }
+
+  async function migrateLegacyTerminalSshGroups() {
+    const legacyGroups = appConfigStore.config.features.terminal.sshProfileGroups ?? [];
+    const legacyMap = appConfigStore.config.features.terminal.sshProfileGroupMap ?? {};
+    if (folders.value.length > 0 || legacyGroups.length === 0) {
+      return;
+    }
+
+    const remaining = [...legacyGroups]
+      .sort((a, b) => a.sortOrder - b.sortOrder || a.createdAt - b.createdAt || a.label.localeCompare(b.label, 'zh-CN'));
+    const idMap = new Map<string, string>();
+    const knownLegacyIds = new Set(remaining.map((group) => group.id));
+
+    while (remaining.length) {
+      let progressed = false;
+      for (let index = 0; index < remaining.length;) {
+        const group = remaining[index];
+        const parentId = group.parentId && knownLegacyIds.has(group.parentId)
+          ? idMap.get(group.parentId)
+          : '';
+        if (group.parentId && knownLegacyIds.has(group.parentId) && !parentId) {
+          index += 1;
+          continue;
+        }
+
+        const created = await window.sshApi.createFolder({
+          label: group.label,
+          parentId: parentId || undefined,
+        });
+        idMap.set(group.id, created.id);
+        remaining.splice(index, 1);
+        progressed = true;
+      }
+
+      if (!progressed) {
+        const group = remaining.shift() as TerminalSshProfileGroupConfig;
+        const created = await window.sshApi.createFolder({ label: group.label });
+        idMap.set(group.id, created.id);
+      }
+    }
+
+    for (const profile of profiles.value) {
+      const legacyGroupId = legacyMap[profile.id];
+      const folderId = legacyGroupId ? idMap.get(legacyGroupId) : '';
+      if (folderId) {
+        await window.sshApi.updateProfile({ id: profile.id, folderId });
+      }
+    }
+
+    folders.value = await window.sshApi.listFolders();
+    profiles.value = await window.sshApi.listProfiles();
+    await appConfigStore.updateConfig({
+      features: {
+        terminal: {
+          sshProfileGroups: [],
+          sshProfileGroupMap: {},
+        },
+      },
+    });
+  }
+
+  async function refreshFolders() {
+    folders.value = await window.sshApi.listFolders();
+    return folders.value;
+  }
+
+  async function createFolder(input: CreateSshProfileFolderInput) {
+    const folder = await window.sshApi.createFolder(input);
+    folders.value = [...folders.value, folder];
+    return folder;
+  }
+
+  async function updateFolder(input: UpdateSshProfileFolderInput) {
+    const folder = await window.sshApi.updateFolder(input);
+    folders.value = folders.value.map((item) => (item.id === folder.id ? folder : item));
+    return folder;
+  }
+
+  async function deleteFolder(id: string) {
+    await window.sshApi.deleteFolder(id);
+    const nestedIds = collectFolderDescendantIds(id);
+    folders.value = folders.value.filter((item) => !nestedIds.includes(item.id));
+    profiles.value = profiles.value.map((profile) =>
+      profile.folderId && nestedIds.includes(profile.folderId) ? { ...profile, folderId: undefined } : profile,
+    );
+  }
+
+  function collectFolderDescendantIds(folderId: string) {
+    const output = [folderId];
+    const stack = [folderId];
+    while (stack.length) {
+      const currentId = stack.pop();
+      for (const folder of folders.value) {
+        if (folder.parentId === currentId) {
+          output.push(folder.id);
+          stack.push(folder.id);
+        }
+      }
+    }
+    return output;
   }
 
   async function createProfile(input: CreateSshProfileInput) {
@@ -259,6 +387,7 @@ export const useSshStore = defineStore('ssh', () => {
     const next = { ...sessionBuffers.value };
     delete next[sessionId];
     sessionBuffers.value = next;
+    void window.sshApi.clearBuffer(sessionId);
   }
 
   function getBuffer(sessionId: string) {
@@ -332,6 +461,10 @@ export const useSshStore = defineStore('ssh', () => {
     switch (event.eventType) {
       case 'data': {
         updateWorkingDirectoryFromOutput(event.sessionId, event.data ?? '');
+        const matchedSession = sessions.value.find((session) => session.sessionId === event.sessionId);
+        if (matchedSession && isDetachedTarget(matchedSession.attachedTarget)) {
+          break;
+        }
         sessionBuffers.value = {
           ...sessionBuffers.value,
           [event.sessionId]: `${sessionBuffers.value[event.sessionId] ?? ''}${event.data ?? ''}`,
@@ -340,6 +473,17 @@ export const useSshStore = defineStore('ssh', () => {
       }
       case 'state':
         updateSessionFromEvent(event);
+        if (event.attachedTarget && !isDetachedTarget(event.attachedTarget)) {
+          focusReturnedSessionIfNeeded(event.sessionId);
+          void hydrateSessionBuffer(event.sessionId);
+        } else if (
+          event.attachedTarget
+          && isDetachedTarget(event.attachedTarget)
+          && activeSshSessionId.value === event.sessionId
+        ) {
+          const nextSession = mainSessions.value.find((session) => session.sessionId !== event.sessionId);
+          activeSshSessionId.value = nextSession?.sessionId ?? '';
+        }
         // Auto-start port forwards when session becomes connected
         if (event.status === 'connected') {
           clearReconnectState(event.sessionId);
@@ -398,9 +542,40 @@ export const useSshStore = defineStore('ssh', () => {
     const current = sessions.value[index];
     sessions.value = sessions.value.map((s, i) =>
       i === index
-        ? { ...current, status: event.status ?? current.status }
+        ? {
+          ...current,
+          status: event.status ?? current.status,
+          attachedTarget: event.attachedTarget ?? current.attachedTarget,
+        }
         : s,
     );
+  }
+
+  function isDetachedTarget(target: string | undefined) {
+    return typeof target === 'string' && target.startsWith('popup:');
+  }
+
+  function focusReturnedSessionIfNeeded(sessionId: string) {
+    const activeMainSession = mainSessions.value.find((session) => session.sessionId === activeSshSessionId.value);
+    if (activeMainSession) {
+      return;
+    }
+
+    if (mainSessions.value.some((session) => session.sessionId === sessionId)) {
+      activeSshSessionId.value = sessionId;
+    }
+  }
+
+  async function hydrateSessionBuffers(sessionIds: string[]) {
+    await Promise.all(sessionIds.map((sessionId) => hydrateSessionBuffer(sessionId)));
+  }
+
+  async function hydrateSessionBuffer(sessionId: string) {
+    const buffer = await window.sshApi.getBuffer(sessionId);
+    sessionBuffers.value = {
+      ...sessionBuffers.value,
+      [sessionId]: buffer,
+    };
   }
 
   function removeSessionLocal(sessionId: string) {
@@ -440,6 +615,14 @@ export const useSshStore = defineStore('ssh', () => {
     const nextFwdTraffic = { ...forwardTraffic.value };
     delete nextFwdTraffic[sessionId];
     forwardTraffic.value = nextFwdTraffic;
+
+    const nextConflicts = { ...portConflicts.value };
+    for (const [key, conflict] of Object.entries(nextConflicts)) {
+      if (conflict.sessionId === sessionId) {
+        delete nextConflicts[key];
+      }
+    }
+    portConflicts.value = nextConflicts;
   }
 
   function updateForwardStatus(sessionId: string, status: PortForwardStatus) {
@@ -738,8 +921,10 @@ export const useSshStore = defineStore('ssh', () => {
 
     try {
       await window.sshApi.startPortForward(sessionId, forwardId);
+      clearPortConflict(sessionId, forwardId);
     } catch (err) {
       if (handleMissingSessionError(sessionId, err)) return;
+      await registerPortForwardConflict(sessionId, forwardId, err);
       throw err;
     }
   }
@@ -850,6 +1035,107 @@ export const useSshStore = defineStore('ssh', () => {
     // Refresh the port forward list after import
     await loadPortForwards(profileId);
     return count;
+  }
+
+  function getConflictKey(sessionId: string, forwardId: string) {
+    return `${sessionId}:${forwardId}`;
+  }
+
+  function clearPortConflict(sessionId: string, forwardId: string) {
+    const key = getConflictKey(sessionId, forwardId);
+    if (!portConflicts.value[key]) return;
+    const next = { ...portConflicts.value };
+    delete next[key];
+    portConflicts.value = next;
+  }
+
+  async function registerPortForwardConflict(sessionId: string, forwardId: string, err: unknown) {
+    const message = getErrorMessage(err);
+    if (!looksLikeLocalPortBindError(message)) {
+      return;
+    }
+
+    const session = sessions.value.find((item) => item.sessionId === sessionId);
+    const rule = session ? (portForwards.value[session.profileId] ?? []).find((item) => item.id === forwardId) : null;
+    if (!session || !rule || rule.forwardType === 'remote') {
+      notifyWarning(message, '端口转发启动失败', {
+        dedupeKey: `ssh-forward:${sessionId}:${forwardId}:bind`,
+      });
+      return;
+    }
+
+    const host = rule.localHost || '127.0.0.1';
+    const port = rule.localPort;
+    const occupant = await window.sshApi.getPortOccupant(host, port).catch((): PortOccupantInfo | null => null);
+    const conflict: PortForwardConflict = {
+      sessionId,
+      profileId: session.profileId,
+      forwardId,
+      forwardLabel: rule.label || `${host}:${port}`,
+      host,
+      port,
+      occupant,
+      message,
+      detectedAt: Date.now(),
+    };
+
+    portConflicts.value = {
+      ...portConflicts.value,
+      [getConflictKey(sessionId, forwardId)]: conflict,
+    };
+    portForwardPanelOpen.value = true;
+    notifyWarning(
+      occupant
+        ? `${host}:${port} 被 ${occupant.name || '未知进程'} (PID ${occupant.pid}) 占用，可在端口转发面板中释放后重试。`
+        : `${host}:${port} 已被占用，可在端口转发面板中查看并重试。`,
+      '端口转发端口被占用',
+      { dedupeKey: `ssh-forward:${sessionId}:${forwardId}:occupied` },
+    );
+  }
+
+  function getErrorMessage(err: unknown) {
+    return err instanceof Error ? err.message : String(err);
+  }
+
+  function looksLikeLocalPortBindError(message: string) {
+    return /failed to bind/i.test(message)
+      || /address already in use/i.test(message)
+      || /only one usage of each socket address/i.test(message)
+      || /通常每个套接字地址/i.test(message)
+      || /端口.*占用/.test(message);
+  }
+
+  async function resolvePortConflict(sessionId: string, forwardId: string) {
+    const conflict = portConflicts.value[getConflictKey(sessionId, forwardId)];
+    if (!conflict) {
+      return;
+    }
+
+    try {
+      if (conflict.occupant?.pid) {
+        await window.sshApi.killPortOccupant(conflict.occupant.pid);
+        await waitForPortRelease(conflict.host, conflict.port);
+      }
+      clearPortConflict(sessionId, forwardId);
+      await startPortForward(sessionId, forwardId);
+      await refreshForwardStatus(sessionId);
+    } catch (error) {
+      await registerPortForwardConflict(sessionId, forwardId, error);
+      notifyError(error, '释放端口失败', {
+        dedupeKey: `ssh-forward:${sessionId}:${forwardId}:kill-failed`,
+      });
+      throw error;
+    }
+  }
+
+  async function waitForPortRelease(host: string, port: number) {
+    for (let index = 0; index < 10; index += 1) {
+      const occupant = await window.sshApi.getPortOccupant(host, port).catch((): PortOccupantInfo | null => null);
+      if (!occupant) {
+        return;
+      }
+      await new Promise((resolve) => window.setTimeout(resolve, 250));
+    }
   }
 
   function trackWorkingDirectoryFromInput(sessionId: string, data: string) {
@@ -991,9 +1277,11 @@ export const useSshStore = defineStore('ssh', () => {
   return {
     // State
     profiles,
+    folders,
     sessions,
     activeSshSessionId,
     activeSshSession,
+    mainSessions,
     connectedSessions,
     runningPortForwardSummaries,
     reconnectStates,
@@ -1006,6 +1294,10 @@ export const useSshStore = defineStore('ssh', () => {
 
     // Profile CRUD
     refreshProfiles,
+    refreshFolders,
+    createFolder,
+    updateFolder,
+    deleteFolder,
     createProfile,
     updateProfile,
     deleteProfile,
@@ -1038,6 +1330,7 @@ export const useSshStore = defineStore('ssh', () => {
     portForwards,
     forwardStatuses,
     forwardTraffic,
+    portConflicts,
     portForwardPanelOpen,
     loadPortForwards,
     createPortForward,
@@ -1047,6 +1340,8 @@ export const useSshStore = defineStore('ssh', () => {
     stopPortForward,
     refreshForwardStatus,
     refreshForwardTraffic,
+    resolvePortConflict,
+    clearPortConflict,
     togglePortForwardPanel,
     markSessionUnavailable,
 

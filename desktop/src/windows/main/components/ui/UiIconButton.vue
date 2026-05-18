@@ -13,7 +13,7 @@ const props = withDefaults(defineProps<{
   active?: boolean;
   title?: string;
   type?: 'button' | 'submit' | 'reset';
-  /** 鍥炬爣鏂囧瓧鎸夐挳妯″紡锛氫紶鍏ユ枃瀛楁爣绛惧垯鍒囨崲涓哄鎸夐挳甯冨眬 */
+  /** 图标文字按钮模式：传入文字标签后切换为自适应宽度布局 */
   label?: string;
 }>(), {
   variant: 'ghost',
@@ -42,11 +42,11 @@ const buttonClass = computed(() => [
 
 <template>
   <button :type="type" :class="buttonClass" :disabled="disabled" :title="title || label || undefined" :aria-label="title || label || undefined">
-    <!-- 鍥炬爣鎻掓Ы -->
-    <span class="ui-icon-button__icon">
+    <!-- 图标插槽 -->
+    <span v-if="$slots.default" class="ui-icon-button__icon">
       <slot />
     </span>
-    <!-- 鏂囧瓧鏍囩锛堝彲閫夛級 -->
+    <!-- 文字标签（可选） -->
     <span v-if="hasLabel" class="ui-icon-button__label">{{ label }}</span>
   </button>
 </template>
@@ -102,7 +102,7 @@ const buttonClass = computed(() => [
     border-radius: var(--ui-radius-full);
   }
 
-  /* 绾浘鏍囨ā寮忥細鍥哄畾姝ｆ柟褰㈠昂瀵?*/
+  /* 纯图标模式：固定正方形尺寸 */
   &--sm:not(.ui-icon-button--labeled) {
     width: 28px;
     height: 28px;
@@ -118,7 +118,7 @@ const buttonClass = computed(() => [
     height: 40px;
   }
 
-  /* 鍥炬爣+鏂囧瓧妯″紡锛氳嚜閫傚簲瀹藉害 */
+  /* 图标+文字模式：自适应宽度 */
   &--labeled {
     gap: 6px;
     white-space: nowrap;
@@ -205,4 +205,3 @@ const buttonClass = computed(() => [
   text-overflow: ellipsis;
 }
 </style>
-

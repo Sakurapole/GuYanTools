@@ -1,13 +1,93 @@
 use crate::db::{Database, DbError, DbResult};
 use crate::models::{
     CreateHomeCategoryInput, CreateHomeWidgetInput, HomeCategory, HomeLayout, HomeLayoutCategory,
-    HomeWidget, ImportHomeLayoutInput, UpdateHomeCategoryInput, UpdateHomeWidgetInput,
+    HomeWidget, HomeWorkspace, ImportHomeLayoutInput, SaveMobileHomeCategoryLayoutInput,
+    UpdateHomeCategoryInput, UpdateHomeWidgetInput,
 };
 use rusqlite::{params, Connection, OptionalExtension};
+use std::collections::HashMap;
+use uuid::Uuid;
 
 pub struct HomeLayoutService;
 
 impl HomeLayoutService {
+    const DEFAULT_WORKSPACE_KEY: &'static str = "default";
+    const ACTIVE_WORKSPACE_SETTING_KEY: &'static str = "home.activeWorkspaceKey";
+    pub const MOBILE_SCOPE_COMPACT: &'static str = "mobile_compact";
+    pub const MOBILE_SCOPE_EXPANDED: &'static str = "mobile_expanded";
+
+    pub fn list_workspaces(db: &Database) -> DbResult<Vec<HomeWorkspace>> {
+        db.with_connection(|conn| Self::list_workspaces_with_conn(conn))
+    }
+
+    pub fn create_workspace(db: &Database, name: String) -> DbResult<HomeWorkspace> {
+        db.transaction(|conn| {
+            let name = Self::normalize_required_name(name)?;
+            let key = format!("home-{}", Uuid::new_v4().simple());
+
+            conn.execute(
+                "INSERT INTO home_workspaces (key, name, is_default) VALUES (?1, ?2, 0)",
+                params![key, name],
+            )?;
+
+            Self::get_workspace_by_key(conn, &key)
+        })
+    }
+
+    pub fn rename_workspace(db: &Database, key: &str, name: String) -> DbResult<HomeWorkspace> {
+        db.transaction(|conn| {
+            let name = Self::normalize_required_name(name)?;
+            let affected = conn.execute(
+                "UPDATE home_workspaces SET name = ?1, updated_at = datetime('now') WHERE key = ?2",
+                params![name, key],
+            )?;
+
+            if affected == 0 {
+                return Err(DbError::NotFound(format!("首页配置文件 {} 不存在", key)));
+            }
+
+            Self::get_workspace_by_key(conn, key)
+        })
+    }
+
+    pub fn delete_workspace(db: &Database, key: &str) -> DbResult<String> {
+        db.transaction(|conn| {
+            let count: i64 =
+                conn.query_row("SELECT COUNT(*) FROM home_workspaces", [], |row| row.get(0))?;
+            if count <= 1 {
+                return Err(DbError::InvalidParameter(
+                    "至少需要保留一个首页配置文件".to_string(),
+                ));
+            }
+
+            Self::get_workspace_by_key(conn, key)?;
+            let active_key = Self::get_active_workspace_key_with_conn(conn)?;
+
+            conn.execute("DELETE FROM home_workspaces WHERE key = ?1", params![key])?;
+
+            let next_active_key = if active_key == key {
+                Self::fallback_workspace_key(conn)?
+            } else {
+                active_key
+            };
+            Self::set_active_workspace_key_with_conn(conn, &next_active_key)?;
+
+            Ok(next_active_key)
+        })
+    }
+
+    pub fn get_active_workspace_key(db: &Database) -> DbResult<String> {
+        db.with_connection(|conn| Self::get_active_workspace_key_with_conn(conn))
+    }
+
+    pub fn set_active_workspace_key(db: &Database, key: &str) -> DbResult<HomeWorkspace> {
+        db.transaction(|conn| {
+            let workspace = Self::get_workspace_by_key(conn, key)?;
+            Self::set_active_workspace_key_with_conn(conn, key)?;
+            Ok(workspace)
+        })
+    }
+
     pub fn get_layout_by_workspace_key(db: &Database, workspace_key: &str) -> DbResult<HomeLayout> {
         db.with_connection(|conn| {
             let workspace_id = Self::get_workspace_id(conn, workspace_key)?;
@@ -16,6 +96,109 @@ impl HomeLayoutService {
                 workspace_key: workspace_key.to_string(),
                 categories,
             })
+        })
+    }
+
+    pub fn get_mobile_layout_by_workspace_key(
+        db: &Database,
+        workspace_key: &str,
+        layout_scope: &str,
+    ) -> DbResult<HomeLayout> {
+        db.with_connection(|conn| {
+            Self::validate_mobile_layout_scope(layout_scope)?;
+            let workspace_id = Self::get_workspace_id(conn, workspace_key)?;
+            let categories =
+                Self::list_categories_with_widgets_for_mobile(conn, workspace_id, layout_scope)?;
+            Ok(HomeLayout {
+                workspace_key: workspace_key.to_string(),
+                categories,
+            })
+        })
+    }
+
+    pub fn save_mobile_category_layout(
+        db: &Database,
+        workspace_key: &str,
+        layout_scope: &str,
+        input: SaveMobileHomeCategoryLayoutInput,
+    ) -> DbResult<HomeLayoutCategory> {
+        db.transaction(|conn| {
+            Self::validate_mobile_layout_scope(layout_scope)?;
+            let workspace_id = Self::get_workspace_id(conn, workspace_key)?;
+            Self::ensure_category_in_workspace(conn, &input.category_id, workspace_id)?;
+
+            for widget in &input.widgets {
+                let existing = Self::get_widget(conn, &widget.widget_id)?;
+                if existing.workspace_id != workspace_id {
+                    return Err(DbError::InvalidParameter(format!(
+                        "卡片 {} 不属于工作区 {}",
+                        widget.widget_id, workspace_id
+                    )));
+                }
+                if existing.category_id != input.category_id {
+                    return Err(DbError::InvalidParameter(format!(
+                        "卡片 {} 不属于分类 {}",
+                        widget.widget_id, input.category_id
+                    )));
+                }
+            }
+
+            conn.execute(
+                "DELETE FROM mobile_home_widget_layouts
+                 WHERE workspace_id = ?1 AND layout_scope = ?2 AND widget_id IN (
+                    SELECT id FROM home_widgets WHERE workspace_id = ?1 AND category_id = ?3
+                 )",
+                params![workspace_id, layout_scope, input.category_id],
+            )?;
+
+            for widget in input.widgets {
+                conn.execute(
+                    "INSERT INTO mobile_home_widget_layouts (
+                        workspace_id, widget_id, layout_scope, col, row, col_span, row_span,
+                        preferred_col, preferred_row, priority, hidden
+                    ) VALUES (
+                        ?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11
+                    )",
+                    params![
+                        workspace_id,
+                        widget.widget_id,
+                        layout_scope,
+                        widget.col,
+                        widget.row,
+                        widget.col_span,
+                        widget.row_span,
+                        widget.preferred_col,
+                        widget.preferred_row,
+                        widget.priority,
+                        widget.hidden as i64
+                    ],
+                )?;
+            }
+
+            Self::get_mobile_category_layout(conn, workspace_id, &input.category_id, layout_scope)
+        })
+    }
+
+    pub fn reset_mobile_category_layout(
+        db: &Database,
+        workspace_key: &str,
+        layout_scope: &str,
+        category_id: &str,
+    ) -> DbResult<HomeLayoutCategory> {
+        db.transaction(|conn| {
+            Self::validate_mobile_layout_scope(layout_scope)?;
+            let workspace_id = Self::get_workspace_id(conn, workspace_key)?;
+            Self::ensure_category_in_workspace(conn, category_id, workspace_id)?;
+
+            conn.execute(
+                "DELETE FROM mobile_home_widget_layouts
+                 WHERE workspace_id = ?1 AND layout_scope = ?2 AND widget_id IN (
+                    SELECT id FROM home_widgets WHERE workspace_id = ?1 AND category_id = ?3
+                 )",
+                params![workspace_id, layout_scope, category_id],
+            )?;
+
+            Self::get_mobile_category_layout(conn, workspace_id, category_id, layout_scope)
         })
     }
 
@@ -354,6 +537,98 @@ impl HomeLayoutService {
         .map_err(DbError::from)
     }
 
+    fn list_workspaces_with_conn(conn: &Connection) -> DbResult<Vec<HomeWorkspace>> {
+        let mut stmt = conn.prepare(
+            "SELECT id, key, name, is_default, created_at, updated_at
+             FROM home_workspaces
+             ORDER BY is_default DESC, created_at ASC, id ASC",
+        )?;
+
+        let workspaces = stmt
+            .query_map([], Self::map_workspace)?
+            .collect::<Result<Vec<_>, _>>()?;
+
+        Ok(workspaces)
+    }
+
+    fn get_workspace_by_key(conn: &Connection, key: &str) -> DbResult<HomeWorkspace> {
+        conn.query_row(
+            "SELECT id, key, name, is_default, created_at, updated_at
+             FROM home_workspaces WHERE key = ?1",
+            params![key],
+            Self::map_workspace,
+        )
+        .map_err(DbError::from)
+    }
+
+    fn workspace_exists(conn: &Connection, key: &str) -> DbResult<bool> {
+        let exists: Option<i64> = conn
+            .query_row(
+                "SELECT id FROM home_workspaces WHERE key = ?1",
+                params![key],
+                |row| row.get(0),
+            )
+            .optional()?;
+
+        Ok(exists.is_some())
+    }
+
+    fn fallback_workspace_key(conn: &Connection) -> DbResult<String> {
+        if Self::workspace_exists(conn, Self::DEFAULT_WORKSPACE_KEY)? {
+            return Ok(Self::DEFAULT_WORKSPACE_KEY.to_string());
+        }
+
+        conn.query_row(
+            "SELECT key FROM home_workspaces ORDER BY is_default DESC, created_at ASC, id ASC LIMIT 1",
+            [],
+            |row| row.get(0),
+        )
+        .map_err(DbError::from)
+    }
+
+    fn get_active_workspace_key_with_conn(conn: &Connection) -> DbResult<String> {
+        let stored_key: Option<String> = conn
+            .query_row(
+                "SELECT value FROM settings WHERE key = ?1",
+                params![Self::ACTIVE_WORKSPACE_SETTING_KEY],
+                |row| row.get(0),
+            )
+            .optional()?;
+
+        if let Some(key) = stored_key {
+            if Self::workspace_exists(conn, &key)? {
+                return Ok(key);
+            }
+        }
+
+        let fallback_key = Self::fallback_workspace_key(conn)?;
+        Self::set_active_workspace_key_with_conn(conn, &fallback_key)?;
+        Ok(fallback_key)
+    }
+
+    fn set_active_workspace_key_with_conn(conn: &Connection, key: &str) -> DbResult<()> {
+        conn.execute(
+            "INSERT INTO settings (key, value, description) VALUES (?1, ?2, ?3)
+             ON CONFLICT(key) DO UPDATE SET
+                value = excluded.value,
+                description = excluded.description,
+                updated_at = datetime('now')",
+            params![Self::ACTIVE_WORKSPACE_SETTING_KEY, key, "当前首页配置文件"],
+        )?;
+        Ok(())
+    }
+
+    fn map_workspace(row: &rusqlite::Row<'_>) -> rusqlite::Result<HomeWorkspace> {
+        Ok(HomeWorkspace {
+            id: row.get(0)?,
+            key: row.get(1)?,
+            name: row.get(2)?,
+            is_default: row.get::<_, i64>(3)? != 0,
+            created_at: row.get(4)?,
+            updated_at: row.get(5)?,
+        })
+    }
+
     fn ensure_category_in_workspace(
         conn: &Connection,
         category_id: &str,
@@ -415,6 +690,32 @@ impl HomeLayoutService {
         Ok(result)
     }
 
+    fn list_categories_with_widgets_for_mobile(
+        conn: &Connection,
+        workspace_id: i64,
+        layout_scope: &str,
+    ) -> DbResult<Vec<HomeLayoutCategory>> {
+        let mut categories = Self::list_categories_with_widgets(conn, workspace_id)?;
+        let overrides = Self::list_mobile_widget_layouts(conn, workspace_id, layout_scope)?;
+
+        for category in &mut categories {
+            for widget in &mut category.widgets {
+                if let Some(override_layout) = overrides.get(&widget.id) {
+                    widget.col = override_layout.col;
+                    widget.row = override_layout.row;
+                    widget.col_span = override_layout.col_span;
+                    widget.row_span = override_layout.row_span;
+                    widget.preferred_col = override_layout.preferred_col;
+                    widget.preferred_row = override_layout.preferred_row;
+                    widget.priority = override_layout.priority;
+                    widget.hidden = override_layout.hidden;
+                }
+            }
+        }
+
+        Ok(categories)
+    }
+
     fn list_widgets_by_category(
         conn: &Connection,
         workspace_id: i64,
@@ -437,6 +738,20 @@ impl HomeLayoutService {
             .collect::<Result<Vec<_>, _>>()?;
 
         Ok(widgets)
+    }
+
+    fn get_mobile_category_layout(
+        conn: &Connection,
+        workspace_id: i64,
+        category_id: &str,
+        layout_scope: &str,
+    ) -> DbResult<HomeLayoutCategory> {
+        let categories =
+            Self::list_categories_with_widgets_for_mobile(conn, workspace_id, layout_scope)?;
+        categories
+            .into_iter()
+            .find(|category| category.id == category_id)
+            .ok_or_else(|| DbError::NotFound(format!("类别 {} 不存在", category_id)))
     }
 
     fn get_category(conn: &Connection, category_id: &str) -> DbResult<HomeCategory> {
@@ -478,6 +793,54 @@ impl HomeLayoutService {
         .map_err(DbError::from)
     }
 
+    fn list_mobile_widget_layouts(
+        conn: &Connection,
+        workspace_id: i64,
+        layout_scope: &str,
+    ) -> DbResult<HashMap<String, crate::models::MobileHomeWidgetLayout>> {
+        let mut stmt = conn.prepare(
+            "SELECT widget_id, workspace_id, layout_scope, col, row, col_span, row_span,
+                    preferred_col, preferred_row, priority, hidden, created_at, updated_at
+             FROM mobile_home_widget_layouts
+             WHERE workspace_id = ?1 AND layout_scope = ?2",
+        )?;
+
+        let rows = stmt
+            .query_map(params![workspace_id, layout_scope], |row| {
+                Ok(crate::models::MobileHomeWidgetLayout {
+                    widget_id: row.get(0)?,
+                    workspace_id: row.get(1)?,
+                    layout_scope: row.get(2)?,
+                    col: row.get(3)?,
+                    row: row.get(4)?,
+                    col_span: row.get(5)?,
+                    row_span: row.get(6)?,
+                    preferred_col: row.get(7)?,
+                    preferred_row: row.get(8)?,
+                    priority: row.get(9)?,
+                    hidden: row.get::<_, i64>(10)? != 0,
+                    created_at: row.get(11)?,
+                    updated_at: row.get(12)?,
+                })
+            })?
+            .collect::<Result<Vec<_>, _>>()?;
+
+        Ok(rows
+            .into_iter()
+            .map(|layout| (layout.widget_id.clone(), layout))
+            .collect())
+    }
+
+    fn validate_mobile_layout_scope(layout_scope: &str) -> DbResult<()> {
+        match layout_scope {
+            Self::MOBILE_SCOPE_COMPACT | Self::MOBILE_SCOPE_EXPANDED => Ok(()),
+            other => Err(DbError::InvalidParameter(format!(
+                "不支持的移动端布局范围: {}",
+                other
+            ))),
+        }
+    }
+
     fn map_widget(row: &rusqlite::Row<'_>) -> rusqlite::Result<HomeWidget> {
         Ok(HomeWidget {
             id: row.get(0)?,
@@ -516,6 +879,17 @@ impl HomeLayoutService {
             }
         })
     }
+
+    fn normalize_required_name(value: String) -> DbResult<String> {
+        let name = value.trim().to_string();
+        if name.is_empty() {
+            Err(DbError::InvalidParameter(
+                "首页配置文件名称不能为空".to_string(),
+            ))
+        } else {
+            Ok(name)
+        }
+    }
 }
 
 #[cfg(test)]
@@ -523,7 +897,7 @@ mod tests {
     use super::*;
     use crate::models::{
         CreateHomeCategoryInput, CreateHomeWidgetInput, ImportHomeCategoryInput,
-        ImportHomeWidgetInput,
+        ImportHomeWidgetInput, SaveMobileHomeCategoryLayoutInput, SaveMobileHomeWidgetLayoutInput,
     };
 
     #[test]
@@ -537,6 +911,46 @@ mod tests {
         assert_eq!(layout.categories[1].widgets.len(), 2);
         assert_eq!(layout.categories[2].widgets.len(), 2);
         assert_eq!(layout.categories[3].widgets.len(), 1);
+    }
+
+    #[test]
+    fn test_home_workspace_profile_lifecycle() {
+        let db = Database::new_in_memory().unwrap();
+
+        assert_eq!(
+            HomeLayoutService::get_active_workspace_key(&db).unwrap(),
+            "default"
+        );
+
+        let created =
+            HomeLayoutService::create_workspace(&db, "  个人工作台  ".to_string()).unwrap();
+        assert_eq!(created.name, "个人工作台");
+        assert!(!created.is_default);
+
+        let blank_layout =
+            HomeLayoutService::get_layout_by_workspace_key(&db, &created.key).unwrap();
+        assert!(blank_layout.categories.is_empty());
+
+        let active = HomeLayoutService::set_active_workspace_key(&db, &created.key).unwrap();
+        assert_eq!(active.key, created.key);
+        assert_eq!(
+            HomeLayoutService::get_active_workspace_key(&db).unwrap(),
+            created.key
+        );
+
+        let renamed =
+            HomeLayoutService::rename_workspace(&db, &created.key, "项目配置".to_string()).unwrap();
+        assert_eq!(renamed.name, "项目配置");
+
+        let fallback_key = HomeLayoutService::delete_workspace(&db, &created.key).unwrap();
+        assert_eq!(fallback_key, "default");
+        assert_eq!(
+            HomeLayoutService::get_active_workspace_key(&db).unwrap(),
+            "default"
+        );
+
+        let delete_last = HomeLayoutService::delete_workspace(&db, "default");
+        assert!(delete_last.is_err());
     }
 
     #[test]
@@ -708,5 +1122,234 @@ mod tests {
         let layout = HomeLayoutService::get_layout_by_workspace_key(&db, "default").unwrap();
         assert_eq!(layout.categories.len(), 1);
         assert_eq!(layout.categories[0].widgets[0].priority, 1);
+    }
+
+    #[test]
+    fn test_mobile_layout_override_isolated_from_desktop_layout() {
+        let db = Database::new_in_memory().unwrap();
+
+        let original = HomeLayoutService::get_layout_by_workspace_key(&db, "default").unwrap();
+        let original_widget = original.categories[0]
+            .widgets
+            .iter()
+            .find(|item| item.id == "grid-item-1")
+            .unwrap()
+            .clone();
+
+        let updated_category = HomeLayoutService::save_mobile_category_layout(
+            &db,
+            "default",
+            HomeLayoutService::MOBILE_SCOPE_COMPACT,
+            SaveMobileHomeCategoryLayoutInput {
+                category_id: "category-tools".to_string(),
+                widgets: vec![
+                    SaveMobileHomeWidgetLayoutInput {
+                        widget_id: "grid-item-1".to_string(),
+                        col: 2,
+                        row: 4,
+                        col_span: 1,
+                        row_span: 1,
+                        preferred_col: 2,
+                        preferred_row: 4,
+                        priority: 7,
+                        hidden: false,
+                    },
+                    SaveMobileHomeWidgetLayoutInput {
+                        widget_id: "grid-item-2".to_string(),
+                        col: 1,
+                        row: 1,
+                        col_span: 1,
+                        row_span: 2,
+                        preferred_col: 1,
+                        preferred_row: 1,
+                        priority: 2,
+                        hidden: false,
+                    },
+                    SaveMobileHomeWidgetLayoutInput {
+                        widget_id: "grid-item-3".to_string(),
+                        col: 3,
+                        row: 1,
+                        col_span: 2,
+                        row_span: 1,
+                        preferred_col: 3,
+                        preferred_row: 1,
+                        priority: 3,
+                        hidden: true,
+                    },
+                ],
+            },
+        )
+        .unwrap();
+
+        let mobile_widget = updated_category
+            .widgets
+            .iter()
+            .find(|item| item.id == "grid-item-1")
+            .unwrap();
+        assert_eq!(mobile_widget.col, 2);
+        assert_eq!(mobile_widget.row, 4);
+        assert_eq!(mobile_widget.priority, 7);
+
+        let desktop_layout =
+            HomeLayoutService::get_layout_by_workspace_key(&db, "default").unwrap();
+        let desktop_widget = desktop_layout.categories[0]
+            .widgets
+            .iter()
+            .find(|item| item.id == "grid-item-1")
+            .unwrap();
+        assert_eq!(desktop_widget.col, original_widget.col);
+        assert_eq!(desktop_widget.row, original_widget.row);
+        assert_eq!(desktop_widget.priority, original_widget.priority);
+    }
+
+    #[test]
+    fn test_mobile_layout_scopes_are_independent_and_resettable() {
+        let db = Database::new_in_memory().unwrap();
+
+        HomeLayoutService::save_mobile_category_layout(
+            &db,
+            "default",
+            HomeLayoutService::MOBILE_SCOPE_COMPACT,
+            SaveMobileHomeCategoryLayoutInput {
+                category_id: "category-tools".to_string(),
+                widgets: vec![
+                    SaveMobileHomeWidgetLayoutInput {
+                        widget_id: "grid-item-1".to_string(),
+                        col: 2,
+                        row: 2,
+                        col_span: 1,
+                        row_span: 1,
+                        preferred_col: 2,
+                        preferred_row: 2,
+                        priority: 4,
+                        hidden: false,
+                    },
+                    SaveMobileHomeWidgetLayoutInput {
+                        widget_id: "grid-item-2".to_string(),
+                        col: 1,
+                        row: 1,
+                        col_span: 1,
+                        row_span: 2,
+                        preferred_col: 1,
+                        preferred_row: 1,
+                        priority: 2,
+                        hidden: false,
+                    },
+                    SaveMobileHomeWidgetLayoutInput {
+                        widget_id: "grid-item-3".to_string(),
+                        col: 3,
+                        row: 1,
+                        col_span: 2,
+                        row_span: 1,
+                        preferred_col: 3,
+                        preferred_row: 1,
+                        priority: 3,
+                        hidden: false,
+                    },
+                ],
+            },
+        )
+        .unwrap();
+
+        HomeLayoutService::save_mobile_category_layout(
+            &db,
+            "default",
+            HomeLayoutService::MOBILE_SCOPE_EXPANDED,
+            SaveMobileHomeCategoryLayoutInput {
+                category_id: "category-tools".to_string(),
+                widgets: vec![
+                    SaveMobileHomeWidgetLayoutInput {
+                        widget_id: "grid-item-1".to_string(),
+                        col: 5,
+                        row: 1,
+                        col_span: 1,
+                        row_span: 1,
+                        preferred_col: 5,
+                        preferred_row: 1,
+                        priority: 9,
+                        hidden: true,
+                    },
+                    SaveMobileHomeWidgetLayoutInput {
+                        widget_id: "grid-item-2".to_string(),
+                        col: 1,
+                        row: 1,
+                        col_span: 1,
+                        row_span: 2,
+                        preferred_col: 1,
+                        preferred_row: 1,
+                        priority: 2,
+                        hidden: false,
+                    },
+                    SaveMobileHomeWidgetLayoutInput {
+                        widget_id: "grid-item-3".to_string(),
+                        col: 3,
+                        row: 1,
+                        col_span: 2,
+                        row_span: 1,
+                        preferred_col: 3,
+                        preferred_row: 1,
+                        priority: 3,
+                        hidden: false,
+                    },
+                ],
+            },
+        )
+        .unwrap();
+
+        let compact = HomeLayoutService::get_mobile_layout_by_workspace_key(
+            &db,
+            "default",
+            HomeLayoutService::MOBILE_SCOPE_COMPACT,
+        )
+        .unwrap();
+        let expanded = HomeLayoutService::get_mobile_layout_by_workspace_key(
+            &db,
+            "default",
+            HomeLayoutService::MOBILE_SCOPE_EXPANDED,
+        )
+        .unwrap();
+
+        let compact_widget = compact.categories[0]
+            .widgets
+            .iter()
+            .find(|item| item.id == "grid-item-1")
+            .unwrap();
+        let expanded_widget = expanded.categories[0]
+            .widgets
+            .iter()
+            .find(|item| item.id == "grid-item-1")
+            .unwrap();
+        assert_eq!(compact_widget.col, 2);
+        assert_eq!(expanded_widget.col, 5);
+        assert_eq!(expanded_widget.hidden, true);
+
+        let reset = HomeLayoutService::reset_mobile_category_layout(
+            &db,
+            "default",
+            HomeLayoutService::MOBILE_SCOPE_COMPACT,
+            "category-tools",
+        )
+        .unwrap();
+
+        let reset_widget = reset
+            .widgets
+            .iter()
+            .find(|item| item.id == "grid-item-1")
+            .unwrap();
+        assert_eq!(reset_widget.col, 1);
+        assert_eq!(reset_widget.row, 1);
+
+        let expanded_after_reset = HomeLayoutService::get_mobile_layout_by_workspace_key(
+            &db,
+            "default",
+            HomeLayoutService::MOBILE_SCOPE_EXPANDED,
+        )
+        .unwrap();
+        let expanded_widget_after_reset = expanded_after_reset.categories[0]
+            .widgets
+            .iter()
+            .find(|item| item.id == "grid-item-1")
+            .unwrap();
+        assert_eq!(expanded_widget_after_reset.col, 5);
     }
 }

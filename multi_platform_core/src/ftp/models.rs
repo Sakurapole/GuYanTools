@@ -177,6 +177,13 @@ pub struct FileTransferEntry {
 #[cfg_attr(feature = "napi", napi(object))]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
+pub struct TransferOptions {
+    pub method: Option<String>,
+}
+
+#[cfg_attr(feature = "napi", napi(object))]
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct TransferTask {
     pub id: String,
     pub session_id: String,
@@ -191,6 +198,9 @@ pub struct TransferTask {
     pub transferred_size: i64,
     pub progress: f64,
     pub speed_bytes_per_sec: f64,
+    pub transfer_method: String,
+    pub transfer_tree_json: Option<String>,
+    pub current_relative_path: Option<String>,
     pub status: String,
     pub error_message: Option<String>,
     pub created_at: i64,

@@ -98,7 +98,7 @@ onBeforeUnmount(() => document.removeEventListener('mousedown', onClickOutside, 
       <span :class="{ 'has-value': hasRule }">{{ currentLabel }}</span>
     </button>
 
-    <Transition name="picker-drop">
+    <Transition name="ui-dropdown">
       <div v-if="isOpen" ref="panelRef" class="repeat-panel">
         <div class="panel-title">重复规则</div>
         <button v-for="opt in presetOptions" :key="opt.value" class="panel-option"
@@ -168,7 +168,7 @@ onBeforeUnmount(() => document.removeEventListener('mousedown', onClickOutside, 
   background: var(--ui-surface-glass-strong, #fff);
   border: 1px solid var(--ui-border-subtle);
   border-radius: 10px;
-  box-shadow: 0 8px 24px rgba(0,0,0,0.1), 0 2px 8px rgba(0,0,0,0.06);
+  box-shadow: var(--todo-popup-shadow);
 }
 .panel-title {
   padding: 6px 14px;
@@ -195,7 +195,7 @@ onBeforeUnmount(() => document.removeEventListener('mousedown', onClickOutside, 
 .panel-option:hover { background: var(--ui-button-ghost-hover-bg); }
 .panel-option.selected { color: var(--ui-input-focus-border); font-weight: 600; }
 .panel-option--danger { color: #ef4444; }
-.panel-option--danger:hover { background: rgba(239, 68, 68, 0.06); }
+.panel-option--danger:hover { background: var(--todo-danger-bg); }
 .panel-divider {
   height: 1px;
   background: var(--ui-border-subtle);
@@ -245,12 +245,4 @@ onBeforeUnmount(() => document.removeEventListener('mousedown', onClickOutside, 
 }
 .custom-confirm:hover { opacity: 0.9; }
 
-.picker-drop-enter-active, .picker-drop-leave-active {
-  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
-  transform-origin: top left;
-}
-.picker-drop-enter-from, .picker-drop-leave-to {
-  opacity: 0;
-  transform: translateY(-4px) scale(0.97);
-}
 </style>

@@ -1,6 +1,7 @@
 export interface UiTreeNodeData {
   id: string;
   label: string;
+  tooltip?: string;
   meta?: string;
   badge?: string;
   iconText?: string;

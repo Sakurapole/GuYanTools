@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">GuYanTools</string>
+    <string name="tile_read_clipboard_label">GuYan 剪贴板</string>
+    <string name="shortcut_read_clipboard_short">读取剪贴板</string>
+    <string name="shortcut_read_clipboard_long">读取系统剪贴板到 GuYanTools</string>
+</resources>

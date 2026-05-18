@@ -2,6 +2,7 @@
 import { useElementSize } from '@vueuse/core';
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
+import AppNotificationHost from './components/AppNotificationHost.vue';
 import bottombar from './components/bottombar/bottombar.vue';
 import ConfirmDialog from './components/ui/ConfirmDialog.vue';
 import GlobalContextMenu from './components/ui/GlobalContextMenu.vue';
@@ -9,7 +10,8 @@ import Sidebar from './components/sidebar/sidebar.vue';
 import Topbar from './components/topbar/topbar.vue';
 import TrayContextMenu from './components/TrayContextMenu.vue';
 import WebViewKeepAlive from './components/webview/WebViewKeepAlive.vue';
-import { capturePageSnapshot } from './composables/useTabSnapshot';
+import { schedulePageSnapshot } from './composables/useTabSnapshot';
+import { useBarStore } from './stores/bar_store';
 import { useWebviewStore } from './stores/webview_store';
 
 const { ipcRenderer } = window;
@@ -19,18 +21,68 @@ const pageContainerRef = ref<HTMLElement | null>(null);
 const { width: containerWidth, height: containerHeight } = useElementSize(pageContainerRef);
 let removeNavigationListener: (() => void) | undefined;
 const webviewStore = useWebviewStore();
+const barStore = useBarStore();
+const pageTransitionName = ref('ui-page-forward');
+let routeRenderTimer: number | undefined;
+const fallbackPageRouteOrder = [
+  '/home',
+  '/terminal',
+  '/settings',
+  '/ftp',
+  '/plugins',
+  '/todo',
+  '/webview',
+  '/script-editor',
+  '/devtools',
+];
 
 /** 新窗口弹窗模式：隐藏顶栏、侧栏、底栏 */
 const isPopupMode = computed(() => route.query.popup === '1');
 /** 页面自带标题栏（如脚本编辑器），popup 模式下跳过 App 自带的标题栏 */
 const hasSelfTitlebar = computed(() => false);
 
-// 路由切换时，对当前页面截图缓存
+function routePathFromTabUrl(url: string) {
+  return url.split('?')[0] || url;
+}
+
+function getPageRouteOrder() {
+  const orderedTabPaths = barStore.tabPages
+    .map(tab => routePathFromTabUrl(tab.url))
+    .filter((path, index, paths) => path && paths.indexOf(path) === index);
+
+  return orderedTabPaths.concat(
+    fallbackPageRouteOrder.filter(path => !orderedTabPaths.includes(path)),
+  );
+}
+
+function markRouteRenderBusy() {
+  const root = document.documentElement;
+  root.classList.add('app-rendering-busy');
+  window.clearTimeout(routeRenderTimer);
+  routeRenderTimer = window.setTimeout(() => {
+    root.classList.remove('app-rendering-busy');
+  }, 700);
+}
+
 let removeBeforeEach: (() => void) | undefined;
 removeBeforeEach = router.beforeEach((to, from, next) => {
-  if (from.path && from.path !== '/') {
-    void capturePageSnapshot(from.path);
+  if (to.path && to.path !== '/') {
+    schedulePageSnapshot(to.path);
   }
+
+  markRouteRenderBusy();
+
+  const pageRouteOrder = getPageRouteOrder();
+  const fromIndex = pageRouteOrder.indexOf(from.path);
+  const toIndex = pageRouteOrder.indexOf(to.path);
+  if (from.path === to.path) {
+    pageTransitionName.value = 'ui-fade';
+  } else if (fromIndex === -1 || toIndex === -1) {
+    pageTransitionName.value = 'ui-page-forward';
+  } else {
+    pageTransitionName.value = toIndex >= fromIndex ? 'ui-page-forward' : 'ui-page-back';
+  }
+
   next();
 });
 
@@ -40,15 +92,16 @@ onMounted(() => {
     ipcRenderer?.send('plugin-host:navigate-complete');
   });
 
-  // 初始页面也截一次
   setTimeout(() => {
-    void capturePageSnapshot(router.currentRoute.value.path);
+    schedulePageSnapshot(router.currentRoute.value.path, 0);
   }, 1500);
 })
 
 onBeforeUnmount(() => {
   removeNavigationListener?.();
   removeBeforeEach?.();
+  window.clearTimeout(routeRenderTimer);
+  document.documentElement.classList.remove('app-rendering-busy');
 })
 </script>
 
@@ -75,12 +128,28 @@ onBeforeUnmount(() => {
     <Topbar v-if="!isPopupMode" />
     <div class="page-container" ref="pageContainerRef">
       <Sidebar v-if="!isPopupMode" :parent-height="containerHeight" :parent-width="containerWidth" />
-      <router-view v-slot="{ Component, route }">
-        <KeepAlive>
-          <component :is="Component" v-if="route.meta.keepAlive" :key="route.path" v-show="!webviewStore.hasActiveInstance" />
-        </KeepAlive>
-        <component :is="Component" v-if="!route.meta.keepAlive" :key="route.path" v-show="!webviewStore.hasActiveInstance" />
-      </router-view>
+      <div class="page-router-viewport">
+        <router-view v-slot="{ Component, route }">
+          <Transition :name="pageTransitionName" mode="out-in">
+            <KeepAlive>
+              <component
+                :is="Component"
+                v-if="route.meta.keepAlive"
+                :key="route.path"
+                v-show="!webviewStore.hasActiveInstance"
+              />
+            </KeepAlive>
+          </Transition>
+          <Transition :name="pageTransitionName" mode="out-in">
+            <component
+              :is="Component"
+              v-if="!route.meta.keepAlive"
+              :key="route.path"
+              v-show="!webviewStore.hasActiveInstance"
+            />
+          </Transition>
+        </router-view>
+      </div>
       <!-- WebView 保活容器：与 router-view 平级 -->
       <WebViewKeepAlive v-if="!isPopupMode" />
     </div>
@@ -89,6 +158,7 @@ onBeforeUnmount(() => {
     <ConfirmDialog />
     <!-- Tray context menu (custom renderer-side popup) -->
     <TrayContextMenu />
+    <AppNotificationHost :popup="isPopupMode" />
   </div>
 </template>
 
@@ -96,6 +166,8 @@ onBeforeUnmount(() => {
 @use './assets/foundation.scss';
 @use './assets/theme.scss';
 @use './assets/patterns.scss';
+@use './assets/motion.scss';
+@use './assets/tooltip.scss';
 @use './assets/app.scss';
 
 .logo {

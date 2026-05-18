@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, nextTick, onBeforeUnmount, onMounted, ref } from 'vue';
 import { useRoute } from 'vue-router';
+import { notifyError } from '../../composables/useInAppNotification';
 
 const route = useRoute();
 const hostRef = ref<HTMLElement | null>(null);
@@ -43,6 +44,7 @@ async function syncPageMount() {
     errorMessage.value = '';
   } catch (error) {
     errorMessage.value = error instanceof Error ? error.message : '插件页面挂载失败';
+    notifyError(error, '插件页面挂载失败');
   }
 }
 

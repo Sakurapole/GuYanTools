@@ -1,16 +1,15 @@
 <script setup lang="ts">
-import UiButton from '@/windows/main/components/ui/UiButton.vue';
 import UiSelect from '@/windows/main/components/ui/UiSelect.vue';
-import type { TerminalProfile, TerminalRendererMode, TerminalSessionDescriptor } from '@/contracts/terminal';
+import type { TerminalLayoutMode, TerminalRendererMode, TerminalSessionDescriptor } from '@/contracts/terminal';
 import type { UiSelectOption } from '@/windows/main/components/ui/UiSelect.vue';
-import { computed, nextTick, onBeforeUnmount, onMounted, ref } from 'vue';
+import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue';
+import type { ConnectionLayoutConfig } from '@/windows/main/session_layouts';
 import { BUILTIN_SCHEMES } from './terminal-themes';
 
 const props = defineProps<{
-  profiles: TerminalProfile[];
   activeSession: TerminalSessionDescriptor | null;
   rendererMode: TerminalRendererMode;
-  newSessionProfileId: string;
+  layoutMode: TerminalLayoutMode;
   colorSchemeId: string;
 
   /** Whether the current session is SSH mode */
@@ -19,34 +18,61 @@ const props = defineProps<{
   canDetach?: boolean;
   /** Whether port forward panel is open */
   portForwardOpen?: boolean;
+  /** Whether the toolbar title can be renamed inline */
+  titleEditable?: boolean;
+  connectionLayouts?: ConnectionLayoutConfig[];
 }>();
 
 const emit = defineEmits<{
-  'update:newSessionProfileId': [value: string];
   'update:colorSchemeId': [value: string];
-  create: [];
   detach: [];
   clear: [];
   search: [];
   background: [];
   portForward: [];
   openFileManager: [];
+  resetLayoutSize: [];
+  saveConnectionLayout: [];
+  openConnectionLayout: [layoutId: string];
+  deleteConnectionLayout: [layoutId: string];
   rename: [sessionId: string, newLabel: string];
   'update:rendererMode': [value: TerminalRendererMode];
+  'update:layoutMode': [value: TerminalLayoutMode];
 }>();
-
-const profileOptions = computed<UiSelectOption[]>(() =>
-  props.profiles.map((profile) => ({
-    label: profile.label,
-    value: profile.id,
-  })),
-);
 
 const rendererOptions: UiSelectOption[] = [
   { label: '自动', value: 'auto' },
   { label: '标准', value: 'standard' },
   { label: 'WebGL', value: 'webgl' },
 ];
+
+const layoutOptions: UiSelectOption[] = [
+  { label: '标签布局', value: 'tabbed' },
+  { label: '水平分屏', value: 'split-horizontal' },
+  { label: '垂直分屏', value: 'split-vertical' },
+  { label: '主从布局', value: 'master-stack' },
+  { label: '递减布局', value: 'dwindle' },
+  { label: '网格布局', value: 'grid' },
+];
+
+const selectedConnectionLayoutId = ref('');
+const connectionLayoutOptions = computed<UiSelectOption[]>(() => [
+  { label: '打开布局...', value: '' },
+  ...(props.connectionLayouts ?? []).map((layout) => ({
+    label: layout.name,
+    value: layout.id,
+  })),
+]);
+
+watch(
+  () => props.connectionLayouts,
+  (layouts) => {
+    if (!selectedConnectionLayoutId.value) return;
+    if (!(layouts ?? []).some((layout) => layout.id === selectedConnectionLayoutId.value)) {
+      selectedConnectionLayoutId.value = '';
+    }
+  },
+);
 
 const schemeOptions = computed<UiSelectOption[]>(() => {
   const darkSchemes = BUILTIN_SCHEMES.filter((s) => s.group === 'dark');
@@ -78,7 +104,7 @@ const toolbarRef = ref<HTMLElement | null>(null);
 let resizeObserver: ResizeObserver | null = null;
 
 // Breakpoints for the right section (px)
-const FULL_BREAKPOINT = 720;
+const FULL_BREAKPOINT = 820;
 const ICON_BREAKPOINT = 460;
 
 function updateActionMode(width: number) {
@@ -122,7 +148,7 @@ interface ActionItem {
 const actionItems = computed<ActionItem[]>(() => [
   {
     id: 'background',
-    label: '背景',
+    label: '个性化',
     icon: 'background',
     event: 'background',
     show: () => true,
@@ -143,6 +169,14 @@ const actionItems = computed<ActionItem[]>(() => [
     icon: 'fileManager',
     event: 'openFileManager',
     show: () => !!props.sshMode,
+    disabled: () => false,
+  },
+  {
+    id: 'resetLayoutSize',
+    label: '恢复布局大小',
+    icon: 'resetLayoutSize',
+    event: 'resetLayoutSize',
+    show: () => props.layoutMode !== 'tabbed',
     disabled: () => false,
   },
   {
@@ -178,12 +212,21 @@ function handleAction(action: ActionItem) {
   emit(action.event as any);
 }
 
+function handleConnectionLayoutSelect(value: string | number) {
+  const layoutId = String(value || '');
+  selectedConnectionLayoutId.value = layoutId;
+  if (layoutId) {
+    emit('openConnectionLayout', layoutId);
+  }
+}
+
 // ── Inline rename state ───────────────────────────────────────
 const titleEditing = ref(false);
 const titleEditValue = ref('');
 const titleInputRef = ref<HTMLInputElement | null>(null);
 
 function startTitleEdit() {
+  if (!props.titleEditable) return;
   if (!props.activeSession) return;
   titleEditValue.value = props.activeSession.profileLabel;
   titleEditing.value = true;
@@ -214,9 +257,6 @@ function handleTitleKeydown(e: KeyboardEvent) {
 <template>
   <div ref="toolbarRef" class="terminal-toolbar">
     <div class="terminal-toolbar__left">
-      <UiButton variant="primary" size="sm" @click="emit('create')">
-        新建会话
-      </UiButton>
       <div v-if="activeSession" class="terminal-toolbar__title">
         <input
           v-if="titleEditing"
@@ -226,9 +266,13 @@ function handleTitleKeydown(e: KeyboardEvent) {
           @blur="commitTitleEdit"
           @keydown="handleTitleKeydown"
         />
-        <span v-else class="title-name title-name--editable" @click="startTitleEdit">{{ activeSession.profileLabel }}</span>
-        <span class="title-divider">|</span>
-        <span class="title-status">{{ activeSession.status === 'running' ? 'Running' : 'Stopped' }}</span>
+        <span
+          v-else
+          class="title-name"
+          :class="{ 'title-name--editable': titleEditable }"
+          :title="activeSession.profileLabel"
+          @click="startTitleEdit"
+        >{{ activeSession.profileLabel }}</span>
       </div>
     </div>
 
@@ -245,8 +289,44 @@ function handleTitleKeydown(e: KeyboardEvent) {
         size="sm"
         @update:modelValue="emit('update:rendererMode', $event as TerminalRendererMode)"
       />
+      <UiSelect
+        :model-value="layoutMode"
+        :options="layoutOptions"
+        size="sm"
+        @update:modelValue="emit('update:layoutMode', $event as TerminalLayoutMode)"
+      />
+      <UiSelect
+        :model-value="selectedConnectionLayoutId"
+        :options="connectionLayoutOptions"
+        size="sm"
+        @update:modelValue="handleConnectionLayoutSelect"
+      />
+      <button
+        class="toolbar-action-btn"
+        :disabled="!selectedConnectionLayoutId"
+        title="删除选中的连接布局"
+        @click="emit('deleteConnectionLayout', selectedConnectionLayoutId)"
+      >
+        <svg viewBox="0 0 24 24" width="14" height="14" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round">
+          <polyline points="3 6 5 6 21 6" />
+          <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6" />
+          <path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+        </svg>
+      </button>
+      <button
+        class="toolbar-action-btn"
+        :disabled="!activeSession"
+        title="保存当前连接布局"
+        @click="emit('saveConnectionLayout')"
+      >
+        <svg viewBox="0 0 24 24" width="14" height="14" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z" />
+          <path d="M17 21v-8H7v8" />
+          <path d="M7 3v5h8" />
+        </svg>
+      </button>
 
-      <!-- Full mode: icon + text buttons -->
+      <!-- Full mode keeps all commands as icon buttons; text is exposed through title/aria-label. -->
       <template v-if="actionMode === 'full'">
         <button
           v-for="action in visibleActions"
@@ -268,6 +348,12 @@ function handleTitleKeydown(e: KeyboardEvent) {
             <path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
             <path d="M3 10h18" />
           </svg>
+          <svg v-else-if="action.icon === 'resetLayoutSize'" viewBox="0 0 24 24" width="14" height="14" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M3 12a9 9 0 1 0 3-6.7" />
+            <path d="M3 3v6h6" />
+            <path d="M8 12h8" />
+            <path d="M12 8v8" />
+          </svg>
           <svg v-else-if="action.icon === 'search'" viewBox="0 0 24 24" width="14" height="14" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round">
             <circle cx="11" cy="11" r="8" /><line x1="21" y1="21" x2="16.65" y2="16.65" />
           </svg>
@@ -280,7 +366,6 @@ function handleTitleKeydown(e: KeyboardEvent) {
           <svg v-else-if="action.icon === 'kill'" viewBox="0 0 24 24" width="14" height="14" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round">
             <line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" />
           </svg>
-          <span class="toolbar-action-btn__label">{{ action.label }}</span>
         </button>
       </template>
 
@@ -304,6 +389,12 @@ function handleTitleKeydown(e: KeyboardEvent) {
           <svg v-else-if="action.icon === 'fileManager'" viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round">
             <path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
             <path d="M3 10h18" />
+          </svg>
+          <svg v-else-if="action.icon === 'resetLayoutSize'" viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M3 12a9 9 0 1 0 3-6.7" />
+            <path d="M3 3v6h6" />
+            <path d="M8 12h8" />
+            <path d="M12 8v8" />
           </svg>
           <svg v-else-if="action.icon === 'search'" viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round">
             <circle cx="11" cy="11" r="8" /><line x1="21" y1="21" x2="16.65" y2="16.65" />
@@ -346,6 +437,12 @@ function handleTitleKeydown(e: KeyboardEvent) {
               <path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
               <path d="M3 10h18" />
             </svg>
+            <svg v-else-if="action.icon === 'resetLayoutSize'" viewBox="0 0 24 24" width="14" height="14" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M3 12a9 9 0 1 0 3-6.7" />
+              <path d="M3 3v6h6" />
+              <path d="M8 12h8" />
+              <path d="M12 8v8" />
+            </svg>
             <svg v-else-if="action.icon === 'search'" viewBox="0 0 24 24" width="14" height="14" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round">
               <circle cx="11" cy="11" r="8" /><line x1="21" y1="21" x2="16.65" y2="16.65" />
             </svg>
@@ -385,11 +482,15 @@ function handleTitleKeydown(e: KeyboardEvent) {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 12px 16px;
-  background: transparent;
+  gap: 10px;
+  padding: 8px 10px;
+  background: color-mix(in srgb, var(--ui-surface-panel) 88%, transparent);
   border-bottom: 1px solid var(--ui-border-subtle);
-  min-height: 54px;
+  min-height: 46px;
   box-sizing: border-box;
+  backdrop-filter: blur(12px);
+  position: relative;
+  z-index: 320;
 }
 
 :global(.light) .terminal-toolbar {
@@ -419,20 +520,28 @@ function handleTitleKeydown(e: KeyboardEvent) {
 .terminal-toolbar__left {
   display: flex;
   align-items: center;
-  gap: 16px;
-  flex-shrink: 0;
+  gap: 10px;
+  flex: 1 1 auto;
+  min-width: 0;
 }
 
 .terminal-toolbar__title {
   display: flex;
   align-items: center;
   gap: 8px;
+  min-width: 0;
   font-size: 13px;
   color: var(--ui-text-secondary);
 
   .title-name {
+    display: inline-block;
+    max-width: min(320px, 32vw);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
     color: var(--ui-text-primary);
     font-weight: 500;
+    vertical-align: bottom;
   }
 
   .title-name--editable {
@@ -456,7 +565,8 @@ function handleTitleKeydown(e: KeyboardEvent) {
     border-radius: 4px;
     padding: 1px 4px;
     outline: none;
-    width: 120px;
+    width: min(220px, 32vw);
+    min-width: 80px;
     font-family: inherit;
   }
 
@@ -468,8 +578,12 @@ function handleTitleKeydown(e: KeyboardEvent) {
 .terminal-toolbar__right {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 6px;
   flex-shrink: 0;
+
+  :deep(.ui-select) {
+    min-height: 30px;
+  }
 }
 
 // ── Full mode: icon + text button ─────────────────────────────
@@ -477,9 +591,10 @@ function handleTitleKeydown(e: KeyboardEvent) {
 .toolbar-action-btn {
   display: inline-flex;
   align-items: center;
-  gap: 5px;
-  padding: 4px 10px;
-  border-radius: 6px;
+  justify-content: center;
+  min-width: 32px;
+  padding: 0 8px;
+  border-radius: 4px;
   background: var(--terminal-toolbar-action-bg);
   border: 1px solid var(--terminal-toolbar-action-border);
   color: var(--terminal-toolbar-action-text);
@@ -487,7 +602,7 @@ function handleTitleKeydown(e: KeyboardEvent) {
   transition: all 0.2s ease;
   white-space: nowrap;
   font-size: 12px;
-  height: 28px;
+  height: 30px;
 
   &:hover:not(:disabled) {
     background: var(--terminal-toolbar-action-hover-bg);
@@ -506,10 +621,6 @@ function handleTitleKeydown(e: KeyboardEvent) {
     color: var(--terminal-toolbar-action-active-text);
     border-color: var(--terminal-toolbar-action-active-border);
   }
-
-  &__label {
-    line-height: 1;
-  }
 }
 
 // ── Icon-only mode ────────────────────────────────────────────
@@ -518,9 +629,10 @@ function handleTitleKeydown(e: KeyboardEvent) {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 28px;
-  height: 28px;
-  border-radius: 6px;
+  width: 32px;
+  height: 30px;
+  padding: 0 8px;
+  border-radius: 4px;
   background: var(--terminal-toolbar-action-bg);
   border: 1px solid var(--terminal-toolbar-action-border);
   color: var(--terminal-toolbar-action-text);

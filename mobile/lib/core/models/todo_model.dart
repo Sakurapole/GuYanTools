@@ -20,22 +20,22 @@ class TodoItem {
   }) : createdAt = createdAt ?? DateTime.now();
 
   Map<String, dynamic> toMap() => {
-        'id': id,
-        'title': title,
-        'done': done ? 1 : 0,
-        'priority': priority.index,
-        'dueTime': dueTime,
-        'hasAttachment': hasAttachment ? 1 : 0,
-        'createdAt': createdAt.toIso8601String(),
-      };
+    'id': id,
+    'title': title,
+    'done': done ? 1 : 0,
+    'priority': priority.index,
+    'dueTime': dueTime,
+    'hasAttachment': hasAttachment ? 1 : 0,
+    'createdAt': createdAt.toIso8601String(),
+  };
 
   factory TodoItem.fromMap(Map<String, dynamic> map) => TodoItem(
-        id: map['id'] as String,
-        title: map['title'] as String,
-        done: (map['done'] as int) == 1,
-        priority: TodoPriority.values[map['priority'] as int],
-        dueTime: map['dueTime'] as String?,
-        hasAttachment: (map['hasAttachment'] as int) == 1,
-        createdAt: DateTime.parse(map['createdAt'] as String),
-      );
+    id: map['id'] as String,
+    title: map['title'] as String,
+    done: (map['done'] as int) == 1,
+    priority: TodoPriority.values[map['priority'] as int],
+    dueTime: map['dueTime'] as String?,
+    hasAttachment: (map['hasAttachment'] as int) == 1,
+    createdAt: DateTime.parse(map['createdAt'] as String),
+  );
 }

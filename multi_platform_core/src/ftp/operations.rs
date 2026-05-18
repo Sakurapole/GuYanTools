@@ -1,5 +1,6 @@
 use anyhow::{anyhow, Context, Result};
 use async_std::io::ReadExt as AsyncStdReadExt;
+use russh::ChannelMsg;
 use russh_sftp::client::SftpSession;
 use russh_sftp::protocol::{FileAttributes, OpenFlags};
 use sha2::{Digest, Sha256};
@@ -172,8 +173,81 @@ impl super::FtpManager {
             ftp.quit().await;
             return result;
         }
-        self.remove_remote_entry_recursive(session.require_sftp()?, normalized_path)
+
+        let sftp = session.require_sftp()?;
+        let metadata = sftp
+            .symlink_metadata(normalized_path.clone())
             .await
+            .map_err(|e| anyhow!("failed to inspect remote path: {}", e))?;
+        if metadata.is_dir() && remote_path_depth(&normalized_path) > 3 {
+            return self
+                .remove_remote_directory_with_shell(session, &normalized_path)
+                .await;
+        }
+
+        self.remove_remote_entry_recursive(sftp, normalized_path)
+            .await
+    }
+
+    async fn remove_remote_directory_with_shell(
+        &self,
+        session: Arc<FtpRuntimeSession>,
+        path: &str,
+    ) -> Result<()> {
+        let normalized_path = normalize_remote_path(path);
+        if normalized_path == "/" {
+            return Err(anyhow!(
+                "refusing to remove remote root directory with rm -rf"
+            ));
+        }
+
+        let command = format!("rm -rf -- {}", shell_quote(&normalized_path));
+        self.run_remote_delete_exec(&session, &command).await
+    }
+
+    async fn run_remote_delete_exec(
+        &self,
+        session: &Arc<FtpRuntimeSession>,
+        command: &str,
+    ) -> Result<()> {
+        let mut ssh_guard = session.ssh.lock().await;
+        let ssh = ssh_guard
+            .as_mut()
+            .ok_or_else(|| anyhow!("SFTP session does not have an SSH command channel"))?;
+        let mut channel = ssh
+            .channel_open_session()
+            .await
+            .map_err(|e| anyhow!("failed to open SSH exec channel: {}", e))?;
+        channel
+            .exec(true, command)
+            .await
+            .map_err(|e| anyhow!("failed to execute remote delete command: {}", e))?;
+
+        let mut exit_status = None;
+        let mut stderr = Vec::new();
+        while let Some(message) = channel.wait().await {
+            match message {
+                ChannelMsg::ExtendedData { ref data, .. } => stderr.extend_from_slice(data),
+                ChannelMsg::ExitStatus {
+                    exit_status: status,
+                } => exit_status = Some(status),
+                _ => {}
+            }
+        }
+
+        if exit_status.unwrap_or(1) == 0 {
+            Ok(())
+        } else {
+            let stderr_text = String::from_utf8_lossy(&stderr).trim().to_string();
+            Err(anyhow!(
+                "remote rm -rf delete failed{}",
+                if stderr_text.is_empty() {
+                    String::new()
+                } else {
+                    format!(": {}", stderr_text)
+                }
+            ))
+        }
     }
 
     pub async fn chmod_remote_path(
@@ -390,12 +464,25 @@ impl super::FtpManager {
                     Some(join_remote_path(&path, &name))
                 })
                 .collect::<Vec<_>>();
+            let mut failures = Vec::new();
             for child in children {
-                Box::pin(self.remove_remote_entry_recursive(sftp.clone(), child)).await?;
+                let child_path = child.clone();
+                if let Err(error) =
+                    Box::pin(self.remove_remote_entry_recursive(sftp.clone(), child)).await
+                {
+                    failures.push(format!("{} ({})", child_path, error));
+                }
             }
-            sftp.remove_dir(path)
-                .await
-                .map_err(|e| anyhow!("failed to remove remote directory: {}", e))?;
+            if let Err(error) = sftp.remove_dir(path.clone()).await {
+                failures.push(format!("{} ({})", path, error));
+            }
+            if !failures.is_empty() {
+                return Err(anyhow!(
+                    "failed to fully remove remote directory '{}': {}",
+                    path,
+                    failures.join("; ")
+                ));
+            }
         } else {
             sftp.remove_file(path)
                 .await
@@ -616,13 +703,27 @@ impl super::FtpManager {
         let metadata = self.inspect_ftp_remote_path_with_client(ftp, &path).await?;
         if metadata.is_dir {
             let children = self.list_ftp_directory_with_client(ftp, &path).await?;
+            let mut failures = Vec::new();
             for child in children {
-                Box::pin(self.remove_ftp_entry_recursive(ftp, child.path)).await?;
+                let child_path = child.path.clone();
+                if let Err(error) = Box::pin(self.remove_ftp_entry_recursive(ftp, child.path)).await
+                {
+                    failures.push(format!("{} ({})", child_path, error));
+                }
             }
             if let Some(parent) = remote_parent_path(&path) {
                 let _ = ftp.cwd(&parent).await;
             }
-            ftp.rmdir(&path).await?;
+            if let Err(error) = ftp.rmdir(&path).await {
+                failures.push(format!("{} ({})", path, error));
+            }
+            if !failures.is_empty() {
+                return Err(anyhow!(
+                    "failed to fully remove FTP directory '{}': {}",
+                    path,
+                    failures.join("; ")
+                ));
+            }
         } else {
             ftp.rm(&path).await?;
         }
@@ -661,6 +762,17 @@ fn digest_hex(digest: impl AsRef<[u8]>) -> String {
         .collect()
 }
 
+fn remote_path_depth(path: &str) -> usize {
+    normalize_remote_path(path)
+        .split('/')
+        .filter(|segment| !segment.is_empty())
+        .count()
+}
+
+fn shell_quote(value: &str) -> String {
+    format!("'{}'", value.replace('\'', "'\"'\"'"))
+}
+
 fn hash_std_reader_sha256(reader: &mut impl StdRead) -> Result<String> {
     let mut hasher = Sha256::new();
     let mut buffer = [0_u8; 64 * 1024];
@@ -694,7 +806,9 @@ async fn hash_async_std_reader_sha256(
     Ok(digest_hex(hasher.finalize()))
 }
 
-async fn hash_tokio_reader_sha256(reader: &mut (impl tokio::io::AsyncRead + Unpin)) -> Result<String> {
+async fn hash_tokio_reader_sha256(
+    reader: &mut (impl tokio::io::AsyncRead + Unpin),
+) -> Result<String> {
     let mut hasher = Sha256::new();
     let mut buffer = vec![0_u8; 64 * 1024];
     loop {

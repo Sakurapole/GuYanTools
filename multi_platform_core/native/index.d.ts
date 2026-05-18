@@ -314,6 +314,8 @@ export interface TerminalSessionDescriptor {
 }
 export interface CreateTerminalSessionInput {
   profileId?: string
+  profileLabel?: string
+  command?: string
   cwd?: string
   args?: Array<string>
   env?: Record<string, string>

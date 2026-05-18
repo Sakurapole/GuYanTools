@@ -2,6 +2,7 @@
 import UiButton from '@/windows/main/components/ui/UiButton.vue';
 import UiCheckbox from '@/windows/main/components/ui/UiCheckbox.vue';
 import UiIconButton from '@/windows/main/components/ui/UiIconButton.vue';
+import UiPopupSurface from '@/windows/main/components/ui/UiPopupSurface.vue';
 import UiScrollbar from '@/windows/main/components/ui/UiScrollbar.vue';
 import UiSelect from '@/windows/main/components/ui/UiSelect.vue';
 import type { SyncActionKind, SyncConflictPolicy, SyncDifferenceKind, SyncDirection, SyncPreviewItem } from '../types';
@@ -61,9 +62,19 @@ function closePanel() {
 </script>
 
 <template>
-  <Transition name="ftp-inline-fade">
-    <div v-if="modelValue" class="ftp-inline-overlay ftp-inline-overlay--center" @click="closePanel">
-      <section class="ftp-sync-panel ftp-inner-card" @click.stop>
+  <UiPopupSurface
+    :model-value="modelValue"
+    variant="dialog"
+    :teleported="false"
+    :fixed="false"
+    overlay-class="ftp-inline-overlay ftp-inline-overlay--center"
+    :panel-class="['ftp-sync-panel', 'ftp-inner-card']"
+    width="min(980px, 100%)"
+    height="min(720px, 100%)"
+    :z-index="20"
+    aria-label="目录比较与同步"
+    @close="closePanel"
+  >
         <div class="ftp-sync-panel__header">
           <div class="ftp-sync-panel__header-copy">
             <div class="ftp-sync-panel__title">目录比较与同步</div>
@@ -184,7 +195,5 @@ function closePanel() {
             </div>
           </div>
         </UiScrollbar>
-      </section>
-    </div>
-  </Transition>
+  </UiPopupSurface>
 </template>

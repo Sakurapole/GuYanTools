@@ -1,16 +1,19 @@
 use anyhow::{anyhow, Context, Result};
 use async_std::io::{ReadExt as AsyncStdReadExt, WriteExt as AsyncStdWriteExt};
+use russh::ChannelMsg;
 use russh_sftp::client::SftpSession;
 use russh_sftp::protocol::OpenFlags;
-use suppaftp::Status;
+use std::collections::BTreeMap;
 use std::collections::HashMap;
 use std::io::SeekFrom;
 use std::path::{Path, PathBuf};
 use std::sync::atomic::Ordering;
 use std::sync::Arc;
 use std::time::Instant;
+use suppaftp::Status;
 use tokio::fs;
 use tokio::io::{AsyncReadExt, AsyncSeekExt, AsyncWriteExt};
+use tokio::process::Command;
 use uuid::Uuid;
 
 use super::*;
@@ -43,6 +46,23 @@ pub(super) struct RemoteTransferFile {
     size: u64,
 }
 
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct TransferTreeNode {
+    name: String,
+    relative_path: String,
+    kind: String,
+    size: i64,
+    children: Vec<TransferTreeNode>,
+}
+
+#[derive(Debug, Default)]
+struct TransferTreeBuildNode {
+    kind: Option<String>,
+    size: u64,
+    children: BTreeMap<String, TransferTreeBuildNode>,
+}
+
 #[derive(Clone)]
 pub(super) enum TransferJobKind {
     UploadFile {
@@ -59,6 +79,13 @@ pub(super) enum TransferJobKind {
     },
     UploadDirectory {
         sftp: Arc<SftpSession>,
+        remote_root: String,
+        plan: LocalTransferPlan,
+    },
+    UploadDirectoryArchive {
+        session: Arc<FtpRuntimeSession>,
+        sftp: Arc<SftpSession>,
+        local_root: PathBuf,
         remote_root: String,
         plan: LocalTransferPlan,
     },
@@ -81,6 +108,13 @@ pub(super) enum TransferJobKind {
     },
     DownloadDirectory {
         sftp: Arc<SftpSession>,
+        local_root: PathBuf,
+        plan: RemoteTransferPlan,
+    },
+    DownloadDirectoryArchive {
+        session: Arc<FtpRuntimeSession>,
+        sftp: Arc<SftpSession>,
+        remote_root: String,
         local_root: PathBuf,
         plan: RemoteTransferPlan,
     },
@@ -151,6 +185,155 @@ pub(super) enum TransferRunResult {
 
 pub(super) type PendingTaskMap = HashMap<String, QueuedTransferJob>;
 pub(super) type TransferControlMap = HashMap<String, Arc<TransferControl>>;
+
+fn normalize_transfer_method(options: Option<&TransferOptions>) -> &'static str {
+    match options.and_then(|item| item.method.as_deref()) {
+        Some("archive") => "archive",
+        _ => "direct",
+    }
+}
+
+fn transfer_tree_json_from_local_plan(plan: &LocalTransferPlan) -> Option<String> {
+    transfer_tree_json(
+        plan.directories
+            .iter()
+            .map(|path| (path.as_path(), true, 0_u64))
+            .chain(
+                plan.files
+                    .iter()
+                    .map(|file| (file.relative_path.as_path(), false, file.size)),
+            ),
+    )
+}
+
+fn transfer_tree_json_from_remote_plan(plan: &RemoteTransferPlan) -> Option<String> {
+    transfer_tree_json(
+        plan.directories
+            .iter()
+            .map(|path| (path.as_path(), true, 0_u64))
+            .chain(
+                plan.files
+                    .iter()
+                    .map(|file| (file.relative_path.as_path(), false, file.size)),
+            ),
+    )
+}
+
+fn transfer_tree_json<'a>(entries: impl Iterator<Item = (&'a Path, bool, u64)>) -> Option<String> {
+    let mut root = TransferTreeBuildNode::default();
+    for (path, is_dir, size) in entries {
+        insert_transfer_tree_path(&mut root, path, is_dir, size);
+    }
+    let children = root
+        .children
+        .iter()
+        .map(|(name, node)| build_transfer_tree_node(name, node, PathBuf::from(name)))
+        .collect::<Vec<_>>();
+    serde_json::to_string(&children).ok()
+}
+
+fn insert_transfer_tree_path(
+    root: &mut TransferTreeBuildNode,
+    path: &Path,
+    is_dir: bool,
+    size: u64,
+) {
+    let components = path
+        .components()
+        .map(|component| component.as_os_str().to_string_lossy().to_string())
+        .filter(|component| !component.is_empty())
+        .collect::<Vec<_>>();
+    if components.is_empty() {
+        return;
+    }
+    let mut current = root;
+    for (index, component) in components.iter().enumerate() {
+        let is_leaf = index == components.len() - 1;
+        current = current.children.entry(component.clone()).or_default();
+        if is_leaf {
+            current.kind = Some(if is_dir { "directory" } else { "file" }.to_string());
+            current.size = if is_dir { current.size } else { size };
+        } else {
+            current.kind.get_or_insert_with(|| "directory".to_string());
+        }
+    }
+}
+
+fn build_transfer_tree_node(
+    name: &str,
+    node: &TransferTreeBuildNode,
+    relative_path: PathBuf,
+) -> TransferTreeNode {
+    let children = node
+        .children
+        .iter()
+        .map(|(child_name, child)| {
+            build_transfer_tree_node(child_name, child, relative_path.join(child_name))
+        })
+        .collect::<Vec<_>>();
+    let kind = node.kind.clone().unwrap_or_else(|| {
+        if children.is_empty() {
+            "file"
+        } else {
+            "directory"
+        }
+        .to_string()
+    });
+    let size = if kind == "directory" {
+        children.iter().map(|child| child.size).sum()
+    } else {
+        u64_to_i64(node.size)
+    };
+    TransferTreeNode {
+        name: name.to_string(),
+        relative_path: relative_path.to_string_lossy().replace('\\', "/"),
+        kind,
+        size,
+        children,
+    }
+}
+
+fn temp_archive_path(prefix: &str) -> PathBuf {
+    std::env::temp_dir().join(format!(
+        "guyantools-ftp-{}-{}.tar.gz",
+        prefix,
+        Uuid::new_v4()
+    ))
+}
+
+fn remote_temp_archive_path(remote_root: &str) -> String {
+    let parent =
+        remote_parent_path(remote_root).unwrap_or_else(|| normalize_remote_path(remote_root));
+    join_remote_path(
+        &parent,
+        &format!(".guyantools-ftp-{}.tar.gz", Uuid::new_v4()),
+    )
+}
+
+fn shell_quote(value: &str) -> String {
+    format!("'{}'", value.replace('\'', "'\\''"))
+}
+
+async fn run_local_command(program: &str, args: &[&str]) -> Result<()> {
+    let output = Command::new(program)
+        .args(args)
+        .output()
+        .await
+        .with_context(|| format!("failed to start {}", program))?;
+    if output.status.success() {
+        return Ok(());
+    }
+    let stderr = String::from_utf8_lossy(&output.stderr).trim().to_string();
+    Err(anyhow!(
+        "{} failed{}",
+        program,
+        if stderr.is_empty() {
+            String::new()
+        } else {
+            format!(": {}", stderr)
+        }
+    ))
+}
 
 impl super::FtpManager {
     pub fn list_transfer_tasks(&self) -> Result<Vec<TransferTask>> {
@@ -232,6 +415,7 @@ impl super::FtpManager {
         session_id: String,
         local_path: String,
         remote_path: String,
+        options: Option<TransferOptions>,
     ) -> Result<TransferTask> {
         let session = self.get_session(&session_id)?;
         let descriptor = session
@@ -247,11 +431,13 @@ impl super::FtpManager {
             .get_profile(&descriptor.profile_id)?
             .max_concurrent
             .max(1);
+        let transfer_method = normalize_transfer_method(options.as_ref());
 
         let task_id = if session.resolved.protocol == "sftp" {
             let sftp = session.require_sftp()?;
             if metadata.is_dir() {
                 let plan = self.build_local_transfer_plan(&local_path)?;
+                let transfer_tree_json = transfer_tree_json_from_local_plan(&plan);
                 self.ensure_remote_dir_recursive(sftp.clone(), &remote_path)
                     .await?;
                 let task = self.register_task(
@@ -260,14 +446,26 @@ impl super::FtpManager {
                     local_path.to_string_lossy().as_ref(),
                     &remote_path,
                     plan.total_size,
+                    transfer_method,
+                    transfer_tree_json,
                 )?;
                 self.queue_transfer_job(
                     &task,
                     max_concurrent,
-                    TransferJobKind::UploadDirectory {
-                        sftp,
-                        remote_root: remote_path,
-                        plan,
+                    if transfer_method == "archive" {
+                        TransferJobKind::UploadDirectoryArchive {
+                            session: session.clone(),
+                            sftp,
+                            local_root: local_path,
+                            remote_root: remote_path,
+                            plan,
+                        }
+                    } else {
+                        TransferJobKind::UploadDirectory {
+                            sftp,
+                            remote_root: remote_path,
+                            plan,
+                        }
                     },
                 )?;
                 task.id
@@ -278,6 +476,8 @@ impl super::FtpManager {
                     local_path.to_string_lossy().as_ref(),
                     &remote_path,
                     metadata.len(),
+                    "direct",
+                    None,
                 )?;
                 self.queue_transfer_job(
                     &task,
@@ -295,6 +495,12 @@ impl super::FtpManager {
             let resolved = session.resolved.clone();
             if metadata.is_dir() {
                 let plan = self.build_local_transfer_plan(&local_path)?;
+                if transfer_method == "archive" {
+                    return Err(anyhow!(
+                        "打包传输需要 SFTP/SSH 执行远程解压命令，当前 FTP 连接不支持"
+                    ));
+                }
+                let transfer_tree_json = transfer_tree_json_from_local_plan(&plan);
                 self.ensure_ftp_dir_recursive_for_resolved(&resolved, &remote_path)
                     .await?;
                 let task = self.register_task(
@@ -303,6 +509,8 @@ impl super::FtpManager {
                     local_path.to_string_lossy().as_ref(),
                     &remote_path,
                     plan.total_size,
+                    "direct",
+                    transfer_tree_json,
                 )?;
                 self.queue_transfer_job(
                     &task,
@@ -321,6 +529,8 @@ impl super::FtpManager {
                     local_path.to_string_lossy().as_ref(),
                     &remote_path,
                     metadata.len(),
+                    "direct",
+                    None,
                 )?;
                 self.queue_transfer_job(
                     &task,
@@ -345,6 +555,7 @@ impl super::FtpManager {
         session_id: String,
         remote_path: String,
         local_path: String,
+        options: Option<TransferOptions>,
     ) -> Result<TransferTask> {
         let session = self.get_session(&session_id)?;
         let descriptor = session
@@ -358,6 +569,7 @@ impl super::FtpManager {
             .get_profile(&descriptor.profile_id)?
             .max_concurrent
             .max(1);
+        let transfer_method = normalize_transfer_method(options.as_ref());
         let task_id = if session.resolved.protocol == "sftp" {
             let sftp = session.require_sftp()?;
             let remote_metadata = sftp
@@ -368,6 +580,7 @@ impl super::FtpManager {
                 let plan = self
                     .build_remote_transfer_plan(sftp.clone(), remote_path.clone())
                     .await?;
+                let transfer_tree_json = transfer_tree_json_from_remote_plan(&plan);
                 fs::create_dir_all(&local_path).await.with_context(|| {
                     format!("failed to create local directory {}", local_path.display())
                 })?;
@@ -377,14 +590,26 @@ impl super::FtpManager {
                     local_path.to_string_lossy().as_ref(),
                     &remote_path,
                     plan.total_size,
+                    transfer_method,
+                    transfer_tree_json,
                 )?;
                 self.queue_transfer_job(
                     &task,
                     max_concurrent,
-                    TransferJobKind::DownloadDirectory {
-                        sftp,
-                        local_root: local_path,
-                        plan,
+                    if transfer_method == "archive" {
+                        TransferJobKind::DownloadDirectoryArchive {
+                            session: session.clone(),
+                            sftp,
+                            remote_root: remote_path,
+                            local_root: local_path,
+                            plan,
+                        }
+                    } else {
+                        TransferJobKind::DownloadDirectory {
+                            sftp,
+                            local_root: local_path,
+                            plan,
+                        }
                     },
                 )?;
                 task.id
@@ -395,6 +620,8 @@ impl super::FtpManager {
                     local_path.to_string_lossy().as_ref(),
                     &remote_path,
                     remote_metadata.len(),
+                    "direct",
+                    None,
                 )?;
                 self.queue_transfer_job(
                     &task,
@@ -410,6 +637,11 @@ impl super::FtpManager {
             }
         } else {
             let resolved = session.resolved.clone();
+            if transfer_method == "archive" {
+                return Err(anyhow!(
+                    "打包传输需要 SFTP/SSH 执行远程压缩命令，当前 FTP 连接不支持"
+                ));
+            }
             let remote_metadata = self
                 .inspect_ftp_remote_path(&resolved, &remote_path)
                 .await?;
@@ -417,6 +649,7 @@ impl super::FtpManager {
                 let plan = self
                     .build_remote_transfer_plan_ftp(&resolved, remote_path.clone())
                     .await?;
+                let transfer_tree_json = transfer_tree_json_from_remote_plan(&plan);
                 fs::create_dir_all(&local_path).await.with_context(|| {
                     format!("failed to create local directory {}", local_path.display())
                 })?;
@@ -426,6 +659,8 @@ impl super::FtpManager {
                     local_path.to_string_lossy().as_ref(),
                     &remote_path,
                     plan.total_size,
+                    "direct",
+                    transfer_tree_json,
                 )?;
                 self.queue_transfer_job(
                     &task,
@@ -444,6 +679,8 @@ impl super::FtpManager {
                     local_path.to_string_lossy().as_ref(),
                     &remote_path,
                     remote_metadata.size,
+                    "direct",
+                    None,
                 )?;
                 self.queue_transfer_job(
                     &task,
@@ -512,6 +749,8 @@ impl super::FtpManager {
                     &source_path,
                     &target_path,
                     plan.total_size,
+                    "direct",
+                    transfer_tree_json_from_remote_plan(&plan),
                 )?;
                 self.queue_transfer_job(
                     &task,
@@ -531,6 +770,8 @@ impl super::FtpManager {
                     &source_path,
                     &target_path,
                     source_metadata.size,
+                    "direct",
+                    None,
                 )?;
                 self.queue_transfer_job(
                     &task,
@@ -578,22 +819,16 @@ impl super::FtpManager {
 
         let task_id = if source_is_dir {
             let plan = if source_resolved.protocol == "sftp" {
-                self.build_remote_transfer_plan(
-                    source_sftp.clone().unwrap(),
-                    source_path.clone(),
-                )
-                .await?
+                self.build_remote_transfer_plan(source_sftp.clone().unwrap(), source_path.clone())
+                    .await?
             } else {
                 self.build_remote_transfer_plan_ftp(&source_resolved, source_path.clone())
                     .await?
             };
             // Pre-create target root directory.
             if target_resolved.protocol == "sftp" {
-                self.ensure_remote_dir_recursive(
-                    target_sftp.clone().unwrap(),
-                    &target_path,
-                )
-                .await?;
+                self.ensure_remote_dir_recursive(target_sftp.clone().unwrap(), &target_path)
+                    .await?;
             } else {
                 self.ensure_ftp_dir_recursive_for_resolved(&target_resolved, &target_path)
                     .await?;
@@ -604,6 +839,8 @@ impl super::FtpManager {
                 &source_path,
                 &target_path,
                 plan.total_size,
+                "direct",
+                transfer_tree_json_from_remote_plan(&plan),
             )?;
             self.queue_transfer_job(
                 &task,
@@ -625,6 +862,8 @@ impl super::FtpManager {
                 &source_path,
                 &target_path,
                 source_total_size,
+                "direct",
+                None,
             )?;
             self.queue_transfer_job(
                 &task,
@@ -803,6 +1042,8 @@ impl super::FtpManager {
         local_path: &str,
         remote_path: &str,
         file_size: u64,
+        transfer_method: &str,
+        transfer_tree_json: Option<String>,
     ) -> Result<TransferTask> {
         let task = TransferTask {
             id: Uuid::new_v4().to_string(),
@@ -821,6 +1062,9 @@ impl super::FtpManager {
             transferred_size: 0,
             progress: 0.0,
             speed_bytes_per_sec: 0.0,
+            transfer_method: transfer_method.to_string(),
+            transfer_tree_json,
+            current_relative_path: None,
             status: "pending".to_string(),
             error_message: None,
             created_at: unix_now(),
@@ -914,6 +1158,25 @@ impl super::FtpManager {
             files,
             total_size,
         })
+    }
+
+    fn update_task_transfer_size(&self, task_id: &str, file_size: u64) -> Result<()> {
+        self.with_task_mut(task_id, |task| {
+            task.file_size = u64_to_i64(file_size);
+            task.transferred_size = 0;
+            task.progress = 0.0;
+            task.speed_bytes_per_sec = 0.0;
+        })?;
+        self.emit_task(task_id, "taskState", Some("Transfer size updated"));
+        Ok(())
+    }
+
+    fn update_task_current_path(&self, task_id: &str, relative_path: Option<&Path>) -> Result<()> {
+        self.with_task_mut(task_id, |task| {
+            task.current_relative_path =
+                relative_path.map(|path| path.to_string_lossy().replace('\\', "/"));
+        })?;
+        Ok(())
     }
 
     async fn build_remote_transfer_plan(
@@ -1047,8 +1310,13 @@ impl super::FtpManager {
         }
 
         let started = Instant::now();
-        self.execute_fxp_copy(&source_resolved, &source_path, &target_resolved, &target_path)
-            .await?;
+        self.execute_fxp_copy(
+            &source_resolved,
+            &source_path,
+            &target_resolved,
+            &target_path,
+        )
+        .await?;
         self.update_task_progress(
             &task_id,
             total_size,
@@ -1212,7 +1480,12 @@ impl super::FtpManager {
             .await?;
         match transferred {
             TransferRunResult::Completed(n) => {
-                self.update_task_progress(&task_id, n, total_size, started.elapsed().as_secs_f64())?;
+                self.update_task_progress(
+                    &task_id,
+                    n,
+                    total_size,
+                    started.elapsed().as_secs_f64(),
+                )?;
                 Ok(TransferRunResult::Completed(n))
             }
             paused => Ok(paused),
@@ -1240,7 +1513,8 @@ impl super::FtpManager {
         if let Some(sftp) = &target_sftp {
             for relative_dir in &plan.directories {
                 let dir_path = join_remote_relative_path(&target_root, relative_dir);
-                self.ensure_remote_dir_recursive(sftp.clone(), &dir_path).await?;
+                self.ensure_remote_dir_recursive(sftp.clone(), &dir_path)
+                    .await?;
             }
         } else {
             let mut ftp = self.connect_ftp_control_session(&target_resolved).await?;
@@ -1250,7 +1524,8 @@ impl super::FtpManager {
                     self.ensure_ftp_dir_recursive(&mut ftp, &dir_path).await?;
                 }
                 Ok::<(), anyhow::Error>(())
-            }.await;
+            }
+            .await;
             ftp.quit().await;
             result?;
         }
@@ -1356,7 +1631,12 @@ impl super::FtpManager {
                     }
                     dst_file.write_all(&buffer[..read]).await?;
                     transferred += read as u64;
-                    self.update_task_progress(task_id, transferred, total_size, started.elapsed().as_secs_f64())?;
+                    self.update_task_progress(
+                        task_id,
+                        transferred,
+                        total_size,
+                        started.elapsed().as_secs_f64(),
+                    )?;
                     if control.pause_requested.load(Ordering::SeqCst) {
                         dst_file.flush().await?;
                         return Ok(TransferRunResult::Paused(transferred));
@@ -1389,7 +1669,12 @@ impl super::FtpManager {
                         }
                         dst_file.write_all(&buffer[..read]).await?;
                         transferred += read as u64;
-                        self.update_task_progress(task_id, transferred, total_size, started.elapsed().as_secs_f64())?;
+                        self.update_task_progress(
+                            task_id,
+                            transferred,
+                            total_size,
+                            started.elapsed().as_secs_f64(),
+                        )?;
                         if control.pause_requested.load(Ordering::SeqCst) {
                             dst_file.flush().await?;
                             ftp.finalize_put_stream(dst_file, target_path).await?;
@@ -1399,7 +1684,8 @@ impl super::FtpManager {
                     dst_file.flush().await?;
                     ftp.finalize_put_stream(dst_file, target_path).await?;
                     Ok(TransferRunResult::Completed(transferred))
-                }.await;
+                }
+                .await;
                 ftp.quit().await;
                 return result;
             }
@@ -1412,7 +1698,8 @@ impl super::FtpManager {
                     }
                     let mut src_file = ftp.retr_stream(source_path).await?;
                     let dst_flags = if initial_offset > 0 {
-                        russh_sftp::protocol::OpenFlags::CREATE | russh_sftp::protocol::OpenFlags::WRITE
+                        russh_sftp::protocol::OpenFlags::CREATE
+                            | russh_sftp::protocol::OpenFlags::WRITE
                     } else {
                         russh_sftp::protocol::OpenFlags::CREATE
                             | russh_sftp::protocol::OpenFlags::TRUNCATE
@@ -1449,7 +1736,12 @@ impl super::FtpManager {
                         }
                         dst_file.write_all(&buffer[..read]).await?;
                         transferred += read as u64;
-                        self.update_task_progress(task_id, transferred, total_size, started.elapsed().as_secs_f64())?;
+                        self.update_task_progress(
+                            task_id,
+                            transferred,
+                            total_size,
+                            started.elapsed().as_secs_f64(),
+                        )?;
                         if control.pause_requested.load(Ordering::SeqCst) {
                             dst_file.flush().await?;
                             ftp.finalize_retr_stream(src_file, source_path).await?;
@@ -1459,7 +1751,8 @@ impl super::FtpManager {
                     dst_file.flush().await?;
                     ftp.finalize_retr_stream(src_file, source_path).await?;
                     Ok(TransferRunResult::Completed(transferred))
-                }.await;
+                }
+                .await;
                 ftp.quit().await;
                 return result;
             }
@@ -1487,7 +1780,12 @@ impl super::FtpManager {
                             }
                             dst_file.write_all(&buffer[..read]).await?;
                             transferred += read as u64;
-                            self.update_task_progress(task_id, transferred, total_size, started.elapsed().as_secs_f64())?;
+                            self.update_task_progress(
+                                task_id,
+                                transferred,
+                                total_size,
+                                started.elapsed().as_secs_f64(),
+                            )?;
                             if control.pause_requested.load(Ordering::SeqCst) {
                                 dst_file.flush().await?;
                                 dst_ftp.finalize_put_stream(dst_file, target_path).await?;
@@ -1497,11 +1795,13 @@ impl super::FtpManager {
                         dst_file.flush().await?;
                         dst_ftp.finalize_put_stream(dst_file, target_path).await?;
                         Ok(TransferRunResult::Completed(transferred))
-                    }.await;
+                    }
+                    .await;
                     dst_ftp.quit().await;
                     src_ftp.finalize_retr_stream(src_file, source_path).await?;
                     inner_result
-                }.await;
+                }
+                .await;
                 src_ftp.quit().await;
                 return result;
             }
@@ -1648,6 +1948,7 @@ impl super::FtpManager {
             }
             let file_offset = resume_remaining;
             resume_remaining = 0;
+            self.update_task_current_path(&task_id, Some(&file.relative_path))?;
             let remote_file_path = join_remote_relative_path(&remote_root, &file.relative_path);
             if let Some(parent) = remote_parent_path(&remote_file_path) {
                 self.ensure_remote_dir_recursive(sftp.clone(), &parent)
@@ -1726,6 +2027,7 @@ impl super::FtpManager {
                 }
                 let file_offset = resume_remaining;
                 resume_remaining = 0;
+                self.update_task_current_path(&task_id, Some(&file.relative_path))?;
                 let remote_file_path = join_remote_relative_path(&remote_root, &file.relative_path);
                 if let Some(parent) = remote_parent_path(&remote_file_path) {
                     self.ensure_ftp_dir_recursive(&mut ftp, &parent).await?;
@@ -1938,6 +2240,7 @@ impl super::FtpManager {
             }
             let file_offset = resume_remaining;
             resume_remaining = 0;
+            self.update_task_current_path(&task_id, Some(&file.relative_path))?;
             let local_file_path = local_root.join(&file.relative_path);
             if let Some(parent) = local_file_path.parent() {
                 if !parent.as_os_str().is_empty() {
@@ -2024,6 +2327,7 @@ impl super::FtpManager {
                 }
                 let file_offset = resume_remaining;
                 resume_remaining = 0;
+                self.update_task_current_path(&task_id, Some(&file.relative_path))?;
                 let local_file_path = local_root.join(&file.relative_path);
                 if let Some(parent) = local_file_path.parent() {
                     if !parent.as_os_str().is_empty() {
@@ -2085,6 +2389,180 @@ impl super::FtpManager {
         .await;
         ftp.quit().await;
         result
+    }
+
+    async fn run_upload_directory_archive_task(
+        &self,
+        task_id: String,
+        session: Arc<FtpRuntimeSession>,
+        sftp: Arc<SftpSession>,
+        local_root: PathBuf,
+        remote_root: String,
+        _plan: LocalTransferPlan,
+    ) -> Result<TransferRunResult> {
+        let local_archive = temp_archive_path("upload");
+        let remote_archive = remote_temp_archive_path(&remote_root);
+        let local_root_display = local_root.display().to_string();
+        self.emit_task(&task_id, "taskState", Some("Compressing local directory"));
+        run_local_command(
+            "tar",
+            &[
+                "-czf",
+                local_archive.to_string_lossy().as_ref(),
+                "-C",
+                &local_root_display,
+                ".",
+            ],
+        )
+        .await
+        .with_context(|| format!("failed to archive local directory {}", local_root.display()))?;
+
+        let archive_size = fs::metadata(&local_archive)
+            .await
+            .with_context(|| format!("failed to stat archive {}", local_archive.display()))?
+            .len();
+        self.update_task_transfer_size(&task_id, archive_size)?;
+
+        let transfer_result = self
+            .run_upload_task(
+                task_id.clone(),
+                sftp.clone(),
+                local_archive.clone(),
+                remote_archive.clone(),
+                archive_size,
+                0,
+            )
+            .await;
+        if let Err(error) = transfer_result {
+            let _ = fs::remove_file(&local_archive).await;
+            let _ = sftp.remove_file(remote_archive.clone()).await;
+            return Err(error);
+        }
+
+        self.emit_task(&task_id, "taskState", Some("Extracting remote archive"));
+        let command = format!(
+            "mkdir -p {target} && tar -xzf {archive} -C {target} && rm -f {archive}",
+            target = shell_quote(&remote_root),
+            archive = shell_quote(&remote_archive),
+        );
+        let extract_result = self.run_remote_exec(&session, &command).await;
+        let _ = fs::remove_file(&local_archive).await;
+        if let Err(error) = extract_result {
+            let _ = sftp.remove_file(remote_archive).await;
+            return Err(error);
+        }
+
+        Ok(TransferRunResult::Completed(archive_size))
+    }
+
+    async fn run_download_directory_archive_task(
+        &self,
+        task_id: String,
+        session: Arc<FtpRuntimeSession>,
+        sftp: Arc<SftpSession>,
+        remote_root: String,
+        local_root: PathBuf,
+        _plan: RemoteTransferPlan,
+    ) -> Result<TransferRunResult> {
+        let local_archive = temp_archive_path("download");
+        let remote_archive = remote_temp_archive_path(&remote_root);
+        self.emit_task(&task_id, "taskState", Some("Compressing remote directory"));
+        let command = format!(
+            "tar -czf {archive} -C {source} .",
+            archive = shell_quote(&remote_archive),
+            source = shell_quote(&remote_root),
+        );
+        self.run_remote_exec(&session, &command).await?;
+
+        let archive_size = sftp
+            .metadata(remote_archive.clone())
+            .await
+            .map_err(|e| anyhow!("failed to stat remote archive: {}", e))?
+            .len();
+        self.update_task_transfer_size(&task_id, archive_size)?;
+
+        let transfer_result = self
+            .run_download_task(
+                task_id.clone(),
+                sftp.clone(),
+                remote_archive.clone(),
+                local_archive.clone(),
+                archive_size,
+                0,
+            )
+            .await;
+        if let Err(error) = transfer_result {
+            let _ = sftp.remove_file(remote_archive).await;
+            let _ = fs::remove_file(&local_archive).await;
+            return Err(error);
+        }
+
+        fs::create_dir_all(&local_root).await.with_context(|| {
+            format!("failed to create local directory {}", local_root.display())
+        })?;
+        self.emit_task(&task_id, "taskState", Some("Extracting local archive"));
+        let local_archive_display = local_archive.display().to_string();
+        let local_root_display = local_root.display().to_string();
+        let extract_result = run_local_command(
+            "tar",
+            &["-xzf", &local_archive_display, "-C", &local_root_display],
+        )
+        .await;
+        let _ = sftp.remove_file(remote_archive).await;
+        let _ = fs::remove_file(&local_archive).await;
+        extract_result.with_context(|| {
+            format!(
+                "failed to extract archive into local directory {}",
+                local_root.display()
+            )
+        })?;
+
+        Ok(TransferRunResult::Completed(archive_size))
+    }
+
+    async fn run_remote_exec(&self, session: &Arc<FtpRuntimeSession>, command: &str) -> Result<()> {
+        let mut ssh_guard = session.ssh.lock().await;
+        let ssh = ssh_guard
+            .as_mut()
+            .ok_or_else(|| anyhow!("SFTP session does not have an SSH command channel"))?;
+        let mut channel = ssh
+            .channel_open_session()
+            .await
+            .map_err(|e| anyhow!("failed to open SSH exec channel: {}", e))?;
+        channel
+            .exec(true, command)
+            .await
+            .map_err(|e| anyhow!("failed to execute remote command: {}", e))?;
+
+        let mut exit_status = None;
+        let mut stderr = Vec::new();
+        while let Some(message) = channel.wait().await {
+            match message {
+                ChannelMsg::ExtendedData { ref data, .. } => {
+                    stderr.extend_from_slice(data);
+                }
+                ChannelMsg::ExitStatus {
+                    exit_status: status,
+                } => {
+                    exit_status = Some(status);
+                }
+                _ => {}
+            }
+        }
+
+        if exit_status.unwrap_or(1) == 0 {
+            Ok(())
+        } else {
+            let stderr_text = String::from_utf8_lossy(&stderr).trim().to_string();
+            Err(anyhow!(
+                "remote command failed{}",
+                if stderr_text.is_empty() {
+                    String::new()
+                } else {
+                    format!(": {}", stderr_text)
+                }
+            ))
+        }
     }
 
     fn schedule_pending_tasks(&self) -> Result<()> {
@@ -2189,18 +2667,35 @@ impl super::FtpManager {
                         let plan = self.build_local_transfer_plan(&local_path)?;
                         self.ensure_remote_dir_recursive(sftp.clone(), &remote_path)
                             .await?;
-                        let offset = self
-                            .calculate_upload_directory_offset(sftp.clone(), &remote_path, &plan)
-                            .await?;
+                        let offset = if task.transfer_method == "archive" {
+                            0
+                        } else {
+                            self.calculate_upload_directory_offset(
+                                sftp.clone(),
+                                &remote_path,
+                                &plan,
+                            )
+                            .await?
+                        };
                         Ok((
                             QueuedTransferJob {
                                 task_id: task.id.clone(),
                                 session_id: descriptor.session_id,
                                 max_concurrent,
-                                operation: TransferJobKind::UploadDirectory {
-                                    sftp,
-                                    remote_root: remote_path,
-                                    plan: plan.clone(),
+                                operation: if task.transfer_method == "archive" {
+                                    TransferJobKind::UploadDirectoryArchive {
+                                        session: session.clone(),
+                                        sftp,
+                                        local_root: local_path,
+                                        remote_root: remote_path,
+                                        plan: plan.clone(),
+                                    }
+                                } else {
+                                    TransferJobKind::UploadDirectory {
+                                        sftp,
+                                        remote_root: remote_path,
+                                        plan: plan.clone(),
+                                    }
                                 },
                             },
                             offset.min(plan.total_size),
@@ -2242,17 +2737,30 @@ impl super::FtpManager {
                         let plan = self
                             .build_remote_transfer_plan(sftp.clone(), remote_path.clone())
                             .await?;
-                        let offset =
-                            self.calculate_download_directory_offset(&local_path, &plan)?;
+                        let offset = if task.transfer_method == "archive" {
+                            0
+                        } else {
+                            self.calculate_download_directory_offset(&local_path, &plan)?
+                        };
                         Ok((
                             QueuedTransferJob {
                                 task_id: task.id.clone(),
                                 session_id: descriptor.session_id,
                                 max_concurrent,
-                                operation: TransferJobKind::DownloadDirectory {
-                                    sftp,
-                                    local_root: local_path,
-                                    plan: plan.clone(),
+                                operation: if task.transfer_method == "archive" {
+                                    TransferJobKind::DownloadDirectoryArchive {
+                                        session: session.clone(),
+                                        sftp,
+                                        remote_root: remote_path,
+                                        local_root: local_path,
+                                        plan: plan.clone(),
+                                    }
+                                } else {
+                                    TransferJobKind::DownloadDirectory {
+                                        sftp,
+                                        local_root: local_path,
+                                        plan: plan.clone(),
+                                    }
                                 },
                             },
                             offset.min(plan.total_size),
@@ -2646,6 +3154,24 @@ impl super::FtpManager {
                         )
                         .await
                 }
+                TransferJobKind::UploadDirectoryArchive {
+                    session,
+                    sftp,
+                    local_root,
+                    remote_root,
+                    plan,
+                } => {
+                    manager
+                        .run_upload_directory_archive_task(
+                            task_id.clone(),
+                            session,
+                            sftp,
+                            local_root,
+                            remote_root,
+                            plan,
+                        )
+                        .await
+                }
                 TransferJobKind::UploadDirectoryFtp {
                     resolved,
                     remote_root,
@@ -2707,6 +3233,24 @@ impl super::FtpManager {
                             local_root,
                             plan,
                             initial_offset,
+                        )
+                        .await
+                }
+                TransferJobKind::DownloadDirectoryArchive {
+                    session,
+                    sftp,
+                    remote_root,
+                    local_root,
+                    plan,
+                } => {
+                    manager
+                        .run_download_directory_archive_task(
+                            task_id.clone(),
+                            session,
+                            sftp,
+                            remote_root,
+                            local_root,
+                            plan,
                         )
                         .await
                 }
@@ -2853,6 +3397,7 @@ impl super::FtpManager {
             };
             task.status = "paused".to_string();
             task.speed_bytes_per_sec = 0.0;
+            task.current_relative_path = None;
             task.completed_at = None;
         })?;
         if let Ok(control) = self.get_task_control(task_id) {
@@ -2980,6 +3525,7 @@ impl super::FtpManager {
             task.status = "completed".to_string();
             task.retry_count = 0;
             task.speed_bytes_per_sec = 0.0;
+            task.current_relative_path = None;
             task.completed_at = Some(unix_now());
         })?;
         self.unregister_transfer_job(task_id);
@@ -2993,6 +3539,7 @@ impl super::FtpManager {
             task.status = "failed".to_string();
             task.error_message = Some(error_message.clone());
             task.speed_bytes_per_sec = 0.0;
+            task.current_relative_path = None;
             task.completed_at = Some(unix_now());
         });
         self.emit_task(task_id, "taskState", Some(&error_message));
@@ -3072,8 +3619,9 @@ impl super::FtpManager {
                     "INSERT INTO ftp_transfer_history
                         (id, session_id, direction, local_path, remote_path, file_size,
                          transferred_size, status, priority, error_message, retry_count,
-                         started_at, completed_at, created_at)
-                     VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14)
+                         started_at, completed_at, created_at, transfer_method, transfer_tree_json,
+                         current_relative_path)
+                     VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17)
                      ON CONFLICT(id) DO UPDATE SET
                         transferred_size = excluded.transferred_size,
                         status = excluded.status,
@@ -3081,7 +3629,10 @@ impl super::FtpManager {
                         error_message = excluded.error_message,
                         retry_count = excluded.retry_count,
                         started_at = excluded.started_at,
-                        completed_at = excluded.completed_at",
+                        completed_at = excluded.completed_at,
+                        transfer_method = excluded.transfer_method,
+                        transfer_tree_json = excluded.transfer_tree_json,
+                        current_relative_path = excluded.current_relative_path",
                     rusqlite::params![
                         task.id,
                         task.profile_id,
@@ -3097,6 +3648,9 @@ impl super::FtpManager {
                         task.started_at,
                         task.completed_at,
                         task.created_at,
+                        task.transfer_method,
+                        task.transfer_tree_json,
+                        task.current_relative_path,
                     ],
                 )
                 .map_err(|e| crate::db::DbError::QueryFailed(e.to_string()))?;
@@ -3112,7 +3666,8 @@ impl super::FtpManager {
                 let mut stmt = conn
                     .prepare(
                         "SELECT id, session_id, direction, local_path, remote_path, file_size,
-                                transferred_size, status, priority, error_message, retry_count, started_at, completed_at, created_at
+                                transferred_size, status, priority, error_message, retry_count, started_at, completed_at, created_at,
+                                transfer_method, transfer_tree_json, current_relative_path
                          FROM ftp_transfer_history
                          ORDER BY created_at DESC
                          LIMIT 200",
@@ -3152,6 +3707,11 @@ impl super::FtpManager {
                             transferred_size,
                             progress,
                             speed_bytes_per_sec: 0.0,
+                            transfer_method: row
+                                .get::<_, Option<String>>(14)?
+                                .unwrap_or_else(|| "direct".to_string()),
+                            transfer_tree_json: row.get(15)?,
+                            current_relative_path: row.get(16)?,
                             status,
                             error_message: row.get(9)?,
                             started_at: row.get(11)?,

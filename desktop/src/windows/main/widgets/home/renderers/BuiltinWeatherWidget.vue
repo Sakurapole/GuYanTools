@@ -260,7 +260,7 @@ onBeforeUnmount(() => {
   height: 100%;
   padding: 16px;
   box-sizing: border-box;
-  color: #ecfeff;
+  color: var(--widget-text-primary, #ecfeff);
 }
 
 .weather-widget__state,
@@ -303,6 +303,6 @@ onBeforeUnmount(() => {
   gap: 4px;
   padding: 8px;
   border-radius: 12px;
-  background: rgba(255, 255, 255, 0.1);
+  background: color-mix(in srgb, var(--widget-text-primary, #ecfeff) 10%, transparent);
 }
 </style>

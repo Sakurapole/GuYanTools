@@ -12,8 +12,8 @@ class GridLayout {
   double horizontalOffset;
 
   GridLayout({required this.config})
-      : colNum = config.fixedColumns,
-        horizontalOffset = config.gridPadding;
+    : colNum = config.fixedColumns,
+      horizontalOffset = config.gridPadding;
 
   double get cellSize => unitSize + config.gridGap;
 
@@ -46,8 +46,13 @@ class GridLayout {
     colNum = config.fixedColumns;
 
     final maxColsGap = config.gridGap * max(0, config.fixedColumns - 1);
-    final widthAvailable = max(0, clientWidth - maxColsGap);
-    final widthUnit = config.fixedColumns > 0 ? widthAvailable / config.fixedColumns : 0;
+    final widthAvailable = max(
+      0,
+      clientWidth - config.gridPadding * 2 - maxColsGap,
+    );
+    final widthUnit = config.fixedColumns > 0
+        ? widthAvailable / config.fixedColumns
+        : 0;
 
     final tentativeUnit = widthUnit.floorToDouble();
     final nextUnit = max(config.minUnitSize, tentativeUnit);
@@ -58,11 +63,16 @@ class GridLayout {
 
     final actualGridWidth = config.fixedColumns * nextUnit + maxColsGap;
     final remainingSpace = max(0, clientWidth - actualGridWidth);
-    horizontalOffset = max(config.gridPadding, (remainingSpace / 2).floorToDouble());
+    horizontalOffset = max(
+      config.gridPadding,
+      (remainingSpace / 2).floorToDouble(),
+    );
 
     final contentHeight = max(0, clientHeight - config.gridPadding * 2);
     final rowUnit = unitSize + config.gridGap;
-    final nextRows = rowUnit > 0 ? max(1, ((contentHeight + config.gridGap) / rowUnit).floor()) : 1;
+    final nextRows = rowUnit > 0
+        ? max(1, ((contentHeight + config.gridGap) / rowUnit).floor())
+        : 1;
     rowNum = nextRows;
   }
 

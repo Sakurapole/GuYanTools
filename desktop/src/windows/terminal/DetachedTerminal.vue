@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onBeforeUnmount, onMounted, ref } from 'vue';
+import { computed, nextTick, onBeforeUnmount, onMounted, ref } from 'vue';
 import { useDetachedTerminalStore } from './detached_terminal_store';
 import { useAppConfigStore } from '@/windows/main/stores/app_config_store';
 import type { DetachedTerminalSessionKind, TerminalRendererMode } from '@/contracts/terminal';
@@ -26,11 +26,15 @@ const store = useDetachedTerminalStore();
 const appConfigStore = useAppConfigStore();
 
 const viewportRef = ref<InstanceType<typeof TerminalViewport> | null>(null);
+const searchPanelRef = ref<InstanceType<typeof TerminalSearchPanel> | null>(null);
 const searchVisible = ref(false);
 const searchQuery = ref('');
+const searchResultIndex = ref(-1);
+const searchResultCount = ref(0);
 
 // ── App config derived values ─────────────────────────────────
 const rendererMode = computed(() => appConfigStore.config.features.terminal.rendererMode);
+const enableBell = computed(() => appConfigStore.config.features.terminal.enableBell);
 const enableSixel = computed(() => appConfigStore.config.features.terminal.enableSixel);
 const colorSchemeId = computed(() => appConfigStore.config.features.terminal.colorSchemeId ?? 'dark-default');
 const writeHandler = computed(() => (store.sessionKind === 'ssh' ? store.write : undefined));
@@ -74,6 +78,14 @@ function closeWindow() {
 
 // ── Terminal actions ──────────────────────────────────────────
 
+async function returnToMainWindow() {
+  await window.terminalApi.returnDetachedToMain(
+    props.sessionId,
+    props.target,
+    props.sessionKind ?? 'local',
+  );
+}
+
 function clearTerminal() {
   store.clearBuffer();
   viewportRef.value?.clear();
@@ -89,6 +101,47 @@ function findNext() {
 
 function findPrevious() {
   viewportRef.value?.findPrevious(searchQuery.value);
+}
+
+function resetSearchResults() {
+  searchResultIndex.value = -1;
+  searchResultCount.value = 0;
+}
+
+function handleSearchResults(value: { resultIndex: number; resultCount: number }) {
+  searchResultIndex.value = value.resultIndex;
+  searchResultCount.value = value.resultCount;
+}
+
+function updateSearchQuery(value: string) {
+  searchQuery.value = value;
+  if (!value.trim()) {
+    resetSearchResults();
+    viewportRef.value?.clearSearchResults();
+    return;
+  }
+
+  viewportRef.value?.findNext(value, true);
+}
+
+async function toggleSearchPanel() {
+  if (searchVisible.value) {
+    closeSearchPanel();
+    return;
+  }
+
+  searchVisible.value = true;
+  await nextTick();
+  await searchPanelRef.value?.focusInput();
+  if (searchQuery.value.trim()) {
+    viewportRef.value?.findNext(searchQuery.value, true);
+  }
+}
+
+function closeSearchPanel() {
+  searchVisible.value = false;
+  resetSearchResults();
+  viewportRef.value?.clearSearchResults();
 }
 
 async function updateRendererMode(mode: TerminalRendererMode) {
@@ -146,6 +199,14 @@ onBeforeUnmount(() => {
       </div>
       <div class="detached-titlebar__drag" />
       <div class="detached-titlebar__actions">
+        <button class="detached-titlebar__btn" title="返回主窗口" @click="returnToMainWindow">
+          <svg viewBox="0 0 24 24" width="14" height="14" stroke="currentColor" stroke-width="2"
+            fill="none" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M9 14l-4-4 4-4" />
+            <path d="M5 10h11a4 4 0 0 1 0 8h-1" />
+            <rect x="14" y="4" width="7" height="5" rx="1" />
+          </svg>
+        </button>
         <button class="detached-titlebar__btn" title="最小化" @click="minimizeWindow">
           <svg width="10" height="1" viewBox="0 0 10 1">
             <line x1="0" y1="0.5" x2="10" y2="0.5" stroke="currentColor" stroke-width="1"/>
@@ -171,7 +232,7 @@ onBeforeUnmount(() => {
       :session-running="store.isRunning"
       @update:colorSchemeId="updateColorScheme"
       @update:rendererMode="updateRendererMode"
-      @search="searchVisible = !searchVisible"
+      @search="toggleSearchPanel"
       @clear="clearTerminal"
       @kill="killSession"
     />
@@ -179,21 +240,25 @@ onBeforeUnmount(() => {
     <!-- Search panel -->
     <TerminalSearchPanel
       v-if="searchVisible"
+      ref="searchPanelRef"
       :query="searchQuery"
-      @update:query="searchQuery = $event"
+      :result-index="searchResultIndex"
+      :result-count="searchResultCount"
+      @update:query="updateSearchQuery"
       @next="findNext"
       @previous="findPrevious"
-      @close="searchVisible = false"
+      @close="closeSearchPanel"
     />
 
     <!-- Terminal viewport -->
     <div v-if="store.sessionId" class="detached-stage">
       <TerminalViewport
-        :key="`${store.sessionId}:${rendererMode}:${enableSixel}:${hasCustomBg}`"
+        :key="`${store.sessionId}:${rendererMode}:${enableBell}:${enableSixel}:${hasCustomBg}`"
         ref="viewportRef"
         :session-id="store.sessionId"
         :buffer="store.buffer"
         :renderer-mode="rendererMode"
+        :enable-bell="enableBell"
         :enable-sixel="enableSixel"
         :color-scheme-id="colorSchemeId"
         :bg-type="termBgType"
@@ -206,6 +271,7 @@ onBeforeUnmount(() => {
         :write-handler="writeHandler"
         :resize-handler="resizeHandler"
         @renderer-fallback="handleRendererFallback"
+        @search-results="handleSearchResults"
       />
     </div>
 
