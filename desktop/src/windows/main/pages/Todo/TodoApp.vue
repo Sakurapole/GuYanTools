@@ -1,10 +1,14 @@
 <script setup lang="ts">
-import { computed, onActivated, onDeactivated, onMounted, ref, provide, watch } from 'vue';
+import { computed, onMounted, ref, provide } from 'vue';
 import { useTodoStore } from '@/windows/main/stores/todo_store';
 import { useTodoListStore } from '@/windows/main/stores/todo_list_store';
-import { useTodoSettings, type AreaBackground } from '@/windows/main/composables/useTodoSettings';
+import {
+  resolveTodoAreaBackground,
+  updateTodoAreaBackground,
+  useTodoSettings,
+} from '@/windows/main/composables/useTodoSettings';
 import { useContextMenu } from '@/windows/main/composables/useContextMenu';
-import { useGlobalStore } from '@/windows/main/stores/global_store';
+import { useAppConfigStore } from '@/windows/main/stores/app_config_store';
 import TodoSidebar from './components/TodoSidebar.vue';
 import TodoContent from './components/TodoContent.vue';
 import TodoDetail from './components/TodoDetail.vue';
@@ -12,12 +16,13 @@ import YesterdayPrompt from './components/YesterdayPrompt.vue';
 import TodoBackground from './components/TodoBackground.vue';
 import UiPersonalizationConfig from '@/windows/main/components/ui/UiPersonalizationConfig.vue';
 import { buildBackgroundTextVars } from '@/windows/main/utils/backgroundTextColor';
+import type { BackgroundConfirmPayload } from '@/contracts/background';
 
 const todoStore = useTodoStore();
 const listStore = useTodoListStore();
 const { appBg, sidebarBg, contentBg, detailBg } = useTodoSettings();
 const { open: openMenu } = useContextMenu();
-const globalStore = useGlobalStore();
+const appConfigStore = useAppConfigStore();
 
 const bgPickerVisible = ref(false);
 const currentBgTarget = ref<'app' | 'sidebar' | 'content' | 'detail'>('app');
@@ -43,25 +48,28 @@ function handleContextMenu(e: MouseEvent) {
   ]);
 }
 
-function handleBgConfirm(payload: any) {
-  const targetBg = currentBgTarget.value === 'app' ? appBg :
-                   currentBgTarget.value === 'sidebar' ? sidebarBg :
-                   currentBgTarget.value === 'content' ? contentBg : detailBg;
-  
-  targetBg.value = {
-    type: payload.type,
-    color: payload.color || '',
-    image: payload.image || '',
-    video: payload.video || '',
-    backgroundStyle: payload.backgroundStyle || { opacity: 1 },
-  };
+const currentBackgroundTheme = computed(() => appConfigStore.config.appearance.theme);
+const activeAppBg = computed(() => resolveTodoAreaBackground(appBg.value, currentBackgroundTheme.value));
+const activeSidebarBg = computed(() => resolveTodoAreaBackground(sidebarBg.value, currentBackgroundTheme.value));
+const activeContentBg = computed(() => resolveTodoAreaBackground(contentBg.value, currentBackgroundTheme.value));
+const activeDetailBg = computed(() => resolveTodoAreaBackground(detailBg.value, currentBackgroundTheme.value));
+
+function getCurrentTargetStorage() {
+  return currentBgTarget.value === 'app' ? appBg :
+    currentBgTarget.value === 'sidebar' ? sidebarBg :
+      currentBgTarget.value === 'content' ? contentBg : detailBg;
+}
+
+function handleBgConfirm(payload: BackgroundConfirmPayload) {
+  const targetBg = getCurrentTargetStorage();
+  targetBg.value = updateTodoAreaBackground(targetBg.value, currentBackgroundTheme.value, payload);
 }
 
 const currentBgConfig = () => {
-  if (currentBgTarget.value === 'app') return appBg.value;
-  if (currentBgTarget.value === 'sidebar') return sidebarBg.value;
-  if (currentBgTarget.value === 'content') return contentBg.value;
-  return detailBg.value;
+  if (currentBgTarget.value === 'app') return activeAppBg.value;
+  if (currentBgTarget.value === 'sidebar') return activeSidebarBg.value;
+  if (currentBgTarget.value === 'content') return activeContentBg.value;
+  return activeDetailBg.value;
 };
 
 function getMeasuredSize(target: HTMLElement | { $el?: Element } | null, fallback: { width: number; height: number }) {
@@ -86,7 +94,7 @@ const currentBgPreviewSize = computed(() => {
   return getMeasuredSize(todoDetailRef.value, { width: 320, height: 640 });
 });
 
-const appTextStyle = computed(() => buildBackgroundTextVars(appBg.value.backgroundStyle?.textColor, {
+const appTextStyle = computed(() => buildBackgroundTextVars(activeAppBg.value.backgroundStyle?.textColor, {
   aliases: {
     primary: ['--color-text-primary', '--ui-text-primary'],
     secondary: ['--color-text-secondary', '--ui-text-secondary'],
@@ -95,36 +103,17 @@ const appTextStyle = computed(() => buildBackgroundTextVars(appBg.value.backgrou
   },
 }));
 
-function syncTopbarColor() {
-  const bg = appBg.value;
-  globalStore.setTopbarColor(bg.type === 'color' && bg.color ? bg.color : '');
-}
-
 onMounted(async () => {
   await listStore.loadLists();
   await todoStore.switchView('my-day');
   await todoStore.checkYesterdayIncomplete();
   await todoStore.loadSmartListCounts();
-  syncTopbarColor();
 });
-
-onActivated(() => {
-  syncTopbarColor();
-});
-
-onDeactivated(() => {
-  globalStore.setTopbarColor('');
-});
-
-// 监听全局背景变化，同步到顶栏沉浸色
-watch(() => appBg.value, () => {
-  syncTopbarColor();
-}, { deep: true });
 </script>
 
 <template>
   <div ref="todoAppRef" class="todo-app" :style="appTextStyle" @contextmenu.prevent="handleContextMenu">
-    <TodoBackground :config="appBg" />
+    <TodoBackground :config="activeAppBg" />
     <TodoSidebar ref="todoSidebarRef" />
     <TodoContent ref="todoContentRef" />
     <transition name="slide-right">

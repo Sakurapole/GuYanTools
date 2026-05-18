@@ -2,7 +2,8 @@
 import { ref, watch, nextTick, inject, computed } from 'vue';
 import { useTodoStore } from '@/windows/main/stores/todo_store';
 import { useContextMenu } from '@/windows/main/composables/useContextMenu';
-import { useTodoSettings } from '@/windows/main/composables/useTodoSettings';
+import { resolveTodoAreaBackground, useTodoSettings } from '@/windows/main/composables/useTodoSettings';
+import { useAppConfigStore } from '@/windows/main/stores/app_config_store';
 import TodoBackground from './TodoBackground.vue';
 import ReminderPicker from './ReminderPicker.vue';
 import RepeatPicker from './RepeatPicker.vue';
@@ -14,7 +15,9 @@ import { buildBackgroundTextVars } from '@/windows/main/utils/backgroundTextColo
 
 const todoStore = useTodoStore();
 const { detailBg } = useTodoSettings();
-const detailTextStyle = computed(() => buildBackgroundTextVars(detailBg.value.backgroundStyle?.textColor, {
+const appConfigStore = useAppConfigStore();
+const activeDetailBg = computed(() => resolveTodoAreaBackground(detailBg.value, appConfigStore.config.appearance.theme));
+const detailTextStyle = computed(() => buildBackgroundTextVars(activeDetailBg.value.backgroundStyle?.textColor, {
   aliases: {
     primary: ['--ui-text-primary'],
     secondary: ['--ui-text-secondary'],
@@ -133,7 +136,7 @@ async function onDueDateChange(val: string) {
 
 <template>
   <aside class="todo-detail" v-if="todoStore.selectedTodo" :style="detailTextStyle" @contextmenu.prevent.stop="handleContextMenu">
-    <TodoBackground :config="detailBg" />
+    <TodoBackground :config="activeDetailBg" />
     <div class="detail-inner" style="position: relative; z-index: 1; display: flex; flex-direction: column; height: 100%;">
       <div class="detail-header">
         <button class="close-btn" @click="close">✕</button>
@@ -255,6 +258,7 @@ async function onDueDateChange(val: string) {
   position: relative;
   background: transparent;
   border-radius: 16px;
+  overflow: hidden;
   box-shadow: var(--todo-panel-shadow);
   box-sizing: border-box;
 }

@@ -5,6 +5,7 @@ import { getErrorMessage, notifyError, notifyWarning } from '@/windows/main/comp
 import { useGlobalStore } from '@/windows/main/stores/global_store';
 import { useHomeProfileStore } from '@/windows/main/stores/home_profile_store';
 import { computed, nextTick, onMounted, onUnmounted, ref, watch, type CSSProperties } from 'vue';
+import { useRoute } from 'vue-router';
 import { storeToRefs } from 'pinia';
 import Spacer from '../Spacer.vue';
 import UiButton from '../ui/UiButton.vue';
@@ -14,6 +15,7 @@ import UiInput from '../ui/UiInput.vue';
 const { ipcRenderer } = window;
 const globalStore = useGlobalStore();
 const homeProfileStore = useHomeProfileStore();
+const route = useRoute();
 const { currentPage, topbarColor } = storeToRefs(globalStore);
 const { theme, toggleTheme } = useTheme();
 const profileSwitcherRef = ref<HTMLElement | null>(null);
@@ -37,6 +39,7 @@ const topbarStyle = computed(() => {
 const activeProfileName = computed(() => homeProfileStore.activeProfile?.name ?? 'Default Workspace');
 const profileButtonLabel = computed(() => `配置文件：${activeProfileName.value}`);
 const isProfileBusy = computed(() => homeProfileStore.loading || homeProfileStore.switching);
+const showHomeProfileSwitcher = computed(() => route.path === '/home');
 
 function setProfilePanelError(error: unknown, title: string) {
   profilePanelError.value = getErrorMessage(error);
@@ -188,9 +191,6 @@ onMounted(() => {
   window.addEventListener('pointerdown', handleDocumentPointerDown, true);
   window.addEventListener('keydown', handleWindowKeydown);
   window.addEventListener('resize', updateProfilePanelPosition);
-  void homeProfileStore.loadProfiles().catch(error => {
-    setProfilePanelError(error, '首页配置文件加载失败');
-  });
 });
 
 onUnmounted(() => {
@@ -205,6 +205,19 @@ watch(profilePanelOpen, (open) => {
     void nextTick(updateProfilePanelPosition);
   }
 });
+
+watch(showHomeProfileSwitcher, (visible) => {
+  if (!visible) {
+    closeProfilePanel();
+    return;
+  }
+
+  if (homeProfileStore.profiles.length === 0 && !homeProfileStore.loading) {
+    void homeProfileStore.loadProfiles().catch(error => {
+      setProfilePanelError(error, '首页配置文件加载失败');
+    });
+  }
+}, { immediate: true });
 </script>
 
 <template>
@@ -219,7 +232,7 @@ watch(profilePanelOpen, (open) => {
       </div>
     </div>
     <div class="application-func-container" aria-label="应用功能区">
-      <div ref="profileSwitcherRef" class="home-profile-switcher">
+      <div v-if="showHomeProfileSwitcher" ref="profileSwitcherRef" class="home-profile-switcher">
         <button
           class="home-profile-switcher__trigger"
           type="button"
@@ -243,7 +256,7 @@ watch(profilePanelOpen, (open) => {
           </span>
         </button>
       </div>
-      <Teleport to="body">
+      <Teleport v-if="showHomeProfileSwitcher" to="body">
         <div
           v-if="profilePanelOpen"
           class="home-profile-panel-backdrop"

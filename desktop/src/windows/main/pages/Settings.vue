@@ -9,7 +9,6 @@ import type {
   AppTheme,
   LocalNetworkInterfaceOption,
 } from '@/contracts/app_config';
-import type { BackgroundConfirmPayload } from '@/contracts/background';
 import type { FtpWindowsContextMenuStatus } from '@/contracts/ftp';
 import type { MultiDeviceClipboardDeviceStatus } from '@/contracts/multi_device_clipboard';
 import type {
@@ -20,6 +19,7 @@ import type {
 } from '@/contracts/terminal';
 import type { WebScriptRule } from '@/contracts/webview';
 import type { InstalledPluginRecord, PluginHostSummary } from '@/contracts/plugin_host';
+import { resolveThemeBackground } from '@/contracts/background';
 import UiButton from '../components/ui/UiButton.vue';
 import UiField from '../components/ui/UiField.vue';
 import UiInput from '../components/ui/UiInput.vue';
@@ -28,7 +28,7 @@ import UiSelect from '../components/ui/UiSelect.vue';
 import UiScrollbar from '../components/ui/UiScrollbar.vue';
 import UiTabs, { type UiTabItem } from '../components/ui/UiTabs.vue';
 import UiTransferBox from '../components/ui/UiTransferBox.vue';
-import UiPersonalizationConfig from '../components/ui/UiPersonalizationConfig.vue';
+import WebViewKeepAliveList from '../components/webview/WebViewKeepAliveList.vue';
 import { useTheme } from '../composables/theme';
 import { notifyError } from '../composables/useInAppNotification';
 import { useConfirmDialog } from '../composables/useConfirmDialog';
@@ -61,6 +61,13 @@ type TransferBoxItem = {
 
 const FTP_PREFERENCES_STORAGE_KEY = 'guyantools.ftp.preferences';
 const FTP_THUMBNAIL_STORAGE_KEY = 'guyantools.ftp.thumbnail-preferences';
+const SETTINGS_SEARCH_HIGHLIGHT_NAME = 'settings-search-match';
+
+type CssHighlightConstructor = new (...ranges: Range[]) => unknown;
+type CssHighlightRegistry = {
+  delete(name: string): void;
+  set(name: string, highlight: unknown): void;
+};
 
 const hostSummary = ref<PluginHostSummary | null>(null);
 const installedPlugins = ref<InstalledPluginRecord[]>([]);
@@ -132,10 +139,6 @@ const searchTabItem: UiTabItem = { key: 'search', label: '搜索' };
 const settingsSearchQuery = ref('');
 const settingsSearchHasMatches = ref(true);
 const settingsBodyRef = ref<HTMLElement | null>(null);
-const personalizationTab = ref<SettingsTabKey>('general');
-const personalizationDialogVisible = ref(false);
-const settingsPersonalizationPreviewWidth = ref(960);
-const settingsPersonalizationPreviewHeight = ref(560);
 
 const isSearchingSettings = computed(() => settingsSearchQuery.value.trim().length > 0);
 const normalizedSettingsSearchQuery = computed(() => settingsSearchQuery.value.trim().toLocaleLowerCase());
@@ -300,7 +303,6 @@ const activePlugin = computed(() => installedPlugins.value.find(
   (plugin) => plugin.manifest.id === settingsStore.activePluginConfigId,
 ) ?? null);
 const activeSettingsTabPersonalization = computed(() => getSettingsTabPersonalization(settingsStore.activeSettingsTab));
-const personalizationDialogConfig = computed(() => getSettingsTabPersonalization(personalizationTab.value));
 const activeSettingsPageStyle = computed<CSSProperties>(() => buildSettingsTabBackgroundStyle(activeSettingsTabPersonalization.value));
 const activeSettingsBackgroundVideo = computed(() => (
   activeSettingsTabPersonalization.value.type === 'video' ? activeSettingsTabPersonalization.value.video : ''
@@ -311,7 +313,21 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 }
 
 function getSettingsTabPersonalization(tab: AppSettingsTabId): AppSettingsTabPersonalizationConfig {
-  return appConfigStore.config.features.settings.tabs[tab];
+  const config = appConfigStore.config.features.settings.tabs[tab];
+  const background = resolveThemeBackground({
+    type: config.type,
+    color: config.color,
+    image: config.image,
+    video: config.video,
+    backgroundStyle: config.style,
+  }, appConfigStore.config.appearance.theme);
+  return {
+    type: background.type,
+    color: background.color,
+    image: background.image,
+    video: background.video,
+    style: background.backgroundStyle,
+  };
 }
 
 function buildSettingsTabBackgroundStyle(config: AppSettingsTabPersonalizationConfig): CSSProperties {
@@ -329,73 +345,121 @@ function buildSettingsTabBackgroundStyle(config: AppSettingsTabPersonalizationCo
   return style;
 }
 
-function describeSettingsTabPersonalization(config: AppSettingsTabPersonalizationConfig) {
-  if (config.type === 'image' && config.image) return '当前使用图片背景';
-  if (config.type === 'video' && config.video) return '当前使用视频背景';
-  if (config.color) return '当前使用颜色或渐变背景';
-  return '当前跟随设置页默认背景';
-}
-
 function isSettingsTabRendered(tab: SettingsTabKey) {
   return isSearchingSettings.value || settingsStore.activeSettingsTab === tab;
 }
 
-function getSettingsTabLabel(tab: SettingsTabKey) {
-  return settingsTabs.find(item => item.key === tab)?.label ?? tab;
+function isSearchContainerCard(element: HTMLElement) {
+  return element.classList.contains('settings-card')
+    && Boolean(element.querySelector('.settings-row, .ui-field'));
 }
 
-function openSettingsTabPersonalization(tab: SettingsTabKey) {
-  personalizationTab.value = tab;
-  const element = settingsBodyRef.value;
-  if (element) {
-    const rect = element.getBoundingClientRect();
-    settingsPersonalizationPreviewWidth.value = Math.max(320, Math.round(rect.width));
-    settingsPersonalizationPreviewHeight.value = Math.max(200, Math.round(rect.height));
+function getSearchableSettingItems(root: HTMLElement) {
+  return Array.from(root.querySelectorAll<HTMLElement>('.settings-row, .ui-field, .settings-card'))
+    .filter(item => !isSearchContainerCard(item));
+}
+
+function collectSettingSearchText(element: HTMLElement) {
+  return (element.textContent ?? '').trim().replace(/\s+/g, ' ');
+}
+
+function getCssHighlightApi() {
+  const highlightConstructor = (window as typeof window & { Highlight?: CssHighlightConstructor }).Highlight;
+  const highlightRegistry = (CSS as typeof CSS & { highlights?: CssHighlightRegistry }).highlights;
+
+  if (!highlightConstructor || !highlightRegistry) {
+    return null;
   }
-  personalizationDialogVisible.value = true;
+
+  return {
+    Highlight: highlightConstructor,
+    registry: highlightRegistry,
+  };
 }
 
-async function handleSettingsTabPersonalizationConfirm(payload: BackgroundConfirmPayload) {
-  await appConfigStore.updateConfig({
-    features: {
-      settings: {
-        tabs: {
-          [personalizationTab.value]: {
-            type: payload.type,
-            color: payload.color ?? '',
-            image: payload.image ?? '',
-            video: payload.video ?? '',
-            style: payload.backgroundStyle ?? {},
-          },
-        },
+function clearSettingsSearchHighlights() {
+  getCssHighlightApi()?.registry.delete(SETTINGS_SEARCH_HIGHLIGHT_NAME);
+}
+
+function shouldHighlightSearchNode(node: Node) {
+  const parentElement = node.parentElement;
+  if (!parentElement) return false;
+
+  return !parentElement.closest('input, textarea, select, option, button, script, style, .is-search-hidden');
+}
+
+function collectSettingHighlightRanges(element: HTMLElement, query: string) {
+  const ranges: Range[] = [];
+  const walker = document.createTreeWalker(
+    element,
+    NodeFilter.SHOW_TEXT,
+    {
+      acceptNode(node) {
+        return shouldHighlightSearchNode(node) ? NodeFilter.FILTER_ACCEPT : NodeFilter.FILTER_REJECT;
       },
     },
-  });
-  personalizationDialogVisible.value = false;
+  );
+
+  while (walker.nextNode()) {
+    const textNode = walker.currentNode;
+    const text = textNode.textContent ?? '';
+    const normalizedText = text.toLocaleLowerCase();
+    let matchIndex = normalizedText.indexOf(query);
+
+    while (matchIndex >= 0) {
+      const range = document.createRange();
+      range.setStart(textNode, matchIndex);
+      range.setEnd(textNode, matchIndex + query.length);
+      ranges.push(range);
+      matchIndex = normalizedText.indexOf(query, matchIndex + query.length);
+    }
+  }
+
+  return ranges;
 }
 
-function collectSettingTitle(element: Element) {
-  return Array.from(element.querySelectorAll('.settings-row__label > span, .settings-card__head h3, .ui-field__label'))
-    .map(item => item.textContent?.trim() ?? '')
-    .filter(Boolean)
-    .join(' ');
+function updateSettingsSearchHighlights(query: string, settingItems: HTMLElement[]) {
+  const cssHighlightApi = getCssHighlightApi();
+  if (!cssHighlightApi) return;
+
+  cssHighlightApi.registry.delete(SETTINGS_SEARCH_HIGHLIGHT_NAME);
+  if (!query) return;
+
+  const ranges = settingItems
+    .filter(item => !item.classList.contains('is-search-hidden'))
+    .flatMap(item => collectSettingHighlightRanges(item, query));
+
+  if (ranges.length) {
+    cssHighlightApi.registry.set(SETTINGS_SEARCH_HIGHLIGHT_NAME, new cssHighlightApi.Highlight(...ranges));
+  }
 }
 
 function applySettingsSearchFilter() {
   const root = settingsBodyRef.value;
-  if (!root) return;
+  if (!root) {
+    clearSettingsSearchHighlights();
+    return;
+  }
 
   const query = normalizedSettingsSearchQuery.value;
-  const settingItems = Array.from(root.querySelectorAll<HTMLElement>('.settings-row, .settings-card'));
+  const settingItems = getSearchableSettingItems(root);
 
   for (const item of settingItems) {
-    const title = collectSettingTitle(item).toLocaleLowerCase();
-    item.classList.toggle('is-search-hidden', Boolean(query) && (!title || !title.includes(query)));
+    const searchText = collectSettingSearchText(item).toLocaleLowerCase();
+    item.classList.toggle('is-search-hidden', Boolean(query) && (!searchText || !searchText.includes(query)));
+  }
+
+  const containerCards = Array.from(root.querySelectorAll<HTMLElement>('.settings-card'))
+    .filter(isSearchContainerCard);
+  for (const card of containerCards) {
+    const hasVisibleItem = Array.from(card.querySelectorAll<HTMLElement>('.settings-row, .ui-field'))
+      .some(item => !item.classList.contains('is-search-hidden'));
+    card.classList.toggle('is-search-hidden', Boolean(query) && !hasVisibleItem);
   }
 
   const groups = Array.from(root.querySelectorAll<HTMLElement>('.settings-group'));
   for (const group of groups) {
-    const hasVisibleItem = Array.from(group.querySelectorAll<HTMLElement>('.settings-row, .settings-card'))
+    const hasVisibleItem = getSearchableSettingItems(group)
       .some(item => !item.classList.contains('is-search-hidden'));
     group.classList.toggle('is-search-hidden', Boolean(query) && !hasVisibleItem);
   }
@@ -403,12 +467,13 @@ function applySettingsSearchFilter() {
   const sections = Array.from(root.querySelectorAll<HTMLElement>('.settings-section'));
   let hasAnyVisibleSection = false;
   for (const section of sections) {
-    const hasVisibleItem = Array.from(section.querySelectorAll<HTMLElement>('.settings-row, .settings-card'))
+    const hasVisibleItem = getSearchableSettingItems(section)
       .some(item => !item.classList.contains('is-search-hidden'));
     section.classList.toggle('settings-section--search-empty', Boolean(query) && !hasVisibleItem);
     hasAnyVisibleSection ||= hasVisibleItem;
   }
   settingsSearchHasMatches.value = !query || hasAnyVisibleSection;
+  updateSettingsSearchHighlights(query, settingItems);
 }
 
 function queueSettingsSearchFilter() {
@@ -793,12 +858,19 @@ function fillLocalTerminalProfileFromBase(profileId: string) {
 }
 
 function createDefaultTerminalBackground(): TerminalBackgroundConfig {
-  return {
+  const background = resolveThemeBackground({
     type: appConfigStore.config.features.terminal.viewportBgType ?? 'color',
     color: appConfigStore.config.features.terminal.viewportBgColor ?? '',
     image: appConfigStore.config.features.terminal.viewportBgImage ?? '',
     video: appConfigStore.config.features.terminal.viewportBgVideo ?? '',
-    style: appConfigStore.config.features.terminal.viewportBgStyle ?? {},
+    backgroundStyle: appConfigStore.config.features.terminal.viewportBgStyle ?? {},
+  }, appConfigStore.config.appearance.theme);
+  return {
+    type: background.type,
+    color: background.color,
+    image: background.image,
+    video: background.video,
+    style: background.backgroundStyle,
   };
 }
 
@@ -1602,7 +1674,7 @@ function scriptTypeLabel(type: string) {
     </header>
 
     <div class="page-body">
-      <Transition :name="settingsTabTransition" mode="out-in">
+      <Transition :name="settingsTabTransition" mode="out-in" @after-enter="queueSettingsSearchFilter">
       <div
         :key="settingsContentKey"
         ref="settingsBodyRef"
@@ -1614,22 +1686,6 @@ function scriptTypeLabel(type: string) {
           <h2>基础设置</h2>
           <p>配置应用外观、字体、系统依赖路径和更新策略。</p>
         </div>
-
-        <section class="settings-group settings-group--personalization">
-          <h3>个性化</h3>
-          <div class="settings-row settings-row--wide">
-            <div class="settings-row__label">
-              <span>个性化配置</span>
-              <small>单独配置{{ getSettingsTabLabel('general') }}页背景。</small>
-            </div>
-            <div class="settings-row__control settings-row__control--wide">
-              <div class="settings-inline-badges">
-                <span class="settings-badge">{{ describeSettingsTabPersonalization(getSettingsTabPersonalization('general')) }}</span>
-                <UiButton size="sm" variant="secondary" @click="openSettingsTabPersonalization('general')">配置</UiButton>
-              </div>
-            </div>
-          </div>
-        </section>
 
         <div class="settings-form">
           <section class="settings-group">
@@ -1869,22 +1925,6 @@ function scriptTypeLabel(type: string) {
           <p>配置传输页浏览行为、缩略图、重试策略和主机信任。</p>
         </div>
 
-        <section class="settings-group settings-group--personalization">
-          <h3>个性化</h3>
-          <div class="settings-row settings-row--wide">
-            <div class="settings-row__label">
-              <span>个性化配置</span>
-              <small>单独配置{{ getSettingsTabLabel('file-transfer') }}页背景。</small>
-            </div>
-            <div class="settings-row__control settings-row__control--wide">
-              <div class="settings-inline-badges">
-                <span class="settings-badge">{{ describeSettingsTabPersonalization(getSettingsTabPersonalization('file-transfer')) }}</span>
-                <UiButton size="sm" variant="secondary" @click="openSettingsTabPersonalization('file-transfer')">配置</UiButton>
-              </div>
-            </div>
-          </div>
-        </section>
-
         <div class="settings-form">
           <section class="settings-group">
             <h3>浏览行为</h3>
@@ -2104,22 +2144,6 @@ function scriptTypeLabel(type: string) {
           <p>配置终端默认会话、渲染器、工作目录与图像显示行为。</p>
         </div>
 
-        <section class="settings-group settings-group--personalization">
-          <h3>个性化</h3>
-          <div class="settings-row settings-row--wide">
-            <div class="settings-row__label">
-              <span>个性化配置</span>
-              <small>单独配置{{ getSettingsTabLabel('terminal') }}页背景。</small>
-            </div>
-            <div class="settings-row__control settings-row__control--wide">
-              <div class="settings-inline-badges">
-                <span class="settings-badge">{{ describeSettingsTabPersonalization(getSettingsTabPersonalization('terminal')) }}</span>
-                <UiButton size="sm" variant="secondary" @click="openSettingsTabPersonalization('terminal')">配置</UiButton>
-              </div>
-            </div>
-          </div>
-        </section>
-
         <div class="settings-form">
           <section class="settings-group">
             <h3>会话</h3>
@@ -2297,22 +2321,6 @@ function scriptTypeLabel(type: string) {
           <h2>多设备剪贴板</h2>
           <p>配置局域网发现、同步大小和历史记录。</p>
         </div>
-
-        <section class="settings-group settings-group--personalization">
-          <h3>个性化</h3>
-          <div class="settings-row settings-row--wide">
-            <div class="settings-row__label">
-              <span>个性化配置</span>
-              <small>单独配置{{ getSettingsTabLabel('multi-device-clipboard') }}页背景。</small>
-            </div>
-            <div class="settings-row__control settings-row__control--wide">
-              <div class="settings-inline-badges">
-                <span class="settings-badge">{{ describeSettingsTabPersonalization(getSettingsTabPersonalization('multi-device-clipboard')) }}</span>
-                <UiButton size="sm" variant="secondary" @click="openSettingsTabPersonalization('multi-device-clipboard')">配置</UiButton>
-              </div>
-            </div>
-          </div>
-        </section>
 
         <div class="settings-form">
           <section class="settings-group">
@@ -2503,22 +2511,6 @@ function scriptTypeLabel(type: string) {
           <p>配置终端内快捷键和系统级显示隐藏快捷键。</p>
         </div>
 
-        <section class="settings-group settings-group--personalization">
-          <h3>个性化</h3>
-          <div class="settings-row settings-row--wide">
-            <div class="settings-row__label">
-              <span>个性化配置</span>
-              <small>单独配置{{ getSettingsTabLabel('shortcuts') }}页背景。</small>
-            </div>
-            <div class="settings-row__control settings-row__control--wide">
-              <div class="settings-inline-badges">
-                <span class="settings-badge">{{ describeSettingsTabPersonalization(getSettingsTabPersonalization('shortcuts')) }}</span>
-                <UiButton size="sm" variant="secondary" @click="openSettingsTabPersonalization('shortcuts')">配置</UiButton>
-              </div>
-            </div>
-          </div>
-        </section>
-
         <div class="settings-form">
           <section class="settings-group">
             <h3>终端</h3>
@@ -2588,22 +2580,6 @@ function scriptTypeLabel(type: string) {
           <p>AI 推理策略与上下文配置。</p>
         </div>
 
-        <section class="settings-group settings-group--personalization">
-          <h3>个性化</h3>
-          <div class="settings-row settings-row--wide">
-            <div class="settings-row__label">
-              <span>个性化配置</span>
-              <small>单独配置{{ getSettingsTabLabel('ai-agent') }}页背景。</small>
-            </div>
-            <div class="settings-row__control settings-row__control--wide">
-              <div class="settings-inline-badges">
-                <span class="settings-badge">{{ describeSettingsTabPersonalization(getSettingsTabPersonalization('ai-agent')) }}</span>
-                <UiButton size="sm" variant="secondary" @click="openSettingsTabPersonalization('ai-agent')">配置</UiButton>
-              </div>
-            </div>
-          </div>
-        </section>
-
         <div class="cards-grid cards-grid--3col">
           <div class="settings-card settings-card--placeholder ui-glass-surface ui-glass-surface--strong">
             <div class="settings-card__head">
@@ -2634,22 +2610,6 @@ function scriptTypeLabel(type: string) {
           <h2>插件配置</h2>
           <p>插件策略和每个插件的独立 JSON 配置。</p>
         </div>
-
-        <section class="settings-group settings-group--personalization">
-          <h3>个性化</h3>
-          <div class="settings-row settings-row--wide">
-            <div class="settings-row__label">
-              <span>个性化配置</span>
-              <small>单独配置{{ getSettingsTabLabel('plugins') }}页背景。</small>
-            </div>
-            <div class="settings-row__control settings-row__control--wide">
-              <div class="settings-inline-badges">
-                <span class="settings-badge">{{ describeSettingsTabPersonalization(getSettingsTabPersonalization('plugins')) }}</span>
-                <UiButton size="sm" variant="secondary" @click="openSettingsTabPersonalization('plugins')">配置</UiButton>
-              </div>
-            </div>
-          </div>
-        </section>
 
         <div class="cards-grid cards-grid--1col">
           <!-- 插件通用策略 -->
@@ -2735,22 +2695,6 @@ function scriptTypeLabel(type: string) {
           <p>管理域名策略、保活规则、Chrome 扩展和增强脚本。</p>
         </div>
 
-        <section class="settings-group settings-group--personalization">
-          <h3>个性化</h3>
-          <div class="settings-row settings-row--wide">
-            <div class="settings-row__label">
-              <span>个性化配置</span>
-              <small>单独配置{{ getSettingsTabLabel('web-security') }}页背景。</small>
-            </div>
-            <div class="settings-row__control settings-row__control--wide">
-              <div class="settings-inline-badges">
-                <span class="settings-badge">{{ describeSettingsTabPersonalization(getSettingsTabPersonalization('web-security')) }}</span>
-                <UiButton size="sm" variant="secondary" @click="openSettingsTabPersonalization('web-security')">配置</UiButton>
-              </div>
-            </div>
-          </div>
-        </section>
-
         <div class="settings-form">
           <section class="settings-group">
             <h3>域名策略</h3>
@@ -2803,6 +2747,15 @@ function scriptTypeLabel(type: string) {
 
           <section class="settings-group">
             <h3>保活规则</h3>
+            <div class="settings-row settings-row--wide">
+              <div class="settings-row__label">
+                <span>运行中的保活页面</span>
+                <small>显示当前仍保留 WebView 状态的页面，可恢复或关闭释放。</small>
+              </div>
+              <div class="settings-row__control settings-row__control--wide">
+                <WebViewKeepAliveList />
+              </div>
+            </div>
             <div class="settings-row settings-row--wide">
               <div class="settings-row__label">
                 <span>保活域名</span>
@@ -2934,17 +2887,6 @@ function scriptTypeLabel(type: string) {
       </Transition>
     </div>
 
-    <UiPersonalizationConfig
-      :visible="personalizationDialogVisible"
-      :current-background="personalizationDialogConfig.color"
-      :current-background-image="personalizationDialogConfig.image"
-      :current-background-video="personalizationDialogConfig.video"
-      :current-background-style="personalizationDialogConfig.style"
-      :preview-width="settingsPersonalizationPreviewWidth"
-      :preview-height="settingsPersonalizationPreviewHeight"
-      @close="personalizationDialogVisible = false"
-      @confirm="handleSettingsTabPersonalizationConfirm"
-    />
   </UiScrollbar>
 </template>
 
@@ -3121,6 +3063,15 @@ function scriptTypeLabel(type: string) {
 .is-search-hidden,
 .settings-section--search-empty {
   display: none !important;
+}
+
+:global(::highlight(settings-search-match)) {
+  color: var(--ui-text-primary);
+  background: color-mix(in srgb, #facc15 42%, transparent);
+  text-decoration: underline;
+  text-decoration-color: color-mix(in srgb, #f59e0b 62%, transparent);
+  text-decoration-thickness: 2px;
+  text-underline-offset: 2px;
 }
 
 .settings-search-empty {

@@ -72,6 +72,9 @@ const compressQuality = ref<CompressQuality>('high');
 const ffmpegAvailable = computed(() => {
   return !!(appConfigStore.config.tools?.ffmpegPath);
 });
+const activeThemeLabel = computed(() => (
+  appConfigStore.config.appearance.theme === 'dark' ? '暗色主题配置' : '亮色主题配置'
+));
 
 const imageProcessOptions = computed(() => [
   { label: '原始处理', value: 'canvas' },
@@ -714,7 +717,10 @@ watch(() => props.visible, (visible) => {
     @update:modelValue="handleDialogModelValueChange">
     <template #header>
       <div class="bg-picker__header">
-        <h3>个性化配置</h3>
+        <div class="bg-picker__title">
+          <h3>个性化配置</h3>
+          <span class="bg-picker__theme-badge">{{ activeThemeLabel }}</span>
+        </div>
         <UiIconButton class="close-btn" variant="ghost" size="sm" shape="square" title="关闭" @click="handleClose">
           ✕
         </UiIconButton>
@@ -1028,6 +1034,12 @@ export default {
   justify-content: space-between;
   padding: 14px 18px;
   border-bottom: var(--ui-border-width-thin) solid var(--modal-header-border-color);
+}
+
+.bg-picker__title {
+  display: flex;
+  align-items: center;
+  gap: 10px;
 
   h3 {
     margin: 0;
@@ -1035,6 +1047,18 @@ export default {
     font-size: 16px;
     font-weight: 600;
   }
+}
+
+.bg-picker__theme-badge {
+  display: inline-flex;
+  align-items: center;
+  height: 22px;
+  padding: 0 8px;
+  border-radius: var(--ui-radius-xs);
+  background: var(--ui-tabs-active-bg);
+  color: var(--ui-input-focus-border);
+  font-size: 12px;
+  font-weight: 600;
 }
 
 .bg-picker__tabs {

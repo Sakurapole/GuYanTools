@@ -1,5 +1,6 @@
 import { useLocalStorage } from '@vueuse/core';
-import type { BackgroundStyleConfig } from '@/windows/main/types/grid';
+import type { BackgroundConfirmPayload, BackgroundStyleConfig, BackgroundTheme } from '@/contracts/background';
+import { resolveThemeBackground, withThemeBackground } from '@/contracts/background';
 
 export interface AreaBackground {
   type: 'color' | 'image' | 'video';
@@ -9,14 +10,32 @@ export interface AreaBackground {
   backgroundStyle: BackgroundStyleConfig;
 }
 
-const defaultAppColor = 'var(--todo-app-bg, var(--background-color))';
-const defaultPanelColor = 'var(--todo-panel-bg, var(--ui-surface-glass))';
+export function resolveTodoAreaBackground(background: AreaBackground, theme: BackgroundTheme): AreaBackground {
+  return resolveThemeBackground(background, theme) as AreaBackground;
+}
+
+export function updateTodoAreaBackground(
+  background: AreaBackground,
+  theme: BackgroundTheme,
+  payload: BackgroundConfirmPayload,
+): AreaBackground {
+  return withThemeBackground(background, theme, {
+    type: payload.type,
+    color: payload.color ?? '',
+    image: payload.image ?? '',
+    video: payload.video ?? '',
+    backgroundStyle: payload.backgroundStyle ?? { opacity: 1 },
+  }) as AreaBackground;
+}
+
+export const defaultTodoAppColor = 'var(--todo-app-bg, var(--background-color))';
+export const defaultTodoPanelColor = 'var(--todo-panel-bg, var(--ui-surface-glass))';
 const legacyDefaultAppColor = 'var(--color-bg-primary, #f5f7fa)';
 const legacyDefaultPanelColor = 'rgba(255, 255, 255, 0.65)';
 
 const defaultGlassBackground: AreaBackground = {
   type: 'color',
-  color: defaultPanelColor,
+  color: defaultTodoPanelColor,
   image: '',
   video: '',
   backgroundStyle: { opacity: 1 },
@@ -24,7 +43,7 @@ const defaultGlassBackground: AreaBackground = {
 
 const defaultAppBackground: AreaBackground = {
   type: 'color',
-  color: defaultAppColor,
+  color: defaultTodoAppColor,
   image: '',
   video: '',
   backgroundStyle: { opacity: 1 },
@@ -57,10 +76,10 @@ export function useTodoSettings() {
   const contentBg = useLocalStorage<AreaBackground>('todo_bg_content', defaultGlassBackground);
   const detailBg = useLocalStorage<AreaBackground>('todo_bg_detail', defaultGlassBackground);
 
-  migrateLegacyDefaultBackground(appBg, legacyDefaultAppColor, defaultAppColor);
-  migrateLegacyDefaultBackground(sidebarBg, legacyDefaultPanelColor, defaultPanelColor);
-  migrateLegacyDefaultBackground(contentBg, legacyDefaultPanelColor, defaultPanelColor);
-  migrateLegacyDefaultBackground(detailBg, legacyDefaultPanelColor, defaultPanelColor);
+  migrateLegacyDefaultBackground(appBg, legacyDefaultAppColor, defaultTodoAppColor);
+  migrateLegacyDefaultBackground(sidebarBg, legacyDefaultPanelColor, defaultTodoPanelColor);
+  migrateLegacyDefaultBackground(contentBg, legacyDefaultPanelColor, defaultTodoPanelColor);
+  migrateLegacyDefaultBackground(detailBg, legacyDefaultPanelColor, defaultTodoPanelColor);
 
   return {
     isSidebarCollapsed,

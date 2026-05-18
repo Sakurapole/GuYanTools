@@ -307,7 +307,7 @@ function openGoogleLoginTab() {
 // ─── 监听路由变化，管理实例 ───
 watch(
   () => route.fullPath,
-  async (fullPath) => {
+  (fullPath) => {
     if (!fullPath.startsWith('/webview')) {
       webviewStore.deactivateAll();
       return;
@@ -326,11 +326,7 @@ watch(
       targetUrl = urlParam;
     }
 
-    const took = webviewStore.activate(targetUrl);
-    if (took) {
-      await nextTick();
-      await initWebview(targetUrl);
-    }
+    webviewStore.activate(targetUrl);
   },
   { immediate: true },
 );
@@ -354,7 +350,14 @@ watch(
         cleanupInstanceState(instanceUrl);
       }
     }
+
+    for (const instanceUrl of liveUrls) {
+      if (!initializedUrls.value.has(instanceUrl)) {
+        void nextTick().then(() => initWebview(instanceUrl));
+      }
+    }
   },
+  { immediate: true },
 );
 
 onBeforeUnmount(() => {

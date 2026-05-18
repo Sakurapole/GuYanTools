@@ -89,6 +89,13 @@ const showScriptsDrawer = ref(false);
 // ─── Google 登录引导提示 ───
 const showGoogleLoginHint = ref(false);
 
+const currentKeepAliveTargetUrl = computed(() => targetUrl.value);
+const canKeepAliveTemporarily = computed(() =>
+  Boolean(currentKeepAliveTargetUrl.value)
+  && (pageState.value === 'loaded' || pageState.value === 'loading')
+  && !webviewStore.isManagedKeepAliveUrl(currentKeepAliveTargetUrl.value),
+);
+
 function openGoogleLoginTab() {
   // 在应用内新 tab 打开 Google 登录（共享同一 partition，登录态自动互通）
   const googleUrl = encodeURIComponent('https://accounts.google.com');
@@ -131,7 +138,7 @@ async function checkAndLoad() {
   if (!targetUrl.value) return;
 
   // 保活域名由 WebViewKeepAlive 容器接管
-  if (webviewStore.isKeepAliveDomain(domain.value)) {
+  if (webviewStore.isManagedKeepAliveUrl(targetUrl.value)) {
     pageState.value = 'keep-alive';
     return;
   }
@@ -246,6 +253,16 @@ function goForward() {
 function reload() {
   const wv = webviewRef.value as any;
   if (wv) wv.reload();
+}
+
+function keepAliveTemporarily() {
+  const keepAliveUrl = currentKeepAliveTargetUrl.value;
+  if (!keepAliveUrl) return;
+
+  const title = navState.value.title || lastSyncedTitle || domain.value || keepAliveUrl;
+  stopNavPolling();
+  webviewStore.keepAliveTemporary(keepAliveUrl, title);
+  pageState.value = 'keep-alive';
 }
 
 function startNavPolling() {
@@ -379,6 +396,9 @@ watch(targetUrl, () => {
         <UiIconButton variant="ghost" size="sm" shape="square" title="打开 DevTools" @click="openDevTools">
           <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M6 2H3a1 1 0 0 0-1 1v10a1 1 0 0 0 1 1h10a1 1 0 0 0 1-1v-3M9 2h5v5M14 2L7 9" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/></svg>
         </UiIconButton>
+        <UiButton v-if="canKeepAliveTemporarily" variant="secondary" size="sm" @click="keepAliveTemporarily">
+          临时保活
+        </UiButton>
       </div>
     </div>
 

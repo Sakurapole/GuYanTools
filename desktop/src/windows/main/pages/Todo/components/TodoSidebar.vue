@@ -3,7 +3,8 @@ import { computed, ref, inject } from 'vue';
 import { useTodoStore, type SmartListType } from '@/windows/main/stores/todo_store';
 import { useTodoListStore } from '@/windows/main/stores/todo_list_store';
 import { useContextMenu } from '@/windows/main/composables/useContextMenu';
-import { useTodoSettings } from '@/windows/main/composables/useTodoSettings';
+import { resolveTodoAreaBackground, useTodoSettings } from '@/windows/main/composables/useTodoSettings';
+import { useAppConfigStore } from '@/windows/main/stores/app_config_store';
 import TodoBackground from './TodoBackground.vue';
 import TodoSearch from './TodoSearch.vue';
 import UiScrollbar from '@/windows/main/components/ui/UiScrollbar.vue';
@@ -13,7 +14,9 @@ import { buildBackgroundTextVars } from '@/windows/main/utils/backgroundTextColo
 const todoStore = useTodoStore();
 const listStore = useTodoListStore();
 const { sidebarBg, isSidebarCollapsed } = useTodoSettings();
-const sidebarTextStyle = computed(() => buildBackgroundTextVars(sidebarBg.value.backgroundStyle?.textColor, {
+const appConfigStore = useAppConfigStore();
+const activeSidebarBg = computed(() => resolveTodoAreaBackground(sidebarBg.value, appConfigStore.config.appearance.theme));
+const sidebarTextStyle = computed(() => buildBackgroundTextVars(activeSidebarBg.value.backgroundStyle?.textColor, {
   aliases: {
     primary: ['--ui-text-primary'],
     secondary: ['--ui-text-secondary'],
@@ -133,7 +136,7 @@ function handleListContextMenu(e: MouseEvent, list: { id: string; name: string }
 
 <template>
   <aside class="todo-sidebar" :class="{ 'collapsed': isSidebarCollapsed }" :style="sidebarTextStyle" @contextmenu.prevent.stop="handleContextMenu">
-    <TodoBackground :config="sidebarBg" />
+    <TodoBackground :config="activeSidebarBg" />
     <div class="sidebar-content" style="position: relative; z-index: 1; display: flex; flex-direction: column; height: 100%;">
       <div class="sidebar-header">
         <h2 v-if="!isSidebarCollapsed">Todo</h2>

@@ -2,8 +2,9 @@
 import { computed, ref, inject, onMounted, onBeforeUnmount } from 'vue';
 import { useTodoStore, type SortBy } from '@/windows/main/stores/todo_store';
 import { useContextMenu } from '@/windows/main/composables/useContextMenu';
-import { useTodoSettings } from '@/windows/main/composables/useTodoSettings';
+import { resolveTodoAreaBackground, useTodoSettings } from '@/windows/main/composables/useTodoSettings';
 import { useTodoListStore } from '@/windows/main/stores/todo_list_store';
+import { useAppConfigStore } from '@/windows/main/stores/app_config_store';
 import TodoItem from './TodoItem.vue';
 import QuickAdd from './QuickAdd.vue';
 import TodoBackground from './TodoBackground.vue';
@@ -13,7 +14,9 @@ import { buildBackgroundTextVars } from '@/windows/main/utils/backgroundTextColo
 const todoStore = useTodoStore();
 const listStore = useTodoListStore();
 const { contentBg } = useTodoSettings();
-const contentTextStyle = computed(() => buildBackgroundTextVars(contentBg.value.backgroundStyle?.textColor, {
+const appConfigStore = useAppConfigStore();
+const activeContentBg = computed(() => resolveTodoAreaBackground(contentBg.value, appConfigStore.config.appearance.theme));
+const contentTextStyle = computed(() => buildBackgroundTextVars(activeContentBg.value.backgroundStyle?.textColor, {
   aliases: {
     primary: ['--ui-text-primary'],
     secondary: ['--ui-text-secondary'],
@@ -96,7 +99,7 @@ onBeforeUnmount(() => document.removeEventListener('mousedown', onSortClickOutsi
 
 <template>
   <main class="todo-content" :style="contentTextStyle" @contextmenu.prevent.stop="handleContextMenu">
-    <TodoBackground :config="contentBg" />
+    <TodoBackground :config="activeContentBg" />
     <div class="content-inner" style="position: relative; z-index: 1; display: flex; flex-direction: column; height: 100%;">
       <header class="content-header">
         <div class="header-info">

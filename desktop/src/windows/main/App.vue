@@ -130,11 +130,23 @@ onBeforeUnmount(() => {
       <Sidebar v-if="!isPopupMode" :parent-height="containerHeight" :parent-width="containerWidth" />
       <div class="page-router-viewport">
         <router-view v-slot="{ Component, route }">
-          <Transition :name="pageTransitionName">
-            <KeepAlive v-if="route.meta.keepAlive">
-              <component :is="Component" :key="route.path" v-show="!webviewStore.hasActiveInstance" />
+          <Transition :name="pageTransitionName" mode="out-in">
+            <KeepAlive>
+              <component
+                :is="Component"
+                v-if="route.meta.keepAlive"
+                :key="route.path"
+                v-show="!webviewStore.hasActiveInstance"
+              />
             </KeepAlive>
-            <component :is="Component" v-else :key="route.path" v-show="!webviewStore.hasActiveInstance" />
+          </Transition>
+          <Transition :name="pageTransitionName" mode="out-in">
+            <component
+              :is="Component"
+              v-if="!route.meta.keepAlive"
+              :key="route.path"
+              v-show="!webviewStore.hasActiveInstance"
+            />
           </Transition>
         </router-view>
       </div>
