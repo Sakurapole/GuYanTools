@@ -1,5 +1,7 @@
 <script setup lang="ts">
 import { computed } from 'vue';
+import { useRouter } from 'vue-router';
+import type { NotificationImageSource } from '@/contracts/notification';
 import { useInAppNotificationStore, type InAppNotificationItem } from '../stores/in_app_notification_store';
 
 const props = withDefaults(defineProps<{
@@ -9,16 +11,40 @@ const props = withDefaults(defineProps<{
 });
 
 const notificationStore = useInAppNotificationStore();
+const router = useRouter();
 
 const hostStyle = computed(() => ({
   '--in-app-notification-top': props.popup ? '32px' : '48px',
 }));
 
 function toneIcon(item: InAppNotificationItem) {
+  if (item.icon) return item.icon;
   if (item.tone === 'error') return '!';
   if (item.tone === 'warning') return '!';
   if (item.tone === 'success') return '✓';
   return 'i';
+}
+
+function resolveImageUrl(item: InAppNotificationItem) {
+  return item.imageUrl || resolveImageSource(item.imageSource);
+}
+
+function resolveImageSource(source?: NotificationImageSource) {
+  if (!source) return '';
+  if (source.type === 'url') return source.url;
+  if (source.type === 'dataUrl') return source.dataUrl;
+  if (source.type === 'base64') {
+    const base64 = source.base64.trim();
+    if (!base64) return '';
+    return base64.startsWith('data:') ? base64 : `data:${source.mimeType || 'image/png'};base64,${base64}`;
+  }
+  return '';
+}
+
+function activate(item: InAppNotificationItem) {
+  if (!item.clickRoute) return;
+  void router.push(item.clickRoute);
+  notificationStore.dismiss(item.id);
 }
 </script>
 
@@ -36,24 +62,36 @@ function toneIcon(item: InAppNotificationItem) {
         v-for="item in notificationStore.items"
         :key="item.id"
         class="in-app-notification"
-        :class="`in-app-notification--${item.tone}`"
+        :class="[
+          `in-app-notification--${item.tone}`,
+          `in-app-notification--${item.type}`,
+          `in-app-notification--${item.size}`,
+          { 'in-app-notification--clickable': item.clickRoute },
+        ]"
         role="status"
         @mouseenter="notificationStore.pause(item.id)"
         @mouseleave="notificationStore.resume(item.id)"
+        @click="activate(item)"
       >
-        <div class="in-app-notification__icon" aria-hidden="true">
+        <div v-if="item.type !== 'image'" class="in-app-notification__icon" aria-hidden="true">
           {{ toneIcon(item) }}
         </div>
         <div class="in-app-notification__body">
           <div class="in-app-notification__title">{{ item.title }}</div>
           <div class="in-app-notification__message">{{ item.message }}</div>
         </div>
+        <img
+          v-if="item.type !== 'text' && resolveImageUrl(item)"
+          class="in-app-notification__image"
+          :src="resolveImageUrl(item)"
+          alt=""
+        />
         <button
           class="in-app-notification__close"
           type="button"
           title="关闭"
           aria-label="关闭通知"
-          @click="notificationStore.dismiss(item.id)"
+          @click.stop="notificationStore.dismiss(item.id)"
         >
           <svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true" focusable="false">
             <path d="M4 4L12 12M12 4L4 12" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" />
@@ -97,6 +135,26 @@ function toneIcon(item: InAppNotificationItem) {
   pointer-events: auto;
 }
 
+.in-app-notification--richText {
+  grid-template-columns: 28px minmax(0, 1fr) 52px 28px;
+}
+
+.in-app-notification--image {
+  grid-template-columns: minmax(0, 1fr) 72px 28px;
+}
+
+.in-app-notification--sm {
+  min-height: 56px;
+}
+
+.in-app-notification--lg {
+  min-height: 86px;
+}
+
+.in-app-notification--clickable {
+  cursor: pointer;
+}
+
 .in-app-notification__icon {
   display: flex;
   align-items: center;
@@ -129,6 +187,25 @@ function toneIcon(item: InAppNotificationItem) {
   font-size: 0.82rem;
   line-height: 1.45;
   overflow-wrap: anywhere;
+}
+
+.in-app-notification__image {
+  width: 52px;
+  height: 52px;
+  align-self: center;
+  border: var(--ui-border-width-thin, 1px) solid var(--ui-border-subtle);
+  border-radius: var(--ui-radius-sm, 6px);
+  object-fit: cover;
+}
+
+.in-app-notification--image .in-app-notification__image {
+  width: 72px;
+  height: 56px;
+}
+
+.in-app-notification--lg .in-app-notification__image {
+  width: 82px;
+  height: 66px;
 }
 
 .in-app-notification__close {

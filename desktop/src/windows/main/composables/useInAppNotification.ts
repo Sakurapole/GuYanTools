@@ -1,5 +1,5 @@
 import type { App } from 'vue';
-import { useInAppNotificationStore, type InAppNotificationTone } from '../stores/in_app_notification_store';
+import { useInAppNotificationStore, type InAppNotificationInput, type InAppNotificationTone } from '../stores/in_app_notification_store';
 
 export function getErrorMessage(error: unknown, fallback = '未知错误') {
   if (error instanceof Error && error.message.trim()) {
@@ -19,15 +19,18 @@ export function notifyInApp(
   tone: InAppNotificationTone,
   title: string,
   message: string,
-  options?: { duration?: number; dedupeKey?: string },
+  options?: Omit<InAppNotificationInput, 'tone' | 'title' | 'message'>,
 ) {
   return useInAppNotificationStore().notify({
+    ...options,
     tone,
     title,
     message,
-    duration: options?.duration,
-    dedupeKey: options?.dedupeKey,
   });
+}
+
+export function notifyInAppPayload(input: InAppNotificationInput) {
+  return useInAppNotificationStore().notify(input);
 }
 
 export function notifyError(error: unknown, title = '操作失败', options?: { duration?: number; dedupeKey?: string }) {

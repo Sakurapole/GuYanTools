@@ -1,12 +1,19 @@
 import { acceptHMRUpdate, defineStore } from 'pinia';
 import { readonly, ref } from 'vue';
+import type { NotificationImageSource, NotificationSize, NotificationType } from '@/contracts/notification';
 
 export type InAppNotificationTone = 'info' | 'success' | 'warning' | 'error';
 
 export interface InAppNotificationInput {
   tone?: InAppNotificationTone;
+  type?: NotificationType;
+  size?: NotificationSize;
   title?: string;
   message: string;
+  imageUrl?: string;
+  imageSource?: NotificationImageSource;
+  icon?: string;
+  clickRoute?: string;
   duration?: number;
   dedupeKey?: string;
 }
@@ -14,26 +21,27 @@ export interface InAppNotificationInput {
 export interface InAppNotificationItem {
   id: string;
   tone: InAppNotificationTone;
+  type: NotificationType;
+  size: NotificationSize;
   title: string;
   message: string;
+  imageUrl: string;
+  imageSource?: NotificationImageSource;
+  icon: string;
+  clickRoute: string;
   duration: number;
   dedupeKey: string;
   createdAt: number;
 }
 
 const MAX_VISIBLE = 4;
+const DEFAULT_DURATION_MS = 3000;
 
 type TimerState = {
   timerId: number;
   startedAt: number;
   remainingMs: number;
 };
-
-function defaultDuration(tone: InAppNotificationTone) {
-  if (tone === 'error') return 7000;
-  if (tone === 'warning') return 6000;
-  return 4200;
-}
 
 function createId() {
   if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
@@ -87,9 +95,15 @@ export const useInAppNotificationStore = defineStore('in-app-notification', () =
     const item: InAppNotificationItem = {
       id: createId(),
       tone,
+      type: input.type ?? 'text',
+      size: input.size ?? 'md',
       title: input.title?.trim() || defaultTitle(tone),
       message,
-      duration: input.duration ?? defaultDuration(tone),
+      imageUrl: input.imageUrl?.trim() || '',
+      imageSource: input.imageSource,
+      icon: input.icon?.trim() || '',
+      clickRoute: input.clickRoute?.trim() || '',
+      duration: input.duration ?? DEFAULT_DURATION_MS,
       dedupeKey,
       createdAt: Date.now(),
     };
