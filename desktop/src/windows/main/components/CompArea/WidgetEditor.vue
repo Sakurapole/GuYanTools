@@ -4,6 +4,7 @@ import type { GridItem, WidgetConfig, WidgetEditPayload, BackgroundStyleConfig, 
 import type { InstalledPluginRecord, PluginPageDescriptor, PluginCommandContribution } from '@/contracts/plugin_host';
 import type { CompressQuality } from '@/contracts/media';
 import { useAppConfigStore } from '../../stores/app_config_store';
+import { resolveThemeBackground, withThemeBackground } from '@/contracts/background';
 import UiButton from '../ui/UiButton.vue';
 import UiDialog from '../ui/UiDialog.vue';
 import UiField from '../ui/UiField.vue';
@@ -90,6 +91,13 @@ const originalVideoFilePath = ref('');
 
 // ─── FFmpeg 处理选项 ───
 const appConfigStore = useAppConfigStore();
+const activeWidgetBackground = computed(() => resolveThemeBackground({
+  type: props.item.backgroundVideo ? 'video' : props.item.backgroundImage ? 'image' : 'color',
+  color: props.item.color,
+  image: props.item.backgroundImage,
+  video: props.item.backgroundVideo,
+  backgroundStyle: props.item.backgroundStyle,
+}, appConfigStore.config.appearance.theme));
 const imageProcessMode = ref<'canvas' | 'ffmpeg'>('canvas');
 const videoProcessMode = ref<'browser' | 'ffmpeg'>('browser');
 const compressQuality = ref<CompressQuality>('high');
@@ -141,6 +149,7 @@ watch(bgTab, (next, previous) => {
 const showIconPicker = ref(false);
 const widgetDefinition = computed(() => getHomeWidgetDefinition(props.item.widgetType));
 const isShortcutWidget = computed(() => props.item.widgetType === 'shortcut');
+const hasWidgetConfig = computed(() => !isShortcutWidget.value && props.item.widgetType !== 'webview_keepalive');
 const sizePresetOptions = computed(() => widgetDefinition.value.supportedSizes);
 
 const actionTypeOptions = [
@@ -461,6 +470,20 @@ function handleConfirm() {
     backgroundVideo = selectedVideo.value;
   }
 
+  const scopedBackground = withThemeBackground({
+    type: props.item.backgroundVideo ? 'video' : props.item.backgroundImage ? 'image' : 'color',
+    color: props.item.color,
+    image: props.item.backgroundImage,
+    video: props.item.backgroundVideo,
+    backgroundStyle: props.item.backgroundStyle,
+  }, appConfigStore.config.appearance.theme, {
+    type: bgTab.value,
+    color,
+    image: backgroundImage,
+    video: backgroundVideo,
+    backgroundStyle: finalBgStyle,
+  });
+
   const payload: WidgetEditPayload = {
     label: editLabel.value,
     icon: isShortcutWidget.value ? (editIcon.value || undefined) : props.item.icon,
@@ -469,10 +492,10 @@ function handleConfirm() {
     rowSpan: editRowSpan.value,
     sizePreset: editSizePreset.value === 'custom' ? undefined : editSizePreset.value,
     widgetConfig: normalizeWidgetConfig(props.item.widgetType, editWidgetConfig.value),
-    color,
-    backgroundImage: backgroundImage || undefined,
-    backgroundVideo: backgroundVideo || undefined,
-    backgroundStyle: finalBgStyle,
+    color: scopedBackground.color,
+    backgroundImage: scopedBackground.image || undefined,
+    backgroundVideo: scopedBackground.video || undefined,
+    backgroundStyle: scopedBackground.backgroundStyle,
   };
 
   emit('confirm', payload);
@@ -513,18 +536,19 @@ watch(() => props.visible, (visible) => {
     editWidgetConfig.value = normalizeWidgetConfig(props.item.widgetType, props.item.widgetConfig);
 
     // 背景
-    selectedColor.value = props.item.color || 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)';
-    selectedImage.value = props.item.backgroundImage || '';
-    selectedVideo.value = props.item.backgroundVideo || '';
-    bgSize.value = props.item.backgroundStyle?.backgroundSize || 'cover';
-    bgPosition.value = props.item.backgroundStyle?.backgroundPosition || 'center';
-    bgRepeat.value = props.item.backgroundStyle?.backgroundRepeat || 'no-repeat';
-    bgOpacity.value = props.item.backgroundStyle?.opacity ?? 1;
-    selectedTextColor.value = props.item.backgroundStyle?.textColor || '';
+    const background = activeWidgetBackground.value;
+    selectedColor.value = background.color || 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)';
+    selectedImage.value = background.image || '';
+    selectedVideo.value = background.video || '';
+    bgSize.value = background.backgroundStyle?.backgroundSize || 'cover';
+    bgPosition.value = background.backgroundStyle?.backgroundPosition || 'center';
+    bgRepeat.value = background.backgroundStyle?.backgroundRepeat || 'no-repeat';
+    bgOpacity.value = background.backgroundStyle?.opacity ?? 1;
+    selectedTextColor.value = background.backgroundStyle?.textColor || '';
 
-    if (props.item.backgroundVideo) {
+    if (background.video) {
       bgTab.value = 'video';
-    } else if (props.item.backgroundImage) {
+    } else if (background.image) {
       bgTab.value = 'image';
     } else {
       bgTab.value = 'color';
@@ -577,7 +601,7 @@ watch(() => props.visible, (visible) => {
           <div class="widget-editor__builtin-desc">{{ widgetDefinition.description }}</div>
         </div>
 
-        <HomeWidgetConfigFields v-if="!isShortcutWidget" v-model="editWidgetConfig" :widget-type="props.item.widgetType" />
+        <HomeWidgetConfigFields v-if="hasWidgetConfig" v-model="editWidgetConfig" :widget-type="props.item.widgetType" />
 
         <UiField v-if="isShortcutWidget" label="动作类型">
           <UiSelect v-model="editActionType" :options="actionTypeOptions" size="md" />

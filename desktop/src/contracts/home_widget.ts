@@ -19,6 +19,10 @@ export type HomeWidgetType =
   | 'todo'
   | 'ftp_profile_group'
   | 'ftp_profile'
+  | 'terminal_profile_group'
+  | 'terminal_profile'
+  | 'connection_layout'
+  | 'webview_keepalive'
   | 'plugin';
 export type WidgetSizePreset = '2x2' | '4x2' | '4x3' | 'custom';
 
@@ -60,6 +64,19 @@ export type FtpProfileWidgetConfig = {
   profileId: string;
 };
 
+export type TerminalProfileGroupWidgetConfig = {
+  folderId: string;
+};
+
+export type TerminalProfileWidgetConfig = {
+  profileKind: 'local' | 'ssh';
+  profileId: string;
+};
+
+export type ConnectionLayoutWidgetConfig = {
+  layoutId: string;
+};
+
 export type WidgetConfig =
   | PomodoroWidgetConfig
   | DateWidgetConfig
@@ -67,6 +84,9 @@ export type WidgetConfig =
   | TodoWidgetConfig
   | FtpProfileGroupWidgetConfig
   | FtpProfileWidgetConfig
+  | TerminalProfileGroupWidgetConfig
+  | TerminalProfileWidgetConfig
+  | ConnectionLayoutWidgetConfig
   | Record<string, unknown>;
 
 export type WidgetAction = {

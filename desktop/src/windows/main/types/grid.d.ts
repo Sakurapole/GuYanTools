@@ -10,12 +10,15 @@ import type {
 export type { BackgroundStyleConfig, BackgroundConfirmPayload } from '@/contracts/background';
 
 export type {
+  ConnectionLayoutWidgetConfig,
   DateWidgetConfig,
   FtpProfileGroupWidgetConfig,
   FtpProfileWidgetConfig,
   HomeWidgetSourceType,
   HomeWidgetType,
   PomodoroWidgetConfig,
+  TerminalProfileGroupWidgetConfig,
+  TerminalProfileWidgetConfig,
   TodoWidgetConfig,
   WeatherWidgetConfig,
   WebpageOpenMode,

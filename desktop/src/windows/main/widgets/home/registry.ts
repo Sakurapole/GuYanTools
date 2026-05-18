@@ -5,6 +5,9 @@ import type {
   HomeWidgetSourceType,
   HomeWidgetType,
   PomodoroWidgetConfig,
+  ConnectionLayoutWidgetConfig,
+  TerminalProfileGroupWidgetConfig,
+  TerminalProfileWidgetConfig,
   TodoWidgetConfig,
   WeatherWidgetConfig,
   WidgetConfig,
@@ -151,6 +154,78 @@ export const HOME_WIDGET_DEFINITIONS: HomeWidgetDefinition[] = [
     }),
   },
   {
+    sourceType: 'builtin',
+    widgetType: 'terminal_profile_group',
+    title: '终端分组',
+    description: '展示某个 SSH 分组下的终端配置，双击配置直接连接。',
+    defaultLabel: '终端分组',
+    defaultIcon: 'mdi:folder-key-network-outline',
+    defaultColor: 'linear-gradient(135deg, #111827 0%, #0891b2 100%)',
+    allowAction: false,
+    allowCustomIcon: false,
+    supportedSizes: [
+      { preset: '4x2', label: '4 × 2', description: '配置列表', colSpan: 4, rowSpan: 2 },
+      { preset: '4x3', label: '4 × 3', description: '更多配置', colSpan: 4, rowSpan: 3 },
+    ],
+    createDefaultConfig: (): TerminalProfileGroupWidgetConfig => ({
+      folderId: '',
+    }),
+  },
+  {
+    sourceType: 'builtin',
+    widgetType: 'terminal_profile',
+    title: '终端配置',
+    description: '固定一个本地终端或 SSH 配置，双击即可打开。',
+    defaultLabel: '终端配置',
+    defaultIcon: 'mdi:console',
+    defaultColor: 'linear-gradient(135deg, #0f172a 0%, #14b8a6 100%)',
+    allowAction: false,
+    allowCustomIcon: false,
+    supportedSizes: [
+      { preset: '2x2', label: '2 × 2', description: '快速打开', colSpan: 2, rowSpan: 2 },
+      { preset: '4x2', label: '4 × 2', description: '配置详情', colSpan: 4, rowSpan: 2 },
+    ],
+    createDefaultConfig: (): TerminalProfileWidgetConfig => ({
+      profileKind: 'local',
+      profileId: '',
+    }),
+  },
+  {
+    sourceType: 'builtin',
+    widgetType: 'connection_layout',
+    title: '连接布局',
+    description: '固定一个终端或传输布局配置，快速打开多连接工作区。',
+    defaultLabel: '连接布局',
+    defaultIcon: 'mdi:view-dashboard-outline',
+    defaultColor: 'linear-gradient(135deg, #0f172a 0%, #0d9488 55%, #f59e0b 100%)',
+    allowAction: false,
+    allowCustomIcon: false,
+    supportedSizes: [
+      { preset: '2x2', label: '2 × 2', description: '快捷打开', colSpan: 2, rowSpan: 2 },
+      { preset: '4x2', label: '4 × 2', description: '布局摘要', colSpan: 4, rowSpan: 2 },
+      { preset: '4x3', label: '4 × 3', description: '连接清单', colSpan: 4, rowSpan: 3 },
+    ],
+    createDefaultConfig: (): ConnectionLayoutWidgetConfig => ({
+      layoutId: '',
+    }),
+  },
+  {
+    sourceType: 'builtin',
+    widgetType: 'webview_keepalive',
+    title: '保活网页',
+    description: '管理正在后台保留状态的 WebView 页面。',
+    defaultLabel: '保活网页',
+    defaultIcon: 'mdi:web-sync',
+    defaultColor: 'linear-gradient(135deg, #0f766e 0%, #2563eb 100%)',
+    allowAction: false,
+    allowCustomIcon: false,
+    supportedSizes: [
+      { preset: '4x2', label: '4 × 2', description: '运行列表', colSpan: 4, rowSpan: 2 },
+      { preset: '4x3', label: '4 × 3', description: '更多网页', colSpan: 4, rowSpan: 3 },
+    ],
+    createDefaultConfig: () => undefined,
+  },
+  {
     sourceType: 'shortcut',
     widgetType: 'shortcut',
     title: '快捷卡片',
@@ -253,6 +328,28 @@ export function normalizeWidgetConfig(widgetType: HomeWidgetType, value: WidgetC
     return {
       profileId: typeof raw.profileId === 'string' ? raw.profileId : '',
     } satisfies FtpProfileWidgetConfig;
+  }
+
+  if (widgetType === 'terminal_profile_group') {
+    const raw = (value ?? {}) as Partial<TerminalProfileGroupWidgetConfig>;
+    return {
+      folderId: typeof raw.folderId === 'string' ? raw.folderId : '',
+    } satisfies TerminalProfileGroupWidgetConfig;
+  }
+
+  if (widgetType === 'terminal_profile') {
+    const raw = (value ?? {}) as Partial<TerminalProfileWidgetConfig>;
+    return {
+      profileKind: raw.profileKind === 'ssh' ? 'ssh' : 'local',
+      profileId: typeof raw.profileId === 'string' ? raw.profileId : '',
+    } satisfies TerminalProfileWidgetConfig;
+  }
+
+  if (widgetType === 'connection_layout') {
+    const raw = (value ?? {}) as Partial<ConnectionLayoutWidgetConfig>;
+    return {
+      layoutId: typeof raw.layoutId === 'string' ? raw.layoutId : '',
+    } satisfies ConnectionLayoutWidgetConfig;
   }
 
   return value;

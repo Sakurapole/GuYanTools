@@ -2,7 +2,8 @@
 import UiSelect from '@/windows/main/components/ui/UiSelect.vue';
 import type { TerminalLayoutMode, TerminalRendererMode, TerminalSessionDescriptor } from '@/contracts/terminal';
 import type { UiSelectOption } from '@/windows/main/components/ui/UiSelect.vue';
-import { computed, nextTick, onBeforeUnmount, onMounted, ref } from 'vue';
+import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue';
+import type { ConnectionLayoutConfig } from '@/windows/main/session_layouts';
 import { BUILTIN_SCHEMES } from './terminal-themes';
 
 const props = defineProps<{
@@ -19,6 +20,7 @@ const props = defineProps<{
   portForwardOpen?: boolean;
   /** Whether the toolbar title can be renamed inline */
   titleEditable?: boolean;
+  connectionLayouts?: ConnectionLayoutConfig[];
 }>();
 
 const emit = defineEmits<{
@@ -30,6 +32,9 @@ const emit = defineEmits<{
   portForward: [];
   openFileManager: [];
   resetLayoutSize: [];
+  saveConnectionLayout: [];
+  openConnectionLayout: [layoutId: string];
+  deleteConnectionLayout: [layoutId: string];
   rename: [sessionId: string, newLabel: string];
   'update:rendererMode': [value: TerminalRendererMode];
   'update:layoutMode': [value: TerminalLayoutMode];
@@ -49,6 +54,25 @@ const layoutOptions: UiSelectOption[] = [
   { label: '递减布局', value: 'dwindle' },
   { label: '网格布局', value: 'grid' },
 ];
+
+const selectedConnectionLayoutId = ref('');
+const connectionLayoutOptions = computed<UiSelectOption[]>(() => [
+  { label: '打开布局...', value: '' },
+  ...(props.connectionLayouts ?? []).map((layout) => ({
+    label: layout.name,
+    value: layout.id,
+  })),
+]);
+
+watch(
+  () => props.connectionLayouts,
+  (layouts) => {
+    if (!selectedConnectionLayoutId.value) return;
+    if (!(layouts ?? []).some((layout) => layout.id === selectedConnectionLayoutId.value)) {
+      selectedConnectionLayoutId.value = '';
+    }
+  },
+);
 
 const schemeOptions = computed<UiSelectOption[]>(() => {
   const darkSchemes = BUILTIN_SCHEMES.filter((s) => s.group === 'dark');
@@ -188,6 +212,14 @@ function handleAction(action: ActionItem) {
   emit(action.event as any);
 }
 
+function handleConnectionLayoutSelect(value: string | number) {
+  const layoutId = String(value || '');
+  selectedConnectionLayoutId.value = layoutId;
+  if (layoutId) {
+    emit('openConnectionLayout', layoutId);
+  }
+}
+
 // ── Inline rename state ───────────────────────────────────────
 const titleEditing = ref(false);
 const titleEditValue = ref('');
@@ -263,6 +295,36 @@ function handleTitleKeydown(e: KeyboardEvent) {
         size="sm"
         @update:modelValue="emit('update:layoutMode', $event as TerminalLayoutMode)"
       />
+      <UiSelect
+        :model-value="selectedConnectionLayoutId"
+        :options="connectionLayoutOptions"
+        size="sm"
+        @update:modelValue="handleConnectionLayoutSelect"
+      />
+      <button
+        class="toolbar-action-btn"
+        :disabled="!selectedConnectionLayoutId"
+        title="删除选中的连接布局"
+        @click="emit('deleteConnectionLayout', selectedConnectionLayoutId)"
+      >
+        <svg viewBox="0 0 24 24" width="14" height="14" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round">
+          <polyline points="3 6 5 6 21 6" />
+          <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6" />
+          <path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+        </svg>
+      </button>
+      <button
+        class="toolbar-action-btn"
+        :disabled="!activeSession"
+        title="保存当前连接布局"
+        @click="emit('saveConnectionLayout')"
+      >
+        <svg viewBox="0 0 24 24" width="14" height="14" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z" />
+          <path d="M17 21v-8H7v8" />
+          <path d="M7 3v5h8" />
+        </svg>
+      </button>
 
       <!-- Full mode keeps all commands as icon buttons; text is exposed through title/aria-label. -->
       <template v-if="actionMode === 'full'">

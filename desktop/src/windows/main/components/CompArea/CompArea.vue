@@ -14,7 +14,9 @@ import AddIcon from '../svgs/icons/AddIcon.vue';
 import EditIcon from '../svgs/icons/EditIcon.vue';
 import { router } from '../../routes/router';
 import { useBarStore } from '../../stores/bar_store';
+import { useAppConfigStore } from '../../stores/app_config_store';
 import { buildBackgroundTextVars } from '../../utils/backgroundTextColor';
+import { resolveThemeBackground } from '@/contracts/background';
 
 const props = defineProps<{
   category: CategoryItem;
@@ -40,6 +42,14 @@ const layoutReady = ref(false);
 const gridItems = computed(() => props.category.gridItems);
 const visibleGridItems = computed(() => gridItems.value.filter(item => !item.hidden));
 const isAreaPanning = ref(false);
+const appConfigStore = useAppConfigStore();
+const activeCategoryBackground = computed(() => resolveThemeBackground({
+  type: props.category.backgroundVideo ? 'video' : props.category.backgroundImage ? 'image' : 'color',
+  color: props.category.backgroundColor,
+  image: props.category.backgroundImage,
+  video: props.category.backgroundVideo,
+  backgroundStyle: props.category.backgroundStyle,
+}, appConfigStore.config.appearance.theme));
 
 type ItemStyle = Record<string, string | number>;
 
@@ -555,17 +565,17 @@ let categoryVideoResumeTimer: ReturnType<typeof setTimeout> | null = null;
 let categoryVideoWatchdogTimer: ReturnType<typeof setInterval> | null = null;
 
 function syncCategoryBackground() {
-  const cat = props.category;
-  catBgColor.value = cat.backgroundColor || '';
-  catBgImage.value = cat.backgroundImage || '';
-  catBgVideo.value = cat.backgroundVideo || '';
-  catBgSize.value = cat.backgroundStyle?.backgroundSize || 'cover';
-  catBgPosition.value = cat.backgroundStyle?.backgroundPosition || 'center';
-  catBgRepeat.value = cat.backgroundStyle?.backgroundRepeat || 'no-repeat';
-  catBgOpacity.value = cat.backgroundStyle?.opacity != null && Number.isFinite(cat.backgroundStyle.opacity)
-    ? cat.backgroundStyle.opacity
+  const background = activeCategoryBackground.value;
+  catBgColor.value = background.color || '';
+  catBgImage.value = background.image || '';
+  catBgVideo.value = background.video || '';
+  catBgSize.value = background.backgroundStyle?.backgroundSize || 'cover';
+  catBgPosition.value = background.backgroundStyle?.backgroundPosition || 'center';
+  catBgRepeat.value = background.backgroundStyle?.backgroundRepeat || 'no-repeat';
+  catBgOpacity.value = background.backgroundStyle?.opacity != null && Number.isFinite(background.backgroundStyle.opacity)
+    ? background.backgroundStyle.opacity
     : 1;
-  catBgTextColor.value = cat.backgroundStyle?.textColor || '';
+  catBgTextColor.value = background.backgroundStyle?.textColor || '';
 }
 
 syncCategoryBackground();
@@ -575,6 +585,7 @@ watch(() => props.category.backgroundColor, syncCategoryBackground);
 watch(() => props.category.backgroundImage, syncCategoryBackground);
 watch(() => props.category.backgroundVideo, syncCategoryBackground);
 watch(() => props.category.backgroundStyle, syncCategoryBackground, { deep: true });
+watch(() => appConfigStore.config.appearance.theme, syncCategoryBackground);
 
 const categoryBgStyle = computed(() => {
   const style: Record<string, string> = {};

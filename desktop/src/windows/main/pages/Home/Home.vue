@@ -15,10 +15,11 @@ import { notifyError } from '../../composables/useInAppNotification';
 import EditIcon from '../../components/svgs/icons/EditIcon.vue';
 import { useGridPersistence } from '../../composables/useGridPersistence';
 import { useContextMenu, type ContextMenuItem } from '../../composables/useContextMenu';
-import { useGlobalStore } from '../../stores/global_store';
 import { useHomeProfileStore } from '../../stores/home_profile_store';
+import { useAppConfigStore } from '../../stores/app_config_store';
 import type { CategoryItem, GridConfig, GridItem, BackgroundConfirmPayload } from '../../types/grid';
 import type { CreateHomeWidgetPayload } from '@/contracts/home_layout';
+import { resolveThemeBackground, withThemeBackground } from '@/contracts/background';
 import { buildBackgroundTextVars } from '../../utils/backgroundTextColor';
 import type * as THREE from 'three';
 
@@ -96,6 +97,16 @@ const slotACategory = computed<CategoryItem | null>(() => slotAIndex.value >= 0 
 const slotBCategory = computed<CategoryItem | null>(() => slotBIndex.value >= 0 ? categories[slotBIndex.value] ?? null : null);
 const activeSlotCategory = computed<CategoryItem | null>(() => activeSlot.value === 'A' ? slotACategory.value : slotBCategory.value);
 const activeCategory = computed<CategoryItem | null>(() => categories[activeCategoryIndex.value] ?? activeSlotCategory.value);
+const activeCategoryBackground = computed(() => {
+  const category = activeCategory.value;
+  return resolveThemeBackground({
+    type: category?.backgroundVideo ? 'video' : category?.backgroundImage ? 'image' : 'color',
+    color: category?.backgroundColor,
+    image: category?.backgroundImage,
+    video: category?.backgroundVideo,
+    backgroundStyle: category?.backgroundStyle,
+  }, appConfigStore.config.appearance.theme);
+});
 const activeCategoryDescription = computed(() => {
   if (!activeCategory.value) {
     return '从左侧选择分类，进入你的桌面工作台。';
@@ -133,8 +144,8 @@ const {
 
 const showCategoryBgPicker = ref(false);
 const contextMenu = useContextMenu();
-const globalStore = useGlobalStore();
 const homeProfileStore = useHomeProfileStore();
+const appConfigStore = useAppConfigStore();
 let profileReloadReady = false;
 
 function getMeasuredSize(target: HTMLElement | { $el?: Element } | null, fallback: { width: number; height: number }) {
@@ -189,27 +200,35 @@ const headerBg = reactive({
   style: undefined as import('../../types/grid').BackgroundStyleConfig | undefined,
 });
 const showHeaderBgPicker = ref(false);
+const activeHeaderBg = computed(() => resolveThemeBackground({
+  type: headerBg.video ? 'video' : headerBg.image ? 'image' : 'color',
+  color: headerBg.color,
+  image: headerBg.image,
+  video: headerBg.video,
+  backgroundStyle: headerBg.style,
+}, appConfigStore.config.appearance.theme));
 
 const headerBgStyle = computed(() => {
+  const background = activeHeaderBg.value;
   const s: Record<string, string> = {};
-  if (headerBg.image) {
-    s.backgroundImage = `url(${headerBg.image})`;
-    s.backgroundSize = headerBg.style?.backgroundSize || 'cover';
-    s.backgroundPosition = headerBg.style?.backgroundPosition || 'center';
-    s.backgroundRepeat = headerBg.style?.backgroundRepeat || 'no-repeat';
-  } else if (headerBg.color) {
-    s.background = headerBg.color;
+  if (background.image) {
+    s.backgroundImage = `url(${background.image})`;
+    s.backgroundSize = background.backgroundStyle?.backgroundSize || 'cover';
+    s.backgroundPosition = background.backgroundStyle?.backgroundPosition || 'center';
+    s.backgroundRepeat = background.backgroundStyle?.backgroundRepeat || 'no-repeat';
+  } else if (background.color) {
+    s.background = background.color;
   }
-  if (headerBg.style?.opacity !== undefined && headerBg.style.opacity < 1) {
-    s.opacity = String(headerBg.style.opacity);
+  if (background.backgroundStyle?.opacity !== undefined && background.backgroundStyle.opacity < 1) {
+    s.opacity = String(background.backgroundStyle.opacity);
   }
-  Object.assign(s, buildPanelTextStyle(headerBg.style?.textColor));
+  Object.assign(s, buildPanelTextStyle(background.backgroundStyle?.textColor));
   return s;
 });
 
 const headerBgVideoStyle = computed(() => ({
-  objectFit: toObjectFit(headerBg.style?.backgroundSize),
-  objectPosition: headerBg.style?.backgroundPosition || 'center',
+  objectFit: toObjectFit(activeHeaderBg.value.backgroundStyle?.backgroundSize),
+  objectPosition: activeHeaderBg.value.backgroundStyle?.backgroundPosition || 'center',
 }));
 
 function handleHeaderContextMenu(e: MouseEvent) {
@@ -226,20 +245,24 @@ function handleHeaderContextMenu(e: MouseEvent) {
 }
 
 function handleHeaderBgConfirm(payload: BackgroundConfirmPayload) {
-  if (payload.type === 'color') {
-    headerBg.color = payload.color || '';
-    headerBg.image = '';
-    headerBg.video = '';
-    headerBg.style = payload.backgroundStyle;
-  } else if (payload.type === 'image') {
-    headerBg.image = payload.image || '';
-    headerBg.video = '';
-    headerBg.style = payload.backgroundStyle;
-  } else if (payload.type === 'video') {
-    headerBg.video = payload.video || '';
-    headerBg.image = '';
-    headerBg.style = payload.backgroundStyle;
-  }
+  const background = withThemeBackground({
+    type: headerBg.video ? 'video' : headerBg.image ? 'image' : 'color',
+    color: headerBg.color,
+    image: headerBg.image,
+    video: headerBg.video,
+    backgroundStyle: headerBg.style,
+  }, appConfigStore.config.appearance.theme, {
+    type: payload.type,
+    color: payload.color ?? '',
+    image: payload.image ?? '',
+    video: payload.video ?? '',
+    backgroundStyle: payload.backgroundStyle ?? {},
+  });
+
+  headerBg.color = background.color;
+  headerBg.image = background.image;
+  headerBg.video = background.video;
+  headerBg.style = background.backgroundStyle;
 
   try {
     window.homeWorkspaceApi?.updateBackground({
@@ -247,7 +270,7 @@ function handleHeaderBgConfirm(payload: BackgroundConfirmPayload) {
         color: headerBg.color,
         image: headerBg.image,
         video: headerBg.video,
-        style: headerBg.style as Record<string, unknown> | undefined,
+        style: background.backgroundStyle as Record<string, unknown>,
       },
     }).catch(() => {
       // fallback: 写 localStorage
@@ -265,27 +288,35 @@ const sidebarBg = reactive({
   style: undefined as import('../../types/grid').BackgroundStyleConfig | undefined,
 });
 const showSidebarBgPicker = ref(false);
+const activeSidebarBg = computed(() => resolveThemeBackground({
+  type: sidebarBg.video ? 'video' : sidebarBg.image ? 'image' : 'color',
+  color: sidebarBg.color,
+  image: sidebarBg.image,
+  video: sidebarBg.video,
+  backgroundStyle: sidebarBg.style,
+}, appConfigStore.config.appearance.theme));
 
 const sidebarBgStyle = computed(() => {
+  const background = activeSidebarBg.value;
   const s: Record<string, string> = {};
-  if (sidebarBg.image) {
-    s.backgroundImage = `url(${sidebarBg.image})`;
-    s.backgroundSize = sidebarBg.style?.backgroundSize || 'cover';
-    s.backgroundPosition = sidebarBg.style?.backgroundPosition || 'center';
-    s.backgroundRepeat = sidebarBg.style?.backgroundRepeat || 'no-repeat';
-  } else if (sidebarBg.color) {
-    s.background = sidebarBg.color;
+  if (background.image) {
+    s.backgroundImage = `url(${background.image})`;
+    s.backgroundSize = background.backgroundStyle?.backgroundSize || 'cover';
+    s.backgroundPosition = background.backgroundStyle?.backgroundPosition || 'center';
+    s.backgroundRepeat = background.backgroundStyle?.backgroundRepeat || 'no-repeat';
+  } else if (background.color) {
+    s.background = background.color;
   }
-  if (sidebarBg.style?.opacity !== undefined && sidebarBg.style.opacity < 1) {
-    s.opacity = String(sidebarBg.style.opacity);
+  if (background.backgroundStyle?.opacity !== undefined && background.backgroundStyle.opacity < 1) {
+    s.opacity = String(background.backgroundStyle.opacity);
   }
-  Object.assign(s, buildPanelTextStyle(sidebarBg.style?.textColor));
+  Object.assign(s, buildPanelTextStyle(background.backgroundStyle?.textColor));
   return s;
 });
 
 const sidebarBgVideoStyle = computed(() => ({
-  objectFit: toObjectFit(sidebarBg.style?.backgroundSize),
-  objectPosition: sidebarBg.style?.backgroundPosition || 'center',
+  objectFit: toObjectFit(activeSidebarBg.value.backgroundStyle?.backgroundSize),
+  objectPosition: activeSidebarBg.value.backgroundStyle?.backgroundPosition || 'center',
 }));
 
 function handleSidebarContextMenu(e: MouseEvent) {
@@ -308,20 +339,24 @@ function handleSidebarContextMenu(e: MouseEvent) {
 }
 
 function handleSidebarBgConfirm(payload: BackgroundConfirmPayload) {
-  if (payload.type === 'color') {
-    sidebarBg.color = payload.color || '';
-    sidebarBg.image = '';
-    sidebarBg.video = '';
-    sidebarBg.style = payload.backgroundStyle;
-  } else if (payload.type === 'image') {
-    sidebarBg.image = payload.image || '';
-    sidebarBg.video = '';
-    sidebarBg.style = payload.backgroundStyle;
-  } else if (payload.type === 'video') {
-    sidebarBg.video = payload.video || '';
-    sidebarBg.image = '';
-    sidebarBg.style = payload.backgroundStyle;
-  }
+  const background = withThemeBackground({
+    type: sidebarBg.video ? 'video' : sidebarBg.image ? 'image' : 'color',
+    color: sidebarBg.color,
+    image: sidebarBg.image,
+    video: sidebarBg.video,
+    backgroundStyle: sidebarBg.style,
+  }, appConfigStore.config.appearance.theme, {
+    type: payload.type,
+    color: payload.color ?? '',
+    image: payload.image ?? '',
+    video: payload.video ?? '',
+    backgroundStyle: payload.backgroundStyle ?? {},
+  });
+
+  sidebarBg.color = background.color;
+  sidebarBg.image = background.image;
+  sidebarBg.video = background.video;
+  sidebarBg.style = background.backgroundStyle;
 
   try {
     window.homeWorkspaceApi?.updateBackground({
@@ -329,7 +364,7 @@ function handleSidebarBgConfirm(payload: BackgroundConfirmPayload) {
         color: sidebarBg.color,
         image: sidebarBg.image,
         video: sidebarBg.video,
-        style: sidebarBg.style as Record<string, unknown> | undefined,
+        style: background.backgroundStyle as Record<string, unknown>,
       },
     }).catch(() => {
       localStorage.setItem(SIDEBAR_BG_STORAGE_KEY, JSON.stringify({ color: sidebarBg.color, image: sidebarBg.image, video: sidebarBg.video, style: sidebarBg.style }));
@@ -687,22 +722,24 @@ function handleCategoryBgConfirm(payload: BackgroundConfirmPayload) {
   const cat = activeCategory.value;
   if (!cat) return;
 
-  if (payload.type === 'color') {
-    cat.backgroundColor = payload.color || '';
-    cat.backgroundImage = '';
-    cat.backgroundVideo = '';
-    cat.backgroundStyle = payload.backgroundStyle;
-  } else if (payload.type === 'image') {
-    cat.backgroundColor = '';
-    cat.backgroundImage = payload.image || '';
-    cat.backgroundVideo = '';
-    cat.backgroundStyle = payload.backgroundStyle;
-  } else if (payload.type === 'video') {
-    cat.backgroundColor = '';
-    cat.backgroundVideo = payload.video || '';
-    cat.backgroundImage = '';
-    cat.backgroundStyle = payload.backgroundStyle;
-  }
+  const background = withThemeBackground({
+    type: cat.backgroundVideo ? 'video' : cat.backgroundImage ? 'image' : 'color',
+    color: cat.backgroundColor,
+    image: cat.backgroundImage,
+    video: cat.backgroundVideo,
+    backgroundStyle: cat.backgroundStyle,
+  }, appConfigStore.config.appearance.theme, {
+    type: payload.type,
+    color: payload.color ?? '',
+    image: payload.image ?? '',
+    video: payload.video ?? '',
+    backgroundStyle: payload.backgroundStyle ?? {},
+  });
+
+  cat.backgroundColor = background.color;
+  cat.backgroundImage = background.image;
+  cat.backgroundVideo = background.video;
+  cat.backgroundStyle = background.backgroundStyle;
 
   void enqueueMutation(async () => {
     await updateCategoryBackground(cat.id, {
@@ -808,8 +845,6 @@ onActivated(() => {
   attachEventListeners();
   // 恢复所有背景视频播放
   void nextTick(() => resumeAllVideos());
-  // 恢复顶栏沉浸色
-  globalStore.setTopbarColor(activeCategory.value?.backgroundColor || '');
   // 恢复滑块位置
   void nextTick(updateSliderPosition);
 });
@@ -818,8 +853,6 @@ onDeactivated(() => {
   detachEventListeners();
   // 暂停所有背景视频以节省资源
   pauseAllVideos();
-  // 离开时清除沉浸色
-  globalStore.setTopbarColor('');
 });
 
 // ─── 最终销毁时兜底清理 ───
@@ -840,11 +873,6 @@ watch(activeCategoryIndex, async () => {
   updateSliderPosition();
 });
 
-// ─── 监听活跃分类背景色变化，同步到顶栏沉浸色 ───
-watch(() => activeCategory.value?.backgroundColor, (bgColor) => {
-  globalStore.setTopbarColor(bgColor || '');
-});
-
 watch(() => homeProfileStore.activeProfileKey, (key, previousKey) => {
   if (!profileReloadReady || key === previousKey) {
     return;
@@ -859,7 +887,7 @@ watch(() => homeProfileStore.activeProfileKey, (key, previousKey) => {
     <div class="home-container">
       <aside class="category-sidebar" @contextmenu="handleSidebarContextMenu">
         <UiCard ref="sidebarPanelRef" class="sidebar-panel" variant="elevated" :bordered="false" padding="none" radius="lg" :style="sidebarBgStyle">
-          <video v-if="sidebarBg.video" class="sidebar-panel__video" :src="sidebarBg.video" :style="sidebarBgVideoStyle"
+          <video v-if="activeSidebarBg.video" class="sidebar-panel__video" :src="activeSidebarBg.video" :style="sidebarBgVideoStyle"
             autoplay loop muted playsinline />
           <div class="sidebar-heading">
             <span class="sidebar-heading__title">分类导航</span>
@@ -904,7 +932,7 @@ watch(() => homeProfileStore.activeProfileKey, (key, previousKey) => {
 
       <section class="home-stage">
         <header ref="homeHeaderRef" class="home-stage__header" :style="headerBgStyle" @contextmenu="handleHeaderContextMenu">
-          <video v-if="headerBg.video" class="home-stage__header-video" :src="headerBg.video" :style="headerBgVideoStyle"
+          <video v-if="activeHeaderBg.video" class="home-stage__header-video" :src="activeHeaderBg.video" :style="headerBgVideoStyle"
             autoplay loop muted playsinline />
           <!-- 3D ambient decoration behind header content -->
           <Ui3DSceneComponent
@@ -1019,24 +1047,24 @@ watch(() => homeProfileStore.activeProfileKey, (key, previousKey) => {
     </UiDialog>
 
     <!-- 类别区域个性化配置 -->
-    <UiPersonalizationConfig :visible="showCategoryBgPicker" :currentBackground="activeCategory?.backgroundColor"
-      :currentBackgroundImage="activeCategory?.backgroundImage"
-      :currentBackgroundVideo="activeCategory?.backgroundVideo"
-      :currentBackgroundStyle="activeCategory?.backgroundStyle"
+    <UiPersonalizationConfig :visible="showCategoryBgPicker" :currentBackground="activeCategoryBackground.color"
+      :currentBackgroundImage="activeCategoryBackground.image"
+      :currentBackgroundVideo="activeCategoryBackground.video"
+      :currentBackgroundStyle="activeCategoryBackground.backgroundStyle"
       :preview-width="categoryBgPreviewSize.width" :preview-height="categoryBgPreviewSize.height"
       @close="closeCategoryBgPicker" @confirm="handleCategoryBgConfirm" />
 
     <!-- 顶栏个性化配置 -->
-    <UiPersonalizationConfig :visible="showHeaderBgPicker" :currentBackground="headerBg.color"
-      :currentBackgroundImage="headerBg.image" :currentBackgroundVideo="headerBg.video"
-      :currentBackgroundStyle="headerBg.style"
+    <UiPersonalizationConfig :visible="showHeaderBgPicker" :currentBackground="activeHeaderBg.color"
+      :currentBackgroundImage="activeHeaderBg.image" :currentBackgroundVideo="activeHeaderBg.video"
+      :currentBackgroundStyle="activeHeaderBg.backgroundStyle"
       :preview-width="headerBgPreviewSize.width" :preview-height="headerBgPreviewSize.height"
       @close="showHeaderBgPicker = false" @confirm="handleHeaderBgConfirm" />
 
     <!-- 侧边栏个性化配置 -->
-    <UiPersonalizationConfig :visible="showSidebarBgPicker" :currentBackground="sidebarBg.color"
-      :currentBackgroundImage="sidebarBg.image" :currentBackgroundVideo="sidebarBg.video"
-      :currentBackgroundStyle="sidebarBg.style"
+    <UiPersonalizationConfig :visible="showSidebarBgPicker" :currentBackground="activeSidebarBg.color"
+      :currentBackgroundImage="activeSidebarBg.image" :currentBackgroundVideo="activeSidebarBg.video"
+      :currentBackgroundStyle="activeSidebarBg.backgroundStyle"
       :preview-width="sidebarBgPreviewSize.width" :preview-height="sidebarBgPreviewSize.height"
       @close="showSidebarBgPicker = false" @confirm="handleSidebarBgConfirm" />
   </div>

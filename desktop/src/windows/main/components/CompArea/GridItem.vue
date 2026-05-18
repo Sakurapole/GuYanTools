@@ -10,6 +10,8 @@ import EditIcon from '../svgs/icons/EditIcon.vue';
 import DeleteIcon from '../svgs/icons/DeleteIcon.vue';
 import { getHomeWidgetDefinition } from '../../widgets/home/registry';
 import { buildBackgroundTextVars } from '../../utils/backgroundTextColor';
+import { useAppConfigStore } from '../../stores/app_config_store';
+import { resolveThemeBackground } from '@/contracts/background';
 
 const props = defineProps<{
   item: GridItem;
@@ -30,6 +32,7 @@ const emit = defineEmits<{
 
 const showWidgetEditor = ref(false);
 const contextMenu = useContextMenu();
+const appConfigStore = useAppConfigStore();
 
 function parseStyleSize(value: string | number | undefined, fallback: number) {
   if (typeof value === 'number' && Number.isFinite(value)) {
@@ -53,11 +56,12 @@ const itemClass = computed(() => ({
   'grid-item--builtin': props.item.sourceType === 'builtin' && props.item.widgetType !== 'shortcut',
   'grid-item--featured': props.item.colSpan >= 2 || props.item.rowSpan >= 2,
   'grid-item--hero': props.item.colSpan >= 4 || props.item.rowSpan >= 3,
-  'grid-item--with-image': Boolean(props.item.backgroundImage) || Boolean(props.item.backgroundVideo),
+  'grid-item--with-image': Boolean(activeItemBackground.value.image) || Boolean(activeItemBackground.value.video),
 }));
 
 const itemWidth = computed(() => parseStyleSize(props.style.width, 72));
 const itemHeight = computed(() => parseStyleSize(props.style.height, 72));
+const usesInternalScroll = computed(() => props.item.widgetType === 'webview_keepalive');
 const hasOpenAction = computed(() => {
   const definition = getHomeWidgetDefinition(props.item.widgetType);
   const action = props.item.action;
@@ -85,17 +89,24 @@ const hasOpenAction = computed(() => {
   return false;
 });
 
-const backgroundSize = computed(() => props.item.backgroundStyle?.backgroundSize || 'cover');
-const backgroundPosition = computed(() => props.item.backgroundStyle?.backgroundPosition || 'center');
-const backgroundRepeat = computed(() => props.item.backgroundStyle?.backgroundRepeat || 'no-repeat');
+const activeItemBackground = computed(() => resolveThemeBackground({
+  type: props.item.backgroundVideo ? 'video' : props.item.backgroundImage ? 'image' : 'color',
+  color: props.item.color,
+  image: props.item.backgroundImage,
+  video: props.item.backgroundVideo,
+  backgroundStyle: props.item.backgroundStyle,
+}, appConfigStore.config.appearance.theme));
+const backgroundSize = computed(() => activeItemBackground.value.backgroundStyle?.backgroundSize || 'cover');
+const backgroundPosition = computed(() => activeItemBackground.value.backgroundStyle?.backgroundPosition || 'center');
+const backgroundRepeat = computed(() => activeItemBackground.value.backgroundStyle?.backgroundRepeat || 'no-repeat');
 const backgroundOpacity = computed(() => {
-  const val = props.item.backgroundStyle?.opacity;
+  const val = activeItemBackground.value.backgroundStyle?.opacity;
   return val != null && Number.isFinite(val) ? val : 1;
 });
 
 const itemStyle = computed(() => ({
   ...props.style,
-  ...buildBackgroundTextVars(props.item.backgroundStyle?.textColor, {
+  ...buildBackgroundTextVars(activeItemBackground.value.backgroundStyle?.textColor, {
     aliases: {
       primary: ['--widget-text-primary', '--ui-text-primary'],
       secondary: ['--widget-text-secondary', '--ui-text-secondary'],
@@ -119,18 +130,18 @@ function toObjectFit(backgroundSizeValue: string): 'contain' | 'cover' | 'fill' 
 }
 
 const useImgTag = computed(() => {
-  return Boolean(props.item.backgroundImage)
-    && !props.item.backgroundVideo
+  return Boolean(activeItemBackground.value.image)
+    && !activeItemBackground.value.video
     && backgroundRepeat.value === 'no-repeat';
 });
 
 const backgroundLayerStyle = computed(() => {
   const style: Record<string, string> = {
-    background: props.item.color || 'transparent',
+    background: activeItemBackground.value.color || 'transparent',
   };
 
-  if (props.item.backgroundImage && !useImgTag.value) {
-    style.backgroundImage = `url(${props.item.backgroundImage})`;
+  if (activeItemBackground.value.image && !useImgTag.value) {
+    style.backgroundImage = `url(${activeItemBackground.value.image})`;
     style.backgroundSize = backgroundSize.value;
     style.backgroundPosition = backgroundPosition.value;
     style.backgroundRepeat = backgroundRepeat.value;
@@ -149,9 +160,9 @@ const backgroundImageStyle = computed(() => ({
 }));
 
 const backgroundMemoKey = computed(() => [
-  props.item.color || '',
-  props.item.backgroundImage || '',
-  props.item.backgroundVideo || '',
+  activeItemBackground.value.color || '',
+  activeItemBackground.value.image || '',
+  activeItemBackground.value.video || '',
   backgroundSize.value,
   backgroundPosition.value,
   backgroundRepeat.value,
@@ -209,14 +220,14 @@ function handleWidgetEditorConfirm(payload: WidgetEditPayload) {
     @pointercancel="emit('pointercancel', $event)" @pointerleave="emit('pointerleave', $event)"
     @contextmenu="handleContextMenu" @dblclick="emit('open', props.item)">
     <div class="grid-item__background" v-memo="[backgroundMemoKey]" :style="backgroundLayerStyle">
-      <img v-if="useImgTag" class="grid-item__background-image" :src="props.item.backgroundImage" alt=""
+      <img v-if="useImgTag" class="grid-item__background-image" :src="activeItemBackground.image" alt=""
         :style="backgroundImageStyle" decoding="async" draggable="false" />
-      <video v-if="props.item.backgroundVideo" class="grid-item__background-video" :src="props.item.backgroundVideo" autoplay loop
+      <video v-if="activeItemBackground.video" class="grid-item__background-video" :src="activeItemBackground.video" autoplay loop
         muted playsinline :style="backgroundImageStyle" />
     </div>
 
     <div class="grid-item__content">
-      <UiScrollbar v-if="props.item.sourceType === 'builtin' && props.item.widgetType !== 'shortcut'"
+      <UiScrollbar v-if="props.item.sourceType === 'builtin' && props.item.widgetType !== 'shortcut' && !usesInternalScroll"
         class="grid-item__scrollbar" :x="true" :y="true" :show-on-hover="true" :size="5"
         thumb-color="rgba(255, 255, 255, 0.36)" thumb-hover-color="rgba(255, 255, 255, 0.62)"
         track-color="rgba(255, 255, 255, 0.12)">

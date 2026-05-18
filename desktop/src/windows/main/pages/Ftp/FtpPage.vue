@@ -19,7 +19,16 @@ import UiSelect from '@/windows/main/components/ui/UiSelect.vue';
 import UiTimePicker from '@/windows/main/components/ui/UiTimePicker.vue';
 import { useConfirmDialog } from '@/windows/main/composables/useConfirmDialog';
 import { useContextMenu } from '@/windows/main/composables/useContextMenu';
-import { notifyError } from '@/windows/main/composables/useInAppNotification';
+import { notifyError, notifySuccess } from '@/windows/main/composables/useInAppNotification';
+import {
+  CONNECTION_LAYOUTS_CHANGED_EVENT,
+  deleteConnectionLayoutConfig,
+  getConnectionLayoutConfig,
+  listConnectionLayoutConfigs,
+  saveConnectionLayoutConfig,
+  type ConnectionLayoutConfig,
+  type ConnectionLayoutTarget,
+} from '@/windows/main/session_layouts';
 import FtpBrowserPanel from '@/windows/main/pages/Ftp/components/FtpBrowserPanel.vue';
 import FtpCodeEditor from '@/windows/main/pages/Ftp/components/FtpCodeEditor.vue';
 import FtpConfigSidebar from '@/windows/main/pages/Ftp/components/FtpConfigSidebar.vue';
@@ -259,6 +268,9 @@ const ftpPaneDragPreview = ref({
   title: '',
   kind: '' as PanelKind | '',
 });
+const connectionLayoutConfigs = ref<ConnectionLayoutConfig[]>([]);
+const saveLayoutDialogVisible = ref(false);
+const saveLayoutName = ref('');
 
 let stopAuxiliaryDockResize: (() => void) | null = null;
 
@@ -398,6 +410,8 @@ const {
   changeRemotePermissions,
 });
 const processingPendingOpenRequest = ref(false);
+const handledFtpConnectionLayoutRequestIds = new Set<string>();
+const selectedConnectionLayoutId = ref('');
 
 function findSftpProfileForPendingOpenRequest(request: PendingSshOpenRequest) {
   const requestHost = request.host.toLowerCase();
@@ -526,6 +540,20 @@ async function processPendingOpenRequest() {
       busyMessage.value = '';
     }
   }
+}
+
+async function processFtpConnectionLayoutOpenRequest() {
+  if (route.name !== 'FileTransfer') return;
+  const requestId = typeof route.query.openConnectionLayoutRequestId === 'string'
+    ? route.query.openConnectionLayoutRequestId
+    : '';
+  const layoutId = typeof route.query.openConnectionLayoutId === 'string'
+    ? route.query.openConnectionLayoutId
+    : '';
+  if (!requestId || !layoutId || handledFtpConnectionLayoutRequestIds.has(requestId)) return;
+
+  handledFtpConnectionLayoutRequestIds.add(requestId);
+  await openFtpConnectionLayout(layoutId);
 }
 
 const sortedTransferTasks = computed(() =>
@@ -2220,6 +2248,209 @@ function setFtpWorkspaceLayoutMode(mode: TerminalLayoutMode) {
   panelLayoutMode.value = mode;
 }
 
+function loadConnectionLayoutConfigs() {
+  connectionLayoutConfigs.value = listConnectionLayoutConfigs('ftp');
+  if (
+    selectedConnectionLayoutId.value
+    && !connectionLayoutConfigs.value.some((layout) => layout.id === selectedConnectionLayoutId.value)
+  ) {
+    selectedConnectionLayoutId.value = '';
+  }
+}
+
+const connectionLayoutOptions = computed(() => [
+  { label: '打开布局...', value: '' },
+  ...connectionLayoutConfigs.value.map((layout) => ({
+    label: layout.name,
+    value: layout.id,
+  })),
+]);
+
+function snapshotFtpTarget(pane: FtpWorkspacePane): ConnectionLayoutTarget | null {
+  if (pane.kind === 'local') {
+    return {
+      surface: 'ftp',
+      kind: 'local',
+      path: pane.path,
+      label: pane.title,
+    };
+  }
+
+  if (!pane.profileId || pane.connectionState === 'connecting') {
+    return null;
+  }
+
+  return {
+    surface: 'ftp',
+    kind: 'remote',
+    profileId: pane.profileId,
+    remotePath: pane.path,
+    label: pane.title,
+  };
+}
+
+function defaultFtpLayoutName() {
+  return `传输布局 ${new Date().toLocaleString('zh-CN', { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' })}`;
+}
+
+function openSaveFtpLayoutDialog() {
+  if (!orderedFtpWorkspacePanes.value.length) {
+    notifyError(new Error('当前没有可保存的传输连接。'), '保存连接布局失败');
+    return;
+  }
+  saveLayoutName.value = defaultFtpLayoutName();
+  saveLayoutDialogVisible.value = true;
+}
+
+function saveCurrentFtpConnectionLayout() {
+  const targets = orderedFtpWorkspacePanes.value
+    .map(snapshotFtpTarget)
+    .filter((target): target is ConnectionLayoutTarget => Boolean(target));
+  if (!targets.length) {
+    notifyError(new Error('当前没有可保存的传输连接。'), '保存连接布局失败');
+    return;
+  }
+
+  const name = saveLayoutName.value.trim() || defaultFtpLayoutName();
+
+  const saved = saveConnectionLayoutConfig({
+    name,
+    surface: 'ftp',
+    targets,
+    viewState: {
+      layoutMode: panelLayoutMode.value,
+      order: orderedFtpWorkspacePanes.value.map((pane) => pane.key),
+      layoutSizeState: ftpLayoutSizeState.value,
+      masterMainRatio: ftpMasterMainRatio.value,
+      dwindleSplitRatios: ftpDwindleSplitRatios.value,
+      sidebarDockSide: sidebarDockSide.value,
+      auxiliaryDockSide: auxiliaryDockSide.value,
+      auxiliaryDockSize: auxiliaryDockSize.value,
+      auxiliaryDockCollapsed: auxiliaryDockCollapsed.value,
+      showSidebar: showSidebarPanel.value,
+    },
+  });
+  loadConnectionLayoutConfigs();
+  saveLayoutDialogVisible.value = false;
+  notifySuccess(`${saved.name} 已保存，可在首页小组件或传输页快速打开。`, '连接布局已保存');
+}
+
+function deleteFtpConnectionLayout(layoutId: string) {
+  if (!layoutId) return;
+  const layout = getConnectionLayoutConfig(layoutId);
+  deleteConnectionLayoutConfig(layoutId);
+  selectedConnectionLayoutId.value = '';
+  loadConnectionLayoutConfigs();
+  notifySuccess(`${layout?.name ?? '连接布局'} 已删除。`, '连接布局已删除');
+}
+
+async function replaceExistingFtpConnections() {
+  const sessionIds = ftpStore.sessions.map((session) => session.sessionId);
+  await Promise.all(sessionIds.map((sessionId) => ftpStore.disconnect(sessionId)));
+  ftpWorkspacePanes.value = [];
+  activeBrowserPanel.value = '';
+  ftpLayoutSizeState.value = {};
+  ftpDwindleSplitRatios.value = [];
+  ftpMasterMainRatio.value = 66;
+  ftpWorkspaceRemoteRestoreReady.value = true;
+}
+
+async function openLocalTargetFromConnectionLayout(target: Extract<ConnectionLayoutTarget, { surface: 'ftp'; kind: 'local' }>) {
+  const pane = createLocalWorkspacePane(target.path);
+  ftpWorkspacePanes.value = [...ftpWorkspacePanes.value, pane];
+  await refreshFtpWorkspacePaneDirectory(pane.key, target.path);
+  return pane.key;
+}
+
+async function openRemoteTargetFromConnectionLayout(target: Extract<ConnectionLayoutTarget, { surface: 'ftp'; kind: 'remote' }>) {
+  let profile = ftpStore.profiles.find((item) => item.id === target.profileId) ?? null;
+  if (!profile) {
+    await ftpStore.refreshProfiles();
+    profile = ftpStore.profiles.find((item) => item.id === target.profileId) ?? null;
+  }
+  if (!profile) return '';
+
+  const targetPath = target.remotePath || profile.defaultRemotePath || '/';
+  let session = ftpStore.sessions.find((item) => item.profileId === profile.id) ?? null;
+  if (!session) {
+    await connectProfile(profile);
+    session = ftpStore.sessions.find((item) => item.profileId === profile.id) ?? null;
+  }
+  if (!session) return '';
+
+  focusRemoteWorkspacePane(session.sessionId);
+  const paneKey = makeRemotePaneKey(session.sessionId);
+  await refreshFtpWorkspacePaneDirectory(paneKey, targetPath || session.remoteRoot);
+  return paneKey;
+}
+
+async function openFtpConnectionLayout(layoutId: string) {
+  const layout = getConnectionLayoutConfig(layoutId);
+  if (!layout || layout.surface !== 'ftp') {
+    notifyError(new Error('找不到传输连接布局配置。'), '打开连接布局失败');
+    return;
+  }
+
+  try {
+    if (!ftpStore.initialized) {
+      await initializeFtpPage();
+    }
+    await replaceExistingFtpConnections();
+    const desiredKeys = (await Promise.all(
+      layout.targets.map((target) => {
+        if (target.surface !== 'ftp') return Promise.resolve('');
+        return target.kind === 'local'
+          ? openLocalTargetFromConnectionLayout(target)
+          : openRemoteTargetFromConnectionLayout(target);
+      }),
+    )).filter(Boolean);
+
+    if (layout.viewState.layoutSizeState) {
+      ftpLayoutSizeState.value = layout.viewState.layoutSizeState;
+    }
+    if (typeof layout.viewState.masterMainRatio === 'number') {
+      ftpMasterMainRatio.value = layout.viewState.masterMainRatio;
+    }
+    if (layout.viewState.dwindleSplitRatios?.length) {
+      ftpDwindleSplitRatios.value = layout.viewState.dwindleSplitRatios;
+    }
+    if (layout.viewState.sidebarDockSide) {
+      sidebarDockSide.value = layout.viewState.sidebarDockSide;
+    }
+    if (layout.viewState.auxiliaryDockSide) {
+      auxiliaryDockSide.value = layout.viewState.auxiliaryDockSide;
+    }
+    if (layout.viewState.auxiliaryDockSize) {
+      auxiliaryDockSize.value = layout.viewState.auxiliaryDockSize;
+    }
+    if (typeof layout.viewState.auxiliaryDockCollapsed === 'boolean') {
+      auxiliaryDockCollapsed.value = layout.viewState.auxiliaryDockCollapsed;
+    }
+    if (typeof layout.viewState.showSidebar === 'boolean') {
+      showSidebarPanel.value = layout.viewState.showSidebar;
+    }
+    panelLayoutMode.value = layout.viewState.layoutMode;
+    const paneByKey = new Map(ftpWorkspacePanes.value.map((pane) => [pane.key, pane]));
+    const ordered = desiredKeys
+      .map((key) => paneByKey.get(key))
+      .filter((pane): pane is FtpWorkspacePane => Boolean(pane));
+    const remaining = ftpWorkspacePanes.value.filter((pane) => !desiredKeys.includes(pane.key));
+    ftpWorkspacePanes.value = [...ordered, ...remaining];
+    activeBrowserPanel.value = desiredKeys[0] ?? ftpWorkspacePanes.value[0]?.key ?? '';
+    notifySuccess(`${layout.name} 已打开。`, '连接布局已打开');
+  } catch (error) {
+    notifyError(error, '打开连接布局失败');
+  }
+}
+
+function handleFtpConnectionLayoutSelect(value: string | number) {
+  const layoutId = String(value || '');
+  selectedConnectionLayoutId.value = layoutId;
+  if (layoutId) {
+    void openFtpConnectionLayout(layoutId);
+  }
+}
+
 function isFtpPaneVisible(key: FtpWorkspacePaneKey) {
   return ftpPaneLayoutByKey.value.has(key);
 }
@@ -3669,11 +3900,14 @@ watch(
     () => route.name,
     () => ftpStore.initialized,
     () => ftpStore.pendingOpenRequest?.requestId || '',
+    () => route.query.openConnectionLayoutRequestId || '',
+    () => route.query.openConnectionLayoutId || '',
     () => ftpStore.sessions.map((session) => session.sessionId).join('|'),
   ],
   ([routeName, initialized]) => {
     if (routeName !== 'FileTransfer' || !initialized) return;
     void processPendingOpenRequest();
+    void processFtpConnectionLayoutOpenRequest();
   },
   { immediate: false },
 );
@@ -3682,10 +3916,13 @@ async function initializeFtpPage() {
   await initializePage();
   await ensureInitialFtpWorkspacePanes();
   await processPendingOpenRequest();
+  await processFtpConnectionLayoutOpenRequest();
 }
 
 onMounted(() => {
   globalStore.setTopbarColor('');
+  loadConnectionLayoutConfigs();
+  window.addEventListener(CONNECTION_LAYOUTS_CHANGED_EVENT, loadConnectionLayoutConfigs);
   loadPanelLayout();
   loadFtpPreferences();
   updateViewportState();
@@ -3709,6 +3946,7 @@ onBeforeUnmount(() => {
     remoteRefreshTimer = null;
   }
   pendingRemoteRefreshTargets.clear();
+  window.removeEventListener(CONNECTION_LAYOUTS_CHANGED_EVENT, loadConnectionLayoutConfigs);
   window.removeEventListener('keydown', handleExplorerPasteShortcut);
   window.removeEventListener('keydown', handleExplorerSelectAllShortcut);
   window.removeEventListener('unhandledrejection', handleUnhandledFtpRejection);
@@ -3785,6 +4023,32 @@ onBeforeUnmount(() => {
                 :options="ftpWorkspaceLayoutOptions"
                 @change="setFtpWorkspaceLayoutMode($event as TerminalLayoutMode)"
               />
+              <UiSelect
+                class="ftp-hero__layout-select"
+                size="sm"
+                :model-value="selectedConnectionLayoutId"
+                :options="connectionLayoutOptions"
+                @update:modelValue="handleFtpConnectionLayoutSelect"
+              />
+              <span v-tooltip="{ content: '删除选中的连接布局', placement: 'bottom' }">
+                <UiIconButton size="sm" variant="ghost" :disabled="!selectedConnectionLayoutId" title="删除选中的连接布局"
+                  @click="deleteFtpConnectionLayout(selectedConnectionLayoutId)">
+                  <svg viewBox="0 0 24 24" width="14" height="14" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round">
+                    <polyline points="3 6 5 6 21 6" />
+                    <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6" />
+                    <path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+                  </svg>
+                </UiIconButton>
+              </span>
+              <span v-tooltip="{ content: '保存当前连接布局', placement: 'bottom' }">
+                <UiIconButton size="sm" variant="ghost" title="保存当前连接布局" @click="openSaveFtpLayoutDialog">
+                  <svg viewBox="0 0 24 24" width="14" height="14" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z" />
+                    <path d="M17 21v-8H7v8" />
+                    <path d="M7 3v5h8" />
+                  </svg>
+                </UiIconButton>
+              </span>
               <span v-tooltip="{ content: '定时任务', placement: 'bottom' }">
                 <UiIconButton size="sm" variant="ghost" title="定时任务" @click="openScheduleDialog()">
                   <svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.6"
@@ -4276,6 +4540,25 @@ onBeforeUnmount(() => {
     </template>
 
     <template #overlays>
+
+    <UiDialog v-model="saveLayoutDialogVisible" width="420" max-width="calc(100vw - 48px)">
+      <template #header>
+        <div class="ftp-dialog__header">保存连接布局</div>
+      </template>
+      <div class="ftp-dialog__body">
+        <UiInput
+          v-model="saveLayoutName"
+          placeholder="输入布局名称"
+          @keydown.enter="saveCurrentFtpConnectionLayout"
+        />
+      </div>
+      <template #footer>
+        <div class="ftp-dialog__footer">
+          <UiButton size="sm" variant="ghost" @click="saveLayoutDialogVisible = false">取消</UiButton>
+          <UiButton size="sm" variant="primary" @click="saveCurrentFtpConnectionLayout">保存</UiButton>
+        </div>
+      </template>
+    </UiDialog>
 
     <FtpProfileDialog :model-value="profileDialogVisible" :title="editingProfileId ? '编辑传输配置' : '新建传输配置'"
       :form="profileForm" :protocol-options="protocolOptions" :ssh-profile-options="sshProfileOptions"

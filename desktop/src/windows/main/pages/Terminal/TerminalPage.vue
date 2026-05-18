@@ -3,15 +3,27 @@ import { computed, defineAsyncComponent, nextTick, onActivated, onBeforeUnmount,
 import { useRoute, useRouter } from 'vue-router';
 import MainPageLayout from '@/windows/main/components/layout/MainPageLayout.vue';
 import UiButton from '@/windows/main/components/ui/UiButton.vue';
+import UiDialog from '@/windows/main/components/ui/UiDialog.vue';
+import UiInput from '@/windows/main/components/ui/UiInput.vue';
 import UiPopupSurface from '@/windows/main/components/ui/UiPopupSurface.vue';
-import { notifyError } from '@/windows/main/composables/useInAppNotification';
+import { notifyError, notifySuccess } from '@/windows/main/composables/useInAppNotification';
+import {
+  CONNECTION_LAYOUTS_CHANGED_EVENT,
+  deleteConnectionLayoutConfig,
+  getConnectionLayoutConfig,
+  listConnectionLayoutConfigs,
+  saveConnectionLayoutConfig,
+  type ConnectionLayoutConfig,
+  type ConnectionLayoutTarget,
+} from '@/windows/main/session_layouts';
 import { useGlobalStore } from '@/windows/main/stores/global_store';
 import { useTerminalStore } from '@/windows/main/stores/terminal_store';
 import { useAppConfigStore } from '@/windows/main/stores/app_config_store';
 import { useFtpStore } from '@/windows/main/stores/ftp_store';
 import { useSshStore } from '@/windows/main/stores/ssh_store';
-import type { TerminalLayoutMode, TerminalRendererMode, TerminalSessionDescriptor } from '@/contracts/terminal';
+import type { TerminalBackgroundConfig, TerminalLayoutMode, TerminalRendererMode, TerminalSessionDescriptor } from '@/contracts/terminal';
 import type { BackgroundConfirmPayload } from '@/contracts/background';
+import { resolveThemeBackground, withThemeBackground } from '@/contracts/background';
 import type { SshProfile, SshSessionDescriptor } from '@/contracts/ssh';
 import TerminalSearchPanel from './TerminalSearchPanel.vue';
 import TerminalToolbar from './TerminalToolbar.vue';
@@ -130,6 +142,9 @@ const masterMainRatio = ref(66);
 const dwindleSplitRatios = ref<number[]>([]);
 const paneDragInteraction = ref<PaneDragInteraction | null>(null);
 const resizeInteraction = ref<PaneResizeInteraction | null>(null);
+const connectionLayoutConfigs = ref<ConnectionLayoutConfig[]>([]);
+const saveLayoutDialogVisible = ref(false);
+const saveLayoutName = ref('');
 
 function syncSidebarTabFromRoute() {
   const tab = Array.isArray(route.query.tab) ? route.query.tab[0] : route.query.tab;
@@ -145,8 +160,8 @@ function routeQueryString(key: string) {
 
 function hasTerminalOpenRequest() {
   return Boolean(routeQueryString('openTerminalRequestId') && (
-    routeQueryString('openLocalCwd') || routeQueryString('connectSshProfileId')
-  ));
+    routeQueryString('openLocalCwd') || routeQueryString('openLocalProfileId') || routeQueryString('connectSshProfileId')
+  )) || Boolean(routeQueryString('openConnectionLayoutRequestId') && routeQueryString('openConnectionLayoutId'));
 }
 
 function activateSidebarTab() {
@@ -668,13 +683,36 @@ watch(terminalPanes, (panes) => {
 });
 
 // Background config derived from the active local terminal profile, falling back to global app config.
-const activeTerminalBackground = computed(() => activeLocalTerminalProfile.value?.background ?? {
-  type: appConfigStore.config.features.terminal.viewportBgType ?? 'color',
-  color: appConfigStore.config.features.terminal.viewportBgColor ?? '',
-  image: appConfigStore.config.features.terminal.viewportBgImage ?? '',
-  video: appConfigStore.config.features.terminal.viewportBgVideo ?? '',
-  style: appConfigStore.config.features.terminal.viewportBgStyle ?? {},
-});
+function getGlobalTerminalBackground(): TerminalBackgroundConfig {
+  return {
+    type: appConfigStore.config.features.terminal.viewportBgType ?? 'color',
+    color: appConfigStore.config.features.terminal.viewportBgColor ?? '',
+    image: appConfigStore.config.features.terminal.viewportBgImage ?? '',
+    video: appConfigStore.config.features.terminal.viewportBgVideo ?? '',
+    style: appConfigStore.config.features.terminal.viewportBgStyle ?? {},
+  };
+}
+
+function resolveTerminalBackground(background: TerminalBackgroundConfig): TerminalBackgroundConfig {
+  const resolved = resolveThemeBackground({
+    type: background.type,
+    color: background.color,
+    image: background.image,
+    video: background.video,
+    backgroundStyle: background.style,
+  }, appConfigStore.config.appearance.theme);
+  return {
+    type: resolved.type,
+    color: resolved.color,
+    image: resolved.image,
+    video: resolved.video,
+    style: resolved.backgroundStyle,
+  };
+}
+
+const activeTerminalBackground = computed(() => resolveTerminalBackground(
+  activeLocalTerminalProfile.value?.background ?? getGlobalTerminalBackground(),
+));
 const termBgType = computed(() => activeTerminalBackground.value.type);
 const termBgColor = computed(() => activeTerminalBackground.value.color);
 const termBgImage = computed(() => activeTerminalBackground.value.image);
@@ -916,17 +954,11 @@ function resolvePaneBackground(pane: TerminalPane) {
   if (pane.kind === 'local') {
     const localProfile = appConfigStore.config.features.terminal.localProfiles.find((profile) => profile.id === pane.profileId);
     if (localProfile?.background) {
-      return localProfile.background;
+      return resolveTerminalBackground(localProfile.background);
     }
   }
 
-  return {
-    type: appConfigStore.config.features.terminal.viewportBgType ?? 'color',
-    color: appConfigStore.config.features.terminal.viewportBgColor ?? '',
-    image: appConfigStore.config.features.terminal.viewportBgImage ?? '',
-    video: appConfigStore.config.features.terminal.viewportBgVideo ?? '',
-    style: appConfigStore.config.features.terminal.viewportBgStyle ?? {},
-  };
+  return resolveTerminalBackground(getGlobalTerminalBackground());
 }
 
 function paneHasCustomBg(pane: TerminalPane) {
@@ -991,6 +1023,172 @@ function focusPane(pane: TerminalPane, focusViewport = true) {
   focusLocalSession(pane.sessionId, focusViewport);
 }
 
+function loadConnectionLayoutConfigs() {
+  connectionLayoutConfigs.value = listConnectionLayoutConfigs('terminal');
+}
+
+function targetKeyForTerminalLayout(target: ConnectionLayoutTarget, sessionId: string) {
+  if (target.surface !== 'terminal') return '';
+  return makePaneKey(target.kind === 'ssh' ? 'ssh' : 'local', sessionId);
+}
+
+function snapshotTerminalTarget(pane: TerminalPane): ConnectionLayoutTarget | null {
+  if (pane.kind === 'ssh-pending') return null;
+  if (pane.kind === 'local') {
+    const session = pane.session as TerminalSessionDescriptor;
+    return {
+      surface: 'terminal',
+      kind: 'local',
+      profileId: session.profileId,
+      cwd: session.cwd,
+      label: pane.title,
+    };
+  }
+
+  const session = pane.session as SshSessionDescriptor;
+  return {
+    surface: 'terminal',
+    kind: 'ssh',
+    profileId: session.profileId,
+    cwd: sshStore.getSessionWorkingDirectory(session.sessionId),
+    label: session.profileLabel,
+  };
+}
+
+function defaultTerminalLayoutName() {
+  return `终端布局 ${new Date().toLocaleString('zh-CN', { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' })}`;
+}
+
+function openSaveTerminalLayoutDialog() {
+  if (!orderedTerminalPanes.value.some((pane) => pane.kind !== 'ssh-pending')) {
+    notifyError(new Error('当前没有可保存的终端连接。'), '保存连接布局失败');
+    return;
+  }
+  saveLayoutName.value = defaultTerminalLayoutName();
+  saveLayoutDialogVisible.value = true;
+}
+
+function saveCurrentTerminalConnectionLayout() {
+  const targets = orderedTerminalPanes.value
+    .map(snapshotTerminalTarget)
+    .filter((target): target is ConnectionLayoutTarget => Boolean(target));
+  if (!targets.length) {
+    notifyError(new Error('当前没有可保存的终端连接。'), '保存连接布局失败');
+    return;
+  }
+
+  const name = saveLayoutName.value.trim() || defaultTerminalLayoutName();
+
+  const saved = saveConnectionLayoutConfig({
+    name,
+    surface: 'terminal',
+    targets,
+    viewState: {
+      layoutMode: layoutMode.value,
+      order: orderedTerminalPanes.value.map((pane) => pane.key),
+      layoutSizeState: layoutSizeState.value,
+      masterMainRatio: masterMainRatio.value,
+      dwindleSplitRatios: dwindleSplitRatios.value,
+    },
+  });
+  loadConnectionLayoutConfigs();
+  saveLayoutDialogVisible.value = false;
+  notifySuccess(`${saved.name} 已保存，可在首页小组件或终端页快速打开。`, '连接布局已保存');
+}
+
+function deleteTerminalConnectionLayout(layoutId: string) {
+  if (!layoutId) return;
+  const layout = getConnectionLayoutConfig(layoutId);
+  deleteConnectionLayoutConfig(layoutId);
+  loadConnectionLayoutConfigs();
+  notifySuccess(`${layout?.name ?? '连接布局'} 已删除。`, '连接布局已删除');
+}
+
+async function replaceExistingTerminalConnections() {
+  const localSessionIds = terminalStore.mainSessions.map((session) => session.sessionId);
+  const sshSessionIds = sshStore.mainSessions.map((session) => session.sessionId);
+  await Promise.all([
+    ...localSessionIds.map((sessionId) => terminalStore.killSession(sessionId)),
+    ...sshSessionIds.map((sessionId) => sshStore.disconnect(sessionId)),
+  ]);
+  paneOrder.value = [];
+  focusedTerminalPaneKey.value = '';
+  layoutSizeState.value = {};
+  dwindleSplitRatios.value = [];
+  masterMainRatio.value = 66;
+}
+
+async function openTerminalTargetFromConnectionLayout(target: ConnectionLayoutTarget) {
+  if (target.surface !== 'terminal') return '';
+
+  if (target.kind === 'local') {
+    const session = await terminalStore.createSession({
+      profileId: target.profileId || undefined,
+      cwd: target.cwd || undefined,
+    });
+    focusLocalSession(session.sessionId, false);
+    return targetKeyForTerminalLayout(target, session.sessionId);
+  }
+
+  const existing = sshStore.sessions.find(
+    (session) => session.profileId === target.profileId && session.status === 'connected',
+  );
+  if (existing) {
+    focusSshSession(existing.sessionId, false);
+    await cdSshSession(existing.sessionId, target.cwd ?? '');
+    return targetKeyForTerminalLayout(target, existing.sessionId);
+  }
+
+  const beforeSessionIds = new Set(sshStore.sessions.map((session) => session.sessionId));
+  const profile = sshStore.profiles.find((item) => item.id === target.profileId);
+  if (!profile) return '';
+
+  await handleSshConnect(profile);
+  const created = [...sshStore.sessions]
+    .reverse()
+    .find((session) => session.profileId === target.profileId && !beforeSessionIds.has(session.sessionId))
+    ?? null;
+  if (!created) return '';
+
+  await cdSshSession(created.sessionId, target.cwd ?? '');
+  return targetKeyForTerminalLayout(target, created.sessionId);
+}
+
+async function openTerminalConnectionLayout(layoutId: string) {
+  const layout = getConnectionLayoutConfig(layoutId);
+  if (!layout || layout.surface !== 'terminal') {
+    notifyError(new Error('找不到终端连接布局配置。'), '打开连接布局失败');
+    return;
+  }
+
+  try {
+    await terminalStore.initialize();
+    await sshStore.initialize();
+    await replaceExistingTerminalConnections();
+    const desiredKeys = (await Promise.all(
+      layout.targets.map((target) => openTerminalTargetFromConnectionLayout(target)),
+    )).filter(Boolean);
+
+    if (layout.viewState.layoutSizeState) {
+      layoutSizeState.value = layout.viewState.layoutSizeState;
+    }
+    if (typeof layout.viewState.masterMainRatio === 'number') {
+      masterMainRatio.value = layout.viewState.masterMainRatio;
+    }
+    if (layout.viewState.dwindleSplitRatios?.length) {
+      dwindleSplitRatios.value = layout.viewState.dwindleSplitRatios;
+    }
+    paneOrder.value = [
+      ...desiredKeys.filter(Boolean),
+      ...paneOrder.value.filter((key) => !desiredKeys.includes(key)),
+    ];
+    await updateLayoutMode(layout.viewState.layoutMode);
+    notifySuccess(`${layout.name} 已打开。`, '连接布局已打开');
+  } catch (error) {
+    notifyError(error, '打开连接布局失败');
+  }
+}
+
 function shellQuote(path: string) {
   return `'${path.replaceAll("'", `'\"'\"'`)}'`;
 }
@@ -1010,21 +1208,34 @@ async function cdSshSession(sessionId: string, cwd: string) {
 
 async function handleTerminalOpenRequestFromRoute() {
   if (route.path !== '/terminal') return;
+  const layoutRequestId = routeQueryString('openConnectionLayoutRequestId');
+  const layoutId = routeQueryString('openConnectionLayoutId');
+  if (layoutRequestId && layoutId && !handledTerminalOpenRequestIds.has(`layout:${layoutRequestId}`)) {
+    handledTerminalOpenRequestIds.add(`layout:${layoutRequestId}`);
+    await openTerminalConnectionLayout(layoutId);
+    return;
+  }
+
   const requestId = routeQueryString('openTerminalRequestId');
   if (!requestId || handledTerminalOpenRequestIds.has(requestId)) return;
 
   const localCwd = routeQueryString('openLocalCwd');
+  const localProfileId = routeQueryString('openLocalProfileId');
   const sshProfileId = routeQueryString('connectSshProfileId');
   const cwd = routeQueryString('cwd');
-  if (!localCwd && !sshProfileId) return;
+  if (!localCwd && !localProfileId && !sshProfileId) return;
 
   handledTerminalOpenRequestIds.add(requestId);
 
   try {
-    if (localCwd) {
+    if (localCwd || localProfileId) {
       await terminalStore.initialize();
-      const session = await terminalStore.createSession({ cwd: localCwd });
-      focusLocalSession(session.sessionId, true);
+      if (localProfileId) {
+        await createSession(localProfileId);
+      } else {
+        const session = await terminalStore.createSession({ cwd: localCwd });
+        focusLocalSession(session.sessionId, true);
+      }
       return;
     }
 
@@ -1454,6 +1665,21 @@ async function updateColorScheme(schemeId: string) {
 
 async function handleBgConfirm(payload: BackgroundConfirmPayload) {
   const localProfile = activeLocalTerminalProfile.value;
+  const currentBackground = localProfile?.background ?? getGlobalTerminalBackground();
+  const scopedBackground = withThemeBackground({
+    type: currentBackground.type,
+    color: currentBackground.color,
+    image: currentBackground.image,
+    video: currentBackground.video,
+    backgroundStyle: currentBackground.style,
+  }, appConfigStore.config.appearance.theme, {
+    type: payload.type,
+    color: payload.color ?? '',
+    image: payload.image ?? '',
+    video: payload.video ?? '',
+    backgroundStyle: payload.backgroundStyle ?? {},
+  });
+
   if (localProfile) {
     await appConfigStore.updateConfig({
       features: {
@@ -1463,11 +1689,11 @@ async function handleBgConfirm(payload: BackgroundConfirmPayload) {
               ? {
                   ...profile,
                   background: {
-                    type: payload.type,
-                    color: payload.color ?? '',
-                    image: payload.image ?? '',
-                    video: payload.video ?? '',
-                    style: payload.backgroundStyle ?? {},
+                    type: scopedBackground.type,
+                    color: scopedBackground.color,
+                    image: scopedBackground.image,
+                    video: scopedBackground.video,
+                    style: scopedBackground.backgroundStyle,
                   },
                 }
               : profile,
@@ -1481,11 +1707,11 @@ async function handleBgConfirm(payload: BackgroundConfirmPayload) {
   await appConfigStore.updateConfig({
     features: {
       terminal: {
-        viewportBgType: payload.type,
-        viewportBgColor: payload.color ?? '',
-        viewportBgImage: payload.image ?? '',
-        viewportBgVideo: payload.video ?? '',
-        viewportBgStyle: payload.backgroundStyle ?? {},
+        viewportBgType: scopedBackground.type,
+        viewportBgColor: scopedBackground.color,
+        viewportBgImage: scopedBackground.image,
+        viewportBgVideo: scopedBackground.video,
+        viewportBgStyle: scopedBackground.backgroundStyle,
       },
     },
   });
@@ -1563,8 +1789,11 @@ watch(
     route.path,
     route.query.openTerminalRequestId,
     route.query.openLocalCwd,
+    route.query.openLocalProfileId,
     route.query.connectSshProfileId,
     route.query.cwd,
+    route.query.openConnectionLayoutRequestId,
+    route.query.openConnectionLayoutId,
   ],
   () => {
     void handleTerminalOpenRequestFromRoute();
@@ -1578,6 +1807,8 @@ onActivated(() => {
 
 onMounted(() => {
   globalStore.setTopbarColor('');
+  loadConnectionLayoutConfigs();
+  window.addEventListener(CONNECTION_LAYOUTS_CHANGED_EVENT, loadConnectionLayoutConfigs);
   window.addEventListener('keydown', handleTerminalPageKeydown, true);
   window.addEventListener('unhandledrejection', handleUnhandledSshRejection);
   if (hasTerminalOpenRequest()) {
@@ -1589,6 +1820,7 @@ onMounted(() => {
 });
 
 onBeforeUnmount(() => {
+  window.removeEventListener(CONNECTION_LAYOUTS_CHANGED_EVENT, loadConnectionLayoutConfigs);
   window.removeEventListener('keydown', handleTerminalPageKeydown, true);
   window.removeEventListener('unhandledrejection', handleUnhandledSshRejection);
   stopPaneResize();
@@ -1775,12 +2007,16 @@ onBeforeUnmount(() => {
           :renderer-mode="rendererMode"
           :layout-mode="layoutMode"
           :color-scheme-id="colorSchemeId"
+          :connection-layouts="connectionLayoutConfigs"
           :ssh-mode="isSshMode" :port-forward-open="sshStore.portForwardPanelOpen"
           :can-detach="!!activeTerminalPane && activeTerminalPane.kind !== 'ssh-pending'"
           :title-editable="activeTerminalPane?.kind === 'local'"
           @search="toggleSearchPanel" @clear="clearTerminal" @detach="detachActiveSession"
           @rename="handleRenameSession" @update:rendererMode="updateRendererMode"
           @update:layoutMode="updateLayoutMode"
+          @save-connection-layout="openSaveTerminalLayoutDialog"
+          @open-connection-layout="openTerminalConnectionLayout"
+          @delete-connection-layout="deleteTerminalConnectionLayout"
           @reset-layout-size="resetTerminalLayoutSize"
           @update:colorSchemeId="updateColorScheme" @background="bgPickerVisible = true"
           @port-forward="sshStore.togglePortForwardPanel()"
@@ -2008,6 +2244,25 @@ onBeforeUnmount(() => {
     </template>
 
     <template #overlays>
+    <UiDialog v-model="saveLayoutDialogVisible" width="420" max-width="calc(100vw - 48px)">
+      <template #header>
+        <div class="terminal-layout-dialog__header">保存连接布局</div>
+      </template>
+      <div class="terminal-layout-dialog__body">
+        <UiInput
+          v-model="saveLayoutName"
+          placeholder="输入布局名称"
+          @keydown.enter="saveCurrentTerminalConnectionLayout"
+        />
+      </div>
+      <template #footer>
+        <div class="terminal-layout-dialog__footer">
+          <UiButton size="sm" variant="ghost" @click="saveLayoutDialogVisible = false">取消</UiButton>
+          <UiButton size="sm" variant="primary" @click="saveCurrentTerminalConnectionLayout">保存</UiButton>
+        </div>
+      </template>
+    </UiDialog>
+
     <!-- Personalization Dialog -->
     <UiPersonalizationConfig
       :visible="bgPickerVisible"
@@ -2117,6 +2372,24 @@ onBeforeUnmount(() => {
   height: 100%;
   min-width: 0;
   min-height: 0;
+}
+
+.terminal-layout-dialog__header {
+  padding: 14px 16px;
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--ui-text-primary);
+}
+
+.terminal-layout-dialog__body {
+  padding: 16px;
+}
+
+.terminal-layout-dialog__footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  padding: 12px 16px;
 }
 
 /* Sidebar Styles */

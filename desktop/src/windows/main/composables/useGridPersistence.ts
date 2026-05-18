@@ -5,6 +5,7 @@ import type {
   HomeWidgetDto,
   ImportHomeLayoutPayload,
 } from '@/contracts/home_layout';
+import type { BackgroundStyleConfig } from '@/contracts/background';
 
 const LEGACY_MIGRATION_MARKER = 'home-layout-legacy-migrated';
 
@@ -12,6 +13,14 @@ type LegacySavedGridItem = Partial<Pick<
   GridItem,
   'id' | 'col' | 'row' | 'colSpan' | 'rowSpan' | 'preferredCol' | 'preferredRow' | 'priority' | 'hidden'
 >> & { id: string };
+
+function toPlainJson<T>(value: T): T {
+  return JSON.parse(JSON.stringify(value ?? null)) as T;
+}
+
+function toPlainBackgroundStyle(value?: BackgroundStyleConfig): BackgroundStyleConfig | undefined {
+  return value ? toPlainJson(value) : undefined;
+}
 
 const LEGACY_DEFAULT_CATEGORIES: CategoryItem[] = [
   {
@@ -261,11 +270,11 @@ function toWidgetUpdatePayload(item: GridItem, categoryId: string) {
     categoryId,
     label: item.label,
     icon: item.icon,
-    action: item.action ? { ...item.action } : undefined,
+    action: item.action ? toPlainJson(item.action) : undefined,
     sourceType: item.sourceType,
     widgetType: item.widgetType,
     sizePreset: item.sizePreset,
-    widgetConfig: item.widgetConfig ? { ...item.widgetConfig } : undefined,
+    widgetConfig: item.widgetConfig ? toPlainJson(item.widgetConfig) : undefined,
     col: item.col,
     row: item.row,
     colSpan: item.colSpan,
@@ -276,7 +285,7 @@ function toWidgetUpdatePayload(item: GridItem, categoryId: string) {
     color: item.color,
     backgroundImage: item.backgroundImage ?? '',
     backgroundVideo: item.backgroundVideo ?? '',
-    backgroundStyle: item.backgroundStyle ? { ...item.backgroundStyle } : undefined,
+    backgroundStyle: toPlainBackgroundStyle(item.backgroundStyle),
     hidden: item.hidden,
   };
 }
@@ -474,7 +483,12 @@ export function useGridPersistence(storageKey: string) {
   }
 
   async function createWidget(input: CreateHomeWidgetPayload) {
-    return getHomeLayoutApi().createWidget(input);
+    return getHomeLayoutApi().createWidget({
+      ...input,
+      action: input.action ? toPlainJson(input.action) : undefined,
+      widgetConfig: input.widgetConfig ? toPlainJson(input.widgetConfig) : undefined,
+      backgroundStyle: toPlainBackgroundStyle(input.backgroundStyle),
+    });
   }
 
   async function updateCategoryBackground(
@@ -483,12 +497,12 @@ export function useGridPersistence(storageKey: string) {
       backgroundColor?: string;
       backgroundImage?: string;
       backgroundVideo?: string;
-      backgroundStyle?: import('@/contracts/background').BackgroundStyleConfig;
+      backgroundStyle?: BackgroundStyleConfig;
     },
   ) {
     await getHomeLayoutApi().updateCategory(categoryId, {
       ...background,
-      backgroundStyle: background.backgroundStyle ? { ...background.backgroundStyle } : undefined,
+      backgroundStyle: toPlainBackgroundStyle(background.backgroundStyle),
     });
   }
 
@@ -520,4 +534,3 @@ export function useGridPersistence(storageKey: string) {
     migrateLegacyLayoutIfNeeded,
   };
 }
-
