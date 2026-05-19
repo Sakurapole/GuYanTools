@@ -101,9 +101,6 @@ importers:
       codemirror:
         specifier: ^6.0.2
         version: 6.0.2
-      cross-spawn:
-        specifier: ^7.0.6
-        version: 7.0.6
       electron-updater:
         specifier: ^6.6.2
         version: 6.8.3
@@ -171,9 +168,6 @@ importers:
       '@intlify/unplugin-vue-i18n':
         specifier: ^6.0.8
         version: 6.0.8(@vue/compiler-dom@3.5.30)(eslint@8.57.1)(rollup@4.59.0)(typescript@5.9.2)(vue-i18n@11.3.0(vue@3.5.30(typescript@5.9.2)))(vue@3.5.30(typescript@5.9.2))
-      '@types/cross-spawn':
-        specifier: ^6.0.6
-        version: 6.0.6
       '@types/node':
         specifier: ^24.1.0
         version: 24.2.0
@@ -1971,9 +1965,6 @@ packages:
 
   '@types/conventional-commits-parser@5.0.1':
     resolution: {integrity: sha512-7uz5EHdzz2TqoMfV7ee61Egf5y6NkcO4FB/1iCCQnbeiI1F3xzv3vK5dBCXUCLQgGYS+mUeigK1iKQzvED+QnQ==}
-
-  '@types/cross-spawn@6.0.6':
-    resolution: {integrity: sha512-fXRhhUkG4H3TQk5dBhQ7m/JDdSNHKwR2BBia62lhwEIq9xGiQKLxd6LymNhn47SjXhsUEPmxi+PKw2OkW4LLjA==}
 
   '@types/debug@4.1.13':
     resolution: {integrity: sha512-KSVgmQmzMwPlmtljOomayoR89W4FynCAi3E8PPs7vmDVPe84hT+vGPKkJfThkmXs0x0jAaa9U8uW8bbfyS2fWw==}
@@ -7787,10 +7778,6 @@ snapshots:
       '@types/responselike': 1.0.3
 
   '@types/conventional-commits-parser@5.0.1':
-    dependencies:
-      '@types/node': 24.2.0
-
-  '@types/cross-spawn@6.0.6':
     dependencies:
       '@types/node': 24.2.0
 

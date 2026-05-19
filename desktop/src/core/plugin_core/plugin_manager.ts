@@ -1,5 +1,5 @@
 import axios from 'axios';
-import spwan from 'cross-spawn';
+import { spawn } from 'child_process';
 import fs from 'fs-extra';
 import path from 'path';
 
@@ -93,7 +93,8 @@ class PluginManager {
           .concat(`--registry=${this.registry}`);
       }
 
-      const npm = spwan('npm', args, {
+      const npmCommand = process.platform === 'win32' ? 'npm.cmd' : 'npm';
+      const npm = spawn(npmCommand, args, {
         cwd: this.baseDir,
       });
 
