@@ -35,6 +35,7 @@ export interface TodoStep {
   id: string;
   todoId: string;
   title: string;
+  imageUrl?: string;
   isCompleted: boolean;
   sortOrder: number;
   createdAt: string;
@@ -99,11 +100,13 @@ export interface CreateTodoStepPayload {
   id: string;
   todoId: string;
   title: string;
+  imageUrl?: string;
   sortOrder?: number;
 }
 
 export interface UpdateTodoStepPayload {
   title?: string;
+  imageUrl?: string;
   isCompleted?: boolean;
   sortOrder?: number;
 }

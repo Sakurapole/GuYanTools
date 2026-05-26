@@ -38,6 +38,12 @@ export const useTodoStore = defineStore('todo', () => {
     'all': 0,
     'completed': 0,
   });
+  const localMutationTicks = new Set<number>();
+
+  function notifyLocalTodoMutated() {
+    notifyTodoMutated();
+    localMutationTicks.add(todoMutationTick.value);
+  }
 
   // Computed
   const selectedTodo = computed(() => todos.value.find(t => t.id === selectedTodoId.value) ?? null);
@@ -121,15 +127,16 @@ export const useTodoStore = defineStore('todo', () => {
 
     const todo = await todoApi.createTodo(input);
     todos.value.unshift(todo);
-    loadSmartListCounts();
-    notifyTodoMutated();
+    await refreshCounts();
+    notifyLocalTodoMutated();
   }
 
   async function updateTodo(todoId: string, patch: import('@/contracts/todo').UpdateTodoPayload) {
     const updated = await todoApi.updateTodo(todoId, patch);
     const idx = todos.value.findIndex(t => t.id === todoId);
     if (idx !== -1) todos.value[idx] = updated;
-    notifyTodoMutated();
+    await refreshCounts();
+    notifyLocalTodoMutated();
     return updated;
   }
 
@@ -137,8 +144,8 @@ export const useTodoStore = defineStore('todo', () => {
     await todoApi.deleteTodo(todoId);
     todos.value = todos.value.filter(t => t.id !== todoId);
     if (selectedTodoId.value === todoId) selectedTodoId.value = null;
-    loadSmartListCounts();
-    notifyTodoMutated();
+    await refreshCounts();
+    notifyLocalTodoMutated();
   }
 
   async function deleteAllTodosInView(viewId: SmartListType | string) {
@@ -155,11 +162,8 @@ export const useTodoStore = defineStore('todo', () => {
       selectedTodoId.value = null;
     }
 
-    await Promise.all([
-      loadSmartListCounts(),
-      listStore.loadLists(),
-    ]);
-    notifyTodoMutated();
+    await refreshCounts();
+    notifyLocalTodoMutated();
     return targetTodos.length;
   }
 
@@ -170,8 +174,8 @@ export const useTodoStore = defineStore('todo', () => {
     if (result.nextTodo) {
       todos.value.splice(idx + 1, 0, result.nextTodo);
     }
-    loadSmartListCounts();
-    notifyTodoMutated();
+    await refreshCounts();
+    notifyLocalTodoMutated();
     return result;
   }
 
@@ -179,8 +183,8 @@ export const useTodoStore = defineStore('todo', () => {
     const updated = await todoApi.uncompleteTodo(todoId);
     const idx = todos.value.findIndex(t => t.id === todoId);
     if (idx !== -1) todos.value[idx] = updated;
-    loadSmartListCounts();
-    notifyTodoMutated();
+    await refreshCounts();
+    notifyLocalTodoMutated();
   }
 
   async function toggleImportant(todoId: string) {
@@ -198,7 +202,8 @@ export const useTodoStore = defineStore('todo', () => {
       await todoApi.addToMyDay(todoId, todayStr());
     }
     await loadTodos();
-    notifyTodoMutated();
+    await refreshCounts();
+    notifyLocalTodoMutated();
   }
 
   // ==================== 搜索 ====================
@@ -255,13 +260,21 @@ export const useTodoStore = defineStore('todo', () => {
     }
   }
 
+  async function refreshCounts() {
+    await Promise.all([
+      loadSmartListCounts(),
+      listStore.loadLists(),
+    ]);
+  }
+
   // ==================== 步骤 ====================
 
-  async function addStep(todoId: string, title: string) {
+  async function addStep(todoId: string, title: string, imageUrl?: string) {
     const step = await todoApi.createStep({
       id: genId(),
       todoId,
       title,
+      imageUrl,
       sortOrder: (selectedTodo.value?.steps.length ?? 0),
     });
     const todo = todos.value.find(t => t.id === todoId);
@@ -323,6 +336,7 @@ export const useTodoStore = defineStore('todo', () => {
       }
     }
     await loadTodos();
+    await refreshCounts();
   }
 
   function dismissYesterdayPrompt() {
@@ -339,13 +353,17 @@ export const useTodoStore = defineStore('todo', () => {
   // 监听来自首页 widget 的写操作信号，自动重新加载 Todo 页面当前视图。
   // 注意：loadTodos() 是纯读操作，不会再次触发 notifyTodoMutated，不存在循环。
   let externalReloadTimer: ReturnType<typeof setTimeout> | null = null;
-  watch(todoMutationTick, () => {
+  watch(todoMutationTick, (tick) => {
+    if (localMutationTicks.delete(tick)) {
+      return;
+    }
+
     // 只有 store 已经被激活（有数据或已选择视图）时才重载，避免冷启动时的无效请求
     if (externalReloadTimer) clearTimeout(externalReloadTimer);
     externalReloadTimer = setTimeout(() => {
       externalReloadTimer = null;
       loadTodos();
-      loadSmartListCounts();
+      refreshCounts();
     }, 150);
   });
 

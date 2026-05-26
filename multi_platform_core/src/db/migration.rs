@@ -91,6 +91,10 @@ pub fn run_migrations(conn: &Connection) -> DbResult<()> {
             "019_add_ssh_profile_folders",
             include_str!("../../migrations/019_add_ssh_profile_folders.sql"),
         ),
+        (
+            "020_add_todo_step_image",
+            include_str!("../../migrations/020_add_todo_step_image.sql"),
+        ),
     ];
 
     // 执行每个迁移

@@ -104,6 +104,7 @@ pub struct TodoStep {
     pub id: String,
     pub todo_id: String,
     pub title: String,
+    pub image_url: Option<String>,
     pub is_completed: bool,
     pub sort_order: i64,
     pub created_at: String,
@@ -116,6 +117,7 @@ pub struct CreateTodoStepInput {
     pub id: String,
     pub todo_id: String,
     pub title: String,
+    pub image_url: Option<String>,
     pub sort_order: Option<i64>,
 }
 
@@ -123,6 +125,7 @@ pub struct CreateTodoStepInput {
 #[cfg_attr(feature = "napi", napi(object))]
 pub struct UpdateTodoStepInput {
     pub title: Option<String>,
+    pub image_url: Option<String>,
     pub is_completed: Option<bool>,
     pub sort_order: Option<i64>,
 }

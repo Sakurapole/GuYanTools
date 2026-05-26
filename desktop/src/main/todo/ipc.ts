@@ -171,6 +171,7 @@ export function registerTodoIpcHandlers() {
       id: input.id,
       todoId: input.todoId,
       title: input.title,
+      imageUrl: input.imageUrl,
       sortOrder: input.sortOrder,
     });
   });
@@ -178,6 +179,7 @@ export function registerTodoIpcHandlers() {
   ipcMain.handle('todo:update-step', async (_event, stepId: string, input: UpdateTodoStepPayload) => {
     return db().updateTodoStep(stepId, {
       title: input.title,
+      imageUrl: input.imageUrl,
       isCompleted: input.isCompleted,
       sortOrder: input.sortOrder,
     });

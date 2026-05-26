@@ -1,13 +1,16 @@
 <script setup lang="ts">
-import { ref, watch, nextTick, inject, computed } from 'vue';
+import { ref, watch, nextTick, inject, computed, onBeforeUnmount } from 'vue';
 import { useTodoStore } from '@/windows/main/stores/todo_store';
 import { useContextMenu } from '@/windows/main/composables/useContextMenu';
 import { resolveTodoAreaBackground, useTodoSettings } from '@/windows/main/composables/useTodoSettings';
 import { useAppConfigStore } from '@/windows/main/stores/app_config_store';
+import type { TodoStep } from '@/contracts/todo';
 import TodoBackground from './TodoBackground.vue';
 import ReminderPicker from './ReminderPicker.vue';
 import RepeatPicker from './RepeatPicker.vue';
-import UiDatePicker from '@/windows/main/components/ui/UiDatePicker.vue';
+import IconRenderer from '@/windows/main/components/ui/IconRenderer.vue';
+import ImagePreviewDialog from '@/windows/main/components/ui/ImagePreviewDialog.vue';
+import UiDateTimePicker from '@/windows/main/components/ui/UiDateTimePicker.vue';
 import UiScrollbar from '@/windows/main/components/ui/UiScrollbar.vue';
 import { marked } from 'marked';
 import { useConfirmDialog } from '@/windows/main/composables/useConfirmDialog';
@@ -31,9 +34,21 @@ const { open: openMenu } = useContextMenu();
 const editingTitle = ref('');
 const noteText = ref('');
 const newStepText = ref('');
+const newStepImages = ref<string[]>([]);
+const stepDrafts = ref<Record<string, string>>({});
+const stepStrikeLines = ref<Record<string, Array<{ top: number; width: number; delay: number }>>>({});
+const stepStrikeRuns = ref<Record<string, number>>({});
+const stepStrikeExiting = ref<Record<string, boolean>>({});
+const imagePreviewVisible = ref(false);
+const imagePreviewIndex = ref(0);
+const detailRef = ref<HTMLElement | null>(null);
 const titleRef = ref<HTMLInputElement | null>(null);
 const noteEditing = ref(false);
 const noteRef = ref<HTMLTextAreaElement | null>(null);
+let detailResizeObserver: ResizeObserver | null = null;
+let textareaResizeFrame = 0;
+const STEP_STRIKE_LINE_DELAY_MS = 140;
+const STEP_STRIKE_ANIMATION_BUFFER_MS = 460;
 
 // 配置 marked
 marked.setOptions({
@@ -46,12 +61,53 @@ const renderedNote = computed(() => {
   return marked.parse(noteText.value) as string;
 });
 
+const stepPreviewImages = computed(() =>
+  (todoStore.selectedTodo?.steps ?? [])
+    .flatMap(step => parseStepImageUrls(step.imageUrl).map((src, index) => ({
+      src,
+      title: parseStepImageUrls(step.imageUrl).length > 1 ? `${step.title} (${index + 1})` : step.title,
+      alt: `${step.title} 的步骤图片`,
+    }))),
+);
+
 watch(() => todoStore.selectedTodo, (todo) => {
   if (todo) {
     editingTitle.value = todo.title;
     noteText.value = todo.note;
+    syncStepDrafts(todo.steps);
   }
 }, { immediate: true });
+
+watch(() => todoStore.selectedTodo?.steps, (steps) => {
+  syncStepDrafts(steps ?? []);
+}, { deep: true });
+
+watch(detailRef, (el) => {
+  detailResizeObserver?.disconnect();
+  if (el && typeof ResizeObserver !== 'undefined') {
+    detailResizeObserver = new ResizeObserver(() => {
+      scheduleTextareaResize();
+    });
+    detailResizeObserver.observe(el);
+  }
+}, { flush: 'post' });
+
+onBeforeUnmount(() => {
+  detailResizeObserver?.disconnect();
+  if (textareaResizeFrame) {
+    cancelAnimationFrame(textareaResizeFrame);
+  }
+});
+
+function syncStepDrafts(steps: TodoStep[]) {
+  const next: Record<string, string> = {};
+  for (const step of steps) {
+    next[step.id] = stepDrafts.value[step.id] ?? step.title;
+  }
+  stepDrafts.value = next;
+  resizeAllStepTextareas();
+  updateCompletedStepStrikeLines(steps);
+}
 
 function close() {
   todoStore.selectTodo(null);
@@ -99,16 +155,293 @@ async function toggleMyDay() {
 async function addStep() {
   const title = newStepText.value.trim();
   if (!title || !todoStore.selectedTodo) return;
-  await todoStore.addStep(todoStore.selectedTodo.id, title);
+  await todoStore.addStep(todoStore.selectedTodo.id, title, serializeStepImageUrls(newStepImages.value) || undefined);
   newStepText.value = '';
+  newStepImages.value = [];
+  resizeAllStepTextareas();
 }
 
 async function toggleStep(stepId: string, isCompleted: boolean) {
-  await todoStore.updateStep(stepId, { isCompleted: !isCompleted });
+  if (!isCompleted) {
+    await todoStore.updateStep(stepId, { isCompleted: true });
+    await nextTick();
+    updateStepStrikeLines(stepId);
+    stepStrikeRuns.value = {
+      ...stepStrikeRuns.value,
+      [stepId]: (stepStrikeRuns.value[stepId] ?? 0) + 1,
+    };
+  } else {
+    const lines = stepStrikeLines.value[stepId]?.length
+      ? stepStrikeLines.value[stepId]
+      : measureStepStrikeLines(stepId, stepDrafts.value[stepId] ?? '');
+    stepStrikeLines.value = {
+      ...stepStrikeLines.value,
+      [stepId]: lines,
+    };
+    stepStrikeExiting.value = {
+      ...stepStrikeExiting.value,
+      [stepId]: true,
+    };
+    stepStrikeRuns.value = {
+      ...stepStrikeRuns.value,
+      [stepId]: (stepStrikeRuns.value[stepId] ?? 0) + 1,
+    };
+    await todoStore.updateStep(stepId, { isCompleted: false });
+    window.setTimeout(() => {
+      const nextLines = { ...stepStrikeLines.value };
+      delete nextLines[stepId];
+      stepStrikeLines.value = nextLines;
+      const nextExiting = { ...stepStrikeExiting.value };
+      delete nextExiting[stepId];
+      stepStrikeExiting.value = nextExiting;
+    }, getStepStrikeAnimationDuration(lines));
+  }
+}
+
+async function saveStepTitle(step: TodoStep) {
+  const draft = stepDrafts.value[step.id] ?? step.title;
+  const title = draft.trim();
+  if (!title) {
+    stepDrafts.value[step.id] = step.title;
+    resizeAllStepTextareas();
+    return;
+  }
+  if (title === step.title) return;
+  stepDrafts.value[step.id] = title;
+  await todoStore.updateStep(step.id, { title });
+}
+
+function handleStepTitleKeydown(e: KeyboardEvent) {
+  if (e.key !== 'Enter' || e.shiftKey) return;
+  e.preventDefault();
+  (e.currentTarget as HTMLTextAreaElement).blur();
+}
+
+function handleNewStepKeydown(e: KeyboardEvent) {
+  if (e.key !== 'Enter' || e.shiftKey) return;
+  e.preventDefault();
+  void addStep();
 }
 
 async function removeStep(stepId: string) {
   await todoStore.deleteStep(stepId);
+}
+
+async function removeStepImage(step: TodoStep, imageIndex: number) {
+  const nextImages = parseStepImageUrls(step.imageUrl).filter((_, index) => index !== imageIndex);
+  await todoStore.updateStep(step.id, { imageUrl: serializeStepImageUrls(nextImages) });
+}
+
+function removeNewStepImage(index: number) {
+  newStepImages.value = newStepImages.value.filter((_, imageIndex) => imageIndex !== index);
+}
+
+function openStepImage(step: TodoStep, imageSrc: string) {
+  const index = stepPreviewImages.value.findIndex(image => image.src === imageSrc);
+  imagePreviewIndex.value = Math.max(index, 0);
+  imagePreviewVisible.value = true;
+}
+
+async function handleStepPaste(e: ClipboardEvent, stepId: string) {
+  const imageUrl = await readPastedImageDataUrl(e);
+  if (!imageUrl) return;
+  e.preventDefault();
+  const step = todoStore.selectedTodo?.steps.find(item => item.id === stepId);
+  const nextImages = [...parseStepImageUrls(step?.imageUrl), imageUrl];
+  await todoStore.updateStep(stepId, { imageUrl: serializeStepImageUrls(nextImages) });
+}
+
+async function handleNewStepPaste(e: ClipboardEvent) {
+  const imageUrl = await readPastedImageDataUrl(e);
+  if (!imageUrl) return;
+  e.preventDefault();
+  newStepImages.value = [...newStepImages.value, imageUrl];
+}
+
+function parseStepImageUrls(value: string | undefined): string[] {
+  const raw = value?.trim();
+  if (!raw) return [];
+  if (raw.startsWith('[')) {
+    try {
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed)) {
+        return parsed.filter((item): item is string => typeof item === 'string' && item.trim().length > 0);
+      }
+    } catch {
+      return [raw];
+    }
+  }
+  return [raw];
+}
+
+function serializeStepImageUrls(urls: string[]): string {
+  const normalized = urls.map(url => url.trim()).filter(Boolean);
+  if (normalized.length === 0) return '';
+  if (normalized.length === 1) return normalized[0];
+  return JSON.stringify(normalized);
+}
+
+function readPastedImageDataUrl(e: ClipboardEvent): Promise<string | null> {
+  const items = Array.from(e.clipboardData?.items ?? []);
+  const imageItem = items.find(item => item.type.startsWith('image/'));
+  const file = imageItem?.getAsFile();
+  if (!file) return Promise.resolve(null);
+
+  return new Promise((resolve) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(typeof reader.result === 'string' ? reader.result : null);
+    reader.onerror = () => resolve(null);
+    reader.readAsDataURL(file);
+  });
+}
+
+function resizeStepTextarea(e: Event) {
+  const textarea = e.currentTarget as HTMLTextAreaElement;
+  resizeTextarea(textarea);
+  const stepId = textarea.dataset.stepId;
+  const step = todoStore.selectedTodo?.steps.find(item => item.id === stepId);
+  if (step?.isCompleted && stepId) {
+    updateStepStrikeLines(stepId);
+  }
+}
+
+function resizeTextarea(el: HTMLTextAreaElement) {
+  el.style.height = `${measureTextareaHeight(el)}px`;
+}
+
+function scheduleTextareaResize() {
+  if (textareaResizeFrame) {
+    cancelAnimationFrame(textareaResizeFrame);
+  }
+  textareaResizeFrame = requestAnimationFrame(() => {
+    textareaResizeFrame = 0;
+    resizeAllStepTextareas();
+  });
+}
+
+function resizeAllStepTextareas() {
+  nextTick(() => {
+    document.querySelectorAll<HTMLTextAreaElement>('.step-title-input, .step-add-input')
+      .forEach(resizeTextarea);
+    requestAnimationFrame(() => {
+      document.querySelectorAll<HTMLTextAreaElement>('.step-title-input, .step-add-input')
+        .forEach(resizeTextarea);
+      updateCompletedStepStrikeLines(todoStore.selectedTodo?.steps ?? []);
+    });
+  });
+}
+
+function measureTextareaHeight(el: HTMLTextAreaElement) {
+  const style = window.getComputedStyle(el);
+  const lineHeight = Number.parseFloat(style.lineHeight) || 22;
+  const verticalPadding = toPixels(style.paddingTop) + toPixels(style.paddingBottom);
+  const verticalBorder = toPixels(style.borderTopWidth) + toPixels(style.borderBottomWidth);
+  const lines = getTextareaVisualLines(el, style);
+  return Math.ceil(Math.max(lines.length, 1) * lineHeight + verticalPadding + verticalBorder);
+}
+
+function getTextareaVisualLines(el: HTMLTextAreaElement, style = window.getComputedStyle(el)) {
+  const maxWidth = getTextareaContentWidth(el, style);
+  if (maxWidth <= 0) return [el.value || ''];
+
+  const canvas = document.createElement('canvas');
+  const context = canvas.getContext('2d');
+  if (!context) return [el.value || ''];
+  context.font = `${style.fontStyle} ${style.fontVariant} ${style.fontWeight} ${style.fontSize} ${style.fontFamily}`;
+  return wrapTextToVisualLines(el.value || '', maxWidth, context);
+}
+
+function getTextareaContentWidth(el: HTMLTextAreaElement, style = window.getComputedStyle(el)) {
+  const inlinePadding = toPixels(style.paddingLeft) + toPixels(style.paddingRight);
+  const selfWidth = el.clientWidth - inlinePadding;
+  if (selfWidth > 0) return selfWidth;
+
+  const parentWidth = el.parentElement?.clientWidth ?? 0;
+  return Math.max(parentWidth - inlinePadding, 0);
+}
+
+function toPixels(value: string) {
+  return Number.parseFloat(value) || 0;
+}
+
+function updateCompletedStepStrikeLines(steps: TodoStep[]) {
+  nextTick(() => {
+    const next = { ...stepStrikeLines.value };
+    for (const step of steps) {
+      if (step.isCompleted) {
+        next[step.id] = measureStepStrikeLines(step.id, stepDrafts.value[step.id] ?? step.title);
+      } else if (!stepStrikeExiting.value[step.id]) {
+        delete next[step.id];
+      }
+    }
+    stepStrikeLines.value = next;
+  });
+}
+
+function updateStepStrikeLines(stepId: string) {
+  stepStrikeLines.value = {
+    ...stepStrikeLines.value,
+    [stepId]: measureStepStrikeLines(stepId, stepDrafts.value[stepId] ?? ''),
+  };
+}
+
+function measureStepStrikeLines(stepId: string, text: string) {
+  if (typeof document === 'undefined') return [];
+  const textarea = document.querySelector<HTMLTextAreaElement>(`.step-title-input[data-step-id="${stepId}"]`);
+  if (!textarea) return [];
+
+  const style = window.getComputedStyle(textarea);
+  const lineHeight = Number.parseFloat(style.lineHeight) || 22;
+  const maxWidth = getTextareaContentWidth(textarea, style);
+  if (maxWidth <= 0) return [];
+
+  const canvas = document.createElement('canvas');
+  const context = canvas.getContext('2d');
+  if (!context) return [];
+  context.font = `${style.fontStyle} ${style.fontVariant} ${style.fontWeight} ${style.fontSize} ${style.fontFamily}`;
+
+  const visualLines = wrapTextToVisualLines(text || '', maxWidth, context);
+
+  return visualLines.map((line, index) => ({
+    top: index * lineHeight + lineHeight / 2,
+    width: Math.min(Math.ceil(context.measureText(line).width) + 2, maxWidth),
+    delay: index * STEP_STRIKE_LINE_DELAY_MS,
+  })).filter(line => line.width > 2);
+}
+
+function getStepStrikeAnimationDuration(lines: Array<{ delay: number }>) {
+  const maxDelay = lines.reduce((max, line) => Math.max(max, line.delay), 0);
+  const maxExitDelay = Math.max(lines.length - 1, 0) * STEP_STRIKE_LINE_DELAY_MS;
+  return Math.max(maxDelay, maxExitDelay) + STEP_STRIKE_ANIMATION_BUFFER_MS;
+}
+
+function getStepStrikeLineDelay(stepId: string, index: number, line: { delay: number }) {
+  if (!stepStrikeExiting.value[stepId]) return line.delay;
+  const lineCount = stepStrikeLines.value[stepId]?.length ?? 0;
+  return Math.max(lineCount - index - 1, 0) * STEP_STRIKE_LINE_DELAY_MS;
+}
+
+function wrapTextToVisualLines(text: string, maxWidth: number, context: CanvasRenderingContext2D) {
+  const visualLines: string[] = [];
+  for (const paragraph of text.split('\n')) {
+    if (!paragraph) {
+      visualLines.push('');
+      continue;
+    }
+
+    let current = '';
+    for (const char of Array.from(paragraph)) {
+      const candidate = `${current}${char}`;
+      if (current && context.measureText(candidate).width > maxWidth) {
+        visualLines.push(current);
+        current = char;
+      } else {
+        current = candidate;
+      }
+    }
+    visualLines.push(current);
+  }
+  return visualLines.length > 0 ? visualLines : [''];
 }
 
 const { show: showConfirm } = useConfirmDialog();
@@ -127,69 +460,143 @@ async function deleteTodo() {
   }
 }
 
-async function onDueDateChange(val: string) {
+async function onDueDateChange(val: string | number | undefined) {
   const todo = todoStore.selectedTodo;
   if (!todo) return;
-  await todoStore.updateTodo(todo.id, { dueDate: val });
+  await todoStore.updateTodo(todo.id, { dueDate: typeof val === 'string' ? val : '' });
 }
 </script>
 
 <template>
-  <aside class="todo-detail" v-if="todoStore.selectedTodo" :style="detailTextStyle" @contextmenu.prevent.stop="handleContextMenu">
+  <aside ref="detailRef" class="todo-detail" v-if="todoStore.selectedTodo" :style="detailTextStyle" @contextmenu.prevent.stop="handleContextMenu">
     <TodoBackground :config="activeDetailBg" />
     <div class="detail-inner" style="position: relative; z-index: 1; display: flex; flex-direction: column; height: 100%;">
       <div class="detail-header">
-        <button class="close-btn" @click="close">✕</button>
+        <input
+          ref="titleRef"
+          v-model="editingTitle"
+          class="detail-title"
+          @blur="saveTitle"
+          @keydown.enter="($event.target as HTMLInputElement)?.blur()"
+        />
+        <button class="close-btn" title="关闭" @click="close">
+          <IconRenderer icon="iconify:lucide:x" :size="18" />
+        </button>
       </div>
 
       <UiScrollbar :x="false" :size="6" class="detail-scroll-area">
       <div class="detail-body">
-      <!-- 标题 -->
-      <input
-        ref="titleRef"
-        v-model="editingTitle"
-        class="detail-title"
-        @blur="saveTitle"
-        @keydown.enter="($event.target as HTMLInputElement)?.blur()"
-      />
-
       <!-- 步骤 -->
       <div class="detail-section">
-        <div class="section-label">📋 步骤</div>
+        <div class="section-label">
+          <IconRenderer icon="iconify:lucide:list-checks" :size="15" />
+          <span>步骤</span>
+        </div>
+        <UiScrollbar :x="false" :y="true" :size="5" class="steps-scroll-area">
         <div class="steps-list">
-          <div v-for="step in todoStore.selectedTodo.steps" :key="step.id" class="step-item">
+          <div v-for="step in todoStore.selectedTodo.steps" :key="step.id" class="step-item" :class="{ 'is-completed': step.isCompleted }">
             <button
               class="step-check"
               :class="{ checked: step.isCompleted }"
               @click="toggleStep(step.id, step.isCompleted)"
             >
-              <span v-if="step.isCompleted">✓</span>
+              <IconRenderer v-if="step.isCompleted" icon="iconify:lucide:check" :size="13" />
             </button>
-            <span class="step-title" :class="{ done: step.isCompleted }">{{ step.title }}</span>
-            <button class="step-delete" @click="removeStep(step.id)">✕</button>
+            <div class="step-main">
+              <div class="step-title-wrap" :class="{ done: step.isCompleted }">
+                <textarea
+                  v-model="stepDrafts[step.id]"
+                  class="step-title-input"
+                  :data-step-id="step.id"
+                  rows="1"
+                  wrap="soft"
+                  @input="resizeStepTextarea"
+                  @blur="saveStepTitle(step)"
+                  @keydown="handleStepTitleKeydown"
+                  @paste="handleStepPaste($event, step.id)"
+                />
+                <span
+                  v-if="step.isCompleted || stepStrikeExiting[step.id]"
+                  :key="`${step.id}-${stepStrikeRuns[step.id] ?? 0}`"
+                  class="step-strike-lines"
+                  :class="{ 'is-exiting': stepStrikeExiting[step.id] }"
+                >
+                  <span
+                    v-for="(line, index) in stepStrikeLines[step.id] ?? []"
+                    :key="`${step.id}-line-${index}`"
+                    class="step-strike-line"
+                    :class="{ 'is-exiting': stepStrikeExiting[step.id] }"
+                    :style="{
+                      top: `${line.top}px`,
+                      width: `${line.width}px`,
+                      animationDelay: `${getStepStrikeLineDelay(step.id, index, line)}ms`,
+                    }"
+                  />
+                </span>
+              </div>
+              <div v-if="parseStepImageUrls(step.imageUrl).length > 0" class="step-images">
+                <div
+                  v-for="(imageUrl, imageIndex) in parseStepImageUrls(step.imageUrl)"
+                  :key="`${step.id}-image-${imageIndex}`"
+                  class="step-image-preview"
+                >
+                  <button class="step-image-open" title="预览图片" @click="openStepImage(step, imageUrl)">
+                    <img :src="imageUrl" alt="步骤图片" draggable="false" />
+                  </button>
+                  <button class="step-image-remove" title="移除图片" @click="removeStepImage(step, imageIndex)">
+                    <IconRenderer icon="iconify:lucide:x" :size="14" />
+                  </button>
+                </div>
+              </div>
+            </div>
+            <button class="step-delete" title="删除步骤" @click="removeStep(step.id)">
+              <IconRenderer icon="iconify:lucide:x" :size="15" />
+            </button>
           </div>
           <div class="step-add">
-            <input
+            <textarea
               v-model="newStepText"
               class="step-add-input"
               placeholder="添加步骤"
-              @keydown.enter="addStep"
+              rows="1"
+              wrap="soft"
+              @input="resizeStepTextarea"
+              @keydown="handleNewStepKeydown"
+              @paste="handleNewStepPaste"
             />
+            <div v-if="newStepImages.length > 0" class="step-images step-images--draft">
+              <div
+                v-for="(imageUrl, imageIndex) in newStepImages"
+                :key="`draft-image-${imageIndex}`"
+                class="step-image-preview step-image-preview--draft"
+              >
+                <img :src="imageUrl" alt="步骤图片" draggable="false" />
+                <button class="step-image-remove" title="移除图片" @click="removeNewStepImage(imageIndex)">
+                  <IconRenderer icon="iconify:lucide:x" :size="14" />
+                </button>
+              </div>
+            </div>
           </div>
         </div>
+        </UiScrollbar>
       </div>
 
       <!-- 我的一天 -->
       <button class="detail-action" @click="toggleMyDay">
-        <span>☀️</span>
+        <IconRenderer icon="iconify:lucide:sun" :size="17" />
         <span>{{ todoStore.selectedTodo.isMyDay ? '从我的一天移除' : '添加到我的一天' }}</span>
       </button>
 
       <!-- 截止日期 -->
       <div class="detail-section">
-        <div class="section-label">📅 截止日期</div>
-        <UiDatePicker
+        <div class="section-label">
+          <IconRenderer icon="iconify:lucide:calendar" :size="15" />
+          <span>截止日期</span>
+        </div>
+        <UiDateTimePicker
           :modelValue="todoStore.selectedTodo.dueDate || ''"
+          mode="date"
+          value-format="date"
           @update:modelValue="onDueDateChange"
           placeholder="设置截止日期"
           size="sm"
@@ -198,7 +605,10 @@ async function onDueDateChange(val: string) {
 
       <!-- 提醒 -->
       <div class="detail-section">
-        <div class="section-label">⏰ 提醒</div>
+        <div class="section-label">
+          <IconRenderer icon="iconify:lucide:alarm-clock" :size="15" />
+          <span>提醒</span>
+        </div>
         <ReminderPicker
           :todoId="todoStore.selectedTodo.id"
           :reminders="todoStore.selectedTodo.reminders"
@@ -207,7 +617,10 @@ async function onDueDateChange(val: string) {
 
       <!-- 重复 -->
       <div class="detail-section">
-        <div class="section-label">🔄 重复</div>
+        <div class="section-label">
+          <IconRenderer icon="iconify:lucide:repeat-2" :size="15" />
+          <span>重复</span>
+        </div>
         <RepeatPicker
           :modelValue="todoStore.selectedTodo.repeatRule || ''"
           @update:modelValue="(v: string) => todoStore.updateTodo(todoStore.selectedTodo!.id, { repeatRule: v || undefined })"
@@ -216,7 +629,10 @@ async function onDueDateChange(val: string) {
 
       <!-- 备注 -->
       <div class="detail-section">
-        <div class="section-label">📝 备注</div>
+        <div class="section-label">
+          <IconRenderer icon="iconify:lucide:sticky-note" :size="15" />
+          <span>备注</span>
+        </div>
         <!-- 编辑模式 -->
         <textarea
           v-if="noteEditing"
@@ -242,9 +658,19 @@ async function onDueDateChange(val: string) {
 
     <div class="detail-footer">
       <span class="created-info">创建于 {{ todoStore.selectedTodo.createdAt?.split('T')[0] ?? todoStore.selectedTodo.createdAt?.slice(0, 10) }}</span>
-      <button class="delete-btn" @click="deleteTodo">🗑️ 删除</button>
+      <button class="delete-btn" @click="deleteTodo">
+        <IconRenderer icon="iconify:lucide:trash-2" :size="15" />
+        <span>删除</span>
+      </button>
     </div>
     </div>
+
+    <ImagePreviewDialog
+      v-model="imagePreviewVisible"
+      :images="stepPreviewImages"
+      :initial-index="imagePreviewIndex"
+      @update:index="imagePreviewIndex = $event"
+    />
   </aside>
 </template>
 
@@ -274,20 +700,31 @@ async function onDueDateChange(val: string) {
 }
 .detail-header {
   display: flex;
-  justify-content: flex-end;
-  padding: 12px;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 18px 16px 8px;
+  flex-shrink: 0;
 }
 .close-btn {
-  background: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 38px;
+  height: 38px;
+  flex: 0 0 38px;
+  background: var(--ui-button-ghost-hover-bg);
   border: none;
-  font-size: 1.1em;
   cursor: pointer;
   color: var(--ui-text-muted);
-  padding: 4px 8px;
-  border-radius: 4px;
+  padding: 0;
+  line-height: 0;
+  border-radius: 6px;
   transition: all 0.15s ease;
 }
-.close-btn:hover { background: var(--ui-button-ghost-hover-bg); }
+.close-btn:hover {
+  background: var(--todo-accent-bg-soft);
+  color: var(--ui-text-primary);
+}
 
 .detail-body {
   flex: 1;
@@ -297,14 +734,18 @@ async function onDueDateChange(val: string) {
   gap: 12px;
 }
 .detail-title {
+  flex: 1;
+  min-width: 0;
+  align-self: flex-end;
   font-size: 1.2em;
   font-weight: 600;
   border: none;
   outline: none;
   background: transparent;
-  width: 100%;
-  padding: 4px 0;
+  width: auto;
+  padding: 0 0 2px;
   color: var(--ui-text-primary);
+  line-height: 1.35;
 }
 
 .detail-section {
@@ -313,6 +754,9 @@ async function onDueDateChange(val: string) {
   gap: 6px;
 }
 .section-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
   font-size: 0.85em;
   color: var(--ui-text-muted);
   font-weight: 500;
@@ -321,13 +765,25 @@ async function onDueDateChange(val: string) {
 .steps-list {
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 2px;
+  padding-right: 4px;
+}
+.steps-scroll-area {
+  height: auto;
+  max-height: min(34vh, 320px);
+  min-height: 34px;
+}
+.steps-scroll-area :deep(.ui-scrollbar__viewport) {
+  max-height: min(34vh, 320px);
+}
+.steps-scroll-area :deep(.ui-scrollbar__content) {
+  min-height: 0;
 }
 .step-item {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   gap: 8px;
-  padding: 4px 0;
+  padding: 2px 0;
 }
 .step-check {
   width: 18px;
@@ -341,32 +797,170 @@ async function onDueDateChange(val: string) {
   justify-content: center;
   font-size: 0.65em;
   color: white;
+  line-height: 0;
   padding: 0;
+  margin-top: 2px;
   flex-shrink: 0;
+  transition:
+    background-color 0.18s cubic-bezier(0.4, 0, 0.2, 1),
+    border-color 0.18s cubic-bezier(0.4, 0, 0.2, 1),
+    transform 0.14s cubic-bezier(0.4, 0, 0.2, 1);
 }
+.step-check:hover { transform: scale(1.06); border-color: var(--ui-input-focus-border); }
 .step-check.checked { background: var(--ui-input-focus-border); border-color: var(--ui-input-focus-border); }
-.step-title { flex: 1; font-size: 0.85em; }
-.step-title.done { text-decoration: line-through; opacity: 0.5; }
+.step-check.checked :deep(*) { animation: step-check-pop 0.18s cubic-bezier(0.34, 1.56, 0.64, 1); }
+.step-main {
+  flex: 1;
+  min-width: 0;
+}
+.step-title-wrap {
+  position: relative;
+}
+.step-strike-lines {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  overflow: hidden;
+}
+.step-strike-line {
+  position: absolute;
+  left: 0;
+  height: 1.5px;
+  background: currentColor;
+  opacity: 0.52;
+  transform: scaleX(0);
+  transform-origin: left center;
+  animation: step-strike-in 0.42s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+}
+.step-strike-line.is-exiting {
+  transform: scaleX(1);
+  transform-origin: left center;
+  animation-name: step-strike-out;
+  animation-duration: 0.42s;
+  animation-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+}
+.step-title-input {
+  display: block;
+  box-sizing: border-box;
+  width: 100%;
+  min-height: 22px;
+  border: none;
+  outline: none;
+  padding: 0;
+  background: transparent;
+  color: var(--ui-text-primary);
+  font: inherit;
+  font-size: 0.85em;
+  line-height: 22px;
+  resize: none;
+  overflow: hidden;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+  transition:
+    opacity 0.18s ease,
+    color 0.18s ease,
+    text-decoration-color 0.22s ease;
+}
+.step-title-wrap.done .step-title-input {
+  opacity: 0.5;
+}
 .step-delete {
   background: none;
   border: none;
   cursor: pointer;
-  font-size: 0.8em;
+  line-height: 0;
   color: var(--ui-text-subtle);
   opacity: 0;
+  padding: 4px;
   transition: opacity 0.15s;
 }
 .step-item:hover .step-delete { opacity: 1; }
 
 .step-add-input {
+  display: block;
+  box-sizing: border-box;
   width: 100%;
   border: none;
   border-bottom: 1px solid var(--ui-border-subtle);
-  padding: 6px 0;
+  padding: 3px 0 6px;
   font-size: 0.85em;
+  line-height: 22px;
   outline: none;
   background: transparent;
   color: var(--ui-text-primary);
+  font-family: inherit;
+  resize: none;
+  overflow: hidden;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+.step-images {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 5px;
+}
+.step-image-preview {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 120px;
+  height: 80px;
+  border: 1px solid var(--ui-border-subtle);
+  border-radius: 6px;
+  overflow: hidden;
+  background:
+    linear-gradient(45deg, rgba(127, 127, 127, 0.12) 25%, transparent 25%),
+    linear-gradient(-45deg, rgba(127, 127, 127, 0.12) 25%, transparent 25%),
+    linear-gradient(45deg, transparent 75%, rgba(127, 127, 127, 0.12) 75%),
+    linear-gradient(-45deg, transparent 75%, rgba(127, 127, 127, 0.12) 75%),
+    var(--ui-surface-overlay);
+  background-position: 0 0, 0 6px, 6px -6px, -6px 0;
+  background-size: 12px 12px;
+}
+.step-image-open {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 100%;
+  padding: 0;
+  border: none;
+  background: transparent;
+  cursor: zoom-in;
+}
+.step-image-preview img {
+  display: block;
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
+}
+.step-image-preview--draft {
+  margin-left: 0;
+}
+.step-image-preview--draft img {
+  max-width: 120px;
+  max-height: 80px;
+}
+.step-image-remove {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border: none;
+  border-radius: 50%;
+  background: rgba(0, 0, 0, 0.52);
+  color: #fff;
+  cursor: pointer;
+  padding: 0;
+  line-height: 0;
 }
 
 .detail-action {
@@ -544,6 +1138,9 @@ async function onDueDateChange(val: string) {
   color: var(--ui-text-subtle);
 }
 .delete-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
   background: none;
   border: none;
   cursor: pointer;
@@ -551,4 +1148,33 @@ async function onDueDateChange(val: string) {
   font-size: 0.85em;
 }
 .delete-btn:hover { text-decoration: underline; }
+
+@keyframes step-check-pop {
+  from {
+    opacity: 0;
+    transform: scale(0.45);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes step-strike-in {
+  from {
+    transform: scaleX(0);
+  }
+  to {
+    transform: scaleX(1);
+  }
+}
+
+@keyframes step-strike-out {
+  from {
+    transform: scaleX(1);
+  }
+  to {
+    transform: scaleX(0);
+  }
+}
 </style>
