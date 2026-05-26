@@ -1,13 +1,16 @@
 <script setup lang="ts">
+import { inject } from 'vue';
 import { useTodoStore } from '@/windows/main/stores/todo_store';
 import { useContextMenu } from '@/windows/main/composables/useContextMenu';
 import { useConfirmDialog } from '@/windows/main/composables/useConfirmDialog';
+import IconRenderer from '@/windows/main/components/ui/IconRenderer.vue';
 import type { Todo } from '@/contracts/todo';
 
 const props = defineProps<{ todo: Todo }>();
 const todoStore = useTodoStore();
 const { open: openMenu } = useContextMenu();
 const { show: showConfirm } = useConfirmDialog();
+const openBgPicker = inject<Function>('openTodoBgPicker');
 
 function handleComplete() {
   if (props.todo.isCompleted) {
@@ -69,10 +72,15 @@ function handleContextMenu(e: MouseEvent) {
       action: () => todoStore.toggleMyDay(props.todo.id),
     },
     {
+      id: 'todo-item-bg',
+      label: '任务项个性化配置',
+      divided: true,
+      action: () => openBgPicker && openBgPicker('item'),
+    },
+    {
       id: 'delete-todo',
       label: '删除任务',
       danger: true,
-      divided: true,
       action: async () => {
         const ok = await showConfirm({
           title: '删除任务',
@@ -92,17 +100,22 @@ function handleContextMenu(e: MouseEvent) {
 <template>
   <div class="todo-item" :class="{ completed: todo.isCompleted }" @click="handleTitleClick" @contextmenu="handleContextMenu">
     <button class="checkbox" :class="{ checked: todo.isCompleted }" @click.stop="handleComplete">
-      <span v-if="todo.isCompleted">✓</span>
+      <IconRenderer v-if="todo.isCompleted" icon="iconify:lucide:check" :size="15" />
     </button>
     <div class="item-body">
       <span class="item-title">{{ todo.title }}</span>
       <span class="item-meta" v-if="stepsInfo() || todo.dueDate || todo.reminders.length > 0">
         <span v-if="stepsInfo()">{{ stepsInfo() }}</span>
         <span v-if="todo.dueDate" class="due-date" :class="dueDateClass(todo.dueDate)">
-          📅 {{ dueDateLabel(todo.dueDate) }}
+          <IconRenderer icon="iconify:lucide:calendar" :size="13" />
+          {{ dueDateLabel(todo.dueDate) }}
         </span>
-        <span v-if="todo.reminders.length > 0">🔔</span>
-        <span v-if="todo.repeatRule">🔄</span>
+        <span v-if="todo.reminders.length > 0" class="meta-icon">
+          <IconRenderer icon="iconify:lucide:bell" :size="13" />
+        </span>
+        <span v-if="todo.repeatRule" class="meta-icon">
+          <IconRenderer icon="iconify:lucide:repeat-2" :size="13" />
+        </span>
       </span>
     </div>
     <button
@@ -111,31 +124,53 @@ function handleContextMenu(e: MouseEvent) {
       @click="handleImportant"
       :title="todo.isImportant ? '取消重要' : '标记重要'"
     >
-      {{ todo.isImportant ? '★' : '☆' }}
+      <IconRenderer icon="iconify:lucide:star" :size="20" />
     </button>
   </div>
 </template>
 
 <style scoped>
 .todo-item {
+  position: relative;
   display: flex;
   align-items: center;
   gap: 10px;
   padding: 12px 16px;
-  background: var(--ui-surface-glass);
-  backdrop-filter: blur(10px);
-  -webkit-backdrop-filter: blur(10px);
+  background: transparent;
+  backdrop-filter: var(--todo-item-backdrop-filter, blur(10px));
+  -webkit-backdrop-filter: var(--todo-item-backdrop-filter, blur(10px));
   border: 1px solid var(--ui-border-subtle);
   border-radius: 12px;
   box-shadow: var(--todo-item-shadow);
   cursor: pointer;
-  transition: all 0.25s cubic-bezier(0.25, 0.8, 0.25, 1);
+  overflow: hidden;
+  transition:
+    border-color 0.18s ease,
+    box-shadow 0.18s ease,
+    transform 0.18s ease;
+}
+.todo-item::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  background: var(--todo-item-surface-bg, var(--ui-surface-glass));
+  opacity: var(--todo-item-surface-opacity, 1);
+  transition:
+    background 0.22s ease,
+    opacity 0.22s ease;
+}
+.todo-item > * {
+  position: relative;
+  z-index: 1;
 }
 .todo-item:hover {
-  background: var(--ui-surface-glass-strong);
   transform: translateY(-2px);
   box-shadow: var(--todo-item-shadow-hover);
   border-color: var(--ui-border-accent-soft);
+}
+.todo-item:hover::before {
+  background: var(--todo-item-surface-hover-bg, var(--ui-surface-glass-strong));
 }
 .todo-item.completed .item-title {
   text-decoration: line-through;
@@ -163,6 +198,9 @@ function handleContextMenu(e: MouseEvent) {
   background: var(--ui-input-focus-border);
   border-color: var(--ui-input-focus-border);
 }
+.checkbox.checked :deep(*) {
+  animation: todo-check-pop 0.18s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
 
 .item-body {
   flex: 1;
@@ -179,9 +217,16 @@ function handleContextMenu(e: MouseEvent) {
 }
 .item-meta {
   display: flex;
+  align-items: center;
   gap: 8px;
   font-size: 0.75em;
   color: var(--ui-text-muted);
+}
+.due-date,
+.meta-icon {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
 }
 .due-date.overdue { color: #D83B01; }
 .due-date.today { color: #F7A93B; }
@@ -190,11 +235,24 @@ function handleContextMenu(e: MouseEvent) {
   background: none;
   border: none;
   cursor: pointer;
-  font-size: 1.2em;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   color: var(--ui-text-subtle);
   padding: 0;
   transition: transform 0.2s;
 }
-.important-btn.active { color: #E8553D; }
+.important-btn.active { color: #E8553D; fill: currentColor; }
 .important-btn:hover { transform: scale(1.2); }
+
+@keyframes todo-check-pop {
+  from {
+    opacity: 0;
+    transform: scale(0.45);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
 </style>

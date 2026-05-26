@@ -8,6 +8,8 @@ import type {
   CreateTodoStepPayload,
   UpdateTodoStepPayload,
   CreateTodoReminderPayload,
+  TodoBackgroundState,
+  TodoBackgroundTarget,
 } from '@/contracts/todo';
 
 let registered = false;
@@ -16,6 +18,15 @@ let registered = false;
  *  该列表不向用户暴露，不会出现在侧边栏。
  */
 const SYSTEM_DEFAULT_LIST_ID = 'default-tasks';
+const TODO_BACKGROUND_SETTING_KEY = 'backgrounds';
+const TODO_BACKGROUND_TARGETS: TodoBackgroundTarget[] = [
+  'app',
+  'sidebar',
+  'content',
+  'detail',
+  'item',
+  'sidebar-item',
+];
 
 /** 确保系统默认列表在数据库中存在。如果已存在则跳过。 */
 async function ensureSystemDefaultList(db: JsDatabase) {
@@ -28,6 +39,64 @@ async function ensureSystemDefaultList(db: JsDatabase) {
       sortOrder: -1, // 排在最前，但会被过滤掉
     });
   }
+}
+
+type TodoSettingsDatabase = JsDatabase & {
+  getSettingValue: (key: string) => Promise<string>;
+  upsertSetting: (key: string, value: string, description?: string) => Promise<unknown>;
+};
+
+async function getTodoSettingValue(database: TodoSettingsDatabase, key: string): Promise<string | null> {
+  try {
+    return await database.getSettingValue(`todo.${key}`);
+  } catch {
+    return null;
+  }
+}
+
+async function setTodoSettingValue(database: TodoSettingsDatabase, key: string, value: string): Promise<void> {
+  await database.upsertSetting(`todo.${key}`, value, 'Todo settings');
+}
+
+function parseTodoBackgroundState(raw: string | null | undefined): TodoBackgroundState {
+  if (!raw) return {};
+
+  try {
+    const parsed = JSON.parse(raw);
+    if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) return {};
+
+    const record = parsed as Record<string, unknown>;
+    const state: TodoBackgroundState = {};
+    for (const target of TODO_BACKGROUND_TARGETS) {
+      const value = record[target];
+      if (value && typeof value === 'object' && !Array.isArray(value)) {
+        state[target] = value as TodoBackgroundState[TodoBackgroundTarget];
+      }
+    }
+
+    const sidebarItem = record.sidebarItem;
+    if (!state['sidebar-item'] && sidebarItem && typeof sidebarItem === 'object' && !Array.isArray(sidebarItem)) {
+      state['sidebar-item'] = sidebarItem as TodoBackgroundState[TodoBackgroundTarget];
+    }
+
+    return state;
+  } catch {
+    return {};
+  }
+}
+
+function mergeTodoBackgroundState(
+  current: TodoBackgroundState,
+  patch: TodoBackgroundState,
+): TodoBackgroundState {
+  const next: TodoBackgroundState = { ...current };
+  for (const target of TODO_BACKGROUND_TARGETS) {
+    const value = patch[target];
+    if (value !== undefined) {
+      next[target] = value;
+    }
+  }
+  return next;
 }
 
 export function registerTodoIpcHandlers() {
@@ -209,6 +278,22 @@ export function registerTodoIpcHandlers() {
 
   ipcMain.handle('todo:get-reminders', async (_event, todoId: string) => {
     return db().getRemindersByTodo(todoId);
+  });
+
+  // ==================== 个性化背景 ====================
+
+  ipcMain.handle('todo:get-backgrounds', async () => {
+    const raw = await getTodoSettingValue(db() as TodoSettingsDatabase, TODO_BACKGROUND_SETTING_KEY);
+    return parseTodoBackgroundState(raw);
+  });
+
+  ipcMain.handle('todo:update-backgrounds', async (_event, payload: TodoBackgroundState) => {
+    const database = db() as TodoSettingsDatabase;
+    const raw = await getTodoSettingValue(database, TODO_BACKGROUND_SETTING_KEY);
+    const current = parseTodoBackgroundState(raw);
+    const next = mergeTodoBackgroundState(current, payload ?? {});
+    await setTodoSettingValue(database, TODO_BACKGROUND_SETTING_KEY, JSON.stringify(next));
+    return next;
   });
 
   // ==================== 昨日提示忽略日期 ====================

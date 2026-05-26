@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { ref, watch } from 'vue';
 import { useTodoStore } from '@/windows/main/stores/todo_store';
+import IconRenderer from '@/windows/main/components/ui/IconRenderer.vue';
 
 const todoStore = useTodoStore();
 const query = ref('');
@@ -21,9 +22,7 @@ function clearSearch() {
 
 <template>
   <div class="todo-search">
-    <svg class="search-icon" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-      <circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/>
-    </svg>
+    <IconRenderer class="search-icon" icon="iconify:lucide:search" :size="16" />
     <input
       v-model="query"
       class="search-input"
@@ -31,9 +30,7 @@ function clearSearch() {
       type="text"
     />
     <button v-if="query" class="search-clear" @click="clearSearch">
-      <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
-        <line x1="4" y1="4" x2="12" y2="12"/><line x1="12" y1="4" x2="4" y2="12"/>
-      </svg>
+      <IconRenderer icon="iconify:lucide:x" :size="14" />
     </button>
   </div>
 </template>

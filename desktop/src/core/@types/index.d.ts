@@ -7,6 +7,7 @@ import type { NotificationApi } from '@/contracts/notification';
 import type { TrayApi } from '@/contracts/tray';
 import type { FtpApi } from '@/contracts/ftp';
 import type { MultiDeviceClipboardApi } from '@/contracts/multi_device_clipboard';
+import type { TodoApi } from '@/contracts/todo';
 
 // export * from './plugin.d.ts';
 export { };
@@ -47,6 +48,7 @@ declare global {
     appConfigApi?: AppConfigApi;
     notificationApi?: NotificationApi;
     homeWorkspaceApi?: HomeWorkspaceApi;
+    todoApi?: TodoApi;
     trayApi?: TrayApi;
     multiDeviceClipboardApi?: MultiDeviceClipboardApi;
     ftpApi: FtpApi;

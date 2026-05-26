@@ -1,3 +1,5 @@
+import type { BackgroundStyleConfig, BackgroundType } from './background';
+
 // ==================== DTO/Response Types ====================
 
 export interface TodoList {
@@ -117,6 +119,18 @@ export interface CreateTodoReminderPayload {
   remindAt: string;
 }
 
+export type TodoBackgroundTarget = 'app' | 'sidebar' | 'content' | 'detail' | 'item' | 'sidebar-item';
+
+export interface TodoBackgroundConfig {
+  type: BackgroundType;
+  color: string;
+  image: string;
+  video: string;
+  backgroundStyle: BackgroundStyleConfig;
+}
+
+export type TodoBackgroundState = Partial<Record<TodoBackgroundTarget, TodoBackgroundConfig>>;
+
 // ==================== API Interface ====================
 
 export interface TodoApi {
@@ -164,4 +178,8 @@ export interface TodoApi {
   // 昨日提示忽略日期（SQLite 持久化）
   getDismissedDate: () => Promise<string | null>;
   setDismissedDate: (date: string) => Promise<void>;
+
+  // 个性化背景（SQLite 持久化）
+  getBackgrounds: () => Promise<TodoBackgroundState>;
+  updateBackgrounds: (payload: TodoBackgroundState) => Promise<TodoBackgroundState>;
 }

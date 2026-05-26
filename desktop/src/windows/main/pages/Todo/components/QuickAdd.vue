@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { ref, nextTick } from 'vue';
 import { useTodoStore } from '@/windows/main/stores/todo_store';
+import IconRenderer from '@/windows/main/components/ui/IconRenderer.vue';
 
 const todoStore = useTodoStore();
 const inputText = ref('');
@@ -19,10 +20,7 @@ async function handleSubmit() {
 <template>
   <div class="quick-add" :class="{ focused: isFocused }">
     <span class="add-icon-wrap">
-      <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24"
-        fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-        <line x1="12" x2="12" y1="5" y2="19"/><line x1="5" x2="19" y1="12" y2="12"/>
-      </svg>
+      <IconRenderer icon="iconify:lucide:plus" :size="16" />
     </span>
     <input
       ref="inputRef"
@@ -46,19 +44,19 @@ async function handleSubmit() {
   border-radius: 10px;
   border: 1.5px dashed var(--ui-border-subtle);
   flex-shrink: 0;
-  background: var(--ui-surface-overlay);
+  background: color-mix(in srgb, var(--ui-surface-panel) 94%, var(--ui-surface-overlay));
   transition: all 0.25s cubic-bezier(0.25, 0.8, 0.25, 1);
   cursor: text;
 }
 .quick-add:hover {
   border-color: var(--ui-input-focus-border);
   border-style: solid;
-  background: var(--todo-accent-bg-soft);
+  background: color-mix(in srgb, var(--ui-surface-panel) 88%, var(--todo-accent-bg-soft));
 }
 .quick-add.focused {
   border-color: var(--ui-input-focus-border);
   border-style: solid;
-  background: var(--todo-accent-bg);
+  background: color-mix(in srgb, var(--ui-surface-panel) 82%, var(--todo-accent-bg));
   box-shadow: 0 0 0 3px var(--todo-accent-ring);
 }
 

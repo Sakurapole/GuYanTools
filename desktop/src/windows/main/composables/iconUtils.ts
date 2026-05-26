@@ -18,6 +18,7 @@ export interface ParsedIcon {
 // ─── 旧版预设键 → Iconify 名称映射 ───
 // widget 图标
 const LEGACY_WIDGET_ICON_MAP: Record<string, string> = {
+  list: 'lucide:list',
   tool: 'mdi:wrench',
   video: 'mdi:video-outline',
   audio: 'mdi:volume-high',

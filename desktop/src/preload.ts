@@ -206,6 +206,9 @@ const todoApi: TodoApi = {
 
   getDismissedDate: () => ipcRenderer.invoke('todo:get-dismissed-date'),
   setDismissedDate: (date: string) => ipcRenderer.invoke('todo:set-dismissed-date', date),
+
+  getBackgrounds: () => ipcRenderer.invoke('todo:get-backgrounds'),
+  updateBackgrounds: (payload) => ipcRenderer.invoke('todo:update-backgrounds', payload),
 };
 contextBridge.exposeInMainWorld('todoApi', todoApi);
 

@@ -7,9 +7,13 @@ import { resolveTodoAreaBackground, useTodoSettings } from '@/windows/main/compo
 import { useAppConfigStore } from '@/windows/main/stores/app_config_store';
 import TodoBackground from './TodoBackground.vue';
 import TodoSearch from './TodoSearch.vue';
+import IconPicker from '@/windows/main/components/ui/IconPicker.vue';
+import IconRenderer from '@/windows/main/components/ui/IconRenderer.vue';
+import UiInput from '@/windows/main/components/ui/UiInput.vue';
 import UiScrollbar from '@/windows/main/components/ui/UiScrollbar.vue';
 import { useConfirmDialog } from '@/windows/main/composables/useConfirmDialog';
 import { buildBackgroundTextVars } from '@/windows/main/utils/backgroundTextColor';
+import type { TodoList } from '@/contracts/todo';
 
 const todoStore = useTodoStore();
 const listStore = useTodoListStore();
@@ -34,18 +38,26 @@ function handleContextMenu(e: MouseEvent) {
       id: 'sidebar-bg',
       label: '侧边栏个性化配置',
       action: () => openBgPicker && openBgPicker('sidebar'),
+    },
+    {
+      id: 'sidebar-item-bg',
+      label: '侧边栏项个性化配置',
+      action: () => openBgPicker && openBgPicker('sidebar-item'),
     }
   ]);
 }
 const newListName = ref('');
 const showNewListInput = ref(false);
+const showIconPicker = ref(false);
+const iconPickerValue = ref('');
+const iconPickerList = ref<TodoList | null>(null);
 
-const smartLists: { id: SmartListType; svgIcon: string; label: string }[] = [
-  { id: 'my-day', svgIcon: `<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2"/><path d="M12 20v2"/><path d="m4.93 4.93 1.41 1.41"/><path d="m17.66 17.66 1.41 1.41"/><path d="M2 12h2"/><path d="M20 12h2"/><path d="m6.34 17.66-1.41 1.41"/><path d="m19.07 4.93-1.41 1.41"/></svg>`, label: '我的一天' },
-  { id: 'important', svgIcon: `<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>`, label: '重要' },
-  { id: 'planned', svgIcon: `<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="18" x="3" y="4" rx="2" ry="2"/><line x1="16" x2="16" y1="2" y2="6"/><line x1="8" x2="8" y1="2" y2="6"/><line x1="3" x2="21" y1="10" y2="10"/></svg>`, label: '已计划' },
-  { id: 'all', svgIcon: `<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="8" x2="21" y1="6" y2="6"/><line x1="8" x2="21" y1="12" y2="12"/><line x1="8" x2="21" y1="18" y2="18"/><line x1="3" x2="3.01" y1="6" y2="6"/><line x1="3" x2="3.01" y1="12" y2="12"/><line x1="3" x2="3.01" y1="18" y2="18"/></svg>`, label: '全部' },
-  { id: 'completed', svgIcon: `<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 11 12 14 22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>`, label: '已完成' },
+const smartLists: { id: SmartListType; icon: string; label: string }[] = [
+  { id: 'my-day', icon: 'iconify:lucide:sun', label: '我的一天' },
+  { id: 'important', icon: 'iconify:lucide:star', label: '重要' },
+  { id: 'planned', icon: 'iconify:lucide:calendar', label: '已计划' },
+  { id: 'all', icon: 'iconify:lucide:list-checks', label: '全部' },
+  { id: 'completed', icon: 'iconify:lucide:square-check-big', label: '已完成' },
 ];
 
 function handleSmartListClick(id: SmartListType) {
@@ -89,9 +101,20 @@ function handleNewListKeydown(e: KeyboardEvent) {
 function handleSmartListContextMenu(e: MouseEvent, item: { id: SmartListType; label: string }) {
   openMenu(e.clientX, e.clientY, [
     {
+      id: 'sidebar-bg',
+      label: '侧边栏个性化配置',
+      action: () => openBgPicker && openBgPicker('sidebar'),
+    },
+    {
+      id: 'sidebar-item-bg',
+      label: '侧边栏项个性化配置',
+      action: () => openBgPicker && openBgPicker('sidebar-item'),
+    },
+    {
       id: `delete-all-${item.id}`,
       label: '删除全部',
       danger: true,
+      divided: true,
       disabled: todoStore.smartListCounts[item.id] === 0,
       action: async () => {
         await confirmDeleteAll(item.id, item.label);
@@ -100,11 +123,45 @@ function handleSmartListContextMenu(e: MouseEvent, item: { id: SmartListType; la
   ]);
 }
 
-function handleListContextMenu(e: MouseEvent, list: { id: string; name: string }) {
+function openListIconPicker(list: TodoList) {
+  iconPickerList.value = list;
+  iconPickerValue.value = list.icon || 'list';
+  showIconPicker.value = true;
+}
+
+async function handleListIconChange(icon: string) {
+  const list = iconPickerList.value;
+  if (!list) return;
+  iconPickerValue.value = icon;
+  await listStore.updateList(list.id, { icon: icon || 'list' });
+}
+
+function handleIconPickerClose() {
+  showIconPicker.value = false;
+  iconPickerList.value = null;
+}
+
+function handleListContextMenu(e: MouseEvent, list: TodoList) {
   openMenu(e.clientX, e.clientY, [
+    {
+      id: 'custom-list-icon',
+      label: '配置图标',
+      action: () => openListIconPicker(list),
+    },
+    {
+      id: 'sidebar-bg',
+      label: '侧边栏个性化配置',
+      action: () => openBgPicker && openBgPicker('sidebar'),
+    },
+    {
+      id: 'sidebar-item-bg',
+      label: '侧边栏项个性化配置',
+      action: () => openBgPicker && openBgPicker('sidebar-item'),
+    },
     {
       id: 'delete-all-todos',
       label: '删除全部',
+      divided: true,
       danger: true,
       action: async () => {
         await confirmDeleteAll(list.id, list.name, true);
@@ -149,10 +206,7 @@ function handleListContextMenu(e: MouseEvent, list: { id: string; name: string }
           class="collapse-btn"
           @click="isSidebarCollapsed = !isSidebarCollapsed"
         >
-          <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
-            :class="{ 'collapse-icon-rotated': isSidebarCollapsed }" class="collapse-icon">
-            <polyline points="15 18 9 12 15 6"/>
-          </svg>
+          <IconRenderer icon="iconify:lucide:chevron-left" :size="18" :class="{ 'collapse-icon-rotated': isSidebarCollapsed }" class="collapse-icon" />
         </button>
       </div>
 
@@ -169,7 +223,9 @@ function handleListContextMenu(e: MouseEvent, list: { id: string; name: string }
         :class="{ active: todoStore.currentView === item.id }" @click="handleSmartListClick(item.id)"
         @contextmenu.prevent.stop="handleSmartListContextMenu($event, item)"
       >
-        <span class="nav-icon" v-html="item.svgIcon"></span>
+        <span class="nav-icon">
+          <IconRenderer :icon="item.icon" :size="20" />
+        </span>
         <span class="nav-label">{{ item.label }}</span>
         <span v-if="todoStore.smartListCounts[item.id] > 0" class="nav-badge">{{ todoStore.smartListCounts[item.id] }}</span>
       </button>
@@ -186,7 +242,9 @@ function handleListContextMenu(e: MouseEvent, list: { id: string; name: string }
         :class="{ active: todoStore.currentView === list.id }" @click="handleUserListClick(list.id)"
         @contextmenu.prevent.stop="handleListContextMenu($event, list)"
       >
-        <span class="nav-icon" v-html="`<svg xmlns='http://www.w3.org/2000/svg' width='20' height='20' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><path d='M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z'/><polyline points='14 2 14 8 20 8'/></svg>`"></span>
+        <span class="nav-icon">
+          <IconRenderer :icon="list.icon || 'list'" :size="20" />
+        </span>
         <span class="nav-label">{{ list.name }}</span>
         <span class="nav-badge" v-if="list.incompleteCount > 0">{{ list.incompleteCount }}</span>
       </button>
@@ -195,8 +253,15 @@ function handleListContextMenu(e: MouseEvent, list: { id: string; name: string }
 
     <div class="sidebar-footer">
       <template v-if="showNewListInput">
-        <input v-model="newListName" class="new-list-input" placeholder="输入列表名称..." @keydown="handleNewListKeydown"
-          @blur="() => { if (!newListName.trim()) showNewListInput = false }" autofocus />
+        <UiInput
+          v-model="newListName"
+          class="new-list-input"
+          placeholder="输入列表名称..."
+          size="sm"
+          @keydown="handleNewListKeydown"
+          @blur="() => { if (!newListName.trim()) showNewListInput = false }"
+          autofocus
+        />
       </template>
       <button
         v-else
@@ -204,12 +269,21 @@ function handleListContextMenu(e: MouseEvent, list: { id: string; name: string }
         class="add-list-btn"
         @click="showNewListInput = true"
       >
-        <span class="nav-icon" v-html="`<svg xmlns='http://www.w3.org/2000/svg' width='20' height='20' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><line x1='12' x2='12' y1='5' y2='19'/><line x1='5' x2='19' y1='12' y2='12'/></svg>`"></span>
+        <span class="nav-icon">
+          <IconRenderer icon="iconify:lucide:plus" :size="20" />
+        </span>
         <span class="nav-label">新建列表</span>
       </button>
     </div>
     </div>
   </aside>
+
+  <IconPicker
+    v-model="iconPickerValue"
+    :visible="showIconPicker"
+    @update:modelValue="handleListIconChange"
+    @close="handleIconPickerClose"
+  />
 </template>
 
 <style scoped>
@@ -338,13 +412,21 @@ function handleListContextMenu(e: MouseEvent, list: { id: string; name: string }
   padding: 0 8px;
 }
 
+.nav-item,
+.add-list-btn {
+  position: relative;
+  background: transparent;
+  isolation: isolate;
+  overflow: hidden;
+}
+
 .nav-item {
   display: flex;
   align-items: center;
   gap: 10px;
+  min-height: 36px;
   padding: 8px 12px;
   border: none;
-  background: transparent;
   border-radius: 8px;
   cursor: pointer;
   font-size: 0.9em;
@@ -352,6 +434,24 @@ function handleListContextMenu(e: MouseEvent, list: { id: string; name: string }
   transition: background 0.15s, transform 0.1s;
   text-align: left;
   width: 100%;
+}
+
+.nav-item::before,
+.add-list-btn::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  border-radius: inherit;
+  background: var(--todo-sidebar-item-surface-bg, transparent);
+  opacity: var(--todo-sidebar-item-surface-opacity, 1);
+  backdrop-filter: var(--todo-sidebar-item-backdrop-filter, none);
+  -webkit-backdrop-filter: var(--todo-sidebar-item-backdrop-filter, none);
+  pointer-events: none;
+  transition:
+    background 0.22s ease,
+    opacity 0.22s ease,
+    backdrop-filter 0.22s ease;
 }
 
 .nav-item:hover {
@@ -364,6 +464,12 @@ function handleListContextMenu(e: MouseEvent, list: { id: string; name: string }
   font-weight: 600;
 }
 
+.nav-item > *,
+.add-list-btn > * {
+  position: relative;
+  z-index: 1;
+}
+
 .nav-icon {
   width: 20px;
   height: 20px;
@@ -372,10 +478,21 @@ function handleListContextMenu(e: MouseEvent, list: { id: string; name: string }
   justify-content: center;
   flex-shrink: 0;
   color: inherit;
+  line-height: 0;
+}
+
+.nav-icon :deep(svg) {
+  display: block;
+  width: 20px;
+  height: 20px;
 }
 
 .nav-label {
+  display: flex;
+  align-items: center;
   flex: 1;
+  min-height: 20px;
+  line-height: 20px;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -409,7 +526,6 @@ function handleListContextMenu(e: MouseEvent, list: { id: string; name: string }
   padding: 8px 12px;
   width: 100%;
   border: 1.5px dashed transparent;
-  background: transparent;
   border-radius: 8px;
   cursor: pointer;
   color: var(--ui-input-focus-border);
