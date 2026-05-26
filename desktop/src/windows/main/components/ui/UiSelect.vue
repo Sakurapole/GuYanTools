@@ -399,7 +399,7 @@ onBeforeUnmount(() => {
 /* ─── Dropdown ─── */
 .ui-select-dropdown {
   position: fixed;
-  z-index: 10001;
+  z-index: 10040;
   box-sizing: border-box;
   overflow: hidden;
   border-radius: var(--ui-radius-sm);
