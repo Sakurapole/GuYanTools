@@ -256,14 +256,18 @@ function findListEnd(lines: LineEntry[], startIndex: number): number {
     }
 
     if (isBlank(line)) {
-      const nextMeaningfulIndex = findNextMeaningfulLineIndex(lines, index + 1);
+      let nextIndex = index + 1;
+
+      while (nextIndex < lines.length && isBlank(lines[nextIndex].text)) {
+        nextIndex += 1;
+      }
 
       if (
-        nextMeaningfulIndex !== null &&
-        (isListLine(lines[nextMeaningfulIndex].text) ||
-          isIndentedContinuation(lines[nextMeaningfulIndex].text))
+        nextIndex < lines.length &&
+        (isListLine(lines[nextIndex].text) || isIndentedContinuation(lines[nextIndex].text))
       ) {
-        endIndex = index;
+        endIndex = nextIndex - 1;
+        index = nextIndex - 1;
         continue;
       }
     }
@@ -272,16 +276,6 @@ function findListEnd(lines: LineEntry[], startIndex: number): number {
   }
 
   return endIndex;
-}
-
-function findNextMeaningfulLineIndex(lines: LineEntry[], startIndex: number): number | null {
-  for (let index = startIndex; index < lines.length; index += 1) {
-    if (!isBlank(lines[index].text)) {
-      return index;
-    }
-  }
-
-  return null;
 }
 
 function findConsecutiveEnd(

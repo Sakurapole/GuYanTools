@@ -123,6 +123,20 @@ function testSegmenterHandlesLargeDocuments() {
   assert.ok(elapsed < 5000, `expected 100k-line segmentation under 5000ms, got ${elapsed}ms`);
 }
 
+function testSegmenterHandlesPathologicalLooseListBlankRun() {
+  const blankLines = Array.from({ length: 20000 }, () => '');
+  const source = ['- first', ...blankLines, '- second'].join('\n');
+  const startedAt = Date.now();
+  const segments = segmentMarkdown(source);
+  const elapsed = Date.now() - startedAt;
+  const lists = segments.filter((segment) => segment.type === 'list');
+
+  assert.equal(lists.length, 1);
+  assert.equal(lists[0].startLine, 1);
+  assert.equal(lists[0].endLine, 20002);
+  assert.ok(elapsed < 1500, `expected loose-list blank run under 1500ms, got ${elapsed}ms`);
+}
+
 testSegmenterKeepsFencedCodeTogether();
 testSegmenterFindsLineAnchors();
 testSegmentHashIsStable();
@@ -132,5 +146,6 @@ testSegmenterExcludesBlankSegments();
 testSegmenterKeepsLooseListsTogether();
 testSegmenterHandlesTrailingNewline();
 testSegmenterHandlesLargeDocuments();
+testSegmenterHandlesPathologicalLooseListBlankRun();
 
 console.log('knowledge editor foundation checks passed');
