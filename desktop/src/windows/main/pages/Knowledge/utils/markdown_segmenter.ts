@@ -22,6 +22,7 @@ export interface MarkdownSegment {
 interface LineEntry {
   text: string;
   startOffset: number;
+  endOffset: number;
 }
 
 const headingPattern = /^ {0,3}#{1,6}\s/;
@@ -32,8 +33,7 @@ const htmlPattern = /^ {0,3}<\/?[A-Za-z][^>]*>\s*$/;
 const tableDividerPattern = /^ {0,3}\|?\s*:?-{3,}:?\s*(?:\|\s*:?-{3,}:?\s*)+\|?\s*$/;
 
 export function segmentMarkdown(source: string): MarkdownSegment[] {
-  const normalized = normalizeLineEndings(source);
-  const lines = getLineEntries(normalized);
+  const lines = getLineEntries(source);
   const segments: MarkdownSegment[] = [];
   let index = 0;
 
@@ -48,27 +48,27 @@ export function segmentMarkdown(source: string): MarkdownSegment[] {
     const codeFence = getOpeningFence(line);
     if (codeFence) {
       const endIndex = findClosingFence(lines, index + 1, codeFence);
-      segments.push(createSegment('code_fence', lines, index, endIndex, normalized));
+      segments.push(createSegment('code_fence', lines, index, endIndex));
       index = endIndex + 1;
       continue;
     }
 
     if (headingPattern.test(line)) {
-      segments.push(createSegment('heading', lines, index, index, normalized));
+      segments.push(createSegment('heading', lines, index, index));
       index += 1;
       continue;
     }
 
     if (isTableStart(lines, index)) {
       const endIndex = findTableEnd(lines, index + 2);
-      segments.push(createSegment('table', lines, index, endIndex, normalized));
+      segments.push(createSegment('table', lines, index, endIndex));
       index = endIndex + 1;
       continue;
     }
 
     if (isListLine(line)) {
       const endIndex = findListEnd(lines, index + 1);
-      segments.push(createSegment('list', lines, index, endIndex, normalized));
+      segments.push(createSegment('list', lines, index, endIndex));
       index = endIndex + 1;
       continue;
     }
@@ -77,7 +77,7 @@ export function segmentMarkdown(source: string): MarkdownSegment[] {
       const endIndex = findConsecutiveEnd(lines, index + 1, (entry) =>
         blockquotePattern.test(entry.text),
       );
-      segments.push(createSegment('blockquote', lines, index, endIndex, normalized));
+      segments.push(createSegment('blockquote', lines, index, endIndex));
       index = endIndex + 1;
       continue;
     }
@@ -86,13 +86,13 @@ export function segmentMarkdown(source: string): MarkdownSegment[] {
       const endIndex = findConsecutiveEnd(lines, index + 1, (entry) =>
         htmlPattern.test(entry.text),
       );
-      segments.push(createSegment('html', lines, index, endIndex, normalized));
+      segments.push(createSegment('html', lines, index, endIndex));
       index = endIndex + 1;
       continue;
     }
 
     const endIndex = findParagraphEnd(lines, index + 1);
-    segments.push(createSegment('paragraph', lines, index, endIndex, normalized));
+    segments.push(createSegment('paragraph', lines, index, endIndex));
     index = endIndex + 1;
   }
 
@@ -117,19 +117,35 @@ export function hashMarkdownSegmentSource(source: string): string {
   return (hash >>> 0).toString(36).padStart(7, '0');
 }
 
-function normalizeLineEndings(source: string): string {
-  return source.replace(/\r\n?/g, '\n');
-}
-
 function getLineEntries(source: string): LineEntry[] {
-  const rawLines = source.split('\n');
   const entries: LineEntry[] = [];
-  let offset = 0;
+  let lineStartOffset = 0;
 
-  for (const text of rawLines) {
-    entries.push({ text, startOffset: offset });
-    offset += text.length + 1;
+  for (let index = 0; index < source.length; index += 1) {
+    const character = source[index];
+
+    if (character !== '\r' && character !== '\n') {
+      continue;
+    }
+
+    entries.push({
+      text: source.slice(lineStartOffset, index),
+      startOffset: lineStartOffset,
+      endOffset: index,
+    });
+
+    if (character === '\r' && source[index + 1] === '\n') {
+      index += 1;
+    }
+
+    lineStartOffset = index + 1;
   }
+
+  entries.push({
+    text: source.slice(lineStartOffset),
+    startOffset: lineStartOffset,
+    endOffset: source.length,
+  });
 
   return entries;
 }
@@ -139,11 +155,13 @@ function createSegment(
   lines: LineEntry[],
   startIndex: number,
   endIndex: number,
-  source: string,
 ): MarkdownSegment {
   const startOffset = lines[startIndex].startOffset;
-  const endOffset = lines[endIndex].startOffset + lines[endIndex].text.length;
-  const segmentSource = source.slice(startOffset, endOffset);
+  const endOffset = lines[endIndex].endOffset;
+  const segmentSource = lines
+    .slice(startIndex, endIndex + 1)
+    .map((line) => line.text)
+    .join('\n');
   const hash = hashMarkdownSegmentSource(segmentSource);
   const startLine = startIndex + 1;
   const endLine = endIndex + 1;
@@ -183,9 +201,9 @@ function findClosingFence(
   startIndex: number,
   openingFence: { marker: '`' | '~'; length: number },
 ): number {
-  for (let index = startIndex; index < lines.length; index += 1) {
-    const pattern = new RegExp(`^ {0,3}\\${openingFence.marker}{${openingFence.length},}\\s*$`);
+  const pattern = new RegExp(`^ {0,3}\\${openingFence.marker}{${openingFence.length},}\\s*$`);
 
+  for (let index = startIndex; index < lines.length; index += 1) {
     if (pattern.test(lines[index].text)) {
       return index;
     }
@@ -237,15 +255,33 @@ function findListEnd(lines: LineEntry[], startIndex: number): number {
       continue;
     }
 
-    if (isBlank(line) && lines[index + 1] && isIndentedContinuation(lines[index + 1].text)) {
-      endIndex = index;
-      continue;
+    if (isBlank(line)) {
+      const nextMeaningfulIndex = findNextMeaningfulLineIndex(lines, index + 1);
+
+      if (
+        nextMeaningfulIndex !== null &&
+        (isListLine(lines[nextMeaningfulIndex].text) ||
+          isIndentedContinuation(lines[nextMeaningfulIndex].text))
+      ) {
+        endIndex = index;
+        continue;
+      }
     }
 
     break;
   }
 
   return endIndex;
+}
+
+function findNextMeaningfulLineIndex(lines: LineEntry[], startIndex: number): number | null {
+  for (let index = startIndex; index < lines.length; index += 1) {
+    if (!isBlank(lines[index].text)) {
+      return index;
+    }
+  }
+
+  return null;
 }
 
 function findConsecutiveEnd(
