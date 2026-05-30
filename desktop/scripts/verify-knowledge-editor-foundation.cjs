@@ -16,6 +16,14 @@ const {
   hashMarkdownSegmentSource,
 } = require('../src/windows/main/pages/Knowledge/utils/markdown_segmenter.ts');
 
+const {
+  sanitizeKnowledgeMarkdownHtml,
+} = require('../src/windows/main/pages/Knowledge/utils/markdown_sanitize.ts');
+
+const {
+  createMarkdownRenderCache,
+} = require('../src/windows/main/pages/Knowledge/utils/markdown_render_cache.ts');
+
 function testSegmenterKeepsFencedCodeTogether() {
   const source = [
     '# Title',
@@ -137,6 +145,44 @@ function testSegmenterHandlesPathologicalLooseListBlankRun() {
   assert.ok(elapsed < 1500, `expected loose-list blank run under 1500ms, got ${elapsed}ms`);
 }
 
+function testSanitizerRemovesUnsafeHtml() {
+  const html = sanitizeKnowledgeMarkdownHtml(
+    '<p>ok</p><script>alert(1)</script><a href="javascript:alert(1)">bad</a>',
+  );
+
+  assert.match(html, /<p>ok<\/p>/);
+  assert.doesNotMatch(html, /script/i);
+  assert.doesNotMatch(html, /javascript:/i);
+  assert.match(html, /<a[^>]*>bad<\/a>/);
+}
+
+function testMarkdownRenderCacheReusesSameSegment() {
+  let renderCount = 0;
+  let sanitizeCount = 0;
+  const cache = createMarkdownRenderCache({
+    rendererVersion: 'test',
+    renderMarkdown(source) {
+      renderCount += 1;
+      return `<p>${source}</p>`;
+    },
+    sanitizeHtml(html) {
+      sanitizeCount += 1;
+      return html.replace('raw', 'clean');
+    },
+  });
+  const segment = {
+    id: 'segment-1',
+    hash: 'hash-1',
+    source: 'raw',
+  };
+
+  assert.equal(cache.render(segment), '<p>clean</p>');
+  assert.equal(cache.render(segment), '<p>clean</p>');
+  assert.equal(renderCount, 1);
+  assert.equal(sanitizeCount, 1);
+  assert.equal(cache.size(), 1);
+}
+
 testSegmenterKeepsFencedCodeTogether();
 testSegmenterFindsLineAnchors();
 testSegmentHashIsStable();
@@ -147,5 +193,7 @@ testSegmenterKeepsLooseListsTogether();
 testSegmenterHandlesTrailingNewline();
 testSegmenterHandlesLargeDocuments();
 testSegmenterHandlesPathologicalLooseListBlankRun();
+testSanitizerRemovesUnsafeHtml();
+testMarkdownRenderCacheReusesSameSegment();
 
 console.log('knowledge editor foundation checks passed');
