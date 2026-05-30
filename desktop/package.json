@@ -20,7 +20,8 @@
     "dist:win": "pnpm --dir .. run native:build && pnpm run build:app && electron-builder --config electron-builder.config.cjs --win nsis",
     "publish": "pnpm run publish:github",
     "publish:github": "pnpm --dir .. run native:build && pnpm run build:app && electron-builder --config electron-builder.config.cjs --win nsis --publish always",
-    "lint": "eslint --ext .ts,.tsx ."
+    "lint": "eslint --ext .ts,.tsx .",
+    "verify:knowledge-editor": "node scripts/verify-knowledge-editor-foundation.cjs"
   },
   "devDependencies": {
     "@electron-forge/cli": "^7.8.1",
