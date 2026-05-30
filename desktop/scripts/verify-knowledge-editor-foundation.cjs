@@ -156,6 +156,35 @@ function testSanitizerRemovesUnsafeHtml() {
   assert.match(html, /<a[^>]*>bad<\/a>/);
 }
 
+function testSanitizerRemovesDangerousDataHtmlUrls() {
+  const inputs = [
+    '<a href="data:text/html,<script>alert(1)</script>">bad</a>',
+    '<a href="data:text/html;charset=utf-8,<script>alert(1)</script>">bad</a>',
+  ];
+
+  for (const input of inputs) {
+    const html = sanitizeKnowledgeMarkdownHtml(input);
+    assert.doesNotMatch(html, /\shref=/i);
+    assert.doesNotMatch(html, /data:text\/html/i);
+    assert.match(html, /<a[^>]*>bad<\/a>/);
+  }
+}
+
+function testSanitizerRemovesObfuscatedDangerousUrls() {
+  const inputs = [
+    '<a href="java&#x73;cript:alert(1)">bad</a>',
+    '<a href="java&#x0A;script:alert(1)">bad</a>',
+    '<a href="java\tscript:alert(1)">bad</a>',
+  ];
+
+  for (const input of inputs) {
+    const html = sanitizeKnowledgeMarkdownHtml(input);
+    assert.doesNotMatch(html, /\shref=/i);
+    assert.doesNotMatch(html, /javascript:/i);
+    assert.match(html, /<a[^>]*>bad<\/a>/);
+  }
+}
+
 function testMarkdownRenderCacheReusesSameSegment() {
   let renderCount = 0;
   let sanitizeCount = 0;
@@ -175,9 +204,13 @@ function testMarkdownRenderCacheReusesSameSegment() {
     hash: 'hash-1',
     source: 'raw',
   };
+  const first = cache.render(segment);
+  const second = cache.render(segment);
 
-  assert.equal(cache.render(segment), '<p>clean</p>');
-  assert.equal(cache.render(segment), '<p>clean</p>');
+  assert.equal(first.html, '<p>clean</p>');
+  assert.equal(first.segmentId, 'segment-1');
+  assert.equal(first.hash, 'hash-1');
+  assert.equal(second, first);
   assert.equal(renderCount, 1);
   assert.equal(sanitizeCount, 1);
   assert.equal(cache.size(), 1);
@@ -194,6 +227,8 @@ testSegmenterHandlesTrailingNewline();
 testSegmenterHandlesLargeDocuments();
 testSegmenterHandlesPathologicalLooseListBlankRun();
 testSanitizerRemovesUnsafeHtml();
+testSanitizerRemovesDangerousDataHtmlUrls();
+testSanitizerRemovesObfuscatedDangerousUrls();
 testMarkdownRenderCacheReusesSameSegment();
 
 console.log('knowledge editor foundation checks passed');

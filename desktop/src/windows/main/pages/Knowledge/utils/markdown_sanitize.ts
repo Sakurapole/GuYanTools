@@ -15,7 +15,7 @@ const blockedTags = [
   'option',
 ] as const;
 
-const dangerousReferencePattern = /^(javascript|vbscript|data:text\/html):/i;
+const dangerousDataHtmlPattern = /^data:text\/html(?:[;,]|$)/i;
 const attributePattern =
   /\s+([^\s"'<>/=]+)(?:\s*=\s*("([^"]*)"|'([^']*)'|([^\s"'=<>`]+)))?/g;
 
@@ -132,10 +132,55 @@ function sanitizeAttributeText(attributes: string): string {
 }
 
 function isDangerousReferenceAttribute(name: string, value: string): boolean {
+  const normalizedValue = normalizeReferenceForSafetyCheck(value);
+
   return (
     (name === 'href' || name === 'src' || name === 'xlink:href') &&
-    dangerousReferencePattern.test(value.trim())
+    (normalizedValue.startsWith('javascript:') ||
+      normalizedValue.startsWith('vbscript:') ||
+      dangerousDataHtmlPattern.test(normalizedValue))
   );
+}
+
+function normalizeReferenceForSafetyCheck(value: string): string {
+  return decodeBasicHtmlEntities(value)
+    .trim()
+    .split('')
+    .filter((character) => {
+      const codePoint = character.charCodeAt(0);
+      return codePoint > 0x20 && codePoint !== 0x7f;
+    })
+    .join('')
+    .toLowerCase();
+}
+
+function decodeBasicHtmlEntities(value: string): string {
+  return value
+    .replace(/&#x([0-9a-fA-F]+);?/g, (_match, codePoint: string) =>
+      decodeCodePoint(Number.parseInt(codePoint, 16)),
+    )
+    .replace(/&#([0-9]+);?/g, (_match, codePoint: string) =>
+      decodeCodePoint(Number.parseInt(codePoint, 10)),
+    )
+    .replace(/&(colon|tab|newline);/gi, (_match, entity: string) => {
+      const normalizedEntity = entity.toLowerCase();
+      if (normalizedEntity === 'colon') return ':';
+      if (normalizedEntity === 'tab') return '\t';
+      return '\n';
+    })
+    .replace(/&amp;/gi, '&');
+}
+
+function decodeCodePoint(codePoint: number): string {
+  if (!Number.isFinite(codePoint) || codePoint < 0 || codePoint > 0x10ffff) {
+    return '';
+  }
+
+  try {
+    return String.fromCodePoint(codePoint);
+  } catch {
+    return '';
+  }
 }
 
 function decorateCallouts(doc: Document): void {

@@ -21,22 +21,23 @@ export function createMarkdownRenderCache(options: MarkdownRenderCacheOptions) {
   const entries = new Map<string, RenderedMarkdownSegment>();
 
   return {
-    render(segment: MarkdownSegmentInput): string {
+    render(segment: MarkdownSegmentInput): RenderedMarkdownSegment {
       const key = createCacheKey(rendererVersion, segment.id, segment.hash);
       const cached = entries.get(key);
 
       if (cached) {
-        return cached.html;
+        return cached;
       }
 
       const html = options.sanitizeHtml(options.renderMarkdown(segment.source));
-      entries.set(key, {
+      const rendered = {
         segmentId: segment.id,
         hash: segment.hash,
         html,
-      });
+      };
+      entries.set(key, rendered);
 
-      return html;
+      return rendered;
     },
 
     invalidate(segmentIds: Iterable<string>): void {
