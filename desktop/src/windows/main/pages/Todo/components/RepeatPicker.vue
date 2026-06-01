@@ -164,25 +164,27 @@ onBeforeUnmount(() => {
 
 <template>
   <div class="repeat-picker">
-    <button ref="triggerRef" class="repeat-trigger" @click="togglePanel">
-      <IconRenderer icon="iconify:lucide:repeat-2" :size="16" />
-      <span :class="{ 'has-value': hasRule }">{{ currentLabel }}</span>
-    </button>
+    <span ref="triggerRef" class="repeat-trigger-wrap">
+      <UiButton class="repeat-trigger" variant="ghost" type="button" @click="togglePanel">
+        <IconRenderer icon="iconify:lucide:repeat-2" :size="16" />
+        <span :class="{ 'has-value': hasRule }">{{ currentLabel }}</span>
+      </UiButton>
+    </span>
 
     <Teleport to="body">
       <Transition :name="placement === 'top' ? 'ui-dropdown-up' : 'ui-dropdown'">
         <div v-if="isOpen" ref="panelRef" class="repeat-panel" :style="panelStyle">
           <div class="panel-title">重复规则</div>
-          <button v-for="opt in presetOptions" :key="opt.value" class="panel-option"
+          <UiButton v-for="opt in presetOptions" :key="opt.value" class="panel-option" variant="ghost" type="button"
             :class="{ selected: modelValue === opt.value }" @click="selectPreset(opt.value)">
             <IconRenderer icon="iconify:lucide:repeat-2" :size="14" />
             {{ opt.label }}
-          </button>
+          </UiButton>
           <div class="panel-divider"/>
-          <button class="panel-option" @click="showCustom = !showCustom">
+          <UiButton class="panel-option" variant="ghost" type="button" @click="showCustom = !showCustom">
             <IconRenderer icon="iconify:lucide:settings" :size="14" />
             自定义...
-          </button>
+          </UiButton>
           <div v-if="showCustom" class="custom-row">
             <span class="custom-label">每</span>
             <UiInput
@@ -203,10 +205,10 @@ onBeforeUnmount(() => {
             <UiButton class="custom-confirm" variant="primary" size="sm" @click="confirmCustom">确定</UiButton>
           </div>
           <div v-if="hasRule" class="panel-divider"/>
-          <button v-if="hasRule" class="panel-option panel-option--danger" @click="clearRule">
+          <UiButton v-if="hasRule" class="panel-option panel-option--danger" variant="ghost" type="button" @click="clearRule">
             <IconRenderer icon="iconify:lucide:x" :size="14" />
             移除重复
-          </button>
+          </UiButton>
         </div>
       </Transition>
     </Teleport>
@@ -217,7 +219,10 @@ onBeforeUnmount(() => {
 .repeat-picker {
   position: relative;
 }
-.repeat-trigger {
+.repeat-trigger-wrap {
+  display: block;
+}
+.repeat-trigger.ui-button {
   display: flex;
   align-items: center;
   gap: 8px;
@@ -229,13 +234,21 @@ onBeforeUnmount(() => {
   color: var(--ui-text-primary);
   width: 100%;
   text-align: left;
+  font-weight: inherit;
+  white-space: normal;
+  transform: none;
 }
-.repeat-trigger:hover { color: var(--ui-input-focus-border); }
+.repeat-trigger.ui-button:hover:not(:disabled) { color: var(--ui-input-focus-border); transform: none; }
+.repeat-trigger :deep(.ui-button__label),
+.panel-option :deep(.ui-button__label) {
+  justify-content: flex-start;
+  width: 100%;
+}
 .has-value { color: var(--ui-input-focus-border); font-weight: 500; }
 
 .repeat-panel {
   position: fixed;
-  z-index: 10020;
+  z-index: var(--ui-z-picker);
   padding: 8px 0;
   background: var(--ui-surface-glass-strong, #fff);
   border: 1px solid var(--ui-border-subtle);
@@ -252,7 +265,7 @@ onBeforeUnmount(() => {
   text-transform: uppercase;
   letter-spacing: 0.5px;
 }
-.panel-option {
+.panel-option.ui-button {
   display: flex;
   align-items: center;
   gap: 8px;
@@ -265,11 +278,14 @@ onBeforeUnmount(() => {
   color: var(--ui-text-primary);
   text-align: left;
   transition: background 0.15s;
+  font-weight: inherit;
+  white-space: normal;
+  transform: none;
 }
-.panel-option:hover { background: var(--ui-button-ghost-hover-bg); }
+.panel-option.ui-button:hover:not(:disabled) { background: var(--ui-button-ghost-hover-bg); transform: none; }
 .panel-option.selected { color: var(--ui-input-focus-border); font-weight: 600; }
 .panel-option--danger { color: #ef4444; }
-.panel-option--danger:hover { background: var(--todo-danger-bg); }
+.panel-option--danger.ui-button:hover:not(:disabled) { background: var(--todo-danger-bg); }
 .panel-divider {
   height: 1px;
   background: var(--ui-border-subtle);

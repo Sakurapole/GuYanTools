@@ -1,11 +1,12 @@
 <script setup lang="ts">
-import { ref, nextTick } from 'vue';
+import { ref } from 'vue';
 import { useTodoStore } from '@/windows/main/stores/todo_store';
 import IconRenderer from '@/windows/main/components/ui/IconRenderer.vue';
+import UiInput from '@/windows/main/components/ui/UiInput.vue';
 
 const todoStore = useTodoStore();
 const inputText = ref('');
-const inputRef = ref<HTMLInputElement | null>(null);
+const inputRef = ref<InstanceType<typeof UiInput> | null>(null);
 const isFocused = ref(false);
 
 async function handleSubmit() {
@@ -22,7 +23,7 @@ async function handleSubmit() {
     <span class="add-icon-wrap">
       <IconRenderer icon="iconify:lucide:plus" :size="16" />
     </span>
-    <input
+    <UiInput
       ref="inputRef"
       v-model="inputText"
       class="add-input"
@@ -77,14 +78,21 @@ async function handleSubmit() {
   background: var(--todo-accent-bg);
 }
 
-.add-input {
+.add-input.ui-input {
   flex: 1;
   border: none;
   outline: none;
+  min-height: auto;
+  padding: 0;
   font-size: 0.88em;
   background: transparent;
   color: var(--ui-text-primary);
   font-weight: 400;
+  box-shadow: none;
+}
+.add-input.ui-input:focus {
+  border-color: transparent;
+  box-shadow: none;
 }
 .add-input::placeholder {
   color: var(--ui-input-placeholder);

@@ -7,6 +7,7 @@ import { useSshStore } from '../../../stores/ssh_store';
 import { useTerminalStore } from '../../../stores/terminal_store';
 import { normalizeWidgetConfig } from '../registry';
 import { openTerminalProfileFromHome } from '../terminalWidgetNavigation';
+import UiButton from '../../../components/ui/UiButton.vue';
 
 const props = withDefaults(defineProps<{
   item: GridItem;
@@ -107,9 +108,9 @@ onMounted(() => {
 
     <div v-if="pathText" class="terminal-profile-widget__path" :title="pathText">{{ pathText }}</div>
 
-    <button class="terminal-profile-widget__action" type="button" :disabled="!config.profileId || !interactive" @click.stop="openProfile">
+    <UiButton class="terminal-profile-widget__action" variant="ghost" type="button" :disabled="!config.profileId || !interactive" @click.stop="openProfile">
       {{ actionLabel }}
-    </button>
+    </UiButton>
   </div>
 </template>
 
@@ -214,7 +215,7 @@ onMounted(() => {
   font-size: 0.68rem;
 }
 
-.terminal-profile-widget__action {
+.terminal-profile-widget__action.ui-button {
   flex: 0 0 auto;
   box-sizing: border-box;
   width: 100%;
@@ -226,13 +227,15 @@ onMounted(() => {
   font-size: 0.76rem;
   font-weight: 760;
   cursor: pointer;
+  transform: none;
 }
 
-.terminal-profile-widget__action:hover:not(:disabled) {
+.terminal-profile-widget__action.ui-button:hover:not(:disabled) {
   background: color-mix(in srgb, var(--widget-text-primary, white) 22%, transparent);
+  transform: none;
 }
 
-.terminal-profile-widget__action:disabled {
+.terminal-profile-widget__action.ui-button:disabled {
   cursor: not-allowed;
   opacity: 0.55;
 }

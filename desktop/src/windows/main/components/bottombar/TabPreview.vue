@@ -157,7 +157,7 @@ const svgIcons: Record<string, string> = {
 <style lang="scss" scoped>
 .tab-preview {
   position: fixed;
-  z-index: 10000;
+  z-index: var(--ui-z-toast);
   transform: translateX(-50%) translateY(-100%);
   width: 260px;
   border-radius: 10px;

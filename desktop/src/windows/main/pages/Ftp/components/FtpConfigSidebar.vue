@@ -53,8 +53,8 @@ const emit = defineEmits<{
 <template>
   <div class="ftp-sidebar__content">
     <div class="ftp-sidebar__header">
-      <button class="ftp-sidebar__menu-icon" type="button" :aria-label="sidebarCollapsed ? '展开侧边栏' : '收起侧边栏'"
-        :title="sidebarCollapsed ? '展开侧边栏' : '收起侧边栏'" @click="emit('toggle-sidebar')">
+      <UiIconButton class="ftp-sidebar__menu-icon" :title="sidebarCollapsed ? '展开侧边栏' : '收起侧边栏'"
+        @click="emit('toggle-sidebar')">
         <svg v-if="sidebarCollapsed" viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" stroke-width="2"
           fill="none" stroke-linecap="round" stroke-linejoin="round">
           <path d="m9 18 6-6-6-6" />
@@ -65,10 +65,10 @@ const emit = defineEmits<{
           <path d="M9 4v16" />
           <path d="m15 9-3 3 3 3" />
         </svg>
-      </button>
+      </UiIconButton>
 
       <div v-show="!sidebarCollapsed" class="ftp-sidebar-tabs">
-        <button class="ftp-sidebar-tab ftp-sidebar-tab--active" type="button">
+        <UiButton class="ftp-sidebar-tab ftp-sidebar-tab--active" type="button" active variant="ghost">
           <svg viewBox="0 0 24 24" width="13" height="13" stroke="currentColor" stroke-width="2" fill="none"
             stroke-linecap="round" stroke-linejoin="round">
             <rect x="2" y="2" width="20" height="8" rx="2" ry="2" />
@@ -78,7 +78,7 @@ const emit = defineEmits<{
           </svg>
           配置
           <span v-if="profilesCount > 0" class="ftp-sidebar-tab__badge">{{ profilesCount }}</span>
-        </button>
+        </UiButton>
       </div>
     </div>
 
@@ -106,7 +106,7 @@ const emit = defineEmits<{
                 <path d="M10 4h3" />
               </svg>
             </UiIconButton>
-            <button class="ftp-sidebar__collapsed-configs" type="button" title="已保存配置"
+            <UiIconButton class="ftp-sidebar__collapsed-configs" title="已保存配置"
               @mouseenter="emit('open-collapsed-configs-menu', $event)"
               @focus="emit('open-collapsed-configs-menu', $event)" @click="emit('open-collapsed-configs-menu', $event)">
               <span class="ftp-sidebar__collapsed-configs-icon">
@@ -117,7 +117,7 @@ const emit = defineEmits<{
                   <line x1="6" y1="18" x2="6.01" y2="18" />
                 </svg>
               </span>
-            </button>
+            </UiIconButton>
           </section>
 
           <section class="ftp-sidebar__section ftp-sidebar__section--collapsed-sessions">
@@ -213,3 +213,73 @@ const emit = defineEmits<{
     </UiScrollbar>
   </div>
 </template>
+
+<style lang="scss" scoped>
+.ftp-sidebar__menu-icon.ui-icon-button.ui-icon-button {
+  width: 32px;
+  height: 32px;
+
+  &:hover:not(:disabled),
+  &:active:not(:disabled) {
+    transform: none;
+  }
+}
+
+.ftp-sidebar__menu-icon.ui-icon-button.ui-icon-button :deep(svg),
+.ftp-sidebar__collapsed-configs.ui-icon-button.ui-icon-button :deep(svg) {
+  fill: none;
+  stroke: currentColor;
+}
+
+.ftp-sidebar-tab.ui-button.ui-button {
+  display: flex;
+  flex: 1;
+  align-items: center;
+  justify-content: center;
+  min-width: 0;
+  min-height: 32px;
+  padding: 8px 12px;
+  border: none;
+  border-radius: 5px;
+  background: transparent;
+  color: var(--ui-text-muted);
+  box-shadow: none;
+  font-size: 11px;
+  font-weight: 600;
+  line-height: inherit;
+  white-space: nowrap;
+  transform: none;
+
+  &:hover:not(:disabled) {
+    background: transparent;
+    color: var(--ui-text-secondary);
+    box-shadow: none;
+    transform: none;
+  }
+}
+
+.ftp-sidebar-tab--active.ui-button.ui-button,
+.ftp-sidebar-tab--active.ui-button.ui-button:hover:not(:disabled) {
+  background: var(--ui-surface-panel);
+  color: var(--ui-text-primary);
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.12);
+}
+
+.ftp-sidebar-tab :deep(.ui-button__label) {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  min-width: 0;
+}
+
+.ftp-sidebar__collapsed-configs.ui-icon-button.ui-icon-button {
+  width: 100%;
+  min-height: 34px;
+
+  &:hover:not(:disabled),
+  &:active:not(:disabled) {
+    transform: none;
+  }
+}
+</style>

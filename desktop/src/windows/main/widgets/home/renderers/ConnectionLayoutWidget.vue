@@ -10,6 +10,7 @@ import {
 } from '../../../session_layouts';
 import { openConnectionLayoutFromHome } from '../connectionLayoutNavigation';
 import { normalizeWidgetConfig } from '../registry';
+import UiButton from '../../../components/ui/UiButton.vue';
 
 const props = withDefaults(defineProps<{
   item: GridItem;
@@ -77,9 +78,9 @@ onBeforeUnmount(() => {
       </span>
     </div>
 
-    <button class="connection-layout-widget__action" type="button" :disabled="!layout || !interactive" @click.stop="openLayout">
+    <UiButton class="connection-layout-widget__action" variant="ghost" type="button" :disabled="!layout || !interactive" @click.stop="openLayout">
       打开布局
-    </button>
+    </UiButton>
   </div>
 </template>
 
@@ -190,7 +191,7 @@ onBeforeUnmount(() => {
   white-space: nowrap;
 }
 
-.connection-layout-widget__action {
+.connection-layout-widget__action.ui-button {
   box-sizing: border-box;
   width: 100%;
   min-height: 30px;
@@ -201,13 +202,15 @@ onBeforeUnmount(() => {
   font-size: 0.76rem;
   font-weight: 760;
   cursor: pointer;
+  transform: none;
 }
 
-.connection-layout-widget__action:hover:not(:disabled) {
+.connection-layout-widget__action.ui-button:hover:not(:disabled) {
   background: color-mix(in srgb, var(--widget-text-primary, white) 22%, transparent);
+  transform: none;
 }
 
-.connection-layout-widget__action:disabled {
+.connection-layout-widget__action.ui-button:disabled {
   cursor: not-allowed;
   opacity: 0.55;
 }

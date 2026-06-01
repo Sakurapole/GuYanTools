@@ -8,8 +8,10 @@ import { resolveThemeBackground, withThemeBackground } from '@/contracts/backgro
 import UiButton from '../ui/UiButton.vue';
 import UiDialog from '../ui/UiDialog.vue';
 import UiField from '../ui/UiField.vue';
+import UiFileInput from '../ui/UiFileInput.vue';
 import UiIconButton from '../ui/UiIconButton.vue';
 import UiInput from '../ui/UiInput.vue';
+import UiRange from '../ui/UiRange.vue';
 import UiSelect from '../ui/UiSelect.vue';
 import UiTabs from '../ui/UiTabs.vue';
 import IconPicker from '../ui/IconPicker.vue';
@@ -77,8 +79,8 @@ const bgRepeat = ref('no-repeat');
 const bgOpacity = ref(1);
 const selectedTextColor = ref('');
 
-const imageInput = ref<HTMLInputElement | null>(null);
-const videoInput = ref<HTMLInputElement | null>(null);
+const imageInput = ref<InstanceType<typeof UiFileInput> | null>(null);
+const videoInput = ref<InstanceType<typeof UiFileInput> | null>(null);
 
 // 图片裁剪
 const showCropper = ref(false);
@@ -104,6 +106,12 @@ const compressQuality = ref<CompressQuality>('high');
 
 const ffmpegAvailable = computed(() => {
   return !!(appConfigStore.config.tools?.ffmpegPath);
+});
+const bgOpacityPercent = computed({
+  get: () => Math.round(bgOpacity.value * 100),
+  set: value => {
+    bgOpacity.value = Math.max(0, Math.min(100, value)) / 100;
+  },
 });
 
 const imageProcessOptions = computed(() => [
@@ -367,7 +375,7 @@ function handleImageChange(event: Event) {
 function handleCropperClose() {
   showCropper.value = false;
   originalImage.value = '';
-  if (imageInput.value) imageInput.value.value = '';
+  imageInput.value?.clear();
 }
 
 function handleCropperConfirm(croppedImage: string) {
@@ -378,7 +386,7 @@ function handleCropperConfirm(croppedImage: string) {
 
 function handleClearImage() {
   selectedImage.value = '';
-  if (imageInput.value) imageInput.value.value = '';
+  imageInput.value?.clear();
 }
 
 // ─── 视频处理 ───
@@ -405,7 +413,7 @@ function handleVideoCropperClose() {
     originalVideoUrl.value = '';
   }
   originalVideoFilePath.value = '';
-  if (videoInput.value) videoInput.value.value = '';
+  videoInput.value?.clear();
 }
 
 function handleVideoCropperConfirm(videoDataUrl: string) {
@@ -420,7 +428,7 @@ function handleVideoCropperConfirm(videoDataUrl: string) {
 
 function handleClearVideo() {
   selectedVideo.value = '';
-  if (videoInput.value) videoInput.value.value = '';
+  videoInput.value?.clear();
 }
 
 // ─── 确认 / 关闭 ───
@@ -655,12 +663,12 @@ watch(() => props.visible, (visible) => {
       <!-- ═══ 尺寸配置 ═══ -->
       <div v-else-if="activeTab === 'size'" class="widget-editor__section">
         <div v-if="sizePresetOptions.length" class="widget-editor__size-preset-grid">
-          <button v-for="size in sizePresetOptions" :key="size.preset" type="button" class="widget-editor__size-preset"
+          <UiButton v-for="size in sizePresetOptions" :key="size.preset" type="button" variant="ghost" class="widget-editor__size-preset"
             :class="{ 'widget-editor__size-preset--active': editSizePreset === size.preset }"
             @click="editSizePreset = size.preset">
             <strong>{{ size.label }}</strong>
             <span>{{ size.description }}</span>
-          </button>
+          </UiButton>
         </div>
 
         <div v-if="isShortcutWidget" class="widget-editor__size-fields">
@@ -731,7 +739,7 @@ watch(() => props.visible, (visible) => {
         <!-- 图片选择 -->
         <div v-else-if="bgTab === 'image'" class="widget-editor__image-section">
           <div class="widget-editor__image-actions">
-            <input ref="imageInput" type="file" accept="image/*" style="display: none" @change="handleImageChange" />
+            <UiFileInput ref="imageInput" accept="image/*" @change="handleImageChange" />
             <UiButton class="widget-editor__upload-btn" variant="secondary" size="md" @click="handleImageSelect">
               <span class="upload-icon">📁</span>
               <span>选择图片</span>
@@ -754,11 +762,11 @@ watch(() => props.visible, (visible) => {
 
             <div class="widget-editor__section-title">定位</div>
             <div class="widget-editor__position-grid">
-              <button v-for="pos in positionGrid" :key="pos.value" class="widget-editor__pos-cell"
+              <UiButton v-for="pos in positionGrid" :key="pos.value" class="widget-editor__pos-cell" variant="ghost" size="sm" type="button"
                 :class="{ 'widget-editor__pos-cell--active': bgPosition === pos.value }" :title="pos.value"
                 @click="bgPosition = pos.value">
                 {{ pos.label }}
-              </button>
+              </UiButton>
             </div>
           </div>
 
@@ -783,7 +791,7 @@ watch(() => props.visible, (visible) => {
         <!-- 视频选择 -->
         <div v-else class="widget-editor__video-section">
           <div class="widget-editor__image-actions">
-            <input ref="videoInput" type="file" accept="video/*" style="display: none" @change="handleVideoChange" />
+            <UiFileInput ref="videoInput" accept="video/*" @change="handleVideoChange" />
             <UiButton class="widget-editor__upload-btn" variant="secondary" size="md" @click="handleVideoSelect">
               <span class="upload-icon">🎬</span>
               <span>选择视频</span>
@@ -813,8 +821,8 @@ watch(() => props.visible, (visible) => {
         <div class="widget-editor__opacity-panel">
           <div class="widget-editor__section-title">透明度</div>
           <div class="widget-editor__opacity-row">
-            <input type="range" class="widget-editor__opacity-slider" :value="Math.round(bgOpacity * 100)" min="0"
-              max="100" step="1" @input="bgOpacity = Number(($event.target as HTMLInputElement).value) / 100" />
+            <UiRange v-model="bgOpacityPercent" class="widget-editor__opacity-slider" :min="0"
+              :max="100" :step="1" aria-label="背景透明度" />
             <span class="widget-editor__opacity-value">{{ Math.round(bgOpacity * 100) }}%</span>
           </div>
         </div>
@@ -822,16 +830,16 @@ watch(() => props.visible, (visible) => {
         <div class="widget-editor__text-color-panel">
           <div class="widget-editor__section-title">文字颜色</div>
           <div class="widget-editor__text-color-row">
-            <input
+            <UiInput
               class="widget-editor__text-color-swatch"
               type="color"
-              :value="selectedTextColor || '#ffffff'"
-              @input="selectedTextColor = ($event.target as HTMLInputElement).value"
+              :model-value="selectedTextColor || '#ffffff'"
+              @update:modelValue="selectedTextColor = $event"
             />
-            <input v-model="selectedTextColor" class="widget-editor__text-color-input" placeholder="默认文字颜色" />
-            <button class="widget-editor__text-color-reset" type="button" @click="selectedTextColor = ''">
+            <UiInput v-model="selectedTextColor" class="widget-editor__text-color-input" placeholder="默认文字颜色" />
+            <UiButton class="widget-editor__text-color-reset" variant="ghost" size="sm" type="button" @click="selectedTextColor = ''">
               重置
-            </button>
+            </UiButton>
           </div>
         </div>
       </div>
@@ -963,9 +971,11 @@ export default {
   gap: 10px;
 }
 
-.widget-editor__size-preset {
+.widget-editor__size-preset.ui-button {
   display: flex;
   flex-direction: column;
+  align-items: stretch;
+  justify-content: flex-start;
   gap: 4px;
   padding: 14px;
   border-radius: var(--ui-radius-sm);
@@ -973,12 +983,28 @@ export default {
   background: var(--ui-surface-overlay);
   color: var(--ui-text-primary);
   text-align: left;
+  font-weight: inherit;
+  white-space: normal;
   cursor: pointer;
+  transform: none;
+
+  &:hover:not(:disabled),
+  &:active:not(:disabled) {
+    transform: none;
+  }
 
   span {
     color: var(--ui-text-secondary);
     font-size: 12px;
   }
+}
+
+.widget-editor__size-preset :deep(.ui-button__label) {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 4px;
+  width: 100%;
 }
 
 .widget-editor__size-preset--active {
@@ -1177,11 +1203,13 @@ export default {
   max-width: 160px;
 }
 
-.widget-editor__pos-cell {
+.widget-editor__pos-cell.ui-button {
   aspect-ratio: 1;
   display: flex;
   align-items: center;
   justify-content: center;
+  min-height: auto;
+  padding: 0;
   font-size: 15px;
   border: var(--ui-border-width-thin) solid var(--ui-border-subtle);
   border-radius: calc(var(--ui-radius-xs) - 2px);
@@ -1189,10 +1217,12 @@ export default {
   color: var(--ui-text-muted);
   cursor: pointer;
   transition: all 0.15s ease;
+  transform: none;
 
-  &:hover {
+  &:hover:not(:disabled) {
     background: var(--ui-select-option-hover-bg);
     color: var(--ui-text-primary);
+    transform: none;
   }
 
   &--active {
@@ -1224,7 +1254,7 @@ export default {
   gap: 10px;
 }
 
-.widget-editor__text-color-swatch {
+.widget-editor__text-color-swatch.ui-input {
   flex: 0 0 38px;
   width: 38px;
   height: 32px;
@@ -1235,7 +1265,7 @@ export default {
   cursor: pointer;
 }
 
-.widget-editor__text-color-input {
+.widget-editor__text-color-input.ui-input {
   flex: 1;
   min-width: 0;
   height: 32px;
@@ -1259,7 +1289,7 @@ export default {
   }
 }
 
-.widget-editor__text-color-reset {
+.widget-editor__text-color-reset.ui-button {
   flex: 0 0 auto;
   height: 32px;
   padding: 0 10px;
@@ -1270,11 +1300,13 @@ export default {
   font-size: 12px;
   cursor: pointer;
   transition: all 0.18s ease;
+  transform: none;
 
-  &:hover {
+  &:hover:not(:disabled) {
     border-color: var(--ui-select-focus-border);
     color: var(--ui-text-primary);
     background: var(--ui-select-option-hover-bg);
+    transform: none;
   }
 }
 
@@ -1284,7 +1316,7 @@ export default {
   gap: 12px;
 }
 
-.widget-editor__opacity-slider {
+.widget-editor__opacity-slider.ui-range {
   flex: 1;
   -webkit-appearance: none;
   appearance: none;

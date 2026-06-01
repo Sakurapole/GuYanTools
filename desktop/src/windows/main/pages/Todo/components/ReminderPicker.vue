@@ -5,6 +5,7 @@ import type { TodoReminder } from '@/contracts/todo';
 import IconRenderer from '@/windows/main/components/ui/IconRenderer.vue';
 import UiButton from '@/windows/main/components/ui/UiButton.vue';
 import UiDateTimePicker from '@/windows/main/components/ui/UiDateTimePicker.vue';
+import UiIconButton from '@/windows/main/components/ui/UiIconButton.vue';
 
 const props = defineProps<{ todoId: string; reminders: TodoReminder[] }>();
 const todoStore = useTodoStore();
@@ -146,19 +147,21 @@ onBeforeUnmount(() => {
 
 <template>
   <div class="reminder-picker">
-    <button ref="triggerRef" class="reminder-trigger" @click="togglePanel">
-      <IconRenderer icon="iconify:lucide:clock" :size="16" />
-      <span>{{ hasReminders ? `${reminders.length} 个提醒` : '添加提醒' }}</span>
-    </button>
+    <span ref="triggerRef" class="reminder-trigger-wrap">
+      <UiButton class="reminder-trigger" variant="ghost" type="button" @click="togglePanel">
+        <IconRenderer icon="iconify:lucide:clock" :size="16" />
+        <span>{{ hasReminders ? `${reminders.length} 个提醒` : '添加提醒' }}</span>
+      </UiButton>
+    </span>
 
     <!-- 已有提醒列表 -->
     <div v-if="hasReminders" class="reminder-list">
       <div v-for="r in reminders" :key="r.id" class="reminder-tag" :class="{ sent: r.isSent }">
         <IconRenderer icon="iconify:lucide:bell" :size="12" />
         <span>{{ formatDateTime(r.remindAt) }}</span>
-        <button class="reminder-remove" @click="removeReminder(r.id)">
+        <UiIconButton class="reminder-remove" size="sm" variant="ghost" title="删除提醒" @click="removeReminder(r.id)">
           <IconRenderer icon="iconify:lucide:x" :size="10" />
-        </button>
+        </UiIconButton>
       </div>
     </div>
 
@@ -166,15 +169,15 @@ onBeforeUnmount(() => {
       <Transition :name="placement === 'top' ? 'ui-dropdown-up' : 'ui-dropdown'">
         <div v-if="isOpen" ref="panelRef" class="reminder-panel" :style="panelStyle">
           <div class="panel-title">设置提醒</div>
-          <button v-for="opt in quickOptions" :key="opt.dateTime" class="panel-option" @click="selectQuickOption(opt.dateTime)">
+          <UiButton v-for="opt in quickOptions" :key="opt.dateTime" class="panel-option" variant="ghost" type="button" @click="selectQuickOption(opt.dateTime)">
             <IconRenderer icon="iconify:lucide:clock" :size="14" />
             {{ opt.label }}
-          </button>
+          </UiButton>
           <div class="panel-divider"/>
-          <button class="panel-option" @click="showCustom = !showCustom">
+          <UiButton class="panel-option" variant="ghost" type="button" @click="showCustom = !showCustom">
             <IconRenderer icon="iconify:lucide:calendar-clock" :size="14" />
             自定义日期和时间...
-          </button>
+          </UiButton>
           <div v-if="showCustom" class="custom-inputs">
             <UiDateTimePicker
               v-model="customDateTime"
@@ -196,7 +199,10 @@ onBeforeUnmount(() => {
 .reminder-picker {
   position: relative;
 }
-.reminder-trigger {
+.reminder-trigger-wrap {
+  display: block;
+}
+.reminder-trigger.ui-button {
   display: flex;
   align-items: center;
   gap: 8px;
@@ -208,8 +214,16 @@ onBeforeUnmount(() => {
   color: var(--ui-text-primary);
   width: 100%;
   text-align: left;
+  font-weight: inherit;
+  white-space: normal;
+  transform: none;
 }
-.reminder-trigger:hover { color: var(--ui-input-focus-border); }
+.reminder-trigger.ui-button:hover:not(:disabled) { color: var(--ui-input-focus-border); transform: none; }
+.reminder-trigger :deep(.ui-button__label),
+.panel-option :deep(.ui-button__label) {
+  justify-content: flex-start;
+  width: 100%;
+}
 
 .reminder-list {
   display: flex;
@@ -232,7 +246,7 @@ onBeforeUnmount(() => {
   opacity: 0.5;
   text-decoration: line-through;
 }
-.reminder-remove {
+.reminder-remove.ui-icon-button {
   display: flex;
   align-items: center;
   justify-content: center;
@@ -244,15 +258,17 @@ onBeforeUnmount(() => {
   color: var(--ui-text-muted);
   cursor: pointer;
   border-radius: 50%;
+  transform: none;
 }
-.reminder-remove:hover {
+.reminder-remove.ui-icon-button:hover:not(:disabled) {
   background: var(--todo-danger-bg);
   color: var(--ui-button-danger-text);
+  transform: none;
 }
 
 .reminder-panel {
   position: fixed;
-  z-index: 10020;
+  z-index: var(--ui-z-picker);
   padding: 8px 0;
   background: var(--ui-surface-glass-strong, #fff);
   border: 1px solid var(--ui-border-subtle);
@@ -269,7 +285,7 @@ onBeforeUnmount(() => {
   text-transform: uppercase;
   letter-spacing: 0.5px;
 }
-.panel-option {
+.panel-option.ui-button {
   display: flex;
   align-items: center;
   gap: 8px;
@@ -282,8 +298,11 @@ onBeforeUnmount(() => {
   color: var(--ui-text-primary);
   text-align: left;
   transition: background 0.15s;
+  font-weight: inherit;
+  white-space: normal;
+  transform: none;
 }
-.panel-option:hover { background: var(--ui-button-ghost-hover-bg); }
+.panel-option.ui-button:hover:not(:disabled) { background: var(--ui-button-ghost-hover-bg); transform: none; }
 .panel-divider {
   height: 1px;
   background: var(--ui-border-subtle);

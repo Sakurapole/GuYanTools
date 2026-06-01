@@ -2,6 +2,7 @@
 import { computed, reactive, ref, watch } from 'vue';
 import UiButton from '@/windows/main/components/ui/UiButton.vue';
 import UiCheckbox from '@/windows/main/components/ui/UiCheckbox.vue';
+import UiIconButton from '@/windows/main/components/ui/UiIconButton.vue';
 import UiInput from '@/windows/main/components/ui/UiInput.vue';
 import UiPopupSurface from '@/windows/main/components/ui/UiPopupSurface.vue';
 import UiScrollbar from '@/windows/main/components/ui/UiScrollbar.vue';
@@ -357,19 +358,19 @@ function clearSelectedCertificate() {
     overlay-class="sp-overlay"
     panel-class="sp-dialog"
     :aria-label="dialogTitle"
-    :z-index="1000"
+    z-index="var(--ui-z-popover)"
     @close="emit('close')"
   >
           <!-- Header -->
           <div class="sp-dialog__header">
             <h3 class="sp-dialog__title">{{ dialogTitle }}</h3>
-            <button class="sp-close-btn" @click="emit('close')">
+            <UiIconButton class="sp-close-btn" size="sm" variant="ghost" title="关闭" @click="emit('close')">
               <svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" stroke-width="2"
                 fill="none" stroke-linecap="round" stroke-linejoin="round">
                 <line x1="18" y1="6" x2="6" y2="18" />
                 <line x1="6" y1="6" x2="18" y2="18" />
               </svg>
-            </button>
+            </UiIconButton>
           </div>
 
           <!-- Body -->
@@ -417,10 +418,12 @@ function clearSelectedCertificate() {
                 <div class="sp-field">
                   <label class="sp-label">颜色标记</label>
                   <div class="sp-colors">
-                    <button
+                    <UiIconButton
                       v-for="c in COLOR_PRESETS"
                       :key="c"
                       class="sp-color-swatch"
+                      size="sm"
+                      variant="ghost"
                       :class="{ 'sp-color-swatch--selected': form.color === c }"
                       :style="c ? { background: c } : {}"
                       @click="selectColor(c)"
@@ -430,7 +433,7 @@ function clearSelectedCertificate() {
                         stroke-width="2" fill="none" stroke-linecap="round">
                         <line x1="18" y1="6" x2="6" y2="18" />
                       </svg>
-                    </button>
+                    </UiIconButton>
                   </div>
                 </div>
               </div>
@@ -440,14 +443,18 @@ function clearSelectedCertificate() {
             <div class="sp-section">
               <div class="sp-section__title">认证方式</div>
               <div class="sp-auth-tabs">
-                <button
+                <UiButton
                   v-for="at in AUTH_TYPES"
                   :key="at.value"
                   class="sp-auth-tab"
+                  size="sm"
+                  variant="ghost"
+                  type="button"
+                  :active="form.authType === at.value"
                   :class="{ 'sp-auth-tab--active': form.authType === at.value }"
                   :id="`ssh-auth-${at.value}`"
                   @click="form.authType = at.value"
-                >{{ at.label }}</button>
+                >{{ at.label }}</UiButton>
               </div>
 
               <!-- Password auth -->
@@ -662,7 +669,7 @@ function clearSelectedCertificate() {
   display: flex;
   align-items: center;
   justify-content: center;
-  z-index: 1000;
+  z-index: var(--ui-z-popover);
 }
 
 .sp-dialog {
@@ -730,7 +737,7 @@ function clearSelectedCertificate() {
   }
 }
 
-.sp-close-btn {
+.sp-close-btn.ui-icon-button {
   display: flex;
   align-items: center;
   justify-content: center;
@@ -740,12 +747,18 @@ function clearSelectedCertificate() {
   border-radius: var(--ui-radius-sm);
   background: transparent;
   color: var(--ui-text-muted);
-  cursor: pointer;
   transition: all 0.15s;
+  transform: none;
 
-  &:hover {
+  &:hover:not(:disabled) {
     background: var(--ui-button-ghost-hover-bg);
     color: var(--ui-text-primary);
+    transform: none;
+  }
+
+  svg {
+    fill: none;
+    stroke: currentColor;
   }
 }
 
@@ -806,9 +819,9 @@ function clearSelectedCertificate() {
   gap: 8px;
   align-items: center;
 
-  :deep(.ui-input),
-  :deep(.ui-input-number-wrapper),
-  :deep(.ui-select-wrap) {
+  .ui-input,
+  .ui-input-number-wrapper,
+  .ui-select-wrap {
     flex: 1;
     min-width: 0;
   }
@@ -835,8 +848,9 @@ function clearSelectedCertificate() {
   border: 1px solid var(--ui-border-subtle);
 }
 
-.sp-auth-tab {
+.sp-auth-tab.ui-button {
   flex: 1;
+  min-height: 28px;
   padding: 5px 12px;
   border: none;
   border-radius: calc(var(--ui-radius-md) - 2px);
@@ -844,18 +858,20 @@ function clearSelectedCertificate() {
   color: var(--ui-text-muted);
   font-size: 12px;
   font-weight: 500;
-  cursor: pointer;
   transition: all 0.18s;
+  box-shadow: none;
+  transform: none;
 
-  &--active {
-    background: var(--ui-surface-panel);
-    color: var(--ui-text-primary);
-    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.15);
-  }
-
-  &:hover:not(&--active) {
+  &:hover:not(.sp-auth-tab--active, :disabled) {
     color: var(--ui-text-secondary);
+    transform: none;
   }
+}
+
+.sp-auth-tab--active.ui-button {
+  background: var(--ui-surface-panel);
+  color: var(--ui-text-primary);
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.15);
 }
 
 // ── Agent hint ────────────────────────────────────────────────
@@ -884,27 +900,36 @@ function clearSelectedCertificate() {
   gap: 5px;
 }
 
-.sp-color-swatch {
+.sp-color-swatch.ui-icon-button.ui-icon-button--sm:not(.ui-icon-button--labeled) {
   width: 20px;
   height: 20px;
+  min-width: 20px;
+  min-height: 20px;
+  padding: 0;
   border-radius: 50%;
   border: 2px solid transparent;
-  cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: center;
   background: var(--ui-border-subtle);
   transition: all 0.15s;
   color: var(--ui-text-muted);
+  box-shadow: none;
+  transform: none;
 
-  &--selected {
-    border-color: var(--ui-text-primary);
-    transform: scale(1.15);
-  }
-
-  &:hover:not(&--selected) {
+  &:hover:not(.sp-color-swatch--selected, :disabled) {
     transform: scale(1.1);
   }
+
+  svg {
+    fill: none;
+    stroke: currentColor;
+  }
+}
+
+.sp-color-swatch--selected.ui-icon-button.ui-icon-button--sm:not(.ui-icon-button--labeled) {
+  border-color: var(--ui-text-primary);
+  transform: scale(1.15);
 }
 
 // ── Error ─────────────────────────────────────────────────────

@@ -3,6 +3,7 @@ import { computed, onBeforeUnmount, onMounted, ref, watch, nextTick } from 'vue'
 import { useRoute } from 'vue-router';
 import type { DomainCheckResult, WebScriptRule } from '@/contracts/webview';
 import UiButton from '../components/ui/UiButton.vue';
+import UiCheckbox from '../components/ui/UiCheckbox.vue';
 import UiIconButton from '../components/ui/UiIconButton.vue';
 import UiPopupSurface from '../components/ui/UiPopupSurface.vue';
 import { useAppConfigStore } from '../stores/app_config_store';
@@ -477,7 +478,7 @@ watch(targetUrl, () => {
         :teleported="false"
         :fixed="false"
         width="380px"
-        :z-index="100"
+        z-index="var(--ui-z-docked)"
         aria-label="注入脚本"
         @close="showScriptsDrawer = false"
       >
@@ -494,10 +495,13 @@ watch(targetUrl, () => {
                   <div class="sd-item__row">
                     <span class="sd-item__badge" :class="`sd-item__badge--${script.type}`">{{ script.type.toUpperCase() }}</span>
                     <span class="sd-item__name">{{ script.name }}</span>
-                    <label class="sd-item__toggle" :title="script.enabled ? '已启用' : '已禁用'">
-                      <input type="checkbox" :checked="script.enabled" @change="toggleScript(script)" />
-                      <span class="sd-item__toggle-track"></span>
-                    </label>
+                    <UiCheckbox
+                      class="sd-item__toggle"
+                      size="sm"
+                      :checked="script.enabled"
+                      :title="script.enabled ? '已启用' : '已禁用'"
+                      @change="toggleScript(script)"
+                    />
                     <UiIconButton variant="ghost" size="sm" shape="square" @click="openScriptEditor(script.id)" title="编辑">
                       <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M10.5 1.5l2 2L4.5 11.5l-3 1 1-3z" stroke="currentColor" stroke-width="1.2" stroke-linejoin="round"/></svg>
                     </UiIconButton>
@@ -559,14 +563,14 @@ watch(targetUrl, () => {
   background: var(--ui-input-bg, rgba(128, 128, 128, 0.08));
   border: 1px solid var(--ui-border-subtle, rgba(128, 128, 128, 0.1));
   min-width: 0;
-  font-size: 12px;
+  font-size: var(--ui-font-size-xs);
   color: var(--ui-text-secondary);
   overflow: hidden;
 }
 
 .webview-nav__status {
   flex-shrink: 0;
-  font-size: 11px;
+  font-size: var(--ui-font-size-xs);
   padding: 1px 6px;
   border-radius: 3px;
   font-weight: 500;
@@ -646,7 +650,7 @@ watch(targetUrl, () => {
 
   h2 {
     margin: 0;
-    font-size: 18px;
+    font-size: var(--ui-font-size-xl);
     font-weight: 600;
     color: var(--ui-text-primary);
   }
@@ -661,13 +665,13 @@ watch(targetUrl, () => {
 }
 
 .webview-state__domain {
-  font-size: 14px;
+  font-size: var(--ui-font-size-md);
   color: var(--ui-text-muted);
-  font-family: monospace;
+  font-family: var(--ui-font-family-mono);
 }
 
 .webview-state__hint {
-  font-size: 13px;
+  font-size: var(--ui-font-size-sm);
   color: var(--ui-text-secondary);
   max-width: 400px;
   line-height: 1.6;
@@ -690,7 +694,7 @@ watch(targetUrl, () => {
   position: absolute;
   bottom: 20px;
   right: 20px;
-  z-index: 50;
+  z-index: var(--ui-z-floating);
 }
 
 .webview-login-hint__card {
@@ -713,7 +717,7 @@ watch(targetUrl, () => {
 
   h3 {
     margin: 0;
-    font-size: 14px;
+    font-size: var(--ui-font-size-md);
     font-weight: 600;
     color: var(--ui-text-primary);
     letter-spacing: 0.01em;
@@ -727,7 +731,7 @@ watch(targetUrl, () => {
 }
 
 .webview-login-hint__text {
-  font-size: 12.5px;
+  font-size: var(--ui-font-size-sm);
   color: var(--ui-text-secondary);
   line-height: 1.65;
   margin: 0;
@@ -755,7 +759,7 @@ watch(targetUrl, () => {
   align-items: center;
   gap: 8px;
 
-  h3 { margin: 0; font-size: 14px; font-weight: 600; }
+  h3 { margin: 0; font-size: var(--ui-font-size-md); font-weight: 600; }
 }
 
 .sd-header__count {
@@ -768,7 +772,7 @@ watch(targetUrl, () => {
   border-radius: 10px;
   background: var(--ui-primary-color, #667eea);
   color: #fff;
-  font-size: 11px;
+  font-size: var(--ui-font-size-xs);
   font-weight: 600;
 }
 
@@ -816,7 +820,7 @@ watch(targetUrl, () => {
 
 .sd-item__name {
   flex: 1;
-  font-size: 13px;
+  font-size: var(--ui-font-size-sm);
   font-weight: 500;
   white-space: nowrap;
   overflow: hidden;
@@ -825,53 +829,20 @@ watch(targetUrl, () => {
 
 /* ─── Toggle switch ─── */
 .sd-item__toggle {
-  position: relative;
   display: inline-flex;
   align-items: center;
   flex-shrink: 0;
-  cursor: pointer;
 
-  input {
-    position: absolute;
-    opacity: 0;
-    width: 0;
-    height: 0;
-  }
-}
-
-.sd-item__toggle-track {
-  width: 28px;
-  height: 16px;
-  border-radius: 8px;
-  background: rgba(128, 128, 128, 0.25);
-  position: relative;
-  transition: background 0.2s;
-
-  &::after {
-    content: '';
-    position: absolute;
-    top: 2px;
-    left: 2px;
-    width: 12px;
-    height: 12px;
-    border-radius: 50%;
-    background: #fff;
-    transition: transform 0.2s;
-  }
-}
-
-.sd-item__toggle input:checked + .sd-item__toggle-track {
-  background: var(--ui-primary-color, #667eea);
-
-  &::after {
-    transform: translateX(12px);
+  :deep(.ui-checkbox__box) {
+    width: 16px;
+    height: 16px;
   }
 }
 
 .sd-item__domain {
-  font-size: 11px;
+  font-size: var(--ui-font-size-xs);
   color: var(--ui-text-muted);
-  font-family: 'Courier New', monospace;
+  font-family: var(--ui-font-family-mono);
 }
 
 .sd-item__code {
@@ -879,14 +850,14 @@ watch(targetUrl, () => {
   padding: 8px 10px;
   border-radius: 4px;
   background: rgba(0, 0, 0, 0.15);
-  font-size: 11px;
+  font-size: var(--ui-font-size-xs);
   line-height: 1.5;
   max-height: 80px;
   overflow-y: auto;
   white-space: pre-wrap;
   word-break: break-all;
   color: var(--ui-text-secondary);
-  font-family: 'JetBrains Mono', 'Fira Code', 'Courier New', monospace;
+  font-family: var(--ui-font-family-mono);
 
   code { font: inherit; }
 }
@@ -902,7 +873,7 @@ watch(targetUrl, () => {
 }
 
 .sd-empty__icon { font-size: 32px; margin-bottom: 8px; opacity: 0.5; }
-.sd-empty p { margin: 0; font-size: 13px; }
+.sd-empty p { margin: 0; font-size: var(--ui-font-size-sm); }
 
 .sd-footer {
   display: flex;

@@ -2,6 +2,11 @@
   /* ─── Premium Font Stack ─── */
   --app-font-sans: 'Geist Variable', system-ui, -apple-system, 'Segoe UI', sans-serif;
   --app-font-mono: 'Geist Mono Variable', 'Cascadia Mono', Consolas, monospace;
+  --app-font-family: var(--app-font-sans);
+  --ui-font-family: var(--app-font-family, var(--app-font-sans));
+  --ui-font-family-mono: var(--app-font-mono);
+  --ui-font-mono: var(--app-font-mono);
+  --font-mono: var(--app-font-mono);
 
   font-family: var(--app-font-family, var(--app-font-sans));
   font-size: 16px;

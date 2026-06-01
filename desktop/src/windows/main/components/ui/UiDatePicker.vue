@@ -361,7 +361,7 @@ onBeforeUnmount(() => {
 
 /* ─── 弹出面板 ─── */
 .ui-datepicker__panel {
-  z-index: 10040;
+  z-index: var(--ui-z-critical);
   width: 280px;
   padding: 12px;
   border-radius: var(--ui-radius-md, 10px);

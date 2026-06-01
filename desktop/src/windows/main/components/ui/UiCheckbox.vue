@@ -1,5 +1,5 @@
 <script lang="ts" setup>
-import { computed } from 'vue';
+import { computed, ref, watch } from 'vue';
 
 type CheckboxSize = 'sm' | 'md';
 
@@ -24,10 +24,17 @@ const emit = defineEmits<{
   change: [value: boolean];
 }>();
 
-// Resolve the active checked state from either v-model or the :checked prop.
-const isChecked = computed(() =>
+const propChecked = computed(() =>
   props.modelValue !== undefined ? props.modelValue : (props.checked ?? false),
 );
+const localChecked = ref(propChecked.value);
+
+watch(propChecked, (value) => {
+  localChecked.value = value;
+});
+
+// Resolve the active checked state from either v-model or the :checked prop.
+const isChecked = computed(() => localChecked.value);
 
 const wrapClass = computed(() => [
   'ui-checkbox',
@@ -42,6 +49,7 @@ const wrapClass = computed(() => [
 function handleChange(event: Event): void {
   if (props.disabled) return;
   const checked = (event.target as HTMLInputElement).checked;
+  localChecked.value = checked;
   emit('update:modelValue', checked);
   emit('change', checked);
 }

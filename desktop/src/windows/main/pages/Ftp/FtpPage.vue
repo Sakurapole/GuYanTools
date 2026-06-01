@@ -4176,12 +4176,15 @@ onBeforeUnmount(() => {
         <div class="ftp-workspace">
 
           <div v-if="panelLayoutMode === 'tabbed' && orderedFtpWorkspacePanes.length > 1" class="terminal-pane-tabs ftp-workspace-tabs">
-            <button
+            <UiButton
               v-for="pane in orderedFtpWorkspacePanes"
               :key="pane.key"
               type="button"
+              size="sm"
+              variant="ghost"
               class="terminal-pane-tab"
               :data-ftp-pane-key="pane.key"
+              :active="pane.key === activeBrowserPanel"
               :class="{
                 'terminal-pane-tab--active': pane.key === activeBrowserPanel,
                 'terminal-pane-tab--drop-target': pane.key === dropTargetFtpPaneKey,
@@ -4203,7 +4206,7 @@ onBeforeUnmount(() => {
                   <path d="M4.5 4.5l7 7M11.5 4.5l-7 7" />
                 </svg>
               </span>
-            </button>
+            </UiButton>
           </div>
 
           <section
@@ -4237,18 +4240,20 @@ onBeforeUnmount(() => {
                 <span class="terminal-pane__status">
                   {{ item.pane.key === draggingFtpPaneKey ? '占位' : (item.pane.kind === 'local' ? `${ftpPaneFilteredEntries(item.pane).length} 项` : (item.pane.protocol || 'SFTP').toUpperCase()) }}
                 </span>
-                <button
+                <UiIconButton
                   class="terminal-pane__close"
                   type="button"
                   title="关闭工作区"
                   aria-label="关闭工作区"
+                  size="sm"
+                  variant="ghost"
                   @click.stop="removeFtpWorkspacePane(item.pane.key)"
                 >
                   <svg viewBox="0 0 24 24" width="13" height="13" stroke="currentColor" stroke-width="2.2" fill="none" stroke-linecap="round" stroke-linejoin="round">
                     <line x1="18" y1="6" x2="6" y2="18" />
                     <line x1="6" y1="6" x2="18" y2="18" />
                   </svg>
-                </button>
+                </UiIconButton>
               </div>
               <div v-if="item.pane.connectionState === 'connecting'" class="ftp-pane-connection-state">
                 <span class="ftp-pane-connection-state__spinner" aria-hidden="true" />
@@ -4382,10 +4387,12 @@ onBeforeUnmount(() => {
                 @entry-contextmenu="handleEntryContextMenu($event.event, item.pane.kind, $event.entry, $event.index)" />
             </div>
 
-            <button
+            <UiIconButton
               v-for="handle in ftpPaneResizeHandles"
               :key="handle.id"
               type="button"
+              size="sm"
+              variant="ghost"
               class="terminal-pane-resizer"
               :class="`terminal-pane-resizer--${handle.orientation}`"
               :style="handle.style"
@@ -4425,17 +4432,19 @@ onBeforeUnmount(() => {
           />
           <div v-if="useAuxDockTabs" class="ftp-aux-dock__tabs">
             <div class="ftp-aux-dock__tab-list">
-              <button type="button" class="ftp-aux-dock__tab"
+              <UiButton type="button" size="sm" variant="ghost" class="ftp-aux-dock__tab"
+                :active="auxDockActiveTab === 'queue'"
                 :class="{ 'ftp-aux-dock__tab--active': auxDockActiveTab === 'queue' }"
                 @click="auxDockActiveTab = 'queue'">
                 传输队列
                 <span class="ftp-badge ftp-badge--accent">{{ activeTaskCount }}</span>
-              </button>
-              <button v-if="showLogPanel" type="button" class="ftp-aux-dock__tab"
+              </UiButton>
+              <UiButton v-if="showLogPanel" type="button" size="sm" variant="ghost" class="ftp-aux-dock__tab"
+                :active="auxDockActiveTab === 'log'"
                 :class="{ 'ftp-aux-dock__tab--active': auxDockActiveTab === 'log' }" @click="auxDockActiveTab = 'log'">
                 操作日志
                 <span class="ftp-badge">{{ ftpStore.logs.length }}</span>
-              </button>
+              </UiButton>
             </div>
             <div class="ftp-aux-dock__toolbar">
               <template v-if="auxDockActiveTab === 'queue' && !auxiliaryDockCollapsed">
@@ -4631,8 +4640,8 @@ onBeforeUnmount(() => {
           </label>
           <label v-if="scheduleForm.scheduleType === 'hourly'" class="ftp-form-field">
             <span>间隔小时</span>
-            <input class="ftp-native-input" type="number" min="1" :value="scheduleForm.intervalHours || 1"
-              @input="scheduleForm.intervalHours = Number(($event.target as HTMLInputElement).value) || 1" />
+            <UiInput class="ftp-native-input" type="number" :min="1" :model-value="String(scheduleForm.intervalHours || 1)"
+              @update:modelValue="scheduleForm.intervalHours = Number($event) || 1" />
           </label>
           <label v-if="scheduleForm.scheduleType === 'daily' || scheduleForm.scheduleType === 'weekly'"
             class="ftp-form-field">
@@ -4782,3 +4791,202 @@ onBeforeUnmount(() => {
   </MainPageLayout>
 </template>
 <style src="./FtpPage.scss" lang="scss"></style>
+<style lang="scss" scoped>
+.terminal-pane-tab.ui-button {
+  gap: 6px;
+  height: 30px;
+  min-width: 0;
+  min-height: 0;
+  max-width: 220px;
+  padding: 0 10px;
+  border: none;
+  border-right: 1px solid var(--ui-border-subtle);
+  border-radius: 0;
+  background: transparent;
+  color: var(--ui-text-muted);
+  box-shadow: none;
+  cursor: grab;
+  font-size: 12px;
+  font-weight: inherit;
+  line-height: 1.4;
+  transform: none;
+  transition:
+    background-color 0.16s ease,
+    border-color 0.16s ease,
+    color 0.16s ease;
+
+  &:hover,
+  &:active,
+  &.ui-button--active {
+    box-shadow: none;
+    transform: none;
+  }
+
+  &:hover {
+    border-color: var(--ui-border-accent-soft);
+    background: transparent;
+    color: var(--ui-text-secondary);
+  }
+
+  &:active {
+    cursor: pointer;
+  }
+
+  &.terminal-pane-tab--active,
+  &.ui-button--active {
+    background: color-mix(in srgb, var(--ui-tabs-active-bg) 84%, transparent);
+    color: var(--ui-text-primary);
+  }
+
+  &.terminal-pane-tab--drop-target {
+    box-shadow: inset 2px 0 0 var(--primary-color);
+  }
+
+  &.terminal-pane-tab--drag-placeholder {
+    border-right-color: color-mix(in srgb, var(--primary-color) 34%, var(--ui-border-subtle));
+    outline: 1px dashed color-mix(in srgb, var(--primary-color) 52%, transparent);
+    outline-offset: -4px;
+    background:
+      repeating-linear-gradient(
+        135deg,
+        color-mix(in srgb, var(--primary-color) 12%, transparent) 0 6px,
+        transparent 6px 12px
+      ),
+      color-mix(in srgb, var(--ui-surface-panel-muted) 84%, transparent);
+    color: color-mix(in srgb, var(--ui-text-muted) 72%, transparent);
+  }
+
+  :deep(.ui-button__label) {
+    display: contents;
+  }
+}
+
+.ftp-workspace-pane .terminal-pane__close.ui-icon-button {
+  width: 22px;
+  height: 22px;
+  min-width: 0;
+  min-height: 0;
+  padding: 0;
+  border: none;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--ui-text-muted);
+  box-shadow: none;
+  cursor: pointer;
+  transform: none;
+
+  &:hover,
+  &:active,
+  &.ui-icon-button--active {
+    box-shadow: none;
+    transform: none;
+  }
+
+  &:hover {
+    background: rgba(239, 68, 68, 0.14);
+    color: #f87171;
+  }
+
+  :deep(.ui-icon-button__icon) {
+    width: 13px;
+    height: 13px;
+  }
+
+  :deep(svg) {
+    fill: none;
+    stroke: currentColor;
+  }
+}
+
+.terminal-pane-resizer.ui-icon-button {
+  position: absolute;
+  z-index: 8;
+  min-width: 0;
+  min-height: 0;
+  padding: 0;
+  border: none;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  box-sizing: border-box;
+  color: inherit;
+  touch-action: none;
+  transform: none;
+
+  &:hover,
+  &:active,
+  &:focus-visible,
+  &.ui-icon-button--active {
+    outline: none;
+    background: transparent;
+    box-shadow: none;
+    color: inherit;
+    transform: none;
+  }
+}
+
+.terminal-pane-resizer--vertical.ui-icon-button--sm {
+  width: 8px;
+  height: 100%;
+}
+
+.terminal-pane-resizer--horizontal.ui-icon-button--sm {
+  width: 100%;
+  height: 8px;
+}
+
+.ftp-aux-dock__tab.ui-button {
+  position: relative;
+  gap: 8px;
+  min-height: 36px;
+  padding: 0 10px;
+  border: none;
+  border-radius: 0;
+  background: transparent;
+  color: color-mix(in srgb, var(--ui-text-primary) 70%, transparent);
+  box-shadow: none;
+  font-size: 0.82rem;
+  font-weight: 500;
+  line-height: 1.4;
+  white-space: nowrap;
+  transform: none;
+  transition:
+    background-color 0.18s ease,
+    color 0.18s ease;
+
+  &:hover,
+  &:active,
+  &.ui-button--active {
+    box-shadow: none;
+    transform: none;
+  }
+
+  &:hover,
+  &:focus-visible {
+    outline: none;
+    background: transparent;
+    color: var(--ui-text-primary);
+  }
+
+  &.ftp-aux-dock__tab--active,
+  &.ui-button--active {
+    background: transparent;
+    color: #0b67d8;
+    font-weight: 700;
+  }
+
+  :deep(.ui-button__label) {
+    display: contents;
+  }
+}
+
+.ftp-page--dense .ftp-aux-dock__tab.ui-button {
+  min-height: 34px;
+  padding-inline: 8px;
+  font-size: 0.74rem;
+}
+
+.ftp-native-input.ui-input-number-wrapper {
+  width: 100%;
+}
+</style>

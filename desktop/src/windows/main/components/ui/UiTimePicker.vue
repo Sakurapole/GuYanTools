@@ -308,7 +308,7 @@ onBeforeUnmount(() => document.removeEventListener('mousedown', onClickOutside, 
 
 /* ─── 弹出面板 ─── */
 .ui-timepicker__panel {
-  z-index: 10040;
+  z-index: var(--ui-z-critical);
   width: 180px;
   border-radius: var(--ui-radius-md);
   background: var(--ui-surface-glass-strong);

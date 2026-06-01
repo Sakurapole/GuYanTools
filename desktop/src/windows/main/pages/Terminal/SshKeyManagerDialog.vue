@@ -1,5 +1,7 @@
 <script setup lang="ts">
 import { computed, reactive, ref, watch } from 'vue';
+import UiButton from '@/windows/main/components/ui/UiButton.vue';
+import UiInput from '@/windows/main/components/ui/UiInput.vue';
 import UiPopupSurface from '@/windows/main/components/ui/UiPopupSurface.vue';
 import { useSshStore } from '@/windows/main/stores/ssh_store';
 import UiSelect from '@/windows/main/components/ui/UiSelect.vue';
@@ -222,7 +224,7 @@ async function handleDeleteKey(key: SshManagedKey) {
     width="min(1100px, calc(100vw - 48px))"
     max-height="calc(100vh - 56px)"
     aria-label="SSH 密钥管理"
-    :z-index="2400"
+    z-index="var(--ui-z-modal)"
     @close="emit('close')"
   >
           <div class="key-manager__header">
@@ -230,7 +232,7 @@ async function handleDeleteKey(key: SshManagedKey) {
               <h3>SSH 密钥管理</h3>
               <p>集中生成、导入、导出和保管应用内 SSH 私钥，私钥内容按当前应用加密存储。</p>
             </div>
-            <button class="key-manager__close" @click="emit('close')">关闭</button>
+            <UiButton class="key-manager__close" size="sm" variant="ghost" type="button" @click="emit('close')">关闭</UiButton>
           </div>
 
           <div class="key-manager__body">
@@ -238,7 +240,7 @@ async function handleDeleteKey(key: SshManagedKey) {
               <div class="key-manager__panel-title">生成新密钥</div>
               <label class="key-field">
                 <span>名称</span>
-                <input v-model="generateForm.label" type="text" placeholder="例如：Prod Bastion" />
+                <UiInput v-model="generateForm.label" size="md" placeholder="例如：Prod Bastion" />
               </label>
               <label class="key-field">
                 <span>算法</span>
@@ -251,24 +253,24 @@ async function handleDeleteKey(key: SshManagedKey) {
               </label>
               <label class="key-field">
                 <span>注释</span>
-                <input v-model="generateForm.comment" type="text" placeholder="留空时默认使用名称" />
+                <UiInput v-model="generateForm.comment" size="md" placeholder="留空时默认使用名称" />
               </label>
-              <button class="key-primary-btn" :disabled="generating" @click="handleGenerate">
+              <UiButton class="key-primary-btn" size="sm" variant="primary" type="button" :disabled="generating" @click="handleGenerate">
                 {{ generating ? '生成中...' : '生成并保存' }}
-              </button>
+              </UiButton>
 
               <div class="key-manager__panel-title key-manager__panel-title--spaced">导入现有密钥</div>
               <label class="key-field">
                 <span>显示名称</span>
-                <input v-model="importLabel" type="text" placeholder="可选，留空则自动推断" />
+                <UiInput v-model="importLabel" size="md" placeholder="可选，留空则自动推断" />
               </label>
               <div class="key-manager__actions">
-                <button class="key-secondary-btn" :disabled="importing" @click="handleImportFromFile">
+                <UiButton class="key-secondary-btn" size="sm" variant="secondary" type="button" :disabled="importing" @click="handleImportFromFile">
                   {{ importing ? '导入中...' : '从文件导入' }}
-                </button>
-                <button class="key-secondary-btn" :disabled="importing" @click="handleImportFromClipboard">
+                </UiButton>
+                <UiButton class="key-secondary-btn" size="sm" variant="secondary" type="button" :disabled="importing" @click="handleImportFromClipboard">
                   {{ importing ? '导入中...' : '从剪贴板导入' }}
-                </button>
+                </UiButton>
               </div>
             </section>
 
@@ -278,9 +280,9 @@ async function handleDeleteKey(key: SshManagedKey) {
                   <div class="key-manager__panel-title">已管理密钥</div>
                   <p>{{ visibleKeys.length }} 个条目</p>
                 </div>
-                <button class="key-secondary-btn" :disabled="loading" @click="sshStore.refreshManagedKeys()">
+                <UiButton class="key-secondary-btn" size="sm" variant="secondary" type="button" :disabled="loading" @click="sshStore.refreshManagedKeys()">
                   刷新
-                </button>
+                </UiButton>
               </div>
 
               <div v-if="error" class="key-manager__message key-manager__message--error">{{ error }}</div>
@@ -308,27 +310,36 @@ async function handleDeleteKey(key: SshManagedKey) {
                   <div v-if="key.comment" class="managed-key-card__comment">{{ key.comment }}</div>
 
                   <div class="managed-key-card__actions">
-                    <button
+                    <UiButton
                       class="key-secondary-btn"
+                      size="sm"
+                      variant="secondary"
+                      type="button"
                       :disabled="actionKeyId === key.id"
                       @click="handleCopyPublicKey(key)"
                     >
                       复制公钥
-                    </button>
-                    <button
+                    </UiButton>
+                    <UiButton
                       class="key-secondary-btn"
+                      size="sm"
+                      variant="secondary"
+                      type="button"
                       :disabled="actionKeyId === key.id"
                       @click="handleExportKey(key)"
                     >
                       导出
-                    </button>
-                    <button
+                    </UiButton>
+                    <UiButton
                       class="key-danger-btn"
+                      size="sm"
+                      variant="danger"
+                      type="button"
                       :disabled="actionKeyId === key.id"
                       @click="handleDeleteKey(key)"
                     >
                       {{ deleteKeyId === key.id ? '再次点击确认删除' : '删除' }}
-                    </button>
+                    </UiButton>
                   </div>
                 </article>
               </div>
@@ -341,7 +352,7 @@ async function handleDeleteKey(key: SshManagedKey) {
 .key-manager-overlay {
   position: fixed;
   inset: 0;
-  z-index: 2400;
+  z-index: var(--ui-z-modal);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -392,27 +403,24 @@ async function handleDeleteKey(key: SshManagedKey) {
     }
   }
 
-  &__close {
+  &__close.ui-button {
     padding: 8px 12px;
     border: 1px solid transparent;
     border-radius: var(--ui-radius-sm);
     background: transparent;
     color: var(--modal-close-btn-color, var(--ui-button-ghost-text));
-    cursor: pointer;
     transition:
       background 0.18s ease,
       color 0.18s ease,
       border-color 0.18s ease;
+    box-shadow: none;
+    transform: none;
 
-    &:hover {
+    &:hover:not(:disabled) {
       border-color: var(--ui-border-subtle);
       background: var(--modal-close-btn-hover-bg-color, var(--ui-button-ghost-hover-bg));
       color: var(--ui-button-ghost-hover-text);
-    }
-
-    &:focus-visible {
-      outline: none;
-      box-shadow: var(--ui-focus-ring);
+      transform: none;
     }
   }
 
@@ -542,47 +550,20 @@ async function handleDeleteKey(key: SshManagedKey) {
     color: var(--ui-field-label);
   }
 
-  input {
-    width: 100%;
-    min-width: 0;
-    min-height: var(--ui-control-height-md);
-    padding: var(--ui-control-padding-y-md) var(--ui-control-padding-x-md);
-    border: 1px solid var(--ui-input-border);
-    border-radius: var(--ui-radius-sm);
-    background: var(--ui-input-bg);
-    color: var(--ui-input-text);
+  .ui-input {
     font-size: 13px;
-    outline: none;
-    transition:
-      border-color 0.18s ease,
-      background 0.18s ease,
-      box-shadow 0.18s ease;
-
-    &:hover {
-      border-color: var(--ui-select-hover-border, var(--ui-border-accent-soft));
-    }
-
-    &:focus {
-      border-color: var(--ui-input-focus-border);
-      box-shadow: var(--ui-focus-ring);
-    }
-
-    &::placeholder {
-      color: var(--ui-input-placeholder);
-    }
   }
 }
 
-.key-primary-btn,
-.key-secondary-btn,
-.key-danger-btn {
+.key-primary-btn.ui-button,
+.key-secondary-btn.ui-button,
+.key-danger-btn.ui-button {
   min-height: var(--ui-control-height-sm);
   padding: 9px 12px;
   border-radius: var(--ui-radius-sm);
   border: 1px solid transparent;
   font-size: 12px;
   font-weight: 700;
-  cursor: pointer;
   transition:
     background 0.18s ease,
     border-color 0.18s ease,
@@ -598,18 +579,12 @@ async function handleDeleteKey(key: SshManagedKey) {
     transform: translateY(0);
   }
 
-  &:focus-visible {
-    outline: none;
-    box-shadow: var(--ui-focus-ring);
-  }
-
   &:disabled {
     opacity: 0.6;
-    cursor: not-allowed;
   }
 }
 
-.key-primary-btn {
+.key-primary-btn.ui-button {
   background: var(--ui-button-primary-bg);
   color: var(--ui-button-primary-text);
   border-color: var(--ui-button-primary-border);
@@ -620,7 +595,7 @@ async function handleDeleteKey(key: SshManagedKey) {
   }
 }
 
-.key-secondary-btn {
+.key-secondary-btn.ui-button {
   background: var(--ui-button-secondary-bg);
   color: var(--ui-button-secondary-text);
   border-color: var(--ui-button-secondary-border);
@@ -632,7 +607,7 @@ async function handleDeleteKey(key: SshManagedKey) {
   }
 }
 
-.key-danger-btn {
+.key-danger-btn.ui-button {
   background: var(--ui-button-danger-bg);
   color: var(--ui-button-danger-text);
   border-color: var(--ui-button-danger-border);

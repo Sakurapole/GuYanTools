@@ -134,7 +134,7 @@
     height 280ms cubic-bezier(0.32, 0.72, 0, 1);
 }
 
-.category-scroll-btn {
+.category-scroll-btn.ui-icon-button {
   position: absolute;
   left: 2px;
   right: 2px;
@@ -143,6 +143,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
+  width: auto;
   border: none;
   border-radius: var(--ui-radius-md);
   background: transparent;
@@ -184,6 +185,7 @@
   &:hover {
     opacity: 1;
     color: var(--primary-color);
+    transform: none;
   }
 }
 
@@ -206,7 +208,7 @@
 
 /* ─── Category Item — Refined with tactile feedback ─── */
 
-.category-item {
+.category-item.ui-button {
   appearance: none;
   position: relative;
   z-index: 1;
@@ -222,6 +224,9 @@
   color: var(--ui-text-primary);
   cursor: pointer;
   font: inherit;
+  font-weight: inherit;
+  line-height: inherit;
+  white-space: normal;
   outline: none;
   box-sizing: border-box;
 
@@ -333,6 +338,16 @@
     text-overflow: ellipsis;
     transition: color var(--home-transition-fast);
   }
+}
+
+.category-item .ui-button__label {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  width: 100%;
+  min-width: 0;
 }
 
 .add-category-btn {

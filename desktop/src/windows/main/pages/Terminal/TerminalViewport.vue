@@ -11,6 +11,7 @@ import type { TerminalRendererMode } from '@/contracts/terminal';
 import type { BackgroundStyleConfig } from '@/contracts/background';
 import { eventMatchesAccelerator } from '@/shared/shortcuts';
 import { useContextMenu } from '@/windows/main/composables/useContextMenu';
+import UiButton from '@/windows/main/components/ui/UiButton.vue';
 import { resolveScheme } from './terminal-themes';
 import '@xterm/xterm/css/xterm.css';
 
@@ -691,25 +692,29 @@ onBeforeUnmount(() => {
       aria-hidden="true"
     />
 
-    <button
+    <UiButton
       v-if="hoveredViewportRow !== null && hoveredLineText"
       class="terminal-viewport__line-action"
+      size="sm"
+      variant="ghost"
       type="button"
       title="选择此行"
       @click.stop="selectHoveredLine"
     >
       行
-    </button>
+    </UiButton>
 
-    <button
+    <UiButton
       v-if="hoveredSuggestion"
       class="terminal-viewport__suggestion"
+      size="sm"
+      variant="ghost"
       type="button"
       :title="`补齐 ${hoveredSuggestion}`"
       @click.stop="acceptSuggestion"
     >
       Tab {{ hoveredSuggestion }}
-    </button>
+    </UiButton>
   </div>
 </template>
 
@@ -813,20 +818,38 @@ onBeforeUnmount(() => {
   pointer-events: none;
 }
 
-.terminal-viewport__line-action,
-.terminal-viewport__suggestion {
+.terminal-viewport .terminal-viewport__line-action.ui-button,
+.terminal-viewport .terminal-viewport__suggestion.ui-button {
   position: absolute;
   z-index: 3;
+  min-width: 0;
   height: 24px;
+  min-height: 24px;
+  padding-top: 0;
+  padding-bottom: 0;
   border: 1px solid rgba(102, 204, 255, 0.28);
   border-radius: 6px;
   background: rgba(15, 23, 42, 0.78);
   color: #d8f3ff;
-  cursor: pointer;
   font-family: Consolas, "Cascadia Mono", monospace;
   font-size: 11px;
+  font-weight: 500;
   line-height: 22px;
   backdrop-filter: blur(12px);
+  box-shadow: none;
+  transition:
+    background-color 0.16s ease,
+    border-color 0.16s ease,
+    color 0.16s ease;
+  transform: none;
+
+  &:hover:not(:disabled) {
+    transform: none;
+  }
+
+  :deep(.ui-button__label) {
+    line-height: 22px;
+  }
 }
 
 .terminal-viewport__line-action {

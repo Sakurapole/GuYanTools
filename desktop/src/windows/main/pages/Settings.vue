@@ -3,12 +3,14 @@ import { computed, nextTick, onMounted, ref, watch } from 'vue';
 import type { CSSProperties } from 'vue';
 import type {
   AppBottomBarTabId,
+  AppKnowledgeAssetStorageMode,
   AppLanguage,
   AppSettingsTabId,
   AppSettingsTabPersonalizationConfig,
   AppTheme,
   LocalNetworkInterfaceOption,
 } from '@/contracts/app_config';
+import type { KnowledgeLibrary } from '@/contracts/knowledge';
 import type { FtpWindowsContextMenuStatus } from '@/contracts/ftp';
 import type { MultiDeviceClipboardDeviceStatus } from '@/contracts/multi_device_clipboard';
 import type {
@@ -21,16 +23,18 @@ import type { WebScriptRule } from '@/contracts/webview';
 import type { InstalledPluginRecord, PluginHostSummary } from '@/contracts/plugin_host';
 import { resolveThemeBackground } from '@/contracts/background';
 import UiButton from '../components/ui/UiButton.vue';
+import UiCheckbox from '../components/ui/UiCheckbox.vue';
 import UiField from '../components/ui/UiField.vue';
 import UiInput from '../components/ui/UiInput.vue';
 import ShortcutRecorder from '../components/ui/ShortcutRecorder.vue';
 import UiSelect from '../components/ui/UiSelect.vue';
 import UiScrollbar from '../components/ui/UiScrollbar.vue';
 import UiTabs, { type UiTabItem } from '../components/ui/UiTabs.vue';
+import UiTextarea from '../components/ui/UiTextarea.vue';
 import UiTransferBox from '../components/ui/UiTransferBox.vue';
 import WebViewKeepAliveList from '../components/webview/WebViewKeepAliveList.vue';
 import { useTheme } from '../composables/theme';
-import { notifyError } from '../composables/useInAppNotification';
+import { notifyError, notifySuccess } from '../composables/useInAppNotification';
 import { useConfirmDialog } from '../composables/useConfirmDialog';
 import { useAppConfigStore } from '../stores/app_config_store';
 import { useGlobalStore } from '../stores/global_store';
@@ -85,6 +89,12 @@ const terminalDefaultCwdInput = ref(appConfigStore.config.features.terminal.defa
 const multiDeviceClipboardDeviceNameInput = ref(appConfigStore.config.features.multiDeviceClipboard.deviceName || '');
 const multiDeviceClipboardMaxSyncMbInput = ref(String(Math.round(appConfigStore.config.features.multiDeviceClipboard.maxSyncBytes / 1024 / 1024)));
 const multiDeviceClipboardHistoryLimitInput = ref(String(appConfigStore.config.features.multiDeviceClipboard.historyLimit));
+const knowledgeLibraries = ref<KnowledgeLibrary[]>([]);
+const knowledgeMaxImportFileSizeMbInput = ref(String(appConfigStore.config.features.knowledge.maxImportFileSizeMb));
+const knowledgePreviewCacheTtlDaysInput = ref(String(appConfigStore.config.features.knowledge.previewCacheTtlDays));
+const knowledgeLibreOfficePathInput = ref(appConfigStore.config.features.knowledge.libreOfficePath || '');
+const knowledgeCustomAssetDirectoryInput = ref(appConfigStore.config.features.knowledge.customAssetDirectory || '');
+const knowledgeClearingCache = ref(false);
 const localNetworkInterfaces = ref<LocalNetworkInterfaceOption[]>([]);
 const networkInterfacesLoading = ref(false);
 const draggedNetworkInterfaceKey = ref('');
@@ -130,6 +140,7 @@ const settingsTabs: UiTabItem[] = [
   { key: 'plugins', label: '插件配置' },
   { key: 'terminal', label: '终端' },
   { key: 'multi-device-clipboard', label: '多设备剪贴板' },
+  { key: 'knowledge', label: '知识库' },
   { key: 'shortcuts', label: '快捷键' },
 ];
 const settingsTabOrder = settingsTabs.map(tab => tab.key) as SettingsTabKey[];
@@ -248,6 +259,26 @@ const terminalProfileOptions = computed(() => [
     value: profile.id,
   })),
 ]);
+const knowledgeLibraryOptions = computed(() => [
+  { label: '使用默认知识库', value: '' },
+  ...knowledgeLibraries.value.map((library) => ({
+    label: library.isDefault ? `${library.name}（默认）` : library.name,
+    value: library.id,
+  })),
+]);
+const knowledgeAssetStorageOptions: Array<{ label: string; value: AppKnowledgeAssetStorageMode }> = [
+  { label: '应用数据目录', value: 'app-data' },
+  { label: '自定义目录', value: 'custom' },
+];
+const knowledgeIndexingSummary = computed(() => (
+  appConfigStore.config.features.knowledge.indexingEnabled
+    ? '导入时会抽取文本并写入搜索索引'
+    : '导入只保存文件和元数据，不抽取全文'
+));
+const knowledgePreviewCacheSummary = computed(() => {
+  const days = appConfigStore.config.features.knowledge.previewCacheTtlDays;
+  return days === 0 ? '缓存只手动清理' : `缓存保留 ${days} 天`;
+});
 const ftpLinkNavigationSummary = computed(() => {
   if (!ftpLinkNavigationEnabled.value) return '联动导航已关闭';
   return '当前工作区内的文件面板会联动导航';
@@ -604,6 +635,9 @@ function scheduleSettingsTabLoad(tab: SettingsTabKey, force = false) {
       case 'multi-device-clipboard':
         void loadNetworkInterfaces();
         void loadMultiDeviceClipboardDevices();
+        break;
+      case 'knowledge':
+        void loadKnowledgeLibraries();
         break;
       case 'plugins':
         void loadPluginContext();
@@ -1032,31 +1066,31 @@ async function deleteLocalTerminalProfile(profile: LocalTerminalProfileConfig) {
   }
 }
 
-async function handleTerminalSixelChange(event: Event) {
+async function handleTerminalSixelChange(enabled: boolean) {
   await appConfigStore.updateConfig({
     features: {
       terminal: {
-        enableSixel: (event.target as HTMLInputElement).checked,
+        enableSixel: enabled,
       },
     },
   });
 }
 
-async function handleTerminalBellChange(event: Event) {
+async function handleTerminalBellChange(enabled: boolean) {
   await appConfigStore.updateConfig({
     features: {
       terminal: {
-        enableBell: (event.target as HTMLInputElement).checked,
+        enableBell: enabled,
       },
     },
   });
 }
 
-async function handleTerminalDetachChange(event: Event) {
+async function handleTerminalDetachChange(enabled: boolean) {
   await appConfigStore.updateConfig({
     features: {
       terminal: {
-        detachToWindowByDefault: (event.target as HTMLInputElement).checked,
+        detachToWindowByDefault: enabled,
       },
     },
   });
@@ -1077,11 +1111,11 @@ async function commitSshReconnectMaxAttempts() {
   });
 }
 
-async function handleMultiDeviceClipboardEnabledChange(event: Event) {
+async function handleMultiDeviceClipboardEnabledChange(enabled: boolean) {
   await appConfigStore.updateConfig({
     features: {
       multiDeviceClipboard: {
-        enabled: (event.target as HTMLInputElement).checked,
+        enabled,
       },
     },
   });
@@ -1269,6 +1303,137 @@ async function updateSystemShortcut(
   });
 }
 
+async function loadKnowledgeLibraries() {
+  try {
+    knowledgeLibraries.value = await window.knowledgeApi?.listLibraries() ?? [];
+  } catch (error) {
+    notifyError(error, '知识库列表加载失败');
+    knowledgeLibraries.value = [];
+  }
+}
+
+async function updateKnowledgeDefaultLibrary(value: string) {
+  await appConfigStore.updateConfig({
+    features: {
+      knowledge: {
+        defaultLibraryId: value,
+      },
+    },
+  });
+}
+
+async function updateKnowledgeAssetStorageMode(value: string) {
+  await appConfigStore.updateConfig({
+    features: {
+      knowledge: {
+        assetStorageMode: value === 'custom' ? 'custom' : 'app-data',
+      },
+    },
+  });
+}
+
+async function selectKnowledgeAssetDirectory() {
+  const directory = await window.shellApi.selectDirectory('选择知识库附件目录');
+  if (!directory) return;
+  knowledgeCustomAssetDirectoryInput.value = directory;
+  await appConfigStore.updateConfig({
+    features: {
+      knowledge: {
+        assetStorageMode: 'custom',
+        customAssetDirectory: directory,
+      },
+    },
+  });
+}
+
+async function clearKnowledgeAssetDirectory() {
+  knowledgeCustomAssetDirectoryInput.value = '';
+  await appConfigStore.updateConfig({
+    features: {
+      knowledge: {
+        assetStorageMode: 'app-data',
+        customAssetDirectory: '',
+      },
+    },
+  });
+}
+
+async function selectKnowledgeLibreOfficePath() {
+  const filePath = await window.shellApi.selectFile({
+    title: '选择 LibreOffice 可执行文件',
+    filters: [
+      { name: '可执行文件', extensions: ['exe'] },
+      { name: '所有文件', extensions: ['*'] },
+    ],
+  });
+  if (!filePath) return;
+  knowledgeLibreOfficePathInput.value = filePath;
+  await commitKnowledgeLibreOfficePath();
+}
+
+async function clearKnowledgeLibreOfficePath() {
+  knowledgeLibreOfficePathInput.value = '';
+  await commitKnowledgeLibreOfficePath();
+}
+
+async function commitKnowledgeLibreOfficePath() {
+  await appConfigStore.updateConfig({
+    features: {
+      knowledge: {
+        libreOfficePath: knowledgeLibreOfficePathInput.value.trim(),
+      },
+    },
+  });
+}
+
+async function toggleKnowledgeIndexing(enabled: boolean) {
+  await appConfigStore.updateConfig({
+    features: {
+      knowledge: {
+        indexingEnabled: enabled,
+      },
+    },
+  });
+}
+
+async function commitKnowledgeMaxImportSize() {
+  const numeric = Number(knowledgeMaxImportFileSizeMbInput.value);
+  await appConfigStore.updateConfig({
+    features: {
+      knowledge: {
+        maxImportFileSizeMb: Number.isFinite(numeric) ? numeric : createDefaultAppConfig().features.knowledge.maxImportFileSizeMb,
+      },
+    },
+  });
+}
+
+async function commitKnowledgePreviewCacheTtl() {
+  const numeric = Number(knowledgePreviewCacheTtlDaysInput.value);
+  await appConfigStore.updateConfig({
+    features: {
+      knowledge: {
+        previewCacheTtlDays: Number.isFinite(numeric) ? numeric : createDefaultAppConfig().features.knowledge.previewCacheTtlDays,
+      },
+    },
+  });
+}
+
+async function clearKnowledgePreviewCache() {
+  if (!window.knowledgeApi) return;
+  knowledgeClearingCache.value = true;
+  try {
+    const result = await window.knowledgeApi.clearPreviewCache();
+    notifySuccess(
+      `已清理 ${result.removedFiles} 个缓存文件，释放 ${Math.round(result.removedBytes / 1024)} KB`,
+      '知识库缓存',
+    );
+  } catch (error) {
+    notifyError(error, '预览缓存清理失败');
+  } finally {
+    knowledgeClearingCache.value = false;
+  }
+}
+
 async function selectFfmpegPath() {
   const filePath = await window.shellApi.selectFile({
     title: '选择 FFmpeg 可执行文件',
@@ -1418,6 +1583,22 @@ watch(() => appConfigStore.config.features.multiDeviceClipboard.maxSyncBytes, (v
 
 watch(() => appConfigStore.config.features.multiDeviceClipboard.historyLimit, (value) => {
   multiDeviceClipboardHistoryLimitInput.value = String(value || 200);
+}, { immediate: true });
+
+watch(() => appConfigStore.config.features.knowledge.maxImportFileSizeMb, (value) => {
+  knowledgeMaxImportFileSizeMbInput.value = String(value || 200);
+}, { immediate: true });
+
+watch(() => appConfigStore.config.features.knowledge.previewCacheTtlDays, (value) => {
+  knowledgePreviewCacheTtlDaysInput.value = String(value ?? 30);
+}, { immediate: true });
+
+watch(() => appConfigStore.config.features.knowledge.libreOfficePath, (value) => {
+  knowledgeLibreOfficePathInput.value = value || '';
+}, { immediate: true });
+
+watch(() => appConfigStore.config.features.knowledge.customAssetDirectory, (value) => {
+  knowledgeCustomAssetDirectoryInput.value = value || '';
 }, { immediate: true });
 
 watch(
@@ -1597,6 +1778,12 @@ async function toggleScript(scriptId: string) {
   await appConfigStore.updateConfig({ web: { scripts } });
 }
 
+function toggleNewScriptPermission(permission: string, enabled: boolean) {
+  newScriptPermissions.value = enabled
+    ? Array.from(new Set([...newScriptPermissions.value, permission]))
+    : newScriptPermissions.value.filter(item => item !== permission);
+}
+
 async function removeScript(scriptId: string) {
   const scripts = webScripts.value.filter(s => s.id !== scriptId);
   await appConfigStore.updateConfig({ web: { scripts } });
@@ -1655,8 +1842,11 @@ function scriptTypeLabel(type: string) {
       <div class="page-title-row">
         <h1>设置</h1>
         <div class="settings-search" role="search">
-          <span class="settings-search__icon" aria-hidden="true" />
-          <input v-model="settingsSearchQuery" type="search" placeholder="搜索设置" aria-label="搜索设置" />
+          <UiInput v-model="settingsSearchQuery" class="settings-search__input" type="search" placeholder="搜索设置" aria-label="搜索设置">
+            <template #prefix>
+              <span class="settings-search__icon" aria-hidden="true" />
+            </template>
+          </UiInput>
         </div>
       </div>
       <nav
@@ -1934,10 +2124,7 @@ function scriptTypeLabel(type: string) {
                 <small>切换目录时同步本地与远程浏览节奏。</small>
               </div>
               <div class="settings-row__control settings-row__control--switch">
-                <label class="settings-switch">
-                  <input v-model="ftpLinkNavigationEnabled" type="checkbox" />
-                  <span aria-hidden="true" />
-                </label>
+                <UiCheckbox v-model="ftpLinkNavigationEnabled" size="sm" />
               </div>
             </div>
             <div class="settings-row settings-row--wide">
@@ -1961,10 +2148,7 @@ function scriptTypeLabel(type: string) {
                 <small>控制文件列表中的图片预览加载。</small>
               </div>
               <div class="settings-row__control settings-row__control--switch">
-                <label class="settings-switch">
-                  <input v-model="ftpThumbnailsEnabled" type="checkbox" />
-                  <span aria-hidden="true" />
-                </label>
+                <UiCheckbox v-model="ftpThumbnailsEnabled" size="sm" />
               </div>
             </div>
             <div class="settings-row">
@@ -2099,10 +2283,9 @@ function scriptTypeLabel(type: string) {
                 </div>
                 <div class="settings-inline-badges settings-inline-badges--mt">
                   <span class="settings-badge settings-badge--accent">{{ ftpExternalEditorSummary }}</span>
-                  <label class="settings-check">
-                    <input v-model="ftpCleanupExternalDraftsOnClose" type="checkbox" />
-                    <span>关闭后清理临时文件</span>
-                  </label>
+                  <UiCheckbox v-model="ftpCleanupExternalDraftsOnClose" class="settings-check" size="sm">
+                    关闭后清理临时文件
+                  </UiCheckbox>
                 </div>
               </div>
             </div>
@@ -2208,10 +2391,10 @@ function scriptTypeLabel(type: string) {
                     <UiInput v-model="localTerminalProfileForm.cwd" placeholder="工作目录，可留空" />
                     <UiInput v-model="localTerminalProfileForm.configFilePath" placeholder="启动配置文件路径，例如：D:\\profiles\\project.ps1" />
                   </div>
-                  <textarea
+                  <UiTextarea
                     v-model="localTerminalProfileForm.envText"
                     class="terminal-profile-editor__env"
-                    rows="4"
+                    :rows="4"
                     placeholder='环境变量 JSON，例如：{"NODE_ENV":"development"}'
                   />
                   <p v-if="localTerminalProfileError" class="settings-error">{{ localTerminalProfileError }}</p>
@@ -2253,14 +2436,11 @@ function scriptTypeLabel(type: string) {
                 <small>允许 BEL 提示音；关闭后保留终端输出但不播放滴声。</small>
               </div>
               <div class="settings-row__control settings-row__control--switch">
-                <label class="settings-switch">
-                  <input
-                    type="checkbox"
-                    :checked="appConfigStore.config.features.terminal.enableBell"
-                    @change="handleTerminalBellChange"
-                  />
-                  <span aria-hidden="true" />
-                </label>
+                <UiCheckbox
+                  size="sm"
+                  :checked="appConfigStore.config.features.terminal.enableBell"
+                  @change="handleTerminalBellChange"
+                />
               </div>
             </div>
             <div class="settings-row">
@@ -2269,14 +2449,11 @@ function scriptTypeLabel(type: string) {
                 <small>启用 sixel/图像扩展。</small>
               </div>
               <div class="settings-row__control settings-row__control--switch">
-                <label class="settings-switch">
-                  <input
-                    type="checkbox"
-                    :checked="appConfigStore.config.features.terminal.enableSixel"
-                    @change="handleTerminalSixelChange"
-                  />
-                  <span aria-hidden="true" />
-                </label>
+                <UiCheckbox
+                  size="sm"
+                  :checked="appConfigStore.config.features.terminal.enableSixel"
+                  @change="handleTerminalSixelChange"
+                />
               </div>
             </div>
             <div class="settings-row">
@@ -2285,14 +2462,11 @@ function scriptTypeLabel(type: string) {
                 <small>优先在新窗口中拆分会话。</small>
               </div>
               <div class="settings-row__control settings-row__control--switch">
-                <label class="settings-switch">
-                  <input
-                    type="checkbox"
-                    :checked="appConfigStore.config.features.terminal.detachToWindowByDefault"
-                    @change="handleTerminalDetachChange"
-                  />
-                  <span aria-hidden="true" />
-                </label>
+                <UiCheckbox
+                  size="sm"
+                  :checked="appConfigStore.config.features.terminal.detachToWindowByDefault"
+                  @change="handleTerminalDetachChange"
+                />
               </div>
             </div>
             <div class="settings-row">
@@ -2331,14 +2505,11 @@ function scriptTypeLabel(type: string) {
                 <small>启用后会通过 mDNS 在局域网发布和发现设备。</small>
               </div>
               <div class="settings-row__control settings-row__control--switch">
-                <label class="settings-switch">
-                  <input
-                    type="checkbox"
-                    :checked="appConfigStore.config.features.multiDeviceClipboard.enabled"
-                    @change="handleMultiDeviceClipboardEnabledChange"
-                  />
-                  <span aria-hidden="true" />
-                </label>
+                <UiCheckbox
+                  size="sm"
+                  :checked="appConfigStore.config.features.multiDeviceClipboard.enabled"
+                  @change="handleMultiDeviceClipboardEnabledChange"
+                />
               </div>
             </div>
             <div class="settings-row">
@@ -2505,6 +2676,141 @@ function scriptTypeLabel(type: string) {
         </div>
       </section>
 
+      <section v-if="isSettingsTabRendered('knowledge')" key="knowledge" class="settings-section">
+        <div class="section-head section-head--standalone">
+          <h2>知识库</h2>
+          <p>配置默认库、附件保存策略、索引和预览缓存。</p>
+        </div>
+
+        <div class="settings-form">
+          <section class="settings-group">
+            <h3>默认行为</h3>
+            <div class="settings-row">
+              <div class="settings-row__label">
+                <span>默认知识库</span>
+                <small>未指定库的导入、粘贴附件会优先写入这里。</small>
+              </div>
+              <div class="settings-row__control settings-row__control--wide">
+                <UiSelect
+                  :model-value="appConfigStore.config.features.knowledge.defaultLibraryId"
+                  :options="knowledgeLibraryOptions"
+                  @update:modelValue="updateKnowledgeDefaultLibrary"
+                />
+              </div>
+            </div>
+            <div class="settings-row">
+              <div class="settings-row__label">
+                <span>全文索引</span>
+                <small>{{ knowledgeIndexingSummary }}</small>
+              </div>
+              <div class="settings-row__control settings-row__control--switch">
+                <UiCheckbox
+                  size="sm"
+                  :checked="appConfigStore.config.features.knowledge.indexingEnabled"
+                  @change="toggleKnowledgeIndexing"
+                />
+              </div>
+            </div>
+            <div class="settings-row">
+              <div class="settings-row__label">
+                <span>单文件导入上限</span>
+                <small>超过上限的文件会被跳过，避免抽取或复制拖慢应用。</small>
+              </div>
+              <div class="settings-row__control settings-row__control--compact">
+                <UiInput
+                  v-model="knowledgeMaxImportFileSizeMbInput"
+                  type="number"
+                  :min="1"
+                  :max="10240"
+                  @blur="commitKnowledgeMaxImportSize"
+                  @change="commitKnowledgeMaxImportSize"
+                  @keydown.enter.prevent="commitKnowledgeMaxImportSize"
+                />
+              </div>
+            </div>
+          </section>
+
+          <section class="settings-group">
+            <h3>附件目录</h3>
+            <div class="settings-row">
+              <div class="settings-row__label">
+                <span>目录策略</span>
+                <small>默认使用应用数据目录，自定义目录适合大体积资料库。</small>
+              </div>
+              <div class="settings-row__control settings-row__control--wide">
+                <UiSelect
+                  :model-value="appConfigStore.config.features.knowledge.assetStorageMode"
+                  :options="knowledgeAssetStorageOptions"
+                  @update:modelValue="updateKnowledgeAssetStorageMode"
+                />
+              </div>
+            </div>
+            <div class="settings-row settings-row--wide">
+              <div class="settings-row__label">
+                <span>自定义附件目录</span>
+                <small>只影响后续新导入资产，已入库文件不会自动迁移。</small>
+              </div>
+              <div class="settings-row__control settings-row__control--wide">
+                <div class="ffmpeg-path-row">
+                  <div class="ffmpeg-path-display" :class="{ 'ffmpeg-path-display--empty': !knowledgeCustomAssetDirectoryInput }">
+                    {{ knowledgeCustomAssetDirectoryInput || '未配置' }}
+                  </div>
+                  <UiButton variant="secondary" size="sm" @click="selectKnowledgeAssetDirectory">选择</UiButton>
+                  <UiButton v-if="knowledgeCustomAssetDirectoryInput" variant="danger" size="sm" @click="clearKnowledgeAssetDirectory">清除</UiButton>
+                </div>
+              </div>
+            </div>
+          </section>
+
+          <section class="settings-group">
+            <h3>预览与外部工具</h3>
+            <div class="settings-row settings-row--wide">
+              <div class="settings-row__label">
+                <span>LibreOffice 路径</span>
+                <small>预留给后续 Office 高保真转换；当前轻量抽取不强制依赖。</small>
+              </div>
+              <div class="settings-row__control settings-row__control--wide">
+                <div class="ffmpeg-path-row">
+                  <div class="ffmpeg-path-display" :class="{ 'ffmpeg-path-display--empty': !knowledgeLibreOfficePathInput }">
+                    {{ knowledgeLibreOfficePathInput || '未配置' }}
+                  </div>
+                  <UiButton variant="secondary" size="sm" @click="selectKnowledgeLibreOfficePath">选择</UiButton>
+                  <UiButton v-if="knowledgeLibreOfficePathInput" variant="danger" size="sm" @click="clearKnowledgeLibreOfficePath">清除</UiButton>
+                </div>
+              </div>
+            </div>
+            <div class="settings-row">
+              <div class="settings-row__label">
+                <span>预览缓存保留</span>
+                <small>{{ knowledgePreviewCacheSummary }}</small>
+              </div>
+              <div class="settings-row__control settings-row__control--compact">
+                <UiInput
+                  v-model="knowledgePreviewCacheTtlDaysInput"
+                  type="number"
+                  :min="0"
+                  :max="3650"
+                  @blur="commitKnowledgePreviewCacheTtl"
+                  @change="commitKnowledgePreviewCacheTtl"
+                  @keydown.enter.prevent="commitKnowledgePreviewCacheTtl"
+                />
+              </div>
+            </div>
+            <div class="settings-row">
+              <div class="settings-row__label">
+                <span>清理预览缓存</span>
+                <small>只清理知识库预览缓存，不删除原始附件。</small>
+              </div>
+              <div class="settings-row__control">
+                <UiButton variant="secondary" size="sm" :disabled="knowledgeClearingCache" @click="clearKnowledgePreviewCache">
+                  {{ knowledgeClearingCache ? '清理中' : '立即清理' }}
+                </UiButton>
+              </div>
+            </div>
+          </section>
+        </div>
+      </section>
+
       <section v-if="isSettingsTabRendered('shortcuts')" key="shortcuts" class="settings-section">
         <div class="section-head section-head--standalone">
           <h2>快捷键</h2>
@@ -2567,6 +2873,32 @@ function scriptTypeLabel(type: string) {
                   :model-value="appConfigStore.config.shortcuts.system.toggleMultiDeviceClipboard"
                   :default-value="defaultShortcuts.system.toggleMultiDeviceClipboard"
                   @update:modelValue="updateSystemShortcut('toggleMultiDeviceClipboard', $event)"
+                />
+              </div>
+            </div>
+            <div class="settings-row">
+              <div class="settings-row__label">
+                <span>知识库速记</span>
+                <small>系统级快捷键，默认 Ctrl+Alt+N 唤出速记窗口。</small>
+              </div>
+              <div class="settings-row__control settings-row__control--wide">
+                <ShortcutRecorder
+                  :model-value="appConfigStore.config.shortcuts.system.toggleQuickNote"
+                  :default-value="defaultShortcuts.system.toggleQuickNote"
+                  @update:modelValue="updateSystemShortcut('toggleQuickNote', $event)"
+                />
+              </div>
+            </div>
+            <div class="settings-row">
+              <div class="settings-row__label">
+                <span>剪贴板转速记</span>
+                <small>系统级快捷键，默认 Ctrl+Alt+Shift+N 捕获当前剪贴板文本。</small>
+              </div>
+              <div class="settings-row__control settings-row__control--wide">
+                <ShortcutRecorder
+                  :model-value="appConfigStore.config.shortcuts.system.captureClipboardToQuickNote"
+                  :default-value="defaultShortcuts.system.captureClipboardToQuickNote"
+                  @update:modelValue="updateSystemShortcut('captureClipboardToQuickNote', $event)"
                 />
               </div>
             </div>
@@ -2672,7 +3004,7 @@ function scriptTypeLabel(type: string) {
 
               <UiField label="插件 JSON 配置" :error="pluginConfigErrors[activePlugin.manifest.id]"
                 hint="宿主直接维护每个插件的 JSON 对象。">
-                <textarea v-model="pluginConfigDrafts[activePlugin.manifest.id]" class="plugin-json-editor"
+                <UiTextarea v-model="pluginConfigDrafts[activePlugin.manifest.id]" class="plugin-json-editor"
                   spellcheck="false" />
               </UiField>
 
@@ -2796,10 +3128,14 @@ function scriptTypeLabel(type: string) {
                       <div v-if="ext.description" class="web-extension-item__desc">{{ ext.description }}</div>
                     </div>
                     <div class="web-extension-item__actions">
-                      <label class="web-extension-item__toggle">
-                        <input type="checkbox" :checked="ext.enabled" @change="toggleExtension(ext.id, !ext.enabled)" />
-                        <span>{{ ext.enabled ? '已启用' : '已禁用' }}</span>
-                      </label>
+                      <UiCheckbox
+                        class="web-extension-item__toggle"
+                        size="sm"
+                        :checked="ext.enabled"
+                        @change="toggleExtension(ext.id, !ext.enabled)"
+                      >
+                        {{ ext.enabled ? '已启用' : '已禁用' }}
+                      </UiCheckbox>
                       <UiButton variant="danger" size="sm" @click="removeExtension(ext.id)">卸载</UiButton>
                     </div>
                   </div>
@@ -2828,10 +3164,14 @@ function scriptTypeLabel(type: string) {
                         {{ scriptTypeLabel(script.type) }}
                       </span>
                       <span class="web-script-item__pattern">{{ script.domainPattern }}</span>
-                      <label class="web-script-item__toggle">
-                        <input type="checkbox" :checked="script.enabled" @change="toggleScript(script.id)" />
-                        <span>{{ script.enabled ? '已启用' : '已禁用' }}</span>
-                      </label>
+                      <UiCheckbox
+                        class="web-script-item__toggle"
+                        size="sm"
+                        :checked="script.enabled"
+                        @change="toggleScript(script.id)"
+                      >
+                        {{ script.enabled ? '已启用' : '已禁用' }}
+                      </UiCheckbox>
                       <UiButton v-if="!script.builtin" variant="danger" size="sm" @click="removeScript(script.id)">删除</UiButton>
                     </div>
                   </div>
@@ -2858,15 +3198,21 @@ function scriptTypeLabel(type: string) {
                     </UiField>
                     <UiField v-if="newScriptType === 'js'" label="脚本权限" style="grid-column: span 2">
                       <div class="web-add-script-form__perms">
-                        <label v-for="perm in ['network', 'storage', 'clipboard']" :key="perm" class="web-add-script-form__perm-label">
-                          <input type="checkbox" :value="perm" v-model="newScriptPermissions" />
-                          <span>{{ perm === 'network' ? '网络请求' : perm === 'storage' ? '本地存储' : '剪贴板' }}</span>
-                        </label>
+                        <UiCheckbox
+                          v-for="perm in ['network', 'storage', 'clipboard']"
+                          :key="perm"
+                          class="web-add-script-form__perm-label"
+                          size="sm"
+                          :checked="newScriptPermissions.includes(perm)"
+                          @change="toggleNewScriptPermission(perm, $event)"
+                        >
+                          {{ perm === 'network' ? '网络请求' : perm === 'storage' ? '本地存储' : '剪贴板' }}
+                        </UiCheckbox>
                       </div>
                     </UiField>
                   </div>
                   <UiField label="内容">
-                    <textarea v-model="newScriptContent" class="web-script-editor" rows="6"
+                    <UiTextarea v-model="newScriptContent" class="web-script-editor" :rows="6"
                       :placeholder="newScriptType === 'css' ? 'body { background: #1a1a2e !important; }' : newScriptType === 'html' ? '&lt;div class=&quot;my-widget&quot;&gt;...&lt;/div&gt;' : 'console.log(&quot;injected!&quot;);'"
                       spellcheck="false" />
                   </UiField>
@@ -2938,7 +3284,7 @@ function scriptTypeLabel(type: string) {
   h1 {
     margin: 0;
     color: var(--ui-text-primary);
-    font-size: 30px;
+    font-size: var(--ui-font-size-display-md);
     line-height: 1.2;
     font-weight: 700;
     letter-spacing: 0;
@@ -2950,17 +3296,16 @@ function scriptTypeLabel(type: string) {
   width: min(320px, 38vw);
   flex: 0 1 auto;
 
-  input {
+  :deep(.settings-search__input) {
     width: 100%;
     min-height: 44px;
     box-sizing: border-box;
-    padding: 0 16px 0 46px;
     border: 1px solid color-mix(in srgb, var(--ui-border-subtle) 70%, rgba(80, 96, 118, 0.25));
     border-radius: 6px;
     background: color-mix(in srgb, var(--ui-input-bg) 88%, transparent);
     color: var(--ui-input-text);
     font: inherit;
-    font-size: 14px;
+    font-size: var(--ui-font-size-md);
     outline: none;
     transition: border-color 0.16s ease, box-shadow 0.16s ease, background-color 0.16s ease;
 
@@ -2973,17 +3318,18 @@ function scriptTypeLabel(type: string) {
       color: var(--ui-input-placeholder);
     }
   }
+
+  :deep(.settings-search__input .ui-input) {
+    font-size: var(--ui-font-size-md);
+  }
 }
 
 .settings-search__icon {
-  position: absolute;
-  left: 18px;
-  top: 50%;
+  position: relative;
   width: 14px;
   height: 14px;
   border: 2px solid var(--ui-text-muted);
   border-radius: 50%;
-  transform: translateY(-58%);
   pointer-events: none;
 
   &::after {
@@ -3015,7 +3361,7 @@ function scriptTypeLabel(type: string) {
     min-height: 44px;
     padding: 0 10px;
     color: color-mix(in srgb, var(--ui-text-primary) 70%, transparent);
-    font-size: 15px;
+    font-size: var(--ui-font-size-lg);
     font-weight: 500;
     transition:
       color 0.18s ease,
@@ -3140,7 +3486,7 @@ function scriptTypeLabel(type: string) {
     align-self: start;
     margin: 0;
     color: var(--ui-text-primary);
-    font-size: 17px;
+    font-size: var(--ui-font-size-xl);
     font-weight: 700;
     line-height: 1.45;
     letter-spacing: 0;
@@ -3169,14 +3515,14 @@ function scriptTypeLabel(type: string) {
 
   span {
     color: var(--ui-text-primary);
-    font-size: 14px;
+    font-size: var(--ui-font-size-md);
     font-weight: 500;
     line-height: 1.35;
   }
 
   small {
     color: var(--ui-text-muted);
-    font-size: 12px;
+    font-size: var(--ui-font-size-xs);
     font-weight: 400;
     line-height: 1.35;
   }
@@ -3247,7 +3593,7 @@ function scriptTypeLabel(type: string) {
   strong {
     overflow: hidden;
     color: var(--ui-text-primary);
-    font-size: 13px;
+    font-size: var(--ui-font-size-sm);
     font-weight: 600;
     text-overflow: ellipsis;
     white-space: nowrap;
@@ -3255,7 +3601,7 @@ function scriptTypeLabel(type: string) {
 
   small {
     color: var(--ui-text-muted);
-    font-size: 12px;
+    font-size: var(--ui-font-size-xs);
   }
 }
 
@@ -3268,7 +3614,7 @@ function scriptTypeLabel(type: string) {
 .network-priority-empty {
   margin: 0;
   color: var(--ui-text-muted);
-  font-size: 12px;
+  font-size: var(--ui-font-size-xs);
 }
 
 .settings-row__control--compact {
@@ -3288,7 +3634,7 @@ function scriptTypeLabel(type: string) {
 .settings-error {
   margin: 0;
   color: var(--ui-danger-color, #dc2626);
-  font-size: 12px;
+  font-size: var(--ui-font-size-xs);
   line-height: 1.45;
 }
 
@@ -3365,13 +3711,13 @@ function scriptTypeLabel(type: string) {
 
   strong {
     color: var(--ui-text-primary);
-    font-size: 13px;
+    font-size: var(--ui-font-size-sm);
   }
 
   span,
   small {
     color: var(--ui-text-muted);
-    font-size: 12px;
+    font-size: var(--ui-font-size-xs);
   }
 }
 
@@ -3469,7 +3815,7 @@ function scriptTypeLabel(type: string) {
 
   h3 {
     margin: 0;
-    font-size: 15px;
+    font-size: var(--ui-font-size-lg);
     font-weight: 600;
   }
 }
@@ -3482,7 +3828,7 @@ function scriptTypeLabel(type: string) {
 .settings-card__desc {
   margin: -4px 0 0;
   color: var(--ui-text-muted);
-  font-size: 12.5px;
+  font-size: var(--ui-font-size-xs);
   line-height: 1.5;
 }
 
@@ -3506,7 +3852,7 @@ function scriptTypeLabel(type: string) {
 /* ─── Plugin extras ─── */
 .plugin-dir-badge {
   margin-left: auto;
-  font-size: 11px;
+  font-size: var(--ui-font-size-xs);
   color: var(--ui-text-muted);
   background: var(--ui-input-bg, rgba(128, 128, 128, 0.06));
   padding: 4px 10px;
@@ -3529,8 +3875,8 @@ function scriptTypeLabel(type: string) {
   padding: 14px;
   border-radius: var(--ui-radius-md, 6px);
 
-  span { color: var(--ui-text-muted); font-size: 12px; }
-  strong { word-break: break-word; font-size: 13px; }
+  span { color: var(--ui-text-muted); font-size: var(--ui-font-size-xs); }
+  strong { word-break: break-word; font-size: var(--ui-font-size-sm); }
 }
 
 .error-banner {
@@ -3667,7 +4013,7 @@ function scriptTypeLabel(type: string) {
   border-radius: var(--ui-radius-md);
   background: var(--ui-input-bg);
   color: var(--ui-text-primary);
-  font-size: 13px;
+  font-size: var(--ui-font-size-sm);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -3702,7 +4048,7 @@ function scriptTypeLabel(type: string) {
   border-radius: 999px;
   background: color-mix(in srgb, var(--ui-surface-panel-muted) 88%, transparent);
   color: var(--ui-text-primary);
-  font-size: 12px;
+  font-size: var(--ui-font-size-xs);
   font-weight: 600;
 }
 
@@ -3731,13 +4077,11 @@ function scriptTypeLabel(type: string) {
   align-items: center;
   gap: 8px;
   color: var(--ui-text-primary);
-  font-size: 13px;
-  cursor: pointer;
+  font-size: var(--ui-font-size-sm);
 
-  input {
-    width: 14px;
-    height: 14px;
-    accent-color: var(--primary-color);
+  :deep(.ui-checkbox__label) {
+    color: var(--ui-text-primary);
+    font-size: var(--ui-font-size-sm);
   }
 }
 
@@ -3749,7 +4093,7 @@ function scriptTypeLabel(type: string) {
   border-radius: var(--ui-radius-md);
   background: var(--ui-input-bg);
   color: var(--ui-text-primary);
-  font-size: 13px;
+  font-size: var(--ui-font-size-sm);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -3763,7 +4107,7 @@ function scriptTypeLabel(type: string) {
 .settings-muted-empty {
   margin-top: 10px;
   color: var(--ui-text-muted);
-  font-size: 13px;
+  font-size: var(--ui-font-size-sm);
 }
 
 .settings-known-hosts {
@@ -3791,7 +4135,7 @@ function scriptTypeLabel(type: string) {
 
 .settings-known-host__title {
   color: var(--ui-text-primary);
-  font-size: 13px;
+  font-size: var(--ui-font-size-sm);
   font-weight: 700;
 }
 
@@ -3799,17 +4143,17 @@ function scriptTypeLabel(type: string) {
 .settings-known-host__fingerprint {
   margin-top: 3px;
   color: var(--ui-text-muted);
-  font-size: 12px;
+  font-size: var(--ui-font-size-xs);
 }
 
 .settings-known-host__fingerprint {
   overflow-wrap: anywhere;
-  font-family: var(--ui-font-mono, monospace);
+  font-family: var(--ui-font-family-mono);
 }
 
 .ffmpeg-status {
   margin-top: 6px;
-  font-size: 12px;
+  font-size: var(--ui-font-size-xs);
   padding: 4px 0;
 
   &--checking {
@@ -3854,12 +4198,12 @@ function scriptTypeLabel(type: string) {
   border: 1px solid var(--ui-border-subtle, rgba(128, 128, 128, 0.1));
 
   strong {
-    font-size: 13px;
+    font-size: var(--ui-font-size-sm);
   }
 
   span {
     color: var(--ui-text-muted);
-    font-size: 12px;
+    font-size: var(--ui-font-size-xs);
     line-height: 1.5;
   }
 }
@@ -3889,7 +4233,7 @@ function scriptTypeLabel(type: string) {
 
 .update-progress__head,
 .update-progress__meta {
-  font-size: 12px;
+  font-size: var(--ui-font-size-xs);
   color: var(--ui-text-muted);
 }
 
@@ -3917,7 +4261,7 @@ function scriptTypeLabel(type: string) {
   border-radius: var(--ui-radius-md);
   background: var(--ui-input-bg);
   color: var(--ui-text-secondary);
-  font-size: 12px;
+  font-size: var(--ui-font-size-xs);
   line-height: 1.6;
 }
 
@@ -3934,7 +4278,7 @@ function scriptTypeLabel(type: string) {
   padding: 10px 12px;
   border-radius: var(--ui-radius-md);
   background: var(--ui-input-bg);
-  font-size: 12px;
+  font-size: var(--ui-font-size-xs);
 
   span {
     color: var(--ui-text-muted);
@@ -3951,7 +4295,7 @@ function scriptTypeLabel(type: string) {
 .update-auth__hint {
   margin: 0;
   color: var(--ui-text-muted);
-  font-size: 12px;
+  font-size: var(--ui-font-size-xs);
   line-height: 1.5;
 }
 
@@ -3971,7 +4315,7 @@ function scriptTypeLabel(type: string) {
   align-items: center;
   gap: 8px;
   color: var(--ui-text-secondary);
-  font-size: 13px;
+  font-size: var(--ui-font-size-sm);
   cursor: pointer;
 
   input {
@@ -3995,7 +4339,7 @@ function scriptTypeLabel(type: string) {
 }
 
 .web-domain-section__hint {
-  font-size: 12px;
+  font-size: var(--ui-font-size-xs);
   color: var(--ui-text-muted);
   font-weight: 400;
 }
@@ -4014,15 +4358,15 @@ function scriptTypeLabel(type: string) {
   border-radius: var(--ui-radius-md, 6px);
   background: var(--ui-input-bg, rgba(128, 128, 128, 0.06));
   border: 1px solid var(--ui-border-subtle, rgba(128, 128, 128, 0.1));
-  font-family: 'Courier New', monospace;
-  font-size: 13px;
+  font-family: var(--ui-font-family-mono);
+  font-size: var(--ui-font-size-sm);
 }
 
 .web-domain-empty {
   padding: 12px;
   text-align: center;
   color: var(--ui-text-muted);
-  font-size: 13px;
+  font-size: var(--ui-font-size-sm);
 }
 
 .web-domain-add {
@@ -4061,7 +4405,7 @@ function scriptTypeLabel(type: string) {
 }
 
 .web-script-item__type {
-  font-size: 11px;
+  font-size: var(--ui-font-size-xs);
   padding: 1px 6px;
   border-radius: 3px;
   font-weight: 500;
@@ -4083,8 +4427,8 @@ function scriptTypeLabel(type: string) {
 }
 
 .web-script-item__pattern {
-  font-family: 'Courier New', monospace;
-  font-size: 12px;
+  font-family: var(--ui-font-family-mono);
+  font-size: var(--ui-font-size-xs);
   color: var(--ui-text-muted);
   flex: 1;
 }
@@ -4093,12 +4437,12 @@ function scriptTypeLabel(type: string) {
   display: flex;
   align-items: center;
   gap: 4px;
-  font-size: 12px;
+  font-size: var(--ui-font-size-xs);
   color: var(--ui-text-muted);
-  cursor: pointer;
 
-  input {
-    cursor: pointer;
+  :deep(.ui-checkbox__label) {
+    color: var(--ui-text-muted);
+    font-size: var(--ui-font-size-xs);
   }
 }
 
@@ -4131,11 +4475,13 @@ function scriptTypeLabel(type: string) {
   display: flex;
   align-items: center;
   gap: 4px;
-  font-size: 12px;
+  font-size: var(--ui-font-size-xs);
   color: var(--ui-text-secondary);
-  cursor: pointer;
 
-  input { cursor: pointer; }
+  :deep(.ui-checkbox__label) {
+    color: var(--ui-text-secondary);
+    font-size: var(--ui-font-size-xs);
+  }
 }
 
 .web-script-editor {
@@ -4147,7 +4493,11 @@ function scriptTypeLabel(type: string) {
   color: var(--ui-input-text);
   resize: vertical;
   box-sizing: border-box;
-  font: 12px 'Courier New', Consolas, monospace;
+  font-size: var(--ui-font-size-xs);
+  font-weight: 400;
+  font-style: normal;
+  font-variant: normal;
+  font-family: var(--ui-font-family-mono);
   line-height: 1.5;
 }
 
@@ -4186,17 +4536,17 @@ function scriptTypeLabel(type: string) {
 
 .web-extension-item__name {
   font-weight: 500;
-  font-size: 13px;
+  font-size: var(--ui-font-size-sm);
   color: var(--ui-text-primary);
 }
 
 .web-extension-item__meta {
-  font-size: 11px;
+  font-size: var(--ui-font-size-xs);
   color: var(--ui-text-muted);
 }
 
 .web-extension-item__desc {
-  font-size: 12px;
+  font-size: var(--ui-font-size-xs);
   color: var(--ui-text-secondary);
   white-space: nowrap;
   overflow: hidden;
@@ -4214,11 +4564,13 @@ function scriptTypeLabel(type: string) {
   display: flex;
   align-items: center;
   gap: 4px;
-  font-size: 12px;
+  font-size: var(--ui-font-size-xs);
   color: var(--ui-text-secondary);
-  cursor: pointer;
 
-  input { cursor: pointer; }
+  :deep(.ui-checkbox__label) {
+    color: var(--ui-text-secondary);
+    font-size: var(--ui-font-size-xs);
+  }
 }
 
 @media (max-width: 760px) {

@@ -233,7 +233,7 @@ export const useFtpStore = defineStore('ftp', () => {
     void Promise.all([
       refreshRemoteDirectory(remotePath.value || session.remoteRoot, sessionId),
       refreshLocalDirectory(localPath.value || session.localRoot),
-    ]).catch(() => undefined);
+    ]).catch((): void => undefined);
   }
 
   async function reorderSessions(sessionIds: string[]) {

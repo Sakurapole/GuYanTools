@@ -6,6 +6,8 @@ import AppNotificationHost from './components/AppNotificationHost.vue';
 import bottombar from './components/bottombar/bottombar.vue';
 import ConfirmDialog from './components/ui/ConfirmDialog.vue';
 import GlobalContextMenu from './components/ui/GlobalContextMenu.vue';
+import UiIconButton from './components/ui/UiIconButton.vue';
+import TextPromptDialog from './components/ui/TextPromptDialog.vue';
 import Sidebar from './components/sidebar/sidebar.vue';
 import Topbar from './components/topbar/topbar.vue';
 import TrayContextMenu from './components/TrayContextMenu.vue';
@@ -23,7 +25,11 @@ let removeNavigationListener: (() => void) | undefined;
 const webviewStore = useWebviewStore();
 const barStore = useBarStore();
 const pageTransitionName = ref('ui-page-forward');
+const firstVisitProgressVisible = ref(false);
 let routeRenderTimer: number | undefined;
+let routeFirstVisitTimer: number | undefined;
+let routeFirstVisitStartedAt = 0;
+const visitedPagePaths = new Set<string>();
 const fallbackPageRouteOrder = [
   '/home',
   '/terminal',
@@ -35,6 +41,10 @@ const fallbackPageRouteOrder = [
   '/script-editor',
   '/devtools',
 ];
+
+if (route.path && route.path !== '/') {
+  visitedPagePaths.add(route.path);
+}
 
 /** 新窗口弹窗模式：隐藏顶栏、侧栏、底栏 */
 const isPopupMode = computed(() => route.query.popup === '1');
@@ -64,7 +74,31 @@ function markRouteRenderBusy() {
   }, 700);
 }
 
+function beginFirstVisitLoad() {
+  routeFirstVisitStartedAt = window.performance.now();
+  firstVisitProgressVisible.value = true;
+  window.clearTimeout(routeFirstVisitTimer);
+}
+
+function endFirstVisitLoad() {
+  if (!firstVisitProgressVisible.value) return;
+
+  const elapsed = window.performance.now() - routeFirstVisitStartedAt;
+  const remainingVisibleTime = Math.max(0, 220 - elapsed);
+  window.clearTimeout(routeFirstVisitTimer);
+  routeFirstVisitTimer = window.setTimeout(() => {
+    firstVisitProgressVisible.value = false;
+  }, remainingVisibleTime);
+}
+
+function resetFirstVisitLoad() {
+  window.clearTimeout(routeFirstVisitTimer);
+  firstVisitProgressVisible.value = false;
+}
+
 let removeBeforeEach: (() => void) | undefined;
+let removeAfterEach: (() => void) | undefined;
+let removeRouterError: (() => void) | undefined;
 removeBeforeEach = router.beforeEach((to, from, next) => {
   if (to.path && to.path !== '/') {
     schedulePageSnapshot(to.path);
@@ -72,18 +106,45 @@ removeBeforeEach = router.beforeEach((to, from, next) => {
 
   markRouteRenderBusy();
 
-  const pageRouteOrder = getPageRouteOrder();
-  const fromIndex = pageRouteOrder.indexOf(from.path);
-  const toIndex = pageRouteOrder.indexOf(to.path);
-  if (from.path === to.path) {
-    pageTransitionName.value = 'ui-fade';
-  } else if (fromIndex === -1 || toIndex === -1) {
-    pageTransitionName.value = 'ui-page-forward';
+  const isFirstPageVisit = to.path !== from.path && to.path !== '/' && !visitedPagePaths.has(to.path);
+  if (isFirstPageVisit) {
+    beginFirstVisitLoad();
   } else {
-    pageTransitionName.value = toIndex >= fromIndex ? 'ui-page-forward' : 'ui-page-back';
+    resetFirstVisitLoad();
+  }
+
+  if (isFirstPageVisit) {
+    pageTransitionName.value = 'ui-page-instant';
+  } else {
+    const pageRouteOrder = getPageRouteOrder();
+    const fromIndex = pageRouteOrder.indexOf(from.path);
+    const toIndex = pageRouteOrder.indexOf(to.path);
+    if (from.path === to.path) {
+      pageTransitionName.value = 'ui-fade';
+    } else if (fromIndex === -1 || toIndex === -1) {
+      pageTransitionName.value = 'ui-page-forward';
+    } else {
+      pageTransitionName.value = toIndex >= fromIndex ? 'ui-page-forward' : 'ui-page-back';
+    }
   }
 
   next();
+});
+
+removeAfterEach = router.afterEach((to, _from, failure) => {
+  if (!failure && to.path && to.path !== '/') {
+    visitedPagePaths.add(to.path);
+  }
+
+  if (failure) {
+    resetFirstVisitLoad();
+  } else {
+    endFirstVisitLoad();
+  }
+});
+
+removeRouterError = router.onError(() => {
+  resetFirstVisitLoad();
 });
 
 onMounted(() => {
@@ -100,7 +161,10 @@ onMounted(() => {
 onBeforeUnmount(() => {
   removeNavigationListener?.();
   removeBeforeEach?.();
+  removeAfterEach?.();
+  removeRouterError?.();
   window.clearTimeout(routeRenderTimer);
+  window.clearTimeout(routeFirstVisitTimer);
   document.documentElement.classList.remove('app-rendering-busy');
 })
 </script>
@@ -114,21 +178,28 @@ onBeforeUnmount(() => {
       </div>
       <div class="popup-titlebar__drag" />
       <div class="popup-titlebar__actions">
-        <button class="popup-titlebar__btn" title="最小化" @click="ipcRenderer.send('window:minimize')">
+        <UiIconButton class="popup-titlebar__btn" size="sm" variant="ghost" title="最小化" @click="ipcRenderer.send('window:minimize')">
           <svg width="10" height="1" viewBox="0 0 10 1"><line x1="0" y1="0.5" x2="10" y2="0.5" stroke="currentColor" stroke-width="1"/></svg>
-        </button>
-        <button class="popup-titlebar__btn" title="最大化" @click="ipcRenderer.send('window:maximize')">
+        </UiIconButton>
+        <UiIconButton class="popup-titlebar__btn" size="sm" variant="ghost" title="最大化" @click="ipcRenderer.send('window:maximize')">
           <svg width="10" height="10" viewBox="0 0 10 10" fill="none"><rect x="0.5" y="0.5" width="9" height="9" rx="1" stroke="currentColor" stroke-width="1"/></svg>
-        </button>
-        <button class="popup-titlebar__btn popup-titlebar__btn--close" title="关闭" @click="ipcRenderer.send('window:close')">
+        </UiIconButton>
+        <UiIconButton class="popup-titlebar__btn popup-titlebar__btn--close" size="sm" variant="ghost" title="关闭" @click="ipcRenderer.send('window:close')">
           <svg width="10" height="10" viewBox="0 0 10 10"><path d="M1 1l8 8M9 1l-8 8" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
-        </button>
+        </UiIconButton>
       </div>
     </div>
     <Topbar v-if="!isPopupMode" />
     <div class="page-container" ref="pageContainerRef">
       <Sidebar v-if="!isPopupMode" :parent-height="containerHeight" :parent-width="containerWidth" />
       <div class="page-router-viewport">
+        <div
+          v-show="firstVisitProgressVisible"
+          class="page-first-visit-progress"
+          aria-hidden="true"
+        >
+          <div class="page-first-visit-progress__bar" />
+        </div>
         <router-view v-slot="{ Component, route }">
           <Transition :name="pageTransitionName" mode="out-in">
             <KeepAlive>
@@ -156,6 +227,7 @@ onBeforeUnmount(() => {
     <bottombar v-if="!isPopupMode" />
     <GlobalContextMenu />
     <ConfirmDialog />
+    <TextPromptDialog />
     <!-- Tray context menu (custom renderer-side popup) -->
     <TrayContextMenu />
     <AppNotificationHost :popup="isPopupMode" />
@@ -191,8 +263,8 @@ onBeforeUnmount(() => {
   align-items: center;
   height: 32px;
   flex-shrink: 0;
-  background: var(--ui-surface-elevated, var(--background-color));
-  border-bottom: 1px solid var(--ui-border-subtle, rgba(128, 128, 128, 0.12));
+  background: var(--ui-surface-elevated);
+  border-bottom: 1px solid var(--ui-border-subtle);
 }
 
 .popup-titlebar__title {
@@ -219,25 +291,72 @@ onBeforeUnmount(() => {
   -webkit-app-region: no-drag;
 }
 
-.popup-titlebar__btn {
+.popup-titlebar__btn.ui-icon-button {
   display: flex;
   align-items: center;
   justify-content: center;
   width: 46px;
   height: 32px;
+  border-radius: 0;
   border: none;
   background: transparent;
   color: var(--ui-text-secondary);
   cursor: pointer;
   transition: background 0.15s, color 0.15s;
 
-  &:hover {
+  &:hover:not(:disabled) {
     background: rgba(128, 128, 128, 0.12);
+    color: var(--ui-text-secondary);
+    transform: none;
   }
 
-  &--close:hover {
+  &:active:not(:disabled) {
+    transform: none;
+  }
+
+  svg {
+    fill: none;
+    stroke: currentColor;
+  }
+
+  &.popup-titlebar__btn--close:hover:not(:disabled) {
     background: #e81123;
     color: #fff;
+  }
+}
+
+.page-first-visit-progress {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 3px;
+  z-index: var(--ui-z-sticky);
+  overflow: hidden;
+  pointer-events: none;
+  background: color-mix(in srgb, var(--primary-color) 10%, transparent);
+}
+
+.page-first-visit-progress__bar {
+  width: 42%;
+  height: 100%;
+  border-radius: var(--ui-radius-full);
+  background: linear-gradient(
+    90deg,
+    transparent,
+    color-mix(in srgb, var(--primary-color) 72%, white 12%),
+    transparent
+  );
+  animation: page-first-visit-progress-slide 980ms var(--ui-motion-ease-emphasized, ease) infinite;
+}
+
+@keyframes page-first-visit-progress-slide {
+  0% {
+    transform: translateX(-110%);
+  }
+
+  100% {
+    transform: translateX(260%);
   }
 }
 </style>

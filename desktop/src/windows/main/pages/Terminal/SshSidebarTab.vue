@@ -487,13 +487,19 @@ async function deleteProfile(profile: SshProfile) {
           <span class="ssh-dot" :class="statusColor(session.status)" />
           <span class="ssh-session-item__label">{{ session.profileLabel }}</span>
         </div>
-        <button class="ssh-session-item__action" title="断开连接" @click.stop="emit('disconnect', session.sessionId)">
+        <UiIconButton
+          class="ssh-session-item__action"
+          size="sm"
+          variant="ghost"
+          title="断开连接"
+          @click.stop="emit('disconnect', session.sessionId)"
+        >
           <svg viewBox="0 0 24 24" width="14" height="14" stroke="currentColor" stroke-width="2"
             fill="none" stroke-linecap="round" stroke-linejoin="round">
             <line x1="18" y1="6" x2="6" y2="18" />
             <line x1="6" y1="6" x2="18" y2="18" />
           </svg>
-        </button>
+        </UiIconButton>
       </div>
       <div class="ssh-tab__divider" />
     </template>
@@ -532,12 +538,15 @@ async function deleteProfile(profile: SshProfile) {
       </div>
 
       <div v-if="sshStore.profiles.length > 3" class="ssh-search">
-        <svg class="ssh-search__icon" viewBox="0 0 24 24" width="13" height="13"
-          stroke="currentColor" stroke-width="2" fill="none">
-          <circle cx="11" cy="11" r="8" />
-          <line x1="21" y1="21" x2="16.65" y2="16.65" />
-        </svg>
-        <input v-model="searchQuery" class="ssh-search__input" placeholder="搜索配置..." />
+        <UiInput v-model="searchQuery" class="ssh-search__input" size="sm" placeholder="搜索配置...">
+          <template #prefix>
+            <svg class="ssh-search__icon" viewBox="0 0 24 24" width="13" height="13"
+              stroke="currentColor" stroke-width="2" fill="none">
+              <circle cx="11" cy="11" r="8" />
+              <line x1="21" y1="21" x2="16.65" y2="16.65" />
+            </svg>
+          </template>
+        </UiInput>
       </div>
 
       <UiTree
@@ -645,37 +654,30 @@ async function deleteProfile(profile: SshProfile) {
 }
 
 .ssh-search {
-  position: relative;
   margin: -2px 4px 0;
 
   &__icon {
-    position: absolute;
-    top: 50%;
-    left: 8px;
     color: var(--ui-text-muted);
-    transform: translateY(-50%);
     pointer-events: none;
   }
 
-  &__input {
+  &__input.ui-input-affix-wrapper {
     width: 100%;
     box-sizing: border-box;
-    padding: 6px 10px 6px 28px;
     border: 1px solid var(--ui-border-subtle);
     border-radius: var(--ui-radius-md);
-    outline: none;
     background: var(--ui-surface-overlay);
     color: var(--ui-text-primary);
     font-size: 12px;
     transition: border-color 0.18s;
 
-    &:focus {
+    &.ui-input-affix-wrapper--focused {
       border-color: var(--ui-border-accent-soft);
     }
+  }
 
-    &::placeholder {
-      color: var(--ui-text-subtle);
-    }
+  &__input :deep(.ui-input::placeholder) {
+    color: var(--ui-text-subtle);
   }
 }
 
@@ -723,18 +725,26 @@ async function deleteProfile(profile: SshProfile) {
   &__action {
     display: flex;
     flex-shrink: 0;
+    width: 22px;
+    height: 22px;
     padding: 2px;
     border: none;
     border-radius: 3px;
     opacity: 0;
     background: transparent;
     color: var(--ui-text-muted);
-    cursor: pointer;
     transition: all 0.15s;
+    transform: none;
 
-    &:hover {
+    &:hover:not(:disabled) {
       background: var(--ui-state-error-subtle);
       color: var(--ui-state-error);
+      transform: none;
+    }
+
+    :deep(svg) {
+      fill: none;
+      stroke: currentColor;
     }
   }
 }

@@ -7,13 +7,13 @@ const props = withDefaults(defineProps<{
   position?: 'right' | 'left';
   closeOnMask?: boolean;
   closeOnEsc?: boolean;
-  zIndex?: number;
+  zIndex?: number | string;
 }>(), {
   width: '400px',
   position: 'right',
   closeOnMask: true,
   closeOnEsc: true,
-  zIndex: 10000,
+  zIndex: 'var(--ui-z-toast)',
 });
 
 const emit = defineEmits<{

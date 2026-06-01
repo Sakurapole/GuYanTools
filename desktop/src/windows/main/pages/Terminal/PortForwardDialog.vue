@@ -1,8 +1,12 @@
 <script setup lang="ts">
 import { reactive, ref, watch, computed } from 'vue';
 import { useSshStore } from '@/windows/main/stores/ssh_store';
+import UiButton from '@/windows/main/components/ui/UiButton.vue';
 import UiCheckbox from '@/windows/main/components/ui/UiCheckbox.vue';
+import UiIconButton from '@/windows/main/components/ui/UiIconButton.vue';
+import UiInput from '@/windows/main/components/ui/UiInput.vue';
 import UiPopupSurface from '@/windows/main/components/ui/UiPopupSurface.vue';
+import UiSelect from '@/windows/main/components/ui/UiSelect.vue';
 import type { CreatePortForwardInput, SshPortForward, UpdatePortForwardInput, PortForwardType } from '@/contracts/ssh';
 
 /** Well-known wildcard addresses that listen on all interfaces */
@@ -82,6 +86,13 @@ const showRemoteSection = computed(() => form.forwardType !== 'dynamic');
 const filteredTemplates = computed(() =>
   TEMPLATES.filter(t => t.forwardType === form.forwardType),
 );
+const templateOptions = computed(() => [
+  { label: '选择预设模板…', value: '' },
+  ...filteredTemplates.value.map((tpl) => ({
+    label: `${tpl.label} (${tpl.remoteHost || '*'}:${tpl.remotePort || '*'})`,
+    value: tpl.label,
+  })),
+]);
 
 // Populate form when dialog opens
 watch(
@@ -107,8 +118,9 @@ watch(
 );
 
 /** Apply a template preset to the form */
-function applyTemplate(ev: Event) {
-  const val = (ev.target as HTMLSelectElement).value;
+function applyTemplate(value: string | number) {
+  const val = String(value || '');
+  selectedTemplate.value = val;
   if (!val) return;
   const tpl = TEMPLATES.find(t => t.label === val);
   if (!tpl) return;
@@ -122,6 +134,11 @@ function applyTemplate(ev: Event) {
   } else {
     form.localHost = '127.0.0.1';
   }
+}
+
+function updateNumberField(field: 'localPort' | 'remotePort', value: string) {
+  const next = Number(value);
+  form[field] = Number.isFinite(next) ? next : 0;
 }
 
 /**
@@ -208,26 +225,30 @@ async function save() {
     overlay-class="pfd-overlay"
     panel-class="pfd-dialog"
     :aria-label="dialogTitle"
-    :z-index="1000"
+    z-index="var(--ui-z-popover)"
     @close="emit('close')"
   >
           <!-- Header -->
           <div class="pfd-dialog__header">
             <h3 class="pfd-dialog__title">{{ dialogTitle }}</h3>
-            <button class="pfd-close-btn" @click="emit('close')">
+            <UiIconButton class="pfd-close-btn" size="sm" variant="ghost" title="关闭" @click="emit('close')">
               <svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" stroke-width="2"
                 fill="none" stroke-linecap="round" stroke-linejoin="round">
                 <line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" />
               </svg>
-            </button>
+            </UiIconButton>
           </div>
 
           <!-- Body -->
           <div class="pfd-dialog__body">
             <!-- Forward type selector -->
             <div class="pfd-type-selector">
-              <button
+              <UiButton
                 class="pfd-type-btn"
+                size="sm"
+                variant="ghost"
+                type="button"
+                :active="form.forwardType === 'local'"
                 :class="{ 'pfd-type-btn--active': form.forwardType === 'local' }"
                 @click="form.forwardType = 'local'"
                 id="pf-type-local"
@@ -239,9 +260,13 @@ async function save() {
                 </svg>
                 <span class="pfd-type-btn__text">本地转发</span>
                 <span class="pfd-type-btn__sub">-L</span>
-              </button>
-              <button
+              </UiButton>
+              <UiButton
                 class="pfd-type-btn"
+                size="sm"
+                variant="ghost"
+                type="button"
+                :active="form.forwardType === 'remote'"
                 :class="{ 'pfd-type-btn--active': form.forwardType === 'remote' }"
                 @click="form.forwardType = 'remote'"
                 id="pf-type-remote"
@@ -253,9 +278,13 @@ async function save() {
                 </svg>
                 <span class="pfd-type-btn__text">远程转发</span>
                 <span class="pfd-type-btn__sub">-R</span>
-              </button>
-              <button
+              </UiButton>
+              <UiButton
                 class="pfd-type-btn"
+                size="sm"
+                variant="ghost"
+                type="button"
+                :active="form.forwardType === 'dynamic'"
                 :class="{ 'pfd-type-btn--active': form.forwardType === 'dynamic' }"
                 @click="form.forwardType = 'dynamic'"
                 id="pf-type-dynamic"
@@ -266,25 +295,20 @@ async function save() {
                 </svg>
                 <span class="pfd-type-btn__text">SOCKS5</span>
                 <span class="pfd-type-btn__sub">-D</span>
-              </button>
+              </UiButton>
             </div>
 
             <!-- Template preset selector -->
             <div v-if="!isEdit" class="pfd-template-row">
               <label class="pfd-label pfd-label--inline">模板</label>
-              <select
-                v-model="selectedTemplate"
+              <UiSelect
+                :model-value="selectedTemplate"
                 class="pfd-select"
-                @change="applyTemplate"
+                :options="templateOptions"
+                size="sm"
                 id="pf-template"
-              >
-                <option value="">选择预设模板…</option>
-                <option
-                  v-for="tpl in filteredTemplates"
-                  :key="tpl.label"
-                  :value="tpl.label"
-                >{{ tpl.label }} ({{ tpl.remoteHost }}:{{ tpl.remotePort }})</option>
-              </select>
+                @update:modelValue="applyTemplate"
+              />
             </div>
 
             <!-- Diagram -->
@@ -317,7 +341,7 @@ async function save() {
             <div class="pfd-section">
               <div class="pfd-field pfd-field--full">
                 <label class="pfd-label">标签（可选）</label>
-                <input v-model="form.label" class="pfd-input" placeholder="例如：MySQL、Redis …"
+                <UiInput v-model="form.label" class="pfd-input" size="sm" placeholder="例如：MySQL、Redis …"
                   id="pf-label" />
               </div>
             </div>
@@ -327,13 +351,14 @@ async function save() {
               <div class="pfd-grid">
                 <div class="pfd-field">
                   <label class="pfd-label">地址</label>
-                  <input v-model="form.localHost" class="pfd-input" placeholder="127.0.0.1"
+                  <UiInput v-model="form.localHost" class="pfd-input" size="sm" placeholder="127.0.0.1"
                     id="pf-local-host" />
                 </div>
                 <div class="pfd-field">
                   <label class="pfd-label">端口 <span class="pfd-required">*</span></label>
-                  <input v-model.number="form.localPort" class="pfd-input" type="number"
-                    min="1" max="65535" placeholder="8080" id="pf-local-port" />
+                  <UiInput :model-value="String(form.localPort)" class="pfd-input" size="sm" type="number"
+                    min="1" max="65535" placeholder="8080" id="pf-local-port"
+                    @update:modelValue="updateNumberField('localPort', $event)" />
                 </div>
               </div>
             </div>
@@ -343,13 +368,14 @@ async function save() {
               <div class="pfd-grid">
                 <div class="pfd-field">
                   <label class="pfd-label">主机 <span class="pfd-required">*</span></label>
-                  <input v-model="form.remoteHost" class="pfd-input" placeholder="localhost 或 10.0.0.5"
+                  <UiInput v-model="form.remoteHost" class="pfd-input" size="sm" placeholder="localhost 或 10.0.0.5"
                     id="pf-remote-host" />
                 </div>
                 <div class="pfd-field">
                   <label class="pfd-label">端口 <span class="pfd-required">*</span></label>
-                  <input v-model.number="form.remotePort" class="pfd-input" type="number"
-                    min="1" max="65535" placeholder="3306" id="pf-remote-port" />
+                  <UiInput :model-value="String(form.remotePort)" class="pfd-input" size="sm" type="number"
+                    min="1" max="65535" placeholder="3306" id="pf-remote-port"
+                    @update:modelValue="updateNumberField('remotePort', $event)" />
                 </div>
               </div>
             </div>
@@ -412,11 +438,11 @@ async function save() {
 
           <!-- Footer -->
           <div class="pfd-dialog__footer">
-            <button class="pfd-btn pfd-btn--ghost" @click="emit('close')">取消</button>
-            <button class="pfd-btn pfd-btn--primary" :disabled="saving" @click="save"
+            <UiButton class="pfd-btn pfd-btn--ghost" size="sm" variant="ghost" type="button" @click="emit('close')">取消</UiButton>
+            <UiButton class="pfd-btn pfd-btn--primary" size="sm" variant="primary" type="button" :disabled="saving" @click="save"
               id="pf-save-btn">
               {{ saving ? '保存中...' : '保存' }}
-            </button>
+            </UiButton>
           </div>
   </UiPopupSurface>
 </template>
@@ -430,7 +456,7 @@ async function save() {
   display: flex;
   align-items: center;
   justify-content: center;
-  z-index: 1000;
+  z-index: var(--ui-z-popover);
 }
 
 .pfd-dialog {
@@ -481,7 +507,7 @@ async function save() {
   }
 }
 
-.pfd-close-btn {
+.pfd-close-btn.ui-icon-button {
   display: flex;
   align-items: center;
   justify-content: center;
@@ -491,9 +517,19 @@ async function save() {
   border-radius: var(--ui-radius-sm);
   background: transparent;
   color: var(--ui-text-muted);
-  cursor: pointer;
   transition: all 0.15s;
-  &:hover { background: var(--ui-button-ghost-hover-bg); color: var(--ui-text-primary); }
+  transform: none;
+
+  &:hover:not(:disabled) {
+    background: var(--ui-button-ghost-hover-bg);
+    color: var(--ui-text-primary);
+    transform: none;
+  }
+
+  svg {
+    fill: none;
+    stroke: currentColor;
+  }
 }
 
 // ── Forward type selector ─────────────────────────────
@@ -503,34 +539,48 @@ async function save() {
   gap: 8px;
 }
 
-.pfd-type-btn {
+.pfd-type-btn.ui-button {
   display: flex;
   align-items: center;
   justify-content: center;
   gap: 6px;
+  min-height: 0;
   padding: 10px 14px;
   border: 1px solid var(--ui-border-subtle);
   border-radius: var(--ui-radius-md);
   background: var(--ui-surface-overlay);
   color: var(--ui-text-secondary);
-  cursor: pointer;
   transition: all 0.18s;
   font-size: 13px;
   font-weight: 500;
+  box-shadow: none;
+  transform: none;
 
-  &:hover:not(.pfd-type-btn--active) {
+  &:hover:not(.pfd-type-btn--active, :disabled) {
     border-color: var(--ui-text-muted);
     color: var(--ui-text-primary);
+    transform: none;
   }
 
-  &--active {
-    border-color: var(--primary-color);
-    background: rgba(var(--primary-rgb, 99 102 241), 0.08);
-    color: var(--primary-color);
-    font-weight: 600;
-    box-shadow: 0 0 0 1px var(--primary-color);
+  .ui-button__label {
+    gap: 6px;
   }
 
+  svg {
+    fill: none;
+    stroke: currentColor;
+  }
+}
+
+.pfd-type-btn--active.ui-button {
+  border-color: var(--primary-color);
+  background: rgba(var(--primary-rgb, 99 102 241), 0.08);
+  color: var(--primary-color);
+  font-weight: 600;
+  box-shadow: 0 0 0 1px var(--primary-color);
+}
+
+.pfd-type-btn {
   &__text { white-space: nowrap; }
 
   &__sub {
@@ -548,27 +598,8 @@ async function save() {
   gap: 10px;
 }
 
-.pfd-select {
+.pfd-select.ui-select {
   flex: 1;
-  padding: 7px 10px;
-  border: 1px solid var(--ui-border-subtle);
-  border-radius: var(--ui-radius-md);
-  background: var(--ui-surface-overlay);
-  color: var(--ui-text-primary);
-  font-size: 13px;
-  outline: none;
-  cursor: pointer;
-  transition: border-color 0.18s;
-
-  &:focus {
-    border-color: var(--primary-color);
-    box-shadow: 0 0 0 2px rgba(var(--primary-rgb, 99 102 241), 0.15);
-  }
-
-  option {
-    background: var(--ui-surface-panel);
-    color: var(--ui-text-primary);
-  }
 }
 
 // ── Flow diagram ──────────────────────────────────────
@@ -674,23 +705,10 @@ async function save() {
   margin-left: 2px;
 }
 
-.pfd-input {
-  padding: 7px 10px;
-  border: 1px solid var(--ui-border-subtle);
-  border-radius: var(--ui-radius-md);
-  background: var(--ui-surface-overlay);
-  color: var(--ui-text-primary);
+.pfd-input.ui-input,
+.pfd-input.ui-input-number-wrapper {
   font-size: 13px;
-  outline: none;
-  transition: border-color 0.18s;
   width: 100%;
-  box-sizing: border-box;
-
-  &:focus {
-    border-color: var(--primary-color);
-    box-shadow: 0 0 0 2px rgba(var(--primary-rgb, 99 102 241), 0.15);
-  }
-  &::placeholder { color: var(--ui-text-subtle); }
 }
 
 .pfd-auto-start {
@@ -757,29 +775,42 @@ async function save() {
   }
 }
 
-.pfd-btn {
+.pfd-btn.ui-button {
   padding: 7px 18px;
   border-radius: var(--ui-radius-md);
   font-size: 13px;
   font-weight: 600;
-  cursor: pointer;
   border: 1px solid transparent;
   transition: all 0.18s;
   white-space: nowrap;
-  &:disabled { opacity: 0.5; cursor: not-allowed; }
+  box-shadow: none;
+  transform: none;
 
-  &--primary {
-    background: var(--primary-color);
-    color: #fff;
-    border-color: var(--primary-color);
-    &:hover:not(:disabled) { filter: brightness(1.1); }
+  &:disabled {
+    opacity: 0.5;
   }
+}
 
-  &--ghost {
-    background: transparent;
-    color: var(--ui-text-secondary);
-    border-color: var(--ui-border-subtle);
-    &:hover:not(:disabled) { background: var(--ui-button-ghost-hover-bg); color: var(--ui-text-primary); }
+.pfd-btn--primary.ui-button {
+  background: var(--primary-color);
+  color: #fff;
+  border-color: var(--primary-color);
+
+  &:hover:not(:disabled) {
+    filter: brightness(1.1);
+    transform: none;
+  }
+}
+
+.pfd-btn--ghost.ui-button {
+  background: transparent;
+  color: var(--ui-text-secondary);
+  border-color: var(--ui-border-subtle);
+
+  &:hover:not(:disabled) {
+    background: var(--ui-button-ghost-hover-bg);
+    color: var(--ui-text-primary);
+    transform: none;
   }
 }
 

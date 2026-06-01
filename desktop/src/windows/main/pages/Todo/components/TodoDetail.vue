@@ -1,6 +1,8 @@
 <script setup lang="ts">
 import { ref, watch, nextTick, inject, computed, onBeforeUnmount } from 'vue';
+import { useRouter } from 'vue-router';
 import { useTodoStore } from '@/windows/main/stores/todo_store';
+import { useKnowledgeStore } from '@/windows/main/stores/knowledge_store';
 import { useContextMenu } from '@/windows/main/composables/useContextMenu';
 import { resolveTodoAreaBackground, useTodoSettings } from '@/windows/main/composables/useTodoSettings';
 import { useAppConfigStore } from '@/windows/main/stores/app_config_store';
@@ -10,13 +12,19 @@ import ReminderPicker from './ReminderPicker.vue';
 import RepeatPicker from './RepeatPicker.vue';
 import IconRenderer from '@/windows/main/components/ui/IconRenderer.vue';
 import ImagePreviewDialog from '@/windows/main/components/ui/ImagePreviewDialog.vue';
+import UiButton from '@/windows/main/components/ui/UiButton.vue';
 import UiDateTimePicker from '@/windows/main/components/ui/UiDateTimePicker.vue';
+import UiIconButton from '@/windows/main/components/ui/UiIconButton.vue';
+import UiInput from '@/windows/main/components/ui/UiInput.vue';
 import UiScrollbar from '@/windows/main/components/ui/UiScrollbar.vue';
+import UiTextarea from '@/windows/main/components/ui/UiTextarea.vue';
 import { marked } from 'marked';
 import { useConfirmDialog } from '@/windows/main/composables/useConfirmDialog';
 import { buildBackgroundTextVars } from '@/windows/main/utils/backgroundTextColor';
 
 const todoStore = useTodoStore();
+const knowledgeStore = useKnowledgeStore();
+const router = useRouter();
 const { detailBg } = useTodoSettings();
 const appConfigStore = useAppConfigStore();
 const activeDetailBg = computed(() => resolveTodoAreaBackground(detailBg.value, appConfigStore.config.appearance.theme));
@@ -42,9 +50,9 @@ const stepStrikeExiting = ref<Record<string, boolean>>({});
 const imagePreviewVisible = ref(false);
 const imagePreviewIndex = ref(0);
 const detailRef = ref<HTMLElement | null>(null);
-const titleRef = ref<HTMLInputElement | null>(null);
+const titleRef = ref<InstanceType<typeof UiInput> | null>(null);
 const noteEditing = ref(false);
-const noteRef = ref<HTMLTextAreaElement | null>(null);
+const noteRef = ref<InstanceType<typeof UiTextarea> | null>(null);
 let detailResizeObserver: ResizeObserver | null = null;
 let textareaResizeFrame = 0;
 const STEP_STRIKE_LINE_DELAY_MS = 140;
@@ -59,6 +67,21 @@ marked.setOptions({
 const renderedNote = computed(() => {
   if (!noteText.value) return '';
   return marked.parse(noteText.value) as string;
+});
+
+const knowledgeSource = computed(() => {
+  const note = todoStore.selectedTodo?.note || '';
+  const pageId = note.match(/页面 ID：([^\n]+)/)?.[1]?.trim();
+  const quickNoteId = note.match(/来源 ID：([^\n]+)/)?.[1]?.trim();
+  const blockId = note.match(/块 ID：([^\n]+)/)?.[1]?.trim();
+  const title = note.match(/来源：知识库(?:块页面|速记)「([^」]+)」/)?.[1]?.trim();
+  if (pageId) {
+    return { kind: 'page', id: pageId, blockId, title: title || '知识库页面' };
+  }
+  if (quickNoteId) {
+    return { kind: 'quick_note', id: quickNoteId, blockId: '', title: title || '知识库速记' };
+  }
+  return null;
 });
 
 const stepPreviewImages = computed(() =>
@@ -133,6 +156,14 @@ async function saveNote() {
   const todo = todoStore.selectedTodo;
   if (!todo || noteText.value === todo.note) return;
   await todoStore.updateTodo(todo.id, { note: noteText.value });
+}
+
+async function openKnowledgeSource() {
+  const source = knowledgeSource.value;
+  if (!source) return;
+  await router.push('/knowledge');
+  await knowledgeStore.initialize();
+  await knowledgeStore.selectNode(source.id);
 }
 
 function enterNoteEdit() {
@@ -472,16 +503,16 @@ async function onDueDateChange(val: string | number | undefined) {
     <TodoBackground :config="activeDetailBg" />
     <div class="detail-inner" style="position: relative; z-index: 1; display: flex; flex-direction: column; height: 100%;">
       <div class="detail-header">
-        <input
+        <UiInput
           ref="titleRef"
           v-model="editingTitle"
           class="detail-title"
           @blur="saveTitle"
           @keydown.enter="($event.target as HTMLInputElement)?.blur()"
         />
-        <button class="close-btn" title="关闭" @click="close">
+        <UiIconButton class="close-btn" size="md" variant="ghost" title="关闭" @click="close">
           <IconRenderer icon="iconify:lucide:x" :size="18" />
-        </button>
+        </UiIconButton>
       </div>
 
       <UiScrollbar :x="false" :size="6" class="detail-scroll-area">
@@ -495,21 +526,25 @@ async function onDueDateChange(val: string | number | undefined) {
         <UiScrollbar :x="false" :y="true" :size="5" class="steps-scroll-area">
         <div class="steps-list">
           <div v-for="step in todoStore.selectedTodo.steps" :key="step.id" class="step-item" :class="{ 'is-completed': step.isCompleted }">
-            <button
+            <UiIconButton
               class="step-check"
               :class="{ checked: step.isCompleted }"
+              size="sm"
+              variant="ghost"
+              :title="step.isCompleted ? '标记步骤未完成' : '标记步骤完成'"
               @click="toggleStep(step.id, step.isCompleted)"
             >
               <IconRenderer v-if="step.isCompleted" icon="iconify:lucide:check" :size="13" />
-            </button>
+            </UiIconButton>
             <div class="step-main">
               <div class="step-title-wrap" :class="{ done: step.isCompleted }">
-                <textarea
+                <UiTextarea
                   v-model="stepDrafts[step.id]"
                   class="step-title-input"
                   :data-step-id="step.id"
-                  rows="1"
+                  :rows="1"
                   wrap="soft"
+                  resize="none"
                   @input="resizeStepTextarea"
                   @blur="saveStepTitle(step)"
                   @keydown="handleStepTitleKeydown"
@@ -540,26 +575,27 @@ async function onDueDateChange(val: string | number | undefined) {
                   :key="`${step.id}-image-${imageIndex}`"
                   class="step-image-preview"
                 >
-                  <button class="step-image-open" title="预览图片" @click="openStepImage(step, imageUrl)">
+                  <UiButton class="step-image-open" variant="ghost" type="button" title="预览图片" @click="openStepImage(step, imageUrl)">
                     <img :src="imageUrl" alt="步骤图片" draggable="false" />
-                  </button>
-                  <button class="step-image-remove" title="移除图片" @click="removeStepImage(step, imageIndex)">
+                  </UiButton>
+                  <UiIconButton class="step-image-remove" size="sm" variant="ghost" title="移除图片" @click="removeStepImage(step, imageIndex)">
                     <IconRenderer icon="iconify:lucide:x" :size="14" />
-                  </button>
+                  </UiIconButton>
                 </div>
               </div>
             </div>
-            <button class="step-delete" title="删除步骤" @click="removeStep(step.id)">
+            <UiIconButton class="step-delete" size="sm" variant="ghost" title="删除步骤" @click="removeStep(step.id)">
               <IconRenderer icon="iconify:lucide:x" :size="15" />
-            </button>
+            </UiIconButton>
           </div>
           <div class="step-add">
-            <textarea
+            <UiTextarea
               v-model="newStepText"
               class="step-add-input"
               placeholder="添加步骤"
-              rows="1"
+              :rows="1"
               wrap="soft"
+              resize="none"
               @input="resizeStepTextarea"
               @keydown="handleNewStepKeydown"
               @paste="handleNewStepPaste"
@@ -571,9 +607,9 @@ async function onDueDateChange(val: string | number | undefined) {
                 class="step-image-preview step-image-preview--draft"
               >
                 <img :src="imageUrl" alt="步骤图片" draggable="false" />
-                <button class="step-image-remove" title="移除图片" @click="removeNewStepImage(imageIndex)">
+                <UiIconButton class="step-image-remove" size="sm" variant="ghost" title="移除图片" @click="removeNewStepImage(imageIndex)">
                   <IconRenderer icon="iconify:lucide:x" :size="14" />
-                </button>
+                </UiIconButton>
               </div>
             </div>
           </div>
@@ -582,10 +618,10 @@ async function onDueDateChange(val: string | number | undefined) {
       </div>
 
       <!-- 我的一天 -->
-      <button class="detail-action" @click="toggleMyDay">
+      <UiButton class="detail-action" variant="ghost" type="button" @click="toggleMyDay">
         <IconRenderer icon="iconify:lucide:sun" :size="17" />
         <span>{{ todoStore.selectedTodo.isMyDay ? '从我的一天移除' : '添加到我的一天' }}</span>
-      </button>
+      </UiButton>
 
       <!-- 截止日期 -->
       <div class="detail-section">
@@ -627,6 +663,18 @@ async function onDueDateChange(val: string | number | undefined) {
         />
       </div>
 
+      <div v-if="knowledgeSource" class="detail-section knowledge-source-card">
+        <div class="section-label">
+          <IconRenderer icon="iconify:lucide:library" :size="15" />
+          <span>知识库来源</span>
+        </div>
+        <UiButton type="button" variant="ghost" class="knowledge-source-card__button" @click="openKnowledgeSource">
+          <strong>{{ knowledgeSource.title }}</strong>
+          <span>{{ knowledgeSource.kind === 'page' ? '页面' : '速记' }} · {{ knowledgeSource.id }}</span>
+          <small v-if="knowledgeSource.blockId">块 ID：{{ knowledgeSource.blockId }}</small>
+        </UiButton>
+      </div>
+
       <!-- 备注 -->
       <div class="detail-section">
         <div class="section-label">
@@ -634,12 +682,13 @@ async function onDueDateChange(val: string | number | undefined) {
           <span>备注</span>
         </div>
         <!-- 编辑模式 -->
-        <textarea
+        <UiTextarea
           v-if="noteEditing"
           ref="noteRef"
           v-model="noteText"
           class="note-area note-area--editing"
           placeholder="支持 Markdown 语法..."
+          resize="vertical"
           @blur="leaveNoteEdit"
         />
         <!-- 渲染模式 -->
@@ -658,10 +707,10 @@ async function onDueDateChange(val: string | number | undefined) {
 
     <div class="detail-footer">
       <span class="created-info">创建于 {{ todoStore.selectedTodo.createdAt?.split('T')[0] ?? todoStore.selectedTodo.createdAt?.slice(0, 10) }}</span>
-      <button class="delete-btn" @click="deleteTodo">
+      <UiButton class="delete-btn" variant="ghost" type="button" @click="deleteTodo">
         <IconRenderer icon="iconify:lucide:trash-2" :size="15" />
         <span>删除</span>
-      </button>
+      </UiButton>
     </div>
     </div>
 
@@ -705,7 +754,7 @@ async function onDueDateChange(val: string | number | undefined) {
   padding: 18px 16px 8px;
   flex-shrink: 0;
 }
-.close-btn {
+.close-btn.ui-icon-button {
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -720,10 +769,12 @@ async function onDueDateChange(val: string | number | undefined) {
   line-height: 0;
   border-radius: 6px;
   transition: all 0.15s ease;
+  transform: none;
 }
-.close-btn:hover {
+.close-btn.ui-icon-button:hover:not(:disabled) {
   background: var(--todo-accent-bg-soft);
   color: var(--ui-text-primary);
+  transform: none;
 }
 
 .detail-body {
@@ -733,7 +784,7 @@ async function onDueDateChange(val: string | number | undefined) {
   flex-direction: column;
   gap: 12px;
 }
-.detail-title {
+.detail-title.ui-input {
   flex: 1;
   min-width: 0;
   align-self: flex-end;
@@ -746,6 +797,11 @@ async function onDueDateChange(val: string | number | undefined) {
   padding: 0 0 2px;
   color: var(--ui-text-primary);
   line-height: 1.35;
+  box-shadow: none;
+}
+.detail-title.ui-input:focus {
+  border-color: transparent;
+  box-shadow: none;
 }
 
 .detail-section {
@@ -760,6 +816,51 @@ async function onDueDateChange(val: string | number | undefined) {
   font-size: 0.85em;
   color: var(--ui-text-muted);
   font-weight: 500;
+}
+
+.knowledge-source-card__button.ui-button {
+  display: grid;
+  gap: 3px;
+  width: 100%;
+  min-width: 0;
+  border: 1px solid var(--ui-border-subtle);
+  border-radius: 8px;
+  padding: 9px 10px;
+  color: var(--ui-text-primary);
+  background: color-mix(in srgb, var(--primary-color) 8%, var(--ui-surface-glass));
+  text-align: left;
+  cursor: pointer;
+  font-weight: inherit;
+  white-space: normal;
+  transform: none;
+}
+
+.knowledge-source-card__button.ui-button:hover:not(:disabled) {
+  border-color: color-mix(in srgb, var(--primary-color) 45%, var(--ui-border-subtle));
+  transform: none;
+}
+
+.knowledge-source-card__button :deep(.ui-button__label) {
+  display: grid;
+  justify-content: stretch;
+  gap: 3px;
+  width: 100%;
+  min-width: 0;
+}
+
+.knowledge-source-card__button strong,
+.knowledge-source-card__button span,
+.knowledge-source-card__button small {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.knowledge-source-card__button span,
+.knowledge-source-card__button small {
+  color: var(--ui-text-muted);
+  font-size: 0.82em;
 }
 
 .steps-list {
@@ -785,7 +886,7 @@ async function onDueDateChange(val: string | number | undefined) {
   gap: 8px;
   padding: 2px 0;
 }
-.step-check {
+.step-check.ui-icon-button {
   width: 18px;
   height: 18px;
   border-radius: 50%;
@@ -806,7 +907,7 @@ async function onDueDateChange(val: string | number | undefined) {
     border-color 0.18s cubic-bezier(0.4, 0, 0.2, 1),
     transform 0.14s cubic-bezier(0.4, 0, 0.2, 1);
 }
-.step-check:hover { transform: scale(1.06); border-color: var(--ui-input-focus-border); }
+.step-check.ui-icon-button:hover:not(:disabled) { transform: scale(1.06); border-color: var(--ui-input-focus-border); }
 .step-check.checked { background: var(--ui-input-focus-border); border-color: var(--ui-input-focus-border); }
 .step-check.checked :deep(*) { animation: step-check-pop 0.18s cubic-bezier(0.34, 1.56, 0.64, 1); }
 .step-main {
@@ -839,7 +940,7 @@ async function onDueDateChange(val: string | number | undefined) {
   animation-duration: 0.42s;
   animation-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
 }
-.step-title-input {
+.step-title-input.ui-textarea {
   display: block;
   box-sizing: border-box;
   width: 100%;
@@ -861,11 +962,16 @@ async function onDueDateChange(val: string | number | undefined) {
     opacity 0.18s ease,
     color 0.18s ease,
     text-decoration-color 0.22s ease;
+  box-shadow: none;
+}
+.step-title-input.ui-textarea:focus {
+  border-color: transparent;
+  box-shadow: none;
 }
 .step-title-wrap.done .step-title-input {
   opacity: 0.5;
 }
-.step-delete {
+.step-delete.ui-icon-button {
   background: none;
   border: none;
   cursor: pointer;
@@ -874,10 +980,11 @@ async function onDueDateChange(val: string | number | undefined) {
   opacity: 0;
   padding: 4px;
   transition: opacity 0.15s;
+  transform: none;
 }
 .step-item:hover .step-delete { opacity: 1; }
 
-.step-add-input {
+.step-add-input.ui-textarea {
   display: block;
   box-sizing: border-box;
   width: 100%;
@@ -895,6 +1002,11 @@ async function onDueDateChange(val: string | number | undefined) {
   white-space: pre-wrap;
   overflow-wrap: anywhere;
   word-break: break-word;
+  box-shadow: none;
+}
+.step-add-input.ui-textarea:focus {
+  border-color: var(--ui-border-subtle);
+  box-shadow: none;
 }
 .step-images {
   display: flex;
@@ -921,7 +1033,7 @@ async function onDueDateChange(val: string | number | undefined) {
   background-position: 0 0, 0 6px, 6px -6px, -6px 0;
   background-size: 12px 12px;
 }
-.step-image-open {
+.step-image-open.ui-button {
   display: flex;
   align-items: center;
   justify-content: center;
@@ -931,6 +1043,15 @@ async function onDueDateChange(val: string | number | undefined) {
   border: none;
   background: transparent;
   cursor: zoom-in;
+  min-height: auto;
+  transform: none;
+}
+.step-image-open.ui-button:hover:not(:disabled) {
+  transform: none;
+}
+.step-image-open :deep(.ui-button__label) {
+  width: 100%;
+  height: 100%;
 }
 .step-image-preview img {
   display: block;
@@ -945,7 +1066,7 @@ async function onDueDateChange(val: string | number | undefined) {
   max-width: 120px;
   max-height: 80px;
 }
-.step-image-remove {
+.step-image-remove.ui-icon-button {
   position: absolute;
   top: 4px;
   right: 4px;
@@ -961,9 +1082,10 @@ async function onDueDateChange(val: string | number | undefined) {
   cursor: pointer;
   padding: 0;
   line-height: 0;
+  transform: none;
 }
 
-.detail-action {
+.detail-action.ui-button {
   display: flex;
   align-items: center;
   gap: 10px;
@@ -976,8 +1098,15 @@ async function onDueDateChange(val: string | number | undefined) {
   width: 100%;
   text-align: left;
   border-bottom: 1px solid var(--ui-border-subtle);
+  font-weight: inherit;
+  white-space: normal;
+  transform: none;
 }
-.detail-action:hover { color: var(--ui-input-focus-border); }
+.detail-action.ui-button:hover:not(:disabled) { color: var(--ui-input-focus-border); transform: none; }
+.detail-action :deep(.ui-button__label) {
+  justify-content: flex-start;
+  width: 100%;
+}
 
 
 
@@ -996,7 +1125,7 @@ async function onDueDateChange(val: string | number | undefined) {
   transition: border-color 0.18s ease, box-shadow 0.18s ease;
 }
 
-.note-area--editing {
+.note-area--editing.ui-textarea {
   resize: vertical;
   border-color: var(--ui-input-focus-border);
   box-shadow: 0 0 0 2px var(--ui-focus-ring-color, rgba(92, 157, 237, 0.16));
@@ -1137,7 +1266,7 @@ async function onDueDateChange(val: string | number | undefined) {
   font-size: 0.8em;
   color: var(--ui-text-subtle);
 }
-.delete-btn {
+.delete-btn.ui-button {
   display: inline-flex;
   align-items: center;
   gap: 5px;
@@ -1146,8 +1275,10 @@ async function onDueDateChange(val: string | number | undefined) {
   cursor: pointer;
   color: var(--ui-button-danger-text);
   font-size: 0.85em;
+  font-weight: inherit;
+  transform: none;
 }
-.delete-btn:hover { text-decoration: underline; }
+.delete-btn.ui-button:hover:not(:disabled) { text-decoration: underline; transform: none; }
 
 @keyframes step-check-pop {
   from {

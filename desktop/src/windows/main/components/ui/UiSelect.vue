@@ -1,5 +1,5 @@
 <script lang="ts" setup>
-import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue';
+import { computed, nextTick, onBeforeUnmount, onMounted, ref, useSlots, watch } from 'vue';
 
 type SelectSize = 'sm' | 'md' | 'lg';
 type SelectAnimation = 'fade' | 'slide' | 'scale' | 'slideScale';
@@ -38,6 +38,7 @@ const triggerRef = ref<HTMLElement | null>(null);
 const dropdownRef = ref<HTMLElement | null>(null);
 const highlightedIndex = ref(-1);
 const isClosing = ref(false);
+const slots = useSlots();
 
 const selectedOption = computed(() =>
   props.options.find(option => String(option.value) === String(props.modelValue)),
@@ -52,6 +53,8 @@ const triggerClass = computed(() => [
     'ui-select-trigger--open': isOpen.value,
     'ui-select-trigger--disabled': props.disabled,
     'ui-select-trigger--placeholder': !selectedOption.value,
+    'ui-select-trigger--has-prefix': Boolean(slots.prefix),
+    'ui-select-trigger--has-suffix': Boolean(slots.suffix),
   },
 ]);
 
@@ -259,11 +262,17 @@ onBeforeUnmount(() => {
   <div class="ui-select-wrap">
     <div :id="id || undefined" ref="triggerRef" :class="triggerClass" role="combobox" :aria-expanded="isOpen"
       :aria-disabled="disabled" tabindex="0" @click="toggleDropdown" @keydown="handleKeydown">
+      <span v-if="$slots.prefix" class="ui-select-trigger__affix ui-select-trigger__affix--prefix">
+        <slot name="prefix" />
+      </span>
       <span v-if="displayLabel" class="ui-select-trigger__label">
         {{ displayLabel }}
       </span>
       <span v-else class="ui-select-trigger__placeholder">
         {{ placeholder }}
+      </span>
+      <span v-if="$slots.suffix" class="ui-select-trigger__affix ui-select-trigger__affix--suffix">
+        <slot name="suffix" />
       </span>
       <span class="ui-select-trigger__arrow" />
     </div>
@@ -383,6 +392,27 @@ onBeforeUnmount(() => {
   color: var(--ui-select-placeholder);
 }
 
+.ui-select-trigger__affix {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  color: var(--ui-select-placeholder);
+  line-height: 1;
+
+  svg {
+    display: block;
+  }
+}
+
+.ui-select-trigger__affix--prefix {
+  margin-right: 8px;
+}
+
+.ui-select-trigger__affix--suffix {
+  margin-left: 8px;
+}
+
 .ui-select-trigger__arrow {
   position: absolute;
   top: 50%;
@@ -399,7 +429,7 @@ onBeforeUnmount(() => {
 /* ─── Dropdown ─── */
 .ui-select-dropdown {
   position: fixed;
-  z-index: 10040;
+  z-index: var(--ui-z-critical);
   box-sizing: border-box;
   overflow: hidden;
   border-radius: var(--ui-radius-sm);

@@ -131,7 +131,7 @@
   border-radius: 5px;
   background: transparent;
   color: var(--ui-text-muted);
-  font-size: 11px;
+  font-size: var(--ui-font-size-xs);
   font-weight: 600;
   white-space: nowrap;
   cursor: pointer;
@@ -534,7 +534,7 @@
 .ftp-session-item__title,
 .ftp-task-item__title {
   color: var(--ui-text-primary);
-  font-size: 13px;
+  font-size: var(--ui-font-size-sm);
   font-weight: 500;
   white-space: nowrap;
   overflow: hidden;
@@ -729,7 +729,7 @@
   background: color-mix(in srgb, var(--ui-surface-panel) 88%, transparent);
   backdrop-filter: blur(12px);
   position: relative;
-  z-index: 320;
+  z-index: var(--ui-z-toolbar);
 }
 
 .ftp-toolbar .terminal-toolbar__left {
@@ -746,7 +746,7 @@
   gap: 8px;
   min-width: 0;
   color: var(--ui-text-secondary);
-  font-size: 13px;
+  font-size: var(--ui-font-size-sm);
 }
 
 .ftp-toolbar .title-name {
@@ -790,7 +790,7 @@
 .ftp-inline-overlay {
   position: absolute;
   inset: 0;
-  z-index: 20;
+  z-index: var(--ui-z-sticky);
   display: flex;
   background: rgba(11, 18, 32, 0.22);
   backdrop-filter: blur(2px);
@@ -1084,7 +1084,7 @@
   background: color-mix(in srgb, var(--ui-surface-panel) 86%, rgba(15, 23, 42, 0.34));
   color: var(--ui-text-secondary);
   cursor: pointer;
-  font-size: 12px;
+  font-size: var(--ui-font-size-xs);
   user-select: none;
 }
 
@@ -1180,14 +1180,14 @@
 
   strong {
     color: var(--ui-text-primary);
-    font-size: 13px;
+    font-size: var(--ui-font-size-sm);
     font-weight: 700;
   }
 
   span {
     max-width: min(420px, 70vw);
     overflow: hidden;
-    font-size: 12px;
+    font-size: var(--ui-font-size-xs);
     text-overflow: ellipsis;
     white-space: nowrap;
   }
@@ -1221,7 +1221,7 @@
   background: transparent;
   color: var(--ui-text-muted);
   cursor: grab;
-  font-size: 12px;
+  font-size: var(--ui-font-size-xs);
   user-select: none;
   transition:
     background-color 0.16s ease,
@@ -1305,7 +1305,7 @@
 
 .terminal-pane-drag-preview {
   position: fixed;
-  z-index: 1000;
+  z-index: var(--ui-z-popover);
   display: inline-flex;
   align-items: center;
   gap: 8px;
@@ -1335,7 +1335,7 @@
 .terminal-pane-drag-preview__title {
   min-width: 0;
   overflow: hidden;
-  font-size: 12px;
+  font-size: var(--ui-font-size-xs);
   font-weight: 700;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -2045,7 +2045,7 @@ body.terminal-pane-dragging-active .terminal-pane-tab {
   position: absolute;
   top: 44px;
   right: 12px;
-  z-index: 90;
+  z-index: var(--ui-z-overlay-strong);
   display: flex;
   align-items: center;
   gap: 8px;
@@ -2065,7 +2065,7 @@ body.terminal-pane-dragging-active .terminal-pane-tab {
   color: var(--ui-text-muted);
 }
 
-.ftp-panel__floating-search-input {
+.ftp-panel__floating-search-input.ui-input-affix-wrapper {
   flex: 1 1 auto;
   min-width: 0;
 }
@@ -2222,7 +2222,7 @@ body.terminal-pane-dragging-active .terminal-pane-tab {
     min-width: 0;
     overflow: hidden;
     color: var(--ui-text-primary);
-    font-family: Consolas, "Cascadia Mono", monospace;
+    font-family: var(--ui-font-family-mono);
     font-size: 0.78rem;
     text-overflow: ellipsis;
     white-space: nowrap;
@@ -2275,7 +2275,7 @@ body.terminal-pane-dragging-active .terminal-pane-tab {
 
   span {
     color: var(--ui-text-muted);
-    font-family: Consolas, "Cascadia Mono", monospace;
+    font-family: var(--ui-font-family-mono);
     font-size: 0.72rem;
   }
 }
@@ -2778,7 +2778,7 @@ body.terminal-pane-dragging-active .terminal-pane-tab {
 .ftp-entry--parent {
   position: sticky;
   top: 0;
-  z-index: 1;
+  z-index: var(--ui-z-raised);
   background-color: color-mix(in srgb, var(--ui-surface-panel) 96%, transparent);
   color: var(--ui-text-secondary);
   font-weight: 700;
@@ -2853,7 +2853,7 @@ body.terminal-pane-dragging-active .terminal-pane-tab {
 }
 
 .ftp-entry__meta--mono {
-  font-family: Consolas, "Cascadia Mono", monospace;
+  font-family: var(--ui-font-family-mono);
 }
 
 .ftp-selection-overlay {
@@ -3825,7 +3825,7 @@ body.terminal-pane-dragging-active .terminal-pane-tab {
   font-weight: 600;
 }
 
-// Themed native <input> for types that lack a custom component (datetime-local, time, number).
+// Themed platform fields for types that lack a custom component (datetime-local, time, number).
 // Mirrors UiInput / UiSelect visuals so the schedule dialog feels consistent.
 .ftp-native-input {
   width: 100%;

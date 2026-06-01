@@ -233,11 +233,12 @@ watch(showHomeProfileSwitcher, (visible) => {
     </div>
     <div class="application-func-container" aria-label="应用功能区">
       <div v-if="showHomeProfileSwitcher" ref="profileSwitcherRef" class="home-profile-switcher">
-        <button
+        <UiButton
           class="home-profile-switcher__trigger"
-          type="button"
+          variant="ghost"
           :class="{ active: profilePanelOpen }"
           :title="profileButtonLabel"
+          type="button"
           @click="toggleProfilePanel"
         >
           <span class="home-profile-switcher__dot" />
@@ -254,7 +255,7 @@ watch(showHomeProfileSwitcher, (visible) => {
               />
             </svg>
           </span>
-        </button>
+        </UiButton>
       </div>
       <Teleport v-if="showHomeProfileSwitcher" to="body">
         <div
@@ -301,9 +302,9 @@ watch(showHomeProfileSwitcher, (visible) => {
                   />
                   <UiButton size="sm" variant="primary" :disabled="!editingProfileName.trim()" @click="confirmRenameProfile">保存</UiButton>
                   <UiButton size="sm" variant="ghost" @click="editingProfileKey = ''">取消</UiButton>
-                </template>
+              </template>
               <template v-else>
-                <button class="home-profile-row__main" type="button" @click="switchProfile(profile.key)">
+                <UiButton class="home-profile-row__main" variant="ghost" type="button" @click="switchProfile(profile.key)">
                     <span
                       class="home-profile-row__check"
                       :class="{ active: profile.key === homeProfileStore.activeProfileKey }"
@@ -319,10 +320,10 @@ watch(showHomeProfileSwitcher, (visible) => {
                           stroke-linejoin="round"
                         />
                       </svg>
-                    </span>
+                  </span>
                   <span class="home-profile-row__name">{{ profile.name }}</span>
                   <span v-if="profile.isDefault" class="home-profile-row__badge">默认</span>
-                </button>
+                </UiButton>
                   <UiIconButton
                     class="home-profile-row__action"
                     size="sm"

@@ -28,7 +28,7 @@ function dismiss() {
     overlay-class="prompt-overlay"
     panel-class="prompt-card"
     aria-label="昨天未完成任务"
-    :z-index="1000"
+    z-index="var(--ui-z-popover)"
     @close="dismiss"
   >
       <!-- 标题区域 -->
@@ -89,7 +89,7 @@ function dismiss() {
   display: flex;
   align-items: center;
   justify-content: center;
-  z-index: 1000;
+  z-index: var(--ui-z-popover);
   animation: overlay-in 0.3s ease;
 }
 

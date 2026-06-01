@@ -894,12 +894,12 @@ watch(() => homeProfileStore.activeProfileKey, (key, previousKey) => {
           </div>
 
           <div class="category-list-shell">
-            <button v-if="canScrollCategoryUp" class="category-scroll-btn category-scroll-btn--up" type="button"
-              aria-label="向上滚动分类列表" @click="scrollCategoryList('up')">
+            <UiIconButton v-if="canScrollCategoryUp" class="category-scroll-btn category-scroll-btn--up" size="sm" variant="ghost"
+              title="向上滚动分类列表" aria-label="向上滚动分类列表" @click="scrollCategoryList('up')">
               <span class="category-scroll-btn__icon">
                 <ChevronIconComponent direction="up" :width="18" :height="18" />
               </span>
-            </button>
+            </UiIconButton>
 
             <div ref="categoryListRef" class="category-list" @scroll="updateCategoryScrollState">
               <div
@@ -910,22 +910,22 @@ watch(() => homeProfileStore.activeProfileKey, (key, previousKey) => {
                   height: `${sliderStyle.height}px`,
                 }"
               />
-              <button v-for="(category, index) in categories" :key="category.id" class="category-item"
+              <UiButton v-for="(category, index) in categories" :key="category.id" class="category-item" variant="ghost" type="button"
                 :class="{ active: index === activeCategoryIndex }" :title="category.label"
                 @click="switchCategory(index)">
                 <div class="category-icon">
                   <IconRenderer :icon="category.icon" :size="26" />
                 </div>
                 <div class="category-label">{{ category.label }}</div>
-              </button>
+              </UiButton>
             </div>
 
-            <button v-if="canScrollCategoryDown" class="category-scroll-btn category-scroll-btn--down" type="button"
-              aria-label="向下滚动分类列表" @click="scrollCategoryList('down')">
+            <UiIconButton v-if="canScrollCategoryDown" class="category-scroll-btn category-scroll-btn--down" size="sm" variant="ghost"
+              title="向下滚动分类列表" aria-label="向下滚动分类列表" @click="scrollCategoryList('down')">
               <span class="category-scroll-btn__icon">
                 <ChevronIconComponent direction="down" :width="18" :height="18" />
               </span>
-            </button>
+            </UiIconButton>
           </div>
         </UiCard>
       </aside>

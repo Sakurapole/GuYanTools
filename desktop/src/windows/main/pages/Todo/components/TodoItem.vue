@@ -4,6 +4,7 @@ import { useTodoStore } from '@/windows/main/stores/todo_store';
 import { useContextMenu } from '@/windows/main/composables/useContextMenu';
 import { useConfirmDialog } from '@/windows/main/composables/useConfirmDialog';
 import IconRenderer from '@/windows/main/components/ui/IconRenderer.vue';
+import UiIconButton from '@/windows/main/components/ui/UiIconButton.vue';
 import type { Todo } from '@/contracts/todo';
 
 const props = defineProps<{ todo: Todo }>();
@@ -99,9 +100,9 @@ function handleContextMenu(e: MouseEvent) {
 
 <template>
   <div class="todo-item" :class="{ completed: todo.isCompleted }" @click="handleTitleClick" @contextmenu="handleContextMenu">
-    <button class="checkbox" :class="{ checked: todo.isCompleted }" @click.stop="handleComplete">
+    <UiIconButton class="checkbox" :class="{ checked: todo.isCompleted }" size="sm" variant="ghost" :title="todo.isCompleted ? '标记为未完成' : '标记为完成'" @click.stop="handleComplete">
       <IconRenderer v-if="todo.isCompleted" icon="iconify:lucide:check" :size="15" />
-    </button>
+    </UiIconButton>
     <div class="item-body">
       <span class="item-title">{{ todo.title }}</span>
       <span class="item-meta" v-if="stepsInfo() || todo.dueDate || todo.reminders.length > 0">
@@ -118,14 +119,16 @@ function handleContextMenu(e: MouseEvent) {
         </span>
       </span>
     </div>
-    <button
+    <UiIconButton
       class="important-btn"
       :class="{ active: todo.isImportant }"
+      size="sm"
+      variant="ghost"
       @click="handleImportant"
       :title="todo.isImportant ? '取消重要' : '标记重要'"
     >
       <IconRenderer icon="iconify:lucide:star" :size="20" />
-    </button>
+    </UiIconButton>
   </div>
 </template>
 
@@ -177,7 +180,7 @@ function handleContextMenu(e: MouseEvent) {
   opacity: 0.5;
 }
 
-.checkbox {
+.checkbox.ui-icon-button {
   width: 22px;
   height: 22px;
   border-radius: 50%;
@@ -192,8 +195,12 @@ function handleContextMenu(e: MouseEvent) {
   transition: all 0.2s;
   flex-shrink: 0;
   padding: 0;
+  transform: none;
 }
-.checkbox:hover { border-color: var(--ui-input-focus-border); }
+.checkbox.ui-icon-button:hover:not(:disabled) {
+  border-color: var(--ui-input-focus-border);
+  transform: none;
+}
 .checkbox.checked {
   background: var(--ui-input-focus-border);
   border-color: var(--ui-input-focus-border);
@@ -231,7 +238,7 @@ function handleContextMenu(e: MouseEvent) {
 .due-date.overdue { color: #D83B01; }
 .due-date.today { color: #F7A93B; }
 
-.important-btn {
+.important-btn.ui-icon-button {
   background: none;
   border: none;
   cursor: pointer;
@@ -243,7 +250,7 @@ function handleContextMenu(e: MouseEvent) {
   transition: transform 0.2s;
 }
 .important-btn.active { color: #E8553D; fill: currentColor; }
-.important-btn:hover { transform: scale(1.2); }
+.important-btn.ui-icon-button:hover:not(:disabled) { transform: scale(1.2); }
 
 @keyframes todo-check-pop {
   from {

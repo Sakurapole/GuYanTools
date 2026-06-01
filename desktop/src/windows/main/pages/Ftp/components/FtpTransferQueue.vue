@@ -165,7 +165,14 @@ function hasTransferTree(task: TransferTask) {
           class="ftp-task-item"
           :class="{ 'ftp-task-item--expanded': isTaskExpanded(task.id) }"
         >
-          <button class="ftp-task-item__summary" type="button" @click="$emit('toggle-task-expanded', task.id)">
+          <UiButton
+            class="ftp-task-item__summary"
+            type="button"
+            variant="ghost"
+            :aria-expanded="isTaskExpanded(task.id)"
+            :aria-controls="`ftp-task-details-${task.id}`"
+            @click="$emit('toggle-task-expanded', task.id)"
+          >
             <span
               class="ftp-task-item__direction"
               :class="{
@@ -210,9 +217,9 @@ function hasTransferTree(task: TransferTask) {
                 <path d="M4.5 6l3.5 3.5L11.5 6" />
               </svg>
             </span>
-          </button>
+          </UiButton>
 
-          <div v-if="isTaskExpanded(task.id)" class="ftp-task-item__details">
+          <div v-if="isTaskExpanded(task.id)" :id="`ftp-task-details-${task.id}`" class="ftp-task-item__details">
             <div class="ftp-task-item__path">{{ task.localPath }} -> {{ task.remotePath }}</div>
             <div v-if="task.transferMethod === 'archive'" class="ftp-task-item__method">打包传输：先生成临时压缩包，传输后解压并清理两端临时文件。</div>
             <div v-if="hasTransferTree(task)" class="ftp-task-tree">
@@ -250,3 +257,58 @@ function hasTransferTree(task: TransferTask) {
     </UiScrollbar>
   </section>
 </template>
+
+<style lang="scss" scoped>
+.ftp-task-item__summary.ui-button.ui-button {
+  display: flex;
+  width: 100%;
+  min-height: 0;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 10px;
+  padding: 6px var(--ftp-page-gutter-inline);
+  border: none;
+  background: transparent;
+  color: inherit;
+  box-shadow: none;
+  text-align: left;
+  white-space: normal;
+  transform: none;
+
+  &:hover:not(:disabled) {
+    background: color-mix(in srgb, var(--ui-surface-overlay) 48%, transparent);
+    box-shadow: none;
+    transform: none;
+  }
+
+  &:focus-visible {
+    outline: none;
+    box-shadow: var(--ui-focus-ring);
+  }
+}
+
+.ftp-task-item__summary :deep(.ui-button__label) {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 10px;
+  width: 100%;
+  min-width: 0;
+}
+
+:global(.ftp-page--dense .ftp-task-item__summary.ui-button.ui-button) {
+  padding: 5px var(--ftp-page-gutter-inline);
+}
+
+@media (max-width: 960px) {
+  .ftp-task-item__summary.ui-button.ui-button {
+    flex-wrap: wrap;
+    align-items: flex-start;
+  }
+
+  .ftp-task-item__summary :deep(.ui-button__label) {
+    flex-wrap: wrap;
+    align-items: flex-start;
+  }
+}
+</style>

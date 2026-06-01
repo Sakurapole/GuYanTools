@@ -10,7 +10,7 @@
 
 .ui-tooltip {
   position: fixed;
-  z-index: 10000;
+  z-index: var(--ui-z-toast);
   pointer-events: none;
   box-sizing: border-box;
   opacity: 0;

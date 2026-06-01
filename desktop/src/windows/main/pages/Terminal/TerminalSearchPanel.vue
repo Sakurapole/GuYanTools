@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import UiIconButton from '@/windows/main/components/ui/UiIconButton.vue';
 import UiInput from '@/windows/main/components/ui/UiInput.vue';
 import { computed, nextTick, onMounted, ref } from 'vue';
 
@@ -61,22 +62,22 @@ defineExpose({
       {{ resultLabel }}
     </span>
     <div class="terminal-search-panel__actions">
-      <button class="terminal-search-panel__icon-btn" type="button" title="上一个" aria-label="上一个" @click="emit('previous')">
+      <UiIconButton class="terminal-search-panel__icon-btn" size="sm" variant="ghost" title="上一个" @click="emit('previous')">
         <svg viewBox="0 0 24 24" width="15" height="15" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round">
           <path d="m18 15-6-6-6 6" />
         </svg>
-      </button>
-      <button class="terminal-search-panel__icon-btn" type="button" title="下一个" aria-label="下一个" @click="emit('next')">
+      </UiIconButton>
+      <UiIconButton class="terminal-search-panel__icon-btn" size="sm" variant="ghost" title="下一个" @click="emit('next')">
         <svg viewBox="0 0 24 24" width="15" height="15" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round">
           <path d="m6 9 6 6 6-6" />
         </svg>
-      </button>
-      <button class="terminal-search-panel__icon-btn" type="button" title="关闭" aria-label="关闭" @click="emit('close')">
+      </UiIconButton>
+      <UiIconButton class="terminal-search-panel__icon-btn" size="sm" variant="ghost" title="关闭" @click="emit('close')">
         <svg viewBox="0 0 24 24" width="15" height="15" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round">
           <path d="M18 6 6 18" />
           <path d="m6 6 12 12" />
         </svg>
-      </button>
+      </UiIconButton>
     </div>
   </div>
 </template>
@@ -86,7 +87,7 @@ defineExpose({
   position: absolute;
   top: 62px;
   right: 14px;
-  z-index: 80;
+  z-index: var(--ui-z-overlay);
   display: flex;
   align-items: center;
   gap: 8px;
@@ -118,7 +119,7 @@ defineExpose({
   flex-shrink: 0;
 }
 
-.terminal-search-panel__icon-btn {
+.terminal-search-panel__icon-btn.ui-icon-button {
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -133,15 +134,22 @@ defineExpose({
     background-color 0.16s ease,
     border-color 0.16s ease,
     color 0.16s ease;
+  transform: none;
 
-  &:hover {
+  &:hover:not(:disabled) {
     background: var(--ui-button-ghost-hover-bg);
     color: var(--ui-button-ghost-hover-text);
+    transform: none;
   }
 
   &:focus-visible {
     outline: none;
     box-shadow: var(--ui-focus-ring);
+  }
+
+  :deep(svg) {
+    fill: none;
+    stroke: currentColor;
   }
 }
 

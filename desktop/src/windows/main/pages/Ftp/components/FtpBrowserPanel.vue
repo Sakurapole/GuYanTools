@@ -733,17 +733,20 @@ onBeforeUnmount(() => {
         ref="floatingSearchRef"
         class="ftp-panel__floating-search ui-glass-surface"
       >
-        <svg class="ftp-panel__floating-search-icon" viewBox="0 0 16 16" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round">
-          <circle cx="7" cy="7" r="3.75" />
-          <path d="M10.2 10.2L13 13" />
-        </svg>
         <UiInput
           class="ftp-panel__floating-search-input"
           :model-value="filterQuery"
           placeholder="搜索当前目录"
           @keydown.esc.stop.prevent="$emit('toggle-search')"
           @update:modelValue="$emit('update:filterQuery', $event)"
-        />
+        >
+          <template #prefix>
+            <svg class="ftp-panel__floating-search-icon" viewBox="0 0 16 16" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round">
+              <circle cx="7" cy="7" r="3.75" />
+              <path d="M10.2 10.2L13 13" />
+            </svg>
+          </template>
+        </UiInput>
         <UiIconButton size="sm" variant="ghost" title="关闭搜索" @click="$emit('toggle-search')">
           <svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round">
             <path d="M4 4l8 8M12 4l-8 8" />
@@ -962,8 +965,10 @@ onBeforeUnmount(() => {
       <div class="ftp-table__head" :class="[tableHeadClass, { 'ftp-table__head--details': viewMode === 'details' }]">
         <template v-if="viewMode === 'details'">
           <div class="ftp-col-header">
-            <button
+            <UiButton
               type="button"
+              size="sm"
+              variant="ghost"
               class="ftp-col-sort-button"
               :class="{ 'ftp-col-sort-button--active': isSortedBy('name') }"
               :aria-label="sortLabel('name', '按名称排序')"
@@ -979,12 +984,14 @@ onBeforeUnmount(() => {
               >
                 <path d="M6 10V2M3 5l3-3 3 3" />
               </svg>
-            </button>
+            </UiButton>
             <div class="ftp-col-resizer" @mousedown.prevent="startResize($event, 'detailsSize', true)" />
           </div>
           <div class="ftp-col-header ftp-col-header--right">
-            <button
+            <UiButton
               type="button"
+              size="sm"
+              variant="ghost"
               class="ftp-col-sort-button"
               :class="{ 'ftp-col-sort-button--active': isSortedBy('size') }"
               :aria-label="sortLabel('size', '按大小排序')"
@@ -1000,12 +1007,14 @@ onBeforeUnmount(() => {
               >
                 <path d="M6 10V2M3 5l3-3 3 3" />
               </svg>
-            </button>
+            </UiButton>
             <div class="ftp-col-resizer" @mousedown.prevent="startBoundaryResize($event, 'detailsSize', 'detailsModified')" />
           </div>
           <div class="ftp-col-header ftp-col-header--right">
-            <button
+            <UiButton
               type="button"
+              size="sm"
+              variant="ghost"
               class="ftp-col-sort-button"
               :class="{ 'ftp-col-sort-button--active': isSortedBy('modifiedAt') }"
               :aria-label="sortLabel('modifiedAt', '按修改时间排序')"
@@ -1021,7 +1030,7 @@ onBeforeUnmount(() => {
               >
                 <path d="M6 10V2M3 5l3-3 3 3" />
               </svg>
-            </button>
+            </UiButton>
             <div class="ftp-col-resizer" @mousedown.prevent="startBoundaryResize($event, 'detailsModified', 'detailsPerms')" />
           </div>
           <div class="ftp-col-header ftp-col-header--right">
@@ -1034,8 +1043,10 @@ onBeforeUnmount(() => {
         </template>
         <template v-else>
           <div class="ftp-col-header">
-            <button
+            <UiButton
               type="button"
+              size="sm"
+              variant="ghost"
               class="ftp-col-sort-button"
               :class="{ 'ftp-col-sort-button--active': isSortedBy('name') }"
               :aria-label="sortLabel('name', '按名称排序')"
@@ -1051,12 +1062,14 @@ onBeforeUnmount(() => {
               >
                 <path d="M6 10V2M3 5l3-3 3 3" />
               </svg>
-            </button>
+            </UiButton>
             <div class="ftp-col-resizer" @mousedown.prevent="startResize($event, 'listSecondary', true)" />
           </div>
           <div class="ftp-col-header ftp-col-header--right">
-            <button
+            <UiButton
               type="button"
+              size="sm"
+              variant="ghost"
               class="ftp-col-sort-button"
               :class="{ 'ftp-col-sort-button--active': isSortedBy('size') }"
               :aria-label="sortLabel('size', `按${secondaryMetaLabel}排序`)"
@@ -1072,12 +1085,14 @@ onBeforeUnmount(() => {
               >
                 <path d="M6 10V2M3 5l3-3 3 3" />
               </svg>
-            </button>
+            </UiButton>
             <div class="ftp-col-resizer" @mousedown.prevent="startBoundaryResize($event, 'listSecondary', 'listTertiary')" />
           </div>
           <div class="ftp-col-header ftp-col-header--right">
-            <button
+            <UiButton
               type="button"
+              size="sm"
+              variant="ghost"
               class="ftp-col-sort-button"
               :class="{ 'ftp-col-sort-button--active': isSortedBy('modifiedAt') }"
               :aria-label="sortLabel('modifiedAt', `按${tertiaryMetaLabel}排序`)"
@@ -1093,7 +1108,7 @@ onBeforeUnmount(() => {
               >
                 <path d="M6 10V2M3 5l3-3 3 3" />
               </svg>
-            </button>
+            </UiButton>
           </div>
         </template>
       </div>
@@ -1199,3 +1214,46 @@ onBeforeUnmount(() => {
     </div>
   </div>
 </template>
+
+<style lang="scss" scoped>
+:deep(.ftp-col-sort-button.ui-button) {
+  gap: 0;
+  min-height: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  color: inherit;
+  box-shadow: none;
+
+  &:hover:not(:disabled),
+  &.ftp-col-sort-button--active:not(:disabled),
+  &.ui-button--active:not(:disabled) {
+    background: transparent;
+    color: var(--ui-text-primary);
+    box-shadow: none;
+    transform: none;
+  }
+
+  &:focus-visible {
+    background: transparent;
+    color: var(--ui-text-primary);
+    box-shadow: 0 1px 0 var(--primary-color);
+    transform: none;
+  }
+}
+
+:deep(.ftp-col-sort-button .ui-button__label) {
+  justify-content: flex-start;
+  gap: 6px;
+  max-width: 100%;
+  min-width: 0;
+}
+
+:deep(.ftp-col-sort-button .ui-button__label > span:first-child) {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+</style>

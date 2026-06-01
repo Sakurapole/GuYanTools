@@ -158,7 +158,7 @@ function buildBaseItemStyle(item: GridItem): ItemStyle {
     height: `${height}px`,
     transform: `translate3d(${(item.col - 1) * cellSize.value + horizontalOffset.value}px, ${(item.row - 1) * cellSize.value + props.config.GRID_PADDING}px, 0)`,
     transition: 'transform 0.2s ease, box-shadow 0.2s ease',
-    zIndex: 1,
+    zIndex: 'var(--ui-z-raised)',
   };
 }
 
@@ -194,7 +194,7 @@ const activeDraggingStyle = computed<ItemStyle | null>(() => {
     ...(baseItemStyleMap.value[item.id] ?? buildBaseItemStyle(item)),
     transform: `translate3d(${draggingPosition.value.x + horizontalOffset.value}px, ${draggingPosition.value.y + props.config.GRID_PADDING}px, 0)`,
     transition: 'none',
-    zIndex: 1000,
+    zIndex: 'var(--ui-z-popover)',
     willChange: 'transform',
   };
 });

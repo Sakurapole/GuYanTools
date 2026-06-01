@@ -1,6 +1,7 @@
 <script lang="ts" setup>
 import { computed, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue';
 import type { GridItem, PomodoroWidgetConfig } from '../../../types/grid';
+import UiButton from '../../../components/ui/UiButton.vue';
 import { normalizeWidgetConfig } from '../registry';
 
 const props = withDefaults(defineProps<{
@@ -188,16 +189,16 @@ onBeforeUnmount(() => {
     <div class="pomodoro-widget__time">{{ remainingText }}</div>
 
     <div v-if="!isCompact" class="pomodoro-widget__modes">
-      <button type="button" :class="{ active: runtime.mode === 'focus' }" @click.stop="setMode('focus')" @pointerdown.stop>专注</button>
-      <button type="button" :class="{ active: runtime.mode === 'shortBreak' }" @click.stop="setMode('shortBreak')" @pointerdown.stop>短休</button>
-      <button type="button" :class="{ active: runtime.mode === 'longBreak' }" @click.stop="setMode('longBreak')" @pointerdown.stop>长休</button>
+      <UiButton type="button" variant="ghost" :class="{ active: runtime.mode === 'focus' }" @click.stop="setMode('focus')" @pointerdown.stop>专注</UiButton>
+      <UiButton type="button" variant="ghost" :class="{ active: runtime.mode === 'shortBreak' }" @click.stop="setMode('shortBreak')" @pointerdown.stop>短休</UiButton>
+      <UiButton type="button" variant="ghost" :class="{ active: runtime.mode === 'longBreak' }" @click.stop="setMode('longBreak')" @pointerdown.stop>长休</UiButton>
     </div>
 
     <div class="pomodoro-widget__actions">
-      <button type="button" class="primary" @click.stop="toggleTimer" @pointerdown.stop>
+      <UiButton type="button" variant="ghost" class="primary" @click.stop="toggleTimer" @pointerdown.stop>
         {{ runtime.endAt ? '暂停' : '开始' }}
-      </button>
-      <button v-if="!isCompact" type="button" @click.stop="resetTimer" @pointerdown.stop>重置</button>
+      </UiButton>
+      <UiButton v-if="!isCompact" type="button" variant="ghost" @click.stop="resetTimer" @pointerdown.stop>重置</UiButton>
     </div>
 
     <div v-if="isLarge" class="pomodoro-widget__footer">
@@ -244,18 +245,20 @@ onBeforeUnmount(() => {
   font-variant-numeric: tabular-nums;
 }
 
-.pomodoro-widget__modes button,
-.pomodoro-widget__actions button {
+.pomodoro-widget__modes .ui-button,
+.pomodoro-widget__actions .ui-button {
   border: none;
   border-radius: 999px;
   padding: 7px 12px;
   background: color-mix(in srgb, var(--widget-text-primary, #fff7ed) 14%, transparent);
   color: inherit;
   cursor: pointer;
+  min-height: auto;
+  transform: none;
 }
 
-.pomodoro-widget__modes button.active,
-.pomodoro-widget__actions button.primary {
+.pomodoro-widget__modes .ui-button.active,
+.pomodoro-widget__actions .ui-button.primary {
   background: color-mix(in srgb, var(--widget-text-primary, #fff7ed) 26%, transparent);
 }
 
