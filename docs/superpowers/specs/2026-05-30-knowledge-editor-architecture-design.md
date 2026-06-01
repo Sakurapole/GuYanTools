@@ -636,6 +636,8 @@ desktop/src/windows/main/pages/Knowledge/
 
 ## 7. 阶段实施计划
 
+Implementation note: Phase 0-3 are covered by `docs/superpowers/plans/2026-05-30-knowledge-markdown-foundation-plan.md`.
+
 ### 阶段 0：基准、测试夹具与风险收敛
 
 目标：在不改变用户体验的前提下，先量化当前性能问题，锁定回归测试。

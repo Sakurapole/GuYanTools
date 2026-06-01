@@ -23,3 +23,11 @@ docs/
 ```
 
 为了兼顾可发现性，少数原目录下仍保留了非常薄的 `README.md` 跳转页；正式内容以 `docs/` 中的版本为准。
+
+## 近期开发计划
+
+- [公网中转同步后端开发文档](plans/multi-device-sync-backend-development-plan.md)
+- [桌面端设计系统契约](desktop/DESIGN_SYSTEM.md)
+- [桌面端设计系统迁移计划](plans/desktop-design-system-migration-plan.md)
+- [知识库桌面端开发文档](desktop/KnowledgeBase/development-plan.md)
+- [知识库用户指南](desktop/KnowledgeBase/user-guide.md)
