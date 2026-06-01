@@ -9,6 +9,12 @@ import { appConfigManager } from "./app-config/manager";
 import { registerHomeLayoutIpcHandlers } from "./home-layout/ipc";
 import { registerHomeProfileIpcHandlers } from "./home-profile/ipc";
 import { registerHomeWorkspaceIpcHandlers } from "./home-workspace/ipc";
+import { registerKnowledgeIpcHandlers } from "./knowledge/ipc";
+import {
+  captureClipboardToQuickNoteWindow,
+  registerQuickNoteWindowHandlers,
+  toggleQuickNoteWindow,
+} from "./knowledge/quick_note_window";
 import { registerMediaIpcHandlers } from "./media/ipc";
 import { registerMultiDeviceClipboardIpcHandlers } from "./multi-device-clipboard/ipc";
 import { multiDeviceClipboardService } from "./multi-device-clipboard/service";
@@ -38,6 +44,12 @@ import { setupAutoUpdater } from "./updater";
 
 const delay = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms));
 const MULTI_DEVICE_CLIPBOARD_ASSET_HOST = 'multi-device-clipboard-assets';
+const KNOWLEDGE_ASSET_HOST = 'knowledge-assets';
+
+type KnowledgeAssetProtocolRecord = {
+  storagePath: string;
+  mimeType?: string;
+};
 
 type FtpCliRelayAdditionalData = {
   ftpCliResponsePath?: string;
@@ -76,6 +88,8 @@ class App {
     registerHomeProfileIpcHandlers();
     registerHomeLayoutIpcHandlers();
     registerHomeWorkspaceIpcHandlers();
+    registerKnowledgeIpcHandlers();
+    registerQuickNoteWindowHandlers();
     registerMediaIpcHandlers();
     registerMultiDeviceClipboardIpcHandlers();
     registerMultiDeviceClipboardWindowHandlers();
@@ -150,13 +164,18 @@ class App {
         await ftpSchedulerService.initialize();
         await pluginHost.initialize();
         await multiDeviceClipboardService.initialize();
-        await shortcutService.initialize(() => {
-          try {
-            return this.mainWindowCreator.getWindow();
-          } catch {
-            return null;
-          }
-        }, toggleMultiDeviceClipboardWindow);
+        await shortcutService.initialize(
+          () => {
+            try {
+              return this.mainWindowCreator.getWindow();
+            } catch {
+              return null;
+            }
+          },
+          toggleMultiDeviceClipboardWindow,
+          toggleQuickNoteWindow,
+          captureClipboardToQuickNoteWindow,
+        );
 
         // ─── 初始化共享 webview session ───
         // 集中管理 UA 清洗、请求头改写等，避免 Google 等第三方服务拦截嵌入式 WebView
@@ -270,29 +289,49 @@ class App {
 
     protocol.handle('app', async (request) => {
       const url = new URL(request.url);
-      if (url.hostname !== MULTI_DEVICE_CLIPBOARD_ASSET_HOST) {
-        return new Response('Not found', { status: 404 });
+      if (url.hostname === MULTI_DEVICE_CLIPBOARD_ASSET_HOST) {
+        const assetRoot = path.resolve(app.getPath('userData'), 'multi-device-clipboard-assets');
+        const requestedPath = decodeURIComponent(url.pathname.slice(1));
+        return serveLocalAsset(requestedPath, assetRoot);
       }
 
-      const assetRoot = path.resolve(app.getPath('userData'), 'multi-device-clipboard-assets');
-      const requestedPath = decodeURIComponent(url.pathname.slice(1));
-      const resolvedPath = path.resolve(requestedPath);
-      if (resolvedPath !== assetRoot && !resolvedPath.startsWith(`${assetRoot}${path.sep}`)) {
-        return new Response('Forbidden', { status: 403 });
+      if (url.hostname === KNOWLEDGE_ASSET_HOST) {
+        return this.handleKnowledgeAssetProtocolRequest(url);
       }
 
-      try {
-        const bytes = await fs.readFile(resolvedPath);
-        return new Response(new Uint8Array(bytes), {
-          headers: {
-            'Content-Type': guessLocalAssetMimeType(resolvedPath),
-            'Cache-Control': 'no-store',
-          },
-        });
-      } catch {
-        return new Response('Not found', { status: 404 });
-      }
+      return new Response('Not found', { status: 404 });
     });
+  }
+
+  private async handleKnowledgeAssetProtocolRequest(url: URL) {
+    const parts = url.pathname
+      .split('/')
+      .filter(Boolean)
+      .map((part) => decodeURIComponent(part));
+    const mode = parts[0];
+    const assetRoot = path.resolve(app.getPath('userData'), 'knowledge-assets');
+
+    if (mode === 'path' && parts[1]) {
+      return serveLocalAsset(parts[1], assetRoot);
+    }
+
+    if (mode !== 'id' || !parts[1]) {
+      return new Response('Bad request', { status: 400 });
+    }
+
+    if (!dbManager.isInitialized()) {
+      return new Response('Database is not ready', { status: 503 });
+    }
+
+    try {
+      const database = dbManager.getDatabase() as unknown as {
+        getKnowledgeAsset: (assetId: string) => Promise<KnowledgeAssetProtocolRecord>;
+      };
+      const asset = await database.getKnowledgeAsset(parts[1]);
+      return serveLocalAsset(asset.storagePath, assetRoot, asset.mimeType);
+    } catch {
+      return new Response('Not found', { status: 404 });
+    }
   }
 
   private async processLaunchArgs(
@@ -398,6 +437,31 @@ async function waitForFtpCliRelayResponse(responsePath: string, timeoutMs: numbe
   throw new Error('等待主实例返回 FTP CLI 结果超时');
 }
 
+function isPathInsideRoot(filePath: string, rootPath: string) {
+  const resolvedPath = path.resolve(filePath);
+  const resolvedRoot = path.resolve(rootPath);
+  return resolvedPath === resolvedRoot || resolvedPath.startsWith(`${resolvedRoot}${path.sep}`);
+}
+
+async function serveLocalAsset(filePath: string, rootPath: string, contentType?: string) {
+  const resolvedPath = path.resolve(filePath);
+  if (!isPathInsideRoot(resolvedPath, rootPath)) {
+    return new Response('Forbidden', { status: 403 });
+  }
+
+  try {
+    const bytes = await fs.readFile(resolvedPath);
+    return new Response(new Uint8Array(bytes), {
+      headers: {
+        'Content-Type': contentType || guessLocalAssetMimeType(resolvedPath),
+        'Cache-Control': 'no-store',
+      },
+    });
+  } catch {
+    return new Response('Not found', { status: 404 });
+  }
+}
+
 function guessLocalAssetMimeType(filePath: string) {
   const ext = path.extname(filePath).toLowerCase();
   if (ext === '.png') return 'image/png';
@@ -405,6 +469,9 @@ function guessLocalAssetMimeType(filePath: string) {
   if (ext === '.gif') return 'image/gif';
   if (ext === '.webp') return 'image/webp';
   if (ext === '.svg') return 'image/svg+xml';
+  if (ext === '.pdf') return 'application/pdf';
+  if (ext === '.md' || ext === '.markdown') return 'text/markdown; charset=utf-8';
+  if (ext === '.txt' || ext === '.csv' || ext === '.log') return 'text/plain; charset=utf-8';
   return 'application/octet-stream';
 }
 

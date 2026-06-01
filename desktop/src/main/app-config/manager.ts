@@ -10,6 +10,7 @@ import type {
   AppConfig,
   AppConfigPatch,
   AppFeaturesConfig,
+  AppKnowledgeFeatureConfig,
   AppPluginsConfig,
   AppSettingsFeatureConfig,
   AppSettingsTabId,
@@ -41,6 +42,7 @@ const SETTINGS_TAB_IDS: AppSettingsTabId[] = [
   'plugins',
   'terminal',
   'multi-device-clipboard',
+  'knowledge',
   'shortcuts',
 ];
 
@@ -156,6 +158,11 @@ function normalizeShortcuts(value: unknown): AppShortcutsConfig {
         system.toggleMultiDeviceClipboard,
         defaults.system.toggleMultiDeviceClipboard,
       ),
+      toggleQuickNote: normalizeShortcutValue(system.toggleQuickNote, defaults.system.toggleQuickNote),
+      captureClipboardToQuickNote: normalizeShortcutValue(
+        system.captureClipboardToQuickNote,
+        defaults.system.captureClipboardToQuickNote,
+      ),
     },
   };
 }
@@ -171,6 +178,7 @@ function normalizeFeatures(value: unknown): AppFeaturesConfig {
     settings: normalizeSettingsFeature(value.settings),
     terminal: normalizeTerminalFeature(value.terminal),
     multiDeviceClipboard: normalizeMultiDeviceClipboardFeature(value.multiDeviceClipboard),
+    knowledge: normalizeKnowledgeFeature(value.knowledge),
   };
 }
 
@@ -230,6 +238,32 @@ function normalizeMultiDeviceClipboardFeature(value: unknown): MultiDeviceClipbo
         .filter((item): item is string => typeof item === 'string' && item.trim().length > 0)
         .map(item => item.trim())
       : [...defaults.networkInterfacePriority],
+  };
+}
+
+function normalizeKnowledgeFeature(value: unknown): AppKnowledgeFeatureConfig {
+  const defaults = createDefaultAppConfig().features.knowledge;
+  if (!isRecord(value)) {
+    return cloneConfig(defaults);
+  }
+
+  const rawMaxImportFileSizeMb = Number(value.maxImportFileSizeMb);
+  const maxImportFileSizeMb = Number.isFinite(rawMaxImportFileSizeMb)
+    ? Math.max(1, Math.min(10240, Math.round(rawMaxImportFileSizeMb)))
+    : defaults.maxImportFileSizeMb;
+  const rawPreviewCacheTtlDays = Number(value.previewCacheTtlDays);
+  const previewCacheTtlDays = Number.isFinite(rawPreviewCacheTtlDays)
+    ? Math.max(0, Math.min(3650, Math.round(rawPreviewCacheTtlDays)))
+    : defaults.previewCacheTtlDays;
+
+  return {
+    defaultLibraryId: typeof value.defaultLibraryId === 'string' ? value.defaultLibraryId.trim() : defaults.defaultLibraryId,
+    assetStorageMode: value.assetStorageMode === 'custom' ? 'custom' : 'app-data',
+    customAssetDirectory: typeof value.customAssetDirectory === 'string' ? value.customAssetDirectory.trim() : defaults.customAssetDirectory,
+    libreOfficePath: typeof value.libreOfficePath === 'string' ? value.libreOfficePath.trim() : defaults.libreOfficePath,
+    indexingEnabled: typeof value.indexingEnabled === 'boolean' ? value.indexingEnabled : defaults.indexingEnabled,
+    maxImportFileSizeMb,
+    previewCacheTtlDays,
   };
 }
 
@@ -581,6 +615,10 @@ function mergeConfig(current: AppConfig, patch: AppConfigPatch): AppConfig {
       multiDeviceClipboard: normalizeMultiDeviceClipboardFeature({
         ...current.features.multiDeviceClipboard,
         ...(patch.features?.multiDeviceClipboard ?? {}),
+      }),
+      knowledge: normalizeKnowledgeFeature({
+        ...current.features.knowledge,
+        ...(patch.features?.knowledge ?? {}),
       }),
     },
     shortcuts: normalizeShortcuts({

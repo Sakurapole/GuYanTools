@@ -95,6 +95,18 @@ pub fn run_migrations(conn: &Connection) -> DbResult<()> {
             "020_add_todo_step_image",
             include_str!("../../migrations/020_add_todo_step_image.sql"),
         ),
+        (
+            "021_add_knowledge",
+            include_str!("../../migrations/021_add_knowledge.sql"),
+        ),
+        (
+            "022_add_knowledge_quick_notes",
+            include_str!("../../migrations/022_add_knowledge_quick_notes.sql"),
+        ),
+        (
+            "023_add_knowledge_search_fts",
+            include_str!("../../migrations/023_add_knowledge_search_fts.sql"),
+        ),
     ];
 
     // 执行每个迁移

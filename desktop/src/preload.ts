@@ -25,6 +25,7 @@ import type {
   UpdateTodoStepPayload,
   CreateTodoReminderPayload,
 } from '@/contracts/todo';
+import type { KnowledgeApi } from '@/contracts/knowledge';
 import type { MediaApi, CompressImageOptions, CompressVideoOptions } from '@/contracts/media';
 import type {
   MultiDeviceClipboardApi,
@@ -211,6 +212,66 @@ const todoApi: TodoApi = {
   updateBackgrounds: (payload) => ipcRenderer.invoke('todo:update-backgrounds', payload),
 };
 contextBridge.exposeInMainWorld('todoApi', todoApi);
+
+const knowledgeApi: KnowledgeApi = {
+  listLibraries: () => ipcRenderer.invoke('knowledge:list-libraries'),
+  createLibrary: (input) => ipcRenderer.invoke('knowledge:create-library', input),
+  listSpaces: (libraryId?: string) => ipcRenderer.invoke('knowledge:list-spaces', libraryId),
+  createSpace: (input) => ipcRenderer.invoke('knowledge:create-space', input),
+  listTree: (input) => ipcRenderer.invoke('knowledge:list-tree', input),
+  createFolder: (input) => ipcRenderer.invoke('knowledge:create-folder', input),
+  createPage: (input) => ipcRenderer.invoke('knowledge:create-page', input),
+  getPage: (pageId: string) => ipcRenderer.invoke('knowledge:get-page', pageId),
+  updatePage: (pageId, input) => ipcRenderer.invoke('knowledge:update-page', pageId, input),
+  listQuickNotes: (input) => ipcRenderer.invoke('knowledge:list-quick-notes', input),
+  createQuickNote: (input) => ipcRenderer.invoke('knowledge:create-quick-note', input),
+  updateQuickNote: (noteId, input) => ipcRenderer.invoke('knowledge:update-quick-note', noteId, input),
+  archiveQuickNote: (noteId: string) => ipcRenderer.invoke('knowledge:archive-quick-note', noteId),
+  convertQuickNoteToPage: (noteId, input) => ipcRenderer.invoke('knowledge:convert-quick-note-to-page', noteId, input),
+  linkQuickNoteTodo: (noteId: string, todoId: string) => ipcRenderer.invoke('knowledge:link-quick-note-todo', noteId, todoId),
+  saveAsset: (input) => ipcRenderer.invoke('knowledge:save-asset', input),
+  getAsset: (assetId: string) => ipcRenderer.invoke('knowledge:get-asset', assetId),
+  openAsset: (assetId: string) => ipcRenderer.invoke('knowledge:open-asset', assetId),
+  showAssetInFolder: (assetId: string) => ipcRenderer.invoke('knowledge:show-asset-in-folder', assetId),
+  importFiles: (input) => ipcRenderer.invoke('knowledge:import-files', input),
+  listIndexJobs: (input) => ipcRenderer.invoke('knowledge:list-index-jobs', input),
+  retryIndexJob: (jobId: string) => ipcRenderer.invoke('knowledge:retry-index-job', jobId),
+  cancelIndexJob: (jobId: string) => ipcRenderer.invoke('knowledge:cancel-index-job', jobId),
+  clearPreviewCache: () => ipcRenderer.invoke('knowledge:clear-preview-cache'),
+  search: (input) => ipcRenderer.invoke('knowledge:search', input),
+  listTags: (input) => ipcRenderer.invoke('knowledge:list-tags', input),
+  createTag: (input) => ipcRenderer.invoke('knowledge:create-tag', input),
+  updateTag: (tagId, input) => ipcRenderer.invoke('knowledge:update-tag', tagId, input),
+  bindTag: (input) => ipcRenderer.invoke('knowledge:bind-tag', input),
+  unbindTag: (input) => ipcRenderer.invoke('knowledge:unbind-tag', input),
+  listTagTargets: (input) => ipcRenderer.invoke('knowledge:list-tag-targets', input),
+  listPageLinks: (pageId) => ipcRenderer.invoke('knowledge:list-page-links', pageId),
+  listBacklinks: (pageId) => ipcRenderer.invoke('knowledge:list-backlinks', pageId),
+  linkTodoSource: (input) => ipcRenderer.invoke('knowledge:link-todo-source', input),
+  getGraph: (input) => ipcRenderer.invoke('knowledge:get-graph', input),
+  listOrphanPages: (input) => ipcRenderer.invoke('knowledge:list-orphan-pages', input),
+  moveNode: (nodeId, input) => ipcRenderer.invoke('knowledge:move-node', nodeId, input),
+  updateNode: (nodeId, input) => ipcRenderer.invoke('knowledge:update-node', nodeId, input),
+  archiveNode: (nodeId: string) => ipcRenderer.invoke('knowledge:archive-node', nodeId),
+  toggleFavorite: (nodeId: string, favorite: boolean) => ipcRenderer.invoke('knowledge:toggle-favorite', nodeId, favorite),
+  deleteNode: (nodeId: string) => ipcRenderer.invoke('knowledge:delete-node', nodeId),
+};
+contextBridge.exposeInMainWorld('knowledgeApi', knowledgeApi);
+
+contextBridge.exposeInMainWorld('quickNoteWindowApi', {
+  show: (prefill) => ipcRenderer.invoke('quick-note:show-window', prefill),
+  close: () => ipcRenderer.invoke('quick-note:close-window'),
+  dock: () => ipcRenderer.invoke('quick-note:dock-window'),
+  setAlwaysOnTop: (alwaysOnTop: boolean) => ipcRenderer.invoke('quick-note:set-always-on-top', alwaysOnTop),
+  onPrefill: (listener: (payload: import('@/contracts/knowledge').QuickNotePrefillPayload) => void) => {
+    const wrappedListener = (
+      _event: Electron.IpcRendererEvent,
+      payload: import('@/contracts/knowledge').QuickNotePrefillPayload,
+    ) => listener(payload);
+    ipcRenderer.on('quick-note:prefill', wrappedListener);
+    return () => ipcRenderer.removeListener('quick-note:prefill', wrappedListener);
+  },
+} satisfies import('@/contracts/knowledge').QuickNoteWindowApi);
 
 const homeWorkspaceApi: HomeWorkspaceApi = {
   getBackground: () => ipcRenderer.invoke('home-workspace:get-background'),

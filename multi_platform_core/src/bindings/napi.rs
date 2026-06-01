@@ -552,6 +552,429 @@ impl JsDatabase {
         .map_err(|e| Error::from_reason(format!("导入首页布局失败: {}", e)))
     }
 
+    // ==================== 知识库相关方法 ====================
+
+    #[napi(js_name = "listKnowledgeLibraries")]
+    pub async fn list_knowledge_libraries(&self) -> Result<Vec<KnowledgeLibrary>> {
+        let db = self.inner.clone();
+        tokio::task::spawn_blocking(move || KnowledgeService::list_libraries(&db))
+            .await
+            .map_err(|e| Error::from_reason(format!("任务执行失败: {}", e)))?
+            .map_err(|e| Error::from_reason(format!("获取知识库列表失败: {}", e)))
+    }
+
+    #[napi(js_name = "createKnowledgeLibrary")]
+    pub async fn create_knowledge_library(
+        &self,
+        input: CreateKnowledgeLibraryInput,
+    ) -> Result<KnowledgeLibrary> {
+        let db = self.inner.clone();
+        tokio::task::spawn_blocking(move || KnowledgeService::create_library(&db, input))
+            .await
+            .map_err(|e| Error::from_reason(format!("任务执行失败: {}", e)))?
+            .map_err(|e| Error::from_reason(format!("创建知识库失败: {}", e)))
+    }
+
+    #[napi(js_name = "listKnowledgeSpaces")]
+    pub async fn list_knowledge_spaces(
+        &self,
+        library_id: Option<String>,
+    ) -> Result<Vec<KnowledgeSpace>> {
+        let db = self.inner.clone();
+        tokio::task::spawn_blocking(move || KnowledgeService::list_spaces(&db, library_id))
+            .await
+            .map_err(|e| Error::from_reason(format!("任务执行失败: {}", e)))?
+            .map_err(|e| Error::from_reason(format!("获取知识库空间失败: {}", e)))
+    }
+
+    #[napi(js_name = "createKnowledgeSpace")]
+    pub async fn create_knowledge_space(
+        &self,
+        input: CreateKnowledgeSpaceInput,
+    ) -> Result<KnowledgeSpace> {
+        let db = self.inner.clone();
+        tokio::task::spawn_blocking(move || KnowledgeService::create_space(&db, input))
+            .await
+            .map_err(|e| Error::from_reason(format!("任务执行失败: {}", e)))?
+            .map_err(|e| Error::from_reason(format!("创建知识库空间失败: {}", e)))
+    }
+
+    #[napi(js_name = "listKnowledgeTree")]
+    pub async fn list_knowledge_tree(
+        &self,
+        input: Option<ListKnowledgeTreeInput>,
+    ) -> Result<Vec<KnowledgeNode>> {
+        let db = self.inner.clone();
+        tokio::task::spawn_blocking(move || KnowledgeService::list_tree(&db, input))
+            .await
+            .map_err(|e| Error::from_reason(format!("任务执行失败: {}", e)))?
+            .map_err(|e| Error::from_reason(format!("获取知识库树失败: {}", e)))
+    }
+
+    #[napi(js_name = "createKnowledgeFolder")]
+    pub async fn create_knowledge_folder(
+        &self,
+        input: CreateKnowledgeFolderInput,
+    ) -> Result<KnowledgeNode> {
+        let db = self.inner.clone();
+        tokio::task::spawn_blocking(move || KnowledgeService::create_folder(&db, input))
+            .await
+            .map_err(|e| Error::from_reason(format!("任务执行失败: {}", e)))?
+            .map_err(|e| Error::from_reason(format!("创建知识库文件夹失败: {}", e)))
+    }
+
+    #[napi(js_name = "createKnowledgePage")]
+    pub async fn create_knowledge_page(
+        &self,
+        input: CreateKnowledgePageInput,
+    ) -> Result<KnowledgePageDetail> {
+        let db = self.inner.clone();
+        tokio::task::spawn_blocking(move || KnowledgeService::create_page(&db, input))
+            .await
+            .map_err(|e| Error::from_reason(format!("任务执行失败: {}", e)))?
+            .map_err(|e| Error::from_reason(format!("创建知识库页面失败: {}", e)))
+    }
+
+    #[napi(js_name = "getKnowledgePage")]
+    pub async fn get_knowledge_page(&self, page_id: String) -> Result<KnowledgePageDetail> {
+        let db = self.inner.clone();
+        tokio::task::spawn_blocking(move || KnowledgeService::get_page(&db, &page_id))
+            .await
+            .map_err(|e| Error::from_reason(format!("任务执行失败: {}", e)))?
+            .map_err(|e| Error::from_reason(format!("获取知识库页面失败: {}", e)))
+    }
+
+    #[napi(js_name = "updateKnowledgePage")]
+    pub async fn update_knowledge_page(
+        &self,
+        page_id: String,
+        input: UpdateKnowledgePageInput,
+    ) -> Result<KnowledgePageDetail> {
+        let db = self.inner.clone();
+        tokio::task::spawn_blocking(move || KnowledgeService::update_page(&db, &page_id, input))
+            .await
+            .map_err(|e| Error::from_reason(format!("任务执行失败: {}", e)))?
+            .map_err(|e| Error::from_reason(format!("更新知识库页面失败: {}", e)))
+    }
+
+    #[napi(js_name = "listKnowledgeQuickNotes")]
+    pub async fn list_knowledge_quick_notes(
+        &self,
+        input: Option<ListKnowledgeQuickNotesInput>,
+    ) -> Result<Vec<KnowledgeQuickNoteDetail>> {
+        let db = self.inner.clone();
+        tokio::task::spawn_blocking(move || KnowledgeService::list_quick_notes(&db, input))
+            .await
+            .map_err(|e| Error::from_reason(format!("任务执行失败: {}", e)))?
+            .map_err(|e| Error::from_reason(format!("获取知识库速记失败: {}", e)))
+    }
+
+    #[napi(js_name = "createKnowledgeQuickNote")]
+    pub async fn create_knowledge_quick_note(
+        &self,
+        input: CreateKnowledgeQuickNoteInput,
+    ) -> Result<KnowledgeQuickNoteDetail> {
+        let db = self.inner.clone();
+        tokio::task::spawn_blocking(move || KnowledgeService::create_quick_note(&db, input))
+            .await
+            .map_err(|e| Error::from_reason(format!("任务执行失败: {}", e)))?
+            .map_err(|e| Error::from_reason(format!("创建知识库速记失败: {}", e)))
+    }
+
+    #[napi(js_name = "updateKnowledgeQuickNote")]
+    pub async fn update_knowledge_quick_note(
+        &self,
+        note_id: String,
+        input: UpdateKnowledgeQuickNoteInput,
+    ) -> Result<KnowledgeQuickNoteDetail> {
+        let db = self.inner.clone();
+        tokio::task::spawn_blocking(move || KnowledgeService::update_quick_note(&db, &note_id, input))
+            .await
+            .map_err(|e| Error::from_reason(format!("任务执行失败: {}", e)))?
+            .map_err(|e| Error::from_reason(format!("更新知识库速记失败: {}", e)))
+    }
+
+    #[napi(js_name = "archiveKnowledgeQuickNote")]
+    pub async fn archive_knowledge_quick_note(&self, note_id: String) -> Result<KnowledgeQuickNoteDetail> {
+        let db = self.inner.clone();
+        tokio::task::spawn_blocking(move || KnowledgeService::archive_quick_note(&db, &note_id))
+            .await
+            .map_err(|e| Error::from_reason(format!("任务执行失败: {}", e)))?
+            .map_err(|e| Error::from_reason(format!("归档知识库速记失败: {}", e)))
+    }
+
+    #[napi(js_name = "convertKnowledgeQuickNoteToPage")]
+    pub async fn convert_knowledge_quick_note_to_page(
+        &self,
+        note_id: String,
+        input: ConvertKnowledgeQuickNoteToPageInput,
+    ) -> Result<KnowledgePageDetail> {
+        let db = self.inner.clone();
+        tokio::task::spawn_blocking(move || KnowledgeService::convert_quick_note_to_page(&db, &note_id, input))
+            .await
+            .map_err(|e| Error::from_reason(format!("任务执行失败: {}", e)))?
+            .map_err(|e| Error::from_reason(format!("速记转页面失败: {}", e)))
+    }
+
+    #[napi(js_name = "linkKnowledgeQuickNoteTodo")]
+    pub async fn link_knowledge_quick_note_todo(
+        &self,
+        note_id: String,
+        todo_id: String,
+    ) -> Result<KnowledgeQuickNoteDetail> {
+        let db = self.inner.clone();
+        tokio::task::spawn_blocking(move || KnowledgeService::link_quick_note_todo(&db, &note_id, &todo_id))
+            .await
+            .map_err(|e| Error::from_reason(format!("任务执行失败: {}", e)))?
+            .map_err(|e| Error::from_reason(format!("关联速记和 Todo 失败: {}", e)))
+    }
+
+    #[napi(js_name = "createKnowledgeAsset")]
+    pub async fn create_knowledge_asset(
+        &self,
+        input: CreateKnowledgeAssetInput,
+    ) -> Result<KnowledgeAsset> {
+        let db = self.inner.clone();
+        tokio::task::spawn_blocking(move || KnowledgeService::create_asset(&db, input))
+            .await
+            .map_err(|e| Error::from_reason(format!("任务执行失败: {}", e)))?
+            .map_err(|e| Error::from_reason(format!("创建知识库资产失败: {}", e)))
+    }
+
+    #[napi(js_name = "getKnowledgeAsset")]
+    pub async fn get_knowledge_asset(&self, asset_id: String) -> Result<KnowledgeAsset> {
+        let db = self.inner.clone();
+        tokio::task::spawn_blocking(move || KnowledgeService::get_asset_by_id(&db, &asset_id))
+            .await
+            .map_err(|e| Error::from_reason(format!("任务执行失败: {}", e)))?
+            .map_err(|e| Error::from_reason(format!("获取知识库资产失败: {}", e)))
+    }
+
+    #[napi(js_name = "importKnowledgeDocument")]
+    pub async fn import_knowledge_document(
+        &self,
+        input: ImportKnowledgeDocumentInput,
+    ) -> Result<ImportKnowledgeDocumentResult> {
+        let db = self.inner.clone();
+        tokio::task::spawn_blocking(move || KnowledgeService::import_document(&db, input))
+            .await
+            .map_err(|e| Error::from_reason(format!("任务执行失败: {}", e)))?
+            .map_err(|e| Error::from_reason(format!("导入知识库文档失败: {}", e)))
+    }
+
+    #[napi(js_name = "listKnowledgeIndexJobs")]
+    pub async fn list_knowledge_index_jobs(
+        &self,
+        input: Option<ListKnowledgeIndexJobsInput>,
+    ) -> Result<Vec<KnowledgeIndexJob>> {
+        let db = self.inner.clone();
+        tokio::task::spawn_blocking(move || KnowledgeService::list_index_jobs(&db, input))
+            .await
+            .map_err(|e| Error::from_reason(format!("任务执行失败: {}", e)))?
+            .map_err(|e| Error::from_reason(format!("获取知识库索引任务失败: {}", e)))
+    }
+
+    #[napi(js_name = "getKnowledgeIndexJob")]
+    pub async fn get_knowledge_index_job(&self, job_id: String) -> Result<KnowledgeIndexJob> {
+        let db = self.inner.clone();
+        tokio::task::spawn_blocking(move || KnowledgeService::get_index_job_by_id(&db, &job_id))
+            .await
+            .map_err(|e| Error::from_reason(format!("任务执行失败: {}", e)))?
+            .map_err(|e| Error::from_reason(format!("获取知识库索引任务失败: {}", e)))
+    }
+
+    #[napi(js_name = "cancelKnowledgeIndexJob")]
+    pub async fn cancel_knowledge_index_job(&self, job_id: String) -> Result<KnowledgeIndexJob> {
+        let db = self.inner.clone();
+        tokio::task::spawn_blocking(move || KnowledgeService::cancel_index_job(&db, &job_id))
+            .await
+            .map_err(|e| Error::from_reason(format!("任务执行失败: {}", e)))?
+            .map_err(|e| Error::from_reason(format!("取消知识库索引任务失败: {}", e)))
+    }
+
+    #[napi(js_name = "searchKnowledge")]
+    pub async fn search_knowledge(
+        &self,
+        input: KnowledgeSearchInput,
+    ) -> Result<Vec<KnowledgeSearchResult>> {
+        let db = self.inner.clone();
+        tokio::task::spawn_blocking(move || KnowledgeService::search_knowledge(&db, input))
+            .await
+            .map_err(|e| Error::from_reason(format!("任务执行失败: {}", e)))?
+            .map_err(|e| Error::from_reason(format!("搜索知识库失败: {}", e)))
+    }
+
+    #[napi(js_name = "listKnowledgeTags")]
+    pub async fn list_knowledge_tags(
+        &self,
+        input: Option<ListKnowledgeTagsInput>,
+    ) -> Result<Vec<KnowledgeTag>> {
+        let db = self.inner.clone();
+        tokio::task::spawn_blocking(move || KnowledgeService::list_tags(&db, input))
+            .await
+            .map_err(|e| Error::from_reason(format!("任务执行失败: {}", e)))?
+            .map_err(|e| Error::from_reason(format!("获取知识库标签失败: {}", e)))
+    }
+
+    #[napi(js_name = "createKnowledgeTag")]
+    pub async fn create_knowledge_tag(&self, input: CreateKnowledgeTagInput) -> Result<KnowledgeTag> {
+        let db = self.inner.clone();
+        tokio::task::spawn_blocking(move || KnowledgeService::create_tag(&db, input))
+            .await
+            .map_err(|e| Error::from_reason(format!("任务执行失败: {}", e)))?
+            .map_err(|e| Error::from_reason(format!("创建知识库标签失败: {}", e)))
+    }
+
+    #[napi(js_name = "updateKnowledgeTag")]
+    pub async fn update_knowledge_tag(
+        &self,
+        tag_id: String,
+        input: UpdateKnowledgeTagInput,
+    ) -> Result<KnowledgeTag> {
+        let db = self.inner.clone();
+        tokio::task::spawn_blocking(move || KnowledgeService::update_tag(&db, &tag_id, input))
+            .await
+            .map_err(|e| Error::from_reason(format!("任务执行失败: {}", e)))?
+            .map_err(|e| Error::from_reason(format!("更新知识库标签失败: {}", e)))
+    }
+
+    #[napi(js_name = "bindKnowledgeTag")]
+    pub async fn bind_knowledge_tag(&self, input: BindKnowledgeTagInput) -> Result<KnowledgeTag> {
+        let db = self.inner.clone();
+        tokio::task::spawn_blocking(move || KnowledgeService::bind_tag(&db, input))
+            .await
+            .map_err(|e| Error::from_reason(format!("任务执行失败: {}", e)))?
+            .map_err(|e| Error::from_reason(format!("绑定知识库标签失败: {}", e)))
+    }
+
+    #[napi(js_name = "unbindKnowledgeTag")]
+    pub async fn unbind_knowledge_tag(&self, input: UnbindKnowledgeTagInput) -> Result<()> {
+        let db = self.inner.clone();
+        tokio::task::spawn_blocking(move || KnowledgeService::unbind_tag(&db, input))
+            .await
+            .map_err(|e| Error::from_reason(format!("任务执行失败: {}", e)))?
+            .map_err(|e| Error::from_reason(format!("解绑知识库标签失败: {}", e)))
+    }
+
+    #[napi(js_name = "listKnowledgeTagTargets")]
+    pub async fn list_knowledge_tag_targets(
+        &self,
+        input: ListKnowledgeTagTargetsInput,
+    ) -> Result<Vec<KnowledgeTaggedTarget>> {
+        let db = self.inner.clone();
+        tokio::task::spawn_blocking(move || KnowledgeService::list_tag_targets(&db, input))
+            .await
+            .map_err(|e| Error::from_reason(format!("任务执行失败: {}", e)))?
+            .map_err(|e| Error::from_reason(format!("获取知识库标签目标失败: {}", e)))
+    }
+
+    #[napi(js_name = "listKnowledgePageLinks")]
+    pub async fn list_knowledge_page_links(&self, page_id: String) -> Result<Vec<KnowledgeLink>> {
+        let db = self.inner.clone();
+        tokio::task::spawn_blocking(move || KnowledgeService::list_page_links(&db, &page_id))
+            .await
+            .map_err(|e| Error::from_reason(format!("任务执行失败: {}", e)))?
+            .map_err(|e| Error::from_reason(format!("获取知识库页面链接失败: {}", e)))
+    }
+
+    #[napi(js_name = "listKnowledgeBacklinks")]
+    pub async fn list_knowledge_backlinks(&self, page_id: String) -> Result<Vec<KnowledgeBacklink>> {
+        let db = self.inner.clone();
+        tokio::task::spawn_blocking(move || KnowledgeService::list_backlinks(&db, &page_id))
+            .await
+            .map_err(|e| Error::from_reason(format!("任务执行失败: {}", e)))?
+            .map_err(|e| Error::from_reason(format!("获取知识库反链失败: {}", e)))
+    }
+
+    #[napi(js_name = "linkKnowledgeTodoSource")]
+    pub async fn link_knowledge_todo_source(&self, input: LinkKnowledgeTodoInput) -> Result<()> {
+        let db = self.inner.clone();
+        tokio::task::spawn_blocking(move || KnowledgeService::link_todo_source(&db, input))
+            .await
+            .map_err(|e| Error::from_reason(format!("任务执行失败: {}", e)))?
+            .map_err(|e| Error::from_reason(format!("关联知识库 Todo 来源失败: {}", e)))
+    }
+
+    #[napi(js_name = "getKnowledgeGraph")]
+    pub async fn get_knowledge_graph(&self, input: KnowledgeGraphInput) -> Result<KnowledgeGraph> {
+        let db = self.inner.clone();
+        tokio::task::spawn_blocking(move || KnowledgeService::get_graph(&db, input))
+            .await
+            .map_err(|e| Error::from_reason(format!("任务执行失败: {}", e)))?
+            .map_err(|e| Error::from_reason(format!("获取知识库关系图失败: {}", e)))
+    }
+
+    #[napi(js_name = "listKnowledgeOrphanPages")]
+    pub async fn list_knowledge_orphan_pages(
+        &self,
+        input: Option<ListKnowledgeOrphanPagesInput>,
+    ) -> Result<Vec<KnowledgeNode>> {
+        let db = self.inner.clone();
+        tokio::task::spawn_blocking(move || KnowledgeService::list_orphan_pages(&db, input))
+            .await
+            .map_err(|e| Error::from_reason(format!("任务执行失败: {}", e)))?
+            .map_err(|e| Error::from_reason(format!("获取知识库孤立页面失败: {}", e)))
+    }
+
+    #[napi(js_name = "moveKnowledgeNode")]
+    pub async fn move_knowledge_node(
+        &self,
+        node_id: String,
+        input: MoveKnowledgeNodeInput,
+    ) -> Result<KnowledgeNode> {
+        let db = self.inner.clone();
+        tokio::task::spawn_blocking(move || KnowledgeService::move_node(&db, &node_id, input))
+            .await
+            .map_err(|e| Error::from_reason(format!("任务执行失败: {}", e)))?
+            .map_err(|e| Error::from_reason(format!("移动知识库节点失败: {}", e)))
+    }
+
+    #[napi(js_name = "updateKnowledgeNode")]
+    pub async fn update_knowledge_node(
+        &self,
+        node_id: String,
+        input: UpdateKnowledgeNodeInput,
+    ) -> Result<KnowledgeNode> {
+        let db = self.inner.clone();
+        tokio::task::spawn_blocking(move || KnowledgeService::update_node(&db, &node_id, input))
+            .await
+            .map_err(|e| Error::from_reason(format!("任务执行失败: {}", e)))?
+            .map_err(|e| Error::from_reason(format!("更新知识库节点失败: {}", e)))
+    }
+
+    #[napi(js_name = "archiveKnowledgeNode")]
+    pub async fn archive_knowledge_node(&self, node_id: String) -> Result<KnowledgeNode> {
+        let db = self.inner.clone();
+        tokio::task::spawn_blocking(move || KnowledgeService::archive_node(&db, &node_id))
+            .await
+            .map_err(|e| Error::from_reason(format!("任务执行失败: {}", e)))?
+            .map_err(|e| Error::from_reason(format!("归档知识库节点失败: {}", e)))
+    }
+
+    #[napi(js_name = "toggleKnowledgeFavorite")]
+    pub async fn toggle_knowledge_favorite(
+        &self,
+        node_id: String,
+        favorite: bool,
+    ) -> Result<KnowledgeNode> {
+        let db = self.inner.clone();
+        tokio::task::spawn_blocking(move || {
+            KnowledgeService::toggle_favorite(&db, &node_id, favorite)
+        })
+        .await
+        .map_err(|e| Error::from_reason(format!("任务执行失败: {}", e)))?
+        .map_err(|e| Error::from_reason(format!("更新知识库收藏状态失败: {}", e)))
+    }
+
+    #[napi(js_name = "deleteKnowledgeNode")]
+    pub async fn delete_knowledge_node(&self, node_id: String) -> Result<()> {
+        let db = self.inner.clone();
+        tokio::task::spawn_blocking(move || KnowledgeService::delete_node(&db, &node_id))
+            .await
+            .map_err(|e| Error::from_reason(format!("任务执行失败: {}", e)))?
+            .map_err(|e| Error::from_reason(format!("删除知识库节点失败: {}", e)))
+    }
+
     // ==================== Todo 相关方法 ====================
 
     #[napi(js_name = "createTodoList")]
@@ -1270,11 +1693,12 @@ use crate::ftp::{
     UpdateFtpSessionFolderInput, UpsertFtpRestoreStateInput,
 };
 use crate::ssh::{
-    ConnectSshInput, CreatePortForwardInput, CreateSshProfileFolderInput, CreateSshProfileInput, ExportSshManagedKeyData,
-    GenerateSshManagedKeyInput, HostVerifyResult, ImportSshManagedKeyInput, PortForwardStatus,
-    PortForwardTrafficInfo, ResizeSshSessionInput, SshAgentIdentity, SshConnectionManager,
-    SshKnownHost, SshManagedKey, SshPortForward, SshProfile, SshProfileFolder, SshSessionDescriptor, TrustHostInput,
-    UpdatePortForwardInput, UpdateSshProfileFolderInput, UpdateSshProfileInput,
+    ConnectSshInput, CreatePortForwardInput, CreateSshProfileFolderInput, CreateSshProfileInput,
+    ExportSshManagedKeyData, GenerateSshManagedKeyInput, HostVerifyResult,
+    ImportSshManagedKeyInput, PortForwardStatus, PortForwardTrafficInfo, ResizeSshSessionInput,
+    SshAgentIdentity, SshConnectionManager, SshKnownHost, SshManagedKey, SshPortForward,
+    SshProfile, SshProfileFolder, SshSessionDescriptor, TrustHostInput, UpdatePortForwardInput,
+    UpdateSshProfileFolderInput, UpdateSshProfileInput,
 };
 
 /// NAPI wrapper for the SSH connection manager.
@@ -1317,7 +1741,10 @@ impl JsSshHost {
 
     /// Create a new SSH profile folder.
     #[napi(js_name = "createFolder")]
-    pub async fn create_folder(&self, input: CreateSshProfileFolderInput) -> Result<SshProfileFolder> {
+    pub async fn create_folder(
+        &self,
+        input: CreateSshProfileFolderInput,
+    ) -> Result<SshProfileFolder> {
         let manager = self.inner.clone();
         tokio::task::spawn_blocking(move || manager.create_folder(input))
             .await
@@ -1327,7 +1754,10 @@ impl JsSshHost {
 
     /// Update an existing SSH profile folder.
     #[napi(js_name = "updateFolder")]
-    pub async fn update_folder(&self, input: UpdateSshProfileFolderInput) -> Result<SshProfileFolder> {
+    pub async fn update_folder(
+        &self,
+        input: UpdateSshProfileFolderInput,
+    ) -> Result<SshProfileFolder> {
         let manager = self.inner.clone();
         tokio::task::spawn_blocking(move || manager.update_folder(input))
             .await

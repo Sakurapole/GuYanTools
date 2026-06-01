@@ -4,7 +4,7 @@ import type { BackgroundStyleConfig } from './background';
 
 export type AppTheme = 'light' | 'dark';
 export type AppLanguage = 'zh' | 'en';
-export type AppSettingsTabId = 'general' | 'file-transfer' | 'web-security' | 'ai-agent' | 'plugins' | 'terminal' | 'multi-device-clipboard' | 'shortcuts';
+export type AppSettingsTabId = 'general' | 'file-transfer' | 'web-security' | 'ai-agent' | 'plugins' | 'terminal' | 'multi-device-clipboard' | 'knowledge' | 'shortcuts';
 export type AppBottomBarTabId =
   | 'home'
   | 'terminal'
@@ -12,6 +12,7 @@ export type AppBottomBarTabId =
   | 'ftp'
   | 'plugins'
   | 'todo'
+  | 'knowledge'
   | 'script-editor'
   | 'devtools';
 
@@ -19,7 +20,7 @@ export const APP_CONFIG_VERSION = 1;
 export const SYSTEM_FONT_OPTION_VALUE = 'system-default';
 export const SYSTEM_FONT_STACK = "'Geist Variable', system-ui, -apple-system, 'Segoe UI', sans-serif";
 export const APP_BOTTOM_BAR_REQUIRED_TAB_IDS: AppBottomBarTabId[] = ['home', 'settings'];
-export const APP_BOTTOM_BAR_DEFAULT_VISIBLE_TAB_IDS: AppBottomBarTabId[] = ['home', 'terminal', 'settings', 'ftp', 'devtools'];
+export const APP_BOTTOM_BAR_DEFAULT_VISIBLE_TAB_IDS: AppBottomBarTabId[] = ['home', 'terminal', 'settings', 'ftp', 'knowledge', 'devtools'];
 
 export interface AppInternalFunctionDefinition {
   id: AppBottomBarTabId;
@@ -74,6 +75,13 @@ export const APP_INTERNAL_FUNCTIONS: AppInternalFunctionDefinition[] = [
     description: '任务列表、详情和日程整理。',
   },
   {
+    id: 'knowledge',
+    label: '知识库',
+    route: '/knowledge',
+    icon: 'knowledge',
+    description: '本地资料、笔记、附件和检索入口。',
+  },
+  {
     id: 'script-editor',
     label: '脚本编辑器',
     route: '/script-editor',
@@ -105,6 +113,8 @@ export interface AppInternalShortcutsConfig {
 export interface AppSystemShortcutsConfig {
   toggleAppVisibility: string;
   toggleMultiDeviceClipboard: string;
+  toggleQuickNote: string;
+  captureClipboardToQuickNote: string;
 }
 
 export interface AppShortcutsConfig {
@@ -117,6 +127,7 @@ export interface AppFeaturesConfig {
   settings: AppSettingsFeatureConfig;
   terminal: TerminalFeatureConfig;
   multiDeviceClipboard: MultiDeviceClipboardFeatureConfig;
+  knowledge: AppKnowledgeFeatureConfig;
 }
 
 export interface AppSettingsTabPersonalizationConfig {
@@ -137,6 +148,18 @@ export interface MultiDeviceClipboardFeatureConfig {
   maxSyncBytes: number;
   historyLimit: number;
   networkInterfacePriority: string[];
+}
+
+export type AppKnowledgeAssetStorageMode = 'app-data' | 'custom';
+
+export interface AppKnowledgeFeatureConfig {
+  defaultLibraryId: string;
+  assetStorageMode: AppKnowledgeAssetStorageMode;
+  customAssetDirectory: string;
+  libreOfficePath: string;
+  indexingEnabled: boolean;
+  maxImportFileSizeMb: number;
+  previewCacheTtlDays: number;
 }
 
 export interface LocalNetworkInterfaceOption {
@@ -188,6 +211,7 @@ export interface AppConfigPatch {
     };
     terminal?: Partial<TerminalFeatureConfig>;
     multiDeviceClipboard?: Partial<MultiDeviceClipboardFeatureConfig>;
+    knowledge?: Partial<AppKnowledgeFeatureConfig>;
   };
   shortcuts?: {
     internal?: Partial<AppInternalShortcutsConfig>;
@@ -232,6 +256,7 @@ export function createDefaultAppConfig(): AppConfig {
           plugins: createDefaultSettingsTabPersonalization(),
           terminal: createDefaultSettingsTabPersonalization(),
           'multi-device-clipboard': createDefaultSettingsTabPersonalization(),
+          knowledge: createDefaultSettingsTabPersonalization(),
           shortcuts: createDefaultSettingsTabPersonalization(),
         },
       },
@@ -262,6 +287,15 @@ export function createDefaultAppConfig(): AppConfig {
         historyLimit: 200,
         networkInterfacePriority: [],
       },
+      knowledge: {
+        defaultLibraryId: '',
+        assetStorageMode: 'app-data',
+        customAssetDirectory: '',
+        libreOfficePath: '',
+        indexingEnabled: true,
+        maxImportFileSizeMb: 200,
+        previewCacheTtlDays: 30,
+      },
     },
     shortcuts: {
       internal: {
@@ -271,6 +305,8 @@ export function createDefaultAppConfig(): AppConfig {
       system: {
         toggleAppVisibility: 'CommandOrControl+Alt+G',
         toggleMultiDeviceClipboard: 'Alt+V',
+        toggleQuickNote: 'CommandOrControl+Alt+N',
+        captureClipboardToQuickNote: 'CommandOrControl+Alt+Shift+N',
       },
     },
     plugins: {

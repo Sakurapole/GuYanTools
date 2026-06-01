@@ -35,6 +35,7 @@
     },
     "pnpm": {
         "onlyBuiltDependencies": [
+            "@bitdisaster/exe-icon-extractor",
             "@parcel/watcher",
             "electron",
             "electron-winstaller",

@@ -10,7 +10,12 @@ export default defineConfig({
   base: isBuilderElectron ? './' : '/',
   cacheDir: '.vite/cache/main_window',
   optimizeDeps: {
-    include: ['pinia']
+    include: [
+      'pinia',
+      "@codemirror/state",
+      "@codemirror/view",
+      "@codemirror/language"
+    ]
   },
   plugins: [
     vue({
@@ -32,7 +37,14 @@ export default defineConfig({
   resolve: {
     alias: {
       '@': path.resolve(__dirname, 'src')
-    }
+    },
+    dedupe: [
+      "@codemirror/state",
+      "@codemirror/view",
+      "@codemirror/language",
+      "@codemirror/autocomplete"
+    ],
+    preserveSymlinks: false
   },
   server: {
     host: '127.0.0.1',
@@ -53,6 +65,7 @@ export default defineConfig({
         notification: path.resolve(__dirname, 'notification.html'),
         clipboard: path.resolve(__dirname, 'clipboard.html'),
         clipboard_text_preview: path.resolve(__dirname, 'clipboard_text_preview.html'),
+        quick_note: path.resolve(__dirname, 'quick_note.html'),
         tray_menu: path.resolve(__dirname, 'tray_menu.html'),
       }
     }

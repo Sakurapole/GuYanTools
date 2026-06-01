@@ -8,6 +8,7 @@ import type { TrayApi } from '@/contracts/tray';
 import type { FtpApi } from '@/contracts/ftp';
 import type { MultiDeviceClipboardApi } from '@/contracts/multi_device_clipboard';
 import type { TodoApi } from '@/contracts/todo';
+import type { KnowledgeApi, QuickNoteWindowApi } from '@/contracts/knowledge';
 
 // export * from './plugin.d.ts';
 export { };
@@ -49,6 +50,8 @@ declare global {
     notificationApi?: NotificationApi;
     homeWorkspaceApi?: HomeWorkspaceApi;
     todoApi?: TodoApi;
+    knowledgeApi?: KnowledgeApi;
+    quickNoteWindowApi?: QuickNoteWindowApi;
     trayApi?: TrayApi;
     multiDeviceClipboardApi?: MultiDeviceClipboardApi;
     ftpApi: FtpApi;
