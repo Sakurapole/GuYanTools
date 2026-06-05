@@ -93,6 +93,11 @@ export interface CreateKnowledgeLibraryPayload {
   description?: string;
 }
 
+export interface UpdateKnowledgeLibraryPayload {
+  name?: string;
+  description?: string;
+}
+
 export interface KnowledgeSpace {
   id: string;
   libraryId: string;
@@ -109,6 +114,14 @@ export interface KnowledgeSpace {
 export interface CreateKnowledgeSpacePayload {
   libraryId?: string;
   name: string;
+  description?: string;
+  icon?: string;
+  color?: string;
+  sortOrder?: number;
+}
+
+export interface UpdateKnowledgeSpacePayload {
+  name?: string;
   description?: string;
   icon?: string;
   color?: string;
@@ -509,8 +522,12 @@ export interface UpdateKnowledgeNodePayload {
 export interface KnowledgeApi {
   listLibraries: () => Promise<KnowledgeLibrary[]>;
   createLibrary: (input: CreateKnowledgeLibraryPayload) => Promise<KnowledgeLibrary>;
+  updateLibrary: (libraryId: string, input: UpdateKnowledgeLibraryPayload) => Promise<KnowledgeLibrary>;
+  deleteLibrary: (libraryId: string) => Promise<void>;
   listSpaces: (libraryId?: string) => Promise<KnowledgeSpace[]>;
   createSpace: (input: CreateKnowledgeSpacePayload) => Promise<KnowledgeSpace>;
+  updateSpace: (spaceId: string, input: UpdateKnowledgeSpacePayload) => Promise<KnowledgeSpace>;
+  deleteSpace: (spaceId: string) => Promise<void>;
   listTree: (input?: ListKnowledgeTreePayload) => Promise<KnowledgeNode[]>;
   createFolder: (input: CreateKnowledgeFolderPayload) => Promise<KnowledgeNode>;
   createPage: (input: CreateKnowledgePagePayload) => Promise<KnowledgePageDetail>;

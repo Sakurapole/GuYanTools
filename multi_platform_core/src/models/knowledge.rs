@@ -23,6 +23,13 @@ pub struct CreateKnowledgeLibraryInput {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[cfg_attr(feature = "napi", napi(object))]
+pub struct UpdateKnowledgeLibraryInput {
+    pub name: Option<String>,
+    pub description: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[cfg_attr(feature = "napi", napi(object))]
 pub struct KnowledgeSpace {
     pub id: String,
     pub library_id: String,
@@ -41,6 +48,16 @@ pub struct KnowledgeSpace {
 pub struct CreateKnowledgeSpaceInput {
     pub library_id: Option<String>,
     pub name: String,
+    pub description: Option<String>,
+    pub icon: Option<String>,
+    pub color: Option<String>,
+    pub sort_order: Option<i64>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[cfg_attr(feature = "napi", napi(object))]
+pub struct UpdateKnowledgeSpaceInput {
+    pub name: Option<String>,
     pub description: Option<String>,
     pub icon: Option<String>,
     pub color: Option<String>,

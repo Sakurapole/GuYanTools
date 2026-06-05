@@ -11,8 +11,9 @@ use crate::models::{
     KnowledgeTaggedTarget, LinkKnowledgeTodoInput, ListKnowledgeIndexJobsInput,
     ListKnowledgeOrphanPagesInput, ListKnowledgeQuickNotesInput, ListKnowledgeTagTargetsInput,
     ListKnowledgeTagsInput, ListKnowledgeTreeInput, MoveKnowledgeNodeInput,
-    UnbindKnowledgeTagInput, UpdateKnowledgeNodeInput, UpdateKnowledgePageInput,
-    UpdateKnowledgeQuickNoteInput, UpdateKnowledgeTagInput,
+    UnbindKnowledgeTagInput, UpdateKnowledgeLibraryInput, UpdateKnowledgeNodeInput,
+    UpdateKnowledgePageInput, UpdateKnowledgeQuickNoteInput, UpdateKnowledgeSpaceInput,
+    UpdateKnowledgeTagInput,
 };
 use rusqlite::{params, Connection, OptionalExtension, Row};
 use std::collections::HashSet;
@@ -60,6 +61,47 @@ impl KnowledgeService {
         })
     }
 
+    pub fn update_library(
+        db: &Database,
+        library_id: &str,
+        input: UpdateKnowledgeLibraryInput,
+    ) -> DbResult<KnowledgeLibrary> {
+        db.transaction(|conn| {
+            let current = Self::get_library(conn, library_id)?;
+            let name = match input.name {
+                Some(name) => Self::normalize_required_text(name, "知识库名称不能为空")?,
+                None => current.name,
+            };
+            let description = input.description
+                .and_then(|value| Some(value.trim().to_string()))
+                .unwrap_or(current.description);
+
+            conn.execute(
+                "UPDATE knowledge_libraries
+                 SET name = ?1, description = ?2, updated_at = datetime('now')
+                 WHERE id = ?3",
+                params![name, description, library_id],
+            )?;
+            Self::get_library(conn, library_id)
+        })
+    }
+
+    pub fn delete_library(db: &Database, library_id: &str) -> DbResult<()> {
+        db.transaction(|conn| {
+            let library = Self::get_library(conn, library_id)?;
+            if library.is_default {
+                return Err(DbError::InvalidParameter("默认知识库不能删除".to_string()));
+            }
+
+            conn.execute(
+                "DELETE FROM knowledge_search_fts WHERE library_id = ?1",
+                params![library_id],
+            )?;
+            conn.execute("DELETE FROM knowledge_libraries WHERE id = ?1", params![library_id])?;
+            Ok(())
+        })
+    }
+
     pub fn list_spaces(db: &Database, library_id: Option<String>) -> DbResult<Vec<KnowledgeSpace>> {
         db.transaction(|conn| {
             Self::ensure_default_structure_with_conn(conn)?;
@@ -69,7 +111,7 @@ impl KnowledgeService {
                 "SELECT id, library_id, name, description, icon, color, sort_order, is_default, created_at, updated_at
                  FROM knowledge_spaces
                  WHERE library_id = ?1
-                 ORDER BY is_default DESC, sort_order ASC, created_at ASC",
+                 ORDER BY sort_order ASC, is_default DESC, created_at ASC",
             )?;
             let spaces = stmt
                 .query_map(params![library_id], Self::map_space)?
@@ -100,6 +142,58 @@ impl KnowledgeService {
                 params![id, library_id, name, description, icon, color, sort_order],
             )?;
             Self::get_space(conn, &id)
+        })
+    }
+
+    pub fn update_space(
+        db: &Database,
+        space_id: &str,
+        input: UpdateKnowledgeSpaceInput,
+    ) -> DbResult<KnowledgeSpace> {
+        db.transaction(|conn| {
+            let current = Self::get_space(conn, space_id)?;
+            let name = match input.name {
+                Some(name) => Self::normalize_required_text(name, "空间名称不能为空")?,
+                None => current.name,
+            };
+            let description = input.description
+                .and_then(|value| Some(value.trim().to_string()))
+                .unwrap_or(current.description);
+            let icon = Self::normalize_optional_text(input.icon).unwrap_or(current.icon);
+            let color = Self::normalize_optional_text(input.color).unwrap_or(current.color);
+            let sort_order = input.sort_order.unwrap_or(current.sort_order);
+
+            conn.execute(
+                "UPDATE knowledge_spaces
+                 SET name = ?1, description = ?2, icon = ?3, color = ?4, sort_order = ?5, updated_at = datetime('now')
+                 WHERE id = ?6",
+                params![name, description, icon, color, sort_order, space_id],
+            )?;
+            Self::get_space(conn, space_id)
+        })
+    }
+
+    pub fn delete_space(db: &Database, space_id: &str) -> DbResult<()> {
+        db.transaction(|conn| {
+            let space = Self::get_space(conn, space_id)?;
+            if space.is_default {
+                return Err(DbError::InvalidParameter("默认空间不能删除".to_string()));
+            }
+
+            conn.execute(
+                "UPDATE knowledge_nodes
+                 SET is_archived = 1, deleted_at = datetime('now'), updated_at = datetime('now')
+                 WHERE space_id = ?1",
+                params![space_id],
+            )?;
+            conn.execute(
+                "DELETE FROM knowledge_search_fts WHERE library_id = ?1 AND node_id IN (
+                    SELECT id FROM knowledge_nodes WHERE space_id = ?2
+                 )",
+                params![space.library_id, space_id],
+            )?;
+            conn.execute("DELETE FROM knowledge_spaces WHERE id = ?1", params![space_id])?;
+            Ok(())
         })
     }
 
@@ -557,6 +651,7 @@ impl KnowledgeService {
                 Self::normalize_required_text(input.original_name, "导入文件名不能为空")?;
             let mime_type = Self::normalize_optional_text(input.mime_type).unwrap_or_default();
             let extension = Self::normalize_optional_text(input.extension).unwrap_or_default();
+            let is_markdown_import = Self::is_markdown_import(&extension, &mime_type);
             let storage_path =
                 Self::normalize_required_text(input.storage_path, "导入文件存储路径不能为空")?;
             let original_path = Self::normalize_optional_text(input.original_path);
@@ -614,27 +709,53 @@ impl KnowledgeService {
 
             let title = Self::document_title_from_name(&asset.original_name);
             let document = if let Some(document_id) = Self::get_document_id_by_asset(conn, &asset.id)? {
-                conn.execute(
-                    "UPDATE knowledge_pages
-                     SET content_text = ?1, properties_json = ?2, updated_at = datetime('now')
-                     WHERE id = ?3",
-                    params![asset.extracted_text, asset.metadata_json, document_id],
-                )?;
+                if is_markdown_import {
+                    conn.execute(
+                        "UPDATE knowledge_pages
+                         SET page_type = 'markdown',
+                             content_markdown = ?1,
+                             content_text = ?1,
+                             properties_json = ?2,
+                             updated_at = datetime('now')
+                         WHERE id = ?3",
+                        params![asset.extracted_text, asset.metadata_json, document_id],
+                    )?;
+                    conn.execute(
+                        "UPDATE knowledge_nodes
+                         SET node_type = 'page', icon = ?1, updated_at = datetime('now')
+                         WHERE id = ?2",
+                        params![Self::document_icon(&asset.extension), document_id],
+                    )?;
+                } else {
+                    conn.execute(
+                        "UPDATE knowledge_pages
+                         SET content_text = ?1, properties_json = ?2, updated_at = datetime('now')
+                         WHERE id = ?3",
+                        params![asset.extracted_text, asset.metadata_json, document_id],
+                    )?;
+                }
                 Self::get_page_detail(conn, &document_id)?
             } else {
-                let node_id = Self::new_id("document");
-                let content_markdown = format!(
-                    "# {}\n\n> 导入文档，原文件作为知识库资产保存。\n",
-                    title
-                );
+                let node_id = Self::new_id(if is_markdown_import { "page" } else { "document" });
+                let node_type = if is_markdown_import { "page" } else { "document" };
+                let page_type = if is_markdown_import { "markdown" } else { "external_document" };
+                let content_markdown = if is_markdown_import {
+                    asset.extracted_text.clone()
+                } else {
+                    format!(
+                        "# {}\n\n> 导入文档，原文件作为知识库资产保存。\n",
+                        title
+                    )
+                };
                 conn.execute(
                     "INSERT INTO knowledge_nodes (id, library_id, space_id, parent_id, node_type, title, icon, sort_order)
-                     VALUES (?1, ?2, ?3, ?4, 'document', ?5, ?6, 0)",
+                     VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, 0)",
                     params![
                         node_id,
                         asset.library_id,
                         space_id,
                         parent_id,
+                        node_type,
                         title,
                         Self::document_icon(&asset.extension)
                     ],
@@ -643,19 +764,21 @@ impl KnowledgeService {
                     "INSERT INTO knowledge_pages (
                         id, page_type, content_markdown, content_text, properties_json, source_asset_id
                      )
-                     VALUES (?1, 'external_document', ?2, ?3, ?4, ?5)",
+                     VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
                     params![
                         node_id,
+                        page_type,
                         content_markdown,
                         asset.extracted_text,
                         asset.metadata_json,
                         asset.id
                     ],
                 )?;
-                Self::insert_knowledge_link(conn, "document", &node_id, "asset", Some(&asset.id), "source")?;
-                Self::insert_knowledge_link(conn, "asset", &asset.id, "document", Some(&node_id), "owned_by")?;
+                Self::insert_knowledge_link(conn, node_type, &node_id, "asset", Some(&asset.id), "source")?;
+                Self::insert_knowledge_link(conn, "asset", &asset.id, node_type, Some(&node_id), "owned_by")?;
                 Self::get_page_detail(conn, &node_id)?
             };
+            let search_source_type = if document.node.node_type == "document" { "document" } else { "page" };
 
             let job = Self::create_index_job(
                 conn,
@@ -676,7 +799,7 @@ impl KnowledgeService {
                 Self::upsert_search_document(
                     conn,
                     &asset.library_id,
-                    "document",
+                    search_source_type,
                     &document.node.id,
                     Some(&document.node.id),
                     Some(&asset.id),
@@ -689,7 +812,7 @@ impl KnowledgeService {
                 Self::upsert_search_document(
                     conn,
                     &asset.library_id,
-                    "document",
+                    search_source_type,
                     &document.node.id,
                     Some(&document.node.id),
                     Some(&asset.id),
@@ -698,6 +821,9 @@ impl KnowledgeService {
                     "",
                     asset.metadata_json.as_deref().unwrap_or(""),
                 )?;
+            }
+            if is_markdown_import {
+                Self::sync_page_wikilinks(conn, &document)?;
             }
             Self::upsert_search_document(
                 conn,
@@ -1690,6 +1816,13 @@ impl KnowledgeService {
         }
     }
 
+    fn is_markdown_import(extension: &str, mime_type: &str) -> bool {
+        let extension = extension.trim().to_lowercase();
+        let mime_type = mime_type.trim().to_lowercase();
+        matches!(extension.as_str(), ".md" | ".markdown")
+            || matches!(mime_type.as_str(), "text/markdown" | "text/x-markdown")
+    }
+
     fn normalize_import_status(value: Option<String>) -> DbResult<String> {
         let status = Self::normalize_optional_text(value).unwrap_or_else(|| "ready".to_string());
         match status.as_str() {
@@ -2200,7 +2333,7 @@ impl KnowledgeService {
              FROM knowledge_pages p
              INNER JOIN knowledge_nodes n ON n.id = p.id
              WHERE p.source_asset_id = ?1
-               AND n.node_type = 'document'
+               AND n.node_type IN ('document', 'page')
                AND n.deleted_at IS NULL
              ORDER BY n.created_at ASC
              LIMIT 1",
@@ -2226,7 +2359,8 @@ impl KnowledgeService {
 
     fn document_icon(extension: &str) -> &'static str {
         match extension.trim_start_matches('.').to_ascii_lowercase().as_str() {
-            "pdf" => "file-text",
+            "md" | "markdown" => "file-type",
+            "pdf" => "file-type-2",
             "doc" | "docx" => "file-type-2",
             "ppt" | "pptx" => "presentation",
             "xls" | "xlsx" | "csv" => "sheet",
@@ -2237,10 +2371,11 @@ impl KnowledgeService {
 
     fn page_icon(page_type: &str) -> &'static str {
         match page_type {
+            "markdown" => "file-type",
             "block" => "layout-template",
             "canvas" => "layout-dashboard",
             "external_document" => "file-search",
-            _ => "file-text",
+            _ => "file-type",
         }
     }
 
@@ -2743,6 +2878,103 @@ mod tests {
     }
 
     #[test]
+    fn test_manage_libraries_and_spaces_without_removing_defaults() {
+        let db = db();
+        let library = KnowledgeService::create_library(
+            &db,
+            CreateKnowledgeLibraryInput {
+                name: "旧知识库".to_string(),
+                description: Some("旧描述".to_string()),
+            },
+        )
+        .unwrap();
+
+        let renamed_library = KnowledgeService::update_library(
+            &db,
+            &library.id,
+            UpdateKnowledgeLibraryInput {
+                name: Some("项目知识库".to_string()),
+                description: Some("项目资料目录".to_string()),
+            },
+        )
+        .unwrap();
+        assert_eq!(renamed_library.name, "项目知识库");
+        assert_eq!(renamed_library.description, "项目资料目录");
+
+        let space = KnowledgeService::create_space(
+            &db,
+            CreateKnowledgeSpaceInput {
+                library_id: Some(library.id.clone()),
+                name: "旧空间".to_string(),
+                description: None,
+                icon: None,
+                color: None,
+                sort_order: Some(3),
+            },
+        )
+        .unwrap();
+        let renamed_space = KnowledgeService::update_space(
+            &db,
+            &space.id,
+            UpdateKnowledgeSpaceInput {
+                name: Some("研发空间".to_string()),
+                description: Some("研发资料".to_string()),
+                icon: Some("file-stack".to_string()),
+                color: Some("#22c55e".to_string()),
+                sort_order: Some(1),
+            },
+        )
+        .unwrap();
+        assert_eq!(renamed_space.name, "研发空间");
+        assert_eq!(renamed_space.sort_order, 1);
+
+        let spaces = KnowledgeService::list_spaces(&db, Some(library.id.clone())).unwrap();
+        assert_eq!(spaces[0].sort_order, 0);
+        assert_eq!(spaces[1].id, space.id);
+
+        KnowledgeService::delete_space(&db, &space.id).unwrap();
+        let remaining_spaces = KnowledgeService::list_spaces(&db, Some(library.id.clone())).unwrap();
+        assert!(remaining_spaces.iter().all(|item| item.id != space.id));
+
+        KnowledgeService::delete_library(&db, &library.id).unwrap();
+        let libraries = KnowledgeService::list_libraries(&db).unwrap();
+        assert!(libraries.iter().all(|item| item.id != library.id));
+        assert!(KnowledgeService::delete_library(&db, KnowledgeService::DEFAULT_LIBRARY_ID).is_err());
+        assert!(KnowledgeService::delete_space(&db, KnowledgeService::DEFAULT_SPACE_ID).is_err());
+    }
+
+    #[test]
+    fn test_markdown_import_creates_normal_markdown_page() {
+        let db = db();
+        let imported = KnowledgeService::import_document(
+            &db,
+            ImportKnowledgeDocumentInput {
+                library_id: None,
+                space_id: None,
+                parent_id: None,
+                hash: "hash-md".to_string(),
+                original_name: "meeting-notes.md".to_string(),
+                mime_type: Some("text/markdown".to_string()),
+                extension: Some(".md".to_string()),
+                size_bytes: 32,
+                storage_path: "/tmp/meeting-notes.md".to_string(),
+                original_path: None,
+                extracted_text: Some("# Meeting\n\n正文".to_string()),
+                metadata_json: Some(r#"{"sourceType":"markdown_import"}"#.to_string()),
+                extraction_status: Some("succeeded".to_string()),
+                extraction_error: None,
+            },
+        )
+        .unwrap();
+
+        assert_eq!(imported.document.node.node_type, "page");
+        assert_eq!(imported.document.page.page_type, "markdown");
+        assert_eq!(imported.document.page.content_markdown, "# Meeting\n\n正文");
+        assert_eq!(imported.document.page.content_text, "# Meeting\n\n正文");
+        assert_eq!(imported.document.page.source_asset_id.as_deref(), Some(imported.asset.id.as_str()));
+    }
+
+    #[test]
     fn test_block_page_content_json_updates_and_searches() {
         let db = db();
         let block_json = r#"{"type":"guyantools.block-page","version":1,"blocks":[{"id":"block-1","type":"paragraph","text":"块页面 索引短语"}]}"#;
@@ -3229,8 +3461,8 @@ mod tests {
         )
         .unwrap();
 
-        assert_eq!(imported.document.node.node_type, "document");
-        assert_eq!(imported.document.page.page_type, "external_document");
+        assert_eq!(imported.document.node.node_type, "page");
+        assert_eq!(imported.document.page.page_type, "markdown");
         assert_eq!(imported.document.page.source_asset_id.as_deref(), Some(imported.asset.id.as_str()));
         assert_eq!(imported.index_job.status, "succeeded");
         assert!(!imported.duplicate_asset);
@@ -3241,13 +3473,13 @@ mod tests {
                 library_id: None,
                 space_id: None,
                 query: "中文搜索".to_string(),
-                source_type: Some("document".to_string()),
+                source_type: Some("page".to_string()),
                 limit: Some(10),
             },
         )
         .unwrap();
         assert_eq!(results.len(), 1);
-        assert_eq!(results[0].source_type, "document");
+        assert_eq!(results[0].source_type, "page");
         assert_eq!(results[0].node_id.as_deref(), Some(imported.document.node.id.as_str()));
 
         let asset_results = KnowledgeService::search_knowledge(

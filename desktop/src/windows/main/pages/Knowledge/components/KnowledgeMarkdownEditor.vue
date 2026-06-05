@@ -1,15 +1,23 @@
 <script setup lang="ts">
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, shallowRef, watch } from 'vue';
-import { marked } from 'marked';
 import { closeBrackets, closeBracketsKeymap } from '@codemirror/autocomplete';
 import { defaultKeymap, history, historyKeymap, indentWithTab } from '@codemirror/commands';
-import { markdown } from '@codemirror/lang-markdown';
+import { css } from '@codemirror/lang-css';
+import { html } from '@codemirror/lang-html';
+import { javascript } from '@codemirror/lang-javascript';
+import { json } from '@codemirror/lang-json';
+import { markdown, markdownLanguage } from '@codemirror/lang-markdown';
+import { python } from '@codemirror/lang-python';
+import { rust } from '@codemirror/lang-rust';
+import { sql } from '@codemirror/lang-sql';
+import { xml } from '@codemirror/lang-xml';
 import {
   bracketMatching,
   defaultHighlightStyle,
   foldGutter,
   foldKeymap,
   indentOnInput,
+  LanguageDescription,
   syntaxHighlighting,
 } from '@codemirror/language';
 import { EditorState, Prec, type Extension } from '@codemirror/state';
@@ -25,6 +33,7 @@ import {
   lineNumbers,
   placeholder,
   rectangularSelection,
+  ViewPlugin,
 } from '@codemirror/view';
 import IconRenderer from '@/windows/main/components/ui/IconRenderer.vue';
 import UiButton from '@/windows/main/components/ui/UiButton.vue';
@@ -33,10 +42,10 @@ import UiInput from '@/windows/main/components/ui/UiInput.vue';
 import UiSelect from '@/windows/main/components/ui/UiSelect.vue';
 import UiTextarea from '@/windows/main/components/ui/UiTextarea.vue';
 import MarkdownPreviewVirtualList from './markdown/MarkdownPreviewVirtualList.vue';
-import { markdownWysiwygDecorations } from '../composables/useMarkdownWysiwygDecorations';
-import { sanitizeKnowledgeMarkdownHtml } from '../utils/markdown_sanitize';
+import { markdownLivePreviewDecorations } from '../composables/useMarkdownWysiwygDecorations';
+import { renderMarkdownPreviewHtml } from '../utils/markdown_enhanced_render';
 
-type EditorMode = 'edit' | 'split' | 'preview' | 'wysiwyg';
+type EditorMode = 'source' | 'livePreview' | 'reading' | 'split';
 type MarkdownEditorTheme = 'system' | 'paper' | 'focus';
 
 const props = defineProps<{
@@ -54,7 +63,7 @@ const emit = defineEmits<{
 
 const editorHost = ref<HTMLElement | null>(null);
 const editorView = shallowRef<EditorView | null>(null);
-const mode = ref<EditorMode>('split');
+const mode = ref<EditorMode>('livePreview');
 const markdownTheme = ref<MarkdownEditorTheme>('system');
 const focusMode = ref(false);
 const typewriterMode = ref(false);
@@ -75,11 +84,151 @@ const markdownThemeOptions = [
 ];
 const exportOpen = ref(false);
 
+const markdownCodeLanguages = [
+  LanguageDescription.of({
+    name: 'JavaScript',
+    alias: ['js', 'jsx', 'mjs', 'cjs', 'node'],
+    extensions: ['js', 'jsx', 'mjs', 'cjs'],
+    support: javascript({ jsx: true }),
+  }),
+  LanguageDescription.of({
+    name: 'TypeScript',
+    alias: ['ts', 'tsx'],
+    extensions: ['ts', 'tsx'],
+    support: javascript({ typescript: true, jsx: true }),
+  }),
+  LanguageDescription.of({
+    name: 'JSON',
+    alias: ['json', 'jsonc'],
+    extensions: ['json', 'jsonc'],
+    support: json(),
+  }),
+  LanguageDescription.of({
+    name: 'HTML',
+    alias: ['html', 'htm'],
+    extensions: ['html', 'htm'],
+    support: html(),
+  }),
+  LanguageDescription.of({
+    name: 'CSS',
+    alias: ['css', 'scss', 'sass', 'less'],
+    extensions: ['css', 'scss', 'sass', 'less'],
+    support: css(),
+  }),
+  LanguageDescription.of({
+    name: 'Python',
+    alias: ['py'],
+    extensions: ['py'],
+    support: python(),
+  }),
+  LanguageDescription.of({
+    name: 'Rust',
+    alias: ['rs'],
+    extensions: ['rs'],
+    support: rust(),
+  }),
+  LanguageDescription.of({
+    name: 'SQL',
+    alias: ['postgres', 'postgresql', 'mysql', 'sqlite'],
+    extensions: ['sql'],
+    support: sql(),
+  }),
+  LanguageDescription.of({
+    name: 'XML',
+    alias: ['xml', 'svg'],
+    extensions: ['xml', 'svg'],
+    support: xml(),
+  }),
+];
+
+const markdownFoldHoverClass = 'cm-md-fold-gutterElement--hovered';
+
+function createMarkdownFoldMarker(open: boolean) {
+  const svgNamespace = 'http://www.w3.org/2000/svg';
+  const marker = document.createElement('span');
+  marker.className = `cm-md-fold-marker cm-md-fold-marker--${open ? 'open' : 'closed'}`;
+  marker.title = open ? '折叠此行' : '展开此行';
+  marker.setAttribute('aria-hidden', 'true');
+
+  const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+  svg.setAttribute('viewBox', '0 0 24 24');
+  svg.setAttribute('fill', 'none');
+  svg.setAttribute('stroke', 'currentColor');
+  svg.setAttribute('stroke-width', '2.8');
+  svg.setAttribute('stroke-linecap', 'round');
+  svg.setAttribute('stroke-linejoin', 'round');
+
+  const path = document.createElementNS(svgNamespace, 'path');
+  path.setAttribute('d', open ? 'M6 9l6 6 6-6' : 'M9 6l6 6-6 6');
+  svg.append(path);
+  marker.append(svg);
+
+  return marker;
+}
+
+function markdownFoldHoverExtension() {
+  return ViewPlugin.fromClass(
+    class {
+      private hoveredGutterElement: HTMLElement | null = null;
+
+      constructor(private readonly view: EditorView) {
+        this.view.dom.addEventListener('mousemove', this.handleMouseMove);
+        this.view.dom.addEventListener('mouseleave', this.clearHoveredGutterElement);
+      }
+
+      destroy() {
+        this.view.dom.removeEventListener('mousemove', this.handleMouseMove);
+        this.view.dom.removeEventListener('mouseleave', this.clearHoveredGutterElement);
+        this.clearHoveredGutterElement();
+      }
+
+      private readonly handleMouseMove = (event: MouseEvent) => {
+        const foldGutter = this.view.dom.querySelector<HTMLElement>('.cm-foldGutter');
+        if (!foldGutter) {
+          this.setHoveredGutterElement(null);
+          return;
+        }
+
+        const gutterRect = foldGutter.getBoundingClientRect();
+        const isInFoldGutter =
+          event.clientX >= gutterRect.left &&
+          event.clientX <= gutterRect.right &&
+          event.clientY >= gutterRect.top &&
+          event.clientY <= gutterRect.bottom;
+        const isInContent = Boolean((event.target as Element | null)?.closest('.cm-content'));
+        if (!isInFoldGutter && !isInContent) {
+          this.setHoveredGutterElement(null);
+          return;
+        }
+
+        const gutterX = gutterRect.left + gutterRect.width / 2;
+        const targetAtRow = document
+          .elementsFromPoint(gutterX, event.clientY)
+          .find((element) => element.closest('.cm-foldGutter .cm-gutterElement'));
+        const gutterElement = targetAtRow?.closest<HTMLElement>('.cm-foldGutter .cm-gutterElement') ?? null;
+        this.setHoveredGutterElement(gutterElement?.querySelector('.cm-md-fold-marker') ? gutterElement : null);
+      };
+
+      private readonly clearHoveredGutterElement = () => {
+        this.setHoveredGutterElement(null);
+      };
+
+      private setHoveredGutterElement(next: HTMLElement | null) {
+        if (this.hoveredGutterElement === next) return;
+        this.hoveredGutterElement?.classList.remove(markdownFoldHoverClass);
+        this.hoveredGutterElement = next;
+        this.hoveredGutterElement?.classList.add(markdownFoldHoverClass);
+      }
+    },
+  );
+}
+
 const markdownEditorBaseExtensions: Extension[] = [
   lineNumbers(),
   highlightSpecialChars(),
   history(),
-  foldGutter(),
+  foldGutter({ markerDOM: createMarkdownFoldMarker }),
+  markdownFoldHoverExtension(),
   drawSelection(),
   dropCursor(),
   EditorState.allowMultipleSelections.of(true),
@@ -151,14 +300,7 @@ const frontmatterProperties = computed(() => parseFrontmatterProperties(frontmat
 
 const previewSource = computed(() => frontmatter.value.body);
 
-const previewHtml = computed(() => {
-  const rendered = marked.parse(renderEnhancedMarkdown(previewSource.value || ''), {
-    async: false,
-    breaks: false,
-    gfm: true,
-  }) as string;
-  return sanitizeKnowledgeMarkdownHtml(rendered);
-});
+const previewHtml = computed(() => renderMarkdownPreviewHtml(previewSource.value || ''));
 
 const editorClassNames = computed(() => ({
   [`knowledge-markdown-editor--${mode.value}`]: true,
@@ -207,21 +349,6 @@ function escapeHtml(value: string) {
     .replace(/>/g, '&gt;')
     .replace(/"/g, '&quot;')
     .replace(/'/g, '&#39;');
-}
-
-function renderEnhancedMarkdown(value: string) {
-  let source = value;
-  source = source.replace(/```mermaid\s*\r?\n([\s\S]*?)```/gi, (_match, body: string) => {
-    const code = escapeHtml(body.trim());
-    return `\n\n<div class="knowledge-md-mermaid"><div class="knowledge-md-mermaid__title">Mermaid</div><pre><code>${code}</code></pre></div>\n\n`;
-  });
-  source = source.replace(/(^|\n)\$\$\s*\n?([\s\S]*?)\n?\$\$(?=\n|$)/g, (_match, prefix: string, body: string) => {
-    return `${prefix}<figure class="knowledge-md-math knowledge-md-math--block"><code>${escapeHtml(body.trim())}</code></figure>`;
-  });
-  source = source.replace(/(^|[\s([>])\$([^$\n]+?)\$(?=[$\s,.;:!?)]|$)/g, (_match, prefix: string, body: string) => {
-    return `${prefix}<span class="knowledge-md-math knowledge-md-math--inline">${escapeHtml(body.trim())}</span>`;
-  });
-  return source;
 }
 
 function emitContent(value: string) {
@@ -514,8 +641,11 @@ function createEditor() {
       doc: props.modelValue,
       extensions: [
         markdownEditorBaseExtensions,
-        markdown(),
-        markdownWysiwygDecorations(() => mode.value === 'wysiwyg'),
+        markdown({
+          base: markdownLanguage,
+          codeLanguages: markdownCodeLanguages,
+        }),
+        markdownLivePreviewDecorations(() => mode.value === 'livePreview'),
         placeholder('开始写 Markdown'),
         EditorView.lineWrapping,
         EditorView.updateListener.of((update) => {
@@ -547,7 +677,7 @@ function createEditor() {
           '.cm-scroller': {
             fontFamily: 'var(--font-mono, \"Cascadia Mono\", Consolas, monospace)',
             fontSize: 'var(--ui-font-size-md)',
-            lineHeight: '1.75',
+            lineHeight: '1.9',
           },
           '.cm-content': {
             padding: '18px 20px 28px',
@@ -557,6 +687,51 @@ function createEditor() {
             color: 'var(--ui-text-muted)',
             backgroundColor: 'transparent',
             borderRight: '1px solid var(--ui-border-subtle)',
+          },
+          '.cm-lineNumbers .cm-gutterElement, .cm-foldGutter .cm-gutterElement': {
+            display: 'flex',
+            alignItems: 'center',
+            boxSizing: 'border-box',
+            paddingTop: '0',
+            paddingBottom: '0',
+          },
+          '.cm-lineNumbers .cm-gutterElement': {
+            justifyContent: 'flex-end',
+          },
+          '.cm-foldGutter .cm-gutterElement': {
+            justifyContent: 'center',
+            minWidth: '24px',
+            color: 'var(--ui-text-muted)',
+          },
+          '.cm-lineNumbers .cm-gutterElement.cm-md-live-block-gutter, .cm-foldGutter .cm-gutterElement.cm-md-live-block-gutter': {
+            alignItems: 'flex-start',
+            paddingTop: '0',
+          },
+          '.cm-md-fold-marker': {
+            display: 'inline-flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            width: '20px',
+            height: '20px',
+            borderRadius: '4px',
+            opacity: '0',
+            color: 'var(--ui-text-muted)',
+            lineHeight: '1',
+            transition: 'opacity 120ms ease, color 120ms ease, background-color 120ms ease',
+            userSelect: 'none',
+          },
+          '.cm-md-fold-marker svg': {
+            display: 'block',
+            width: '14px',
+            height: '14px',
+            flexShrink: '0',
+          },
+          '.cm-foldGutter .cm-gutterElement:hover .cm-md-fold-marker, .cm-md-fold-gutterElement--hovered .cm-md-fold-marker': {
+            opacity: '1',
+          },
+          '.cm-md-fold-marker:hover': {
+            color: 'var(--ui-text-primary)',
+            backgroundColor: 'color-mix(in srgb, var(--ui-primary-color) 12%, transparent)',
           },
           '.cm-activeLineGutter, .cm-activeLine': {
             backgroundColor: 'color-mix(in srgb, var(--ui-primary-color) 10%, transparent)',
@@ -616,16 +791,16 @@ defineExpose({
   <div class="knowledge-markdown-editor" :class="editorClassNames">
     <header class="knowledge-markdown-editor__toolbar">
       <div class="knowledge-markdown-editor__segmented" aria-label="编辑器模式">
-        <UiIconButton size="sm" :active="mode === 'edit'" :aria-pressed="mode === 'edit'" title="编辑" @click="mode = 'edit'">
-          <IconRenderer icon="iconify:lucide:pencil" :size="15" />
+        <UiIconButton size="sm" :active="mode === 'source'" :aria-pressed="mode === 'source'" title="Source mode" @click="mode = 'source'">
+          <IconRenderer icon="iconify:lucide:file-code-2" :size="15" />
+        </UiIconButton>
+        <UiIconButton size="sm" :active="mode === 'livePreview'" :aria-pressed="mode === 'livePreview'" title="Live Preview" @click="mode = 'livePreview'">
+          <IconRenderer icon="iconify:lucide:eye" :size="15" />
         </UiIconButton>
         <UiIconButton size="sm" :active="mode === 'split'" :aria-pressed="mode === 'split'" title="分屏" @click="mode = 'split'">
           <IconRenderer icon="iconify:lucide:columns-2" :size="15" />
         </UiIconButton>
-        <UiIconButton size="sm" :active="mode === 'wysiwyg'" :aria-pressed="mode === 'wysiwyg'" title="所见即所得" @click="mode = 'wysiwyg'">
-          <IconRenderer icon="iconify:lucide:eye" :size="15" />
-        </UiIconButton>
-        <UiIconButton size="sm" :active="mode === 'preview'" :aria-pressed="mode === 'preview'" title="预览" @click="mode = 'preview'">
+        <UiIconButton size="sm" :active="mode === 'reading'" :aria-pressed="mode === 'reading'" title="Reading view" @click="mode = 'reading'">
           <IconRenderer icon="iconify:lucide:book-open" :size="15" />
         </UiIconButton>
       </div>
@@ -783,12 +958,12 @@ defineExpose({
     </section>
 
     <div class="knowledge-markdown-editor__surface">
-      <section v-show="mode !== 'preview'" class="knowledge-markdown-editor__pane knowledge-markdown-editor__pane--edit">
+      <section v-show="mode !== 'reading'" class="knowledge-markdown-editor__pane knowledge-markdown-editor__pane--edit">
         <div ref="editorHost" class="knowledge-markdown-editor__codemirror" />
       </section>
 
       <section
-        v-show="mode === 'split' || mode === 'preview'"
+        v-show="mode === 'split' || mode === 'reading'"
         class="knowledge-markdown-editor__pane knowledge-markdown-editor__pane--preview"
       >
         <div v-if="headings.length" class="knowledge-markdown-editor__outline">
@@ -1086,9 +1261,9 @@ defineExpose({
   min-height: 0;
 }
 
-.knowledge-markdown-editor--edit .knowledge-markdown-editor__surface,
-.knowledge-markdown-editor--wysiwyg .knowledge-markdown-editor__surface,
-.knowledge-markdown-editor--preview .knowledge-markdown-editor__surface {
+.knowledge-markdown-editor--source .knowledge-markdown-editor__surface,
+.knowledge-markdown-editor--livePreview .knowledge-markdown-editor__surface,
+.knowledge-markdown-editor--reading .knowledge-markdown-editor__surface {
   grid-template-columns: minmax(0, 1fr);
 }
 
@@ -1105,7 +1280,7 @@ defineExpose({
   border-left: 1px solid var(--ui-border-subtle);
 }
 
-.knowledge-markdown-editor--preview .knowledge-markdown-editor__pane--preview {
+.knowledge-markdown-editor--reading .knowledge-markdown-editor__pane--preview {
   border-left: 0;
 }
 
@@ -1126,34 +1301,78 @@ defineExpose({
   padding-bottom: 36vh;
 }
 
-.knowledge-markdown-editor :deep(.cm-md-wysiwyg-heading) {
+.knowledge-markdown-editor :deep(.cm-md-live-heading) {
   color: var(--ui-text-primary);
   font-weight: 800;
   line-height: 1.35;
 }
 
-.knowledge-markdown-editor :deep(.cm-md-wysiwyg-heading-1) {
+.knowledge-markdown-editor :deep(.cm-md-live-heading-1) {
   font-size: 1.55em;
 }
 
-.knowledge-markdown-editor :deep(.cm-md-wysiwyg-heading-2) {
+.knowledge-markdown-editor :deep(.cm-md-live-heading-2) {
   font-size: 1.35em;
 }
 
-.knowledge-markdown-editor :deep(.cm-md-wysiwyg-heading-3) {
+.knowledge-markdown-editor :deep(.cm-md-live-heading-3) {
   font-size: 1.18em;
 }
 
-.knowledge-markdown-editor :deep(.cm-md-wysiwyg-strong) {
+.knowledge-markdown-editor :deep(.cm-md-live-heading-4) {
+  font-size: 1.06em;
+}
+
+.knowledge-markdown-editor :deep(.cm-md-live-heading-5) {
+  font-size: 0.98em;
+  letter-spacing: 0;
+}
+
+.knowledge-markdown-editor :deep(.cm-md-live-heading-6) {
+  font-size: 0.92em;
+  letter-spacing: 0;
+  color: var(--ui-text-secondary);
+}
+
+.knowledge-markdown-editor :deep(.cm-md-live-heading-source) {
+  font-size: 1em;
+  font-weight: inherit;
+  line-height: inherit;
+  letter-spacing: 0;
+  font-variant-ligatures: none;
+  font-feature-settings: "liga" 0, "calt" 0;
+}
+
+.knowledge-markdown-editor :deep(.cm-md-live-heading-source *) {
+  font-size: inherit;
+  letter-spacing: 0;
+  font-variant-ligatures: inherit;
+  font-feature-settings: inherit;
+}
+
+.knowledge-markdown-editor :deep(.cm-md-live-strong),
+.knowledge-markdown-editor :deep(.cm-md-live-strong-emphasis) {
   color: var(--ui-text-primary);
   font-weight: 800;
 }
 
-.knowledge-markdown-editor :deep(.cm-md-wysiwyg-emphasis) {
+.knowledge-markdown-editor :deep(.cm-md-live-emphasis),
+.knowledge-markdown-editor :deep(.cm-md-live-strong-emphasis) {
   font-style: italic;
+  font-synthesis-style: auto;
 }
 
-.knowledge-markdown-editor :deep(.cm-md-wysiwyg-inline-code) {
+.knowledge-markdown-editor :deep(.cm-md-live-strikethrough) {
+  text-decoration: line-through;
+  color: var(--ui-text-muted);
+}
+
+.knowledge-markdown-editor :deep(.cm-md-live-highlight) {
+  border-radius: 4px;
+  background: color-mix(in srgb, #facc15 34%, transparent);
+}
+
+.knowledge-markdown-editor :deep(.cm-md-live-inline-code) {
   padding: 0.08em 0.34em;
   border: 1px solid var(--ui-border-subtle);
   border-radius: 5px;
@@ -1162,25 +1381,291 @@ defineExpose({
   font-family: var(--font-mono, 'Cascadia Mono', Consolas, monospace);
 }
 
-.knowledge-markdown-editor :deep(.cm-md-wysiwyg-task) {
-  display: inline-grid;
-  place-items: center;
+.knowledge-markdown-editor :deep(.cm-md-live-task) {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  box-sizing: border-box;
   width: 1.05em;
   height: 1.05em;
-  margin: 0 0.14em;
+  margin: 0 0.34em 0 0.1em;
+  padding: 0;
   border: 1px solid color-mix(in srgb, var(--ui-text-muted) 58%, transparent);
   border-radius: 4px;
+  appearance: none;
   color: var(--ui-button-primary-text);
   background: var(--ui-input-bg);
   font-size: 0.78em;
   font-weight: 800;
   line-height: 1;
-  vertical-align: -0.12em;
+  text-align: center;
+  vertical-align: -0.1em;
+  cursor: pointer;
 }
 
-.knowledge-markdown-editor :deep(.cm-md-wysiwyg-task--checked) {
+.knowledge-markdown-editor :deep(.cm-md-live-task--checked) {
   border-color: color-mix(in srgb, var(--ui-primary-color) 72%, transparent);
   background: var(--ui-primary-color);
+}
+
+.knowledge-markdown-editor :deep(.cm-md-live-link),
+.knowledge-markdown-editor :deep(.cm-md-live-wiki-link),
+.knowledge-markdown-editor :deep(.cm-md-live-asset-embed) {
+  display: inline-flex;
+  align-items: center;
+  max-width: 100%;
+  overflow: hidden;
+  border-radius: 4px;
+  color: var(--ui-primary-color);
+  text-decoration: underline;
+  text-overflow: ellipsis;
+  vertical-align: baseline;
+  white-space: nowrap;
+}
+
+.knowledge-markdown-editor :deep(.cm-md-live-wiki-link),
+.knowledge-markdown-editor :deep(.cm-md-live-asset-embed) {
+  padding: 0 0.2em;
+  background: color-mix(in srgb, var(--ui-primary-color) 10%, transparent);
+  text-decoration: none;
+}
+
+.knowledge-markdown-editor :deep(.cm-md-live-comment) {
+  display: none;
+}
+
+.knowledge-markdown-editor :deep(.cm-md-live-block) {
+  display: block;
+  box-sizing: border-box;
+  margin: 0;
+  overflow: hidden;
+  border: 1px solid var(--ui-border-subtle);
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--ui-surface-panel) 24%, transparent);
+}
+
+.knowledge-markdown-editor :deep(.cm-md-live-block--selected) {
+  border-color: color-mix(in srgb, var(--ui-primary-color) 62%, var(--ui-border-subtle));
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--ui-primary-color) 16%, transparent);
+}
+
+.knowledge-markdown-editor :deep(.cm-md-live-block__header) {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 30px;
+  padding: 4px 8px;
+  border-bottom: 1px solid var(--ui-border-subtle);
+  background: color-mix(in srgb, var(--ui-surface-panel-muted) 18%, transparent);
+}
+
+.knowledge-markdown-editor :deep(.cm-md-live-block__title) {
+  flex: 1;
+  min-width: 0;
+  color: var(--ui-text-muted);
+  font-size: var(--ui-font-size-xs);
+  font-weight: 800;
+}
+
+.knowledge-markdown-editor :deep(.cm-md-live-block__action) {
+  min-height: 24px;
+  padding: 0 8px;
+  border: 1px solid var(--ui-border-subtle);
+  border-radius: 6px;
+  color: var(--ui-text-secondary);
+  background: var(--ui-input-bg);
+  font-size: var(--ui-font-size-xs);
+  cursor: pointer;
+}
+
+.knowledge-markdown-editor :deep(.cm-md-live-block__body) {
+  padding: 10px 12px;
+}
+
+.knowledge-markdown-editor :deep(.cm-md-live-block--code_fence) {
+  border: 0;
+  border-radius: 6px;
+  background: color-mix(in srgb, var(--ui-surface-panel-muted) 26%, transparent);
+}
+
+.knowledge-markdown-editor :deep(.cm-md-live-code-render-preview) {
+  position: relative;
+  min-height: 100%;
+  border-radius: 6px;
+  background: color-mix(in srgb, var(--ui-surface-panel-muted) 22%, transparent);
+  line-height: inherit;
+}
+
+.knowledge-markdown-editor :deep(.cm-md-live-code-render-preview__fence-row) {
+  min-height: calc(1em * 1.9);
+  font-family: inherit;
+  font-size: inherit;
+  line-height: inherit;
+}
+
+.knowledge-markdown-editor :deep(.cm-md-live-code-render-preview__header) {
+  padding: 0 12px;
+  color: var(--ui-text-secondary);
+  font-weight: 700;
+  text-align: right;
+  text-transform: capitalize;
+}
+
+.knowledge-markdown-editor :deep(.cm-md-live-code-render-preview__footer) {
+  pointer-events: none;
+}
+
+.knowledge-markdown-editor :deep(.cm-md-live-code-render-preview__line) {
+  display: grid;
+  grid-template-columns: 44px minmax(0, 1fr);
+  min-height: calc(1em * 1.9);
+  font-family: inherit;
+  font-size: inherit;
+  line-height: inherit;
+}
+
+.knowledge-markdown-editor :deep(.cm-md-live-code-render-preview__line-number) {
+  padding: 0 10px 0 4px;
+  color: var(--ui-text-muted);
+  font-size: inherit;
+  text-align: right;
+  user-select: none;
+}
+
+.knowledge-markdown-editor :deep(.cm-md-live-code-render-preview__code) {
+  min-width: 0;
+  padding: 0 10px;
+  color: var(--ui-text-primary);
+  font-family: inherit;
+  font-size: inherit;
+  line-height: inherit;
+  background: transparent;
+  white-space: pre;
+}
+
+.knowledge-markdown-editor :deep(.cm-md-live-code-token--keyword) {
+  color: #00b7c7;
+  font-weight: 700;
+}
+
+.knowledge-markdown-editor :deep(.cm-md-live-code-token--string) {
+  color: #4f8f32;
+}
+
+.knowledge-markdown-editor :deep(.cm-md-live-code-token--number) {
+  color: #9368d7;
+}
+
+.knowledge-markdown-editor :deep(.cm-md-live-code-token--comment) {
+  color: var(--ui-text-muted);
+  font-style: italic;
+}
+
+.knowledge-markdown-editor :deep(.cm-md-live-code-token--tag) {
+  color: #1f78d1;
+  font-weight: 700;
+}
+
+.knowledge-markdown-editor :deep(.cm-md-live-code-token--property) {
+  color: #c06f21;
+}
+
+.knowledge-markdown-editor :deep(.cm-md-live-code-token--atom) {
+  color: #9368d7;
+}
+
+.knowledge-markdown-editor :deep(.cm-md-live-source-block--code_fence) {
+  background: color-mix(in srgb, var(--ui-surface-panel-muted) 28%, transparent);
+  box-shadow: none;
+}
+
+.knowledge-markdown-editor :deep(.cm-md-live-source-block--first) {
+  border-top-left-radius: 8px;
+  border-top-right-radius: 8px;
+  box-shadow: none;
+}
+
+.knowledge-markdown-editor :deep(.cm-md-live-source-block--last) {
+  border-bottom-left-radius: 8px;
+  border-bottom-right-radius: 8px;
+  box-shadow: none;
+}
+
+.knowledge-markdown-editor :deep(.cm-md-live-source-block--first.cm-md-live-source-block--last) {
+  box-shadow: none;
+}
+
+.knowledge-markdown-editor :deep(.cm-md-live-callout__header) {
+  display: grid;
+  grid-template-columns: minmax(120px, max-content) minmax(0, 1fr) max-content;
+  align-items: center;
+  gap: 10px;
+  min-height: 36px;
+  padding: 5px 8px;
+  border-bottom: 1px solid var(--ui-border-subtle);
+  background: color-mix(in srgb, var(--ui-primary-color) 6%, transparent);
+}
+
+.knowledge-markdown-editor :deep(.cm-md-live-callout__type) {
+  min-width: 120px;
+  height: 28px;
+  padding: 0 28px 0 10px;
+  border: 1px solid var(--ui-border-subtle);
+  border-radius: 7px;
+  color: var(--ui-text-primary);
+  background: var(--ui-input-bg);
+  font-size: var(--ui-font-size-sm);
+  font-weight: 800;
+  line-height: 1;
+}
+
+.knowledge-markdown-editor :deep(.cm-md-live-callout__title) {
+  min-width: 0;
+  overflow: hidden;
+  color: var(--ui-text-secondary);
+  font-size: var(--ui-font-size-sm);
+  font-weight: 700;
+  text-align: center;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.knowledge-markdown-editor :deep(.cm-md-live-callout__body) {
+  padding: 12px 16px;
+  color: var(--ui-text-secondary);
+  background: color-mix(in srgb, var(--ui-primary-color) 5%, transparent);
+}
+
+.knowledge-markdown-editor :deep(.cm-md-live-callout--danger) {
+  border-color: color-mix(in srgb, #ef4444 42%, var(--ui-border-subtle));
+}
+
+.knowledge-markdown-editor :deep(.cm-md-live-callout--danger .cm-md-live-callout__header),
+.knowledge-markdown-editor :deep(.cm-md-live-callout--danger .cm-md-live-callout__body) {
+  background: color-mix(in srgb, #ef4444 7%, transparent);
+}
+
+.knowledge-markdown-editor :deep(.knowledge-md-math) {
+  color: var(--ui-text-primary);
+}
+
+.knowledge-markdown-editor :deep(.knowledge-md-math--inline) {
+  display: inline-flex;
+  align-items: center;
+  min-height: 1.5em;
+  padding: 0 0.18em;
+  vertical-align: -0.16em;
+}
+
+.knowledge-markdown-editor :deep(.knowledge-md-math--block) {
+  display: block;
+  margin: 8px 0;
+  padding: 12px 14px;
+  overflow-x: auto;
+  border: 1px solid var(--ui-border-subtle);
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--ui-surface-panel-muted) 24%, transparent);
 }
 
 .knowledge-markdown-editor--theme-paper {
@@ -1261,7 +1746,7 @@ defineExpose({
   padding: 14px;
   border: 1px solid var(--ui-border-subtle);
   border-radius: 8px;
-  background: color-mix(in srgb, var(--ui-surface-panel-muted) 88%, var(--ui-surface-base) 12%);
+  background: color-mix(in srgb, var(--ui-surface-panel-muted) 24%, transparent);
 }
 
 .markdown-body :deep(pre code) {
@@ -1282,7 +1767,7 @@ defineExpose({
   border-left: 4px solid var(--ui-primary-color);
   border-radius: 8px;
   color: var(--ui-text-primary);
-  background: color-mix(in srgb, var(--ui-primary-color) 9%, var(--ui-surface-panel) 91%);
+  background: color-mix(in srgb, var(--ui-primary-color) 7%, transparent);
 }
 
 .markdown-body :deep(.knowledge-md-callout__title) {
@@ -1297,7 +1782,7 @@ defineExpose({
   border: 1px solid var(--ui-border-subtle);
   border-radius: 7px;
   color: var(--ui-text-primary);
-  background: color-mix(in srgb, var(--ui-surface-panel-muted) 88%, transparent);
+  background: color-mix(in srgb, var(--ui-surface-panel-muted) 24%, transparent);
   font-family: var(--font-mono, 'Cascadia Mono', Consolas, monospace);
 }
 
@@ -1317,7 +1802,7 @@ defineExpose({
   overflow: auto;
   border: 1px solid var(--ui-border-subtle);
   border-radius: 8px;
-  background: color-mix(in srgb, var(--ui-surface-panel-muted) 86%, transparent);
+  background: color-mix(in srgb, var(--ui-surface-panel-muted) 24%, transparent);
 }
 
 .markdown-body :deep(.knowledge-md-mermaid__title) {

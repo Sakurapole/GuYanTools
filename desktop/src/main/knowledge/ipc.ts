@@ -46,9 +46,11 @@ import type {
   MoveKnowledgeNodePayload,
   SaveKnowledgeAssetPayload,
   UnbindKnowledgeTagPayload,
+  UpdateKnowledgeLibraryPayload,
   UpdateKnowledgeNodePayload,
   UpdateKnowledgePagePayload,
   UpdateKnowledgeQuickNotePayload,
+  UpdateKnowledgeSpacePayload,
   UpdateKnowledgeTagPayload,
 } from '@/contracts/knowledge';
 
@@ -59,8 +61,12 @@ let previewCachePruneTask: Promise<void> | undefined;
 type KnowledgeDatabase = JsDatabase & {
   listKnowledgeLibraries: () => Promise<KnowledgeLibrary[]>;
   createKnowledgeLibrary: (input: CreateKnowledgeLibraryPayload) => Promise<KnowledgeLibrary>;
+  updateKnowledgeLibrary: (libraryId: string, input: UpdateKnowledgeLibraryPayload) => Promise<KnowledgeLibrary>;
+  deleteKnowledgeLibrary: (libraryId: string) => Promise<void>;
   listKnowledgeSpaces: (libraryId?: string) => Promise<KnowledgeSpace[]>;
   createKnowledgeSpace: (input: CreateKnowledgeSpacePayload) => Promise<KnowledgeSpace>;
+  updateKnowledgeSpace: (spaceId: string, input: UpdateKnowledgeSpacePayload) => Promise<KnowledgeSpace>;
+  deleteKnowledgeSpace: (spaceId: string) => Promise<void>;
   listKnowledgeTree: (input?: ListKnowledgeTreePayload) => Promise<KnowledgeNode[]>;
   createKnowledgeFolder: (input: CreateKnowledgeFolderPayload) => Promise<KnowledgeNode>;
   createKnowledgePage: (input: CreateKnowledgePagePayload) => Promise<KnowledgePageDetail>;
@@ -508,12 +514,32 @@ export function registerKnowledgeIpcHandlers() {
     db().createKnowledgeLibrary(input),
   );
 
+  ipcMain.handle('knowledge:update-library', async (
+    _event,
+    libraryId: string,
+    input: UpdateKnowledgeLibraryPayload,
+  ) => db().updateKnowledgeLibrary(libraryId, input));
+
+  ipcMain.handle('knowledge:delete-library', async (_event, libraryId: string) =>
+    db().deleteKnowledgeLibrary(libraryId),
+  );
+
   ipcMain.handle('knowledge:list-spaces', async (_event, libraryId?: string) =>
     db().listKnowledgeSpaces(libraryId),
   );
 
   ipcMain.handle('knowledge:create-space', async (_event, input: CreateKnowledgeSpacePayload) =>
     db().createKnowledgeSpace(input),
+  );
+
+  ipcMain.handle('knowledge:update-space', async (
+    _event,
+    spaceId: string,
+    input: UpdateKnowledgeSpacePayload,
+  ) => db().updateKnowledgeSpace(spaceId, input));
+
+  ipcMain.handle('knowledge:delete-space', async (_event, spaceId: string) =>
+    db().deleteKnowledgeSpace(spaceId),
   );
 
   ipcMain.handle('knowledge:list-tree', async (_event, input?: ListKnowledgeTreePayload) =>

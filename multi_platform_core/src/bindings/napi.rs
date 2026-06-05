@@ -575,6 +575,28 @@ impl JsDatabase {
             .map_err(|e| Error::from_reason(format!("创建知识库失败: {}", e)))
     }
 
+    #[napi(js_name = "updateKnowledgeLibrary")]
+    pub async fn update_knowledge_library(
+        &self,
+        library_id: String,
+        input: UpdateKnowledgeLibraryInput,
+    ) -> Result<KnowledgeLibrary> {
+        let db = self.inner.clone();
+        tokio::task::spawn_blocking(move || KnowledgeService::update_library(&db, &library_id, input))
+            .await
+            .map_err(|e| Error::from_reason(format!("任务执行失败: {}", e)))?
+            .map_err(|e| Error::from_reason(format!("更新知识库失败: {}", e)))
+    }
+
+    #[napi(js_name = "deleteKnowledgeLibrary")]
+    pub async fn delete_knowledge_library(&self, library_id: String) -> Result<()> {
+        let db = self.inner.clone();
+        tokio::task::spawn_blocking(move || KnowledgeService::delete_library(&db, &library_id))
+            .await
+            .map_err(|e| Error::from_reason(format!("任务执行失败: {}", e)))?
+            .map_err(|e| Error::from_reason(format!("删除知识库失败: {}", e)))
+    }
+
     #[napi(js_name = "listKnowledgeSpaces")]
     pub async fn list_knowledge_spaces(
         &self,
@@ -597,6 +619,28 @@ impl JsDatabase {
             .await
             .map_err(|e| Error::from_reason(format!("任务执行失败: {}", e)))?
             .map_err(|e| Error::from_reason(format!("创建知识库空间失败: {}", e)))
+    }
+
+    #[napi(js_name = "updateKnowledgeSpace")]
+    pub async fn update_knowledge_space(
+        &self,
+        space_id: String,
+        input: UpdateKnowledgeSpaceInput,
+    ) -> Result<KnowledgeSpace> {
+        let db = self.inner.clone();
+        tokio::task::spawn_blocking(move || KnowledgeService::update_space(&db, &space_id, input))
+            .await
+            .map_err(|e| Error::from_reason(format!("任务执行失败: {}", e)))?
+            .map_err(|e| Error::from_reason(format!("更新知识库空间失败: {}", e)))
+    }
+
+    #[napi(js_name = "deleteKnowledgeSpace")]
+    pub async fn delete_knowledge_space(&self, space_id: String) -> Result<()> {
+        let db = self.inner.clone();
+        tokio::task::spawn_blocking(move || KnowledgeService::delete_space(&db, &space_id))
+            .await
+            .map_err(|e| Error::from_reason(format!("任务执行失败: {}", e)))?
+            .map_err(|e| Error::from_reason(format!("删除知识库空间失败: {}", e)))
     }
 
     #[napi(js_name = "listKnowledgeTree")]

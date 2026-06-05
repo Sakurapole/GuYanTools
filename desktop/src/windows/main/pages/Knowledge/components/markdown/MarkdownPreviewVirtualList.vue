@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 import { useMarkdownSegmentedPreview } from '../../composables/useMarkdownSegmentedPreview';
+import { renderMarkdownMermaidElements } from '../../utils/markdown_enhanced_render';
 
 const props = defineProps<{
   markdown: string;
@@ -8,6 +9,7 @@ const props = defineProps<{
 
 const emit = defineEmits<{
   (event: 'preview-click', value: MouseEvent): void;
+  (event: 'preview-keydown', value: KeyboardEvent): void;
 }>();
 
 const scrollHost = ref<HTMLElement | null>(null);
@@ -43,6 +45,7 @@ function registerSegmentElement(segmentId: string, element: Element | null) {
   segmentElements.set(segmentId, element);
   resizeObserver?.observe(element);
   measureSegment(segmentId, element.getBoundingClientRect().height);
+  renderVisibleMermaid();
 }
 
 function measureObservedSegments(entries: ResizeObserverEntry[]) {
@@ -62,15 +65,29 @@ function getSegmentStyle(top: number) {
   };
 }
 
+function renderVisibleMermaid() {
+  nextTick(() => {
+    const host = scrollHost.value;
+    if (!host) return;
+    renderMarkdownMermaidElements(host);
+  });
+}
+
 watch(
   () => props.markdown,
   () => {
-    nextTick(syncViewport);
+    nextTick(() => {
+      syncViewport();
+      renderVisibleMermaid();
+    });
   },
 );
 
 watch(visibleSegments, () => {
-  nextTick(syncViewport);
+  nextTick(() => {
+    syncViewport();
+    renderVisibleMermaid();
+  });
 });
 
 onMounted(() => {
@@ -80,6 +97,7 @@ onMounted(() => {
     measureSegment(segmentId, element.getBoundingClientRect().height);
   }
   syncViewport();
+  renderVisibleMermaid();
 });
 
 onBeforeUnmount(() => {
@@ -93,8 +111,10 @@ onBeforeUnmount(() => {
   <div
     ref="scrollHost"
     class="markdown-body markdown-preview-virtual-list"
+    tabindex="0"
     @scroll="syncViewport"
     @click="emit('preview-click', $event)"
+    @keydown="emit('preview-keydown', $event)"
   >
     <div class="markdown-preview-virtual-list__spacer" :style="spacerStyle">
       <article

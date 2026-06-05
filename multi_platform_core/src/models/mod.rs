@@ -24,8 +24,9 @@ pub use knowledge::{
     KnowledgeTaggedTarget, LinkKnowledgeTodoInput, ListKnowledgeIndexJobsInput,
     ListKnowledgeOrphanPagesInput, ListKnowledgeQuickNotesInput, ListKnowledgeTagTargetsInput,
     ListKnowledgeTagsInput, ListKnowledgeTreeInput, MoveKnowledgeNodeInput,
-    UnbindKnowledgeTagInput, UpdateKnowledgeNodeInput, UpdateKnowledgePageInput,
-    UpdateKnowledgeQuickNoteInput, UpdateKnowledgeTagInput,
+    UnbindKnowledgeTagInput, UpdateKnowledgeLibraryInput, UpdateKnowledgeNodeInput,
+    UpdateKnowledgePageInput, UpdateKnowledgeQuickNoteInput, UpdateKnowledgeSpaceInput,
+    UpdateKnowledgeTagInput,
 };
 pub use multi_device_clipboard::{
     MultiDeviceClipboardDevice, MultiDeviceClipboardDeviceStatus,

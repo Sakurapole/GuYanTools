@@ -1,12 +1,11 @@
 import { computed, reactive, ref, watch, type Ref } from 'vue';
-import { marked } from 'marked';
 import {
   segmentMarkdown,
   type MarkdownSegment,
   type MarkdownSegmentType,
 } from '../utils/markdown_segmenter';
 import { createMarkdownRenderCache } from '../utils/markdown_render_cache';
-import { sanitizeKnowledgeMarkdownHtml } from '../utils/markdown_sanitize';
+import { renderMarkdownPreviewHtml } from '../utils/markdown_enhanced_render';
 
 export interface MarkdownPreviewLayoutSegment extends MarkdownSegment {
   top: number;
@@ -37,15 +36,11 @@ export function useMarkdownSegmentedPreview(source: Ref<string>) {
   const viewportHeight = ref(0);
   const measuredHeights = reactive(new Map<string, number>());
   const renderCache = createMarkdownRenderCache({
-    rendererVersion: 'knowledge-segmented-preview-v1',
+    rendererVersion: 'knowledge-segmented-preview-v2-enhanced-render',
     renderMarkdown(markdownSource) {
-      return marked.parse(renderEnhancedMarkdown(markdownSource), {
-        async: false,
-        breaks: false,
-        gfm: true,
-      }) as string;
+      return renderMarkdownPreviewHtml(markdownSource);
     },
-    sanitizeHtml: sanitizeKnowledgeMarkdownHtml,
+    sanitizeHtml: (html) => html,
   });
 
   const segments = computed<MarkdownPreviewLayoutSegment[]>(() => {
@@ -174,37 +169,4 @@ function estimateSegmentHeight(segment: MarkdownSegment): number {
 
   const characterRows = Math.ceil(segment.source.length / 86);
   return Math.max(baseHeight, Math.max(lineCount, characterRows) * 26 + 24);
-}
-
-function renderEnhancedMarkdown(value: string) {
-  let enhancedSource = value;
-  enhancedSource = enhancedSource.replace(
-    /```mermaid\s*\r?\n([\s\S]*?)```/gi,
-    (_match, body: string) => {
-      const code = escapeHtml(body.trim());
-      return `\n\n<div class="knowledge-md-mermaid"><div class="knowledge-md-mermaid__title">Mermaid</div><pre><code>${code}</code></pre></div>\n\n`;
-    },
-  );
-  enhancedSource = enhancedSource.replace(
-    /(^|\n)\$\$\s*\n?([\s\S]*?)\n?\$\$(?=\n|$)/g,
-    (_match, prefix: string, body: string) => {
-      return `${prefix}<figure class="knowledge-md-math knowledge-md-math--block"><code>${escapeHtml(body.trim())}</code></figure>`;
-    },
-  );
-  enhancedSource = enhancedSource.replace(
-    /(^|[\s([>])\$([^$\n]+?)\$(?=[$\s,.;:!?)]|$)/g,
-    (_match, prefix: string, body: string) => {
-      return `${prefix}<span class="knowledge-md-math knowledge-md-math--inline">${escapeHtml(body.trim())}</span>`;
-    },
-  );
-  return enhancedSource;
-}
-
-function escapeHtml(value: string) {
-  return value
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#39;');
 }
