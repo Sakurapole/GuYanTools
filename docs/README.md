@@ -29,5 +29,8 @@ docs/
 - [公网中转同步后端开发文档](plans/multi-device-sync-backend-development-plan.md)
 - [桌面端设计系统契约](desktop/DESIGN_SYSTEM.md)
 - [桌面端设计系统迁移计划](plans/desktop-design-system-migration-plan.md)
+- [AI 问答与 Agent 预留开发计划](superpowers/plans/2026-06-07-ai-chat-vercel-ai-sdk-development-plan.md)
+- [知识库 Markdown 所见即所得标准化需求与实施计划](plans/2026-06-02-knowledge-markdown-wysiwyg-standard-requirements.md)
+- [知识库 Milkdown Markdown POC 评估报告](plans/knowledge-milkdown-markdown-poc-report.md)
 - [知识库桌面端开发文档](desktop/KnowledgeBase/development-plan.md)
 - [知识库用户指南](desktop/KnowledgeBase/user-guide.md)
