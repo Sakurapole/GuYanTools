@@ -21,6 +21,8 @@ import type {
   KnowledgeTaggedTarget,
   KnowledgeTagTargetType,
   SaveKnowledgeAssetPayload,
+  UpdateKnowledgeLibraryPayload,
+  UpdateKnowledgeSpacePayload,
 } from '@/contracts/knowledge';
 import { notifyError } from '@/windows/main/composables/useInAppNotification';
 import { useAppConfigStore } from '@/windows/main/stores/app_config_store';
@@ -275,6 +277,45 @@ export const useKnowledgeStore = defineStore('knowledge', () => {
     });
   }
 
+  async function ensureKnowledgeStorageDirectory() {
+    const knowledgeConfig = appConfigStore.config.features.knowledge;
+    if (knowledgeConfig.assetStorageMode === 'custom' && knowledgeConfig.customAssetDirectory) {
+      return true;
+    }
+    if (!window.shellApi) return true;
+
+    const directory = await window.shellApi.selectDirectory('选择知识库数据存放位置');
+    if (!directory) {
+      notifyError(new Error('首次使用知识库前需要选择数据存放位置'), '知识库数据目录未设置');
+      return false;
+    }
+
+    await appConfigStore.updateConfig({
+      features: {
+        knowledge: {
+          assetStorageMode: 'custom',
+          customAssetDirectory: directory,
+        },
+      },
+    });
+    return true;
+  }
+
+  async function loadActiveLibraryData() {
+    spaces.value = await api().listSpaces(activeLibraryId.value || undefined);
+    activeSpaceId.value =
+      spaces.value.find((space) => space.id === activeSpaceId.value)?.id
+      || spaces.value.find((space) => space.isDefault)?.id
+      || spaces.value[0]?.id
+      || '';
+    await refreshTree();
+    await refreshQuickNotes();
+    await refreshIndexJobs();
+    await refreshTags();
+    await refreshGraph();
+    await refreshOrphanPages();
+  }
+
   async function loadTagTargets(tagId: string) {
     activeTagFilterId.value = tagId;
     tagTargets.value = await api().listTagTargets({
@@ -314,25 +355,111 @@ export const useKnowledgeStore = defineStore('knowledge', () => {
     loading.value = true;
     error.value = null;
     try {
+      const storageReady = await ensureKnowledgeStorageDirectory();
+      if (!storageReady) return;
+
       libraries.value = await api().listLibraries();
       const configuredLibraryId = appConfigStore.config.features.knowledge.defaultLibraryId;
       const configuredLibrary = libraries.value.find((library) => library.id === configuredLibraryId);
       activeLibraryId.value =
         activeLibraryId.value || configuredLibrary?.id || libraries.value.find((library) => library.isDefault)?.id || libraries.value[0]?.id || '';
-      spaces.value = await api().listSpaces(activeLibraryId.value || undefined);
-      activeSpaceId.value =
-        activeSpaceId.value || spaces.value.find((space) => space.isDefault)?.id || spaces.value[0]?.id || '';
-      await refreshTree();
-      await refreshQuickNotes();
-      await refreshIndexJobs();
-      await refreshTags();
-      await refreshGraph();
-      await refreshOrphanPages();
+      await loadActiveLibraryData();
     } catch (err) {
       error.value = err instanceof Error ? err.message : String(err);
       notifyError(err, '知识库加载失败');
     } finally {
       loading.value = false;
+    }
+  }
+
+  async function savePendingDrafts() {
+    if (markdownDirty.value) {
+      await saveMarkdownDraft();
+    }
+    if (blockDirty.value) {
+      await saveBlockDraft();
+    }
+    if (canvasDirty.value) {
+      await saveCanvasDraft();
+    }
+  }
+
+  async function switchLibrary(libraryId: string) {
+    if (!libraryId || libraryId === activeLibraryId.value) return;
+    await savePendingDrafts();
+    activeLibraryId.value = libraryId;
+    activeSpaceId.value = '';
+    selectedNodeId.value = null;
+    selectedPage.value = null;
+    selectedAsset.value = null;
+    selectedAssetTags.value = [];
+    syncMarkdownDraft(null);
+    syncBlockDraft(null);
+    syncCanvasDraft(null);
+    await appConfigStore.updateConfig({
+      features: {
+        knowledge: {
+          defaultLibraryId: libraryId,
+        },
+      },
+    });
+    await loadActiveLibraryData();
+  }
+
+  async function createLibrary(name: string) {
+    const normalizedName = name.trim();
+    if (!normalizedName) return null;
+
+    saving.value = true;
+    try {
+      const library = await api().createLibrary({ name: normalizedName });
+      libraries.value = await api().listLibraries();
+      await switchLibrary(library.id);
+      return library;
+    } catch (err) {
+      notifyError(err, '知识库创建失败');
+      return null;
+    } finally {
+      saving.value = false;
+    }
+  }
+
+  async function updateLibrary(libraryId: string, input: UpdateKnowledgeLibraryPayload) {
+    saving.value = true;
+    try {
+      const library = await api().updateLibrary(libraryId, input);
+      libraries.value = await api().listLibraries();
+      return library;
+    } catch (err) {
+      notifyError(err, '知识库更新失败');
+      return null;
+    } finally {
+      saving.value = false;
+    }
+  }
+
+  async function deleteLibrary(libraryId: string) {
+    saving.value = true;
+    try {
+      await api().deleteLibrary(libraryId);
+      libraries.value = await api().listLibraries();
+      const fallback = libraries.value.find((library) => library.isDefault) ?? libraries.value[0] ?? null;
+      if (activeLibraryId.value === libraryId && fallback) {
+        activeLibraryId.value = fallback.id;
+        activeSpaceId.value = '';
+        await appConfigStore.updateConfig({
+          features: {
+            knowledge: {
+              defaultLibraryId: fallback.id,
+            },
+          },
+        });
+        await loadActiveLibraryData();
+      }
+    } catch (err) {
+      notifyError(err, '知识库删除失败');
+    } finally {
+      saving.value = false;
     }
   }
 
@@ -355,6 +482,57 @@ export const useKnowledgeStore = defineStore('knowledge', () => {
       return null;
     } finally {
       saving.value = false;
+    }
+  }
+
+  async function updateSpace(spaceId: string, input: UpdateKnowledgeSpacePayload) {
+    saving.value = true;
+    try {
+      const space = await api().updateSpace(spaceId, input);
+      spaces.value = await api().listSpaces(activeLibraryId.value || undefined);
+      await refreshTree();
+      await refreshGraph();
+      return space;
+    } catch (err) {
+      notifyError(err, '空间更新失败');
+      return null;
+    } finally {
+      saving.value = false;
+    }
+  }
+
+  async function deleteSpace(spaceId: string) {
+    saving.value = true;
+    try {
+      await api().deleteSpace(spaceId);
+      spaces.value = await api().listSpaces(activeLibraryId.value || undefined);
+      activeSpaceId.value = spaces.value.find((space) => space.id === activeSpaceId.value)?.id
+        || spaces.value.find((space) => space.isDefault)?.id
+        || spaces.value[0]?.id
+        || '';
+      await refreshTree();
+      await refreshGraph();
+      await refreshOrphanPages();
+    } catch (err) {
+      notifyError(err, '空间删除失败');
+    } finally {
+      saving.value = false;
+    }
+  }
+
+  async function reorderSpaces(orderedIds: string[]) {
+    const orderMap = new Map(orderedIds.map((id, index) => [id, index]));
+    const updates = spaces.value
+      .filter((space) => orderMap.has(space.id) && space.sortOrder !== orderMap.get(space.id))
+      .map((space) => api().updateSpace(space.id, { sortOrder: orderMap.get(space.id) }));
+    if (!updates.length) return spaces.value;
+    try {
+      await Promise.all(updates);
+      spaces.value = await api().listSpaces(activeLibraryId.value || undefined);
+      return spaces.value;
+    } catch (err) {
+      notifyError(err, '空间排序失败');
+      return spaces.value;
     }
   }
 
@@ -766,6 +944,50 @@ export const useKnowledgeStore = defineStore('knowledge', () => {
       await refreshTree();
     } catch (err) {
       notifyError(err, '移动节点失败');
+    } finally {
+      saving.value = false;
+    }
+  }
+
+  async function moveNodeToFolder(nodeId: string, folderId: string) {
+    const node = visibleNodes.value.find((item) => item.id === nodeId);
+    const folder = visibleNodes.value.find((item) => item.id === folderId);
+    if (!node || !folder || folder.nodeType !== 'folder' || node.id === folder.id) return false;
+    if (node.id === 'node-inbox' || folder.id === 'node-inbox') return false;
+    if (node.spaceId !== folder.spaceId) {
+      notifyError(new Error('只能在同一空间内移动文件'), '移动节点失败');
+      return false;
+    }
+
+    saving.value = true;
+    try {
+      await api().moveNode(nodeId, { parentId: folderId });
+      await refreshTree();
+      await refreshGraph();
+      await refreshOrphanPages();
+      return true;
+    } catch (err) {
+      notifyError(err, '移动节点失败');
+      return false;
+    } finally {
+      saving.value = false;
+    }
+  }
+
+  async function moveNodeToSpaceRoot(nodeId: string, spaceId: string) {
+    const node = visibleNodes.value.find((item) => item.id === nodeId);
+    if (!node || node.id === 'node-inbox' || node.spaceId !== spaceId) return false;
+
+    saving.value = true;
+    try {
+      await api().moveNode(nodeId, { parentId: undefined });
+      await refreshTree();
+      await refreshGraph();
+      await refreshOrphanPages();
+      return true;
+    } catch (err) {
+      notifyError(err, '移动节点失败');
+      return false;
     } finally {
       saving.value = false;
     }
@@ -1323,7 +1545,14 @@ export const useKnowledgeStore = defineStore('knowledge', () => {
     refreshOrphanPages,
     loadTagTargets,
     clearTagFilter,
+    switchLibrary,
+    createLibrary,
+    updateLibrary,
+    deleteLibrary,
     createSpace,
+    updateSpace,
+    deleteSpace,
+    reorderSpaces,
     createFolder,
     createMarkdownPage,
     createBlockPage,
@@ -1338,6 +1567,8 @@ export const useKnowledgeStore = defineStore('knowledge', () => {
     selectNode,
     renameNode,
     moveNodeToRoot,
+    moveNodeToFolder,
+    moveNodeToSpaceRoot,
     toggleFavorite,
     archiveNode,
     deleteNode,

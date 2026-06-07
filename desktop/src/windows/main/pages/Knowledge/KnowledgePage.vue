@@ -1,18 +1,30 @@
 <script setup lang="ts">
-import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue';
+import { computed, onBeforeUnmount, onMounted, ref, watch, type CSSProperties } from 'vue';
 import { useRouter } from 'vue-router';
 import IconRenderer from '@/windows/main/components/ui/IconRenderer.vue';
 import UiButton from '@/windows/main/components/ui/UiButton.vue';
 import UiIconButton from '@/windows/main/components/ui/UiIconButton.vue';
 import UiInput from '@/windows/main/components/ui/UiInput.vue';
+import UiPersonalizationConfig from '@/windows/main/components/ui/UiPersonalizationConfig.vue';
+import UiSelect from '@/windows/main/components/ui/UiSelect.vue';
 import KnowledgeBlockEditor from './components/KnowledgeBlockEditor.vue';
 import KnowledgeCanvasEditor from './components/KnowledgeCanvasEditor.vue';
 import KnowledgeConversionDialog from './components/KnowledgeConversionDialog.vue';
 import KnowledgeMarkdownEditor from './components/KnowledgeMarkdownEditor.vue';
 import KnowledgeTreeNode from './components/KnowledgeTreeNode.vue';
+import { useContextMenu } from '@/windows/main/composables/useContextMenu';
+import { useConfirmDialog } from '@/windows/main/composables/useConfirmDialog';
 import { useTextPromptDialog } from '@/windows/main/composables/useTextPromptDialog';
 import { notifyError, notifySuccess, notifyWarning } from '@/windows/main/composables/useInAppNotification';
+import {
+  resolveThemeBackground,
+  withThemeBackground,
+  type BackgroundConfirmPayload,
+  type BackgroundStyleConfig,
+  type BackgroundTheme,
+} from '@/contracts/background';
 import { useKnowledgeStore } from '@/windows/main/stores/knowledge_store';
+import { useAppConfigStore } from '@/windows/main/stores/app_config_store';
 import { useTodoStore } from '@/windows/main/stores/todo_store';
 import type {
   KnowledgeAsset,
@@ -32,6 +44,22 @@ type KnowledgeMarkdownEditorExpose = {
 
 type KnowledgeDocumentPreviewKind = 'text' | 'pdf' | 'image' | 'slides' | 'sheets' | 'unsupported';
 type KnowledgeConversionMode = 'markdown-to-block' | 'markdown-to-canvas' | 'block-to-markdown' | 'block-to-canvas' | 'canvas-to-markdown';
+type KnowledgePersonalizationRegion = 'page' | 'left' | 'editor' | 'right';
+
+type KnowledgeAreaBackground = {
+  type: 'color' | 'image' | 'video';
+  color: string;
+  image: string;
+  video: string;
+  backgroundStyle: BackgroundStyleConfig;
+};
+
+type KnowledgePersonalizationSettings = {
+  pageBackground: KnowledgeAreaBackground;
+  leftBackground: KnowledgeAreaBackground;
+  editorBackground: KnowledgeAreaBackground;
+  rightBackground: KnowledgeAreaBackground;
+};
 
 type KnowledgeDocumentPreviewSection = {
   index: number;
@@ -86,9 +114,12 @@ type KnowledgeDocumentExcerptProperties = {
 };
 
 const store = useKnowledgeStore();
+const appConfigStore = useAppConfigStore();
 const router = useRouter();
 const todoStore = useTodoStore();
+const { show: showConfirm } = useConfirmDialog();
 const { show: showTextPrompt } = useTextPromptDialog();
+const { open: openContextMenu } = useContextMenu();
 const searchQuery = ref('');
 const draftTitle = ref('');
 const activeInspectorTab = ref('outline');
@@ -98,6 +129,13 @@ const markdownEditorRef = ref<KnowledgeMarkdownEditorExpose | null>(null);
 const selectedTagColor = ref('#4A90D9');
 const conversionMode = ref<KnowledgeConversionMode | null>(null);
 const converting = ref(false);
+const collapsedSpaceIds = ref<Set<string>>(new Set(loadCollapsedSpaceIds()));
+const draggedSpaceId = ref<string | null>(null);
+const rootDropSpaceId = ref<string | null>(null);
+const knowledgePersonalizationStorageKey = 'knowledge.personalization';
+const knowledgePersonalization = ref<KnowledgePersonalizationSettings>(loadKnowledgePersonalization());
+const knowledgePersonalizationPanelOpen = ref(false);
+const knowledgePersonalizationActiveRegion = ref<KnowledgePersonalizationRegion>('page');
 let autosaveTimer: number | undefined;
 let searchTimer: number | undefined;
 
@@ -122,6 +160,12 @@ const searchScopes = [
   { value: 'library' as const, label: '全库' },
   { value: 'space' as const, label: '当前空间' },
 ];
+const libraryOptions = computed(() =>
+  store.libraries.map((library) => ({
+    label: library.name,
+    value: library.id,
+  })),
+);
 
 const filteredNodes = computed(() => {
   const keyword = searchQuery.value.trim().toLowerCase();
@@ -231,17 +275,39 @@ const documentPreviewKind = computed<KnowledgeDocumentPreviewKind>(() => {
 const documentSections = computed(() => selectedExtraction.value?.sections ?? []);
 const documentSlides = computed(() => selectedExtraction.value?.slides ?? []);
 const documentSheets = computed(() => selectedExtraction.value?.sheets ?? []);
+const knowledgeBackgroundTheme = computed<BackgroundTheme>(() =>
+  appConfigStore.config.appearance.theme === 'dark' ? 'dark' : 'light',
+);
+const activeKnowledgePageBackground = computed(() => resolveKnowledgeBackground('page'));
+const hasKnowledgePageBackground = computed(() => hasKnowledgeBackground(activeKnowledgePageBackground.value));
+const knowledgePersonalizationPageStyle = computed<CSSProperties>(() =>
+  createKnowledgeBackgroundStyle(activeKnowledgePageBackground.value),
+);
+const knowledgePersonalizationSidebarStyle = computed(() => knowledgePersonalizationRegionStyle('left'));
+const knowledgePersonalizationEditorStyle = computed(() => knowledgePersonalizationRegionStyle('editor'));
+const knowledgePersonalizationInspectorStyle = computed(() => knowledgePersonalizationRegionStyle('right'));
+const activeKnowledgePersonalizationBackground = computed(() =>
+  resolveKnowledgeBackground(knowledgePersonalizationActiveRegion.value),
+);
+const knowledgePersonalizationPreviewSize = computed(() => {
+  if (knowledgePersonalizationActiveRegion.value === 'left') return { width: 280, height: 640 };
+  if (knowledgePersonalizationActiveRegion.value === 'right') return { width: 260, height: 640 };
+  if (knowledgePersonalizationActiveRegion.value === 'editor') return { width: 720, height: 640 };
+  return { width: 960, height: 640 };
+});
 
 onMounted(() => {
   store.initialize();
   window.addEventListener('focus', refreshQuickNotesOnFocus);
   window.addEventListener('beforeunload', handleBeforeUnload);
+  window.addEventListener('keydown', handleKnowledgePersonalizationKeydown);
   document.addEventListener('visibilitychange', handleVisibilityChange);
 });
 
 onBeforeUnmount(() => {
   window.removeEventListener('focus', refreshQuickNotesOnFocus);
   window.removeEventListener('beforeunload', handleBeforeUnload);
+  window.removeEventListener('keydown', handleKnowledgePersonalizationKeydown);
   document.removeEventListener('visibilitychange', handleVisibilityChange);
   clearAutosaveTimer();
   clearSearchTimer();
@@ -271,6 +337,190 @@ watch(
   },
 );
 
+watch(
+  knowledgePersonalization,
+  (settings) => {
+    persistKnowledgePersonalization(settings);
+  },
+  { deep: true },
+);
+
+function defaultKnowledgePersonalization(): KnowledgePersonalizationSettings {
+  const emptyBackground = (): KnowledgeAreaBackground => ({
+    type: 'color',
+    color: '',
+    image: '',
+    video: '',
+    backgroundStyle: { opacity: 1 },
+  });
+  return {
+    pageBackground: emptyBackground(),
+    leftBackground: emptyBackground(),
+    editorBackground: emptyBackground(),
+    rightBackground: emptyBackground(),
+  };
+}
+
+function loadKnowledgePersonalization(): KnowledgePersonalizationSettings {
+  if (typeof window === 'undefined') return defaultKnowledgePersonalization();
+  try {
+    const raw = window.localStorage.getItem(knowledgePersonalizationStorageKey);
+    if (!raw) return defaultKnowledgePersonalization();
+    const parsed = JSON.parse(raw) as Partial<KnowledgePersonalizationSettings> & Record<string, unknown>;
+    const defaults = defaultKnowledgePersonalization();
+    return {
+      pageBackground: normalizeKnowledgeAreaBackground(parsed.pageBackground, defaults.pageBackground),
+      leftBackground: normalizeKnowledgeAreaBackground(parsed.leftBackground, defaults.leftBackground),
+      editorBackground: normalizeKnowledgeAreaBackground(parsed.editorBackground, defaults.editorBackground),
+      rightBackground: normalizeKnowledgeAreaBackground(parsed.rightBackground, defaults.rightBackground),
+    };
+  } catch {
+    return defaultKnowledgePersonalization();
+  }
+}
+
+function persistKnowledgePersonalization(settings: KnowledgePersonalizationSettings) {
+  if (typeof window === 'undefined') return;
+  window.localStorage.setItem(knowledgePersonalizationStorageKey, JSON.stringify(settings));
+}
+
+function normalizeKnowledgeAreaBackground(value: unknown, fallback: KnowledgeAreaBackground): KnowledgeAreaBackground {
+  if (typeof value === 'string') {
+    return { ...fallback, color: value };
+  }
+
+  if (!isRecord(value)) return fallback;
+  const type = value.type === 'image' || value.type === 'video' || value.type === 'color' ? value.type : fallback.type;
+  return {
+    type,
+    color: typeof value.color === 'string' ? value.color : '',
+    image: typeof value.image === 'string' ? value.image : '',
+    video: typeof value.video === 'string' ? value.video : '',
+    backgroundStyle: isRecord(value.backgroundStyle) ? value.backgroundStyle as BackgroundStyleConfig : { opacity: 1 },
+  };
+}
+
+function hasKnowledgeBackground(background: KnowledgeAreaBackground) {
+  if (background.type === 'image') return Boolean(background.image.trim());
+  if (background.type === 'video') return Boolean(background.video.trim());
+  return Boolean(background.color.trim());
+}
+
+function createKnowledgeBackgroundStyle(background: KnowledgeAreaBackground): CSSProperties {
+  if (!hasKnowledgeBackground(background)) return {};
+  const style = background.backgroundStyle ?? {};
+  if (background.type === 'image') {
+    return {
+      backgroundImage: `url(${background.image})`,
+      backgroundSize: style.backgroundSize ?? 'cover',
+      backgroundPosition: style.backgroundPosition ?? 'center',
+      backgroundRepeat: style.backgroundRepeat ?? 'no-repeat',
+    };
+  }
+
+  if (background.type === 'video') {
+    return {
+      background: background.color || 'color-mix(in srgb, var(--ui-surface-panel) 32%, transparent)',
+    };
+  }
+
+  return {
+    background: background.color,
+  };
+}
+
+function knowledgePersonalizationRegionStyle(region: Exclude<KnowledgePersonalizationRegion, 'page'>) {
+  return hasKnowledgePageBackground.value ? {} : createKnowledgeBackgroundStyle(resolveKnowledgeBackground(region));
+}
+
+function knowledgeBackgroundForRegion(region: KnowledgePersonalizationRegion) {
+  if (region === 'page') return knowledgePersonalization.value.pageBackground;
+  if (region === 'left') return knowledgePersonalization.value.leftBackground;
+  if (region === 'editor') return knowledgePersonalization.value.editorBackground;
+  return knowledgePersonalization.value.rightBackground;
+}
+
+function resolveKnowledgeBackground(region: KnowledgePersonalizationRegion): KnowledgeAreaBackground {
+  return resolveThemeBackground(
+    knowledgeBackgroundForRegion(region),
+    knowledgeBackgroundTheme.value,
+  ) as KnowledgeAreaBackground;
+}
+
+function openKnowledgePersonalizationMenu(event: MouseEvent, region: KnowledgePersonalizationRegion) {
+  openContextMenu(event.clientX, event.clientY, [
+    {
+      id: 'knowledge-personalization-page',
+      label: '设置知识库背景',
+      action: () => openKnowledgePersonalizationPanel('page'),
+    },
+    {
+      id: `knowledge-personalization-${region}`,
+      label: '设置个性化',
+      divided: true,
+      action: () => openKnowledgePersonalizationPanel(region),
+    },
+  ]);
+}
+
+function openKnowledgePersonalizationPanel(region: KnowledgePersonalizationRegion) {
+  knowledgePersonalizationActiveRegion.value = region;
+  knowledgePersonalizationPanelOpen.value = true;
+}
+
+function handleKnowledgePersonalizationKeydown(event: KeyboardEvent) {
+  if (event.key !== 'Escape') return;
+  knowledgePersonalizationPanelOpen.value = false;
+}
+
+function knowledgePersonalizationRegionLabel(region: KnowledgePersonalizationRegion) {
+  if (region === 'left') return '左侧栏';
+  if (region === 'editor') return '中间编辑区';
+  if (region === 'right') return '右侧功能区';
+  return '知识库背景';
+}
+
+function setKnowledgeBackgroundForRegion(region: KnowledgePersonalizationRegion, background: KnowledgeAreaBackground) {
+  if (region === 'page') knowledgePersonalization.value.pageBackground = background;
+  if (region === 'left') knowledgePersonalization.value.leftBackground = background;
+  if (region === 'editor') knowledgePersonalization.value.editorBackground = background;
+  if (region === 'right') knowledgePersonalization.value.rightBackground = background;
+}
+
+function handleKnowledgePersonalizationConfirm(payload: BackgroundConfirmPayload) {
+  const region = knowledgePersonalizationActiveRegion.value;
+  const nextBackground = withThemeBackground(
+    knowledgeBackgroundForRegion(region),
+    knowledgeBackgroundTheme.value,
+    {
+      type: payload.type,
+      color: payload.color ?? '',
+      image: payload.image ?? '',
+      video: payload.video ?? '',
+      backgroundStyle: payload.backgroundStyle ?? { opacity: 1 },
+    },
+  ) as KnowledgeAreaBackground;
+  setKnowledgeBackgroundForRegion(region, nextBackground);
+}
+
+function handleKnowledgePersonalizationReset() {
+  const defaults = defaultKnowledgePersonalization();
+  const region = knowledgePersonalizationActiveRegion.value;
+  const fallback = region === 'page'
+    ? defaults.pageBackground
+    : region === 'left'
+      ? defaults.leftBackground
+      : region === 'editor'
+        ? defaults.editorBackground
+        : defaults.rightBackground;
+  const nextBackground = withThemeBackground(
+    knowledgeBackgroundForRegion(region),
+    knowledgeBackgroundTheme.value,
+    fallback,
+  ) as KnowledgeAreaBackground;
+  setKnowledgeBackgroundForRegion(region, nextBackground);
+}
+
 async function createSpace() {
   const name = await showTextPrompt({
     title: '新建空间',
@@ -281,6 +531,156 @@ async function createSpace() {
   if (name) {
     await store.createSpace(name);
   }
+}
+
+async function createLibrary() {
+  const name = await showTextPrompt({
+    title: '新建知识库',
+    label: '知识库名称',
+    initialValue: '新知识库',
+    confirmText: '创建',
+  });
+  if (name) {
+    await store.createLibrary(name);
+  }
+}
+
+async function renameActiveLibrary() {
+  if (!store.activeLibrary) return;
+  const name = await showTextPrompt({
+    title: '重命名知识库',
+    label: '知识库名称',
+    initialValue: store.activeLibrary.name,
+    confirmText: '保存',
+  });
+  if (name && name !== store.activeLibrary.name) {
+    await store.updateLibrary(store.activeLibrary.id, { name });
+  }
+}
+
+async function deleteActiveLibrary() {
+  if (!store.activeLibrary || store.activeLibrary.isDefault) return;
+  const ok = await showConfirm({
+    title: '删除知识库',
+    message: `删除「${store.activeLibrary.name}」会移除该库下的空间、页面和资产记录。`,
+    confirmText: '删除',
+    danger: true,
+  });
+  if (ok) {
+    await store.deleteLibrary(store.activeLibrary.id);
+  }
+}
+
+async function switchLibrary(value: string | number) {
+  await store.switchLibrary(String(value));
+}
+
+async function renameSpace(spaceId: string, currentName: string) {
+  const name = await showTextPrompt({
+    title: '重命名空间',
+    label: '空间名称',
+    initialValue: currentName,
+    confirmText: '保存',
+  });
+  if (name && name !== currentName) {
+    await store.updateSpace(spaceId, { name });
+  }
+}
+
+async function deleteSpace(spaceId: string, name: string) {
+  const ok = await showConfirm({
+    title: '删除空间',
+    message: `删除「${name}」会隐藏空间内的文件。默认空间不能删除。`,
+    confirmText: '删除',
+    danger: true,
+  });
+  if (ok) {
+    await store.deleteSpace(spaceId);
+  }
+}
+
+function loadCollapsedSpaceIds() {
+  try {
+    const raw = window.localStorage.getItem('knowledge.collapsedSpaceIds');
+    const parsed = raw ? JSON.parse(raw) : [];
+    return Array.isArray(parsed) ? parsed.filter((item): item is string => typeof item === 'string') : [];
+  } catch {
+    return [];
+  }
+}
+
+function persistCollapsedSpaceIds() {
+  window.localStorage.setItem('knowledge.collapsedSpaceIds', JSON.stringify([...collapsedSpaceIds.value]));
+}
+
+function isSpaceCollapsed(spaceId: string) {
+  return collapsedSpaceIds.value.has(spaceId);
+}
+
+function toggleSpaceCollapsed(spaceId: string) {
+  const next = new Set(collapsedSpaceIds.value);
+  if (next.has(spaceId)) {
+    next.delete(spaceId);
+  } else {
+    next.add(spaceId);
+  }
+  collapsedSpaceIds.value = next;
+  persistCollapsedSpaceIds();
+}
+
+function handleSpaceDragStart(spaceId: string, event: DragEvent) {
+  draggedSpaceId.value = spaceId;
+  event.dataTransfer?.setData('text/plain', spaceId);
+  if (event.dataTransfer) {
+    event.dataTransfer.effectAllowed = 'move';
+  }
+}
+
+async function handleSpaceDrop(targetSpaceId: string) {
+  const sourceSpaceId = draggedSpaceId.value;
+  draggedSpaceId.value = null;
+  if (!sourceSpaceId || sourceSpaceId === targetSpaceId) return;
+  const orderedIds = store.spaces.map((space) => space.id);
+  const fromIndex = orderedIds.indexOf(sourceSpaceId);
+  const toIndex = orderedIds.indexOf(targetSpaceId);
+  if (fromIndex < 0 || toIndex < 0) return;
+  orderedIds.splice(fromIndex, 1);
+  orderedIds.splice(toIndex, 0, sourceSpaceId);
+  await store.reorderSpaces(orderedIds);
+}
+
+function readDraggedKnowledgeNodeId(event: DragEvent) {
+  return event.dataTransfer?.getData('application/x-guyantools-knowledge-node')
+    || event.dataTransfer?.getData('text/plain')
+    || '';
+}
+
+function handleSpaceRootDragOver(spaceId: string, event: DragEvent) {
+  const nodeId = readDraggedKnowledgeNodeId(event);
+  if (!nodeId) return;
+  const node = store.visibleNodes.find((item) => item.id === nodeId);
+  if (!node || node.id === 'node-inbox' || node.spaceId !== spaceId) return;
+  event.preventDefault();
+  event.stopPropagation();
+  rootDropSpaceId.value = spaceId;
+  if (event.dataTransfer) {
+    event.dataTransfer.dropEffect = 'move';
+  }
+}
+
+function handleSpaceRootDragLeave(spaceId: string, event: DragEvent) {
+  if (rootDropSpaceId.value === spaceId && event.currentTarget === event.target) {
+    rootDropSpaceId.value = null;
+  }
+}
+
+async function handleSpaceRootDrop(spaceId: string, event: DragEvent) {
+  const nodeId = readDraggedKnowledgeNodeId(event);
+  rootDropSpaceId.value = null;
+  if (!nodeId) return;
+  event.preventDefault();
+  event.stopPropagation();
+  await store.moveNodeToSpaceRoot(nodeId, spaceId);
 }
 
 async function createRootFolder() {
@@ -924,17 +1324,22 @@ function formatExcerptContext(context?: KnowledgeDocumentExcerptContext) {
   ].filter(Boolean);
 }
 
-async function handleEditorAssetFile(payload: { file: File; kind: 'image' | 'attachment' }) {
-  const data = await payload.file.arrayBuffer();
+async function uploadMarkdownAssetUrl(file: File, kind: 'image' | 'attachment') {
+  const data = await file.arrayBuffer();
   const asset = await store.saveAsset({
-    originalName: payload.file.name || (payload.kind === 'image' ? 'pasted-image.png' : 'attachment'),
-    mimeType: payload.file.type,
+    originalName: file.name || (kind === 'image' ? 'pasted-image.png' : 'attachment'),
+    mimeType: file.type,
     data,
   });
-  if (!asset) return;
+  return asset ? toKnowledgeAssetUrl(asset) : null;
+}
 
-  const href = toKnowledgeAssetUrl(asset);
-  const safeName = asset.originalName.replace(/[\[\]\n\r]/g, ' ');
+async function handleEditorAssetFile(payload: { file: File; kind: 'image' | 'attachment' }) {
+  const href = await uploadMarkdownAssetUrl(payload.file, payload.kind);
+  if (!href) return;
+
+  const fallbackName = payload.kind === 'image' ? 'pasted-image.png' : 'attachment';
+  const safeName = (payload.file.name || fallbackName).replace(/[\[\]\n\r]/g, ' ');
   const link = payload.kind === 'image'
     ? `![${safeName}](${href})`
     : `[${safeName}](${href})`;
@@ -970,7 +1375,7 @@ function searchResultIcon(sourceType: string) {
   if (sourceType === 'document') return 'iconify:lucide:file-search';
   if (sourceType === 'quick_note') return 'iconify:lucide:sticky-note';
   if (sourceType === 'asset') return 'iconify:lucide:paperclip';
-  return 'iconify:lucide:file-text';
+  return 'iconify:lucide:file-type';
 }
 
 function searchResultTypeLabel(sourceType: string) {
@@ -994,7 +1399,12 @@ function formatFileSize(value?: number) {
 </script>
 
 <template>
-  <section class="knowledge-page" aria-label="知识库">
+  <section
+    class="knowledge-page"
+    :class="{ 'knowledge-page--custom-background': hasKnowledgePageBackground }"
+    :style="knowledgePersonalizationPageStyle"
+    aria-label="知识库"
+  >
     <header class="knowledge-toolbar">
       <div class="knowledge-toolbar__title">
         <span class="knowledge-toolbar__icon">
@@ -1006,6 +1416,35 @@ function formatFileSize(value?: number) {
         </div>
       </div>
 
+      <div class="knowledge-toolbar__library" aria-label="当前知识库">
+        <UiSelect
+          :model-value="store.activeLibraryId"
+          :options="libraryOptions"
+          size="sm"
+          placeholder="选择知识库"
+          @update:model-value="switchLibrary"
+        >
+          <template #prefix>
+            <IconRenderer icon="iconify:lucide:database" :size="15" />
+          </template>
+        </UiSelect>
+        <UiIconButton type="button" title="新建知识库" size="sm" :disabled="store.saving" @click="createLibrary">
+          <IconRenderer icon="iconify:lucide:plus" :size="15" />
+        </UiIconButton>
+        <UiIconButton type="button" title="重命名知识库" size="sm" :disabled="store.saving || !store.activeLibrary" @click="renameActiveLibrary">
+          <IconRenderer icon="iconify:lucide:pencil" :size="15" />
+        </UiIconButton>
+        <UiIconButton
+          type="button"
+          title="删除知识库"
+          size="sm"
+          :disabled="store.saving || !store.activeLibrary || store.activeLibrary.isDefault"
+          @click="deleteActiveLibrary"
+        >
+          <IconRenderer icon="iconify:lucide:trash-2" :size="15" />
+        </UiIconButton>
+      </div>
+
       <label class="knowledge-toolbar__search" aria-label="搜索当前知识库">
         <UiInput v-model="searchQuery" class="knowledge-toolbar__search-input" type="search" size="sm" placeholder="搜索当前库">
           <template #prefix>
@@ -1015,6 +1454,12 @@ function formatFileSize(value?: number) {
       </label>
 
       <div class="knowledge-toolbar__actions" aria-label="知识库操作">
+        <UiButton type="button" variant="secondary" size="sm" @click="openKnowledgePersonalizationPanel('page')">
+          <template #prefix>
+            <IconRenderer icon="iconify:lucide:palette" :size="15" />
+          </template>
+          个性化
+        </UiButton>
         <UiButton type="button" variant="secondary" size="sm" @click="openQuickNoteWindow">
           <template #prefix>
             <IconRenderer icon="iconify:lucide:sticky-note" :size="15" />
@@ -1067,7 +1512,12 @@ function formatFileSize(value?: number) {
     </div>
 
     <div class="knowledge-shell">
-      <aside class="knowledge-sidebar" aria-label="知识库目录">
+      <aside
+        class="knowledge-sidebar"
+        :style="knowledgePersonalizationSidebarStyle"
+        aria-label="知识库目录"
+        @contextmenu.prevent="openKnowledgePersonalizationMenu($event, 'left')"
+      >
         <div class="knowledge-sidebar__header">
           <span>资料树</span>
           <UiIconButton type="button" title="新建空间" size="sm" :disabled="store.saving" @click="createSpace">
@@ -1141,7 +1591,7 @@ function formatFileSize(value?: number) {
               @click="selectNode(node)"
             >
               <template #prefix>
-                <IconRenderer :icon="node.nodeType === 'folder' ? 'iconify:lucide:folder' : 'iconify:lucide:file-text'" :size="15" />
+                <IconRenderer :icon="node.icon ? `iconify:lucide:${node.icon}` : (node.nodeType === 'folder' ? 'iconify:lucide:folder' : 'iconify:lucide:file-type')" :size="15" />
               </template>
               <span>{{ node.title }}</span>
             </UiButton>
@@ -1259,26 +1709,67 @@ function formatFileSize(value?: number) {
           <section class="knowledge-tree__section">
             <h2>空间</h2>
             <div v-if="!store.spaces.length && !store.loading" class="knowledge-empty-line">暂无空间</div>
-            <article v-for="space in store.spaces" :key="space.id" class="knowledge-space">
-              <UiButton
-                type="button"
+            <article
+              v-for="space in store.spaces"
+              :key="space.id"
+              class="knowledge-space"
+              :class="{ 'knowledge-space--dragging': draggedSpaceId === space.id }"
+              draggable="true"
+              @dragstart="handleSpaceDragStart(space.id, $event)"
+              @dragend="draggedSpaceId = null"
+              @dragover.prevent
+              @drop="handleSpaceDrop(space.id)"
+            >
+              <div
                 class="knowledge-space__head"
-                variant="ghost"
-                size="sm"
                 :class="{ 'knowledge-space__head--active': store.activeSpaceId === space.id }"
-                :active="store.activeSpaceId === space.id"
+                role="button"
+                tabindex="0"
                 :aria-pressed="store.activeSpaceId === space.id"
                 @click="store.activeSpaceId = space.id"
+                @keydown.enter.prevent="store.activeSpaceId = space.id"
               >
-                <template #prefix>
+                <span class="knowledge-space__prefix">
+                  <span
+                    class="knowledge-space__toggle"
+                    role="button"
+                    tabindex="0"
+                    :aria-label="isSpaceCollapsed(space.id) ? '展开空间' : '收起空间'"
+                    @click.stop="toggleSpaceCollapsed(space.id)"
+                    @keydown.enter.stop.prevent="toggleSpaceCollapsed(space.id)"
+                  >
+                    <IconRenderer
+                      :icon="isSpaceCollapsed(space.id) ? 'iconify:lucide:chevron-right' : 'iconify:lucide:chevron-down'"
+                      :size="13"
+                    />
+                  </span>
                   <span class="knowledge-space__color" :style="{ backgroundColor: space.color }" />
-                </template>
+                </span>
                 <span>{{ space.name }}</span>
-                <template #suffix>
+                <span class="knowledge-space__actions">
                   <strong>{{ store.nodesBySpace(space.id).length }}</strong>
-                </template>
-              </UiButton>
-              <div class="knowledge-space__tree">
+                  <UiIconButton type="button" title="重命名空间" size="sm" @click.stop="renameSpace(space.id, space.name)">
+                    <IconRenderer icon="iconify:lucide:pencil" :size="13" />
+                  </UiIconButton>
+                  <UiIconButton
+                    type="button"
+                    title="删除空间"
+                    size="sm"
+                    :disabled="space.isDefault"
+                    @click.stop="deleteSpace(space.id, space.name)"
+                  >
+                    <IconRenderer icon="iconify:lucide:trash-2" :size="13" />
+                  </UiIconButton>
+                </span>
+              </div>
+              <div
+                v-if="!isSpaceCollapsed(space.id)"
+                class="knowledge-space__tree"
+                :class="{ 'knowledge-space__tree--drop-target': rootDropSpaceId === space.id }"
+                @dragover="handleSpaceRootDragOver(space.id, $event)"
+                @dragleave="handleSpaceRootDragLeave(space.id, $event)"
+                @drop="handleSpaceRootDrop(space.id, $event)"
+              >
                 <KnowledgeTreeNode
                   v-for="node in store.childrenFor(null, space.id)"
                   :key="node.id"
@@ -1292,7 +1783,12 @@ function formatFileSize(value?: number) {
         </div>
       </aside>
 
-      <main class="knowledge-workspace" aria-label="知识库内容">
+      <main
+        class="knowledge-workspace"
+        :style="knowledgePersonalizationEditorStyle"
+        aria-label="知识库内容"
+        @contextmenu.prevent="openKnowledgePersonalizationMenu($event, 'editor')"
+      >
         <div v-if="store.loading" class="knowledge-state">
           <IconRenderer icon="iconify:lucide:loader-circle" :size="22" />
           <span>加载中</span>
@@ -1694,7 +2190,12 @@ function formatFileSize(value?: number) {
         </div>
       </main>
 
-      <aside class="knowledge-inspector" aria-label="知识库 Inspector">
+      <aside
+        class="knowledge-inspector"
+        :style="knowledgePersonalizationInspectorStyle"
+        aria-label="知识库 Inspector"
+        @contextmenu.prevent="openKnowledgePersonalizationMenu($event, 'right')"
+      >
         <div class="knowledge-inspector__tabs">
           <UiIconButton
             v-for="tab in inspectorTabs"
@@ -2009,6 +2510,22 @@ function formatFileSize(value?: number) {
         </div>
       </aside>
     </div>
+    <UiPersonalizationConfig
+      :visible="knowledgePersonalizationPanelOpen"
+      :title="knowledgePersonalizationRegionLabel(knowledgePersonalizationActiveRegion)"
+      :current-background="activeKnowledgePersonalizationBackground.type === 'color' ? activeKnowledgePersonalizationBackground.color : ''"
+      :current-background-image="activeKnowledgePersonalizationBackground.type === 'image' ? activeKnowledgePersonalizationBackground.image : ''"
+      :current-background-video="activeKnowledgePersonalizationBackground.type === 'video' ? activeKnowledgePersonalizationBackground.video : ''"
+      :current-background-style="activeKnowledgePersonalizationBackground.backgroundStyle"
+      :enabled-features="['color', 'image', 'opacity', 'textColor']"
+      show-reset
+      reset-text="恢复默认背景颜色"
+      :preview-width="knowledgePersonalizationPreviewSize.width"
+      :preview-height="knowledgePersonalizationPreviewSize.height"
+      @close="knowledgePersonalizationPanelOpen = false"
+      @confirm="handleKnowledgePersonalizationConfirm"
+      @reset="handleKnowledgePersonalizationReset"
+    />
     <KnowledgeConversionDialog
       :open="Boolean(conversionMode)"
       :title="conversionDialog?.title ?? ''"
@@ -2037,6 +2554,9 @@ function formatFileSize(value?: number) {
   box-sizing: border-box;
   color: var(--ui-text-primary);
   background: var(--background-color);
+  background-position: center;
+  background-repeat: no-repeat;
+  background-size: cover;
 }
 
 :global(.page-router-viewport > .knowledge-page) {
@@ -2047,7 +2567,7 @@ function formatFileSize(value?: number) {
 .knowledge-toolbar {
   grid-row: 1;
   display: grid;
-  grid-template-columns: minmax(220px, 0.8fr) minmax(220px, 1fr) auto;
+  grid-template-columns: minmax(180px, 0.7fr) minmax(230px, auto) minmax(220px, 1fr) auto;
   gap: 14px;
   align-items: center;
   min-height: 66px;
@@ -2058,9 +2578,22 @@ function formatFileSize(value?: number) {
 
 .knowledge-toolbar__title,
 .knowledge-toolbar__actions,
-.knowledge-toolbar__search {
+.knowledge-toolbar__search,
+.knowledge-toolbar__library {
   display: flex;
   align-items: center;
+}
+
+.knowledge-toolbar__library {
+  min-width: 0;
+  gap: 6px;
+}
+
+.knowledge-toolbar__library :deep(.ui-select-trigger) {
+  width: 180px;
+  min-width: 0;
+  height: 34px;
+  border-radius: 8px;
 }
 
 .knowledge-toolbar__title {
@@ -2157,6 +2690,13 @@ function formatFileSize(value?: number) {
 .knowledge-inspector {
   border-right: 0;
   border-left: 1px solid var(--ui-border-subtle);
+  background: var(--ui-surface-panel);
+}
+
+.knowledge-page--custom-background .knowledge-sidebar,
+.knowledge-page--custom-background .knowledge-workspace,
+.knowledge-page--custom-background .knowledge-inspector {
+  background: transparent;
 }
 
 .knowledge-sidebar__header {
@@ -2518,9 +3058,68 @@ function formatFileSize(value?: number) {
 }
 
 .knowledge-space__head {
-  grid-template-columns: 12px minmax(0, 1fr) auto;
+  display: grid;
+  grid-template-columns: 34px minmax(0, 1fr) auto;
+  align-items: center;
   gap: 8px;
+  min-height: 30px;
   padding: 0 8px;
+  border-radius: 6px;
+  color: var(--ui-text-primary);
+  cursor: default;
+}
+
+.knowledge-space__head:hover,
+.knowledge-space__head--active {
+  color: var(--ui-primary-color);
+  background: color-mix(in srgb, var(--ui-primary-color) 14%, transparent);
+}
+
+.knowledge-space__prefix,
+.knowledge-space__actions,
+.knowledge-space__toggle {
+  display: inline-flex;
+  align-items: center;
+}
+
+.knowledge-space__prefix {
+  gap: 5px;
+}
+
+.knowledge-space__head > span:nth-child(2) {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: var(--ui-font-size-sm);
+}
+
+.knowledge-space__toggle {
+  justify-content: center;
+  width: 16px;
+  height: 20px;
+  color: var(--ui-text-muted);
+}
+
+.knowledge-space__actions {
+  gap: 4px;
+  justify-content: flex-end;
+}
+
+.knowledge-space__actions .ui-icon-button {
+  width: 22px;
+  height: 22px;
+}
+
+.knowledge-space__actions strong {
+  min-width: 16px;
+  color: var(--ui-text-muted);
+  font-size: var(--ui-font-size-xs);
+  text-align: right;
+}
+
+.knowledge-space--dragging {
+  opacity: 0.55;
 }
 
 .knowledge-space__color {
@@ -2531,6 +3130,13 @@ function formatFileSize(value?: number) {
 
 .knowledge-space__tree {
   margin-top: 4px;
+  min-height: 30px;
+  border-radius: 6px;
+}
+
+.knowledge-space__tree--drop-target {
+  background: color-mix(in srgb, var(--ui-primary-color) 12%, transparent);
+  outline: 1px dashed color-mix(in srgb, var(--ui-primary-color) 46%, transparent);
 }
 
 .knowledge-empty-line {
@@ -2575,20 +3181,28 @@ function formatFileSize(value?: number) {
 }
 
 .knowledge-editor__header {
-  padding: 24px 32px 18px;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 8px 12px;
+  padding: 7px 14px;
   border-bottom: 1px solid var(--ui-border-subtle);
 }
 
 .knowledge-editor__meta {
   display: flex;
+  align-items: center;
   gap: 12px;
+  min-width: 0;
   color: var(--ui-text-muted);
   font-size: var(--ui-font-size-xs);
+  white-space: nowrap;
 }
 
 .knowledge-editor__title {
   display: block;
-  margin-top: 10px;
+  min-width: 0;
+  margin-top: 0;
 
   input {
     width: 100%;
@@ -2597,18 +3211,20 @@ function formatFileSize(value?: number) {
     outline: 0;
     color: var(--ui-text-primary);
     background: transparent;
-    font-size: var(--ui-font-size-display-md);
+    font-size: var(--ui-font-size-lg);
     font-weight: 750;
+    line-height: 1.2;
   }
 }
 
 .knowledge-editor__source {
+  grid-column: 1 / -1;
   display: flex;
   align-items: center;
   gap: 10px;
   max-width: 920px;
-  margin-top: 14px;
-  padding: 10px 12px;
+  margin-top: 0;
+  padding: 6px 8px;
   border: 1px solid var(--ui-border-subtle);
   border-radius: 8px;
   color: var(--ui-text-muted);
@@ -2642,8 +3258,10 @@ function formatFileSize(value?: number) {
 
 .knowledge-editor__conversion {
   display: flex;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
+  justify-content: flex-end;
   gap: 8px;
+  min-width: 0;
 }
 
 .knowledge-editor__body {

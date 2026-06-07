@@ -221,6 +221,13 @@ function defaultAttrsForType(
   if (type === 'heading') return { ...current, level: typeof current.level === 'number' ? current.level : 2 };
   if (type === 'task_list') return { ...current, checked: typeof current.checked === 'boolean' ? current.checked : false };
   if (type === 'code') return { ...current, language: typeof current.language === 'string' ? current.language : 'text' };
+  if (type === 'table') {
+    return {
+      ...current,
+      rows: typeof current.rows === 'number' ? current.rows : 3,
+      columns: typeof current.columns === 'number' ? current.columns : 3,
+    };
+  }
   return current;
 }
 

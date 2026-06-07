@@ -21,16 +21,19 @@ const { open: openContextMenu } = useContextMenu();
 const { show: showConfirm } = useConfirmDialog();
 const { show: showTextPrompt } = useTextPromptDialog();
 const expanded = ref(true);
+const dragOver = ref(false);
 
 const children = computed(() => store.childrenFor(props.node.id));
 const isFolder = computed(() => props.node.nodeType === 'folder');
 const isSelected = computed(() => store.selectedNodeId === props.node.id);
 const isSystemInbox = computed(() => props.node.id === 'node-inbox');
+const isDraggable = computed(() => !isSystemInbox.value);
+const canDropInside = computed(() => isFolder.value && !isSystemInbox.value);
 const icon = computed(() => {
   if (props.node.icon) return `iconify:lucide:${props.node.icon}`;
   if (props.node.nodeType === 'quick_note') return 'iconify:lucide:sticky-note';
   if (props.node.nodeType === 'document') return 'iconify:lucide:file-search';
-  return isFolder.value ? 'iconify:lucide:folder' : 'iconify:lucide:file-text';
+  return isFolder.value ? 'iconify:lucide:folder' : 'iconify:lucide:file-type';
 });
 const levelStyle = computed(() => ({
   '--knowledge-node-depth': String(props.level ?? 0),
@@ -41,6 +44,57 @@ function handleClick() {
     expanded.value = !expanded.value;
   }
   store.selectNode(props.node.id);
+}
+
+function handleDragStart(event: DragEvent) {
+  if (!isDraggable.value) {
+    event.preventDefault();
+    return;
+  }
+  event.stopPropagation();
+  event.dataTransfer?.setData('application/x-guyantools-knowledge-node', props.node.id);
+  event.dataTransfer?.setData('text/plain', props.node.id);
+  if (event.dataTransfer) {
+    event.dataTransfer.effectAllowed = 'move';
+  }
+}
+
+function readDraggedNodeId(event: DragEvent) {
+  return event.dataTransfer?.getData('application/x-guyantools-knowledge-node')
+    || event.dataTransfer?.getData('text/plain')
+    || '';
+}
+
+function handleDragOver(event: DragEvent) {
+  if (!canDropInside.value) return;
+  const draggedNodeId = readDraggedNodeId(event);
+  if (!draggedNodeId || draggedNodeId === props.node.id) return;
+  const draggedNode = store.visibleNodes.find((node) => node.id === draggedNodeId);
+  if (!draggedNode || draggedNode.spaceId !== props.node.spaceId) return;
+  event.preventDefault();
+  event.stopPropagation();
+  dragOver.value = true;
+  if (event.dataTransfer) {
+    event.dataTransfer.dropEffect = 'move';
+  }
+}
+
+function handleDragLeave(event: DragEvent) {
+  if (event.currentTarget !== event.target) return;
+  dragOver.value = false;
+}
+
+async function handleDrop(event: DragEvent) {
+  if (!canDropInside.value) return;
+  const draggedNodeId = readDraggedNodeId(event);
+  dragOver.value = false;
+  if (!draggedNodeId || draggedNodeId === props.node.id) return;
+  event.preventDefault();
+  event.stopPropagation();
+  const moved = await store.moveNodeToFolder(draggedNodeId, props.node.id);
+  if (moved) {
+    expanded.value = true;
+  }
 }
 
 async function createChildFolder() {
@@ -231,12 +285,21 @@ function handleContextMenu(event: MouseEvent) {
       variant="ghost"
       size="sm"
       class="knowledge-node__row"
-      :class="{ 'knowledge-node__row--selected': isSelected }"
+      :class="{
+        'knowledge-node__row--selected': isSelected,
+        'knowledge-node__row--drop-target': dragOver,
+      }"
       :style="levelStyle"
+      :draggable="isDraggable"
       :aria-current="isSelected ? 'page' : undefined"
       :aria-expanded="isFolder ? expanded : undefined"
       @click="handleClick"
       @contextmenu="handleContextMenu"
+      @dragstart="handleDragStart"
+      @dragover="handleDragOver"
+      @dragleave="handleDragLeave"
+      @drop="handleDrop"
+      @dragend="dragOver = false"
     >
       <span class="knowledge-node__toggle">
         <IconRenderer
@@ -311,6 +374,13 @@ function handleContextMenu(event: MouseEvent) {
 .knowledge-node__row--selected.ui-button--ghost:hover:not(:disabled) {
   color: var(--ui-primary-color);
   background: color-mix(in srgb, var(--ui-primary-color) 18%, transparent);
+}
+
+.knowledge-node__row--drop-target,
+.knowledge-node__row--drop-target.ui-button--ghost:hover:not(:disabled) {
+  color: var(--ui-primary-color);
+  background: color-mix(in srgb, var(--ui-primary-color) 24%, transparent);
+  outline: 1px solid color-mix(in srgb, var(--ui-primary-color) 42%, transparent);
 }
 
 .knowledge-node__toggle,
