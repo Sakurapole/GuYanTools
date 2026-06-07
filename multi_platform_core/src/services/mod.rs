@@ -1,3 +1,4 @@
+mod ai_service;
 mod home_layout_service;
 mod knowledge_service;
 mod project_service;
@@ -5,6 +6,7 @@ mod setting_service;
 mod todo_service;
 mod user_service;
 
+pub use ai_service::AiService;
 pub use home_layout_service::HomeLayoutService;
 pub use knowledge_service::KnowledgeService;
 pub use project_service::ProjectService;

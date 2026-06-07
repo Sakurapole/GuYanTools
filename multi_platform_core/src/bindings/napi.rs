@@ -688,14 +688,19 @@ impl JsDatabase {
         input: UpdateKnowledgeQuickNoteInput,
     ) -> Result<KnowledgeQuickNoteDetail> {
         let db = self.inner.clone();
-        tokio::task::spawn_blocking(move || KnowledgeService::update_quick_note(&db, &note_id, input))
-            .await
-            .map_err(|e| Error::from_reason(format!("任务执行失败: {}", e)))?
-            .map_err(|e| Error::from_reason(format!("更新知识库速记失败: {}", e)))
+        tokio::task::spawn_blocking(move || {
+            KnowledgeService::update_quick_note(&db, &note_id, input)
+        })
+        .await
+        .map_err(|e| Error::from_reason(format!("任务执行失败: {}", e)))?
+        .map_err(|e| Error::from_reason(format!("更新知识库速记失败: {}", e)))
     }
 
     #[napi(js_name = "archiveKnowledgeQuickNote")]
-    pub async fn archive_knowledge_quick_note(&self, note_id: String) -> Result<KnowledgeQuickNoteDetail> {
+    pub async fn archive_knowledge_quick_note(
+        &self,
+        note_id: String,
+    ) -> Result<KnowledgeQuickNoteDetail> {
         let db = self.inner.clone();
         tokio::task::spawn_blocking(move || KnowledgeService::archive_quick_note(&db, &note_id))
             .await
@@ -710,10 +715,12 @@ impl JsDatabase {
         input: ConvertKnowledgeQuickNoteToPageInput,
     ) -> Result<KnowledgePageDetail> {
         let db = self.inner.clone();
-        tokio::task::spawn_blocking(move || KnowledgeService::convert_quick_note_to_page(&db, &note_id, input))
-            .await
-            .map_err(|e| Error::from_reason(format!("任务执行失败: {}", e)))?
-            .map_err(|e| Error::from_reason(format!("速记转页面失败: {}", e)))
+        tokio::task::spawn_blocking(move || {
+            KnowledgeService::convert_quick_note_to_page(&db, &note_id, input)
+        })
+        .await
+        .map_err(|e| Error::from_reason(format!("任务执行失败: {}", e)))?
+        .map_err(|e| Error::from_reason(format!("速记转页面失败: {}", e)))
     }
 
     #[napi(js_name = "linkKnowledgeQuickNoteTodo")]
@@ -723,10 +730,12 @@ impl JsDatabase {
         todo_id: String,
     ) -> Result<KnowledgeQuickNoteDetail> {
         let db = self.inner.clone();
-        tokio::task::spawn_blocking(move || KnowledgeService::link_quick_note_todo(&db, &note_id, &todo_id))
-            .await
-            .map_err(|e| Error::from_reason(format!("任务执行失败: {}", e)))?
-            .map_err(|e| Error::from_reason(format!("关联速记和 Todo 失败: {}", e)))
+        tokio::task::spawn_blocking(move || {
+            KnowledgeService::link_quick_note_todo(&db, &note_id, &todo_id)
+        })
+        .await
+        .map_err(|e| Error::from_reason(format!("任务执行失败: {}", e)))?
+        .map_err(|e| Error::from_reason(format!("关联速记和 Todo 失败: {}", e)))
     }
 
     #[napi(js_name = "createKnowledgeAsset")]
@@ -817,7 +826,10 @@ impl JsDatabase {
     }
 
     #[napi(js_name = "createKnowledgeTag")]
-    pub async fn create_knowledge_tag(&self, input: CreateKnowledgeTagInput) -> Result<KnowledgeTag> {
+    pub async fn create_knowledge_tag(
+        &self,
+        input: CreateKnowledgeTagInput,
+    ) -> Result<KnowledgeTag> {
         let db = self.inner.clone();
         tokio::task::spawn_blocking(move || KnowledgeService::create_tag(&db, input))
             .await
@@ -878,7 +890,10 @@ impl JsDatabase {
     }
 
     #[napi(js_name = "listKnowledgeBacklinks")]
-    pub async fn list_knowledge_backlinks(&self, page_id: String) -> Result<Vec<KnowledgeBacklink>> {
+    pub async fn list_knowledge_backlinks(
+        &self,
+        page_id: String,
+    ) -> Result<Vec<KnowledgeBacklink>> {
         let db = self.inner.clone();
         tokio::task::spawn_blocking(move || KnowledgeService::list_backlinks(&db, &page_id))
             .await
@@ -973,6 +988,300 @@ impl JsDatabase {
             .await
             .map_err(|e| Error::from_reason(format!("任务执行失败: {}", e)))?
             .map_err(|e| Error::from_reason(format!("删除知识库节点失败: {}", e)))
+    }
+
+    #[napi(js_name = "listKnowledgeAiChunks")]
+    pub async fn list_knowledge_ai_chunks(
+        &self,
+        input: Option<ListKnowledgeAiChunksInput>,
+    ) -> Result<Vec<KnowledgeAiChunk>> {
+        let db = self.inner.clone();
+        tokio::task::spawn_blocking(move || KnowledgeService::list_ai_chunks(&db, input))
+            .await
+            .map_err(|e| Error::from_reason(format!("任务执行失败: {}", e)))?
+            .map_err(|e| Error::from_reason(format!("获取知识库 AI 分块失败: {}", e)))
+    }
+
+    #[napi(js_name = "upsertKnowledgeEmbedding")]
+    pub async fn upsert_knowledge_embedding(
+        &self,
+        input: UpsertKnowledgeEmbeddingInput,
+    ) -> Result<()> {
+        let db = self.inner.clone();
+        tokio::task::spawn_blocking(move || KnowledgeService::upsert_embedding(&db, input))
+            .await
+            .map_err(|e| Error::from_reason(format!("任务执行失败: {}", e)))?
+            .map_err(|e| Error::from_reason(format!("写入知识库 embedding 失败: {}", e)))
+    }
+
+    #[napi(js_name = "deleteKnowledgeEmbeddings")]
+    pub async fn delete_knowledge_embeddings(
+        &self,
+        provider: String,
+        model: String,
+    ) -> Result<i64> {
+        let db = self.inner.clone();
+        tokio::task::spawn_blocking(move || {
+            KnowledgeService::delete_embeddings(&db, &provider, &model)
+        })
+        .await
+        .map_err(|e| Error::from_reason(format!("任务执行失败: {}", e)))?
+        .map_err(|e| Error::from_reason(format!("删除知识库 embedding 失败: {}", e)))
+    }
+
+    #[napi(js_name = "listKnowledgeEmbeddingCandidates")]
+    pub async fn list_knowledge_embedding_candidates(
+        &self,
+        input: ListKnowledgeEmbeddingCandidatesInput,
+    ) -> Result<Vec<KnowledgeEmbeddingCandidate>> {
+        let db = self.inner.clone();
+        tokio::task::spawn_blocking(move || KnowledgeService::list_embedding_candidates(&db, input))
+            .await
+            .map_err(|e| Error::from_reason(format!("任务执行失败: {}", e)))?
+            .map_err(|e| Error::from_reason(format!("获取知识库 embedding 候选失败: {}", e)))
+    }
+
+    #[napi(js_name = "getKnowledgeEmbeddingStats")]
+    pub async fn get_knowledge_embedding_stats(
+        &self,
+        provider: String,
+        model: String,
+    ) -> Result<KnowledgeEmbeddingStats> {
+        let db = self.inner.clone();
+        tokio::task::spawn_blocking(move || {
+            KnowledgeService::embedding_stats(&db, &provider, &model)
+        })
+        .await
+        .map_err(|e| Error::from_reason(format!("任务执行失败: {}", e)))?
+        .map_err(|e| Error::from_reason(format!("获取知识库 embedding 统计失败: {}", e)))
+    }
+
+    // ==================== AI Chat 相关方法 ====================
+
+    #[napi(js_name = "createAiConversation")]
+    pub async fn create_ai_conversation(
+        &self,
+        input: CreateAiConversationInput,
+    ) -> Result<AiConversation> {
+        let db = self.inner.clone();
+        tokio::task::spawn_blocking(move || AiService::create_conversation(&db, input))
+            .await
+            .map_err(|e| Error::from_reason(format!("任务执行失败: {}", e)))?
+            .map_err(|e| Error::from_reason(format!("创建 AI 会话失败: {}", e)))
+    }
+
+    #[napi(js_name = "listAiConversations")]
+    pub async fn list_ai_conversations(&self) -> Result<Vec<AiConversation>> {
+        let db = self.inner.clone();
+        tokio::task::spawn_blocking(move || AiService::list_conversations(&db))
+            .await
+            .map_err(|e| Error::from_reason(format!("任务执行失败: {}", e)))?
+            .map_err(|e| Error::from_reason(format!("获取 AI 会话列表失败: {}", e)))
+    }
+
+    #[napi(js_name = "updateAiConversation")]
+    pub async fn update_ai_conversation(
+        &self,
+        id: String,
+        input: UpdateAiConversationInput,
+    ) -> Result<AiConversation> {
+        let db = self.inner.clone();
+        tokio::task::spawn_blocking(move || AiService::update_conversation(&db, &id, input))
+            .await
+            .map_err(|e| Error::from_reason(format!("任务执行失败: {}", e)))?
+            .map_err(|e| Error::from_reason(format!("更新 AI 会话失败: {}", e)))
+    }
+
+    #[napi(js_name = "deleteAiConversation")]
+    pub async fn delete_ai_conversation(&self, id: String) -> Result<()> {
+        let db = self.inner.clone();
+        tokio::task::spawn_blocking(move || AiService::delete_conversation(&db, &id))
+            .await
+            .map_err(|e| Error::from_reason(format!("任务执行失败: {}", e)))?
+            .map_err(|e| Error::from_reason(format!("删除 AI 会话失败: {}", e)))
+    }
+
+    #[napi(js_name = "listAiMessages")]
+    pub async fn list_ai_messages(&self, conversation_id: String) -> Result<Vec<AiChatMessage>> {
+        let db = self.inner.clone();
+        tokio::task::spawn_blocking(move || AiService::list_messages(&db, &conversation_id))
+            .await
+            .map_err(|e| Error::from_reason(format!("任务执行失败: {}", e)))?
+            .map_err(|e| Error::from_reason(format!("获取 AI 消息失败: {}", e)))
+    }
+
+    #[napi(js_name = "insertAiMessage")]
+    pub async fn insert_ai_message(&self, input: CreateAiMessageInput) -> Result<AiChatMessage> {
+        let db = self.inner.clone();
+        tokio::task::spawn_blocking(move || AiService::insert_message(&db, input))
+            .await
+            .map_err(|e| Error::from_reason(format!("任务执行失败: {}", e)))?
+            .map_err(|e| Error::from_reason(format!("写入 AI 消息失败: {}", e)))
+    }
+
+    #[napi(js_name = "updateAiMessage")]
+    pub async fn update_ai_message(
+        &self,
+        id: String,
+        input: UpdateAiMessageInput,
+    ) -> Result<AiChatMessage> {
+        let db = self.inner.clone();
+        tokio::task::spawn_blocking(move || AiService::update_message(&db, &id, input))
+            .await
+            .map_err(|e| Error::from_reason(format!("任务执行失败: {}", e)))?
+            .map_err(|e| Error::from_reason(format!("更新 AI 消息失败: {}", e)))
+    }
+
+    #[napi(js_name = "insertAiCitation")]
+    pub async fn insert_ai_citation(&self, input: CreateAiCitationInput) -> Result<AiCitation> {
+        let db = self.inner.clone();
+        tokio::task::spawn_blocking(move || AiService::insert_citation(&db, input))
+            .await
+            .map_err(|e| Error::from_reason(format!("任务执行失败: {}", e)))?
+            .map_err(|e| Error::from_reason(format!("写入 AI 引用失败: {}", e)))
+    }
+
+    #[napi(js_name = "listAiCitations")]
+    pub async fn list_ai_citations(&self, message_id: String) -> Result<Vec<AiCitation>> {
+        let db = self.inner.clone();
+        tokio::task::spawn_blocking(move || AiService::list_citations(&db, &message_id))
+            .await
+            .map_err(|e| Error::from_reason(format!("任务执行失败: {}", e)))?
+            .map_err(|e| Error::from_reason(format!("获取 AI 引用失败: {}", e)))
+    }
+
+    #[napi(js_name = "listAiCanvasWorkspaces")]
+    pub async fn list_ai_canvas_workspaces(
+        &self,
+        conversation_id: String,
+    ) -> Result<Vec<AiCanvasWorkspace>> {
+        let db = self.inner.clone();
+        tokio::task::spawn_blocking(move || {
+            AiService::list_canvas_workspaces(&db, &conversation_id)
+        })
+        .await
+        .map_err(|e| Error::from_reason(format!("任务执行失败: {}", e)))?
+        .map_err(|e| Error::from_reason(format!("获取 AI Canvas 工作区失败: {}", e)))
+    }
+
+    #[napi(js_name = "createAiCanvasWorkspace")]
+    pub async fn create_ai_canvas_workspace(
+        &self,
+        input: CreateAiCanvasWorkspaceInput,
+    ) -> Result<AiCanvasWorkspace> {
+        let db = self.inner.clone();
+        tokio::task::spawn_blocking(move || AiService::create_canvas_workspace(&db, input))
+            .await
+            .map_err(|e| Error::from_reason(format!("任务执行失败: {}", e)))?
+            .map_err(|e| Error::from_reason(format!("创建 AI Canvas 工作区失败: {}", e)))
+    }
+
+    #[napi(js_name = "updateAiCanvasWorkspace")]
+    pub async fn update_ai_canvas_workspace(
+        &self,
+        id: String,
+        input: UpdateAiCanvasWorkspaceInput,
+    ) -> Result<AiCanvasWorkspace> {
+        let db = self.inner.clone();
+        tokio::task::spawn_blocking(move || AiService::update_canvas_workspace(&db, &id, input))
+            .await
+            .map_err(|e| Error::from_reason(format!("任务执行失败: {}", e)))?
+            .map_err(|e| Error::from_reason(format!("更新 AI Canvas 工作区失败: {}", e)))
+    }
+
+    #[napi(js_name = "deleteAiCanvasWorkspace")]
+    pub async fn delete_ai_canvas_workspace(&self, id: String) -> Result<()> {
+        let db = self.inner.clone();
+        tokio::task::spawn_blocking(move || AiService::delete_canvas_workspace(&db, &id))
+            .await
+            .map_err(|e| Error::from_reason(format!("任务执行失败: {}", e)))?
+            .map_err(|e| Error::from_reason(format!("删除 AI Canvas 工作区失败: {}", e)))
+    }
+
+    #[napi(js_name = "listAiCanvasFiles")]
+    pub async fn list_ai_canvas_files(&self, workspace_id: String) -> Result<Vec<AiCanvasFile>> {
+        let db = self.inner.clone();
+        tokio::task::spawn_blocking(move || AiService::list_canvas_files(&db, &workspace_id))
+            .await
+            .map_err(|e| Error::from_reason(format!("任务执行失败: {}", e)))?
+            .map_err(|e| Error::from_reason(format!("获取 AI Canvas 文件失败: {}", e)))
+    }
+
+    #[napi(js_name = "upsertAiCanvasFile")]
+    pub async fn upsert_ai_canvas_file(
+        &self,
+        input: UpsertAiCanvasFileInput,
+    ) -> Result<AiCanvasFile> {
+        let db = self.inner.clone();
+        tokio::task::spawn_blocking(move || AiService::upsert_canvas_file(&db, input))
+            .await
+            .map_err(|e| Error::from_reason(format!("任务执行失败: {}", e)))?
+            .map_err(|e| Error::from_reason(format!("保存 AI Canvas 文件失败: {}", e)))
+    }
+
+    #[napi(js_name = "deleteAiCanvasFile")]
+    pub async fn delete_ai_canvas_file(
+        &self,
+        workspace_id: String,
+        path: String,
+    ) -> Result<()> {
+        let db = self.inner.clone();
+        tokio::task::spawn_blocking(move || {
+            AiService::delete_canvas_file(&db, &workspace_id, &path)
+        })
+        .await
+        .map_err(|e| Error::from_reason(format!("任务执行失败: {}", e)))?
+        .map_err(|e| Error::from_reason(format!("删除 AI Canvas 文件失败: {}", e)))
+    }
+
+    #[napi(js_name = "listAiCanvasVersions")]
+    pub async fn list_ai_canvas_versions(
+        &self,
+        workspace_id: String,
+    ) -> Result<Vec<AiCanvasVersion>> {
+        let db = self.inner.clone();
+        tokio::task::spawn_blocking(move || AiService::list_canvas_versions(&db, &workspace_id))
+            .await
+            .map_err(|e| Error::from_reason(format!("任务执行失败: {}", e)))?
+            .map_err(|e| Error::from_reason(format!("获取 AI Canvas 版本失败: {}", e)))
+    }
+
+    #[napi(js_name = "createAiCanvasVersion")]
+    pub async fn create_ai_canvas_version(
+        &self,
+        input: CreateAiCanvasVersionInput,
+    ) -> Result<AiCanvasVersion> {
+        let db = self.inner.clone();
+        tokio::task::spawn_blocking(move || AiService::create_canvas_version(&db, input))
+            .await
+            .map_err(|e| Error::from_reason(format!("任务执行失败: {}", e)))?
+            .map_err(|e| Error::from_reason(format!("创建 AI Canvas 版本失败: {}", e)))
+    }
+
+    #[napi(js_name = "listAiCanvasOperations")]
+    pub async fn list_ai_canvas_operations(
+        &self,
+        workspace_id: String,
+    ) -> Result<Vec<AiCanvasOperation>> {
+        let db = self.inner.clone();
+        tokio::task::spawn_blocking(move || {
+            AiService::list_canvas_operations(&db, &workspace_id)
+        })
+        .await
+        .map_err(|e| Error::from_reason(format!("任务执行失败: {}", e)))?
+        .map_err(|e| Error::from_reason(format!("获取 AI Canvas 操作失败: {}", e)))
+    }
+
+    #[napi(js_name = "createAiCanvasOperation")]
+    pub async fn create_ai_canvas_operation(
+        &self,
+        input: CreateAiCanvasOperationInput,
+    ) -> Result<AiCanvasOperation> {
+        let db = self.inner.clone();
+        tokio::task::spawn_blocking(move || AiService::create_canvas_operation(&db, input))
+            .await
+            .map_err(|e| Error::from_reason(format!("任务执行失败: {}", e)))?
+            .map_err(|e| Error::from_reason(format!("创建 AI Canvas 操作失败: {}", e)))
     }
 
     // ==================== Todo 相关方法 ====================

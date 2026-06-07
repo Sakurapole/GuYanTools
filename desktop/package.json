@@ -22,7 +22,8 @@
     "publish:github": "pnpm --dir .. run native:build && pnpm run build:app && electron-builder --config electron-builder.config.cjs --win nsis --publish always",
     "lint": "eslint --ext .ts,.tsx .",
     "lint:design-system": "node scripts/check-design-system.mjs",
-    "verify:knowledge-editor": "node scripts/verify-knowledge-editor-foundation.cjs"
+    "verify:knowledge-editor": "node scripts/verify-knowledge-editor-foundation.cjs",
+    "verify:ai-chat": "node scripts/verify-ai-chat.cjs"
   },
   "devDependencies": {
     "@electron-forge/cli": "^7.8.1",
@@ -56,6 +57,11 @@
     "vite-plugin-vue-devtools": "^8.0.0"
   },
   "dependencies": {
+    "@ai-sdk/anthropic": "^3.0.81",
+    "@ai-sdk/google": "^3.0.80",
+    "@ai-sdk/openai": "^3.0.68",
+    "@ai-sdk/openai-compatible": "^2.0.48",
+    "@ai-sdk/vue": "^3.0.197",
     "@codemirror/autocomplete": "^6.20.1",
     "@codemirror/commands": "^6.10.3",
     "@codemirror/lang-css": "^6.3.1",
@@ -80,6 +86,7 @@
     "@xterm/addon-unicode11": "^0.9.0",
     "@xterm/addon-webgl": "^0.19.0",
     "@xterm/xterm": "^6.0.0",
+    "ai": "^6.0.197",
     "axios": "^1.7.9",
     "electron-updater": "^6.6.2",
     "fs-extra": "^11.3.4",
@@ -90,7 +97,8 @@
     "three": "0.183.2",
     "vue": "^3.5.13",
     "vue-i18n": "^11.1.11",
-    "vue-router": "^4.5.0"
+    "vue-router": "^4.5.0",
+    "zod": "^4.4.3"
   },
   "keywords": [
     "GuYan",

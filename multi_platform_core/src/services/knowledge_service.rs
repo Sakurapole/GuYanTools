@@ -3,16 +3,17 @@ use crate::models::{
     BindKnowledgeTagInput, ConvertKnowledgeQuickNoteToPageInput, CreateKnowledgeAssetInput,
     CreateKnowledgeFolderInput, CreateKnowledgeLibraryInput, CreateKnowledgePageInput,
     CreateKnowledgeQuickNoteInput, CreateKnowledgeSpaceInput, CreateKnowledgeTagInput,
-    ImportKnowledgeDocumentInput, ImportKnowledgeDocumentResult, KnowledgeAsset,
-    KnowledgeBacklink, KnowledgeGraph, KnowledgeGraphEdge, KnowledgeGraphInput,
-    KnowledgeGraphNode, KnowledgeIndexJob, KnowledgeLibrary, KnowledgeLink, KnowledgeNode,
-    KnowledgePage, KnowledgePageDetail, KnowledgeQuickNote, KnowledgeQuickNoteDetail,
-    KnowledgeSearchInput, KnowledgeSearchResult, KnowledgeSpace, KnowledgeTag,
-    KnowledgeTaggedTarget, LinkKnowledgeTodoInput, ListKnowledgeIndexJobsInput,
+    ImportKnowledgeDocumentInput, ImportKnowledgeDocumentResult, KnowledgeAiChunk, KnowledgeAsset,
+    KnowledgeBacklink, KnowledgeEmbeddingCandidate, KnowledgeEmbeddingStats, KnowledgeGraph,
+    KnowledgeGraphEdge, KnowledgeGraphInput, KnowledgeGraphNode, KnowledgeIndexJob,
+    KnowledgeLibrary, KnowledgeLink, KnowledgeNode, KnowledgePage, KnowledgePageDetail,
+    KnowledgeQuickNote, KnowledgeQuickNoteDetail, KnowledgeSearchInput, KnowledgeSearchResult,
+    KnowledgeSpace, KnowledgeTag, KnowledgeTaggedTarget, LinkKnowledgeTodoInput,
+    ListKnowledgeAiChunksInput, ListKnowledgeEmbeddingCandidatesInput, ListKnowledgeIndexJobsInput,
     ListKnowledgeOrphanPagesInput, ListKnowledgeQuickNotesInput, ListKnowledgeTagTargetsInput,
     ListKnowledgeTagsInput, ListKnowledgeTreeInput, MoveKnowledgeNodeInput,
     UnbindKnowledgeTagInput, UpdateKnowledgeNodeInput, UpdateKnowledgePageInput,
-    UpdateKnowledgeQuickNoteInput, UpdateKnowledgeTagInput,
+    UpdateKnowledgeQuickNoteInput, UpdateKnowledgeTagInput, UpsertKnowledgeEmbeddingInput,
 };
 use rusqlite::{params, Connection, OptionalExtension, Row};
 use std::collections::HashSet;
@@ -341,8 +342,12 @@ impl KnowledgeService {
                 None => current.quick_note.color,
             };
             let is_pinned = input.is_pinned.unwrap_or(current.quick_note.is_pinned);
-            let converted_page_id = input.converted_page_id.or(current.quick_note.converted_page_id);
-            let converted_todo_id = input.converted_todo_id.or(current.quick_note.converted_todo_id);
+            let converted_page_id = input
+                .converted_page_id
+                .or(current.quick_note.converted_page_id);
+            let converted_todo_id = input
+                .converted_todo_id
+                .or(current.quick_note.converted_todo_id);
 
             conn.execute(
                 "UPDATE knowledge_nodes
@@ -478,8 +483,22 @@ impl KnowledgeService {
                  WHERE id = ?2",
                 params![todo_id, note_id],
             )?;
-            Self::insert_knowledge_link(conn, "quick_note", note_id, "todo", Some(todo_id), "converted_to")?;
-            Self::insert_knowledge_link(conn, "todo", todo_id, "quick_note", Some(note_id), "source")?;
+            Self::insert_knowledge_link(
+                conn,
+                "quick_note",
+                note_id,
+                "todo",
+                Some(todo_id),
+                "converted_to",
+            )?;
+            Self::insert_knowledge_link(
+                conn,
+                "todo",
+                todo_id,
+                "quick_note",
+                Some(note_id),
+                "source",
+            )?;
             Self::get_quick_note_detail(conn, note_id)
         })
     }
@@ -747,7 +766,10 @@ impl KnowledgeService {
                  LIMIT ?4",
             )?;
             let jobs = stmt
-                .query_map(params![target_type, target_id, status, limit], Self::map_index_job)?
+                .query_map(
+                    params![target_type, target_id, status, limit],
+                    Self::map_index_job,
+                )?
                 .collect::<Result<Vec<_>, _>>()?;
             Ok(jobs)
         })
@@ -851,6 +873,165 @@ impl KnowledgeService {
             });
             results.truncate(limit as usize);
             Ok(results)
+        })
+    }
+
+    pub fn list_ai_chunks(
+        db: &Database,
+        input: Option<ListKnowledgeAiChunksInput>,
+    ) -> DbResult<Vec<KnowledgeAiChunk>> {
+        db.with_connection(|conn| {
+            let input = input.unwrap_or(ListKnowledgeAiChunksInput {
+                source_type: None,
+                source_id: None,
+                missing_embedding_provider: None,
+                missing_embedding_model: None,
+                limit: None,
+            });
+            let source_type = Self::normalize_optional_text(input.source_type);
+            let source_id = Self::normalize_optional_text(input.source_id);
+            let missing_provider = Self::normalize_optional_text(input.missing_embedding_provider);
+            let missing_model = Self::normalize_optional_text(input.missing_embedding_model);
+            let missing_enabled = missing_provider.is_some() && missing_model.is_some();
+            let limit = input.limit.unwrap_or(500).clamp(1, 5000);
+
+            let mut stmt = conn.prepare(
+                "SELECT id, source_type, source_id, chunk_index, content_text, token_count, metadata_json, created_at
+                 FROM knowledge_ai_chunks c
+                 WHERE (?1 IS NULL OR c.source_type = ?1)
+                   AND (?2 IS NULL OR c.source_id = ?2)
+                   AND (
+                     ?3 = 0
+                     OR NOT EXISTS (
+                       SELECT 1 FROM knowledge_embeddings e
+                       WHERE e.chunk_id = c.id AND e.provider = ?4 AND e.model = ?5
+                     )
+                   )
+                 ORDER BY source_type ASC, source_id ASC, chunk_index ASC
+                 LIMIT ?6",
+            )?;
+            let rows = stmt
+                .query_map(
+                    params![
+                        source_type,
+                        source_id,
+                        missing_enabled as i64,
+                        missing_provider,
+                        missing_model,
+                        limit
+                    ],
+                    Self::map_ai_chunk,
+                )?
+                .collect::<Result<Vec<_>, _>>()?;
+            Ok(rows)
+        })
+    }
+
+    pub fn upsert_embedding(db: &Database, input: UpsertKnowledgeEmbeddingInput) -> DbResult<()> {
+        db.with_connection(|conn| {
+            conn.execute(
+                "INSERT INTO knowledge_embeddings (
+                    id, chunk_id, provider, model, dimension, vector_blob
+                 )
+                 VALUES (?1, ?2, ?3, ?4, ?5, ?6)
+                 ON CONFLICT(chunk_id, provider, model) DO UPDATE SET
+                    dimension = excluded.dimension,
+                    vector_blob = excluded.vector_blob,
+                    created_at = datetime('now')",
+                params![
+                    input.id,
+                    input.chunk_id,
+                    input.provider,
+                    input.model,
+                    input.dimension,
+                    input.vector_blob
+                ],
+            )?;
+            Ok(())
+        })
+    }
+
+    pub fn delete_embeddings(db: &Database, provider: &str, model: &str) -> DbResult<i64> {
+        db.with_connection(|conn| {
+            let deleted = conn.execute(
+                "DELETE FROM knowledge_embeddings WHERE provider = ?1 AND model = ?2",
+                params![provider, model],
+            )?;
+            Ok(deleted as i64)
+        })
+    }
+
+    pub fn list_embedding_candidates(
+        db: &Database,
+        input: ListKnowledgeEmbeddingCandidatesInput,
+    ) -> DbResult<Vec<KnowledgeEmbeddingCandidate>> {
+        db.with_connection(|conn| {
+            let provider = Self::normalize_required_text(input.provider, "Provider 不能为空")?;
+            let model = Self::normalize_required_text(input.model, "模型不能为空")?;
+            let library_id = Self::normalize_optional_text(input.library_id);
+            let space_id = Self::normalize_optional_text(input.space_id);
+            let source_type = Self::normalize_optional_text(input.source_type);
+            let limit = input.limit.unwrap_or(2000).clamp(1, 10000);
+            let mut stmt = conn.prepare(
+                "SELECT c.id,
+                        c.source_type,
+                        c.source_id,
+                        f.node_id,
+                        f.asset_id,
+                        COALESCE(NULLIF(f.title, ''), n.title, a.original_name, c.source_id) AS title,
+                        c.content_text,
+                        c.metadata_json,
+                        COALESCE(n.updated_at, a.updated_at, datetime('now')) AS updated_at,
+                        e.vector_blob
+                 FROM knowledge_embeddings e
+                 INNER JOIN knowledge_ai_chunks c ON c.id = e.chunk_id
+                 LEFT JOIN knowledge_search_fts f
+                   ON f.source_type = c.source_type AND f.source_id = c.source_id
+                 LEFT JOIN knowledge_nodes n ON n.id = f.node_id
+                 LEFT JOIN knowledge_assets a ON a.id = f.asset_id
+                 WHERE e.provider = ?1
+                   AND e.model = ?2
+                   AND (?3 IS NULL OR f.library_id = ?3 OR n.library_id = ?3 OR a.library_id = ?3)
+                   AND (?4 IS NULL OR n.space_id = ?4)
+                   AND (?5 IS NULL OR c.source_type = ?5)
+                   AND (n.deleted_at IS NULL OR n.id IS NULL)
+                   AND (n.is_archived = 0 OR n.id IS NULL)
+                 ORDER BY e.created_at DESC
+                 LIMIT ?6",
+            )?;
+            let rows = stmt
+                .query_map(
+                    params![provider, model, library_id, space_id, source_type, limit],
+                    Self::map_embedding_candidate,
+                )?
+                .collect::<Result<Vec<_>, _>>()?;
+            Ok(rows)
+        })
+    }
+
+    pub fn embedding_stats(
+        db: &Database,
+        provider: &str,
+        model: &str,
+    ) -> DbResult<KnowledgeEmbeddingStats> {
+        db.with_connection(|conn| {
+            let chunk_count =
+                conn.query_row("SELECT COUNT(*) FROM knowledge_ai_chunks", [], |row| {
+                    row.get::<_, i64>(0)
+                })?;
+            let embedded_count = conn.query_row(
+                "SELECT COUNT(DISTINCT chunk_id)
+                 FROM knowledge_embeddings
+                 WHERE provider = ?1 AND model = ?2",
+                params![provider, model],
+                |row| row.get::<_, i64>(0),
+            )?;
+            Ok(KnowledgeEmbeddingStats {
+                chunk_count,
+                embedded_count,
+                provider: provider.to_string(),
+                model: model.to_string(),
+            })
         })
     }
 
@@ -1069,8 +1250,22 @@ impl KnowledgeService {
     pub fn link_todo_source(db: &Database, input: LinkKnowledgeTodoInput) -> DbResult<()> {
         db.transaction(|conn| {
             Self::get_page_detail(conn, &input.page_id)?;
-            Self::insert_knowledge_link(conn, "page", &input.page_id, "todo", Some(&input.todo_id), "todo")?;
-            Self::insert_knowledge_link(conn, "todo", &input.todo_id, "page", Some(&input.page_id), "source")?;
+            Self::insert_knowledge_link(
+                conn,
+                "page",
+                &input.page_id,
+                "todo",
+                Some(&input.todo_id),
+                "todo",
+            )?;
+            Self::insert_knowledge_link(
+                conn,
+                "todo",
+                &input.todo_id,
+                "page",
+                Some(&input.page_id),
+                "source",
+            )?;
             Ok(())
         })
     }
@@ -1130,7 +1325,12 @@ impl KnowledgeService {
                         title,
                         subtitle: row_space_id,
                         color: None,
-                        group: if node_type == "document" { "document" } else { "page" }.to_string(),
+                        group: if node_type == "document" {
+                            "document"
+                        } else {
+                            "page"
+                        }
+                        .to_string(),
                     });
                 }
             }
@@ -1167,7 +1367,14 @@ impl KnowledgeService {
                         target_type: "todo".to_string(),
                         target_id: todo_id,
                         title,
-                        subtitle: Some(if is_completed { "已完成" } else { "未完成" }.to_string()),
+                        subtitle: Some(
+                            if is_completed {
+                                "已完成"
+                            } else {
+                                "未完成"
+                            }
+                            .to_string(),
+                        ),
                         color: None,
                         group: "todo".to_string(),
                     });
@@ -1271,7 +1478,11 @@ impl KnowledgeService {
             Self::upsert_search_document(
                 conn,
                 &detail.node.library_id,
-                if detail.node.node_type == "document" { "document" } else { "page" },
+                if detail.node.node_type == "document" {
+                    "document"
+                } else {
+                    "page"
+                },
                 &detail.node.id,
                 Some(&detail.node.id),
                 detail.page.source_asset_id.as_deref(),
@@ -1618,7 +1829,10 @@ impl KnowledgeService {
         Ok(KnowledgePageDetail { node, page })
     }
 
-    fn get_quick_note_detail(conn: &Connection, note_id: &str) -> DbResult<KnowledgeQuickNoteDetail> {
+    fn get_quick_note_detail(
+        conn: &Connection,
+        note_id: &str,
+    ) -> DbResult<KnowledgeQuickNoteDetail> {
         let node = Self::get_node(conn, note_id)?;
         if node.node_type != "quick_note" {
             return Err(DbError::InvalidParameter(format!(
@@ -1705,7 +1919,9 @@ impl KnowledgeService {
         let raw = Self::normalize_optional_text(value).unwrap_or_else(|| "[]".to_string());
         let parsed: serde_json::Value = serde_json::from_str(&raw)?;
         let Some(items) = parsed.as_array() else {
-            return Err(DbError::InvalidParameter("速记标签必须是 JSON 字符串数组".to_string()));
+            return Err(DbError::InvalidParameter(
+                "速记标签必须是 JSON 字符串数组".to_string(),
+            ));
         };
 
         let mut tags: Vec<String> = Vec::new();
@@ -1918,7 +2134,14 @@ impl KnowledgeService {
                AND COALESCE(target_id, '') = COALESCE(?4, '')
                AND COALESCE(target_url, '') = COALESCE(?5, '')
                AND link_type = ?6",
-            params![source_type, source_id, target_type, target_id, target_url, link_type],
+            params![
+                source_type,
+                source_id,
+                target_type,
+                target_id,
+                target_url,
+                link_type
+            ],
         )?;
         conn.execute(
             "INSERT INTO knowledge_links (id, source_type, source_id, target_type, target_id, target_url, link_type)
@@ -1951,7 +2174,15 @@ impl KnowledgeService {
                 id, job_type, target_type, target_id, status, progress, error_message
              )
              VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)",
-            params![id, job_type, target_type, target_id, status, progress, error_message],
+            params![
+                id,
+                job_type,
+                target_type,
+                target_id,
+                status,
+                progress,
+                error_message
+            ],
         )?;
         Self::get_index_job(conn, &id)
     }
@@ -1989,7 +2220,17 @@ impl KnowledgeService {
                 library_id, source_type, source_id, node_id, asset_id, title, body, tags, metadata
              )
              VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)",
-            params![library_id, source_type, source_id, node_id, asset_id, title, body, tags, metadata],
+            params![
+                library_id,
+                source_type,
+                source_id,
+                node_id,
+                asset_id,
+                title,
+                body,
+                tags,
+                metadata
+            ],
         )?;
         Self::sync_ai_chunks(conn, source_type, source_id, body, metadata)
     }
@@ -2009,7 +2250,10 @@ impl KnowledgeService {
         if content.is_empty() {
             return Ok(());
         }
-        for (index, chunk) in Self::split_text_chunks(content, 1800).into_iter().enumerate() {
+        for (index, chunk) in Self::split_text_chunks(content, 1800)
+            .into_iter()
+            .enumerate()
+        {
             conn.execute(
                 "INSERT INTO knowledge_ai_chunks (
                     id, source_type, source_id, chunk_index, content_text, token_count, metadata_json
@@ -2037,7 +2281,8 @@ impl KnowledgeService {
             if line.is_empty() {
                 continue;
             }
-            if current.chars().count() + line.chars().count() + 1 > max_chars && !current.is_empty() {
+            if current.chars().count() + line.chars().count() + 1 > max_chars && !current.is_empty()
+            {
                 chunks.push(current.trim().to_string());
                 current.clear();
             }
@@ -2061,28 +2306,43 @@ impl KnowledgeService {
                    AND n.deleted_at IS NULL
                    AND n.is_archived = 0",
             )?;
-            let rows = stmt.query_map(params![library_id], |row| {
-                Ok((
-                    row.get::<_, String>(0)?,
-                    row.get::<_, String>(1)?,
-                    row.get::<_, String>(2)?,
-                    row.get::<_, String>(3)?,
-                    row.get::<_, String>(4)?,
-                    row.get::<_, String>(5)?,
-                    row.get::<_, Option<String>>(6)?,
-                    row.get::<_, String>(7)?,
-                ))
-            })?
-            .collect::<Result<Vec<_>, _>>()?;
+            let rows = stmt
+                .query_map(params![library_id], |row| {
+                    Ok((
+                        row.get::<_, String>(0)?,
+                        row.get::<_, String>(1)?,
+                        row.get::<_, String>(2)?,
+                        row.get::<_, String>(3)?,
+                        row.get::<_, String>(4)?,
+                        row.get::<_, String>(5)?,
+                        row.get::<_, Option<String>>(6)?,
+                        row.get::<_, String>(7)?,
+                    ))
+                })?
+                .collect::<Result<Vec<_>, _>>()?;
             rows
         };
-        for (id, library_id, title, content_text, content_markdown, metadata, asset_id, node_type) in pages {
+        for (
+            id,
+            library_id,
+            title,
+            content_text,
+            content_markdown,
+            metadata,
+            asset_id,
+            node_type,
+        ) in pages
+        {
             let body = if content_text.trim().is_empty() {
                 content_markdown
             } else {
                 content_text
             };
-            let source_type = if node_type == "document" { "document" } else { "page" };
+            let source_type = if node_type == "document" {
+                "document"
+            } else {
+                "page"
+            };
             Self::upsert_search_document(
                 conn,
                 &library_id,
@@ -2106,17 +2366,18 @@ impl KnowledgeService {
                    AND n.deleted_at IS NULL
                    AND n.is_archived = 0",
             )?;
-            let rows = stmt.query_map(params![library_id], |row| {
-                Ok((
-                    row.get::<_, String>(0)?,
-                    row.get::<_, String>(1)?,
-                    row.get::<_, String>(2)?,
-                    row.get::<_, String>(3)?,
-                    row.get::<_, String>(4)?,
-                    row.get::<_, String>(5)?,
-                ))
-            })?
-            .collect::<Result<Vec<_>, _>>()?;
+            let rows = stmt
+                .query_map(params![library_id], |row| {
+                    Ok((
+                        row.get::<_, String>(0)?,
+                        row.get::<_, String>(1)?,
+                        row.get::<_, String>(2)?,
+                        row.get::<_, String>(3)?,
+                        row.get::<_, String>(4)?,
+                        row.get::<_, String>(5)?,
+                    ))
+                })?
+                .collect::<Result<Vec<_>, _>>()?;
             rows
         };
         for (id, library_id, node_id, title, body, tags) in notes {
@@ -2144,17 +2405,18 @@ impl KnowledgeService {
                  WHERE a.library_id = ?1
                    AND (n.deleted_at IS NULL OR n.id IS NULL)",
             )?;
-            let rows = stmt.query_map(params![library_id], |row| {
-                Ok((
-                    row.get::<_, String>(0)?,
-                    row.get::<_, String>(1)?,
-                    row.get::<_, String>(2)?,
-                    row.get::<_, String>(3)?,
-                    row.get::<_, String>(4)?,
-                    row.get::<_, Option<String>>(5)?,
-                ))
-            })?
-            .collect::<Result<Vec<_>, _>>()?;
+            let rows = stmt
+                .query_map(params![library_id], |row| {
+                    Ok((
+                        row.get::<_, String>(0)?,
+                        row.get::<_, String>(1)?,
+                        row.get::<_, String>(2)?,
+                        row.get::<_, String>(3)?,
+                        row.get::<_, String>(4)?,
+                        row.get::<_, Option<String>>(5)?,
+                    ))
+                })?
+                .collect::<Result<Vec<_>, _>>()?;
             rows
         };
         for (id, library_id, title, body, metadata, node_id) in assets {
@@ -2225,7 +2487,11 @@ impl KnowledgeService {
     }
 
     fn document_icon(extension: &str) -> &'static str {
-        match extension.trim_start_matches('.').to_ascii_lowercase().as_str() {
+        match extension
+            .trim_start_matches('.')
+            .to_ascii_lowercase()
+            .as_str()
+        {
             "pdf" => "file-text",
             "doc" | "docx" => "file-type-2",
             "ppt" | "pptx" => "presentation",
@@ -2266,7 +2532,11 @@ impl KnowledgeService {
         .map_err(Into::into)
     }
 
-    fn tagged_target_ids(conn: &Connection, tag_id: &str, target_type: &str) -> DbResult<HashSet<String>> {
+    fn tagged_target_ids(
+        conn: &Connection,
+        tag_id: &str,
+        target_type: &str,
+    ) -> DbResult<HashSet<String>> {
         let mut stmt = conn.prepare(
             "SELECT target_id FROM knowledge_tag_bindings
              WHERE tag_id = ?1 AND target_type = ?2",
@@ -2316,7 +2586,10 @@ impl KnowledgeService {
             } else {
                 None
             };
-            if connected_page_id.as_ref().is_some_and(|id| page_ids.contains(id)) {
+            if connected_page_id
+                .as_ref()
+                .is_some_and(|id| page_ids.contains(id))
+            {
                 if let Some(todo_id) = todo_id {
                     ids.insert(todo_id);
                 }
@@ -2325,7 +2598,11 @@ impl KnowledgeService {
         Ok(ids)
     }
 
-    fn graph_assets(conn: &Connection, asset_ids: &HashSet<String>, limit: i64) -> DbResult<Vec<KnowledgeAsset>> {
+    fn graph_assets(
+        conn: &Connection,
+        asset_ids: &HashSet<String>,
+        limit: i64,
+    ) -> DbResult<Vec<KnowledgeAsset>> {
         if asset_ids.is_empty() {
             return Ok(Vec::new());
         }
@@ -2417,7 +2694,10 @@ impl KnowledgeService {
         let mut edges = Vec::new();
         let mut stmt = conn.prepare("SELECT source_asset_id FROM knowledge_pages WHERE id = ?1")?;
         for page_id in page_ids {
-            let asset_id: Option<String> = stmt.query_row(params![page_id], |row| row.get(0)).optional()?.flatten();
+            let asset_id: Option<String> = stmt
+                .query_row(params![page_id], |row| row.get(0))
+                .optional()?
+                .flatten();
             if let Some(asset_id) = asset_id {
                 let source = format!("page:{page_id}");
                 let target = format!("asset:{asset_id}");
@@ -2447,7 +2727,8 @@ impl KnowledgeService {
     }
 
     fn normalize_index_status(value: Option<String>) -> DbResult<String> {
-        let status = Self::normalize_optional_text(value).unwrap_or_else(|| "succeeded".to_string());
+        let status =
+            Self::normalize_optional_text(value).unwrap_or_else(|| "succeeded".to_string());
         match status.as_str() {
             "pending" | "running" | "succeeded" | "failed" | "cancelled" => Ok(status),
             _ => Err(DbError::InvalidParameter(format!(
@@ -2470,7 +2751,13 @@ impl KnowledgeService {
         }
     }
 
-    fn score_search_result(query: &str, title: &str, body: &str, tags: &str, metadata: &str) -> f64 {
+    fn score_search_result(
+        query: &str,
+        title: &str,
+        body: &str,
+        tags: &str,
+        metadata: &str,
+    ) -> f64 {
         let title = title.to_lowercase();
         let body = body.to_lowercase();
         let tags = tags.to_lowercase();
@@ -2657,6 +2944,34 @@ impl KnowledgeService {
             updated_at: row.get(8)?,
         })
     }
+
+    fn map_ai_chunk(row: &Row<'_>) -> rusqlite::Result<KnowledgeAiChunk> {
+        Ok(KnowledgeAiChunk {
+            id: row.get(0)?,
+            source_type: row.get(1)?,
+            source_id: row.get(2)?,
+            chunk_index: row.get(3)?,
+            content_text: row.get(4)?,
+            token_count: row.get(5)?,
+            metadata_json: row.get(6)?,
+            created_at: row.get(7)?,
+        })
+    }
+
+    fn map_embedding_candidate(row: &Row<'_>) -> rusqlite::Result<KnowledgeEmbeddingCandidate> {
+        Ok(KnowledgeEmbeddingCandidate {
+            chunk_id: row.get(0)?,
+            source_type: row.get(1)?,
+            source_id: row.get(2)?,
+            node_id: row.get(3)?,
+            asset_id: row.get(4)?,
+            title: row.get(5)?,
+            content_text: row.get(6)?,
+            metadata_json: row.get(7)?,
+            updated_at: row.get(8)?,
+            vector_blob: row.get(9)?,
+        })
+    }
 }
 
 #[cfg(test)]
@@ -2823,6 +3138,97 @@ mod tests {
     }
 
     #[test]
+    fn test_ai_chunks_and_embeddings_can_rebuild() {
+        let db = db();
+        let page = KnowledgeService::create_page(
+            &db,
+            CreateKnowledgePageInput {
+                library_id: None,
+                space_id: None,
+                parent_id: None,
+                title: "AI 分块页面".to_string(),
+                page_type: None,
+                content_markdown: Some(
+                    "第一段用于 embedding。\n第二段继续用于 embedding。".to_string(),
+                ),
+                content_json: None,
+                content_text: None,
+                properties_json: None,
+                sort_order: None,
+            },
+        )
+        .unwrap();
+
+        let chunks = KnowledgeService::list_ai_chunks(
+            &db,
+            Some(ListKnowledgeAiChunksInput {
+                source_type: Some("page".to_string()),
+                source_id: Some(page.node.id),
+                missing_embedding_provider: None,
+                missing_embedding_model: None,
+                limit: Some(10),
+            }),
+        )
+        .unwrap();
+        assert_eq!(chunks.len(), 1);
+
+        KnowledgeService::upsert_embedding(
+            &db,
+            UpsertKnowledgeEmbeddingInput {
+                id: "embedding-1".to_string(),
+                chunk_id: chunks[0].id.clone(),
+                provider: "openai".to_string(),
+                model: "text-embedding-3-small".to_string(),
+                dimension: 3,
+                vector_blob: vec![0, 0, 0, 0, 0, 0, 128, 63, 0, 0, 0, 64],
+            },
+        )
+        .unwrap();
+
+        let stats =
+            KnowledgeService::embedding_stats(&db, "openai", "text-embedding-3-small").unwrap();
+        assert_eq!(stats.chunk_count, 1);
+        assert_eq!(stats.embedded_count, 1);
+
+        let candidates = KnowledgeService::list_embedding_candidates(
+            &db,
+            ListKnowledgeEmbeddingCandidatesInput {
+                provider: "openai".to_string(),
+                model: "text-embedding-3-small".to_string(),
+                library_id: None,
+                space_id: None,
+                source_type: Some("page".to_string()),
+                limit: Some(10),
+            },
+        )
+        .unwrap();
+        assert_eq!(candidates.len(), 1);
+        assert_eq!(candidates[0].title, "AI 分块页面");
+        assert_eq!(candidates[0].vector_blob.len(), 12);
+        assert!(candidates[0].content_text.contains("第一段"));
+
+        let missing = KnowledgeService::list_ai_chunks(
+            &db,
+            Some(ListKnowledgeAiChunksInput {
+                source_type: None,
+                source_id: None,
+                missing_embedding_provider: Some("openai".to_string()),
+                missing_embedding_model: Some("text-embedding-3-small".to_string()),
+                limit: Some(10),
+            }),
+        )
+        .unwrap();
+        assert!(missing.is_empty());
+
+        let deleted =
+            KnowledgeService::delete_embeddings(&db, "openai", "text-embedding-3-small").unwrap();
+        assert_eq!(deleted, 1);
+        let stats =
+            KnowledgeService::embedding_stats(&db, "openai", "text-embedding-3-small").unwrap();
+        assert_eq!(stats.embedded_count, 0);
+    }
+
+    #[test]
     fn test_canvas_page_content_json_updates_and_searches() {
         let db = db();
         let canvas_json = r##"{"type":"guyantools.canvas-page","version":1,"width":1800,"height":1200,"elements":[{"id":"canvas-1","type":"text","x":120,"y":120,"width":260,"height":96,"text":"画布页面 检索短语","stroke":"#4A90D9","fill":"transparent"}]}"##;
@@ -2924,8 +3330,12 @@ mod tests {
         assert_eq!(backlinks[0].source_id, page_a.node.id);
 
         let links = KnowledgeService::list_page_links(&db, &page_a.node.id).unwrap();
-        assert!(links.iter().any(|link| link.target_id.as_deref() == Some(page_b.node.id.as_str())));
-        assert!(links.iter().any(|link| link.target_url.as_deref() == Some("缺失页")));
+        assert!(links
+            .iter()
+            .any(|link| link.target_id.as_deref() == Some(page_b.node.id.as_str())));
+        assert!(links
+            .iter()
+            .any(|link| link.target_url.as_deref() == Some("缺失页")));
 
         let tag = KnowledgeService::create_tag(
             &db,
@@ -3006,7 +3416,9 @@ mod tests {
             },
         )
         .unwrap();
-        assert!(targets.iter().any(|target| target.target_id == page_a.node.id));
+        assert!(targets
+            .iter()
+            .any(|target| target.target_id == page_a.node.id));
         assert!(targets.iter().any(|target| target.target_id == asset.id));
 
         let todo = TodoService::create_todo(
@@ -3042,9 +3454,18 @@ mod tests {
             },
         )
         .unwrap();
-        assert!(graph.nodes.iter().any(|node| node.id == format!("page:{}", page_a.node.id)));
-        assert!(graph.nodes.iter().any(|node| node.id == format!("asset:{}", asset.id)));
-        assert!(graph.nodes.iter().any(|node| node.id == format!("todo:{}", todo.id)));
+        assert!(graph
+            .nodes
+            .iter()
+            .any(|node| node.id == format!("page:{}", page_a.node.id)));
+        assert!(graph
+            .nodes
+            .iter()
+            .any(|node| node.id == format!("asset:{}", asset.id)));
+        assert!(graph
+            .nodes
+            .iter()
+            .any(|node| node.id == format!("todo:{}", todo.id)));
         assert!(graph.edges.iter().any(|edge| edge.link_type == "todo"));
 
         let orphans = KnowledgeService::list_orphan_pages(
@@ -3231,7 +3652,10 @@ mod tests {
 
         assert_eq!(imported.document.node.node_type, "document");
         assert_eq!(imported.document.page.page_type, "external_document");
-        assert_eq!(imported.document.page.source_asset_id.as_deref(), Some(imported.asset.id.as_str()));
+        assert_eq!(
+            imported.document.page.source_asset_id.as_deref(),
+            Some(imported.asset.id.as_str())
+        );
         assert_eq!(imported.index_job.status, "succeeded");
         assert!(!imported.duplicate_asset);
 
@@ -3248,7 +3672,10 @@ mod tests {
         .unwrap();
         assert_eq!(results.len(), 1);
         assert_eq!(results[0].source_type, "document");
-        assert_eq!(results[0].node_id.as_deref(), Some(imported.document.node.id.as_str()));
+        assert_eq!(
+            results[0].node_id.as_deref(),
+            Some(imported.document.node.id.as_str())
+        );
 
         let asset_results = KnowledgeService::search_knowledge(
             &db,
@@ -3262,7 +3689,10 @@ mod tests {
         )
         .unwrap();
         assert_eq!(asset_results.len(), 1);
-        assert_eq!(asset_results[0].asset_id.as_deref(), Some(imported.asset.id.as_str()));
+        assert_eq!(
+            asset_results[0].asset_id.as_deref(),
+            Some(imported.asset.id.as_str())
+        );
 
         let duplicate = KnowledgeService::import_document(
             &db,
@@ -3336,7 +3766,10 @@ mod tests {
         .unwrap();
 
         assert_eq!(note.node.node_type, "quick_note");
-        assert_eq!(note.node.parent_id.as_deref(), Some(KnowledgeService::DEFAULT_INBOX_NODE_ID));
+        assert_eq!(
+            note.node.parent_id.as_deref(),
+            Some(KnowledgeService::DEFAULT_INBOX_NODE_ID)
+        );
         assert_eq!(note.quick_note.title, "第一行速记");
         assert!(note.quick_note.is_pinned);
 
@@ -3360,8 +3793,12 @@ mod tests {
         assert_eq!(page.node.title, note.quick_note.title);
         assert!(page.page.content_markdown.contains("来源：知识库速记"));
 
-        let linked = KnowledgeService::link_quick_note_todo(&db, &note.quick_note.id, "todo-1").unwrap();
-        assert_eq!(linked.quick_note.converted_todo_id.as_deref(), Some("todo-1"));
+        let linked =
+            KnowledgeService::link_quick_note_todo(&db, &note.quick_note.id, "todo-1").unwrap();
+        assert_eq!(
+            linked.quick_note.converted_todo_id.as_deref(),
+            Some("todo-1")
+        );
 
         let archived = KnowledgeService::archive_quick_note(&db, &note.quick_note.id).unwrap();
         assert!(archived.node.is_archived);

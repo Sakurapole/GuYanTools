@@ -1,6 +1,7 @@
 import type { AppWebConfig } from './webview';
 import type { TerminalFeatureConfig } from './terminal';
 import type { BackgroundStyleConfig } from './background';
+import type { AiAgentFeatureConfig } from './ai';
 
 export type AppTheme = 'light' | 'dark';
 export type AppLanguage = 'zh' | 'en';
@@ -13,6 +14,7 @@ export type AppBottomBarTabId =
   | 'plugins'
   | 'todo'
   | 'knowledge'
+  | 'ai'
   | 'script-editor'
   | 'devtools';
 
@@ -82,6 +84,13 @@ export const APP_INTERNAL_FUNCTIONS: AppInternalFunctionDefinition[] = [
     description: '本地资料、笔记、附件和检索入口。',
   },
   {
+    id: 'ai',
+    label: 'AI',
+    route: '/ai',
+    icon: 'ai',
+    description: 'AI 问答、模型配置和后续 Agent 入口。',
+  },
+  {
     id: 'script-editor',
     label: '脚本编辑器',
     route: '/script-editor',
@@ -123,7 +132,7 @@ export interface AppShortcutsConfig {
 }
 
 export interface AppFeaturesConfig {
-  aiAgent: Record<string, unknown>;
+  aiAgent: AiAgentFeatureConfig;
   settings: AppSettingsFeatureConfig;
   terminal: TerminalFeatureConfig;
   multiDeviceClipboard: MultiDeviceClipboardFeatureConfig;
@@ -205,7 +214,7 @@ export interface AppConfigPatch {
   appearance?: Partial<AppAppearanceConfig>;
   bottomBar?: Partial<AppBottomBarConfig>;
   features?: {
-    aiAgent?: Record<string, unknown>;
+    aiAgent?: Partial<AiAgentFeatureConfig>;
     settings?: {
       tabs?: Partial<Record<AppSettingsTabId, Partial<AppSettingsTabPersonalizationConfig>>>;
     };
@@ -233,6 +242,45 @@ export interface AppConfigApi {
   onDidChange: (listener: (config: AppConfig) => void) => () => void;
 }
 
+export function createDefaultAiAgentFeatureConfig(): AiAgentFeatureConfig {
+  return {
+    enabled: false,
+    defaultMode: 'chat',
+    providers: [],
+    chat: {
+      defaultSystemPrompt: '',
+      maxHistoryMessages: 20,
+      temperature: 0.7,
+      reasoningEnabled: false,
+      reasoningEffort: 'medium',
+    },
+    agent: {
+      enabled: false,
+      defaultAgentMode: 'general-agent',
+      maxSteps: 5,
+      requireApprovalForWriteTools: true,
+      codex: {
+        enabled: false,
+        lastWorkingDirectory: '',
+        skipGitRepoCheck: false,
+        cliConfigJson: '',
+      },
+      general: {
+        enabled: false,
+        defaultAgentId: undefined,
+        agents: [],
+      },
+    },
+    research: {
+      enabled: false,
+      maxSearchQueries: 8,
+      maxSources: 20,
+      allowedDomains: [],
+      blockedDomains: [],
+    },
+  };
+}
+
 export function createDefaultAppConfig(): AppConfig {
   return {
     version: APP_CONFIG_VERSION,
@@ -246,7 +294,7 @@ export function createDefaultAppConfig(): AppConfig {
       defaultVisibleTabIds: [...APP_BOTTOM_BAR_DEFAULT_VISIBLE_TAB_IDS],
     },
     features: {
-      aiAgent: {},
+      aiAgent: createDefaultAiAgentFeatureConfig(),
       settings: {
         tabs: {
           general: createDefaultSettingsTabPersonalization(),

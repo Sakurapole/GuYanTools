@@ -4,6 +4,7 @@ import * as fs from 'node:fs/promises';
 import * as os from 'node:os';
 import * as path from 'node:path';
 import { dbManager } from "../core/database";
+import { registerAiIpcHandlers } from "./ai/ipc";
 import { registerAppConfigIpcHandlers } from "./app-config/ipc";
 import { appConfigManager } from "./app-config/manager";
 import { registerHomeLayoutIpcHandlers } from "./home-layout/ipc";
@@ -84,6 +85,7 @@ class App {
     ]);
     this.mainWindowCreator = main_window();
     this.splashWindowCreator = splash_window();
+    registerAiIpcHandlers();
     registerAppConfigIpcHandlers();
     registerHomeProfileIpcHandlers();
     registerHomeLayoutIpcHandlers();

@@ -21,11 +21,21 @@ import type {
   LocalFontOption,
   MultiDeviceClipboardFeatureConfig,
 } from '@/contracts/app_config';
+import type {
+  AiAgentFeatureConfig,
+  AiAgentMode,
+  AiGeneralAgentTemplate,
+  AiModelConfig,
+  AiProviderConfig,
+  AiProviderKind,
+  AiReasoningEffort,
+} from '@/contracts/ai';
 import type { LocalTerminalProfileConfig, TerminalBackgroundConfig, TerminalSshProfileGroupConfig } from '@/contracts/terminal';
 import type { AppWebConfig, ChromeExtensionRecord, WebScriptRule } from '@/contracts/webview';
 import {
   APP_BOTTOM_BAR_REQUIRED_TAB_IDS,
   APP_INTERNAL_FUNCTIONS,
+  createDefaultAiAgentFeatureConfig,
   createDefaultAppConfig,
   createDefaultSettingsTabPersonalization,
   getSystemDefaultFontOption,
@@ -174,12 +184,239 @@ function normalizeFeatures(value: unknown): AppFeaturesConfig {
   }
 
   return {
-    aiAgent: isRecord(value.aiAgent) ? cloneConfig(value.aiAgent) : cloneConfig(defaultConfig.aiAgent),
+    aiAgent: normalizeAiAgentFeature(value.aiAgent),
     settings: normalizeSettingsFeature(value.settings),
     terminal: normalizeTerminalFeature(value.terminal),
     multiDeviceClipboard: normalizeMultiDeviceClipboardFeature(value.multiDeviceClipboard),
     knowledge: normalizeKnowledgeFeature(value.knowledge),
   };
+}
+
+function normalizeAiProviderKind(value: unknown): AiProviderKind {
+  if (
+    value === 'openai'
+    || value === 'anthropic'
+    || value === 'google'
+    || value === 'openai-compatible'
+    || value === 'ollama'
+    || value === 'vercel-gateway'
+  ) {
+    return value;
+  }
+
+  return 'openai-compatible';
+}
+
+function normalizeAiNumber(value: unknown, fallback?: number) {
+  const numeric = Number(value);
+  return Number.isFinite(numeric) ? numeric : fallback;
+}
+
+function normalizeAiReasoningEffort(value: unknown): AiReasoningEffort {
+  return value === 'minimal' || value === 'low' || value === 'high' || value === 'xhigh'
+    ? value
+    : 'medium';
+}
+
+function normalizeAiModel(value: unknown): AiModelConfig | null {
+  if (!isRecord(value)) {
+    return null;
+  }
+
+  const id = typeof value.id === 'string' && value.id.trim() ? value.id.trim() : '';
+  const providerModelId = typeof value.providerModelId === 'string' && value.providerModelId.trim()
+    ? value.providerModelId.trim()
+    : id;
+
+  if (!id || !providerModelId) {
+    return null;
+  }
+
+  const capabilities = isRecord(value.capabilities) ? value.capabilities : {};
+
+  return {
+    id,
+    displayName: typeof value.displayName === 'string' && value.displayName.trim()
+      ? value.displayName.trim()
+      : providerModelId,
+    providerModelId,
+    capabilities: {
+      streaming: capabilities.streaming !== false,
+      vision: capabilities.vision === true,
+      toolCalling: capabilities.toolCalling === true,
+      structuredOutput: capabilities.structuredOutput === true,
+      reasoning: capabilities.reasoning === true,
+      embedding: capabilities.embedding === true,
+      nativeWebSearch: capabilities.nativeWebSearch === true,
+      nativeFileSearch: capabilities.nativeFileSearch === true,
+      maxContextTokens: normalizeAiNumber(capabilities.maxContextTokens),
+    },
+    contextWindow: normalizeAiNumber(value.contextWindow),
+    maxOutputTokens: normalizeAiNumber(value.maxOutputTokens),
+    defaultTemperature: normalizeAiNumber(value.defaultTemperature),
+  };
+}
+
+function normalizeAiProvider(value: unknown): AiProviderConfig | null {
+  if (!isRecord(value)) {
+    return null;
+  }
+
+  const id = typeof value.id === 'string' && value.id.trim() ? value.id.trim() : '';
+  if (!id) {
+    return null;
+  }
+
+  const models = Array.isArray(value.models)
+    ? value.models.map(normalizeAiModel).filter((model): model is AiModelConfig => Boolean(model))
+    : [];
+
+  return {
+    id,
+    kind: normalizeAiProviderKind(value.kind),
+    name: typeof value.name === 'string' && value.name.trim() ? value.name.trim() : id,
+    baseUrl: typeof value.baseUrl === 'string' && value.baseUrl.trim() ? value.baseUrl.trim() : undefined,
+    apiKeyRef: typeof value.apiKeyRef === 'string' && value.apiKeyRef.trim() ? value.apiKeyRef.trim() : undefined,
+    apiKey: typeof value.apiKey === 'string' && value.apiKey.trim() ? value.apiKey : undefined,
+    enabled: value.enabled !== false,
+    models,
+    createdAt: normalizeAiNumber(value.createdAt, Date.now()) ?? Date.now(),
+    updatedAt: normalizeAiNumber(value.updatedAt, Date.now()) ?? Date.now(),
+  };
+}
+
+function normalizeAiAgentFeature(value: unknown): AiAgentFeatureConfig {
+  const defaults = createDefaultAiAgentFeatureConfig();
+  if (!isRecord(value)) {
+    return cloneConfig(defaults);
+  }
+
+  const chat = isRecord(value.chat) ? value.chat : {};
+  const agent = isRecord(value.agent) ? value.agent : {};
+  const codex = isRecord(agent.codex) ? agent.codex : {};
+  const general = isRecord(agent.general) ? agent.general : {};
+  const research = isRecord(value.research) ? value.research : {};
+
+  return {
+    enabled: value.enabled === true,
+    defaultMode: value.defaultMode === 'chat' || value.defaultMode === 'general-agent' || value.defaultMode === 'code-agent'
+      ? value.defaultMode
+      : 'chat',
+    defaultProviderId: typeof value.defaultProviderId === 'string' ? value.defaultProviderId : undefined,
+    defaultChatModelId: typeof value.defaultChatModelId === 'string' ? value.defaultChatModelId : undefined,
+    providers: Array.isArray(value.providers)
+      ? value.providers.map(normalizeAiProvider).filter((provider): provider is AiProviderConfig => Boolean(provider))
+      : [],
+    chat: {
+      defaultSystemPrompt: typeof chat.defaultSystemPrompt === 'string'
+        ? chat.defaultSystemPrompt
+        : defaults.chat.defaultSystemPrompt,
+      maxHistoryMessages: Math.max(1, Math.min(200, Math.round(normalizeAiNumber(chat.maxHistoryMessages, defaults.chat.maxHistoryMessages) ?? defaults.chat.maxHistoryMessages))),
+      temperature: Math.max(0, Math.min(2, normalizeAiNumber(chat.temperature, defaults.chat.temperature) ?? defaults.chat.temperature)),
+      maxOutputTokens: normalizeAiNumber(chat.maxOutputTokens),
+      reasoningEnabled: chat.reasoningEnabled === true,
+      reasoningEffort: normalizeAiReasoningEffort(chat.reasoningEffort),
+      reasoningBudgetTokens: normalizeAiNumber(chat.reasoningBudgetTokens),
+    },
+    agent: {
+      enabled: agent.enabled === true,
+      defaultAgentMode: normalizeAiAgentMode(agent.defaultAgentMode, defaults.agent.defaultAgentMode),
+      maxSteps: Math.max(1, Math.min(32, Math.round(normalizeAiNumber(agent.maxSteps, defaults.agent.maxSteps) ?? defaults.agent.maxSteps))),
+      requireApprovalForWriteTools: agent.requireApprovalForWriteTools !== false,
+      codex: {
+        enabled: codex.enabled === true,
+        lastWorkingDirectory: typeof codex.lastWorkingDirectory === 'string'
+          ? codex.lastWorkingDirectory
+          : defaults.agent.codex.lastWorkingDirectory,
+        skipGitRepoCheck: codex.skipGitRepoCheck === true,
+        cliConfigJson: typeof codex.cliConfigJson === 'string'
+          ? codex.cliConfigJson
+          : defaults.agent.codex.cliConfigJson,
+      },
+      general: {
+        enabled: general.enabled === true,
+        defaultAgentId: typeof general.defaultAgentId === 'string' && general.defaultAgentId.trim()
+          ? general.defaultAgentId.trim()
+          : undefined,
+        agents: Array.isArray(general.agents)
+          ? general.agents.map(normalizeAiGeneralAgentTemplate).filter((item): item is AiGeneralAgentTemplate => Boolean(item))
+          : [],
+      },
+    },
+    research: {
+      enabled: research.enabled === true,
+      maxSearchQueries: Math.max(1, Math.min(50, Math.round(normalizeAiNumber(research.maxSearchQueries, defaults.research.maxSearchQueries) ?? defaults.research.maxSearchQueries))),
+      maxSources: Math.max(1, Math.min(200, Math.round(normalizeAiNumber(research.maxSources, defaults.research.maxSources) ?? defaults.research.maxSources))),
+      webSearchEndpoint: typeof research.webSearchEndpoint === 'string' && research.webSearchEndpoint.trim()
+        ? research.webSearchEndpoint.trim()
+        : undefined,
+      webSearchApiKey: typeof research.webSearchApiKey === 'string' && research.webSearchApiKey.trim()
+        ? research.webSearchApiKey
+        : undefined,
+      allowedDomains: normalizeStringList(research.allowedDomains),
+      blockedDomains: normalizeStringList(research.blockedDomains),
+      defaultKnowledgeLibraryId: typeof research.defaultKnowledgeLibraryId === 'string' && research.defaultKnowledgeLibraryId.trim()
+        ? research.defaultKnowledgeLibraryId.trim()
+        : undefined,
+      defaultKnowledgeSpaceId: typeof research.defaultKnowledgeSpaceId === 'string' && research.defaultKnowledgeSpaceId.trim()
+        ? research.defaultKnowledgeSpaceId.trim()
+        : undefined,
+      embeddingProviderId: typeof research.embeddingProviderId === 'string' && research.embeddingProviderId.trim()
+        ? research.embeddingProviderId.trim()
+        : undefined,
+      embeddingModelId: typeof research.embeddingModelId === 'string' && research.embeddingModelId.trim()
+        ? research.embeddingModelId.trim()
+        : undefined,
+    },
+  };
+}
+
+function normalizeAiAgentMode(value: unknown, fallback: AiAgentMode): AiAgentMode {
+  return value === 'code-agent' || value === 'general-agent' ? value : fallback;
+}
+
+function normalizeAiGeneralAgentTemplate(value: unknown): AiGeneralAgentTemplate | null {
+  if (!isRecord(value)) {
+    return null;
+  }
+
+  const id = typeof value.id === 'string' && value.id.trim() ? value.id.trim() : '';
+  const name = typeof value.name === 'string' && value.name.trim() ? value.name.trim() : id;
+  if (!id || !name) {
+    return null;
+  }
+
+  const timestamp = Date.now();
+  return {
+    id,
+    name,
+    description: typeof value.description === 'string' && value.description.trim()
+      ? value.description.trim()
+      : undefined,
+    systemPrompt: typeof value.systemPrompt === 'string' ? value.systemPrompt : '',
+    providerId: typeof value.providerId === 'string' && value.providerId.trim()
+      ? value.providerId.trim()
+      : undefined,
+    modelId: typeof value.modelId === 'string' && value.modelId.trim()
+      ? value.modelId.trim()
+      : undefined,
+    enabledTools: normalizeStringList(value.enabledTools),
+    temperature: normalizeAiNumber(value.temperature),
+    maxOutputTokens: normalizeAiNumber(value.maxOutputTokens),
+    createdAt: normalizeAiNumber(value.createdAt, timestamp) ?? timestamp,
+    updatedAt: normalizeAiNumber(value.updatedAt, timestamp) ?? timestamp,
+  };
+}
+
+function normalizeStringList(value: unknown): string[] {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+
+  return [...new Set(value
+    .map((item) => typeof item === 'string' ? item.trim() : '')
+    .filter(Boolean))]
+    .slice(0, 50);
 }
 
 function normalizeSettingsFeature(value: unknown): AppSettingsFeatureConfig {
@@ -600,7 +837,30 @@ function mergeConfig(current: AppConfig, patch: AppConfigPatch): AppConfig {
       ...(patch.bottomBar ?? {}),
     }),
     features: {
-      aiAgent: patch.features?.aiAgent ? cloneConfig(patch.features.aiAgent) : cloneConfig(current.features.aiAgent),
+      aiAgent: normalizeAiAgentFeature({
+        ...current.features.aiAgent,
+        ...(patch.features?.aiAgent ?? {}),
+        chat: {
+          ...current.features.aiAgent.chat,
+          ...(patch.features?.aiAgent?.chat ?? {}),
+        },
+        agent: {
+          ...current.features.aiAgent.agent,
+          ...(patch.features?.aiAgent?.agent ?? {}),
+          codex: {
+            ...current.features.aiAgent.agent.codex,
+            ...(patch.features?.aiAgent?.agent?.codex ?? {}),
+          },
+          general: {
+            ...current.features.aiAgent.agent.general,
+            ...(patch.features?.aiAgent?.agent?.general ?? {}),
+          },
+        },
+        research: {
+          ...current.features.aiAgent.research,
+          ...(patch.features?.aiAgent?.research ?? {}),
+        },
+      }),
       settings: normalizeSettingsFeature({
         ...current.features.settings,
         tabs: {

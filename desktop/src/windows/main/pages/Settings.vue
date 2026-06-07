@@ -4,12 +4,14 @@ import type { CSSProperties } from 'vue';
 import type {
   AppBottomBarTabId,
   AppKnowledgeAssetStorageMode,
+  AppConfigPatch,
   AppLanguage,
   AppSettingsTabId,
   AppSettingsTabPersonalizationConfig,
   AppTheme,
   LocalNetworkInterfaceOption,
 } from '@/contracts/app_config';
+import type { AiAgentMode, AiInteractionMode } from '@/contracts/ai';
 import type { KnowledgeLibrary } from '@/contracts/knowledge';
 import type { FtpWindowsContextMenuStatus } from '@/contracts/ftp';
 import type { MultiDeviceClipboardDeviceStatus } from '@/contracts/multi_device_clipboard';
@@ -94,6 +96,7 @@ const knowledgeMaxImportFileSizeMbInput = ref(String(appConfigStore.config.featu
 const knowledgePreviewCacheTtlDaysInput = ref(String(appConfigStore.config.features.knowledge.previewCacheTtlDays));
 const knowledgeLibreOfficePathInput = ref(appConfigStore.config.features.knowledge.libreOfficePath || '');
 const knowledgeCustomAssetDirectoryInput = ref(appConfigStore.config.features.knowledge.customAssetDirectory || '');
+const agentMaxStepsInput = ref(String(appConfigStore.config.features.aiAgent.agent.maxSteps || 5));
 const knowledgeClearingCache = ref(false);
 const localNetworkInterfaces = ref<LocalNetworkInterfaceOption[]>([]);
 const networkInterfacesLoading = ref(false);
@@ -269,6 +272,15 @@ const knowledgeLibraryOptions = computed(() => [
 const knowledgeAssetStorageOptions: Array<{ label: string; value: AppKnowledgeAssetStorageMode }> = [
   { label: '应用数据目录', value: 'app-data' },
   { label: '自定义目录', value: 'custom' },
+];
+const aiDefaultModeOptions: Array<{ label: string; value: AiInteractionMode }> = [
+  { label: 'AI 问答', value: 'chat' },
+  { label: '通用 Agent', value: 'general-agent' },
+  { label: 'Code Agent', value: 'code-agent' },
+];
+const aiAgentModeOptions: Array<{ label: string; value: AiAgentMode }> = [
+  { label: '通用 Agent', value: 'general-agent' },
+  { label: 'Code Agent', value: 'code-agent' },
 ];
 const knowledgeIndexingSummary = computed(() => (
   appConfigStore.config.features.knowledge.indexingEnabled
@@ -585,6 +597,61 @@ async function handleBottomBarVisibleTabsChange(value: string[]) {
     bottomBar: {
       defaultVisibleTabIds: nextIds,
     },
+  });
+}
+
+type AiAgentFeaturePatch = NonNullable<NonNullable<AppConfigPatch['features']>['aiAgent']>;
+
+async function updateAiAgentSettings(patch: AiAgentFeaturePatch) {
+  await appConfigStore.updateConfig({
+    features: {
+      aiAgent: patch,
+    },
+  });
+}
+
+async function updateAiAgentReservedSettings(patch: Partial<typeof appConfigStore.config.features.aiAgent.agent>) {
+  const current = appConfigStore.config.features.aiAgent.agent;
+  await updateAiAgentSettings({
+    agent: {
+      ...current,
+      ...patch,
+      codex: {
+        ...current.codex,
+        ...(patch.codex ?? {}),
+      },
+      general: {
+        ...current.general,
+        ...(patch.general ?? {}),
+      },
+    },
+  });
+}
+
+async function handleAiFeatureEnabledChange(enabled: boolean) {
+  await updateAiAgentSettings({
+    enabled,
+    defaultMode: enabled ? appConfigStore.config.features.aiAgent.defaultMode : 'chat',
+  });
+}
+
+async function handleAiDefaultModeChange(value: string) {
+  await updateAiAgentSettings({
+    defaultMode: value as AiInteractionMode,
+  });
+}
+
+async function handleAiAgentDefaultModeChange(value: string) {
+  await updateAiAgentReservedSettings({
+    defaultAgentMode: value as AiAgentMode,
+  });
+}
+
+async function commitAiAgentMaxSteps() {
+  const value = Math.max(1, Math.min(32, Math.round(Number(agentMaxStepsInput.value) || 5)));
+  agentMaxStepsInput.value = String(value);
+  await updateAiAgentReservedSettings({
+    maxSteps: value,
   });
 }
 
@@ -1599,6 +1666,10 @@ watch(() => appConfigStore.config.features.knowledge.libreOfficePath, (value) =>
 
 watch(() => appConfigStore.config.features.knowledge.customAssetDirectory, (value) => {
   knowledgeCustomAssetDirectoryInput.value = value || '';
+}, { immediate: true });
+
+watch(() => appConfigStore.config.features.aiAgent.agent.maxSteps, (value) => {
+  agentMaxStepsInput.value = String(value || 5);
 }, { immediate: true });
 
 watch(
@@ -2909,30 +2980,171 @@ function scriptTypeLabel(type: string) {
       <section v-if="isSettingsTabRendered('ai-agent')" key="ai-agent" class="settings-section">
         <div class="section-head section-head--standalone">
           <h2>AI Agent</h2>
-          <p>AI 推理策略与上下文配置。</p>
+          <p>AI 问答入口、Agent 预留模式和后续工具执行策略。</p>
         </div>
 
-        <div class="cards-grid cards-grid--3col">
-          <div class="settings-card settings-card--placeholder ui-glass-surface ui-glass-surface--strong">
+        <div class="cards-grid cards-grid--1col">
+          <div class="settings-card ui-glass-surface ui-glass-surface--strong">
             <div class="settings-card__head">
-              <span class="settings-card__icon">🧠</span>
-              <h3>模型与推理</h3>
+              <span class="settings-card__icon">🤖</span>
+              <h3>入口策略</h3>
             </div>
-            <p class="settings-card__desc">预留到 features.aiAgent 容器</p>
+            <div class="settings-card__fields">
+              <div class="settings-row">
+                <div class="settings-row__label">
+                  <span>启用 AI 功能</span>
+                  <small>控制 AI 问答和后续 Agent 入口是否可用。</small>
+                </div>
+                <div class="settings-row__control settings-row__control--switch">
+                  <UiCheckbox
+                    size="sm"
+                    :checked="appConfigStore.config.features.aiAgent.enabled"
+                    @change="handleAiFeatureEnabledChange"
+                  />
+                </div>
+              </div>
+              <div class="settings-row">
+                <div class="settings-row__label">
+                  <span>默认入口</span>
+                  <small>打开 AI 模块时优先使用的交互模式。</small>
+                </div>
+                <div class="settings-row__control">
+                  <UiSelect
+                    :model-value="appConfigStore.config.features.aiAgent.defaultMode"
+                    :options="aiDefaultModeOptions"
+                    @change="handleAiDefaultModeChange"
+                  />
+                </div>
+              </div>
+            </div>
           </div>
-          <div class="settings-card settings-card--placeholder ui-glass-surface ui-glass-surface--strong">
+
+          <div class="settings-card ui-glass-surface ui-glass-surface--strong">
             <div class="settings-card__head">
               <span class="settings-card__icon">🔐</span>
               <h3>工具权限</h3>
             </div>
-            <p class="settings-card__desc">后续接入 AI Agent 能力策略</p>
-          </div>
-          <div class="settings-card settings-card--placeholder ui-glass-surface ui-glass-surface--strong">
-            <div class="settings-card__head">
-              <span class="settings-card__icon">💬</span>
-              <h3>会话记忆</h3>
+            <div class="settings-card__fields">
+              <div class="settings-row">
+                <div class="settings-row__label">
+                  <span>开放 Agent 入口</span>
+                  <small>开启后 AI 页面显示 Agent 预留工作区；本版本仍不执行工具。</small>
+                </div>
+                <div class="settings-row__control settings-row__control--switch">
+                  <UiCheckbox
+                    size="sm"
+                    :checked="appConfigStore.config.features.aiAgent.agent.enabled"
+                    @change="updateAiAgentReservedSettings({ enabled: $event })"
+                  />
+                </div>
+              </div>
+              <div class="settings-row">
+                <div class="settings-row__label">
+                  <span>默认 Agent 类型</span>
+                  <small>后续进入 Agent 模式时默认选中的执行器。</small>
+                </div>
+                <div class="settings-row__control">
+                  <UiSelect
+                    :model-value="appConfigStore.config.features.aiAgent.agent.defaultAgentMode"
+                    :options="aiAgentModeOptions"
+                    @change="handleAiAgentDefaultModeChange"
+                  />
+                </div>
+              </div>
+              <div class="settings-row">
+                <div class="settings-row__label">
+                  <span>最大步骤</span>
+                  <small>限制 Agent 循环步数，当前保存为预留策略。</small>
+                </div>
+                <div class="settings-row__control settings-row__control--compact">
+                  <UiInput
+                    v-model="agentMaxStepsInput"
+                    type="number"
+                    :min="1"
+                    :max="32"
+                    @blur="commitAiAgentMaxSteps"
+                    @change="commitAiAgentMaxSteps"
+                    @keydown.enter.prevent="commitAiAgentMaxSteps"
+                  />
+                </div>
+              </div>
+              <div class="settings-row">
+                <div class="settings-row__label">
+                  <span>写入类工具确认</span>
+                  <small>后续文件写入、命令执行等工具默认需要确认。</small>
+                </div>
+                <div class="settings-row__control settings-row__control--switch">
+                  <UiCheckbox
+                    size="sm"
+                    :checked="appConfigStore.config.features.aiAgent.agent.requireApprovalForWriteTools"
+                    @change="updateAiAgentReservedSettings({ requireApprovalForWriteTools: $event })"
+                  />
+                </div>
+              </div>
             </div>
-            <p class="settings-card__desc">后续接入独立持久化配置</p>
+          </div>
+
+          <div class="settings-card ui-glass-surface ui-glass-surface--strong">
+            <div class="settings-card__head">
+              <span class="settings-card__icon">🧩</span>
+              <h3>Agent 执行器预留</h3>
+            </div>
+            <div class="settings-card__fields">
+              <div class="settings-row">
+                <div class="settings-row__label">
+                  <span>通用 Agent</span>
+                  <small>预留给自定义提示词、工具集合和任务模板。</small>
+                </div>
+                <div class="settings-row__control settings-row__control--switch">
+                  <UiCheckbox
+                    size="sm"
+                    :checked="appConfigStore.config.features.aiAgent.agent.general.enabled"
+                    @change="updateAiAgentReservedSettings({
+                      general: {
+                        ...appConfigStore.config.features.aiAgent.agent.general,
+                        enabled: $event,
+                      },
+                    })"
+                  />
+                </div>
+              </div>
+              <div class="settings-row">
+                <div class="settings-row__label">
+                  <span>Code Agent</span>
+                  <small>预留给后续 Codex SDK，不在本版本执行代码或命令。</small>
+                </div>
+                <div class="settings-row__control settings-row__control--switch">
+                  <UiCheckbox
+                    size="sm"
+                    :checked="appConfigStore.config.features.aiAgent.agent.codex.enabled"
+                    @change="updateAiAgentReservedSettings({
+                      codex: {
+                        ...appConfigStore.config.features.aiAgent.agent.codex,
+                        enabled: $event,
+                      },
+                    })"
+                  />
+                </div>
+              </div>
+              <div class="settings-row">
+                <div class="settings-row__label">
+                  <span>Git 仓库检查</span>
+                  <small>关闭时 Code Agent 运行前需要确认工作目录是 Git 仓库。</small>
+                </div>
+                <div class="settings-row__control settings-row__control--switch">
+                  <UiCheckbox
+                    size="sm"
+                    :checked="appConfigStore.config.features.aiAgent.agent.codex.skipGitRepoCheck"
+                    @change="updateAiAgentReservedSettings({
+                      codex: {
+                        ...appConfigStore.config.features.aiAgent.agent.codex,
+                        skipGitRepoCheck: $event,
+                      },
+                    })"
+                  />
+                </div>
+              </div>
+            </div>
           </div>
         </div>
       </section>

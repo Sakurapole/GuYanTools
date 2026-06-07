@@ -323,6 +323,75 @@ pub struct KnowledgeSearchResult {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[cfg_attr(feature = "napi", napi(object))]
+pub struct KnowledgeAiChunk {
+    pub id: String,
+    pub source_type: String,
+    pub source_id: String,
+    pub chunk_index: i64,
+    pub content_text: String,
+    pub token_count: i64,
+    pub metadata_json: Option<String>,
+    pub created_at: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[cfg_attr(feature = "napi", napi(object))]
+pub struct ListKnowledgeAiChunksInput {
+    pub source_type: Option<String>,
+    pub source_id: Option<String>,
+    pub missing_embedding_provider: Option<String>,
+    pub missing_embedding_model: Option<String>,
+    pub limit: Option<i64>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[cfg_attr(feature = "napi", napi(object))]
+pub struct UpsertKnowledgeEmbeddingInput {
+    pub id: String,
+    pub chunk_id: String,
+    pub provider: String,
+    pub model: String,
+    pub dimension: i64,
+    pub vector_blob: Vec<u8>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[cfg_attr(feature = "napi", napi(object))]
+pub struct ListKnowledgeEmbeddingCandidatesInput {
+    pub provider: String,
+    pub model: String,
+    pub library_id: Option<String>,
+    pub space_id: Option<String>,
+    pub source_type: Option<String>,
+    pub limit: Option<i64>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[cfg_attr(feature = "napi", napi(object))]
+pub struct KnowledgeEmbeddingCandidate {
+    pub chunk_id: String,
+    pub source_type: String,
+    pub source_id: String,
+    pub node_id: Option<String>,
+    pub asset_id: Option<String>,
+    pub title: String,
+    pub content_text: String,
+    pub metadata_json: Option<String>,
+    pub updated_at: String,
+    pub vector_blob: Vec<u8>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[cfg_attr(feature = "napi", napi(object))]
+pub struct KnowledgeEmbeddingStats {
+    pub chunk_count: i64,
+    pub embedded_count: i64,
+    pub provider: String,
+    pub model: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[cfg_attr(feature = "napi", napi(object))]
 pub struct KnowledgeTag {
     pub id: String,
     pub library_id: String,

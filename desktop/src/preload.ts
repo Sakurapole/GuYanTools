@@ -9,6 +9,7 @@ import type {
   UpdateHomeWidgetPayload,
 } from '@/contracts/home_layout';
 import type { AppConfigApi } from '@/contracts/app_config';
+import type { AiApi, AiStreamEvent } from '@/contracts/ai';
 import type { PluginHostApi } from '@/contracts/plugin_host';
 import type { NotificationApi, NotificationPayload } from '@/contracts/notification';
 import type { SaveFileOptions, SelectFileOptions, ShellApi } from '@/contracts/shell';
@@ -131,6 +132,38 @@ const appConfigApi: AppConfigApi = {
 
 contextBridge.exposeInMainWorld('pluginHostApi', pluginHostApi);
 contextBridge.exposeInMainWorld('appConfigApi', appConfigApi);
+
+const aiApi: AiApi = {
+  getConfig: () => ipcRenderer.invoke('ai:get-config'),
+  updateConfig: (patch) => ipcRenderer.invoke('ai:update-config', patch),
+  testProvider: (input) => ipcRenderer.invoke('ai:test-provider', input),
+  listConversations: () => ipcRenderer.invoke('ai:list-conversations'),
+  createConversation: (input) => ipcRenderer.invoke('ai:create-conversation', input),
+  updateConversation: (id, input) => ipcRenderer.invoke('ai:update-conversation', id, input),
+  deleteConversation: (id) => ipcRenderer.invoke('ai:delete-conversation', id),
+  listMessages: (conversationId) => ipcRenderer.invoke('ai:list-messages', conversationId),
+  sendMessage: (input) => ipcRenderer.invoke('ai:send-message', input),
+  regenerateMessage: (input) => ipcRenderer.invoke('ai:regenerate-message', input),
+  stopRun: (runId) => ipcRenderer.invoke('ai:stop-run', runId),
+  getKnowledgeEmbeddingStats: (input) => ipcRenderer.invoke('ai:get-knowledge-embedding-stats', input),
+  rebuildKnowledgeEmbeddings: (input) => ipcRenderer.invoke('ai:rebuild-knowledge-embeddings', input),
+  listCanvasWorkspaces: (conversationId) => ipcRenderer.invoke('ai:list-canvas-workspaces', conversationId),
+  createCanvasWorkspace: (input) => ipcRenderer.invoke('ai:create-canvas-workspace', input),
+  updateCanvasWorkspace: (id, input) => ipcRenderer.invoke('ai:update-canvas-workspace', id, input),
+  deleteCanvasWorkspace: (id) => ipcRenderer.invoke('ai:delete-canvas-workspace', id),
+  listCanvasFiles: (workspaceId) => ipcRenderer.invoke('ai:list-canvas-files', workspaceId),
+  upsertCanvasFile: (input) => ipcRenderer.invoke('ai:upsert-canvas-file', input),
+  deleteCanvasFile: (workspaceId, path) => ipcRenderer.invoke('ai:delete-canvas-file', workspaceId, path),
+  listCanvasVersions: (workspaceId) => ipcRenderer.invoke('ai:list-canvas-versions', workspaceId),
+  createCanvasVersion: (input) => ipcRenderer.invoke('ai:create-canvas-version', input),
+  listCanvasOperations: (workspaceId) => ipcRenderer.invoke('ai:list-canvas-operations', workspaceId),
+  onStreamEvent: (listener) => {
+    const wrappedListener = (_event: Electron.IpcRendererEvent, payload: AiStreamEvent) => listener(payload);
+    ipcRenderer.on('ai:stream-event', wrappedListener);
+    return () => ipcRenderer.removeListener('ai:stream-event', wrappedListener);
+  },
+};
+contextBridge.exposeInMainWorld('aiApi', aiApi);
 
 const notificationApi: NotificationApi = {
   show: (payload: NotificationPayload) => ipcRenderer.invoke('notification:show', payload),

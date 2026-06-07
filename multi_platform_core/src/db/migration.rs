@@ -107,6 +107,10 @@ pub fn run_migrations(conn: &Connection) -> DbResult<()> {
             "023_add_knowledge_search_fts",
             include_str!("../../migrations/023_add_knowledge_search_fts.sql"),
         ),
+        (
+            "024_add_ai_chat",
+            include_str!("../../migrations/024_add_ai_chat.sql"),
+        ),
     ];
 
     // 执行每个迁移

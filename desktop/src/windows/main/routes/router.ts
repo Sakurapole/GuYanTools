@@ -10,6 +10,7 @@ const routes: RouteRecordRaw[] = [
   { path: '/ftp', name: 'FileTransfer', component: () => import('../pages/Ftp/FtpPage.vue'), meta: { title: '文件传输', keepAlive: true } },
   { path: '/todo', name: 'Todo', component: () => import('../pages/Todo/TodoApp.vue'), meta: { title: 'Todo', keepAlive: true } },
   { path: '/knowledge', name: 'Knowledge', component: () => import('../pages/Knowledge/KnowledgePage.vue'), meta: { title: '知识库', keepAlive: true } },
+  { path: '/ai', name: 'AI', component: () => import('../pages/AI/AiChatPage.vue'), meta: { title: 'AI', keepAlive: true } },
   { path: '/webview', name: 'WebView', component: () => import('../pages/WebViewPage.vue'), meta: { title: '网页' } },
   { path: '/script-editor', name: 'ScriptEditor', component: () => import('../pages/ScriptEditor.vue'), meta: { title: '脚本编辑器' } },
 ];
