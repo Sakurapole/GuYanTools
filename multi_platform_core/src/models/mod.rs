@@ -33,8 +33,9 @@ pub use knowledge::{
     ListKnowledgeAiChunksInput, ListKnowledgeEmbeddingCandidatesInput, ListKnowledgeIndexJobsInput,
     ListKnowledgeOrphanPagesInput, ListKnowledgeQuickNotesInput, ListKnowledgeTagTargetsInput,
     ListKnowledgeTagsInput, ListKnowledgeTreeInput, MoveKnowledgeNodeInput,
-    UnbindKnowledgeTagInput, UpdateKnowledgeNodeInput, UpdateKnowledgePageInput,
-    UpdateKnowledgeQuickNoteInput, UpdateKnowledgeTagInput, UpsertKnowledgeEmbeddingInput,
+    UnbindKnowledgeTagInput, UpdateKnowledgeLibraryInput, UpdateKnowledgeNodeInput,
+    UpdateKnowledgePageInput, UpdateKnowledgeQuickNoteInput, UpdateKnowledgeSpaceInput,
+    UpdateKnowledgeTagInput, UpsertKnowledgeEmbeddingInput,
 };
 pub use multi_device_clipboard::{
     MultiDeviceClipboardDevice, MultiDeviceClipboardDeviceStatus,

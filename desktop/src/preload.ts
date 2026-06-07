@@ -249,8 +249,12 @@ contextBridge.exposeInMainWorld('todoApi', todoApi);
 const knowledgeApi: KnowledgeApi = {
   listLibraries: () => ipcRenderer.invoke('knowledge:list-libraries'),
   createLibrary: (input) => ipcRenderer.invoke('knowledge:create-library', input),
+  updateLibrary: (libraryId, input) => ipcRenderer.invoke('knowledge:update-library', libraryId, input),
+  deleteLibrary: (libraryId: string) => ipcRenderer.invoke('knowledge:delete-library', libraryId),
   listSpaces: (libraryId?: string) => ipcRenderer.invoke('knowledge:list-spaces', libraryId),
   createSpace: (input) => ipcRenderer.invoke('knowledge:create-space', input),
+  updateSpace: (spaceId, input) => ipcRenderer.invoke('knowledge:update-space', spaceId, input),
+  deleteSpace: (spaceId: string) => ipcRenderer.invoke('knowledge:delete-space', spaceId),
   listTree: (input) => ipcRenderer.invoke('knowledge:list-tree', input),
   createFolder: (input) => ipcRenderer.invoke('knowledge:create-folder', input),
   createPage: (input) => ipcRenderer.invoke('knowledge:create-page', input),
