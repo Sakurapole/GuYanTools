@@ -25,6 +25,7 @@ const calloutLabels: Record<string, string> = {
   important: 'IMPORTANT',
   warning: 'WARNING',
   caution: 'CAUTION',
+  danger: 'DANGER',
   info: 'INFO',
   todo: 'TODO',
   question: 'QUESTION',
@@ -187,7 +188,7 @@ function decorateCallouts(doc: Document): void {
   doc.body.querySelectorAll('blockquote').forEach((quote) => {
     const firstParagraph = quote.querySelector('p');
     const html = firstParagraph?.innerHTML ?? '';
-    const match = /^\s*\[!([A-Za-z]+)\]\s*([^<\n]*)/i.exec(html);
+    const match = /^\s*\\?\[!([A-Za-z]+)\]\s*([^<\n]*)/i.exec(html);
     if (!firstParagraph || !match) return;
 
     const type = match[1].toLowerCase();
@@ -202,7 +203,7 @@ function decorateCallouts(doc: Document): void {
     quote.insertBefore(header, quote.firstChild);
 
     const bodyHtml = html
-      .replace(/^\s*\[![A-Za-z]+\]\s*[^<\n]*(<br\s*\/?>)?/i, '')
+      .replace(/^\s*\\?\[![A-Za-z]+\]\s*[^<\n]*(<br\s*\/?>)?/i, '')
       .trim();
     if (bodyHtml) {
       firstParagraph.innerHTML = bodyHtml;
@@ -214,7 +215,7 @@ function decorateCallouts(doc: Document): void {
 
 function decorateCalloutHtmlFallback(html: string): string {
   return html.replace(
-    /<blockquote([^>]*)>\s*<p([^>]*)>\s*\[!([A-Za-z]+)\]\s*([^<\n]*)([\s\S]*?)<\/p>/gi,
+    /<blockquote([^>]*)>\s*<p([^>]*)>\s*\\?\[!([A-Za-z]+)\]\s*([^<\n]*)([\s\S]*?)<\/p>/gi,
     (
       _match,
       blockquoteAttributes: string,

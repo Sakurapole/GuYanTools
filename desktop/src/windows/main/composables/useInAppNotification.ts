@@ -49,6 +49,14 @@ export function notifySuccess(message: string, title = '已完成', options?: { 
   return notifyInApp('success', title, message, options);
 }
 
+export function isBenignResizeObserverLoopError(error: unknown) {
+  const message = getErrorMessage(error, '');
+  return (
+    message === 'ResizeObserver loop completed with undelivered notifications.'
+    || message === 'ResizeObserver loop limit exceeded'
+  );
+}
+
 export function installInAppErrorHandlers(app: App) {
   app.config.errorHandler = (error, _instance, info) => {
     console.error('[Vue] Unhandled component error:', info, error);
@@ -59,6 +67,10 @@ export function installInAppErrorHandlers(app: App) {
 
   window.addEventListener('error', (event) => {
     const error = event.error ?? event.message;
+    if (isBenignResizeObserverLoopError(error)) {
+      event.preventDefault();
+      return;
+    }
     console.error('[Window] Unhandled error:', error);
     notifyError(error, '页面运行异常', {
       dedupeKey: `window:${event.filename}:${event.lineno}:${event.colno}:${getErrorMessage(error)}`,

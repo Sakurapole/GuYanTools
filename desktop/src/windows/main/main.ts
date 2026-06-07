@@ -1,5 +1,6 @@
 import '@fontsource-variable/geist'
 import '@fontsource-variable/geist-mono'
+import 'katex/dist/katex.min.css'
 import { createPinia } from 'pinia'
 import { createApp } from 'vue'
 import App from './App.vue'

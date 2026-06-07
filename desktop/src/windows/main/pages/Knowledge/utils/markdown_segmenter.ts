@@ -219,14 +219,15 @@ function isTableStart(lines: LineEntry[], index: number): boolean {
 }
 
 function isTableRow(line: string): boolean {
-  return line.includes('|') && !isBlank(line);
+  return hasUnescapedPipe(line) && !isBlank(line);
 }
 
 function findTableEnd(lines: LineEntry[], startIndex: number): number {
   let endIndex = startIndex - 1;
 
   for (let index = startIndex; index < lines.length; index += 1) {
-    if (!isTableRow(lines[index].text)) {
+    const line = lines[index].text;
+    if (isBlockBoundaryInsideTable(line) || !isTableRow(line)) {
       break;
     }
 
@@ -234,6 +235,28 @@ function findTableEnd(lines: LineEntry[], startIndex: number): number {
   }
 
   return endIndex;
+}
+
+function hasUnescapedPipe(line: string): boolean {
+  for (let index = 0; index < line.length; index += 1) {
+    if (line[index] !== '|') continue;
+    let slashCount = 0;
+    for (let previous = index - 1; previous >= 0 && line[previous] === '\\'; previous -= 1) {
+      slashCount += 1;
+    }
+    if (slashCount % 2 === 0) return true;
+  }
+  return false;
+}
+
+function isBlockBoundaryInsideTable(line: string): boolean {
+  return (
+    getOpeningFence(line) !== null ||
+    headingPattern.test(line) ||
+    isListLine(line) ||
+    blockquotePattern.test(line) ||
+    htmlPattern.test(line)
+  );
 }
 
 function isListLine(line: string): boolean {
