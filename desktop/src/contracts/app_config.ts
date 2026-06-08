@@ -243,9 +243,36 @@ export interface AppConfigApi {
 }
 
 export function createDefaultAiAgentFeatureConfig(): AiAgentFeatureConfig {
+  const timestamp = Date.now();
   return {
     enabled: false,
     defaultMode: 'chat',
+    defaultAssistantId: 'default-assistant',
+    assistants: [
+      {
+        id: 'default-assistant',
+        name: '默认助手',
+        emoji: '😀',
+        systemPrompt: '',
+        knowledgeMode: 'force',
+        mcpMode: 'disabled',
+        commonPhrases: [],
+        memoryEnabled: false,
+        temperatureEnabled: false,
+        temperature: 0.7,
+        topPEnabled: false,
+        topP: 1,
+        contextMessages: 5,
+        maxOutputTokensEnabled: false,
+        streaming: true,
+        toolCallMode: 'function',
+        maxToolCallsEnabled: true,
+        maxToolCalls: 20,
+        customParameters: [],
+        createdAt: timestamp,
+        updatedAt: timestamp,
+      },
+    ],
     providers: [],
     chat: {
       defaultSystemPrompt: '',

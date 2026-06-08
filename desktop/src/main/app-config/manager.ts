@@ -24,6 +24,10 @@ import type {
 import type {
   AiAgentFeatureConfig,
   AiAgentMode,
+  AiAssistantConfig,
+  AiAssistantKnowledgeMode,
+  AiAssistantMcpMode,
+  AiAssistantToolCallMode,
   AiGeneralAgentTemplate,
   AiModelConfig,
   AiProviderConfig,
@@ -285,6 +289,81 @@ function normalizeAiProvider(value: unknown): AiProviderConfig | null {
   };
 }
 
+function normalizeAiAssistant(value: unknown, fallback: AiAssistantConfig): AiAssistantConfig | null {
+  if (!isRecord(value)) {
+    return null;
+  }
+
+  const id = typeof value.id === 'string' && value.id.trim() ? value.id.trim() : '';
+  if (!id) {
+    return null;
+  }
+
+  return {
+    id,
+    name: typeof value.name === 'string' && value.name.trim() ? value.name.trim() : fallback.name,
+    emoji: typeof value.emoji === 'string' && value.emoji.trim() ? value.emoji.trim() : fallback.emoji,
+    providerId: typeof value.providerId === 'string' && value.providerId.trim() ? value.providerId.trim() : undefined,
+    modelId: typeof value.modelId === 'string' && value.modelId.trim() ? value.modelId.trim() : undefined,
+    systemPrompt: typeof value.systemPrompt === 'string' ? value.systemPrompt : fallback.systemPrompt,
+    knowledgeLibraryId: typeof value.knowledgeLibraryId === 'string' && value.knowledgeLibraryId.trim()
+      ? value.knowledgeLibraryId.trim()
+      : undefined,
+    knowledgeSpaceId: typeof value.knowledgeSpaceId === 'string' && value.knowledgeSpaceId.trim()
+      ? value.knowledgeSpaceId.trim()
+      : undefined,
+    knowledgeMode: normalizeAiAssistantKnowledgeMode(value.knowledgeMode, fallback.knowledgeMode),
+    mcpMode: normalizeAiAssistantMcpMode(value.mcpMode, fallback.mcpMode),
+    commonPhrases: normalizeStringList(value.commonPhrases),
+    memoryEnabled: value.memoryEnabled === true,
+    temperatureEnabled: value.temperatureEnabled === true,
+    temperature: Math.max(0, Math.min(2, normalizeAiNumber(value.temperature, fallback.temperature) ?? fallback.temperature)),
+    topPEnabled: value.topPEnabled === true,
+    topP: Math.max(0, Math.min(1, normalizeAiNumber(value.topP, fallback.topP) ?? fallback.topP)),
+    contextMessages: Math.max(0, Math.min(200, Math.round(normalizeAiNumber(value.contextMessages, fallback.contextMessages) ?? fallback.contextMessages))),
+    maxOutputTokensEnabled: value.maxOutputTokensEnabled === true,
+    maxOutputTokens: normalizeAiNumber(value.maxOutputTokens),
+    streaming: value.streaming !== false,
+    toolCallMode: normalizeAiAssistantToolCallMode(value.toolCallMode, fallback.toolCallMode),
+    maxToolCallsEnabled: value.maxToolCallsEnabled === true,
+    maxToolCalls: Math.max(1, Math.min(64, Math.round(normalizeAiNumber(value.maxToolCalls, fallback.maxToolCalls) ?? fallback.maxToolCalls))),
+    customParameters: Array.isArray(value.customParameters)
+      ? value.customParameters.map(normalizeAiAssistantCustomParameter).filter((item): item is AiAssistantConfig['customParameters'][number] => Boolean(item))
+      : [],
+    createdAt: normalizeAiNumber(value.createdAt, fallback.createdAt) ?? fallback.createdAt,
+    updatedAt: normalizeAiNumber(value.updatedAt, Date.now()) ?? Date.now(),
+  };
+}
+
+function normalizeAiAssistantCustomParameter(value: unknown): AiAssistantConfig['customParameters'][number] | null {
+  if (!isRecord(value)) {
+    return null;
+  }
+
+  const key = typeof value.key === 'string' && value.key.trim() ? value.key.trim() : '';
+  if (!key) {
+    return null;
+  }
+
+  return {
+    id: typeof value.id === 'string' && value.id.trim() ? value.id.trim() : key,
+    key,
+    value: typeof value.value === 'string' ? value.value : '',
+  };
+}
+
+function normalizeAiAssistantKnowledgeMode(value: unknown, fallback: AiAssistantKnowledgeMode): AiAssistantKnowledgeMode {
+  return value === 'intent' || value === 'force' ? value : fallback;
+}
+
+function normalizeAiAssistantMcpMode(value: unknown, fallback: AiAssistantMcpMode): AiAssistantMcpMode {
+  return value === 'auto' || value === 'manual' || value === 'disabled' ? value : fallback;
+}
+
+function normalizeAiAssistantToolCallMode(value: unknown, fallback: AiAssistantToolCallMode): AiAssistantToolCallMode {
+  return value === 'auto' || value === 'none' || value === 'function' ? value : fallback;
+}
+
 function normalizeAiAgentFeature(value: unknown): AiAgentFeatureConfig {
   const defaults = createDefaultAiAgentFeatureConfig();
   if (!isRecord(value)) {
@@ -296,6 +375,13 @@ function normalizeAiAgentFeature(value: unknown): AiAgentFeatureConfig {
   const codex = isRecord(agent.codex) ? agent.codex : {};
   const general = isRecord(agent.general) ? agent.general : {};
   const research = isRecord(value.research) ? value.research : {};
+  const defaultAssistant = defaults.assistants[0];
+  const assistants = Array.isArray(value.assistants)
+    ? value.assistants
+      .map((assistant) => normalizeAiAssistant(assistant, defaultAssistant))
+      .filter((assistant): assistant is AiAssistantConfig => Boolean(assistant))
+    : [];
+  const normalizedAssistants = assistants.length ? assistants : [...defaults.assistants];
 
   return {
     enabled: value.enabled === true,
@@ -304,6 +390,11 @@ function normalizeAiAgentFeature(value: unknown): AiAgentFeatureConfig {
       : 'chat',
     defaultProviderId: typeof value.defaultProviderId === 'string' ? value.defaultProviderId : undefined,
     defaultChatModelId: typeof value.defaultChatModelId === 'string' ? value.defaultChatModelId : undefined,
+    defaultAssistantId: typeof value.defaultAssistantId === 'string'
+      && normalizedAssistants.some((assistant) => assistant.id === value.defaultAssistantId)
+      ? value.defaultAssistantId
+      : normalizedAssistants[0]?.id,
+    assistants: normalizedAssistants,
     providers: Array.isArray(value.providers)
       ? value.providers.map(normalizeAiProvider).filter((provider): provider is AiProviderConfig => Boolean(provider))
       : [],

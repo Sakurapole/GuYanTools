@@ -2,6 +2,7 @@ import { acceptHMRUpdate, defineStore } from 'pinia';
 import { computed, ref } from 'vue';
 import type {
   AiAgentFeatureConfig,
+  AiAssistantConfig,
   AiModelCapabilities,
   AiModelConfig,
   AiProviderConfig,
@@ -84,6 +85,39 @@ export function createAiModelConfig(input: {
   };
 }
 
+export function createAiAssistantConfig(input: Partial<AiAssistantConfig> = {}): AiAssistantConfig {
+  const timestamp = now();
+  const id = input.id || `assistant-${timestamp}`;
+  return {
+    id,
+    name: input.name || '默认助手',
+    emoji: input.emoji || '😀',
+    providerId: input.providerId,
+    modelId: input.modelId,
+    systemPrompt: input.systemPrompt ?? '',
+    knowledgeLibraryId: input.knowledgeLibraryId,
+    knowledgeSpaceId: input.knowledgeSpaceId,
+    knowledgeMode: input.knowledgeMode ?? 'force',
+    mcpMode: input.mcpMode ?? 'disabled',
+    commonPhrases: input.commonPhrases ?? [],
+    memoryEnabled: input.memoryEnabled ?? false,
+    temperatureEnabled: input.temperatureEnabled ?? false,
+    temperature: input.temperature ?? 0.7,
+    topPEnabled: input.topPEnabled ?? false,
+    topP: input.topP ?? 1,
+    contextMessages: input.contextMessages ?? 5,
+    maxOutputTokensEnabled: input.maxOutputTokensEnabled ?? false,
+    maxOutputTokens: input.maxOutputTokens,
+    streaming: input.streaming ?? true,
+    toolCallMode: input.toolCallMode ?? 'function',
+    maxToolCallsEnabled: input.maxToolCallsEnabled ?? true,
+    maxToolCalls: input.maxToolCalls ?? 20,
+    customParameters: input.customParameters ?? [],
+    createdAt: input.createdAt ?? timestamp,
+    updatedAt: input.updatedAt ?? timestamp,
+  };
+}
+
 export const useAiConfigStore = defineStore('ai-config', () => {
   const config = ref<AiSafeAgentFeatureConfig>(toSafeConfig(createDefaultAiAgentFeatureConfig()));
   const loading = ref(false);
@@ -98,6 +132,11 @@ export const useAiConfigStore = defineStore('ai-config', () => {
   const defaultModel = computed(() =>
     defaultProvider.value?.models.find((model) => model.id === config.value.defaultChatModelId)
     ?? defaultProvider.value?.models[0],
+  );
+  const assistants = computed(() => config.value.assistants);
+  const defaultAssistant = computed(() =>
+    assistants.value.find((assistant) => assistant.id === config.value.defaultAssistantId)
+    ?? assistants.value[0],
   );
 
   async function refresh() {
@@ -145,6 +184,13 @@ export const useAiConfigStore = defineStore('ai-config', () => {
     });
   }
 
+  async function saveAssistants(assistants: AiAssistantConfig[], defaultAssistantId?: string) {
+    return updateConfig({
+      assistants,
+      defaultAssistantId: defaultAssistantId ?? config.value.defaultAssistantId ?? assistants[0]?.id,
+    });
+  }
+
   async function testProvider(input: TestAiProviderPayload) {
     if (!window.aiApi) {
       return { ok: false, message: '当前运行环境不支持 AI API' };
@@ -177,9 +223,12 @@ export const useAiConfigStore = defineStore('ai-config', () => {
     enabledProviders,
     defaultProvider,
     defaultModel,
+    assistants,
+    defaultAssistant,
     refresh,
     updateConfig,
     saveProviders,
+    saveAssistants,
     testProvider,
     getKnowledgeEmbeddingStats,
     rebuildKnowledgeEmbeddings,

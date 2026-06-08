@@ -15,6 +15,9 @@ export type AiAgentMode = 'general-agent' | 'code-agent';
 export type AiCanvasMode = 'markdown' | 'html' | 'react';
 export type AiCanvasOperationType = 'create' | 'replace_file' | 'patch_file' | 'append_file' | 'delete_file';
 export type AiCanvasOperationStatus = 'pending' | 'applied' | 'rejected';
+export type AiAssistantKnowledgeMode = 'force' | 'intent';
+export type AiAssistantMcpMode = 'disabled' | 'auto' | 'manual';
+export type AiAssistantToolCallMode = 'function' | 'auto' | 'none';
 
 export interface AiModelCapabilities {
   streaming: boolean;
@@ -63,6 +66,41 @@ export interface AiChatSettings {
   reasoningEnabled: boolean;
   reasoningEffort: AiReasoningEffort;
   reasoningBudgetTokens?: number;
+}
+
+export interface AiAssistantCustomParameter {
+  id: string;
+  key: string;
+  value: string;
+}
+
+export interface AiAssistantConfig {
+  id: string;
+  name: string;
+  emoji: string;
+  providerId?: string;
+  modelId?: string;
+  systemPrompt: string;
+  knowledgeLibraryId?: string;
+  knowledgeSpaceId?: string;
+  knowledgeMode: AiAssistantKnowledgeMode;
+  mcpMode: AiAssistantMcpMode;
+  commonPhrases: string[];
+  memoryEnabled: boolean;
+  temperatureEnabled: boolean;
+  temperature: number;
+  topPEnabled: boolean;
+  topP: number;
+  contextMessages: number;
+  maxOutputTokensEnabled: boolean;
+  maxOutputTokens?: number;
+  streaming: boolean;
+  toolCallMode: AiAssistantToolCallMode;
+  maxToolCallsEnabled: boolean;
+  maxToolCalls: number;
+  customParameters: AiAssistantCustomParameter[];
+  createdAt: number;
+  updatedAt: number;
 }
 
 export interface AiAgentReservedSettings {
@@ -124,6 +162,8 @@ export interface AiAgentFeatureConfig {
   defaultMode: AiInteractionMode;
   defaultProviderId?: string;
   defaultChatModelId?: string;
+  defaultAssistantId?: string;
+  assistants: AiAssistantConfig[];
   providers: AiProviderConfig[];
   chat: AiChatSettings;
   agent: AiAgentReservedSettings;
@@ -292,6 +332,7 @@ export interface SendAiMessagePayload {
   modelId?: string;
   temperature?: number;
   maxOutputTokens?: number;
+  maxHistoryMessages?: number;
   reasoning?: AiReasoningOptions;
   grounding?: AiGroundingOptions;
   canvas?: AiCanvasRunOptions;
@@ -310,6 +351,7 @@ export interface RegenerateAiMessagePayload {
   modelId?: string;
   temperature?: number;
   maxOutputTokens?: number;
+  maxHistoryMessages?: number;
   reasoning?: AiReasoningOptions;
   grounding?: AiGroundingOptions;
   canvas?: AiCanvasRunOptions;

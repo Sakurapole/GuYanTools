@@ -264,7 +264,8 @@ class AiChatService {
     let groundingMetadata: Record<string, unknown> | undefined;
     try {
       const history = context.historyOverride ?? await this.listMessages(context.conversation.id);
-      const modelMessages = buildModelMessages(history, context.config.chat.maxHistoryMessages);
+      const maxHistoryMessages = context.input.maxHistoryMessages ?? context.config.chat.maxHistoryMessages;
+      const modelMessages = buildModelMessages(history, maxHistoryMessages);
       const reasoning = resolveReasoningOptions(context.config, context.input.reasoning);
       const grounding = await resolveGroundingContext({
         query: context.userMessage.content,

@@ -1,27 +1,32 @@
 <script lang="ts" setup>
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 import AiAgentReservedPanel from './components/AiAgentReservedPanel.vue';
+import AiAssistantSettingsDialog from './components/AiAssistantSettingsDialog.vue';
 import AiCanvasPanel from './components/AiCanvasPanel.vue';
 import AiComposer from './components/AiComposer.vue';
-import AiConversationList from './components/AiConversationList.vue';
 import AiMessageList from './components/AiMessageList.vue';
 import AiSettingsPanel from './components/AiSettingsPanel.vue';
+import AiWorkspaceSidebar from './components/AiWorkspaceSidebar.vue';
 import MainPageLayout from '@/windows/main/components/layout/MainPageLayout.vue';
 import IconRenderer from '@/windows/main/components/ui/IconRenderer.vue';
 import UiIconButton from '@/windows/main/components/ui/UiIconButton.vue';
 import UiInput from '@/windows/main/components/ui/UiInput.vue';
 import UiTabs, { type UiTabItem } from '@/windows/main/components/ui/UiTabs.vue';
 import type { UiSelectOption } from '@/windows/main/components/ui/UiSelect.vue';
-import type { AiReasoningEffort, AiSearchMode } from '@/contracts/ai';
+import type { AiAssistantConfig, AiReasoningEffort, AiSearchMode } from '@/contracts/ai';
 import { useAiCanvasStore } from '@/windows/main/stores/ai_canvas_store';
 import { useAiChatStore } from '@/windows/main/stores/ai_chat_store';
-import { useAiConfigStore } from '@/windows/main/stores/ai_config_store';
+import { createAiAssistantConfig, useAiConfigStore } from '@/windows/main/stores/ai_config_store';
 
 const aiConfigStore = useAiConfigStore();
 const aiChatStore = useAiChatStore();
 const aiCanvasStore = useAiCanvasStore();
 const selectedProviderId = ref('');
 const selectedModelId = ref('');
+const activeAssistantId = ref('');
+const assistantSettingsVisible = ref(false);
+const editingAssistantId = ref('');
+const draftAssistant = ref<AiAssistantConfig | null>(null);
 const temperatureInput = ref('');
 const maxOutputTokensInput = ref('');
 const reasoningEnabled = ref(false);
@@ -46,6 +51,13 @@ const inspectorTabs: UiTabItem[] = [
 
 const readyProvider = computed(() => aiConfigStore.defaultProvider);
 const readyModel = computed(() => aiConfigStore.defaultModel);
+const activeAssistant = computed(() =>
+  aiConfigStore.assistants.find((assistant) => assistant.id === activeAssistantId.value)
+  ?? aiConfigStore.defaultAssistant,
+);
+const editingAssistant = computed(() =>
+  aiConfigStore.assistants.find((assistant) => assistant.id === editingAssistantId.value) ?? draftAssistant.value,
+);
 const providerOptions = computed<UiSelectOption[]>(() => aiConfigStore.enabledProviders.map((provider) => ({
   label: provider.name,
   value: provider.id,
@@ -78,7 +90,7 @@ const runtimeSummary = computed(() => {
   if (!canChat.value) {
     return '请先配置 Provider 和模型';
   }
-  return `${selectedProvider.value?.name} / ${selectedModel.value?.displayName}`;
+  return `${activeAssistant.value?.name || '默认助手'} · ${selectedProvider.value?.name} / ${selectedModel.value?.displayName}`;
 });
 const inspectorTitle = computed(() => {
   if (rightPanelTab.value === 'canvas') return 'Canvas';
@@ -91,6 +103,7 @@ onMounted(async () => {
   aiCanvasStore.ensureStreamSubscription();
   await aiConfigStore.refresh();
   await aiChatStore.refreshConversations();
+  activeAssistantId.value = aiConfigStore.config.defaultAssistantId || aiConfigStore.defaultAssistant?.id || '';
   if (aiChatStore.activeConversationId) {
     await aiCanvasStore.loadForConversation(aiChatStore.activeConversationId);
   }
@@ -113,6 +126,13 @@ watch(
 );
 
 watch(
+  () => activeAssistantId.value,
+  () => {
+    syncRuntimeOptions();
+  },
+);
+
+watch(
   () => selectedProviderId.value,
   () => {
     if (!selectedProvider.value?.models.some((model) => model.id === selectedModelId.value)) {
@@ -123,17 +143,21 @@ watch(
 
 function syncRuntimeOptions() {
   const conversation = aiChatStore.activeConversation;
-  selectedProviderId.value = conversation?.providerId || readyProvider.value?.id || selectedProviderId.value;
-  selectedModelId.value = conversation?.modelId || readyModel.value?.id || selectedModelId.value;
-  temperatureInput.value = String(aiConfigStore.config.chat.temperature);
-  maxOutputTokensInput.value = aiConfigStore.config.chat.maxOutputTokens
-    ? String(aiConfigStore.config.chat.maxOutputTokens)
-    : '';
+  const assistant = activeAssistant.value;
+  selectedProviderId.value = assistant?.providerId || conversation?.providerId || readyProvider.value?.id || selectedProviderId.value;
+  selectedModelId.value = assistant?.modelId || conversation?.modelId || readyModel.value?.id || selectedModelId.value;
+  temperatureInput.value = String(assistant?.temperatureEnabled ? assistant.temperature : aiConfigStore.config.chat.temperature);
+  maxOutputTokensInput.value = assistant?.maxOutputTokensEnabled && assistant.maxOutputTokens
+    ? String(assistant.maxOutputTokens)
+    : aiConfigStore.config.chat.maxOutputTokens
+      ? String(aiConfigStore.config.chat.maxOutputTokens)
+      : '';
   reasoningEnabled.value = aiConfigStore.config.chat.reasoningEnabled;
   reasoningEffort.value = aiConfigStore.config.chat.reasoningEffort;
   reasoningBudgetTokensInput.value = aiConfigStore.config.chat.reasoningBudgetTokens
     ? String(aiConfigStore.config.chat.reasoningBudgetTokens)
     : '';
+  knowledgeSearchMode.value = assistant?.knowledgeMode === 'intent' ? 'auto' : 'force';
 }
 
 function runtimeTemperature() {
@@ -159,8 +183,8 @@ async function createConversation() {
   await aiChatStore.createConversation({
     providerId: selectedProvider.value.id,
     modelId: selectedModel.value.id,
-    title: '新的对话',
-    systemPrompt: aiConfigStore.config.chat.defaultSystemPrompt || undefined,
+    title: '新的话题',
+    systemPrompt: activeAssistant.value?.systemPrompt || aiConfigStore.config.chat.defaultSystemPrompt || undefined,
   });
 }
 
@@ -182,6 +206,7 @@ async function send(content: string) {
     modelId: selectedModel.value?.id || conversation.modelId,
     temperature: runtimeTemperature(),
     maxOutputTokens: runtimeMaxOutputTokens(),
+    maxHistoryMessages: activeAssistant.value?.contextMessages || aiConfigStore.config.chat.maxHistoryMessages,
     reasoning: {
       enabled: reasoningEnabled.value,
       effort: reasoningEffort.value,
@@ -190,8 +215,8 @@ async function send(content: string) {
     grounding: {
       webSearchMode: webSearchMode.value,
       knowledgeSearchMode: knowledgeSearchMode.value,
-      libraryId: aiConfigStore.config.research.defaultKnowledgeLibraryId,
-      spaceId: aiConfigStore.config.research.defaultKnowledgeSpaceId,
+      libraryId: activeAssistant.value?.knowledgeLibraryId || aiConfigStore.config.research.defaultKnowledgeLibraryId,
+      spaceId: activeAssistant.value?.knowledgeSpaceId || aiConfigStore.config.research.defaultKnowledgeSpaceId,
     },
     canvas: {
       enabled: canvasEnabled.value,
@@ -213,6 +238,7 @@ async function regenerate(messageId: string) {
     modelId: selectedModel.value.id,
     temperature: runtimeTemperature(),
     maxOutputTokens: runtimeMaxOutputTokens(),
+    maxHistoryMessages: activeAssistant.value?.contextMessages || aiConfigStore.config.chat.maxHistoryMessages,
     reasoning: {
       enabled: reasoningEnabled.value,
       effort: reasoningEffort.value,
@@ -221,8 +247,8 @@ async function regenerate(messageId: string) {
     grounding: {
       webSearchMode: webSearchMode.value,
       knowledgeSearchMode: knowledgeSearchMode.value,
-      libraryId: aiConfigStore.config.research.defaultKnowledgeLibraryId,
-      spaceId: aiConfigStore.config.research.defaultKnowledgeSpaceId,
+      libraryId: activeAssistant.value?.knowledgeLibraryId || aiConfigStore.config.research.defaultKnowledgeLibraryId,
+      spaceId: activeAssistant.value?.knowledgeSpaceId || aiConfigStore.config.research.defaultKnowledgeSpaceId,
     },
     canvas: {
       enabled: canvasEnabled.value,
@@ -245,6 +271,48 @@ function setPageMode(value: string) {
     rightPanelTab.value = 'agent';
   }
 }
+
+async function selectAssistant(assistantId: string) {
+  activeAssistantId.value = assistantId;
+  await aiConfigStore.updateConfig({ defaultAssistantId: assistantId });
+}
+
+function createAssistant() {
+  const assistant = createAiAssistantConfig({
+    name: '新助手',
+    emoji: '🤖',
+    providerId: selectedProvider.value?.id,
+    modelId: selectedModel.value?.id,
+  });
+  draftAssistant.value = assistant;
+  editingAssistantId.value = assistant.id;
+  assistantSettingsVisible.value = true;
+}
+
+function configureAssistant(assistantId: string) {
+  draftAssistant.value = null;
+  editingAssistantId.value = assistantId;
+  assistantSettingsVisible.value = true;
+}
+
+async function saveAssistant(assistant: AiAssistantConfig) {
+  const exists = aiConfigStore.assistants.some((item) => item.id === assistant.id);
+  const assistants = exists
+    ? aiConfigStore.assistants.map((item) => item.id === assistant.id ? assistant : item)
+    : [...aiConfigStore.assistants, assistant];
+  activeAssistantId.value = assistant.id;
+  await aiConfigStore.saveAssistants(assistants, assistant.id);
+  draftAssistant.value = null;
+}
+
+async function deleteAssistant(assistantId: string) {
+  const assistants = aiConfigStore.assistants.filter((assistant) => assistant.id !== assistantId);
+  const nextAssistants = assistants.length ? assistants : [createAiAssistantConfig()];
+  const nextActiveId = nextAssistants[0]?.id ?? '';
+  activeAssistantId.value = nextActiveId;
+  await aiConfigStore.saveAssistants(nextAssistants, nextActiveId);
+  assistantSettingsVisible.value = false;
+}
 </script>
 
 <template>
@@ -256,20 +324,26 @@ function setPageMode(value: string) {
     :style="{ '--ui-page-sidebar-width': '292px' }"
   >
     <template #sidebar>
-      <AiConversationList
+      <AiWorkspaceSidebar
+        :assistants="aiConfigStore.assistants"
+        :active-assistant-id="activeAssistantId"
         :conversations="aiChatStore.conversations"
-        :active-id="aiChatStore.activeConversationId"
+        :active-conversation-id="aiChatStore.activeConversationId"
         :loading="aiChatStore.loadingConversations"
-        @create="createConversation"
-        @select="aiChatStore.setActiveConversation"
-        @rename="renameConversation"
-        @pin="pinConversation"
-        @delete="aiChatStore.deleteConversation"
+        @create-assistant="createAssistant"
+        @select-assistant="selectAssistant"
+        @configure-assistant="configureAssistant"
+        @create-conversation="createConversation"
+        @select-conversation="aiChatStore.setActiveConversation"
+        @rename-conversation="renameConversation"
+        @pin-conversation="pinConversation"
+        @delete-conversation="aiChatStore.deleteConversation"
       />
     </template>
 
     <template #stage>
       <div class="ai-chat-workspace" :class="{ 'ai-chat-workspace--inspector-collapsed': inspectorCollapsed }">
+        <div id="ai-chat-drawer-host" class="ai-chat-workspace__drawer-host" />
         <section class="ai-chat-workspace__chat">
           <header class="ai-chat-workspace__header">
             <div class="ai-chat-workspace__title">
@@ -383,6 +457,14 @@ function setPageMode(value: string) {
           <AiAgentReservedPanel v-else />
         </aside>
       </div>
+
+      <AiAssistantSettingsDialog
+        v-model="assistantSettingsVisible"
+        :assistant="editingAssistant"
+        :providers="aiConfigStore.enabledProviders"
+        @save="saveAssistant"
+        @delete="deleteAssistant"
+      />
     </template>
   </MainPageLayout>
 </template>
@@ -394,6 +476,7 @@ function setPageMode(value: string) {
 }
 
 .ai-chat-workspace {
+  position: relative;
   display: grid;
   grid-template-columns: minmax(0, 1fr) var(--ai-inspector-width);
   width: 100%;
@@ -401,6 +484,19 @@ function setPageMode(value: string) {
   min-width: 0;
   min-height: 0;
   color: var(--ui-text-primary);
+}
+
+.ai-chat-workspace__drawer-host {
+  position: absolute;
+  inset: 0;
+  z-index: var(--ui-z-toast);
+  min-width: 0;
+  min-height: 0;
+  pointer-events: none;
+}
+
+.ai-chat-workspace__drawer-host > :deep(*) {
+  pointer-events: auto;
 }
 
 .ai-chat-workspace--inspector-collapsed {
