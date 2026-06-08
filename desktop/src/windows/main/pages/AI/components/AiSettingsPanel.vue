@@ -2,7 +2,9 @@
 import { computed, reactive, ref, watch } from 'vue';
 import type { AiProviderConfig, AiProviderKind, AiReasoningEffort, AiSafeProviderConfig } from '@/contracts/ai';
 import UiButton from '@/windows/main/components/ui/UiButton.vue';
+import UiCheckbox from '@/windows/main/components/ui/UiCheckbox.vue';
 import UiInput from '@/windows/main/components/ui/UiInput.vue';
+import UiPanelHeader from '@/windows/main/components/ui/UiPanelHeader.vue';
 import UiSelect from '@/windows/main/components/ui/UiSelect.vue';
 import UiTextarea from '@/windows/main/components/ui/UiTextarea.vue';
 import { createAiModelConfig, createAiProviderConfig, useAiConfigStore } from '@/windows/main/stores/ai_config_store';
@@ -323,10 +325,11 @@ async function testProvider() {
 <template>
   <aside class="ai-settings-panel">
     <section class="ai-settings-panel__section">
-      <div class="ai-settings-panel__section-head">
-        <h2>模型接入</h2>
-        <UiButton size="sm" variant="ghost" @click="selectedProviderId = ''">新建</UiButton>
-      </div>
+      <UiPanelHeader title="模型接入" subtitle="Provider、模型与连接测试">
+        <template #actions>
+          <UiButton size="sm" variant="ghost" @click="selectedProviderId = ''">新建</UiButton>
+        </template>
+      </UiPanelHeader>
 
       <UiSelect v-model="selectedProviderId" :options="providerOptions" size="sm" />
       <UiSelect v-model="form.kind" :options="providerKindOptions" size="sm" />
@@ -336,14 +339,8 @@ async function testProvider() {
       <UiInput v-model="form.apiKey" size="sm" type="password" :placeholder="selectedProvider?.hasApiKey ? '已保存，留空表示不修改' : 'API Key'" />
       <UiInput v-model="form.modelId" size="sm" placeholder="模型 ID，例如 provider 原始模型名" />
       <UiInput v-model="form.modelName" size="sm" placeholder="模型显示名，可留空" />
-      <label class="ai-settings-panel__switch">
-        <input v-model="form.modelEmbedding" type="checkbox">
-        <span>支持 Embedding</span>
-      </label>
-      <label class="ai-settings-panel__switch">
-        <input v-model="form.modelReasoning" type="checkbox">
-        <span>支持推理</span>
-      </label>
+      <UiCheckbox v-model="form.modelEmbedding" size="sm">支持 Embedding</UiCheckbox>
+      <UiCheckbox v-model="form.modelReasoning" size="sm">支持推理</UiCheckbox>
 
       <div class="ai-settings-panel__actions">
         <UiButton size="sm" variant="primary" :disabled="!canSaveProvider() || aiConfigStore.saving" @click="saveProvider">保存</UiButton>
@@ -354,19 +351,17 @@ async function testProvider() {
     </section>
 
     <section class="ai-settings-panel__section">
-      <div class="ai-settings-panel__section-head">
-        <h2>问答参数</h2>
-        <UiButton size="sm" variant="ghost" @click="saveChatSettings">保存</UiButton>
-      </div>
+      <UiPanelHeader title="问答参数" subtitle="默认提示词、历史长度与推理参数">
+        <template #actions>
+          <UiButton size="sm" variant="ghost" @click="saveChatSettings">保存</UiButton>
+        </template>
+      </UiPanelHeader>
       <UiTextarea v-model="form.systemPrompt" :rows="4" resize="vertical" placeholder="默认 System Prompt" />
       <div class="ai-settings-panel__grid">
         <UiInput v-model="form.temperature" size="sm" type="number" :min="0" :max="2" :step="0.1" placeholder="Temperature" />
         <UiInput v-model="form.maxHistoryMessages" size="sm" type="number" :min="1" :max="200" :step="1" placeholder="历史消息数" />
       </div>
-      <label class="ai-settings-panel__switch">
-        <input v-model="form.reasoningEnabled" type="checkbox">
-        <span>默认启用深度思考</span>
-      </label>
+      <UiCheckbox v-model="form.reasoningEnabled" size="sm">默认启用深度思考</UiCheckbox>
       <div class="ai-settings-panel__grid">
         <UiSelect v-model="form.reasoningEffort" :options="reasoningEffortOptions" size="sm" />
         <UiInput v-model="form.reasoningBudgetTokens" size="sm" type="number" :min="1" :step="512" placeholder="推理预算 tokens" />
@@ -374,14 +369,12 @@ async function testProvider() {
     </section>
 
     <section class="ai-settings-panel__section">
-      <div class="ai-settings-panel__section-head">
-        <h2>引用检索</h2>
-        <UiButton size="sm" variant="ghost" @click="saveResearchSettings">保存</UiButton>
-      </div>
-      <label class="ai-settings-panel__switch">
-        <input v-model="form.researchEnabled" type="checkbox">
-        <span>启用搜索/知识库引用</span>
-      </label>
+      <UiPanelHeader title="引用检索" subtitle="联网搜索、知识库与 Embedding">
+        <template #actions>
+          <UiButton size="sm" variant="ghost" @click="saveResearchSettings">保存</UiButton>
+        </template>
+      </UiPanelHeader>
+      <UiCheckbox v-model="form.researchEnabled" size="sm">启用搜索/知识库引用</UiCheckbox>
       <UiInput v-model="form.maxSources" size="sm" type="number" :min="1" :max="200" :step="1" placeholder="最大来源数" />
       <UiInput v-model="form.webSearchEndpoint" size="sm" placeholder="Web Search Endpoint（POST JSON）" />
       <UiInput v-model="form.webSearchApiKey" size="sm" type="password" placeholder="Web Search API Key，留空不修改" />
@@ -418,20 +411,6 @@ async function testProvider() {
   gap: 10px;
 }
 
-.ai-settings-panel__section-head {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 10px;
-
-  h2 {
-    margin: 0;
-    font-size: 0.9rem;
-    font-weight: 700;
-    color: var(--ui-text-primary);
-  }
-}
-
 .ai-settings-panel__actions,
 .ai-settings-panel__grid {
   display: flex;
@@ -451,11 +430,4 @@ async function testProvider() {
   word-break: break-word;
 }
 
-.ai-settings-panel__switch {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  color: var(--ui-text-secondary);
-  font-size: 0.84rem;
-}
 </style>

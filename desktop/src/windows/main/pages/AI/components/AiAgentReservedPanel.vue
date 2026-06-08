@@ -2,8 +2,11 @@
 import { computed, ref, watch } from 'vue';
 import type { AiAgentMode } from '@/contracts/ai';
 import UiButton from '@/windows/main/components/ui/UiButton.vue';
+import UiCheckbox from '@/windows/main/components/ui/UiCheckbox.vue';
 import UiInput from '@/windows/main/components/ui/UiInput.vue';
+import UiPanelHeader from '@/windows/main/components/ui/UiPanelHeader.vue';
 import UiSelect from '@/windows/main/components/ui/UiSelect.vue';
+import UiTextarea from '@/windows/main/components/ui/UiTextarea.vue';
 import { useAiConfigStore } from '@/windows/main/stores/ai_config_store';
 
 const aiConfigStore = useAiConfigStore();
@@ -78,19 +81,18 @@ async function commitCodexReservedFields() {
 <template>
   <section class="ai-agent-panel">
     <header class="ai-agent-panel__header">
-      <div>
-        <h3>Agent 工作区</h3>
-        <p>V2.0 先保留执行边界，真实 Code Agent / 通用 Agent 运行时后续接入。</p>
-      </div>
-      <label class="ai-agent-panel__switch">
-        <input
-          type="checkbox"
-          :checked="aiConfigStore.config.enabled"
-          :disabled="aiConfigStore.saving"
-          @change="toggleFeature(($event.target as HTMLInputElement).checked)"
-        >
-        <span>启用 AI 功能</span>
-      </label>
+      <UiPanelHeader title="Agent 工作区" subtitle="V2.0 先保留执行边界，真实 Code Agent / 通用 Agent 运行时后续接入。">
+        <template #actions>
+          <UiCheckbox
+            :checked="aiConfigStore.config.enabled"
+            size="sm"
+            :disabled="aiConfigStore.saving"
+            @change="toggleFeature"
+          >
+            启用 AI 功能
+          </UiCheckbox>
+        </template>
+      </UiPanelHeader>
     </header>
 
     <div class="ai-agent-panel__controls">
@@ -117,24 +119,22 @@ async function commitCodexReservedFields() {
           @keydown.enter.prevent="commitMaxSteps"
         />
       </label>
-      <label class="ai-agent-panel__check">
-        <input
-          type="checkbox"
-          :checked="agentConfig.enabled"
-          :disabled="aiConfigStore.saving"
-          @change="updateAgent({ enabled: ($event.target as HTMLInputElement).checked })"
-        >
-        <span>开放 Agent 入口</span>
-      </label>
-      <label class="ai-agent-panel__check">
-        <input
-          type="checkbox"
-          :checked="agentConfig.requireApprovalForWriteTools"
-          :disabled="aiConfigStore.saving"
-          @change="updateAgent({ requireApprovalForWriteTools: ($event.target as HTMLInputElement).checked })"
-        >
-        <span>写入类工具需要确认</span>
-      </label>
+      <UiCheckbox
+        :checked="agentConfig.enabled"
+        size="sm"
+        :disabled="aiConfigStore.saving"
+        @change="updateAgent({ enabled: $event })"
+      >
+        开放 Agent 入口
+      </UiCheckbox>
+      <UiCheckbox
+        :checked="agentConfig.requireApprovalForWriteTools"
+        size="sm"
+        :disabled="aiConfigStore.saving"
+        @change="updateAgent({ requireApprovalForWriteTools: $event })"
+      >
+        写入类工具需要确认
+      </UiCheckbox>
     </div>
 
     <div class="ai-agent-panel__modes">
@@ -144,15 +144,14 @@ async function commitCodexReservedFields() {
             <h4>通用 Agent</h4>
             <p>面向资料整理、跨工具任务和后续自定义工具编排。</p>
           </div>
-          <label class="ai-agent-panel__check">
-            <input
-              type="checkbox"
-              :checked="agentConfig.general.enabled"
-              :disabled="aiConfigStore.saving"
-              @change="updateAgent({ general: { ...agentConfig.general, enabled: ($event.target as HTMLInputElement).checked } })"
-            >
-            <span>预留</span>
-          </label>
+          <UiCheckbox
+            :checked="agentConfig.general.enabled"
+            size="sm"
+            :disabled="aiConfigStore.saving"
+            @change="updateAgent({ general: { ...agentConfig.general, enabled: $event } })"
+          >
+            预留
+          </UiCheckbox>
         </div>
         <dl class="ai-agent-mode__meta">
           <div>
@@ -177,15 +176,14 @@ async function commitCodexReservedFields() {
             <h4>Code Agent</h4>
             <p>预留给后续 Codex SDK，本版本不启动命令、不读写项目文件。</p>
           </div>
-          <label class="ai-agent-panel__check">
-            <input
-              type="checkbox"
-              :checked="agentConfig.codex.enabled"
-              :disabled="aiConfigStore.saving"
-              @change="updateAgent({ codex: { ...agentConfig.codex, enabled: ($event.target as HTMLInputElement).checked } })"
-            >
-            <span>预留</span>
-          </label>
+          <UiCheckbox
+            :checked="agentConfig.codex.enabled"
+            size="sm"
+            :disabled="aiConfigStore.saving"
+            @change="updateAgent({ codex: { ...agentConfig.codex, enabled: $event } })"
+          >
+            预留
+          </UiCheckbox>
         </div>
         <div class="ai-agent-mode__form">
           <label class="ai-agent-panel__field">
@@ -199,20 +197,20 @@ async function commitCodexReservedFields() {
               @keydown.enter.prevent="commitCodexReservedFields"
             />
           </label>
-          <label class="ai-agent-panel__check">
-            <input
-              type="checkbox"
-              :checked="agentConfig.codex.skipGitRepoCheck"
-              :disabled="aiConfigStore.saving"
-              @change="updateAgent({ codex: { ...agentConfig.codex, skipGitRepoCheck: ($event.target as HTMLInputElement).checked } })"
-            >
-            <span>允许跳过 Git 仓库检查</span>
-          </label>
+          <UiCheckbox
+            :checked="agentConfig.codex.skipGitRepoCheck"
+            size="sm"
+            :disabled="aiConfigStore.saving"
+            @change="updateAgent({ codex: { ...agentConfig.codex, skipGitRepoCheck: $event } })"
+          >
+            允许跳过 Git 仓库检查
+          </UiCheckbox>
           <label class="ai-agent-panel__field ai-agent-panel__field--wide">
             <span>Codex 配置 JSON</span>
-            <textarea
+            <UiTextarea
               v-model="codexConfigJson"
               :disabled="aiConfigStore.saving"
+              resize="vertical"
               spellcheck="false"
               placeholder="{ }"
               @blur="commitCodexReservedFields"
@@ -235,7 +233,6 @@ async function commitCodexReservedFields() {
   background: var(--ui-surface-base);
 }
 
-.ai-agent-panel__header,
 .ai-agent-mode__head {
   display: flex;
   align-items: flex-start;
@@ -243,7 +240,6 @@ async function commitCodexReservedFields() {
   gap: 14px;
 }
 
-.ai-agent-panel__header h3,
 .ai-agent-mode h4 {
   margin: 0;
   color: var(--ui-text-primary);
@@ -251,7 +247,6 @@ async function commitCodexReservedFields() {
   font-weight: 760;
 }
 
-.ai-agent-panel__header p,
 .ai-agent-mode p {
   margin: 4px 0 0;
   color: var(--ui-text-muted);
@@ -281,26 +276,10 @@ async function commitCodexReservedFields() {
     grid-column: 1 / -1;
   }
 
-  textarea {
+  :deep(.ui-textarea) {
     min-height: 74px;
-    resize: vertical;
-    border: var(--ui-border-width-thin) solid var(--ui-border-subtle);
-    border-radius: var(--ui-radius-sm);
-    padding: 8px 10px;
-    color: var(--ui-text-primary);
-    background: var(--ui-surface-base);
     font: 12px/1.5 var(--ui-font-mono, monospace);
   }
-}
-
-.ai-agent-panel__switch,
-.ai-agent-panel__check {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  color: var(--ui-text-muted);
-  font-size: 0.82rem;
-  white-space: nowrap;
 }
 
 .ai-agent-panel__modes {
@@ -321,8 +300,8 @@ async function commitCodexReservedFields() {
   background: var(--ui-surface-base);
 
   &--active {
-    border-color: var(--ui-accent);
-    box-shadow: 0 0 0 1px color-mix(in srgb, var(--ui-accent) 32%, transparent);
+    border-color: var(--ui-border-accent);
+    box-shadow: 0 0 0 1px color-mix(in srgb, var(--primary-color) 22%, transparent);
   }
 }
 

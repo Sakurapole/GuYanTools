@@ -2,6 +2,7 @@
 import { nextTick, ref, watch } from 'vue';
 import type { AiChatMessage } from '@/contracts/ai';
 import AiMessageItem from './AiMessageItem.vue';
+import UiEmptyState from '@/windows/main/components/ui/UiEmptyState.vue';
 
 const props = defineProps<{
   messages: AiChatMessage[];
@@ -28,8 +29,18 @@ watch(
 
 <template>
   <main ref="listRef" class="ai-message-list">
-    <p v-if="loading" class="ai-message-list__empty">加载消息中...</p>
-    <p v-else-if="!messages.length" class="ai-message-list__empty">选择模型后开始第一轮问答</p>
+    <UiEmptyState
+      v-if="loading"
+      icon="iconify:lucide:loader-circle"
+      title="加载消息中"
+      description="正在同步当前话题"
+    />
+    <UiEmptyState
+      v-else-if="!messages.length"
+      icon="iconify:lucide:sparkles"
+      title="开始第一轮问答"
+      description="选择模型后输入问题，联网、知识库、推理和 Canvas 可在下方工具栏调整。"
+    />
     <template v-else>
       <AiMessageItem
         v-for="message in messages"
@@ -53,10 +64,4 @@ watch(
   background: var(--ui-surface-muted);
 }
 
-.ai-message-list__empty {
-  align-self: center;
-  margin: auto;
-  color: var(--ui-text-muted);
-  font-size: 0.92rem;
-}
 </style>

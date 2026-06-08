@@ -2,9 +2,10 @@
 import { computed, ref } from 'vue';
 import type { AiConversation } from '@/contracts/ai';
 import UiButton from '@/windows/main/components/ui/UiButton.vue';
+import UiEmptyState from '@/windows/main/components/ui/UiEmptyState.vue';
 import UiIconButton from '@/windows/main/components/ui/UiIconButton.vue';
 import UiInput from '@/windows/main/components/ui/UiInput.vue';
-import Svgicon from '@/windows/main/components/svgs/svgicon.vue';
+import IconRenderer from '@/windows/main/components/ui/IconRenderer.vue';
 
 const props = defineProps<{
   conversations: AiConversation[];
@@ -36,6 +37,8 @@ const filteredConversations = computed(() => {
     || conversation.modelId.toLowerCase().includes(query),
   );
 });
+const pinnedConversations = computed(() => filteredConversations.value.filter((conversation) => conversation.pinned));
+const recentConversations = computed(() => filteredConversations.value.filter((conversation) => !conversation.pinned));
 
 function formatTime(value: string) {
   const date = new Date(value);
@@ -85,89 +88,156 @@ function handleItemKeydown(event: KeyboardEvent, conversationId: string) {
 <template>
   <aside class="ai-conversation-list">
     <div class="ai-conversation-list__head">
-      <h1>AI</h1>
+      <div>
+        <span class="ai-conversation-list__eyebrow">Assistant</span>
+        <h1>话题</h1>
+      </div>
       <UiButton size="sm" variant="primary" @click="emit('create')">
         <template #prefix>
-          <Svgicon width="14" height="14" viewBox="0 0 24 24">
-            <path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z" />
-          </Svgicon>
+          <IconRenderer icon="iconify:lucide:plus" :size="14" />
         </template>
         新对话
       </UiButton>
     </div>
 
     <div class="ai-conversation-list__search">
-      <UiInput v-model="searchQuery" size="sm" type="search" placeholder="搜索对话" />
+      <UiInput v-model="searchQuery" size="sm" type="search" placeholder="搜索话题" />
     </div>
 
     <div class="ai-conversation-list__body">
-      <p v-if="loading" class="ai-conversation-list__empty">加载中...</p>
-      <p v-else-if="!filteredConversations.length" class="ai-conversation-list__empty">
-        {{ conversations.length ? '没有匹配的对话' : '暂无对话' }}
-      </p>
+      <UiEmptyState
+        v-if="loading"
+        compact
+        icon="iconify:lucide:loader-circle"
+        title="加载中"
+        description="正在读取最近话题"
+      />
+      <UiEmptyState
+        v-else-if="!filteredConversations.length"
+        compact
+        icon="iconify:lucide:messages-square"
+        :title="conversations.length ? '没有匹配的话题' : '暂无话题'"
+        :description="conversations.length ? '换个关键词继续搜索' : '创建一个新话题开始问答'"
+      />
       <template v-else>
-        <div
-          v-for="conversation in filteredConversations"
-          :key="conversation.id"
-          role="button"
-          tabindex="0"
-          class="ai-conversation-list__item"
-          :class="{ 'is-active': conversation.id === activeId, 'is-pinned': conversation.pinned }"
-          @click="emit('select', conversation.id)"
-          @keydown="handleItemKeydown($event, conversation.id)"
-        >
-          <span class="ai-conversation-list__item-main">
-            <UiInput
-              v-if="editingId === conversation.id"
-              v-model="editingTitle"
-              class="ai-conversation-list__rename-input"
-              size="sm"
-              @click.stop
-              @keydown.enter.stop.prevent="commitRename(conversation)"
-              @keydown.esc.stop.prevent="cancelRename"
-              @blur="commitRename(conversation)"
-            />
-            <span v-else class="ai-conversation-list__title" @dblclick.stop="startRename(conversation)">
-              <span v-if="conversation.pinned" class="ai-conversation-list__pin-dot" aria-hidden="true" />
-              {{ conversation.title }}
+        <section v-if="pinnedConversations.length" class="ai-conversation-list__group">
+          <h2>置顶</h2>
+          <div
+            v-for="conversation in pinnedConversations"
+            :key="conversation.id"
+            role="button"
+            tabindex="0"
+            class="ai-conversation-list__item"
+            :class="{ 'is-active': conversation.id === activeId, 'is-pinned': conversation.pinned }"
+            @click="emit('select', conversation.id)"
+            @keydown="handleItemKeydown($event, conversation.id)"
+          >
+            <span class="ai-conversation-list__item-main">
+              <UiInput
+                v-if="editingId === conversation.id"
+                v-model="editingTitle"
+                class="ai-conversation-list__rename-input"
+                size="sm"
+                @click.stop
+                @keydown.enter.stop.prevent="commitRename(conversation)"
+                @keydown.esc.stop.prevent="cancelRename"
+                @blur="commitRename(conversation)"
+              />
+              <span v-else class="ai-conversation-list__title" @dblclick.stop="startRename(conversation)">
+                <IconRenderer class="ai-conversation-list__pin-icon" icon="iconify:lucide:pin" :size="12" />
+                {{ conversation.title }}
+              </span>
+              <span class="ai-conversation-list__meta">{{ conversation.providerId }} / {{ conversation.modelId }}</span>
+              <span class="ai-conversation-list__time">{{ formatTime(conversation.updatedAt) }}</span>
             </span>
-            <span class="ai-conversation-list__meta">{{ conversation.providerId }} / {{ conversation.modelId }}</span>
-            <span class="ai-conversation-list__time">{{ formatTime(conversation.updatedAt) }}</span>
-          </span>
-          <UiIconButton
-            class="ai-conversation-list__action"
-            size="sm"
-            variant="ghost"
-            :title="conversation.pinned ? '取消置顶' : '置顶对话'"
-            @click.stop="emit('pin', conversation.id, !conversation.pinned)"
+            <UiIconButton
+              class="ai-conversation-list__action"
+              size="sm"
+              variant="ghost"
+              title="取消置顶"
+              @click.stop="emit('pin', conversation.id, false)"
+            >
+              <IconRenderer icon="iconify:lucide:pin-off" :size="14" />
+            </UiIconButton>
+            <UiIconButton
+              class="ai-conversation-list__action"
+              size="sm"
+              variant="ghost"
+              title="重命名"
+              @click.stop="startRename(conversation)"
+            >
+              <IconRenderer icon="iconify:lucide:pencil" :size="14" />
+            </UiIconButton>
+            <UiIconButton
+              class="ai-conversation-list__action"
+              size="sm"
+              variant="ghost"
+              title="删除对话"
+              @click.stop="emit('delete', conversation.id)"
+            >
+              <IconRenderer icon="iconify:lucide:trash-2" :size="14" />
+            </UiIconButton>
+          </div>
+        </section>
+
+        <section v-if="recentConversations.length" class="ai-conversation-list__group">
+          <h2>{{ pinnedConversations.length ? '最近' : '最近话题' }}</h2>
+          <div
+            v-for="conversation in recentConversations"
+            :key="conversation.id"
+            role="button"
+            tabindex="0"
+            class="ai-conversation-list__item"
+            :class="{ 'is-active': conversation.id === activeId }"
+            @click="emit('select', conversation.id)"
+            @keydown="handleItemKeydown($event, conversation.id)"
           >
-            <Svgicon width="14" height="14" viewBox="0 0 24 24">
-              <path d="M14 2l8 8-2 2-1.5-1.5-4.5 4.5v5l-2 2-4-4-5 5-1.5-1.5 5-5-4-4 2-2h5L13.5 6 12 4l2-2z" />
-            </Svgicon>
-          </UiIconButton>
-          <UiIconButton
-            class="ai-conversation-list__action"
-            size="sm"
-            variant="ghost"
-            title="重命名"
-            @click.stop="startRename(conversation)"
-          >
-            <Svgicon width="14" height="14" viewBox="0 0 24 24">
-              <path d="M4 17.25V21h3.75L18.8 9.95l-3.75-3.75L4 17.25zm17.7-10.2c.4-.4.4-1 0-1.4l-2.35-2.35a1 1 0 0 0-1.4 0l-1.85 1.85 3.75 3.75 1.85-1.85z" />
-            </Svgicon>
-          </UiIconButton>
-          <UiIconButton
-            class="ai-conversation-list__action"
-            size="sm"
-            variant="ghost"
-            title="删除对话"
-            @click.stop="emit('delete', conversation.id)"
-          >
-            <Svgicon width="14" height="14" viewBox="0 0 24 24">
-              <path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM8 9h8v10H8V9zm7.5-5-1-1h-5l-1 1H5v2h14V4z" />
-            </Svgicon>
-          </UiIconButton>
-        </div>
+            <span class="ai-conversation-list__item-main">
+              <UiInput
+                v-if="editingId === conversation.id"
+                v-model="editingTitle"
+                class="ai-conversation-list__rename-input"
+                size="sm"
+                @click.stop
+                @keydown.enter.stop.prevent="commitRename(conversation)"
+                @keydown.esc.stop.prevent="cancelRename"
+                @blur="commitRename(conversation)"
+              />
+              <span v-else class="ai-conversation-list__title" @dblclick.stop="startRename(conversation)">
+                {{ conversation.title }}
+              </span>
+              <span class="ai-conversation-list__meta">{{ conversation.providerId }} / {{ conversation.modelId }}</span>
+              <span class="ai-conversation-list__time">{{ formatTime(conversation.updatedAt) }}</span>
+            </span>
+            <UiIconButton
+              class="ai-conversation-list__action"
+              size="sm"
+              variant="ghost"
+              title="置顶对话"
+              @click.stop="emit('pin', conversation.id, true)"
+            >
+              <IconRenderer icon="iconify:lucide:pin" :size="14" />
+            </UiIconButton>
+            <UiIconButton
+              class="ai-conversation-list__action"
+              size="sm"
+              variant="ghost"
+              title="重命名"
+              @click.stop="startRename(conversation)"
+            >
+              <IconRenderer icon="iconify:lucide:pencil" :size="14" />
+            </UiIconButton>
+            <UiIconButton
+              class="ai-conversation-list__action"
+              size="sm"
+              variant="ghost"
+              title="删除对话"
+              @click.stop="emit('delete', conversation.id)"
+            >
+              <IconRenderer icon="iconify:lucide:trash-2" :size="14" />
+            </UiIconButton>
+          </div>
+        </section>
       </template>
     </div>
   </aside>
@@ -177,10 +247,9 @@ function handleItemKeydown(event: KeyboardEvent, conversationId: string) {
 .ai-conversation-list {
   display: flex;
   flex-direction: column;
-  width: 268px;
-  min-width: 220px;
+  width: 100%;
+  min-width: 0;
   height: 100%;
-  border-right: var(--ui-border-width-thin) solid var(--ui-border-subtle);
   background: var(--ui-surface-base);
 }
 
@@ -194,10 +263,20 @@ function handleItemKeydown(event: KeyboardEvent, conversationId: string) {
 
   h1 {
     margin: 0;
+    color: var(--ui-text-primary);
     font-size: 1.1rem;
     font-weight: 750;
-    color: var(--ui-text-primary);
   }
+}
+
+.ai-conversation-list__eyebrow {
+  display: block;
+  margin-bottom: 2px;
+  color: var(--ui-text-muted);
+  font-size: 0.68rem;
+  font-weight: 750;
+  letter-spacing: 0;
+  text-transform: uppercase;
 }
 
 .ai-conversation-list__search {
@@ -207,16 +286,24 @@ function handleItemKeydown(event: KeyboardEvent, conversationId: string) {
 .ai-conversation-list__body {
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 12px;
   min-height: 0;
   padding: 10px;
   overflow: auto;
 }
 
-.ai-conversation-list__empty {
-  margin: 18px 4px;
-  color: var(--ui-text-muted);
-  font-size: 0.86rem;
+.ai-conversation-list__group {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+
+  h2 {
+    margin: 4px 4px 2px;
+    color: var(--ui-text-muted);
+    font-size: 0.72rem;
+    font-weight: 720;
+  }
 }
 
 .ai-conversation-list__item {
@@ -267,22 +354,15 @@ function handleItemKeydown(event: KeyboardEvent, conversationId: string) {
   font-weight: 650;
 }
 
-.ai-conversation-list__pin-dot {
-  width: 6px;
-  height: 6px;
+.ai-conversation-list__pin-icon {
   flex: 0 0 auto;
-  border-radius: var(--ui-radius-full);
-  background: var(--primary-color);
+  color: var(--primary-color);
 }
 
 .ai-conversation-list__meta,
 .ai-conversation-list__time {
-  font-size: 0.76rem;
   color: var(--ui-text-muted);
-}
-
-.ai-conversation-list__rename-input {
-  width: 100%;
+  font-size: 0.76rem;
 }
 
 .ai-conversation-list__action {
@@ -290,8 +370,12 @@ function handleItemKeydown(event: KeyboardEvent, conversationId: string) {
 }
 
 .ai-conversation-list__item:hover .ai-conversation-list__action,
-.ai-conversation-list__item.is-active .ai-conversation-list__action,
-.ai-conversation-list__item.is-pinned .ai-conversation-list__action:first-of-type {
+.ai-conversation-list__item:focus-within .ai-conversation-list__action,
+.ai-conversation-list__item.is-active .ai-conversation-list__action {
   opacity: 1;
+}
+
+.ai-conversation-list__rename-input {
+  width: 100%;
 }
 </style>

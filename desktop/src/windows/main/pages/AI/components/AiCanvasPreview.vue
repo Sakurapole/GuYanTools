@@ -170,7 +170,7 @@ function escapeScript(value: string) {
   padding: 8px 10px;
   border: 1px solid rgba(220, 38, 38, 0.25);
   border-radius: var(--ui-radius-sm);
-  color: var(--ui-danger-text);
+  color: var(--ui-danger-color);
   background: color-mix(in srgb, var(--ui-surface-base) 94%, rgba(220, 38, 38, 0.12));
   font-size: 0.75rem;
   line-height: 1.45;

@@ -2,8 +2,14 @@
 import { computed, ref, watch } from 'vue';
 import type { AiCanvasFile, AiCanvasMode } from '@/contracts/ai';
 import UiButton from '@/windows/main/components/ui/UiButton.vue';
+import UiCheckbox from '@/windows/main/components/ui/UiCheckbox.vue';
+import UiEmptyState from '@/windows/main/components/ui/UiEmptyState.vue';
 import UiInput from '@/windows/main/components/ui/UiInput.vue';
+import UiPanelHeader from '@/windows/main/components/ui/UiPanelHeader.vue';
 import UiSelect from '@/windows/main/components/ui/UiSelect.vue';
+import UiTabs, { type UiTabItem } from '@/windows/main/components/ui/UiTabs.vue';
+import UiTextarea from '@/windows/main/components/ui/UiTextarea.vue';
+import UiToolbar from '@/windows/main/components/ui/UiToolbar.vue';
 import { useAiCanvasStore } from '@/windows/main/stores/ai_canvas_store';
 import AiCanvasPreview from './AiCanvasPreview.vue';
 
@@ -27,6 +33,10 @@ const modeOptions: { label: string; value: AiCanvasMode }[] = [
   { label: 'Markdown', value: 'markdown' },
   { label: 'HTML', value: 'html' },
   { label: 'React', value: 'react' },
+];
+const viewModeOptions: UiTabItem[] = [
+  { key: 'edit', label: '编辑' },
+  { key: 'preview', label: '预览' },
 ];
 const workspaceOptions = computed(() => (canvasStore.workspacesByConversation[props.conversationId] ?? []).map((workspace) => ({
   label: workspace.title,
@@ -153,18 +163,20 @@ function operationPayload(payloadJson: string) {
 <template>
   <aside class="ai-canvas-panel">
     <header class="ai-canvas-panel__header">
-      <div>
-        <h3>Canvas</h3>
-        <p>{{ activeWorkspace ? `${activeWorkspace.mode} / ${activeFiles.length} 文件` : '创建或等待 AI 生成工作区' }}</p>
-      </div>
-      <label class="ai-canvas-panel__toggle">
-        <input
-          type="checkbox"
-          :checked="canvasEnabled"
-          @change="emit('update:canvasEnabled', ($event.target as HTMLInputElement).checked)"
-        >
-        <span>启用</span>
-      </label>
+      <UiPanelHeader
+        title="Canvas"
+        :subtitle="activeWorkspace ? `${activeWorkspace.mode} / ${activeFiles.length} 文件` : '创建或等待 AI 生成工作区'"
+      >
+        <template #actions>
+          <UiCheckbox
+            :model-value="canvasEnabled"
+            size="sm"
+            @update:modelValue="emit('update:canvasEnabled', $event)"
+          >
+            启用
+          </UiCheckbox>
+        </template>
+      </UiPanelHeader>
     </header>
 
     <section class="ai-canvas-panel__create">
@@ -192,34 +204,41 @@ function operationPayload(payloadJson: string) {
 
     <div v-if="activeWorkspace" class="ai-canvas-panel__body">
       <nav class="ai-canvas-panel__files">
-        <button
+        <UiButton
           v-for="file in activeFiles"
           :key="file.id"
-          type="button"
           class="ai-canvas-panel__file"
-          :class="{ 'ai-canvas-panel__file--active': file.path === selectedFilePath }"
+          size="sm"
+          variant="ghost"
+          block
+          :active="file.path === selectedFilePath"
           @click="selectFile(file)"
         >
           <span>{{ file.path }}</span>
           <small>{{ file.language }}</small>
-        </button>
+        </UiButton>
       </nav>
 
       <main class="ai-canvas-panel__workbench">
-        <div class="ai-canvas-panel__toolbar">
-          <div class="ai-canvas-panel__tabs">
-            <button type="button" :class="{ active: viewMode === 'edit' }" @click="viewMode = 'edit'">编辑</button>
-            <button type="button" :class="{ active: viewMode === 'preview' }" @click="viewMode = 'preview'">预览</button>
-          </div>
+        <UiToolbar class="ai-canvas-panel__toolbar" density="compact">
+          <UiTabs
+            v-model="viewMode"
+            :items="viewModeOptions"
+            variant="segmented"
+            size="sm"
+          />
+          <template #trailing>
           <UiButton size="sm" variant="secondary" :disabled="!canSave || canvasStore.saving" @click="saveFile">
             保存
           </UiButton>
-        </div>
+          </template>
+        </UiToolbar>
 
-        <textarea
+        <UiTextarea
           v-if="viewMode === 'edit'"
           v-model="draftContent"
           class="ai-canvas-panel__editor"
+          resize="none"
           spellcheck="false"
         />
         <AiCanvasPreview
@@ -231,9 +250,13 @@ function operationPayload(payloadJson: string) {
       </main>
     </div>
 
-    <section v-else class="ai-canvas-panel__empty">
-      <p>启用 Canvas 后，AI 可以在这里生成 Markdown、HTML 或 React 页面。</p>
-    </section>
+    <UiEmptyState
+      v-else
+      class="ai-canvas-panel__empty"
+      icon="iconify:lucide:panel-top"
+      title="等待 Canvas 工作区"
+      description="启用 Canvas 后，AI 可以在这里生成 Markdown、HTML 或 React 页面。"
+    />
 
     <footer class="ai-canvas-panel__history">
       <div class="ai-canvas-panel__history-block">
@@ -278,30 +301,7 @@ function operationPayload(payloadJson: string) {
 }
 
 .ai-canvas-panel__header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 10px;
   padding: 12px;
-
-  h3 {
-    margin: 0;
-    font-size: 0.95rem;
-  }
-
-  p {
-    margin: 3px 0 0;
-    color: var(--ui-text-muted);
-    font-size: 0.74rem;
-  }
-}
-
-.ai-canvas-panel__toggle {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  color: var(--ui-text-secondary);
-  font-size: 0.78rem;
 }
 
 .ai-canvas-panel__create {
@@ -335,19 +335,20 @@ function operationPayload(payloadJson: string) {
   background: var(--ui-surface-muted);
 }
 
-.ai-canvas-panel__file {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
+.ai-canvas-panel__file.ui-button {
+  justify-content: flex-start;
   gap: 2px;
   min-height: 48px;
   padding: 8px;
-  border: var(--ui-border-width-thin) solid transparent;
-  border-radius: var(--ui-radius-sm);
-  color: var(--ui-text-secondary);
-  background: transparent;
   text-align: left;
-  cursor: pointer;
+
+  :deep(.ui-button__label) {
+    display: flex;
+    min-width: 0;
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 2px;
+  }
 
   span {
     max-width: 100%;
@@ -362,12 +363,6 @@ function operationPayload(payloadJson: string) {
     color: var(--ui-text-muted);
     font-size: 0.68rem;
   }
-
-  &--active {
-    color: var(--ui-text-primary);
-    background: var(--ui-surface-base);
-    border-color: var(--ui-border-accent);
-  }
 }
 
 .ai-canvas-panel__workbench {
@@ -378,58 +373,20 @@ function operationPayload(payloadJson: string) {
 }
 
 .ai-canvas-panel__toolbar {
-  display: flex;
-  justify-content: space-between;
-  gap: 8px;
   padding: 8px;
 }
 
-.ai-canvas-panel__tabs {
-  display: inline-flex;
-  gap: 4px;
-
-  button {
-    min-width: 48px;
-    padding: 5px 8px;
-    border: var(--ui-border-width-thin) solid transparent;
-    border-radius: var(--ui-radius-sm);
-    color: var(--ui-text-muted);
-    background: transparent;
-    cursor: pointer;
-
-    &.active {
-      color: var(--ui-text-primary);
-      background: var(--ui-surface-muted);
-      border-color: var(--ui-border-subtle);
-    }
-  }
-}
-
-.ai-canvas-panel__editor {
+.ai-canvas-panel__editor.ui-textarea {
   width: 100%;
   height: 100%;
   min-height: 0;
-  padding: 12px;
-  border: 0;
-  resize: none;
-  outline: none;
-  color: var(--ui-text-primary);
-  background: var(--ui-surface-base);
   font-family: var(--ui-font-family-mono);
   font-size: 0.78rem;
   line-height: 1.55;
 }
 
 .ai-canvas-panel__empty {
-  display: flex;
-  align-items: center;
-  justify-content: center;
   min-height: 0;
-  padding: 20px;
-  color: var(--ui-text-muted);
-  text-align: center;
-  font-size: 0.82rem;
-  line-height: 1.6;
 }
 
 .ai-canvas-panel__history {

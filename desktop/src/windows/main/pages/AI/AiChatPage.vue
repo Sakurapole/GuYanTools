@@ -6,8 +6,12 @@ import AiComposer from './components/AiComposer.vue';
 import AiConversationList from './components/AiConversationList.vue';
 import AiMessageList from './components/AiMessageList.vue';
 import AiSettingsPanel from './components/AiSettingsPanel.vue';
+import MainPageLayout from '@/windows/main/components/layout/MainPageLayout.vue';
+import IconRenderer from '@/windows/main/components/ui/IconRenderer.vue';
+import UiIconButton from '@/windows/main/components/ui/UiIconButton.vue';
 import UiInput from '@/windows/main/components/ui/UiInput.vue';
-import UiSelect from '@/windows/main/components/ui/UiSelect.vue';
+import UiTabs, { type UiTabItem } from '@/windows/main/components/ui/UiTabs.vue';
+import type { UiSelectOption } from '@/windows/main/components/ui/UiSelect.vue';
 import type { AiReasoningEffort, AiSearchMode } from '@/contracts/ai';
 import { useAiCanvasStore } from '@/windows/main/stores/ai_canvas_store';
 import { useAiChatStore } from '@/windows/main/stores/ai_chat_store';
@@ -27,27 +31,38 @@ const webSearchMode = ref<AiSearchMode>('off');
 const knowledgeSearchMode = ref<AiSearchMode>('off');
 const canvasEnabled = ref(false);
 const aiPageMode = ref<'chat' | 'agent'>('chat');
-const rightPanelTab = ref<'canvas' | 'settings'>('canvas');
+const rightPanelTab = ref<'canvas' | 'settings' | 'agent'>('canvas');
+const inspectorCollapsed = ref(false);
+
+const pageModeTabs: UiTabItem[] = [
+  { key: 'chat', label: '问答' },
+  { key: 'agent', label: 'Agent' },
+];
+const inspectorTabs: UiTabItem[] = [
+  { key: 'canvas', label: 'Canvas' },
+  { key: 'settings', label: '设置' },
+  { key: 'agent', label: 'Agent' },
+];
 
 const readyProvider = computed(() => aiConfigStore.defaultProvider);
 const readyModel = computed(() => aiConfigStore.defaultModel);
-const providerOptions = computed(() => aiConfigStore.enabledProviders.map((provider) => ({
+const providerOptions = computed<UiSelectOption[]>(() => aiConfigStore.enabledProviders.map((provider) => ({
   label: provider.name,
   value: provider.id,
 })));
 const selectedProvider = computed(() =>
   aiConfigStore.enabledProviders.find((provider) => provider.id === selectedProviderId.value) ?? readyProvider.value,
 );
-const modelOptions = computed(() => selectedProvider.value?.models.map((model) => ({
+const modelOptions = computed<UiSelectOption[]>(() => selectedProvider.value?.models.map((model) => ({
   label: model.displayName,
   value: model.id,
 })) ?? []);
-const searchModeOptions: { label: string; value: AiSearchMode }[] = [
+const searchModeOptions: UiSelectOption[] = [
   { label: '关闭', value: 'off' },
   { label: '自动', value: 'auto' },
   { label: '强制', value: 'force' },
 ];
-const reasoningEffortOptions: { label: string; value: AiReasoningEffort }[] = [
+const reasoningEffortOptions: UiSelectOption[] = [
   { label: '中', value: 'medium' },
   { label: '低', value: 'low' },
   { label: '高', value: 'high' },
@@ -59,6 +74,17 @@ const selectedModel = computed(() =>
 );
 const canChat = computed(() => Boolean(selectedProvider.value && selectedModel.value));
 const pageError = computed(() => aiConfigStore.error || aiChatStore.error);
+const runtimeSummary = computed(() => {
+  if (!canChat.value) {
+    return '请先配置 Provider 和模型';
+  }
+  return `${selectedProvider.value?.name} / ${selectedModel.value?.displayName}`;
+});
+const inspectorTitle = computed(() => {
+  if (rightPanelTab.value === 'canvas') return 'Canvas';
+  if (rightPanelTab.value === 'settings') return '设置';
+  return 'Agent';
+});
 
 onMounted(async () => {
   aiChatStore.ensureStreamSubscription();
@@ -212,283 +238,256 @@ async function renameConversation(conversationId: string, title: string) {
 async function pinConversation(conversationId: string, pinned: boolean) {
   await aiChatStore.updateConversation(conversationId, { pinned });
 }
+
+function setPageMode(value: string) {
+  aiPageMode.value = value === 'agent' ? 'agent' : 'chat';
+  if (aiPageMode.value === 'agent') {
+    rightPanelTab.value = 'agent';
+  }
+}
 </script>
 
 <template>
-  <div class="ai-chat-page">
-    <AiConversationList
-      :conversations="aiChatStore.conversations"
-      :active-id="aiChatStore.activeConversationId"
-      :loading="aiChatStore.loadingConversations"
-      @create="createConversation"
-      @select="aiChatStore.setActiveConversation"
-      @rename="renameConversation"
-      @pin="pinConversation"
-      @delete="aiChatStore.deleteConversation"
-    />
-
-    <section class="ai-chat-page__main">
-      <header class="ai-chat-page__header">
-        <div class="ai-chat-page__title">
-          <h2>{{ aiPageMode === 'chat' ? (aiChatStore.activeConversation?.title || 'AI 问答') : 'Agent 预留' }}</h2>
-          <p v-if="aiPageMode === 'agent'">Code Agent / 通用 Agent 执行层预留</p>
-          <p v-else-if="canChat">{{ selectedProvider?.name }} / {{ selectedModel?.displayName }}</p>
-          <p v-else>请先配置 Provider 和模型</p>
-        </div>
-        <div class="ai-chat-page__runtime">
-          <div class="ai-chat-page__mode-switch">
-            <button type="button" :class="{ active: aiPageMode === 'chat' }" @click="aiPageMode = 'chat'">
-              问答
-            </button>
-            <button type="button" :class="{ active: aiPageMode === 'agent' }" @click="aiPageMode = 'agent'">
-              Agent
-            </button>
-          </div>
-          <UiSelect
-            v-if="aiPageMode === 'chat'"
-            v-model="selectedProviderId"
-            class="ai-chat-page__runtime-provider"
-            size="sm"
-            :options="providerOptions"
-            :disabled="aiConfigStore.loading || aiChatStore.isStreaming"
-            placeholder="Provider"
-          />
-          <UiSelect
-            v-if="aiPageMode === 'chat'"
-            v-model="selectedModelId"
-            class="ai-chat-page__runtime-model"
-            size="sm"
-            :options="modelOptions"
-            :disabled="!selectedProvider || aiChatStore.isStreaming"
-            placeholder="模型"
-          />
-          <UiInput
-            v-if="aiPageMode === 'chat'"
-            v-model="temperatureInput"
-            class="ai-chat-page__runtime-number"
-            size="sm"
-            type="number"
-            :min="0"
-            :max="2"
-            :step="0.1"
-            :disabled="aiChatStore.isStreaming"
-            title="Temperature"
-          />
-          <UiInput
-            v-if="aiPageMode === 'chat'"
-            v-model="maxOutputTokensInput"
-            class="ai-chat-page__runtime-number"
-            size="sm"
-            type="number"
-            :min="1"
-            :step="256"
-            :disabled="aiChatStore.isStreaming"
-            title="最大输出 tokens"
-            placeholder="Max"
-          />
-          <label v-if="aiPageMode === 'chat'" class="ai-chat-page__runtime-toggle">
-            <span>网页</span>
-            <UiSelect
-              v-model="webSearchMode"
-              size="sm"
-              :options="searchModeOptions"
-              :disabled="aiChatStore.isStreaming"
-            />
-          </label>
-          <label v-if="aiPageMode === 'chat'" class="ai-chat-page__runtime-toggle">
-            <span>知识库</span>
-            <UiSelect
-              v-model="knowledgeSearchMode"
-              size="sm"
-              :options="searchModeOptions"
-              :disabled="aiChatStore.isStreaming"
-            />
-          </label>
-          <label v-if="aiPageMode === 'chat'" class="ai-chat-page__runtime-check">
-            <input v-model="reasoningEnabled" type="checkbox" :disabled="aiChatStore.isStreaming">
-            <span>深度思考</span>
-          </label>
-          <label v-if="aiPageMode === 'chat'" class="ai-chat-page__runtime-check">
-            <input v-model="canvasEnabled" type="checkbox" :disabled="aiChatStore.isStreaming">
-            <span>Canvas</span>
-          </label>
-          <UiSelect
-            v-if="aiPageMode === 'chat'"
-            v-model="reasoningEffort"
-            class="ai-chat-page__runtime-effort"
-            size="sm"
-            :options="reasoningEffortOptions"
-            :disabled="aiChatStore.isStreaming || !reasoningEnabled"
-            placeholder="推理强度"
-          />
-          <UiInput
-            v-if="aiPageMode === 'chat'"
-            v-model="reasoningBudgetTokensInput"
-            class="ai-chat-page__runtime-number"
-            size="sm"
-            type="number"
-            :min="1"
-            :step="512"
-            :disabled="aiChatStore.isStreaming || !reasoningEnabled"
-            title="推理预算 tokens"
-            placeholder="Think"
-          />
-        </div>
-        <p v-if="pageError" class="ai-chat-page__error">{{ pageError }}</p>
-      </header>
-
-      <AiMessageList
-        v-if="aiPageMode === 'chat'"
-        :messages="aiChatStore.activeMessages"
-        :loading="aiChatStore.loadingMessages"
-        :streaming="aiChatStore.isStreaming"
-        @regenerate="regenerate"
+  <MainPageLayout
+    page-class="ai-chat-shell"
+    layout-class="ai-chat-shell__layout"
+    main-class="ai-chat-shell__main"
+    stage-class="ai-chat-shell__stage"
+    :style="{ '--ui-page-sidebar-width': '292px' }"
+  >
+    <template #sidebar>
+      <AiConversationList
+        :conversations="aiChatStore.conversations"
+        :active-id="aiChatStore.activeConversationId"
+        :loading="aiChatStore.loadingConversations"
+        @create="createConversation"
+        @select="aiChatStore.setActiveConversation"
+        @rename="renameConversation"
+        @pin="pinConversation"
+        @delete="aiChatStore.deleteConversation"
       />
-      <AiAgentReservedPanel v-else />
+    </template>
 
-      <AiComposer
-        v-if="aiPageMode === 'chat'"
-        :disabled="!canChat || aiChatStore.sending"
-        :streaming="aiChatStore.isStreaming"
-        @send="send"
-        @stop="aiChatStore.stopActiveRun"
-      />
-    </section>
+    <template #stage>
+      <div class="ai-chat-workspace" :class="{ 'ai-chat-workspace--inspector-collapsed': inspectorCollapsed }">
+        <section class="ai-chat-workspace__chat">
+          <header class="ai-chat-workspace__header">
+            <div class="ai-chat-workspace__title">
+              <span class="ai-chat-workspace__eyebrow">GuYan AI</span>
+              <h2>{{ aiPageMode === 'chat' ? (aiChatStore.activeConversation?.title || '新的话题') : 'Agent 工作区' }}</h2>
+              <p>{{ aiPageMode === 'chat' ? runtimeSummary : 'Code Agent / 通用 Agent 执行层预留' }}</p>
+            </div>
 
-    <aside class="ai-chat-page__side">
-      <div class="ai-chat-page__side-tabs">
-        <button type="button" :class="{ active: rightPanelTab === 'canvas' }" @click="rightPanelTab = 'canvas'">
-          Canvas
-        </button>
-        <button type="button" :class="{ active: rightPanelTab === 'settings' }" @click="rightPanelTab = 'settings'">
-          设置
-        </button>
+            <div class="ai-chat-workspace__header-actions">
+              <UiTabs
+                :model-value="aiPageMode"
+                :items="pageModeTabs"
+                variant="segmented"
+                size="sm"
+                @change="setPageMode"
+              />
+              <div v-if="aiPageMode === 'chat'" class="ai-chat-workspace__advanced">
+                <UiInput
+                  v-model="temperatureInput"
+                  class="ai-chat-workspace__number"
+                  size="sm"
+                  type="number"
+                  :min="0"
+                  :max="2"
+                  :step="0.1"
+                  :disabled="aiChatStore.isStreaming"
+                  title="Temperature"
+                  placeholder="Temp"
+                />
+                <UiInput
+                  v-model="maxOutputTokensInput"
+                  class="ai-chat-workspace__number"
+                  size="sm"
+                  type="number"
+                  :min="1"
+                  :step="256"
+                  :disabled="aiChatStore.isStreaming"
+                  title="最大输出 tokens"
+                  placeholder="Max"
+                />
+                <UiInput
+                  v-model="reasoningBudgetTokensInput"
+                  class="ai-chat-workspace__number"
+                  size="sm"
+                  type="number"
+                  :min="1"
+                  :step="512"
+                  :disabled="aiChatStore.isStreaming || !reasoningEnabled"
+                  title="推理预算 tokens"
+                  placeholder="Think"
+                />
+              </div>
+              <UiIconButton
+                size="sm"
+                variant="ghost"
+                :title="inspectorCollapsed ? `展开${inspectorTitle}` : `收起${inspectorTitle}`"
+                @click="inspectorCollapsed = !inspectorCollapsed"
+              >
+                <IconRenderer :icon="inspectorCollapsed ? 'iconify:lucide:panel-right-open' : 'iconify:lucide:panel-right-close'" :size="16" />
+              </UiIconButton>
+            </div>
+            <p v-if="pageError" class="ai-chat-workspace__error">{{ pageError }}</p>
+          </header>
+
+          <AiMessageList
+            v-if="aiPageMode === 'chat'"
+            :messages="aiChatStore.activeMessages"
+            :loading="aiChatStore.loadingMessages"
+            :streaming="aiChatStore.isStreaming"
+            @regenerate="regenerate"
+          />
+          <AiAgentReservedPanel v-else />
+
+          <AiComposer
+            v-if="aiPageMode === 'chat'"
+            v-model:provider-id="selectedProviderId"
+            v-model:model-id="selectedModelId"
+            v-model:web-search-mode="webSearchMode"
+            v-model:knowledge-search-mode="knowledgeSearchMode"
+            v-model:reasoning-enabled="reasoningEnabled"
+            v-model:reasoning-effort="reasoningEffort"
+            v-model:canvas-enabled="canvasEnabled"
+            :provider-options="providerOptions"
+            :model-options="modelOptions"
+            :search-mode-options="searchModeOptions"
+            :reasoning-effort-options="reasoningEffortOptions"
+            :disabled="!canChat || aiChatStore.sending"
+            :controls-disabled="aiConfigStore.loading"
+            :streaming="aiChatStore.isStreaming"
+            @send="send"
+            @stop="aiChatStore.stopActiveRun"
+          />
+        </section>
+
+        <aside v-show="!inspectorCollapsed" class="ai-chat-workspace__inspector">
+          <header class="ai-chat-workspace__inspector-tabs">
+            <UiTabs
+              v-model="rightPanelTab"
+              :items="inspectorTabs"
+              variant="segmented"
+              size="sm"
+              stretch
+            />
+          </header>
+          <AiCanvasPanel
+            v-if="rightPanelTab === 'canvas'"
+            v-model:canvas-enabled="canvasEnabled"
+            :conversation-id="aiChatStore.activeConversationId"
+          />
+          <AiSettingsPanel v-else-if="rightPanelTab === 'settings'" />
+          <AiAgentReservedPanel v-else />
+        </aside>
       </div>
-      <AiCanvasPanel
-        v-if="rightPanelTab === 'canvas'"
-        v-model:canvas-enabled="canvasEnabled"
-        :conversation-id="aiChatStore.activeConversationId"
-      />
-      <AiSettingsPanel v-else />
-    </aside>
-  </div>
+    </template>
+  </MainPageLayout>
 </template>
 
 <style lang="scss" scoped>
-.ai-chat-page {
+.ai-chat-shell {
+  --ai-inspector-width: clamp(340px, 27vw, 460px);
+  background: var(--ui-surface-bg-muted);
+}
+
+.ai-chat-workspace {
   display: grid;
-  grid-template-columns: 268px minmax(0, 1fr) minmax(420px, 520px);
+  grid-template-columns: minmax(0, 1fr) var(--ai-inspector-width);
+  width: 100%;
   height: 100%;
+  min-width: 0;
   min-height: 0;
-  background: var(--ui-surface-muted);
   color: var(--ui-text-primary);
 }
 
-.ai-chat-page__main {
+.ai-chat-workspace--inspector-collapsed {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.ai-chat-workspace__chat {
   display: grid;
   grid-template-rows: auto minmax(0, 1fr) auto;
   min-width: 0;
   min-height: 0;
+  background: var(--ui-surface-bg);
 }
 
-.ai-chat-page__header {
-  display: flex;
+.ai-chat-workspace__header {
+  display: grid;
+  grid-template-columns: minmax(180px, 1fr) auto;
   align-items: center;
-  justify-content: space-between;
-  gap: 16px;
+  gap: 14px;
   min-height: 64px;
-  padding: 12px 18px;
+  padding: 10px 16px;
   border-bottom: var(--ui-border-width-thin) solid var(--ui-border-subtle);
   background: var(--ui-surface-base);
 }
 
-.ai-chat-page__title {
-  flex: 1 1 220px;
-  min-width: 0;
-
-  h2 {
-    margin: 0;
-    color: var(--ui-text-primary);
-    font-size: 1rem;
-    font-weight: 750;
-    overflow: hidden;
-    white-space: nowrap;
-    text-overflow: ellipsis;
-  }
-
-  p {
-    margin: 4px 0 0;
-    color: var(--ui-text-muted);
-    font-size: 0.8rem;
-  }
-}
-
-.ai-chat-page__runtime {
-  display: grid;
-  grid-template-columns: 112px minmax(130px, 170px) minmax(140px, 190px) 82px 86px 92px 104px 88px 76px 82px 86px;
-  align-items: center;
-  gap: 8px;
-  flex: 0 1 1180px;
+.ai-chat-workspace__title {
   min-width: 0;
 }
 
-.ai-chat-page__mode-switch {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 3px;
-  min-width: 0;
-  padding: 3px;
-  border: var(--ui-border-width-thin) solid var(--ui-border-subtle);
-  border-radius: var(--ui-radius-sm);
-  background: var(--ui-surface-muted);
-
-  button {
-    min-height: 26px;
-    border: 0;
-    border-radius: calc(var(--ui-radius-sm) - 2px);
-    color: var(--ui-text-muted);
-    background: transparent;
-    font: inherit;
-    font-size: 0.76rem;
-    font-weight: 650;
-    cursor: pointer;
-
-    &.active {
-      color: var(--ui-text-primary);
-      background: var(--ui-surface-base);
-      box-shadow: var(--ui-shadow-xs);
-    }
-  }
-}
-
-.ai-chat-page__runtime-provider,
-.ai-chat-page__runtime-model,
-.ai-chat-page__runtime-number,
-.ai-chat-page__runtime-effort {
-  min-width: 0;
-}
-
-.ai-chat-page__runtime-toggle,
-.ai-chat-page__runtime-check {
-  display: grid;
-  grid-template-columns: auto minmax(0, 1fr);
-  align-items: center;
-  gap: 5px;
-  min-width: 0;
+.ai-chat-workspace__eyebrow {
+  display: inline-flex;
+  margin-bottom: 3px;
   color: var(--ui-text-muted);
-  font-size: 0.76rem;
+  font-size: 0.68rem;
+  font-weight: 750;
+  letter-spacing: 0;
+  text-transform: uppercase;
 }
 
-.ai-chat-page__error {
-  max-width: 28%;
+.ai-chat-workspace__title h2 {
   margin: 0;
-  color: var(--ui-danger-text);
+  overflow: hidden;
+  color: var(--ui-text-primary);
+  font-size: 1.02rem;
+  font-weight: 780;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ai-chat-workspace__title p {
+  margin: 4px 0 0;
+  overflow: hidden;
+  color: var(--ui-text-muted);
+  font-size: 0.8rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ai-chat-workspace__header-actions {
+  display: inline-flex;
+  min-width: 0;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.ai-chat-workspace__advanced {
+  display: grid;
+  grid-template-columns: repeat(3, 70px);
+  gap: 6px;
+  min-width: 0;
+}
+
+.ai-chat-workspace__number {
+  min-width: 0;
+}
+
+.ai-chat-workspace__error {
+  grid-column: 1 / -1;
+  margin: -4px 0 0;
+  color: var(--ui-danger-color);
   font-size: 0.82rem;
-  line-height: 1.5;
+  line-height: 1.45;
   overflow-wrap: anywhere;
 }
 
-.ai-chat-page__side {
+.ai-chat-workspace__inspector {
   display: grid;
   grid-template-rows: auto minmax(0, 1fr);
   min-width: 0;
@@ -497,56 +496,38 @@ async function pinConversation(conversationId: string, pinned: boolean) {
   background: var(--ui-surface-base);
 }
 
-.ai-chat-page__side-tabs {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 4px;
-  padding: 8px;
+.ai-chat-workspace__inspector-tabs {
+  padding: 7px 8px;
   border-bottom: var(--ui-border-width-thin) solid var(--ui-border-subtle);
   background: var(--ui-surface-muted);
+}
 
-  button {
-    min-height: 30px;
-    border: var(--ui-border-width-thin) solid transparent;
-    border-radius: var(--ui-radius-sm);
-    color: var(--ui-text-muted);
-    background: transparent;
-    font: inherit;
-    font-size: 0.8rem;
-    font-weight: 650;
-    cursor: pointer;
+@media (max-width: 1280px) {
+  .ai-chat-workspace {
+    --ai-inspector-width: 380px;
+  }
 
-    &.active {
-      color: var(--ui-text-primary);
-      background: var(--ui-surface-base);
-      border-color: var(--ui-border-subtle);
-    }
+  .ai-chat-workspace__advanced {
+    display: none;
   }
 }
 
-@media (max-width: 1180px) {
-  .ai-chat-page {
-    grid-template-columns: 236px minmax(0, 1fr);
+@media (max-width: 980px) {
+  .ai-chat-workspace {
+    grid-template-columns: minmax(0, 1fr);
   }
 
-  .ai-chat-page__side {
+  .ai-chat-workspace__inspector {
     display: none;
   }
 
-  .ai-chat-page__runtime {
-    grid-template-columns: minmax(120px, 1fr) minmax(120px, 1fr);
-    flex-basis: 320px;
+  .ai-chat-workspace__header {
+    grid-template-columns: minmax(0, 1fr);
+    align-items: start;
   }
 
-  .ai-chat-page__mode-switch {
-    grid-column: 1 / -1;
-  }
-
-  .ai-chat-page__runtime-number,
-  .ai-chat-page__runtime-toggle,
-  .ai-chat-page__runtime-check,
-  .ai-chat-page__runtime-effort {
-    display: none;
+  .ai-chat-workspace__header-actions {
+    justify-content: space-between;
   }
 }
 </style>

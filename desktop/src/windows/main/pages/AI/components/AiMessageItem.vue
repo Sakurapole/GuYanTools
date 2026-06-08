@@ -3,7 +3,7 @@ import { computed, ref } from 'vue';
 import { marked } from 'marked';
 import type { AiChatMessage } from '@/contracts/ai';
 import UiIconButton from '@/windows/main/components/ui/UiIconButton.vue';
-import Svgicon from '@/windows/main/components/svgs/svgicon.vue';
+import IconRenderer from '@/windows/main/components/ui/IconRenderer.vue';
 import { sanitizeKnowledgeMarkdownHtml } from '@/windows/main/pages/Knowledge/utils/markdown_sanitize';
 
 const props = defineProps<{
@@ -92,9 +92,7 @@ async function copyMessage() {
           :disabled="!message.content"
           @click="copyMessage"
         >
-          <Svgicon width="14" height="14" viewBox="0 0 24 24">
-            <path d="M16 1H4c-1.1 0-2 .9-2 2v12h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z" />
-          </Svgicon>
+          <IconRenderer icon="iconify:lucide:copy" :size="14" />
         </UiIconButton>
         <UiIconButton
           v-if="message.role === 'assistant'"
@@ -104,9 +102,7 @@ async function copyMessage() {
           :disabled="!canRegenerate || message.status === 'streaming'"
           @click="emit('regenerate', message.id)"
         >
-          <Svgicon width="14" height="14" viewBox="0 0 24 24">
-            <path d="M17.65 6.35A7.95 7.95 0 0 0 12 4a8 8 0 1 0 7.75 10h-2.1A6 6 0 1 1 12 6c1.65 0 3.14.67 4.22 1.76L13 11h8V3l-3.35 3.35z" />
-          </Svgicon>
+          <IconRenderer icon="iconify:lucide:rotate-ccw" :size="14" />
         </UiIconButton>
       </div>
       <div v-if="message.tokenUsage?.totalTokens" class="ai-message-item__usage">
@@ -271,7 +267,7 @@ async function copyMessage() {
 
 .markdown-body :deep(blockquote) {
   padding-left: 10px;
-  border-left: 3px solid var(--ui-border-strong);
+  border-left: 3px solid var(--ui-border-accent);
   color: var(--ui-text-muted);
 }
 
