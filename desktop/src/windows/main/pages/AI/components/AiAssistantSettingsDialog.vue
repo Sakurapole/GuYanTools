@@ -2,10 +2,13 @@
 import { computed, reactive, ref, watch } from 'vue';
 import type { AiAssistantConfig, AiAssistantKnowledgeMode, AiAssistantMcpMode, AiAssistantToolCallMode, AiSafeProviderConfig } from '@/contracts/ai';
 import UiButton from '@/windows/main/components/ui/UiButton.vue';
+import UiCard from '@/windows/main/components/ui/UiCard.vue';
 import UiDialog from '@/windows/main/components/ui/UiDialog.vue';
+import UiField from '@/windows/main/components/ui/UiField.vue';
 import UiInput from '@/windows/main/components/ui/UiInput.vue';
 import UiRange from '@/windows/main/components/ui/UiRange.vue';
 import UiSelect, { type UiSelectOption } from '@/windows/main/components/ui/UiSelect.vue';
+import UiSettingRow from '@/windows/main/components/ui/UiSettingRow.vue';
 import UiSwitch from '@/windows/main/components/ui/UiSwitch.vue';
 import UiTextarea from '@/windows/main/components/ui/UiTextarea.vue';
 import IconRenderer from '@/windows/main/components/ui/IconRenderer.vue';
@@ -188,24 +191,23 @@ function saveAssistant() {
 
       <main class="ai-assistant-settings__content">
         <section v-if="activeTab === 'model'" class="ai-assistant-settings__pane">
-          <div class="ai-assistant-settings__row">
-            <span>默认模型</span>
+          <UiSettingRow label="默认模型">
             <UiButton size="sm" @click="chooseFirstModel">
               <template #prefix>
                 <IconRenderer icon="iconify:lucide:plus" :size="15" />
               </template>
               选择模型
             </UiButton>
-          </div>
+          </UiSettingRow>
           <div class="ai-assistant-settings__grid">
             <UiSelect v-model="form.providerId" :options="providerOptions" size="sm" />
             <UiSelect v-model="form.modelId" :options="modelOptions" size="sm" />
           </div>
 
-          <div class="ai-assistant-settings__row">
-            <span>模型温度 <small>?</small></span>
+          <UiSettingRow>
+            <template #label>模型温度 <small>?</small></template>
             <UiSwitch v-model="form.temperatureEnabled" aria-label="启用模型温度" />
-          </div>
+          </UiSettingRow>
           <UiInput
             v-if="form.temperatureEnabled"
             :model-value="String(form.temperature)"
@@ -217,10 +219,10 @@ function saveAssistant() {
             @update:modelValue="form.temperature = Number($event)"
           />
 
-          <div class="ai-assistant-settings__row">
-            <strong>Top-P <small>?</small></strong>
+          <UiSettingRow>
+            <template #label><strong>Top-P</strong> <small>?</small></template>
             <UiSwitch v-model="form.topPEnabled" aria-label="启用 Top-P" />
-          </div>
+          </UiSettingRow>
           <UiInput
             v-if="form.topPEnabled"
             :model-value="String(form.topP)"
@@ -232,19 +234,18 @@ function saveAssistant() {
             @update:modelValue="form.topP = Number($event)"
           />
 
-          <label class="ai-assistant-settings__field">
-            <span>上下文数 <small>?</small></span>
-            <strong>{{ form.contextMessages || '不限' }}</strong>
-          </label>
+          <UiSettingRow :value="form.contextMessages || '不限'">
+            <template #label>上下文数 <small>?</small></template>
+          </UiSettingRow>
           <UiRange v-model="form.contextMessages" :min="0" :max="100" :step="1" aria-label="上下文数" />
           <div class="ai-assistant-settings__scale">
             <span>0</span><span>25</span><span>50</span><span>75</span><span>不限</span>
           </div>
 
-          <div class="ai-assistant-settings__row">
-            <span>最大 Token 数 <small>?</small></span>
+          <UiSettingRow>
+            <template #label>最大 Token 数 <small>?</small></template>
             <UiSwitch v-model="form.maxOutputTokensEnabled" aria-label="启用最大 Token 数" />
-          </div>
+          </UiSettingRow>
           <UiInput
             v-if="form.maxOutputTokensEnabled"
             :model-value="String(form.maxOutputTokens ?? '')"
@@ -255,20 +256,18 @@ function saveAssistant() {
             @update:modelValue="form.maxOutputTokens = Number($event) || undefined"
           />
 
-          <div class="ai-assistant-settings__row">
-            <span>流式输出</span>
+          <UiSettingRow label="流式输出">
             <UiSwitch v-model="form.streaming" aria-label="流式输出" />
-          </div>
+          </UiSettingRow>
 
-          <div class="ai-assistant-settings__row">
-            <span>工具调用方式</span>
+          <UiSettingRow label="工具调用方式">
             <UiSelect v-model="form.toolCallMode" :options="toolCallModeOptions" size="sm" />
-          </div>
+          </UiSettingRow>
 
-          <div class="ai-assistant-settings__row">
-            <span>最大工具调用次数 <small>?</small></span>
+          <UiSettingRow>
+            <template #label>最大工具调用次数 <small>?</small></template>
             <UiSwitch v-model="form.maxToolCallsEnabled" aria-label="启用最大工具调用次数" />
-          </div>
+          </UiSettingRow>
           <UiInput
             v-if="form.maxToolCallsEnabled"
             :model-value="String(form.maxToolCalls)"
@@ -280,15 +279,14 @@ function saveAssistant() {
             @update:modelValue="form.maxToolCalls = Number($event)"
           />
 
-          <div class="ai-assistant-settings__row">
-            <span>自定义参数</span>
+          <UiSettingRow label="自定义参数">
             <UiButton size="sm" @click="addCustomParameter">
               <template #prefix>
                 <IconRenderer icon="iconify:lucide:plus" :size="15" />
               </template>
               添加参数
             </UiButton>
-          </div>
+          </UiSettingRow>
           <div v-for="parameter in form.customParameters" :key="parameter.id" class="ai-assistant-settings__param">
             <UiInput v-model="parameter.key" size="sm" placeholder="参数名" />
             <UiInput v-model="parameter.value" size="sm" placeholder="参数值" />
@@ -297,22 +295,29 @@ function saveAssistant() {
         </section>
 
         <section v-else-if="activeTab === 'prompt'" class="ai-assistant-settings__pane ai-assistant-settings__pane--fill">
-          <label class="ai-assistant-settings__label">名称</label>
-          <div class="ai-assistant-settings__name-row">
-            <UiInput v-model="form.emoji" class="ai-assistant-settings__emoji" size="sm" />
-            <UiInput v-model="form.name" size="sm" placeholder="助手名称" />
-          </div>
-          <label class="ai-assistant-settings__label">提示词 <small>?</small></label>
-          <UiTextarea v-model="form.systemPrompt" class="ai-assistant-settings__prompt" :rows="18" resize="vertical" />
+          <UiField label="名称">
+            <div class="ai-assistant-settings__name-row">
+              <UiInput v-model="form.emoji" class="ai-assistant-settings__emoji" size="sm" />
+              <UiInput v-model="form.name" size="sm" placeholder="助手名称" />
+            </div>
+          </UiField>
+          <UiField class="ai-assistant-settings__prompt-field">
+            <template #label>提示词 <small>?</small></template>
+            <UiTextarea v-model="form.systemPrompt" class="ai-assistant-settings__prompt" :rows="18" resize="vertical" />
+          </UiField>
           <div class="ai-assistant-settings__footer-note">Tokens: {{ promptTokenEstimate }}</div>
         </section>
 
         <section v-else-if="activeTab === 'knowledge'" class="ai-assistant-settings__pane">
-          <label class="ai-assistant-settings__label">知识库</label>
-          <UiInput v-model="form.knowledgeLibraryId" size="sm" placeholder="选择知识库" />
-          <UiInput v-model="form.knowledgeSpaceId" size="sm" placeholder="知识库 Space，可留空" />
-          <label class="ai-assistant-settings__label">调用知识库</label>
-          <UiSelect v-model="form.knowledgeMode" :options="knowledgeModeOptions" size="sm" />
+          <UiField label="知识库">
+            <div class="ai-assistant-settings__grid">
+              <UiInput v-model="form.knowledgeLibraryId" size="sm" placeholder="选择知识库" />
+              <UiInput v-model="form.knowledgeSpaceId" size="sm" placeholder="知识库 Space，可留空" />
+            </div>
+          </UiField>
+          <UiField label="调用知识库">
+            <UiSelect v-model="form.knowledgeMode" :options="knowledgeModeOptions" size="sm" />
+          </UiField>
         </section>
 
         <section v-else-if="activeTab === 'mcp'" class="ai-assistant-settings__pane">
@@ -336,20 +341,21 @@ function saveAssistant() {
         </section>
 
         <section v-else-if="activeTab === 'phrases'" class="ai-assistant-settings__pane ai-assistant-settings__pane--fill">
-          <label class="ai-assistant-settings__label">常用短语</label>
-          <UiTextarea v-model="phrasesText" :rows="18" resize="vertical" placeholder="每行一个短语" />
+          <UiField class="ai-assistant-settings__prompt-field" label="常用短语">
+            <UiTextarea v-model="phrasesText" :rows="18" resize="vertical" placeholder="每行一个短语" />
+          </UiField>
         </section>
 
         <section v-else class="ai-assistant-settings__pane">
-          <div class="ai-assistant-settings__row">
-            <span>全局记忆 <small>i</small></span>
+          <UiSettingRow>
+            <template #label>全局记忆 <small>i</small></template>
             <UiSwitch v-model="form.memoryEnabled" aria-label="启用全局记忆" />
-          </div>
-          <div class="ai-assistant-settings__notice" :class="{ 'is-enabled': form.memoryEnabled }">
+          </UiSettingRow>
+          <UiCard class="ai-assistant-settings__notice" padding="sm" radius="sm" :class="{ 'is-enabled': form.memoryEnabled }">
             <strong>{{ form.memoryEnabled ? '全局记忆已启用' : '全局记忆已禁用' }}</strong>
             <span>{{ form.memoryEnabled ? '助手会参考可用的长期记忆。' : '要使用记忆功能，请先在助手设置中启用全局记忆。' }}</span>
-          </div>
-          <div class="ai-assistant-settings__memory-count">已存储记忆: 0</div>
+          </UiCard>
+          <UiCard class="ai-assistant-settings__memory-count" padding="sm" radius="sm">已存储记忆: 0</UiCard>
         </section>
       </main>
     </div>
@@ -450,23 +456,6 @@ function saveAssistant() {
   height: 100%;
 }
 
-.ai-assistant-settings__row,
-.ai-assistant-settings__field {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 16px;
-  min-height: 48px;
-  border-bottom: var(--ui-border-width-thin) solid var(--ui-border-subtle);
-  color: var(--ui-text-primary);
-  font-size: 0.94rem;
-
-  small {
-    color: var(--ui-text-muted);
-    font-weight: 500;
-  }
-}
-
 .ai-assistant-settings__grid,
 .ai-assistant-settings__name-row,
 .ai-assistant-settings__param {
@@ -486,18 +475,28 @@ function saveAssistant() {
   flex: 0 0 48px;
 }
 
+.ai-assistant-settings__prompt-field {
+  flex: 1 1 auto;
+  min-height: 0;
+
+  :deep(.ui-field__control) {
+    display: flex;
+    min-height: 0;
+    flex: 1 1 auto;
+  }
+
+  :deep(.ui-field__label small) {
+    color: var(--ui-text-muted);
+    font-weight: 500;
+  }
+}
+
 .ai-assistant-settings__scale {
   display: flex;
   justify-content: space-between;
   margin-top: -8px;
   color: var(--ui-text-muted);
   font-size: 0.82rem;
-}
-
-.ai-assistant-settings__label {
-  color: var(--ui-text-primary);
-  font-size: 0.94rem;
-  font-weight: 720;
 }
 
 .ai-assistant-settings__prompt {
@@ -560,8 +559,6 @@ function saveAssistant() {
 
 .ai-assistant-settings__memory-count {
   padding: 16px;
-  border: var(--ui-border-width-thin) solid var(--ui-border-subtle);
-  border-radius: var(--ui-radius-sm);
   color: var(--ui-text-primary);
   font-weight: 720;
 }

@@ -2,7 +2,9 @@
 import { computed, ref, watch } from 'vue';
 import type { AiAgentMode } from '@/contracts/ai';
 import UiButton from '@/windows/main/components/ui/UiButton.vue';
+import UiCard from '@/windows/main/components/ui/UiCard.vue';
 import UiCheckbox from '@/windows/main/components/ui/UiCheckbox.vue';
+import UiField from '@/windows/main/components/ui/UiField.vue';
 import UiInput from '@/windows/main/components/ui/UiInput.vue';
 import UiPanelHeader from '@/windows/main/components/ui/UiPanelHeader.vue';
 import UiSelect from '@/windows/main/components/ui/UiSelect.vue';
@@ -96,8 +98,7 @@ async function commitCodexReservedFields() {
     </header>
 
     <div class="ai-agent-panel__controls">
-      <label class="ai-agent-panel__field">
-        <span>默认 Agent</span>
+      <UiField class="ai-agent-panel__field" label="默认 Agent">
         <UiSelect
           v-model="defaultAgentMode"
           size="sm"
@@ -105,9 +106,8 @@ async function commitCodexReservedFields() {
           :disabled="aiConfigStore.saving"
           @update:modelValue="commitDefaultMode"
         />
-      </label>
-      <label class="ai-agent-panel__field">
-        <span>最大步骤</span>
+      </UiField>
+      <UiField class="ai-agent-panel__field" label="最大步骤">
         <UiInput
           v-model="maxStepsInput"
           size="sm"
@@ -118,7 +118,7 @@ async function commitCodexReservedFields() {
           @blur="commitMaxSteps"
           @keydown.enter.prevent="commitMaxSteps"
         />
-      </label>
+      </UiField>
       <UiCheckbox
         :checked="agentConfig.enabled"
         size="sm"
@@ -138,7 +138,7 @@ async function commitCodexReservedFields() {
     </div>
 
     <div class="ai-agent-panel__modes">
-      <article class="ai-agent-mode" :class="{ 'ai-agent-mode--active': agentConfig.defaultAgentMode === 'general-agent' }">
+      <UiCard class="ai-agent-mode" padding="sm" radius="sm" :class="{ 'ai-agent-mode--active': agentConfig.defaultAgentMode === 'general-agent' }">
         <div class="ai-agent-mode__head">
           <div>
             <h4>通用 Agent</h4>
@@ -168,9 +168,9 @@ async function commitCodexReservedFields() {
           </div>
         </dl>
         <UiButton size="sm" variant="secondary" disabled>等待执行层接入</UiButton>
-      </article>
+      </UiCard>
 
-      <article class="ai-agent-mode" :class="{ 'ai-agent-mode--active': agentConfig.defaultAgentMode === 'code-agent' }">
+      <UiCard class="ai-agent-mode" padding="sm" radius="sm" :class="{ 'ai-agent-mode--active': agentConfig.defaultAgentMode === 'code-agent' }">
         <div class="ai-agent-mode__head">
           <div>
             <h4>Code Agent</h4>
@@ -186,8 +186,7 @@ async function commitCodexReservedFields() {
           </UiCheckbox>
         </div>
         <div class="ai-agent-mode__form">
-          <label class="ai-agent-panel__field">
-            <span>默认工作目录</span>
+          <UiField class="ai-agent-panel__field" label="默认工作目录">
             <UiInput
               v-model="codexWorkingDirectory"
               size="sm"
@@ -196,7 +195,7 @@ async function commitCodexReservedFields() {
               @blur="commitCodexReservedFields"
               @keydown.enter.prevent="commitCodexReservedFields"
             />
-          </label>
+          </UiField>
           <UiCheckbox
             :checked="agentConfig.codex.skipGitRepoCheck"
             size="sm"
@@ -205,8 +204,7 @@ async function commitCodexReservedFields() {
           >
             允许跳过 Git 仓库检查
           </UiCheckbox>
-          <label class="ai-agent-panel__field ai-agent-panel__field--wide">
-            <span>Codex 配置 JSON</span>
+          <UiField class="ai-agent-panel__field ai-agent-panel__field--wide" label="Codex 配置 JSON">
             <UiTextarea
               v-model="codexConfigJson"
               :disabled="aiConfigStore.saving"
@@ -215,10 +213,10 @@ async function commitCodexReservedFields() {
               placeholder="{ }"
               @blur="commitCodexReservedFields"
             />
-          </label>
+          </UiField>
         </div>
         <UiButton size="sm" variant="secondary" disabled>等待 Codex SDK 接入</UiButton>
-      </article>
+      </UiCard>
     </div>
   </section>
 </template>

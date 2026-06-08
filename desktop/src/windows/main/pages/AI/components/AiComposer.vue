@@ -3,6 +3,7 @@ import { computed, ref } from 'vue';
 import type { AiReasoningEffort, AiSearchMode } from '@/contracts/ai';
 import UiButton from '@/windows/main/components/ui/UiButton.vue';
 import UiCheckbox from '@/windows/main/components/ui/UiCheckbox.vue';
+import UiField from '@/windows/main/components/ui/UiField.vue';
 import UiIconButton from '@/windows/main/components/ui/UiIconButton.vue';
 import IconRenderer from '@/windows/main/components/ui/IconRenderer.vue';
 import UiSelect, { type UiSelectOption } from '@/windows/main/components/ui/UiSelect.vue';
@@ -98,8 +99,7 @@ function clearInput() {
         </div>
 
         <div class="ai-composer__option-group">
-          <label class="ai-composer__select-field">
-            <span>网页</span>
+          <UiField class="ai-composer__select-field" label="网页" layout="horizontal">
             <UiSelect
               :model-value="webSearchMode"
               size="sm"
@@ -107,9 +107,8 @@ function clearInput() {
               :disabled="optionControlsDisabled"
               @update:modelValue="emit('update:webSearchMode', $event as AiSearchMode)"
             />
-          </label>
-          <label class="ai-composer__select-field">
-            <span>知识库</span>
+          </UiField>
+          <UiField class="ai-composer__select-field" label="知识库" layout="horizontal">
             <UiSelect
               :model-value="knowledgeSearchMode"
               size="sm"
@@ -117,7 +116,7 @@ function clearInput() {
               :disabled="optionControlsDisabled"
               @update:modelValue="emit('update:knowledgeSearchMode', $event as AiSearchMode)"
             />
-          </label>
+          </UiField>
 
           <UiCheckbox
             class="ai-composer__check"
@@ -232,7 +231,7 @@ function clearInput() {
   gap: 6px 10px;
 }
 
-.ai-composer__select-field {
+.ai-composer__select-field.ui-field {
   display: inline-grid;
   grid-template-columns: auto minmax(76px, 90px);
   align-items: center;
@@ -241,8 +240,15 @@ function clearInput() {
   color: var(--ui-text-muted);
   font-size: 0.78rem;
 
-  > span {
+  :deep(.ui-field__label) {
+    color: var(--ui-text-muted);
+    font-size: 0.78rem;
+    font-weight: 500;
     white-space: nowrap;
+  }
+
+  :deep(.ui-field__control) {
+    min-width: 0;
   }
 }
 

@@ -2,6 +2,7 @@
 import { computed, ref, watch } from 'vue';
 import type { AiCanvasFile, AiCanvasMode } from '@/contracts/ai';
 import UiButton from '@/windows/main/components/ui/UiButton.vue';
+import UiCard from '@/windows/main/components/ui/UiCard.vue';
 import UiCheckbox from '@/windows/main/components/ui/UiCheckbox.vue';
 import UiEmptyState from '@/windows/main/components/ui/UiEmptyState.vue';
 import UiInput from '@/windows/main/components/ui/UiInput.vue';
@@ -259,7 +260,7 @@ function operationPayload(payloadJson: string) {
     />
 
     <footer class="ai-canvas-panel__history">
-      <div class="ai-canvas-panel__history-block">
+      <UiCard class="ai-canvas-panel__history-block" padding="sm" radius="sm">
         <h4>AI 操作</h4>
         <p v-if="operations.length === 0">暂无操作</p>
         <ul v-else>
@@ -268,8 +269,8 @@ function operationPayload(payloadJson: string) {
             <small>{{ operationPayload(operation.payloadJson) }}</small>
           </li>
         </ul>
-      </div>
-      <div class="ai-canvas-panel__history-block">
+      </UiCard>
+      <UiCard class="ai-canvas-panel__history-block" padding="sm" radius="sm">
         <h4>版本</h4>
         <p v-if="versions.length === 0">暂无版本</p>
         <ul v-else>
@@ -278,7 +279,7 @@ function operationPayload(payloadJson: string) {
             <small>{{ version.createdAt }}</small>
           </li>
         </ul>
-      </div>
+      </UiCard>
     </footer>
   </aside>
 </template>

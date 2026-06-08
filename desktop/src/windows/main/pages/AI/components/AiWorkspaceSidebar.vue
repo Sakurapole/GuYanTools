@@ -86,12 +86,6 @@ function cancelRename() {
   editingTitle.value = '';
 }
 
-function handleTopicKeydown(event: KeyboardEvent, conversationId: string) {
-  if (event.key === 'Enter' || event.key === ' ') {
-    event.preventDefault();
-    emit('selectConversation', conversationId);
-  }
-}
 </script>
 
 <template>
@@ -108,21 +102,26 @@ function handleTopicKeydown(event: KeyboardEvent, conversationId: string) {
       </header>
 
       <div class="ai-workspace-sidebar__role-list">
-        <UiButton
+        <div
           v-for="assistant in assistants"
           :key="assistant.id"
           class="ai-workspace-sidebar__role"
-          variant="ghost"
-          size="sm"
-          block
-          :active="assistant.id === activeAssistant?.id"
-          @click="emit('selectAssistant', assistant.id)"
+          :class="{ 'is-active': assistant.id === activeAssistant?.id }"
         >
-          <span class="ai-workspace-sidebar__role-avatar">{{ assistant.emoji }}</span>
-          <span class="ai-workspace-sidebar__role-text">
-            <strong>{{ assistant.name }}</strong>
-            <small>{{ assistant.providerId || '通用 Provider' }}</small>
-          </span>
+          <UiButton
+            class="ai-workspace-sidebar__role-main"
+            variant="ghost"
+            size="sm"
+            block
+            :active="assistant.id === activeAssistant?.id"
+            @click="emit('selectAssistant', assistant.id)"
+          >
+            <span class="ai-workspace-sidebar__role-avatar">{{ assistant.emoji }}</span>
+            <span class="ai-workspace-sidebar__role-text">
+              <strong>{{ assistant.name }}</strong>
+              <small>{{ assistant.providerId || '通用 Provider' }}</small>
+            </span>
+          </UiButton>
           <UiIconButton
             class="ai-workspace-sidebar__role-settings"
             size="sm"
@@ -132,7 +131,7 @@ function handleTopicKeydown(event: KeyboardEvent, conversationId: string) {
           >
             <IconRenderer icon="iconify:lucide:settings-2" :size="14" />
           </UiIconButton>
-        </UiButton>
+        </div>
       </div>
     </section>
 
@@ -175,31 +174,37 @@ function handleTopicKeydown(event: KeyboardEvent, conversationId: string) {
             <div
               v-for="conversation in pinnedConversations"
               :key="conversation.id"
-              role="button"
-              tabindex="0"
               class="ai-workspace-sidebar__topic"
               :class="{ 'is-active': conversation.id === activeConversationId, 'is-pinned': conversation.pinned }"
-              @click="emit('selectConversation', conversation.id)"
-              @keydown="handleTopicKeydown($event, conversation.id)"
             >
-              <span class="ai-workspace-sidebar__topic-main">
+              <span v-if="editingId === conversation.id" class="ai-workspace-sidebar__topic-main ai-workspace-sidebar__topic-editor">
                 <UiInput
-                  v-if="editingId === conversation.id"
                   v-model="editingTitle"
                   class="ai-workspace-sidebar__rename-input"
                   size="sm"
-                  @click.stop
                   @keydown.enter.stop.prevent="commitRename(conversation)"
                   @keydown.esc.stop.prevent="cancelRename"
                   @blur="commitRename(conversation)"
                 />
-                <span v-else class="ai-workspace-sidebar__topic-title" @dblclick.stop="startRename(conversation)">
+              </span>
+              <UiButton
+                v-else
+                class="ai-workspace-sidebar__topic-main-button"
+                variant="ghost"
+                size="sm"
+                block
+                :active="conversation.id === activeConversationId"
+                @click="emit('selectConversation', conversation.id)"
+              >
+                <span class="ai-workspace-sidebar__topic-main">
+                  <span class="ai-workspace-sidebar__topic-title" @dblclick.stop="startRename(conversation)">
                   <IconRenderer class="ai-workspace-sidebar__pin-icon" icon="iconify:lucide:pin" :size="12" />
                   {{ conversation.title }}
+                  </span>
+                  <span class="ai-workspace-sidebar__topic-meta">{{ conversation.providerId }} / {{ conversation.modelId }}</span>
+                  <span class="ai-workspace-sidebar__topic-time">{{ formatTime(conversation.updatedAt) }}</span>
                 </span>
-                <span class="ai-workspace-sidebar__topic-meta">{{ conversation.providerId }} / {{ conversation.modelId }}</span>
-                <span class="ai-workspace-sidebar__topic-time">{{ formatTime(conversation.updatedAt) }}</span>
-              </span>
+              </UiButton>
               <UiIconButton class="ai-workspace-sidebar__topic-action" size="sm" variant="ghost" title="取消置顶" @click.stop="emit('pinConversation', conversation.id, false)">
                 <IconRenderer icon="iconify:lucide:pin-off" :size="14" />
               </UiIconButton>
@@ -217,30 +222,36 @@ function handleTopicKeydown(event: KeyboardEvent, conversationId: string) {
             <div
               v-for="conversation in recentConversations"
               :key="conversation.id"
-              role="button"
-              tabindex="0"
               class="ai-workspace-sidebar__topic"
               :class="{ 'is-active': conversation.id === activeConversationId }"
-              @click="emit('selectConversation', conversation.id)"
-              @keydown="handleTopicKeydown($event, conversation.id)"
             >
-              <span class="ai-workspace-sidebar__topic-main">
+              <span v-if="editingId === conversation.id" class="ai-workspace-sidebar__topic-main ai-workspace-sidebar__topic-editor">
                 <UiInput
-                  v-if="editingId === conversation.id"
                   v-model="editingTitle"
                   class="ai-workspace-sidebar__rename-input"
                   size="sm"
-                  @click.stop
                   @keydown.enter.stop.prevent="commitRename(conversation)"
                   @keydown.esc.stop.prevent="cancelRename"
                   @blur="commitRename(conversation)"
                 />
-                <span v-else class="ai-workspace-sidebar__topic-title" @dblclick.stop="startRename(conversation)">
-                  {{ conversation.title }}
-                </span>
+              </span>
+              <UiButton
+                v-else
+                class="ai-workspace-sidebar__topic-main-button"
+                variant="ghost"
+                size="sm"
+                block
+                :active="conversation.id === activeConversationId"
+                @click="emit('selectConversation', conversation.id)"
+              >
+                <span class="ai-workspace-sidebar__topic-main">
+                  <span class="ai-workspace-sidebar__topic-title" @dblclick.stop="startRename(conversation)">
+                    {{ conversation.title }}
+                  </span>
                 <span class="ai-workspace-sidebar__topic-meta">{{ conversation.providerId }} / {{ conversation.modelId }}</span>
                 <span class="ai-workspace-sidebar__topic-time">{{ formatTime(conversation.updatedAt) }}</span>
-              </span>
+                </span>
+              </UiButton>
               <UiIconButton class="ai-workspace-sidebar__topic-action" size="sm" variant="ghost" title="置顶话题" @click.stop="emit('pinConversation', conversation.id, true)">
                 <IconRenderer icon="iconify:lucide:pin" :size="14" />
               </UiIconButton>
@@ -316,8 +327,16 @@ function handleTopicKeydown(event: KeyboardEvent, conversationId: string) {
   margin-top: 10px;
 }
 
-.ai-workspace-sidebar__role.ui-button {
+.ai-workspace-sidebar__role {
   display: grid;
+  grid-template-columns: minmax(0, 1fr) 28px;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+  min-width: 0;
+}
+
+.ai-workspace-sidebar__role-main.ui-button {
   width: 100%;
   padding: 8px;
   border: var(--ui-border-width-thin) solid transparent;
@@ -385,7 +404,7 @@ function handleTopicKeydown(event: KeyboardEvent, conversationId: string) {
 }
 
 .ai-workspace-sidebar__role:hover .ai-workspace-sidebar__role-settings,
-.ai-workspace-sidebar__role.ui-button--active .ai-workspace-sidebar__role-settings,
+.ai-workspace-sidebar__role.is-active .ai-workspace-sidebar__role-settings,
 .ai-workspace-sidebar__topic:hover .ai-workspace-sidebar__topic-action,
 .ai-workspace-sidebar__topic:focus-within .ai-workspace-sidebar__topic-action,
 .ai-workspace-sidebar__topic.is-active .ai-workspace-sidebar__topic-action {
@@ -429,18 +448,31 @@ function handleTopicKeydown(event: KeyboardEvent, conversationId: string) {
   align-items: center;
   gap: 6px;
   width: 100%;
-  padding: 10px 8px 10px 10px;
+  min-width: 0;
+}
+
+.ai-workspace-sidebar__topic-main-button.ui-button {
+  justify-content: flex-start;
+  min-width: 0;
+  min-height: 68px;
+  padding: 10px;
   border: var(--ui-border-width-thin) solid transparent;
   border-radius: var(--ui-radius-sm);
   background: transparent;
   color: var(--ui-text-primary);
   text-align: left;
-  cursor: pointer;
+  box-shadow: none;
 
   &:hover,
-  &.is-active {
+  &.ui-button--active {
     border-color: var(--ui-border-subtle);
     background: var(--ui-surface-overlay);
+  }
+
+  :deep(.ui-button__label) {
+    justify-content: flex-start;
+    width: 100%;
+    min-width: 0;
   }
 }
 
@@ -449,6 +481,15 @@ function handleTopicKeydown(event: KeyboardEvent, conversationId: string) {
   min-width: 0;
   flex-direction: column;
   gap: 3px;
+}
+
+.ai-workspace-sidebar__topic-editor {
+  min-height: 68px;
+  justify-content: center;
+  padding: 10px;
+  border: var(--ui-border-width-thin) solid var(--ui-border-subtle);
+  border-radius: var(--ui-radius-sm);
+  background: var(--ui-surface-overlay);
 }
 
 .ai-workspace-sidebar__topic-title,

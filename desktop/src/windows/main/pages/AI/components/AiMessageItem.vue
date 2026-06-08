@@ -2,7 +2,9 @@
 import { computed, ref } from 'vue';
 import { marked } from 'marked';
 import type { AiChatMessage } from '@/contracts/ai';
+import UiDisclosure from '@/windows/main/components/ui/UiDisclosure.vue';
 import UiIconButton from '@/windows/main/components/ui/UiIconButton.vue';
+import UiLink from '@/windows/main/components/ui/UiLink.vue';
 import IconRenderer from '@/windows/main/components/ui/IconRenderer.vue';
 import { sanitizeKnowledgeMarkdownHtml } from '@/windows/main/pages/Knowledge/utils/markdown_sanitize';
 
@@ -80,10 +82,9 @@ async function copyMessage() {
       <p v-else class="ai-message-item__content">
         {{ message.content || (message.status === 'streaming' ? '正在生成...' : '') }}
       </p>
-      <details v-if="reasoningContent" class="ai-message-item__reasoning">
-        <summary>思考过程</summary>
+      <UiDisclosure v-if="reasoningContent" class="ai-message-item__reasoning" title="思考过程">
         <p>{{ reasoningContent }}</p>
-      </details>
+      </UiDisclosure>
       <div class="ai-message-item__actions">
         <UiIconButton
           size="sm"
@@ -110,11 +111,11 @@ async function copyMessage() {
       </div>
       <div v-if="message.citations?.length" class="ai-message-item__citations">
         <div class="ai-message-item__citations-title">引用来源</div>
-        <a
+        <UiLink
           v-for="(citation, index) in message.citations"
           :key="citation.id"
           class="ai-message-item__citation"
-          :href="citation.url || undefined"
+          :href="citation.url"
           target="_blank"
           rel="noreferrer noopener"
         >
@@ -124,7 +125,7 @@ async function copyMessage() {
             <span v-if="citation.snippet" class="ai-message-item__citation-snippet">{{ citation.snippet }}</span>
             <span v-else-if="citation.sourceId" class="ai-message-item__citation-snippet">{{ citation.sourceId }}</span>
           </span>
-        </a>
+        </UiLink>
       </div>
     </div>
   </article>
@@ -200,22 +201,9 @@ async function copyMessage() {
 
 .ai-message-item__reasoning {
   margin-top: 10px;
-  padding: 8px 10px;
-  border: var(--ui-border-width-thin) solid var(--ui-border-subtle);
-  border-radius: var(--ui-radius-sm);
-  background: var(--ui-surface-muted);
-  color: var(--ui-text-muted);
-  font-size: 0.82rem;
-  line-height: 1.55;
-
-  summary {
-    cursor: pointer;
-    color: var(--ui-text-secondary);
-    font-weight: 650;
-  }
 
   p {
-    margin: 8px 0 0;
+    margin: 0;
     white-space: pre-wrap;
     overflow-wrap: anywhere;
   }

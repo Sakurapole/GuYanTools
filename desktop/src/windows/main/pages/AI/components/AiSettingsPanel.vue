@@ -2,6 +2,7 @@
 import { computed, reactive, ref, watch } from 'vue';
 import type { AiReasoningEffort } from '@/contracts/ai';
 import UiButton from '@/windows/main/components/ui/UiButton.vue';
+import UiCard from '@/windows/main/components/ui/UiCard.vue';
 import UiCheckbox from '@/windows/main/components/ui/UiCheckbox.vue';
 import UiEmptyState from '@/windows/main/components/ui/UiEmptyState.vue';
 import UiInput from '@/windows/main/components/ui/UiInput.vue';
@@ -193,10 +194,12 @@ function openProviderDrawer(providerId = '') {
       </UiEmptyState>
 
       <div v-else class="ai-settings-panel__provider-list">
-        <article
+        <UiCard
           v-for="provider in aiConfigStore.config.providers"
           :key="provider.id"
           class="ai-settings-panel__provider-card"
+          padding="sm"
+          radius="sm"
         >
           <div class="ai-settings-panel__provider-main">
             <div class="ai-settings-panel__provider-title-row">
@@ -209,7 +212,7 @@ function openProviderDrawer(providerId = '') {
             </span>
           </div>
           <UiButton size="sm" variant="ghost" @click="openProviderDrawer(provider.id)">编辑</UiButton>
-        </article>
+        </UiCard>
       </div>
     </section>
 
@@ -302,8 +305,6 @@ function openProviderDrawer(providerId = '') {
   align-items: flex-start;
   gap: 10px;
   padding: 10px;
-  border: var(--ui-border-width-thin) solid var(--ui-border-subtle);
-  border-radius: var(--ui-radius-sm);
   background: var(--ui-surface-overlay);
 }
 
