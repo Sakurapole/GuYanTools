@@ -1,28 +1,22 @@
 <script lang="ts" setup>
 import { computed, reactive, ref, watch } from 'vue';
-import type { AiProviderConfig, AiProviderKind, AiReasoningEffort, AiSafeProviderConfig } from '@/contracts/ai';
+import type { AiReasoningEffort } from '@/contracts/ai';
 import UiButton from '@/windows/main/components/ui/UiButton.vue';
 import UiCheckbox from '@/windows/main/components/ui/UiCheckbox.vue';
+import UiEmptyState from '@/windows/main/components/ui/UiEmptyState.vue';
 import UiInput from '@/windows/main/components/ui/UiInput.vue';
 import UiPanelHeader from '@/windows/main/components/ui/UiPanelHeader.vue';
 import UiSelect from '@/windows/main/components/ui/UiSelect.vue';
 import UiTextarea from '@/windows/main/components/ui/UiTextarea.vue';
-import { createAiModelConfig, createAiProviderConfig, useAiConfigStore } from '@/windows/main/stores/ai_config_store';
+import { useAiConfigStore } from '@/windows/main/stores/ai_config_store';
+import AiProviderDrawer from './AiProviderDrawer.vue';
 
 const aiConfigStore = useAiConfigStore();
-const testMessage = ref('');
-const testing = ref(false);
 const embeddingMessage = ref('');
 const embeddingLoading = ref(false);
+const providerDrawerVisible = ref(false);
+const editingProviderId = ref('');
 
-const providerKindOptions: { label: string; value: AiProviderKind }[] = [
-  { label: 'OpenAI', value: 'openai' },
-  { label: 'Anthropic', value: 'anthropic' },
-  { label: 'Google Gemini', value: 'google' },
-  { label: 'OpenAI Compatible', value: 'openai-compatible' },
-  { label: 'Ollama', value: 'ollama' },
-  { label: 'Vercel AI Gateway', value: 'vercel-gateway' },
-];
 const reasoningEffortOptions: { label: string; value: AiReasoningEffort }[] = [
   { label: '中', value: 'medium' },
   { label: '低', value: 'low' },
@@ -31,17 +25,7 @@ const reasoningEffortOptions: { label: string; value: AiReasoningEffort }[] = [
   { label: '极高', value: 'xhigh' },
 ];
 
-const selectedProviderId = ref('');
 const form = reactive({
-  id: '',
-  name: '',
-  kind: 'openai-compatible' as AiProviderKind,
-  baseUrl: '',
-  apiKey: '',
-  modelId: '',
-  modelName: '',
-  modelEmbedding: false,
-  modelReasoning: false,
   systemPrompt: '',
   temperature: '0.7',
   maxHistoryMessages: '20',
@@ -58,18 +42,6 @@ const form = reactive({
   embeddingModelId: '',
   embeddingBatchSize: '32',
 });
-
-const providerOptions = computed(() => [
-  { label: '新建 Provider', value: '' },
-  ...aiConfigStore.config.providers.map((provider) => ({
-    label: provider.name,
-    value: provider.id,
-  })),
-]);
-
-const selectedProvider = computed(() =>
-  aiConfigStore.config.providers.find((provider) => provider.id === selectedProviderId.value),
-);
 
 const embeddingProviderOptions = computed(() => [
   { label: '自动选择 Provider', value: '' },
@@ -96,9 +68,6 @@ const embeddingModelOptions = computed(() => [
 watch(
   () => aiConfigStore.config,
   (config) => {
-    if (!selectedProviderId.value && config.providers[0]) {
-      selectedProviderId.value = config.providers[0].id;
-    }
     form.systemPrompt = config.chat.defaultSystemPrompt;
     form.temperature = String(config.chat.temperature);
     form.maxHistoryMessages = String(config.chat.maxHistoryMessages);
@@ -117,24 +86,6 @@ watch(
   { immediate: true },
 );
 
-watch(selectedProvider, (provider) => {
-  if (!provider) {
-    resetProviderForm();
-    return;
-  }
-
-  const model = provider.models[0];
-  form.id = provider.id;
-  form.name = provider.name;
-  form.kind = provider.kind;
-  form.baseUrl = provider.baseUrl ?? '';
-  form.apiKey = '';
-  form.modelId = model?.providerModelId || model?.id || '';
-  form.modelName = model?.displayName || '';
-  form.modelEmbedding = model?.capabilities.embedding ?? false;
-  form.modelReasoning = model?.capabilities.reasoning ?? false;
-}, { immediate: true });
-
 watch(
   () => form.embeddingProviderId,
   () => {
@@ -147,93 +98,6 @@ watch(
     }
   },
 );
-
-function resetProviderForm() {
-  form.id = '';
-  form.name = '';
-  form.kind = 'openai-compatible';
-  form.baseUrl = '';
-  form.apiKey = '';
-  form.modelId = '';
-  form.modelName = '';
-  form.modelEmbedding = false;
-  form.modelReasoning = false;
-}
-
-function buildProvider(): AiProviderConfig {
-  const id = form.id.trim();
-  const modelId = form.modelId.trim();
-  const current = selectedProvider.value;
-  const model = createAiModelConfig({
-    id: modelId,
-    providerModelId: modelId,
-    displayName: form.modelName.trim() || modelId,
-    capabilities: {
-      ...currentModelCapabilities(current),
-      embedding: form.modelEmbedding,
-      reasoning: form.modelReasoning,
-    },
-  });
-
-  return {
-    ...createAiProviderConfig({
-      id,
-      kind: form.kind,
-      name: form.name.trim() || id,
-      baseUrl: form.baseUrl.trim() || undefined,
-      apiKey: form.apiKey.trim() || undefined,
-      models: [model],
-      enabled: true,
-    }),
-    createdAt: current?.createdAt ?? Date.now(),
-  };
-}
-
-function currentModelCapabilities(provider?: AiSafeProviderConfig) {
-  return provider?.models[0]?.capabilities ?? {
-    streaming: true,
-    toolCalling: form.kind !== 'ollama',
-    structuredOutput: form.kind !== 'ollama',
-  };
-}
-
-function canSaveProvider() {
-  return Boolean(form.id.trim() && form.modelId.trim());
-}
-
-async function saveProvider() {
-  if (!canSaveProvider()) {
-    return;
-  }
-
-  const provider = buildProvider();
-  const providers = [
-    ...aiConfigStore.config.providers
-      .filter((item) => item.id !== selectedProviderId.value && item.id !== provider.id)
-      .map((item) => ({ ...item }) as AiProviderConfig),
-    provider,
-  ];
-  await aiConfigStore.saveProviders(providers, {
-    providerId: provider.id,
-    modelId: provider.models[0]?.id,
-  });
-  selectedProviderId.value = provider.id;
-}
-
-async function deleteProvider() {
-  if (!selectedProviderId.value) {
-    return;
-  }
-
-  const providers = aiConfigStore.config.providers
-    .filter((provider) => provider.id !== selectedProviderId.value)
-    .map((provider) => ({ ...provider }) as AiProviderConfig);
-  await aiConfigStore.saveProviders(providers, {
-    providerId: providers[0]?.id,
-    modelId: providers[0]?.models[0]?.id,
-  });
-  selectedProviderId.value = providers[0]?.id ?? '';
-}
 
 async function saveChatSettings() {
   await aiConfigStore.updateConfig({
@@ -303,22 +167,9 @@ function positiveIntegerOrUndefined(value: string) {
   return Number.isFinite(numeric) && numeric > 0 ? Math.round(numeric) : undefined;
 }
 
-async function testProvider() {
-  if (!canSaveProvider()) {
-    return;
-  }
-
-  testing.value = true;
-  testMessage.value = '';
-  try {
-    const result = await aiConfigStore.testProvider({
-      provider: buildProvider(),
-      modelId: form.modelId.trim(),
-    });
-    testMessage.value = result.message;
-  } finally {
-    testing.value = false;
-  }
+function openProviderDrawer(providerId = '') {
+  editingProviderId.value = providerId;
+  providerDrawerVisible.value = true;
 }
 </script>
 
@@ -327,27 +178,39 @@ async function testProvider() {
     <section class="ai-settings-panel__section">
       <UiPanelHeader title="模型接入" subtitle="Provider、模型与连接测试">
         <template #actions>
-          <UiButton size="sm" variant="ghost" @click="selectedProviderId = ''">新建</UiButton>
+          <UiButton size="sm" variant="primary" @click="openProviderDrawer()">新建 Provider</UiButton>
         </template>
       </UiPanelHeader>
 
-      <UiSelect v-model="selectedProviderId" :options="providerOptions" size="sm" />
-      <UiSelect v-model="form.kind" :options="providerKindOptions" size="sm" />
-      <UiInput v-model="form.id" size="sm" placeholder="Provider ID，例如 openai-main" />
-      <UiInput v-model="form.name" size="sm" placeholder="显示名称" />
-      <UiInput v-model="form.baseUrl" size="sm" placeholder="Base URL，可留空" />
-      <UiInput v-model="form.apiKey" size="sm" type="password" :placeholder="selectedProvider?.hasApiKey ? '已保存，留空表示不修改' : 'API Key'" />
-      <UiInput v-model="form.modelId" size="sm" placeholder="模型 ID，例如 provider 原始模型名" />
-      <UiInput v-model="form.modelName" size="sm" placeholder="模型显示名，可留空" />
-      <UiCheckbox v-model="form.modelEmbedding" size="sm">支持 Embedding</UiCheckbox>
-      <UiCheckbox v-model="form.modelReasoning" size="sm">支持推理</UiCheckbox>
+      <UiEmptyState
+        v-if="aiConfigStore.config.providers.length === 0"
+        compact
+        icon="lucide:plug-zap"
+        title="暂无 Provider"
+        description="添加 Provider 后即可在问答区选择模型。"
+      >
+        <UiButton size="sm" variant="primary" @click="openProviderDrawer()">添加 Provider</UiButton>
+      </UiEmptyState>
 
-      <div class="ai-settings-panel__actions">
-        <UiButton size="sm" variant="primary" :disabled="!canSaveProvider() || aiConfigStore.saving" @click="saveProvider">保存</UiButton>
-        <UiButton size="sm" :disabled="!canSaveProvider() || testing" @click="testProvider">测试</UiButton>
-        <UiButton v-if="selectedProviderId" size="sm" variant="danger" @click="deleteProvider">删除</UiButton>
+      <div v-else class="ai-settings-panel__provider-list">
+        <article
+          v-for="provider in aiConfigStore.config.providers"
+          :key="provider.id"
+          class="ai-settings-panel__provider-card"
+        >
+          <div class="ai-settings-panel__provider-main">
+            <div class="ai-settings-panel__provider-title-row">
+              <h4>{{ provider.name }}</h4>
+              <span class="ai-settings-panel__provider-kind">{{ provider.kind }}</span>
+            </div>
+            <p>{{ provider.models[0]?.displayName || provider.models[0]?.id || '未配置模型' }}</p>
+            <span class="ai-settings-panel__provider-meta">
+              {{ provider.baseUrl || '默认 Endpoint' }}
+            </span>
+          </div>
+          <UiButton size="sm" variant="ghost" @click="openProviderDrawer(provider.id)">编辑</UiButton>
+        </article>
       </div>
-      <p v-if="testMessage" class="ai-settings-panel__message">{{ testMessage }}</p>
     </section>
 
     <section class="ai-settings-panel__section">
@@ -389,6 +252,11 @@ async function testProvider() {
       </div>
       <p v-if="embeddingMessage" class="ai-settings-panel__message">{{ embeddingMessage }}</p>
     </section>
+
+    <AiProviderDrawer
+      v-model="providerDrawerVisible"
+      v-model:provider-id="editingProviderId"
+    />
   </aside>
 </template>
 
@@ -420,6 +288,78 @@ async function testProvider() {
 .ai-settings-panel__grid > * {
   min-width: 0;
   flex: 1;
+}
+
+.ai-settings-panel__provider-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.ai-settings-panel__provider-card {
+  display: flex;
+  min-width: 0;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 10px;
+  border: var(--ui-border-width-thin) solid var(--ui-border-subtle);
+  border-radius: var(--ui-radius-sm);
+  background: var(--ui-surface-overlay);
+}
+
+.ai-settings-panel__provider-main {
+  min-width: 0;
+  flex: 1 1 auto;
+}
+
+.ai-settings-panel__provider-title-row {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 8px;
+
+  h4 {
+    margin: 0;
+    overflow: hidden;
+    color: var(--ui-text-primary);
+    font-size: 0.9rem;
+    font-weight: 700;
+    line-height: 1.35;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+}
+
+.ai-settings-panel__provider-kind {
+  flex: 0 0 auto;
+  padding: 2px 6px;
+  border: var(--ui-border-width-thin) solid var(--ui-border-subtle);
+  border-radius: var(--ui-radius-xs);
+  color: var(--ui-text-muted);
+  font-size: 0.72rem;
+  line-height: 1.2;
+  white-space: nowrap;
+}
+
+.ai-settings-panel__provider-card p {
+  margin: 4px 0 0;
+  overflow: hidden;
+  color: var(--ui-text-secondary);
+  font-size: 0.8rem;
+  line-height: 1.35;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ai-settings-panel__provider-meta {
+  display: block;
+  margin-top: 3px;
+  overflow: hidden;
+  color: var(--ui-text-muted);
+  font-size: 0.76rem;
+  line-height: 1.35;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .ai-settings-panel__message {
