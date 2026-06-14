@@ -178,7 +178,7 @@ async function pickFromScreen() {
 
   &:hover {
     transform: translateY(-1px);
-    border-color: var(--ui-border-strong);
+    border-color: var(--ui-border-accent);
   }
 
   &:focus-visible {

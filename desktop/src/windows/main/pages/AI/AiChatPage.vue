@@ -691,7 +691,7 @@ async function deleteAssistant(assistantId: string) {
   border: var(--ui-border-width-thin) solid var(--ui-border-subtle);
   border-radius: var(--ui-radius-lg);
   background: var(--ui-surface-base);
-  box-shadow: var(--ui-shadow-floating, 0 24px 64px rgba(15, 23, 42, 0.22));
+  box-shadow: var(--ui-shadow-xl, 0 24px 64px rgba(15, 23, 42, 0.22));
 }
 
 @media (max-width: 1280px) {

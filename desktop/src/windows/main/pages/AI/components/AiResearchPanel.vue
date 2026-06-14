@@ -415,7 +415,7 @@ function statusIcon(job: AiResearchJob) {
 }
 
 .ai-research-panel__error {
-  color: var(--ui-color-danger);
+  color: var(--ui-danger-color);
 }
 
 .ai-research-panel__empty {

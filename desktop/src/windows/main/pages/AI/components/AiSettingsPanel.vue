@@ -1151,7 +1151,7 @@ function normalizeMcpEnv(value: unknown) {
 }
 
 .ai-mcp-server-item__error {
-  color: var(--ui-color-danger, #dc2626) !important;
+  color: var(--ui-danger-color, #dc2626) !important;
 }
 
 .ai-mcp-panel__empty,

@@ -399,7 +399,7 @@ function selectAssistantAndShowTopics(assistantId: string) {
   padding: 7px 10px;
   border: var(--ui-border-width-thin, 1px) solid rgba(14, 165, 233, 0.18);
   border-radius: var(--ui-radius-sm, 6px);
-  background: color-mix(in srgb, var(--ui-color-primary, #0ea5e9) 16%, transparent);
+  background: color-mix(in srgb, var(--ui-primary-color, #0ea5e9) 16%, transparent);
   box-shadow: none;
   cursor: pointer;
   transition:
@@ -412,14 +412,14 @@ function selectAssistantAndShowTopics(assistantId: string) {
 .ai-workspace-sidebar__topic-card.is-active,
 .ai-workspace-sidebar__assistant-card:hover,
 .ai-workspace-sidebar__assistant-card.is-active {
-  border-color: var(--ui-color-primary-border, rgba(14, 165, 233, 0.34));
-  background: var(--ui-color-primary-soft, rgba(224, 242, 254, 0.66));
+  border-color: var(--ui-border-accent, rgba(14, 165, 233, 0.34));
+  background: var(--ui-tabs-active-bg, rgba(224, 242, 254, 0.66));
 }
 
 .ai-workspace-sidebar__topic-card.is-active,
 .ai-workspace-sidebar__assistant-card.is-active {
   box-shadow:
-    inset 3px 0 0 var(--ui-color-primary, #0ea5e9),
+    inset 3px 0 0 var(--ui-primary-color, #0ea5e9),
     0 1px 2px rgba(15, 23, 42, 0.04);
 }
 
@@ -474,7 +474,7 @@ function selectAssistantAndShowTopics(assistantId: string) {
   align-items: center;
   gap: 1px;
   padding-left: 10px;
-  background: linear-gradient(90deg, transparent, color-mix(in srgb, var(--ui-color-primary, #0ea5e9) 16%, var(--ui-surface-base, #f8fbfd)) 28%);
+  background: linear-gradient(90deg, transparent, color-mix(in srgb, var(--ui-primary-color, #0ea5e9) 16%, var(--ui-surface-base, #f8fbfd)) 28%);
   opacity: 0;
   transform: translateY(-50%);
   transition: opacity 0.16s ease;
@@ -565,12 +565,12 @@ function selectAssistantAndShowTopics(assistantId: string) {
 
 .ai-workspace-sidebar__mini-topic:hover,
 .ai-workspace-sidebar__mini-topic.is-active {
-  border-color: var(--ui-color-primary-border, rgba(14, 165, 233, 0.34));
-  background: var(--ui-color-primary-soft, rgba(224, 242, 254, 0.66));
+  border-color: var(--ui-border-accent, rgba(14, 165, 233, 0.34));
+  background: var(--ui-tabs-active-bg, rgba(224, 242, 254, 0.66));
 }
 
 .ai-workspace-sidebar__mini-topic.is-active {
-  box-shadow: inset 0 -3px 0 var(--ui-color-primary, #0ea5e9);
+  box-shadow: inset 0 -3px 0 var(--ui-primary-color, #0ea5e9);
 }
 
 .ai-workspace-sidebar__mini-topic-initial {
@@ -591,6 +591,6 @@ function selectAssistantAndShowTopics(assistantId: string) {
   width: 6px;
   height: 6px;
   border-radius: var(--ui-radius-full, 999px);
-  background: var(--ui-color-primary, #0ea5e9);
+  background: var(--ui-primary-color, #0ea5e9);
 }
 </style>

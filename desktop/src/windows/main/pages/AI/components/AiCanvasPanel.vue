@@ -525,7 +525,7 @@ function previewText(value: string) {
     font-size: 0.72rem;
 
     small {
-      color: var(--ui-color-warning, #b45309);
+      color: var(--ui-warning-color, #b45309);
       font-size: 0.68rem;
       font-weight: 700;
     }
@@ -572,7 +572,7 @@ function previewText(value: string) {
 
 .ai-canvas-panel__error {
   margin-bottom: 6px;
-  color: var(--ui-color-danger, #dc2626) !important;
+  color: var(--ui-danger-color, #dc2626) !important;
 }
 
 .ai-canvas-panel__operation-head {
@@ -596,12 +596,12 @@ function previewText(value: string) {
 
   &--pending {
     background: rgba(245, 158, 11, 0.14);
-    color: var(--ui-color-warning, #b45309);
+    color: var(--ui-warning-color, #b45309);
   }
 
   &--applied {
     background: rgba(22, 163, 74, 0.12);
-    color: var(--ui-color-success, #15803d);
+    color: var(--ui-success-color, #15803d);
   }
 
   &--rejected {

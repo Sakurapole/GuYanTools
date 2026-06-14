@@ -4552,7 +4552,7 @@ function scriptTypeLabel(type: string) {
   h1 {
     margin: 0;
     color: var(--ui-text-primary);
-    font-size: var(--ui-font-size-2xl);
+    font-size: var(--ui-font-size-display-sm);
     line-height: 1.15;
     font-weight: 700;
     letter-spacing: 0;

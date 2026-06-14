@@ -298,7 +298,7 @@ function memoryScopeLabel(memory: AiMemory) {
 .ai-context-panel__error {
   margin: 0;
   padding: 8px 12px;
-  color: var(--ui-color-danger, #dc2626);
+  color: var(--ui-danger-color, #dc2626);
   font-size: 0.78rem;
 }
 </style>

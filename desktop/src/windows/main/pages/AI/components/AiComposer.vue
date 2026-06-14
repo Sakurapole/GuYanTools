@@ -444,7 +444,7 @@ function formatAttachmentSize(size: number) {
 
 .ai-composer__attachment-error {
   margin: 0;
-  color: var(--ui-color-danger);
+  color: var(--ui-danger-color);
   font-size: 0.78rem;
 }
 

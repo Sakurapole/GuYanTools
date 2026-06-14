@@ -766,8 +766,8 @@ async function fetchProviderModels() {
     justify-content: center;
     padding: 0 6px;
     border-radius: 999px;
-    background: color-mix(in srgb, var(--ui-color-primary, #4f9cff) 16%, transparent);
-    color: var(--ui-color-primary, #4f9cff);
+    background: color-mix(in srgb, var(--ui-primary-color, #4f9cff) 16%, transparent);
+    color: var(--ui-primary-color, #4f9cff);
     font-size: 0.72rem;
     font-weight: 700;
   }
@@ -963,8 +963,8 @@ async function fetchProviderModels() {
     cursor: pointer;
 
     &.is-active {
-      border-bottom-color: var(--ui-color-primary, #4f9cff);
-      color: var(--ui-color-primary, #4f9cff);
+      border-bottom-color: var(--ui-primary-color, #4f9cff);
+      color: var(--ui-primary-color, #4f9cff);
       font-weight: 680;
     }
   }
@@ -1084,8 +1084,8 @@ async function fetchProviderModels() {
   align-items: center;
   justify-content: center;
   border-radius: 999px;
-  background: color-mix(in srgb, var(--ui-color-primary, #4f9cff) 18%, transparent);
-  color: var(--ui-color-primary, #4f9cff);
+  background: color-mix(in srgb, var(--ui-primary-color, #4f9cff) 18%, transparent);
+  color: var(--ui-primary-color, #4f9cff);
   font-size: var(--ui-font-size-sm);
   font-weight: 800;
 }

@@ -3838,7 +3838,7 @@ function formatFileSize(value?: number) {
   border: 1px solid var(--ui-border-subtle);
   border-radius: 10px;
   background: var(--ui-surface-panel);
-  box-shadow: var(--ui-shadow-modal, 0 18px 48px rgb(15 23 42 / 24%));
+  box-shadow: var(--ui-shadow-xl, 0 18px 48px rgb(15 23 42 / 24%));
 }
 
 .knowledge-block-style-panel__header {
