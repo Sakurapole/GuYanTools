@@ -53,6 +53,7 @@ const props = defineProps<{
   dirty?: boolean;
   saving?: boolean;
   pageSuggestions?: string[];
+  selectionBackgroundColor?: string;
 }>();
 
 const emit = defineEmits<{
@@ -737,7 +738,7 @@ function createEditor() {
             backgroundColor: 'color-mix(in srgb, var(--ui-primary-color) 10%, transparent)',
           },
           '.cm-selectionBackground, &.cm-focused .cm-selectionBackground': {
-            backgroundColor: 'color-mix(in srgb, var(--ui-primary-color) 30%, transparent)',
+            backgroundColor: 'var(--knowledge-selection-bg, color-mix(in srgb, var(--ui-primary-color) 30%, transparent))',
           },
           '&.cm-focused': {
             outline: 'none',
@@ -957,7 +958,7 @@ defineExpose({
       </div>
     </section>
 
-    <div class="knowledge-markdown-editor__surface">
+    <div class="knowledge-markdown-editor__surface" :style="{ '--knowledge-selection-bg': props.selectionBackgroundColor || 'color-mix(in srgb, var(--ui-primary-color) 30%, transparent)' }">
       <section v-show="mode !== 'reading'" class="knowledge-markdown-editor__pane knowledge-markdown-editor__pane--edit">
         <div ref="editorHost" class="knowledge-markdown-editor__codemirror" />
       </section>
@@ -981,6 +982,7 @@ defineExpose({
         </div>
         <MarkdownPreviewVirtualList
           :markdown="previewSource"
+          :selection-background-color="props.selectionBackgroundColor"
           @preview-click="handlePreviewClick"
         />
       </section>
@@ -990,6 +992,15 @@ defineExpose({
 
 <style scoped lang="scss">
 .knowledge-markdown-editor {
+  --knowledge-markdown-toolbar-bg: var(--ui-surface-panel);
+  --knowledge-markdown-control-bg: var(--ui-input-bg);
+  --knowledge-markdown-surface-bg: transparent;
+  --knowledge-markdown-preview-bg: transparent;
+  --knowledge-markdown-editor-bg: transparent;
+  --knowledge-markdown-preview-paper-bg: color-mix(in srgb, var(--ui-surface-base) 82%, white 18%);
+  --knowledge-markdown-editor-paper-bg: color-mix(in srgb, var(--ui-surface-base) 92%, white 8%);
+  --knowledge-markdown-preview-focus-bg: color-mix(in srgb, var(--ui-surface-panel) 90%, var(--ui-primary-color) 10%);
+  --knowledge-markdown-editor-focus-bg: color-mix(in srgb, var(--ui-surface-base) 94%, var(--ui-primary-color) 6%);
   display: grid;
   grid-template-rows: auto auto minmax(0, 1fr);
   height: 100%;
@@ -1004,7 +1015,7 @@ defineExpose({
   min-height: 44px;
   padding: 6px 10px;
   border-bottom: 1px solid var(--ui-border-subtle);
-  background: var(--ui-surface-panel);
+  background: var(--knowledge-markdown-toolbar-bg);
 }
 
 .knowledge-markdown-editor__segmented,
@@ -1024,7 +1035,7 @@ defineExpose({
   min-height: 30px;
   border: 1px solid var(--ui-border-subtle);
   border-radius: 7px;
-  background: var(--ui-input-bg);
+  background: var(--knowledge-markdown-control-bg);
 }
 
 .knowledge-markdown-editor__table-tool,
@@ -1259,6 +1270,7 @@ defineExpose({
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
   min-height: 0;
+  background: var(--knowledge-markdown-surface-bg);
 }
 
 .knowledge-markdown-editor--source .knowledge-markdown-editor__surface,
@@ -1377,7 +1389,7 @@ defineExpose({
   border: 1px solid var(--ui-border-subtle);
   border-radius: 5px;
   color: var(--ui-text-primary);
-  background: color-mix(in srgb, var(--ui-surface-panel-muted) 86%, transparent);
+  background: var(--knowledge-md-inline-code-bg, color-mix(in srgb, var(--ui-surface-panel-muted) 86%, transparent));
   font-family: var(--font-mono, 'Cascadia Mono', Consolas, monospace);
 }
 
@@ -1442,7 +1454,7 @@ defineExpose({
   overflow: hidden;
   border: 1px solid var(--ui-border-subtle);
   border-radius: 8px;
-  background: color-mix(in srgb, var(--ui-surface-panel) 24%, transparent);
+  background: var(--knowledge-md-block-bg, color-mix(in srgb, var(--ui-surface-panel) 24%, transparent));
 }
 
 .knowledge-markdown-editor :deep(.cm-md-live-block--selected) {
@@ -1457,7 +1469,7 @@ defineExpose({
   min-height: 30px;
   padding: 4px 8px;
   border-bottom: 1px solid var(--ui-border-subtle);
-  background: color-mix(in srgb, var(--ui-surface-panel-muted) 18%, transparent);
+  background: var(--knowledge-md-block-bg, color-mix(in srgb, var(--ui-surface-panel-muted) 18%, transparent));
 }
 
 .knowledge-markdown-editor :deep(.cm-md-live-block__title) {
@@ -1496,7 +1508,7 @@ defineExpose({
   padding: 10px 12px 16px;
   resize: both;
   overflow: auto;
-  background: color-mix(in srgb, var(--ui-surface-panel-muted) 34%, transparent);
+  background: var(--knowledge-md-table-bg, color-mix(in srgb, var(--ui-surface-panel-muted) 34%, transparent));
 }
 
 .knowledge-markdown-editor :deep(.cm-md-live-table) {
@@ -1513,7 +1525,7 @@ defineExpose({
   padding: 8px 10px;
   border: 1px solid var(--ui-border-subtle);
   color: var(--ui-text-primary);
-  background: color-mix(in srgb, var(--ui-surface-panel) 34%, transparent);
+  background: var(--knowledge-md-table-bg, color-mix(in srgb, var(--ui-surface-panel) 34%, transparent));
   cursor: text;
   user-select: text;
   vertical-align: top;
@@ -1522,7 +1534,7 @@ defineExpose({
 }
 
 .knowledge-markdown-editor :deep(th.cm-md-live-table__cell) {
-  background: color-mix(in srgb, var(--ui-primary-color) 10%, var(--ui-surface-panel-muted));
+  background: var(--knowledge-md-table-bg, color-mix(in srgb, var(--ui-primary-color) 10%, var(--ui-surface-panel-muted)));
   font-weight: 800;
 }
 
@@ -1548,14 +1560,52 @@ defineExpose({
 .knowledge-markdown-editor :deep(.cm-md-live-block--code_fence) {
   border: 0;
   border-radius: 6px;
-  background: color-mix(in srgb, var(--ui-surface-panel-muted) 44%, transparent);
+  background: var(--knowledge-md-code-bg, color-mix(in srgb, var(--ui-surface-panel-muted) 44%, transparent));
+}
+
+.knowledge-markdown-editor :deep(.cm-md-live-block--mermaid) {
+  display: inline-block;
+  width: fit-content;
+  max-width: 100%;
+  min-height: 0;
+  margin: 0 auto;
+  vertical-align: top;
+}
+
+.knowledge-markdown-editor :deep(.cm-md-live-block--mermaid .cm-md-live-block__body) {
+  display: inline-flex;
+  width: fit-content;
+  max-width: 100%;
+  min-height: 0;
+  align-items: center;
+  justify-content: center;
+  padding: 6px 8px;
+  overflow: auto;
+}
+
+.knowledge-markdown-editor :deep(.cm-md-live-block--mermaid .knowledge-md-mermaid) {
+  display: inline-flex;
+  width: fit-content;
+  max-width: 100%;
+  min-height: 0;
+  align-items: center;
+  justify-content: center;
+  margin: 0 auto;
+  overflow: auto;
+}
+
+.knowledge-markdown-editor :deep(.cm-md-live-block--mermaid .knowledge-md-mermaid svg) {
+  width: auto !important;
+  max-width: min(100%, 680px);
+  height: auto !important;
+  max-height: min(24vh, 280px);
 }
 
 .knowledge-markdown-editor :deep(.cm-md-live-code-render-preview) {
   position: relative;
   min-height: 100%;
   border-radius: 6px;
-  background: color-mix(in srgb, var(--ui-surface-panel-muted) 44%, transparent);
+  background: var(--knowledge-md-code-bg, color-mix(in srgb, var(--ui-surface-panel-muted) 44%, transparent));
   line-height: inherit;
 }
 
@@ -1641,7 +1691,7 @@ defineExpose({
 }
 
 .knowledge-markdown-editor :deep(.cm-md-live-source-block--code_fence) {
-  background: color-mix(in srgb, var(--ui-surface-panel-muted) 44%, transparent);
+  background: var(--knowledge-md-code-bg, color-mix(in srgb, var(--ui-surface-panel-muted) 44%, transparent));
   box-shadow: none;
 }
 
@@ -1699,7 +1749,7 @@ defineExpose({
 .knowledge-markdown-editor :deep(.cm-md-live-callout__body) {
   padding: 12px 16px;
   color: var(--ui-text-secondary);
-  background: color-mix(in srgb, var(--ui-primary-color) 5%, transparent);
+  background: var(--knowledge-md-callout-bg, color-mix(in srgb, var(--ui-primary-color) 5%, transparent));
 }
 
 .knowledge-markdown-editor :deep(.cm-md-live-callout--danger) {
@@ -1730,17 +1780,26 @@ defineExpose({
   overflow-x: auto;
   border: 1px solid var(--ui-border-subtle);
   border-radius: 8px;
-  background: color-mix(in srgb, var(--ui-surface-panel-muted) 24%, transparent);
+  background: var(--knowledge-md-diagram-bg, color-mix(in srgb, var(--ui-surface-panel-muted) 24%, transparent));
 }
 
 .knowledge-markdown-editor :deep(.knowledge-md-mermaid) {
+  display: inline-flex;
+  width: fit-content;
+  max-width: 100%;
+  min-height: 0;
+  align-items: center;
+  justify-content: center;
+  overflow: auto;
   text-align: center;
 }
 
 .knowledge-markdown-editor :deep(.knowledge-md-mermaid svg) {
   display: block;
-  max-width: 100%;
-  height: auto;
+  width: auto !important;
+  max-width: min(100%, 680px);
+  height: auto !important;
+  max-height: min(24vh, 280px);
   margin: 0 auto;
 }
 
@@ -1749,13 +1808,13 @@ defineExpose({
 }
 
 .knowledge-markdown-editor--theme-paper {
-  --knowledge-editor-preview-bg: color-mix(in srgb, var(--ui-surface-base) 82%, white 18%);
-  --knowledge-editor-editor-bg: color-mix(in srgb, var(--ui-surface-base) 92%, white 8%);
+  --knowledge-editor-preview-bg: var(--knowledge-markdown-preview-paper-bg);
+  --knowledge-editor-editor-bg: var(--knowledge-markdown-editor-paper-bg);
 }
 
 .knowledge-markdown-editor--theme-focus {
-  --knowledge-editor-preview-bg: color-mix(in srgb, var(--ui-surface-panel) 90%, var(--ui-primary-color) 10%);
-  --knowledge-editor-editor-bg: color-mix(in srgb, var(--ui-surface-base) 94%, var(--ui-primary-color) 6%);
+  --knowledge-editor-preview-bg: var(--knowledge-markdown-preview-focus-bg);
+  --knowledge-editor-editor-bg: var(--knowledge-markdown-editor-focus-bg);
 }
 
 .knowledge-markdown-editor__pane--edit {
@@ -1794,6 +1853,10 @@ defineExpose({
   line-height: 1.72;
 }
 
+.markdown-body :deep(::selection) {
+  background: var(--knowledge-selection-bg, color-mix(in srgb, var(--ui-primary-color) 30%, transparent));
+}
+
 .markdown-body :deep(h1),
 .markdown-body :deep(h2),
 .markdown-body :deep(h3) {
@@ -1817,16 +1880,21 @@ defineExpose({
 .markdown-body :deep(code) {
   padding: 0.12em 0.32em;
   border-radius: 4px;
-  background: color-mix(in srgb, var(--ui-surface-panel-muted) 82%, transparent);
+  background: var(--knowledge-md-inline-code-bg, color-mix(in srgb, var(--ui-surface-panel-muted) 82%, transparent));
   font-family: var(--font-mono, 'Cascadia Mono', Consolas, monospace);
 }
 
 .markdown-body :deep(pre) {
+  display: block;
+  box-sizing: border-box;
+  width: 100%;
+  max-height: none;
   overflow: auto;
-  padding: 14px;
+  padding: 10px 12px;
   border: 1px solid var(--ui-border-subtle);
-  border-radius: 8px;
-  background: color-mix(in srgb, var(--ui-surface-panel-muted) 24%, transparent);
+  border-radius: 7px;
+  background: var(--knowledge-md-code-bg, color-mix(in srgb, var(--ui-surface-panel-muted) 44%, transparent));
+  line-height: 1.55;
 }
 
 .markdown-body :deep(pre code) {
@@ -1835,24 +1903,27 @@ defineExpose({
 }
 
 .markdown-body :deep(blockquote) {
-  padding-left: 14px;
-  border-left: 3px solid var(--ui-primary-color);
+  padding: 8px 12px;
+  border: 1px solid var(--ui-border-subtle);
+  border-left: 3px solid color-mix(in srgb, var(--ui-text-muted) 30%, transparent);
+  border-radius: 7px;
   color: var(--ui-text-muted);
+  background: var(--knowledge-md-quote-bg, var(--knowledge-md-block-bg, color-mix(in srgb, var(--ui-surface-panel-muted) 72%, transparent)));
 }
 
 .markdown-body :deep(.knowledge-md-callout) {
   margin: 0 0 1em;
   padding: 10px 12px;
-  border: 1px solid color-mix(in srgb, var(--ui-primary-color) 32%, var(--ui-border-subtle) 68%);
-  border-left: 4px solid var(--ui-primary-color);
-  border-radius: 8px;
+  border: 1px solid var(--ui-border-subtle);
+  border-left: 3px solid color-mix(in srgb, var(--ui-text-muted) 30%, transparent);
+  border-radius: 7px;
   color: var(--ui-text-primary);
-  background: color-mix(in srgb, var(--ui-primary-color) 7%, transparent);
+  background: var(--knowledge-md-callout-bg, var(--knowledge-md-block-bg, color-mix(in srgb, var(--ui-surface-panel-muted) 72%, transparent)));
 }
 
 .markdown-body :deep(.knowledge-md-callout__title) {
   margin-bottom: 6px;
-  color: var(--ui-primary-color);
+  color: var(--ui-text-primary);
   font-size: var(--ui-font-size-xs);
   font-weight: 800;
   letter-spacing: 0;
@@ -1862,7 +1933,7 @@ defineExpose({
   border: 1px solid var(--ui-border-subtle);
   border-radius: 7px;
   color: var(--ui-text-primary);
-  background: color-mix(in srgb, var(--ui-surface-panel-muted) 24%, transparent);
+  background: var(--knowledge-md-diagram-bg, color-mix(in srgb, var(--ui-surface-panel-muted) 24%, transparent));
   font-family: var(--font-mono, 'Cascadia Mono', Consolas, monospace);
 }
 
@@ -1878,25 +1949,36 @@ defineExpose({
 }
 
 .markdown-body :deep(.knowledge-md-mermaid) {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  width: fit-content;
+  max-width: 100%;
+  min-height: 0;
   margin: 0 0 1em;
   overflow: auto;
+  padding: 6px 8px;
   border: 1px solid var(--ui-border-subtle);
-  border-radius: 8px;
-  background: color-mix(in srgb, var(--ui-surface-panel-muted) 24%, transparent);
+  border-radius: 7px;
+  background: var(--knowledge-md-diagram-bg, color-mix(in srgb, var(--ui-surface-panel-muted) 24%, transparent));
   text-align: center;
 }
 
 .markdown-body :deep(.knowledge-md-mermaid svg) {
   display: block;
-  max-width: 100%;
-  height: auto;
-  margin: 0 auto;
+  width: auto !important;
+  max-width: min(100%, 680px);
+  height: auto !important;
+  max-height: min(24vh, 280px);
+  margin: auto;
 }
 
 .markdown-body :deep(.knowledge-md-mermaid__title) {
-  padding: 8px 12px;
+  align-self: stretch;
+  margin: -6px -8px 6px;
+  padding: 6px 8px;
   border-bottom: 1px solid var(--ui-border-subtle);
-  color: var(--ui-primary-color);
+  color: var(--ui-text-primary);
   font-size: var(--ui-font-size-xs);
   font-weight: 800;
 }
@@ -1912,12 +1994,14 @@ defineExpose({
 .markdown-body :deep(table) {
   width: 100%;
   border-collapse: collapse;
+  background: var(--knowledge-md-table-bg, transparent);
 }
 
 .markdown-body :deep(th),
 .markdown-body :deep(td) {
   padding: 8px 10px;
   border: 1px solid var(--ui-border-subtle);
+  background: var(--knowledge-md-table-bg, transparent);
 }
 
 .markdown-body :deep(img) {

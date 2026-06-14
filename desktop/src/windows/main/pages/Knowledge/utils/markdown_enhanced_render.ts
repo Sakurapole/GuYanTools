@@ -92,6 +92,8 @@ export async function renderMarkdownMermaidElement(element: HTMLElement, source:
     const result = await mermaid.render(id, diagram);
     if (element.dataset.renderedSource !== diagram) return;
     element.innerHTML = result.svg;
+    normalizeMermaidSvgSize(element);
+    requestAnimationFrame(() => normalizeMermaidSvgSize(element, true));
     element.dataset.rendered = 'true';
   } catch (error) {
     element.innerHTML = [
@@ -100,6 +102,43 @@ export async function renderMarkdownMermaidElement(element: HTMLElement, source:
       `<pre><code>${escapeHtml(diagram)}</code></pre>`,
     ].join('');
     element.dataset.rendered = 'error';
+  }
+}
+
+function normalizeMermaidSvgSize(element: HTMLElement, allowFallback = false) {
+  const svg = element.querySelector<SVGSVGElement>('svg');
+  if (!svg) return;
+
+  try {
+    const box = svg.getBBox();
+    if (box.width > 0 && box.height > 0) {
+      const padding = 8;
+      const x = Math.floor(box.x - padding);
+      const y = Math.floor(box.y - padding);
+      const width = Math.ceil(box.width + padding * 2);
+      const height = Math.ceil(box.height + padding * 2);
+      svg.removeAttribute('style');
+      svg.setAttribute('viewBox', `${x} ${y} ${width} ${height}`);
+      svg.setAttribute('width', String(width));
+      svg.setAttribute('height', String(height));
+      svg.style.maxWidth = '100%';
+      svg.style.height = 'auto';
+      element.style.width = 'fit-content';
+      element.style.maxWidth = '100%';
+      return;
+    }
+  } catch {
+    // Some SVG implementations can reject getBBox before layout; CSS still keeps the block compact.
+  }
+
+  if (allowFallback) {
+    svg.removeAttribute('style');
+    svg.removeAttribute('width');
+    svg.removeAttribute('height');
+    svg.style.maxWidth = '100%';
+    svg.style.height = 'auto';
+    element.style.width = 'fit-content';
+    element.style.maxWidth = '100%';
   }
 }
 

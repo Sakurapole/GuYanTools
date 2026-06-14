@@ -47,6 +47,12 @@ const {
   updateMarkdownTableCell,
 } = require('../src/windows/main/pages/Knowledge/utils/markdown_live_preview.ts');
 
+function extractCssRule(source, selector) {
+  const escapedSelector = selector.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const match = new RegExp(`${escapedSelector}\\s*\\{([\\s\\S]*?)\\}`).exec(source);
+  return match?.[1] ?? '';
+}
+
 function testInAppErrorHandlerIgnoresBenignResizeObserverLoopErrors() {
   const sourcePath = path.join(__dirname, '../src/windows/main/composables/useInAppNotification.ts');
   const source = fs.readFileSync(sourcePath, 'utf8');
@@ -304,18 +310,18 @@ function testKnowledgeMarkdownEditorUsesCodeMirrorImplementation() {
   );
   assert.match(
     editorSource,
-    /\.cm-md-live-block\)[\s\S]*?background:\s*color-mix\(in srgb, var\(--ui-surface-panel\)[\s\S]*?transparent\);/,
-    'expected Live Preview block widgets to use a subtle translucent background instead of a fully opaque card',
+    /\.cm-md-live-block\)[\s\S]*?background:\s*var\(--knowledge-md-block-bg,[\s\S]*?color-mix\(in srgb, var\(--ui-surface-panel\)[\s\S]*?transparent\)\);/,
+    'expected Live Preview block widgets to use configurable subtle translucent backgrounds instead of fully opaque cards',
   );
   assert.match(
     editorSource,
-    /\.cm-md-live-code-render-preview[\s\S]*?position:\s*relative;[\s\S]*?background:\s*color-mix\(in srgb, var\(--ui-surface-panel-muted\)[\s\S]*?transparent\);/,
-    'expected code fence previews to keep a lightweight rendered shell without clipping body rows',
+    /\.cm-md-live-code-render-preview[\s\S]*?position:\s*relative;[\s\S]*?background:\s*var\(--knowledge-md-code-bg,[\s\S]*?color-mix\(in srgb, var\(--ui-surface-panel-muted\)[\s\S]*?transparent\)\);/,
+    'expected code fence previews to keep a configurable lightweight rendered shell without clipping body rows',
   );
   assert.match(
     editorSource,
-    /\.cm-md-live-code-render-preview\)[\s\S]*?background:\s*color-mix\(in srgb, var\(--ui-surface-panel-muted\) 44%, transparent\);/,
-    'expected inactive code fence previews to use a darker translucent gray background',
+    /\.cm-md-live-code-render-preview\)[\s\S]*?background:\s*var\(--knowledge-md-code-bg,[\s\S]*?color-mix\(in srgb, var\(--ui-surface-panel-muted\) 44%, transparent\)\);/,
+    'expected inactive code fence previews to use a configurable darker translucent background',
   );
   assert.match(
     editorSource,
@@ -349,13 +355,13 @@ function testKnowledgeMarkdownEditorUsesCodeMirrorImplementation() {
   );
   assert.match(
     editorSource,
-    /\.cm-md-live-source-block--code_fence[\s\S]*?background:\s*color-mix\(in srgb, var\(--ui-surface-panel-muted\) 44%, transparent\);[\s\S]*?box-shadow:\s*none;/,
-    'expected active code fence source blocks to use the same darker background as inactive previews',
+    /\.cm-md-live-source-block--code_fence[\s\S]*?background:\s*var\(--knowledge-md-code-bg,[\s\S]*?color-mix\(in srgb, var\(--ui-surface-panel-muted\) 44%, transparent\)\);[\s\S]*?box-shadow:\s*none;/,
+    'expected active code fence source blocks to use the same configurable darker background as inactive previews',
   );
   assert.match(
     editorSource,
-    /\.knowledge-md-math--block[\s\S]*?background:\s*color-mix\(in srgb, var\(--ui-surface-panel-muted\)[\s\S]*?transparent\);/,
-    'expected rendered math blocks to use a subtle translucent background',
+    /\.knowledge-md-math--block[\s\S]*?background:\s*var\(--knowledge-md-diagram-bg,[\s\S]*?color-mix\(in srgb, var\(--ui-surface-panel-muted\)[\s\S]*?transparent\)\);/,
+    'expected rendered math blocks to use a configurable subtle translucent background',
   );
   assert.match(
     editorSource,
@@ -369,22 +375,22 @@ function testKnowledgeMarkdownEditorUsesCodeMirrorImplementation() {
   );
   assert.match(
     editorSource,
-    /\.markdown-body :deep\(\.knowledge-md-mermaid\)[\s\S]*?text-align:\s*center;/,
-    'expected rendered Mermaid diagrams in the Markdown editor preview to center inline fallback states',
+    /\.markdown-body :deep\(\.knowledge-md-mermaid\)[\s\S]*?display:\s*inline-flex;[\s\S]*?align-items:\s*center;[\s\S]*?padding:\s*6px 8px;/,
+    'expected rendered Mermaid diagrams in the Markdown editor preview to size tightly around content and center it',
   );
   assert.match(
     editorSource,
-    /\.markdown-body :deep\(\.knowledge-md-mermaid svg\)[\s\S]*?display:\s*block;[\s\S]*?margin:\s*0 auto;/,
+    /\.markdown-body :deep\(\.knowledge-md-mermaid svg\)[\s\S]*?display:\s*block;[\s\S]*?margin:\s*auto;/,
     'expected rendered Mermaid SVGs in the Markdown editor preview to be centered',
   );
   assert.match(
     virtualListSource,
-    /\.markdown-preview-virtual-list :deep\(\.knowledge-md-mermaid\)[\s\S]*?text-align:\s*center;/,
-    'expected rendered Mermaid diagrams in virtual preview blocks to center inline fallback states',
+    /\.markdown-preview-virtual-list :deep\(\.knowledge-md-mermaid\)[\s\S]*?display:\s*inline-flex;[\s\S]*?align-items:\s*center;[\s\S]*?padding:\s*6px 8px;/,
+    'expected rendered Mermaid diagrams in virtual preview blocks to size tightly around content and center it',
   );
   assert.match(
     virtualListSource,
-    /\.markdown-preview-virtual-list :deep\(\.knowledge-md-mermaid svg\)[\s\S]*?display:\s*block;[\s\S]*?margin:\s*0 auto;/,
+    /\.markdown-preview-virtual-list :deep\(\.knowledge-md-mermaid svg\)[\s\S]*?display:\s*block;[\s\S]*?margin:\s*auto;/,
     'expected rendered Mermaid SVGs in virtual preview blocks to be centered',
   );
 }
@@ -401,6 +407,31 @@ function testKnowledgePagePersonalizationContextMenus() {
   assert.match(source, /type KnowledgePersonalizationRegion = 'page' \| 'left' \| 'editor' \| 'right'/, 'expected page/region personalization scopes');
   assert.match(source, /const knowledgePersonalizationStorageKey = 'knowledge\.personalization'/, 'expected personalization settings to persist locally');
   assert.match(source, /knowledgePersonalizationPageStyle/, 'expected the knowledge page to expose CSS variables for custom backgrounds');
+  assert.match(source, /type KnowledgeBlockSurfaceKey = 'base' \| 'code' \| 'table' \| 'diagram' \| 'callout' \| 'quote' \| 'inlineCode' \| 'canvas'/, 'expected block style customization to cover all editor block surface categories');
+  assert.match(source, /appearanceSchemes: KnowledgeAppearanceScheme\[\]/, 'expected personalization settings to persist reusable knowledge appearance schemes');
+  assert.match(source, /activeAppearanceSchemeId: string/, 'expected active appearance scheme selection to persist');
+  assert.match(source, /leftBackground: KnowledgeAreaBackground;[\s\S]*?editorBackground: KnowledgeAreaBackground;[\s\S]*?rightBackground: KnowledgeAreaBackground;[\s\S]*?blockStyle: KnowledgeBlockStyleSettings;[\s\S]*?selectionBackgroundColor: string;/, 'expected reusable schemes to save the full knowledge background set, block styles, and selection background');
+  assert.match(source, /function createKnowledgeBlockStyleVars/, 'expected knowledge page to export block style settings as CSS variables');
+  assert.match(source, /--knowledge-block-code-bg/, 'expected Notion-like block editor code backgrounds to be configurable');
+  assert.match(source, /--knowledge-md-diagram-bg/, 'expected Markdown Mermaid and math backgrounds to be configurable');
+  assert.match(source, /--knowledge-canvas-element-bg/, 'expected canvas editor element backgrounds to be configurable');
+  assert.match(source, /--knowledge-selection-bg/, 'expected selection background color to be published as a scheme-controlled CSS variable');
+  assert.match(source, /saveCurrentKnowledgeAppearanceScheme/, 'expected users to save background, block opacity, and selection color as reusable appearance schemes');
+  assert.match(source, /applyKnowledgeAppearanceScheme/, 'expected users to quickly switch saved knowledge appearance schemes');
+  assert.match(source, /knowledgeBackgroundForRegion\('left'\)/, 'expected saved schemes to include the left background');
+  assert.match(source, /knowledgeBackgroundForRegion\('editor'\)/, 'expected saved schemes to include the editor background');
+  assert.match(source, /knowledgeBackgroundForRegion\('right'\)/, 'expected saved schemes to include the right background');
+  assert.match(source, /knowledgePersonalization\.value\.leftBackground = cloneKnowledgeAreaBackground\(scheme\.leftBackground\)/, 'expected applying a scheme to restore the left background');
+  assert.match(source, /knowledgePersonalization\.value\.editorBackground = cloneKnowledgeAreaBackground\(scheme\.editorBackground\)/, 'expected applying a scheme to restore the editor background');
+  assert.match(source, /knowledgePersonalization\.value\.rightBackground = cloneKnowledgeAreaBackground\(scheme\.rightBackground\)/, 'expected applying a scheme to restore the right background');
+  assert.match(source, /knowledgePersonalization\.value\.selectionBackgroundColor = scheme\.selectionBackgroundColor/, 'expected applying a scheme to restore the selection background');
+  assert.match(source, /normalizeKnowledgeAreaBackground\(item\.editorBackground, pageBackground\)/, 'expected legacy schemes without editor backgrounds to fall back safely');
+  assert.match(source, /deleteActiveKnowledgeAppearanceScheme/, 'expected saved appearance schemes to be removable');
+  assert.match(source, /knowledge-toolbar__scheme-select/, 'expected top toolbar to expose quick appearance scheme switching');
+  assert.match(source, /knowledge-block-style-panel/, 'expected block style configuration panel to be available from the knowledge page');
+  assert.match(source, /UiSliderField/, 'expected block opacity controls to use the shared slider field component');
+  assert.match(source, /UiColorPicker/, 'expected knowledge color choices to use the shared color picker component');
+  assert.doesNotMatch(source, /type="color"/, 'expected knowledge page color choices to be routed through UiColorPicker instead of local native inputs');
   assert.match(source, /knowledge-page--custom-background/, 'expected custom page background state to be reflected as a class');
   assert.match(source, /@contextmenu\.prevent="openKnowledgePersonalizationMenu\(\$event, 'left'\)"/, 'expected left sidebar to open personalization from right-click');
   assert.match(source, /@contextmenu\.prevent="openKnowledgePersonalizationMenu\(\$event, 'editor'\)"/, 'expected editor area to open personalization from right-click');
@@ -413,8 +444,13 @@ function testKnowledgePagePersonalizationContextMenus() {
   assert.doesNotMatch(source, /knowledge-personalization-menu|knowledge-personalization-dialog/, 'expected no hand-rolled personalization menu or dialog');
   assert.match(
     source,
-    /\.knowledge-page--custom-background \.knowledge-sidebar,[\s\S]*?\.knowledge-page--custom-background \.knowledge-workspace,[\s\S]*?\.knowledge-page--custom-background \.knowledge-inspector[\s\S]*?background:\s*transparent/,
-    'expected custom page background to override the three region backgrounds',
+    /\.knowledge-page--custom-background \.knowledge-sidebar,[\s\S]*?\.knowledge-page--custom-background \.knowledge-workspace,[\s\S]*?\.knowledge-page--custom-background \.knowledge-inspector[\s\S]*?background:\s*var\(--knowledge-panel-tint\)/,
+    'expected custom page background regions to keep configurable transparency instead of opaque surfaces',
+  );
+  assert.match(
+    source,
+    /color-mix\(in srgb, var\(--background-color\) 10%, transparent\)[\s\S]*?color-mix\(in srgb, var\(--background-color\) 14%, transparent\)/,
+    'expected custom page background veil to stay light enough for the background image to remain visible',
   );
 }
 
@@ -817,11 +853,48 @@ function testSegmenterStopsTableBeforeEscapedPipeParagraph() {
 
 function testVirtualPreviewOwnsMarkdownBlockStyles() {
   const component = readDesktopFile('src/windows/main/pages/Knowledge/components/markdown/MarkdownPreviewVirtualList.vue');
+  const editor = readDesktopFile('src/windows/main/pages/Knowledge/components/KnowledgeMarkdownEditor.vue');
+  const liveMermaidRule = extractCssRule(editor, '.knowledge-markdown-editor :deep(.cm-md-live-block--mermaid)');
 
-  assert.match(component, /--knowledge-md-block-bg/);
+  assert.match(component, /--knowledge-md-default-block-bg/);
+  assert.match(component, /--knowledge-md-inline-code-bg/);
+  assert.match(component, /--knowledge-md-code-bg/);
+  assert.match(component, /--knowledge-md-table-bg/);
+  assert.match(component, /--knowledge-md-diagram-bg/);
+  assert.match(component, /--knowledge-md-callout-bg/);
+  assert.match(component, /--knowledge-md-quote-bg/);
   assert.match(component, /\.markdown-preview-virtual-list\s+:deep\(pre\)/);
   assert.match(component, /\.markdown-preview-virtual-list\s+:deep\(table\)/);
   assert.match(component, /table-layout:\s*fixed/);
+  assert.match(component, /selectionBackgroundColor\?: string/, 'expected virtual reading preview to receive the configured selection background color');
+  assert.match(component, /\.markdown-preview-virtual-list :deep\(::selection\)[\s\S]*?background:\s*var\(--knowledge-selection-bg/, 'expected virtual reading preview text selection to use the configured selection background');
+  assert.match(editor, /selectionBackgroundColor\?: string/, 'expected Markdown editor to accept the configured selection background color');
+  assert.match(editor, /\.cm-selectionBackground,[\s\S]*?backgroundColor:\s*'var\(--knowledge-selection-bg/, 'expected CodeMirror selection background to use the configured selection background');
+  assert.match(editor, /\.markdown-body :deep\(::selection\)[\s\S]*?background:\s*var\(--knowledge-selection-bg/, 'expected Markdown ReadingView selection background to match live preview');
+  assert.match(editor, /var\(--knowledge-md-code-bg/, 'expected Markdown live and reading code blocks to consume configurable code background');
+  assert.match(editor, /var\(--knowledge-md-table-bg/, 'expected Markdown live and reading tables to consume configurable table background');
+  assert.match(editor, /var\(--knowledge-md-diagram-bg/, 'expected Markdown Mermaid and math regions to consume configurable diagram background');
+  assert.match(editor, /\.cm-md-live-block--mermaid[\s\S]*?min-height:\s*0/, 'expected Markdown live preview Mermaid blocks to avoid inherited oversized block height');
+  assert.match(liveMermaidRule, /width:\s*fit-content;/, 'expected Markdown live preview Mermaid block wrapper to shrink around the diagram');
+  assert.match(liveMermaidRule, /max-width:\s*100%;/, 'expected Markdown live preview Mermaid block wrapper to stay within the editor width');
+  assert.match(liveMermaidRule, /margin:\s*0 auto;/, 'expected Markdown live preview Mermaid block wrapper to center in the editor');
+  assert.doesNotMatch(liveMermaidRule, /(^|\n)\s*width:\s*100%;/, 'expected Markdown live preview Mermaid block wrapper not to occupy a full-width row');
+  assert.match(editor, /\.cm-md-live-block--mermaid \.knowledge-md-mermaid svg[\s\S]*?max-height:\s*min\(24vh,\s*280px\)/, 'expected Markdown live preview Mermaid SVGs to avoid occupying a viewport-sized block');
+  assert.match(editor, /var\(--knowledge-md-callout-bg/, 'expected Markdown callouts to consume configurable callout background');
+  assert.match(editor, /var\(--knowledge-md-quote-bg/, 'expected Markdown quotes to consume configurable quote background');
+  assert.match(editor, /var\(--knowledge-md-inline-code-bg/, 'expected Markdown inline code to consume configurable inline-code background');
+}
+
+function testMermaidSvgSizeIsNormalizedAfterRender() {
+  const renderer = readDesktopFile('src/windows/main/pages/Knowledge/utils/markdown_enhanced_render.ts');
+
+  assert.match(renderer, /normalizeMermaidSvgSize\(element\)/, 'expected Mermaid rendering to normalize SVG size after render');
+  assert.match(renderer, /svg\.getBBox\(\)/, 'expected Mermaid SVG normalization to measure actual rendered content');
+  assert.match(renderer, /svg\.setAttribute\('viewBox'/, 'expected Mermaid SVG normalization to crop the viewBox to rendered content');
+  assert.match(renderer, /svg\.setAttribute\('height', String\(height\)\)/, 'expected Mermaid SVG normalization to publish a compact SVG height');
+  assert.match(renderer, /svg\.removeAttribute\('style'\)/, 'expected Mermaid SVG normalization to clear generated inline sizing that can keep diagrams oversized');
+  assert.match(renderer, /element\.style\.width\s*=\s*'fit-content'/, 'expected Mermaid wrapper normalization to keep the rendered diagram from occupying a full-width block');
+  assert.match(renderer, /requestAnimationFrame\(\(\) => normalizeMermaidSvgSize\(element, true\)\)/, 'expected Mermaid SVG normalization to retry after layout when the first measurement is not ready');
 }
 
 function testBlockCodeTextareaHeightTracksSourceLines() {
@@ -838,6 +911,12 @@ function testBlockTableUsesInteractiveGridRenderer() {
   assert.match(component, /block\.type === 'table'/);
   assert.match(component, /updateTableCell/);
   assert.match(component, /knowledge-block__table-cell/);
+  assert.match(component, /var\(--knowledge-block-code-bg/, 'expected Notion-like code blocks to consume configurable code background');
+  assert.match(component, /var\(--knowledge-block-table-bg/, 'expected Notion-like table blocks to consume configurable table background');
+  assert.match(component, /var\(--knowledge-block-table-cell-bg/, 'expected Notion-like table cells to consume configurable table cell background');
+  assert.match(component, /var\(--knowledge-block-callout-bg/, 'expected Notion-like callouts to consume configurable callout background');
+  assert.match(component, /var\(--knowledge-block-quote-bg/, 'expected Notion-like quotes to consume configurable quote background');
+  assert.match(component, /var\(--knowledge-block-inline-code-bg/, 'expected Notion-like inline code to consume configurable inline-code background');
 }
 
 function testSanitizerRemovesUnsafeHtml() {
@@ -925,6 +1004,7 @@ testSegmenterHandlesLargeDocuments();
 testSegmenterHandlesPathologicalLooseListBlankRun();
 testSegmenterStopsTableBeforeEscapedPipeParagraph();
 testVirtualPreviewOwnsMarkdownBlockStyles();
+testMermaidSvgSizeIsNormalizedAfterRender();
 testBlockCodeTextareaHeightTracksSourceLines();
 testBlockTableUsesInteractiveGridRenderer();
 testSanitizerRemovesUnsafeHtml();
@@ -982,27 +1062,37 @@ const {
   migrateBlockDocumentToV2,
   serializeBlockDocumentV2,
   parseKnowledgeBlockDocumentV2,
+  markdownToBlockDocumentV2,
   blockDocumentV2ToPlainText,
   blockDocumentV2ToMarkdown,
   blockDocumentV2ToV1Document,
   createBlockV2,
   insertBlockAfter,
+  insertBlockAfterWithResult,
+  insertBlocksAfterWithResult,
   removeBlockById,
+  removeBlockWithResult,
   moveBlockById,
   duplicateBlockById,
+  cloneBlockV2ForPaste,
   updateBlockDocumentV2,
   attachAssetToBlockV2,
   findBlockV2,
   indentBlock,
   outdentBlock,
+  splitBlockAtTextOffset,
+  mergeBlockBackward,
+  moveBlockAfter,
+  moveBlockBefore,
 } = require('../src/windows/main/utils/knowledge_blocks_v2.ts');
 
 function testBlockV2DefaultDocument() {
   const document = createDefaultBlockDocumentV2('V2 title');
   assert.equal(document.type, 'guyantools.block-page');
   assert.equal(document.version, 2);
-  assert.equal(document.blocks[0].type, 'heading');
-  assert.equal(document.blocks[0].content[0].text, 'V2 title');
+  assert.equal(document.blocks[0].type, 'paragraph');
+  assert.deepEqual(document.blocks[0].content, []);
+  assert.notEqual(document.blocks[0].type, 'heading', 'Notion-like page title must stay outside the body blocks');
 }
 
 function testBlockV1MigratesToV2() {
@@ -1017,15 +1107,16 @@ function testBlockV2RoundTripAndDerivedText() {
   const serialized = serializeBlockDocumentV2(document);
   const parsed = parseKnowledgeBlockDocumentV2(serialized, 'Fallback');
   assert.equal(parsed.version, 2);
-  assert.match(blockDocumentV2ToPlainText(parsed), /Round trip/);
-  assert.match(blockDocumentV2ToMarkdown(parsed), /^# Round trip/m);
+  assert.equal(blockDocumentV2ToPlainText(parsed), '');
+  assert.doesNotMatch(blockDocumentV2ToMarkdown(parsed), /^# Round trip/m);
 }
 
 function testBlockV2CanDowngradeForCurrentEditor() {
   const document = createDefaultBlockDocumentV2('Downgrade title');
   const v1 = blockDocumentV2ToV1Document(document);
   assert.equal(v1.version, 1);
-  assert.equal(v1.blocks[0].text, 'Downgrade title');
+  assert.equal(v1.blocks[0].type, 'paragraph');
+  assert.equal(v1.blocks[0].text, '');
 }
 
 function testBlockCodecWritesVersionTwoJson() {
@@ -1033,8 +1124,8 @@ function testBlockCodecWritesVersionTwoJson() {
   const payload = createBlockSavePayload(document, undefined);
   const parsed = JSON.parse(payload.contentJson);
   assert.equal(parsed.version, 2);
-  assert.match(payload.contentMarkdown, /Codec title/);
-  assert.match(payload.contentText, /Codec title/);
+  assert.doesNotMatch(payload.contentMarkdown, /^# Codec title/m);
+  assert.equal(payload.contentText, '');
 }
 
 function testBlockV2PureInsertAndRemoveOperations() {
@@ -1085,7 +1176,7 @@ function testBlockV2RecursiveEditingOperations() {
 
 function testBlockV2DocumentUpdateAndAssetAttach() {
   const document = createDefaultBlockDocumentV2('Asset title');
-  const block = document.blocks[1];
+  const block = document.blocks[0];
   const updated = updateBlockDocumentV2(document, block.id, {
     content: [{ type: 'text', text: 'Updated paragraph' }],
   });
@@ -1265,5 +1356,718 @@ testBlockToMarkdownConversionProducesMarkdownCopy();
 testCanvasToMarkdownConversionProducesSummary();
 testMarkdownToCanvasConversionProducesCards();
 testBlockToCanvasConversionProducesCards();
+
+function testBlockEditorExposesCompleteNotionLikeTypes() {
+  const editor = readDesktopFile('src/windows/main/pages/Knowledge/components/KnowledgeBlockEditor.vue');
+  const renderer = readDesktopFile('src/windows/main/pages/Knowledge/components/block/KnowledgeBlockRenderer.vue');
+  const blockV2 = readDesktopFile('src/windows/main/utils/knowledge_blocks_v2.ts');
+
+  for (const type of ['toggle', 'table', 'page_reference', 'todo_reference']) {
+    assert.match(editor, new RegExp(`type:\\s*'${type}'`), `expected block editor insertion catalog to expose ${type}`);
+  }
+
+  assert.match(renderer, /block\.type === 'toggle'/, 'expected toggle blocks to have a dedicated renderer branch');
+  assert.match(renderer, /block\.type === 'page_reference'/, 'expected page reference blocks to have a dedicated renderer branch');
+  assert.match(renderer, /block\.type === 'todo_reference'/, 'expected Todo reference blocks to have a dedicated renderer branch');
+  assert.match(blockV2, /block\.type === 'table'/, 'expected table blocks to have first-class Markdown derivation');
+  assert.match(blockV2, /block\.type === 'toggle'/, 'expected toggle blocks to have first-class Markdown derivation');
+}
+
+function testBlockV2DerivesTableAndToggleMarkdown() {
+  const table = createBlockV2('table', '| A | B |\n| --- | --- |\n| 1 | 2 |');
+  const toggle = createBlockV2('toggle', 'Details');
+  toggle.children = [createBlockV2('paragraph', 'Nested answer')];
+  const document = {
+    type: 'guyantools.block-page',
+    version: 2,
+    updatedAt: '2026-06-11T00:00:00.000Z',
+    blocks: [table, toggle],
+  };
+  const markdown = blockDocumentV2ToMarkdown(document);
+
+  assert.match(markdown, /\| A \| B \|/);
+  assert.match(markdown, /<details>/);
+  assert.match(markdown, /<summary>Details<\/summary>/);
+  assert.match(markdown, /Nested answer/);
+}
+
+function testCanvasEditorExposesCompleteOneNoteLikeTools() {
+  const toolbar = readDesktopFile('src/windows/main/pages/Knowledge/components/canvas/KnowledgeCanvasToolbar.vue');
+  const editor = readDesktopFile('src/windows/main/pages/Knowledge/components/KnowledgeCanvasEditor.vue');
+  const renderer = readDesktopFile('src/windows/main/pages/Knowledge/components/canvas/KnowledgeCanvasElementRenderer.vue');
+  const page = readDesktopFile('src/windows/main/pages/Knowledge/KnowledgePage.vue');
+
+  assert.match(toolbar, /export type CanvasTool = 'select' \| 'text' \| 'rect' \| 'arrow' \| 'path' \| 'image' \| 'file' \| 'page_card' \| 'todo_card' \| 'group'/);
+  for (const tool of ['file', 'page_card', 'todo_card', 'group']) {
+    assert.match(toolbar, new RegExp(`value:\\s*'${tool}'`), `expected canvas toolbar to expose ${tool}`);
+  }
+
+  assert.match(editor, /resizeState/, 'expected canvas editor to support direct resize state');
+  assert.match(editor, /locked/, 'expected canvas editor operations to honor locked elements');
+  assert.match(editor, /updateSelectedBoolean\('locked'/, 'expected canvas inspector to expose locked toggle');
+  assert.match(editor, /const SNAP_THRESHOLD\s*=\s*8/, 'expected canvas dragging to define a OneNote-like snap threshold');
+  assert.match(editor, /snapGuides/, 'expected canvas editor to render smart alignment guides while dragging');
+  assert.match(editor, /function resolveCanvasSnap/, 'expected canvas dragging to resolve snap offsets against nearby blocks');
+  assert.match(editor, /function applyCanvasSnap/, 'expected canvas dragging to apply smart snap offsets');
+  assert.match(editor, /event\.altKey/, 'expected Alt-drag to temporarily bypass canvas snapping');
+  assert.match(editor, /knowledge-canvas-editor__snap-guide/, 'expected visible canvas snap guides in the stage');
+  assert.match(editor, /function alignSelectedElements/, 'expected selected canvas elements to support align commands');
+  assert.match(editor, /function distributeSelectedElements/, 'expected selected canvas elements to support distribute commands');
+  assert.match(editor, /function mergeSelectedContainers/, 'expected selected canvas note containers to support merging');
+  assert.match(editor, /function nudgeSelectedElements/, 'expected selected canvas elements to support keyboard nudging');
+  assert.match(editor, /event\.key\.startsWith\('Arrow'\)/, 'expected Arrow keys to nudge selected canvas elements');
+  assert.match(editor, /event\.shiftKey \? 10 : 1/, 'expected Shift+Arrow to use a larger canvas nudge step');
+  assert.match(toolbar, /\(event: 'align'/, 'expected toolbar to emit canvas align commands');
+  assert.match(toolbar, /\(event: 'distribute'/, 'expected toolbar to emit canvas distribute commands');
+  assert.match(toolbar, /\(event: 'merge'\)/, 'expected toolbar to emit canvas container merge command');
+  assert.match(renderer, /resize-start/, 'expected selected canvas elements to emit resize handle events');
+  assert.match(renderer, /canvasElementLabel/, 'expected canvas cards to render type-specific labels');
+  assert.match(renderer, /function isInlineTextEditable/, 'expected canvas renderer to share one direct-edit predicate for text-like elements');
+  for (const type of ['rich_text', 'rect', 'file', 'page_card', 'todo_card', 'group']) {
+    assert.match(renderer, new RegExp(`['"]${type}['"]`), `expected canvas renderer inline editing to cover ${type}`);
+  }
+  assert.match(renderer, /@pointerdown\.stop/, 'expected canvas inline text editor pointerdown to avoid starting element drag');
+  assert.match(editor, /inlineTextEditableElementTypes/, 'expected canvas inspector text editing to share text-like element coverage');
+  assert.match(editor, /kind: 'image' \| 'file'/, 'expected canvas asset payloads to support image and file cards');
+  assert.match(editor, /chooseFileAsset/, 'expected canvas file cards to expose attachment selection');
+  assert.match(page, /kind: 'image' \| 'file'/, 'expected canvas asset handler to preserve image/file payload kind');
+  assert.match(page, /canvas:\s*'画布元素'/, 'expected block style panel to expose canvas element styling');
+  assert.match(page, /--knowledge-canvas-element-bg/, 'expected knowledge page to publish canvas element background CSS variable');
+  assert.match(renderer, /function fillValue/, 'expected canvas renderer to centralize fill fallback for configurable element backgrounds');
+  assert.match(renderer, /function isLegacyDefaultFill/, 'expected canvas renderer to treat old built-in fills as global-scheme defaults');
+  assert.match(renderer, /isLegacyDefaultFill\(fill\)/, 'expected legacy canvas default fills to fall back to configurable canvas element background');
+  assert.match(renderer, /var\(--knowledge-canvas-element-bg/, 'expected canvas elements to consume configurable canvas element background');
+  assert.match(renderer, /background:\s*var\(--knowledge-canvas-element-bg/, 'expected canvas text/editor surfaces to consume configurable canvas element background');
+  assert.match(editor, /var\(--knowledge-selection-bg/, 'expected canvas marquee selection to use the configured selection background');
+  assert.match(editor, /UiColorPicker/, 'expected canvas color choices to use the shared color picker component');
+  assert.doesNotMatch(editor, /style:\s*\{\s*fill:\s*'rgba\(74, 144, 217, 0\.12\)'/, 'page cards should not hard-code a default fill that bypasses global appearance schemes');
+  assert.doesNotMatch(editor, /style:\s*\{\s*fill:\s*'rgba\(34, 197, 94, 0\.12\)'/, 'todo cards should not hard-code a default fill that bypasses global appearance schemes');
+  assert.match(editor, /\.knowledge-canvas-editor\s*\{[\s\S]*?background:\s*transparent/, 'expected canvas editor shell to preserve configured editor/page backgrounds');
+  assert.match(editor, /\.knowledge-canvas-editor__stage\s*\{[\s\S]*?background:\s*transparent/, 'expected canvas stage to preserve configured editor/page backgrounds');
+}
+
+function testBlockEditorHasFocusAndMarkdownShortcuts() {
+  const editor = readDesktopFile('src/windows/main/pages/Knowledge/components/KnowledgeBlockEditor.vue');
+  const renderer = readDesktopFile('src/windows/main/pages/Knowledge/components/block/KnowledgeBlockRenderer.vue');
+
+  assert.match(editor, /pendingFocusBlockId/, 'expected block editor to track the block that should receive focus after insertion');
+  assert.match(editor, /focus-block-id/, 'expected block editor to pass focus target into renderers');
+  assert.match(renderer, /editableRef/, 'expected block renderer to keep a focusable primary contenteditable ref');
+  assert.match(renderer, /applyMarkdownShortcut/, 'expected block renderer to convert Markdown shortcuts into block types');
+  assert.match(renderer, /value === '# '/, 'expected heading Markdown shortcut');
+  assert.match(renderer, /headingLevel/, 'expected heading blocks to derive display level from attrs');
+  assert.match(renderer, /knowledge-block__editable--heading-\$\{headingLevel\.value\}/, 'expected heading blocks to apply a level-specific class');
+  assert.match(renderer, /\.knowledge-block__editable--heading-1[\s\S]*?font-size:\s*32px/, 'expected H1 blocks to render larger than body text');
+  assert.match(renderer, /\.knowledge-block__editable--heading-2[\s\S]*?font-size:\s*25px/, 'expected H2 blocks to render with a middle heading size');
+  assert.match(renderer, /\.knowledge-block__editable--heading-3[\s\S]*?font-size:\s*19px/, 'expected H3 blocks to render smaller than H2');
+  assert.match(renderer, /\.knowledge-block__editable--heading-4[\s\S]*?font-size:\s*16px/, 'expected H4 blocks to match the Notion-like compact heading command');
+  assert.match(renderer, /value === '\* ' \|\| value === '- ' \|\| value === '\+ '/, 'expected Notion-like bullet list Markdown shortcuts');
+  assert.match(renderer, /value === '1\. '/, 'expected ordered list Markdown shortcut');
+  assert.match(renderer, /value === '---'/, 'expected divider Markdown shortcut');
+  assert.match(renderer, /value === '\[x\] ' \|\| value === '\[X\] '/, 'expected checked task Markdown shortcut');
+  assert.match(renderer, /value === '> '[\s\S]*?emitShortcutConversion\('toggle'/, 'expected > space to create a toggle list');
+  assert.match(renderer, /value === '" '[\s\S]*?emitShortcutConversion\('quote'/, 'expected double-quote space to create a quote block');
+  assert.match(renderer, /value === '```'/, 'expected code block Markdown shortcut');
+}
+
+function testNotionLikeBlockEditingContracts() {
+  const editor = readDesktopFile('src/windows/main/pages/Knowledge/components/KnowledgeBlockEditor.vue');
+  const renderer = readDesktopFile('src/windows/main/pages/Knowledge/components/block/KnowledgeBlockRenderer.vue');
+  const handle = readDesktopFile('src/windows/main/pages/Knowledge/components/block/KnowledgeBlockHandle.vue');
+  const slashMenu = readDesktopFile('src/windows/main/pages/Knowledge/components/block/KnowledgeSlashMenu.vue');
+  const blockV2 = readDesktopFile('src/windows/main/utils/knowledge_blocks_v2.ts');
+  const editingUtilsPath = path.join(
+    __dirname,
+    '../src/windows/main/pages/Knowledge/utils/knowledge_block_editing.ts',
+  );
+  const codeTemplate = renderer.match(/<template v-else-if="block\.type === 'code'">[\s\S]*?<\/template>/)?.[0] ?? '';
+  const tableTemplate = renderer.match(/<template v-else-if="block\.type === 'table'">[\s\S]*?<template v-else-if="block\.type === 'image'/)?.[0] ?? '';
+
+  assert.match(renderer, /contenteditable/, 'expected block renderer to use contenteditable for Notion-like text editing');
+  assert.match(renderer, /beforeinput/, 'expected block renderer to intercept beforeinput for document editing behavior');
+  assert.match(renderer, /compositionstart/, 'expected block renderer to respect IME composition start');
+  assert.match(renderer, /compositionend/, 'expected block renderer to respect IME composition end');
+  assert.match(renderer, /split-block/, 'expected renderer to emit block split requests');
+  assert.match(renderer, /merge-backward/, 'expected renderer to emit backward merge requests');
+  assert.match(renderer, /focus-previous-block/, 'expected renderer to request previous block focus on ArrowUp at block start');
+  assert.match(renderer, /focus-next-block/, 'expected renderer to request next block focus on ArrowDown at block end');
+  assert.match(renderer, /function isCaretAtEnd/, 'expected renderer to detect when the caret is at the end of a block');
+  assert.match(renderer, /event\.key === 'ArrowUp'/, 'expected ArrowUp at block start to move focus to the previous block');
+  assert.match(renderer, /event\.key === 'ArrowDown'/, 'expected ArrowDown at block end to move focus to the next block');
+  assert.match(
+    renderer,
+    /\(event\.metaKey \|\| event\.ctrlKey\) && !event\.shiftKey && event\.key === 'Enter'/,
+    'expected Ctrl/Cmd+Enter to toggle Notion-like task and toggle block state',
+  );
+  assert.match(
+    renderer,
+    /function toggleBlockCheckedOrOpen/,
+    'expected renderer to centralize Ctrl/Cmd+Enter state toggling for task and toggle blocks',
+  );
+  assert.match(
+    renderer,
+    /shouldConvertEmptyBlockBackToParagraph/,
+    'expected empty non-paragraph blocks to turn back into paragraph on Backspace',
+  );
+  assert.match(renderer, /apply-inline-mark/, 'expected renderer to expose inline mark actions');
+  assert.match(renderer, /class="knowledge-block-inline-toolbar"/, 'expected renderer to expose a floating inline toolbar');
+  assert.match(renderer, /role="toolbar"[\s\S]*?aria-label="文本格式"/, 'expected inline toolbar to expose a text formatting toolbar role');
+  assert.match(renderer, /knowledge-block-inline-toolbar__divider/, 'expected inline toolbar to visually group Notion-like text actions');
+  assert.match(renderer, /const toolbarHalfWidth = 88/, 'expected inline toolbar positioning to clamp from the centered toolbar width');
+  assert.match(renderer, /window\.innerWidth - toolbarHalfWidth/, 'expected inline toolbar positioning to stay inside the viewport');
+  assert.match(renderer, /transform:\s*translate\(-50%, -100%\)/, 'expected inline toolbar to center above the text selection');
+  assert.match(renderer, /\.knowledge-block-inline-toolbar\s*\{[^}]*background:\s*rgb\(25 25 25\)/, 'expected inline toolbar to use a Notion-like dark floating surface');
+  assert.doesNotMatch(renderer, /\.knowledge-block-inline-toolbar\s*\{[^}]*background:\s*var\(--ui-surface-panel\)/, 'inline toolbar should not look like a normal light panel');
+  assert.match(renderer, /<UiButton[\s\S]*?@mousedown\.prevent="applyInlineMark\('bold'\)"/, 'expected inline toolbar to use shared buttons for marks');
+  assert.match(renderer, /iconify:lucide:bold/, 'expected inline toolbar to use icon buttons instead of raw text controls');
+  assert.match(renderer, /editableHtmlToInlineContent/, 'expected renderer to parse editable HTML into inline content');
+  assert.match(renderer, /inlineContentToEditableHtml/, 'expected renderer to render inline content into editable HTML');
+  assert.doesNotMatch(
+    renderer,
+    /<template v-else>\s*<UiTextarea/,
+    'generic text blocks should not fall back to a textarea form control',
+  );
+
+  assert.match(handle, /draggable/, 'expected block handle to expose a draggable grip');
+  assert.match(handle, /dragstart/, 'expected block handle to emit drag start');
+  assert.match(handle, /event: 'menu'/, 'expected block handle grip to open a Notion-like block action menu');
+  assert.match(handle, /insert-after/, 'expected block handle to keep a plus insertion affordance');
+  assert.match(handle, /position:\s*absolute/, 'expected Notion-like block handle to float beside the block instead of occupying a layout column');
+  assert.match(handle, /flex-direction:\s*row/, 'expected Notion-like block handle controls to sit horizontally');
+  assert.doesNotMatch(renderer, /grid-template-columns:\s*32px minmax\(0,\s*1fr\)/, 'block rows should not reserve a permanent action-handle column');
+  assert.doesNotMatch(handle, /title="上移"/, 'Notion-like block handle should not rely on permanent up/down buttons');
+  assert.doesNotMatch(handle, /title="下移"/, 'Notion-like block handle should not rely on permanent up/down buttons');
+
+  assert.match(slashMenu, /activeIndex/, 'expected slash menu to track an active keyboard item');
+  assert.match(slashMenu, /prefix\?: '\/' \| '\+'/, 'expected slash menu to preserve whether it was opened by slash or plus');
+  assert.match(slashMenu, /displayPrefix/, 'expected slash menu display to reflect the active command prefix');
+  assert.match(slashMenu, /ArrowDown/, 'expected slash menu ArrowDown navigation');
+  assert.match(slashMenu, /ArrowUp/, 'expected slash menu ArrowUp navigation');
+  assert.match(slashMenu, /event\.key === 'Home'/, 'expected slash menu Home navigation');
+  assert.match(slashMenu, /event\.key === 'End'/, 'expected slash menu End navigation');
+  assert.match(slashMenu, /Enter/, 'expected slash menu Enter selection');
+  assert.match(slashMenu, /Escape/, 'expected slash menu Escape close');
+  assert.match(slashMenu, /pointerdown/, 'expected slash menu to close from outside pointer interactions like Notion');
+  assert.match(slashMenu, /function handleGlobalPointerdown/, 'expected slash menu to centralize outside-click closing');
+  assert.match(slashMenu, /aria-activedescendant/, 'expected slash menu to expose the active item to assistive tech');
+  assert.match(slashMenu, /knowledge-slash-menu__footer/, 'expected slash menu to render Notion-like keyboard hints');
+  assert.match(slashMenu, /\{\{ displayQuery \|\| displayPrefix \}\}输入以搜索/, 'expected slash menu footer to mirror the Notion slash-query hint');
+  assert.match(slashMenu, /关闭菜单 <kbd>esc<\/kbd>/, 'expected slash menu footer to use the Notion-like close hint');
+  assert.match(slashMenu, /description/, 'expected slash menu commands to include Notion-like descriptions');
+  assert.match(slashMenu, /shortcut/, 'expected slash menu commands to include visible shortcut hints');
+  assert.doesNotMatch(slashMenu, /knowledge-slash-menu__search-row/, 'slash menu should not add a separate form-like search row');
+  assert.doesNotMatch(slashMenu, /placeholder="筛选块类型"/, 'slash menu should keep the Notion-like query hint in the footer');
+  assert.match(slashMenu, /knowledge-slash-menu__section-label/, 'expected slash menu groups to read like Notion command sections');
+  assert.match(slashMenu, /type SlashMenuOption = \{[\s\S]*?attrs\?: Record<string, unknown>/, 'expected slash menu options to carry block attrs such as heading levels');
+  assert.match(slashMenu, /const suggestedCommands = \[/, 'expected slash menu to define a Notion-like Suggested section order by command id');
+  assert.match(slashMenu, /group: '建议'/, 'expected slash menu to place common empty-query blocks in a Suggested section');
+  assert.match(slashMenu, /if \(query\) return options;/, 'expected slash menu search results to avoid empty-query suggested reordering');
+  assert.match(slashMenu, /filter\(\(option\) => !suggestedCommandSet\.has\(optionCommandKey\(option\)\)\)/, 'expected slash menu suggested blocks to avoid duplicate entries while allowing multiple heading levels');
+  assert.match(slashMenu, /knowledge-slash-menu__icon-card/, 'expected slash menu options to use Notion-like square icon cards');
+  assert.match(slashMenu, /knowledge-slash-menu__body/, 'expected slash menu to separate scrollable body from header and footer');
+  assert.match(slashMenu, /width:\s*min\(324px, calc\(100vw - 24px\)\)/, 'expected slash menu popover to match the compact Notion command menu width');
+  assert.match(slashMenu, /box-shadow:[\s\S]*0 12px 28px/, 'expected slash menu popover to use a Notion-like floating shadow');
+  assert.doesNotMatch(slashMenu, /backdrop-filter/, 'slash menu should read as a solid Notion-like command palette, not glass');
+
+  assert.match(editor, /draggedBlockId/, 'expected block editor to track dragged blocks');
+  assert.match(editor, /function selectSlashBlock/, 'expected block editor to handle slash menu selection');
+  assert.match(editor, /prefix: '\/' \| '\+'/, 'expected editor slash menu state to track Notion-like slash and plus prefixes');
+  assert.match(editor, /function isBlockCommandText/, 'expected editor to centralize slash and plus command text detection');
+  assert.match(editor, /value\.startsWith\('\/'\) \|\| value\.startsWith\('\+'\)/, 'expected editor command text detection to support + as well as /');
+  assert.match(editor, /:prefix="slashMenu\?\.prefix \?\? '\/'"/, 'expected editor to pass the active command prefix into the command menu');
+  assert.match(editor, /function selectSlashBlock\(type: KnowledgeBlockV2Type, attrsPatch: Record<string, unknown> = \{\}\)/, 'expected slash menu selection to accept explicit block attrs');
+  assert.match(editor, /selectSlashBlock[\s\S]*?convertBlock\(block\.id, type, attrsPatch\)/, 'expected slash menu selection to convert the current block with attrs such as heading level');
+  assert.doesNotMatch(editor, /selectSlashBlock[\s\S]*?addBlock\(type, block\.id\)/, 'slash menu selection should not append a new block instead of converting the current slash block');
+  assert.match(renderer, /function blockCommandPrefix/, 'expected renderer to detect both Notion command prefixes');
+  assert.match(renderer, /value\.startsWith\('\/'\)/, 'expected renderer to keep slash command entry');
+  assert.match(renderer, /value\.startsWith\('\+'\)/, 'expected renderer to support plus command entry');
+  assert.match(renderer, /prefix,\s*rect:/, 'expected renderer to emit the command prefix with slash menu open events');
+  assert.match(editor, /const SLASH_MENU_WIDTH = 324/, 'expected slash menu positioning to use the rendered menu width');
+  assert.match(editor, /const BLOCK_MENU_WIDTH = 324/, 'expected block menu positioning to use the rendered menu width');
+  assert.match(editor, /function clampMenuAxis/, 'expected floating command menus to clamp inside small viewports');
+  assert.match(editor, /clampMenuAxis\(\(rect\?\.left \?\? 24\) - 4, SLASH_MENU_WIDTH, window\.innerWidth\)/, 'expected slash menu x-position to clamp against the viewport');
+  assert.match(editor, /clampMenuAxis\(\(rect\?\.left \?\? 24\) - 4, BLOCK_MENU_WIDTH, window\.innerWidth\)/, 'expected block menu x-position to clamp against the viewport');
+  assert.match(editor, /dropTargetBlockId/, 'expected block editor to track drop targets');
+  assert.match(editor, /moveBlockBefore/, 'expected block editor to move blocks before arbitrary targets');
+  assert.match(editor, /dropTargetPlacement/, 'expected block editor to track before-or-after drag placement like Notion');
+  assert.match(editor, /type DropPlacement = 'before' \| 'after'/, 'expected editor drag placement to stay explicit');
+  assert.match(editor, /function handleBlockDragLeave/, 'expected editor to clear stale drag insertion previews on drag leave');
+  assert.match(editor, /function getDraggingBlockIds/, 'expected editor to resolve single-block and selected-range drag payloads');
+  assert.match(editor, /selectedBlockIds\.value\.includes\(blockId\) \? selectedBlockIds\.value : \[blockId\]/, 'expected dragging a selected block to move the whole selected range');
+  assert.match(editor, /draggingIds\.includes\(payload\.blockId\)/, 'expected selected-range drag to ignore drops onto any selected block');
+  assert.match(editor, /const orderedDraggingIds = payload\.placement === 'before'[\s\S]*?\[\.{3}draggingIds\]\.reverse\(\)/, 'expected after-target range drops to reverse iteration and preserve selection order');
+  assert.match(editor, /for \(const blockId of orderedDraggingIds\)/, 'expected selected-range drag drops to move every dragged block');
+  assert.match(editor, /draggingIds\.length > 1[\s\S]*?focusSelectedBlockShell\(\)/, 'expected range drops to keep keyboard focus on the selected-block shell');
+  assert.match(editor, /payload\.placement === 'before'[\s\S]*?moveBlockBefore/, 'expected before drop placement to move the dragged block before the target');
+  assert.match(editor, /moveBlockAfter\(nextDocument, blockId, payload\.blockId\)/, 'expected after drop placement to move the dragged block after the target');
+  assert.match(editor, /:drop-target-placement="dropTargetPlacement"/, 'expected editor to pass the active drop placement into block renderers');
+  assert.match(editor, /@drag-leave="handleBlockDragLeave"/, 'expected editor to clear block drag state from renderer dragleave events');
+  assert.match(renderer, /resolveDropPlacement/, 'expected renderer to resolve whether the pointer is above or below the block midpoint');
+  assert.match(renderer, /event\.clientY > rect\.top \+ rect\.height \/ 2 \? 'after' : 'before'/, 'expected renderer to use the block midpoint for Notion-like insertion placement');
+  assert.match(renderer, /dropTargetPlacement\?: DropPlacement \| null/, 'expected renderer to receive before-or-after drag placement');
+  assert.match(renderer, /knowledge-block--drop-before/, 'expected renderer to style before drop insertion lines');
+  assert.match(renderer, /knowledge-block--drop-after/, 'expected renderer to style after drop insertion lines');
+  assert.match(renderer, /@dragleave="event => emit\('drag-leave'/, 'expected renderer to emit dragleave for clearing stale drop previews');
+  assert.match(editor, /blockMenu/, 'expected block editor to expose a block action menu from the handle');
+  assert.match(editor, /runBlockMenuAction/, 'expected block action menu to route convert, duplicate, indent, and delete actions');
+  assert.match(editor, /function getBlockMenuTargetIds/, 'expected block action menu to resolve selected-range targets');
+  assert.match(editor, /selectedBlockIds\.value\.includes\(blockId\) \? selectedBlockIds\.value : \[blockId\]/, 'expected block menu actions opened inside a selection to apply to the whole selected range');
+  assert.match(editor, /const lastTargetId = targetIds\[targetIds\.length - 1\] \?\? blockId/, 'expected block menu insertion to happen after the selected range');
+  assert.match(editor, /targetIds\.length > 1 \? duplicateSelectedBlocks\(\) : duplicateBlock\(blockId\)/, 'expected block menu duplicate to preserve selected-range behavior');
+  assert.match(editor, /targetIds\.length > 1 \? removeSelectedBlocks\(\) : removeBlock\(blockId\)/, 'expected block menu delete to preserve selected-range behavior');
+  assert.match(editor, /targetIds\.length > 1 \? indentSelectedBlocks\('indent'\) : indentBlockDraft\(blockId\)/, 'expected block menu indent to preserve selected-range behavior');
+  assert.match(editor, /targetIds\.forEach\(\(targetId\) => emit\('convert-todo', targetId\)\)/, 'expected block menu Todo conversion to apply to every selected target');
+  assert.match(editor, /function convertBlocks\(blockIds: string\[\], type: KnowledgeBlockV2Type, attrsPatch: Record<string, unknown> = \{\}\)/, 'expected block conversion to support selected ranges and heading attrs');
+  assert.match(editor, /convertBlock\(blockId: string, type: KnowledgeBlockV2Type, attrsPatch: Record<string, unknown> = \{\}\)/, 'expected single-block conversion to forward attrs such as heading level');
+  assert.match(editor, /\.\.\.defaultAttrsForType\(type, block\.attrs\),[\s\S]*?\.\.\.attrsPatch/, 'expected conversion attrs to preserve defaults while applying explicit heading levels');
+  assert.match(editor, /convertBlocks\(targetIds, 'heading', \{ level: 1 \}\)/, 'expected Heading 1 menu action to set heading level 1');
+  assert.match(editor, /convertBlocks\(targetIds, 'heading', \{ level: 2 \}\)/, 'expected Heading 2 menu action to set heading level 2');
+  assert.match(editor, /convertBlocks\(targetIds, 'heading', \{ level: 3 \}\)/, 'expected Heading 3 menu action to set heading level 3');
+  assert.match(editor, /id: 'heading_4'[\s\S]*?attrs: \{ level: 4 \}/, 'expected slash menu to expose Heading 4 with explicit attrs');
+  assert.match(editor, /blockMenuGroups/, 'expected block menu commands to be data-driven for consistent keyboard behavior');
+  assert.match(editor, /convert_todo/, 'expected block menu to expose Todo conversion as a block action');
+  assert.match(editor, /heading_1/, 'expected block menu to expose Heading 1 without a permanent heading dropdown');
+  assert.match(editor, /heading_2/, 'expected block menu to expose Heading 2 without a permanent heading dropdown');
+  assert.match(editor, /heading_3/, 'expected block menu to expose Heading 3 without a permanent heading dropdown');
+  assert.doesNotMatch(renderer, /UiSelect[\s\S]*?level/, 'heading levels should be changed from the block menu, not a permanent inline select');
+  assert.match(editor, /emit\('convert-todo', blockId\)/, 'expected Todo conversion to stay routed through the editor event contract');
+  assert.match(editor, /blockMenuQuery/, 'expected block menu to support Notion-like command search');
+  assert.match(editor, /blockMenuSearchRef/, 'expected block menu search input to receive focus when the menu opens');
+  assert.match(editor, /blockMenuSearchRef\.value\?\.focus\(\{ preventScroll: true \}\)/, 'expected block menu typing to immediately filter commands after opening');
+  assert.match(editor, /ref="blockMenuSearchRef"/, 'expected block menu search input to expose a template ref for focus management');
+  assert.match(editor, /filteredBlockMenuGroups/, 'expected block menu to filter commands by search query');
+  assert.match(editor, /placeholder="搜索操作或转换类型"/, 'expected block menu search input to explain command filtering');
+  assert.match(editor, /knowledge-block-menu__header/, 'expected block menu to use a Notion-like command header');
+  assert.match(editor, /knowledge-block-menu__search/, 'expected block menu to render a dedicated search field');
+  assert.match(editor, /knowledge-block-menu__body/, 'expected block menu to isolate the scrollable command body');
+  assert.match(editor, /<UiScrollbar[\s\S]*?class="knowledge-block-menu__scrollbar"/, 'expected block menu to use the shared scrollbar component');
+  assert.match(editor, /knowledge-block-menu__section-label/, 'expected block menu groups to show readable section labels');
+  assert.match(editor, /knowledge-block-menu__icon-card/, 'expected block menu items to use Notion-like square icon cards');
+  assert.match(editor, /knowledge-block-menu__footer/, 'expected block menu to show keyboard hints like the slash menu');
+  assert.match(editor, /\.knowledge-block-menu\s*\{[^}]*box-shadow:\s*0 12px 24px/, 'expected block menu popover to use the Notion-like floating shadow');
+  assert.doesNotMatch(editor, /\.knowledge-block-menu\s*\{[^}]*backdrop-filter/, 'block menu should read as a solid Notion-like command palette, not glass');
+  assert.match(editor, /knowledge-block-menu__empty/, 'expected block menu to render an empty state when no command matches');
+  assert.match(editor, /activeBlockMenuIndex/, 'expected block menu to track an active keyboard item');
+  assert.match(editor, /function handleBlockMenuKeydown/, 'expected block menu to support keyboard navigation');
+  assert.match(editor, /event\.key === 'ArrowDown'/, 'expected block menu ArrowDown navigation');
+  assert.match(editor, /event\.key === 'ArrowUp'/, 'expected block menu ArrowUp navigation');
+  assert.match(editor, /event\.key === 'Home'/, 'expected block menu Home navigation');
+  assert.match(editor, /event\.key === 'End'/, 'expected block menu End navigation');
+  assert.match(editor, /event\.key === 'Enter' \|\| event\.key === ' '/, 'expected block menu Enter/Space activation');
+  const blockMenuKeydown = editor.match(/function handleBlockMenuKeydown[\s\S]*?\n}\n\nwatch/)?.[0] ?? '';
+  assert.ok(
+    blockMenuKeydown.indexOf("event.key === 'Escape'") < blockMenuKeydown.indexOf("event.key === 'ArrowDown'"),
+    'block menu Escape should be checked before result-count-gated navigation branches',
+  );
+  assert.match(editor, /knowledge-block-menu__item--active/, 'expected block menu to expose a visible active item state');
+  assert.match(editor, /focusWritingSurface/, 'expected clicking blank document space to return focus to writing');
+  assert.match(editor, /function isTextEntryBlock/, 'expected blank document clicks to distinguish text-entry blocks from media or structural blocks');
+  assert.match(editor, /function focusBlockForWriting/, 'expected repeated blank document clicks to reuse an existing empty text block focus path');
+  assert.match(editor, /addBlock\('paragraph', lastBlock\.id\)/, 'expected blank document clicks after non-empty content to append a paragraph like Notion');
+  assert.match(renderer, /props\.isFirst && props\.block\.type === 'paragraph' && blockText\.value\.length === 0/, 'expected the first empty paragraph to expose a dedicated writing placeholder');
+  assert.match(renderer, /输入 \/ 选择命令，或直接开始书写/, 'expected the first empty paragraph placeholder to explain the Notion-like writing entry point');
+  assert.match(editor, /function focusPreviousBlock/, 'expected editor to focus the previous block for ArrowUp navigation');
+  assert.match(editor, /function focusNextBlock/, 'expected editor to focus the next block for ArrowDown navigation');
+  assert.match(editor, /@focus-previous-block="focusPreviousBlock"/, 'expected editor to wire previous-block focus navigation');
+  assert.match(editor, /@focus-next-block="focusNextBlock"/, 'expected editor to wire next-block focus navigation');
+  assert.match(renderer, /select-block/, 'expected Escape from block editing to request whole-block selection');
+  assert.match(renderer, /event\.key === 'Escape'/, 'expected renderer to select the current block when pressing Escape in edit mode');
+  assert.match(renderer, /paste-markdown/, 'expected block renderer to emit Markdown paste requests instead of relying on raw contenteditable paste');
+  assert.match(renderer, /function handleEditablePaste/, 'expected editable blocks to intercept multi-line or Markdown clipboard text');
+  assert.match(renderer, /clipboardData\.getData\('text\/plain'\)/, 'expected editable paste handling to read plain text clipboard data');
+  assert.match(renderer, /shouldPasteAsBlocks/, 'expected editable paste handling to keep simple inline text native while parsing Markdown-like content into blocks');
+  assert.match(renderer, /knowledge-block__code-shell/, 'expected code blocks to render as Notion-like code containers instead of standalone form fields');
+  assert.match(renderer, /knowledge-block__code-header/, 'expected code blocks to place the language control in a compact code header');
+  assert.doesNotMatch(codeTemplate, /<UiInput/, 'code language control should not render through a shared form input');
+  assert.match(renderer, /<input[\s\S]*?class="knowledge-block__code-language"[\s\S]*?@input="event => updateAttrs/, 'expected code language to use a compact native inline input');
+  assert.doesNotMatch(renderer, /<label class="knowledge-block__code-language">[\s\S]*?<span>语言<\/span>/, 'code block language control should not look like a labeled form row');
+  assert.match(renderer, /\.knowledge-block__code-shell[\s\S]*?background:\s*var\(--knowledge-block-code-bg,[\s\S]*?color-mix\(in srgb, var\(--ui-surface-panel-muted\) 38%, transparent\)\)/, 'expected code block shell to stay configurable, translucent, and page-integrated');
+  assert.match(renderer, /\.knowledge-block__code[\s\S]*?border:\s*0/, 'expected code textarea itself to have no inner form border');
+  assert.match(renderer, /block\.type === 'callout'[\s\S]*?knowledge-block__callout/, 'expected callout blocks to render as Notion-like icon callouts');
+  assert.match(renderer, /iconify:lucide:lightbulb/, 'expected callout blocks to expose a Notion-like callout icon');
+  assert.match(renderer, /\.knowledge-block--quote \.knowledge-block__body\s*\{[\s\S]*?border-left:\s*3px solid/, 'expected quote blocks to render as Notion-like left-rule quotes');
+  assert.doesNotMatch(renderer, /\.knowledge-block--callout \.knowledge-block__body/, 'callout blocks should not share the generic quote panel styling');
+  assert.match(renderer, /knowledge-block__table-frame/, 'expected table blocks to use an inline frame instead of a form-like action panel');
+  assert.match(renderer, /import UiScrollbar/, 'expected block renderer to reuse the shared scrollbar component');
+  assert.match(renderer, /knowledge-block__table-scrollbar/, 'expected wide tables to use the shared scrollbar component');
+  assert.doesNotMatch(renderer, /\.knowledge-block__table-shell\s*\{[\s\S]*?overflow-x:\s*auto/, 'table blocks should not use native horizontal scrollbars');
+  assert.match(renderer, /knowledge-block__table-edge-actions--column/, 'expected table column actions to live on the table edge');
+  assert.match(renderer, /knowledge-block__table-edge-actions--row/, 'expected table row actions to live on the table edge');
+  assert.doesNotMatch(renderer, /knowledge-block__table-actions/, 'table blocks should not render a permanent row and column button toolbar');
+  assert.doesNotMatch(renderer, /knowledge-block__table-row-action/, 'table row removal should not occupy a visible table column');
+  assert.doesNotMatch(tableTemplate, /<UiInput/, 'table cells should not render through shared form inputs');
+  assert.match(renderer, /<input[\s\S]*?class="knowledge-block__table-cell"[\s\S]*?@input="event => updateTableCell/, 'expected table cells to use native inline inputs');
+  assert.match(renderer, /\.knowledge-block__table\s*\{[\s\S]*?background:\s*var\(--knowledge-block-table-bg, transparent\)/, 'expected table frame to use configurable transparency instead of a large panel that hides the background');
+  assert.match(renderer, /\.knowledge-block__table-cell[\s\S]*?background:\s*var\(--knowledge-block-table-cell-bg, transparent\)/, 'expected table cell inputs to read as inline editable cells with configurable transparency');
+  assert.match(renderer, /knowledge-block__reference-line/, 'expected reference blocks to render as light inline rows instead of cards');
+  assert.doesNotMatch(renderer, /knowledge-block__reference-card/, 'reference blocks should not use heavy card styling in the writing surface');
+  assert.match(renderer, /knowledge-block__reference-id[\s\S]*?opacity:\s*0/, 'expected reference technical ids to stay hidden until hover or focus');
+  assert.match(renderer, /knowledge-block__asset-actions[\s\S]*?opacity:\s*0/, 'expected asset actions to stay hidden until hover or focus');
+  assert.doesNotMatch(renderer, />\s*打开\s*<\/UiButton>/, 'asset action buttons should use compact icon affordances');
+  assert.doesNotMatch(renderer, />\s*在系统中显示\s*<\/UiButton>/, 'asset action buttons should not expose long labels in the writing surface');
+  assert.match(editor, /function pasteMarkdownAfterBlock/, 'expected editor to paste Markdown clipboard content as blocks after the current block');
+  assert.match(editor, /@paste-markdown="pasteMarkdownAfterBlock"/, 'expected editor to wire block-level Markdown paste requests');
+  assert.match(renderer, /selected-block-id/, 'expected renderer to receive the currently selected block id');
+  assert.match(renderer, /aria-selected/, 'expected selected block state to be exposed accessibly');
+  assert.match(editor, /selectedBlockId/, 'expected editor to track Notion-like selected block state');
+  assert.match(editor, /selectedBlockAnchorId/, 'expected editor to keep a block-selection anchor for Shift+Arrow range selection');
+  assert.match(editor, /selectedBlockIds/, 'expected editor to derive the selected block range for multi-block selection visuals');
+  assert.match(editor, /editorCanvasRef/, 'expected editor shell to be focusable for selected-block shortcuts');
+  assert.match(editor, /function selectBlock/, 'expected editor to select a whole block from Escape or block shell actions');
+  assert.match(editor, /function focusSelectedBlockShell/, 'expected selecting a block to move focus from contenteditable into the editor shell');
+  assert.match(editor, /selectBlock[\s\S]*?focusSelectedBlockShell\(\)/, 'expected selectBlock to focus the selected-block keyboard shell');
+  assert.match(editor, /function handleSelectedBlockKeydown/, 'expected editor to handle keyboard actions for selected blocks');
+  assert.match(editor, /function extendSelectedBlockRange/, 'expected selected block Shift+Arrow navigation to extend a selected block range');
+  assert.match(renderer, /data-knowledge-block-id/, 'expected rendered blocks to expose a stable DOM id for selected-block keyboard menus');
+  assert.match(editor, /function getSelectedBlockRect/, 'expected selected blocks to resolve their DOM rect for keyboard-opened menus');
+  assert.match(editor, /function openSelectedBlockMenu/, 'expected selected blocks to open the block menu without using the mouse handle');
+  assert.match(editor, /\(event\.metaKey \|\| event\.ctrlKey\) && !event\.shiftKey && event\.key === '\/'/, 'expected Ctrl/Cmd+/ to open the selected block menu');
+  assert.match(editor, /openSelectedBlockMenu\(\)/, 'expected selected block keyboard shortcut to call the block menu opener');
+  assert.match(editor, /event\.shiftKey && event\.key === 'ArrowUp'/, 'expected Shift+ArrowUp to extend selected blocks upward');
+  assert.match(editor, /event\.shiftKey && event\.key === 'ArrowDown'/, 'expected Shift+ArrowDown to extend selected blocks downward');
+  assert.match(editor, /extendSelectedBlockRange\(-1\)/, 'expected Shift+ArrowUp to use the block range extension path');
+  assert.match(editor, /extendSelectedBlockRange\(1\)/, 'expected Shift+ArrowDown to use the block range extension path');
+  assert.match(editor, /event\.key === 'ArrowUp'/, 'expected selected block ArrowUp navigation');
+  assert.match(editor, /event\.key === 'ArrowDown'/, 'expected selected block ArrowDown navigation');
+  assert.match(editor, /function moveSelectedBlock/, 'expected selected blocks to move with Notion-like keyboard shortcuts');
+  assert.match(editor, /function moveSelectedBlocks/, 'expected selected block ranges to move as a batch');
+  assert.match(editor, /\(event\.metaKey \|\| event\.ctrlKey\) && event\.shiftKey && event\.key === 'ArrowUp'/, 'expected Ctrl/Cmd+Shift+ArrowUp to move selected block up');
+  assert.match(editor, /\(event\.metaKey \|\| event\.ctrlKey\) && event\.shiftKey && event\.key === 'ArrowDown'/, 'expected Ctrl/Cmd+Shift+ArrowDown to move selected block down');
+  assert.match(editor, /moveSelectedBlocks\(-1\)/, 'expected selected block ArrowUp move path');
+  assert.match(editor, /moveSelectedBlocks\(1\)/, 'expected selected block ArrowDown move path');
+  assert.match(editor, /selectedBlockIds\.value\.length <= 1[\s\S]*?moveSelectedBlock\(direction\)/, 'expected range movement to preserve the single-block move path');
+  assert.match(editor, /moveBlockBefore\(nextDocument, blockId, adjacentBlock\.id\)/, 'expected moving a range upward to place every selected block before the previous neighbor');
+  assert.match(editor, /moveBlockBefore\(nextDocument, adjacentBlock\.id, selectedBlockIds\.value\[0\]\)/, 'expected moving a range downward to place the next neighbor before the selected range');
+  assert.match(editor, /event\.key === 'Enter'/, 'expected Enter to return a selected block to edit mode');
+  assert.match(editor, /event\.key === 'Backspace' \|\| event\.key === 'Delete'/, 'expected Backspace/Delete to remove selected blocks');
+  assert.match(editor, /removeBlockWithResult/, 'expected selected block deletion to return the next focus target');
+  assert.match(editor, /selectedBlockId\.value = result\.focusBlockId/, 'expected deletion to keep keyboard context on a neighboring block');
+  assert.match(editor, /event\.key\.toLowerCase\(\) === 'd'/, 'expected Ctrl/Cmd+D to duplicate selected blocks');
+  assert.match(editor, /function duplicateSelectedBlocks/, 'expected selected block ranges to duplicate as a batch');
+  assert.match(editor, /duplicateSelectedBlocks\(\)/, 'expected Ctrl/Cmd+D to duplicate the selected block range');
+  assert.match(editor, /duplicateBlockWithResult/, 'expected block duplication to return the duplicated block id');
+  assert.match(editor, /selectedBlockId\.value = result\.duplicatedBlockId/, 'expected duplicated selected blocks to select the new copy');
+  assert.match(editor, /function copySelectedBlockToClipboard/, 'expected selected blocks to support Notion-like clipboard copy');
+  assert.match(editor, /function cutSelectedBlockToClipboard/, 'expected selected blocks to support Notion-like clipboard cut');
+  assert.match(editor, /function pasteBlockAfterSelection/, 'expected selected blocks to support Notion-like clipboard paste');
+  assert.match(editor, /function getSelectedBlocks/, 'expected selected block ranges to resolve all selected blocks for batch actions');
+  assert.match(editor, /function removeSelectedBlocks/, 'expected selected block ranges to delete as a batch');
+  assert.match(editor, /function writeSelectedBlocksToClipboard/, 'expected selected block ranges to copy multiple blocks at once');
+  assert.match(editor, /function readSelectedBlocksFromClipboard/, 'expected selected block paste to restore multiple same-app blocks');
+  assert.match(editor, /application\/x-guyantools-blocks-v2/, 'expected selected block clipboard copy to preserve multiple block JSON values');
+  assert.match(editor, /removeSelectedBlocks\(\)/, 'expected Backspace/Delete to remove the selected block range');
+  assert.match(editor, /getSelectedBlocks\(\)/, 'expected copy and cut to use the selected block range');
+  assert.match(editor, /selectedBlockClipboard = ref<KnowledgeBlockV2\[\]>\(\[\]\)/, 'expected same-session clipboard fallback to store multiple selected blocks');
+  assert.match(editor, /navigator\.clipboard\.writeText/, 'expected selected block clipboard copy to write plain Markdown text');
+  assert.match(editor, /navigator\.clipboard\.readText/, 'expected selected block clipboard paste to accept external plain text or Markdown');
+  assert.match(editor, /markdownToBlockDocumentV2/, 'expected selected block clipboard paste to parse external Markdown into blocks');
+  assert.match(editor, /application\/x-guyantools-block-v2/, 'expected selected block clipboard copy to preserve block JSON for same-app paste');
+  assert.match(editor, /event\.key\.toLowerCase\(\) === 'c'/, 'expected Ctrl/Cmd+C to copy a selected block');
+  assert.match(editor, /event\.key\.toLowerCase\(\) === 'x'/, 'expected Ctrl/Cmd+X to cut a selected block');
+  assert.match(editor, /event\.key\.toLowerCase\(\) === 'v'/, 'expected Ctrl/Cmd+V to paste a copied block after selection');
+  assert.match(editor, /event\.key === 'Tab'/, 'expected selected block Tab/Shift+Tab indentation shortcuts');
+  assert.match(editor, /function indentSelectedBlocks/, 'expected selected block ranges to indent and outdent as a batch');
+  assert.match(editor, /indentSelectedBlocks\(event\.shiftKey \? 'outdent' : 'indent'\)/, 'expected selected block Tab to indent and Shift+Tab to outdent the selected range');
+  assert.match(editor, /for \(const blockId of selectedBlockIds\.value\)/, 'expected batch indentation to iterate over the selected block range');
+  assert.match(editor, /:selected-block-ids="selectedBlockIds"/, 'expected editor to pass the selected block range into block renderers');
+  assert.match(editor, /@select-block="selectBlock"/, 'expected editor to wire block selection requests');
+  assert.match(editor, /@keydown="handleSelectedBlockKeydown"/, 'expected editor shell to capture selected-block keyboard shortcuts');
+  assert.match(renderer, /selectedBlockIds\?: string\[\]/, 'expected renderer to accept a multi-block selected range');
+  assert.match(renderer, /props\.selectedBlockIds\?\.includes\(props\.block\.id\)/, 'expected renderer selected state to include block ranges');
+  assert.match(renderer, /:selected-block-ids="selectedBlockIds"/, 'expected nested renderers to preserve multi-block selected ranges');
+  assert.doesNotMatch(renderer, />\s*\{\{\s*todoId \? '已转 Todo' : '转 Todo'\s*\}\}\s*</, 'task blocks should not show a permanent Todo conversion button in the writing row');
+  assert.match(blockV2, /function splitBlockAtTextOffset|export function splitBlockAtTextOffset/, 'expected V2 split helper');
+  assert.match(blockV2, /function mergeBlockBackward|export function mergeBlockBackward/, 'expected V2 backward merge helper');
+  assert.match(blockV2, /function moveBlockBefore|export function moveBlockBefore/, 'expected V2 drag reorder helper');
+  assert.match(blockV2, /function moveBlockAfter|export function moveBlockAfter/, 'expected V2 drag reorder helper to support after-target drops');
+  assert.match(blockV2, /function duplicateBlockWithResult|export function duplicateBlockWithResult/, 'expected V2 duplicate helper to expose duplicated block id');
+  assert.match(blockV2, /function removeBlockWithResult|export function removeBlockWithResult/, 'expected V2 remove helper to expose the next focus block id');
+  assert.match(blockV2, /function cloneBlockV2ForPaste|export function cloneBlockV2ForPaste/, 'expected V2 paste helper to deep-clone pasted blocks with fresh ids');
+  assert.match(blockV2, /function insertBlockAfterWithResult|export function insertBlockAfterWithResult/, 'expected V2 insert helper to report the inserted pasted block id');
+  assert.match(blockV2, /function insertBlocksAfterWithResult|export function insertBlocksAfterWithResult/, 'expected V2 insert helper to paste multiple external Markdown blocks after selection');
+  assert.ok(fs.existsSync(editingUtilsPath), 'expected knowledge_block_editing.ts utilities for inline content editing');
+}
+
+function testNotionLikeResponsiveLayoutContract() {
+  const page = readDesktopFile('src/windows/main/pages/Knowledge/KnowledgePage.vue');
+  const editor = readDesktopFile('src/windows/main/pages/Knowledge/components/KnowledgeBlockEditor.vue');
+
+  assert.match(editor, /knowledge-block-editor__page/, 'expected block editor to render a distinct document page surface');
+  assert.match(
+    editor,
+    /\.knowledge-block-editor__page\s*\{[^}]*?background:\s*transparent;/,
+    'expected the Notion-like page container to leave personalized backgrounds visible',
+  );
+  assert.doesNotMatch(
+    editor,
+    /\.knowledge-block-editor__page\s*\{[^}]*?background:\s*color-mix\(in srgb, var\(--ui-surface-panel\)/,
+    'the writing page container should not add a panel veil over personalized backgrounds',
+  );
+  assert.match(
+    editor,
+    /knowledge-block-editor__page-title/,
+    'expected block page title to live inside the document writing surface',
+  );
+  assert.match(
+    editor,
+    /\.knowledge-block-editor__page\s*\{[\s\S]*?width:\s*min\(100%, 840px\)/,
+    'expected the Notion-like block page to use a focused document width rather than a full editor panel width',
+  );
+  assert.match(
+    editor,
+    /\.knowledge-block-editor__page-tools\s*\{[\s\S]*?opacity:\s*0/,
+    'expected low-frequency page tools to stay hidden until hover or focus like Notion',
+  );
+  assert.match(
+    editor,
+    /knowledge-block-editor__page-icon/,
+    'expected block pages to expose a Notion-like page icon affordance above the title',
+  );
+  assert.match(
+    editor,
+    /knowledge-block-editor__page-meta[\s\S]*aria-label="页面属性"/,
+    'expected block page metadata to read as page properties near the title',
+  );
+  assert.match(
+    editor,
+    /knowledge-block-editor__page-tools[\s\S]*aria-label="页面操作"/,
+    'expected low-frequency page actions to live near the document header instead of the app toolbar',
+  );
+  assert.match(
+    editor,
+    /knowledge-block-editor__page-tools[\s\S]*iconify:lucide:save/,
+    'expected save status to stay inside the Notion-like page header tools instead of a separate editor toolbar',
+  );
+  assert.match(
+    editor,
+    /function insertParagraphAtEnd/,
+    'expected the document header to expose a Notion-like quick add block action',
+  );
+  assert.match(
+    editor,
+    /@click="insertParagraphAtEnd"/,
+    'expected the page tools add action to append a writing block',
+  );
+  assert.match(
+    editor,
+    /\.knowledge-block-editor__page:hover \.knowledge-block-editor__page-tools/,
+    'expected page tools to appear as a lightweight hover affordance on the writing page',
+  );
+  assert.match(
+    editor,
+    /\.knowledge-block-editor__page:focus-within \.knowledge-block-editor__page-tools/,
+    'expected page tools to stay visible while users interact with the writing page',
+  );
+  assert.doesNotMatch(
+    editor,
+    /<header class="knowledge-block-editor__toolbar">[\s\S]*?Markdown 导入[\s\S]*?<\/header>/,
+    'block editor app toolbar should not carry Markdown import actions',
+  );
+  assert.doesNotMatch(
+    editor,
+    /<header class="knowledge-block-editor__toolbar">[\s\S]*?导出 Markdown[\s\S]*?<\/header>/,
+    'block editor app toolbar should not carry Markdown export actions',
+  );
+  assert.doesNotMatch(
+    editor,
+    /knowledge-block-editor__toolbar/,
+    'block editor should not keep a separate form-like toolbar above the writing surface',
+  );
+  assert.match(
+    editor,
+    /function focusFirstContentBlockAfterTitle/,
+    'expected page title Enter to move focus into the first content block',
+  );
+  assert.match(
+    editor,
+    /@keydown\.enter\.prevent="focusFirstContentBlockAfterTitle"/,
+    'expected page title Enter to focus the document body instead of only saving title',
+  );
+  assert.match(
+    editor,
+    /<UiScrollbar[\s\S]*?class="knowledge-block-editor__canvas-scrollbar"/,
+    'expected the block editor canvas to use the shared scrollbar component',
+  );
+  assert.match(
+    editor,
+    /knowledge-block-editor__canvas-inner/,
+    'expected the block editor canvas to keep a blank-click focus surface inside the shared scrollbar',
+  );
+  assert.doesNotMatch(
+    editor,
+    /\.knowledge-block-editor__canvas\s*\{[^}]*overflow:\s*auto/,
+    'block editor canvas should not use a native scrollbar',
+  );
+  assert.match(
+    editor,
+    /\.knowledge-block-editor__page\s*\{[^}]*?background:\s*transparent;/,
+    'expected block page surface to leave personalized backgrounds visible',
+  );
+  assert.match(
+    page,
+    /@media \(max-width: 1760px\)[\s\S]*?\.knowledge-inspector[\s\S]*?display:\s*none/,
+    'expected medium-width Knowledge layout to collapse the inspector before the editor is cramped',
+  );
+  assert.match(
+    page,
+    /knowledge-editor__header--block-page/,
+    'expected block pages to use a compact parent header while the editable title lives in the page',
+  );
+  assert.match(
+    page,
+    /\.knowledge-editor__header--block-page\s*\{[\s\S]*?position:\s*absolute[\s\S]*?pointer-events:\s*none/,
+    'expected the parent block-page header to be visually hidden so the document title is the primary Notion-like title',
+  );
+  assert.match(
+    page,
+    /\.knowledge-editor__body--block[\s\S]*?background:\s*transparent/,
+    'expected block editor body to preserve the page/background instead of covering it',
+  );
+  assert.doesNotMatch(
+    editor,
+    /\.knowledge-block\s*\{[\s\S]*?grid-template-columns:\s*112px minmax\(0, 1fr\) auto/,
+    'block editor parent should not keep the old form/card block layout after the renderer owns Notion-like blocks',
+  );
+}
+
+function testInlineEditingUtilitiesRoundTrip() {
+  const {
+    inlineContentToEditableHtml,
+    editableHtmlToInlineContent,
+    inlineContentToPlainText,
+  } = require('../src/windows/main/pages/Knowledge/utils/knowledge_block_editing.ts');
+
+  const source = [
+    { type: 'text', text: 'A < B ' },
+    { type: 'text', text: 'bold', marks: [{ type: 'bold' }] },
+    { type: 'text', text: ' italic', marks: [{ type: 'italic' }] },
+    { type: 'text', text: ' code', marks: [{ type: 'code' }] },
+    { type: 'text', text: ' strike', marks: [{ type: 'strike' }] },
+  ];
+  const html = inlineContentToEditableHtml(source);
+
+  assert.match(html, /A &lt; B/);
+  assert.match(html, /<strong>bold<\/strong>/);
+  assert.match(html, /<em> italic<\/em>/);
+  assert.match(html, /<code> code<\/code>/);
+  assert.match(html, /<s> strike<\/s>/);
+
+  const parsed = editableHtmlToInlineContent(html);
+  assert.equal(inlineContentToPlainText(parsed), 'A < B bold italic code strike');
+  assert.ok(parsed.some((item) => item.marks?.some((mark) => mark.type === 'bold')));
+  assert.ok(parsed.some((item) => item.marks?.some((mark) => mark.type === 'italic')));
+  assert.ok(parsed.some((item) => item.marks?.some((mark) => mark.type === 'code')));
+  assert.ok(parsed.some((item) => item.marks?.some((mark) => mark.type === 'strike')));
+}
+
+function testBlockV2SplitMergeAndArbitraryMove() {
+  assert.equal(typeof splitBlockAtTextOffset, 'function', 'expected splitBlockAtTextOffset export');
+  assert.equal(typeof mergeBlockBackward, 'function', 'expected mergeBlockBackward export');
+  assert.equal(typeof moveBlockBefore, 'function', 'expected moveBlockBefore export');
+  assert.equal(typeof moveBlockAfter, 'function', 'expected moveBlockAfter export');
+
+  const first = createBlockV2('paragraph', 'Hello world');
+  const second = createBlockV2('paragraph', 'Second');
+  const third = createBlockV2('paragraph', 'Third');
+  const document = {
+    type: 'guyantools.block-page',
+    version: 2,
+    updatedAt: '2026-06-11T00:00:00.000Z',
+    blocks: [first, second, third],
+  };
+
+  const split = splitBlockAtTextOffset(document, first.id, 5);
+  assert.equal(split.document.blocks.length, 4);
+  assert.equal(split.document.blocks[0].content[0].text, 'Hello');
+  assert.equal(split.document.blocks[1].content[0].text, ' world');
+  assert.equal(split.focusBlockId, split.document.blocks[1].id);
+
+  const heading = createBlockV2('heading', 'Title', { level: 1 });
+  const headingSplit = splitBlockAtTextOffset({ ...document, blocks: [heading] }, heading.id, 5);
+  assert.equal(headingSplit.document.blocks[0].type, 'heading');
+  assert.equal(headingSplit.document.blocks[1].type, 'paragraph');
+
+  const checkedTask = createBlockV2('task_list', 'Done item', { checked: true });
+  const checkedTaskSplit = splitBlockAtTextOffset({ ...document, blocks: [checkedTask] }, checkedTask.id, 9);
+  assert.equal(checkedTaskSplit.document.blocks[0].type, 'task_list');
+  assert.equal(checkedTaskSplit.document.blocks[1].type, 'task_list');
+  assert.equal(checkedTaskSplit.document.blocks[0].attrs?.checked, true);
+  assert.equal(checkedTaskSplit.document.blocks[1].attrs?.checked, false);
+
+  const emptyList = createBlockV2('bullet_list', '');
+  const emptyListExit = splitBlockAtTextOffset({ ...document, blocks: [emptyList] }, emptyList.id, 0);
+  assert.equal(emptyListExit.document.blocks.length, 1);
+  assert.equal(emptyListExit.document.blocks[0].type, 'paragraph');
+  assert.equal(emptyListExit.focusBlockId, emptyList.id);
+
+  const moved = moveBlockBefore(split.document, third.id, split.document.blocks[1].id);
+  assert.equal(moved.document.blocks[1].id, third.id);
+  assert.equal(moved.focusBlockId, third.id);
+
+  const movedAfter = moveBlockAfter(split.document, first.id, third.id);
+  assert.deepEqual(
+    movedAfter.document.blocks.map((block) => block.id),
+    [split.document.blocks[1].id, second.id, third.id, first.id],
+  );
+  assert.equal(movedAfter.focusBlockId, first.id);
+
+  const empty = createBlockV2('paragraph', '');
+  const mergeDocument = {
+    ...document,
+    blocks: [first, empty, second],
+  };
+  const merged = mergeBlockBackward(mergeDocument, empty.id);
+  assert.equal(merged.document.blocks.length, 2);
+  assert.equal(merged.focusBlockId, first.id);
+
+  const removedWithResult = removeBlockWithResult([first, second, third], second.id);
+  assert.equal(removedWithResult.blocks.length, 2);
+  assert.equal(removedWithResult.focusBlockId, third.id);
+
+  const removedLastWithResult = removeBlockWithResult([first, second, third], third.id);
+  assert.equal(removedLastWithResult.blocks.length, 2);
+  assert.equal(removedLastWithResult.focusBlockId, second.id);
+
+  const copiedParent = createBlockV2('toggle', 'Parent', { open: true });
+  const copiedChild = createBlockV2('paragraph', 'Child');
+  copiedParent.children = [copiedChild];
+  const pasted = cloneBlockV2ForPaste(copiedParent);
+  assert.notEqual(pasted.id, copiedParent.id);
+  assert.notEqual(pasted.children[0].id, copiedChild.id);
+  assert.equal(pasted.content[0].text, 'Parent');
+  assert.equal(pasted.children[0].content[0].text, 'Child');
+
+  const insertedPaste = insertBlockAfterWithResult([first, second], first.id, pasted);
+  assert.equal(insertedPaste.insertedBlockId, pasted.id);
+  assert.deepEqual(insertedPaste.blocks.map((block) => block.id), [first.id, pasted.id, second.id]);
+
+  const externalMarkdownBlocks = markdownToBlockDocumentV2('# External\n\nParagraph').blocks.map(cloneBlockV2ForPaste);
+  const insertedExternalBlocks = insertBlocksAfterWithResult([first, second], first.id, externalMarkdownBlocks);
+  assert.equal(insertedExternalBlocks.insertedBlockId, externalMarkdownBlocks[0].id);
+  assert.deepEqual(
+    insertedExternalBlocks.blocks.map((block) => block.id),
+    [first.id, externalMarkdownBlocks[0].id, externalMarkdownBlocks[1].id, second.id],
+  );
+
+  const parentWithFirstChild = createBlockV2('paragraph', 'Parent');
+  const firstChild = createBlockV2('paragraph', 'Child');
+  parentWithFirstChild.children = [firstChild];
+  const outdented = mergeBlockBackward({ ...document, blocks: [parentWithFirstChild] }, firstChild.id);
+  assert.equal(outdented.document.blocks.length, 2);
+  assert.equal(outdented.document.blocks[0].id, parentWithFirstChild.id);
+  assert.equal(outdented.document.blocks[0].children?.length ?? 0, 0);
+  assert.equal(outdented.document.blocks[1].id, firstChild.id);
+  assert.equal(outdented.focusBlockId, firstChild.id);
+  assert.equal(outdented.cursorOffset, 0);
+}
+
+testBlockEditorExposesCompleteNotionLikeTypes();
+testBlockV2DerivesTableAndToggleMarkdown();
+testCanvasEditorExposesCompleteOneNoteLikeTools();
+testBlockEditorHasFocusAndMarkdownShortcuts();
+testNotionLikeBlockEditingContracts();
+testNotionLikeResponsiveLayoutContract();
+testInlineEditingUtilitiesRoundTrip();
+testBlockV2SplitMergeAndArbitraryMove();
 
 console.log('knowledge editor foundation checks passed');

@@ -1,12 +1,16 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref, watch, type CSSProperties } from 'vue';
-import { useRouter } from 'vue-router';
+import { useRoute, useRouter } from 'vue-router';
 import IconRenderer from '@/windows/main/components/ui/IconRenderer.vue';
 import UiButton from '@/windows/main/components/ui/UiButton.vue';
+import UiColorPicker from '@/windows/main/components/ui/UiColorPicker.vue';
 import UiIconButton from '@/windows/main/components/ui/UiIconButton.vue';
 import UiInput from '@/windows/main/components/ui/UiInput.vue';
 import UiPersonalizationConfig from '@/windows/main/components/ui/UiPersonalizationConfig.vue';
+import UiScrollbar from '@/windows/main/components/ui/UiScrollbar.vue';
 import UiSelect from '@/windows/main/components/ui/UiSelect.vue';
+import UiSliderField from '@/windows/main/components/ui/UiSliderField.vue';
+import UiTextarea from '@/windows/main/components/ui/UiTextarea.vue';
 import KnowledgeBlockEditor from './components/KnowledgeBlockEditor.vue';
 import KnowledgeCanvasEditor from './components/KnowledgeCanvasEditor.vue';
 import KnowledgeConversionDialog from './components/KnowledgeConversionDialog.vue';
@@ -25,7 +29,10 @@ import {
 } from '@/contracts/background';
 import { useKnowledgeStore } from '@/windows/main/stores/knowledge_store';
 import { useAppConfigStore } from '@/windows/main/stores/app_config_store';
+import { useAiChatStore } from '@/windows/main/stores/ai_chat_store';
+import { useAiConfigStore } from '@/windows/main/stores/ai_config_store';
 import { useTodoStore } from '@/windows/main/stores/todo_store';
+import type { AiCitation } from '@/contracts/ai';
 import type {
   KnowledgeAsset,
   KnowledgeIndexJob,
@@ -45,6 +52,7 @@ type KnowledgeMarkdownEditorExpose = {
 type KnowledgeDocumentPreviewKind = 'text' | 'pdf' | 'image' | 'slides' | 'sheets' | 'unsupported';
 type KnowledgeConversionMode = 'markdown-to-block' | 'markdown-to-canvas' | 'block-to-markdown' | 'block-to-canvas' | 'canvas-to-markdown';
 type KnowledgePersonalizationRegion = 'page' | 'left' | 'editor' | 'right';
+type KnowledgeAiScope = 'page' | 'selection' | 'space' | 'library';
 
 type KnowledgeAreaBackground = {
   type: 'color' | 'image' | 'video';
@@ -59,6 +67,42 @@ type KnowledgePersonalizationSettings = {
   leftBackground: KnowledgeAreaBackground;
   editorBackground: KnowledgeAreaBackground;
   rightBackground: KnowledgeAreaBackground;
+  blockStyle: KnowledgeBlockStyleSettings;
+  selectionBackgroundColor: string;
+  appearanceSchemes: KnowledgeAppearanceScheme[];
+  activeAppearanceSchemeId: string;
+};
+
+type KnowledgeBlockSurfaceKey = 'base' | 'code' | 'table' | 'diagram' | 'callout' | 'quote' | 'inlineCode' | 'canvas';
+
+type KnowledgeBlockSurfaceStyle = {
+  backgroundColor: string;
+  opacity: number;
+};
+
+type KnowledgeBlockStyleSettings = Record<KnowledgeBlockSurfaceKey, KnowledgeBlockSurfaceStyle>;
+
+type KnowledgeAppearanceScheme = {
+  id: string;
+  name: string;
+  pageBackground: KnowledgeAreaBackground;
+  leftBackground: KnowledgeAreaBackground;
+  editorBackground: KnowledgeAreaBackground;
+  rightBackground: KnowledgeAreaBackground;
+  blockStyle: KnowledgeBlockStyleSettings;
+  selectionBackgroundColor: string;
+  createdAt: string;
+  updatedAt: string;
+};
+
+type KnowledgeLayoutSettings = {
+  leftCollapsed: boolean;
+  rightCollapsed: boolean;
+  quickNotesCollapsed: boolean;
+  recentCollapsed: boolean;
+  favoritesCollapsed: boolean;
+  leftWidth: number;
+  rightWidth: number;
 };
 
 type KnowledgeDocumentPreviewSection = {
@@ -115,6 +159,9 @@ type KnowledgeDocumentExcerptProperties = {
 
 const store = useKnowledgeStore();
 const appConfigStore = useAppConfigStore();
+const aiChatStore = useAiChatStore();
+const aiConfigStore = useAiConfigStore();
+const route = useRoute();
 const router = useRouter();
 const todoStore = useTodoStore();
 const { show: showConfirm } = useConfirmDialog();
@@ -125,19 +172,35 @@ const draftTitle = ref('');
 const activeInspectorTab = ref('outline');
 const selectedDocumentText = ref('');
 const selectedDocumentContext = ref<KnowledgeDocumentExcerptContext | null>(null);
+const knowledgeAiScope = ref<KnowledgeAiScope>('page');
+const knowledgeAiQuestion = ref('');
+const knowledgeAiConversationId = ref('');
+const knowledgeAiError = ref('');
 const markdownEditorRef = ref<KnowledgeMarkdownEditorExpose | null>(null);
 const selectedTagColor = ref('#4A90D9');
 const conversionMode = ref<KnowledgeConversionMode | null>(null);
 const converting = ref(false);
 const collapsedSpaceIds = ref<Set<string>>(new Set(loadCollapsedSpaceIds()));
+const knowledgeLayoutStorageKey = 'knowledge.layout';
+const knowledgeLayout = ref<KnowledgeLayoutSettings>(loadKnowledgeLayout());
+const leftSidebarCollapsed = ref(knowledgeLayout.value.leftCollapsed);
+const inspectorCollapsed = ref(knowledgeLayout.value.rightCollapsed);
+const quickNotesCollapsed = ref(knowledgeLayout.value.quickNotesCollapsed);
+const recentCollapsed = ref(knowledgeLayout.value.recentCollapsed);
+const favoritesCollapsed = ref(knowledgeLayout.value.favoritesCollapsed);
+const leftSidebarWidth = ref(knowledgeLayout.value.leftWidth);
+const inspectorWidth = ref(knowledgeLayout.value.rightWidth);
 const draggedSpaceId = ref<string | null>(null);
 const rootDropSpaceId = ref<string | null>(null);
 const knowledgePersonalizationStorageKey = 'knowledge.personalization';
 const knowledgePersonalization = ref<KnowledgePersonalizationSettings>(loadKnowledgePersonalization());
 const knowledgePersonalizationPanelOpen = ref(false);
 const knowledgePersonalizationActiveRegion = ref<KnowledgePersonalizationRegion>('page');
+const knowledgeBlockStylePanelOpen = ref(false);
 let autosaveTimer: number | undefined;
 let searchTimer: number | undefined;
+let activeResize: { side: 'left' | 'right'; startX: number; startWidth: number } | null = null;
+const handledKnowledgeOpenRequestIds = new Set<string>();
 
 const inspectorTabs = [
   { id: 'outline', icon: 'iconify:lucide:list-tree', label: '目录' },
@@ -159,6 +222,12 @@ const searchFilters: Array<{ value: KnowledgeSearchSourceType | 'all'; label: st
 const searchScopes = [
   { value: 'library' as const, label: '全库' },
   { value: 'space' as const, label: '当前空间' },
+];
+const knowledgeAiScopeOptions = [
+  { value: 'page', label: '当前节点' },
+  { value: 'selection', label: '选中文本' },
+  { value: 'space', label: '当前空间' },
+  { value: 'library', label: '当前知识库' },
 ];
 const libraryOptions = computed(() =>
   store.libraries.map((library) => ({
@@ -226,10 +295,45 @@ const linkedTodoLinks = computed(() =>
   store.pageLinks.filter((link) => link.targetType === 'todo' && link.targetId),
 );
 const tagColorOptions = ['#4A90D9', '#22c55e', '#f59e0b', '#ef4444', '#a855f7', '#06b6d4'];
+const knowledgeBlockSurfaceLabels: Record<KnowledgeBlockSurfaceKey, string> = {
+  base: '通用块',
+  code: '代码块',
+  table: '表格',
+  diagram: 'Mermaid / 数学',
+  callout: '标注',
+  quote: '引用',
+  inlineCode: '行内代码',
+  canvas: '画布元素',
+};
+const knowledgeBlockSurfaceOrder: KnowledgeBlockSurfaceKey[] = ['base', 'code', 'table', 'diagram', 'callout', 'quote', 'inlineCode', 'canvas'];
+const knowledgeBlockStyleColorOptions = [
+  '#ffffff',
+  '#f8fafc',
+  '#eef6ff',
+  '#f5f3ff',
+  '#ecfdf5',
+  '#fff7ed',
+  '#111827',
+  'transparent',
+];
 const selectedQuickNote = computed(() => {
   if (store.selectedNode?.nodeType !== 'quick_note') return null;
   return store.quickNotes.find((note) => note.quickNote.id === store.selectedNode?.id) ?? null;
 });
+const knowledgeAiMessages = computed(() =>
+  knowledgeAiConversationId.value
+    ? aiChatStore.messagesByConversation[knowledgeAiConversationId.value] ?? []
+    : [],
+);
+const knowledgeAiLatestAssistantMessage = computed(() =>
+  [...knowledgeAiMessages.value].reverse().find((message) => message.role === 'assistant' && message.content.trim()),
+);
+const knowledgeAiScopeLabel = computed(() =>
+  knowledgeAiScopeOptions.find((option) => option.value === knowledgeAiScope.value)?.label ?? '当前知识库',
+);
+const knowledgeAiCanAsk = computed(() =>
+  Boolean(knowledgeAiQuestion.value.trim() && aiConfigStore.defaultProvider && aiConfigStore.defaultModel),
+);
 const selectedPageProperties = computed<KnowledgeDocumentExcerptProperties | null>(() => {
   if (!store.selectedPage?.page.propertiesJson) return null;
   try {
@@ -283,9 +387,16 @@ const hasKnowledgePageBackground = computed(() => hasKnowledgeBackground(activeK
 const knowledgePersonalizationPageStyle = computed<CSSProperties>(() =>
   createKnowledgeBackgroundStyle(activeKnowledgePageBackground.value),
 );
+const knowledgeBlockStyleVars = computed<CSSProperties>(() =>
+  createKnowledgeBlockStyleVars(knowledgePersonalization.value.blockStyle),
+);
 const knowledgePersonalizationSidebarStyle = computed(() => knowledgePersonalizationRegionStyle('left'));
 const knowledgePersonalizationEditorStyle = computed(() => knowledgePersonalizationRegionStyle('editor'));
 const knowledgePersonalizationInspectorStyle = computed(() => knowledgePersonalizationRegionStyle('right'));
+const knowledgeLayoutStyle = computed<CSSProperties>(() => ({
+  '--knowledge-left-expanded-width': `${leftSidebarWidth.value}px`,
+  '--knowledge-right-expanded-width': `${inspectorWidth.value}px`,
+}));
 const activeKnowledgePersonalizationBackground = computed(() =>
   resolveKnowledgeBackground(knowledgePersonalizationActiveRegion.value),
 );
@@ -295,20 +406,73 @@ const knowledgePersonalizationPreviewSize = computed(() => {
   if (knowledgePersonalizationActiveRegion.value === 'editor') return { width: 720, height: 640 };
   return { width: 960, height: 640 };
 });
+const appearanceSchemeOptions = computed(() => [
+  { label: '当前自定义', value: '__custom__' },
+  ...knowledgePersonalization.value.appearanceSchemes.map((scheme) => ({
+    label: scheme.name,
+    value: scheme.id,
+  })),
+]);
+const activeAppearanceSchemeSelectValue = computed(() =>
+  knowledgePersonalization.value.activeAppearanceSchemeId || '__custom__',
+);
+
+function routeQueryString(key: string) {
+  const value = route.query[key];
+  return Array.isArray(value) ? value[0] ?? '' : typeof value === 'string' ? value : '';
+}
+
+async function handleKnowledgeOpenRequestFromRoute() {
+  if (route.name !== 'Knowledge') return;
+
+  const nodeId = routeQueryString('nodeId');
+  if (!nodeId) return;
+
+  const requestId = routeQueryString('openKnowledgeRequestId') || `legacy:${nodeId}`;
+  if (handledKnowledgeOpenRequestIds.has(requestId)) return;
+  handledKnowledgeOpenRequestIds.add(requestId);
+
+  try {
+    if (!store.libraries.length && !store.visibleNodes.length) {
+      await store.initialize();
+    }
+    await store.selectNode(nodeId);
+  } catch (error) {
+    notifyError(error, '打开知识库结果失败');
+  }
+}
 
 onMounted(() => {
-  store.initialize();
+  void store.initialize().then(() => handleKnowledgeOpenRequestFromRoute());
+  aiChatStore.ensureStreamSubscription();
+  void aiConfigStore.refresh();
+  void aiChatStore.refreshConversations();
   window.addEventListener('focus', refreshQuickNotesOnFocus);
   window.addEventListener('beforeunload', handleBeforeUnload);
   window.addEventListener('keydown', handleKnowledgePersonalizationKeydown);
   document.addEventListener('visibilitychange', handleVisibilityChange);
+  window.addEventListener('mousemove', handleKnowledgeSidebarResizeMove);
+  window.addEventListener('mouseup', stopKnowledgeSidebarResize);
 });
+
+watch(
+  [
+    () => route.name,
+    () => route.query.openKnowledgeRequestId,
+    () => route.query.nodeId,
+  ],
+  () => {
+    void handleKnowledgeOpenRequestFromRoute();
+  },
+);
 
 onBeforeUnmount(() => {
   window.removeEventListener('focus', refreshQuickNotesOnFocus);
   window.removeEventListener('beforeunload', handleBeforeUnload);
   window.removeEventListener('keydown', handleKnowledgePersonalizationKeydown);
   document.removeEventListener('visibilitychange', handleVisibilityChange);
+  window.removeEventListener('mousemove', handleKnowledgeSidebarResizeMove);
+  window.removeEventListener('mouseup', stopKnowledgeSidebarResize);
   clearAutosaveTimer();
   clearSearchTimer();
   void saveDirtyDrafts();
@@ -345,19 +509,111 @@ watch(
   { deep: true },
 );
 
-function defaultKnowledgePersonalization(): KnowledgePersonalizationSettings {
-  const emptyBackground = (): KnowledgeAreaBackground => ({
+watch(
+  [
+    leftSidebarCollapsed,
+    inspectorCollapsed,
+    quickNotesCollapsed,
+    recentCollapsed,
+    favoritesCollapsed,
+    leftSidebarWidth,
+    inspectorWidth,
+  ],
+  () => {
+    const nextSettings: KnowledgeLayoutSettings = {
+      leftCollapsed: leftSidebarCollapsed.value,
+      rightCollapsed: inspectorCollapsed.value,
+      quickNotesCollapsed: quickNotesCollapsed.value,
+      recentCollapsed: recentCollapsed.value,
+      favoritesCollapsed: favoritesCollapsed.value,
+      leftWidth: leftSidebarWidth.value,
+      rightWidth: inspectorWidth.value,
+    };
+    knowledgeLayout.value = nextSettings;
+    persistKnowledgeLayout(nextSettings);
+  },
+);
+
+function emptyKnowledgeAreaBackground(): KnowledgeAreaBackground {
+  return {
     type: 'color',
     color: '',
     image: '',
     video: '',
     backgroundStyle: { opacity: 1 },
-  });
+  };
+}
+
+function defaultKnowledgePersonalization(): KnowledgePersonalizationSettings {
+  const blockStyle = defaultKnowledgeBlockStyle();
+  const pageBackground = emptyKnowledgeAreaBackground();
+  const leftBackground = emptyKnowledgeAreaBackground();
+  const editorBackground = emptyKnowledgeAreaBackground();
+  const rightBackground = emptyKnowledgeAreaBackground();
+  const selectionBackgroundColor = defaultKnowledgeSelectionBackgroundColor();
   return {
-    pageBackground: emptyBackground(),
-    leftBackground: emptyBackground(),
-    editorBackground: emptyBackground(),
-    rightBackground: emptyBackground(),
+    pageBackground,
+    leftBackground,
+    editorBackground,
+    rightBackground,
+    blockStyle,
+    selectionBackgroundColor,
+    appearanceSchemes: [
+      createKnowledgeAppearanceScheme('默认通透', pageBackground, leftBackground, editorBackground, rightBackground, blockStyle, selectionBackgroundColor),
+      createKnowledgeAppearanceScheme('柔和纸面', pageBackground, leftBackground, editorBackground, rightBackground, {
+        ...blockStyle,
+        base: { backgroundColor: '#f8fafc', opacity: 0.72 },
+        code: { backgroundColor: '#f1f5f9', opacity: 0.84 },
+        table: { backgroundColor: '#ffffff', opacity: 0.74 },
+        diagram: { backgroundColor: '#f8fafc', opacity: 0.78 },
+        callout: { backgroundColor: '#eef6ff', opacity: 0.82 },
+        quote: { backgroundColor: '#ffffff', opacity: 0.58 },
+        inlineCode: { backgroundColor: '#f1f5f9', opacity: 0.88 },
+        canvas: { backgroundColor: '#ffffff', opacity: 0.64 },
+      }, selectionBackgroundColor),
+    ],
+    activeAppearanceSchemeId: '',
+  };
+}
+
+function defaultKnowledgeSelectionBackgroundColor() {
+  return 'color-mix(in srgb, var(--ui-primary-color) 30%, transparent)';
+}
+
+function defaultKnowledgeBlockStyle(): KnowledgeBlockStyleSettings {
+  return {
+    base: { backgroundColor: '#ffffff', opacity: 0.24 },
+    code: { backgroundColor: '#f8fafc', opacity: 0.44 },
+    table: { backgroundColor: '#ffffff', opacity: 0.34 },
+    diagram: { backgroundColor: '#f8fafc', opacity: 0.32 },
+    callout: { backgroundColor: '#eef6ff', opacity: 0.42 },
+    quote: { backgroundColor: '#ffffff', opacity: 0.24 },
+    inlineCode: { backgroundColor: '#f1f5f9', opacity: 0.82 },
+    canvas: { backgroundColor: '#ffffff', opacity: 0.42 },
+  };
+}
+
+function createKnowledgeAppearanceScheme(
+  name: string,
+  pageBackground: KnowledgeAreaBackground,
+  leftBackground: KnowledgeAreaBackground,
+  editorBackground: KnowledgeAreaBackground,
+  rightBackground: KnowledgeAreaBackground,
+  blockStyle: KnowledgeBlockStyleSettings,
+  selectionBackgroundColor: string,
+): KnowledgeAppearanceScheme {
+  const now = new Date().toISOString();
+  return {
+    id: `scheme-${now}-${Math.random().toString(36).slice(2, 8)}`,
+    name,
+    pageBackground: cloneKnowledgeAreaBackground(pageBackground),
+    leftBackground: cloneKnowledgeAreaBackground(leftBackground),
+    editorBackground: cloneKnowledgeAreaBackground(editorBackground),
+    rightBackground: cloneKnowledgeAreaBackground(rightBackground),
+    blockStyle: cloneKnowledgeBlockStyle(blockStyle),
+    selectionBackgroundColor,
+    createdAt: now,
+    updatedAt: now,
   };
 }
 
@@ -373,6 +629,14 @@ function loadKnowledgePersonalization(): KnowledgePersonalizationSettings {
       leftBackground: normalizeKnowledgeAreaBackground(parsed.leftBackground, defaults.leftBackground),
       editorBackground: normalizeKnowledgeAreaBackground(parsed.editorBackground, defaults.editorBackground),
       rightBackground: normalizeKnowledgeAreaBackground(parsed.rightBackground, defaults.rightBackground),
+      blockStyle: normalizeKnowledgeBlockStyle(parsed.blockStyle, defaults.blockStyle),
+      selectionBackgroundColor: normalizeKnowledgeSelectionBackgroundColor(parsed.selectionBackgroundColor, defaults.selectionBackgroundColor),
+      appearanceSchemes: normalizeKnowledgeAppearanceSchemes(parsed.appearanceSchemes ?? parsed.blockStyleSchemes, defaults.appearanceSchemes),
+      activeAppearanceSchemeId: typeof parsed.activeAppearanceSchemeId === 'string'
+        ? parsed.activeAppearanceSchemeId
+        : typeof parsed.activeBlockStyleSchemeId === 'string'
+          ? parsed.activeBlockStyleSchemeId
+          : '',
     };
   } catch {
     return defaultKnowledgePersonalization();
@@ -382,6 +646,77 @@ function loadKnowledgePersonalization(): KnowledgePersonalizationSettings {
 function persistKnowledgePersonalization(settings: KnowledgePersonalizationSettings) {
   if (typeof window === 'undefined') return;
   window.localStorage.setItem(knowledgePersonalizationStorageKey, JSON.stringify(settings));
+}
+
+function defaultKnowledgeLayout(): KnowledgeLayoutSettings {
+  return {
+    leftCollapsed: false,
+    rightCollapsed: false,
+    quickNotesCollapsed: false,
+    recentCollapsed: false,
+    favoritesCollapsed: false,
+    leftWidth: 280,
+    rightWidth: 260,
+  };
+}
+
+function normalizeKnowledgePanelWidth(value: unknown, fallback: number, min: number, max: number) {
+  const width = typeof value === 'number' ? value : Number(value);
+  if (!Number.isFinite(width)) return fallback;
+  return Math.min(max, Math.max(min, Math.round(width)));
+}
+
+function loadKnowledgeLayout(): KnowledgeLayoutSettings {
+  const defaults = defaultKnowledgeLayout();
+  if (typeof window === 'undefined') return defaults;
+  try {
+    const raw = window.localStorage.getItem(knowledgeLayoutStorageKey);
+    if (!raw) return defaults;
+    const parsed = JSON.parse(raw) as Partial<KnowledgeLayoutSettings> & Record<string, unknown>;
+    return {
+      leftCollapsed: typeof parsed.leftCollapsed === 'boolean' ? parsed.leftCollapsed : defaults.leftCollapsed,
+      rightCollapsed: typeof parsed.rightCollapsed === 'boolean' ? parsed.rightCollapsed : defaults.rightCollapsed,
+      quickNotesCollapsed: typeof parsed.quickNotesCollapsed === 'boolean' ? parsed.quickNotesCollapsed : defaults.quickNotesCollapsed,
+      recentCollapsed: typeof parsed.recentCollapsed === 'boolean' ? parsed.recentCollapsed : defaults.recentCollapsed,
+      favoritesCollapsed: typeof parsed.favoritesCollapsed === 'boolean' ? parsed.favoritesCollapsed : defaults.favoritesCollapsed,
+      leftWidth: normalizeKnowledgePanelWidth(parsed.leftWidth, defaults.leftWidth, 220, 420),
+      rightWidth: normalizeKnowledgePanelWidth(parsed.rightWidth, defaults.rightWidth, 220, 420),
+    };
+  } catch {
+    return defaults;
+  }
+}
+
+function persistKnowledgeLayout(settings: KnowledgeLayoutSettings) {
+  if (typeof window === 'undefined') return;
+  window.localStorage.setItem(knowledgeLayoutStorageKey, JSON.stringify(settings));
+}
+
+function startKnowledgeSidebarResize(side: 'left' | 'right', event: MouseEvent) {
+  if ((side === 'left' && leftSidebarCollapsed.value) || (side === 'right' && inspectorCollapsed.value)) return;
+  event.preventDefault();
+  activeResize = {
+    side,
+    startX: event.clientX,
+    startWidth: side === 'left' ? leftSidebarWidth.value : inspectorWidth.value,
+  };
+  document.body.classList.add('knowledge-sidebar-resizing');
+}
+
+function handleKnowledgeSidebarResizeMove(event: MouseEvent) {
+  if (!activeResize) return;
+  const delta = event.clientX - activeResize.startX;
+  if (activeResize.side === 'left') {
+    leftSidebarWidth.value = normalizeKnowledgePanelWidth(activeResize.startWidth + delta, activeResize.startWidth, 220, 420);
+    return;
+  }
+  inspectorWidth.value = normalizeKnowledgePanelWidth(activeResize.startWidth - delta, activeResize.startWidth, 220, 420);
+}
+
+function stopKnowledgeSidebarResize() {
+  if (!activeResize) return;
+  activeResize = null;
+  document.body.classList.remove('knowledge-sidebar-resizing');
 }
 
 function normalizeKnowledgeAreaBackground(value: unknown, fallback: KnowledgeAreaBackground): KnowledgeAreaBackground {
@@ -398,6 +733,104 @@ function normalizeKnowledgeAreaBackground(value: unknown, fallback: KnowledgeAre
     video: typeof value.video === 'string' ? value.video : '',
     backgroundStyle: isRecord(value.backgroundStyle) ? value.backgroundStyle as BackgroundStyleConfig : { opacity: 1 },
   };
+}
+
+function cloneKnowledgeAreaBackground(background: KnowledgeAreaBackground): KnowledgeAreaBackground {
+  return JSON.parse(JSON.stringify(background)) as KnowledgeAreaBackground;
+}
+
+function normalizeKnowledgeBlockSurfaceStyle(value: unknown, fallback: KnowledgeBlockSurfaceStyle): KnowledgeBlockSurfaceStyle {
+  if (!isRecord(value)) return { ...fallback };
+  const opacity = typeof value.opacity === 'number' ? value.opacity : Number(value.opacity);
+  return {
+    backgroundColor: typeof value.backgroundColor === 'string' && value.backgroundColor.trim()
+      ? value.backgroundColor
+      : fallback.backgroundColor,
+    opacity: Number.isFinite(opacity) ? Math.min(1, Math.max(0, opacity)) : fallback.opacity,
+  };
+}
+
+function normalizeKnowledgeBlockStyle(value: unknown, fallback: KnowledgeBlockStyleSettings): KnowledgeBlockStyleSettings {
+  const source = isRecord(value) ? value : {};
+  return knowledgeBlockSurfaceOrder.reduce((style, key) => {
+    style[key] = normalizeKnowledgeBlockSurfaceStyle(source[key], fallback[key]);
+    return style;
+  }, {} as KnowledgeBlockStyleSettings);
+}
+
+function cloneKnowledgeBlockStyle(style: KnowledgeBlockStyleSettings): KnowledgeBlockStyleSettings {
+  return JSON.parse(JSON.stringify(style)) as KnowledgeBlockStyleSettings;
+}
+
+function normalizeKnowledgeSelectionBackgroundColor(value: unknown, fallback: string) {
+  return typeof value === 'string' && value.trim() ? value.trim() : fallback;
+}
+
+function normalizeKnowledgeAppearanceSchemes(value: unknown, fallback: KnowledgeAppearanceScheme[]): KnowledgeAppearanceScheme[] {
+  if (!Array.isArray(value)) return fallback.map(cloneKnowledgeAppearanceScheme);
+  const fallbackBlockStyle = defaultKnowledgeBlockStyle();
+  const fallbackBackground = emptyKnowledgeAreaBackground();
+  const fallbackSelectionBackgroundColor = defaultKnowledgeSelectionBackgroundColor();
+  const schemes = value
+    .filter(isRecord)
+    .map((item, index) => {
+      const pageBackground = normalizeKnowledgeAreaBackground(item.pageBackground, fallbackBackground);
+      const leftBackground = normalizeKnowledgeAreaBackground(item.leftBackground, fallbackBackground);
+      const editorBackground = normalizeKnowledgeAreaBackground(item.editorBackground, pageBackground);
+      const rightBackground = normalizeKnowledgeAreaBackground(item.rightBackground, fallbackBackground);
+      return {
+        id: typeof item.id === 'string' && item.id.trim() ? item.id : `legacy-${index}`,
+        name: typeof item.name === 'string' && item.name.trim() ? item.name : `方案 ${index + 1}`,
+        pageBackground,
+        leftBackground,
+        editorBackground,
+        rightBackground,
+        blockStyle: normalizeKnowledgeBlockStyle(item.blockStyle, fallbackBlockStyle),
+        selectionBackgroundColor: normalizeKnowledgeSelectionBackgroundColor(item.selectionBackgroundColor, fallbackSelectionBackgroundColor),
+        createdAt: typeof item.createdAt === 'string' ? item.createdAt : new Date().toISOString(),
+        updatedAt: typeof item.updatedAt === 'string' ? item.updatedAt : new Date().toISOString(),
+      };
+    });
+  return schemes.length ? schemes : fallback.map(cloneKnowledgeAppearanceScheme);
+}
+
+function cloneKnowledgeAppearanceScheme(scheme: KnowledgeAppearanceScheme): KnowledgeAppearanceScheme {
+  return {
+    ...scheme,
+    pageBackground: cloneKnowledgeAreaBackground(scheme.pageBackground),
+    leftBackground: cloneKnowledgeAreaBackground(scheme.leftBackground),
+    editorBackground: cloneKnowledgeAreaBackground(scheme.editorBackground),
+    rightBackground: cloneKnowledgeAreaBackground(scheme.rightBackground),
+    blockStyle: cloneKnowledgeBlockStyle(scheme.blockStyle),
+  };
+}
+
+function colorMixForKnowledgeBlock(surface: KnowledgeBlockSurfaceStyle) {
+  if (surface.backgroundColor === 'transparent' || surface.opacity <= 0) return 'transparent';
+  return `color-mix(in srgb, ${surface.backgroundColor} ${Math.round(surface.opacity * 100)}%, transparent)`;
+}
+
+function createKnowledgeBlockStyleVars(style: KnowledgeBlockStyleSettings): CSSProperties {
+  return {
+    '--knowledge-block-bg': colorMixForKnowledgeBlock(style.base),
+    '--knowledge-block-code-bg': colorMixForKnowledgeBlock(style.code),
+    '--knowledge-block-table-bg': colorMixForKnowledgeBlock(style.table),
+    '--knowledge-block-table-cell-bg': colorMixForKnowledgeBlock(style.table),
+    '--knowledge-block-diagram-bg': colorMixForKnowledgeBlock(style.diagram),
+    '--knowledge-block-callout-bg': colorMixForKnowledgeBlock(style.callout),
+    '--knowledge-block-quote-bg': colorMixForKnowledgeBlock(style.quote),
+    '--knowledge-block-inline-code-bg': colorMixForKnowledgeBlock(style.inlineCode),
+    '--knowledge-block-canvas-bg': colorMixForKnowledgeBlock(style.canvas),
+    '--knowledge-md-block-bg': colorMixForKnowledgeBlock(style.base),
+    '--knowledge-md-code-bg': colorMixForKnowledgeBlock(style.code),
+    '--knowledge-md-table-bg': colorMixForKnowledgeBlock(style.table),
+    '--knowledge-md-diagram-bg': colorMixForKnowledgeBlock(style.diagram),
+    '--knowledge-md-callout-bg': colorMixForKnowledgeBlock(style.callout),
+    '--knowledge-md-quote-bg': colorMixForKnowledgeBlock(style.quote),
+    '--knowledge-md-inline-code-bg': colorMixForKnowledgeBlock(style.inlineCode),
+    '--knowledge-canvas-element-bg': colorMixForKnowledgeBlock(style.canvas),
+    '--knowledge-selection-bg': knowledgePersonalization.value.selectionBackgroundColor,
+  } as CSSProperties;
 }
 
 function hasKnowledgeBackground(background: KnowledgeAreaBackground) {
@@ -463,6 +896,42 @@ function openKnowledgePersonalizationMenu(event: MouseEvent, region: KnowledgePe
   ]);
 }
 
+function openKnowledgeCreateMenu(event: MouseEvent) {
+  openContextMenu(event.clientX, event.clientY, [
+    {
+      id: 'knowledge-create-markdown-page',
+      label: '新建 Markdown 页面',
+      action: () => void createRootPage(),
+    },
+    {
+      id: 'knowledge-create-canvas-page',
+      label: '新建画布页面',
+      action: () => void createRootCanvasPage(),
+    },
+    {
+      id: 'knowledge-create-block-page',
+      label: '新建块页面',
+      action: () => void createRootBlockPage(),
+    },
+    {
+      id: 'knowledge-create-folder',
+      label: '新建文件夹',
+      divided: true,
+      action: () => void createRootFolder(),
+    },
+    {
+      id: 'knowledge-create-space',
+      label: '新建空间',
+      action: () => void createSpace(),
+    },
+    {
+      id: 'knowledge-create-library',
+      label: '新建知识库',
+      action: () => void createLibrary(),
+    },
+  ]);
+}
+
 function openKnowledgePersonalizationPanel(region: KnowledgePersonalizationRegion) {
   knowledgePersonalizationActiveRegion.value = region;
   knowledgePersonalizationPanelOpen.value = true;
@@ -487,6 +956,10 @@ function setKnowledgeBackgroundForRegion(region: KnowledgePersonalizationRegion,
   if (region === 'right') knowledgePersonalization.value.rightBackground = background;
 }
 
+function markKnowledgeAppearanceCustom() {
+  knowledgePersonalization.value.activeAppearanceSchemeId = '';
+}
+
 function handleKnowledgePersonalizationConfirm(payload: BackgroundConfirmPayload) {
   const region = knowledgePersonalizationActiveRegion.value;
   const nextBackground = withThemeBackground(
@@ -501,6 +974,7 @@ function handleKnowledgePersonalizationConfirm(payload: BackgroundConfirmPayload
     },
   ) as KnowledgeAreaBackground;
   setKnowledgeBackgroundForRegion(region, nextBackground);
+  markKnowledgeAppearanceCustom();
 }
 
 function handleKnowledgePersonalizationReset() {
@@ -519,6 +993,85 @@ function handleKnowledgePersonalizationReset() {
     fallback,
   ) as KnowledgeAreaBackground;
   setKnowledgeBackgroundForRegion(region, nextBackground);
+  markKnowledgeAppearanceCustom();
+}
+
+function updateKnowledgeBlockSurfaceColor(surface: KnowledgeBlockSurfaceKey, color: string) {
+  knowledgePersonalization.value.blockStyle[surface] = {
+    ...knowledgePersonalization.value.blockStyle[surface],
+    backgroundColor: color,
+  };
+  markKnowledgeAppearanceCustom();
+}
+
+function updateKnowledgeBlockSurfaceOpacity(surface: KnowledgeBlockSurfaceKey, opacityPercent: number) {
+  knowledgePersonalization.value.blockStyle[surface] = {
+    ...knowledgePersonalization.value.blockStyle[surface],
+    opacity: Math.min(1, Math.max(0, opacityPercent / 100)),
+  };
+  markKnowledgeAppearanceCustom();
+}
+
+function resetKnowledgeBlockStyle() {
+  knowledgePersonalization.value.blockStyle = defaultKnowledgeBlockStyle();
+  markKnowledgeAppearanceCustom();
+}
+
+function updateKnowledgeSelectionBackgroundColor(color: string) {
+  knowledgePersonalization.value.selectionBackgroundColor = normalizeKnowledgeSelectionBackgroundColor(color, defaultKnowledgeSelectionBackgroundColor());
+  markKnowledgeAppearanceCustom();
+}
+
+async function saveCurrentKnowledgeAppearanceScheme() {
+  const name = await showTextPrompt({
+    title: '保存外观方案',
+    label: '方案名称',
+    initialValue: `外观方案 ${knowledgePersonalization.value.appearanceSchemes.length + 1}`,
+    confirmText: '保存',
+  });
+  const trimmedName = name?.trim();
+  if (!trimmedName) return;
+
+  const scheme = createKnowledgeAppearanceScheme(
+    trimmedName,
+    knowledgeBackgroundForRegion('page'),
+    knowledgeBackgroundForRegion('left'),
+    knowledgeBackgroundForRegion('editor'),
+    knowledgeBackgroundForRegion('right'),
+    knowledgePersonalization.value.blockStyle,
+    knowledgePersonalization.value.selectionBackgroundColor,
+  );
+  knowledgePersonalization.value.appearanceSchemes = [
+    scheme,
+    ...knowledgePersonalization.value.appearanceSchemes,
+  ];
+  knowledgePersonalization.value.activeAppearanceSchemeId = scheme.id;
+  notifySuccess('已保存外观方案');
+}
+
+function applyKnowledgeAppearanceScheme(value: string | number) {
+  const schemeId = String(value);
+  if (schemeId === '__custom__') {
+    knowledgePersonalization.value.activeAppearanceSchemeId = '';
+    return;
+  }
+  const scheme = knowledgePersonalization.value.appearanceSchemes.find((item) => item.id === schemeId);
+  if (!scheme) return;
+  knowledgePersonalization.value.pageBackground = cloneKnowledgeAreaBackground(scheme.pageBackground);
+  knowledgePersonalization.value.leftBackground = cloneKnowledgeAreaBackground(scheme.leftBackground);
+  knowledgePersonalization.value.editorBackground = cloneKnowledgeAreaBackground(scheme.editorBackground);
+  knowledgePersonalization.value.rightBackground = cloneKnowledgeAreaBackground(scheme.rightBackground);
+  knowledgePersonalization.value.blockStyle = cloneKnowledgeBlockStyle(scheme.blockStyle);
+  knowledgePersonalization.value.selectionBackgroundColor = scheme.selectionBackgroundColor;
+  knowledgePersonalization.value.activeAppearanceSchemeId = scheme.id;
+}
+
+function deleteActiveKnowledgeAppearanceScheme() {
+  const schemeId = knowledgePersonalization.value.activeAppearanceSchemeId;
+  if (!schemeId) return;
+  knowledgePersonalization.value.appearanceSchemes = knowledgePersonalization.value.appearanceSchemes
+    .filter((scheme) => scheme.id !== schemeId);
+  knowledgePersonalization.value.activeAppearanceSchemeId = '';
 }
 
 async function createSpace() {
@@ -545,29 +1098,39 @@ async function createLibrary() {
   }
 }
 
-async function renameActiveLibrary() {
-  if (!store.activeLibrary) return;
+function findLibrary(libraryId: string) {
+  return store.libraries.find((library) => library.id === libraryId) ?? null;
+}
+
+function isDefaultLibrary(libraryId: string) {
+  return Boolean(findLibrary(libraryId)?.isDefault);
+}
+
+async function renameLibrary(libraryId: string) {
+  const library = findLibrary(libraryId);
+  if (!library) return;
   const name = await showTextPrompt({
     title: '重命名知识库',
     label: '知识库名称',
-    initialValue: store.activeLibrary.name,
+    initialValue: library.name,
     confirmText: '保存',
   });
-  if (name && name !== store.activeLibrary.name) {
-    await store.updateLibrary(store.activeLibrary.id, { name });
+  if (name && name !== library.name) {
+    await store.updateLibrary(library.id, { name });
   }
 }
 
-async function deleteActiveLibrary() {
-  if (!store.activeLibrary || store.activeLibrary.isDefault) return;
+async function deleteLibrary(libraryId: string) {
+  const library = findLibrary(libraryId);
+  if (!library || library.isDefault) return;
   const ok = await showConfirm({
     title: '删除知识库',
-    message: `删除「${store.activeLibrary.name}」会移除该库下的空间、页面和资产记录。`,
+    message: `删除「${library.name}」会移除该库下的空间、页面和资产记录。`,
     confirmText: '删除',
     danger: true,
   });
   if (ok) {
-    await store.deleteLibrary(store.activeLibrary.id);
+    await store.deleteLibrary(library.id);
   }
 }
 
@@ -838,6 +1401,172 @@ async function openExcerptSource() {
   await store.selectNode(sourceDocumentId);
 }
 
+async function askKnowledgeAi() {
+  const question = knowledgeAiQuestion.value.trim();
+  if (!question) return;
+
+  knowledgeAiError.value = '';
+  const selectedText = knowledgeAiScope.value === 'selection' ? readCurrentDocumentSelection() : '';
+  if (knowledgeAiScope.value === 'selection' && !selectedText) {
+    notifyWarning('请先在当前页面或文档预览中选择文字', '没有选中文本');
+    return;
+  }
+
+  try {
+    const conversation = await ensureKnowledgeAiConversation();
+    const provider = aiConfigStore.defaultProvider;
+    const model = aiConfigStore.defaultModel;
+    if (!provider || !model) {
+      throw new Error('请先在 AI 设置中配置可用的 Provider 和模型');
+    }
+
+    const content = [
+      question,
+      selectedText ? `\n选中文本：\n${selectedText.slice(0, 6000)}` : '',
+    ].filter(Boolean).join('\n');
+    await aiChatStore.sendMessage({
+      conversationId: conversation.id,
+      content,
+      providerId: provider.id,
+      modelId: model.id,
+      maxHistoryMessages: 6,
+      grounding: buildKnowledgeAiGrounding(),
+      reasoning: { enabled: false },
+    });
+    knowledgeAiQuestion.value = '';
+  } catch (error) {
+    knowledgeAiError.value = error instanceof Error ? error.message : String(error);
+    notifyError(error, '知识库 AI 问答失败');
+  }
+}
+
+function setKnowledgeAiScope(value: string | number) {
+  const normalized = String(value);
+  knowledgeAiScope.value = normalized === 'selection'
+    || normalized === 'space'
+    || normalized === 'library'
+    ? normalized
+    : 'page';
+}
+
+async function ensureKnowledgeAiConversation() {
+  await aiConfigStore.refresh();
+  if (!aiChatStore.conversations.length) {
+    await aiChatStore.refreshConversations();
+  }
+  const existing = aiChatStore.conversations.find((conversation) => conversation.id === knowledgeAiConversationId.value);
+  if (existing) {
+    await aiChatStore.setActiveConversation(existing.id);
+    return existing;
+  }
+
+  const provider = aiConfigStore.defaultProvider;
+  const model = aiConfigStore.defaultModel;
+  if (!provider || !model) {
+    throw new Error('请先在 AI 设置中配置可用的 Provider 和模型');
+  }
+
+  const conversation = await aiChatStore.createConversation({
+    providerId: provider.id,
+    modelId: model.id,
+    title: `知识库问答 - ${store.activeLibrary?.name || '默认知识库'}`,
+    systemPrompt: [
+      '你是顾言工具的知识库问答助手。',
+      '回答必须基于提供的知识库引用；如果没有足够来源，直接说明没有找到可验证来源。',
+      '优先给出简洁结论，再列出依据。',
+    ].join('\n'),
+  });
+  knowledgeAiConversationId.value = conversation.id;
+  return conversation;
+}
+
+function buildKnowledgeAiGrounding() {
+  const node = store.selectedNode;
+  const isNodeScope = knowledgeAiScope.value === 'page' || knowledgeAiScope.value === 'selection';
+  return {
+    webSearchMode: 'off' as const,
+    knowledgeSearchMode: 'force' as const,
+    libraryId: store.activeLibraryId || undefined,
+    spaceId: knowledgeAiScope.value === 'library'
+      ? undefined
+      : node?.spaceId || store.activeSpaceId || undefined,
+    nodeId: isNodeScope ? node?.id : undefined,
+    assetId: isNodeScope && store.selectedAsset ? store.selectedAsset.id : undefined,
+    sourceType: isNodeScope ? selectedKnowledgeAiSourceType() : undefined,
+  };
+}
+
+function selectedKnowledgeAiSourceType(): KnowledgeSearchSourceType | undefined {
+  if (!store.selectedNode) return undefined;
+  if (store.selectedNode.nodeType === 'quick_note') return 'quick_note';
+  if (store.selectedNode.nodeType === 'document') return 'document';
+  if (store.selectedAsset) return 'asset';
+  return 'page';
+}
+
+async function openKnowledgeAiCitation(citation: AiCitation) {
+  const metadata = citation.metadata ?? {};
+  const nodeId = typeof metadata.nodeId === 'string' ? metadata.nodeId : citation.sourceId;
+  const assetId = typeof metadata.assetId === 'string' ? metadata.assetId : undefined;
+  if (nodeId) {
+    await store.selectNode(nodeId);
+  }
+  if (assetId) {
+    await store.selectAsset(assetId);
+    activeInspectorTab.value = 'attachments';
+  }
+}
+
+async function continueKnowledgeAiInWorkspace() {
+  if (knowledgeAiConversationId.value) {
+    await aiChatStore.setActiveConversation(knowledgeAiConversationId.value);
+  }
+  await router.push('/ai');
+}
+
+async function copyKnowledgeAiAnswer() {
+  const answer = knowledgeAiLatestAssistantMessage.value?.content.trim();
+  if (!answer) return;
+  await navigator.clipboard.writeText(answer);
+  notifySuccess('答案已复制', '知识库 AI');
+}
+
+async function saveKnowledgeAiAnswerAsPage() {
+  const answer = knowledgeAiLatestAssistantMessage.value?.content.trim();
+  if (!answer) return;
+  const title = await showTextPrompt({
+    title: '保存 AI 答案',
+    label: '页面标题',
+    initialValue: `AI 答案 - ${store.selectedNode?.title || store.activeLibrary?.name || '知识库'}`,
+    confirmText: '保存',
+  });
+  if (!title) return;
+  const page = await store.createDocumentExcerptPage({
+    title,
+    contentMarkdown: [
+      `> 来源：知识库 AI 问答`,
+      `> 范围：${knowledgeAiScopeLabel.value}`,
+      knowledgeAiLatestAssistantMessage.value?.citations?.length
+        ? `> 引用：${knowledgeAiLatestAssistantMessage.value.citations.map((citation) => citation.title).join('、')}`
+        : '',
+      '',
+      answer,
+    ].filter(Boolean).join('\n'),
+    contentText: answer,
+    propertiesJson: JSON.stringify({
+      sourceType: 'ai_knowledge_answer',
+      sourceConversationId: knowledgeAiConversationId.value,
+      sourceMessageId: knowledgeAiLatestAssistantMessage.value?.id,
+      scope: knowledgeAiScope.value,
+      savedAt: new Date().toISOString(),
+    }),
+    spaceId: store.activeSpaceId || undefined,
+  });
+  if (page) {
+    notifySuccess('AI 答案已保存为知识页', '知识库 AI');
+  }
+}
+
 function refreshQuickNotesOnFocus() {
   store.refreshQuickNotes();
 }
@@ -982,10 +1711,10 @@ async function handleBlockAssetFile(payload: { blockId: string; file: File; kind
   scheduleAutosave();
 }
 
-async function handleCanvasAssetFile(payload: { elementId?: string; file: File; kind: 'image'; position?: { x: number; y: number } }) {
+async function handleCanvasAssetFile(payload: { elementId?: string; file: File; kind: 'image' | 'file'; position?: { x: number; y: number } }) {
   const data = await payload.file.arrayBuffer();
   const asset = await store.saveAsset({
-    originalName: payload.file.name || 'canvas-image.png',
+    originalName: payload.file.name || (payload.kind === 'image' ? 'canvas-image.png' : 'canvas-file'),
     mimeType: payload.file.type,
     data,
   });
@@ -1401,8 +2130,12 @@ function formatFileSize(value?: number) {
 <template>
   <section
     class="knowledge-page"
-    :class="{ 'knowledge-page--custom-background': hasKnowledgePageBackground }"
-    :style="knowledgePersonalizationPageStyle"
+    :class="{
+      'knowledge-page--custom-background': hasKnowledgePageBackground,
+      'knowledge-page--left-collapsed': leftSidebarCollapsed,
+      'knowledge-page--right-collapsed': inspectorCollapsed,
+    }"
+    :style="[knowledgePersonalizationPageStyle, knowledgeBlockStyleVars, knowledgeLayoutStyle]"
     aria-label="知识库"
   >
     <header class="knowledge-toolbar">
@@ -1427,22 +2160,35 @@ function formatFileSize(value?: number) {
           <template #prefix>
             <IconRenderer icon="iconify:lucide:database" :size="15" />
           </template>
+          <template #option="{ option, selected }">
+            <span class="knowledge-library-option">
+              <span class="knowledge-library-option__check">
+                <IconRenderer v-if="selected" icon="iconify:lucide:check" :size="14" />
+              </span>
+              <span class="knowledge-library-option__name">{{ option.label }}</span>
+              <span class="knowledge-library-option__actions">
+                <UiIconButton
+                  type="button"
+                  title="重命名知识库"
+                  size="sm"
+                  :disabled="store.saving"
+                  @click.stop="renameLibrary(String(option.value))"
+                >
+                  <IconRenderer icon="iconify:lucide:pencil" :size="13" />
+                </UiIconButton>
+                <UiIconButton
+                  type="button"
+                  title="删除知识库"
+                  size="sm"
+                  :disabled="store.saving || isDefaultLibrary(String(option.value))"
+                  @click.stop="deleteLibrary(String(option.value))"
+                >
+                  <IconRenderer icon="iconify:lucide:trash-2" :size="13" />
+                </UiIconButton>
+              </span>
+            </span>
+          </template>
         </UiSelect>
-        <UiIconButton type="button" title="新建知识库" size="sm" :disabled="store.saving" @click="createLibrary">
-          <IconRenderer icon="iconify:lucide:plus" :size="15" />
-        </UiIconButton>
-        <UiIconButton type="button" title="重命名知识库" size="sm" :disabled="store.saving || !store.activeLibrary" @click="renameActiveLibrary">
-          <IconRenderer icon="iconify:lucide:pencil" :size="15" />
-        </UiIconButton>
-        <UiIconButton
-          type="button"
-          title="删除知识库"
-          size="sm"
-          :disabled="store.saving || !store.activeLibrary || store.activeLibrary.isDefault"
-          @click="deleteActiveLibrary"
-        >
-          <IconRenderer icon="iconify:lucide:trash-2" :size="15" />
-        </UiIconButton>
       </div>
 
       <label class="knowledge-toolbar__search" aria-label="搜索当前知识库">
@@ -1454,11 +2200,47 @@ function formatFileSize(value?: number) {
       </label>
 
       <div class="knowledge-toolbar__actions" aria-label="知识库操作">
+        <UiIconButton
+          type="button"
+          :title="leftSidebarCollapsed ? '展开左侧栏' : '收起左侧栏'"
+          size="sm"
+          :active="!leftSidebarCollapsed"
+          @click="leftSidebarCollapsed = !leftSidebarCollapsed"
+        >
+          <IconRenderer :icon="leftSidebarCollapsed ? 'iconify:lucide:panel-left-open' : 'iconify:lucide:panel-left-close'" :size="15" />
+        </UiIconButton>
+        <UiIconButton
+          type="button"
+          :title="inspectorCollapsed ? '展开右侧栏' : '收起右侧栏'"
+          size="sm"
+          :active="!inspectorCollapsed"
+          @click="inspectorCollapsed = !inspectorCollapsed"
+        >
+          <IconRenderer :icon="inspectorCollapsed ? 'iconify:lucide:panel-right-open' : 'iconify:lucide:panel-right-close'" :size="15" />
+        </UiIconButton>
         <UiButton type="button" variant="secondary" size="sm" @click="openKnowledgePersonalizationPanel('page')">
           <template #prefix>
             <IconRenderer icon="iconify:lucide:palette" :size="15" />
           </template>
           个性化
+        </UiButton>
+        <UiSelect
+          class="knowledge-toolbar__scheme-select"
+          :model-value="activeAppearanceSchemeSelectValue"
+          :options="appearanceSchemeOptions"
+          size="sm"
+          placeholder="外观方案"
+          @update:model-value="applyKnowledgeAppearanceScheme"
+        >
+          <template #prefix>
+            <IconRenderer icon="iconify:lucide:swatch-book" :size="14" />
+          </template>
+        </UiSelect>
+        <UiButton type="button" variant="secondary" size="sm" @click="knowledgeBlockStylePanelOpen = true">
+          <template #prefix>
+            <IconRenderer icon="iconify:lucide:sliders-horizontal" :size="15" />
+          </template>
+          外观方案
         </UiButton>
         <UiButton type="button" variant="secondary" size="sm" @click="openQuickNoteWindow">
           <template #prefix>
@@ -1472,35 +2254,11 @@ function formatFileSize(value?: number) {
           </template>
           导入
         </UiButton>
-        <UiButton type="button" variant="secondary" size="sm" :disabled="store.saving" @click="createSpace">
+        <UiButton type="button" variant="secondary" size="sm" :disabled="store.saving" @click="openKnowledgeCreateMenu">
           <template #prefix>
-            <IconRenderer icon="iconify:lucide:panel-left-open" :size="15" />
+            <IconRenderer icon="iconify:lucide:more-horizontal" :size="15" />
           </template>
-          新建空间
-        </UiButton>
-        <UiButton type="button" variant="secondary" size="sm" :disabled="store.saving" @click="createRootFolder">
-          <template #prefix>
-            <IconRenderer icon="iconify:lucide:folder-plus" :size="15" />
-          </template>
-          新建文件夹
-        </UiButton>
-        <UiButton type="button" variant="secondary" size="sm" :disabled="store.saving" @click="createRootBlockPage">
-          <template #prefix>
-            <IconRenderer icon="iconify:lucide:layout-template" :size="15" />
-          </template>
-          新建块页
-        </UiButton>
-        <UiButton type="button" variant="secondary" size="sm" :disabled="store.saving" @click="createRootCanvasPage">
-          <template #prefix>
-            <IconRenderer icon="iconify:lucide:layout-dashboard" :size="15" />
-          </template>
-          新建画布
-        </UiButton>
-        <UiButton type="button" variant="primary" size="sm" :disabled="store.saving" @click="createRootPage">
-          <template #prefix>
-            <IconRenderer icon="iconify:lucide:file-plus-2" :size="15" />
-          </template>
-          新建页面
+          更多
         </UiButton>
       </div>
     </header>
@@ -1520,12 +2278,17 @@ function formatFileSize(value?: number) {
       >
         <div class="knowledge-sidebar__header">
           <span>资料树</span>
-          <UiIconButton type="button" title="新建空间" size="sm" :disabled="store.saving" @click="createSpace">
-            <IconRenderer icon="iconify:lucide:plus" :size="15" />
-          </UiIconButton>
+          <span class="knowledge-sidebar__header-actions">
+            <UiIconButton type="button" title="新建空间" size="sm" :disabled="store.saving" @click="createSpace">
+              <IconRenderer icon="iconify:lucide:plus" :size="15" />
+            </UiIconButton>
+            <UiIconButton type="button" title="收起左侧栏" size="sm" @click="leftSidebarCollapsed = true">
+              <IconRenderer icon="iconify:lucide:panel-left-close" :size="15" />
+            </UiIconButton>
+          </span>
         </div>
 
-        <div class="knowledge-tree">
+        <UiScrollbar v-if="!leftSidebarCollapsed" class="knowledge-tree" :x="false" :y="true" :size="6">
           <section v-if="searchQuery.trim()" class="knowledge-tree__section">
             <h2>搜索</h2>
             <div class="knowledge-search-scope" aria-label="搜索范围">
@@ -1625,84 +2388,122 @@ function formatFileSize(value?: number) {
                   <IconRenderer icon="iconify:lucide:sticky-note" :size="14" />
                   速记
                 </span>
-                <UiIconButton type="button" title="打开速记窗口" size="sm" @click="openQuickNoteWindow">
-                  <IconRenderer icon="iconify:lucide:plus" :size="14" />
-                </UiIconButton>
+                <span class="knowledge-panel-toggle-group">
+                  <UiIconButton
+                    type="button"
+                    :title="quickNotesCollapsed ? '展开速记' : '收起速记'"
+                    size="sm"
+                    @click="quickNotesCollapsed = !quickNotesCollapsed"
+                  >
+                    <IconRenderer :icon="quickNotesCollapsed ? 'iconify:lucide:chevron-right' : 'iconify:lucide:chevron-down'" :size="14" />
+                  </UiIconButton>
+                  <UiIconButton type="button" title="打开速记窗口" size="sm" @click="openQuickNoteWindow">
+                    <IconRenderer icon="iconify:lucide:plus" :size="14" />
+                  </UiIconButton>
+                </span>
               </div>
-              <label class="knowledge-quick-notes__search" aria-label="搜索速记">
-                <UiInput v-model="store.quickNoteSearch" class="knowledge-quick-notes__search-input" type="search" size="sm" placeholder="搜索速记">
-                  <template #prefix>
-                    <IconRenderer icon="iconify:lucide:search" :size="13" />
-                  </template>
-                </UiInput>
-              </label>
-              <UiButton
-                v-for="note in store.visibleQuickNotes.slice(0, 5)"
-                :key="note.quickNote.id"
-                type="button"
-                variant="ghost"
-                size="sm"
-                class="knowledge-quick-note"
-                :class="[
-                  `knowledge-quick-note--${note.quickNote.color}`,
-                  { 'knowledge-quick-note--active': store.selectedNodeId === note.quickNote.id },
-                ]"
-                :active="store.selectedNodeId === note.quickNote.id"
-                :aria-pressed="store.selectedNodeId === note.quickNote.id"
-                @click="store.selectNode(note.quickNote.id)"
-              >
-                <strong>{{ note.quickNote.title }}</strong>
-                <span>{{ quickNotePreview(note) }}</span>
-              </UiButton>
-              <div v-if="!store.visibleQuickNotes.length" class="knowledge-empty-line">暂无速记</div>
+              <Transition name="knowledge-collapse">
+                <div v-if="!quickNotesCollapsed" class="knowledge-collapsible-body">
+                  <label class="knowledge-quick-notes__search" aria-label="搜索速记">
+                    <UiInput v-model="store.quickNoteSearch" class="knowledge-quick-notes__search-input" type="search" size="sm" placeholder="搜索速记">
+                      <template #prefix>
+                        <IconRenderer icon="iconify:lucide:search" :size="13" />
+                      </template>
+                    </UiInput>
+                  </label>
+                  <UiButton
+                    v-for="note in store.visibleQuickNotes.slice(0, 5)"
+                    :key="note.quickNote.id"
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    class="knowledge-quick-note"
+                    :class="[
+                      `knowledge-quick-note--${note.quickNote.color}`,
+                      { 'knowledge-quick-note--active': store.selectedNodeId === note.quickNote.id },
+                    ]"
+                    :active="store.selectedNodeId === note.quickNote.id"
+                    :aria-pressed="store.selectedNodeId === note.quickNote.id"
+                    @click="store.selectNode(note.quickNote.id)"
+                  >
+                    <strong>{{ note.quickNote.title }}</strong>
+                    <span>{{ quickNotePreview(note) }}</span>
+                  </UiButton>
+                  <div v-if="!store.visibleQuickNotes.length" class="knowledge-empty-line">暂无速记</div>
+                </div>
+              </Transition>
             </div>
             <div class="knowledge-mini-list">
               <div class="knowledge-mini-list__label">
                 <IconRenderer icon="iconify:lucide:clock-3" :size="14" />
                 <span>最近编辑</span>
+                <UiIconButton
+                  type="button"
+                  :title="recentCollapsed ? '展开最近编辑' : '收起最近编辑'"
+                  size="sm"
+                  @click="recentCollapsed = !recentCollapsed"
+                >
+                  <IconRenderer :icon="recentCollapsed ? 'iconify:lucide:chevron-right' : 'iconify:lucide:chevron-down'" :size="13" />
+                </UiIconButton>
               </div>
-              <UiButton
-                v-for="node in store.recentNodes.slice(0, 4)"
-                :key="`recent-${node.id}`"
-                type="button"
-                variant="ghost"
-                size="sm"
-                :class="{ 'knowledge-mini-list__item--active': store.selectedNodeId === node.id }"
-                class="knowledge-mini-list__item"
-                :active="store.selectedNodeId === node.id"
-                :aria-pressed="store.selectedNodeId === node.id"
-                @click="selectNode(node)"
-              >
-                <span>{{ node.title }}</span>
-                <template #suffix>
-                  <time>{{ formatDateTime(node.updatedAt) }}</time>
-                </template>
-              </UiButton>
+              <Transition name="knowledge-collapse">
+                <div v-if="!recentCollapsed" class="knowledge-collapsible-body">
+                  <UiButton
+                    v-for="node in store.recentNodes.slice(0, 4)"
+                    :key="`recent-${node.id}`"
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    :class="{ 'knowledge-mini-list__item--active': store.selectedNodeId === node.id }"
+                    class="knowledge-mini-list__item"
+                    :active="store.selectedNodeId === node.id"
+                    :aria-pressed="store.selectedNodeId === node.id"
+                    @click="selectNode(node)"
+                  >
+                    <span>{{ node.title }}</span>
+                    <template #suffix>
+                      <time>{{ formatDateTime(node.updatedAt) }}</time>
+                    </template>
+                  </UiButton>
+                </div>
+              </Transition>
             </div>
             <div class="knowledge-mini-list">
               <div class="knowledge-mini-list__label">
                 <IconRenderer icon="iconify:lucide:star" :size="14" />
                 <span>收藏</span>
                 <strong>{{ store.favoriteNodes.length }}</strong>
+                <UiIconButton
+                  type="button"
+                  :title="favoritesCollapsed ? '展开收藏' : '收起收藏'"
+                  size="sm"
+                  @click="favoritesCollapsed = !favoritesCollapsed"
+                >
+                  <IconRenderer :icon="favoritesCollapsed ? 'iconify:lucide:chevron-right' : 'iconify:lucide:chevron-down'" :size="13" />
+                </UiIconButton>
               </div>
-              <UiButton
-                v-for="node in store.favoriteNodes.slice(0, 4)"
-                :key="`favorite-${node.id}`"
-                type="button"
-                variant="ghost"
-                size="sm"
-                :class="{ 'knowledge-mini-list__item--active': store.selectedNodeId === node.id }"
-                class="knowledge-mini-list__item"
-                :active="store.selectedNodeId === node.id"
-                :aria-pressed="store.selectedNodeId === node.id"
-                @click="selectNode(node)"
-              >
-                <span>{{ node.title }}</span>
-                <template #suffix>
-                  <time>{{ formatDateTime(node.updatedAt) }}</time>
-                </template>
-              </UiButton>
-              <div v-if="!store.favoriteNodes.length" class="knowledge-empty-line">暂无收藏</div>
+              <Transition name="knowledge-collapse">
+                <div v-if="!favoritesCollapsed" class="knowledge-collapsible-body">
+                  <UiButton
+                    v-for="node in store.favoriteNodes.slice(0, 4)"
+                    :key="`favorite-${node.id}`"
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    :class="{ 'knowledge-mini-list__item--active': store.selectedNodeId === node.id }"
+                    class="knowledge-mini-list__item"
+                    :active="store.selectedNodeId === node.id"
+                    :aria-pressed="store.selectedNodeId === node.id"
+                    @click="selectNode(node)"
+                  >
+                    <span>{{ node.title }}</span>
+                    <template #suffix>
+                      <time>{{ formatDateTime(node.updatedAt) }}</time>
+                    </template>
+                  </UiButton>
+                  <div v-if="!store.favoriteNodes.length" class="knowledge-empty-line">暂无收藏</div>
+                </div>
+              </Transition>
             </div>
           </section>
 
@@ -1780,7 +2581,29 @@ function formatFileSize(value?: number) {
               </div>
             </article>
           </section>
-        </div>
+        </UiScrollbar>
+        <UiButton
+          v-else
+          type="button"
+          variant="ghost"
+          size="sm"
+          class="knowledge-sidebar__collapsed-rail"
+          title="展开左侧栏"
+          @click="leftSidebarCollapsed = false"
+        >
+          <template #prefix>
+            <IconRenderer icon="iconify:lucide:panel-left-open" :size="17" />
+          </template>
+          <span>资料树</span>
+        </UiButton>
+        <span
+          v-if="!leftSidebarCollapsed"
+          class="knowledge-sidebar__resize-handle knowledge-sidebar__resize-handle--left"
+          role="separator"
+          aria-orientation="vertical"
+          title="拖动调整左侧栏宽度"
+          @mousedown="startKnowledgeSidebarResize('left', $event)"
+        />
       </aside>
 
       <main
@@ -1795,12 +2618,15 @@ function formatFileSize(value?: number) {
         </div>
 
         <div v-else-if="store.selectedNode" class="knowledge-editor">
-          <header class="knowledge-editor__header">
+          <header
+            class="knowledge-editor__header"
+            :class="{ 'knowledge-editor__header--block-page': store.selectedPage?.page.pageType === 'block' }"
+          >
             <div class="knowledge-editor__meta">
               <span>{{ selectedKindLabel }}</span>
               <time>更新于 {{ formatDateTime(store.selectedNode.updatedAt) }}</time>
             </div>
-            <label class="knowledge-editor__title">
+            <label v-if="store.selectedPage?.page.pageType !== 'block'" class="knowledge-editor__title">
               <UiInput
                 v-model="draftTitle"
                 type="text"
@@ -1881,6 +2707,7 @@ function formatFileSize(value?: number) {
               :dirty="store.markdownDirty"
               :saving="store.saving"
               :page-suggestions="pageSuggestions"
+              :selection-background-color="knowledgePersonalization.selectionBackgroundColor"
               @update:model-value="updateMarkdown"
               @save="saveMarkdown"
               @asset-file="handleEditorAssetFile"
@@ -1895,6 +2722,12 @@ function formatFileSize(value?: number) {
               :model-value="store.blockDraft"
               :dirty="store.blockDirty"
               :saving="store.saving"
+              :title="draftTitle"
+              :kind-label="selectedKindLabel"
+              :updated-at="formatDateTime(store.selectedNode.updatedAt)"
+              :selection-background-color="knowledgePersonalization.selectionBackgroundColor"
+              @update:title="value => draftTitle = value"
+              @save-title="saveTitle"
               @update:model-value="updateBlockDocument"
               @save="saveBlockDocument"
               @asset-file="handleBlockAssetFile"
@@ -1914,6 +2747,7 @@ function formatFileSize(value?: number) {
               :dirty="store.canvasDirty"
               :saving="store.saving"
               :page-suggestions="pageSuggestions"
+              :style="{ '--knowledge-selection-bg': knowledgePersonalization.selectionBackgroundColor }"
               @update:model-value="updateCanvasDocument"
               @save="saveCanvasDocument"
               @asset-file="handleCanvasAssetFile"
@@ -1924,9 +2758,12 @@ function formatFileSize(value?: number) {
             />
           </div>
 
-          <div
+          <UiScrollbar
             v-else-if="store.selectedPage?.page.pageType === 'external_document'"
             class="knowledge-document-view"
+            :x="false"
+            :y="true"
+            :size="6"
             @mouseup="captureSelectedDocumentText"
           >
             <div class="knowledge-document-view__hero">
@@ -2086,9 +2923,9 @@ function formatFileSize(value?: number) {
               <h3>已抽取文本</h3>
               <pre>{{ store.selectedPage.page.contentText || '当前文件未抽取到可搜索文本。' }}</pre>
             </section>
-          </div>
+          </UiScrollbar>
 
-          <div v-else-if="selectedQuickNote" class="knowledge-quick-note-detail">
+          <UiScrollbar v-else-if="selectedQuickNote" class="knowledge-quick-note-detail" :x="false" :y="true" :size="6">
             <div
               class="knowledge-quick-note-detail__paper"
               :class="`knowledge-quick-note-detail__paper--${selectedQuickNote.quickNote.color}`"
@@ -2136,7 +2973,7 @@ function formatFileSize(value?: number) {
                 </UiButton>
               </div>
             </div>
-          </div>
+          </UiScrollbar>
 
           <div v-else class="knowledge-folder-view">
             <div class="knowledge-folder-view__icon">
@@ -2196,7 +3033,11 @@ function formatFileSize(value?: number) {
         aria-label="知识库 Inspector"
         @contextmenu.prevent="openKnowledgePersonalizationMenu($event, 'right')"
       >
+        <template v-if="!inspectorCollapsed">
         <div class="knowledge-inspector__tabs">
+          <UiIconButton type="button" title="收起右侧栏" variant="ghost" size="sm" @click="inspectorCollapsed = true">
+            <IconRenderer icon="iconify:lucide:panel-right-close" :size="15" />
+          </UiIconButton>
           <UiIconButton
             v-for="tab in inspectorTabs"
             :key="tab.id"
@@ -2212,7 +3053,7 @@ function formatFileSize(value?: number) {
             <IconRenderer :icon="tab.icon" :size="15" />
           </UiIconButton>
         </div>
-        <div class="knowledge-inspector__content">
+        <UiScrollbar class="knowledge-inspector__content" :x="false" :y="true" :size="6">
           <h2>{{ inspectorTabs.find((tab) => tab.id === activeInspectorTab)?.label }}</h2>
           <dl>
             <div>
@@ -2360,23 +3201,15 @@ function formatFileSize(value?: number) {
               </div>
             </template>
             <h3>标签库</h3>
-            <div class="knowledge-tag-colors">
-              <UiIconButton
-                v-for="color in tagColorOptions"
-                :key="color"
-                type="button"
-                variant="ghost"
-                size="sm"
-                shape="circle"
-                :class="{ active: selectedTagColor === color }"
-                :active="selectedTagColor === color"
-                :style="{ '--tag-color': color }"
-                :title="color"
-                :aria-label="`选择标签颜色 ${color}`"
-                :aria-pressed="selectedTagColor === color"
-                @click="selectedTagColor = color"
-              />
-            </div>
+            <UiColorPicker
+              v-model="selectedTagColor"
+              class="knowledge-tag-color-picker"
+              :swatches="tagColorOptions"
+              label="标签颜色"
+              aria-label="选择标签颜色"
+              placeholder="#4A90D9"
+              :show-input="false"
+            />
             <UiButton type="button" variant="secondary" size="sm" block @click="createTagForCurrentSelection">
               新建并绑定标签
             </UiButton>
@@ -2501,13 +3334,131 @@ function formatFileSize(value?: number) {
             </UiButton>
             <span v-if="!store.orphanPages.length" class="knowledge-inspector__muted">当前空间没有孤立页面</span>
           </div>
-          <p
+          <div
             v-if="activeInspectorTab === 'ai'"
-            class="knowledge-inspector__placeholder"
+            class="knowledge-ai-panel"
           >
-            暂无数据
-          </p>
-        </div>
+            <div class="knowledge-ai-panel__controls">
+              <UiSelect
+                :model-value="knowledgeAiScope"
+                :options="knowledgeAiScopeOptions"
+                size="sm"
+                placeholder="选择范围"
+                @update:model-value="setKnowledgeAiScope"
+              />
+              <UiButton
+                type="button"
+                variant="secondary"
+                size="sm"
+                :disabled="!knowledgeAiConversationId"
+                @click="continueKnowledgeAiInWorkspace"
+              >
+                继续到 AI
+              </UiButton>
+            </div>
+            <p class="knowledge-ai-panel__scope">
+              {{ knowledgeAiScopeLabel }} · {{ store.selectedNode?.title || store.activeLibrary?.name || '未选择节点' }}
+            </p>
+            <UiTextarea
+              v-model="knowledgeAiQuestion"
+              class="knowledge-ai-panel__input"
+              :rows="4"
+              resize="none"
+              placeholder="基于当前知识来源提问"
+              :disabled="aiChatStore.sending"
+              @keydown.enter.ctrl.prevent="askKnowledgeAi"
+            />
+            <div class="knowledge-ai-panel__actions">
+              <UiButton
+                type="button"
+                variant="primary"
+                size="sm"
+                :disabled="!knowledgeAiCanAsk || aiChatStore.sending"
+                @click="askKnowledgeAi"
+              >
+                <template #prefix>
+                  <IconRenderer icon="iconify:lucide:send" :size="14" />
+                </template>
+                提问
+              </UiButton>
+              <UiButton
+                type="button"
+                variant="secondary"
+                size="sm"
+                :disabled="!knowledgeAiLatestAssistantMessage"
+                @click="copyKnowledgeAiAnswer"
+              >
+                复制答案
+              </UiButton>
+              <UiButton
+                type="button"
+                variant="secondary"
+                size="sm"
+                :disabled="!knowledgeAiLatestAssistantMessage || store.saving"
+                @click="saveKnowledgeAiAnswerAsPage"
+              >
+                保存为页面
+              </UiButton>
+            </div>
+            <p v-if="knowledgeAiError || aiChatStore.error" class="knowledge-ai-panel__error">
+              {{ knowledgeAiError || aiChatStore.error }}
+            </p>
+            <div v-if="knowledgeAiMessages.length" class="knowledge-ai-panel__messages">
+              <article
+                v-for="message in knowledgeAiMessages.slice(-6)"
+                :key="message.id"
+                class="knowledge-ai-panel__message"
+                :class="`knowledge-ai-panel__message--${message.role}`"
+              >
+                <strong>{{ message.role === 'assistant' ? 'AI' : '我' }}</strong>
+                <p>{{ message.content || (message.status === 'streaming' ? '生成中...' : '') }}</p>
+                <div v-if="message.citations?.length" class="knowledge-ai-panel__citations">
+                  <UiButton
+                    v-for="citation in message.citations"
+                    :key="citation.id"
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    class="knowledge-ai-panel__citation"
+                    :title="citation.snippet"
+                    @click="openKnowledgeAiCitation(citation)"
+                  >
+                    <template #prefix>
+                      <IconRenderer icon="iconify:lucide:quote" :size="13" />
+                    </template>
+                    {{ citation.title }}
+                  </UiButton>
+                </div>
+              </article>
+            </div>
+            <p v-else class="knowledge-inspector__muted">
+              选择范围后提问；强制知识检索没有来源时会停止生成。
+            </p>
+          </div>
+        </UiScrollbar>
+        </template>
+        <UiButton
+          v-else
+          type="button"
+          variant="ghost"
+          size="sm"
+          class="knowledge-inspector__collapsed-rail"
+          title="展开右侧栏"
+          @click="inspectorCollapsed = false"
+        >
+          <template #prefix>
+            <IconRenderer icon="iconify:lucide:panel-right-open" :size="17" />
+          </template>
+          <span>详情</span>
+        </UiButton>
+        <span
+          v-if="!inspectorCollapsed"
+          class="knowledge-sidebar__resize-handle knowledge-sidebar__resize-handle--right"
+          role="separator"
+          aria-orientation="vertical"
+          title="拖动调整右侧栏宽度"
+          @mousedown="startKnowledgeSidebarResize('right', $event)"
+        />
       </aside>
     </div>
     <UiPersonalizationConfig
@@ -2526,6 +3477,114 @@ function formatFileSize(value?: number) {
       @confirm="handleKnowledgePersonalizationConfirm"
       @reset="handleKnowledgePersonalizationReset"
     />
+    <Teleport to="body">
+      <div
+        v-if="knowledgeBlockStylePanelOpen"
+        class="knowledge-block-style-modal"
+        role="dialog"
+        aria-modal="true"
+        aria-label="知识库外观方案"
+        @mousedown.self="knowledgeBlockStylePanelOpen = false"
+      >
+        <section class="knowledge-block-style-panel">
+          <header class="knowledge-block-style-panel__header">
+            <div>
+              <h2>知识库外观方案</h2>
+              <p>保存知识库背景、编辑区背景、块背景、框选颜色和透明度为一套方案。</p>
+            </div>
+            <UiIconButton type="button" title="关闭" size="sm" @click="knowledgeBlockStylePanelOpen = false">
+              <IconRenderer icon="iconify:lucide:x" :size="16" />
+            </UiIconButton>
+          </header>
+
+          <div class="knowledge-block-style-panel__actions">
+            <UiButton type="button" variant="primary" size="sm" @click="saveCurrentKnowledgeAppearanceScheme">
+              <template #prefix>
+                <IconRenderer icon="iconify:lucide:save" :size="14" />
+              </template>
+              保存外观方案
+            </UiButton>
+            <UiButton
+              type="button"
+              variant="secondary"
+              size="sm"
+              :disabled="!knowledgePersonalization.activeAppearanceSchemeId"
+              @click="deleteActiveKnowledgeAppearanceScheme"
+            >
+              <template #prefix>
+                <IconRenderer icon="iconify:lucide:trash-2" :size="14" />
+              </template>
+              删除当前方案
+            </UiButton>
+            <UiButton type="button" variant="secondary" size="sm" @click="resetKnowledgeBlockStyle">
+              <template #prefix>
+                <IconRenderer icon="iconify:lucide:rotate-ccw" :size="14" />
+              </template>
+              恢复默认块样式
+            </UiButton>
+          </div>
+
+          <div class="knowledge-block-style-panel__preview" :style="[knowledgePersonalizationPageStyle, knowledgeBlockStyleVars]">
+            <div class="knowledge-block-style-preview__code">
+              <span>代码块</span>
+              <code>const theme = 'transparent blocks'</code>
+            </div>
+            <div class="knowledge-block-style-preview__diagram">Mermaid / 数学区域</div>
+            <div class="knowledge-block-style-preview__table">
+              <span>表格</span>
+              <span>背景</span>
+            </div>
+            <div class="knowledge-block-style-preview__callout">标注区域</div>
+          </div>
+
+          <UiScrollbar class="knowledge-block-style-panel__scrollbar" :x="false" :y="true" :size="8">
+            <section class="knowledge-block-style-card knowledge-block-style-card--wide">
+              <div class="knowledge-block-style-card__head">
+                <span>光标框选背景</span>
+                <span>{{ knowledgePersonalization.selectionBackgroundColor }}</span>
+              </div>
+              <UiColorPicker
+                :model-value="knowledgePersonalization.selectionBackgroundColor"
+                :swatches="['color-mix(in srgb, var(--ui-primary-color) 18%, transparent)', 'color-mix(in srgb, var(--ui-primary-color) 30%, transparent)', '#bfdbfe', '#fde68a', '#bbf7d0', '#fecaca']"
+                aria-label="光标框选背景颜色"
+                placeholder="color-mix(...) 或 #bfdbfe"
+                @update:model-value="updateKnowledgeSelectionBackgroundColor"
+              />
+            </section>
+            <div class="knowledge-block-style-grid">
+              <section
+                v-for="surface in knowledgeBlockSurfaceOrder"
+                :key="surface"
+                class="knowledge-block-style-card"
+              >
+                <div class="knowledge-block-style-card__head">
+                  <span>{{ knowledgeBlockSurfaceLabels[surface] }}</span>
+                  <span>{{ Math.round(knowledgePersonalization.blockStyle[surface].opacity * 100) }}%</span>
+                </div>
+                <UiColorPicker
+                  :model-value="knowledgePersonalization.blockStyle[surface].backgroundColor"
+                  :swatches="knowledgeBlockStyleColorOptions"
+                  allow-transparent
+                  :aria-label="`${knowledgeBlockSurfaceLabels[surface]} 背景颜色`"
+                  placeholder="#ffffff"
+                  @update:model-value="color => updateKnowledgeBlockSurfaceColor(surface, color)"
+                />
+                <UiSliderField
+                  :model-value="Math.round(knowledgePersonalization.blockStyle[surface].opacity * 100)"
+                  :min="0"
+                  :max="100"
+                  :step="1"
+                  label="透明度"
+                  unit="%"
+                  :aria-label="`${knowledgeBlockSurfaceLabels[surface]} 透明度`"
+                  @update:model-value="value => updateKnowledgeBlockSurfaceOpacity(surface, value)"
+                />
+              </section>
+            </div>
+          </UiScrollbar>
+        </section>
+      </div>
+    </Teleport>
     <KnowledgeConversionDialog
       :open="Boolean(conversionMode)"
       :title="conversionDialog?.title ?? ''"
@@ -2542,7 +3601,13 @@ function formatFileSize(value?: number) {
 @use '../../assets/cssvars.scss' as *;
 
 .knowledge-page {
-
+  --knowledge-left-expanded-width: 280px;
+  --knowledge-right-expanded-width: 260px;
+  --knowledge-left-width: var(--knowledge-left-expanded-width);
+  --knowledge-right-width: var(--knowledge-right-expanded-width);
+  --knowledge-panel-tint: color-mix(in srgb, var(--ui-surface-panel) 88%, transparent);
+  --knowledge-workspace-tint: color-mix(in srgb, var(--ui-surface-panel-muted) 84%, var(--ui-surface-base));
+  position: relative;
   display: grid;
   grid-template-rows: auto auto minmax(0, 1fr);
   width: 100%;
@@ -2557,6 +3622,56 @@ function formatFileSize(value?: number) {
   background-position: center;
   background-repeat: no-repeat;
   background-size: cover;
+  transition: background 0.2s ease;
+}
+
+.knowledge-page::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  background: transparent;
+}
+
+.knowledge-page--custom-background::before {
+  background:
+    linear-gradient(
+      180deg,
+      color-mix(in srgb, var(--background-color) 10%, transparent),
+      color-mix(in srgb, var(--background-color) 14%, transparent)
+    );
+}
+
+.knowledge-page--left-collapsed {
+  --knowledge-left-width: 44px;
+}
+
+.knowledge-page--right-collapsed {
+  --knowledge-right-width: 44px;
+}
+
+.knowledge-page--custom-background {
+  --knowledge-panel-tint: color-mix(in srgb, var(--ui-surface-panel) 58%, transparent);
+  --knowledge-workspace-tint: transparent;
+  --knowledge-editor-header-bg: color-mix(in srgb, var(--ui-surface-panel) 10%, transparent);
+  --knowledge-editor-header-border: color-mix(in srgb, var(--ui-border-subtle) 48%, transparent);
+  --knowledge-markdown-toolbar-bg: color-mix(in srgb, var(--ui-surface-panel) 10%, transparent);
+  --knowledge-markdown-control-bg: color-mix(in srgb, var(--ui-input-bg) 42%, transparent);
+  --knowledge-markdown-preview-bg: transparent;
+  --knowledge-markdown-editor-bg: transparent;
+  --knowledge-markdown-preview-paper-bg: transparent;
+  --knowledge-markdown-editor-paper-bg: transparent;
+  --knowledge-markdown-preview-focus-bg: transparent;
+  --knowledge-markdown-editor-focus-bg: transparent;
+}
+
+.knowledge-toolbar,
+.knowledge-error,
+.knowledge-shell,
+.knowledge-page > .ui-personalization-config {
+  position: relative;
+  z-index: 1;
 }
 
 :global(.page-router-viewport > .knowledge-page) {
@@ -2567,11 +3682,11 @@ function formatFileSize(value?: number) {
 .knowledge-toolbar {
   grid-row: 1;
   display: grid;
-  grid-template-columns: minmax(180px, 0.7fr) minmax(230px, auto) minmax(220px, 1fr) auto;
-  gap: 14px;
+  grid-template-columns: minmax(170px, 0.65fr) minmax(190px, 230px) minmax(180px, 1fr) minmax(0, auto);
+  gap: 10px;
   align-items: center;
   min-height: 66px;
-  padding: 14px 18px;
+  padding: 12px 16px;
   border-bottom: 1px solid var(--ui-border-subtle);
   background: var(--ui-surface-panel);
 }
@@ -2594,6 +3709,40 @@ function formatFileSize(value?: number) {
   min-width: 0;
   height: 34px;
   border-radius: 8px;
+}
+
+.knowledge-library-option {
+  display: grid;
+  grid-template-columns: 16px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  min-width: 0;
+}
+
+.knowledge-library-option__check {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--ui-select-focus-border);
+}
+
+.knowledge-library-option__name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.knowledge-library-option__actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.knowledge-library-option__actions .ui-icon-button {
+  width: 24px;
+  height: 24px;
 }
 
 .knowledge-toolbar__title {
@@ -2646,7 +3795,174 @@ function formatFileSize(value?: number) {
 
 .knowledge-toolbar__actions {
   justify-content: flex-end;
+  gap: 6px;
+  min-width: 0;
+  overflow: hidden;
+}
+
+.knowledge-toolbar__actions > .ui-button,
+.knowledge-toolbar__actions > .ui-icon-button {
+  flex: 0 0 auto;
+}
+
+.knowledge-toolbar__actions > .ui-button {
+  min-width: 0;
+}
+
+.knowledge-toolbar__scheme-select {
+  width: 142px;
+  min-width: 118px;
+
+  :deep(.ui-select-trigger) {
+    height: 32px;
+    min-height: 32px;
+  }
+}
+
+.knowledge-block-style-modal {
+  position: fixed;
+  inset: 0;
+  z-index: var(--ui-z-modal, 5000);
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  background: rgb(15 23 42 / 28%);
+}
+
+.knowledge-block-style-panel {
+  display: grid;
+  grid-template-rows: auto auto auto minmax(0, 1fr);
+  width: min(760px, calc(100vw - 48px));
+  max-height: min(780px, calc(100vh - 48px));
+  overflow: hidden;
+  border: 1px solid var(--ui-border-subtle);
+  border-radius: 10px;
+  background: var(--ui-surface-panel);
+  box-shadow: var(--ui-shadow-modal, 0 18px 48px rgb(15 23 42 / 24%));
+}
+
+.knowledge-block-style-panel__header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 18px 20px 12px;
+
+  h2,
+  p {
+    margin: 0;
+  }
+
+  h2 {
+    font-size: var(--ui-font-size-lg);
+    font-weight: 750;
+  }
+
+  p {
+    margin-top: 4px;
+    color: var(--ui-text-muted);
+    font-size: var(--ui-font-size-sm);
+  }
+}
+
+.knowledge-block-style-panel__actions {
+  display: flex;
+  flex-wrap: wrap;
   gap: 8px;
+  padding: 0 20px 14px;
+}
+
+.knowledge-block-style-panel__preview {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 8px;
+  margin: 0 20px 14px;
+  padding: 12px;
+  border: 1px solid var(--ui-border-subtle);
+  border-radius: 8px;
+  background: var(--background-color, var(--ui-surface-muted));
+  background-position: center;
+  background-repeat: no-repeat;
+  background-size: cover;
+}
+
+.knowledge-block-style-preview__code,
+.knowledge-block-style-preview__diagram,
+.knowledge-block-style-preview__table,
+.knowledge-block-style-preview__callout {
+  min-height: 66px;
+  padding: 10px;
+  border: 1px solid color-mix(in srgb, var(--ui-border-subtle) 72%, transparent);
+  border-radius: 7px;
+  color: var(--ui-text-primary);
+  font-size: var(--ui-font-size-xs);
+}
+
+.knowledge-block-style-preview__code {
+  display: grid;
+  gap: 8px;
+  background: var(--knowledge-block-code-bg);
+
+  code {
+    font-family: var(--ui-font-mono, 'Cascadia Mono', monospace);
+  }
+}
+
+.knowledge-block-style-preview__diagram {
+  display: grid;
+  place-items: center;
+  background: var(--knowledge-block-diagram-bg);
+}
+
+.knowledge-block-style-preview__table {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  padding: 0;
+  background: var(--knowledge-block-table-bg);
+
+  span {
+    display: grid;
+    place-items: center;
+    min-height: 66px;
+    border-right: 1px solid var(--ui-border-subtle);
+  }
+
+  span:last-child {
+    border-right: 0;
+  }
+}
+
+.knowledge-block-style-preview__callout {
+  background: var(--knowledge-block-callout-bg);
+}
+
+.knowledge-block-style-panel__scrollbar {
+  min-height: 0;
+  padding: 0 14px 18px 20px;
+}
+
+.knowledge-block-style-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 10px;
+}
+
+.knowledge-block-style-card {
+  display: grid;
+  gap: 10px;
+  padding: 12px;
+  border: 1px solid var(--ui-border-subtle);
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--ui-surface-panel-muted) 54%, transparent);
+}
+
+.knowledge-block-style-card__head {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  color: var(--ui-text-secondary);
+  font-size: var(--ui-font-size-xs);
+  font-weight: 700;
 }
 
 .knowledge-error {
@@ -2668,10 +3984,11 @@ function formatFileSize(value?: number) {
 .knowledge-shell {
   grid-row: 3;
   display: grid;
-  grid-template-columns: 280px minmax(0, 1fr) 260px;
+  grid-template-columns: var(--knowledge-left-width) minmax(0, 1fr) var(--knowledge-right-width);
   height: 100%;
   min-height: 0;
   overflow: hidden;
+  transition: grid-template-columns 0.2s ease;
 }
 
 .knowledge-sidebar,
@@ -2683,20 +4000,25 @@ function formatFileSize(value?: number) {
 
 .knowledge-sidebar,
 .knowledge-inspector {
+  position: relative;
   border-right: 1px solid var(--ui-border-subtle);
-  background: var(--ui-surface-panel);
+  background: var(--knowledge-panel-tint);
+  backdrop-filter: saturate(1.05);
+  transition:
+    background-color 0.18s ease,
+    opacity 0.18s ease;
 }
 
 .knowledge-inspector {
   border-right: 0;
   border-left: 1px solid var(--ui-border-subtle);
-  background: var(--ui-surface-panel);
+  background: var(--knowledge-panel-tint);
 }
 
 .knowledge-page--custom-background .knowledge-sidebar,
 .knowledge-page--custom-background .knowledge-workspace,
 .knowledge-page--custom-background .knowledge-inspector {
-  background: transparent;
+  background: var(--knowledge-panel-tint);
 }
 
 .knowledge-sidebar__header {
@@ -2735,8 +4057,106 @@ function formatFileSize(value?: number) {
 
 .knowledge-tree {
   height: calc(100% - 44px);
-  overflow: auto;
+}
+
+.knowledge-tree :deep(.ui-scrollbar__content) {
   padding: 0 10px 16px;
+}
+
+.knowledge-sidebar__header-actions,
+.knowledge-panel-toggle-group {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.knowledge-sidebar__resize-handle {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  z-index: 2;
+  width: 8px;
+  cursor: col-resize;
+  touch-action: none;
+}
+
+.knowledge-sidebar__resize-handle::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 1px;
+  background: transparent;
+  transition: background-color 0.16s ease;
+}
+
+.knowledge-sidebar__resize-handle:hover::after,
+:global(.knowledge-sidebar-resizing) .knowledge-sidebar__resize-handle::after {
+  background: color-mix(in srgb, var(--ui-primary-color) 48%, transparent);
+}
+
+.knowledge-sidebar__resize-handle--left {
+  right: -4px;
+}
+
+.knowledge-sidebar__resize-handle--left::after {
+  right: 3px;
+}
+
+.knowledge-sidebar__resize-handle--right {
+  left: -4px;
+}
+
+.knowledge-sidebar__resize-handle--right::after {
+  left: 3px;
+}
+
+.knowledge-sidebar__collapsed-rail,
+.knowledge-inspector__collapsed-rail {
+  display: grid;
+  align-content: start;
+  justify-items: center;
+  gap: 8px;
+  width: 100%;
+  height: 100%;
+  padding: 12px 0;
+  color: var(--ui-text-muted);
+  background: transparent;
+  transition:
+    color 0.18s ease,
+    background-color 0.18s ease;
+}
+
+.knowledge-sidebar__collapsed-rail :deep(.ui-button__content),
+.knowledge-inspector__collapsed-rail :deep(.ui-button__content),
+.knowledge-sidebar__collapsed-rail :deep(.ui-button__label),
+.knowledge-inspector__collapsed-rail :deep(.ui-button__label) {
+  display: grid;
+  justify-items: center;
+  gap: 8px;
+}
+
+.knowledge-sidebar__collapsed-rail:hover,
+.knowledge-inspector__collapsed-rail:hover {
+  color: var(--ui-primary-color);
+  background: color-mix(in srgb, var(--ui-primary-color) 10%, transparent);
+}
+
+.knowledge-sidebar__collapsed-rail span,
+.knowledge-inspector__collapsed-rail span {
+  writing-mode: vertical-rl;
+  letter-spacing: 0;
+  font-size: var(--ui-font-size-xs);
+  font-weight: 700;
+}
+
+.knowledge-page--left-collapsed .knowledge-sidebar__header {
+  display: none;
+}
+
+.knowledge-page--left-collapsed .knowledge-sidebar,
+.knowledge-page--right-collapsed .knowledge-inspector {
+  overflow: hidden;
 }
 
 .knowledge-tree__section {
@@ -2930,12 +4350,44 @@ function formatFileSize(value?: number) {
   margin-top: 8px;
 }
 
+.knowledge-collapsible-body {
+  overflow: hidden;
+}
+
+.knowledge-collapse-enter-active,
+.knowledge-collapse-leave-active {
+  max-height: 260px;
+  opacity: 1;
+  transition:
+    max-height 0.18s ease,
+    opacity 0.16s ease;
+}
+
+.knowledge-collapse-enter-from,
+.knowledge-collapse-leave-to {
+  max-height: 0;
+  opacity: 0;
+}
+
 .knowledge-quick-notes {
   margin-top: 10px;
   padding: 8px;
   border: 1px solid var(--ui-border-subtle);
   border-radius: 8px;
   background: var(--ui-surface-glass);
+}
+
+.knowledge-page--custom-background .knowledge-quick-notes,
+.knowledge-page--custom-background .knowledge-search-result,
+.knowledge-page--custom-background .knowledge-relation-panel article,
+.knowledge-page--custom-background .knowledge-relation-panel__item,
+.knowledge-page--custom-background .knowledge-ai-panel__message,
+.knowledge-page--custom-background .knowledge-document-view__meta div,
+.knowledge-page--custom-background .knowledge-document-view__slide,
+.knowledge-page--custom-background .knowledge-document-view__sheet,
+.knowledge-page--custom-background .knowledge-document-view__section,
+.knowledge-page--custom-background .knowledge-document-view__text pre {
+  background: color-mix(in srgb, var(--ui-surface-panel) 78%, transparent);
 }
 
 .knowledge-quick-notes__head {
@@ -3148,7 +4600,7 @@ function formatFileSize(value?: number) {
 .knowledge-workspace {
   position: relative;
   overflow: hidden;
-  background: var(--ui-surface-panel-muted);
+  background: var(--knowledge-workspace-tint);
 }
 
 .knowledge-state {
@@ -3185,8 +4637,41 @@ function formatFileSize(value?: number) {
   grid-template-columns: auto minmax(0, 1fr) auto;
   align-items: center;
   gap: 8px 12px;
-  padding: 7px 14px;
-  border-bottom: 1px solid var(--ui-border-subtle);
+  padding: 8px clamp(12px, 1.4vw, 18px);
+  border-bottom: 1px solid var(--knowledge-editor-header-border, var(--ui-border-subtle));
+  background: var(--knowledge-editor-header-bg, var(--ui-surface-panel));
+}
+
+.knowledge-editor__header--block-page {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  min-height: 0;
+  overflow: hidden;
+  padding: 0;
+  border: 0;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.knowledge-editor__header--block-page .knowledge-editor__meta {
+  overflow: hidden;
+}
+
+.knowledge-editor__header--block-page .knowledge-editor__conversion {
+  grid-column: auto;
+}
+
+.knowledge-page--custom-background .knowledge-editor__header,
+.knowledge-page--custom-background :deep(.knowledge-markdown-editor__toolbar) {
+  backdrop-filter: none;
+}
+
+.knowledge-page--custom-background :deep(.knowledge-markdown-editor__segmented),
+.knowledge-page--custom-background :deep(.knowledge-markdown-editor__format),
+.knowledge-page--custom-background :deep(.knowledge-markdown-editor__tools),
+.knowledge-page--custom-background :deep(.knowledge-markdown-editor__search) {
+  border-color: color-mix(in srgb, var(--ui-border-subtle) 58%, transparent);
 }
 
 .knowledge-editor__meta {
@@ -3258,7 +4743,7 @@ function formatFileSize(value?: number) {
 
 .knowledge-editor__conversion {
   display: flex;
-  flex-wrap: nowrap;
+  flex-wrap: wrap;
   justify-content: flex-end;
   gap: 8px;
   min-width: 0;
@@ -3278,6 +4763,7 @@ function formatFileSize(value?: number) {
 .knowledge-editor__body--block {
   overflow: hidden;
   padding: 0;
+  background: transparent;
 }
 
 .knowledge-editor__body--canvas {
@@ -3296,8 +4782,10 @@ function formatFileSize(value?: number) {
 }
 
 .knowledge-document-view {
-  overflow: auto;
   min-height: 0;
+}
+
+.knowledge-document-view :deep(.ui-scrollbar__content) {
   padding: 34px 32px 42px;
 }
 
@@ -3588,8 +5076,10 @@ function formatFileSize(value?: number) {
 }
 
 .knowledge-quick-note-detail {
-  overflow: auto;
   min-height: 0;
+}
+
+.knowledge-quick-note-detail :deep(.ui-scrollbar__content) {
   padding: 34px 32px;
 }
 
@@ -3649,20 +5139,26 @@ function formatFileSize(value?: number) {
 
 .knowledge-inspector {
   display: grid;
-  grid-template-rows: 44px minmax(0, 1fr);
+  grid-template-rows: auto minmax(0, 1fr);
 }
 
 .knowledge-inspector__tabs {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
-  gap: 4px;
-  padding: 0 10px;
+  justify-content: center;
+  gap: 6px;
+  min-height: 44px;
+  padding: 8px 10px;
   border-bottom: 1px solid var(--ui-border-subtle);
 }
 
 .knowledge-inspector__content {
-  overflow: auto;
-  padding: 18px 16px;
+  min-height: 0;
+
+  :deep(.ui-scrollbar__content) {
+    padding: 18px 16px;
+  }
 
   h2 {
     margin: 0 0 14px;
@@ -3694,6 +5190,99 @@ function formatFileSize(value?: number) {
   color: var(--ui-text-muted);
   font-size: var(--ui-font-size-xs);
   line-height: 1.6;
+}
+
+.knowledge-ai-panel {
+  display: grid;
+  gap: 10px;
+  margin-top: 18px;
+  padding-top: 16px;
+  border-top: 1px solid var(--ui-border-subtle);
+}
+
+.knowledge-ai-panel__controls,
+.knowledge-ai-panel__actions,
+.knowledge-ai-panel__citations {
+  display: flex;
+  min-width: 0;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+}
+
+.knowledge-ai-panel__controls {
+  justify-content: space-between;
+}
+
+.knowledge-ai-panel__scope,
+.knowledge-ai-panel__error {
+  margin: 0;
+  font-size: var(--ui-font-size-xs);
+  line-height: 1.5;
+}
+
+.knowledge-ai-panel__scope {
+  color: var(--ui-text-muted);
+}
+
+.knowledge-ai-panel__error {
+  padding: 8px 10px;
+  border: 1px solid color-mix(in srgb, var(--ui-danger-color, #d95f5f) 36%, transparent);
+  border-radius: 8px;
+  color: var(--ui-danger-color, #d95f5f);
+  background: color-mix(in srgb, var(--ui-danger-color, #d95f5f) 10%, transparent);
+}
+
+.knowledge-ai-panel__input {
+  min-height: 94px;
+}
+
+.knowledge-ai-panel__messages {
+  display: grid;
+  gap: 10px;
+  min-width: 0;
+}
+
+.knowledge-ai-panel__message {
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+  padding: 10px;
+  border: 1px solid var(--ui-border-subtle);
+  border-radius: 8px;
+  background: var(--ui-surface-panel);
+
+  strong {
+    color: var(--ui-text-muted);
+    font-size: var(--ui-font-size-xs);
+  }
+
+  p {
+    display: -webkit-box;
+    margin: 0;
+    overflow: hidden;
+    color: var(--ui-text-primary);
+    font-size: var(--ui-font-size-sm);
+    line-height: 1.6;
+    overflow-wrap: anywhere;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 10;
+  }
+}
+
+.knowledge-ai-panel__message--assistant {
+  background: color-mix(in srgb, var(--ui-primary-color) 5%, var(--ui-surface-panel));
+}
+
+.knowledge-ai-panel__citation {
+  max-width: 100%;
+}
+
+.knowledge-ai-panel__citation :deep(.ui-button__label) {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .knowledge-attachment-inspector {
@@ -3889,31 +5478,6 @@ function formatFileSize(value?: number) {
   box-shadow: none;
 }
 
-.knowledge-tag-colors {
-  display: flex;
-  gap: 6px;
-
-  .ui-icon-button {
-    width: 22px;
-    height: 22px;
-    border: 1px solid var(--ui-border-subtle);
-    border-radius: 50%;
-    background: var(--tag-color);
-    cursor: pointer;
-  }
-
-  .ui-icon-button:hover:not(:disabled) {
-    background: var(--tag-color);
-    transform: none;
-    box-shadow: none;
-  }
-
-  .ui-icon-button.active {
-    outline: 2px solid color-mix(in srgb, var(--tag-color) 55%, var(--ui-text-primary));
-    outline-offset: 2px;
-  }
-}
-
 .knowledge-tag-targets {
   display: grid;
   grid-template-columns: 1fr;
@@ -3956,13 +5520,24 @@ function formatFileSize(value?: number) {
   }
 }
 
-@media (max-width: 1180px) {
+@media (max-width: 1760px) {
   .knowledge-shell {
-    grid-template-columns: 260px minmax(0, 1fr);
+    grid-template-columns: var(--knowledge-left-width) minmax(0, 1fr);
   }
 
   .knowledge-inspector {
     display: none;
+  }
+}
+
+@media (max-width: 1180px) {
+  .knowledge-editor__header {
+    grid-template-columns: minmax(0, 1fr);
+    align-items: start;
+  }
+
+  .knowledge-editor__conversion {
+    justify-content: flex-start;
   }
 }
 
@@ -3977,11 +5552,7 @@ function formatFileSize(value?: number) {
   }
 
   .knowledge-shell {
-    grid-template-columns: 1fr;
-  }
-
-  .knowledge-sidebar {
-    display: none;
+    grid-template-columns: var(--knowledge-left-width) minmax(0, 1fr) var(--knowledge-right-width);
   }
 }
 </style>

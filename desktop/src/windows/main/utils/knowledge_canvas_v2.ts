@@ -207,9 +207,11 @@ export function attachAssetToCanvasElementV2(
   asset: KnowledgeAsset,
   position?: { x: number; y: number },
 ): KnowledgeCanvasDocumentV2 {
+  const targetType: KnowledgeCanvasElementV2Type = asset.mimeType.startsWith('image/') ? 'image' : 'file';
   const assetPatch = {
     refs: { assetId: asset.id },
     title: asset.originalName,
+    text: asset.originalName,
     style: {
       assetName: asset.originalName,
       assetMimeType: asset.mimeType,
@@ -217,7 +219,7 @@ export function attachAssetToCanvasElementV2(
     },
   };
 
-  if (elementId && document.elements.some((element) => element.id === elementId && element.type === 'image')) {
+  if (elementId && document.elements.some((element) => element.id === elementId && element.type === targetType)) {
     return updateCanvasElementV2(document, elementId, assetPatch);
   }
 
@@ -225,12 +227,12 @@ export function attachAssetToCanvasElementV2(
     ...document,
     elements: [
       ...document.elements,
-      createCanvasElementV2('image', {
+      createCanvasElementV2(targetType, {
         ...assetPatch,
         x: position?.x ?? 160,
         y: position?.y ?? 160,
-        width: 420,
-        height: 280,
+        width: targetType === 'image' ? 420 : 300,
+        height: targetType === 'image' ? 280 : 128,
         zIndex: nextZIndex(document.elements),
       }),
     ],

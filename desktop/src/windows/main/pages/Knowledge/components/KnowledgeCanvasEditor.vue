@@ -1,6 +1,8 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue';
 import UiButton from '@/windows/main/components/ui/UiButton.vue';
+import UiCheckbox from '@/windows/main/components/ui/UiCheckbox.vue';
+import UiColorPicker from '@/windows/main/components/ui/UiColorPicker.vue';
 import UiFileInput from '@/windows/main/components/ui/UiFileInput.vue';
 import UiIconButton from '@/windows/main/components/ui/UiIconButton.vue';
 import UiInput from '@/windows/main/components/ui/UiInput.vue';
@@ -17,7 +19,14 @@ import {
   updateCanvasElementV2,
   type KnowledgeCanvasDocumentV2,
   type KnowledgeCanvasElementV2,
+  type KnowledgeCanvasElementV2Type,
 } from '@/windows/main/utils/knowledge_canvas_v2';
+
+type CanvasAlignCommand = 'left' | 'center' | 'right' | 'top' | 'middle' | 'bottom';
+type CanvasDistributeCommand = 'horizontal' | 'vertical';
+type CanvasSnapAxis = 'x' | 'y';
+type CanvasRect = { id: string; x: number; y: number; width: number; height: number };
+type CanvasSnapGuide = { axis: CanvasSnapAxis; position: number; from: number; to: number };
 
 const props = defineProps<{
   modelValue: KnowledgeCanvasDocumentV2;
@@ -29,16 +38,20 @@ const props = defineProps<{
 const emit = defineEmits<{
   (event: 'update:modelValue', value: KnowledgeCanvasDocumentV2): void;
   (event: 'save'): void;
-  (event: 'asset-file', payload: { elementId?: string; file: File; kind: 'image'; position?: { x: number; y: number } }): void;
+  (event: 'asset-file', payload: { elementId?: string; file: File; kind: 'image' | 'file'; position?: { x: number; y: number } }): void;
   (event: 'open-asset', assetId: string): void;
   (event: 'select-asset', assetId: string): void;
   (event: 'open-page-link', pageRef: string): void;
   (event: 'open-todo-link', todoId: string): void;
 }>();
 
+const SNAP_THRESHOLD = 8;
+const SNAP_GUIDE_PADDING = 24;
 const documentDraft = ref<KnowledgeCanvasDocumentV2>(normalizeCanvasDocumentV2(props.modelValue));
 const activeTool = ref<CanvasTool>('select');
+const canvasStrokeColorOptions = ['#4A90D9', '#22c55e', '#f59e0b', '#ef4444', '#a855f7', '#64748b'];
 const fileInputRef = ref<InstanceType<typeof UiFileInput> | null>(null);
+const assetInputKind = ref<'image' | 'file'>('image');
 const svgRef = ref<SVGSVGElement | null>(null);
 const exportMessage = ref('');
 const drawingPathId = ref<string | null>(null);
@@ -46,12 +59,21 @@ const dragState = ref<{
   startX: number;
   startY: number;
   origins: Array<{ id: string; x: number; y: number }>;
+  mergeOnDrop: boolean;
+} | null>(null);
+const resizeState = ref<{
+  elementId: string;
+  startX: number;
+  startY: number;
+  startWidth: number;
+  startHeight: number;
 } | null>(null);
 const marqueeState = ref<{ startX: number; startY: number } | null>(null);
 const panState = ref<{ clientX: number; clientY: number } | null>(null);
 const isSpacePressed = ref(false);
 const editingElementId = ref<string | null>(null);
 const lastPointerCanvasPoint = ref<{ x: number; y: number } | null>(null);
+const snapGuides = ref<CanvasSnapGuide[]>([]);
 const viewportApi = useCanvasViewport(documentDraft.value.viewport);
 const selection = useCanvasSelection();
 
@@ -63,6 +85,14 @@ const pageSuggestionOptions = computed(() => [...new Set(props.pageSuggestions ?
 const selectedAssetId = computed(() => selectedElement.value?.refs?.assetId ?? '');
 const selectedPageId = computed(() => selectedElement.value?.refs?.pageId ?? '');
 const selectedTodoId = computed(() => selectedElement.value?.refs?.todoId ?? '');
+const fileInputAccept = computed(() => (assetInputKind.value === 'image' ? 'image/*' : undefined));
+const selectedEditableIds = computed(() =>
+  selection.selectedIdList.value.filter((id) => {
+    const element = findCanvasElementV2(documentDraft.value.elements, id);
+    return Boolean(element && !element.locked);
+  }),
+);
+const inlineTextEditableElementTypes: KnowledgeCanvasElementV2Type[] = ['rich_text', 'rect', 'file', 'page_card', 'todo_card', 'group'];
 
 watch(
   () => props.modelValue,
@@ -93,8 +123,10 @@ function updateElement(elementId: string, patch: Partial<KnowledgeCanvasElementV
   emitDraft(updateCanvasElementV2(documentDraft.value, elementId, patch));
 }
 
-function addElement(type: CanvasTool, input: Partial<KnowledgeCanvasElementV2> = {}) {
-  const element = createCanvasElementV2(type === 'text' ? 'rich_text' : type, {
+function addElement(type: Exclude<CanvasTool, 'select'>, input: Partial<KnowledgeCanvasElementV2> = {}) {
+  const elementType: KnowledgeCanvasElementV2Type = type === 'text' ? 'rich_text' : type;
+  const element = createCanvasElementV2(elementType, {
+    ...defaultCanvasElementInput(elementType),
     ...input,
     zIndex: nextZIndex(),
   });
@@ -103,34 +135,362 @@ function addElement(type: CanvasTool, input: Partial<KnowledgeCanvasElementV2> =
   return element;
 }
 
+function defaultCanvasElementInput(type: KnowledgeCanvasElementV2Type): Partial<KnowledgeCanvasElementV2> {
+  if (type === 'page_card') {
+    return {
+      title: '页面卡片',
+      text: '输入页面标题或选择已有页面',
+      width: 260,
+      height: 130,
+      style: { stroke: '#4A90D9' },
+    };
+  }
+  if (type === 'todo_card') {
+    return {
+      title: 'Todo 卡片',
+      text: '记录待办或关联 Todo ID',
+      width: 260,
+      height: 130,
+      style: { stroke: '#22c55e' },
+    };
+  }
+  if (type === 'file') {
+    return {
+      title: '文件卡片',
+      text: '关联附件后显示文件信息',
+      width: 260,
+      height: 126,
+      style: { stroke: '#64748b' },
+    };
+  }
+  if (type === 'group') {
+    return {
+      title: '分组',
+      text: '用于框住一组画布元素',
+      width: 360,
+      height: 220,
+      style: { stroke: '#4A90D9', strokeWidth: 1 },
+    };
+  }
+  return {};
+}
+
 function removeSelectedElements() {
-  if (!selection.selectedIds.value.size) return;
-  const nextElements = documentDraft.value.elements.filter((element) => !selection.selectedIds.value.has(element.id));
+  if (!selectedEditableIds.value.length) return;
+  const removableIds = new Set(selectedEditableIds.value);
+  const nextElements = documentDraft.value.elements.filter((element) => !removableIds.has(element.id));
   updateDocument({
     elements: nextElements.length ? nextElements : [createCanvasElementV2('rich_text', { text: '画布页面' })],
   });
-  selection.clearSelection();
+  selection.replaceSelectionMany(selection.selectedIdList.value.filter((id) => !removableIds.has(id)));
 }
 
 function duplicateSelectedElements() {
-  if (!selection.selectedIds.value.size) return;
-  const next = duplicateCanvasElementsV2(documentDraft.value.elements, selection.selectedIds.value);
+  if (!selectedEditableIds.value.length) return;
+  const next = duplicateCanvasElementsV2(documentDraft.value.elements, new Set(selectedEditableIds.value));
   updateDocument({ elements: next });
   selection.replaceSelectionMany(next.slice(documentDraft.value.elements.length).map((element) => element.id));
 }
 
 function bringSelectedToFront() {
-  if (!selection.selectedIds.value.size) return;
-  const base = documentDraft.value.elements.filter((element) => !selection.selectedIds.value.has(element.id));
-  const selected = documentDraft.value.elements.filter((element) => selection.selectedIds.value.has(element.id));
+  if (!selectedEditableIds.value.length) return;
+  const selectedIds = new Set(selectedEditableIds.value);
+  const base = documentDraft.value.elements.filter((element) => !selectedIds.has(element.id));
+  const selected = documentDraft.value.elements.filter((element) => selectedIds.has(element.id));
   updateDocument({ elements: [...base, ...selected].map((element, index) => ({ ...element, zIndex: index })) });
 }
 
 function sendSelectedToBack() {
-  if (!selection.selectedIds.value.size) return;
-  const base = documentDraft.value.elements.filter((element) => !selection.selectedIds.value.has(element.id));
-  const selected = documentDraft.value.elements.filter((element) => selection.selectedIds.value.has(element.id));
+  if (!selectedEditableIds.value.length) return;
+  const selectedIds = new Set(selectedEditableIds.value);
+  const base = documentDraft.value.elements.filter((element) => !selectedIds.has(element.id));
+  const selected = documentDraft.value.elements.filter((element) => selectedIds.has(element.id));
   updateDocument({ elements: [...selected, ...base].map((element, index) => ({ ...element, zIndex: index })) });
+}
+
+function elementRect(element: KnowledgeCanvasElementV2): CanvasRect {
+  return {
+    id: element.id,
+    x: element.x,
+    y: element.y,
+    width: element.width,
+    height: element.height,
+  };
+}
+
+function rectRight(rect: CanvasRect) {
+  return rect.x + rect.width;
+}
+
+function rectBottom(rect: CanvasRect) {
+  return rect.y + rect.height;
+}
+
+function rectCenterX(rect: CanvasRect) {
+  return rect.x + rect.width / 2;
+}
+
+function rectCenterY(rect: CanvasRect) {
+  return rect.y + rect.height / 2;
+}
+
+function boundsForRects(rects: CanvasRect[]): CanvasRect | null {
+  if (!rects.length) return null;
+  const left = Math.min(...rects.map((rect) => rect.x));
+  const top = Math.min(...rects.map((rect) => rect.y));
+  const right = Math.max(...rects.map(rectRight));
+  const bottom = Math.max(...rects.map(rectBottom));
+  return {
+    id: 'selection',
+    x: left,
+    y: top,
+    width: right - left,
+    height: bottom - top,
+  };
+}
+
+function rectsFromDragOrigins(dx: number, dy: number): CanvasRect[] {
+  if (!dragState.value) return [];
+  return dragState.value.origins.flatMap((origin) => {
+    const element = findCanvasElementV2(documentDraft.value.elements, origin.id);
+    if (!element) return [];
+    return [{
+      id: element.id,
+      x: origin.x + dx,
+      y: origin.y + dy,
+      width: element.width,
+      height: element.height,
+    }];
+  });
+}
+
+function selectedEditableElements() {
+  const selectedIds = new Set(selectedEditableIds.value);
+  return documentDraft.value.elements.filter((element) => selectedIds.has(element.id));
+}
+
+function moveSelectedElements(offsets: Map<string, { x: number; y: number }>) {
+  if (!offsets.size) return;
+  updateDocument({
+    elements: documentDraft.value.elements.map((element) => {
+      const offset = offsets.get(element.id);
+      return offset
+        ? { ...element, x: offset.x, y: offset.y, updatedAt: new Date().toISOString() }
+        : element;
+    }),
+  });
+}
+
+function alignSelectedElements(command: CanvasAlignCommand) {
+  const elements = selectedEditableElements();
+  if (elements.length < 2) return;
+  const bounds = boundsForRects(elements.map(elementRect));
+  if (!bounds) return;
+  const offsets = new Map<string, { x: number; y: number }>();
+
+  for (const element of elements) {
+    let x = element.x;
+    let y = element.y;
+    if (command === 'left') x = bounds.x;
+    if (command === 'center') x = rectCenterX(bounds) - element.width / 2;
+    if (command === 'right') x = rectRight(bounds) - element.width;
+    if (command === 'top') y = bounds.y;
+    if (command === 'middle') y = rectCenterY(bounds) - element.height / 2;
+    if (command === 'bottom') y = rectBottom(bounds) - element.height;
+    offsets.set(element.id, { x, y });
+  }
+
+  moveSelectedElements(offsets);
+}
+
+function distributeSelectedElements(command: CanvasDistributeCommand) {
+  const elements = selectedEditableElements();
+  if (elements.length < 3) return;
+  const sorted = [...elements].sort((a, b) => command === 'horizontal' ? a.x - b.x : a.y - b.y);
+  const first = sorted[0];
+  const last = sorted[sorted.length - 1];
+  const offsets = new Map<string, { x: number; y: number }>();
+
+  if (command === 'horizontal') {
+    const totalWidth = sorted.reduce((sum, element) => sum + element.width, 0);
+    const availableGap = rectRight(elementRect(last)) - first.x - totalWidth;
+    const gap = availableGap / (sorted.length - 1);
+    let cursor = first.x;
+    for (const element of sorted) {
+      offsets.set(element.id, { x: cursor, y: element.y });
+      cursor += element.width + gap;
+    }
+  } else {
+    const totalHeight = sorted.reduce((sum, element) => sum + element.height, 0);
+    const availableGap = rectBottom(elementRect(last)) - first.y - totalHeight;
+    const gap = availableGap / (sorted.length - 1);
+    let cursor = first.y;
+    for (const element of sorted) {
+      offsets.set(element.id, { x: element.x, y: cursor });
+      cursor += element.height + gap;
+    }
+  }
+
+  moveSelectedElements(offsets);
+}
+
+function canvasElementMergeText(element: KnowledgeCanvasElementV2) {
+  return [element.title, element.text].filter((value) => typeof value === 'string' && value.trim()).join('\n');
+}
+
+function mergeSelectedContainers() {
+  const selectedIds = new Set(selectedEditableIds.value);
+  const containers = documentDraft.value.elements.filter((element) =>
+    selectedIds.has(element.id) && inlineTextEditableElementTypes.includes(element.type),
+  );
+  if (containers.length < 2) return;
+  const bounds = boundsForRects(containers.map(elementRect));
+  if (!bounds) return;
+  const ordered = [...containers].sort((a, b) => a.y - b.y || a.x - b.x);
+  const mergedText = ordered
+    .map(canvasElementMergeText)
+    .filter(Boolean)
+    .join('\n\n');
+  const merged = createCanvasElementV2('rich_text', {
+    x: bounds.x,
+    y: bounds.y,
+    width: Math.max(240, bounds.width),
+    height: Math.max(90, bounds.height),
+    zIndex: nextZIndex(),
+    title: '合并容器',
+    text: mergedText || '合并容器',
+    style: ordered[0]?.style,
+  });
+  updateDocument({
+    elements: [
+      ...documentDraft.value.elements.filter((element) => !selectedIds.has(element.id)),
+      merged,
+    ],
+  });
+  selection.replaceSelection(merged.id);
+  editingElementId.value = merged.id;
+}
+
+function mergeDraggedContainerIfOverlapping() {
+  if (!dragState.value?.mergeOnDrop) return;
+  const movingIds = new Set(dragState.value.origins.map((origin) => origin.id));
+  const movingContainers = documentDraft.value.elements.filter((element) =>
+    movingIds.has(element.id) && inlineTextEditableElementTypes.includes(element.type),
+  );
+  if (movingContainers.length !== 1) return;
+  const moving = movingContainers[0];
+  const movingRect = elementRect(moving);
+  const target = documentDraft.value.elements
+    .filter((element) => !movingIds.has(element.id) && inlineTextEditableElementTypes.includes(element.type) && !element.locked)
+    .find((element) => rectsOverlap(movingRect, elementRect(element)));
+  if (!target) return;
+  selection.replaceSelectionMany([moving.id, target.id]);
+  mergeSelectedContainers();
+}
+
+function rectsOverlap(a: CanvasRect, b: CanvasRect) {
+  return a.x < rectRight(b) && rectRight(a) > b.x && a.y < rectBottom(b) && rectBottom(a) > b.y;
+}
+
+function nudgeSelectedElements(event: KeyboardEvent) {
+  if (!event.key.startsWith('Arrow') || !selectedEditableIds.value.length || editingElementId.value) return false;
+  const step = event.shiftKey ? 10 : 1;
+  const dx = event.key === 'ArrowLeft' ? -step : event.key === 'ArrowRight' ? step : 0;
+  const dy = event.key === 'ArrowUp' ? -step : event.key === 'ArrowDown' ? step : 0;
+  if (!dx && !dy) return false;
+  const offsets = new Map<string, { x: number; y: number }>();
+  for (const element of selectedEditableElements()) {
+    offsets.set(element.id, { x: element.x + dx, y: element.y + dy });
+  }
+  moveSelectedElements(offsets);
+  return true;
+}
+
+function axisSnapPoints(rect: CanvasRect, axis: CanvasSnapAxis) {
+  if (axis === 'x') {
+    return [
+      { kind: 'start', value: rect.x, from: rect.y, to: rectBottom(rect) },
+      { kind: 'center', value: rectCenterX(rect), from: rect.y, to: rectBottom(rect) },
+      { kind: 'end', value: rectRight(rect), from: rect.y, to: rectBottom(rect) },
+    ];
+  }
+  return [
+    { kind: 'start', value: rect.y, from: rect.x, to: rectRight(rect) },
+    { kind: 'center', value: rectCenterY(rect), from: rect.x, to: rectRight(rect) },
+    { kind: 'end', value: rectBottom(rect), from: rect.x, to: rectRight(rect) },
+  ];
+}
+
+function guideForSnap(axis: CanvasSnapAxis, position: number, moving: CanvasRect, target: CanvasRect): CanvasSnapGuide {
+  if (axis === 'x') {
+    return {
+      axis,
+      position,
+      from: Math.min(moving.y, target.y) - SNAP_GUIDE_PADDING,
+      to: Math.max(rectBottom(moving), rectBottom(target)) + SNAP_GUIDE_PADDING,
+    };
+  }
+  return {
+    axis,
+    position,
+    from: Math.min(moving.x, target.x) - SNAP_GUIDE_PADDING,
+    to: Math.max(rectRight(moving), rectRight(target)) + SNAP_GUIDE_PADDING,
+  };
+}
+
+function resolveAxisSnap(movingRects: CanvasRect[], staticRects: CanvasRect[], axis: CanvasSnapAxis) {
+  let best: { offset: number; distance: number; guide: CanvasSnapGuide } | null = null;
+  const movingBounds = boundsForRects(movingRects);
+  const movingCandidates = movingBounds ? [movingBounds, ...movingRects] : movingRects;
+
+  for (const moving of movingCandidates) {
+    for (const target of staticRects) {
+      for (const movingPoint of axisSnapPoints(moving, axis)) {
+        for (const targetPoint of axisSnapPoints(target, axis)) {
+          const offset = targetPoint.value - movingPoint.value;
+          const distance = Math.abs(offset);
+          if (distance > SNAP_THRESHOLD) continue;
+          if (!best || distance < best.distance) {
+            best = {
+              offset,
+              distance,
+              guide: guideForSnap(axis, targetPoint.value, moving, target),
+            };
+          }
+        }
+      }
+    }
+  }
+
+  return best;
+}
+
+function resolveCanvasSnap(movingRects: CanvasRect[], staticRects: CanvasRect[]) {
+  const xSnap = resolveAxisSnap(movingRects, staticRects, 'x');
+  const ySnap = resolveAxisSnap(movingRects, staticRects, 'y');
+  return {
+    dx: xSnap?.offset ?? 0,
+    dy: ySnap?.offset ?? 0,
+    guides: [xSnap?.guide, ySnap?.guide].filter((guide): guide is CanvasSnapGuide => Boolean(guide)),
+  };
+}
+
+function applyCanvasSnap(dx: number, dy: number, event: PointerEvent) {
+  if (!dragState.value || event.altKey) {
+    snapGuides.value = [];
+    return { dx, dy };
+  }
+  const movingRects = rectsFromDragOrigins(dx, dy);
+  const movingIds = new Set(movingRects.map((rect) => rect.id));
+  const staticRects = documentDraft.value.elements
+    .filter((element) => !movingIds.has(element.id))
+    .map(elementRect);
+  const snap = resolveCanvasSnap(movingRects, staticRects);
+  snapGuides.value = snap.guides;
+  return {
+    dx: dx + snap.dx,
+    dy: dy + snap.dy,
+  };
 }
 
 function canvasPoint(event: PointerEvent | MouseEvent) {
@@ -155,6 +515,7 @@ function handleCanvasPointerDown(event: PointerEvent) {
     return;
   }
   if (activeTool.value === 'image') {
+    assetInputKind.value = 'image';
     fileInputRef.value?.click();
     return;
   }
@@ -169,7 +530,7 @@ function handleCanvasPointerDown(event: PointerEvent) {
     drawingPathId.value = element.id;
     return;
   }
-  addElement(activeTool.value, { x: point.x, y: point.y });
+  addElement(activeTool.value as Exclude<CanvasTool, 'select'>, { x: point.x, y: point.y });
   activeTool.value = 'select';
 }
 
@@ -179,13 +540,29 @@ function startElementDrag(event: PointerEvent, element: KnowledgeCanvasElementV2
   const point = canvasPoint(event);
   if (event.shiftKey) selection.toggleSelection(element.id);
   else if (!selection.isSelected(element.id)) selection.replaceSelection(element.id);
+  if (element.locked) return;
 
   dragState.value = {
     startX: point.x,
     startY: point.y,
+    mergeOnDrop: event.shiftKey,
     origins: documentDraft.value.elements
-      .filter((item) => selection.selectedIds.value.has(item.id) || item.id === element.id)
+      .filter((item) => !item.locked && (selection.selectedIds.value.has(item.id) || item.id === element.id))
       .map((item) => ({ id: item.id, x: item.x, y: item.y })),
+  };
+}
+
+function startElementResize(event: PointerEvent, element: KnowledgeCanvasElementV2) {
+  if (element.locked) return;
+  event.stopPropagation();
+  const point = canvasPoint(event);
+  if (!selection.isSelected(element.id)) selection.replaceSelection(element.id);
+  resizeState.value = {
+    elementId: element.id,
+    startX: point.x,
+    startY: point.y,
+    startWidth: element.width,
+    startHeight: element.height,
   };
 }
 
@@ -220,9 +597,20 @@ function handlePointerMove(event: PointerEvent) {
     return;
   }
 
+  if (resizeState.value) {
+    const element = findCanvasElementV2(documentDraft.value.elements, resizeState.value.elementId);
+    if (!element || element.locked) return;
+    updateElement(element.id, {
+      width: Math.max(48, resizeState.value.startWidth + point.x - resizeState.value.startX),
+      height: Math.max(32, resizeState.value.startHeight + point.y - resizeState.value.startY),
+    });
+    return;
+  }
+
   if (!dragState.value) return;
-  const dx = point.x - dragState.value.startX;
-  const dy = point.y - dragState.value.startY;
+  const rawDx = point.x - dragState.value.startX;
+  const rawDy = point.y - dragState.value.startY;
+  const { dx, dy } = applyCanvasSnap(rawDx, rawDy, event);
   updateDocument({
     elements: documentDraft.value.elements.map((element) => {
       const origin = dragState.value?.origins.find((item) => item.id === element.id);
@@ -235,10 +623,13 @@ function stopPointerAction() {
   if (selection.marquee.value) {
     selection.selectIntersecting(documentDraft.value.elements, selection.marquee.value);
   }
+  mergeDraggedContainerIfOverlapping();
   dragState.value = null;
+  resizeState.value = null;
   drawingPathId.value = null;
   marqueeState.value = null;
   panState.value = null;
+  snapGuides.value = [];
   selection.marquee.value = null;
 }
 
@@ -259,7 +650,14 @@ function persistViewport() {
 }
 
 function chooseImage() {
+  assetInputKind.value = 'image';
   activeTool.value = 'image';
+  fileInputRef.value?.click();
+}
+
+function chooseFileAsset() {
+  if (selectedElement.value?.locked) return;
+  assetInputKind.value = 'file';
   fileInputRef.value?.click();
 }
 
@@ -269,12 +667,13 @@ function handleFileSelected(event: Event) {
   input.value = '';
   if (!file) return;
   emit('asset-file', {
-    elementId: selectedElement.value?.type === 'image' ? selectedElement.value.id : undefined,
+    elementId: selectedElement.value?.type === assetInputKind.value ? selectedElement.value.id : undefined,
     file,
-    kind: 'image',
+    kind: assetInputKind.value,
     position: lastPointerCanvasPoint.value ?? centerPoint(),
   });
   activeTool.value = 'select';
+  assetInputKind.value = 'image';
 }
 
 function handlePaste(event: ClipboardEvent) {
@@ -296,19 +695,23 @@ function centerPoint() {
 }
 
 function updateSelectedText(value: string) {
-  if (!selectedElement.value) return;
+  if (!selectedElement.value || selectedElement.value.locked) return;
   updateElement(selectedElement.value.id, { text: value });
 }
 
+function isInlineTextEditableElement(element: KnowledgeCanvasElementV2 | null) {
+  return Boolean(element && inlineTextEditableElementTypes.includes(element.type));
+}
+
 function updateSelectedNumber(key: 'x' | 'y' | 'width' | 'height', value: string) {
-  if (!selectedElement.value) return;
+  if (!selectedElement.value || selectedElement.value.locked) return;
   const numeric = Number(value);
   if (!Number.isFinite(numeric)) return;
   updateElement(selectedElement.value.id, { [key]: numeric });
 }
 
 function updateSelectedStyle(key: 'stroke' | 'fill' | 'strokeWidth', value: string) {
-  if (!selectedElement.value) return;
+  if (!selectedElement.value || selectedElement.value.locked) return;
   const nextValue = key === 'strokeWidth' ? Number(value) : value.trim();
   updateElement(selectedElement.value.id, {
     style: {
@@ -319,7 +722,7 @@ function updateSelectedStyle(key: 'stroke' | 'fill' | 'strokeWidth', value: stri
 }
 
 function updateSelectedString(key: 'title' | 'pageId' | 'todoId', value: string) {
-  if (!selectedElement.value) return;
+  if (!selectedElement.value || selectedElement.value.locked) return;
   if (key === 'title') {
     updateElement(selectedElement.value.id, { title: value.trim() || undefined });
     return;
@@ -332,6 +735,11 @@ function updateSelectedString(key: 'title' | 'pageId' | 'todoId', value: string)
   });
 }
 
+function updateSelectedBoolean(key: 'locked', value: boolean) {
+  if (!selectedElement.value) return;
+  updateElement(selectedElement.value.id, { [key]: value });
+}
+
 function exportSvg() {
   const svg = svgRef.value;
   if (!svg) return;
@@ -340,7 +748,7 @@ function exportSvg() {
   clone.setAttribute('width', String(documentDraft.value.width));
   clone.setAttribute('height', String(documentDraft.value.height));
   clone.setAttribute('viewBox', `0 0 ${documentDraft.value.width} ${documentDraft.value.height}`);
-  clone.querySelectorAll('.knowledge-canvas-editor__selection,.knowledge-canvas-editor__marquee').forEach((node) => node.remove());
+  clone.querySelectorAll('.knowledge-canvas-editor__selection,.knowledge-canvas-editor__marquee,.knowledge-canvas-editor__snap-guide').forEach((node) => node.remove());
   downloadText('knowledge-canvas.svg', 'image/svg+xml;charset=utf-8', new XMLSerializer().serializeToString(clone));
   exportMessage.value = '已导出 SVG';
 }
@@ -353,7 +761,7 @@ function exportPng() {
   clone.setAttribute('width', String(documentDraft.value.width));
   clone.setAttribute('height', String(documentDraft.value.height));
   clone.setAttribute('viewBox', `0 0 ${documentDraft.value.width} ${documentDraft.value.height}`);
-  clone.querySelectorAll('.knowledge-canvas-editor__selection,.knowledge-canvas-editor__marquee').forEach((node) => node.remove());
+  clone.querySelectorAll('.knowledge-canvas-editor__selection,.knowledge-canvas-editor__marquee,.knowledge-canvas-editor__snap-guide').forEach((node) => node.remove());
   const blob = new Blob([new XMLSerializer().serializeToString(clone)], { type: 'image/svg+xml;charset=utf-8' });
   const url = URL.createObjectURL(blob);
   const image = new Image();
@@ -398,7 +806,11 @@ function handleKeydown(event: KeyboardEvent) {
     isSpacePressed.value = true;
     return;
   }
-  if ((event.key === 'Delete' || event.key === 'Backspace') && selection.selectedIds.value.size && !editingElementId.value) {
+  if (nudgeSelectedElements(event)) {
+    event.preventDefault();
+    return;
+  }
+  if ((event.key === 'Delete' || event.key === 'Backspace') && selectedEditableIds.value.length && !editingElementId.value) {
     event.preventDefault();
     removeSelectedElements();
   }
@@ -433,13 +845,16 @@ function nextZIndex() {
       :zoom="viewportApi.viewport.value.zoom"
       :dirty="dirty"
       :saving="saving"
-      :has-selection="selection.selectedIds.value.size > 0"
+      :has-selection="selectedEditableIds.length > 0"
       @tool="value => activeTool = value"
       @zoom="setZoom"
       @delete="removeSelectedElements"
       @duplicate="duplicateSelectedElements"
       @front="bringSelectedToFront"
       @back="sendSelectedToBack"
+      @align="alignSelectedElements"
+      @distribute="distributeSelectedElements"
+      @merge="mergeSelectedContainers"
       @image="chooseImage"
       @export-svg="exportSvg"
       @export-png="exportPng"
@@ -477,9 +892,20 @@ function nextZIndex() {
               :selected="selection.isSelected(element.id)"
               :editing="editingElementId === element.id"
               @pointerdown="event => startElementDrag(event, element)"
+              @resize-start="event => startElementResize(event, element)"
               @double-click="elementId => editingElementId = elementId"
               @commit-text="payload => updateElement(payload.elementId, { text: payload.text })"
               @stop-editing="editingElementId = null"
+            />
+            <line
+              v-for="(guide, index) in snapGuides"
+              :key="`${guide.axis}-${guide.position}-${index}`"
+              class="knowledge-canvas-editor__snap-guide"
+              :class="`knowledge-canvas-editor__snap-guide--${guide.axis}`"
+              :x1="guide.axis === 'x' ? guide.position : guide.from"
+              :x2="guide.axis === 'x' ? guide.position : guide.to"
+              :y1="guide.axis === 'x' ? guide.from : guide.position"
+              :y2="guide.axis === 'x' ? guide.to : guide.position"
             />
             <rect
               v-if="selection.marquee.value"
@@ -499,7 +925,7 @@ function nextZIndex() {
             <strong>{{ selectedElement.type }}</strong>
             <span>{{ selectedElement.id }}</span>
           </div>
-          <label v-if="selectedElement.type === 'rich_text' || selectedElement.type === 'rect'">
+          <label v-if="isInlineTextEditableElement(selectedElement)">
             文本
             <UiTextarea :model-value="selectedElement.text || ''" @update:model-value="updateSelectedText" />
           </label>
@@ -521,20 +947,23 @@ function nextZIndex() {
               <UiInput :model-value="String(Math.round(selectedElement.height))" type="number" size="sm" :min="1" @update:model-value="value => updateSelectedNumber('height', value)" />
             </label>
           </div>
-          <div class="knowledge-canvas-editor__swatches">
-            <UiIconButton
-              v-for="color in ['#4A90D9', '#22c55e', '#f59e0b', '#ef4444', '#a855f7', '#64748b']"
-              :key="color"
-              type="button"
-              class="knowledge-canvas-editor__swatch"
-              shape="circle"
+          <label class="knowledge-canvas-editor__lock">
+            <UiCheckbox
               size="sm"
-              :style="{ background: color }"
-              :title="color"
-              :aria-label="`选择描边颜色 ${color}`"
-              @click="updateSelectedStyle('stroke', color)"
+              :checked="Boolean(selectedElement.locked)"
+              @change="checked => updateSelectedBoolean('locked', checked)"
             />
-          </div>
+            锁定元素
+          </label>
+          <UiColorPicker
+            class="knowledge-canvas-editor__stroke-picker"
+            :model-value="selectedElement.style?.stroke || '#4A90D9'"
+            :swatches="canvasStrokeColorOptions"
+            label="描边颜色"
+            aria-label="选择描边颜色"
+            placeholder="#4A90D9"
+            @update:model-value="value => updateSelectedStyle('stroke', value)"
+          />
           <label>
             标题
             <UiInput :model-value="selectedElement.title || ''" size="sm" @update:model-value="value => updateSelectedString('title', value)" />
@@ -563,6 +992,16 @@ function nextZIndex() {
             <UiButton type="button" variant="secondary" size="sm" @click="emit('open-asset', selectedAssetId)">打开</UiButton>
             <UiButton type="button" variant="secondary" size="sm" @click="emit('select-asset', selectedAssetId)">标记</UiButton>
           </div>
+          <UiButton
+            v-if="selectedElement.type === 'file'"
+            type="button"
+            variant="secondary"
+            size="sm"
+            :disabled="Boolean(selectedElement.locked)"
+            @click="chooseFileAsset"
+          >
+            选择文件
+          </UiButton>
         </template>
         <div v-else class="knowledge-canvas-editor__empty">
           选择画布元素查看属性。可拖动画布框选，按住空格拖动画布，滚轮缩放。
@@ -570,7 +1009,7 @@ function nextZIndex() {
         <p v-if="exportMessage" class="knowledge-canvas-editor__export-message">{{ exportMessage }}</p>
       </aside>
     </div>
-    <UiFileInput ref="fileInputRef" accept="image/*" @change="handleFileSelected" />
+    <UiFileInput ref="fileInputRef" :accept="fileInputAccept" @change="handleFileSelected" />
   </section>
 </template>
 
@@ -581,7 +1020,7 @@ function nextZIndex() {
   height: 100%;
   min-height: 0;
   color: var(--ui-text-primary);
-  background: var(--ui-surface-panel-muted);
+  background: transparent;
   outline: 0;
 }
 
@@ -602,7 +1041,7 @@ function nextZIndex() {
   width: 100%;
   height: 100%;
   color: var(--ui-text-muted);
-  background: var(--ui-surface-base);
+  background: transparent;
   cursor: crosshair;
 }
 
@@ -611,10 +1050,24 @@ function nextZIndex() {
 }
 
 .knowledge-canvas-editor__marquee {
-  fill: color-mix(in srgb, var(--ui-primary-color) 12%, transparent);
+  fill: var(--knowledge-selection-bg, color-mix(in srgb, var(--ui-primary-color) 12%, transparent));
   stroke: var(--ui-primary-color);
   stroke-width: 1.5;
   stroke-dasharray: 5 4;
+}
+
+.knowledge-canvas-editor__snap-guide {
+  stroke: var(--ui-primary-color);
+  stroke-width: 1.25;
+  stroke-dasharray: 8 5;
+  opacity: 0.9;
+  pointer-events: none;
+  vector-effect: non-scaling-stroke;
+}
+
+.knowledge-canvas-editor__snap-guide--x,
+.knowledge-canvas-editor__snap-guide--y {
+  filter: drop-shadow(0 0 2px color-mix(in srgb, var(--ui-primary-color) 40%, transparent));
 }
 
 .knowledge-canvas-editor__panel {
@@ -644,13 +1097,20 @@ function nextZIndex() {
   font-size: var(--ui-font-size-xs);
 }
 
+.knowledge-canvas-editor__lock {
+  display: flex !important;
+  grid-template-columns: none;
+  align-items: center;
+  color: var(--ui-text-primary) !important;
+}
+
 .knowledge-canvas-editor__field-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 8px;
 }
 
-.knowledge-canvas-editor__swatches,
+.knowledge-canvas-editor__stroke-picker,
 .knowledge-canvas-editor__link-actions,
 .knowledge-canvas-editor__asset {
   display: flex;
@@ -658,10 +1118,6 @@ function nextZIndex() {
   gap: 8px;
   align-items: center;
   margin-bottom: 10px;
-}
-
-.knowledge-canvas-editor__swatch {
-  border: 1px solid var(--ui-border-subtle);
 }
 
 .knowledge-canvas-editor__asset {

@@ -237,10 +237,16 @@ export interface QuickNotePrefillPayload {
 
 export interface QuickNoteWindowApi {
   show: (prefill?: QuickNotePrefillPayload) => Promise<void>;
+  create: (prefill?: QuickNotePrefillPayload) => Promise<void>;
   close: () => Promise<void>;
   dock: () => Promise<void>;
+  collapse: () => Promise<void>;
+  expand: () => Promise<void>;
+  preview: (expanded: boolean) => Promise<void>;
   setAlwaysOnTop: (alwaysOnTop: boolean) => Promise<void>;
+  getWindowMeta: () => Promise<{ isPrimary: boolean }>;
   onPrefill: (listener: (payload: QuickNotePrefillPayload) => void) => () => void;
+  onCollapsedState: (listener: (collapsed: boolean, previewing: boolean) => void) => () => void;
 }
 
 export interface KnowledgeAsset {
@@ -351,6 +357,8 @@ export interface ImportKnowledgeDocumentResult {
 export interface KnowledgeSearchPayload {
   libraryId?: string;
   spaceId?: string;
+  nodeId?: string;
+  assetId?: string;
   query: string;
   sourceType?: KnowledgeSearchSourceType;
   limit?: number;
