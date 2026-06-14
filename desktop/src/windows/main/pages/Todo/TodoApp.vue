@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import { computed, onMounted, ref, provide, type CSSProperties } from 'vue';
+import { computed, onMounted, ref, provide, watch, type CSSProperties } from 'vue';
+import { useRoute } from 'vue-router';
 import { useTodoStore } from '@/windows/main/stores/todo_store';
 import { useTodoListStore } from '@/windows/main/stores/todo_list_store';
 import {
@@ -37,6 +38,8 @@ const {
 } = useTodoSettings();
 const { open: openMenu } = useContextMenu();
 const appConfigStore = useAppConfigStore();
+const route = useRoute();
+const handledTodoOpenRequestIds = new Set<string>();
 
 const bgPickerVisible = ref(false);
 type PersonalizationFeature = 'color' | 'image' | 'video' | 'opacity' | 'blur' | 'textColor';
@@ -119,6 +122,29 @@ function withBackgroundStyleDefaults(
       ...background.backgroundStyle,
     },
   };
+}
+
+function routeQueryString(key: string) {
+  const value = route.query[key];
+  return Array.isArray(value) ? value[0] ?? '' : typeof value === 'string' ? value : '';
+}
+
+async function handleTodoOpenRequestFromRoute() {
+  if (route.name !== 'Todo') return;
+
+  const todoId = routeQueryString('todoId');
+  if (!todoId) return;
+
+  const requestId = routeQueryString('openTodoRequestId') || `legacy:${todoId}`;
+  if (handledTodoOpenRequestIds.has(requestId)) return;
+  handledTodoOpenRequestIds.add(requestId);
+
+  try {
+    await todoStore.switchView('all');
+    todoStore.selectTodo(todoId);
+  } catch (error) {
+    console.warn('[quick-launch] Failed to open todo from route:', error);
+  }
 }
 
 const currentBgTitle = computed(() => {
@@ -210,7 +236,19 @@ onMounted(async () => {
   await todoStore.switchView('my-day');
   await todoStore.checkYesterdayIncomplete();
   await todoStore.loadSmartListCounts();
+  await handleTodoOpenRequestFromRoute();
 });
+
+watch(
+  [
+    () => route.name,
+    () => route.query.openTodoRequestId,
+    () => route.query.todoId,
+  ],
+  () => {
+    void handleTodoOpenRequestFromRoute();
+  },
+);
 </script>
 
 <template>

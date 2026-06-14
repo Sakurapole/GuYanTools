@@ -26,6 +26,7 @@ import type { TerminalBackgroundConfig, TerminalLayoutMode, TerminalRendererMode
 import type { BackgroundConfirmPayload } from '@/contracts/background';
 import { resolveThemeBackground, withThemeBackground } from '@/contracts/background';
 import type { SshProfile, SshSessionDescriptor } from '@/contracts/ssh';
+import type { WorkspaceDetachedWindowState, WorkspaceWindowContext } from '@/contracts/workspace_window';
 import TerminalSearchPanel from './TerminalSearchPanel.vue';
 import TerminalToolbar from './TerminalToolbar.vue';
 import TerminalProfileIcon from './TerminalProfileIcon.vue';
@@ -47,6 +48,8 @@ const UiPersonalizationConfig = defineAsyncComponent(() => import('@/windows/mai
 
 const route = useRoute();
 const router = useRouter();
+const workspaceWindowContext = ref<WorkspaceWindowContext>({ role: 'main' });
+const isDetachedWindow = computed(() => workspaceWindowContext.value.role === 'detached');
 
 const globalStore = useGlobalStore();
 const terminalStore = useTerminalStore();
@@ -126,6 +129,15 @@ interface DwindleLayoutModel {
   handles: TerminalPaneResizeHandle[];
 }
 
+interface TerminalWorkspaceWindowState {
+  focusedTerminalPaneKey?: string;
+  paneOrder?: string[];
+  layoutSizeState?: Record<string, number[]>;
+  masterMainRatio?: number;
+  dwindleSplitRatios?: number[];
+  sidebarCollapsed?: boolean;
+}
+
 const focusedTerminalPaneKey = ref('');
 const paneOrder = ref<string[]>([]);
 const paneDragPreviewOrder = ref<string[]>([]);
@@ -146,6 +158,10 @@ const resizeInteraction = ref<PaneResizeInteraction | null>(null);
 const connectionLayoutConfigs = ref<ConnectionLayoutConfig[]>([]);
 const saveLayoutDialogVisible = ref(false);
 const saveLayoutName = ref('');
+let terminalWorkspaceWindowStateReady = false;
+let terminalWorkspaceWindowStateTimer: number | undefined;
+let terminalWorkspaceSessionRefreshQueue = Promise.resolve();
+let removeWorkspaceWindowStateListener: (() => void) | undefined;
 
 function syncSidebarTabFromRoute() {
   const tab = Array.isArray(route.query.tab) ? route.query.tab[0] : route.query.tab;
@@ -167,6 +183,120 @@ function hasTerminalOpenRequest() {
 
 function activateSidebarTab() {
   sidebarTab.value = 'config';
+}
+
+function isPlainRecord(value: unknown): value is Record<string, unknown> {
+  return Boolean(value) && typeof value === 'object' && !Array.isArray(value);
+}
+
+function readStringArray(value: unknown) {
+  return Array.isArray(value) && value.every((item) => typeof item === 'string') ? value : null;
+}
+
+function readNumberArray(value: unknown) {
+  return Array.isArray(value) && value.every((item) => typeof item === 'number' && Number.isFinite(item))
+    ? value
+    : null;
+}
+
+function readLayoutSizeState(value: unknown) {
+  if (!isPlainRecord(value)) return null;
+  const next: Record<string, number[]> = {};
+  for (const [key, sizes] of Object.entries(value)) {
+    const parsed = readNumberArray(sizes);
+    if (parsed) {
+      next[key] = parsed;
+    }
+  }
+  return next;
+}
+
+function cloneLayoutSizeState(value: Record<string, number[]>) {
+  return Object.fromEntries(
+    Object.entries(value).map(([key, sizes]) => [key, [...sizes]]),
+  );
+}
+
+async function loadTerminalWorkspaceWindowState() {
+  try {
+    const state = await window.workspaceWindowApi?.getPageState('terminal') as TerminalWorkspaceWindowState | null | undefined;
+    if (!isPlainRecord(state)) return;
+
+    if (typeof state.focusedTerminalPaneKey === 'string') {
+      focusedTerminalPaneKey.value = state.focusedTerminalPaneKey;
+    }
+    const nextPaneOrder = readStringArray(state.paneOrder);
+    if (nextPaneOrder) {
+      paneOrder.value = nextPaneOrder;
+    }
+    const nextLayoutSizeState = readLayoutSizeState(state.layoutSizeState);
+    if (nextLayoutSizeState) {
+      layoutSizeState.value = nextLayoutSizeState;
+    }
+    if (typeof state.masterMainRatio === 'number' && Number.isFinite(state.masterMainRatio)) {
+      masterMainRatio.value = clamp(state.masterMainRatio, 24, 76);
+    }
+    const nextDwindleSplitRatios = readNumberArray(state.dwindleSplitRatios);
+    if (nextDwindleSplitRatios) {
+      dwindleSplitRatios.value = nextDwindleSplitRatios;
+    }
+    if (typeof state.sidebarCollapsed === 'boolean') {
+      sidebarCollapsed.value = state.sidebarCollapsed;
+    }
+    syncActiveStoresFromFocusedPane();
+  } finally {
+    terminalWorkspaceWindowStateReady = true;
+  }
+}
+
+function buildTerminalWorkspaceWindowStateSnapshot(): TerminalWorkspaceWindowState {
+  return {
+    focusedTerminalPaneKey: focusedTerminalPaneKey.value,
+    paneOrder: [...paneOrder.value],
+    layoutSizeState: cloneLayoutSizeState(layoutSizeState.value),
+    masterMainRatio: masterMainRatio.value,
+    dwindleSplitRatios: [...dwindleSplitRatios.value],
+    sidebarCollapsed: sidebarCollapsed.value,
+  };
+}
+
+function persistTerminalWorkspaceWindowState() {
+  if (!terminalWorkspaceWindowStateReady) return;
+  void window.workspaceWindowApi
+    ?.setPageState('terminal', buildTerminalWorkspaceWindowStateSnapshot())
+    .catch((error) => {
+      console.warn('[workspace-window] Failed to persist terminal page state:', error);
+    });
+}
+
+function scheduleTerminalWorkspaceWindowStatePersist() {
+  if (!terminalWorkspaceWindowStateReady) return;
+  window.clearTimeout(terminalWorkspaceWindowStateTimer);
+  terminalWorkspaceWindowStateTimer = window.setTimeout(persistTerminalWorkspaceWindowState, 80);
+}
+
+function refreshTerminalWorkspaceSessions() {
+  const nextRefresh = terminalWorkspaceSessionRefreshQueue
+    .catch(() => undefined)
+    .then(async () => {
+      if (terminalStore.initialized) {
+        await terminalStore.refreshSessions();
+      }
+      if (sshStore.initialized) {
+        await sshStore.refreshSessions();
+      }
+      syncActiveStoresFromFocusedPane();
+    });
+  terminalWorkspaceSessionRefreshQueue = nextRefresh;
+  return nextRefresh;
+}
+
+function handleWorkspaceWindowStateChanged(state: WorkspaceDetachedWindowState) {
+  if (route.path === '/terminal' && typeof state.detached.terminal === 'boolean') {
+    void refreshTerminalWorkspaceSessions().catch((error) => {
+      console.warn('[workspace-window] Failed to refresh terminal sessions:', error);
+    });
+  }
 }
 
 watch(() => route.query.tab, syncSidebarTabFromRoute, { immediate: true });
@@ -1024,6 +1154,16 @@ function focusPane(pane: TerminalPane, focusViewport = true) {
   focusLocalSession(pane.sessionId, focusViewport);
 }
 
+function syncActiveStoresFromFocusedPane() {
+  const parsed = parsePaneKey(focusedTerminalPaneKey.value);
+  if (!parsed) return;
+  if (parsed.kind === 'local') {
+    terminalStore.focusSession(parsed.sessionId);
+  } else if (parsed.kind === 'ssh') {
+    sshStore.focusSession(parsed.sessionId);
+  }
+}
+
 function loadConnectionLayoutConfigs() {
   connectionLayoutConfigs.value = listConnectionLayoutConfigs('terminal');
 }
@@ -1755,6 +1895,11 @@ async function openFileManagerForCurrentSsh() {
     remotePath: sshStore.getSessionWorkingDirectory(sshSession.sessionId) || '/',
   });
 
+  if (isDetachedWindow.value) {
+    await window.workspaceWindowApi?.openDetached('ftp', { routeOverride: '/ftp' });
+    return;
+  }
+
   if (route.path !== '/ftp') {
     await router.push('/ftp');
   }
@@ -1786,6 +1931,19 @@ function handleUnhandledSshRejection(event: PromiseRejectionEvent) {
 }
 
 watch(
+  [
+    focusedTerminalPaneKey,
+    paneOrder,
+    layoutSizeState,
+    masterMainRatio,
+    dwindleSplitRatios,
+    sidebarCollapsed,
+  ],
+  scheduleTerminalWorkspaceWindowStatePersist,
+  { deep: true },
+);
+
+watch(
   () => [
     route.path,
     route.query.openTerminalRequestId,
@@ -1804,23 +1962,51 @@ watch(
 
 onActivated(() => {
   void handleTerminalOpenRequestFromRoute();
+  void refreshTerminalWorkspaceSessions().catch((error) => {
+    console.warn('[workspace-window] Failed to refresh terminal sessions on activation:', error);
+  });
 });
 
 onMounted(() => {
+  void window.workspaceWindowApi?.getContext().then((context) => {
+    workspaceWindowContext.value = context;
+  });
+  void window.workspaceWindowApi?.getState().then((state) => {
+    handleWorkspaceWindowStateChanged(state);
+  });
+  removeWorkspaceWindowStateListener = window.workspaceWindowApi?.onStateChanged((state) => {
+    handleWorkspaceWindowStateChanged(state);
+  });
+  void loadTerminalWorkspaceWindowState();
   globalStore.setTopbarColor('');
   loadConnectionLayoutConfigs();
   window.addEventListener(CONNECTION_LAYOUTS_CHANGED_EVENT, loadConnectionLayoutConfigs);
   window.addEventListener('keydown', handleTerminalPageKeydown, true);
   window.addEventListener('unhandledrejection', handleUnhandledSshRejection);
   if (hasTerminalOpenRequest()) {
-    void terminalStore.initialize();
+    void terminalStore.initialize()
+      .then(() => refreshTerminalWorkspaceSessions())
+      .catch((error) => {
+        console.warn('[workspace-window] Failed to initialize terminal sessions:', error);
+      });
   } else {
-    void initializePage();
+    void initializePage()
+      .then(() => refreshTerminalWorkspaceSessions())
+      .catch((error) => {
+        console.warn('[workspace-window] Failed to initialize terminal page:', error);
+      });
   }
-  void sshStore.initialize();
+  void sshStore.initialize()
+    .then(() => refreshTerminalWorkspaceSessions())
+    .catch((error) => {
+      console.warn('[workspace-window] Failed to initialize SSH sessions:', error);
+    });
 });
 
 onBeforeUnmount(() => {
+  persistTerminalWorkspaceWindowState();
+  window.clearTimeout(terminalWorkspaceWindowStateTimer);
+  removeWorkspaceWindowStateListener?.();
   window.removeEventListener(CONNECTION_LAYOUTS_CHANGED_EVENT, loadConnectionLayoutConfigs);
   window.removeEventListener('keydown', handleTerminalPageKeydown, true);
   window.removeEventListener('unhandledrejection', handleUnhandledSshRejection);

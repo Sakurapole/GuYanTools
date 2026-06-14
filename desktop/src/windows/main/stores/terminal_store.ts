@@ -89,8 +89,12 @@ export const useTerminalStore = defineStore('terminal', () => {
 
   async function refreshSessions() {
     sessions.value = await window.terminalApi.listSessions();
+    await hydrateSessionBuffers(sessions.value.map((session) => session.sessionId));
     if (!activeSessionId.value && sessions.value.length > 0) {
       activeSessionId.value = sessions.value[0].sessionId;
+    }
+    if (activeSessionId.value && !sessions.value.some((session) => session.sessionId === activeSessionId.value)) {
+      activeSessionId.value = sessions.value[0]?.sessionId ?? '';
     }
   }
 

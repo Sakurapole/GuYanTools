@@ -2,7 +2,7 @@ import { computed, onMounted, reactive, ref, watch, type ComputedRef } from 'vue
 import { panelFilterSummary, clonePanelFilterState, matchesPanelFilter } from '../utils/ftpFilters';
 import { baseName, buildPathSuggestions } from '../utils/ftpPaths';
 import { sortEntries } from '../utils/ftpSort';
-import type { FtpConnectionDescriptor } from '@/contracts/ftp';
+import type { FtpConnectionDescriptor, FtpFilterPresetRecord } from '@/contracts/ftp';
 import type { useFtpStore } from '@/windows/main/stores/ftp_store';
 import type { EntrySortKey, PanelFilterMode, PanelFilterPreset, PanelFilterState } from '../types';
 
@@ -38,6 +38,9 @@ const BUILTIN_FILTER_PRESETS: PanelFilterPreset[] = [
     filter: { mode: 'folders', operator: 'and', hideHidden: false, extensionQuery: '', minSizeKb: '', maxSizeKb: '', modifiedWithinDays: '' },
   },
 ];
+
+const LEGACY_FILTER_PRESETS_STORAGE_KEY = 'guyantools.ftp.filter-presets';
+const LEGACY_FILTER_PRESETS_MIGRATED_KEY = 'guyantools.ftp.filter-presets.migrated';
 
 type UseFtpBrowserStateOptions = {
   ftpStore: ReturnType<typeof useFtpStore>;
@@ -248,16 +251,16 @@ export function useFtpBrowserState(options: UseFtpBrowserStateOptions) {
       placeholder: '例如：仅日志文件',
     });
     if (!name) return;
-    const nextPreset: PanelFilterPreset = {
-      id: crypto.randomUUID(),
+    const existingPreset = filterPresets.value.find((preset) => preset.name === name);
+    const nextPreset = await persistFilterPreset({
+      id: existingPreset?.id ?? crypto.randomUUID(),
       name,
       filter: clonePanelFilterState(source),
-    };
+    });
     filterPresets.value = [
-      ...filterPresets.value.filter((preset) => preset.name !== name),
+      ...filterPresets.value.filter((preset) => preset.id !== nextPreset.id && preset.name !== name),
       nextPreset,
     ];
-    persistFilterPresets();
     if (kind === 'local') {
       localFilterPresetId.value = nextPreset.id;
     } else {
@@ -297,8 +300,8 @@ export function useFtpBrowserState(options: UseFtpBrowserStateOptions) {
       danger: true,
     });
     if (!confirmed) return;
+    await window.ftpApi.deleteFilterPreset(presetId);
     filterPresets.value = filterPresets.value.filter((item) => item.id !== presetId);
-    persistFilterPresets();
     if (kind === 'local') {
       localFilterPresetId.value = '';
     } else {
@@ -306,35 +309,59 @@ export function useFtpBrowserState(options: UseFtpBrowserStateOptions) {
     }
   }
 
-  function loadFilterPresets() {
+  async function loadFilterPresets() {
     try {
-      const raw = window.localStorage.getItem('guyantools.ftp.filter-presets');
-      if (!raw) return;
-      const parsed = JSON.parse(raw);
-      if (!Array.isArray(parsed)) return;
-      filterPresets.value = parsed
-        .filter((item) => item && typeof item === 'object')
-        .map((item) => ({
-          id: String(item.id || crypto.randomUUID()),
-          name: String(item.name || '未命名预设'),
-          builtIn: false,
-          filter: {
-            mode: item.filter?.mode === 'files' || item.filter?.mode === 'folders' ? item.filter.mode : 'all',
-            operator: item.filter?.operator === 'or' ? 'or' : 'and',
-            hideHidden: Boolean(item.filter?.hideHidden),
-            extensionQuery: String(item.filter?.extensionQuery || ''),
-            minSizeKb: String(item.filter?.minSizeKb || ''),
-            maxSizeKb: String(item.filter?.maxSizeKb || ''),
-            modifiedWithinDays: String(item.filter?.modifiedWithinDays || ''),
-          },
-        }));
-    } catch {
+      filterPresets.value = (await window.ftpApi.listFilterPresets())
+        .filter((preset) => !preset.isBuiltin)
+        .map(recordToPanelFilterPreset);
+      await importLegacyFilterPresets();
+    } catch (error) {
+      console.warn('[Ftp] Failed to load filter presets from SQLite:', error);
       filterPresets.value = [];
     }
   }
 
-  function persistFilterPresets() {
-    window.localStorage.setItem('guyantools.ftp.filter-presets', JSON.stringify(filterPresets.value));
+  async function persistFilterPreset(preset: PanelFilterPreset) {
+    const saved = await window.ftpApi.upsertFilterPreset({
+      id: preset.id,
+      label: preset.name,
+      rulesJson: JSON.stringify(preset.filter),
+      isBuiltin: false,
+    });
+    return recordToPanelFilterPreset(saved);
+  }
+
+  async function importLegacyFilterPresets() {
+    if (window.localStorage.getItem(LEGACY_FILTER_PRESETS_MIGRATED_KEY) === '1') {
+      return;
+    }
+    const legacyPresets = readLegacyFilterPresets();
+    if (!legacyPresets.length) {
+      window.localStorage.setItem(LEGACY_FILTER_PRESETS_MIGRATED_KEY, '1');
+      return;
+    }
+
+    const existingKeys = new Set(filterPresets.value.map((preset) => preset.id));
+    const existingNames = new Set(filterPresets.value.map((preset) => preset.name));
+    const imported: PanelFilterPreset[] = [];
+    for (const preset of legacyPresets) {
+      if (existingKeys.has(preset.id) || existingNames.has(preset.name)) {
+        continue;
+      }
+      try {
+        const saved = await persistFilterPreset(preset);
+        imported.push(saved);
+        existingKeys.add(saved.id);
+        existingNames.add(saved.name);
+      } catch (error) {
+        console.warn('[Ftp] Failed to import legacy filter preset:', error);
+      }
+    }
+    if (imported.length) {
+      filterPresets.value = [...filterPresets.value, ...imported];
+    }
+    window.localStorage.setItem(LEGACY_FILTER_PRESETS_MIGRATED_KEY, '1');
+    window.localStorage.removeItem(LEGACY_FILTER_PRESETS_STORAGE_KEY);
   }
 
   async function switchLocalWorkspace(path: string) {
@@ -414,7 +441,7 @@ export function useFtpBrowserState(options: UseFtpBrowserStateOptions) {
   }
 
   onMounted(() => {
-    loadFilterPresets();
+    void loadFilterPresets();
   });
 
   return {
@@ -473,6 +500,55 @@ export function useFtpBrowserState(options: UseFtpBrowserStateOptions) {
     toggleSearch,
     setPanelSortKey,
     togglePanelSortDirection,
+  };
+}
+
+function recordToPanelFilterPreset(record: FtpFilterPresetRecord): PanelFilterPreset {
+  return {
+    id: record.id,
+    name: record.label,
+    builtIn: record.isBuiltin,
+    filter: normalizePanelFilterState(parseRulesJson(record.rulesJson)),
+  };
+}
+
+function readLegacyFilterPresets(): PanelFilterPreset[] {
+  try {
+    const raw = window.localStorage.getItem(LEGACY_FILTER_PRESETS_STORAGE_KEY);
+    if (!raw) return [];
+    const parsed = JSON.parse(raw);
+    if (!Array.isArray(parsed)) return [];
+    return parsed
+      .filter((item) => item && typeof item === 'object')
+      .map((item) => ({
+        id: String(item.id || crypto.randomUUID()),
+        name: String(item.name || '未命名预设'),
+        builtIn: false,
+        filter: normalizePanelFilterState(item.filter),
+      }));
+  } catch {
+    return [];
+  }
+}
+
+function parseRulesJson(value: string) {
+  try {
+    return JSON.parse(value);
+  } catch {
+    return {};
+  }
+}
+
+function normalizePanelFilterState(value: unknown): PanelFilterState {
+  const item = value && typeof value === 'object' ? value as Record<string, unknown> : {};
+  return {
+    mode: item.mode === 'files' || item.mode === 'folders' ? item.mode : 'all',
+    operator: item.operator === 'or' ? 'or' : 'and',
+    hideHidden: Boolean(item.hideHidden),
+    extensionQuery: String(item.extensionQuery || ''),
+    minSizeKb: String(item.minSizeKb || ''),
+    maxSizeKb: String(item.maxSizeKb || ''),
+    modifiedWithinDays: String(item.modifiedWithinDays || ''),
   };
 }
 

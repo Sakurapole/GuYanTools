@@ -173,6 +173,15 @@ export const useSshStore = defineStore('ssh', () => {
     initialized.value = true;
   }
 
+  async function refreshSessions() {
+    sessions.value = await window.sshApi.listSessions();
+    await hydrateSessionBuffers(sessions.value.map((session) => session.sessionId));
+    if (activeSshSessionId.value && !sessions.value.some((session) => session.sessionId === activeSshSessionId.value)) {
+      activeSshSessionId.value = sessions.value[0]?.sessionId ?? '';
+    }
+    await hydratePortForwardRuntimeState();
+  }
+
   // ── Profile CRUD ──────────────────────────────────────────────
 
   async function refreshProfiles() {
@@ -1291,6 +1300,7 @@ export const useSshStore = defineStore('ssh', () => {
 
     // Lifecycle
     initialize,
+    refreshSessions,
 
     // Profile CRUD
     refreshProfiles,

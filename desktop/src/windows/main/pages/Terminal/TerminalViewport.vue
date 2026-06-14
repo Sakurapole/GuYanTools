@@ -118,6 +118,10 @@ function isTerminalFocused() {
     || (!!terminal.element && terminal.element.contains(activeElement));
 }
 
+function isActiveTerminalInstance(value: Terminal) {
+  return terminal === value;
+}
+
 async function canUseWasmDecoder() {
   if (wasmDecoderAvailability) {
     return wasmDecoderAvailability;
@@ -229,7 +233,7 @@ const backgroundVideoStyle = computed(() => {
 });
 
 async function createTerminal() {
-  terminal = new Terminal({
+  const nextTerminal = new Terminal({
     allowProposedApi: true,
     fontFamily: 'Consolas, "Cascadia Mono", "JetBrains Mono", monospace',
     fontSize: 14,
@@ -240,40 +244,41 @@ async function createTerminal() {
     convertEol: false,
     theme: resolveTerminalTheme(),
   });
+  terminal = nextTerminal;
 
   fitAddon = new FitAddon();
   searchAddon = new SearchAddon();
 
-  terminal.loadAddon(fitAddon);
-  terminal.loadAddon(searchAddon);
-  terminal.loadAddon(new Unicode11Addon());
+  nextTerminal.loadAddon(fitAddon);
+  nextTerminal.loadAddon(searchAddon);
+  nextTerminal.loadAddon(new Unicode11Addon());
   searchResultsDisposable = searchAddon.onDidChangeResults((value) => {
     emit('searchResults', value);
   });
 
-  terminal.parser.registerCsiHandler({ final: 'n' }, (params) => {
-    if (params[0] !== 6 || !terminal) {
+  nextTerminal.parser.registerCsiHandler({ final: 'n' }, (params) => {
+    if (params[0] !== 6 || !isActiveTerminalInstance(nextTerminal)) {
       return false;
     }
 
-    const row = terminal.buffer.active.cursorY + 1;
-    const col = terminal.buffer.active.cursorX + 1;
+    const row = nextTerminal.buffer.active.cursorY + 1;
+    const col = nextTerminal.buffer.active.cursorX + 1;
     void writeToActiveSession(`\u001b[${row};${col}R`, 'respond to DSR request');
     return true;
   });
 
-  terminal.parser.registerCsiHandler({ prefix: '?', final: 'n' }, (params) => {
-    if (params[0] !== 6 || !terminal) {
+  nextTerminal.parser.registerCsiHandler({ prefix: '?', final: 'n' }, (params) => {
+    if (params[0] !== 6 || !isActiveTerminalInstance(nextTerminal)) {
       return false;
     }
 
-    const row = terminal.buffer.active.cursorY + 1;
-    const col = terminal.buffer.active.cursorX + 1;
+    const row = nextTerminal.buffer.active.cursorY + 1;
+    const col = nextTerminal.buffer.active.cursorX + 1;
     void writeToActiveSession(`\u001b[?${row};${col}R`, 'respond to DEC DSR request');
     return true;
   });
 
-  terminal.parser.registerCsiHandler({ prefix: '?', final: 'h' }, (params) => {
+  nextTerminal.parser.registerCsiHandler({ prefix: '?', final: 'h' }, (params) => {
     if (!hasParam(params, 1004)) {
       return false;
     }
@@ -289,9 +294,14 @@ async function createTerminal() {
     return false;
   });
 
-  if (props.enableSixel && await canUseWasmDecoder()) {
+  const canUseSixel = props.enableSixel && await canUseWasmDecoder();
+  if (!isActiveTerminalInstance(nextTerminal)) {
+    return;
+  }
+
+  if (canUseSixel) {
     try {
-      terminal.loadAddon(new ImageAddon({
+      nextTerminal.loadAddon(new ImageAddon({
         enableSizeReports: true,
         sixelSupport: true,
         sixelScrolling: true,
@@ -301,25 +311,33 @@ async function createTerminal() {
     }
   }
 
+  if (!isActiveTerminalInstance(nextTerminal)) {
+    return;
+  }
+
   // WebGL renderer does NOT support allowTransparency;
   // skip it when a custom background is active so the standard renderer is used.
   if (!hasCustomBg.value && (props.rendererMode === 'webgl' || props.rendererMode === 'auto')) {
     try {
-      terminal.loadAddon(new WebglAddon());
+      nextTerminal.loadAddon(new WebglAddon());
     } catch (error) {
       console.warn('[TerminalViewport] WebGL renderer unavailable, falling back:', error);
       emit('rendererFallback', 'standard');
     }
   }
 
-  terminal.onData((data) => {
+  if (!isActiveTerminalInstance(nextTerminal)) {
+    return;
+  }
+
+  nextTerminal.onData((data) => {
     void writeToActiveSession(data, 'write terminal input');
   });
 
-  terminal.onResize(({ cols, rows }) => {
+  nextTerminal.onResize(({ cols, rows }) => {
     void sendResize(cols, rows);
   });
-  terminal.attachCustomKeyEventHandler(handleShortcutKey);
+  nextTerminal.attachCustomKeyEventHandler(handleShortcutKey);
 }
 
 function getTerminalRowHeight() {
@@ -643,10 +661,11 @@ watch(() => props.enableBell, (value) => {
 
 onMounted(async () => {
   await createTerminal();
-  if (!terminal || !hostRef.value) return;
-  terminal.open(hostRef.value);
+  const mountedTerminal = terminal;
+  if (!mountedTerminal || !hostRef.value) return;
+  mountedTerminal.open(hostRef.value);
   if (props.autoFocus) {
-    terminal.focus();
+    mountedTerminal.focus();
   }
   await nextTick();
   fitTerminal();
