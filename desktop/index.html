@@ -4,13 +4,16 @@
     <meta charset="UTF-8" />
     <meta
       http-equiv="Content-Security-Policy"
-      content="default-src 'self' http://localhost:8097 ws://localhost:8097; script-src 'self' http://localhost:8097 'unsafe-inline' 'wasm-unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: app:; media-src 'self' blob: data: app:; frame-src 'self' app: blob: data:; object-src 'self' app: blob: data:; connect-src 'self' http://localhost:8097 ws://localhost:8097 https://api.iconify.design https://api.unisvg.com https://api.simplesvg.com https://geocoding-api.open-meteo.com https://api.open-meteo.com;"
-    />
+      content="default-src 'self' http://localhost:8097 ws://localhost:8097; script-src 'self' http://localhost:8097 'unsafe-inline' 'wasm-unsafe-eval' http://localhost:8400; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: app:; media-src 'self' blob: data: app:; frame-src 'self' app: blob: data:; object-src 'self' app: blob: data:; connect-src 'self' http://localhost:8097 ws://localhost:8097 https://api.iconify.design https://api.unisvg.com https://api.simplesvg.com https://geocoding-api.open-meteo.com https://api.open-meteo.com http://localhost:8400;"
+ data-impeccable-csp-original="ZGVmYXVsdC1zcmMgJ3NlbGYnIGh0dHA6Ly9sb2NhbGhvc3Q6ODA5NyB3czovL2xvY2FsaG9zdDo4MDk3OyBzY3JpcHQtc3JjICdzZWxmJyBodHRwOi8vbG9jYWxob3N0OjgwOTcgJ3Vuc2FmZS1pbmxpbmUnICd3YXNtLXVuc2FmZS1ldmFsJzsgc3R5bGUtc3JjICdzZWxmJyAndW5zYWZlLWlubGluZSc7IGltZy1zcmMgJ3NlbGYnIGRhdGE6IGJsb2I6IGFwcDo7IG1lZGlhLXNyYyAnc2VsZicgYmxvYjogZGF0YTogYXBwOjsgZnJhbWUtc3JjICdzZWxmJyBhcHA6IGJsb2I6IGRhdGE6OyBvYmplY3Qtc3JjICdzZWxmJyBhcHA6IGJsb2I6IGRhdGE6OyBjb25uZWN0LXNyYyAnc2VsZicgaHR0cDovL2xvY2FsaG9zdDo4MDk3IHdzOi8vbG9jYWxob3N0OjgwOTcgaHR0cHM6Ly9hcGkuaWNvbmlmeS5kZXNpZ24gaHR0cHM6Ly9hcGkudW5pc3ZnLmNvbSBodHRwczovL2FwaS5zaW1wbGVzdmcuY29tIGh0dHBzOi8vZ2VvY29kaW5nLWFwaS5vcGVuLW1ldGVvLmNvbSBodHRwczovL2FwaS5vcGVuLW1ldGVvLmNvbTs="    />
     <title>GuYan</title>
   </head>
   <body>
     <div id="guyan-tools"></div>
     <script type="module" src="/src/windows/main/main.ts"></script>
     <!-- <script src="http://localhost:8097"></script> -->
-  </body>
+  <!-- impeccable-live-start -->
+<script src="http://localhost:8400/live.js"></script>
+<!-- impeccable-live-end -->
+</body>
 </html>
