@@ -13,6 +13,7 @@ import UiSwitch from '@/windows/main/components/ui/UiSwitch.vue';
 import UiTextarea from '@/windows/main/components/ui/UiTextarea.vue';
 import IconRenderer from '@/windows/main/components/ui/IconRenderer.vue';
 import { createAiAssistantConfig } from '@/windows/main/stores/ai_config_store';
+import { useAiContextStore } from '@/windows/main/stores/ai_context_store';
 
 const props = defineProps<{
   modelValue: boolean;
@@ -31,6 +32,7 @@ type SettingsTab = 'model' | 'prompt' | 'knowledge' | 'mcp' | 'phrases' | 'memor
 const activeTab = ref<SettingsTab>('model');
 const phrasesText = ref('');
 const form = reactive<AiAssistantConfig>(createAiAssistantConfig());
+const contextStore = useAiContextStore();
 
 const tabs: Array<{ id: SettingsTab; label: string }> = [
   { id: 'model', label: '模型设置' },
@@ -79,6 +81,9 @@ const toolCallModeOptions: Array<{ label: string; value: AiAssistantToolCallMode
 ];
 
 const promptTokenEstimate = computed(() => Math.ceil(form.systemPrompt.length / 4));
+const assistantMemoryCount = computed(() =>
+  contextStore.memories.filter((memory) => memory.scope === 'assistant' && memory.scopeId === form.id).length,
+);
 
 watch(
   () => [props.modelValue, props.assistant] as const,
@@ -322,6 +327,10 @@ function saveAssistant() {
 
         <section v-else-if="activeTab === 'mcp'" class="ai-assistant-settings__pane">
           <h3>MCP 服务器 <small>i</small></h3>
+          <UiCard class="ai-assistant-settings__notice" padding="sm" radius="sm">
+            <strong>普通聊天仅接入只读 MCP 来源工具</strong>
+            <span>写入、删除、执行类工具会被非 Agent 聊天拒绝。</span>
+          </UiCard>
           <UiButton
             v-for="option in mcpModeOptions"
             :key="option.value"
@@ -352,10 +361,12 @@ function saveAssistant() {
             <UiSwitch v-model="form.memoryEnabled" aria-label="启用全局记忆" />
           </UiSettingRow>
           <UiCard class="ai-assistant-settings__notice" padding="sm" radius="sm" :class="{ 'is-enabled': form.memoryEnabled }">
-            <strong>{{ form.memoryEnabled ? '全局记忆已启用' : '全局记忆已禁用' }}</strong>
-            <span>{{ form.memoryEnabled ? '助手会参考可用的长期记忆。' : '要使用记忆功能，请先在助手设置中启用全局记忆。' }}</span>
+            <strong>{{ form.memoryEnabled ? '全局记忆偏好已启用' : '全局记忆偏好已禁用' }}</strong>
+            <span>启用后，聊天会注入全局、项目和当前助手的显式记忆。</span>
           </UiCard>
-          <UiCard class="ai-assistant-settings__memory-count" padding="sm" radius="sm">已存储记忆: 0</UiCard>
+          <UiCard class="ai-assistant-settings__memory-count" padding="sm" radius="sm">
+            当前助手记忆: {{ assistantMemoryCount }}
+          </UiCard>
         </section>
       </main>
     </div>

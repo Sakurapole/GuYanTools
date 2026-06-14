@@ -1,6 +1,6 @@
 <script lang="ts" setup>
 import { computed, ref } from 'vue';
-import type { AiReasoningEffort, AiSearchMode } from '@/contracts/ai';
+import type { AiChatAttachment, AiReasoningEffort, AiSearchMode } from '@/contracts/ai';
 import UiButton from '@/windows/main/components/ui/UiButton.vue';
 import UiCheckbox from '@/windows/main/components/ui/UiCheckbox.vue';
 import UiField from '@/windows/main/components/ui/UiField.vue';
@@ -25,14 +25,16 @@ const props = withDefaults(defineProps<{
   reasoningEffort: AiReasoningEffort;
   reasoningEffortOptions: UiSelectOption[];
   canvasEnabled: boolean;
+  commonPhrases?: string[];
 }>(), {
   disabled: false,
   streaming: false,
   controlsDisabled: false,
+  commonPhrases: () => [],
 });
 
 const emit = defineEmits<{
-  send: [content: string];
+  send: [content: string, attachments: AiChatAttachment[]];
   stop: [];
   'update:providerId': [value: string];
   'update:modelId': [value: string];
@@ -45,17 +47,23 @@ const emit = defineEmits<{
 
 const content = ref('');
 const expanded = ref(false);
+const attachments = ref<AiChatAttachment[]>([]);
+const attachmentError = ref('');
+const stagingAttachment = ref(false);
 
-const canSubmit = computed(() => !props.disabled && content.value.trim().length > 0);
+const canSubmit = computed(() =>
+  !props.disabled && (content.value.trim().length > 0 || attachments.value.length > 0));
 const optionControlsDisabled = computed(() => props.controlsDisabled || props.streaming);
 
 function submit() {
   const trimmed = content.value.trim();
-  if (!trimmed || props.disabled) {
+  if ((!trimmed && !attachments.value.length) || props.disabled) {
     return;
   }
-  emit('send', trimmed);
+  emit('send', trimmed || '请分析这些附件。', [...attachments.value]);
   content.value = '';
+  attachments.value = [];
+  attachmentError.value = '';
 }
 
 function handleKeydown(event: KeyboardEvent) {
@@ -70,6 +78,90 @@ function clearInput() {
     return;
   }
   content.value = '';
+  attachments.value = [];
+  attachmentError.value = '';
+}
+
+function insertPhrase(phrase: string) {
+  if (props.streaming || props.disabled) {
+    return;
+  }
+  const separator = content.value.trim().length ? '\n' : '';
+  content.value = `${content.value}${separator}${phrase}`;
+}
+
+async function pickAttachment() {
+  if (props.streaming || props.disabled || stagingAttachment.value) {
+    return;
+  }
+  attachmentError.value = '';
+  try {
+    const selectedPath = await window.shellApi?.selectFile({
+      title: '选择 AI 附件',
+      filters: [
+        {
+          name: 'AI 可读文件',
+          extensions: [
+            'txt',
+            'md',
+            'markdown',
+            'csv',
+            'tsv',
+            'json',
+            'jsonl',
+            'yaml',
+            'yml',
+            'xml',
+            'html',
+            'css',
+            'scss',
+            'js',
+            'jsx',
+            'ts',
+            'tsx',
+            'vue',
+            'rs',
+            'py',
+            'java',
+            'go',
+            'sql',
+            'log',
+            'png',
+            'jpg',
+            'jpeg',
+            'webp',
+            'gif',
+          ],
+        },
+      ],
+    });
+    if (!selectedPath) {
+      return;
+    }
+    stagingAttachment.value = true;
+    const result = await window.aiApi?.stageAttachment({ path: selectedPath });
+    if (result?.attachment) {
+      attachments.value = [...attachments.value, result.attachment];
+    }
+  } catch (error) {
+    attachmentError.value = error instanceof Error ? error.message : String(error);
+  } finally {
+    stagingAttachment.value = false;
+  }
+}
+
+function removeAttachment(id: string) {
+  attachments.value = attachments.value.filter((attachment) => attachment.id !== id);
+}
+
+function formatAttachmentSize(size: number) {
+  if (!Number.isFinite(size) || size <= 0) {
+    return '0 B';
+  }
+  if (size < 1_000_000) {
+    return `${Math.round(size / 1_000)} KB`;
+  }
+  return `${(size / 1_000_000).toFixed(1)} MB`;
 }
 </script>
 
@@ -149,7 +241,16 @@ function clearInput() {
       </div>
 
       <template #trailing>
-        <UiIconButton size="sm" variant="ghost" title="清空输入" :disabled="!content || streaming" @click="clearInput">
+        <UiIconButton
+          size="sm"
+          variant="ghost"
+          title="添加附件"
+          :disabled="disabled || streaming || stagingAttachment"
+          @click="pickAttachment"
+        >
+          <IconRenderer icon="iconify:lucide:paperclip" :size="15" />
+        </UiIconButton>
+        <UiIconButton size="sm" variant="ghost" title="清空输入" :disabled="(!content && !attachments.length) || streaming" @click="clearInput">
           <IconRenderer icon="iconify:lucide:eraser" :size="15" />
         </UiIconButton>
         <UiIconButton size="sm" variant="ghost" :title="expanded ? '收起输入区' : '展开输入区'" @click="expanded = !expanded">
@@ -157,6 +258,41 @@ function clearInput() {
         </UiIconButton>
       </template>
     </UiToolbar>
+
+    <div v-if="commonPhrases.length" class="ai-composer__phrases" aria-label="常用短语">
+      <UiButton
+        v-for="phrase in commonPhrases"
+        :key="phrase"
+        size="sm"
+        variant="secondary"
+        :disabled="disabled || streaming"
+        @click="insertPhrase(phrase)"
+      >
+        {{ phrase }}
+      </UiButton>
+    </div>
+
+    <div v-if="attachments.length || attachmentError" class="ai-composer__attachments">
+      <div
+        v-for="attachment in attachments"
+        :key="attachment.id"
+        class="ai-composer__attachment"
+      >
+        <IconRenderer :icon="attachment.kind === 'image' ? 'iconify:lucide:image' : 'iconify:lucide:file-text'" :size="14" />
+        <span class="ai-composer__attachment-name">{{ attachment.name }}</span>
+        <span class="ai-composer__attachment-meta">{{ formatAttachmentSize(attachment.size) }}</span>
+        <UiIconButton
+          size="xs"
+          variant="ghost"
+          title="移除附件"
+          :disabled="streaming"
+          @click="removeAttachment(attachment.id)"
+        >
+          <IconRenderer icon="iconify:lucide:x" :size="13" />
+        </UiIconButton>
+      </div>
+      <p v-if="attachmentError" class="ai-composer__attachment-error">{{ attachmentError }}</p>
+    </div>
 
     <div class="ai-composer__input-row">
       <UiTextarea
@@ -250,6 +386,66 @@ function clearInput() {
   :deep(.ui-field__control) {
     min-width: 0;
   }
+}
+
+.ai-composer__phrases {
+  display: flex;
+  min-height: 30px;
+  align-items: center;
+  gap: 6px;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.ai-composer__phrases::-webkit-scrollbar {
+  display: none;
+}
+
+.ai-composer__phrases :deep(.ui-button) {
+  max-width: 220px;
+}
+
+.ai-composer__attachments {
+  display: flex;
+  min-width: 0;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+}
+
+.ai-composer__attachment {
+  display: inline-grid;
+  grid-template-columns: auto minmax(0, auto) auto auto;
+  max-width: min(360px, 100%);
+  min-height: 28px;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 4px 3px 8px;
+  border: var(--ui-border-width-thin) solid var(--ui-border-subtle);
+  border-radius: var(--ui-radius-sm);
+  background: var(--ui-surface-muted);
+  color: var(--ui-text-secondary);
+  font-size: 0.78rem;
+}
+
+.ai-composer__attachment-name {
+  min-width: 0;
+  overflow: hidden;
+  color: var(--ui-text-primary);
+  font-weight: 500;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ai-composer__attachment-meta {
+  color: var(--ui-text-muted);
+  white-space: nowrap;
+}
+
+.ai-composer__attachment-error {
+  margin: 0;
+  color: var(--ui-color-danger);
+  font-size: 0.78rem;
 }
 
 .ai-composer__check {

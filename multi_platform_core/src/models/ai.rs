@@ -11,6 +11,7 @@ pub struct AiConversation {
     pub provider_id: String,
     pub model_id: String,
     pub system_prompt: Option<String>,
+    pub project_id: Option<String>,
     pub pinned: bool,
     pub archived: bool,
     pub created_at: String,
@@ -25,6 +26,7 @@ pub struct CreateAiConversationInput {
     pub provider_id: String,
     pub model_id: String,
     pub system_prompt: Option<String>,
+    pub project_id: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -34,8 +36,85 @@ pub struct UpdateAiConversationInput {
     pub provider_id: Option<String>,
     pub model_id: Option<String>,
     pub system_prompt: Option<String>,
+    pub project_id: Option<String>,
     pub pinned: Option<bool>,
     pub archived: Option<bool>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[cfg_attr(feature = "napi", napi(object))]
+pub struct AiProject {
+    pub id: String,
+    pub name: String,
+    pub instructions: Option<String>,
+    pub knowledge_library_id: Option<String>,
+    pub knowledge_space_id: Option<String>,
+    pub include_global_memory: bool,
+    pub archived: bool,
+    pub created_at: String,
+    pub updated_at: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[cfg_attr(feature = "napi", napi(object))]
+pub struct CreateAiProjectInput {
+    pub id: String,
+    pub name: String,
+    pub instructions: Option<String>,
+    pub knowledge_library_id: Option<String>,
+    pub knowledge_space_id: Option<String>,
+    pub include_global_memory: bool,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[cfg_attr(feature = "napi", napi(object))]
+pub struct UpdateAiProjectInput {
+    pub name: Option<String>,
+    pub instructions: Option<String>,
+    pub knowledge_library_id: Option<String>,
+    pub knowledge_space_id: Option<String>,
+    pub include_global_memory: Option<bool>,
+    pub archived: Option<bool>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[cfg_attr(feature = "napi", napi(object))]
+pub struct AiMemory {
+    pub id: String,
+    pub scope: String,
+    pub scope_id: Option<String>,
+    pub content: String,
+    pub source_message_id: Option<String>,
+    pub enabled: bool,
+    pub created_at: String,
+    pub updated_at: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[cfg_attr(feature = "napi", napi(object))]
+pub struct CreateAiMemoryInput {
+    pub id: String,
+    pub scope: String,
+    pub scope_id: Option<String>,
+    pub content: String,
+    pub source_message_id: Option<String>,
+    pub enabled: bool,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[cfg_attr(feature = "napi", napi(object))]
+pub struct UpdateAiMemoryInput {
+    pub content: Option<String>,
+    pub enabled: Option<bool>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[cfg_attr(feature = "napi", napi(object))]
+pub struct ListAiMemoriesInput {
+    pub scope: Option<String>,
+    pub scope_id: Option<String>,
+    pub enabled: Option<bool>,
+    pub limit: Option<i64>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -199,4 +278,93 @@ pub struct CreateAiCanvasOperationInput {
     pub operation_type: String,
     pub payload_json: String,
     pub status: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[cfg_attr(feature = "napi", napi(object))]
+pub struct UpdateAiCanvasOperationInput {
+    pub payload_json: Option<String>,
+    pub status: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[cfg_attr(feature = "napi", napi(object))]
+pub struct AiResearchJob {
+    pub id: String,
+    pub title: String,
+    pub query: String,
+    pub status: String,
+    pub stage: String,
+    pub provider_id: Option<String>,
+    pub model_id: Option<String>,
+    pub progress: f64,
+    pub report_markdown: Option<String>,
+    pub error_message: Option<String>,
+    pub options_json: Option<String>,
+    pub created_at: String,
+    pub updated_at: String,
+    pub completed_at: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[cfg_attr(feature = "napi", napi(object))]
+pub struct CreateAiResearchJobInput {
+    pub id: String,
+    pub title: String,
+    pub query: String,
+    pub status: String,
+    pub stage: String,
+    pub provider_id: Option<String>,
+    pub model_id: Option<String>,
+    pub progress: f64,
+    pub options_json: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[cfg_attr(feature = "napi", napi(object))]
+pub struct UpdateAiResearchJobInput {
+    pub title: Option<String>,
+    pub status: Option<String>,
+    pub stage: Option<String>,
+    pub progress: Option<f64>,
+    pub report_markdown: Option<String>,
+    pub error_message: Option<String>,
+    pub options_json: Option<String>,
+    pub completed_at: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[cfg_attr(feature = "napi", napi(object))]
+pub struct ListAiResearchJobsInput {
+    pub status: Option<String>,
+    pub limit: Option<i64>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[cfg_attr(feature = "napi", napi(object))]
+pub struct AiResearchSource {
+    pub id: String,
+    pub job_id: String,
+    pub source_type: String,
+    pub title: String,
+    pub url: Option<String>,
+    pub source_id: Option<String>,
+    pub snippet: Option<String>,
+    pub summary: Option<String>,
+    pub metadata_json: Option<String>,
+    pub created_at: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[cfg_attr(feature = "napi", napi(object))]
+pub struct CreateAiResearchSourceInput {
+    pub id: String,
+    pub job_id: String,
+    pub source_type: String,
+    pub title: String,
+    pub url: Option<String>,
+    pub source_id: Option<String>,
+    pub snippet: Option<String>,
+    pub summary: Option<String>,
+    pub metadata_json: Option<String>,
 }

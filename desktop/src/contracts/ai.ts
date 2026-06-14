@@ -15,9 +15,16 @@ export type AiAgentMode = 'general-agent' | 'code-agent';
 export type AiCanvasMode = 'markdown' | 'html' | 'react';
 export type AiCanvasOperationType = 'create' | 'replace_file' | 'patch_file' | 'append_file' | 'delete_file';
 export type AiCanvasOperationStatus = 'pending' | 'applied' | 'rejected';
+export type AiMemoryScope = 'global' | 'project' | 'assistant';
+export type AiResearchJobStatus = 'queued' | 'running' | 'succeeded' | 'failed' | 'cancelled';
+export type AiResearchStage = 'plan' | 'search' | 'read' | 'synthesize' | 'citation_check' | 'done';
+export type AiResearchSourceType = 'web' | 'knowledge-page' | 'knowledge-block' | 'knowledge-asset';
 export type AiAssistantKnowledgeMode = 'force' | 'intent';
 export type AiAssistantMcpMode = 'disabled' | 'auto' | 'manual';
 export type AiAssistantToolCallMode = 'function' | 'auto' | 'none';
+export type AiMcpServerSource = 'manual' | 'modelscope';
+export type AiMcpTransport = 'stdio' | 'sse' | 'http';
+export type AiMcpRuntimeStatus = 'stopped' | 'starting' | 'running' | 'error';
 
 export interface AiModelCapabilities {
   streaming: boolean;
@@ -157,6 +164,50 @@ export type AiSafeResearchSettings = Omit<AiResearchSettings, 'webSearchApiKey'>
   hasWebSearchApiKey: boolean;
 };
 
+export interface AiMcpEnvironmentVariable {
+  id: string;
+  key: string;
+  value: string;
+  secret: boolean;
+}
+
+export interface AiSafeMcpEnvironmentVariable extends Omit<AiMcpEnvironmentVariable, 'value'> {
+  value?: string;
+  hasValue: boolean;
+}
+
+export interface AiMcpServerConfig {
+  id: string;
+  name: string;
+  enabled: boolean;
+  source: AiMcpServerSource;
+  sourceId?: string;
+  transport: AiMcpTransport;
+  command?: string;
+  args: string[];
+  cwd?: string;
+  url?: string;
+  env: AiMcpEnvironmentVariable[];
+  autoStart: boolean;
+  createdAt: number;
+  updatedAt: number;
+}
+
+export interface AiSafeMcpServerConfig extends Omit<AiMcpServerConfig, 'env'> {
+  env: AiSafeMcpEnvironmentVariable[];
+}
+
+export interface AiMcpSettings {
+  enabled: boolean;
+  modelscopeApiToken?: string;
+  servers: AiMcpServerConfig[];
+}
+
+export interface AiSafeMcpSettings extends Omit<AiMcpSettings, 'modelscopeApiToken' | 'servers'> {
+  hasModelScopeApiToken: boolean;
+  servers: AiSafeMcpServerConfig[];
+}
+
 export interface AiAgentFeatureConfig {
   enabled: boolean;
   defaultMode: AiInteractionMode;
@@ -168,11 +219,13 @@ export interface AiAgentFeatureConfig {
   chat: AiChatSettings;
   agent: AiAgentReservedSettings;
   research: AiResearchSettings;
+  mcp: AiMcpSettings;
 }
 
-export interface AiSafeAgentFeatureConfig extends Omit<AiAgentFeatureConfig, 'providers' | 'research'> {
+export interface AiSafeAgentFeatureConfig extends Omit<AiAgentFeatureConfig, 'providers' | 'research' | 'mcp'> {
   providers: AiSafeProviderConfig[];
   research: AiSafeResearchSettings;
+  mcp: AiSafeMcpSettings;
 }
 
 export interface AiConversation {
@@ -181,8 +234,32 @@ export interface AiConversation {
   providerId: string;
   modelId: string;
   systemPrompt?: string;
+  projectId?: string;
   pinned: boolean;
   status: AiConversationStatus;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface AiProject {
+  id: string;
+  name: string;
+  instructions?: string;
+  knowledgeLibraryId?: string;
+  knowledgeSpaceId?: string;
+  includeGlobalMemory: boolean;
+  archived: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface AiMemory {
+  id: string;
+  scope: AiMemoryScope;
+  scopeId?: string;
+  content: string;
+  sourceMessageId?: string;
+  enabled: boolean;
   createdAt: string;
   updatedAt: string;
 }
@@ -211,11 +288,27 @@ export interface AiTokenUsage {
 
 export interface AiCitation {
   id: string;
-  sourceType: 'web' | 'knowledge-page' | 'knowledge-block' | 'knowledge-asset';
+  sourceType: 'web' | 'knowledge-page' | 'knowledge-block' | 'knowledge-asset' | 'chat-attachment';
   title: string;
   url?: string;
   sourceId?: string;
   snippet?: string;
+  metadata?: Record<string, unknown>;
+}
+
+export type AiChatAttachmentKind = 'text' | 'image';
+export type AiChatAttachmentSource = 'local-file' | 'clipboard' | 'knowledge-asset';
+
+export interface AiChatAttachment {
+  id: string;
+  kind: AiChatAttachmentKind;
+  source: AiChatAttachmentSource;
+  name: string;
+  mimeType: string;
+  size: number;
+  textContent?: string;
+  data?: string;
+  assetId?: string;
   metadata?: Record<string, unknown>;
 }
 
@@ -258,6 +351,62 @@ export interface AiCanvasOperation {
   createdAt: string;
 }
 
+export interface AiResearchJob {
+  id: string;
+  title: string;
+  query: string;
+  status: AiResearchJobStatus;
+  stage: AiResearchStage;
+  providerId?: string;
+  modelId?: string;
+  progress: number;
+  reportMarkdown?: string;
+  errorMessage?: string;
+  options?: AiResearchRunOptions;
+  sources?: AiResearchSource[];
+  createdAt: string;
+  updatedAt: string;
+  completedAt?: string;
+}
+
+export interface AiResearchSource {
+  id: string;
+  jobId: string;
+  sourceType: AiResearchSourceType;
+  title: string;
+  url?: string;
+  sourceId?: string;
+  snippet?: string;
+  summary?: string;
+  metadata?: Record<string, unknown>;
+  createdAt: string;
+}
+
+export interface AiResearchRunOptions {
+  providerId?: string;
+  modelId?: string;
+  libraryId?: string;
+  spaceId?: string;
+  webSearchMode?: Extract<AiSearchMode, 'off' | 'force'>;
+  knowledgeSearchMode?: Extract<AiSearchMode, 'off' | 'force'>;
+  maxSources?: number;
+}
+
+export interface ListAiResearchJobsPayload {
+  status?: AiResearchJobStatus;
+  limit?: number;
+}
+
+export interface StartAiResearchPayload {
+  query: string;
+  title?: string;
+  options?: AiResearchRunOptions;
+}
+
+export interface RetryAiResearchPayload {
+  jobId: string;
+}
+
 export interface CreateAiCanvasWorkspacePayload {
   conversationId: string;
   title: string;
@@ -291,9 +440,27 @@ export interface CreateAiCanvasOperationPayload {
   status?: AiCanvasOperationStatus;
 }
 
+export interface UpdateAiCanvasOperationPayload {
+  payload?: Record<string, unknown>;
+  status?: AiCanvasOperationStatus;
+}
+
+export interface ApplyAiCanvasOperationResult {
+  operation: AiCanvasOperation;
+  files: AiCanvasFile[];
+  version?: AiCanvasVersion;
+}
+
 export interface AiCanvasRunOptions {
   enabled?: boolean;
   workspaceId?: string;
+}
+
+export interface AiCanvasPreviewPayload {
+  title: string;
+  mode: AiCanvasMode;
+  files: AiCanvasFile[];
+  activePath?: string;
 }
 
 export type AiStreamEvent =
@@ -312,30 +479,91 @@ export type AiStreamEvent =
   | { type: 'run-error'; runId: string; message: string; retryable: boolean }
   | { type: 'run-finish'; runId: string; finishReason: string };
 
+export type AiResearchEvent =
+  | { type: 'research-job'; job: AiResearchJob }
+  | { type: 'research-source'; jobId: string; source: AiResearchSource }
+  | { type: 'research-error'; jobId: string; message: string };
+
 export interface CreateAiConversationPayload {
   providerId: string;
   modelId: string;
   title?: string;
   systemPrompt?: string;
+  projectId?: string;
 }
 
 export interface UpdateAiConversationPayload {
   title?: string;
   pinned?: boolean;
   archived?: boolean;
+  projectId?: string;
+}
+
+export interface CreateAiProjectPayload {
+  name: string;
+  instructions?: string;
+  knowledgeLibraryId?: string;
+  knowledgeSpaceId?: string;
+  includeGlobalMemory?: boolean;
+}
+
+export interface UpdateAiProjectPayload {
+  name?: string;
+  instructions?: string;
+  knowledgeLibraryId?: string;
+  knowledgeSpaceId?: string;
+  includeGlobalMemory?: boolean;
+  archived?: boolean;
+}
+
+export interface ListAiMemoriesPayload {
+  scope?: AiMemoryScope;
+  scopeId?: string;
+  enabled?: boolean;
+  limit?: number;
+}
+
+export interface CreateAiMemoryPayload {
+  scope: AiMemoryScope;
+  scopeId?: string;
+  content: string;
+  sourceMessageId?: string;
+  enabled?: boolean;
+}
+
+export interface UpdateAiMemoryPayload {
+  content?: string;
+  enabled?: boolean;
+}
+
+export interface AiMemoryRunOptions {
+  enabled?: boolean;
+  includeGlobal?: boolean;
+  assistantId?: string;
+  projectId?: string;
+  limit?: number;
 }
 
 export interface SendAiMessagePayload {
   conversationId: string;
   content: string;
+  attachments?: AiChatAttachment[];
   providerId?: string;
   modelId?: string;
+  systemPrompt?: string;
   temperature?: number;
+  topP?: number;
   maxOutputTokens?: number;
   maxHistoryMessages?: number;
+  streaming?: boolean;
+  toolCallMode?: AiAssistantToolCallMode;
+  mcpMode?: AiAssistantMcpMode;
+  maxToolCalls?: number;
+  customParameters?: AiAssistantCustomParameter[];
   reasoning?: AiReasoningOptions;
   grounding?: AiGroundingOptions;
   canvas?: AiCanvasRunOptions;
+  memory?: AiMemoryRunOptions;
 }
 
 export interface SendAiMessageResult {
@@ -349,12 +577,20 @@ export interface RegenerateAiMessagePayload {
   assistantMessageId?: string;
   providerId?: string;
   modelId?: string;
+  systemPrompt?: string;
   temperature?: number;
+  topP?: number;
   maxOutputTokens?: number;
   maxHistoryMessages?: number;
+  streaming?: boolean;
+  toolCallMode?: AiAssistantToolCallMode;
+  mcpMode?: AiAssistantMcpMode;
+  maxToolCalls?: number;
+  customParameters?: AiAssistantCustomParameter[];
   reasoning?: AiReasoningOptions;
   grounding?: AiGroundingOptions;
   canvas?: AiCanvasRunOptions;
+  memory?: AiMemoryRunOptions;
 }
 
 export interface RegenerateAiMessageResult {
@@ -372,6 +608,89 @@ export interface TestAiProviderPayload {
 export interface TestAiProviderResult {
   ok: boolean;
   message: string;
+}
+
+export interface StageAiChatAttachmentPayload {
+  path: string;
+  source?: AiChatAttachmentSource;
+}
+
+export interface StageAiChatAttachmentResult {
+  attachment: AiChatAttachment;
+}
+
+export interface FetchAiProviderModelsPayload {
+  providerId?: string;
+  kind: AiProviderKind;
+  baseUrl?: string;
+  apiKey?: string;
+}
+
+export interface FetchAiProviderModelsResult {
+  models: string[];
+}
+
+export interface ListModelScopeMcpServersPayload {
+  search?: string;
+  page?: number;
+  pageSize?: number;
+  apiToken?: string;
+}
+
+export interface ModelScopeMcpServerSummary {
+  id: string;
+  name: string;
+  description: string;
+  categories: string[];
+  tags: string[];
+  logoUrl?: string;
+  viewCount: number;
+}
+
+export interface ListModelScopeMcpServersResult {
+  servers: ModelScopeMcpServerSummary[];
+  total: number;
+}
+
+export interface GetModelScopeMcpServerPayload {
+  id: string;
+  apiToken?: string;
+}
+
+export interface ModelScopeMcpServerDetail extends ModelScopeMcpServerSummary {
+  sourceUrl?: string;
+  readme?: string;
+  operationalUrls: string[];
+  serverConfigJson: string;
+  importableServer?: AiMcpServerConfig;
+}
+
+export interface AiMcpRuntimeServerStatus {
+  id: string;
+  status: AiMcpRuntimeStatus;
+  pid?: number;
+  startedAt?: number;
+  lastExitCode?: number | null;
+  lastOutput?: string;
+  error?: string;
+}
+
+export type StartAiMcpServerResult = AiMcpRuntimeServerStatus;
+
+export interface AiMcpToolSummary {
+  serverId: string;
+  serverName: string;
+  name: string;
+  description?: string;
+  inputSchema?: Record<string, unknown>;
+}
+
+export interface AiMcpToolCallResult {
+  serverId: string;
+  toolName: string;
+  title: string;
+  text: string;
+  raw?: unknown;
 }
 
 export interface RebuildKnowledgeEmbeddingsPayload {
@@ -402,6 +721,9 @@ export interface AiGroundingOptions {
   knowledgeSearchMode?: AiSearchMode;
   libraryId?: string;
   spaceId?: string;
+  nodeId?: string;
+  assetId?: string;
+  sourceType?: import('@/contracts/knowledge').KnowledgeSearchSourceType;
 }
 
 export interface AiReasoningOptions {
@@ -414,6 +736,13 @@ export interface AiApi {
   getConfig: () => Promise<AiSafeAgentFeatureConfig>;
   updateConfig: (patch: Partial<AiAgentFeatureConfig>) => Promise<AiSafeAgentFeatureConfig>;
   testProvider: (input: TestAiProviderPayload) => Promise<TestAiProviderResult>;
+  fetchProviderModels: (input: FetchAiProviderModelsPayload) => Promise<FetchAiProviderModelsResult>;
+  listModelScopeMcpServers: (input: ListModelScopeMcpServersPayload) => Promise<ListModelScopeMcpServersResult>;
+  getModelScopeMcpServer: (input: GetModelScopeMcpServerPayload) => Promise<ModelScopeMcpServerDetail>;
+  getMcpServerStatuses: () => Promise<AiMcpRuntimeServerStatus[]>;
+  startMcpServer: (serverId: string) => Promise<StartAiMcpServerResult>;
+  stopMcpServer: (serverId: string) => Promise<AiMcpRuntimeServerStatus>;
+  listMcpTools: () => Promise<AiMcpToolSummary[]>;
   getKnowledgeEmbeddingStats: (input?: RebuildKnowledgeEmbeddingsPayload) => Promise<KnowledgeEmbeddingStats>;
   rebuildKnowledgeEmbeddings: (input?: RebuildKnowledgeEmbeddingsPayload) => Promise<RebuildKnowledgeEmbeddingsResult>;
   listCanvasWorkspaces: (conversationId: string) => Promise<AiCanvasWorkspace[]>;
@@ -426,15 +755,39 @@ export interface AiApi {
   listCanvasVersions: (workspaceId: string) => Promise<AiCanvasVersion[]>;
   createCanvasVersion: (input: CreateAiCanvasVersionPayload) => Promise<AiCanvasVersion>;
   listCanvasOperations: (workspaceId: string) => Promise<AiCanvasOperation[]>;
+  updateCanvasOperation: (id: string, input: UpdateAiCanvasOperationPayload) => Promise<AiCanvasOperation>;
+  applyCanvasOperation: (id: string) => Promise<ApplyAiCanvasOperationResult>;
+  rejectCanvasOperation: (id: string) => Promise<AiCanvasOperation>;
+  openCanvasPreview: (input: AiCanvasPreviewPayload) => Promise<void>;
+  listProjects: () => Promise<AiProject[]>;
+  createProject: (input: CreateAiProjectPayload) => Promise<AiProject>;
+  updateProject: (id: string, input: UpdateAiProjectPayload) => Promise<AiProject>;
+  deleteProject: (id: string) => Promise<void>;
+  listMemories: (input?: ListAiMemoriesPayload) => Promise<AiMemory[]>;
+  createMemory: (input: CreateAiMemoryPayload) => Promise<AiMemory>;
+  updateMemory: (id: string, input: UpdateAiMemoryPayload) => Promise<AiMemory>;
+  deleteMemory: (id: string) => Promise<void>;
+  listResearchJobs: (input?: ListAiResearchJobsPayload) => Promise<AiResearchJob[]>;
+  getResearchJob: (jobId: string) => Promise<AiResearchJob>;
+  listResearchSources: (jobId: string) => Promise<AiResearchSource[]>;
+  startResearch: (input: StartAiResearchPayload) => Promise<AiResearchJob>;
+  retryResearch: (input: RetryAiResearchPayload) => Promise<AiResearchJob>;
+  cancelResearch: (jobId: string) => Promise<AiResearchJob>;
   listConversations: () => Promise<AiConversation[]>;
   createConversation: (input: CreateAiConversationPayload) => Promise<AiConversation>;
   updateConversation: (id: string, input: UpdateAiConversationPayload) => Promise<AiConversation>;
   deleteConversation: (id: string) => Promise<void>;
   listMessages: (conversationId: string) => Promise<AiChatMessage[]>;
+  stageAttachment: (input: StageAiChatAttachmentPayload) => Promise<StageAiChatAttachmentResult>;
   sendMessage: (input: SendAiMessagePayload) => Promise<SendAiMessageResult>;
   regenerateMessage: (input: RegenerateAiMessagePayload) => Promise<RegenerateAiMessageResult>;
   stopRun: (runId: string) => Promise<void>;
   onStreamEvent: (listener: (event: AiStreamEvent) => void) => () => void;
+  onResearchEvent: (listener: (event: AiResearchEvent) => void) => () => void;
+}
+
+export interface AiCanvasPreviewWindowApi {
+  onPayload: (listener: (payload: AiCanvasPreviewPayload) => void) => () => void;
 }
 
 export function createDefaultAiModelCapabilities(): AiModelCapabilities {

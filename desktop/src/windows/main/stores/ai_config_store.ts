@@ -5,9 +5,14 @@ import type {
   AiAssistantConfig,
   AiModelCapabilities,
   AiModelConfig,
+  AiMcpRuntimeServerStatus,
+  AiMcpServerConfig,
   AiProviderConfig,
   AiProviderKind,
   AiSafeAgentFeatureConfig,
+  FetchAiProviderModelsPayload,
+  GetModelScopeMcpServerPayload,
+  ListModelScopeMcpServersPayload,
   RebuildKnowledgeEmbeddingsPayload,
   TestAiProviderPayload,
 } from '@/contracts/ai';
@@ -42,6 +47,20 @@ function toSafeConfig(config: AiAgentFeatureConfig): AiSafeAgentFeatureConfig {
       updatedAt: provider.updatedAt,
       hasApiKey: Boolean(provider.apiKey || provider.apiKeyRef),
     })),
+    mcp: {
+      enabled: config.mcp.enabled,
+      hasModelScopeApiToken: Boolean(config.mcp.modelscopeApiToken),
+      servers: config.mcp.servers.map((server) => ({
+        ...server,
+        env: server.env.map((env) => ({
+          id: env.id,
+          key: env.key,
+          value: env.secret ? undefined : env.value,
+          secret: env.secret,
+          hasValue: Boolean(env.value),
+        })),
+      })),
+    },
   };
 }
 
@@ -199,6 +218,76 @@ export const useAiConfigStore = defineStore('ai-config', () => {
     return window.aiApi.testProvider(clone(input));
   }
 
+  async function saveMcpSettings(input: {
+    enabled?: boolean;
+    modelscopeApiToken?: string;
+    servers?: AiMcpServerConfig[];
+  }) {
+    return updateConfig({
+      mcp: {
+        enabled: input.enabled ?? config.value.mcp.enabled,
+        modelscopeApiToken: input.modelscopeApiToken,
+        servers: input.servers ?? config.value.mcp.servers.map((server) => ({
+          ...server,
+          env: server.env.map((env) => ({
+            id: env.id,
+            key: env.key,
+            value: env.value ?? '',
+            secret: env.secret,
+          })),
+        })),
+      },
+    });
+  }
+
+  async function fetchProviderModels(input: FetchAiProviderModelsPayload) {
+    if (!window.aiApi) {
+      throw new Error('当前运行环境不支持 AI API');
+    }
+
+    return window.aiApi.fetchProviderModels(clone(input));
+  }
+
+  async function listModelScopeMcpServers(input: ListModelScopeMcpServersPayload) {
+    if (!window.aiApi) {
+      throw new Error('当前运行环境不支持 AI API');
+    }
+
+    return window.aiApi.listModelScopeMcpServers(clone(input));
+  }
+
+  async function getModelScopeMcpServer(input: GetModelScopeMcpServerPayload) {
+    if (!window.aiApi) {
+      throw new Error('当前运行环境不支持 AI API');
+    }
+
+    return window.aiApi.getModelScopeMcpServer(clone(input));
+  }
+
+  async function getMcpServerStatuses(): Promise<AiMcpRuntimeServerStatus[]> {
+    if (!window.aiApi) {
+      return [];
+    }
+
+    return window.aiApi.getMcpServerStatuses();
+  }
+
+  async function startMcpServer(serverId: string) {
+    if (!window.aiApi) {
+      throw new Error('当前运行环境不支持 AI API');
+    }
+
+    return window.aiApi.startMcpServer(serverId);
+  }
+
+  async function stopMcpServer(serverId: string) {
+    if (!window.aiApi) {
+      throw new Error('当前运行环境不支持 AI API');
+    }
+
+    return window.aiApi.stopMcpServer(serverId);
+  }
+
   async function getKnowledgeEmbeddingStats(input?: RebuildKnowledgeEmbeddingsPayload) {
     if (!window.aiApi) {
       throw new Error('当前运行环境不支持 AI API');
@@ -229,7 +318,14 @@ export const useAiConfigStore = defineStore('ai-config', () => {
     updateConfig,
     saveProviders,
     saveAssistants,
+    saveMcpSettings,
     testProvider,
+    fetchProviderModels,
+    listModelScopeMcpServers,
+    getModelScopeMcpServer,
+    getMcpServerStatuses,
+    startMcpServer,
+    stopMcpServer,
     getKnowledgeEmbeddingStats,
     rebuildKnowledgeEmbeddings,
   };

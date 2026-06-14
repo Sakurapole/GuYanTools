@@ -9,10 +9,14 @@ mod user;
 
 pub use ai::{
     AiCanvasFile, AiCanvasOperation, AiCanvasVersion, AiCanvasWorkspace, AiChatMessage,
-    AiCitation, AiConversation, CreateAiCanvasOperationInput, CreateAiCanvasVersionInput,
-    CreateAiCanvasWorkspaceInput, CreateAiCitationInput, CreateAiConversationInput,
-    CreateAiMessageInput, UpdateAiCanvasWorkspaceInput, UpdateAiConversationInput,
-    UpdateAiMessageInput, UpsertAiCanvasFileInput,
+    AiCitation, AiConversation, AiMemory, AiProject, AiResearchJob, AiResearchSource,
+    CreateAiCanvasOperationInput, CreateAiCanvasVersionInput, CreateAiCanvasWorkspaceInput,
+    CreateAiCitationInput, CreateAiConversationInput, CreateAiMemoryInput, CreateAiMessageInput,
+    CreateAiProjectInput, CreateAiResearchJobInput, CreateAiResearchSourceInput, ListAiMemoriesInput,
+    ListAiResearchJobsInput,
+    UpdateAiCanvasOperationInput, UpdateAiCanvasWorkspaceInput, UpdateAiConversationInput,
+    UpdateAiMemoryInput, UpdateAiMessageInput, UpdateAiProjectInput, UpdateAiResearchJobInput,
+    UpsertAiCanvasFileInput,
 };
 pub use home_layout::{
     CreateHomeCategoryInput, CreateHomeWidgetInput, HomeCategory, HomeLayout, HomeLayoutCategory,

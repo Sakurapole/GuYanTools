@@ -70,21 +70,15 @@ export function createCanvasTools(context: CanvasToolContext) {
       }),
       execute: async (input) => {
         const workspaceId = resolveWorkspaceId(context, input.workspaceId);
-        const file = await aiCanvasService.upsertFile({
-          workspaceId,
-          path: input.path,
-          language: input.language,
-          content: input.content,
-        });
         const operation = await aiCanvasService.createOperation({
           workspaceId,
           sourceMessageId: context.messageId,
           operationType: 'replace_file',
-          payload: { path: file.path, language: file.language },
+          payload: { path: input.path, language: input.language, content: input.content },
+          status: 'pending',
         });
-        emitFile(context, file);
         emitOperation(context, operation);
-        return summarizeFile(file, operation);
+        return summarizeOperationProposal(operation, input.content.length);
       },
     }),
     canvasAppendFile: tool({
@@ -97,22 +91,15 @@ export function createCanvasTools(context: CanvasToolContext) {
       }),
       execute: async (input) => {
         const workspaceId = resolveWorkspaceId(context, input.workspaceId);
-        const current = (await aiCanvasService.listFiles(workspaceId)).find((file) => file.path === input.path);
-        const file = await aiCanvasService.upsertFile({
-          workspaceId,
-          path: input.path,
-          language: input.language,
-          content: `${current?.content ?? ''}${input.content}`,
-        });
         const operation = await aiCanvasService.createOperation({
           workspaceId,
           sourceMessageId: context.messageId,
           operationType: 'append_file',
-          payload: { path: file.path, language: file.language, appendedLength: input.content.length },
+          payload: { path: input.path, language: input.language, content: input.content, appendedLength: input.content.length },
+          status: 'pending',
         });
-        emitFile(context, file);
         emitOperation(context, operation);
-        return summarizeFile(file, operation);
+        return summarizeOperationProposal(operation, input.content.length);
       },
     }),
     canvasDeleteFile: tool({
@@ -123,15 +110,15 @@ export function createCanvasTools(context: CanvasToolContext) {
       }),
       execute: async (input) => {
         const workspaceId = resolveWorkspaceId(context, input.workspaceId);
-        await aiCanvasService.deleteFile(workspaceId, input.path);
         const operation = await aiCanvasService.createOperation({
           workspaceId,
           sourceMessageId: context.messageId,
           operationType: 'delete_file',
           payload: { path: input.path },
+          status: 'pending',
         });
         emitOperation(context, operation);
-        return { workspaceId, deletedPath: input.path, operationId: operation.id };
+        return { workspaceId, proposedPath: input.path, operationId: operation.id, status: operation.status };
       },
     }),
   };
@@ -141,6 +128,7 @@ export function buildCanvasSystemInstruction(input: { mode?: AiCanvasMode; activ
   return [
     'Canvas 已启用。Canvas 是用户右侧可编辑、可预览的工作区，不是聊天中的附件列表。',
     '当用户要求创建网页、HTML、React 页面、长文档、可迭代草稿或修改 Canvas 内容时，必须使用 Canvas 工具写入工作区。',
+    '修改已有 Canvas 文件时，工具会生成待用户确认的修改提案；不要声称已经应用，除非工具结果显示 status 为 applied。',
     'HTML 内容应优先写入 index.html。React 内容应优先写入 App.jsx，并默认导出 App 组件。',
     input.activeWorkspaceId
       ? `当前 Canvas workspaceId 是 ${input.activeWorkspaceId}。修改已有内容时优先使用这个 workspaceId。`
@@ -194,12 +182,23 @@ function summarizeWorkspace(workspace: AiCanvasWorkspace, files: AiCanvasFile[],
   };
 }
 
-function summarizeFile(file: AiCanvasFile, operation: AiCanvasOperation) {
+function summarizeOperationProposal(operation: AiCanvasOperation, contentLength?: number) {
+  const payload = safeParsePayload(operation.payloadJson);
   return {
-    workspaceId: file.workspaceId,
-    path: file.path,
-    language: file.language,
-    length: file.content.length,
+    workspaceId: operation.workspaceId,
+    path: typeof payload.path === 'string' ? payload.path : undefined,
+    operationType: operation.operationType,
     operationId: operation.id,
+    status: operation.status,
+    contentLength,
   };
+}
+
+function safeParsePayload(payloadJson: string): Record<string, unknown> {
+  try {
+    const parsed = JSON.parse(payloadJson);
+    return parsed && typeof parsed === 'object' && !Array.isArray(parsed) ? parsed as Record<string, unknown> : {};
+  } catch {
+    return {};
+  }
 }

@@ -19,6 +19,9 @@ flowchart TD
   Importer --> Assets["userData/knowledge-assets"]
   Importer --> Core
   Core --> SearchFts["knowledge_search_fts"]
+  IPC --> AiBridge["AI Chat / Grounding Service"]
+  AiBridge --> SearchFts
+  AiBridge --> AiChunks["knowledge_ai_chunks / knowledge_embeddings"]
 ```
 
 ## 2. 分层职责
@@ -40,6 +43,7 @@ flowchart TD
 - 注册 `knowledge:*` IPC。
 - 调用 `JsDatabase` 的 NAPI 方法。
 - 负责导入资产写入、基础文本抽取、应用内资产协议、快捷键注册和速记窗口生命周期。
+- 知识库内部问答复用 AI Chat / Grounding Service；main process 负责把知识库范围转换为检索上下文，但不在知识库模块内新增 Provider 管理。
 
 ### 2.4 Rust Core
 
@@ -123,6 +127,7 @@ V0.6 起“导入文件”和“编辑器附件”统一落到 `userData/knowled
 - `knowledge_index_jobs` 支持导入、抽取、预览、缩略图、FTS、embedding。
 - `knowledge_search_fts` 是 V0.6 的全文搜索入口，搜索 API 同时保留 LIKE 兜底以支持中文连续文本。
 - `knowledge_ai_chunks` 与 `knowledge_embeddings` 为 AI/RAG 预留。
+- V1.3 知识库内部问答复用 AI Chat 的助手角色、Provider、模型、流式输出和引用事件；知识库只提供 library / space / page / selection 范围和检索来源。
 - `knowledge_quick_notes` 保存 Sticky Notes/速记正文、颜色、标签、置顶和转换关系。
 - V0.9 `knowledge_tags` / `knowledge_tag_bindings` 成为标签事实源，quick note 的 `tags_json` 仍用于便签轻量展示和向后兼容。
 - V0.9 `knowledge_links` 承载 wikilink、来源、Todo 等关系；页面保存时同步 `[[页面名]]`，关系图和反链均从该表读取。
@@ -143,3 +148,4 @@ V0.6 起“导入文件”和“编辑器附件”统一落到 `userData/knowled
 - 预览缓存清理仅删除 main process 管理的缓存目录；TTL 清理也只扫描受控缓存根，不递归删除知识库原始附件目录。
 - 画布 PNG/SVG 导出仅在 renderer 内序列化当前 SVG 视图，不暴露本地文件路径写入能力。
 - AI 请求必须显示发送范围和引用来源。
+- 知识库内基础问答可以停留在 Inspector AI tab；深度研究、Agent 工具调用、Canvas 工作区和长上下文任务必须跳转 AI 页面继续。

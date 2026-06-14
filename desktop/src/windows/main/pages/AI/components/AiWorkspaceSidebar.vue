@@ -1,21 +1,28 @@
 <script lang="ts" setup>
 import { computed, ref } from 'vue';
-import type { AiAssistantConfig, AiConversation } from '@/contracts/ai';
+import type { AiAssistantConfig, AiConversation, AiSafeProviderConfig } from '@/contracts/ai';
+import IconRenderer from '@/windows/main/components/ui/IconRenderer.vue';
 import UiButton from '@/windows/main/components/ui/UiButton.vue';
 import UiEmptyState from '@/windows/main/components/ui/UiEmptyState.vue';
 import UiIconButton from '@/windows/main/components/ui/UiIconButton.vue';
 import UiInput from '@/windows/main/components/ui/UiInput.vue';
-import IconRenderer from '@/windows/main/components/ui/IconRenderer.vue';
+import UiTabs, { type UiTabItem } from '@/windows/main/components/ui/UiTabs.vue';
 
-const props = defineProps<{
+const props = withDefaults(defineProps<{
   assistants: AiAssistantConfig[];
   activeAssistantId: string;
   conversations: AiConversation[];
   activeConversationId: string;
+  providers: AiSafeProviderConfig[];
   loading?: boolean;
-}>();
+  collapsed?: boolean;
+}>(), {
+  loading: false,
+  collapsed: false,
+});
 
 const emit = defineEmits<{
+  'update:collapsed': [value: boolean];
   createAssistant: [];
   selectAssistant: [assistantId: string];
   configureAssistant: [assistantId: string];
@@ -26,500 +33,564 @@ const emit = defineEmits<{
   deleteConversation: [conversationId: string];
 }>();
 
-const searchQuery = ref('');
-const editingId = ref('');
-const editingTitle = ref('');
+type SidebarTab = 'conversations' | 'assistants';
 
-const activeAssistant = computed(() =>
-  props.assistants.find((assistant) => assistant.id === props.activeAssistantId) ?? props.assistants[0],
-);
+const activeTab = ref<SidebarTab>('assistants');
+const searchQuery = ref('');
+const renamingConversationId = ref('');
+const renameDraft = ref('');
+
+const tabs: UiTabItem[] = [
+  { key: 'assistants', label: '角色' },
+  { key: 'conversations', label: '会话' },
+];
 
 const filteredConversations = computed(() => {
   const query = searchQuery.value.trim().toLowerCase();
+  const conversations = [...props.conversations].sort((left, right) => {
+    if (left.pinned !== right.pinned) {
+      return left.pinned ? -1 : 1;
+    }
+    return Date.parse(right.updatedAt) - Date.parse(left.updatedAt);
+  });
+
   if (!query) {
-    return props.conversations;
+    return conversations;
   }
 
-  return props.conversations.filter((conversation) =>
-    conversation.title.toLowerCase().includes(query)
-    || conversation.providerId.toLowerCase().includes(query)
-    || conversation.modelId.toLowerCase().includes(query),
-  );
+  return conversations.filter((conversation) => {
+    const modelLabel = conversationModelLabel(conversation).toLowerCase();
+    return conversation.title.toLowerCase().includes(query) || modelLabel.includes(query);
+  });
 });
-const pinnedConversations = computed(() => filteredConversations.value.filter((conversation) => conversation.pinned));
-const recentConversations = computed(() => filteredConversations.value.filter((conversation) => !conversation.pinned));
+
+const visibleCollapsedConversations = computed(() => filteredConversations.value.slice(0, 12));
+
+function providerLabel(providerId: string) {
+  return props.providers.find((provider) => provider.id === providerId)?.name || providerId || 'Provider';
+}
+
+function conversationModelLabel(conversation: AiConversation) {
+  const provider = props.providers.find((item) => item.id === conversation.providerId);
+  const model = provider?.models.find((item) => item.id === conversation.modelId || item.providerModelId === conversation.modelId);
+  const modelName = model?.displayName || conversation.modelId || 'Model';
+  return `${provider?.name || conversation.providerId || 'Provider'} / ${modelName}`;
+}
 
 function formatTime(value: string) {
   const date = new Date(value);
-  if (Number.isNaN(date.getTime())) {
+  if (!Number.isFinite(date.getTime())) {
     return '';
   }
 
-  return date.toLocaleString('zh-CN', {
-    month: '2-digit',
-    day: '2-digit',
-    hour: '2-digit',
-    minute: '2-digit',
-  });
+  const now = Date.now();
+  const diffDays = Math.floor((now - date.getTime()) / 86400000);
+  if (diffDays <= 0) {
+    return date.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' });
+  }
+  if (diffDays < 7) {
+    return `${diffDays} 天前`;
+  }
+  return date.toLocaleDateString('zh-CN', { month: 'numeric', day: 'numeric' });
+}
+
+function topicInitial(conversation: AiConversation) {
+  return (conversation.title.trim().charAt(0) || '话').toUpperCase();
 }
 
 function startRename(conversation: AiConversation) {
-  editingId.value = conversation.id;
-  editingTitle.value = conversation.title;
+  renamingConversationId.value = conversation.id;
+  renameDraft.value = conversation.title;
 }
 
 function commitRename(conversation: AiConversation) {
-  const nextTitle = editingTitle.value.trim();
-  if (editingId.value !== conversation.id) {
-    return;
-  }
-
-  editingId.value = '';
-  editingTitle.value = '';
-  if (nextTitle && nextTitle !== conversation.title) {
-    emit('renameConversation', conversation.id, nextTitle);
+  const title = renameDraft.value.trim();
+  renamingConversationId.value = '';
+  renameDraft.value = '';
+  if (title && title !== conversation.title) {
+    emit('renameConversation', conversation.id, title);
   }
 }
 
 function cancelRename() {
-  editingId.value = '';
-  editingTitle.value = '';
+  renamingConversationId.value = '';
+  renameDraft.value = '';
 }
 
+function setCollapsed(value: boolean) {
+  emit('update:collapsed', value);
+}
+
+function selectAssistantAndShowTopics(assistantId: string) {
+  emit('selectAssistant', assistantId);
+  activeTab.value = 'conversations';
+}
 </script>
 
 <template>
-  <aside class="ai-workspace-sidebar">
-    <section class="ai-workspace-sidebar__section ai-workspace-sidebar__section--roles">
-      <header class="ai-workspace-sidebar__section-head">
-        <div>
-          <span>Assistant</span>
-          <h2>角色</h2>
-        </div>
-        <UiIconButton size="sm" variant="ghost" title="新建角色" @click="emit('createAssistant')">
+  <aside class="ai-workspace-sidebar" :class="{ 'ai-workspace-sidebar--collapsed': collapsed }">
+    <template v-if="collapsed">
+      <div class="ai-workspace-sidebar__collapsed-head">
+        <UiIconButton size="sm" variant="secondary" title="展开侧栏" @click="setCollapsed(false)">
+          <IconRenderer icon="iconify:lucide:panel-left-open" :size="16" />
+        </UiIconButton>
+        <UiIconButton size="sm" variant="primary" title="新建话题" @click="emit('createConversation')">
           <IconRenderer icon="iconify:lucide:plus" :size="15" />
+        </UiIconButton>
+      </div>
+
+      <div class="ai-workspace-sidebar__collapsed-tabs" role="tablist" aria-label="AI 侧栏">
+        <UiIconButton
+          size="sm"
+          :active="activeTab === 'assistants'"
+          title="角色"
+          @click="activeTab = 'assistants'"
+        >
+          <IconRenderer icon="iconify:lucide:bot" :size="15" />
+        </UiIconButton>
+        <UiIconButton
+          size="sm"
+          :active="activeTab === 'conversations'"
+          title="会话"
+          @click="activeTab = 'conversations'"
+        >
+          <IconRenderer icon="iconify:lucide:messages-square" :size="15" />
+        </UiIconButton>
+      </div>
+
+      <div v-if="activeTab === 'conversations'" class="ai-workspace-sidebar__mini-list">
+        <button
+          v-for="conversation in visibleCollapsedConversations"
+          :key="conversation.id"
+          type="button"
+          class="ai-workspace-sidebar__mini-topic"
+          :class="{ 'is-active': conversation.id === activeConversationId }"
+          :title="`${conversation.title}\n${conversationModelLabel(conversation)}`"
+          @click="emit('selectConversation', conversation.id)"
+        >
+          <span class="ai-workspace-sidebar__mini-topic-initial">{{ topicInitial(conversation) }}</span>
+          <span v-if="conversation.pinned" class="ai-workspace-sidebar__mini-topic-pin" aria-hidden="true" />
+        </button>
+      </div>
+
+      <div v-else class="ai-workspace-sidebar__mini-list">
+        <button
+          v-for="assistant in assistants"
+          :key="assistant.id"
+          type="button"
+          class="ai-workspace-sidebar__mini-topic"
+          :class="{ 'is-active': assistant.id === activeAssistantId }"
+          :title="assistant.name"
+          @click="selectAssistantAndShowTopics(assistant.id)"
+        >
+          <span class="ai-workspace-sidebar__mini-topic-initial">{{ assistant.emoji || assistant.name.charAt(0) || '助' }}</span>
+        </button>
+      </div>
+    </template>
+
+    <template v-else>
+      <header class="ai-workspace-sidebar__header">
+        <div class="ai-workspace-sidebar__title">
+          <span>AI</span>
+          <strong>{{ activeTab === 'conversations' ? '会话' : '角色' }}</strong>
+        </div>
+        <UiIconButton size="sm" variant="ghost" title="收起侧栏" @click="setCollapsed(true)">
+          <IconRenderer icon="iconify:lucide:panel-left-close" :size="16" />
         </UiIconButton>
       </header>
 
-      <div class="ai-workspace-sidebar__role-list">
-        <div
-          v-for="assistant in assistants"
-          :key="assistant.id"
-          class="ai-workspace-sidebar__role"
-          :class="{ 'is-active': assistant.id === activeAssistant?.id }"
-        >
-          <UiButton
-            class="ai-workspace-sidebar__role-main"
-            variant="ghost"
-            size="sm"
-            block
-            :active="assistant.id === activeAssistant?.id"
-            @click="emit('selectAssistant', assistant.id)"
-          >
-            <span class="ai-workspace-sidebar__role-avatar">{{ assistant.emoji }}</span>
-            <span class="ai-workspace-sidebar__role-text">
-              <strong>{{ assistant.name }}</strong>
-              <small>{{ assistant.providerId || '通用 Provider' }}</small>
-            </span>
-          </UiButton>
-          <UiIconButton
-            class="ai-workspace-sidebar__role-settings"
-            size="sm"
-            variant="ghost"
-            title="角色设置"
-            @click.stop="emit('configureAssistant', assistant.id)"
-          >
-            <IconRenderer icon="iconify:lucide:settings-2" :size="14" />
-          </UiIconButton>
-        </div>
-      </div>
-    </section>
-
-    <section class="ai-workspace-sidebar__section ai-workspace-sidebar__section--topics">
-      <header class="ai-workspace-sidebar__section-head">
-        <div>
-          <span>{{ activeAssistant?.name || '默认助手' }}</span>
-          <h2>话题</h2>
-        </div>
-        <UiButton size="sm" variant="primary" @click="emit('createConversation')">
-          <template #prefix>
-            <IconRenderer icon="iconify:lucide:plus" :size="14" />
-          </template>
-          新话题
-        </UiButton>
-      </header>
-
-      <div class="ai-workspace-sidebar__search">
-        <UiInput v-model="searchQuery" size="sm" type="search" placeholder="搜索话题" />
+      <div class="ai-workspace-sidebar__tabs">
+        <UiTabs
+          v-model="activeTab"
+          :items="tabs"
+          variant="segmented"
+          size="sm"
+          stretch
+        />
       </div>
 
-      <div class="ai-workspace-sidebar__topic-body">
+      <section v-if="activeTab === 'conversations'" class="ai-workspace-sidebar__pane">
+        <div class="ai-workspace-sidebar__toolbar">
+          <UiButton size="sm" variant="primary" @click="emit('createConversation')">新话题</UiButton>
+          <UiInput v-model="searchQuery" size="sm" placeholder="搜索话题或模型" />
+        </div>
+
         <UiEmptyState
-          v-if="loading"
+          v-if="!loading && filteredConversations.length === 0"
           compact
-          icon="iconify:lucide:loader-circle"
-          title="加载中"
-          description="正在读取最近话题"
+          icon="lucide:messages-square"
+          title="暂无话题"
+          description="新建话题后会显示在这里。"
         />
-        <UiEmptyState
-          v-else-if="!filteredConversations.length"
-          compact
-          icon="iconify:lucide:messages-square"
-          :title="conversations.length ? '没有匹配的话题' : '暂无话题'"
-          :description="conversations.length ? '换个关键词继续搜索' : '创建一个新话题开始问答'"
-        />
-        <template v-else>
-          <section v-if="pinnedConversations.length" class="ai-workspace-sidebar__topic-group">
-            <h3>置顶</h3>
-            <div
-              v-for="conversation in pinnedConversations"
-              :key="conversation.id"
-              class="ai-workspace-sidebar__topic"
-              :class="{ 'is-active': conversation.id === activeConversationId, 'is-pinned': conversation.pinned }"
-            >
-              <span v-if="editingId === conversation.id" class="ai-workspace-sidebar__topic-main ai-workspace-sidebar__topic-editor">
-                <UiInput
-                  v-model="editingTitle"
-                  class="ai-workspace-sidebar__rename-input"
-                  size="sm"
-                  @keydown.enter.stop.prevent="commitRename(conversation)"
-                  @keydown.esc.stop.prevent="cancelRename"
-                  @blur="commitRename(conversation)"
-                />
-              </span>
-              <UiButton
-                v-else
-                class="ai-workspace-sidebar__topic-main-button"
-                variant="ghost"
+
+        <div v-else class="ai-workspace-sidebar__topic-list">
+          <article
+            v-for="conversation in filteredConversations"
+            :key="conversation.id"
+            class="ai-workspace-sidebar__topic-card"
+            :class="{ 'is-active': conversation.id === activeConversationId }"
+            @click="emit('selectConversation', conversation.id)"
+          >
+            <div class="ai-workspace-sidebar__topic-main">
+              <UiInput
+                v-if="renamingConversationId === conversation.id"
+                v-model="renameDraft"
+                class="ai-workspace-sidebar__rename"
                 size="sm"
-                block
-                :active="conversation.id === activeConversationId"
-                @click="emit('selectConversation', conversation.id)"
-              >
-                <span class="ai-workspace-sidebar__topic-main">
-                  <span class="ai-workspace-sidebar__topic-title" @dblclick.stop="startRename(conversation)">
-                  <IconRenderer class="ai-workspace-sidebar__pin-icon" icon="iconify:lucide:pin" :size="12" />
-                  {{ conversation.title }}
-                  </span>
-                  <span class="ai-workspace-sidebar__topic-meta">{{ conversation.providerId }} / {{ conversation.modelId }}</span>
-                  <span class="ai-workspace-sidebar__topic-time">{{ formatTime(conversation.updatedAt) }}</span>
-                </span>
-              </UiButton>
-              <UiIconButton class="ai-workspace-sidebar__topic-action" size="sm" variant="ghost" title="取消置顶" @click.stop="emit('pinConversation', conversation.id, false)">
-                <IconRenderer icon="iconify:lucide:pin-off" :size="14" />
-              </UiIconButton>
-              <UiIconButton class="ai-workspace-sidebar__topic-action" size="sm" variant="ghost" title="重命名" @click.stop="startRename(conversation)">
-                <IconRenderer icon="iconify:lucide:pencil" :size="14" />
-              </UiIconButton>
-              <UiIconButton class="ai-workspace-sidebar__topic-action" size="sm" variant="ghost" title="删除话题" @click.stop="emit('deleteConversation', conversation.id)">
-                <IconRenderer icon="iconify:lucide:trash-2" :size="14" />
-              </UiIconButton>
+                @click.stop
+                @keydown.enter.prevent="commitRename(conversation)"
+                @keydown.esc.prevent="cancelRename"
+                @blur="commitRename(conversation)"
+              />
+              <h3 v-else>{{ conversation.title }}</h3>
             </div>
-          </section>
 
-          <section v-if="recentConversations.length" class="ai-workspace-sidebar__topic-group">
-            <h3>{{ pinnedConversations.length ? '最近' : '最近话题' }}</h3>
-            <div
-              v-for="conversation in recentConversations"
-              :key="conversation.id"
-              class="ai-workspace-sidebar__topic"
-              :class="{ 'is-active': conversation.id === activeConversationId }"
-            >
-              <span v-if="editingId === conversation.id" class="ai-workspace-sidebar__topic-main ai-workspace-sidebar__topic-editor">
-                <UiInput
-                  v-model="editingTitle"
-                  class="ai-workspace-sidebar__rename-input"
-                  size="sm"
-                  @keydown.enter.stop.prevent="commitRename(conversation)"
-                  @keydown.esc.stop.prevent="cancelRename"
-                  @blur="commitRename(conversation)"
-                />
-              </span>
-              <UiButton
-                v-else
-                class="ai-workspace-sidebar__topic-main-button"
-                variant="ghost"
+            <div class="ai-workspace-sidebar__topic-actions" @click.stop>
+              <UiIconButton
                 size="sm"
-                block
-                :active="conversation.id === activeConversationId"
-                @click="emit('selectConversation', conversation.id)"
+                variant="ghost"
+                :title="conversation.pinned ? '取消置顶' : '置顶'"
+                :active="conversation.pinned"
+                @click="emit('pinConversation', conversation.id, !conversation.pinned)"
               >
-                <span class="ai-workspace-sidebar__topic-main">
-                  <span class="ai-workspace-sidebar__topic-title" @dblclick.stop="startRename(conversation)">
-                    {{ conversation.title }}
-                  </span>
-                <span class="ai-workspace-sidebar__topic-meta">{{ conversation.providerId }} / {{ conversation.modelId }}</span>
-                <span class="ai-workspace-sidebar__topic-time">{{ formatTime(conversation.updatedAt) }}</span>
-                </span>
-              </UiButton>
-              <UiIconButton class="ai-workspace-sidebar__topic-action" size="sm" variant="ghost" title="置顶话题" @click.stop="emit('pinConversation', conversation.id, true)">
                 <IconRenderer icon="iconify:lucide:pin" :size="14" />
               </UiIconButton>
-              <UiIconButton class="ai-workspace-sidebar__topic-action" size="sm" variant="ghost" title="重命名" @click.stop="startRename(conversation)">
+              <UiIconButton size="sm" variant="ghost" title="重命名" @click="startRename(conversation)">
                 <IconRenderer icon="iconify:lucide:pencil" :size="14" />
               </UiIconButton>
-              <UiIconButton class="ai-workspace-sidebar__topic-action" size="sm" variant="ghost" title="删除话题" @click.stop="emit('deleteConversation', conversation.id)">
+              <UiIconButton size="sm" variant="danger" title="删除" @click="emit('deleteConversation', conversation.id)">
                 <IconRenderer icon="iconify:lucide:trash-2" :size="14" />
               </UiIconButton>
             </div>
-          </section>
-        </template>
-      </div>
-    </section>
+          </article>
+        </div>
+      </section>
+
+      <section v-else class="ai-workspace-sidebar__pane">
+        <div class="ai-workspace-sidebar__toolbar">
+          <UiButton size="sm" variant="primary" @click="emit('createAssistant')">新角色</UiButton>
+        </div>
+
+        <div class="ai-workspace-sidebar__assistant-list">
+          <article
+            v-for="assistant in assistants"
+            :key="assistant.id"
+            class="ai-workspace-sidebar__assistant-card"
+            :class="{ 'is-active': assistant.id === activeAssistantId }"
+            @click="selectAssistantAndShowTopics(assistant.id)"
+          >
+            <span class="ai-workspace-sidebar__assistant-emoji">{{ assistant.emoji || '助' }}</span>
+            <div class="ai-workspace-sidebar__assistant-main">
+              <h3>{{ assistant.name }}</h3>
+              <p>{{ assistant.providerId ? providerLabel(assistant.providerId) : '跟随默认模型' }}</p>
+            </div>
+            <UiIconButton size="sm" variant="ghost" title="设置角色" @click.stop="emit('configureAssistant', assistant.id)">
+              <IconRenderer icon="iconify:lucide:settings" :size="14" />
+            </UiIconButton>
+          </article>
+        </div>
+      </section>
+    </template>
   </aside>
 </template>
 
-<style lang="scss" scoped>
+<style lang="scss">
+.ai-chat-shell .ai-workspace-sidebar,
 .ai-workspace-sidebar {
+  box-sizing: border-box;
   display: grid;
-  grid-template-rows: auto minmax(0, 1fr);
+  grid-template-rows: auto auto minmax(0, 1fr);
   width: 100%;
   min-width: 0;
   height: 100%;
-  background: var(--ui-surface-base);
+  border-right: var(--ui-border-width-thin, 1px) solid var(--ui-border-subtle, rgba(15, 23, 42, 0.1));
+  background: var(--ui-surface-base, #f8fbfd);
+  color: var(--ui-text-primary, #0f172a);
+  font-family: var(--ui-font-family, inherit);
+  overflow: hidden;
 }
 
-.ai-workspace-sidebar__section {
-  min-width: 0;
+.ai-workspace-sidebar *,
+.ai-workspace-sidebar *::before,
+.ai-workspace-sidebar *::after {
+  box-sizing: border-box;
 }
 
-.ai-workspace-sidebar__section--roles {
-  padding: 12px;
-  border-bottom: var(--ui-border-width-thin) solid var(--ui-border-subtle);
-}
-
-.ai-workspace-sidebar__section--topics {
-  display: grid;
+.ai-workspace-sidebar--collapsed {
   grid-template-rows: auto auto minmax(0, 1fr);
-  min-height: 0;
+  align-items: start;
+  justify-items: center;
+  padding: 8px 7px;
 }
 
-.ai-workspace-sidebar__section-head {
+.ai-workspace-sidebar__header {
   display: flex;
+  min-width: 0;
   align-items: center;
   justify-content: space-between;
-  gap: 10px;
-  min-width: 0;
-
-  span {
-    display: block;
-    margin-bottom: 2px;
-    color: var(--ui-text-muted);
-    font-size: 0.68rem;
-    font-weight: 750;
-    letter-spacing: 0;
-    text-transform: uppercase;
-  }
-
-  h2 {
-    margin: 0;
-    color: var(--ui-text-primary);
-    font-size: 1.02rem;
-    font-weight: 760;
-    line-height: 1.3;
-  }
+  gap: 8px;
+  min-height: 54px;
+  padding: 10px 10px 8px 12px;
+  border-bottom: var(--ui-border-width-thin, 1px) solid var(--ui-border-subtle, rgba(15, 23, 42, 0.08));
 }
 
-.ai-workspace-sidebar__role-list {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  margin-top: 10px;
-}
-
-.ai-workspace-sidebar__role {
+.ai-workspace-sidebar__title {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 28px;
-  align-items: center;
-  gap: 6px;
-  width: 100%;
   min-width: 0;
-}
-
-.ai-workspace-sidebar__role-main.ui-button {
-  width: 100%;
-  padding: 8px;
-  border: var(--ui-border-width-thin) solid transparent;
-  border-radius: var(--ui-radius-sm);
-  background: transparent;
-  color: var(--ui-text-primary);
-  text-align: left;
-  box-shadow: none;
-
-  &:hover,
-  &.ui-button--active {
-    border-color: var(--ui-border-subtle);
-    background: var(--ui-surface-overlay);
-  }
-
-  :deep(.ui-button__label) {
-    display: grid;
-    grid-template-columns: 34px minmax(0, 1fr) 28px;
-    align-items: center;
-    gap: 8px;
-    width: 100%;
-    min-width: 0;
-  }
-}
-
-.ai-workspace-sidebar__role-avatar {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 34px;
-  height: 34px;
-  border: var(--ui-border-width-thin) solid var(--ui-border-subtle);
-  border-radius: var(--ui-radius-sm);
-  background: var(--ui-surface-muted);
-  font-size: 1.12rem;
-}
-
-.ai-workspace-sidebar__role-text {
-  display: flex;
-  min-width: 0;
-  flex-direction: column;
   gap: 2px;
-
-  strong,
-  small {
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-  }
-
-  strong {
-    font-size: 0.88rem;
-    font-weight: 700;
-  }
-
-  small {
-    color: var(--ui-text-muted);
-    font-size: 0.74rem;
-  }
 }
 
-.ai-workspace-sidebar__role-settings,
-.ai-workspace-sidebar__topic-action {
-  opacity: 0;
+.ai-workspace-sidebar__title span {
+  color: var(--ui-text-muted, #64748b);
+  font-size: 0.7rem;
+  font-weight: 760;
+  letter-spacing: 0;
+  text-transform: uppercase;
 }
 
-.ai-workspace-sidebar__role:hover .ai-workspace-sidebar__role-settings,
-.ai-workspace-sidebar__role.is-active .ai-workspace-sidebar__role-settings,
-.ai-workspace-sidebar__topic:hover .ai-workspace-sidebar__topic-action,
-.ai-workspace-sidebar__topic:focus-within .ai-workspace-sidebar__topic-action,
-.ai-workspace-sidebar__topic.is-active .ai-workspace-sidebar__topic-action {
-  opacity: 1;
-}
-
-.ai-workspace-sidebar__section--topics > .ai-workspace-sidebar__section-head {
-  padding: 12px 12px 0;
-}
-
-.ai-workspace-sidebar__search {
-  padding: 10px 12px 0;
-}
-
-.ai-workspace-sidebar__topic-body {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-  min-height: 0;
-  padding: 10px;
-  overflow: auto;
-}
-
-.ai-workspace-sidebar__topic-group {
-  display: flex;
-  min-width: 0;
-  flex-direction: column;
-  gap: 6px;
-
-  h3 {
-    margin: 4px 4px 2px;
-    color: var(--ui-text-muted);
-    font-size: 0.72rem;
-    font-weight: 720;
-  }
-}
-
-.ai-workspace-sidebar__topic {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) repeat(3, 28px);
-  align-items: center;
-  gap: 6px;
-  width: 100%;
-  min-width: 0;
-}
-
-.ai-workspace-sidebar__topic-main-button.ui-button {
-  justify-content: flex-start;
-  min-width: 0;
-  min-height: 68px;
-  padding: 10px;
-  border: var(--ui-border-width-thin) solid transparent;
-  border-radius: var(--ui-radius-sm);
-  background: transparent;
-  color: var(--ui-text-primary);
-  text-align: left;
-  box-shadow: none;
-
-  &:hover,
-  &.ui-button--active {
-    border-color: var(--ui-border-subtle);
-    background: var(--ui-surface-overlay);
-  }
-
-  :deep(.ui-button__label) {
-    justify-content: flex-start;
-    width: 100%;
-    min-width: 0;
-  }
-}
-
-.ai-workspace-sidebar__topic-main {
-  display: flex;
-  min-width: 0;
-  flex-direction: column;
-  gap: 3px;
-}
-
-.ai-workspace-sidebar__topic-editor {
-  min-height: 68px;
-  justify-content: center;
-  padding: 10px;
-  border: var(--ui-border-width-thin) solid var(--ui-border-subtle);
-  border-radius: var(--ui-radius-sm);
-  background: var(--ui-surface-overlay);
-}
-
-.ai-workspace-sidebar__topic-title,
-.ai-workspace-sidebar__topic-meta,
-.ai-workspace-sidebar__topic-time {
+.ai-workspace-sidebar__title strong {
+  display: block;
   overflow: hidden;
+  color: var(--ui-text-primary, #0f172a);
+  font-size: 1rem;
+  font-weight: 780;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-.ai-workspace-sidebar__topic-title {
+.ai-workspace-sidebar__tabs {
+  padding: 8px 10px 10px;
+  border-bottom: var(--ui-border-width-thin, 1px) solid var(--ui-border-subtle, rgba(15, 23, 42, 0.08));
+}
+
+.ai-workspace-sidebar__pane {
+  display: flex;
+  min-height: 0;
+  flex-direction: column;
+  gap: 9px;
+  padding: 10px;
+  overflow: hidden;
+}
+
+.ai-workspace-sidebar__toolbar {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 8px;
+  align-items: center;
+  flex: 0 0 auto;
+}
+
+.ai-workspace-sidebar__assistant-list,
+.ai-workspace-sidebar__topic-list {
+  display: flex;
+  min-height: 0;
+  flex-direction: column;
+  gap: 7px;
+  overflow: auto;
+  padding-right: 2px;
+}
+
+.ai-workspace-sidebar__topic-card {
+  appearance: none;
+  position: relative;
+  display: block;
+  min-width: 0;
+  min-height: 34px;
+  padding: 7px 10px;
+  border: var(--ui-border-width-thin, 1px) solid rgba(14, 165, 233, 0.18);
+  border-radius: var(--ui-radius-sm, 6px);
+  background: color-mix(in srgb, var(--ui-color-primary, #0ea5e9) 16%, transparent);
+  box-shadow: none;
+  cursor: pointer;
+  transition:
+    background-color 0.18s ease,
+    border-color 0.18s ease,
+    box-shadow 0.18s ease;
+}
+
+.ai-workspace-sidebar__topic-card:hover,
+.ai-workspace-sidebar__topic-card.is-active,
+.ai-workspace-sidebar__assistant-card:hover,
+.ai-workspace-sidebar__assistant-card.is-active {
+  border-color: var(--ui-color-primary-border, rgba(14, 165, 233, 0.34));
+  background: var(--ui-color-primary-soft, rgba(224, 242, 254, 0.66));
+}
+
+.ai-workspace-sidebar__topic-card.is-active,
+.ai-workspace-sidebar__assistant-card.is-active {
+  box-shadow:
+    inset 3px 0 0 var(--ui-color-primary, #0ea5e9),
+    0 1px 2px rgba(15, 23, 42, 0.04);
+}
+
+.ai-workspace-sidebar__topic-main {
+  min-width: 0;
+  padding-right: 76px;
+}
+
+.ai-workspace-sidebar__topic-main h3,
+.ai-workspace-sidebar__assistant-main h3 {
+  display: block;
+  margin: 0;
+  overflow: hidden;
+  color: var(--ui-text-primary, #0f172a);
+  font-family: inherit;
+  font-size: 0.88rem;
+  font-weight: 720;
+  line-height: 1.35;
+  letter-spacing: 0;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ai-workspace-sidebar__topic-main p,
+.ai-workspace-sidebar__assistant-main p {
+  margin: 4px 0 0;
+  overflow: hidden;
+  color: var(--ui-text-secondary, #475569);
+  font-family: inherit;
+  font-size: 0.76rem;
+  line-height: 1.35;
+  letter-spacing: 0;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ai-workspace-sidebar__topic-main span {
+  display: block;
+  margin-top: 4px;
+  color: var(--ui-text-muted, #64748b);
+  font-family: inherit;
+  font-size: 0.72rem;
+  line-height: 1.2;
+  letter-spacing: 0;
+}
+
+.ai-workspace-sidebar__topic-actions {
+  position: absolute;
+  top: 50%;
+  right: 5px;
   display: inline-flex;
   align-items: center;
-  gap: 5px;
-  font-size: 0.88rem;
-  font-weight: 650;
+  gap: 1px;
+  padding-left: 10px;
+  background: linear-gradient(90deg, transparent, color-mix(in srgb, var(--ui-color-primary, #0ea5e9) 16%, var(--ui-surface-base, #f8fbfd)) 28%);
+  opacity: 0;
+  transform: translateY(-50%);
+  transition: opacity 0.16s ease;
 }
 
-.ai-workspace-sidebar__pin-icon {
-  flex: 0 0 auto;
-  color: var(--primary-color);
+.ai-workspace-sidebar__topic-card:hover .ai-workspace-sidebar__topic-actions,
+.ai-workspace-sidebar__topic-card.is-active .ai-workspace-sidebar__topic-actions {
+  opacity: 1;
 }
 
-.ai-workspace-sidebar__topic-meta,
-.ai-workspace-sidebar__topic-time {
-  color: var(--ui-text-muted);
-  font-size: 0.74rem;
-}
-
-.ai-workspace-sidebar__rename-input {
+.ai-workspace-sidebar__rename {
   width: 100%;
+}
+
+.ai-workspace-sidebar__assistant-card {
+  display: grid;
+  grid-template-columns: 34px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  padding: 9px;
+  border: var(--ui-border-width-thin, 1px) solid var(--ui-border-subtle, rgba(15, 23, 42, 0.1));
+  border-radius: var(--ui-radius-sm, 6px);
+  background: var(--ui-surface-overlay, #fff);
+  cursor: pointer;
+}
+
+.ai-workspace-sidebar__assistant-emoji {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: var(--ui-radius-sm, 6px);
+  background: var(--ui-surface-muted, #eaf4fb);
+  font-size: 1rem;
+  line-height: 1;
+}
+
+.ai-workspace-sidebar__assistant-main {
+  min-width: 0;
+}
+
+.ai-workspace-sidebar__collapsed-head,
+.ai-workspace-sidebar__collapsed-tabs,
+.ai-workspace-sidebar__mini-list {
+  display: flex;
+  align-items: center;
+  flex-direction: column;
+  gap: 7px;
+}
+
+.ai-workspace-sidebar__collapsed-head {
+  margin-bottom: 8px;
+}
+
+.ai-workspace-sidebar__collapsed-tabs {
+  padding: 7px 0;
+  border-top: var(--ui-border-width-thin, 1px) solid var(--ui-border-subtle, rgba(15, 23, 42, 0.1));
+  border-bottom: var(--ui-border-width-thin, 1px) solid var(--ui-border-subtle, rgba(15, 23, 42, 0.1));
+}
+
+.ai-workspace-sidebar__mini-list {
+  width: 100%;
+  min-height: 0;
+  margin-top: 8px;
+  overflow: auto;
+}
+
+.ai-workspace-sidebar__mini-topic {
+  appearance: none;
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 42px;
+  height: 42px;
+  border: var(--ui-border-width-thin, 1px) solid var(--ui-border-subtle, rgba(15, 23, 42, 0.1));
+  border-radius: var(--ui-radius-sm, 6px);
+  background: var(--ui-surface-overlay, #fff);
+  color: var(--ui-text-primary, #0f172a);
+  cursor: pointer;
+  transition:
+    background-color 0.18s ease,
+    border-color 0.18s ease,
+    transform 0.18s ease;
+}
+
+.ai-workspace-sidebar__mini-topic:hover,
+.ai-workspace-sidebar__mini-topic.is-active {
+  border-color: var(--ui-color-primary-border, rgba(14, 165, 233, 0.34));
+  background: var(--ui-color-primary-soft, rgba(224, 242, 254, 0.66));
+}
+
+.ai-workspace-sidebar__mini-topic.is-active {
+  box-shadow: inset 0 -3px 0 var(--ui-color-primary, #0ea5e9);
+}
+
+.ai-workspace-sidebar__mini-topic-initial {
+  max-width: 30px;
+  overflow: hidden;
+  font-family: inherit;
+  font-size: 0.78rem;
+  font-weight: 760;
+  line-height: 1;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ai-workspace-sidebar__mini-topic-pin {
+  position: absolute;
+  top: 5px;
+  right: 5px;
+  width: 6px;
+  height: 6px;
+  border-radius: var(--ui-radius-full, 999px);
+  background: var(--ui-color-primary, #0ea5e9);
 }
 </style>

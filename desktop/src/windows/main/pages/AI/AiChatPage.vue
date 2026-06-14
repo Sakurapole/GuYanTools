@@ -4,23 +4,29 @@ import AiAgentReservedPanel from './components/AiAgentReservedPanel.vue';
 import AiAssistantSettingsDialog from './components/AiAssistantSettingsDialog.vue';
 import AiCanvasPanel from './components/AiCanvasPanel.vue';
 import AiComposer from './components/AiComposer.vue';
+import AiContextPanel from './components/AiContextPanel.vue';
 import AiMessageList from './components/AiMessageList.vue';
-import AiSettingsPanel from './components/AiSettingsPanel.vue';
+import AiResearchPanel from './components/AiResearchPanel.vue';
 import AiWorkspaceSidebar from './components/AiWorkspaceSidebar.vue';
 import MainPageLayout from '@/windows/main/components/layout/MainPageLayout.vue';
 import IconRenderer from '@/windows/main/components/ui/IconRenderer.vue';
 import UiIconButton from '@/windows/main/components/ui/UiIconButton.vue';
 import UiInput from '@/windows/main/components/ui/UiInput.vue';
+import UiPopupSurface from '@/windows/main/components/ui/UiPopupSurface.vue';
 import UiTabs, { type UiTabItem } from '@/windows/main/components/ui/UiTabs.vue';
 import type { UiSelectOption } from '@/windows/main/components/ui/UiSelect.vue';
-import type { AiAssistantConfig, AiReasoningEffort, AiSearchMode } from '@/contracts/ai';
+import type { AiAssistantConfig, AiChatAttachment, AiReasoningEffort, AiSearchMode } from '@/contracts/ai';
 import { useAiCanvasStore } from '@/windows/main/stores/ai_canvas_store';
 import { useAiChatStore } from '@/windows/main/stores/ai_chat_store';
 import { createAiAssistantConfig, useAiConfigStore } from '@/windows/main/stores/ai_config_store';
+import { useAiContextStore } from '@/windows/main/stores/ai_context_store';
+import { useAiResearchStore } from '@/windows/main/stores/ai_research_store';
 
 const aiConfigStore = useAiConfigStore();
 const aiChatStore = useAiChatStore();
 const aiCanvasStore = useAiCanvasStore();
+const aiContextStore = useAiContextStore();
+const aiResearchStore = useAiResearchStore();
 const selectedProviderId = ref('');
 const selectedModelId = ref('');
 const activeAssistantId = ref('');
@@ -35,17 +41,14 @@ const reasoningBudgetTokensInput = ref('');
 const webSearchMode = ref<AiSearchMode>('off');
 const knowledgeSearchMode = ref<AiSearchMode>('off');
 const canvasEnabled = ref(false);
-const aiPageMode = ref<'chat' | 'agent'>('chat');
-const rightPanelTab = ref<'canvas' | 'settings' | 'agent'>('canvas');
-const inspectorCollapsed = ref(false);
+const canvasPanelVisible = ref(false);
+const contextPanelVisible = ref(false);
+const aiPageMode = ref<'chat' | 'research' | 'agent'>('chat');
+const sidebarCollapsed = ref(false);
 
 const pageModeTabs: UiTabItem[] = [
   { key: 'chat', label: '问答' },
-  { key: 'agent', label: 'Agent' },
-];
-const inspectorTabs: UiTabItem[] = [
-  { key: 'canvas', label: 'Canvas' },
-  { key: 'settings', label: '设置' },
+  { key: 'research', label: 'Research' },
   { key: 'agent', label: 'Agent' },
 ];
 
@@ -92,16 +95,13 @@ const runtimeSummary = computed(() => {
   }
   return `${activeAssistant.value?.name || '默认助手'} · ${selectedProvider.value?.name} / ${selectedModel.value?.displayName}`;
 });
-const inspectorTitle = computed(() => {
-  if (rightPanelTab.value === 'canvas') return 'Canvas';
-  if (rightPanelTab.value === 'settings') return '设置';
-  return 'Agent';
-});
 
 onMounted(async () => {
   aiChatStore.ensureStreamSubscription();
   aiCanvasStore.ensureStreamSubscription();
+  aiResearchStore.ensureSubscription();
   await aiConfigStore.refresh();
+  await aiContextStore.refresh();
   await aiChatStore.refreshConversations();
   activeAssistantId.value = aiConfigStore.config.defaultAssistantId || aiConfigStore.defaultAssistant?.id || '';
   if (aiChatStore.activeConversationId) {
@@ -113,6 +113,7 @@ onMounted(async () => {
 onBeforeUnmount(() => {
   aiChatStore.dispose();
   aiCanvasStore.dispose();
+  aiResearchStore.dispose();
 });
 
 watch(
@@ -121,6 +122,7 @@ watch(
     syncRuntimeOptions();
     if (conversationId) {
       await aiCanvasStore.loadForConversation(conversationId);
+      aiContextStore.activeProjectId = aiChatStore.activeConversation?.projectId ?? '';
     }
   },
 );
@@ -170,8 +172,38 @@ function runtimeMaxOutputTokens() {
   return Number.isFinite(value) && value > 0 ? Math.floor(value) : undefined;
 }
 
+function runtimeTopP() {
+  const assistant = activeAssistant.value;
+  if (!assistant?.topPEnabled) {
+    return undefined;
+  }
+  const value = Number(assistant.topP);
+  return Number.isFinite(value) ? Math.min(1, Math.max(0, value)) : undefined;
+}
+
+function runtimeMaxHistoryMessages() {
+  const assistant = activeAssistant.value;
+  if (assistant && Number.isFinite(assistant.contextMessages)) {
+    return Math.max(0, Math.floor(assistant.contextMessages));
+  }
+  return aiConfigStore.config.chat.maxHistoryMessages;
+}
+
 function runtimeReasoningBudgetTokens() {
   const value = Number(reasoningBudgetTokensInput.value);
+  return Number.isFinite(value) && value > 0 ? Math.floor(value) : undefined;
+}
+
+function runtimeSystemPrompt() {
+  return activeAssistant.value?.systemPrompt || aiConfigStore.config.chat.defaultSystemPrompt || undefined;
+}
+
+function runtimeMaxToolCalls() {
+  const assistant = activeAssistant.value;
+  if (!assistant?.maxToolCallsEnabled) {
+    return undefined;
+  }
+  const value = Number(assistant.maxToolCalls);
   return Number.isFinite(value) && value > 0 ? Math.floor(value) : undefined;
 }
 
@@ -184,11 +216,12 @@ async function createConversation() {
     providerId: selectedProvider.value.id,
     modelId: selectedModel.value.id,
     title: '新的话题',
-    systemPrompt: activeAssistant.value?.systemPrompt || aiConfigStore.config.chat.defaultSystemPrompt || undefined,
+    systemPrompt: runtimeSystemPrompt(),
+    projectId: aiContextStore.activeProjectId || undefined,
   });
 }
 
-async function send(content: string) {
+async function send(content: string, attachments: AiChatAttachment[] = []) {
   let conversation = aiChatStore.activeConversation;
   if (!conversation) {
     await createConversation();
@@ -202,11 +235,19 @@ async function send(content: string) {
   await aiChatStore.sendMessage({
     conversationId: conversation.id,
     content,
+    attachments,
     providerId: selectedProvider.value?.id || conversation.providerId,
     modelId: selectedModel.value?.id || conversation.modelId,
+    systemPrompt: runtimeSystemPrompt(),
     temperature: runtimeTemperature(),
+    topP: runtimeTopP(),
     maxOutputTokens: runtimeMaxOutputTokens(),
-    maxHistoryMessages: activeAssistant.value?.contextMessages || aiConfigStore.config.chat.maxHistoryMessages,
+    maxHistoryMessages: runtimeMaxHistoryMessages(),
+    streaming: activeAssistant.value?.streaming ?? true,
+    toolCallMode: activeAssistant.value?.toolCallMode,
+    mcpMode: activeAssistant.value?.mcpMode,
+    maxToolCalls: runtimeMaxToolCalls(),
+    customParameters: activeAssistant.value?.customParameters,
     reasoning: {
       enabled: reasoningEnabled.value,
       effort: reasoningEffort.value,
@@ -221,6 +262,13 @@ async function send(content: string) {
     canvas: {
       enabled: canvasEnabled.value,
       workspaceId: aiCanvasStore.activeWorkspaceId || undefined,
+    },
+    memory: {
+      enabled: Boolean(activeAssistant.value?.memoryEnabled),
+      assistantId: activeAssistant.value?.id,
+      projectId: conversation.projectId || aiContextStore.activeProjectId || undefined,
+      includeGlobal: aiContextStore.activeProject?.includeGlobalMemory ?? true,
+      limit: 8,
     },
   });
 }
@@ -236,9 +284,16 @@ async function regenerate(messageId: string) {
     assistantMessageId: messageId,
     providerId: selectedProvider.value.id,
     modelId: selectedModel.value.id,
+    systemPrompt: runtimeSystemPrompt(),
     temperature: runtimeTemperature(),
+    topP: runtimeTopP(),
     maxOutputTokens: runtimeMaxOutputTokens(),
-    maxHistoryMessages: activeAssistant.value?.contextMessages || aiConfigStore.config.chat.maxHistoryMessages,
+    maxHistoryMessages: runtimeMaxHistoryMessages(),
+    streaming: activeAssistant.value?.streaming ?? true,
+    toolCallMode: activeAssistant.value?.toolCallMode,
+    mcpMode: activeAssistant.value?.mcpMode,
+    maxToolCalls: runtimeMaxToolCalls(),
+    customParameters: activeAssistant.value?.customParameters,
     reasoning: {
       enabled: reasoningEnabled.value,
       effort: reasoningEffort.value,
@@ -254,6 +309,13 @@ async function regenerate(messageId: string) {
       enabled: canvasEnabled.value,
       workspaceId: aiCanvasStore.activeWorkspaceId || undefined,
     },
+    memory: {
+      enabled: Boolean(activeAssistant.value?.memoryEnabled),
+      assistantId: activeAssistant.value?.id,
+      projectId: conversation.projectId || aiContextStore.activeProjectId || undefined,
+      includeGlobal: aiContextStore.activeProject?.includeGlobalMemory ?? true,
+      limit: 8,
+    },
   });
 }
 
@@ -265,11 +327,31 @@ async function pinConversation(conversationId: string, pinned: boolean) {
   await aiChatStore.updateConversation(conversationId, { pinned });
 }
 
-function setPageMode(value: string) {
-  aiPageMode.value = value === 'agent' ? 'agent' : 'chat';
-  if (aiPageMode.value === 'agent') {
-    rightPanelTab.value = 'agent';
+async function changeActiveProject(projectId: string) {
+  aiContextStore.activeProjectId = projectId;
+  const conversation = aiChatStore.activeConversation;
+  if (conversation) {
+    await aiChatStore.updateConversation(conversation.id, { projectId: projectId || undefined });
   }
+}
+
+async function rememberMessage(messageId: string) {
+  const message = aiChatStore.activeMessages.find((item) => item.id === messageId);
+  if (!message?.content.trim()) {
+    return;
+  }
+  const scope = aiContextStore.activeProjectId ? 'project' : activeAssistant.value?.id ? 'assistant' : 'global';
+  await aiContextStore.createMemory({
+    scope,
+    scopeId: scope === 'project' ? aiContextStore.activeProjectId : scope === 'assistant' ? activeAssistant.value?.id : undefined,
+    content: message.content,
+    sourceMessageId: message.id,
+  });
+  contextPanelVisible.value = true;
+}
+
+function setPageMode(value: string) {
+  aiPageMode.value = value === 'agent' || value === 'research' ? value : 'chat';
 }
 
 async function selectAssistant(assistantId: string) {
@@ -321,14 +403,17 @@ async function deleteAssistant(assistantId: string) {
     layout-class="ai-chat-shell__layout"
     main-class="ai-chat-shell__main"
     stage-class="ai-chat-shell__stage"
-    :style="{ '--ui-page-sidebar-width': '292px' }"
+    :sidebar-collapsed="sidebarCollapsed"
+    :style="{ '--ui-page-sidebar-width': '292px', '--ui-page-sidebar-collapsed-width': '72px' }"
   >
     <template #sidebar>
       <AiWorkspaceSidebar
+        v-model:collapsed="sidebarCollapsed"
         :assistants="aiConfigStore.assistants"
         :active-assistant-id="activeAssistantId"
         :conversations="aiChatStore.conversations"
         :active-conversation-id="aiChatStore.activeConversationId"
+        :providers="aiConfigStore.config.providers"
         :loading="aiChatStore.loadingConversations"
         @create-assistant="createAssistant"
         @select-assistant="selectAssistant"
@@ -342,14 +427,13 @@ async function deleteAssistant(assistantId: string) {
     </template>
 
     <template #stage>
-      <div class="ai-chat-workspace" :class="{ 'ai-chat-workspace--inspector-collapsed': inspectorCollapsed }">
-        <div id="ai-chat-drawer-host" class="ai-chat-workspace__drawer-host" />
+      <div class="ai-chat-workspace">
         <section class="ai-chat-workspace__chat">
           <header class="ai-chat-workspace__header">
             <div class="ai-chat-workspace__title">
               <span class="ai-chat-workspace__eyebrow">GuYan AI</span>
-              <h2>{{ aiPageMode === 'chat' ? (aiChatStore.activeConversation?.title || '新的话题') : 'Agent 工作区' }}</h2>
-              <p>{{ aiPageMode === 'chat' ? runtimeSummary : 'Code Agent / 通用 Agent 执行层预留' }}</p>
+              <h2>{{ aiPageMode === 'chat' ? (aiChatStore.activeConversation?.title || '新的话题') : aiPageMode === 'research' ? 'Deep Research' : 'Agent 工作区' }}</h2>
+              <p>{{ aiPageMode === 'chat' ? runtimeSummary : aiPageMode === 'research' ? '可取消、可审计的来源研究流水线' : 'Code Agent / 通用 Agent 执行层预留' }}</p>
             </div>
 
             <div class="ai-chat-workspace__header-actions">
@@ -360,6 +444,29 @@ async function deleteAssistant(assistantId: string) {
                 size="sm"
                 @change="setPageMode"
               />
+              <UiIconButton
+                v-if="aiPageMode === 'chat'"
+                size="sm"
+                variant="secondary"
+                label="记忆"
+                title="打开项目与记忆"
+                :active="contextPanelVisible"
+                @click="contextPanelVisible = true"
+              >
+                <IconRenderer icon="iconify:lucide:brain" :size="15" />
+              </UiIconButton>
+              <UiIconButton
+                v-if="aiPageMode === 'chat'"
+                size="sm"
+                variant="secondary"
+                label="Canvas"
+                title="打开 Canvas"
+                :active="canvasPanelVisible"
+                :disabled="!aiChatStore.activeConversationId"
+                @click="canvasPanelVisible = true"
+              >
+                <IconRenderer icon="iconify:lucide:panel-top-open" :size="15" />
+              </UiIconButton>
               <div v-if="aiPageMode === 'chat'" class="ai-chat-workspace__advanced">
                 <UiInput
                   v-model="temperatureInput"
@@ -396,14 +503,6 @@ async function deleteAssistant(assistantId: string) {
                   placeholder="Think"
                 />
               </div>
-              <UiIconButton
-                size="sm"
-                variant="ghost"
-                :title="inspectorCollapsed ? `展开${inspectorTitle}` : `收起${inspectorTitle}`"
-                @click="inspectorCollapsed = !inspectorCollapsed"
-              >
-                <IconRenderer :icon="inspectorCollapsed ? 'iconify:lucide:panel-right-open' : 'iconify:lucide:panel-right-close'" :size="16" />
-              </UiIconButton>
             </div>
             <p v-if="pageError" class="ai-chat-workspace__error">{{ pageError }}</p>
           </header>
@@ -414,7 +513,9 @@ async function deleteAssistant(assistantId: string) {
             :loading="aiChatStore.loadingMessages"
             :streaming="aiChatStore.isStreaming"
             @regenerate="regenerate"
+            @remember="rememberMessage"
           />
+          <AiResearchPanel v-else-if="aiPageMode === 'research'" />
           <AiAgentReservedPanel v-else />
 
           <AiComposer
@@ -430,6 +531,7 @@ async function deleteAssistant(assistantId: string) {
             :model-options="modelOptions"
             :search-mode-options="searchModeOptions"
             :reasoning-effort-options="reasoningEffortOptions"
+            :common-phrases="activeAssistant?.commonPhrases ?? []"
             :disabled="!canChat || aiChatStore.sending"
             :controls-disabled="aiConfigStore.loading"
             :streaming="aiChatStore.isStreaming"
@@ -438,24 +540,42 @@ async function deleteAssistant(assistantId: string) {
           />
         </section>
 
-        <aside v-show="!inspectorCollapsed" class="ai-chat-workspace__inspector">
-          <header class="ai-chat-workspace__inspector-tabs">
-            <UiTabs
-              v-model="rightPanelTab"
-              :items="inspectorTabs"
-              variant="segmented"
-              size="sm"
-              stretch
-            />
-          </header>
+        <UiPopupSurface
+          v-model="canvasPanelVisible"
+          variant="floating"
+          :overlay="false"
+          :close-on-outside="false"
+          width="min(980px, calc(100vw - 40px))"
+          height="min(720px, calc(100vh - 40px))"
+          z-index="var(--ui-z-modal)"
+          :panel-class="'ai-chat-workspace__canvas-popup'"
+          :panel-style="{ left: '50%', top: '50%', transform: 'translate(-50%, -50%)' }"
+        >
           <AiCanvasPanel
-            v-if="rightPanelTab === 'canvas'"
             v-model:canvas-enabled="canvasEnabled"
             :conversation-id="aiChatStore.activeConversationId"
+            @close="canvasPanelVisible = false"
           />
-          <AiSettingsPanel v-else-if="rightPanelTab === 'settings'" />
-          <AiAgentReservedPanel v-else />
-        </aside>
+        </UiPopupSurface>
+
+        <UiPopupSurface
+          v-model="contextPanelVisible"
+          variant="floating"
+          :overlay="false"
+          :close-on-outside="false"
+          width="min(720px, calc(100vw - 40px))"
+          height="min(680px, calc(100vh - 40px))"
+          z-index="var(--ui-z-modal)"
+          :panel-class="'ai-chat-workspace__context-popup'"
+          :panel-style="{ left: '50%', top: '50%', transform: 'translate(-50%, -50%)' }"
+        >
+          <AiContextPanel
+            :active-assistant-id="activeAssistant?.id ?? ''"
+            :active-conversation-project-id="aiChatStore.activeConversation?.projectId"
+            @project-change="changeActiveProject"
+            @close="contextPanelVisible = false"
+          />
+        </UiPopupSurface>
       </div>
 
       <AiAssistantSettingsDialog
@@ -471,14 +591,12 @@ async function deleteAssistant(assistantId: string) {
 
 <style lang="scss" scoped>
 .ai-chat-shell {
-  --ai-inspector-width: clamp(340px, 27vw, 460px);
   background: var(--ui-surface-bg-muted);
 }
 
 .ai-chat-workspace {
   position: relative;
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) var(--ai-inspector-width);
+  display: block;
   width: 100%;
   height: 100%;
   min-width: 0;
@@ -486,26 +604,11 @@ async function deleteAssistant(assistantId: string) {
   color: var(--ui-text-primary);
 }
 
-.ai-chat-workspace__drawer-host {
-  position: absolute;
-  inset: 0;
-  z-index: var(--ui-z-toast);
-  min-width: 0;
-  min-height: 0;
-  pointer-events: none;
-}
-
-.ai-chat-workspace__drawer-host > :deep(*) {
-  pointer-events: auto;
-}
-
-.ai-chat-workspace--inspector-collapsed {
-  grid-template-columns: minmax(0, 1fr);
-}
-
 .ai-chat-workspace__chat {
   display: grid;
   grid-template-rows: auto minmax(0, 1fr) auto;
+  width: 100%;
+  height: 100%;
   min-width: 0;
   min-height: 0;
   background: var(--ui-surface-bg);
@@ -583,40 +686,21 @@ async function deleteAssistant(assistantId: string) {
   overflow-wrap: anywhere;
 }
 
-.ai-chat-workspace__inspector {
-  display: grid;
-  grid-template-rows: auto minmax(0, 1fr);
-  min-width: 0;
-  min-height: 0;
-  border-left: var(--ui-border-width-thin) solid var(--ui-border-subtle);
+:deep(.ai-chat-workspace__canvas-popup) {
+  overflow: hidden;
+  border: var(--ui-border-width-thin) solid var(--ui-border-subtle);
+  border-radius: var(--ui-radius-lg);
   background: var(--ui-surface-base);
-}
-
-.ai-chat-workspace__inspector-tabs {
-  padding: 7px 8px;
-  border-bottom: var(--ui-border-width-thin) solid var(--ui-border-subtle);
-  background: var(--ui-surface-muted);
+  box-shadow: var(--ui-shadow-floating, 0 24px 64px rgba(15, 23, 42, 0.22));
 }
 
 @media (max-width: 1280px) {
-  .ai-chat-workspace {
-    --ai-inspector-width: 380px;
-  }
-
   .ai-chat-workspace__advanced {
     display: none;
   }
 }
 
 @media (max-width: 980px) {
-  .ai-chat-workspace {
-    grid-template-columns: minmax(0, 1fr);
-  }
-
-  .ai-chat-workspace__inspector {
-    display: none;
-  }
-
   .ai-chat-workspace__header {
     grid-template-columns: minmax(0, 1fr);
     align-items: start;

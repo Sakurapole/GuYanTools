@@ -1,18 +1,18 @@
 <script lang="ts" setup>
 import { computed, ref, watch } from 'vue';
-import type { AiCanvasFile, AiCanvasMode } from '@/contracts/ai';
+import type { AiCanvasFile, AiCanvasMode, AiCanvasOperation } from '@/contracts/ai';
+import IconRenderer from '@/windows/main/components/ui/IconRenderer.vue';
 import UiButton from '@/windows/main/components/ui/UiButton.vue';
 import UiCard from '@/windows/main/components/ui/UiCard.vue';
 import UiCheckbox from '@/windows/main/components/ui/UiCheckbox.vue';
 import UiEmptyState from '@/windows/main/components/ui/UiEmptyState.vue';
+import UiIconButton from '@/windows/main/components/ui/UiIconButton.vue';
 import UiInput from '@/windows/main/components/ui/UiInput.vue';
 import UiPanelHeader from '@/windows/main/components/ui/UiPanelHeader.vue';
 import UiSelect from '@/windows/main/components/ui/UiSelect.vue';
-import UiTabs, { type UiTabItem } from '@/windows/main/components/ui/UiTabs.vue';
 import UiTextarea from '@/windows/main/components/ui/UiTextarea.vue';
 import UiToolbar from '@/windows/main/components/ui/UiToolbar.vue';
 import { useAiCanvasStore } from '@/windows/main/stores/ai_canvas_store';
-import AiCanvasPreview from './AiCanvasPreview.vue';
 
 const props = defineProps<{
   conversationId: string;
@@ -21,10 +21,10 @@ const props = defineProps<{
 
 const emit = defineEmits<{
   'update:canvasEnabled': [value: boolean];
+  close: [];
 }>();
 
 const canvasStore = useAiCanvasStore();
-const viewMode = ref<'edit' | 'preview'>('edit');
 const selectedFilePath = ref('');
 const draftContent = ref('');
 const newTitle = ref('Canvas');
@@ -34,10 +34,6 @@ const modeOptions: { label: string; value: AiCanvasMode }[] = [
   { label: 'Markdown', value: 'markdown' },
   { label: 'HTML', value: 'html' },
   { label: 'React', value: 'react' },
-];
-const viewModeOptions: UiTabItem[] = [
-  { key: 'edit', label: '编辑' },
-  { key: 'preview', label: '预览' },
 ];
 const workspaceOptions = computed(() => (canvasStore.workspacesByConversation[props.conversationId] ?? []).map((workspace) => ({
   label: workspace.title,
@@ -49,7 +45,9 @@ const selectedFile = computed(() =>
   activeFiles.value.find((file) => file.path === selectedFilePath.value) ?? activeFiles.value[0] ?? null,
 );
 const canSave = computed(() => Boolean(activeWorkspace.value && selectedFile.value && draftContent.value !== selectedFile.value.content));
+const canPreview = computed(() => Boolean(activeWorkspace.value && activeFiles.value.length));
 const operations = computed(() => canvasStore.activeOperations.slice(0, 8));
+const pendingOperations = computed(() => operations.value.filter((operation) => operation.status === 'pending'));
 const versions = computed(() => canvasStore.activeVersions.slice(0, 8));
 
 watch(
@@ -119,11 +117,42 @@ async function saveFile() {
   });
 }
 
+async function openPreviewWindow() {
+  if (!activeWorkspace.value || !activeFiles.value.length || !window.aiApi) {
+    return;
+  }
+
+  const files = activeFiles.value.map((file) => ({
+    ...file,
+    content: file.path === selectedFilePath.value ? draftContent.value : file.content,
+  }));
+
+  await window.aiApi.openCanvasPreview({
+    title: activeWorkspace.value.title,
+    mode: activeWorkspace.value.mode,
+    files,
+    activePath: selectedFilePath.value || selectedFile.value?.path,
+  });
+}
+
 async function renameWorkspace(value: string) {
   if (!activeWorkspace.value || !value.trim()) {
     return;
   }
   await canvasStore.updateWorkspace(activeWorkspace.value.id, { title: value.trim() });
+}
+
+async function applyOperation(operationId: string) {
+  const result = await canvasStore.applyOperation(operationId);
+  const firstFile = result.files[0];
+  if (firstFile) {
+    selectedFilePath.value = firstFile.path;
+    draftContent.value = firstFile.content;
+  }
+}
+
+async function rejectOperation(operationId: string) {
+  await canvasStore.rejectOperation(operationId);
 }
 
 function syncSelectedFile() {
@@ -159,6 +188,48 @@ function operationPayload(payloadJson: string) {
     return payloadJson;
   }
 }
+
+function operationStatusLabel(status: AiCanvasOperation['status']) {
+  switch (status) {
+    case 'pending': return '待确认';
+    case 'applied': return '已应用';
+    case 'rejected': return '已拒绝';
+    default: return status;
+  }
+}
+
+function operationPreview(operation: AiCanvasOperation) {
+  const payload = parseOperationPayload(operation.payloadJson);
+  const path = typeof payload.path === 'string' ? payload.path : '';
+  const content = typeof payload.content === 'string' ? payload.content : '';
+  const current = activeFiles.value.find((file) => file.path === path);
+  if (operation.operationType === 'delete_file') {
+    return `将删除 ${path || '目标文件'}`;
+  }
+  if (operation.operationType === 'append_file') {
+    return `追加 ${content.length} 字符到 ${path}\n\n${previewText(content)}`;
+  }
+  if (operation.operationType === 'replace_file' || operation.operationType === 'patch_file') {
+    const currentLength = current?.content.length ?? 0;
+    return `${path}：当前 ${currentLength} 字符，提议 ${content.length} 字符\n\n${previewText(content)}`;
+  }
+  return operationPayload(operation.payloadJson);
+}
+
+function parseOperationPayload(payloadJson: string) {
+  try {
+    const payload = JSON.parse(payloadJson);
+    return payload && typeof payload === 'object' && !Array.isArray(payload)
+      ? payload as Record<string, unknown>
+      : {};
+  } catch {
+    return {};
+  }
+}
+
+function previewText(value: string) {
+  return value.length > 900 ? `${value.slice(0, 900)}\n...` : value;
+}
 </script>
 
 <template>
@@ -176,6 +247,14 @@ function operationPayload(payloadJson: string) {
           >
             启用
           </UiCheckbox>
+          <UiIconButton
+            size="sm"
+            variant="ghost"
+            title="关闭 Canvas"
+            @click="emit('close')"
+          >
+            <IconRenderer icon="iconify:lucide:x" :size="15" />
+          </UiIconButton>
         </template>
       </UiPanelHeader>
     </header>
@@ -222,31 +301,25 @@ function operationPayload(payloadJson: string) {
 
       <main class="ai-canvas-panel__workbench">
         <UiToolbar class="ai-canvas-panel__toolbar" density="compact">
-          <UiTabs
-            v-model="viewMode"
-            :items="viewModeOptions"
-            variant="segmented"
-            size="sm"
-          />
+          <span class="ai-canvas-panel__edit-label">编辑</span>
           <template #trailing>
-          <UiButton size="sm" variant="secondary" :disabled="!canSave || canvasStore.saving" @click="saveFile">
-            保存
-          </UiButton>
+            <UiButton size="sm" variant="ghost" :disabled="!canPreview" @click="openPreviewWindow">
+              <template #prefix>
+                <IconRenderer icon="iconify:lucide:external-link" :size="14" />
+              </template>
+              预览
+            </UiButton>
+            <UiButton size="sm" variant="secondary" :disabled="!canSave || canvasStore.saving" @click="saveFile">
+              保存
+            </UiButton>
           </template>
         </UiToolbar>
 
         <UiTextarea
-          v-if="viewMode === 'edit'"
           v-model="draftContent"
           class="ai-canvas-panel__editor"
           resize="none"
           spellcheck="false"
-        />
-        <AiCanvasPreview
-          v-else
-          :mode="activeWorkspace.mode"
-          :files="activeFiles"
-          :active-path="selectedFilePath"
         />
       </main>
     </div>
@@ -261,12 +334,27 @@ function operationPayload(payloadJson: string) {
 
     <footer class="ai-canvas-panel__history">
       <UiCard class="ai-canvas-panel__history-block" padding="sm" radius="sm">
-        <h4>AI 操作</h4>
+        <h4>AI 操作 <small v-if="pendingOperations.length">{{ pendingOperations.length }} 待确认</small></h4>
+        <p v-if="canvasStore.error" class="ai-canvas-panel__error">{{ canvasStore.error }}</p>
         <p v-if="operations.length === 0">暂无操作</p>
         <ul v-else>
           <li v-for="operation in operations" :key="operation.id">
-            <span>{{ operationLabel(operation.operationType) }}</span>
-            <small>{{ operationPayload(operation.payloadJson) }}</small>
+            <div class="ai-canvas-panel__operation-head">
+              <span>{{ operationLabel(operation.operationType) }}</span>
+              <small :class="`ai-canvas-panel__operation-status ai-canvas-panel__operation-status--${operation.status}`">
+                {{ operationStatusLabel(operation.status) }}
+              </small>
+            </div>
+            <small class="ai-canvas-panel__operation-target">{{ operationPayload(operation.payloadJson) }}</small>
+            <pre v-if="operation.status === 'pending'" class="ai-canvas-panel__operation-preview">{{ operationPreview(operation) }}</pre>
+            <div v-if="operation.status === 'pending'" class="ai-canvas-panel__operation-actions">
+              <UiButton size="sm" variant="secondary" :disabled="canvasStore.saving" @click="applyOperation(operation.id)">
+                应用
+              </UiButton>
+              <UiButton size="sm" variant="ghost" :disabled="canvasStore.saving" @click="rejectOperation(operation.id)">
+                拒绝
+              </UiButton>
+            </div>
           </li>
         </ul>
       </UiCard>
@@ -284,25 +372,37 @@ function operationPayload(payloadJson: string) {
   </aside>
 </template>
 
-<style lang="scss" scoped>
+<style lang="scss">
+.ai-chat-workspace__canvas-popup .ai-canvas-panel,
 .ai-canvas-panel {
+  box-sizing: border-box;
   display: grid;
   grid-template-rows: auto auto auto minmax(0, 1fr) auto;
   min-width: 0;
   min-height: 0;
-  border-left: var(--ui-border-width-thin) solid var(--ui-border-subtle);
-  background: var(--ui-surface-base);
+  height: 100%;
+  overflow: hidden;
+  background: var(--ui-surface-base, #f8fbfd);
+  color: var(--ui-text-primary, #0f172a);
+  font-family: var(--ui-font-family, inherit);
+}
+
+.ai-canvas-panel *,
+.ai-canvas-panel *::before,
+.ai-canvas-panel *::after {
+  box-sizing: border-box;
 }
 
 .ai-canvas-panel__header,
 .ai-canvas-panel__create,
 .ai-canvas-panel__workspace,
 .ai-canvas-panel__toolbar {
-  border-bottom: var(--ui-border-width-thin) solid var(--ui-border-subtle);
+  border-bottom: var(--ui-border-width-thin, 1px) solid var(--ui-border-subtle, rgba(15, 23, 42, 0.1));
 }
 
 .ai-canvas-panel__header {
   padding: 12px;
+  background: var(--ui-surface-base, #f8fbfd);
 }
 
 .ai-canvas-panel__create {
@@ -310,6 +410,7 @@ function operationPayload(payloadJson: string) {
   grid-template-columns: minmax(0, 1fr) 92px auto;
   gap: 8px;
   padding: 10px 12px;
+  background: var(--ui-surface-panel, #fff);
 }
 
 .ai-canvas-panel__workspace {
@@ -317,12 +418,14 @@ function operationPayload(payloadJson: string) {
   grid-template-columns: minmax(0, 1fr);
   gap: 8px;
   padding: 10px 12px;
+  background: var(--ui-surface-panel, #fff);
 }
 
 .ai-canvas-panel__body {
   display: grid;
   grid-template-columns: 112px minmax(0, 1fr);
   min-height: 0;
+  overflow: hidden;
 }
 
 .ai-canvas-panel__files {
@@ -332,8 +435,8 @@ function operationPayload(payloadJson: string) {
   min-height: 0;
   padding: 8px;
   overflow-y: auto;
-  border-right: var(--ui-border-width-thin) solid var(--ui-border-subtle);
-  background: var(--ui-surface-muted);
+  border-right: var(--ui-border-width-thin, 1px) solid var(--ui-border-subtle, rgba(15, 23, 42, 0.1));
+  background: var(--ui-surface-muted, #eef4f8);
 }
 
 .ai-canvas-panel__file.ui-button {
@@ -343,7 +446,7 @@ function operationPayload(payloadJson: string) {
   padding: 8px;
   text-align: left;
 
-  :deep(.ui-button__label) {
+  .ui-button__label {
     display: flex;
     min-width: 0;
     align-items: flex-start;
@@ -361,7 +464,7 @@ function operationPayload(payloadJson: string) {
   }
 
   small {
-    color: var(--ui-text-muted);
+    color: var(--ui-text-muted, #64748b);
     font-size: 0.68rem;
   }
 }
@@ -375,19 +478,28 @@ function operationPayload(payloadJson: string) {
 
 .ai-canvas-panel__toolbar {
   padding: 8px;
+  background: var(--ui-surface-panel, #fff);
+}
+
+.ai-canvas-panel__edit-label {
+  color: var(--ui-text-secondary, #475569);
+  font-size: 0.78rem;
+  font-weight: 700;
 }
 
 .ai-canvas-panel__editor.ui-textarea {
   width: 100%;
   height: 100%;
   min-height: 0;
-  font-family: var(--ui-font-family-mono);
+  font-family: var(--ui-font-family-mono, ui-monospace, SFMono-Regular, Consolas, monospace);
   font-size: 0.78rem;
   line-height: 1.55;
 }
 
 .ai-canvas-panel__empty {
   min-height: 0;
+  align-self: stretch;
+  background: var(--ui-surface-panel, #fff);
 }
 
 .ai-canvas-panel__history {
@@ -395,22 +507,33 @@ function operationPayload(payloadJson: string) {
   grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
   gap: 10px;
   padding: 10px 12px;
-  border-top: var(--ui-border-width-thin) solid var(--ui-border-subtle);
-  background: var(--ui-surface-muted);
+  border-top: var(--ui-border-width-thin, 1px) solid var(--ui-border-subtle, rgba(15, 23, 42, 0.1));
+  background: var(--ui-surface-muted, #eef4f8);
 }
 
 .ai-canvas-panel__history-block {
   min-width: 0;
+  background: var(--ui-surface-panel, #fff);
 
   h4 {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
     margin: 0 0 6px;
-    color: var(--ui-text-secondary);
+    color: var(--ui-text-secondary, #475569);
     font-size: 0.72rem;
+
+    small {
+      color: var(--ui-color-warning, #b45309);
+      font-size: 0.68rem;
+      font-weight: 700;
+    }
   }
 
   p,
   li {
-    color: var(--ui-text-muted);
+    color: var(--ui-text-muted, #64748b);
     font-size: 0.7rem;
   }
 
@@ -428,10 +551,16 @@ function operationPayload(payloadJson: string) {
   }
 
   li {
-    display: grid;
-    grid-template-columns: auto minmax(0, 1fr);
-    gap: 6px;
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
     min-width: 0;
+    padding: 6px 0;
+    border-top: var(--ui-border-width-thin, 1px) solid var(--ui-border-subtle, rgba(15, 23, 42, 0.08));
+
+    &:first-child {
+      border-top: 0;
+    }
   }
 
   small {
@@ -439,5 +568,66 @@ function operationPayload(payloadJson: string) {
     text-overflow: ellipsis;
     white-space: nowrap;
   }
+}
+
+.ai-canvas-panel__error {
+  margin-bottom: 6px;
+  color: var(--ui-color-danger, #dc2626) !important;
+}
+
+.ai-canvas-panel__operation-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  min-width: 0;
+}
+
+.ai-canvas-panel__operation-target {
+  display: block;
+}
+
+.ai-canvas-panel__operation-status {
+  flex: 0 0 auto;
+  padding: 1px 5px;
+  border-radius: 999px;
+  background: var(--ui-surface-muted, #eef4f8);
+  color: var(--ui-text-muted, #64748b);
+
+  &--pending {
+    background: rgba(245, 158, 11, 0.14);
+    color: var(--ui-color-warning, #b45309);
+  }
+
+  &--applied {
+    background: rgba(22, 163, 74, 0.12);
+    color: var(--ui-color-success, #15803d);
+  }
+
+  &--rejected {
+    background: rgba(100, 116, 139, 0.12);
+    color: var(--ui-text-muted, #64748b);
+  }
+}
+
+.ai-canvas-panel__operation-preview {
+  max-height: 94px;
+  margin: 0;
+  padding: 7px;
+  overflow: auto;
+  border: var(--ui-border-width-thin, 1px) solid var(--ui-border-subtle, rgba(15, 23, 42, 0.1));
+  border-radius: var(--ui-radius-sm, 6px);
+  background: var(--ui-surface-muted, #eef4f8);
+  color: var(--ui-text-secondary, #475569);
+  font-family: var(--ui-font-family-mono, ui-monospace, SFMono-Regular, Consolas, monospace);
+  font-size: 0.68rem;
+  line-height: 1.45;
+  white-space: pre-wrap;
+}
+
+.ai-canvas-panel__operation-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 6px;
 }
 </style>

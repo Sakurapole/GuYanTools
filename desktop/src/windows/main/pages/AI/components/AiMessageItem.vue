@@ -15,6 +15,7 @@ const props = defineProps<{
 
 const emit = defineEmits<{
   regenerate: [messageId: string];
+  remember: [messageId: string];
 }>();
 
 const copied = ref(false);
@@ -104,6 +105,15 @@ async function copyMessage() {
           @click="emit('regenerate', message.id)"
         >
           <IconRenderer icon="iconify:lucide:rotate-ccw" :size="14" />
+        </UiIconButton>
+        <UiIconButton
+          size="sm"
+          variant="ghost"
+          title="记住这条"
+          :disabled="!message.content || message.status === 'streaming'"
+          @click="emit('remember', message.id)"
+        >
+          <IconRenderer icon="iconify:lucide:brain" :size="14" />
         </UiIconButton>
       </div>
       <div v-if="message.tokenUsage?.totalTokens" class="ai-message-item__usage">

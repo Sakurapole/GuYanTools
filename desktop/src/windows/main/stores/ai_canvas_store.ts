@@ -8,6 +8,7 @@ import type {
   AiCanvasWorkspace,
   AiStreamEvent,
   CreateAiCanvasWorkspacePayload,
+  UpdateAiCanvasOperationPayload,
   UpdateAiCanvasWorkspacePayload,
   UpsertAiCanvasFilePayload,
 } from '@/contracts/ai';
@@ -157,6 +158,54 @@ export const useAiCanvasStore = defineStore('ai-canvas', () => {
     }
   }
 
+  async function updateOperation(id: string, input: UpdateAiCanvasOperationPayload) {
+    if (!window.aiApi) {
+      throw new Error('当前运行环境不支持 AI API');
+    }
+    const operation = await window.aiApi.updateCanvasOperation(id, clone(input));
+    upsertOperationState(operation);
+    return operation;
+  }
+
+  async function applyOperation(id: string) {
+    if (!window.aiApi) {
+      throw new Error('当前运行环境不支持 AI API');
+    }
+    saving.value = true;
+    error.value = '';
+    try {
+      const result = await window.aiApi.applyCanvasOperation(id);
+      upsertOperationState(result.operation);
+      filesByWorkspace.value = { ...filesByWorkspace.value, [result.operation.workspaceId]: result.files };
+      await loadWorkspaceDetails(result.operation.workspaceId);
+      return result;
+    } catch (cause) {
+      error.value = cause instanceof Error ? cause.message : String(cause);
+      throw cause;
+    } finally {
+      saving.value = false;
+    }
+  }
+
+  async function rejectOperation(id: string) {
+    if (!window.aiApi) {
+      throw new Error('当前运行环境不支持 AI API');
+    }
+    saving.value = true;
+    error.value = '';
+    try {
+      const operation = await window.aiApi.rejectCanvasOperation(id);
+      upsertOperationState(operation);
+      await loadWorkspaceDetails(operation.workspaceId);
+      return operation;
+    } catch (cause) {
+      error.value = cause instanceof Error ? cause.message : String(cause);
+      throw cause;
+    } finally {
+      saving.value = false;
+    }
+  }
+
   async function deleteWorkspace(conversationId: string, workspaceId: string) {
     if (!window.aiApi) {
       return;
@@ -262,6 +311,9 @@ export const useAiCanvasStore = defineStore('ai-canvas', () => {
     createWorkspace,
     updateWorkspace,
     upsertFile,
+    updateOperation,
+    applyOperation,
+    rejectOperation,
     deleteWorkspace,
     preferredModeForPrompt,
     dispose,

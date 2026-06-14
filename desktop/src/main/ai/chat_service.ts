@@ -4,14 +4,24 @@ import { dbManager, JsDatabase } from '@/core/database';
 import { appConfigManager } from '@/main/app-config/manager';
 import type {
   AiAgentFeatureConfig,
+  AiAssistantCustomParameter,
   AiCitation,
+  AiChatAttachment,
   AiChatMessage,
   AiConversation,
+  AiMemory,
+  AiProviderKind,
+  AiProject,
   AiSafeAgentFeatureConfig,
   AiReasoningEffort,
   AiReasoningOptions,
   AiStreamEvent,
   CreateAiConversationPayload,
+  CreateAiMemoryPayload,
+  CreateAiProjectPayload,
+  FetchAiProviderModelsPayload,
+  FetchAiProviderModelsResult,
+  ListAiMemoriesPayload,
   RegenerateAiMessagePayload,
   RegenerateAiMessageResult,
   SendAiMessagePayload,
@@ -19,6 +29,8 @@ import type {
   TestAiProviderPayload,
   TestAiProviderResult,
   UpdateAiConversationPayload,
+  UpdateAiMemoryPayload,
+  UpdateAiProjectPayload,
 } from '@/contracts/ai';
 import type { KnowledgeSearchPayload, KnowledgeSearchResult } from '@/contracts/knowledge';
 import { findAiModel, findAiProvider, resolveLanguageModel } from './provider_registry';
@@ -26,13 +38,23 @@ import { generateConversationTitle } from './title_service';
 import { mapAiSdkPartToAiEvent, normalizeUsage } from './stream_events';
 import { resolveGroundingContext } from './tools/grounding_service';
 import { buildCanvasSystemInstruction, createCanvasTools } from './tools/canvas_tools';
+import { createMcpReadTools } from './tools/mcp_tools';
 import { aiEmbeddingService } from './embedding_service';
+import { aiMcpService } from './mcp_service';
 
 type AiDatabase = JsDatabase & {
   createAiConversation: (input: Record<string, unknown>) => Promise<Record<string, unknown>>;
   listAiConversations: () => Promise<Record<string, unknown>[]>;
   updateAiConversation: (id: string, input: Record<string, unknown>) => Promise<Record<string, unknown>>;
   deleteAiConversation: (id: string) => Promise<void>;
+  listAiProjects: () => Promise<Record<string, unknown>[]>;
+  createAiProject: (input: Record<string, unknown>) => Promise<Record<string, unknown>>;
+  updateAiProject: (id: string, input: Record<string, unknown>) => Promise<Record<string, unknown>>;
+  deleteAiProject: (id: string) => Promise<void>;
+  listAiMemories: (input?: ListAiMemoriesPayload) => Promise<Record<string, unknown>[]>;
+  createAiMemory: (input: Record<string, unknown>) => Promise<Record<string, unknown>>;
+  updateAiMemory: (id: string, input: Record<string, unknown>) => Promise<Record<string, unknown>>;
+  deleteAiMemory: (id: string) => Promise<void>;
   listAiMessages: (conversationId: string) => Promise<Record<string, unknown>[]>;
   insertAiMessage: (input: Record<string, unknown>) => Promise<Record<string, unknown>>;
   updateAiMessage: (id: string, input: Record<string, unknown>) => Promise<Record<string, unknown>>;
@@ -43,6 +65,9 @@ type AiDatabase = JsDatabase & {
 
 export type AiStreamListener = (event: AiStreamEvent) => void;
 type AiProviderOptions = Record<string, Record<string, JSONValue>>;
+type UserModelContent = Extract<ModelMessage, { role: 'user' }>['content'];
+
+const MAX_CHAT_ATTACHMENTS = 8;
 
 class AiChatService {
   private readonly runs = new Map<string, AbortController>();
@@ -68,6 +93,9 @@ class AiChatService {
         ...patch.research,
         webSearchApiKey: patch.research.webSearchApiKey || current.research.webSearchApiKey,
       };
+    }
+    if (patch.mcp) {
+      normalizedPatch.mcp = mergeMcpSecrets(current, patch.mcp);
     }
     const next = await appConfigManager.updateConfig({
       features: {
@@ -103,6 +131,22 @@ class AiChatService {
     }
   }
 
+  async fetchProviderModels(input: FetchAiProviderModelsPayload): Promise<FetchAiProviderModelsResult> {
+    const config = (await appConfigManager.getConfig()).features.aiAgent;
+    const currentProvider = input.providerId
+      ? config.providers.find((provider) => provider.id === input.providerId)
+      : undefined;
+    const kind = input.kind || currentProvider?.kind;
+    if (!kind) {
+      throw new Error('请先选择 Provider 类型');
+    }
+
+    const baseUrl = normalizeProviderModelsBaseUrl(input.baseUrl || currentProvider?.baseUrl, kind);
+    const apiKey = (input.apiKey || currentProvider?.apiKey || '').trim().split('\n')[0] || undefined;
+    const models = await fetchUpstreamProviderModels({ kind, baseUrl, apiKey });
+    return { models };
+  }
+
   async listConversations(): Promise<AiConversation[]> {
     const rows = await this.db().listAiConversations();
     return rows.map(mapConversation);
@@ -115,6 +159,7 @@ class AiChatService {
       providerId: input.providerId,
       modelId: input.modelId,
       systemPrompt: input.systemPrompt?.trim() || undefined,
+      projectId: input.projectId,
     });
     return mapConversation(row);
   }
@@ -124,12 +169,75 @@ class AiChatService {
       title: input.title,
       pinned: input.pinned,
       archived: input.archived,
+      projectId: input.projectId,
     });
     return mapConversation(row);
   }
 
   async deleteConversation(id: string) {
     await this.db().deleteAiConversation(id);
+  }
+
+  async listProjects(): Promise<AiProject[]> {
+    const rows = await this.db().listAiProjects();
+    return rows.map(mapProject);
+  }
+
+  async createProject(input: CreateAiProjectPayload): Promise<AiProject> {
+    const row = await this.db().createAiProject({
+      id: randomUUID(),
+      name: input.name.trim() || '新项目',
+      instructions: input.instructions?.trim() || undefined,
+      knowledgeLibraryId: input.knowledgeLibraryId?.trim() || undefined,
+      knowledgeSpaceId: input.knowledgeSpaceId?.trim() || undefined,
+      includeGlobalMemory: input.includeGlobalMemory ?? true,
+    });
+    return mapProject(row);
+  }
+
+  async updateProject(id: string, input: UpdateAiProjectPayload): Promise<AiProject> {
+    const row = await this.db().updateAiProject(id, {
+      name: input.name?.trim(),
+      instructions: input.instructions?.trim() || undefined,
+      knowledgeLibraryId: input.knowledgeLibraryId?.trim() || undefined,
+      knowledgeSpaceId: input.knowledgeSpaceId?.trim() || undefined,
+      includeGlobalMemory: input.includeGlobalMemory,
+      archived: input.archived,
+    });
+    return mapProject(row);
+  }
+
+  async deleteProject(id: string): Promise<void> {
+    await this.db().deleteAiProject(id);
+  }
+
+  async listMemories(input?: ListAiMemoriesPayload): Promise<AiMemory[]> {
+    const rows = await this.db().listAiMemories(input);
+    return rows.map(mapMemory);
+  }
+
+  async createMemory(input: CreateAiMemoryPayload): Promise<AiMemory> {
+    const row = await this.db().createAiMemory({
+      id: randomUUID(),
+      scope: normalizeMemoryScope(input.scope),
+      scopeId: input.scopeId,
+      content: input.content.trim(),
+      sourceMessageId: input.sourceMessageId,
+      enabled: input.enabled ?? true,
+    });
+    return mapMemory(row);
+  }
+
+  async updateMemory(id: string, input: UpdateAiMemoryPayload): Promise<AiMemory> {
+    const row = await this.db().updateAiMemory(id, {
+      content: input.content?.trim(),
+      enabled: input.enabled,
+    });
+    return mapMemory(row);
+  }
+
+  async deleteMemory(id: string): Promise<void> {
+    await this.db().deleteAiMemory(id);
   }
 
   async listMessages(conversationId: string): Promise<AiChatMessage[]> {
@@ -150,6 +258,8 @@ class AiChatService {
     const providerId = input.providerId || conversation.providerId;
     const modelId = input.modelId || conversation.modelId;
     this.assertModel(config, providerId, modelId);
+    const attachments = sanitizeChatAttachments(input.attachments);
+    assertAttachmentsSupported(config, providerId, modelId, attachments);
 
     const userMessage = mapMessage(await this.db().insertAiMessage({
       id: randomUUID(),
@@ -159,6 +269,7 @@ class AiChatService {
       status: 'complete',
       providerId,
       modelId,
+      metadataJson: attachments.length ? JSON.stringify({ attachments }) : undefined,
     }));
     const assistantMessage = mapMessage(await this.db().insertAiMessage({
       id: randomUUID(),
@@ -208,6 +319,7 @@ class AiChatService {
     const providerId = input.providerId || sourceUserMessage.providerId || conversation.providerId;
     const modelId = input.modelId || sourceUserMessage.modelId || conversation.modelId;
     this.assertModel(config, providerId, modelId);
+    assertAttachmentsSupported(config, providerId, modelId, getMessageAttachments(sourceUserMessage));
 
     const sourceIndex = messages.findIndex((message) => message.id === sourceUserMessage.id);
     const historyOverride = sourceIndex >= 0 ? messages.slice(0, sourceIndex + 1) : messages;
@@ -262,24 +374,34 @@ class AiChatService {
     let content = '';
     let reasoningContent = '';
     let groundingMetadata: Record<string, unknown> | undefined;
+    let memoryMetadata: Record<string, unknown> | undefined;
     try {
       const history = context.historyOverride ?? await this.listMessages(context.conversation.id);
       const maxHistoryMessages = context.input.maxHistoryMessages ?? context.config.chat.maxHistoryMessages;
       const modelMessages = buildModelMessages(history, maxHistoryMessages);
       const reasoning = resolveReasoningOptions(context.config, context.input.reasoning);
+      const attachmentCitations = buildAttachmentCitations(context.userMessage);
       const grounding = await resolveGroundingContext({
         query: context.userMessage.content,
         config: context.config,
         grounding: context.input.grounding,
         searchKnowledge: (input) => this.searchKnowledge(context.config, input),
       });
+      const citations = [...grounding.citations, ...attachmentCitations];
       groundingMetadata = {
         grounding: grounding.metadata,
-        citations: grounding.citations,
+        citations,
       };
-      if (grounding.citations.length) {
-        await this.persistCitations(context.assistantMessage.id, grounding.citations);
-        for (const citation of grounding.citations) {
+      if (
+        context.input.grounding?.knowledgeSearchMode === 'force'
+        && grounding.metadata.knowledgeSearchEnabled
+        && !grounding.citations.some((citation) => citation.sourceType.startsWith('knowledge-'))
+      ) {
+        throw new Error('知识库强制检索未返回可验证的知识库来源，本次回答已停止生成。');
+      }
+      if (citations.length) {
+        await this.persistCitations(context.assistantMessage.id, citations);
+        for (const citation of citations) {
           this.emit({
             type: 'citation',
             runId: context.runId,
@@ -290,12 +412,21 @@ class AiChatService {
       }
 
       const canvasEnabled = Boolean(context.input.canvas?.enabled);
-      const baseSystemPrompt = context.conversation.systemPrompt || context.config.chat.defaultSystemPrompt || '';
+      const baseSystemPrompt = context.input.systemPrompt?.trim()
+        || context.conversation.systemPrompt
+        || context.config.chat.defaultSystemPrompt
+        || '';
+      const memoryContext = await this.resolveMemoryContext(context.input, context.conversation);
+      memoryMetadata = memoryContext.metadata;
       const canvasSystemPrompt = canvasEnabled
         ? buildCanvasSystemInstruction({ activeWorkspaceId: context.input.canvas?.workspaceId })
         : '';
-      const systemPrompt = [baseSystemPrompt, grounding.context, canvasSystemPrompt].filter(Boolean).join('\n\n');
-      const canvasTools = canvasEnabled
+      const systemPrompt = [baseSystemPrompt, memoryContext.context, grounding.context, canvasSystemPrompt].filter(Boolean).join('\n\n');
+      const toolCallMode = context.input.toolCallMode ?? 'auto';
+      const maxToolSteps = Number.isFinite(context.input.maxToolCalls) && Number(context.input.maxToolCalls) > 0
+        ? Math.max(1, Math.floor(Number(context.input.maxToolCalls)))
+        : 3;
+      const canvasTools = canvasEnabled && toolCallMode !== 'none'
         ? createCanvasTools({
           runId: context.runId,
           conversationId: context.conversation.id,
@@ -304,43 +435,77 @@ class AiChatService {
           emit: (event) => this.emit(event),
         })
         : undefined;
-      const result = streamText({
+      const mcpCitations: AiCitation[] = [];
+      const mcpTools = toolCallMode !== 'none' && context.input.mcpMode && context.input.mcpMode !== 'disabled'
+        ? createMcpReadTools({
+          runId: context.runId,
+          messageId: context.assistantMessage.id,
+          tools: await aiMcpService.listTools(),
+          citations: mcpCitations,
+          emit: (event) => this.emit(event),
+        })
+        : undefined;
+      const tools = {
+        ...(canvasTools ?? {}),
+        ...(mcpTools ?? {}),
+      };
+      const activeTools = Object.keys(tools).length ? tools : undefined;
+      const providerOptions = mergeProviderOptions(
+        buildReasoningProviderOptions(context.config, context.providerId, reasoning),
+        buildCustomParameterProviderOptions(context.config, context.providerId, context.input.customParameters),
+      );
+      const requestOptions = {
         model: resolveLanguageModel(context.config, context.providerId, context.modelId),
         system: systemPrompt || undefined,
         messages: modelMessages,
         temperature: context.input.temperature ?? context.config.chat.temperature,
+        topP: context.input.topP,
         maxOutputTokens: context.input.maxOutputTokens ?? context.config.chat.maxOutputTokens,
-        providerOptions: buildReasoningProviderOptions(context.config, context.providerId, reasoning),
-        tools: canvasTools,
-        stopWhen: canvasTools ? stepCountIs(3) : undefined,
+        providerOptions,
+        tools: activeTools,
+        stopWhen: activeTools ? stepCountIs(maxToolSteps) : undefined,
         abortSignal: context.controller.signal,
         maxRetries: 1,
-      });
-
-      for await (const part of result.fullStream) {
-        const event = mapAiSdkPartToAiEvent(part, context.runId, context.assistantMessage.id);
-        if (event?.type === 'text-delta') {
-          content += event.delta;
-        }
-        if (event?.type === 'reasoning-delta') {
-          reasoningContent += event.delta;
-        }
-        if (event) {
-          this.emit(event);
-        }
-      }
+      };
 
       let usage = undefined;
-      try {
-        usage = normalizeUsage(await result.usage);
-      } catch {
-        usage = undefined;
+      if (context.input.streaming === false) {
+        const result = await generateText(requestOptions);
+        content = result.text ?? '';
+        if (content) {
+          this.emit({ type: 'text-delta', runId: context.runId, messageId: context.assistantMessage.id, delta: content });
+        }
+        usage = normalizeUsage((result as { totalUsage?: unknown; usage?: unknown }).totalUsage ?? result.usage);
+      } else {
+        const result = streamText(requestOptions);
+
+        for await (const part of result.fullStream) {
+          const event = mapAiSdkPartToAiEvent(part, context.runId, context.assistantMessage.id);
+          if (event?.type === 'text-delta') {
+            content += event.delta;
+          }
+          if (event?.type === 'reasoning-delta') {
+            reasoningContent += event.delta;
+          }
+          if (event) {
+            this.emit(event);
+          }
+        }
+
+        try {
+          usage = normalizeUsage(await result.usage);
+        } catch {
+          usage = undefined;
+        }
+      }
+      if (mcpCitations.length) {
+        await this.persistCitations(context.assistantMessage.id, mcpCitations);
       }
       await this.db().updateAiMessage(context.assistantMessage.id, {
         content,
         status: 'complete',
         tokenUsageJson: usage ? JSON.stringify(usage) : undefined,
-        metadataJson: JSON.stringify(buildMessageMetadata(groundingMetadata, reasoning, reasoningContent)),
+        metadataJson: JSON.stringify(buildMessageMetadata(groundingMetadata, memoryMetadata, reasoning, reasoningContent)),
       });
       if (usage) {
         this.emit({ type: 'usage', runId: context.runId, messageId: context.assistantMessage.id, usage });
@@ -352,7 +517,7 @@ class AiChatService {
       await this.db().updateAiMessage(context.assistantMessage.id, {
         content,
         status: aborted ? 'aborted' : 'error',
-        metadataJson: JSON.stringify(buildMessageMetadata(groundingMetadata, undefined, reasoningContent)),
+        metadataJson: JSON.stringify(buildMessageMetadata(groundingMetadata, memoryMetadata, undefined, reasoningContent)),
       });
       this.emit(aborted
         ? { type: 'run-aborted', runId: context.runId }
@@ -413,11 +578,27 @@ class AiChatService {
   private toSafeConfig(config: AiAgentFeatureConfig): AiSafeAgentFeatureConfig {
     const safeResearch = { ...config.research };
     delete safeResearch.webSearchApiKey;
+    const safeMcp = { ...config.mcp };
+    delete safeMcp.modelscopeApiToken;
     return {
       ...config,
       research: {
         ...safeResearch,
         hasWebSearchApiKey: Boolean(config.research.webSearchApiKey),
+      },
+      mcp: {
+        ...safeMcp,
+        hasModelScopeApiToken: Boolean(config.mcp.modelscopeApiToken),
+        servers: config.mcp.servers.map((server) => ({
+          ...server,
+          env: server.env.map((item) => ({
+            id: item.id,
+            key: item.key,
+            value: item.secret ? undefined : item.value,
+            secret: item.secret,
+            hasValue: Boolean(item.value),
+          })),
+        })),
       },
       providers: config.providers.map((provider) => ({
         id: provider.id,
@@ -444,11 +625,68 @@ class AiChatService {
   }
 
   private async searchKnowledge(config: AiAgentFeatureConfig, input: KnowledgeSearchPayload) {
+    const requestedLimit = input.limit ?? config.research.maxSources;
+    const scopedSearch = Boolean(input.nodeId || input.assetId);
+    const searchInput = scopedSearch
+      ? { ...input, limit: Math.max(60, requestedLimit * 20) }
+      : input;
     const [textResults, embeddingResults] = await Promise.all([
-      this.db().searchKnowledge(input),
-      aiEmbeddingService.searchKnowledge(config, input),
+      this.db().searchKnowledge(searchInput),
+      aiEmbeddingService.searchKnowledge(config, searchInput),
     ]);
-    return mergeKnowledgeResults(textResults, embeddingResults, input.limit ?? config.research.maxSources);
+    return filterKnowledgeResultsByScope(
+      mergeKnowledgeResults(textResults, embeddingResults, Math.max(requestedLimit, searchInput.limit ?? requestedLimit)),
+      input,
+    ).slice(0, Math.max(1, requestedLimit));
+  }
+
+  private async resolveMemoryContext(
+    input: SendAiMessagePayload | RegenerateAiMessagePayload,
+    conversation: AiConversation,
+  ) {
+    if (!input.memory?.enabled) {
+      return { context: '', metadata: undefined };
+    }
+
+    const projects = await this.listProjects();
+    const project = (input.memory.projectId || conversation.projectId)
+      ? projects.find((item) => item.id === (input.memory?.projectId || conversation.projectId))
+      : undefined;
+    const includeGlobal = input.memory.includeGlobal ?? project?.includeGlobalMemory ?? true;
+    const limit = Math.max(1, Math.min(20, Math.floor(input.memory.limit ?? 8)));
+    const memoryGroups = await Promise.all([
+      includeGlobal ? this.listMemories({ scope: 'global', enabled: true, limit }) : Promise.resolve([]),
+      project ? this.listMemories({ scope: 'project', scopeId: project.id, enabled: true, limit }) : Promise.resolve([]),
+      input.memory.assistantId
+        ? this.listMemories({ scope: 'assistant', scopeId: input.memory.assistantId, enabled: true, limit })
+        : Promise.resolve([]),
+    ]);
+    const memories = dedupeMemories(memoryGroups.flat()).slice(0, limit);
+    const blocks = [
+      project?.instructions?.trim()
+        ? `项目说明（${project.name}）:\n${project.instructions.trim()}`
+        : '',
+      memories.length
+        ? `显式记忆（用户可查看/编辑/删除）:\n${memories.map((memory, index) => `${index + 1}. ${memory.content}`).join('\n')}`
+        : '',
+    ].filter(Boolean);
+
+    return {
+      context: blocks.length ? blocks.join('\n\n') : '',
+      metadata: {
+        memory: {
+          enabled: true,
+          projectId: project?.id,
+          includeGlobal,
+          memories: memories.map((memory) => ({
+            id: memory.id,
+            scope: memory.scope,
+            scopeId: memory.scopeId,
+            content: memory.content,
+          })),
+        },
+      },
+    };
   }
 
   private async persistCitations(messageId: string, citations: AiCitation[]) {
@@ -475,20 +713,160 @@ class AiChatService {
 }
 
 function buildModelMessages(messages: AiChatMessage[], maxHistoryMessages: number): ModelMessage[] {
-  return messages
+  const eligibleMessages = messages
     .filter((message) => message.role === 'user' || message.role === 'assistant' || message.role === 'system')
     .filter((message) => {
       if (message.role === 'assistant') {
         return message.status === 'complete' && message.content.trim().length > 0;
       }
 
-      return message.content.trim().length > 0;
-    })
-    .slice(-Math.max(1, maxHistoryMessages))
-    .map((message) => ({
-      role: message.role === 'system' ? 'system' : message.role === 'assistant' ? 'assistant' : 'user',
-      content: message.content,
-    }));
+      return message.content.trim().length > 0 || getMessageAttachments(message).length > 0;
+    });
+  const limitedMessages = maxHistoryMessages > 0
+    ? eligibleMessages.slice(-Math.max(1, maxHistoryMessages))
+    : eligibleMessages;
+  return limitedMessages.map((message) => {
+    if (message.role === 'system') {
+      return { role: 'system', content: message.content };
+    }
+    if (message.role === 'assistant') {
+      return { role: 'assistant', content: message.content };
+    }
+    return { role: 'user', content: buildUserMessageContent(message) };
+  });
+}
+
+function buildUserMessageContent(message: AiChatMessage): UserModelContent {
+  const attachments = getMessageAttachments(message);
+  const textAttachments = attachments.filter((attachment) => attachment.kind === 'text' && attachment.textContent?.trim());
+  const imageAttachments = attachments.filter((attachment) => attachment.kind === 'image' && attachment.data);
+  if (!textAttachments.length && !imageAttachments.length) {
+    return message.content;
+  }
+
+  const textBlocks = [message.content.trim()]
+    .filter(Boolean)
+    .concat(textAttachments.map((attachment, index) =>
+      `附件 ${index + 1}: ${attachment.name}\n${attachment.textContent?.trim() ?? ''}`));
+  const parts: Exclude<UserModelContent, string> = [];
+  if (textBlocks.length) {
+    parts.push({ type: 'text', text: textBlocks.join('\n\n') });
+  }
+  for (const attachment of imageAttachments) {
+    parts.push({
+      type: 'image',
+      image: attachment.data ?? '',
+      mediaType: attachment.mimeType,
+    });
+  }
+  return parts;
+}
+
+function sanitizeChatAttachments(attachments: unknown): AiChatAttachment[] {
+  if (!Array.isArray(attachments)) {
+    return [];
+  }
+  if (attachments.length > MAX_CHAT_ATTACHMENTS) {
+    throw new Error(`单次对话最多添加 ${MAX_CHAT_ATTACHMENTS} 个附件`);
+  }
+
+  return attachments
+    .map(normalizeChatAttachment)
+    .filter((attachment): attachment is AiChatAttachment => Boolean(attachment));
+}
+
+function normalizeChatAttachment(value: unknown): AiChatAttachment | undefined {
+  if (!value || typeof value !== 'object') {
+    return undefined;
+  }
+
+  const record = value as Record<string, unknown>;
+  const kind = record.kind === 'image' ? 'image' : record.kind === 'text' ? 'text' : undefined;
+  const name = typeof record.name === 'string' ? record.name.trim() : '';
+  const mimeType = typeof record.mimeType === 'string' ? record.mimeType.trim() : '';
+  const id = typeof record.id === 'string' && record.id.trim() ? record.id.trim() : randomUUID();
+  if (!kind || !name || !mimeType) {
+    return undefined;
+  }
+
+  const source = normalizeAttachmentSource(record.source);
+  const size = Number(record.size);
+  const metadata = record.metadata && typeof record.metadata === 'object'
+    ? record.metadata as Record<string, unknown>
+    : undefined;
+  return {
+    id,
+    kind,
+    source,
+    name,
+    mimeType,
+    size: Number.isFinite(size) && size >= 0 ? size : 0,
+    textContent: kind === 'text' && typeof record.textContent === 'string' ? record.textContent : undefined,
+    data: kind === 'image' && typeof record.data === 'string' ? record.data : undefined,
+    assetId: typeof record.assetId === 'string' && record.assetId.trim() ? record.assetId.trim() : undefined,
+    metadata,
+  };
+}
+
+function normalizeAttachmentSource(value: unknown): AiChatAttachment['source'] {
+  if (value === 'clipboard' || value === 'knowledge-asset') {
+    return value;
+  }
+  return 'local-file';
+}
+
+function getMessageAttachments(message: AiChatMessage): AiChatAttachment[] {
+  return sanitizeChatAttachments(message.metadata?.attachments);
+}
+
+function assertAttachmentsSupported(
+  config: AiAgentFeatureConfig,
+  providerId: string,
+  modelId: string,
+  attachments: AiChatAttachment[],
+) {
+  if (!attachments.length) {
+    return;
+  }
+
+  const model = findAiModel(config, providerId, modelId);
+  if (attachments.some((attachment) => attachment.kind === 'image') && !model?.capabilities.vision) {
+    throw new Error('当前模型未声明视觉能力，无法发送图片附件');
+  }
+}
+
+function buildAttachmentCitations(message: AiChatMessage): AiCitation[] {
+  return getMessageAttachments(message).map((attachment, index) => ({
+    id: randomUUID(),
+    sourceType: 'chat-attachment',
+    title: attachment.name || `附件 ${index + 1}`,
+    sourceId: attachment.id,
+    snippet: buildAttachmentSnippet(attachment),
+    metadata: {
+      attachmentId: attachment.id,
+      kind: attachment.kind,
+      mimeType: attachment.mimeType,
+      size: attachment.size,
+      source: attachment.source,
+    },
+  }));
+}
+
+function buildAttachmentSnippet(attachment: AiChatAttachment) {
+  if (attachment.kind === 'text') {
+    return (attachment.textContent || '').slice(0, 280);
+  }
+  return `${attachment.mimeType} · ${formatAttachmentSize(attachment.size)}`;
+}
+
+function formatAttachmentSize(size: number) {
+  if (!Number.isFinite(size) || size <= 0) {
+    return '0 B';
+  }
+  if (size < 1_000_000) {
+    return `${Math.round(size / 1_000)} KB`;
+  }
+  return `${(size / 1_000_000).toFixed(1)} MB`;
 }
 
 function resolveRegenerationSource(messages: AiChatMessage[], assistantMessageId?: string): AiChatMessage | undefined {
@@ -532,6 +910,18 @@ function mergeKnowledgeResults(
     .slice(0, Math.max(1, limit));
 }
 
+function filterKnowledgeResultsByScope(results: KnowledgeSearchResult[], input: KnowledgeSearchPayload) {
+  return results.filter((result) => {
+    if (input.nodeId && result.nodeId !== input.nodeId && result.sourceId !== input.nodeId) {
+      return false;
+    }
+    if (input.assetId && result.assetId !== input.assetId && result.sourceId !== input.assetId) {
+      return false;
+    }
+    return true;
+  });
+}
+
 function mapConversation(row: Record<string, unknown>): AiConversation {
   return {
     id: String(readField(row, 'id')),
@@ -539,8 +929,36 @@ function mapConversation(row: Record<string, unknown>): AiConversation {
     providerId: String(readField(row, 'providerId', 'provider_id')),
     modelId: String(readField(row, 'modelId', 'model_id')),
     systemPrompt: optionalString(readField(row, 'systemPrompt', 'system_prompt')),
+    projectId: optionalString(readField(row, 'projectId', 'project_id')),
     pinned: Boolean(readField(row, 'pinned')),
     status: readField(row, 'archived') ? 'archived' : 'active',
+    createdAt: String(readField(row, 'createdAt', 'created_at')),
+    updatedAt: String(readField(row, 'updatedAt', 'updated_at')),
+  };
+}
+
+function mapProject(row: Record<string, unknown>): AiProject {
+  return {
+    id: String(readField(row, 'id')),
+    name: String(readField(row, 'name') ?? '项目'),
+    instructions: optionalString(readField(row, 'instructions')),
+    knowledgeLibraryId: optionalString(readField(row, 'knowledgeLibraryId', 'knowledge_library_id')),
+    knowledgeSpaceId: optionalString(readField(row, 'knowledgeSpaceId', 'knowledge_space_id')),
+    includeGlobalMemory: Boolean(readField(row, 'includeGlobalMemory', 'include_global_memory')),
+    archived: Boolean(readField(row, 'archived')),
+    createdAt: String(readField(row, 'createdAt', 'created_at')),
+    updatedAt: String(readField(row, 'updatedAt', 'updated_at')),
+  };
+}
+
+function mapMemory(row: Record<string, unknown>): AiMemory {
+  return {
+    id: String(readField(row, 'id')),
+    scope: normalizeMemoryScope(readField(row, 'scope')),
+    scopeId: optionalString(readField(row, 'scopeId', 'scope_id')),
+    content: String(readField(row, 'content') ?? ''),
+    sourceMessageId: optionalString(readField(row, 'sourceMessageId', 'source_message_id')),
+    enabled: Boolean(readField(row, 'enabled')),
     createdAt: String(readField(row, 'createdAt', 'created_at')),
     updatedAt: String(readField(row, 'updatedAt', 'updated_at')),
   };
@@ -593,6 +1011,7 @@ function normalizeCitationSourceType(value: unknown): AiCitation['sourceType'] {
     || value === 'knowledge-page'
     || value === 'knowledge-block'
     || value === 'knowledge-asset'
+    || value === 'chat-attachment'
   ) {
     return value;
   }
@@ -602,6 +1021,21 @@ function normalizeCitationSourceType(value: unknown): AiCitation['sourceType'] {
 
 function optionalString(value: unknown) {
   return typeof value === 'string' && value.length > 0 ? value : undefined;
+}
+
+function normalizeMemoryScope(value: unknown): AiMemory['scope'] {
+  return value === 'project' || value === 'assistant' ? value : 'global';
+}
+
+function dedupeMemories(memories: AiMemory[]) {
+  const seen = new Set<string>();
+  return memories.filter((memory) => {
+    if (seen.has(memory.id)) {
+      return false;
+    }
+    seen.add(memory.id);
+    return true;
+  });
 }
 
 function parseJson(value: unknown) {
@@ -678,13 +1112,82 @@ function buildReasoningProviderOptions(
   };
 }
 
+function buildCustomParameterProviderOptions(
+  config: AiAgentFeatureConfig,
+  providerId: string,
+  parameters?: AiAssistantCustomParameter[],
+): AiProviderOptions | undefined {
+  const entries = (parameters ?? [])
+    .map((parameter) => ({
+      key: parameter.key.trim(),
+      value: parseProviderOptionValue(parameter.value),
+    }))
+    .filter((parameter) => parameter.key);
+  if (!entries.length) {
+    return undefined;
+  }
+
+  const provider = findAiProvider(config, providerId);
+  if (!provider) {
+    return undefined;
+  }
+
+  const providerOptionsKey = provider.kind === 'openai' ? 'openai' : provider.id;
+  return {
+    [providerOptionsKey]: Object.fromEntries(entries.map((entry) => [entry.key, entry.value])),
+  };
+}
+
+function mergeProviderOptions(...options: Array<AiProviderOptions | undefined>): AiProviderOptions | undefined {
+  const merged: AiProviderOptions = {};
+  for (const option of options) {
+    if (!option) {
+      continue;
+    }
+    for (const [providerKey, providerOption] of Object.entries(option)) {
+      merged[providerKey] = {
+        ...(merged[providerKey] ?? {}),
+        ...providerOption,
+      };
+    }
+  }
+  return Object.keys(merged).length ? merged : undefined;
+}
+
+function parseProviderOptionValue(value: string): JSONValue {
+  const trimmed = value.trim();
+  if (!trimmed) {
+    return '';
+  }
+  if (trimmed === 'true') {
+    return true;
+  }
+  if (trimmed === 'false') {
+    return false;
+  }
+  if (trimmed === 'null') {
+    return null;
+  }
+  const numberValue = Number(trimmed);
+  if (Number.isFinite(numberValue) && trimmed !== '') {
+    return numberValue;
+  }
+  try {
+    return JSON.parse(trimmed) as JSONValue;
+  } catch {
+    return trimmed;
+  }
+}
+
 function buildMessageMetadata(
   groundingMetadata: Record<string, unknown> | undefined,
+  memoryMetadata: Record<string, unknown> | undefined,
   reasoning: ResolvedReasoningOptions | undefined,
   reasoningContent: string,
 ) {
   return {
     ...(groundingMetadata ?? {}),
+    ...(memoryMetadata ?? {}),
     ...(reasoning || reasoningContent
       ? {
         reasoning: {
@@ -708,11 +1211,169 @@ function toGoogleThinkingLevel(effort: AiReasoningEffort) {
 
 export const aiChatService = new AiChatService();
 
+function normalizeProviderModelsBaseUrl(baseUrl: string | undefined, kind: AiProviderKind) {
+  const trimmed = (baseUrl || defaultProviderModelsBaseUrl(kind)).trim();
+  if (!trimmed) {
+    throw new Error('请先填写 Base URL');
+  }
+  return trimmed.replace(/\/+$/, '');
+}
+
+function defaultProviderModelsBaseUrl(kind: AiProviderKind) {
+  switch (kind) {
+    case 'openai':
+      return 'https://api.openai.com';
+    case 'anthropic':
+      return 'https://api.anthropic.com';
+    case 'google':
+      return 'https://generativelanguage.googleapis.com';
+    case 'ollama':
+      return 'http://localhost:11434';
+    case 'vercel-gateway':
+      return 'https://ai-gateway.vercel.sh';
+    case 'openai-compatible':
+    default:
+      return '';
+  }
+}
+
+async function fetchUpstreamProviderModels(input: {
+  kind: AiProviderKind;
+  baseUrl: string;
+  apiKey?: string;
+}) {
+  if (input.kind === 'ollama') {
+    return fetchOllamaModelIds(input.baseUrl, input.apiKey);
+  }
+
+  if (input.kind === 'google') {
+    return fetchGeminiModelIds(input.baseUrl, input.apiKey);
+  }
+
+  if (input.kind === 'anthropic') {
+    return fetchOpenAiModelIds(openAiModelsUrl(input.baseUrl), input.apiKey, {
+      'x-api-key': input.apiKey || '',
+      'anthropic-version': '2023-06-01',
+    });
+  }
+
+  return fetchOpenAiModelIds(openAiModelsUrl(input.baseUrl), input.apiKey);
+}
+
+function openAiModelsUrl(baseUrl: string) {
+  const normalized = baseUrl.replace(/\/+$/, '');
+  return normalized.endsWith('/v1') ? `${normalized}/models` : `${normalized}/v1/models`;
+}
+
+function ollamaRootUrl(baseUrl: string) {
+  return baseUrl.replace(/\/v1$/i, '').replace(/\/+$/, '');
+}
+
+async function fetchOllamaModelIds(baseUrl: string, apiKey?: string) {
+  const headers: Record<string, string> = {};
+  if (apiKey) {
+    headers.Authorization = `Bearer ${apiKey}`;
+  }
+  const response = await fetch(`${ollamaRootUrl(baseUrl)}/api/tags`, { headers });
+  const json = await readJsonResponse(response);
+  const models = Array.isArray(json.models)
+    ? json.models.map((model: unknown) => model && typeof model === 'object' ? String((model as { name?: unknown }).name || '') : '')
+    : [];
+  return uniqueModelIds(models);
+}
+
+async function fetchGeminiModelIds(baseUrl: string, apiKey?: string) {
+  const url = new URL(`${baseUrl.replace(/\/+$/, '')}/v1beta/models`);
+  if (apiKey) {
+    url.searchParams.set('key', apiKey);
+  }
+  const headers: Record<string, string> = {};
+  if (apiKey) {
+    headers.Authorization = `Bearer ${apiKey}`;
+  }
+  const response = await fetch(url, { headers });
+  const json = await readJsonResponse(response);
+  const models = Array.isArray(json.models)
+    ? json.models.map((model: unknown) => {
+      if (!model || typeof model !== 'object') return '';
+      const name = String((model as { name?: unknown }).name || '');
+      return name.replace(/^models\//, '');
+    })
+    : [];
+  return uniqueModelIds(models);
+}
+
+async function fetchOpenAiModelIds(url: string, apiKey?: string, headers: Record<string, string> = {}) {
+  const requestHeaders: Record<string, string> = { ...headers };
+  if (apiKey && !requestHeaders.Authorization && !requestHeaders['x-api-key']) {
+    requestHeaders.Authorization = `Bearer ${apiKey}`;
+  }
+  const response = await fetch(url, { headers: requestHeaders });
+  const json = await readJsonResponse(response);
+  const models = Array.isArray(json.data)
+    ? json.data.map((model: unknown) => {
+      if (typeof model === 'string') return model;
+      if (!model || typeof model !== 'object') return '';
+      return String((model as { id?: unknown }).id || '');
+    })
+    : [];
+  return uniqueModelIds(models);
+}
+
+async function readJsonResponse(response: Response): Promise<Record<string, unknown>> {
+  const text = await response.text();
+  if (!response.ok) {
+    throw new Error(text || `获取模型列表失败：HTTP ${response.status}`);
+  }
+  try {
+    return JSON.parse(text) as Record<string, unknown>;
+  } catch {
+    throw new Error('获取模型列表失败：上游返回不是有效 JSON');
+  }
+}
+
+function uniqueModelIds(models: string[]) {
+  const seen = new Set<string>();
+  const result: string[] = [];
+  for (const model of models) {
+    const id = model.trim();
+    if (!id || seen.has(id)) {
+      continue;
+    }
+    seen.add(id);
+    result.push(id);
+  }
+  if (!result.length) {
+    throw new Error('上游没有返回可用模型');
+  }
+  return result;
+}
+
 function mergeProviderSecret(config: AiAgentFeatureConfig, provider: AiAgentFeatureConfig['providers'][number]) {
   const current = config.providers.find((item) => item.id === provider.id);
   return {
     ...provider,
     apiKey: provider.apiKey || current?.apiKey,
     apiKeyRef: provider.apiKeyRef || current?.apiKeyRef,
+  };
+}
+
+function mergeMcpSecrets(config: AiAgentFeatureConfig, patch: Partial<AiAgentFeatureConfig['mcp']>): AiAgentFeatureConfig['mcp'] {
+  return {
+    enabled: patch.enabled ?? config.mcp.enabled,
+    modelscopeApiToken: patch.modelscopeApiToken || config.mcp.modelscopeApiToken,
+    servers: (patch.servers ?? config.mcp.servers).map((server) => {
+      const current = config.mcp.servers.find((item) => item.id === server.id);
+      return {
+        ...server,
+        env: server.env.map((env) => {
+          const currentEnv = current?.env.find((item) => item.key === env.key);
+          return {
+            ...env,
+            value: env.value || currentEnv?.value || '',
+          };
+        }),
+      };
+    }),
   };
 }

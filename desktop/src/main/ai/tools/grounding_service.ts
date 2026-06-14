@@ -21,6 +21,7 @@ export async function resolveGroundingContext(input: {
   config: AiAgentFeatureConfig;
   grounding?: AiGroundingOptions;
   searchKnowledge: KnowledgeSearchExecutor;
+  abortSignal?: AbortSignal;
 }): Promise<GroundingResult> {
   const webSearchEnabled = shouldSearch(input.grounding?.webSearchMode, input.config.research.enabled)
     && Boolean(input.config.research.webSearchEndpoint);
@@ -32,13 +33,16 @@ export async function resolveGroundingContext(input: {
       query: input.query,
       libraryId: input.grounding?.libraryId || input.config.research.defaultKnowledgeLibraryId,
       spaceId: input.grounding?.spaceId || input.config.research.defaultKnowledgeSpaceId,
+      nodeId: input.grounding?.nodeId,
+      assetId: input.grounding?.assetId,
+      sourceType: input.grounding?.sourceType,
       limit: Math.min(12, input.config.research.maxSources),
     });
     citations.push(...knowledgeResults.map(mapKnowledgeCitation));
   }
 
   if (webSearchEnabled) {
-    const webResults = await searchWeb(input.config, input.query, Math.min(8, input.config.research.maxSources));
+    const webResults = await searchWeb(input.config, input.query, Math.min(8, input.config.research.maxSources), input.abortSignal);
     citations.push(...webResults);
   }
 
@@ -113,7 +117,7 @@ function mapKnowledgeCitation(result: KnowledgeSearchResult): AiCitation {
   };
 }
 
-async function searchWeb(config: AiAgentFeatureConfig, query: string, limit: number): Promise<AiCitation[]> {
+async function searchWeb(config: AiAgentFeatureConfig, query: string, limit: number, abortSignal?: AbortSignal): Promise<AiCitation[]> {
   const endpoint = config.research.webSearchEndpoint;
   if (!endpoint) {
     return [];
@@ -125,6 +129,7 @@ async function searchWeb(config: AiAgentFeatureConfig, query: string, limit: num
       'content-type': 'application/json',
       ...(config.research.webSearchApiKey ? { authorization: `Bearer ${config.research.webSearchApiKey}` } : {}),
     },
+    signal: abortSignal,
     body: JSON.stringify({
       query,
       limit,

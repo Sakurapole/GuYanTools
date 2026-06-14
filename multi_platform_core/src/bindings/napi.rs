@@ -1145,6 +1145,89 @@ impl JsDatabase {
             .map_err(|e| Error::from_reason(format!("删除 AI 会话失败: {}", e)))
     }
 
+    #[napi(js_name = "listAiProjects")]
+    pub async fn list_ai_projects(&self) -> Result<Vec<AiProject>> {
+        let db = self.inner.clone();
+        tokio::task::spawn_blocking(move || AiService::list_projects(&db))
+            .await
+            .map_err(|e| Error::from_reason(format!("任务执行失败: {}", e)))?
+            .map_err(|e| Error::from_reason(format!("获取 AI 项目失败: {}", e)))
+    }
+
+    #[napi(js_name = "createAiProject")]
+    pub async fn create_ai_project(&self, input: CreateAiProjectInput) -> Result<AiProject> {
+        let db = self.inner.clone();
+        tokio::task::spawn_blocking(move || AiService::create_project(&db, input))
+            .await
+            .map_err(|e| Error::from_reason(format!("任务执行失败: {}", e)))?
+            .map_err(|e| Error::from_reason(format!("创建 AI 项目失败: {}", e)))
+    }
+
+    #[napi(js_name = "updateAiProject")]
+    pub async fn update_ai_project(
+        &self,
+        id: String,
+        input: UpdateAiProjectInput,
+    ) -> Result<AiProject> {
+        let db = self.inner.clone();
+        tokio::task::spawn_blocking(move || AiService::update_project(&db, &id, input))
+            .await
+            .map_err(|e| Error::from_reason(format!("任务执行失败: {}", e)))?
+            .map_err(|e| Error::from_reason(format!("更新 AI 项目失败: {}", e)))
+    }
+
+    #[napi(js_name = "deleteAiProject")]
+    pub async fn delete_ai_project(&self, id: String) -> Result<()> {
+        let db = self.inner.clone();
+        tokio::task::spawn_blocking(move || AiService::delete_project(&db, &id))
+            .await
+            .map_err(|e| Error::from_reason(format!("任务执行失败: {}", e)))?
+            .map_err(|e| Error::from_reason(format!("删除 AI 项目失败: {}", e)))
+    }
+
+    #[napi(js_name = "listAiMemories")]
+    pub async fn list_ai_memories(
+        &self,
+        input: Option<ListAiMemoriesInput>,
+    ) -> Result<Vec<AiMemory>> {
+        let db = self.inner.clone();
+        tokio::task::spawn_blocking(move || AiService::list_memories(&db, input))
+            .await
+            .map_err(|e| Error::from_reason(format!("任务执行失败: {}", e)))?
+            .map_err(|e| Error::from_reason(format!("获取 AI 记忆失败: {}", e)))
+    }
+
+    #[napi(js_name = "createAiMemory")]
+    pub async fn create_ai_memory(&self, input: CreateAiMemoryInput) -> Result<AiMemory> {
+        let db = self.inner.clone();
+        tokio::task::spawn_blocking(move || AiService::create_memory(&db, input))
+            .await
+            .map_err(|e| Error::from_reason(format!("任务执行失败: {}", e)))?
+            .map_err(|e| Error::from_reason(format!("创建 AI 记忆失败: {}", e)))
+    }
+
+    #[napi(js_name = "updateAiMemory")]
+    pub async fn update_ai_memory(
+        &self,
+        id: String,
+        input: UpdateAiMemoryInput,
+    ) -> Result<AiMemory> {
+        let db = self.inner.clone();
+        tokio::task::spawn_blocking(move || AiService::update_memory(&db, &id, input))
+            .await
+            .map_err(|e| Error::from_reason(format!("任务执行失败: {}", e)))?
+            .map_err(|e| Error::from_reason(format!("更新 AI 记忆失败: {}", e)))
+    }
+
+    #[napi(js_name = "deleteAiMemory")]
+    pub async fn delete_ai_memory(&self, id: String) -> Result<()> {
+        let db = self.inner.clone();
+        tokio::task::spawn_blocking(move || AiService::delete_memory(&db, &id))
+            .await
+            .map_err(|e| Error::from_reason(format!("任务执行失败: {}", e)))?
+            .map_err(|e| Error::from_reason(format!("删除 AI 记忆失败: {}", e)))
+    }
+
     #[napi(js_name = "listAiMessages")]
     pub async fn list_ai_messages(&self, conversation_id: String) -> Result<Vec<AiChatMessage>> {
         let db = self.inner.clone();
@@ -1316,6 +1399,15 @@ impl JsDatabase {
         .map_err(|e| Error::from_reason(format!("获取 AI Canvas 操作失败: {}", e)))
     }
 
+    #[napi(js_name = "getAiCanvasOperation")]
+    pub async fn get_ai_canvas_operation(&self, id: String) -> Result<AiCanvasOperation> {
+        let db = self.inner.clone();
+        tokio::task::spawn_blocking(move || AiService::get_canvas_operation_by_id(&db, &id))
+            .await
+            .map_err(|e| Error::from_reason(format!("任务执行失败: {}", e)))?
+            .map_err(|e| Error::from_reason(format!("获取 AI Canvas 操作失败: {}", e)))
+    }
+
     #[napi(js_name = "createAiCanvasOperation")]
     pub async fn create_ai_canvas_operation(
         &self,
@@ -1326,6 +1418,89 @@ impl JsDatabase {
             .await
             .map_err(|e| Error::from_reason(format!("任务执行失败: {}", e)))?
         .map_err(|e| Error::from_reason(format!("创建 AI Canvas 操作失败: {}", e)))
+    }
+
+    #[napi(js_name = "updateAiCanvasOperation")]
+    pub async fn update_ai_canvas_operation(
+        &self,
+        id: String,
+        input: UpdateAiCanvasOperationInput,
+    ) -> Result<AiCanvasOperation> {
+        let db = self.inner.clone();
+        tokio::task::spawn_blocking(move || AiService::update_canvas_operation(&db, &id, input))
+            .await
+            .map_err(|e| Error::from_reason(format!("任务执行失败: {}", e)))?
+            .map_err(|e| Error::from_reason(format!("更新 AI Canvas 操作失败: {}", e)))
+    }
+
+    #[napi(js_name = "createAiResearchJob")]
+    pub async fn create_ai_research_job(
+        &self,
+        input: CreateAiResearchJobInput,
+    ) -> Result<AiResearchJob> {
+        let db = self.inner.clone();
+        tokio::task::spawn_blocking(move || AiService::create_research_job(&db, input))
+            .await
+            .map_err(|e| Error::from_reason(format!("任务执行失败: {}", e)))?
+            .map_err(|e| Error::from_reason(format!("创建 AI Research 任务失败: {}", e)))
+    }
+
+    #[napi(js_name = "getAiResearchJob")]
+    pub async fn get_ai_research_job(&self, id: String) -> Result<AiResearchJob> {
+        let db = self.inner.clone();
+        tokio::task::spawn_blocking(move || AiService::get_research_job_by_id(&db, &id))
+            .await
+            .map_err(|e| Error::from_reason(format!("任务执行失败: {}", e)))?
+            .map_err(|e| Error::from_reason(format!("获取 AI Research 任务失败: {}", e)))
+    }
+
+    #[napi(js_name = "listAiResearchJobs")]
+    pub async fn list_ai_research_jobs(
+        &self,
+        input: Option<ListAiResearchJobsInput>,
+    ) -> Result<Vec<AiResearchJob>> {
+        let db = self.inner.clone();
+        tokio::task::spawn_blocking(move || AiService::list_research_jobs(&db, input))
+            .await
+            .map_err(|e| Error::from_reason(format!("任务执行失败: {}", e)))?
+            .map_err(|e| Error::from_reason(format!("获取 AI Research 任务列表失败: {}", e)))
+    }
+
+    #[napi(js_name = "updateAiResearchJob")]
+    pub async fn update_ai_research_job(
+        &self,
+        id: String,
+        input: UpdateAiResearchJobInput,
+    ) -> Result<AiResearchJob> {
+        let db = self.inner.clone();
+        tokio::task::spawn_blocking(move || AiService::update_research_job(&db, &id, input))
+            .await
+            .map_err(|e| Error::from_reason(format!("任务执行失败: {}", e)))?
+            .map_err(|e| Error::from_reason(format!("更新 AI Research 任务失败: {}", e)))
+    }
+
+    #[napi(js_name = "insertAiResearchSource")]
+    pub async fn insert_ai_research_source(
+        &self,
+        input: CreateAiResearchSourceInput,
+    ) -> Result<AiResearchSource> {
+        let db = self.inner.clone();
+        tokio::task::spawn_blocking(move || AiService::insert_research_source(&db, input))
+            .await
+            .map_err(|e| Error::from_reason(format!("任务执行失败: {}", e)))?
+            .map_err(|e| Error::from_reason(format!("写入 AI Research 来源失败: {}", e)))
+    }
+
+    #[napi(js_name = "listAiResearchSources")]
+    pub async fn list_ai_research_sources(
+        &self,
+        job_id: String,
+    ) -> Result<Vec<AiResearchSource>> {
+        let db = self.inner.clone();
+        tokio::task::spawn_blocking(move || AiService::list_research_sources(&db, &job_id))
+            .await
+            .map_err(|e| Error::from_reason(format!("任务执行失败: {}", e)))?
+            .map_err(|e| Error::from_reason(format!("获取 AI Research 来源失败: {}", e)))
     }
 
     // ==================== Todo 相关方法 ====================
@@ -2041,9 +2216,10 @@ impl JsMultiDeviceClipboardHost {
 
 use crate::ftp::{
     ConnectFtpInput, CreateFtpProfileInput, CreateFtpSessionFolderInput, FileTransferEntry,
-    FtpConnectionDescriptor, FtpManager, FtpProfile, FtpRestoreState, FtpRetryPolicy,
-    FtpSessionFolder, TransferOptions, TransferTask, UpdateFtpProfileInput,
-    UpdateFtpSessionFolderInput, UpsertFtpRestoreStateInput,
+    FtpConnectionDescriptor, FtpFilterPreset, FtpManager, FtpProfile, FtpRestoreState,
+    FtpRetryPolicy, FtpScheduledTask, FtpSessionFolder, TransferOptions, TransferTask,
+    UpdateFtpProfileInput, UpdateFtpSessionFolderInput, UpsertFtpFilterPresetInput,
+    UpsertFtpRestoreStateInput, UpsertFtpScheduledTaskInput,
 };
 use crate::ssh::{
     ConnectSshInput, CreatePortForwardInput, CreateSshProfileFolderInput, CreateSshProfileInput,
@@ -2565,6 +2741,66 @@ impl JsFtpHost {
             .await
             .map_err(|e| Error::from_reason(format!("task failed: {}", e)))?
             .map_err(|e| Error::from_reason(format!("deleteFtpRestoreState failed: {}", e)))
+    }
+
+    #[napi(js_name = "listScheduledTasks")]
+    pub async fn list_scheduled_tasks(&self) -> Result<Vec<FtpScheduledTask>> {
+        let manager = self.inner.clone();
+        tokio::task::spawn_blocking(move || manager.list_scheduled_tasks())
+            .await
+            .map_err(|e| Error::from_reason(format!("task failed: {}", e)))?
+            .map_err(|e| Error::from_reason(format!("listFtpScheduledTasks failed: {}", e)))
+    }
+
+    #[napi(js_name = "upsertScheduledTask")]
+    pub async fn upsert_scheduled_task(
+        &self,
+        input: UpsertFtpScheduledTaskInput,
+    ) -> Result<FtpScheduledTask> {
+        let manager = self.inner.clone();
+        tokio::task::spawn_blocking(move || manager.upsert_scheduled_task(input))
+            .await
+            .map_err(|e| Error::from_reason(format!("task failed: {}", e)))?
+            .map_err(|e| Error::from_reason(format!("upsertFtpScheduledTask failed: {}", e)))
+    }
+
+    #[napi(js_name = "deleteScheduledTask")]
+    pub async fn delete_scheduled_task(&self, id: String) -> Result<()> {
+        let manager = self.inner.clone();
+        tokio::task::spawn_blocking(move || manager.delete_scheduled_task(&id))
+            .await
+            .map_err(|e| Error::from_reason(format!("task failed: {}", e)))?
+            .map_err(|e| Error::from_reason(format!("deleteFtpScheduledTask failed: {}", e)))
+    }
+
+    #[napi(js_name = "listFilterPresets")]
+    pub async fn list_filter_presets(&self) -> Result<Vec<FtpFilterPreset>> {
+        let manager = self.inner.clone();
+        tokio::task::spawn_blocking(move || manager.list_filter_presets())
+            .await
+            .map_err(|e| Error::from_reason(format!("task failed: {}", e)))?
+            .map_err(|e| Error::from_reason(format!("listFtpFilterPresets failed: {}", e)))
+    }
+
+    #[napi(js_name = "upsertFilterPreset")]
+    pub async fn upsert_filter_preset(
+        &self,
+        input: UpsertFtpFilterPresetInput,
+    ) -> Result<FtpFilterPreset> {
+        let manager = self.inner.clone();
+        tokio::task::spawn_blocking(move || manager.upsert_filter_preset(input))
+            .await
+            .map_err(|e| Error::from_reason(format!("task failed: {}", e)))?
+            .map_err(|e| Error::from_reason(format!("upsertFtpFilterPreset failed: {}", e)))
+    }
+
+    #[napi(js_name = "deleteFilterPreset")]
+    pub async fn delete_filter_preset(&self, id: String) -> Result<()> {
+        let manager = self.inner.clone();
+        tokio::task::spawn_blocking(move || manager.delete_filter_preset(&id))
+            .await
+            .map_err(|e| Error::from_reason(format!("task failed: {}", e)))?
+            .map_err(|e| Error::from_reason(format!("deleteFtpFilterPreset failed: {}", e)))
     }
 
     #[napi(js_name = "connect")]

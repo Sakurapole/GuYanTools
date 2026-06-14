@@ -1,10 +1,14 @@
 use crate::db::{Database, DbResult};
 use crate::models::{
     AiCanvasFile, AiCanvasOperation, AiCanvasVersion, AiCanvasWorkspace, AiChatMessage,
-    AiCitation, AiConversation, CreateAiCanvasOperationInput, CreateAiCanvasVersionInput,
-    CreateAiCanvasWorkspaceInput, CreateAiCitationInput, CreateAiConversationInput,
-    CreateAiMessageInput, UpdateAiCanvasWorkspaceInput, UpdateAiConversationInput,
-    UpdateAiMessageInput, UpsertAiCanvasFileInput,
+    AiCitation, AiConversation, AiMemory, AiProject, AiResearchJob, AiResearchSource,
+    CreateAiCanvasOperationInput, CreateAiCanvasVersionInput, CreateAiCanvasWorkspaceInput,
+    CreateAiCitationInput, CreateAiConversationInput, CreateAiMemoryInput, CreateAiMessageInput,
+    CreateAiProjectInput, CreateAiResearchJobInput, CreateAiResearchSourceInput, ListAiMemoriesInput,
+    ListAiResearchJobsInput,
+    UpdateAiCanvasOperationInput, UpdateAiCanvasWorkspaceInput, UpdateAiConversationInput,
+    UpdateAiMemoryInput, UpdateAiMessageInput, UpdateAiProjectInput, UpdateAiResearchJobInput,
+    UpsertAiCanvasFileInput,
 };
 use rusqlite::{params, Connection};
 
@@ -18,14 +22,15 @@ impl AiService {
         db.transaction(|conn| {
             conn.execute(
                 "INSERT INTO ai_chat_conversations (
-                    id, title, provider_id, model_id, system_prompt
-                 ) VALUES (?1, ?2, ?3, ?4, ?5)",
+                    id, title, provider_id, model_id, system_prompt, project_id
+                 ) VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
                 params![
                     input.id,
                     input.title,
                     input.provider_id,
                     input.model_id,
-                    input.system_prompt
+                    input.system_prompt,
+                    input.project_id
                 ],
             )?;
             Self::get_conversation(conn, &input.id)
@@ -35,7 +40,7 @@ impl AiService {
     pub fn list_conversations(db: &Database) -> DbResult<Vec<AiConversation>> {
         db.with_connection(|conn| {
             let mut stmt = conn.prepare(
-                "SELECT id, title, provider_id, model_id, system_prompt, pinned, archived, created_at, updated_at
+                "SELECT id, title, provider_id, model_id, system_prompt, project_id, pinned, archived, created_at, updated_at
                  FROM ai_chat_conversations
                  WHERE archived = 0
                  ORDER BY pinned DESC, updated_at DESC, created_at DESC",
@@ -60,15 +65,17 @@ impl AiService {
                      provider_id = ?2,
                      model_id = ?3,
                      system_prompt = ?4,
-                     pinned = ?5,
-                     archived = ?6,
+                     project_id = ?5,
+                     pinned = ?6,
+                     archived = ?7,
                      updated_at = datetime('now')
-                 WHERE id = ?7",
+                 WHERE id = ?8",
                 params![
                     input.title.unwrap_or(current.title),
                     input.provider_id.unwrap_or(current.provider_id),
                     input.model_id.unwrap_or(current.model_id),
                     input.system_prompt.or(current.system_prompt),
+                    input.project_id.or(current.project_id),
                     input.pinned.unwrap_or(current.pinned) as i64,
                     input.archived.unwrap_or(current.archived) as i64,
                     id,
@@ -385,6 +392,170 @@ impl AiService {
         })
     }
 
+    pub fn list_projects(db: &Database) -> DbResult<Vec<AiProject>> {
+        db.with_connection(|conn| {
+            let mut stmt = conn.prepare(
+                "SELECT id, name, instructions, knowledge_library_id, knowledge_space_id,
+                        include_global_memory, archived, created_at, updated_at
+                 FROM ai_projects
+                 WHERE archived = 0
+                 ORDER BY updated_at DESC, created_at DESC",
+            )?;
+            let rows = stmt
+                .query_map([], Self::map_project)?
+                .collect::<Result<Vec<_>, _>>()?;
+            Ok(rows)
+        })
+    }
+
+    pub fn create_project(db: &Database, input: CreateAiProjectInput) -> DbResult<AiProject> {
+        db.transaction(|conn| {
+            conn.execute(
+                "INSERT INTO ai_projects (
+                    id, name, instructions, knowledge_library_id, knowledge_space_id, include_global_memory
+                 ) VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
+                params![
+                    input.id,
+                    input.name,
+                    input.instructions,
+                    input.knowledge_library_id,
+                    input.knowledge_space_id,
+                    input.include_global_memory as i64,
+                ],
+            )?;
+            Self::get_project(conn, &input.id)
+        })
+    }
+
+    pub fn update_project(
+        db: &Database,
+        id: &str,
+        input: UpdateAiProjectInput,
+    ) -> DbResult<AiProject> {
+        db.transaction(|conn| {
+            let current = Self::get_project(conn, id)?;
+            conn.execute(
+                "UPDATE ai_projects
+                 SET name = ?1,
+                     instructions = ?2,
+                     knowledge_library_id = ?3,
+                     knowledge_space_id = ?4,
+                     include_global_memory = ?5,
+                     archived = ?6,
+                     updated_at = datetime('now')
+                 WHERE id = ?7",
+                params![
+                    input.name.unwrap_or(current.name),
+                    input.instructions.or(current.instructions),
+                    input.knowledge_library_id.or(current.knowledge_library_id),
+                    input.knowledge_space_id.or(current.knowledge_space_id),
+                    input
+                        .include_global_memory
+                        .unwrap_or(current.include_global_memory) as i64,
+                    input.archived.unwrap_or(current.archived) as i64,
+                    id,
+                ],
+            )?;
+            Self::get_project(conn, id)
+        })
+    }
+
+    pub fn delete_project(db: &Database, id: &str) -> DbResult<()> {
+        db.transaction(|conn| {
+            conn.execute(
+                "UPDATE ai_projects SET archived = 1, updated_at = datetime('now') WHERE id = ?1",
+                params![id],
+            )?;
+            conn.execute(
+                "UPDATE ai_chat_conversations SET project_id = NULL, updated_at = datetime('now') WHERE project_id = ?1",
+                params![id],
+            )?;
+            Ok(())
+        })
+    }
+
+    pub fn list_memories(
+        db: &Database,
+        input: Option<ListAiMemoriesInput>,
+    ) -> DbResult<Vec<AiMemory>> {
+        db.with_connection(|conn| {
+            let input = input.unwrap_or(ListAiMemoriesInput {
+                scope: None,
+                scope_id: None,
+                enabled: None,
+                limit: None,
+            });
+            let limit = input.limit.unwrap_or(100).clamp(1, 500);
+            let enabled = input.enabled.map(|value| value as i64);
+            let mut stmt = conn.prepare(
+                "SELECT id, scope, scope_id, content, source_message_id, enabled, created_at, updated_at
+                 FROM ai_memories
+                 WHERE (?1 IS NULL OR scope = ?1)
+                   AND (?2 IS NULL OR scope_id = ?2)
+                   AND (?3 IS NULL OR enabled = ?3)
+                 ORDER BY updated_at DESC, created_at DESC
+                 LIMIT ?4",
+            )?;
+            let rows = stmt
+                .query_map(params![input.scope, input.scope_id, enabled, limit], Self::map_memory)?
+                .collect::<Result<Vec<_>, _>>()?;
+            Ok(rows)
+        })
+    }
+
+    pub fn create_memory(db: &Database, input: CreateAiMemoryInput) -> DbResult<AiMemory> {
+        db.transaction(|conn| {
+            conn.execute(
+                "INSERT INTO ai_memories (
+                    id, scope, scope_id, content, source_message_id, enabled
+                 ) VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
+                params![
+                    input.id,
+                    input.scope,
+                    input.scope_id,
+                    input.content,
+                    input.source_message_id,
+                    input.enabled as i64,
+                ],
+            )?;
+            Self::get_memory(conn, &input.id)
+        })
+    }
+
+    pub fn update_memory(
+        db: &Database,
+        id: &str,
+        input: UpdateAiMemoryInput,
+    ) -> DbResult<AiMemory> {
+        db.transaction(|conn| {
+            let current = Self::get_memory(conn, id)?;
+            conn.execute(
+                "UPDATE ai_memories
+                 SET content = ?1,
+                     enabled = ?2,
+                     updated_at = datetime('now')
+                 WHERE id = ?3",
+                params![
+                    input.content.unwrap_or(current.content),
+                    input.enabled.unwrap_or(current.enabled) as i64,
+                    id,
+                ],
+            )?;
+            Self::get_memory(conn, id)
+        })
+    }
+
+    pub fn delete_memory(db: &Database, id: &str) -> DbResult<()> {
+        db.with_connection(|conn| {
+            conn.execute("DELETE FROM ai_memories WHERE id = ?1", params![id])?;
+            Ok(())
+        })
+    }
+
+    pub fn get_canvas_operation_by_id(db: &Database, id: &str) -> DbResult<AiCanvasOperation> {
+        db.with_connection(|conn| Self::get_canvas_operation(conn, id))
+    }
+
     pub fn create_canvas_operation(
         db: &Database,
         input: CreateAiCanvasOperationInput,
@@ -411,9 +582,166 @@ impl AiService {
         })
     }
 
+    pub fn update_canvas_operation(
+        db: &Database,
+        id: &str,
+        input: UpdateAiCanvasOperationInput,
+    ) -> DbResult<AiCanvasOperation> {
+        db.transaction(|conn| {
+            let current = Self::get_canvas_operation(conn, id)?;
+            let workspace_id = current.workspace_id.clone();
+            let payload_json = input.payload_json.unwrap_or(current.payload_json);
+            let status = input.status.unwrap_or(current.status);
+            conn.execute(
+                "UPDATE ai_canvas_operations
+                 SET payload_json = ?1,
+                     status = ?2
+                 WHERE id = ?3",
+                params![payload_json, status, id],
+            )?;
+            conn.execute(
+                "UPDATE ai_canvas_workspaces SET updated_at = datetime('now') WHERE id = ?1",
+                params![workspace_id],
+            )?;
+            Self::get_canvas_operation(conn, id)
+        })
+    }
+
+    pub fn create_research_job(
+        db: &Database,
+        input: CreateAiResearchJobInput,
+    ) -> DbResult<AiResearchJob> {
+        db.transaction(|conn| {
+            conn.execute(
+                "INSERT INTO ai_research_jobs (
+                    id, title, query, status, stage, provider_id, model_id, progress, options_json
+                 ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)",
+                params![
+                    input.id,
+                    input.title,
+                    input.query,
+                    input.status,
+                    input.stage,
+                    input.provider_id,
+                    input.model_id,
+                    input.progress,
+                    input.options_json,
+                ],
+            )?;
+            Self::get_research_job(conn, &input.id)
+        })
+    }
+
+    pub fn get_research_job_by_id(db: &Database, id: &str) -> DbResult<AiResearchJob> {
+        db.with_connection(|conn| Self::get_research_job(conn, id))
+    }
+
+    pub fn list_research_jobs(
+        db: &Database,
+        input: Option<ListAiResearchJobsInput>,
+    ) -> DbResult<Vec<AiResearchJob>> {
+        db.with_connection(|conn| {
+            let input = input.unwrap_or(ListAiResearchJobsInput {
+                status: None,
+                limit: None,
+            });
+            let limit = input.limit.unwrap_or(30).clamp(1, 200);
+            let mut stmt = conn.prepare(
+                "SELECT id, title, query, status, stage, provider_id, model_id, progress,
+                        report_markdown, error_message, options_json, created_at, updated_at, completed_at
+                 FROM ai_research_jobs
+                 WHERE (?1 IS NULL OR status = ?1)
+                 ORDER BY updated_at DESC, created_at DESC
+                 LIMIT ?2",
+            )?;
+            let rows = stmt
+                .query_map(params![input.status, limit], Self::map_research_job)?
+                .collect::<Result<Vec<_>, _>>()?;
+            Ok(rows)
+        })
+    }
+
+    pub fn update_research_job(
+        db: &Database,
+        id: &str,
+        input: UpdateAiResearchJobInput,
+    ) -> DbResult<AiResearchJob> {
+        db.transaction(|conn| {
+            let current = Self::get_research_job(conn, id)?;
+            conn.execute(
+                "UPDATE ai_research_jobs
+                 SET title = ?1,
+                     status = ?2,
+                     stage = ?3,
+                     progress = ?4,
+                     report_markdown = ?5,
+                     error_message = ?6,
+                     options_json = ?7,
+                     completed_at = ?8,
+                     updated_at = datetime('now')
+                 WHERE id = ?9",
+                params![
+                    input.title.unwrap_or(current.title),
+                    input.status.unwrap_or(current.status),
+                    input.stage.unwrap_or(current.stage),
+                    input.progress.unwrap_or(current.progress),
+                    input.report_markdown.or(current.report_markdown),
+                    input.error_message.or(current.error_message),
+                    input.options_json.or(current.options_json),
+                    input.completed_at.or(current.completed_at),
+                    id,
+                ],
+            )?;
+            Self::get_research_job(conn, id)
+        })
+    }
+
+    pub fn insert_research_source(
+        db: &Database,
+        input: CreateAiResearchSourceInput,
+    ) -> DbResult<AiResearchSource> {
+        db.transaction(|conn| {
+            conn.execute(
+                "INSERT INTO ai_research_sources (
+                    id, job_id, source_type, title, url, source_id, snippet, summary, metadata_json
+                 ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)",
+                params![
+                    input.id,
+                    input.job_id,
+                    input.source_type,
+                    input.title,
+                    input.url,
+                    input.source_id,
+                    input.snippet,
+                    input.summary,
+                    input.metadata_json,
+                ],
+            )?;
+            Self::get_research_source(conn, &input.id)
+        })
+    }
+
+    pub fn list_research_sources(
+        db: &Database,
+        job_id: &str,
+    ) -> DbResult<Vec<AiResearchSource>> {
+        db.with_connection(|conn| {
+            let mut stmt = conn.prepare(
+                "SELECT id, job_id, source_type, title, url, source_id, snippet, summary, metadata_json, created_at
+                 FROM ai_research_sources
+                 WHERE job_id = ?1
+                 ORDER BY created_at ASC, rowid ASC",
+            )?;
+            let rows = stmt
+                .query_map(params![job_id], Self::map_research_source)?
+                .collect::<Result<Vec<_>, _>>()?;
+            Ok(rows)
+        })
+    }
+
     fn get_conversation(conn: &Connection, id: &str) -> DbResult<AiConversation> {
         conn.query_row(
-            "SELECT id, title, provider_id, model_id, system_prompt, pinned, archived, created_at, updated_at
+            "SELECT id, title, provider_id, model_id, system_prompt, project_id, pinned, archived, created_at, updated_at
              FROM ai_chat_conversations
              WHERE id = ?1",
             params![id],
@@ -493,6 +821,52 @@ impl AiService {
         .map_err(Into::into)
     }
 
+    fn get_project(conn: &Connection, id: &str) -> DbResult<AiProject> {
+        conn.query_row(
+            "SELECT id, name, instructions, knowledge_library_id, knowledge_space_id,
+                    include_global_memory, archived, created_at, updated_at
+             FROM ai_projects
+             WHERE id = ?1",
+            params![id],
+            Self::map_project,
+        )
+        .map_err(Into::into)
+    }
+
+    fn get_memory(conn: &Connection, id: &str) -> DbResult<AiMemory> {
+        conn.query_row(
+            "SELECT id, scope, scope_id, content, source_message_id, enabled, created_at, updated_at
+             FROM ai_memories
+             WHERE id = ?1",
+            params![id],
+            Self::map_memory,
+        )
+        .map_err(Into::into)
+    }
+
+    fn get_research_job(conn: &Connection, id: &str) -> DbResult<AiResearchJob> {
+        conn.query_row(
+            "SELECT id, title, query, status, stage, provider_id, model_id, progress,
+                    report_markdown, error_message, options_json, created_at, updated_at, completed_at
+             FROM ai_research_jobs
+             WHERE id = ?1",
+            params![id],
+            Self::map_research_job,
+        )
+        .map_err(Into::into)
+    }
+
+    fn get_research_source(conn: &Connection, id: &str) -> DbResult<AiResearchSource> {
+        conn.query_row(
+            "SELECT id, job_id, source_type, title, url, source_id, snippet, summary, metadata_json, created_at
+             FROM ai_research_sources
+             WHERE id = ?1",
+            params![id],
+            Self::map_research_source,
+        )
+        .map_err(Into::into)
+    }
+
     fn map_conversation(row: &rusqlite::Row<'_>) -> rusqlite::Result<AiConversation> {
         Ok(AiConversation {
             id: row.get(0)?,
@@ -500,10 +874,38 @@ impl AiService {
             provider_id: row.get(2)?,
             model_id: row.get(3)?,
             system_prompt: row.get(4)?,
-            pinned: row.get::<_, i64>(5)? != 0,
+            project_id: row.get(5)?,
+            pinned: row.get::<_, i64>(6)? != 0,
+            archived: row.get::<_, i64>(7)? != 0,
+            created_at: row.get(8)?,
+            updated_at: row.get(9)?,
+        })
+    }
+
+    fn map_project(row: &rusqlite::Row<'_>) -> rusqlite::Result<AiProject> {
+        Ok(AiProject {
+            id: row.get(0)?,
+            name: row.get(1)?,
+            instructions: row.get(2)?,
+            knowledge_library_id: row.get(3)?,
+            knowledge_space_id: row.get(4)?,
+            include_global_memory: row.get::<_, i64>(5)? != 0,
             archived: row.get::<_, i64>(6)? != 0,
             created_at: row.get(7)?,
             updated_at: row.get(8)?,
+        })
+    }
+
+    fn map_memory(row: &rusqlite::Row<'_>) -> rusqlite::Result<AiMemory> {
+        Ok(AiMemory {
+            id: row.get(0)?,
+            scope: row.get(1)?,
+            scope_id: row.get(2)?,
+            content: row.get(3)?,
+            source_message_id: row.get(4)?,
+            enabled: row.get::<_, i64>(5)? != 0,
+            created_at: row.get(6)?,
+            updated_at: row.get(7)?,
         })
     }
 
@@ -584,6 +986,40 @@ impl AiService {
             created_at: row.get(6)?,
         })
     }
+
+    fn map_research_job(row: &rusqlite::Row<'_>) -> rusqlite::Result<AiResearchJob> {
+        Ok(AiResearchJob {
+            id: row.get(0)?,
+            title: row.get(1)?,
+            query: row.get(2)?,
+            status: row.get(3)?,
+            stage: row.get(4)?,
+            provider_id: row.get(5)?,
+            model_id: row.get(6)?,
+            progress: row.get(7)?,
+            report_markdown: row.get(8)?,
+            error_message: row.get(9)?,
+            options_json: row.get(10)?,
+            created_at: row.get(11)?,
+            updated_at: row.get(12)?,
+            completed_at: row.get(13)?,
+        })
+    }
+
+    fn map_research_source(row: &rusqlite::Row<'_>) -> rusqlite::Result<AiResearchSource> {
+        Ok(AiResearchSource {
+            id: row.get(0)?,
+            job_id: row.get(1)?,
+            source_type: row.get(2)?,
+            title: row.get(3)?,
+            url: row.get(4)?,
+            source_id: row.get(5)?,
+            snippet: row.get(6)?,
+            summary: row.get(7)?,
+            metadata_json: row.get(8)?,
+            created_at: row.get(9)?,
+        })
+    }
 }
 
 #[cfg(test)]
@@ -597,6 +1033,7 @@ mod tests {
             provider_id: "openai".to_string(),
             model_id: "gpt-test".to_string(),
             system_prompt: None,
+            project_id: None,
         }
     }
 
@@ -758,5 +1195,63 @@ mod tests {
                 .unwrap()
                 .is_empty()
         );
+    }
+
+    #[test]
+    fn creates_ai_projects_and_memories() {
+        let db = Database::new_in_memory().unwrap();
+        let project = AiService::create_project(
+            &db,
+            CreateAiProjectInput {
+                id: "project-1".to_string(),
+                name: "Writing".to_string(),
+                instructions: Some("Use concise prose".to_string()),
+                knowledge_library_id: None,
+                knowledge_space_id: None,
+                include_global_memory: true,
+            },
+        )
+        .unwrap();
+        assert_eq!(project.name, "Writing");
+
+        let memory = AiService::create_memory(
+            &db,
+            CreateAiMemoryInput {
+                id: "memory-1".to_string(),
+                scope: "project".to_string(),
+                scope_id: Some(project.id.clone()),
+                content: "Prefer Chinese answers".to_string(),
+                source_message_id: None,
+                enabled: true,
+            },
+        )
+        .unwrap();
+        assert!(memory.enabled);
+
+        let memories = AiService::list_memories(
+            &db,
+            Some(ListAiMemoriesInput {
+                scope: Some("project".to_string()),
+                scope_id: Some(project.id.clone()),
+                enabled: Some(true),
+                limit: Some(10),
+            }),
+        )
+        .unwrap();
+        assert_eq!(memories.len(), 1);
+
+        let updated = AiService::update_memory(
+            &db,
+            &memory.id,
+            UpdateAiMemoryInput {
+                content: Some("Prefer short Chinese answers".to_string()),
+                enabled: Some(false),
+            },
+        )
+        .unwrap();
+        assert!(!updated.enabled);
+
+        AiService::delete_project(&db, &project.id).unwrap();
+        assert!(AiService::list_projects(&db).unwrap().is_empty());
     }
 }

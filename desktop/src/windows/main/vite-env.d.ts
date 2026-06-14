@@ -2,6 +2,7 @@
 
 interface Window {
   aiApi?: import('@/contracts/ai').AiApi;
+  aiCanvasPreviewWindowApi?: import('@/contracts/ai').AiCanvasPreviewWindowApi;
 }
 
 declare module 'gasp'

@@ -178,3 +178,7 @@ interface KnowledgeApi {
 - V1.2 画布页面不新增 IPC 或 core API；`createPage` / `updatePage` 使用 `pageType = canvas`、`contentJson = guyantools.canvas-page` v1，并同步 `contentText` / `contentMarkdown`。
 - V1.2 画布截图和图片复用 `saveAsset`，画布元素只保存 asset id、名称、MIME 和受控 `app://knowledge-assets/id/...` URL。
 - V1.2 画布元素的页面引用和 Todo ID 暂作为元素 metadata 和搜索文本保存，renderer 可按页面标题/ID 或 Todo ID 跳转，不自动写入 `knowledge_links`；关系图同步需后续版本补齐。
+- V1.3 知识库内部问答不新增知识库专属 Provider、模型或聊天 IPC；renderer 复用 `window.aiApi` 的会话、发送、停止、引用和 embedding 重建能力。
+- V1.3 知识库问答调用 AI 时必须传入知识库 grounding 选项：`knowledgeSearchMode = force | auto`、`libraryId?`、`spaceId?`，当前页面/选区范围通过提示词上下文和引用 metadata 表达。
+- V1.3 知识库模块仍只通过既有 `knowledge:search`、AI chunk、embedding 和来源 metadata 提供检索上下文；模型调用由 AI main service 负责。
+- V1.3 “在 AI 页面继续”只传递会话 ID 或可恢复上下文，不把 API Key、Provider secret、本地文件路径暴露给 renderer。

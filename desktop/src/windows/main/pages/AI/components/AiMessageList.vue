@@ -12,6 +12,7 @@ const props = defineProps<{
 
 const emit = defineEmits<{
   regenerate: [messageId: string];
+  remember: [messageId: string];
 }>();
 
 const listRef = ref<HTMLElement | null>(null);
@@ -48,6 +49,7 @@ watch(
         :message="message"
         :can-regenerate="!streaming"
         @regenerate="emit('regenerate', $event)"
+        @remember="emit('remember', $event)"
       />
     </template>
   </main>
