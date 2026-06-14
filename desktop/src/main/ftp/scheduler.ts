@@ -55,14 +55,12 @@ type PersistedState = {
   tasks: FtpScheduledTaskRecord[];
 };
 
-const SCHEDULE_STATE_VERSION = 2;
-
 class FtpSchedulerService {
   private tasks: FtpScheduledTaskRecord[] = [];
   private readonly runningTaskMap = new Map<string, string>();
   private timer: NodeJS.Timeout | null = null;
   private initialized = false;
-  private readonly stateFile = path.join(app.getPath('userData'), 'ftp_schedules.json');
+  private readonly legacyStateFile = path.join(app.getPath('userData'), 'ftp_schedules.json');
 
   async initialize() {
     if (this.initialized) return;
@@ -71,6 +69,7 @@ class FtpSchedulerService {
     if (restored.changed) {
       await this.persistState();
     }
+    await this.importLegacyState();
     this.timer = setInterval(() => {
       void this.tick();
     }, 30_000);
@@ -112,18 +111,18 @@ class FtpSchedulerService {
     nextRecord.nextRunAt = nextRecord.enabled ? computeNextRunAt(nextRecord, now) : undefined;
 
     const existingIndex = this.tasks.findIndex((item) => item.id === nextRecord.id);
+    const persistedRecord = await this.persistTask(nextRecord);
     if (existingIndex === -1) {
-      this.tasks = [...this.tasks, nextRecord];
+      this.tasks = [...this.tasks, persistedRecord];
     } else {
-      this.tasks = this.tasks.map((item, index) => (index === existingIndex ? nextRecord : item));
+      this.tasks = this.tasks.map((item, index) => (index === existingIndex ? persistedRecord : item));
     }
-    await this.persistState();
-    return nextRecord;
+    return persistedRecord;
   }
 
   async deleteTask(id: string) {
     this.tasks = this.tasks.filter((item) => item.id !== id);
-    await this.persistState();
+    await ftpHost.deleteScheduledTask(id);
   }
 
   async runTaskNow(id: string) {
@@ -242,10 +241,8 @@ class FtpSchedulerService {
 
   private async loadState(): Promise<{ tasks: FtpScheduledTaskRecord[]; changed: boolean }> {
     try {
-      const raw = await fs.readFile(this.stateFile, 'utf8');
-      const parsed = JSON.parse(raw) as PersistedState | { tasks?: unknown };
-      const tasks = Array.isArray(parsed?.tasks) ? parsed.tasks : [];
-      let changed = parsed == null || !('version' in parsed) || parsed.version !== SCHEDULE_STATE_VERSION;
+      const tasks = await ftpHost.listScheduledTasks();
+      let changed = false;
       const normalized = tasks
         .map((task) => {
           try {
@@ -267,24 +264,98 @@ class FtpSchedulerService {
         })
         .map((task) => task.record);
       return { tasks: normalized, changed };
-    } catch {
+    } catch (error) {
+      console.error('[FtpScheduler] Failed to load scheduled tasks from SQLite:', error);
       return { tasks: [], changed: false };
     }
   }
 
   private async persistState() {
-    await fs.mkdir(path.dirname(this.stateFile), { recursive: true });
-    const nextState: PersistedState = {
-      version: SCHEDULE_STATE_VERSION,
-      tasks: this.tasks,
-    };
-    const tempFile = `${this.stateFile}.tmp`;
-    await fs.writeFile(tempFile, JSON.stringify(nextState, null, 2), 'utf8');
+    this.tasks = await Promise.all(this.tasks.map((task) => this.persistTask(task)));
+  }
+
+  private async persistTask(task: FtpScheduledTaskRecord) {
+    return ftpHost.upsertScheduledTask({
+      id: task.id,
+      label: task.label,
+      profileId: task.profileId,
+      direction: task.direction,
+      localPath: task.localPath,
+      remotePath: task.remotePath,
+      scheduleType: task.scheduleType,
+      conflictPolicy: task.conflictPolicy,
+      enabled: task.enabled,
+      includeSubdirectories: task.includeSubdirectories,
+      onceAt: task.onceAt,
+      intervalHours: task.intervalHours,
+      timeOfDay: task.timeOfDay,
+      dayOfWeek: task.dayOfWeek,
+      cronExpression: task.cronExpression,
+      nextRunAt: task.nextRunAt,
+      lastRunAt: task.lastRunAt,
+      lastStatus: task.lastStatus,
+      lastResult: task.lastResult,
+      lastTaskId: task.lastTaskId,
+    });
+  }
+
+  private async importLegacyState() {
+    let raw: string;
     try {
-      await fs.rename(tempFile, this.stateFile);
+      raw = await fs.readFile(this.legacyStateFile, 'utf8');
     } catch {
-      await fs.rm(this.stateFile, { force: true });
-      await fs.rename(tempFile, this.stateFile);
+      return;
+    }
+
+    let parsed: PersistedState | { tasks?: unknown };
+    try {
+      parsed = JSON.parse(raw) as PersistedState | { tasks?: unknown };
+    } catch (error) {
+      console.warn('[FtpScheduler] Failed to parse legacy scheduled task file:', error);
+      return;
+    }
+
+    const legacyTasks = Array.isArray(parsed?.tasks) ? parsed.tasks : [];
+    if (!legacyTasks.length) {
+      await this.markLegacyStateImported();
+      return;
+    }
+
+    const existingIds = new Set(this.tasks.map((task) => task.id));
+    let imported = false;
+    const nextTasks = [...this.tasks];
+    for (const legacyTask of legacyTasks) {
+      let normalized: ReturnType<typeof normalizeLoadedTask>;
+      try {
+        normalized = normalizeLoadedTask(legacyTask, Date.now());
+      } catch {
+        continue;
+      }
+      if (!normalized || existingIds.has(normalized.record.id)) {
+        continue;
+      }
+      try {
+        const persisted = await this.persistTask(normalized.record);
+        existingIds.add(persisted.id);
+        nextTasks.push(persisted);
+        imported = true;
+      } catch (error) {
+        console.warn('[FtpScheduler] Failed to import legacy scheduled task:', error);
+      }
+    }
+
+    if (imported) {
+      this.tasks = nextTasks;
+    }
+    await this.markLegacyStateImported();
+  }
+
+  private async markLegacyStateImported() {
+    const archiveFile = `${this.legacyStateFile}.migrated-${Date.now()}`;
+    try {
+      await fs.rename(this.legacyStateFile, archiveFile);
+    } catch (error) {
+      console.warn('[FtpScheduler] Failed to archive legacy scheduled task file:', error);
     }
   }
 }

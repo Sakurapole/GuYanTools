@@ -11,6 +11,7 @@ import type {
   AppConfigPatch,
   AppFeaturesConfig,
   AppKnowledgeFeatureConfig,
+  AppKnowledgeQuickNoteWindowConfig,
   AppPluginsConfig,
   AppSettingsFeatureConfig,
   AppSettingsTabId,
@@ -21,6 +22,7 @@ import type {
   LocalFontOption,
   MultiDeviceClipboardFeatureConfig,
 } from '@/contracts/app_config';
+import type { QuickLaunchFeatureConfig, QuickLaunchProviderId } from '@/contracts/quick_launch';
 import type {
   AiAgentFeatureConfig,
   AiAgentMode,
@@ -29,6 +31,9 @@ import type {
   AiAssistantMcpMode,
   AiAssistantToolCallMode,
   AiGeneralAgentTemplate,
+  AiMcpEnvironmentVariable,
+  AiMcpServerConfig,
+  AiMcpTransport,
   AiModelConfig,
   AiProviderConfig,
   AiProviderKind,
@@ -41,6 +46,7 @@ import {
   APP_INTERNAL_FUNCTIONS,
   createDefaultAiAgentFeatureConfig,
   createDefaultAppConfig,
+  createDefaultKnowledgeQuickNoteWindowConfig,
   createDefaultSettingsTabPersonalization,
   getSystemDefaultFontOption,
   SYSTEM_FONT_OPTION_VALUE,
@@ -48,6 +54,26 @@ import {
 import { normalizeAccelerator } from '@/shared/shortcuts';
 
 const SHORTCUTS_SETTING_KEY = 'app.shortcuts';
+const QUICK_LAUNCH_PROVIDER_IDS: QuickLaunchProviderId[] = [
+  'internal-route',
+  'terminal',
+  'ssh',
+  'ftp',
+  'todo',
+  'knowledge',
+  'plugin',
+  'app',
+  'file',
+];
+const LEGACY_QUICK_LAUNCH_DEFAULT_PROVIDER_IDS: QuickLaunchProviderId[] = [
+  'internal-route',
+  'terminal',
+  'ssh',
+  'ftp',
+  'todo',
+  'knowledge',
+  'plugin',
+];
 const SETTINGS_TAB_IDS: AppSettingsTabId[] = [
   'general',
   'file-transfer',
@@ -57,6 +83,7 @@ const SETTINGS_TAB_IDS: AppSettingsTabId[] = [
   'terminal',
   'multi-device-clipboard',
   'knowledge',
+  'quick-launch',
   'shortcuts',
 ];
 
@@ -165,6 +192,10 @@ function normalizeShortcuts(value: unknown): AppShortcutsConfig {
     internal: {
       terminalCopy: normalizeShortcutValue(internal.terminalCopy, defaults.internal.terminalCopy),
       terminalPaste: normalizeShortcutValue(internal.terminalPaste, defaults.internal.terminalPaste),
+      quickNoteSave: normalizeShortcutValue(internal.quickNoteSave, defaults.internal.quickNoteSave),
+      quickNoteNew: normalizeShortcutValue(internal.quickNoteNew, defaults.internal.quickNoteNew),
+      quickNoteCollapse: normalizeShortcutValue(internal.quickNoteCollapse, defaults.internal.quickNoteCollapse),
+      quickNoteClose: normalizeShortcutValue(internal.quickNoteClose, defaults.internal.quickNoteClose),
     },
     system: {
       toggleAppVisibility: normalizeShortcutValue(system.toggleAppVisibility, defaults.system.toggleAppVisibility),
@@ -177,6 +208,12 @@ function normalizeShortcuts(value: unknown): AppShortcutsConfig {
         system.captureClipboardToQuickNote,
         defaults.system.captureClipboardToQuickNote,
       ),
+      toggleQuickLaunch: normalizeShortcutValue(system.toggleQuickLaunch, defaults.system.toggleQuickLaunch),
+      openDetachedTerminal: normalizeShortcutValue(system.openDetachedTerminal, defaults.system.openDetachedTerminal),
+      openDetachedFtp: normalizeShortcutValue(system.openDetachedFtp, defaults.system.openDetachedFtp),
+      openDetachedTodo: normalizeShortcutValue(system.openDetachedTodo, defaults.system.openDetachedTodo),
+      openDetachedAi: normalizeShortcutValue(system.openDetachedAi, defaults.system.openDetachedAi),
+      openDetachedKnowledge: normalizeShortcutValue(system.openDetachedKnowledge, defaults.system.openDetachedKnowledge),
     },
   };
 }
@@ -193,6 +230,7 @@ function normalizeFeatures(value: unknown): AppFeaturesConfig {
     terminal: normalizeTerminalFeature(value.terminal),
     multiDeviceClipboard: normalizeMultiDeviceClipboardFeature(value.multiDeviceClipboard),
     knowledge: normalizeKnowledgeFeature(value.knowledge),
+    quickLaunch: normalizeQuickLaunchFeature(value.quickLaunch),
   };
 }
 
@@ -364,6 +402,69 @@ function normalizeAiAssistantToolCallMode(value: unknown, fallback: AiAssistantT
   return value === 'auto' || value === 'none' || value === 'function' ? value : fallback;
 }
 
+function normalizeAiMcpTransport(value: unknown, fallback: AiMcpTransport = 'stdio'): AiMcpTransport {
+  return value === 'sse' || value === 'http' || value === 'stdio' ? value : fallback;
+}
+
+function normalizeAiMcpEnvironmentVariable(value: unknown): AiMcpEnvironmentVariable | null {
+  if (!isRecord(value)) {
+    return null;
+  }
+
+  const key = typeof value.key === 'string' && value.key.trim() ? value.key.trim() : '';
+  if (!key) {
+    return null;
+  }
+
+  return {
+    id: typeof value.id === 'string' && value.id.trim() ? value.id.trim() : key,
+    key,
+    value: typeof value.value === 'string' ? value.value : '',
+    secret: value.secret === true,
+  };
+}
+
+function normalizeAiMcpServer(value: unknown): AiMcpServerConfig | null {
+  if (!isRecord(value)) {
+    return null;
+  }
+
+  const id = typeof value.id === 'string' && value.id.trim() ? value.id.trim() : '';
+  if (!id) {
+    return null;
+  }
+
+  const transport = normalizeAiMcpTransport(value.transport);
+  const command = typeof value.command === 'string' && value.command.trim() ? value.command.trim() : undefined;
+  const url = typeof value.url === 'string' && value.url.trim() ? value.url.trim() : undefined;
+  if (transport === 'stdio' && !command) {
+    return null;
+  }
+  if (transport !== 'stdio' && !url) {
+    return null;
+  }
+
+  const timestamp = Date.now();
+  return {
+    id,
+    name: typeof value.name === 'string' && value.name.trim() ? value.name.trim() : id,
+    enabled: value.enabled !== false,
+    source: value.source === 'modelscope' ? 'modelscope' : 'manual',
+    sourceId: typeof value.sourceId === 'string' && value.sourceId.trim() ? value.sourceId.trim() : undefined,
+    transport,
+    command,
+    args: normalizeStringList(value.args),
+    cwd: typeof value.cwd === 'string' && value.cwd.trim() ? value.cwd.trim() : undefined,
+    url,
+    env: Array.isArray(value.env)
+      ? value.env.map(normalizeAiMcpEnvironmentVariable).filter((item): item is AiMcpEnvironmentVariable => Boolean(item))
+      : [],
+    autoStart: value.autoStart === true,
+    createdAt: normalizeAiNumber(value.createdAt, timestamp) ?? timestamp,
+    updatedAt: normalizeAiNumber(value.updatedAt, timestamp) ?? timestamp,
+  };
+}
+
 function normalizeAiAgentFeature(value: unknown): AiAgentFeatureConfig {
   const defaults = createDefaultAiAgentFeatureConfig();
   if (!isRecord(value)) {
@@ -375,6 +476,7 @@ function normalizeAiAgentFeature(value: unknown): AiAgentFeatureConfig {
   const codex = isRecord(agent.codex) ? agent.codex : {};
   const general = isRecord(agent.general) ? agent.general : {};
   const research = isRecord(value.research) ? value.research : {};
+  const mcp = isRecord(value.mcp) ? value.mcp : {};
   const defaultAssistant = defaults.assistants[0];
   const assistants = Array.isArray(value.assistants)
     ? value.assistants
@@ -458,6 +560,15 @@ function normalizeAiAgentFeature(value: unknown): AiAgentFeatureConfig {
       embeddingModelId: typeof research.embeddingModelId === 'string' && research.embeddingModelId.trim()
         ? research.embeddingModelId.trim()
         : undefined,
+    },
+    mcp: {
+      enabled: mcp.enabled === true,
+      modelscopeApiToken: typeof mcp.modelscopeApiToken === 'string' && mcp.modelscopeApiToken.trim()
+        ? mcp.modelscopeApiToken.trim()
+        : undefined,
+      servers: Array.isArray(mcp.servers)
+        ? mcp.servers.map(normalizeAiMcpServer).filter((server): server is AiMcpServerConfig => Boolean(server))
+        : [],
     },
   };
 }
@@ -569,6 +680,85 @@ function normalizeMultiDeviceClipboardFeature(value: unknown): MultiDeviceClipbo
   };
 }
 
+function normalizeQuickLaunchOpacity(value: unknown, fallback: number, min = 0) {
+  const numeric = Number(value);
+  return Number.isFinite(numeric)
+    ? Math.max(min, Math.min(1, numeric))
+    : fallback;
+}
+
+function normalizeQuickLaunchColor(value: unknown, fallback: string) {
+  if (typeof value !== 'string') {
+    return fallback;
+  }
+
+  const trimmed = value.trim();
+  return /^#[0-9a-f]{6}$/i.test(trimmed) ? trimmed : fallback;
+}
+
+function normalizeQuickLaunchFeature(value: unknown): QuickLaunchFeatureConfig {
+  const defaults = createDefaultAppConfig().features.quickLaunch;
+  if (!isRecord(value)) {
+    return cloneConfig(defaults);
+  }
+
+  const rawLimit = Number(value.maxResults);
+  const maxResults = Number.isFinite(rawLimit)
+    ? Math.max(4, Math.min(50, Math.round(rawLimit)))
+    : defaults.maxResults;
+  const allowedProviders = new Set<QuickLaunchProviderId>(QUICK_LAUNCH_PROVIDER_IDS);
+  const enabledProviders = normalizeStringList(value.enabledProviders)
+    .filter((providerId): providerId is QuickLaunchProviderId => allowedProviders.has(providerId as QuickLaunchProviderId));
+  const shouldAppendNewDefaults = LEGACY_QUICK_LAUNCH_DEFAULT_PROVIDER_IDS.every(providerId =>
+    enabledProviders.includes(providerId),
+  );
+  const migratedProviders = shouldAppendNewDefaults
+    ? [...new Set<QuickLaunchProviderId>([...enabledProviders, 'app', 'file'])]
+    : enabledProviders;
+  const everythingEsPath = typeof value.everythingEsPath === 'string'
+    ? value.everythingEsPath.trim()
+    : defaults.everythingEsPath;
+  const background = normalizeQuickLaunchBackground(value, defaults);
+
+  return {
+    enabled: typeof value.enabled === 'boolean' ? value.enabled : defaults.enabled,
+    maxResults,
+    enabledProviders: migratedProviders.length > 0 ? migratedProviders : [...defaults.enabledProviders],
+    hideOnBlur: typeof value.hideOnBlur === 'boolean' ? value.hideOnBlur : defaults.hideOnBlur,
+    everythingEsPath,
+    windowOpacity: normalizeQuickLaunchOpacity(value.windowOpacity, defaults.windowOpacity, 0.2),
+    selectionColor: normalizeQuickLaunchColor(value.selectionColor, defaults.selectionColor),
+    selectionOpacity: normalizeQuickLaunchOpacity(value.selectionOpacity, defaults.selectionOpacity),
+    resultTitleColor: normalizeQuickLaunchColor(value.resultTitleColor, defaults.resultTitleColor),
+    resultSubtitleColor: normalizeQuickLaunchColor(value.resultSubtitleColor, defaults.resultSubtitleColor),
+    ...background,
+  };
+}
+
+function normalizeQuickLaunchBackground(
+  value: Record<string, unknown>,
+  defaults: QuickLaunchFeatureConfig,
+): Pick<QuickLaunchFeatureConfig, 'backgroundType' | 'backgroundColor' | 'backgroundImage' | 'backgroundVideo' | 'backgroundStyle'> {
+  const rawStyle = isRecord(value.backgroundStyle)
+    ? cloneConfig(value.backgroundStyle) as QuickLaunchFeatureConfig['backgroundStyle']
+    : cloneConfig(defaults.backgroundStyle);
+  rawStyle.opacity = normalizeQuickLaunchOpacity(rawStyle.opacity, defaults.backgroundStyle.opacity ?? 1);
+  if (rawStyle.blur !== undefined) {
+    const blur = Number(rawStyle.blur);
+    rawStyle.blur = Number.isFinite(blur)
+      ? Math.max(0, Math.min(40, blur))
+      : undefined;
+  }
+
+  return {
+    backgroundType: value.backgroundType === 'image' || value.backgroundType === 'video' ? value.backgroundType : 'color',
+    backgroundColor: typeof value.backgroundColor === 'string' ? value.backgroundColor : defaults.backgroundColor,
+    backgroundImage: typeof value.backgroundImage === 'string' ? value.backgroundImage : defaults.backgroundImage,
+    backgroundVideo: typeof value.backgroundVideo === 'string' ? value.backgroundVideo : defaults.backgroundVideo,
+    backgroundStyle: rawStyle,
+  };
+}
+
 function normalizeKnowledgeFeature(value: unknown): AppKnowledgeFeatureConfig {
   const defaults = createDefaultAppConfig().features.knowledge;
   if (!isRecord(value)) {
@@ -592,6 +782,30 @@ function normalizeKnowledgeFeature(value: unknown): AppKnowledgeFeatureConfig {
     indexingEnabled: typeof value.indexingEnabled === 'boolean' ? value.indexingEnabled : defaults.indexingEnabled,
     maxImportFileSizeMb,
     previewCacheTtlDays,
+    quickNote: normalizeKnowledgeQuickNoteWindow(value.quickNote),
+  };
+}
+
+function normalizeKnowledgeQuickNoteWindow(value: unknown): AppKnowledgeQuickNoteWindowConfig {
+  const defaults = createDefaultKnowledgeQuickNoteWindowConfig();
+  if (!isRecord(value)) {
+    return cloneConfig(defaults);
+  }
+
+  const rawStyle = isRecord(value.backgroundStyle)
+    ? cloneConfig(value.backgroundStyle) as Record<string, unknown>
+    : cloneConfig(defaults.backgroundStyle) as Record<string, unknown>;
+  const opacity = Number(rawStyle.opacity);
+  rawStyle.opacity = Number.isFinite(opacity)
+    ? Math.max(0, Math.min(1, opacity))
+    : defaults.backgroundStyle.opacity;
+
+  return {
+    backgroundType: value.backgroundType === 'image' || value.backgroundType === 'video' ? value.backgroundType : 'color',
+    backgroundColor: typeof value.backgroundColor === 'string' ? value.backgroundColor : defaults.backgroundColor,
+    backgroundImage: typeof value.backgroundImage === 'string' ? value.backgroundImage : defaults.backgroundImage,
+    backgroundVideo: typeof value.backgroundVideo === 'string' ? value.backgroundVideo : defaults.backgroundVideo,
+    backgroundStyle: rawStyle,
   };
 }
 
@@ -970,6 +1184,14 @@ function mergeConfig(current: AppConfig, patch: AppConfigPatch): AppConfig {
       knowledge: normalizeKnowledgeFeature({
         ...current.features.knowledge,
         ...(patch.features?.knowledge ?? {}),
+        quickNote: {
+          ...current.features.knowledge.quickNote,
+          ...(patch.features?.knowledge?.quickNote ?? {}),
+        },
+      }),
+      quickLaunch: normalizeQuickLaunchFeature({
+        ...current.features.quickLaunch,
+        ...(patch.features?.quickLaunch ?? {}),
       }),
     },
     shortcuts: normalizeShortcuts({

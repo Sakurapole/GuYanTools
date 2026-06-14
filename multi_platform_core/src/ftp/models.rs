@@ -232,6 +232,81 @@ pub struct UpsertFtpRestoreStateInput {
     pub panel_layout_json: Option<String>,
 }
 
+#[cfg_attr(feature = "napi", napi(object))]
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct FtpScheduledTask {
+    pub id: String,
+    pub label: String,
+    pub profile_id: String,
+    pub direction: String,
+    pub local_path: String,
+    pub remote_path: String,
+    pub schedule_type: String,
+    pub conflict_policy: Option<String>,
+    pub enabled: bool,
+    pub include_subdirectories: bool,
+    pub once_at: Option<i64>,
+    pub interval_hours: Option<i64>,
+    pub time_of_day: Option<String>,
+    pub day_of_week: Option<i64>,
+    pub cron_expression: Option<String>,
+    pub next_run_at: Option<i64>,
+    pub last_run_at: Option<i64>,
+    pub last_status: Option<String>,
+    pub last_result: Option<String>,
+    pub last_task_id: Option<String>,
+    pub created_at: i64,
+    pub updated_at: i64,
+}
+
+#[cfg_attr(feature = "napi", napi(object))]
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+#[serde(rename_all = "camelCase")]
+pub struct UpsertFtpScheduledTaskInput {
+    pub id: Option<String>,
+    pub label: String,
+    pub profile_id: String,
+    pub direction: String,
+    pub local_path: String,
+    pub remote_path: String,
+    pub schedule_type: String,
+    pub conflict_policy: Option<String>,
+    pub enabled: Option<bool>,
+    pub include_subdirectories: Option<bool>,
+    pub once_at: Option<i64>,
+    pub interval_hours: Option<i64>,
+    pub time_of_day: Option<String>,
+    pub day_of_week: Option<i64>,
+    pub cron_expression: Option<String>,
+    pub next_run_at: Option<i64>,
+    pub last_run_at: Option<i64>,
+    pub last_status: Option<String>,
+    pub last_result: Option<String>,
+    pub last_task_id: Option<String>,
+}
+
+#[cfg_attr(feature = "napi", napi(object))]
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct FtpFilterPreset {
+    pub id: String,
+    pub label: String,
+    pub rules_json: String,
+    pub is_builtin: bool,
+    pub created_at: i64,
+}
+
+#[cfg_attr(feature = "napi", napi(object))]
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+#[serde(rename_all = "camelCase")]
+pub struct UpsertFtpFilterPresetInput {
+    pub id: Option<String>,
+    pub label: String,
+    pub rules_json: String,
+    pub is_builtin: Option<bool>,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct FtpEventEnvelope {

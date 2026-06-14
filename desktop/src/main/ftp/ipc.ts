@@ -15,6 +15,7 @@ import type {
   FtpExternalEditorOptions,
   FtpRetryPolicy,
   FtpTransferOptions,
+  UpsertFtpFilterPresetInput,
   UpsertFtpScheduledTaskInput,
   UpdateFtpProfileInput,
   UpdateFtpSessionFolderInput,
@@ -123,6 +124,13 @@ export function registerFtpIpcHandlers() {
   );
   ipcMain.handle('ftp:run-scheduled-task-now', async (_event, taskId: string) =>
     ftpSchedulerService.runTaskNow(taskId),
+  );
+  ipcMain.handle('ftp:list-filter-presets', async () => ftpHost.listFilterPresets());
+  ipcMain.handle('ftp:upsert-filter-preset', async (_event, input: UpsertFtpFilterPresetInput) =>
+    ftpHost.upsertFilterPreset(input),
+  );
+  ipcMain.handle('ftp:delete-filter-preset', async (_event, presetId: string) =>
+    ftpHost.deleteFilterPreset(presetId),
   );
   ipcMain.handle('ftp:get-windows-context-menu-status', async () => getWindowsContextMenuStatus());
   ipcMain.handle('ftp:install-windows-context-menu', async () => {

@@ -208,6 +208,26 @@ export interface UpsertFtpScheduledTaskInput {
   timeOfDay?: string;
   dayOfWeek?: number;
   cronExpression?: string;
+  nextRunAt?: number;
+  lastRunAt?: number;
+  lastStatus?: 'idle' | 'running' | 'success' | 'failed';
+  lastResult?: string;
+  lastTaskId?: string;
+}
+
+export interface FtpFilterPresetRecord {
+  id: string;
+  label: string;
+  rulesJson: string;
+  isBuiltin: boolean;
+  createdAt: number;
+}
+
+export interface UpsertFtpFilterPresetInput {
+  id?: string;
+  label: string;
+  rulesJson: string;
+  isBuiltin?: boolean;
 }
 
 export interface FtpExternalEditorOptions {
@@ -278,6 +298,9 @@ export interface FtpApi {
   upsertScheduledTask: (input: UpsertFtpScheduledTaskInput) => Promise<FtpScheduledTask>;
   deleteScheduledTask: (taskId: string) => Promise<void>;
   runScheduledTaskNow: (taskId: string) => Promise<TransferTask>;
+  listFilterPresets: () => Promise<FtpFilterPresetRecord[]>;
+  upsertFilterPreset: (input: UpsertFtpFilterPresetInput) => Promise<FtpFilterPresetRecord>;
+  deleteFilterPreset: (presetId: string) => Promise<void>;
   getWindowsContextMenuStatus: () => Promise<FtpWindowsContextMenuStatus>;
   installWindowsContextMenu: () => Promise<FtpWindowsContextMenuStatus>;
   uninstallWindowsContextMenu: () => Promise<FtpWindowsContextMenuStatus>;

@@ -2,10 +2,21 @@ import type { AppWebConfig } from './webview';
 import type { TerminalFeatureConfig } from './terminal';
 import type { BackgroundStyleConfig } from './background';
 import type { AiAgentFeatureConfig } from './ai';
+import type { QuickLaunchFeatureConfig, QuickLaunchProviderId } from './quick_launch';
 
 export type AppTheme = 'light' | 'dark';
 export type AppLanguage = 'zh' | 'en';
-export type AppSettingsTabId = 'general' | 'file-transfer' | 'web-security' | 'ai-agent' | 'plugins' | 'terminal' | 'multi-device-clipboard' | 'knowledge' | 'shortcuts';
+export type AppSettingsTabId =
+  | 'general'
+  | 'file-transfer'
+  | 'web-security'
+  | 'ai-agent'
+  | 'plugins'
+  | 'terminal'
+  | 'multi-device-clipboard'
+  | 'knowledge'
+  | 'quick-launch'
+  | 'shortcuts';
 export type AppBottomBarTabId =
   | 'home'
   | 'terminal'
@@ -117,6 +128,10 @@ export interface AppAppearanceConfig {
 export interface AppInternalShortcutsConfig {
   terminalCopy: string;
   terminalPaste: string;
+  quickNoteSave: string;
+  quickNoteNew: string;
+  quickNoteCollapse: string;
+  quickNoteClose: string;
 }
 
 export interface AppSystemShortcutsConfig {
@@ -124,6 +139,12 @@ export interface AppSystemShortcutsConfig {
   toggleMultiDeviceClipboard: string;
   toggleQuickNote: string;
   captureClipboardToQuickNote: string;
+  toggleQuickLaunch: string;
+  openDetachedTerminal: string;
+  openDetachedFtp: string;
+  openDetachedTodo: string;
+  openDetachedAi: string;
+  openDetachedKnowledge: string;
 }
 
 export interface AppShortcutsConfig {
@@ -137,6 +158,7 @@ export interface AppFeaturesConfig {
   terminal: TerminalFeatureConfig;
   multiDeviceClipboard: MultiDeviceClipboardFeatureConfig;
   knowledge: AppKnowledgeFeatureConfig;
+  quickLaunch: QuickLaunchFeatureConfig;
 }
 
 export interface AppSettingsTabPersonalizationConfig {
@@ -169,6 +191,15 @@ export interface AppKnowledgeFeatureConfig {
   indexingEnabled: boolean;
   maxImportFileSizeMb: number;
   previewCacheTtlDays: number;
+  quickNote: AppKnowledgeQuickNoteWindowConfig;
+}
+
+export interface AppKnowledgeQuickNoteWindowConfig {
+  backgroundType: 'color' | 'image' | 'video';
+  backgroundColor: string;
+  backgroundImage: string;
+  backgroundVideo: string;
+  backgroundStyle: BackgroundStyleConfig;
 }
 
 export interface LocalNetworkInterfaceOption {
@@ -220,7 +251,12 @@ export interface AppConfigPatch {
     };
     terminal?: Partial<TerminalFeatureConfig>;
     multiDeviceClipboard?: Partial<MultiDeviceClipboardFeatureConfig>;
-    knowledge?: Partial<AppKnowledgeFeatureConfig>;
+    knowledge?: Partial<Omit<AppKnowledgeFeatureConfig, 'quickNote'>> & {
+      quickNote?: Partial<AppKnowledgeQuickNoteWindowConfig>;
+    };
+    quickLaunch?: Partial<Omit<QuickLaunchFeatureConfig, 'enabledProviders'>> & {
+      enabledProviders?: QuickLaunchProviderId[];
+    };
   };
   shortcuts?: {
     internal?: Partial<AppInternalShortcutsConfig>;
@@ -305,6 +341,10 @@ export function createDefaultAiAgentFeatureConfig(): AiAgentFeatureConfig {
       allowedDomains: [],
       blockedDomains: [],
     },
+    mcp: {
+      enabled: false,
+      servers: [],
+    },
   };
 }
 
@@ -332,6 +372,7 @@ export function createDefaultAppConfig(): AppConfig {
           terminal: createDefaultSettingsTabPersonalization(),
           'multi-device-clipboard': createDefaultSettingsTabPersonalization(),
           knowledge: createDefaultSettingsTabPersonalization(),
+          'quick-launch': createDefaultSettingsTabPersonalization(),
           shortcuts: createDefaultSettingsTabPersonalization(),
         },
       },
@@ -370,18 +411,48 @@ export function createDefaultAppConfig(): AppConfig {
         indexingEnabled: true,
         maxImportFileSizeMb: 200,
         previewCacheTtlDays: 30,
+        quickNote: createDefaultKnowledgeQuickNoteWindowConfig(),
+      },
+      quickLaunch: {
+        enabled: true,
+        maxResults: 12,
+        enabledProviders: ['internal-route', 'terminal', 'ssh', 'ftp', 'todo', 'knowledge', 'plugin', 'app', 'file'],
+        hideOnBlur: true,
+        everythingEsPath: '',
+        backgroundType: 'color',
+        backgroundColor: '',
+        backgroundImage: '',
+        backgroundVideo: '',
+        backgroundStyle: {
+          opacity: 1,
+        },
+        windowOpacity: 0.96,
+        selectionColor: '#3b82f6',
+        selectionOpacity: 0.14,
+        resultTitleColor: '#17202b',
+        resultSubtitleColor: '#667385',
       },
     },
     shortcuts: {
       internal: {
         terminalCopy: 'CommandOrControl+Shift+C',
         terminalPaste: 'CommandOrControl+Shift+V',
+        quickNoteSave: 'CommandOrControl+S',
+        quickNoteNew: 'CommandOrControl+N',
+        quickNoteCollapse: 'CommandOrControl+M',
+        quickNoteClose: 'Escape',
       },
       system: {
         toggleAppVisibility: 'CommandOrControl+Alt+G',
         toggleMultiDeviceClipboard: 'Alt+V',
         toggleQuickNote: 'CommandOrControl+Alt+N',
         captureClipboardToQuickNote: 'CommandOrControl+Alt+Shift+N',
+        toggleQuickLaunch: 'Alt+Space',
+        openDetachedTerminal: '',
+        openDetachedFtp: '',
+        openDetachedTodo: '',
+        openDetachedAi: '',
+        openDetachedKnowledge: '',
       },
     },
     plugins: {
@@ -399,6 +470,18 @@ export function createDefaultAppConfig(): AppConfig {
       scripts: [],
       keepAliveDomains: [],
       chromeExtensions: [],
+    },
+  };
+}
+
+export function createDefaultKnowledgeQuickNoteWindowConfig(): AppKnowledgeQuickNoteWindowConfig {
+  return {
+    backgroundType: 'color',
+    backgroundColor: '',
+    backgroundImage: '',
+    backgroundVideo: '',
+    backgroundStyle: {
+      opacity: 1,
     },
   };
 }

@@ -291,13 +291,20 @@ onBeforeUnmount(() => {
             },
           ]" role="option" :aria-selected="String(option.value) === String(modelValue)"
             :aria-disabled="option.disabled" @click.stop="selectOption(option)" @mouseenter="highlightedIndex = index">
-            <span class="ui-select-option__check">
-              <svg v-if="String(option.value) === String(modelValue)" viewBox="0 0 16 16" fill="none">
-                <path d="M3.5 8.5L6.5 11.5L12.5 4.5" stroke="currentColor" stroke-width="2" stroke-linecap="round"
-                  stroke-linejoin="round" />
-              </svg>
-            </span>
-            <span class="ui-select-option__label">{{ option.label }}</span>
+            <slot
+              name="option"
+              :option="option"
+              :selected="String(option.value) === String(modelValue)"
+              :highlighted="index === highlightedIndex"
+            >
+              <span class="ui-select-option__check">
+                <svg v-if="String(option.value) === String(modelValue)" viewBox="0 0 16 16" fill="none">
+                  <path d="M3.5 8.5L6.5 11.5L12.5 4.5" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                    stroke-linejoin="round" />
+                </svg>
+              </span>
+              <span class="ui-select-option__label">{{ option.label }}</span>
+            </slot>
           </div>
         </div>
       </div>

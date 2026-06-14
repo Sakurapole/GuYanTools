@@ -15,6 +15,13 @@ import type { AiAgentMode, AiInteractionMode } from '@/contracts/ai';
 import type { KnowledgeLibrary } from '@/contracts/knowledge';
 import type { FtpWindowsContextMenuStatus } from '@/contracts/ftp';
 import type { MultiDeviceClipboardDeviceStatus } from '@/contracts/multi_device_clipboard';
+import type { QuickLaunchProviderId } from '@/contracts/quick_launch';
+import type {
+  AppSystemShortcutKey,
+  ShortcutInspectionResult,
+  ShortcutProbeStatus,
+  SystemShortcutProbeResult,
+} from '@/contracts/shortcuts';
 import type {
   LocalTerminalProfileConfig,
   TerminalBackgroundConfig,
@@ -23,18 +30,23 @@ import type {
 } from '@/contracts/terminal';
 import type { WebScriptRule } from '@/contracts/webview';
 import type { InstalledPluginRecord, PluginHostSummary } from '@/contracts/plugin_host';
-import { resolveThemeBackground } from '@/contracts/background';
+import type { BackgroundConfirmPayload } from '@/contracts/background';
+import { resolveThemeBackground, withThemeBackground } from '@/contracts/background';
 import UiButton from '../components/ui/UiButton.vue';
 import UiCheckbox from '../components/ui/UiCheckbox.vue';
 import UiField from '../components/ui/UiField.vue';
 import UiInput from '../components/ui/UiInput.vue';
+import UiSliderField from '../components/ui/UiSliderField.vue';
 import ShortcutRecorder from '../components/ui/ShortcutRecorder.vue';
 import UiSelect from '../components/ui/UiSelect.vue';
 import UiScrollbar from '../components/ui/UiScrollbar.vue';
 import UiTabs, { type UiTabItem } from '../components/ui/UiTabs.vue';
 import UiTextarea from '../components/ui/UiTextarea.vue';
 import UiTransferBox from '../components/ui/UiTransferBox.vue';
+import UiPersonalizationConfig from '../components/ui/UiPersonalizationConfig.vue';
 import WebViewKeepAliveList from '../components/webview/WebViewKeepAliveList.vue';
+import AiProviderDrawer from './AI/components/AiProviderDrawer.vue';
+import AiSettingsPanel from './AI/components/AiSettingsPanel.vue';
 import { useTheme } from '../composables/theme';
 import { notifyError, notifySuccess } from '../composables/useInAppNotification';
 import { useConfirmDialog } from '../composables/useConfirmDialog';
@@ -56,7 +68,9 @@ const updaterStore = useUpdaterStore();
 const sshStore = useSshStore();
 const { show: showConfirm } = useConfirmDialog();
 const { setTheme } = useTheme();
-const defaultShortcuts = createDefaultAppConfig().shortcuts;
+const defaultConfig = createDefaultAppConfig();
+const defaultShortcuts = defaultConfig.shortcuts;
+const defaultQuickLaunchConfig = defaultConfig.features.quickLaunch;
 
 type TransferBoxItem = {
   key: string;
@@ -97,6 +111,8 @@ const knowledgePreviewCacheTtlDaysInput = ref(String(appConfigStore.config.featu
 const knowledgeLibreOfficePathInput = ref(appConfigStore.config.features.knowledge.libreOfficePath || '');
 const knowledgeCustomAssetDirectoryInput = ref(appConfigStore.config.features.knowledge.customAssetDirectory || '');
 const agentMaxStepsInput = ref(String(appConfigStore.config.features.aiAgent.agent.maxSteps || 5));
+const aiProviderDrawerVisible = ref(false);
+const editingAiProviderId = ref('');
 const knowledgeClearingCache = ref(false);
 const localNetworkInterfaces = ref<LocalNetworkInterfaceOption[]>([]);
 const networkInterfacesLoading = ref(false);
@@ -134,16 +150,29 @@ const ftpWindowsContextMenuStatus = ref<FtpWindowsContextMenuStatus>({
 const ftpWindowsContextMenuLoading = ref(false);
 const ftpWindowsContextMenuError = ref('');
 const ftpSettingsLoaded = ref(false);
+const shortcutInspection = ref<ShortcutInspectionResult | null>(null);
+const shortcutInspectionLoading = ref(false);
+const shortcutRetryingKeys = ref<Partial<Record<AppSystemShortcutKey, boolean>>>({});
+const shortcutValidationMessages = ref<Partial<Record<AppSystemShortcutKey, string>>>({});
+const quickLaunchMaxResultsInput = ref(String(appConfigStore.config.features.quickLaunch.maxResults || 12));
+const quickLaunchEverythingEsPathInput = ref(appConfigStore.config.features.quickLaunch.everythingEsPath || '');
+const quickLaunchBackgroundPickerVisible = ref(false);
+const quickLaunchWindowOpacityInput = ref(appConfigStore.config.features.quickLaunch.windowOpacity);
+const quickLaunchSelectionColorInput = ref(appConfigStore.config.features.quickLaunch.selectionColor);
+const quickLaunchSelectionOpacityInput = ref(appConfigStore.config.features.quickLaunch.selectionOpacity);
+const quickLaunchResultTitleColorInput = ref(appConfigStore.config.features.quickLaunch.resultTitleColor);
+const quickLaunchResultSubtitleColorInput = ref(appConfigStore.config.features.quickLaunch.resultSubtitleColor);
 
 const settingsTabs: UiTabItem[] = [
   { key: 'general', label: '基础设置' },
   { key: 'file-transfer', label: '文件传输' },
   { key: 'web-security', label: 'WebView' },
-  { key: 'ai-agent', label: 'Agent' },
+  { key: 'ai-agent', label: 'AI' },
   { key: 'plugins', label: '插件配置' },
   { key: 'terminal', label: '终端' },
   { key: 'multi-device-clipboard', label: '多设备剪贴板' },
   { key: 'knowledge', label: '知识库' },
+  { key: 'quick-launch', label: '快速启动' },
   { key: 'shortcuts', label: '快捷键' },
 ];
 const settingsTabOrder = settingsTabs.map(tab => tab.key) as SettingsTabKey[];
@@ -273,6 +302,48 @@ const knowledgeAssetStorageOptions: Array<{ label: string; value: AppKnowledgeAs
   { label: '应用数据目录', value: 'app-data' },
   { label: '自定义目录', value: 'custom' },
 ];
+const quickLaunchProviderOptions: Array<{ label: string; value: QuickLaunchProviderId }> = [
+  { label: '应用功能', value: 'internal-route' },
+  { label: '终端配置', value: 'terminal' },
+  { label: 'SSH 连接', value: 'ssh' },
+  { label: 'FTP/SFTP 连接', value: 'ftp' },
+  { label: '待办任务', value: 'todo' },
+  { label: '知识库', value: 'knowledge' },
+  { label: '插件入口', value: 'plugin' },
+  { label: '本机应用', value: 'app' },
+  { label: '本机文件（Everything）', value: 'file' },
+];
+const quickLaunchWindowShortcutGroups: Array<{
+  title: string;
+  shortcuts: Array<{ label: string; keys: string }>;
+}> = [
+  {
+    title: '结果操作',
+    shortcuts: [
+      { label: '打开选中结果', keys: 'Enter' },
+      { label: '打开操作面板', keys: 'Ctrl+O / Shift+Enter / → / 右键' },
+      { label: '打开所在位置 / 在资源管理器中打开', keys: 'Ctrl+Enter' },
+      { label: '以管理员身份启动', keys: 'Ctrl+Shift+Enter' },
+      { label: '复制结果', keys: 'Ctrl+C' },
+      { label: '复制路径', keys: 'Ctrl+Shift+C' },
+      { label: '刷新结果', keys: 'Ctrl+R / F5' },
+    ],
+  },
+  {
+    title: '导航与窗口',
+    shortcuts: [
+      { label: '切换选中结果', keys: '↑ / ↓ / Tab' },
+      { label: '翻页选择', keys: 'PageUp / PageDown' },
+      { label: '直接打开前十项', keys: 'Alt+1...0' },
+      { label: '补全选中标题', keys: 'Ctrl+Tab' },
+      { label: '显示结果预览', keys: 'F1' },
+      { label: '搜索历史', keys: 'Ctrl+H' },
+      { label: '调整结果数量', keys: 'Ctrl+Plus / Ctrl+Minus' },
+      { label: '调整窗口宽度', keys: 'Ctrl+[ / Ctrl+]' },
+      { label: '游戏模式', keys: 'Ctrl+F12' },
+    ],
+  },
+];
 const aiDefaultModeOptions: Array<{ label: string; value: AiInteractionMode }> = [
   { label: 'AI 问答', value: 'chat' },
   { label: '通用 Agent', value: 'general-agent' },
@@ -341,6 +412,30 @@ const updaterAuthSourceText = computed(() => {
   return updaterStore.auth.source === 'environment' ? '环境变量' : '本机安全存储';
 });
 const canSaveGithubToken = computed(() => Boolean(githubTokenInput.value.trim()) && !updaterAuthSaving.value);
+const shortcutRegisteredCount = computed(() => shortcutInspection.value?.summary.registered ?? 0);
+const shortcutConflictCount = computed(() => shortcutInspection.value?.summary.conflict ?? 0);
+const shortcutAvailableCount = computed(() => shortcutInspection.value?.summary.available ?? 0);
+const highlightedCommonShortcutProbes = computed(() => {
+  const probes = shortcutInspection.value?.common ?? [];
+  const conflicts = probes.filter((probe) => probe.status === 'conflict' || probe.status === 'invalid');
+  return (conflicts.length ? conflicts : probes).slice(0, 8);
+});
+
+const detachedWindowShortcutRows: Array<{
+  key: AppSystemShortcutKey;
+  label: string;
+  description: string;
+}> = [
+  { key: 'openDetachedTerminal', label: '独立窗口：终端', description: '系统级快捷键，打开终端页面独立窗口。' },
+  { key: 'openDetachedFtp', label: '独立窗口：传输', description: '系统级快捷键，打开传输页面独立窗口。' },
+  { key: 'openDetachedTodo', label: '独立窗口：待办', description: '系统级快捷键，打开待办页面独立窗口。' },
+  { key: 'openDetachedAi', label: '独立窗口：AI', description: '系统级快捷键，打开 AI 页面独立窗口。' },
+  { key: 'openDetachedKnowledge', label: '独立窗口：知识库', description: '系统级快捷键，打开知识库页面独立窗口。' },
+];
+const shortcutInspectionTimeText = computed(() => {
+  if (!shortcutInspection.value) return '尚未检测';
+  return new Date(shortcutInspection.value.checkedAt).toLocaleTimeString();
+});
 
 const activePlugin = computed(() => installedPlugins.value.find(
   (plugin) => plugin.manifest.id === settingsStore.activePluginConfigId,
@@ -350,6 +445,48 @@ const activeSettingsPageStyle = computed<CSSProperties>(() => buildSettingsTabBa
 const activeSettingsBackgroundVideo = computed(() => (
   activeSettingsTabPersonalization.value.type === 'video' ? activeSettingsTabPersonalization.value.video : ''
 ));
+const activeQuickLaunchBackground = computed(() => {
+  const config = appConfigStore.config.features.quickLaunch;
+  return resolveThemeBackground({
+    type: config.backgroundType,
+    color: config.backgroundColor,
+    image: config.backgroundImage,
+    video: config.backgroundVideo,
+    backgroundStyle: config.backgroundStyle,
+  }, appConfigStore.config.appearance.theme);
+});
+const quickLaunchBackgroundSummary = computed(() => {
+  const background = activeQuickLaunchBackground.value;
+  if (background.type === 'image') {
+    return background.image ? '图片背景' : '图片背景未选择文件';
+  }
+  if (background.type === 'video') {
+    return background.video ? '视频背景' : '视频背景未选择文件';
+  }
+  return background.color ? '颜色背景' : '默认面板背景';
+});
+const quickLaunchBackgroundPreviewStyle = computed<CSSProperties>(() => {
+  const background = activeQuickLaunchBackground.value;
+  const style = background.backgroundStyle ?? {};
+  const previewStyle: CSSProperties = {
+    opacity: style.opacity ?? 1,
+  };
+
+  if (background.type === 'image' && background.image) {
+    previewStyle.backgroundImage = `url(${background.image})`;
+    previewStyle.backgroundSize = style.backgroundSize || 'cover';
+    previewStyle.backgroundPosition = style.backgroundPosition || 'center';
+    previewStyle.backgroundRepeat = style.backgroundRepeat || 'no-repeat';
+  } else if (background.type === 'color' && background.color) {
+    previewStyle.background = background.color;
+  } else {
+    previewStyle.background = 'rgba(250, 252, 255, 0.96)';
+  }
+
+  return previewStyle;
+});
+const quickLaunchWindowOpacityLabel = computed(() => `${Math.round(quickLaunchWindowOpacityInput.value * 100)}%`);
+const quickLaunchSelectionOpacityLabel = computed(() => `${Math.round(quickLaunchSelectionOpacityInput.value * 100)}%`);
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return Boolean(value) && typeof value === 'object' && !Array.isArray(value);
@@ -628,6 +765,11 @@ async function updateAiAgentReservedSettings(patch: Partial<typeof appConfigStor
   });
 }
 
+function openAiProviderDrawer(providerId = '') {
+  editingAiProviderId.value = providerId;
+  aiProviderDrawerVisible.value = true;
+}
+
 async function handleAiFeatureEnabledChange(enabled: boolean) {
   await updateAiAgentSettings({
     enabled,
@@ -666,6 +808,10 @@ function handleSettingsTabChange(value: string) {
 
   settingsTabTransition.value = nextIndex >= currentIndex ? 'ui-tab-forward' : 'ui-tab-back';
   settingsStore.setActiveSettingsTab(nextTab);
+  if (nextTab !== 'ai-agent') {
+    aiProviderDrawerVisible.value = false;
+    editingAiProviderId.value = '';
+  }
   scheduleSettingsTabLoad(nextTab);
 }
 
@@ -713,7 +859,9 @@ function scheduleSettingsTabLoad(tab: SettingsTabKey, force = false) {
         void loadExtensions();
         break;
       case 'ai-agent':
+        break;
       case 'shortcuts':
+        void refreshSystemShortcutInspection();
         break;
       default:
         break;
@@ -1357,10 +1505,120 @@ async function updateInternalShortcut(
   });
 }
 
+async function refreshSystemShortcutInspection() {
+  if (!window.shortcutsApi) {
+    shortcutInspection.value = null;
+    return;
+  }
+
+  shortcutInspectionLoading.value = true;
+  try {
+    shortcutInspection.value = await window.shortcutsApi.inspectSystemShortcuts();
+  } catch (error) {
+    notifyError(error, '快捷键占用检测失败');
+  } finally {
+    shortcutInspectionLoading.value = false;
+  }
+}
+
+function getSystemShortcutProbe(key: AppSystemShortcutKey) {
+  return shortcutInspection.value?.actions.find((probe) => probe.actionKey === key) ?? null;
+}
+
+function getSystemShortcutMessage(key: AppSystemShortcutKey) {
+  return shortcutValidationMessages.value[key] || getSystemShortcutProbe(key)?.message || '';
+}
+
+function getSystemShortcutStatus(key: AppSystemShortcutKey): ShortcutProbeStatus | '' {
+  return shortcutValidationMessages.value[key] ? 'conflict' : getSystemShortcutProbe(key)?.status ?? '';
+}
+
+function shortcutStatusText(status: ShortcutProbeStatus | '') {
+  switch (status) {
+    case 'registered':
+      return '已注册';
+    case 'available':
+      return '可注册';
+    case 'conflict':
+      return '冲突';
+    case 'invalid':
+      return '无效';
+    case 'empty':
+      return '未设置';
+    default:
+      return '待检测';
+  }
+}
+
+function canRetrySystemShortcut(key: AppSystemShortcutKey) {
+  const status = getSystemShortcutStatus(key);
+  return status === 'available' || status === 'conflict';
+}
+
+async function retrySystemShortcut(key: AppSystemShortcutKey) {
+  if (!window.shortcutsApi || shortcutRetryingKeys.value[key]) {
+    return;
+  }
+
+  shortcutRetryingKeys.value = {
+    ...shortcutRetryingKeys.value,
+    [key]: true,
+  };
+
+  try {
+    const result = await window.shortcutsApi.retrySystemShortcut({ actionKey: key });
+    shortcutValidationMessages.value = {
+      ...shortcutValidationMessages.value,
+      [key]: result.ok ? '' : result.probe.message,
+    };
+
+    if (result.ok) {
+      notifySuccess('快捷键已重新注册');
+    } else {
+      notifyError(new Error(result.probe.message), '快捷键重新注册失败');
+    }
+    await refreshSystemShortcutInspection();
+  } catch (error) {
+    notifyError(error, '快捷键重新注册失败');
+    await refreshSystemShortcutInspection();
+  } finally {
+    shortcutRetryingKeys.value = {
+      ...shortcutRetryingKeys.value,
+      [key]: false,
+    };
+  }
+}
+
 async function updateSystemShortcut(
   key: keyof typeof defaultShortcuts.system,
   value: string,
 ) {
+  if (window.shortcutsApi) {
+    try {
+      const validation = await window.shortcutsApi.validateSystemShortcut({
+        actionKey: key,
+        accelerator: value,
+      });
+      if (!validation.ok) {
+        shortcutValidationMessages.value = {
+          ...shortcutValidationMessages.value,
+          [key]: validation.probe.message,
+        };
+        notifyError(new Error(validation.probe.message), '快捷键冲突');
+        await refreshSystemShortcutInspection();
+        return;
+      }
+    } catch (error) {
+      notifyError(error, '快捷键冲突检测失败');
+      await refreshSystemShortcutInspection();
+      return;
+    }
+  }
+
+  shortcutValidationMessages.value = {
+    ...shortcutValidationMessages.value,
+    [key]: '',
+  };
   await appConfigStore.updateConfig({
     shortcuts: {
       system: {
@@ -1368,6 +1626,217 @@ async function updateSystemShortcut(
       },
     },
   });
+  await refreshSystemShortcutInspection();
+}
+
+async function toggleQuickLaunchProvider(providerId: QuickLaunchProviderId, enabled: boolean) {
+  const current = appConfigStore.config.features.quickLaunch.enabledProviders ?? [];
+  const next = enabled
+    ? Array.from(new Set([...current, providerId]))
+    : current.filter((item) => item !== providerId);
+
+  await appConfigStore.updateConfig({
+    features: {
+      quickLaunch: {
+        enabledProviders: next.length ? next : ['internal-route'],
+      },
+    },
+  });
+}
+
+async function toggleQuickLaunchEnabled(enabled: boolean) {
+  await appConfigStore.updateConfig({
+    features: {
+      quickLaunch: {
+        enabled,
+      },
+    },
+  });
+}
+
+async function toggleQuickLaunchHideOnBlur(hideOnBlur: boolean) {
+  await appConfigStore.updateConfig({
+    features: {
+      quickLaunch: {
+        hideOnBlur,
+      },
+    },
+  });
+}
+
+function normalizeQuickLaunchOpacityInput(value: number, fallback: number, min = 0) {
+  return Number.isFinite(value)
+    ? Number(Math.max(min, Math.min(1, value)).toFixed(2))
+    : fallback;
+}
+
+function normalizeQuickLaunchColorInput(value: string, fallback = defaultQuickLaunchConfig.selectionColor) {
+  const trimmed = value.trim();
+  return /^#[0-9a-f]{6}$/i.test(trimmed)
+    ? trimmed
+    : fallback;
+}
+
+async function commitQuickLaunchWindowOpacity(value = quickLaunchWindowOpacityInput.value) {
+  const windowOpacity = normalizeQuickLaunchOpacityInput(
+    value,
+    defaultQuickLaunchConfig.windowOpacity,
+    0.2,
+  );
+  quickLaunchWindowOpacityInput.value = windowOpacity;
+  await appConfigStore.updateConfig({
+    features: {
+      quickLaunch: {
+        windowOpacity,
+      },
+    },
+  });
+}
+
+async function commitQuickLaunchSelectionColor() {
+  const selectionColor = normalizeQuickLaunchColorInput(quickLaunchSelectionColorInput.value);
+  quickLaunchSelectionColorInput.value = selectionColor;
+  await appConfigStore.updateConfig({
+    features: {
+      quickLaunch: {
+        selectionColor,
+      },
+    },
+  });
+}
+
+async function commitQuickLaunchSelectionOpacity(value = quickLaunchSelectionOpacityInput.value) {
+  const selectionOpacity = normalizeQuickLaunchOpacityInput(
+    value,
+    defaultQuickLaunchConfig.selectionOpacity,
+  );
+  quickLaunchSelectionOpacityInput.value = selectionOpacity;
+  await appConfigStore.updateConfig({
+    features: {
+      quickLaunch: {
+        selectionOpacity,
+      },
+    },
+  });
+}
+
+async function commitQuickLaunchResultTitleColor() {
+  const resultTitleColor = normalizeQuickLaunchColorInput(
+    quickLaunchResultTitleColorInput.value,
+    defaultQuickLaunchConfig.resultTitleColor,
+  );
+  quickLaunchResultTitleColorInput.value = resultTitleColor;
+  await appConfigStore.updateConfig({
+    features: {
+      quickLaunch: {
+        resultTitleColor,
+      },
+    },
+  });
+}
+
+async function commitQuickLaunchResultSubtitleColor() {
+  const resultSubtitleColor = normalizeQuickLaunchColorInput(
+    quickLaunchResultSubtitleColorInput.value,
+    defaultQuickLaunchConfig.resultSubtitleColor,
+  );
+  quickLaunchResultSubtitleColorInput.value = resultSubtitleColor;
+  await appConfigStore.updateConfig({
+    features: {
+      quickLaunch: {
+        resultSubtitleColor,
+      },
+    },
+  });
+}
+
+async function commitQuickLaunchMaxResults() {
+  const value = Number(quickLaunchMaxResultsInput.value);
+  const maxResults = Number.isFinite(value)
+    ? Math.max(4, Math.min(50, Math.round(value)))
+    : 12;
+  quickLaunchMaxResultsInput.value = String(maxResults);
+  await appConfigStore.updateConfig({
+    features: {
+      quickLaunch: {
+        maxResults,
+      },
+    },
+  });
+}
+
+async function commitQuickLaunchEverythingEsPath() {
+  await appConfigStore.updateConfig({
+    features: {
+      quickLaunch: {
+        everythingEsPath: quickLaunchEverythingEsPathInput.value.trim(),
+      },
+    },
+  });
+}
+
+async function selectQuickLaunchEverythingEsPath() {
+  const filePath = await window.shellApi.selectFile({
+    title: '选择 Everything ES 命令行工具',
+    filters: [
+      { name: 'Everything ES (es.exe)', extensions: ['exe'] },
+      { name: '所有文件', extensions: ['*'] },
+    ],
+    defaultPath: quickLaunchEverythingEsPathInput.value || undefined,
+  });
+  if (!filePath) return;
+  quickLaunchEverythingEsPathInput.value = filePath;
+  await commitQuickLaunchEverythingEsPath();
+}
+
+async function clearQuickLaunchEverythingEsPath() {
+  quickLaunchEverythingEsPathInput.value = '';
+  await commitQuickLaunchEverythingEsPath();
+}
+
+async function handleQuickLaunchBackgroundConfirm(payload: BackgroundConfirmPayload) {
+  const current = appConfigStore.config.features.quickLaunch;
+  const nextBackground = withThemeBackground({
+    type: current.backgroundType,
+    color: current.backgroundColor,
+    image: current.backgroundImage,
+    video: current.backgroundVideo,
+    backgroundStyle: current.backgroundStyle,
+  }, appConfigStore.config.appearance.theme, {
+    type: payload.type,
+    color: payload.color,
+    image: payload.image,
+    video: payload.video,
+    backgroundStyle: payload.backgroundStyle,
+  });
+
+  await appConfigStore.updateConfig({
+    features: {
+      quickLaunch: {
+        backgroundType: nextBackground.type,
+        backgroundColor: nextBackground.color,
+        backgroundImage: nextBackground.image,
+        backgroundVideo: nextBackground.video,
+        backgroundStyle: nextBackground.backgroundStyle,
+      },
+    },
+  });
+  quickLaunchBackgroundPickerVisible.value = false;
+}
+
+async function resetQuickLaunchBackground() {
+  await appConfigStore.updateConfig({
+    features: {
+      quickLaunch: {
+        backgroundType: defaultQuickLaunchConfig.backgroundType,
+        backgroundColor: defaultQuickLaunchConfig.backgroundColor,
+        backgroundImage: defaultQuickLaunchConfig.backgroundImage,
+        backgroundVideo: defaultQuickLaunchConfig.backgroundVideo,
+        backgroundStyle: { ...defaultQuickLaunchConfig.backgroundStyle },
+      },
+    },
+  });
+  quickLaunchBackgroundPickerVisible.value = false;
 }
 
 async function loadKnowledgeLibraries() {
@@ -1666,6 +2135,47 @@ watch(() => appConfigStore.config.features.knowledge.libreOfficePath, (value) =>
 
 watch(() => appConfigStore.config.features.knowledge.customAssetDirectory, (value) => {
   knowledgeCustomAssetDirectoryInput.value = value || '';
+}, { immediate: true });
+
+watch(() => appConfigStore.config.features.quickLaunch.maxResults, (value) => {
+  quickLaunchMaxResultsInput.value = String(value || 12);
+}, { immediate: true });
+
+watch(() => appConfigStore.config.features.quickLaunch.everythingEsPath, (value) => {
+  quickLaunchEverythingEsPathInput.value = value || '';
+}, { immediate: true });
+
+watch(() => appConfigStore.config.features.quickLaunch.windowOpacity, (value) => {
+  quickLaunchWindowOpacityInput.value = normalizeQuickLaunchOpacityInput(
+    value,
+    defaultQuickLaunchConfig.windowOpacity,
+    0.2,
+  );
+}, { immediate: true });
+
+watch(() => appConfigStore.config.features.quickLaunch.selectionColor, (value) => {
+  quickLaunchSelectionColorInput.value = normalizeQuickLaunchColorInput(value || defaultQuickLaunchConfig.selectionColor);
+}, { immediate: true });
+
+watch(() => appConfigStore.config.features.quickLaunch.selectionOpacity, (value) => {
+  quickLaunchSelectionOpacityInput.value = normalizeQuickLaunchOpacityInput(
+    value,
+    defaultQuickLaunchConfig.selectionOpacity,
+  );
+}, { immediate: true });
+
+watch(() => appConfigStore.config.features.quickLaunch.resultTitleColor, (value) => {
+  quickLaunchResultTitleColorInput.value = normalizeQuickLaunchColorInput(
+    value || defaultQuickLaunchConfig.resultTitleColor,
+    defaultQuickLaunchConfig.resultTitleColor,
+  );
+}, { immediate: true });
+
+watch(() => appConfigStore.config.features.quickLaunch.resultSubtitleColor, (value) => {
+  quickLaunchResultSubtitleColorInput.value = normalizeQuickLaunchColorInput(
+    value || defaultQuickLaunchConfig.resultSubtitleColor,
+    defaultQuickLaunchConfig.resultSubtitleColor,
+  );
 }, { immediate: true });
 
 watch(() => appConfigStore.config.features.aiAgent.agent.maxSteps, (value) => {
@@ -2882,10 +3392,257 @@ function scriptTypeLabel(type: string) {
         </div>
       </section>
 
+      <section v-if="isSettingsTabRendered('quick-launch')" key="quick-launch" class="settings-section">
+        <div class="section-head section-head--standalone">
+          <h2>快速启动</h2>
+          <p>配置全局唤起、显示行为、搜索结果数量、搜索源和 Everything 文件搜索。</p>
+        </div>
+
+        <div class="settings-form">
+          <section class="settings-group">
+            <h3>行为</h3>
+            <div class="settings-row">
+              <div class="settings-row__label">
+                <span>启用快速启动</span>
+                <small>关闭后全局快捷键不会唤出快速启动窗口。</small>
+              </div>
+              <div class="settings-row__control settings-row__control--switch">
+                <UiCheckbox
+                  :checked="appConfigStore.config.features.quickLaunch.enabled"
+                  @change="toggleQuickLaunchEnabled"
+                />
+              </div>
+            </div>
+            <div class="settings-row">
+              <div class="settings-row__label">
+                <span>失焦后隐藏</span>
+                <small>窗口失去焦点时自动隐藏，适合命令面板式操作。</small>
+              </div>
+              <div class="settings-row__control settings-row__control--switch">
+                <UiCheckbox
+                  :checked="appConfigStore.config.features.quickLaunch.hideOnBlur"
+                  @change="toggleQuickLaunchHideOnBlur"
+                />
+              </div>
+            </div>
+            <div class="settings-row">
+              <div class="settings-row__label">
+                <span>最大结果数</span>
+                <small>限制每次搜索展示的总结果数量，范围 4-50。</small>
+              </div>
+              <div class="settings-row__control settings-row__control--compact">
+                <UiInput
+                  v-model="quickLaunchMaxResultsInput"
+                  type="number"
+                  :min="4"
+                  :max="50"
+                  size="sm"
+                  @blur="commitQuickLaunchMaxResults"
+                  @change="commitQuickLaunchMaxResults"
+                  @keydown.enter.prevent="commitQuickLaunchMaxResults"
+                />
+              </div>
+            </div>
+          </section>
+
+          <section class="settings-group">
+            <h3>外观</h3>
+            <div class="settings-row settings-row--wide">
+              <div class="settings-row__label">
+                <span>窗口背景</span>
+                <small>使用通用背景组件配置快速启动窗口的颜色、图片或视频背景。</small>
+              </div>
+              <div class="settings-row__control settings-row__control--wide">
+                <div class="quick-launch-background-control">
+                  <span class="quick-launch-background-preview">
+                    <span class="quick-launch-background-preview__fill" :style="quickLaunchBackgroundPreviewStyle" />
+                  </span>
+                  <span class="quick-launch-background-control__meta">
+                    <strong>{{ quickLaunchBackgroundSummary }}</strong>
+                    <small>{{ appConfigStore.config.appearance.theme === 'dark' ? '暗色主题配置' : '亮色主题配置' }}</small>
+                  </span>
+                  <UiButton type="button" variant="secondary" size="sm" @click="quickLaunchBackgroundPickerVisible = true">
+                    配置
+                  </UiButton>
+                  <UiButton type="button" variant="ghost" size="sm" @click="resetQuickLaunchBackground">
+                    重置
+                  </UiButton>
+                </div>
+              </div>
+            </div>
+            <div class="settings-row">
+              <div class="settings-row__label">
+                <span>窗口透明度</span>
+                <small>调整快速启动窗口表面的透明度，不影响背景图片或视频自身透明度。</small>
+              </div>
+              <div class="settings-row__control">
+                <UiSliderField
+                  v-model="quickLaunchWindowOpacityInput"
+                  :min="0.2"
+                  :max="1"
+                  :step="0.01"
+                  :value-text="quickLaunchWindowOpacityLabel"
+                  aria-label="快速启动窗口透明度"
+                  @change="commitQuickLaunchWindowOpacity"
+                />
+              </div>
+            </div>
+            <div class="settings-row">
+              <div class="settings-row__label">
+                <span>选中状态颜色</span>
+                <small>控制键盘或鼠标选中结果时的高亮基色。</small>
+              </div>
+              <div class="settings-row__control">
+                <div class="quick-launch-color-control">
+                  <input
+                    v-model="quickLaunchSelectionColorInput"
+                    class="quick-launch-color-input"
+                    type="color"
+                    aria-label="快速启动选中状态颜色"
+                    @change="commitQuickLaunchSelectionColor"
+                  >
+                  <UiInput
+                    v-model="quickLaunchSelectionColorInput"
+                    size="sm"
+                    spellcheck="false"
+                    @blur="commitQuickLaunchSelectionColor"
+                    @keydown.enter.prevent="commitQuickLaunchSelectionColor"
+                  />
+                </div>
+              </div>
+            </div>
+            <div class="settings-row">
+              <div class="settings-row__label">
+                <span>选中状态透明度</span>
+                <small>控制结果高亮的覆盖强度，默认是轻量透明蓝。</small>
+              </div>
+              <div class="settings-row__control">
+                <UiSliderField
+                  v-model="quickLaunchSelectionOpacityInput"
+                  :min="0"
+                  :max="1"
+                  :step="0.01"
+                  :value-text="quickLaunchSelectionOpacityLabel"
+                  aria-label="快速启动选中状态透明度"
+                  @change="commitQuickLaunchSelectionOpacity"
+                />
+              </div>
+            </div>
+            <div class="settings-row">
+              <div class="settings-row__label">
+                <span>结果标题颜色</span>
+                <small>控制搜索结果主标题文字颜色。</small>
+              </div>
+              <div class="settings-row__control">
+                <div class="quick-launch-color-control">
+                  <input
+                    v-model="quickLaunchResultTitleColorInput"
+                    class="quick-launch-color-input"
+                    type="color"
+                    aria-label="快速启动结果标题颜色"
+                    @change="commitQuickLaunchResultTitleColor"
+                  >
+                  <UiInput
+                    v-model="quickLaunchResultTitleColorInput"
+                    size="sm"
+                    spellcheck="false"
+                    @blur="commitQuickLaunchResultTitleColor"
+                    @keydown.enter.prevent="commitQuickLaunchResultTitleColor"
+                  />
+                </div>
+              </div>
+            </div>
+            <div class="settings-row">
+              <div class="settings-row__label">
+                <span>结果副标题颜色</span>
+                <small>控制路径、来源和说明等辅助文字颜色。</small>
+              </div>
+              <div class="settings-row__control">
+                <div class="quick-launch-color-control">
+                  <input
+                    v-model="quickLaunchResultSubtitleColorInput"
+                    class="quick-launch-color-input"
+                    type="color"
+                    aria-label="快速启动结果副标题颜色"
+                    @change="commitQuickLaunchResultSubtitleColor"
+                  >
+                  <UiInput
+                    v-model="quickLaunchResultSubtitleColorInput"
+                    size="sm"
+                    spellcheck="false"
+                    @blur="commitQuickLaunchResultSubtitleColor"
+                    @keydown.enter.prevent="commitQuickLaunchResultSubtitleColor"
+                  />
+                </div>
+              </div>
+            </div>
+          </section>
+
+          <section class="settings-group">
+            <h3>搜索源</h3>
+            <div class="settings-row settings-row--wide">
+              <div class="settings-row__label">
+                <span>启用的来源</span>
+                <small>关闭不常用来源可以减少噪声，至少保留一个应用功能入口。</small>
+              </div>
+              <div class="settings-row__control settings-row__control--wide">
+                <div class="quick-launch-provider-list">
+                  <label
+                    v-for="provider in quickLaunchProviderOptions"
+                    :key="provider.value"
+                    class="quick-launch-provider-item"
+                  >
+                    <UiCheckbox
+                      size="sm"
+                      :checked="appConfigStore.config.features.quickLaunch.enabledProviders.includes(provider.value)"
+                      @change="toggleQuickLaunchProvider(provider.value, $event)"
+                    />
+                    <span>{{ provider.label }}</span>
+                  </label>
+                </div>
+              </div>
+            </div>
+            <div class="settings-row settings-row--wide">
+              <div class="settings-row__label">
+                <span>Everything ES 路径</span>
+                <small>文件搜索需要安装 Everything 主程序并配置 ES 命令行工具。</small>
+              </div>
+              <div class="settings-row__control settings-row__control--wide">
+                <div class="quick-launch-es-path">
+                  <UiInput
+                    v-model="quickLaunchEverythingEsPathInput"
+                    size="sm"
+                    placeholder="留空自动探测 PATH 或常见安装目录中的 es.exe"
+                    @blur="commitQuickLaunchEverythingEsPath"
+                    @change="commitQuickLaunchEverythingEsPath"
+                    @keydown.enter.prevent="commitQuickLaunchEverythingEsPath"
+                  />
+                  <UiButton type="button" variant="secondary" size="sm" @click="selectQuickLaunchEverythingEsPath">
+                    选择
+                  </UiButton>
+                  <UiButton
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    :disabled="!quickLaunchEverythingEsPathInput"
+                    @click="clearQuickLaunchEverythingEsPath"
+                  >
+                    清除
+                  </UiButton>
+                </div>
+                <p class="quick-launch-es-path__hint">
+                  缺失时 QuickLaunch 会提示确认是否已安装 Everything 应用和命令行 ES；配置后按 Ctrl+R 可刷新快速启动索引。
+                </p>
+              </div>
+            </div>
+          </section>
+        </div>
+      </section>
+
       <section v-if="isSettingsTabRendered('shortcuts')" key="shortcuts" class="settings-section">
         <div class="section-head section-head--standalone">
           <h2>快捷键</h2>
-          <p>配置终端内快捷键和系统级显示隐藏快捷键。</p>
+          <p>配置终端、速记窗口和系统级显示隐藏快捷键。</p>
         </div>
 
         <div class="settings-form">
@@ -2920,7 +3677,127 @@ function scriptTypeLabel(type: string) {
           </section>
 
           <section class="settings-group">
+            <h3>速记窗口</h3>
+            <div class="settings-row">
+              <div class="settings-row__label">
+                <span>保存速记</span>
+                <small>速记窗口聚焦时生效，默认 Ctrl+S。</small>
+              </div>
+              <div class="settings-row__control settings-row__control--wide">
+                <ShortcutRecorder
+                  :model-value="appConfigStore.config.shortcuts.internal.quickNoteSave"
+                  :default-value="defaultShortcuts.internal.quickNoteSave"
+                  @update:modelValue="updateInternalShortcut('quickNoteSave', $event)"
+                />
+              </div>
+            </div>
+            <div class="settings-row">
+              <div class="settings-row__label">
+                <span>新建速记</span>
+                <small>清空当前草稿并开始新记录，默认 Ctrl+N。</small>
+              </div>
+              <div class="settings-row__control settings-row__control--wide">
+                <ShortcutRecorder
+                  :model-value="appConfigStore.config.shortcuts.internal.quickNoteNew"
+                  :default-value="defaultShortcuts.internal.quickNoteNew"
+                  @update:modelValue="updateInternalShortcut('quickNoteNew', $event)"
+                />
+              </div>
+            </div>
+            <div class="settings-row">
+              <div class="settings-row__label">
+                <span>收起/展开</span>
+                <small>在编辑窗口和标题条之间切换，默认 Ctrl+M。</small>
+              </div>
+              <div class="settings-row__control settings-row__control--wide">
+                <ShortcutRecorder
+                  :model-value="appConfigStore.config.shortcuts.internal.quickNoteCollapse"
+                  :default-value="defaultShortcuts.internal.quickNoteCollapse"
+                  @update:modelValue="updateInternalShortcut('quickNoteCollapse', $event)"
+                />
+              </div>
+            </div>
+            <div class="settings-row">
+              <div class="settings-row__label">
+                <span>关闭窗口</span>
+                <small>隐藏速记窗口，默认 Escape。</small>
+              </div>
+              <div class="settings-row__control settings-row__control--wide">
+                <ShortcutRecorder
+                  :model-value="appConfigStore.config.shortcuts.internal.quickNoteClose"
+                  :default-value="defaultShortcuts.internal.quickNoteClose"
+                  @update:modelValue="updateInternalShortcut('quickNoteClose', $event)"
+                />
+              </div>
+            </div>
+          </section>
+
+          <section class="settings-group">
+            <h3>快速启动窗口快捷键</h3>
+            <div class="settings-row settings-row--wide">
+              <div class="settings-row__label">
+                <span>固定操作</span>
+                <small>只在快速启动窗口聚焦时生效，当前版本不支持修改。</small>
+              </div>
+              <div class="settings-row__control settings-row__control--wide">
+                <div class="quick-launch-shortcut-map" aria-label="快速启动窗口快捷键">
+                  <section
+                    v-for="group in quickLaunchWindowShortcutGroups"
+                    :key="group.title"
+                    class="quick-launch-shortcut-map__group"
+                  >
+                    <h4 class="quick-launch-shortcut-map__title">{{ group.title }}</h4>
+                    <div class="quick-launch-shortcut-map__list">
+                      <div
+                        v-for="shortcut in group.shortcuts"
+                        :key="`${group.title}:${shortcut.label}`"
+                        class="quick-launch-shortcut-map__row"
+                      >
+                        <span class="quick-launch-shortcut-map__label">{{ shortcut.label }}</span>
+                        <kbd class="quick-launch-shortcut-map__keys">{{ shortcut.keys }}</kbd>
+                      </div>
+                    </div>
+                  </section>
+                </div>
+              </div>
+            </div>
+          </section>
+
+          <section class="settings-group">
             <h3>系统</h3>
+            <div class="shortcut-detection-panel">
+              <div class="shortcut-detection-panel__head">
+                <div>
+                  <strong>系统快捷键占用检测</strong>
+                  <small>检测本应用注册状态，并探测当前平台常见全局快捷键占用。</small>
+                </div>
+                <UiButton
+                  variant="secondary"
+                  size="sm"
+                  :disabled="shortcutInspectionLoading"
+                  @click="refreshSystemShortcutInspection"
+                >
+                  {{ shortcutInspectionLoading ? '检测中' : '重新检测' }}
+                </UiButton>
+              </div>
+              <div class="shortcut-detection-panel__summary">
+                <span>已注册 {{ shortcutRegisteredCount }}</span>
+                <span>冲突 {{ shortcutConflictCount }}</span>
+                <span>可注册 {{ shortcutAvailableCount }}</span>
+                <span>{{ shortcutInspectionTimeText }}</span>
+              </div>
+              <div v-if="highlightedCommonShortcutProbes.length" class="shortcut-probe-list">
+                <span
+                  v-for="probe in highlightedCommonShortcutProbes"
+                  :key="probe.id"
+                  class="shortcut-probe-chip"
+                  :class="`shortcut-probe-chip--${probe.status}`"
+                  :title="probe.message"
+                >
+                  {{ probe.label }} · {{ probe.normalizedAccelerator || probe.accelerator }} · {{ shortcutStatusText(probe.status) }}
+                </span>
+              </div>
+            </div>
             <div class="settings-row">
               <div class="settings-row__label">
                 <span>显示/隐藏应用</span>
@@ -2932,6 +3809,55 @@ function scriptTypeLabel(type: string) {
                   :default-value="defaultShortcuts.system.toggleAppVisibility"
                   @update:modelValue="updateSystemShortcut('toggleAppVisibility', $event)"
                 />
+                <div class="shortcut-status-row">
+                  <p
+                    class="shortcut-status"
+                    :class="`shortcut-status--${getSystemShortcutStatus('toggleAppVisibility') || 'pending'}`"
+                  >
+                    {{ shortcutStatusText(getSystemShortcutStatus('toggleAppVisibility')) }}：{{ getSystemShortcutMessage('toggleAppVisibility') || '等待检测结果。' }}
+                  </p>
+                  <UiButton
+                    v-if="canRetrySystemShortcut('toggleAppVisibility')"
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    :disabled="Boolean(shortcutRetryingKeys.toggleAppVisibility)"
+                    @click="retrySystemShortcut('toggleAppVisibility')"
+                  >
+                    {{ shortcutRetryingKeys.toggleAppVisibility ? '正在注册' : '重新注册' }}
+                  </UiButton>
+                </div>
+              </div>
+            </div>
+            <div class="settings-row">
+              <div class="settings-row__label">
+                <span>快速启动</span>
+                <small>系统级快捷键，默认 Alt+Space 唤出搜索面板。</small>
+              </div>
+              <div class="settings-row__control settings-row__control--wide">
+                <ShortcutRecorder
+                  :model-value="appConfigStore.config.shortcuts.system.toggleQuickLaunch"
+                  :default-value="defaultShortcuts.system.toggleQuickLaunch"
+                  @update:modelValue="updateSystemShortcut('toggleQuickLaunch', $event)"
+                />
+                <div class="shortcut-status-row">
+                  <p
+                    class="shortcut-status"
+                    :class="`shortcut-status--${getSystemShortcutStatus('toggleQuickLaunch') || 'pending'}`"
+                  >
+                    {{ shortcutStatusText(getSystemShortcutStatus('toggleQuickLaunch')) }}：{{ getSystemShortcutMessage('toggleQuickLaunch') || '等待检测结果。' }}
+                  </p>
+                  <UiButton
+                    v-if="canRetrySystemShortcut('toggleQuickLaunch')"
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    :disabled="Boolean(shortcutRetryingKeys.toggleQuickLaunch)"
+                    @click="retrySystemShortcut('toggleQuickLaunch')"
+                  >
+                    {{ shortcutRetryingKeys.toggleQuickLaunch ? '正在注册' : '重新注册' }}
+                  </UiButton>
+                </div>
               </div>
             </div>
             <div class="settings-row">
@@ -2945,6 +3871,24 @@ function scriptTypeLabel(type: string) {
                   :default-value="defaultShortcuts.system.toggleMultiDeviceClipboard"
                   @update:modelValue="updateSystemShortcut('toggleMultiDeviceClipboard', $event)"
                 />
+                <div class="shortcut-status-row">
+                  <p
+                    class="shortcut-status"
+                    :class="`shortcut-status--${getSystemShortcutStatus('toggleMultiDeviceClipboard') || 'pending'}`"
+                  >
+                    {{ shortcutStatusText(getSystemShortcutStatus('toggleMultiDeviceClipboard')) }}：{{ getSystemShortcutMessage('toggleMultiDeviceClipboard') || '等待检测结果。' }}
+                  </p>
+                  <UiButton
+                    v-if="canRetrySystemShortcut('toggleMultiDeviceClipboard')"
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    :disabled="Boolean(shortcutRetryingKeys.toggleMultiDeviceClipboard)"
+                    @click="retrySystemShortcut('toggleMultiDeviceClipboard')"
+                  >
+                    {{ shortcutRetryingKeys.toggleMultiDeviceClipboard ? '正在注册' : '重新注册' }}
+                  </UiButton>
+                </div>
               </div>
             </div>
             <div class="settings-row">
@@ -2958,6 +3902,24 @@ function scriptTypeLabel(type: string) {
                   :default-value="defaultShortcuts.system.toggleQuickNote"
                   @update:modelValue="updateSystemShortcut('toggleQuickNote', $event)"
                 />
+                <div class="shortcut-status-row">
+                  <p
+                    class="shortcut-status"
+                    :class="`shortcut-status--${getSystemShortcutStatus('toggleQuickNote') || 'pending'}`"
+                  >
+                    {{ shortcutStatusText(getSystemShortcutStatus('toggleQuickNote')) }}：{{ getSystemShortcutMessage('toggleQuickNote') || '等待检测结果。' }}
+                  </p>
+                  <UiButton
+                    v-if="canRetrySystemShortcut('toggleQuickNote')"
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    :disabled="Boolean(shortcutRetryingKeys.toggleQuickNote)"
+                    @click="retrySystemShortcut('toggleQuickNote')"
+                  >
+                    {{ shortcutRetryingKeys.toggleQuickNote ? '正在注册' : '重新注册' }}
+                  </UiButton>
+                </div>
               </div>
             </div>
             <div class="settings-row">
@@ -2971,17 +3933,72 @@ function scriptTypeLabel(type: string) {
                   :default-value="defaultShortcuts.system.captureClipboardToQuickNote"
                   @update:modelValue="updateSystemShortcut('captureClipboardToQuickNote', $event)"
                 />
+                <div class="shortcut-status-row">
+                  <p
+                    class="shortcut-status"
+                    :class="`shortcut-status--${getSystemShortcutStatus('captureClipboardToQuickNote') || 'pending'}`"
+                  >
+                    {{ shortcutStatusText(getSystemShortcutStatus('captureClipboardToQuickNote')) }}：{{ getSystemShortcutMessage('captureClipboardToQuickNote') || '等待检测结果。' }}
+                  </p>
+                  <UiButton
+                    v-if="canRetrySystemShortcut('captureClipboardToQuickNote')"
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    :disabled="Boolean(shortcutRetryingKeys.captureClipboardToQuickNote)"
+                    @click="retrySystemShortcut('captureClipboardToQuickNote')"
+                  >
+                    {{ shortcutRetryingKeys.captureClipboardToQuickNote ? '正在注册' : '重新注册' }}
+                  </UiButton>
+                </div>
+              </div>
+            </div>
+            <div
+              v-for="row in detachedWindowShortcutRows"
+              :key="row.key"
+              class="settings-row"
+            >
+              <div class="settings-row__label">
+                <span>{{ row.label }}</span>
+                <small>{{ row.description }}</small>
+              </div>
+              <div class="settings-row__control settings-row__control--wide">
+                <ShortcutRecorder
+                  :model-value="appConfigStore.config.shortcuts.system[row.key]"
+                  :default-value="defaultShortcuts.system[row.key]"
+                  @update:modelValue="updateSystemShortcut(row.key, $event)"
+                />
+                <div class="shortcut-status-row">
+                  <p
+                    class="shortcut-status"
+                    :class="`shortcut-status--${getSystemShortcutStatus(row.key) || 'pending'}`"
+                  >
+                    {{ shortcutStatusText(getSystemShortcutStatus(row.key)) }}：{{ getSystemShortcutMessage(row.key) || '等待检测结果。' }}
+                  </p>
+                  <UiButton
+                    v-if="canRetrySystemShortcut(row.key)"
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    :disabled="Boolean(shortcutRetryingKeys[row.key])"
+                    @click="retrySystemShortcut(row.key)"
+                  >
+                    {{ shortcutRetryingKeys[row.key] ? '正在注册' : '重新注册' }}
+                  </UiButton>
+                </div>
               </div>
             </div>
           </section>
         </div>
       </section>
 
-      <section v-if="isSettingsTabRendered('ai-agent')" key="ai-agent" class="settings-section">
+      <section v-if="isSettingsTabRendered('ai-agent')" key="ai-agent" class="settings-section settings-section--ai">
         <div class="section-head section-head--standalone">
-          <h2>AI Agent</h2>
-          <p>AI 问答入口、Agent 预留模式和后续工具执行策略。</p>
+          <h2>AI</h2>
+          <p>模型接入、问答默认参数、知识检索和 Agent 预留策略。</p>
         </div>
+
+        <AiSettingsPanel class="settings-ai-panel" @open-provider-drawer="openAiProviderDrawer" />
 
         <div class="cards-grid cards-grid--1col">
           <div class="settings-card ui-glass-surface ui-glass-surface--strong">
@@ -3445,23 +4462,61 @@ function scriptTypeLabel(type: string) {
       </Transition>
     </div>
 
+    <UiPersonalizationConfig
+      :visible="quickLaunchBackgroundPickerVisible"
+      title="快速启动窗口背景"
+      :current-background="activeQuickLaunchBackground.type === 'color' ? activeQuickLaunchBackground.color : ''"
+      :current-background-image="activeQuickLaunchBackground.type === 'image' ? activeQuickLaunchBackground.image : ''"
+      :current-background-video="activeQuickLaunchBackground.type === 'video' ? activeQuickLaunchBackground.video : ''"
+      :current-background-style="activeQuickLaunchBackground.backgroundStyle"
+      :enabled-features="['color', 'image', 'video', 'opacity', 'blur', 'textColor']"
+      :show-reset="true"
+      :preview-width="720"
+      :preview-height="460"
+      :fill-viewport="true"
+      reset-text="恢复默认背景"
+      @close="quickLaunchBackgroundPickerVisible = false"
+      @confirm="handleQuickLaunchBackgroundConfirm"
+      @reset="resetQuickLaunchBackground"
+    />
+
+    <AiProviderDrawer
+      v-if="activeSettingsTabForView === 'ai-agent' && !isSearchingSettings"
+      v-model="aiProviderDrawerVisible"
+      v-model:provider-id="editingAiProviderId"
+      :teleported="false"
+      :fixed="false"
+    />
+
   </UiScrollbar>
 </template>
 
 <style lang="scss" scoped>
 .settings-page {
   position: relative;
+  isolation: isolate;
   width: 100%;
   height: 100%;
   box-sizing: border-box;
   color: var(--ui-text-primary);
-  background:
-    linear-gradient(180deg, color-mix(in srgb, var(--background-color) 90%, #ffffff 10%) 0%, var(--background-color) 100%);
+  background: var(--background-color);
   overflow: hidden;
 }
 
+.settings-page::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  background:
+    radial-gradient(circle at 18% -10%, color-mix(in srgb, #66CCFF 22%, transparent) 0%, transparent 36%),
+    radial-gradient(circle at 86% 8%, color-mix(in srgb, #66CCFF 10%, transparent) 0%, transparent 30%),
+    linear-gradient(180deg, color-mix(in srgb, var(--background-color) 92%, #66CCFF 8%) 0%, var(--background-color) 72%);
+}
+
 .settings-page__background-video {
-  position: fixed;
+  position: absolute;
   inset: 0;
   width: 100%;
   height: 100%;
@@ -3479,8 +4534,9 @@ function scriptTypeLabel(type: string) {
   flex-direction: column;
   align-items: stretch;
   backdrop-filter: var(--ui-backdrop-blur-lg);
-  background: color-mix(in srgb, var(--background-color) 88%, transparent);
-  padding: 26px 28px 0;
+  background:
+    linear-gradient(180deg, color-mix(in srgb, var(--background-color) 68%, #66CCFF 7%) 0%, color-mix(in srgb, var(--background-color) 72%, transparent) 100%);
+  padding: 12px 24px 0;
   box-sizing: border-box;
 }
 
@@ -3488,7 +4544,7 @@ function scriptTypeLabel(type: string) {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 24px;
+  gap: 16px;
   width: 100%;
   max-width: 1440px;
   margin: 0 auto;
@@ -3496,8 +4552,8 @@ function scriptTypeLabel(type: string) {
   h1 {
     margin: 0;
     color: var(--ui-text-primary);
-    font-size: var(--ui-font-size-display-md);
-    line-height: 1.2;
+    font-size: var(--ui-font-size-2xl);
+    line-height: 1.15;
     font-weight: 700;
     letter-spacing: 0;
   }
@@ -3505,12 +4561,12 @@ function scriptTypeLabel(type: string) {
 
 .settings-search {
   position: relative;
-  width: min(320px, 38vw);
+  width: min(300px, 36vw);
   flex: 0 1 auto;
 
   :deep(.settings-search__input) {
     width: 100%;
-    min-height: 44px;
+    min-height: 36px;
     box-sizing: border-box;
     border: 1px solid color-mix(in srgb, var(--ui-border-subtle) 70%, rgba(80, 96, 118, 0.25));
     border-radius: 6px;
@@ -3560,20 +4616,20 @@ function scriptTypeLabel(type: string) {
 .settings-nav {
   width: 100%;
   max-width: 1440px;
-  margin: 20px auto 0;
+  margin: 8px auto 0;
   border-bottom: 1px solid var(--ui-border-subtle);
 
   :deep(.ui-tabs) {
     display: flex;
-    gap: 18px;
+    gap: 10px;
     border-bottom: 0;
   }
 
   :deep(.ui-tabs__item) {
-    min-height: 44px;
-    padding: 0 10px;
+    min-height: 34px;
+    padding: 0 8px;
     color: color-mix(in srgb, var(--ui-text-primary) 70%, transparent);
-    font-size: var(--ui-font-size-lg);
+    font-size: var(--ui-font-size-md);
     font-weight: 500;
     transition:
       color 0.18s ease,
@@ -3603,7 +4659,7 @@ function scriptTypeLabel(type: string) {
   width: 100%;
   max-width: 1440px;
   margin: 0 auto;
-  padding: 18px 28px 42px;
+  padding: 12px 28px 42px;
   box-sizing: border-box;
   overflow-x: hidden;
 }
@@ -3646,6 +4702,10 @@ function scriptTypeLabel(type: string) {
   display: flex;
   flex-direction: column;
   gap: 14px;
+}
+
+.settings-ai-panel {
+  min-width: 0;
 }
 
 .section-head {
@@ -3746,6 +4806,7 @@ function scriptTypeLabel(type: string) {
 }
 
 .clipboard-device-panel,
+.quick-launch-provider-list,
 .network-priority-panel {
   display: flex;
   flex-direction: column;
@@ -3765,6 +4826,113 @@ function scriptTypeLabel(type: string) {
   display: flex;
   flex-direction: column;
   gap: 8px;
+}
+
+.quick-launch-provider-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+}
+
+.quick-launch-provider-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 36px;
+  padding: 8px 10px;
+  border: 1px solid var(--ui-border-subtle);
+  border-radius: 6px;
+  background: color-mix(in srgb, var(--ui-panel-bg) 92%, transparent);
+  color: var(--ui-text-secondary);
+  font-size: var(--ui-font-size-sm);
+}
+
+.quick-launch-background-control {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto auto;
+  gap: 10px;
+  align-items: center;
+}
+
+.quick-launch-background-preview {
+  display: block;
+  width: 58px;
+  height: 38px;
+  padding: 3px;
+  border: 1px solid var(--ui-border-subtle);
+  border-radius: 6px;
+  background:
+    linear-gradient(45deg, rgba(148, 163, 184, 0.18) 25%, transparent 25%),
+    linear-gradient(-45deg, rgba(148, 163, 184, 0.18) 25%, transparent 25%),
+    linear-gradient(45deg, transparent 75%, rgba(148, 163, 184, 0.18) 75%),
+    linear-gradient(-45deg, transparent 75%, rgba(148, 163, 184, 0.18) 75%);
+  background-position: 0 0, 0 8px, 8px -8px, -8px 0;
+  background-size: 16px 16px;
+  box-sizing: border-box;
+}
+
+.quick-launch-background-preview__fill {
+  display: block;
+  width: 100%;
+  height: 100%;
+  border-radius: 4px;
+  background: rgba(250, 252, 255, 0.96);
+}
+
+.quick-launch-background-control__meta {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+
+  strong {
+    color: var(--ui-text-primary);
+    font-size: var(--ui-font-size-sm);
+    font-weight: 600;
+    line-height: 1.35;
+  }
+
+  small {
+    color: var(--ui-text-muted);
+    font-size: var(--ui-font-size-xs);
+    line-height: 1.35;
+  }
+}
+
+.quick-launch-color-control {
+  display: grid;
+  grid-template-columns: 42px minmax(0, 1fr);
+  gap: 8px;
+  align-items: center;
+  width: 100%;
+}
+
+.quick-launch-color-input {
+  width: 42px;
+  height: var(--ui-control-height-sm);
+  padding: 3px;
+  border: 1px solid var(--ui-input-border);
+  border-radius: var(--ui-radius-sm);
+  background: var(--ui-input-bg);
+  cursor: pointer;
+
+  &:focus-visible {
+    outline: none;
+    box-shadow: var(--ui-focus-ring);
+  }
+}
+
+.quick-launch-es-path {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  gap: 8px;
+  align-items: center;
+}
+
+.quick-launch-es-path__hint {
+  margin: 8px 0 0;
+  color: var(--ui-text-muted);
+  font-size: var(--ui-font-size-xs);
+  line-height: 1.5;
 }
 
 .clipboard-device-item,
@@ -3848,6 +5016,180 @@ function scriptTypeLabel(type: string) {
   color: var(--ui-danger-color, #dc2626);
   font-size: var(--ui-font-size-xs);
   line-height: 1.45;
+}
+
+.quick-launch-shortcut-map {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+  min-width: 0;
+}
+
+.quick-launch-shortcut-map__group {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 0;
+}
+
+.quick-launch-shortcut-map__title {
+  margin: 0;
+  color: var(--ui-text-primary);
+  font-size: var(--ui-font-size-sm);
+  font-weight: 700;
+  line-height: 1.35;
+}
+
+.quick-launch-shortcut-map__list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+}
+
+.quick-launch-shortcut-map__row {
+  display: grid;
+  grid-template-columns: minmax(96px, 0.72fr) minmax(150px, 1fr);
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+  min-height: 34px;
+  padding: 7px 9px;
+  border: 1px solid var(--ui-border-subtle);
+  border-radius: 6px;
+  background: color-mix(in srgb, var(--ui-input-bg) 92%, transparent);
+  box-sizing: border-box;
+}
+
+.quick-launch-shortcut-map__label {
+  min-width: 0;
+  color: var(--ui-text-secondary);
+  font-size: var(--ui-font-size-xs);
+  line-height: 1.35;
+}
+
+.quick-launch-shortcut-map__keys {
+  justify-self: end;
+  max-width: 100%;
+  padding: 2px 6px;
+  border: 1px solid color-mix(in srgb, var(--ui-border-subtle) 84%, var(--ui-text-muted) 16%);
+  border-radius: 5px;
+  background: color-mix(in srgb, var(--ui-panel-bg) 94%, transparent);
+  color: var(--ui-text-primary);
+  font-family: var(--ui-font-family-mono, "Geist Mono", Consolas, monospace);
+  font-size: var(--ui-font-size-xs);
+  font-weight: 600;
+  line-height: 1.4;
+  text-align: right;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+
+.shortcut-detection-panel {
+  grid-column: 2;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 0;
+  margin-bottom: 6px;
+  padding: 10px 12px;
+  border: 1px solid var(--ui-border-subtle);
+  border-radius: 6px;
+  background: color-mix(in srgb, var(--ui-panel-bg) 92%, transparent);
+}
+
+.shortcut-detection-panel__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+
+  strong {
+    display: block;
+    color: var(--ui-text-primary);
+    font-size: var(--ui-font-size-sm);
+    font-weight: 700;
+    line-height: 1.35;
+  }
+
+  small {
+    display: block;
+    margin-top: 2px;
+    color: var(--ui-text-muted);
+    font-size: var(--ui-font-size-xs);
+    line-height: 1.45;
+  }
+}
+
+.shortcut-detection-panel__summary,
+.shortcut-probe-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.shortcut-detection-panel__summary span,
+.shortcut-probe-chip {
+  min-height: 22px;
+  padding: 2px 7px;
+  border-radius: 5px;
+  border: 1px solid var(--ui-border-subtle);
+  background: color-mix(in srgb, var(--ui-input-bg) 92%, transparent);
+  color: var(--ui-text-secondary);
+  font-size: var(--ui-font-size-xs);
+  line-height: 1.45;
+  box-sizing: border-box;
+}
+
+.shortcut-probe-chip {
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.shortcut-probe-chip--registered,
+.shortcut-status--registered {
+  color: var(--ui-success-color, #16a34a);
+}
+
+.shortcut-probe-chip--available,
+.shortcut-status--available {
+  color: color-mix(in srgb, #0b67d8 84%, var(--ui-text-primary));
+}
+
+.shortcut-probe-chip--conflict,
+.shortcut-probe-chip--invalid,
+.shortcut-status--conflict,
+.shortcut-status--invalid {
+  color: var(--ui-danger-color, #dc2626);
+}
+
+.shortcut-probe-chip--empty,
+.shortcut-status--empty,
+.shortcut-status--pending {
+  color: var(--ui-text-muted);
+}
+
+.shortcut-status {
+  margin: 6px 0 0;
+  font-size: var(--ui-font-size-xs);
+  line-height: 1.45;
+}
+
+.shortcut-status-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  min-width: 0;
+  margin-top: 6px;
+
+  .shortcut-status {
+    flex: 1 1 auto;
+    min-width: 0;
+    margin: 0;
+  }
 }
 
 .terminal-profile-editor {
@@ -4154,13 +5496,17 @@ function scriptTypeLabel(type: string) {
 
 @media (max-width: 860px) {
   .page-header {
-    padding: 20px 16px 0;
+    padding: 10px 16px 0;
   }
 
   .page-title-row {
     align-items: stretch;
     flex-direction: column;
-    gap: 14px;
+    gap: 8px;
+
+    h1 {
+      font-size: var(--ui-font-size-xl);
+    }
   }
 
   .settings-search {
@@ -4168,18 +5514,36 @@ function scriptTypeLabel(type: string) {
   }
 
   .settings-nav {
-    margin-top: 14px;
+    margin-top: 8px;
     overflow-x: auto;
   }
 
   .page-body {
-    padding: 14px 16px 28px;
+    padding: 10px 16px 28px;
   }
 
   .settings-group {
     grid-template-columns: 1fr;
     gap: 10px;
     padding: 16px 0;
+  }
+
+  .shortcut-detection-panel {
+    grid-column: 1;
+  }
+
+  .quick-launch-shortcut-map {
+    grid-template-columns: 1fr;
+  }
+
+  .quick-launch-shortcut-map__row {
+    grid-template-columns: 1fr;
+    align-items: start;
+  }
+
+  .quick-launch-shortcut-map__keys {
+    justify-self: start;
+    text-align: left;
   }
 
   .settings-group h3 {

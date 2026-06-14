@@ -4,6 +4,7 @@ import type { BackgroundConfirmPayload, BackgroundStyleConfig } from '../../type
 import type { CompressQuality } from '@/contracts/media';
 import { useAppConfigStore } from '../../stores/app_config_store';
 import UiButton from './UiButton.vue';
+import UiColorPicker from './UiColorPicker.vue';
 import UiDialog from './UiDialog.vue';
 import UiIconButton from './UiIconButton.vue';
 import UiSelect from './UiSelect.vue';
@@ -25,6 +26,10 @@ const props = withDefaults(defineProps<{
   previewWidth?: number;
   /** 目标区域高度 (px)，预览框按此比例渲染 */
   previewHeight?: number;
+  /** 是否显示预览区 */
+  showPreview?: boolean;
+  /** 是否让配置面板尽量占满当前窗口高度 */
+  fillViewport?: boolean;
 }>(), {
   title: '个性化配置',
   currentBackground: '',
@@ -36,6 +41,8 @@ const props = withDefaults(defineProps<{
   resetText: '还原默认',
   previewWidth: 320,
   previewHeight: 200,
+  showPreview: true,
+  fillViewport: false,
 });
 
 const emit = defineEmits<{
@@ -756,7 +763,18 @@ watch(() => props.visible, (visible) => {
 </script>
 
 <template>
-  <UiDialog class="bg-picker" :model-value="visible" width="580px" max-width="580px" :close-on-mask="false"
+  <UiDialog
+    :class="[
+      'bg-picker',
+      {
+        'bg-picker--no-preview': !showPreview,
+        'bg-picker--fill-viewport': fillViewport,
+      },
+    ]"
+    :model-value="visible"
+    width="580px"
+    max-width="580px"
+    :close-on-mask="false"
     @update:modelValue="handleDialogModelValueChange">
     <template #header>
       <div class="bg-picker__header">
@@ -775,7 +793,7 @@ watch(() => props.visible, (visible) => {
     </div>
 
     <!-- 预览区域 -->
-    <div class="bg-picker__preview">
+    <div v-if="showPreview" class="bg-picker__preview">
       <div
         class="bg-picker__preview-wrapper"
         :class="{ 'bg-picker__preview-wrapper--checker': bgOpacity < 1 }"
@@ -803,13 +821,13 @@ watch(() => props.visible, (visible) => {
         </div>
 
         <div class="bg-picker__section-title">纯色</div>
-        <div class="bg-picker__color-grid">
-          <div v-for="(color, index) in presetColors" :key="index" class="bg-picker__swatch"
-            :class="{ 'bg-picker__swatch--selected': selectedColor === color }" :style="{ background: color }"
-            @click="handleColorSelect(color)">
-            <div v-if="selectedColor === color" class="bg-picker__swatch-check">✓</div>
-          </div>
-        </div>
+        <UiColorPicker
+          :model-value="selectedColor"
+          :swatches="presetColors"
+          aria-label="选择背景纯色"
+          placeholder="#667eea"
+          @update:model-value="handleColorSelect"
+        />
 
         <!-- 自定义颜色区域 -->
         <div class="bg-picker__custom-section">
@@ -1023,22 +1041,13 @@ watch(() => props.visible, (visible) => {
 
       <div v-if="canUseTextColor" class="bg-picker__text-color-panel">
         <div class="bg-picker__section-title">文字颜色</div>
-        <div class="bg-picker__text-color-row">
-          <input
-            class="bg-picker__text-color-swatch"
-            type="color"
-            :value="selectedTextColor || '#ffffff'"
-            @input="selectedTextColor = ($event.target as HTMLInputElement).value"
-          />
-          <input
-            v-model="selectedTextColor"
-            class="bg-picker__text-color-input"
-            placeholder="默认文字颜色"
-          />
-          <button class="bg-picker__text-color-reset" type="button" @click="selectedTextColor = ''">
-            重置
-          </button>
-        </div>
+        <UiColorPicker
+          v-model="selectedTextColor"
+          :swatches="['#ffffff', '#1e465a', '#dcf0ff', '#111827', '#f8fafc', '#66ccff']"
+          allow-empty
+          aria-label="文字颜色"
+          placeholder="默认文字颜色"
+        />
       </div>
     </div>
 
@@ -1098,6 +1107,12 @@ export default {
   display: flex;
   flex-direction: column;
   border-radius: var(--ui-radius-md);
+}
+
+.bg-picker--fill-viewport,
+.bg-picker--fill-viewport.bg-picker.ui-card {
+  min-height: min(88vh, 520px);
+  max-height: 88vh;
 }
 
 .bg-picker__header {
@@ -1182,6 +1197,25 @@ export default {
   @include thin-scroll;
   padding: 14px 18px;
   max-height: calc(74vh - 300px);
+}
+
+.bg-picker--no-preview .bg-picker__content {
+  max-height: calc(74vh - 132px);
+}
+
+.bg-picker--fill-viewport .bg-picker__content {
+  max-height: calc(88vh - 180px);
+}
+
+.bg-picker--fill-viewport.bg-picker--no-preview .bg-picker__content {
+  max-height: calc(88vh - 132px);
+}
+
+@media (max-height: 560px) {
+  .bg-picker--fill-viewport,
+  .bg-picker--fill-viewport.bg-picker.ui-card {
+    min-height: calc(100vh - 32px);
+  }
 }
 
 .bg-picker__section-title {

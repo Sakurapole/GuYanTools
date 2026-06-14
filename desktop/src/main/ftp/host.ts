@@ -15,13 +15,17 @@ import type {
   FtpConnectionDescriptor,
   FtpExternalEditorOptions,
   FtpEventEnvelope,
+  FtpFilterPresetRecord,
   FtpProfile,
   FtpRetryPolicy,
   FtpRestoreState,
+  FtpScheduledTask,
   FtpSessionFolder,
   FtpTransferOptions,
   TransferTask,
+  UpsertFtpFilterPresetInput,
   UpsertFtpRestoreStateInput,
+  UpsertFtpScheduledTaskInput,
   UpdateFtpProfileInput,
   UpdateFtpSessionFolderInput,
 } from '@/contracts/ftp';
@@ -40,6 +44,12 @@ type JsFtpHostConstructor = new (db: unknown) => {
   listRestoreStates(): Promise<FtpRestoreState[]>;
   upsertRestoreState(input: unknown): Promise<FtpRestoreState>;
   deleteRestoreState(sessionId: string): Promise<void>;
+  listScheduledTasks(): Promise<FtpScheduledTask[]>;
+  upsertScheduledTask(input: unknown): Promise<FtpScheduledTask>;
+  deleteScheduledTask(id: string): Promise<void>;
+  listFilterPresets(): Promise<FtpFilterPresetRecord[]>;
+  upsertFilterPreset(input: unknown): Promise<FtpFilterPresetRecord>;
+  deleteFilterPreset(id: string): Promise<void>;
   connect(input: unknown): Promise<FtpConnectionDescriptor>;
   cancelAuthChallenge(authSessionId: string): Promise<void>;
   disconnect(sessionId: string): Promise<void>;
@@ -149,6 +159,30 @@ class FtpHost {
 
   async deleteRestoreState(sessionId: string) {
     return this.host.deleteRestoreState(sessionId);
+  }
+
+  async listScheduledTasks() {
+    return this.host.listScheduledTasks();
+  }
+
+  async upsertScheduledTask(input: UpsertFtpScheduledTaskInput) {
+    return this.host.upsertScheduledTask(input);
+  }
+
+  async deleteScheduledTask(id: string) {
+    return this.host.deleteScheduledTask(id);
+  }
+
+  async listFilterPresets() {
+    return this.host.listFilterPresets();
+  }
+
+  async upsertFilterPreset(input: UpsertFtpFilterPresetInput) {
+    return this.host.upsertFilterPreset(input);
+  }
+
+  async deleteFilterPreset(id: string) {
+    return this.host.deleteFilterPreset(id);
   }
 
   async connect(input: ConnectFtpInput) {

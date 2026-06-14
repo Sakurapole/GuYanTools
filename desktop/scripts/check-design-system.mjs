@@ -27,6 +27,7 @@ const allowedUndefinedVars = new Set([
   '--todo-sidebar-item-surface-bg',
   '--todo-sidebar-item-surface-opacity',
   '--ui-file-icon-glyph-x',
+  '--ui-range-progress',
   '--ui-tooltip-arrow-x',
   '--ui-tooltip-arrow-y',
   '--widget-text-primary',
@@ -61,6 +62,7 @@ const zIndexHits = [];
 const discouragedAliases = [];
 const componentContractHits = [];
 const iconControlCompositionHits = [];
+const pageRangeControlHits = [];
 
 function hasNamedSlot(text, name) {
   return new RegExp(`<slot\\s+name=["']${name}["']`).test(text);
@@ -117,6 +119,16 @@ for (const file of files) {
         iconControlCompositionHits.push(`${rel}:${line}: external icon + UiInput composition`);
       }
     }
+
+    const pageRangePatterns = [
+      /quick-launch-range-control/g,
+    ];
+    for (const pattern of pageRangePatterns) {
+      for (const match of text.matchAll(pattern)) {
+        const line = text.slice(0, match.index ?? 0).split(/\r?\n/).length;
+        pageRangeControlHits.push(`${rel}:${line}: page-local range control composition`);
+      }
+    }
   }
 }
 
@@ -147,6 +159,9 @@ if (componentContractHits.length) {
 }
 if (iconControlCompositionHits.length) {
   failures.push(['External icon + UI control compositions', iconControlCompositionHits]);
+}
+if (pageRangeControlHits.length) {
+  failures.push(['Page-local range control compositions', pageRangeControlHits]);
 }
 
 const warnings = [];

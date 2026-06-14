@@ -111,6 +111,22 @@ pub fn run_migrations(conn: &Connection) -> DbResult<()> {
             "024_add_ai_chat",
             include_str!("../../migrations/024_add_ai_chat.sql"),
         ),
+        (
+            "025_add_ai_canvas_tables",
+            include_str!("../../migrations/025_add_ai_canvas_tables.sql"),
+        ),
+        (
+            "026_add_ai_research_tables",
+            include_str!("../../migrations/026_add_ai_research_tables.sql"),
+        ),
+        (
+            "027_add_ai_memory_projects",
+            include_str!("../../migrations/027_add_ai_memory_projects.sql"),
+        ),
+        (
+            "028_extend_ftp_persisted_config",
+            include_str!("../../migrations/028_extend_ftp_persisted_config.sql"),
+        ),
     ];
 
     // 执行每个迁移
@@ -156,5 +172,101 @@ mod tests {
             .query_row("SELECT COUNT(*) FROM _migrations", [], |row| row.get(0))
             .unwrap();
         assert!(count > 0);
+    }
+
+    #[test]
+    fn test_repair_ai_canvas_tables_when_024_was_already_applied() {
+        let conn = Connection::open_in_memory().unwrap();
+        conn.execute_batch(
+            r#"
+            CREATE TABLE _migrations (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                name TEXT NOT NULL UNIQUE,
+                applied_at TEXT NOT NULL DEFAULT (datetime('now'))
+            );
+            CREATE TABLE ai_chat_conversations (
+                id TEXT PRIMARY KEY,
+                title TEXT NOT NULL,
+                provider_id TEXT NOT NULL,
+                model_id TEXT NOT NULL,
+                system_prompt TEXT,
+                pinned INTEGER NOT NULL DEFAULT 0,
+                archived INTEGER NOT NULL DEFAULT 0,
+                created_at TEXT NOT NULL DEFAULT (datetime('now')),
+                updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+            );
+            CREATE TABLE ai_chat_messages (
+                id TEXT PRIMARY KEY,
+                conversation_id TEXT NOT NULL,
+                role TEXT NOT NULL,
+                content TEXT NOT NULL,
+                status TEXT NOT NULL DEFAULT 'complete',
+                parent_message_id TEXT,
+                model_id TEXT,
+                provider_id TEXT,
+                token_usage_json TEXT,
+                metadata_json TEXT,
+                created_at TEXT NOT NULL DEFAULT (datetime('now')),
+                updated_at TEXT NOT NULL DEFAULT (datetime('now')),
+                FOREIGN KEY (conversation_id) REFERENCES ai_chat_conversations(id) ON DELETE CASCADE
+            );
+            CREATE TABLE ai_message_citations (
+                id TEXT PRIMARY KEY,
+                message_id TEXT NOT NULL,
+                source_type TEXT NOT NULL,
+                title TEXT NOT NULL,
+                url TEXT,
+                source_id TEXT,
+                snippet TEXT,
+                metadata_json TEXT,
+                created_at TEXT NOT NULL DEFAULT (datetime('now')),
+                FOREIGN KEY (message_id) REFERENCES ai_chat_messages(id) ON DELETE CASCADE
+            );
+            INSERT INTO _migrations (name) VALUES ('001_init');
+            INSERT INTO _migrations (name) VALUES ('002_add_projects');
+            INSERT INTO _migrations (name) VALUES ('003_add_settings');
+            INSERT INTO _migrations (name) VALUES ('004_add_home_layout');
+            INSERT INTO _migrations (name) VALUES ('005_add_background_fields');
+            INSERT INTO _migrations (name) VALUES ('006_add_todo');
+            INSERT INTO _migrations (name) VALUES ('007_extend_home_widgets_builtin');
+            INSERT INTO _migrations (name) VALUES ('008_extend_home_workspace_bg');
+            INSERT INTO _migrations (name) VALUES ('009_add_plugins_table');
+            INSERT INTO _migrations (name) VALUES ('010_add_ssh_profiles');
+            INSERT INTO _migrations (name) VALUES ('011_add_ftp_client');
+            INSERT INTO _migrations (name) VALUES ('012_add_ssh_port_forwards');
+            INSERT INTO _migrations (name) VALUES ('013_add_ssh_certificate_paths');
+            INSERT INTO _migrations (name) VALUES ('014_add_ssh_managed_keys');
+            INSERT INTO _migrations (name) VALUES ('015_add_host_ca_key_paths');
+            INSERT INTO _migrations (name) VALUES ('016_extend_ftp_transfer_tree_history');
+            INSERT INTO _migrations (name) VALUES ('017_add_multi_device_clipboard');
+            INSERT INTO _migrations (name) VALUES ('018_add_mobile_home_layouts');
+            INSERT INTO _migrations (name) VALUES ('019_add_ssh_profile_folders');
+            INSERT INTO _migrations (name) VALUES ('020_add_todo_step_image');
+            INSERT INTO _migrations (name) VALUES ('021_add_knowledge');
+            INSERT INTO _migrations (name) VALUES ('022_add_knowledge_quick_notes');
+            INSERT INTO _migrations (name) VALUES ('023_add_knowledge_search_fts');
+            INSERT INTO _migrations (name) VALUES ('024_add_ai_chat');
+            "#,
+        )
+        .unwrap();
+
+        let result = run_migrations(&conn);
+        assert!(result.is_ok());
+
+        for table in [
+            "ai_canvas_workspaces",
+            "ai_canvas_files",
+            "ai_canvas_versions",
+            "ai_canvas_operations",
+        ] {
+            let exists: bool = conn
+                .query_row(
+                    "SELECT EXISTS(SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = ?1)",
+                    [table],
+                    |row| row.get(0),
+                )
+                .unwrap();
+            assert!(exists, "{} should be created by repair migration", table);
+        }
     }
 }

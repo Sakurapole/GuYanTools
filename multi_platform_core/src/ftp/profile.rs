@@ -615,6 +615,264 @@ impl super::FtpManager {
             .map_err(|e| anyhow!("{}", e))
     }
 
+    pub fn list_scheduled_tasks(&self) -> Result<Vec<FtpScheduledTask>> {
+        self.inner
+            .db
+            .with_connection(|conn| {
+                let mut stmt = conn
+                    .prepare(
+                        "SELECT id, label, session_id, direction, local_path, remote_path,
+                                schedule_type, conflict_strategy, enabled, include_subdirs,
+                                once_at, interval_hours, time_of_day, day_of_week, cron_expression,
+                                next_run_at, last_run_at, last_run_status, last_result,
+                                last_task_id, created_at, updated_at
+                         FROM ftp_scheduled_tasks
+                         ORDER BY next_run_at IS NULL, next_run_at ASC, created_at ASC",
+                    )
+                    .map_err(|e| crate::db::DbError::QueryFailed(e.to_string()))?;
+
+                let rows = stmt
+                    .query_map([], |row| {
+                        Ok(FtpScheduledTask {
+                            id: row.get(0)?,
+                            label: row.get(1)?,
+                            profile_id: row.get(2)?,
+                            direction: row.get(3)?,
+                            local_path: row.get(4)?,
+                            remote_path: row.get(5)?,
+                            schedule_type: row.get(6)?,
+                            conflict_policy: row.get(7)?,
+                            enabled: row.get::<_, i64>(8)? != 0,
+                            include_subdirectories: row.get::<_, i64>(9)? != 0,
+                            once_at: row.get(10)?,
+                            interval_hours: row.get(11)?,
+                            time_of_day: row.get(12)?,
+                            day_of_week: row.get(13)?,
+                            cron_expression: row.get(14)?,
+                            next_run_at: row.get(15)?,
+                            last_run_at: row.get(16)?,
+                            last_status: row.get(17)?,
+                            last_result: row.get(18)?,
+                            last_task_id: row.get(19)?,
+                            created_at: row.get(20)?,
+                            updated_at: row.get(21)?,
+                        })
+                    })
+                    .map_err(|e| crate::db::DbError::QueryFailed(e.to_string()))?;
+
+                rows.collect::<rusqlite::Result<Vec<_>>>()
+                    .map_err(|e| crate::db::DbError::QueryFailed(e.to_string()))
+            })
+            .map_err(|e| anyhow!("{}", e))
+    }
+
+    pub fn upsert_scheduled_task(
+        &self,
+        input: UpsertFtpScheduledTaskInput,
+    ) -> Result<FtpScheduledTask> {
+        let id = input
+            .id
+            .clone()
+            .filter(|value| !value.trim().is_empty())
+            .unwrap_or_else(|| Uuid::new_v4().to_string());
+        let label = non_empty_or_default(&input.label, "未命名计划任务");
+        let profile_id = input.profile_id.trim().to_string();
+        if profile_id.is_empty() {
+            return Err(anyhow!("FTP scheduled task profile_id is required"));
+        }
+        if input.local_path.trim().is_empty() {
+            return Err(anyhow!("FTP scheduled task local_path is required"));
+        }
+        if input.remote_path.trim().is_empty() {
+            return Err(anyhow!("FTP scheduled task remote_path is required"));
+        }
+        let direction = normalize_ftp_direction(&input.direction)?;
+        let schedule_type = normalize_ftp_schedule_type(&input.schedule_type)?;
+        let conflict_policy = normalize_ftp_conflict_policy(input.conflict_policy.as_deref());
+        let last_status = input
+            .last_status
+            .as_deref()
+            .and_then(normalize_ftp_schedule_status);
+        let now = unix_now();
+
+        self.inner
+            .db
+            .with_connection(|conn| {
+                conn.execute(
+                    "INSERT INTO ftp_scheduled_tasks
+                        (id, session_id, label, direction, local_path, remote_path, schedule_type,
+                         cron_expression, next_run_at, last_run_at, last_run_status,
+                         conflict_strategy, include_subdirs, enabled, created_at,
+                         once_at, interval_hours, time_of_day, day_of_week, last_result,
+                         last_task_id, updated_at)
+                     VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14,
+                             ?15, ?16, ?17, ?18, ?19, ?20, ?21, ?22)
+                     ON CONFLICT(id) DO UPDATE SET
+                        session_id = excluded.session_id,
+                        label = excluded.label,
+                        direction = excluded.direction,
+                        local_path = excluded.local_path,
+                        remote_path = excluded.remote_path,
+                        schedule_type = excluded.schedule_type,
+                        cron_expression = excluded.cron_expression,
+                        next_run_at = excluded.next_run_at,
+                        last_run_at = excluded.last_run_at,
+                        last_run_status = excluded.last_run_status,
+                        conflict_strategy = excluded.conflict_strategy,
+                        include_subdirs = excluded.include_subdirs,
+                        enabled = excluded.enabled,
+                        once_at = excluded.once_at,
+                        interval_hours = excluded.interval_hours,
+                        time_of_day = excluded.time_of_day,
+                        day_of_week = excluded.day_of_week,
+                        last_result = excluded.last_result,
+                        last_task_id = excluded.last_task_id,
+                        updated_at = excluded.updated_at",
+                    rusqlite::params![
+                        id,
+                        profile_id,
+                        label,
+                        direction,
+                        input.local_path.trim(),
+                        normalize_remote_path(&input.remote_path),
+                        schedule_type,
+                        trim_optional_string(input.cron_expression.as_deref()),
+                        input.next_run_at,
+                        input.last_run_at,
+                        last_status,
+                        conflict_policy,
+                        input.include_subdirectories.unwrap_or(true) as i64,
+                        input.enabled.unwrap_or(true) as i64,
+                        now,
+                        input.once_at,
+                        input.interval_hours,
+                        trim_optional_string(input.time_of_day.as_deref()),
+                        input.day_of_week,
+                        trim_optional_string(input.last_result.as_deref()),
+                        trim_optional_string(input.last_task_id.as_deref()),
+                        now,
+                    ],
+                )
+                .map_err(|e| crate::db::DbError::QueryFailed(e.to_string()))?;
+                Ok(())
+            })
+            .map_err(|e| anyhow!("{}", e))?;
+
+        self.get_scheduled_task(&id)
+    }
+
+    pub fn delete_scheduled_task(&self, id: &str) -> Result<()> {
+        self.inner
+            .db
+            .with_connection(|conn| {
+                conn.execute(
+                    "DELETE FROM ftp_scheduled_tasks WHERE id = ?1",
+                    rusqlite::params![id],
+                )
+                .map_err(|e| crate::db::DbError::QueryFailed(e.to_string()))?;
+                Ok(())
+            })
+            .map_err(|e| anyhow!("{}", e))
+    }
+
+    pub fn list_filter_presets(&self) -> Result<Vec<FtpFilterPreset>> {
+        self.inner
+            .db
+            .with_connection(|conn| {
+                let mut stmt = conn
+                    .prepare(
+                        "SELECT id, label, rules_json, is_builtin, created_at
+                         FROM ftp_filter_presets
+                         ORDER BY is_builtin DESC, created_at ASC",
+                    )
+                    .map_err(|e| crate::db::DbError::QueryFailed(e.to_string()))?;
+
+                let rows = stmt
+                    .query_map([], |row| {
+                        Ok(FtpFilterPreset {
+                            id: row.get(0)?,
+                            label: row.get(1)?,
+                            rules_json: row.get(2)?,
+                            is_builtin: row.get::<_, i64>(3)? != 0,
+                            created_at: row.get(4)?,
+                        })
+                    })
+                    .map_err(|e| crate::db::DbError::QueryFailed(e.to_string()))?;
+
+                rows.collect::<rusqlite::Result<Vec<_>>>()
+                    .map_err(|e| crate::db::DbError::QueryFailed(e.to_string()))
+            })
+            .map_err(|e| anyhow!("{}", e))
+    }
+
+    pub fn upsert_filter_preset(
+        &self,
+        input: UpsertFtpFilterPresetInput,
+    ) -> Result<FtpFilterPreset> {
+        serde_json::from_str::<serde_json::Value>(&input.rules_json)
+            .map_err(|e| anyhow!("invalid FTP filter preset rules_json: {}", e))?;
+        let id = input
+            .id
+            .clone()
+            .filter(|value| !value.trim().is_empty())
+            .unwrap_or_else(|| Uuid::new_v4().to_string());
+        let label = non_empty_or_default(&input.label, "未命名预设");
+        let now = unix_now();
+
+        self.inner
+            .db
+            .with_connection(|conn| {
+                conn.execute(
+                    "INSERT INTO ftp_filter_presets (id, label, rules_json, is_builtin, created_at)
+                     VALUES (?1, ?2, ?3, ?4, ?5)
+                     ON CONFLICT(id) DO UPDATE SET
+                        label = excluded.label,
+                        rules_json = excluded.rules_json,
+                        is_builtin = excluded.is_builtin",
+                    rusqlite::params![
+                        id,
+                        label,
+                        input.rules_json,
+                        input.is_builtin.unwrap_or(false) as i64,
+                        now,
+                    ],
+                )
+                .map_err(|e| crate::db::DbError::QueryFailed(e.to_string()))?;
+                Ok(())
+            })
+            .map_err(|e| anyhow!("{}", e))?;
+
+        self.get_filter_preset(&id)
+    }
+
+    pub fn delete_filter_preset(&self, id: &str) -> Result<()> {
+        self.inner
+            .db
+            .with_connection(|conn| {
+                conn.execute(
+                    "DELETE FROM ftp_filter_presets WHERE id = ?1 AND is_builtin = 0",
+                    rusqlite::params![id],
+                )
+                .map_err(|e| crate::db::DbError::QueryFailed(e.to_string()))?;
+                Ok(())
+            })
+            .map_err(|e| anyhow!("{}", e))
+    }
+
+    fn get_scheduled_task(&self, id: &str) -> Result<FtpScheduledTask> {
+        self.list_scheduled_tasks()?
+            .into_iter()
+            .find(|task| task.id == id)
+            .ok_or_else(|| anyhow!("FTP scheduled task '{}' not found", id))
+    }
+
+    fn get_filter_preset(&self, id: &str) -> Result<FtpFilterPreset> {
+        self.list_filter_presets()?
+            .into_iter()
+            .find(|preset| preset.id == id)
+            .ok_or_else(|| anyhow!("FTP filter preset '{}' not found", id))
+    }
+
     fn next_sort_order(&self) -> Result<i64> {
         self.inner
             .db
@@ -731,5 +989,154 @@ impl super::FtpManager {
         .map_err(|e| crate::db::DbError::QueryFailed(e.to_string()))?;
 
         Ok(())
+    }
+}
+
+fn non_empty_or_default(value: &str, fallback: &str) -> String {
+    let trimmed = value.trim();
+    if trimmed.is_empty() {
+        fallback.to_string()
+    } else {
+        trimmed.to_string()
+    }
+}
+
+fn trim_optional_string(value: Option<&str>) -> Option<String> {
+    value.and_then(|item| {
+        let trimmed = item.trim();
+        if trimmed.is_empty() {
+            None
+        } else {
+            Some(trimmed.to_string())
+        }
+    })
+}
+
+fn normalize_ftp_direction(value: &str) -> Result<String> {
+    match value.trim().to_lowercase().as_str() {
+        "upload" => Ok("upload".to_string()),
+        "download" => Ok("download".to_string()),
+        other => Err(anyhow!("unsupported FTP scheduled task direction '{}'", other)),
+    }
+}
+
+fn normalize_ftp_schedule_type(value: &str) -> Result<String> {
+    match value.trim().to_lowercase().as_str() {
+        "once" => Ok("once".to_string()),
+        "hourly" => Ok("hourly".to_string()),
+        "daily" => Ok("daily".to_string()),
+        "weekly" => Ok("weekly".to_string()),
+        "cron" => Ok("cron".to_string()),
+        other => Err(anyhow!("unsupported FTP schedule type '{}'", other)),
+    }
+}
+
+fn normalize_ftp_conflict_policy(value: Option<&str>) -> String {
+    match value.map(str::trim) {
+        Some("parallel") => "parallel".to_string(),
+        _ => "skip".to_string(),
+    }
+}
+
+fn normalize_ftp_schedule_status(value: &str) -> Option<String> {
+    match value.trim() {
+        "idle" => Some("idle".to_string()),
+        "running" => Some("running".to_string()),
+        "success" => Some("success".to_string()),
+        "failed" => Some("failed".to_string()),
+        _ => None,
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::db::Database;
+
+    fn create_test_manager() -> FtpManager {
+        let db = Database::new_in_memory().unwrap();
+        FtpManager::new(std::sync::Arc::new(db))
+    }
+
+    #[test]
+    fn scheduled_tasks_round_trip_through_sqlite() {
+        let manager = create_test_manager();
+        let profile = manager
+            .create_profile(CreateFtpProfileInput {
+                label: "Test FTP".to_string(),
+                protocol: "sftp".to_string(),
+                host: Some("example.test".to_string()),
+                port: Some(22),
+                username: Some("tester".to_string()),
+                ..Default::default()
+            })
+            .unwrap();
+
+        let task = manager
+            .upsert_scheduled_task(UpsertFtpScheduledTaskInput {
+                id: Some("schedule-1".to_string()),
+                label: "Nightly upload".to_string(),
+                profile_id: profile.id.clone(),
+                direction: "upload".to_string(),
+                local_path: "C:\\work\\build".to_string(),
+                remote_path: "/srv/build".to_string(),
+                schedule_type: "weekly".to_string(),
+                conflict_policy: Some("parallel".to_string()),
+                enabled: Some(true),
+                include_subdirectories: Some(false),
+                once_at: Some(1_735_689_600_000),
+                interval_hours: Some(6),
+                time_of_day: Some("23:30".to_string()),
+                day_of_week: Some(5),
+                cron_expression: Some("30 23 * * 5".to_string()),
+                next_run_at: Some(1_735_689_600_000),
+                last_run_at: Some(1_735_603_200_000),
+                last_status: Some("success".to_string()),
+                last_result: Some("recent run ok".to_string()),
+                last_task_id: Some("transfer-1".to_string()),
+            })
+            .unwrap();
+
+        assert_eq!(task.id, "schedule-1");
+        assert_eq!(task.profile_id, profile.id);
+        assert_eq!(task.conflict_policy.as_deref(), Some("parallel"));
+        assert_eq!(task.include_subdirectories, false);
+        assert_eq!(task.time_of_day.as_deref(), Some("23:30"));
+        assert_eq!(task.day_of_week, Some(5));
+        assert_eq!(task.last_result.as_deref(), Some("recent run ok"));
+        assert_eq!(task.last_task_id.as_deref(), Some("transfer-1"));
+        assert!(task.updated_at >= task.created_at);
+
+        let listed = manager.list_scheduled_tasks().unwrap();
+        assert_eq!(listed.len(), 1);
+        assert_eq!(listed[0].id, "schedule-1");
+
+        manager.delete_scheduled_task("schedule-1").unwrap();
+        assert!(manager.list_scheduled_tasks().unwrap().is_empty());
+    }
+
+    #[test]
+    fn filter_presets_round_trip_through_sqlite() {
+        let manager = create_test_manager();
+        let preset = manager
+            .upsert_filter_preset(UpsertFtpFilterPresetInput {
+                id: Some("preset-1".to_string()),
+                label: "Logs".to_string(),
+                rules_json: r#"{"mode":"files","extensionQuery":".log"}"#.to_string(),
+                is_builtin: Some(false),
+            })
+            .unwrap();
+
+        assert_eq!(preset.id, "preset-1");
+        assert_eq!(preset.label, "Logs");
+        assert_eq!(preset.rules_json, r#"{"mode":"files","extensionQuery":".log"}"#);
+        assert!(!preset.is_builtin);
+
+        let listed = manager.list_filter_presets().unwrap();
+        assert_eq!(listed.len(), 1);
+        assert_eq!(listed[0].id, "preset-1");
+
+        manager.delete_filter_preset("preset-1").unwrap();
+        assert!(manager.list_filter_presets().unwrap().is_empty());
     }
 }
