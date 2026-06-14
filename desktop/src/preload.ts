@@ -9,7 +9,10 @@ import type {
   UpdateHomeWidgetPayload,
 } from '@/contracts/home_layout';
 import type { AppConfigApi } from '@/contracts/app_config';
-import type { AiApi, AiStreamEvent } from '@/contracts/ai';
+import type { ShortcutsApi } from '@/contracts/shortcuts';
+import type { QuickLaunchApi } from '@/contracts/quick_launch';
+import type { WorkspaceWindowApi, WorkspaceDetachedWindowState } from '@/contracts/workspace_window';
+import type { AiApi, AiCanvasPreviewPayload, AiResearchEvent, AiStreamEvent } from '@/contracts/ai';
 import type { PluginHostApi } from '@/contracts/plugin_host';
 import type { NotificationApi, NotificationPayload } from '@/contracts/notification';
 import type { SaveFileOptions, SelectFileOptions, ShellApi } from '@/contracts/shell';
@@ -133,15 +136,79 @@ const appConfigApi: AppConfigApi = {
 contextBridge.exposeInMainWorld('pluginHostApi', pluginHostApi);
 contextBridge.exposeInMainWorld('appConfigApi', appConfigApi);
 
+const shortcutsApi: ShortcutsApi = {
+  inspectSystemShortcuts: () => ipcRenderer.invoke('shortcuts:inspect-system'),
+  validateSystemShortcut: (input) => ipcRenderer.invoke('shortcuts:validate-system', input),
+  retrySystemShortcut: (input) => ipcRenderer.invoke('shortcuts:retry-system', input),
+};
+
+contextBridge.exposeInMainWorld('shortcutsApi', shortcutsApi);
+
+const quickLaunchApi: QuickLaunchApi = {
+  search: (input) => ipcRenderer.invoke('quick-launch:search', input),
+  execute: (result, options) => ipcRenderer.invoke('quick-launch:execute', result, options),
+  refreshIndex: (input) => ipcRenderer.invoke('quick-launch:refresh-index', input),
+  setGameMode: (enabled) => ipcRenderer.invoke('quick-launch:set-game-mode', enabled),
+  getGameModeStatus: () => ipcRenderer.invoke('quick-launch:get-game-mode-status'),
+  resizeWindow: (input) => ipcRenderer.invoke('quick-launch:resize-window', input),
+  show: () => ipcRenderer.invoke('quick-launch:show'),
+  close: () => ipcRenderer.invoke('quick-launch:close'),
+  notifyReady: () => ipcRenderer.invoke('quick-launch:renderer-ready'),
+  onReveal: (listener) => {
+    const wrappedListener = () => listener();
+    ipcRenderer.on('quick-launch:reveal', wrappedListener);
+    return () => ipcRenderer.removeListener('quick-launch:reveal', wrappedListener);
+  },
+  onHidden: (listener) => {
+    const wrappedListener = () => listener();
+    ipcRenderer.on('quick-launch:hidden', wrappedListener);
+    return () => ipcRenderer.removeListener('quick-launch:hidden', wrappedListener);
+  },
+};
+
+contextBridge.exposeInMainWorld('quickLaunchApi', quickLaunchApi);
+
+const workspaceWindowApi: WorkspaceWindowApi = {
+  openDetached: (key, options) => ipcRenderer.invoke('workspace-window:open-detached', key, options),
+  returnToMain: (key) => ipcRenderer.invoke('workspace-window:return-to-main', key),
+  getState: () => ipcRenderer.invoke('workspace-window:get-state'),
+  getContext: () => ipcRenderer.invoke('workspace-window:get-context'),
+  getPageState: (key) => ipcRenderer.invoke('workspace-window:get-page-state', key),
+  setPageState: (key, state) => ipcRenderer.invoke('workspace-window:set-page-state', key, state),
+  onStateChanged: (listener) => {
+    const wrappedListener = (_event: Electron.IpcRendererEvent, state: WorkspaceDetachedWindowState) => listener(state);
+    ipcRenderer.on('workspace-window:state-changed', wrappedListener);
+    return () => ipcRenderer.removeListener('workspace-window:state-changed', wrappedListener);
+  },
+};
+
+contextBridge.exposeInMainWorld('workspaceWindowApi', workspaceWindowApi);
+
 const aiApi: AiApi = {
   getConfig: () => ipcRenderer.invoke('ai:get-config'),
   updateConfig: (patch) => ipcRenderer.invoke('ai:update-config', patch),
   testProvider: (input) => ipcRenderer.invoke('ai:test-provider', input),
+  fetchProviderModels: (input) => ipcRenderer.invoke('ai:fetch-provider-models', input),
+  listModelScopeMcpServers: (input) => ipcRenderer.invoke('ai:list-modelscope-mcp-servers', input),
+  getModelScopeMcpServer: (input) => ipcRenderer.invoke('ai:get-modelscope-mcp-server', input),
+  getMcpServerStatuses: () => ipcRenderer.invoke('ai:get-mcp-server-statuses'),
+  startMcpServer: (serverId) => ipcRenderer.invoke('ai:start-mcp-server', serverId),
+  stopMcpServer: (serverId) => ipcRenderer.invoke('ai:stop-mcp-server', serverId),
+  listMcpTools: () => ipcRenderer.invoke('ai:list-mcp-tools'),
   listConversations: () => ipcRenderer.invoke('ai:list-conversations'),
   createConversation: (input) => ipcRenderer.invoke('ai:create-conversation', input),
   updateConversation: (id, input) => ipcRenderer.invoke('ai:update-conversation', id, input),
   deleteConversation: (id) => ipcRenderer.invoke('ai:delete-conversation', id),
+  listProjects: () => ipcRenderer.invoke('ai:list-projects'),
+  createProject: (input) => ipcRenderer.invoke('ai:create-project', input),
+  updateProject: (id, input) => ipcRenderer.invoke('ai:update-project', id, input),
+  deleteProject: (id) => ipcRenderer.invoke('ai:delete-project', id),
+  listMemories: (input) => ipcRenderer.invoke('ai:list-memories', input),
+  createMemory: (input) => ipcRenderer.invoke('ai:create-memory', input),
+  updateMemory: (id, input) => ipcRenderer.invoke('ai:update-memory', id, input),
+  deleteMemory: (id) => ipcRenderer.invoke('ai:delete-memory', id),
   listMessages: (conversationId) => ipcRenderer.invoke('ai:list-messages', conversationId),
+  stageAttachment: (input) => ipcRenderer.invoke('ai:stage-attachment', input),
   sendMessage: (input) => ipcRenderer.invoke('ai:send-message', input),
   regenerateMessage: (input) => ipcRenderer.invoke('ai:regenerate-message', input),
   stopRun: (runId) => ipcRenderer.invoke('ai:stop-run', runId),
@@ -157,13 +224,36 @@ const aiApi: AiApi = {
   listCanvasVersions: (workspaceId) => ipcRenderer.invoke('ai:list-canvas-versions', workspaceId),
   createCanvasVersion: (input) => ipcRenderer.invoke('ai:create-canvas-version', input),
   listCanvasOperations: (workspaceId) => ipcRenderer.invoke('ai:list-canvas-operations', workspaceId),
+  updateCanvasOperation: (id, input) => ipcRenderer.invoke('ai:update-canvas-operation', id, input),
+  applyCanvasOperation: (id) => ipcRenderer.invoke('ai:apply-canvas-operation', id),
+  rejectCanvasOperation: (id) => ipcRenderer.invoke('ai:reject-canvas-operation', id),
+  openCanvasPreview: (input) => ipcRenderer.invoke('ai:open-canvas-preview', input),
+  listResearchJobs: (input) => ipcRenderer.invoke('ai:list-research-jobs', input),
+  getResearchJob: (jobId) => ipcRenderer.invoke('ai:get-research-job', jobId),
+  listResearchSources: (jobId) => ipcRenderer.invoke('ai:list-research-sources', jobId),
+  startResearch: (input) => ipcRenderer.invoke('ai:start-research', input),
+  retryResearch: (input) => ipcRenderer.invoke('ai:retry-research', input),
+  cancelResearch: (jobId) => ipcRenderer.invoke('ai:cancel-research', jobId),
   onStreamEvent: (listener) => {
     const wrappedListener = (_event: Electron.IpcRendererEvent, payload: AiStreamEvent) => listener(payload);
     ipcRenderer.on('ai:stream-event', wrappedListener);
     return () => ipcRenderer.removeListener('ai:stream-event', wrappedListener);
   },
+  onResearchEvent: (listener) => {
+    const wrappedListener = (_event: Electron.IpcRendererEvent, payload: AiResearchEvent) => listener(payload);
+    ipcRenderer.on('ai:research-event', wrappedListener);
+    return () => ipcRenderer.removeListener('ai:research-event', wrappedListener);
+  },
 };
 contextBridge.exposeInMainWorld('aiApi', aiApi);
+
+contextBridge.exposeInMainWorld('aiCanvasPreviewWindowApi', {
+  onPayload: (listener: (payload: AiCanvasPreviewPayload) => void) => {
+    const wrappedListener = (_event: Electron.IpcRendererEvent, payload: AiCanvasPreviewPayload) => listener(payload);
+    ipcRenderer.on('ai:canvas-preview-payload', wrappedListener);
+    return () => ipcRenderer.removeListener('ai:canvas-preview-payload', wrappedListener);
+  },
+} satisfies import('@/contracts/ai').AiCanvasPreviewWindowApi);
 
 const notificationApi: NotificationApi = {
   show: (payload: NotificationPayload) => ipcRenderer.invoke('notification:show', payload),
@@ -297,9 +387,14 @@ contextBridge.exposeInMainWorld('knowledgeApi', knowledgeApi);
 
 contextBridge.exposeInMainWorld('quickNoteWindowApi', {
   show: (prefill) => ipcRenderer.invoke('quick-note:show-window', prefill),
+  create: (prefill) => ipcRenderer.invoke('quick-note:create-window', prefill),
   close: () => ipcRenderer.invoke('quick-note:close-window'),
   dock: () => ipcRenderer.invoke('quick-note:dock-window'),
+  collapse: () => ipcRenderer.invoke('quick-note:collapse-window'),
+  expand: () => ipcRenderer.invoke('quick-note:expand-window'),
+  preview: (expanded: boolean) => ipcRenderer.invoke('quick-note:preview-window', expanded),
   setAlwaysOnTop: (alwaysOnTop: boolean) => ipcRenderer.invoke('quick-note:set-always-on-top', alwaysOnTop),
+  getWindowMeta: () => ipcRenderer.invoke('quick-note:get-window-meta'),
   onPrefill: (listener: (payload: import('@/contracts/knowledge').QuickNotePrefillPayload) => void) => {
     const wrappedListener = (
       _event: Electron.IpcRendererEvent,
@@ -307,6 +402,15 @@ contextBridge.exposeInMainWorld('quickNoteWindowApi', {
     ) => listener(payload);
     ipcRenderer.on('quick-note:prefill', wrappedListener);
     return () => ipcRenderer.removeListener('quick-note:prefill', wrappedListener);
+  },
+  onCollapsedState: (listener: (collapsed: boolean, previewing: boolean) => void) => {
+    const wrappedListener = (
+      _event: Electron.IpcRendererEvent,
+      collapsed: boolean,
+      previewing: boolean,
+    ) => listener(collapsed, previewing);
+    ipcRenderer.on('quick-note:collapsed-state', wrappedListener);
+    return () => ipcRenderer.removeListener('quick-note:collapsed-state', wrappedListener);
   },
 } satisfies import('@/contracts/knowledge').QuickNoteWindowApi);
 
@@ -539,6 +643,9 @@ const ftpApi: FtpApi = {
   upsertScheduledTask: (input) => ipcRenderer.invoke('ftp:upsert-scheduled-task', input),
   deleteScheduledTask: (taskId: string) => ipcRenderer.invoke('ftp:delete-scheduled-task', taskId),
   runScheduledTaskNow: (taskId: string) => ipcRenderer.invoke('ftp:run-scheduled-task-now', taskId),
+  listFilterPresets: () => ipcRenderer.invoke('ftp:list-filter-presets'),
+  upsertFilterPreset: (input) => ipcRenderer.invoke('ftp:upsert-filter-preset', input),
+  deleteFilterPreset: (presetId: string) => ipcRenderer.invoke('ftp:delete-filter-preset', presetId),
   getWindowsContextMenuStatus: () => ipcRenderer.invoke('ftp:get-windows-context-menu-status'),
   installWindowsContextMenu: () => ipcRenderer.invoke('ftp:install-windows-context-menu'),
   uninstallWindowsContextMenu: () => ipcRenderer.invoke('ftp:uninstall-windows-context-menu'),

@@ -18,6 +18,16 @@ const homeProfileStore = useHomeProfileStore();
 const route = useRoute();
 const { currentPage, topbarColor } = storeToRefs(globalStore);
 const { theme, toggleTheme } = useTheme();
+const props = withDefaults(defineProps<{
+  canDetachCurrentPage?: boolean;
+  detachedPageTitle?: string;
+}>(), {
+  canDetachCurrentPage: false,
+  detachedPageTitle: '',
+});
+const emit = defineEmits<{
+  detachCurrentPage: [];
+}>();
 const profileSwitcherRef = ref<HTMLElement | null>(null);
 const profilePanelSurfaceRef = ref<HTMLElement | null>(null);
 const profilePanelOpen = ref(false);
@@ -40,6 +50,11 @@ const activeProfileName = computed(() => homeProfileStore.activeProfile?.name ??
 const profileButtonLabel = computed(() => `配置文件：${activeProfileName.value}`);
 const isProfileBusy = computed(() => homeProfileStore.loading || homeProfileStore.switching);
 const showHomeProfileSwitcher = computed(() => route.path === '/home');
+const detachButtonTitle = computed(() =>
+  props.detachedPageTitle
+    ? `将${props.detachedPageTitle}分离为独立窗口`
+    : '分离为独立窗口',
+);
 
 function setProfilePanelError(error: unknown, title: string) {
   profilePanelError.value = getErrorMessage(error);
@@ -231,7 +246,7 @@ watch(showHomeProfileSwitcher, (visible) => {
         {{ currentPage }}
       </div>
     </div>
-    <div class="application-func-container" aria-label="应用功能区">
+    <div class="application-func-container" :class="{ 'application-func-container--empty': !showHomeProfileSwitcher }" aria-label="应用功能区">
       <div v-if="showHomeProfileSwitcher" ref="profileSwitcherRef" class="home-profile-switcher">
         <UiButton
           class="home-profile-switcher__trigger"
@@ -386,6 +401,26 @@ watch(showHomeProfileSwitcher, (visible) => {
     </div>
     <div class="drag-area"></div>
     <div class="window-btn-group">
+      <UiIconButton
+        v-if="props.canDetachCurrentPage"
+        class="workspace-detach-topbar-btn"
+        variant="ghost"
+        size="lg"
+        shape="square"
+        :title="detachButtonTitle"
+        @click="emit('detachCurrentPage')"
+      >
+        <svg width="22" height="22" viewBox="0 0 16 16" aria-hidden="true" focusable="false">
+          <path
+            d="M5.25 2.75H3.75C3.2 2.75 2.75 3.2 2.75 3.75V12.25C2.75 12.8 3.2 13.25 3.75 13.25H12.25C12.8 13.25 13.25 12.8 13.25 12.25V10.75M8.25 2.75H13.25V7.75M7.75 8.25L13 3"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="1.45"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          />
+        </svg>
+      </UiIconButton>
       <UiIconButton class="theme-btn" variant="ghost" size="lg" shape="circle" title="切换主题" @click="toggleTheme">
         <SvgIcon width="24" height="24" color="var(--primary-color)" v-if="theme === 'light'" viewBox="0 0 1024 1024">
           <path

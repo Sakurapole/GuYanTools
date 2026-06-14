@@ -66,6 +66,9 @@ export default defineConfig({
         clipboard: path.resolve(__dirname, 'clipboard.html'),
         clipboard_text_preview: path.resolve(__dirname, 'clipboard_text_preview.html'),
         quick_note: path.resolve(__dirname, 'quick_note.html'),
+        quick_launcher: path.resolve(__dirname, 'quick_launcher.html'),
+        workspace_window: path.resolve(__dirname, 'workspace_window.html'),
+        ai_canvas_preview: path.resolve(__dirname, 'ai_canvas_preview.html'),
         tray_menu: path.resolve(__dirname, 'tray_menu.html'),
       }
     }

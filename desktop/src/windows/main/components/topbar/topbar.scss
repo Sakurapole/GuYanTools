@@ -40,6 +40,11 @@
   padding: 0 16px;
   min-width: 160px;
   -webkit-app-region: no-drag;
+
+  &--empty {
+    min-width: 0;
+    padding: 0;
+  }
 }
 
 .home-profile-switcher {
@@ -412,6 +417,7 @@
   -webkit-app-region: no-drag;
 
   & .ui-icon-button.theme-btn,
+  & .ui-icon-button.workspace-detach-topbar-btn,
   & .ui-icon-button.mini-btn,
   & .ui-icon-button.max-btn,
   & .ui-icon-button.close-btn {

@@ -15,6 +15,12 @@ import WebViewKeepAlive from './components/webview/WebViewKeepAlive.vue';
 import { schedulePageSnapshot } from './composables/useTabSnapshot';
 import { useBarStore } from './stores/bar_store';
 import { useWebviewStore } from './stores/webview_store';
+import {
+  WORKSPACE_WINDOW_DEFINITIONS,
+  type WorkspaceDetachedWindowState,
+  type WorkspaceWindowContext,
+  type WorkspaceWindowKey,
+} from '@/contracts/workspace_window';
 
 const { ipcRenderer } = window;
 const router = useRouter();
@@ -26,8 +32,11 @@ const webviewStore = useWebviewStore();
 const barStore = useBarStore();
 const pageTransitionName = ref('ui-page-forward');
 const firstVisitProgressVisible = ref(false);
+const workspaceWindowState = ref<WorkspaceDetachedWindowState>({ detached: {} });
+const workspaceWindowContext = ref<WorkspaceWindowContext>({ role: 'main' });
 let routeRenderTimer: number | undefined;
 let routeFirstVisitTimer: number | undefined;
+let removeWorkspaceWindowStateListener: (() => void) | undefined;
 let routeFirstVisitStartedAt = 0;
 const visitedPagePaths = new Set<string>();
 const fallbackPageRouteOrder = [
@@ -50,6 +59,18 @@ if (route.path && route.path !== '/') {
 const isPopupMode = computed(() => route.query.popup === '1');
 /** 页面自带标题栏（如脚本编辑器），popup 模式下跳过 App 自带的标题栏 */
 const hasSelfTitlebar = computed(() => false);
+const detachedRouteKey = computed<WorkspaceWindowKey | null>(() => {
+  const matched = Object.values(WORKSPACE_WINDOW_DEFINITIONS).find(definition => definition.route === route.path);
+  return matched?.key ?? null;
+});
+const isDetachedWindow = computed(() => workspaceWindowContext.value.role === 'detached');
+const isCurrentPageDetached = computed(() => (
+  workspaceWindowContext.value.role === 'main'
+  && Boolean(detachedRouteKey.value && workspaceWindowState.value.detached[detachedRouteKey.value])
+));
+const currentDetachedDefinition = computed(() => (
+  detachedRouteKey.value ? WORKSPACE_WINDOW_DEFINITIONS[detachedRouteKey.value] : null
+));
 
 function routePathFromTabUrl(url: string) {
   return url.split('?')[0] || url;
@@ -96,6 +117,24 @@ function resetFirstVisitLoad() {
   firstVisitProgressVisible.value = false;
 }
 
+async function openCurrentPageDetached() {
+  if (!detachedRouteKey.value) return;
+  workspaceWindowState.value = await window.workspaceWindowApi?.openDetached(detachedRouteKey.value)
+    ?? workspaceWindowState.value;
+}
+
+async function openDetachedRouteFromDetachedWindow(key: WorkspaceWindowKey, fullPath: string) {
+  workspaceWindowState.value = await window.workspaceWindowApi?.openDetached(key, { routeOverride: fullPath })
+    ?? workspaceWindowState.value;
+}
+
+async function returnDetachedPageToMain() {
+  const key = workspaceWindowContext.value.detachedKey ?? detachedRouteKey.value;
+  if (!key) return;
+  workspaceWindowState.value = await window.workspaceWindowApi?.returnToMain(key)
+    ?? workspaceWindowState.value;
+}
+
 let removeBeforeEach: (() => void) | undefined;
 let removeAfterEach: (() => void) | undefined;
 let removeRouterError: (() => void) | undefined;
@@ -128,6 +167,15 @@ removeBeforeEach = router.beforeEach((to, from, next) => {
     }
   }
 
+  if (workspaceWindowContext.value.role === 'detached' && from.query.detached) {
+    const targetDefinition = Object.values(WORKSPACE_WINDOW_DEFINITIONS).find(definition => definition.route === to.path);
+    if (targetDefinition) {
+      void openDetachedRouteFromDetachedWindow(targetDefinition.key, to.fullPath);
+    }
+    next(false);
+    return;
+  }
+
   next();
 });
 
@@ -156,10 +204,21 @@ onMounted(() => {
   setTimeout(() => {
     schedulePageSnapshot(router.currentRoute.value.path, 0);
   }, 1500);
+
+  void window.workspaceWindowApi?.getState().then((state) => {
+    workspaceWindowState.value = state;
+  });
+  void window.workspaceWindowApi?.getContext().then((context) => {
+    workspaceWindowContext.value = context;
+  });
+  removeWorkspaceWindowStateListener = window.workspaceWindowApi?.onStateChanged((state) => {
+    workspaceWindowState.value = state;
+  });
 })
 
 onBeforeUnmount(() => {
   removeNavigationListener?.();
+  removeWorkspaceWindowStateListener?.();
   removeBeforeEach?.();
   removeAfterEach?.();
   removeRouterError?.();
@@ -178,6 +237,16 @@ onBeforeUnmount(() => {
       </div>
       <div class="popup-titlebar__drag" />
       <div class="popup-titlebar__actions">
+        <UiIconButton
+          v-if="isDetachedWindow"
+          class="popup-titlebar__btn popup-titlebar__return"
+          size="sm"
+          variant="ghost"
+          title="回到主窗口"
+          @click="returnDetachedPageToMain"
+        >
+          <svg width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M5 2 1.5 5.5 5 9M2 5.5h8" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        </UiIconButton>
         <UiIconButton class="popup-titlebar__btn" size="sm" variant="ghost" title="最小化" @click="ipcRenderer.send('window:minimize')">
           <svg width="10" height="1" viewBox="0 0 10 1"><line x1="0" y1="0.5" x2="10" y2="0.5" stroke="currentColor" stroke-width="1"/></svg>
         </UiIconButton>
@@ -189,7 +258,12 @@ onBeforeUnmount(() => {
         </UiIconButton>
       </div>
     </div>
-    <Topbar v-if="!isPopupMode" />
+    <Topbar
+      v-if="!isPopupMode"
+      :can-detach-current-page="Boolean(detachedRouteKey && !isCurrentPageDetached)"
+      :detached-page-title="currentDetachedDefinition?.title ?? ''"
+      @detach-current-page="openCurrentPageDetached"
+    />
     <div class="page-container" ref="pageContainerRef">
       <Sidebar v-if="!isPopupMode" :parent-height="containerHeight" :parent-width="containerWidth" />
       <div class="page-router-viewport">
@@ -200,12 +274,22 @@ onBeforeUnmount(() => {
         >
           <div class="page-first-visit-progress__bar" />
         </div>
+        <section v-if="isCurrentPageDetached && currentDetachedDefinition" class="workspace-detached-placeholder">
+          <div class="workspace-detached-placeholder__panel">
+            <div class="workspace-detached-placeholder__eyebrow">独立窗口</div>
+            <h2>当前页面已独立显示</h2>
+            <p>{{ currentDetachedDefinition.title }} 已在独立窗口中打开。主窗口可以继续查看其它页面。</p>
+            <button class="workspace-detached-placeholder__button" type="button" @click="returnDetachedPageToMain">
+              回到主窗口
+            </button>
+          </div>
+        </section>
         <router-view v-slot="{ Component, route }">
           <Transition :name="pageTransitionName" mode="out-in">
             <KeepAlive>
               <component
                 :is="Component"
-                v-if="route.meta.keepAlive"
+                v-if="route.meta.keepAlive && !isCurrentPageDetached"
                 :key="route.path"
                 v-show="!webviewStore.hasActiveInstance"
               />
@@ -214,7 +298,7 @@ onBeforeUnmount(() => {
           <Transition :name="pageTransitionName" mode="out-in">
             <component
               :is="Component"
-              v-if="!route.meta.keepAlive"
+              v-if="!route.meta.keepAlive && !isCurrentPageDetached"
               :key="route.path"
               v-show="!webviewStore.hasActiveInstance"
             />
@@ -348,6 +432,65 @@ onBeforeUnmount(() => {
     transparent
   );
   animation: page-first-visit-progress-slide 980ms var(--ui-motion-ease-emphasized, ease) infinite;
+}
+
+.workspace-detached-placeholder__button {
+  min-height: 30px;
+  padding: 0 12px;
+  border: 1px solid color-mix(in srgb, var(--ui-border-subtle) 82%, transparent);
+  border-radius: 7px;
+  color: var(--ui-text-secondary);
+  background: color-mix(in srgb, var(--ui-surface-panel) 88%, transparent);
+  font: inherit;
+  font-size: var(--ui-font-size-xs);
+  font-weight: 700;
+  cursor: pointer;
+  pointer-events: auto;
+  transition: background-color 140ms ease, border-color 140ms ease, color 140ms ease;
+}
+
+.workspace-detached-placeholder__button:hover {
+  border-color: color-mix(in srgb, var(--ui-primary-color) 42%, var(--ui-border-subtle));
+  color: var(--ui-text-primary);
+  background: color-mix(in srgb, var(--ui-primary-color) 9%, var(--ui-surface-panel));
+}
+
+.workspace-detached-placeholder {
+  display: grid;
+  min-height: 100%;
+  place-items: center;
+  padding: 32px;
+  color: var(--ui-text-primary);
+}
+
+.workspace-detached-placeholder__panel {
+  display: grid;
+  width: min(440px, 100%);
+  gap: 10px;
+  justify-items: start;
+  padding: 22px;
+  border: 1px solid color-mix(in srgb, var(--ui-border-subtle) 84%, transparent);
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--ui-surface-panel) 72%, transparent);
+}
+
+.workspace-detached-placeholder__eyebrow {
+  color: var(--ui-text-muted);
+  font-size: var(--ui-font-size-xs);
+  font-weight: 750;
+}
+
+.workspace-detached-placeholder h2 {
+  margin: 0;
+  font-size: 1.05rem;
+  line-height: 1.35;
+}
+
+.workspace-detached-placeholder p {
+  margin: 0;
+  color: var(--ui-text-secondary);
+  font-size: var(--ui-font-size-sm);
+  line-height: 1.6;
 }
 
 @keyframes page-first-visit-progress-slide {

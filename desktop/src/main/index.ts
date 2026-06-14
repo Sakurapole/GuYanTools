@@ -22,7 +22,11 @@ import { multiDeviceClipboardService } from "./multi-device-clipboard/service";
 import { registerMultiDeviceClipboardWindowHandlers, toggleMultiDeviceClipboardWindow } from "./multi-device-clipboard/window";
 import { registerNotificationIpcHandlers } from "./notification/ipc";
 import { registerShellIpcHandlers } from "./shell/ipc";
+import { registerShortcutIpcHandlers } from "./shortcuts/ipc";
 import { shortcutService } from "./shortcuts/service";
+import { registerQuickLaunchIpcHandlers } from "./quick-launch/ipc";
+import { quickLaunchService } from "./quick-launch/service";
+import { toggleQuickLaunchWindow } from "./quick-launch/window";
 import { registerTerminalIpcHandlers } from "./terminal/ipc";
 import { registerTodoIpcHandlers, initializeTodoData } from "./todo/ipc";
 import { startTodoScheduler, stopTodoScheduler } from "./todo/scheduler";
@@ -31,6 +35,8 @@ import { pluginHost } from "./plugin-host";
 import { registerWebviewIpcHandlers } from "./webview/ipc";
 import { webViewManager } from "./webview/manager";
 import { registerWebScriptBridge } from "./webview/script-bridge";
+import { registerWorkspaceWindowIpcHandlers } from "./workspace-window/ipc";
+import { workspaceWindowManager } from "./workspace-window/manager";
 import { registerSshIpcHandlers } from "./ssh/ipc";
 import { sshHost } from "./ssh/host";
 import { registerFtpIpcHandlers } from "./ftp/ipc";
@@ -103,6 +109,8 @@ class App {
       }
     });
     registerShellIpcHandlers();
+    registerShortcutIpcHandlers();
+    registerQuickLaunchIpcHandlers();
     registerTerminalIpcHandlers();
     registerTodoIpcHandlers();
     registerSshIpcHandlers();
@@ -125,6 +133,7 @@ class App {
     registerWebviewIpcHandlers(() => {
       return this.mainWindowCreator.getWindow();
     });
+    registerWorkspaceWindowIpcHandlers();
     registerWebScriptBridge();
 
     const singleLock = app.requestSingleInstanceLock(
@@ -158,6 +167,52 @@ class App {
           await dbManager.initialize();
         }
         await appConfigManager.initialize();
+        quickLaunchService.bindMainWindow({
+          getWindow: () => {
+            try {
+              return this.mainWindowCreator.getWindow();
+            } catch {
+              return null;
+            }
+          },
+          showWindow: () => {
+            try {
+              this.mainWindowCreator.showWindow();
+            } catch {
+              // main window may still be loading during early global shortcut use
+            }
+          },
+          navigateToHash: async (hashPath: string) => {
+            try {
+              await this.mainWindowCreator.navigateToHash(hashPath);
+            } catch {
+              // main window may still be loading during early global shortcut use
+            }
+          },
+        });
+        workspaceWindowManager.bindMainWindow({
+          getWindow: () => {
+            try {
+              return this.mainWindowCreator.getWindow();
+            } catch {
+              return null;
+            }
+          },
+          showWindow: () => {
+            try {
+              this.mainWindowCreator.showWindow();
+            } catch {
+              // main window may not exist during early shortcut use
+            }
+          },
+          navigateToHash: async (hashPath: string) => {
+            try {
+              await this.mainWindowCreator.navigateToHash(hashPath);
+            } catch {
+              // main window may not exist during early shortcut use
+            }
+          },
+        });
         // 数据库就绪后，初始化 Todo 系统数据（确保 default-tasks 列表存在）
         await initializeTodoData();
         // 初始化 SSH 宿主（依赖数据库）
@@ -177,6 +232,10 @@ class App {
           toggleMultiDeviceClipboardWindow,
           toggleQuickNoteWindow,
           captureClipboardToQuickNoteWindow,
+          toggleQuickLaunchWindow,
+          (key) => {
+            void workspaceWindowManager.openDetached(key);
+          },
         );
 
         // ─── 初始化共享 webview session ───
@@ -227,6 +286,8 @@ class App {
           setTimeout(() => {
             this.splashWindowCreator.close();
           }, 300);
+
+          workspaceWindowManager.prewarmDetachedWindows();
 
           // Start Todo reminder scheduler
           startTodoScheduler();
