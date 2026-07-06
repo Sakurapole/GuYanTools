@@ -97,11 +97,13 @@ export const useFtpStore = defineStore('ftp', () => {
     sessions.value = await window.ftpApi.listSessions();
     transferTasks.value = await window.ftpApi.listTransferTasks();
     localPath.value = await window.ftpApi.getDefaultLocalPath();
-    await restorePreviousSessions();
+    initialized.value = true;
+    void restorePreviousSessions().catch((error) => {
+      console.warn('[ftp] Failed to restore previous sessions:', error);
+    });
     if (!sessions.value.length) {
       await refreshLocalDirectory(localPath.value);
     }
-    initialized.value = true;
   }
 
   function ensureEventSubscription() {
@@ -600,7 +602,8 @@ export const useFtpStore = defineStore('ftp', () => {
   async function restorePreviousSessions() {
     if (!restoreStates.value.length) return;
 
-    for (const state of [...restoreStates.value].sort((left, right) => left.tabOrder - right.tabOrder)) {
+    const sortedStates = [...restoreStates.value].sort((left, right) => left.tabOrder - right.tabOrder);
+    await Promise.all(sortedStates.map(async (state) => {
       // 若后端进程仍存活（如前端 HMR 刷新），该 profileId 对应的 session 可能已在
       // listSessions() 中加载，直接复用，不再重复建立连接。
       const existing = sessions.value.find((s) => s.profileId === state.sessionId);
@@ -613,7 +616,7 @@ export const useFtpStore = defineStore('ftp', () => {
           ...sessionLocalPaths.value,
           [existing.sessionId]: state.localPath || sessionLocalPaths.value[existing.sessionId] || existing.localRoot,
         };
-        continue;
+        return;
       }
 
       try {
@@ -636,7 +639,7 @@ export const useFtpStore = defineStore('ftp', () => {
           },
         ];
       }
-    }
+    }));
 
     const firstSession = sessions.value[0];
     if (firstSession) {

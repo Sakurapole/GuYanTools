@@ -42,8 +42,8 @@
   background: var(--ui-surface-panel);
   border-right: 1px solid var(--ui-border-subtle);
   transition:
-    width 0.28s cubic-bezier(0.4, 0, 0.2, 1),
-    min-width 0.28s cubic-bezier(0.4, 0, 0.2, 1),
+    width 0.38s cubic-bezier(0.22, 1, 0.36, 1),
+    min-width 0.38s cubic-bezier(0.22, 1, 0.36, 1),
     border-color 0.18s ease;
 }
 
@@ -170,6 +170,7 @@
   flex-direction: column;
   gap: 10px;
   padding: 12px;
+  animation: ftp-sidebar-section-in 0.32s var(--ui-motion-ease-emphasized);
   transition: padding 0.24s cubic-bezier(0.22, 1, 0.36, 1);
 }
 
@@ -567,6 +568,10 @@
   display: flex;
   min-height: 100%;
   flex-direction: column;
+}
+
+.ftp-sidebar--collapsed .ftp-sidebar__scroll-content {
+  animation: ftp-sidebar-rail-in 0.3s var(--ui-motion-ease-emphasized);
 }
 
 .ftp-sidebar--collapsed .ftp-session-list {
@@ -2070,6 +2075,30 @@ body.terminal-pane-dragging-active .terminal-pane-tab {
   min-width: 0;
 }
 
+@keyframes ftp-sidebar-section-in {
+  from {
+    opacity: 0;
+    transform: translateX(-8px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes ftp-sidebar-rail-in {
+  from {
+    opacity: 0;
+    transform: translateX(6px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
 .ftp-panel__floating-search-input .ui-input {
   width: 100%;
 }
@@ -2533,53 +2562,6 @@ body.terminal-pane-dragging-active .terminal-pane-tab {
 }
 
 .ftp-table__head,
-.ftp-entry-list,
-.ftp-entry {
-  background-image:
-    linear-gradient(var(--ftp-table-line-color), var(--ftp-table-line-color)),
-    linear-gradient(var(--ftp-table-line-color), var(--ftp-table-line-color));
-  background-repeat: no-repeat;
-  background-size:
-    1px 100%,
-    1px 100%;
-  background-position:
-    calc(100% - var(--ftp-table-inline-padding) - var(--ftp-col-2, 110px) - var(--ftp-col-3, 170px)) 0,
-    calc(100% - var(--ftp-table-inline-padding) - var(--ftp-col-3, 170px)) 0;
-}
-
-.ftp-table--details .ftp-table__head,
-.ftp-table--details .ftp-entry-list,
-.ftp-table--details .ftp-entry {
-  background-image:
-    linear-gradient(var(--ftp-table-line-color), var(--ftp-table-line-color)),
-    linear-gradient(var(--ftp-table-line-color), var(--ftp-table-line-color)),
-    linear-gradient(var(--ftp-table-line-color), var(--ftp-table-line-color)),
-    linear-gradient(var(--ftp-table-line-color), var(--ftp-table-line-color));
-  background-size:
-    1px 100%,
-    1px 100%,
-    1px 100%,
-    1px 100%;
-  background-position:
-    calc(
-        100% - var(--ftp-table-inline-padding) - var(--ftp-col-2, 110px) - var(--ftp-col-3, 150px) - var(
-            --ftp-col-4,
-            90px
-          ) - var(--ftp-col-5, 120px)
-      )
-      0,
-    calc(
-        100% - var(--ftp-table-inline-padding) - var(--ftp-col-3, 150px) - var(--ftp-col-4, 90px) - var(
-            --ftp-col-5,
-            120px
-          )
-      )
-      0,
-    calc(100% - var(--ftp-table-inline-padding) - var(--ftp-col-4, 90px) - var(--ftp-col-5, 120px)) 0,
-    calc(100% - var(--ftp-table-inline-padding) - var(--ftp-col-5, 120px)) 0;
-}
-
-.ftp-table__head,
 .ftp-entry {
   box-sizing: border-box;
   display: grid;
@@ -2643,6 +2625,10 @@ body.terminal-pane-dragging-active .terminal-pane-tab {
   justify-content: flex-start;
   padding-left: 10px;
   padding-right: 10px;
+}
+
+.ftp-col-header + .ftp-col-header {
+  border-left: 1px solid var(--ftp-table-line-color);
 }
 
 .ftp-col-sort-button {
@@ -2739,9 +2725,17 @@ body.terminal-pane-dragging-active .terminal-pane-tab {
 
 // Vertical border between columns in every entry row
 .ftp-entry__meta {
+  display: flex;
+  align-items: center;
+  align-self: stretch;
+  min-width: 0;
   padding-left: 10px;
   padding-right: 10px;
+  border-left: 1px solid var(--ftp-table-line-color);
   font-size: 0.68rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .ftp-entry-list {
@@ -4476,6 +4470,15 @@ body.terminal-pane-dragging-active .terminal-pane-tab {
   /* 超小窗口：隐藏低优先级面板工作区控件 */
   .ftp-panel__commandrow > .ui-button:is([title="收藏当前"], [title="添加目录"], [title="移除书签"]) {
     display: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ftp-sidebar,
+  .ftp-sidebar__section,
+  .ftp-sidebar__scroll-content {
+    animation: none;
+    transition: none;
   }
 }
 

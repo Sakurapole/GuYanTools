@@ -757,6 +757,7 @@ const {
   copySelectionInfo,
   canOpenTerminalForPanel,
   openTerminalForPanel,
+  openLocalPathInExplorer,
   canPreviewLocalImage: canPreviewLocalImageEntry,
   previewLocalImage,
   canPreviewRemoteImage: canPreviewRemoteImageEntry,
@@ -1009,6 +1010,7 @@ function isExplorerPasteShortcut(event: KeyboardEvent) {
 }
 
 function handleExplorerPasteShortcut(event: KeyboardEvent) {
+  if (route.name !== 'FileTransfer') return;
   if (event.defaultPrevented || event.repeat || !isExplorerPasteShortcut(event)) return;
   if (shouldIgnoreExplorerShortcut(event.target)) return;
   const target = resolveRemotePasteTarget();
@@ -1031,6 +1033,7 @@ function selectAllActiveBrowserEntries() {
 }
 
 function handleExplorerSelectAllShortcut(event: KeyboardEvent) {
+  if (route.name !== 'FileTransfer') return;
   if (event.defaultPrevented || event.repeat || !isExplorerSelectAllShortcut(event)) return;
   if (shouldIgnoreExplorerShortcut(event.target)) return;
   event.preventDefault();
@@ -1153,11 +1156,22 @@ function restoreFtpWorkspacePane(snapshot: FtpWorkspacePaneSnapshot): FtpWorkspa
   if (!snapshot || typeof snapshot.key !== 'string' || (snapshot.kind !== 'local' && snapshot.kind !== 'remote')) {
     return null;
   }
-  if (snapshot.kind === 'remote' && snapshot.sessionId && !ftpStore.sessions.some((session) => session.sessionId === snapshot.sessionId)) {
-    return null;
-  }
   const path = typeof snapshot.path === 'string' && snapshot.path ? snapshot.path : snapshot.kind === 'remote' ? '/' : ftpStore.localPath;
   const viewMode = snapshot.viewMode === 'list' ? 'list' : 'details';
+  if (snapshot.kind === 'remote' && snapshot.sessionId && !ftpStore.sessions.some((session) => session.sessionId === snapshot.sessionId)) {
+    const profile = snapshot.profileId
+      ? ftpStore.profiles.find((item) => item.id === snapshot.profileId) ?? null
+      : null;
+    if (!profile) return null;
+    return {
+      ...createConnectingRemoteWorkspacePane(profile, path, `正在恢复 ${profile.label}...`),
+      key: snapshot.key,
+      title: typeof snapshot.title === 'string' && snapshot.title ? snapshot.title : profile.label,
+      path,
+      pathInput: typeof snapshot.pathInput === 'string' && snapshot.pathInput ? snapshot.pathInput : path,
+      viewMode,
+    };
+  }
   return {
     key: snapshot.key,
     title: typeof snapshot.title === 'string' && snapshot.title ? snapshot.title : snapshot.kind === 'remote' ? '远程连接' : '本地连接',
@@ -1239,6 +1253,7 @@ function completeConnectingRemoteWorkspacePane(
   pendingKey: string,
   previousSessionIds: Set<string>,
   preferredPath?: string,
+  options: { activate?: boolean } = {},
 ) {
   const nextSession = [...ftpStore.sessions]
     .reverse()
@@ -1256,8 +1271,11 @@ function completeConnectingRemoteWorkspacePane(
   } else if (!findFtpWorkspacePane(pane.key)) {
     ftpWorkspacePanes.value = [...ftpWorkspacePanes.value, pane];
   }
-  setActiveBrowserPanel(pane.key);
+  if (options.activate !== false || activeBrowserPanel.value === pendingKey) {
+    setActiveBrowserPanel(pane.key);
+  }
   void refreshFtpWorkspacePaneDirectory(pane.key, pane.path);
+  refreshLocalWorkspacePanes({ onlyEmpty: true });
   return true;
 }
 
@@ -1380,11 +1398,20 @@ function ensureRemoteWorkspacePanes() {
   if (!ftpWorkspaceRemoteRestoreReady.value && !ftpWorkspacePanes.value.length) return;
   const sessionById = new Map(ftpStore.sessions.map((session) => [session.sessionId, session]));
   const connectedProfileIds = new Set(ftpStore.sessions.map((session) => session.profileId));
+  let activeReplacementKey = '';
   const nextPanes = ftpWorkspacePanes.value
     .map((pane) => {
       if (pane.kind === 'local') return pane;
       if (pane.connectionState === 'connecting') {
-        return !pane.profileId || !connectedProfileIds.has(pane.profileId) ? pane : null;
+        const session = pane.profileId
+          ? [...ftpStore.sessions].reverse().find((item) => item.profileId === pane.profileId) ?? null
+          : null;
+        if (!session) return !pane.profileId || !connectedProfileIds.has(pane.profileId) ? pane : null;
+        const restoredPane = createRemoteWorkspacePane(session, pane.path || session.remoteRoot);
+        if (activeBrowserPanel.value === pane.key) {
+          activeReplacementKey = restoredPane.key;
+        }
+        return restoredPane;
       }
       if (!pane.sessionId) return pane;
       const session = sessionById.get(pane.sessionId);
@@ -1406,6 +1433,9 @@ function ensureRemoteWorkspacePanes() {
     .filter((session) => !representedSessionIds.has(session.sessionId))
     .map((session) => createRemoteWorkspacePane(session, session.remoteRoot));
   ftpWorkspacePanes.value = [...nextPanes, ...appendedRemotePanes];
+  if (activeReplacementKey) {
+    activeBrowserPanel.value = activeReplacementKey;
+  }
   if (activeBrowserPanel.value && !findFtpWorkspacePane(activeBrowserPanel.value)) {
     activeBrowserPanel.value = appendedRemotePanes[0]?.key ?? ftpWorkspacePanes.value[0]?.key ?? '';
   }
@@ -1417,10 +1447,49 @@ function ensureRemoteWorkspacePanes() {
   }
 }
 
+function ensurePendingRemoteWorkspacePanesForRestoreStates() {
+  if (!ftpStore.restoreStates.length) return;
+  const representedProfileIds = new Set(
+    ftpWorkspacePanes.value
+      .filter((pane) => pane.kind === 'remote' && pane.profileId)
+      .map((pane) => pane.profileId as string),
+  );
+  const panes = [...ftpWorkspacePanes.value];
+  for (const state of [...ftpStore.restoreStates].sort((left, right) => left.tabOrder - right.tabOrder)) {
+    if (representedProfileIds.has(state.sessionId)) continue;
+    const existingSession = ftpStore.sessions.find((session) => session.profileId === state.sessionId) ?? null;
+    if (existingSession) {
+      panes.push(createRemoteWorkspacePane(existingSession, state.remotePath || existingSession.remoteRoot));
+      representedProfileIds.add(state.sessionId);
+      continue;
+    }
+    const profile = ftpStore.profiles.find((item) => item.id === state.sessionId) ?? null;
+    if (!profile) continue;
+    panes.push(createConnectingRemoteWorkspacePane(
+      profile,
+      state.remotePath || profile.defaultRemotePath || '/',
+      `正在恢复 ${profile.label}...`,
+    ));
+    representedProfileIds.add(state.sessionId);
+  }
+  ftpWorkspacePanes.value = panes;
+}
+
+function refreshLocalWorkspacePanes(options: { onlyEmpty?: boolean } = {}) {
+  for (const pane of ftpWorkspacePanes.value) {
+    if (pane.kind !== 'local') continue;
+    if (options.onlyEmpty && (pane.entries.length > 0 || pane.loading)) continue;
+    void refreshFtpWorkspacePaneDirectory(pane.key, pane.path);
+  }
+}
+
 async function ensureInitialFtpWorkspacePanes() {
   if (!ftpWorkspacePanes.value.some((pane) => pane.kind === 'local')) {
     await addLocalWorkspacePane(ftpStore.localPath);
+  } else {
+    refreshLocalWorkspacePanes({ onlyEmpty: true });
   }
+  ensurePendingRemoteWorkspacePanesForRestoreStates();
   ftpWorkspaceRemoteRestoreReady.value = true;
   ensureRemoteWorkspacePanes();
   if (!activeBrowserPanel.value && ftpWorkspacePanes.value.length) {
@@ -2467,10 +2536,10 @@ async function replaceExistingFtpConnections() {
   ftpWorkspaceRemoteRestoreReady.value = true;
 }
 
-async function openLocalTargetFromConnectionLayout(target: Extract<ConnectionLayoutTarget, { surface: 'ftp'; kind: 'local' }>) {
+function openLocalTargetFromConnectionLayout(target: Extract<ConnectionLayoutTarget, { surface: 'ftp'; kind: 'local' }>) {
   const pane = createLocalWorkspacePane(target.path);
   ftpWorkspacePanes.value = [...ftpWorkspacePanes.value, pane];
-  await refreshFtpWorkspacePaneDirectory(pane.key, target.path);
+  void refreshFtpWorkspacePaneDirectory(pane.key, target.path);
   return pane.key;
 }
 
@@ -2483,17 +2552,68 @@ async function openRemoteTargetFromConnectionLayout(target: Extract<ConnectionLa
   if (!profile) return '';
 
   const targetPath = target.remotePath || profile.defaultRemotePath || '/';
-  let session = ftpStore.sessions.find((item) => item.profileId === profile.id) ?? null;
-  if (!session) {
-    await connectProfile(profile);
-    session = ftpStore.sessions.find((item) => item.profileId === profile.id) ?? null;
+  const session = ftpStore.sessions.find((item) => item.profileId === profile.id) ?? null;
+  if (session) {
+    const pane = createRemoteWorkspacePane(session, targetPath || session.remoteRoot);
+    if (!findFtpWorkspacePane(pane.key)) {
+      ftpWorkspacePanes.value = [...ftpWorkspacePanes.value, pane];
+    }
+    void refreshFtpWorkspacePaneDirectory(pane.key, targetPath || session.remoteRoot);
+    return pane.key;
   }
-  if (!session) return '';
 
-  focusRemoteWorkspacePane(session.sessionId);
-  const paneKey = makeRemotePaneKey(session.sessionId);
-  await refreshFtpWorkspacePaneDirectory(paneKey, targetPath || session.remoteRoot);
-  return paneKey;
+  const previousSessionIds = new Set(ftpStore.sessions.map((item) => item.sessionId));
+  const pendingKey = ensureConnectingRemoteWorkspacePane(profile, {
+    path: targetPath,
+    message: `正在连接 ${profile.label}...`,
+  });
+  void (async () => {
+    try {
+      await connectProfileBase(profile);
+      if (passwordDialogVisible.value || authChallengeDialogVisible.value) return;
+      const completed = completeConnectingRemoteWorkspacePane(profile, pendingKey, previousSessionIds, targetPath, {
+        activate: false,
+      });
+      if (!completed) {
+        updateFtpWorkspacePane(pendingKey, {
+          connectionMessage: `${profile.label} 连接未完成，请从左侧配置重新连接。`,
+        });
+      }
+    } catch (error) {
+      updateFtpWorkspacePane(pendingKey, {
+        connectionMessage: errorMessage(error),
+      });
+    }
+  })();
+  return pendingKey;
+}
+
+function applyFtpConnectionLayoutViewState(layout: ConnectionLayoutConfig) {
+  if (layout.viewState.layoutSizeState) {
+    ftpLayoutSizeState.value = layout.viewState.layoutSizeState;
+  }
+  if (typeof layout.viewState.masterMainRatio === 'number') {
+    ftpMasterMainRatio.value = layout.viewState.masterMainRatio;
+  }
+  if (layout.viewState.dwindleSplitRatios?.length) {
+    ftpDwindleSplitRatios.value = layout.viewState.dwindleSplitRatios;
+  }
+  if (layout.viewState.sidebarDockSide) {
+    sidebarDockSide.value = layout.viewState.sidebarDockSide;
+  }
+  if (layout.viewState.auxiliaryDockSide) {
+    auxiliaryDockSide.value = layout.viewState.auxiliaryDockSide;
+  }
+  if (layout.viewState.auxiliaryDockSize) {
+    auxiliaryDockSize.value = layout.viewState.auxiliaryDockSize;
+  }
+  if (typeof layout.viewState.auxiliaryDockCollapsed === 'boolean') {
+    auxiliaryDockCollapsed.value = layout.viewState.auxiliaryDockCollapsed;
+  }
+  if (typeof layout.viewState.showSidebar === 'boolean') {
+    showSidebarPanel.value = layout.viewState.showSidebar;
+  }
+  panelLayoutMode.value = layout.viewState.layoutMode;
 }
 
 async function openFtpConnectionLayout(layoutId: string) {
@@ -2508,6 +2628,7 @@ async function openFtpConnectionLayout(layoutId: string) {
       await initializeFtpPage();
     }
     await replaceExistingFtpConnections();
+    applyFtpConnectionLayoutViewState(layout);
     const desiredKeys = (await Promise.all(
       layout.targets.map((target) => {
         if (target.surface !== 'ftp') return Promise.resolve('');
@@ -2517,31 +2638,6 @@ async function openFtpConnectionLayout(layoutId: string) {
       }),
     )).filter(Boolean);
 
-    if (layout.viewState.layoutSizeState) {
-      ftpLayoutSizeState.value = layout.viewState.layoutSizeState;
-    }
-    if (typeof layout.viewState.masterMainRatio === 'number') {
-      ftpMasterMainRatio.value = layout.viewState.masterMainRatio;
-    }
-    if (layout.viewState.dwindleSplitRatios?.length) {
-      ftpDwindleSplitRatios.value = layout.viewState.dwindleSplitRatios;
-    }
-    if (layout.viewState.sidebarDockSide) {
-      sidebarDockSide.value = layout.viewState.sidebarDockSide;
-    }
-    if (layout.viewState.auxiliaryDockSide) {
-      auxiliaryDockSide.value = layout.viewState.auxiliaryDockSide;
-    }
-    if (layout.viewState.auxiliaryDockSize) {
-      auxiliaryDockSize.value = layout.viewState.auxiliaryDockSize;
-    }
-    if (typeof layout.viewState.auxiliaryDockCollapsed === 'boolean') {
-      auxiliaryDockCollapsed.value = layout.viewState.auxiliaryDockCollapsed;
-    }
-    if (typeof layout.viewState.showSidebar === 'boolean') {
-      showSidebarPanel.value = layout.viewState.showSidebar;
-    }
-    panelLayoutMode.value = layout.viewState.layoutMode;
     const paneByKey = new Map(ftpWorkspacePanes.value.map((pane) => [pane.key, pane]));
     const ordered = desiredKeys
       .map((key) => paneByKey.get(key))
@@ -2782,6 +2878,18 @@ function canOpenInternalEditor(kind: PanelKind, entry: FileTransferEntry | null)
 function canOpenExternalEditor(kind: PanelKind, entry: FileTransferEntry | null) {
   if (!entry || entry.isDir) return false;
   return kind === 'local' || Boolean(activeSession.value && isEditableTextEntry(entry));
+}
+
+async function openLocalPathInExplorer(path: string) {
+  if (!path) return;
+  try {
+    const result = await window.shellApi.openPath(path);
+    if (result) {
+      notifyError(new Error(result), '打开资源管理器失败');
+    }
+  } catch (error) {
+    notifyError(error, '打开资源管理器失败');
+  }
 }
 
 async function openLocalEditor(entry = selectedLocalEntry.value) {
@@ -3221,6 +3329,8 @@ function loadPanelLayout() {
       auxiliaryDockSize: string;
       showSidebar: boolean;
       auxCollapsed: boolean;
+      auxiliaryDockCollapsed: boolean;
+      auxDockActiveTab: AuxiliaryDockTab;
     }>;
     if (parsed.mode === 'columns') {
       panelLayoutMode.value = 'split-vertical';
@@ -3233,7 +3343,10 @@ function loadPanelLayout() {
     auxiliaryDockSide.value = parsed.auxiliaryDockSide === 'right' ? 'right' : 'bottom';
     auxiliaryDockSize.value = normalizePanelSize(parsed.auxiliaryDockSize, 180, '260');
     showSidebarPanel.value = parsed.showSidebar ?? true;
-    auxiliaryDockCollapsed.value = parsed.auxCollapsed ?? false;
+    auxiliaryDockCollapsed.value = parsed.auxiliaryDockCollapsed ?? parsed.auxCollapsed ?? false;
+    if (parsed.auxDockActiveTab === 'queue' || parsed.auxDockActiveTab === 'log') {
+      auxDockActiveTab.value = parsed.auxDockActiveTab;
+    }
     showLogPanel.value = true;
   } catch {
     panelLayoutMode.value = 'split-vertical';
@@ -3254,11 +3367,15 @@ function persistPanelLayout() {
     auxiliaryDockSize: auxiliaryDockSize.value,
     showSidebar: showSidebarPanel.value,
     auxCollapsed: auxiliaryDockCollapsed.value,
+    auxiliaryDockCollapsed: auxiliaryDockCollapsed.value,
+    auxDockActiveTab: auxDockActiveTab.value,
   }));
 }
 
 function toggleAuxiliaryDockCollapsed() {
   auxiliaryDockCollapsed.value = !auxiliaryDockCollapsed.value;
+  persistPanelLayout();
+  scheduleFtpWorkspaceWindowStatePersist();
 }
 
 function openTransferQueuePanel() {
@@ -4079,6 +4196,7 @@ watch(
     auxiliaryDockCollapsed,
     showSidebarPanel,
     showLogPanel,
+    auxDockActiveTab,
   ],
   () => {
     persistPanelLayout();
@@ -4408,9 +4526,6 @@ onBeforeUnmount(() => {
             </div>
           </section>
 
-          <div v-if="actionError" class="ftp-alert ftp-alert--error">
-            <span>{{ actionError }}</span>
-          </div>
           <div v-if="pendingExternalSummary" class="ftp-alert ftp-alert--info">
             <span>{{ pendingExternalSummary }}</span>
             <div class="ftp-alert__actions">
@@ -4459,6 +4574,7 @@ onBeforeUnmount(() => {
                 tabindex="-1"
                 title="关闭工作区"
                 aria-label="关闭工作区"
+                @pointerdown.stop
                 @click.stop="removeFtpWorkspacePane(pane.key)"
               >
                 <svg viewBox="0 0 16 16" width="12" height="12" aria-hidden="true">
