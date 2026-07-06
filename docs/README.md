@@ -26,6 +26,8 @@ docs/
 
 ## 近期开发计划
 
+- [应用级同步中心实施计划](superpowers/plans/2026-06-15-application-sync-center-implementation-plan.md)
+- [同步中心使用说明](desktop/SyncCenter/user-guide.md)
 - [公网中转同步后端开发文档](plans/multi-device-sync-backend-development-plan.md)
 - [桌面端设计系统契约](desktop/DESIGN_SYSTEM.md)
 - [桌面端设计系统迁移计划](plans/desktop-design-system-migration-plan.md)
