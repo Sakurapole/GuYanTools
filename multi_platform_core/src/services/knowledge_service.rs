@@ -17,15 +17,199 @@ use crate::models::{
     UpdateKnowledgeTagInput, UpsertKnowledgeEmbeddingInput,
 };
 use rusqlite::{params, Connection, OptionalExtension, Row};
+use serde::Deserialize;
+use sha2::{Digest, Sha256};
 use std::collections::HashSet;
 use uuid::Uuid;
 
 pub struct KnowledgeService;
 
+#[derive(Debug, Clone, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct KnowledgeSyncLibraryPayload {
+    id: String,
+    name: String,
+    description: Option<String>,
+    is_default: Option<bool>,
+    created_at: Option<String>,
+    updated_at: Option<String>,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct KnowledgeSyncSpacePayload {
+    id: String,
+    library_id: String,
+    name: String,
+    description: Option<String>,
+    icon: Option<String>,
+    color: Option<String>,
+    sort_order: Option<i64>,
+    is_default: Option<bool>,
+    created_at: Option<String>,
+    updated_at: Option<String>,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct KnowledgeSyncNodePayload {
+    id: String,
+    library_id: String,
+    space_id: Option<String>,
+    parent_id: Option<String>,
+    node_type: Option<String>,
+    title: String,
+    icon: Option<String>,
+    sort_order: Option<i64>,
+    is_archived: Option<bool>,
+    is_favorite: Option<bool>,
+    created_at: Option<String>,
+    updated_at: Option<String>,
+    deleted_at: Option<String>,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct KnowledgeSyncPageRecordPayload {
+    id: String,
+    page_type: Option<String>,
+    content_markdown: Option<String>,
+    content_json: Option<String>,
+    content_text: Option<String>,
+    properties_json: Option<String>,
+    source_asset_id: Option<String>,
+    created_at: Option<String>,
+    updated_at: Option<String>,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct KnowledgeSyncPageObjectPayload {
+    node: KnowledgeSyncNodePayload,
+    page: KnowledgeSyncPageRecordPayload,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct KnowledgeSyncAssetPayload {
+    id: String,
+    library_id: String,
+    hash: String,
+    original_name: String,
+    mime_type: Option<String>,
+    extension: Option<String>,
+    size_bytes: Option<i64>,
+    storage_path: Option<String>,
+    extracted_text: Option<String>,
+    metadata_json: Option<String>,
+    import_status: Option<String>,
+    created_at: Option<String>,
+    updated_at: Option<String>,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct KnowledgeSyncTagPayload {
+    id: String,
+    library_id: String,
+    name: String,
+    color: Option<String>,
+    created_at: Option<String>,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct KnowledgeSyncLinkPayload {
+    id: String,
+    source_type: String,
+    source_id: String,
+    target_type: String,
+    target_id: Option<String>,
+    target_url: Option<String>,
+    link_type: Option<String>,
+    created_at: Option<String>,
+}
+
+impl KnowledgeSyncNodePayload {
+    fn from_node(node: KnowledgeNode) -> Self {
+        Self {
+            id: node.id,
+            library_id: node.library_id,
+            space_id: node.space_id,
+            parent_id: node.parent_id,
+            node_type: Some(node.node_type),
+            title: node.title,
+            icon: node.icon,
+            sort_order: Some(node.sort_order),
+            is_archived: Some(node.is_archived),
+            is_favorite: Some(node.is_favorite),
+            created_at: Some(node.created_at),
+            updated_at: Some(node.updated_at),
+            deleted_at: node.deleted_at,
+        }
+    }
+}
+
 impl KnowledgeService {
     const DEFAULT_LIBRARY_ID: &'static str = "library-default";
     const DEFAULT_SPACE_ID: &'static str = "space-default";
     const DEFAULT_INBOX_NODE_ID: &'static str = "node-inbox";
+
+    pub fn apply_sync_object(
+        db: &Database,
+        collection: &str,
+        payload_json: &str,
+    ) -> DbResult<()> {
+        db.transaction(|conn| {
+            match collection {
+                "knowledge.library" => {
+                    let payload: KnowledgeSyncLibraryPayload = serde_json::from_str(payload_json)?;
+                    Self::upsert_sync_library(conn, payload)?;
+                }
+                "knowledge.space" => {
+                    let payload: KnowledgeSyncSpacePayload = serde_json::from_str(payload_json)?;
+                    Self::upsert_sync_space(conn, payload)?;
+                }
+                "knowledge.folder" => {
+                    let payload: KnowledgeSyncNodePayload = serde_json::from_str(payload_json)?;
+                    Self::upsert_sync_node(conn, payload, "folder")?;
+                }
+                "knowledge.page" => {
+                    let payload: serde_json::Value = serde_json::from_str(payload_json)?;
+                    let detail = if payload.get("node").is_some() && payload.get("page").is_some() {
+                        serde_json::from_value::<KnowledgeSyncPageObjectPayload>(payload)?
+                    } else {
+                        let page = serde_json::from_value::<KnowledgeSyncPageRecordPayload>(payload)?;
+                        let node = Self::get_node(conn, &page.id)?;
+                        KnowledgeSyncPageObjectPayload {
+                            node: KnowledgeSyncNodePayload::from_node(node),
+                            page,
+                        }
+                    };
+                    Self::upsert_sync_page(conn, detail)?;
+                }
+                "knowledge.asset" => {
+                    let payload: KnowledgeSyncAssetPayload = serde_json::from_str(payload_json)?;
+                    Self::upsert_sync_asset(conn, payload)?;
+                }
+                "knowledge.tag" => {
+                    let payload: KnowledgeSyncTagPayload = serde_json::from_str(payload_json)?;
+                    Self::upsert_sync_tag(conn, payload)?;
+                }
+                "knowledge.link" => {
+                    let payload: KnowledgeSyncLinkPayload = serde_json::from_str(payload_json)?;
+                    Self::upsert_sync_link(conn, payload)?;
+                }
+                _ => {
+                    return Err(DbError::InvalidParameter(format!(
+                        "不支持的知识库同步集合: {}",
+                        collection
+                    )));
+                }
+            }
+            Ok(())
+        })
+    }
 
     pub fn list_libraries(db: &Database) -> DbResult<Vec<KnowledgeLibrary>> {
         db.transaction(|conn| {
@@ -1878,6 +2062,395 @@ impl KnowledgeService {
         Ok((library_id, Some(space_id)))
     }
 
+    fn upsert_sync_library(
+        conn: &Connection,
+        payload: KnowledgeSyncLibraryPayload,
+    ) -> DbResult<KnowledgeLibrary> {
+        let id = Self::normalize_required_text(payload.id, "同步知识库 ID 不能为空")?;
+        let name = Self::normalize_required_text(payload.name, "知识库名称不能为空")?;
+        let description = Self::normalize_optional_text(payload.description).unwrap_or_default();
+        let is_default = payload.is_default.unwrap_or(false);
+        if is_default {
+            conn.execute(
+                "UPDATE knowledge_libraries SET is_default = 0 WHERE id <> ?1",
+                params![id],
+            )?;
+        }
+        conn.execute(
+            "INSERT INTO knowledge_libraries (
+                id, name, description, is_default, created_at, updated_at
+             )
+             VALUES (
+                ?1, ?2, ?3, ?4,
+                COALESCE(?5, datetime('now')),
+                COALESCE(?6, datetime('now'))
+             )
+             ON CONFLICT(id) DO UPDATE SET
+                name = excluded.name,
+                description = excluded.description,
+                is_default = excluded.is_default,
+                updated_at = excluded.updated_at",
+            params![
+                id,
+                name,
+                description,
+                is_default as i64,
+                payload.created_at,
+                payload.updated_at
+            ],
+        )?;
+        Self::get_library(conn, &id)
+    }
+
+    fn upsert_sync_space(
+        conn: &Connection,
+        payload: KnowledgeSyncSpacePayload,
+    ) -> DbResult<KnowledgeSpace> {
+        let id = Self::normalize_required_text(payload.id, "同步空间 ID 不能为空")?;
+        let library_id =
+            Self::normalize_required_text(payload.library_id, "同步空间知识库 ID 不能为空")?;
+        Self::get_library(conn, &library_id)?;
+        let name = Self::normalize_required_text(payload.name, "空间名称不能为空")?;
+        let description = Self::normalize_optional_text(payload.description).unwrap_or_default();
+        let icon = Self::normalize_optional_text(payload.icon).unwrap_or_else(|| "library".to_string());
+        let color = Self::normalize_optional_text(payload.color).unwrap_or_else(|| "#4A90D9".to_string());
+        let sort_order = payload.sort_order.unwrap_or(0);
+        let is_default = payload.is_default.unwrap_or(false);
+        if is_default {
+            conn.execute(
+                "UPDATE knowledge_spaces SET is_default = 0 WHERE library_id = ?1 AND id <> ?2",
+                params![library_id, id],
+            )?;
+        }
+        conn.execute(
+            "INSERT INTO knowledge_spaces (
+                id, library_id, name, description, icon, color, sort_order, is_default,
+                created_at, updated_at
+             )
+             VALUES (
+                ?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8,
+                COALESCE(?9, datetime('now')),
+                COALESCE(?10, datetime('now'))
+             )
+             ON CONFLICT(id) DO UPDATE SET
+                library_id = excluded.library_id,
+                name = excluded.name,
+                description = excluded.description,
+                icon = excluded.icon,
+                color = excluded.color,
+                sort_order = excluded.sort_order,
+                is_default = excluded.is_default,
+                updated_at = excluded.updated_at",
+            params![
+                id,
+                library_id,
+                name,
+                description,
+                icon,
+                color,
+                sort_order,
+                is_default as i64,
+                payload.created_at,
+                payload.updated_at
+            ],
+        )?;
+        Self::get_space(conn, &id)
+    }
+
+    fn upsert_sync_node(
+        conn: &Connection,
+        payload: KnowledgeSyncNodePayload,
+        fallback_node_type: &str,
+    ) -> DbResult<KnowledgeNode> {
+        let id = Self::normalize_required_text(payload.id, "同步节点 ID 不能为空")?;
+        let library_id =
+            Self::normalize_required_text(payload.library_id, "同步节点知识库 ID 不能为空")?;
+        Self::get_library(conn, &library_id)?;
+        let space_id = Self::existing_space_id(conn, payload.space_id)?;
+        let parent_id = Self::existing_parent_id(conn, &id, payload.parent_id)?;
+        let node_type = Self::normalize_sync_node_type(payload.node_type, fallback_node_type)?;
+        let title = Self::normalize_required_text(payload.title, "节点标题不能为空")?;
+        let sort_order = payload.sort_order.unwrap_or(0);
+        conn.execute(
+            "INSERT INTO knowledge_nodes (
+                id, library_id, space_id, parent_id, node_type, title, icon, sort_order,
+                is_archived, is_favorite, created_at, updated_at, deleted_at
+             )
+             VALUES (
+                ?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10,
+                COALESCE(?11, datetime('now')),
+                COALESCE(?12, datetime('now')),
+                ?13
+             )
+             ON CONFLICT(id) DO UPDATE SET
+                library_id = excluded.library_id,
+                space_id = excluded.space_id,
+                parent_id = excluded.parent_id,
+                node_type = excluded.node_type,
+                title = excluded.title,
+                icon = excluded.icon,
+                sort_order = excluded.sort_order,
+                is_archived = excluded.is_archived,
+                is_favorite = excluded.is_favorite,
+                updated_at = excluded.updated_at,
+                deleted_at = excluded.deleted_at",
+            params![
+                id,
+                library_id,
+                space_id,
+                parent_id,
+                node_type,
+                title,
+                payload.icon,
+                sort_order,
+                payload.is_archived.unwrap_or(false) as i64,
+                payload.is_favorite.unwrap_or(false) as i64,
+                payload.created_at,
+                payload.updated_at,
+                payload.deleted_at
+            ],
+        )?;
+        Self::get_node(conn, &id)
+    }
+
+    fn upsert_sync_page(
+        conn: &Connection,
+        payload: KnowledgeSyncPageObjectPayload,
+    ) -> DbResult<KnowledgePageDetail> {
+        let node_type = payload.node.node_type.as_deref().unwrap_or("page").to_string();
+        let fallback = if node_type == "document" { "document" } else { "page" };
+        let node = Self::upsert_sync_node(conn, payload.node, fallback)?;
+        let page_type = Self::normalize_page_type(payload.page.page_type)?;
+        let content_markdown = payload.page.content_markdown.unwrap_or_default();
+        let content_text = payload
+            .page
+            .content_text
+            .unwrap_or_else(|| content_markdown.clone());
+        conn.execute(
+            "INSERT INTO knowledge_pages (
+                id, page_type, content_markdown, content_json, content_text, properties_json,
+                source_asset_id, created_at, updated_at
+             )
+             VALUES (
+                ?1, ?2, ?3, ?4, ?5, ?6, ?7,
+                COALESCE(?8, datetime('now')),
+                COALESCE(?9, datetime('now'))
+             )
+             ON CONFLICT(id) DO UPDATE SET
+                page_type = excluded.page_type,
+                content_markdown = excluded.content_markdown,
+                content_json = excluded.content_json,
+                content_text = excluded.content_text,
+                properties_json = excluded.properties_json,
+                source_asset_id = excluded.source_asset_id,
+                updated_at = excluded.updated_at",
+            params![
+                payload.page.id,
+                page_type,
+                content_markdown,
+                payload.page.content_json,
+                content_text,
+                payload.page.properties_json,
+                payload.page.source_asset_id,
+                payload.page.created_at,
+                payload.page.updated_at
+            ],
+        )?;
+        let detail = Self::get_page_detail(conn, &node.id)?;
+        Self::upsert_search_document(
+            conn,
+            &detail.node.library_id,
+            &detail.node.node_type,
+            &detail.node.id,
+            Some(&detail.node.id),
+            detail.page.source_asset_id.as_deref(),
+            &detail.node.title,
+            &detail.page.content_text,
+            "",
+            detail.page.properties_json.as_deref().unwrap_or(""),
+        )?;
+        Self::sync_page_wikilinks(conn, &detail)?;
+        Ok(detail)
+    }
+
+    fn upsert_sync_asset(
+        conn: &Connection,
+        payload: KnowledgeSyncAssetPayload,
+    ) -> DbResult<KnowledgeAsset> {
+        let id = Self::normalize_required_text(payload.id, "同步资产 ID 不能为空")?;
+        let library_id =
+            Self::normalize_required_text(payload.library_id, "同步资产知识库 ID 不能为空")?;
+        Self::get_library(conn, &library_id)?;
+        let hash = Self::normalize_required_text(payload.hash, "同步资产哈希不能为空")?;
+        let original_name = Self::normalize_required_text(payload.original_name, "资产名称不能为空")?;
+        let mime_type = Self::normalize_optional_text(payload.mime_type).unwrap_or_default();
+        let extension = Self::normalize_optional_text(payload.extension).unwrap_or_default();
+        let extracted_text = Self::normalize_optional_text(payload.extracted_text).unwrap_or_default();
+        let import_status = Self::normalize_import_status(payload.import_status)?;
+        let storage_path = Self::normalize_optional_text(payload.storage_path)
+            .filter(|value| !value.is_empty())
+            .unwrap_or_else(|| format!("sync-pending://{}", hash));
+        conn.execute(
+            "INSERT INTO knowledge_assets (
+                id, library_id, hash, original_name, mime_type, extension, size_bytes,
+                storage_path, original_path, preview_path, thumbnail_path, extracted_text,
+                metadata_json, import_status, created_at, updated_at
+             )
+             VALUES (
+                ?1, ?2, ?3, ?4, ?5, ?6, ?7,
+                ?8, NULL, NULL, NULL, ?9, ?10, ?11,
+                COALESCE(?12, datetime('now')),
+                COALESCE(?13, datetime('now'))
+             )
+             ON CONFLICT(id) DO UPDATE SET
+                library_id = excluded.library_id,
+                hash = excluded.hash,
+                original_name = excluded.original_name,
+                mime_type = excluded.mime_type,
+                extension = excluded.extension,
+                size_bytes = excluded.size_bytes,
+                extracted_text = excluded.extracted_text,
+                metadata_json = excluded.metadata_json,
+                import_status = excluded.import_status,
+                updated_at = excluded.updated_at",
+            params![
+                id,
+                library_id,
+                hash,
+                original_name,
+                mime_type,
+                extension,
+                payload.size_bytes.unwrap_or(0),
+                storage_path,
+                extracted_text,
+                payload.metadata_json,
+                import_status,
+                payload.created_at,
+                payload.updated_at
+            ],
+        )?;
+        let asset = Self::get_asset(conn, &id)?;
+        Self::upsert_search_document(
+            conn,
+            &asset.library_id,
+            "asset",
+            &asset.id,
+            None,
+            Some(&asset.id),
+            &asset.original_name,
+            &asset.extracted_text,
+            "",
+            asset.metadata_json.as_deref().unwrap_or(""),
+        )?;
+        Ok(asset)
+    }
+
+    fn upsert_sync_tag(conn: &Connection, payload: KnowledgeSyncTagPayload) -> DbResult<KnowledgeTag> {
+        let id = Self::normalize_required_text(payload.id, "同步标签 ID 不能为空")?;
+        let library_id =
+            Self::normalize_required_text(payload.library_id, "同步标签知识库 ID 不能为空")?;
+        Self::get_library(conn, &library_id)?;
+        let name = Self::normalize_tag_name(payload.name)?;
+        let color = Self::normalize_tag_color(payload.color);
+        let existing_same_name = conn
+            .query_row(
+                "SELECT id FROM knowledge_tags WHERE library_id = ?1 AND name = ?2",
+                params![library_id, name],
+                |row| row.get::<_, String>(0),
+            )
+            .optional()?;
+        if let Some(existing_id) = existing_same_name {
+            conn.execute(
+                "UPDATE knowledge_tags SET color = ?1 WHERE id = ?2",
+                params![color, existing_id],
+            )?;
+            return Self::get_tag(conn, &existing_id);
+        }
+        conn.execute(
+            "INSERT INTO knowledge_tags (id, library_id, name, color, created_at)
+             VALUES (?1, ?2, ?3, ?4, COALESCE(?5, datetime('now')))
+             ON CONFLICT(id) DO UPDATE SET
+                library_id = excluded.library_id,
+                name = excluded.name,
+                color = excluded.color",
+            params![id, library_id, name, color, payload.created_at],
+        )?;
+        Self::get_tag(conn, &id)
+    }
+
+    fn upsert_sync_link(conn: &Connection, payload: KnowledgeSyncLinkPayload) -> DbResult<()> {
+        let id = Self::normalize_required_text(payload.id, "同步链接 ID 不能为空")?;
+        let source_type = Self::normalize_required_text(payload.source_type, "链接来源类型不能为空")?;
+        let source_id = Self::normalize_required_text(payload.source_id, "链接来源 ID 不能为空")?;
+        let target_type = Self::normalize_required_text(payload.target_type, "链接目标类型不能为空")?;
+        let target_id = Self::normalize_optional_text(payload.target_id);
+        let target_url = Self::normalize_optional_text(payload.target_url);
+        let link_type = Self::normalize_optional_text(payload.link_type).unwrap_or_else(|| "reference".to_string());
+        conn.execute(
+            "INSERT INTO knowledge_links (
+                id, source_type, source_id, target_type, target_id, target_url, link_type, created_at
+             )
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, COALESCE(?8, datetime('now')))
+             ON CONFLICT(id) DO UPDATE SET
+                source_type = excluded.source_type,
+                source_id = excluded.source_id,
+                target_type = excluded.target_type,
+                target_id = excluded.target_id,
+                target_url = excluded.target_url,
+                link_type = excluded.link_type",
+            params![id, source_type, source_id, target_type, target_id, target_url, link_type, payload.created_at],
+        )?;
+        Ok(())
+    }
+
+    fn existing_space_id(conn: &Connection, space_id: Option<String>) -> DbResult<Option<String>> {
+        let Some(space_id) = Self::normalize_optional_text(space_id) else {
+            return Ok(None);
+        };
+        let exists = conn
+            .query_row(
+                "SELECT 1 FROM knowledge_spaces WHERE id = ?1",
+                params![space_id],
+                |_| Ok(()),
+            )
+            .optional()?
+            .is_some();
+        Ok(exists.then_some(space_id))
+    }
+
+    fn existing_parent_id(
+        conn: &Connection,
+        node_id: &str,
+        parent_id: Option<String>,
+    ) -> DbResult<Option<String>> {
+        let Some(parent_id) = Self::normalize_optional_text(parent_id) else {
+            return Ok(None);
+        };
+        if parent_id == node_id {
+            return Ok(None);
+        }
+        let exists = conn
+            .query_row(
+                "SELECT 1 FROM knowledge_nodes WHERE id = ?1 AND node_type = 'folder'",
+                params![parent_id],
+                |_| Ok(()),
+            )
+            .optional()?
+            .is_some();
+        Ok(exists.then_some(parent_id))
+    }
+
+    fn normalize_sync_node_type(value: Option<String>, fallback: &str) -> DbResult<String> {
+        let node_type = Self::normalize_optional_text(value).unwrap_or_else(|| fallback.to_string());
+        match node_type.as_str() {
+            "folder" | "page" | "document" | "quick_note" => Ok(node_type),
+            _ => Err(DbError::InvalidParameter(format!(
+                "不支持的知识库节点类型: {}",
+                node_type
+            ))),
+        }
+    }
+
     fn get_library(conn: &Connection, library_id: &str) -> DbResult<KnowledgeLibrary> {
         conn.query_row(
             "SELECT id, name, description, is_default, created_at, updated_at
@@ -2156,11 +2729,7 @@ impl KnowledgeService {
     }
 
     fn sync_page_wikilinks(conn: &Connection, detail: &KnowledgePageDetail) -> DbResult<()> {
-        conn.execute(
-            "DELETE FROM knowledge_links
-             WHERE source_type = 'page' AND source_id = ?1 AND link_type = 'wikilink'",
-            params![detail.node.id],
-        )?;
+        let mut expected_ids = Vec::new();
         let titles = Self::extract_wikilink_titles(&format!(
             "{}\n{}",
             detail.page.content_markdown, detail.page.content_text
@@ -2183,6 +2752,14 @@ impl KnowledgeService {
                 .optional()?;
             if let Some(target_id) = target_id {
                 if target_id != detail.node.id {
+                    expected_ids.push(Self::stable_knowledge_link_id(
+                        "page",
+                        &detail.node.id,
+                        "page",
+                        Some(&target_id),
+                        None,
+                        "wikilink",
+                    ));
                     Self::insert_knowledge_link(
                         conn,
                         "page",
@@ -2193,6 +2770,14 @@ impl KnowledgeService {
                     )?;
                 }
             } else {
+                expected_ids.push(Self::stable_knowledge_link_id(
+                    "page",
+                    &detail.node.id,
+                    "missing_page",
+                    None,
+                    Some(&title),
+                    "wikilink",
+                ));
                 Self::insert_knowledge_link_with_url(
                     conn,
                     "page",
@@ -2202,6 +2787,18 @@ impl KnowledgeService {
                     Some(&title),
                     "wikilink",
                 )?;
+            }
+        }
+        let mut stmt = conn.prepare(
+            "SELECT id FROM knowledge_links
+             WHERE source_type = 'page' AND source_id = ?1 AND link_type = 'wikilink'",
+        )?;
+        let existing_ids = stmt
+            .query_map(params![detail.node.id], |row| row.get::<_, String>(0))?
+            .collect::<Result<Vec<_>, _>>()?;
+        for existing_id in existing_ids {
+            if !expected_ids.iter().any(|id| id == &existing_id) {
+                conn.execute("DELETE FROM knowledge_links WHERE id = ?1", params![existing_id])?;
             }
         }
         Ok(())
@@ -2261,26 +2858,47 @@ impl KnowledgeService {
         target_url: Option<&str>,
         link_type: &str,
     ) -> DbResult<()> {
+        let link_id = if link_type == "wikilink" {
+            Self::stable_knowledge_link_id(
+                source_type,
+                source_id,
+                target_type,
+                target_id,
+                target_url,
+                link_type,
+            )
+        } else {
+            Self::new_id("link")
+        };
         conn.execute(
             "DELETE FROM knowledge_links
              WHERE source_type = ?1 AND source_id = ?2 AND target_type = ?3
                AND COALESCE(target_id, '') = COALESCE(?4, '')
                AND COALESCE(target_url, '') = COALESCE(?5, '')
-               AND link_type = ?6",
+               AND link_type = ?6
+               AND id <> ?7",
             params![
                 source_type,
                 source_id,
                 target_type,
                 target_id,
                 target_url,
-                link_type
+                link_type,
+                link_id
             ],
         )?;
         conn.execute(
             "INSERT INTO knowledge_links (id, source_type, source_id, target_type, target_id, target_url, link_type)
-             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)",
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)
+             ON CONFLICT(id) DO UPDATE SET
+                source_type = excluded.source_type,
+                source_id = excluded.source_id,
+                target_type = excluded.target_type,
+                target_id = excluded.target_id,
+                target_url = excluded.target_url,
+                link_type = excluded.link_type",
             params![
-                Self::new_id("link"),
+                link_id,
                 source_type,
                 source_id,
                 target_type,
@@ -2935,6 +3553,27 @@ impl KnowledgeService {
         format!("{}-{}", prefix, Uuid::new_v4().simple())
     }
 
+    fn stable_knowledge_link_id(
+        source_type: &str,
+        source_id: &str,
+        target_type: &str,
+        target_id: Option<&str>,
+        target_url: Option<&str>,
+        link_type: &str,
+    ) -> String {
+        let seed = [
+            source_type,
+            source_id,
+            target_type,
+            target_id.unwrap_or(""),
+            target_url.unwrap_or(""),
+            link_type,
+        ]
+        .join("\u{1f}");
+        let digest = Sha256::digest(seed.as_bytes());
+        format!("link-{:x}", digest)[..37].to_string()
+    }
+
     fn map_library(row: &Row<'_>) -> rusqlite::Result<KnowledgeLibrary> {
         Ok(KnowledgeLibrary {
             id: row.get(0)?,
@@ -3252,6 +3891,141 @@ mod tests {
         assert!(libraries.iter().all(|item| item.id != library.id));
         assert!(KnowledgeService::delete_library(&db, KnowledgeService::DEFAULT_LIBRARY_ID).is_err());
         assert!(KnowledgeService::delete_space(&db, KnowledgeService::DEFAULT_SPACE_ID).is_err());
+    }
+
+    #[test]
+    fn test_apply_sync_object_imports_knowledge_tree_page_tag_and_link() {
+        let db = db();
+
+        KnowledgeService::apply_sync_object(
+            &db,
+            "knowledge.library",
+            r##"{"id":"sync-library-a","name":"Research","description":"Remote","isDefault":false,"createdAt":"2026-06-15 10:00:00","updatedAt":"2026-06-15 10:00:00"}"##,
+        )
+        .unwrap();
+        KnowledgeService::apply_sync_object(
+            &db,
+            "knowledge.space",
+            r##"{"id":"sync-space-a","libraryId":"sync-library-a","name":"Notes","description":"","icon":"library","color":"#4A90D9","sortOrder":2,"isDefault":false,"createdAt":"2026-06-15 10:00:00","updatedAt":"2026-06-15 10:00:00"}"##,
+        )
+        .unwrap();
+        KnowledgeService::apply_sync_object(
+            &db,
+            "knowledge.folder",
+            r##"{"id":"sync-folder-a","libraryId":"sync-library-a","spaceId":"sync-space-a","parentId":null,"nodeType":"folder","title":"Folder","icon":"folder","sortOrder":1,"isArchived":false,"isFavorite":false,"createdAt":"2026-06-15 10:00:00","updatedAt":"2026-06-15 10:00:00","deletedAt":null}"##,
+        )
+        .unwrap();
+        KnowledgeService::apply_sync_object(
+            &db,
+            "knowledge.page",
+            r##"{"node":{"id":"sync-page-a","libraryId":"sync-library-a","spaceId":"sync-space-a","parentId":"sync-folder-a","nodeType":"page","title":"Remote Note","icon":null,"sortOrder":3,"isArchived":false,"isFavorite":true,"createdAt":"2026-06-15 10:00:00","updatedAt":"2026-06-15 10:00:00","deletedAt":null},"page":{"id":"sync-page-a","pageType":"markdown","contentMarkdown":"# Remote Note\n\nsync phrase","contentJson":null,"contentText":"sync phrase","propertiesJson":"{\"source\":\"sync\"}","sourceAssetId":null,"createdAt":"2026-06-15 10:00:00","updatedAt":"2026-06-15 10:00:00"}}"##,
+        )
+        .unwrap();
+        KnowledgeService::apply_sync_object(
+            &db,
+            "knowledge.tag",
+            r##"{"id":"sync-tag-a","libraryId":"sync-library-a","name":"项目","color":"#22c55e","createdAt":"2026-06-15 10:00:00"}"##,
+        )
+        .unwrap();
+        KnowledgeService::apply_sync_object(
+            &db,
+            "knowledge.link",
+            r##"{"id":"sync-link-a","sourceType":"page","sourceId":"sync-page-a","targetType":"page","targetId":"sync-page-a","targetUrl":null,"linkType":"reference","createdAt":"2026-06-15 10:00:00"}"##,
+        )
+        .unwrap();
+
+        let page = KnowledgeService::get_page(&db, "sync-page-a").unwrap();
+        assert_eq!(page.node.parent_id.as_deref(), Some("sync-folder-a"));
+        assert!(page.node.is_favorite);
+        assert_eq!(page.page.content_text, "sync phrase");
+
+        let results = KnowledgeService::search_knowledge(
+            &db,
+            KnowledgeSearchInput {
+                library_id: Some("sync-library-a".to_string()),
+                space_id: None,
+                query: "sync phrase".to_string(),
+                source_type: Some("page".to_string()),
+                limit: Some(10),
+            },
+        )
+        .unwrap();
+        assert!(results.iter().any(|result| result.source_id == "sync-page-a"));
+
+        let links = KnowledgeService::list_page_links(&db, "sync-page-a").unwrap();
+        assert!(links.iter().any(|link| link.id == "sync-link-a"));
+    }
+
+    #[test]
+    fn test_apply_sync_asset_uses_downloaded_storage_path() {
+        let db = db();
+        KnowledgeService::apply_sync_object(
+            &db,
+            "knowledge.library",
+            r##"{"id":"sync-library-asset","name":"Assets","description":"","isDefault":false,"createdAt":"2026-06-15 10:00:00","updatedAt":"2026-06-15 10:00:00"}"##,
+        )
+        .unwrap();
+
+        KnowledgeService::apply_sync_object(
+            &db,
+            "knowledge.asset",
+            r##"{"id":"sync-asset-a","libraryId":"sync-library-asset","hash":"sync-asset-hash","originalName":"remote.png","mimeType":"image/png","extension":".png","sizeBytes":12,"storagePath":"D:/GuYanTools/knowledge-assets/sync-asset-hash.png","extractedText":"","metadataJson":null,"importStatus":"ready","createdAt":"2026-06-15 10:00:00","updatedAt":"2026-06-15 10:00:00"}"##,
+        )
+        .unwrap();
+
+        let asset = KnowledgeService::get_asset_by_id(&db, "sync-asset-a").unwrap();
+        assert_eq!(asset.storage_path, "D:/GuYanTools/knowledge-assets/sync-asset-hash.png");
+    }
+
+    #[test]
+    fn test_apply_sync_object_keeps_same_name_different_id_pages() {
+        let db = db();
+
+        for suffix in ["a", "b"] {
+            KnowledgeService::apply_sync_object(
+                &db,
+                "knowledge.library",
+                &format!(
+                    r##"{{"id":"sync-library-{suffix}","name":"Research","description":"","isDefault":false}}"##
+                ),
+            )
+            .unwrap();
+            KnowledgeService::apply_sync_object(
+                &db,
+                "knowledge.page",
+                &format!(
+                    r##"{{"node":{{"id":"sync-page-{suffix}","libraryId":"sync-library-{suffix}","spaceId":null,"parentId":null,"nodeType":"page","title":"Same Name","sortOrder":0,"isArchived":false,"isFavorite":false}},"page":{{"id":"sync-page-{suffix}","pageType":"markdown","contentMarkdown":"page {suffix}","contentText":"page {suffix}"}}}}"##
+                ),
+            )
+            .unwrap();
+        }
+
+        let libraries = KnowledgeService::list_libraries(&db).unwrap();
+        assert!(libraries.iter().any(|item| item.id == "sync-library-a"));
+        assert!(libraries.iter().any(|item| item.id == "sync-library-b"));
+
+        let tree_a = KnowledgeService::list_tree(
+            &db,
+            Some(ListKnowledgeTreeInput {
+                library_id: Some("sync-library-a".to_string()),
+                space_id: None,
+                parent_id: None,
+                include_archived: Some(true),
+            }),
+        )
+        .unwrap();
+        let tree_b = KnowledgeService::list_tree(
+            &db,
+            Some(ListKnowledgeTreeInput {
+                library_id: Some("sync-library-b".to_string()),
+                space_id: None,
+                parent_id: None,
+                include_archived: Some(true),
+            }),
+        )
+        .unwrap();
+        assert!(tree_a.iter().any(|node| node.id == "sync-page-a"));
+        assert!(tree_b.iter().any(|node| node.id == "sync-page-b"));
     }
 
     #[test]
@@ -3708,6 +4482,72 @@ mod tests {
         assert!(orphans.iter().any(|page| page.id == orphan.node.id));
         assert!(!orphans.iter().any(|page| page.id == page_a.node.id));
         assert!(!orphans.iter().any(|page| page.id == page_b.node.id));
+    }
+
+    #[test]
+    fn test_wikilink_ids_stay_stable_when_listing_links_repeatedly() {
+        let db = db();
+        let target = KnowledgeService::create_page(
+            &db,
+            CreateKnowledgePageInput {
+                library_id: None,
+                space_id: None,
+                parent_id: None,
+                title: "稳定目标".to_string(),
+                page_type: None,
+                content_markdown: Some("目标页面".to_string()),
+                content_json: None,
+                content_text: None,
+                properties_json: None,
+                sort_order: None,
+            },
+        )
+        .unwrap();
+        let source = KnowledgeService::create_page(
+            &db,
+            CreateKnowledgePageInput {
+                library_id: None,
+                space_id: None,
+                parent_id: None,
+                title: "稳定来源".to_string(),
+                page_type: None,
+                content_markdown: Some("[[稳定目标]]".to_string()),
+                content_json: None,
+                content_text: None,
+                properties_json: None,
+                sort_order: None,
+            },
+        )
+        .unwrap();
+
+        let first_links = KnowledgeService::list_page_links(&db, &source.node.id).unwrap();
+        let first_wikilink = first_links
+            .iter()
+            .find(|link| {
+                link.link_type == "wikilink"
+                    && link.target_id.as_deref() == Some(target.node.id.as_str())
+            })
+            .unwrap()
+            .id
+            .clone();
+        db.with_connection(|conn| {
+            conn.execute(
+                "UPDATE knowledge_links SET created_at = '2000-01-01 00:00:00' WHERE id = ?1",
+                params![first_wikilink],
+            )?;
+            Ok(())
+        })
+        .unwrap();
+
+        let second_links = KnowledgeService::list_page_links(&db, &source.node.id).unwrap();
+        let second_wikilinks: Vec<_> = second_links
+            .iter()
+            .filter(|link| link.link_type == "wikilink")
+            .collect();
+
+        assert_eq!(second_wikilinks.len(), 1);
+        assert_eq!(second_wikilinks[0].id, first_wikilink);
+        assert_eq!(second_wikilinks[0].created_at, "2000-01-01 00:00:00");
     }
 
     #[test]

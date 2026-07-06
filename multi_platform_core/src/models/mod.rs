@@ -4,6 +4,7 @@ mod knowledge;
 pub mod multi_device_clipboard;
 mod project;
 mod setting;
+mod sync;
 mod todo;
 mod user;
 
@@ -49,6 +50,7 @@ pub use multi_device_clipboard::{
 };
 pub use project::{CreateProjectInput, Project, UpdateProjectInput};
 pub use setting::{Setting, UpsertSettingInput};
+pub use sync::{SyncConflict, SyncObjectState, SyncOutboxItem, SyncProfile};
 pub use todo::{
     CompleteTodoResult, CreateTodoInput, CreateTodoListInput, CreateTodoReminderInput,
     CreateTodoStepInput, Todo, TodoList, TodoReminder, TodoStep, UpdateTodoInput,

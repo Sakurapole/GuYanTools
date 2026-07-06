@@ -401,6 +401,147 @@ impl JsDatabase {
             .map_err(|e| Error::from_reason(format!("删除设置失败: {}", e)))
     }
 
+    // ==================== 同步元数据方法 ====================
+
+    #[napi(js_name = "listSyncProfiles")]
+    pub async fn list_sync_profiles(&self) -> Result<Vec<SyncProfile>> {
+        let db = self.inner.clone();
+        tokio::task::spawn_blocking(move || SyncService::list_profiles(&db))
+            .await
+            .map_err(|e| Error::from_reason(format!("任务执行失败: {}", e)))?
+            .map_err(|e| Error::from_reason(format!("列出同步配置失败: {}", e)))
+    }
+
+    #[napi(js_name = "upsertSyncProfile")]
+    pub async fn upsert_sync_profile(&self, profile: SyncProfile) -> Result<SyncProfile> {
+        let db = self.inner.clone();
+        tokio::task::spawn_blocking(move || SyncService::upsert_profile(&db, profile))
+            .await
+            .map_err(|e| Error::from_reason(format!("任务执行失败: {}", e)))?
+            .map_err(|e| Error::from_reason(format!("保存同步配置失败: {}", e)))
+    }
+
+    #[napi(js_name = "setActiveSyncProfile")]
+    pub async fn set_active_sync_profile(&self, profile_id: String) -> Result<()> {
+        let db = self.inner.clone();
+        tokio::task::spawn_blocking(move || SyncService::set_active_profile(&db, &profile_id))
+            .await
+            .map_err(|e| Error::from_reason(format!("任务执行失败: {}", e)))?
+            .map_err(|e| Error::from_reason(format!("设置当前同步配置失败: {}", e)))
+    }
+
+    #[napi(js_name = "setDefaultSyncProfile")]
+    pub async fn set_default_sync_profile(&self, profile_id: String) -> Result<()> {
+        let db = self.inner.clone();
+        tokio::task::spawn_blocking(move || SyncService::set_default_profile(&db, &profile_id))
+            .await
+            .map_err(|e| Error::from_reason(format!("任务执行失败: {}", e)))?
+            .map_err(|e| Error::from_reason(format!("设置默认同步配置失败: {}", e)))
+    }
+
+    #[napi(js_name = "listSyncConflicts")]
+    pub async fn list_sync_conflicts(&self) -> Result<Vec<SyncConflict>> {
+        let db = self.inner.clone();
+        tokio::task::spawn_blocking(move || SyncService::list_conflicts(&db))
+            .await
+            .map_err(|e| Error::from_reason(format!("任务执行失败: {}", e)))?
+            .map_err(|e| Error::from_reason(format!("列出同步冲突失败: {}", e)))
+    }
+
+    #[napi(js_name = "listSyncObjectStates")]
+    pub async fn list_sync_object_states(&self) -> Result<Vec<SyncObjectState>> {
+        let db = self.inner.clone();
+        tokio::task::spawn_blocking(move || SyncService::list_object_states(&db))
+            .await
+            .map_err(|e| Error::from_reason(format!("任务执行失败: {}", e)))?
+            .map_err(|e| Error::from_reason(format!("列出同步对象状态失败: {}", e)))
+    }
+
+    #[napi(js_name = "upsertSyncObjectState")]
+    pub async fn upsert_sync_object_state(&self, state: SyncObjectState) -> Result<SyncObjectState> {
+        let db = self.inner.clone();
+        tokio::task::spawn_blocking(move || SyncService::upsert_object_state(&db, state))
+            .await
+            .map_err(|e| Error::from_reason(format!("任务执行失败: {}", e)))?
+            .map_err(|e| Error::from_reason(format!("保存同步对象状态失败: {}", e)))
+    }
+
+    #[napi(js_name = "listPendingSyncOutbox")]
+    pub async fn list_pending_sync_outbox(&self) -> Result<Vec<SyncOutboxItem>> {
+        let db = self.inner.clone();
+        tokio::task::spawn_blocking(move || SyncService::list_pending_outbox(&db))
+            .await
+            .map_err(|e| Error::from_reason(format!("任务执行失败: {}", e)))?
+            .map_err(|e| Error::from_reason(format!("列出同步待上传项失败: {}", e)))
+    }
+
+    #[napi(js_name = "upsertSyncOutboxItem")]
+    pub async fn upsert_sync_outbox_item(&self, item: SyncOutboxItem) -> Result<SyncOutboxItem> {
+        let db = self.inner.clone();
+        tokio::task::spawn_blocking(move || SyncService::upsert_outbox_item(&db, item))
+            .await
+            .map_err(|e| Error::from_reason(format!("任务执行失败: {}", e)))?
+            .map_err(|e| Error::from_reason(format!("保存同步待上传项失败: {}", e)))
+    }
+
+    #[napi(js_name = "markSyncOutboxItemsSynced")]
+    pub async fn mark_sync_outbox_items_synced(&self, op_ids: Vec<String>, updated_at: i64) -> Result<()> {
+        let db = self.inner.clone();
+        tokio::task::spawn_blocking(move || SyncService::mark_outbox_items_synced(&db, op_ids, updated_at))
+            .await
+            .map_err(|e| Error::from_reason(format!("任务执行失败: {}", e)))?
+            .map_err(|e| Error::from_reason(format!("标记同步待上传项失败: {}", e)))
+    }
+
+    #[napi(js_name = "markSyncOutboxItemsSyncedByObject")]
+    pub async fn mark_sync_outbox_items_synced_by_object(
+        &self,
+        collection: String,
+        object_id: String,
+        updated_at: i64,
+    ) -> Result<()> {
+        let db = self.inner.clone();
+        tokio::task::spawn_blocking(move || {
+            SyncService::mark_outbox_items_synced_by_object(&db, &collection, &object_id, updated_at)
+        })
+        .await
+        .map_err(|e| Error::from_reason(format!("任务执行失败: {}", e)))?
+        .map_err(|e| Error::from_reason(format!("按对象标记同步待上传项失败: {}", e)))
+    }
+
+    #[napi(js_name = "upsertSyncConflict")]
+    pub async fn upsert_sync_conflict(&self, conflict: SyncConflict) -> Result<SyncConflict> {
+        let db = self.inner.clone();
+        tokio::task::spawn_blocking(move || SyncService::upsert_conflict(&db, conflict))
+            .await
+            .map_err(|e| Error::from_reason(format!("任务执行失败: {}", e)))?
+            .map_err(|e| Error::from_reason(format!("保存同步冲突失败: {}", e)))
+    }
+
+    #[napi(js_name = "resolveSyncConflict")]
+    pub async fn resolve_sync_conflict(&self, conflict_id: String, resolved_at: i64) -> Result<()> {
+        let db = self.inner.clone();
+        tokio::task::spawn_blocking(move || SyncService::resolve_conflict(&db, &conflict_id, resolved_at))
+            .await
+            .map_err(|e| Error::from_reason(format!("任务执行失败: {}", e)))?
+            .map_err(|e| Error::from_reason(format!("解决同步冲突失败: {}", e)))
+    }
+
+    #[napi(js_name = "applyKnowledgeSyncObject")]
+    pub async fn apply_knowledge_sync_object(
+        &self,
+        collection: String,
+        payload_json: String,
+    ) -> Result<()> {
+        let db = self.inner.clone();
+        tokio::task::spawn_blocking(move || {
+            KnowledgeService::apply_sync_object(&db, &collection, &payload_json)
+        })
+        .await
+        .map_err(|e| Error::from_reason(format!("任务执行失败: {}", e)))?
+        .map_err(|e| Error::from_reason(format!("应用知识库同步对象失败: {}", e)))
+    }
+
     // ==================== 首页布局相关方法 ====================
 
     #[napi(js_name = "listHomeWorkspaces")]

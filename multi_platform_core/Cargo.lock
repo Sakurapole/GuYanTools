@@ -1565,6 +1565,7 @@ dependencies = [
 name = "multi-platform-core"
 version = "0.1.0"
 dependencies = [
+ "aes-gcm",
  "anyhow",
  "async-std",
  "async-trait",

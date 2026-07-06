@@ -127,6 +127,10 @@ pub fn run_migrations(conn: &Connection) -> DbResult<()> {
             "028_extend_ftp_persisted_config",
             include_str!("../../migrations/028_extend_ftp_persisted_config.sql"),
         ),
+        (
+            "029_add_sync_metadata",
+            include_str!("../../migrations/029_add_sync_metadata.sql"),
+        ),
     ];
 
     // 执行每个迁移
@@ -172,6 +176,24 @@ mod tests {
             .query_row("SELECT COUNT(*) FROM _migrations", [], |row| row.get(0))
             .unwrap();
         assert!(count > 0);
+
+        for table in [
+            "sync_devices",
+            "sync_profiles",
+            "sync_object_state",
+            "sync_outbox",
+            "sync_conflicts",
+            "sync_provider_state",
+        ] {
+            let exists: bool = conn
+                .query_row(
+                    "SELECT EXISTS(SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = ?1)",
+                    [table],
+                    |row| row.get(0),
+                )
+                .unwrap();
+            assert!(exists, "{} should be created by sync migration", table);
+        }
     }
 
     #[test]
