@@ -1,5 +1,6 @@
 import type { HomeLayoutApi } from '@/contracts/home_layout';
 import type { AppConfigApi } from '@/contracts/app_config';
+import type { SyncApi } from '@/contracts/sync';
 import type { HomeProfileApi } from '@/contracts/home_profile';
 import type { HomeWorkspaceApi } from '@/contracts/home_workspace';
 import type { PluginHostApi, PluginRuntimeApi, PluginRuntimeContext } from '@/contracts/plugin_host';
@@ -50,6 +51,7 @@ declare global {
     homeProfileApi?: HomeProfileApi;
     pluginHostApi?: PluginHostApi;
     appConfigApi?: AppConfigApi;
+    syncApi?: SyncApi;
     shortcutsApi?: ShortcutsApi;
     quickLaunchApi?: QuickLaunchApi;
     workspaceWindowApi?: WorkspaceWindowApi;

@@ -1,26 +1,27 @@
 <script lang="ts" setup>
-import { computed, nextTick, onMounted, ref, watch } from 'vue';
-import type { CSSProperties } from 'vue';
+import type { AiAgentMode, AiInteractionMode } from '@/contracts/ai';
 import type {
   AppBottomBarTabId,
-  AppKnowledgeAssetStorageMode,
   AppConfigPatch,
+  AppKnowledgeAssetStorageMode,
   AppLanguage,
   AppSettingsTabId,
   AppSettingsTabPersonalizationConfig,
   AppTheme,
   LocalNetworkInterfaceOption,
 } from '@/contracts/app_config';
-import type { AiAgentMode, AiInteractionMode } from '@/contracts/ai';
-import type { KnowledgeLibrary } from '@/contracts/knowledge';
+import { APP_BOTTOM_BAR_REQUIRED_TAB_IDS, APP_INTERNAL_FUNCTIONS, createDefaultAppConfig, createDefaultSettingsTabPersonalization } from '@/contracts/app_config';
+import type { BackgroundConfirmPayload } from '@/contracts/background';
+import { resolveThemeBackground, withThemeBackground } from '@/contracts/background';
 import type { FtpWindowsContextMenuStatus } from '@/contracts/ftp';
+import type { KnowledgeLibrary } from '@/contracts/knowledge';
 import type { MultiDeviceClipboardDeviceStatus } from '@/contracts/multi_device_clipboard';
+import type { InstalledPluginRecord, PluginHostSummary } from '@/contracts/plugin_host';
 import type { QuickLaunchProviderId } from '@/contracts/quick_launch';
 import type {
   AppSystemShortcutKey,
   ShortcutInspectionResult,
-  ShortcutProbeStatus,
-  SystemShortcutProbeResult,
+  ShortcutProbeStatus
 } from '@/contracts/shortcuts';
 import type {
   LocalTerminalProfileConfig,
@@ -29,39 +30,37 @@ import type {
   TerminalRendererMode,
 } from '@/contracts/terminal';
 import type { WebScriptRule } from '@/contracts/webview';
-import type { InstalledPluginRecord, PluginHostSummary } from '@/contracts/plugin_host';
-import type { BackgroundConfirmPayload } from '@/contracts/background';
-import { resolveThemeBackground, withThemeBackground } from '@/contracts/background';
+import type { CSSProperties } from 'vue';
+import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue';
+import ShortcutRecorder from '../components/ui/ShortcutRecorder.vue';
 import UiButton from '../components/ui/UiButton.vue';
 import UiCheckbox from '../components/ui/UiCheckbox.vue';
+import UiDrawer from '../components/ui/UiDrawer.vue';
 import UiField from '../components/ui/UiField.vue';
 import UiInput from '../components/ui/UiInput.vue';
-import UiSliderField from '../components/ui/UiSliderField.vue';
-import ShortcutRecorder from '../components/ui/ShortcutRecorder.vue';
-import UiSelect from '../components/ui/UiSelect.vue';
+import UiPanelHeader from '../components/ui/UiPanelHeader.vue';
+import UiPersonalizationConfig from '../components/ui/UiPersonalizationConfig.vue';
 import UiScrollbar from '../components/ui/UiScrollbar.vue';
+import UiSelect from '../components/ui/UiSelect.vue';
+import UiSliderField from '../components/ui/UiSliderField.vue';
 import UiTabs, { type UiTabItem } from '../components/ui/UiTabs.vue';
 import UiTextarea from '../components/ui/UiTextarea.vue';
 import UiTransferBox from '../components/ui/UiTransferBox.vue';
-import UiPersonalizationConfig from '../components/ui/UiPersonalizationConfig.vue';
 import WebViewKeepAliveList from '../components/webview/WebViewKeepAliveList.vue';
-import AiProviderDrawer from './AI/components/AiProviderDrawer.vue';
-import AiSettingsPanel from './AI/components/AiSettingsPanel.vue';
 import { useTheme } from '../composables/theme';
-import { notifyError, notifySuccess } from '../composables/useInAppNotification';
 import { useConfirmDialog } from '../composables/useConfirmDialog';
+import { notifyError, notifySuccess } from '../composables/useInAppNotification';
 import { useAppConfigStore } from '../stores/app_config_store';
 import { useGlobalStore } from '../stores/global_store';
 import { useSettingStore, type SettingsTabKey } from '../stores/settings_store';
 import { useSshStore } from '../stores/ssh_store';
+import { useSyncStore } from '../stores/sync_store';
 import { useUpdaterStore } from '../stores/updater_store';
-import {
-  APP_INTERNAL_FUNCTIONS,
-  APP_BOTTOM_BAR_REQUIRED_TAB_IDS,
-  createDefaultAppConfig,
-} from '@/contracts/app_config';
+import AiProviderDrawer from './AI/components/AiProviderDrawer.vue';
+import AiSettingsPanel from './AI/components/AiSettingsPanel.vue';
 
 const settingsStore = useSettingStore();
+const syncStore = useSyncStore();
 const appConfigStore = useAppConfigStore();
 const globalStore = useGlobalStore();
 const updaterStore = useUpdaterStore();
@@ -162,6 +161,61 @@ const quickLaunchSelectionColorInput = ref(appConfigStore.config.features.quickL
 const quickLaunchSelectionOpacityInput = ref(appConfigStore.config.features.quickLaunch.selectionOpacity);
 const quickLaunchResultTitleColorInput = ref(appConfigStore.config.features.quickLaunch.resultTitleColor);
 const quickLaunchResultSubtitleColorInput = ref(appConfigStore.config.features.quickLaunch.resultSubtitleColor);
+const syncWebDavPreset = ref<'jianguoyun' | 'custom'>('jianguoyun');
+const syncWebDavEndpoint = ref('https://dav.jianguoyun.com/dav/');
+const syncWebDavUsername = ref('');
+const syncWebDavPassword = ref('');
+const syncWebDavRemoteRoot = ref('GuYanTools/Sync');
+const syncServerEndpoint = ref('http://127.0.0.1:38420/');
+const syncServerEmail = ref('');
+const syncServerPassword = ref('');
+const syncServerDeviceName = ref('');
+const syncServerDeviceId = ref('');
+const syncConnectionMessage = ref('');
+const syncBoundaryDrawerVisible = ref(false);
+const syncPendingVirtualListRef = ref<HTMLElement | null>(null);
+const syncPendingScrollTop = ref(0);
+const SYNC_PENDING_ROW_HEIGHT = 104;
+const SYNC_PENDING_LIST_HEIGHT = 320;
+const SYNC_PENDING_OVERSCAN = 4;
+
+type SyncBoundarySection = {
+  title: string;
+  hint?: string;
+  items: string[];
+};
+
+const syncBoundarySections: SyncBoundarySection[] = [
+  {
+    title: '会同步的内容',
+    hint: 'WebDAV 和自建后端都使用同一套同步对象。',
+    items: [
+      '应用配置：外观、底栏、快捷键、功能配置和配置档案。',
+      '知识库：库、空间、文件夹、页面、附件元数据、标签和链接。',
+      'AI 元数据：助手、服务商和模型配置。',
+      '知识库附件文件：通过内容哈希同步文件本身。',
+    ],
+  },
+  {
+    title: '不会同步的内容',
+    hint: '敏感值和本机环境数据保留在本机。',
+    items: [
+      'AI API Key、服务商密钥、MCP token、password 和 secret。',
+      'SSH / FTP 密码、私钥口令和插件密钥。',
+      '本机路径、运行缓存和其他依赖当前设备环境的数据。',
+    ],
+  },
+  {
+    title: '同步规则',
+    hint: '这些规则对 WebDAV 和自建后端都成立。',
+    items: [
+      '同步以对象为单位，身份以 collection + objectId 为准，名称只用于展示。',
+      'WebDAV 适合个人多设备同步，自建后端适合长期公网或团队部署。',
+      '当前运行时只会使用一个 provider；保存 WebDAV 配置会切换到 WebDAV，保存或登录自建后端会切换到自建后端。',
+      '第一次配置后或第二台设备接入后，建议手动点击一次立即同步。',
+    ],
+  },
+];
 
 const settingsTabs: UiTabItem[] = [
   { key: 'general', label: '基础设置' },
@@ -171,6 +225,7 @@ const settingsTabs: UiTabItem[] = [
   { key: 'plugins', label: '插件配置' },
   { key: 'terminal', label: '终端' },
   { key: 'multi-device-clipboard', label: '多设备剪贴板' },
+  { key: 'sync-center', label: '同步中心' },
   { key: 'knowledge', label: '知识库' },
   { key: 'quick-launch', label: '快速启动' },
   { key: 'shortcuts', label: '快捷键' },
@@ -178,6 +233,7 @@ const settingsTabs: UiTabItem[] = [
 const settingsTabOrder = settingsTabs.map(tab => tab.key) as SettingsTabKey[];
 const settingsTabTransition = ref('ui-tab-forward');
 const loadedSettingsTabs = new Set<SettingsTabKey>();
+let stopSyncEventSubscription: (() => void) | null = null;
 const searchTabItem: UiTabItem = { key: 'search', label: '搜索' };
 const settingsSearchQuery = ref('');
 const settingsSearchHasMatches = ref(true);
@@ -313,37 +369,41 @@ const quickLaunchProviderOptions: Array<{ label: string; value: QuickLaunchProvi
   { label: '本机应用', value: 'app' },
   { label: '本机文件（Everything）', value: 'file' },
 ];
+const syncWebDavPresetOptions: Array<{ label: string; value: 'jianguoyun' | 'custom' }> = [
+  { label: '坚果云 WebDAV', value: 'jianguoyun' },
+  { label: '自定义 WebDAV', value: 'custom' },
+];
 const quickLaunchWindowShortcutGroups: Array<{
   title: string;
   shortcuts: Array<{ label: string; keys: string }>;
 }> = [
-  {
-    title: '结果操作',
-    shortcuts: [
-      { label: '打开选中结果', keys: 'Enter' },
-      { label: '打开操作面板', keys: 'Ctrl+O / Shift+Enter / → / 右键' },
-      { label: '打开所在位置 / 在资源管理器中打开', keys: 'Ctrl+Enter' },
-      { label: '以管理员身份启动', keys: 'Ctrl+Shift+Enter' },
-      { label: '复制结果', keys: 'Ctrl+C' },
-      { label: '复制路径', keys: 'Ctrl+Shift+C' },
-      { label: '刷新结果', keys: 'Ctrl+R / F5' },
-    ],
-  },
-  {
-    title: '导航与窗口',
-    shortcuts: [
-      { label: '切换选中结果', keys: '↑ / ↓ / Tab' },
-      { label: '翻页选择', keys: 'PageUp / PageDown' },
-      { label: '直接打开前十项', keys: 'Alt+1...0' },
-      { label: '补全选中标题', keys: 'Ctrl+Tab' },
-      { label: '显示结果预览', keys: 'F1' },
-      { label: '搜索历史', keys: 'Ctrl+H' },
-      { label: '调整结果数量', keys: 'Ctrl+Plus / Ctrl+Minus' },
-      { label: '调整窗口宽度', keys: 'Ctrl+[ / Ctrl+]' },
-      { label: '游戏模式', keys: 'Ctrl+F12' },
-    ],
-  },
-];
+    {
+      title: '结果操作',
+      shortcuts: [
+        { label: '打开选中结果', keys: 'Enter' },
+        { label: '打开操作面板', keys: 'Ctrl+O / Shift+Enter / → / 右键' },
+        { label: '打开所在位置 / 在资源管理器中打开', keys: 'Ctrl+Enter' },
+        { label: '以管理员身份启动', keys: 'Ctrl+Shift+Enter' },
+        { label: '复制结果', keys: 'Ctrl+C' },
+        { label: '复制路径', keys: 'Ctrl+Shift+C' },
+        { label: '刷新结果', keys: 'Ctrl+R / F5' },
+      ],
+    },
+    {
+      title: '导航与窗口',
+      shortcuts: [
+        { label: '切换选中结果', keys: '↑ / ↓ / Tab' },
+        { label: '翻页选择', keys: 'PageUp / PageDown' },
+        { label: '直接打开前十项', keys: 'Alt+1...0' },
+        { label: '补全选中标题', keys: 'Ctrl+Tab' },
+        { label: '显示结果预览', keys: 'F1' },
+        { label: '搜索历史', keys: 'Ctrl+H' },
+        { label: '调整结果数量', keys: 'Ctrl+Plus / Ctrl+Minus' },
+        { label: '调整窗口宽度', keys: 'Ctrl+[ / Ctrl+]' },
+        { label: '游戏模式', keys: 'Ctrl+F12' },
+      ],
+    },
+  ];
 const aiDefaultModeOptions: Array<{ label: string; value: AiInteractionMode }> = [
   { label: 'AI 问答', value: 'chat' },
   { label: '通用 Agent', value: 'general-agent' },
@@ -358,6 +418,26 @@ const knowledgeIndexingSummary = computed(() => (
     ? '导入时会抽取文本并写入搜索索引'
     : '导入只保存文件和元数据，不抽取全文'
 ));
+const syncPendingCollectionCounts = computed(() => {
+  const counts = new Map<string, number>();
+  for (const item of syncStore.pendingItems) {
+    counts.set(item.collection, (counts.get(item.collection) ?? 0) + 1);
+  }
+  return Array.from(counts.entries())
+    .map(([collection, count]) => ({ collection, count }))
+    .sort((left, right) => left.collection.localeCompare(right.collection));
+});
+const syncPendingTotalHeight = computed(() => syncStore.pendingItems.length * SYNC_PENDING_ROW_HEIGHT);
+const syncPendingStartIndex = computed(() =>
+  Math.max(0, Math.floor(syncPendingScrollTop.value / SYNC_PENDING_ROW_HEIGHT) - SYNC_PENDING_OVERSCAN));
+const syncPendingVisibleCount = computed(() =>
+  Math.ceil(SYNC_PENDING_LIST_HEIGHT / SYNC_PENDING_ROW_HEIGHT) + SYNC_PENDING_OVERSCAN * 2);
+const syncPendingVisibleItems = computed(() =>
+  syncStore.pendingItems.slice(
+    syncPendingStartIndex.value,
+    syncPendingStartIndex.value + syncPendingVisibleCount.value,
+  ));
+const syncPendingVirtualOffsetY = computed(() => syncPendingStartIndex.value * SYNC_PENDING_ROW_HEIGHT);
 const knowledgePreviewCacheSummary = computed(() => {
   const days = appConfigStore.config.features.knowledge.previewCacheTtlDays;
   return days === 0 ? '缓存只手动清理' : `缓存保留 ${days} 天`;
@@ -392,6 +472,20 @@ const ftpWindowsContextMenuCommandSummary = computed(() => (
 ));
 const updateStatusLabel = computed(() => updateStatusLabels[updaterStore.status] ?? updaterStore.status);
 const updateProgressPercent = computed(() => Math.round(updaterStore.progress?.percent ?? 0));
+const syncProgressVisible = computed(() => Boolean(syncStore.state?.syncProgress));
+const syncProgressPercent = computed(() => Math.round(syncStore.state?.syncProgress?.percent ?? 0));
+const syncProgressLabel = computed(() => {
+  const phase = syncStore.state?.syncProgress?.phase;
+  if (phase === 'download') return '下载同步';
+  if (phase === 'upload') return '上传同步';
+  return '同步进度';
+});
+const syncProgressDetail = computed(() => {
+  const progress = syncStore.state?.syncProgress;
+  if (!progress) return '等待同步任务开始';
+  const action = progress.phase === 'download' ? '下载' : '上传';
+  return `${action} ${progress.completed}/${progress.total} 个同步对象`;
+});
 const updateReleaseDateText = computed(() => {
   if (!updaterStore.info.releaseDate) {
     return '未提供';
@@ -426,12 +520,12 @@ const detachedWindowShortcutRows: Array<{
   label: string;
   description: string;
 }> = [
-  { key: 'openDetachedTerminal', label: '独立窗口：终端', description: '系统级快捷键，打开终端页面独立窗口。' },
-  { key: 'openDetachedFtp', label: '独立窗口：传输', description: '系统级快捷键，打开传输页面独立窗口。' },
-  { key: 'openDetachedTodo', label: '独立窗口：待办', description: '系统级快捷键，打开待办页面独立窗口。' },
-  { key: 'openDetachedAi', label: '独立窗口：AI', description: '系统级快捷键，打开 AI 页面独立窗口。' },
-  { key: 'openDetachedKnowledge', label: '独立窗口：知识库', description: '系统级快捷键，打开知识库页面独立窗口。' },
-];
+    { key: 'openDetachedTerminal', label: '独立窗口：终端', description: '系统级快捷键，打开终端页面独立窗口。' },
+    { key: 'openDetachedFtp', label: '独立窗口：传输', description: '系统级快捷键，打开传输页面独立窗口。' },
+    { key: 'openDetachedTodo', label: '独立窗口：待办', description: '系统级快捷键，打开待办页面独立窗口。' },
+    { key: 'openDetachedAi', label: '独立窗口：AI', description: '系统级快捷键，打开 AI 页面独立窗口。' },
+    { key: 'openDetachedKnowledge', label: '独立窗口：知识库', description: '系统级快捷键，打开知识库页面独立窗口。' },
+  ];
 const shortcutInspectionTimeText = computed(() => {
   if (!shortcutInspection.value) return '尚未检测';
   return new Date(shortcutInspection.value.checkedAt).toLocaleTimeString();
@@ -493,7 +587,7 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 }
 
 function getSettingsTabPersonalization(tab: AppSettingsTabId): AppSettingsTabPersonalizationConfig {
-  const config = appConfigStore.config.features.settings.tabs[tab];
+  const config = appConfigStore.config.features.settings.tabs[tab] ?? createDefaultSettingsTabPersonalization();
   const background = resolveThemeBackground({
     type: config.type,
     color: config.color,
@@ -812,7 +906,7 @@ function handleSettingsTabChange(value: string) {
     aiProviderDrawerVisible.value = false;
     editingAiProviderId.value = '';
   }
-  scheduleSettingsTabLoad(nextTab);
+  scheduleSettingsTabLoad(nextTab, nextTab === 'sync-center');
 }
 
 function runSettingsIdleTask(task: () => void) {
@@ -848,6 +942,9 @@ function scheduleSettingsTabLoad(tab: SettingsTabKey, force = false) {
       case 'multi-device-clipboard':
         void loadNetworkInterfaces();
         void loadMultiDeviceClipboardDevices();
+        break;
+      case 'sync-center':
+        void loadSyncCenter();
         break;
       case 'knowledge':
         void loadKnowledgeLibraries();
@@ -2087,6 +2184,172 @@ function resetPluginConfig(pluginId: string) {
   syncPluginDraft(pluginId);
 }
 
+async function loadSyncCenter() {
+  await syncStore.refresh();
+  syncSyncProviderDraft();
+}
+
+function syncSyncProviderDraft() {
+  const webdav = syncStore.providerConfig?.webdav;
+  if (webdav) {
+    syncWebDavPreset.value = webdav.preset;
+    syncWebDavEndpoint.value = webdav.endpoint;
+    syncWebDavUsername.value = webdav.username;
+    syncWebDavRemoteRoot.value = webdav.remoteRoot;
+    syncWebDavPassword.value = '';
+  }
+
+  const syncServer = syncStore.providerConfig?.syncServer;
+  if (syncServer) {
+    syncServerEndpoint.value = syncServer.endpoint;
+    syncServerDeviceId.value = syncServer.deviceId;
+  }
+}
+
+async function saveSyncWebDavConfig() {
+  try {
+    const config = await syncStore.updateWebDavConfig({
+      preset: syncWebDavPreset.value,
+      endpoint: syncWebDavEndpoint.value,
+      username: syncWebDavUsername.value,
+      remoteRoot: syncWebDavRemoteRoot.value,
+      ...(syncWebDavPassword.value ? { password: syncWebDavPassword.value } : {}),
+    });
+    syncConnectionMessage.value = config ? 'WebDAV 配置已保存。' : 'WebDAV 配置保存失败。';
+    syncWebDavPassword.value = '';
+    notifySuccess('WebDAV 同步配置已保存');
+  } catch (error) {
+    notifyError(error, '保存 WebDAV 同步配置失败');
+  }
+}
+
+async function saveSyncServerConfig() {
+  try {
+    const config = await syncStore.updateSyncServerConfig({
+      endpoint: syncServerEndpoint.value,
+      deviceId: syncServerDeviceId.value,
+    });
+    syncConnectionMessage.value = config ? '自建同步后端配置已保存。' : '自建同步后端配置保存失败。';
+    notifySuccess('自建同步后端配置已保存');
+  } catch (error) {
+    notifyError(error, '保存自建同步后端配置失败');
+  }
+}
+
+async function loginSyncServer() {
+  try {
+    const result = await syncStore.loginSyncServer({
+      endpoint: syncServerEndpoint.value,
+      email: syncServerEmail.value,
+      password: syncServerPassword.value,
+      deviceName: syncServerDeviceName.value || appConfigStore.config.features.multiDeviceClipboard.deviceName || 'GuYanTools Device',
+    });
+    if (result) {
+      syncServerDeviceId.value = result.deviceId;
+      syncServerDeviceName.value = result.deviceName;
+      syncServerPassword.value = '';
+      syncConnectionMessage.value = `已登录并绑定设备：${result.deviceName}`;
+      notifySuccess('自建同步后端已登录并绑定当前设备');
+    }
+  } catch (error) {
+    notifyError(error, '登录自建同步后端失败');
+  }
+}
+
+async function logoutSyncServer() {
+  try {
+    const config = await syncStore.logoutSyncServer();
+    const syncServer = config?.syncServer;
+    syncServerEndpoint.value = syncServer?.endpoint || syncServerEndpoint.value;
+    syncServerDeviceId.value = '';
+    syncServerPassword.value = '';
+    syncConnectionMessage.value = '已退出自建同步后端并解绑当前设备。';
+    notifySuccess('已退出并解绑当前设备');
+  } catch (error) {
+    notifyError(error, '退出自建同步后端失败');
+  }
+}
+
+async function testSyncConnection() {
+  const result = await syncStore.testConnection();
+  if (!result) {
+    syncConnectionMessage.value = '同步 API 不可用。';
+    return;
+  }
+
+  syncConnectionMessage.value = result.message;
+  if (result.ok) {
+    notifySuccess(result.message);
+  } else {
+    notifyError(result.message, 'WebDAV 连接失败');
+  }
+}
+
+async function runSyncNow() {
+  const summary = await syncStore.syncNow();
+  if (summary) {
+    notifySuccess(`同步完成：上传 ${summary.pushed}，拉取 ${summary.pulled}，冲突 ${summary.conflicts}`);
+  } else if (syncStore.error) {
+    notifyError(syncStore.error, '同步失败');
+  }
+}
+
+function openSyncBoundaryDrawer() {
+  syncBoundaryDrawerVisible.value = true;
+  syncPendingScrollTop.value = 0;
+  void syncStore.refresh();
+  nextTick(() => {
+    if (syncPendingVirtualListRef.value) {
+      syncPendingVirtualListRef.value.scrollTop = 0;
+    }
+  });
+}
+
+function handleSyncPendingVirtualScroll(event: Event) {
+  syncPendingScrollTop.value = (event.currentTarget as HTMLElement).scrollTop;
+}
+
+function formatSyncPendingTime(value: number) {
+  if (!value) return '未知时间';
+  return new Date(value).toLocaleString();
+}
+
+function formatSyncBytes(value?: number) {
+  if (typeof value !== 'number' || !Number.isFinite(value) || value < 0) {
+    return '未知大小';
+  }
+  const units = ['B', 'KB', 'MB', 'GB'];
+  let size = value;
+  let unitIndex = 0;
+  while (size >= 1024 && unitIndex < units.length - 1) {
+    size /= 1024;
+    unitIndex += 1;
+  }
+  return `${size >= 10 || unitIndex === 0 ? size.toFixed(0) : size.toFixed(1)} ${units[unitIndex]}`;
+}
+
+function syncPendingOperationLabel(operation: string) {
+  return operation === 'delete' ? '删除' : '更新';
+}
+
+async function applySyncProfile(profileId: string) {
+  try {
+    await syncStore.applyProfile(profileId);
+    notifySuccess('同步配置已应用');
+  } catch (error) {
+    notifyError(error, '应用同步配置失败');
+  }
+}
+
+async function setDefaultSyncProfile(profileId: string) {
+  try {
+    await syncStore.setDefaultProfile(profileId);
+    notifySuccess('默认同步配置已更新');
+  } catch (error) {
+    notifyError(error, '设置默认同步配置失败');
+  }
+}
+
 watch(() => appConfigStore.config.appearance.baseFontSize, (value) => {
   baseFontSizeInput.value = String(value);
 }, { immediate: true });
@@ -2223,8 +2486,14 @@ watch(
 
 onMounted(() => {
   globalStore.setTopbarColor('');
-  scheduleSettingsTabLoad(settingsStore.activeSettingsTab);
+  scheduleSettingsTabLoad(settingsStore.activeSettingsTab, settingsStore.activeSettingsTab === 'sync-center');
+  stopSyncEventSubscription = syncStore.bindEvents();
   queueSettingsSearchFilter();
+});
+
+onBeforeUnmount(() => {
+  stopSyncEventSubscription?.();
+  stopSyncEventSubscription = null;
 });
 
 // ─── 网页安全配置 ───
@@ -2410,2083 +2679,2114 @@ function scriptTypeLabel(type: string) {
 
 <template>
   <UiScrollbar class="settings-page" :style="activeSettingsPageStyle" :x="false" :y="true" :size="8">
-    <video
-      v-if="activeSettingsBackgroundVideo && !isSearchingSettings"
-      class="settings-page__background-video"
-      :src="activeSettingsBackgroundVideo"
-      autoplay
-      muted
-      loop
-      playsinline
-    />
+    <video v-if="activeSettingsBackgroundVideo && !isSearchingSettings" class="settings-page__background-video"
+      :src="activeSettingsBackgroundVideo" autoplay muted loop playsinline />
     <header class="page-header">
       <div class="page-title-row">
         <h1>设置</h1>
         <div class="settings-search" role="search">
-          <UiInput v-model="settingsSearchQuery" class="settings-search__input" type="search" placeholder="搜索设置" aria-label="搜索设置">
+          <UiInput v-model="settingsSearchQuery" class="settings-search__input" type="search" placeholder="搜索设置"
+            aria-label="搜索设置">
             <template #prefix>
               <span class="settings-search__icon" aria-hidden="true" />
             </template>
           </UiInput>
         </div>
       </div>
-      <nav
-        class="settings-nav"
-        aria-label="设置分类"
-      >
-        <UiTabs
-          :model-value="activeSettingsTabForView"
-          :items="displayedSettingsTabs"
-          variant="line"
-          size="md"
-          @update:modelValue="handleSettingsTabChange"
-        />
+      <nav class="settings-nav" aria-label="设置分类">
+        <UiTabs :model-value="activeSettingsTabForView" :items="displayedSettingsTabs" variant="line" size="md"
+          @update:modelValue="handleSettingsTabChange" />
       </nav>
     </header>
 
     <div class="page-body">
       <Transition :name="settingsTabTransition" mode="out-in" @after-enter="queueSettingsSearchFilter">
-      <div
-        :key="settingsContentKey"
-        ref="settingsBodyRef"
-        class="settings-content-stack"
-        :class="{ 'settings-content-stack--search': isSearchingSettings }"
-      >
-      <section v-if="isSettingsTabRendered('general')" key="general" class="settings-section">
-        <div class="section-head section-head--standalone">
-          <h2>基础设置</h2>
-          <p>配置应用外观、字体、系统依赖路径和更新策略。</p>
-        </div>
+        <div :key="settingsContentKey" ref="settingsBodyRef" class="settings-content-stack"
+          :class="{ 'settings-content-stack--search': isSearchingSettings }">
+          <section v-if="isSettingsTabRendered('general')" key="general" class="settings-section">
+            <div class="section-head section-head--standalone">
+              <h2>基础设置</h2>
+              <p>配置应用外观、字体、系统依赖路径和更新策略。</p>
+            </div>
 
-        <div class="settings-form">
-          <section class="settings-group">
-            <h3>常规</h3>
-            <div class="settings-row">
-              <div class="settings-row__label">
-                <span>应用语言</span>
-                <small>当前支持中文和英文。</small>
-              </div>
-              <div class="settings-row__control">
-                <UiSelect :model-value="appConfigStore.config.appearance.language" :options="languageOptions"
-                  @update:modelValue="handleLanguageChange" />
-              </div>
-            </div>
-            <div class="settings-row">
-              <div class="settings-row__label">
-                <span>主题模式</span>
-                <small>修改后立即同步到桌面应用外观。</small>
-              </div>
-              <div class="settings-row__control">
-                <UiSelect :model-value="appConfigStore.config.appearance.theme" :options="themeOptions"
-                  @update:modelValue="handleThemeChange" />
-              </div>
-            </div>
-            <div class="settings-row settings-row--wide">
-              <div class="settings-row__label">
-                <span>底栏默认标签</span>
-                <small>控制应用底栏启动后默认显示的固定标签。</small>
-              </div>
-              <div class="settings-row__control settings-row__control--wide">
-                <UiTransferBox
-                  :model-value="bottomBarVisibleTabIds"
-                  :items="bottomBarTransferItems"
-                  source-title="所有内部功能"
-                  target-title="固定显示"
-                  target-empty-text="至少保留首页和设置"
-                  @update:modelValue="handleBottomBarVisibleTabsChange"
-                />
-                <div class="settings-inline-badges settings-inline-badges--mt">
-                  <span class="settings-badge settings-badge--accent">{{ bottomBarVisibleSummary }}</span>
-                  <span class="settings-badge">右侧上下顺序同步为底栏显示顺序</span>
-                </div>
-              </div>
-            </div>
-          </section>
-
-          <section class="settings-group">
-            <h3>编辑器</h3>
-            <div class="settings-row">
-              <div class="settings-row__label">
-                <span>界面字体</span>
-                <small>优先显示本地可枚举字体。</small>
-              </div>
-              <div class="settings-row__control">
-                <UiSelect :model-value="appConfigStore.config.appearance.fontFamily" :options="appConfigStore.fontOptions"
-                  @update:modelValue="handleFontChange" />
-              </div>
-            </div>
-            <div class="settings-row">
-              <div class="settings-row__label">
-                <span>基础字号</span>
-                <small>全局 rem 基线，推荐 12-24。</small>
-              </div>
-              <div class="settings-row__control settings-row__control--compact">
-                <UiInput v-model="baseFontSizeInput" type="number" :min="12" :max="24"
-                  @blur="commitBaseFontSize" @change="commitBaseFontSize"
-                  @keydown.enter.prevent="commitBaseFontSize" />
-              </div>
-            </div>
-          </section>
-
-          <section class="settings-group">
-            <h3>系统路径</h3>
-            <div class="settings-row settings-row--wide">
-              <div class="settings-row__label">
-                <span>FFmpeg 路径</span>
-                <small>视频/图片压缩处理依赖 FFmpeg。</small>
-              </div>
-              <div class="settings-row__control settings-row__control--wide">
-                <div class="ffmpeg-path-row">
-                  <div class="ffmpeg-path-display" :class="{ 'ffmpeg-path-display--empty': !ffmpegPathInput }">
-                    {{ ffmpegPathInput || '未配置' }}
+            <div class="settings-form">
+              <section class="settings-group">
+                <h3>常规</h3>
+                <div class="settings-row">
+                  <div class="settings-row__label">
+                    <span>应用语言</span>
+                    <small>当前支持中文和英文。</small>
                   </div>
-                  <UiButton variant="secondary" size="sm" @click="selectFfmpegPath">选择</UiButton>
-                  <UiButton v-if="ffmpegPathInput" variant="danger" size="sm" @click="clearFfmpegPath">清除</UiButton>
-                </div>
-                <div v-if="ffmpegStatus === 'checking'" class="ffmpeg-status ffmpeg-status--checking">
-                  正在验证 FFmpeg...
-                </div>
-                <div v-else-if="ffmpegStatus === 'valid'" class="ffmpeg-status ffmpeg-status--valid">
-                  FFmpeg 可用 (版本: {{ ffmpegVersion }})
-                </div>
-                <div v-else-if="ffmpegStatus === 'invalid'" class="ffmpeg-status ffmpeg-status--invalid">
-                  FFmpeg 无效: {{ ffmpegError }}
-                </div>
-              </div>
-            </div>
-          </section>
-
-          <section class="settings-group">
-            <h3>更新</h3>
-            <div class="settings-row settings-row--wide update-version-row">
-              <div class="settings-row__label">
-                <span>版本状态</span>
-                <small>正式发布包使用 GitHub Release 检查和下载新版本。</small>
-              </div>
-              <div class="settings-row__control settings-row__control--wide update-version-panel">
-                <div class="update-summary-grid">
-                  <div class="meta-item ui-soft-surface">
-                    <span>当前版本</span>
-                    <strong>v{{ updaterStore.info.currentVersion }}</strong>
-                  </div>
-                  <div class="meta-item ui-soft-surface">
-                    <span>最新版本</span>
-                    <strong>{{ updaterStore.info.latestVersion ? `v${updaterStore.info.latestVersion}` : '未知' }}</strong>
-                  </div>
-                  <div class="meta-item ui-soft-surface">
-                    <span>发布时间</span>
-                    <strong>{{ updateReleaseDateText }}</strong>
+                  <div class="settings-row__control">
+                    <UiSelect :model-value="appConfigStore.config.appearance.language" :options="languageOptions"
+                      @update:modelValue="handleLanguageChange" />
                   </div>
                 </div>
-                <div class="update-status" :class="`update-status--${updaterStore.status}`">
-                  <strong>{{ updateStatusLabel }}</strong>
-                  <span v-if="updaterStore.info.error">{{ updaterStore.info.error }}</span>
+                <div class="settings-row">
+                  <div class="settings-row__label">
+                    <span>主题模式</span>
+                    <small>修改后立即同步到桌面应用外观。</small>
+                  </div>
+                  <div class="settings-row__control">
+                    <UiSelect :model-value="appConfigStore.config.appearance.theme" :options="themeOptions"
+                      @update:modelValue="handleThemeChange" />
+                  </div>
                 </div>
-              </div>
-            </div>
+                <div class="settings-row settings-row--wide">
+                  <div class="settings-row__label">
+                    <span>底栏默认标签</span>
+                    <small>控制应用底栏启动后默认显示的固定标签。</small>
+                  </div>
+                  <div class="settings-row__control settings-row__control--wide">
+                    <UiTransferBox :model-value="bottomBarVisibleTabIds" :items="bottomBarTransferItems"
+                      source-title="所有内部功能" target-title="固定显示" target-empty-text="至少保留首页和设置"
+                      @update:modelValue="handleBottomBarVisibleTabsChange" />
+                    <div class="settings-inline-badges settings-inline-badges--mt">
+                      <span class="settings-badge settings-badge--accent">{{ bottomBarVisibleSummary }}</span>
+                      <span class="settings-badge">右侧上下顺序同步为底栏显示顺序</span>
+                    </div>
+                  </div>
+                </div>
+              </section>
 
-            <div v-if="updaterStore.status === 'downloading' && updaterStore.progress" class="settings-row settings-row--wide">
-              <div class="settings-row__label">
-                <span>下载进度</span>
-                <small>当前更新包下载状态。</small>
-              </div>
-              <div class="settings-row__control settings-row__control--wide">
-                <div class="update-progress">
-                  <div class="update-progress__head">
+              <section class="settings-group">
+                <h3>编辑器</h3>
+                <div class="settings-row">
+                  <div class="settings-row__label">
+                    <span>界面字体</span>
+                    <small>优先显示本地可枚举字体。</small>
+                  </div>
+                  <div class="settings-row__control">
+                    <UiSelect :model-value="appConfigStore.config.appearance.fontFamily"
+                      :options="appConfigStore.fontOptions" @update:modelValue="handleFontChange" />
+                  </div>
+                </div>
+                <div class="settings-row">
+                  <div class="settings-row__label">
+                    <span>基础字号</span>
+                    <small>全局 rem 基线，推荐 12-24。</small>
+                  </div>
+                  <div class="settings-row__control settings-row__control--compact">
+                    <UiInput v-model="baseFontSizeInput" type="number" :min="12" :max="24" @blur="commitBaseFontSize"
+                      @change="commitBaseFontSize" @keydown.enter.prevent="commitBaseFontSize" />
+                  </div>
+                </div>
+              </section>
+
+              <section class="settings-group">
+                <h3>系统路径</h3>
+                <div class="settings-row settings-row--wide">
+                  <div class="settings-row__label">
+                    <span>FFmpeg 路径</span>
+                    <small>视频/图片压缩处理依赖 FFmpeg。</small>
+                  </div>
+                  <div class="settings-row__control settings-row__control--wide">
+                    <div class="ffmpeg-path-row">
+                      <div class="ffmpeg-path-display" :class="{ 'ffmpeg-path-display--empty': !ffmpegPathInput }">
+                        {{ ffmpegPathInput || '未配置' }}
+                      </div>
+                      <UiButton variant="secondary" size="sm" @click="selectFfmpegPath">选择</UiButton>
+                      <UiButton v-if="ffmpegPathInput" variant="danger" size="sm" @click="clearFfmpegPath">清除</UiButton>
+                    </div>
+                    <div v-if="ffmpegStatus === 'checking'" class="ffmpeg-status ffmpeg-status--checking">
+                      正在验证 FFmpeg...
+                    </div>
+                    <div v-else-if="ffmpegStatus === 'valid'" class="ffmpeg-status ffmpeg-status--valid">
+                      FFmpeg 可用 (版本: {{ ffmpegVersion }})
+                    </div>
+                    <div v-else-if="ffmpegStatus === 'invalid'" class="ffmpeg-status ffmpeg-status--invalid">
+                      FFmpeg 无效: {{ ffmpegError }}
+                    </div>
+                  </div>
+                </div>
+              </section>
+
+              <section class="settings-group">
+                <h3>更新</h3>
+                <div class="settings-row settings-row--wide update-version-row">
+                  <div class="settings-row__label">
+                    <span>版本状态</span>
+                    <small>正式发布包使用 GitHub Release 检查和下载新版本。</small>
+                  </div>
+                  <div class="settings-row__control settings-row__control--wide update-version-panel">
+                    <div class="update-summary-grid">
+                      <div class="meta-item ui-soft-surface">
+                        <span>当前版本</span>
+                        <strong>v{{ updaterStore.info.currentVersion }}</strong>
+                      </div>
+                      <div class="meta-item ui-soft-surface">
+                        <span>最新版本</span>
+                        <strong>{{ updaterStore.info.latestVersion ? `v${updaterStore.info.latestVersion}` : '未知'
+                          }}</strong>
+                      </div>
+                      <div class="meta-item ui-soft-surface">
+                        <span>发布时间</span>
+                        <strong>{{ updateReleaseDateText }}</strong>
+                      </div>
+                    </div>
+                    <div class="update-status" :class="`update-status--${updaterStore.status}`">
+                      <strong>{{ updateStatusLabel }}</strong>
+                      <span v-if="updaterStore.info.error">{{ updaterStore.info.error }}</span>
+                    </div>
+                  </div>
+                </div>
+
+                <div v-if="updaterStore.status === 'downloading' && updaterStore.progress"
+                  class="settings-row settings-row--wide">
+                  <div class="settings-row__label">
                     <span>下载进度</span>
-                    <strong>{{ updateProgressPercent }}%</strong>
+                    <small>当前更新包下载状态。</small>
                   </div>
-                  <div class="update-progress__bar">
-                    <div class="update-progress__bar-fill" :style="{ width: `${updateProgressPercent}%` }" />
-                  </div>
-                  <div class="update-progress__meta">
-                    <span>{{ (updaterStore.progress.transferred / 1024 / 1024).toFixed(1) }} MB / {{ (updaterStore.progress.total / 1024 / 1024).toFixed(1) }} MB</span>
-                    <span>{{ (updaterStore.progress.bytesPerSecond / 1024 / 1024).toFixed(2) }} MB/s</span>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            <div class="settings-row settings-row--wide">
-              <div class="settings-row__label">
-                <span>更新说明</span>
-                <small>展示最新发布附带的摘要。</small>
-              </div>
-              <div class="settings-row__control settings-row__control--wide">
-                <UiScrollbar class="update-release-notes" :x="false" :y="true" :size="6">
-                  {{ updaterStore.releaseNotesSummary }}
-                </UiScrollbar>
-              </div>
-            </div>
-
-            <div class="settings-row settings-row--wide">
-              <div class="settings-row__label">
-                <span>私有仓库 Token</span>
-                <small>用于读取私有 GitHub Release，不会回显已保存的 Token。</small>
-              </div>
-              <div class="settings-row__control settings-row__control--wide">
-                <div class="update-auth">
-                  <div class="update-auth__status">
-                    <span>认证状态</span>
-                    <strong>{{ updaterAuthSourceText }}</strong>
-                  </div>
-                  <div class="update-auth__controls">
-                    <UiInput
-                      v-model="githubTokenInput"
-                      type="password"
-                      placeholder="GitHub fine-grained token 或 classic PAT"
-                      size="sm"
-                      :disabled="updaterAuthSaving || updaterStore.auth.source === 'environment'"
-                      @keydown.enter.prevent="saveGithubToken"
-                    />
-                    <UiButton
-                      variant="primary"
-                      size="sm"
-                      :disabled="!canSaveGithubToken || updaterStore.auth.source === 'environment'"
-                      @click="saveGithubToken"
-                    >
-                      保存
-                    </UiButton>
-                    <UiButton
-                      variant="danger"
-                      size="sm"
-                      :disabled="updaterAuthSaving || !updaterStore.auth.hasToken || updaterStore.auth.source === 'environment'"
-                      @click="clearGithubToken"
-                    >
-                      清除
-                    </UiButton>
-                  </div>
-                  <p v-if="updaterStore.auth.source === 'environment'" class="update-auth__hint">
-                    当前使用环境变量中的 Token，不能从设置页清除。
-                  </p>
-                  <p v-else-if="updaterAuthMessage" class="update-auth__hint">{{ updaterAuthMessage }}</p>
-                </div>
-              </div>
-            </div>
-
-            <div class="settings-row settings-row--wide">
-              <div class="settings-row__label">
-                <span>更新操作</span>
-                <small>检查、下载或打开发布页。</small>
-              </div>
-              <div class="settings-row__control settings-row__control--wide">
-                <div class="update-actions">
-                  <UiButton variant="secondary" size="sm" :disabled="!canCheckUpdate" @click="updaterStore.checkForUpdates">
-                    检查更新
-                  </UiButton>
-                  <UiButton variant="primary" size="sm" :disabled="!canDownloadUpdate" @click="updaterStore.downloadUpdate">
-                    下载更新
-                  </UiButton>
-                  <UiButton variant="primary" size="sm" :disabled="!canInstallUpdate" @click="updaterStore.installUpdate">
-                    重启安装
-                  </UiButton>
-                  <UiButton variant="secondary" size="sm" @click="updaterStore.openReleasePage">
-                    打开 Release 页
-                  </UiButton>
-                </div>
-              </div>
-            </div>
-          </section>
-        </div>
-      </section>
-
-      <section v-if="isSettingsTabRendered('file-transfer')" key="file-transfer" class="settings-section">
-        <div class="section-head section-head--standalone">
-          <h2>文件传输</h2>
-          <p>配置传输页浏览行为、缩略图、重试策略和主机信任。</p>
-        </div>
-
-        <div class="settings-form">
-          <section class="settings-group">
-            <h3>浏览行为</h3>
-            <div class="settings-row">
-              <div class="settings-row__label">
-                <span>联动导航</span>
-                <small>切换目录时同步本地与远程浏览节奏。</small>
-              </div>
-              <div class="settings-row__control settings-row__control--switch">
-                <UiCheckbox v-model="ftpLinkNavigationEnabled" size="sm" />
-              </div>
-            </div>
-            <div class="settings-row settings-row--wide">
-              <div class="settings-row__label">
-                <span>联动状态</span>
-                <small>传输页重新激活后会读取该偏好。</small>
-              </div>
-              <div class="settings-row__control settings-row__control--wide">
-                <div class="settings-inline-badges">
-                  <span class="settings-badge" :class="{ 'settings-badge--accent': ftpLinkNavigationEnabled }">{{ ftpLinkNavigationSummary }}</span>
-                </div>
-              </div>
-            </div>
-          </section>
-
-          <section class="settings-group">
-            <h3>预览与传输</h3>
-            <div class="settings-row">
-              <div class="settings-row__label">
-                <span>图片缩略图</span>
-                <small>控制文件列表中的图片预览加载。</small>
-              </div>
-              <div class="settings-row__control settings-row__control--switch">
-                <UiCheckbox v-model="ftpThumbnailsEnabled" size="sm" />
-              </div>
-            </div>
-            <div class="settings-row">
-              <div class="settings-row__label">
-                <span>单张最大 KB</span>
-                <small>避免大图片拖慢浏览。</small>
-              </div>
-              <div class="settings-row__control settings-row__control--compact">
-                <UiInput
-                  :model-value="ftpThumbnailMaxBytesKb"
-                  type="number"
-                  :min="1"
-                  @update:modelValue="setFtpThumbnailMaxBytesKb(String($event))"
-                />
-              </div>
-            </div>
-            <div class="settings-row">
-              <div class="settings-row__label">
-                <span>每侧预加载数量</span>
-                <small>限制本地和远程预取数量。</small>
-              </div>
-              <div class="settings-row__control settings-row__control--compact">
-                <UiInput
-                  :model-value="ftpThumbnailPrefetchLimit"
-                  type="number"
-                  :min="1"
-                  @update:modelValue="setFtpThumbnailPrefetchLimit(String($event))"
-                />
-              </div>
-            </div>
-            <div class="settings-row settings-row--wide">
-              <div class="settings-row__label">
-                <span>缩略图状态</span>
-                <small>传输页文件列表会读取该偏好。</small>
-              </div>
-              <div class="settings-row__control settings-row__control--wide">
-                <div class="settings-inline-badges">
-                  <span class="settings-badge" :class="{ 'settings-badge--accent': ftpThumbnailsEnabled }">{{ ftpThumbnailSummary }}</span>
-                </div>
-              </div>
-            </div>
-
-            <div class="settings-row settings-row--wide">
-              <div class="settings-row__label">
-                <span>Windows 右键菜单</span>
-                <small>从资源管理器右键菜单发送文件或目录到传输页。</small>
-              </div>
-              <div class="settings-row__control settings-row__control--wide">
-                <div class="settings-inline-badges">
-                  <span class="settings-badge" :class="{ 'settings-badge--accent': ftpWindowsContextMenuStatus.installed }">
-                    {{ ftpWindowsContextMenuSummary }}
-                  </span>
-                  <UiButton
-                    size="sm"
-                    variant="secondary"
-                    :disabled="ftpWindowsContextMenuLoading"
-                    @click="ftpWindowsContextMenuStatus.installed ? uninstallFtpWindowsContextMenu() : installFtpWindowsContextMenu()"
-                  >
-                    {{ ftpWindowsContextMenuStatus.installed ? '移除右键菜单' : '安装右键菜单' }}
-                  </UiButton>
-                  <UiButton size="sm" variant="ghost" :disabled="ftpWindowsContextMenuLoading" @click="refreshFtpWindowsContextMenuStatus">
-                    刷新状态
-                  </UiButton>
-                </div>
-                <div class="settings-inline-badges settings-inline-badges--mt">
-                  <span class="settings-badge settings-badge--code">{{ ftpWindowsContextMenuCommandSummary }}</span>
-                  <span v-if="ftpWindowsContextMenuError" class="settings-badge settings-badge--danger">
-                    {{ ftpWindowsContextMenuError }}
-                  </span>
-                </div>
-              </div>
-            </div>
-
-            <div class="settings-row">
-              <div class="settings-row__label">
-                <span>最大重试次数</span>
-                <small>传输失败后的自动重试上限。</small>
-              </div>
-              <div class="settings-row__control settings-row__control--compact">
-                <UiInput
-                  :model-value="ftpRetryMaxRetries"
-                  type="number"
-                  :min="0"
-                  :max="10"
-                  @update:modelValue="setFtpRetryMaxRetries(String($event))"
-                />
-              </div>
-            </div>
-            <div class="settings-row">
-              <div class="settings-row__label">
-                <span>基础等待秒数</span>
-                <small>指数退避的初始等待时间。</small>
-              </div>
-              <div class="settings-row__control settings-row__control--compact">
-                <UiInput
-                  :model-value="ftpRetryBaseDelaySecs"
-                  type="number"
-                  :min="1"
-                  :max="300"
-                  @update:modelValue="setFtpRetryBaseDelaySecs(String($event))"
-                />
-              </div>
-            </div>
-            <div class="settings-row settings-row--wide">
-              <div class="settings-row__label">
-                <span>重试策略</span>
-                <small>策略保存后立即作用于后续失败任务。</small>
-              </div>
-              <div class="settings-row__control settings-row__control--wide">
-                <div class="settings-inline-badges">
-                  <span class="settings-badge settings-badge--accent">{{ ftpRetryPolicySummary }}</span>
-                  <UiButton size="sm" variant="secondary" @click="applyFtpRetryPolicy">应用策略</UiButton>
-                </div>
-              </div>
-            </div>
-          </section>
-
-          <section class="settings-group">
-            <h3>编辑器与安全</h3>
-            <div class="settings-row settings-row--wide">
-              <div class="settings-row__label">
-                <span>外部编辑器</span>
-                <small>留空时使用系统默认关联程序。</small>
-              </div>
-              <div class="settings-row__control settings-row__control--wide">
-                <div class="settings-path-row">
-                  <div class="settings-path-display" :class="{ 'settings-path-display--empty': !ftpExternalEditorPath }">
-                    {{ ftpExternalEditorPath || '未配置' }}
-                  </div>
-                  <UiButton size="sm" variant="secondary" @click="pickFtpExternalEditor">选择</UiButton>
-                  <UiButton size="sm" variant="ghost" :disabled="!ftpExternalEditorPath" @click="ftpExternalEditorPath = ''">清空</UiButton>
-                </div>
-                <div class="settings-inline-badges settings-inline-badges--mt">
-                  <span class="settings-badge settings-badge--accent">{{ ftpExternalEditorSummary }}</span>
-                  <UiCheckbox v-model="ftpCleanupExternalDraftsOnClose" class="settings-check" size="sm">
-                    关闭后清理临时文件
-                  </UiCheckbox>
-                </div>
-              </div>
-            </div>
-
-            <div class="settings-row settings-row--wide">
-              <div class="settings-row__label">
-                <span>已信任主机指纹</span>
-                <small>删除后下次连接会重新确认主机密钥。</small>
-              </div>
-              <div class="settings-row__control settings-row__control--wide">
-                <div class="settings-inline-badges">
-                  <span class="settings-badge" :class="{ 'settings-badge--accent': sshStore.knownHosts.length > 0 }">{{ ftpKnownHostSummary }}</span>
-                  <UiButton size="sm" variant="secondary" :disabled="ftpKnownHostsLoading" @click="refreshFtpKnownHosts">
-                    {{ ftpKnownHostsLoading ? '刷新中' : '刷新列表' }}
-                  </UiButton>
-                </div>
-                <div v-if="sshStore.knownHosts.length" class="settings-known-hosts">
-                  <div v-for="host in sshStore.knownHosts" :key="host.id" class="settings-known-host">
-                    <div class="settings-known-host__main">
-                      <div class="settings-known-host__title">{{ host.host }}:{{ host.port }}</div>
-                      <div class="settings-known-host__meta">
-                        算法 {{ host.algorithm }} · {{ host.trustMode === 'session' ? '仅本次会话信任' : '永久信任' }}
+                  <div class="settings-row__control settings-row__control--wide">
+                    <div class="update-progress">
+                      <div class="update-progress__head">
+                        <span>下载进度</span>
+                        <strong>{{ updateProgressPercent }}%</strong>
                       </div>
-                      <div class="settings-known-host__fingerprint">{{ host.fingerprint }}</div>
-                    </div>
-                    <UiButton size="sm" variant="danger" @click="deleteFtpKnownHost(host.id)">删除</UiButton>
-                  </div>
-                </div>
-                <div v-else class="settings-muted-empty">当前还没有已信任的主机指纹。</div>
-              </div>
-            </div>
-          </section>
-        </div>
-      </section>
-
-      <section v-if="isSettingsTabRendered('terminal')" key="terminal" class="settings-section">
-        <div class="section-head section-head--standalone">
-          <h2>终端</h2>
-          <p>配置终端默认会话、渲染器、工作目录与图像显示行为。</p>
-        </div>
-
-        <div class="settings-form">
-          <section class="settings-group">
-            <h3>会话</h3>
-            <div class="settings-row">
-              <div class="settings-row__label">
-                <span>默认终端</span>
-                <small>终端页面创建新会话时优先使用。</small>
-              </div>
-              <div class="settings-row__control">
-                <UiSelect
-                  :model-value="appConfigStore.config.features.terminal.defaultProfileId || terminalProfileOptions[0]?.value || ''"
-                  :options="terminalProfileOptions"
-                  placeholder="选择默认终端"
-                  @update:modelValue="handleTerminalProfileChange(String($event))"
-                />
-              </div>
-            </div>
-            <div class="settings-row">
-              <div class="settings-row__label">
-                <span>渲染模式</span>
-                <small>终端前端使用的渲染器。</small>
-              </div>
-              <div class="settings-row__control">
-                <UiSelect
-                  :model-value="appConfigStore.config.features.terminal.rendererMode"
-                  :options="terminalRendererOptions"
-                  @update:modelValue="handleTerminalRendererChange"
-                />
-              </div>
-            </div>
-            <div class="settings-row">
-              <div class="settings-row__label">
-                <span>默认工作目录</span>
-                <small>为空时使用应用当前工作目录。</small>
-              </div>
-              <div class="settings-row__control settings-row__control--wide">
-                <UiInput
-                  v-model="terminalDefaultCwdInput"
-                  placeholder="例如：D:\\Projects"
-                  @blur="commitTerminalDefaultCwd"
-                  @keydown.enter.prevent="commitTerminalDefaultCwd"
-                />
-              </div>
-            </div>
-            <div class="settings-row settings-row--wide">
-              <div class="settings-row__label">
-                <span>本地终端类型</span>
-                <small>为不同本地终端保存独立命令、参数、工作目录、环境变量、启动配置文件和背景配置。</small>
-              </div>
-              <div class="settings-row__control settings-row__control--wide">
-                <div class="terminal-profile-editor">
-                  <div class="terminal-profile-editor__grid">
-                    <UiSelect
-                      :model-value="localTerminalBaseProfileId"
-                      :options="terminalProfiles.map((profile) => ({ label: profile.label, value: profile.id }))"
-                      placeholder="从系统终端复制"
-                      @update:modelValue="fillLocalTerminalProfileFromBase(String($event))"
-                    />
-                    <UiInput v-model="localTerminalProfileForm.label" placeholder="类型名称，例如：项目 PowerShell" />
-                    <UiInput v-model="localTerminalProfileForm.command" placeholder="命令，例如：pwsh.exe" />
-                    <UiInput v-model="localTerminalProfileForm.argsText" placeholder="启动参数，例如：-NoLogo" />
-                    <UiInput v-model="localTerminalProfileForm.cwd" placeholder="工作目录，可留空" />
-                    <UiInput v-model="localTerminalProfileForm.configFilePath" placeholder="启动配置文件路径，例如：D:\\profiles\\project.ps1" />
-                  </div>
-                  <UiTextarea
-                    v-model="localTerminalProfileForm.envText"
-                    class="terminal-profile-editor__env"
-                    :rows="4"
-                    placeholder='环境变量 JSON，例如：{"NODE_ENV":"development"}'
-                  />
-                  <p v-if="localTerminalProfileError" class="settings-error">{{ localTerminalProfileError }}</p>
-                  <div class="terminal-profile-editor__actions">
-                    <UiButton size="sm" variant="primary" @click="saveLocalTerminalProfile">
-                      {{ localTerminalEditingId ? '保存类型' : '添加类型' }}
-                    </UiButton>
-                    <UiButton size="sm" variant="ghost" @click="resetLocalTerminalProfileForm">重置</UiButton>
-                  </div>
-                </div>
-                <div v-if="customTerminalProfiles.length" class="terminal-profile-list">
-                  <div
-                    v-for="profile in customTerminalProfiles"
-                    :key="profile.id"
-                    class="terminal-profile-list__item"
-                  >
-                    <div class="terminal-profile-list__main">
-                      <strong>{{ profile.label }}</strong>
-                      <span>{{ profile.command }} {{ profile.args.join(' ') }}</span>
-                      <small v-if="profile.configFilePath">启动配置文件：{{ profile.configFilePath }}</small>
-                      <small>背景：{{ profile.background.type === 'image' ? '图片' : profile.background.type === 'video' ? '视频' : '颜色' }}</small>
-                    </div>
-                    <div class="terminal-profile-list__actions">
-                      <UiButton size="sm" variant="ghost" @click="handleTerminalProfileChange(profile.id)">设为默认</UiButton>
-                      <UiButton size="sm" variant="ghost" @click="editLocalTerminalProfile(profile)">编辑</UiButton>
-                      <UiButton size="sm" variant="danger" @click="deleteLocalTerminalProfile(profile)">删除</UiButton>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </section>
-
-          <section class="settings-group">
-            <h3>行为偏好</h3>
-            <div class="settings-row">
-              <div class="settings-row__label">
-                <span>终端提示音</span>
-                <small>允许 BEL 提示音；关闭后保留终端输出但不播放滴声。</small>
-              </div>
-              <div class="settings-row__control settings-row__control--switch">
-                <UiCheckbox
-                  size="sm"
-                  :checked="appConfigStore.config.features.terminal.enableBell"
-                  @change="handleTerminalBellChange"
-                />
-              </div>
-            </div>
-            <div class="settings-row">
-              <div class="settings-row__label">
-                <span>图像扩展</span>
-                <small>启用 sixel/图像扩展。</small>
-              </div>
-              <div class="settings-row__control settings-row__control--switch">
-                <UiCheckbox
-                  size="sm"
-                  :checked="appConfigStore.config.features.terminal.enableSixel"
-                  @change="handleTerminalSixelChange"
-                />
-              </div>
-            </div>
-            <div class="settings-row">
-              <div class="settings-row__label">
-                <span>默认独立窗口</span>
-                <small>优先在新窗口中拆分会话。</small>
-              </div>
-              <div class="settings-row__control settings-row__control--switch">
-                <UiCheckbox
-                  size="sm"
-                  :checked="appConfigStore.config.features.terminal.detachToWindowByDefault"
-                  @change="handleTerminalDetachChange"
-                />
-              </div>
-            </div>
-            <div class="settings-row">
-              <div class="settings-row__label">
-                <span>SSH 自动重连次数</span>
-                <small>超过次数后暂停，并在终端等待任意键手动重连。</small>
-              </div>
-              <div class="settings-row__control settings-row__control--compact">
-                <UiInput
-                  v-model="sshReconnectMaxAttemptsInput"
-                  type="number"
-                  :min="1"
-                  :max="20"
-                  @blur="commitSshReconnectMaxAttempts"
-                  @change="commitSshReconnectMaxAttempts"
-                  @keydown.enter.prevent="commitSshReconnectMaxAttempts"
-                />
-              </div>
-            </div>
-          </section>
-        </div>
-      </section>
-
-      <section v-if="isSettingsTabRendered('multi-device-clipboard')" key="multi-device-clipboard" class="settings-section">
-        <div class="section-head section-head--standalone">
-          <h2>多设备剪贴板</h2>
-          <p>配置局域网发现、同步大小和历史记录。</p>
-        </div>
-
-        <div class="settings-form">
-          <section class="settings-group">
-            <h3>同步</h3>
-            <div class="settings-row">
-              <div class="settings-row__label">
-                <span>启用多设备剪贴板</span>
-                <small>启用后会通过 mDNS 在局域网发布和发现设备。</small>
-              </div>
-              <div class="settings-row__control settings-row__control--switch">
-                <UiCheckbox
-                  size="sm"
-                  :checked="appConfigStore.config.features.multiDeviceClipboard.enabled"
-                  @change="handleMultiDeviceClipboardEnabledChange"
-                />
-              </div>
-            </div>
-            <div class="settings-row">
-              <div class="settings-row__label">
-                <span>设备名称</span>
-                <small>为空时使用当前系统主机名。</small>
-              </div>
-              <div class="settings-row__control settings-row__control--wide">
-                <UiInput
-                  v-model="multiDeviceClipboardDeviceNameInput"
-                  placeholder="例如：工作笔记本"
-                  @blur="commitMultiDeviceClipboardDeviceName"
-                  @keydown.enter.prevent="commitMultiDeviceClipboardDeviceName"
-                />
-              </div>
-            </div>
-            <div class="settings-row">
-              <div class="settings-row__label">
-                <span>唤出快捷键</span>
-                <small>系统级快捷键；如果 Alt+V 已被系统占用，可以改成其他组合。</small>
-              </div>
-              <div class="settings-row__control settings-row__control--wide">
-                <ShortcutRecorder
-                  :model-value="appConfigStore.config.shortcuts.system.toggleMultiDeviceClipboard"
-                  :default-value="defaultShortcuts.system.toggleMultiDeviceClipboard"
-                  @update:modelValue="updateSystemShortcut('toggleMultiDeviceClipboard', $event)"
-                />
-              </div>
-            </div>
-            <div class="settings-row">
-              <div class="settings-row__label">
-                <span>最大同步大小</span>
-                <small>单位 MB，最大 1024 MB；超限内容只保留本机历史。</small>
-              </div>
-              <div class="settings-row__control settings-row__control--compact">
-                <UiInput
-                  v-model="multiDeviceClipboardMaxSyncMbInput"
-                  type="number"
-                  :min="1"
-                  :max="1024"
-                  @blur="commitMultiDeviceClipboardMaxSyncMb"
-                  @change="commitMultiDeviceClipboardMaxSyncMb"
-                  @keydown.enter.prevent="commitMultiDeviceClipboardMaxSyncMb"
-                />
-              </div>
-            </div>
-            <div class="settings-row">
-              <div class="settings-row__label">
-                <span>历史记录数量</span>
-                <small>最多保留 5000 条，多余记录会自动裁剪。</small>
-              </div>
-              <div class="settings-row__control settings-row__control--compact">
-                <UiInput
-                  v-model="multiDeviceClipboardHistoryLimitInput"
-                  type="number"
-                  :min="1"
-                  :max="5000"
-                  @blur="commitMultiDeviceClipboardHistoryLimit"
-                  @change="commitMultiDeviceClipboardHistoryLimit"
-                  @keydown.enter.prevent="commitMultiDeviceClipboardHistoryLimit"
-                />
-              </div>
-            </div>
-          </section>
-
-          <section class="settings-group">
-            <h3>已配对设备</h3>
-            <div class="settings-row settings-row--wide">
-              <div class="settings-row__label">
-                <span>可信设备列表</span>
-                <small>移除后会停止向该设备发送剪贴板，也会拒收它的同步内容。</small>
-              </div>
-              <div class="settings-row__control settings-row__control--wide">
-                <div class="clipboard-device-panel">
-                  <div class="clipboard-device-panel__actions">
-                    <UiButton
-                      size="sm"
-                      variant="secondary"
-                      :disabled="multiDeviceClipboardDevicesLoading"
-                      @click="loadMultiDeviceClipboardDevices"
-                    >
-                      刷新设备
-                    </UiButton>
-                  </div>
-
-                  <div v-if="pairedMultiDeviceClipboardDevices.length" class="clipboard-device-list">
-                    <article
-                      v-for="device in pairedMultiDeviceClipboardDevices"
-                      :key="device.deviceId"
-                      class="clipboard-device-item"
-                    >
-                      <div class="clipboard-device-item__body">
-                        <strong>{{ device.name }}</strong>
-                        <small>{{ multiDeviceClipboardDeviceMeta(device) }}</small>
+                      <div class="update-progress__bar">
+                        <div class="update-progress__bar-fill" :style="{ width: `${updateProgressPercent}%` }" />
                       </div>
-                      <UiButton
-                        size="sm"
-                        variant="danger"
-                        @click="forgetMultiDeviceClipboardDevice(device)"
-                      >
-                        移除
+                      <div class="update-progress__meta">
+                        <span>{{ (updaterStore.progress.transferred / 1024 / 1024).toFixed(1) }} MB / {{
+                          (updaterStore.progress.total / 1024 / 1024).toFixed(1) }} MB</span>
+                        <span>{{ (updaterStore.progress.bytesPerSecond / 1024 / 1024).toFixed(2) }} MB/s</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <div class="settings-row settings-row--wide">
+                  <div class="settings-row__label">
+                    <span>更新说明</span>
+                    <small>展示最新发布附带的摘要。</small>
+                  </div>
+                  <div class="settings-row__control settings-row__control--wide">
+                    <UiScrollbar class="update-release-notes" :x="false" :y="true" :size="6">
+                      {{ updaterStore.releaseNotesSummary }}
+                    </UiScrollbar>
+                  </div>
+                </div>
+
+                <div class="settings-row settings-row--wide">
+                  <div class="settings-row__label">
+                    <span>私有仓库 Token</span>
+                    <small>用于读取私有 GitHub Release，不会回显已保存的 Token。</small>
+                  </div>
+                  <div class="settings-row__control settings-row__control--wide">
+                    <div class="update-auth">
+                      <div class="update-auth__status">
+                        <span>认证状态</span>
+                        <strong>{{ updaterAuthSourceText }}</strong>
+                      </div>
+                      <div class="update-auth__controls">
+                        <UiInput v-model="githubTokenInput" type="password"
+                          placeholder="GitHub fine-grained token 或 classic PAT" size="sm"
+                          :disabled="updaterAuthSaving || updaterStore.auth.source === 'environment'"
+                          @keydown.enter.prevent="saveGithubToken" />
+                        <UiButton variant="primary" size="sm"
+                          :disabled="!canSaveGithubToken || updaterStore.auth.source === 'environment'"
+                          @click="saveGithubToken">
+                          保存
+                        </UiButton>
+                        <UiButton variant="danger" size="sm"
+                          :disabled="updaterAuthSaving || !updaterStore.auth.hasToken || updaterStore.auth.source === 'environment'"
+                          @click="clearGithubToken">
+                          清除
+                        </UiButton>
+                      </div>
+                      <p v-if="updaterStore.auth.source === 'environment'" class="update-auth__hint">
+                        当前使用环境变量中的 Token，不能从设置页清除。
+                      </p>
+                      <p v-else-if="updaterAuthMessage" class="update-auth__hint">{{ updaterAuthMessage }}</p>
+                    </div>
+                  </div>
+                </div>
+
+                <div class="settings-row settings-row--wide">
+                  <div class="settings-row__label">
+                    <span>更新操作</span>
+                    <small>检查、下载或打开发布页。</small>
+                  </div>
+                  <div class="settings-row__control settings-row__control--wide">
+                    <div class="update-actions">
+                      <UiButton variant="secondary" size="sm" :disabled="!canCheckUpdate"
+                        @click="updaterStore.checkForUpdates">
+                        检查更新
                       </UiButton>
-                    </article>
-                  </div>
-                  <p v-else class="clipboard-device-empty">
-                    {{ multiDeviceClipboardDevicesLoading ? '正在读取已配对设备...' : '暂无已配对设备' }}
-                  </p>
-                </div>
-              </div>
-            </div>
-          </section>
-
-          <section class="settings-group">
-            <h3>局域网网卡优先级</h3>
-            <div class="settings-row settings-row--wide">
-              <div class="settings-row__label">
-                <span>自动发现广播地址</span>
-                <small>
-                  拖动排序，排在最上方的可用 IPv4 会优先用于 mDNS 广播；当前首选：
-                  {{ activeNetworkInterface ? `${activeNetworkInterface.name} · ${activeNetworkInterface.address}` : '未检测到可用网卡' }}
-                </small>
-              </div>
-              <div class="settings-row__control settings-row__control--wide">
-                <div class="network-priority-panel">
-                  <div class="network-priority-panel__actions">
-                    <UiButton size="sm" variant="secondary" :disabled="networkInterfacesLoading" @click="loadNetworkInterfaces">
-                      刷新网卡
-                    </UiButton>
-                    <UiButton size="sm" variant="ghost" @click="resetNetworkInterfacePriority">
-                      恢复自动
-                    </UiButton>
-                  </div>
-
-                  <div v-if="orderedNetworkInterfaces.length" class="network-priority-list">
-                    <article
-                      v-for="(networkInterface, index) in orderedNetworkInterfaces"
-                      :key="networkInterface.key"
-                      class="network-priority-item"
-                      :class="{ 'network-priority-item--active': index === 0 }"
-                      draggable="true"
-                      @dragstart="handleNetworkInterfaceDragStart(networkInterface.key, $event)"
-                      @dragend="draggedNetworkInterfaceKey = ''"
-                      @dragover.prevent
-                      @drop="handleNetworkInterfaceDrop(networkInterface.key, $event)"
-                    >
-                      <span class="network-priority-item__handle" aria-hidden="true">⋮⋮</span>
-                      <div class="network-priority-item__body">
-                        <strong>{{ networkInterface.name }}</strong>
-                        <small>{{ networkInterface.address }} · {{ networkInterface.cidr || 'IPv4' }}</small>
-                      </div>
-                      <div class="network-priority-item__actions">
-                        <UiButton size="sm" variant="ghost" :disabled="index === 0" @click="moveNetworkInterface(index, index - 1)">上移</UiButton>
-                        <UiButton size="sm" variant="ghost" :disabled="index === orderedNetworkInterfaces.length - 1" @click="moveNetworkInterface(index, index + 1)">下移</UiButton>
-                      </div>
-                    </article>
-                  </div>
-                  <p v-else class="network-priority-empty">
-                    {{ networkInterfacesLoading ? '正在读取本机网卡...' : '未检测到 IPv4 网卡' }}
-                  </p>
-                </div>
-              </div>
-            </div>
-          </section>
-        </div>
-      </section>
-
-      <section v-if="isSettingsTabRendered('knowledge')" key="knowledge" class="settings-section">
-        <div class="section-head section-head--standalone">
-          <h2>知识库</h2>
-          <p>配置默认库、附件保存策略、索引和预览缓存。</p>
-        </div>
-
-        <div class="settings-form">
-          <section class="settings-group">
-            <h3>默认行为</h3>
-            <div class="settings-row">
-              <div class="settings-row__label">
-                <span>默认知识库</span>
-                <small>未指定库的导入、粘贴附件会优先写入这里。</small>
-              </div>
-              <div class="settings-row__control settings-row__control--wide">
-                <UiSelect
-                  :model-value="appConfigStore.config.features.knowledge.defaultLibraryId"
-                  :options="knowledgeLibraryOptions"
-                  @update:modelValue="updateKnowledgeDefaultLibrary"
-                />
-              </div>
-            </div>
-            <div class="settings-row">
-              <div class="settings-row__label">
-                <span>全文索引</span>
-                <small>{{ knowledgeIndexingSummary }}</small>
-              </div>
-              <div class="settings-row__control settings-row__control--switch">
-                <UiCheckbox
-                  size="sm"
-                  :checked="appConfigStore.config.features.knowledge.indexingEnabled"
-                  @change="toggleKnowledgeIndexing"
-                />
-              </div>
-            </div>
-            <div class="settings-row">
-              <div class="settings-row__label">
-                <span>单文件导入上限</span>
-                <small>超过上限的文件会被跳过，避免抽取或复制拖慢应用。</small>
-              </div>
-              <div class="settings-row__control settings-row__control--compact">
-                <UiInput
-                  v-model="knowledgeMaxImportFileSizeMbInput"
-                  type="number"
-                  :min="1"
-                  :max="10240"
-                  @blur="commitKnowledgeMaxImportSize"
-                  @change="commitKnowledgeMaxImportSize"
-                  @keydown.enter.prevent="commitKnowledgeMaxImportSize"
-                />
-              </div>
-            </div>
-          </section>
-
-          <section class="settings-group">
-            <h3>附件目录</h3>
-            <div class="settings-row">
-              <div class="settings-row__label">
-                <span>目录策略</span>
-                <small>默认使用应用数据目录，自定义目录适合大体积资料库。</small>
-              </div>
-              <div class="settings-row__control settings-row__control--wide">
-                <UiSelect
-                  :model-value="appConfigStore.config.features.knowledge.assetStorageMode"
-                  :options="knowledgeAssetStorageOptions"
-                  @update:modelValue="updateKnowledgeAssetStorageMode"
-                />
-              </div>
-            </div>
-            <div class="settings-row settings-row--wide">
-              <div class="settings-row__label">
-                <span>自定义附件目录</span>
-                <small>只影响后续新导入资产，已入库文件不会自动迁移。</small>
-              </div>
-              <div class="settings-row__control settings-row__control--wide">
-                <div class="ffmpeg-path-row">
-                  <div class="ffmpeg-path-display" :class="{ 'ffmpeg-path-display--empty': !knowledgeCustomAssetDirectoryInput }">
-                    {{ knowledgeCustomAssetDirectoryInput || '未配置' }}
-                  </div>
-                  <UiButton variant="secondary" size="sm" @click="selectKnowledgeAssetDirectory">选择</UiButton>
-                  <UiButton v-if="knowledgeCustomAssetDirectoryInput" variant="danger" size="sm" @click="clearKnowledgeAssetDirectory">清除</UiButton>
-                </div>
-              </div>
-            </div>
-          </section>
-
-          <section class="settings-group">
-            <h3>预览与外部工具</h3>
-            <div class="settings-row settings-row--wide">
-              <div class="settings-row__label">
-                <span>LibreOffice 路径</span>
-                <small>预留给后续 Office 高保真转换；当前轻量抽取不强制依赖。</small>
-              </div>
-              <div class="settings-row__control settings-row__control--wide">
-                <div class="ffmpeg-path-row">
-                  <div class="ffmpeg-path-display" :class="{ 'ffmpeg-path-display--empty': !knowledgeLibreOfficePathInput }">
-                    {{ knowledgeLibreOfficePathInput || '未配置' }}
-                  </div>
-                  <UiButton variant="secondary" size="sm" @click="selectKnowledgeLibreOfficePath">选择</UiButton>
-                  <UiButton v-if="knowledgeLibreOfficePathInput" variant="danger" size="sm" @click="clearKnowledgeLibreOfficePath">清除</UiButton>
-                </div>
-              </div>
-            </div>
-            <div class="settings-row">
-              <div class="settings-row__label">
-                <span>预览缓存保留</span>
-                <small>{{ knowledgePreviewCacheSummary }}</small>
-              </div>
-              <div class="settings-row__control settings-row__control--compact">
-                <UiInput
-                  v-model="knowledgePreviewCacheTtlDaysInput"
-                  type="number"
-                  :min="0"
-                  :max="3650"
-                  @blur="commitKnowledgePreviewCacheTtl"
-                  @change="commitKnowledgePreviewCacheTtl"
-                  @keydown.enter.prevent="commitKnowledgePreviewCacheTtl"
-                />
-              </div>
-            </div>
-            <div class="settings-row">
-              <div class="settings-row__label">
-                <span>清理预览缓存</span>
-                <small>只清理知识库预览缓存，不删除原始附件。</small>
-              </div>
-              <div class="settings-row__control">
-                <UiButton variant="secondary" size="sm" :disabled="knowledgeClearingCache" @click="clearKnowledgePreviewCache">
-                  {{ knowledgeClearingCache ? '清理中' : '立即清理' }}
-                </UiButton>
-              </div>
-            </div>
-          </section>
-        </div>
-      </section>
-
-      <section v-if="isSettingsTabRendered('quick-launch')" key="quick-launch" class="settings-section">
-        <div class="section-head section-head--standalone">
-          <h2>快速启动</h2>
-          <p>配置全局唤起、显示行为、搜索结果数量、搜索源和 Everything 文件搜索。</p>
-        </div>
-
-        <div class="settings-form">
-          <section class="settings-group">
-            <h3>行为</h3>
-            <div class="settings-row">
-              <div class="settings-row__label">
-                <span>启用快速启动</span>
-                <small>关闭后全局快捷键不会唤出快速启动窗口。</small>
-              </div>
-              <div class="settings-row__control settings-row__control--switch">
-                <UiCheckbox
-                  :checked="appConfigStore.config.features.quickLaunch.enabled"
-                  @change="toggleQuickLaunchEnabled"
-                />
-              </div>
-            </div>
-            <div class="settings-row">
-              <div class="settings-row__label">
-                <span>失焦后隐藏</span>
-                <small>窗口失去焦点时自动隐藏，适合命令面板式操作。</small>
-              </div>
-              <div class="settings-row__control settings-row__control--switch">
-                <UiCheckbox
-                  :checked="appConfigStore.config.features.quickLaunch.hideOnBlur"
-                  @change="toggleQuickLaunchHideOnBlur"
-                />
-              </div>
-            </div>
-            <div class="settings-row">
-              <div class="settings-row__label">
-                <span>最大结果数</span>
-                <small>限制每次搜索展示的总结果数量，范围 4-50。</small>
-              </div>
-              <div class="settings-row__control settings-row__control--compact">
-                <UiInput
-                  v-model="quickLaunchMaxResultsInput"
-                  type="number"
-                  :min="4"
-                  :max="50"
-                  size="sm"
-                  @blur="commitQuickLaunchMaxResults"
-                  @change="commitQuickLaunchMaxResults"
-                  @keydown.enter.prevent="commitQuickLaunchMaxResults"
-                />
-              </div>
-            </div>
-          </section>
-
-          <section class="settings-group">
-            <h3>外观</h3>
-            <div class="settings-row settings-row--wide">
-              <div class="settings-row__label">
-                <span>窗口背景</span>
-                <small>使用通用背景组件配置快速启动窗口的颜色、图片或视频背景。</small>
-              </div>
-              <div class="settings-row__control settings-row__control--wide">
-                <div class="quick-launch-background-control">
-                  <span class="quick-launch-background-preview">
-                    <span class="quick-launch-background-preview__fill" :style="quickLaunchBackgroundPreviewStyle" />
-                  </span>
-                  <span class="quick-launch-background-control__meta">
-                    <strong>{{ quickLaunchBackgroundSummary }}</strong>
-                    <small>{{ appConfigStore.config.appearance.theme === 'dark' ? '暗色主题配置' : '亮色主题配置' }}</small>
-                  </span>
-                  <UiButton type="button" variant="secondary" size="sm" @click="quickLaunchBackgroundPickerVisible = true">
-                    配置
-                  </UiButton>
-                  <UiButton type="button" variant="ghost" size="sm" @click="resetQuickLaunchBackground">
-                    重置
-                  </UiButton>
-                </div>
-              </div>
-            </div>
-            <div class="settings-row">
-              <div class="settings-row__label">
-                <span>窗口透明度</span>
-                <small>调整快速启动窗口表面的透明度，不影响背景图片或视频自身透明度。</small>
-              </div>
-              <div class="settings-row__control">
-                <UiSliderField
-                  v-model="quickLaunchWindowOpacityInput"
-                  :min="0.2"
-                  :max="1"
-                  :step="0.01"
-                  :value-text="quickLaunchWindowOpacityLabel"
-                  aria-label="快速启动窗口透明度"
-                  @change="commitQuickLaunchWindowOpacity"
-                />
-              </div>
-            </div>
-            <div class="settings-row">
-              <div class="settings-row__label">
-                <span>选中状态颜色</span>
-                <small>控制键盘或鼠标选中结果时的高亮基色。</small>
-              </div>
-              <div class="settings-row__control">
-                <div class="quick-launch-color-control">
-                  <input
-                    v-model="quickLaunchSelectionColorInput"
-                    class="quick-launch-color-input"
-                    type="color"
-                    aria-label="快速启动选中状态颜色"
-                    @change="commitQuickLaunchSelectionColor"
-                  >
-                  <UiInput
-                    v-model="quickLaunchSelectionColorInput"
-                    size="sm"
-                    spellcheck="false"
-                    @blur="commitQuickLaunchSelectionColor"
-                    @keydown.enter.prevent="commitQuickLaunchSelectionColor"
-                  />
-                </div>
-              </div>
-            </div>
-            <div class="settings-row">
-              <div class="settings-row__label">
-                <span>选中状态透明度</span>
-                <small>控制结果高亮的覆盖强度，默认是轻量透明蓝。</small>
-              </div>
-              <div class="settings-row__control">
-                <UiSliderField
-                  v-model="quickLaunchSelectionOpacityInput"
-                  :min="0"
-                  :max="1"
-                  :step="0.01"
-                  :value-text="quickLaunchSelectionOpacityLabel"
-                  aria-label="快速启动选中状态透明度"
-                  @change="commitQuickLaunchSelectionOpacity"
-                />
-              </div>
-            </div>
-            <div class="settings-row">
-              <div class="settings-row__label">
-                <span>结果标题颜色</span>
-                <small>控制搜索结果主标题文字颜色。</small>
-              </div>
-              <div class="settings-row__control">
-                <div class="quick-launch-color-control">
-                  <input
-                    v-model="quickLaunchResultTitleColorInput"
-                    class="quick-launch-color-input"
-                    type="color"
-                    aria-label="快速启动结果标题颜色"
-                    @change="commitQuickLaunchResultTitleColor"
-                  >
-                  <UiInput
-                    v-model="quickLaunchResultTitleColorInput"
-                    size="sm"
-                    spellcheck="false"
-                    @blur="commitQuickLaunchResultTitleColor"
-                    @keydown.enter.prevent="commitQuickLaunchResultTitleColor"
-                  />
-                </div>
-              </div>
-            </div>
-            <div class="settings-row">
-              <div class="settings-row__label">
-                <span>结果副标题颜色</span>
-                <small>控制路径、来源和说明等辅助文字颜色。</small>
-              </div>
-              <div class="settings-row__control">
-                <div class="quick-launch-color-control">
-                  <input
-                    v-model="quickLaunchResultSubtitleColorInput"
-                    class="quick-launch-color-input"
-                    type="color"
-                    aria-label="快速启动结果副标题颜色"
-                    @change="commitQuickLaunchResultSubtitleColor"
-                  >
-                  <UiInput
-                    v-model="quickLaunchResultSubtitleColorInput"
-                    size="sm"
-                    spellcheck="false"
-                    @blur="commitQuickLaunchResultSubtitleColor"
-                    @keydown.enter.prevent="commitQuickLaunchResultSubtitleColor"
-                  />
-                </div>
-              </div>
-            </div>
-          </section>
-
-          <section class="settings-group">
-            <h3>搜索源</h3>
-            <div class="settings-row settings-row--wide">
-              <div class="settings-row__label">
-                <span>启用的来源</span>
-                <small>关闭不常用来源可以减少噪声，至少保留一个应用功能入口。</small>
-              </div>
-              <div class="settings-row__control settings-row__control--wide">
-                <div class="quick-launch-provider-list">
-                  <label
-                    v-for="provider in quickLaunchProviderOptions"
-                    :key="provider.value"
-                    class="quick-launch-provider-item"
-                  >
-                    <UiCheckbox
-                      size="sm"
-                      :checked="appConfigStore.config.features.quickLaunch.enabledProviders.includes(provider.value)"
-                      @change="toggleQuickLaunchProvider(provider.value, $event)"
-                    />
-                    <span>{{ provider.label }}</span>
-                  </label>
-                </div>
-              </div>
-            </div>
-            <div class="settings-row settings-row--wide">
-              <div class="settings-row__label">
-                <span>Everything ES 路径</span>
-                <small>文件搜索需要安装 Everything 主程序并配置 ES 命令行工具。</small>
-              </div>
-              <div class="settings-row__control settings-row__control--wide">
-                <div class="quick-launch-es-path">
-                  <UiInput
-                    v-model="quickLaunchEverythingEsPathInput"
-                    size="sm"
-                    placeholder="留空自动探测 PATH 或常见安装目录中的 es.exe"
-                    @blur="commitQuickLaunchEverythingEsPath"
-                    @change="commitQuickLaunchEverythingEsPath"
-                    @keydown.enter.prevent="commitQuickLaunchEverythingEsPath"
-                  />
-                  <UiButton type="button" variant="secondary" size="sm" @click="selectQuickLaunchEverythingEsPath">
-                    选择
-                  </UiButton>
-                  <UiButton
-                    type="button"
-                    variant="ghost"
-                    size="sm"
-                    :disabled="!quickLaunchEverythingEsPathInput"
-                    @click="clearQuickLaunchEverythingEsPath"
-                  >
-                    清除
-                  </UiButton>
-                </div>
-                <p class="quick-launch-es-path__hint">
-                  缺失时 QuickLaunch 会提示确认是否已安装 Everything 应用和命令行 ES；配置后按 Ctrl+R 可刷新快速启动索引。
-                </p>
-              </div>
-            </div>
-          </section>
-        </div>
-      </section>
-
-      <section v-if="isSettingsTabRendered('shortcuts')" key="shortcuts" class="settings-section">
-        <div class="section-head section-head--standalone">
-          <h2>快捷键</h2>
-          <p>配置终端、速记窗口和系统级显示隐藏快捷键。</p>
-        </div>
-
-        <div class="settings-form">
-          <section class="settings-group">
-            <h3>终端</h3>
-            <div class="settings-row">
-              <div class="settings-row__label">
-                <span>终端复制</span>
-                <small>终端聚焦时生效，默认 Ctrl+Shift+C。</small>
-              </div>
-              <div class="settings-row__control settings-row__control--wide">
-                <ShortcutRecorder
-                  :model-value="appConfigStore.config.shortcuts.internal.terminalCopy"
-                  :default-value="defaultShortcuts.internal.terminalCopy"
-                  @update:modelValue="updateInternalShortcut('terminalCopy', $event)"
-                />
-              </div>
-            </div>
-            <div class="settings-row">
-              <div class="settings-row__label">
-                <span>终端粘贴</span>
-                <small>终端聚焦时生效，默认 Ctrl+Shift+V。</small>
-              </div>
-              <div class="settings-row__control settings-row__control--wide">
-                <ShortcutRecorder
-                  :model-value="appConfigStore.config.shortcuts.internal.terminalPaste"
-                  :default-value="defaultShortcuts.internal.terminalPaste"
-                  @update:modelValue="updateInternalShortcut('terminalPaste', $event)"
-                />
-              </div>
-            </div>
-          </section>
-
-          <section class="settings-group">
-            <h3>速记窗口</h3>
-            <div class="settings-row">
-              <div class="settings-row__label">
-                <span>保存速记</span>
-                <small>速记窗口聚焦时生效，默认 Ctrl+S。</small>
-              </div>
-              <div class="settings-row__control settings-row__control--wide">
-                <ShortcutRecorder
-                  :model-value="appConfigStore.config.shortcuts.internal.quickNoteSave"
-                  :default-value="defaultShortcuts.internal.quickNoteSave"
-                  @update:modelValue="updateInternalShortcut('quickNoteSave', $event)"
-                />
-              </div>
-            </div>
-            <div class="settings-row">
-              <div class="settings-row__label">
-                <span>新建速记</span>
-                <small>清空当前草稿并开始新记录，默认 Ctrl+N。</small>
-              </div>
-              <div class="settings-row__control settings-row__control--wide">
-                <ShortcutRecorder
-                  :model-value="appConfigStore.config.shortcuts.internal.quickNoteNew"
-                  :default-value="defaultShortcuts.internal.quickNoteNew"
-                  @update:modelValue="updateInternalShortcut('quickNoteNew', $event)"
-                />
-              </div>
-            </div>
-            <div class="settings-row">
-              <div class="settings-row__label">
-                <span>收起/展开</span>
-                <small>在编辑窗口和标题条之间切换，默认 Ctrl+M。</small>
-              </div>
-              <div class="settings-row__control settings-row__control--wide">
-                <ShortcutRecorder
-                  :model-value="appConfigStore.config.shortcuts.internal.quickNoteCollapse"
-                  :default-value="defaultShortcuts.internal.quickNoteCollapse"
-                  @update:modelValue="updateInternalShortcut('quickNoteCollapse', $event)"
-                />
-              </div>
-            </div>
-            <div class="settings-row">
-              <div class="settings-row__label">
-                <span>关闭窗口</span>
-                <small>隐藏速记窗口，默认 Escape。</small>
-              </div>
-              <div class="settings-row__control settings-row__control--wide">
-                <ShortcutRecorder
-                  :model-value="appConfigStore.config.shortcuts.internal.quickNoteClose"
-                  :default-value="defaultShortcuts.internal.quickNoteClose"
-                  @update:modelValue="updateInternalShortcut('quickNoteClose', $event)"
-                />
-              </div>
-            </div>
-          </section>
-
-          <section class="settings-group">
-            <h3>快速启动窗口快捷键</h3>
-            <div class="settings-row settings-row--wide">
-              <div class="settings-row__label">
-                <span>固定操作</span>
-                <small>只在快速启动窗口聚焦时生效，当前版本不支持修改。</small>
-              </div>
-              <div class="settings-row__control settings-row__control--wide">
-                <div class="quick-launch-shortcut-map" aria-label="快速启动窗口快捷键">
-                  <section
-                    v-for="group in quickLaunchWindowShortcutGroups"
-                    :key="group.title"
-                    class="quick-launch-shortcut-map__group"
-                  >
-                    <h4 class="quick-launch-shortcut-map__title">{{ group.title }}</h4>
-                    <div class="quick-launch-shortcut-map__list">
-                      <div
-                        v-for="shortcut in group.shortcuts"
-                        :key="`${group.title}:${shortcut.label}`"
-                        class="quick-launch-shortcut-map__row"
-                      >
-                        <span class="quick-launch-shortcut-map__label">{{ shortcut.label }}</span>
-                        <kbd class="quick-launch-shortcut-map__keys">{{ shortcut.keys }}</kbd>
-                      </div>
-                    </div>
-                  </section>
-                </div>
-              </div>
-            </div>
-          </section>
-
-          <section class="settings-group">
-            <h3>系统</h3>
-            <div class="shortcut-detection-panel">
-              <div class="shortcut-detection-panel__head">
-                <div>
-                  <strong>系统快捷键占用检测</strong>
-                  <small>检测本应用注册状态，并探测当前平台常见全局快捷键占用。</small>
-                </div>
-                <UiButton
-                  variant="secondary"
-                  size="sm"
-                  :disabled="shortcutInspectionLoading"
-                  @click="refreshSystemShortcutInspection"
-                >
-                  {{ shortcutInspectionLoading ? '检测中' : '重新检测' }}
-                </UiButton>
-              </div>
-              <div class="shortcut-detection-panel__summary">
-                <span>已注册 {{ shortcutRegisteredCount }}</span>
-                <span>冲突 {{ shortcutConflictCount }}</span>
-                <span>可注册 {{ shortcutAvailableCount }}</span>
-                <span>{{ shortcutInspectionTimeText }}</span>
-              </div>
-              <div v-if="highlightedCommonShortcutProbes.length" class="shortcut-probe-list">
-                <span
-                  v-for="probe in highlightedCommonShortcutProbes"
-                  :key="probe.id"
-                  class="shortcut-probe-chip"
-                  :class="`shortcut-probe-chip--${probe.status}`"
-                  :title="probe.message"
-                >
-                  {{ probe.label }} · {{ probe.normalizedAccelerator || probe.accelerator }} · {{ shortcutStatusText(probe.status) }}
-                </span>
-              </div>
-            </div>
-            <div class="settings-row">
-              <div class="settings-row__label">
-                <span>显示/隐藏应用</span>
-                <small>系统级快捷键，保存到 SQLite 后立即重新注册。</small>
-              </div>
-              <div class="settings-row__control settings-row__control--wide">
-                <ShortcutRecorder
-                  :model-value="appConfigStore.config.shortcuts.system.toggleAppVisibility"
-                  :default-value="defaultShortcuts.system.toggleAppVisibility"
-                  @update:modelValue="updateSystemShortcut('toggleAppVisibility', $event)"
-                />
-                <div class="shortcut-status-row">
-                  <p
-                    class="shortcut-status"
-                    :class="`shortcut-status--${getSystemShortcutStatus('toggleAppVisibility') || 'pending'}`"
-                  >
-                    {{ shortcutStatusText(getSystemShortcutStatus('toggleAppVisibility')) }}：{{ getSystemShortcutMessage('toggleAppVisibility') || '等待检测结果。' }}
-                  </p>
-                  <UiButton
-                    v-if="canRetrySystemShortcut('toggleAppVisibility')"
-                    type="button"
-                    variant="ghost"
-                    size="sm"
-                    :disabled="Boolean(shortcutRetryingKeys.toggleAppVisibility)"
-                    @click="retrySystemShortcut('toggleAppVisibility')"
-                  >
-                    {{ shortcutRetryingKeys.toggleAppVisibility ? '正在注册' : '重新注册' }}
-                  </UiButton>
-                </div>
-              </div>
-            </div>
-            <div class="settings-row">
-              <div class="settings-row__label">
-                <span>快速启动</span>
-                <small>系统级快捷键，默认 Alt+Space 唤出搜索面板。</small>
-              </div>
-              <div class="settings-row__control settings-row__control--wide">
-                <ShortcutRecorder
-                  :model-value="appConfigStore.config.shortcuts.system.toggleQuickLaunch"
-                  :default-value="defaultShortcuts.system.toggleQuickLaunch"
-                  @update:modelValue="updateSystemShortcut('toggleQuickLaunch', $event)"
-                />
-                <div class="shortcut-status-row">
-                  <p
-                    class="shortcut-status"
-                    :class="`shortcut-status--${getSystemShortcutStatus('toggleQuickLaunch') || 'pending'}`"
-                  >
-                    {{ shortcutStatusText(getSystemShortcutStatus('toggleQuickLaunch')) }}：{{ getSystemShortcutMessage('toggleQuickLaunch') || '等待检测结果。' }}
-                  </p>
-                  <UiButton
-                    v-if="canRetrySystemShortcut('toggleQuickLaunch')"
-                    type="button"
-                    variant="ghost"
-                    size="sm"
-                    :disabled="Boolean(shortcutRetryingKeys.toggleQuickLaunch)"
-                    @click="retrySystemShortcut('toggleQuickLaunch')"
-                  >
-                    {{ shortcutRetryingKeys.toggleQuickLaunch ? '正在注册' : '重新注册' }}
-                  </UiButton>
-                </div>
-              </div>
-            </div>
-            <div class="settings-row">
-              <div class="settings-row__label">
-                <span>多设备剪贴板</span>
-                <small>系统级快捷键，默认 Alt+V 唤出右下角窗口。</small>
-              </div>
-              <div class="settings-row__control settings-row__control--wide">
-                <ShortcutRecorder
-                  :model-value="appConfigStore.config.shortcuts.system.toggleMultiDeviceClipboard"
-                  :default-value="defaultShortcuts.system.toggleMultiDeviceClipboard"
-                  @update:modelValue="updateSystemShortcut('toggleMultiDeviceClipboard', $event)"
-                />
-                <div class="shortcut-status-row">
-                  <p
-                    class="shortcut-status"
-                    :class="`shortcut-status--${getSystemShortcutStatus('toggleMultiDeviceClipboard') || 'pending'}`"
-                  >
-                    {{ shortcutStatusText(getSystemShortcutStatus('toggleMultiDeviceClipboard')) }}：{{ getSystemShortcutMessage('toggleMultiDeviceClipboard') || '等待检测结果。' }}
-                  </p>
-                  <UiButton
-                    v-if="canRetrySystemShortcut('toggleMultiDeviceClipboard')"
-                    type="button"
-                    variant="ghost"
-                    size="sm"
-                    :disabled="Boolean(shortcutRetryingKeys.toggleMultiDeviceClipboard)"
-                    @click="retrySystemShortcut('toggleMultiDeviceClipboard')"
-                  >
-                    {{ shortcutRetryingKeys.toggleMultiDeviceClipboard ? '正在注册' : '重新注册' }}
-                  </UiButton>
-                </div>
-              </div>
-            </div>
-            <div class="settings-row">
-              <div class="settings-row__label">
-                <span>知识库速记</span>
-                <small>系统级快捷键，默认 Ctrl+Alt+N 唤出速记窗口。</small>
-              </div>
-              <div class="settings-row__control settings-row__control--wide">
-                <ShortcutRecorder
-                  :model-value="appConfigStore.config.shortcuts.system.toggleQuickNote"
-                  :default-value="defaultShortcuts.system.toggleQuickNote"
-                  @update:modelValue="updateSystemShortcut('toggleQuickNote', $event)"
-                />
-                <div class="shortcut-status-row">
-                  <p
-                    class="shortcut-status"
-                    :class="`shortcut-status--${getSystemShortcutStatus('toggleQuickNote') || 'pending'}`"
-                  >
-                    {{ shortcutStatusText(getSystemShortcutStatus('toggleQuickNote')) }}：{{ getSystemShortcutMessage('toggleQuickNote') || '等待检测结果。' }}
-                  </p>
-                  <UiButton
-                    v-if="canRetrySystemShortcut('toggleQuickNote')"
-                    type="button"
-                    variant="ghost"
-                    size="sm"
-                    :disabled="Boolean(shortcutRetryingKeys.toggleQuickNote)"
-                    @click="retrySystemShortcut('toggleQuickNote')"
-                  >
-                    {{ shortcutRetryingKeys.toggleQuickNote ? '正在注册' : '重新注册' }}
-                  </UiButton>
-                </div>
-              </div>
-            </div>
-            <div class="settings-row">
-              <div class="settings-row__label">
-                <span>剪贴板转速记</span>
-                <small>系统级快捷键，默认 Ctrl+Alt+Shift+N 捕获当前剪贴板文本。</small>
-              </div>
-              <div class="settings-row__control settings-row__control--wide">
-                <ShortcutRecorder
-                  :model-value="appConfigStore.config.shortcuts.system.captureClipboardToQuickNote"
-                  :default-value="defaultShortcuts.system.captureClipboardToQuickNote"
-                  @update:modelValue="updateSystemShortcut('captureClipboardToQuickNote', $event)"
-                />
-                <div class="shortcut-status-row">
-                  <p
-                    class="shortcut-status"
-                    :class="`shortcut-status--${getSystemShortcutStatus('captureClipboardToQuickNote') || 'pending'}`"
-                  >
-                    {{ shortcutStatusText(getSystemShortcutStatus('captureClipboardToQuickNote')) }}：{{ getSystemShortcutMessage('captureClipboardToQuickNote') || '等待检测结果。' }}
-                  </p>
-                  <UiButton
-                    v-if="canRetrySystemShortcut('captureClipboardToQuickNote')"
-                    type="button"
-                    variant="ghost"
-                    size="sm"
-                    :disabled="Boolean(shortcutRetryingKeys.captureClipboardToQuickNote)"
-                    @click="retrySystemShortcut('captureClipboardToQuickNote')"
-                  >
-                    {{ shortcutRetryingKeys.captureClipboardToQuickNote ? '正在注册' : '重新注册' }}
-                  </UiButton>
-                </div>
-              </div>
-            </div>
-            <div
-              v-for="row in detachedWindowShortcutRows"
-              :key="row.key"
-              class="settings-row"
-            >
-              <div class="settings-row__label">
-                <span>{{ row.label }}</span>
-                <small>{{ row.description }}</small>
-              </div>
-              <div class="settings-row__control settings-row__control--wide">
-                <ShortcutRecorder
-                  :model-value="appConfigStore.config.shortcuts.system[row.key]"
-                  :default-value="defaultShortcuts.system[row.key]"
-                  @update:modelValue="updateSystemShortcut(row.key, $event)"
-                />
-                <div class="shortcut-status-row">
-                  <p
-                    class="shortcut-status"
-                    :class="`shortcut-status--${getSystemShortcutStatus(row.key) || 'pending'}`"
-                  >
-                    {{ shortcutStatusText(getSystemShortcutStatus(row.key)) }}：{{ getSystemShortcutMessage(row.key) || '等待检测结果。' }}
-                  </p>
-                  <UiButton
-                    v-if="canRetrySystemShortcut(row.key)"
-                    type="button"
-                    variant="ghost"
-                    size="sm"
-                    :disabled="Boolean(shortcutRetryingKeys[row.key])"
-                    @click="retrySystemShortcut(row.key)"
-                  >
-                    {{ shortcutRetryingKeys[row.key] ? '正在注册' : '重新注册' }}
-                  </UiButton>
-                </div>
-              </div>
-            </div>
-          </section>
-        </div>
-      </section>
-
-      <section v-if="isSettingsTabRendered('ai-agent')" key="ai-agent" class="settings-section settings-section--ai">
-        <div class="section-head section-head--standalone">
-          <h2>AI</h2>
-          <p>模型接入、问答默认参数、知识检索和 Agent 预留策略。</p>
-        </div>
-
-        <AiSettingsPanel class="settings-ai-panel" @open-provider-drawer="openAiProviderDrawer" />
-
-        <div class="cards-grid cards-grid--1col">
-          <div class="settings-card ui-glass-surface ui-glass-surface--strong">
-            <div class="settings-card__head">
-              <span class="settings-card__icon">🤖</span>
-              <h3>入口策略</h3>
-            </div>
-            <div class="settings-card__fields">
-              <div class="settings-row">
-                <div class="settings-row__label">
-                  <span>启用 AI 功能</span>
-                  <small>控制 AI 问答和后续 Agent 入口是否可用。</small>
-                </div>
-                <div class="settings-row__control settings-row__control--switch">
-                  <UiCheckbox
-                    size="sm"
-                    :checked="appConfigStore.config.features.aiAgent.enabled"
-                    @change="handleAiFeatureEnabledChange"
-                  />
-                </div>
-              </div>
-              <div class="settings-row">
-                <div class="settings-row__label">
-                  <span>默认入口</span>
-                  <small>打开 AI 模块时优先使用的交互模式。</small>
-                </div>
-                <div class="settings-row__control">
-                  <UiSelect
-                    :model-value="appConfigStore.config.features.aiAgent.defaultMode"
-                    :options="aiDefaultModeOptions"
-                    @change="handleAiDefaultModeChange"
-                  />
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <div class="settings-card ui-glass-surface ui-glass-surface--strong">
-            <div class="settings-card__head">
-              <span class="settings-card__icon">🔐</span>
-              <h3>工具权限</h3>
-            </div>
-            <div class="settings-card__fields">
-              <div class="settings-row">
-                <div class="settings-row__label">
-                  <span>开放 Agent 入口</span>
-                  <small>开启后 AI 页面显示 Agent 预留工作区；本版本仍不执行工具。</small>
-                </div>
-                <div class="settings-row__control settings-row__control--switch">
-                  <UiCheckbox
-                    size="sm"
-                    :checked="appConfigStore.config.features.aiAgent.agent.enabled"
-                    @change="updateAiAgentReservedSettings({ enabled: $event })"
-                  />
-                </div>
-              </div>
-              <div class="settings-row">
-                <div class="settings-row__label">
-                  <span>默认 Agent 类型</span>
-                  <small>后续进入 Agent 模式时默认选中的执行器。</small>
-                </div>
-                <div class="settings-row__control">
-                  <UiSelect
-                    :model-value="appConfigStore.config.features.aiAgent.agent.defaultAgentMode"
-                    :options="aiAgentModeOptions"
-                    @change="handleAiAgentDefaultModeChange"
-                  />
-                </div>
-              </div>
-              <div class="settings-row">
-                <div class="settings-row__label">
-                  <span>最大步骤</span>
-                  <small>限制 Agent 循环步数，当前保存为预留策略。</small>
-                </div>
-                <div class="settings-row__control settings-row__control--compact">
-                  <UiInput
-                    v-model="agentMaxStepsInput"
-                    type="number"
-                    :min="1"
-                    :max="32"
-                    @blur="commitAiAgentMaxSteps"
-                    @change="commitAiAgentMaxSteps"
-                    @keydown.enter.prevent="commitAiAgentMaxSteps"
-                  />
-                </div>
-              </div>
-              <div class="settings-row">
-                <div class="settings-row__label">
-                  <span>写入类工具确认</span>
-                  <small>后续文件写入、命令执行等工具默认需要确认。</small>
-                </div>
-                <div class="settings-row__control settings-row__control--switch">
-                  <UiCheckbox
-                    size="sm"
-                    :checked="appConfigStore.config.features.aiAgent.agent.requireApprovalForWriteTools"
-                    @change="updateAiAgentReservedSettings({ requireApprovalForWriteTools: $event })"
-                  />
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <div class="settings-card ui-glass-surface ui-glass-surface--strong">
-            <div class="settings-card__head">
-              <span class="settings-card__icon">🧩</span>
-              <h3>Agent 执行器预留</h3>
-            </div>
-            <div class="settings-card__fields">
-              <div class="settings-row">
-                <div class="settings-row__label">
-                  <span>通用 Agent</span>
-                  <small>预留给自定义提示词、工具集合和任务模板。</small>
-                </div>
-                <div class="settings-row__control settings-row__control--switch">
-                  <UiCheckbox
-                    size="sm"
-                    :checked="appConfigStore.config.features.aiAgent.agent.general.enabled"
-                    @change="updateAiAgentReservedSettings({
-                      general: {
-                        ...appConfigStore.config.features.aiAgent.agent.general,
-                        enabled: $event,
-                      },
-                    })"
-                  />
-                </div>
-              </div>
-              <div class="settings-row">
-                <div class="settings-row__label">
-                  <span>Code Agent</span>
-                  <small>预留给后续 Codex SDK，不在本版本执行代码或命令。</small>
-                </div>
-                <div class="settings-row__control settings-row__control--switch">
-                  <UiCheckbox
-                    size="sm"
-                    :checked="appConfigStore.config.features.aiAgent.agent.codex.enabled"
-                    @change="updateAiAgentReservedSettings({
-                      codex: {
-                        ...appConfigStore.config.features.aiAgent.agent.codex,
-                        enabled: $event,
-                      },
-                    })"
-                  />
-                </div>
-              </div>
-              <div class="settings-row">
-                <div class="settings-row__label">
-                  <span>Git 仓库检查</span>
-                  <small>关闭时 Code Agent 运行前需要确认工作目录是 Git 仓库。</small>
-                </div>
-                <div class="settings-row__control settings-row__control--switch">
-                  <UiCheckbox
-                    size="sm"
-                    :checked="appConfigStore.config.features.aiAgent.agent.codex.skipGitRepoCheck"
-                    @change="updateAiAgentReservedSettings({
-                      codex: {
-                        ...appConfigStore.config.features.aiAgent.agent.codex,
-                        skipGitRepoCheck: $event,
-                      },
-                    })"
-                  />
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      <section v-if="isSettingsTabRendered('plugins')" key="plugins" class="settings-section">
-        <div class="section-head section-head--standalone">
-          <h2>插件配置</h2>
-          <p>插件策略和每个插件的独立 JSON 配置。</p>
-        </div>
-
-        <div class="cards-grid cards-grid--1col">
-          <!-- 插件通用策略 -->
-          <div class="settings-card ui-glass-surface ui-glass-surface--strong">
-            <div class="settings-card__head">
-              <span class="settings-card__icon">⚙️</span>
-              <h3>通用策略</h3>
-              <div v-if="hostSummary" class="plugin-dir-badge">
-                <span>📂 {{ hostSummary.pluginDirectory }}</span>
-              </div>
-            </div>
-            <div class="settings-card__fields settings-card__fields--inline">
-              <UiField label="闲置自动卸载" hint="单位为分钟，0 表示关闭。">
-                <UiInput v-model="unloadAfterMinutesInput" type="number" :min="0"
-                  @blur="commitUnloadAfterMinutes" @change="commitUnloadAfterMinutes"
-                  @keydown.enter.prevent="commitUnloadAfterMinutes" />
-              </UiField>
-            </div>
-          </div>
-
-          <div v-if="pluginLoadError" class="error-banner ui-status-banner ui-status-banner--danger">
-            {{ pluginLoadError }}
-          </div>
-
-          <div v-else-if="!installedPlugins.length" class="settings-card settings-card--placeholder ui-glass-surface ui-glass-surface--strong">
-            <div class="settings-card__head">
-              <span class="settings-card__icon">📦</span>
-              <h3>暂无插件</h3>
-            </div>
-            <p class="settings-card__desc">当前没有已安装插件。</p>
-          </div>
-
-          <template v-else>
-            <UiTabs v-model="settingsStore.activePluginConfigId" :items="pluginTabs" variant="line" size="md" />
-
-            <div v-if="activePlugin" class="settings-card ui-glass-surface ui-glass-surface--strong">
-              <div class="settings-card__head">
-                <span class="settings-card__icon">🔌</span>
-                <h3>{{ activePlugin.manifest.displayName }}</h3>
-                <div class="plugin-dir-badge">
-                  <span>{{ activePlugin.status }} · {{ activePlugin.manifest.runtime }}</span>
-                </div>
-              </div>
-              <p class="settings-card__desc">{{ activePlugin.manifest.description || '该插件尚未提供描述。' }}</p>
-
-              <div class="plugin-meta-grid">
-                <div class="meta-item ui-soft-surface">
-                  <span>版本</span>
-                  <strong>{{ activePlugin.manifest.version }}</strong>
-                </div>
-                <div class="meta-item ui-soft-surface">
-                  <span>信任级别</span>
-                  <strong>{{ activePlugin.manifest.trustLevel }}</strong>
-                </div>
-                <div class="meta-item ui-soft-surface">
-                  <span>权限</span>
-                  <strong>{{ activePlugin.manifest.permissions.join(', ') || '无' }}</strong>
-                </div>
-              </div>
-
-              <UiField label="插件 JSON 配置" :error="pluginConfigErrors[activePlugin.manifest.id]"
-                hint="宿主直接维护每个插件的 JSON 对象。">
-                <UiTextarea v-model="pluginConfigDrafts[activePlugin.manifest.id]" class="plugin-json-editor"
-                  spellcheck="false" />
-              </UiField>
-
-              <div class="plugin-actions">
-                <UiButton variant="primary" size="sm" @click="savePluginConfig(activePlugin.manifest.id)">
-                  保存配置
-                </UiButton>
-                <UiButton variant="secondary" size="sm" @click="resetPluginConfig(activePlugin.manifest.id)">
-                  重置
-                </UiButton>
-              </div>
-            </div>
-          </template>
-        </div>
-      </section>
-
-      <section v-if="isSettingsTabRendered('web-security')" key="web-security" class="settings-section">
-        <div class="section-head section-head--standalone">
-          <h2>外部网页配置</h2>
-          <p>管理域名策略、保活规则、Chrome 扩展和增强脚本。</p>
-        </div>
-
-        <div class="settings-form">
-          <section class="settings-group">
-            <h3>域名策略</h3>
-            <div class="settings-row settings-row--wide">
-              <div class="settings-row__label">
-                <span>信任域名</span>
-                <small>直接加载，不显示风险提示。</small>
-              </div>
-              <div class="settings-row__control settings-row__control--wide">
-                <div class="web-domain-section">
-                  <div class="web-domain-list">
-                    <div v-for="domain in webWhitelist" :key="domain" class="web-domain-item">
-                      <span>{{ domain }}</span>
-                      <UiButton variant="danger" size="sm" @click="removeWhiteDomain(domain)">移除</UiButton>
-                    </div>
-                    <div v-if="webWhitelist.length === 0" class="web-domain-empty">暂无信任域名</div>
-                  </div>
-                  <div class="web-domain-add">
-                    <UiInput v-model="newWhiteDomain" placeholder="*.google.com" size="sm"
-                      @keydown.enter.prevent="addWhiteDomain" />
-                    <UiButton variant="primary" size="sm" :disabled="!newWhiteDomain.trim()" @click="addWhiteDomain">添加</UiButton>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            <div class="settings-row settings-row--wide">
-              <div class="settings-row__label">
-                <span>禁止域名</span>
-                <small>禁止访问的域名。</small>
-              </div>
-              <div class="settings-row__control settings-row__control--wide">
-                <div class="web-domain-section">
-                  <div class="web-domain-list">
-                    <div v-for="domain in webBlacklist" :key="domain" class="web-domain-item">
-                      <span>{{ domain }}</span>
-                      <UiButton variant="danger" size="sm" @click="removeBlackDomain(domain)">移除</UiButton>
-                    </div>
-                    <div v-if="webBlacklist.length === 0" class="web-domain-empty">暂无禁止域名</div>
-                  </div>
-                  <div class="web-domain-add">
-                    <UiInput v-model="newBlackDomain" placeholder="evil.com" size="sm"
-                      @keydown.enter.prevent="addBlackDomain" />
-                    <UiButton variant="primary" size="sm" :disabled="!newBlackDomain.trim()" @click="addBlackDomain">添加</UiButton>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </section>
-
-          <section class="settings-group">
-            <h3>保活规则</h3>
-            <div class="settings-row settings-row--wide">
-              <div class="settings-row__label">
-                <span>运行中的保活页面</span>
-                <small>显示当前仍保留 WebView 状态的页面，可恢复或关闭释放。</small>
-              </div>
-              <div class="settings-row__control settings-row__control--wide">
-                <WebViewKeepAliveList />
-              </div>
-            </div>
-            <div class="settings-row settings-row--wide">
-              <div class="settings-row__label">
-                <span>保活域名</span>
-                <small>匹配的网页切换页面时保留状态不销毁，再次打开时恢复。</small>
-              </div>
-              <div class="settings-row__control settings-row__control--wide">
-                <div class="web-domain-section">
-                  <div class="web-domain-list">
-                    <div v-for="domain in webKeepAliveDomains" :key="domain" class="web-domain-item">
-                      <span>{{ domain }}</span>
-                      <UiButton variant="danger" size="sm" @click="removeKeepAliveDomain(domain)">移除</UiButton>
-                    </div>
-                    <div v-if="webKeepAliveDomains.length === 0" class="web-domain-empty">暂无保活域名</div>
-                  </div>
-                  <div class="web-domain-add">
-                    <UiInput v-model="newKeepAliveDomain" placeholder="*.google.com" size="sm"
-                      @keydown.enter.prevent="addKeepAliveDomain" />
-                    <UiButton variant="primary" size="sm" :disabled="!newKeepAliveDomain.trim()" @click="addKeepAliveDomain">添加</UiButton>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </section>
-
-          <section class="settings-group">
-            <h3>Chrome 扩展</h3>
-            <div class="settings-row settings-row--wide">
-              <div class="settings-row__label">
-                <span>扩展管理</span>
-                <small>安装解压后的 Chrome 扩展，扩展会应用到所有网页。</small>
-              </div>
-              <div class="settings-row__control settings-row__control--wide">
-                <div class="web-extensions-list">
-                  <div v-for="ext in chromeExtensions" :key="ext.id" class="web-extension-item">
-                    <div class="web-extension-item__info">
-                      <div class="web-extension-item__name">{{ ext.name }}</div>
-                      <div class="web-extension-item__meta">v{{ ext.version }}</div>
-                      <div v-if="ext.description" class="web-extension-item__desc">{{ ext.description }}</div>
-                    </div>
-                    <div class="web-extension-item__actions">
-                      <UiCheckbox
-                        class="web-extension-item__toggle"
-                        size="sm"
-                        :checked="ext.enabled"
-                        @change="toggleExtension(ext.id, !ext.enabled)"
-                      >
-                        {{ ext.enabled ? '已启用' : '已禁用' }}
-                      </UiCheckbox>
-                      <UiButton variant="danger" size="sm" @click="removeExtension(ext.id)">卸载</UiButton>
+                      <UiButton variant="primary" size="sm" :disabled="!canDownloadUpdate"
+                        @click="updaterStore.downloadUpdate">
+                        下载更新
+                      </UiButton>
+                      <UiButton variant="primary" size="sm" :disabled="!canInstallUpdate"
+                        @click="updaterStore.installUpdate">
+                        重启安装
+                      </UiButton>
+                      <UiButton variant="secondary" size="sm" @click="updaterStore.openReleasePage">
+                        打开 Release 页
+                      </UiButton>
                     </div>
                   </div>
-                  <div v-if="chromeExtensions.length === 0" class="web-domain-empty">暂无已安装的扩展</div>
                 </div>
-                <UiButton variant="secondary" size="sm" :disabled="extensionInstalling" @click="installExtension">
-                  {{ extensionInstalling ? '安装中...' : '安装扩展' }}
-                </UiButton>
-              </div>
+              </section>
             </div>
           </section>
 
-          <section class="settings-group">
-            <h3>增强脚本</h3>
-            <div class="settings-row settings-row--wide">
-              <div class="settings-row__label">
-                <span>脚本列表</span>
-                <small>注入 JS/CSS/HTML 到匹配域名的网页。</small>
-              </div>
-              <div class="settings-row__control settings-row__control--wide">
-                <div class="web-scripts-list">
-                  <div v-for="script in webScripts" :key="script.id" class="web-script-item">
-                    <div class="web-script-item__head">
-                      <span class="web-script-item__name">{{ script.name }}</span>
-                      <span class="web-script-item__type" :class="`web-script-item__type--${script.type}`">
-                        {{ scriptTypeLabel(script.type) }}
+          <section v-if="isSettingsTabRendered('file-transfer')" key="file-transfer" class="settings-section">
+            <div class="section-head section-head--standalone">
+              <h2>文件传输</h2>
+              <p>配置传输页浏览行为、缩略图、重试策略和主机信任。</p>
+            </div>
+
+            <div class="settings-form">
+              <section class="settings-group">
+                <h3>浏览行为</h3>
+                <div class="settings-row">
+                  <div class="settings-row__label">
+                    <span>联动导航</span>
+                    <small>切换目录时同步本地与远程浏览节奏。</small>
+                  </div>
+                  <div class="settings-row__control settings-row__control--switch">
+                    <UiCheckbox v-model="ftpLinkNavigationEnabled" size="sm" />
+                  </div>
+                </div>
+                <div class="settings-row settings-row--wide">
+                  <div class="settings-row__label">
+                    <span>联动状态</span>
+                    <small>传输页重新激活后会读取该偏好。</small>
+                  </div>
+                  <div class="settings-row__control settings-row__control--wide">
+                    <div class="settings-inline-badges">
+                      <span class="settings-badge" :class="{ 'settings-badge--accent': ftpLinkNavigationEnabled }">{{
+                        ftpLinkNavigationSummary }}</span>
+                    </div>
+                  </div>
+                </div>
+              </section>
+
+              <section class="settings-group">
+                <h3>预览与传输</h3>
+                <div class="settings-row">
+                  <div class="settings-row__label">
+                    <span>图片缩略图</span>
+                    <small>控制文件列表中的图片预览加载。</small>
+                  </div>
+                  <div class="settings-row__control settings-row__control--switch">
+                    <UiCheckbox v-model="ftpThumbnailsEnabled" size="sm" />
+                  </div>
+                </div>
+                <div class="settings-row">
+                  <div class="settings-row__label">
+                    <span>单张最大 KB</span>
+                    <small>避免大图片拖慢浏览。</small>
+                  </div>
+                  <div class="settings-row__control settings-row__control--compact">
+                    <UiInput :model-value="ftpThumbnailMaxBytesKb" type="number" :min="1"
+                      @update:modelValue="setFtpThumbnailMaxBytesKb(String($event))" />
+                  </div>
+                </div>
+                <div class="settings-row">
+                  <div class="settings-row__label">
+                    <span>每侧预加载数量</span>
+                    <small>限制本地和远程预取数量。</small>
+                  </div>
+                  <div class="settings-row__control settings-row__control--compact">
+                    <UiInput :model-value="ftpThumbnailPrefetchLimit" type="number" :min="1"
+                      @update:modelValue="setFtpThumbnailPrefetchLimit(String($event))" />
+                  </div>
+                </div>
+                <div class="settings-row settings-row--wide">
+                  <div class="settings-row__label">
+                    <span>缩略图状态</span>
+                    <small>传输页文件列表会读取该偏好。</small>
+                  </div>
+                  <div class="settings-row__control settings-row__control--wide">
+                    <div class="settings-inline-badges">
+                      <span class="settings-badge" :class="{ 'settings-badge--accent': ftpThumbnailsEnabled }">{{
+                        ftpThumbnailSummary }}</span>
+                    </div>
+                  </div>
+                </div>
+
+                <div class="settings-row settings-row--wide">
+                  <div class="settings-row__label">
+                    <span>Windows 右键菜单</span>
+                    <small>从资源管理器右键菜单发送文件或目录到传输页。</small>
+                  </div>
+                  <div class="settings-row__control settings-row__control--wide">
+                    <div class="settings-inline-badges">
+                      <span class="settings-badge"
+                        :class="{ 'settings-badge--accent': ftpWindowsContextMenuStatus.installed }">
+                        {{ ftpWindowsContextMenuSummary }}
                       </span>
-                      <span class="web-script-item__pattern">{{ script.domainPattern }}</span>
-                      <UiCheckbox
-                        class="web-script-item__toggle"
-                        size="sm"
-                        :checked="script.enabled"
-                        @change="toggleScript(script.id)"
-                      >
-                        {{ script.enabled ? '已启用' : '已禁用' }}
-                      </UiCheckbox>
-                      <UiButton v-if="!script.builtin" variant="danger" size="sm" @click="removeScript(script.id)">删除</UiButton>
+                      <UiButton size="sm" variant="secondary" :disabled="ftpWindowsContextMenuLoading"
+                        @click="ftpWindowsContextMenuStatus.installed ? uninstallFtpWindowsContextMenu() : installFtpWindowsContextMenu()">
+                        {{ ftpWindowsContextMenuStatus.installed ? '移除右键菜单' : '安装右键菜单' }}
+                      </UiButton>
+                      <UiButton size="sm" variant="ghost" :disabled="ftpWindowsContextMenuLoading"
+                        @click="refreshFtpWindowsContextMenuStatus">
+                        刷新状态
+                      </UiButton>
+                    </div>
+                    <div class="settings-inline-badges settings-inline-badges--mt">
+                      <span class="settings-badge settings-badge--code">{{ ftpWindowsContextMenuCommandSummary }}</span>
+                      <span v-if="ftpWindowsContextMenuError" class="settings-badge settings-badge--danger">
+                        {{ ftpWindowsContextMenuError }}
+                      </span>
                     </div>
                   </div>
-                  <div v-if="webScripts.length === 0" class="web-domain-empty">暂无注入脚本</div>
                 </div>
 
-                <UiButton v-if="!showAddScript" variant="secondary" size="sm" @click="showAddScript = true">添加脚本</UiButton>
+                <div class="settings-row">
+                  <div class="settings-row__label">
+                    <span>最大重试次数</span>
+                    <small>传输失败后的自动重试上限。</small>
+                  </div>
+                  <div class="settings-row__control settings-row__control--compact">
+                    <UiInput :model-value="ftpRetryMaxRetries" type="number" :min="0" :max="10"
+                      @update:modelValue="setFtpRetryMaxRetries(String($event))" />
+                  </div>
+                </div>
+                <div class="settings-row">
+                  <div class="settings-row__label">
+                    <span>基础等待秒数</span>
+                    <small>指数退避的初始等待时间。</small>
+                  </div>
+                  <div class="settings-row__control settings-row__control--compact">
+                    <UiInput :model-value="ftpRetryBaseDelaySecs" type="number" :min="1" :max="300"
+                      @update:modelValue="setFtpRetryBaseDelaySecs(String($event))" />
+                  </div>
+                </div>
+                <div class="settings-row settings-row--wide">
+                  <div class="settings-row__label">
+                    <span>重试策略</span>
+                    <small>策略保存后立即作用于后续失败任务。</small>
+                  </div>
+                  <div class="settings-row__control settings-row__control--wide">
+                    <div class="settings-inline-badges">
+                      <span class="settings-badge settings-badge--accent">{{ ftpRetryPolicySummary }}</span>
+                      <UiButton size="sm" variant="secondary" @click="applyFtpRetryPolicy">应用策略</UiButton>
+                    </div>
+                  </div>
+                </div>
+              </section>
 
-                <div v-if="showAddScript" class="web-add-script-form">
-                  <div class="web-add-script-form__row">
-                    <UiField label="脚本名称">
-                      <UiInput v-model="newScriptName" placeholder="例如：暗色模式" size="sm" />
-                    </UiField>
-                    <UiField label="匹配域名">
-                      <UiInput v-model="newScriptDomain" placeholder="例如：*.bilibili.com" size="sm" />
-                    </UiField>
-                    <UiField label="类型">
-                      <UiSelect v-model="newScriptType" :options="scriptTypeOptions" size="sm" />
-                    </UiField>
+              <section class="settings-group">
+                <h3>编辑器与安全</h3>
+                <div class="settings-row settings-row--wide">
+                  <div class="settings-row__label">
+                    <span>外部编辑器</span>
+                    <small>留空时使用系统默认关联程序。</small>
                   </div>
-                  <div class="web-add-script-form__row">
-                    <UiField label="注入时机">
-                      <UiSelect v-model="newScriptRunAt" :options="scriptRunAtOptions" size="sm" />
-                    </UiField>
-                    <UiField v-if="newScriptType === 'js'" label="脚本权限" style="grid-column: span 2">
-                      <div class="web-add-script-form__perms">
-                        <UiCheckbox
-                          v-for="perm in ['network', 'storage', 'clipboard']"
-                          :key="perm"
-                          class="web-add-script-form__perm-label"
-                          size="sm"
-                          :checked="newScriptPermissions.includes(perm)"
-                          @change="toggleNewScriptPermission(perm, $event)"
-                        >
-                          {{ perm === 'network' ? '网络请求' : perm === 'storage' ? '本地存储' : '剪贴板' }}
-                        </UiCheckbox>
+                  <div class="settings-row__control settings-row__control--wide">
+                    <div class="settings-path-row">
+                      <div class="settings-path-display"
+                        :class="{ 'settings-path-display--empty': !ftpExternalEditorPath }">
+                        {{ ftpExternalEditorPath || '未配置' }}
                       </div>
-                    </UiField>
+                      <UiButton size="sm" variant="secondary" @click="pickFtpExternalEditor">选择</UiButton>
+                      <UiButton size="sm" variant="ghost" :disabled="!ftpExternalEditorPath"
+                        @click="ftpExternalEditorPath = ''">清空</UiButton>
+                    </div>
+                    <div class="settings-inline-badges settings-inline-badges--mt">
+                      <span class="settings-badge settings-badge--accent">{{ ftpExternalEditorSummary }}</span>
+                      <UiCheckbox v-model="ftpCleanupExternalDraftsOnClose" class="settings-check" size="sm">
+                        关闭后清理临时文件
+                      </UiCheckbox>
+                    </div>
                   </div>
-                  <UiField label="内容">
-                    <UiTextarea v-model="newScriptContent" class="web-script-editor" :rows="6"
-                      :placeholder="newScriptType === 'css' ? 'body { background: #1a1a2e !important; }' : newScriptType === 'html' ? '&lt;div class=&quot;my-widget&quot;&gt;...&lt;/div&gt;' : 'console.log(&quot;injected!&quot;);'"
+                </div>
+
+                <div class="settings-row settings-row--wide">
+                  <div class="settings-row__label">
+                    <span>已信任主机指纹</span>
+                    <small>删除后下次连接会重新确认主机密钥。</small>
+                  </div>
+                  <div class="settings-row__control settings-row__control--wide">
+                    <div class="settings-inline-badges">
+                      <span class="settings-badge"
+                        :class="{ 'settings-badge--accent': sshStore.knownHosts.length > 0 }">{{
+                        ftpKnownHostSummary }}</span>
+                      <UiButton size="sm" variant="secondary" :disabled="ftpKnownHostsLoading"
+                        @click="refreshFtpKnownHosts">
+                        {{ ftpKnownHostsLoading ? '刷新中' : '刷新列表' }}
+                      </UiButton>
+                    </div>
+                    <div v-if="sshStore.knownHosts.length" class="settings-known-hosts">
+                      <div v-for="host in sshStore.knownHosts" :key="host.id" class="settings-known-host">
+                        <div class="settings-known-host__main">
+                          <div class="settings-known-host__title">{{ host.host }}:{{ host.port }}</div>
+                          <div class="settings-known-host__meta">
+                            算法 {{ host.algorithm }} · {{ host.trustMode === 'session' ? '仅本次会话信任' : '永久信任' }}
+                          </div>
+                          <div class="settings-known-host__fingerprint">{{ host.fingerprint }}</div>
+                        </div>
+                        <UiButton size="sm" variant="danger" @click="deleteFtpKnownHost(host.id)">删除</UiButton>
+                      </div>
+                    </div>
+                    <div v-else class="settings-muted-empty">当前还没有已信任的主机指纹。</div>
+                  </div>
+                </div>
+              </section>
+            </div>
+          </section>
+
+          <section v-if="isSettingsTabRendered('terminal')" key="terminal" class="settings-section">
+            <div class="section-head section-head--standalone">
+              <h2>终端</h2>
+              <p>配置终端默认会话、渲染器、工作目录与图像显示行为。</p>
+            </div>
+
+            <div class="settings-form">
+              <section class="settings-group">
+                <h3>会话</h3>
+                <div class="settings-row">
+                  <div class="settings-row__label">
+                    <span>默认终端</span>
+                    <small>终端页面创建新会话时优先使用。</small>
+                  </div>
+                  <div class="settings-row__control">
+                    <UiSelect
+                      :model-value="appConfigStore.config.features.terminal.defaultProfileId || terminalProfileOptions[0]?.value || ''"
+                      :options="terminalProfileOptions" placeholder="选择默认终端"
+                      @update:modelValue="handleTerminalProfileChange(String($event))" />
+                  </div>
+                </div>
+                <div class="settings-row">
+                  <div class="settings-row__label">
+                    <span>渲染模式</span>
+                    <small>终端前端使用的渲染器。</small>
+                  </div>
+                  <div class="settings-row__control">
+                    <UiSelect :model-value="appConfigStore.config.features.terminal.rendererMode"
+                      :options="terminalRendererOptions" @update:modelValue="handleTerminalRendererChange" />
+                  </div>
+                </div>
+                <div class="settings-row">
+                  <div class="settings-row__label">
+                    <span>默认工作目录</span>
+                    <small>为空时使用应用当前工作目录。</small>
+                  </div>
+                  <div class="settings-row__control settings-row__control--wide">
+                    <UiInput v-model="terminalDefaultCwdInput" placeholder="例如：D:\\Projects"
+                      @blur="commitTerminalDefaultCwd" @keydown.enter.prevent="commitTerminalDefaultCwd" />
+                  </div>
+                </div>
+                <div class="settings-row settings-row--wide">
+                  <div class="settings-row__label">
+                    <span>本地终端类型</span>
+                    <small>为不同本地终端保存独立命令、参数、工作目录、环境变量、启动配置文件和背景配置。</small>
+                  </div>
+                  <div class="settings-row__control settings-row__control--wide">
+                    <div class="terminal-profile-editor">
+                      <div class="terminal-profile-editor__grid">
+                        <UiSelect :model-value="localTerminalBaseProfileId"
+                          :options="terminalProfiles.map((profile) => ({ label: profile.label, value: profile.id }))"
+                          placeholder="从系统终端复制" @update:modelValue="fillLocalTerminalProfileFromBase(String($event))" />
+                        <UiInput v-model="localTerminalProfileForm.label" placeholder="类型名称，例如：项目 PowerShell" />
+                        <UiInput v-model="localTerminalProfileForm.command" placeholder="命令，例如：pwsh.exe" />
+                        <UiInput v-model="localTerminalProfileForm.argsText" placeholder="启动参数，例如：-NoLogo" />
+                        <UiInput v-model="localTerminalProfileForm.cwd" placeholder="工作目录，可留空" />
+                        <UiInput v-model="localTerminalProfileForm.configFilePath"
+                          placeholder="启动配置文件路径，例如：D:\\profiles\\project.ps1" />
+                      </div>
+                      <UiTextarea v-model="localTerminalProfileForm.envText" class="terminal-profile-editor__env"
+                        :rows="4" placeholder='环境变量 JSON，例如：{"NODE_ENV":"development"}' />
+                      <p v-if="localTerminalProfileError" class="settings-error">{{ localTerminalProfileError }}</p>
+                      <div class="terminal-profile-editor__actions">
+                        <UiButton size="sm" variant="primary" @click="saveLocalTerminalProfile">
+                          {{ localTerminalEditingId ? '保存类型' : '添加类型' }}
+                        </UiButton>
+                        <UiButton size="sm" variant="ghost" @click="resetLocalTerminalProfileForm">重置</UiButton>
+                      </div>
+                    </div>
+                    <div v-if="customTerminalProfiles.length" class="terminal-profile-list">
+                      <div v-for="profile in customTerminalProfiles" :key="profile.id"
+                        class="terminal-profile-list__item">
+                        <div class="terminal-profile-list__main">
+                          <strong>{{ profile.label }}</strong>
+                          <span>{{ profile.command }} {{ profile.args.join(' ') }}</span>
+                          <small v-if="profile.configFilePath">启动配置文件：{{ profile.configFilePath }}</small>
+                          <small>背景：{{ profile.background.type === 'image' ? '图片' : profile.background.type === 'video'
+                            ?
+                            '视频' : '颜色' }}</small>
+                        </div>
+                        <div class="terminal-profile-list__actions">
+                          <UiButton size="sm" variant="ghost" @click="handleTerminalProfileChange(profile.id)">设为默认
+                          </UiButton>
+                          <UiButton size="sm" variant="ghost" @click="editLocalTerminalProfile(profile)">编辑</UiButton>
+                          <UiButton size="sm" variant="danger" @click="deleteLocalTerminalProfile(profile)">删除
+                          </UiButton>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </section>
+
+              <section class="settings-group">
+                <h3>行为偏好</h3>
+                <div class="settings-row">
+                  <div class="settings-row__label">
+                    <span>终端提示音</span>
+                    <small>允许 BEL 提示音；关闭后保留终端输出但不播放滴声。</small>
+                  </div>
+                  <div class="settings-row__control settings-row__control--switch">
+                    <UiCheckbox size="sm" :checked="appConfigStore.config.features.terminal.enableBell"
+                      @change="handleTerminalBellChange" />
+                  </div>
+                </div>
+                <div class="settings-row">
+                  <div class="settings-row__label">
+                    <span>图像扩展</span>
+                    <small>启用 sixel/图像扩展。</small>
+                  </div>
+                  <div class="settings-row__control settings-row__control--switch">
+                    <UiCheckbox size="sm" :checked="appConfigStore.config.features.terminal.enableSixel"
+                      @change="handleTerminalSixelChange" />
+                  </div>
+                </div>
+                <div class="settings-row">
+                  <div class="settings-row__label">
+                    <span>默认独立窗口</span>
+                    <small>优先在新窗口中拆分会话。</small>
+                  </div>
+                  <div class="settings-row__control settings-row__control--switch">
+                    <UiCheckbox size="sm" :checked="appConfigStore.config.features.terminal.detachToWindowByDefault"
+                      @change="handleTerminalDetachChange" />
+                  </div>
+                </div>
+                <div class="settings-row">
+                  <div class="settings-row__label">
+                    <span>SSH 自动重连次数</span>
+                    <small>超过次数后暂停，并在终端等待任意键手动重连。</small>
+                  </div>
+                  <div class="settings-row__control settings-row__control--compact">
+                    <UiInput v-model="sshReconnectMaxAttemptsInput" type="number" :min="1" :max="20"
+                      @blur="commitSshReconnectMaxAttempts" @change="commitSshReconnectMaxAttempts"
+                      @keydown.enter.prevent="commitSshReconnectMaxAttempts" />
+                  </div>
+                </div>
+              </section>
+            </div>
+          </section>
+
+          <section v-if="isSettingsTabRendered('multi-device-clipboard')" key="multi-device-clipboard"
+            class="settings-section">
+            <div class="section-head section-head--standalone">
+              <h2>多设备剪贴板</h2>
+              <p>配置局域网发现、同步大小和历史记录。</p>
+            </div>
+
+            <div class="settings-form">
+              <section class="settings-group">
+                <h3>同步</h3>
+                <div class="settings-row">
+                  <div class="settings-row__label">
+                    <span>启用多设备剪贴板</span>
+                    <small>启用后会通过 mDNS 在局域网发布和发现设备。</small>
+                  </div>
+                  <div class="settings-row__control settings-row__control--switch">
+                    <UiCheckbox size="sm" :checked="appConfigStore.config.features.multiDeviceClipboard.enabled"
+                      @change="handleMultiDeviceClipboardEnabledChange" />
+                  </div>
+                </div>
+                <div class="settings-row">
+                  <div class="settings-row__label">
+                    <span>设备名称</span>
+                    <small>为空时使用当前系统主机名。</small>
+                  </div>
+                  <div class="settings-row__control settings-row__control--wide">
+                    <UiInput v-model="multiDeviceClipboardDeviceNameInput" placeholder="例如：工作笔记本"
+                      @blur="commitMultiDeviceClipboardDeviceName"
+                      @keydown.enter.prevent="commitMultiDeviceClipboardDeviceName" />
+                  </div>
+                </div>
+                <div class="settings-row">
+                  <div class="settings-row__label">
+                    <span>唤出快捷键</span>
+                    <small>系统级快捷键；如果 Alt+V 已被系统占用，可以改成其他组合。</small>
+                  </div>
+                  <div class="settings-row__control settings-row__control--wide">
+                    <ShortcutRecorder :model-value="appConfigStore.config.shortcuts.system.toggleMultiDeviceClipboard"
+                      :default-value="defaultShortcuts.system.toggleMultiDeviceClipboard"
+                      @update:modelValue="updateSystemShortcut('toggleMultiDeviceClipboard', $event)" />
+                  </div>
+                </div>
+                <div class="settings-row">
+                  <div class="settings-row__label">
+                    <span>最大同步大小</span>
+                    <small>单位 MB，最大 1024 MB；超限内容只保留本机历史。</small>
+                  </div>
+                  <div class="settings-row__control settings-row__control--compact">
+                    <UiInput v-model="multiDeviceClipboardMaxSyncMbInput" type="number" :min="1" :max="1024"
+                      @blur="commitMultiDeviceClipboardMaxSyncMb" @change="commitMultiDeviceClipboardMaxSyncMb"
+                      @keydown.enter.prevent="commitMultiDeviceClipboardMaxSyncMb" />
+                  </div>
+                </div>
+                <div class="settings-row">
+                  <div class="settings-row__label">
+                    <span>历史记录数量</span>
+                    <small>最多保留 5000 条，多余记录会自动裁剪。</small>
+                  </div>
+                  <div class="settings-row__control settings-row__control--compact">
+                    <UiInput v-model="multiDeviceClipboardHistoryLimitInput" type="number" :min="1" :max="5000"
+                      @blur="commitMultiDeviceClipboardHistoryLimit" @change="commitMultiDeviceClipboardHistoryLimit"
+                      @keydown.enter.prevent="commitMultiDeviceClipboardHistoryLimit" />
+                  </div>
+                </div>
+              </section>
+
+              <section class="settings-group">
+                <h3>已配对设备</h3>
+                <div class="settings-row settings-row--wide">
+                  <div class="settings-row__label">
+                    <span>可信设备列表</span>
+                    <small>移除后会停止向该设备发送剪贴板，也会拒收它的同步内容。</small>
+                  </div>
+                  <div class="settings-row__control settings-row__control--wide">
+                    <div class="clipboard-device-panel">
+                      <div class="clipboard-device-panel__actions">
+                        <UiButton size="sm" variant="secondary" :disabled="multiDeviceClipboardDevicesLoading"
+                          @click="loadMultiDeviceClipboardDevices">
+                          刷新设备
+                        </UiButton>
+                      </div>
+
+                      <div v-if="pairedMultiDeviceClipboardDevices.length" class="clipboard-device-list">
+                        <article v-for="device in pairedMultiDeviceClipboardDevices" :key="device.deviceId"
+                          class="clipboard-device-item">
+                          <div class="clipboard-device-item__body">
+                            <strong>{{ device.name }}</strong>
+                            <small>{{ multiDeviceClipboardDeviceMeta(device) }}</small>
+                          </div>
+                          <UiButton size="sm" variant="danger" @click="forgetMultiDeviceClipboardDevice(device)">
+                            移除
+                          </UiButton>
+                        </article>
+                      </div>
+                      <p v-else class="clipboard-device-empty">
+                        {{ multiDeviceClipboardDevicesLoading ? '正在读取已配对设备...' : '暂无已配对设备' }}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              </section>
+
+              <section class="settings-group">
+                <h3>局域网网卡优先级</h3>
+                <div class="settings-row settings-row--wide">
+                  <div class="settings-row__label">
+                    <span>自动发现广播地址</span>
+                    <small>
+                      拖动排序，排在最上方的可用 IPv4 会优先用于 mDNS 广播；当前首选：
+                      {{ activeNetworkInterface ? `${activeNetworkInterface.name} · ${activeNetworkInterface.address}` :
+                      '未检测到可用网卡' }}
+                    </small>
+                  </div>
+                  <div class="settings-row__control settings-row__control--wide">
+                    <div class="network-priority-panel">
+                      <div class="network-priority-panel__actions">
+                        <UiButton size="sm" variant="secondary" :disabled="networkInterfacesLoading"
+                          @click="loadNetworkInterfaces">
+                          刷新网卡
+                        </UiButton>
+                        <UiButton size="sm" variant="ghost" @click="resetNetworkInterfacePriority">
+                          恢复自动
+                        </UiButton>
+                      </div>
+
+                      <div v-if="orderedNetworkInterfaces.length" class="network-priority-list">
+                        <article v-for="(networkInterface, index) in orderedNetworkInterfaces"
+                          :key="networkInterface.key" class="network-priority-item"
+                          :class="{ 'network-priority-item--active': index === 0 }" draggable="true"
+                          @dragstart="handleNetworkInterfaceDragStart(networkInterface.key, $event)"
+                          @dragend="draggedNetworkInterfaceKey = ''" @dragover.prevent
+                          @drop="handleNetworkInterfaceDrop(networkInterface.key, $event)">
+                          <span class="network-priority-item__handle" aria-hidden="true">⋮⋮</span>
+                          <div class="network-priority-item__body">
+                            <strong>{{ networkInterface.name }}</strong>
+                            <small>{{ networkInterface.address }} · {{ networkInterface.cidr || 'IPv4' }}</small>
+                          </div>
+                          <div class="network-priority-item__actions">
+                            <UiButton size="sm" variant="ghost" :disabled="index === 0"
+                              @click="moveNetworkInterface(index, index - 1)">上移</UiButton>
+                            <UiButton size="sm" variant="ghost"
+                              :disabled="index === orderedNetworkInterfaces.length - 1"
+                              @click="moveNetworkInterface(index, index + 1)">下移</UiButton>
+                          </div>
+                        </article>
+                      </div>
+                      <p v-else class="network-priority-empty">
+                        {{ networkInterfacesLoading ? '正在读取本机网卡...' : '未检测到 IPv4 网卡' }}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              </section>
+            </div>
+          </section>
+
+          <section v-if="isSettingsTabRendered('sync-center')" key="sync-center" class="settings-section">
+            <div class="section-head section-head--standalone">
+              <h2>同步中心</h2>
+              <p>管理本机配置、远程配置、知识库和 AI 元数据同步。</p>
+            </div>
+
+            <div class="settings-form">
+              <section class="settings-group">
+                <h3>状态</h3>
+                <div class="settings-row">
+                  <div class="settings-row__label">
+                    <span>同步状态</span>
+                    <small>{{ syncStore.state?.lastError || '当前同步通道已接入，可使用 WebDAV 或自建后端同步应用配置、知识库和 AI 元数据。' }}</small>
+                  </div>
+                  <div class="settings-row__control settings-row__control--wide">
+                    <div class="segmented-actions">
+                      <span class="settings-badge">{{ syncStore.state?.status || 'disabled' }}</span>
+                      <span class="settings-badge">待同步 {{ syncStore.state?.pendingCount ?? 0 }}</span>
+                      <span class="settings-badge"
+                        :class="{ 'settings-badge--danger': (syncStore.state?.conflictCount ?? 0) > 0 }">
+                        冲突 {{ syncStore.state?.conflictCount ?? 0 }}
+                      </span>
+                      <UiButton size="sm" variant="secondary" :disabled="syncStore.loading" @click="syncStore.refresh">
+                        刷新
+                      </UiButton>
+                      <UiButton size="sm" variant="ghost" @click="openSyncBoundaryDrawer">
+                        查看同步边界
+                      </UiButton>
+                      <UiButton size="sm" variant="primary" :disabled="syncStore.loading" @click="runSyncNow">
+                        立即同步
+                      </UiButton>
+                    </div>
+                  </div>
+                </div>
+                <div v-if="syncProgressVisible" class="settings-row">
+                  <div class="settings-row__label">
+                    <span>上传下载进度</span>
+                    <small>{{ syncProgressDetail }}</small>
+                  </div>
+                  <div class="settings-row__control settings-row__control--wide">
+                    <div class="sync-progress">
+                      <div class="sync-progress__head">
+                        <span>{{ syncProgressLabel }}</span>
+                        <strong>{{ syncProgressPercent }}%</strong>
+                      </div>
+                      <div class="sync-progress__bar" role="progressbar" :aria-valuenow="syncProgressPercent"
+                        aria-valuemin="0" aria-valuemax="100">
+                        <div class="sync-progress__bar-fill" :style="{ width: `${syncProgressPercent}%` }" />
+                      </div>
+                      <div class="sync-progress__meta">
+                        <span>{{ syncProgressDetail }}</span>
+                        <span>{{ syncStore.state?.status === 'syncing' ? '同步中' : syncStore.state?.status }}</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </section>
+
+              <section class="settings-group">
+                <h3>WebDAV</h3>
+                <div class="settings-row">
+                  <div class="settings-row__label">
+                    <span>服务类型</span>
+                    <small>坚果云使用第三方应用密码，不使用登录密码。</small>
+                  </div>
+                  <div class="settings-row__control settings-row__control--wide">
+                    <UiSelect v-model="syncWebDavPreset" :options="syncWebDavPresetOptions" />
+                  </div>
+                </div>
+                <div class="settings-row">
+                  <div class="settings-row__label">
+                    <span>WebDAV 地址</span>
+                    <small>坚果云默认地址为 https://dav.jianguoyun.com/dav/。</small>
+                  </div>
+                  <div class="settings-row__control settings-row__control--wide">
+                    <UiInput v-model="syncWebDavEndpoint" placeholder="https://dav.jianguoyun.com/dav/" />
+                  </div>
+                </div>
+                <div class="settings-row">
+                  <div class="settings-row__label">
+                    <span>账号</span>
+                    <small>WebDAV 用户名或坚果云账号邮箱。</small>
+                  </div>
+                  <div class="settings-row__control settings-row__control--wide">
+                    <UiInput v-model="syncWebDavUsername" placeholder="name@example.com" />
+                  </div>
+                </div>
+                <div class="settings-row">
+                  <div class="settings-row__label">
+                    <span>第三方应用密码</span>
+                    <small>{{ syncStore.providerConfig?.webdav?.hasPassword ? '已保存密码；留空表示不修改。' : '密码只保存在本机安全存储，不进入同步配置。'
+                      }}</small>
+                  </div>
+                  <div class="settings-row__control settings-row__control--wide">
+                    <UiInput v-model="syncWebDavPassword" type="password" placeholder="留空则不修改已保存密码" />
+                  </div>
+                </div>
+                <div class="settings-row">
+                  <div class="settings-row__label">
+                    <span>远程目录</span>
+                    <small>同步文件会写入该 WebDAV 目录下。</small>
+                  </div>
+                  <div class="settings-row__control settings-row__control--wide">
+                    <UiInput v-model="syncWebDavRemoteRoot" placeholder="GuYanTools/Sync" />
+                  </div>
+                </div>
+                <div class="settings-row">
+                  <div class="settings-row__label">
+                    <span>连接检查</span>
+                    <small>{{ syncConnectionMessage || '保存后可测试 WebDAV 连接。' }}</small>
+                  </div>
+                  <div class="settings-row__control settings-row__control--wide">
+                    <div class="segmented-actions">
+                      <UiButton size="sm" variant="primary" @click="saveSyncWebDavConfig">保存配置</UiButton>
+                      <UiButton size="sm" variant="secondary" @click="testSyncConnection">测试连接</UiButton>
+                    </div>
+                  </div>
+                </div>
+              </section>
+
+              <section class="settings-group">
+                <h3>自建同步后端</h3>
+                <div class="settings-row">
+                  <div class="settings-row__label">
+                    <span>服务地址</span>
+                    <small>用于团队或自托管部署的同步 API 根地址。</small>
+                  </div>
+                  <div class="settings-row__control settings-row__control--wide">
+                    <UiInput v-model="syncServerEndpoint" placeholder="http://127.0.0.1:38420/" />
+                  </div>
+                </div>
+                <div class="settings-row">
+                  <div class="settings-row__label">
+                    <span>账号邮箱</span>
+                    <small>用于登录或自动注册自建同步后端账号。</small>
+                  </div>
+                  <div class="settings-row__control settings-row__control--wide">
+                    <UiInput v-model="syncServerEmail" placeholder="name@example.com" />
+                  </div>
+                </div>
+                <div class="settings-row">
+                  <div class="settings-row__label">
+                    <span>账号密码</span>
+                    <small>只用于本次登录，不会保存到本地配置。</small>
+                  </div>
+                  <div class="settings-row__control settings-row__control--wide">
+                    <UiInput v-model="syncServerPassword" type="password" placeholder="输入后点击登录并绑定当前设备" />
+                  </div>
+                </div>
+                <div class="settings-row">
+                  <div class="settings-row__label">
+                    <span>设备名称</span>
+                    <small>用于在同步后端标识当前设备。</small>
+                  </div>
+                  <div class="settings-row__control settings-row__control--wide">
+                    <UiInput v-model="syncServerDeviceName" placeholder="Windows Desktop" />
+                  </div>
+                </div>
+                <div class="settings-row">
+                  <div class="settings-row__label">
+                    <span>后端设备 ID</span>
+                    <small>登录并绑定当前设备后自动保存。</small>
+                  </div>
+                  <div class="settings-row__control settings-row__control--wide">
+                    <UiInput v-model="syncServerDeviceId" placeholder="自动生成" disabled />
+                    <small>
+                      {{
+                        syncStore.providerConfig?.syncServer?.hasAccessToken &&
+                          syncStore.providerConfig?.syncServer?.hasDeviceToken
+                          ? '访问令牌和设备令牌已保存在本机安全存储。'
+                          : '登录后会自动获取访问令牌和设备令牌，不需要手动配置。'
+                      }}
+                    </small>
+                  </div>
+                </div>
+                <div class="settings-row">
+                  <div class="settings-row__label">
+                    <span>后端操作</span>
+                    <small>保存后测试连接会切换到自建同步后端。</small>
+                  </div>
+                  <div class="settings-row__control settings-row__control--wide">
+                    <div class="segmented-actions">
+                      <UiButton size="sm" variant="primary" @click="loginSyncServer">登录并绑定当前设备</UiButton>
+                      <UiButton size="sm" variant="primary" @click="saveSyncServerConfig">保存后端配置</UiButton>
+                      <UiButton size="sm" variant="secondary" @click="testSyncConnection">测试连接</UiButton>
+                      <UiButton size="sm" variant="secondary" @click="logoutSyncServer">退出并解绑当前设备</UiButton>
+                    </div>
+                  </div>
+                </div>
+              </section>
+
+              <section class="settings-group">
+                <h3>配置档案</h3>
+                <div class="settings-row settings-row--wide">
+                  <div class="settings-row__label">
+                    <span>本地与远程配置</span>
+                    <small>每份配置使用唯一 profileId 和设备 ID 标识来源；名称只用于展示。</small>
+                  </div>
+                  <div class="settings-row__control settings-row__control--wide">
+                    <div v-if="syncStore.profiles.length" class="sync-profile-list">
+                      <article v-for="profile in syncStore.profiles" :key="profile.profileId" class="sync-profile-item">
+                        <div class="sync-profile-item__main">
+                          <strong>{{ profile.profileName }}</strong>
+                          <small>{{ profile.ownerDeviceName }} · {{ new Date(profile.updatedAt).toLocaleString()
+                            }}</small>
+                          <small class="settings-badge settings-badge--code">{{ profile.profileId }}</small>
+                        </div>
+                        <div class="sync-profile-item__actions">
+                          <span v-if="profile.isActive" class="settings-badge settings-badge--accent">当前</span>
+                          <span v-if="profile.isDefault" class="settings-badge">默认</span>
+                          <UiButton size="sm" variant="secondary" :disabled="profile.isActive"
+                            @click="applySyncProfile(profile.profileId)">
+                            应用
+                          </UiButton>
+                          <UiButton size="sm" variant="ghost" :disabled="profile.isDefault"
+                            @click="setDefaultSyncProfile(profile.profileId)">
+                            设为默认
+                          </UiButton>
+                        </div>
+                      </article>
+                    </div>
+                    <p v-else class="settings-muted-empty">
+                      {{ syncStore.loading ? '正在读取同步配置...' : '暂无同步配置' }}
+                    </p>
+                  </div>
+                </div>
+              </section>
+
+              <section class="settings-group">
+                <h3>冲突</h3>
+                <div class="settings-row settings-row--wide">
+                  <div class="settings-row__label">
+                    <span>待处理冲突</span>
+                    <small>检测到本地与远端同时修改同一对象时，会在这里等待选择处理策略。</small>
+                  </div>
+                  <div class="settings-row__control settings-row__control--wide">
+                    <div v-if="syncStore.conflicts.length" class="sync-profile-list">
+                      <article v-for="conflict in syncStore.conflicts" :key="conflict.conflictId"
+                        class="sync-profile-item">
+                        <div class="sync-profile-item__main">
+                          <strong>{{ conflict.title }}</strong>
+                          <small>{{ conflict.collection }} · {{ conflict.objectId }}</small>
+                          <small>本机 {{ new Date(conflict.localUpdatedAt).toLocaleString() }} · 远端 {{ new
+                            Date(conflict.remoteUpdatedAt).toLocaleString() }}</small>
+                        </div>
+                        <div class="sync-profile-item__actions">
+                          <UiButton size="sm" variant="secondary"
+                            @click="syncStore.resolveConflict(conflict.conflictId, 'use-local')">使用本机</UiButton>
+                          <UiButton size="sm" variant="secondary"
+                            @click="syncStore.resolveConflict(conflict.conflictId, 'use-remote')">使用远端</UiButton>
+                          <UiButton size="sm" variant="ghost"
+                            @click="syncStore.resolveConflict(conflict.conflictId, 'keep-both')">保留两份</UiButton>
+                        </div>
+                      </article>
+                    </div>
+                    <p v-else class="settings-muted-empty">暂无待处理冲突</p>
+                  </div>
+                </div>
+              </section>
+            </div>
+          </section>
+
+          <UiDrawer v-model="syncBoundaryDrawerVisible" class="sync-boundary-drawer" width="520px">
+            <template #header>
+              <UiPanelHeader title="同步边界" subtitle="WebDAV 和自建后端共用同一套同步内容与规则" />
+            </template>
+
+            <div class="sync-boundary-drawer__body">
+              <section class="sync-boundary-drawer__section">
+                <div class="sync-boundary-drawer__section-head">
+                  <h3>待同步明细</h3>
+                  <p>当前共有 {{ syncStore.pendingItems.length }} 条本机待上传变更，列表按固定行高虚拟渲染。</p>
+                </div>
+
+                <div v-if="syncPendingCollectionCounts.length" class="sync-pending-counts">
+                  <span v-for="item in syncPendingCollectionCounts" :key="item.collection" class="settings-badge">
+                    {{ item.collection }}：{{ item.count }}
+                  </span>
+                </div>
+
+                <div v-if="syncStore.pendingItems.length" ref="syncPendingVirtualListRef"
+                  class="sync-pending-virtual-list" @scroll="handleSyncPendingVirtualScroll">
+                  <div class="sync-pending-virtual-list__spacer" :style="{ height: `${syncPendingTotalHeight}px` }">
+                    <div class="sync-pending-virtual-list__items"
+                      :style="{ transform: `translateY(${syncPendingVirtualOffsetY}px)` }">
+                      <article v-for="item in syncPendingVisibleItems" :key="item.id" class="sync-pending-row">
+                        <div class="sync-pending-row__main">
+                          <strong>{{ item.title }}</strong>
+                          <small>{{ item.collection }} · {{ item.objectId }}</small>
+                          <div class="sync-pending-row__sizes">
+                            <span>对象 {{ formatSyncBytes(item.payloadBytes) }}</span>
+                            <span v-if="item.requestBytes">请求 {{ formatSyncBytes(item.requestBytes) }}</span>
+                            <span v-if="item.assetFileBytes">文件 {{ formatSyncBytes(item.assetFileBytes) }}</span>
+                          </div>
+                          <small v-if="item.assetStoragePath" class="sync-pending-row__path">
+                            本地 {{ item.assetStoragePath }}
+                          </small>
+                          <small v-if="item.assetRemoteKey" class="sync-pending-row__path">
+                            远端 {{ item.assetRemoteKey }}
+                          </small>
+                          <small v-if="item.lastError" class="sync-pending-row__error">
+                            {{ item.lastError }}
+                          </small>
+                        </div>
+                        <div class="sync-pending-row__meta">
+                          <span class="settings-badge">{{ syncPendingOperationLabel(item.operation) }}</span>
+                          <small>{{ formatSyncPendingTime(item.updatedAt) }}</small>
+                          <small v-if="item.retryCount > 0">重试 {{ item.retryCount }}</small>
+                        </div>
+                      </article>
+                    </div>
+                  </div>
+                </div>
+                <p v-else class="settings-muted-empty">暂无待同步内容</p>
+              </section>
+
+              <section v-for="section in syncBoundarySections" :key="section.title"
+                class="sync-boundary-drawer__section">
+                <div class="sync-boundary-drawer__section-head">
+                  <h3>{{ section.title }}</h3>
+                  <p v-if="section.hint">{{ section.hint }}</p>
+                </div>
+                <ul class="sync-boundary-drawer__list">
+                  <li v-for="item in section.items" :key="item">{{ item }}</li>
+                </ul>
+              </section>
+            </div>
+          </UiDrawer>
+
+          <section v-if="isSettingsTabRendered('knowledge')" key="knowledge" class="settings-section">
+
+            <div class="section-head section-head--standalone">
+              <h2>知识库</h2>
+              <p>配置默认库、附件保存策略、索引和预览缓存。</p>
+            </div>
+
+            <div class="settings-form">
+              <section class="settings-group">
+                <h3>默认行为</h3>
+                <div class="settings-row">
+                  <div class="settings-row__label">
+                    <span>默认知识库</span>
+                    <small>未指定库的导入、粘贴附件会优先写入这里。</small>
+                  </div>
+                  <div class="settings-row__control settings-row__control--wide">
+                    <UiSelect :model-value="appConfigStore.config.features.knowledge.defaultLibraryId"
+                      :options="knowledgeLibraryOptions" @update:modelValue="updateKnowledgeDefaultLibrary" />
+                  </div>
+                </div>
+                <div class="settings-row">
+                  <div class="settings-row__label">
+                    <span>全文索引</span>
+                    <small>{{ knowledgeIndexingSummary }}</small>
+                  </div>
+                  <div class="settings-row__control settings-row__control--switch">
+                    <UiCheckbox size="sm" :checked="appConfigStore.config.features.knowledge.indexingEnabled"
+                      @change="toggleKnowledgeIndexing" />
+                  </div>
+                </div>
+                <div class="settings-row">
+                  <div class="settings-row__label">
+                    <span>单文件导入上限</span>
+                    <small>超过上限的文件会被跳过，避免抽取或复制拖慢应用。</small>
+                  </div>
+                  <div class="settings-row__control settings-row__control--compact">
+                    <UiInput v-model="knowledgeMaxImportFileSizeMbInput" type="number" :min="1" :max="10240"
+                      @blur="commitKnowledgeMaxImportSize" @change="commitKnowledgeMaxImportSize"
+                      @keydown.enter.prevent="commitKnowledgeMaxImportSize" />
+                  </div>
+                </div>
+              </section>
+
+              <section class="settings-group">
+                <h3>附件目录</h3>
+                <div class="settings-row">
+                  <div class="settings-row__label">
+                    <span>目录策略</span>
+                    <small>默认使用应用数据目录，自定义目录适合大体积资料库。</small>
+                  </div>
+                  <div class="settings-row__control settings-row__control--wide">
+                    <UiSelect :model-value="appConfigStore.config.features.knowledge.assetStorageMode"
+                      :options="knowledgeAssetStorageOptions" @update:modelValue="updateKnowledgeAssetStorageMode" />
+                  </div>
+                </div>
+                <div class="settings-row settings-row--wide">
+                  <div class="settings-row__label">
+                    <span>自定义附件目录</span>
+                    <small>只影响后续新导入资产，已入库文件不会自动迁移。</small>
+                  </div>
+                  <div class="settings-row__control settings-row__control--wide">
+                    <div class="ffmpeg-path-row">
+                      <div class="ffmpeg-path-display"
+                        :class="{ 'ffmpeg-path-display--empty': !knowledgeCustomAssetDirectoryInput }">
+                        {{ knowledgeCustomAssetDirectoryInput || '未配置' }}
+                      </div>
+                      <UiButton variant="secondary" size="sm" @click="selectKnowledgeAssetDirectory">选择</UiButton>
+                      <UiButton v-if="knowledgeCustomAssetDirectoryInput" variant="danger" size="sm"
+                        @click="clearKnowledgeAssetDirectory">清除</UiButton>
+                    </div>
+                  </div>
+                </div>
+              </section>
+
+              <section class="settings-group">
+                <h3>预览与外部工具</h3>
+                <div class="settings-row settings-row--wide">
+                  <div class="settings-row__label">
+                    <span>LibreOffice 路径</span>
+                    <small>预留给后续 Office 高保真转换；当前轻量抽取不强制依赖。</small>
+                  </div>
+                  <div class="settings-row__control settings-row__control--wide">
+                    <div class="ffmpeg-path-row">
+                      <div class="ffmpeg-path-display"
+                        :class="{ 'ffmpeg-path-display--empty': !knowledgeLibreOfficePathInput }">
+                        {{ knowledgeLibreOfficePathInput || '未配置' }}
+                      </div>
+                      <UiButton variant="secondary" size="sm" @click="selectKnowledgeLibreOfficePath">选择</UiButton>
+                      <UiButton v-if="knowledgeLibreOfficePathInput" variant="danger" size="sm"
+                        @click="clearKnowledgeLibreOfficePath">清除</UiButton>
+                    </div>
+                  </div>
+                </div>
+                <div class="settings-row">
+                  <div class="settings-row__label">
+                    <span>预览缓存保留</span>
+                    <small>{{ knowledgePreviewCacheSummary }}</small>
+                  </div>
+                  <div class="settings-row__control settings-row__control--compact">
+                    <UiInput v-model="knowledgePreviewCacheTtlDaysInput" type="number" :min="0" :max="3650"
+                      @blur="commitKnowledgePreviewCacheTtl" @change="commitKnowledgePreviewCacheTtl"
+                      @keydown.enter.prevent="commitKnowledgePreviewCacheTtl" />
+                  </div>
+                </div>
+                <div class="settings-row">
+                  <div class="settings-row__label">
+                    <span>清理预览缓存</span>
+                    <small>只清理知识库预览缓存，不删除原始附件。</small>
+                  </div>
+                  <div class="settings-row__control">
+                    <UiButton variant="secondary" size="sm" :disabled="knowledgeClearingCache"
+                      @click="clearKnowledgePreviewCache">
+                      {{ knowledgeClearingCache ? '清理中' : '立即清理' }}
+                    </UiButton>
+                  </div>
+                </div>
+              </section>
+            </div>
+          </section>
+
+          <section v-if="isSettingsTabRendered('quick-launch')" key="quick-launch" class="settings-section">
+            <div class="section-head section-head--standalone">
+              <h2>快速启动</h2>
+              <p>配置全局唤起、显示行为、搜索结果数量、搜索源和 Everything 文件搜索。</p>
+            </div>
+
+            <div class="settings-form">
+              <section class="settings-group">
+                <h3>行为</h3>
+                <div class="settings-row">
+                  <div class="settings-row__label">
+                    <span>启用快速启动</span>
+                    <small>关闭后全局快捷键不会唤出快速启动窗口。</small>
+                  </div>
+                  <div class="settings-row__control settings-row__control--switch">
+                    <UiCheckbox :checked="appConfigStore.config.features.quickLaunch.enabled"
+                      @change="toggleQuickLaunchEnabled" />
+                  </div>
+                </div>
+                <div class="settings-row">
+                  <div class="settings-row__label">
+                    <span>失焦后隐藏</span>
+                    <small>窗口失去焦点时自动隐藏，适合命令面板式操作。</small>
+                  </div>
+                  <div class="settings-row__control settings-row__control--switch">
+                    <UiCheckbox :checked="appConfigStore.config.features.quickLaunch.hideOnBlur"
+                      @change="toggleQuickLaunchHideOnBlur" />
+                  </div>
+                </div>
+                <div class="settings-row">
+                  <div class="settings-row__label">
+                    <span>最大结果数</span>
+                    <small>限制每次搜索展示的总结果数量，范围 4-50。</small>
+                  </div>
+                  <div class="settings-row__control settings-row__control--compact">
+                    <UiInput v-model="quickLaunchMaxResultsInput" type="number" :min="4" :max="50" size="sm"
+                      @blur="commitQuickLaunchMaxResults" @change="commitQuickLaunchMaxResults"
+                      @keydown.enter.prevent="commitQuickLaunchMaxResults" />
+                  </div>
+                </div>
+              </section>
+
+              <section class="settings-group">
+                <h3>外观</h3>
+                <div class="settings-row settings-row--wide">
+                  <div class="settings-row__label">
+                    <span>窗口背景</span>
+                    <small>使用通用背景组件配置快速启动窗口的颜色、图片或视频背景。</small>
+                  </div>
+                  <div class="settings-row__control settings-row__control--wide">
+                    <div class="quick-launch-background-control">
+                      <span class="quick-launch-background-preview">
+                        <span class="quick-launch-background-preview__fill"
+                          :style="quickLaunchBackgroundPreviewStyle" />
+                      </span>
+                      <span class="quick-launch-background-control__meta">
+                        <strong>{{ quickLaunchBackgroundSummary }}</strong>
+                        <small>{{ appConfigStore.config.appearance.theme === 'dark' ? '暗色主题配置' : '亮色主题配置' }}</small>
+                      </span>
+                      <UiButton type="button" variant="secondary" size="sm"
+                        @click="quickLaunchBackgroundPickerVisible = true">
+                        配置
+                      </UiButton>
+                      <UiButton type="button" variant="ghost" size="sm" @click="resetQuickLaunchBackground">
+                        重置
+                      </UiButton>
+                    </div>
+                  </div>
+                </div>
+                <div class="settings-row">
+                  <div class="settings-row__label">
+                    <span>窗口透明度</span>
+                    <small>调整快速启动窗口表面的透明度，不影响背景图片或视频自身透明度。</small>
+                  </div>
+                  <div class="settings-row__control">
+                    <UiSliderField v-model="quickLaunchWindowOpacityInput" :min="0.2" :max="1" :step="0.01"
+                      :value-text="quickLaunchWindowOpacityLabel" aria-label="快速启动窗口透明度"
+                      @change="commitQuickLaunchWindowOpacity" />
+                  </div>
+                </div>
+                <div class="settings-row">
+                  <div class="settings-row__label">
+                    <span>选中状态颜色</span>
+                    <small>控制键盘或鼠标选中结果时的高亮基色。</small>
+                  </div>
+                  <div class="settings-row__control">
+                    <div class="quick-launch-color-control">
+                      <input v-model="quickLaunchSelectionColorInput" class="quick-launch-color-input" type="color"
+                        aria-label="快速启动选中状态颜色" @change="commitQuickLaunchSelectionColor">
+                      <UiInput v-model="quickLaunchSelectionColorInput" size="sm" spellcheck="false"
+                        @blur="commitQuickLaunchSelectionColor"
+                        @keydown.enter.prevent="commitQuickLaunchSelectionColor" />
+                    </div>
+                  </div>
+                </div>
+                <div class="settings-row">
+                  <div class="settings-row__label">
+                    <span>选中状态透明度</span>
+                    <small>控制结果高亮的覆盖强度，默认是轻量透明蓝。</small>
+                  </div>
+                  <div class="settings-row__control">
+                    <UiSliderField v-model="quickLaunchSelectionOpacityInput" :min="0" :max="1" :step="0.01"
+                      :value-text="quickLaunchSelectionOpacityLabel" aria-label="快速启动选中状态透明度"
+                      @change="commitQuickLaunchSelectionOpacity" />
+                  </div>
+                </div>
+                <div class="settings-row">
+                  <div class="settings-row__label">
+                    <span>结果标题颜色</span>
+                    <small>控制搜索结果主标题文字颜色。</small>
+                  </div>
+                  <div class="settings-row__control">
+                    <div class="quick-launch-color-control">
+                      <input v-model="quickLaunchResultTitleColorInput" class="quick-launch-color-input" type="color"
+                        aria-label="快速启动结果标题颜色" @change="commitQuickLaunchResultTitleColor">
+                      <UiInput v-model="quickLaunchResultTitleColorInput" size="sm" spellcheck="false"
+                        @blur="commitQuickLaunchResultTitleColor"
+                        @keydown.enter.prevent="commitQuickLaunchResultTitleColor" />
+                    </div>
+                  </div>
+                </div>
+                <div class="settings-row">
+                  <div class="settings-row__label">
+                    <span>结果副标题颜色</span>
+                    <small>控制路径、来源和说明等辅助文字颜色。</small>
+                  </div>
+                  <div class="settings-row__control">
+                    <div class="quick-launch-color-control">
+                      <input v-model="quickLaunchResultSubtitleColorInput" class="quick-launch-color-input" type="color"
+                        aria-label="快速启动结果副标题颜色" @change="commitQuickLaunchResultSubtitleColor">
+                      <UiInput v-model="quickLaunchResultSubtitleColorInput" size="sm" spellcheck="false"
+                        @blur="commitQuickLaunchResultSubtitleColor"
+                        @keydown.enter.prevent="commitQuickLaunchResultSubtitleColor" />
+                    </div>
+                  </div>
+                </div>
+              </section>
+
+              <section class="settings-group">
+                <h3>搜索源</h3>
+                <div class="settings-row settings-row--wide">
+                  <div class="settings-row__label">
+                    <span>启用的来源</span>
+                    <small>关闭不常用来源可以减少噪声，至少保留一个应用功能入口。</small>
+                  </div>
+                  <div class="settings-row__control settings-row__control--wide">
+                    <div class="quick-launch-provider-list">
+                      <label v-for="provider in quickLaunchProviderOptions" :key="provider.value"
+                        class="quick-launch-provider-item">
+                        <UiCheckbox size="sm"
+                          :checked="appConfigStore.config.features.quickLaunch.enabledProviders.includes(provider.value)"
+                          @change="toggleQuickLaunchProvider(provider.value, $event)" />
+                        <span>{{ provider.label }}</span>
+                      </label>
+                    </div>
+                  </div>
+                </div>
+                <div class="settings-row settings-row--wide">
+                  <div class="settings-row__label">
+                    <span>Everything ES 路径</span>
+                    <small>文件搜索需要安装 Everything 主程序并配置 ES 命令行工具。</small>
+                  </div>
+                  <div class="settings-row__control settings-row__control--wide">
+                    <div class="quick-launch-es-path">
+                      <UiInput v-model="quickLaunchEverythingEsPathInput" size="sm"
+                        placeholder="留空自动探测 PATH 或常见安装目录中的 es.exe" @blur="commitQuickLaunchEverythingEsPath"
+                        @change="commitQuickLaunchEverythingEsPath"
+                        @keydown.enter.prevent="commitQuickLaunchEverythingEsPath" />
+                      <UiButton type="button" variant="secondary" size="sm" @click="selectQuickLaunchEverythingEsPath">
+                        选择
+                      </UiButton>
+                      <UiButton type="button" variant="ghost" size="sm" :disabled="!quickLaunchEverythingEsPathInput"
+                        @click="clearQuickLaunchEverythingEsPath">
+                        清除
+                      </UiButton>
+                    </div>
+                    <p class="quick-launch-es-path__hint">
+                      缺失时 QuickLaunch 会提示确认是否已安装 Everything 应用和命令行 ES；配置后按 Ctrl+R 可刷新快速启动索引。
+                    </p>
+                  </div>
+                </div>
+              </section>
+            </div>
+          </section>
+
+          <section v-if="isSettingsTabRendered('shortcuts')" key="shortcuts" class="settings-section">
+            <div class="section-head section-head--standalone">
+              <h2>快捷键</h2>
+              <p>配置终端、速记窗口和系统级显示隐藏快捷键。</p>
+            </div>
+
+            <div class="settings-form">
+              <section class="settings-group">
+                <h3>终端</h3>
+                <div class="settings-row">
+                  <div class="settings-row__label">
+                    <span>终端复制</span>
+                    <small>终端聚焦时生效，默认 Ctrl+Shift+C。</small>
+                  </div>
+                  <div class="settings-row__control settings-row__control--wide">
+                    <ShortcutRecorder :model-value="appConfigStore.config.shortcuts.internal.terminalCopy"
+                      :default-value="defaultShortcuts.internal.terminalCopy"
+                      @update:modelValue="updateInternalShortcut('terminalCopy', $event)" />
+                  </div>
+                </div>
+                <div class="settings-row">
+                  <div class="settings-row__label">
+                    <span>终端粘贴</span>
+                    <small>终端聚焦时生效，默认 Ctrl+Shift+V。</small>
+                  </div>
+                  <div class="settings-row__control settings-row__control--wide">
+                    <ShortcutRecorder :model-value="appConfigStore.config.shortcuts.internal.terminalPaste"
+                      :default-value="defaultShortcuts.internal.terminalPaste"
+                      @update:modelValue="updateInternalShortcut('terminalPaste', $event)" />
+                  </div>
+                </div>
+              </section>
+
+              <section class="settings-group">
+                <h3>速记窗口</h3>
+                <div class="settings-row">
+                  <div class="settings-row__label">
+                    <span>保存速记</span>
+                    <small>速记窗口聚焦时生效，默认 Ctrl+S。</small>
+                  </div>
+                  <div class="settings-row__control settings-row__control--wide">
+                    <ShortcutRecorder :model-value="appConfigStore.config.shortcuts.internal.quickNoteSave"
+                      :default-value="defaultShortcuts.internal.quickNoteSave"
+                      @update:modelValue="updateInternalShortcut('quickNoteSave', $event)" />
+                  </div>
+                </div>
+                <div class="settings-row">
+                  <div class="settings-row__label">
+                    <span>新建速记</span>
+                    <small>清空当前草稿并开始新记录，默认 Ctrl+N。</small>
+                  </div>
+                  <div class="settings-row__control settings-row__control--wide">
+                    <ShortcutRecorder :model-value="appConfigStore.config.shortcuts.internal.quickNoteNew"
+                      :default-value="defaultShortcuts.internal.quickNoteNew"
+                      @update:modelValue="updateInternalShortcut('quickNoteNew', $event)" />
+                  </div>
+                </div>
+                <div class="settings-row">
+                  <div class="settings-row__label">
+                    <span>收起/展开</span>
+                    <small>在编辑窗口和标题条之间切换，默认 Ctrl+M。</small>
+                  </div>
+                  <div class="settings-row__control settings-row__control--wide">
+                    <ShortcutRecorder :model-value="appConfigStore.config.shortcuts.internal.quickNoteCollapse"
+                      :default-value="defaultShortcuts.internal.quickNoteCollapse"
+                      @update:modelValue="updateInternalShortcut('quickNoteCollapse', $event)" />
+                  </div>
+                </div>
+                <div class="settings-row">
+                  <div class="settings-row__label">
+                    <span>关闭窗口</span>
+                    <small>隐藏速记窗口，默认 Escape。</small>
+                  </div>
+                  <div class="settings-row__control settings-row__control--wide">
+                    <ShortcutRecorder :model-value="appConfigStore.config.shortcuts.internal.quickNoteClose"
+                      :default-value="defaultShortcuts.internal.quickNoteClose"
+                      @update:modelValue="updateInternalShortcut('quickNoteClose', $event)" />
+                  </div>
+                </div>
+              </section>
+
+              <section class="settings-group">
+                <h3>快速启动窗口快捷键</h3>
+                <div class="settings-row settings-row--wide">
+                  <div class="settings-row__label">
+                    <span>固定操作</span>
+                    <small>只在快速启动窗口聚焦时生效，当前版本不支持修改。</small>
+                  </div>
+                  <div class="settings-row__control settings-row__control--wide">
+                    <div class="quick-launch-shortcut-map" aria-label="快速启动窗口快捷键">
+                      <section v-for="group in quickLaunchWindowShortcutGroups" :key="group.title"
+                        class="quick-launch-shortcut-map__group">
+                        <h4 class="quick-launch-shortcut-map__title">{{ group.title }}</h4>
+                        <div class="quick-launch-shortcut-map__list">
+                          <div v-for="shortcut in group.shortcuts" :key="`${group.title}:${shortcut.label}`"
+                            class="quick-launch-shortcut-map__row">
+                            <span class="quick-launch-shortcut-map__label">{{ shortcut.label }}</span>
+                            <kbd class="quick-launch-shortcut-map__keys">{{ shortcut.keys }}</kbd>
+                          </div>
+                        </div>
+                      </section>
+                    </div>
+                  </div>
+                </div>
+              </section>
+
+              <section class="settings-group">
+                <h3>系统</h3>
+                <div class="shortcut-detection-panel">
+                  <div class="shortcut-detection-panel__head">
+                    <div>
+                      <strong>系统快捷键占用检测</strong>
+                      <small>检测本应用注册状态，并探测当前平台常见全局快捷键占用。</small>
+                    </div>
+                    <UiButton variant="secondary" size="sm" :disabled="shortcutInspectionLoading"
+                      @click="refreshSystemShortcutInspection">
+                      {{ shortcutInspectionLoading ? '检测中' : '重新检测' }}
+                    </UiButton>
+                  </div>
+                  <div class="shortcut-detection-panel__summary">
+                    <span>已注册 {{ shortcutRegisteredCount }}</span>
+                    <span>冲突 {{ shortcutConflictCount }}</span>
+                    <span>可注册 {{ shortcutAvailableCount }}</span>
+                    <span>{{ shortcutInspectionTimeText }}</span>
+                  </div>
+                  <div v-if="highlightedCommonShortcutProbes.length" class="shortcut-probe-list">
+                    <span v-for="probe in highlightedCommonShortcutProbes" :key="probe.id" class="shortcut-probe-chip"
+                      :class="`shortcut-probe-chip--${probe.status}`" :title="probe.message">
+                      {{ probe.label }} · {{ probe.normalizedAccelerator || probe.accelerator }} · {{
+                      shortcutStatusText(probe.status) }}
+                    </span>
+                  </div>
+                </div>
+                <div class="settings-row">
+                  <div class="settings-row__label">
+                    <span>显示/隐藏应用</span>
+                    <small>系统级快捷键，保存到 SQLite 后立即重新注册。</small>
+                  </div>
+                  <div class="settings-row__control settings-row__control--wide">
+                    <ShortcutRecorder :model-value="appConfigStore.config.shortcuts.system.toggleAppVisibility"
+                      :default-value="defaultShortcuts.system.toggleAppVisibility"
+                      @update:modelValue="updateSystemShortcut('toggleAppVisibility', $event)" />
+                    <div class="shortcut-status-row">
+                      <p class="shortcut-status"
+                        :class="`shortcut-status--${getSystemShortcutStatus('toggleAppVisibility') || 'pending'}`">
+                        {{ shortcutStatusText(getSystemShortcutStatus('toggleAppVisibility')) }}：{{
+                          getSystemShortcutMessage('toggleAppVisibility') || '等待检测结果。' }}
+                      </p>
+                      <UiButton v-if="canRetrySystemShortcut('toggleAppVisibility')" type="button" variant="ghost"
+                        size="sm" :disabled="Boolean(shortcutRetryingKeys.toggleAppVisibility)"
+                        @click="retrySystemShortcut('toggleAppVisibility')">
+                        {{ shortcutRetryingKeys.toggleAppVisibility ? '正在注册' : '重新注册' }}
+                      </UiButton>
+                    </div>
+                  </div>
+                </div>
+                <div class="settings-row">
+                  <div class="settings-row__label">
+                    <span>快速启动</span>
+                    <small>系统级快捷键，默认 Alt+Space 唤出搜索面板。</small>
+                  </div>
+                  <div class="settings-row__control settings-row__control--wide">
+                    <ShortcutRecorder :model-value="appConfigStore.config.shortcuts.system.toggleQuickLaunch"
+                      :default-value="defaultShortcuts.system.toggleQuickLaunch"
+                      @update:modelValue="updateSystemShortcut('toggleQuickLaunch', $event)" />
+                    <div class="shortcut-status-row">
+                      <p class="shortcut-status"
+                        :class="`shortcut-status--${getSystemShortcutStatus('toggleQuickLaunch') || 'pending'}`">
+                        {{ shortcutStatusText(getSystemShortcutStatus('toggleQuickLaunch')) }}：{{
+                          getSystemShortcutMessage('toggleQuickLaunch') || '等待检测结果。' }}
+                      </p>
+                      <UiButton v-if="canRetrySystemShortcut('toggleQuickLaunch')" type="button" variant="ghost"
+                        size="sm" :disabled="Boolean(shortcutRetryingKeys.toggleQuickLaunch)"
+                        @click="retrySystemShortcut('toggleQuickLaunch')">
+                        {{ shortcutRetryingKeys.toggleQuickLaunch ? '正在注册' : '重新注册' }}
+                      </UiButton>
+                    </div>
+                  </div>
+                </div>
+                <div class="settings-row">
+                  <div class="settings-row__label">
+                    <span>多设备剪贴板</span>
+                    <small>系统级快捷键，默认 Alt+V 唤出右下角窗口。</small>
+                  </div>
+                  <div class="settings-row__control settings-row__control--wide">
+                    <ShortcutRecorder :model-value="appConfigStore.config.shortcuts.system.toggleMultiDeviceClipboard"
+                      :default-value="defaultShortcuts.system.toggleMultiDeviceClipboard"
+                      @update:modelValue="updateSystemShortcut('toggleMultiDeviceClipboard', $event)" />
+                    <div class="shortcut-status-row">
+                      <p class="shortcut-status"
+                        :class="`shortcut-status--${getSystemShortcutStatus('toggleMultiDeviceClipboard') || 'pending'}`">
+                        {{ shortcutStatusText(getSystemShortcutStatus('toggleMultiDeviceClipboard')) }}：{{
+                          getSystemShortcutMessage('toggleMultiDeviceClipboard') || '等待检测结果。' }}
+                      </p>
+                      <UiButton v-if="canRetrySystemShortcut('toggleMultiDeviceClipboard')" type="button"
+                        variant="ghost" size="sm" :disabled="Boolean(shortcutRetryingKeys.toggleMultiDeviceClipboard)"
+                        @click="retrySystemShortcut('toggleMultiDeviceClipboard')">
+                        {{ shortcutRetryingKeys.toggleMultiDeviceClipboard ? '正在注册' : '重新注册' }}
+                      </UiButton>
+                    </div>
+                  </div>
+                </div>
+                <div class="settings-row">
+                  <div class="settings-row__label">
+                    <span>知识库速记</span>
+                    <small>系统级快捷键，默认 Ctrl+Alt+N 唤出速记窗口。</small>
+                  </div>
+                  <div class="settings-row__control settings-row__control--wide">
+                    <ShortcutRecorder :model-value="appConfigStore.config.shortcuts.system.toggleQuickNote"
+                      :default-value="defaultShortcuts.system.toggleQuickNote"
+                      @update:modelValue="updateSystemShortcut('toggleQuickNote', $event)" />
+                    <div class="shortcut-status-row">
+                      <p class="shortcut-status"
+                        :class="`shortcut-status--${getSystemShortcutStatus('toggleQuickNote') || 'pending'}`">
+                        {{ shortcutStatusText(getSystemShortcutStatus('toggleQuickNote')) }}：{{
+                          getSystemShortcutMessage('toggleQuickNote') || '等待检测结果。' }}
+                      </p>
+                      <UiButton v-if="canRetrySystemShortcut('toggleQuickNote')" type="button" variant="ghost" size="sm"
+                        :disabled="Boolean(shortcutRetryingKeys.toggleQuickNote)"
+                        @click="retrySystemShortcut('toggleQuickNote')">
+                        {{ shortcutRetryingKeys.toggleQuickNote ? '正在注册' : '重新注册' }}
+                      </UiButton>
+                    </div>
+                  </div>
+                </div>
+                <div class="settings-row">
+                  <div class="settings-row__label">
+                    <span>剪贴板转速记</span>
+                    <small>系统级快捷键，默认 Ctrl+Alt+Shift+N 捕获当前剪贴板文本。</small>
+                  </div>
+                  <div class="settings-row__control settings-row__control--wide">
+                    <ShortcutRecorder :model-value="appConfigStore.config.shortcuts.system.captureClipboardToQuickNote"
+                      :default-value="defaultShortcuts.system.captureClipboardToQuickNote"
+                      @update:modelValue="updateSystemShortcut('captureClipboardToQuickNote', $event)" />
+                    <div class="shortcut-status-row">
+                      <p class="shortcut-status"
+                        :class="`shortcut-status--${getSystemShortcutStatus('captureClipboardToQuickNote') || 'pending'}`">
+                        {{ shortcutStatusText(getSystemShortcutStatus('captureClipboardToQuickNote')) }}：{{
+                          getSystemShortcutMessage('captureClipboardToQuickNote') || '等待检测结果。' }}
+                      </p>
+                      <UiButton v-if="canRetrySystemShortcut('captureClipboardToQuickNote')" type="button"
+                        variant="ghost" size="sm" :disabled="Boolean(shortcutRetryingKeys.captureClipboardToQuickNote)"
+                        @click="retrySystemShortcut('captureClipboardToQuickNote')">
+                        {{ shortcutRetryingKeys.captureClipboardToQuickNote ? '正在注册' : '重新注册' }}
+                      </UiButton>
+                    </div>
+                  </div>
+                </div>
+                <div v-for="row in detachedWindowShortcutRows" :key="row.key" class="settings-row">
+                  <div class="settings-row__label">
+                    <span>{{ row.label }}</span>
+                    <small>{{ row.description }}</small>
+                  </div>
+                  <div class="settings-row__control settings-row__control--wide">
+                    <ShortcutRecorder :model-value="appConfigStore.config.shortcuts.system[row.key]"
+                      :default-value="defaultShortcuts.system[row.key]"
+                      @update:modelValue="updateSystemShortcut(row.key, $event)" />
+                    <div class="shortcut-status-row">
+                      <p class="shortcut-status"
+                        :class="`shortcut-status--${getSystemShortcutStatus(row.key) || 'pending'}`">
+                        {{ shortcutStatusText(getSystemShortcutStatus(row.key)) }}：{{ getSystemShortcutMessage(row.key)
+                        ||
+                        '等待检测结果。' }}
+                      </p>
+                      <UiButton v-if="canRetrySystemShortcut(row.key)" type="button" variant="ghost" size="sm"
+                        :disabled="Boolean(shortcutRetryingKeys[row.key])" @click="retrySystemShortcut(row.key)">
+                        {{ shortcutRetryingKeys[row.key] ? '正在注册' : '重新注册' }}
+                      </UiButton>
+                    </div>
+                  </div>
+                </div>
+              </section>
+            </div>
+          </section>
+
+          <section v-if="isSettingsTabRendered('ai-agent')" key="ai-agent"
+            class="settings-section settings-section--ai">
+            <div class="section-head section-head--standalone">
+              <h2>AI</h2>
+              <p>模型接入、问答默认参数、知识检索和 Agent 预留策略。</p>
+            </div>
+
+            <AiSettingsPanel class="settings-ai-panel" @open-provider-drawer="openAiProviderDrawer" />
+
+            <div class="cards-grid cards-grid--1col">
+              <div class="settings-card ui-glass-surface ui-glass-surface--strong">
+                <div class="settings-card__head">
+                  <span class="settings-card__icon">🤖</span>
+                  <h3>入口策略</h3>
+                </div>
+                <div class="settings-card__fields">
+                  <div class="settings-row">
+                    <div class="settings-row__label">
+                      <span>启用 AI 功能</span>
+                      <small>控制 AI 问答和后续 Agent 入口是否可用。</small>
+                    </div>
+                    <div class="settings-row__control settings-row__control--switch">
+                      <UiCheckbox size="sm" :checked="appConfigStore.config.features.aiAgent.enabled"
+                        @change="handleAiFeatureEnabledChange" />
+                    </div>
+                  </div>
+                  <div class="settings-row">
+                    <div class="settings-row__label">
+                      <span>默认入口</span>
+                      <small>打开 AI 模块时优先使用的交互模式。</small>
+                    </div>
+                    <div class="settings-row__control">
+                      <UiSelect :model-value="appConfigStore.config.features.aiAgent.defaultMode"
+                        :options="aiDefaultModeOptions" @change="handleAiDefaultModeChange" />
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div class="settings-card ui-glass-surface ui-glass-surface--strong">
+                <div class="settings-card__head">
+                  <span class="settings-card__icon">🔐</span>
+                  <h3>工具权限</h3>
+                </div>
+                <div class="settings-card__fields">
+                  <div class="settings-row">
+                    <div class="settings-row__label">
+                      <span>开放 Agent 入口</span>
+                      <small>开启后 AI 页面显示 Agent 预留工作区；本版本仍不执行工具。</small>
+                    </div>
+                    <div class="settings-row__control settings-row__control--switch">
+                      <UiCheckbox size="sm" :checked="appConfigStore.config.features.aiAgent.agent.enabled"
+                        @change="updateAiAgentReservedSettings({ enabled: $event })" />
+                    </div>
+                  </div>
+                  <div class="settings-row">
+                    <div class="settings-row__label">
+                      <span>默认 Agent 类型</span>
+                      <small>后续进入 Agent 模式时默认选中的执行器。</small>
+                    </div>
+                    <div class="settings-row__control">
+                      <UiSelect :model-value="appConfigStore.config.features.aiAgent.agent.defaultAgentMode"
+                        :options="aiAgentModeOptions" @change="handleAiAgentDefaultModeChange" />
+                    </div>
+                  </div>
+                  <div class="settings-row">
+                    <div class="settings-row__label">
+                      <span>最大步骤</span>
+                      <small>限制 Agent 循环步数，当前保存为预留策略。</small>
+                    </div>
+                    <div class="settings-row__control settings-row__control--compact">
+                      <UiInput v-model="agentMaxStepsInput" type="number" :min="1" :max="32"
+                        @blur="commitAiAgentMaxSteps" @change="commitAiAgentMaxSteps"
+                        @keydown.enter.prevent="commitAiAgentMaxSteps" />
+                    </div>
+                  </div>
+                  <div class="settings-row">
+                    <div class="settings-row__label">
+                      <span>写入类工具确认</span>
+                      <small>后续文件写入、命令执行等工具默认需要确认。</small>
+                    </div>
+                    <div class="settings-row__control settings-row__control--switch">
+                      <UiCheckbox size="sm"
+                        :checked="appConfigStore.config.features.aiAgent.agent.requireApprovalForWriteTools"
+                        @change="updateAiAgentReservedSettings({ requireApprovalForWriteTools: $event })" />
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div class="settings-card ui-glass-surface ui-glass-surface--strong">
+                <div class="settings-card__head">
+                  <span class="settings-card__icon">🧩</span>
+                  <h3>Agent 执行器预留</h3>
+                </div>
+                <div class="settings-card__fields">
+                  <div class="settings-row">
+                    <div class="settings-row__label">
+                      <span>通用 Agent</span>
+                      <small>预留给自定义提示词、工具集合和任务模板。</small>
+                    </div>
+                    <div class="settings-row__control settings-row__control--switch">
+                      <UiCheckbox size="sm" :checked="appConfigStore.config.features.aiAgent.agent.general.enabled"
+                        @change="updateAiAgentReservedSettings({
+                          general: {
+                            ...appConfigStore.config.features.aiAgent.agent.general,
+                            enabled: $event,
+                          },
+                        })" />
+                    </div>
+                  </div>
+                  <div class="settings-row">
+                    <div class="settings-row__label">
+                      <span>Code Agent</span>
+                      <small>预留给后续 Codex SDK，不在本版本执行代码或命令。</small>
+                    </div>
+                    <div class="settings-row__control settings-row__control--switch">
+                      <UiCheckbox size="sm" :checked="appConfigStore.config.features.aiAgent.agent.codex.enabled"
+                        @change="updateAiAgentReservedSettings({
+                          codex: {
+                            ...appConfigStore.config.features.aiAgent.agent.codex,
+                            enabled: $event,
+                          },
+                        })" />
+                    </div>
+                  </div>
+                  <div class="settings-row">
+                    <div class="settings-row__label">
+                      <span>Git 仓库检查</span>
+                      <small>关闭时 Code Agent 运行前需要确认工作目录是 Git 仓库。</small>
+                    </div>
+                    <div class="settings-row__control settings-row__control--switch">
+                      <UiCheckbox size="sm"
+                        :checked="appConfigStore.config.features.aiAgent.agent.codex.skipGitRepoCheck" @change="updateAiAgentReservedSettings({
+                          codex: {
+                            ...appConfigStore.config.features.aiAgent.agent.codex,
+                            skipGitRepoCheck: $event,
+                          },
+                        })" />
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </section>
+
+          <section v-if="isSettingsTabRendered('plugins')" key="plugins" class="settings-section">
+            <div class="section-head section-head--standalone">
+              <h2>插件配置</h2>
+              <p>插件策略和每个插件的独立 JSON 配置。</p>
+            </div>
+
+            <div class="cards-grid cards-grid--1col">
+              <!-- 插件通用策略 -->
+              <div class="settings-card ui-glass-surface ui-glass-surface--strong">
+                <div class="settings-card__head">
+                  <span class="settings-card__icon">⚙️</span>
+                  <h3>通用策略</h3>
+                  <div v-if="hostSummary" class="plugin-dir-badge">
+                    <span>📂 {{ hostSummary.pluginDirectory }}</span>
+                  </div>
+                </div>
+                <div class="settings-card__fields settings-card__fields--inline">
+                  <UiField label="闲置自动卸载" hint="单位为分钟，0 表示关闭。">
+                    <UiInput v-model="unloadAfterMinutesInput" type="number" :min="0" @blur="commitUnloadAfterMinutes"
+                      @change="commitUnloadAfterMinutes" @keydown.enter.prevent="commitUnloadAfterMinutes" />
+                  </UiField>
+                </div>
+              </div>
+
+              <div v-if="pluginLoadError" class="error-banner ui-status-banner ui-status-banner--danger">
+                {{ pluginLoadError }}
+              </div>
+
+              <div v-else-if="!installedPlugins.length"
+                class="settings-card settings-card--placeholder ui-glass-surface ui-glass-surface--strong">
+                <div class="settings-card__head">
+                  <span class="settings-card__icon">📦</span>
+                  <h3>暂无插件</h3>
+                </div>
+                <p class="settings-card__desc">当前没有已安装插件。</p>
+              </div>
+
+              <template v-else>
+                <UiTabs v-model="settingsStore.activePluginConfigId" :items="pluginTabs" variant="line" size="md" />
+
+                <div v-if="activePlugin" class="settings-card ui-glass-surface ui-glass-surface--strong">
+                  <div class="settings-card__head">
+                    <span class="settings-card__icon">🔌</span>
+                    <h3>{{ activePlugin.manifest.displayName }}</h3>
+                    <div class="plugin-dir-badge">
+                      <span>{{ activePlugin.status }} · {{ activePlugin.manifest.runtime }}</span>
+                    </div>
+                  </div>
+                  <p class="settings-card__desc">{{ activePlugin.manifest.description || '该插件尚未提供描述。' }}</p>
+
+                  <div class="plugin-meta-grid">
+                    <div class="meta-item ui-soft-surface">
+                      <span>版本</span>
+                      <strong>{{ activePlugin.manifest.version }}</strong>
+                    </div>
+                    <div class="meta-item ui-soft-surface">
+                      <span>信任级别</span>
+                      <strong>{{ activePlugin.manifest.trustLevel }}</strong>
+                    </div>
+                    <div class="meta-item ui-soft-surface">
+                      <span>权限</span>
+                      <strong>{{ activePlugin.manifest.permissions.join(', ') || '无' }}</strong>
+                    </div>
+                  </div>
+
+                  <UiField label="插件 JSON 配置" :error="pluginConfigErrors[activePlugin.manifest.id]"
+                    hint="宿主直接维护每个插件的 JSON 对象。">
+                    <UiTextarea v-model="pluginConfigDrafts[activePlugin.manifest.id]" class="plugin-json-editor"
                       spellcheck="false" />
                   </UiField>
-                  <div class="web-add-script-form__actions">
-                    <UiButton variant="secondary" size="sm" @click="showAddScript = false">取消</UiButton>
-                    <UiButton variant="primary" size="sm" :disabled="!newScriptName.trim() || !newScriptDomain.trim() || !newScriptContent.trim()" @click="addScript">保存</UiButton>
+
+                  <div class="plugin-actions">
+                    <UiButton variant="primary" size="sm" @click="savePluginConfig(activePlugin.manifest.id)">
+                      保存配置
+                    </UiButton>
+                    <UiButton variant="secondary" size="sm" @click="resetPluginConfig(activePlugin.manifest.id)">
+                      重置
+                    </UiButton>
                   </div>
                 </div>
-              </div>
+              </template>
             </div>
           </section>
+
+          <section v-if="isSettingsTabRendered('web-security')" key="web-security" class="settings-section">
+            <div class="section-head section-head--standalone">
+              <h2>外部网页配置</h2>
+              <p>管理域名策略、保活规则、Chrome 扩展和增强脚本。</p>
+            </div>
+
+            <div class="settings-form">
+              <section class="settings-group">
+                <h3>域名策略</h3>
+                <div class="settings-row settings-row--wide">
+                  <div class="settings-row__label">
+                    <span>信任域名</span>
+                    <small>直接加载，不显示风险提示。</small>
+                  </div>
+                  <div class="settings-row__control settings-row__control--wide">
+                    <div class="web-domain-section">
+                      <div class="web-domain-list">
+                        <div v-for="domain in webWhitelist" :key="domain" class="web-domain-item">
+                          <span>{{ domain }}</span>
+                          <UiButton variant="danger" size="sm" @click="removeWhiteDomain(domain)">移除</UiButton>
+                        </div>
+                        <div v-if="webWhitelist.length === 0" class="web-domain-empty">暂无信任域名</div>
+                      </div>
+                      <div class="web-domain-add">
+                        <UiInput v-model="newWhiteDomain" placeholder="*.google.com" size="sm"
+                          @keydown.enter.prevent="addWhiteDomain" />
+                        <UiButton variant="primary" size="sm" :disabled="!newWhiteDomain.trim()"
+                          @click="addWhiteDomain">添加
+                        </UiButton>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <div class="settings-row settings-row--wide">
+                  <div class="settings-row__label">
+                    <span>禁止域名</span>
+                    <small>禁止访问的域名。</small>
+                  </div>
+                  <div class="settings-row__control settings-row__control--wide">
+                    <div class="web-domain-section">
+                      <div class="web-domain-list">
+                        <div v-for="domain in webBlacklist" :key="domain" class="web-domain-item">
+                          <span>{{ domain }}</span>
+                          <UiButton variant="danger" size="sm" @click="removeBlackDomain(domain)">移除</UiButton>
+                        </div>
+                        <div v-if="webBlacklist.length === 0" class="web-domain-empty">暂无禁止域名</div>
+                      </div>
+                      <div class="web-domain-add">
+                        <UiInput v-model="newBlackDomain" placeholder="evil.com" size="sm"
+                          @keydown.enter.prevent="addBlackDomain" />
+                        <UiButton variant="primary" size="sm" :disabled="!newBlackDomain.trim()"
+                          @click="addBlackDomain">添加
+                        </UiButton>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </section>
+
+              <section class="settings-group">
+                <h3>保活规则</h3>
+                <div class="settings-row settings-row--wide">
+                  <div class="settings-row__label">
+                    <span>运行中的保活页面</span>
+                    <small>显示当前仍保留 WebView 状态的页面，可恢复或关闭释放。</small>
+                  </div>
+                  <div class="settings-row__control settings-row__control--wide">
+                    <WebViewKeepAliveList />
+                  </div>
+                </div>
+                <div class="settings-row settings-row--wide">
+                  <div class="settings-row__label">
+                    <span>保活域名</span>
+                    <small>匹配的网页切换页面时保留状态不销毁，再次打开时恢复。</small>
+                  </div>
+                  <div class="settings-row__control settings-row__control--wide">
+                    <div class="web-domain-section">
+                      <div class="web-domain-list">
+                        <div v-for="domain in webKeepAliveDomains" :key="domain" class="web-domain-item">
+                          <span>{{ domain }}</span>
+                          <UiButton variant="danger" size="sm" @click="removeKeepAliveDomain(domain)">移除</UiButton>
+                        </div>
+                        <div v-if="webKeepAliveDomains.length === 0" class="web-domain-empty">暂无保活域名</div>
+                      </div>
+                      <div class="web-domain-add">
+                        <UiInput v-model="newKeepAliveDomain" placeholder="*.google.com" size="sm"
+                          @keydown.enter.prevent="addKeepAliveDomain" />
+                        <UiButton variant="primary" size="sm" :disabled="!newKeepAliveDomain.trim()"
+                          @click="addKeepAliveDomain">添加</UiButton>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </section>
+
+              <section class="settings-group">
+                <h3>Chrome 扩展</h3>
+                <div class="settings-row settings-row--wide">
+                  <div class="settings-row__label">
+                    <span>扩展管理</span>
+                    <small>安装解压后的 Chrome 扩展，扩展会应用到所有网页。</small>
+                  </div>
+                  <div class="settings-row__control settings-row__control--wide">
+                    <div class="web-extensions-list">
+                      <div v-for="ext in chromeExtensions" :key="ext.id" class="web-extension-item">
+                        <div class="web-extension-item__info">
+                          <div class="web-extension-item__name">{{ ext.name }}</div>
+                          <div class="web-extension-item__meta">v{{ ext.version }}</div>
+                          <div v-if="ext.description" class="web-extension-item__desc">{{ ext.description }}</div>
+                        </div>
+                        <div class="web-extension-item__actions">
+                          <UiCheckbox class="web-extension-item__toggle" size="sm" :checked="ext.enabled"
+                            @change="toggleExtension(ext.id, !ext.enabled)">
+                            {{ ext.enabled ? '已启用' : '已禁用' }}
+                          </UiCheckbox>
+                          <UiButton variant="danger" size="sm" @click="removeExtension(ext.id)">卸载</UiButton>
+                        </div>
+                      </div>
+                      <div v-if="chromeExtensions.length === 0" class="web-domain-empty">暂无已安装的扩展</div>
+                    </div>
+                    <UiButton variant="secondary" size="sm" :disabled="extensionInstalling" @click="installExtension">
+                      {{ extensionInstalling ? '安装中...' : '安装扩展' }}
+                    </UiButton>
+                  </div>
+                </div>
+              </section>
+
+              <section class="settings-group">
+                <h3>增强脚本</h3>
+                <div class="settings-row settings-row--wide">
+                  <div class="settings-row__label">
+                    <span>脚本列表</span>
+                    <small>注入 JS/CSS/HTML 到匹配域名的网页。</small>
+                  </div>
+                  <div class="settings-row__control settings-row__control--wide">
+                    <div class="web-scripts-list">
+                      <div v-for="script in webScripts" :key="script.id" class="web-script-item">
+                        <div class="web-script-item__head">
+                          <span class="web-script-item__name">{{ script.name }}</span>
+                          <span class="web-script-item__type" :class="`web-script-item__type--${script.type}`">
+                            {{ scriptTypeLabel(script.type) }}
+                          </span>
+                          <span class="web-script-item__pattern">{{ script.domainPattern }}</span>
+                          <UiCheckbox class="web-script-item__toggle" size="sm" :checked="script.enabled"
+                            @change="toggleScript(script.id)">
+                            {{ script.enabled ? '已启用' : '已禁用' }}
+                          </UiCheckbox>
+                          <UiButton v-if="!script.builtin" variant="danger" size="sm" @click="removeScript(script.id)">
+                            删除
+                          </UiButton>
+                        </div>
+                      </div>
+                      <div v-if="webScripts.length === 0" class="web-domain-empty">暂无注入脚本</div>
+                    </div>
+
+                    <UiButton v-if="!showAddScript" variant="secondary" size="sm" @click="showAddScript = true">添加脚本
+                    </UiButton>
+
+                    <div v-if="showAddScript" class="web-add-script-form">
+                      <div class="web-add-script-form__row">
+                        <UiField label="脚本名称">
+                          <UiInput v-model="newScriptName" placeholder="例如：暗色模式" size="sm" />
+                        </UiField>
+                        <UiField label="匹配域名">
+                          <UiInput v-model="newScriptDomain" placeholder="例如：*.bilibili.com" size="sm" />
+                        </UiField>
+                        <UiField label="类型">
+                          <UiSelect v-model="newScriptType" :options="scriptTypeOptions" size="sm" />
+                        </UiField>
+                      </div>
+                      <div class="web-add-script-form__row">
+                        <UiField label="注入时机">
+                          <UiSelect v-model="newScriptRunAt" :options="scriptRunAtOptions" size="sm" />
+                        </UiField>
+                        <UiField v-if="newScriptType === 'js'" label="脚本权限" style="grid-column: span 2">
+                          <div class="web-add-script-form__perms">
+                            <UiCheckbox v-for="perm in ['network', 'storage', 'clipboard']" :key="perm"
+                              class="web-add-script-form__perm-label" size="sm"
+                              :checked="newScriptPermissions.includes(perm)"
+                              @change="toggleNewScriptPermission(perm, $event)">
+                              {{ perm === 'network' ? '网络请求' : perm === 'storage' ? '本地存储' : '剪贴板' }}
+                            </UiCheckbox>
+                          </div>
+                        </UiField>
+                      </div>
+                      <UiField label="内容">
+                        <UiTextarea v-model="newScriptContent" class="web-script-editor" :rows="6"
+                          :placeholder="newScriptType === 'css' ? 'body { background: #1a1a2e !important; }' : newScriptType === 'html' ? '&lt;div class=&quot;my-widget&quot;&gt;...&lt;/div&gt;' : 'console.log(&quot;injected!&quot;);'"
+                          spellcheck="false" />
+                      </UiField>
+                      <div class="web-add-script-form__actions">
+                        <UiButton variant="secondary" size="sm" @click="showAddScript = false">取消</UiButton>
+                        <UiButton variant="primary" size="sm"
+                          :disabled="!newScriptName.trim() || !newScriptDomain.trim() || !newScriptContent.trim()"
+                          @click="addScript">保存</UiButton>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </section>
+            </div>
+          </section>
+          <div v-if="isSearchingSettings && !settingsSearchHasMatches" class="settings-search-empty">
+            未找到匹配的设置项
+          </div>
         </div>
-      </section>
-      <div v-if="isSearchingSettings && !settingsSearchHasMatches" class="settings-search-empty">
-        未找到匹配的设置项
-      </div>
-      </div>
       </Transition>
     </div>
 
-    <UiPersonalizationConfig
-      :visible="quickLaunchBackgroundPickerVisible"
-      title="快速启动窗口背景"
+    <UiPersonalizationConfig :visible="quickLaunchBackgroundPickerVisible" title="快速启动窗口背景"
       :current-background="activeQuickLaunchBackground.type === 'color' ? activeQuickLaunchBackground.color : ''"
       :current-background-image="activeQuickLaunchBackground.type === 'image' ? activeQuickLaunchBackground.image : ''"
       :current-background-video="activeQuickLaunchBackground.type === 'video' ? activeQuickLaunchBackground.video : ''"
       :current-background-style="activeQuickLaunchBackground.backgroundStyle"
-      :enabled-features="['color', 'image', 'video', 'opacity', 'blur', 'textColor']"
-      :show-reset="true"
-      :preview-width="720"
-      :preview-height="460"
-      :fill-viewport="true"
-      reset-text="恢复默认背景"
-      @close="quickLaunchBackgroundPickerVisible = false"
-      @confirm="handleQuickLaunchBackgroundConfirm"
-      @reset="resetQuickLaunchBackground"
-    />
+      :enabled-features="['color', 'image', 'video', 'opacity', 'blur', 'textColor']" :show-reset="true"
+      :preview-width="720" :preview-height="460" :fill-viewport="true" reset-text="恢复默认背景"
+      @close="quickLaunchBackgroundPickerVisible = false" @confirm="handleQuickLaunchBackgroundConfirm"
+      @reset="resetQuickLaunchBackground" />
 
-    <AiProviderDrawer
-      v-if="activeSettingsTabForView === 'ai-agent' && !isSearchingSettings"
-      v-model="aiProviderDrawerVisible"
-      v-model:provider-id="editingAiProviderId"
-      :teleported="false"
-      :fixed="false"
-    />
+    <AiProviderDrawer v-if="activeSettingsTabForView === 'ai-agent' && !isSearchingSettings"
+      v-model="aiProviderDrawerVisible" v-model:provider-id="editingAiProviderId" :teleported="false" :fixed="false" />
 
   </UiScrollbar>
 </template>
@@ -5275,6 +5575,184 @@ function scriptTypeLabel(type: string) {
   }
 }
 
+.sync-profile-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.sync-profile-item {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 12px;
+  border: 1px solid var(--ui-border-subtle);
+  border-radius: 6px;
+  background: color-mix(in srgb, var(--ui-surface-panel-muted) 88%, transparent);
+}
+
+.sync-profile-item__main {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+
+  strong {
+    color: var(--ui-text-primary);
+    font-size: var(--ui-font-size-sm);
+  }
+
+  small {
+    color: var(--ui-text-muted);
+    font-size: var(--ui-font-size-xs);
+    overflow-wrap: anywhere;
+  }
+}
+
+.sync-profile-item__actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.sync-boundary-drawer__body {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding: 16px 20px 20px;
+}
+
+.sync-boundary-drawer__section {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.sync-boundary-drawer__section-head h3 {
+  margin: 0;
+  color: var(--ui-text-primary);
+  font-size: var(--ui-font-size-sm);
+  font-weight: 700;
+}
+
+.sync-boundary-drawer__section-head p {
+  margin: 0;
+  color: var(--ui-text-muted);
+  font-size: var(--ui-font-size-xs);
+  line-height: 1.5;
+}
+
+.sync-boundary-drawer__list {
+  margin: 0;
+  padding-left: 18px;
+  color: var(--ui-text-primary);
+  font-size: var(--ui-font-size-sm);
+  line-height: 1.6;
+}
+
+.sync-pending-counts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.sync-pending-virtual-list {
+  height: 320px;
+  overflow-y: auto;
+  border: 1px solid var(--ui-border-subtle);
+  border-radius: var(--ui-radius-md);
+  background: color-mix(in srgb, var(--ui-surface-panel-muted) 88%, transparent);
+}
+
+.sync-pending-virtual-list__spacer {
+  position: relative;
+  min-height: 100%;
+}
+
+.sync-pending-virtual-list__items {
+  position: absolute;
+  inset: 0 0 auto;
+  will-change: transform;
+}
+
+.sync-pending-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: flex-start;
+  gap: 12px;
+  height: 104px;
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--ui-border-subtle);
+}
+
+.sync-pending-row__main,
+.sync-pending-row__meta {
+  min-width: 0;
+}
+
+.sync-pending-row__main {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+
+  strong,
+  small,
+  .sync-pending-row__path,
+  .sync-pending-row__error {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  strong {
+    color: var(--ui-text-primary);
+    font-size: var(--ui-font-size-sm);
+    font-weight: 700;
+  }
+
+  small {
+    color: var(--ui-text-muted);
+    font-size: var(--ui-font-size-xs);
+  }
+}
+
+.sync-pending-row__sizes {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  color: var(--ui-text-secondary);
+  font-size: var(--ui-font-size-xs);
+}
+
+.sync-pending-row__sizes span {
+  padding: 2px 6px;
+  border: 1px solid var(--ui-border-subtle);
+  border-radius: var(--ui-radius-xs);
+  background: var(--ui-surface-panel);
+}
+
+.sync-pending-row__path {
+  color: var(--ui-text-muted);
+}
+
+.sync-pending-row__error {
+  color: var(--ui-state-error);
+}
+
+.sync-pending-row__meta {
+  display: flex;
+  padding-top: 2px;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  color: var(--ui-text-muted);
+  font-size: var(--ui-font-size-xs);
+  white-space: nowrap;
+}
+
 .settings-switch {
   display: inline-flex;
   align-items: center;
@@ -5310,7 +5788,7 @@ function scriptTypeLabel(type: string) {
     }
   }
 
-  input:checked + span {
+  input:checked+span {
     background: #0b67d8;
     box-shadow: inset 0 0 0 1px color-mix(in srgb, #0b67d8 70%, transparent);
 
@@ -5319,7 +5797,7 @@ function scriptTypeLabel(type: string) {
     }
   }
 
-  input:focus-visible + span {
+  input:focus-visible+span {
     box-shadow: var(--ui-focus-ring), inset 0 0 0 1px var(--ui-input-focus-border);
   }
 }
@@ -5429,8 +5907,15 @@ function scriptTypeLabel(type: string) {
   padding: 14px;
   border-radius: var(--ui-radius-md, 6px);
 
-  span { color: var(--ui-text-muted); font-size: var(--ui-font-size-xs); }
-  strong { word-break: break-word; font-size: var(--ui-font-size-sm); }
+  span {
+    color: var(--ui-text-muted);
+    font-size: var(--ui-font-size-xs);
+  }
+
+  strong {
+    word-break: break-word;
+    font-size: var(--ui-font-size-sm);
+  }
 }
 
 .error-banner {
@@ -5828,6 +6313,44 @@ function scriptTypeLabel(type: string) {
   background: linear-gradient(90deg, #4f8cff 0%, #78c3ff 100%);
 }
 
+.sync-progress {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  width: 100%;
+}
+
+.sync-progress__head,
+.sync-progress__meta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  font-size: var(--ui-font-size-xs);
+  color: var(--ui-text-muted);
+}
+
+.sync-progress__head strong {
+  color: var(--ui-text-primary);
+  font-size: var(--ui-font-size-sm);
+}
+
+.sync-progress__bar {
+  position: relative;
+  width: 100%;
+  height: 8px;
+  border-radius: 999px;
+  overflow: hidden;
+  background: var(--ui-input-bg, rgba(128, 128, 128, 0.1));
+}
+
+.sync-progress__bar-fill {
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, var(--ui-button-primary-bg, #5c9ded) 0%, var(--primary-color, #66ccff) 100%);
+  transition: width 180ms ease-out;
+}
+
 .update-release-notes {
   height: clamp(88px, 22vh, 180px);
   overflow: hidden;
@@ -6150,6 +6673,7 @@ function scriptTypeLabel(type: string) {
 }
 
 @media (max-width: 760px) {
+
   .terminal-profile-editor__grid,
   .terminal-profile-list__item {
     grid-template-columns: 1fr;

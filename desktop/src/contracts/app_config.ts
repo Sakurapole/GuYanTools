@@ -14,6 +14,7 @@ export type AppSettingsTabId =
   | 'plugins'
   | 'terminal'
   | 'multi-device-clipboard'
+  | 'sync-center'
   | 'knowledge'
   | 'quick-launch'
   | 'shortcuts';
@@ -371,6 +372,7 @@ export function createDefaultAppConfig(): AppConfig {
           plugins: createDefaultSettingsTabPersonalization(),
           terminal: createDefaultSettingsTabPersonalization(),
           'multi-device-clipboard': createDefaultSettingsTabPersonalization(),
+          'sync-center': createDefaultSettingsTabPersonalization(),
           knowledge: createDefaultSettingsTabPersonalization(),
           'quick-launch': createDefaultSettingsTabPersonalization(),
           shortcuts: createDefaultSettingsTabPersonalization(),

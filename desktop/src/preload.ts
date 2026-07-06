@@ -9,6 +9,7 @@ import type {
   UpdateHomeWidgetPayload,
 } from '@/contracts/home_layout';
 import type { AppConfigApi } from '@/contracts/app_config';
+import type { SyncApi, SyncEvent } from '@/contracts/sync';
 import type { ShortcutsApi } from '@/contracts/shortcuts';
 import type { QuickLaunchApi } from '@/contracts/quick_launch';
 import type { WorkspaceWindowApi, WorkspaceDetachedWindowState } from '@/contracts/workspace_window';
@@ -143,6 +144,30 @@ const shortcutsApi: ShortcutsApi = {
 };
 
 contextBridge.exposeInMainWorld('shortcutsApi', shortcutsApi);
+
+const syncApi: SyncApi = {
+  getState: () => ipcRenderer.invoke('sync:get-state'),
+  listProfiles: () => ipcRenderer.invoke('sync:list-profiles'),
+  listConflicts: () => ipcRenderer.invoke('sync:list-conflicts'),
+  listPendingItems: () => ipcRenderer.invoke('sync:list-pending-items'),
+  getProviderConfig: () => ipcRenderer.invoke('sync:get-provider-config'),
+  updateWebDavConfig: (payload) => ipcRenderer.invoke('sync:update-webdav-config', payload),
+  updateSyncServerConfig: (payload) => ipcRenderer.invoke('sync:update-sync-server-config', payload),
+  loginSyncServer: (payload) => ipcRenderer.invoke('sync:login-sync-server', payload),
+  logoutSyncServer: () => ipcRenderer.invoke('sync:logout-sync-server'),
+  testConnection: () => ipcRenderer.invoke('sync:test-connection'),
+  syncNow: () => ipcRenderer.invoke('sync:sync-now'),
+  applyProfile: (profileId) => ipcRenderer.invoke('sync:apply-profile', profileId),
+  setDefaultProfile: (profileId) => ipcRenderer.invoke('sync:set-default-profile', profileId),
+  resolveConflict: (conflictId, resolution) =>
+    ipcRenderer.invoke('sync:resolve-conflict', conflictId, resolution),
+  onEvent: (listener) => {
+    const wrappedListener = (_event: Electron.IpcRendererEvent, payload: SyncEvent) => listener(payload);
+    ipcRenderer.on('sync:event', wrappedListener);
+    return () => ipcRenderer.removeListener('sync:event', wrappedListener);
+  },
+};
+contextBridge.exposeInMainWorld('syncApi', syncApi);
 
 const quickLaunchApi: QuickLaunchApi = {
   search: (input) => ipcRenderer.invoke('quick-launch:search', input),

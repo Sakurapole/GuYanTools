@@ -24,6 +24,8 @@ import { registerNotificationIpcHandlers } from "./notification/ipc";
 import { registerShellIpcHandlers } from "./shell/ipc";
 import { registerShortcutIpcHandlers } from "./shortcuts/ipc";
 import { shortcutService } from "./shortcuts/service";
+import { registerSyncIpcHandlers } from "./sync/ipc";
+import { syncScheduler } from "./sync/sync_scheduler";
 import { registerQuickLaunchIpcHandlers } from "./quick-launch/ipc";
 import { quickLaunchService } from "./quick-launch/service";
 import { toggleQuickLaunchWindow } from "./quick-launch/window";
@@ -110,6 +112,7 @@ class App {
     });
     registerShellIpcHandlers();
     registerShortcutIpcHandlers();
+    registerSyncIpcHandlers();
     registerQuickLaunchIpcHandlers();
     registerTerminalIpcHandlers();
     registerTodoIpcHandlers();
@@ -221,6 +224,7 @@ class App {
         await ftpSchedulerService.initialize();
         await pluginHost.initialize();
         await multiDeviceClipboardService.initialize();
+        await syncScheduler.start();
         await shortcutService.initialize(
           () => {
             try {
@@ -338,6 +342,7 @@ class App {
 
     app.on('will-quit', () => {
       stopTodoScheduler();
+      syncScheduler.stop();
       ftpSchedulerService.dispose();
       void multiDeviceClipboardService.dispose();
       shortcutService.dispose();

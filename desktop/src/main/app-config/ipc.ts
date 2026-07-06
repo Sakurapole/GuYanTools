@@ -1,7 +1,8 @@
 import { BrowserWindow, ipcMain } from 'electron';
 import os from 'node:os';
-import type { AppConfig, AppConfigPatch } from '@/contracts/app_config';
+import type { AppConfig, AppConfigPatch, AppSettingsTabId } from '@/contracts/app_config';
 import type { AiProviderConfig } from '@/contracts/ai';
+import { createDefaultAppConfig, createDefaultSettingsTabPersonalization } from '@/contracts/app_config';
 import { appConfigManager } from './manager';
 
 let registered = false;
@@ -32,6 +33,10 @@ function sanitizeConfigForRenderer(config: AppConfig): AppConfig {
     ...config,
     features: {
       ...config.features,
+      settings: {
+        ...config.features.settings,
+        tabs: sanitizeSettingsTabs(config.features.settings.tabs),
+      },
       aiAgent: {
         ...config.features.aiAgent,
         research: {
@@ -45,6 +50,16 @@ function sanitizeConfigForRenderer(config: AppConfig): AppConfig {
       },
     },
   };
+}
+
+function sanitizeSettingsTabs(tabs: AppConfig['features']['settings']['tabs']) {
+  const tabIds = Object.keys(createDefaultAppConfig().features.settings.tabs) as AppSettingsTabId[];
+  const result = {} as Record<AppSettingsTabId, ReturnType<typeof createDefaultSettingsTabPersonalization>>;
+  for (const tabId of tabIds) {
+    result[tabId] = tabs[tabId] ?? createDefaultSettingsTabPersonalization();
+  }
+
+  return result;
 }
 
 function listNetworkInterfaces() {
