@@ -21,4 +21,5 @@ export interface UiTreeDropPayload {
   event: DragEvent;
   node: UiTreeNodeData;
   draggedNode: UiTreeNodeData;
+  position: 'before' | 'inside' | 'after';
 }

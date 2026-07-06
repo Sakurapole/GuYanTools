@@ -94,6 +94,7 @@ pub struct UpdateSshProfileInput {
     pub jump_host_json: Option<String>,
     pub auto_reconnect: Option<bool>,
     pub folder_id: Option<String>,
+    pub sort_order: Option<i64>,
     pub color: Option<String>,
     pub tags: Option<String>,
 }

@@ -377,9 +377,10 @@ impl super::SshConnectionManager {
                         WHEN ?11 = '' THEN NULL
                         ELSE ?11
                     END,
-                    color       = COALESCE(?12, color),
-                    tags        = COALESCE(?13, tags),
-                    updated_at  = ?14
+                    sort_order  = COALESCE(?12, sort_order),
+                    color       = COALESCE(?13, color),
+                    tags        = COALESCE(?14, tags),
+                    updated_at  = ?15
                  WHERE id = ?1",
                     rusqlite::params![
                         input.id,
@@ -393,6 +394,7 @@ impl super::SshConnectionManager {
                         input.jump_host_json,
                         input.auto_reconnect.map(|b| b as i64),
                         input.folder_id,
+                        input.sort_order,
                         input.color,
                         input.tags,
                         now,
