@@ -12,7 +12,7 @@ export const terminalProvider: QuickLaunchProvider = {
     const localConfigById = new Map(config.features.terminal.localProfiles.map((profile) => [profile.id, profile]));
 
     return profiles
-      .map((profile) => {
+      .map((profile): QuickLaunchResult | null => {
         const localConfig = localConfigById.get(profile.id);
         const command = [profile.command, ...(profile.args ?? [])].filter(Boolean).join(' ');
         const subtitle = compactSnippet(command || localConfig?.cwd || '打开本地终端');

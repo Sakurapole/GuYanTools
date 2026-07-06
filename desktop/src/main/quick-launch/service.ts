@@ -60,7 +60,7 @@ export class QuickLaunchService {
     ].map((provider) => [provider.id, provider]),
   );
 
-  bindMainWindow(bridge: MainWindowBridge) {
+  bindMainWindow(bridge: MainWindowBridge): void {
     this.mainWindowBridge = bridge;
   }
 
@@ -129,7 +129,7 @@ export class QuickLaunchService {
     };
   }
 
-  async execute(result: QuickLaunchResult, options?: QuickLaunchExecuteOptions) {
+  async execute(result: QuickLaunchResult, options?: QuickLaunchExecuteOptions): Promise<void> {
     const mode = normalizeQuickLaunchExecutionMode(options?.mode);
     if (mode === 'copy' || mode === 'copy-path') {
       clipboard.writeText(copyQuickLaunchResultText(result, mode === 'copy-path'));
@@ -163,19 +163,19 @@ export class QuickLaunchService {
     };
   }
 
-  setGameMode(enabled: boolean) {
+  setGameMode(enabled: boolean): boolean {
     return setQuickLaunchGameMode(enabled);
   }
 
-  getGameModeStatus() {
+  getGameModeStatus(): boolean {
     return getQuickLaunchGameModeStatus();
   }
 
-  resizeWindow(input: QuickLaunchResizeInput) {
+  resizeWindow(input: QuickLaunchResizeInput): void {
     resizeQuickLaunchWindow(input);
   }
 
-  private async executeAction(action: QuickLaunchAction, mode: QuickLaunchExecutionMode = 'default') {
+  private async executeAction(action: QuickLaunchAction, mode: QuickLaunchExecutionMode = 'default'): Promise<void> {
     if (mode === 'open-detached-window') {
       const target = workspaceWindowTargetFromAction(action, () => this.nextRequestId());
       if (!target) {
@@ -248,7 +248,7 @@ export class QuickLaunchService {
     }
   }
 
-  private async openMainRoute(route: string) {
+  private async openMainRoute(route: string): Promise<void> {
     if (!this.mainWindowBridge) {
       return;
     }
@@ -260,23 +260,23 @@ export class QuickLaunchService {
     await this.mainWindowBridge.navigateToHash(route);
   }
 
-  private nextRequestId() {
+  private nextRequestId(): string {
     return randomUUID();
   }
 
-  private async openPath(path: string) {
+  private async openPath(path: string): Promise<void> {
     const message = await shell.openPath(path);
     if (message) {
       throw new Error(message);
     }
   }
 
-  private async runPathAsAdmin(targetPath: string) {
+  private async runPathAsAdmin(targetPath: string): Promise<void> {
     if (process.platform !== 'win32') {
       throw new Error('当前平台不支持以管理员身份启动。');
     }
 
-    const stat = await fs.stat(targetPath).catch(() => undefined);
+    const stat = await fs.stat(targetPath).catch((): undefined => undefined);
     if (stat?.isDirectory()) {
       await this.openPath(targetPath);
       return;
@@ -285,7 +285,7 @@ export class QuickLaunchService {
     await runWindowsPathAsAdmin(targetPath, stat ? path.dirname(targetPath) : '');
   }
 
-  private async launchWindowsApp(appUserModelId: string) {
+  private async launchWindowsApp(appUserModelId: string): Promise<void> {
     if (process.platform !== 'win32') {
       throw new Error('当前平台不支持启动 Windows 开始菜单应用。');
     }
@@ -368,7 +368,7 @@ function workspaceWindowTargetFromAction(
   return null;
 }
 
-function copyQuickLaunchResultText(result: QuickLaunchResult, pathOnly: boolean) {
+function copyQuickLaunchResultText(result: QuickLaunchResult, pathOnly: boolean): string {
   const targetPath = extractQuickLaunchPath(result.action);
   if (pathOnly) {
     if (!targetPath) {
@@ -392,7 +392,7 @@ function copyQuickLaunchResultText(result: QuickLaunchResult, pathOnly: boolean)
   return result.detail || result.subtitle || result.title;
 }
 
-function extractQuickLaunchPath(action: QuickLaunchAction) {
+function extractQuickLaunchPath(action: QuickLaunchAction): string {
   switch (action.type) {
     case 'open-path':
     case 'show-path-in-folder':
@@ -402,7 +402,7 @@ function extractQuickLaunchPath(action: QuickLaunchAction) {
   }
 }
 
-function launchWindowsShellTarget(target: string) {
+function launchWindowsShellTarget(target: string): Promise<void> {
   return new Promise<void>((resolve, reject) => {
     const child = spawn('explorer.exe', [target], {
       detached: true,
@@ -418,7 +418,7 @@ function launchWindowsShellTarget(target: string) {
   });
 }
 
-function runWindowsPathAsAdmin(targetPath: string, workingDirectory: string) {
+function runWindowsPathAsAdmin(targetPath: string, workingDirectory: string): Promise<void> {
   const command = [
     '$ErrorActionPreference = "Stop";',
     '$target = $env:QUICK_LAUNCH_TARGET;',

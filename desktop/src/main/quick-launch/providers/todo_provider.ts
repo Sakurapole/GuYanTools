@@ -13,7 +13,7 @@ export const todoProvider: QuickLaunchProvider = {
 
     const todos = await dbManager.getDatabase().searchTodos(context.query) as Todo[];
     return todos
-      .map((todo) => {
+      .map((todo): QuickLaunchResult | null => {
         const subtitle = compactSnippet(todo.note || (todo.isCompleted ? '已完成待办' : '待办任务'));
         const match = scoreQuickLaunchFields(
           context.query,

@@ -15,7 +15,7 @@ export const internalRouteProvider: QuickLaunchProvider = {
   async search(context: QuickLaunchProviderContext): Promise<QuickLaunchResult[]> {
     return APP_INTERNAL_FUNCTIONS
       .filter(routeVisible)
-      .map((item) => {
+      .map((item): QuickLaunchResult | null => {
         const match = scoreQuickLaunchFields(
           context.query,
           { value: item.label, weight: 90 },

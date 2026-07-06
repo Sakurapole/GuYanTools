@@ -9,7 +9,7 @@ export const ftpProvider: QuickLaunchProvider = {
     const profiles = await ftpHost.listProfiles();
 
     return profiles
-      .map((profile) => {
+      .map((profile): QuickLaunchResult | null => {
         const endpoint = `${profile.protocol}://${profile.username ? `${profile.username}@` : ''}${profile.host}:${profile.port}`;
         const subtitle = compactSnippet(endpoint);
         const match = scoreQuickLaunchFields(

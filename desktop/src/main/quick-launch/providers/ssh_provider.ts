@@ -25,7 +25,7 @@ export const sshProvider: QuickLaunchProvider = {
     const profiles = await sshHost.listProfiles();
 
     return profiles
-      .map((profile) => {
+      .map((profile): QuickLaunchResult | null => {
         const tags = parseTags(profile);
         const endpoint = `${profile.username}@${profile.host}:${profile.port}`;
         const subtitle = compactSnippet(endpoint);
