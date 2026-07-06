@@ -7,6 +7,7 @@ import UiDialog from '@/windows/main/components/ui/UiDialog.vue';
 import UiIconButton from '@/windows/main/components/ui/UiIconButton.vue';
 import UiInput from '@/windows/main/components/ui/UiInput.vue';
 import UiPopupSurface from '@/windows/main/components/ui/UiPopupSurface.vue';
+import UiScrollbar from '@/windows/main/components/ui/UiScrollbar.vue';
 import { notifyError, notifySuccess } from '@/windows/main/composables/useInAppNotification';
 import {
   CONNECTION_LAYOUTS_CHANGED_EVENT,
@@ -313,7 +314,6 @@ const sshFingerprintInfo = ref({ host: '', port: 22, algorithm: '', fingerprint:
 const sshConnectError = ref('');
 const sshConnectingProfileIds = ref<string[]>([]);
 const sshLastFailedProfile = ref<SshProfile | null>(null);
-const sshReconnectingSessionId = ref('');
 /** Pending connect callback resolved after fingerprint is trusted */
 let sshFingerprintResolve: (() => void) | null = null;
 let sshFingerprintReject: (() => void) | null = null;
@@ -520,28 +520,6 @@ function handleSshFocusSession(session: SshSessionDescriptor) {
 
 async function handleSshDisconnect(sessionId: string) {
   await sshStore?.disconnect(sessionId);
-}
-
-async function reconnectActiveSshSession() {
-  const session = activeSshSessionForPane.value;
-  const profile = activeSshProfile.value;
-  if (!session || !profile) {
-    sshConnectError.value = '找不到原 SSH 配置，无法自动重连。请从左侧 SSH 配置列表重新连接。';
-    return;
-  }
-
-  sshReconnectingSessionId.value = session.sessionId;
-  sshConnectError.value = '';
-  try {
-    try {
-      await sshStore.disconnect(session.sessionId);
-    } catch {
-      // The backend may already have dropped this session; reconnecting can continue.
-    }
-    await handleSshConnect(profile);
-  } finally {
-    sshReconnectingSessionId.value = '';
-  }
 }
 
 function toggleSidebar() {
@@ -765,16 +743,6 @@ const activeSshProfile = computed(() =>
   activeSshSessionForPane.value
     ? sshStore.profiles.find((profile) => profile.id === activeSshSessionForPane.value?.profileId) ?? null
     : null,
-);
-const activeSshReconnectState = computed(() =>
-  activeSshSessionForPane.value
-    ? sshStore.reconnectStates[activeSshSessionForPane.value.sessionId] ?? null
-    : null,
-);
-const activeSshDisconnectMessage = computed(() =>
-  activeSshSessionForPane.value
-    ? sshStore.getError(activeSshSessionForPane.value.sessionId) || activeSshReconnectState.value?.lastError || ''
-    : '',
 );
 /** Whether the active viewport is for an SSH session */
 const isSshMode = computed(() => activeTerminalPane.value?.kind === 'ssh');
@@ -1710,6 +1678,10 @@ function closeSearchPanel() {
 }
 
 function handleTerminalPageKeydown(event: KeyboardEvent) {
+  if (route.name !== 'Terminal') {
+    return;
+  }
+
   if (event.defaultPrevented || event.isComposing) {
     return;
   }
@@ -2151,49 +2123,53 @@ onBeforeUnmount(() => {
               </div>
             </template>
             <template v-else>
-              <div class="terminal-sidebar__sessions terminal-sidebar__config-list">
-                <div class="terminal-sidebar__section-header">
-                  <span class="terminal-sidebar__section-label">本地终端配置</span>
-                </div>
-                <UiButton
-                  v-for="profile in terminalStore.profiles"
-                  :key="profile.id"
-                  class="terminal-profile-item"
-                  size="sm"
-                  variant="ghost"
-                  type="button"
-                  @dblclick="createSession(profile.id)"
-                >
-                  <TerminalProfileIcon
-                    class="terminal-profile-item__icon"
-                    :profile-id="profile.id"
-                    :command="profile.command"
-                    :label="profile.label"
-                    :size="16"
+              <UiScrollbar class="terminal-sidebar__expanded-scroll" :x="false" :size="6">
+                <div class="terminal-sidebar__expanded-content">
+                  <div class="terminal-sidebar__sessions terminal-sidebar__config-list">
+                    <div class="terminal-sidebar__section-header">
+                      <span class="terminal-sidebar__section-label">本地终端配置</span>
+                    </div>
+                    <UiButton
+                      v-for="profile in terminalStore.profiles"
+                      :key="profile.id"
+                      class="terminal-profile-item"
+                      size="sm"
+                      variant="ghost"
+                      type="button"
+                      @dblclick="createSession(profile.id)"
+                    >
+                      <TerminalProfileIcon
+                        class="terminal-profile-item__icon"
+                        :profile-id="profile.id"
+                        :command="profile.command"
+                        :label="profile.label"
+                        :size="16"
+                      />
+                      <span class="terminal-profile-item__text">
+                        <span class="terminal-profile-item__label">{{ profile.label }}</span>
+                        <span class="terminal-profile-item__command">{{ profile.command || profile.id }}</span>
+                      </span>
+                      <svg class="terminal-profile-item__launch" viewBox="0 0 24 24" width="14" height="14" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M5 12h14" />
+                        <path d="m13 6 6 6-6 6" />
+                      </svg>
+                    </UiButton>
+                    <div class="terminal-sidebar__divider" />
+                  </div>
+                  <SshSidebarTab
+                    class="terminal-sidebar__ssh-configs"
+                    :show-active-sessions="false"
+                    :profile-section-label="'SSH 配置'"
+                    :connecting-profile-ids="sshConnectingProfileIds"
+                    @edit-profile="openSshProfileDialog"
+                    @create-profile-in-group="openSshProfileDialog(null, $event)"
+                    @open-key-manager="sshKeyManagerVisible = true"
+                    @connect="handleSshConnect"
+                    @focus-session="handleSshFocusSession"
+                    @disconnect="handleSshDisconnect"
                   />
-                  <span class="terminal-profile-item__text">
-                    <span class="terminal-profile-item__label">{{ profile.label }}</span>
-                    <span class="terminal-profile-item__command">{{ profile.command || profile.id }}</span>
-                  </span>
-                  <svg class="terminal-profile-item__launch" viewBox="0 0 24 24" width="14" height="14" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round">
-                    <path d="M5 12h14" />
-                    <path d="m13 6 6 6-6 6" />
-                  </svg>
-                </UiButton>
-                <div class="terminal-sidebar__divider" />
-              </div>
-              <SshSidebarTab
-                class="terminal-sidebar__ssh-configs"
-                :show-active-sessions="false"
-                :profile-section-label="'SSH 配置'"
-                :connecting-profile-ids="sshConnectingProfileIds"
-                @edit-profile="openSshProfileDialog"
-                @create-profile-in-group="openSshProfileDialog(null, $event)"
-                @open-key-manager="sshKeyManagerVisible = true"
-                @connect="handleSshConnect"
-                @focus-session="handleSshFocusSession"
-                @disconnect="handleSshDisconnect"
-              />
+                </div>
+              </UiScrollbar>
             </template>
           </div>
         </div>
@@ -2233,24 +2209,6 @@ onBeforeUnmount(() => {
           />
         </Transition>
 
-        <Transition name="ui-tab-fade">
-        <div v-if="isSshMode && activeSshReconnectState && activeSshSessionForPane" class="terminal-alert terminal-alert--error">
-          <span>
-            {{ activeSshSessionForPane.profileLabel }} 连接已断开，请重连后继续操作。
-            <span v-if="activeSshDisconnectMessage" class="terminal-alert__detail">{{ activeSshDisconnectMessage }}</span>
-          </span>
-          <div class="terminal-alert__actions">
-            <UiButton
-              size="sm"
-              variant="secondary"
-              :disabled="sshReconnectingSessionId === activeSshSessionForPane.sessionId || !activeSshProfile"
-              @click="reconnectActiveSshSession"
-            >
-              {{ sshReconnectingSessionId === activeSshSessionForPane.sessionId ? '重连中' : '重连' }}
-            </UiButton>
-          </div>
-        </div>
-        </Transition>
     </template>
 
     <template #stage>
@@ -2273,6 +2231,19 @@ onBeforeUnmount(() => {
             >
               <span class="terminal-pane-tab__kind">{{ pane.kind === 'local' ? '本地' : 'SSH' }}</span>
               <span class="terminal-pane-tab__title">{{ pane.title }}</span>
+              <span
+                class="terminal-pane-tab__close"
+                role="button"
+                tabindex="-1"
+                title="关闭终端"
+                aria-label="关闭终端"
+                @pointerdown.stop
+                @click.stop="closePane(pane)"
+              >
+                <svg viewBox="0 0 16 16" width="12" height="12" aria-hidden="true">
+                  <path d="M4.5 4.5l7 7M11.5 4.5l-7 7" />
+                </svg>
+              </span>
             </UiButton>
           </div>
 
@@ -2606,7 +2577,10 @@ onBeforeUnmount(() => {
   flex-shrink: 0;
   border-right: 1px solid var(--ui-border-subtle);
   background: var(--ui-surface-panel);
-  transition: width 0.28s cubic-bezier(0.4, 0, 0.2, 1);
+  transition:
+    width 0.38s cubic-bezier(0.22, 1, 0.36, 1),
+    min-width 0.38s cubic-bezier(0.22, 1, 0.36, 1),
+    flex-basis 0.38s cubic-bezier(0.22, 1, 0.36, 1);
   overflow: hidden;
 
   &--collapsed {
@@ -2773,10 +2747,23 @@ onBeforeUnmount(() => {
   overflow-y: auto;
   padding: 12px;
   gap: 6px;
+  animation: terminal-sidebar-content-in 0.32s cubic-bezier(0.22, 1, 0.36, 1);
 
   .ui-tooltip-trigger {
     width: 100%;
   }
+}
+
+.terminal-sidebar__expanded-scroll {
+  flex: 1;
+  min-height: 0;
+}
+
+.terminal-sidebar__expanded-content {
+  display: flex;
+  min-height: 100%;
+  flex-direction: column;
+  animation: terminal-sidebar-content-in 0.32s cubic-bezier(0.22, 1, 0.36, 1);
 }
 
 .terminal-sidebar__config-list {
@@ -2787,6 +2774,7 @@ onBeforeUnmount(() => {
 
 .terminal-sidebar__ssh-configs {
   min-height: 0;
+  overflow: visible;
 }
 
 .terminal-sidebar__section-header {
@@ -2916,6 +2904,48 @@ onBeforeUnmount(() => {
   overflow-y: auto;
   padding: 12px 6px;
   box-sizing: border-box;
+  scrollbar-width: none;
+  animation: terminal-sidebar-rail-in 0.3s cubic-bezier(0.22, 1, 0.36, 1);
+
+  &::-webkit-scrollbar {
+    width: 0;
+    height: 0;
+  }
+}
+
+@keyframes terminal-sidebar-content-in {
+  from {
+    opacity: 0;
+    transform: translateX(-8px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes terminal-sidebar-rail-in {
+  from {
+    opacity: 0;
+    transform: translateX(6px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .terminal-sidebar,
+  .terminal-sidebar__panel,
+  .terminal-sidebar__sessions,
+  .terminal-sidebar__expanded-content,
+  .terminal-sidebar__collapsed-rail {
+    animation: none;
+    transition: none;
+  }
 }
 
 .terminal-sidebar__collapsed-action.ui-icon-button.ui-icon-button--sm:not(.ui-icon-button--labeled) {
@@ -3117,6 +3147,32 @@ onBeforeUnmount(() => {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.terminal-pane-tab__close {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  width: 18px;
+  height: 18px;
+  border-radius: var(--ui-radius-sm);
+  color: var(--ui-text-muted);
+  transition:
+    background-color 0.14s ease,
+    color 0.14s ease;
+
+  svg {
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 2;
+    stroke-linecap: round;
+  }
+
+  &:hover {
+    background: color-mix(in srgb, var(--ui-state-error, #ef4444) 12%, transparent);
+    color: var(--ui-state-error, #ef4444);
+  }
 }
 
 .terminal-pane-workspace {
