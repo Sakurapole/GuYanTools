@@ -220,6 +220,7 @@ const providerLabels = Object.fromEntries(
 const QUERY_HISTORY_STORAGE_KEY = 'guyantools.quickLaunch.queryHistory';
 const ACTION_PANEL_TARGET_STORAGE_KEY = 'guyantools.quickLaunch.actionPanelTarget';
 const MAX_QUERY_HISTORY = 30;
+const SEARCH_INPUT_DEBOUNCE_MS = 180;
 
 type QuickLaunchContextActionId =
   | 'open'
@@ -508,6 +509,7 @@ let removeHiddenListener: (() => void) | undefined;
 let removeSearchProgressListener: (() => void) | undefined;
 let removeSearchResultsListener: (() => void) | undefined;
 let clearSearchProgressTimer: number | undefined;
+let searchDebounceTimer: number | undefined;
 
 watch(query, () => {
   if (actionPanelOpen.value) {
@@ -515,14 +517,14 @@ watch(query, () => {
     void nextTick(() => resultsScrollbarRef.value?.refresh());
     return;
   }
-  void search();
+  scheduleSearch();
 });
 
 watch(selectedProviderFilters, () => {
   if (actionPanelOpen.value) {
     return;
   }
-  void search();
+  scheduleSearch();
 });
 
 watch(results, () => {
@@ -582,6 +584,7 @@ onBeforeUnmount(() => {
   removeSearchProgressListener?.();
   removeSearchResultsListener?.();
   window.clearTimeout(clearSearchProgressTimer);
+  window.clearTimeout(searchDebounceTimer);
 });
 
 async function loadAppConfig() {
@@ -622,6 +625,7 @@ function resetWindowReveal() {
 }
 
 async function search() {
+  window.clearTimeout(searchDebounceTimer);
   const sessionId = `renderer-${Date.now()}-${++sessionCounter}`;
   activeSessionId = sessionId;
   loading.value = true;
@@ -666,6 +670,17 @@ async function search() {
       searchPendingProviderIds.value = [];
     }
   }
+}
+
+function scheduleSearch() {
+  activeSessionId = '';
+  loading.value = false;
+  searchPendingProviderIds.value = [];
+  searchProgress.value = null;
+  window.clearTimeout(searchDebounceTimer);
+  searchDebounceTimer = window.setTimeout(() => {
+    void search();
+  }, SEARCH_INPUT_DEBOUNCE_MS);
 }
 
 function handleSearchProgress(progress: QuickLaunchSearchProgressEvent) {
