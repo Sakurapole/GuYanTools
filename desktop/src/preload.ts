@@ -471,12 +471,15 @@ contextBridge.exposeInMainWorld('mediaApi', mediaApi);
 const multiDeviceClipboardApi: MultiDeviceClipboardApi = {
   listItems: () => ipcRenderer.invoke('multi-device-clipboard:list-items'),
   applyItem: (itemId: string) => ipcRenderer.invoke('multi-device-clipboard:apply-item', itemId),
+  copyItem: (itemId: string) => ipcRenderer.invoke('multi-device-clipboard:copy-item', itemId),
   showItemPreview: (itemId: string) => ipcRenderer.invoke('multi-device-clipboard:show-item-preview', itemId),
   deleteItem: (itemId: string) => ipcRenderer.invoke('multi-device-clipboard:delete-item', itemId),
   clearHistory: () => ipcRenderer.invoke('multi-device-clipboard:clear-history'),
   listDevices: () => ipcRenderer.invoke('multi-device-clipboard:list-devices'),
   listDeviceStatuses: (onlineWindowSeconds: number) =>
     ipcRenderer.invoke('multi-device-clipboard:list-device-statuses', onlineWindowSeconds),
+  scanDevices: (onlineWindowSeconds: number) =>
+    ipcRenderer.invoke('multi-device-clipboard:scan-devices', onlineWindowSeconds),
   listDiscoveredDevices: () => ipcRenderer.invoke('multi-device-clipboard:list-discovered-devices'),
   listPairingRequests: () => ipcRenderer.invoke('multi-device-clipboard:list-pairing-requests'),
   startPairing: (deviceId: string) => ipcRenderer.invoke('multi-device-clipboard:start-pairing', deviceId),
@@ -486,8 +489,6 @@ const multiDeviceClipboardApi: MultiDeviceClipboardApi = {
   forgetDevice: (deviceId: string) => ipcRenderer.invoke('multi-device-clipboard:forget-device', deviceId),
   showWindow: () => ipcRenderer.invoke('multi-device-clipboard:show-window'),
   closeWindow: () => ipcRenderer.invoke('multi-device-clipboard:close-window'),
-  dockWindow: () => ipcRenderer.invoke('multi-device-clipboard:dock-window'),
-  expandWindow: () => ipcRenderer.invoke('multi-device-clipboard:expand-window'),
   openDevTools: () => ipcRenderer.invoke('multi-device-clipboard:open-devtools'),
   onEvent: (listener: (event: MultiDeviceClipboardEvent) => void) => {
     const wrappedListener = (_event: Electron.IpcRendererEvent, payload: MultiDeviceClipboardEvent) => listener(payload);

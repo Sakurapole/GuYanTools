@@ -156,6 +156,12 @@ class MultiDeviceClipboardService {
     return this.requireHost().listDeviceStatuses(onlineWindowSeconds);
   }
 
+  async scanDeviceStatuses(onlineWindowSeconds = 60) {
+    const statuses = await this.requireHost().listDeviceStatuses(onlineWindowSeconds);
+    this.emit({ type: 'devices-changed' });
+    return statuses;
+  }
+
   async startPairing(deviceId: string) {
     const device = this.listDiscoveredDevices().find((item) => item.id === deviceId);
     if (!device) {
@@ -258,6 +264,15 @@ class MultiDeviceClipboardService {
       this.localDevice = null;
     }
     const localDevice = await this.ensureLocalDevice();
+    this.startDiscovery(localDevice, feature);
+    this.startPolling();
+    this.emit({ type: 'status-changed', enabled: true });
+  }
+
+  private startDiscovery(
+    localDevice: MultiDeviceClipboardDevice,
+    feature: AppConfig['features']['multiDeviceClipboard'],
+  ) {
     this.requireHost().startDiscovery({
       deviceId: localDevice.id,
       deviceName: localDevice.name,
@@ -267,8 +282,6 @@ class MultiDeviceClipboardService {
       probeLocalAddresses: listLocalIpv4Interfaces().map((item) => item.address),
       httpProbeEnabled: true,
     });
-    this.startPolling();
-    this.emit({ type: 'status-changed', enabled: true });
   }
 
   private async ensureLocalDevice() {

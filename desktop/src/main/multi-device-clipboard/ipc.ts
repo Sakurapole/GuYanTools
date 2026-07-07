@@ -19,6 +19,8 @@ export function registerMultiDeviceClipboardIpcHandlers() {
     await multiDeviceClipboardService.applyItem(itemId);
     await pasteMultiDeviceClipboardIntoActiveTarget();
   });
+  ipcMain.handle('multi-device-clipboard:copy-item', async (_event, itemId: string) =>
+    multiDeviceClipboardService.applyItem(itemId));
   ipcMain.handle('multi-device-clipboard:show-item-preview', async (_event, itemId: string) => {
     const item = await multiDeviceClipboardService.getItem(itemId);
     await showMultiDeviceClipboardTextPreviewWindow(item);
@@ -31,6 +33,8 @@ export function registerMultiDeviceClipboardIpcHandlers() {
     multiDeviceClipboardService.listDevices());
   ipcMain.handle('multi-device-clipboard:list-device-statuses', async (_event, onlineWindowSeconds: number) =>
     multiDeviceClipboardService.listDeviceStatuses(onlineWindowSeconds));
+  ipcMain.handle('multi-device-clipboard:scan-devices', async (_event, onlineWindowSeconds: number) =>
+    multiDeviceClipboardService.scanDeviceStatuses(onlineWindowSeconds));
   ipcMain.handle('multi-device-clipboard:list-discovered-devices', async () =>
     multiDeviceClipboardService.listDiscoveredDevices());
   ipcMain.handle('multi-device-clipboard:list-pairing-requests', async () =>
