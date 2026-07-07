@@ -17,7 +17,9 @@ export function registerQuickLaunchIpcHandlers() {
   }
 
   ipcMain.handle('quick-launch:search', async (_event, input: QuickLaunchSearchInput) =>
-    quickLaunchService.search(input),
+    quickLaunchService.search(input, (progress) => {
+      _event.sender.send('quick-launch:search-progress', progress);
+    }),
   );
   ipcMain.handle('quick-launch:execute', async (
     _event,
@@ -31,6 +33,9 @@ export function registerQuickLaunchIpcHandlers() {
   });
   ipcMain.handle('quick-launch:refresh-index', async (_event, input?: QuickLaunchRefreshInput) =>
     quickLaunchService.refreshIndex(input),
+  );
+  ipcMain.handle('quick-launch:start-everything', async () =>
+    quickLaunchService.startEverything(),
   );
   ipcMain.handle('quick-launch:set-game-mode', async (_event, enabled: boolean) =>
     quickLaunchService.setGameMode(Boolean(enabled)),

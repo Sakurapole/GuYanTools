@@ -13,7 +13,9 @@ import type {
   QuickLaunchResizeInput,
   QuickLaunchResult,
   QuickLaunchSearchInput,
+  QuickLaunchSearchProgressEvent,
   QuickLaunchSearchResponse,
+  QuickLaunchStartEverythingResponse,
 } from '@/contracts/quick_launch';
 import { appConfigManager } from '@/main/app-config/manager';
 import { pluginHost } from '@/main/plugin-host';
@@ -27,6 +29,7 @@ import { knowledgeProvider } from './providers/knowledge_provider';
 import { pluginProvider } from './providers/plugin_provider';
 import { appProvider } from './providers/app_provider';
 import { everythingFileProvider } from './providers/everything_file_provider';
+import { startEverything } from './everything_client';
 import type { QuickLaunchProvider } from './types';
 import { WORKSPACE_WINDOW_DEFINITIONS, type WorkspaceWindowKey } from '@/contracts/workspace_window';
 import { workspaceWindowManager } from '@/main/workspace-window/manager';
@@ -43,6 +46,7 @@ interface MainWindowBridge {
 }
 
 const DEFAULT_LIMIT = 12;
+type QuickLaunchSearchProgressReporter = (event: QuickLaunchSearchProgressEvent) => void;
 
 export class QuickLaunchService {
   private mainWindowBridge: MainWindowBridge | null = null;
@@ -64,7 +68,10 @@ export class QuickLaunchService {
     this.mainWindowBridge = bridge;
   }
 
-  async search(input: QuickLaunchSearchInput): Promise<QuickLaunchSearchResponse> {
+  async search(
+    input: QuickLaunchSearchInput,
+    onProgress?: QuickLaunchSearchProgressReporter,
+  ): Promise<QuickLaunchSearchResponse> {
     const startedAt = Date.now();
     const config = await appConfigManager.getConfig();
     const feature = config.features.quickLaunch;
@@ -78,8 +85,24 @@ export class QuickLaunchService {
       feature.enabledProviders.includes(providerId)
       && this.providers.has(providerId)
     ));
+    let completedProviders = 0;
+    const emitProgress = (
+      stage: QuickLaunchSearchProgressEvent['stage'],
+      patch: Partial<Omit<QuickLaunchSearchProgressEvent, 'sessionId' | 'query' | 'stage' | 'completedProviders' | 'totalProviders' | 'elapsedMs'>> = {},
+    ) => {
+      onProgress?.({
+        sessionId,
+        query,
+        stage,
+        completedProviders,
+        totalProviders: searchedProviders.length,
+        elapsedMs: Date.now() - startedAt,
+        ...patch,
+      });
+    };
 
     if (!feature.enabled || searchedProviders.length === 0) {
+      emitProgress('completed', { message: feature.enabled ? '没有启用的搜索源。' : '快速启动已关闭。' });
       return {
         query,
         sessionId,
@@ -91,6 +114,7 @@ export class QuickLaunchService {
       };
     }
 
+    emitProgress('started', { message: '准备搜索。' });
     const errors: QuickLaunchSearchResponse['errors'] = [];
     const batches = await Promise.all(searchedProviders.map(async (providerId) => {
       const provider = this.providers.get(providerId);
@@ -98,17 +122,26 @@ export class QuickLaunchService {
         return [];
       }
 
+      emitProgress('provider-started', { providerId });
       try {
-        return await provider.search({ query, limit });
+        const providerResults = await provider.search({ query, limit });
+        return providerResults;
       } catch (error) {
         const message = error instanceof Error ? error.message : String(error);
         errors.push({ providerId, message });
         console.warn(`[quick-launch] Provider "${providerId}" failed:`, error);
         return [];
+      } finally {
+        completedProviders += 1;
+        emitProgress('provider-completed', { providerId });
       }
     }));
 
     let decorated = batches.flat();
+    emitProgress('ranking', {
+      message: '整理搜索结果。',
+      resultCount: decorated.length,
+    });
     try {
       decorated = await quickLaunchHistoryStore.decorate(decorated);
     } catch (error) {
@@ -118,6 +151,10 @@ export class QuickLaunchService {
       .sort((left, right) => right.score - left.score || left.title.localeCompare(right.title))
       .slice(0, limit);
 
+    emitProgress('completed', {
+      message: '搜索完成。',
+      resultCount: results.length,
+    });
     return {
       query,
       sessionId,
@@ -161,6 +198,11 @@ export class QuickLaunchService {
       refreshedProviders,
       elapsedMs: Date.now() - startedAt,
     };
+  }
+
+  async startEverything(): Promise<QuickLaunchStartEverythingResponse> {
+    const config = await appConfigManager.getConfig();
+    return startEverything(config.features.quickLaunch.everythingEsPath);
   }
 
   setGameMode(enabled: boolean): boolean {
@@ -242,6 +284,9 @@ export class QuickLaunchService {
         return;
       case 'copy-text':
         clipboard.writeText(action.text);
+        return;
+      case 'start-everything':
+        await this.startEverything();
         return;
       default:
         assertNever(action);

@@ -450,7 +450,7 @@ export function createDefaultAppConfig(): AppConfig {
         toggleQuickNote: 'CommandOrControl+Alt+N',
         captureClipboardToQuickNote: 'CommandOrControl+Alt+Shift+N',
         toggleQuickLaunch: 'Alt+Space',
-        openDetachedTerminal: '',
+        openDetachedTerminal: 'CommandOrControl+Shift+T',
         openDetachedFtp: '',
         openDetachedTodo: '',
         openDetachedAi: '',

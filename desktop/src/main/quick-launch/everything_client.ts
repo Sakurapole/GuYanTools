@@ -1,4 +1,4 @@
-import { execFile } from 'node:child_process';
+import { execFile, spawn } from 'node:child_process';
 import { Buffer } from 'node:buffer';
 import fs from 'node:fs/promises';
 import { TextDecoder } from 'node:util';
@@ -16,6 +16,12 @@ export type EverythingSearchResponse = {
   esPath?: string;
   paths: string[];
   message?: string;
+};
+
+export type EverythingStartResponse = {
+  ok: boolean;
+  message: string;
+  appPath?: string;
 };
 
 const EVERYTHING_TIMEOUT_MS = 1600;
@@ -79,6 +85,35 @@ function candidateEsPaths(configuredPath?: string) {
   return [...new Set(candidates.map(item => path.resolve(item)))];
 }
 
+function candidateEverythingAppPaths(esPath?: string | null) {
+  const candidates: string[] = [];
+  const localAppData = process.env.LOCALAPPDATA;
+  const scoop = process.env.SCOOP;
+  const scoopGlobal = process.env.SCOOP_GLOBAL;
+
+  if (esPath) {
+    candidates.push(path.join(path.dirname(esPath), 'Everything.exe'));
+  }
+
+  candidates.push(
+    'C:\\Program Files\\Everything\\Everything.exe',
+    'C:\\Program Files (x86)\\Everything\\Everything.exe',
+  );
+
+  if (localAppData) {
+    candidates.push(path.join(localAppData, 'Programs', 'Everything', 'Everything.exe'));
+  }
+
+  for (const root of [scoop, scoopGlobal].filter((item): item is string => Boolean(item))) {
+    candidates.push(
+      path.join(root, 'apps', 'everything', 'current', 'Everything.exe'),
+      path.join(root, 'apps', 'es', 'current', 'Everything.exe'),
+    );
+  }
+
+  return [...new Set(candidates.map(item => path.resolve(item)))];
+}
+
 export async function resolveEverythingEsPath(configuredPath?: string) {
   const autoDiscovery = !configuredPath?.trim();
   if (autoDiscovery && cachedAutoDiscovery && cachedEsPath !== undefined) {
@@ -105,6 +140,16 @@ export async function resolveEverythingEsPath(configuredPath?: string) {
 export function resetEverythingEsPathCache() {
   cachedEsPath = undefined;
   cachedAutoDiscovery = true;
+}
+
+async function resolveEverythingAppPath(configuredPath?: string) {
+  const esPath = await resolveEverythingEsPath(configuredPath);
+  for (const candidate of candidateEverythingAppPaths(esPath)) {
+    if (await fileExists(candidate)) {
+      return candidate;
+    }
+  }
+  return null;
 }
 
 function execEverything(esPath: string, args: string[]) {
@@ -185,4 +230,46 @@ export async function searchEverything(
     .slice(0, boundedLimit);
 
   return { status: 'ok', esPath, paths };
+}
+
+export async function startEverything(configuredPath?: string): Promise<EverythingStartResponse> {
+  if (process.platform !== 'win32') {
+    return {
+      ok: false,
+      message: 'Everything 仅支持 Windows 平台。',
+    };
+  }
+
+  const appPath = await resolveEverythingAppPath(configuredPath);
+  if (!appPath) {
+    return {
+      ok: false,
+      message: '未找到 Everything.exe，请先安装 Everything 或在设置中配置 es.exe 路径。',
+    };
+  }
+
+  return new Promise<EverythingStartResponse>((resolve) => {
+    const child = spawn(appPath, [], {
+      detached: true,
+      stdio: 'ignore',
+      windowsHide: true,
+    });
+
+    child.once('error', (error) => {
+      resolve({
+        ok: false,
+        message: error instanceof Error ? error.message : 'Everything 启动失败。',
+        appPath,
+      });
+    });
+
+    child.once('spawn', () => {
+      child.unref();
+      resolve({
+        ok: true,
+        message: 'Everything 已启动。',
+        appPath,
+      });
+    });
+  });
 }

@@ -1,8 +1,18 @@
 <script lang="ts" setup>
-import { onMounted } from 'vue';
+import { onBeforeUnmount, onMounted } from 'vue';
+import type { AppConfig } from '@/contracts/app_config';
+import {
+  SYSTEM_FONT_OPTION_VALUE,
+  SYSTEM_FONT_STACK,
+} from '@/contracts/app_config';
 
 // ipcRenderer is injected by preload.ts into every renderer window
 const ipc = (window as any).ipcRenderer as { send: (channel: string, ...args: any[]) => void } | undefined;
+let removeConfigListener: (() => void) | undefined;
+
+if (!document.documentElement.classList.contains('light') && !document.documentElement.classList.contains('dark')) {
+  document.documentElement.classList.add('light');
+}
 
 // ── Actions ────────────────────────────────────────────────────────────────────
 
@@ -14,10 +24,33 @@ function handleQuit() {
   ipc?.send('tray:quit');
 }
 
+function buildFontFamilyValue(fontFamily: string) {
+  if (fontFamily === SYSTEM_FONT_OPTION_VALUE) {
+    return SYSTEM_FONT_STACK;
+  }
+
+  const escaped = fontFamily.replace(/"/g, '\\"');
+  return `"${escaped}", ${SYSTEM_FONT_STACK}`;
+}
+
+function applyRuntimeConfig(config: AppConfig) {
+  const root = document.documentElement;
+  root.classList.remove('light', 'dark');
+  root.classList.add(config.appearance.theme);
+  root.style.fontSize = `${config.appearance.baseFontSize}px`;
+  root.style.setProperty('--app-font-family', buildFontFamilyValue(config.appearance.fontFamily));
+}
+
 // Close on blur is handled automatically by the main process (BrowserWindow blur event).
 
 onMounted(() => {
   ipc?.send('tray-menu:ready');
+  void window.appConfigApi?.getConfig().then(applyRuntimeConfig);
+  removeConfigListener = window.appConfigApi?.onDidChange(applyRuntimeConfig);
+});
+
+onBeforeUnmount(() => {
+  removeConfigListener?.();
 });
 </script>
 
@@ -71,7 +104,10 @@ onMounted(() => {
   </div>
 </template>
 
-<style>
+<style lang="scss">
+@use '../main/assets/foundation.scss';
+@use '../main/assets/theme.scss';
+
 /* Reset */
 *, *::before, *::after {
   box-sizing: border-box;
@@ -81,7 +117,7 @@ onMounted(() => {
 
 /* Global font */
 body {
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+  font-family: var(--app-font-family, 'Geist Variable', -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif);
   -webkit-font-smoothing: antialiased;
   background: transparent;
   overflow: hidden;
@@ -94,12 +130,12 @@ body {
   width: 100%;
   height: 100%;
   padding: 5px;
-  background: var(--menu-bg, rgba(28, 30, 38, 0.96));
-  border: 1px solid var(--menu-border, rgba(255, 255, 255, 0.10));
-  border-radius: 10px;
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4), 0 2px 8px rgba(0, 0, 0, 0.3);
-  backdrop-filter: blur(20px) saturate(1.8);
-  -webkit-backdrop-filter: blur(20px) saturate(1.8);
+  background: var(--ui-menu-bg);
+  border: var(--ui-border-width-thin) solid var(--menu-border-color);
+  border-radius: var(--ui-radius-sm);
+  box-shadow: var(--ui-menu-shadow);
+  backdrop-filter: var(--ui-backdrop-blur-md) saturate(1.35);
+  -webkit-backdrop-filter: var(--ui-backdrop-blur-md) saturate(1.35);
   display: flex;
   flex-direction: column;
   gap: 2px;
@@ -135,16 +171,16 @@ body {
 }
 
 .tray-menu__header-title {
-  font-size: 12px;
+  font-size: var(--ui-font-size-xs);
   font-weight: 650;
-  color: rgba(255, 255, 255, 0.90);
-  letter-spacing: 0.01em;
+  color: var(--ui-text-primary);
+  letter-spacing: 0;
 }
 
 .tray-menu__divider {
   height: 1px;
   margin: 2px 4px;
-  background: rgba(255, 255, 255, 0.08);
+  background: var(--menu-divider-color);
 }
 
 .tray-menu__item {
@@ -154,11 +190,11 @@ body {
   width: 100%;
   padding: 7px 10px;
   border: none;
-  border-radius: 6px;
+  border-radius: var(--ui-radius-xs);
   background: transparent;
-  color: rgba(255, 255, 255, 0.82);
+  color: var(--menu-item-text-color);
   cursor: pointer;
-  font-size: 13px;
+  font-size: var(--ui-font-size-sm);
   font-weight: 500;
   font-family: inherit;
   text-align: left;
@@ -166,22 +202,22 @@ body {
 }
 
 .tray-menu__item:hover {
-  background: rgba(255, 255, 255, 0.10);
-  color: rgba(255, 255, 255, 1);
+  background: var(--menu-item-hover-bg-color);
+  color: var(--ui-text-primary);
 }
 
 .tray-menu__item:active {
-  background: rgba(255, 255, 255, 0.15);
+  background: var(--ui-tabs-active-bg);
   transform: scale(0.99);
 }
 
 .tray-menu__item--danger {
-  color: rgba(255, 90, 90, 0.90);
+  color: var(--menu-danger-color);
 }
 
 .tray-menu__item--danger:hover {
-  background: rgba(255, 70, 70, 0.15);
-  color: rgba(255, 100, 100, 1);
+  background: var(--menu-danger-hover-bg-color);
+  color: var(--menu-danger-color);
 }
 
 .tray-menu__item-icon {

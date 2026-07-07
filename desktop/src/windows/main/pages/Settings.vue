@@ -520,7 +520,7 @@ const detachedWindowShortcutRows: Array<{
   label: string;
   description: string;
 }> = [
-    { key: 'openDetachedTerminal', label: '独立窗口：终端', description: '系统级快捷键，打开终端页面独立窗口。' },
+    { key: 'openDetachedTerminal', label: '独立窗口：终端', description: '系统级快捷键，默认 Ctrl+Shift+T 打开终端页面独立窗口。' },
     { key: 'openDetachedFtp', label: '独立窗口：传输', description: '系统级快捷键，打开传输页面独立窗口。' },
     { key: 'openDetachedTodo', label: '独立窗口：待办', description: '系统级快捷键，打开待办页面独立窗口。' },
     { key: 'openDetachedAi', label: '独立窗口：AI', description: '系统级快捷键，打开 AI 页面独立窗口。' },

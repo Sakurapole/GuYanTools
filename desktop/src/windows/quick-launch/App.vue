@@ -43,6 +43,36 @@
         {{ errors[0] }}
       </div>
 
+      <section v-if="everythingStartPromptVisible" class="quick-launch-everything-prompt" role="dialog" aria-live="polite">
+        <div class="quick-launch-everything-prompt__body">
+          <strong>Everything 未运行</strong>
+          <span>{{ everythingStartPromptMessage }}</span>
+        </div>
+        <div class="quick-launch-everything-prompt__actions">
+          <button type="button" class="quick-launch-everything-prompt__button" @click="dismissEverythingStartPrompt">
+            稍后
+          </button>
+          <button
+            type="button"
+            class="quick-launch-everything-prompt__button quick-launch-everything-prompt__button--primary"
+            :disabled="everythingStarting"
+            @click="startEverythingFromPrompt"
+          >
+            {{ everythingStarting ? '启动中' : '启动 Everything' }}
+          </button>
+        </div>
+      </section>
+
+      <section v-if="searchProgressVisible" class="quick-launch-progress" role="status" aria-live="polite">
+        <div class="quick-launch-progress__meta">
+          <span>{{ searchProgressText }}</span>
+          <small>{{ searchProgressCountText }}</small>
+        </div>
+        <div class="quick-launch-progress__track">
+          <span class="quick-launch-progress__bar" :style="{ width: `${searchProgressPercent}%` }" />
+        </div>
+      </section>
+
       <UiScrollbar
         ref="resultsScrollbarRef"
         class="quick-launch-results-scrollbar"
@@ -147,6 +177,7 @@ import type {
   QuickLaunchProviderId,
   QuickLaunchResult,
   QuickLaunchSearchInput,
+  QuickLaunchSearchProgressEvent,
 } from '@/contracts/quick_launch';
 import UiScrollbar from '@/windows/main/components/ui/UiScrollbar.vue';
 
@@ -207,6 +238,10 @@ const historyVisible = ref(false);
 const historyActiveIndex = ref(0);
 const queryHistory = ref<string[]>([]);
 const gameModeEnabled = ref(false);
+const everythingStartPromptResult = ref<QuickLaunchResult | null>(null);
+const dismissedEverythingStartPromptKey = ref('');
+const everythingStarting = ref(false);
+const searchProgress = ref<QuickLaunchSearchProgressEvent | null>(null);
 const windowVisible = ref(false);
 const selectedProviderFilters = ref<QuickLaunchProviderId[]>([]);
 const inputRef = ref<HTMLInputElement | null>(null);
@@ -360,11 +395,69 @@ const quickLaunchPanelStyle = computed<CSSProperties>(() => {
   return style;
 });
 const emptyStateText = computed(() => '没有匹配结果');
+const everythingStartPromptVisible = computed(() => Boolean(everythingStartPromptResult.value));
+const everythingStartPromptMessage = computed(() => (
+  everythingStartPromptResult.value?.subtitle
+  || 'Everything 当前未运行。是否现在启动 Everything 并继续搜索本机文件？'
+));
+const searchProgressVisible = computed(() => Boolean(loading.value || searchProgress.value));
+const searchProgressPercent = computed(() => {
+  const progress = searchProgress.value;
+  if (!progress) {
+    return loading.value ? 8 : 0;
+  }
+
+  if (progress.stage === 'completed') {
+    return 100;
+  }
+
+  if (progress.stage === 'ranking') {
+    return Math.max(94, searchProgressProviderPercent(progress));
+  }
+
+  return searchProgressProviderPercent(progress);
+});
+const searchProgressText = computed(() => {
+  const progress = searchProgress.value;
+  if (!progress) {
+    return '准备搜索。';
+  }
+
+  const providerLabel = progress.providerId ? providerLabels[progress.providerId] : '';
+  if (progress.stage === 'provider-started' && providerLabel) {
+    return `正在搜索：${providerLabel}`;
+  }
+  if (progress.stage === 'provider-completed' && providerLabel) {
+    return `已完成：${providerLabel}`;
+  }
+  if (progress.stage === 'ranking') {
+    return progress.resultCount === undefined
+      ? '正在整理结果。'
+      : `正在整理 ${progress.resultCount} 条候选结果。`;
+  }
+  if (progress.stage === 'completed') {
+    return progress.resultCount === undefined
+      ? '搜索完成。'
+      : `搜索完成，得到 ${progress.resultCount} 条结果。`;
+  }
+
+  return progress.message || '准备搜索。';
+});
+const searchProgressCountText = computed(() => {
+  const progress = searchProgress.value;
+  if (!progress || progress.totalProviders <= 0) {
+    return loading.value ? '搜索中' : '';
+  }
+
+  return `${progress.completedProviders}/${progress.totalProviders}`;
+});
 let sessionCounter = 0;
 let activeSessionId = '';
 let removeConfigListener: (() => void) | undefined;
 let removeRevealListener: (() => void) | undefined;
 let removeHiddenListener: (() => void) | undefined;
+let removeSearchProgressListener: (() => void) | undefined;
+let clearSearchProgressTimer: number | undefined;
 
 watch(query, () => {
   if (actionPanelOpen.value) {
@@ -412,6 +505,7 @@ watch(filteredContextActions, () => {
 onMounted(async () => {
   removeRevealListener = api.value?.onReveal(playWindowReveal);
   removeHiddenListener = api.value?.onHidden(resetWindowReveal);
+  removeSearchProgressListener = api.value?.onSearchProgress(handleSearchProgress);
 
   try {
     await loadAppConfig();
@@ -434,6 +528,8 @@ onBeforeUnmount(() => {
   removeConfigListener?.();
   removeRevealListener?.();
   removeHiddenListener?.();
+  removeSearchProgressListener?.();
+  window.clearTimeout(clearSearchProgressTimer);
 });
 
 async function loadAppConfig() {
@@ -461,6 +557,7 @@ function waitForAnimationFrame() {
 }
 
 async function playWindowReveal() {
+  dismissedEverythingStartPromptKey.value = '';
   windowVisible.value = false;
   await nextTick();
   await waitForAnimationFrame();
@@ -476,6 +573,16 @@ async function search() {
   const sessionId = `renderer-${Date.now()}-${++sessionCounter}`;
   activeSessionId = sessionId;
   loading.value = true;
+  window.clearTimeout(clearSearchProgressTimer);
+  searchProgress.value = {
+    sessionId,
+    query: query.value,
+    stage: 'started',
+    completedProviders: 0,
+    totalProviders: selectedProviderFilters.value.length || quickLaunchConfig.value.enabledProviders.length,
+    elapsedMs: 0,
+    message: '准备搜索。',
+  };
 
   try {
     const response = await api.value?.search(cloneQuickLaunchSearchInput(sessionId));
@@ -484,16 +591,34 @@ async function search() {
     }
     results.value = response?.results ?? [];
     errors.value = (response?.errors ?? []).map((error) => `${providerLabels[error.providerId]}：${error.message}`);
+    syncEverythingStartPrompt(results.value);
     activeIndex.value = 0;
   } catch (error) {
     if (sessionId === activeSessionId) {
       results.value = [];
       errors.value = [formatError(error)];
+      everythingStartPromptResult.value = null;
     }
   } finally {
     if (sessionId === activeSessionId) {
       loading.value = false;
     }
+  }
+}
+
+function handleSearchProgress(progress: QuickLaunchSearchProgressEvent) {
+  if (progress.sessionId !== activeSessionId) {
+    return;
+  }
+
+  searchProgress.value = progress;
+  if (progress.stage === 'completed') {
+    window.clearTimeout(clearSearchProgressTimer);
+    clearSearchProgressTimer = window.setTimeout(() => {
+      if (searchProgress.value?.sessionId === progress.sessionId) {
+        searchProgress.value = null;
+      }
+    }, 700);
   }
 }
 
@@ -508,6 +633,11 @@ async function execute(
 
   executing.value = true;
   try {
+    if (result.action.type === 'start-everything') {
+      await startEverythingFromPrompt();
+      return;
+    }
+
     if (mode !== 'copy' && mode !== 'copy-path') {
       recordQueryHistory(historyQuery);
       await hideForLaunchBeforeExecute();
@@ -554,6 +684,80 @@ function openActionPanelForResult(index: number) {
 async function refreshIndex() {
   await api.value?.refreshIndex();
   await search();
+}
+
+function getEverythingStartPromptKey(result: QuickLaunchResult) {
+  return result.action.type === 'start-everything'
+    ? result.action.esPath || result.detail || result.id
+    : '';
+}
+
+function findEverythingStartResult(items: QuickLaunchResult[]) {
+  return items.find((result) => result.action.type === 'start-everything') ?? null;
+}
+
+function syncEverythingStartPrompt(items: QuickLaunchResult[]) {
+  const result = findEverythingStartResult(items);
+  if (!result) {
+    everythingStartPromptResult.value = null;
+    return;
+  }
+
+  const key = getEverythingStartPromptKey(result);
+  if (key && dismissedEverythingStartPromptKey.value === key) {
+    everythingStartPromptResult.value = null;
+    return;
+  }
+
+  everythingStartPromptResult.value = cloneQuickLaunchResult(result);
+}
+
+function dismissEverythingStartPrompt() {
+  const result = everythingStartPromptResult.value;
+  if (result) {
+    dismissedEverythingStartPromptKey.value = getEverythingStartPromptKey(result);
+  }
+  everythingStartPromptResult.value = null;
+  void nextTick(() => inputRef.value?.focus());
+}
+
+async function startEverythingFromPrompt() {
+  if (everythingStarting.value) {
+    return;
+  }
+
+  everythingStarting.value = true;
+  try {
+    const response = await api.value?.startEverything();
+    if (!response?.ok) {
+      errors.value = [response?.message || 'Everything 启动失败。'];
+      return;
+    }
+
+    everythingStartPromptResult.value = null;
+    errors.value = ['Everything 已启动，正在重新搜索。'];
+    await wait(1200);
+    await refreshIndex();
+  } catch (error) {
+    errors.value = [`Everything 启动失败：${formatError(error)}`];
+  } finally {
+    everythingStarting.value = false;
+    void nextTick(() => inputRef.value?.focus());
+  }
+}
+
+function wait(ms: number) {
+  return new Promise<void>((resolve) => window.setTimeout(resolve, ms));
+}
+
+function searchProgressProviderPercent(progress: QuickLaunchSearchProgressEvent) {
+  if (progress.totalProviders <= 0) {
+    return progress.stage === 'started' ? 8 : 100;
+  }
+
+  const completedPercent = (progress.completedProviders / progress.totalProviders) * 88;
+  const activeProviderOffset = progress.stage === 'provider-started' ? 5 : 0;
+  return Math.max(8, Math.min(92, 8 + completedPercent + activeProviderOffset));
 }
 
 function handleKeydown(event: KeyboardEvent) {
@@ -1121,6 +1325,8 @@ function describeActionTarget(result: QuickLaunchResult) {
       return result.action.commandId;
     case 'copy-text':
       return result.action.text;
+    case 'start-everything':
+      return result.action.esPath || 'Everything.exe';
     default:
       return '';
   }
@@ -1256,6 +1462,10 @@ function formatError(error: unknown) {
 
   .quick-launch-panel {
     transform: none;
+    transition: none;
+  }
+
+  .quick-launch-progress__bar {
     transition: none;
   }
 }
@@ -1521,6 +1731,158 @@ function formatError(error: unknown) {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+
+.quick-launch-everything-prompt {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 14px;
+  padding: 12px 16px;
+  border-top: 1px solid rgba(31, 99, 196, 0.14);
+  border-bottom: 1px solid rgba(31, 99, 196, 0.16);
+  background: rgba(232, 242, 255, calc(var(--quick-launch-window-opacity, 0.96) * 0.9));
+}
+
+.quick-launch-everything-prompt__body {
+  display: grid;
+  min-width: 0;
+  gap: 3px;
+
+  strong {
+    color: var(--quick-launch-text-color, #17202b);
+    font-size: 13px;
+    font-weight: 700;
+    line-height: 1.3;
+  }
+
+  span {
+    min-width: 0;
+    overflow: hidden;
+    color: color-mix(in srgb, var(--quick-launch-text-color, #4f6278) 72%, transparent);
+    font-size: 12px;
+    line-height: 1.4;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+}
+
+.quick-launch-everything-prompt__actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.quick-launch-everything-prompt__button {
+  min-height: 30px;
+  padding: 0 11px;
+  border: 1px solid rgba(31, 99, 196, 0.18);
+  border-radius: 7px;
+  background: rgba(255, 255, 255, 0.72);
+  color: #24568f;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 650;
+  cursor: pointer;
+  transition:
+    background-color 140ms ease,
+    border-color 140ms ease,
+    color 140ms ease;
+}
+
+.quick-launch-everything-prompt__button:hover:not(:disabled) {
+  border-color: rgba(31, 99, 196, 0.32);
+  background: rgba(255, 255, 255, 0.92);
+}
+
+.quick-launch-everything-prompt__button:disabled {
+  cursor: not-allowed;
+  opacity: 0.62;
+}
+
+.quick-launch-everything-prompt__button--primary {
+  border-color: color-mix(
+    in srgb,
+    var(--quick-launch-selection-color, #3b82f6) 42%,
+    transparent
+  );
+  background: color-mix(
+    in srgb,
+    var(--quick-launch-selection-color, #3b82f6) 14%,
+    rgba(255, 255, 255, 0.88)
+  );
+  color: var(--quick-launch-selection-color, #24568f);
+}
+
+.quick-launch-progress {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  gap: 7px;
+  padding: 9px 16px 10px;
+  border-bottom: 1px solid rgba(23, 31, 43, 0.08);
+  background: rgba(250, 252, 255, calc(var(--quick-launch-window-opacity, 0.96) * 0.62));
+}
+
+.quick-launch-progress__meta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  min-width: 0;
+  color: color-mix(in srgb, var(--quick-launch-text-color, #526072) 72%, transparent);
+  font-size: 12px;
+  line-height: 1.35;
+
+  span {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  small {
+    flex: 0 0 auto;
+    color: color-mix(in srgb, var(--quick-launch-text-color, #667385) 54%, transparent);
+    font-size: 12px;
+    font-weight: 650;
+  }
+}
+
+.quick-launch-progress__track {
+  height: 3px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: rgba(82, 96, 114, 0.14);
+}
+
+.quick-launch-progress__bar {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: color-mix(
+    in srgb,
+    var(--quick-launch-selection-color, #3b82f6) 70%,
+    #ffffff 10%
+  );
+  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.16) inset;
+  transition: width 180ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@media (max-width: 560px) {
+  .quick-launch-everything-prompt {
+    grid-template-columns: 1fr;
+  }
+
+  .quick-launch-everything-prompt__actions {
+    justify-content: flex-end;
+  }
+
+  .quick-launch-everything-prompt__body span {
+    white-space: normal;
+  }
 }
 
 .quick-launch-action-panel {

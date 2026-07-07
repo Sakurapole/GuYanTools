@@ -173,12 +173,18 @@ const quickLaunchApi: QuickLaunchApi = {
   search: (input) => ipcRenderer.invoke('quick-launch:search', input),
   execute: (result, options) => ipcRenderer.invoke('quick-launch:execute', result, options),
   refreshIndex: (input) => ipcRenderer.invoke('quick-launch:refresh-index', input),
+  startEverything: () => ipcRenderer.invoke('quick-launch:start-everything'),
   setGameMode: (enabled) => ipcRenderer.invoke('quick-launch:set-game-mode', enabled),
   getGameModeStatus: () => ipcRenderer.invoke('quick-launch:get-game-mode-status'),
   resizeWindow: (input) => ipcRenderer.invoke('quick-launch:resize-window', input),
   show: () => ipcRenderer.invoke('quick-launch:show'),
   close: () => ipcRenderer.invoke('quick-launch:close'),
   notifyReady: () => ipcRenderer.invoke('quick-launch:renderer-ready'),
+  onSearchProgress: (listener) => {
+    const wrappedListener = (_event: Electron.IpcRendererEvent, progress: Parameters<typeof listener>[0]) => listener(progress);
+    ipcRenderer.on('quick-launch:search-progress', wrappedListener);
+    return () => ipcRenderer.removeListener('quick-launch:search-progress', wrappedListener);
+  },
   onReveal: (listener) => {
     const wrappedListener = () => listener();
     ipcRenderer.on('quick-launch:reveal', wrappedListener);

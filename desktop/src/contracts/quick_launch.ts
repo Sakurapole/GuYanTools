@@ -24,7 +24,8 @@ export type QuickLaunchAction =
   | { type: 'open-windows-app'; appUserModelId: string }
   | { type: 'show-path-in-folder'; path: string }
   | { type: 'open-external'; url: string }
-  | { type: 'copy-text'; text: string };
+  | { type: 'copy-text'; text: string }
+  | { type: 'start-everything'; esPath?: string };
 
 export type QuickLaunchExecutionMode =
   | 'default'
@@ -101,6 +102,25 @@ export interface QuickLaunchSearchResponse {
   errors: Array<{ providerId: QuickLaunchProviderId; message: string }>;
 }
 
+export type QuickLaunchSearchProgressStage =
+  | 'started'
+  | 'provider-started'
+  | 'provider-completed'
+  | 'ranking'
+  | 'completed';
+
+export interface QuickLaunchSearchProgressEvent {
+  sessionId: string;
+  query: string;
+  stage: QuickLaunchSearchProgressStage;
+  completedProviders: number;
+  totalProviders: number;
+  providerId?: QuickLaunchProviderId;
+  message?: string;
+  resultCount?: number;
+  elapsedMs: number;
+}
+
 export interface QuickLaunchRefreshInput {
   providers?: QuickLaunchProviderId[];
 }
@@ -110,16 +130,24 @@ export interface QuickLaunchRefreshResponse {
   elapsedMs: number;
 }
 
+export interface QuickLaunchStartEverythingResponse {
+  ok: boolean;
+  message: string;
+  appPath?: string;
+}
+
 export interface QuickLaunchApi {
   search: (input: QuickLaunchSearchInput) => Promise<QuickLaunchSearchResponse>;
   execute: (result: QuickLaunchResult, options?: QuickLaunchExecuteOptions) => Promise<void>;
   refreshIndex: (input?: QuickLaunchRefreshInput) => Promise<QuickLaunchRefreshResponse>;
+  startEverything: () => Promise<QuickLaunchStartEverythingResponse>;
   setGameMode: (enabled: boolean) => Promise<boolean>;
   getGameModeStatus: () => Promise<boolean>;
   resizeWindow: (input: QuickLaunchResizeInput) => Promise<void>;
   show: () => Promise<void>;
   close: () => Promise<void>;
   notifyReady: () => Promise<void>;
+  onSearchProgress: (listener: (event: QuickLaunchSearchProgressEvent) => void) => () => void;
   onReveal: (listener: () => void) => () => void;
   onHidden: (listener: () => void) => () => void;
 }

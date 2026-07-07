@@ -44,23 +44,28 @@ async function readMetadata(filePath: string): Promise<FileEntryMetadata> {
 
 function makeUnavailableResult(status: EverythingSearchStatus, message?: string): QuickLaunchResult {
   const isMissing = status === 'missing-es';
+  const isNotRunning = status === 'not-running';
   const title = isMissing ? '配置 Everything 文件搜索' : '启动 Everything 后重试文件搜索';
   const subtitle = message || (isMissing
     ? '请确认已安装 Everything 主程序和 ES 命令行工具，并在设置中配置 es.exe 路径。'
-    : 'Everything 文件索引服务当前不可用。');
+    : isNotRunning
+      ? 'Everything 当前未运行。可以直接启动 Everything 后继续搜索本机文件。'
+      : 'Everything 文件索引服务当前不可用。');
 
   return {
     id: `file:${status}`,
     providerId: 'file',
     title,
     subtitle,
-    detail: isMissing ? EVERYTHING_DOWNLOAD_URL : EVERYTHING_HELP_URL,
+    detail: isMissing ? EVERYTHING_DOWNLOAD_URL : isNotRunning ? 'Everything.exe' : EVERYTHING_HELP_URL,
     keywords: ['everything', 'es.exe', 'file search', '文件搜索'],
     score: isMissing ? 48 : 46,
-    action: {
-      type: 'open-external',
-      url: isMissing ? EVERYTHING_DOWNLOAD_URL : EVERYTHING_HELP_URL,
-    },
+    action: isNotRunning
+      ? { type: 'start-everything' }
+      : {
+          type: 'open-external',
+          url: isMissing ? EVERYTHING_DOWNLOAD_URL : EVERYTHING_HELP_URL,
+        },
   };
 }
 
