@@ -185,6 +185,11 @@ const quickLaunchApi: QuickLaunchApi = {
     ipcRenderer.on('quick-launch:search-progress', wrappedListener);
     return () => ipcRenderer.removeListener('quick-launch:search-progress', wrappedListener);
   },
+  onSearchResults: (listener) => {
+    const wrappedListener = (_event: Electron.IpcRendererEvent, payload: Parameters<typeof listener>[0]) => listener(payload);
+    ipcRenderer.on('quick-launch:search-results', wrappedListener);
+    return () => ipcRenderer.removeListener('quick-launch:search-results', wrappedListener);
+  },
   onReveal: (listener) => {
     const wrappedListener = () => listener();
     ipcRenderer.on('quick-launch:reveal', wrappedListener);

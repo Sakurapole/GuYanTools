@@ -122,32 +122,43 @@
         </div>
 
         <div v-else class="quick-launch-results">
-          <button
-            v-for="(result, index) in results"
-            :key="result.id"
-            :ref="(element) => setResultButtonRef(element, index)"
-            class="quick-launch-result"
-            :class="{ 'quick-launch-result--active': index === activeIndex }"
-            type="button"
-            aria-haspopup="menu"
-            @mouseenter="activeIndex = index"
-            @mousedown.prevent="handleResultMouseDown($event, result, index)"
-            @contextmenu.prevent="openActionPanelForResult(index)"
+          <section
+            v-for="section in resultSections"
+            :key="section.providerId"
+            class="quick-launch-result-section"
+            :aria-label="section.title"
           >
-            <span v-if="result.iconDataUrl" class="quick-launch-result__icon">
-              <img :src="result.iconDataUrl" alt="" />
-            </span>
-            <span v-else class="quick-launch-result__provider">{{ providerLabels[result.providerId] }}</span>
-            <span class="quick-launch-result__body">
-              <span class="quick-launch-result__title">{{ result.title }}</span>
-              <span v-if="result.subtitle" class="quick-launch-result__subtitle">{{ result.subtitle }}</span>
-            </span>
-          </button>
+            <header class="quick-launch-result-section__header">
+              <span>{{ section.title }}</span>
+              <small>{{ section.statusText }}</small>
+            </header>
+            <button
+              v-for="item in section.items"
+              :key="item.result.id"
+              :ref="(element) => setResultButtonRef(element, item.index)"
+              class="quick-launch-result"
+              :class="{ 'quick-launch-result--active': item.index === activeIndex }"
+              type="button"
+              aria-haspopup="menu"
+              @mouseenter="activeIndex = item.index"
+              @mousedown.prevent="handleResultMouseDown($event, item.result, item.index)"
+              @contextmenu.prevent="openActionPanelForResult(item.index)"
+            >
+              <span v-if="item.result.iconDataUrl" class="quick-launch-result__icon">
+                <img :src="item.result.iconDataUrl" alt="" />
+              </span>
+              <span v-else class="quick-launch-result__provider">{{ providerLabels[item.result.providerId] }}</span>
+              <span class="quick-launch-result__body">
+                <span class="quick-launch-result__title">{{ item.result.title }}</span>
+                <span v-if="item.result.subtitle" class="quick-launch-result__subtitle">{{ item.result.subtitle }}</span>
+              </span>
+            </button>
+          </section>
 
           <div v-if="!loading && query && results.length === 0" class="quick-launch-empty">
             {{ emptyStateText }}
           </div>
-          <div v-if="loading" class="quick-launch-empty">
+          <div v-if="loading && results.length === 0" class="quick-launch-empty">
             正在搜索
           </div>
         </div>
@@ -171,13 +182,16 @@ import { computed, nextTick, onBeforeUnmount, onMounted, ref, toRaw, watch } fro
 import type { CSSProperties } from 'vue';
 import { createDefaultAppConfig, type AppConfig } from '@/contracts/app_config';
 import { resolveThemeBackground } from '@/contracts/background';
-import type {
-  QuickLaunchExecuteOptions,
-  QuickLaunchExecutionMode,
-  QuickLaunchProviderId,
-  QuickLaunchResult,
-  QuickLaunchSearchInput,
-  QuickLaunchSearchProgressEvent,
+import {
+  QUICK_LAUNCH_PROVIDER_DISPLAY_ORDER,
+  QUICK_LAUNCH_PROVIDER_SECTION_LABELS,
+  type QuickLaunchExecuteOptions,
+  type QuickLaunchExecutionMode,
+  type QuickLaunchProviderId,
+  type QuickLaunchResult,
+  type QuickLaunchSearchInput,
+  type QuickLaunchSearchProgressEvent,
+  type QuickLaunchSearchResultsEvent,
 } from '@/contracts/quick_launch';
 import UiScrollbar from '@/windows/main/components/ui/UiScrollbar.vue';
 
@@ -222,6 +236,22 @@ interface QuickLaunchContextAction {
   shortcut: string;
 }
 
+interface QuickLaunchResultSectionItem {
+  result: QuickLaunchResult;
+  index: number;
+}
+
+interface QuickLaunchResultSection {
+  providerId: QuickLaunchProviderId;
+  title: string;
+  statusText: string;
+  items: QuickLaunchResultSectionItem[];
+}
+
+const providerDisplayPriority = new Map<QuickLaunchProviderId, number>(
+  QUICK_LAUNCH_PROVIDER_DISPLAY_ORDER.map((providerId, index) => [providerId, index]),
+);
+
 const query = ref('');
 const loading = ref(false);
 const executing = ref(false);
@@ -242,6 +272,8 @@ const everythingStartPromptResult = ref<QuickLaunchResult | null>(null);
 const dismissedEverythingStartPromptKey = ref('');
 const everythingStarting = ref(false);
 const searchProgress = ref<QuickLaunchSearchProgressEvent | null>(null);
+const searchPendingProviderIds = ref<QuickLaunchProviderId[]>([]);
+const receivedIncrementalResults = ref(false);
 const windowVisible = ref(false);
 const selectedProviderFilters = ref<QuickLaunchProviderId[]>([]);
 const inputRef = ref<HTMLInputElement | null>(null);
@@ -259,6 +291,23 @@ const effectiveMaxResults = computed(() => (
   Math.max(1, Math.min(50, Math.round(runtimeMaxResults.value ?? quickLaunchConfig.value.maxResults ?? 12)))
 ));
 const activeResult = computed(() => historyVisible.value ? null : results.value[activeIndex.value]);
+const resultSections = computed<QuickLaunchResultSection[]>(() => {
+  const sections = new Map<QuickLaunchProviderId, QuickLaunchResultSectionItem[]>();
+  results.value.forEach((result, index) => {
+    const items = sections.get(result.providerId) ?? [];
+    items.push({ result, index });
+    sections.set(result.providerId, items);
+  });
+
+  return Array.from(sections.entries())
+    .sort(([leftProviderId], [rightProviderId]) => providerSortWeight(leftProviderId) - providerSortWeight(rightProviderId))
+    .map(([providerId, items]) => ({
+      providerId,
+      title: QUICK_LAUNCH_PROVIDER_SECTION_LABELS[providerId] ?? providerLabels[providerId],
+      statusText: searchPendingProviderIds.value.includes(providerId) ? '搜索中' : `${items.length} 项`,
+      items,
+    }));
+});
 const actionTargetResult = computed(() => (
   actionPanelOpen.value ? contextPanelTargetResult.value : activeResult.value
 ));
@@ -457,6 +506,7 @@ let removeConfigListener: (() => void) | undefined;
 let removeRevealListener: (() => void) | undefined;
 let removeHiddenListener: (() => void) | undefined;
 let removeSearchProgressListener: (() => void) | undefined;
+let removeSearchResultsListener: (() => void) | undefined;
 let clearSearchProgressTimer: number | undefined;
 
 watch(query, () => {
@@ -506,6 +556,7 @@ onMounted(async () => {
   removeRevealListener = api.value?.onReveal(playWindowReveal);
   removeHiddenListener = api.value?.onHidden(resetWindowReveal);
   removeSearchProgressListener = api.value?.onSearchProgress(handleSearchProgress);
+  removeSearchResultsListener = api.value?.onSearchResults(handleSearchResults);
 
   try {
     await loadAppConfig();
@@ -529,6 +580,7 @@ onBeforeUnmount(() => {
   removeRevealListener?.();
   removeHiddenListener?.();
   removeSearchProgressListener?.();
+  removeSearchResultsListener?.();
   window.clearTimeout(clearSearchProgressTimer);
 });
 
@@ -573,13 +625,18 @@ async function search() {
   const sessionId = `renderer-${Date.now()}-${++sessionCounter}`;
   activeSessionId = sessionId;
   loading.value = true;
+  receivedIncrementalResults.value = false;
+  searchPendingProviderIds.value = expectedSearchProviderIds();
+  results.value = [];
+  errors.value = [];
+  everythingStartPromptResult.value = null;
   window.clearTimeout(clearSearchProgressTimer);
   searchProgress.value = {
     sessionId,
     query: query.value,
     stage: 'started',
     completedProviders: 0,
-    totalProviders: selectedProviderFilters.value.length || quickLaunchConfig.value.enabledProviders.length,
+    totalProviders: searchPendingProviderIds.value.length,
     elapsedMs: 0,
     message: '准备搜索。',
   };
@@ -589,7 +646,11 @@ async function search() {
     if (response?.sessionId !== activeSessionId) {
       return;
     }
-    results.value = response?.results ?? [];
+    if (!receivedIncrementalResults.value) {
+      results.value = sortQuickLaunchResults(response?.results ?? []);
+    } else {
+      results.value = sortQuickLaunchResults(results.value);
+    }
     errors.value = (response?.errors ?? []).map((error) => `${providerLabels[error.providerId]}：${error.message}`);
     syncEverythingStartPrompt(results.value);
     activeIndex.value = 0;
@@ -602,6 +663,7 @@ async function search() {
   } finally {
     if (sessionId === activeSessionId) {
       loading.value = false;
+      searchPendingProviderIds.value = [];
     }
   }
 }
@@ -612,7 +674,11 @@ function handleSearchProgress(progress: QuickLaunchSearchProgressEvent) {
   }
 
   searchProgress.value = progress;
+  if (progress.stage === 'provider-completed' && progress.providerId) {
+    searchPendingProviderIds.value = searchPendingProviderIds.value.filter((providerId) => providerId !== progress.providerId);
+  }
   if (progress.stage === 'completed') {
+    searchPendingProviderIds.value = [];
     window.clearTimeout(clearSearchProgressTimer);
     clearSearchProgressTimer = window.setTimeout(() => {
       if (searchProgress.value?.sessionId === progress.sessionId) {
@@ -620,6 +686,20 @@ function handleSearchProgress(progress: QuickLaunchSearchProgressEvent) {
       }
     }, 700);
   }
+}
+
+function handleSearchResults(payload: QuickLaunchSearchResultsEvent) {
+  if (payload.sessionId !== activeSessionId) {
+    return;
+  }
+
+  receivedIncrementalResults.value = true;
+  const providerResults = payload.results.map((result) => cloneQuickLaunchResult(result));
+  results.value = sortQuickLaunchResults([
+    ...results.value.filter((result) => result.providerId !== payload.providerId),
+    ...providerResults,
+  ]);
+  syncEverythingStartPrompt(results.value);
 }
 
 async function execute(
@@ -758,6 +838,29 @@ function searchProgressProviderPercent(progress: QuickLaunchSearchProgressEvent)
   const completedPercent = (progress.completedProviders / progress.totalProviders) * 88;
   const activeProviderOffset = progress.stage === 'provider-started' ? 5 : 0;
   return Math.max(8, Math.min(92, 8 + completedPercent + activeProviderOffset));
+}
+
+function expectedSearchProviderIds() {
+  const configuredProviderIds = selectedProviderFilters.value.length
+    ? selectedProviderFilters.value
+    : quickLaunchConfig.value.enabledProviders;
+  const enabledProviderIds = new Set(quickLaunchConfig.value.enabledProviders);
+  return configuredProviderIds.filter((providerId) => enabledProviderIds.has(providerId));
+}
+
+function providerSortWeight(providerId: QuickLaunchProviderId) {
+  return providerDisplayPriority.get(providerId) ?? Number.MAX_SAFE_INTEGER;
+}
+
+function sortQuickLaunchResults(items: QuickLaunchResult[]) {
+  return [...items].sort((left, right) => {
+    const providerDelta = providerSortWeight(left.providerId) - providerSortWeight(right.providerId);
+    if (providerDelta !== 0) {
+      return providerDelta;
+    }
+
+    return right.score - left.score || left.title.localeCompare(right.title);
+  });
 }
 
 function handleKeydown(event: KeyboardEvent) {
@@ -1568,6 +1671,39 @@ function formatError(error: unknown) {
 .quick-launch-results {
   min-height: 100%;
   padding: 8px;
+}
+
+.quick-launch-result-section + .quick-launch-result-section {
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px solid rgba(82, 96, 114, 0.1);
+}
+
+.quick-launch-result-section__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  min-height: 28px;
+  padding: 0 10px 4px;
+  color: color-mix(in srgb, var(--quick-launch-text-color, #526072) 66%, transparent);
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1.35;
+
+  span,
+  small {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  small {
+    flex: 0 0 auto;
+    color: color-mix(in srgb, var(--quick-launch-text-color, #718096) 50%, transparent);
+    font-size: 11px;
+    font-weight: 650;
+  }
 }
 
 .quick-launch-history {

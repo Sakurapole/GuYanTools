@@ -19,6 +19,8 @@ export function registerQuickLaunchIpcHandlers() {
   ipcMain.handle('quick-launch:search', async (_event, input: QuickLaunchSearchInput) =>
     quickLaunchService.search(input, (progress) => {
       _event.sender.send('quick-launch:search-progress', progress);
+    }, (payload) => {
+      _event.sender.send('quick-launch:search-results', payload);
     }),
   );
   ipcMain.handle('quick-launch:execute', async (

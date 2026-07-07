@@ -3,19 +3,21 @@ import { randomUUID } from 'node:crypto';
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import { clipboard, shell, type BrowserWindow } from 'electron';
-import type {
-  QuickLaunchAction,
-  QuickLaunchExecuteOptions,
-  QuickLaunchExecutionMode,
-  QuickLaunchProviderId,
-  QuickLaunchRefreshInput,
-  QuickLaunchRefreshResponse,
-  QuickLaunchResizeInput,
-  QuickLaunchResult,
-  QuickLaunchSearchInput,
-  QuickLaunchSearchProgressEvent,
-  QuickLaunchSearchResponse,
-  QuickLaunchStartEverythingResponse,
+import {
+  QUICK_LAUNCH_PROVIDER_DISPLAY_ORDER,
+  type QuickLaunchAction,
+  type QuickLaunchExecuteOptions,
+  type QuickLaunchExecutionMode,
+  type QuickLaunchProviderId,
+  type QuickLaunchRefreshInput,
+  type QuickLaunchRefreshResponse,
+  type QuickLaunchResizeInput,
+  type QuickLaunchResult,
+  type QuickLaunchSearchInput,
+  type QuickLaunchSearchProgressEvent,
+  type QuickLaunchSearchResultsEvent,
+  type QuickLaunchSearchResponse,
+  type QuickLaunchStartEverythingResponse,
 } from '@/contracts/quick_launch';
 import { appConfigManager } from '@/main/app-config/manager';
 import { pluginHost } from '@/main/plugin-host';
@@ -47,6 +49,20 @@ interface MainWindowBridge {
 
 const DEFAULT_LIMIT = 12;
 type QuickLaunchSearchProgressReporter = (event: QuickLaunchSearchProgressEvent) => void;
+type QuickLaunchSearchResultsReporter = (event: QuickLaunchSearchResultsEvent) => void;
+const providerPriority = new Map<QuickLaunchProviderId, number>(
+  QUICK_LAUNCH_PROVIDER_DISPLAY_ORDER.map((providerId, index) => [providerId, index]),
+);
+
+function compareQuickLaunchResults(left: QuickLaunchResult, right: QuickLaunchResult) {
+  const priorityDelta = (providerPriority.get(left.providerId) ?? Number.MAX_SAFE_INTEGER)
+    - (providerPriority.get(right.providerId) ?? Number.MAX_SAFE_INTEGER);
+  if (priorityDelta !== 0) {
+    return priorityDelta;
+  }
+
+  return right.score - left.score || left.title.localeCompare(right.title);
+}
 
 export class QuickLaunchService {
   private mainWindowBridge: MainWindowBridge | null = null;
@@ -71,6 +87,7 @@ export class QuickLaunchService {
   async search(
     input: QuickLaunchSearchInput,
     onProgress?: QuickLaunchSearchProgressReporter,
+    onResults?: QuickLaunchSearchResultsReporter,
   ): Promise<QuickLaunchSearchResponse> {
     const startedAt = Date.now();
     const config = await appConfigManager.getConfig();
@@ -100,6 +117,15 @@ export class QuickLaunchService {
         ...patch,
       });
     };
+    const emitResults = (providerId: QuickLaunchProviderId, providerResults: QuickLaunchResult[]) => {
+      onResults?.({
+        sessionId,
+        query,
+        providerId,
+        results: providerResults,
+        elapsedMs: Date.now() - startedAt,
+      });
+    };
 
     if (!feature.enabled || searchedProviders.length === 0) {
       emitProgress('completed', { message: feature.enabled ? '没有启用的搜索源。' : '快速启动已关闭。' });
@@ -125,6 +151,7 @@ export class QuickLaunchService {
       emitProgress('provider-started', { providerId });
       try {
         const providerResults = await provider.search({ query, limit });
+        emitResults(providerId, providerResults);
         return providerResults;
       } catch (error) {
         const message = error instanceof Error ? error.message : String(error);
@@ -148,7 +175,7 @@ export class QuickLaunchService {
       console.warn('[quick-launch] Failed to apply usage history:', error);
     }
     const results = decorated
-      .sort((left, right) => right.score - left.score || left.title.localeCompare(right.title))
+      .sort(compareQuickLaunchResults)
       .slice(0, limit);
 
     emitProgress('completed', {

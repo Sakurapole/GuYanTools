@@ -11,6 +11,30 @@ export type QuickLaunchProviderId =
   | 'app'
   | 'file';
 
+export const QUICK_LAUNCH_PROVIDER_DISPLAY_ORDER: QuickLaunchProviderId[] = [
+  'app',
+  'internal-route',
+  'ssh',
+  'ftp',
+  'file',
+  'terminal',
+  'todo',
+  'knowledge',
+  'plugin',
+];
+
+export const QUICK_LAUNCH_PROVIDER_SECTION_LABELS: Record<QuickLaunchProviderId, string> = {
+  app: '应用',
+  'internal-route': '应用内部功能',
+  file: '文件',
+  terminal: '终端',
+  ssh: 'SSH',
+  ftp: '传输',
+  todo: '待办',
+  knowledge: '知识库',
+  plugin: '插件',
+};
+
 export type QuickLaunchAction =
   | { type: 'open-route'; route: string }
   | { type: 'open-terminal-profile'; profileId: string }
@@ -121,6 +145,14 @@ export interface QuickLaunchSearchProgressEvent {
   elapsedMs: number;
 }
 
+export interface QuickLaunchSearchResultsEvent {
+  sessionId: string;
+  query: string;
+  providerId: QuickLaunchProviderId;
+  results: QuickLaunchResult[];
+  elapsedMs: number;
+}
+
 export interface QuickLaunchRefreshInput {
   providers?: QuickLaunchProviderId[];
 }
@@ -148,6 +180,7 @@ export interface QuickLaunchApi {
   close: () => Promise<void>;
   notifyReady: () => Promise<void>;
   onSearchProgress: (listener: (event: QuickLaunchSearchProgressEvent) => void) => () => void;
+  onSearchResults: (listener: (event: QuickLaunchSearchResultsEvent) => void) => () => void;
   onReveal: (listener: () => void) => () => void;
   onHidden: (listener: () => void) => () => void;
 }
