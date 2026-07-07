@@ -608,6 +608,22 @@ export interface TestAiProviderPayload {
 export interface TestAiProviderResult {
   ok: boolean;
   message: string;
+  diagnostic?: AiProviderRequestDiagnostic;
+}
+
+export interface AiProviderRequestDiagnostic {
+  providerId?: string;
+  providerKind?: AiProviderKind;
+  modelId?: string;
+  baseUrl?: string;
+  expectedEndpoint?: string;
+  requestUrl?: string;
+  statusCode?: number;
+  errorName?: string;
+  errorMessage?: string;
+  responseHeaders?: Record<string, string>;
+  responseBodyPreview?: string;
+  causeMessage?: string;
 }
 
 export interface StageAiChatAttachmentPayload {

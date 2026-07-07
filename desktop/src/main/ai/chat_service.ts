@@ -9,6 +9,7 @@ import type {
   AiChatAttachment,
   AiChatMessage,
   AiConversation,
+  AiProviderRequestDiagnostic,
   AiMemory,
   AiProviderKind,
   AiProject,
@@ -124,9 +125,12 @@ class AiChatService {
       });
       return { ok: true, message: '连接测试成功' };
     } catch (error) {
+      const diagnostic = buildProviderRequestDiagnostic(error, provider, modelId);
+      logAiProviderFailure('Provider test failed', diagnostic, error);
       return {
         ok: false,
-        message: error instanceof Error ? error.message : String(error),
+        message: formatProviderRequestFailureMessage(error, diagnostic),
+        diagnostic,
       };
     }
   }
@@ -143,8 +147,22 @@ class AiChatService {
 
     const baseUrl = normalizeProviderModelsBaseUrl(input.baseUrl || currentProvider?.baseUrl, kind);
     const apiKey = (input.apiKey || currentProvider?.apiKey || '').trim().split('\n')[0] || undefined;
-    const models = await fetchUpstreamProviderModels({ kind, baseUrl, apiKey });
-    return { models };
+    try {
+      const models = await fetchUpstreamProviderModels({ kind, baseUrl, apiKey });
+      return { models };
+    } catch (error) {
+      console.error('[AI] Fetch provider models failed', {
+        providerId: currentProvider?.id,
+        providerKind: kind,
+        baseUrl,
+        errorName: error instanceof Error ? error.name : undefined,
+        errorMessage: error instanceof Error ? error.message : String(error),
+      });
+      if (error instanceof Error && error.stack) {
+        console.error(error.stack);
+      }
+      throw error;
+    }
   }
 
   async listConversations(): Promise<AiConversation[]> {
@@ -1323,13 +1341,181 @@ async function fetchOpenAiModelIds(url: string, apiKey?: string, headers: Record
 async function readJsonResponse(response: Response): Promise<Record<string, unknown>> {
   const text = await response.text();
   if (!response.ok) {
-    throw new Error(text || `获取模型列表失败：HTTP ${response.status}`);
+    throw new Error(formatFetchJsonFailure(response, text, `获取模型列表失败：HTTP ${response.status}`));
   }
   try {
     return JSON.parse(text) as Record<string, unknown>;
   } catch {
-    throw new Error('获取模型列表失败：上游返回不是有效 JSON');
+    throw new Error(formatFetchJsonFailure(response, text, '获取模型列表失败：上游返回不是有效 JSON'));
   }
+}
+
+function buildProviderRequestDiagnostic(
+  error: unknown,
+  provider: AiAgentFeatureConfig['providers'][number],
+  modelId: string,
+): AiProviderRequestDiagnostic {
+  const record = toRecord(error);
+  const cause = toRecord(record?.cause);
+  const statusCode = toFiniteNumber(record?.statusCode ?? record?.status ?? cause?.statusCode ?? cause?.status);
+  const requestUrl = toStringValue(record?.url ?? record?.requestUrl ?? cause?.url ?? cause?.requestUrl);
+  const responseBody = toStringValue(record?.responseBody ?? record?.body ?? cause?.responseBody ?? cause?.body);
+  const responseHeaders = sanitizeHeaders(record?.responseHeaders ?? record?.headers ?? cause?.responseHeaders ?? cause?.headers);
+
+  return {
+    providerId: provider.id,
+    providerKind: provider.kind,
+    modelId,
+    baseUrl: provider.baseUrl || defaultProviderBaseUrl(provider.kind),
+    expectedEndpoint: expectedProviderEndpoint(provider.kind),
+    requestUrl,
+    statusCode,
+    errorName: error instanceof Error ? error.name : undefined,
+    errorMessage: error instanceof Error ? error.message : String(error),
+    responseHeaders,
+    responseBodyPreview: responseBody ? truncateForDiagnostic(responseBody) : undefined,
+    causeMessage: record?.cause instanceof Error ? record.cause.message : toStringValue(cause?.message),
+  };
+}
+
+function formatProviderRequestFailureMessage(error: unknown, diagnostic: AiProviderRequestDiagnostic) {
+  const lines = [
+    error instanceof Error ? error.message : String(error),
+    diagnostic.requestUrl ? `URL: ${diagnostic.requestUrl}` : undefined,
+    diagnostic.statusCode ? `HTTP: ${diagnostic.statusCode}` : undefined,
+    diagnostic.responseBodyPreview ? `响应摘要: ${diagnostic.responseBodyPreview}` : undefined,
+    diagnostic.causeMessage ? `Cause: ${diagnostic.causeMessage}` : undefined,
+  ].filter(Boolean);
+  return lines.join('\n');
+}
+
+function logAiProviderFailure(label: string, diagnostic: AiProviderRequestDiagnostic, error: unknown) {
+  console.error(`[AI] ${label}`, {
+    providerId: diagnostic.providerId,
+    providerKind: diagnostic.providerKind,
+    modelId: diagnostic.modelId,
+    baseUrl: diagnostic.baseUrl,
+    expectedEndpoint: diagnostic.expectedEndpoint,
+    requestUrl: diagnostic.requestUrl,
+    statusCode: diagnostic.statusCode,
+    errorName: diagnostic.errorName,
+    errorMessage: diagnostic.errorMessage,
+    responseHeaders: diagnostic.responseHeaders,
+    responseBodyPreview: diagnostic.responseBodyPreview,
+    causeMessage: diagnostic.causeMessage,
+  });
+  if (error instanceof Error && error.stack) {
+    console.error(error.stack);
+  }
+}
+
+function formatFetchJsonFailure(response: Response, text: string, fallback: string) {
+  const lines = [
+    fallback,
+    `URL: ${response.url || 'unknown'}`,
+    `HTTP: ${response.status} ${response.statusText}`.trim(),
+  ];
+  const headerSummary = formatHeadersForDiagnostic(response.headers);
+  if (headerSummary) {
+    lines.push(`Headers: ${headerSummary}`);
+  }
+  if (text) {
+    lines.push(`响应摘要: ${truncateForDiagnostic(text)}`);
+  }
+  return lines.join('\n');
+}
+
+function expectedProviderEndpoint(kind: AiProviderKind) {
+  switch (kind) {
+    case 'openai':
+      return '/v1/responses';
+    case 'anthropic':
+      return '/v1/messages';
+    case 'google':
+      return '/v1beta/models/*:generateContent';
+    case 'ollama':
+    case 'openai-compatible':
+    case 'vercel-gateway':
+    default:
+      return '/v1/chat/completions';
+  }
+}
+
+function defaultProviderBaseUrl(kind: AiProviderKind) {
+  switch (kind) {
+    case 'openai':
+      return 'https://api.openai.com/v1';
+    case 'anthropic':
+      return 'https://api.anthropic.com/v1';
+    case 'google':
+      return 'https://generativelanguage.googleapis.com/v1beta';
+    case 'ollama':
+      return 'http://localhost:11434/v1';
+    case 'vercel-gateway':
+      return 'https://ai-gateway.vercel.sh/v1';
+    case 'openai-compatible':
+    default:
+      return undefined;
+  }
+}
+
+function sanitizeHeaders(value: unknown) {
+  const source = value instanceof Headers
+    ? Object.fromEntries(value.entries())
+    : toRecord(value);
+  if (!source) {
+    return undefined;
+  }
+
+  const result: Record<string, string> = {};
+  for (const [key, rawValue] of Object.entries(source)) {
+    const normalizedKey = key.toLowerCase();
+    if (normalizedKey.includes('authorization')
+      || normalizedKey.includes('api-key')
+      || normalizedKey.includes('cookie')
+      || normalizedKey === 'set-cookie') {
+      result[key] = '[redacted]';
+      continue;
+    }
+    const text = toStringValue(rawValue);
+    if (text) {
+      result[key] = truncateForDiagnostic(text, 240);
+    }
+  }
+  return Object.keys(result).length ? result : undefined;
+}
+
+function formatHeadersForDiagnostic(headers: Headers) {
+  const safeHeaders = sanitizeHeaders(headers);
+  if (!safeHeaders) {
+    return '';
+  }
+  return Object.entries(safeHeaders)
+    .map(([key, value]) => `${key}=${value}`)
+    .join('; ');
+}
+
+function toRecord(value: unknown): Record<string, unknown> | undefined {
+  return value && typeof value === 'object' ? value as Record<string, unknown> : undefined;
+}
+
+function toFiniteNumber(value: unknown) {
+  return typeof value === 'number' && Number.isFinite(value) ? value : undefined;
+}
+
+function toStringValue(value: unknown) {
+  if (typeof value === 'string') {
+    return value;
+  }
+  if (typeof value === 'number' || typeof value === 'boolean') {
+    return String(value);
+  }
+  return undefined;
+}
+
+function truncateForDiagnostic(value: string, maxLength = 1200) {
+  const compact = value.replace(/\s+/g, ' ').trim();
+  return compact.length > maxLength ? `${compact.slice(0, maxLength)}...` : compact;
 }
 
 function uniqueModelIds(models: string[]) {

@@ -1,6 +1,12 @@
 <script lang="ts" setup>
 import { computed, reactive, ref, watch } from 'vue';
-import type { AiModelCapabilities, AiProviderConfig, AiProviderKind, AiSafeProviderConfig } from '@/contracts/ai';
+import type {
+  AiModelCapabilities,
+  AiProviderConfig,
+  AiProviderKind,
+  AiProviderRequestDiagnostic,
+  AiSafeProviderConfig,
+} from '@/contracts/ai';
 import {
   getModelCapabilityBadges,
   groupModelsByPrefix,
@@ -59,6 +65,7 @@ type ModelFilterKey = 'all' | 'reasoning' | 'vision' | 'web' | 'free' | 'embeddi
 
 const aiConfigStore = useAiConfigStore();
 const testMessage = ref('');
+const testDiagnostic = ref<AiProviderRequestDiagnostic | undefined>();
 const testing = ref(false);
 const fetchingModels = ref(false);
 const modelDrafts = ref<ProviderModelDraft[]>([]);
@@ -111,6 +118,7 @@ const groupedFetchedModels = computed(() => groupModelsByPrefix(filteredFetchedM
 const selectableFetchedCount = computed(() =>
   filteredFetchedModels.value.filter((model) => !existingModelIds.value.has(model.id.trim())).length,
 );
+const testDiagnosticLines = computed(() => formatDiagnosticLines(testDiagnostic.value));
 
 const modelFilterOptions: { key: ModelFilterKey; label: string }[] = [
   { key: 'all', label: '全部' },
@@ -166,6 +174,7 @@ function createModelDraft(input: Partial<ProviderModelDraft> = {}): ProviderMode
 
 function hydrateProviderForm(provider?: AiSafeProviderConfig) {
   testMessage.value = '';
+  testDiagnostic.value = undefined;
   if (!provider) {
     resetProviderForm();
     return;
@@ -193,6 +202,7 @@ function hydrateProviderForm(provider?: AiSafeProviderConfig) {
 }
 
 function resetProviderForm() {
+  testDiagnostic.value = undefined;
   providerForm.id = '';
   providerForm.name = '';
   providerForm.kind = 'openai-compatible';
@@ -354,6 +364,27 @@ function isModelGroupExpanded(prefix: string) {
   return expandedModelGroups.value[prefix] ?? true;
 }
 
+function formatDiagnosticLines(diagnostic?: AiProviderRequestDiagnostic) {
+  if (!diagnostic) {
+    return [];
+  }
+  const lines = [
+    diagnostic.providerKind ? `Provider: ${diagnostic.providerId || '-'} (${diagnostic.providerKind})` : undefined,
+    diagnostic.modelId ? `Model: ${diagnostic.modelId}` : undefined,
+    diagnostic.baseUrl ? `Base URL: ${diagnostic.baseUrl}` : undefined,
+    diagnostic.expectedEndpoint ? `Expected endpoint: ${diagnostic.expectedEndpoint}` : undefined,
+    diagnostic.requestUrl ? `Request URL: ${diagnostic.requestUrl}` : undefined,
+    diagnostic.statusCode ? `HTTP: ${diagnostic.statusCode}` : undefined,
+    diagnostic.errorName ? `Error: ${diagnostic.errorName}` : undefined,
+    diagnostic.causeMessage ? `Cause: ${diagnostic.causeMessage}` : undefined,
+    diagnostic.responseBodyPreview ? `Response: ${diagnostic.responseBodyPreview}` : undefined,
+  ].filter(Boolean) as string[];
+  if (diagnostic.responseHeaders && Object.keys(diagnostic.responseHeaders).length) {
+    lines.push(`Headers: ${Object.entries(diagnostic.responseHeaders).map(([key, value]) => `${key}=${value}`).join('; ')}`);
+  }
+  return lines;
+}
+
 async function saveProvider() {
   if (!canSaveProvider()) {
     return;
@@ -402,12 +433,14 @@ async function testProvider() {
 
   testing.value = true;
   testMessage.value = '';
+  testDiagnostic.value = undefined;
   try {
     const result = await aiConfigStore.testProvider({
       provider: buildProvider(),
       modelId: firstModelId,
     });
     testMessage.value = result.message;
+    testDiagnostic.value = result.diagnostic;
   } catch (cause) {
     testMessage.value = cause instanceof Error ? cause.message : String(cause);
   } finally {
@@ -418,6 +451,7 @@ async function testProvider() {
 async function fetchProviderModels() {
   fetchingModels.value = true;
   testMessage.value = '';
+  testDiagnostic.value = undefined;
   try {
     const result = await aiConfigStore.fetchProviderModels({
       providerId: props.providerId || undefined,
@@ -543,6 +577,10 @@ async function fetchProviderModels() {
       </section>
 
       <p v-if="testMessage" class="ai-provider-drawer__message">{{ testMessage }}</p>
+      <details v-if="testDiagnosticLines.length" class="ai-provider-drawer__diagnostic">
+        <summary>请求诊断</summary>
+        <pre>{{ testDiagnosticLines.join('\n') }}</pre>
+      </details>
     </form>
 
     <template #footer>
@@ -826,6 +864,34 @@ async function fetchProviderModels() {
   font-size: 0.82rem;
   line-height: 1.5;
   word-break: break-word;
+  white-space: pre-wrap;
+}
+
+.ai-provider-drawer__diagnostic {
+  display: grid;
+  gap: 8px;
+  padding: 10px;
+  border: var(--ui-border-width-thin) solid var(--ui-border-subtle);
+  border-radius: var(--ui-radius-sm);
+  background: var(--ui-surface-elevated);
+  color: var(--ui-text-secondary);
+  font-size: 0.78rem;
+  line-height: 1.45;
+
+  summary {
+    cursor: pointer;
+    color: var(--ui-text-primary);
+    font-weight: 700;
+  }
+
+  pre {
+    max-height: 180px;
+    margin: 0;
+    overflow: auto;
+    white-space: pre-wrap;
+    word-break: break-word;
+    font-family: var(--ui-font-family-mono);
+  }
 }
 
 .ai-provider-drawer__footer {
