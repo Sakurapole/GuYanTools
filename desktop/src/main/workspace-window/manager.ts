@@ -9,6 +9,9 @@ import {
   type WorkspaceWindowKey,
 } from '@/contracts/workspace_window';
 import { resolveWindowIconPath } from '../windows/window_icon';
+import { persistWindowBounds, resolvePersistedWindowBounds } from '../windows/persisted_window_bounds';
+
+const WORKSPACE_WINDOW_BOUNDS_STATE_FILE = 'workspace_window_bounds.json';
 
 type MainWindowBridge = {
   getWindow: () => BrowserWindow | null;
@@ -189,9 +192,17 @@ class WorkspaceWindowManager {
     const definition = WORKSPACE_WINDOW_DEFINITIONS[key];
     const parent = this.mainWindow?.getWindow();
     const parentBounds = parent && !parent.isDestroyed() ? parent.getBounds() : undefined;
-    const win = new BrowserWindow({
+    const bounds = resolvePersistedWindowBounds({
+      stateFileName: WORKSPACE_WINDOW_BOUNDS_STATE_FILE,
+      key,
       width: definition.width,
       height: definition.height,
+      minWidth: definition.minWidth,
+      minHeight: definition.minHeight,
+      parentBounds,
+    });
+    const win = new BrowserWindow({
+      ...bounds,
       minWidth: definition.minWidth,
       minHeight: definition.minHeight,
       icon: resolveWindowIconPath(),
@@ -205,17 +216,20 @@ class WorkspaceWindowManager {
         sandbox: false,
         webviewTag: true,
       },
-      ...(parentBounds ? {
-        x: parentBounds.x + Math.max(24, Math.round((parentBounds.width - definition.width) / 2)),
-        y: parentBounds.y + Math.max(24, Math.round((parentBounds.height - definition.height) / 2)),
-      } : {}),
     });
     win.setTitle(`${definition.title} - GuYanTools`);
     return win;
   }
 
   private configureDetachedWindow(key: WorkspaceWindowKey, win: BrowserWindow) {
+    const definition = WORKSPACE_WINDOW_DEFINITIONS[key];
     win.removeAllListeners('closed');
+    persistWindowBounds(win, {
+      stateFileName: WORKSPACE_WINDOW_BOUNDS_STATE_FILE,
+      key,
+      minWidth: definition.minWidth,
+      minHeight: definition.minHeight,
+    });
     win.on('closed', () => {
       if (this.detachedWindows.get(key) === win) {
         this.detachedWindows.delete(key);
@@ -225,7 +239,6 @@ class WorkspaceWindowManager {
     });
     win.webContents.on('page-title-updated', (event) => {
       event.preventDefault();
-      const definition = WORKSPACE_WINDOW_DEFINITIONS[key];
       if (!win.isDestroyed()) {
         win.setTitle(`${definition.title} - GuYanTools`);
       }
