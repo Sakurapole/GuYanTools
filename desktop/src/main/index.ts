@@ -28,7 +28,7 @@ import { registerSyncIpcHandlers } from "./sync/ipc";
 import { syncScheduler } from "./sync/sync_scheduler";
 import { registerQuickLaunchIpcHandlers } from "./quick-launch/ipc";
 import { quickLaunchService } from "./quick-launch/service";
-import { toggleQuickLaunchWindow } from "./quick-launch/window";
+import { preloadQuickLaunchWindow, toggleQuickLaunchWindow } from "./quick-launch/window";
 import { registerTerminalIpcHandlers } from "./terminal/ipc";
 import { registerTodoIpcHandlers, initializeTodoData } from "./todo/ipc";
 import { startTodoScheduler, stopTodoScheduler } from "./todo/scheduler";
@@ -241,6 +241,7 @@ class App {
             void workspaceWindowManager.openDetached(key);
           },
         );
+        void preloadQuickLaunchWindow();
 
         // ─── 初始化共享 webview session ───
         // 集中管理 UA 清洗、请求头改写等，避免 Google 等第三方服务拦截嵌入式 WebView

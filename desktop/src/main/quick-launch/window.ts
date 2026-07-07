@@ -13,6 +13,7 @@ const RENDERER_READY_TIMEOUT_MS = 700;
 
 let quickLaunchWindow: BrowserWindow | null = null;
 let quickLaunchGameModeEnabled = false;
+let quickLaunchLoadPromise: Promise<BrowserWindow | null> | null = null;
 let pendingRendererReady:
   | {
       webContentsId: number;
@@ -22,18 +23,47 @@ let pendingRendererReady:
     }
   | null = null;
 
+export async function preloadQuickLaunchWindow() {
+  try {
+    await ensureQuickLaunchWindow();
+  } catch (error) {
+    console.warn('[quick-launch] Failed to preload window:', error);
+  }
+}
+
 export async function showQuickLaunchWindow() {
+  const win = await ensureQuickLaunchWindow();
+  if (!win || win.isDestroyed()) {
+    return;
+  }
+
+  await waitForQuickLaunchRendererReady(win);
+  revealQuickLaunchWindow(win);
+}
+
+async function ensureQuickLaunchWindow() {
   const config = await appConfigManager.getConfig();
   if (!config.features.quickLaunch.enabled || quickLaunchGameModeEnabled) {
-    return;
+    return null;
   }
 
   if (quickLaunchWindow && !quickLaunchWindow.isDestroyed()) {
-    await waitForQuickLaunchRendererReady(quickLaunchWindow);
-    revealQuickLaunchWindow(quickLaunchWindow);
-    return;
+    return quickLaunchWindow;
   }
 
+  if (quickLaunchLoadPromise) {
+    return quickLaunchLoadPromise;
+  }
+
+  quickLaunchLoadPromise = createQuickLaunchWindow()
+    .finally(() => {
+      quickLaunchLoadPromise = null;
+    });
+
+  return quickLaunchLoadPromise;
+}
+
+async function createQuickLaunchWindow() {
   quickLaunchWindow = new BrowserWindow({
     width: WINDOW_WIDTH,
     height: WINDOW_HEIGHT,
@@ -54,34 +84,48 @@ export async function showQuickLaunchWindow() {
     },
   });
 
-  const currentWebContentsId = quickLaunchWindow.webContents.id;
-  quickLaunchWindow.on('closed', () => {
+  const win = quickLaunchWindow;
+  const currentWebContentsId = win.webContents.id;
+  win.on('closed', () => {
     clearPendingRendererReady(currentWebContentsId);
-    quickLaunchWindow = null;
+    if (quickLaunchWindow === win) {
+      quickLaunchWindow = null;
+    }
   });
 
-  quickLaunchWindow.on('blur', () => {
+  win.on('blur', () => {
     const shouldHide = appConfigManager.getCachedConfig().features.quickLaunch.hideOnBlur;
     if (shouldHide) {
       closeQuickLaunchWindow();
     }
   });
 
-  positionWindow(quickLaunchWindow);
-  const rendererReadyPromise = createRendererReadyWaiter(quickLaunchWindow);
+  positionWindow(win);
+  const rendererReadyPromise = createRendererReadyWaiter(win);
 
-  if (MAIN_WINDOW_VITE_DEV_SERVER_URL) {
-    const url = `${MAIN_WINDOW_VITE_DEV_SERVER_URL}/quick_launcher.html`;
-    await waitForDevServer(url);
-    await quickLaunchWindow.loadURL(url);
-  } else {
-    await quickLaunchWindow.loadFile(
-      path.join(__dirname, `../renderer/${MAIN_WINDOW_VITE_NAME}/quick_launcher.html`),
-    );
+  try {
+    if (MAIN_WINDOW_VITE_DEV_SERVER_URL) {
+      const url = `${MAIN_WINDOW_VITE_DEV_SERVER_URL}/quick_launcher.html`;
+      await waitForDevServer(url);
+      await win.loadURL(url);
+    } else {
+      await win.loadFile(
+        path.join(__dirname, `../renderer/${MAIN_WINDOW_VITE_NAME}/quick_launcher.html`),
+      );
+    }
+
+    await rendererReadyPromise;
+    return win.isDestroyed() ? null : win;
+  } catch (error) {
+    clearPendingRendererReady(currentWebContentsId);
+    if (quickLaunchWindow === win) {
+      quickLaunchWindow = null;
+    }
+    if (!win.isDestroyed()) {
+      win.close();
+    }
+    throw error;
   }
-
-  await rendererReadyPromise;
-  revealQuickLaunchWindow(quickLaunchWindow);
 }
 
 export function closeQuickLaunchWindow() {
