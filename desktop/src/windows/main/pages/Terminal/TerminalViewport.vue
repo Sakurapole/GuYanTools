@@ -162,6 +162,9 @@ const hasCustomBg = computed(() => {
 
 /** Show video background layer */
 const showVideo = computed(() => props.bgType === 'video' && !!props.bgVideo);
+const backgroundSize = computed(() => props.bgStyle?.backgroundSize || 'cover');
+const backgroundPosition = computed(() => props.bgStyle?.backgroundPosition || 'center');
+const backgroundRepeat = computed(() => props.bgStyle?.backgroundRepeat || 'no-repeat');
 
 /**
  * Inline styles applied directly to .terminal-viewport.
@@ -194,9 +197,9 @@ const backgroundLayerStyle = computed(() => {
     style.background = props.bgColor;
   } else if (props.bgType === 'image' && props.bgImage) {
     style.backgroundImage = `url(${props.bgImage})`;
-    style.backgroundSize = props.bgStyle?.backgroundSize || 'cover';
-    style.backgroundPosition = props.bgStyle?.backgroundPosition || 'center';
-    style.backgroundRepeat = props.bgStyle?.backgroundRepeat || 'no-repeat';
+    style.backgroundSize = backgroundSize.value;
+    style.backgroundPosition = backgroundPosition.value;
+    style.backgroundRepeat = backgroundRepeat.value;
   }
 
   const opacity = props.bgStyle?.opacity;
@@ -206,6 +209,17 @@ const backgroundLayerStyle = computed(() => {
 
   return style;
 });
+
+const backgroundMemoKey = computed(() => [
+  props.bgType,
+  props.bgColor,
+  props.bgImage,
+  props.bgVideo,
+  backgroundSize.value,
+  backgroundPosition.value,
+  backgroundRepeat.value,
+  String(props.bgStyle?.opacity ?? 1),
+].join('::'));
 
 function toObjectFit(backgroundSizeValue?: string): 'contain' | 'cover' | 'fill' | 'none' {
   switch (backgroundSizeValue) {
@@ -695,11 +709,25 @@ onBeforeUnmount(() => {
     'terminal-viewport--no-grid': !activeScheme.showGrid || hasCustomBg,
     'terminal-viewport--custom-bg': hasCustomBg,
   }" :style="viewportInlineStyle" @mousemove="handleMouseMove" @mouseleave="clearHoveredLine" @contextmenu="handleContextMenu">
-    <div v-if="hasCustomBg && !showVideo" class="terminal-viewport__bg-layer" :style="backgroundLayerStyle" />
+    <div
+      v-if="hasCustomBg && !showVideo"
+      v-memo="[backgroundMemoKey]"
+      class="terminal-viewport__bg-layer"
+      :style="backgroundLayerStyle"
+    />
 
     <!-- Video background layer (only for video type) -->
-    <video v-if="showVideo" class="terminal-viewport__bg-video" :src="bgVideo" autoplay loop muted playsinline
-      :style="backgroundVideoStyle" />
+    <video
+      v-if="showVideo"
+      v-memo="[backgroundMemoKey]"
+      class="terminal-viewport__bg-video"
+      :src="bgVideo"
+      autoplay
+      loop
+      muted
+      playsinline
+      :style="backgroundVideoStyle"
+    />
 
     <!-- xterm host -->
     <div ref="hostRef" class="terminal-viewport__host" />
@@ -754,6 +782,7 @@ onBeforeUnmount(() => {
   border: 1px solid rgba(148, 163, 184, 0.14);
   overflow: hidden;
   transition: background-color 0.3s ease;
+  isolation: isolate;
 
   &--no-grid {
     background-image: none;
@@ -797,6 +826,8 @@ onBeforeUnmount(() => {
   object-fit: cover;
   z-index: 0;
   pointer-events: none;
+  overflow: hidden;
+  contain: paint;
 }
 
 /* Terminal host container */
