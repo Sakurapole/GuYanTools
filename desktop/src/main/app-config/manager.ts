@@ -10,6 +10,8 @@ import type {
   AppConfig,
   AppConfigPatch,
   AppFeaturesConfig,
+  AppKnowledgeFeatureConfig,
+  AppKnowledgeQuickNoteWindowConfig,
   AppPluginsConfig,
   AppSettingsFeatureConfig,
   AppSettingsTabId,
@@ -20,12 +22,31 @@ import type {
   LocalFontOption,
   MultiDeviceClipboardFeatureConfig,
 } from '@/contracts/app_config';
+import type { QuickLaunchFeatureConfig, QuickLaunchProviderId } from '@/contracts/quick_launch';
+import type {
+  AiAgentFeatureConfig,
+  AiAgentMode,
+  AiAssistantConfig,
+  AiAssistantKnowledgeMode,
+  AiAssistantMcpMode,
+  AiAssistantToolCallMode,
+  AiGeneralAgentTemplate,
+  AiMcpEnvironmentVariable,
+  AiMcpServerConfig,
+  AiMcpTransport,
+  AiModelConfig,
+  AiProviderConfig,
+  AiProviderKind,
+  AiReasoningEffort,
+} from '@/contracts/ai';
 import type { LocalTerminalProfileConfig, TerminalBackgroundConfig, TerminalSshProfileGroupConfig } from '@/contracts/terminal';
 import type { AppWebConfig, ChromeExtensionRecord, WebScriptRule } from '@/contracts/webview';
 import {
   APP_BOTTOM_BAR_REQUIRED_TAB_IDS,
   APP_INTERNAL_FUNCTIONS,
+  createDefaultAiAgentFeatureConfig,
   createDefaultAppConfig,
+  createDefaultKnowledgeQuickNoteWindowConfig,
   createDefaultSettingsTabPersonalization,
   getSystemDefaultFontOption,
   SYSTEM_FONT_OPTION_VALUE,
@@ -33,6 +54,26 @@ import {
 import { normalizeAccelerator } from '@/shared/shortcuts';
 
 const SHORTCUTS_SETTING_KEY = 'app.shortcuts';
+const QUICK_LAUNCH_PROVIDER_IDS: QuickLaunchProviderId[] = [
+  'internal-route',
+  'terminal',
+  'ssh',
+  'ftp',
+  'todo',
+  'knowledge',
+  'plugin',
+  'app',
+  'file',
+];
+const LEGACY_QUICK_LAUNCH_DEFAULT_PROVIDER_IDS: QuickLaunchProviderId[] = [
+  'internal-route',
+  'terminal',
+  'ssh',
+  'ftp',
+  'todo',
+  'knowledge',
+  'plugin',
+];
 const SETTINGS_TAB_IDS: AppSettingsTabId[] = [
   'general',
   'file-transfer',
@@ -41,6 +82,8 @@ const SETTINGS_TAB_IDS: AppSettingsTabId[] = [
   'plugins',
   'terminal',
   'multi-device-clipboard',
+  'knowledge',
+  'quick-launch',
   'shortcuts',
 ];
 
@@ -149,6 +192,10 @@ function normalizeShortcuts(value: unknown): AppShortcutsConfig {
     internal: {
       terminalCopy: normalizeShortcutValue(internal.terminalCopy, defaults.internal.terminalCopy),
       terminalPaste: normalizeShortcutValue(internal.terminalPaste, defaults.internal.terminalPaste),
+      quickNoteSave: normalizeShortcutValue(internal.quickNoteSave, defaults.internal.quickNoteSave),
+      quickNoteNew: normalizeShortcutValue(internal.quickNoteNew, defaults.internal.quickNoteNew),
+      quickNoteCollapse: normalizeShortcutValue(internal.quickNoteCollapse, defaults.internal.quickNoteCollapse),
+      quickNoteClose: normalizeShortcutValue(internal.quickNoteClose, defaults.internal.quickNoteClose),
     },
     system: {
       toggleAppVisibility: normalizeShortcutValue(system.toggleAppVisibility, defaults.system.toggleAppVisibility),
@@ -156,6 +203,17 @@ function normalizeShortcuts(value: unknown): AppShortcutsConfig {
         system.toggleMultiDeviceClipboard,
         defaults.system.toggleMultiDeviceClipboard,
       ),
+      toggleQuickNote: normalizeShortcutValue(system.toggleQuickNote, defaults.system.toggleQuickNote),
+      captureClipboardToQuickNote: normalizeShortcutValue(
+        system.captureClipboardToQuickNote,
+        defaults.system.captureClipboardToQuickNote,
+      ),
+      toggleQuickLaunch: normalizeShortcutValue(system.toggleQuickLaunch, defaults.system.toggleQuickLaunch),
+      openDetachedTerminal: normalizeShortcutValue(system.openDetachedTerminal, defaults.system.openDetachedTerminal),
+      openDetachedFtp: normalizeShortcutValue(system.openDetachedFtp, defaults.system.openDetachedFtp),
+      openDetachedTodo: normalizeShortcutValue(system.openDetachedTodo, defaults.system.openDetachedTodo),
+      openDetachedAi: normalizeShortcutValue(system.openDetachedAi, defaults.system.openDetachedAi),
+      openDetachedKnowledge: normalizeShortcutValue(system.openDetachedKnowledge, defaults.system.openDetachedKnowledge),
     },
   };
 }
@@ -167,11 +225,400 @@ function normalizeFeatures(value: unknown): AppFeaturesConfig {
   }
 
   return {
-    aiAgent: isRecord(value.aiAgent) ? cloneConfig(value.aiAgent) : cloneConfig(defaultConfig.aiAgent),
+    aiAgent: normalizeAiAgentFeature(value.aiAgent),
     settings: normalizeSettingsFeature(value.settings),
     terminal: normalizeTerminalFeature(value.terminal),
     multiDeviceClipboard: normalizeMultiDeviceClipboardFeature(value.multiDeviceClipboard),
+    knowledge: normalizeKnowledgeFeature(value.knowledge),
+    quickLaunch: normalizeQuickLaunchFeature(value.quickLaunch),
   };
+}
+
+function normalizeAiProviderKind(value: unknown): AiProviderKind {
+  if (
+    value === 'openai'
+    || value === 'anthropic'
+    || value === 'google'
+    || value === 'openai-compatible'
+    || value === 'ollama'
+    || value === 'vercel-gateway'
+  ) {
+    return value;
+  }
+
+  return 'openai-compatible';
+}
+
+function normalizeAiNumber(value: unknown, fallback?: number) {
+  const numeric = Number(value);
+  return Number.isFinite(numeric) ? numeric : fallback;
+}
+
+function normalizeAiReasoningEffort(value: unknown): AiReasoningEffort {
+  return value === 'minimal' || value === 'low' || value === 'high' || value === 'xhigh'
+    ? value
+    : 'medium';
+}
+
+function normalizeAiModel(value: unknown): AiModelConfig | null {
+  if (!isRecord(value)) {
+    return null;
+  }
+
+  const id = typeof value.id === 'string' && value.id.trim() ? value.id.trim() : '';
+  const providerModelId = typeof value.providerModelId === 'string' && value.providerModelId.trim()
+    ? value.providerModelId.trim()
+    : id;
+
+  if (!id || !providerModelId) {
+    return null;
+  }
+
+  const capabilities = isRecord(value.capabilities) ? value.capabilities : {};
+
+  return {
+    id,
+    displayName: typeof value.displayName === 'string' && value.displayName.trim()
+      ? value.displayName.trim()
+      : providerModelId,
+    providerModelId,
+    capabilities: {
+      streaming: capabilities.streaming !== false,
+      vision: capabilities.vision === true,
+      toolCalling: capabilities.toolCalling === true,
+      structuredOutput: capabilities.structuredOutput === true,
+      reasoning: capabilities.reasoning === true,
+      embedding: capabilities.embedding === true,
+      nativeWebSearch: capabilities.nativeWebSearch === true,
+      nativeFileSearch: capabilities.nativeFileSearch === true,
+      maxContextTokens: normalizeAiNumber(capabilities.maxContextTokens),
+    },
+    contextWindow: normalizeAiNumber(value.contextWindow),
+    maxOutputTokens: normalizeAiNumber(value.maxOutputTokens),
+    defaultTemperature: normalizeAiNumber(value.defaultTemperature),
+  };
+}
+
+function normalizeAiProvider(value: unknown): AiProviderConfig | null {
+  if (!isRecord(value)) {
+    return null;
+  }
+
+  const id = typeof value.id === 'string' && value.id.trim() ? value.id.trim() : '';
+  if (!id) {
+    return null;
+  }
+
+  const models = Array.isArray(value.models)
+    ? value.models.map(normalizeAiModel).filter((model): model is AiModelConfig => Boolean(model))
+    : [];
+
+  return {
+    id,
+    kind: normalizeAiProviderKind(value.kind),
+    name: typeof value.name === 'string' && value.name.trim() ? value.name.trim() : id,
+    baseUrl: typeof value.baseUrl === 'string' && value.baseUrl.trim() ? value.baseUrl.trim() : undefined,
+    apiKeyRef: typeof value.apiKeyRef === 'string' && value.apiKeyRef.trim() ? value.apiKeyRef.trim() : undefined,
+    apiKey: typeof value.apiKey === 'string' && value.apiKey.trim() ? value.apiKey : undefined,
+    enabled: value.enabled !== false,
+    models,
+    createdAt: normalizeAiNumber(value.createdAt, Date.now()) ?? Date.now(),
+    updatedAt: normalizeAiNumber(value.updatedAt, Date.now()) ?? Date.now(),
+  };
+}
+
+function normalizeAiAssistant(value: unknown, fallback: AiAssistantConfig): AiAssistantConfig | null {
+  if (!isRecord(value)) {
+    return null;
+  }
+
+  const id = typeof value.id === 'string' && value.id.trim() ? value.id.trim() : '';
+  if (!id) {
+    return null;
+  }
+
+  return {
+    id,
+    name: typeof value.name === 'string' && value.name.trim() ? value.name.trim() : fallback.name,
+    emoji: typeof value.emoji === 'string' && value.emoji.trim() ? value.emoji.trim() : fallback.emoji,
+    providerId: typeof value.providerId === 'string' && value.providerId.trim() ? value.providerId.trim() : undefined,
+    modelId: typeof value.modelId === 'string' && value.modelId.trim() ? value.modelId.trim() : undefined,
+    systemPrompt: typeof value.systemPrompt === 'string' ? value.systemPrompt : fallback.systemPrompt,
+    knowledgeLibraryId: typeof value.knowledgeLibraryId === 'string' && value.knowledgeLibraryId.trim()
+      ? value.knowledgeLibraryId.trim()
+      : undefined,
+    knowledgeSpaceId: typeof value.knowledgeSpaceId === 'string' && value.knowledgeSpaceId.trim()
+      ? value.knowledgeSpaceId.trim()
+      : undefined,
+    knowledgeMode: normalizeAiAssistantKnowledgeMode(value.knowledgeMode, fallback.knowledgeMode),
+    mcpMode: normalizeAiAssistantMcpMode(value.mcpMode, fallback.mcpMode),
+    commonPhrases: normalizeStringList(value.commonPhrases),
+    memoryEnabled: value.memoryEnabled === true,
+    temperatureEnabled: value.temperatureEnabled === true,
+    temperature: Math.max(0, Math.min(2, normalizeAiNumber(value.temperature, fallback.temperature) ?? fallback.temperature)),
+    topPEnabled: value.topPEnabled === true,
+    topP: Math.max(0, Math.min(1, normalizeAiNumber(value.topP, fallback.topP) ?? fallback.topP)),
+    contextMessages: Math.max(0, Math.min(200, Math.round(normalizeAiNumber(value.contextMessages, fallback.contextMessages) ?? fallback.contextMessages))),
+    maxOutputTokensEnabled: value.maxOutputTokensEnabled === true,
+    maxOutputTokens: normalizeAiNumber(value.maxOutputTokens),
+    streaming: value.streaming !== false,
+    toolCallMode: normalizeAiAssistantToolCallMode(value.toolCallMode, fallback.toolCallMode),
+    maxToolCallsEnabled: value.maxToolCallsEnabled === true,
+    maxToolCalls: Math.max(1, Math.min(64, Math.round(normalizeAiNumber(value.maxToolCalls, fallback.maxToolCalls) ?? fallback.maxToolCalls))),
+    customParameters: Array.isArray(value.customParameters)
+      ? value.customParameters.map(normalizeAiAssistantCustomParameter).filter((item): item is AiAssistantConfig['customParameters'][number] => Boolean(item))
+      : [],
+    createdAt: normalizeAiNumber(value.createdAt, fallback.createdAt) ?? fallback.createdAt,
+    updatedAt: normalizeAiNumber(value.updatedAt, Date.now()) ?? Date.now(),
+  };
+}
+
+function normalizeAiAssistantCustomParameter(value: unknown): AiAssistantConfig['customParameters'][number] | null {
+  if (!isRecord(value)) {
+    return null;
+  }
+
+  const key = typeof value.key === 'string' && value.key.trim() ? value.key.trim() : '';
+  if (!key) {
+    return null;
+  }
+
+  return {
+    id: typeof value.id === 'string' && value.id.trim() ? value.id.trim() : key,
+    key,
+    value: typeof value.value === 'string' ? value.value : '',
+  };
+}
+
+function normalizeAiAssistantKnowledgeMode(value: unknown, fallback: AiAssistantKnowledgeMode): AiAssistantKnowledgeMode {
+  return value === 'intent' || value === 'force' ? value : fallback;
+}
+
+function normalizeAiAssistantMcpMode(value: unknown, fallback: AiAssistantMcpMode): AiAssistantMcpMode {
+  return value === 'auto' || value === 'manual' || value === 'disabled' ? value : fallback;
+}
+
+function normalizeAiAssistantToolCallMode(value: unknown, fallback: AiAssistantToolCallMode): AiAssistantToolCallMode {
+  return value === 'auto' || value === 'none' || value === 'function' ? value : fallback;
+}
+
+function normalizeAiMcpTransport(value: unknown, fallback: AiMcpTransport = 'stdio'): AiMcpTransport {
+  return value === 'sse' || value === 'http' || value === 'stdio' ? value : fallback;
+}
+
+function normalizeAiMcpEnvironmentVariable(value: unknown): AiMcpEnvironmentVariable | null {
+  if (!isRecord(value)) {
+    return null;
+  }
+
+  const key = typeof value.key === 'string' && value.key.trim() ? value.key.trim() : '';
+  if (!key) {
+    return null;
+  }
+
+  return {
+    id: typeof value.id === 'string' && value.id.trim() ? value.id.trim() : key,
+    key,
+    value: typeof value.value === 'string' ? value.value : '',
+    secret: value.secret === true,
+  };
+}
+
+function normalizeAiMcpServer(value: unknown): AiMcpServerConfig | null {
+  if (!isRecord(value)) {
+    return null;
+  }
+
+  const id = typeof value.id === 'string' && value.id.trim() ? value.id.trim() : '';
+  if (!id) {
+    return null;
+  }
+
+  const transport = normalizeAiMcpTransport(value.transport);
+  const command = typeof value.command === 'string' && value.command.trim() ? value.command.trim() : undefined;
+  const url = typeof value.url === 'string' && value.url.trim() ? value.url.trim() : undefined;
+  if (transport === 'stdio' && !command) {
+    return null;
+  }
+  if (transport !== 'stdio' && !url) {
+    return null;
+  }
+
+  const timestamp = Date.now();
+  return {
+    id,
+    name: typeof value.name === 'string' && value.name.trim() ? value.name.trim() : id,
+    enabled: value.enabled !== false,
+    source: value.source === 'modelscope' ? 'modelscope' : 'manual',
+    sourceId: typeof value.sourceId === 'string' && value.sourceId.trim() ? value.sourceId.trim() : undefined,
+    transport,
+    command,
+    args: normalizeStringList(value.args),
+    cwd: typeof value.cwd === 'string' && value.cwd.trim() ? value.cwd.trim() : undefined,
+    url,
+    env: Array.isArray(value.env)
+      ? value.env.map(normalizeAiMcpEnvironmentVariable).filter((item): item is AiMcpEnvironmentVariable => Boolean(item))
+      : [],
+    autoStart: value.autoStart === true,
+    createdAt: normalizeAiNumber(value.createdAt, timestamp) ?? timestamp,
+    updatedAt: normalizeAiNumber(value.updatedAt, timestamp) ?? timestamp,
+  };
+}
+
+function normalizeAiAgentFeature(value: unknown): AiAgentFeatureConfig {
+  const defaults = createDefaultAiAgentFeatureConfig();
+  if (!isRecord(value)) {
+    return cloneConfig(defaults);
+  }
+
+  const chat = isRecord(value.chat) ? value.chat : {};
+  const agent = isRecord(value.agent) ? value.agent : {};
+  const codex = isRecord(agent.codex) ? agent.codex : {};
+  const general = isRecord(agent.general) ? agent.general : {};
+  const research = isRecord(value.research) ? value.research : {};
+  const mcp = isRecord(value.mcp) ? value.mcp : {};
+  const defaultAssistant = defaults.assistants[0];
+  const assistants = Array.isArray(value.assistants)
+    ? value.assistants
+      .map((assistant) => normalizeAiAssistant(assistant, defaultAssistant))
+      .filter((assistant): assistant is AiAssistantConfig => Boolean(assistant))
+    : [];
+  const normalizedAssistants = assistants.length ? assistants : [...defaults.assistants];
+
+  return {
+    enabled: value.enabled === true,
+    defaultMode: value.defaultMode === 'chat' || value.defaultMode === 'general-agent' || value.defaultMode === 'code-agent'
+      ? value.defaultMode
+      : 'chat',
+    defaultProviderId: typeof value.defaultProviderId === 'string' ? value.defaultProviderId : undefined,
+    defaultChatModelId: typeof value.defaultChatModelId === 'string' ? value.defaultChatModelId : undefined,
+    defaultAssistantId: typeof value.defaultAssistantId === 'string'
+      && normalizedAssistants.some((assistant) => assistant.id === value.defaultAssistantId)
+      ? value.defaultAssistantId
+      : normalizedAssistants[0]?.id,
+    assistants: normalizedAssistants,
+    providers: Array.isArray(value.providers)
+      ? value.providers.map(normalizeAiProvider).filter((provider): provider is AiProviderConfig => Boolean(provider))
+      : [],
+    chat: {
+      defaultSystemPrompt: typeof chat.defaultSystemPrompt === 'string'
+        ? chat.defaultSystemPrompt
+        : defaults.chat.defaultSystemPrompt,
+      maxHistoryMessages: Math.max(1, Math.min(200, Math.round(normalizeAiNumber(chat.maxHistoryMessages, defaults.chat.maxHistoryMessages) ?? defaults.chat.maxHistoryMessages))),
+      temperature: Math.max(0, Math.min(2, normalizeAiNumber(chat.temperature, defaults.chat.temperature) ?? defaults.chat.temperature)),
+      maxOutputTokens: normalizeAiNumber(chat.maxOutputTokens),
+      reasoningEnabled: chat.reasoningEnabled === true,
+      reasoningEffort: normalizeAiReasoningEffort(chat.reasoningEffort),
+      reasoningBudgetTokens: normalizeAiNumber(chat.reasoningBudgetTokens),
+    },
+    agent: {
+      enabled: agent.enabled === true,
+      defaultAgentMode: normalizeAiAgentMode(agent.defaultAgentMode, defaults.agent.defaultAgentMode),
+      maxSteps: Math.max(1, Math.min(32, Math.round(normalizeAiNumber(agent.maxSteps, defaults.agent.maxSteps) ?? defaults.agent.maxSteps))),
+      requireApprovalForWriteTools: agent.requireApprovalForWriteTools !== false,
+      codex: {
+        enabled: codex.enabled === true,
+        lastWorkingDirectory: typeof codex.lastWorkingDirectory === 'string'
+          ? codex.lastWorkingDirectory
+          : defaults.agent.codex.lastWorkingDirectory,
+        skipGitRepoCheck: codex.skipGitRepoCheck === true,
+        cliConfigJson: typeof codex.cliConfigJson === 'string'
+          ? codex.cliConfigJson
+          : defaults.agent.codex.cliConfigJson,
+      },
+      general: {
+        enabled: general.enabled === true,
+        defaultAgentId: typeof general.defaultAgentId === 'string' && general.defaultAgentId.trim()
+          ? general.defaultAgentId.trim()
+          : undefined,
+        agents: Array.isArray(general.agents)
+          ? general.agents.map(normalizeAiGeneralAgentTemplate).filter((item): item is AiGeneralAgentTemplate => Boolean(item))
+          : [],
+      },
+    },
+    research: {
+      enabled: research.enabled === true,
+      maxSearchQueries: Math.max(1, Math.min(50, Math.round(normalizeAiNumber(research.maxSearchQueries, defaults.research.maxSearchQueries) ?? defaults.research.maxSearchQueries))),
+      maxSources: Math.max(1, Math.min(200, Math.round(normalizeAiNumber(research.maxSources, defaults.research.maxSources) ?? defaults.research.maxSources))),
+      webSearchEndpoint: typeof research.webSearchEndpoint === 'string' && research.webSearchEndpoint.trim()
+        ? research.webSearchEndpoint.trim()
+        : undefined,
+      webSearchApiKey: typeof research.webSearchApiKey === 'string' && research.webSearchApiKey.trim()
+        ? research.webSearchApiKey
+        : undefined,
+      allowedDomains: normalizeStringList(research.allowedDomains),
+      blockedDomains: normalizeStringList(research.blockedDomains),
+      defaultKnowledgeLibraryId: typeof research.defaultKnowledgeLibraryId === 'string' && research.defaultKnowledgeLibraryId.trim()
+        ? research.defaultKnowledgeLibraryId.trim()
+        : undefined,
+      defaultKnowledgeSpaceId: typeof research.defaultKnowledgeSpaceId === 'string' && research.defaultKnowledgeSpaceId.trim()
+        ? research.defaultKnowledgeSpaceId.trim()
+        : undefined,
+      embeddingProviderId: typeof research.embeddingProviderId === 'string' && research.embeddingProviderId.trim()
+        ? research.embeddingProviderId.trim()
+        : undefined,
+      embeddingModelId: typeof research.embeddingModelId === 'string' && research.embeddingModelId.trim()
+        ? research.embeddingModelId.trim()
+        : undefined,
+    },
+    mcp: {
+      enabled: mcp.enabled === true,
+      modelscopeApiToken: typeof mcp.modelscopeApiToken === 'string' && mcp.modelscopeApiToken.trim()
+        ? mcp.modelscopeApiToken.trim()
+        : undefined,
+      servers: Array.isArray(mcp.servers)
+        ? mcp.servers.map(normalizeAiMcpServer).filter((server): server is AiMcpServerConfig => Boolean(server))
+        : [],
+    },
+  };
+}
+
+function normalizeAiAgentMode(value: unknown, fallback: AiAgentMode): AiAgentMode {
+  return value === 'code-agent' || value === 'general-agent' ? value : fallback;
+}
+
+function normalizeAiGeneralAgentTemplate(value: unknown): AiGeneralAgentTemplate | null {
+  if (!isRecord(value)) {
+    return null;
+  }
+
+  const id = typeof value.id === 'string' && value.id.trim() ? value.id.trim() : '';
+  const name = typeof value.name === 'string' && value.name.trim() ? value.name.trim() : id;
+  if (!id || !name) {
+    return null;
+  }
+
+  const timestamp = Date.now();
+  return {
+    id,
+    name,
+    description: typeof value.description === 'string' && value.description.trim()
+      ? value.description.trim()
+      : undefined,
+    systemPrompt: typeof value.systemPrompt === 'string' ? value.systemPrompt : '',
+    providerId: typeof value.providerId === 'string' && value.providerId.trim()
+      ? value.providerId.trim()
+      : undefined,
+    modelId: typeof value.modelId === 'string' && value.modelId.trim()
+      ? value.modelId.trim()
+      : undefined,
+    enabledTools: normalizeStringList(value.enabledTools),
+    temperature: normalizeAiNumber(value.temperature),
+    maxOutputTokens: normalizeAiNumber(value.maxOutputTokens),
+    createdAt: normalizeAiNumber(value.createdAt, timestamp) ?? timestamp,
+    updatedAt: normalizeAiNumber(value.updatedAt, timestamp) ?? timestamp,
+  };
+}
+
+function normalizeStringList(value: unknown): string[] {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+
+  return [...new Set(value
+    .map((item) => typeof item === 'string' ? item.trim() : '')
+    .filter(Boolean))]
+    .slice(0, 50);
 }
 
 function normalizeSettingsFeature(value: unknown): AppSettingsFeatureConfig {
@@ -230,6 +677,135 @@ function normalizeMultiDeviceClipboardFeature(value: unknown): MultiDeviceClipbo
         .filter((item): item is string => typeof item === 'string' && item.trim().length > 0)
         .map(item => item.trim())
       : [...defaults.networkInterfacePriority],
+  };
+}
+
+function normalizeQuickLaunchOpacity(value: unknown, fallback: number, min = 0) {
+  const numeric = Number(value);
+  return Number.isFinite(numeric)
+    ? Math.max(min, Math.min(1, numeric))
+    : fallback;
+}
+
+function normalizeQuickLaunchColor(value: unknown, fallback: string) {
+  if (typeof value !== 'string') {
+    return fallback;
+  }
+
+  const trimmed = value.trim();
+  return /^#[0-9a-f]{6}$/i.test(trimmed) ? trimmed : fallback;
+}
+
+function normalizeQuickLaunchFeature(value: unknown): QuickLaunchFeatureConfig {
+  const defaults = createDefaultAppConfig().features.quickLaunch;
+  if (!isRecord(value)) {
+    return cloneConfig(defaults);
+  }
+
+  const rawLimit = Number(value.maxResults);
+  const maxResults = Number.isFinite(rawLimit)
+    ? Math.max(4, Math.min(50, Math.round(rawLimit)))
+    : defaults.maxResults;
+  const allowedProviders = new Set<QuickLaunchProviderId>(QUICK_LAUNCH_PROVIDER_IDS);
+  const enabledProviders = normalizeStringList(value.enabledProviders)
+    .filter((providerId): providerId is QuickLaunchProviderId => allowedProviders.has(providerId as QuickLaunchProviderId));
+  const shouldAppendNewDefaults = LEGACY_QUICK_LAUNCH_DEFAULT_PROVIDER_IDS.every(providerId =>
+    enabledProviders.includes(providerId),
+  );
+  const migratedProviders = shouldAppendNewDefaults
+    ? [...new Set<QuickLaunchProviderId>([...enabledProviders, 'app', 'file'])]
+    : enabledProviders;
+  const everythingEsPath = typeof value.everythingEsPath === 'string'
+    ? value.everythingEsPath.trim()
+    : defaults.everythingEsPath;
+  const background = normalizeQuickLaunchBackground(value, defaults);
+
+  return {
+    enabled: typeof value.enabled === 'boolean' ? value.enabled : defaults.enabled,
+    maxResults,
+    enabledProviders: migratedProviders.length > 0 ? migratedProviders : [...defaults.enabledProviders],
+    hideOnBlur: typeof value.hideOnBlur === 'boolean' ? value.hideOnBlur : defaults.hideOnBlur,
+    everythingEsPath,
+    windowOpacity: normalizeQuickLaunchOpacity(value.windowOpacity, defaults.windowOpacity, 0.2),
+    selectionColor: normalizeQuickLaunchColor(value.selectionColor, defaults.selectionColor),
+    selectionOpacity: normalizeQuickLaunchOpacity(value.selectionOpacity, defaults.selectionOpacity),
+    resultTitleColor: normalizeQuickLaunchColor(value.resultTitleColor, defaults.resultTitleColor),
+    resultSubtitleColor: normalizeQuickLaunchColor(value.resultSubtitleColor, defaults.resultSubtitleColor),
+    ...background,
+  };
+}
+
+function normalizeQuickLaunchBackground(
+  value: Record<string, unknown>,
+  defaults: QuickLaunchFeatureConfig,
+): Pick<QuickLaunchFeatureConfig, 'backgroundType' | 'backgroundColor' | 'backgroundImage' | 'backgroundVideo' | 'backgroundStyle'> {
+  const rawStyle = isRecord(value.backgroundStyle)
+    ? cloneConfig(value.backgroundStyle) as QuickLaunchFeatureConfig['backgroundStyle']
+    : cloneConfig(defaults.backgroundStyle);
+  rawStyle.opacity = normalizeQuickLaunchOpacity(rawStyle.opacity, defaults.backgroundStyle.opacity ?? 1);
+  if (rawStyle.blur !== undefined) {
+    const blur = Number(rawStyle.blur);
+    rawStyle.blur = Number.isFinite(blur)
+      ? Math.max(0, Math.min(40, blur))
+      : undefined;
+  }
+
+  return {
+    backgroundType: value.backgroundType === 'image' || value.backgroundType === 'video' ? value.backgroundType : 'color',
+    backgroundColor: typeof value.backgroundColor === 'string' ? value.backgroundColor : defaults.backgroundColor,
+    backgroundImage: typeof value.backgroundImage === 'string' ? value.backgroundImage : defaults.backgroundImage,
+    backgroundVideo: typeof value.backgroundVideo === 'string' ? value.backgroundVideo : defaults.backgroundVideo,
+    backgroundStyle: rawStyle,
+  };
+}
+
+function normalizeKnowledgeFeature(value: unknown): AppKnowledgeFeatureConfig {
+  const defaults = createDefaultAppConfig().features.knowledge;
+  if (!isRecord(value)) {
+    return cloneConfig(defaults);
+  }
+
+  const rawMaxImportFileSizeMb = Number(value.maxImportFileSizeMb);
+  const maxImportFileSizeMb = Number.isFinite(rawMaxImportFileSizeMb)
+    ? Math.max(1, Math.min(10240, Math.round(rawMaxImportFileSizeMb)))
+    : defaults.maxImportFileSizeMb;
+  const rawPreviewCacheTtlDays = Number(value.previewCacheTtlDays);
+  const previewCacheTtlDays = Number.isFinite(rawPreviewCacheTtlDays)
+    ? Math.max(0, Math.min(3650, Math.round(rawPreviewCacheTtlDays)))
+    : defaults.previewCacheTtlDays;
+
+  return {
+    defaultLibraryId: typeof value.defaultLibraryId === 'string' ? value.defaultLibraryId.trim() : defaults.defaultLibraryId,
+    assetStorageMode: value.assetStorageMode === 'custom' ? 'custom' : 'app-data',
+    customAssetDirectory: typeof value.customAssetDirectory === 'string' ? value.customAssetDirectory.trim() : defaults.customAssetDirectory,
+    libreOfficePath: typeof value.libreOfficePath === 'string' ? value.libreOfficePath.trim() : defaults.libreOfficePath,
+    indexingEnabled: typeof value.indexingEnabled === 'boolean' ? value.indexingEnabled : defaults.indexingEnabled,
+    maxImportFileSizeMb,
+    previewCacheTtlDays,
+    quickNote: normalizeKnowledgeQuickNoteWindow(value.quickNote),
+  };
+}
+
+function normalizeKnowledgeQuickNoteWindow(value: unknown): AppKnowledgeQuickNoteWindowConfig {
+  const defaults = createDefaultKnowledgeQuickNoteWindowConfig();
+  if (!isRecord(value)) {
+    return cloneConfig(defaults);
+  }
+
+  const rawStyle = isRecord(value.backgroundStyle)
+    ? cloneConfig(value.backgroundStyle) as Record<string, unknown>
+    : cloneConfig(defaults.backgroundStyle) as Record<string, unknown>;
+  const opacity = Number(rawStyle.opacity);
+  rawStyle.opacity = Number.isFinite(opacity)
+    ? Math.max(0, Math.min(1, opacity))
+    : defaults.backgroundStyle.opacity;
+
+  return {
+    backgroundType: value.backgroundType === 'image' || value.backgroundType === 'video' ? value.backgroundType : 'color',
+    backgroundColor: typeof value.backgroundColor === 'string' ? value.backgroundColor : defaults.backgroundColor,
+    backgroundImage: typeof value.backgroundImage === 'string' ? value.backgroundImage : defaults.backgroundImage,
+    backgroundVideo: typeof value.backgroundVideo === 'string' ? value.backgroundVideo : defaults.backgroundVideo,
+    backgroundStyle: rawStyle,
   };
 }
 
@@ -566,7 +1142,30 @@ function mergeConfig(current: AppConfig, patch: AppConfigPatch): AppConfig {
       ...(patch.bottomBar ?? {}),
     }),
     features: {
-      aiAgent: patch.features?.aiAgent ? cloneConfig(patch.features.aiAgent) : cloneConfig(current.features.aiAgent),
+      aiAgent: normalizeAiAgentFeature({
+        ...current.features.aiAgent,
+        ...(patch.features?.aiAgent ?? {}),
+        chat: {
+          ...current.features.aiAgent.chat,
+          ...(patch.features?.aiAgent?.chat ?? {}),
+        },
+        agent: {
+          ...current.features.aiAgent.agent,
+          ...(patch.features?.aiAgent?.agent ?? {}),
+          codex: {
+            ...current.features.aiAgent.agent.codex,
+            ...(patch.features?.aiAgent?.agent?.codex ?? {}),
+          },
+          general: {
+            ...current.features.aiAgent.agent.general,
+            ...(patch.features?.aiAgent?.agent?.general ?? {}),
+          },
+        },
+        research: {
+          ...current.features.aiAgent.research,
+          ...(patch.features?.aiAgent?.research ?? {}),
+        },
+      }),
       settings: normalizeSettingsFeature({
         ...current.features.settings,
         tabs: {
@@ -581,6 +1180,18 @@ function mergeConfig(current: AppConfig, patch: AppConfigPatch): AppConfig {
       multiDeviceClipboard: normalizeMultiDeviceClipboardFeature({
         ...current.features.multiDeviceClipboard,
         ...(patch.features?.multiDeviceClipboard ?? {}),
+      }),
+      knowledge: normalizeKnowledgeFeature({
+        ...current.features.knowledge,
+        ...(patch.features?.knowledge ?? {}),
+        quickNote: {
+          ...current.features.knowledge.quickNote,
+          ...(patch.features?.knowledge?.quickNote ?? {}),
+        },
+      }),
+      quickLaunch: normalizeQuickLaunchFeature({
+        ...current.features.quickLaunch,
+        ...(patch.features?.quickLaunch ?? {}),
       }),
     },
     shortcuts: normalizeShortcuts({

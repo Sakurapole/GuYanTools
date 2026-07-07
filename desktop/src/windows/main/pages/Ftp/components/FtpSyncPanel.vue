@@ -71,7 +71,7 @@ function closePanel() {
     :panel-class="['ftp-sync-panel', 'ftp-inner-card']"
     width="min(980px, 100%)"
     height="min(720px, 100%)"
-    :z-index="20"
+    z-index="var(--ui-z-sticky)"
     aria-label="目录比较与同步"
     @close="closePanel"
   >

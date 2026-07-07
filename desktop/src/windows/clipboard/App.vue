@@ -15,20 +15,15 @@ const deviceStatuses = ref<MultiDeviceClipboardDeviceStatus[]>([]);
 const pairingRequests = ref<MultiDeviceClipboardPairingRequest[]>([]);
 const selectedItemId = ref('');
 const busy = ref(false);
+const deviceScanBusy = ref(false);
 const manualEndpoint = ref('');
 const manualPairingError = ref('');
-const isPinned = ref(false);
-const devicePanelExpanded = ref(true);
+const devicePanelExpanded = ref(false);
 const isDevMode = import.meta.env.DEV;
-type ClipboardWindowMode = 'expanded' | 'expanding' | 'docking' | 'docked';
-const windowMode = ref<ClipboardWindowMode>('expanded');
 
 let lastEscapeAt = 0;
 let removeEventListener: (() => void) | undefined;
 let removeConfigListener: (() => void) | undefined;
-let removeWindowStateListener: (() => void) | undefined;
-let dockTimer: ReturnType<typeof setTimeout> | undefined;
-const DOCK_DELAY_MS = 220;
 
 const trustedDeviceStatuses = computed(() => deviceStatuses.value.filter((device) =>
   device.state === 'trustedOnline' || device.state === 'trustedOffline'));
@@ -53,10 +48,26 @@ async function refresh() {
   }
 }
 
+async function scanDevices() {
+  if (!api || deviceScanBusy.value) return;
+  deviceScanBusy.value = true;
+  try {
+    deviceStatuses.value = await api.scanDevices(60);
+  } finally {
+    deviceScanBusy.value = false;
+  }
+}
+
 async function applyItem(item: MultiDeviceClipboardItem) {
   if (!api) return;
   selectedItemId.value = item.id;
   await api.applyItem(item.id);
+}
+
+async function copyItem(item: MultiDeviceClipboardItem) {
+  if (!api) return;
+  selectedItemId.value = item.id;
+  await api.copyItem(item.id);
 }
 
 async function deleteItem(item: MultiDeviceClipboardItem) {
@@ -156,8 +167,6 @@ function handleKeydown(event: KeyboardEvent) {
 }
 
 async function closeWindow() {
-  clearDockTimer();
-  windowMode.value = 'expanded';
   await api?.closeWindow();
 }
 
@@ -251,52 +260,9 @@ function applyTheme(config: AppConfig) {
   root.classList.add(config.appearance.theme);
 }
 
-function clearDockTimer() {
-  if (dockTimer) {
-    clearTimeout(dockTimer);
-    dockTimer = undefined;
-  }
-}
-
-function scheduleDock() {
-  if (isPinned.value) {
-    clearDockTimer();
-    return;
-  }
-  clearDockTimer();
-  dockTimer = setTimeout(() => {
-    windowMode.value = 'docking';
-    void api?.dockWindow();
-  }, DOCK_DELAY_MS);
-}
-
-function togglePinned() {
-  isPinned.value = !isPinned.value;
-  if (isPinned.value) {
-    clearDockTimer();
-    expandFromDock();
-  }
-}
-
-function expandFromDock() {
-  clearDockTimer();
-  if (windowMode.value === 'expanded') {
-    return;
-  }
-
-  windowMode.value = 'expanding';
-  void api?.expandWindow();
-}
-
 onMounted(() => {
   removeEventListener = api?.onEvent(handleEvent);
   removeConfigListener = window.appConfigApi?.onDidChange(applyTheme);
-  removeWindowStateListener = window.ipcRenderer?.on('multi-device-clipboard:window-state', (state: ClipboardWindowMode) => {
-    windowMode.value = state;
-    if (state === 'expanded') {
-      clearDockTimer();
-    }
-  });
   void window.appConfigApi?.getConfig().then(applyTheme);
   window.ipcRenderer?.send('multi-device-clipboard:window-ready');
   window.addEventListener('keydown', handleKeydown);
@@ -304,21 +270,14 @@ onMounted(() => {
 });
 
 onBeforeUnmount(() => {
-  clearDockTimer();
   removeEventListener?.();
   removeConfigListener?.();
-  removeWindowStateListener?.();
   window.removeEventListener('keydown', handleKeydown);
 });
 </script>
 
 <template>
-  <div class="clipboard-shell" :class="{
-    'clipboard-shell--dock-visual': windowMode === 'docked',
-    'clipboard-shell--pinned': isPinned,
-  }"
-    @mouseenter="expandFromDock" @mouseleave="scheduleDock">
-    <div class="dock-strip" aria-hidden="true" />
+  <div class="clipboard-shell">
     <header class="clipboard-header">
       <div>
         <h1>多设备剪贴板</h1>
@@ -331,17 +290,6 @@ onBeforeUnmount(() => {
             <path d="m8 9-4 3 4 3" />
             <path d="m16 9 4 3-4 3" />
             <path d="m14 5-4 14" />
-          </svg>
-        </button>
-        <button type="button" class="icon-button pin-button" :class="{ 'pin-button--active': isPinned }"
-          :title="isPinned ? '取消固定窗口' : '固定窗口'" :aria-label="isPinned ? '取消固定窗口' : '固定窗口'"
-          @click="togglePinned">
-          <svg class="pin-button__icon" viewBox="0 0 24 24" aria-hidden="true">
-            <path d="M12 3v5" />
-            <path d="M8 8h8" />
-            <path d="m9.5 8 1 7h3l1-7" />
-            <path d="M12 15v6" />
-            <path d="M9.5 21h5" />
           </svg>
         </button>
         <button type="button" class="icon-button" title="关闭" @click="closeWindow">×</button>
@@ -374,16 +322,28 @@ onBeforeUnmount(() => {
     </section>
 
     <section class="device-panel" :class="{ 'device-panel--collapsed': !devicePanelExpanded }">
-      <button type="button" class="device-panel__header" :aria-expanded="devicePanelExpanded"
-        aria-controls="clipboard-device-panel-body" @click="devicePanelExpanded = !devicePanelExpanded">
-        <span>
-          <strong>设备</strong>
-          <small>{{ devicePanelSummary }}</small>
-        </span>
-        <svg class="device-panel__chevron" viewBox="0 0 24 24" aria-hidden="true">
-          <path d="m6 9 6 6 6-6" />
-        </svg>
-      </button>
+      <div class="device-panel__header">
+        <button type="button" class="device-panel__toggle" :aria-expanded="devicePanelExpanded"
+          aria-controls="clipboard-device-panel-body" @click="devicePanelExpanded = !devicePanelExpanded">
+          <span>
+            <strong>设备</strong>
+            <small>{{ devicePanelSummary }}</small>
+          </span>
+          <svg class="device-panel__chevron" viewBox="0 0 24 24" aria-hidden="true">
+            <path d="m6 9 6 6 6-6" />
+          </svg>
+        </button>
+        <button type="button" class="icon-button icon-button--inline device-panel__scan" :disabled="deviceScanBusy"
+          title="扫描已配对设备是否在线" aria-label="扫描已配对设备是否在线" @click="scanDevices">
+          <svg class="icon-button__svg" :class="{ 'icon-button__svg--spinning': deviceScanBusy }" viewBox="0 0 24 24"
+            aria-hidden="true">
+            <path d="M21 12a9 9 0 0 1-15.5 6.2L3 16" />
+            <path d="M3 16v5h5" />
+            <path d="M3 12a9 9 0 0 1 15.5-6.2L21 8" />
+            <path d="M21 8V3h-5" />
+          </svg>
+        </button>
+      </div>
 
       <Transition name="device-panel-collapse">
         <div v-show="devicePanelExpanded" id="clipboard-device-panel-body" class="device-panel__body">
@@ -487,8 +447,17 @@ onBeforeUnmount(() => {
             <span v-if="item.localOnly">本机</span>
           </div>
         </div>
-        <button type="button" class="icon-button icon-button--inline" title="删除"
-          @click.stop="deleteItem(item)">×</button>
+        <div class="clipboard-item__actions">
+          <button type="button" class="icon-button icon-button--inline" title="复制此项"
+            :aria-label="`复制 ${itemTitle(item)}`" @click.stop="copyItem(item)">
+            <svg class="icon-button__svg" viewBox="0 0 24 24" aria-hidden="true">
+              <rect x="8" y="8" width="12" height="12" rx="2" />
+              <path d="M16 8V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h2" />
+            </svg>
+          </button>
+          <button type="button" class="icon-button icon-button--inline" title="删除"
+            :aria-label="`删除 ${itemTitle(item)}`" @click.stop="deleteItem(item)">×</button>
+        </div>
       </article>
 
       <div v-if="!items.length" class="empty-state">
@@ -498,8 +467,24 @@ onBeforeUnmount(() => {
     </UiScrollbar>
 
     <footer class="clipboard-footer">
-      <button type="button" @click="refresh">刷新</button>
-      <button type="button" :disabled="!items.length" @click="clearHistory">清空</button>
+      <button type="button" class="icon-button" title="刷新剪贴板" aria-label="刷新剪贴板" @click="refresh">
+        <svg class="icon-button__svg" viewBox="0 0 24 24" aria-hidden="true">
+          <path d="M21 12a9 9 0 0 1-15.5 6.2L3 16" />
+          <path d="M3 16v5h5" />
+          <path d="M3 12a9 9 0 0 1 15.5-6.2L21 8" />
+          <path d="M21 8V3h-5" />
+        </svg>
+      </button>
+      <button type="button" class="icon-button" :disabled="!items.length" title="清空剪贴板历史"
+        aria-label="清空剪贴板历史" @click="clearHistory">
+        <svg class="icon-button__svg" viewBox="0 0 24 24" aria-hidden="true">
+          <path d="M3 6h18" />
+          <path d="M8 6V4h8v2" />
+          <path d="M19 6l-1 14H6L5 6" />
+          <path d="M10 11v5" />
+          <path d="M14 11v5" />
+        </svg>
+      </button>
     </footer>
   </div>
 </template>
@@ -620,70 +605,9 @@ body,
   pointer-events: none;
 }
 
-.clipboard-shell> :not(.dock-strip) {
+.clipboard-shell> * {
   position: relative;
   z-index: 1;
-}
-
-.clipboard-shell--dock-visual {
-  cursor: pointer;
-  border: none;
-  /* border-radius: 7px 0 0 7px; */
-  background: transparent;
-  box-shadow: none;
-  backdrop-filter: none;
-}
-
-.clipboard-shell--dock-visual::before {
-  display: none;
-}
-
-.clipboard-shell--dock-visual> :not(.dock-strip) {
-  display: none;
-  pointer-events: none;
-}
-
-.dock-strip {
-  display: none;
-}
-
-.clipboard-shell--dock-visual .dock-strip {
-  position: absolute;
-  inset: 0;
-  display: block;
-  /* border-radius: 7px 0 0 7px; */
-  background:
-    linear-gradient(180deg,
-      rgba(255, 255, 255, 0.34) 0%,
-      rgba(255, 255, 255, 0) 42%,
-      rgba(0, 0, 0, 0.16) 100%),
-    linear-gradient(140deg,
-      #28e6ff 0%,
-      #66ccff 16%,
-      #7c6dff 32%,
-      #ff5fb7 48%,
-      #ffb84c 64%,
-      #62f28f 80%,
-      #28e6ff 100%);
-  background-size: 100% 100%, 260% 260%;
-  box-shadow:
-    0 0 0 1px rgba(255, 255, 255, 0.18) inset,
-    -3px 0 12px rgba(63, 149, 209, 0.28);
-  animation: dock-rainbow-flow 7.5s linear infinite;
-}
-
-@keyframes dock-rainbow-flow {
-  0% {
-    background-position: 0 0, 0% 0%;
-  }
-
-  50% {
-    background-position: 0 0, 100% 100%;
-  }
-
-  100% {
-    background-position: 0 0, 0% 0%;
-  }
 }
 
 .clipboard-header,
@@ -768,39 +692,15 @@ button:disabled {
   stroke-linejoin: round;
 }
 
+.icon-button__svg--spinning {
+  animation: icon-spin 840ms linear infinite;
+}
+
 .icon-button--inline {
   flex: 0 0 24px;
   width: 24px;
   height: 24px;
   font-size: 16px;
-}
-
-.pin-button {
-  display: grid;
-  place-items: center;
-}
-
-.pin-button__icon {
-  width: 16px;
-  height: 16px;
-  fill: none;
-  stroke: currentColor;
-  stroke-width: 1.9;
-  stroke-linecap: round;
-  stroke-linejoin: round;
-  transform: rotate(34deg);
-  transform-origin: center;
-  transition: transform 180ms ease;
-}
-
-.pin-button--active {
-  color: var(--clipboard-accent);
-  background: var(--clipboard-accent-soft);
-  border-color: var(--clipboard-border-strong);
-}
-
-.pin-button--active .pin-button__icon {
-  transform: rotate(0deg);
 }
 
 .devtools-button {
@@ -870,9 +770,10 @@ button:disabled {
   gap: 6px;
 }
 
-.clipboard-footer button {
-  padding: 6px 10px;
-  font-size: 12px;
+@keyframes icon-spin {
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 .device-panel {
@@ -886,22 +787,46 @@ button:disabled {
   display: flex;
   align-items: center;
   justify-content: space-between;
+  gap: 6px;
+  padding: 7px 8px 7px 12px;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+}
+
+.device-panel__toggle {
+  min-width: 0;
+  flex: 1 1 auto;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
   gap: 10px;
-  padding: 8px 12px;
+  padding: 0;
   border: 0;
   border-radius: 0;
   background: transparent;
   text-align: left;
 }
 
-.device-panel__header span {
+.device-panel__toggle:hover:not(:disabled) {
+  background: transparent;
+  border-color: transparent;
+}
+
+.device-panel__toggle span {
   min-width: 0;
   display: grid;
   gap: 1px;
 }
 
-.device-panel__header strong {
+.device-panel__toggle strong {
   font-size: 13px;
+}
+
+.device-panel__scan {
+  flex: 0 0 28px;
+  width: 28px;
+  height: 28px;
 }
 
 .device-panel__header small,
@@ -1104,6 +1029,12 @@ button:disabled {
 .clipboard-item__body {
   flex: 1;
   min-width: 0;
+}
+
+.clipboard-item__actions {
+  flex: 0 0 auto;
+  display: grid;
+  gap: 6px;
 }
 
 .clipboard-item__topline,

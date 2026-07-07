@@ -507,7 +507,7 @@ class InMemoryClipboardCoreBridge implements ClipboardCoreBridge {
       name: input.name,
       platform: input.platform ?? existing?.platform ?? 'desktop',
       publicKey: input.publicKey ?? existing?.publicKey,
-      trusted: input.trusted ?? existing?.trusted ?? false,
+      trusted: input.trusted == true ? true : (existing?.trusted ?? false),
       isSelf: input.isSelf ?? existing?.isSelf ?? false,
       lastAddress: input.lastAddress ?? existing?.lastAddress,
       lastPort: input.lastPort ?? existing?.lastPort,

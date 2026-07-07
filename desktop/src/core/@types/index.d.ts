@@ -1,12 +1,18 @@
 import type { HomeLayoutApi } from '@/contracts/home_layout';
 import type { AppConfigApi } from '@/contracts/app_config';
+import type { SyncApi } from '@/contracts/sync';
 import type { HomeProfileApi } from '@/contracts/home_profile';
 import type { HomeWorkspaceApi } from '@/contracts/home_workspace';
 import type { PluginHostApi, PluginRuntimeApi, PluginRuntimeContext } from '@/contracts/plugin_host';
+import type { ShortcutsApi } from '@/contracts/shortcuts';
+import type { QuickLaunchApi } from '@/contracts/quick_launch';
+import type { WorkspaceWindowApi } from '@/contracts/workspace_window';
 import type { NotificationApi } from '@/contracts/notification';
 import type { TrayApi } from '@/contracts/tray';
 import type { FtpApi } from '@/contracts/ftp';
 import type { MultiDeviceClipboardApi } from '@/contracts/multi_device_clipboard';
+import type { TodoApi } from '@/contracts/todo';
+import type { KnowledgeApi, QuickNoteWindowApi } from '@/contracts/knowledge';
 
 // export * from './plugin.d.ts';
 export { };
@@ -45,8 +51,15 @@ declare global {
     homeProfileApi?: HomeProfileApi;
     pluginHostApi?: PluginHostApi;
     appConfigApi?: AppConfigApi;
+    syncApi?: SyncApi;
+    shortcutsApi?: ShortcutsApi;
+    quickLaunchApi?: QuickLaunchApi;
+    workspaceWindowApi?: WorkspaceWindowApi;
     notificationApi?: NotificationApi;
     homeWorkspaceApi?: HomeWorkspaceApi;
+    todoApi?: TodoApi;
+    knowledgeApi?: KnowledgeApi;
+    quickNoteWindowApi?: QuickNoteWindowApi;
     trayApi?: TrayApi;
     multiDeviceClipboardApi?: MultiDeviceClipboardApi;
     ftpApi: FtpApi;

@@ -127,6 +127,7 @@ class MultiDeviceClipboardService {
   async applyItem(itemId: string) {
     const item = await this.requireHost().getItem(itemId);
     await this.writeItemToClipboard(item);
+    logClipboardSuccess('copy-success', item, { source: 'history' });
   }
 
   async deleteItem(itemId: string) {
@@ -153,6 +154,12 @@ class MultiDeviceClipboardService {
 
   async listDeviceStatuses(onlineWindowSeconds = 60) {
     return this.requireHost().listDeviceStatuses(onlineWindowSeconds);
+  }
+
+  async scanDeviceStatuses(onlineWindowSeconds = 60) {
+    const statuses = await this.requireHost().listDeviceStatuses(onlineWindowSeconds);
+    this.emit({ type: 'devices-changed' });
+    return statuses;
   }
 
   async startPairing(deviceId: string) {
@@ -257,6 +264,15 @@ class MultiDeviceClipboardService {
       this.localDevice = null;
     }
     const localDevice = await this.ensureLocalDevice();
+    this.startDiscovery(localDevice, feature);
+    this.startPolling();
+    this.emit({ type: 'status-changed', enabled: true });
+  }
+
+  private startDiscovery(
+    localDevice: MultiDeviceClipboardDevice,
+    feature: AppConfig['features']['multiDeviceClipboard'],
+  ) {
     this.requireHost().startDiscovery({
       deviceId: localDevice.id,
       deviceName: localDevice.name,
@@ -266,8 +282,6 @@ class MultiDeviceClipboardService {
       probeLocalAddresses: listLocalIpv4Interfaces().map((item) => item.address),
       httpProbeEnabled: true,
     });
-    this.startPolling();
-    this.emit({ type: 'status-changed', enabled: true });
   }
 
   private async ensureLocalDevice() {
@@ -351,6 +365,7 @@ class MultiDeviceClipboardService {
     await this.requireHost().pruneHistory(this.config?.features.multiDeviceClipboard.historyLimit ?? DEFAULT_HISTORY_LIMIT);
     this.lastContentHash = item.contentHash;
     this.emit({ type: 'items-changed', item });
+    logClipboardSuccess('copy-success', item, { source: 'system-clipboard' });
     if (!item.localOnly) {
       await this.broadcastItem(item, capture.assetBase64);
     }
@@ -499,8 +514,12 @@ class MultiDeviceClipboardService {
     const devices = await this.requireHost().listDevices();
     const trustedDevices = devices.filter((device) =>
       device.trusted && !device.isSelf && device.lastAddress && device.lastPort);
-    await Promise.allSettled(trustedDevices.map((device) =>
+    const results = await Promise.allSettled(trustedDevices.map((device) =>
       this.postJson(device.lastAddress!, device.lastPort!, '/sync/item', { item, assetBase64 } satisfies SyncPayload)));
+    const successCount = results.filter((result) => result.status === 'fulfilled').length;
+    if (successCount > 0) {
+      logClipboardSuccess('sync-send-success', item, { successCount, targetCount: trustedDevices.length });
+    }
   }
 
   private async handleRequest(req: http.IncomingMessage, res: http.ServerResponse) {
@@ -592,6 +611,7 @@ class MultiDeviceClipboardService {
     const item = await this.requireHost().upsertItem(itemInput);
     await this.writeItemToClipboard(item);
     this.emit({ type: 'items-changed', item });
+    logClipboardSuccess('sync-receive-success', item);
   }
 
   private async writeItemToClipboard(item: MultiDeviceClipboardItem) {
@@ -968,6 +988,19 @@ function isImageFile(fileName: string) {
 
 function isVideoFile(fileName: string) {
   return ['.mp4', '.webm', '.mov', '.mkv'].includes(path.extname(fileName).toLowerCase());
+}
+
+function logClipboardSuccess(
+  stage: 'copy-success' | 'sync-send-success' | 'sync-receive-success',
+  item: MultiDeviceClipboardItem,
+  details: Record<string, number | string | boolean> = {},
+) {
+  console.info(`[multi-device-clipboard] ${stage}:`, {
+    contentType: item.contentType,
+    localOnly: item.localOnly,
+    byteSize: item.byteSize,
+    ...details,
+  });
 }
 
 function normalizeRemoteAddress(value?: string) {

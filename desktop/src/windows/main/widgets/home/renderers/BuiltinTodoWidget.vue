@@ -5,6 +5,9 @@ import { normalizeWidgetConfig } from '../registry';
 import type { Todo, TodoList } from '@/contracts/todo';
 import { useTodoEvents } from '../../../composables/useTodoEvents';
 import { notifyError } from '../../../composables/useInAppNotification';
+import UiButton from '../../../components/ui/UiButton.vue';
+import UiIconButton from '../../../components/ui/UiIconButton.vue';
+import UiInput from '../../../components/ui/UiInput.vue';
 
 declare const todoApi: import('@/contracts/todo').TodoApi;
 
@@ -264,7 +267,7 @@ watch(todoMutationTick, () => {
       class="todo-widget__quick-add"
     >
       <template v-if="showInput">
-        <input
+        <UiInput
           v-model="quickTitle"
           class="todo-widget__input"
           placeholder="新待办…"
@@ -273,19 +276,19 @@ watch(todoMutationTick, () => {
           @click.stop
           @pointerdown.stop
         />
-        <button type="button" class="todo-widget__add-btn todo-widget__add-btn--confirm"
+        <UiIconButton type="button" class="todo-widget__add-btn todo-widget__add-btn--confirm" size="sm" variant="ghost" title="确认添加"
           @click.stop="quickAdd" @pointerdown.stop>
           <svg viewBox="0 0 14 14" fill="none"><path d="M3 7l3 3 5-5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
-        </button>
+        </UiIconButton>
       </template>
       <template v-else>
-        <button type="button" class="todo-widget__add-btn" @click="openQuickAdd" @pointerdown.stop>
+        <UiButton type="button" variant="ghost" class="todo-widget__add-btn" @click="openQuickAdd" @pointerdown.stop>
           <svg viewBox="0 0 14 14" fill="none">
             <line x1="7" y1="2" x2="7" y2="12" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
             <line x1="2" y1="7" x2="12" y2="7" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
           </svg>
           <span>添加任务</span>
-        </button>
+        </UiButton>
       </template>
     </div>
   </div>
@@ -468,7 +471,7 @@ watch(todoMutationTick, () => {
   flex-shrink: 0;
 }
 
-.todo-widget__input {
+.todo-widget__input.ui-input {
   flex: 1;
   min-width: 0;
   background: color-mix(in srgb, var(--widget-text-primary, #fff) 12%, transparent);
@@ -479,6 +482,7 @@ watch(todoMutationTick, () => {
   font-size: 12px;
   outline: none;
   transition: background 0.18s ease, border-color 0.18s ease;
+  box-shadow: none;
 
   &::placeholder {
     color: var(--widget-text-subtle, rgba(255, 255, 255, 0.4));
@@ -490,7 +494,8 @@ watch(todoMutationTick, () => {
   }
 }
 
-.todo-widget__add-btn {
+.todo-widget__add-btn.ui-button,
+.todo-widget__add-btn.ui-icon-button {
   display: flex;
   align-items: center;
   gap: 5px;
@@ -503,6 +508,8 @@ watch(todoMutationTick, () => {
   cursor: pointer;
   transition: background 0.18s ease, color 0.18s ease;
   white-space: nowrap;
+  min-height: auto;
+  transform: none;
 
   svg {
     width: 12px;
@@ -510,9 +517,10 @@ watch(todoMutationTick, () => {
     flex-shrink: 0;
   }
 
-  &:hover {
+  &:hover:not(:disabled) {
     background: color-mix(in srgb, var(--widget-text-primary, #fff) 20%, transparent);
     color: var(--widget-text-primary, #fff);
+    transform: none;
   }
 
   &--confirm {

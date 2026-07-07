@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed } from 'vue';
+import { computed, ref } from 'vue';
 import type { UiTreeEventPayload, UiTreeNodeData } from './ui_tree';
 
 defineOptions({ name: 'UiTreeNodeItem' });
@@ -23,12 +23,13 @@ const emit = defineEmits<{
   activate: [node: UiTreeNodeData];
   contextmenu: [payload: UiTreeEventPayload];
   dragstart: [node: UiTreeNodeData];
-  drop: [payload: { event: DragEvent; node: UiTreeNodeData }];
+  drop: [payload: { event: DragEvent; node: UiTreeNodeData; position: 'before' | 'inside' | 'after' }];
 }>();
 
 const hasChildren = computed(() => Boolean(props.node.children?.length));
 const expanded = computed(() => props.expandedIds.includes(props.node.id));
 const selected = computed(() => props.selectedId === props.node.id);
+const dropPosition = ref<'before' | 'inside' | 'after' | ''>('');
 const nodeClass = computed(() => [
   'ui-tree-node',
   props.node.kind ? `ui-tree-node--${props.node.kind}` : '',
@@ -98,12 +99,40 @@ function handleDragStart(event: DragEvent) {
   emit('dragstart', props.node);
 }
 
+function resolveDropPosition(event: DragEvent) {
+  const row = event.currentTarget as HTMLElement | null;
+  if (!row) return 'inside';
+  const rect = row.getBoundingClientRect();
+  const offset = event.clientY - rect.top;
+  if (offset < rect.height * 0.28) return 'before';
+  if (offset > rect.height * 0.72) return 'after';
+  return 'inside';
+}
+
+function handleDragOver(event: DragEvent) {
+  event.preventDefault();
+  if (props.node.disabled) {
+    dropPosition.value = '';
+    return;
+  }
+  if (event.dataTransfer) {
+    event.dataTransfer.dropEffect = 'move';
+  }
+  dropPosition.value = resolveDropPosition(event);
+}
+
+function clearDropPosition() {
+  dropPosition.value = '';
+}
+
 function handleDrop(event: DragEvent) {
   event.preventDefault();
+  const position = dropPosition.value || resolveDropPosition(event);
+  clearDropPosition();
   if (props.node.disabled) {
     return;
   }
-  emit('drop', { event, node: props.node });
+  emit('drop', { event, node: props.node, position });
 }
 </script>
 
@@ -112,10 +141,11 @@ function handleDrop(event: DragEvent) {
     <div class="ui-tree-node__row" :class="{
       'ui-tree-node__row--selected': selected,
       'ui-tree-node__row--disabled': node.disabled,
+      [`ui-tree-node__row--drop-${dropPosition}`]: Boolean(dropPosition),
     }" :style="rowStyle" role="treeitem" :aria-expanded="hasChildren ? expanded : undefined" :aria-selected="selected"
       :draggable="!node.disabled" tabindex="0" @click="handleRowClick" @dblclick="handleRowDoubleClick"
       @keydown="handleRowKeydown" @contextmenu.prevent="handleContextMenu" @dragstart="handleDragStart"
-      @dragover.prevent @drop="handleDrop">
+      @dragover="handleDragOver" @dragleave="clearDropPosition" @dragend="clearDropPosition" @drop="handleDrop">
       <button class="ui-tree-node__toggle" :class="{
         'ui-tree-node__toggle--hidden': !hasChildren,
         'ui-tree-node__toggle--expanded': expanded,
@@ -140,12 +170,12 @@ function handleDrop(event: DragEvent) {
       <span v-if="node.badge" class="ui-tree-node__badge">{{ node.badge }}</span>
     </div>
 
-    <div v-if="hasChildren && expanded" class="ui-tree-node__children" role="group">
+    <TransitionGroup v-if="hasChildren && expanded" name="ui-tree-list" tag="div" class="ui-tree-node__children" role="group">
       <UiTreeNodeItem v-for="child in node.children" :key="child.id" :node="child" :level="level + 1"
         :indent-size="indentSize" :expanded-ids="expandedIds" :selected-id="selectedId" @toggle="emit('toggle', $event)"
         @select="emit('select', $event)" @activate="emit('activate', $event)" @contextmenu="emit('contextmenu', $event)"
         @dragstart="emit('dragstart', $event)" @drop="emit('drop', $event)" />
-    </div>
+    </TransitionGroup>
   </div>
 </template>
 
@@ -170,7 +200,8 @@ function handleDrop(event: DragEvent) {
   transition:
     background-color 0.16s ease,
     border-color 0.16s ease,
-    box-shadow 0.16s ease;
+    box-shadow 0.16s ease,
+    transform 0.16s ease;
 
   &:hover {
     background: color-mix(in srgb, var(--primary-color) 8%, transparent);
@@ -189,6 +220,28 @@ function handleDrop(event: DragEvent) {
   &--disabled {
     opacity: 0.56;
     cursor: not-allowed;
+  }
+
+  &--drop-inside {
+    border-color: color-mix(in srgb, var(--primary-color) 42%, var(--ui-border-subtle));
+    background: color-mix(in srgb, var(--primary-color) 12%, var(--ui-surface-panel));
+    box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--primary-color) 24%, transparent);
+  }
+
+  &--drop-before,
+  &--drop-after {
+    border-color: transparent;
+    background: color-mix(in srgb, var(--ui-surface-overlay) 86%, transparent);
+  }
+
+  &--drop-before {
+    box-shadow: inset 0 2px 0 var(--primary-color);
+    transform: translateY(1px);
+  }
+
+  &--drop-after {
+    box-shadow: inset 0 -2px 0 var(--primary-color);
+    transform: translateY(-1px);
   }
 }
 
@@ -288,5 +341,29 @@ function handleDrop(event: DragEvent) {
   display: flex;
   flex-direction: column;
   gap: 4px;
+}
+
+.ui-tree-list-move,
+.ui-tree-list-enter-active,
+.ui-tree-list-leave-active {
+  transition:
+    transform 0.18s var(--ui-motion-ease-emphasized),
+    opacity 0.16s var(--ui-motion-ease-standard);
+}
+
+.ui-tree-list-enter-from,
+.ui-tree-list-leave-to {
+  opacity: 0;
+  transform: translateY(-4px);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ui-tree-node__row,
+  .ui-tree-list-move,
+  .ui-tree-list-enter-active,
+  .ui-tree-list-leave-active {
+    transition: none;
+    transform: none;
+  }
 }
 </style>

@@ -1,19 +1,27 @@
 <script setup lang="ts">
-import { ref, computed, onMounted, onBeforeUnmount } from 'vue';
+import { ref, computed, onMounted, onBeforeUnmount, nextTick } from 'vue';
 import { useTodoStore } from '@/windows/main/stores/todo_store';
 import type { TodoReminder } from '@/contracts/todo';
+import IconRenderer from '@/windows/main/components/ui/IconRenderer.vue';
+import UiButton from '@/windows/main/components/ui/UiButton.vue';
+import UiDateTimePicker from '@/windows/main/components/ui/UiDateTimePicker.vue';
+import UiIconButton from '@/windows/main/components/ui/UiIconButton.vue';
 
 const props = defineProps<{ todoId: string; reminders: TodoReminder[] }>();
 const todoStore = useTodoStore();
 
 const isOpen = ref(false);
+const placement = ref<'bottom' | 'top'>('bottom');
+const panelStyle = ref<Record<string, string>>({});
 const panelRef = ref<HTMLElement | null>(null);
 const triggerRef = ref<HTMLElement | null>(null);
 
 // 自定义日期时间
-const customDate = ref('');
-const customTime = ref('');
+const customDateTime = ref('');
 const showCustom = ref(false);
+const PANEL_WIDTH = 292;
+const PANEL_HEIGHT = 360;
+const GAP = 8;
 
 function todayStr(): string {
   const d = new Date();
@@ -42,9 +50,48 @@ const quickOptions = computed(() => [
 
 const hasReminders = computed(() => props.reminders.length > 0);
 
-function togglePanel() {
-  isOpen.value = !isOpen.value;
-  showCustom.value = false;
+function calcPanelPosition() {
+  if (!triggerRef.value) return;
+  const rect = triggerRef.value.getBoundingClientRect();
+  const spaceBelow = window.innerHeight - rect.bottom;
+  const spaceAbove = rect.top;
+  const needsFlip = spaceBelow < PANEL_HEIGHT + GAP && spaceAbove > spaceBelow;
+
+  placement.value = needsFlip ? 'top' : 'bottom';
+
+  const style: Record<string, string> = {
+    width: `${PANEL_WIDTH}px`,
+    maxHeight: `${Math.max(220, window.innerHeight - 16)}px`,
+  };
+  if (needsFlip) {
+    style.bottom = `${Math.max(8, window.innerHeight - rect.top + GAP)}px`;
+    style.top = 'auto';
+  } else {
+    style.top = `${Math.min(rect.bottom + GAP, window.innerHeight - 8)}px`;
+    style.bottom = 'auto';
+  }
+
+  if (rect.left + PANEL_WIDTH > window.innerWidth - 8) {
+    style.right = `${Math.max(8, window.innerWidth - rect.right)}px`;
+    style.left = 'auto';
+  } else {
+    style.left = `${Math.max(8, rect.left)}px`;
+    style.right = 'auto';
+  }
+
+  panelStyle.value = style;
+}
+
+async function togglePanel() {
+  if (!isOpen.value) {
+    showCustom.value = false;
+    calcPanelPosition();
+    isOpen.value = true;
+    await nextTick();
+    calcPanelPosition();
+    return;
+  }
+  isOpen.value = false;
 }
 
 async function selectQuickOption(dateTime: string) {
@@ -53,13 +100,11 @@ async function selectQuickOption(dateTime: string) {
 }
 
 async function confirmCustom() {
-  if (!customDate.value || !customTime.value) return;
-  const dateTime = `${customDate.value} ${customTime.value}:00`;
-  await todoStore.addReminder(props.todoId, dateTime);
+  if (!customDateTime.value) return;
+  await todoStore.addReminder(props.todoId, customDateTime.value);
   isOpen.value = false;
   showCustom.value = false;
-  customDate.value = '';
-  customTime.value = '';
+  customDateTime.value = '';
 }
 
 async function removeReminder(reminderId: string) {
@@ -80,61 +125,73 @@ function onClickOutside(e: MouseEvent) {
   if (!isOpen.value) return;
   const target = e.target as Node;
   if (triggerRef.value?.contains(target) || panelRef.value?.contains(target)) return;
+  if (target instanceof Element && target.closest('.ui-datepicker__panel, .ui-timepicker__panel')) return;
   isOpen.value = false;
 }
 
-onMounted(() => document.addEventListener('mousedown', onClickOutside, true));
-onBeforeUnmount(() => document.removeEventListener('mousedown', onClickOutside, true));
+function onViewportChange() {
+  if (isOpen.value) calcPanelPosition();
+}
+
+onMounted(() => {
+  document.addEventListener('mousedown', onClickOutside, true);
+  window.addEventListener('resize', onViewportChange);
+  window.addEventListener('scroll', onViewportChange, true);
+});
+onBeforeUnmount(() => {
+  document.removeEventListener('mousedown', onClickOutside, true);
+  window.removeEventListener('resize', onViewportChange);
+  window.removeEventListener('scroll', onViewportChange, true);
+});
 </script>
 
 <template>
   <div class="reminder-picker">
-    <button ref="triggerRef" class="reminder-trigger" @click="togglePanel">
-      <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-        <circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>
-      </svg>
-      <span>{{ hasReminders ? `${reminders.length} 个提醒` : '添加提醒' }}</span>
-    </button>
+    <span ref="triggerRef" class="reminder-trigger-wrap">
+      <UiButton class="reminder-trigger" variant="ghost" type="button" @click="togglePanel">
+        <IconRenderer icon="iconify:lucide:clock" :size="16" />
+        <span>{{ hasReminders ? `${reminders.length} 个提醒` : '添加提醒' }}</span>
+      </UiButton>
+    </span>
 
     <!-- 已有提醒列表 -->
     <div v-if="hasReminders" class="reminder-list">
       <div v-for="r in reminders" :key="r.id" class="reminder-tag" :class="{ sent: r.isSent }">
-        <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-          <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/>
-        </svg>
+        <IconRenderer icon="iconify:lucide:bell" :size="12" />
         <span>{{ formatDateTime(r.remindAt) }}</span>
-        <button class="reminder-remove" @click="removeReminder(r.id)">
-          <svg width="10" height="10" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
-            <line x1="4" y1="4" x2="12" y2="12"/><line x1="12" y1="4" x2="4" y2="12"/>
-          </svg>
-        </button>
+        <UiIconButton class="reminder-remove" size="sm" variant="ghost" title="删除提醒" @click="removeReminder(r.id)">
+          <IconRenderer icon="iconify:lucide:x" :size="10" />
+        </UiIconButton>
       </div>
     </div>
 
-    <!-- 下拉面板 -->
-    <Transition name="ui-dropdown">
-      <div v-if="isOpen" ref="panelRef" class="reminder-panel">
-        <div class="panel-title">设置提醒</div>
-        <button v-for="opt in quickOptions" :key="opt.dateTime" class="panel-option" @click="selectQuickOption(opt.dateTime)">
-          <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>
-          </svg>
-          {{ opt.label }}
-        </button>
-        <div class="panel-divider"/>
-        <button class="panel-option" @click="showCustom = !showCustom">
-          <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <rect width="18" height="18" x="3" y="4" rx="2" ry="2"/><line x1="16" x2="16" y1="2" y2="6"/><line x1="8" x2="8" y1="2" y2="6"/><line x1="3" x2="21" y1="10" y2="10"/>
-          </svg>
-          自定义日期和时间...
-        </button>
-        <div v-if="showCustom" class="custom-inputs">
-          <input type="date" v-model="customDate" class="custom-input" />
-          <input type="time" v-model="customTime" class="custom-input" />
-          <button class="custom-confirm" @click="confirmCustom" :disabled="!customDate || !customTime">确定</button>
+    <Teleport to="body">
+      <Transition :name="placement === 'top' ? 'ui-dropdown-up' : 'ui-dropdown'">
+        <div v-if="isOpen" ref="panelRef" class="reminder-panel" :style="panelStyle">
+          <div class="panel-title">设置提醒</div>
+          <UiButton v-for="opt in quickOptions" :key="opt.dateTime" class="panel-option" variant="ghost" type="button" @click="selectQuickOption(opt.dateTime)">
+            <IconRenderer icon="iconify:lucide:clock" :size="14" />
+            {{ opt.label }}
+          </UiButton>
+          <div class="panel-divider"/>
+          <UiButton class="panel-option" variant="ghost" type="button" @click="showCustom = !showCustom">
+            <IconRenderer icon="iconify:lucide:calendar-clock" :size="14" />
+            自定义日期和时间...
+          </UiButton>
+          <div v-if="showCustom" class="custom-inputs">
+            <UiDateTimePicker
+              v-model="customDateTime"
+              mode="datetime"
+              value-format="sql"
+              size="sm"
+              placeholder="选择提醒时间"
+              class="custom-datetime"
+            />
+            <UiButton class="custom-confirm" variant="primary" size="sm" :disabled="!customDateTime" @click="confirmCustom">确定</UiButton>
+          </div>
         </div>
-      </div>
-    </Transition>
+      </Transition>
+    </Teleport>
   </div>
 </template>
 
@@ -142,7 +199,10 @@ onBeforeUnmount(() => document.removeEventListener('mousedown', onClickOutside, 
 .reminder-picker {
   position: relative;
 }
-.reminder-trigger {
+.reminder-trigger-wrap {
+  display: block;
+}
+.reminder-trigger.ui-button {
   display: flex;
   align-items: center;
   gap: 8px;
@@ -154,8 +214,16 @@ onBeforeUnmount(() => document.removeEventListener('mousedown', onClickOutside, 
   color: var(--ui-text-primary);
   width: 100%;
   text-align: left;
+  font-weight: inherit;
+  white-space: normal;
+  transform: none;
 }
-.reminder-trigger:hover { color: var(--ui-input-focus-border); }
+.reminder-trigger.ui-button:hover:not(:disabled) { color: var(--ui-input-focus-border); transform: none; }
+.reminder-trigger :deep(.ui-button__label),
+.panel-option :deep(.ui-button__label) {
+  justify-content: flex-start;
+  width: 100%;
+}
 
 .reminder-list {
   display: flex;
@@ -178,7 +246,7 @@ onBeforeUnmount(() => document.removeEventListener('mousedown', onClickOutside, 
   opacity: 0.5;
   text-decoration: line-through;
 }
-.reminder-remove {
+.reminder-remove.ui-icon-button {
   display: flex;
   align-items: center;
   justify-content: center;
@@ -190,23 +258,24 @@ onBeforeUnmount(() => document.removeEventListener('mousedown', onClickOutside, 
   color: var(--ui-text-muted);
   cursor: pointer;
   border-radius: 50%;
+  transform: none;
 }
-.reminder-remove:hover {
+.reminder-remove.ui-icon-button:hover:not(:disabled) {
   background: var(--todo-danger-bg);
   color: var(--ui-button-danger-text);
+  transform: none;
 }
 
 .reminder-panel {
-  position: absolute;
-  top: 100%;
-  left: 0;
-  z-index: 999;
-  width: 260px;
+  position: fixed;
+  z-index: var(--ui-z-picker);
   padding: 8px 0;
   background: var(--ui-surface-glass-strong, #fff);
   border: 1px solid var(--ui-border-subtle);
   border-radius: 10px;
   box-shadow: var(--todo-popup-shadow);
+  overflow: visible;
+  box-sizing: border-box;
 }
 .panel-title {
   padding: 6px 14px;
@@ -216,7 +285,7 @@ onBeforeUnmount(() => document.removeEventListener('mousedown', onClickOutside, 
   text-transform: uppercase;
   letter-spacing: 0.5px;
 }
-.panel-option {
+.panel-option.ui-button {
   display: flex;
   align-items: center;
   gap: 8px;
@@ -229,8 +298,11 @@ onBeforeUnmount(() => document.removeEventListener('mousedown', onClickOutside, 
   color: var(--ui-text-primary);
   text-align: left;
   transition: background 0.15s;
+  font-weight: inherit;
+  white-space: normal;
+  transform: none;
 }
-.panel-option:hover { background: var(--ui-button-ghost-hover-bg); }
+.panel-option.ui-button:hover:not(:disabled) { background: var(--ui-button-ghost-hover-bg); transform: none; }
 .panel-divider {
   height: 1px;
   background: var(--ui-border-subtle);
@@ -238,34 +310,17 @@ onBeforeUnmount(() => document.removeEventListener('mousedown', onClickOutside, 
 }
 
 .custom-inputs {
-  display: flex;
+  display: grid;
+  grid-template-columns: 1fr auto;
   gap: 6px;
   padding: 8px 14px;
-  flex-wrap: wrap;
+  align-items: center;
 }
-.custom-input {
-  flex: 1;
+.custom-datetime {
   min-width: 0;
-  padding: 5px 8px;
-  border: 1px solid var(--ui-border-subtle);
-  border-radius: 6px;
-  font-size: 0.8em;
-  outline: none;
-  background: var(--ui-input-bg);
-  color: var(--ui-text-primary);
 }
-.custom-input:focus { border-color: var(--ui-input-focus-border); }
 .custom-confirm {
-  padding: 5px 12px;
-  background: var(--ui-input-focus-border);
-  color: #fff;
-  border: none;
-  border-radius: 6px;
-  font-size: 0.8em;
-  cursor: pointer;
-  transition: opacity 0.15s;
+  min-width: 52px;
 }
-.custom-confirm:disabled { opacity: 0.4; cursor: not-allowed; }
-.custom-confirm:hover:not(:disabled) { opacity: 0.9; }
 
 </style>

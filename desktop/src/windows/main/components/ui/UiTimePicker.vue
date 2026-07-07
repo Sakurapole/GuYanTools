@@ -224,6 +224,7 @@ onBeforeUnmount(() => document.removeEventListener('mousedown', onClickOutside, 
   position: relative;
   display: inline-flex;
   width: 100%;
+  min-width: 0;
 
   &--disabled {
     opacity: 0.55;
@@ -237,6 +238,8 @@ onBeforeUnmount(() => document.removeEventListener('mousedown', onClickOutside, 
   align-items: center;
   gap: 8px;
   width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
   padding: 7px 10px;
   border: var(--ui-border-width-thin, 1px) solid var(--ui-input-border);
   border-radius: var(--ui-radius-sm);
@@ -261,11 +264,14 @@ onBeforeUnmount(() => document.removeEventListener('mousedown', onClickOutside, 
 
 .ui-timepicker__text {
   flex: 1;
+  min-width: 0;
   font-size: 0.88rem;
   color: var(--ui-input-text);
   line-height: 1.5;
   user-select: none;
   white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
   font-variant-numeric: tabular-nums;
   font-feature-settings: 'tnum';
 
@@ -288,9 +294,11 @@ onBeforeUnmount(() => document.removeEventListener('mousedown', onClickOutside, 
 
 /* ─── 尺寸 ─── */
 .ui-timepicker--sm .ui-timepicker__trigger {
-  padding: 5px 8px;
+  gap: 6px;
+  padding: 5px 7px;
   .ui-timepicker__text { font-size: 0.82rem; }
   .ui-timepicker__icon { width: 14px; height: 14px; }
+  .ui-timepicker__chevron { width: 12px; height: 12px; }
 }
 .ui-timepicker--lg .ui-timepicker__trigger {
   padding: 9px 14px;
@@ -300,7 +308,7 @@ onBeforeUnmount(() => document.removeEventListener('mousedown', onClickOutside, 
 
 /* ─── 弹出面板 ─── */
 .ui-timepicker__panel {
-  z-index: 9999;
+  z-index: var(--ui-z-critical);
   width: 180px;
   border-radius: var(--ui-radius-md);
   background: var(--ui-surface-glass-strong);

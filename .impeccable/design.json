@@ -1,0 +1,175 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-06-10T00:00:00+08:00",
+  "title": "Design System: GuYanTools",
+  "extensions": {
+    "colorMeta": {
+      "primary-cyan": {
+        "role": "primary",
+        "displayName": "清透青蓝",
+        "canonical": "#66ccff",
+        "tonalRamp": ["#00202e", "#00384f", "#00506f", "#0073a0", "#0aa0d8", "#66ccff", "#b8ecff", "#effbff"]
+      },
+      "primary-blue": {
+        "role": "primary",
+        "displayName": "操作蓝",
+        "canonical": "#5c9ded",
+        "tonalRamp": ["#071b33", "#12345a", "#1c4f86", "#2d70b8", "#5c9ded", "#9fc7f6", "#d8ecff", "#f3f9ff"]
+      },
+      "light-bg": {
+        "role": "neutral",
+        "displayName": "浅色工作台",
+        "canonical": "#f7fbff",
+        "tonalRamp": ["#15202a", "#304352", "#536b7d", "#7f99ad", "#b0c7d9", "#dcecf7", "#f7fbff", "#ffffff"]
+      },
+      "dark-bg": {
+        "role": "neutral",
+        "displayName": "深色工作台",
+        "canonical": "#101821",
+        "tonalRamp": ["#05080b", "#101821", "#16222d", "#243445", "#395066", "#5e7b95", "#a9c3d8", "#e7f5ff"]
+      }
+    },
+    "typographyMeta": {
+      "display": {
+        "displayName": "展示标题",
+        "purpose": "仅用于主要页面标题和工作区标题。"
+      },
+      "body": {
+        "displayName": "正文",
+        "purpose": "用于默认产品文案、标签、设置说明和高密度界面文本。"
+      },
+      "label": {
+        "displayName": "标签",
+        "purpose": "用于元信息、紧凑控件、工具栏文字和小型辅助说明。"
+      }
+    },
+    "shadows": [
+      {
+        "name": "panel-low",
+        "value": "0 6px 14px rgba(0, 0, 0, 0.08)",
+        "purpose": "小型浮起控件和轻微 hover 反馈。"
+      },
+      {
+        "name": "panel-medium",
+        "value": "0 10px 24px rgba(0, 0, 0, 0.12)",
+        "purpose": "卡片、面板和默认 elevated surface。"
+      },
+      {
+        "name": "panel-high",
+        "value": "0 14px 30px rgba(0, 0, 0, 0.16)",
+        "purpose": "hover elevation 和较大的浮层。"
+      }
+    ],
+    "motion": [
+      {
+        "name": "state-fast",
+        "value": "180ms ease",
+        "purpose": "按钮、输入框和 hover 状态反馈。"
+      },
+      {
+        "name": "home-transition",
+        "value": "cubic-bezier(0.32, 0.72, 0, 1)",
+        "purpose": "工作台页面和分类切换动效。"
+      }
+    ],
+    "breakpoints": [
+      {
+        "name": "compact",
+        "value": "980px"
+      },
+      {
+        "name": "workspace-min-width",
+        "value": "1024px"
+      }
+    ]
+  },
+  "components": [
+    {
+      "name": "主按钮",
+      "kind": "button",
+      "refersTo": "button-primary",
+      "description": "用于最高优先级操作的默认主按钮。",
+      "html": "<button class=\"ds-btn-primary\">确认</button>",
+      "css": ".ds-btn-primary { min-height: 42px; padding: 9px 16px; border: 1px solid rgba(92, 157, 237, 0.48); border-radius: 10px; background: #5c9ded; color: #fff; font-family: 'Geist Variable', system-ui, sans-serif; font-size: 0.9rem; font-weight: 600; cursor: pointer; transition: background-color 180ms ease, transform 180ms ease, box-shadow 180ms ease; box-shadow: 0 6px 14px rgba(92, 157, 237, 0.18); } .ds-btn-primary:hover { background: #4f90e1; transform: translateY(-1px); } .ds-btn-primary:focus-visible { outline: none; box-shadow: 0 0 0 2px rgba(92, 157, 237, 0.24); }"
+    },
+    {
+      "name": "次级按钮",
+      "kind": "button",
+      "refersTo": "button-secondary",
+      "description": "用于常见非主操作的中性按钮。",
+      "html": "<button class=\"ds-btn-secondary\">取消</button>",
+      "css": ".ds-btn-secondary { min-height: 42px; padding: 9px 16px; border: 1px solid rgba(15, 23, 42, 0.08); border-radius: 10px; background: #f4f8fc; color: rgba(30, 70, 90, 0.9); font-family: 'Geist Variable', system-ui, sans-serif; font-size: 0.9rem; font-weight: 600; cursor: pointer; transition: background-color 180ms ease, border-color 180ms ease, transform 180ms ease; } .ds-btn-secondary:hover { background: #edf4fb; border-color: rgba(92, 157, 237, 0.22); transform: translateY(-1px); } .ds-btn-secondary:focus-visible { outline: none; box-shadow: 0 0 0 2px rgba(92, 157, 237, 0.24); }"
+    },
+    {
+      "name": "文本输入框",
+      "kind": "input",
+      "refersTo": "input-default",
+      "description": "用于设置、搜索和紧凑表单的 token 化输入框。",
+      "html": "<input class=\"ds-input\" placeholder=\"搜索\" />",
+      "css": ".ds-input { min-height: 42px; width: 100%; padding: 10px 14px; border: 1px solid rgba(15, 23, 42, 0.08); border-radius: 10px; background: rgba(255, 255, 255, 0.92); color: rgba(30, 70, 90, 0.9); font-family: 'Geist Variable', system-ui, sans-serif; font-size: 0.95rem; transition: border-color 180ms ease, box-shadow 180ms ease, background-color 180ms ease; } .ds-input::placeholder { color: rgba(30, 70, 90, 0.48); } .ds-input:focus { outline: none; border-color: rgba(92, 157, 237, 0.52); box-shadow: 0 0 0 2px rgba(92, 157, 237, 0.24); }"
+    },
+    {
+      "name": "面板卡片",
+      "kind": "card",
+      "refersTo": "card-default",
+      "description": "默认 elevated 内容容器。",
+      "html": "<section class=\"ds-card\"><h3>工作区面板</h3><p>稳定、token 化，并适合承载高密度产品内容。</p></section>",
+      "css": ".ds-card { padding: 16px; border: 1px solid rgba(15, 23, 42, 0.08); border-radius: 14px; background: #fff; color: rgba(30, 70, 90, 0.9); box-shadow: 0 10px 24px rgba(0, 0, 0, 0.12); font-family: 'Geist Variable', system-ui, sans-serif; } .ds-card h3 { margin: 0 0 6px; font-size: 1rem; line-height: 1.35; } .ds-card p { margin: 0; color: rgba(30, 70, 90, 0.65); font-size: 0.9rem; line-height: 1.5; }"
+    },
+    {
+      "name": "激活 Tab",
+      "kind": "nav",
+      "refersTo": "navigation-active",
+      "description": "带重点色 tint 的选中导航状态。",
+      "html": "<button class=\"ds-tab-active\">Todo</button>",
+      "css": ".ds-tab-active { min-height: 34px; padding: 7px 12px; border: 0; border-radius: 10px; background: rgba(102, 204, 255, 0.15); color: rgba(30, 70, 90, 0.95); font-family: 'Geist Variable', system-ui, sans-serif; font-size: 0.82rem; font-weight: 650; cursor: pointer; transition: background-color 180ms ease, color 180ms ease; } .ds-tab-active:hover { background: rgba(102, 204, 255, 0.22); } .ds-tab-active:focus-visible { outline: none; box-shadow: 0 0 0 2px rgba(92, 157, 237, 0.24); }"
+    }
+  ],
+  "narrative": {
+    "northStar": "清透工作台",
+    "overview": "GuYanTools 首先是产品界面：一个服务重复工作的桌面工作台。它的现有系统使用 Geist 字体、语义化 --ui-* token、明暗双主题、青蓝色重点色、克制圆角和可复用 Vue 组件。视觉气质应清晰、冷静、像仪器一样可靠。",
+    "keyCharacteristics": [
+      "青蓝色重点色只用于主操作、选中、焦点和激活状态。",
+      "明暗主题通过语义 token 支撑，而不是页面私有色板。",
+      "产品界面使用紧凑、固定的 rem 字号，不使用营销式流体大标题。",
+      "面板以色调层级、克制边框和可预期的 hover/focus 状态建立结构。",
+      "菜单和选择器通过 body 级 fixed 浮层避免被裁切。"
+    ],
+    "rules": [
+      {
+        "name": "语义 Token 规则",
+        "body": "功能页面必须用 --ui-* token 表达文字、表面、边框、状态色、焦点环和控件。",
+        "section": "colors"
+      },
+      {
+        "name": "重点色稀缺规则",
+        "body": "青蓝色只用于状态和操作。不要把主重点色当作页面装饰或非激活 chrome 使用。",
+        "section": "colors"
+      },
+      {
+        "name": "固定字号规则",
+        "body": "产品 UI 使用固定 rem 阶梯。应用面板、侧栏、表单、表格和工具栏不要使用流体 clamp() 标题字号。",
+        "section": "typography"
+      },
+      {
+        "name": "层级必须有理由规则",
+        "body": "每个阴影都必须表达层级、可 hover、拖拽态或浮层。",
+        "section": "elevation"
+      }
+    ],
+    "dos": [
+      "优先复用 components/ui/ 基础组件，而不是在页面内重造局部控件。",
+      "每个可复用视觉决策都使用 --ui-* 语义 token。",
+      "保持桌面工作流高密度但可扫读，使用固定控件高度和稳定面板尺寸。",
+      "保留键盘焦点、禁用、加载、空状态和错误状态。",
+      "菜单、日期时间选择器、下拉面板使用 Teleport to body 加 fixed 定位。"
+    ],
+    "donts": [
+      "不要把应用页面做成 SaaS 落地页、hero 指标模板或重复装饰卡片网格。",
+      "不要引入泛 AI 紫色渐变、渐变文字、侧边彩条边框或装饰性玻璃拟态。",
+      "不要创建随意 z-index、页面私有阴影系统、页面私有圆角体系或本地硬编码状态色。",
+      "不要交付文字溢出、被裁切菜单、无 tooltip 的歧义图标，或 hover 时会改变布局尺寸的控件。",
+      "不要默认用模态框解决问题；能用 inline、drawer、popover 或渐进披露时，就让用户留在当前工作流里。"
+    ]
+  }
+}

@@ -224,11 +224,11 @@ onMounted(() => {
           当前没有已启用的插件页面。
         </div>
         <div v-else class="page-list">
-          <button v-for="page in pages" :key="`${page.pluginId}:${page.pageId}`" class="page-item ui-soft-surface"
+          <UiButton v-for="page in pages" :key="`${page.pluginId}:${page.pageId}`" class="page-item ui-soft-surface" variant="ghost" type="button"
             @click="openPluginPage(page)">
             <strong>{{ page.title }}</strong>
             <span>{{ page.routePath }}</span>
-          </button>
+          </UiButton>
         </div>
       </div>
     </section>
@@ -363,7 +363,7 @@ code {
   color: var(--ui-text-primary);
 }
 
-.page-item {
+.page-item.ui-button {
   display: grid;
   gap: 4px;
   padding: 14px;
@@ -372,6 +372,21 @@ code {
   cursor: pointer;
   color: var(--ui-text-primary);
   font: inherit;
+  font-weight: inherit;
+  white-space: normal;
+  transform: none;
+
+  &:hover:not(:disabled) {
+    transform: none;
+  }
+}
+
+.page-item :deep(.ui-button__label) {
+  display: grid;
+  justify-content: start;
+  gap: 4px;
+  width: 100%;
+  text-align: left;
 }
 
 .empty-state {

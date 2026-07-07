@@ -5,26 +5,35 @@ import UiTimePicker from './UiTimePicker.vue';
 
 type PickerSize = 'sm' | 'md' | 'lg';
 
-/**
- * UiDateTimePicker
- * v-model 使用本地时间字符串格式：'YYYY-MM-DDTHH:MM'（与 datetime-local 原生 input 兼容）
- * 或者 Unix 时间戳（毫秒），通过 valueType='timestamp' 控制
- */
+type PickerMode = 'date' | 'datetime';
+type ValueFormat = 'date' | 'datetime-local' | 'sql' | 'timestamp';
+
 const props = withDefaults(defineProps<{
-  /** 'datetime-local' 格式字符串 'YYYY-MM-DDTHH:MM'，或 Unix 时间戳（毫秒）*/
+  /** 支持 YYYY-MM-DD、YYYY-MM-DDTHH:MM、YYYY-MM-DD HH:MM[:SS] 或 Unix 毫秒时间戳 */
   modelValue: string | number | undefined;
   placeholder?: string;
+  datePlaceholder?: string;
+  timePlaceholder?: string;
   disabled?: boolean;
   size?: PickerSize;
-  /** 值类型：'string' = YYYY-MM-DDTHH:MM，'timestamp' = 毫秒时间戳 */
+  mode?: PickerMode;
+  /** 输出格式。date 输出 YYYY-MM-DD；sql 输出 YYYY-MM-DD HH:MM:00。 */
+  valueFormat?: ValueFormat;
+  /** 兼容旧调用：valueType='string' 等价 datetime-local，valueType='timestamp' 等价 timestamp。 */
   valueType?: 'string' | 'timestamp';
   minuteStep?: number;
+  clearable?: boolean;
 }>(), {
   placeholder: '选择日期和时间',
+  datePlaceholder: '日期',
+  timePlaceholder: '时间',
   disabled: false,
   size: 'md',
-  valueType: 'string',
+  mode: 'datetime',
+  valueFormat: undefined,
+  valueType: undefined,
   minuteStep: 5,
+  clearable: true,
 });
 
 const emit = defineEmits<{
@@ -32,6 +41,13 @@ const emit = defineEmits<{
 }>();
 
 // 拆解出 datePart ('YYYY-MM-DD') 和 timePart ('HH:MM')
+const resolvedValueFormat = computed<ValueFormat>(() => {
+  if (props.valueFormat) return props.valueFormat;
+  if (props.valueType === 'timestamp') return 'timestamp';
+  if (props.mode === 'date') return 'date';
+  return 'datetime-local';
+});
+
 function parseValue(val: string | number | undefined): { date: string; time: string } {
   if (!val && val !== 0) return { date: '', time: '' };
 
@@ -49,10 +65,10 @@ function parseValue(val: string | number | undefined): { date: string; time: str
     localStr = val;
   }
 
-  // YYYY-MM-DDTHH:MM
-  const sep = localStr.indexOf('T');
+  const normalized = localStr.trim();
+  const sep = normalized.includes('T') ? normalized.indexOf('T') : normalized.indexOf(' ');
   if (sep === -1) return { date: localStr, time: '' };
-  return { date: localStr.slice(0, sep), time: localStr.slice(sep + 1, sep + 6) };
+  return { date: normalized.slice(0, sep), time: normalized.slice(sep + 1, sep + 6) };
 }
 
 const { date: initDate, time: initTime } = parseValue(props.modelValue);
@@ -69,12 +85,20 @@ watch(() => props.modelValue, (val) => {
 // 内部变更 → emit 外部
 function emitChange() {
   if (!datePart.value) {
-    emit('update:modelValue', props.valueType === 'timestamp' ? undefined : '');
+    emit('update:modelValue', resolvedValueFormat.value === 'timestamp' ? undefined : '');
     return;
   }
+
+  if (props.mode === 'date' || resolvedValueFormat.value === 'date') {
+    emit('update:modelValue', datePart.value);
+    return;
+  }
+
   const combined = `${datePart.value}T${timePart.value || '00:00'}`;
-  if (props.valueType === 'timestamp') {
+  if (resolvedValueFormat.value === 'timestamp') {
     emit('update:modelValue', new Date(combined).getTime());
+  } else if (resolvedValueFormat.value === 'sql') {
+    emit('update:modelValue', `${datePart.value} ${timePart.value || '00:00'}:00`);
   } else {
     emit('update:modelValue', combined);
   }
@@ -85,21 +109,23 @@ watch(timePart, emitChange);
 </script>
 
 <template>
-  <div class="ui-datetimepicker" :class="`ui-datetimepicker--${size}`">
+  <div class="ui-datetimepicker" :class="[`ui-datetimepicker--${size}`, `ui-datetimepicker--${mode}`]">
     <UiDatePicker
       :model-value="datePart"
       :disabled="disabled"
       :size="size"
-      placeholder="日期"
+      :placeholder="mode === 'date' ? placeholder : datePlaceholder"
+      :clearable="clearable"
       class="ui-datetimepicker__date"
       @update:model-value="datePart = String($event)"
     />
     <UiTimePicker
+      v-if="mode === 'datetime'"
       :model-value="timePart"
       :disabled="disabled || !datePart"
       :size="size"
       :minute-step="minuteStep"
-      placeholder="时间"
+      :placeholder="timePlaceholder"
       class="ui-datetimepicker__time"
       @update:model-value="timePart = String($event)"
     />
@@ -117,6 +143,10 @@ watch(timePart, emitChange);
 .ui-datetimepicker__date {
   flex: 1.4;
   min-width: 0;
+}
+
+.ui-datetimepicker--date .ui-datetimepicker__date {
+  flex: 1;
 }
 
 .ui-datetimepicker__time {

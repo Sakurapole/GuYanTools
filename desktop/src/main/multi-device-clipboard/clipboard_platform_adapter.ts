@@ -1,4 +1,4 @@
-import { app, clipboard } from 'electron';
+import { clipboard } from 'electron';
 import { execFile } from 'node:child_process';
 import { existsSync } from 'node:fs';
 import path from 'node:path';
@@ -52,7 +52,6 @@ class WindowsClipboardPlatformAdapter implements ClipboardPlatformAdapter {
     }
 
     const fallbackPaths = await readWindowsFileDropListFromClipboard();
-    debugClipboardCapture('windows-file-drop-fallback', { formats, paths: fallbackPaths });
     return uniqueExistingPaths([...paths, ...fallbackPaths]);
   }
 
@@ -72,8 +71,6 @@ export const clipboardPlatformAdapter: ClipboardPlatformAdapter = process.platfo
   : process.platform === 'linux'
     ? new LinuxClipboardPlatformAdapter()
     : new DefaultClipboardPlatformAdapter();
-
-let lastClipboardDebugSignature = '';
 
 function readPathsFromFileNameW(formats: string[]) {
   if (process.platform !== 'win32' && !hasClipboardFormat(formats, 'FileNameW')) return [];
@@ -210,10 +207,6 @@ async function readWindowsFileDropListFromClipboard() {
       return uniqueExistingPaths(parsed.filter((item): item is string => typeof item === 'string'));
     }
     if (isWindowsFileDropResult(parsed)) {
-      debugClipboardCapture('windows-file-drop-result', {
-        formats: parsed.formats,
-        paths: parsed.paths,
-      });
       return uniqueExistingPaths(parsed.paths);
     }
     return [];
@@ -303,26 +296,6 @@ function isWindowsFileDropResult(value: unknown): value is { paths: string[]; fo
       Array.isArray(candidate.formats) &&
       candidate.formats.every((item) => typeof item === 'string')
     ));
-}
-
-function debugClipboardCapture(stage: string, payload: unknown) {
-  if (app.isPackaged && process.env.NODE_ENV === 'production') {
-    return;
-  }
-  const signature = `${stage}:${safeStringifyDebugPayload(payload)}`;
-  if (signature === lastClipboardDebugSignature) {
-    return;
-  }
-  lastClipboardDebugSignature = signature;
-  console.debug(`[multi-device-clipboard] ${stage}:`, payload);
-}
-
-function safeStringifyDebugPayload(payload: unknown) {
-  try {
-    return JSON.stringify(payload);
-  } catch {
-    return String(payload);
-  }
 }
 
 function readClipboardBufferPaths(format: string, encoding: BufferEncoding) {

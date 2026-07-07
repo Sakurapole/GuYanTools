@@ -4,6 +4,7 @@ import AddIcon from '@/windows/main/components/svgs/icons/AddIcon.vue';
 import DeleteIcon from '@/windows/main/components/svgs/icons/DeleteIcon.vue';
 import EditIcon from '@/windows/main/components/svgs/icons/EditIcon.vue';
 import OpenIcon from '@/windows/main/components/svgs/icons/OpenIcon.vue';
+import IconRenderer from '@/windows/main/components/ui/IconRenderer.vue';
 import UiButton from '@/windows/main/components/ui/UiButton.vue';
 import UiDialog from '@/windows/main/components/ui/UiDialog.vue';
 import UiField from '@/windows/main/components/ui/UiField.vue';
@@ -11,6 +12,7 @@ import UiIconButton from '@/windows/main/components/ui/UiIconButton.vue';
 import UiInput from '@/windows/main/components/ui/UiInput.vue';
 import UiSelect from '@/windows/main/components/ui/UiSelect.vue';
 import UiTree from '@/windows/main/components/ui/UiTree.vue';
+import { useConfirmDialog } from '@/windows/main/composables/useConfirmDialog';
 import { useContextMenu } from '@/windows/main/composables/useContextMenu';
 import { useSshStore } from '@/windows/main/stores/ssh_store';
 import type { UiTreeDropPayload, UiTreeEventPayload, UiTreeNodeData } from '@/windows/main/components/ui/ui_tree';
@@ -54,6 +56,7 @@ const emit = defineEmits<{
 }>();
 
 const sshStore = useSshStore();
+const { show: showConfirm } = useConfirmDialog();
 const { open: openContextMenu } = useContextMenu();
 
 const searchQuery = ref('');
@@ -164,6 +167,12 @@ function profilesInGroup(groupId: string) {
   return filteredProfiles.value.filter((profile) => profileGroupId(profile.id) === groupId);
 }
 
+function allProfilesInGroup(groupId: string) {
+  return [...sshStore.profiles]
+    .filter((profile) => profileGroupId(profile.id) === groupId)
+    .sort((left, right) => left.sortOrder - right.sortOrder || left.label.localeCompare(right.label, 'zh-CN'));
+}
+
 function countProfilesInGroup(groupId: string): number {
   const directProfiles = sshStore.profiles.filter((profile) => profileGroupId(profile.id) === groupId).length;
   return directProfiles + groupsByParent(groupId).reduce((total, group) => total + countProfilesInGroup(group.id), 0);
@@ -257,6 +266,15 @@ function nextGroupSortOrder(parentId = '') {
   return siblings.reduce((max, item) => Math.max(max, item.sortOrder), 0) + 1;
 }
 
+function nextProfileSortOrder(groupId = '') {
+  const siblings = allProfilesInGroup(groupId);
+  return siblings.reduce((max, item) => Math.max(max, item.sortOrder), 0) + 1;
+}
+
+function siblingSortOrder(index: number) {
+  return (index + 1) * 10;
+}
+
 function openCreateGroupDialog(parentId = '') {
   editingGroupId.value = '';
   groupForm.label = '';
@@ -301,12 +319,54 @@ async function saveGroup() {
 async function deleteGroup(group: SshProfileFolder) {
   const profileCount = countProfilesInGroup(group.id);
   const suffix = profileCount ? `，其中 ${profileCount} 个 SSH 配置会移动到未分组` : '';
-  if (!window.confirm(`删除分组“${group.label}”及其子分组吗？${suffix}`)) return;
+  const confirmed = await showConfirm({
+    title: '删除 SSH 分组',
+    message: `删除分组“${group.label}”及其子分组吗？${suffix}`,
+    confirmText: '删除',
+    danger: true,
+  });
+  if (!confirmed) return;
   await sshStore.deleteFolder(group.id);
 }
 
 async function moveProfileToGroup(profile: SshProfile, groupId: string) {
-  await sshStore.updateProfile({ id: profile.id, folderId: groupId });
+  await sshStore.updateProfile({
+    id: profile.id,
+    folderId: groupId,
+    sortOrder: nextProfileSortOrder(groupId),
+  });
+}
+
+async function reorderProfileAround(profile: SshProfile, targetProfile: SshProfile, position: 'before' | 'after') {
+  const groupId = profileGroupId(targetProfile.id);
+  const siblings = allProfilesInGroup(groupId).filter((item) => item.id !== profile.id);
+  const targetIndex = siblings.findIndex((item) => item.id === targetProfile.id);
+  if (targetIndex === -1) return;
+  siblings.splice(position === 'before' ? targetIndex : targetIndex + 1, 0, profile);
+  for (const [index, item] of siblings.entries()) {
+    await sshStore.updateProfile({
+      id: item.id,
+      folderId: groupId,
+      sortOrder: siblingSortOrder(index),
+    });
+  }
+}
+
+async function reorderGroupAround(group: SshProfileFolder, targetGroup: SshProfileFolder, position: 'before' | 'after') {
+  if (group.id === targetGroup.id) return;
+  const parentId = targetGroup.parentId ?? '';
+  if (group.id === parentId || isDescendantGroup(group.id, parentId)) return;
+  const siblings = groupsByParent(parentId).filter((item) => item.id !== group.id);
+  const targetIndex = siblings.findIndex((item) => item.id === targetGroup.id);
+  if (targetIndex === -1) return;
+  siblings.splice(position === 'before' ? targetIndex : targetIndex + 1, 0, group);
+  for (const [index, item] of siblings.entries()) {
+    await sshStore.updateFolder({
+      id: item.id,
+      parentId,
+      sortOrder: siblingSortOrder(index),
+    });
+  }
 }
 
 function isDescendantGroup(parentId: string, maybeChildId: string): boolean {
@@ -328,6 +388,44 @@ async function moveGroupToParent(group: SshProfileFolder, parentId: string) {
   });
 }
 
+function duplicateProfileLabel(profile: SshProfile) {
+  const base = `${profile.label} 副本`;
+  const labels = new Set(sshStore.profiles.map((item) => item.label));
+  if (!labels.has(base)) return base;
+  for (let index = 2; index < 1000; index += 1) {
+    const candidate = `${base} ${index}`;
+    if (!labels.has(candidate)) return candidate;
+  }
+  return `${base} ${Date.now()}`;
+}
+
+async function duplicateProfile(profile: SshProfile) {
+  const groupId = profileGroupId(profile.id);
+  const copied = await sshStore.createProfile({
+    label: duplicateProfileLabel(profile),
+    host: profile.host,
+    port: profile.port,
+    username: profile.username,
+    authType: profile.authType,
+    savePassword: false,
+    privateKeyPath: profile.privateKeyPath,
+    certificatePath: profile.certificatePath,
+    hostCaKeyPath: profile.hostCaKeyPath,
+    jumpHostJson: profile.jumpHostJson,
+    autoReconnect: profile.autoReconnect,
+    folderId: groupId || undefined,
+    color: profile.color,
+    tags: profile.tags,
+  });
+  const updated = await sshStore.updateProfile({
+    id: copied.id,
+    folderId: groupId,
+    sortOrder: nextProfileSortOrder(groupId),
+  });
+  selectedConfigNodeId.value = profileTreeNodeId(updated.id);
+  emit('editProfile', updated);
+}
+
 function targetGroupId(targetNode: SshConfigTreeNode) {
   if (targetNode.kind === 'folder' && targetNode.data) {
     return (targetNode.data as SshProfileFolder).id;
@@ -344,12 +442,22 @@ async function handleConfigTreeDrop(payload: UiTreeDropPayload) {
   if (draggedNode.id === targetNode.id) return;
 
   if (draggedNode.kind === 'profile' && draggedNode.data) {
-    await moveProfileToGroup(draggedNode.data as SshProfile, targetGroupId(targetNode));
+    const draggedProfile = draggedNode.data as SshProfile;
+    if ((payload.position === 'before' || payload.position === 'after') && targetNode.kind === 'profile' && targetNode.data) {
+      await reorderProfileAround(draggedProfile, targetNode.data as SshProfile, payload.position);
+      return;
+    }
+    await moveProfileToGroup(draggedProfile, targetGroupId(targetNode));
     return;
   }
 
   if (draggedNode.kind === 'folder' && draggedNode.data) {
-    await moveGroupToParent(draggedNode.data as SshProfileFolder, targetGroupId(targetNode));
+    const draggedGroup = draggedNode.data as SshProfileFolder;
+    if ((payload.position === 'before' || payload.position === 'after') && targetNode.kind === 'folder' && targetNode.data) {
+      await reorderGroupAround(draggedGroup, targetNode.data as SshProfileFolder, payload.position);
+      return;
+    }
+    await moveGroupToParent(draggedGroup, targetGroupId(targetNode));
   }
 }
 
@@ -391,6 +499,15 @@ function openConfigNodeContextMenu(payload: UiTreeEventPayload) {
         icon: EditIcon,
         divided: true,
         action: () => emit('editProfile', profile),
+      },
+      {
+        id: `ssh-duplicate-${profile.id}`,
+        label: '复制配置',
+        icon: IconRenderer,
+        iconProps: { icon: 'iconify:lucide:copy', size: 14 },
+        action: () => {
+          void duplicateProfile(profile);
+        },
       },
       {
         id: `ssh-delete-${profile.id}`,
@@ -464,7 +581,13 @@ function openConfigNodeContextMenu(payload: UiTreeEventPayload) {
 }
 
 async function deleteProfile(profile: SshProfile) {
-  if (!window.confirm(`删除 SSH 配置“${profile.label}”？`)) return;
+  const confirmed = await showConfirm({
+    title: '删除 SSH 配置',
+    message: `删除 SSH 配置“${profile.label}”？`,
+    confirmText: '删除',
+    danger: true,
+  });
+  if (!confirmed) return;
   await sshStore.deleteProfile(profile.id);
 }
 </script>
@@ -487,13 +610,19 @@ async function deleteProfile(profile: SshProfile) {
           <span class="ssh-dot" :class="statusColor(session.status)" />
           <span class="ssh-session-item__label">{{ session.profileLabel }}</span>
         </div>
-        <button class="ssh-session-item__action" title="断开连接" @click.stop="emit('disconnect', session.sessionId)">
+        <UiIconButton
+          class="ssh-session-item__action"
+          size="sm"
+          variant="ghost"
+          title="断开连接"
+          @click.stop="emit('disconnect', session.sessionId)"
+        >
           <svg viewBox="0 0 24 24" width="14" height="14" stroke="currentColor" stroke-width="2"
             fill="none" stroke-linecap="round" stroke-linejoin="round">
             <line x1="18" y1="6" x2="6" y2="18" />
             <line x1="6" y1="6" x2="18" y2="18" />
           </svg>
-        </button>
+        </UiIconButton>
       </div>
       <div class="ssh-tab__divider" />
     </template>
@@ -532,12 +661,15 @@ async function deleteProfile(profile: SshProfile) {
       </div>
 
       <div v-if="sshStore.profiles.length > 3" class="ssh-search">
-        <svg class="ssh-search__icon" viewBox="0 0 24 24" width="13" height="13"
-          stroke="currentColor" stroke-width="2" fill="none">
-          <circle cx="11" cy="11" r="8" />
-          <line x1="21" y1="21" x2="16.65" y2="16.65" />
-        </svg>
-        <input v-model="searchQuery" class="ssh-search__input" placeholder="搜索配置..." />
+        <UiInput v-model="searchQuery" class="ssh-search__input" size="sm" placeholder="搜索配置...">
+          <template #prefix>
+            <svg class="ssh-search__icon" viewBox="0 0 24 24" width="13" height="13"
+              stroke="currentColor" stroke-width="2" fill="none">
+              <circle cx="11" cy="11" r="8" />
+              <line x1="21" y1="21" x2="16.65" y2="16.65" />
+            </svg>
+          </template>
+        </UiInput>
       </div>
 
       <UiTree
@@ -645,37 +777,30 @@ async function deleteProfile(profile: SshProfile) {
 }
 
 .ssh-search {
-  position: relative;
   margin: -2px 4px 0;
 
   &__icon {
-    position: absolute;
-    top: 50%;
-    left: 8px;
     color: var(--ui-text-muted);
-    transform: translateY(-50%);
     pointer-events: none;
   }
 
-  &__input {
+  &__input.ui-input-affix-wrapper {
     width: 100%;
     box-sizing: border-box;
-    padding: 6px 10px 6px 28px;
     border: 1px solid var(--ui-border-subtle);
     border-radius: var(--ui-radius-md);
-    outline: none;
     background: var(--ui-surface-overlay);
     color: var(--ui-text-primary);
     font-size: 12px;
     transition: border-color 0.18s;
 
-    &:focus {
+    &.ui-input-affix-wrapper--focused {
       border-color: var(--ui-border-accent-soft);
     }
+  }
 
-    &::placeholder {
-      color: var(--ui-text-subtle);
-    }
+  &__input :deep(.ui-input::placeholder) {
+    color: var(--ui-text-subtle);
   }
 }
 
@@ -723,18 +848,26 @@ async function deleteProfile(profile: SshProfile) {
   &__action {
     display: flex;
     flex-shrink: 0;
+    width: 22px;
+    height: 22px;
     padding: 2px;
     border: none;
     border-radius: 3px;
     opacity: 0;
     background: transparent;
     color: var(--ui-text-muted);
-    cursor: pointer;
     transition: all 0.15s;
+    transform: none;
 
-    &:hover {
+    &:hover:not(:disabled) {
       background: var(--ui-state-error-subtle);
       color: var(--ui-state-error);
+      transform: none;
+    }
+
+    :deep(svg) {
+      fill: none;
+      stroke: currentColor;
     }
   }
 }

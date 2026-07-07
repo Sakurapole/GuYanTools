@@ -13,10 +13,7 @@ const baseStyle = computed(() => {
   if (c.type === 'color') {
     style.background = c.color;
   } else if (c.type === 'image' && c.image) {
-    style.backgroundImage = `url(${c.image})`;
-    style.backgroundSize = c.backgroundStyle?.backgroundSize || 'cover';
-    style.backgroundPosition = c.backgroundStyle?.backgroundPosition || 'center';
-    style.backgroundRepeat = c.backgroundStyle?.backgroundRepeat || 'no-repeat';
+    style.background = 'transparent';
   } else if (c.type === 'video') {
     style.background = 'transparent'; // Let video handle it
   }
@@ -26,6 +23,25 @@ const baseStyle = computed(() => {
   }
 
   return style;
+});
+
+const backgroundSize = computed(() => props.config.backgroundStyle?.backgroundSize || 'cover');
+const backgroundPosition = computed(() => props.config.backgroundStyle?.backgroundPosition || 'center');
+const backgroundRepeat = computed(() => props.config.backgroundStyle?.backgroundRepeat || 'no-repeat');
+const useImgTag = computed(() =>
+  props.config.type === 'image' &&
+  Boolean(props.config.image) &&
+  backgroundRepeat.value === 'no-repeat'
+);
+
+const cssBackgroundImageStyle = computed(() => {
+  if (props.config.type !== 'image' || !props.config.image || useImgTag.value) return {};
+  return {
+    backgroundImage: `url(${props.config.image})`,
+    backgroundSize: backgroundSize.value,
+    backgroundPosition: backgroundPosition.value,
+    backgroundRepeat: backgroundRepeat.value,
+  };
 });
 
 function toObjectFit(backgroundSizeValue: string): 'contain' | 'cover' | 'fill' | 'none' {
@@ -42,13 +58,38 @@ function toObjectFit(backgroundSizeValue: string): 'contain' | 'cover' | 'fill' 
 }
 
 const videoStyle = computed(() => ({
-  objectFit: toObjectFit(props.config.backgroundStyle?.backgroundSize || 'cover'),
-  objectPosition: props.config.backgroundStyle?.backgroundPosition || 'center',
+  objectFit: toObjectFit(backgroundSize.value),
+  objectPosition: backgroundPosition.value,
 }));
+
+const imageStyle = computed(() => ({
+  objectFit: toObjectFit(backgroundSize.value),
+  objectPosition: backgroundPosition.value,
+}));
+
+const backgroundMemoKey = computed(() => [
+  props.config.type,
+  props.config.color,
+  props.config.image,
+  props.config.video,
+  backgroundSize.value,
+  backgroundPosition.value,
+  backgroundRepeat.value,
+  String(props.config.backgroundStyle?.opacity ?? 1),
+].join('::'));
 </script>
 
 <template>
-  <div class="todo-background" :style="baseStyle">
+  <div v-memo="[backgroundMemoKey]" class="todo-background" :style="[baseStyle, cssBackgroundImageStyle]">
+    <img
+      v-if="useImgTag"
+      :src="config.image"
+      class="bg-image"
+      :style="imageStyle"
+      alt=""
+      decoding="async"
+      draggable="false"
+    />
     <video
       v-if="config.type === 'video' && config.video"
       :src="config.video"
@@ -72,12 +113,21 @@ const videoStyle = computed(() => ({
   z-index: 0;
   pointer-events: none;
   overflow: hidden;
+  contain: paint;
+  transform: translateZ(0);
+  backface-visibility: hidden;
+  will-change: transform;
+  image-rendering: auto;
+  -webkit-image-rendering: auto;
 }
 
+.bg-image,
 .bg-video {
   width: 100%;
   height: 100%;
   object-fit: cover;
   display: block;
+  transform: translateZ(0);
+  backface-visibility: hidden;
 }
 </style>

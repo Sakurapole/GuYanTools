@@ -41,7 +41,7 @@ function handleDragStart(node: UiTreeNodeData) {
   draggedNode.value = node;
 }
 
-function handleDrop(payload: { event: DragEvent; node: UiTreeNodeData }) {
+function handleDrop(payload: { event: DragEvent; node: UiTreeNodeData; position: UiTreeDropPayload['position'] }) {
   if (!draggedNode.value || draggedNode.value.id === payload.node.id) {
     return;
   }
@@ -49,6 +49,7 @@ function handleDrop(payload: { event: DragEvent; node: UiTreeNodeData }) {
     event: payload.event,
     node: payload.node,
     draggedNode: draggedNode.value,
+    position: payload.position,
   });
   draggedNode.value = null;
 }
@@ -56,7 +57,7 @@ function handleDrop(payload: { event: DragEvent; node: UiTreeNodeData }) {
 
 <template>
   <div class="ui-tree" role="tree">
-    <template v-if="nodes.length">
+    <TransitionGroup v-if="nodes.length" name="ui-tree-list" tag="div" class="ui-tree__nodes">
       <UiTreeNodeItem
         v-for="node in nodes"
         :key="node.id"
@@ -72,7 +73,7 @@ function handleDrop(payload: { event: DragEvent; node: UiTreeNodeData }) {
         @dragstart="handleDragStart"
         @drop="handleDrop"
       />
-    </template>
+    </TransitionGroup>
     <div v-else class="ui-tree__empty">
       {{ emptyText }}
     </div>
@@ -87,10 +88,39 @@ function handleDrop(payload: { event: DragEvent; node: UiTreeNodeData }) {
   gap: 4px;
 }
 
+.ui-tree__nodes {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 4px;
+}
+
 .ui-tree__empty {
   padding: 18px 12px;
   color: var(--ui-text-muted);
   font-size: 0.8rem;
   text-align: center;
+}
+
+.ui-tree-list-move,
+.ui-tree-list-enter-active,
+.ui-tree-list-leave-active {
+  transition:
+    transform 0.18s var(--ui-motion-ease-emphasized),
+    opacity 0.16s var(--ui-motion-ease-standard);
+}
+
+.ui-tree-list-enter-from,
+.ui-tree-list-leave-to {
+  opacity: 0;
+  transform: translateY(-4px);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ui-tree-list-move,
+  .ui-tree-list-enter-active,
+  .ui-tree-list-leave-active {
+    transition: none;
+  }
 }
 </style>

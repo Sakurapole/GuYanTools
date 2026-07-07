@@ -1,4 +1,7 @@
 <script setup lang="ts">
+import UiButton from '@/windows/main/components/ui/UiButton.vue';
+import UiIconButton from '@/windows/main/components/ui/UiIconButton.vue';
+import UiInput from '@/windows/main/components/ui/UiInput.vue';
 import UiSelect from '@/windows/main/components/ui/UiSelect.vue';
 import type { TerminalLayoutMode, TerminalRendererMode, TerminalSessionDescriptor } from '@/contracts/terminal';
 import type { UiSelectOption } from '@/windows/main/components/ui/UiSelect.vue';
@@ -223,7 +226,7 @@ function handleConnectionLayoutSelect(value: string | number) {
 // ── Inline rename state ───────────────────────────────────────
 const titleEditing = ref(false);
 const titleEditValue = ref('');
-const titleInputRef = ref<HTMLInputElement | null>(null);
+const titleInputRef = ref<InstanceType<typeof UiInput> | null>(null);
 
 function startTitleEdit() {
   if (!props.titleEditable) return;
@@ -258,11 +261,12 @@ function handleTitleKeydown(e: KeyboardEvent) {
   <div ref="toolbarRef" class="terminal-toolbar">
     <div class="terminal-toolbar__left">
       <div v-if="activeSession" class="terminal-toolbar__title">
-        <input
+        <UiInput
           v-if="titleEditing"
           ref="titleInputRef"
           v-model="titleEditValue"
           class="title-name-input"
+          size="sm"
           @blur="commitTitleEdit"
           @keydown="handleTitleKeydown"
         />
@@ -301,8 +305,10 @@ function handleTitleKeydown(e: KeyboardEvent) {
         size="sm"
         @update:modelValue="handleConnectionLayoutSelect"
       />
-      <button
+      <UiIconButton
         class="toolbar-action-btn"
+        size="sm"
+        variant="ghost"
         :disabled="!selectedConnectionLayoutId"
         title="删除选中的连接布局"
         @click="emit('deleteConnectionLayout', selectedConnectionLayoutId)"
@@ -312,9 +318,11 @@ function handleTitleKeydown(e: KeyboardEvent) {
           <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6" />
           <path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
         </svg>
-      </button>
-      <button
+      </UiIconButton>
+      <UiIconButton
         class="toolbar-action-btn"
+        size="sm"
+        variant="ghost"
         :disabled="!activeSession"
         title="保存当前连接布局"
         @click="emit('saveConnectionLayout')"
@@ -324,14 +332,18 @@ function handleTitleKeydown(e: KeyboardEvent) {
           <path d="M17 21v-8H7v8" />
           <path d="M7 3v5h8" />
         </svg>
-      </button>
+      </UiIconButton>
 
       <!-- Full mode keeps all commands as icon buttons; text is exposed through title/aria-label. -->
       <template v-if="actionMode === 'full'">
-        <button
+        <UiIconButton
           v-for="action in visibleActions"
           :key="action.id"
           class="toolbar-action-btn"
+          size="sm"
+          variant="ghost"
+          type="button"
+          :active="action.active?.()"
           :class="{ 'toolbar-action-btn--active': action.active?.() }"
           :disabled="action.disabled()"
           :title="action.label"
@@ -366,15 +378,19 @@ function handleTitleKeydown(e: KeyboardEvent) {
           <svg v-else-if="action.icon === 'kill'" viewBox="0 0 24 24" width="14" height="14" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round">
             <line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" />
           </svg>
-        </button>
+        </UiIconButton>
       </template>
 
       <!-- Icon mode: icon-only buttons -->
       <template v-else-if="actionMode === 'icon'">
-        <button
+        <UiIconButton
           v-for="action in visibleActions"
           :key="action.id"
           class="icon-action-btn"
+          size="sm"
+          variant="ghost"
+          type="button"
+          :active="action.active?.()"
           :class="{ 'icon-action-btn--active': action.active?.() }"
           :disabled="action.disabled()"
           :title="action.label"
@@ -408,21 +424,25 @@ function handleTitleKeydown(e: KeyboardEvent) {
           <svg v-else-if="action.icon === 'kill'" viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round">
             <line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" />
           </svg>
-        </button>
+        </UiIconButton>
       </template>
 
       <!-- Collapsed mode: overflow menu trigger -->
       <div v-else class="toolbar-overflow-wrapper">
-        <button class="icon-action-btn toolbar-overflow-trigger" title="更多操作">
+        <UiIconButton class="icon-action-btn toolbar-overflow-trigger" size="sm" variant="ghost" title="更多操作">
           <svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round">
             <circle cx="12" cy="5" r="1" fill="currentColor" /><circle cx="12" cy="12" r="1" fill="currentColor" /><circle cx="12" cy="19" r="1" fill="currentColor" />
           </svg>
-        </button>
+        </UiIconButton>
         <div class="toolbar-overflow-menu">
-          <button
+          <UiButton
             v-for="action in visibleActions"
             :key="action.id"
             class="toolbar-overflow-item"
+            size="sm"
+            variant="ghost"
+            type="button"
+            :active="action.active?.()"
             :class="{ 'toolbar-overflow-item--active': action.active?.() }"
             :disabled="action.disabled()"
             @click="handleAction(action)"
@@ -456,7 +476,7 @@ function handleTitleKeydown(e: KeyboardEvent) {
               <line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" />
             </svg>
             <span class="toolbar-overflow-item__label">{{ action.label }}</span>
-          </button>
+          </UiButton>
         </div>
       </div>
     </div>
@@ -490,7 +510,7 @@ function handleTitleKeydown(e: KeyboardEvent) {
   box-sizing: border-box;
   backdrop-filter: blur(12px);
   position: relative;
-  z-index: 320;
+  z-index: var(--ui-z-toolbar);
 }
 
 :global(.light) .terminal-toolbar {
@@ -556,7 +576,7 @@ function handleTitleKeydown(e: KeyboardEvent) {
     }
   }
 
-  .title-name-input {
+  .title-name-input.ui-input {
     font-size: 13px;
     font-weight: 500;
     color: var(--ui-text-primary);
@@ -564,9 +584,9 @@ function handleTitleKeydown(e: KeyboardEvent) {
     border: 1px solid var(--ui-input-focus-border, var(--primary-color));
     border-radius: 4px;
     padding: 1px 4px;
-    outline: none;
     width: min(220px, 32vw);
     min-width: 80px;
+    min-height: 24px;
     font-family: inherit;
   }
 
@@ -588,74 +608,94 @@ function handleTitleKeydown(e: KeyboardEvent) {
 
 // ── Full mode: icon + text button ─────────────────────────────
 
-.toolbar-action-btn {
+.toolbar-action-btn.ui-icon-button {
   display: inline-flex;
   align-items: center;
   justify-content: center;
   min-width: 32px;
+  width: 32px;
+  min-height: 30px;
+  height: 30px;
   padding: 0 8px;
   border-radius: 4px;
   background: var(--terminal-toolbar-action-bg);
   border: 1px solid var(--terminal-toolbar-action-border);
   color: var(--terminal-toolbar-action-text);
-  cursor: pointer;
   transition: all 0.2s ease;
   white-space: nowrap;
   font-size: 12px;
-  height: 30px;
+  box-shadow: none;
+  transform: none;
 
   &:hover:not(:disabled) {
     background: var(--terminal-toolbar-action-hover-bg);
     border-color: var(--terminal-toolbar-action-hover-border);
     color: var(--terminal-toolbar-action-hover-text);
+    transform: none;
   }
 
   &:disabled {
     color: var(--terminal-toolbar-action-disabled-text);
     opacity: 0.52;
-    cursor: not-allowed;
   }
 
-  &--active {
-    background: var(--terminal-toolbar-action-active-bg);
-    color: var(--terminal-toolbar-action-active-text);
-    border-color: var(--terminal-toolbar-action-active-border);
+  :deep(svg) {
+    fill: none;
+    stroke: currentColor;
   }
+}
+
+.toolbar-action-btn--active.ui-icon-button {
+  background: var(--terminal-toolbar-action-active-bg);
+  color: var(--terminal-toolbar-action-active-text);
+  border-color: var(--terminal-toolbar-action-active-border);
 }
 
 // ── Icon-only mode ────────────────────────────────────────────
 
-.icon-action-btn {
+.icon-action-btn.ui-icon-button {
   display: flex;
   align-items: center;
   justify-content: center;
   width: 32px;
+  min-height: 30px;
   height: 30px;
   padding: 0 8px;
   border-radius: 4px;
   background: var(--terminal-toolbar-action-bg);
   border: 1px solid var(--terminal-toolbar-action-border);
   color: var(--terminal-toolbar-action-text);
-  cursor: pointer;
   transition: all 0.2s ease;
+  box-shadow: none;
+  transform: none;
 
   &:hover:not(:disabled) {
     background: var(--terminal-toolbar-action-hover-bg);
     border-color: var(--terminal-toolbar-action-hover-border);
     color: var(--terminal-toolbar-action-hover-text);
+    transform: none;
   }
 
   &:disabled {
     color: var(--terminal-toolbar-action-disabled-text);
     opacity: 0.52;
-    cursor: not-allowed;
   }
 
-  &--active {
-    background: var(--terminal-toolbar-action-active-bg);
-    color: var(--terminal-toolbar-action-active-text);
-    border-color: var(--terminal-toolbar-action-active-border);
+  :deep(svg) {
+    fill: none;
+    stroke: currentColor;
   }
+
+  :deep(circle[fill="currentColor"]) {
+    fill: currentColor;
+    stroke: none;
+  }
+}
+
+.icon-action-btn--active.ui-icon-button {
+  background: var(--terminal-toolbar-action-active-bg);
+  color: var(--terminal-toolbar-action-active-text);
+  border-color: var(--terminal-toolbar-action-active-border);
 }
 
 // ── Collapsed mode: overflow menu ─────────────────────────────
@@ -680,7 +720,7 @@ function handleTitleKeydown(e: KeyboardEvent) {
   position: absolute;
   top: calc(100% + 6px);
   right: 0;
-  z-index: 100;
+  z-index: var(--ui-z-docked);
   min-width: 160px;
   padding: 6px;
   border-radius: var(--ui-radius-lg, 10px);
@@ -697,39 +737,57 @@ function handleTitleKeydown(e: KeyboardEvent) {
   transition: opacity 0.18s ease, transform 0.18s ease, visibility 0.18s;
 }
 
-.toolbar-overflow-item {
+.toolbar-overflow-item.ui-button {
   display: flex;
   align-items: center;
+  justify-content: flex-start;
   gap: 8px;
   width: 100%;
+  min-height: 0;
   padding: 7px 10px;
   border: none;
   border-radius: var(--ui-radius-md, 6px);
   background: transparent;
   color: var(--terminal-toolbar-action-text);
-  cursor: pointer;
   transition: all 0.15s ease;
   font-size: 12px;
+  font-weight: 500;
   white-space: nowrap;
+  box-shadow: none;
+  transform: none;
 
   &:hover:not(:disabled) {
     background: var(--terminal-toolbar-action-hover-bg);
     color: var(--terminal-toolbar-action-hover-text);
+    transform: none;
   }
 
   &:disabled {
     color: var(--terminal-toolbar-action-disabled-text);
     opacity: 0.52;
-    cursor: not-allowed;
   }
 
-  &--active {
-    background: var(--terminal-toolbar-action-active-bg);
-    color: var(--terminal-toolbar-action-active-text);
+  :deep(.ui-button__label) {
+    display: inline-flex;
+    justify-content: flex-start;
+    gap: 8px;
+    width: 100%;
   }
 
-  &__label {
+
+  :deep(svg) {
+    flex: 0 0 auto;
+    fill: none;
+    stroke: currentColor;
+  }
+
+  .toolbar-overflow-item__label {
     line-height: 1;
   }
+}
+
+.toolbar-overflow-item--active.ui-button {
+  background: var(--terminal-toolbar-action-active-bg);
+  color: var(--terminal-toolbar-action-active-text);
 }
 </style>

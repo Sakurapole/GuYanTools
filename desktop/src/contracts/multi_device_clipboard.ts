@@ -83,11 +83,13 @@ export type MultiDeviceClipboardEvent =
 export interface MultiDeviceClipboardApi {
   listItems: () => Promise<MultiDeviceClipboardItem[]>;
   applyItem: (itemId: string) => Promise<void>;
+  copyItem: (itemId: string) => Promise<void>;
   showItemPreview: (itemId: string) => Promise<void>;
   deleteItem: (itemId: string) => Promise<void>;
   clearHistory: () => Promise<void>;
   listDevices: () => Promise<MultiDeviceClipboardDevice[]>;
   listDeviceStatuses: (onlineWindowSeconds: number) => Promise<MultiDeviceClipboardDeviceStatus[]>;
+  scanDevices: (onlineWindowSeconds: number) => Promise<MultiDeviceClipboardDeviceStatus[]>;
   listDiscoveredDevices: () => Promise<MultiDeviceClipboardDiscoveredDevice[]>;
   listPairingRequests: () => Promise<MultiDeviceClipboardPairingRequest[]>;
   startPairing: (deviceId: string) => Promise<MultiDeviceClipboardPairingRequest>;
@@ -97,8 +99,6 @@ export interface MultiDeviceClipboardApi {
   forgetDevice: (deviceId: string) => Promise<void>;
   showWindow: () => Promise<void>;
   closeWindow: () => Promise<void>;
-  dockWindow: () => Promise<void>;
-  expandWindow: () => Promise<void>;
   openDevTools: () => Promise<void>;
   onEvent: (listener: (event: MultiDeviceClipboardEvent) => void) => () => void;
 }

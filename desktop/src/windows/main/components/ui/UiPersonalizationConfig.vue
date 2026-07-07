@@ -4,38 +4,56 @@ import type { BackgroundConfirmPayload, BackgroundStyleConfig } from '../../type
 import type { CompressQuality } from '@/contracts/media';
 import { useAppConfigStore } from '../../stores/app_config_store';
 import UiButton from './UiButton.vue';
+import UiColorPicker from './UiColorPicker.vue';
 import UiDialog from './UiDialog.vue';
 import UiIconButton from './UiIconButton.vue';
 import UiSelect from './UiSelect.vue';
 import UiTabs from './UiTabs.vue';
+import IconRenderer from './IconRenderer.vue';
 import { buildBackgroundTextVars } from '../../utils/backgroundTextColor';
 
 const props = withDefaults(defineProps<{
   visible: boolean;
+  title?: string;
   currentBackground?: string;
   currentBackgroundImage?: string;
   currentBackgroundVideo?: string;
   currentBackgroundStyle?: BackgroundStyleConfig;
+  enabledFeatures?: PersonalizationFeature[];
+  showReset?: boolean;
+  resetText?: string;
   /** 目标区域宽度 (px)，预览框按此比例渲染 */
   previewWidth?: number;
   /** 目标区域高度 (px)，预览框按此比例渲染 */
   previewHeight?: number;
+  /** 是否显示预览区 */
+  showPreview?: boolean;
+  /** 是否让配置面板尽量占满当前窗口高度 */
+  fillViewport?: boolean;
 }>(), {
+  title: '个性化配置',
   currentBackground: '',
   currentBackgroundImage: '',
   currentBackgroundVideo: '',
   currentBackgroundStyle: () => ({}),
+  enabledFeatures: () => ['color', 'image', 'video', 'opacity', 'textColor'],
+  showReset: false,
+  resetText: '还原默认',
   previewWidth: 320,
   previewHeight: 200,
+  showPreview: true,
+  fillViewport: false,
 });
 
 const emit = defineEmits<{
   close: [];
   confirm: [payload: BackgroundConfirmPayload];
+  reset: [];
 }>();
 
 type BackgroundTab = 'color' | 'image' | 'video';
 type BackgroundFitMode = 'crop' | 'style';
+type PersonalizationFeature = BackgroundTab | 'opacity' | 'blur' | 'textColor';
 
 const activeTab = ref<BackgroundTab>('color');
 const activeTabTransition = ref('ui-tab-forward');
@@ -60,6 +78,7 @@ const bgSize = ref(props.currentBackgroundStyle?.backgroundSize || 'cover');
 const bgPosition = ref(props.currentBackgroundStyle?.backgroundPosition || 'center');
 const bgRepeat = ref(props.currentBackgroundStyle?.backgroundRepeat || 'no-repeat');
 const bgOpacity = ref(props.currentBackgroundStyle?.opacity ?? 1);
+const bgBlur = ref(props.currentBackgroundStyle?.blur ?? 0);
 const bgFitMode = ref<BackgroundFitMode>('crop');
 const selectedTextColor = ref(props.currentBackgroundStyle?.textColor || '');
 
@@ -459,11 +478,15 @@ onBeforeUnmount(() => {
   window.removeEventListener('mouseup', handleHueMouseUp);
 });
 
-const personalizationTabs = [
+const enabledFeatureSet = computed(() => new Set(props.enabledFeatures));
+const canUseOpacity = computed(() => enabledFeatureSet.value.has('opacity'));
+const canUseBlur = computed(() => enabledFeatureSet.value.has('blur'));
+const canUseTextColor = computed(() => enabledFeatureSet.value.has('textColor'));
+const personalizationTabs = computed(() => [
   { key: 'color', label: '颜色' },
   { key: 'image', label: '图片' },
   { key: 'video', label: '视频' },
-];
+].filter(tab => enabledFeatureSet.value.has(tab.key as PersonalizationFeature)));
 
 watch(activeTab, (next, previous) => {
   activeTabTransition.value = activeTabOrder.indexOf(next) >= activeTabOrder.indexOf(previous)
@@ -525,6 +548,11 @@ const previewBoxStyle = computed(() => {
     if (bgOpacity.value < 1) base.opacity = String(bgOpacity.value);
   } else {
     base.background = '#2a2a2a';
+  }
+
+  if (canUseBlur.value && bgBlur.value > 0) {
+    base.backdropFilter = `blur(${bgBlur.value}px)`;
+    base.WebkitBackdropFilter = `blur(${bgBlur.value}px)`;
   }
 
   return base;
@@ -644,19 +672,27 @@ function handleClearVideo() {
 }
 
 function handleConfirm() {
+  if (!enabledFeatureSet.value.has(activeTab.value)) {
+    activeTab.value = (personalizationTabs.value[0]?.key as BackgroundTab | undefined) ?? 'color';
+  }
   const usesCropMode = bgFitMode.value === 'crop' && activeTab.value !== 'color';
   const textColor = selectedTextColor.value.trim() || undefined;
   const backgroundStyle: BackgroundStyleConfig = {
     backgroundSize: usesCropMode ? 'cover' : bgSize.value,
     backgroundPosition: usesCropMode ? 'center' : bgPosition.value,
     backgroundRepeat: usesCropMode || activeTab.value === 'video' ? 'no-repeat' : bgRepeat.value,
-    opacity: bgOpacity.value,
+    opacity: canUseOpacity.value ? bgOpacity.value : 1,
+    blur: canUseBlur.value ? bgBlur.value : undefined,
     fitMode: activeTab.value === 'color' ? undefined : bgFitMode.value,
-    textColor,
+    textColor: canUseTextColor.value ? textColor : undefined,
   };
 
   if (activeTab.value === 'color') {
-    const colorStyle: BackgroundStyleConfig = { opacity: bgOpacity.value, textColor };
+    const colorStyle: BackgroundStyleConfig = {
+      opacity: canUseOpacity.value ? bgOpacity.value : 1,
+      blur: canUseBlur.value ? bgBlur.value : undefined,
+      textColor: canUseTextColor.value ? textColor : undefined,
+    };
     emit('confirm', { type: 'color', color: selectedColor.value, image: '', video: '', backgroundStyle: colorStyle });
   } else if (activeTab.value === 'image') {
     emit('confirm', { type: 'image', color: '', image: selectedImage.value, video: '', backgroundStyle });
@@ -667,6 +703,11 @@ function handleConfirm() {
 }
 
 function handleClose() {
+  emit('close');
+}
+
+function handleReset() {
+  emit('reset');
   emit('close');
 }
 
@@ -684,6 +725,7 @@ watch(() => props.visible, (visible) => {
     bgPosition.value = props.currentBackgroundStyle?.backgroundPosition || 'center';
     bgRepeat.value = props.currentBackgroundStyle?.backgroundRepeat || 'no-repeat';
     bgOpacity.value = props.currentBackgroundStyle?.opacity ?? 1;
+    bgBlur.value = props.currentBackgroundStyle?.blur ?? 0;
     selectedTextColor.value = props.currentBackgroundStyle?.textColor || '';
     bgFitMode.value = props.currentBackgroundStyle?.fitMode
       ?? (
@@ -693,9 +735,17 @@ watch(() => props.visible, (visible) => {
       );
 
     // 自动选择合适的 tab
-    if (props.currentBackgroundVideo) {
+    const nextTab = props.currentBackgroundVideo && enabledFeatureSet.value.has('video')
+      ? 'video'
+      : props.currentBackgroundImage && enabledFeatureSet.value.has('image')
+        ? 'image'
+        : enabledFeatureSet.value.has('color')
+          ? 'color'
+          : (personalizationTabs.value[0]?.key as BackgroundTab | undefined) ?? 'color';
+
+    if (nextTab === 'video') {
       activeTab.value = 'video';
-    } else if (props.currentBackgroundImage) {
+    } else if (nextTab === 'image') {
       activeTab.value = 'image';
     } else {
       activeTab.value = 'color';
@@ -713,12 +763,23 @@ watch(() => props.visible, (visible) => {
 </script>
 
 <template>
-  <UiDialog class="bg-picker" :model-value="visible" width="580px" max-width="580px" :close-on-mask="false"
+  <UiDialog
+    :class="[
+      'bg-picker',
+      {
+        'bg-picker--no-preview': !showPreview,
+        'bg-picker--fill-viewport': fillViewport,
+      },
+    ]"
+    :model-value="visible"
+    width="580px"
+    max-width="580px"
+    :close-on-mask="false"
     @update:modelValue="handleDialogModelValueChange">
     <template #header>
       <div class="bg-picker__header">
         <div class="bg-picker__title">
-          <h3>个性化配置</h3>
+          <h3>{{ title }}</h3>
           <span class="bg-picker__theme-badge">{{ activeThemeLabel }}</span>
         </div>
         <UiIconButton class="close-btn" variant="ghost" size="sm" shape="square" title="关闭" @click="handleClose">
@@ -727,12 +788,12 @@ watch(() => props.visible, (visible) => {
       </div>
     </template>
 
-    <div class="bg-picker__tabs">
+    <div v-if="personalizationTabs.length > 1" class="bg-picker__tabs">
       <UiTabs v-model="activeTab" :items="personalizationTabs" variant="line" size="sm" stretch />
     </div>
 
     <!-- 预览区域 -->
-    <div class="bg-picker__preview">
+    <div v-if="showPreview" class="bg-picker__preview">
       <div
         class="bg-picker__preview-wrapper"
         :class="{ 'bg-picker__preview-wrapper--checker': bgOpacity < 1 }"
@@ -749,7 +810,7 @@ watch(() => props.visible, (visible) => {
     <div class="bg-picker__content">
       <Transition :name="activeTabTransition" mode="out-in">
       <!-- 颜色选择 -->
-      <div v-if="activeTab === 'color'" class="bg-picker__color-section">
+      <div v-if="activeTab === 'color' && enabledFeatureSet.has('color')" class="bg-picker__color-section">
         <div class="bg-picker__section-title">渐变色</div>
         <div class="bg-picker__gradient-grid">
           <div v-for="(gradient, index) in presetGradients" :key="index" class="bg-picker__swatch"
@@ -760,13 +821,13 @@ watch(() => props.visible, (visible) => {
         </div>
 
         <div class="bg-picker__section-title">纯色</div>
-        <div class="bg-picker__color-grid">
-          <div v-for="(color, index) in presetColors" :key="index" class="bg-picker__swatch"
-            :class="{ 'bg-picker__swatch--selected': selectedColor === color }" :style="{ background: color }"
-            @click="handleColorSelect(color)">
-            <div v-if="selectedColor === color" class="bg-picker__swatch-check">✓</div>
-          </div>
-        </div>
+        <UiColorPicker
+          :model-value="selectedColor"
+          :swatches="presetColors"
+          aria-label="选择背景纯色"
+          placeholder="#667eea"
+          @update:model-value="handleColorSelect"
+        />
 
         <!-- 自定义颜色区域 -->
         <div class="bg-picker__custom-section">
@@ -838,7 +899,7 @@ watch(() => props.visible, (visible) => {
       </div>
 
       <!-- 图片选择 + CSS 参数 -->
-      <div v-else-if="activeTab === 'image'" class="bg-picker__image-section">
+      <div v-else-if="activeTab === 'image' && enabledFeatureSet.has('image')" class="bg-picker__image-section">
         <div class="bg-picker__fit-panel">
           <div class="bg-picker__section-title">适配方式</div>
           <UiTabs v-model="bgFitMode" :items="bgFitModeOptions" variant="segmented" size="sm" stretch />
@@ -898,7 +959,7 @@ watch(() => props.visible, (visible) => {
       </div>
 
       <!-- 视频选择 -->
-      <div v-else class="bg-picker__video-section">
+      <div v-else-if="activeTab === 'video' && enabledFeatureSet.has('video')" class="bg-picker__video-section">
         <div class="bg-picker__fit-panel">
           <div class="bg-picker__section-title">适配方式</div>
           <UiTabs v-model="bgFitMode" :items="bgFitModeOptions" variant="segmented" size="sm" stretch />
@@ -953,7 +1014,7 @@ watch(() => props.visible, (visible) => {
       </Transition>
 
       <!-- 透明度设置（所有 tab 通用） -->
-      <div class="bg-picker__opacity-panel">
+      <div v-if="canUseOpacity" class="bg-picker__opacity-panel">
         <div class="bg-picker__section-title">透明度</div>
         <div class="bg-picker__opacity-row">
           <input type="range" class="bg-picker__opacity-slider" :value="Math.round(bgOpacity * 100)" min="0" max="100"
@@ -962,31 +1023,51 @@ watch(() => props.visible, (visible) => {
         </div>
       </div>
 
-      <div class="bg-picker__text-color-panel">
-        <div class="bg-picker__section-title">文字颜色</div>
-        <div class="bg-picker__text-color-row">
+      <div v-if="canUseBlur" class="bg-picker__blur-panel">
+        <div class="bg-picker__section-title">模糊</div>
+        <div class="bg-picker__blur-row">
           <input
-            class="bg-picker__text-color-swatch"
-            type="color"
-            :value="selectedTextColor || '#ffffff'"
-            @input="selectedTextColor = ($event.target as HTMLInputElement).value"
+            type="range"
+            class="bg-picker__blur-slider"
+            :value="Math.round(bgBlur)"
+            min="0"
+            max="40"
+            step="1"
+            @input="bgBlur = Number(($event.target as HTMLInputElement).value)"
           />
-          <input
-            v-model="selectedTextColor"
-            class="bg-picker__text-color-input"
-            placeholder="默认文字颜色"
-          />
-          <button class="bg-picker__text-color-reset" type="button" @click="selectedTextColor = ''">
-            重置
-          </button>
+          <span class="bg-picker__blur-value">{{ Math.round(bgBlur) }}px</span>
         </div>
+      </div>
+
+      <div v-if="canUseTextColor" class="bg-picker__text-color-panel">
+        <div class="bg-picker__section-title">文字颜色</div>
+        <UiColorPicker
+          v-model="selectedTextColor"
+          :swatches="['#ffffff', '#1e465a', '#dcf0ff', '#111827', '#f8fafc', '#66ccff']"
+          allow-empty
+          aria-label="文字颜色"
+          placeholder="默认文字颜色"
+        />
       </div>
     </div>
 
     <template #footer>
       <div class="bg-picker__footer">
-        <UiButton variant="secondary" size="sm" @click="handleClose">取消</UiButton>
-        <UiButton variant="primary" size="sm" @click="handleConfirm">确认</UiButton>
+        <UiIconButton
+          v-if="showReset"
+          class="bg-picker__reset-btn"
+          variant="ghost"
+          size="sm"
+          shape="square"
+          :title="resetText"
+          @click="handleReset"
+        >
+          <IconRenderer icon="iconify:lucide:rotate-ccw" :size="16" />
+        </UiIconButton>
+        <div class="bg-picker__footer-actions">
+          <UiButton variant="secondary" size="sm" @click="handleClose">取消</UiButton>
+          <UiButton variant="primary" size="sm" @click="handleConfirm">确认</UiButton>
+        </div>
       </div>
     </template>
 
@@ -1026,6 +1107,12 @@ export default {
   display: flex;
   flex-direction: column;
   border-radius: var(--ui-radius-md);
+}
+
+.bg-picker--fill-viewport,
+.bg-picker--fill-viewport.bg-picker.ui-card {
+  min-height: min(88vh, 520px);
+  max-height: 88vh;
 }
 
 .bg-picker__header {
@@ -1110,6 +1197,25 @@ export default {
   @include thin-scroll;
   padding: 14px 18px;
   max-height: calc(74vh - 300px);
+}
+
+.bg-picker--no-preview .bg-picker__content {
+  max-height: calc(74vh - 132px);
+}
+
+.bg-picker--fill-viewport .bg-picker__content {
+  max-height: calc(88vh - 180px);
+}
+
+.bg-picker--fill-viewport.bg-picker--no-preview .bg-picker__content {
+  max-height: calc(88vh - 132px);
+}
+
+@media (max-height: 560px) {
+  .bg-picker--fill-viewport,
+  .bg-picker--fill-viewport.bg-picker.ui-card {
+    min-height: calc(100vh - 32px);
+  }
 }
 
 .bg-picker__section-title {
@@ -1546,7 +1652,8 @@ export default {
 }
 
 /* ─── 透明度面板 ─── */
-.bg-picker__opacity-panel {
+.bg-picker__opacity-panel,
+.bg-picker__blur-panel {
   margin-top: 12px;
   padding: 10px;
   border-radius: var(--ui-radius-xs);
@@ -1620,13 +1727,15 @@ export default {
   }
 }
 
-.bg-picker__opacity-row {
+.bg-picker__opacity-row,
+.bg-picker__blur-row {
   display: flex;
   align-items: center;
   gap: 10px;
 }
 
-.bg-picker__opacity-slider {
+.bg-picker__opacity-slider,
+.bg-picker__blur-slider {
   flex: 1;
   -webkit-appearance: none;
   appearance: none;
@@ -1673,7 +1782,8 @@ export default {
   }
 }
 
-.bg-picker__opacity-value {
+.bg-picker__opacity-value,
+.bg-picker__blur-value {
   min-width: 38px;
   text-align: right;
   font-size: 12px;
@@ -1684,12 +1794,24 @@ export default {
 
 .bg-picker__footer {
   display: flex;
+  align-items: center;
+  justify-content: space-between;
   gap: 10px;
   padding: 12px 18px;
   border-top: var(--ui-border-width-thin) solid var(--modal-header-border-color);
 
   .ui-button {
-    flex: 1;
+    min-width: 88px;
   }
+}
+
+.bg-picker__footer-actions {
+  display: flex;
+  gap: 10px;
+  margin-left: auto;
+}
+
+.bg-picker__reset-btn {
+  color: var(--ui-text-muted);
 }
 </style>

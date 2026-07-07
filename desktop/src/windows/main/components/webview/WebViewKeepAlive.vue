@@ -609,7 +609,7 @@ function setWebviewRef(url: string, el: any) {
   position: absolute;
   bottom: 20px;
   right: 20px;
-  z-index: 50;
+  z-index: var(--ui-z-floating);
 }
 
 .webview-login-hint__card {

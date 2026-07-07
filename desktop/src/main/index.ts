@@ -4,18 +4,31 @@ import * as fs from 'node:fs/promises';
 import * as os from 'node:os';
 import * as path from 'node:path';
 import { dbManager } from "../core/database";
+import { registerAiIpcHandlers } from "./ai/ipc";
 import { registerAppConfigIpcHandlers } from "./app-config/ipc";
 import { appConfigManager } from "./app-config/manager";
 import { registerHomeLayoutIpcHandlers } from "./home-layout/ipc";
 import { registerHomeProfileIpcHandlers } from "./home-profile/ipc";
 import { registerHomeWorkspaceIpcHandlers } from "./home-workspace/ipc";
+import { registerKnowledgeIpcHandlers } from "./knowledge/ipc";
+import {
+  captureClipboardToQuickNoteWindow,
+  registerQuickNoteWindowHandlers,
+  toggleQuickNoteWindow,
+} from "./knowledge/quick_note_window";
 import { registerMediaIpcHandlers } from "./media/ipc";
 import { registerMultiDeviceClipboardIpcHandlers } from "./multi-device-clipboard/ipc";
 import { multiDeviceClipboardService } from "./multi-device-clipboard/service";
 import { registerMultiDeviceClipboardWindowHandlers, toggleMultiDeviceClipboardWindow } from "./multi-device-clipboard/window";
 import { registerNotificationIpcHandlers } from "./notification/ipc";
 import { registerShellIpcHandlers } from "./shell/ipc";
+import { registerShortcutIpcHandlers } from "./shortcuts/ipc";
 import { shortcutService } from "./shortcuts/service";
+import { registerSyncIpcHandlers } from "./sync/ipc";
+import { syncScheduler } from "./sync/sync_scheduler";
+import { registerQuickLaunchIpcHandlers } from "./quick-launch/ipc";
+import { quickLaunchService } from "./quick-launch/service";
+import { preloadQuickLaunchWindow, toggleQuickLaunchWindow } from "./quick-launch/window";
 import { registerTerminalIpcHandlers } from "./terminal/ipc";
 import { registerTodoIpcHandlers, initializeTodoData } from "./todo/ipc";
 import { startTodoScheduler, stopTodoScheduler } from "./todo/scheduler";
@@ -24,6 +37,8 @@ import { pluginHost } from "./plugin-host";
 import { registerWebviewIpcHandlers } from "./webview/ipc";
 import { webViewManager } from "./webview/manager";
 import { registerWebScriptBridge } from "./webview/script-bridge";
+import { registerWorkspaceWindowIpcHandlers } from "./workspace-window/ipc";
+import { workspaceWindowManager } from "./workspace-window/manager";
 import { registerSshIpcHandlers } from "./ssh/ipc";
 import { sshHost } from "./ssh/host";
 import { registerFtpIpcHandlers } from "./ftp/ipc";
@@ -38,6 +53,12 @@ import { setupAutoUpdater } from "./updater";
 
 const delay = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms));
 const MULTI_DEVICE_CLIPBOARD_ASSET_HOST = 'multi-device-clipboard-assets';
+const KNOWLEDGE_ASSET_HOST = 'knowledge-assets';
+
+type KnowledgeAssetProtocolRecord = {
+  storagePath: string;
+  mimeType?: string;
+};
 
 type FtpCliRelayAdditionalData = {
   ftpCliResponsePath?: string;
@@ -72,10 +93,13 @@ class App {
     ]);
     this.mainWindowCreator = main_window();
     this.splashWindowCreator = splash_window();
+    registerAiIpcHandlers();
     registerAppConfigIpcHandlers();
     registerHomeProfileIpcHandlers();
     registerHomeLayoutIpcHandlers();
     registerHomeWorkspaceIpcHandlers();
+    registerKnowledgeIpcHandlers();
+    registerQuickNoteWindowHandlers();
     registerMediaIpcHandlers();
     registerMultiDeviceClipboardIpcHandlers();
     registerMultiDeviceClipboardWindowHandlers();
@@ -87,6 +111,9 @@ class App {
       }
     });
     registerShellIpcHandlers();
+    registerShortcutIpcHandlers();
+    registerSyncIpcHandlers();
+    registerQuickLaunchIpcHandlers();
     registerTerminalIpcHandlers();
     registerTodoIpcHandlers();
     registerSshIpcHandlers();
@@ -109,6 +136,7 @@ class App {
     registerWebviewIpcHandlers(() => {
       return this.mainWindowCreator.getWindow();
     });
+    registerWorkspaceWindowIpcHandlers();
     registerWebScriptBridge();
 
     const singleLock = app.requestSingleInstanceLock(
@@ -142,6 +170,52 @@ class App {
           await dbManager.initialize();
         }
         await appConfigManager.initialize();
+        quickLaunchService.bindMainWindow({
+          getWindow: () => {
+            try {
+              return this.mainWindowCreator.getWindow();
+            } catch {
+              return null;
+            }
+          },
+          showWindow: () => {
+            try {
+              this.mainWindowCreator.showWindow();
+            } catch {
+              // main window may still be loading during early global shortcut use
+            }
+          },
+          navigateToHash: async (hashPath: string) => {
+            try {
+              await this.mainWindowCreator.navigateToHash(hashPath);
+            } catch {
+              // main window may still be loading during early global shortcut use
+            }
+          },
+        });
+        workspaceWindowManager.bindMainWindow({
+          getWindow: () => {
+            try {
+              return this.mainWindowCreator.getWindow();
+            } catch {
+              return null;
+            }
+          },
+          showWindow: () => {
+            try {
+              this.mainWindowCreator.showWindow();
+            } catch {
+              // main window may not exist during early shortcut use
+            }
+          },
+          navigateToHash: async (hashPath: string) => {
+            try {
+              await this.mainWindowCreator.navigateToHash(hashPath);
+            } catch {
+              // main window may not exist during early shortcut use
+            }
+          },
+        });
         // 数据库就绪后，初始化 Todo 系统数据（确保 default-tasks 列表存在）
         await initializeTodoData();
         // 初始化 SSH 宿主（依赖数据库）
@@ -150,13 +224,24 @@ class App {
         await ftpSchedulerService.initialize();
         await pluginHost.initialize();
         await multiDeviceClipboardService.initialize();
-        await shortcutService.initialize(() => {
-          try {
-            return this.mainWindowCreator.getWindow();
-          } catch {
-            return null;
-          }
-        }, toggleMultiDeviceClipboardWindow);
+        await syncScheduler.start();
+        await shortcutService.initialize(
+          () => {
+            try {
+              return this.mainWindowCreator.getWindow();
+            } catch {
+              return null;
+            }
+          },
+          toggleMultiDeviceClipboardWindow,
+          toggleQuickNoteWindow,
+          captureClipboardToQuickNoteWindow,
+          toggleQuickLaunchWindow,
+          (key) => {
+            void workspaceWindowManager.openDetached(key);
+          },
+        );
+        void preloadQuickLaunchWindow();
 
         // ─── 初始化共享 webview session ───
         // 集中管理 UA 清洗、请求头改写等，避免 Google 等第三方服务拦截嵌入式 WebView
@@ -207,6 +292,8 @@ class App {
             this.splashWindowCreator.close();
           }, 300);
 
+          workspaceWindowManager.prewarmDetachedWindows();
+
           // Start Todo reminder scheduler
           startTodoScheduler();
           await this.processLaunchArgs(process.argv, { printOutput: true });
@@ -256,6 +343,7 @@ class App {
 
     app.on('will-quit', () => {
       stopTodoScheduler();
+      syncScheduler.stop();
       ftpSchedulerService.dispose();
       void multiDeviceClipboardService.dispose();
       shortcutService.dispose();
@@ -270,29 +358,49 @@ class App {
 
     protocol.handle('app', async (request) => {
       const url = new URL(request.url);
-      if (url.hostname !== MULTI_DEVICE_CLIPBOARD_ASSET_HOST) {
-        return new Response('Not found', { status: 404 });
+      if (url.hostname === MULTI_DEVICE_CLIPBOARD_ASSET_HOST) {
+        const assetRoot = path.resolve(app.getPath('userData'), 'multi-device-clipboard-assets');
+        const requestedPath = decodeURIComponent(url.pathname.slice(1));
+        return serveLocalAsset(requestedPath, assetRoot);
       }
 
-      const assetRoot = path.resolve(app.getPath('userData'), 'multi-device-clipboard-assets');
-      const requestedPath = decodeURIComponent(url.pathname.slice(1));
-      const resolvedPath = path.resolve(requestedPath);
-      if (resolvedPath !== assetRoot && !resolvedPath.startsWith(`${assetRoot}${path.sep}`)) {
-        return new Response('Forbidden', { status: 403 });
+      if (url.hostname === KNOWLEDGE_ASSET_HOST) {
+        return this.handleKnowledgeAssetProtocolRequest(url);
       }
 
-      try {
-        const bytes = await fs.readFile(resolvedPath);
-        return new Response(new Uint8Array(bytes), {
-          headers: {
-            'Content-Type': guessLocalAssetMimeType(resolvedPath),
-            'Cache-Control': 'no-store',
-          },
-        });
-      } catch {
-        return new Response('Not found', { status: 404 });
-      }
+      return new Response('Not found', { status: 404 });
     });
+  }
+
+  private async handleKnowledgeAssetProtocolRequest(url: URL) {
+    const parts = url.pathname
+      .split('/')
+      .filter(Boolean)
+      .map((part) => decodeURIComponent(part));
+    const mode = parts[0];
+    const assetRoot = path.resolve(app.getPath('userData'), 'knowledge-assets');
+
+    if (mode === 'path' && parts[1]) {
+      return serveLocalAsset(parts[1], assetRoot);
+    }
+
+    if (mode !== 'id' || !parts[1]) {
+      return new Response('Bad request', { status: 400 });
+    }
+
+    if (!dbManager.isInitialized()) {
+      return new Response('Database is not ready', { status: 503 });
+    }
+
+    try {
+      const database = dbManager.getDatabase() as unknown as {
+        getKnowledgeAsset: (assetId: string) => Promise<KnowledgeAssetProtocolRecord>;
+      };
+      const asset = await database.getKnowledgeAsset(parts[1]);
+      return serveLocalAsset(asset.storagePath, assetRoot, asset.mimeType);
+    } catch {
+      return new Response('Not found', { status: 404 });
+    }
   }
 
   private async processLaunchArgs(
@@ -398,6 +506,31 @@ async function waitForFtpCliRelayResponse(responsePath: string, timeoutMs: numbe
   throw new Error('等待主实例返回 FTP CLI 结果超时');
 }
 
+function isPathInsideRoot(filePath: string, rootPath: string) {
+  const resolvedPath = path.resolve(filePath);
+  const resolvedRoot = path.resolve(rootPath);
+  return resolvedPath === resolvedRoot || resolvedPath.startsWith(`${resolvedRoot}${path.sep}`);
+}
+
+async function serveLocalAsset(filePath: string, rootPath: string, contentType?: string) {
+  const resolvedPath = path.resolve(filePath);
+  if (!isPathInsideRoot(resolvedPath, rootPath)) {
+    return new Response('Forbidden', { status: 403 });
+  }
+
+  try {
+    const bytes = await fs.readFile(resolvedPath);
+    return new Response(new Uint8Array(bytes), {
+      headers: {
+        'Content-Type': contentType || guessLocalAssetMimeType(resolvedPath),
+        'Cache-Control': 'no-store',
+      },
+    });
+  } catch {
+    return new Response('Not found', { status: 404 });
+  }
+}
+
 function guessLocalAssetMimeType(filePath: string) {
   const ext = path.extname(filePath).toLowerCase();
   if (ext === '.png') return 'image/png';
@@ -405,6 +538,9 @@ function guessLocalAssetMimeType(filePath: string) {
   if (ext === '.gif') return 'image/gif';
   if (ext === '.webp') return 'image/webp';
   if (ext === '.svg') return 'image/svg+xml';
+  if (ext === '.pdf') return 'application/pdf';
+  if (ext === '.md' || ext === '.markdown') return 'text/markdown; charset=utf-8';
+  if (ext === '.txt' || ext === '.csv' || ext === '.log') return 'text/plain; charset=utf-8';
   return 'application/octet-stream';
 }
 

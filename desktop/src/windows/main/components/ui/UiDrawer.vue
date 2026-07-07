@@ -5,15 +5,23 @@ const props = withDefaults(defineProps<{
   modelValue: boolean;
   width?: string;
   position?: 'right' | 'left';
+  teleported?: boolean;
+  teleportTo?: string;
+  fixed?: boolean;
+  overlay?: boolean;
   closeOnMask?: boolean;
   closeOnEsc?: boolean;
-  zIndex?: number;
+  zIndex?: number | string;
 }>(), {
   width: '400px',
   position: 'right',
+  teleported: true,
+  teleportTo: 'body',
+  fixed: true,
+  overlay: true,
   closeOnMask: true,
   closeOnEsc: true,
-  zIndex: 10000,
+  zIndex: 'var(--ui-z-toast)',
 });
 
 const emit = defineEmits<{
@@ -27,6 +35,10 @@ const emit = defineEmits<{
     :model-value="modelValue"
     variant="drawer"
     :placement="position"
+    :teleported="teleported"
+    :teleport-to="teleportTo"
+    :fixed="fixed"
+    :overlay="overlay"
     :width="width"
     :close-on-mask="closeOnMask"
     :close-on-esc="closeOnEsc"

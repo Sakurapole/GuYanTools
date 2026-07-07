@@ -1,11 +1,13 @@
 <script setup lang="ts">
 import type {
   FileTransferEntry,
+  FtpProfile,
   FtpScheduledTask,
   TransferTask,
   UpsertFtpScheduledTaskInput,
 } from '@/contracts/ftp';
 import type { TerminalLayoutMode } from '@/contracts/terminal';
+import type { WorkspaceWindowContext } from '@/contracts/workspace_window';
 import DeleteIcon from '@/windows/main/components/svgs/icons/DeleteIcon.vue';
 import OpenIcon from '@/windows/main/components/svgs/icons/OpenIcon.vue';
 import MainPageLayout from '@/windows/main/components/layout/MainPageLayout.vue';
@@ -184,6 +186,25 @@ type ClosedSessionSnapshot = {
   localPath: string;
   remotePath: string;
 };
+type FtpWorkspacePaneSnapshot = Pick<
+  FtpWorkspacePane,
+  'key' | 'title' | 'kind' | 'sessionId' | 'profileId' | 'protocol' | 'path' | 'pathInput' | 'viewMode'
+>;
+type FtpWorkspaceWindowState = {
+  activeBrowserPanel?: string;
+  panelLayoutMode?: PanelLayoutMode;
+  sidebarDockSide?: SidebarDockSide;
+  auxiliaryDockSide?: AuxiliaryDockSide;
+  auxiliaryDockSize?: string;
+  auxiliaryDockCollapsed?: boolean;
+  showSidebarPanel?: boolean;
+  auxDockActiveTab?: AuxiliaryDockTab;
+  ftpWorkspacePanes?: FtpWorkspacePaneSnapshot[];
+  localWorkspacePaneCounter?: number;
+  ftpLayoutSizeState?: Record<string, number[]>;
+  ftpMasterMainRatio?: number;
+  ftpDwindleSplitRatios?: number[];
+};
 type PendingSshOpenRequest = Extract<PendingFtpOpenRequest, { source: 'ssh' }>;
 type PendingProfileOpenRequest = Extract<PendingFtpOpenRequest, { source: 'profile' }>;
 
@@ -199,6 +220,8 @@ const terminalStore = useTerminalStore();
 const settingsStore = useSettingStore();
 const router = useRouter();
 const route = useRoute();
+const workspaceWindowContext = ref<WorkspaceWindowContext>({ role: 'main' });
+const isDetachedWindow = computed(() => workspaceWindowContext.value.role === 'detached');
 const { show: showConfirm } = useConfirmDialog();
 const { open: openContextMenu, close: closeContextMenu } = useContextMenu();
 
@@ -342,6 +365,8 @@ const pendingRemoteRefreshTargets = new Map<string, RemoteRefreshTarget>();
 let remoteRefreshTimer: number | null = null;
 let transferTaskRefreshWatcherInitialized = false;
 let transferTaskListWatcherInitialized = false;
+let ftpWorkspaceWindowStateReady = false;
+let ftpWorkspaceWindowStateTimer: number | undefined;
 
 const taskSortOptions = [
   { label: '创建时间', value: 'createdAt' },
@@ -410,8 +435,14 @@ const {
   changeRemotePermissions,
 });
 const processingPendingOpenRequest = ref(false);
+const handledFtpOpenRequestIds = new Set<string>();
 const handledFtpConnectionLayoutRequestIds = new Set<string>();
 const selectedConnectionLayoutId = ref('');
+
+function routeQueryString(key: string) {
+  const value = route.query[key];
+  return Array.isArray(value) ? value[0] ?? '' : typeof value === 'string' ? value : '';
+}
 
 function findSftpProfileForPendingOpenRequest(request: PendingSshOpenRequest) {
   const requestHost = request.host.toLowerCase();
@@ -554,6 +585,33 @@ async function processFtpConnectionLayoutOpenRequest() {
 
   handledFtpConnectionLayoutRequestIds.add(requestId);
   await openFtpConnectionLayout(layoutId);
+}
+
+async function handleFtpOpenRequestFromRoute() {
+  if (route.name !== 'FileTransfer' || !ftpStore.initialized) return;
+
+  const profileId = routeQueryString('openFtpProfileId');
+  if (!profileId) return;
+
+  const requestId = routeQueryString('openFtpRequestId') || `legacy:${profileId}`;
+  if (handledFtpOpenRequestIds.has(requestId)) return;
+  handledFtpOpenRequestIds.add(requestId);
+
+  try {
+    await processPendingProfileOpenRequest({
+      requestId,
+      source: 'profile',
+      profileId,
+      label: routeQueryString('openFtpLabel') || profileId,
+      remotePath: routeQueryString('openFtpRemotePath') || undefined,
+    });
+  } catch (error) {
+    handleFtpOperationError(error);
+  } finally {
+    if (!ftpStore.pendingOpenRequest) {
+      busyMessage.value = '';
+    }
+  }
 }
 
 const sortedTransferTasks = computed(() =>
@@ -699,6 +757,7 @@ const {
   copySelectionInfo,
   canOpenTerminalForPanel,
   openTerminalForPanel,
+  openLocalPathInExplorer,
   canPreviewLocalImage: canPreviewLocalImageEntry,
   previewLocalImage,
   canPreviewRemoteImage: canPreviewRemoteImageEntry,
@@ -951,6 +1010,7 @@ function isExplorerPasteShortcut(event: KeyboardEvent) {
 }
 
 function handleExplorerPasteShortcut(event: KeyboardEvent) {
+  if (route.name !== 'FileTransfer') return;
   if (event.defaultPrevented || event.repeat || !isExplorerPasteShortcut(event)) return;
   if (shouldIgnoreExplorerShortcut(event.target)) return;
   const target = resolveRemotePasteTarget();
@@ -973,6 +1033,7 @@ function selectAllActiveBrowserEntries() {
 }
 
 function handleExplorerSelectAllShortcut(event: KeyboardEvent) {
+  if (route.name !== 'FileTransfer') return;
   if (event.defaultPrevented || event.repeat || !isExplorerSelectAllShortcut(event)) return;
   if (shouldIgnoreExplorerShortcut(event.target)) return;
   event.preventDefault();
@@ -1063,6 +1124,71 @@ function createConnectingRemoteWorkspacePane(
   };
 }
 
+function isPlainRecord(value: unknown): value is Record<string, unknown> {
+  return Boolean(value) && typeof value === 'object' && !Array.isArray(value);
+}
+
+function readNumberArray(value: unknown) {
+  return Array.isArray(value) && value.every((item) => typeof item === 'number' && Number.isFinite(item))
+    ? value
+    : null;
+}
+
+function readLayoutSizeState(value: unknown) {
+  if (!isPlainRecord(value)) return null;
+  const next: Record<string, number[]> = {};
+  for (const [key, sizes] of Object.entries(value)) {
+    const parsed = readNumberArray(sizes);
+    if (parsed) {
+      next[key] = parsed;
+    }
+  }
+  return next;
+}
+
+function cloneFtpLayoutSizeState(value: Record<string, number[]>) {
+  return Object.fromEntries(
+    Object.entries(value).map(([key, sizes]) => [key, [...sizes]]),
+  );
+}
+
+function restoreFtpWorkspacePane(snapshot: FtpWorkspacePaneSnapshot): FtpWorkspacePane | null {
+  if (!snapshot || typeof snapshot.key !== 'string' || (snapshot.kind !== 'local' && snapshot.kind !== 'remote')) {
+    return null;
+  }
+  const path = typeof snapshot.path === 'string' && snapshot.path ? snapshot.path : snapshot.kind === 'remote' ? '/' : ftpStore.localPath;
+  const viewMode = snapshot.viewMode === 'list' ? 'list' : 'details';
+  if (snapshot.kind === 'remote' && snapshot.sessionId && !ftpStore.sessions.some((session) => session.sessionId === snapshot.sessionId)) {
+    const profile = snapshot.profileId
+      ? ftpStore.profiles.find((item) => item.id === snapshot.profileId) ?? null
+      : null;
+    if (!profile) return null;
+    return {
+      ...createConnectingRemoteWorkspacePane(profile, path, `正在恢复 ${profile.label}...`),
+      key: snapshot.key,
+      title: typeof snapshot.title === 'string' && snapshot.title ? snapshot.title : profile.label,
+      path,
+      pathInput: typeof snapshot.pathInput === 'string' && snapshot.pathInput ? snapshot.pathInput : path,
+      viewMode,
+    };
+  }
+  return {
+    key: snapshot.key,
+    title: typeof snapshot.title === 'string' && snapshot.title ? snapshot.title : snapshot.kind === 'remote' ? '远程连接' : '本地连接',
+    kind: snapshot.kind,
+    sessionId: snapshot.sessionId,
+    profileId: snapshot.profileId,
+    protocol: snapshot.protocol,
+    path,
+    pathInput: typeof snapshot.pathInput === 'string' && snapshot.pathInput ? snapshot.pathInput : path,
+    entries: [],
+    selectedPaths: [],
+    lastSelectedIndex: -1,
+    loading: false,
+    viewMode,
+  };
+}
+
 function updateFtpWorkspacePane(key: string, patch: Partial<FtpWorkspacePane>) {
   ftpWorkspacePanes.value = ftpWorkspacePanes.value.map((pane) => (
     pane.key === key ? { ...pane, ...patch } : pane
@@ -1127,6 +1253,7 @@ function completeConnectingRemoteWorkspacePane(
   pendingKey: string,
   previousSessionIds: Set<string>,
   preferredPath?: string,
+  options: { activate?: boolean } = {},
 ) {
   const nextSession = [...ftpStore.sessions]
     .reverse()
@@ -1144,8 +1271,11 @@ function completeConnectingRemoteWorkspacePane(
   } else if (!findFtpWorkspacePane(pane.key)) {
     ftpWorkspacePanes.value = [...ftpWorkspacePanes.value, pane];
   }
-  setActiveBrowserPanel(pane.key);
+  if (options.activate !== false || activeBrowserPanel.value === pendingKey) {
+    setActiveBrowserPanel(pane.key);
+  }
   void refreshFtpWorkspacePaneDirectory(pane.key, pane.path);
+  refreshLocalWorkspacePanes({ onlyEmpty: true });
   return true;
 }
 
@@ -1268,11 +1398,20 @@ function ensureRemoteWorkspacePanes() {
   if (!ftpWorkspaceRemoteRestoreReady.value && !ftpWorkspacePanes.value.length) return;
   const sessionById = new Map(ftpStore.sessions.map((session) => [session.sessionId, session]));
   const connectedProfileIds = new Set(ftpStore.sessions.map((session) => session.profileId));
+  let activeReplacementKey = '';
   const nextPanes = ftpWorkspacePanes.value
     .map((pane) => {
       if (pane.kind === 'local') return pane;
       if (pane.connectionState === 'connecting') {
-        return !pane.profileId || !connectedProfileIds.has(pane.profileId) ? pane : null;
+        const session = pane.profileId
+          ? [...ftpStore.sessions].reverse().find((item) => item.profileId === pane.profileId) ?? null
+          : null;
+        if (!session) return !pane.profileId || !connectedProfileIds.has(pane.profileId) ? pane : null;
+        const restoredPane = createRemoteWorkspacePane(session, pane.path || session.remoteRoot);
+        if (activeBrowserPanel.value === pane.key) {
+          activeReplacementKey = restoredPane.key;
+        }
+        return restoredPane;
       }
       if (!pane.sessionId) return pane;
       const session = sessionById.get(pane.sessionId);
@@ -1294,6 +1433,9 @@ function ensureRemoteWorkspacePanes() {
     .filter((session) => !representedSessionIds.has(session.sessionId))
     .map((session) => createRemoteWorkspacePane(session, session.remoteRoot));
   ftpWorkspacePanes.value = [...nextPanes, ...appendedRemotePanes];
+  if (activeReplacementKey) {
+    activeBrowserPanel.value = activeReplacementKey;
+  }
   if (activeBrowserPanel.value && !findFtpWorkspacePane(activeBrowserPanel.value)) {
     activeBrowserPanel.value = appendedRemotePanes[0]?.key ?? ftpWorkspacePanes.value[0]?.key ?? '';
   }
@@ -1305,10 +1447,49 @@ function ensureRemoteWorkspacePanes() {
   }
 }
 
+function ensurePendingRemoteWorkspacePanesForRestoreStates() {
+  if (!ftpStore.restoreStates.length) return;
+  const representedProfileIds = new Set(
+    ftpWorkspacePanes.value
+      .filter((pane) => pane.kind === 'remote' && pane.profileId)
+      .map((pane) => pane.profileId as string),
+  );
+  const panes = [...ftpWorkspacePanes.value];
+  for (const state of [...ftpStore.restoreStates].sort((left, right) => left.tabOrder - right.tabOrder)) {
+    if (representedProfileIds.has(state.sessionId)) continue;
+    const existingSession = ftpStore.sessions.find((session) => session.profileId === state.sessionId) ?? null;
+    if (existingSession) {
+      panes.push(createRemoteWorkspacePane(existingSession, state.remotePath || existingSession.remoteRoot));
+      representedProfileIds.add(state.sessionId);
+      continue;
+    }
+    const profile = ftpStore.profiles.find((item) => item.id === state.sessionId) ?? null;
+    if (!profile) continue;
+    panes.push(createConnectingRemoteWorkspacePane(
+      profile,
+      state.remotePath || profile.defaultRemotePath || '/',
+      `正在恢复 ${profile.label}...`,
+    ));
+    representedProfileIds.add(state.sessionId);
+  }
+  ftpWorkspacePanes.value = panes;
+}
+
+function refreshLocalWorkspacePanes(options: { onlyEmpty?: boolean } = {}) {
+  for (const pane of ftpWorkspacePanes.value) {
+    if (pane.kind !== 'local') continue;
+    if (options.onlyEmpty && (pane.entries.length > 0 || pane.loading)) continue;
+    void refreshFtpWorkspacePaneDirectory(pane.key, pane.path);
+  }
+}
+
 async function ensureInitialFtpWorkspacePanes() {
   if (!ftpWorkspacePanes.value.some((pane) => pane.kind === 'local')) {
     await addLocalWorkspacePane(ftpStore.localPath);
+  } else {
+    refreshLocalWorkspacePanes({ onlyEmpty: true });
   }
+  ensurePendingRemoteWorkspacePanesForRestoreStates();
   ftpWorkspaceRemoteRestoreReady.value = true;
   ensureRemoteWorkspacePanes();
   if (!activeBrowserPanel.value && ftpWorkspacePanes.value.length) {
@@ -2355,10 +2536,10 @@ async function replaceExistingFtpConnections() {
   ftpWorkspaceRemoteRestoreReady.value = true;
 }
 
-async function openLocalTargetFromConnectionLayout(target: Extract<ConnectionLayoutTarget, { surface: 'ftp'; kind: 'local' }>) {
+function openLocalTargetFromConnectionLayout(target: Extract<ConnectionLayoutTarget, { surface: 'ftp'; kind: 'local' }>) {
   const pane = createLocalWorkspacePane(target.path);
   ftpWorkspacePanes.value = [...ftpWorkspacePanes.value, pane];
-  await refreshFtpWorkspacePaneDirectory(pane.key, target.path);
+  void refreshFtpWorkspacePaneDirectory(pane.key, target.path);
   return pane.key;
 }
 
@@ -2371,17 +2552,68 @@ async function openRemoteTargetFromConnectionLayout(target: Extract<ConnectionLa
   if (!profile) return '';
 
   const targetPath = target.remotePath || profile.defaultRemotePath || '/';
-  let session = ftpStore.sessions.find((item) => item.profileId === profile.id) ?? null;
-  if (!session) {
-    await connectProfile(profile);
-    session = ftpStore.sessions.find((item) => item.profileId === profile.id) ?? null;
+  const session = ftpStore.sessions.find((item) => item.profileId === profile.id) ?? null;
+  if (session) {
+    const pane = createRemoteWorkspacePane(session, targetPath || session.remoteRoot);
+    if (!findFtpWorkspacePane(pane.key)) {
+      ftpWorkspacePanes.value = [...ftpWorkspacePanes.value, pane];
+    }
+    void refreshFtpWorkspacePaneDirectory(pane.key, targetPath || session.remoteRoot);
+    return pane.key;
   }
-  if (!session) return '';
 
-  focusRemoteWorkspacePane(session.sessionId);
-  const paneKey = makeRemotePaneKey(session.sessionId);
-  await refreshFtpWorkspacePaneDirectory(paneKey, targetPath || session.remoteRoot);
-  return paneKey;
+  const previousSessionIds = new Set(ftpStore.sessions.map((item) => item.sessionId));
+  const pendingKey = ensureConnectingRemoteWorkspacePane(profile, {
+    path: targetPath,
+    message: `正在连接 ${profile.label}...`,
+  });
+  void (async () => {
+    try {
+      await connectProfileBase(profile);
+      if (passwordDialogVisible.value || authChallengeDialogVisible.value) return;
+      const completed = completeConnectingRemoteWorkspacePane(profile, pendingKey, previousSessionIds, targetPath, {
+        activate: false,
+      });
+      if (!completed) {
+        updateFtpWorkspacePane(pendingKey, {
+          connectionMessage: `${profile.label} 连接未完成，请从左侧配置重新连接。`,
+        });
+      }
+    } catch (error) {
+      updateFtpWorkspacePane(pendingKey, {
+        connectionMessage: errorMessage(error),
+      });
+    }
+  })();
+  return pendingKey;
+}
+
+function applyFtpConnectionLayoutViewState(layout: ConnectionLayoutConfig) {
+  if (layout.viewState.layoutSizeState) {
+    ftpLayoutSizeState.value = layout.viewState.layoutSizeState;
+  }
+  if (typeof layout.viewState.masterMainRatio === 'number') {
+    ftpMasterMainRatio.value = layout.viewState.masterMainRatio;
+  }
+  if (layout.viewState.dwindleSplitRatios?.length) {
+    ftpDwindleSplitRatios.value = layout.viewState.dwindleSplitRatios;
+  }
+  if (layout.viewState.sidebarDockSide) {
+    sidebarDockSide.value = layout.viewState.sidebarDockSide;
+  }
+  if (layout.viewState.auxiliaryDockSide) {
+    auxiliaryDockSide.value = layout.viewState.auxiliaryDockSide;
+  }
+  if (layout.viewState.auxiliaryDockSize) {
+    auxiliaryDockSize.value = layout.viewState.auxiliaryDockSize;
+  }
+  if (typeof layout.viewState.auxiliaryDockCollapsed === 'boolean') {
+    auxiliaryDockCollapsed.value = layout.viewState.auxiliaryDockCollapsed;
+  }
+  if (typeof layout.viewState.showSidebar === 'boolean') {
+    showSidebarPanel.value = layout.viewState.showSidebar;
+  }
+  panelLayoutMode.value = layout.viewState.layoutMode;
 }
 
 async function openFtpConnectionLayout(layoutId: string) {
@@ -2396,6 +2628,7 @@ async function openFtpConnectionLayout(layoutId: string) {
       await initializeFtpPage();
     }
     await replaceExistingFtpConnections();
+    applyFtpConnectionLayoutViewState(layout);
     const desiredKeys = (await Promise.all(
       layout.targets.map((target) => {
         if (target.surface !== 'ftp') return Promise.resolve('');
@@ -2405,31 +2638,6 @@ async function openFtpConnectionLayout(layoutId: string) {
       }),
     )).filter(Boolean);
 
-    if (layout.viewState.layoutSizeState) {
-      ftpLayoutSizeState.value = layout.viewState.layoutSizeState;
-    }
-    if (typeof layout.viewState.masterMainRatio === 'number') {
-      ftpMasterMainRatio.value = layout.viewState.masterMainRatio;
-    }
-    if (layout.viewState.dwindleSplitRatios?.length) {
-      ftpDwindleSplitRatios.value = layout.viewState.dwindleSplitRatios;
-    }
-    if (layout.viewState.sidebarDockSide) {
-      sidebarDockSide.value = layout.viewState.sidebarDockSide;
-    }
-    if (layout.viewState.auxiliaryDockSide) {
-      auxiliaryDockSide.value = layout.viewState.auxiliaryDockSide;
-    }
-    if (layout.viewState.auxiliaryDockSize) {
-      auxiliaryDockSize.value = layout.viewState.auxiliaryDockSize;
-    }
-    if (typeof layout.viewState.auxiliaryDockCollapsed === 'boolean') {
-      auxiliaryDockCollapsed.value = layout.viewState.auxiliaryDockCollapsed;
-    }
-    if (typeof layout.viewState.showSidebar === 'boolean') {
-      showSidebarPanel.value = layout.viewState.showSidebar;
-    }
-    panelLayoutMode.value = layout.viewState.layoutMode;
     const paneByKey = new Map(ftpWorkspacePanes.value.map((pane) => [pane.key, pane]));
     const ordered = desiredKeys
       .map((key) => paneByKey.get(key))
@@ -2670,6 +2878,18 @@ function canOpenInternalEditor(kind: PanelKind, entry: FileTransferEntry | null)
 function canOpenExternalEditor(kind: PanelKind, entry: FileTransferEntry | null) {
   if (!entry || entry.isDir) return false;
   return kind === 'local' || Boolean(activeSession.value && isEditableTextEntry(entry));
+}
+
+async function openLocalPathInExplorer(path: string) {
+  if (!path) return;
+  try {
+    const result = await window.shellApi.openPath(path);
+    if (result) {
+      notifyError(new Error(result), '打开资源管理器失败');
+    }
+  } catch (error) {
+    notifyError(error, '打开资源管理器失败');
+  }
 }
 
 async function openLocalEditor(entry = selectedLocalEntry.value) {
@@ -2913,6 +3133,13 @@ async function openTerminalForPanel(panel: PanelKind | ActiveBrowserPanel = acti
       ? crypto.randomUUID()
       : `${Date.now()}-${Math.random().toString(16).slice(2)}`;
     if (target.kind === 'local') {
+      if (isDetachedWindow.value) {
+        await window.workspaceWindowApi?.openDetached('terminal', {
+          routeOverride: `/terminal?tab=terminal&openTerminalRequestId=${requestId}&openLocalCwd=${encodeURIComponent(target.path)}`,
+        });
+        return;
+      }
+
       await router.push({
         path: '/terminal',
         query: {
@@ -2920,6 +3147,13 @@ async function openTerminalForPanel(panel: PanelKind | ActiveBrowserPanel = acti
           openTerminalRequestId: requestId,
           openLocalCwd: target.path,
         },
+      });
+      return;
+    }
+
+    if (isDetachedWindow.value) {
+      await window.workspaceWindowApi?.openDetached('terminal', {
+        routeOverride: `/terminal?tab=ssh&openTerminalRequestId=${requestId}&connectSshProfileId=${encodeURIComponent(target.sshProfileId)}&cwd=${encodeURIComponent(target.path)}`,
       });
       return;
     }
@@ -3095,6 +3329,8 @@ function loadPanelLayout() {
       auxiliaryDockSize: string;
       showSidebar: boolean;
       auxCollapsed: boolean;
+      auxiliaryDockCollapsed: boolean;
+      auxDockActiveTab: AuxiliaryDockTab;
     }>;
     if (parsed.mode === 'columns') {
       panelLayoutMode.value = 'split-vertical';
@@ -3107,7 +3343,10 @@ function loadPanelLayout() {
     auxiliaryDockSide.value = parsed.auxiliaryDockSide === 'right' ? 'right' : 'bottom';
     auxiliaryDockSize.value = normalizePanelSize(parsed.auxiliaryDockSize, 180, '260');
     showSidebarPanel.value = parsed.showSidebar ?? true;
-    auxiliaryDockCollapsed.value = parsed.auxCollapsed ?? false;
+    auxiliaryDockCollapsed.value = parsed.auxiliaryDockCollapsed ?? parsed.auxCollapsed ?? false;
+    if (parsed.auxDockActiveTab === 'queue' || parsed.auxDockActiveTab === 'log') {
+      auxDockActiveTab.value = parsed.auxDockActiveTab;
+    }
     showLogPanel.value = true;
   } catch {
     panelLayoutMode.value = 'split-vertical';
@@ -3128,11 +3367,15 @@ function persistPanelLayout() {
     auxiliaryDockSize: auxiliaryDockSize.value,
     showSidebar: showSidebarPanel.value,
     auxCollapsed: auxiliaryDockCollapsed.value,
+    auxiliaryDockCollapsed: auxiliaryDockCollapsed.value,
+    auxDockActiveTab: auxDockActiveTab.value,
   }));
 }
 
 function toggleAuxiliaryDockCollapsed() {
   auxiliaryDockCollapsed.value = !auxiliaryDockCollapsed.value;
+  persistPanelLayout();
+  scheduleFtpWorkspaceWindowStatePersist();
 }
 
 function openTransferQueuePanel() {
@@ -3202,6 +3445,107 @@ function persistFtpPreferences() {
     localPanelViewMode: localPanelViewMode.value,
     remotePanelViewMode: remotePanelViewMode.value,
   }));
+}
+
+async function loadFtpWorkspaceWindowState() {
+  try {
+    const state = await window.workspaceWindowApi?.getPageState('ftp') as FtpWorkspaceWindowState | null | undefined;
+    if (!isPlainRecord(state)) return;
+
+    if (ftpWorkspaceLayoutOptions.some((option) => option.value === state.panelLayoutMode)) {
+      panelLayoutMode.value = state.panelLayoutMode as PanelLayoutMode;
+    }
+    sidebarDockSide.value = state.sidebarDockSide === 'right' ? 'right' : sidebarDockSide.value;
+    auxiliaryDockSide.value = state.auxiliaryDockSide === 'right' ? 'right' : auxiliaryDockSide.value;
+    if (typeof state.auxiliaryDockSize === 'string') {
+      auxiliaryDockSize.value = normalizePanelSize(state.auxiliaryDockSize, 180, auxiliaryDockSize.value);
+    }
+    if (typeof state.auxiliaryDockCollapsed === 'boolean') {
+      auxiliaryDockCollapsed.value = state.auxiliaryDockCollapsed;
+    }
+    if (typeof state.showSidebarPanel === 'boolean') {
+      showSidebarPanel.value = state.showSidebarPanel;
+    }
+    if (state.auxDockActiveTab === 'queue' || state.auxDockActiveTab === 'log') {
+      auxDockActiveTab.value = state.auxDockActiveTab;
+    }
+    const nextLayoutSizeState = readLayoutSizeState(state.ftpLayoutSizeState);
+    if (nextLayoutSizeState) {
+      ftpLayoutSizeState.value = nextLayoutSizeState;
+    }
+    if (typeof state.ftpMasterMainRatio === 'number' && Number.isFinite(state.ftpMasterMainRatio)) {
+      ftpMasterMainRatio.value = clampFtpLayoutValue(state.ftpMasterMainRatio, 24, 76);
+    }
+    const nextDwindleSplitRatios = readNumberArray(state.ftpDwindleSplitRatios);
+    if (nextDwindleSplitRatios) {
+      ftpDwindleSplitRatios.value = nextDwindleSplitRatios;
+    }
+    if (typeof state.localWorkspacePaneCounter === 'number' && Number.isFinite(state.localWorkspacePaneCounter)) {
+      localWorkspacePaneCounter.value = Math.max(0, Math.round(state.localWorkspacePaneCounter));
+    }
+    const restoredPanes = Array.isArray(state.ftpWorkspacePanes)
+      ? state.ftpWorkspacePanes
+        .map((pane) => restoreFtpWorkspacePane(pane))
+        .filter((pane): pane is FtpWorkspacePane => Boolean(pane))
+      : [];
+    if (restoredPanes.length) {
+      ftpWorkspacePanes.value = restoredPanes;
+      if (typeof state.activeBrowserPanel === 'string' && restoredPanes.some((pane) => pane.key === state.activeBrowserPanel)) {
+        activeBrowserPanel.value = state.activeBrowserPanel;
+      } else {
+        activeBrowserPanel.value = restoredPanes[0].key;
+      }
+    }
+  } finally {
+    ftpWorkspaceWindowStateReady = true;
+  }
+}
+
+function snapshotFtpWorkspacePane(pane: FtpWorkspacePane): FtpWorkspacePaneSnapshot {
+  return {
+    key: pane.key,
+    title: pane.title,
+    kind: pane.kind,
+    sessionId: pane.sessionId,
+    profileId: pane.profileId,
+    protocol: pane.protocol,
+    path: pane.path,
+    pathInput: pane.pathInput,
+    viewMode: pane.viewMode,
+  };
+}
+
+function buildFtpWorkspaceWindowStateSnapshot(): FtpWorkspaceWindowState {
+  return {
+    activeBrowserPanel: activeBrowserPanel.value,
+    panelLayoutMode: panelLayoutMode.value,
+    sidebarDockSide: sidebarDockSide.value,
+    auxiliaryDockSide: auxiliaryDockSide.value,
+    auxiliaryDockSize: auxiliaryDockSize.value,
+    auxiliaryDockCollapsed: auxiliaryDockCollapsed.value,
+    showSidebarPanel: showSidebarPanel.value,
+    auxDockActiveTab: auxDockActiveTab.value,
+    ftpWorkspacePanes: ftpWorkspacePanes.value.map(snapshotFtpWorkspacePane),
+    localWorkspacePaneCounter: localWorkspacePaneCounter.value,
+    ftpLayoutSizeState: cloneFtpLayoutSizeState(ftpLayoutSizeState.value),
+    ftpMasterMainRatio: ftpMasterMainRatio.value,
+    ftpDwindleSplitRatios: [...ftpDwindleSplitRatios.value],
+  };
+}
+
+function persistFtpWorkspaceWindowState() {
+  if (!ftpWorkspaceWindowStateReady) return;
+  void window.workspaceWindowApi
+    ?.setPageState('ftp', buildFtpWorkspaceWindowStateSnapshot())
+    .catch((error) => {
+      console.warn('[workspace-window] Failed to persist FTP page state:', error);
+    });
+}
+
+function scheduleFtpWorkspaceWindowStatePersist() {
+  if (!ftpWorkspaceWindowStateReady) return;
+  window.clearTimeout(ftpWorkspaceWindowStateTimer);
+  ftpWorkspaceWindowStateTimer = window.setTimeout(persistFtpWorkspaceWindowState, 80);
 }
 
 function normalizePanelSize(value: string | undefined, min: number, fallback: string) {
@@ -3524,6 +3868,7 @@ async function compareCurrentDirectories() {
 }
 
 function openTransferSettingsPage() {
+  if (isDetachedWindow.value) return;
   syncPanelVisible.value = false;
   settingsStore.setActiveSettingsTab('file-transfer');
   void router.push('/settings');
@@ -3851,11 +4196,32 @@ watch(
     auxiliaryDockCollapsed,
     showSidebarPanel,
     showLogPanel,
+    auxDockActiveTab,
   ],
   () => {
     persistPanelLayout();
   },
   { immediate: false },
+);
+
+watch(
+  [
+    activeBrowserPanel,
+    panelLayoutMode,
+    sidebarDockSide,
+    auxiliaryDockSide,
+    auxiliaryDockSize,
+    auxiliaryDockCollapsed,
+    showSidebarPanel,
+    auxDockActiveTab,
+    ftpWorkspacePanes,
+    localWorkspacePaneCounter,
+    ftpLayoutSizeState,
+    ftpMasterMainRatio,
+    ftpDwindleSplitRatios,
+  ],
+  scheduleFtpWorkspaceWindowStatePersist,
+  { deep: true },
 );
 
 watch(ftpWorkspacePanes, (panes) => {
@@ -3900,6 +4266,9 @@ watch(
     () => route.name,
     () => ftpStore.initialized,
     () => ftpStore.pendingOpenRequest?.requestId || '',
+    () => route.query.openFtpRequestId || '',
+    () => route.query.openFtpProfileId || '',
+    () => route.query.openFtpRemotePath || '',
     () => route.query.openConnectionLayoutRequestId || '',
     () => route.query.openConnectionLayoutId || '',
     () => ftpStore.sessions.map((session) => session.sessionId).join('|'),
@@ -3907,6 +4276,7 @@ watch(
   ([routeName, initialized]) => {
     if (routeName !== 'FileTransfer' || !initialized) return;
     void processPendingOpenRequest();
+    void handleFtpOpenRequestFromRoute();
     void processFtpConnectionLayoutOpenRequest();
   },
   { immediate: false },
@@ -3914,12 +4284,17 @@ watch(
 
 async function initializeFtpPage() {
   await initializePage();
+  await loadFtpWorkspaceWindowState();
   await ensureInitialFtpWorkspacePanes();
   await processPendingOpenRequest();
+  await handleFtpOpenRequestFromRoute();
   await processFtpConnectionLayoutOpenRequest();
 }
 
 onMounted(() => {
+  void window.workspaceWindowApi?.getContext().then((context) => {
+    workspaceWindowContext.value = context;
+  });
   globalStore.setTopbarColor('');
   loadConnectionLayoutConfigs();
   window.addEventListener(CONNECTION_LAYOUTS_CHANGED_EVENT, loadConnectionLayoutConfigs);
@@ -3941,6 +4316,8 @@ onActivated(() => {
 });
 
 onBeforeUnmount(() => {
+  persistFtpWorkspaceWindowState();
+  window.clearTimeout(ftpWorkspaceWindowStateTimer);
   if (remoteRefreshTimer !== null) {
     window.clearTimeout(remoteRefreshTimer);
     remoteRefreshTimer = null;
@@ -4136,7 +4513,7 @@ onBeforeUnmount(() => {
                   </svg>
                 </UiIconButton>
               </span>
-              <span v-tooltip="{ content: '传输设置', placement: 'bottom' }">
+              <span v-if="!isDetachedWindow" v-tooltip="{ content: '传输设置', placement: 'bottom' }">
                 <UiIconButton size="sm" variant="ghost" title="传输设置" @click="openTransferSettingsPage">
                   <svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.6"
                     stroke-linecap="round" stroke-linejoin="round">
@@ -4149,9 +4526,6 @@ onBeforeUnmount(() => {
             </div>
           </section>
 
-          <div v-if="actionError" class="ftp-alert ftp-alert--error">
-            <span>{{ actionError }}</span>
-          </div>
           <div v-if="pendingExternalSummary" class="ftp-alert ftp-alert--info">
             <span>{{ pendingExternalSummary }}</span>
             <div class="ftp-alert__actions">
@@ -4176,12 +4550,15 @@ onBeforeUnmount(() => {
         <div class="ftp-workspace">
 
           <div v-if="panelLayoutMode === 'tabbed' && orderedFtpWorkspacePanes.length > 1" class="terminal-pane-tabs ftp-workspace-tabs">
-            <button
+            <UiButton
               v-for="pane in orderedFtpWorkspacePanes"
               :key="pane.key"
               type="button"
+              size="sm"
+              variant="ghost"
               class="terminal-pane-tab"
               :data-ftp-pane-key="pane.key"
+              :active="pane.key === activeBrowserPanel"
               :class="{
                 'terminal-pane-tab--active': pane.key === activeBrowserPanel,
                 'terminal-pane-tab--drop-target': pane.key === dropTargetFtpPaneKey,
@@ -4197,13 +4574,14 @@ onBeforeUnmount(() => {
                 tabindex="-1"
                 title="关闭工作区"
                 aria-label="关闭工作区"
+                @pointerdown.stop
                 @click.stop="removeFtpWorkspacePane(pane.key)"
               >
                 <svg viewBox="0 0 16 16" width="12" height="12" aria-hidden="true">
                   <path d="M4.5 4.5l7 7M11.5 4.5l-7 7" />
                 </svg>
               </span>
-            </button>
+            </UiButton>
           </div>
 
           <section
@@ -4237,18 +4615,20 @@ onBeforeUnmount(() => {
                 <span class="terminal-pane__status">
                   {{ item.pane.key === draggingFtpPaneKey ? '占位' : (item.pane.kind === 'local' ? `${ftpPaneFilteredEntries(item.pane).length} 项` : (item.pane.protocol || 'SFTP').toUpperCase()) }}
                 </span>
-                <button
+                <UiIconButton
                   class="terminal-pane__close"
                   type="button"
                   title="关闭工作区"
                   aria-label="关闭工作区"
+                  size="sm"
+                  variant="ghost"
                   @click.stop="removeFtpWorkspacePane(item.pane.key)"
                 >
                   <svg viewBox="0 0 24 24" width="13" height="13" stroke="currentColor" stroke-width="2.2" fill="none" stroke-linecap="round" stroke-linejoin="round">
                     <line x1="18" y1="6" x2="6" y2="18" />
                     <line x1="6" y1="6" x2="18" y2="18" />
                   </svg>
-                </button>
+                </UiIconButton>
               </div>
               <div v-if="item.pane.connectionState === 'connecting'" class="ftp-pane-connection-state">
                 <span class="ftp-pane-connection-state__spinner" aria-hidden="true" />
@@ -4382,10 +4762,12 @@ onBeforeUnmount(() => {
                 @entry-contextmenu="handleEntryContextMenu($event.event, item.pane.kind, $event.entry, $event.index)" />
             </div>
 
-            <button
+            <UiIconButton
               v-for="handle in ftpPaneResizeHandles"
               :key="handle.id"
               type="button"
+              size="sm"
+              variant="ghost"
               class="terminal-pane-resizer"
               :class="`terminal-pane-resizer--${handle.orientation}`"
               :style="handle.style"
@@ -4425,17 +4807,19 @@ onBeforeUnmount(() => {
           />
           <div v-if="useAuxDockTabs" class="ftp-aux-dock__tabs">
             <div class="ftp-aux-dock__tab-list">
-              <button type="button" class="ftp-aux-dock__tab"
+              <UiButton type="button" size="sm" variant="ghost" class="ftp-aux-dock__tab"
+                :active="auxDockActiveTab === 'queue'"
                 :class="{ 'ftp-aux-dock__tab--active': auxDockActiveTab === 'queue' }"
                 @click="auxDockActiveTab = 'queue'">
                 传输队列
                 <span class="ftp-badge ftp-badge--accent">{{ activeTaskCount }}</span>
-              </button>
-              <button v-if="showLogPanel" type="button" class="ftp-aux-dock__tab"
+              </UiButton>
+              <UiButton v-if="showLogPanel" type="button" size="sm" variant="ghost" class="ftp-aux-dock__tab"
+                :active="auxDockActiveTab === 'log'"
                 :class="{ 'ftp-aux-dock__tab--active': auxDockActiveTab === 'log' }" @click="auxDockActiveTab = 'log'">
                 操作日志
                 <span class="ftp-badge">{{ ftpStore.logs.length }}</span>
-              </button>
+              </UiButton>
             </div>
             <div class="ftp-aux-dock__toolbar">
               <template v-if="auxDockActiveTab === 'queue' && !auxiliaryDockCollapsed">
@@ -4631,8 +5015,8 @@ onBeforeUnmount(() => {
           </label>
           <label v-if="scheduleForm.scheduleType === 'hourly'" class="ftp-form-field">
             <span>间隔小时</span>
-            <input class="ftp-native-input" type="number" min="1" :value="scheduleForm.intervalHours || 1"
-              @input="scheduleForm.intervalHours = Number(($event.target as HTMLInputElement).value) || 1" />
+            <UiInput class="ftp-native-input" type="number" :min="1" :model-value="String(scheduleForm.intervalHours || 1)"
+              @update:modelValue="scheduleForm.intervalHours = Number($event) || 1" />
           </label>
           <label v-if="scheduleForm.scheduleType === 'daily' || scheduleForm.scheduleType === 'weekly'"
             class="ftp-form-field">
@@ -4782,3 +5166,202 @@ onBeforeUnmount(() => {
   </MainPageLayout>
 </template>
 <style src="./FtpPage.scss" lang="scss"></style>
+<style lang="scss" scoped>
+.terminal-pane-tab.ui-button {
+  gap: 6px;
+  height: 30px;
+  min-width: 0;
+  min-height: 0;
+  max-width: 220px;
+  padding: 0 10px;
+  border: none;
+  border-right: 1px solid var(--ui-border-subtle);
+  border-radius: 0;
+  background: transparent;
+  color: var(--ui-text-muted);
+  box-shadow: none;
+  cursor: grab;
+  font-size: 12px;
+  font-weight: inherit;
+  line-height: 1.4;
+  transform: none;
+  transition:
+    background-color 0.16s ease,
+    border-color 0.16s ease,
+    color 0.16s ease;
+
+  &:hover,
+  &:active,
+  &.ui-button--active {
+    box-shadow: none;
+    transform: none;
+  }
+
+  &:hover {
+    border-color: var(--ui-border-accent-soft);
+    background: transparent;
+    color: var(--ui-text-secondary);
+  }
+
+  &:active {
+    cursor: pointer;
+  }
+
+  &.terminal-pane-tab--active,
+  &.ui-button--active {
+    background: color-mix(in srgb, var(--ui-tabs-active-bg) 84%, transparent);
+    color: var(--ui-text-primary);
+  }
+
+  &.terminal-pane-tab--drop-target {
+    box-shadow: inset 2px 0 0 var(--primary-color);
+  }
+
+  &.terminal-pane-tab--drag-placeholder {
+    border-right-color: color-mix(in srgb, var(--primary-color) 34%, var(--ui-border-subtle));
+    outline: 1px dashed color-mix(in srgb, var(--primary-color) 52%, transparent);
+    outline-offset: -4px;
+    background:
+      repeating-linear-gradient(
+        135deg,
+        color-mix(in srgb, var(--primary-color) 12%, transparent) 0 6px,
+        transparent 6px 12px
+      ),
+      color-mix(in srgb, var(--ui-surface-panel-muted) 84%, transparent);
+    color: color-mix(in srgb, var(--ui-text-muted) 72%, transparent);
+  }
+
+  :deep(.ui-button__label) {
+    display: contents;
+  }
+}
+
+.ftp-workspace-pane .terminal-pane__close.ui-icon-button {
+  width: 22px;
+  height: 22px;
+  min-width: 0;
+  min-height: 0;
+  padding: 0;
+  border: none;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--ui-text-muted);
+  box-shadow: none;
+  cursor: pointer;
+  transform: none;
+
+  &:hover,
+  &:active,
+  &.ui-icon-button--active {
+    box-shadow: none;
+    transform: none;
+  }
+
+  &:hover {
+    background: rgba(239, 68, 68, 0.14);
+    color: #f87171;
+  }
+
+  :deep(.ui-icon-button__icon) {
+    width: 13px;
+    height: 13px;
+  }
+
+  :deep(svg) {
+    fill: none;
+    stroke: currentColor;
+  }
+}
+
+.terminal-pane-resizer.ui-icon-button {
+  position: absolute;
+  z-index: 8;
+  min-width: 0;
+  min-height: 0;
+  padding: 0;
+  border: none;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  box-sizing: border-box;
+  color: inherit;
+  touch-action: none;
+  transform: none;
+
+  &:hover,
+  &:active,
+  &:focus-visible,
+  &.ui-icon-button--active {
+    outline: none;
+    background: transparent;
+    box-shadow: none;
+    color: inherit;
+    transform: none;
+  }
+}
+
+.terminal-pane-resizer--vertical.ui-icon-button--sm {
+  width: 8px;
+  height: 100%;
+}
+
+.terminal-pane-resizer--horizontal.ui-icon-button--sm {
+  width: 100%;
+  height: 8px;
+}
+
+.ftp-aux-dock__tab.ui-button {
+  position: relative;
+  gap: 8px;
+  min-height: 36px;
+  padding: 0 10px;
+  border: none;
+  border-radius: 0;
+  background: transparent;
+  color: color-mix(in srgb, var(--ui-text-primary) 70%, transparent);
+  box-shadow: none;
+  font-size: 0.82rem;
+  font-weight: 500;
+  line-height: 1.4;
+  white-space: nowrap;
+  transform: none;
+  transition:
+    background-color 0.18s ease,
+    color 0.18s ease;
+
+  &:hover,
+  &:active,
+  &.ui-button--active {
+    box-shadow: none;
+    transform: none;
+  }
+
+  &:hover,
+  &:focus-visible {
+    outline: none;
+    background: transparent;
+    color: var(--ui-text-primary);
+  }
+
+  &.ftp-aux-dock__tab--active,
+  &.ui-button--active {
+    background: transparent;
+    color: #0b67d8;
+    font-weight: 700;
+  }
+
+  :deep(.ui-button__label) {
+    display: contents;
+  }
+}
+
+.ftp-page--dense .ftp-aux-dock__tab.ui-button {
+  min-height: 34px;
+  padding-inline: 8px;
+  font-size: 0.74rem;
+}
+
+.ftp-native-input.ui-input-number-wrapper {
+  width: 100%;
+}
+</style>

@@ -1,5 +1,5 @@
 <script lang="ts" setup>
-import { computed, defineAsyncComponent, nextTick, onActivated, onDeactivated, onMounted, onUnmounted, reactive, ref, shallowRef, watch } from 'vue';
+import { computed, defineAsyncComponent, nextTick, onActivated, onDeactivated, onMounted, onUnmounted, reactive, ref, watch } from 'vue';
 import CompArea from '../../components/CompArea/CompArea.vue';
 import UiButton from '../../components/ui/UiButton.vue';
 import UiCard from '../../components/ui/UiCard.vue';
@@ -21,7 +21,6 @@ import type { CategoryItem, GridConfig, GridItem, BackgroundConfirmPayload } fro
 import type { CreateHomeWidgetPayload } from '@/contracts/home_layout';
 import { resolveThemeBackground, withThemeBackground } from '@/contracts/background';
 import { buildBackgroundTextVars } from '../../utils/backgroundTextColor';
-import type * as THREE from 'three';
 
 const GRID_GAP = 8;
 const MIN_UNIT_SIZE = 1;
@@ -49,8 +48,6 @@ const gridConfig: GridConfig = {
 
 const AddIconComponent = defineAsyncComponent(() => import('../../components/svgs/icons/AddIcon.vue'));
 const ChevronIconComponent = defineAsyncComponent(() => import('../../components/svgs/icons/ChevronIcon.vue'));
-const Ui3DSceneComponent = defineAsyncComponent(() => import('../../components/ui/Ui3DScene.vue'));
-const Ui3DFloatingShapesComponent = defineAsyncComponent(() => import('../../components/ui/Ui3DFloatingShapes.vue'));
 
 const homeShellRef = ref<HTMLElement | null>(null);
 const compAreaWrapper = ref<HTMLElement | null>(null);
@@ -58,12 +55,6 @@ const compAreaStageRef = ref<HTMLElement | null>(null);
 const categoryListRef = ref<HTMLElement | null>(null);
 const homeHeaderRef = ref<HTMLElement | null>(null);
 const sidebarPanelRef = ref<{ $el?: Element } | null>(null);
-
-// 3D scene objects for header decoration
-const header3DScene = shallowRef<THREE.Scene | null>(null);
-function onHeader3DReady(payload: { scene: THREE.Scene }) {
-  header3DScene.value = payload.scene;
-}
 
 // ─── 分类选中滑块 ───
 const sliderStyle = reactive({
@@ -894,12 +885,12 @@ watch(() => homeProfileStore.activeProfileKey, (key, previousKey) => {
           </div>
 
           <div class="category-list-shell">
-            <button v-if="canScrollCategoryUp" class="category-scroll-btn category-scroll-btn--up" type="button"
-              aria-label="向上滚动分类列表" @click="scrollCategoryList('up')">
+            <UiIconButton v-if="canScrollCategoryUp" class="category-scroll-btn category-scroll-btn--up" size="sm" variant="ghost"
+              title="向上滚动分类列表" aria-label="向上滚动分类列表" @click="scrollCategoryList('up')">
               <span class="category-scroll-btn__icon">
                 <ChevronIconComponent direction="up" :width="18" :height="18" />
               </span>
-            </button>
+            </UiIconButton>
 
             <div ref="categoryListRef" class="category-list" @scroll="updateCategoryScrollState">
               <div
@@ -910,22 +901,22 @@ watch(() => homeProfileStore.activeProfileKey, (key, previousKey) => {
                   height: `${sliderStyle.height}px`,
                 }"
               />
-              <button v-for="(category, index) in categories" :key="category.id" class="category-item"
+              <UiButton v-for="(category, index) in categories" :key="category.id" class="category-item" variant="ghost" type="button"
                 :class="{ active: index === activeCategoryIndex }" :title="category.label"
                 @click="switchCategory(index)">
                 <div class="category-icon">
                   <IconRenderer :icon="category.icon" :size="26" />
                 </div>
                 <div class="category-label">{{ category.label }}</div>
-              </button>
+              </UiButton>
             </div>
 
-            <button v-if="canScrollCategoryDown" class="category-scroll-btn category-scroll-btn--down" type="button"
-              aria-label="向下滚动分类列表" @click="scrollCategoryList('down')">
+            <UiIconButton v-if="canScrollCategoryDown" class="category-scroll-btn category-scroll-btn--down" size="sm" variant="ghost"
+              title="向下滚动分类列表" aria-label="向下滚动分类列表" @click="scrollCategoryList('down')">
               <span class="category-scroll-btn__icon">
                 <ChevronIconComponent direction="down" :width="18" :height="18" />
               </span>
-            </button>
+            </UiIconButton>
           </div>
         </UiCard>
       </aside>
@@ -934,38 +925,27 @@ watch(() => homeProfileStore.activeProfileKey, (key, previousKey) => {
         <header ref="homeHeaderRef" class="home-stage__header" :style="headerBgStyle" @contextmenu="handleHeaderContextMenu">
           <video v-if="activeHeaderBg.video" class="home-stage__header-video" :src="activeHeaderBg.video" :style="headerBgVideoStyle"
             autoplay loop muted playsinline />
-          <!-- 3D ambient decoration behind header content -->
-          <Ui3DSceneComponent
-            class="home-stage__header-3d"
-            :paused="false"
-            :camera-z="5"
-            :ambient-intensity="0.8"
-            :directional-intensity="0.3"
-            @scene-ready="onHeader3DReady"
-          />
-          <Ui3DFloatingShapesComponent :scene="header3DScene" :speed="0.4" :opacity="0.18" />
           <div class="home-stage__header-inner">
             <div class="home-stage__title-group">
               <h1>{{ activeCategory?.label || '首页工作台' }}</h1>
               <p>{{ activeCategoryDescription }}</p>
             </div>
 
-
-            <div class="home-stage__metrics">
-              <div class="home-metric-chip">
-                <span class="metric-label">当前分类</span>
+            <div class="home-stage__summary" aria-label="工作台概览">
+              <div class="home-summary-item">
+                <span class="home-summary-item__label">当前分类</span>
                 <strong>{{ activeCategoryWidgetCount }}</strong>
-                <span class="metric-unit">个组件</span>
+                <span class="home-summary-item__unit">组件</span>
               </div>
-              <div class="home-metric-chip">
-                <span class="metric-label">分类总数</span>
+              <div class="home-summary-item">
+                <span class="home-summary-item__label">分类总数</span>
                 <strong>{{ visibleCategoryCount }}</strong>
-                <span class="metric-unit">个分组</span>
+                <span class="home-summary-item__unit">分组</span>
               </div>
-              <div class="home-metric-chip">
-                <span class="metric-label">全部组件</span>
+              <div class="home-summary-item">
+                <span class="home-summary-item__label">全部组件</span>
                 <strong>{{ totalWidgetCount }}</strong>
-                <span class="metric-unit">个入口</span>
+                <span class="home-summary-item__unit">入口</span>
               </div>
             </div>
           </div>
@@ -977,10 +957,6 @@ watch(() => homeProfileStore.activeProfileKey, (key, previousKey) => {
               <UiStateCard class="home-state-card" state="loading" title="首页布局加载中..." description="正在恢复你的桌面工作台布局。" />
             </div>
             <div v-else-if="!activeSlotCategory" class="home-state">
-              <!-- 3D ambient background scene -->
-              <Ui3DSceneComponent :paused="false" :camera-z="7" :ambient-intensity="0.7" :directional-intensity="0.5"
-                @scene-ready="({ scene }: any) => (header3DScene = scene)" />
-              <Ui3DFloatingShapesComponent :scene="header3DScene" :speed="0.6" :opacity="0.28" />
               <UiStateCard class="home-state-card" :state="loadError ? 'error' : 'empty'" :title="loadError || '暂无首页分类'"
                 :description="loadError ? '请稍后重试，或检查布局数据。' : '从左侧添加一个类别，开始组织你的工具。'" />
             </div>

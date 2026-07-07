@@ -14,78 +14,75 @@
           <div class="devtools-row">
             <label class="devtools-label">类型</label>
             <div class="devtools-radio-group">
-              <label v-for="t in typeOptions" :key="t.value" class="devtools-radio"
+              <UiRadio v-for="t in typeOptions" :key="t.value" v-model="notifForm.type" :value="t.value" name="devtools-notification-type" class="devtools-radio"
                 :class="{ active: notifForm.type === t.value }">
-                <input type="radio" :value="t.value" v-model="notifForm.type" />
                 {{ t.label }}
-              </label>
+              </UiRadio>
             </div>
           </div>
 
           <div class="devtools-row">
             <label class="devtools-label">尺寸</label>
             <div class="devtools-radio-group">
-              <label v-for="s in sizeOptions" :key="s.value" class="devtools-radio"
+              <UiRadio v-for="s in sizeOptions" :key="s.value" v-model="notifForm.size" :value="s.value" name="devtools-notification-size" class="devtools-radio"
                 :class="{ active: notifForm.size === s.value }">
-                <input type="radio" :value="s.value" v-model="notifForm.size" />
                 {{ s.label }}
-              </label>
+              </UiRadio>
             </div>
           </div>
 
           <div class="devtools-row">
             <label class="devtools-label">标题</label>
-            <input type="text" class="devtools-input" v-model="notifForm.title" placeholder="通知标题" />
+            <UiInput v-model="notifForm.title" class="devtools-input" placeholder="通知标题" />
           </div>
 
           <div class="devtools-row">
             <label class="devtools-label">内容</label>
-            <textarea class="devtools-input devtools-textarea" v-model="notifForm.message"
-              placeholder="通知内容" rows="3" />
+            <UiTextarea v-model="notifForm.message" class="devtools-input devtools-textarea"
+              placeholder="通知内容" :rows="3" />
           </div>
 
           <div v-if="notifForm.type === 'image' || notifForm.type === 'richText'" class="devtools-row">
             <label class="devtools-label">图片来源</label>
             <div class="devtools-radio-group">
-              <label v-for="source in imageSourceOptions" :key="source.value" class="devtools-radio"
+              <UiRadio v-for="source in imageSourceOptions" :key="source.value" v-model="notifForm.imageSourceType" :value="source.value" name="devtools-notification-image-source" class="devtools-radio"
                 :class="{ active: notifForm.imageSourceType === source.value }">
-                <input type="radio" :value="source.value" v-model="notifForm.imageSourceType" />
                 {{ source.label }}
-              </label>
+              </UiRadio>
             </div>
           </div>
 
           <div v-if="notifForm.type === 'image' || notifForm.type === 'richText'" class="devtools-row">
             <label class="devtools-label">图片内容</label>
-            <input type="text" class="devtools-input" v-model="notifForm.imageValue" :placeholder="imageSourcePlaceholder" />
+            <UiInput v-model="notifForm.imageValue" class="devtools-input" :placeholder="imageSourcePlaceholder" />
           </div>
 
           <div v-if="(notifForm.type === 'image' || notifForm.type === 'richText') && notifForm.imageSourceType === 'base64'" class="devtools-row">
             <label class="devtools-label">MIME</label>
-            <input type="text" class="devtools-input devtools-input--short" v-model="notifForm.imageMimeType" placeholder="image/png" />
+            <UiInput v-model="notifForm.imageMimeType" class="devtools-input devtools-input--short" placeholder="image/png" />
           </div>
 
           <div v-if="notifForm.type === 'richText'" class="devtools-row">
             <label class="devtools-label">图标</label>
-            <input type="text" class="devtools-input" v-model="notifForm.icon" placeholder="emoji 或文字" />
+            <UiInput v-model="notifForm.icon" class="devtools-input" placeholder="emoji 或文字" />
           </div>
 
           <div class="devtools-row">
             <label class="devtools-label">自动关闭(ms)</label>
-            <input type="number" class="devtools-input devtools-input--short" v-model.number="notifForm.duration"
+            <UiInput v-model="notifDurationInput" class="devtools-input devtools-input--short" type="number"
               placeholder="5000" />
           </div>
 
           <div class="devtools-actions">
-            <button class="devtools-btn devtools-btn--primary" @click="sendNotification">
+            <UiButton class="devtools-btn devtools-btn--primary" variant="primary" type="button" @click="sendNotification">
               发送通知
-            </button>
-            <button class="devtools-btn devtools-btn--secondary" @click="sendQuickText">
+            </UiButton>
+            <UiButton class="devtools-btn devtools-btn--secondary" variant="secondary" type="button" @click="sendQuickText">
               快速文本通知
-            </button>
-            <button class="devtools-btn devtools-btn--secondary" @click="sendQuickRich">
+            </UiButton>
+            <UiButton class="devtools-btn devtools-btn--secondary" variant="secondary" type="button" @click="sendQuickRich">
               快速富文本通知
-            </button>
+            </UiButton>
           </div>
         </div>
       </section>
@@ -97,77 +94,74 @@
           <div class="devtools-row">
             <label class="devtools-label">类型</label>
             <div class="devtools-radio-group">
-              <label v-for="t in typeOptions" :key="`in-app-${t.value}`" class="devtools-radio"
+              <UiRadio v-for="t in typeOptions" :key="`in-app-${t.value}`" v-model="inAppForm.type" :value="t.value" name="devtools-in-app-type" class="devtools-radio"
                 :class="{ active: inAppForm.type === t.value }">
-                <input type="radio" :value="t.value" v-model="inAppForm.type" />
                 {{ t.label }}
-              </label>
+              </UiRadio>
             </div>
           </div>
 
           <div class="devtools-row">
             <label class="devtools-label">尺寸</label>
             <div class="devtools-radio-group">
-              <label v-for="s in sizeOptions" :key="`in-app-size-${s.value}`" class="devtools-radio"
+              <UiRadio v-for="s in sizeOptions" :key="`in-app-size-${s.value}`" v-model="inAppForm.size" :value="s.value" name="devtools-in-app-size" class="devtools-radio"
                 :class="{ active: inAppForm.size === s.value }">
-                <input type="radio" :value="s.value" v-model="inAppForm.size" />
                 {{ s.label }}
-              </label>
+              </UiRadio>
             </div>
           </div>
 
           <div v-if="inAppForm.type === 'image' || inAppForm.type === 'richText'" class="devtools-row">
             <label class="devtools-label">图片来源</label>
             <div class="devtools-radio-group">
-              <label v-for="source in inAppImageSourceOptions" :key="`in-app-${source.value}`" class="devtools-radio"
+              <UiRadio v-for="source in inAppImageSourceOptions" :key="`in-app-${source.value}`" v-model="inAppForm.imageSourceType" :value="source.value" name="devtools-in-app-image-source" class="devtools-radio"
                 :class="{ active: inAppForm.imageSourceType === source.value }">
-                <input type="radio" :value="source.value" v-model="inAppForm.imageSourceType" />
                 {{ source.label }}
-              </label>
+              </UiRadio>
             </div>
           </div>
 
           <div v-if="inAppForm.type === 'image' || inAppForm.type === 'richText'" class="devtools-row">
             <label class="devtools-label">图片内容</label>
-            <input type="text" class="devtools-input" v-model="inAppForm.imageValue" :placeholder="inAppImageSourcePlaceholder" />
+            <UiInput v-model="inAppForm.imageValue" class="devtools-input" :placeholder="inAppImageSourcePlaceholder" />
           </div>
 
           <div class="devtools-row">
             <label class="devtools-label">标题</label>
-            <input type="text" class="devtools-input" v-model="inAppForm.title" placeholder="页内通知标题" />
+            <UiInput v-model="inAppForm.title" class="devtools-input" placeholder="页内通知标题" />
           </div>
 
           <div class="devtools-row">
             <label class="devtools-label">内容</label>
-            <textarea class="devtools-input devtools-textarea" v-model="inAppForm.message"
-              placeholder="页内通知内容" rows="3" />
+            <UiTextarea v-model="inAppForm.message" class="devtools-input devtools-textarea"
+              placeholder="页内通知内容" :rows="3" />
           </div>
 
           <div class="devtools-row">
             <label class="devtools-label">自动关闭(ms)</label>
-            <input type="number" class="devtools-input devtools-input--short" v-model.number="inAppForm.duration"
+            <UiInput v-model="inAppDurationInput" class="devtools-input devtools-input--short" type="number"
               placeholder="3000" />
           </div>
 
           <div class="devtools-actions devtools-actions--wrap">
-            <button class="devtools-btn devtools-btn--secondary" @click="sendInAppInfo">
+            <UiButton class="devtools-btn devtools-btn--secondary" variant="secondary" type="button" @click="sendInAppInfo">
               Info
-            </button>
-            <button class="devtools-btn devtools-btn--success" @click="sendInAppSuccess">
+            </UiButton>
+            <UiButton class="devtools-btn devtools-btn--success" variant="secondary" type="button" @click="sendInAppSuccess">
               Success
-            </button>
-            <button class="devtools-btn devtools-btn--warning" @click="sendInAppWarning">
+            </UiButton>
+            <UiButton class="devtools-btn devtools-btn--warning" variant="secondary" type="button" @click="sendInAppWarning">
               Warning
-            </button>
-            <button class="devtools-btn devtools-btn--danger" @click="sendInAppError">
+            </UiButton>
+            <UiButton class="devtools-btn devtools-btn--danger" variant="danger" type="button" @click="sendInAppError">
               Error
-            </button>
-            <button class="devtools-btn devtools-btn--secondary" @click="throwVueError">
+            </UiButton>
+            <UiButton class="devtools-btn devtools-btn--secondary" variant="secondary" type="button" @click="throwVueError">
               触发组件异常
-            </button>
-            <button class="devtools-btn devtools-btn--secondary" @click="rejectPromise">
+            </UiButton>
+            <UiButton class="devtools-btn devtools-btn--secondary" variant="secondary" type="button" @click="rejectPromise">
               触发 Promise 异常
-            </button>
+            </UiButton>
           </div>
         </div>
       </section>
@@ -176,7 +170,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, reactive } from 'vue';
+import { computed, onMounted, reactive, ref } from 'vue';
 import {
   notifyError,
   notifyInfo,
@@ -184,6 +178,10 @@ import {
   notifySuccess,
   notifyWarning,
 } from '../composables/useInAppNotification';
+import UiButton from '../components/ui/UiButton.vue';
+import UiInput from '../components/ui/UiInput.vue';
+import UiRadio from '../components/ui/UiRadio.vue';
+import UiTextarea from '../components/ui/UiTextarea.vue';
 import { useGlobalStore } from '../stores/global_store';
 import type { NotificationImageSource, NotificationPayload, NotificationType, NotificationSize } from '@/contracts/notification';
 
@@ -225,8 +223,8 @@ const notifForm = reactive({
   imageValue: '',
   imageMimeType: 'image/png',
   icon: '🔔',
-  duration: 5000,
 });
+const notifDurationInput = ref('5000');
 
 const inAppForm = reactive({
   type: 'text' as NotificationType,
@@ -236,8 +234,8 @@ const inAppForm = reactive({
   imageSourceType: 'url' as typeof inAppImageSourceOptions[number]['value'],
   imageValue: '',
   icon: '🔔',
-  duration: 3000,
 });
+const inAppDurationInput = ref('3000');
 
 const globalStore = useGlobalStore();
 onMounted(() => {
@@ -252,6 +250,10 @@ function imagePlaceholderForType(type: string) {
   if (type === 'dataUrl') return 'data:image/png;base64,...';
   if (type === 'base64') return 'iVBORw0KGgo...';
   return 'https://example.com/image.png';
+}
+
+function parseDuration(value: string) {
+  return Math.max(0, Number(value) || 0);
 }
 
 function buildImageSource(type: string, value: string, mimeType?: string): { imageUrl?: string; imageSource?: NotificationImageSource } {
@@ -278,7 +280,7 @@ function sendNotification() {
     message: notifForm.message || undefined,
     ...imageFields,
     icon: notifForm.icon || undefined,
-    duration: notifForm.duration,
+    duration: parseDuration(notifDurationInput.value),
   };
   window.notificationApi?.show(payload);
 }
@@ -310,7 +312,7 @@ function inAppOptions() {
     size: inAppForm.size,
     icon: inAppForm.icon,
     ...buildImageSource(inAppForm.imageSourceType, inAppForm.imageValue),
-    duration: Math.max(0, Number(inAppForm.duration) || 0),
+    duration: parseDuration(inAppDurationInput.value),
     dedupeKey: `devtools:${Date.now()}`,
   };
 }
@@ -455,9 +457,10 @@ function rejectPromise() {
   gap: 8px;
 }
 
-.devtools-radio {
+.devtools-radio.ui-radio {
   display: inline-flex;
   align-items: center;
+  gap: 0;
   padding: 6px 14px;
   border-radius: var(--ui-radius-sm);
   border: var(--ui-border-width-thin) solid var(--ui-border-subtle);
@@ -467,8 +470,14 @@ function rejectPromise() {
   cursor: pointer;
   transition: all 0.16s ease;
 
-  input {
+  :deep(.ui-radio__mark) {
     display: none;
+  }
+
+  :deep(.ui-radio__label) {
+    color: inherit;
+    font-size: inherit;
+    line-height: inherit;
   }
 
   &.active {
@@ -481,9 +490,16 @@ function rejectPromise() {
     border-color: var(--ui-border-accent-soft);
     background: var(--surface-hover-color);
   }
+
+  &:focus-within {
+    border-color: var(--ui-input-focus-border);
+    box-shadow: var(--ui-focus-ring);
+  }
 }
 
-.devtools-input {
+.devtools-input.ui-input,
+.devtools-input.ui-textarea,
+.devtools-input.ui-input-number-wrapper {
   flex: 1;
   padding: 8px 12px;
   border-radius: var(--ui-radius-xs);
@@ -494,21 +510,25 @@ function rejectPromise() {
   font-family: inherit;
   outline: none;
   transition: border-color 0.16s ease;
+  box-shadow: none;
 
   &::placeholder {
     color: var(--ui-input-placeholder);
   }
 
-  &:focus {
+  &:focus,
+  &:focus-within {
     border-color: var(--ui-input-focus-border);
+    box-shadow: none;
   }
 }
 
-.devtools-input--short {
+.devtools-input--short.ui-input,
+.devtools-input--short.ui-input-number-wrapper {
   flex: 0 0 120px;
 }
 
-.devtools-textarea {
+.devtools-textarea.ui-textarea {
   resize: vertical;
   min-height: 60px;
 }
@@ -524,7 +544,7 @@ function rejectPromise() {
   flex-wrap: wrap;
 }
 
-.devtools-btn {
+.devtools-btn.ui-button {
   padding: 8px 18px;
   border-radius: var(--ui-radius-sm);
   border: var(--ui-border-width-thin) solid transparent;
@@ -532,56 +552,62 @@ function rejectPromise() {
   font-weight: 500;
   cursor: pointer;
   transition: all 0.16s ease;
+  min-height: auto;
+
+  &:hover:not(:disabled),
+  &:active:not(:disabled) {
+    transform: none;
+  }
 }
 
-.devtools-btn--primary {
+.devtools-btn--primary.ui-button {
   background: var(--ui-button-primary-bg);
   color: var(--ui-button-primary-text);
   border-color: var(--ui-button-primary-border);
   box-shadow: var(--ui-button-primary-shadow);
 
-  &:hover {
+  &:hover:not(:disabled) {
     background: var(--ui-button-primary-hover-bg);
   }
 }
 
-.devtools-btn--secondary {
+.devtools-btn--secondary.ui-button {
   background: var(--ui-button-secondary-bg);
   color: var(--ui-button-secondary-text);
   border-color: var(--ui-button-secondary-border);
 
-  &:hover {
+  &:hover:not(:disabled) {
     background: var(--ui-button-secondary-hover-bg);
     border-color: var(--ui-button-secondary-hover-border);
   }
 }
 
-.devtools-btn--success {
+.devtools-btn--success.ui-button {
   background: rgba(16, 185, 129, 0.12);
   color: #047857;
   border-color: rgba(16, 185, 129, 0.22);
 
-  &:hover {
+  &:hover:not(:disabled) {
     background: rgba(16, 185, 129, 0.18);
   }
 }
 
-.devtools-btn--warning {
+.devtools-btn--warning.ui-button {
   background: rgba(245, 158, 11, 0.13);
   color: #92400e;
   border-color: rgba(245, 158, 11, 0.24);
 
-  &:hover {
+  &:hover:not(:disabled) {
     background: rgba(245, 158, 11, 0.2);
   }
 }
 
-.devtools-btn--danger {
+.devtools-btn--danger.ui-button {
   background: var(--ui-button-danger-bg);
   color: var(--ui-button-danger-text);
   border-color: var(--ui-button-danger-border);
 
-  &:hover {
+  &:hover:not(:disabled) {
     background: var(--ui-button-danger-hover-bg);
   }
 }

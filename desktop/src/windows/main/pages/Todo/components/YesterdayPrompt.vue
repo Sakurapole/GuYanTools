@@ -1,5 +1,7 @@
 <script setup lang="ts">
 import { useTodoStore } from '@/windows/main/stores/todo_store';
+import IconRenderer from '@/windows/main/components/ui/IconRenderer.vue';
+import UiButton from '@/windows/main/components/ui/UiButton.vue';
 import UiPopupSurface from '@/windows/main/components/ui/UiPopupSurface.vue';
 import UiScrollbar from '@/windows/main/components/ui/UiScrollbar.vue';
 
@@ -26,22 +28,13 @@ function dismiss() {
     overlay-class="prompt-overlay"
     panel-class="prompt-card"
     aria-label="昨天未完成任务"
-    :z-index="1000"
+    z-index="var(--ui-z-popover)"
     @close="dismiss"
   >
       <!-- 标题区域 -->
       <div class="prompt-header">
         <div class="prompt-icon">
-          <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
-            <circle cx="12" cy="12" r="10" stroke="url(#icon-grad)" stroke-width="2"/>
-            <path d="M12 7v5l3 3" stroke="url(#icon-grad)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-            <defs>
-              <linearGradient id="icon-grad" x1="4" y1="4" x2="20" y2="20">
-                <stop stop-color="#f59e0b"/>
-                <stop offset="1" stop-color="#ef4444"/>
-              </linearGradient>
-            </defs>
-          </svg>
+          <IconRenderer icon="iconify:lucide:clock-3" :size="24" />
         </div>
         <div class="prompt-header-text">
           <h3 class="prompt-title">昨天有 <span class="prompt-count">{{ todoStore.yesterdayIncomplete.length }}</span> 个任务未完成</h3>
@@ -60,25 +53,25 @@ function dismiss() {
         >
           <div class="prompt-item-indicator"></div>
           <span class="prompt-item-title">{{ todo.title }}</span>
-          <button class="prompt-add-btn" @click="addToToday(todo.id)">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round">
-              <path d="M12 5v14M5 12h14"/>
-            </svg>
+          <UiButton class="prompt-add-btn" variant="ghost" size="sm" @click="addToToday(todo.id)">
+            <template #prefix>
+              <IconRenderer icon="iconify:lucide:plus" :size="14" />
+            </template>
             添加
-          </button>
+          </UiButton>
         </div>
         </div>
       </UiScrollbar>
 
       <!-- 底部操作 -->
       <div class="prompt-actions">
-        <button class="btn-secondary" @click="dismiss">忽略</button>
-        <button class="btn-primary" @click="addAllToToday">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round">
-            <path d="M20 6L9 17l-5-5"/>
-          </svg>
+        <UiButton class="btn-secondary" variant="secondary" size="sm" @click="dismiss">忽略</UiButton>
+        <UiButton class="btn-primary" variant="primary" size="sm" @click="addAllToToday">
+          <template #prefix>
+            <IconRenderer icon="iconify:lucide:check" :size="14" />
+          </template>
           全部添加到今天
-        </button>
+        </UiButton>
       </div>
   </UiPopupSurface>
 </template>
@@ -96,7 +89,7 @@ function dismiss() {
   display: flex;
   align-items: center;
   justify-content: center;
-  z-index: 1000;
+  z-index: var(--ui-z-popover);
   animation: overlay-in 0.3s ease;
 }
 
@@ -249,31 +242,6 @@ function dismiss() {
 
 .prompt-add-btn {
   flex-shrink: 0;
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  font-size: 0.76em;
-  padding: 5px 12px;
-  background: var(--ui-button-ghost-hover-bg);
-  color: var(--ui-input-focus-border);
-  border: 1px solid var(--ui-border-accent-soft);
-  border-radius: 8px;
-  cursor: pointer;
-  transition: all 0.2s ease;
-  font-weight: 500;
-  white-space: nowrap;
-}
-
-.prompt-add-btn:hover {
-  background: var(--ui-input-focus-border);
-  color: var(--ui-button-primary-text);
-  border-color: var(--ui-input-focus-border);
-  transform: scale(1.02);
-  box-shadow: 0 2px 8px var(--todo-accent-ring);
-}
-
-.prompt-add-btn:active {
-  transform: scale(0.98);
 }
 
 /* ─── 底部操作 ─── */
@@ -285,51 +253,4 @@ function dismiss() {
   border-top: 1px solid var(--ui-border-subtle);
 }
 
-.btn-primary {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  padding: 9px 20px;
-  background: var(--ui-button-primary-bg);
-  color: var(--ui-button-primary-text);
-  border: none;
-  border-radius: 10px;
-  cursor: pointer;
-  font-size: 0.85em;
-  font-weight: 500;
-  transition: all 0.2s ease;
-  box-shadow: var(--ui-button-primary-shadow);
-}
-
-.btn-primary:hover {
-  background: var(--ui-button-primary-hover-bg);
-  transform: translateY(-1px);
-  box-shadow: var(--todo-popup-shadow);
-}
-
-.btn-primary:active {
-  transform: translateY(0);
-  box-shadow: var(--ui-button-primary-shadow);
-}
-
-.btn-secondary {
-  padding: 9px 20px;
-  background: transparent;
-  border: 1px solid var(--ui-border-subtle);
-  border-radius: 10px;
-  cursor: pointer;
-  font-size: 0.85em;
-  font-weight: 500;
-  color: var(--ui-text-muted);
-  transition: all 0.2s ease;
-}
-
-.btn-secondary:hover {
-  background: var(--ui-button-ghost-hover-bg);
-  border-color: var(--ui-border-accent-soft);
-}
-
-.btn-secondary:active {
-  background: var(--ui-surface-overlay);
-}
 </style>

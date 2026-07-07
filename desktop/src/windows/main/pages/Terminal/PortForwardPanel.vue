@@ -6,6 +6,8 @@
 import { computed, onMounted, onUnmounted, ref, watch } from 'vue';
 import { useSshStore } from '@/windows/main/stores/ssh_store';
 import { useConfirmDialog } from '@/windows/main/composables/useConfirmDialog';
+import UiButton from '@/windows/main/components/ui/UiButton.vue';
+import UiIconButton from '@/windows/main/components/ui/UiIconButton.vue';
 import UiScrollbar from '@/windows/main/components/ui/UiScrollbar.vue';
 import type { SshPortForward, PortForwardStatus, PortForwardTrafficInfo } from '@/contracts/ssh';
 import type { PortForwardConflict } from '@/windows/main/stores/ssh_store';
@@ -359,26 +361,26 @@ async function handleImport() {
       </div>
       <div class="pfp__header-right" @click.stop>
         <!-- Bulk start/stop all -->
-        <button v-if="forwards.length > 0 && !hasAnyRunning" class="pfp__action-btn pfp__action-btn--success"
+        <UiIconButton v-if="forwards.length > 0 && !hasAnyRunning" class="pfp__action-btn pfp__action-btn--success" size="sm" variant="ghost"
           title="启动所有转发规则" @click="startAllForwards" id="pfp-start-all">
           <svg viewBox="0 0 24 24" width="13" height="13" fill="currentColor" stroke="none">
             <polygon points="6,4 20,12 6,20"/>
           </svg>
-        </button>
-        <button v-if="hasAnyRunning" class="pfp__action-btn pfp__action-btn--danger"
+        </UiIconButton>
+        <UiIconButton v-if="hasAnyRunning" class="pfp__action-btn pfp__action-btn--danger" size="sm" variant="ghost"
           title="停止所有转发" @click="stopAllForwards" id="pfp-stop-all">
           <svg viewBox="0 0 24 24" width="13" height="13" fill="currentColor" stroke="none">
             <rect x="4" y="4" width="16" height="16" rx="2"/>
           </svg>
-        </button>
-        <button class="pfp__action-btn" title="添加转发规则" @click="emit('addForward')"
+        </UiIconButton>
+        <UiIconButton class="pfp__action-btn" size="sm" variant="ghost" title="添加转发规则" @click="emit('addForward')"
           id="pfp-add-btn">
           <svg viewBox="0 0 24 24" width="14" height="14" stroke="currentColor" stroke-width="2"
             fill="none" stroke-linecap="round" stroke-linejoin="round">
             <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
           </svg>
-        </button>
-        <button class="pfp__action-btn" title="导入规则" @click="handleImport"
+        </UiIconButton>
+        <UiIconButton class="pfp__action-btn" size="sm" variant="ghost" title="导入规则" @click="handleImport"
           id="pfp-import-btn">
           <svg viewBox="0 0 24 24" width="14" height="14" stroke="currentColor" stroke-width="2"
             fill="none" stroke-linecap="round" stroke-linejoin="round">
@@ -386,8 +388,8 @@ async function handleImport() {
             <polyline points="7 10 12 15 17 10"/>
             <line x1="12" y1="15" x2="12" y2="3"/>
           </svg>
-        </button>
-        <button class="pfp__action-btn" title="导出规则" @click="handleExport"
+        </UiIconButton>
+        <UiIconButton class="pfp__action-btn" size="sm" variant="ghost" title="导出规则" @click="handleExport"
           id="pfp-export-btn">
           <svg viewBox="0 0 24 24" width="14" height="14" stroke="currentColor" stroke-width="2"
             fill="none" stroke-linecap="round" stroke-linejoin="round">
@@ -395,14 +397,14 @@ async function handleImport() {
             <polyline points="17 8 12 3 7 8"/>
             <line x1="12" y1="3" x2="12" y2="15"/>
           </svg>
-        </button>
-        <button class="pfp__action-btn" title="关闭面板" @click="emit('close')"
+        </UiIconButton>
+        <UiIconButton class="pfp__action-btn" size="sm" variant="ghost" title="关闭面板" @click="emit('close')"
           id="pfp-close-btn">
           <svg viewBox="0 0 24 24" width="14" height="14" stroke="currentColor" stroke-width="2"
             fill="none" stroke-linecap="round" stroke-linejoin="round">
             <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
           </svg>
-        </button>
+        </UiIconButton>
       </div>
     </div>
 
@@ -444,22 +446,28 @@ async function handleImport() {
             <small v-else>未解析到占用进程，请手动释放 {{ conflict.host }}:{{ conflict.port }} 后重试。</small>
           </div>
           <div class="pfp__conflict-actions">
-            <button
+            <UiButton
               v-if="canResolveConflict(conflict)"
               class="pfp__conflict-btn pfp__conflict-btn--danger"
+              size="sm"
+              variant="danger"
+              type="button"
               :disabled="resolvingConflictId === conflict.forwardId"
               title="结束占用进程并重新启动此转发"
               @click="resolveConflict(conflict.forwardId)"
             >
               {{ resolvingConflictId === conflict.forwardId ? '处理中' : '结束进程并重试' }}
-            </button>
-            <button
+            </UiButton>
+            <UiButton
               class="pfp__conflict-btn"
+              size="sm"
+              variant="ghost"
+              type="button"
               title="忽略这条端口占用提示"
               @click="sshStore.clearPortConflict(conflict.sessionId, conflict.forwardId)"
             >
               忽略
-            </button>
+            </UiButton>
           </div>
         </div>
       </div>
@@ -470,13 +478,15 @@ async function handleImport() {
 
       <div v-else-if="forwards.length === 0" class="pfp__empty">
         <span>暂无端口转发规则</span>
-        <button class="pfp__empty-add" @click="emit('addForward')">
-          <svg viewBox="0 0 24 24" width="12" height="12" stroke="currentColor" stroke-width="2"
-            fill="none" stroke-linecap="round" stroke-linejoin="round">
-            <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
-          </svg>
+        <UiButton class="pfp__empty-add" size="sm" variant="ghost" type="button" @click="emit('addForward')">
+          <template #prefix>
+            <svg viewBox="0 0 24 24" width="12" height="12" stroke="currentColor" stroke-width="2"
+              fill="none" stroke-linecap="round" stroke-linejoin="round">
+              <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
+            </svg>
+          </template>
           添加规则
-        </button>
+        </UiButton>
       </div>
 
       <div v-else class="pfp__list">
@@ -534,22 +544,25 @@ async function handleImport() {
                 {{ getConflictAddress(getConflict(fwd.id)) }} 被
                 {{ getConflictProcessText(getConflict(fwd.id)) }} 占用
               </span>
-              <button
+              <UiButton
                 v-if="canResolveConflict(getConflict(fwd.id))"
                 class="pfp__item-conflict-action"
+                size="sm"
+                variant="danger"
+                type="button"
                 :disabled="resolvingConflictId === fwd.id"
                 title="结束占用进程并重新启动此转发"
                 @click.stop="resolveConflict(fwd.id)"
               >
                 {{ resolvingConflictId === fwd.id ? '处理中' : '结束进程' }}
-              </button>
+              </UiButton>
             </div>
           </div>
 
           <!-- Actions -->
           <div class="pfp__item-actions">
             <!-- Copy address button -->
-            <button class="pfp__copy-btn"
+            <UiIconButton class="pfp__copy-btn" size="sm" variant="ghost"
               :title="copiedId === fwd.id ? '已复制!' : `复制地址 ${getCopyableAddress(fwd)}`"
               :class="{ 'pfp__copy-btn--copied': copiedId === fwd.id }"
               @click="copyAddress(fwd)">
@@ -561,9 +574,11 @@ async function handleImport() {
                 stroke="currentColor" stroke-width="2.5" fill="none" stroke-linecap="round" stroke-linejoin="round">
                 <polyline points="20 6 9 17 4 12"/>
               </svg>
-            </button>
-            <button
+            </UiIconButton>
+            <UiIconButton
               class="pfp__toggle-btn"
+              size="sm"
+              variant="ghost"
               :class="isRunning(fwd.id) ? 'pfp__toggle-btn--stop' : 'pfp__toggle-btn--start'"
               :title="isRunning(fwd.id) ? '停止转发' : '启动转发'"
               @click="toggleForward(fwd.id)"
@@ -576,13 +591,13 @@ async function handleImport() {
                 fill="currentColor" stroke="none">
                 <rect x="5" y="4" width="5" height="16" rx="1"/><rect x="14" y="4" width="5" height="16" rx="1"/>
               </svg>
-            </button>
-            <button class="pfp__del-btn" title="删除此转发规则" @click="deleteForward(fwd)">
+            </UiIconButton>
+            <UiIconButton class="pfp__del-btn" size="sm" variant="ghost" title="删除此转发规则" @click="deleteForward(fwd)">
               <svg viewBox="0 0 24 24" width="12" height="12" stroke="currentColor" stroke-width="2"
                   fill="none" stroke-linecap="round" stroke-linejoin="round">
                 <polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>
               </svg>
-            </button>
+            </UiIconButton>
           </div>
         </div>
       </div>
@@ -597,7 +612,7 @@ async function handleImport() {
   left: 50%;
   width: min(560px, calc(100% - 48px));
   max-height: min(620px, calc(100% - 48px));
-  z-index: 100;
+  z-index: var(--ui-z-docked);
   display: flex;
   flex-direction: column;
   border-radius: var(--ui-radius-md);
@@ -646,32 +661,51 @@ async function handleImport() {
   gap: 2px;
 }
 
-.pfp__action-btn {
+.pfp__action-btn.ui-icon-button {
   display: flex;
   align-items: center;
   justify-content: center;
   width: 24px;
   height: 24px;
+  min-height: 24px;
+  padding: 0;
   border: none;
   border-radius: var(--ui-radius-sm);
   background: transparent;
   color: var(--ui-text-muted);
-  cursor: pointer;
   transition: all 0.15s;
+  transform: none;
 
-  &:hover {
+  &:hover:not(:disabled) {
     background: var(--ui-button-ghost-hover-bg);
     color: var(--ui-text-primary);
+    transform: none;
   }
 
-  &--success {
-    color: #22c55e;
-    &:hover { background: rgba(34, 197, 94, 0.15); }
+  :deep(svg) {
+    fill: none;
+    stroke: currentColor;
   }
 
-  &--danger {
-    color: #ef4444;
-    &:hover { background: rgba(239, 68, 68, 0.15); }
+  :deep([fill="currentColor"]) {
+    fill: currentColor;
+    stroke: none;
+  }
+}
+
+.pfp__action-btn--success.ui-icon-button {
+  color: #22c55e;
+
+  &:hover:not(:disabled) {
+    background: rgba(34, 197, 94, 0.15);
+  }
+}
+
+.pfp__action-btn--danger.ui-icon-button {
+  color: #ef4444;
+
+  &:hover:not(:disabled) {
+    background: rgba(239, 68, 68, 0.15);
   }
 }
 
@@ -764,35 +798,38 @@ async function handleImport() {
   gap: 6px;
 }
 
-.pfp__conflict-btn {
+.pfp__conflict-btn.ui-button {
   height: 26px;
+  min-height: 26px;
   padding: 0 9px;
   border: 1px solid var(--ui-border-subtle);
   border-radius: var(--ui-radius-sm);
   background: var(--ui-button-ghost-bg, transparent);
   color: var(--ui-text-secondary);
-  cursor: pointer;
   font-size: 11px;
   font-weight: 600;
+  box-shadow: none;
+  transform: none;
 
   &:hover:not(:disabled) {
     background: var(--ui-button-ghost-hover-bg);
     color: var(--ui-text-primary);
+    transform: none;
   }
 
   &:disabled {
     cursor: progress;
     opacity: 0.65;
   }
+}
 
-  &--danger {
-    border-color: rgba(239, 68, 68, 0.34);
-    color: #ef4444;
+.pfp__conflict-btn--danger.ui-button {
+  border-color: rgba(239, 68, 68, 0.34);
+  color: #ef4444;
 
-    &:hover:not(:disabled) {
-      background: rgba(239, 68, 68, 0.12);
-      color: #f87171;
-    }
+  &:hover:not(:disabled) {
+    background: rgba(239, 68, 68, 0.12);
+    color: #f87171;
   }
 }
 
@@ -807,10 +844,11 @@ async function handleImport() {
   color: var(--ui-text-muted);
 }
 
-.pfp__empty-add {
+.pfp__empty-add.ui-button {
   display: flex;
   align-items: center;
   gap: 4px;
+  min-height: 0;
   padding: 4px 10px;
   border: 1px dashed var(--ui-border-subtle);
   border-radius: var(--ui-radius-md);
@@ -818,12 +856,19 @@ async function handleImport() {
   color: var(--primary-color);
   font-size: 11px;
   font-weight: 600;
-  cursor: pointer;
   transition: all 0.15s;
+  box-shadow: none;
+  transform: none;
 
-  &:hover {
+  &:hover:not(:disabled) {
     background: var(--ui-surface-overlay);
     border-color: var(--primary-color);
+    transform: none;
+  }
+
+  :deep(svg) {
+    fill: none;
+    stroke: currentColor;
   }
 }
 
@@ -968,20 +1013,23 @@ async function handleImport() {
   }
 }
 
-.pfp__item-conflict-action {
+.pfp__item-conflict-action.ui-button {
   height: 20px;
+  min-height: 20px;
   padding: 0 7px;
   border: 1px solid rgba(239, 68, 68, 0.34);
   border-radius: var(--ui-radius-sm);
   background: rgba(239, 68, 68, 0.08);
   color: #ef4444;
-  cursor: pointer;
   font-size: 10px;
   font-weight: 700;
+  box-shadow: none;
+  transform: none;
 
   &:hover:not(:disabled) {
     background: rgba(239, 68, 68, 0.16);
     color: #f87171;
+    transform: none;
   }
 
   &:disabled {
@@ -1019,63 +1067,102 @@ async function handleImport() {
   flex-shrink: 0;
 }
 
-.pfp__copy-btn {
+.pfp__copy-btn.ui-icon-button {
   display: flex;
   align-items: center;
   justify-content: center;
   width: 26px;
   height: 26px;
+  min-height: 26px;
+  padding: 0;
   border: none;
   border-radius: var(--ui-radius-sm);
   background: transparent;
   color: var(--ui-text-subtle);
-  cursor: pointer;
   transition: all 0.15s;
+  transform: none;
 
-  &:hover { background: var(--ui-button-ghost-hover-bg); color: var(--ui-text-primary); }
-  &--copied { color: #22c55e; }
+  &:hover:not(:disabled) {
+    background: var(--ui-button-ghost-hover-bg);
+    color: var(--ui-text-primary);
+    transform: none;
+  }
+
+  :deep(svg) {
+    fill: none;
+    stroke: currentColor;
+  }
 }
 
-.pfp__toggle-btn {
+.pfp__copy-btn--copied.ui-icon-button {
+  color: #22c55e;
+}
+
+.pfp__toggle-btn.ui-icon-button {
   display: flex;
   align-items: center;
   justify-content: center;
   width: 26px;
   height: 26px;
+  min-height: 26px;
+  padding: 0;
   border: none;
   border-radius: var(--ui-radius-sm);
-  cursor: pointer;
   transition: all 0.15s;
+  transform: none;
 
-  &--start {
-    background: rgba(34, 197, 94, 0.1);
-    color: #22c55e;
-    &:hover { background: rgba(34, 197, 94, 0.2); }
+  &:hover:not(:disabled) {
+    transform: none;
   }
 
-  &--stop {
-    background: rgba(239, 68, 68, 0.1);
-    color: #ef4444;
-    &:hover { background: rgba(239, 68, 68, 0.2); }
+  :deep(svg) {
+    fill: currentColor;
+    stroke: none;
   }
 }
 
-.pfp__del-btn {
+.pfp__toggle-btn--start.ui-icon-button {
+  background: rgba(34, 197, 94, 0.1);
+  color: #22c55e;
+
+  &:hover:not(:disabled) {
+    background: rgba(34, 197, 94, 0.2);
+  }
+}
+
+.pfp__toggle-btn--stop.ui-icon-button {
+  background: rgba(239, 68, 68, 0.1);
+  color: #ef4444;
+
+  &:hover:not(:disabled) {
+    background: rgba(239, 68, 68, 0.2);
+  }
+}
+
+.pfp__del-btn.ui-icon-button {
   display: flex;
   align-items: center;
   justify-content: center;
   width: 26px;
   height: 26px;
+  min-height: 26px;
+  padding: 0;
   border: none;
   border-radius: var(--ui-radius-sm);
   background: transparent;
   color: var(--ui-text-subtle);
-  cursor: pointer;
   transition: all 0.15s;
+  transform: none;
 
-  &:hover {
+  &:hover:not(:disabled) {
     background: rgba(239, 68, 68, 0.1);
     color: #ef4444;
+    transform: none;
+  }
+
+  :deep(svg) {
+    fill: none;
+    stroke: currentColor;
   }
 }
 

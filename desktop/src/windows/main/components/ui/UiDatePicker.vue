@@ -32,6 +32,8 @@ const panelRef = ref<HTMLElement | null>(null);
 const PANEL_HEIGHT = 310;
 const PANEL_WIDTH = 280;
 const GAP = 6;
+const VIEWPORT_MARGIN = 8;
+let positionFrame = 0;
 
 // 面板当前查看的月份
 const viewYear = ref(new Date().getFullYear());
@@ -136,35 +138,33 @@ function goToday() {
 function calcPanelPosition() {
   if (!triggerRef.value) return;
   const rect = triggerRef.value.getBoundingClientRect();
+  const panelWidth = Math.min(Math.max(PANEL_WIDTH, Math.round(rect.width)), window.innerWidth - VIEWPORT_MARGIN * 2);
+  const panelHeight = panelRef.value?.offsetHeight || PANEL_HEIGHT;
   const spaceBelow = window.innerHeight - rect.bottom;
   const spaceAbove = rect.top;
-  const needsFlip = spaceBelow < PANEL_HEIGHT + GAP && spaceAbove >= PANEL_HEIGHT + GAP;
+  const needsFlip = spaceBelow < panelHeight + GAP && spaceAbove >= panelHeight + GAP;
 
   placement.value = needsFlip ? 'top' : 'bottom';
 
   const style: Record<string, string> = {};
-  if (needsFlip) {
-    style.bottom = `${window.innerHeight - rect.top + GAP}px`;
-    style.top = 'auto';
-  } else {
-    style.top = `${rect.bottom + GAP}px`;
-    style.bottom = 'auto';
-  }
+  style.width = `${panelWidth}px`;
+  const desiredTop = needsFlip ? rect.top - panelHeight - GAP : rect.bottom + GAP;
+  const maxTop = Math.max(VIEWPORT_MARGIN, window.innerHeight - panelHeight - VIEWPORT_MARGIN);
+  style.top = `${Math.min(Math.max(VIEWPORT_MARGIN, desiredTop), maxTop)}px`;
+  style.bottom = 'auto';
 
-  if (rect.left + PANEL_WIDTH > window.innerWidth - 8) {
-    style.right = `${window.innerWidth - rect.right}px`;
-    style.left = 'auto';
-  } else {
-    style.left = `${rect.left}px`;
-    style.right = 'auto';
-  }
+  const left = Math.min(
+    Math.max(VIEWPORT_MARGIN, rect.left),
+    window.innerWidth - panelWidth - VIEWPORT_MARGIN,
+  );
+  style.left = `${left}px`;
+  style.right = 'auto';
 
   panelStyle.value = style;
 }
 
 function togglePanel() {
   if (props.disabled) return;
-  if (!isOpen.value) calcPanelPosition();
   isOpen.value = !isOpen.value;
 }
 
@@ -186,11 +186,49 @@ function onClickOutside(e: MouseEvent) {
   isOpen.value = false;
 }
 
+function schedulePanelPosition() {
+  if (positionFrame) {
+    cancelAnimationFrame(positionFrame);
+  }
+  positionFrame = requestAnimationFrame(() => {
+    positionFrame = 0;
+    calcPanelPosition();
+  });
+}
+
+function addPanelPositionListeners() {
+  window.addEventListener('resize', schedulePanelPosition, true);
+  window.addEventListener('scroll', schedulePanelPosition, true);
+  window.visualViewport?.addEventListener('resize', schedulePanelPosition);
+  window.visualViewport?.addEventListener('scroll', schedulePanelPosition);
+}
+
+function removePanelPositionListeners() {
+  window.removeEventListener('resize', schedulePanelPosition, true);
+  window.removeEventListener('scroll', schedulePanelPosition, true);
+  window.visualViewport?.removeEventListener('resize', schedulePanelPosition);
+  window.visualViewport?.removeEventListener('scroll', schedulePanelPosition);
+}
+
+watch(isOpen, async (open) => {
+  if (!open) {
+    removePanelPositionListeners();
+    return;
+  }
+  await nextTick();
+  calcPanelPosition();
+  addPanelPositionListeners();
+});
+
 onMounted(() => {
   document.addEventListener('mousedown', onClickOutside, true);
 });
 onBeforeUnmount(() => {
   document.removeEventListener('mousedown', onClickOutside, true);
+  removePanelPositionListeners();
+  if (positionFrame) {
+    cancelAnimationFrame(positionFrame);
+  }
 });
 </script>
 
@@ -222,47 +260,49 @@ onBeforeUnmount(() => {
     </div>
 
     <!-- 弹出日历面板（fixed 定位） -->
-    <Transition :name="placement === 'top' ? 'ui-dropdown-up' : 'ui-dropdown'">
-      <div v-if="isOpen" ref="panelRef" class="ui-datepicker__panel" :style="{ ...panelStyle, position: 'fixed' }">
-        <!-- 月份导航 -->
-        <div class="ui-datepicker__nav">
-          <button type="button" class="ui-datepicker__nav-btn" @click="prevMonth">
-            <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-              <polyline points="10 3 5 8 10 13"/>
-            </svg>
-          </button>
-          <button type="button" class="ui-datepicker__nav-title" @click="goToday">{{ viewMonthLabel }}</button>
-          <button type="button" class="ui-datepicker__nav-btn" @click="nextMonth">
-            <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-              <polyline points="6 3 11 8 6 13"/>
-            </svg>
-          </button>
-        </div>
+    <Teleport to="body">
+      <Transition :name="placement === 'top' ? 'ui-dropdown-up' : 'ui-dropdown'">
+        <div v-if="isOpen" ref="panelRef" class="ui-datepicker__panel" :style="{ ...panelStyle, position: 'fixed' }">
+          <!-- 月份导航 -->
+          <div class="ui-datepicker__nav">
+            <button type="button" class="ui-datepicker__nav-btn" @click="prevMonth">
+              <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <polyline points="10 3 5 8 10 13"/>
+              </svg>
+            </button>
+            <button type="button" class="ui-datepicker__nav-title" @click="goToday">{{ viewMonthLabel }}</button>
+            <button type="button" class="ui-datepicker__nav-btn" @click="nextMonth">
+              <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <polyline points="6 3 11 8 6 13"/>
+              </svg>
+            </button>
+          </div>
 
-        <!-- 星期标题行 -->
-        <div class="ui-datepicker__weekdays">
-          <span v-for="w in WEEK_LABELS" :key="w" class="ui-datepicker__weekday">{{ w }}</span>
-        </div>
+          <!-- 星期标题行 -->
+          <div class="ui-datepicker__weekdays">
+            <span v-for="w in WEEK_LABELS" :key="w" class="ui-datepicker__weekday">{{ w }}</span>
+          </div>
 
-        <!-- 日期网格 -->
-        <div class="ui-datepicker__grid">
-          <button
-            v-for="(cell, idx) in calendarDays"
-            :key="idx"
-            type="button"
-            class="ui-datepicker__day"
-            :class="{
-              'ui-datepicker__day--outside': !cell.isCurrentMonth,
-              'ui-datepicker__day--today': cell.dateStr === today,
-              'ui-datepicker__day--selected': cell.dateStr === modelValue,
-            }"
-            @click="selectDate(cell.dateStr)"
-          >
-            {{ cell.day }}
-          </button>
+          <!-- 日期网格 -->
+          <div class="ui-datepicker__grid">
+            <button
+              v-for="(cell, idx) in calendarDays"
+              :key="idx"
+              type="button"
+              class="ui-datepicker__day"
+              :class="{
+                'ui-datepicker__day--outside': !cell.isCurrentMonth,
+                'ui-datepicker__day--today': cell.dateStr === today,
+                'ui-datepicker__day--selected': cell.dateStr === modelValue,
+              }"
+              @click="selectDate(cell.dateStr)"
+            >
+              {{ cell.day }}
+            </button>
+          </div>
         </div>
-      </div>
-    </Transition>
+      </Transition>
+    </Teleport>
   </div>
 </template>
 
@@ -361,7 +401,7 @@ onBeforeUnmount(() => {
 
 /* ─── 弹出面板 ─── */
 .ui-datepicker__panel {
-  z-index: 9999;
+  z-index: var(--ui-z-critical);
   width: 280px;
   padding: 12px;
   border-radius: var(--ui-radius-md, 10px);

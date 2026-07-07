@@ -6,6 +6,7 @@ export type BackgroundBaseStyleConfig = {
   backgroundPosition?: string;
   backgroundRepeat?: string;
   opacity?: number;
+  blur?: number;
   fitMode?: 'crop' | 'style';
   textColor?: string;
 };

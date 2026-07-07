@@ -1,7 +1,9 @@
 <script setup lang="ts">
 import { ref } from 'vue';
 import { useSshStore } from '@/windows/main/stores/ssh_store';
+import UiButton from '@/windows/main/components/ui/UiButton.vue';
 import UiPopupSurface from '@/windows/main/components/ui/UiPopupSurface.vue';
+import UiRadio from '@/windows/main/components/ui/UiRadio.vue';
 import type { TrustHostInput } from '@/contracts/ssh';
 
 // ── Props & Emits ─────────────────────────────────────────────
@@ -61,7 +63,7 @@ function reject() {
     role="alertdialog"
     aria-labelledby="fp-title"
     :close-on-mask="false"
-    :z-index="1100"
+    z-index="var(--ui-z-dialog)"
   >
           <!-- Warning icon -->
           <div class="fp-icon-wrap">
@@ -96,20 +98,30 @@ function reject() {
 
             <!-- Trust mode selection -->
             <div class="fp-trust-mode">
-              <label class="fp-radio">
-                <input v-model="trustMode" type="radio" value="permanent" id="fp-trust-permanent" />
+              <UiRadio
+                v-model="trustMode"
+                class="fp-radio"
+                value="permanent"
+                id="fp-trust-permanent"
+                name="ssh-fingerprint-trust-mode"
+              >
                 <div class="fp-radio__content">
                   <span class="fp-radio__label">永久信任</span>
                   <span class="fp-radio__desc">将指纹保存到已知主机列表，下次自动验证</span>
                 </div>
-              </label>
-              <label class="fp-radio">
-                <input v-model="trustMode" type="radio" value="session" id="fp-trust-session" />
+              </UiRadio>
+              <UiRadio
+                v-model="trustMode"
+                class="fp-radio"
+                value="session"
+                id="fp-trust-session"
+                name="ssh-fingerprint-trust-mode"
+              >
                 <div class="fp-radio__content">
                   <span class="fp-radio__label">仅本次信任</span>
                   <span class="fp-radio__desc">本次连接后不再保存该指纹</span>
                 </div>
-              </label>
+              </UiRadio>
             </div>
 
             <!-- Error -->
@@ -118,10 +130,10 @@ function reject() {
 
           <!-- Footer -->
           <div class="fp-footer">
-            <button class="fp-btn fp-btn--ghost" @click="reject" id="fp-reject-btn">拒绝连接</button>
-            <button class="fp-btn fp-btn--primary" :disabled="saving" @click="accept" id="fp-accept-btn">
+            <UiButton class="fp-btn fp-btn--ghost" variant="ghost" size="sm" type="button" @click="reject" id="fp-reject-btn">拒绝连接</UiButton>
+            <UiButton class="fp-btn fp-btn--primary" variant="primary" size="sm" type="button" :disabled="saving" @click="accept" id="fp-accept-btn">
               {{ saving ? '保存中...' : '信任并连接' }}
-            </button>
+            </UiButton>
           </div>
   </UiPopupSurface>
 </template>
@@ -135,7 +147,7 @@ function reject() {
   display: flex;
   align-items: center;
   justify-content: center;
-  z-index: 1100;
+  z-index: var(--ui-z-dialog);
 }
 
 .fp-dialog {
@@ -240,17 +252,16 @@ function reject() {
   gap: 8px;
 }
 
-.fp-radio {
+.fp-radio.ui-radio {
   display: flex;
   align-items: flex-start;
   gap: 10px;
-  cursor: pointer;
   padding: 10px 12px;
   border: 1px solid var(--ui-border-subtle);
   border-radius: var(--ui-radius-md);
   transition: all 0.15s;
 
-  &:has(input:checked) {
+  &.ui-radio--checked {
     border-color: var(--primary-color);
     background: rgba(var(--primary-rgb, 99 102 241), 0.06);
   }
@@ -259,29 +270,32 @@ function reject() {
     background: var(--ui-button-ghost-hover-bg);
   }
 
-  input[type="radio"] {
+  .ui-radio__mark {
     margin-top: 3px;
-    accent-color: var(--primary-color);
-    flex-shrink: 0;
   }
 
-  &__content {
-    display: flex;
-    flex-direction: column;
-    gap: 2px;
+  .ui-radio__label {
+    display: block;
+    min-width: 0;
   }
+}
 
-  &__label {
-    font-size: 13px;
-    font-weight: 600;
-    color: var(--ui-text-primary);
-  }
+.fp-radio__content {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
 
-  &__desc {
-    font-size: 11px;
-    color: var(--ui-text-muted);
-    line-height: 1.4;
-  }
+.fp-radio__label {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--ui-text-primary);
+}
+
+.fp-radio__desc {
+  font-size: 11px;
+  color: var(--ui-text-muted);
+  line-height: 1.4;
 }
 
 .fp-error {
@@ -302,12 +316,11 @@ function reject() {
   border-top: 1px solid var(--ui-border-subtle);
 }
 
-.fp-btn {
+.fp-btn.ui-button {
   padding: 7px 18px;
   border-radius: var(--ui-radius-md);
   font-size: 13px;
   font-weight: 600;
-  cursor: pointer;
   border: 1px solid transparent;
   transition: all 0.18s;
 
@@ -315,27 +328,27 @@ function reject() {
     opacity: 0.5;
     cursor: not-allowed;
   }
+}
 
-  &--primary {
-    background: var(--primary-color);
-    color: #fff;
-    border-color: var(--primary-color);
+.fp-btn--primary.ui-button {
+  background: var(--primary-color);
+  color: #fff;
+  border-color: var(--primary-color);
 
-    &:hover:not(:disabled) {
-      filter: brightness(1.1);
-    }
+  &:hover:not(:disabled) {
+    filter: brightness(1.1);
   }
+}
 
-  &--ghost {
-    background: transparent;
-    color: var(--ui-text-secondary);
-    border-color: var(--ui-border-subtle);
+.fp-btn--ghost.ui-button {
+  background: transparent;
+  color: var(--ui-text-secondary);
+  border-color: var(--ui-border-subtle);
 
-    &:hover:not(:disabled) {
-      background: var(--ui-button-ghost-hover-bg);
-      color: var(--ui-state-error, #ef4444);
-      border-color: rgba(239, 68, 68, 0.3);
-    }
+  &:hover:not(:disabled) {
+    background: var(--ui-button-ghost-hover-bg);
+    color: var(--ui-state-error, #ef4444);
+    border-color: rgba(239, 68, 68, 0.3);
   }
 }
 

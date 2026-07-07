@@ -2,6 +2,7 @@ import { BrowserWindow, clipboard, ipcMain } from 'electron';
 import path from 'path';
 import { terminalHost } from './host';
 import { sshHost } from '../ssh/host';
+import { persistWindowBounds, resolvePersistedWindowBounds } from '../windows/persisted_window_bounds';
 import type {
   CreateTerminalSessionPayload,
   DetachedTerminalSessionKind,
@@ -9,6 +10,11 @@ import type {
 } from '@/contracts/terminal';
 
 let registered = false;
+const DETACHED_TERMINAL_BOUNDS_STATE_FILE = 'detached_terminal_window_bounds.json';
+const DETACHED_TERMINAL_DEFAULT_WIDTH = 1080;
+const DETACHED_TERMINAL_DEFAULT_HEIGHT = 720;
+const DETACHED_TERMINAL_MIN_WIDTH = 720;
+const DETACHED_TERMINAL_MIN_HEIGHT = 480;
 const detachedWindowCloseModes = new Map<number, 'close-session' | 'return-to-main'>();
 
 function buildPopupTarget(sessionId: string, kind: DetachedTerminalSessionKind) {
@@ -38,13 +44,19 @@ async function openDetachedTerminalWindow(
 
   const preloadPath = path.join(__dirname, 'preload.js');
   const parentBounds = sourceWindow.getBounds();
-  const width = 1080;
-  const height = 720;
+  const bounds = resolvePersistedWindowBounds({
+    stateFileName: DETACHED_TERMINAL_BOUNDS_STATE_FILE,
+    key: kind,
+    width: DETACHED_TERMINAL_DEFAULT_WIDTH,
+    height: DETACHED_TERMINAL_DEFAULT_HEIGHT,
+    minWidth: DETACHED_TERMINAL_MIN_WIDTH,
+    minHeight: DETACHED_TERMINAL_MIN_HEIGHT,
+    parentBounds,
+  });
   const win = new BrowserWindow({
-    width,
-    height,
-    minWidth: 720,
-    minHeight: 480,
+    ...bounds,
+    minWidth: DETACHED_TERMINAL_MIN_WIDTH,
+    minHeight: DETACHED_TERMINAL_MIN_HEIGHT,
     frame: false,
     backgroundColor: '#101821',
     webPreferences: {
@@ -52,10 +64,12 @@ async function openDetachedTerminalWindow(
       contextIsolation: true,
       nodeIntegration: false,
     },
-    ...(parentBounds ? {
-      x: parentBounds.x + Math.round((parentBounds.width - width) / 2),
-      y: parentBounds.y + Math.round((parentBounds.height - height) / 2),
-    } : {}),
+  });
+  persistWindowBounds(win, {
+    stateFileName: DETACHED_TERMINAL_BOUNDS_STATE_FILE,
+    key: kind,
+    minWidth: DETACHED_TERMINAL_MIN_WIDTH,
+    minHeight: DETACHED_TERMINAL_MIN_HEIGHT,
   });
   detachedWindowCloseModes.set(win.id, 'close-session');
 

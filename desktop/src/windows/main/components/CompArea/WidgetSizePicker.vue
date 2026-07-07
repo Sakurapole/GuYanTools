@@ -316,12 +316,12 @@ watch(() => props.visible, (visible) => {
           <section class="widget-size-picker__panel">
             <div v-if="!isShortcutWidget" class="widget-size-picker__section-title">尺寸</div>
             <div v-if="!isShortcutWidget" class="widget-size-picker__size-grid">
-              <button v-for="size in sizeOptions" :key="size.preset" type="button" class="widget-size-picker__size-card"
+              <UiButton v-for="size in sizeOptions" :key="size.preset" type="button" variant="ghost" class="widget-size-picker__size-card"
                 :class="{ 'widget-size-picker__size-card--active': selectedSizePreset === size.preset }"
                 @click="selectedSizePreset = size.preset">
                 <strong>{{ size.label }}</strong>
                 <span>{{ size.description }}</span>
-              </button>
+              </UiButton>
             </div>
 
             <div v-else class="widget-size-picker__shortcut-size">
@@ -354,12 +354,12 @@ watch(() => props.visible, (visible) => {
             <template v-if="selectedWidgetType === 'shortcut'">
               <div class="widget-size-picker__section-title">卡片颜色</div>
               <div class="widget-size-picker__swatch-grid">
-                <button v-for="gradient in PRESET_GRADIENTS" :key="gradient" type="button" class="widget-size-picker__swatch"
+                <UiIconButton v-for="gradient in PRESET_GRADIENTS" :key="gradient" class="widget-size-picker__swatch"
                   :class="{ 'widget-size-picker__swatch--selected': editColor === gradient }"
                   :style="{ background: gradient }" @click="selectPresetColor(gradient)" />
               </div>
               <div class="widget-size-picker__swatch-grid widget-size-picker__swatch-grid--solid">
-                <button v-for="color in PRESET_COLORS" :key="color" type="button" class="widget-size-picker__swatch"
+                <UiIconButton v-for="color in PRESET_COLORS" :key="color" class="widget-size-picker__swatch"
                   :class="{ 'widget-size-picker__swatch--selected': editColor === color }"
                   :style="{ background: color }" @click="selectPresetColor(color)" />
               </div>
@@ -536,9 +536,11 @@ watch(() => props.visible, (visible) => {
   gap: 14px;
 }
 
-.widget-size-picker__size-card {
+.widget-size-picker__size-card.ui-button {
   display: flex;
   flex-direction: column;
+  align-items: stretch;
+  justify-content: flex-start;
   gap: 5px;
   min-height: 70px;
   padding: 12px;
@@ -547,7 +549,15 @@ watch(() => props.visible, (visible) => {
   background: var(--ui-surface-panel-muted);
   color: var(--ui-text-primary);
   text-align: left;
+  font-weight: inherit;
+  white-space: normal;
   cursor: pointer;
+  transform: none;
+
+  &:hover:not(:disabled),
+  &:active:not(:disabled) {
+    transform: none;
+  }
 
   span {
     color: var(--ui-text-secondary);
@@ -560,6 +570,14 @@ watch(() => props.visible, (visible) => {
     background: var(--ui-button-ghost-hover-bg);
     box-shadow: var(--ui-shadow-sm);
   }
+}
+
+.widget-size-picker__size-card :deep(.ui-button__label) {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 5px;
+  width: 100%;
 }
 
 .widget-size-picker__icon-trigger {
@@ -580,12 +598,19 @@ watch(() => props.visible, (visible) => {
   gap: 10px;
 }
 
-.widget-size-picker__swatch {
+.widget-size-picker__swatch.ui-icon-button {
+  width: auto;
   height: 34px;
   border-radius: 10px;
   border: var(--ui-border-width-thin) solid transparent;
   cursor: pointer;
   box-shadow: var(--ui-shadow-xs);
+  transform: none;
+
+  &:hover:not(:disabled),
+  &:active:not(:disabled) {
+    transform: none;
+  }
 }
 
 .widget-size-picker__swatch--selected {

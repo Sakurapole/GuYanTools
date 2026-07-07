@@ -17,7 +17,7 @@ const props = withDefaults(defineProps<{
   role?: string;
   ariaLabel?: string;
   ariaLabelledby?: string;
-  zIndex?: number;
+  zIndex?: number | string;
 }>(), {
   width: '',
   maxWidth: '',
@@ -27,7 +27,7 @@ const props = withDefaults(defineProps<{
   role: 'dialog',
   ariaLabel: '',
   ariaLabelledby: '',
-  zIndex: 10000,
+  zIndex: 'var(--ui-z-toast)',
 });
 
 const emit = defineEmits<{

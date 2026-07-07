@@ -45,6 +45,7 @@ type UseFtpPanelInteractionsOptions = {
   copySelectionInfo?: (kind: PanelKind) => void | Promise<void>;
   canOpenTerminalForPanel?: (kind: PanelKind) => boolean;
   openTerminalForPanel?: (kind: PanelKind) => void | Promise<void>;
+  openLocalPathInExplorer?: (path: string) => void | Promise<void>;
   canPreviewLocalImage?: (entry: FileTransferEntry | null) => boolean;
   previewLocalImage?: (entry: FileTransferEntry) => void | Promise<void>;
   canPreviewRemoteImage?: (entry: FileTransferEntry | null) => boolean;
@@ -486,6 +487,13 @@ export function useFtpPanelInteractions(options: UseFtpPanelInteractionsOptions)
     const directoryTransferLabel = isLocal
       ? (selectedDirectoryCount > 1 ? `上传所选 ${selectedDirectoryCount} 个目录` : '上传目录')
       : (selectedDirectoryCount > 1 ? `下载所选 ${selectedDirectoryCount} 个目录` : '下载目录');
+    const localExplorerTarget = isLocal && options.openLocalPathInExplorer
+      ? selectedEntry?.isDir
+        ? selectedEntry.path
+        : selectedEntries.length === 0
+          ? options.ftpStore.localPath
+          : ''
+      : '';
 
     return [
       {
@@ -555,6 +563,16 @@ export function useFtpPanelInteractions(options: UseFtpPanelInteractionsOptions)
           }
         },
       },
+      ...(localExplorerTarget ? [{
+        id: `${kind}-open-explorer`,
+        label: selectedEntry?.isDir ? '在资源管理器中打开' : '在资源管理器中打开当前目录',
+        icon: OpenIcon,
+        action: () => {
+          if (options.openLocalPathInExplorer) {
+            void options.openLocalPathInExplorer(localExplorerTarget);
+          }
+        },
+      }] : []),
       {
         id: `${kind}-sort`,
         label: '排序方式',

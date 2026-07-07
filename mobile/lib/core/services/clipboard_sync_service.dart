@@ -186,23 +186,53 @@ class ClipboardSyncService {
 
   Future<void> broadcastItem(MultiDeviceClipboardItem item) async {
     if (item.localOnly) return;
+    final discovered = isRunning
+        ? await refreshDiscoveredDevices(
+            notify: false,
+          ).catchError((_) => <MultiDeviceClipboardDiscoveredDevice>[])
+        : <MultiDeviceClipboardDiscoveredDevice>[];
+    final discoveredById = {for (final device in discovered) device.id: device};
     final devices = await repository.listDevices();
+    final targets = <_ClipboardSyncTarget>[];
+    for (final device in devices) {
+      if (!device.trusted || device.isSelf) continue;
+      final discoveredDevice = discoveredById[device.id];
+      final address = discoveredDevice?.address ?? device.lastAddress;
+      final port = discoveredDevice?.port ?? device.lastPort;
+      if (address == null || port == null) continue;
+
+      if (discoveredDevice != null &&
+          (device.lastAddress != discoveredDevice.address ||
+              device.lastPort != discoveredDevice.port ||
+              device.lastSeenAt != discoveredDevice.lastSeenAt)) {
+        await repository.upsertDevice(
+          UpsertMultiDeviceClipboardDeviceInput(
+            id: device.id,
+            name: discoveredDevice.name,
+            platform: discoveredDevice.platform,
+            trusted: true,
+            isSelf: false,
+            lastAddress: discoveredDevice.address,
+            lastPort: discoveredDevice.port,
+            lastSeenAt: discoveredDevice.lastSeenAt == 0
+                ? _unixNow()
+                : discoveredDevice.lastSeenAt,
+          ),
+        );
+      }
+      targets.add(_ClipboardSyncTarget(address: address, port: port));
+    }
+    if (targets.isEmpty) return;
+
     final assetBase64 = await readAssetBase64(item);
     final payload = ClipboardSyncPayload(item: item, assetBase64: assetBase64);
 
     await Future.wait(
-      devices
-          .where(
-            (device) =>
-                device.trusted &&
-                !device.isSelf &&
-                device.lastAddress != null &&
-                device.lastPort != null,
-          )
+      targets
           .map(
-            (device) => _postJson<Map<String, dynamic>>(
-              device.lastAddress!,
-              device.lastPort!,
+            (target) => _postJson<Map<String, dynamic>>(
+              target.address,
+              target.port,
               '/sync/item',
               payload.toJson(),
               (json) => json,
@@ -351,6 +381,7 @@ class ClipboardSyncService {
     T Function(Map<String, dynamic> json) convert,
   ) async {
     final client = HttpClient();
+    client.connectionTimeout = const Duration(seconds: 5);
     try {
       final uri = Uri.parse(
         'http://${_formatAddressForUrl(address)}:$port$route',
@@ -452,6 +483,13 @@ T? _firstWhereOrNull<T>(Iterable<T> values, bool Function(T value) test) {
     if (test(value)) return value;
   }
   return null;
+}
+
+class _ClipboardSyncTarget {
+  final String address;
+  final int port;
+
+  const _ClipboardSyncTarget({required this.address, required this.port});
 }
 
 List<int>? _parseIpv4(String address) {

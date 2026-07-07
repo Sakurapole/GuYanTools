@@ -4,6 +4,7 @@ import type { FtpProfileWidgetConfig, GridItem } from '../../../types/grid';
 import { useFtpStore } from '../../../stores/ftp_store';
 import { normalizeWidgetConfig } from '../registry';
 import { openFtpProfileFromHome } from '../ftpWidgetNavigation';
+import UiButton from '../../../components/ui/UiButton.vue';
 
 const props = withDefaults(defineProps<{
   item: GridItem;
@@ -75,9 +76,9 @@ onMounted(() => {
     <div v-if="profile" class="ftp-profile-widget__path" :title="remoteRoot">{{ remoteRoot }}</div>
     <div v-else-if="loading" class="ftp-profile-widget__path">读取配置中...</div>
 
-    <button class="ftp-profile-widget__action" type="button" :disabled="!profile || !interactive" @click.stop="openProfile">
+    <UiButton class="ftp-profile-widget__action" variant="ghost" type="button" :disabled="!profile || !interactive" @click.stop="openProfile">
       打开传输
-    </button>
+    </UiButton>
   </div>
 </template>
 
@@ -182,7 +183,7 @@ onMounted(() => {
   font-size: 0.68rem;
 }
 
-.ftp-profile-widget__action {
+.ftp-profile-widget__action.ui-button {
   flex: 0 0 auto;
   box-sizing: border-box;
   width: 100%;
@@ -194,13 +195,15 @@ onMounted(() => {
   font-size: 0.76rem;
   font-weight: 760;
   cursor: pointer;
+  transform: none;
 }
 
-.ftp-profile-widget__action:hover:not(:disabled) {
+.ftp-profile-widget__action.ui-button:hover:not(:disabled) {
   background: color-mix(in srgb, var(--widget-text-primary, white) 22%, transparent);
+  transform: none;
 }
 
-.ftp-profile-widget__action:disabled {
+.ftp-profile-widget__action.ui-button:disabled {
   cursor: not-allowed;
   opacity: 0.55;
 }

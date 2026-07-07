@@ -211,8 +211,8 @@ impl TodoService {
                     for (i, step) in steps.iter().enumerate() {
                         let step_id = format!("{}-step-{}", new_id, i);
                         conn.execute(
-                            "INSERT INTO todo_steps (id, todo_id, title, sort_order) VALUES (?1, ?2, ?3, ?4)",
-                            params![step_id, new_id, step.title, step.sort_order],
+                            "INSERT INTO todo_steps (id, todo_id, title, image_url, sort_order) VALUES (?1, ?2, ?3, ?4, ?5)",
+                            params![step_id, new_id, &step.title, step.image_url.as_deref(), step.sort_order],
                         )?;
                     }
                     next_todo = Some(Self::get_todo_full(conn, &new_id)?);
@@ -396,9 +396,10 @@ impl TodoService {
     pub fn create_step(db: &Database, input: CreateTodoStepInput) -> DbResult<TodoStep> {
         db.transaction(|conn| {
             let sort_order = input.sort_order.unwrap_or(0);
+            let image_url = input.image_url.filter(|value| !value.is_empty());
             conn.execute(
-                "INSERT INTO todo_steps (id, todo_id, title, sort_order) VALUES (?1, ?2, ?3, ?4)",
-                params![input.id, input.todo_id, input.title, sort_order],
+                "INSERT INTO todo_steps (id, todo_id, title, image_url, sort_order) VALUES (?1, ?2, ?3, ?4, ?5)",
+                params![input.id, input.todo_id, input.title, image_url, sort_order],
             )?;
             Self::get_step(conn, &input.id)
         })
@@ -412,12 +413,17 @@ impl TodoService {
         db.transaction(|conn| {
             let current = Self::get_step(conn, step_id)?;
             let title = input.title.unwrap_or(current.title);
+            let image_url = match input.image_url {
+                Some(value) if value.is_empty() => None,
+                Some(value) => Some(value),
+                None => current.image_url,
+            };
             let is_completed = input.is_completed.unwrap_or(current.is_completed);
             let sort_order = input.sort_order.unwrap_or(current.sort_order);
 
             conn.execute(
-                "UPDATE todo_steps SET title = ?1, is_completed = ?2, sort_order = ?3, updated_at = datetime('now') WHERE id = ?4",
-                params![title, is_completed as i64, sort_order, step_id],
+                "UPDATE todo_steps SET title = ?1, image_url = ?2, is_completed = ?3, sort_order = ?4, updated_at = datetime('now') WHERE id = ?5",
+                params![title, image_url, is_completed as i64, sort_order, step_id],
             )?;
             Self::get_step(conn, step_id)
         })
@@ -563,7 +569,7 @@ impl TodoService {
 
     fn get_steps(conn: &Connection, todo_id: &str) -> DbResult<Vec<TodoStep>> {
         let mut stmt = conn.prepare(
-            "SELECT id, todo_id, title, is_completed, sort_order, created_at, updated_at
+            "SELECT id, todo_id, title, image_url, is_completed, sort_order, created_at, updated_at
              FROM todo_steps WHERE todo_id = ?1 ORDER BY sort_order ASC",
         )?;
         let steps = stmt
@@ -574,7 +580,7 @@ impl TodoService {
 
     fn get_step(conn: &Connection, step_id: &str) -> DbResult<TodoStep> {
         conn.query_row(
-            "SELECT id, todo_id, title, is_completed, sort_order, created_at, updated_at
+            "SELECT id, todo_id, title, image_url, is_completed, sort_order, created_at, updated_at
              FROM todo_steps WHERE id = ?1",
             params![step_id],
             |row| Self::map_step(row),
@@ -587,10 +593,11 @@ impl TodoService {
             id: row.get(0)?,
             todo_id: row.get(1)?,
             title: row.get(2)?,
-            is_completed: row.get::<_, i64>(3)? != 0,
-            sort_order: row.get(4)?,
-            created_at: row.get(5)?,
-            updated_at: row.get(6)?,
+            image_url: row.get(3)?,
+            is_completed: row.get::<_, i64>(4)? != 0,
+            sort_order: row.get(5)?,
+            created_at: row.get(6)?,
+            updated_at: row.get(7)?,
         })
     }
 
@@ -885,23 +892,27 @@ mod tests {
                 id: "step-1".to_string(),
                 todo_id: "todo-steps".to_string(),
                 title: "步骤1".to_string(),
+                image_url: Some("data:image/png;base64,abc".to_string()),
                 sort_order: Some(0),
             },
         )
         .unwrap();
         assert_eq!(step.title, "步骤1");
+        assert_eq!(step.image_url.as_deref(), Some("data:image/png;base64,abc"));
 
         let updated_step = TodoService::update_step(
             &db,
             "step-1",
             UpdateTodoStepInput {
                 title: None,
+                image_url: Some(String::new()),
                 is_completed: Some(true),
                 sort_order: None,
             },
         )
         .unwrap();
         assert!(updated_step.is_completed);
+        assert!(updated_step.image_url.is_none());
 
         let todo = TodoService::get_todos_by_list(&db, "default-tasks", false)
             .unwrap()

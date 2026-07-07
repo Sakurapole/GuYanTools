@@ -73,11 +73,11 @@ function closeInstance(instance: WebviewInstance) {
     </div>
     <div v-else class="webview-keepalive-list__items">
       <div v-for="instance in sortedInstances" :key="instance.url" class="webview-keepalive-list__item">
-        <button class="webview-keepalive-list__main" type="button" @click="openInstance(instance)">
+        <UiButton class="webview-keepalive-list__main" variant="ghost" size="sm" @click="openInstance(instance)">
           <span class="webview-keepalive-list__title">{{ instanceTitle(instance) }}</span>
           <span v-if="!props.compact" class="webview-keepalive-list__meta">{{ instance.domain || instance.url }}</span>
           <span v-if="!props.compact" class="webview-keepalive-list__url">{{ instance.url }}</span>
-        </button>
+        </UiButton>
         <div class="webview-keepalive-list__actions">
           <span v-if="!props.compact" class="webview-keepalive-list__status" :class="{ active: instance.active }">
             {{ statusText(instance) }}
@@ -135,16 +135,29 @@ function closeInstance(instance: WebviewInstance) {
 }
 
 .webview-keepalive-list__main {
-  display: flex;
-  flex-direction: column;
-  gap: 3px;
+  justify-content: flex-start;
   min-width: 0;
+  min-height: 0;
   padding: 0;
   border: 0;
   color: inherit;
   text-align: left;
   background: transparent;
-  cursor: pointer;
+  box-shadow: none;
+
+  &:hover:not(:disabled) {
+    background: transparent;
+    transform: none;
+  }
+
+  :deep(.ui-button__label) {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 3px;
+    width: 100%;
+    min-width: 0;
+  }
 }
 
 .webview-keepalive-list__title,

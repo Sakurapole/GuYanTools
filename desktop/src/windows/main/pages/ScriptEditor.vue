@@ -4,11 +4,13 @@ import { useRoute } from 'vue-router';
 import type { WebScriptRule } from '@/contracts/webview';
 import UiButton from '../components/ui/UiButton.vue';
 import UiCard from '../components/ui/UiCard.vue';
+import UiCheckbox from '../components/ui/UiCheckbox.vue';
 import UiField from '../components/ui/UiField.vue';
 import UiIconButton from '../components/ui/UiIconButton.vue';
 import UiInput from '../components/ui/UiInput.vue';
 import UiScrollbar from '../components/ui/UiScrollbar.vue';
 import UiSelect from '../components/ui/UiSelect.vue';
+import UiTextarea from '../components/ui/UiTextarea.vue';
 import { useAppConfigStore } from '../stores/app_config_store';
 
 const route = useRoute();
@@ -125,6 +127,24 @@ async function deleteScript() {
 
 function toggleEnabled() {
   editEnabled.value = !editEnabled.value;
+}
+
+function isPermissionEnabled(permissionKey: string) {
+  return editPermissions.value.includes(permissionKey);
+}
+
+function setPermission(permissionKey: string, enabled: boolean) {
+  const nextPermissions = new Set(editPermissions.value);
+  if (enabled) {
+    nextPermissions.add(permissionKey);
+  } else {
+    nextPermissions.delete(permissionKey);
+  }
+  editPermissions.value = [...nextPermissions];
+}
+
+function togglePermission(permissionKey: string) {
+  setPermission(permissionKey, !isPermissionEnabled(permissionKey));
 }
 
 // ─── 初始化 ───
@@ -283,8 +303,8 @@ const editorPlaceholder = computed(() => {
                 <span class="se-editor-pane__lang">{{ typeLabel[editType] || editType.toUpperCase() }}</span>
               </div>
             </template>
-            <textarea v-model="editContent" class="se-editor-pane__textarea" spellcheck="false"
-              :placeholder="editorPlaceholder" />
+            <UiTextarea v-model="editContent" class="se-editor-pane__textarea" :spellcheck="false"
+              :placeholder="editorPlaceholder" resize="none" />
             <template #footer>
               <div class="se-editor-pane__footer">
                 <div class="se-editor-pane__footer-left">
@@ -292,10 +312,10 @@ const editorPlaceholder = computed(() => {
                     {{ isDirty ? '● 待保存' : '✓ 已同步' }}
                   </span>
                 </div>
-                <button class="se-editor-pane__toggle" @click.prevent="toggleEnabled">
+                <UiButton class="se-editor-pane__toggle" variant="ghost" size="sm" type="button" @click.prevent="toggleEnabled">
                   <span :class="editEnabled ? 'se-enabled--on' : 'se-enabled--off'">{{ editEnabled ? '已启用' : '已禁用'
                     }}</span>
-                </button>
+                </UiButton>
               </div>
             </template>
           </UiCard>
@@ -304,14 +324,20 @@ const editorPlaceholder = computed(() => {
           <div v-if="editType === 'js'" class="se-perms-panel">
             <h4 class="se-perms-panel__title">权限管理</h4>
             <div class="se-perms-panel__list">
-              <label v-for="perm in permissionsAll" :key="perm.key" class="se-perms-panel__item"
-                :class="{ 'se-perms-panel__item--active': editPermissions.includes(perm.key) }">
+              <UiCheckbox
+                v-for="perm in permissionsAll"
+                :key="perm.key"
+                class="se-perms-panel__item"
+                :class="{ 'se-perms-panel__item--active': isPermissionEnabled(perm.key) }"
+                size="sm"
+                :checked="isPermissionEnabled(perm.key)"
+                @change="checked => setPermission(perm.key, checked)"
+              >
                 <div class="se-perms-panel__item-info">
                   <span class="se-perms-panel__item-icon">{{ perm.icon }}</span>
                   <span>{{ perm.label }}</span>
                 </div>
-                <input type="checkbox" :value="perm.key" v-model="editPermissions" class="se-perms-check" />
-              </label>
+              </UiCheckbox>
             </div>
           </div>
         </div>
@@ -633,11 +659,12 @@ const editorPlaceholder = computed(() => {
   letter-spacing: 0.05em;
 }
 
-.se-editor-pane__textarea {
+.se-editor-pane__textarea.ui-textarea {
   flex: 1;
   width: 100%;
   padding: 16px 20px;
   border: none;
+  border-radius: 0;
   background: transparent;
   color: var(--ui-input-text);
   resize: none;
@@ -646,6 +673,12 @@ const editorPlaceholder = computed(() => {
   tab-size: 2;
   outline: none;
   overflow-y: auto;
+  box-shadow: none;
+
+  &:focus {
+    border-color: transparent;
+    box-shadow: none;
+  }
 
   &::placeholder {
     color: var(--ui-text-muted);
@@ -686,7 +719,7 @@ const editorPlaceholder = computed(() => {
   gap: 12px;
 }
 
-.se-editor-pane__toggle {
+.se-editor-pane__toggle.ui-button {
   cursor: pointer;
   font-weight: 600;
   font-size: 10px;
@@ -695,6 +728,15 @@ const editorPlaceholder = computed(() => {
   background: none;
   border: none;
   color: inherit;
+  min-height: auto;
+  padding: 0;
+  transform: none;
+
+  &:hover:not(:disabled),
+  &:active:not(:disabled) {
+    background: none;
+    transform: none;
+  }
 }
 
 .se-enabled--on {
@@ -729,7 +771,7 @@ const editorPlaceholder = computed(() => {
   gap: 6px;
 }
 
-.se-perms-panel__item {
+.se-perms-panel__item.ui-checkbox {
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -750,6 +792,16 @@ const editorPlaceholder = computed(() => {
   }
 }
 
+.se-perms-panel__item :deep(.ui-checkbox__label) {
+  order: 1;
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.se-perms-panel__item :deep(.ui-checkbox__box) {
+  order: 2;
+}
+
 .se-perms-panel__item-info {
   display: flex;
   align-items: center;
@@ -761,10 +813,4 @@ const editorPlaceholder = computed(() => {
   font-size: 16px;
 }
 
-.se-perms-check {
-  width: 16px;
-  height: 16px;
-  border-radius: 3px;
-  accent-color: var(--primary-color);
-}
 </style>

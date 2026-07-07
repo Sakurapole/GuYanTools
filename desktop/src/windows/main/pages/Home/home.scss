@@ -134,7 +134,7 @@
     height 280ms cubic-bezier(0.32, 0.72, 0, 1);
 }
 
-.category-scroll-btn {
+.category-scroll-btn.ui-icon-button {
   position: absolute;
   left: 2px;
   right: 2px;
@@ -143,6 +143,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
+  width: auto;
   border: none;
   border-radius: var(--ui-radius-md);
   background: transparent;
@@ -184,6 +185,7 @@
   &:hover {
     opacity: 1;
     color: var(--primary-color);
+    transform: none;
   }
 }
 
@@ -206,7 +208,7 @@
 
 /* ─── Category Item — Refined with tactile feedback ─── */
 
-.category-item {
+.category-item.ui-button {
   appearance: none;
   position: relative;
   z-index: 1;
@@ -222,6 +224,9 @@
   color: var(--ui-text-primary);
   cursor: pointer;
   font: inherit;
+  font-weight: inherit;
+  line-height: inherit;
+  white-space: normal;
   outline: none;
   box-sizing: border-box;
 
@@ -267,23 +272,8 @@
   &.active {
     background: var(--home-sidebar-item-active-bg-color);
     box-shadow:
-      0 8px 20px -12px var(--home-sidebar-active-shadow-color),
-      inset 0 1px 0 rgba(255, 255, 255, 0.1);
-
-    // Left accent bar with glow — grows from center
-    &::before {
-      content: '';
-      position: absolute;
-      left: 0;
-      top: 18%;
-      bottom: 18%;
-      width: 3px;
-      border-radius: 0 4px 4px 0;
-      background: var(--primary-color);
-      box-shadow: 0 0 8px rgba(102, 204, 255, 0.4);
-      z-index: 1;
-      animation: accentBarIn 320ms cubic-bezier(0.32, 0.72, 0, 1) 120ms both;
-    }
+      0 4px 12px -10px var(--home-sidebar-active-shadow-color),
+      inset 0 0 0 1px var(--home-sidebar-glass-border);
 
     .category-icon {
       color: var(--primary-color);
@@ -298,8 +288,8 @@
     &:hover {
       transform: translateY(-1px);
       box-shadow:
-        0 8px 20px -10px var(--home-sidebar-active-shadow-color),
-        0 0 0 1px rgba(255, 255, 255, 0.06);
+        0 5px 14px -10px var(--home-sidebar-active-shadow-color),
+        inset 0 0 0 1px var(--home-sidebar-glass-border);
     }
   }
 
@@ -335,6 +325,16 @@
   }
 }
 
+.category-item .ui-button__label {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  width: 100%;
+  min-width: 0;
+}
+
 .add-category-btn {
   position: relative;
   z-index: 1;
@@ -353,7 +353,7 @@
   gap: 12px;
 }
 
-/* ─── Stage Header — Premium editorial style ─── */
+/* ─── Stage Header — quiet work surface ─── */
 
 .home-stage__header {
   position: relative;
@@ -361,28 +361,21 @@
   width: calc(100% - 8px);
   margin: 0 4px;
   box-sizing: border-box;
-  background: color-mix(in srgb, var(--home-panel-bg-color) 92%, transparent);
+  background: color-mix(in srgb, var(--home-panel-bg-color) 96%, transparent);
   border: 1px solid var(--home-panel-border-color);
   border-radius: var(--ui-radius-lg);
-  box-shadow: 0 12px 28px -22px var(--home-shell-shadow-color);
-  padding: 20px 24px 20px;
-  backdrop-filter: var(--ui-backdrop-blur-sm);
+  box-shadow: none;
+  padding: 18px 22px;
 
-  // Bottom separator — luminous gradient line
   &::after {
     content: '';
     position: absolute;
     bottom: 0;
-    left: 24px;
-    right: 24px;
+    left: 22px;
+    right: 22px;
     height: 1px;
-    background: linear-gradient(90deg,
-        transparent 0%,
-        var(--ui-border-subtle) 10%,
-        var(--ui-border-accent) 50%,
-        var(--ui-border-subtle) 90%,
-        transparent 100%);
-    opacity: 0.7;
+    background: var(--ui-border-subtle);
+    opacity: 0.65;
   }
 }
 
@@ -396,31 +389,11 @@
   z-index: 0;
 }
 
-// 3D scene decorative background — fades in from the right side
-.home-stage__header-3d {
-  position: absolute !important;
-  inset: 0;
-  z-index: 0;
-  pointer-events: none;
-  mask-image: linear-gradient(
-    to left,
-    rgba(0, 0, 0, 0.7) 0%,
-    rgba(0, 0, 0, 0.3) 40%,
-    transparent 70%
-  );
-  -webkit-mask-image: linear-gradient(
-    to left,
-    rgba(0, 0, 0, 0.7) 0%,
-    rgba(0, 0, 0, 0.3) 40%,
-    transparent 70%
-  );
-}
-
 .home-stage__header-inner {
   position: relative;
   z-index: 1;
   display: flex;
-  align-items: flex-end;
+  align-items: center;
   justify-content: space-between;
   gap: 24px;
 }
@@ -433,13 +406,11 @@
 
   h1 {
     margin: 0;
-    font-size: clamp(1.2rem, 1.8vw, 1.6rem);
-    font-weight: 800;
-    line-height: 1.1;
+    font-size: 1.25rem;
+    font-weight: 700;
+    line-height: 1.2;
     color: var(--ui-text-primary);
-    letter-spacing: -0.04em;
-    // Subtle fade-in on mount
-    animation: headerTitleIn 0.6s cubic-bezier(0.32, 0.72, 0, 1) both;
+    letter-spacing: 0;
   }
 
   p {
@@ -448,16 +419,15 @@
     font-size: 0.82rem;
     line-height: 1.55;
     max-width: 50ch;
-    animation: headerSubtitleIn 0.6s cubic-bezier(0.32, 0.72, 0, 1) 0.08s both;
   }
 }
 
-.home-stage__metrics {
+.home-stage__summary {
   display: flex;
   justify-content: flex-end;
-  gap: 28px;
+  gap: 18px;
   flex-wrap: wrap;
-  padding-bottom: 2px;
+  color: var(--ui-text-muted);
 }
 
 .home-stage__actions {
@@ -466,55 +436,41 @@
   gap: 6px;
 }
 
-/* ─── Metric Chips — Premium inline stats with tabular numerals ─── */
+/* ─── Header summary — compact operational stats ─── */
 
-.home-metric-chip {
-  display: flex;
-  flex-direction: column;
-  gap: 3px;
+.home-summary-item {
+  display: grid;
+  grid-template-columns: auto auto;
+  align-items: baseline;
+  column-gap: 4px;
+  row-gap: 2px;
+  min-width: 64px;
   padding: 0;
   background: transparent;
   border: none;
   box-shadow: none;
-  animation: metricChipIn 0.5s cubic-bezier(0.32, 0.72, 0, 1) both;
 
-  // Stagger animation for each chip
-  &:nth-child(1) {
-    animation-delay: 0.12s;
-  }
-
-  &:nth-child(2) {
-    animation-delay: 0.18s;
-  }
-
-  &:nth-child(3) {
-    animation-delay: 0.24s;
-  }
-
-  .metric-label,
-  .metric-unit {
+  &__label {
+    grid-column: 1 / -1;
     color: var(--ui-text-subtle);
-  }
-
-  .metric-label {
-    font-size: 0.6rem;
-    letter-spacing: 0.12em;
-    text-transform: uppercase;
-    font-weight: 600;
+    font-size: 0.68rem;
+    letter-spacing: 0;
+    font-weight: 500;
   }
 
   strong {
     font-family: var(--app-font-mono);
-    font-size: 1.3rem;
+    font-size: 0.98rem;
     line-height: 1;
     color: var(--ui-text-primary);
-    font-weight: 700;
-    letter-spacing: -0.03em;
+    font-weight: 650;
+    letter-spacing: 0;
     font-variant-numeric: tabular-nums;
   }
 
-  .metric-unit {
-    font-size: 0.62rem;
+  &__unit {
+    color: var(--ui-text-subtle);
+    font-size: 0.68rem;
     font-weight: 400;
   }
 }
@@ -548,7 +504,7 @@
   height: 100%;
 }
 
-/* ─── State Cards — With entry animation and visual polish ─── */
+/* ─── State Cards ─── */
 
 .home-state {
   width: 100%;
@@ -560,20 +516,6 @@
   box-sizing: border-box;
   position: relative;
   overflow: hidden;
-
-  // Subtle dot pattern background
-  &::before {
-    content: '';
-    position: absolute;
-    inset: 0;
-    background-image: radial-gradient(circle,
-        var(--ui-text-subtle) 0.5px,
-        transparent 0.5px);
-    background-size: 24px 24px;
-    opacity: var(--home-grain-opacity);
-    pointer-events: none;
-    z-index: 0;
-  }
 }
 
 .home-state-card {
@@ -587,14 +529,9 @@
   padding: 32px 34px;
   text-align: center;
   border-radius: var(--ui-radius-lg);
-  // Entry animation
-  animation: stateCardIn 0.5s cubic-bezier(0.32, 0.72, 0, 1) 0.1s both;
-  // Subtle glass border + glassmorphism backdrop
-  background: color-mix(in srgb, var(--home-state-card-bg-color) 85%, transparent);
-  backdrop-filter: blur(12px);
-  box-shadow:
-    inset 0 1px 0 var(--home-sidebar-glass-border),
-    var(--home-state-card-shadow-color) 0 8px 24px -8px;
+  background: var(--home-state-card-bg-color);
+  border: 1px solid var(--home-panel-border-color);
+  box-shadow: none;
 
   strong {
     color: var(--ui-text-primary);
@@ -622,7 +559,7 @@
   }
 }
 
-/* ─── Comp Area Container — Premium slide transitions ─── */
+/* ─── Comp Area Container ─── */
 
 .comp-area-container {
   position: absolute;
@@ -631,7 +568,6 @@
   box-sizing: border-box;
   border-radius: var(--ui-radius-lg);
   background: var(--home-panel-bg-color, var(--background-color));
-  // GPU acceleration
   will-change: transform;
   backface-visibility: hidden;
   transform: translateZ(0);
@@ -645,11 +581,11 @@
   }
 
   &.slide-in-down {
-    animation: stageInFromBottom 0.5s cubic-bezier(0.32, 0.72, 0, 1) both;
+    animation: stageInFromBottom 220ms ease-out both;
   }
 
   &.slide-in-up {
-    animation: stageInFromTop 0.5s cubic-bezier(0.32, 0.72, 0, 1) both;
+    animation: stageInFromTop 220ms ease-out both;
   }
 }
 
@@ -659,8 +595,8 @@
 
 @keyframes stageInFromBottom {
   from {
-    transform: translate3d(0, 100%, 0);
-    opacity: 0.6;
+    transform: translate3d(0, 16px, 0);
+    opacity: 0.86;
   }
 
   to {
@@ -671,72 +607,12 @@
 
 @keyframes stageInFromTop {
   from {
-    transform: translate3d(0, -100%, 0);
-    opacity: 0.6;
+    transform: translate3d(0, -16px, 0);
+    opacity: 0.86;
   }
 
   to {
     transform: translate3d(0, 0, 0);
-    opacity: 1;
-  }
-}
-
-@keyframes headerTitleIn {
-  from {
-    opacity: 0;
-    transform: translateY(6px);
-  }
-
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
-@keyframes headerSubtitleIn {
-  from {
-    opacity: 0;
-    transform: translateY(4px);
-  }
-
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
-@keyframes metricChipIn {
-  from {
-    opacity: 0;
-    transform: translateY(8px);
-  }
-
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
-@keyframes stateCardIn {
-  from {
-    opacity: 0;
-    transform: translateY(14px) scale(0.98);
-  }
-
-  to {
-    opacity: 1;
-    transform: translateY(0) scale(1);
-  }
-}
-
-@keyframes accentBarIn {
-  from {
-    transform: scaleY(0);
-    opacity: 0;
-  }
-
-  to {
-    transform: scaleY(1);
     opacity: 1;
   }
 }
@@ -892,12 +768,22 @@
     align-items: flex-start;
   }
 
-  .home-stage__metrics {
+  .home-stage__summary {
     justify-content: flex-start;
   }
 
   .home-stage__header::after {
     left: 14px;
     right: 14px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .category-slider,
+  .category-item.ui-button,
+  .comp-area-container,
+  .dialog-container {
+    animation: none !important;
+    transition: none !important;
   }
 }

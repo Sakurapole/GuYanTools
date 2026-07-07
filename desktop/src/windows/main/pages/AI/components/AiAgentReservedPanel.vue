@@ -1,0 +1,342 @@
+<script lang="ts" setup>
+import { computed, ref, watch } from 'vue';
+import type { AiAgentMode } from '@/contracts/ai';
+import UiButton from '@/windows/main/components/ui/UiButton.vue';
+import UiCard from '@/windows/main/components/ui/UiCard.vue';
+import UiCheckbox from '@/windows/main/components/ui/UiCheckbox.vue';
+import UiField from '@/windows/main/components/ui/UiField.vue';
+import UiInput from '@/windows/main/components/ui/UiInput.vue';
+import UiPanelHeader from '@/windows/main/components/ui/UiPanelHeader.vue';
+import UiSelect from '@/windows/main/components/ui/UiSelect.vue';
+import UiTextarea from '@/windows/main/components/ui/UiTextarea.vue';
+import { useAiConfigStore } from '@/windows/main/stores/ai_config_store';
+
+const aiConfigStore = useAiConfigStore();
+const maxStepsInput = ref('5');
+const defaultAgentMode = ref<AiAgentMode>('general-agent');
+const codexWorkingDirectory = ref('');
+const codexConfigJson = ref('');
+
+const agentConfig = computed(() => aiConfigStore.config.agent);
+const modeOptions: { label: string; value: AiAgentMode }[] = [
+  { label: '通用 Agent', value: 'general-agent' },
+  { label: 'Code Agent', value: 'code-agent' },
+];
+
+watch(
+  agentConfig,
+  (agent) => {
+    maxStepsInput.value = String(agent.maxSteps);
+    defaultAgentMode.value = agent.defaultAgentMode;
+    codexWorkingDirectory.value = agent.codex.lastWorkingDirectory ?? '';
+    codexConfigJson.value = agent.codex.cliConfigJson ?? '';
+  },
+  { immediate: true },
+);
+
+async function updateAgent(patch: Partial<typeof agentConfig.value>) {
+  await aiConfigStore.updateConfig({
+    agent: {
+      ...agentConfig.value,
+      ...patch,
+      codex: {
+        ...agentConfig.value.codex,
+        ...(patch.codex ?? {}),
+      },
+      general: {
+        ...agentConfig.value.general,
+        ...(patch.general ?? {}),
+      },
+    },
+  });
+}
+
+async function toggleFeature(enabled: boolean) {
+  await aiConfigStore.updateConfig({
+    enabled,
+    defaultMode: enabled ? aiConfigStore.config.defaultMode : 'chat',
+  });
+}
+
+async function commitDefaultMode() {
+  await updateAgent({ defaultAgentMode: defaultAgentMode.value });
+  await aiConfigStore.updateConfig({ defaultMode: defaultAgentMode.value });
+}
+
+async function commitMaxSteps() {
+  const value = Math.max(1, Math.min(32, Math.round(Number(maxStepsInput.value) || 5)));
+  maxStepsInput.value = String(value);
+  await updateAgent({ maxSteps: value });
+}
+
+async function commitCodexReservedFields() {
+  await updateAgent({
+    codex: {
+      ...agentConfig.value.codex,
+      lastWorkingDirectory: codexWorkingDirectory.value.trim(),
+      cliConfigJson: codexConfigJson.value.trim(),
+    },
+  });
+}
+</script>
+
+<template>
+  <section class="ai-agent-panel">
+    <header class="ai-agent-panel__header">
+      <UiPanelHeader title="Agent 工作区" subtitle="V2.0 先保留执行边界，真实 Code Agent / 通用 Agent 运行时后续接入。">
+        <template #actions>
+          <UiCheckbox
+            :checked="aiConfigStore.config.enabled"
+            size="sm"
+            :disabled="aiConfigStore.saving"
+            @change="toggleFeature"
+          >
+            启用 AI 功能
+          </UiCheckbox>
+        </template>
+      </UiPanelHeader>
+    </header>
+
+    <div class="ai-agent-panel__controls">
+      <UiField class="ai-agent-panel__field" label="默认 Agent">
+        <UiSelect
+          v-model="defaultAgentMode"
+          size="sm"
+          :options="modeOptions"
+          :disabled="aiConfigStore.saving"
+          @update:modelValue="commitDefaultMode"
+        />
+      </UiField>
+      <UiField class="ai-agent-panel__field" label="最大步骤">
+        <UiInput
+          v-model="maxStepsInput"
+          size="sm"
+          type="number"
+          :min="1"
+          :max="32"
+          :disabled="aiConfigStore.saving"
+          @blur="commitMaxSteps"
+          @keydown.enter.prevent="commitMaxSteps"
+        />
+      </UiField>
+      <UiCheckbox
+        :checked="agentConfig.enabled"
+        size="sm"
+        :disabled="aiConfigStore.saving"
+        @change="updateAgent({ enabled: $event })"
+      >
+        开放 Agent 入口
+      </UiCheckbox>
+      <UiCheckbox
+        :checked="agentConfig.requireApprovalForWriteTools"
+        size="sm"
+        :disabled="aiConfigStore.saving"
+        @change="updateAgent({ requireApprovalForWriteTools: $event })"
+      >
+        写入类工具需要确认
+      </UiCheckbox>
+    </div>
+
+    <div class="ai-agent-panel__modes">
+      <UiCard class="ai-agent-mode" padding="sm" radius="sm" :class="{ 'ai-agent-mode--active': agentConfig.defaultAgentMode === 'general-agent' }">
+        <div class="ai-agent-mode__head">
+          <div>
+            <h4>通用 Agent</h4>
+            <p>面向资料整理、跨工具任务和后续自定义工具编排。</p>
+          </div>
+          <UiCheckbox
+            :checked="agentConfig.general.enabled"
+            size="sm"
+            :disabled="aiConfigStore.saving"
+            @change="updateAgent({ general: { ...agentConfig.general, enabled: $event } })"
+          >
+            预留
+          </UiCheckbox>
+        </div>
+        <dl class="ai-agent-mode__meta">
+          <div>
+            <dt>模板数量</dt>
+            <dd>{{ agentConfig.general.agents.length }}</dd>
+          </div>
+          <div>
+            <dt>默认模板</dt>
+            <dd>{{ agentConfig.general.defaultAgentId || '未设置' }}</dd>
+          </div>
+          <div>
+            <dt>工具策略</dt>
+            <dd>仅保存配置，不执行工具</dd>
+          </div>
+        </dl>
+        <UiButton size="sm" variant="secondary" disabled>等待执行层接入</UiButton>
+      </UiCard>
+
+      <UiCard class="ai-agent-mode" padding="sm" radius="sm" :class="{ 'ai-agent-mode--active': agentConfig.defaultAgentMode === 'code-agent' }">
+        <div class="ai-agent-mode__head">
+          <div>
+            <h4>Code Agent</h4>
+            <p>预留给后续 Codex SDK，本版本不启动命令、不读写项目文件。</p>
+          </div>
+          <UiCheckbox
+            :checked="agentConfig.codex.enabled"
+            size="sm"
+            :disabled="aiConfigStore.saving"
+            @change="updateAgent({ codex: { ...agentConfig.codex, enabled: $event } })"
+          >
+            预留
+          </UiCheckbox>
+        </div>
+        <div class="ai-agent-mode__form">
+          <UiField class="ai-agent-panel__field" label="默认工作目录">
+            <UiInput
+              v-model="codexWorkingDirectory"
+              size="sm"
+              :disabled="aiConfigStore.saving"
+              placeholder="后续运行时使用"
+              @blur="commitCodexReservedFields"
+              @keydown.enter.prevent="commitCodexReservedFields"
+            />
+          </UiField>
+          <UiCheckbox
+            :checked="agentConfig.codex.skipGitRepoCheck"
+            size="sm"
+            :disabled="aiConfigStore.saving"
+            @change="updateAgent({ codex: { ...agentConfig.codex, skipGitRepoCheck: $event } })"
+          >
+            允许跳过 Git 仓库检查
+          </UiCheckbox>
+          <UiField class="ai-agent-panel__field ai-agent-panel__field--wide" label="Codex 配置 JSON">
+            <UiTextarea
+              v-model="codexConfigJson"
+              :disabled="aiConfigStore.saving"
+              resize="vertical"
+              spellcheck="false"
+              placeholder="{ }"
+              @blur="commitCodexReservedFields"
+            />
+          </UiField>
+        </div>
+        <UiButton size="sm" variant="secondary" disabled>等待 Codex SDK 接入</UiButton>
+      </UiCard>
+    </div>
+  </section>
+</template>
+
+<style lang="scss" scoped>
+.ai-agent-panel {
+  display: grid;
+  grid-template-rows: auto auto minmax(0, 1fr);
+  gap: 14px;
+  min-height: 0;
+  padding: 18px;
+  background: var(--ui-surface-base);
+}
+
+.ai-agent-mode__head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 14px;
+}
+
+.ai-agent-mode h4 {
+  margin: 0;
+  color: var(--ui-text-primary);
+  font-size: 1rem;
+  font-weight: 760;
+}
+
+.ai-agent-mode p {
+  margin: 4px 0 0;
+  color: var(--ui-text-muted);
+  font-size: 0.82rem;
+  line-height: 1.5;
+}
+
+.ai-agent-panel__controls {
+  display: grid;
+  grid-template-columns: minmax(160px, 220px) 110px auto auto;
+  align-items: end;
+  gap: 10px;
+  padding: 12px;
+  border: var(--ui-border-width-thin) solid var(--ui-border-subtle);
+  border-radius: var(--ui-radius-md);
+  background: var(--ui-surface-muted);
+}
+
+.ai-agent-panel__field {
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+  color: var(--ui-text-muted);
+  font-size: 0.78rem;
+
+  &--wide {
+    grid-column: 1 / -1;
+  }
+
+  :deep(.ui-textarea) {
+    min-height: 74px;
+    font: 12px/1.5 var(--ui-font-mono, monospace);
+  }
+}
+
+.ai-agent-panel__modes {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+  min-height: 0;
+}
+
+.ai-agent-mode {
+  display: grid;
+  align-content: start;
+  gap: 14px;
+  min-width: 0;
+  border: var(--ui-border-width-thin) solid var(--ui-border-subtle);
+  border-radius: var(--ui-radius-md);
+  padding: 14px;
+  background: var(--ui-surface-base);
+
+  &--active {
+    border-color: var(--ui-border-accent);
+    box-shadow: 0 0 0 1px color-mix(in srgb, var(--primary-color) 22%, transparent);
+  }
+}
+
+.ai-agent-mode__meta {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+
+  div {
+    display: flex;
+    justify-content: space-between;
+    gap: 10px;
+    min-width: 0;
+    color: var(--ui-text-muted);
+    font-size: 0.8rem;
+  }
+
+  dt,
+  dd {
+    margin: 0;
+  }
+
+  dd {
+    color: var(--ui-text-primary);
+    overflow-wrap: anywhere;
+  }
+}
+
+.ai-agent-mode__form {
+  display: grid;
+  gap: 10px;
+}
+
+@media (max-width: 1180px) {
+  .ai-agent-panel__controls,
+  .ai-agent-panel__modes {
+    grid-template-columns: 1fr;
+  }
+}
+</style>

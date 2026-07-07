@@ -79,6 +79,7 @@ export interface UpdateSshProfileInput {
   jumpHostJson?: string;
   autoReconnect?: boolean;
   folderId?: string;
+  sortOrder?: number;
   color?: string;
   tags?: string;
 }

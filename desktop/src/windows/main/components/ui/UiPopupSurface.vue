@@ -21,7 +21,7 @@ const props = withDefaults(defineProps<{
   maxWidth?: string | number;
   height?: string | number;
   maxHeight?: string | number;
-  zIndex?: number;
+  zIndex?: number | string;
   closeOnMask?: boolean;
   closeOnOutside?: boolean;
   closeOnEsc?: boolean;
@@ -46,7 +46,7 @@ const props = withDefaults(defineProps<{
   maxWidth: '',
   height: '',
   maxHeight: '',
-  zIndex: 10000,
+  zIndex: 'var(--ui-z-toast)',
   closeOnMask: true,
   closeOnOutside: true,
   closeOnEsc: true,

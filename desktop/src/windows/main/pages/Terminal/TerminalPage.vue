@@ -4,8 +4,10 @@ import { useRoute, useRouter } from 'vue-router';
 import MainPageLayout from '@/windows/main/components/layout/MainPageLayout.vue';
 import UiButton from '@/windows/main/components/ui/UiButton.vue';
 import UiDialog from '@/windows/main/components/ui/UiDialog.vue';
+import UiIconButton from '@/windows/main/components/ui/UiIconButton.vue';
 import UiInput from '@/windows/main/components/ui/UiInput.vue';
 import UiPopupSurface from '@/windows/main/components/ui/UiPopupSurface.vue';
+import UiScrollbar from '@/windows/main/components/ui/UiScrollbar.vue';
 import { notifyError, notifySuccess } from '@/windows/main/composables/useInAppNotification';
 import {
   CONNECTION_LAYOUTS_CHANGED_EVENT,
@@ -25,6 +27,7 @@ import type { TerminalBackgroundConfig, TerminalLayoutMode, TerminalRendererMode
 import type { BackgroundConfirmPayload } from '@/contracts/background';
 import { resolveThemeBackground, withThemeBackground } from '@/contracts/background';
 import type { SshProfile, SshSessionDescriptor } from '@/contracts/ssh';
+import type { WorkspaceDetachedWindowState, WorkspaceWindowContext } from '@/contracts/workspace_window';
 import TerminalSearchPanel from './TerminalSearchPanel.vue';
 import TerminalToolbar from './TerminalToolbar.vue';
 import TerminalProfileIcon from './TerminalProfileIcon.vue';
@@ -46,6 +49,8 @@ const UiPersonalizationConfig = defineAsyncComponent(() => import('@/windows/mai
 
 const route = useRoute();
 const router = useRouter();
+const workspaceWindowContext = ref<WorkspaceWindowContext>({ role: 'main' });
+const isDetachedWindow = computed(() => workspaceWindowContext.value.role === 'detached');
 
 const globalStore = useGlobalStore();
 const terminalStore = useTerminalStore();
@@ -125,6 +130,15 @@ interface DwindleLayoutModel {
   handles: TerminalPaneResizeHandle[];
 }
 
+interface TerminalWorkspaceWindowState {
+  focusedTerminalPaneKey?: string;
+  paneOrder?: string[];
+  layoutSizeState?: Record<string, number[]>;
+  masterMainRatio?: number;
+  dwindleSplitRatios?: number[];
+  sidebarCollapsed?: boolean;
+}
+
 const focusedTerminalPaneKey = ref('');
 const paneOrder = ref<string[]>([]);
 const paneDragPreviewOrder = ref<string[]>([]);
@@ -145,6 +159,10 @@ const resizeInteraction = ref<PaneResizeInteraction | null>(null);
 const connectionLayoutConfigs = ref<ConnectionLayoutConfig[]>([]);
 const saveLayoutDialogVisible = ref(false);
 const saveLayoutName = ref('');
+let terminalWorkspaceWindowStateReady = false;
+let terminalWorkspaceWindowStateTimer: number | undefined;
+let terminalWorkspaceSessionRefreshQueue = Promise.resolve();
+let removeWorkspaceWindowStateListener: (() => void) | undefined;
 
 function syncSidebarTabFromRoute() {
   const tab = Array.isArray(route.query.tab) ? route.query.tab[0] : route.query.tab;
@@ -168,6 +186,120 @@ function activateSidebarTab() {
   sidebarTab.value = 'config';
 }
 
+function isPlainRecord(value: unknown): value is Record<string, unknown> {
+  return Boolean(value) && typeof value === 'object' && !Array.isArray(value);
+}
+
+function readStringArray(value: unknown) {
+  return Array.isArray(value) && value.every((item) => typeof item === 'string') ? value : null;
+}
+
+function readNumberArray(value: unknown) {
+  return Array.isArray(value) && value.every((item) => typeof item === 'number' && Number.isFinite(item))
+    ? value
+    : null;
+}
+
+function readLayoutSizeState(value: unknown) {
+  if (!isPlainRecord(value)) return null;
+  const next: Record<string, number[]> = {};
+  for (const [key, sizes] of Object.entries(value)) {
+    const parsed = readNumberArray(sizes);
+    if (parsed) {
+      next[key] = parsed;
+    }
+  }
+  return next;
+}
+
+function cloneLayoutSizeState(value: Record<string, number[]>) {
+  return Object.fromEntries(
+    Object.entries(value).map(([key, sizes]) => [key, [...sizes]]),
+  );
+}
+
+async function loadTerminalWorkspaceWindowState() {
+  try {
+    const state = await window.workspaceWindowApi?.getPageState('terminal') as TerminalWorkspaceWindowState | null | undefined;
+    if (!isPlainRecord(state)) return;
+
+    if (typeof state.focusedTerminalPaneKey === 'string') {
+      focusedTerminalPaneKey.value = state.focusedTerminalPaneKey;
+    }
+    const nextPaneOrder = readStringArray(state.paneOrder);
+    if (nextPaneOrder) {
+      paneOrder.value = nextPaneOrder;
+    }
+    const nextLayoutSizeState = readLayoutSizeState(state.layoutSizeState);
+    if (nextLayoutSizeState) {
+      layoutSizeState.value = nextLayoutSizeState;
+    }
+    if (typeof state.masterMainRatio === 'number' && Number.isFinite(state.masterMainRatio)) {
+      masterMainRatio.value = clamp(state.masterMainRatio, 24, 76);
+    }
+    const nextDwindleSplitRatios = readNumberArray(state.dwindleSplitRatios);
+    if (nextDwindleSplitRatios) {
+      dwindleSplitRatios.value = nextDwindleSplitRatios;
+    }
+    if (typeof state.sidebarCollapsed === 'boolean') {
+      sidebarCollapsed.value = state.sidebarCollapsed;
+    }
+    syncActiveStoresFromFocusedPane();
+  } finally {
+    terminalWorkspaceWindowStateReady = true;
+  }
+}
+
+function buildTerminalWorkspaceWindowStateSnapshot(): TerminalWorkspaceWindowState {
+  return {
+    focusedTerminalPaneKey: focusedTerminalPaneKey.value,
+    paneOrder: [...paneOrder.value],
+    layoutSizeState: cloneLayoutSizeState(layoutSizeState.value),
+    masterMainRatio: masterMainRatio.value,
+    dwindleSplitRatios: [...dwindleSplitRatios.value],
+    sidebarCollapsed: sidebarCollapsed.value,
+  };
+}
+
+function persistTerminalWorkspaceWindowState() {
+  if (!terminalWorkspaceWindowStateReady) return;
+  void window.workspaceWindowApi
+    ?.setPageState('terminal', buildTerminalWorkspaceWindowStateSnapshot())
+    .catch((error) => {
+      console.warn('[workspace-window] Failed to persist terminal page state:', error);
+    });
+}
+
+function scheduleTerminalWorkspaceWindowStatePersist() {
+  if (!terminalWorkspaceWindowStateReady) return;
+  window.clearTimeout(terminalWorkspaceWindowStateTimer);
+  terminalWorkspaceWindowStateTimer = window.setTimeout(persistTerminalWorkspaceWindowState, 80);
+}
+
+function refreshTerminalWorkspaceSessions() {
+  const nextRefresh = terminalWorkspaceSessionRefreshQueue
+    .catch(() => undefined)
+    .then(async () => {
+      if (terminalStore.initialized) {
+        await terminalStore.refreshSessions();
+      }
+      if (sshStore.initialized) {
+        await sshStore.refreshSessions();
+      }
+      syncActiveStoresFromFocusedPane();
+    });
+  terminalWorkspaceSessionRefreshQueue = nextRefresh;
+  return nextRefresh;
+}
+
+function handleWorkspaceWindowStateChanged(state: WorkspaceDetachedWindowState) {
+  if (route.path === '/terminal' && typeof state.detached.terminal === 'boolean') {
+    void refreshTerminalWorkspaceSessions().catch((error) => {
+      console.warn('[workspace-window] Failed to refresh terminal sessions:', error);
+    });
+  }
+}
+
 watch(() => route.query.tab, syncSidebarTabFromRoute, { immediate: true });
 onActivated(syncSidebarTabFromRoute);
 
@@ -182,7 +314,6 @@ const sshFingerprintInfo = ref({ host: '', port: 22, algorithm: '', fingerprint:
 const sshConnectError = ref('');
 const sshConnectingProfileIds = ref<string[]>([]);
 const sshLastFailedProfile = ref<SshProfile | null>(null);
-const sshReconnectingSessionId = ref('');
 /** Pending connect callback resolved after fingerprint is trusted */
 let sshFingerprintResolve: (() => void) | null = null;
 let sshFingerprintReject: (() => void) | null = null;
@@ -389,28 +520,6 @@ function handleSshFocusSession(session: SshSessionDescriptor) {
 
 async function handleSshDisconnect(sessionId: string) {
   await sshStore?.disconnect(sessionId);
-}
-
-async function reconnectActiveSshSession() {
-  const session = activeSshSessionForPane.value;
-  const profile = activeSshProfile.value;
-  if (!session || !profile) {
-    sshConnectError.value = '找不到原 SSH 配置，无法自动重连。请从左侧 SSH 配置列表重新连接。';
-    return;
-  }
-
-  sshReconnectingSessionId.value = session.sessionId;
-  sshConnectError.value = '';
-  try {
-    try {
-      await sshStore.disconnect(session.sessionId);
-    } catch {
-      // The backend may already have dropped this session; reconnecting can continue.
-    }
-    await handleSshConnect(profile);
-  } finally {
-    sshReconnectingSessionId.value = '';
-  }
 }
 
 function toggleSidebar() {
@@ -634,16 +743,6 @@ const activeSshProfile = computed(() =>
   activeSshSessionForPane.value
     ? sshStore.profiles.find((profile) => profile.id === activeSshSessionForPane.value?.profileId) ?? null
     : null,
-);
-const activeSshReconnectState = computed(() =>
-  activeSshSessionForPane.value
-    ? sshStore.reconnectStates[activeSshSessionForPane.value.sessionId] ?? null
-    : null,
-);
-const activeSshDisconnectMessage = computed(() =>
-  activeSshSessionForPane.value
-    ? sshStore.getError(activeSshSessionForPane.value.sessionId) || activeSshReconnectState.value?.lastError || ''
-    : '',
 );
 /** Whether the active viewport is for an SSH session */
 const isSshMode = computed(() => activeTerminalPane.value?.kind === 'ssh');
@@ -1021,6 +1120,16 @@ function focusPane(pane: TerminalPane, focusViewport = true) {
     return;
   }
   focusLocalSession(pane.sessionId, focusViewport);
+}
+
+function syncActiveStoresFromFocusedPane() {
+  const parsed = parsePaneKey(focusedTerminalPaneKey.value);
+  if (!parsed) return;
+  if (parsed.kind === 'local') {
+    terminalStore.focusSession(parsed.sessionId);
+  } else if (parsed.kind === 'ssh') {
+    sshStore.focusSession(parsed.sessionId);
+  }
 }
 
 function loadConnectionLayoutConfigs() {
@@ -1569,6 +1678,10 @@ function closeSearchPanel() {
 }
 
 function handleTerminalPageKeydown(event: KeyboardEvent) {
+  if (route.name !== 'Terminal') {
+    return;
+  }
+
   if (event.defaultPrevented || event.isComposing) {
     return;
   }
@@ -1754,6 +1867,11 @@ async function openFileManagerForCurrentSsh() {
     remotePath: sshStore.getSessionWorkingDirectory(sshSession.sessionId) || '/',
   });
 
+  if (isDetachedWindow.value) {
+    await window.workspaceWindowApi?.openDetached('ftp', { routeOverride: '/ftp' });
+    return;
+  }
+
   if (route.path !== '/ftp') {
     await router.push('/ftp');
   }
@@ -1785,6 +1903,19 @@ function handleUnhandledSshRejection(event: PromiseRejectionEvent) {
 }
 
 watch(
+  [
+    focusedTerminalPaneKey,
+    paneOrder,
+    layoutSizeState,
+    masterMainRatio,
+    dwindleSplitRatios,
+    sidebarCollapsed,
+  ],
+  scheduleTerminalWorkspaceWindowStatePersist,
+  { deep: true },
+);
+
+watch(
   () => [
     route.path,
     route.query.openTerminalRequestId,
@@ -1803,23 +1934,51 @@ watch(
 
 onActivated(() => {
   void handleTerminalOpenRequestFromRoute();
+  void refreshTerminalWorkspaceSessions().catch((error) => {
+    console.warn('[workspace-window] Failed to refresh terminal sessions on activation:', error);
+  });
 });
 
 onMounted(() => {
+  void window.workspaceWindowApi?.getContext().then((context) => {
+    workspaceWindowContext.value = context;
+  });
+  void window.workspaceWindowApi?.getState().then((state) => {
+    handleWorkspaceWindowStateChanged(state);
+  });
+  removeWorkspaceWindowStateListener = window.workspaceWindowApi?.onStateChanged((state) => {
+    handleWorkspaceWindowStateChanged(state);
+  });
+  void loadTerminalWorkspaceWindowState();
   globalStore.setTopbarColor('');
   loadConnectionLayoutConfigs();
   window.addEventListener(CONNECTION_LAYOUTS_CHANGED_EVENT, loadConnectionLayoutConfigs);
   window.addEventListener('keydown', handleTerminalPageKeydown, true);
   window.addEventListener('unhandledrejection', handleUnhandledSshRejection);
   if (hasTerminalOpenRequest()) {
-    void terminalStore.initialize();
+    void terminalStore.initialize()
+      .then(() => refreshTerminalWorkspaceSessions())
+      .catch((error) => {
+        console.warn('[workspace-window] Failed to initialize terminal sessions:', error);
+      });
   } else {
-    void initializePage();
+    void initializePage()
+      .then(() => refreshTerminalWorkspaceSessions())
+      .catch((error) => {
+        console.warn('[workspace-window] Failed to initialize terminal page:', error);
+      });
   }
-  void sshStore.initialize();
+  void sshStore.initialize()
+    .then(() => refreshTerminalWorkspaceSessions())
+    .catch((error) => {
+      console.warn('[workspace-window] Failed to initialize SSH sessions:', error);
+    });
 });
 
 onBeforeUnmount(() => {
+  persistTerminalWorkspaceWindowState();
+  window.clearTimeout(terminalWorkspaceWindowStateTimer);
+  removeWorkspaceWindowStateListener?.();
   window.removeEventListener(CONNECTION_LAYOUTS_CHANGED_EVENT, loadConnectionLayoutConfigs);
   window.removeEventListener('keydown', handleTerminalPageKeydown, true);
   window.removeEventListener('unhandledrejection', handleUnhandledSshRejection);
@@ -1846,9 +2005,10 @@ onBeforeUnmount(() => {
   >
     <template #sidebar>
         <div class="terminal-sidebar__header">
-          <button
+          <UiIconButton
             class="terminal-sidebar__toggle"
-            type="button"
+            size="sm"
+            variant="ghost"
             :aria-label="sidebarCollapsed ? '展开侧边栏' : '收起侧边栏'"
             :title="sidebarCollapsed ? '展开侧边栏' : '收起侧边栏'"
             @click="toggleSidebar"
@@ -1881,11 +2041,15 @@ onBeforeUnmount(() => {
               <path d="M9 4v16" />
               <path d="m15 9-3 3 3 3" />
             </svg>
-          </button>
+          </UiIconButton>
           <!-- Tab switcher (only visible when sidebar is expanded) -->
           <div v-show="!sidebarCollapsed" class="sidebar-tabs">
-            <button
+            <UiButton
               class="sidebar-tab"
+              size="sm"
+              variant="ghost"
+              type="button"
+              :active="sidebarTab === 'config'"
               :class="{ 'sidebar-tab--active': sidebarTab === 'config' }"
               id="sidebar-tab-config"
               @click="activateSidebarTab()"
@@ -1896,7 +2060,7 @@ onBeforeUnmount(() => {
                 <path d="M19.4 15a1.7 1.7 0 0 0 .34 1.88l.04.04a2 2 0 1 1-2.83 2.83l-.04-.04A1.7 1.7 0 0 0 15 19.4a1.7 1.7 0 0 0-1 .6l-.06.06a2 2 0 1 1-3.88 0L10 20a1.7 1.7 0 0 0-1-.6 1.7 1.7 0 0 0-1.88.34l-.04.04a2 2 0 1 1-2.83-2.83l.04-.04A1.7 1.7 0 0 0 4.6 15a1.7 1.7 0 0 0-.6-1l-.06-.06a2 2 0 1 1 0-3.88L4 10a1.7 1.7 0 0 0 .6-1 1.7 1.7 0 0 0-.34-1.88l-.04-.04a2 2 0 1 1 2.83-2.83l.04.04A1.7 1.7 0 0 0 9 4.6a1.7 1.7 0 0 0 1-.6l.06-.06a2 2 0 1 1 3.88 0L14 4a1.7 1.7 0 0 0 1 .6 1.7 1.7 0 0 0 1.88-.34l.04-.04a2 2 0 1 1 2.83 2.83l-.04.04A1.7 1.7 0 0 0 19.4 9c.19.35.4.69.6 1l.06.06a2 2 0 1 1 0 3.88L20 14a1.7 1.7 0 0 0-.6 1Z" />
               </svg>
               配置
-            </button>
+            </UiButton>
           </div>
         </div>
 
@@ -1905,11 +2069,12 @@ onBeforeUnmount(() => {
           <div class="terminal-sidebar__panel terminal-sidebar__panel--config">
             <template v-if="sidebarCollapsed">
               <div class="terminal-sidebar__collapsed-rail">
-                <button
+                <UiIconButton
                   v-for="profile in terminalStore.profiles"
                   :key="profile.id"
                   class="terminal-sidebar__collapsed-action"
-                  type="button"
+                  size="sm"
+                  variant="ghost"
                   :title="`双击新建本地终端：${profile.label}`"
                   @dblclick="createSession(profile.id)"
                 >
@@ -1919,14 +2084,15 @@ onBeforeUnmount(() => {
                     :label="profile.label"
                     :size="18"
                   />
-                </button>
+                </UiIconButton>
                 <div class="terminal-sidebar__collapsed-divider" />
-                <button
+                <UiIconButton
                   v-for="profile in sshStore.profiles"
                   :key="profile.id"
                   class="terminal-sidebar__collapsed-action terminal-sidebar__collapsed-action--ssh"
+                  size="sm"
+                  variant="ghost"
                   :class="{ 'terminal-sidebar__collapsed-action--connecting': isSshProfileConnecting(profile.id) }"
-                  type="button"
                   :title="isSshProfileConnecting(profile.id)
                     ? `正在连接 SSH：${profile.label}`
                     : `连接 SSH：${profile.label}`"
@@ -1939,11 +2105,12 @@ onBeforeUnmount(() => {
                     <polyline points="4 17 10 11 4 5" />
                     <line x1="12" y1="19" x2="20" y2="19" />
                   </svg>
-                </button>
+                </UiIconButton>
                 <div class="terminal-sidebar__collapsed-divider" />
-                <button
+                <UiIconButton
                   class="terminal-sidebar__collapsed-action terminal-sidebar__collapsed-action--muted"
-                  type="button"
+                  size="sm"
+                  variant="ghost"
                   title="新建 SSH 配置"
                   @click="openSshProfileDialog(null)"
                 >
@@ -1952,51 +2119,57 @@ onBeforeUnmount(() => {
                     <path d="M12 5v14" />
                     <path d="M5 12h14" />
                   </svg>
-                </button>
+                </UiIconButton>
               </div>
             </template>
             <template v-else>
-              <div class="terminal-sidebar__sessions terminal-sidebar__config-list">
-                <div class="terminal-sidebar__section-header">
-                  <span class="terminal-sidebar__section-label">本地终端配置</span>
-                </div>
-                <button
-                  v-for="profile in terminalStore.profiles"
-                  :key="profile.id"
-                  class="terminal-profile-item"
-                  type="button"
-                  @dblclick="createSession(profile.id)"
-                >
-                  <TerminalProfileIcon
-                    class="terminal-profile-item__icon"
-                    :profile-id="profile.id"
-                    :command="profile.command"
-                    :label="profile.label"
-                    :size="16"
+              <UiScrollbar class="terminal-sidebar__expanded-scroll" :x="false" :size="6">
+                <div class="terminal-sidebar__expanded-content">
+                  <div class="terminal-sidebar__sessions terminal-sidebar__config-list">
+                    <div class="terminal-sidebar__section-header">
+                      <span class="terminal-sidebar__section-label">本地终端配置</span>
+                    </div>
+                    <UiButton
+                      v-for="profile in terminalStore.profiles"
+                      :key="profile.id"
+                      class="terminal-profile-item"
+                      size="sm"
+                      variant="ghost"
+                      type="button"
+                      @dblclick="createSession(profile.id)"
+                    >
+                      <TerminalProfileIcon
+                        class="terminal-profile-item__icon"
+                        :profile-id="profile.id"
+                        :command="profile.command"
+                        :label="profile.label"
+                        :size="16"
+                      />
+                      <span class="terminal-profile-item__text">
+                        <span class="terminal-profile-item__label">{{ profile.label }}</span>
+                        <span class="terminal-profile-item__command">{{ profile.command || profile.id }}</span>
+                      </span>
+                      <svg class="terminal-profile-item__launch" viewBox="0 0 24 24" width="14" height="14" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M5 12h14" />
+                        <path d="m13 6 6 6-6 6" />
+                      </svg>
+                    </UiButton>
+                    <div class="terminal-sidebar__divider" />
+                  </div>
+                  <SshSidebarTab
+                    class="terminal-sidebar__ssh-configs"
+                    :show-active-sessions="false"
+                    :profile-section-label="'SSH 配置'"
+                    :connecting-profile-ids="sshConnectingProfileIds"
+                    @edit-profile="openSshProfileDialog"
+                    @create-profile-in-group="openSshProfileDialog(null, $event)"
+                    @open-key-manager="sshKeyManagerVisible = true"
+                    @connect="handleSshConnect"
+                    @focus-session="handleSshFocusSession"
+                    @disconnect="handleSshDisconnect"
                   />
-                  <span class="terminal-profile-item__text">
-                    <span class="terminal-profile-item__label">{{ profile.label }}</span>
-                    <span class="terminal-profile-item__command">{{ profile.command || profile.id }}</span>
-                  </span>
-                  <svg class="terminal-profile-item__launch" viewBox="0 0 24 24" width="14" height="14" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round">
-                    <path d="M5 12h14" />
-                    <path d="m13 6 6 6-6 6" />
-                  </svg>
-                </button>
-                <div class="terminal-sidebar__divider" />
-              </div>
-              <SshSidebarTab
-                class="terminal-sidebar__ssh-configs"
-                :show-active-sessions="false"
-                :profile-section-label="'SSH 配置'"
-                :connecting-profile-ids="sshConnectingProfileIds"
-                @edit-profile="openSshProfileDialog"
-                @create-profile-in-group="openSshProfileDialog(null, $event)"
-                @open-key-manager="sshKeyManagerVisible = true"
-                @connect="handleSshConnect"
-                @focus-session="handleSshFocusSession"
-                @disconnect="handleSshDisconnect"
-              />
+                </div>
+              </UiScrollbar>
             </template>
           </div>
         </div>
@@ -2036,44 +2209,42 @@ onBeforeUnmount(() => {
           />
         </Transition>
 
-        <Transition name="ui-tab-fade">
-        <div v-if="isSshMode && activeSshReconnectState && activeSshSessionForPane" class="terminal-alert terminal-alert--error">
-          <span>
-            {{ activeSshSessionForPane.profileLabel }} 连接已断开，请重连后继续操作。
-            <span v-if="activeSshDisconnectMessage" class="terminal-alert__detail">{{ activeSshDisconnectMessage }}</span>
-          </span>
-          <div class="terminal-alert__actions">
-            <UiButton
-              size="sm"
-              variant="secondary"
-              :disabled="sshReconnectingSessionId === activeSshSessionForPane.sessionId || !activeSshProfile"
-              @click="reconnectActiveSshSession"
-            >
-              {{ sshReconnectingSessionId === activeSshSessionForPane.sessionId ? '重连中' : '重连' }}
-            </UiButton>
-          </div>
-        </div>
-        </Transition>
     </template>
 
     <template #stage>
           <div v-if="layoutMode === 'tabbed' && terminalPanes.length > 1" class="terminal-pane-tabs">
-            <button
+            <UiButton
               v-for="pane in orderedTerminalPanes"
               :key="pane.key"
               class="terminal-pane-tab"
+              size="sm"
+              variant="ghost"
+              type="button"
+              :active="pane.key === activeTerminalPane?.key"
               :data-terminal-pane-key="pane.key"
               :class="{
                 'terminal-pane-tab--active': pane.key === activeTerminalPane?.key,
                 'terminal-pane-tab--drop-target': pane.key === dropTargetPaneKey,
                 'terminal-pane-tab--drag-placeholder': pane.key === draggingPaneKey,
               }"
-              type="button"
               @pointerdown="startPanePointerDrag($event, pane, true)"
             >
               <span class="terminal-pane-tab__kind">{{ pane.kind === 'local' ? '本地' : 'SSH' }}</span>
               <span class="terminal-pane-tab__title">{{ pane.title }}</span>
-            </button>
+              <span
+                class="terminal-pane-tab__close"
+                role="button"
+                tabindex="-1"
+                title="关闭终端"
+                aria-label="关闭终端"
+                @pointerdown.stop
+                @click.stop="closePane(pane)"
+              >
+                <svg viewBox="0 0 16 16" width="12" height="12" aria-hidden="true">
+                  <path d="M4.5 4.5l7 7M11.5 4.5l-7 7" />
+                </svg>
+              </span>
+            </UiButton>
           </div>
 
           <div
@@ -2103,9 +2274,10 @@ onBeforeUnmount(() => {
                 <span class="terminal-pane__kind">{{ item.pane.kind === 'local' ? '本地' : 'SSH' }}</span>
                 <span class="terminal-pane__title">{{ item.pane.title }}</span>
                 <span class="terminal-pane__status">{{ item.pane.key === draggingPaneKey ? '占位' : item.pane.status }}</span>
-                <button
+                <UiIconButton
                   class="terminal-pane__close"
-                  type="button"
+                  size="sm"
+                  variant="ghost"
                   title="关闭终端"
                   aria-label="关闭终端"
                   @click.stop="closePane(item.pane)"
@@ -2114,7 +2286,7 @@ onBeforeUnmount(() => {
                     <line x1="18" y1="6" x2="6" y2="18" />
                     <line x1="6" y1="6" x2="18" y2="18" />
                   </svg>
-                </button>
+                </UiIconButton>
               </div>
               <div v-if="item.pane.kind === 'ssh-pending'" class="terminal-pane__connecting">
                 <span class="terminal-pane__connecting-spinner" aria-hidden="true" />
@@ -2151,14 +2323,15 @@ onBeforeUnmount(() => {
                 @search-results="item.pane.key === activeTerminalPane?.key ? handleSearchResults($event) : undefined"
               />
             </div>
-            <button
+            <UiIconButton
               v-for="handle in terminalPaneResizeHandles"
               :key="handle.id"
               class="terminal-pane-resizer"
+              size="sm"
+              variant="ghost"
               :class="`terminal-pane-resizer--${handle.orientation}`"
               :style="handle.style"
-              type="button"
-              aria-label="调整终端区域大小"
+              title="调整终端区域大小"
               @pointerdown="startPaneResize($event, handle)"
             />
             <div
@@ -2227,16 +2400,19 @@ onBeforeUnmount(() => {
           <div class="terminal-statusbar__right">
             <div v-if="forwardedPortSummaries.length > 0" class="statusbar-forward-list">
               <span class="statusbar-forward-list__label">转发</span>
-              <button
+              <UiButton
                 v-for="port in forwardedPortSummaries"
                 :key="`${port.sessionId}:${port.forwardId}`"
                 class="statusbar-forward-chip"
+                size="sm"
+                variant="ghost"
+                type="button"
                 :title="`${port.profileLabel} · ${port.label} · ${port.address}`"
                 @click="openPortForwardPanelForSession(port.sessionId)"
               >
                 <span class="statusbar-forward-chip__type">{{ port.forwardType.slice(0, 1).toUpperCase() }}</span>
                 <span class="statusbar-forward-chip__port">{{ port.port }}</span>
-              </button>
+              </UiButton>
             </div>
             <span>{{ activeTerminalPane?.kind === 'local' ? '本地' : 'SSH' }}</span>
           </div>
@@ -2308,7 +2484,7 @@ onBeforeUnmount(() => {
         variant="dialog"
         width="340px"
         max-width="calc(100vw - 48px)"
-        :z-index="9000"
+        z-index="var(--ui-z-secure-modal)"
         aria-label="输入 SSH 密码"
         @close="handleSshPasswordCancel"
       >
@@ -2322,19 +2498,20 @@ onBeforeUnmount(() => {
                 <span>输入 SSH 密码</span>
               </div>
               <p class="ssh-pwd-dialog__sub">{{ sshPasswordPromptLabel }}</p>
-              <input
+              <UiInput
                 id="ssh-password-input"
                 v-model="sshPasswordPromptValue"
                 type="password"
                 class="ssh-pwd-dialog__input"
+                size="md"
                 placeholder="请输入密码..."
                 autofocus
                 @keydown.enter="handleSshPasswordConfirm"
                 @keydown.esc="handleSshPasswordCancel"
               />
               <div class="ssh-pwd-dialog__actions">
-                <button class="ssh-pwd-btn ssh-pwd-btn--cancel" @click="handleSshPasswordCancel">取消</button>
-                <button class="ssh-pwd-btn ssh-pwd-btn--confirm" @click="handleSshPasswordConfirm">连接</button>
+                <UiButton class="ssh-pwd-btn ssh-pwd-btn--cancel" size="sm" variant="ghost" type="button" @click="handleSshPasswordCancel">取消</UiButton>
+                <UiButton class="ssh-pwd-btn ssh-pwd-btn--confirm" size="sm" variant="primary" type="button" @click="handleSshPasswordConfirm">连接</UiButton>
               </div>
             </div>
       </UiPopupSurface>
@@ -2376,7 +2553,7 @@ onBeforeUnmount(() => {
 
 .terminal-layout-dialog__header {
   padding: 14px 16px;
-  font-size: 14px;
+  font-size: var(--ui-font-size-md);
   font-weight: 700;
   color: var(--ui-text-primary);
 }
@@ -2400,7 +2577,10 @@ onBeforeUnmount(() => {
   flex-shrink: 0;
   border-right: 1px solid var(--ui-border-subtle);
   background: var(--ui-surface-panel);
-  transition: width 0.28s cubic-bezier(0.4, 0, 0.2, 1);
+  transition:
+    width 0.38s cubic-bezier(0.22, 1, 0.36, 1),
+    min-width 0.38s cubic-bezier(0.22, 1, 0.36, 1),
+    flex-basis 0.38s cubic-bezier(0.22, 1, 0.36, 1);
   overflow: hidden;
 
   &--collapsed {
@@ -2422,7 +2602,7 @@ onBeforeUnmount(() => {
   padding: 10px 0;
 }
 
-.terminal-sidebar__toggle {
+.terminal-sidebar__toggle.ui-icon-button.ui-icon-button--sm:not(.ui-icon-button--labeled) {
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -2434,21 +2614,22 @@ onBeforeUnmount(() => {
   border-radius: 8px;
   background: transparent;
   color: var(--ui-text-muted);
-  cursor: pointer;
   transition:
     background-color 0.18s ease,
     border-color 0.18s ease,
     color 0.18s ease;
+  transform: none;
 
-  &:hover {
+  &:hover:not(:disabled) {
     border-color: var(--ui-border-subtle);
     background: var(--ui-button-ghost-hover-bg);
     color: var(--ui-text-primary);
+    transform: none;
   }
 
-  &:focus-visible {
-    outline: none;
-    box-shadow: var(--ui-focus-ring);
+  svg {
+    fill: none;
+    stroke: currentColor;
   }
 }
 
@@ -2464,7 +2645,7 @@ onBeforeUnmount(() => {
   padding: 3px;
 }
 
-.sidebar-tab {
+.sidebar-tab.ui-button {
   flex: 1;
   display: flex;
   align-items: center;
@@ -2476,35 +2657,41 @@ onBeforeUnmount(() => {
   border-radius: 5px;
   background: transparent;
   color: var(--ui-text-muted);
-  font-size: 11px;
+  font-size: var(--ui-font-size-xs);
   font-weight: 600;
-  cursor: pointer;
   transition: all 0.18s;
   white-space: nowrap;
+  box-shadow: none;
+  transform: none;
 
-  &--active {
-    background: var(--ui-surface-panel);
-    color: var(--ui-text-primary);
-    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.12);
-  }
-
-  &:hover:not(&--active) {
+  &:hover:not(.sidebar-tab--active, :disabled) {
     color: var(--ui-text-secondary);
+    transform: none;
   }
 
-  &__badge {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    min-width: 14px;
-    height: 14px;
-    padding: 0 3px;
-    border-radius: 7px;
-    background: var(--primary-color);
-    color: #fff;
-    font-size: 9px;
-    font-weight: 800;
+  .ui-button__label {
+    gap: 4px;
   }
+}
+
+.sidebar-tab--active.ui-button {
+  background: var(--ui-surface-panel);
+  color: var(--ui-text-primary);
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.12);
+}
+
+.sidebar-tab__badge {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 14px;
+  height: 14px;
+  padding: 0 3px;
+  border-radius: 7px;
+  background: var(--primary-color);
+  color: #fff;
+  font-size: 9px;
+  font-weight: 800;
 }
 
 // ── Status bar SSH indicator ──────────────────────────────────
@@ -2513,8 +2700,8 @@ onBeforeUnmount(() => {
   display: flex;
   align-items: center;
   gap: 5px;
-  font-size: 11px;
-  font-family: Consolas, 'Cascadia Mono', monospace;
+  font-size: var(--ui-font-size-xs);
+  font-family: var(--ui-font-family-mono);
   color: #22c55e;
 }
 
@@ -2560,10 +2747,23 @@ onBeforeUnmount(() => {
   overflow-y: auto;
   padding: 12px;
   gap: 6px;
+  animation: terminal-sidebar-content-in 0.32s cubic-bezier(0.22, 1, 0.36, 1);
 
-  :deep(.ui-tooltip-trigger) {
+  .ui-tooltip-trigger {
     width: 100%;
   }
+}
+
+.terminal-sidebar__expanded-scroll {
+  flex: 1;
+  min-height: 0;
+}
+
+.terminal-sidebar__expanded-content {
+  display: flex;
+  min-height: 100%;
+  flex-direction: column;
+  animation: terminal-sidebar-content-in 0.32s cubic-bezier(0.22, 1, 0.36, 1);
 }
 
 .terminal-sidebar__config-list {
@@ -2574,6 +2774,7 @@ onBeforeUnmount(() => {
 
 .terminal-sidebar__ssh-configs {
   min-height: 0;
+  overflow: visible;
 }
 
 .terminal-sidebar__section-header {
@@ -2597,30 +2798,48 @@ onBeforeUnmount(() => {
   background: var(--ui-border-subtle);
 }
 
-.terminal-profile-item {
+.terminal-profile-item.ui-button {
   display: flex;
   align-items: center;
+  justify-content: flex-start;
   gap: 8px;
   width: 100%;
   min-width: 0;
+  min-height: 0;
   padding: 8px 10px;
   border: 1px solid transparent;
   border-radius: var(--ui-radius-md);
   background: transparent;
   color: var(--ui-text-secondary);
-  cursor: pointer;
   text-align: left;
   transition: all 0.18s ease;
+  box-shadow: none;
+  transform: none;
 
-  &:hover {
+  &:hover:not(:disabled) {
     border-color: var(--ui-border-accent-soft);
     background: var(--ui-button-ghost-hover-bg);
     color: var(--ui-text-primary);
+    transform: none;
 
     .terminal-profile-item__launch {
       opacity: 1;
       transform: translateX(0);
     }
+  }
+
+  .ui-button__label {
+    display: inline-flex;
+    align-items: center;
+    justify-content: flex-start;
+    gap: 8px;
+    min-width: 0;
+    width: 100%;
+  }
+
+  svg {
+    fill: none;
+    stroke: currentColor;
   }
 }
 
@@ -2645,14 +2864,14 @@ onBeforeUnmount(() => {
 
 .terminal-profile-item__label {
   color: var(--ui-text-primary);
-  font-size: 12px;
+  font-size: var(--ui-font-size-xs);
   font-weight: 600;
 }
 
 .terminal-profile-item__command {
   color: var(--ui-text-muted);
-  font-family: Consolas, 'Cascadia Mono', monospace;
-  font-size: 11px;
+  font-family: var(--ui-font-family-mono);
+  font-size: var(--ui-font-size-xs);
 }
 
 .terminal-profile-item__launch {
@@ -2669,7 +2888,7 @@ onBeforeUnmount(() => {
   padding: 12px 0;
 }
 
-.terminal-sidebar--collapsed .terminal-sidebar__sessions :deep(.ui-tooltip-trigger) {
+.terminal-sidebar--collapsed .terminal-sidebar__sessions .ui-tooltip-trigger {
   justify-content: center;
 }
 
@@ -2685,9 +2904,51 @@ onBeforeUnmount(() => {
   overflow-y: auto;
   padding: 12px 6px;
   box-sizing: border-box;
+  scrollbar-width: none;
+  animation: terminal-sidebar-rail-in 0.3s cubic-bezier(0.22, 1, 0.36, 1);
+
+  &::-webkit-scrollbar {
+    width: 0;
+    height: 0;
+  }
 }
 
-.terminal-sidebar__collapsed-action {
+@keyframes terminal-sidebar-content-in {
+  from {
+    opacity: 0;
+    transform: translateX(-8px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes terminal-sidebar-rail-in {
+  from {
+    opacity: 0;
+    transform: translateX(6px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .terminal-sidebar,
+  .terminal-sidebar__panel,
+  .terminal-sidebar__sessions,
+  .terminal-sidebar__expanded-content,
+  .terminal-sidebar__collapsed-rail {
+    animation: none;
+    transition: none;
+  }
+}
+
+.terminal-sidebar__collapsed-action.ui-icon-button.ui-icon-button--sm:not(.ui-icon-button--labeled) {
   position: relative;
   display: inline-flex;
   align-items: center;
@@ -2701,12 +2962,12 @@ onBeforeUnmount(() => {
   border-radius: var(--ui-radius-md);
   background: transparent;
   color: var(--ui-text-secondary);
-  cursor: pointer;
   transition:
     background-color 0.16s ease,
     border-color 0.16s ease,
     color 0.16s ease,
     transform 0.16s ease;
+  box-shadow: none;
 
   &:hover:not(:disabled) {
     border-color: var(--ui-border-accent-soft);
@@ -2715,38 +2976,33 @@ onBeforeUnmount(() => {
     transform: translateY(-1px);
   }
 
-  &:focus-visible {
-    outline: none;
-    box-shadow: var(--ui-focus-ring);
-  }
-
   &:disabled {
     cursor: progress;
     opacity: 0.72;
   }
+}
 
-  &--ssh {
-    color: var(--primary-color);
-    background: color-mix(in srgb, var(--primary-color) 8%, transparent);
-  }
+.terminal-sidebar__collapsed-action--ssh.ui-icon-button {
+  color: var(--primary-color);
+  background: color-mix(in srgb, var(--primary-color) 8%, transparent);
+}
 
-  &--connecting::after {
-    content: '';
-    position: absolute;
-    right: 5px;
-    top: 5px;
-    width: 7px;
-    height: 7px;
-    border-radius: 999px;
-    background: #f59e0b;
-    box-shadow: 0 0 6px rgba(245, 158, 11, 0.55);
-    animation: terminal-collapsed-pulse 0.9s ease-in-out infinite;
-  }
+.terminal-sidebar__collapsed-action--connecting.ui-icon-button::after {
+  content: '';
+  position: absolute;
+  right: 5px;
+  top: 5px;
+  width: 7px;
+  height: 7px;
+  border-radius: 999px;
+  background: #f59e0b;
+  box-shadow: 0 0 6px rgba(245, 158, 11, 0.55);
+  animation: terminal-collapsed-pulse 0.9s ease-in-out infinite;
+}
 
-  &--muted {
-    color: var(--ui-text-muted);
-    background: color-mix(in srgb, var(--ui-surface-overlay) 72%, transparent);
-  }
+.terminal-sidebar__collapsed-action--muted.ui-icon-button {
+  color: var(--ui-text-muted);
+  background: color-mix(in srgb, var(--ui-surface-overlay) 72%, transparent);
 }
 
 .terminal-sidebar__collapsed-color {
@@ -2805,12 +3061,14 @@ onBeforeUnmount(() => {
   background: color-mix(in srgb, var(--ui-surface-panel) 84%, transparent);
 }
 
-.terminal-pane-tab {
+.terminal-pane-tab.ui-button {
   display: inline-flex;
   align-items: center;
+  justify-content: flex-start;
   gap: 6px;
   max-width: 220px;
   min-width: 0;
+  min-height: 30px;
   height: 30px;
   padding: 0 10px;
   border: none;
@@ -2818,52 +3076,62 @@ onBeforeUnmount(() => {
   border-radius: 0;
   background: transparent;
   color: var(--ui-text-muted);
-  cursor: pointer;
-  font-size: 12px;
+  font-size: var(--ui-font-size-xs);
   user-select: none;
   transition: all 0.16s ease;
+  box-shadow: none;
+  transform: none;
 
   &:active {
     cursor: pointer;
   }
 
-  &:hover {
+  &:hover:not(:disabled) {
     border-color: var(--ui-border-accent-soft);
     color: var(--ui-text-secondary);
+    transform: none;
   }
 
-  &--active {
-    border-color: color-mix(in srgb, var(--primary-color) 28%, var(--ui-border-subtle));
-    background: color-mix(in srgb, var(--primary-color) 10%, var(--ui-tabs-active-bg));
-    color: color-mix(in srgb, var(--primary-color) 72%, var(--ui-text-primary));
-    box-shadow:
-      inset 0 -2px 0 var(--primary-color),
-      inset 0 1px 0 rgba(255, 255, 255, 0.08),
-      0 0 0 1px color-mix(in srgb, var(--primary-color) 12%, transparent);
+  .ui-button__label {
+    display: inline-flex;
+    align-items: center;
+    justify-content: flex-start;
+    gap: 6px;
+    min-width: 0;
   }
+}
 
-  &--drop-target {
-    box-shadow: inset 2px 0 0 var(--primary-color);
-  }
+.terminal-pane-tab--active.ui-button {
+  border-color: color-mix(in srgb, var(--primary-color) 28%, var(--ui-border-subtle));
+  background: color-mix(in srgb, var(--primary-color) 10%, var(--ui-tabs-active-bg));
+  color: color-mix(in srgb, var(--primary-color) 72%, var(--ui-text-primary));
+  box-shadow:
+    inset 0 -2px 0 var(--primary-color),
+    inset 0 1px 0 rgba(255, 255, 255, 0.08),
+    0 0 0 1px color-mix(in srgb, var(--primary-color) 12%, transparent);
+}
 
-  &--drag-placeholder {
-    border-right-color: color-mix(in srgb, var(--primary-color) 34%, var(--ui-border-subtle));
-    background:
-      repeating-linear-gradient(
-        135deg,
-        color-mix(in srgb, var(--primary-color) 12%, transparent) 0 6px,
-        transparent 6px 12px
-      ),
-      color-mix(in srgb, var(--ui-surface-panel-muted) 84%, transparent);
-    color: color-mix(in srgb, var(--ui-text-muted) 72%, transparent);
-    outline: 1px dashed color-mix(in srgb, var(--primary-color) 52%, transparent);
-    outline-offset: -4px;
-  }
+.terminal-pane-tab--drop-target.ui-button {
+  box-shadow: inset 2px 0 0 var(--primary-color);
+}
 
-  &--drag-placeholder .terminal-pane-tab__kind,
-  &--drag-placeholder .terminal-pane-tab__title {
-    opacity: 0.58;
-  }
+.terminal-pane-tab--drag-placeholder.ui-button {
+  border-right-color: color-mix(in srgb, var(--primary-color) 34%, var(--ui-border-subtle));
+  background:
+    repeating-linear-gradient(
+      135deg,
+      color-mix(in srgb, var(--primary-color) 12%, transparent) 0 6px,
+      transparent 6px 12px
+    ),
+    color-mix(in srgb, var(--ui-surface-panel-muted) 84%, transparent);
+  color: color-mix(in srgb, var(--ui-text-muted) 72%, transparent);
+  outline: 1px dashed color-mix(in srgb, var(--primary-color) 52%, transparent);
+  outline-offset: -4px;
+}
+
+.terminal-pane-tab--drag-placeholder .terminal-pane-tab__kind,
+.terminal-pane-tab--drag-placeholder .terminal-pane-tab__title {
+  opacity: 0.58;
 }
 
 .terminal-pane-tab__kind {
@@ -2879,6 +3147,32 @@ onBeforeUnmount(() => {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.terminal-pane-tab__close {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  width: 18px;
+  height: 18px;
+  border-radius: var(--ui-radius-sm);
+  color: var(--ui-text-muted);
+  transition:
+    background-color 0.14s ease,
+    color 0.14s ease;
+
+  svg {
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 2;
+    stroke-linecap: round;
+  }
+
+  &:hover {
+    background: color-mix(in srgb, var(--ui-state-error, #ef4444) 12%, transparent);
+    color: var(--ui-state-error, #ef4444);
+  }
 }
 
 .terminal-pane-workspace {
@@ -3019,7 +3313,7 @@ onBeforeUnmount(() => {
   cursor: grab;
   user-select: none;
   flex-shrink: 0;
-  font-size: 12px;
+  font-size: var(--ui-font-size-xs);
   transition:
     background 0.2s ease,
     border-color 0.2s ease,
@@ -3053,34 +3347,37 @@ onBeforeUnmount(() => {
   text-transform: uppercase;
 }
 
-.terminal-pane__close {
+.terminal-pane__close.ui-icon-button.ui-icon-button--sm:not(.ui-icon-button--labeled) {
   display: inline-flex;
   align-items: center;
   justify-content: center;
   width: 22px;
   height: 22px;
+  min-height: 22px;
+  padding: 0;
   margin-left: 2px;
   border: none;
   border-radius: 4px;
   background: transparent;
   color: var(--ui-text-muted);
-  cursor: pointer;
   opacity: 0.72;
   transition: background-color 0.14s ease, color 0.14s ease, opacity 0.14s ease;
+  transform: none;
 
-  &:hover {
+  &:hover:not(:disabled) {
     background: rgba(239, 68, 68, 0.16);
     color: #ef4444;
     opacity: 1;
+    transform: none;
   }
 
-  &:focus-visible {
-    outline: none;
-    box-shadow: var(--ui-focus-ring);
+  svg {
+    fill: none;
+    stroke: currentColor;
   }
 }
 
-.terminal-pane :deep(.terminal-viewport) {
+.terminal-pane .terminal-viewport {
   border: none;
   border-radius: 0;
 }
@@ -3123,14 +3420,14 @@ onBeforeUnmount(() => {
   }
 
   strong {
-    font-size: 13px;
+    font-size: var(--ui-font-size-sm);
     font-weight: 700;
   }
 
   span {
     color: var(--ui-text-muted);
-    font-family: Consolas, 'Cascadia Mono', monospace;
-    font-size: 12px;
+    font-family: var(--ui-font-family-mono);
+    font-size: var(--ui-font-size-xs);
   }
 }
 
@@ -3142,7 +3439,7 @@ onBeforeUnmount(() => {
 
 .terminal-pane-drag-preview {
   position: fixed;
-  z-index: 1000;
+  z-index: var(--ui-z-popover);
   display: inline-flex;
   align-items: center;
   gap: 8px;
@@ -3174,18 +3471,19 @@ onBeforeUnmount(() => {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  font-size: 12px;
+  font-size: var(--ui-font-size-xs);
   font-weight: 700;
 }
 
-.terminal-pane-resizer {
+.terminal-pane-resizer.ui-icon-button.ui-icon-button--sm:not(.ui-icon-button--labeled) {
   position: absolute;
-  z-index: 40;
+  z-index: var(--ui-z-floating);
   padding: 0;
   border: none;
   border-radius: 0;
   background: transparent;
   transition: background-color 0.12s ease, box-shadow 0.12s ease;
+  transform: none;
 
   &::after {
     content: '';
@@ -3249,15 +3547,15 @@ body.terminal-pane-dragging-active .terminal-pane-tab {
 .terminal-port-forward-overlay {
   position: absolute;
   inset: 0;
-  z-index: 100;
+  z-index: var(--ui-z-docked);
   background: rgba(0, 0, 0, 0.12);
 }
 
 .terminal-stage__path {
   min-width: 0;
   color: var(--primary-color);
-  font-size: 13px;
-  font-family: Consolas, 'Cascadia Mono', monospace;
+  font-size: var(--ui-font-size-sm);
+  font-family: var(--ui-font-family-mono);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -3270,7 +3568,7 @@ body.terminal-pane-dragging-active .terminal-pane-tab {
 .terminal-stage__error {
   flex-shrink: 0;
   color: var(--ui-state-error);
-  font-size: 12px;
+  font-size: var(--ui-font-size-xs);
 }
 
 .terminal-empty {
@@ -3288,7 +3586,7 @@ body.terminal-pane-dragging-active .terminal-pane-tab {
 }
 
 .terminal-empty__title {
-  font-size: 18px;
+  font-size: var(--ui-font-size-xl);
   font-weight: 600;
   color: var(--ui-text-primary);
 }
@@ -3297,7 +3595,7 @@ body.terminal-pane-dragging-active .terminal-pane-tab {
   max-width: 420px;
   text-align: center;
   color: var(--ui-text-muted);
-  font-size: 13px;
+  font-size: var(--ui-font-size-sm);
   line-height: 1.6;
 }
 
@@ -3308,7 +3606,7 @@ body.terminal-pane-dragging-active .terminal-pane-tab {
   border-radius: var(--ui-radius-md);
   background: rgba(var(--ui-state-error-rgb, 239 68 68), 0.1);
   color: var(--ui-state-error, #ef4444);
-  font-size: 12px;
+  font-size: var(--ui-font-size-xs);
   line-height: 1.5;
   text-align: center;
   overflow-wrap: anywhere;
@@ -3329,7 +3627,7 @@ body.terminal-pane-dragging-active .terminal-pane-tab {
   margin: 10px 12px 0;
   padding: 9px 12px;
   border-radius: var(--ui-radius-md);
-  font-size: 12px;
+  font-size: var(--ui-font-size-xs);
   line-height: 1.5;
 
   &--error {
@@ -3343,7 +3641,7 @@ body.terminal-pane-dragging-active .terminal-pane-tab {
   display: inline-block;
   margin-left: 6px;
   color: var(--ui-text-muted);
-  font-family: Consolas, 'Cascadia Mono', monospace;
+  font-family: var(--ui-font-family-mono);
   overflow-wrap: anywhere;
 }
 
@@ -3363,7 +3661,7 @@ body.terminal-pane-dragging-active .terminal-pane-tab {
   padding: 6px 16px;
   background: var(--ui-surface-panel-muted);
   border-top: 1px solid var(--ui-border-subtle);
-  font-size: 12px;
+  font-size: var(--ui-font-size-xs);
   color: var(--ui-text-muted);
 }
 
@@ -3397,33 +3695,40 @@ body.terminal-pane-dragging-active .terminal-pane-tab {
 .statusbar-forward-list__label {
   flex: 0 0 auto;
   color: var(--ui-text-muted);
-  font-size: 11px;
+  font-size: var(--ui-font-size-xs);
   font-weight: 600;
 }
 
-.statusbar-forward-chip {
+.statusbar-forward-chip.ui-button {
   display: inline-flex;
   align-items: center;
   justify-content: center;
   flex: 0 0 auto;
   gap: 4px;
   height: 22px;
+  min-height: 22px;
   padding: 0 7px;
   border: 1px solid rgba(34, 197, 94, 0.34);
   border-radius: var(--ui-radius-sm);
   background: rgba(34, 197, 94, 0.12);
   color: #22c55e;
-  cursor: pointer;
-  font-family: Consolas, 'Cascadia Mono', monospace;
+  font-family: var(--ui-font-family-mono);
   transition:
     background-color 0.18s ease,
     border-color 0.18s ease,
     color 0.18s ease;
+  box-shadow: none;
+  transform: none;
 
-  &:hover {
+  &:hover:not(:disabled) {
     border-color: rgba(34, 197, 94, 0.62);
     background: rgba(34, 197, 94, 0.2);
     color: #4ade80;
+    transform: none;
+  }
+
+  .ui-button__label {
+    gap: 4px;
   }
 }
 
@@ -3434,7 +3739,7 @@ body.terminal-pane-dragging-active .terminal-pane-tab {
 }
 
 .statusbar-forward-chip__port {
-  font-size: 11px;
+  font-size: var(--ui-font-size-xs);
   font-weight: 700;
 }
 
@@ -3453,7 +3758,7 @@ body.terminal-pane-dragging-active .terminal-pane-tab {
     display: flex;
     align-items: center;
     gap: 10px;
-    font-size: 15px;
+    font-size: var(--ui-font-size-lg);
     font-weight: 700;
     color: var(--ui-text-primary);
 
@@ -3462,27 +3767,16 @@ body.terminal-pane-dragging-active .terminal-pane-tab {
 
   &__sub {
     margin: 0;
-    font-size: 12px;
-    font-family: Consolas, 'Cascadia Mono', monospace;
+    font-size: var(--ui-font-size-xs);
+    font-family: var(--ui-font-family-mono);
     color: var(--ui-text-muted);
   }
 
-  &__input {
+  &__input.ui-input {
     width: 100%;
     box-sizing: border-box;
-    padding: 9px 12px;
-    border: 1px solid var(--ui-border-subtle);
     border-radius: var(--ui-radius-md);
-    background: var(--ui-surface-overlay);
-    color: var(--ui-text-primary);
-    font-size: 14px;
-    outline: none;
-    transition: border-color 0.18s;
-
-    &:focus {
-      border-color: var(--primary-color);
-      box-shadow: 0 0 0 3px rgba(var(--primary-rgb), 0.15);
-    }
+    font-size: var(--ui-font-size-md);
   }
 
   &__actions {
@@ -3493,27 +3787,34 @@ body.terminal-pane-dragging-active .terminal-pane-tab {
   }
 }
 
-.ssh-pwd-btn {
+.ssh-pwd-btn.ui-button {
   padding: 7px 18px;
   border-radius: var(--ui-radius-md);
   border: none;
-  font-size: 13px;
+  font-size: var(--ui-font-size-sm);
   font-weight: 600;
-  cursor: pointer;
   transition: all 0.18s;
+  box-shadow: none;
+  transform: none;
+}
 
-  &--cancel {
-    background: var(--ui-surface-overlay);
-    color: var(--ui-text-secondary);
+.ssh-pwd-btn--cancel.ui-button {
+  background: var(--ui-surface-overlay);
+  color: var(--ui-text-secondary);
 
-    &:hover { background: var(--ui-surface-panel); }
+  &:hover:not(:disabled) {
+    background: var(--ui-surface-panel);
+    transform: none;
   }
+}
 
-  &--confirm {
-    background: var(--primary-color);
-    color: #fff;
+.ssh-pwd-btn--confirm.ui-button {
+  background: var(--primary-color);
+  color: #fff;
 
-    &:hover { filter: brightness(1.1); }
+  &:hover:not(:disabled) {
+    filter: brightness(1.1);
+    transform: none;
   }
 }
 

@@ -2,14 +2,7 @@ import { app, BrowserWindow, ipcMain } from "electron";
 import path from 'path';
 import { dbManager } from "../../core/database";
 import { waitForDevServer } from "./wait_for_dev_server";
-
-function resolveWindowIconPath(): string {
-  if (app.isPackaged) {
-    return path.join(process.resourcesPath, 'icons', 'app_icon.ico');
-  }
-
-  return path.join(app.getAppPath(), 'src', 'assets', 'icons', 'app_icon.ico');
-}
+import { resolveWindowIconPath } from './window_icon';
 
 export default () => {
   let mainWindow: BrowserWindow;

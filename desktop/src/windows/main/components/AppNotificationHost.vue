@@ -2,6 +2,7 @@
 import { computed } from 'vue';
 import { useRouter } from 'vue-router';
 import type { NotificationImageSource } from '@/contracts/notification';
+import UiIconButton from './ui/UiIconButton.vue';
 import { useInAppNotificationStore, type InAppNotificationItem } from '../stores/in_app_notification_store';
 
 const props = withDefaults(defineProps<{
@@ -86,9 +87,10 @@ function activate(item: InAppNotificationItem) {
           :src="resolveImageUrl(item)"
           alt=""
         />
-        <button
+        <UiIconButton
           class="in-app-notification__close"
-          type="button"
+          size="sm"
+          variant="ghost"
           title="关闭"
           aria-label="关闭通知"
           @click.stop="notificationStore.dismiss(item.id)"
@@ -96,7 +98,7 @@ function activate(item: InAppNotificationItem) {
           <svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true" focusable="false">
             <path d="M4 4L12 12M12 4L4 12" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" />
           </svg>
-        </button>
+        </UiIconButton>
       </article>
     </TransitionGroup>
   </Teleport>
@@ -107,7 +109,7 @@ function activate(item: InAppNotificationItem) {
   position: fixed;
   top: var(--in-app-notification-top, 48px);
   right: 0;
-  z-index: 2400;
+  z-index: var(--ui-z-modal);
   display: flex;
   flex-direction: column;
   align-items: flex-end;
@@ -208,8 +210,7 @@ function activate(item: InAppNotificationItem) {
   height: 66px;
 }
 
-.in-app-notification__close {
-  appearance: none;
+.in-app-notification__close.ui-icon-button {
   display: flex;
   align-items: center;
   justify-content: center;
@@ -221,10 +222,17 @@ function activate(item: InAppNotificationItem) {
   color: var(--ui-icon-button-text);
   cursor: pointer;
   transition: background-color 0.16s ease, color 0.16s ease;
+  transform: none;
 
-  &:hover {
+  &:hover:not(:disabled) {
     background: var(--ui-icon-button-hover-bg);
     color: var(--ui-icon-button-hover-text);
+    transform: none;
+  }
+
+  :deep(svg) {
+    fill: none;
+    stroke: currentColor;
   }
 }
 
