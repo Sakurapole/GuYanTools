@@ -299,6 +299,39 @@ export const useTodoStore = defineStore('todo', () => {
     }
   }
 
+  function setLocalStepOrder(todoId: string, ids: string[]) {
+    const todo = todos.value.find(t => t.id === todoId);
+    if (!todo) return;
+    const stepById = new Map(todo.steps.map(step => [step.id, step]));
+    const nextSteps = ids
+      .map((id, index) => {
+        const step = stepById.get(id);
+        return step ? { ...step, sortOrder: index } : null;
+      })
+      .filter((step): step is Todo['steps'][number] => Boolean(step));
+
+    const orderedIds = new Set(ids);
+    const remainingSteps = todo.steps
+      .filter(step => !orderedIds.has(step.id))
+      .map((step, index) => ({ ...step, sortOrder: nextSteps.length + index }));
+
+    todo.steps = [...nextSteps, ...remainingSteps];
+  }
+
+  async function reorderSteps(todoId: string, ids: string[]) {
+    const todo = todos.value.find(t => t.id === todoId);
+    const previousSteps = todo ? [...todo.steps] : null;
+    setLocalStepOrder(todoId, ids);
+    try {
+      await todoApi.reorderSteps(ids);
+    } catch (err) {
+      if (todo && previousSteps) {
+        todo.steps = previousSteps;
+      }
+      throw err;
+    }
+  }
+
   // ==================== 昨日未完成 ====================
 
   async function checkYesterdayIncomplete() {
@@ -395,6 +428,8 @@ export const useTodoStore = defineStore('todo', () => {
     addStep,
     updateStep,
     deleteStep,
+    setLocalStepOrder,
+    reorderSteps,
     addReminder,
     deleteReminder,
     loadSmartListCounts,
