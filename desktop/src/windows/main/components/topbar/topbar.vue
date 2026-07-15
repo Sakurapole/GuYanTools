@@ -8,6 +8,7 @@ import { computed, nextTick, onMounted, onUnmounted, ref, watch, type CSSPropert
 import { useRoute } from 'vue-router';
 import { storeToRefs } from 'pinia';
 import Spacer from '../Spacer.vue';
+import TaskManagerPanel from '../TaskManagerPanel.vue';
 import UiButton from '../ui/UiButton.vue';
 import UiIconButton from '../ui/UiIconButton.vue';
 import UiInput from '../ui/UiInput.vue';
@@ -38,6 +39,10 @@ const editingProfileName = ref('');
 const profilePanelError = ref('');
 const profilePanelStyle = ref<CSSProperties>({});
 let profileRowsTransitionTimer: number | undefined;
+
+// ─── 任务管理器面板状态 ───
+const taskManagerPanelOpen = ref(false);
+const taskManagerPanelStyle = ref<CSSProperties>({});
 
 const topbarStyle = computed(() => {
   if (!topbarColor.value) return {};
@@ -181,6 +186,33 @@ async function deleteProfile(key: string) {
   }
 }
 
+function updateTaskManagerPanelPosition(trigger?: HTMLElement) {
+  if (!trigger) return;
+  const rect = trigger.getBoundingClientRect();
+  const panelWidth = 680;
+  const viewportPadding = 12;
+  // 面板右对齐到按钮右侧
+  const right = window.innerWidth - rect.right;
+  taskManagerPanelStyle.value = {
+    right: `${Math.max(viewportPadding, right)}px`,
+    top: `${rect.bottom}px`,
+    width: `${Math.min(panelWidth, window.innerWidth - viewportPadding * 2)}px`,
+  };
+}
+
+function toggleTaskManagerPanel(event: Event) {
+  if (taskManagerPanelOpen.value) {
+    taskManagerPanelOpen.value = false;
+    return;
+  }
+  updateTaskManagerPanelPosition(event.currentTarget as HTMLElement);
+  taskManagerPanelOpen.value = true;
+}
+
+function closeTaskManagerPanel() {
+  taskManagerPanelOpen.value = false;
+}
+
 function updateProfilePanelPosition() {
   const trigger = profileSwitcherRef.value;
   if (!trigger) {
@@ -202,14 +234,30 @@ function updateProfilePanelPosition() {
   };
 }
 
+function handleTaskManagerPointerDown(event: PointerEvent) {
+  if (!taskManagerPanelOpen.value) return;
+  const target = event.target as HTMLElement | null;
+  if (target?.closest('.task-manager-btn')) return;
+  // 面板内容在 Teleport body 中，检查是否点击在面板内
+  const panel = document.querySelector('.task-manager-panel');
+  if (panel && panel.contains(target)) return;
+  closeTaskManagerPanel();
+}
+
 onMounted(() => {
   window.addEventListener('pointerdown', handleDocumentPointerDown, true);
+  window.addEventListener('pointerdown', handleTaskManagerPointerDown, true);
   window.addEventListener('keydown', handleWindowKeydown);
-  window.addEventListener('resize', updateProfilePanelPosition);
+  window.addEventListener('resize', () => {
+    updateProfilePanelPosition();
+    const btn = document.querySelector<HTMLElement>('.task-manager-btn');
+    updateTaskManagerPanelPosition(btn ?? undefined);
+  });
 });
 
 onUnmounted(() => {
   window.removeEventListener('pointerdown', handleDocumentPointerDown, true);
+  window.removeEventListener('pointerdown', handleTaskManagerPointerDown, true);
   window.removeEventListener('keydown', handleWindowKeydown);
   window.removeEventListener('resize', updateProfilePanelPosition);
   window.clearTimeout(profileRowsTransitionTimer);
@@ -433,6 +481,26 @@ watch(showHomeProfileSwitcher, (visible) => {
             p-id="8138"></path>
         </SvgIcon>
       </UiIconButton>
+      <UiIconButton
+        class="task-manager-btn"
+        variant="ghost"
+        size="lg"
+        shape="square"
+        :active="taskManagerPanelOpen"
+        title="任务管理器"
+        @click="toggleTaskManagerPanel"
+      >
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+          <rect x="3" y="3" width="7" height="7" rx="1.2" stroke="currentColor" stroke-width="1.6"/>
+          <rect x="14" y="3" width="7" height="7" rx="1.2" stroke="currentColor" stroke-width="1.6"/>
+          <rect x="3" y="14" width="7" height="7" rx="1.2" stroke="currentColor" stroke-width="1.6"/>
+          <rect x="14" y="14" width="7" height="7" rx="1.2" stroke="currentColor" stroke-width="1.6"/>
+          <path d="M6.5 5v3M5 6.5h3" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/>
+          <circle cx="17.5" cy="6.5" r="1.4" fill="currentColor"/>
+          <path d="M6.5 16v3M5 17.5h3" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/>
+          <circle cx="17.5" cy="17.5" r="1.4" fill="currentColor"/>
+        </svg>
+      </UiIconButton>
       <UiIconButton class="mini-btn" variant="ghost" size="lg" shape="square" title="最小化"
         @click="ipcRenderer.send('main-renderer-minimize')">
         <SvgIcon width="28" height="28" color="var(--primary-color)" viewBox="0 0 640 640">
@@ -455,6 +523,21 @@ watch(showHomeProfileSwitcher, (visible) => {
         </SvgIcon>
       </UiIconButton>
     </div>
+    <Teleport to="body">
+      <div
+        v-if="taskManagerPanelOpen"
+        class="task-manager-backdrop"
+        aria-hidden="true"
+        @pointerdown="closeTaskManagerPanel"
+      />
+      <Transition name="task-manager-panel">
+        <TaskManagerPanel
+          v-if="taskManagerPanelOpen"
+          :panel-style="taskManagerPanelStyle"
+          @close="closeTaskManagerPanel"
+        />
+      </Transition>
+    </Teleport>
   </div>
 </template>
 

@@ -418,6 +418,7 @@
 
   & .ui-icon-button.theme-btn,
   & .ui-icon-button.workspace-detach-topbar-btn,
+  & .ui-icon-button.task-manager-btn,
   & .ui-icon-button.mini-btn,
   & .ui-icon-button.max-btn,
   & .ui-icon-button.close-btn {
@@ -434,4 +435,32 @@
       background-color: var(--bar-btn-hover-bg-color);
     }
   }
+}
+
+.task-manager-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: calc(var(--ui-z-topbar) - 1);
+  background: transparent;
+  cursor: default;
+  -webkit-app-region: no-drag;
+}
+
+.task-manager-panel-enter-active,
+.task-manager-panel-leave-active {
+  transition:
+    opacity 0.16s ease,
+    transform 0.16s ease;
+}
+
+.task-manager-panel-enter-from,
+.task-manager-panel-leave-to {
+  opacity: 0;
+  transform: translateY(-4px);
+}
+
+.task-manager-panel-enter-to,
+.task-manager-panel-leave-from {
+  opacity: 1;
+  transform: translateY(0);
 }
