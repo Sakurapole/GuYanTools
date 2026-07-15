@@ -20,12 +20,15 @@ type ClipboardWindowToggle = () => void;
 type QuickNoteWindowToggle = () => void;
 type QuickNoteClipboardCapture = () => void;
 type QuickLaunchWindowToggle = () => void;
+type ScreenshotCaptureOpener = () => void;
 type WorkspaceDetachedWindowOpener = (key: WorkspaceWindowKey) => void;
 type RegisteredShortcutField =
   | 'toggleVisibilityShortcut'
   | 'toggleClipboardShortcut'
   | 'toggleQuickNoteShortcut'
   | 'captureClipboardToQuickNoteShortcut'
+  | 'captureScreenshotRegionShortcut'
+  | 'captureScreenshotAnnotateShortcut'
   | 'toggleQuickLaunchShortcut'
   | 'openDetachedTerminalShortcut'
   | 'openDetachedFtpShortcut'
@@ -50,6 +53,8 @@ const SYSTEM_SHORTCUT_ACTIONS: SystemShortcutActionDefinition[] = [
   { key: 'toggleMultiDeviceClipboard', field: 'toggleClipboardShortcut', label: '多设备剪贴板' },
   { key: 'toggleQuickNote', field: 'toggleQuickNoteShortcut', label: '知识库速记' },
   { key: 'captureClipboardToQuickNote', field: 'captureClipboardToQuickNoteShortcut', label: '剪贴板转速记' },
+  { key: 'captureScreenshotRegion', field: 'captureScreenshotRegionShortcut', label: '区域截图识别' },
+  { key: 'captureScreenshotAnnotate', field: 'captureScreenshotAnnotateShortcut', label: '截图标注' },
   { key: 'toggleQuickLaunch', field: 'toggleQuickLaunchShortcut', label: '快速启动' },
   { key: 'openDetachedTerminal', field: 'openDetachedTerminalShortcut', label: '独立窗口：终端' },
   { key: 'openDetachedFtp', field: 'openDetachedFtpShortcut', label: '独立窗口：传输' },
@@ -98,6 +103,8 @@ class ShortcutService {
   private toggleClipboardShortcut = '';
   private toggleQuickNoteShortcut = '';
   private captureClipboardToQuickNoteShortcut = '';
+  private captureScreenshotRegionShortcut = '';
+  private captureScreenshotAnnotateShortcut = '';
   private toggleQuickLaunchShortcut = '';
   private openDetachedTerminalShortcut = '';
   private openDetachedFtpShortcut = '';
@@ -110,6 +117,8 @@ class ShortcutService {
   private toggleClipboardWindow?: ClipboardWindowToggle;
   private toggleQuickNoteWindow?: QuickNoteWindowToggle;
   private captureClipboardToQuickNote?: QuickNoteClipboardCapture;
+  private captureScreenshotRegion?: ScreenshotCaptureOpener;
+  private captureScreenshotAnnotate?: ScreenshotCaptureOpener;
   private toggleQuickLaunchWindow?: QuickLaunchWindowToggle;
   private openWorkspaceDetachedWindow?: WorkspaceDetachedWindowOpener;
 
@@ -119,6 +128,8 @@ class ShortcutService {
     toggleQuickNoteWindow?: QuickNoteWindowToggle,
     captureClipboardToQuickNote?: QuickNoteClipboardCapture,
     toggleQuickLaunchWindow?: QuickLaunchWindowToggle,
+    captureScreenshotRegion?: ScreenshotCaptureOpener,
+    captureScreenshotAnnotate?: ScreenshotCaptureOpener,
     openWorkspaceDetachedWindow?: WorkspaceDetachedWindowOpener,
   ) {
     if (this.initialized) {
@@ -129,6 +140,8 @@ class ShortcutService {
     this.toggleClipboardWindow = toggleClipboardWindow;
     this.toggleQuickNoteWindow = toggleQuickNoteWindow;
     this.captureClipboardToQuickNote = captureClipboardToQuickNote;
+    this.captureScreenshotRegion = captureScreenshotRegion;
+    this.captureScreenshotAnnotate = captureScreenshotAnnotate;
     this.toggleQuickLaunchWindow = toggleQuickLaunchWindow;
     this.openWorkspaceDetachedWindow = openWorkspaceDetachedWindow;
 
@@ -139,6 +152,8 @@ class ShortcutService {
       toggleQuickNoteWindow,
       captureClipboardToQuickNote,
       toggleQuickLaunchWindow,
+      captureScreenshotRegion,
+      captureScreenshotAnnotate,
       openWorkspaceDetachedWindow,
     );
     this.unsubscribeConfig = appConfigManager.subscribe((config, patch) => {
@@ -153,6 +168,8 @@ class ShortcutService {
         toggleQuickNoteWindow,
         captureClipboardToQuickNote,
         toggleQuickLaunchWindow,
+        captureScreenshotRegion,
+        captureScreenshotAnnotate,
         openWorkspaceDetachedWindow,
       );
     });
@@ -166,6 +183,8 @@ class ShortcutService {
     this.toggleClipboardWindow = undefined;
     this.toggleQuickNoteWindow = undefined;
     this.captureClipboardToQuickNote = undefined;
+    this.captureScreenshotRegion = undefined;
+    this.captureScreenshotAnnotate = undefined;
     this.toggleQuickLaunchWindow = undefined;
     this.openWorkspaceDetachedWindow = undefined;
 
@@ -187,6 +206,16 @@ class ShortcutService {
     if (this.captureClipboardToQuickNoteShortcut) {
       globalShortcut.unregister(this.captureClipboardToQuickNoteShortcut);
       this.captureClipboardToQuickNoteShortcut = '';
+    }
+
+    if (this.captureScreenshotRegionShortcut) {
+      globalShortcut.unregister(this.captureScreenshotRegionShortcut);
+      this.captureScreenshotRegionShortcut = '';
+    }
+
+    if (this.captureScreenshotAnnotateShortcut) {
+      globalShortcut.unregister(this.captureScreenshotAnnotateShortcut);
+      this.captureScreenshotAnnotateShortcut = '';
     }
 
     if (this.toggleQuickLaunchShortcut) {
@@ -332,6 +361,8 @@ class ShortcutService {
     toggleQuickNoteWindow?: QuickNoteWindowToggle,
     captureClipboardToQuickNote?: QuickNoteClipboardCapture,
     toggleQuickLaunchWindow?: QuickLaunchWindowToggle,
+    captureScreenshotRegion?: ScreenshotCaptureOpener,
+    captureScreenshotAnnotate?: ScreenshotCaptureOpener,
     openWorkspaceDetachedWindow?: WorkspaceDetachedWindowOpener,
   ) {
     const accelerator = normalizeAccelerator(config.shortcuts.system.toggleAppVisibility);
@@ -351,6 +382,20 @@ class ShortcutService {
       captureAccelerator,
       captureClipboardToQuickNote,
       'quick note clipboard capture',
+    );
+    const screenshotAccelerator = normalizeAccelerator(config.shortcuts.system.captureScreenshotRegion);
+    await this.registerSimpleShortcut(
+      'captureScreenshotRegionShortcut',
+      screenshotAccelerator,
+      captureScreenshotRegion,
+      'screenshot region capture',
+    );
+    const screenshotAnnotateAccelerator = normalizeAccelerator(config.shortcuts.system.captureScreenshotAnnotate);
+    await this.registerSimpleShortcut(
+      'captureScreenshotAnnotateShortcut',
+      screenshotAnnotateAccelerator,
+      captureScreenshotAnnotate,
+      'screenshot annotate capture',
     );
     const quickLaunchAccelerator = normalizeAccelerator(config.shortcuts.system.toggleQuickLaunch);
     await this.registerSimpleShortcut(
@@ -387,6 +432,20 @@ class ShortcutService {
           accelerator,
           this.captureClipboardToQuickNote,
           'quick note clipboard capture',
+        );
+      case 'captureScreenshotRegion':
+        return this.registerSimpleShortcut(
+          'captureScreenshotRegionShortcut',
+          accelerator,
+          this.captureScreenshotRegion,
+          'screenshot region capture',
+        );
+      case 'captureScreenshotAnnotate':
+        return this.registerSimpleShortcut(
+          'captureScreenshotAnnotateShortcut',
+          accelerator,
+          this.captureScreenshotAnnotate,
+          'screenshot annotate capture',
         );
       case 'toggleQuickLaunch':
         return this.registerSimpleShortcut(

@@ -6,6 +6,7 @@ import AppNotificationHost from './components/AppNotificationHost.vue';
 import bottombar from './components/bottombar/bottombar.vue';
 import ConfirmDialog from './components/ui/ConfirmDialog.vue';
 import GlobalContextMenu from './components/ui/GlobalContextMenu.vue';
+import ScreenshotCapturePanel from './components/screenshot/ScreenshotCapturePanel.vue';
 import UiIconButton from './components/ui/UiIconButton.vue';
 import TextPromptDialog from './components/ui/TextPromptDialog.vue';
 import Sidebar from './components/sidebar/sidebar.vue';
@@ -119,7 +120,7 @@ function resetFirstVisitLoad() {
 
 async function openCurrentPageDetached() {
   if (!detachedRouteKey.value) return;
-  workspaceWindowState.value = await window.workspaceWindowApi?.openDetached(detachedRouteKey.value)
+  workspaceWindowState.value = await window.workspaceWindowApi?.openDetached(detachedRouteKey.value, { routeOverride: route.fullPath })
     ?? workspaceWindowState.value;
 }
 
@@ -315,6 +316,7 @@ onBeforeUnmount(() => {
     <!-- Tray context menu (custom renderer-side popup) -->
     <TrayContextMenu />
     <AppNotificationHost :popup="isPopupMode" />
+    <ScreenshotCapturePanel v-if="!isPopupMode" />
   </div>
 </template>
 

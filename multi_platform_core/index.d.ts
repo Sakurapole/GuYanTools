@@ -1,3 +1,5 @@
+export function recognizeScreenshotUiBlocks(pngBytes: Buffer, optionsJson?: string): Promise<string>;
+
 export class JsTerminalHost {
   constructor(...args: unknown[]);
   [key: string]: any;

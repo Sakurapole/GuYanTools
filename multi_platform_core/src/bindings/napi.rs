@@ -1,12 +1,17 @@
 use crate::db::Database;
 use crate::models::*;
 use crate::multi_device_clipboard::*;
+use crate::screenshot::recognition::{
+    recognize_ui_blocks_from_rgba, ScreenshotRecognitionOptions,
+};
 use crate::services::*;
 use crate::terminal::*;
+use image::ImageReader;
 use napi::bindgen_prelude::*;
 use napi::threadsafe_function::{ErrorStrategy, ThreadSafeCallContext, ThreadsafeFunction};
 use napi_derive::napi;
 use rusqlite::OptionalExtension;
+use std::io::Cursor;
 use std::sync::Arc;
 
 /// 模块初始化：在 Windows 上将控制台输出编码设为 UTF-8（代码页 65001），
@@ -20,6 +25,44 @@ fn init() {
         }
         SetConsoleOutputCP(65001);
     }
+}
+
+#[napi(js_name = "recognizeScreenshotUiBlocks")]
+pub async fn recognize_screenshot_ui_blocks(
+    png_bytes: Buffer,
+    options_json: Option<String>,
+) -> Result<String> {
+    tokio::task::spawn_blocking(move || {
+        let options = match options_json {
+            Some(value) if !value.trim().is_empty() => serde_json::from_str::<ScreenshotRecognitionOptions>(&value)
+                .map_err(|e| Error::from_reason(format!("截图识别参数无效: {}", e)))?,
+            _ => ScreenshotRecognitionOptions {
+                min_block_width: Some(16),
+                min_block_height: Some(12),
+                merge_gap: Some(6),
+                max_blocks: Some(128),
+            },
+        };
+
+        let image = ImageReader::new(Cursor::new(png_bytes.to_vec()))
+            .with_guessed_format()
+            .map_err(|e| Error::from_reason(format!("截图格式识别失败: {}", e)))?
+            .decode()
+            .map_err(|e| Error::from_reason(format!("截图解码失败: {}", e)))?
+            .to_rgba8();
+
+        let blocks = recognize_ui_blocks_from_rgba(
+            image.width(),
+            image.height(),
+            image.as_raw(),
+            options,
+        );
+
+        serde_json::to_string(&blocks)
+            .map_err(|e| Error::from_reason(format!("截图识别结果序列化失败: {}", e)))
+    })
+    .await
+    .map_err(|e| Error::from_reason(format!("截图识别任务执行失败: {}", e)))?
 }
 
 #[napi(js_name = "JsTerminalHost")]

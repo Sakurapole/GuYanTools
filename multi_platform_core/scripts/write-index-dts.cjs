@@ -4,7 +4,9 @@ const path = require('node:path');
 const packageRoot = path.resolve(__dirname, '..');
 const target = path.join(packageRoot, 'index.d.ts');
 
-const content = `export class JsTerminalHost {
+const content = `export function recognizeScreenshotUiBlocks(pngBytes: Buffer, optionsJson?: string): Promise<string>;
+
+export class JsTerminalHost {
   constructor(...args: unknown[]);
   [key: string]: any;
 }

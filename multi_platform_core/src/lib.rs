@@ -11,6 +11,7 @@ pub mod event;
 pub mod ftp;
 pub mod models;
 pub mod multi_device_clipboard;
+pub mod screenshot;
 pub mod services;
 #[cfg(feature = "desktop-native")]
 pub mod ssh;

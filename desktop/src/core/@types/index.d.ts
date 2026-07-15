@@ -13,6 +13,7 @@ import type { FtpApi } from '@/contracts/ftp';
 import type { MultiDeviceClipboardApi } from '@/contracts/multi_device_clipboard';
 import type { TodoApi } from '@/contracts/todo';
 import type { KnowledgeApi, QuickNoteWindowApi } from '@/contracts/knowledge';
+import type { ScreenshotApi } from '@/contracts/screenshot';
 
 // export * from './plugin.d.ts';
 export { };
@@ -60,6 +61,8 @@ declare global {
     todoApi?: TodoApi;
     knowledgeApi?: KnowledgeApi;
     quickNoteWindowApi?: QuickNoteWindowApi;
+    screenshotApi?: ScreenshotApi;
+    pinImageApi?: import('@/contracts/pin_image').PinImageApi;
     trayApi?: TrayApi;
     multiDeviceClipboardApi?: MultiDeviceClipboardApi;
     ftpApi: FtpApi;

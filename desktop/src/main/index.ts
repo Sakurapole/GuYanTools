@@ -1,3 +1,4 @@
+import './dev-env';
 import { app, BrowserWindow, ipcMain, protocol } from "electron";
 import { randomUUID } from 'node:crypto';
 import * as fs from 'node:fs/promises';
@@ -22,6 +23,9 @@ import { multiDeviceClipboardService } from "./multi-device-clipboard/service";
 import { registerMultiDeviceClipboardWindowHandlers, toggleMultiDeviceClipboardWindow } from "./multi-device-clipboard/window";
 import { registerNotificationIpcHandlers } from "./notification/ipc";
 import { registerShellIpcHandlers } from "./shell/ipc";
+import { registerScreenshotIpcHandlers } from "./screenshot/ipc";
+import { registerPinImageIpcHandlers } from "./screenshot/pin_window";
+import { showScreenshotWindow } from "./screenshot/window";
 import { registerShortcutIpcHandlers } from "./shortcuts/ipc";
 import { shortcutService } from "./shortcuts/service";
 import { registerSyncIpcHandlers } from "./sync/ipc";
@@ -49,6 +53,7 @@ import { main_window, splash_window } from "./windows";
 import { initializeTray, destroyTray } from "./tray";
 import { registerTrayIpcHandlers } from "./tray/ipc";
 import { registerTrayMenuWindowHandlers } from "./tray/tray_menu_window";
+import { registerProcessManagerIpcHandlers } from "./process-manager/ipc";
 import { setupAutoUpdater } from "./updater";
 
 const delay = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms));
@@ -111,6 +116,8 @@ class App {
       }
     });
     registerShellIpcHandlers();
+    registerScreenshotIpcHandlers();
+    registerPinImageIpcHandlers();
     registerShortcutIpcHandlers();
     registerSyncIpcHandlers();
     registerQuickLaunchIpcHandlers();
@@ -138,6 +145,7 @@ class App {
     });
     registerWorkspaceWindowIpcHandlers();
     registerWebScriptBridge();
+    registerProcessManagerIpcHandlers();
 
     const singleLock = app.requestSingleInstanceLock(
       this.cliRelayResponsePath ? { ftpCliResponsePath: this.cliRelayResponsePath } : undefined,
@@ -237,6 +245,12 @@ class App {
           toggleQuickNoteWindow,
           captureClipboardToQuickNoteWindow,
           toggleQuickLaunchWindow,
+          () => {
+            void showScreenshotWindow({ mode: 'region', recognize: true });
+          },
+          () => {
+            void showScreenshotWindow({ mode: 'region', recognize: false });
+          },
           (key) => {
             void workspaceWindowManager.openDetached(key);
           },

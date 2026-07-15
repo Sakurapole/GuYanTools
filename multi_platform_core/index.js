@@ -310,10 +310,12 @@ if (!nativeBinding) {
   throw new Error(`Failed to load native binding`)
 }
 
-const { JsTerminalHost, JsDatabase, JsSshHost, JsFtpHost, JsMultiDeviceClipboardHost } = nativeBinding
+const { JsTerminalHost, JsDatabase, JsSshHost, JsFtpHost, JsMultiDeviceClipboardHost, recognizeScreenshotUiBlocks } = nativeBinding
 
 module.exports.JsTerminalHost = JsTerminalHost
 module.exports.JsDatabase = JsDatabase
 module.exports.JsSshHost = JsSshHost
 module.exports.JsFtpHost = JsFtpHost
 module.exports.JsMultiDeviceClipboardHost = JsMultiDeviceClipboardHost
+
+module.exports.recognizeScreenshotUiBlocks = recognizeScreenshotUiBlocks

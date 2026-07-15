@@ -32,6 +32,7 @@ import type {
 } from '@/contracts/todo';
 import type { KnowledgeApi } from '@/contracts/knowledge';
 import type { MediaApi, CompressImageOptions, CompressVideoOptions } from '@/contracts/media';
+import type { ScreenshotApi, ScreenshotOverlayPayload } from '@/contracts/screenshot';
 import type {
   MultiDeviceClipboardApi,
   MultiDeviceClipboardEvent,
@@ -295,6 +296,46 @@ const notificationApi: NotificationApi = {
   show: (payload: NotificationPayload) => ipcRenderer.invoke('notification:show', payload),
 };
 contextBridge.exposeInMainWorld('notificationApi', notificationApi);
+
+const screenshotApi: ScreenshotApi = {
+  startCapture: (input) => ipcRenderer.invoke('screenshot:start-capture', input),
+  recognizeImage: (image, options) => ipcRenderer.invoke('screenshot:recognize-image', image, options),
+  saveCaptureToKnowledge: (result) => ipcRenderer.invoke('screenshot:save-to-knowledge', result),
+  createAiAttachment: (result) => ipcRenderer.invoke('screenshot:create-ai-attachment', result),
+  captureRegion: (region, displayId) => ipcRenderer.invoke('screenshot:capture-region', region, displayId),
+  completeOverlayCapture: (result) => ipcRenderer.invoke('screenshot-overlay:complete', result),
+  closeOverlay: () => ipcRenderer.invoke('screenshot-overlay:close'),
+  onCaptureOptions: (listener) => {
+    const wrappedListener = (_event: Electron.IpcRendererEvent, payload: ScreenshotOverlayPayload) => listener(payload);
+    ipcRenderer.on('screenshot:capture-options', wrappedListener);
+    return () => ipcRenderer.removeListener('screenshot:capture-options', wrappedListener);
+  },
+  onCaptureResult: (listener) => {
+    const wrappedListener = (_event: Electron.IpcRendererEvent, payload: Parameters<typeof listener>[0]) => listener(payload);
+    ipcRenderer.on('screenshot:capture-result', wrappedListener);
+    return () => ipcRenderer.removeListener('screenshot:capture-result', wrappedListener);
+  },
+  saveToClipboard: (pngBase64) => ipcRenderer.invoke('screenshot:save-to-clipboard', pngBase64),
+  saveToFile: (pngBase64, defaultName) => ipcRenderer.invoke('screenshot:save-to-file', pngBase64, defaultName),
+  detectWindows: () => ipcRenderer.invoke('screenshot:detect-windows'),
+  performOcr: (pngBase64) => ipcRenderer.invoke('screenshot:ocr', pngBase64),
+  pickColor: (x, y, displayId) => ipcRenderer.invoke('screenshot:pick-color', x, y, displayId),
+  pinImage: (pngBase64) => ipcRenderer.invoke('pin-image:create', { pngBase64 }),
+};
+contextBridge.exposeInMainWorld('screenshotApi', screenshotApi);
+
+const pinImageApi: import('@/contracts/pin_image').PinImageApi = {
+  create: (config) => ipcRenderer.invoke('pin-image:create', config),
+  close: (pinId) => ipcRenderer.invoke('pin-image:close', pinId),
+  setOpacity: (pinId, opacity) => ipcRenderer.invoke('pin-image:set-opacity', pinId, opacity),
+  list: () => ipcRenderer.invoke('pin-image:list'),
+  onImagePayload: (listener) => {
+    const wrappedListener = (_event: Electron.IpcRendererEvent, payload: { pinId: number; pngBase64: string }) => listener(payload);
+    ipcRenderer.on('pin-image:payload', wrappedListener);
+    return () => ipcRenderer.removeListener('pin-image:payload', wrappedListener);
+  },
+};
+contextBridge.exposeInMainWorld('pinImageApi', pinImageApi);
 
 const updateApi: UpdateApi = {
   getStatus: () => ipcRenderer.invoke('updater:get-status'),
@@ -703,6 +744,7 @@ const ftpApi: FtpApi = {
 contextBridge.exposeInMainWorld('ftpApi', ftpApi);
 
 import type { TrayApi } from '@/contracts/tray';
+import type { ProcessManagerApi } from '@/contracts/process_manager';
 
 const trayApi: TrayApi = {
   quit: () => ipcRenderer.send('tray:quit'),
@@ -714,3 +756,10 @@ const trayApi: TrayApi = {
   },
 };
 contextBridge.exposeInMainWorld('trayApi', trayApi);
+
+const processManagerApi: ProcessManagerApi = {
+  getProcessList: () => ipcRenderer.invoke('process-manager:list'),
+  getGpuInfo: () => ipcRenderer.invoke('process-manager:gpu-info'),
+  killProcess: (pid: number) => ipcRenderer.invoke('process-manager:kill', pid),
+};
+contextBridge.exposeInMainWorld('processManagerApi', processManagerApi);
