@@ -58,11 +58,30 @@ export function isBenignResizeObserverLoopError(error: unknown) {
 }
 
 export function installInAppErrorHandlers(app: App) {
+  // 防止错误处理器自身触发通知渲染导致循环
+  let isHandlingError = false;
+
+  // Vue DevTools 在开发模式下注入 __vrv_devtools 属性，组件实例为 null 时会抛错
+  // 这是 DevTools 的已知问题，不需要通知用户
+  function isDevtoolsInternalError(error: unknown): boolean {
+    return getErrorMessage(error, '').includes('__vrv_devtools');
+  }
+
   app.config.errorHandler = (error, _instance, info) => {
-    console.error('[Vue] Unhandled component error:', info, error);
-    notifyError(error, '页面组件异常', {
-      dedupeKey: `vue:${info}:${getErrorMessage(error)}`,
-    });
+    if (isDevtoolsInternalError(error)) return;
+    if (isHandlingError) {
+      console.error('[Vue] Unhandled component error (suppressed):', info, error);
+      return;
+    }
+    isHandlingError = true;
+    try {
+      console.error('[Vue] Unhandled component error:', info, error);
+      notifyError(error, '页面组件异常', {
+        dedupeKey: `vue:${info}:${getErrorMessage(error)}`,
+      });
+    } finally {
+      isHandlingError = false;
+    }
   };
 
   window.addEventListener('error', (event) => {
@@ -71,19 +90,36 @@ export function installInAppErrorHandlers(app: App) {
       event.preventDefault();
       return;
     }
-    console.error('[Window] Unhandled error:', error);
-    notifyError(error, '页面运行异常', {
-      dedupeKey: `window:${event.filename}:${event.lineno}:${event.colno}:${getErrorMessage(error)}`,
-    });
+    if (isDevtoolsInternalError(error)) {
+      event.preventDefault();
+      return;
+    }
+    if (isHandlingError) return;
+    isHandlingError = true;
+    try {
+      console.error('[Window] Unhandled error:', error);
+      notifyError(error, '页面运行异常', {
+        dedupeKey: `window:${event.filename}:${event.lineno}:${event.colno}:${getErrorMessage(error)}`,
+      });
+    } finally {
+      isHandlingError = false;
+    }
   });
 
   window.addEventListener('unhandledrejection', (event) => {
     window.setTimeout(() => {
       if (event.defaultPrevented) return;
-      console.error('[Window] Unhandled promise rejection:', event.reason);
-      notifyError(event.reason, '异步操作失败', {
-        dedupeKey: `promise:${getErrorMessage(event.reason)}`,
-      });
+      if (isDevtoolsInternalError(event.reason)) return;
+      if (isHandlingError) return;
+      isHandlingError = true;
+      try {
+        console.error('[Window] Unhandled promise rejection:', event.reason);
+        notifyError(event.reason, '异步操作失败', {
+          dedupeKey: `promise:${getErrorMessage(event.reason)}`,
+        });
+      } finally {
+        isHandlingError = false;
+      }
     }, 0);
   });
 }
