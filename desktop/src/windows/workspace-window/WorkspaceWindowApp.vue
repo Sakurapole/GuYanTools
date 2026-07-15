@@ -12,6 +12,8 @@ import GlobalContextMenu from '@/windows/main/components/ui/GlobalContextMenu.vu
 import TextPromptDialog from '@/windows/main/components/ui/TextPromptDialog.vue';
 import UiIconButton from '@/windows/main/components/ui/UiIconButton.vue';
 import TrayContextMenu from '@/windows/main/components/TrayContextMenu.vue';
+import WebViewKeepAlive from '@/windows/main/components/webview/WebViewKeepAlive.vue';
+import { useWebviewStore } from '@/windows/main/stores/webview_store';
 import WorkspaceWindowSkeleton from './WorkspaceWindowSkeleton.vue';
 import '@/windows/main/assets/foundation.scss';
 import '@/windows/main/assets/theme.scss';
@@ -22,6 +24,7 @@ import '@/windows/main/assets/app.scss';
 
 const route = useRoute();
 const { ipcRenderer } = window;
+const webviewStore = useWebviewStore();
 const prewarmMode = computed(() => route.query.prewarm === '1');
 const currentKey = ref<WorkspaceWindowKey>(resolveWindowKey());
 const currentDefinition = computed(() => WORKSPACE_WINDOW_DEFINITIONS[currentKey.value]);
@@ -122,12 +125,13 @@ onBeforeUnmount(() => {
       <WorkspaceWindowSkeleton v-if="prewarmMode" :page-key="currentKey" />
       <router-view v-else v-slot="{ Component, route: activeRoute }">
         <Suspense>
-          <component :is="Component" :key="activeRoute.path" />
+          <component :is="Component" :key="activeRoute.path" v-show="!webviewStore.hasActiveInstance" />
           <template #fallback>
             <WorkspaceWindowSkeleton :page-key="currentKey" />
           </template>
         </Suspense>
       </router-view>
+      <WebViewKeepAlive v-if="currentKey === 'webview'" />
     </main>
 
     <GlobalContextMenu />

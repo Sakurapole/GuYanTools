@@ -50,7 +50,7 @@ function testWorkspaceWindowContractAndMainHandlers() {
   assert.match(manager, /returnToMain/);
   assert.match(manager, /createDetachedHash\(key, options\)/);
   assert.match(manager, /normalizeDetachedRouteOverride/);
-  assert.match(manager, /navigateToHash\(definition\.route\)/);
+  assert.match(manager, /navigateToHash\(targetRoute\)/);
   assert.match(manager, /pageStates = new Map<WorkspaceWindowKey, WorkspaceWindowPageState>/);
   assert.match(manager, /getPageState\(key: WorkspaceWindowKey\)/);
   assert.match(manager, /setPageState\(key: WorkspaceWindowKey, state: WorkspaceWindowPageState\)/);

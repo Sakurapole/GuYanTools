@@ -1,4 +1,4 @@
-export type WorkspaceWindowKey = 'terminal' | 'ftp' | 'todo' | 'ai' | 'knowledge';
+export type WorkspaceWindowKey = 'terminal' | 'ftp' | 'todo' | 'ai' | 'knowledge' | 'webview';
 
 export interface WorkspaceWindowDefinition {
   key: WorkspaceWindowKey;
@@ -55,6 +55,15 @@ export const WORKSPACE_WINDOW_DEFINITIONS: Record<WorkspaceWindowKey, WorkspaceW
     height: 820,
     minWidth: 940,
     minHeight: 620,
+  },
+  webview: {
+    key: 'webview',
+    route: '/webview',
+    title: '网页',
+    width: 1220,
+    height: 780,
+    minWidth: 860,
+    minHeight: 560,
   },
 };
 

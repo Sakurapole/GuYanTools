@@ -13,6 +13,7 @@ const skeletonRows: Record<WorkspaceWindowKey, { side: number; main: number; asi
   todo: { side: 5, main: 8, aside: 3 },
   ai: { side: 5, main: 7, aside: 4 },
   knowledge: { side: 8, main: 10, aside: 6 },
+  webview: { side: 4, main: 9, aside: 3 },
 };
 
 const layout = skeletonRows[props.pageKey] ?? skeletonRows.knowledge;

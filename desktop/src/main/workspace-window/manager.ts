@@ -24,6 +24,7 @@ class WorkspaceWindowManager {
   private readonly detachedWindows = new Map<WorkspaceWindowKey, BrowserWindow>();
   private readonly prewarmedWindows = new Map<WorkspaceWindowKey, BrowserWindow>();
   private readonly pageStates = new Map<WorkspaceWindowKey, WorkspaceWindowPageState>();
+  private readonly detachedRoutes = new Map<WorkspaceWindowKey, string>();
   private prewarmStarted = false;
 
   bindMainWindow(bridge: MainWindowBridge) {
@@ -87,8 +88,10 @@ class WorkspaceWindowManager {
       detachedWindow.close();
     }
 
+    const targetRoute = this.detachedRoutes.get(key) ?? definition.route;
+    this.detachedRoutes.delete(key);
     this.mainWindow?.showWindow();
-    await this.mainWindow?.navigateToHash(definition.route);
+    await this.mainWindow?.navigateToHash(targetRoute);
     this.broadcastState();
     return this.getState();
   }
@@ -131,6 +134,9 @@ class WorkspaceWindowManager {
 
   private async loadDetachedRoute(win: BrowserWindow, key: WorkspaceWindowKey, options?: { routeOverride?: string; prewarm?: boolean }) {
     const hashRoute = this.createDetachedHash(key, options);
+    if (!options?.prewarm) {
+      this.detachedRoutes.set(key, this.normalizeDetachedRouteOverride(WORKSPACE_WINDOW_DEFINITIONS[key].route, options?.routeOverride));
+    }
     if (MAIN_WINDOW_VITE_DEV_SERVER_URL) {
       await win.loadURL(`${MAIN_WINDOW_VITE_DEV_SERVER_URL}/workspace_window.html#${hashRoute}`);
       return;
@@ -153,6 +159,7 @@ class WorkspaceWindowManager {
 
   private navigateDetachedRouteInBackground(win: BrowserWindow, key: WorkspaceWindowKey, options?: { routeOverride?: string }) {
     const hashRoute = this.createDetachedHash(key, options);
+    this.detachedRoutes.set(key, this.normalizeDetachedRouteOverride(WORKSPACE_WINDOW_DEFINITIONS[key].route, options?.routeOverride));
     void win.webContents.executeJavaScript(
       `window.location.hash = ${JSON.stringify(hashRoute)};`,
       true,
@@ -233,6 +240,7 @@ class WorkspaceWindowManager {
     win.on('closed', () => {
       if (this.detachedWindows.get(key) === win) {
         this.detachedWindows.delete(key);
+        this.detachedRoutes.delete(key);
         this.broadcastState();
         this.replenishPrewarmedWindow(key);
       }
