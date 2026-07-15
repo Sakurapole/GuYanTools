@@ -11,7 +11,7 @@ class PluginManager {
 
   constructor(options: PluginManagerOptions) {
     if (!fs.existsSync(options.baseDir)) {
-      fs.mkdirSync(options.baseDir);
+      fs.mkdirSync(options.baseDir, { recursive: true });
       fs.writeFileSync(
         `${options.baseDir}/package.json`,
         '{"dependencies":{}}'
