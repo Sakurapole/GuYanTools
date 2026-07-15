@@ -40,7 +40,8 @@ export type BackgroundSourceInput = {
 };
 
 function clonePlain<T>(value: T): T {
-  return JSON.parse(JSON.stringify(value ?? {})) as T;
+  // 使用 structuredClone 替代 JSON round-trip，避免大 base64 字符串导致内存峰值
+  return structuredClone(value ?? {} as T);
 }
 
 export function stripBackgroundThemeVariants(style?: BackgroundStyleConfig): BackgroundBaseStyleConfig {
