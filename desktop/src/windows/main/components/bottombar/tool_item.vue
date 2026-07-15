@@ -12,18 +12,21 @@ const props = withDefaults(defineProps<{
   icon?: string;
   closable?: boolean;
   active?: boolean;
+  iconOnly?: boolean;
 }>(), {
   tabId: 'default',
   tabName: 'default',
   url: '/',
   closable: true,
   active: false,
+  iconOnly: false,
 });
 
 const emit = defineEmits<{
   close: [tabId: string];
   dragstart: [tabId: string, event: DragEvent];
   dragenter: [tabId: string, event: DragEvent];
+  drop: [tabId: string, event: DragEvent];
   dragend: [];
   hover: [tabId: string, rect: DOMRect];
   hoverend: [tabId: string];
@@ -80,6 +83,7 @@ function onDragLeave() {
 function onDrop(e: DragEvent) {
   e.preventDefault();
   isDragOver.value = false;
+  emit('drop', props.tabId, e);
 }
 
 function onDragEnd() {
@@ -103,7 +107,8 @@ const svgIcons: Record<string, string> = {
 </script>
 
 <template>
-  <div ref="toolItemRef" class="tool-item-container" :class="{ 'is-active': active, 'drag-over': isDragOver, 'is-dragging': false }"
+  <div ref="toolItemRef" class="tool-item-container" :class="{ 'is-active': active, 'drag-over': isDragOver, 'is-dragging': false, 'tool-item-container--icon-only': iconOnly }"
+    :title="tabName"
     v-ripple @click="handleTabClick"
     draggable="true"
     @dragstart="onDragStart"
@@ -121,7 +126,7 @@ const svgIcons: Record<string, string> = {
         </Svgicon>
       </span>
       <IconRenderer v-else-if="icon" :icon="icon" :size="15" color="currentColor" class="tool-icon" />
-      <span class="tool-name">{{ tabName }}</span>
+      <span v-if="!iconOnly" class="tool-name">{{ tabName }}</span>
     </div>
     <UiIconButton v-if="closable" class="close-btn" variant="ghost" size="sm" shape="circle" title="关闭标签"
       @click="handleClose">
@@ -146,6 +151,33 @@ const svgIcons: Record<string, string> = {
   cursor: pointer;
   color: var(--ui-text-primary);
   position: relative;
+
+  &--icon-only {
+    width: 46px;
+    min-width: 46px;
+    justify-content: center;
+    padding: 0;
+
+    & .tool-content {
+      width: 100%;
+      height: 100%;
+      padding-left: 0;
+      justify-content: center;
+    }
+
+    & .tool-icon {
+      opacity: 0.86;
+    }
+
+    & .close-btn {
+      position: absolute;
+      top: 2px;
+      right: 2px;
+      margin-right: 0;
+      transform: scale(0.82);
+      pointer-events: auto;
+    }
+  }
 
   &.is-active {
     background-color: var(--ui-surface-overlay);
@@ -180,6 +212,7 @@ const svgIcons: Record<string, string> = {
     display: flex;
     align-items: center;
     gap: 6px;
+    min-width: 0;
     padding-left: 10px;
     overflow: hidden;
   }

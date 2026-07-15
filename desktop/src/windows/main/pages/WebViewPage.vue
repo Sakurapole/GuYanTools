@@ -11,7 +11,7 @@ import { useBarStore } from '../stores/bar_store';
 import { useGlobalStore } from '../stores/global_store';
 import { useWebviewStore } from '../stores/webview_store';
 import { router } from '../routes/router';
-import { notifyError } from '../composables/useInAppNotification';
+import { notifyError, notifySuccess } from '../composables/useInAppNotification';
 
 const route = useRoute();
 const barStore = useBarStore();
@@ -89,6 +89,7 @@ const showScriptsDrawer = ref(false);
 
 // ─── Google 登录引导提示 ───
 const showGoogleLoginHint = ref(false);
+const currentFaviconUrl = ref('');
 
 const currentKeepAliveTargetUrl = computed(() => targetUrl.value);
 const canKeepAliveTemporarily = computed(() =>
@@ -96,6 +97,7 @@ const canKeepAliveTemporarily = computed(() =>
   && (pageState.value === 'loaded' || pageState.value === 'loading')
   && !webviewStore.isManagedKeepAliveUrl(currentKeepAliveTargetUrl.value),
 );
+const isCurrentWebviewPinned = computed(() => Boolean(targetUrl.value) && barStore.isWebviewPinned(targetUrl.value));
 
 function openGoogleLoginTab() {
   // 在应用内新 tab 打开 Google 登录（共享同一 partition，登录态自动互通）
@@ -108,6 +110,14 @@ function openGoogleLoginTab() {
 
 function dismissGoogleLoginHint() {
   showGoogleLoginHint.value = false;
+}
+
+async function pinCurrentWebviewToBottomBar() {
+  if (!targetUrl.value) return;
+
+  const title = navState.value.title || lastSyncedTitle || domain.value || targetUrl.value;
+  await barStore.pinWebviewTab(targetUrl.value, title, currentFaviconUrl.value);
+  notifySuccess('已固定到应用底栏');
 }
 
 let navPollTimer: ReturnType<typeof setInterval> | null = null;
@@ -132,6 +142,14 @@ function syncPageTitle(wvEl: any) {
 
   // 4. 同步到 navState
   navState.value.title = title;
+}
+
+function syncPageFavicon(favicons: string[] | undefined) {
+  const faviconUrl = favicons?.find(item => typeof item === 'string' && item.length > 0);
+  if (!faviconUrl) return;
+
+  currentFaviconUrl.value = faviconUrl;
+  barStore.updateTabIcon(route.fullPath, faviconUrl);
 }
 
 // ─── 域名检查 & 加载 ───
@@ -219,6 +237,10 @@ async function loadWebview() {
   // 页面标题更新事件
   wv.addEventListener('page-title-updated', () => {
     syncPageTitle(wv);
+  });
+
+  wv.addEventListener('page-favicon-updated', (e: any) => {
+    syncPageFavicon(e.favicons);
   });
 
   // ─── Google 登录引导：检测到 Google 登录 URL 时提示用户 ───
@@ -396,6 +418,16 @@ watch(targetUrl, () => {
 
         <UiIconButton variant="ghost" size="sm" shape="square" title="打开 DevTools" @click="openDevTools">
           <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M6 2H3a1 1 0 0 0-1 1v10a1 1 0 0 0 1 1h10a1 1 0 0 0 1-1v-3M9 2h5v5M14 2L7 9" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        </UiIconButton>
+        <UiIconButton
+          variant="ghost"
+          size="sm"
+          shape="square"
+          :disabled="isCurrentWebviewPinned"
+          :title="isCurrentWebviewPinned ? '已固定到底栏' : '固定到底栏'"
+          @click="pinCurrentWebviewToBottomBar"
+        >
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M5 2.5h6l-.8 4.2 2.3 2.3v1H8.7V14H7.3v-4H3.5V9l2.3-2.3L5 2.5z" stroke="currentColor" stroke-width="1.35" stroke-linejoin="round"/></svg>
         </UiIconButton>
         <UiButton v-if="canKeepAliveTemporarily" variant="secondary" size="sm" @click="keepAliveTemporarily">
           临时保活

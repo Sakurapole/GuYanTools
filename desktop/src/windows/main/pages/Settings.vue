@@ -2,6 +2,7 @@
 import type { AiAgentMode, AiInteractionMode } from '@/contracts/ai';
 import type {
   AppBottomBarTabId,
+  AppBottomBarPinnedWebviewTab,
   AppConfigPatch,
   AppKnowledgeAssetStorageMode,
   AppLanguage,
@@ -37,7 +38,9 @@ import UiButton from '../components/ui/UiButton.vue';
 import UiCheckbox from '../components/ui/UiCheckbox.vue';
 import UiDrawer from '../components/ui/UiDrawer.vue';
 import UiField from '../components/ui/UiField.vue';
+import UiIconButton from '../components/ui/UiIconButton.vue';
 import UiInput from '../components/ui/UiInput.vue';
+import IconRenderer from '../components/ui/IconRenderer.vue';
 import UiPanelHeader from '../components/ui/UiPanelHeader.vue';
 import UiPersonalizationConfig from '../components/ui/UiPersonalizationConfig.vue';
 import UiScrollbar from '../components/ui/UiScrollbar.vue';
@@ -51,6 +54,7 @@ import { useTheme } from '../composables/theme';
 import { useConfirmDialog } from '../composables/useConfirmDialog';
 import { notifyError, notifySuccess } from '../composables/useInAppNotification';
 import { useAppConfigStore } from '../stores/app_config_store';
+import { useBarStore } from '../stores/bar_store';
 import { useGlobalStore } from '../stores/global_store';
 import { useSettingStore, type SettingsTabKey } from '../stores/settings_store';
 import { useSshStore } from '../stores/ssh_store';
@@ -62,6 +66,7 @@ import AiSettingsPanel from './AI/components/AiSettingsPanel.vue';
 const settingsStore = useSettingStore();
 const syncStore = useSyncStore();
 const appConfigStore = useAppConfigStore();
+const barStore = useBarStore();
 const globalStore = useGlobalStore();
 const updaterStore = useUpdaterStore();
 const sshStore = useSshStore();
@@ -295,6 +300,30 @@ const bottomBarVisibleSummary = computed(() => {
     .filter((label): label is string => Boolean(label));
   return labels.length ? `默认显示：${labels.join('、')}` : '默认显示：首页、设置';
 });
+
+const bottomBarCollectionOptions = computed(() => [
+  { label: '不加入集合', value: '' },
+  ...appConfigStore.config.bottomBar.collections.map(collection => ({
+    label: collection.name,
+    value: collection.id,
+  })),
+]);
+
+const bottomBarInternalDisplayRows = computed(() => bottomBarVisibleTabIds.value.map(tabId => {
+  const option = bottomBarTabOptions.value.find(item => item.id === tabId);
+  const display = appConfigStore.config.bottomBar.tabDisplay[tabId];
+  return {
+    id: tabId,
+    label: option?.label ?? tabId,
+    description: option?.description ?? '',
+    icon: APP_INTERNAL_FUNCTIONS.find(item => item.id === tabId)?.icon ?? 'iconify:lucide:square',
+    iconOnly: display?.iconOnly === true,
+    collectionId: display?.collectionId ?? '',
+  };
+}));
+
+const bottomBarPinnedWebviews = computed(() => appConfigStore.config.bottomBar.pinnedWebviews);
+const bottomBarCollections = computed(() => appConfigStore.config.bottomBar.collections);
 
 const orderedNetworkInterfaces = computed(() => {
   const priority = appConfigStore.config.features.multiDeviceClipboard.networkInterfacePriority ?? [];
@@ -824,11 +853,55 @@ async function handleBottomBarVisibleTabsChange(value: string[]) {
     nextIds.push(tabId);
   }
 
-  await appConfigStore.updateConfig({
-    bottomBar: {
-      defaultVisibleTabIds: nextIds,
-    },
-  });
+  await barStore.updateVisibleFixedTabs(nextIds);
+}
+
+async function handleBottomBarInternalIconOnlyChange(tabId: AppBottomBarTabId, iconOnly: boolean) {
+  await barStore.updateTabIconOnly(tabId, iconOnly);
+}
+
+async function handleBottomBarInternalCollectionChange(tabId: AppBottomBarTabId, collectionId: string) {
+  await barStore.updateTabCollection(tabId, collectionId);
+}
+
+async function updatePinnedWebview(pinnedId: string, patch: Partial<AppBottomBarPinnedWebviewTab>) {
+  await barStore.updatePinnedWebviewTab(pinnedId, patch);
+}
+
+async function handlePinnedWebviewTitleChange(pinnedId: string, title: string) {
+  const trimmed = title.trim();
+  if (!trimmed) return;
+  await updatePinnedWebview(pinnedId, { title: trimmed });
+}
+
+async function handlePinnedWebviewTitleBlur(pinnedId: string, event: FocusEvent) {
+  const title = (event.target as HTMLInputElement | null)?.value ?? '';
+  await handlePinnedWebviewTitleChange(pinnedId, title);
+}
+
+async function handlePinnedWebviewIconOnlyChange(pinnedId: string, iconOnly: boolean) {
+  await updatePinnedWebview(pinnedId, { iconOnly });
+}
+
+async function handlePinnedWebviewCollectionChange(pinnedId: string, collectionId: string) {
+  await updatePinnedWebview(pinnedId, { collectionId });
+}
+
+async function handleUnpinWebview(pinnedId: string) {
+  await barStore.unpinWebviewTab(pinnedId);
+}
+
+async function handleCollectionNameChange(collectionId: string, name: string) {
+  await barStore.updateCollectionName(collectionId, name);
+}
+
+async function handleCollectionNameBlur(collectionId: string, event: FocusEvent) {
+  const name = (event.target as HTMLInputElement | null)?.value ?? '';
+  await handleCollectionNameChange(collectionId, name);
+}
+
+async function handleDeleteBottomBarCollection(collectionId: string) {
+  await barStore.deleteCollection(collectionId);
 }
 
 type AiAgentFeaturePatch = NonNullable<NonNullable<AppConfigPatch['features']>['aiAgent']>;
@@ -2747,6 +2820,99 @@ function scriptTypeLabel(type: string) {
                     </div>
                   </div>
                 </div>
+                <div class="settings-row settings-row--wide">
+                  <div class="settings-row__label">
+                    <span>底栏标签显示</span>
+                    <small>为固定标签配置图标模式和集合归属。</small>
+                  </div>
+                  <div class="settings-row__control settings-row__control--wide">
+                    <div class="bottom-bar-manager">
+                      <div v-if="bottomBarInternalDisplayRows.length" class="bottom-bar-manager__list">
+                        <div v-for="tab in bottomBarInternalDisplayRows" :key="tab.id" class="bottom-bar-manager__row">
+                          <div class="bottom-bar-manager__main">
+                            <strong>{{ tab.label }}</strong>
+                            <span>{{ tab.description }}</span>
+                          </div>
+                          <div class="bottom-bar-manager__controls">
+                            <UiCheckbox :model-value="tab.iconOnly" size="sm"
+                              @update:modelValue="handleBottomBarInternalIconOnlyChange(tab.id, $event)">
+                              图标按钮
+                            </UiCheckbox>
+                            <UiSelect :model-value="tab.collectionId" :options="bottomBarCollectionOptions"
+                              @update:modelValue="handleBottomBarInternalCollectionChange(tab.id, $event)" />
+                          </div>
+                        </div>
+                      </div>
+                      <div v-else class="bottom-bar-manager__empty">暂无可配置的固定标签。</div>
+                    </div>
+                  </div>
+                </div>
+                <div class="settings-row settings-row--wide">
+                  <div class="settings-row__label">
+                    <span>常驻网页标签</span>
+                    <small>从 WebView 页面固定到底栏的网页入口。</small>
+                  </div>
+                  <div class="settings-row__control settings-row__control--wide">
+                    <div class="bottom-bar-manager">
+                      <div v-if="bottomBarPinnedWebviews.length" class="bottom-bar-manager__list">
+                        <div v-for="item in bottomBarPinnedWebviews" :key="item.id" class="bottom-bar-manager__row">
+                          <div class="bottom-bar-manager__main bottom-bar-manager__main--webview">
+                            <IconRenderer :icon="item.faviconUrl ? `image:${item.faviconUrl}` : 'iconify:lucide:globe-2'"
+                              :size="18" color="currentColor" />
+                            <div class="bottom-bar-manager__text">
+                              <UiInput :model-value="item.title" size="sm"
+                                @blur="handlePinnedWebviewTitleBlur(item.id, $event)" />
+                              <span>{{ item.url }}</span>
+                            </div>
+                          </div>
+                          <div class="bottom-bar-manager__controls">
+                            <UiCheckbox :model-value="item.iconOnly" size="sm"
+                              @update:modelValue="handlePinnedWebviewIconOnlyChange(item.id, $event)">
+                              图标按钮
+                            </UiCheckbox>
+                            <UiSelect :model-value="item.collectionId" :options="bottomBarCollectionOptions"
+                              @update:modelValue="handlePinnedWebviewCollectionChange(item.id, $event)" />
+                            <UiIconButton variant="danger" size="sm" shape="square" title="取消固定"
+                              @click="handleUnpinWebview(item.id)">
+                              <svg width="15" height="15" viewBox="0 0 16 16" fill="none">
+                                <path d="M5 2.5h6l-.8 4.2 2.3 2.3v1H8.7V14H7.3v-4H3.5V9l2.3-2.3L5 2.5zM3 3l10 10" stroke="currentColor" stroke-width="1.35" stroke-linecap="round" stroke-linejoin="round"/>
+                              </svg>
+                            </UiIconButton>
+                          </div>
+                        </div>
+                      </div>
+                      <div v-else class="bottom-bar-manager__empty">打开网页后，可从 WebView 工具栏固定到底栏。</div>
+                    </div>
+                  </div>
+                </div>
+                <div class="settings-row settings-row--wide">
+                  <div class="settings-row__label">
+                    <span>底栏集合</span>
+                    <small>集合由底栏拖拽合并创建，可在这里重命名或删除。</small>
+                  </div>
+                  <div class="settings-row__control settings-row__control--wide">
+                    <div class="bottom-bar-manager">
+                      <div v-if="bottomBarCollections.length" class="bottom-bar-manager__list">
+                        <div v-for="collection in bottomBarCollections" :key="collection.id" class="bottom-bar-manager__row">
+                          <div class="bottom-bar-manager__main">
+                            <UiInput :model-value="collection.name" size="sm"
+                              @blur="handleCollectionNameBlur(collection.id, $event)" />
+                            <span>悬浮集合按钮时显示上方图标面板。</span>
+                          </div>
+                          <div class="bottom-bar-manager__controls">
+                            <UiIconButton variant="danger" size="sm" shape="square" title="删除集合"
+                              @click="handleDeleteBottomBarCollection(collection.id)">
+                              <svg width="15" height="15" viewBox="0 0 16 16" fill="none">
+                                <path d="M3 4h10M6 4V2.8h4V4m-5.5 2 .5 7h6l.5-7M7 7.5v4M9 7.5v4" stroke="currentColor" stroke-width="1.35" stroke-linecap="round" stroke-linejoin="round"/>
+                              </svg>
+                            </UiIconButton>
+                          </div>
+                        </div>
+                      </div>
+                      <div v-else class="bottom-bar-manager__empty">将底栏标签拖到另一个标签上即可创建集合。</div>
+                    </div>
+                  </div>
+                </div>
               </section>
 
               <section class="settings-group">
@@ -4308,6 +4474,29 @@ function scriptTypeLabel(type: string) {
                     </div>
                   </div>
                 </div>
+                <div class="settings-row">
+                  <div class="settings-row__label">
+                    <span>区域截图识别</span>
+                    <small>框选屏幕区域并识别按钮、输入框、卡片、列表项和导航等结构化 UI 块。</small>
+                  </div>
+                  <div class="settings-row__control settings-row__control--wide">
+                    <ShortcutRecorder :model-value="appConfigStore.config.shortcuts.system.captureScreenshotRegion"
+                      :default-value="defaultShortcuts.system.captureScreenshotRegion"
+                      @update:modelValue="updateSystemShortcut('captureScreenshotRegion', $event)" />
+                    <div class="shortcut-status-row">
+                      <p class="shortcut-status"
+                        :class="`shortcut-status--${getSystemShortcutStatus('captureScreenshotRegion') || 'pending'}`">
+                        {{ shortcutStatusText(getSystemShortcutStatus('captureScreenshotRegion')) }}：{{
+                          getSystemShortcutMessage('captureScreenshotRegion') || '等待检测结果。' }}
+                      </p>
+                      <UiButton v-if="canRetrySystemShortcut('captureScreenshotRegion')" type="button"
+                        variant="ghost" size="sm" :disabled="Boolean(shortcutRetryingKeys.captureScreenshotRegion)"
+                        @click="retrySystemShortcut('captureScreenshotRegion')">
+                        {{ shortcutRetryingKeys.captureScreenshotRegion ? '正在注册' : '重新注册' }}
+                      </UiButton>
+                    </div>
+                  </div>
+                </div>
                 <div v-for="row in detachedWindowShortcutRows" :key="row.key" class="settings-row">
                   <div class="settings-row__label">
                     <span>{{ row.label }}</span>
@@ -4838,6 +5027,91 @@ function scriptTypeLabel(type: string) {
     linear-gradient(180deg, color-mix(in srgb, var(--background-color) 68%, #66CCFF 7%) 0%, color-mix(in srgb, var(--background-color) 72%, transparent) 100%);
   padding: 12px 24px 0;
   box-sizing: border-box;
+}
+
+.bottom-bar-manager {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  width: 100%;
+}
+
+.bottom-bar-manager__list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.bottom-bar-manager__row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  min-width: 0;
+  padding: 10px 12px;
+  border: var(--ui-border-width-thin) solid var(--ui-border-subtle);
+  border-radius: var(--ui-radius-sm);
+  background: var(--ui-surface-panel-muted);
+}
+
+.bottom-bar-manager__main {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+
+  strong {
+    color: var(--ui-text-primary);
+    font-size: 13px;
+    font-weight: 700;
+  }
+
+  span {
+    min-width: 0;
+    overflow: hidden;
+    color: var(--ui-text-muted);
+    font-size: 12px;
+    line-height: 1.45;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+}
+
+.bottom-bar-manager__main--webview {
+  flex-direction: row;
+  align-items: center;
+  gap: 10px;
+  color: var(--ui-text-secondary);
+}
+
+.bottom-bar-manager__text {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+
+.bottom-bar-manager__controls {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+
+  .ui-select {
+    min-width: 140px;
+  }
+}
+
+.bottom-bar-manager__empty {
+  padding: 12px;
+  border: var(--ui-border-width-thin) dashed var(--ui-border-subtle);
+  border-radius: var(--ui-radius-sm);
+  background: var(--ui-surface-panel-muted);
+  color: var(--ui-text-muted);
+  font-size: 12px;
 }
 
 .page-title-row {

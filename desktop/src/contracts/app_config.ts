@@ -140,6 +140,8 @@ export interface AppSystemShortcutsConfig {
   toggleMultiDeviceClipboard: string;
   toggleQuickNote: string;
   captureClipboardToQuickNote: string;
+  captureScreenshotRegion: string;
+  captureScreenshotAnnotate: string;
   toggleQuickLaunch: string;
   openDetachedTerminal: string;
   openDetachedFtp: string;
@@ -224,6 +226,29 @@ export interface AppToolsConfig {
 
 export interface AppBottomBarConfig {
   defaultVisibleTabIds: AppBottomBarTabId[];
+  tabDisplay: Partial<Record<AppBottomBarTabId, AppBottomBarTabDisplayConfig>>;
+  pinnedWebviews: AppBottomBarPinnedWebviewTab[];
+  collections: AppBottomBarCollection[];
+}
+
+export interface AppBottomBarTabDisplayConfig {
+  iconOnly: boolean;
+  collectionId: string;
+}
+
+export interface AppBottomBarPinnedWebviewTab {
+  id: string;
+  title: string;
+  url: string;
+  faviconUrl: string;
+  iconOnly: boolean;
+  collectionId: string;
+}
+
+export interface AppBottomBarCollection {
+  id: string;
+  name: string;
+  icon: string;
 }
 
 export interface AppConfig {
@@ -360,6 +385,9 @@ export function createDefaultAppConfig(): AppConfig {
     },
     bottomBar: {
       defaultVisibleTabIds: [...APP_BOTTOM_BAR_DEFAULT_VISIBLE_TAB_IDS],
+      tabDisplay: {},
+      pinnedWebviews: [],
+      collections: [],
     },
     features: {
       aiAgent: createDefaultAiAgentFeatureConfig(),
@@ -449,6 +477,8 @@ export function createDefaultAppConfig(): AppConfig {
         toggleMultiDeviceClipboard: 'Alt+V',
         toggleQuickNote: 'CommandOrControl+Alt+N',
         captureClipboardToQuickNote: 'CommandOrControl+Alt+Shift+N',
+        captureScreenshotRegion: 'CommandOrControl+Alt+Shift+S',
+        captureScreenshotAnnotate: 'CommandOrControl+Alt+Shift+A',
         toggleQuickLaunch: 'Alt+Space',
         openDetachedTerminal: 'CommandOrControl+Shift+T',
         openDetachedFtp: '',

@@ -9,7 +9,7 @@ import { useBarStore } from '../../stores/bar_store';
 import { useGlobalStore } from '../../stores/global_store';
 import { useWebviewStore } from '../../stores/webview_store';
 import { router } from '../../routes/router';
-import { notifyError } from '../../composables/useInAppNotification';
+import { notifyError, notifySuccess } from '../../composables/useInAppNotification';
 
 const route = useRoute();
 const barStore = useBarStore();
@@ -69,6 +69,7 @@ const navStates = ref<Record<string, {
   title: string;
   isLoading: boolean;
 }>>({});
+const faviconUrls = ref<Record<string, string>>({});
 const domainStatuses = ref<Record<string, DomainCheckResult>>({});
 const injectedScriptsMap = ref<Record<string, WebScriptRule[]>>({});
 const showScriptsDrawerFor = ref<string | null>(null);
@@ -127,6 +128,20 @@ function syncPageTitle(wvEl: any, instanceUrl: string) {
   navStates.value[instanceUrl].title = title;
 }
 
+function syncPageFavicon(instanceUrl: string, favicons: string[] | undefined) {
+  const faviconUrl = favicons?.find(item => typeof item === 'string' && item.length > 0);
+  if (!faviconUrl) return;
+
+  faviconUrls.value[instanceUrl] = faviconUrl;
+  barStore.updateTabIcon(`/webview?url=${encodeURIComponent(instanceUrl)}`, faviconUrl);
+}
+
+async function pinWebviewInstance(instanceUrl: string) {
+  const title = navStates.value[instanceUrl]?.title || instanceUrl;
+  await barStore.pinWebviewTab(instanceUrl, title, faviconUrls.value[instanceUrl] ?? '');
+  notifySuccess('已固定到应用底栏');
+}
+
 function startPolling(instanceUrl: string) {
   stopPolling(instanceUrl);
   pollTimers.value[instanceUrl] = setInterval(() => {
@@ -163,6 +178,7 @@ function cleanupInstanceState(instanceUrl: string) {
   stopPolling(instanceUrl);
   delete webviewRefs.value[instanceUrl];
   delete navStates.value[instanceUrl];
+  delete faviconUrls.value[instanceUrl];
   delete domainStatuses.value[instanceUrl];
   delete injectedScriptsMap.value[instanceUrl];
   delete lastSyncedTitles[instanceUrl];
@@ -263,6 +279,10 @@ async function initWebview(instanceUrl: string) {
     syncPageTitle(wv, instanceUrl);
   });
 
+  wv.addEventListener('page-favicon-updated', (e: any) => {
+    syncPageFavicon(instanceUrl, e.favicons);
+  });
+
   // Google 登录引导
   wv.addEventListener('did-navigate', (e: any) => {
     if (isGoogleAuthUrl(e.url)) {
@@ -294,6 +314,11 @@ function goForward(url: string) {
 function reload(url: string) {
   const wv = webviewRefs.value[url] as any;
   if (wv) wv.reload();
+}
+
+function openDevTools(url: string) {
+  const wv = webviewRefs.value[url] as any;
+  if (wv?.openDevTools) wv.openDevTools();
 }
 
 function openGoogleLoginTab() {
@@ -414,6 +439,19 @@ function setWebviewRef(url: string, el: any) {
                 {{ (injectedScriptsMap[inst.url] || []).length }}
               </span>
             </div>
+            <UiIconButton variant="ghost" size="sm" shape="square" title="打开 DevTools" @click="openDevTools(inst.url)">
+              <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M6 2H3a1 1 0 0 0-1 1v10a1 1 0 0 0 1 1h10a1 1 0 0 0 1-1v-3M9 2h5v5M14 2L7 9" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            </UiIconButton>
+            <UiIconButton
+              variant="ghost"
+              size="sm"
+              shape="square"
+              :disabled="barStore.isWebviewPinned(inst.url)"
+              :title="barStore.isWebviewPinned(inst.url) ? '已固定到底栏' : '固定到底栏'"
+              @click="pinWebviewInstance(inst.url)"
+            >
+              <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M5 2.5h6l-.8 4.2 2.3 2.3v1H8.7V14H7.3v-4H3.5V9l2.3-2.3L5 2.5z" stroke="currentColor" stroke-width="1.35" stroke-linejoin="round"/></svg>
+            </UiIconButton>
           </div>
         </div>
 

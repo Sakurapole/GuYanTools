@@ -82,6 +82,7 @@ const SETTINGS_TAB_IDS: AppSettingsTabId[] = [
   'plugins',
   'terminal',
   'multi-device-clipboard',
+  'sync-center',
   'knowledge',
   'quick-launch',
   'shortcuts',
@@ -90,7 +91,13 @@ const SETTINGS_TAB_IDS: AppSettingsTabId[] = [
 export type AppConfigChangeListener = (config: AppConfig, patch?: AppConfigPatch) => void;
 
 function cloneConfig<T>(value: T): T {
-  return JSON.parse(JSON.stringify(value)) as T;
+  if (value === undefined) {
+    return undefined as T;
+  }
+
+  // 使用 structuredClone 替代 JSON.parse(JSON.stringify())，
+  // 避免 base64 等大字符串在 JSON round-trip 时产生中间字符串导致 V8 堆内存溢出
+  return structuredClone(value);
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -150,7 +157,97 @@ function normalizeBottomBar(value: unknown): AppBottomBarConfig {
     }
   }
 
-  return { defaultVisibleTabIds };
+  return {
+    defaultVisibleTabIds,
+    tabDisplay: normalizeBottomBarTabDisplay(value),
+    pinnedWebviews: normalizeBottomBarPinnedWebviews(value),
+    collections: normalizeBottomBarCollections(value),
+  };
+}
+
+function normalizeBottomBarTabDisplay(value: unknown): AppBottomBarConfig['tabDisplay'] {
+  if (!isRecord(value) || !isRecord(value.tabDisplay)) {
+    return {};
+  }
+
+  const allowedIds = new Set<AppBottomBarTabId>(APP_INTERNAL_FUNCTIONS.map(item => item.id));
+  const result: AppBottomBarConfig['tabDisplay'] = {};
+  for (const [id, config] of Object.entries(value.tabDisplay)) {
+    if (!allowedIds.has(id as AppBottomBarTabId) || !isRecord(config)) {
+      continue;
+    }
+
+    result[id as AppBottomBarTabId] = {
+      iconOnly: config.iconOnly === true,
+      collectionId: typeof config.collectionId === 'string' ? config.collectionId.trim() : '',
+    };
+  }
+
+  return result;
+}
+
+function normalizeBottomBarPinnedWebviews(value: unknown): AppBottomBarConfig['pinnedWebviews'] {
+  if (!isRecord(value) || !Array.isArray(value.pinnedWebviews)) {
+    return [];
+  }
+
+  const result: AppBottomBarConfig['pinnedWebviews'] = [];
+  const seenIds = new Set<string>();
+  const seenUrls = new Set<string>();
+  for (const item of value.pinnedWebviews) {
+    if (!isRecord(item)) {
+      continue;
+    }
+
+    const id = typeof item.id === 'string' ? item.id.trim() : '';
+    const title = typeof item.title === 'string' ? item.title.trim() : '';
+    const url = typeof item.url === 'string' ? item.url.trim() : '';
+    if (!id || !url || seenIds.has(id) || seenUrls.has(url)) {
+      continue;
+    }
+
+    seenIds.add(id);
+    seenUrls.add(url);
+    result.push({
+      id,
+      title: title || url,
+      url,
+      faviconUrl: typeof item.faviconUrl === 'string' ? item.faviconUrl.trim() : '',
+      iconOnly: item.iconOnly === true,
+      collectionId: typeof item.collectionId === 'string' ? item.collectionId.trim() : '',
+    });
+  }
+
+  return result;
+}
+
+function normalizeBottomBarCollections(value: unknown): AppBottomBarConfig['collections'] {
+  if (!isRecord(value) || !Array.isArray(value.collections)) {
+    return [];
+  }
+
+  const result: AppBottomBarConfig['collections'] = [];
+  const seenIds = new Set<string>();
+  for (const item of value.collections) {
+    if (!isRecord(item)) {
+      continue;
+    }
+
+    const id = typeof item.id === 'string' ? item.id.trim() : '';
+    const name = typeof item.name === 'string' ? item.name.trim() : '';
+    if (!id || seenIds.has(id)) {
+      continue;
+    }
+
+    seenIds.add(id);
+    result.push({
+      id,
+      name: name || '集合',
+      icon: typeof item.icon === 'string' ? item.icon.trim() : '',
+    });
+  }
+
+  return result;
 }
 
 function normalizePluginItems(value: unknown): AppPluginsConfig['items'] {
@@ -207,6 +304,14 @@ function normalizeShortcuts(value: unknown): AppShortcutsConfig {
       captureClipboardToQuickNote: normalizeShortcutValue(
         system.captureClipboardToQuickNote,
         defaults.system.captureClipboardToQuickNote,
+      ),
+      captureScreenshotRegion: normalizeShortcutValue(
+        system.captureScreenshotRegion,
+        defaults.system.captureScreenshotRegion,
+      ),
+      captureScreenshotAnnotate: normalizeShortcutValue(
+        system.captureScreenshotAnnotate,
+        defaults.system.captureScreenshotAnnotate,
       ),
       toggleQuickLaunch: normalizeShortcutValue(system.toggleQuickLaunch, defaults.system.toggleQuickLaunch),
       openDetachedTerminal: normalizeShortcutValue(system.openDetachedTerminal, defaults.system.openDetachedTerminal),
@@ -850,7 +955,9 @@ function normalizeTerminalFeature(value: unknown): AppFeaturesConfig['terminal']
   const viewportBgColor = typeof value.viewportBgColor === 'string' ? value.viewportBgColor : defaults.viewportBgColor;
   const viewportBgImage = typeof value.viewportBgImage === 'string' ? value.viewportBgImage : defaults.viewportBgImage;
   const viewportBgVideo = typeof value.viewportBgVideo === 'string' ? value.viewportBgVideo : defaults.viewportBgVideo;
-  const viewportBgStyle = isRecord(value.viewportBgStyle) ? cloneConfig(value.viewportBgStyle) as Record<string, unknown> : cloneConfig(defaults.viewportBgStyle);
+  // 浅拷贝即可：仅读取属性，不修改 themeVariants 等嵌套对象，
+  // 避免对含大 base64 图片的 themeVariants 做不必要的深拷贝
+  const viewportBgStyle = isRecord(value.viewportBgStyle) ? { ...value.viewportBgStyle } as Record<string, unknown> : { ...defaults.viewportBgStyle };
 
   const env = isRecord(value.env)
     ? Object.fromEntries(
@@ -1329,11 +1436,9 @@ export class AppConfigManager {
       return defaults;
     }
 
+    let payload: unknown;
     try {
-      const payload = await fs.readJSON(APP_CONFIG_FILE);
-      const normalized = normalizeAppConfig(payload);
-      await fs.writeJSON(APP_CONFIG_FILE, this.serializeConfigForDisk(normalized), { spaces: 2 });
-      return normalized;
+      payload = await fs.readJSON(APP_CONFIG_FILE);
     } catch (error) {
       const backupPath = `${APP_CONFIG_FILE}.broken-${Date.now()}.json`;
       try {
@@ -1347,6 +1452,22 @@ export class AppConfigManager {
       console.error('Failed to parse app config. Restored defaults.', error);
       return defaults;
     }
+
+    let normalized: AppConfig;
+    try {
+      normalized = normalizeAppConfig(payload);
+    } catch (error) {
+      console.error('Failed to normalize app config. Keeping parsed settings file untouched.', error);
+      throw error;
+    }
+
+    try {
+      await fs.writeJSON(APP_CONFIG_FILE, this.serializeConfigForDisk(normalized), { spaces: 2 });
+    } catch (error) {
+      console.error('Failed to write normalized app config. Keeping parsed settings in memory.', error);
+    }
+
+    return normalized;
   }
 
   private async persist(patch?: AppConfigPatch) {
@@ -1362,7 +1483,9 @@ export class AppConfigManager {
   }
 
   private serializeConfigForDisk(config: AppConfig) {
-    const payload = cloneConfig(config) as AppConfig & { shortcuts?: AppShortcutsConfig };
+    // 浅拷贝并移除 shortcuts（shortcuts 持久化到数据库），
+    // 避免对整个配置做深拷贝（可能包含大 base64 背景图数据）
+    const payload = { ...config } as AppConfig & { shortcuts?: AppShortcutsConfig };
     delete payload.shortcuts;
     return payload;
   }
