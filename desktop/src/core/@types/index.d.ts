@@ -23,17 +23,7 @@ interface IpcRenderer {
   on: (channel: string, listener: (...args: any[]) => void) => () => void;
 }
 
-interface PluginAPI {
-  getContext: () => Promise<PluginRuntimeContext>;
-  workspace: PluginRuntimeApi['workspace'];
-  data: PluginRuntimeApi['data'];
-  storage: PluginRuntimeApi['storage'];
-  navigation: PluginRuntimeApi['navigation'];
-  commands: PluginRuntimeApi['commands'];
-  ui: PluginRuntimeApi['ui'];
-  system: PluginRuntimeApi['system'];
-  logger: PluginRuntimeApi['logger'];
-}
+type PluginAPI = PluginRuntimeApi;
 
 declare global {
   namespace globalThis {
@@ -68,4 +58,3 @@ declare global {
     ftpApi: FtpApi;
   }
 }
-

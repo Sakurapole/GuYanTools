@@ -323,6 +323,8 @@ export interface PluginRuntimeApi {
   };
   ui: {
     getPages: () => Promise<PluginPageDescriptor[]>;
+    getTheme: () => Promise<PluginThemeDescriptor>;
+    onThemeChanged: (listener: (theme: PluginThemeDescriptor) => void) => () => void;
   };
   system: {
     getCapabilities: () => Promise<PluginCapabilitySummary['system']>;
@@ -337,6 +339,7 @@ export interface PluginRuntimeApi {
   };
   files: {
     createDataGrant: (accessMode?: import('./plugin_media').FileGrant['accessMode']) => Promise<import('./plugin_media').FileGrant>;
+    pickDirectoryGrant: () => Promise<import('./plugin_media').FileGrant | null>;
     revoke: (grantId: string) => Promise<void>;
     read: (grantId: string, targetPath: string) => Promise<string>;
     write: (grantId: string, targetPath: string, bytesBase64: string) => Promise<void>;
@@ -354,7 +357,7 @@ export interface PluginRuntimeApi {
   };
   media: {
     probe: (grantId: string, targetPath: string) => Promise<import('./plugin_media').MediaProbe>;
-    transcode: (input: { inputGrantId: string; inputPath: string; outputGrantId: string; outputPath: string; options?: { audioCodec?: string; videoCodec?: string; format?: string } }) => Promise<string>;
+    transcode: (input: { inputGrantId: string; inputPath: string; outputGrantId: string; outputPath: string; options?: { audioCodec?: string; videoCodec?: string; format?: string; additionalInputPaths?: string[] } }) => Promise<string>;
     preview: (url: string, mimeType?: string) => Promise<import('./plugin_media').PreviewGrant>;
     writeTags: (grantId: string, targetPath: string, tags: import('./plugin_media').MediaTags) => Promise<string>;
   };

@@ -3,6 +3,8 @@ import { pluginHost } from './index';
 import { PluginContextGuard } from './context_guard';
 import { dbManager } from '../../core/database';
 import { JobService } from './services/job_service';
+import { appConfigManager } from '../app-config/manager';
+import { toPluginThemeDescriptor } from './theme_bridge';
 
 let registered = false;
 const guard = new PluginContextGuard();
@@ -76,6 +78,10 @@ export function registerPluginHostIpcHandlers(getMainWindow: () => BrowserWindow
     guard.requirePermission(getSenderPluginContext(event.sender.id), 'ui.contribute');
     return pluginHost.listPages();
   });
+  ipcMain.handle('plugin-runtime:ui:get-theme', async (event) => {
+    getSenderPluginContext(event.sender.id);
+    return toPluginThemeDescriptor(appConfigManager.getCachedConfig().appearance.theme);
+  });
   ipcMain.handle('plugin-runtime:system:get-capabilities', async (event) => {
     guard.requirePermission(getSenderPluginContext(event.sender.id), 'system.notifications');
     return pluginHost.getHostServices().system.getCapabilities();
@@ -105,6 +111,12 @@ export function registerPluginHostIpcHandlers(getMainWindow: () => BrowserWindow
     const context = getSenderPluginContext(event.sender.id);
     guard.requirePermission(context, accessMode === 'read' ? 'files.read' : 'files.write');
     return pluginHost.getHostServices().createPluginDataGrant(context.pluginId, accessMode);
+  });
+  ipcMain.handle('plugin-runtime:files:pick-directory-grant', async (event) => {
+    const context = getSenderPluginContext(event.sender.id);
+    guard.requirePermission(context, 'system.dialog');
+    guard.requirePermission(context, 'files.write');
+    return pluginHost.getHostServices().pickPluginDirectoryGrant(context.pluginId);
   });
   ipcMain.handle('plugin-runtime:files:revoke', async (event, grantId: string) => {
     const context = getSenderPluginContext(event.sender.id);
