@@ -1,5 +1,7 @@
 # GuYanTools 插件开发
 
+完整的能力范围、manifest 示例、SDK 方法、权限表和发布配置见 [插件系统能力与开发指南](./PLUGIN_SYSTEM_CAPABILITIES.md)。
+
 ## 技术边界
 
 插件 UI 可以使用 Vue 3 或 React。UI 通过 `@guyantools/plugin-ui` 的 Custom Elements 和 `--gt-*` token 接入宿主主题；业务逻辑通过 `@guyantools/plugin-sdk` 调用，不能直接访问 Electron、Node、数据库或宿主源码。
