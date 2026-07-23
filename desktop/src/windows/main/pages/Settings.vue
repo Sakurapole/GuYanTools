@@ -2888,7 +2888,7 @@ function scriptTypeLabel(type: string) {
                 <div class="settings-row settings-row--wide">
                   <div class="settings-row__label">
                     <span>底栏集合</span>
-                    <small>集合由底栏拖拽合并创建，可在这里重命名或删除。</small>
+                    <small>底栏标签默认拖拽排序；按住 Shift 拖到另一个标签上可合并为集合。</small>
                   </div>
                   <div class="settings-row__control settings-row__control--wide">
                     <div class="bottom-bar-manager">
@@ -2909,7 +2909,7 @@ function scriptTypeLabel(type: string) {
                           </div>
                         </div>
                       </div>
-                      <div v-else class="bottom-bar-manager__empty">将底栏标签拖到另一个标签上即可创建集合。</div>
+                      <div v-else class="bottom-bar-manager__empty">按住 Shift 将底栏标签拖到另一个标签上即可创建集合。</div>
                     </div>
                   </div>
                 </div>

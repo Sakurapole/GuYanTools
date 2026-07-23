@@ -119,6 +119,8 @@ const { tabPages, ungroupedTabPages, collections } = storeToRefs(barStore);
 
 const draggingTabId = ref<string | null>(null);
 const tabListInstant = ref(false);
+const tabReorderedDuringDrag = ref(false);
+let lastSwapTime = 0;
 
 // ─── 预览弹窗状态（集中管理） ───
 const previewVisible = ref(false);
@@ -271,23 +273,39 @@ function handleTabClose(tabId: string) {
 
 function handleDragStart(tabId: string, _e: DragEvent) {
   draggingTabId.value = tabId;
+  tabReorderedDuringDrag.value = false;
+  lastSwapTime = 0;
 }
 
-function handleDragEnter(targetTabId: string, _e: DragEvent) {
+function handleDragEnter(targetTabId: string, e: DragEvent) {
   const sourceId = draggingTabId.value;
-  if (!sourceId || sourceId === targetTabId) return;
+  if (!sourceId || sourceId === targetTabId || e.shiftKey) return;
+
+  const now = Date.now();
+  if (now - lastSwapTime < 150) return;
+  lastSwapTime = now;
+
+  barStore.moveTabToDragTarget(sourceId, targetTabId);
+  tabReorderedDuringDrag.value = true;
 }
 
-function handleTabDrop(targetTabId: string, _e: DragEvent) {
+function handleTabDrop(targetTabId: string, e: DragEvent) {
   const sourceId = draggingTabId.value;
   if (!sourceId || sourceId === targetTabId) return;
 
   hidePreview();
-  void runInstantTabMutation(() => barStore.createCollectionFromTabs(sourceId, targetTabId));
+  if (e.shiftKey) {
+    void runInstantTabMutation(() => barStore.createCollectionFromTabs(sourceId, targetTabId));
+  } else if (!tabReorderedDuringDrag.value) {
+    // Some platforms skip dragenter when the drop target is entered quickly.
+    barStore.moveTabToDragTarget(sourceId, targetTabId);
+  }
 }
 
 function handleDragEnd() {
   draggingTabId.value = null;
+  tabReorderedDuringDrag.value = false;
+  lastSwapTime = 0;
   hidePreview();
 }
 
