@@ -27,11 +27,15 @@ async function main(args: string[]) {
   if (command === 'publish') {
     const config = await readPublishConfig();
     const mode = args[args.indexOf('--catalog-mode') + 1];
-    if (mode === 'pull-request' || mode === 'direct') config.catalogMode = mode;
-    console.log(JSON.stringify(await publish({ config, dryRun: args.includes('--dry-run') })));
+    console.log(JSON.stringify(await publish({
+      config,
+      dryRun: args.includes('--dry-run'),
+      noPush: args.includes('--no-push'),
+      catalogMode: mode === 'pull-request' || mode === 'direct' ? mode : undefined,
+    })));
     return;
   }
-  throw new Error('Usage: guyantools-plugin <create|dev|validate|build|pack>');
+  throw new Error('Usage: guyantools-plugin <create|dev|validate|build|pack|publish>');
 }
 
 if (process.argv[1]?.endsWith('index.js')) {

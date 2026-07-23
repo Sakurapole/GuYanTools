@@ -650,7 +650,7 @@ expect(result.catalogEntry.refType).toBe('tag');
 expect(result.commands.some(command => command.includes('gh release create'))).toBe(true);
 ```
 
-- [ ] **Step 2: Run the publish tests and verify failure.**
+- [x] **Step 2: Run the publish tests and verify failure.**
 
 ```powershell
 pnpm --dir packages/plugin-cli exec vitest run tests/publish.test.ts
@@ -680,11 +680,11 @@ export interface PublishResult {
 }
 ```
 
-- [ ] **Step 4: Implement GitHub Release execution.**
+- [x] **Step 4: Implement GitHub Release execution.**
 
 Use `git tag` and `gh release create` through `spawn` with `shell: false`. Support `--dry-run`, `--no-push`, and `--catalog-mode pull-request|direct`. Capture stdout/stderr and return structured errors. Require `GH_TOKEN` or an authenticated `gh` session before a non-dry-run operation.
 
-- [ ] **Step 5: Implement Marketplace update behavior.**
+- [x] **Step 5: Implement Marketplace update behavior.**
 
 For `pull-request`, clone or fetch the configured catalog repository, update only the plugin entry, run catalog schema validation, create a branch, commit, push, and open a PR. For `direct`, require an explicit repository write permission and update the catalog on the configured branch. Never alter unrelated catalog entries.
 
