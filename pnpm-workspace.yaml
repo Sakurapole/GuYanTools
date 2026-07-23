@@ -1,6 +1,7 @@
 packages:
   - desktop
   - multi_platform_core
+  - packages/*
 allowBuilds:
   '@bitdisaster/exe-icon-extractor': true
   '@parcel/watcher': true

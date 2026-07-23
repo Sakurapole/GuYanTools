@@ -10,6 +10,7 @@ import type {
 
 const DEFAULT_PLUGIN_API_VERSION = '1.0.0';
 const DEFAULT_HOST_VERSION_RANGE = '>=1.0.0';
+const DEFAULT_UI_API_VERSION = '1.0.0';
 
 type PackageJsonLike = {
   name?: string;
@@ -72,8 +73,23 @@ export function validatePluginManifest(input: unknown): asserts input is PluginM
     fail('PLUGIN_TRUST_UNSUPPORTED', 'market plugins must use sandboxed trust level');
   }
 
-  if (manifest.schemaVersion !== '1.0' || typeof manifest.version !== 'string') {
+  if (!['1.0', '1.1'].includes(manifest.schemaVersion ?? '') || typeof manifest.version !== 'string') {
     fail('PLUGIN_MANIFEST_INVALID', 'schemaVersion and version are required');
+  }
+
+  for (const field of ['dev', 'devServer', 'uiUrl', 'workerUrl']) {
+    if (field in manifest) {
+      fail('PLUGIN_MANIFEST_DEV_FIELD', `${field} is only valid for local development sessions`);
+    }
+  }
+
+  if (manifest.ui !== undefined) {
+    if (!manifest.ui || manifest.ui.theme !== 'guyantools' || typeof manifest.ui.components !== 'string' || manifest.ui.components.length === 0) {
+      fail('PLUGIN_UI_INVALID', 'ui must declare the guyantools theme and components package');
+    }
+    if (typeof manifest.uiApiVersion !== 'string') {
+      fail('PLUGIN_UI_API_VERSION_REQUIRED', 'uiApiVersion is required when ui is declared');
+    }
   }
 
   if (!Array.isArray(manifest.permissions) || manifest.permissions.some(permission => !VALID_PERMISSIONS.has(permission as PluginPermission))) {
@@ -151,6 +167,10 @@ function toManifestShape(input: Partial<PluginManifest> & { entry?: string | Plu
     displayName: input.displayName ?? name,
     description: input.description ?? packageJson?.description ?? '',
     pluginApiVersion: input.pluginApiVersion ?? DEFAULT_PLUGIN_API_VERSION,
+    ...(input.uiApiVersion || input.ui ? {
+      uiApiVersion: input.uiApiVersion ?? DEFAULT_UI_API_VERSION,
+      ...(input.ui ? { ui: input.ui } : {}),
+    } : {}),
     hostVersionRange: input.hostVersionRange ?? DEFAULT_HOST_VERSION_RANGE,
     trustLevel: (input.trustLevel ?? 'sandboxed') as PluginTrustLevel,
     runtime: (input.runtime ?? 'ui') as PluginRuntimeKind,

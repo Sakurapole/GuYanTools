@@ -62,6 +62,24 @@ describe('plugin manifest validation', () => {
     expect(() => validatePluginManifest(manifest({ runtime: 'worker', entry: {} }))).toThrow('PLUGIN_ENTRY_INVALID');
   });
 
+  it('accepts the UI contract fields introduced by manifest 1.1', async () => {
+    const { validatePluginManifest } = await import('./manifest_resolver');
+
+    expect(() => validatePluginManifest(manifest({
+      schemaVersion: '1.1',
+      uiApiVersion: '1.0.0',
+      ui: { theme: 'guyantools', components: '@guyantools/plugin-ui' },
+    }))).not.toThrow();
+  });
+
+  it('rejects development URLs in a production manifest', async () => {
+    const { validatePluginManifest } = await import('./manifest_resolver');
+
+    expect(() => validatePluginManifest(manifest({
+      dev: { uiUrl: 'http://127.0.0.1:5173/index.html' },
+    }))).toThrow('PLUGIN_MANIFEST_DEV_FIELD');
+  });
+
   it('requires each declared entry to be a regular file', async () => {
     const root = await fs.mkdtemp(path.join(os.tmpdir(), 'guyantools-plugin-entry-'));
     await fs.writeJSON(path.join(root, 'guyantools.plugin.json'), manifest());

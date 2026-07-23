@@ -40,6 +40,7 @@ const TRUSTED_ALLOWED: PluginPermission[] = [
 // Plugin compatibility follows the host platform API version, independent of the app package version.
 export const HOST_VERSION = '1.0.0';
 export const PLUGIN_API_VERSION = '1.0.0';
+export const PLUGIN_UI_API_VERSION = '1.0.0';
 
 function versionParts(value: string) {
   const match = value.trim().replace(/^v/, '').match(/^(\d+)\.(\d+)\.(\d+)/);
@@ -88,6 +89,9 @@ export class PluginPermissionManager {
     }
     if (!satisfiesRange(PLUGIN_API_VERSION, manifest.pluginApiVersion)) {
       throw new Error(`PLUGIN_API_VERSION_UNSUPPORTED: ${manifest.pluginApiVersion}`);
+    }
+    if (manifest.uiApiVersion && !satisfiesRange(PLUGIN_UI_API_VERSION, manifest.uiApiVersion)) {
+      throw new Error(`PLUGIN_UI_API_VERSION_UNSUPPORTED: ${manifest.uiApiVersion}`);
     }
   }
 

@@ -100,19 +100,24 @@ export interface PluginContributes {
 }
 
 export interface PluginManifest {
-  schemaVersion: '1.0';
+  schemaVersion: '1.0' | '1.1';
   id: string;
   name: string;
   version: string;
   displayName: string;
   description: string;
   pluginApiVersion: string;
+  uiApiVersion?: string;
   hostVersionRange: string;
   trustLevel: PluginTrustLevel;
   runtime: PluginRuntimeKind;
   entry: {
     ui?: string;
     worker?: string;
+  };
+  ui?: {
+    theme: 'guyantools';
+    components: string;
   };
   permissions: PluginPermission[];
   capabilities: PluginCapabilityDeclaration[];
@@ -194,6 +199,23 @@ export interface PluginRuntimeContext {
   trustLevel: PluginTrustLevel;
   runtime: PluginRuntimeKind;
   permissions: PluginPermission[];
+}
+
+export interface PluginThemeDescriptor {
+  mode: 'light' | 'dark';
+  tokensVersion: string;
+}
+
+export interface PluginDevSession {
+  pluginId: string;
+  rootPath: string;
+  uiUrl: string;
+  workerUrl?: string;
+  host: '127.0.0.1';
+  port: number;
+  sessionToken: string;
+  processId?: number;
+  startedAt: string;
 }
 
 export interface InstalledPluginRecord {
