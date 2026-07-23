@@ -22,6 +22,7 @@ import { PluginRuntimeRouter } from './runtime_router';
 import { MarketplaceResolver } from './marketplace_resolver';
 import { dbManager } from '../../core/database';
 import { JobService } from './services/job_service';
+import { resolvePluginPreloadPath } from './preload_path';
 
 const REGISTRY_FILE = path.join(PLUGIN_INSTALL_DIR, 'guyantools-plugin-registry.json');
 
@@ -41,7 +42,7 @@ export class PluginHost {
   );
   private readonly runtimeRouter = new PluginRuntimeRouter(
     this.hostServices,
-    path.join(__dirname, '..', '..', '.vite', 'build', 'preload.plugin.js'),
+    resolvePluginPreloadPath(path.join(__dirname, '..', '..', '.vite', 'build')),
     () => appConfigManager.getCachedConfig().plugins.unloadAfterMinutes,
   );
   private readonly marketplaceResolver = new MarketplaceResolver(async (url, ref) => {
