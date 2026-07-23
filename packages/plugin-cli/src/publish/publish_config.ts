@@ -4,6 +4,8 @@ export interface PublishConfig {
   catalogMode: 'pull-request' | 'direct';
   releaseAsset: boolean;
   rootPath?: string;
+  catalogRepository?: string;
+  catalogBranch?: string;
 }
 
 export interface MarketplaceCatalogEntry {

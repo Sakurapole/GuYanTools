@@ -137,6 +137,7 @@ const pluginHostApi: PluginHostApi = {
   uninstallPlugin: (pluginId) => ipcRenderer.invoke('plugin-host:uninstall', pluginId),
   listDevSessions: () => ipcRenderer.invoke('plugin-host:dev-sessions:list'),
   connectDevSession: (session) => ipcRenderer.invoke('plugin-host:dev-sessions:connect', session),
+  connectDevSessionFromFile: (rootPath) => ipcRenderer.invoke('plugin-host:dev-sessions:connect-file', rootPath),
   disconnectDevSession: (pluginId) => ipcRenderer.invoke('plugin-host:dev-sessions:disconnect', pluginId),
 };
 

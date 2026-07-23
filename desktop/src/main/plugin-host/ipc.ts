@@ -39,6 +39,7 @@ export function registerPluginHostIpcHandlers(getMainWindow: () => BrowserWindow
   ipcMain.handle('plugin-host:uninstall', async (_event, pluginId: string) => pluginHost.uninstallPlugin(pluginId));
   ipcMain.handle('plugin-host:dev-sessions:list', async () => pluginHost.listDevSessions());
   ipcMain.handle('plugin-host:dev-sessions:connect', async (_event, session) => pluginHost.connectDevSession(session));
+  ipcMain.handle('plugin-host:dev-sessions:connect-file', async (_event, rootPath: string) => pluginHost.connectDevSessionFromFile(rootPath));
   ipcMain.handle('plugin-host:dev-sessions:disconnect', async (_event, pluginId: string) => pluginHost.disconnectDevSession(pluginId));
   ipcMain.handle('plugin-host:marketplaces:list', async () => pluginHost.listMarketplaces());
   ipcMain.handle('plugin-host:marketplaces:refresh', async (_event, input) => pluginHost.refreshMarketplace(input));
@@ -182,10 +183,10 @@ export function registerPluginHostIpcHandlers(getMainWindow: () => BrowserWindow
     guard.requirePermission(context, 'media.transcode');
     return pluginHost.getHostServices().media.transcode(context.pluginId, input.inputGrantId, input.inputPath, input.outputGrantId, input.outputPath, input.options);
   });
-  ipcMain.handle('plugin-runtime:media:preview', async (event, url: string, mimeType?: string) => {
+  ipcMain.handle('plugin-runtime:media:preview', async (event, url: string, mimeType?: string, headers?: Record<string, string>) => {
     const context = getSenderPluginContext(event.sender.id);
     guard.requirePermission(context, 'media.preview');
-    return pluginHost.getHostServices().media.createPreview(context.pluginId, url, mimeType);
+    return pluginHost.getHostServices().media.createPreview(context.pluginId, url, mimeType, headers);
   });
   ipcMain.handle('plugin-runtime:media:write-tags', async (event, grantId: string, targetPath: string, tags) => {
     const context = getSenderPluginContext(event.sender.id);

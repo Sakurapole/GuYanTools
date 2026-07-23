@@ -24,7 +24,13 @@ async function main(args: string[]) {
   if (command === 'validate') { console.log(JSON.stringify(await validatePlugin())); return; }
   if (command === 'build') { console.log(JSON.stringify(await buildPlugin())); return; }
   if (command === 'pack') { console.log(JSON.stringify(await packPlugin())); return; }
-  if (command === 'publish') { console.log(JSON.stringify(await publish({ config: await readPublishConfig(), dryRun: args.includes('--dry-run') }))); return; }
+  if (command === 'publish') {
+    const config = await readPublishConfig();
+    const mode = args[args.indexOf('--catalog-mode') + 1];
+    if (mode === 'pull-request' || mode === 'direct') config.catalogMode = mode;
+    console.log(JSON.stringify(await publish({ config, dryRun: args.includes('--dry-run') })));
+    return;
+  }
   throw new Error('Usage: guyantools-plugin <create|dev|validate|build|pack>');
 }
 

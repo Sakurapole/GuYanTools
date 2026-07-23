@@ -36,6 +36,7 @@ const marketplaces = ref<MarketplaceCacheRecord[]>([]);
 const jobsByPlugin = ref<Record<string, JobRecord[]>>({});
 const packageName = ref('');
 const localPath = ref('');
+const localDevPath = ref('');
 const gitUrl = ref('');
 const gitRef = ref('');
 const gitRefType = ref<'branch' | 'tag' | 'commit'>('tag');
@@ -96,6 +97,20 @@ function devSessionFor(pluginId: string) { return devSessions.value.find(session
 async function stopDevSession(pluginId: string) {
   if (!window.pluginHostApi) return;
   await runMutation(() => window.pluginHostApi!.disconnectDevSession(pluginId));
+}
+
+async function connectLocalDevSession() {
+  const rootPath = localDevPath.value.trim();
+  if (!rootPath || !window.pluginHostApi) return;
+  await runMutation(async () => {
+    await window.pluginHostApi!.connectDevSessionFromFile(rootPath);
+    localDevPath.value = '';
+  });
+}
+
+async function reconnectLocalDevSession(plugin: InstalledPluginRecord) {
+  if (!plugin.localPath || !window.pluginHostApi) return;
+  await runMutation(() => window.pluginHostApi!.connectDevSessionFromFile(plugin.localPath).then(() => undefined));
 }
 
 async function runMutation(task: () => Promise<void>) {
@@ -279,6 +294,7 @@ onBeforeUnmount(() => removeInstallProgressListener?.());
         <div class="install-grid">
           <label class="field"><span>NPM 包名</span><div class="field-row"><UiInput v-model="packageName" placeholder="例如：guyantools-plugin-demo" /><UiButton variant="primary" :disabled="isBusy || !packageName.trim()" @click="handleInstallPackage">安装</UiButton></div></label>
           <label class="field"><span>本地路径</span><div class="field-row"><UiInput v-model="localPath" placeholder="插件目录或 plugin.json 路径" /><UiButton variant="secondary" :disabled="isBusy || !localPath.trim()" @click="handleRegisterLocal">注册</UiButton></div></label>
+          <label class="field"><span>本地开发目录</span><div class="field-row"><UiInput v-model="localDevPath" placeholder="含 .guyantools/plugin.dev.json 的目录" /><UiButton variant="secondary" :disabled="isBusy || !localDevPath.trim()" @click="connectLocalDevSession">连接</UiButton></div></label>
           <label class="field field--wide"><span>Git 仓库</span><div class="field-row field-row--git"><UiInput v-model="gitUrl" placeholder="https://github.com/owner/plugin" /><UiInput v-model="gitRef" placeholder="v1.0.0" /><select v-model="gitRefType" class="plugin-select"><option value="tag">tag</option><option value="branch">branch</option><option value="commit">commit</option></select><UiButton variant="secondary" :disabled="isBusy || !gitUrl.trim() || !gitRef.trim()" @click="handleInstallGit">安装</UiButton></div></label>
         </div>
       </section>
@@ -302,6 +318,7 @@ onBeforeUnmount(() => removeInstallProgressListener?.());
               <UiButton v-if="plugin.installSource.type === 'git' || plugin.installSource.type === 'marketplace'" variant="ghost" size="sm" :disabled="isBusy" @click="updatePlugin(plugin)">更新</UiButton>
               <UiButton v-if="plugin.installSource.type === 'git' || plugin.installSource.type === 'marketplace'" variant="ghost" size="sm" :disabled="isBusy" @click="rollbackPlugin(plugin)">回滚</UiButton>
               <UiButton v-if="plugin.installSource.type === 'local' && devSessionFor(plugin.manifest.id)" variant="ghost" size="sm" :disabled="isBusy" @click="stopDevSession(plugin.manifest.id)">停止本地开发</UiButton>
+              <UiButton v-if="plugin.installSource.type === 'local' && !devSessionFor(plugin.manifest.id)" variant="ghost" size="sm" :disabled="isBusy || !plugin.localPath" @click="reconnectLocalDevSession(plugin)">重连本地开发</UiButton>
               <UiButton variant="ghost" size="sm" :disabled="isBusy" @click="uninstallPlugin(plugin)">卸载</UiButton>
             </div>
             <div v-if="plugin.installSource.type === 'local' && devSessionFor(plugin.manifest.id)" class="dev-session-status">本地开发已连接 · {{ devSessionFor(plugin.manifest.id)?.port }}</div>

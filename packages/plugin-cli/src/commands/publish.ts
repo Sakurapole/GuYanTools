@@ -15,10 +15,13 @@ export async function publish(options: { config: PublishConfig; dryRun?: boolean
   const resolvedCommit = await gitCommit(rootPath, options.dryRun === true);
   const catalogEntry = createCatalogEntry(manifest, options.config.repository, tag, resolvedCommit);
   const releaseAssetPath = path.join(rootPath, `${manifest.id}-${manifest.version}.zip`);
-  const commands = [`git tag ${tag}`, `git push origin ${tag}`];
+  const noPush = process.argv.includes('--no-push');
+  const commands = [`git tag ${tag}`];
+  if (!noPush) commands.push(`git push origin ${tag}`);
   if (options.config.releaseAsset) commands.push(`gh release create ${tag} ${releaseAssetPath} --title ${tag}`);
-  commands.push(options.config.catalogMode === 'pull-request' ? `gh pr create --title "Publish ${manifest.id} ${manifest.version}"` : `gh api repos/${options.config.marketplace}/contents/catalog.json`);
-  await runGitHubRelease(commands, options.dryRun === true);
+  commands.push(options.config.catalogMode === 'pull-request' ? `gh pr create --title Publish-${manifest.id}-${manifest.version}` : `gh api repos/${options.config.marketplace}/contents/catalog.json`);
+  if (options.config.catalogRepository) commands.push(`git clone ${options.config.catalogRepository} .guyantools/catalog-worktree`);
+  await runGitHubRelease(commands, options.dryRun === true, rootPath);
   return { tag, releaseAssetPath, catalogEntry, commands };
 }
 

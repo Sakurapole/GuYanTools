@@ -14,5 +14,6 @@ describe('plugin pack', () => {
     const result = await packPlugin(root);
     expect(result.sha256).toMatch(/^[a-f0-9]{64}$/);
     expect(await fs.stat(result.archive)).toBeTruthy();
+    expect(JSON.parse(await fs.readFile(path.join(root, 'catalog-entry.json'), 'utf8')).id).toBe('demo.plugin');
   });
 });

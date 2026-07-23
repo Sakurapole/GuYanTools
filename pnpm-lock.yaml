@@ -95,6 +95,9 @@ importers:
       '@guyantools/plugin-sdk':
         specifier: workspace:*
         version: link:../packages/plugin-sdk
+      '@guyantools/plugin-ui':
+        specifier: workspace:*
+        version: link:../packages/plugin-ui
       '@lezer/highlight':
         specifier: ^1.2.3
         version: 1.2.3

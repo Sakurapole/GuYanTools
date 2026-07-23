@@ -301,6 +301,7 @@ export interface PluginHostApi {
   uninstallPlugin: (pluginId: string) => Promise<void>;
   listDevSessions: () => Promise<PluginDevSession[]>;
   connectDevSession: (session: PluginDevSession) => Promise<PluginDevSession>;
+  connectDevSessionFromFile: (rootPath: string) => Promise<PluginDevSession>;
   disconnectDevSession: (pluginId: string) => Promise<void>;
 }
 
@@ -361,7 +362,7 @@ export interface PluginRuntimeApi {
   media: {
     probe: (grantId: string, targetPath: string) => Promise<import('./plugin_media').MediaProbe>;
     transcode: (input: { inputGrantId: string; inputPath: string; outputGrantId: string; outputPath: string; options?: { audioCodec?: string; videoCodec?: string; format?: string; additionalInputPaths?: string[] } }) => Promise<string>;
-    preview: (url: string, mimeType?: string) => Promise<import('./plugin_media').PreviewGrant>;
+    preview: (url: string, mimeType?: string, headers?: Record<string, string>) => Promise<import('./plugin_media').PreviewGrant>;
     writeTags: (grantId: string, targetPath: string, tags: import('./plugin_media').MediaTags) => Promise<string>;
   };
   secrets: {

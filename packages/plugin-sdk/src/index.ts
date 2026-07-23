@@ -1,2 +1,2 @@
-export * from './contracts';
-export * from './runtime';
+export * from './contracts.js';
+export * from './runtime.js';

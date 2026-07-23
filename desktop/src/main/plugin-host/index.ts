@@ -1,4 +1,5 @@
 import path from 'path';
+import fs from 'fs-extra';
 import { BrowserWindow } from 'electron';
 import { PLUGIN_INSTALL_DIR } from '../constants/paths';
 import PluginManager from '../../core/plugin_core/plugin_manager';
@@ -24,6 +25,7 @@ import { dbManager } from '../../core/database';
 import { JobService } from './services/job_service';
 import { resolvePluginPreloadPath } from './preload_path';
 import { PluginDevSessionManager } from './dev_session';
+import { LocalPluginDevChannel } from './dev_channel';
 import { toPluginThemeDescriptor } from './theme_bridge';
 
 const REGISTRY_FILE = path.join(PLUGIN_INSTALL_DIR, 'guyantools-plugin-registry.json');
@@ -49,6 +51,7 @@ export class PluginHost {
     () => appConfigManager.getCachedConfig().plugins.unloadAfterMinutes,
     this.devSessions,
   );
+  private readonly devChannel = new LocalPluginDevChannel(session => { this.runtimeRouter.connectDevSession(session); });
   private readonly marketplaceResolver = new MarketplaceResolver(async (url, ref) => {
     const source = new URL(url);
     const githubMatch = source.hostname === 'github.com' && source.pathname.match(/^\/([^/]+)\/([^/]+)(?:\/|$)/);
@@ -92,12 +95,16 @@ export class PluginHost {
       this.marketplaceResolver.hydrate(validCached);
     }
     this.initialized = true;
+    await this.devChannel.start();
     appConfigManager.subscribe(config => this.runtimeRouter.broadcastTheme(toPluginThemeDescriptor(config.appearance.theme)));
   }
 
   bindMainWindow(mainWindow: BrowserWindow) {
     this.mainWindow = mainWindow;
     this.hostServices.bindMainWindow(mainWindow);
+    if (typeof (mainWindow as unknown as { once?: unknown }).once === 'function') {
+      mainWindow.once('closed', () => void this.devChannel.stop());
+    }
   }
 
   getRuntimeContext(webContentsId: number) {
@@ -105,6 +112,18 @@ export class PluginHost {
   }
 
   connectDevSession(session: import('@/contracts/plugin_host').PluginDevSession) { return this.runtimeRouter.connectDevSession(session); }
+  async connectDevSessionFromFile(rootPath: string) {
+    const source = await fs.readJSON(path.join(rootPath, '.guyantools', 'plugin.dev.json')) as { pluginId: string; uiUrl: string; workerUrl?: string; sessionToken: string };
+    const url = new URL(source.uiUrl);
+    const session = {
+      ...source,
+      rootPath: path.resolve(rootPath),
+      host: '127.0.0.1' as const,
+      port: Number(url.port),
+      startedAt: new Date().toISOString(),
+    };
+    return this.runtimeRouter.connectDevSession(session);
+  }
   disconnectDevSession(pluginId: string) { this.runtimeRouter.disconnectDevSession(pluginId); }
   listDevSessions() { return this.runtimeRouter.listDevSessions(); }
 
