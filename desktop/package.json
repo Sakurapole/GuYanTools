@@ -23,6 +23,8 @@
     "lint": "eslint --ext .ts,.tsx .",
     "lint:design-system": "node scripts/check-design-system.mjs",
     "typecheck": "tsc --noEmit",
+    "test:plugin-platform": "vitest run src/main/plugin-host --reporter=verbose",
+    "verify:plugin-platform": "node scripts/verify-plugin-platform.cjs",
     "verify:knowledge-editor": "node scripts/verify-knowledge-editor-foundation.cjs",
     "verify:ai-chat": "node scripts/verify-ai-chat.cjs",
     "verify:quick-launch": "node scripts/verify-quick-launch.cjs",
@@ -73,7 +75,8 @@
     "ts-node": "^10.9.2",
     "typescript": "^5.8.3",
     "vite": "^7.0.4",
-    "vite-plugin-vue-devtools": "^8.0.0"
+    "vite-plugin-vue-devtools": "^8.0.0",
+    "vitest": "^4.1.10"
   },
   "dependencies": {
     "@ai-sdk/anthropic": "^3.0.81",
@@ -97,6 +100,7 @@
     "@codemirror/view": "^6.41.0",
     "@fontsource-variable/geist": "5.2.8",
     "@fontsource-variable/geist-mono": "5.2.7",
+    "@lezer/highlight": "^1.2.3",
     "@guyantools/core": "workspace:*",
     "@vueuse/core": "^12.5.0",
     "@xterm/addon-fit": "^0.11.0",
