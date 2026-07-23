@@ -458,7 +458,7 @@ Export `validateDevSession(input: unknown): asserts input is PluginDevSession` b
 
 Store sessions in memory only. Validate the root path, plugin ID, loopback URLs, port range, token length, and started-at timestamp before inserting. Connecting a second session for the same plugin must disconnect the first one.
 
-- [ ] **Step 4: Implement the local authenticated channel.**
+- [x] **Step 4: Implement the local authenticated channel.**
 
 Expose a transport-independent interface:
 
@@ -529,7 +529,7 @@ Before loading the URL, validate it against the active session and reject if the
 
 Add `plugin-runtime:ui:get-theme` and `plugin-runtime:ui:theme-changed` channels. The main process obtains the current app theme from `appConfigManager`, returns `{ mode, tokensVersion }`, and broadcasts only to WebContents instances whose runtime context belongs to a mounted plugin. Add cleanup when the WebContents is destroyed.
 
-- [ ] **Step 5: Add developer status to the runtime page.**
+- [x] **Step 5: Add developer status to the runtime page.**
 
 `PluginRuntimePage.vue` must show a compact local-development status only when the route has an active DevSession. It must display reconnecting/disconnected/error states without changing the plugin surface bounds. On unmount, stop observing bounds and unmount the page as today.
 
@@ -591,7 +591,7 @@ Expected: FAIL because the executable and command modules do not exist.
 
 Use a small argument parser with explicit commands and options. `create` copies the selected template and replaces the plugin ID/name. `validate` calls the SDK manifest validator and Vite output checks. `build` calls `@guyantools/plugin-vite` and prints the absolute `dist` directory plus a machine-readable JSON result.
 
-- [ ] **Step 4: Implement `dev`.**
+- [x] **Step 4: Implement `dev`.**
 
 Spawn the plugin's own Vite dev server with `shell: false`, `cwd` set to the plugin root, and `--host 127.0.0.1`. Parse the server's actual port from its startup output, generate a cryptographically random session token, write `.guyantools/plugin.dev.json` with restrictive file permissions, and send the session through the local DevChannel. Stop the child process and delete the session file on SIGINT, SIGTERM, or command failure.
 
@@ -658,7 +658,7 @@ pnpm --dir packages/plugin-cli exec vitest run tests/publish.test.ts
 
 Expected: FAIL because release and catalog generators do not exist.
 
-- [ ] **Step 3: Implement config and artifact generation.**
+- [x] **Step 3: Implement config and artifact generation.**
 
 Read `.guyantools/publish.json`, require a repository URL and Marketplace ID, derive the tag from the manifest version, and generate a catalog entry that exactly matches the built manifest. Do not derive permissions or capabilities from a CLI argument; read them from the validated manifest.
 
@@ -724,15 +724,15 @@ git commit -m "feat(plugins): add release and marketplace publishing"
 
 Test the developer control state transitions `disconnected -> connecting -> connected -> reconnecting -> disconnected`, and ensure an installed Marketplace plugin cannot be marked as a local DevSession. Keep these tests independent of Vue mounting.
 
-- [ ] **Step 2: Implement the host developer controls.**
+- [x] **Step 2: Implement the host developer controls.**
 
 Add explicit local-plugin actions to the Installed tab: connect local dev session, show connected port/status, reconnect, and stop. Do not show developer controls for Marketplace records unless the user selects a separate local checkout. Keep installed/Marketplace workflows separate.
 
-- [ ] **Step 3: Add Vue and React host fixtures.**
+- [x] **Step 3: Add Vue and React host fixtures.**
 
 Each fixture must have a valid manifest, one page contribution, one Worker entry, one `gt-card`, one `gt-button`, and one runtime API call. The fixtures must be small enough for `verify-plugin-framework.cjs` to build repeatedly.
 
-- [ ] **Step 4: Implement the verification script.**
+- [x] **Step 4: Implement the verification script.**
 
 `verify-plugin-framework.cjs` must run the following checks and exit nonzero on the first failure:
 
