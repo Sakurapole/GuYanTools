@@ -68,6 +68,55 @@ describe('plugin publish', () => {
       config: { ...validPublishConfig(root), catalogMode: 'direct' },
     })).rejects.toThrow('PLUGIN_PUBLISH_DIRECT_CONFIRMATION_REQUIRED');
   });
+
+  it('fails before tagging when neither GH_TOKEN nor an authenticated gh session is available', async () => {
+    const root = await createPluginRoot();
+    const executor: CommandExecutor = {
+      async run(command) {
+        if (command.command === 'gh' && command.args[0] === 'auth') throw new Error('not logged in');
+        return { stdout: '', stderr: '' };
+      },
+    };
+
+    await expect(publish({
+      config: validPublishConfig(root),
+      executor,
+      pack: async () => ({ archive: path.join(root, 'demo.plugin-1.2.3.zip'), sha256: 'a'.repeat(64) }),
+    })).rejects.toThrow('PLUGIN_PUBLISH_CREDENTIALS_MISSING');
+  });
+
+  it('rejects a catalog whose marketplace ID differs from the publish configuration', async () => {
+    const root = await createPluginRoot();
+    const catalogWorkspace = path.join(root, 'marketplace');
+    const executor: CommandExecutor = {
+      async run(command) {
+        if (command.command === 'git' && command.args[0] === 'rev-parse') return { stdout: '0'.repeat(40), stderr: '' };
+        if (command.command === 'gh' && command.args[0] === 'repo') {
+          await fs.mkdir(catalogWorkspace, { recursive: true });
+          await fs.writeFile(path.join(catalogWorkspace, 'catalog.json'), JSON.stringify({ schemaVersion: '1.0', marketplaceId: 'other', name: 'Other', plugins: [] }));
+        }
+        return { stdout: '', stderr: '' };
+      },
+    };
+
+    await expect(publish({
+      config: validPublishConfig(root), executor, catalogWorkspace,
+      pack: async () => ({ archive: path.join(root, 'demo.plugin-1.2.3.zip'), sha256: 'a'.repeat(64) }),
+    })).rejects.toThrow('PLUGIN_PUBLISH_CATALOG_MISMATCH');
+  });
+
+  it('does not plan remote release or catalog mutation with --no-push', async () => {
+    const root = await createPluginRoot();
+    const result = await publish({
+      dryRun: true,
+      noPush: true,
+      config: validPublishConfig(root),
+      pack: async () => ({ archive: path.join(root, 'demo.plugin-1.2.3.zip'), sha256: 'a'.repeat(64) }),
+    });
+
+    expect(result.commands).toHaveLength(1);
+    expect(result.commands[0]).toContain('git tag -a v1.2.3');
+  });
 });
 
 async function createPluginRoot() {
