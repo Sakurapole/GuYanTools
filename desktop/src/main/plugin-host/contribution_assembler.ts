@@ -1,4 +1,4 @@
-import type { InstalledPluginRecord, PluginPageDescriptor } from '@/contracts/plugin_host';
+import { getPluginPageRoutePath, type InstalledPluginRecord, type PluginPageDescriptor } from '@/contracts/plugin_host';
 
 export class PluginContributionAssembler {
   listPages(records: InstalledPluginRecord[]): PluginPageDescriptor[] {
@@ -15,7 +15,7 @@ export class PluginContributionAssembler {
           pluginId: record.manifest.id,
           pageId: page.id,
           title: page.title,
-          routePath: page.routePath ?? `/plugins/runtime/${record.manifest.id}/${page.id}`,
+          routePath: page.routePath ?? getPluginPageRoutePath(record.manifest.id, page.id),
           icon: page.icon,
           description: page.description,
           trustLevel: record.manifest.trustLevel,

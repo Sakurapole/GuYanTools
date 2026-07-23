@@ -1,8 +1,15 @@
 import { BrowserWindow, dialog, shell } from 'electron';
+import path from 'node:path';
 import { dbManager } from '../../core/database';
 import type { PluginCapabilitySummary } from '@/contracts/plugin_host';
 import type { NotificationPayload } from '@/contracts/notification';
 import { showNotification } from '../windows';
+import { NetworkService } from './services/network_service';
+import { FileGrantService } from './services/file_grant_service';
+import { DownloadsService } from './services/downloads_service';
+import { MediaService } from './services/media_service';
+import { SecretService } from './services/secret_service';
+import { redactPluginLogMeta, validatePluginCommand } from './security_guards';
 
 class WorkspaceService {
   getCurrentWorkspace() {
@@ -78,8 +85,14 @@ class NavigationService {
 }
 
 class CommandService {
-  async execute(commandId: string, payload?: unknown) {
-    console.log('[plugin-command]', commandId, payload);
+  async executeHost(commandId: string, payload?: unknown) {
+    console.log('[host-command]', commandId, redactPluginLogMeta(payload));
+    return { accepted: true };
+  }
+
+  async execute(pluginId: string, commandId: string, payload?: unknown) {
+    validatePluginCommand(pluginId, commandId);
+    console.log('[plugin-command]', pluginId, commandId, redactPluginLogMeta(payload));
     return { accepted: true };
   }
 
@@ -125,12 +138,12 @@ class SystemService {
 }
 
 class ObservabilityService {
-  info(message: string, meta?: unknown) {
-    console.log('[plugin-info]', message, meta ?? '');
+  info(pluginId: string, message: string, meta?: unknown) {
+    console.log('[plugin-info]', pluginId, message, redactPluginLogMeta(meta ?? ''));
   }
 
-  error(message: string, meta?: unknown) {
-    console.error('[plugin-error]', message, meta ?? '');
+  error(pluginId: string, message: string, meta?: unknown) {
+    console.error('[plugin-error]', pluginId, message, redactPluginLogMeta(meta ?? ''));
   }
 
   getCapabilities(): PluginCapabilitySummary['observability'] {
@@ -147,9 +160,46 @@ export class HostServiceRegistry {
   readonly ui = new UiService();
   readonly system = new SystemService();
   readonly observability = new ObservabilityService();
+  readonly network = new NetworkService();
+  readonly files = new FileGrantService();
+  readonly downloads = new DownloadsService(this.network, this.files);
+  readonly media = new MediaService(this.files);
+  readonly secrets = new SecretService(() => dbManager.getDatabase() as any);
+  private readonly pluginDataRoot: string;
 
-  constructor() {
+  constructor(pluginDataRoot = path.join(process.cwd(), 'guyantools-plugin-data')) {
+    this.pluginDataRoot = pluginDataRoot;
     this.storage = new StorageService();
+  }
+
+  async createPluginDataGrant(pluginId: string, accessMode: 'read' | 'write' | 'read-write' = 'read-write') {
+    const grant = this.files.create(pluginId, {
+      purpose: 'plugin-data',
+      rootPath: path.join(this.pluginDataRoot, pluginId),
+      accessMode,
+      expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
+      maxBytes: 512 * 1024 * 1024,
+    });
+    const db = dbManager.getDatabase() as any;
+    if (typeof db.createFileGrant === 'function') {
+      await db.createFileGrant({
+        id: grant.id,
+        pluginId: grant.pluginId,
+        purpose: grant.purpose,
+        rootPath: grant.rootPath,
+        accessMode: grant.accessMode,
+        expiresAt: grant.expiresAt,
+        maxBytes: grant.maxBytes,
+      });
+    }
+    return grant;
+  }
+
+  async revokePluginDataGrant(pluginId: string, grantId: string) {
+    const grant = this.files.revoke(pluginId, grantId);
+    const db = dbManager.getDatabase() as any;
+    if (typeof db.revokeFileGrant === 'function') await db.revokeFileGrant(pluginId, grantId);
+    return grant;
   }
 
   bindMainWindow(mainWindow: BrowserWindow) {
@@ -166,6 +216,12 @@ export class HostServiceRegistry {
       ui: this.ui.getCapabilities(),
       system: this.system.getCapabilities(),
       observability: this.observability.getCapabilities(),
+      network: ['network.fetch'],
+      downloads: ['downloads.direct'],
+      jobs: ['jobs.create', 'jobs.list', 'jobs.update'],
+      files: ['files.createGrant', 'files.read', 'files.write', 'files.revoke'],
+      media: ['media.probe', 'media.transcode', 'media.preview', 'media.writeTags'],
+      secrets: ['secrets.get', 'secrets.set', 'secrets.delete'],
     };
   }
 }

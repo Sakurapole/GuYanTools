@@ -114,6 +114,7 @@ const pluginHostApi: PluginHostApi = {
   getHostSummary: () => ipcRenderer.invoke('plugin-host:get-summary'),
   listPlugins: () => ipcRenderer.invoke('plugin-host:list-plugins'),
   listPages: () => ipcRenderer.invoke('plugin-host:list-pages'),
+  listPluginJobs: (pluginId) => ipcRenderer.invoke('plugin-host:list-jobs', pluginId),
   installPluginFromPackage: (packageName: string) => ipcRenderer.invoke('plugin-host:install-package', packageName),
   registerLocalPlugin: (inputPath: string) => ipcRenderer.invoke('plugin-host:register-local', inputPath),
   enablePlugin: (pluginId: string) => ipcRenderer.invoke('plugin-host:enable', pluginId),
@@ -121,6 +122,19 @@ const pluginHostApi: PluginHostApi = {
   mountPage: (pluginId, pageId, bounds) => ipcRenderer.invoke('plugin-host:mount-page', pluginId, pageId, bounds),
   updateMountedPageBounds: (bounds) => ipcRenderer.invoke('plugin-host:update-page-bounds', bounds),
   unmountPage: (pluginId?: string, pageId?: string) => ipcRenderer.invoke('plugin-host:unmount-page', pluginId, pageId),
+  listMarketplaces: () => ipcRenderer.invoke('plugin-host:marketplaces:list'),
+  refreshMarketplace: (input) => ipcRenderer.invoke('plugin-host:marketplaces:refresh', input),
+  searchMarketplace: (query) => ipcRenderer.invoke('plugin-host:marketplaces:search', query),
+  onInstallProgress: (listener) => {
+    const handler = (_event: Electron.IpcRendererEvent, progress: import('@/contracts/plugin_host').PluginInstallProgress) => listener(progress);
+    ipcRenderer.on('plugin-host:install-progress', handler);
+    return () => ipcRenderer.removeListener('plugin-host:install-progress', handler);
+  },
+  installFromGit: (input) => ipcRenderer.invoke('plugin-host:install-git', input),
+  installFromMarketplace: (marketplaceId, pluginId, approvedPermissions) => ipcRenderer.invoke('plugin-host:install-marketplace', marketplaceId, pluginId, approvedPermissions),
+  updatePlugin: (pluginId) => ipcRenderer.invoke('plugin-host:update', pluginId),
+  rollbackPlugin: (pluginId) => ipcRenderer.invoke('plugin-host:rollback', pluginId),
+  uninstallPlugin: (pluginId) => ipcRenderer.invoke('plugin-host:uninstall', pluginId),
 };
 
 const appConfigApi: AppConfigApi = {

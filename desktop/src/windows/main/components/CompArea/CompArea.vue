@@ -12,8 +12,9 @@ import GridItemComponent from './GridItem.vue';
 import WidgetSizePicker from './WidgetSizePicker.vue';
 import AddIcon from '../svgs/icons/AddIcon.vue';
 import EditIcon from '../svgs/icons/EditIcon.vue';
-import { router } from '../../routes/router';
+import { registerPluginRoutes, router } from '../../routes/router';
 import { useBarStore } from '../../stores/bar_store';
+import { resolvePluginPageRoute } from './plugin_page_navigation';
 import { useAppConfigStore } from '../../stores/app_config_store';
 import { buildBackgroundTextVars } from '../../utils/backgroundTextColor';
 import { resolveThemeBackground } from '@/contracts/background';
@@ -347,8 +348,10 @@ async function handleItemOpen(item: GridItem) {
       barStore.openTab(action.target, item.label || '页面', item.icon);
       await router.push(action.target);
     } else if (action.type === 'plugin_page' && action.pluginId && action.pageId) {
-      // 跳转到插件页面路由
-      const routePath = `/plugin/${action.pluginId}/${action.pageId}`;
+      // 优先使用宿主贡献描述中的路径，兼容插件声明自定义 routePath。
+      const pluginPages = await window.pluginHostApi?.listPages();
+      registerPluginRoutes(pluginPages ?? []);
+      const routePath = resolvePluginPageRoute(pluginPages, action.pluginId, action.pageId);
       barStore.openTab(routePath, item.label || '插件页面', item.icon);
       await router.push(routePath);
     } else if (action.type === 'plugin_command' && action.pluginId && action.commandId) {

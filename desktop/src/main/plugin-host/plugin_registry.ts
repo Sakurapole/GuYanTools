@@ -25,6 +25,7 @@ function toCompatibleManifest(legacy: LegacyPluginInfo): PluginManifest | null {
   }
 
   return {
+    schemaVersion: '1.0',
     id: legacy.name,
     name: legacy.name,
     version: legacy.version ?? '0.0.0',
@@ -34,8 +35,9 @@ function toCompatibleManifest(legacy: LegacyPluginInfo): PluginManifest | null {
     hostVersionRange: '>=1.0.0',
     trustLevel: 'sandboxed',
     runtime: legacy.type === 'system' ? 'worker' : 'ui',
-    entry: legacy.main,
+    entry: { ui: legacy.main },
     permissions: ['workspace.read', 'storage.self'],
+    capabilities: [],
     contributes: {},
   };
 }
@@ -55,12 +57,14 @@ function serializeRecord(record: InstalledPluginRecord): string {
     enabled: record.enabled,
     status: record.status,
     installSource: record.installSource,
-    resolvedEntryPath: record.resolvedEntryPath,
+    resolvedEntryPaths: record.resolvedEntryPaths,
+    approvedPermissions: record.approvedPermissions,
     packageName: record.packageName ?? null,
     localPath: record.localPath ?? null,
     error: record.error ?? null,
     installedAt: record.installedAt,
     updatedAt: record.updatedAt,
+    packageSha256: record.packageSha256 ?? null,
   });
 }
 
@@ -127,7 +131,8 @@ export class PluginRegistry {
               enabled: false,
               status: 'discovered',
               installSource: { type: 'local', value: manifest.name },
-              resolvedEntryPath: manifest.entry,
+              resolvedEntryPaths: { ui: manifest.entry.ui },
+              approvedPermissions: manifest.permissions,
               installedAt: timestamp,
               updatedAt: timestamp,
             };

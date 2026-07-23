@@ -2,12 +2,17 @@
 import { computed, nextTick, onBeforeUnmount, onMounted, ref } from 'vue';
 import { useRoute } from 'vue-router';
 import { notifyError } from '../../composables/useInAppNotification';
+import { resolvePluginPageIdentity } from './plugin_runtime_identity';
 
 const route = useRoute();
 const hostRef = ref<HTMLElement | null>(null);
 
-const pluginId = computed(() => String(route.params.pluginId ?? ''));
-const pageId = computed(() => String(route.params.pageId ?? ''));
+const pluginIdentity = computed(() => resolvePluginPageIdentity({
+  meta: route.meta as Record<string, unknown>,
+  params: route.params as Record<string, unknown>,
+}));
+const pluginId = computed(() => pluginIdentity.value.pluginId);
+const pageId = computed(() => pluginIdentity.value.pageId);
 const title = computed(() => String(route.meta.title ?? `${pluginId.value}/${pageId.value}`));
 const errorMessage = ref('');
 

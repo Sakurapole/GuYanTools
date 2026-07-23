@@ -2066,7 +2066,11 @@ impl JsDatabase {
                         "enabled": enabled != 0,
                         "status": status,
                         "installSource": serde_json::from_str::<serde_json::Value>(&install_source).unwrap_or(serde_json::Value::Null),
-                        "resolvedEntryPath": resolved_entry_path,
+                        "resolvedEntryPaths": serde_json::json!({ "ui": resolved_entry_path }),
+                        "approvedPermissions": serde_json::from_str::<serde_json::Value>(&manifest)
+                            .ok()
+                            .and_then(|value| value.get("permissions").cloned())
+                            .unwrap_or_else(|| serde_json::json!([])),
                         "packageName": package_name,
                         "localPath": local_path,
                         "error": error,
@@ -2096,7 +2100,11 @@ impl JsDatabase {
             let enabled = v["enabled"].as_bool().unwrap_or(false) as i64;
             let status = v["status"].as_str().unwrap_or("discovered").to_string();
             let install_source_str = v["installSource"].to_string();
-            let resolved_entry_path = v["resolvedEntryPath"].as_str().unwrap_or("").to_string();
+            let resolved_entry_path = v["resolvedEntryPaths"]["ui"]
+                .as_str()
+                .or_else(|| v["resolvedEntryPath"].as_str())
+                .unwrap_or("")
+                .to_string();
             let package_name: Option<String> = v["packageName"].as_str().map(|s| s.to_string());
             let local_path: Option<String> = v["localPath"].as_str().map(|s| s.to_string());
             let error: Option<String> = v["error"].as_str().map(|s| s.to_string());
@@ -2145,6 +2153,120 @@ impl JsDatabase {
         .await
         .map_err(|e| Error::from_reason(format!("任务执行失败: {}", e)))?
         .map_err(|e| Error::from_reason(format!("删除插件记录失败: {}", e)))
+    }
+
+    // ==================== 插件 Job 方法 ====================
+
+    #[napi(js_name = "createPluginJob")]
+    pub async fn create_plugin_job(&self, input: CreatePluginJobInput) -> Result<PluginJob> {
+        let db = self.inner.clone();
+        tokio::task::spawn_blocking(move || PluginService::create_job(&db, input))
+            .await
+            .map_err(|e| Error::from_reason(format!("任务执行失败: {}", e)))?
+            .map_err(|e| Error::from_reason(format!("创建插件任务失败: {}", e)))
+    }
+
+    #[napi(js_name = "getPluginJob")]
+    pub async fn get_plugin_job(&self, id: String) -> Result<Option<PluginJob>> {
+        let db = self.inner.clone();
+        tokio::task::spawn_blocking(move || PluginService::get_job(&db, &id))
+            .await
+            .map_err(|e| Error::from_reason(format!("任务执行失败: {}", e)))?
+            .map_err(|e| Error::from_reason(format!("获取插件任务失败: {}", e)))
+    }
+
+    #[napi(js_name = "listPluginJobs")]
+    pub async fn list_plugin_jobs(&self, plugin_id: String) -> Result<Vec<PluginJob>> {
+        let db = self.inner.clone();
+        tokio::task::spawn_blocking(move || PluginService::list_jobs(&db, &plugin_id))
+            .await
+            .map_err(|e| Error::from_reason(format!("任务执行失败: {}", e)))?
+            .map_err(|e| Error::from_reason(format!("列出插件任务失败: {}", e)))
+    }
+
+    #[napi(js_name = "updatePluginJob")]
+    pub async fn update_plugin_job(
+        &self,
+        id: String,
+        input: UpdatePluginJobInput,
+    ) -> Result<PluginJob> {
+        let db = self.inner.clone();
+        tokio::task::spawn_blocking(move || PluginService::update_job(&db, &id, input))
+            .await
+            .map_err(|e| Error::from_reason(format!("任务执行失败: {}", e)))?
+            .map_err(|e| Error::from_reason(format!("更新插件任务失败: {}", e)))
+    }
+
+    #[napi(js_name = "upsertPluginJob")]
+    pub async fn upsert_plugin_job(&self, input: CreatePluginJobInput) -> Result<PluginJob> {
+        let db = self.inner.clone();
+        tokio::task::spawn_blocking(move || PluginService::upsert_job(&db, input)).await
+            .map_err(|e| Error::from_reason(format!("任务执行失败: {}", e)))?
+            .map_err(|e| Error::from_reason(format!("保存插件任务失败: {}", e)))
+    }
+
+    #[napi(js_name = "retryPluginJob")]
+    pub async fn retry_plugin_job(&self, source_id: String, new_id: String) -> Result<PluginJob> {
+        let db = self.inner.clone();
+        tokio::task::spawn_blocking(move || PluginService::retry_job(&db, &source_id, &new_id)).await
+            .map_err(|e| Error::from_reason(format!("任务执行失败: {}", e)))?
+            .map_err(|e| Error::from_reason(format!("重试插件任务失败: {}", e)))
+    }
+
+    #[napi(js_name = "upsertPluginInstallation")]
+    pub async fn upsert_plugin_installation(&self, input: UpsertPluginInstallationInput) -> Result<PluginInstallation> {
+        let db = self.inner.clone();
+        tokio::task::spawn_blocking(move || PluginService::upsert_installation(&db, input)).await
+            .map_err(|e| Error::from_reason(format!("任务执行失败: {}", e)))?
+            .map_err(|e| Error::from_reason(format!("保存插件安装记录失败: {}", e)))
+    }
+
+    #[napi(js_name = "getPluginInstallation")]
+    pub async fn get_plugin_installation(&self, plugin_id: String) -> Result<Option<PluginInstallation>> {
+        let db = self.inner.clone();
+        tokio::task::spawn_blocking(move || PluginService::get_installation(&db, &plugin_id)).await
+            .map_err(|e| Error::from_reason(format!("任务执行失败: {}", e)))?
+            .map_err(|e| Error::from_reason(format!("获取插件安装记录失败: {}", e)))
+    }
+
+    #[napi(js_name = "deletePluginInstallation")]
+    pub async fn delete_plugin_installation(&self, plugin_id: String) -> Result<()> {
+        let db = self.inner.clone();
+        tokio::task::spawn_blocking(move || PluginService::delete_installation(&db, &plugin_id)).await
+            .map_err(|e| Error::from_reason(format!("任务执行失败: {}", e)))?
+            .map_err(|e| Error::from_reason(format!("删除插件安装记录失败: {}", e)))
+    }
+
+    #[napi(js_name = "createFileGrant")]
+    pub async fn create_file_grant(&self, input: CreatePluginFileGrantInput) -> Result<PluginFileGrant> {
+        let db = self.inner.clone();
+        tokio::task::spawn_blocking(move || PluginService::create_file_grant(&db, input)).await
+            .map_err(|e| Error::from_reason(format!("任务执行失败: {}", e)))?
+            .map_err(|e| Error::from_reason(format!("创建文件授权失败: {}", e)))
+    }
+
+    #[napi(js_name = "revokeFileGrant")]
+    pub async fn revoke_file_grant(&self, plugin_id: String, id: String) -> Result<()> {
+        let db = self.inner.clone();
+        tokio::task::spawn_blocking(move || PluginService::revoke_file_grant(&db, &plugin_id, &id)).await
+            .map_err(|e| Error::from_reason(format!("任务执行失败: {}", e)))?
+            .map_err(|e| Error::from_reason(format!("撤销文件授权失败: {}", e)))
+    }
+
+    #[napi(js_name = "listPluginMarketplaces")]
+    pub async fn list_plugin_marketplaces(&self) -> Result<Vec<PluginMarketplaceCache>> {
+        let db = self.inner.clone();
+        tokio::task::spawn_blocking(move || PluginService::list_marketplaces(&db)).await
+            .map_err(|e| Error::from_reason(format!("任务执行失败: {}", e)))?
+            .map_err(|e| Error::from_reason(format!("列出插件市场失败: {}", e)))
+    }
+
+    #[napi(js_name = "upsertPluginMarketplace")]
+    pub async fn upsert_plugin_marketplace(&self, input: UpsertPluginMarketplaceInput) -> Result<PluginMarketplaceCache> {
+        let db = self.inner.clone();
+        tokio::task::spawn_blocking(move || PluginService::upsert_marketplace(&db, input)).await
+            .map_err(|e| Error::from_reason(format!("任务执行失败: {}", e)))?
+            .map_err(|e| Error::from_reason(format!("保存插件市场失败: {}", e)))
     }
 
     // ==================== 插件 KV 存储方法 ====================
@@ -2215,6 +2337,53 @@ impl JsDatabase {
         .await
         .map_err(|e| Error::from_reason(format!("任务执行失败: {}", e)))?
         .map_err(|e| Error::from_reason(format!("删除插件状态失败: {}", e)))
+    }
+
+    #[napi(js_name = "setPluginSecret")]
+    pub async fn set_plugin_secret(&self, plugin_id: String, key: String, ciphertext: Buffer) -> Result<()> {
+        let db = self.inner.clone();
+        tokio::task::spawn_blocking(move || {
+            db.transaction(|conn| {
+                conn.execute(
+                    "INSERT INTO plugin_secrets (plugin_id, key, ciphertext) VALUES (?1, ?2, ?3)
+                     ON CONFLICT(plugin_id, key) DO UPDATE SET ciphertext=excluded.ciphertext, updated_at=datetime('now')",
+                    rusqlite::params![plugin_id, key, ciphertext.to_vec()],
+                ).map_err(|e| crate::db::DbError::QueryFailed(e.to_string()))?;
+                Ok(())
+            })
+        }).await
+            .map_err(|e| Error::from_reason(format!("任务执行失败: {}", e)))?
+            .map_err(|e| Error::from_reason(format!("保存插件密钥失败: {}", e)))
+    }
+
+    #[napi(js_name = "getPluginSecret")]
+    pub async fn get_plugin_secret(&self, plugin_id: String, key: String) -> Result<Option<Buffer>> {
+        let db = self.inner.clone();
+        tokio::task::spawn_blocking(move || {
+            db.with_connection(|conn| {
+                let value: Option<Vec<u8>> = conn.query_row(
+                    "SELECT ciphertext FROM plugin_secrets WHERE plugin_id = ?1 AND key = ?2",
+                    rusqlite::params![plugin_id, key], |row| row.get(0),
+                ).optional().map_err(|e| crate::db::DbError::QueryFailed(e.to_string()))?;
+                Ok(value.map(Buffer::from))
+            })
+        }).await
+            .map_err(|e| Error::from_reason(format!("任务执行失败: {}", e)))?
+            .map_err(|e| Error::from_reason(format!("获取插件密钥失败: {}", e)))
+    }
+
+    #[napi(js_name = "deletePluginSecret")]
+    pub async fn delete_plugin_secret(&self, plugin_id: String, key: String) -> Result<()> {
+        let db = self.inner.clone();
+        tokio::task::spawn_blocking(move || {
+            db.transaction(|conn| {
+                conn.execute("DELETE FROM plugin_secrets WHERE plugin_id = ?1 AND key = ?2", rusqlite::params![plugin_id, key])
+                    .map_err(|e| crate::db::DbError::QueryFailed(e.to_string()))?;
+                Ok(())
+            })
+        }).await
+            .map_err(|e| Error::from_reason(format!("任务执行失败: {}", e)))?
+            .map_err(|e| Error::from_reason(format!("删除插件密钥失败: {}", e)))
     }
 }
 

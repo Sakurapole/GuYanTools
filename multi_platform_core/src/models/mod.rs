@@ -1,6 +1,7 @@
 mod ai;
 pub mod home_layout;
 mod knowledge;
+mod plugin;
 pub mod multi_device_clipboard;
 mod project;
 mod setting;
@@ -49,6 +50,11 @@ pub use multi_device_clipboard::{
     UpsertMultiDeviceClipboardItemInput,
 };
 pub use project::{CreateProjectInput, Project, UpdateProjectInput};
+pub use plugin::{
+    CreatePluginFileGrantInput, CreatePluginJobInput, PluginFileGrant, PluginInstallation,
+    PluginJob, PluginMarketplaceCache, UpdatePluginJobInput, UpsertPluginInstallationInput,
+    UpsertPluginMarketplaceInput,
+};
 pub use setting::{Setting, UpsertSettingInput};
 pub use sync::{SyncConflict, SyncObjectState, SyncOutboxItem, SyncProfile};
 pub use todo::{

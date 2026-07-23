@@ -295,7 +295,7 @@ export class QuickLaunchService {
         await this.openMainRoute(action.routePath || `/plugins/${action.pluginId}/${action.pageId}`);
         return;
       case 'execute-plugin-command':
-        await pluginHost.getHostServices().commands.execute(action.commandId, action.payload);
+        await pluginHost.getHostServices().commands.executeHost(action.commandId, action.payload);
         return;
       case 'open-path':
         await this.openPath(action.path);

@@ -131,6 +131,14 @@ pub fn run_migrations(conn: &Connection) -> DbResult<()> {
             "029_add_sync_metadata",
             include_str!("../../migrations/029_add_sync_metadata.sql"),
         ),
+        (
+            "030_add_ai_conversation_assistant",
+            include_str!("../../migrations/030_add_ai_conversation_assistant.sql"),
+        ),
+        (
+            "031_add_plugin_platform",
+            include_str!("../../migrations/031_add_plugin_platform.sql"),
+        ),
     ];
 
     // 执行每个迁移
@@ -177,6 +185,20 @@ mod tests {
             .unwrap();
         assert!(count > 0);
 
+        conn.execute(
+            "INSERT INTO ai_chat_conversations (id, title, provider_id, model_id) VALUES (?1, ?2, ?3, ?4)",
+            ["migration-conversation", "Migration conversation", "provider", "model"],
+        )
+        .unwrap();
+        let assistant_id: String = conn
+            .query_row(
+                "SELECT assistant_id FROM ai_chat_conversations WHERE id = ?1",
+                ["migration-conversation"],
+                |row| row.get(0),
+            )
+            .unwrap();
+        assert_eq!(assistant_id, "default-assistant");
+
         for table in [
             "sync_devices",
             "sync_profiles",
@@ -194,6 +216,36 @@ mod tests {
                 .unwrap();
             assert!(exists, "{} should be created by sync migration", table);
         }
+
+        for table in [
+            "plugin_marketplaces",
+            "plugin_installations",
+            "plugin_jobs",
+            "plugin_file_grants",
+            "plugin_secrets",
+        ] {
+            let exists: bool = conn
+                .query_row(
+                    "SELECT EXISTS(SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = ?1)",
+                    [table],
+                    |row| row.get(0),
+                )
+                .unwrap();
+            assert!(exists, "{} should be created by plugin platform migration", table);
+        }
+
+        for index in ["idx_plugin_jobs_owner", "idx_plugin_jobs_status", "idx_plugin_file_grants_owner"] {
+            let exists: bool = conn
+                .query_row(
+                    "SELECT EXISTS(SELECT 1 FROM sqlite_master WHERE type = 'index' AND name = ?1)",
+                    [index],
+                    |row| row.get(0),
+                )
+                .unwrap();
+            assert!(exists, "{} should be created by plugin platform migration", index);
+        }
+
+        run_migrations(&conn).expect("running migrations twice should be idempotent");
     }
 
     #[test]
@@ -244,6 +296,11 @@ mod tests {
                 created_at TEXT NOT NULL DEFAULT (datetime('now')),
                 FOREIGN KEY (message_id) REFERENCES ai_chat_messages(id) ON DELETE CASCADE
             );
+            INSERT INTO ai_chat_conversations (
+                id, title, provider_id, model_id
+            ) VALUES (
+                'legacy-conversation', 'Legacy conversation', 'provider', 'model'
+            );
             INSERT INTO _migrations (name) VALUES ('001_init');
             INSERT INTO _migrations (name) VALUES ('002_add_projects');
             INSERT INTO _migrations (name) VALUES ('003_add_settings');
@@ -274,6 +331,15 @@ mod tests {
 
         let result = run_migrations(&conn);
         assert!(result.is_ok());
+
+        let assistant_id: String = conn
+            .query_row(
+                "SELECT assistant_id FROM ai_chat_conversations WHERE id = ?1",
+                ["legacy-conversation"],
+                |row| row.get(0),
+            )
+            .unwrap();
+        assert_eq!(assistant_id, "default-assistant");
 
         for table in [
             "ai_canvas_workspaces",

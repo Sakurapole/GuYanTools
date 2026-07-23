@@ -441,7 +441,23 @@ export declare class JsDatabase {
   listInstalledPlugins(): Promise<Array<string>>
   upsertPlugin(recordJson: string): Promise<void>
   removePlugin(pluginId: string): Promise<void>
+  createPluginJob(input: any): Promise<any>
+  getPluginJob(id: string): Promise<any | null>
+  listPluginJobs(pluginId: string): Promise<Array<any>>
+  updatePluginJob(id: string, input: any): Promise<any>
+  upsertPluginJob(input: any): Promise<any>
+  retryPluginJob(sourceId: string, newId: string): Promise<any>
+  upsertPluginInstallation(input: any): Promise<any>
+  getPluginInstallation(pluginId: string): Promise<any | null>
+  deletePluginInstallation(pluginId: string): Promise<void>
+  createFileGrant(input: any): Promise<any>
+  revokeFileGrant(pluginId: string, id: string): Promise<void>
+  listPluginMarketplaces(): Promise<Array<any>>
+  upsertPluginMarketplace(input: any): Promise<any>
   getPluginStateValue(pluginId: string, key: string): Promise<string | null>
   setPluginStateValue(pluginId: string, key: string, value: string): Promise<void>
   deletePluginStateValue(pluginId: string, key: string): Promise<void>
+  setPluginSecret(pluginId: string, key: string, ciphertext: Buffer): Promise<void>
+  getPluginSecret(pluginId: string, key: string): Promise<Buffer | null>
+  deletePluginSecret(pluginId: string, key: string): Promise<void>
 }

@@ -1,0 +1,16 @@
+{
+  "schemaVersion": "1.0",
+  "id": "guyantools.fixture",
+  "name": "guyantools-fixture",
+  "displayName": "GuYanTools Fixture",
+  "version": "1.0.0",
+  "description": "Local plugin platform fixture",
+  "pluginApiVersion": "1.0.0",
+  "hostVersionRange": ">=1.0.0",
+  "trustLevel": "sandboxed",
+  "runtime": "hybrid",
+  "entry": { "ui": "index.html", "worker": "worker.js" },
+  "permissions": ["storage.self"],
+  "capabilities": [],
+  "contributes": {}
+}
