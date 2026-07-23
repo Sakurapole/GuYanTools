@@ -56,7 +56,10 @@ global.LOCAL_PLUGINS = {
     console.log("Current directory:", __dirname);
 
     // 构建preload脚本路径
-    const preloadPath = path.join(__dirname, '..', '..', '.vite', 'build', 'preload-plugin.js');
+    const pluginBuildPath = path.join(__dirname, '..', '..', '.vite', 'build');
+    const preloadPath = fs.pathExistsSync(path.join(pluginBuildPath, 'preload-plugin.js'))
+      ? path.join(pluginBuildPath, 'preload-plugin.js')
+      : path.join(pluginBuildPath, 'preload.plugin.js');
     console.log("Preload script path:", preloadPath);
 
     // 构建插件文件路径
