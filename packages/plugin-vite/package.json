@@ -1,0 +1,13 @@
+{
+  "name": "@guyantools/plugin-vite",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": { ".": { "types": "./dist/index.d.ts", "import": "./dist/index.js" } },
+  "files": ["dist"],
+  "scripts": { "build": "tsc --emitDeclarationOnly --outDir dist && vite build" },
+  "dependencies": { "@vitejs/plugin-react": "^4.3.4", "@vitejs/plugin-vue": "^6.0.1", "vite": "^7.0.4" },
+  "devDependencies": { "typescript": "^5.8.3" }
+}

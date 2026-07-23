@@ -1,0 +1,9 @@
+{
+  "name": "example-plugin",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": { "dev": "guyantools-plugin dev", "validate": "guyantools-plugin validate", "build": "guyantools-plugin build", "pack": "guyantools-plugin pack", "publish": "guyantools-plugin publish" },
+  "dependencies": { "@guyantools/plugin-sdk": "^1.0.0", "@guyantools/plugin-ui": "^1.0.0", "vue": "^3.5.0" },
+  "devDependencies": { "@guyantools/plugin-vite": "^1.0.0", "typescript": "^5.8.3", "vite": "^7.0.4" }
+}

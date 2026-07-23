@@ -1,0 +1,18 @@
+{
+  "schemaVersion": "1.1",
+  "id": "example.plugin",
+  "name": "example-plugin",
+  "displayName": "Example Plugin",
+  "version": "0.1.0",
+  "description": "A GuYanTools plugin.",
+  "pluginApiVersion": "1.0.0",
+  "uiApiVersion": "1.0.0",
+  "hostVersionRange": ">=1.0.0",
+  "trustLevel": "sandboxed",
+  "runtime": "hybrid",
+  "ui": { "theme": "guyantools", "components": "@guyantools/plugin-ui" },
+  "entry": { "ui": "dist/index.html", "worker": "dist/worker.js" },
+  "permissions": ["ui.contribute", "observability.logs"],
+  "capabilities": [],
+  "contributes": { "pages": [{ "id": "main", "title": "Example Plugin", "routePath": "/" }] }
+}

@@ -1,0 +1,11 @@
+{
+  "name": "@guyantools/plugin-cli",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "bin": { "guyantools-plugin": "./dist/index.js" },
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "scripts": { "build": "tsc --outDir dist", "typecheck": "tsc --noEmit", "test": "vitest run" },
+  "devDependencies": { "typescript": "^5.8.3", "vitest": "^4.1.10" }
+}
