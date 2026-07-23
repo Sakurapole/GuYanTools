@@ -1,3 +1,3 @@
-export * from './config';
-export * from './build';
-export * from './manifest';
+export * from './config.js';
+export * from './build.js';
+export * from './manifest.js';

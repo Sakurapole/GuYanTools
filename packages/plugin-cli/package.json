@@ -7,5 +7,6 @@
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
   "scripts": { "build": "tsc --outDir dist", "typecheck": "tsc --noEmit", "test": "vitest run" },
-  "devDependencies": { "typescript": "^5.8.3", "vitest": "^4.1.10" }
+  "dependencies": { "@guyantools/plugin-vite": "workspace:*", "@guyantools/plugin-sdk": "workspace:*" },
+  "devDependencies": { "@types/node": "^24.1.0", "typescript": "^5.8.3", "vitest": "^4.1.10" }
 }
