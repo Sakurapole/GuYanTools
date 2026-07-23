@@ -25,6 +25,7 @@
     "typecheck": "tsc --noEmit",
     "test:plugin-platform": "vitest run src/main/plugin-host --reporter=verbose",
     "verify:plugin-platform": "node scripts/verify-plugin-platform.cjs",
+    "verify:plugin-framework": "node scripts/verify-plugin-framework.cjs",
     "verify:knowledge-editor": "node scripts/verify-knowledge-editor-foundation.cjs",
     "verify:ai-chat": "node scripts/verify-ai-chat.cjs",
     "verify:quick-launch": "node scripts/verify-quick-launch.cjs",

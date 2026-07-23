@@ -1,13 +1,7 @@
 import { BrowserWindow, WebContentsView, webContents } from 'electron';
-import type {
-  InstalledPluginRecord,
-  PluginRuntimeContext,
-  PluginViewportBounds,
-} from '@/contracts/plugin_host';
+import type { InstalledPluginRecord, PluginRuntimeContext, PluginViewportBounds, PluginDevSession } from '@/contracts/plugin_host';
 import { HostServiceRegistry } from './host_services';
-import { getSandboxedPluginWebPreferences } from './runtime_security';
-import { isAllowedPluginDevUrl } from './runtime_security';
-import type { PluginDevSession } from '@/contracts/plugin_host';
+import { getSandboxedPluginWebPreferences, isAllowedPluginDevUrl } from './runtime_security';
 import { PluginDevSessionManager } from './dev_session';
 
 type MountedPluginView = {

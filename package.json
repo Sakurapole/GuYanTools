@@ -23,6 +23,7 @@
         "desktop:dist:win": "pnpm --dir desktop run dist:win",
         "desktop:publish": "pnpm --dir desktop run publish:github",
         "verify:plugin-platform": "pnpm --dir desktop run test:plugin-platform && pnpm --dir desktop run verify:plugin-platform",
+        "verify:plugin-framework": "node desktop/scripts/verify-plugin-framework.cjs",
         "release:desktop": "pnpm run desktop:publish",
         "start:desktop": "pnpm run desktop:start",
         "mobile:devices": "cd mobile && flutter devices",

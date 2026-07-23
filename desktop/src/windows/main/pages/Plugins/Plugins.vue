@@ -10,6 +10,7 @@ import type {
   PluginInstallPhase,
   PluginInstallProgress,
   PluginPageDescriptor,
+  PluginDevSession,
 } from '@/contracts/plugin_host';
 import type { JobRecord } from '@/contracts/plugin_media';
 import UiButton from '../../components/ui/UiButton.vue';
@@ -48,6 +49,7 @@ const isMarketplaceRefreshing = ref(false);
 const errorMessage = ref('');
 const pendingMarketplacePlugin = ref<MarketplacePluginSummary | null>(null);
 const installProgress = ref<PluginInstallProgress | null>(null);
+const devSessions = ref<PluginDevSession[]>([]);
 const activeInstallPluginId = ref<string | null>(null);
 let removeInstallProgressListener: (() => void) | undefined;
 
@@ -81,11 +83,19 @@ async function refresh() {
   plugins.value = await window.pluginHostApi.listPlugins();
   pages.value = await window.pluginHostApi.listPages();
   marketplaces.value = await window.pluginHostApi.listMarketplaces();
+  devSessions.value = await window.pluginHostApi.listDevSessions();
   const jobEntries = await Promise.all(
     plugins.value.map(async plugin => [plugin.manifest.id, await window.pluginHostApi!.listPluginJobs(plugin.manifest.id)] as const),
   );
   jobsByPlugin.value = Object.fromEntries(jobEntries);
   registerPluginRoutes(pages.value);
+}
+
+function devSessionFor(pluginId: string) { return devSessions.value.find(session => session.pluginId === pluginId); }
+
+async function stopDevSession(pluginId: string) {
+  if (!window.pluginHostApi) return;
+  await runMutation(() => window.pluginHostApi!.disconnectDevSession(pluginId));
 }
 
 async function runMutation(task: () => Promise<void>) {
@@ -291,8 +301,10 @@ onBeforeUnmount(() => removeInstallProgressListener?.());
               <UiButton variant="secondary" size="sm" :disabled="isBusy" @click="togglePlugin(plugin)">{{ plugin.enabled ? '停用' : '启用' }}</UiButton>
               <UiButton v-if="plugin.installSource.type === 'git' || plugin.installSource.type === 'marketplace'" variant="ghost" size="sm" :disabled="isBusy" @click="updatePlugin(plugin)">更新</UiButton>
               <UiButton v-if="plugin.installSource.type === 'git' || plugin.installSource.type === 'marketplace'" variant="ghost" size="sm" :disabled="isBusy" @click="rollbackPlugin(plugin)">回滚</UiButton>
+              <UiButton v-if="plugin.installSource.type === 'local' && devSessionFor(plugin.manifest.id)" variant="ghost" size="sm" :disabled="isBusy" @click="stopDevSession(plugin.manifest.id)">停止本地开发</UiButton>
               <UiButton variant="ghost" size="sm" :disabled="isBusy" @click="uninstallPlugin(plugin)">卸载</UiButton>
             </div>
+            <div v-if="plugin.installSource.type === 'local' && devSessionFor(plugin.manifest.id)" class="dev-session-status">本地开发已连接 · {{ devSessionFor(plugin.manifest.id)?.port }}</div>
             <PluginJobPanel :jobs="jobsByPlugin[plugin.manifest.id] || []" />
           </article>
         </div>

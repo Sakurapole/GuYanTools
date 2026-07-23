@@ -3,7 +3,7 @@ import type { AppConfigApi } from '@/contracts/app_config';
 import type { SyncApi } from '@/contracts/sync';
 import type { HomeProfileApi } from '@/contracts/home_profile';
 import type { HomeWorkspaceApi } from '@/contracts/home_workspace';
-import type { PluginHostApi, PluginRuntimeApi, PluginRuntimeContext } from '@/contracts/plugin_host';
+import type { PluginHostApi, PluginRuntimeApi } from '@/contracts/plugin_host';
 import type { ShortcutsApi } from '@/contracts/shortcuts';
 import type { QuickLaunchApi } from '@/contracts/quick_launch';
 import type { WorkspaceWindowApi } from '@/contracts/workspace_window';

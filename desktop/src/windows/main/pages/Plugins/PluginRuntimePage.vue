@@ -3,6 +3,7 @@ import { computed, nextTick, onBeforeUnmount, onMounted, ref } from 'vue';
 import { useRoute } from 'vue-router';
 import { notifyError } from '../../composables/useInAppNotification';
 import { resolvePluginPageIdentity } from './plugin_runtime_identity';
+import type { PluginDevSession } from '@/contracts/plugin_host';
 
 const route = useRoute();
 const hostRef = ref<HTMLElement | null>(null);
@@ -15,6 +16,7 @@ const pluginId = computed(() => pluginIdentity.value.pluginId);
 const pageId = computed(() => pluginIdentity.value.pageId);
 const title = computed(() => String(route.meta.title ?? `${pluginId.value}/${pageId.value}`));
 const errorMessage = ref('');
+const devSession = ref<PluginDevSession | null>(null);
 
 let resizeObserver: ResizeObserver | null = null;
 
@@ -45,6 +47,7 @@ async function syncPageMount() {
   }
 
   try {
+    devSession.value = (await window.pluginHostApi.listDevSessions()).find(session => session.pluginId === pluginId.value) ?? null;
     await window.pluginHostApi.mountPage(pluginId.value, pageId.value, bounds);
     errorMessage.value = '';
   } catch (error) {
@@ -93,6 +96,7 @@ onBeforeUnmount(() => {
       <div>
         <h1>{{ title }}</h1>
         <p>{{ pluginId }} / {{ pageId }}</p>
+        <small v-if="devSession">本地开发 · 127.0.0.1:{{ devSession.port }}</small>
       </div>
     </header>
 
