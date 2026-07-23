@@ -289,6 +289,10 @@ class App {
 
           const mainWindow = this.mainWindowCreator.getWindow();
           pluginHost.bindMainWindow(mainWindow);
+          mainWindow.webContents.on('did-start-navigation', (_event, _url, isInPlace, isMainFrame) => {
+            if (isInPlace || !isMainFrame) return;
+            void sshHost.releasePortForwardsForTarget('main');
+          });
           if (!mainWindow.isVisible()) {
             mainWindow.show();
           }

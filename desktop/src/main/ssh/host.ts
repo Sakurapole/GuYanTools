@@ -285,6 +285,30 @@ class SshHost {
     return this.host.stopPortForward(sessionId, forwardId);
   }
 
+  async releasePortForwardsForTarget(target: string): Promise<void> {
+    if (!this.initialized) return;
+
+    const normalizedTarget = normalizeTarget(target);
+    const stopRequests: Promise<void>[] = [];
+
+    for (const session of this.listSessions()) {
+      if (normalizeTarget(session.attachedTarget ?? 'main') !== normalizedTarget) continue;
+
+      let statuses: PortForwardStatus[];
+      try {
+        statuses = this.listForwardStatus(session.sessionId);
+      } catch {
+        continue;
+      }
+
+      for (const status of statuses) {
+        stopRequests.push(this.stopPortForward(session.sessionId, status.forwardId));
+      }
+    }
+
+    await Promise.allSettled(stopRequests);
+  }
+
   listForwardStatus(sessionId: string): PortForwardStatus[] {
     return this.host.listForwardStatus(sessionId);
   }

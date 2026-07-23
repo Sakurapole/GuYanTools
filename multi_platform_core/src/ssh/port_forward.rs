@@ -28,9 +28,18 @@ pub(super) struct PortForwardHandle {
     pub(super) remote_port: Option<u32>,
     pub(super) stats: Arc<TrafficStats>,
     pub(super) active_connections: Arc<AtomicU32>,
-    /// Background task(s) driving this forward. Dropping aborts them.
-    #[allow(dead_code)]
+    /// Background task(s) driving this forward.
     pub(super) tasks: Vec<JoinHandle<()>>,
+}
+
+impl Drop for PortForwardHandle {
+    fn drop(&mut self) {
+        // Dropping a Tokio JoinHandle detaches its task, so the listener would
+        // otherwise keep running and retain its local port after disconnect.
+        for task in &self.tasks {
+            task.abort();
+        }
+    }
 }
 
 impl super::SshConnectionManager {
@@ -333,7 +342,7 @@ impl super::SshConnectionManager {
             });
         }
 
-        // Dropping PortForwardHandle drops JoinHandles which aborts the tasks
+        // PortForwardHandle::drop aborts the tasks and releases local listeners.
         drop(fwd_handle);
 
         Ok(())
@@ -507,5 +516,45 @@ impl super::SshConnectionManager {
 
         // Proxy data
         Self::run_forward_connection(client_stream, channel, stats).await
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::time::Duration;
+
+    #[tokio::test]
+    async fn dropping_forward_handle_releases_listener_port() {
+        let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let address = listener.local_addr().unwrap();
+        let task = tokio::spawn(async move {
+            let _ = listener.accept().await;
+        });
+        let handle = PortForwardHandle {
+            forward_id: "test-forward".to_string(),
+            forward_type: "local".to_string(),
+            remote_host: None,
+            remote_port: None,
+            stats: Arc::new(TrafficStats {
+                bytes_sent: AtomicU64::new(0),
+                bytes_received: AtomicU64::new(0),
+            }),
+            active_connections: Arc::new(AtomicU32::new(0)),
+            tasks: vec![task],
+        };
+
+        drop(handle);
+
+        tokio::time::timeout(Duration::from_secs(1), async {
+            loop {
+                match TcpListener::bind(address).await {
+                    Ok(listener) => break listener,
+                    Err(_) => tokio::task::yield_now().await,
+                }
+            }
+        })
+        .await
+        .expect("listener port should be released when the forward handle is dropped");
     }
 }
