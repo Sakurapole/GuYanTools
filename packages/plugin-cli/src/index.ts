@@ -4,12 +4,14 @@ import { devPlugin } from './commands/dev.js';
 import { validatePlugin } from './commands/validate.js';
 import { buildPlugin } from './commands/build.js';
 import { packPlugin } from './commands/pack.js';
+import { publish, readPublishConfig } from './commands/publish.js';
 
 export { createPlugin } from './commands/create.js';
 export { devPlugin } from './commands/dev.js';
 export { validatePlugin } from './commands/validate.js';
 export { buildPlugin } from './commands/build.js';
 export { packPlugin } from './commands/pack.js';
+export { publish } from './commands/publish.js';
 
 async function main(args: string[]) {
   const [command, value] = args;
@@ -22,6 +24,7 @@ async function main(args: string[]) {
   if (command === 'validate') { console.log(JSON.stringify(await validatePlugin())); return; }
   if (command === 'build') { console.log(JSON.stringify(await buildPlugin())); return; }
   if (command === 'pack') { console.log(JSON.stringify(await packPlugin())); return; }
+  if (command === 'publish') { console.log(JSON.stringify(await publish({ config: await readPublishConfig(), dryRun: args.includes('--dry-run') }))); return; }
   throw new Error('Usage: guyantools-plugin <create|dev|validate|build|pack>');
 }
 
