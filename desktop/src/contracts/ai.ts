@@ -19,7 +19,7 @@ export type AiMemoryScope = 'global' | 'project' | 'assistant';
 export type AiResearchJobStatus = 'queued' | 'running' | 'succeeded' | 'failed' | 'cancelled';
 export type AiResearchStage = 'plan' | 'search' | 'read' | 'synthesize' | 'citation_check' | 'done';
 export type AiResearchSourceType = 'web' | 'knowledge-page' | 'knowledge-block' | 'knowledge-asset';
-export type AiAssistantKnowledgeMode = 'force' | 'intent';
+export type AiAssistantKnowledgeMode = 'off' | 'force' | 'intent';
 export type AiAssistantMcpMode = 'disabled' | 'auto' | 'manual';
 export type AiAssistantToolCallMode = 'function' | 'auto' | 'none';
 export type AiMcpServerSource = 'manual' | 'modelscope';
@@ -66,6 +66,8 @@ export type AiSafeProviderConfig = Omit<AiProviderConfig, 'apiKey' | 'apiKeyRef'
 };
 
 export interface AiChatSettings {
+  userAvatar: string;
+  backgrounds: AiChatBackgroundSettings;
   defaultSystemPrompt: string;
   maxHistoryMessages: number;
   temperature: number;
@@ -73,6 +75,21 @@ export interface AiChatSettings {
   reasoningEnabled: boolean;
   reasoningEffort: AiReasoningEffort;
   reasoningBudgetTokens?: number;
+}
+
+export interface AiChatBackgroundConfig {
+  type: import('./background').BackgroundType;
+  color: string;
+  image: string;
+  video: string;
+  backgroundStyle: import('./background').BackgroundStyleConfig;
+}
+
+export interface AiChatBackgroundSettings {
+  sidebar: AiChatBackgroundConfig;
+  conversation: AiChatBackgroundConfig;
+  header: AiChatBackgroundConfig;
+  composer: AiChatBackgroundConfig;
 }
 
 export interface AiAssistantCustomParameter {
@@ -231,6 +248,7 @@ export interface AiSafeAgentFeatureConfig extends Omit<AiAgentFeatureConfig, 'pr
 export interface AiConversation {
   id: string;
   title: string;
+  assistantId: string;
   providerId: string;
   modelId: string;
   systemPrompt?: string;
@@ -280,6 +298,16 @@ export interface AiChatMessage {
   updatedAt: string;
 }
 
+export interface AiChatMessageError {
+  message: string;
+  detail?: string;
+  statusCode?: number;
+  code?: string;
+  providerId?: string;
+  modelId?: string;
+  retryable: boolean;
+}
+
 export interface AiTokenUsage {
   inputTokens?: number;
   outputTokens?: number;
@@ -310,6 +338,10 @@ export interface AiChatAttachment {
   data?: string;
   assetId?: string;
   metadata?: Record<string, unknown>;
+}
+
+export interface AiChatReference {
+  content: string;
 }
 
 export interface AiCanvasWorkspace {
@@ -476,7 +508,18 @@ export type AiStreamEvent =
   | { type: 'citation'; runId: string; messageId: string; citation: AiCitation }
   | { type: 'usage'; runId: string; messageId: string; usage: AiTokenUsage }
   | { type: 'run-aborted'; runId: string }
-  | { type: 'run-error'; runId: string; message: string; retryable: boolean }
+  | {
+    type: 'run-error';
+    runId: string;
+    messageId: string;
+    message: string;
+    detail?: string;
+    statusCode?: number;
+    code?: string;
+    providerId?: string;
+    modelId?: string;
+    retryable: boolean;
+  }
   | { type: 'run-finish'; runId: string; finishReason: string };
 
 export type AiResearchEvent =
@@ -485,6 +528,7 @@ export type AiResearchEvent =
   | { type: 'research-error'; jobId: string; message: string };
 
 export interface CreateAiConversationPayload {
+  assistantId: string;
   providerId: string;
   modelId: string;
   title?: string;
@@ -493,6 +537,7 @@ export interface CreateAiConversationPayload {
 }
 
 export interface UpdateAiConversationPayload {
+  assistantId?: string;
   title?: string;
   pinned?: boolean;
   archived?: boolean;
@@ -548,6 +593,7 @@ export interface SendAiMessagePayload {
   conversationId: string;
   content: string;
   attachments?: AiChatAttachment[];
+  references?: AiChatReference[];
   providerId?: string;
   modelId?: string;
   systemPrompt?: string;

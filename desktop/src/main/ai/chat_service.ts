@@ -7,7 +7,9 @@ import type {
   AiAssistantCustomParameter,
   AiCitation,
   AiChatAttachment,
+  AiChatReference,
   AiChatMessage,
+  AiChatMessageError,
   AiConversation,
   AiProviderRequestDiagnostic,
   AiMemory,
@@ -174,6 +176,7 @@ class AiChatService {
     const row = await this.db().createAiConversation({
       id: randomUUID(),
       title: input.title?.trim() || '新的对话',
+      assistantId: input.assistantId,
       providerId: input.providerId,
       modelId: input.modelId,
       systemPrompt: input.systemPrompt?.trim() || undefined,
@@ -184,6 +187,7 @@ class AiChatService {
 
   async updateConversation(id: string, input: UpdateAiConversationPayload): Promise<AiConversation> {
     const row = await this.db().updateAiConversation(id, {
+      assistantId: input.assistantId,
       title: input.title,
       pinned: input.pinned,
       archived: input.archived,
@@ -277,6 +281,7 @@ class AiChatService {
     const modelId = input.modelId || conversation.modelId;
     this.assertModel(config, providerId, modelId);
     const attachments = sanitizeChatAttachments(input.attachments);
+    const references = sanitizeChatReferences(input.references);
     assertAttachmentsSupported(config, providerId, modelId, attachments);
 
     const userMessage = mapMessage(await this.db().insertAiMessage({
@@ -287,7 +292,7 @@ class AiChatService {
       status: 'complete',
       providerId,
       modelId,
-      metadataJson: attachments.length ? JSON.stringify({ attachments }) : undefined,
+      metadataJson: attachments.length || references.length ? JSON.stringify({ attachments, references }) : undefined,
     }));
     const assistantMessage = mapMessage(await this.db().insertAiMessage({
       id: randomUUID(),
@@ -532,18 +537,36 @@ class AiChatService {
       await this.maybeTitleConversation(context, content);
     } catch (error) {
       const aborted = context.controller.signal.aborted;
+      const provider = findAiProvider(context.config, context.providerId);
+      const diagnostic = provider ? buildProviderRequestDiagnostic(error, provider, context.modelId) : undefined;
+      const messageError = aborted || !diagnostic ? undefined : buildAiMessageError(error, diagnostic);
+      if (!aborted && diagnostic) {
+        logAiProviderFailure('Chat request failed', diagnostic, error);
+      }
       await this.db().updateAiMessage(context.assistantMessage.id, {
         content,
         status: aborted ? 'aborted' : 'error',
-        metadataJson: JSON.stringify(buildMessageMetadata(groundingMetadata, memoryMetadata, undefined, reasoningContent)),
+        metadataJson: JSON.stringify(buildMessageMetadata(
+          groundingMetadata,
+          memoryMetadata,
+          undefined,
+          reasoningContent,
+          messageError,
+        )),
       });
       this.emit(aborted
         ? { type: 'run-aborted', runId: context.runId }
         : {
           type: 'run-error',
           runId: context.runId,
-          message: error instanceof Error ? error.message : String(error),
-          retryable: true,
+          messageId: context.assistantMessage.id,
+          message: messageError?.message || 'AI 请求失败，请检查 Provider 配置后重试。',
+          detail: messageError?.detail,
+          statusCode: messageError?.statusCode,
+          code: messageError?.code,
+          providerId: messageError?.providerId,
+          modelId: messageError?.modelId,
+          retryable: messageError?.retryable ?? true,
         });
     } finally {
       this.runs.delete(context.runId);
@@ -756,13 +779,14 @@ function buildModelMessages(messages: AiChatMessage[], maxHistoryMessages: numbe
 
 function buildUserMessageContent(message: AiChatMessage): UserModelContent {
   const attachments = getMessageAttachments(message);
+  const references = getMessageReferences(message);
   const textAttachments = attachments.filter((attachment) => attachment.kind === 'text' && attachment.textContent?.trim());
   const imageAttachments = attachments.filter((attachment) => attachment.kind === 'image' && attachment.data);
   if (!textAttachments.length && !imageAttachments.length) {
-    return message.content;
+    return buildPromptContent(message.content, references);
   }
 
-  const textBlocks = [message.content.trim()]
+  const textBlocks = [buildPromptContent(message.content, references)]
     .filter(Boolean)
     .concat(textAttachments.map((attachment, index) =>
       `附件 ${index + 1}: ${attachment.name}\n${attachment.textContent?.trim() ?? ''}`));
@@ -791,6 +815,23 @@ function sanitizeChatAttachments(attachments: unknown): AiChatAttachment[] {
   return attachments
     .map(normalizeChatAttachment)
     .filter((attachment): attachment is AiChatAttachment => Boolean(attachment));
+}
+
+function sanitizeChatReferences(references: unknown): AiChatReference[] {
+  if (!Array.isArray(references)) {
+    return [];
+  }
+
+  const contents = references.flatMap((reference) => {
+    if (!reference || typeof reference !== 'object') {
+      return [];
+    }
+    const content = (reference as Record<string, unknown>).content;
+    return typeof content === 'string' && content.trim() ? [content.trim()] : [];
+  });
+  return [...new Set(contents)]
+    .slice(0, 8)
+    .map((content) => ({ content: content.slice(0, 24_000) }));
 }
 
 function normalizeChatAttachment(value: unknown): AiChatAttachment | undefined {
@@ -835,6 +876,21 @@ function normalizeAttachmentSource(value: unknown): AiChatAttachment['source'] {
 
 function getMessageAttachments(message: AiChatMessage): AiChatAttachment[] {
   return sanitizeChatAttachments(message.metadata?.attachments);
+}
+
+function getMessageReferences(message: AiChatMessage): AiChatReference[] {
+  return sanitizeChatReferences(message.metadata?.references);
+}
+
+function buildPromptContent(content: string, references: AiChatReference[]) {
+  if (!references.length) {
+    return content;
+  }
+
+  const quotedContext = references
+    .map((reference, index) => `<quote index="${index + 1}">\n${reference.content}\n</quote>`)
+    .join('\n');
+  return `${content.trim()}\n\n<quoted-context>\n${quotedContext}\n</quoted-context>`;
 }
 
 function assertAttachmentsSupported(
@@ -944,6 +1000,7 @@ function mapConversation(row: Record<string, unknown>): AiConversation {
   return {
     id: String(readField(row, 'id')),
     title: String(readField(row, 'title')),
+    assistantId: String(readField(row, 'assistantId', 'assistant_id') ?? 'default-assistant'),
     providerId: String(readField(row, 'providerId', 'provider_id')),
     modelId: String(readField(row, 'modelId', 'model_id')),
     systemPrompt: optionalString(readField(row, 'systemPrompt', 'system_prompt')),
@@ -1202,6 +1259,7 @@ function buildMessageMetadata(
   memoryMetadata: Record<string, unknown> | undefined,
   reasoning: ResolvedReasoningOptions | undefined,
   reasoningContent: string,
+  error: AiChatMessageError | undefined = undefined,
 ) {
   return {
     ...(groundingMetadata ?? {}),
@@ -1216,6 +1274,7 @@ function buildMessageMetadata(
         },
       }
       : {}),
+    ...(error ? { error } : {}),
   };
 }
 
@@ -1378,6 +1437,87 @@ function buildProviderRequestDiagnostic(
   };
 }
 
+function buildAiMessageError(error: unknown, diagnostic: AiProviderRequestDiagnostic): AiChatMessageError {
+  const record = toRecord(error);
+  const cause = toRecord(record?.cause);
+  const code = extractProviderErrorCode(record, diagnostic.responseBodyPreview);
+  const detail = sanitizeUserFacingError(extractProviderErrorMessage(record, diagnostic.responseBodyPreview)
+    || diagnostic.errorMessage
+    || '上游未返回具体错误原因');
+  const statusCode = diagnostic.statusCode;
+  const message = statusCode === 401 || statusCode === 403
+    ? 'API Key 无效或没有访问权限，请检查 Provider 配置。'
+    : statusCode === 404
+      ? 'Provider 或模型不可用，请检查 Base URL 和模型 ID。'
+      : statusCode === 408 || statusCode === 429
+        ? '请求超时或达到频率/额度限制，请稍后重试。'
+        : statusCode !== undefined && statusCode >= 500
+          ? 'Provider 服务暂时不可用，请稍后重试。'
+          : isNetworkFailure(record, diagnostic)
+            ? '无法连接 Provider，请检查网络和 Base URL。'
+            : 'AI 请求失败，请检查 Provider 配置后重试。';
+  const upstreamRetryable = typeof record?.isRetryable === 'boolean'
+    ? record.isRetryable
+    : typeof cause?.isRetryable === 'boolean'
+      ? cause.isRetryable
+      : undefined;
+  const retryable = upstreamRetryable !== undefined
+    ? upstreamRetryable
+    : statusCode === undefined || statusCode === 408 || statusCode === 429 || statusCode >= 500 || isNetworkFailure(record, diagnostic);
+
+  return {
+    message,
+    detail: detail === message ? undefined : detail,
+    statusCode,
+    code,
+    providerId: diagnostic.providerId,
+    modelId: diagnostic.modelId,
+    retryable,
+  };
+}
+
+function extractProviderErrorCode(record: Record<string, unknown> | undefined, responseBody?: string) {
+  const directCode = toStringValue(record?.code);
+  if (directCode) {
+    return directCode;
+  }
+  const dataCode = toStringValue(toRecord(toRecord(record?.data)?.error)?.code);
+  if (dataCode) {
+    return dataCode;
+  }
+  const parsed = parseProviderErrorBody(responseBody);
+  return toStringValue(toRecord(toRecord(parsed)?.error)?.code);
+}
+
+function extractProviderErrorMessage(record: Record<string, unknown> | undefined, responseBody?: string) {
+  const dataMessage = toStringValue(toRecord(toRecord(record?.data)?.error)?.message);
+  const parsed = parseProviderErrorBody(responseBody);
+  const bodyMessage = toStringValue(toRecord(toRecord(parsed)?.error)?.message);
+  return dataMessage || bodyMessage || toStringValue(record?.message);
+}
+
+function parseProviderErrorBody(responseBody?: string) {
+  if (!responseBody) {
+    return undefined;
+  }
+  try {
+    return JSON.parse(responseBody) as unknown;
+  } catch {
+    return undefined;
+  }
+}
+
+function sanitizeUserFacingError(value: string) {
+  return truncateForDiagnostic(value, 320)
+    .replace(/(api[ _-]?key|authorization|bearer)\s*[:=]\s*[^\s,;]+/gi, '$1: [已隐藏]');
+}
+
+function isNetworkFailure(record: Record<string, unknown> | undefined, diagnostic: AiProviderRequestDiagnostic) {
+  const cause = toRecord(record?.cause);
+  const code = toStringValue(record?.code ?? cause?.code)?.toUpperCase();
+  return !diagnostic.statusCode && Boolean(code && ['ECONNREFUSED', 'ECONNRESET', 'ENOTFOUND', 'ETIMEDOUT', 'EAI_AGAIN', 'ERR_NETWORK'].includes(code));
+}
+
 function formatProviderRequestFailureMessage(error: unknown, diagnostic: AiProviderRequestDiagnostic) {
   const lines = [
     error instanceof Error ? error.message : String(error),
@@ -1500,7 +1640,14 @@ function toRecord(value: unknown): Record<string, unknown> | undefined {
 }
 
 function toFiniteNumber(value: unknown) {
-  return typeof value === 'number' && Number.isFinite(value) ? value : undefined;
+  if (typeof value === 'number' && Number.isFinite(value)) {
+    return value;
+  }
+  if (typeof value === 'string' && value.trim()) {
+    const number = Number(value);
+    return Number.isFinite(number) ? number : undefined;
+  }
+  return undefined;
 }
 
 function toStringValue(value: unknown) {

@@ -8,6 +8,7 @@ use napi_derive::napi;
 pub struct AiConversation {
     pub id: String,
     pub title: String,
+    pub assistant_id: String,
     pub provider_id: String,
     pub model_id: String,
     pub system_prompt: Option<String>,
@@ -23,6 +24,7 @@ pub struct AiConversation {
 pub struct CreateAiConversationInput {
     pub id: String,
     pub title: String,
+    pub assistant_id: String,
     pub provider_id: String,
     pub model_id: String,
     pub system_prompt: Option<String>,
@@ -32,6 +34,7 @@ pub struct CreateAiConversationInput {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[cfg_attr(feature = "napi", napi(object))]
 pub struct UpdateAiConversationInput {
+    pub assistant_id: Option<String>,
     pub title: Option<String>,
     pub provider_id: Option<String>,
     pub model_id: Option<String>,

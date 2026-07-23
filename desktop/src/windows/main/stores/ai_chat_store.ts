@@ -14,6 +14,11 @@ function clone<T>(value: T): T {
   return JSON.parse(JSON.stringify(value)) as T;
 }
 
+interface PendingStreamUpdate {
+  textDelta: string;
+  reasoningDelta: string;
+}
+
 export const useAiChatStore = defineStore('ai-chat', () => {
   const conversations = ref<AiConversation[]>([]);
   const activeConversationId = ref('');
@@ -23,7 +28,10 @@ export const useAiChatStore = defineStore('ai-chat', () => {
   const loadingMessages = ref(false);
   const sending = ref(false);
   const error = ref('');
+  const pendingStreamUpdates = new Map<string, PendingStreamUpdate>();
+  const runMessageIds = new Map<string, string>();
   let unsubscribeStream: (() => void) | null = null;
+  let streamFlushFrame: number | null = null;
 
   const activeConversation = computed(() =>
     conversations.value.find((conversation) => conversation.id === activeConversationId.value) ?? null,
@@ -49,10 +57,6 @@ export const useAiChatStore = defineStore('ai-chat', () => {
     error.value = '';
     try {
       conversations.value = await window.aiApi.listConversations();
-      if (!activeConversationId.value && conversations.value[0]) {
-        activeConversationId.value = conversations.value[0].id;
-        await loadMessages(activeConversationId.value);
-      }
       return conversations.value;
     } catch (cause) {
       error.value = cause instanceof Error ? cause.message : String(cause);
@@ -93,10 +97,7 @@ export const useAiChatStore = defineStore('ai-chat', () => {
     conversations.value = conversations.value.filter((item) => item.id !== id);
     delete messagesByConversation.value[id];
     if (activeConversationId.value === id) {
-      activeConversationId.value = conversations.value[0]?.id ?? '';
-      if (activeConversationId.value) {
-        await loadMessages(activeConversationId.value);
-      }
+      activeConversationId.value = '';
     }
   }
 
@@ -106,13 +107,13 @@ export const useAiChatStore = defineStore('ai-chat', () => {
     }
 
     loadingMessages.value = true;
-    error.value = '';
     try {
       const messages = await window.aiApi.listMessages(conversationId);
       messagesByConversation.value = {
         ...messagesByConversation.value,
         [conversationId]: messages,
       };
+      flushPendingStreamUpdates();
       return messages;
     } catch (cause) {
       error.value = cause instanceof Error ? cause.message : String(cause);
@@ -124,6 +125,10 @@ export const useAiChatStore = defineStore('ai-chat', () => {
 
   async function setActiveConversation(conversationId: string) {
     activeConversationId.value = conversationId;
+    error.value = '';
+    if (!conversationId) {
+      return;
+    }
     if (!messagesByConversation.value[conversationId]) {
       await loadMessages(conversationId);
     }
@@ -191,7 +196,18 @@ export const useAiChatStore = defineStore('ai-chat', () => {
     for (const message of nextMessages) {
       const index = merged.findIndex((item) => item.id === message.id);
       if (index >= 0) {
-        merged[index] = message;
+        const existing = merged[index];
+        merged[index] = message.role === 'assistant'
+          && message.status === 'streaming'
+          && !message.content
+          && existing.content
+          ? {
+            ...message,
+            content: existing.content,
+            status: existing.status,
+            metadata: existing.metadata ?? message.metadata,
+          }
+          : message;
       } else {
         merged.push(message);
       }
@@ -200,6 +216,7 @@ export const useAiChatStore = defineStore('ai-chat', () => {
       ...messagesByConversation.value,
       [conversationId]: merged,
     };
+    flushPendingStreamUpdates();
   }
 
   function updateMessage(messageId: string, updater: (message: AiChatMessage) => AiChatMessage) {
@@ -221,6 +238,48 @@ export const useAiChatStore = defineStore('ai-chat', () => {
     return '';
   }
 
+  function queueStreamUpdate(messageId: string, update: Partial<PendingStreamUpdate>) {
+    const current = pendingStreamUpdates.get(messageId) ?? { textDelta: '', reasoningDelta: '' };
+    pendingStreamUpdates.set(messageId, {
+      textDelta: `${current.textDelta}${update.textDelta ?? ''}`,
+      reasoningDelta: `${current.reasoningDelta}${update.reasoningDelta ?? ''}`,
+    });
+    if (streamFlushFrame === null) {
+      streamFlushFrame = window.requestAnimationFrame(() => {
+        streamFlushFrame = null;
+        flushPendingStreamUpdates();
+      });
+    }
+  }
+
+  function flushPendingStreamUpdates(targetMessageId?: string) {
+    for (const [messageId, update] of pendingStreamUpdates) {
+      if (targetMessageId && messageId !== targetMessageId) {
+        continue;
+      }
+      const conversationId = updateMessage(messageId, (message) => ({
+        ...message,
+        content: `${message.content}${update.textDelta}`,
+        metadata: update.reasoningDelta
+          ? appendReasoningDelta(message.metadata, update.reasoningDelta)
+          : message.metadata,
+        status: 'streaming',
+      }));
+      if (conversationId) {
+        pendingStreamUpdates.delete(messageId);
+      }
+    }
+  }
+
+  function finishPendingStreamUpdates(runId: string, fallbackMessageId?: string) {
+    const messageId = fallbackMessageId || runMessageIds.get(runId);
+    if (!messageId) {
+      return;
+    }
+    flushPendingStreamUpdates(messageId);
+    pendingStreamUpdates.delete(messageId);
+  }
+
   function clearRun(runId: string) {
     const nextRuns = { ...activeRuns.value };
     for (const [conversationId, activeRun] of Object.entries(nextRuns)) {
@@ -229,24 +288,37 @@ export const useAiChatStore = defineStore('ai-chat', () => {
       }
     }
     activeRuns.value = nextRuns;
+    runMessageIds.delete(runId);
+  }
+
+  function findRunConversationId(runId: string) {
+    return Object.entries(activeRuns.value).find(([, activeRun]) => activeRun === runId)?.[0] ?? '';
+  }
+
+  function refreshRunConversation(conversationId: string) {
+    if (!conversationId) {
+      return;
+    }
+    loadMessages(conversationId).catch((): undefined => undefined);
   }
 
   function handleStreamEvent(event: AiStreamEvent) {
+    if (event.type === 'run-start') {
+      runMessageIds.set(event.runId, event.messageId);
+      activeRuns.value = {
+        ...activeRuns.value,
+        [event.conversationId]: event.runId,
+      };
+      return;
+    }
+
     if (event.type === 'text-delta') {
-      updateMessage(event.messageId, (message) => ({
-        ...message,
-        content: `${message.content}${event.delta}`,
-        status: 'streaming',
-      }));
+      queueStreamUpdate(event.messageId, { textDelta: event.delta });
       return;
     }
 
     if (event.type === 'reasoning-delta') {
-      updateMessage(event.messageId, (message) => ({
-        ...message,
-        metadata: appendReasoningDelta(message.metadata, event.delta),
-        status: 'streaming',
-      }));
+      queueStreamUpdate(event.messageId, { reasoningDelta: event.delta });
       return;
     }
 
@@ -274,28 +346,56 @@ export const useAiChatStore = defineStore('ai-chat', () => {
     }
 
     if (event.type === 'run-finish') {
+      const conversationId = findRunConversationId(event.runId);
+      finishPendingStreamUpdates(event.runId);
       clearRun(event.runId);
       refreshConversations().catch((): undefined => undefined);
-      if (activeConversationId.value) {
-        loadMessages(activeConversationId.value).catch((): undefined => undefined);
-      }
+      refreshRunConversation(conversationId);
       return;
     }
 
     if (event.type === 'run-aborted') {
+      const conversationId = findRunConversationId(event.runId);
+      finishPendingStreamUpdates(event.runId);
       clearRun(event.runId);
+      refreshRunConversation(conversationId);
       return;
     }
 
     if (event.type === 'run-error') {
+      const conversationId = findRunConversationId(event.runId);
+      finishPendingStreamUpdates(event.runId, event.messageId);
       clearRun(event.runId);
-      error.value = event.message;
+      updateMessage(event.messageId, (message) => ({
+        ...message,
+        status: 'error',
+        metadata: {
+          ...(message.metadata ?? {}),
+          error: {
+            message: event.message,
+            detail: event.detail,
+            statusCode: event.statusCode,
+            code: event.code,
+            providerId: event.providerId,
+            modelId: event.modelId,
+            retryable: event.retryable,
+          },
+        },
+      }));
+      error.value = '';
+      refreshRunConversation(conversationId);
     }
   }
 
   function dispose() {
     unsubscribeStream?.();
     unsubscribeStream = null;
+    if (streamFlushFrame !== null) {
+      window.cancelAnimationFrame(streamFlushFrame);
+      streamFlushFrame = null;
+    }
+    pendingStreamUpdates.clear();
+    runMessageIds.clear();
   }
 
   return {

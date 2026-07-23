@@ -314,9 +314,9 @@ export function createDefaultAiAgentFeatureConfig(): AiAgentFeatureConfig {
       {
         id: 'default-assistant',
         name: '默认助手',
-        emoji: '😀',
+        emoji: '助',
         systemPrompt: '',
-        knowledgeMode: 'force',
+        knowledgeMode: 'off',
         mcpMode: 'disabled',
         commonPhrases: [],
         memoryEnabled: false,
@@ -337,6 +337,13 @@ export function createDefaultAiAgentFeatureConfig(): AiAgentFeatureConfig {
     ],
     providers: [],
     chat: {
+      userAvatar: '你',
+      backgrounds: {
+        sidebar: { type: 'color', color: '', image: '', video: '', backgroundStyle: {} },
+        conversation: { type: 'color', color: '', image: '', video: '', backgroundStyle: {} },
+        header: { type: 'color', color: '', image: '', video: '', backgroundStyle: {} },
+        composer: { type: 'color', color: '', image: '', video: '', backgroundStyle: {} },
+      },
       defaultSystemPrompt: '',
       maxHistoryMessages: 20,
       temperature: 0.7,

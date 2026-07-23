@@ -1,6 +1,6 @@
 <script lang="ts" setup>
-import { computed, ref } from 'vue';
-import type { AiChatAttachment, AiReasoningEffort, AiSearchMode } from '@/contracts/ai';
+import { computed, nextTick, ref, type CSSProperties } from 'vue';
+import type { AiChatAttachment, AiChatReference, AiReasoningEffort, AiSearchMode } from '@/contracts/ai';
 import UiButton from '@/windows/main/components/ui/UiButton.vue';
 import UiCheckbox from '@/windows/main/components/ui/UiCheckbox.vue';
 import UiField from '@/windows/main/components/ui/UiField.vue';
@@ -26,15 +26,19 @@ const props = withDefaults(defineProps<{
   reasoningEffortOptions: UiSelectOption[];
   canvasEnabled: boolean;
   commonPhrases?: string[];
+  backgroundVideo?: string;
+  backgroundVideoStyle?: CSSProperties;
 }>(), {
   disabled: false,
   streaming: false,
   controlsDisabled: false,
   commonPhrases: () => [],
+  backgroundVideo: '',
+  backgroundVideoStyle: () => ({}),
 });
 
 const emit = defineEmits<{
-  send: [content: string, attachments: AiChatAttachment[]];
+  send: [content: string, attachments: AiChatAttachment[], references: AiChatReference[]];
   stop: [];
   'update:providerId': [value: string];
   'update:modelId': [value: string];
@@ -46,23 +50,27 @@ const emit = defineEmits<{
 }>();
 
 const content = ref('');
+const textareaRef = ref<{ focus: () => void } | null>(null);
 const expanded = ref(false);
 const attachments = ref<AiChatAttachment[]>([]);
+const references = ref<AiChatReference[]>([]);
 const attachmentError = ref('');
 const stagingAttachment = ref(false);
 
 const canSubmit = computed(() =>
-  !props.disabled && (content.value.trim().length > 0 || attachments.value.length > 0));
+  !props.disabled && (content.value.trim().length > 0 || attachments.value.length > 0 || references.value.length > 0));
+const referenceSummary = computed(() => references.value.map((reference) => reference.content).join('\n\n'));
 const optionControlsDisabled = computed(() => props.controlsDisabled || props.streaming);
 
 function submit() {
   const trimmed = content.value.trim();
-  if ((!trimmed && !attachments.value.length) || props.disabled) {
+  if ((!trimmed && !attachments.value.length && !references.value.length) || props.disabled) {
     return;
   }
-  emit('send', trimmed || '请分析这些附件。', [...attachments.value]);
+  emit('send', trimmed || '请基于引用内容继续。', [...attachments.value], [...references.value]);
   content.value = '';
   attachments.value = [];
+  references.value = [];
   attachmentError.value = '';
 }
 
@@ -79,6 +87,7 @@ function clearInput() {
   }
   content.value = '';
   attachments.value = [];
+  references.value = [];
   attachmentError.value = '';
 }
 
@@ -88,6 +97,30 @@ function insertPhrase(phrase: string) {
   }
   const separator = content.value.trim().length ? '\n' : '';
   content.value = `${content.value}${separator}${phrase}`;
+}
+
+function appendText(value: string) {
+  if (!value.trim() || props.streaming || props.disabled) {
+    return;
+  }
+
+  const separator = content.value.trim().length && !content.value.endsWith('\n') ? '\n\n' : '';
+  content.value = `${content.value}${separator}${value}`;
+  void nextTick(() => textareaRef.value?.focus());
+}
+
+function addReference(value: string) {
+  const content = value.trim();
+  if (!content || props.streaming || props.disabled || references.value.some((reference) => reference.content === content)) {
+    return;
+  }
+
+  references.value = [...references.value, { content }];
+  void nextTick(() => textareaRef.value?.focus());
+}
+
+function clearReferences() {
+  references.value = [];
 }
 
 async function pickAttachment() {
@@ -163,10 +196,25 @@ function formatAttachmentSize(size: number) {
   }
   return `${(size / 1_000_000).toFixed(1)} MB`;
 }
+
+defineExpose({
+  appendText,
+  addReference,
+});
 </script>
 
 <template>
   <footer class="ai-composer" :class="{ 'ai-composer--expanded': expanded }">
+    <video
+      v-if="backgroundVideo"
+      class="ai-composer__background-video"
+      :src="backgroundVideo"
+      :style="backgroundVideoStyle"
+      autoplay
+      loop
+      muted
+      playsinline
+    />
     <UiToolbar class="ai-composer__toolbar" density="compact">
       <div class="ai-composer__toolbar-grid">
         <div class="ai-composer__model-group">
@@ -272,6 +320,16 @@ function formatAttachmentSize(size: number) {
       </UiButton>
     </div>
 
+    <div v-if="references.length" class="ai-composer__references" aria-label="引用内容">
+      <span class="ai-composer__reference-summary" :title="referenceSummary">
+        <IconRenderer icon="iconify:lucide:message-square-quote" :size="14" />
+        {{ references.length }} 条引用
+      </span>
+      <UiIconButton size="xs" variant="ghost" title="清空引用" :disabled="streaming" @click="clearReferences">
+        <IconRenderer icon="iconify:lucide:x" :size="13" />
+      </UiIconButton>
+    </div>
+
     <div v-if="attachments.length || attachmentError" class="ai-composer__attachments">
       <div
         v-for="attachment in attachments"
@@ -296,6 +354,7 @@ function formatAttachmentSize(size: number) {
 
     <div class="ai-composer__input-row">
       <UiTextarea
+        ref="textareaRef"
         v-model="content"
         class="ai-composer__input"
         :rows="expanded ? 7 : 3"
@@ -324,12 +383,27 @@ function formatAttachmentSize(size: number) {
 
 <style lang="scss" scoped>
 .ai-composer {
+  position: relative;
   display: flex;
   flex-direction: column;
   gap: 10px;
   padding: 12px 16px 14px;
   border-top: var(--ui-border-width-thin) solid var(--ui-border-subtle);
-  background: var(--ui-surface-base);
+  background: var(--ai-composer-background, var(--ui-surface-base));
+}
+
+.ai-composer__background-video {
+  position: absolute;
+  z-index: 0;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+}
+
+.ai-composer > :not(.ai-composer__background-video) {
+  position: relative;
+  z-index: 1;
 }
 
 .ai-composer__toolbar {
@@ -403,6 +477,28 @@ function formatAttachmentSize(size: number) {
 
 .ai-composer__phrases :deep(.ui-button) {
   max-width: 220px;
+}
+
+.ai-composer__references {
+  display: inline-flex;
+  align-self: flex-start;
+  align-items: center;
+  gap: 2px;
+  min-height: 28px;
+  padding: 2px 4px 2px 8px;
+  border: var(--ui-border-width-thin) solid color-mix(in srgb, var(--primary-color) 26%, var(--ui-border-subtle));
+  border-radius: var(--ui-radius-sm);
+  background: color-mix(in srgb, var(--primary-color) 9%, var(--ui-surface-overlay));
+  color: var(--ui-text-secondary);
+  font-size: 0.78rem;
+  font-weight: 650;
+}
+
+.ai-composer__reference-summary {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  min-width: 0;
 }
 
 .ai-composer__attachments {

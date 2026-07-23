@@ -1,5 +1,6 @@
 <script lang="ts" setup>
 import { computed, ref } from 'vue';
+import type { CSSProperties } from 'vue';
 import type { AiAssistantConfig, AiConversation, AiSafeProviderConfig } from '@/contracts/ai';
 import IconRenderer from '@/windows/main/components/ui/IconRenderer.vue';
 import UiButton from '@/windows/main/components/ui/UiButton.vue';
@@ -16,9 +17,13 @@ const props = withDefaults(defineProps<{
   providers: AiSafeProviderConfig[];
   loading?: boolean;
   collapsed?: boolean;
+  backgroundVideo?: string;
+  backgroundVideoStyle?: CSSProperties;
 }>(), {
   loading: false,
   collapsed: false,
+  backgroundVideo: '',
+  backgroundVideoStyle: () => ({}),
 });
 
 const emit = defineEmits<{
@@ -37,6 +42,7 @@ type SidebarTab = 'conversations' | 'assistants';
 
 const activeTab = ref<SidebarTab>('assistants');
 const searchQuery = ref('');
+const assistantSearchQuery = ref('');
 const renamingConversationId = ref('');
 const renameDraft = ref('');
 
@@ -47,12 +53,14 @@ const tabs: UiTabItem[] = [
 
 const filteredConversations = computed(() => {
   const query = searchQuery.value.trim().toLowerCase();
-  const conversations = [...props.conversations].sort((left, right) => {
+  const conversations = props.conversations
+    .filter((conversation) => conversation.assistantId === props.activeAssistantId)
+    .sort((left, right) => {
     if (left.pinned !== right.pinned) {
       return left.pinned ? -1 : 1;
     }
     return Date.parse(right.updatedAt) - Date.parse(left.updatedAt);
-  });
+    });
 
   if (!query) {
     return conversations;
@@ -65,6 +73,20 @@ const filteredConversations = computed(() => {
 });
 
 const visibleCollapsedConversations = computed(() => filteredConversations.value.slice(0, 12));
+
+const filteredAssistants = computed(() => {
+  const query = assistantSearchQuery.value.trim().toLowerCase();
+  if (!query) {
+    return props.assistants;
+  }
+
+  return props.assistants.filter((assistant) => {
+    const provider = assistant.providerId ? providerLabel(assistant.providerId).toLowerCase() : '跟随默认模型';
+    return assistant.name.toLowerCase().includes(query)
+      || assistant.emoji.toLowerCase().includes(query)
+      || provider.includes(query);
+  });
+});
 
 function providerLabel(providerId: string) {
   return props.providers.find((provider) => provider.id === providerId)?.name || providerId || 'Provider';
@@ -125,10 +147,28 @@ function selectAssistantAndShowTopics(assistantId: string) {
   emit('selectAssistant', assistantId);
   activeTab.value = 'conversations';
 }
+
+function activateConversation(conversationId: string) {
+  emit('selectConversation', conversationId);
+}
+
+function activateAssistant(assistantId: string) {
+  selectAssistantAndShowTopics(assistantId);
+}
 </script>
 
 <template>
   <aside class="ai-workspace-sidebar" :class="{ 'ai-workspace-sidebar--collapsed': collapsed }">
+    <video
+      v-if="backgroundVideo"
+      class="ai-workspace-sidebar__background-video"
+      :src="backgroundVideo"
+      :style="backgroundVideoStyle"
+      autoplay
+      loop
+      muted
+      playsinline
+    />
     <template v-if="collapsed">
       <div class="ai-workspace-sidebar__collapsed-head">
         <UiIconButton size="sm" variant="secondary" title="展开侧栏" @click="setCollapsed(false)">
@@ -191,7 +231,7 @@ function selectAssistantAndShowTopics(assistantId: string) {
     <template v-else>
       <header class="ai-workspace-sidebar__header">
         <div class="ai-workspace-sidebar__title">
-          <span>AI</span>
+          <span>工作台</span>
           <strong>{{ activeTab === 'conversations' ? '会话' : '角色' }}</strong>
         </div>
         <UiIconButton size="sm" variant="ghost" title="收起侧栏" @click="setCollapsed(true)">
@@ -229,7 +269,12 @@ function selectAssistantAndShowTopics(assistantId: string) {
             :key="conversation.id"
             class="ai-workspace-sidebar__topic-card"
             :class="{ 'is-active': conversation.id === activeConversationId }"
+            role="button"
+            tabindex="0"
+            :aria-current="conversation.id === activeConversationId ? 'page' : undefined"
             @click="emit('selectConversation', conversation.id)"
+            @keydown.enter.prevent="activateConversation(conversation.id)"
+            @keydown.space.prevent="activateConversation(conversation.id)"
           >
             <div class="ai-workspace-sidebar__topic-main">
               <UiInput
@@ -269,15 +314,29 @@ function selectAssistantAndShowTopics(assistantId: string) {
       <section v-else class="ai-workspace-sidebar__pane">
         <div class="ai-workspace-sidebar__toolbar">
           <UiButton size="sm" variant="primary" @click="emit('createAssistant')">新角色</UiButton>
+          <UiInput v-model="assistantSearchQuery" size="sm" placeholder="搜索角色或模型" />
         </div>
 
-        <div class="ai-workspace-sidebar__assistant-list">
+        <UiEmptyState
+          v-if="filteredAssistants.length === 0"
+          compact
+          icon="iconify:lucide:search-x"
+          title="没有匹配的角色"
+          description="换一个名称、头像或模型关键词试试。"
+        />
+
+        <div v-else class="ai-workspace-sidebar__assistant-list">
           <article
-            v-for="assistant in assistants"
+            v-for="assistant in filteredAssistants"
             :key="assistant.id"
             class="ai-workspace-sidebar__assistant-card"
             :class="{ 'is-active': assistant.id === activeAssistantId }"
+            role="button"
+            tabindex="0"
+            :aria-current="assistant.id === activeAssistantId ? 'page' : undefined"
             @click="selectAssistantAndShowTopics(assistant.id)"
+            @keydown.enter.prevent="activateAssistant(assistant.id)"
+            @keydown.space.prevent="activateAssistant(assistant.id)"
           >
             <span class="ai-workspace-sidebar__assistant-emoji">{{ assistant.emoji || '助' }}</span>
             <div class="ai-workspace-sidebar__assistant-main">
@@ -297,6 +356,7 @@ function selectAssistantAndShowTopics(assistantId: string) {
 <style lang="scss">
 .ai-chat-shell .ai-workspace-sidebar,
 .ai-workspace-sidebar {
+  position: relative;
   box-sizing: border-box;
   display: grid;
   grid-template-rows: auto auto minmax(0, 1fr);
@@ -304,10 +364,24 @@ function selectAssistantAndShowTopics(assistantId: string) {
   min-width: 0;
   height: 100%;
   border-right: var(--ui-border-width-thin, 1px) solid var(--ui-border-subtle, rgba(15, 23, 42, 0.1));
-  background: var(--ui-surface-base, #f8fbfd);
+  background: var(--ai-sidebar-background, var(--ui-surface-base, #f8fbfd));
   color: var(--ui-text-primary, #0f172a);
   font-family: var(--ui-font-family, inherit);
   overflow: hidden;
+}
+
+.ai-workspace-sidebar__background-video {
+  position: absolute;
+  z-index: 0;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+}
+
+.ai-workspace-sidebar > :not(.ai-workspace-sidebar__background-video) {
+  position: relative;
+  z-index: 1;
 }
 
 .ai-workspace-sidebar *,
@@ -397,9 +471,9 @@ function selectAssistantAndShowTopics(assistantId: string) {
   min-width: 0;
   min-height: 34px;
   padding: 7px 10px;
-  border: var(--ui-border-width-thin, 1px) solid rgba(14, 165, 233, 0.18);
+  border: var(--ui-border-width-thin, 1px) solid transparent;
   border-radius: var(--ui-radius-sm, 6px);
-  background: color-mix(in srgb, var(--ui-primary-color, #0ea5e9) 16%, transparent);
+  background: transparent;
   box-shadow: none;
   cursor: pointer;
   transition:
@@ -412,15 +486,20 @@ function selectAssistantAndShowTopics(assistantId: string) {
 .ai-workspace-sidebar__topic-card.is-active,
 .ai-workspace-sidebar__assistant-card:hover,
 .ai-workspace-sidebar__assistant-card.is-active {
-  border-color: var(--ui-border-accent, rgba(14, 165, 233, 0.34));
-  background: var(--ui-tabs-active-bg, rgba(224, 242, 254, 0.66));
+  border-color: var(--ui-border-subtle, rgba(15, 23, 42, 0.1));
+  background: color-mix(in srgb, var(--ui-surface-overlay) 72%, transparent);
 }
 
 .ai-workspace-sidebar__topic-card.is-active,
 .ai-workspace-sidebar__assistant-card.is-active {
-  box-shadow:
-    inset 3px 0 0 var(--ui-primary-color, #0ea5e9),
-    0 1px 2px rgba(15, 23, 42, 0.04);
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
+}
+
+.ai-workspace-sidebar__topic-card:focus-visible,
+.ai-workspace-sidebar__assistant-card:focus-visible,
+.ai-workspace-sidebar__mini-topic:focus-visible {
+  outline: 2px solid var(--ui-focus-ring, var(--ui-primary-color, #0ea5e9));
+  outline-offset: 2px;
 }
 
 .ai-workspace-sidebar__topic-main {
@@ -469,20 +548,40 @@ function selectAssistantAndShowTopics(assistantId: string) {
 .ai-workspace-sidebar__topic-actions {
   position: absolute;
   top: 50%;
-  right: 5px;
+  right: 3px;
   display: inline-flex;
   align-items: center;
   gap: 1px;
-  padding-left: 10px;
-  background: linear-gradient(90deg, transparent, color-mix(in srgb, var(--ui-primary-color, #0ea5e9) 16%, var(--ui-surface-base, #f8fbfd)) 28%);
+  padding: 0;
+  border: 0;
+  background: transparent;
   opacity: 0;
+  pointer-events: none;
   transform: translateY(-50%);
+  visibility: hidden;
   transition: opacity 0.16s ease;
 }
 
+.ai-workspace-sidebar__topic-actions .ui-icon-button,
+.ai-workspace-sidebar__topic-actions .ui-icon-button:hover,
+.ai-workspace-sidebar__topic-actions .ui-icon-button:focus-visible,
+.ai-workspace-sidebar__topic-actions .ui-icon-button.ui-icon-button--active {
+  border-color: transparent;
+  background: transparent;
+  box-shadow: none;
+}
+
 .ai-workspace-sidebar__topic-card:hover .ai-workspace-sidebar__topic-actions,
-.ai-workspace-sidebar__topic-card.is-active .ai-workspace-sidebar__topic-actions {
+.ai-workspace-sidebar__topic-card:focus-within .ai-workspace-sidebar__topic-actions {
   opacity: 1;
+  pointer-events: auto;
+  visibility: visible;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ai-workspace-sidebar__topic-actions {
+    transition: none;
+  }
 }
 
 .ai-workspace-sidebar__rename {
@@ -498,7 +597,7 @@ function selectAssistantAndShowTopics(assistantId: string) {
   padding: 9px;
   border: var(--ui-border-width-thin, 1px) solid var(--ui-border-subtle, rgba(15, 23, 42, 0.1));
   border-radius: var(--ui-radius-sm, 6px);
-  background: var(--ui-surface-overlay, #fff);
+  background: color-mix(in srgb, var(--ui-surface-overlay) 58%, transparent);
   cursor: pointer;
 }
 

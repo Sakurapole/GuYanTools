@@ -64,6 +64,7 @@ const modelOptions = computed<UiSelectOption[]>(() => [
 ]);
 
 const knowledgeModeOptions: Array<{ label: string; value: AiAssistantKnowledgeMode }> = [
+  { label: '关闭', value: 'off' },
   { label: '强制检索', value: 'force' },
   { label: '意图识别', value: 'intent' },
 ];
@@ -136,7 +137,7 @@ function saveAssistant() {
   emit('save', {
     ...form,
     name: form.name.trim() || '默认助手',
-    emoji: form.emoji.trim() || '😀',
+    emoji: form.emoji.trim() || '助',
     providerId: form.providerId || undefined,
     modelId: form.modelId || undefined,
     knowledgeLibraryId: form.knowledgeLibraryId?.trim() || undefined,
@@ -300,9 +301,17 @@ function saveAssistant() {
         </section>
 
         <section v-else-if="activeTab === 'prompt'" class="ai-assistant-settings__pane ai-assistant-settings__pane--fill">
-          <UiField label="名称">
+          <UiField label="头像与名称" hint="头像支持 1-2 个文字或 Emoji。">
             <div class="ai-assistant-settings__name-row">
-              <UiInput v-model="form.emoji" class="ai-assistant-settings__emoji" size="sm" />
+              <span class="ai-assistant-settings__avatar-preview" aria-hidden="true">{{ form.emoji.trim() || '助' }}</span>
+              <UiInput
+                v-model="form.emoji"
+                class="ai-assistant-settings__emoji"
+                size="sm"
+                maxlength="8"
+                aria-label="助手头像"
+                placeholder="助"
+              />
               <UiInput v-model="form.name" size="sm" placeholder="助手名称" />
             </div>
           </UiField>
@@ -483,7 +492,25 @@ function saveAssistant() {
 }
 
 .ai-assistant-settings__emoji {
-  flex: 0 0 48px;
+  flex: 0 0 64px;
+}
+
+.ai-assistant-settings__avatar-preview {
+  display: inline-flex;
+  width: 32px;
+  height: 32px;
+  flex: 0 0 32px;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  border: var(--ui-border-width-thin) solid var(--ui-border-subtle);
+  border-radius: var(--ui-radius-sm);
+  background: var(--ui-surface-overlay);
+  color: var(--primary-color);
+  font-size: 0.72rem;
+  font-weight: 750;
+  line-height: 1;
+  white-space: nowrap;
 }
 
 .ai-assistant-settings__prompt-field {

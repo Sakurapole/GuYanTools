@@ -39,6 +39,7 @@ const reasoningEffortOptions: { label: string; value: AiReasoningEffort }[] = [
 ];
 
 const form = reactive({
+  userAvatar: '你',
   systemPrompt: '',
   temperature: '0.7',
   maxHistoryMessages: '20',
@@ -88,6 +89,7 @@ const embeddingModelOptions = computed(() => [
 watch(
   () => aiConfigStore.config,
   (config) => {
+    form.userAvatar = config.chat.userAvatar;
     form.systemPrompt = config.chat.defaultSystemPrompt;
     form.temperature = String(config.chat.temperature);
     form.maxHistoryMessages = String(config.chat.maxHistoryMessages);
@@ -126,6 +128,7 @@ watch(
 async function saveChatSettings() {
   await aiConfigStore.updateConfig({
     chat: {
+      userAvatar: form.userAvatar.trim() || '你',
       defaultSystemPrompt: form.systemPrompt,
       temperature: Number(form.temperature) || 0.7,
       maxHistoryMessages: Math.max(1, Math.round(Number(form.maxHistoryMessages) || 20)),
@@ -603,6 +606,24 @@ function normalizeMcpEnv(value: unknown) {
 
     <section class="settings-group">
       <h3>问答参数</h3>
+      <div class="settings-row">
+        <div class="settings-row__label">
+          <span>用户头像</span>
+          <small>显示在你发送的消息右侧，支持 1-2 个文字或 Emoji。</small>
+        </div>
+        <div class="settings-row__control settings-row__control--compact">
+          <div class="ai-avatar-setting">
+            <span class="ai-avatar-setting__preview" aria-hidden="true">{{ form.userAvatar.trim() || '你' }}</span>
+            <UiInput
+              v-model="form.userAvatar"
+              size="sm"
+              maxlength="8"
+              aria-label="用户头像"
+              placeholder="你"
+            />
+          </div>
+        </div>
+      </div>
       <div class="settings-row settings-row--wide">
         <div class="settings-row__label">
           <span>默认 System Prompt</span>
@@ -849,6 +870,30 @@ function normalizeMcpEnv(value: unknown) {
   display: flex;
   justify-content: flex-end;
   max-width: 360px;
+}
+
+.ai-avatar-setting {
+  display: grid;
+  grid-template-columns: 32px minmax(0, 1fr);
+  align-items: center;
+  gap: 8px;
+}
+
+.ai-avatar-setting__preview {
+  display: inline-flex;
+  width: 32px;
+  height: 32px;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  border: var(--ui-border-width-thin) solid var(--ui-border-subtle);
+  border-radius: var(--ui-radius-sm);
+  background: var(--ui-surface-overlay);
+  color: var(--ui-text-primary);
+  font-size: 0.72rem;
+  font-weight: 750;
+  line-height: 1;
+  white-space: nowrap;
 }
 
 .ai-provider-panel {

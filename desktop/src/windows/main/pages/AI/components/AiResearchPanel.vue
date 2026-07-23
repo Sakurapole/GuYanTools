@@ -1,5 +1,6 @@
 <script lang="ts" setup>
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue';
+import { marked } from 'marked';
 import type { AiResearchJob, AiResearchRunOptions } from '@/contracts/ai';
 import IconRenderer from '@/windows/main/components/ui/IconRenderer.vue';
 import UiButton from '@/windows/main/components/ui/UiButton.vue';
@@ -10,6 +11,7 @@ import { notifyError, notifySuccess } from '@/windows/main/composables/useInAppN
 import { useAiConfigStore } from '@/windows/main/stores/ai_config_store';
 import { useAiResearchStore } from '@/windows/main/stores/ai_research_store';
 import { useKnowledgeStore } from '@/windows/main/stores/knowledge_store';
+import { sanitizeKnowledgeMarkdownHtml } from '@/windows/main/pages/Knowledge/utils/markdown_sanitize';
 
 const researchStore = useAiResearchStore();
 const aiConfigStore = useAiConfigStore();
@@ -27,6 +29,13 @@ const sourceModeOptions: UiSelectOption[] = [
 
 const selectedJob = computed(() => researchStore.activeJob);
 const selectedSources = computed(() => researchStore.activeSources);
+const renderedReport = computed(() => {
+  const report = selectedJob.value?.reportMarkdown;
+  if (!report) {
+    return '';
+  }
+  return sanitizeKnowledgeMarkdownHtml(marked.parse(report, { async: false, gfm: true }) as string);
+});
 const canStart = computed(() => query.value.trim().length > 0 && !researchStore.starting);
 const maxSourcesValue = computed(() => {
   const value = Number(maxSources.value);
@@ -228,7 +237,7 @@ function statusIcon(job: AiResearchJob) {
 
         <section class="ai-research-panel__report">
           <h4>报告</h4>
-          <pre v-if="selectedJob.reportMarkdown">{{ selectedJob.reportMarkdown }}</pre>
+          <div v-if="renderedReport" class="ai-research-panel__report-content markdown-body" v-html="renderedReport" />
           <p v-else-if="selectedJob.errorMessage" class="ai-research-panel__error">{{ selectedJob.errorMessage }}</p>
           <p v-else class="ai-research-panel__empty">{{ stageLabel(selectedJob) }}中</p>
         </section>
@@ -384,6 +393,50 @@ function statusIcon(job: AiResearchJob) {
   overflow: auto;
   padding: 14px 16px;
   border-bottom: var(--ui-border-width-thin) solid var(--ui-border-subtle);
+}
+
+.ai-research-panel__report-content {
+  min-width: 0;
+  overflow: auto;
+  padding: 14px 16px;
+  color: var(--ui-text-primary);
+  line-height: 1.6;
+}
+
+.markdown-body :deep(p),
+.markdown-body :deep(ul),
+.markdown-body :deep(ol),
+.markdown-body :deep(pre),
+.markdown-body :deep(table) {
+  margin: 0 0 10px;
+}
+
+.markdown-body :deep(p:last-child),
+.markdown-body :deep(ul:last-child),
+.markdown-body :deep(ol:last-child),
+.markdown-body :deep(pre:last-child),
+.markdown-body :deep(table:last-child) {
+  margin-bottom: 0;
+}
+
+.markdown-body :deep(pre) {
+  overflow: auto;
+  padding: 10px 12px;
+  border: var(--ui-border-width-thin) solid var(--ui-border-subtle);
+  border-radius: var(--ui-radius-sm);
+  background: var(--ui-surface-muted);
+}
+
+.markdown-body :deep(table) {
+  width: max-content;
+  min-width: 100%;
+  border-collapse: collapse;
+}
+
+.markdown-body :deep(th),
+.markdown-body :deep(td) {
+  padding: 6px 8px;
+  border: var(--ui-border-width-thin) solid var(--ui-border-subtle);
 }
 
 .ai-research-panel__sources article {

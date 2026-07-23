@@ -1,5 +1,5 @@
 <script lang="ts" setup>
-import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue';
+import { computed, onBeforeUnmount, onMounted, ref, watch, type CSSProperties } from 'vue';
 import AiAgentReservedPanel from './components/AiAgentReservedPanel.vue';
 import AiAssistantSettingsDialog from './components/AiAssistantSettingsDialog.vue';
 import AiCanvasPanel from './components/AiCanvasPanel.vue';
@@ -13,16 +13,36 @@ import IconRenderer from '@/windows/main/components/ui/IconRenderer.vue';
 import UiIconButton from '@/windows/main/components/ui/UiIconButton.vue';
 import UiInput from '@/windows/main/components/ui/UiInput.vue';
 import UiPopupSurface from '@/windows/main/components/ui/UiPopupSurface.vue';
+import UiPersonalizationConfig from '@/windows/main/components/ui/UiPersonalizationConfig.vue';
 import UiTabs, { type UiTabItem } from '@/windows/main/components/ui/UiTabs.vue';
 import type { UiSelectOption } from '@/windows/main/components/ui/UiSelect.vue';
-import type { AiAssistantConfig, AiChatAttachment, AiReasoningEffort, AiSearchMode } from '@/contracts/ai';
+import EditIcon from '@/windows/main/components/svgs/icons/EditIcon.vue';
+import { useContextMenu, type ContextMenuItem } from '@/windows/main/composables/useContextMenu';
+import { buildBackgroundTextVars } from '@/windows/main/utils/backgroundTextColor';
+import {
+  resolveThemeBackground,
+  withThemeBackground,
+  type BackgroundConfirmPayload,
+  type BackgroundValueConfig,
+} from '@/contracts/background';
+import type {
+  AiAssistantConfig,
+  AiChatAttachment,
+  AiChatBackgroundConfig,
+  AiChatBackgroundSettings,
+  AiChatReference,
+  AiReasoningEffort,
+  AiSearchMode,
+} from '@/contracts/ai';
 import { useAiCanvasStore } from '@/windows/main/stores/ai_canvas_store';
 import { useAiChatStore } from '@/windows/main/stores/ai_chat_store';
 import { createAiAssistantConfig, useAiConfigStore } from '@/windows/main/stores/ai_config_store';
 import { useAiContextStore } from '@/windows/main/stores/ai_context_store';
 import { useAiResearchStore } from '@/windows/main/stores/ai_research_store';
+import { useAppConfigStore } from '@/windows/main/stores/app_config_store';
 
 const aiConfigStore = useAiConfigStore();
+const appConfigStore = useAppConfigStore();
 const aiChatStore = useAiChatStore();
 const aiCanvasStore = useAiCanvasStore();
 const aiContextStore = useAiContextStore();
@@ -45,12 +65,42 @@ const canvasPanelVisible = ref(false);
 const contextPanelVisible = ref(false);
 const aiPageMode = ref<'chat' | 'research' | 'agent'>('chat');
 const sidebarCollapsed = ref(false);
+const activeBackgroundRegion = ref<keyof AiChatBackgroundSettings>('conversation');
+const backgroundConfigVisible = ref(false);
+const contextMenu = useContextMenu();
+const composerRef = ref<{
+  appendText: (value: string) => void;
+  addReference: (value: string) => void;
+} | null>(null);
 
 const pageModeTabs: UiTabItem[] = [
   { key: 'chat', label: '问答' },
   { key: 'research', label: 'Research' },
   { key: 'agent', label: 'Agent' },
 ];
+
+const backgroundTheme = computed(() => appConfigStore.config.appearance.theme === 'dark' ? 'dark' : 'light');
+const sidebarBackground = computed(() => resolveAiBackground('sidebar'));
+const conversationBackground = computed(() => resolveAiBackground('conversation'));
+const headerBackground = computed(() => resolveAiBackground('header'));
+const composerBackground = computed(() => resolveAiBackground('composer'));
+const activeBackground = computed(() => resolveAiBackground(activeBackgroundRegion.value));
+const aiPageStyle = computed(() => ({
+  '--ui-page-sidebar-width': '292px',
+  '--ui-page-sidebar-collapsed-width': '72px',
+  '--ai-sidebar-background': sidebarBackground.value.color || 'var(--ui-surface-base)',
+  '--ai-conversation-background': conversationBackground.value.color || 'var(--ui-surface-muted)',
+  '--ai-header-background': headerBackground.value.color || 'var(--ui-surface-base)',
+  '--ai-composer-background': composerBackground.value.color || 'var(--ui-surface-base)',
+}));
+const activeBackgroundPreviewSize = computed(() => {
+  switch (activeBackgroundRegion.value) {
+    case 'sidebar': return { width: 292, height: 640 };
+    case 'header': return { width: 900, height: 80 };
+    case 'composer': return { width: 900, height: 240 };
+    default: return { width: 900, height: 560 };
+  }
+});
 
 const readyProvider = computed(() => aiConfigStore.defaultProvider);
 const readyModel = computed(() => aiConfigStore.defaultModel);
@@ -101,9 +151,10 @@ onMounted(async () => {
   aiCanvasStore.ensureStreamSubscription();
   aiResearchStore.ensureSubscription();
   await aiConfigStore.refresh();
+  activeAssistantId.value = aiConfigStore.config.defaultAssistantId || aiConfigStore.defaultAssistant?.id || '';
   await aiContextStore.refresh();
   await aiChatStore.refreshConversations();
-  activeAssistantId.value = aiConfigStore.config.defaultAssistantId || aiConfigStore.defaultAssistant?.id || '';
+  await selectConversationForAssistant(activeAssistantId.value);
   if (aiChatStore.activeConversationId) {
     await aiCanvasStore.loadForConversation(aiChatStore.activeConversationId);
   }
@@ -159,7 +210,102 @@ function syncRuntimeOptions() {
   reasoningBudgetTokensInput.value = aiConfigStore.config.chat.reasoningBudgetTokens
     ? String(aiConfigStore.config.chat.reasoningBudgetTokens)
     : '';
-  knowledgeSearchMode.value = assistant?.knowledgeMode === 'intent' ? 'auto' : 'force';
+  knowledgeSearchMode.value = assistant?.knowledgeMode === 'force'
+    ? 'force'
+    : assistant?.knowledgeMode === 'intent'
+      ? 'auto'
+      : 'off';
+}
+
+function resolveAiBackground(region: keyof AiChatBackgroundSettings): BackgroundValueConfig {
+  return resolveThemeBackground(aiConfigStore.config.chat.backgrounds[region], backgroundTheme.value);
+}
+
+function createBackgroundStyle(background: BackgroundValueConfig): CSSProperties {
+  const style = background.backgroundStyle;
+  const result: Record<string, string> = {};
+  if (background.type === 'image' && background.image) {
+    result.backgroundImage = `url(${background.image})`;
+    result.backgroundSize = style.backgroundSize || 'cover';
+    result.backgroundPosition = style.backgroundPosition || 'center';
+    result.backgroundRepeat = style.backgroundRepeat || 'no-repeat';
+  } else if (background.color) {
+    result.background = background.color;
+  }
+  Object.assign(result, buildBackgroundTextVars(style.textColor, {
+    aliases: {
+      primary: ['--ui-text-primary'],
+      secondary: ['--ui-text-secondary'],
+      muted: ['--ui-text-muted'],
+    },
+  }));
+  return result as CSSProperties;
+}
+
+function createBackgroundVideoStyle(background: BackgroundValueConfig): CSSProperties {
+  const style = background.backgroundStyle;
+  return {
+    objectFit: style.backgroundSize === 'contain' ? 'contain' : style.backgroundSize === '100% 100%' ? 'fill' : style.backgroundSize === 'auto' ? 'none' : 'cover',
+    objectPosition: style.backgroundPosition || 'center',
+    opacity: style.opacity ?? 1,
+    filter: style.blur ? `blur(${style.blur}px)` : undefined,
+  };
+}
+
+function openBackgroundContextMenu(event: MouseEvent, region: keyof AiChatBackgroundSettings) {
+  const labels: Record<keyof AiChatBackgroundSettings, string> = {
+    sidebar: '侧栏',
+    conversation: '对话区域',
+    header: '顶栏',
+    composer: '输入区域',
+  };
+  const items: ContextMenuItem[] = [{
+    id: `ai-background-${region}`,
+    label: `设置${labels[region]}背景`,
+    icon: EditIcon,
+    action: () => {
+      activeBackgroundRegion.value = region;
+      backgroundConfigVisible.value = true;
+    },
+  }];
+  contextMenu.open(event.clientX, event.clientY, items);
+}
+
+async function handleBackgroundConfirm(payload: BackgroundConfirmPayload) {
+  const region = activeBackgroundRegion.value;
+  const background = withThemeBackground(
+    aiConfigStore.config.chat.backgrounds[region],
+    backgroundTheme.value,
+    {
+      type: payload.type,
+      color: payload.color ?? '',
+      image: payload.image ?? '',
+      video: payload.video ?? '',
+      backgroundStyle: payload.backgroundStyle ?? {},
+    },
+  ) as AiChatBackgroundConfig;
+  await aiConfigStore.updateConfig({
+    chat: {
+      ...aiConfigStore.config.chat,
+      backgrounds: {
+        ...aiConfigStore.config.chat.backgrounds,
+        [region]: background,
+      },
+    },
+  });
+}
+
+async function resetBackground() {
+  const region = activeBackgroundRegion.value;
+  await aiConfigStore.updateConfig({
+    chat: {
+      ...aiConfigStore.config.chat,
+      backgrounds: {
+        ...aiConfigStore.config.chat.backgrounds,
+        [region]: { type: 'color', color: '', image: '', video: '', backgroundStyle: {} },
+      },
+    },
+  });
 }
 
 function runtimeTemperature() {
@@ -208,21 +354,25 @@ function runtimeMaxToolCalls() {
 }
 
 async function createConversation() {
-  if (!selectedProvider.value || !selectedModel.value) {
+  if (!activeAssistant.value || !selectedProvider.value || !selectedModel.value) {
     return;
   }
 
   await aiChatStore.createConversation({
+    assistantId: activeAssistant.value.id,
     providerId: selectedProvider.value.id,
     modelId: selectedModel.value.id,
-    title: '新的话题',
+    title: '新的对话',
     systemPrompt: runtimeSystemPrompt(),
     projectId: aiContextStore.activeProjectId || undefined,
   });
 }
 
-async function send(content: string, attachments: AiChatAttachment[] = []) {
+async function send(content: string, attachments: AiChatAttachment[] = [], references: AiChatReference[] = []) {
   let conversation = aiChatStore.activeConversation;
+  if (conversation?.assistantId !== activeAssistant.value?.id) {
+    conversation = null;
+  }
   if (!conversation) {
     await createConversation();
     conversation = aiChatStore.activeConversation;
@@ -236,6 +386,7 @@ async function send(content: string, attachments: AiChatAttachment[] = []) {
     conversationId: conversation.id,
     content,
     attachments,
+    references,
     providerId: selectedProvider.value?.id || conversation.providerId,
     modelId: selectedModel.value?.id || conversation.modelId,
     systemPrompt: runtimeSystemPrompt(),
@@ -327,6 +478,11 @@ async function pinConversation(conversationId: string, pinned: boolean) {
   await aiChatStore.updateConversation(conversationId, { pinned });
 }
 
+async function deleteConversation(conversationId: string) {
+  await aiChatStore.deleteConversation(conversationId);
+  await selectConversationForAssistant(activeAssistantId.value);
+}
+
 async function changeActiveProject(projectId: string) {
   aiContextStore.activeProjectId = projectId;
   const conversation = aiChatStore.activeConversation;
@@ -350,19 +506,40 @@ async function rememberMessage(messageId: string) {
   contextPanelVisible.value = true;
 }
 
+function appendToComposer(content: string, quoted: boolean) {
+  const selection = content.trim();
+  if (!selection) {
+    return;
+  }
+
+  if (quoted) {
+    composerRef.value?.addReference(selection);
+    return;
+  }
+  composerRef.value?.appendText(selection);
+}
+
 function setPageMode(value: string) {
   aiPageMode.value = value === 'agent' || value === 'research' ? value : 'chat';
 }
 
 async function selectAssistant(assistantId: string) {
   activeAssistantId.value = assistantId;
+  await selectConversationForAssistant(assistantId);
   await aiConfigStore.updateConfig({ defaultAssistantId: assistantId });
+}
+
+async function selectConversationForAssistant(assistantId: string) {
+  const conversation = aiChatStore.conversations
+    .filter((item) => item.assistantId === assistantId)
+    .sort((left, right) => Date.parse(right.updatedAt) - Date.parse(left.updatedAt))[0];
+  await aiChatStore.setActiveConversation(conversation?.id ?? '');
 }
 
 function createAssistant() {
   const assistant = createAiAssistantConfig({
     name: '新助手',
-    emoji: '🤖',
+    emoji: '助',
     providerId: selectedProvider.value?.id,
     modelId: selectedModel.value?.id,
   });
@@ -384,15 +561,30 @@ async function saveAssistant(assistant: AiAssistantConfig) {
     : [...aiConfigStore.assistants, assistant];
   activeAssistantId.value = assistant.id;
   await aiConfigStore.saveAssistants(assistants, assistant.id);
+  await selectConversationForAssistant(assistant.id);
+  syncRuntimeOptions();
   draftAssistant.value = null;
 }
 
 async function deleteAssistant(assistantId: string) {
+  const wasActive = activeAssistantId.value === assistantId;
   const assistants = aiConfigStore.assistants.filter((assistant) => assistant.id !== assistantId);
   const nextAssistants = assistants.length ? assistants : [createAiAssistantConfig()];
-  const nextActiveId = nextAssistants[0]?.id ?? '';
+  const nextActiveId = activeAssistantId.value !== assistantId
+    && nextAssistants.some((assistant) => assistant.id === activeAssistantId.value)
+    ? activeAssistantId.value
+    : nextAssistants[0]?.id ?? '';
+  const ownedConversations = aiChatStore.conversations.filter(
+    (conversation) => conversation.assistantId === assistantId,
+  );
+  await Promise.all(ownedConversations.map((conversation) =>
+    aiChatStore.updateConversation(conversation.id, { assistantId: nextActiveId }),
+  ));
   activeAssistantId.value = nextActiveId;
   await aiConfigStore.saveAssistants(nextAssistants, nextActiveId);
+  if (wasActive) {
+    await selectConversationForAssistant(nextActiveId);
+  }
   assistantSettingsVisible.value = false;
 }
 </script>
@@ -404,7 +596,7 @@ async function deleteAssistant(assistantId: string) {
     main-class="ai-chat-shell__main"
     stage-class="ai-chat-shell__stage"
     :sidebar-collapsed="sidebarCollapsed"
-    :style="{ '--ui-page-sidebar-width': '292px', '--ui-page-sidebar-collapsed-width': '72px' }"
+    :style="aiPageStyle"
   >
     <template #sidebar>
       <AiWorkspaceSidebar
@@ -415,6 +607,10 @@ async function deleteAssistant(assistantId: string) {
         :active-conversation-id="aiChatStore.activeConversationId"
         :providers="aiConfigStore.config.providers"
         :loading="aiChatStore.loadingConversations"
+        :style="createBackgroundStyle(sidebarBackground)"
+        :background-video="sidebarBackground.type === 'video' ? sidebarBackground.video : ''"
+        :background-video-style="createBackgroundVideoStyle(sidebarBackground)"
+        @contextmenu.prevent="openBackgroundContextMenu($event, 'sidebar')"
         @create-assistant="createAssistant"
         @select-assistant="selectAssistant"
         @configure-assistant="configureAssistant"
@@ -422,17 +618,31 @@ async function deleteAssistant(assistantId: string) {
         @select-conversation="aiChatStore.setActiveConversation"
         @rename-conversation="renameConversation"
         @pin-conversation="pinConversation"
-        @delete-conversation="aiChatStore.deleteConversation"
+        @delete-conversation="deleteConversation"
       />
     </template>
 
     <template #stage>
       <div class="ai-chat-workspace">
         <section class="ai-chat-workspace__chat">
-          <header class="ai-chat-workspace__header">
+          <header
+            class="ai-chat-workspace__header"
+            :style="createBackgroundStyle(headerBackground)"
+            @contextmenu.prevent="openBackgroundContextMenu($event, 'header')"
+          >
+            <video
+              v-if="headerBackground.type === 'video' && headerBackground.video"
+              class="ai-chat-workspace__background-video"
+              :src="headerBackground.video"
+              :style="createBackgroundVideoStyle(headerBackground)"
+              autoplay
+              loop
+              muted
+              playsinline
+            />
             <div class="ai-chat-workspace__title">
-              <span class="ai-chat-workspace__eyebrow">GuYan AI</span>
-              <h2>{{ aiPageMode === 'chat' ? (aiChatStore.activeConversation?.title || '新的话题') : aiPageMode === 'research' ? 'Deep Research' : 'Agent 工作区' }}</h2>
+              <span class="ai-chat-workspace__eyebrow">工作记录</span>
+              <h2>{{ aiPageMode === 'chat' ? (aiChatStore.activeConversation?.title || '新的对话') : aiPageMode === 'research' ? 'Deep Research' : 'Agent 工作区' }}</h2>
               <p>{{ aiPageMode === 'chat' ? runtimeSummary : aiPageMode === 'research' ? '可取消、可审计的来源研究流水线' : 'Code Agent / 通用 Agent 执行层预留' }}</p>
             </div>
 
@@ -507,18 +717,39 @@ async function deleteAssistant(assistantId: string) {
             <p v-if="pageError" class="ai-chat-workspace__error">{{ pageError }}</p>
           </header>
 
-          <AiMessageList
+          <div
             v-if="aiPageMode === 'chat'"
-            :messages="aiChatStore.activeMessages"
-            :loading="aiChatStore.loadingMessages"
-            :streaming="aiChatStore.isStreaming"
-            @regenerate="regenerate"
-            @remember="rememberMessage"
-          />
+            class="ai-chat-workspace__conversation"
+            :style="createBackgroundStyle(conversationBackground)"
+            @contextmenu.prevent="openBackgroundContextMenu($event, 'conversation')"
+          >
+            <video
+              v-if="conversationBackground.type === 'video' && conversationBackground.video"
+              class="ai-chat-workspace__background-video"
+              :src="conversationBackground.video"
+              :style="createBackgroundVideoStyle(conversationBackground)"
+              autoplay
+              loop
+              muted
+              playsinline
+            />
+            <AiMessageList
+              :messages="aiChatStore.activeMessages"
+              :loading="aiChatStore.loadingMessages"
+              :streaming="aiChatStore.isStreaming"
+              :user-avatar="aiConfigStore.config.chat.userAvatar"
+              :assistant-avatar="activeAssistant?.emoji"
+              :assistant-name="activeAssistant?.name"
+              @regenerate="regenerate"
+              @remember="rememberMessage"
+              @insert-selection="appendToComposer"
+            />
+          </div>
           <AiResearchPanel v-else-if="aiPageMode === 'research'" />
           <AiAgentReservedPanel v-else />
 
           <AiComposer
+            ref="composerRef"
             v-if="aiPageMode === 'chat'"
             v-model:provider-id="selectedProviderId"
             v-model:model-id="selectedModelId"
@@ -535,6 +766,10 @@ async function deleteAssistant(assistantId: string) {
             :disabled="!canChat || aiChatStore.sending"
             :controls-disabled="aiConfigStore.loading"
             :streaming="aiChatStore.isStreaming"
+            :style="createBackgroundStyle(composerBackground)"
+            :background-video="composerBackground.type === 'video' ? composerBackground.video : ''"
+            :background-video-style="createBackgroundVideoStyle(composerBackground)"
+            @contextmenu.prevent="openBackgroundContextMenu($event, 'composer')"
             @send="send"
             @stop="aiChatStore.stopActiveRun"
           />
@@ -585,6 +820,22 @@ async function deleteAssistant(assistantId: string) {
         @save="saveAssistant"
         @delete="deleteAssistant"
       />
+
+      <UiPersonalizationConfig
+        :visible="backgroundConfigVisible"
+        :title="`${({ sidebar: '侧栏', conversation: '对话区域', header: '顶栏', composer: '输入区域' } as const)[activeBackgroundRegion]}背景`"
+        :current-background="activeBackground.type === 'color' ? activeBackground.color : ''"
+        :current-background-image="activeBackground.type === 'image' ? activeBackground.image : ''"
+        :current-background-video="activeBackground.type === 'video' ? activeBackground.video : ''"
+        :current-background-style="activeBackground.backgroundStyle"
+        show-reset
+        reset-text="跟随主题"
+        :preview-width="activeBackgroundPreviewSize.width"
+        :preview-height="activeBackgroundPreviewSize.height"
+        @close="backgroundConfigVisible = false"
+        @confirm="handleBackgroundConfirm"
+        @reset="resetBackground"
+      />
     </template>
   </MainPageLayout>
 </template>
@@ -607,14 +858,51 @@ async function deleteAssistant(assistantId: string) {
 .ai-chat-workspace__chat {
   display: grid;
   grid-template-rows: auto minmax(0, 1fr) auto;
-  width: 100%;
-  height: 100%;
+  width: calc(100% - 8px);
+  height: calc(100% - 6px);
+  margin: 6px 0 0 8px;
   min-width: 0;
   min-height: 0;
-  background: var(--ui-surface-bg);
+  background: var(--ai-conversation-background, var(--ui-surface-bg));
+  border-top: var(--ui-border-width-thin) solid color-mix(in srgb, var(--ui-border-subtle) 76%, transparent);
+  border-left: var(--ui-border-width-thin) solid color-mix(in srgb, var(--ui-border-subtle) 76%, transparent);
+  border-top-right-radius: var(--ui-radius-lg);
+  box-shadow: -5px -5px 14px color-mix(in srgb, var(--ui-shadow-color, #0f172a) 7%, transparent);
+  overflow: hidden;
+}
+
+.ai-chat-workspace__conversation {
+  position: relative;
+  display: flex;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.ai-chat-workspace__conversation > :not(.ai-chat-workspace__background-video),
+.ai-chat-workspace__header > :not(.ai-chat-workspace__background-video) {
+  position: relative;
+  z-index: 1;
+}
+
+.ai-chat-workspace__conversation :deep(.ai-message-list) {
+  position: relative;
+  z-index: 1;
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
+.ai-chat-workspace__background-video {
+  position: absolute;
+  z-index: 0;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
 }
 
 .ai-chat-workspace__header {
+  position: relative;
   display: grid;
   grid-template-columns: minmax(180px, 1fr) auto;
   align-items: center;
@@ -622,7 +910,7 @@ async function deleteAssistant(assistantId: string) {
   min-height: 64px;
   padding: 10px 16px;
   border-bottom: var(--ui-border-width-thin) solid var(--ui-border-subtle);
-  background: var(--ui-surface-base);
+  background: var(--ai-header-background, var(--ui-surface-base));
 }
 
 .ai-chat-workspace__title {
@@ -636,7 +924,6 @@ async function deleteAssistant(assistantId: string) {
   font-size: 0.68rem;
   font-weight: 750;
   letter-spacing: 0;
-  text-transform: uppercase;
 }
 
 .ai-chat-workspace__title h2 {
@@ -663,18 +950,75 @@ async function deleteAssistant(assistantId: string) {
   min-width: 0;
   align-items: center;
   justify-content: flex-end;
-  gap: 8px;
+  gap: 6px;
 }
 
 .ai-chat-workspace__advanced {
   display: grid;
-  grid-template-columns: repeat(3, 70px);
-  gap: 6px;
+  grid-template-columns: repeat(3, 64px);
+  gap: 5px;
   min-width: 0;
 }
 
 .ai-chat-workspace__number {
   min-width: 0;
+}
+
+.ai-chat-workspace__header-actions :deep(.ui-tabs--segmented) {
+  min-height: 34px;
+  padding: 3px;
+  border-color: color-mix(in srgb, var(--ui-border-subtle) 76%, transparent);
+  border-radius: var(--ui-radius-sm);
+  background: color-mix(in srgb, var(--ui-surface-muted) 76%, transparent);
+}
+
+.ai-chat-workspace__header-actions :deep(.ui-tabs--segmented .ui-tabs__item) {
+  min-height: 28px;
+  padding: 4px 10px;
+  border-radius: calc(var(--ui-radius-sm) - 3px);
+  color: var(--ui-text-secondary);
+  font-size: 0.78rem;
+  font-weight: 700;
+}
+
+.ai-chat-workspace__header-actions :deep(.ui-tabs--segmented .ui-tabs__active-indicator) {
+  top: 3px;
+  bottom: 3px;
+  border-radius: calc(var(--ui-radius-sm) - 3px);
+  background: color-mix(in srgb, var(--ui-primary-color) 13%, var(--ui-surface-base));
+  box-shadow: 0 1px 3px color-mix(in srgb, var(--ui-primary-color) 12%, transparent);
+}
+
+.ai-chat-workspace__header-actions :deep(.ui-icon-button:not(.ui-icon-button--labeled)) {
+  width: 34px;
+  min-width: 34px;
+  height: 34px;
+  min-height: 34px;
+  border-color: color-mix(in srgb, var(--ui-border-subtle) 68%, transparent);
+  border-radius: var(--ui-radius-sm);
+  background: color-mix(in srgb, var(--ui-surface-overlay) 72%, transparent);
+}
+
+.ai-chat-workspace__header-actions :deep(.ui-icon-button--labeled) {
+  min-height: 34px;
+  padding: 5px 10px;
+  border-color: color-mix(in srgb, var(--ui-border-subtle) 68%, transparent);
+  border-radius: var(--ui-radius-sm);
+  background: color-mix(in srgb, var(--ui-surface-overlay) 72%, transparent);
+  font-size: 0.78rem;
+}
+
+.ai-chat-workspace__header-actions :deep(.ui-icon-button:hover:not(:disabled)),
+.ai-chat-workspace__header-actions :deep(.ui-icon-button--active) {
+  border-color: color-mix(in srgb, var(--ui-primary-color) 28%, var(--ui-border-subtle));
+  background: color-mix(in srgb, var(--ui-primary-color) 10%, var(--ui-surface-overlay));
+}
+
+.ai-chat-workspace__advanced :deep(.ui-input) {
+  min-height: 34px;
+  border-radius: var(--ui-radius-sm);
+  background: color-mix(in srgb, var(--ui-surface-overlay) 72%, transparent);
+  font-size: 0.78rem;
 }
 
 .ai-chat-workspace__error {

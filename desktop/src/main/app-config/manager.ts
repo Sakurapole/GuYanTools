@@ -30,6 +30,7 @@ import type {
   AiAssistantKnowledgeMode,
   AiAssistantMcpMode,
   AiAssistantToolCallMode,
+  AiChatBackgroundConfig,
   AiGeneralAgentTemplate,
   AiMcpEnvironmentVariable,
   AiMcpServerConfig,
@@ -39,6 +40,7 @@ import type {
   AiProviderKind,
   AiReasoningEffort,
 } from '@/contracts/ai';
+import type { BackgroundStyleConfig, BackgroundType } from '@/contracts/background';
 import type { LocalTerminalProfileConfig, TerminalBackgroundConfig, TerminalSshProfileGroupConfig } from '@/contracts/terminal';
 import type { AppWebConfig, ChromeExtensionRecord, WebScriptRule } from '@/contracts/webview';
 import {
@@ -359,6 +361,59 @@ function normalizeAiNumber(value: unknown, fallback?: number) {
   return Number.isFinite(numeric) ? numeric : fallback;
 }
 
+function normalizeAiChatBackground(value: unknown, fallback: AiChatBackgroundConfig): AiChatBackgroundConfig {
+  if (typeof value === 'string') {
+    return {
+      type: 'color',
+      color: value.trim(),
+      image: '',
+      video: '',
+      backgroundStyle: {},
+    };
+  }
+  if (!isRecord(value)) {
+    return structuredClone(fallback);
+  }
+
+  const type: BackgroundType = value.type === 'image' || value.type === 'video' ? value.type : 'color';
+  const styleValue = isRecord(value.backgroundStyle) ? value.backgroundStyle : {};
+  const backgroundStyle: BackgroundStyleConfig = {
+    backgroundSize: typeof styleValue.backgroundSize === 'string' ? styleValue.backgroundSize : undefined,
+    backgroundPosition: typeof styleValue.backgroundPosition === 'string' ? styleValue.backgroundPosition : undefined,
+    backgroundRepeat: typeof styleValue.backgroundRepeat === 'string' ? styleValue.backgroundRepeat : undefined,
+    opacity: normalizeAiNumber(styleValue.opacity),
+    blur: normalizeAiNumber(styleValue.blur),
+    fitMode: styleValue.fitMode === 'crop' || styleValue.fitMode === 'style' ? styleValue.fitMode : undefined,
+    textColor: typeof styleValue.textColor === 'string' ? styleValue.textColor.trim() : undefined,
+  };
+  if (isRecord(styleValue.themeVariants)) {
+    const variants: NonNullable<BackgroundStyleConfig['themeVariants']> = {};
+    for (const theme of ['light', 'dark'] as const) {
+      const variant = styleValue.themeVariants[theme];
+      if (typeof variant === 'string' || isRecord(variant)) {
+        variants[theme] = normalizeAiChatBackground(variant, {
+          type: 'color',
+          color: '',
+          image: '',
+          video: '',
+          backgroundStyle: {},
+        });
+      }
+    }
+    if (Object.keys(variants).length > 0) {
+      backgroundStyle.themeVariants = variants;
+    }
+  }
+
+  return {
+    type,
+    color: typeof value.color === 'string' ? value.color.trim() : '',
+    image: typeof value.image === 'string' ? value.image : '',
+    video: typeof value.video === 'string' ? value.video : '',
+    backgroundStyle,
+  };
+}
+
 function normalizeAiReasoningEffort(value: unknown): AiReasoningEffort {
   return value === 'minimal' || value === 'low' || value === 'high' || value === 'xhigh'
     ? value
@@ -496,7 +551,7 @@ function normalizeAiAssistantCustomParameter(value: unknown): AiAssistantConfig[
 }
 
 function normalizeAiAssistantKnowledgeMode(value: unknown, fallback: AiAssistantKnowledgeMode): AiAssistantKnowledgeMode {
-  return value === 'intent' || value === 'force' ? value : fallback;
+  return value === 'off' || value === 'intent' || value === 'force' ? value : fallback;
 }
 
 function normalizeAiAssistantMcpMode(value: unknown, fallback: AiAssistantMcpMode): AiAssistantMcpMode {
@@ -606,6 +661,15 @@ function normalizeAiAgentFeature(value: unknown): AiAgentFeatureConfig {
       ? value.providers.map(normalizeAiProvider).filter((provider): provider is AiProviderConfig => Boolean(provider))
       : [],
     chat: {
+      userAvatar: typeof chat.userAvatar === 'string' && chat.userAvatar.trim()
+        ? chat.userAvatar.trim()
+        : defaults.chat.userAvatar,
+      backgrounds: {
+        sidebar: normalizeAiChatBackground(isRecord(chat.backgrounds) ? chat.backgrounds.sidebar : undefined, defaults.chat.backgrounds.sidebar),
+        conversation: normalizeAiChatBackground(isRecord(chat.backgrounds) ? chat.backgrounds.conversation : undefined, defaults.chat.backgrounds.conversation),
+        header: normalizeAiChatBackground(isRecord(chat.backgrounds) ? chat.backgrounds.header : undefined, defaults.chat.backgrounds.header),
+        composer: normalizeAiChatBackground(isRecord(chat.backgrounds) ? chat.backgrounds.composer : undefined, defaults.chat.backgrounds.composer),
+      },
       defaultSystemPrompt: typeof chat.defaultSystemPrompt === 'string'
         ? chat.defaultSystemPrompt
         : defaults.chat.defaultSystemPrompt,
@@ -1255,6 +1319,10 @@ function mergeConfig(current: AppConfig, patch: AppConfigPatch): AppConfig {
         chat: {
           ...current.features.aiAgent.chat,
           ...(patch.features?.aiAgent?.chat ?? {}),
+          backgrounds: {
+            ...current.features.aiAgent.chat.backgrounds,
+            ...(patch.features?.aiAgent?.chat?.backgrounds ?? {}),
+          },
         },
         agent: {
           ...current.features.aiAgent.agent,

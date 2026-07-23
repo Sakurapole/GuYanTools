@@ -22,11 +22,12 @@ impl AiService {
         db.transaction(|conn| {
             conn.execute(
                 "INSERT INTO ai_chat_conversations (
-                    id, title, provider_id, model_id, system_prompt, project_id
-                 ) VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
+                    id, title, assistant_id, provider_id, model_id, system_prompt, project_id
+                 ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)",
                 params![
                     input.id,
                     input.title,
+                    input.assistant_id,
                     input.provider_id,
                     input.model_id,
                     input.system_prompt,
@@ -40,7 +41,7 @@ impl AiService {
     pub fn list_conversations(db: &Database) -> DbResult<Vec<AiConversation>> {
         db.with_connection(|conn| {
             let mut stmt = conn.prepare(
-                "SELECT id, title, provider_id, model_id, system_prompt, project_id, pinned, archived, created_at, updated_at
+                "SELECT id, title, assistant_id, provider_id, model_id, system_prompt, project_id, pinned, archived, created_at, updated_at
                  FROM ai_chat_conversations
                  WHERE archived = 0
                  ORDER BY pinned DESC, updated_at DESC, created_at DESC",
@@ -62,16 +63,18 @@ impl AiService {
             conn.execute(
                 "UPDATE ai_chat_conversations
                  SET title = ?1,
-                     provider_id = ?2,
-                     model_id = ?3,
-                     system_prompt = ?4,
-                     project_id = ?5,
-                     pinned = ?6,
-                     archived = ?7,
+                     assistant_id = ?2,
+                     provider_id = ?3,
+                     model_id = ?4,
+                     system_prompt = ?5,
+                     project_id = ?6,
+                     pinned = ?7,
+                     archived = ?8,
                      updated_at = datetime('now')
-                 WHERE id = ?8",
+                 WHERE id = ?9",
                 params![
                     input.title.unwrap_or(current.title),
+                    input.assistant_id.unwrap_or(current.assistant_id),
                     input.provider_id.unwrap_or(current.provider_id),
                     input.model_id.unwrap_or(current.model_id),
                     input.system_prompt.or(current.system_prompt),
@@ -741,7 +744,7 @@ impl AiService {
 
     fn get_conversation(conn: &Connection, id: &str) -> DbResult<AiConversation> {
         conn.query_row(
-            "SELECT id, title, provider_id, model_id, system_prompt, project_id, pinned, archived, created_at, updated_at
+            "SELECT id, title, assistant_id, provider_id, model_id, system_prompt, project_id, pinned, archived, created_at, updated_at
              FROM ai_chat_conversations
              WHERE id = ?1",
             params![id],
@@ -871,14 +874,15 @@ impl AiService {
         Ok(AiConversation {
             id: row.get(0)?,
             title: row.get(1)?,
-            provider_id: row.get(2)?,
-            model_id: row.get(3)?,
-            system_prompt: row.get(4)?,
-            project_id: row.get(5)?,
-            pinned: row.get::<_, i64>(6)? != 0,
-            archived: row.get::<_, i64>(7)? != 0,
-            created_at: row.get(8)?,
-            updated_at: row.get(9)?,
+            assistant_id: row.get(2)?,
+            provider_id: row.get(3)?,
+            model_id: row.get(4)?,
+            system_prompt: row.get(5)?,
+            project_id: row.get(6)?,
+            pinned: row.get::<_, i64>(7)? != 0,
+            archived: row.get::<_, i64>(8)? != 0,
+            created_at: row.get(9)?,
+            updated_at: row.get(10)?,
         })
     }
 
@@ -1030,6 +1034,7 @@ mod tests {
         CreateAiConversationInput {
             id: id.to_string(),
             title: "New chat".to_string(),
+            assistant_id: "default-assistant".to_string(),
             provider_id: "openai".to_string(),
             model_id: "gpt-test".to_string(),
             system_prompt: None,
@@ -1043,6 +1048,7 @@ mod tests {
         let conversation =
             AiService::create_conversation(&db, conversation_input("conv-1")).unwrap();
         assert_eq!(conversation.id, "conv-1");
+        assert_eq!(conversation.assistant_id, "default-assistant");
 
         AiService::insert_message(
             &db,

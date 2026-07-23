@@ -1467,6 +1467,7 @@ async function ensureKnowledgeAiConversation() {
   }
 
   const conversation = await aiChatStore.createConversation({
+    assistantId: aiConfigStore.defaultAssistant?.id || 'default-assistant',
     providerId: provider.id,
     modelId: model.id,
     title: `知识库问答 - ${store.activeLibrary?.name || '默认知识库'}`,

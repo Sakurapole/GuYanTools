@@ -42,12 +42,9 @@ export function mapAiSdkPartToAiEvent(part: unknown, runId: string, messageId: s
   }
 
   if (typed.type === 'error') {
-    return {
-      type: 'run-error',
-      runId,
-      message: typed.error instanceof Error ? typed.error.message : String(typed.error ?? 'AI stream failed'),
-      retryable: true,
-    };
+    throw typed.error instanceof Error
+      ? typed.error
+      : new Error(String(typed.error ?? 'AI stream failed'));
   }
 
   return null;

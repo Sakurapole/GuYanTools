@@ -4,8 +4,8 @@ const path = require('node:path');
 const root = path.resolve(__dirname, '..', '..');
 
 const checks = [
-  ['desktop/src/contracts/ai.ts', ['AiApi', 'AiProviderConfig', 'AiStreamEvent', 'AiResearchJob', 'AiResearchSource', 'AiResearchEvent', 'StartAiResearchPayload', 'RegenerateAiMessagePayload', 'AiGroundingOptions', 'AiReasoningOptions', 'RebuildKnowledgeEmbeddingsPayload', 'AiCanvasWorkspace', 'AiCanvasRunOptions', 'canvas-workspace', 'AiChatAttachment', 'StageAiChatAttachmentPayload', 'AiInteractionMode', 'AiAgentMode', 'AiCodexAgentReservedSettings', 'AiGeneralAgentReservedSettings', 'UpdateAiCanvasOperationPayload', 'ApplyAiCanvasOperationResult', 'applyCanvasOperation', 'rejectCanvasOperation', 'AiProject', 'AiMemory', 'CreateAiMemoryPayload', 'AiMcpToolSummary', 'mcpMode']],
-  ['desktop/src/main/ai/chat_service.ts', ['streamText', 'resolveLanguageModel', 'aiChatService', 'regenerateMessage', 'resolveGroundingContext', 'mergeKnowledgeResults', 'filterKnowledgeResultsByScope', 'buildReasoningProviderOptions', 'createCanvasTools', 'createMcpReadTools', 'stepCountIs', 'chat-attachment', 'buildUserMessageContent', 'knowledgeSearchMode === \'force\'', '未返回可验证的知识库来源', 'resolveMemoryContext', '显式记忆']],
+  ['desktop/src/contracts/ai.ts', ['AiApi', 'AiProviderConfig', 'AiStreamEvent', 'AiChatSettings', 'AiChatBackgroundSettings', 'AiChatMessageError', 'AiResearchJob', 'AiResearchSource', 'AiResearchEvent', 'StartAiResearchPayload', 'RegenerateAiMessagePayload', 'AiGroundingOptions', 'AiReasoningOptions', 'RebuildKnowledgeEmbeddingsPayload', 'AiCanvasWorkspace', 'AiCanvasRunOptions', 'canvas-workspace', 'AiChatAttachment', 'AiChatReference', 'StageAiChatAttachmentPayload', 'AiInteractionMode', 'AiAgentMode', 'AiCodexAgentReservedSettings', 'AiGeneralAgentReservedSettings', 'UpdateAiCanvasOperationPayload', 'ApplyAiCanvasOperationResult', 'applyCanvasOperation', 'rejectCanvasOperation', 'AiProject', 'AiMemory', 'CreateAiMemoryPayload', 'AiMcpToolSummary', 'mcpMode', 'userAvatar', 'backgrounds', 'assistantId', 'messageId', 'retryable']],
+  ['desktop/src/main/ai/chat_service.ts', ['streamText', 'resolveLanguageModel', 'aiChatService', 'regenerateMessage', 'resolveGroundingContext', 'mergeKnowledgeResults', 'filterKnowledgeResultsByScope', 'buildReasoningProviderOptions', 'createCanvasTools', 'createMcpReadTools', 'stepCountIs', 'chat-attachment', 'buildUserMessageContent', 'sanitizeChatReferences', 'quoted-context', 'knowledgeSearchMode === \'force\'', '未返回可验证的知识库来源', 'resolveMemoryContext', '显式记忆', 'buildAiMessageError', 'Chat request failed', 'assistantId: input.assistantId', "readField(row, 'assistantId', 'assistant_id')"]],
   ['desktop/src/main/ai/attachment_service.ts', ['aiAttachmentService', 'stageAttachment', 'MAX_TEXT_ATTACHMENT_BYTES', 'MAX_IMAGE_ATTACHMENT_BYTES']],
   ['desktop/src/main/ai/research_job_service.ts', ['aiResearchJobService', 'runPipeline', 'resolveGroundingContext', 'research-source', 'citation_check']],
   ['desktop/src/main/ai/canvas_service.ts', ['aiCanvasService', 'createWorkspace', 'upsertFile', 'createVersion', 'createOperation', 'applyOperation', 'rejectOperation']],
@@ -18,7 +18,10 @@ const checks = [
   ['desktop/src/main/ai/canvas_preview_window.ts', ['showAiCanvasPreviewWindow', 'ai_canvas_preview.html', 'ai:canvas-preview-payload']],
   ['desktop/src/preload.ts', ['contextBridge.exposeInMainWorld(\'aiApi\'', 'ai:fetch-provider-models', 'ai:stage-attachment', 'ai:start-research', 'ai:research-event', 'ai:regenerate-message', 'ai:rebuild-knowledge-embeddings', 'ai:list-canvas-workspaces', 'ai:upsert-canvas-file', 'ai:apply-canvas-operation', 'ai:reject-canvas-operation', 'ai:list-projects', 'ai:create-memory', 'ai:list-mcp-tools', 'ai:open-canvas-preview', 'aiCanvasPreviewWindowApi', 'ai:stream-event']],
   ['desktop/src/windows/main/routes/router.ts', ['../pages/AI/AiChatPage.vue']],
-  ['desktop/src/windows/main/pages/AI/AiChatPage.vue', ['AiWorkspaceSidebar', 'AiAssistantSettingsDialog', 'AiMessageList', 'AiResearchPanel', 'AiCanvasPanel', 'AiContextPanel', 'AiAgentReservedPanel', 'aiPageMode']],
+  ['desktop/src/windows/main/pages/AI/AiChatPage.vue', ['AiWorkspaceSidebar', 'AiAssistantSettingsDialog', 'AiMessageList', 'AiResearchPanel', 'AiCanvasPanel', 'AiContextPanel', 'AiAgentReservedPanel', 'UiPersonalizationConfig', 'useContextMenu', 'openBackgroundContextMenu', 'handleBackgroundConfirm', 'aiPageMode', 'aiPageStyle', '--ai-sidebar-background', '--ai-conversation-background', '--ai-header-background', '--ai-composer-background', 'user-avatar', 'assistant-avatar', 'assistantId: activeAssistant.value.id', 'selectConversationForAssistant', 'composerRef', 'appendToComposer']],
+  ['desktop/src/main/app-config/manager.ts', ['normalizeAiChatBackground', 'backgroundStyle']],
+  ['desktop/src/windows/main/pages/AI/components/AiSettingsPanel.vue', ['默认 System Prompt', 'saveChatSettings', 'userAvatar']],
+  ['desktop/src/main/app-config/manager.ts', ['normalizeAiAgentFeature', 'backgrounds:', 'current.features.aiAgent.chat.backgrounds']],
   ['desktop/src/windows/main/pages/AI/components/AiContextPanel.vue', ['项目与记忆', 'createMemory', 'deleteMemory', '使用全局记忆']],
   ['desktop/src/windows/main/pages/AI/components/AiResearchPanel.vue', ['Deep Research', 'startResearch', 'cancelJob', 'saveReportToKnowledge']],
   ['desktop/src/windows/main/stores/ai_research_store.ts', ['useAiResearchStore', 'onResearchEvent', 'startResearch', 'cancelResearch']],
@@ -29,14 +32,19 @@ const checks = [
   ['desktop/src/windows/main/pages/AI/components/AiCanvasPreview.vue', ['sandbox="allow-scripts"', 'srcdoc', 'buildReactPreview', 'babel.min.js']],
   ['desktop/src/windows/ai-canvas-preview/App.vue', ['AiCanvasPreview', 'aiCanvasPreviewWindowApi', 'Canvas Preview']],
   ['desktop/ai_canvas_preview.html', ['ai-canvas-preview-app', '/src/windows/ai-canvas-preview/main.ts']],
-  ['desktop/src/windows/main/pages/AI/components/AiWorkspaceSidebar.vue', ['searchQuery', 'configureAssistant', 'renameConversation', 'pinConversation']],
+  ['desktop/src/windows/main/pages/AI/components/AiWorkspaceSidebar.vue', ['searchQuery', 'assistantSearchQuery', 'filteredAssistants', 'configureAssistant', 'renameConversation', 'pinConversation', 'conversation.assistantId === props.activeAssistantId', 'ai-workspace-sidebar__topic-actions .ui-icon-button']],
   ['desktop/src/windows/main/pages/AI/components/AiAssistantSettingsDialog.vue', ['模型设置', '提示词设置', 'MCP 服务器', '全局记忆']],
-  ['desktop/src/windows/main/pages/AI/components/AiMessageItem.vue', ['marked', 'sanitizeKnowledgeMarkdownHtml', 'regenerate', '引用来源', '思考过程']],
+  ['desktop/src/windows/main/pages/AI/components/AiMessageItem.vue', ['marked', 'sanitizeKnowledgeMarkdownHtml', 'STREAM_MARKDOWN_RENDER_INTERVAL', 'renderMarkdown', 'decorateMarkdownHtml', 'highlightTree', 'data-ai-code-copy', 'ai-markdown-code-block', 'tok-keyword', 'user-select: text', 'regenerate', '引用来源', '思考过程', '请求失败', 'messageError', "grid-template-areas: 'body avatar'", "message.role !== 'user'", 'width: fit-content']],
+  ['desktop/src/windows/main/pages/AI/components/AiMessageList.vue', ['UiScrollbar', 'viewportRef', 'scrollTo', 'scrollToMessage', 'data-message-id', 'data-navigator-preview', 'navigatorPreview', 'ai-message-list__navigator', 'window.getSelection', 'getClientRects', 'Teleport to="body"', 'insertSelection', 'ai-message-list__selection-menu', 'ai-message-list__content', 'background: transparent']],
+  ['desktop/src/windows/main/pages/AI/components/AiComposer.vue', ['defineExpose', 'appendText', 'addReference', 'references', 'textareaRef']],
+  ['desktop/src/windows/main/stores/ai_chat_store.ts', ['pendingStreamUpdates', 'queueStreamUpdate', 'flushPendingStreamUpdates', 'requestAnimationFrame']],
   ['desktop/src/windows/main/stores/ai_canvas_store.ts', ['useAiCanvasStore', 'canvas-workspace', 'activeWorkspaceIdByConversation', 'applyOperation', 'rejectOperation']],
   ['multi_platform_core/migrations/024_add_ai_chat.sql', ['ai_chat_conversations', 'ai_chat_messages', 'ai_canvas_workspaces', 'ai_canvas_files', 'ai_canvas_versions', 'ai_canvas_operations']],
   ['multi_platform_core/migrations/025_add_ai_canvas_tables.sql', ['ai_canvas_workspaces', 'ai_canvas_files', 'ai_canvas_versions', 'ai_canvas_operations']],
   ['multi_platform_core/migrations/026_add_ai_research_tables.sql', ['ai_research_jobs', 'ai_research_sources']],
   ['multi_platform_core/migrations/027_add_ai_memory_projects.sql', ['ai_projects', 'ai_memories', 'project_id']],
+  ['multi_platform_core/migrations/030_add_ai_conversation_assistant.sql', ['assistant_id', 'default-assistant', 'idx_ai_chat_conversations_assistant']],
+  ['multi_platform_core/src/db/migration.rs', ['030_add_ai_conversation_assistant', '030_add_ai_conversation_assistant.sql']],
   ['multi_platform_core/src/services/ai_service.rs', ['AiService', 'create_conversation', 'insert_message', 'create_canvas_workspace', 'upsert_canvas_file', 'create_canvas_version', 'update_canvas_operation', 'create_project', 'create_memory', 'create_research_job', 'insert_research_source']],
   ['multi_platform_core/src/services/knowledge_service.rs', ['upsert_embedding', 'embedding_stats', 'list_embedding_candidates']],
   ['multi_platform_core/src/bindings/napi.rs', ['createAiConversation', 'listAiMessages', 'upsertKnowledgeEmbedding', 'getKnowledgeEmbeddingStats', 'listKnowledgeEmbeddingCandidates', 'createAiCanvasWorkspace', 'upsertAiCanvasFile', 'updateAiCanvasOperation', 'createAiProject', 'createAiMemory']],
@@ -75,6 +83,12 @@ for (const marker of ['provider_id:', 'model_id:', 'system_prompt:', 'conversati
     console.error(`[ai-chat] chat_service.ts must pass camelCase fields to napi-rs, found: ${marker}`);
     failed = true;
   }
+}
+
+const chatStore = fs.readFileSync(path.join(root, 'desktop/src/windows/main/stores/ai_chat_store.ts'), 'utf8');
+if (chatStore.includes('if (!activeConversationId.value && conversations.value[0])')) {
+  console.error('[ai-chat] refreshConversations must not select a conversation without assistant context');
+  failed = true;
 }
 
 if (failed) {
