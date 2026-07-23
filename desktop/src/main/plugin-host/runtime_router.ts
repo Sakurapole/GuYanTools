@@ -1,4 +1,4 @@
-import { BrowserWindow, WebContentsView } from 'electron';
+import { BrowserWindow, WebContentsView, webContents } from 'electron';
 import type {
   InstalledPluginRecord,
   PluginRuntimeContext,
@@ -6,6 +6,9 @@ import type {
 } from '@/contracts/plugin_host';
 import { HostServiceRegistry } from './host_services';
 import { getSandboxedPluginWebPreferences } from './runtime_security';
+import { isAllowedPluginDevUrl } from './runtime_security';
+import type { PluginDevSession } from '@/contracts/plugin_host';
+import { PluginDevSessionManager } from './dev_session';
 
 type MountedPluginView = {
   mainWindow: BrowserWindow;
@@ -30,6 +33,7 @@ export class PluginRuntimeRouter {
     private readonly hostServices: HostServiceRegistry,
     private readonly preloadPath: string,
     private readonly getUnloadAfterMinutes: () => number,
+    private readonly devSessions: PluginDevSessionManager = new PluginDevSessionManager(),
   ) {
     this.idleCheckTimer = setInterval(() => {
       void this.cleanupIdleMountedViews();
@@ -83,7 +87,7 @@ export class PluginRuntimeRouter {
       throw new Error(`Plugin ${record.manifest.id} does not declare a UI entry`);
     }
 
-    await pluginView.webContents.loadURL(`file://${entryPath}`);
+    await pluginView.webContents.loadURL(resolvePluginRuntimeUrl(record, this.devSessions.get(record.manifest.id), 'ui'));
     pluginView.setBounds(bounds);
 
     mainWindow.contentView.addChildView(pluginView);
@@ -116,7 +120,7 @@ export class PluginRuntimeRouter {
       this.runtimeContextByWebContentsId.delete(view.webContents.id);
       this.workerViewsByPluginId.delete(record.manifest.id);
     });
-    await view.webContents.loadURL(`file://${entryPath}`);
+    await view.webContents.loadURL(resolvePluginRuntimeUrl(record, this.devSessions.get(record.manifest.id), 'worker'));
     this.workerViewsByPluginId.set(record.manifest.id, { view, pluginId: record.manifest.id });
   }
 
@@ -126,6 +130,24 @@ export class PluginRuntimeRouter {
     this.workerViewsByPluginId.delete(pluginId);
     this.runtimeContextByWebContentsId.delete(worker.view.webContents.id);
     if (!worker.view.webContents.isDestroyed()) worker.view.webContents.close();
+  }
+
+  connectDevSession(session: PluginDevSession) { return this.devSessions.connect(session); }
+  disconnectDevSession(pluginId: string) { this.devSessions.disconnect(pluginId); }
+  getDevSession(pluginId: string) { return this.devSessions.get(pluginId); }
+  listDevSessions() { return this.devSessions.list(); }
+  disconnectAllDevSessions() { this.devSessions.disconnectAll(); }
+
+  broadcastTheme(theme: unknown) {
+    for (const [webContentsId, context] of this.runtimeContextByWebContentsId) {
+      const target = webContents.fromId(webContentsId);
+      if (!target || target.isDestroyed()) {
+        this.runtimeContextByWebContentsId.delete(webContentsId);
+        continue;
+      }
+      target.send('plugin-runtime:ui:theme-changed', theme);
+      void context;
+    }
   }
 
   async updateMountedBounds(mainWindow: BrowserWindow, bounds: PluginViewportBounds) {
@@ -180,4 +202,12 @@ export class PluginRuntimeRouter {
       await this.stopWorker(worker.pluginId);
     }
   }
+}
+
+export function resolvePluginRuntimeUrl(record: InstalledPluginRecord, session: PluginDevSession | null, kind: 'ui' | 'worker'): string {
+  const filePath = kind === 'ui' ? record.resolvedEntryPaths.ui : record.resolvedEntryPaths.worker;
+  if (!filePath) throw new Error(`Plugin ${record.manifest.id} does not declare a ${kind} entry`);
+  const devUrl = kind === 'ui' ? session?.uiUrl : session?.workerUrl;
+  if (devUrl && isAllowedPluginDevUrl(devUrl, session)) return devUrl;
+  return `file://${filePath}`;
 }

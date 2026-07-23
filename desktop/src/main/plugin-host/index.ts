@@ -23,6 +23,8 @@ import { MarketplaceResolver } from './marketplace_resolver';
 import { dbManager } from '../../core/database';
 import { JobService } from './services/job_service';
 import { resolvePluginPreloadPath } from './preload_path';
+import { PluginDevSessionManager } from './dev_session';
+import { toPluginThemeDescriptor } from './theme_bridge';
 
 const REGISTRY_FILE = path.join(PLUGIN_INSTALL_DIR, 'guyantools-plugin-registry.json');
 
@@ -33,6 +35,7 @@ export class PluginHost {
   private readonly manifestResolver = new PluginManifestResolver();
   private readonly permissionManager = new PluginPermissionManager();
   private readonly contributionAssembler = new PluginContributionAssembler();
+  private readonly devSessions = new PluginDevSessionManager();
   private readonly lifecycleManager = new PluginLifecycleManager(
     this.registry,
     this.manifestResolver,
@@ -44,6 +47,7 @@ export class PluginHost {
     this.hostServices,
     resolvePluginPreloadPath(path.join(__dirname, '..', '..', '.vite', 'build')),
     () => appConfigManager.getCachedConfig().plugins.unloadAfterMinutes,
+    this.devSessions,
   );
   private readonly marketplaceResolver = new MarketplaceResolver(async (url, ref) => {
     const source = new URL(url);
@@ -88,6 +92,7 @@ export class PluginHost {
       this.marketplaceResolver.hydrate(validCached);
     }
     this.initialized = true;
+    appConfigManager.subscribe(config => this.runtimeRouter.broadcastTheme(toPluginThemeDescriptor(config.appearance.theme)));
   }
 
   bindMainWindow(mainWindow: BrowserWindow) {
@@ -98,6 +103,10 @@ export class PluginHost {
   getRuntimeContext(webContentsId: number) {
     return this.runtimeRouter.getRuntimeContext(webContentsId);
   }
+
+  connectDevSession(session: import('@/contracts/plugin_host').PluginDevSession) { return this.runtimeRouter.connectDevSession(session); }
+  disconnectDevSession(pluginId: string) { this.runtimeRouter.disconnectDevSession(pluginId); }
+  listDevSessions() { return this.runtimeRouter.listDevSessions(); }
 
   getHostSummary(): PluginHostSummary {
     return {

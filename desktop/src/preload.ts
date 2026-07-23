@@ -135,6 +135,9 @@ const pluginHostApi: PluginHostApi = {
   updatePlugin: (pluginId) => ipcRenderer.invoke('plugin-host:update', pluginId),
   rollbackPlugin: (pluginId) => ipcRenderer.invoke('plugin-host:rollback', pluginId),
   uninstallPlugin: (pluginId) => ipcRenderer.invoke('plugin-host:uninstall', pluginId),
+  listDevSessions: () => ipcRenderer.invoke('plugin-host:dev-sessions:list'),
+  connectDevSession: (session) => ipcRenderer.invoke('plugin-host:dev-sessions:connect', session),
+  disconnectDevSession: (pluginId) => ipcRenderer.invoke('plugin-host:dev-sessions:disconnect', pluginId),
 };
 
 const appConfigApi: AppConfigApi = {

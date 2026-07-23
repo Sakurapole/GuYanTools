@@ -299,6 +299,9 @@ export interface PluginHostApi {
   updatePlugin: (pluginId: string) => Promise<InstalledPluginRecord>;
   rollbackPlugin: (pluginId: string) => Promise<InstalledPluginRecord>;
   uninstallPlugin: (pluginId: string) => Promise<void>;
+  listDevSessions: () => Promise<PluginDevSession[]>;
+  connectDevSession: (session: PluginDevSession) => Promise<PluginDevSession>;
+  disconnectDevSession: (pluginId: string) => Promise<void>;
 }
 
 export interface PluginRuntimeStorageApi {
