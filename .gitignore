@@ -65,6 +65,7 @@ desktop/build/
 desktop/output/
 desktop/**/*.asar
 desktop/**/*.asar.unpacked/
+packages/*/dist/
 
 # Native Node / Rust artifacts
 target/
