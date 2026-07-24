@@ -17,7 +17,6 @@ export default defineConfig({
         'react',
         'vue',
         '@guyantools/ui-core',
-        '@guyantools/ui-vue',
         '@stencil/react-output-target/runtime',
         /^@guyantools\/ui-core\//,
       ],

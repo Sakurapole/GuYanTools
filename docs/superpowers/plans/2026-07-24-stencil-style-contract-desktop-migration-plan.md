@@ -566,7 +566,7 @@ git commit -m "refactor(ui): make Vue adapters presentation-free"
 - Modify: `desktop/scripts/verify-plugin-framework.cjs`
 - Test: `packages/plugin-ui/tests/stencil-style-contract.test.ts`
 
-- [ ] **Step 1: 写失败的 plugin facade 导入测试。**
+- [x] **Step 1: 写失败的 plugin facade 导入测试。**
 
 ```ts
 import { registerGuYanElements } from '../src';
@@ -583,13 +583,13 @@ describe('plugin UI Stencil facade', () => {
 });
 ```
 
-- [ ] **Step 2: 运行测试，确认旧 package 未证明样式契约链路。**
+- [x] **Step 2: 运行测试，确认旧 package 未证明样式契约链路。**
 
 Run: `pnpm --dir packages/plugin-ui exec vitest run tests/stencil-style-contract.test.ts`
 
 Expected: FAIL until package exports are sourced exclusively from `@guyantools/ui-core` generated products.
 
-- [ ] **Step 3: 保持入口不变地转发 core。**
+- [x] **Step 3: 保持入口不变地转发 core。**
 
 ```ts
 // packages/plugin-ui/src/index.ts
@@ -599,7 +599,7 @@ export type { Components } from '@guyantools/ui-core';
 
 Keep the package paths `.`, `./tokens.css`, `./vue`, `./react`; do not import `@guyantools/ui-vue` into plugin-ui. Add `@guyantools/ui-core: workspace:*` as its runtime dependency and ensure `tokens.css` imports the core public stylesheet. Update the aggregate verifier so ui-core style contract and plugin facade tests run before fixture builds.
 
-- [ ] **Step 4: 运行 plugin tests 与两种 fixture 构建。**
+- [x] **Step 4: 运行 plugin tests 与两种 fixture 构建。**
 
 Run:
 

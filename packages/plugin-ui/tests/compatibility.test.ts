@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { defineCustomElements } from '@guyantools/ui-core/loader';
 import { registerGuYanElements as pluginRegister } from '../src';
-import { UiButton } from '../src/vue';
+import { GtButton as VueGtButton } from '../src/vue';
 import { GtButton } from '../src/react';
 
 describe('plugin UI compatibility facade', () => {
@@ -11,7 +11,7 @@ describe('plugin UI compatibility facade', () => {
 
     expect(customElements.get('gt-button')).toBeDefined();
     expect(customElements.get('gt-drawer')).toBeDefined();
-    expect(UiButton).toBeDefined();
+    expect(VueGtButton).toBeDefined();
     expect(GtButton).toBeDefined();
   });
 });

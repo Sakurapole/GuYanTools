@@ -23,7 +23,8 @@
   "files": ["dist"],
   "dependencies": {
     "@guyantools/ui-core": "workspace:*",
-    "@guyantools/ui-vue": "workspace:*"
+    "@stencil/react-output-target": "^1.6.1",
+    "@stencil/vue-output-target": "^0.14.1"
   },
   "peerDependencies": {
     "react": ">=18.0.0",
@@ -34,7 +35,6 @@
     "test": "vitest run"
   },
   "devDependencies": {
-    "@stencil/react-output-target": "^1.6.1",
     "@types/react": "^19.1.8",
     "@types/node": "^24.1.0",
     "jsdom": "^26.1.0",

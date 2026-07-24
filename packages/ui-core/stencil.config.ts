@@ -19,6 +19,12 @@ export const config: Config = {
       includeImportCustomElements: true,
       customElementsDir: 'dist/custom-elements',
     }),
+    vueOutputTarget({
+      componentCorePackage: '@guyantools/ui-core',
+      proxiesFile: '../plugin-ui/src/generated/vue.ts',
+      includeImportCustomElements: true,
+      customElementsDir: 'dist/custom-elements',
+    }),
     reactOutputTarget({
       stencilPackageName: '@guyantools/ui-core',
       outDir: '../plugin-ui/src/generated/react',
