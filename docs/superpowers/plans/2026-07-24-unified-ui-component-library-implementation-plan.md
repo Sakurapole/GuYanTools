@@ -178,7 +178,7 @@ git commit -m "feat(ui): add core action and feedback elements"
 - Modify: `packages/ui-core/src/register.ts`, `index.ts`, `react.ts`
 - Test: `packages/ui-core/tests/forms.test.ts`
 
-- [ ] **Step 1: Write failing form interaction tests.**
+- [x] **Step 1: Write failing form interaction tests.**
 
 Cover input reflection, numeric stepping, checkbox indeterminate state, radio keyboard selection, switch state, and tabs:
 
@@ -197,13 +197,13 @@ tabs.value = 'details';
 expect(tabs.getAttribute('value')).toBe('details');
 ```
 
-- [ ] **Step 2: Run the focused tests and verify failure.**
+- [x] **Step 2: Run the focused tests and verify failure.**
 
 Run: `pnpm --dir packages/ui-core exec vitest run tests/forms.test.ts`
 
 Expected: FAIL because the form elements and property accessors do not exist.
 
-- [ ] **Step 3: Implement native form-backed elements.**
+- [x] **Step 3: Implement native form-backed elements.**
 
 Use real `<input>`, `<textarea>`, `<button role="switch">`, and `<button role="tab">` controls inside each Shadow Root. Export these details:
 
@@ -215,7 +215,7 @@ export interface TabChangeDetail { value: string; }
 
 Reflect `value`, `checked`, `indeterminate`, `disabled`, `readonly`, `size`, `min`, `max`, `step`, and `items` through typed properties. `gt-tabs` must ignore disabled items and update its indicator after ResizeObserver/resize changes. Number stepping must clamp to min/max.
 
-- [ ] **Step 4: Verify forms and the package build.**
+- [x] **Step 4: Verify forms and the package build.**
 
 Run:
 
@@ -226,7 +226,7 @@ pnpm --dir packages/ui-core run build
 
 Expected: form tests PASS and `dist/index.d.ts` exposes all detail types.
 
-- [ ] **Step 5: Commit the form family.**
+- [x] **Step 5: Commit the form family.**
 
 ```powershell
 git add packages/ui-core
