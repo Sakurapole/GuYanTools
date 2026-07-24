@@ -298,7 +298,7 @@ git commit -m "feat(ui): add accessible core overlays"
 - Create: `packages/ui-vue/tests/forms.test.ts`, `feedback.test.ts`, `overlay.test.ts`, `compatibility.test.ts`
 - Modify: `pnpm-lock.yaml`
 
-- [ ] **Step 1: Write failing Vue adapter tests.**
+- [x] **Step 1: Write failing Vue adapter tests.**
 
 Use `@vue/test-utils` and assert the desktop-facing APIs remain Vue-native:
 
@@ -315,13 +315,13 @@ expect(document.body.querySelector('[data-gt-overlay="dialog"]')).toBeNull();
 
 Test Button prefix/suffix and forwarded `type`/`title` attributes; Input prefix/suffix, `keydown`, and exposed `focus()`/`select()`; Field hint/error slots; EmptyState default action slot; StateCard action slot; Checkbox/Radio/Switch `change`; Tabs `change` and exported `UiTabItem`; and Dialog/Drawer `update:modelValue`, `open`, and `close` forwarding. Include Dialog `width`, `maxWidth`, `persistent`, `closeOnMask`, and `closeOnEsc`, plus Drawer `position`, `teleported`, `teleportTo`, `fixed`, and `overlay`, because these are used by existing desktop call sites.
 
-- [ ] **Step 2: Run adapter tests and verify failure.**
+- [x] **Step 2: Run adapter tests and verify failure.**
 
 Run: `pnpm --dir packages/ui-vue exec vitest run tests/forms.test.ts tests/feedback.test.ts tests/overlay.test.ts tests/compatibility.test.ts`
 
 Expected: FAIL because `@guyantools/ui-vue` does not exist.
 
-- [ ] **Step 3: Implement Vue wrappers and overlay composables.**
+- [x] **Step 3: Implement Vue wrappers and overlay composables.**
 
 Declare `@guyantools/ui-core` and `vue` dependencies, `@vue/test-utils` and `jsdom` dev dependencies, and `build`, `typecheck`, and `test` scripts. Configure the package Vue compiler with `isCustomElement: tag => tag.startsWith('gt-')` so adapters compile native custom elements rather than unresolved Vue components. Each wrapper calls `registerGuYanElements()` once and maps Vue props/slots/events to a `gt-*` element. Preserve exact first-wave Vue API conventions:
 
@@ -336,7 +336,7 @@ const emit = defineEmits<{
 
 The overlay composables own Vue lifecycle cleanup and invoke core `open` properties; do not import Electron APIs. Adapters must forward undeclared native attributes to their interactive child where existing components did so, retain named/default slot names, and expose the `UiInput` `focus()`/`select()` methods through `defineExpose`. Export every component and the public `UiTabItem` type from `src/index.ts`.
 
-- [ ] **Step 4: Run Vue adapter tests, typecheck, and build.**
+- [x] **Step 4: Run Vue adapter tests, typecheck, and build.**
 
 Run:
 
@@ -348,7 +348,7 @@ pnpm --dir packages/ui-vue run build
 
 Expected: all adapter tests PASS and `dist/index.d.ts` exports the 15 Vue components.
 
-- [ ] **Step 5: Commit the Vue adapter layer.**
+- [x] **Step 5: Commit the Vue adapter layer.**
 
 ```powershell
 git add packages/ui-vue pnpm-lock.yaml
