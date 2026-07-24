@@ -611,7 +611,7 @@ pnpm run verify:plugin-framework
 
 Expected: PASS; Vue and React fixture output remains browser-resolvable and contains registered `gt-card`/`gt-button` elements.
 
-- [ ] **Step 5: 提交 plugin facade 验证。**
+- [x] **Step 5: 提交 plugin facade 验证。**
 
 ```powershell
 git add packages/plugin-ui desktop/scripts/verify-plugin-framework.cjs pnpm-lock.yaml
