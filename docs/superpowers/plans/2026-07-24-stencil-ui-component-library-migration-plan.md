@@ -413,7 +413,7 @@ git diff --check
 
 Expected: all commands exit 0.
 
-- [ ] **Step 4: Commit verification and documentation.**
+- [x] **Step 4: Commit verification and documentation.**
 
 ```powershell
 git add desktop/scripts/verify-plugin-framework.cjs package.json docs/desktop
