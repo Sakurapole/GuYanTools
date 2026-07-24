@@ -1,5 +1,7 @@
 # Unified UI Component Library Implementation Plan
 
+> **状态：** 已被 [Stencil UI Component Library Migration Plan](../plans/2026-07-24-stencil-ui-component-library-migration-plan.md) 取代。任务 1-5 记录的是已完成的原生 Custom Elements 预实现；不得继续执行本计划的任务 6-9。
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Deliver a shared UI component library that is consumed by both the Electron Vue application and sandboxed cross-framework plugins, without breaking existing `Ui*` or `@guyantools/plugin-ui` consumers.
