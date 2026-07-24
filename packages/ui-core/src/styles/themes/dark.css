@@ -1,0 +1,21 @@
+:root.dark,
+:root[data-theme="dark"],
+:host(.dark),
+:host([data-theme="dark"]) {
+  --gt-color-background: #101923;
+  --gt-color-surface: #182532;
+  --gt-color-surface-muted: #14202b;
+  --gt-color-overlay: rgba(0, 0, 0, 0.28);
+  --gt-color-text: rgba(241, 248, 255, 0.92);
+  --gt-color-text-muted: rgba(218, 234, 246, 0.68);
+  --gt-color-text-subtle: rgba(218, 234, 246, 0.48);
+  --gt-color-primary: #3f8fca;
+  --gt-color-primary-hover: #4c9bd6;
+  --gt-color-border: rgba(210, 231, 247, 0.14);
+  --gt-color-danger: #ff9c9c;
+  --gt-color-danger-soft: rgba(239, 68, 68, 0.2);
+  --gt-focus-ring: 0 0 0 3px rgba(102, 204, 255, 0.24);
+  --gt-shadow-sm: 0 4px 12px rgba(0, 0, 0, 0.22);
+  --gt-shadow-md: 0 8px 24px rgba(0, 0, 0, 0.28);
+  --gt-shadow-lg: 0 12px 32px rgba(0, 0, 0, 0.38);
+}

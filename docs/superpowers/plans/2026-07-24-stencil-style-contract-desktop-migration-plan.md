@@ -51,7 +51,7 @@
 - Modify: `packages/ui-core/package.json`
 - Test: `packages/ui-core/src/components/style-contract.spec.ts`
 
-- [ ] **Step 1: 先写失败的样式边界测试。**
+- [x] **Step 1: 先写失败的样式边界测试。**
 
 ```ts
 import { describe, expect, it } from 'vitest';
@@ -74,13 +74,13 @@ describe('Stencil style contract', () => {
 });
 ```
 
-- [ ] **Step 2: 运行测试，确认它因旧内联样式而失败。**
+- [x] **Step 2: 运行测试，确认它因旧内联样式而失败。**
 
 Run: `pnpm --dir packages/ui-core exec vitest run src/components/style-contract.spec.ts`
 
 Expected: FAIL because `src/styles/tokens.css` does not exist and `gt-button.tsx` still renders `<style>`.
 
-- [ ] **Step 3: 创建 token 与主题入口，保持桌面主题选择器可用。**
+- [x] **Step 3: 创建 token 与主题入口，保持桌面主题选择器可用。**
 
 ```css
 /* packages/ui-core/src/styles/tokens.css */
@@ -135,7 +135,7 @@ Expected: FAIL because `src/styles/tokens.css` does not exist and `gt-button.tsx
 
 Make `src/global/gt-tokens.css` import `../styles/tokens.css`; leave `src/tokens.css` as the package-compatible re-export. Add `src/styles/overlay-layer.css` now, with only the body portal selectors and no component-local selectors. Keep `globalStyle: 'src/global/gt-tokens.css'` in `stencil.config.ts`.
 
-- [ ] **Step 4: 添加可独立运行的静态检查。**
+- [x] **Step 4: 添加可独立运行的静态检查。**
 
 ```js
 // packages/ui-core/scripts/assert-style-contract.mjs
@@ -162,7 +162,7 @@ if (/innerHTML|<style/.test(overlay)) throw new Error('Overlay controller inject
 
 Add `"verify:style-contract": "node scripts/assert-style-contract.mjs"` to `packages/ui-core/package.json`.
 
-- [ ] **Step 5: 运行测试与静态检查，确认基础契约通过。**
+- [x] **Step 5: 运行测试与静态检查，确认基础契约通过。**
 
 Run:
 

@@ -1,0 +1,24 @@
+:root,
+:root.light,
+:root[data-theme="light"],
+:host,
+:host(.light),
+:host([data-theme="light"]) {
+  --gt-color-background: #f7fbff;
+  --gt-color-surface: #ffffff;
+  --gt-color-surface-muted: #f7fafe;
+  --gt-color-overlay: rgba(15, 23, 42, 0.08);
+  --gt-color-text: rgba(30, 70, 90, 0.9);
+  --gt-color-text-muted: rgba(30, 70, 90, 0.65);
+  --gt-color-text-subtle: rgba(30, 70, 90, 0.48);
+  --gt-color-text-inverse: #ffffff;
+  --gt-color-primary: #5c9ded;
+  --gt-color-primary-hover: #4f90e1;
+  --gt-color-border: rgba(15, 23, 42, 0.08);
+  --gt-color-danger: #dc2626;
+  --gt-color-danger-soft: rgba(239, 68, 68, 0.12);
+  --gt-focus-ring: 0 0 0 3px rgba(92, 157, 237, 0.24);
+  --gt-shadow-sm: 0 4px 12px rgba(15, 23, 42, 0.03);
+  --gt-shadow-md: 0 8px 24px rgba(15, 23, 42, 0.08);
+  --gt-shadow-lg: 0 12px 32px rgba(9, 38, 64, 0.14);
+}

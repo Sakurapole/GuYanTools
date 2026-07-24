@@ -1,0 +1,11 @@
+[data-gt-overlay] {
+  position: fixed;
+  inset: 0;
+  z-index: var(--gt-z-overlay);
+  font-family: var(--gt-font-family);
+}
+
+[data-gt-overlay="tooltip"] {
+  inset: auto;
+  z-index: var(--gt-z-tooltip);
+}

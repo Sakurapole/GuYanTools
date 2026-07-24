@@ -1,0 +1,29 @@
+@import './themes/light.css';
+@import './themes/dark.css';
+
+:root,
+:host {
+  --gt-space-xs: 4px;
+  --gt-space-sm: 8px;
+  --gt-space-md: 12px;
+  --gt-space-lg: 16px;
+  --gt-space-xl: 24px;
+  --gt-radius-sm: 6px;
+  --gt-radius-md: 8px;
+  --gt-radius-lg: 14px;
+  --gt-control-height-sm: 30px;
+  --gt-control-height-md: 36px;
+  --gt-control-height-lg: 42px;
+  --gt-control-padding-x-sm: 10px;
+  --gt-control-padding-x-md: 14px;
+  --gt-control-padding-x-lg: 18px;
+  --gt-font-family: Inter, "Segoe UI", sans-serif;
+  --gt-font-size-sm: 0.82rem;
+  --gt-font-size-md: 0.9rem;
+  --gt-font-size-lg: 0.96rem;
+  --gt-motion-fast: 140ms;
+  --gt-motion-normal: 180ms;
+  --gt-motion-ease: ease;
+  --gt-z-overlay: 1000;
+  --gt-z-tooltip: 1100;
+}

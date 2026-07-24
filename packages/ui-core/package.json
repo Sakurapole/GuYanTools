@@ -34,7 +34,8 @@
   "scripts": {
     "build": "stencil build && node scripts/copy-tokens.mjs && node scripts/create-entry.mjs",
     "typecheck": "stencil build --no-build",
-    "test": "stencil-test --project spec"
+    "test": "stencil-test --project spec",
+    "verify:style-contract": "node scripts/assert-style-contract.mjs gt-button"
   },
   "devDependencies": {
     "@stencil/core": "^4.43.5",
