@@ -1,16 +1,16 @@
 # GuYanTools 统一 UI 组件库
 
-> 适用版本：UI API `1.0.0`。组件实现基于 Stencil，供桌面主应用和 sandboxed 插件共同使用。
+> 适用版本：UI API `1.0.0`。组件实现基于 Stencil，当前供 sandboxed 插件使用；桌面主应用保留既有 DOM 兼容层。
 
 ## 包与职责
 
 | 包 | 消费者 | 责任 |
 | --- | --- | --- |
-| `@guyantools/ui-core` | 所有前端运行时 | Stencil source、`gt-*` Custom Elements、tokens、DOM 事件、无障碍与 overlay 行为 |
-| `@guyantools/ui-vue` | 桌面 Vue 应用与 Vue 插件 | 生成 Vue proxy 输入和兼容 `Ui*` wrappers，保留 `v-model`、slots、Teleport、`focus/select` |
+| `@guyantools/ui-core` | 插件前端运行时 | Stencil source、`gt-*` Custom Elements、tokens、DOM 事件、无障碍与 overlay 行为 |
+| `@guyantools/ui-vue` | Vue 插件 | 生成 Vue proxy 输入和兼容 `Ui*` wrappers，保留 `v-model`、slots、Teleport、`focus/select` |
 | `@guyantools/plugin-ui` | 插件 | 稳定 facade，发布 Custom Element loader、tokens、Vue 入口和 React proxies |
 
-主应用保留 `desktop/src/windows/main/components/ui/Ui*.vue` 原路径，但这些文件仅重导出 `@guyantools/ui-vue`。新桌面代码应直接从 `@guyantools/ui-vue` 导入首期组件。
+桌面主应用继续使用 `desktop/src/windows/main/components/ui/Ui*.vue` 的本地 DOM 实现。它们暴露的 `.ui-card`、`.ui-icon-button`、`.ui-dialog` 等内部结构仍被页面级 SCSS 覆写，因此不能直接以 Shadow DOM Custom Elements 替换。
 
 ## 注册与使用
 
@@ -57,7 +57,7 @@ Tooltip、Dialog 和 Drawer 的 DOM 级定位、body portal、Esc、mask、Tab f
 
 ## 迁移与边界
 
-本期不迁移日期/时间选择器、菜单、树、文件输入、颜色选择器、Transfer、滚动条、图标选择器或媒体裁剪器。不得在插件中复制主应用 SCSS 或注册第二套同名 `gt-*` 元素。
+本期不迁移桌面端的既有 `Ui*` 实现，也不迁移日期/时间选择器、菜单、树、文件输入、颜色选择器、Transfer、滚动条、图标选择器或媒体裁剪器。桌面端未来迁移前，必须先以 `part`、CSS Custom Properties 和覆盖场景测试定义 Shadow DOM 样式契约；不得在插件中复制主应用 SCSS 或注册第二套同名 `gt-*` 元素。
 
 验证入口：
 

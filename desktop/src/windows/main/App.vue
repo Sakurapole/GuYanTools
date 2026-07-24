@@ -7,7 +7,7 @@ import bottombar from './components/bottombar/bottombar.vue';
 import ConfirmDialog from './components/ui/ConfirmDialog.vue';
 import GlobalContextMenu from './components/ui/GlobalContextMenu.vue';
 import ScreenshotCapturePanel from './components/screenshot/ScreenshotCapturePanel.vue';
-import { UiIconButton } from '@guyantools/ui-vue';
+import UiIconButton from './components/ui/UiIconButton.vue';
 import TextPromptDialog from './components/ui/TextPromptDialog.vue';
 import Sidebar from './components/sidebar/sidebar.vue';
 import Topbar from './components/topbar/topbar.vue';

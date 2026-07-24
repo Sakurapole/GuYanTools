@@ -9,7 +9,9 @@ import { useRoute } from 'vue-router';
 import { storeToRefs } from 'pinia';
 import Spacer from '../Spacer.vue';
 import TaskManagerPanel from '../TaskManagerPanel.vue';
-import { UiButton, UiIconButton, UiInput } from '@guyantools/ui-vue';
+import UiButton from '../ui/UiButton.vue';
+import UiIconButton from '../ui/UiIconButton.vue';
+import UiInput from '../ui/UiInput.vue';
 
 const { ipcRenderer } = window;
 const globalStore = useGlobalStore();

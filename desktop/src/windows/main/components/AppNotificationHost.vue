@@ -2,7 +2,7 @@
 import { computed } from 'vue';
 import { useRouter } from 'vue-router';
 import type { NotificationImageSource } from '@/contracts/notification';
-import { UiIconButton } from '@guyantools/ui-vue';
+import UiIconButton from './ui/UiIconButton.vue';
 import { useInAppNotificationStore, type InAppNotificationItem } from '../stores/in_app_notification_store';
 
 const props = withDefaults(defineProps<{

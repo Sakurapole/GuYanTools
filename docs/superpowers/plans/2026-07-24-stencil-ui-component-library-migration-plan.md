@@ -16,6 +16,7 @@
 - Keep public package names and plugin exports `.`, `./tokens.css`, `./vue`, and `./react` stable.
 - Keep `ui-vue` as a compatibility package. Generated proxies are internal inputs, not a reason to drop legacy `Ui*` APIs.
 - Do not migrate date/time, menu, tree, file, color, transfer, scrollbar, icon picker, or media crop components.
+- Do not migrate desktop `Ui*` implementations until their legacy DOM selectors are replaced with supported Custom Element `part` and CSS token contracts.
 - Do not stage unrelated plugin-host working-tree changes.
 
 ## File map
@@ -336,13 +337,15 @@ git add packages/plugin-ui pnpm-lock.yaml
 git commit -m "refactor(ui): route plugin facade through Stencil"
 ```
 
-## Task 7: Adopt the Stencil-backed Vue library in desktop
+## Task 7: Deferred desktop adoption behind an explicit styling contract
+
+> Deferred: the desktop application has page-level SCSS that targets internal `.ui-*` DOM nodes. Direct Shadow DOM replacement drops those styles and causes Teleport-root attribute warnings. Keep desktop local `Ui*` implementations until each component exposes the required `part` and CSS token contract with visual regression coverage.
 
 **Files:**
 - Modify: `desktop/package.json`, `desktop/vite.renderer.config.ts`, 15 selected `components/ui/Ui*.vue`, and five representative consumers
 - Create: `desktop/src/windows/main/components/ui/ui_library_compatibility.test.ts`, `desktop/scripts/verify-shared-ui-library.cjs`
 
-- [x] **Step 1: Write failing desktop compatibility and direct-import tests.**
+- [ ] **Step 1: Write failing desktop compatibility and direct-import tests.**
 
 ```ts
 const input = mount(UiInput, { props: { modelValue: 'one' } });
@@ -352,13 +355,13 @@ expect(input.emitted('update:modelValue')).toEqual([['two']]);
 
 The static verifier must require direct `@guyantools/ui-vue` imports in `App.vue`, `AppNotificationHost.vue`, `topbar.vue`, `Plugins.vue`, and `Settings.vue`.
 
-- [x] **Step 2: Verify failure.**
+- [ ] **Step 2: Verify failure.**
 
 Run: `pnpm --dir desktop exec vitest run src/windows/main/components/ui/ui_library_compatibility.test.ts`
 
 Expected: FAIL until desktop has the workspace dependency and thin compatibility entries.
 
-- [x] **Step 3: Replace local implementations with compatibility entries.**
+- [ ] **Step 3: Replace local implementations with compatibility entries.**
 
 Keep current component paths, re-export from `@guyantools/ui-vue` when API-compatible, and use small wrappers for `UiInput`, `UiTabs`, Dialog and Drawer only where legacy behavior requires it. Configure `isCustomElement: tag => tag === 'webview' || tag.startsWith('gt-')`.
 
