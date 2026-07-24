@@ -109,7 +109,7 @@ git commit -m "build(ui): migrate core package to Stencil"
 - Create: `packages/ui-core/src/components/gt-button/gt-button.tsx`, `gt-icon-button/gt-icon-button.tsx`, `gt-card/gt-card.tsx`, `gt-field/gt-field.tsx`, `gt-empty-state/gt-empty-state.tsx`, `gt-state-card/gt-state-card.tsx`
 - Test: `packages/ui-core/src/components/action-feedback.spec.tsx`
 
-- [ ] **Step 1: Write failing component specs.**
+- [x] **Step 1: Write failing component specs.**
 
 ```tsx
 const page = await newSpecPage({ components: [GtButton], html: '<gt-button variant="primary">Save</gt-button>' });
@@ -121,13 +121,13 @@ expect(event).toHaveBeenCalled();
 
 Also assert `gt-icon-button` has an accessible name, Card exposes its variant, Field labels its control, and EmptyState/StateCard project named slots.
 
-- [ ] **Step 2: Verify the specs fail.**
+- [x] **Step 2: Verify the specs fail.**
 
 Run: `pnpm --dir packages/ui-core exec stencil-test --project spec src/components/action-feedback.spec.tsx`
 
 Expected: FAIL until Stencil components are implemented.
 
-- [ ] **Step 3: Implement Stencil contracts.**
+- [x] **Step 3: Implement Stencil contracts.**
 
 Each component uses `@Component({ tag: 'gt-*', shadow: true })`, typed `@Prop()` values and typed `@Event()` payloads:
 
@@ -138,7 +138,7 @@ Each component uses `@Component({ tag: 'gt-*', shadow: true })`, typed `@Prop()`
 
 Use native controls, `--gt-*` tokens, `slot="prefix"`/`slot="suffix"` and semantic status roles. Do not import Vue.
 
-- [ ] **Step 4: Verify and commit.**
+- [x] **Step 4: Verify and commit.**
 
 Run: `pnpm --dir packages/ui-core exec stencil-test --project spec`
 

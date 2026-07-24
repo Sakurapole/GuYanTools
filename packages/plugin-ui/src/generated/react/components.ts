@@ -11,9 +11,14 @@ import type { EventName, StencilReactComponent } from '@stencil/react-output-tar
 import { createComponent } from '@stencil/react-output-target/runtime';
 import React from 'react';
 
-import { type GtButtonClickDetail, type GtButtonCustomEvent } from "@guyantools/ui-core";
+import { type GtButtonClickDetail, type GtButtonCustomEvent, type GtIconButtonClickDetail, type GtIconButtonCustomEvent } from "@guyantools/ui-core";
 import type { Components } from "@guyantools/ui-core/dist/custom-elements";
 import { GtButton as GtButtonElement, defineCustomElement as defineGtButton } from "@guyantools/ui-core/dist/custom-elements/gt-button.js";
+import { GtCard as GtCardElement, defineCustomElement as defineGtCard } from "@guyantools/ui-core/dist/custom-elements/gt-card.js";
+import { GtEmptyState as GtEmptyStateElement, defineCustomElement as defineGtEmptyState } from "@guyantools/ui-core/dist/custom-elements/gt-empty-state.js";
+import { GtField as GtFieldElement, defineCustomElement as defineGtField } from "@guyantools/ui-core/dist/custom-elements/gt-field.js";
+import { GtIconButton as GtIconButtonElement, defineCustomElement as defineGtIconButton } from "@guyantools/ui-core/dist/custom-elements/gt-icon-button.js";
+import { GtStateCard as GtStateCardElement, defineCustomElement as defineGtStateCard } from "@guyantools/ui-core/dist/custom-elements/gt-state-card.js";
 
 export type GtButtonEvents = { onGtClick: EventName<GtButtonCustomEvent<GtButtonClickDetail>> };
 
@@ -24,4 +29,59 @@ export const GtButton: StencilReactComponent<GtButtonElement, GtButtonEvents, Co
     react: React,
     events: { onGtClick: 'gt-click' } as GtButtonEvents,
     defineCustomElement: defineGtButton
+});
+
+export type GtCardEvents = NonNullable<unknown>;
+
+export const GtCard: StencilReactComponent<GtCardElement, GtCardEvents, Components.GtCard> = /*@__PURE__*/ createComponent<GtCardElement, GtCardEvents, Components.GtCard>({
+    tagName: 'gt-card',
+    elementClass: GtCardElement,
+    // @ts-ignore - ignore potential React type mismatches between the Stencil Output Target and your project.
+    react: React,
+    events: {} as GtCardEvents,
+    defineCustomElement: defineGtCard
+});
+
+export type GtEmptyStateEvents = NonNullable<unknown>;
+
+export const GtEmptyState: StencilReactComponent<GtEmptyStateElement, GtEmptyStateEvents, Components.GtEmptyState> = /*@__PURE__*/ createComponent<GtEmptyStateElement, GtEmptyStateEvents, Components.GtEmptyState>({
+    tagName: 'gt-empty-state',
+    elementClass: GtEmptyStateElement,
+    // @ts-ignore - ignore potential React type mismatches between the Stencil Output Target and your project.
+    react: React,
+    events: {} as GtEmptyStateEvents,
+    defineCustomElement: defineGtEmptyState
+});
+
+export type GtFieldEvents = NonNullable<unknown>;
+
+export const GtField: StencilReactComponent<GtFieldElement, GtFieldEvents, Components.GtField> = /*@__PURE__*/ createComponent<GtFieldElement, GtFieldEvents, Components.GtField>({
+    tagName: 'gt-field',
+    elementClass: GtFieldElement,
+    // @ts-ignore - ignore potential React type mismatches between the Stencil Output Target and your project.
+    react: React,
+    events: {} as GtFieldEvents,
+    defineCustomElement: defineGtField
+});
+
+export type GtIconButtonEvents = { onGtClick: EventName<GtIconButtonCustomEvent<GtIconButtonClickDetail>> };
+
+export const GtIconButton: StencilReactComponent<GtIconButtonElement, GtIconButtonEvents, Components.GtIconButton> = /*@__PURE__*/ createComponent<GtIconButtonElement, GtIconButtonEvents, Components.GtIconButton>({
+    tagName: 'gt-icon-button',
+    elementClass: GtIconButtonElement,
+    // @ts-ignore - ignore potential React type mismatches between the Stencil Output Target and your project.
+    react: React,
+    events: { onGtClick: 'gt-click' } as GtIconButtonEvents,
+    defineCustomElement: defineGtIconButton
+});
+
+export type GtStateCardEvents = NonNullable<unknown>;
+
+export const GtStateCard: StencilReactComponent<GtStateCardElement, GtStateCardEvents, Components.GtStateCard> = /*@__PURE__*/ createComponent<GtStateCardElement, GtStateCardEvents, Components.GtStateCard>({
+    tagName: 'gt-state-card',
+    elementClass: GtStateCardElement,
+    // @ts-ignore - ignore potential React type mismatches between the Stencil Output Target and your project.
+    react: React,
+    events: {} as GtStateCardEvents,
+    defineCustomElement: defineGtStateCard
 });
