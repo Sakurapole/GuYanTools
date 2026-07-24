@@ -1,6 +1,8 @@
 import { mount } from '@vue/test-utils';
 import { nextTick } from 'vue';
 import { afterEach, describe, expect, it } from 'vitest';
+import { readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
 import { UiDialog, UiDrawer } from '../src';
 
 describe('Vue overlay adapters', () => {
@@ -25,5 +27,22 @@ describe('Vue overlay adapters', () => {
 
     expect(drawer.emitted('update:modelValue')).toEqual([[false]]);
     expect(drawer.emitted('close')).toHaveLength(1);
+  });
+
+  it('forwards root attributes to the Stencil host without Vue Teleport ownership', async () => {
+    const dialog = mount(UiDialog, {
+      props: { modelValue: true },
+      attrs: { class: 'dialog-owner', 'aria-describedby': 'dialog-help' },
+    });
+    await nextTick();
+
+    expect(dialog.find('gt-dialog').classes()).toContain('dialog-owner');
+    expect(dialog.find('gt-dialog').attributes('aria-describedby')).toBe('dialog-help');
+    const dialogSource = readFileSync(resolve(process.cwd(), 'src/components/UiDialog.vue'), 'utf8');
+    const drawerSource = readFileSync(resolve(process.cwd(), 'src/components/UiDrawer.vue'), 'utf8');
+    expect(dialogSource).not.toContain('<Teleport');
+    expect(dialogSource).not.toContain('<style');
+    expect(drawerSource).not.toContain('<Teleport');
+    expect(drawerSource).not.toContain('<style');
   });
 });

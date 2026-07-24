@@ -443,7 +443,7 @@ pnpm --dir packages/ui-core run build
 
 Expected: PASS; closing the final overlay removes its portal, listeners and observer, while a local width/theme variable continues to affect the body portal.
 
-- [ ] **Step 5: 提交 Stencil 浮层实现。**
+- [x] **Step 5: 提交 Stencil 浮层实现。**
 
 ```powershell
 git add packages/ui-core/src/components/gt-dialog packages/ui-core/src/components/gt-drawer packages/ui-core/src/components/gt-tooltip packages/ui-core/src/utils/overlay-controller.ts packages/ui-core/src/styles/overlay-layer.css packages/ui-core/src/components/overlays.spec.tsx
@@ -463,7 +463,7 @@ git commit -m "refactor(ui): move overlay styles into Stencil core"
 - Modify: `packages/ui-vue/tests/overlay.test.ts`
 - Test: `packages/ui-vue/tests/*.test.ts`
 
-- [ ] **Step 1: 添加失败的 wrapper 边界测试。**
+- [x] **Step 1: 添加失败的 wrapper 边界测试。**
 
 ```ts
 it('forwards root attributes to the custom-element host without Vue warnings', async () => {
@@ -484,13 +484,13 @@ it('does not create a Vue teleport for an open drawer', () => {
 });
 ```
 
-- [ ] **Step 2: 运行 tests，确认 overlay wrappers 仍有 Vue Teleport 和 scoped CSS。**
+- [x] **Step 2: 运行 tests，确认 overlay wrappers 仍有 Vue Teleport 和 scoped CSS。**
 
 Run: `pnpm --dir packages/ui-vue exec vitest run tests/compatibility.test.ts tests/overlay.test.ts`
 
 Expected: FAIL because `UiDialog.vue` and `UiDrawer.vue` contain `<Teleport>` and local `<style scoped>`.
 
-- [ ] **Step 3: 使用显式 attribute 转发和 core slots 重写 wrappers。**
+- [x] **Step 3: 使用显式 attribute 转发和 core slots 重写 wrappers。**
 
 ```ts
 // packages/ui-vue/src/composables/useForwardedAttrs.ts
@@ -533,7 +533,7 @@ const forwardedAttrs = useForwardedAttrs();
 
 Apply this pattern to all 15 wrappers. Retain `v-model`, legacy props/events, input `focus()`/`select()` expose, native keyboard/focus/blur forwarding, prefix/suffix/header/footer/actions slots and `UiTabItem` export. Translate legacy width and z-index props into CSS variables on the `gt-dialog`/`gt-drawer` host, for example `style: { '--gt-dialog-width': normalizeSize(width), '--gt-overlay-z-index': String(zIndex) }`; do not style internal descendants. Remove both overlay composables after all imports are gone.
 
-- [ ] **Step 4: 运行全部 Vue wrapper 测试、typecheck 和 build。**
+- [x] **Step 4: 运行全部 Vue wrapper 测试、typecheck 和 build。**
 
 Run:
 
