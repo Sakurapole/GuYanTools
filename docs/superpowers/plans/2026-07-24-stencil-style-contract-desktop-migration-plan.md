@@ -194,7 +194,7 @@ git commit -m "refactor(ui): establish Stencil style contract"
 - Modify: `packages/ui-core/src/components/action-feedback.spec.tsx`
 - Test: `packages/ui-core/src/components/action-feedback.spec.tsx`
 
-- [ ] **Step 1: 增加失败的 public part/variable 测试。**
+- [x] **Step 1: 增加失败的 public part/variable 测试。**
 
 ```tsx
 it('exposes the documented customization points', async () => {
@@ -209,13 +209,13 @@ it('exposes the documented customization points', async () => {
 
 Repeat the structural assertions for `gt-icon-button`, `gt-card`, `gt-field`, `gt-empty-state`, and `gt-state-card`; Card/Field/StateCard must expose `base`, `header`, `body`, `footer`, `label`, `hint`, and `error` when the corresponding node exists.
 
-- [ ] **Step 2: 运行测试，确认现有 Shadow DOM 没有公开这些出口。**
+- [x] **Step 2: 运行测试，确认现有 Shadow DOM 没有公开这些出口。**
 
 Run: `pnpm --dir packages/ui-core exec vitest run src/components/action-feedback.spec.tsx`
 
 Expected: FAIL because the TSX has no `part` attributes and no contract files.
 
-- [ ] **Step 3: 逐个拆出 CSS，并给结构节点标注稳定 parts。**
+- [x] **Step 3: 逐个拆出 CSS，并给结构节点标注稳定 parts。**
 
 ```tsx
 @Component({ tag: 'gt-button', shadow: true, styleUrl: 'gt-button.css' })
@@ -265,7 +265,7 @@ export const gtButtonStyleContract = {
 
 Use equivalent literal contracts for the other five controls. Preserve existing disabled, hover, active, focus-visible, compact, interactive, slot, label association and state behavior.
 
-- [ ] **Step 4: 运行组件测试、静态检查和构建。**
+- [x] **Step 4: 运行组件测试、静态检查和构建。**
 
 Run:
 

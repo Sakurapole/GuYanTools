@@ -1,4 +1,8 @@
 :host {
+  --gt-button-background: var(--gt-color-surface-muted);
+  --gt-button-border-color: var(--gt-color-border);
+  --gt-button-color: var(--gt-color-text);
+  --gt-button-shadow: none;
   display: inline-block;
   font-family: var(--gt-font-family);
 }
@@ -14,10 +18,11 @@ button {
   gap: var(--gt-space-sm);
   min-height: var(--gt-control-height-md);
   padding: 0 var(--gt-control-padding-x-md);
-  border: 1px solid var(--gt-color-border);
+  border: 1px solid var(--gt-button-border-color);
   border-radius: var(--gt-radius-sm);
-  background: var(--gt-color-surface-muted);
-  color: var(--gt-color-text);
+  background: var(--gt-button-background);
+  color: var(--gt-button-color);
+  box-shadow: var(--gt-button-shadow);
   cursor: pointer;
   font: inherit;
   font-weight: 600;
@@ -34,20 +39,20 @@ button {
 }
 
 :host([variant="primary"]) button {
-  background: var(--gt-color-primary);
-  border-color: var(--gt-color-primary);
-  color: var(--gt-color-text-inverse);
+  --gt-button-background: var(--gt-color-primary);
+  --gt-button-border-color: var(--gt-color-primary);
+  --gt-button-color: var(--gt-color-text-inverse);
 }
 
 :host([variant="danger"]) button {
-  background: var(--gt-color-danger-soft);
-  border-color: transparent;
-  color: var(--gt-color-danger);
+  --gt-button-background: var(--gt-color-danger-soft);
+  --gt-button-border-color: transparent;
+  --gt-button-color: var(--gt-color-danger);
 }
 
 :host([variant="ghost"]) button {
-  background: transparent;
-  border-color: transparent;
+  --gt-button-background: transparent;
+  --gt-button-border-color: transparent;
 }
 
 :host([active]) button,

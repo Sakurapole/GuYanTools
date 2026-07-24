@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { readFileSync } from 'node:fs';
 import { h, render } from '@stencil/vitest';
 
 import './gt-button/gt-button';
@@ -24,12 +25,30 @@ describe('action and feedback components', () => {
     expect(root.shadowRoot?.querySelector('button')?.getAttribute('aria-label')).toBe('Close panel');
   });
 
+  it('exposes stable parts and CSS variables for action controls', async () => {
+    const { root: button } = await render(<gt-button>Save</gt-button>);
+    const { root: iconButton } = await render(<gt-icon-button label="Close" />);
+
+    expect(button.shadowRoot?.querySelector('[part="base"]')).not.toBeNull();
+    expect(button.shadowRoot?.querySelector('[part="label"]')).not.toBeNull();
+    expect(iconButton.shadowRoot?.querySelector('[part="base"]')).not.toBeNull();
+    expect(iconButton.shadowRoot?.querySelector('[part="icon"]')).not.toBeNull();
+    expect(readFileSync(new URL('./gt-button/gt-button.contract.ts', import.meta.url), 'utf8'))
+      .toContain("'--gt-button-background'");
+    expect(readFileSync(new URL('./gt-icon-button/gt-icon-button.contract.ts', import.meta.url), 'utf8'))
+      .toContain("'--gt-icon-button-size'");
+  });
+
   it('preserves Card variants and Field label associations', async () => {
     const { root: card } = await render(<gt-card variant="elevated">Content</gt-card>);
     const { root: field } = await render(<gt-field label="Plugin name" htmlFor="plugin-name" />);
 
     expect(card.shadowRoot?.querySelector('article')?.dataset.variant).toBe('elevated');
     expect(field.shadowRoot?.querySelector('label')?.htmlFor).toBe('plugin-name');
+    expect(card.shadowRoot?.querySelector('[part="base"]')).not.toBeNull();
+    expect(card.shadowRoot?.querySelector('[part="body"]')).not.toBeNull();
+    expect(field.shadowRoot?.querySelector('[part="label"]')).not.toBeNull();
+    expect(field.shadowRoot?.querySelector('[part="body"]')).not.toBeNull();
   });
 
   it('projects named icon and action slots for feedback components', async () => {
@@ -44,5 +63,7 @@ describe('action and feedback components', () => {
     expect(emptyState.shadowRoot?.querySelector('slot[name="actions"]')).not.toBeNull();
     expect(stateCard.shadowRoot?.querySelector('slot[name="icon"]')).not.toBeNull();
     expect(stateCard.shadowRoot?.querySelector('slot[name="actions"]')).not.toBeNull();
+    expect(emptyState.shadowRoot?.querySelector('[part="base"]')).not.toBeNull();
+    expect(stateCard.shadowRoot?.querySelector('[part="base"]')).not.toBeNull();
   });
 });

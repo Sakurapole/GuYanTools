@@ -1,6 +1,6 @@
 import { Component, Element, h, Host, Prop, State } from '@stencil/core';
 
-@Component({ tag: 'gt-state-card', shadow: true })
+@Component({ tag: 'gt-state-card', shadow: true, styleUrl: 'gt-state-card.css' })
 export class GtStateCard {
   @Prop({ reflect: true }) state: 'loading' | 'empty' | 'error' | 'info' = 'info';
   @Prop() description = '';
@@ -31,13 +31,12 @@ export class GtStateCard {
 
     return (
       <Host>
-        <style>{`:host{display:block;color:var(--gt-color-text);font-family:var(--gt-font-family)}article{display:flex;flex-direction:column;align-items:center;gap:var(--gt-space-sm);padding:var(--gt-space-xl);border:1px solid var(--gt-color-border);border-radius:var(--gt-radius-md);background:var(--gt-color-surface);text-align:center}:host([compact]) article{padding:var(--gt-space-lg)}.eyebrow,p{margin:0;color:var(--gt-color-text-muted);font-size:var(--gt-font-size-sm)}strong{color:var(--gt-color-text)}:host([state="error"]) strong{color:var(--gt-color-danger)}.actions{display:flex;gap:var(--gt-space-sm)}`}</style>
-        <article aria-live="polite" role="status">
-          <slot name="icon" />
-          <span class="eyebrow">{label}</span>
-          {this.nativeTitle ? <strong>{this.nativeTitle}</strong> : null}
-          {this.description ? <p>{this.description}</p> : null}
-          <div class="actions"><slot name="actions" /></div>
+        <article part="base" aria-live="polite" role="status">
+          <span part="icon"><slot name="icon" /></span>
+          <span part="label" class="eyebrow">{label}</span>
+          {this.nativeTitle ? <strong part="title">{this.nativeTitle}</strong> : null}
+          {this.description ? <p part="description">{this.description}</p> : null}
+          <div part="actions" class="actions"><slot name="actions" /></div>
         </article>
       </Host>
     );

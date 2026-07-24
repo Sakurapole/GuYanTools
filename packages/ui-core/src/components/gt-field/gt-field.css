@@ -1,0 +1,9 @@
+:host { --gt-field-label-color: var(--gt-color-text); --gt-field-hint-color: var(--gt-color-text-muted); --gt-field-error-color: var(--gt-color-danger); display: block; color: var(--gt-color-text); font-family: var(--gt-font-family); }
+.field { display: grid; gap: var(--gt-space-sm); }
+:host([layout="horizontal"]) .field { grid-template-columns: minmax(96px, 132px) minmax(0, 1fr); column-gap: var(--gt-space-lg); }
+label { color: var(--gt-field-label-color); font-size: var(--gt-font-size-md); font-weight: 600; }
+.required, .error { color: var(--gt-field-error-color); }
+.hint, .error { margin: 0; font-size: var(--gt-font-size-sm); }
+.hint { color: var(--gt-field-hint-color); }
+.meta { min-height: 18px; }
+:host([layout="horizontal"]) .meta { grid-column: 2; }

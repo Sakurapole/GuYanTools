@@ -26,10 +26,10 @@ export class GtButton {
   render() {
     return (
       <Host>
-        <button disabled={this.disabled} type={this.type} onClick={this.handleClick}>
-          <slot name="prefix" />
-          <span class="label"><slot /></span>
-          <slot name="suffix" />
+        <button part="base" disabled={this.disabled} type={this.type} onClick={this.handleClick}>
+          <span part="icon"><slot name="prefix" /></span>
+          <span part="label" class="label"><slot /></span>
+          <span part="icon"><slot name="suffix" /></span>
         </button>
       </Host>
     );
