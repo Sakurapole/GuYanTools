@@ -12,6 +12,16 @@ export default defineConfig({
       formats: ['es'],
       fileName: (_format, entryName) => `${entryName}.js`,
     },
+    rollupOptions: {
+      external: [
+        'react',
+        'vue',
+        '@guyantools/ui-core',
+        '@guyantools/ui-vue',
+        '@stencil/react-output-target/runtime',
+        /^@guyantools\/ui-core\//,
+      ],
+    },
     outDir: 'dist',
     emptyOutDir: true,
   },

@@ -1,5 +1,3 @@
-import { registerGuYanElements } from './register';
+export * from '@guyantools/ui-vue';
 
-export function registerGuYanVueElements(): void {
-  registerGuYanElements();
-}
+export { defineCustomElements as registerGuYanVueElements } from '@guyantools/ui-core/loader';

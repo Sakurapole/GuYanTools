@@ -21,15 +21,26 @@
     }
   },
   "files": ["dist"],
+  "dependencies": {
+    "@guyantools/ui-core": "workspace:*",
+    "@guyantools/ui-vue": "workspace:*"
+  },
+  "peerDependencies": {
+    "react": ">=18.0.0",
+    "vue": ">=3.5.0"
+  },
   "scripts": {
     "build": "vite build && tsc --emitDeclarationOnly --outDir dist && node scripts/copy-tokens.mjs",
     "test": "vitest run"
   },
   "devDependencies": {
+    "@stencil/react-output-target": "^1.6.1",
     "@types/react": "^19.1.8",
     "@types/node": "^24.1.0",
     "jsdom": "^26.1.0",
+    "react": "^19.1.1",
     "typescript": "^5.8.3",
+    "vue": "^3.5.13",
     "vite": "^7.0.4",
     "vitest": "^4.1.10"
   }
