@@ -206,24 +206,24 @@ git commit -m "feat(ui): port form components to Stencil"
 - Create: `gt-tooltip/gt-tooltip.tsx`, `gt-dialog/gt-dialog.tsx`, `gt-drawer/gt-drawer.tsx`, `utils/overlay-controller.ts`
 - Test: `packages/ui-core/src/components/overlays.spec.tsx`
 
-- [ ] **Step 1: Write failing overlay specs.**
+- [x] **Step 1: Write failing overlay specs.**
 
 ```tsx
 page.rootInstance.open = true;
 await page.waitForChanges();
-window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }));
+document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }));
 expect(close).toHaveBeenCalledWith(expect.objectContaining({ detail: { open: false, reason: 'escape' } }));
 ```
 
 Also test body-level portal, focus restoration, Tab trap, mask/persistent behavior, disconnected cleanup, and Tooltip edge flip.
 
-- [ ] **Step 2: Verify failure.**
+- [x] **Step 2: Verify failure.**
 
 Run: `pnpm --dir packages/ui-core exec stencil-test --project spec src/components/overlays.spec.tsx`
 
 Expected: FAIL before overlay components exist.
 
-- [ ] **Step 3: Implement the shared overlay controller.**
+- [x] **Step 3: Implement the shared overlay controller.**
 
 The controller must append exactly one portal per open component to `document.body`, subscribe to capture-phase scroll and resize, and return a cleanup function. Components emit:
 
@@ -234,7 +234,7 @@ The controller must append exactly one portal per open component to `document.bo
 }>;
 ```
 
-- [ ] **Step 4: Verify and commit.**
+- [x] **Step 4: Verify and commit.**
 
 Run: `pnpm --dir packages/ui-core exec stencil-test --project spec`
 

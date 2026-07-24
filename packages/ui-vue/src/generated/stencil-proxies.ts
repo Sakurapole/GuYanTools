@@ -8,6 +8,8 @@ import type { JSX } from '@guyantools/ui-core/dist/custom-elements';
 import { defineCustomElement as defineGtButton } from '@guyantools/ui-core/dist/custom-elements/gt-button.js';
 import { defineCustomElement as defineGtCard } from '@guyantools/ui-core/dist/custom-elements/gt-card.js';
 import { defineCustomElement as defineGtCheckbox } from '@guyantools/ui-core/dist/custom-elements/gt-checkbox.js';
+import { defineCustomElement as defineGtDialog } from '@guyantools/ui-core/dist/custom-elements/gt-dialog.js';
+import { defineCustomElement as defineGtDrawer } from '@guyantools/ui-core/dist/custom-elements/gt-drawer.js';
 import { defineCustomElement as defineGtEmptyState } from '@guyantools/ui-core/dist/custom-elements/gt-empty-state.js';
 import { defineCustomElement as defineGtField } from '@guyantools/ui-core/dist/custom-elements/gt-field.js';
 import { defineCustomElement as defineGtIconButton } from '@guyantools/ui-core/dist/custom-elements/gt-icon-button.js';
@@ -17,6 +19,7 @@ import { defineCustomElement as defineGtStateCard } from '@guyantools/ui-core/di
 import { defineCustomElement as defineGtSwitch } from '@guyantools/ui-core/dist/custom-elements/gt-switch.js';
 import { defineCustomElement as defineGtTabs } from '@guyantools/ui-core/dist/custom-elements/gt-tabs.js';
 import { defineCustomElement as defineGtTextarea } from '@guyantools/ui-core/dist/custom-elements/gt-textarea.js';
+import { defineCustomElement as defineGtTooltip } from '@guyantools/ui-core/dist/custom-elements/gt-tooltip.js';
 
 
 
@@ -52,6 +55,34 @@ export const GtCheckbox: StencilVueComponent<JSX.GtCheckbox> = /*@__PURE__*/ def
   'gt-change'
 ], [
   'gt-change'
+]);
+
+
+export const GtDialog: StencilVueComponent<JSX.GtDialog> = /*@__PURE__*/ defineContainer<JSX.GtDialog>('gt-dialog', defineGtDialog, [
+  'open',
+  'modal',
+  'closeOnMask',
+  'closeOnEsc',
+  'persistent',
+  'ariaLabel',
+  'gt-open-change'
+], [
+  'gt-open-change'
+]);
+
+
+export const GtDrawer: StencilVueComponent<JSX.GtDrawer> = /*@__PURE__*/ defineContainer<JSX.GtDrawer>('gt-drawer', defineGtDrawer, [
+  'open',
+  'position',
+  'width',
+  'overlay',
+  'closeOnMask',
+  'closeOnEsc',
+  'persistent',
+  'ariaLabel',
+  'gt-open-change'
+], [
+  'gt-open-change'
 ]);
 
 
@@ -158,4 +189,13 @@ export const GtTextarea: StencilVueComponent<JSX.GtTextarea> = /*@__PURE__*/ def
 ], [
   'gt-input',
   'gt-change'
+]);
+
+
+export const GtTooltip: StencilVueComponent<JSX.GtTooltip> = /*@__PURE__*/ defineContainer<JSX.GtTooltip>('gt-tooltip', defineGtTooltip, [
+  'open',
+  'content',
+  'placement',
+  'delay',
+  'disabled'
 ]);
