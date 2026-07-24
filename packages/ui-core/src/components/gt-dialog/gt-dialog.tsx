@@ -9,7 +9,7 @@ export interface GtOpenChangeDetail {
   reason: GtOverlayCloseReason;
 }
 
-@Component({ tag: 'gt-dialog', shadow: true })
+@Component({ tag: 'gt-dialog', shadow: true, styleUrl: 'gt-dialog.css' })
 export class GtDialog {
   @Prop({ mutable: true, reflect: true }) open = false;
   @Prop({ reflect: true }) modal = true;
@@ -48,7 +48,7 @@ export class GtDialog {
     const content = document.createDocumentFragment();
     this.contentNodes = Array.from(this.host.childNodes);
     content.append(...this.contentNodes);
-    this.portal = new OverlayPortal('dialog', content, () => {
+    this.portal = new OverlayPortal('dialog', content, this.host, () => {
       if (!this.persistent && this.closeOnMask) this.close('mask');
     });
     const panel = this.portal.element.querySelector<HTMLElement>('.panel');
@@ -105,6 +105,6 @@ export class GtDialog {
   }
 
   render() {
-    return <Host><style>{`:host{display:none}:host([open]){display:contents}`}</style><slot /></Host>;
+    return <Host><span part="base"><slot /></span></Host>;
   }
 }

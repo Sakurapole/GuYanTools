@@ -1,4 +1,5 @@
 import { afterEach, describe, expect, it } from 'vitest';
+import { readFileSync } from 'node:fs';
 import { h, render } from '@stencil/vitest';
 
 import './gt-dialog/gt-dialog';
@@ -52,5 +53,17 @@ describe('overlay components', () => {
 
     expect(document.body.querySelector('[data-gt-overlay="tooltip"]')).toBeNull();
     expect(computeOverlayPlacement('right', { left: 90, right: 100, top: 0, bottom: 10 }, { width: 40, height: 20 }, { width: 120, height: 100 })).toBe('left');
+  });
+
+  it('copies host --gt variables into the body portal without injecting CSS', async () => {
+    const { root } = await render(<gt-dialog open style={{ '--gt-dialog-width': '42rem' }}>Content</gt-dialog>);
+    const portal = document.body.querySelector<HTMLElement>('[data-gt-overlay="dialog"]');
+
+    expect(portal?.style.getPropertyValue('--gt-dialog-width')).toBe('42rem');
+    expect(portal?.querySelector('[part="layer"]')).not.toBeNull();
+    expect(portal?.querySelector('[part="panel"]')).not.toBeNull();
+    expect(readFileSync(new URL('../utils/overlay-controller.ts', import.meta.url), 'utf8'))
+      .not.toMatch(/innerHTML|<style/);
+    expect(root.shadowRoot?.querySelector('[part="base"]')).not.toBeNull();
   });
 });

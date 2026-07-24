@@ -24,3 +24,8 @@ for (const component of components) {
     throw new Error(`Inline style contract violation: ${component}`);
   }
 }
+
+const overlaySource = readFileSync(resolve('src/utils/overlay-controller.ts'), 'utf8');
+if (/innerHTML|<style/.test(overlaySource)) {
+  throw new Error('Overlay controller injects CSS.');
+}

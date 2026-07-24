@@ -359,7 +359,7 @@ pnpm --dir packages/ui-core run build
 
 Expected: PASS; all fixed form-control CSS exists only in six `gt-*.css` files.
 
-- [ ] **Step 5: 提交输入与选择组件。**
+- [x] **Step 5: 提交输入与选择组件。**
 
 ```powershell
 git add packages/ui-core/src/components/gt-input packages/ui-core/src/components/gt-textarea packages/ui-core/src/components/gt-checkbox packages/ui-core/src/components/gt-radio packages/ui-core/src/components/gt-switch packages/ui-core/src/components/gt-tabs packages/ui-core/src/components/forms.spec.tsx
@@ -380,7 +380,7 @@ git commit -m "refactor(ui): externalize form component styles"
 - Modify: `packages/ui-core/src/components/overlays.spec.tsx`
 - Test: `packages/ui-core/src/components/overlays.spec.tsx`
 
-- [ ] **Step 1: 添加失败的 portal 样式与变量转发测试。**
+- [x] **Step 1: 添加失败的 portal 样式与变量转发测试。**
 
 ```tsx
 it('forwards host component variables into the body portal', async () => {
@@ -399,13 +399,13 @@ it('does not inject CSS while building an overlay portal', () => {
 
 Also assert `layer`, `mask`, `panel`, `header`, `body`, and `footer` parts; retain Escape, focus trap, mask policy, close focus restoration, scroll/resize placement and portal cleanup tests.
 
-- [ ] **Step 2: 运行 overlay 测试，确认当前 portal 不会复制 variables 且仍注入 CSS。**
+- [x] **Step 2: 运行 overlay 测试，确认当前 portal 不会复制 variables 且仍注入 CSS。**
 
 Run: `pnpm --dir packages/ui-core exec vitest run src/components/overlays.spec.tsx`
 
 Expected: FAIL because the current controller creates markup with an `innerHTML` style string.
 
-- [ ] **Step 3: 使用 DOM API 创建 portal，并使用单独样式表与变量同步。**
+- [x] **Step 3: 使用 DOM API 创建 portal，并使用单独样式表与变量同步。**
 
 ```ts
 const GT_PORTAL_VARIABLES = [
@@ -431,7 +431,7 @@ Register an `overlayStyle` `<link>` or adopted stylesheet once from the compiled
 
 Each overlay component uses `styleUrl`, declares its contract and provides semantic slot containers so header/body/footer are owned by core. `gt-dialog` and `gt-drawer` own the panel layout and assign `part` to all containers. Vue content is projected into the core-created containers; it is not wrapped in a Vue-owned styled section.
 
-- [ ] **Step 4: 运行 overlay 测试、静态检查和构建。**
+- [x] **Step 4: 运行 overlay 测试、静态检查和构建。**
 
 Run:
 

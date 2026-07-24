@@ -3,7 +3,7 @@ import { Component, Element, Event, h, Host, Prop, Watch, type EventEmitter } fr
 import { OverlayPortal } from '../../utils/overlay-controller';
 import type { GtOpenChangeDetail, GtOverlayCloseReason } from '../gt-dialog/gt-dialog';
 
-@Component({ tag: 'gt-drawer', shadow: true })
+@Component({ tag: 'gt-drawer', shadow: true, styleUrl: 'gt-drawer.css' })
 export class GtDrawer {
   @Prop({ mutable: true, reflect: true }) open = false;
   @Prop({ reflect: true }) position: 'left' | 'right' = 'right';
@@ -44,15 +44,14 @@ export class GtDrawer {
     const content = document.createDocumentFragment();
     this.contentNodes = Array.from(this.host.childNodes);
     content.append(...this.contentNodes);
-    this.portal = new OverlayPortal('drawer', content, () => {
+    this.portal = new OverlayPortal('drawer', content, this.host, () => {
       if (!this.persistent && this.closeOnMask) this.close('mask');
     });
     const panel = this.portal.element.querySelector<HTMLElement>('.panel');
     if (panel) {
       panel.setAttribute('aria-label', this.ariaLabel);
-      panel.style.width = this.width;
+      this.portal.element.style.setProperty('--gt-drawer-width', this.width);
       panel.dataset.position = this.position;
-      if (this.position === 'left') panel.style.marginLeft = '0';
       if (!this.overlay) this.portal.element.querySelector<HTMLElement>('[data-overlay-mask]')?.remove();
     }
     queueMicrotask(() => panel?.focus());
@@ -107,6 +106,6 @@ export class GtDrawer {
   }
 
   render() {
-    return <Host><style>{`:host{display:none}:host([open]){display:contents}`}</style><slot /></Host>;
+    return <Host><span part="base"><slot /></span></Host>;
   }
 }

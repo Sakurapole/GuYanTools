@@ -27,22 +27,56 @@ export function computeOverlayPlacement(
 
 export class OverlayPortal {
   readonly element: HTMLElement;
+  private readonly source: HTMLElement;
+  private readonly styleObserver?: MutationObserver;
 
   private readonly reposition = (): void => {
     this.element.dispatchEvent(new Event('gt-overlay-reposition'));
   };
 
-  constructor(type: 'dialog' | 'drawer' | 'tooltip', content: DocumentFragment | string, onMask?: () => void) {
+  constructor(type: 'dialog' | 'drawer' | 'tooltip', content: DocumentFragment | string, source: HTMLElement, onMask?: () => void) {
+    this.source = source;
     this.element = document.createElement('div');
     this.element.dataset.gtOverlay = type;
-    this.element.innerHTML = `<style>[data-gt-overlay]{position:fixed;inset:0;z-index:var(--gt-z-overlay);font-family:var(--gt-font-family)}[data-gt-overlay="tooltip"]{inset:auto;z-index:var(--gt-z-tooltip)}.mask{position:absolute;inset:0;background:var(--gt-color-overlay)}.panel{position:relative;box-sizing:border-box;margin:auto;max-width:calc(100vw - 32px);max-height:calc(100vh - 32px);overflow:auto;border:1px solid var(--gt-color-border);border-radius:var(--gt-radius-md);background:var(--gt-color-surface);box-shadow:var(--gt-shadow-lg);color:var(--gt-color-text)}[data-gt-overlay="dialog"] .panel{width:min(560px,calc(100vw - 32px));margin-top:10vh}[data-gt-overlay="drawer"] .panel{width:min(400px,90vw);height:100%;margin-right:0;border-radius:0}[data-gt-overlay="tooltip"] .panel{padding:var(--gt-space-sm);white-space:nowrap}</style>${type === 'tooltip' ? '<div class="panel" role="tooltip"></div>' : '<div class="mask" data-overlay-mask></div><section class="panel" role="dialog" aria-modal="true" tabindex="-1"></section>'}`;
+    const layer = document.createElement('div');
+    layer.setAttribute('part', 'layer');
+    this.element.append(layer);
 
-    const panel = this.element.querySelector<HTMLElement>('.panel');
-    if (!panel) throw new Error('Overlay panel was not created.');
-    if (typeof content === 'string') panel.textContent = content;
-    else panel.append(content);
+    if (type !== 'tooltip') {
+      const mask = document.createElement('div');
+      mask.dataset.overlayMask = '';
+      mask.setAttribute('part', 'mask');
+      layer.append(mask);
+      mask.addEventListener('click', () => onMask?.());
+    }
 
-    this.element.querySelector<HTMLElement>('[data-overlay-mask]')?.addEventListener('click', () => onMask?.());
+    const panel = document.createElement(type === 'tooltip' ? 'div' : 'section');
+    panel.className = 'panel';
+    panel.setAttribute('part', 'panel');
+    panel.setAttribute('role', type === 'tooltip' ? 'tooltip' : 'dialog');
+    if (type !== 'tooltip') {
+      panel.setAttribute('aria-modal', 'true');
+      panel.tabIndex = -1;
+    }
+    layer.append(panel);
+
+    const header = document.createElement('header');
+    header.setAttribute('part', 'header');
+    const body = document.createElement('div');
+    body.setAttribute('part', 'body');
+    const footer = document.createElement('footer');
+    footer.setAttribute('part', 'footer');
+    panel.append(header, body, footer);
+
+    if (typeof content === 'string') body.textContent = content;
+    else body.append(content);
+
+    this.copyVariables();
+    if (typeof MutationObserver !== 'undefined') {
+      this.styleObserver = new MutationObserver(() => this.copyVariables());
+      this.styleObserver.observe(this.source, { attributes: true, attributeFilter: ['class', 'style'] });
+      this.styleObserver.observe(document.documentElement, { attributes: true, attributeFilter: ['class', 'style'] });
+    }
     document.body.append(this.element);
     window.addEventListener('resize', this.reposition);
     window.addEventListener('scroll', this.reposition, true);
@@ -51,6 +85,20 @@ export class OverlayPortal {
   destroy(): void {
     window.removeEventListener('resize', this.reposition);
     window.removeEventListener('scroll', this.reposition, true);
+    this.styleObserver?.disconnect();
     this.element.remove();
+  }
+
+  private copyVariables(): void {
+    const styles = getComputedStyle(this.source);
+    const names = new Set<string>();
+
+    for (let index = 0; index < styles.length; index += 1) {
+      const name = styles.item(index);
+      if (name.startsWith('--gt-')) names.add(name);
+    }
+    const inlineStyle = this.source.getAttribute('style') ?? '';
+    for (const match of inlineStyle.matchAll(/(--gt-[\w-]+)\s*:/g)) names.add(match[1]);
+    for (const name of names) this.element.style.setProperty(name, styles.getPropertyValue(name) || this.source.style.getPropertyValue(name));
   }
 }

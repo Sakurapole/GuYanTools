@@ -2,7 +2,7 @@ import { Component, Element, h, Host, Listen, Prop, Watch } from '@stencil/core'
 
 import { computeOverlayPlacement, OverlayPortal, type OverlayPlacement } from '../../utils/overlay-controller';
 
-@Component({ tag: 'gt-tooltip', shadow: true })
+@Component({ tag: 'gt-tooltip', shadow: true, styleUrl: 'gt-tooltip.css' })
 export class GtTooltip {
   @Prop({ mutable: true, reflect: true }) open = false;
   @Prop() content = '';
@@ -30,7 +30,7 @@ export class GtTooltip {
     }
     if (this.portal) return;
 
-    this.portal = new OverlayPortal('tooltip', this.content);
+    this.portal = new OverlayPortal('tooltip', this.content, this.host);
     this.positionPortal();
     this.portal.element.addEventListener('gt-overlay-reposition', () => this.positionPortal());
   }
@@ -69,6 +69,6 @@ export class GtTooltip {
   }
 
   render() {
-    return <Host><slot /></Host>;
+    return <Host><span part="base"><slot /></span></Host>;
   }
 }
