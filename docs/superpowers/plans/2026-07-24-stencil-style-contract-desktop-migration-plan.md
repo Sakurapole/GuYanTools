@@ -297,7 +297,7 @@ git commit -m "refactor(ui): externalize action component styles"
 - Modify: `packages/ui-core/src/components/forms.spec.tsx`
 - Test: `packages/ui-core/src/components/forms.spec.tsx`
 
-- [ ] **Step 1: 添加失败的行为与样式出口测试。**
+- [x] **Step 1: 添加失败的行为与样式出口测试。**
 
 ```tsx
 it('keeps input customization points and native delegates', async () => {
@@ -318,13 +318,13 @@ it('does not put fixed tab styles in TypeScript', () => {
 
 Assert `gt-textarea` has `base`/`control`, Checkbox/Radio/Switch expose `base`/`control`/`label`, and Tabs has `base`/`tab`/`indicator`.
 
-- [ ] **Step 2: 运行测试，确认旧组件不满足新出口。**
+- [x] **Step 2: 运行测试，确认旧组件不满足新出口。**
 
 Run: `pnpm --dir packages/ui-core exec vitest run src/components/forms.spec.tsx`
 
 Expected: FAIL because the current elements have no documented parts and Tabs stores presentation data in JSX.
 
-- [ ] **Step 3: 以 CSS 变量替代 TSX 内联视觉状态。**
+- [x] **Step 3: 以 CSS 变量替代 TSX 内联视觉状态。**
 
 ```tsx
 @Component({ tag: 'gt-tabs', shadow: true, styleUrl: 'gt-tabs.css' })
@@ -347,7 +347,7 @@ The host custom property above is state, not fixed styling. In `gt-tabs.css`, ca
 
 For `gt-input`, retain the HTML-compatible `focus()` and `select()` delegates on the host without declaring the standard `focus` method as `@Method()`. Preserve numeric stepper behavior and attach `part="stepper"` to each step control. Keep `resize` as an attribute/property on Textarea and use `[resize="..."]` selectors in CSS rather than an interpolated CSS value.
 
-- [ ] **Step 4: 运行 forms 测试、样式检查和构建。**
+- [x] **Step 4: 运行 forms 测试、样式检查和构建。**
 
 Run:
 

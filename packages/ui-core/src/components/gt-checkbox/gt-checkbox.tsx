@@ -5,7 +5,7 @@ export interface GtCheckedChangeDetail {
   indeterminate?: boolean;
 }
 
-@Component({ tag: 'gt-checkbox', shadow: true })
+@Component({ tag: 'gt-checkbox', shadow: true, styleUrl: 'gt-checkbox.css' })
 export class GtCheckbox {
   @Prop({ mutable: true, reflect: true }) checked = false;
   @Prop({ mutable: true, reflect: true }) indeterminate = false;
@@ -31,10 +31,9 @@ export class GtCheckbox {
   render() {
     return (
       <Host>
-        <style>{`:host{display:inline-block;font-family:var(--gt-font-family)}label{display:inline-flex;align-items:center;gap:var(--gt-space-sm);color:var(--gt-color-text);cursor:pointer}input{accent-color:var(--gt-color-primary)}input:disabled+span{cursor:not-allowed;opacity:.56}`}</style>
-        <label>
-          <input ref={(element) => { this.checkbox = element; }} checked={this.checked} disabled={this.disabled} name={this.name} type="checkbox" value={this.value} onChange={this.handleChange} />
-          <span><slot>{this.label}</slot></span>
+        <label part="base">
+          <input part="control" ref={(element) => { this.checkbox = element; }} checked={this.checked} disabled={this.disabled} name={this.name} type="checkbox" value={this.value} onChange={this.handleChange} />
+          <span part="label"><slot>{this.label}</slot></span>
         </label>
       </Host>
     );

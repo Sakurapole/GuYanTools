@@ -1,0 +1,7 @@
+:host { --gt-switch-background: var(--gt-color-border); --gt-switch-thumb-background: #fff; --gt-switch-size: 38px; display: inline-block; }
+button { width: var(--gt-switch-size); height: 22px; padding: 2px; border: 0; border-radius: 999px; background: var(--gt-switch-background); cursor: pointer; }
+span { display: block; width: 18px; height: 18px; border-radius: 50%; background: var(--gt-switch-thumb-background); transition: transform var(--gt-motion-normal) var(--gt-motion-ease); }
+:host([checked]) { --gt-switch-background: var(--gt-color-primary); }
+:host([checked]) span { transform: translateX(16px); }
+button:focus-visible { outline: none; box-shadow: var(--gt-focus-ring); }
+button:disabled { cursor: not-allowed; opacity: 0.56; }

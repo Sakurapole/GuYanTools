@@ -1,0 +1,8 @@
+:host { --gt-input-background: var(--gt-color-surface); --gt-input-border-color: var(--gt-color-border); --gt-input-color: var(--gt-color-text); display: block; font-family: var(--gt-font-family); }
+.shell { display: flex; align-items: center; border: 1px solid var(--gt-input-border-color); border-radius: var(--gt-radius-sm); background: var(--gt-input-background); }
+.shell:focus-within { box-shadow: var(--gt-focus-ring); }
+input { width: 100%; min-height: var(--gt-control-height-md); box-sizing: border-box; border: 0; background: transparent; color: var(--gt-input-color); font: inherit; outline: 0; padding: 0 var(--gt-control-padding-x-sm); }
+:host([size="sm"]) input { min-height: var(--gt-control-height-sm); }
+:host([size="lg"]) input { min-height: var(--gt-control-height-lg); }
+button { width: 28px; border: 0; border-left: 1px solid var(--gt-input-border-color); background: transparent; color: var(--gt-input-color); cursor: pointer; }
+button:disabled { cursor: not-allowed; opacity: 0.56; }

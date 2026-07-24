@@ -35,7 +35,7 @@
     "build": "stencil build && node scripts/copy-tokens.mjs && node scripts/create-entry.mjs",
     "typecheck": "stencil build --no-build",
     "test": "stencil-test --project spec",
-    "verify:style-contract": "node scripts/assert-style-contract.mjs gt-button gt-icon-button gt-card gt-field gt-empty-state gt-state-card"
+    "verify:style-contract": "node scripts/assert-style-contract.mjs gt-button gt-icon-button gt-card gt-field gt-empty-state gt-state-card gt-input gt-textarea gt-checkbox gt-radio gt-switch gt-tabs"
   },
   "devDependencies": {
     "@stencil/core": "^4.43.5",

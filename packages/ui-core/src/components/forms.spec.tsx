@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { readFileSync } from 'node:fs';
 import { h, render } from '@stencil/vitest';
 
 import './gt-checkbox/gt-checkbox';
@@ -26,6 +27,11 @@ describe('form and selection components', () => {
     expect(inputEvent).toHaveReceivedEventDetail({ value: '2' });
     expect(changeEvent).toHaveReceivedEventDetail({ value: '2' });
     expect((root as unknown as { value: string }).value).toBe('2');
+    expect(root.shadowRoot?.querySelector('[part="base"]')).not.toBeNull();
+    expect(root.shadowRoot?.querySelector('[part="control"]')).not.toBeNull();
+    expect(root.shadowRoot?.querySelector('[part="prefix"]')).not.toBeNull();
+    expect(root.shadowRoot?.querySelector('[part="suffix"]')).not.toBeNull();
+    expect(root.shadowRoot?.querySelector('[part="stepper"]')).not.toBeNull();
   });
 
   it('clears checkbox indeterminate state after user input', async () => {
@@ -54,6 +60,10 @@ describe('form and selection components', () => {
 
     expect(radioChange).toHaveReceivedEventDetail({ checked: true });
     expect(switchChange).toHaveReceivedEventDetail({ checked: true });
+    expect(radio.shadowRoot?.querySelector('[part="base"]')).not.toBeNull();
+    expect(radio.shadowRoot?.querySelector('[part="control"]')).not.toBeNull();
+    expect(toggle.shadowRoot?.querySelector('[part="base"]')).not.toBeNull();
+    expect(toggle.shadowRoot?.querySelector('[part="control"]')).not.toBeNull();
   });
 
   it('does not select disabled tabs and renders an active indicator', async () => {
@@ -73,7 +83,11 @@ describe('form and selection components', () => {
 
     expect(tabs.value).toBe('overview');
     expect(change.events).toHaveLength(0);
-    expect(root.shadowRoot?.querySelector('.indicator')).not.toBeNull();
+    expect(root.shadowRoot?.querySelector('[part="base"]')).not.toBeNull();
+    expect(root.shadowRoot?.querySelector('[part="tab"]')).not.toBeNull();
+    expect(root.shadowRoot?.querySelector('[part="indicator"]')).not.toBeNull();
+    expect(readFileSync(new URL('./gt-tabs/gt-tabs.tsx', import.meta.url), 'utf8'))
+      .not.toContain('<style>');
   });
 
   it('exposes textarea focus and select methods', async () => {
@@ -82,5 +96,7 @@ describe('form and selection components', () => {
 
     await expect(textarea.focus()).resolves.toBeUndefined();
     await expect(textarea.select()).resolves.toBeUndefined();
+    expect(root.shadowRoot?.querySelector('[part="base"]')).not.toBeNull();
+    expect(root.shadowRoot?.querySelector('[part="control"]')).not.toBeNull();
   });
 });

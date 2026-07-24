@@ -4,7 +4,7 @@ export interface GtValueChangeDetail {
   value: string;
 }
 
-@Component({ tag: 'gt-input', shadow: true })
+@Component({ tag: 'gt-input', shadow: true, styleUrl: 'gt-input.css' })
 export class GtInput {
   @Prop({ mutable: true, reflect: true }) value = '';
   @Prop() type = 'text';
@@ -56,10 +56,10 @@ export class GtInput {
 
     return (
       <Host>
-        <style>{`:host{display:block;font-family:var(--gt-font-family)}.shell{display:flex;align-items:center;border:1px solid var(--gt-color-border);border-radius:var(--gt-radius-sm);background:var(--gt-color-surface)}.shell:focus-within{box-shadow:var(--gt-focus-ring)}input{width:100%;min-height:var(--gt-control-height-md);box-sizing:border-box;border:0;background:transparent;color:var(--gt-color-text);font:inherit;outline:0;padding:0 var(--gt-control-padding-x-sm)}:host([size="sm"]) input{min-height:var(--gt-control-height-sm)}:host([size="lg"]) input{min-height:var(--gt-control-height-lg)}button{width:28px;border:0;border-left:1px solid var(--gt-color-border);background:transparent;color:var(--gt-color-text);cursor:pointer}button:disabled{cursor:not-allowed;opacity:.56}`}</style>
-        <div class="shell">
-          <slot name="prefix" />
+        <div part="base" class="shell">
+          <span part="prefix"><slot name="prefix" /></span>
           <input
+            part="control"
             ref={(element) => { this.inputElement = element; }}
             disabled={this.disabled}
             max={this.max}
@@ -72,9 +72,9 @@ export class GtInput {
             onInput={(event) => this.updateValue((event.target as HTMLInputElement).value, 'input')}
             onChange={(event) => this.updateValue((event.target as HTMLInputElement).value, 'change')}
           />
-          <slot name="suffix" />
-          {numeric ? <button data-step="up" disabled={this.disabled || this.readOnly} type="button" onClick={() => this.stepValue(1)}>+</button> : null}
-          {numeric ? <button data-step="down" disabled={this.disabled || this.readOnly} type="button" onClick={() => this.stepValue(-1)}>-</button> : null}
+          <span part="suffix"><slot name="suffix" /></span>
+          {numeric ? <button part="stepper" data-step="up" disabled={this.disabled || this.readOnly} type="button" onClick={() => this.stepValue(1)}>+</button> : null}
+          {numeric ? <button part="stepper" data-step="down" disabled={this.disabled || this.readOnly} type="button" onClick={() => this.stepValue(-1)}>-</button> : null}
         </div>
       </Host>
     );
