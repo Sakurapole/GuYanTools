@@ -42,7 +42,7 @@ legacy Vue adapters          (core / Vue / React entrypoints)
 
 每个元素使用 Shadow DOM（确有 light DOM slot 互操作要求时明确标记例外），继承 `--gt-*` token。所有可交互控件必须具备原生语义、键盘操作、禁用态和 `:focus-visible` 焦点环。Stencil 组件不访问宿主 preload、IPC 或插件 runtime。
 
-组件以 `@Component({ tag: 'gt-*', shadow: true })` 声明。公开状态通过强类型 `@Prop()` 表示：可被标记为 `reflect: true` 的原始值必须反射为 kebab-case HTML 属性；对象和数组仅作为 JavaScript property 传递。用户交互统一以 `@Event({ eventName: 'gt-*', bubbles: true, composed: true })` 派发稳定、可序列化的 `detail`，不得泄漏内部节点、Vue event emitter 或宿主对象。仅 Input、Textarea 暴露异步的 `@Method() focus()` 与 `select()`，用于保留现有 Vue expose 合同。
+组件以 `@Component({ tag: 'gt-*', shadow: true })` 声明。公开状态通过强类型 `@Prop()` 表示：可被标记为 `reflect: true` 的原始值必须反射为 kebab-case HTML 属性；对象和数组仅作为 JavaScript property 传递。用户交互统一以 `@Event({ eventName: 'gt-*', bubbles: true, composed: true })` 派发稳定、可序列化的 `detail`，不得泄漏内部节点、Vue event emitter 或宿主对象。Input、Textarea 通过宿主元素兼容委托保留 `focus()` 与 `select()`：`focus` 是标准 `HTMLElement` 方法，不能声明为 Stencil `@Method()`，委托必须定位到内部原生控件。
 
 ### `@guyantools/ui-vue`
 

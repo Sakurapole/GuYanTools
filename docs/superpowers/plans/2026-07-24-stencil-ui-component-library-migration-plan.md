@@ -155,7 +155,7 @@ git commit -m "feat(ui): port action components to Stencil"
 - Create: `gt-input/gt-input.tsx`, `gt-textarea/gt-textarea.tsx`, `gt-checkbox/gt-checkbox.tsx`, `gt-radio/gt-radio.tsx`, `gt-switch/gt-switch.tsx`, `gt-tabs/gt-tabs.tsx`
 - Test: `packages/ui-core/src/components/forms.spec.tsx`
 
-- [ ] **Step 1: Write failing form specs.**
+- [x] **Step 1: Write failing form specs.**
 
 ```tsx
 page.rootInstance.value = 'after';
@@ -166,25 +166,30 @@ expect(change).toHaveBeenCalledWith(expect.objectContaining({ detail: { value: '
 
 Cover number min/max stepping, checkbox indeterminate reset, radio/switch events, disabled Tabs, and resize-driven active indicator recalculation.
 
-- [ ] **Step 2: Verify failure.**
+- [x] **Step 2: Verify failure.**
 
 Run: `pnpm --dir packages/ui-core exec stencil-test --project spec src/components/forms.spec.tsx`
 
 Expected: FAIL because the six components are absent.
 
-- [ ] **Step 3: Implement properties and events.**
+- [x] **Step 3: Implement properties and events.**
 
-Use typed Stencil contracts:
+Use typed Stencil contracts. `focus` 是 `HTMLElement` 的保留方法，Input 与 Textarea 必须在加载时把宿主 `focus()`/`select()` 委托给内部原生控件，而不是声明冲突的 `@Method()`：
 
 ```ts
 @Prop({ mutable: true, reflect: true }) value = '';
 @Event({ eventName: 'gt-change' }) change!: EventEmitter<{ value: string }>;
-@Method() async focus(): Promise<void> { this.input?.focus(); }
+componentDidLoad() {
+  Object.assign(this.host, {
+    focus: async () => this.input?.focus(),
+    select: async () => this.input?.select(),
+  });
+}
 ```
 
 Expose Input/Textarea `focus()` and `select()` so the Vue compatibility wrapper can preserve the legacy API.
 
-- [ ] **Step 4: Verify and commit.**
+- [x] **Step 4: Verify and commit.**
 
 Run: `pnpm --dir packages/ui-core exec stencil-test --project spec`
 

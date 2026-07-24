@@ -11,14 +11,20 @@ import type { EventName, StencilReactComponent } from '@stencil/react-output-tar
 import { createComponent } from '@stencil/react-output-target/runtime';
 import React from 'react';
 
-import { type GtButtonClickDetail, type GtButtonCustomEvent, type GtIconButtonClickDetail, type GtIconButtonCustomEvent } from "@guyantools/ui-core";
+import { type GtButtonClickDetail, type GtButtonCustomEvent, type GtCheckboxCustomEvent, type GtCheckedChangeDetail, type GtIconButtonClickDetail, type GtIconButtonCustomEvent, type GtInputCustomEvent, type GtRadioChangeDetail, type GtRadioCustomEvent, type GtSwitchChangeDetail, type GtSwitchCustomEvent, type GtTabChangeDetail, type GtTabsCustomEvent, type GtTextareaCustomEvent, type GtValueChangeDetail } from "@guyantools/ui-core";
 import type { Components } from "@guyantools/ui-core/dist/custom-elements";
 import { GtButton as GtButtonElement, defineCustomElement as defineGtButton } from "@guyantools/ui-core/dist/custom-elements/gt-button.js";
 import { GtCard as GtCardElement, defineCustomElement as defineGtCard } from "@guyantools/ui-core/dist/custom-elements/gt-card.js";
+import { GtCheckbox as GtCheckboxElement, defineCustomElement as defineGtCheckbox } from "@guyantools/ui-core/dist/custom-elements/gt-checkbox.js";
 import { GtEmptyState as GtEmptyStateElement, defineCustomElement as defineGtEmptyState } from "@guyantools/ui-core/dist/custom-elements/gt-empty-state.js";
 import { GtField as GtFieldElement, defineCustomElement as defineGtField } from "@guyantools/ui-core/dist/custom-elements/gt-field.js";
 import { GtIconButton as GtIconButtonElement, defineCustomElement as defineGtIconButton } from "@guyantools/ui-core/dist/custom-elements/gt-icon-button.js";
+import { GtInput as GtInputElement, defineCustomElement as defineGtInput } from "@guyantools/ui-core/dist/custom-elements/gt-input.js";
+import { GtRadio as GtRadioElement, defineCustomElement as defineGtRadio } from "@guyantools/ui-core/dist/custom-elements/gt-radio.js";
 import { GtStateCard as GtStateCardElement, defineCustomElement as defineGtStateCard } from "@guyantools/ui-core/dist/custom-elements/gt-state-card.js";
+import { GtSwitch as GtSwitchElement, defineCustomElement as defineGtSwitch } from "@guyantools/ui-core/dist/custom-elements/gt-switch.js";
+import { GtTabs as GtTabsElement, defineCustomElement as defineGtTabs } from "@guyantools/ui-core/dist/custom-elements/gt-tabs.js";
+import { GtTextarea as GtTextareaElement, defineCustomElement as defineGtTextarea } from "@guyantools/ui-core/dist/custom-elements/gt-textarea.js";
 
 export type GtButtonEvents = { onGtClick: EventName<GtButtonCustomEvent<GtButtonClickDetail>> };
 
@@ -40,6 +46,17 @@ export const GtCard: StencilReactComponent<GtCardElement, GtCardEvents, Componen
     react: React,
     events: {} as GtCardEvents,
     defineCustomElement: defineGtCard
+});
+
+export type GtCheckboxEvents = { onGtChange: EventName<GtCheckboxCustomEvent<GtCheckedChangeDetail>> };
+
+export const GtCheckbox: StencilReactComponent<GtCheckboxElement, GtCheckboxEvents, Components.GtCheckbox> = /*@__PURE__*/ createComponent<GtCheckboxElement, GtCheckboxEvents, Components.GtCheckbox>({
+    tagName: 'gt-checkbox',
+    elementClass: GtCheckboxElement,
+    // @ts-ignore - ignore potential React type mismatches between the Stencil Output Target and your project.
+    react: React,
+    events: { onGtChange: 'gt-change' } as GtCheckboxEvents,
+    defineCustomElement: defineGtCheckbox
 });
 
 export type GtEmptyStateEvents = NonNullable<unknown>;
@@ -75,6 +92,34 @@ export const GtIconButton: StencilReactComponent<GtIconButtonElement, GtIconButt
     defineCustomElement: defineGtIconButton
 });
 
+export type GtInputEvents = {
+    onGtInput: EventName<GtInputCustomEvent<GtValueChangeDetail>>,
+    onGtChange: EventName<GtInputCustomEvent<GtValueChangeDetail>>
+};
+
+export const GtInput: StencilReactComponent<GtInputElement, GtInputEvents, Components.GtInput> = /*@__PURE__*/ createComponent<GtInputElement, GtInputEvents, Components.GtInput>({
+    tagName: 'gt-input',
+    elementClass: GtInputElement,
+    // @ts-ignore - ignore potential React type mismatches between the Stencil Output Target and your project.
+    react: React,
+    events: {
+        onGtInput: 'gt-input',
+        onGtChange: 'gt-change'
+    } as GtInputEvents,
+    defineCustomElement: defineGtInput
+});
+
+export type GtRadioEvents = { onGtChange: EventName<GtRadioCustomEvent<GtRadioChangeDetail>> };
+
+export const GtRadio: StencilReactComponent<GtRadioElement, GtRadioEvents, Components.GtRadio> = /*@__PURE__*/ createComponent<GtRadioElement, GtRadioEvents, Components.GtRadio>({
+    tagName: 'gt-radio',
+    elementClass: GtRadioElement,
+    // @ts-ignore - ignore potential React type mismatches between the Stencil Output Target and your project.
+    react: React,
+    events: { onGtChange: 'gt-change' } as GtRadioEvents,
+    defineCustomElement: defineGtRadio
+});
+
 export type GtStateCardEvents = NonNullable<unknown>;
 
 export const GtStateCard: StencilReactComponent<GtStateCardElement, GtStateCardEvents, Components.GtStateCard> = /*@__PURE__*/ createComponent<GtStateCardElement, GtStateCardEvents, Components.GtStateCard>({
@@ -84,4 +129,43 @@ export const GtStateCard: StencilReactComponent<GtStateCardElement, GtStateCardE
     react: React,
     events: {} as GtStateCardEvents,
     defineCustomElement: defineGtStateCard
+});
+
+export type GtSwitchEvents = { onGtChange: EventName<GtSwitchCustomEvent<GtSwitchChangeDetail>> };
+
+export const GtSwitch: StencilReactComponent<GtSwitchElement, GtSwitchEvents, Components.GtSwitch> = /*@__PURE__*/ createComponent<GtSwitchElement, GtSwitchEvents, Components.GtSwitch>({
+    tagName: 'gt-switch',
+    elementClass: GtSwitchElement,
+    // @ts-ignore - ignore potential React type mismatches between the Stencil Output Target and your project.
+    react: React,
+    events: { onGtChange: 'gt-change' } as GtSwitchEvents,
+    defineCustomElement: defineGtSwitch
+});
+
+export type GtTabsEvents = { onGtChange: EventName<GtTabsCustomEvent<GtTabChangeDetail>> };
+
+export const GtTabs: StencilReactComponent<GtTabsElement, GtTabsEvents, Components.GtTabs> = /*@__PURE__*/ createComponent<GtTabsElement, GtTabsEvents, Components.GtTabs>({
+    tagName: 'gt-tabs',
+    elementClass: GtTabsElement,
+    // @ts-ignore - ignore potential React type mismatches between the Stencil Output Target and your project.
+    react: React,
+    events: { onGtChange: 'gt-change' } as GtTabsEvents,
+    defineCustomElement: defineGtTabs
+});
+
+export type GtTextareaEvents = {
+    onGtInput: EventName<GtTextareaCustomEvent<GtValueChangeDetail>>,
+    onGtChange: EventName<GtTextareaCustomEvent<GtValueChangeDetail>>
+};
+
+export const GtTextarea: StencilReactComponent<GtTextareaElement, GtTextareaEvents, Components.GtTextarea> = /*@__PURE__*/ createComponent<GtTextareaElement, GtTextareaEvents, Components.GtTextarea>({
+    tagName: 'gt-textarea',
+    elementClass: GtTextareaElement,
+    // @ts-ignore - ignore potential React type mismatches between the Stencil Output Target and your project.
+    react: React,
+    events: {
+        onGtInput: 'gt-input',
+        onGtChange: 'gt-change'
+    } as GtTextareaEvents,
+    defineCustomElement: defineGtTextarea
 });
