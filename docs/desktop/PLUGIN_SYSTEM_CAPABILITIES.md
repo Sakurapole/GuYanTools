@@ -9,7 +9,7 @@ GuYanTools 插件运行在受限的 Electron WebContentsView 中。插件可以�
 | 范围 | 当前能力 |
 | --- | --- |
 | UI 框架 | Vue 3、React；任意能使用标准 Custom Elements 的前端框架也可接入 |
-| 共享 UI | `@guyantools/plugin-ui` Design Tokens 与 `gt-button`、`gt-input`、`gt-card`、`gt-dialog` |
+| 共享 UI | Stencil `@guyantools/ui-core`、Vue 兼容包 `@guyantools/ui-vue`，以及插件 facade `@guyantools/plugin-ui` |
 | 主题 | 读取 light/dark 主题描述，订阅主题变更 |
 | 页面 | 通过 `contributes.pages` 注册插件页面；由宿主路由加载 sandboxed UI |
 | Worker | `ui`、`worker`、`hybrid` runtime；生产包可有稳定的 `worker.js` |
@@ -98,7 +98,7 @@ pnpm create guyantools-plugin demo-media --framework react
 
 ## 4. Vue、React 与共享 UI
 
-UI 包使用稳定的 DOM 合同，因此不绑定框架实现：
+UI 包使用稳定的 DOM 合同，因此不绑定框架实现。纯 Custom Element 或任意框架项目使用插件 facade：
 
 ```ts
 import '@guyantools/plugin-ui/tokens.css';
@@ -107,16 +107,18 @@ import { registerGuYanElements } from '@guyantools/plugin-ui';
 registerGuYanElements();
 ```
 
-Vue 项目可改用 `registerGuYanVueElements()`；React 项目导入 `@guyantools/plugin-ui/react` 以获得 JSX intrinsic element 类型。当前公开元素为：
+Vue 插件可从 `@guyantools/plugin-ui/vue` 导入 `UiButton`、`UiInput` 等兼容组件并调用 `registerGuYanVueElements()`；React 插件从 `@guyantools/plugin-ui/react` 导入生成的 `GtButton`、`GtInput` 等 React proxy 并调用 `registerGuYanReactElements()`。这两个注册函数都委托给同一个幂等 Stencil loader。当前公开元素为：
 
 | 元素 | 用途 |
 | --- | --- |
 | `gt-button` | 按钮；`variant` 支持 `primary`、`secondary`、`ghost`、`danger`；点击事件为 `gt-click` |
 | `gt-input` | 文本输入；输入事件为 `gt-input`，detail 包含 `value` |
-| `gt-card` | 内容容器；支持 `muted`、`elevated` 等视觉变体 |
-| `gt-dialog` | 原生 dialog 封装；使用 `open` 控制显示 |
+| `gt-card`、`gt-field` | 内容容器与表单字段；支持 `muted`、`elevated`、label、hint、error |
+| `gt-textarea`、`gt-checkbox`、`gt-radio`、`gt-switch`、`gt-tabs` | 多行输入、选择和标签页；通过 `gt-input` 或 `gt-change` 返回稳定 detail |
+| `gt-empty-state`、`gt-state-card` | 空态、加载、错误和信息反馈；支持命名 icon/actions slots |
+| `gt-tooltip`、`gt-dialog`、`gt-drawer` | body-level 浮层；以 `open` 控制状态，Dialog/Drawer 用 `gt-open-change` 通知关闭原因 |
 
-使用 `--gt-*` token 而不是复制宿主 SCSS。Token 同时包含浅色和深色主题，组件在 Shadow DOM 中继承这些变量。
+使用 `--gt-*` token 而不是复制宿主 SCSS。Token 同时包含浅色和深色主题，组件在 Shadow DOM 中继承这些变量。元素实现、键盘无障碍、焦点管理和浮层清理由 Stencil core 负责；Vue wrappers 仅保留 `v-model`、slots、Teleport 与 `focus/select` 等 Vue 调用契约。
 
 ## 5. Runtime SDK
 

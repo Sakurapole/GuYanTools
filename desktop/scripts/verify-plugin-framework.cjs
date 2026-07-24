@@ -4,11 +4,17 @@ const path = require('node:path');
 
 const root = path.resolve(__dirname, '../..');
 const commands = [
+  ['pnpm', ['--dir', 'packages/ui-core', 'exec', 'stencil-test', '--project', 'spec']],
+  ['pnpm', ['--dir', 'packages/ui-core', 'run', 'build']],
+  ['pnpm', ['--dir', 'packages/ui-vue', 'run', 'build']],
+  ['pnpm', ['--dir', 'packages/ui-vue', 'exec', 'vitest', 'run']],
   ['pnpm', ['--dir', 'packages/plugin-ui', 'run', 'build']],
   ['pnpm', ['--dir', 'packages/plugin-sdk', 'run', 'build']],
   ['pnpm', ['--dir', 'packages/plugin-vite', 'run', 'build']],
   ['pnpm', ['--dir', 'packages/plugin-cli', 'run', 'build']],
   ['pnpm', ['--dir', 'packages/plugin-cli', 'exec', 'vitest', 'run', 'tests/create.test.ts', 'tests/dev.test.ts', 'tests/pack.test.ts', 'tests/publish.test.ts']],
+  ['pnpm', ['--dir', 'desktop', 'exec', 'vitest', 'run', '--config', 'vite.renderer.config.ts', 'src/windows/main/components/ui/ui_library_compatibility.test.ts']],
+  ['node', ['desktop/scripts/verify-shared-ui-library.cjs']],
   ['pnpm', ['--dir', 'desktop', 'exec', 'vitest', 'run', 'src/main/plugin-host', 'src/windows/main/pages/Plugins/plugin_dev_session.test.ts']],
 ];
 for (const [command, args] of commands) {

@@ -252,7 +252,7 @@ git commit -m "feat(ui): port accessible overlays to Stencil"
 - Create: `packages/ui-vue/src/generated/stencil-proxies.ts`
 - Test: `packages/ui-vue/tests/forms.test.ts`, `feedback.test.ts`, `overlay.test.ts`, `compatibility.test.ts`
 
-- [ ] **Step 1: Write failing compatibility tests against generated proxies.**
+- [x] **Step 1: Write failing compatibility tests against generated proxies.**
 
 ```ts
 const wrapper = mount(UiInput, { props: { modelValue: 'before' } });
@@ -263,17 +263,17 @@ expect(typeof (wrapper.vm as { focus: () => void }).focus).toBe('function');
 
 Cover `UiTabItem`, forwarded native attributes, slots, and Dialog/Drawer Teleport plus `open`/`close` forwarding.
 
-- [ ] **Step 2: Verify failure after removing hand-written element registration.**
+- [x] **Step 2: Verify failure after removing hand-written element registration.**
 
 Run: `pnpm --dir packages/ui-vue exec vitest run`
 
 Expected: FAIL until wrappers import generated proxies and Stencil `defineCustomElements`.
 
-- [ ] **Step 3: Use proxies internally and keep wrappers thin.**
+- [x] **Step 3: Use proxies internally and keep wrappers thin.**
 
 Each wrapper imports from `src/generated/stencil-proxies.ts`, maps only legacy Vue contracts, and delegates visual behavior to Stencil. The wrappers must not duplicate component CSS or custom-element implementations.
 
-- [ ] **Step 4: Verify and commit.**
+- [x] **Step 4: Verify and commit.**
 
 Run:
 
@@ -297,7 +297,7 @@ git commit -m "refactor(ui): consume generated Stencil Vue proxies"
 - Modify: `packages/plugin-ui/package.json`, `src/index.ts`, `src/register.ts`, `src/vue.ts`, `src/react.ts`, `src/tokens.css`, `tests/*.test.ts`
 - Test: `packages/plugin-vite/tests/build.test.ts`
 
-- [ ] **Step 1: Write failing facade tests.**
+- [x] **Step 1: Write failing facade tests.**
 
 ```ts
 import { defineCustomElements } from '@guyantools/ui-core/loader';
@@ -309,17 +309,17 @@ expect(customElements.get('gt-drawer')).toBeDefined();
 expect(defineCustomElements).toBeTypeOf('function');
 ```
 
-- [ ] **Step 2: Verify failure.**
+- [x] **Step 2: Verify failure.**
 
 Run: `pnpm --dir packages/plugin-ui exec vitest run tests/compatibility.test.ts`
 
 Expected: FAIL until facade exports target Stencil artifacts.
 
-- [ ] **Step 3: Implement only forwarding exports.**
+- [x] **Step 3: Implement only forwarding exports.**
 
 `registerGuYanElements()` calls Stencil `defineCustomElements()`. Keep `.`, `./tokens.css`, `./vue`, and `./react`; `./vue` and `./react` must forward the generated Stencil framework entrypoints. Do not ship the old local element source.
 
-- [ ] **Step 4: Verify and commit.**
+- [x] **Step 4: Verify and commit.**
 
 Run:
 
@@ -342,7 +342,7 @@ git commit -m "refactor(ui): route plugin facade through Stencil"
 - Modify: `desktop/package.json`, `desktop/vite.renderer.config.ts`, 15 selected `components/ui/Ui*.vue`, and five representative consumers
 - Create: `desktop/src/windows/main/components/ui/ui_library_compatibility.test.ts`, `desktop/scripts/verify-shared-ui-library.cjs`
 
-- [ ] **Step 1: Write failing desktop compatibility and direct-import tests.**
+- [x] **Step 1: Write failing desktop compatibility and direct-import tests.**
 
 ```ts
 const input = mount(UiInput, { props: { modelValue: 'one' } });
@@ -352,13 +352,13 @@ expect(input.emitted('update:modelValue')).toEqual([['two']]);
 
 The static verifier must require direct `@guyantools/ui-vue` imports in `App.vue`, `AppNotificationHost.vue`, `topbar.vue`, `Plugins.vue`, and `Settings.vue`.
 
-- [ ] **Step 2: Verify failure.**
+- [x] **Step 2: Verify failure.**
 
 Run: `pnpm --dir desktop exec vitest run src/windows/main/components/ui/ui_library_compatibility.test.ts`
 
 Expected: FAIL until desktop has the workspace dependency and thin compatibility entries.
 
-- [ ] **Step 3: Replace local implementations with compatibility entries.**
+- [x] **Step 3: Replace local implementations with compatibility entries.**
 
 Keep current component paths, re-export from `@guyantools/ui-vue` when API-compatible, and use small wrappers for `UiInput`, `UiTabs`, Dialog and Drawer only where legacy behavior requires it. Configure `isCustomElement: tag => tag === 'webview' || tag.startsWith('gt-')`.
 
@@ -385,7 +385,7 @@ git commit -m "refactor(desktop): consume Stencil-backed UI library"
 - Modify: `desktop/scripts/verify-plugin-framework.cjs`, `package.json`, `docs/desktop/PLUGIN_SYSTEM_CAPABILITIES.md`
 - Create: `docs/desktop/UI_COMPONENT_LIBRARY.md`
 
-- [ ] **Step 1: Extend aggregate verification.**
+- [x] **Step 1: Extend aggregate verification.**
 
 Add these commands before plugin fixture builds:
 
@@ -396,7 +396,7 @@ run('pnpm', ['--dir', 'packages/ui-vue', 'run', 'build']);
 run('pnpm', ['--dir', 'packages/ui-vue', 'exec', 'vitest', 'run']);
 ```
 
-- [ ] **Step 2: Document consumers and migration.**
+- [x] **Step 2: Document consumers and migration.**
 
 Document Stencil package registration, generated Vue/React entrypoint usage, first-wave contracts, tokens, overlay ownership, legacy compatibility, and excluded components.
 
