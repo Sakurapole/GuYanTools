@@ -117,7 +117,7 @@ git commit -m "feat(ui): add shared core tokens"
 - Modify: `packages/ui-core/src/index.ts`, `packages/ui-core/src/vue.ts`, `packages/ui-core/src/react.ts`
 - Test: `packages/ui-core/tests/elements.test.ts`, `packages/ui-core/tests/feedback.test.ts`
 
-- [ ] **Step 1: Write failing DOM-contract tests.**
+- [x] **Step 1: Write failing DOM-contract tests.**
 
 Add tests that use `registerGuYanElements()` twice, then assert:
 
@@ -136,13 +136,13 @@ expect(state.shadowRoot!.querySelector('[role="status"]')?.textContent).toContai
 
 Also assert `gt-icon-button` has an accessible name, `gt-card` exposes its variant, `gt-field` links label/error text to the slotted control, and empty-state/state-card slots remain visible.
 
-- [ ] **Step 2: Run the focused tests and verify failure.**
+- [x] **Step 2: Run the focused tests and verify failure.**
 
 Run: `pnpm --dir packages/ui-core exec vitest run tests/elements.test.ts tests/feedback.test.ts`
 
 Expected: FAIL because the listed elements are not registered.
 
-- [ ] **Step 3: Implement the elements with stable event types.**
+- [x] **Step 3: Implement the elements with stable event types.**
 
 Use a shared base class with these event payloads:
 
@@ -153,7 +153,7 @@ export interface StateChangeDetail { state: 'loading' | 'empty' | 'error' | 'inf
 
 Implement `gt-button` and `gt-icon-button` using native `<button>`, `disabled`, `aria-label`, `variant`, `size`, `active`, and prefix/suffix slots. Implement visual-only feedback elements using named slots, semantic `role="status"` for `gt-state-card`, and only `--gt-*` styles. Register every element idempotently and publish matching React intrinsic element types.
 
-- [ ] **Step 4: Run core action/feedback tests and build.**
+- [x] **Step 4: Run core action/feedback tests and build.**
 
 Run:
 
@@ -164,7 +164,7 @@ pnpm --dir packages/ui-core run build
 
 Expected: all tests PASS; the built package contains action and feedback declarations.
 
-- [ ] **Step 5: Commit action and feedback elements.**
+- [x] **Step 5: Commit action and feedback elements.**
 
 ```powershell
 git add packages/ui-core
