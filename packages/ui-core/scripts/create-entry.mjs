@@ -1,4 +1,4 @@
-import { readdirSync, writeFileSync } from 'node:fs';
+import { appendFileSync, readFileSync, readdirSync, writeFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 
 const customElementsDir = resolve('dist/custom-elements');
@@ -35,3 +35,12 @@ writeFileSync(resolve('dist/index.js'), `export { defineCustomElements, register
 writeFileSync(resolve('dist/index.d.ts'), `export * from './custom-elements/index.js';
 export { defineCustomElements, registerGuYanElements } from './loader.js';
 `);
+
+// Vue proxies import JSX from the custom-elements entry; Stencil keeps it in dist/types.
+appendFileSync(
+  resolve('dist/custom-elements/index.d.ts'),
+  "\nexport { JSX } from '../types/components';\nexport * from '../types/components';\n",
+);
+
+const vueProxies = resolve('../ui-vue/src/generated/stencil-proxies.ts');
+writeFileSync(vueProxies, `${readFileSync(vueProxies, 'utf8').trimEnd()}\n`);

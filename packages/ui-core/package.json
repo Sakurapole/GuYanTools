@@ -15,11 +15,15 @@
       "types": "./dist/loader.d.ts",
       "import": "./dist/loader.js"
     },
-    "./components/*": {
+    "./components/*.js": {
       "types": "./dist/custom-elements/*.d.ts",
       "import": "./dist/custom-elements/*.js"
     },
-    "./dist/custom-elements/*": {
+    "./dist/custom-elements": {
+      "types": "./dist/custom-elements/index.d.ts",
+      "import": "./dist/custom-elements/index.js"
+    },
+    "./dist/custom-elements/*.js": {
       "types": "./dist/custom-elements/*.d.ts",
       "import": "./dist/custom-elements/*.js"
     }

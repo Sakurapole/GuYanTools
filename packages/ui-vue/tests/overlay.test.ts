@@ -1,11 +1,16 @@
 import { mount } from '@vue/test-utils';
 import { nextTick } from 'vue';
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it } from 'vitest';
 import { UiDialog, UiDrawer } from '../src';
 
 describe('Vue overlay adapters', () => {
+  afterEach(() => {
+    document.body.querySelectorAll('[data-gt-overlay]').forEach((element) => element.remove());
+  });
+
   it('teleports a dialog and removes it after unmount', async () => {
     const dialog = mount(UiDialog, { props: { modelValue: true }, attachTo: document.body, slots: { default: 'Plugin settings' } });
+    await nextTick();
     expect(document.body.querySelector('[data-gt-overlay="dialog"]')).not.toBeNull();
 
     await dialog.unmount();

@@ -6,7 +6,27 @@
  */
 import { HTMLStencilElement, JSXBase } from "@stencil/core/internal";
 import { GtButtonClickDetail } from "./components/gt-button/gt-button";
+import { GtCheckedChangeDetail } from "./components/gt-checkbox/gt-checkbox";
+import { GtOpenChangeDetail } from "./components/gt-dialog/gt-dialog";
+import { GtOpenChangeDetail as GtOpenChangeDetail1 } from "./components/gt-dialog/gt-dialog";
+import { GtIconButtonClickDetail } from "./components/gt-icon-button/gt-icon-button";
+import { GtValueChangeDetail } from "./components/gt-input/gt-input";
+import { GtRadioChangeDetail } from "./components/gt-radio/gt-radio";
+import { GtSwitchChangeDetail } from "./components/gt-switch/gt-switch";
+import { GtTabChangeDetail, GtTabItem } from "./components/gt-tabs/gt-tabs";
+import { GtValueChangeDetail as GtValueChangeDetail1 } from "./components/gt-input/gt-input";
+import { OverlayPlacement } from "./utils/overlay-controller";
 export { GtButtonClickDetail } from "./components/gt-button/gt-button";
+export { GtCheckedChangeDetail } from "./components/gt-checkbox/gt-checkbox";
+export { GtOpenChangeDetail } from "./components/gt-dialog/gt-dialog";
+export { GtOpenChangeDetail as GtOpenChangeDetail1 } from "./components/gt-dialog/gt-dialog";
+export { GtIconButtonClickDetail } from "./components/gt-icon-button/gt-icon-button";
+export { GtValueChangeDetail } from "./components/gt-input/gt-input";
+export { GtRadioChangeDetail } from "./components/gt-radio/gt-radio";
+export { GtSwitchChangeDetail } from "./components/gt-switch/gt-switch";
+export { GtTabChangeDetail, GtTabItem } from "./components/gt-tabs/gt-tabs";
+export { GtValueChangeDetail as GtValueChangeDetail1 } from "./components/gt-input/gt-input";
+export { OverlayPlacement } from "./utils/overlay-controller";
 export namespace Components {
     interface GtButton {
         /**
@@ -34,10 +54,377 @@ export namespace Components {
          */
         "variant": 'primary' | 'secondary' | 'ghost' | 'danger';
     }
+    interface GtCard {
+        /**
+          * @default false
+         */
+        "hoverable": boolean;
+        /**
+          * @default false
+         */
+        "interactive": boolean;
+        /**
+          * @default 'md'
+         */
+        "padding": 'none' | 'sm' | 'md' | 'lg';
+        /**
+          * @default 'md'
+         */
+        "radius": 'none' | 'sm' | 'md' | 'lg';
+        /**
+          * @default 'default'
+         */
+        "variant": 'default' | 'muted' | 'elevated';
+    }
+    interface GtCheckbox {
+        /**
+          * @default false
+         */
+        "checked": boolean;
+        /**
+          * @default false
+         */
+        "disabled": boolean;
+        /**
+          * @default false
+         */
+        "indeterminate": boolean;
+        /**
+          * @default ''
+         */
+        "label": string;
+        /**
+          * @default ''
+         */
+        "name": string;
+        /**
+          * @default ''
+         */
+        "value": string;
+    }
+    interface GtDialog {
+        /**
+          * @default 'Dialog'
+         */
+        "ariaLabel": string;
+        /**
+          * @default true
+         */
+        "closeOnEsc": boolean;
+        /**
+          * @default true
+         */
+        "closeOnMask": boolean;
+        /**
+          * @default true
+         */
+        "modal": boolean;
+        /**
+          * @default false
+         */
+        "open": boolean;
+        /**
+          * @default false
+         */
+        "persistent": boolean;
+    }
+    interface GtDrawer {
+        /**
+          * @default 'Drawer'
+         */
+        "ariaLabel": string;
+        /**
+          * @default true
+         */
+        "closeOnEsc": boolean;
+        /**
+          * @default true
+         */
+        "closeOnMask": boolean;
+        /**
+          * @default false
+         */
+        "open": boolean;
+        /**
+          * @default true
+         */
+        "overlay": boolean;
+        /**
+          * @default false
+         */
+        "persistent": boolean;
+        /**
+          * @default 'right'
+         */
+        "position": 'left' | 'right';
+        /**
+          * @default '400px'
+         */
+        "width": string;
+    }
+    interface GtEmptyState {
+        /**
+          * @default false
+         */
+        "compact": boolean;
+        /**
+          * @default ''
+         */
+        "description": string;
+    }
+    interface GtField {
+        /**
+          * @default ''
+         */
+        "error": string;
+        /**
+          * @default ''
+         */
+        "hint": string;
+        /**
+          * @default ''
+         */
+        "htmlFor": string;
+        /**
+          * @default ''
+         */
+        "label": string;
+        /**
+          * @default 'vertical'
+         */
+        "layout": 'horizontal' | 'vertical';
+        /**
+          * @default false
+         */
+        "required": boolean;
+    }
+    interface GtIconButton {
+        /**
+          * @default false
+         */
+        "active": boolean;
+        /**
+          * @default ''
+         */
+        "ariaLabel": string;
+        /**
+          * @default false
+         */
+        "disabled": boolean;
+        /**
+          * @default ''
+         */
+        "label": string;
+        /**
+          * @default 'square'
+         */
+        "shape": 'square' | 'circle';
+        /**
+          * @default 'md'
+         */
+        "size": 'sm' | 'md' | 'lg';
+        /**
+          * @default 'button'
+         */
+        "type": 'button' | 'submit' | 'reset';
+        /**
+          * @default 'ghost'
+         */
+        "variant": 'primary' | 'secondary' | 'ghost' | 'danger';
+    }
+    interface GtInput {
+        /**
+          * @default false
+         */
+        "disabled": boolean;
+        "max"?: string;
+        "min"?: string;
+        /**
+          * @default ''
+         */
+        "placeholder": string;
+        /**
+          * @default false
+         */
+        "readOnly": boolean;
+        /**
+          * @default 'md'
+         */
+        "size": 'sm' | 'md' | 'lg';
+        /**
+          * @default '1'
+         */
+        "step": string;
+        /**
+          * @default 'text'
+         */
+        "type": string;
+        /**
+          * @default ''
+         */
+        "value": string;
+    }
+    interface GtRadio {
+        /**
+          * @default false
+         */
+        "checked": boolean;
+        /**
+          * @default false
+         */
+        "disabled": boolean;
+        /**
+          * @default ''
+         */
+        "label": string;
+        /**
+          * @default ''
+         */
+        "name": string;
+        /**
+          * @default ''
+         */
+        "value": string;
+    }
+    interface GtStateCard {
+        /**
+          * @default false
+         */
+        "compact": boolean;
+        /**
+          * @default ''
+         */
+        "description": string;
+        /**
+          * @default 'info'
+         */
+        "state": 'loading' | 'empty' | 'error' | 'info';
+    }
+    interface GtSwitch {
+        /**
+          * @default ''
+         */
+        "ariaLabel": string;
+        /**
+          * @default false
+         */
+        "checked": boolean;
+        /**
+          * @default false
+         */
+        "disabled": boolean;
+    }
+    interface GtTabs {
+        /**
+          * @default []
+         */
+        "items": GtTabItem[];
+        /**
+          * @default 'md'
+         */
+        "size": 'sm' | 'md' | 'lg';
+        /**
+          * @default false
+         */
+        "stretch": boolean;
+        /**
+          * @default ''
+         */
+        "value": string;
+        /**
+          * @default 'line'
+         */
+        "variant": 'line' | 'segmented';
+    }
+    interface GtTextarea {
+        /**
+          * @default false
+         */
+        "disabled": boolean;
+        "maxLength"?: number;
+        /**
+          * @default ''
+         */
+        "placeholder": string;
+        /**
+          * @default false
+         */
+        "readOnly": boolean;
+        /**
+          * @default 'vertical'
+         */
+        "resize": 'none' | 'both' | 'horizontal' | 'vertical';
+        /**
+          * @default 3
+         */
+        "rows": number;
+        /**
+          * @default ''
+         */
+        "value": string;
+    }
+    interface GtTooltip {
+        /**
+          * @default ''
+         */
+        "content": string;
+        /**
+          * @default 300
+         */
+        "delay": number;
+        /**
+          * @default false
+         */
+        "disabled": boolean;
+        /**
+          * @default false
+         */
+        "open": boolean;
+        /**
+          * @default 'top'
+         */
+        "placement": OverlayPlacement;
+    }
 }
 export interface GtButtonCustomEvent<T> extends CustomEvent<T> {
     detail: T;
     target: HTMLGtButtonElement;
+}
+export interface GtCheckboxCustomEvent<T> extends CustomEvent<T> {
+    detail: T;
+    target: HTMLGtCheckboxElement;
+}
+export interface GtDialogCustomEvent<T> extends CustomEvent<T> {
+    detail: T;
+    target: HTMLGtDialogElement;
+}
+export interface GtDrawerCustomEvent<T> extends CustomEvent<T> {
+    detail: T;
+    target: HTMLGtDrawerElement;
+}
+export interface GtIconButtonCustomEvent<T> extends CustomEvent<T> {
+    detail: T;
+    target: HTMLGtIconButtonElement;
+}
+export interface GtInputCustomEvent<T> extends CustomEvent<T> {
+    detail: T;
+    target: HTMLGtInputElement;
+}
+export interface GtRadioCustomEvent<T> extends CustomEvent<T> {
+    detail: T;
+    target: HTMLGtRadioElement;
+}
+export interface GtSwitchCustomEvent<T> extends CustomEvent<T> {
+    detail: T;
+    target: HTMLGtSwitchElement;
+}
+export interface GtTabsCustomEvent<T> extends CustomEvent<T> {
+    detail: T;
+    target: HTMLGtTabsElement;
+}
+export interface GtTextareaCustomEvent<T> extends CustomEvent<T> {
+    detail: T;
+    target: HTMLGtTextareaElement;
 }
 declare global {
     interface HTMLGtButtonElementEventMap {
@@ -57,8 +444,207 @@ declare global {
         prototype: HTMLGtButtonElement;
         new (): HTMLGtButtonElement;
     };
+    interface HTMLGtCardElement extends Components.GtCard, HTMLStencilElement {
+    }
+    var HTMLGtCardElement: {
+        prototype: HTMLGtCardElement;
+        new (): HTMLGtCardElement;
+    };
+    interface HTMLGtCheckboxElementEventMap {
+        "gt-change": GtCheckedChangeDetail;
+    }
+    interface HTMLGtCheckboxElement extends Components.GtCheckbox, HTMLStencilElement {
+        addEventListener<K extends keyof HTMLGtCheckboxElementEventMap>(type: K, listener: (this: HTMLGtCheckboxElement, ev: GtCheckboxCustomEvent<HTMLGtCheckboxElementEventMap[K]>) => any, options?: boolean | AddEventListenerOptions): void;
+        addEventListener<K extends keyof DocumentEventMap>(type: K, listener: (this: Document, ev: DocumentEventMap[K]) => any, options?: boolean | AddEventListenerOptions): void;
+        addEventListener<K extends keyof HTMLElementEventMap>(type: K, listener: (this: HTMLElement, ev: HTMLElementEventMap[K]) => any, options?: boolean | AddEventListenerOptions): void;
+        addEventListener(type: string, listener: EventListenerOrEventListenerObject, options?: boolean | AddEventListenerOptions): void;
+        removeEventListener<K extends keyof HTMLGtCheckboxElementEventMap>(type: K, listener: (this: HTMLGtCheckboxElement, ev: GtCheckboxCustomEvent<HTMLGtCheckboxElementEventMap[K]>) => any, options?: boolean | EventListenerOptions): void;
+        removeEventListener<K extends keyof DocumentEventMap>(type: K, listener: (this: Document, ev: DocumentEventMap[K]) => any, options?: boolean | EventListenerOptions): void;
+        removeEventListener<K extends keyof HTMLElementEventMap>(type: K, listener: (this: HTMLElement, ev: HTMLElementEventMap[K]) => any, options?: boolean | EventListenerOptions): void;
+        removeEventListener(type: string, listener: EventListenerOrEventListenerObject, options?: boolean | EventListenerOptions): void;
+    }
+    var HTMLGtCheckboxElement: {
+        prototype: HTMLGtCheckboxElement;
+        new (): HTMLGtCheckboxElement;
+    };
+    interface HTMLGtDialogElementEventMap {
+        "gt-open-change": GtOpenChangeDetail;
+    }
+    interface HTMLGtDialogElement extends Components.GtDialog, HTMLStencilElement {
+        addEventListener<K extends keyof HTMLGtDialogElementEventMap>(type: K, listener: (this: HTMLGtDialogElement, ev: GtDialogCustomEvent<HTMLGtDialogElementEventMap[K]>) => any, options?: boolean | AddEventListenerOptions): void;
+        addEventListener<K extends keyof DocumentEventMap>(type: K, listener: (this: Document, ev: DocumentEventMap[K]) => any, options?: boolean | AddEventListenerOptions): void;
+        addEventListener<K extends keyof HTMLElementEventMap>(type: K, listener: (this: HTMLElement, ev: HTMLElementEventMap[K]) => any, options?: boolean | AddEventListenerOptions): void;
+        addEventListener(type: string, listener: EventListenerOrEventListenerObject, options?: boolean | AddEventListenerOptions): void;
+        removeEventListener<K extends keyof HTMLGtDialogElementEventMap>(type: K, listener: (this: HTMLGtDialogElement, ev: GtDialogCustomEvent<HTMLGtDialogElementEventMap[K]>) => any, options?: boolean | EventListenerOptions): void;
+        removeEventListener<K extends keyof DocumentEventMap>(type: K, listener: (this: Document, ev: DocumentEventMap[K]) => any, options?: boolean | EventListenerOptions): void;
+        removeEventListener<K extends keyof HTMLElementEventMap>(type: K, listener: (this: HTMLElement, ev: HTMLElementEventMap[K]) => any, options?: boolean | EventListenerOptions): void;
+        removeEventListener(type: string, listener: EventListenerOrEventListenerObject, options?: boolean | EventListenerOptions): void;
+    }
+    var HTMLGtDialogElement: {
+        prototype: HTMLGtDialogElement;
+        new (): HTMLGtDialogElement;
+    };
+    interface HTMLGtDrawerElementEventMap {
+        "gt-open-change": GtOpenChangeDetail1;
+    }
+    interface HTMLGtDrawerElement extends Components.GtDrawer, HTMLStencilElement {
+        addEventListener<K extends keyof HTMLGtDrawerElementEventMap>(type: K, listener: (this: HTMLGtDrawerElement, ev: GtDrawerCustomEvent<HTMLGtDrawerElementEventMap[K]>) => any, options?: boolean | AddEventListenerOptions): void;
+        addEventListener<K extends keyof DocumentEventMap>(type: K, listener: (this: Document, ev: DocumentEventMap[K]) => any, options?: boolean | AddEventListenerOptions): void;
+        addEventListener<K extends keyof HTMLElementEventMap>(type: K, listener: (this: HTMLElement, ev: HTMLElementEventMap[K]) => any, options?: boolean | AddEventListenerOptions): void;
+        addEventListener(type: string, listener: EventListenerOrEventListenerObject, options?: boolean | AddEventListenerOptions): void;
+        removeEventListener<K extends keyof HTMLGtDrawerElementEventMap>(type: K, listener: (this: HTMLGtDrawerElement, ev: GtDrawerCustomEvent<HTMLGtDrawerElementEventMap[K]>) => any, options?: boolean | EventListenerOptions): void;
+        removeEventListener<K extends keyof DocumentEventMap>(type: K, listener: (this: Document, ev: DocumentEventMap[K]) => any, options?: boolean | EventListenerOptions): void;
+        removeEventListener<K extends keyof HTMLElementEventMap>(type: K, listener: (this: HTMLElement, ev: HTMLElementEventMap[K]) => any, options?: boolean | EventListenerOptions): void;
+        removeEventListener(type: string, listener: EventListenerOrEventListenerObject, options?: boolean | EventListenerOptions): void;
+    }
+    var HTMLGtDrawerElement: {
+        prototype: HTMLGtDrawerElement;
+        new (): HTMLGtDrawerElement;
+    };
+    interface HTMLGtEmptyStateElement extends Components.GtEmptyState, HTMLStencilElement {
+    }
+    var HTMLGtEmptyStateElement: {
+        prototype: HTMLGtEmptyStateElement;
+        new (): HTMLGtEmptyStateElement;
+    };
+    interface HTMLGtFieldElement extends Components.GtField, HTMLStencilElement {
+    }
+    var HTMLGtFieldElement: {
+        prototype: HTMLGtFieldElement;
+        new (): HTMLGtFieldElement;
+    };
+    interface HTMLGtIconButtonElementEventMap {
+        "gt-click": GtIconButtonClickDetail;
+    }
+    interface HTMLGtIconButtonElement extends Components.GtIconButton, HTMLStencilElement {
+        addEventListener<K extends keyof HTMLGtIconButtonElementEventMap>(type: K, listener: (this: HTMLGtIconButtonElement, ev: GtIconButtonCustomEvent<HTMLGtIconButtonElementEventMap[K]>) => any, options?: boolean | AddEventListenerOptions): void;
+        addEventListener<K extends keyof DocumentEventMap>(type: K, listener: (this: Document, ev: DocumentEventMap[K]) => any, options?: boolean | AddEventListenerOptions): void;
+        addEventListener<K extends keyof HTMLElementEventMap>(type: K, listener: (this: HTMLElement, ev: HTMLElementEventMap[K]) => any, options?: boolean | AddEventListenerOptions): void;
+        addEventListener(type: string, listener: EventListenerOrEventListenerObject, options?: boolean | AddEventListenerOptions): void;
+        removeEventListener<K extends keyof HTMLGtIconButtonElementEventMap>(type: K, listener: (this: HTMLGtIconButtonElement, ev: GtIconButtonCustomEvent<HTMLGtIconButtonElementEventMap[K]>) => any, options?: boolean | EventListenerOptions): void;
+        removeEventListener<K extends keyof DocumentEventMap>(type: K, listener: (this: Document, ev: DocumentEventMap[K]) => any, options?: boolean | EventListenerOptions): void;
+        removeEventListener<K extends keyof HTMLElementEventMap>(type: K, listener: (this: HTMLElement, ev: HTMLElementEventMap[K]) => any, options?: boolean | EventListenerOptions): void;
+        removeEventListener(type: string, listener: EventListenerOrEventListenerObject, options?: boolean | EventListenerOptions): void;
+    }
+    var HTMLGtIconButtonElement: {
+        prototype: HTMLGtIconButtonElement;
+        new (): HTMLGtIconButtonElement;
+    };
+    interface HTMLGtInputElementEventMap {
+        "gt-input": GtValueChangeDetail;
+        "gt-change": GtValueChangeDetail;
+    }
+    interface HTMLGtInputElement extends Components.GtInput, HTMLStencilElement {
+        addEventListener<K extends keyof HTMLGtInputElementEventMap>(type: K, listener: (this: HTMLGtInputElement, ev: GtInputCustomEvent<HTMLGtInputElementEventMap[K]>) => any, options?: boolean | AddEventListenerOptions): void;
+        addEventListener<K extends keyof DocumentEventMap>(type: K, listener: (this: Document, ev: DocumentEventMap[K]) => any, options?: boolean | AddEventListenerOptions): void;
+        addEventListener<K extends keyof HTMLElementEventMap>(type: K, listener: (this: HTMLElement, ev: HTMLElementEventMap[K]) => any, options?: boolean | AddEventListenerOptions): void;
+        addEventListener(type: string, listener: EventListenerOrEventListenerObject, options?: boolean | AddEventListenerOptions): void;
+        removeEventListener<K extends keyof HTMLGtInputElementEventMap>(type: K, listener: (this: HTMLGtInputElement, ev: GtInputCustomEvent<HTMLGtInputElementEventMap[K]>) => any, options?: boolean | EventListenerOptions): void;
+        removeEventListener<K extends keyof DocumentEventMap>(type: K, listener: (this: Document, ev: DocumentEventMap[K]) => any, options?: boolean | EventListenerOptions): void;
+        removeEventListener<K extends keyof HTMLElementEventMap>(type: K, listener: (this: HTMLElement, ev: HTMLElementEventMap[K]) => any, options?: boolean | EventListenerOptions): void;
+        removeEventListener(type: string, listener: EventListenerOrEventListenerObject, options?: boolean | EventListenerOptions): void;
+    }
+    var HTMLGtInputElement: {
+        prototype: HTMLGtInputElement;
+        new (): HTMLGtInputElement;
+    };
+    interface HTMLGtRadioElementEventMap {
+        "gt-change": GtRadioChangeDetail;
+    }
+    interface HTMLGtRadioElement extends Components.GtRadio, HTMLStencilElement {
+        addEventListener<K extends keyof HTMLGtRadioElementEventMap>(type: K, listener: (this: HTMLGtRadioElement, ev: GtRadioCustomEvent<HTMLGtRadioElementEventMap[K]>) => any, options?: boolean | AddEventListenerOptions): void;
+        addEventListener<K extends keyof DocumentEventMap>(type: K, listener: (this: Document, ev: DocumentEventMap[K]) => any, options?: boolean | AddEventListenerOptions): void;
+        addEventListener<K extends keyof HTMLElementEventMap>(type: K, listener: (this: HTMLElement, ev: HTMLElementEventMap[K]) => any, options?: boolean | AddEventListenerOptions): void;
+        addEventListener(type: string, listener: EventListenerOrEventListenerObject, options?: boolean | AddEventListenerOptions): void;
+        removeEventListener<K extends keyof HTMLGtRadioElementEventMap>(type: K, listener: (this: HTMLGtRadioElement, ev: GtRadioCustomEvent<HTMLGtRadioElementEventMap[K]>) => any, options?: boolean | EventListenerOptions): void;
+        removeEventListener<K extends keyof DocumentEventMap>(type: K, listener: (this: Document, ev: DocumentEventMap[K]) => any, options?: boolean | EventListenerOptions): void;
+        removeEventListener<K extends keyof HTMLElementEventMap>(type: K, listener: (this: HTMLElement, ev: HTMLElementEventMap[K]) => any, options?: boolean | EventListenerOptions): void;
+        removeEventListener(type: string, listener: EventListenerOrEventListenerObject, options?: boolean | EventListenerOptions): void;
+    }
+    var HTMLGtRadioElement: {
+        prototype: HTMLGtRadioElement;
+        new (): HTMLGtRadioElement;
+    };
+    interface HTMLGtStateCardElement extends Components.GtStateCard, HTMLStencilElement {
+    }
+    var HTMLGtStateCardElement: {
+        prototype: HTMLGtStateCardElement;
+        new (): HTMLGtStateCardElement;
+    };
+    interface HTMLGtSwitchElementEventMap {
+        "gt-change": GtSwitchChangeDetail;
+    }
+    interface HTMLGtSwitchElement extends Components.GtSwitch, HTMLStencilElement {
+        addEventListener<K extends keyof HTMLGtSwitchElementEventMap>(type: K, listener: (this: HTMLGtSwitchElement, ev: GtSwitchCustomEvent<HTMLGtSwitchElementEventMap[K]>) => any, options?: boolean | AddEventListenerOptions): void;
+        addEventListener<K extends keyof DocumentEventMap>(type: K, listener: (this: Document, ev: DocumentEventMap[K]) => any, options?: boolean | AddEventListenerOptions): void;
+        addEventListener<K extends keyof HTMLElementEventMap>(type: K, listener: (this: HTMLElement, ev: HTMLElementEventMap[K]) => any, options?: boolean | AddEventListenerOptions): void;
+        addEventListener(type: string, listener: EventListenerOrEventListenerObject, options?: boolean | AddEventListenerOptions): void;
+        removeEventListener<K extends keyof HTMLGtSwitchElementEventMap>(type: K, listener: (this: HTMLGtSwitchElement, ev: GtSwitchCustomEvent<HTMLGtSwitchElementEventMap[K]>) => any, options?: boolean | EventListenerOptions): void;
+        removeEventListener<K extends keyof DocumentEventMap>(type: K, listener: (this: Document, ev: DocumentEventMap[K]) => any, options?: boolean | EventListenerOptions): void;
+        removeEventListener<K extends keyof HTMLElementEventMap>(type: K, listener: (this: HTMLElement, ev: HTMLElementEventMap[K]) => any, options?: boolean | EventListenerOptions): void;
+        removeEventListener(type: string, listener: EventListenerOrEventListenerObject, options?: boolean | EventListenerOptions): void;
+    }
+    var HTMLGtSwitchElement: {
+        prototype: HTMLGtSwitchElement;
+        new (): HTMLGtSwitchElement;
+    };
+    interface HTMLGtTabsElementEventMap {
+        "gt-change": GtTabChangeDetail;
+    }
+    interface HTMLGtTabsElement extends Components.GtTabs, HTMLStencilElement {
+        addEventListener<K extends keyof HTMLGtTabsElementEventMap>(type: K, listener: (this: HTMLGtTabsElement, ev: GtTabsCustomEvent<HTMLGtTabsElementEventMap[K]>) => any, options?: boolean | AddEventListenerOptions): void;
+        addEventListener<K extends keyof DocumentEventMap>(type: K, listener: (this: Document, ev: DocumentEventMap[K]) => any, options?: boolean | AddEventListenerOptions): void;
+        addEventListener<K extends keyof HTMLElementEventMap>(type: K, listener: (this: HTMLElement, ev: HTMLElementEventMap[K]) => any, options?: boolean | AddEventListenerOptions): void;
+        addEventListener(type: string, listener: EventListenerOrEventListenerObject, options?: boolean | AddEventListenerOptions): void;
+        removeEventListener<K extends keyof HTMLGtTabsElementEventMap>(type: K, listener: (this: HTMLGtTabsElement, ev: GtTabsCustomEvent<HTMLGtTabsElementEventMap[K]>) => any, options?: boolean | EventListenerOptions): void;
+        removeEventListener<K extends keyof DocumentEventMap>(type: K, listener: (this: Document, ev: DocumentEventMap[K]) => any, options?: boolean | EventListenerOptions): void;
+        removeEventListener<K extends keyof HTMLElementEventMap>(type: K, listener: (this: HTMLElement, ev: HTMLElementEventMap[K]) => any, options?: boolean | EventListenerOptions): void;
+        removeEventListener(type: string, listener: EventListenerOrEventListenerObject, options?: boolean | EventListenerOptions): void;
+    }
+    var HTMLGtTabsElement: {
+        prototype: HTMLGtTabsElement;
+        new (): HTMLGtTabsElement;
+    };
+    interface HTMLGtTextareaElementEventMap {
+        "gt-input": GtValueChangeDetail1;
+        "gt-change": GtValueChangeDetail1;
+    }
+    interface HTMLGtTextareaElement extends Components.GtTextarea, HTMLStencilElement {
+        addEventListener<K extends keyof HTMLGtTextareaElementEventMap>(type: K, listener: (this: HTMLGtTextareaElement, ev: GtTextareaCustomEvent<HTMLGtTextareaElementEventMap[K]>) => any, options?: boolean | AddEventListenerOptions): void;
+        addEventListener<K extends keyof DocumentEventMap>(type: K, listener: (this: Document, ev: DocumentEventMap[K]) => any, options?: boolean | AddEventListenerOptions): void;
+        addEventListener<K extends keyof HTMLElementEventMap>(type: K, listener: (this: HTMLElement, ev: HTMLElementEventMap[K]) => any, options?: boolean | AddEventListenerOptions): void;
+        addEventListener(type: string, listener: EventListenerOrEventListenerObject, options?: boolean | AddEventListenerOptions): void;
+        removeEventListener<K extends keyof HTMLGtTextareaElementEventMap>(type: K, listener: (this: HTMLGtTextareaElement, ev: GtTextareaCustomEvent<HTMLGtTextareaElementEventMap[K]>) => any, options?: boolean | EventListenerOptions): void;
+        removeEventListener<K extends keyof DocumentEventMap>(type: K, listener: (this: Document, ev: DocumentEventMap[K]) => any, options?: boolean | EventListenerOptions): void;
+        removeEventListener<K extends keyof HTMLElementEventMap>(type: K, listener: (this: HTMLElement, ev: HTMLElementEventMap[K]) => any, options?: boolean | EventListenerOptions): void;
+        removeEventListener(type: string, listener: EventListenerOrEventListenerObject, options?: boolean | EventListenerOptions): void;
+    }
+    var HTMLGtTextareaElement: {
+        prototype: HTMLGtTextareaElement;
+        new (): HTMLGtTextareaElement;
+    };
+    interface HTMLGtTooltipElement extends Components.GtTooltip, HTMLStencilElement {
+    }
+    var HTMLGtTooltipElement: {
+        prototype: HTMLGtTooltipElement;
+        new (): HTMLGtTooltipElement;
+    };
     interface HTMLElementTagNameMap {
         "gt-button": HTMLGtButtonElement;
+        "gt-card": HTMLGtCardElement;
+        "gt-checkbox": HTMLGtCheckboxElement;
+        "gt-dialog": HTMLGtDialogElement;
+        "gt-drawer": HTMLGtDrawerElement;
+        "gt-empty-state": HTMLGtEmptyStateElement;
+        "gt-field": HTMLGtFieldElement;
+        "gt-icon-button": HTMLGtIconButtonElement;
+        "gt-input": HTMLGtInputElement;
+        "gt-radio": HTMLGtRadioElement;
+        "gt-state-card": HTMLGtStateCardElement;
+        "gt-switch": HTMLGtSwitchElement;
+        "gt-tabs": HTMLGtTabsElement;
+        "gt-textarea": HTMLGtTextareaElement;
+        "gt-tooltip": HTMLGtTooltipElement;
     }
 }
 declare namespace LocalJSX {
@@ -89,6 +675,348 @@ declare namespace LocalJSX {
          */
         "variant"?: 'primary' | 'secondary' | 'ghost' | 'danger';
     }
+    interface GtCard {
+        /**
+          * @default false
+         */
+        "hoverable"?: boolean;
+        /**
+          * @default false
+         */
+        "interactive"?: boolean;
+        /**
+          * @default 'md'
+         */
+        "padding"?: 'none' | 'sm' | 'md' | 'lg';
+        /**
+          * @default 'md'
+         */
+        "radius"?: 'none' | 'sm' | 'md' | 'lg';
+        /**
+          * @default 'default'
+         */
+        "variant"?: 'default' | 'muted' | 'elevated';
+    }
+    interface GtCheckbox {
+        /**
+          * @default false
+         */
+        "checked"?: boolean;
+        /**
+          * @default false
+         */
+        "disabled"?: boolean;
+        /**
+          * @default false
+         */
+        "indeterminate"?: boolean;
+        /**
+          * @default ''
+         */
+        "label"?: string;
+        /**
+          * @default ''
+         */
+        "name"?: string;
+        "onGt-change"?: (event: GtCheckboxCustomEvent<GtCheckedChangeDetail>) => void;
+        /**
+          * @default ''
+         */
+        "value"?: string;
+    }
+    interface GtDialog {
+        /**
+          * @default 'Dialog'
+         */
+        "ariaLabel"?: string;
+        /**
+          * @default true
+         */
+        "closeOnEsc"?: boolean;
+        /**
+          * @default true
+         */
+        "closeOnMask"?: boolean;
+        /**
+          * @default true
+         */
+        "modal"?: boolean;
+        "onGt-open-change"?: (event: GtDialogCustomEvent<GtOpenChangeDetail>) => void;
+        /**
+          * @default false
+         */
+        "open"?: boolean;
+        /**
+          * @default false
+         */
+        "persistent"?: boolean;
+    }
+    interface GtDrawer {
+        /**
+          * @default 'Drawer'
+         */
+        "ariaLabel"?: string;
+        /**
+          * @default true
+         */
+        "closeOnEsc"?: boolean;
+        /**
+          * @default true
+         */
+        "closeOnMask"?: boolean;
+        "onGt-open-change"?: (event: GtDrawerCustomEvent<GtOpenChangeDetail1>) => void;
+        /**
+          * @default false
+         */
+        "open"?: boolean;
+        /**
+          * @default true
+         */
+        "overlay"?: boolean;
+        /**
+          * @default false
+         */
+        "persistent"?: boolean;
+        /**
+          * @default 'right'
+         */
+        "position"?: 'left' | 'right';
+        /**
+          * @default '400px'
+         */
+        "width"?: string;
+    }
+    interface GtEmptyState {
+        /**
+          * @default false
+         */
+        "compact"?: boolean;
+        /**
+          * @default ''
+         */
+        "description"?: string;
+    }
+    interface GtField {
+        /**
+          * @default ''
+         */
+        "error"?: string;
+        /**
+          * @default ''
+         */
+        "hint"?: string;
+        /**
+          * @default ''
+         */
+        "htmlFor"?: string;
+        /**
+          * @default ''
+         */
+        "label"?: string;
+        /**
+          * @default 'vertical'
+         */
+        "layout"?: 'horizontal' | 'vertical';
+        /**
+          * @default false
+         */
+        "required"?: boolean;
+    }
+    interface GtIconButton {
+        /**
+          * @default false
+         */
+        "active"?: boolean;
+        /**
+          * @default ''
+         */
+        "ariaLabel"?: string;
+        /**
+          * @default false
+         */
+        "disabled"?: boolean;
+        /**
+          * @default ''
+         */
+        "label"?: string;
+        "onGt-click"?: (event: GtIconButtonCustomEvent<GtIconButtonClickDetail>) => void;
+        /**
+          * @default 'square'
+         */
+        "shape"?: 'square' | 'circle';
+        /**
+          * @default 'md'
+         */
+        "size"?: 'sm' | 'md' | 'lg';
+        /**
+          * @default 'button'
+         */
+        "type"?: 'button' | 'submit' | 'reset';
+        /**
+          * @default 'ghost'
+         */
+        "variant"?: 'primary' | 'secondary' | 'ghost' | 'danger';
+    }
+    interface GtInput {
+        /**
+          * @default false
+         */
+        "disabled"?: boolean;
+        "max"?: string;
+        "min"?: string;
+        "onGt-change"?: (event: GtInputCustomEvent<GtValueChangeDetail>) => void;
+        "onGt-input"?: (event: GtInputCustomEvent<GtValueChangeDetail>) => void;
+        /**
+          * @default ''
+         */
+        "placeholder"?: string;
+        /**
+          * @default false
+         */
+        "readOnly"?: boolean;
+        /**
+          * @default 'md'
+         */
+        "size"?: 'sm' | 'md' | 'lg';
+        /**
+          * @default '1'
+         */
+        "step"?: string;
+        /**
+          * @default 'text'
+         */
+        "type"?: string;
+        /**
+          * @default ''
+         */
+        "value"?: string;
+    }
+    interface GtRadio {
+        /**
+          * @default false
+         */
+        "checked"?: boolean;
+        /**
+          * @default false
+         */
+        "disabled"?: boolean;
+        /**
+          * @default ''
+         */
+        "label"?: string;
+        /**
+          * @default ''
+         */
+        "name"?: string;
+        "onGt-change"?: (event: GtRadioCustomEvent<GtRadioChangeDetail>) => void;
+        /**
+          * @default ''
+         */
+        "value"?: string;
+    }
+    interface GtStateCard {
+        /**
+          * @default false
+         */
+        "compact"?: boolean;
+        /**
+          * @default ''
+         */
+        "description"?: string;
+        /**
+          * @default 'info'
+         */
+        "state"?: 'loading' | 'empty' | 'error' | 'info';
+    }
+    interface GtSwitch {
+        /**
+          * @default ''
+         */
+        "ariaLabel"?: string;
+        /**
+          * @default false
+         */
+        "checked"?: boolean;
+        /**
+          * @default false
+         */
+        "disabled"?: boolean;
+        "onGt-change"?: (event: GtSwitchCustomEvent<GtSwitchChangeDetail>) => void;
+    }
+    interface GtTabs {
+        /**
+          * @default []
+         */
+        "items"?: GtTabItem[];
+        "onGt-change"?: (event: GtTabsCustomEvent<GtTabChangeDetail>) => void;
+        /**
+          * @default 'md'
+         */
+        "size"?: 'sm' | 'md' | 'lg';
+        /**
+          * @default false
+         */
+        "stretch"?: boolean;
+        /**
+          * @default ''
+         */
+        "value"?: string;
+        /**
+          * @default 'line'
+         */
+        "variant"?: 'line' | 'segmented';
+    }
+    interface GtTextarea {
+        /**
+          * @default false
+         */
+        "disabled"?: boolean;
+        "maxLength"?: number;
+        "onGt-change"?: (event: GtTextareaCustomEvent<GtValueChangeDetail1>) => void;
+        "onGt-input"?: (event: GtTextareaCustomEvent<GtValueChangeDetail1>) => void;
+        /**
+          * @default ''
+         */
+        "placeholder"?: string;
+        /**
+          * @default false
+         */
+        "readOnly"?: boolean;
+        /**
+          * @default 'vertical'
+         */
+        "resize"?: 'none' | 'both' | 'horizontal' | 'vertical';
+        /**
+          * @default 3
+         */
+        "rows"?: number;
+        /**
+          * @default ''
+         */
+        "value"?: string;
+    }
+    interface GtTooltip {
+        /**
+          * @default ''
+         */
+        "content"?: string;
+        /**
+          * @default 300
+         */
+        "delay"?: number;
+        /**
+          * @default false
+         */
+        "disabled"?: boolean;
+        /**
+          * @default false
+         */
+        "open"?: boolean;
+        /**
+          * @default 'top'
+         */
+        "placement"?: OverlayPlacement;
+    }
 
     interface GtButtonAttributes {
         "variant": 'primary' | 'secondary' | 'ghost' | 'danger';
@@ -98,9 +1026,128 @@ declare namespace LocalJSX {
         "block": boolean;
         "type": 'button' | 'submit' | 'reset';
     }
+    interface GtCardAttributes {
+        "variant": 'default' | 'muted' | 'elevated';
+        "padding": 'none' | 'sm' | 'md' | 'lg';
+        "radius": 'none' | 'sm' | 'md' | 'lg';
+        "hoverable": boolean;
+        "interactive": boolean;
+    }
+    interface GtCheckboxAttributes {
+        "checked": boolean;
+        "indeterminate": boolean;
+        "disabled": boolean;
+        "label": string;
+        "name": string;
+        "value": string;
+    }
+    interface GtDialogAttributes {
+        "open": boolean;
+        "modal": boolean;
+        "closeOnMask": boolean;
+        "closeOnEsc": boolean;
+        "persistent": boolean;
+        "ariaLabel": string;
+    }
+    interface GtDrawerAttributes {
+        "open": boolean;
+        "position": 'left' | 'right';
+        "width": string;
+        "overlay": boolean;
+        "closeOnMask": boolean;
+        "closeOnEsc": boolean;
+        "persistent": boolean;
+        "ariaLabel": string;
+    }
+    interface GtEmptyStateAttributes {
+        "description": string;
+        "compact": boolean;
+    }
+    interface GtFieldAttributes {
+        "label": string;
+        "hint": string;
+        "error": string;
+        "required": boolean;
+        "htmlFor": string;
+        "layout": 'horizontal' | 'vertical';
+    }
+    interface GtIconButtonAttributes {
+        "variant": 'primary' | 'secondary' | 'ghost' | 'danger';
+        "size": 'sm' | 'md' | 'lg';
+        "shape": 'square' | 'circle';
+        "disabled": boolean;
+        "active": boolean;
+        "label": string;
+        "ariaLabel": string;
+        "type": 'button' | 'submit' | 'reset';
+    }
+    interface GtInputAttributes {
+        "value": string;
+        "type": string;
+        "placeholder": string;
+        "disabled": boolean;
+        "readOnly": boolean;
+        "size": 'sm' | 'md' | 'lg';
+        "min": string;
+        "max": string;
+        "step": string;
+    }
+    interface GtRadioAttributes {
+        "checked": boolean;
+        "disabled": boolean;
+        "label": string;
+        "name": string;
+        "value": string;
+    }
+    interface GtStateCardAttributes {
+        "state": 'loading' | 'empty' | 'error' | 'info';
+        "description": string;
+        "compact": boolean;
+    }
+    interface GtSwitchAttributes {
+        "checked": boolean;
+        "disabled": boolean;
+        "ariaLabel": string;
+    }
+    interface GtTabsAttributes {
+        "value": string;
+        "variant": 'line' | 'segmented';
+        "size": 'sm' | 'md' | 'lg';
+        "stretch": boolean;
+    }
+    interface GtTextareaAttributes {
+        "value": string;
+        "placeholder": string;
+        "disabled": boolean;
+        "readOnly": boolean;
+        "rows": number;
+        "maxLength": number;
+        "resize": 'none' | 'both' | 'horizontal' | 'vertical';
+    }
+    interface GtTooltipAttributes {
+        "open": boolean;
+        "content": string;
+        "placement": OverlayPlacement;
+        "delay": number;
+        "disabled": boolean;
+    }
 
     interface IntrinsicElements {
         "gt-button": Omit<GtButton, keyof GtButtonAttributes> & { [K in keyof GtButton & keyof GtButtonAttributes]?: GtButton[K] } & { [K in keyof GtButton & keyof GtButtonAttributes as `attr:${K}`]?: GtButtonAttributes[K] } & { [K in keyof GtButton & keyof GtButtonAttributes as `prop:${K}`]?: GtButton[K] };
+        "gt-card": Omit<GtCard, keyof GtCardAttributes> & { [K in keyof GtCard & keyof GtCardAttributes]?: GtCard[K] } & { [K in keyof GtCard & keyof GtCardAttributes as `attr:${K}`]?: GtCardAttributes[K] } & { [K in keyof GtCard & keyof GtCardAttributes as `prop:${K}`]?: GtCard[K] };
+        "gt-checkbox": Omit<GtCheckbox, keyof GtCheckboxAttributes> & { [K in keyof GtCheckbox & keyof GtCheckboxAttributes]?: GtCheckbox[K] } & { [K in keyof GtCheckbox & keyof GtCheckboxAttributes as `attr:${K}`]?: GtCheckboxAttributes[K] } & { [K in keyof GtCheckbox & keyof GtCheckboxAttributes as `prop:${K}`]?: GtCheckbox[K] };
+        "gt-dialog": Omit<GtDialog, keyof GtDialogAttributes> & { [K in keyof GtDialog & keyof GtDialogAttributes]?: GtDialog[K] } & { [K in keyof GtDialog & keyof GtDialogAttributes as `attr:${K}`]?: GtDialogAttributes[K] } & { [K in keyof GtDialog & keyof GtDialogAttributes as `prop:${K}`]?: GtDialog[K] };
+        "gt-drawer": Omit<GtDrawer, keyof GtDrawerAttributes> & { [K in keyof GtDrawer & keyof GtDrawerAttributes]?: GtDrawer[K] } & { [K in keyof GtDrawer & keyof GtDrawerAttributes as `attr:${K}`]?: GtDrawerAttributes[K] } & { [K in keyof GtDrawer & keyof GtDrawerAttributes as `prop:${K}`]?: GtDrawer[K] };
+        "gt-empty-state": Omit<GtEmptyState, keyof GtEmptyStateAttributes> & { [K in keyof GtEmptyState & keyof GtEmptyStateAttributes]?: GtEmptyState[K] } & { [K in keyof GtEmptyState & keyof GtEmptyStateAttributes as `attr:${K}`]?: GtEmptyStateAttributes[K] } & { [K in keyof GtEmptyState & keyof GtEmptyStateAttributes as `prop:${K}`]?: GtEmptyState[K] };
+        "gt-field": Omit<GtField, keyof GtFieldAttributes> & { [K in keyof GtField & keyof GtFieldAttributes]?: GtField[K] } & { [K in keyof GtField & keyof GtFieldAttributes as `attr:${K}`]?: GtFieldAttributes[K] } & { [K in keyof GtField & keyof GtFieldAttributes as `prop:${K}`]?: GtField[K] };
+        "gt-icon-button": Omit<GtIconButton, keyof GtIconButtonAttributes> & { [K in keyof GtIconButton & keyof GtIconButtonAttributes]?: GtIconButton[K] } & { [K in keyof GtIconButton & keyof GtIconButtonAttributes as `attr:${K}`]?: GtIconButtonAttributes[K] } & { [K in keyof GtIconButton & keyof GtIconButtonAttributes as `prop:${K}`]?: GtIconButton[K] };
+        "gt-input": Omit<GtInput, keyof GtInputAttributes> & { [K in keyof GtInput & keyof GtInputAttributes]?: GtInput[K] } & { [K in keyof GtInput & keyof GtInputAttributes as `attr:${K}`]?: GtInputAttributes[K] } & { [K in keyof GtInput & keyof GtInputAttributes as `prop:${K}`]?: GtInput[K] };
+        "gt-radio": Omit<GtRadio, keyof GtRadioAttributes> & { [K in keyof GtRadio & keyof GtRadioAttributes]?: GtRadio[K] } & { [K in keyof GtRadio & keyof GtRadioAttributes as `attr:${K}`]?: GtRadioAttributes[K] } & { [K in keyof GtRadio & keyof GtRadioAttributes as `prop:${K}`]?: GtRadio[K] };
+        "gt-state-card": Omit<GtStateCard, keyof GtStateCardAttributes> & { [K in keyof GtStateCard & keyof GtStateCardAttributes]?: GtStateCard[K] } & { [K in keyof GtStateCard & keyof GtStateCardAttributes as `attr:${K}`]?: GtStateCardAttributes[K] } & { [K in keyof GtStateCard & keyof GtStateCardAttributes as `prop:${K}`]?: GtStateCard[K] };
+        "gt-switch": Omit<GtSwitch, keyof GtSwitchAttributes> & { [K in keyof GtSwitch & keyof GtSwitchAttributes]?: GtSwitch[K] } & { [K in keyof GtSwitch & keyof GtSwitchAttributes as `attr:${K}`]?: GtSwitchAttributes[K] } & { [K in keyof GtSwitch & keyof GtSwitchAttributes as `prop:${K}`]?: GtSwitch[K] };
+        "gt-tabs": Omit<GtTabs, keyof GtTabsAttributes> & { [K in keyof GtTabs & keyof GtTabsAttributes]?: GtTabs[K] } & { [K in keyof GtTabs & keyof GtTabsAttributes as `attr:${K}`]?: GtTabsAttributes[K] } & { [K in keyof GtTabs & keyof GtTabsAttributes as `prop:${K}`]?: GtTabs[K] };
+        "gt-textarea": Omit<GtTextarea, keyof GtTextareaAttributes> & { [K in keyof GtTextarea & keyof GtTextareaAttributes]?: GtTextarea[K] } & { [K in keyof GtTextarea & keyof GtTextareaAttributes as `attr:${K}`]?: GtTextareaAttributes[K] } & { [K in keyof GtTextarea & keyof GtTextareaAttributes as `prop:${K}`]?: GtTextarea[K] };
+        "gt-tooltip": Omit<GtTooltip, keyof GtTooltipAttributes> & { [K in keyof GtTooltip & keyof GtTooltipAttributes]?: GtTooltip[K] } & { [K in keyof GtTooltip & keyof GtTooltipAttributes as `attr:${K}`]?: GtTooltipAttributes[K] } & { [K in keyof GtTooltip & keyof GtTooltipAttributes as `prop:${K}`]?: GtTooltip[K] };
     }
 }
 export { LocalJSX as JSX };
@@ -108,6 +1155,20 @@ declare module "@stencil/core" {
     export namespace JSX {
         interface IntrinsicElements {
             "gt-button": LocalJSX.IntrinsicElements["gt-button"] & JSXBase.HTMLAttributes<HTMLGtButtonElement>;
+            "gt-card": LocalJSX.IntrinsicElements["gt-card"] & JSXBase.HTMLAttributes<HTMLGtCardElement>;
+            "gt-checkbox": LocalJSX.IntrinsicElements["gt-checkbox"] & JSXBase.HTMLAttributes<HTMLGtCheckboxElement>;
+            "gt-dialog": LocalJSX.IntrinsicElements["gt-dialog"] & JSXBase.HTMLAttributes<HTMLGtDialogElement>;
+            "gt-drawer": LocalJSX.IntrinsicElements["gt-drawer"] & JSXBase.HTMLAttributes<HTMLGtDrawerElement>;
+            "gt-empty-state": LocalJSX.IntrinsicElements["gt-empty-state"] & JSXBase.HTMLAttributes<HTMLGtEmptyStateElement>;
+            "gt-field": LocalJSX.IntrinsicElements["gt-field"] & JSXBase.HTMLAttributes<HTMLGtFieldElement>;
+            "gt-icon-button": LocalJSX.IntrinsicElements["gt-icon-button"] & JSXBase.HTMLAttributes<HTMLGtIconButtonElement>;
+            "gt-input": LocalJSX.IntrinsicElements["gt-input"] & JSXBase.HTMLAttributes<HTMLGtInputElement>;
+            "gt-radio": LocalJSX.IntrinsicElements["gt-radio"] & JSXBase.HTMLAttributes<HTMLGtRadioElement>;
+            "gt-state-card": LocalJSX.IntrinsicElements["gt-state-card"] & JSXBase.HTMLAttributes<HTMLGtStateCardElement>;
+            "gt-switch": LocalJSX.IntrinsicElements["gt-switch"] & JSXBase.HTMLAttributes<HTMLGtSwitchElement>;
+            "gt-tabs": LocalJSX.IntrinsicElements["gt-tabs"] & JSXBase.HTMLAttributes<HTMLGtTabsElement>;
+            "gt-textarea": LocalJSX.IntrinsicElements["gt-textarea"] & JSXBase.HTMLAttributes<HTMLGtTextareaElement>;
+            "gt-tooltip": LocalJSX.IntrinsicElements["gt-tooltip"] & JSXBase.HTMLAttributes<HTMLGtTooltipElement>;
         }
     }
 }

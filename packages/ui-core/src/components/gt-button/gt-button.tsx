@@ -14,7 +14,7 @@ export class GtButton {
   @Prop({ reflect: true }) disabled = false;
   @Prop({ reflect: true }) active = false;
   @Prop({ reflect: true }) block = false;
-  @Prop() type: 'button' | 'submit' | 'reset' = 'button';
+  @Prop({ reflect: true }) type: 'button' | 'submit' | 'reset' = 'button';
 
   @Event({ eventName: 'gt-click', bubbles: true, composed: true }) click!: EventEmitter<GtButtonClickDetail>;
 
