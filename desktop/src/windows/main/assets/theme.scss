@@ -3,21 +3,33 @@
   --primary-rgb: 102 204 255;
   --background-color: #f7fbff;
 
-  --ui-text-primary: rgba(30, 70, 90, 0.9);
+  --gt-color-background: #f7fbff;
+  --gt-color-surface: #ffffff;
+  --gt-color-surface-muted: #f7fafe;
+  --gt-color-text: rgba(30, 70, 90, 0.9);
+  --gt-color-text-muted: rgba(30, 70, 90, 0.65);
+  --gt-color-text-subtle: rgba(30, 70, 90, 0.48);
+  --gt-color-primary: #5c9ded;
+  --gt-color-primary-hover: #4f90e1;
+  --gt-color-border: rgba(15, 23, 42, 0.08);
+  --gt-color-danger: #dc2626;
+  --gt-color-overlay: rgba(15, 23, 42, 0.08);
+
+  --ui-text-primary: var(--gt-color-text);
   --ui-text-secondary: rgba(30, 70, 90, 0.72);
   --ui-text-tertiary: rgba(30, 70, 90, 0.56);
-  --ui-text-muted: rgba(30, 70, 90, 0.65);
-  --ui-text-subtle: rgba(30, 70, 90, 0.48);
+  --ui-text-muted: var(--gt-color-text-muted);
+  --ui-text-subtle: var(--gt-color-text-subtle);
   --ui-text-quaternary: rgba(30, 70, 90, 0.28);
   --ui-text-inverse: #ffffff;
 
-  --ui-surface-base: #ffffff;
-  --ui-surface-base-muted: #f7fafe;
-  --ui-surface-panel: #ffffff;
-  --ui-surface-panel-muted: #f7fafe;
+  --ui-surface-base: var(--gt-color-surface);
+  --ui-surface-base-muted: var(--gt-color-surface-muted);
+  --ui-surface-panel: var(--gt-color-surface);
+  --ui-surface-panel-muted: var(--gt-color-surface-muted);
   --ui-surface-glass: rgba(255, 255, 255, 0.72);
   --ui-surface-glass-strong: rgba(255, 255, 255, 0.9);
-  --ui-surface-overlay: rgba(15, 23, 42, 0.08);
+  --ui-surface-overlay: var(--gt-color-overlay);
 
   --todo-app-bg: var(--background-color);
   --todo-panel-bg: rgba(255, 255, 255, 0.65);
@@ -32,7 +44,7 @@
   --todo-warning-border: rgba(245, 158, 11, 0.15);
   --todo-popup-shadow: 0 8px 24px rgba(0, 0, 0, 0.1), 0 2px 8px rgba(0, 0, 0, 0.06);
 
-  --ui-border-subtle: rgba(15, 23, 42, 0.08);
+  --ui-border-subtle: var(--gt-color-border);
   --ui-border-accent: rgba(102, 204, 255, 0.4);
   --ui-border-accent-soft: rgba(102, 204, 255, 0.25);
 
@@ -53,8 +65,8 @@
   --ui-card-shadow: var(--ui-panel-shadow);
   --ui-card-shadow-hover: var(--ui-panel-shadow-hover);
 
-  --ui-button-primary-bg: #5c9ded;
-  --ui-button-primary-hover-bg: #4f90e1;
+  --ui-button-primary-bg: var(--gt-color-primary);
+  --ui-button-primary-hover-bg: var(--gt-color-primary-hover);
   --ui-button-primary-text: var(--ui-text-inverse);
   --ui-button-primary-border: rgba(92, 157, 237, 0.48);
   --ui-button-primary-shadow: 0 6px 14px rgba(92, 157, 237, 0.18);
@@ -271,21 +283,33 @@
   --primary-rgb: 102 204 255;
   --background-color: #101821;
 
-  --ui-text-primary: rgba(220, 240, 255, 0.92);
+  --gt-color-background: #101923;
+  --gt-color-surface: #182532;
+  --gt-color-surface-muted: #14202b;
+  --gt-color-text: rgba(220, 240, 255, 0.92);
+  --gt-color-text-muted: rgba(220, 240, 255, 0.65);
+  --gt-color-text-subtle: rgba(220, 240, 255, 0.46);
+  --gt-color-primary: #3f8fca;
+  --gt-color-primary-hover: #4c9bd6;
+  --gt-color-border: rgba(255, 255, 255, 0.08);
+  --gt-color-danger: #ff9c9c;
+  --gt-color-overlay: rgba(0, 0, 0, 0.28);
+
+  --ui-text-primary: var(--gt-color-text);
   --ui-text-secondary: rgba(220, 240, 255, 0.74);
   --ui-text-tertiary: rgba(220, 240, 255, 0.54);
-  --ui-text-muted: rgba(220, 240, 255, 0.65);
-  --ui-text-subtle: rgba(220, 240, 255, 0.46);
+  --ui-text-muted: var(--gt-color-text-muted);
+  --ui-text-subtle: var(--gt-color-text-subtle);
   --ui-text-quaternary: rgba(220, 240, 255, 0.26);
   --ui-text-inverse: #f5fbff;
 
-  --ui-surface-base: #16222d;
-  --ui-surface-base-muted: #1a2834;
-  --ui-surface-panel: #16222d;
-  --ui-surface-panel-muted: #1a2834;
+  --ui-surface-base: var(--gt-color-surface);
+  --ui-surface-base-muted: var(--gt-color-surface-muted);
+  --ui-surface-panel: var(--gt-color-surface);
+  --ui-surface-panel-muted: var(--gt-color-surface-muted);
   --ui-surface-glass: rgba(17, 24, 39, 0.72);
   --ui-surface-glass-strong: rgba(20, 35, 45, 0.9);
-  --ui-surface-overlay: rgba(255, 255, 255, 0.08);
+  --ui-surface-overlay: var(--gt-color-overlay);
 
   --todo-app-bg: var(--background-color);
   --todo-panel-bg: rgba(20, 35, 45, 0.72);
@@ -300,7 +324,7 @@
   --todo-warning-border: rgba(245, 158, 11, 0.24);
   --todo-popup-shadow: 0 8px 24px rgba(0, 0, 0, 0.36), 0 2px 8px rgba(0, 0, 0, 0.22);
 
-  --ui-border-subtle: rgba(255, 255, 255, 0.08);
+  --ui-border-subtle: var(--gt-color-border);
   --ui-border-accent: rgba(102, 204, 255, 0.2);
   --ui-border-accent-soft: rgba(102, 204, 255, 0.2);
 
@@ -321,8 +345,8 @@
   --ui-card-shadow: var(--ui-panel-shadow);
   --ui-card-shadow-hover: var(--ui-panel-shadow-hover);
 
-  --ui-button-primary-bg: #3f8fca;
-  --ui-button-primary-hover-bg: #4c9bd6;
+  --ui-button-primary-bg: var(--gt-color-primary);
+  --ui-button-primary-hover-bg: var(--gt-color-primary-hover);
   --ui-button-primary-text: var(--ui-text-inverse);
   --ui-button-primary-border: rgba(102, 204, 255, 0.28);
   --ui-button-primary-shadow: 0 6px 14px rgba(0, 0, 0, 0.2);

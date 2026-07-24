@@ -321,6 +321,7 @@ onBeforeUnmount(() => {
 </template>
 
 <style lang="scss">
+@import '@guyantools/ui-core/tokens.css';
 @use './assets/foundation.scss';
 @use './assets/theme.scss';
 @use './assets/patterns.scss';

@@ -53,7 +53,7 @@
 - Create: `packages/ui-core/tests/tokens.test.ts`
 - Modify: `desktop/package.json`, `desktop/src/windows/main/assets/theme.scss`, `desktop/src/windows/main/App.vue`, `pnpm-lock.yaml`
 
-- [ ] **Step 1: Write the failing core token contract test.**
+- [x] **Step 1: Write the failing core token contract test.**
 
 Create `packages/ui-core/tests/tokens.test.ts` and assert the yet-to-exist file exports semantic tokens in both themes:
 
@@ -66,13 +66,13 @@ expect(tokens).toContain('--gt-z-overlay');
 expect(tokens).toContain(':root[data-theme="dark"]');
 ```
 
-- [ ] **Step 2: Run the token test and verify it fails.**
+- [x] **Step 2: Run the token test and verify it fails.**
 
 Run: `pnpm --dir packages/ui-core exec vitest run tests/tokens.test.ts`
 
 Expected: FAIL because `packages/ui-core` and `tokens.css` do not exist.
 
-- [ ] **Step 3: Create the core package and canonical tokens.**
+- [x] **Step 3: Create the core package and canonical tokens.**
 
 Create an ES-module package named `@guyantools/ui-core` with exports for `.`, `./tokens.css`, `./vue`, and `./react`. Define scripts `build: vite build && tsc --emitDeclarationOnly --outDir dist && node scripts/copy-tokens.mjs`, `typecheck: tsc --noEmit`, and `test: vitest run`. Port the existing plugin token values into `tokens.css`; add semantic spacing, z-index, motion and overlay tokens. Define both `:root` and `:root[data-theme="dark"]`, without importing desktop SCSS.
 
@@ -91,7 +91,7 @@ Create `theme.scss` mappings in this direction:
 
 Repeat the mapping in `.dark`. Import `@guyantools/ui-core/tokens.css` once in `App.vue` before `theme.scss`.
 
-- [ ] **Step 4: Install package metadata and make the token test pass.**
+- [x] **Step 4: Install package metadata and make the token test pass.**
 
 Run:
 
@@ -103,7 +103,7 @@ pnpm --dir packages/ui-core run build
 
 Expected: test PASS; `packages/ui-core/dist/tokens.css` and declaration files exist.
 
-- [ ] **Step 5: Commit the package boundary.**
+- [x] **Step 5: Commit the package boundary.**
 
 ```powershell
 git add packages/ui-core desktop/package.json desktop/src/windows/main/assets/theme.scss desktop/src/windows/main/App.vue pnpm-lock.yaml
