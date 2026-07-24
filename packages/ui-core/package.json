@@ -11,27 +11,35 @@
       "import": "./dist/index.js"
     },
     "./tokens.css": "./dist/tokens.css",
-    "./vue": {
-      "types": "./dist/vue.d.ts",
-      "import": "./dist/vue.js"
+    "./loader": {
+      "types": "./dist/loader.d.ts",
+      "import": "./dist/loader.js"
     },
-    "./react": {
-      "types": "./dist/react.d.ts",
-      "import": "./dist/react.js"
+    "./components/*": {
+      "types": "./dist/custom-elements/*.d.ts",
+      "import": "./dist/custom-elements/*.js"
+    },
+    "./dist/custom-elements/*": {
+      "types": "./dist/custom-elements/*.d.ts",
+      "import": "./dist/custom-elements/*.js"
     }
   },
-  "files": ["dist"],
+  "files": [
+    "dist"
+  ],
   "scripts": {
-    "build": "vite build && tsc --emitDeclarationOnly --outDir dist && node scripts/copy-tokens.mjs",
-    "typecheck": "tsc --noEmit",
-    "test": "vitest run"
+    "build": "stencil build && node scripts/copy-tokens.mjs && node scripts/create-entry.mjs",
+    "typecheck": "stencil build --no-build",
+    "test": "stencil-test --project spec"
   },
   "devDependencies": {
+    "@stencil/core": "^4.43.5",
+    "@stencil/react-output-target": "^1.6.1",
+    "@stencil/vitest": "^1.14.0",
+    "@stencil/vue-output-target": "^0.14.1",
     "@types/node": "^24.1.0",
     "@types/react": "^19.1.8",
-    "jsdom": "^26.1.0",
     "typescript": "^5.8.3",
-    "vite": "^7.0.4",
     "vitest": "^4.1.10"
   }
 }

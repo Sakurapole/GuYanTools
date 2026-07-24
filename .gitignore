@@ -66,6 +66,7 @@ desktop/output/
 desktop/**/*.asar
 desktop/**/*.asar.unpacked/
 packages/*/dist/
+packages/ui-core/loader/
 desktop/src/main/plugin-host/fixtures/*/dist/
 
 # Native Node / Rust artifacts

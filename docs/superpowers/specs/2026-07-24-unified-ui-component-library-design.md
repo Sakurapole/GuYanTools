@@ -38,7 +38,7 @@ legacy Vue adapters          (core / Vue / React entrypoints)
 - `dist/custom-elements/`：按需注册的 `gt-*` Stencil Custom Elements 与 TypeScript DOM 类型。
 - `dist/loader/` 与 `defineCustomElements()`：插件可显式、幂等地注册完整组件集。
 - 组件 metadata、属性、方法、`gt-*` 事件类型和 Stencil 自动生成的自定义元素声明。
-- `@stencil/vue-output-target` 与 `@stencil/react-output-target` 生成的适配产物；Vue 产物供 `@guyantools/ui-vue` 使用，React 产物作为 core 的 `./react` 入口发布。
+- `@stencil/vue-output-target` 生成的 Vue proxy，供 `@guyantools/ui-vue` 使用；`@stencil/react-output-target` 生成的 React proxy 进入 `@guyantools/plugin-ui` 的 `./react` 入口发布。core 本身不携带 React 运行时依赖。
 
 每个元素使用 Shadow DOM（确有 light DOM slot 互操作要求时明确标记例外），继承 `--gt-*` token。所有可交互控件必须具备原生语义、键盘操作、禁用态和 `:focus-visible` 焦点环。Stencil 组件不访问宿主 preload、IPC 或插件 runtime。
 
@@ -56,7 +56,7 @@ legacy Vue adapters          (core / Vue / React entrypoints)
 
 ### `@guyantools/plugin-ui`
 
-该包保留为插件兼容包，转发 Stencil core 的 loader、Custom Elements、token、Vue 注册函数和 React 适配入口。现有插件继续使用 `@guyantools/plugin-ui`，新插件也可直接使用 `@guyantools/ui-core`。它不依赖 `@guyantools/ui-vue`，也不会把桌面专属兼容 wrapper 发布给第三方插件。
+该包保留为插件兼容包，转发 Stencil core 的 loader、Custom Elements、token、Vue 注册函数和由 Stencil 生成的 React 适配入口。现有插件继续使用 `@guyantools/plugin-ui`，新插件也可直接使用 `@guyantools/ui-core` 的 Custom Element 入口。它不依赖 `@guyantools/ui-vue`，也不会把桌面专属兼容 wrapper 发布给第三方插件。
 
 ## Token 策略
 
@@ -106,7 +106,7 @@ Stencil core 负责 DOM 级 overlay、无障碍和清理；Vue adapter 负责主
 
 ## 验收与测试
 
-- `ui-core`：用 `stencil test --spec` 验证生成组件的注册、属性/属性值反射、键盘与鼠标事件、禁用态、ARIA 状态、token 存在和 dark/light 选择器；构建后验证 `dist/custom-elements`、loader、Vue/React 适配产物和类型输出。
+- `ui-core`：用 `@stencil/vitest` 验证生成组件的注册、属性/属性值反射、键盘与鼠标事件、禁用态、ARIA 状态、token 存在和 dark/light 选择器；构建后验证 `dist/custom-elements`、loader、Vue/React 适配产物和类型输出。
 - `ui-vue`：在 Vue 测试环境下验证 Stencil proxy 注册、legacy `v-model`、slots、事件转发、Teleport、焦点恢复、Esc/backdrop 关闭和卸载清理。
 - `plugin-ui`：验证所有旧导入路径、Vue 注册函数、React JSX 类型和现有插件 fixture 构建仍然可用。
 - `desktop`：对迁移组件运行目标页面测试、renderer typecheck、app build；使用可重复的截图或 DOM 审查验证 light/dark 两种主题。
