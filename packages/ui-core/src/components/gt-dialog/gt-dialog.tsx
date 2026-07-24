@@ -53,6 +53,8 @@ export class GtDialog {
     });
     const panel = this.portal.element.querySelector<HTMLElement>('.panel');
     panel?.setAttribute('aria-label', this.ariaLabel);
+    const labelledBy = this.host.getAttribute('aria-labelledby');
+    if (labelledBy) panel?.setAttribute('aria-labelledby', labelledBy);
     queueMicrotask(() => panel?.focus());
   }
 

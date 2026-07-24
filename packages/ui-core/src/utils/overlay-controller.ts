@@ -68,8 +68,16 @@ export class OverlayPortal {
     footer.setAttribute('part', 'footer');
     panel.append(header, body, footer);
 
-    if (typeof content === 'string') body.textContent = content;
-    else body.append(content);
+    if (typeof content === 'string') {
+      body.textContent = content;
+    } else {
+      for (const node of Array.from(content.childNodes)) {
+        const slot = node instanceof HTMLElement ? node.getAttribute('slot') : null;
+        if (slot === 'header') header.append(node);
+        else if (slot === 'footer') footer.append(node);
+        else body.append(node);
+      }
+    }
 
     this.copyVariables();
     if (typeof MutationObserver !== 'undefined') {

@@ -50,6 +50,8 @@ export class GtDrawer {
     const panel = this.portal.element.querySelector<HTMLElement>('.panel');
     if (panel) {
       panel.setAttribute('aria-label', this.ariaLabel);
+      const labelledBy = this.host.getAttribute('aria-labelledby');
+      if (labelledBy) panel.setAttribute('aria-labelledby', labelledBy);
       this.portal.element.style.setProperty('--gt-drawer-width', this.width);
       panel.dataset.position = this.position;
       if (!this.overlay) this.portal.element.querySelector<HTMLElement>('[data-overlay-mask]')?.remove();
