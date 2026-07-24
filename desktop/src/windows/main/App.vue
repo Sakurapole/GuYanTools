@@ -7,7 +7,7 @@ import bottombar from './components/bottombar/bottombar.vue';
 import ConfirmDialog from './components/ui/ConfirmDialog.vue';
 import GlobalContextMenu from './components/ui/GlobalContextMenu.vue';
 import ScreenshotCapturePanel from './components/screenshot/ScreenshotCapturePanel.vue';
-import UiIconButton from './components/ui/UiIconButton.vue';
+import { UiIconButton } from '@guyantools/ui-vue';
 import TextPromptDialog from './components/ui/TextPromptDialog.vue';
 import Sidebar from './components/sidebar/sidebar.vue';
 import Topbar from './components/topbar/topbar.vue';
@@ -321,13 +321,13 @@ onBeforeUnmount(() => {
 </template>
 
 <style lang="scss">
-@import '@guyantools/ui-core/tokens.css';
 @use './assets/foundation.scss';
 @use './assets/theme.scss';
 @use './assets/patterns.scss';
 @use './assets/motion.scss';
 @use './assets/tooltip.scss';
 @use './assets/app.scss';
+@import '@guyantools/ui-core/tokens.css';
 
 .logo {
   height: 6em;

@@ -21,7 +21,7 @@ export default defineConfig({
     vue({
       template: {
         compilerOptions: {
-          isCustomElement: (tag) => tag === 'webview',
+          isCustomElement: (tag) => tag === 'webview' || tag.startsWith('gt-'),
         },
       },
     }),
@@ -74,5 +74,8 @@ export default defineConfig({
         tray_menu: path.resolve(__dirname, 'tray_menu.html'),
       }
     }
-  }
+  },
+  test: {
+    environment: 'jsdom',
+  },
 });

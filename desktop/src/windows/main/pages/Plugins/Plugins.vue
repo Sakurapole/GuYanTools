@@ -13,8 +13,7 @@ import type {
   PluginDevSession,
 } from '@/contracts/plugin_host';
 import type { JobRecord } from '@/contracts/plugin_media';
-import UiButton from '../../components/ui/UiButton.vue';
-import UiInput from '../../components/ui/UiInput.vue';
+import { UiButton, UiInput } from '@guyantools/ui-vue';
 import { notifyError } from '../../composables/useInAppNotification';
 import PluginPermissionDialog from './PluginPermissionDialog.vue';
 import PluginJobPanel from './PluginJobPanel.vue';

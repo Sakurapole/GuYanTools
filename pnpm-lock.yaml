@@ -101,6 +101,9 @@ importers:
       '@guyantools/ui-core':
         specifier: workspace:*
         version: link:../packages/ui-core
+      '@guyantools/ui-vue':
+        specifier: workspace:*
+        version: link:../packages/ui-vue
       '@lezer/highlight':
         specifier: ^1.2.3
         version: 1.2.3

@@ -6,7 +6,9 @@ export default defineConfig({
   plugins: [vue({ template: { compilerOptions: { isCustomElement: tag => tag.startsWith('gt-') } } })],
   build: {
     lib: { entry: path.resolve('src/index.ts'), formats: ['es'], fileName: 'index' },
-    rollupOptions: { external: ['vue', '@guyantools/ui-core'] },
+    rollupOptions: {
+      external: (id) => id === 'vue' || id === '@guyantools/ui-core' || id.startsWith('@guyantools/ui-core/'),
+    },
     outDir: 'dist',
     emptyOutDir: true,
   },
