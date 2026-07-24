@@ -240,7 +240,7 @@ git commit -m "feat(ui): add core form elements"
 - Modify: `packages/ui-core/src/register.ts`, `index.ts`, `react.ts`
 - Test: `packages/ui-core/tests/overlay.test.ts`
 
-- [ ] **Step 1: Write failing overlay tests.**
+- [x] **Step 1: Write failing overlay tests.**
 
 Test opening/closing and cleanup independently of Vue:
 
@@ -254,13 +254,13 @@ expect(document.body.querySelector('[data-gt-overlay="dialog"]')).toBeNull();
 
 Add a tooltip placement test with mocked trigger and viewport rectangles. Assert a right placement flips to left when it would overflow, and that `disconnectedCallback` removes scroll/resize listeners.
 
-- [ ] **Step 2: Run the overlay test and verify failure.**
+- [x] **Step 2: Run the overlay test and verify failure.**
 
 Run: `pnpm --dir packages/ui-core exec vitest run tests/overlay.test.ts`
 
 Expected: FAIL because overlay elements and their body-level portal do not exist.
 
-- [ ] **Step 3: Implement the shared overlay primitive.**
+- [x] **Step 3: Implement the shared overlay primitive.**
 
 Create a framework-free controller that appends the overlay container to `document.body`, uses fixed positioning, subscribes to capture-phase scroll plus resize, and returns a cleanup function. Implement:
 
@@ -271,7 +271,7 @@ export interface OpenChangeDetail { open: boolean; reason: OverlayCloseReason; }
 
 `gt-dialog` traps Tab focus while open, restores the trigger focus on close, sets `role="dialog"`/`aria-modal="true"`, and honours `close-on-mask`, `close-on-esc`, and `persistent`. `gt-drawer` shares that behavior with `position="left|right"`; `gt-tooltip` renders `role="tooltip"`, waits for `delay`, and never captures focus.
 
-- [ ] **Step 4: Verify overlays and full core tests.**
+- [x] **Step 4: Verify overlays and full core tests.**
 
 Run:
 
@@ -282,7 +282,7 @@ pnpm --dir packages/ui-core run build
 
 Expected: all core tests PASS and no overlay remains in `document.body` after test cleanup.
 
-- [ ] **Step 5: Commit the overlay primitive.**
+- [x] **Step 5: Commit the overlay primitive.**
 
 ```powershell
 git add packages/ui-core

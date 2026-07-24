@@ -1,6 +1,7 @@
 import { GuYanButtonElement } from './elements/gt-button';
 import { GuYanCardElement } from './elements/gt-card';
 import { GuYanCheckboxElement } from './elements/gt-checkbox';
+import { GuYanDialogElement } from './elements/gt-dialog';
 import { GuYanEmptyStateElement } from './elements/gt-empty-state';
 import { GuYanFieldElement } from './elements/gt-field';
 import { GuYanIconButtonElement } from './elements/gt-icon-button';
@@ -10,10 +11,14 @@ import { GuYanStateCardElement } from './elements/gt-state-card';
 import { GuYanSwitchElement } from './elements/gt-switch';
 import { GuYanTabsElement } from './elements/gt-tabs';
 import { GuYanTextareaElement } from './elements/gt-textarea';
+import { GuYanTooltipElement } from './elements/gt-tooltip';
+import { GuYanDrawerElement } from './elements/gt-drawer';
 
 const definitions: Array<[string, CustomElementConstructor]> = [
   ['gt-button', GuYanButtonElement],
   ['gt-checkbox', GuYanCheckboxElement],
+  ['gt-dialog', GuYanDialogElement],
+  ['gt-drawer', GuYanDrawerElement],
   ['gt-icon-button', GuYanIconButtonElement],
   ['gt-input', GuYanInputElement],
   ['gt-radio', GuYanRadioElement],
@@ -24,6 +29,7 @@ const definitions: Array<[string, CustomElementConstructor]> = [
   ['gt-switch', GuYanSwitchElement],
   ['gt-tabs', GuYanTabsElement],
   ['gt-textarea', GuYanTextareaElement],
+  ['gt-tooltip', GuYanTooltipElement],
 ];
 
 export function registerGuYanElements(): void {
