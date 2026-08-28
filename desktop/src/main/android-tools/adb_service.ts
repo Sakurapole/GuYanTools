@@ -1,5 +1,4 @@
 import { execFile as nodeExecFile, spawn as nodeSpawn } from 'node:child_process';
-import type { ChildProcessWithoutNullStreams } from 'node:child_process';
 import { EventEmitter } from 'node:events';
 import { promisify } from 'node:util';
 import type { AndroidDevice, AndroidDeviceEvent } from '@/contracts/android-tools';
@@ -128,4 +127,3 @@ export class AdbDeviceService {
     this.emitter.emit('devices-changed', event);
   }
 }
-

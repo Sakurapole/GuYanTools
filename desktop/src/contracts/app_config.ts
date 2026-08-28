@@ -20,6 +20,7 @@ export type AppSettingsTabId =
   | 'shortcuts';
 export type AppBottomBarTabId =
   | 'home'
+  | 'android-tools'
   | 'terminal'
   | 'settings'
   | 'ftp'
@@ -52,6 +53,13 @@ export const APP_INTERNAL_FUNCTIONS: AppInternalFunctionDefinition[] = [
     route: '/home',
     icon: 'home',
     description: '工具组件、快捷入口和工作区。',
+  },
+  {
+    id: 'android-tools',
+    label: 'Android 工具箱',
+    route: '/android-tools',
+    icon: 'iconify:lucide:smartphone',
+    description: '有线连接 Android 设备，启动镜像、键鼠共享和音频回传。',
   },
   {
     id: 'terminal',

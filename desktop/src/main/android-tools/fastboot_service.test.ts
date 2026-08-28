@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { FastbootService } from './fastboot_service';
 
 function createService(responses: Array<{ stdout: string; stderr: string }>) {
-  const execute = vi.fn(async (_args: string[]) => responses.shift() ?? { stdout: '', stderr: '' });
+  const execute = vi.fn(async () => responses.shift() ?? { stdout: '', stderr: '' });
   const toolchain = { getToolPath: vi.fn(() => 'C:/tools/fastboot.exe') };
   return { execute, service: new FastbootService(toolchain as any, { execute }) };
 }

@@ -42,6 +42,7 @@ let routeFirstVisitStartedAt = 0;
 const visitedPagePaths = new Set<string>();
 const fallbackPageRouteOrder = [
   '/home',
+  '/android-tools',
   '/terminal',
   '/settings',
   '/ftp',

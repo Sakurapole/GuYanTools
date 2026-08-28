@@ -1,0 +1,469 @@
+.android-tools-page {
+  width: 100%;
+  height: 100%;
+  box-sizing: border-box;
+  overflow: auto;
+  padding: 28px 32px 40px;
+  color: var(--ui-text-primary);
+}
+
+.android-tools-page__header,
+.android-tools-panel__heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 20px;
+}
+
+.android-tools-page__header {
+  max-width: 1180px;
+  margin: 0 auto 22px;
+}
+
+.android-tools-page__eyebrow {
+  margin: 0 0 7px;
+  color: var(--ui-text-muted);
+  font-size: var(--ui-font-size-xs);
+  font-weight: 700;
+  letter-spacing: 0.08em;
+}
+
+.android-tools-page h1,
+.android-tools-page h2,
+.android-tools-page p {
+  margin: 0;
+}
+
+.android-tools-page h1 {
+  font-size: 1.65rem;
+  line-height: 1.25;
+  font-weight: 760;
+}
+
+.android-tools-page__intro {
+  margin-top: 7px !important;
+  color: var(--ui-text-secondary);
+  font-size: var(--ui-font-size-sm);
+}
+
+.android-tools-page__content {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  max-width: 1180px;
+  margin: 0 auto;
+}
+
+.android-tools-page__loading,
+.android-tools-page__state {
+  max-width: 1180px;
+  margin: 64px auto 0;
+}
+
+.android-tools-page__loading {
+  color: var(--ui-text-muted);
+  text-align: center;
+}
+
+.android-tools-panel {
+  min-width: 0;
+}
+
+.android-tools-panel__heading {
+  align-items: center;
+  margin-bottom: 16px;
+}
+
+.android-tools-panel__heading h2 {
+  font-size: 1.05rem;
+  line-height: 1.35;
+  font-weight: 740;
+}
+
+.android-tools-panel__heading p {
+  margin-top: 4px;
+  color: var(--ui-text-muted);
+  font-size: var(--ui-font-size-xs);
+  line-height: 1.45;
+}
+
+.android-tools-status,
+.android-tools-live-indicator,
+.android-tools-count {
+  display: inline-flex;
+  align-items: center;
+  flex: 0 0 auto;
+  color: var(--ui-text-muted);
+  font-size: var(--ui-font-size-xs);
+  font-weight: 650;
+}
+
+.android-tools-status {
+  gap: 7px;
+  padding: 5px 9px;
+  border-radius: var(--ui-radius-full);
+  background: var(--ui-surface-bg-muted);
+}
+
+.android-tools-status--ok {
+  color: var(--ui-state-success);
+}
+
+.android-tools-status--error {
+  color: var(--ui-state-error);
+}
+
+.android-tools-status__dot,
+.android-tools-live-indicator span {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: currentColor;
+}
+
+.android-tools-versions {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.android-tools-versions > div {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  min-width: 0;
+  padding: 10px 12px;
+  border-radius: var(--ui-radius-sm);
+  background: var(--ui-surface-bg-muted);
+  color: var(--ui-text-muted);
+  font-size: var(--ui-font-size-xs);
+}
+
+.android-tools-versions code {
+  overflow: hidden;
+  color: var(--ui-text-primary);
+  font-family: var(--ui-font-family-mono);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.android-tools-grid {
+  display: grid;
+  grid-template-columns: minmax(280px, 0.88fr) minmax(420px, 1.12fr);
+  gap: 16px;
+  align-items: stretch;
+}
+
+.android-tools-count {
+  justify-content: center;
+  min-width: 24px;
+  height: 24px;
+  border-radius: var(--ui-radius-full);
+  background: var(--ui-surface-bg-muted);
+}
+
+.android-device-list,
+.android-session-list {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+}
+
+.android-device-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  min-height: 58px;
+  box-sizing: border-box;
+  padding: 9px 11px;
+  border: var(--ui-border-width-thin) solid var(--ui-border-subtle);
+  border-radius: var(--ui-radius-sm);
+  background: var(--ui-surface-bg-muted);
+  color: var(--ui-text-primary);
+  text-align: left;
+  cursor: pointer;
+  transition: background-color 0.16s ease, border-color 0.16s ease;
+}
+
+.android-device-row:hover,
+.android-device-row:focus-visible,
+.android-device-row--selected {
+  border-color: var(--ui-border-accent-soft);
+  background: var(--ui-surface-overlay);
+  outline: none;
+}
+
+.android-device-row:focus-visible {
+  box-shadow: var(--ui-focus-ring);
+}
+
+.android-device-row__state {
+  width: 8px;
+  height: 8px;
+  flex: 0 0 auto;
+  border-radius: 50%;
+  background: var(--ui-text-muted);
+}
+
+.android-device-row__state--device {
+  background: var(--ui-state-success);
+}
+
+.android-device-row__state--unauthorized,
+.android-device-row__state--offline,
+.android-device-row__state--no-permissions {
+  background: var(--ui-state-warning);
+}
+
+.android-device-row__main {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  min-width: 0;
+  gap: 3px;
+}
+
+.android-device-row__main strong,
+.android-device-row__main small,
+.android-device-row__meta span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.android-device-row__main strong {
+  font-size: var(--ui-font-size-sm);
+  font-weight: 700;
+}
+
+.android-device-row__main small {
+  color: var(--ui-text-muted);
+  font-family: var(--ui-font-family-mono);
+  font-size: var(--ui-font-size-xs);
+}
+
+.android-device-row__meta {
+  display: flex;
+  flex: 0 0 auto;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 3px;
+  color: var(--ui-text-muted);
+  font-size: var(--ui-font-size-xs);
+}
+
+.android-tools-options {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+  margin-bottom: 14px;
+}
+
+.android-tools-options label {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  color: var(--ui-text-muted);
+  font-size: var(--ui-font-size-xs);
+  font-weight: 650;
+}
+
+.android-tools-options select {
+  width: 100%;
+  min-height: var(--ui-control-height-sm);
+  box-sizing: border-box;
+  padding: 6px 10px;
+  border: var(--ui-border-width-thin) solid var(--ui-input-border);
+  border-radius: var(--ui-radius-sm);
+  background: var(--ui-input-bg);
+  color: var(--ui-input-text);
+  font: inherit;
+}
+
+.android-tools-options select:focus-visible {
+  outline: none;
+  border-color: var(--ui-input-focus-border);
+  box-shadow: var(--ui-focus-ring);
+}
+
+.android-tools-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.android-tools-checkbox {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 13px;
+  color: var(--ui-text-secondary);
+  font-size: var(--ui-font-size-xs);
+}
+
+.android-tools-checkbox input {
+  accent-color: var(--primary-color);
+}
+
+.android-tools-help {
+  margin-top: 11px !important;
+  color: var(--ui-text-muted);
+  font-size: var(--ui-font-size-xs);
+  line-height: 1.55;
+}
+
+.android-tools-alert {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  margin-top: 14px;
+  padding: 10px 12px;
+  border-radius: var(--ui-radius-sm);
+  background: var(--ui-surface-bg-muted);
+  color: var(--ui-text-secondary);
+  font-size: var(--ui-font-size-xs);
+  line-height: 1.5;
+}
+
+.android-tools-alert strong {
+  color: var(--ui-text-primary);
+  font-weight: 700;
+}
+
+.android-tools-alert--error {
+  border-left: 3px solid var(--ui-state-error);
+}
+
+.android-tools-alert--error strong {
+  color: var(--ui-state-error);
+}
+
+.android-tools-alert--warning {
+  border-left: 3px solid var(--ui-state-warning);
+}
+
+.android-tools-alert--warning strong {
+  color: var(--ui-state-warning);
+}
+
+.android-tools-live-indicator {
+  gap: 7px;
+  color: var(--ui-state-success);
+}
+
+.android-session-row {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  min-height: 54px;
+  padding: 8px 10px;
+  border-radius: var(--ui-radius-sm);
+  background: var(--ui-surface-bg-muted);
+}
+
+.android-session-row__icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  flex: 0 0 auto;
+  border-radius: var(--ui-radius-sm);
+  background: var(--ui-surface-overlay);
+  color: var(--primary-color);
+}
+
+.android-session-row__main {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  min-width: 0;
+  gap: 3px;
+}
+
+.android-session-row__main strong,
+.android-session-row__main span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.android-session-row__main strong {
+  font-size: var(--ui-font-size-sm);
+}
+
+.android-session-row__main span {
+  color: var(--ui-text-muted);
+  font-family: var(--ui-font-family-mono);
+  font-size: var(--ui-font-size-xs);
+}
+
+.android-session-row__status {
+  flex: 0 0 auto;
+  color: var(--ui-text-muted);
+  font-size: var(--ui-font-size-xs);
+}
+
+.android-session-row__status--running {
+  color: var(--ui-state-success);
+}
+
+.android-session-row__status--failed {
+  color: var(--ui-state-error);
+}
+
+.android-sessions-empty {
+  color: var(--ui-text-muted);
+  font-size: var(--ui-font-size-sm);
+}
+
+.android-tools-sessions-empty {
+  color: var(--ui-text-muted);
+  font-size: var(--ui-font-size-sm);
+}
+
+@media (max-width: 860px) {
+  .android-tools-page {
+    padding: 22px 20px 32px;
+  }
+
+  .android-tools-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 560px) {
+  .android-tools-page__header,
+  .android-tools-panel__heading {
+    gap: 12px;
+  }
+
+  .android-tools-versions {
+    grid-template-columns: 1fr;
+  }
+
+  .android-tools-options {
+    grid-template-columns: 1fr;
+  }
+
+  .android-session-row {
+    align-items: flex-start;
+    flex-wrap: wrap;
+  }
+
+  .android-session-row__status {
+    margin-left: 39px;
+  }
+
+  .android-session-row .ui-button {
+    margin-left: auto;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .android-device-row {
+    transition: none;
+  }
+}

@@ -1,5 +1,4 @@
 import { spawn as nodeSpawn } from 'node:child_process';
-import type { ChildProcessWithoutNullStreams } from 'node:child_process';
 import crypto from 'node:crypto';
 import { EventEmitter } from 'node:events';
 import type { AndroidDevice, AndroidSession, AndroidSessionEvent } from '@/contracts/android-tools';
