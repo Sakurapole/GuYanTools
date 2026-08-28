@@ -20,6 +20,10 @@ module.exports = {
       from: path.resolve(__dirname, 'src', 'assets', 'icons'),
       to: 'icons',
     },
+    {
+      from: path.resolve(__dirname, 'src', 'main', 'android-tools', 'resources'),
+      to: 'android-tools',
+    },
   ],
   asar: true,
   asarUnpack: [

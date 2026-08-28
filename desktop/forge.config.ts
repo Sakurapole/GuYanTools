@@ -57,6 +57,7 @@ const config: ForgeConfig = {
     asar: true,
     extraResource: [
       path.resolve(__dirname, 'src', 'assets', 'icons'),
+      path.resolve(__dirname, 'src', 'main', 'android-tools', 'resources'),
     ],
     afterCopy: [copyNativeCorePackage],
   },

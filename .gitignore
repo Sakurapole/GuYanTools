@@ -69,6 +69,12 @@ packages/*/dist/
 packages/ui-core/loader/
 desktop/src/main/plugin-host/fixtures/*/dist/
 
+# Android toolchain binaries are supplied by the release build, not tracked in Git
+desktop/src/main/android-tools/resources/**/*
+!desktop/src/main/android-tools/resources/
+!desktop/src/main/android-tools/resources/**/
+!desktop/src/main/android-tools/resources/**/.gitkeep
+
 # Native Node / Rust artifacts
 target/
 **/target/
