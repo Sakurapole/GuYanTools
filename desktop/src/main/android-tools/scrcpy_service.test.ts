@@ -16,7 +16,7 @@ function createChild(pid = 1234) {
   return child;
 }
 
-function createService(device = { serial: 'ABC', state: 'device', transport: 'adb-usb', usb: true, sdkLevel: 33 }) {
+function createService(device: { serial: string; state: string; transport: string; usb: boolean; sdkLevel?: number } = { serial: 'ABC', state: 'device', transport: 'adb-usb', usb: true, sdkLevel: 33 }) {
   const child = createChild();
   const spawn = vi.fn(() => child as any);
   const devices = { getDevice: vi.fn(() => device) };

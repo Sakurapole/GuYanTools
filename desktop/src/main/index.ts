@@ -55,6 +55,8 @@ import { registerTrayIpcHandlers } from "./tray/ipc";
 import { registerTrayMenuWindowHandlers } from "./tray/tray_menu_window";
 import { registerProcessManagerIpcHandlers } from "./process-manager/ipc";
 import { setupAutoUpdater } from "./updater";
+import { registerAndroidToolsIpcHandlers } from './android-tools/ipc';
+import { disposeAndroidTools, initializeAndroidTools } from './android-tools';
 
 const delay = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms));
 const MULTI_DEVICE_CLIPBOARD_ASSET_HOST = 'multi-device-clipboard-assets';
@@ -146,6 +148,7 @@ class App {
     registerWorkspaceWindowIpcHandlers();
     registerWebScriptBridge();
     registerProcessManagerIpcHandlers();
+    registerAndroidToolsIpcHandlers();
 
     const singleLock = app.requestSingleInstanceLock(
       this.cliRelayResponsePath ? { ftpCliResponsePath: this.cliRelayResponsePath } : undefined,
@@ -178,6 +181,14 @@ class App {
           await dbManager.initialize();
         }
         await appConfigManager.initialize();
+        try {
+          const androidToolStatus = await initializeAndroidTools();
+          if (!androidToolStatus.available) {
+            console.warn('[android-tools] Toolchain unavailable:', androidToolStatus.errorMessage);
+          }
+        } catch (error) {
+          console.warn('[android-tools] Initialization failed:', error);
+        }
         quickLaunchService.bindMainWindow({
           getWindow: () => {
             try {
@@ -366,6 +377,7 @@ class App {
       void multiDeviceClipboardService.dispose();
       shortcutService.dispose();
       destroyTray();
+      void disposeAndroidTools();
     });
   }
 
@@ -384,6 +396,10 @@ class App {
 
       if (url.hostname === KNOWLEDGE_ASSET_HOST) {
         return this.handleKnowledgeAssetProtocolRequest(url);
+      }
+
+      if (url.hostname === 'plugin-media-preview') {
+        return pluginHost.getHostServices().media.handlePreviewRequest(request);
       }
 
       return new Response('Not found', { status: 404 });

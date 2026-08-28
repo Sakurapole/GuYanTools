@@ -44,6 +44,7 @@ import type {
   ResizeTerminalSessionPayload,
   TerminalEventEnvelope,
 } from '@/contracts/terminal';
+import type { AndroidToolsApi, AndroidDeviceEvent, AndroidSessionEvent } from '@/contracts/android-tools';
 import type {
   SshApi,
   ConnectSshInput,
@@ -595,6 +596,30 @@ const terminalApi: TerminalApi = {
   },
 };
 contextBridge.exposeInMainWorld('terminalApi', terminalApi);
+
+const androidApi: AndroidToolsApi = {
+  getToolchainStatus: () => ipcRenderer.invoke('android:get-toolchain-status'),
+  listDevices: () => ipcRenderer.invoke('android:list-devices'),
+  onDevicesChanged: (listener: (event: AndroidDeviceEvent) => void) => {
+    const wrappedListener = (_event: Electron.IpcRendererEvent, payload: AndroidDeviceEvent) => listener(payload);
+    ipcRenderer.on('android:devices-changed', wrappedListener);
+    return () => ipcRenderer.removeListener('android:devices-changed', wrappedListener);
+  },
+  listSessions: () => ipcRenderer.invoke('android:list-sessions'),
+  startMirror: input => ipcRenderer.invoke('android:start-mirror', input),
+  startAudio: input => ipcRenderer.invoke('android:start-audio', input),
+  startOtg: input => ipcRenderer.invoke('android:start-otg', input),
+  stopSession: sessionId => ipcRenderer.invoke('android:stop-session', sessionId),
+  getFastbootDevices: () => ipcRenderer.invoke('android:fastboot-list-devices'),
+  fastbootGetVars: (deviceSerial, names) => ipcRenderer.invoke('android:fastboot-get-vars', deviceSerial, names),
+  fastbootReboot: (deviceSerial, target) => ipcRenderer.invoke('android:fastboot-reboot', deviceSerial, target),
+  onSessionEvent: (listener: (event: AndroidSessionEvent) => void) => {
+    const wrappedListener = (_event: Electron.IpcRendererEvent, payload: AndroidSessionEvent) => listener(payload);
+    ipcRenderer.on('android:session-event', wrappedListener);
+    return () => ipcRenderer.removeListener('android:session-event', wrappedListener);
+  },
+};
+contextBridge.exposeInMainWorld('androidApi', androidApi);
 
 // ── SSH API ───────────────────────────────────────────────────
 
