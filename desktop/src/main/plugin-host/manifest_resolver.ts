@@ -51,6 +51,13 @@ const VALID_PERMISSIONS = new Set<PluginPermission>([
   'media.tag',
   'secrets.self',
   'observability.logs',
+  'android.devices.read',
+  'android.sessions.read',
+  'android.sessions.control',
+  'android.audio.playback',
+  'android.otg.control',
+  'android.fastboot.read',
+  'android.fastboot.reboot',
 ]);
 
 const VALID_CAPABILITY_KINDS = new Set(['media-source', 'metadata-provider', 'transformer', 'importer']);

@@ -31,6 +31,11 @@ export interface PluginPageDescriptor {
   description?: string;
   trustLevel: PluginTrustLevel;
 }
+export interface PluginCredentialReference {
+  secretKey: string;
+  allowedOrigins: string[];
+  headerName?: 'Cookie';
+}
 export interface NetworkRequest {
   url: string;
   method?: 'GET' | 'POST' | 'PUT' | 'DELETE' | 'HEAD';
@@ -38,6 +43,7 @@ export interface NetworkRequest {
   body?: string;
   responseType?: 'json' | 'text' | 'bytes';
   followRedirects?: boolean;
+  credential?: PluginCredentialReference;
   timeoutMs?: number;
   maxBytes?: number;
 }
@@ -48,6 +54,38 @@ export interface MediaProbe { durationMs?: number; width?: number; height?: numb
 export interface MediaTags { [key: string]: string | undefined; }
 export interface PreviewGrant { id: string; pluginId: string; url: string; expiresAt: string; mimeType?: string; }
 export interface NotificationPayload { type: string; size: string; title?: string; message?: string; [key: string]: unknown; }
+
+export type AndroidDeviceState = 'device' | 'unauthorized' | 'offline' | 'bootloader' | 'no-permissions' | 'unknown';
+export type AndroidTransport = 'adb-usb' | 'adb-tcpip' | 'fastboot-usb';
+export interface AndroidDevice {
+  serial: string;
+  state: AndroidDeviceState;
+  transport: AndroidTransport;
+  model?: string;
+  product?: string;
+  androidVersion?: string;
+  sdkLevel?: number;
+  usb?: boolean;
+}
+export interface AndroidSession {
+  sessionId: string;
+  deviceSerial: string;
+  mode: 'mirror-control' | 'audio-only' | 'otg';
+  keyboard: 'sdk' | 'uhid' | 'aoa' | 'disabled';
+  mouse: 'sdk' | 'uhid' | 'aoa' | 'disabled';
+  pid?: number;
+  ownerPluginId?: string;
+  status: 'starting' | 'running' | 'stopping' | 'exited' | 'failed';
+  startedAt: string;
+  errorCode?: string;
+  errorMessage?: string;
+}
+export interface AndroidDeviceEvent { devices: AndroidDevice[]; timestamp: string; }
+export interface AndroidSessionEvent {
+  type: 'created' | 'started' | 'stopped' | 'exited' | 'failed' | 'device-disconnected';
+  session: AndroidSession;
+  timestamp: string;
+}
 
 export interface PluginRuntimeApi {
   getContext: () => Promise<PluginRuntimeContext>;
@@ -83,8 +121,27 @@ export interface PluginRuntimeApi {
   media: {
     probe: (grantId: string, targetPath: string) => Promise<MediaProbe>;
     transcode: (input: unknown) => Promise<string>;
-    preview: (url: string, mimeType?: string) => Promise<PreviewGrant>;
+    preview: (url: string, mimeType?: string, headers?: Record<string, string>, credential?: PluginCredentialReference) => Promise<PreviewGrant>;
     writeTags: (grantId: string, targetPath: string, tags: MediaTags) => Promise<string>;
+  };
+  android: {
+    devices: {
+      list: () => Promise<AndroidDevice[]>;
+      onChanged: (listener: (event: AndroidDeviceEvent) => void) => () => void;
+    };
+    sessions: {
+      list: () => Promise<AndroidSession[]>;
+      startMirror: (input: { deviceSerial: string; keyboard?: 'uhid' | 'sdk'; mouse?: 'uhid' | 'sdk' }) => Promise<AndroidSession>;
+      startAudio: (input: { deviceSerial: string; duplicateOnDevice?: boolean }) => Promise<AndroidSession>;
+      startOtg: (input: { deviceSerial: string; keyboard?: boolean; mouse?: boolean }) => Promise<AndroidSession>;
+      stop: (sessionId: string) => Promise<void>;
+      onEvent: (listener: (event: AndroidSessionEvent) => void) => () => void;
+    };
+    fastboot: {
+      list: () => Promise<AndroidDevice[]>;
+      getVars: (deviceSerial: string, names: string[]) => Promise<Record<string, string>>;
+      reboot: (deviceSerial: string, target?: 'system' | 'bootloader') => Promise<void>;
+    };
   };
   secrets: { get: (key: string) => Promise<string | null>; set: (key: string, value: string) => Promise<void>; delete: (key: string) => Promise<void> };
 }

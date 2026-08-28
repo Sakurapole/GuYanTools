@@ -1,3 +1,10 @@
+import type {
+  AndroidDevice,
+  AndroidDeviceEvent,
+  AndroidSession,
+  AndroidSessionEvent,
+} from './android-tools';
+
 export type PluginTrustLevel = 'sandboxed' | 'trusted';
 export type PluginRuntimeKind = 'ui' | 'worker' | 'hybrid' | 'host';
 export type PluginLifecycleState =
@@ -35,7 +42,14 @@ export type PluginPermission =
   | 'media.transcode'
   | 'media.tag'
   | 'secrets.self'
-  | 'observability.logs';
+  | 'observability.logs'
+  | 'android.devices.read'
+  | 'android.sessions.read'
+  | 'android.sessions.control'
+  | 'android.audio.playback'
+  | 'android.otg.control'
+  | 'android.fastboot.read'
+  | 'android.fastboot.reboot';
 
 export interface PluginCapabilityDeclaration {
   id: string;
@@ -248,6 +262,7 @@ export interface PluginCapabilitySummary {
   files: string[];
   media: string[];
   secrets: string[];
+  android: string[];
 }
 
 export interface PluginPageDescriptor {
@@ -362,8 +377,27 @@ export interface PluginRuntimeApi {
   media: {
     probe: (grantId: string, targetPath: string) => Promise<import('./plugin_media').MediaProbe>;
     transcode: (input: { inputGrantId: string; inputPath: string; outputGrantId: string; outputPath: string; options?: { audioCodec?: string; videoCodec?: string; format?: string; additionalInputPaths?: string[] } }) => Promise<string>;
-    preview: (url: string, mimeType?: string, headers?: Record<string, string>) => Promise<import('./plugin_media').PreviewGrant>;
+    preview: (url: string, mimeType?: string, headers?: Record<string, string>, credential?: import('./plugin_media').PluginCredentialReference) => Promise<import('./plugin_media').PreviewGrant>;
     writeTags: (grantId: string, targetPath: string, tags: import('./plugin_media').MediaTags) => Promise<string>;
+  };
+  android: {
+    devices: {
+      list: () => Promise<AndroidDevice[]>;
+      onChanged: (listener: (event: AndroidDeviceEvent) => void) => () => void;
+    };
+    sessions: {
+      list: () => Promise<AndroidSession[]>;
+      startMirror: (input: { deviceSerial: string; keyboard?: 'uhid' | 'sdk'; mouse?: 'uhid' | 'sdk' }) => Promise<AndroidSession>;
+      startAudio: (input: { deviceSerial: string; duplicateOnDevice?: boolean }) => Promise<AndroidSession>;
+      startOtg: (input: { deviceSerial: string; keyboard?: boolean; mouse?: boolean }) => Promise<AndroidSession>;
+      stop: (sessionId: string) => Promise<void>;
+      onEvent: (listener: (event: AndroidSessionEvent) => void) => () => void;
+    };
+    fastboot: {
+      list: () => Promise<AndroidDevice[]>;
+      getVars: (deviceSerial: string, names: string[]) => Promise<Record<string, string>>;
+      reboot: (deviceSerial: string, target?: 'system' | 'bootloader') => Promise<void>;
+    };
   };
   secrets: {
     get: (key: string) => Promise<string | null>;

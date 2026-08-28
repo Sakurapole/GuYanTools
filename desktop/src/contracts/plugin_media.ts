@@ -1,11 +1,19 @@
 export type PluginResponseType = 'json' | 'text' | 'bytes';
 
+export interface PluginCredentialReference {
+  secretKey: string;
+  allowedOrigins: string[];
+  headerName?: 'Cookie';
+}
+
 export interface NetworkRequest {
   url: string;
   method?: 'GET' | 'POST' | 'PUT' | 'DELETE' | 'HEAD';
   headers?: Record<string, string>;
   body?: string;
   responseType?: PluginResponseType;
+  followRedirects?: boolean;
+  credential?: PluginCredentialReference;
   timeoutMs?: number;
   maxBytes?: number;
 }

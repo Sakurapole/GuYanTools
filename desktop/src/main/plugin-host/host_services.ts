@@ -10,6 +10,7 @@ import { DownloadsService } from './services/downloads_service';
 import { MediaService } from './services/media_service';
 import { SecretService } from './services/secret_service';
 import { redactPluginLogMeta, validatePluginCommand } from './security_guards';
+import { AndroidHostService } from './android_service';
 
 class WorkspaceService {
   getCurrentWorkspace() {
@@ -160,16 +161,22 @@ export class HostServiceRegistry {
   readonly ui = new UiService();
   readonly system = new SystemService();
   readonly observability = new ObservabilityService();
-  readonly network = new NetworkService();
   readonly files = new FileGrantService();
-  readonly downloads = new DownloadsService(this.network, this.files);
-  readonly media = new MediaService(this.files);
-  readonly secrets = new SecretService(() => dbManager.getDatabase() as any);
+  readonly secrets: SecretService;
+  readonly network: NetworkService;
+  readonly downloads: DownloadsService;
+  readonly media: MediaService;
+  readonly android: AndroidHostService;
   private readonly pluginDataRoot: string;
 
   constructor(pluginDataRoot = path.join(process.cwd(), 'guyantools-plugin-data')) {
     this.pluginDataRoot = pluginDataRoot;
     this.storage = new StorageService();
+    this.android = new AndroidHostService();
+    this.secrets = new SecretService(() => dbManager.getDatabase() as any);
+    this.network = new NetworkService((pluginId, key) => this.secrets.get(pluginId, key));
+    this.downloads = new DownloadsService(this.network, this.files);
+    this.media = new MediaService(this.files, undefined, undefined, (pluginId, key) => this.secrets.get(pluginId, key));
   }
 
   async createPluginDataGrant(pluginId: string, accessMode: 'read' | 'write' | 'read-write' = 'read-write') {
@@ -202,6 +209,32 @@ export class HostServiceRegistry {
     return grant;
   }
 
+  async pickPluginDirectoryGrant(pluginId: string) {
+    const result = await dialog.showOpenDialog({
+      title: '选择 B 站媒体输出目录',
+      properties: ['openDirectory', 'createDirectory'],
+    });
+    if (result.canceled || result.filePaths.length === 0) return null;
+    const grant = this.files.create(pluginId, {
+      purpose: 'plugin-output',
+      rootPath: result.filePaths[0],
+      accessMode: 'read-write',
+      expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
+      maxBytes: 2 * 1024 * 1024 * 1024,
+    });
+    const db = dbManager.getDatabase() as any;
+    if (typeof db.createFileGrant === 'function') await db.createFileGrant({
+      id: grant.id,
+      pluginId: grant.pluginId,
+      purpose: grant.purpose,
+      rootPath: grant.rootPath,
+      accessMode: grant.accessMode,
+      expiresAt: grant.expiresAt,
+      maxBytes: grant.maxBytes,
+    });
+    return grant;
+  }
+
   bindMainWindow(mainWindow: BrowserWindow) {
     this.navigation.setMainWindow(mainWindow);
   }
@@ -222,6 +255,7 @@ export class HostServiceRegistry {
       files: ['files.createGrant', 'files.read', 'files.write', 'files.revoke'],
       media: ['media.probe', 'media.transcode', 'media.preview', 'media.writeTags'],
       secrets: ['secrets.get', 'secrets.set', 'secrets.delete'],
+      android: this.android.getCapabilities(),
     };
   }
 }

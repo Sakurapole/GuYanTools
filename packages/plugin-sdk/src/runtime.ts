@@ -36,8 +36,27 @@ export function createPluginApi(invoke: PluginRuntimeInvoke, subscribe?: PluginR
     media: {
       probe: (grantId, targetPath) => call('plugin-runtime:media:probe', grantId, targetPath),
       transcode: input => call('plugin-runtime:media:transcode', input),
-      preview: (url, mimeType) => call('plugin-runtime:media:preview', url, mimeType),
+      preview: (url, mimeType, headers, credential) => call('plugin-runtime:media:preview', url, mimeType, headers, credential),
       writeTags: (grantId, targetPath, tags) => call('plugin-runtime:media:write-tags', grantId, targetPath, tags),
+    },
+    android: {
+      devices: {
+        list: () => call('plugin-runtime:android:devices:list'),
+        onChanged: listener => subscribe?.('plugin-runtime:android:devices:changed', payload => listener(payload as import('./contracts').AndroidDeviceEvent)) ?? (() => undefined),
+      },
+      sessions: {
+        list: () => call('plugin-runtime:android:sessions:list'),
+        startMirror: input => call('plugin-runtime:android:sessions:start-mirror', input),
+        startAudio: input => call('plugin-runtime:android:sessions:start-audio', input),
+        startOtg: input => call('plugin-runtime:android:sessions:start-otg', input),
+        stop: sessionId => call('plugin-runtime:android:sessions:stop', sessionId),
+        onEvent: listener => subscribe?.('plugin-runtime:android:sessions:event', payload => listener(payload as import('./contracts').AndroidSessionEvent)) ?? (() => undefined),
+      },
+      fastboot: {
+        list: () => call('plugin-runtime:android:fastboot:list'),
+        getVars: (deviceSerial, names) => call('plugin-runtime:android:fastboot:get-vars', deviceSerial, names),
+        reboot: (deviceSerial, target) => call('plugin-runtime:android:fastboot:reboot', deviceSerial, target),
+      },
     },
     secrets: { get: key => call('plugin-runtime:secrets:get', key), set: (key, value) => call('plugin-runtime:secrets:set', key, value), delete: key => call('plugin-runtime:secrets:delete', key) },
   };

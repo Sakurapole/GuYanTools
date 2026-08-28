@@ -13,11 +13,12 @@ type DownloadSource = {
   rateLimitBytesPerSecond?: number;
 };
 type Sleep = (milliseconds: number) => Promise<void>;
+type NetworkClient = Pick<NetworkService, 'fetch'>;
 
 const defaultSleep: Sleep = milliseconds => new Promise(resolve => setTimeout(resolve, milliseconds));
 
 export class DownloadsService {
-  constructor(private readonly network: NetworkService, private readonly grants: FileGrantService, private readonly sleep: Sleep = defaultSleep) {}
+  constructor(private readonly network: NetworkClient, private readonly grants: FileGrantService, private readonly sleep: Sleep = defaultSleep) {}
 
   private async downloadOne(pluginId: string, source: DownloadSource, signal?: AbortSignal, rateLimitBytesPerSecond?: number) {
     if (signal?.aborted) throw new Error('PLUGIN_DOWNLOAD_CANCELLED');

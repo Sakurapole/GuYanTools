@@ -28,6 +28,7 @@ export class PluginRuntimeRouter {
     private readonly preloadPath: string,
     private readonly getUnloadAfterMinutes: () => number,
     private readonly devSessions: PluginDevSessionManager = new PluginDevSessionManager(),
+    private readonly onPluginRuntimeDestroyed: (pluginId: string) => void = () => undefined,
   ) {
     this.idleCheckTimer = setInterval(() => {
       void this.cleanupIdleMountedViews();
@@ -67,6 +68,7 @@ export class PluginRuntimeRouter {
 
     pluginView.webContents.on('destroyed', () => {
       this.runtimeContextByWebContentsId.delete(pluginView.webContents.id);
+      this.onPluginRuntimeDestroyed(record.manifest.id);
     });
 
     pluginView.webContents.on('console-message', (_event, _level, message, line, sourceId) => {
@@ -113,6 +115,7 @@ export class PluginRuntimeRouter {
     view.webContents.once('destroyed', () => {
       this.runtimeContextByWebContentsId.delete(view.webContents.id);
       this.workerViewsByPluginId.delete(record.manifest.id);
+      this.onPluginRuntimeDestroyed(record.manifest.id);
     });
     await view.webContents.loadURL(resolvePluginRuntimeUrl(record, this.devSessions.get(record.manifest.id), 'worker'));
     this.workerViewsByPluginId.set(record.manifest.id, { view, pluginId: record.manifest.id });

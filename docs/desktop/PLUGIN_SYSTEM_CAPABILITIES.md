@@ -117,6 +117,8 @@ Vue 插件可从 `@guyantools/plugin-ui/vue` 导入 `UiButton`、`UiInput` 等�
 | `gt-textarea`、`gt-checkbox`、`gt-radio`、`gt-switch`、`gt-tabs` | 多行输入、选择和标签页；通过 `gt-input` 或 `gt-change` 返回稳定 detail |
 | `gt-empty-state`、`gt-state-card` | 空态、加载、错误和信息反馈；支持命名 icon/actions slots |
 | `gt-tooltip`、`gt-dialog`、`gt-drawer` | body-level 浮层；以 `open` 控制状态，Dialog/Drawer 用 `gt-open-change` 通知关闭原因 |
+| `gt-select`、`gt-menu`、`gt-menu-item`、`gt-menu-divider`、`gt-disclosure`、`gt-popup-surface` | 下拉选择、菜单项、分组分隔、折叠和通用浮层；面板通过共享 overlay layer 渲染到 body |
+| `gt-date-picker`、`gt-time-picker`、`gt-date-time-picker` | 日期、时间和组合选择；支持清除、分钟步长、SQL/时间戳格式与 body-level 日历/时间面板 |
 
 使用 `--gt-*` token 而不是复制宿主 SCSS。Token 同时包含浅色和深色主题，组件在 Shadow DOM 中继承这些变量。元素实现、键盘无障碍、焦点管理和浮层清理由 Stencil core 负责；Vue wrappers 仅保留 `v-model`、slots、Teleport 与 `focus/select` 等 Vue 调用契约。
 

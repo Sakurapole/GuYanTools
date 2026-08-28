@@ -29,6 +29,13 @@ const SANDBOXED_ALLOWED: PluginPermission[] = [
   'media.tag',
   'secrets.self',
   'observability.logs',
+  'android.devices.read',
+  'android.sessions.read',
+  'android.sessions.control',
+  'android.audio.playback',
+  'android.otg.control',
+  'android.fastboot.read',
+  'android.fastboot.reboot',
 ];
 
 const TRUSTED_ALLOWED: PluginPermission[] = [

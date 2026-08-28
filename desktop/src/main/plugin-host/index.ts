@@ -50,6 +50,7 @@ export class PluginHost {
     resolvePluginPreloadPath(path.join(__dirname, '..', '..', '.vite', 'build')),
     () => appConfigManager.getCachedConfig().plugins.unloadAfterMinutes,
     this.devSessions,
+    pluginId => { void this.hostServices.android.stopSessionsForOwner(pluginId); },
   );
   private readonly devChannel = new LocalPluginDevChannel(session => { this.runtimeRouter.connectDevSession(session); });
   private readonly marketplaceResolver = new MarketplaceResolver(async (url, ref) => {
@@ -214,6 +215,7 @@ export class PluginHost {
   }
 
   async uninstallPlugin(pluginId: string) {
+    await this.hostServices.android.stopSessionsForOwner(pluginId);
     return this.lifecycleManager.uninstall(pluginId);
   }
 
@@ -249,6 +251,7 @@ export class PluginHost {
   }
 
   async disablePlugin(pluginId: string) {
+    await this.hostServices.android.stopSessionsForOwner(pluginId);
     await this.runtimeRouter.stopWorker(pluginId);
     if (this.mainWindow) {
       await this.runtimeRouter.unmountUiPage(this.mainWindow, pluginId);

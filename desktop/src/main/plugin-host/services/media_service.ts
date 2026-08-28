@@ -1,9 +1,30 @@
 import crypto from 'node:crypto';
 import { spawn } from 'node:child_process';
-import type { MediaProbe, MediaTags, PreviewGrant } from '@/contracts/plugin_media';
+import type { MediaProbe, MediaTags, PluginCredentialReference, PreviewGrant } from '@/contracts/plugin_media';
 import { FileGrantService } from './file_grant_service';
 
 type ProcessRunner = (command: 'ffprobe' | 'ffmpeg', args: string[]) => Promise<string>;
+type PreviewFetcher = (input: RequestInfo | URL, init?: RequestInit) => Promise<Response>;
+type SecretReader = (pluginId: string, key: string) => Promise<string | null>;
+
+type PreviewRecord = {
+  grant: PreviewGrant;
+  sourceUrl: string;
+  headers: Headers;
+  credential?: PluginCredentialReference;
+};
+
+const PREVIEW_HEADER_ALLOWLIST = new Set(['accept', 'accept-language', 'referer', 'user-agent']);
+const PROXY_RESPONSE_HEADERS = ['accept-ranges', 'content-length', 'content-range', 'content-type', 'etag', 'last-modified'];
+
+function validatePreviewCredential(source: URL, credential: PluginCredentialReference) {
+  if (!credential.secretKey || !/^[a-zA-Z0-9._-]+$/.test(credential.secretKey) || credential.headerName && credential.headerName !== 'Cookie') {
+    throw new Error('PLUGIN_MEDIA_PREVIEW_CREDENTIAL_INVALID');
+  }
+  if (source.protocol !== 'https:' || !credential.allowedOrigins.includes(source.origin)) {
+    throw new Error('PLUGIN_MEDIA_PREVIEW_CREDENTIAL_ORIGIN_DENIED');
+  }
+}
 
 function runProcess(command: 'ffprobe' | 'ffmpeg', args: string[]) {
   return new Promise<string>((resolve, reject) => {
@@ -18,9 +39,14 @@ function runProcess(command: 'ffprobe' | 'ffmpeg', args: string[]) {
 }
 
 export class MediaService {
-  private readonly previews = new Map<string, PreviewGrant>();
+  private readonly previews = new Map<string, PreviewRecord>();
 
-  constructor(private readonly grants: FileGrantService, private readonly run: ProcessRunner = runProcess) {}
+  constructor(
+    private readonly grants: FileGrantService,
+    private readonly run: ProcessRunner = runProcess,
+    private readonly fetcher: PreviewFetcher = globalThis.fetch.bind(globalThis),
+    private readonly readSecret: SecretReader = async () => null,
+  ) {}
 
   async probe(pluginId: string, grantId: string, targetPath: string): Promise<MediaProbe> {
     const input = this.grants.resolve(pluginId, grantId, targetPath, 'read');
@@ -39,11 +65,11 @@ export class MediaService {
     };
   }
 
-  async transcode(pluginId: string, inputGrantId: string, inputPath: string, outputGrantId: string, outputPath: string, options: { audioCodec?: string; videoCodec?: string; format?: string } = {}) {
+  async transcode(pluginId: string, inputGrantId: string, inputPath: string, outputGrantId: string, outputPath: string, options: { audioCodec?: string; videoCodec?: string; format?: string; additionalInputPaths?: string[] } = {}) {
     const input = this.grants.resolve(pluginId, inputGrantId, inputPath, 'read');
     const output = this.grants.resolve(pluginId, outputGrantId, outputPath, 'write');
     const allowedCodec = (value: string | undefined, allowed: string[]) => value && allowed.includes(value) ? value : undefined;
-    const args = ['-y', '-i', input];
+    const args = ['-y', '-i', input, ...(options.additionalInputPaths ?? []).map(targetPath => ['-i', this.grants.resolve(pluginId, inputGrantId, targetPath, 'read')]).flat()];
     const videoCodec = allowedCodec(options.videoCodec, ['copy', 'libx264', 'libvpx-vp9']);
     const audioCodec = allowedCodec(options.audioCodec, ['copy', 'aac', 'libopus']);
     if (options.videoCodec && !videoCodec || options.audioCodec && !audioCodec) throw new Error('PLUGIN_MEDIA_OPTION_INVALID');
@@ -54,10 +80,76 @@ export class MediaService {
     return output;
   }
 
-  async createPreview(pluginId: string, url: string, mimeType?: string) {
-    const grant: PreviewGrant = { id: crypto.randomUUID(), pluginId, url, mimeType, expiresAt: new Date(Date.now() + 10 * 60 * 1000).toISOString() };
-    this.previews.set(grant.id, grant);
+  async createPreview(
+    pluginId: string,
+    sourceUrl: string,
+    mimeType?: string,
+    inputHeaders?: Record<string, string>,
+    credential?: PluginCredentialReference,
+  ) {
+    let upstream: URL;
+    try { upstream = new URL(sourceUrl); } catch { throw new Error('PLUGIN_MEDIA_PREVIEW_URL_INVALID'); }
+    if (!['http:', 'https:'].includes(upstream.protocol) || upstream.username || upstream.password) {
+      throw new Error('PLUGIN_MEDIA_PREVIEW_URL_INVALID');
+    }
+    if (credential) validatePreviewCredential(upstream, credential);
+
+    const headers = new Headers();
+    for (const [name, value] of Object.entries(inputHeaders ?? {})) {
+      const normalized = name.toLowerCase();
+      if (!PREVIEW_HEADER_ALLOWLIST.has(normalized)) throw new Error(`PLUGIN_MEDIA_PREVIEW_HEADER_DENIED: ${name}`);
+      headers.set(name, value);
+    }
+
+    const grant: PreviewGrant = {
+      id: crypto.randomUUID(),
+      pluginId,
+      url: '',
+      mimeType,
+      expiresAt: new Date(Date.now() + 10 * 60 * 1000).toISOString(),
+    };
+    grant.url = `app://plugin-media-preview/${encodeURIComponent(grant.id)}`;
+    this.previews.set(grant.id, { grant, sourceUrl: upstream.toString(), headers, credential });
     return grant;
+  }
+
+  async handlePreviewRequest(request: Request): Promise<Response> {
+    const url = new URL(request.url);
+    const previewId = decodeURIComponent(url.pathname.slice(1));
+    const preview = this.previews.get(previewId);
+    if (!preview || Date.parse(preview.grant.expiresAt) <= Date.now()) {
+      this.previews.delete(previewId);
+      return new Response('Preview not found', { status: 404 });
+    }
+    if (!['GET', 'HEAD'].includes(request.method)) return new Response('Method not allowed', { status: 405 });
+
+    const headers = new Headers(preview.headers);
+    for (const name of ['accept', 'if-range', 'range']) {
+      const value = request.headers.get(name);
+      if (value) headers.set(name, value);
+    }
+    if (preview.credential) {
+      const value = await this.readSecret(preview.grant.pluginId, preview.credential.secretKey);
+      if (!value) return new Response('Preview credential unavailable', { status: 401 });
+      headers.set(preview.credential.headerName ?? 'Cookie', value);
+    }
+
+    try {
+      const upstream = await this.fetcher(preview.sourceUrl, { method: request.method, headers, redirect: 'follow' });
+      const responseHeaders = new Headers({ 'Cache-Control': 'no-store' });
+      for (const name of PROXY_RESPONSE_HEADERS) {
+        const value = upstream.headers.get(name);
+        if (value) responseHeaders.set(name, value);
+      }
+      if (preview.grant.mimeType) responseHeaders.set('Content-Type', preview.grant.mimeType);
+      return new Response(upstream.body, {
+        status: upstream.status,
+        statusText: upstream.statusText,
+        headers: responseHeaders,
+      });
+    } catch {
+      return new Response('Preview upstream unavailable', { status: 502 });
+    }
   }
 
   async writeTags(pluginId: string, inputGrantId: string, inputPath: string, tags: MediaTags) {

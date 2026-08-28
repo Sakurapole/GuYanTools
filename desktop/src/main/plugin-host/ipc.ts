@@ -1,10 +1,12 @@
-import { BrowserWindow, ipcMain } from 'electron';
+import { BrowserWindow, ipcMain, webContents } from 'electron';
 import { pluginHost } from './index';
 import { PluginContextGuard } from './context_guard';
 import { dbManager } from '../../core/database';
 import { JobService } from './services/job_service';
 import { appConfigManager } from '../app-config/manager';
 import { toPluginThemeDescriptor } from './theme_bridge';
+import { androidAdbService, androidScrcpyService } from '../android-tools';
+import type { AndroidDeviceEvent, AndroidSessionEvent } from '@/contracts/android-tools';
 
 let registered = false;
 const guard = new PluginContextGuard();
@@ -19,6 +21,22 @@ function getSenderPluginContext(senderId: number) {
   }
 
   return context;
+}
+
+function broadcastPluginDevices(event: AndroidDeviceEvent) {
+  for (const target of webContents.getAllWebContents()) {
+    const context = pluginHost.getRuntimeContext(target.id);
+    if (!context || !context.permissions.includes('android.devices.read') || target.isDestroyed()) continue;
+    target.send('plugin-runtime:android:devices:changed', event);
+  }
+}
+
+function broadcastPluginSession(event: AndroidSessionEvent) {
+  for (const target of webContents.getAllWebContents()) {
+    const context = pluginHost.getRuntimeContext(target.id);
+    if (!context || context.pluginId !== event.session.ownerPluginId || !context.permissions.includes('android.sessions.read') || target.isDestroyed()) continue;
+    target.send('plugin-runtime:android:sessions:event', event);
+  }
 }
 
 export function registerPluginHostIpcHandlers(getMainWindow: () => BrowserWindow | null) {
@@ -108,8 +126,9 @@ export function registerPluginHostIpcHandlers(getMainWindow: () => BrowserWindow
     pluginHost.getHostServices().observability.error(context.pluginId, message, meta);
   });
   ipcMain.handle('plugin-runtime:network:fetch', async (event, input) => {
-    guard.requirePermission(getSenderPluginContext(event.sender.id), 'network.fetch');
-    return pluginHost.getHostServices().network.fetch(input);
+    const context = getSenderPluginContext(event.sender.id);
+    guard.requirePermission(context, 'network.fetch');
+    return pluginHost.getHostServices().network.fetch(input, context.pluginId);
   });
   ipcMain.handle('plugin-runtime:files:create-data-grant', async (event, accessMode) => {
     const context = getSenderPluginContext(event.sender.id);
@@ -183,10 +202,10 @@ export function registerPluginHostIpcHandlers(getMainWindow: () => BrowserWindow
     guard.requirePermission(context, 'media.transcode');
     return pluginHost.getHostServices().media.transcode(context.pluginId, input.inputGrantId, input.inputPath, input.outputGrantId, input.outputPath, input.options);
   });
-  ipcMain.handle('plugin-runtime:media:preview', async (event, url: string, mimeType?: string, headers?: Record<string, string>) => {
+  ipcMain.handle('plugin-runtime:media:preview', async (event, url: string, mimeType?: string, headers?: Record<string, string>, credential?: import('@/contracts/plugin_media').PluginCredentialReference) => {
     const context = getSenderPluginContext(event.sender.id);
     guard.requirePermission(context, 'media.preview');
-    return pluginHost.getHostServices().media.createPreview(context.pluginId, url, mimeType, headers);
+    return pluginHost.getHostServices().media.createPreview(context.pluginId, url, mimeType, headers, credential);
   });
   ipcMain.handle('plugin-runtime:media:write-tags', async (event, grantId: string, targetPath: string, tags) => {
     const context = getSenderPluginContext(event.sender.id);
@@ -208,6 +227,37 @@ export function registerPluginHostIpcHandlers(getMainWindow: () => BrowserWindow
     guard.requirePermission(context, 'secrets.self');
     await pluginHost.getHostServices().secrets.delete(context.pluginId, key);
   });
+
+  ipcMain.handle('plugin-runtime:android:devices:list', async (event) => {
+    return pluginHost.getHostServices().android.listDevices(getSenderPluginContext(event.sender.id));
+  });
+  ipcMain.handle('plugin-runtime:android:sessions:list', async (event) => {
+    return pluginHost.getHostServices().android.listSessions(getSenderPluginContext(event.sender.id));
+  });
+  ipcMain.handle('plugin-runtime:android:sessions:start-mirror', async (event, input: unknown) => {
+    return pluginHost.getHostServices().android.startMirror(getSenderPluginContext(event.sender.id), input as never);
+  });
+  ipcMain.handle('plugin-runtime:android:sessions:start-audio', async (event, input: unknown) => {
+    return pluginHost.getHostServices().android.startAudio(getSenderPluginContext(event.sender.id), input as never);
+  });
+  ipcMain.handle('plugin-runtime:android:sessions:start-otg', async (event, input: unknown) => {
+    return pluginHost.getHostServices().android.startOtg(getSenderPluginContext(event.sender.id), input as never);
+  });
+  ipcMain.handle('plugin-runtime:android:sessions:stop', async (event, sessionId: unknown) => {
+    await pluginHost.getHostServices().android.stop(getSenderPluginContext(event.sender.id), sessionId as string);
+  });
+  ipcMain.handle('plugin-runtime:android:fastboot:list', async (event) => {
+    return pluginHost.getHostServices().android.getFastbootDevices(getSenderPluginContext(event.sender.id));
+  });
+  ipcMain.handle('plugin-runtime:android:fastboot:get-vars', async (event, serial: unknown, names: unknown) => {
+    return pluginHost.getHostServices().android.getFastbootVars(getSenderPluginContext(event.sender.id), serial as string, names as string[]);
+  });
+  ipcMain.handle('plugin-runtime:android:fastboot:reboot', async (event, serial: unknown, target: unknown) => {
+    await pluginHost.getHostServices().android.fastbootReboot(getSenderPluginContext(event.sender.id), serial as string, target as 'system' | 'bootloader' | undefined);
+  });
+
+  androidAdbService.onDevicesChanged(broadcastPluginDevices);
+  androidScrcpyService.onSessionEvent(broadcastPluginSession);
 
   ipcMain.on('plugin-host:navigate-complete', () => {
     const mainWindow = getMainWindow();

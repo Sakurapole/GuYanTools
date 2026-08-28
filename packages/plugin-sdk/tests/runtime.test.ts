@@ -19,4 +19,24 @@ describe('plugin runtime SDK', () => {
     cleanup();
     expect(unsubscribe).toHaveBeenCalledOnce();
   });
+
+  it('maps Android facade methods to scoped runtime channels', async () => {
+    const calls: Array<[string, ...unknown[]]> = [];
+    const api = createPluginApi((channel, ...args) => {
+      calls.push([channel, ...args]);
+      return Promise.resolve([]);
+    });
+
+    await api.android.devices.list();
+    await api.android.sessions.startMirror({ deviceSerial: 'usb-1' });
+    await api.android.sessions.stop('session-1');
+    await api.android.fastboot.getVars('usb-1', ['product']);
+
+    expect(calls).toEqual([
+      ['plugin-runtime:android:devices:list'],
+      ['plugin-runtime:android:sessions:start-mirror', { deviceSerial: 'usb-1' }],
+      ['plugin-runtime:android:sessions:stop', 'session-1'],
+      ['plugin-runtime:android:fastboot:get-vars', 'usb-1', ['product']],
+    ]);
+  });
 });
