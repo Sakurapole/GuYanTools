@@ -1,0 +1,28 @@
+:host { display: block; width: 100%; min-width: 0; font-family: var(--ui-font-family, var(--gt-font-family)); }
+[part="base"] { width: 100%; }
+[part="trigger"] { display: flex; width: 100%; min-height: var(--ui-control-height-md, var(--gt-control-height-md)); align-items: center; gap: 8px; box-sizing: border-box; padding: var(--ui-control-padding-y-md, 7px) var(--ui-control-padding-x-md, 10px); border: 1px solid var(--ui-input-border, var(--gt-color-border)); border-radius: var(--ui-radius-sm, var(--gt-radius-sm)); background: var(--ui-input-bg, var(--gt-color-surface)); color: var(--ui-input-text, var(--gt-color-text)); cursor: pointer; font: inherit; text-align: left; }
+[part="trigger"]:hover:not(:disabled), [part="trigger"]:focus-visible { border-color: var(--ui-input-focus-border, var(--gt-color-primary)); }
+[part="trigger"]:focus-visible { outline: none; box-shadow: var(--ui-focus-ring, var(--gt-focus-ring)); }
+[part="trigger"]:disabled { opacity: .55; cursor: not-allowed; }
+:host([size="sm"]) [part="trigger"] { min-height: var(--ui-control-height-sm, var(--gt-control-height-sm)); padding: var(--ui-control-padding-y-sm, 5px) var(--ui-control-padding-x-sm, 8px); font-size: .82rem; }
+:host([size="lg"]) [part="trigger"] { min-height: var(--ui-control-height-lg, var(--gt-control-height-lg)); padding: var(--ui-control-padding-y-lg, 9px) var(--ui-control-padding-x-lg, 14px); font-size: .96rem; }
+[part="icon"] { color: var(--ui-text-muted, var(--gt-color-text-muted)); font-size: 16px; line-height: 1; }
+[part="label"] { min-width: 0; flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; line-height: 1.5; font-variant-numeric: tabular-nums; }
+[part="label"][data-placeholder] { color: var(--ui-input-placeholder, var(--gt-color-text-subtle)); }
+[part="arrow"] { width: 7px; height: 7px; flex: 0 0 auto; border-right: 1.5px solid currentColor; border-bottom: 1.5px solid currentColor; color: var(--ui-text-muted, var(--gt-color-text-muted)); transform: rotate(45deg) translateY(-2px); }
+[data-gt-overlay="time-picker"] [part="panel"] { overflow: hidden; border: 1px solid var(--ui-border-subtle, var(--gt-color-border)); border-radius: var(--ui-radius-md, var(--gt-radius-md)); background: var(--ui-surface-glass-strong, var(--gt-color-surface)); box-shadow: var(--ui-menu-shadow, var(--gt-shadow-lg)); color: var(--ui-text-primary, var(--gt-color-text)); }
+[data-gt-overlay="time-picker"] [part="header"], [data-gt-overlay="time-picker"] [part="footer"] { display: none; }
+[data-gt-overlay="time-picker"] [part="body"] { padding: 8px 4px 4px; }
+[data-gt-overlay="time-picker"] [part="columns"] { display: flex; align-items: flex-start; }
+[data-gt-overlay="time-picker"] [part="column"] { display: flex; min-width: 0; flex: 1; flex-direction: column; }
+[data-gt-overlay="time-picker"] [part="column-header"] { padding: 0 0 6px; color: var(--ui-text-muted, var(--gt-color-text-muted)); font-size: .72rem; font-weight: 600; text-align: center; }
+[data-gt-overlay="time-picker"] [part="list"] { height: 180px; overflow-y: auto; scrollbar-width: none; }
+[data-gt-overlay="time-picker"] [part="list"]::-webkit-scrollbar { display: none; }
+[data-gt-overlay="time-picker"] [part="item"] { display: flex; width: 100%; height: 34px; align-items: center; justify-content: center; padding: 0; border: 0; border-radius: var(--ui-radius-sm, var(--gt-radius-sm)); background: transparent; color: var(--ui-input-text, var(--gt-color-text)); cursor: pointer; font: inherit; font-variant-numeric: tabular-nums; }
+[data-gt-overlay="time-picker"] [part="item"]:hover { background: var(--ui-icon-button-hover-bg, var(--gt-color-surface-muted)); }
+[data-gt-overlay="time-picker"] [part="item"][data-selected] { background: var(--ui-button-primary-bg, var(--gt-color-primary)); color: var(--ui-button-primary-text, #fff); font-weight: 600; }
+[data-gt-overlay="time-picker"] [part="separator"] { padding: 28px 2px 0; color: var(--ui-text-muted, var(--gt-color-text-muted)); font-size: 1rem; font-weight: 600; }
+[data-gt-overlay="time-picker"] [part="footer-actions"] { display: flex; justify-content: flex-end; gap: 6px; padding: 6px 8px; border-top: 1px solid var(--ui-border-subtle, var(--gt-color-border)); }
+[data-gt-overlay="time-picker"] [part="now"], [data-gt-overlay="time-picker"] [part="confirm"] { padding: 4px 12px; border: 0; border-radius: var(--ui-radius-sm, var(--gt-radius-sm)); cursor: pointer; font: inherit; font-size: .8rem; }
+[data-gt-overlay="time-picker"] [part="now"] { background: transparent; color: var(--ui-text-muted, var(--gt-color-text-muted)); }
+[data-gt-overlay="time-picker"] [part="confirm"] { background: var(--ui-button-primary-bg, var(--gt-color-primary)); color: var(--ui-button-primary-text, #fff); }

@@ -14,3 +14,4 @@ export { default as UiStateCard } from './components/UiStateCard.vue';
 export { default as UiTooltip } from './components/UiTooltip.vue';
 export { default as UiDialog } from './components/UiDialog.vue';
 export { default as UiDrawer } from './components/UiDrawer.vue';
+export { ensureGuYanElements } from './register';

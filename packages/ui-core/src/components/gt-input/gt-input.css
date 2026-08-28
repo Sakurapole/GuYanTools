@@ -1,8 +1,23 @@
-:host { --gt-input-background: var(--gt-color-surface); --gt-input-border-color: var(--gt-color-border); --gt-input-color: var(--gt-color-text); display: block; font-family: var(--gt-font-family); }
-.shell { display: flex; align-items: center; border: 1px solid var(--gt-input-border-color); border-radius: var(--gt-radius-sm); background: var(--gt-input-background); }
-.shell:focus-within { box-shadow: var(--gt-focus-ring); }
-input { width: 100%; min-height: var(--gt-control-height-md); box-sizing: border-box; border: 0; background: transparent; color: var(--gt-input-color); font: inherit; outline: 0; padding: 0 var(--gt-control-padding-x-sm); }
-:host([size="sm"]) input { min-height: var(--gt-control-height-sm); }
-:host([size="lg"]) input { min-height: var(--gt-control-height-lg); }
-button { width: 28px; border: 0; border-left: 1px solid var(--gt-input-border-color); background: transparent; color: var(--gt-input-color); cursor: pointer; }
-button:disabled { cursor: not-allowed; opacity: 0.56; }
+:host { display: block; width: 100%; min-height: var(--ui-control-height-md, var(--gt-control-height-md)); height: var(--ui-control-height-md, var(--gt-control-height-md)); font-family: var(--ui-font-family, var(--gt-font-family)); font-size: var(--ui-input-font-size-md, 0.95rem); box-sizing: border-box; border: 0; border-radius: var(--ui-radius-sm, var(--gt-radius-sm)); background: transparent; color: var(--gt-input-color, var(--ui-input-text, var(--gt-color-text))); }
+:host([size="sm"]) { min-height: var(--ui-control-height-sm, var(--gt-control-height-sm)); height: var(--ui-control-height-sm, var(--gt-control-height-sm)); }
+:host([size="lg"]) { min-height: var(--ui-control-height-lg, var(--gt-control-height-lg)); height: var(--ui-control-height-lg, var(--gt-control-height-lg)); }
+:host(:focus-within) { box-shadow: none; }
+.shell { display: flex; min-height: 100%; height: 100%; align-items: center; width: 100%; box-sizing: border-box; border: 0; border-radius: inherit; background: var(--gt-input-background, var(--ui-input-bg, var(--gt-color-surface))); color: inherit; box-shadow: inset 0 0 0 var(--ui-border-width-thin, 1px) var(--gt-input-border-color, var(--ui-input-border, var(--gt-color-border))); transition: box-shadow var(--gt-motion-normal) var(--gt-motion-ease); }
+.shell:focus-within { box-shadow: var(--gt-focus-ring), inset 0 0 0 var(--ui-border-width-thin, 1px) var(--ui-input-focus-border, var(--gt-color-primary)); }
+.shell:has(input:disabled), .shell:has(input[readonly]) { background: var(--ui-input-disabled-bg, var(--gt-input-background, var(--gt-color-surface-muted))); color: var(--ui-input-disabled-text, var(--gt-input-color, var(--gt-color-text-muted))); }
+input { width: 100%; height: auto; min-height: 0; align-self: center; flex: 1 1 auto; box-sizing: border-box; border: 0; background: transparent; color: var(--gt-input-color, var(--ui-input-text, var(--gt-color-text))); font: inherit; line-height: 1.4; outline: 0; padding: var(--ui-control-padding-y-md, 10px) var(--gt-control-padding-x-md); }
+input::placeholder { color: var(--ui-input-placeholder, var(--gt-color-text-subtle)); }
+input:disabled, input:read-only { color: var(--ui-input-disabled-text, var(--gt-color-text-muted)); }
+:host([size="sm"]) input { padding-block: var(--ui-control-padding-y-sm, 7px); font-size: var(--ui-font-size-sm, 0.84rem); }
+:host([size="lg"]) input { padding-block: var(--ui-control-padding-y-lg, 12px); font-size: var(--ui-font-size-md, 1rem); }
+[part="prefix"], [part="suffix"] { display: inline-flex; align-items: center; justify-content: center; flex: 0 0 auto; color: var(--ui-input-placeholder, var(--gt-color-text-subtle)); line-height: 1; }
+[part="prefix"][hidden], [part="suffix"][hidden] { display: none; }
+[part="prefix"] { padding-left: var(--gt-control-padding-x-md); padding-right: var(--gt-space-sm); }
+[part="suffix"] { padding-left: var(--gt-space-sm); padding-right: var(--gt-control-padding-x-md); }
+.stepper { display: flex; flex-direction: column; flex: 0 0 30px; align-self: stretch; border-left: var(--ui-border-width-thin, 1px) solid var(--gt-input-border-color, var(--ui-input-border, var(--gt-color-border))); }
+.stepper button { display: flex; min-height: 0; flex: 1 1 50%; align-items: center; justify-content: center; width: 100%; padding: 0; border: 0; background: transparent; color: var(--gt-color-text-muted); cursor: pointer; }
+.stepper button[data-step="up"] { border-bottom: var(--ui-border-width-thin, 1px) solid var(--gt-input-border-color, var(--ui-input-border, var(--gt-color-border))); }
+.stepper button:hover:not(:disabled) { background: var(--ui-input-focus-border, var(--gt-color-primary)); color: var(--ui-text-inverse, #fff); }
+.stepper button:disabled { cursor: not-allowed; opacity: 0.56; }
+input[type="number"] { -moz-appearance: textfield; appearance: textfield; }
+input[type="number"]::-webkit-inner-spin-button, input[type="number"]::-webkit-outer-spin-button { margin: 0; -webkit-appearance: none; }

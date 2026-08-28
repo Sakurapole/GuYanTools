@@ -1,8 +1,12 @@
 import { mount } from '@vue/test-utils';
 import { describe, expect, it } from 'vitest';
-import { UiEmptyState, UiTextarea, UiTooltip } from '../src';
+import { ensureGuYanElements, UiEmptyState, UiTextarea, UiTooltip } from '../src';
 
 describe('Vue adapter compatibility', () => {
+  it('exports the shared custom-element registrar', () => {
+    expect(ensureGuYanElements).toBeTypeOf('function');
+  });
+
   it('preserves textarea events, empty-state actions, and tooltip content', async () => {
     const textarea = mount(UiTextarea, { props: { modelValue: 'before' } });
     await textarea.find('gt-textarea').trigger('gt-input', { detail: { value: 'after' } });

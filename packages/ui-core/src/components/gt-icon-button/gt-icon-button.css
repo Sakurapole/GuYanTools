@@ -1,34 +1,60 @@
 :host {
-  --gt-icon-button-size: var(--gt-control-height-md);
-  --gt-icon-button-background: transparent;
-  --gt-icon-button-border-color: transparent;
-  --gt-icon-button-color: var(--gt-color-text);
   display: inline-block;
-  font-family: var(--gt-font-family);
+  font-family: var(--ui-font-family, var(--gt-font-family));
+  box-sizing: border-box;
+  width: var(--gt-icon-button-size, 34px);
+  height: var(--gt-icon-button-size, 34px);
+  border: var(--ui-border-width-thin, 1px) solid var(--gt-icon-button-border-color, transparent);
+  border-radius: var(--ui-radius-sm, var(--gt-radius-sm));
+  background: var(--gt-icon-button-background, transparent);
+  color: var(--gt-icon-button-color, var(--gt-color-text));
+  box-shadow: var(--gt-icon-button-shadow, none);
+  cursor: pointer;
+  transition: background-color 0.18s ease, border-color 0.18s ease, color 0.18s ease, box-shadow 0.18s ease, transform 0.18s ease;
 }
 
 button {
+  appearance: none;
   display: inline-flex;
   align-items: center;
   justify-content: center;
   gap: var(--gt-space-sm);
-  width: var(--gt-icon-button-size);
-  height: var(--gt-icon-button-size);
+  width: 100%;
+  height: 100%;
   padding: 0;
-  border: 1px solid var(--gt-icon-button-border-color);
-  border-radius: var(--gt-radius-sm);
-  background: var(--gt-icon-button-background);
-  color: var(--gt-icon-button-color);
-  cursor: pointer;
+  border: 0;
+  border-radius: inherit;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  box-shadow: none;
+  cursor: inherit;
+  transition: none;
+  transform: none;
 }
 
-:host([size="sm"]) { --gt-icon-button-size: var(--gt-control-height-sm); }
-:host([size="lg"]) { --gt-icon-button-size: var(--gt-control-height-lg); }
-:host([shape="circle"]) button { border-radius: 999px; }
-:host([label]) button { width: auto; padding-inline: var(--gt-control-padding-x-sm); }
-:host([variant="secondary"]) { --gt-icon-button-background: var(--gt-color-surface-muted); --gt-icon-button-border-color: var(--gt-color-border); }
-:host([variant="primary"]) { --gt-icon-button-background: var(--gt-color-primary); --gt-icon-button-color: var(--gt-color-text-inverse); }
-:host([variant="danger"]) { --gt-icon-button-color: var(--gt-color-danger); }
-button:hover:not(:disabled), :host([active]) button { background: var(--gt-color-overlay); }
-button:focus-visible { outline: none; box-shadow: var(--gt-focus-ring); }
-button:disabled { cursor: not-allowed; opacity: 0.56; }
+:host([size="sm"]:not([label])) { width: var(--gt-icon-button-size, 28px); height: var(--gt-icon-button-size, 28px); }
+:host([size="lg"]:not([label])) { width: var(--gt-icon-button-size, 40px); height: var(--gt-icon-button-size, 40px); }
+:host([shape="circle"]) { border-radius: var(--ui-radius-full, 999px); }
+:host([label]) { width: auto; height: auto; min-height: var(--ui-control-height-md, var(--gt-control-height-md)); padding: 7px var(--ui-control-padding-x-lg, var(--gt-control-padding-x-md)); font: inherit; font-size: 0.9rem; font-weight: 600; white-space: nowrap; user-select: none; }
+:host([label]) button { gap: 6px; width: 100%; min-height: 100%; }
+:host([label][size="sm"]) { min-height: var(--ui-control-height-sm, var(--gt-control-height-sm)); padding: 4px var(--ui-control-padding-x-sm, var(--gt-control-padding-x-sm)); font-size: 0.82rem; }
+:host([label][size="lg"]) { min-height: var(--ui-control-height-lg, var(--gt-control-height-lg)); padding: 9px 18px; font-size: 0.96rem; }
+:host([variant="ghost"]) { --gt-icon-button-background: transparent; --gt-icon-button-color: var(--ui-icon-button-text, var(--gt-color-text)); }
+:host([variant="secondary"]) { --gt-icon-button-background: var(--ui-icon-button-secondary-bg, var(--gt-color-surface-muted)); --gt-icon-button-border-color: var(--ui-icon-button-secondary-border, var(--gt-color-border)); --gt-icon-button-color: var(--ui-icon-button-secondary-text, var(--gt-color-text)); }
+:host([variant="primary"]) { --gt-icon-button-background: var(--ui-button-primary-bg, var(--gt-color-primary)); --gt-icon-button-border-color: var(--ui-button-primary-border, var(--gt-color-primary)); --gt-icon-button-color: var(--ui-button-primary-text, var(--gt-color-text-inverse)); --gt-icon-button-shadow: var(--ui-button-primary-shadow, none); }
+:host([variant="danger"]) { --gt-icon-button-background: transparent; --gt-icon-button-color: var(--ui-icon-button-danger-text, var(--gt-color-danger)); }
+:host(:hover:not([disabled])) { transform: translateY(-1px); }
+:host(:active:not([disabled])), :host([active]:not([disabled])) { transform: translateY(0); }
+:host([variant="ghost"]:hover:not([disabled])), :host([variant="ghost"][active]) { background: var(--ui-icon-button-hover-bg, var(--gt-color-overlay)); color: var(--ui-icon-button-hover-text, var(--gt-color-text)); }
+:host([variant="secondary"]:hover:not([disabled])), :host([variant="secondary"][active]) { background: var(--ui-icon-button-secondary-hover-bg, var(--gt-color-overlay)); border-color: var(--ui-icon-button-secondary-hover-border, var(--gt-color-border)); }
+:host([variant="primary"]:hover:not([disabled])) { background: var(--ui-button-primary-hover-bg, var(--gt-color-primary-hover)); }
+:host([variant="danger"]:hover:not([disabled])), :host([variant="danger"][active]) { background: var(--ui-icon-button-danger-hover-bg, var(--gt-color-overlay)); color: var(--ui-icon-button-danger-hover-text, var(--gt-color-danger)); }
+:host(:focus-within) { box-shadow: var(--ui-focus-ring, var(--gt-focus-ring)); }
+button:focus-visible { outline: none; box-shadow: none; }
+button:disabled { cursor: inherit; }
+:host([disabled]) { cursor: not-allowed; opacity: 0.5; transform: none; box-shadow: none; }
+.icon { display: inline-flex; flex: 0 0 auto; align-items: center; justify-content: center; }
+[part="label"] { display: inline-block; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.icon[hidden] { display: none; }
+::slotted(svg) { fill: currentColor; }

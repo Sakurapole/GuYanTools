@@ -24,6 +24,11 @@ if (import.meta.env.DEV) {
     component: () => import('../pages/DevTools.vue'),
     meta: { title: '调试工具' },
   });
+  routes.push({
+    path: '/devtools/ui-migration',
+    component: () => import('../pages/UiMigrationComparison.vue'),
+    meta: { title: '组件迁移对比' },
+  });
 }
 
 
@@ -56,4 +61,3 @@ export function registerPluginRoutes(pluginPages: PluginPageDescriptor[]) {
 export {
   router
 }
-

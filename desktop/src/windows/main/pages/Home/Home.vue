@@ -1,13 +1,6 @@
 <script lang="ts" setup>
 import { computed, defineAsyncComponent, nextTick, onActivated, onDeactivated, onMounted, onUnmounted, reactive, ref, watch } from 'vue';
 import CompArea from '../../components/CompArea/CompArea.vue';
-import UiButton from '../../components/ui/UiButton.vue';
-import UiCard from '../../components/ui/UiCard.vue';
-import UiDialog from '../../components/ui/UiDialog.vue';
-import UiField from '../../components/ui/UiField.vue';
-import UiIconButton from '../../components/ui/UiIconButton.vue';
-import UiInput from '../../components/ui/UiInput.vue';
-import UiStateCard from '../../components/ui/UiStateCard.vue';
 import UiPersonalizationConfig from '../../components/ui/UiPersonalizationConfig.vue';
 import IconPicker from '../../components/ui/IconPicker.vue';
 import IconRenderer from '../../components/ui/IconRenderer.vue';
@@ -21,6 +14,9 @@ import type { CategoryItem, GridConfig, GridItem, BackgroundConfirmPayload } fro
 import type { CreateHomeWidgetPayload } from '@/contracts/home_layout';
 import { resolveThemeBackground, withThemeBackground } from '@/contracts/background';
 import { buildBackgroundTextVars } from '../../utils/backgroundTextColor';
+import { defineCustomElements } from '@guyantools/ui-core';
+
+defineCustomElements();
 
 const GRID_GAP = 8;
 const MIN_UNIT_SIZE = 1;
@@ -54,7 +50,7 @@ const compAreaWrapper = ref<HTMLElement | null>(null);
 const compAreaStageRef = ref<HTMLElement | null>(null);
 const categoryListRef = ref<HTMLElement | null>(null);
 const homeHeaderRef = ref<HTMLElement | null>(null);
-const sidebarPanelRef = ref<{ $el?: Element } | null>(null);
+const sidebarPanelRef = ref<HTMLElement | { $el?: Element } | null>(null);
 
 // ─── 分类选中滑块 ───
 const sliderStyle = reactive({
@@ -572,10 +568,19 @@ function closeAddCategoryDialog() {
   showAddCategoryDialog.value = false;
 }
 
+function handleAddCategoryDialogChange(event: Event) {
+  const detail = (event as CustomEvent<{ open: boolean }>).detail;
+  showAddCategoryDialog.value = detail.open;
+}
+
 function handleCategoryLabelKeydown(event: KeyboardEvent) {
   if (event.key === 'Enter') {
     confirmAddCategory();
   }
+}
+
+function handleCategoryLabelInput(event: Event) {
+  newCategoryForm.label = (event as CustomEvent<{ value: string }>).detail.value;
 }
 
 function getCategoryListViewport() {
@@ -877,7 +882,7 @@ watch(() => homeProfileStore.activeProfileKey, (key, previousKey) => {
   <div class="home-shell" ref="homeShellRef">
     <div class="home-container">
       <aside class="category-sidebar" @contextmenu="handleSidebarContextMenu">
-        <UiCard ref="sidebarPanelRef" class="sidebar-panel" variant="elevated" :bordered="false" padding="none" radius="lg" :style="sidebarBgStyle">
+        <gt-card ref="sidebarPanelRef" class="sidebar-panel" variant="elevated" :bordered="false" padding="none" radius="lg" :style="sidebarBgStyle">
           <video v-if="activeSidebarBg.video" class="sidebar-panel__video" :src="activeSidebarBg.video" :style="sidebarBgVideoStyle"
             autoplay loop muted playsinline />
           <div class="sidebar-heading">
@@ -885,12 +890,12 @@ watch(() => homeProfileStore.activeProfileKey, (key, previousKey) => {
           </div>
 
           <div class="category-list-shell">
-            <UiIconButton v-if="canScrollCategoryUp" class="category-scroll-btn category-scroll-btn--up" size="sm" variant="ghost"
-              title="向上滚动分类列表" aria-label="向上滚动分类列表" @click="scrollCategoryList('up')">
+            <gt-icon-button v-if="canScrollCategoryUp" class="category-scroll-btn category-scroll-btn--up" size="sm" variant="ghost"
+              title="向上滚动分类列表" aria-label="向上滚动分类列表" @gt-click="scrollCategoryList('up')">
               <span class="category-scroll-btn__icon">
                 <ChevronIconComponent direction="up" :width="18" :height="18" />
               </span>
-            </UiIconButton>
+            </gt-icon-button>
 
             <div ref="categoryListRef" class="category-list" @scroll="updateCategoryScrollState">
               <div
@@ -901,24 +906,24 @@ watch(() => homeProfileStore.activeProfileKey, (key, previousKey) => {
                   height: `${sliderStyle.height}px`,
                 }"
               />
-              <UiButton v-for="(category, index) in categories" :key="category.id" class="category-item" variant="ghost" type="button"
-                :class="{ active: index === activeCategoryIndex }" :title="category.label"
-                @click="switchCategory(index)">
+              <gt-button v-for="(category, index) in categories" :key="category.id" class="category-item" variant="ghost" type="button"
+                :active="index === activeCategoryIndex" :class="{ active: index === activeCategoryIndex }" :title="category.label"
+                @gt-click="switchCategory(index)">
                 <div class="category-icon">
                   <IconRenderer :icon="category.icon" :size="26" />
                 </div>
                 <div class="category-label">{{ category.label }}</div>
-              </UiButton>
+              </gt-button>
             </div>
 
-            <UiIconButton v-if="canScrollCategoryDown" class="category-scroll-btn category-scroll-btn--down" size="sm" variant="ghost"
-              title="向下滚动分类列表" aria-label="向下滚动分类列表" @click="scrollCategoryList('down')">
+            <gt-icon-button v-if="canScrollCategoryDown" class="category-scroll-btn category-scroll-btn--down" size="sm" variant="ghost"
+              title="向下滚动分类列表" aria-label="向下滚动分类列表" @gt-click="scrollCategoryList('down')">
               <span class="category-scroll-btn__icon">
                 <ChevronIconComponent direction="down" :width="18" :height="18" />
               </span>
-            </UiIconButton>
+            </gt-icon-button>
           </div>
-        </UiCard>
+        </gt-card>
       </aside>
 
       <section class="home-stage">
@@ -952,12 +957,12 @@ watch(() => homeProfileStore.activeProfileKey, (key, previousKey) => {
         </header>
 
         <div class="comp-area-wrapper" ref="compAreaWrapper">
-          <UiCard class="comp-area-panel" variant="elevated" :bordered="false" padding="none" radius="lg">
+          <gt-card class="comp-area-panel" variant="elevated" :bordered="false" padding="none" radius="lg">
             <div v-if="isLoading" class="home-state">
-              <UiStateCard class="home-state-card" state="loading" title="首页布局加载中..." description="正在恢复你的桌面工作台布局。" />
+              <gt-state-card class="home-state-card" state="loading" title="首页布局加载中..." description="正在恢复你的桌面工作台布局。" />
             </div>
             <div v-else-if="!activeSlotCategory" class="home-state">
-              <UiStateCard class="home-state-card" :state="loadError ? 'error' : 'empty'" :title="loadError || '暂无首页分类'"
+              <gt-state-card class="home-state-card" :state="loadError ? 'error' : 'empty'" :title="loadError || '暂无首页分类'"
                 :description="loadError ? '请稍后重试，或检查布局数据。' : '从左侧添加一个类别，开始组织你的工具。'" />
             </div>
 
@@ -976,29 +981,35 @@ watch(() => homeProfileStore.activeProfileKey, (key, previousKey) => {
                   @item-created="handleItemCreated" @change-background="openCategoryBgPicker" />
               </div>
             </div>
-          </UiCard>
+          </gt-card>
         </div>
       </section>
     </div>
 
     <!-- 添加类别对话框 -->
-    <UiDialog v-model="showAddCategoryDialog" class="dialog-container" width="400px" max-width="400px" :close-on-mask="false">
-      <template #header>
-        <div class="dialog-header">
-          <h3>添加新类别</h3>
-          <UiIconButton class="dialog-close-btn" variant="ghost" size="md" shape="square" title="关闭"
-            @click="closeAddCategoryDialog">
-            ✕
-          </UiIconButton>
-        </div>
-      </template>
+    <gt-dialog
+      :open="showAddCategoryDialog"
+      class="dialog-container"
+      style="--gt-dialog-width: 400px;"
+      aria-label="添加新类别"
+      :close-on-mask="false"
+      @gt-open-change="handleAddCategoryDialogChange"
+    >
+      <div slot="header" class="dialog-header">
+        <h3>添加新类别</h3>
+        <gt-icon-button class="dialog-close-btn" variant="ghost" size="md" shape="square" title="关闭"
+          @gt-click="closeAddCategoryDialog">
+          ✕
+        </gt-icon-button>
+      </div>
 
       <div class="dialog-body">
-        <UiField label="类别名称" for="category-label">
-          <UiInput id="category-label" v-model="newCategoryForm.label" placeholder="请输入类别名称"
+        <gt-field label="类别名称" for="category-label">
+          <gt-input id="category-label" :value="newCategoryForm.label" placeholder="请输入类别名称"
+            @gt-input="handleCategoryLabelInput"
             @keydown="handleCategoryLabelKeydown" />
-        </UiField>
-        <UiField label="图标" for="category-icon">
+        </gt-field>
+        <gt-field label="图标" for="category-icon">
           <div class="icon-pick-trigger" @click="showCategoryIconPicker = true">
             <div v-if="newCategoryForm.icon" class="icon-pick-trigger__preview">
               <IconRenderer :icon="newCategoryForm.icon" :size="20" color="var(--ui-text-primary)" />
@@ -1007,20 +1018,17 @@ watch(() => homeProfileStore.activeProfileKey, (key, previousKey) => {
             <span v-else class="icon-pick-trigger__placeholder">点击选择图标</span>
             <span class="icon-pick-trigger__arrow" />
           </div>
-        </UiField>
+        </gt-field>
 
         <IconPicker :visible="showCategoryIconPicker" v-model="newCategoryForm.icon"
           @close="showCategoryIconPicker = false" />
       </div>
 
-      <template #footer>
-        <div class="dialog-footer">
-          <UiButton variant="secondary" @click="closeAddCategoryDialog">取消</UiButton>
-          <UiButton variant="primary" @click="confirmAddCategory" :disabled="!newCategoryForm.label.trim()">确认
-          </UiButton>
-        </div>
-      </template>
-    </UiDialog>
+      <div slot="footer" class="dialog-footer">
+        <gt-button variant="secondary" @gt-click="closeAddCategoryDialog">取消</gt-button>
+        <gt-button variant="primary" :disabled="!newCategoryForm.label.trim()" @gt-click="confirmAddCategory">确认</gt-button>
+      </div>
+    </gt-dialog>
 
     <!-- 类别区域个性化配置 -->
     <UiPersonalizationConfig :visible="showCategoryBgPicker" :currentBackground="activeCategoryBackground.color"

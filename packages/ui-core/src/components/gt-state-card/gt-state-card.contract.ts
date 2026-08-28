@@ -1,5 +1,22 @@
 export const gtStateCardStyleContract = {
   tag: 'gt-state-card',
   parts: ['base', 'icon', 'label', 'title', 'description', 'actions'] as const,
-  variables: ['--gt-state-card-background', '--gt-state-card-border-color'] as const,
+  variables: [
+    '--gt-state-card-background',
+    '--gt-state-card-border-color',
+    '--gt-state-card-min-width',
+    '--gt-state-card-compact-min-width',
+    '--gt-state-card-gap',
+    '--gt-state-card-padding',
+    '--gt-state-card-compact-padding-inline',
+    '--gt-state-card-radius',
+    '--gt-state-card-shadow',
+    '--gt-state-card-title-color',
+    '--gt-state-card-title-font-weight',
+    '--gt-state-card-error-title-color',
+    '--gt-state-card-description-color',
+    '--gt-state-card-description-max-width',
+    '--gt-state-card-eyebrow-color',
+    '--gt-state-card-actions-gap',
+  ] as const,
 } as const;

@@ -59,6 +59,16 @@
   }
 }
 
+.sidebar-panel::part(body) {
+  position: relative;
+  display: flex;
+  flex: 1 1 auto;
+  min-height: 0;
+  flex-direction: column;
+  gap: 10px;
+  padding: 0;
+}
+
 .sidebar-panel__video {
   position: absolute;
   inset: 0;
@@ -134,7 +144,7 @@
     height 280ms cubic-bezier(0.32, 0.72, 0, 1);
 }
 
-.category-scroll-btn.ui-icon-button {
+.category-scroll-btn {
   position: absolute;
   left: 2px;
   right: 2px;
@@ -208,7 +218,7 @@
 
 /* ─── Category Item — Refined with tactile feedback ─── */
 
-.category-item.ui-button {
+.category-item {
   appearance: none;
   position: relative;
   z-index: 1;
@@ -226,6 +236,8 @@
   font: inherit;
   font-weight: inherit;
   line-height: inherit;
+  height: auto;
+  min-height: 0;
   white-space: normal;
   outline: none;
   box-sizing: border-box;
@@ -325,7 +337,28 @@
   }
 }
 
-.category-item .ui-button__label {
+/* Stencil keeps the native button and label in Shadow DOM. Mirror the legacy
+   vertical layout through the public parts while leaving slot content in the
+   page so existing icon/label styles continue to apply. */
+.category-item::part(base) {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  line-height: inherit;
+  white-space: normal;
+}
+
+.category-item::part(label) {
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -493,9 +526,17 @@
   padding: 4px;
   box-sizing: border-box;
   overflow: hidden;
-  // Override UiCard elevated styles — we handle our own visual treatment
+   // Override the card surface — we handle our own visual treatment.
   background: transparent !important;
   box-shadow: none !important;
+}
+
+.comp-area-panel::part(body) {
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+  padding: 0;
+  box-sizing: border-box;
 }
 
 .comp-area-stage {
@@ -519,44 +560,18 @@
 }
 
 .home-state-card {
-  position: relative;
   z-index: 2;
-  min-width: min(100%, 360px);
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 10px;
-  padding: 32px 34px;
-  text-align: center;
-  border-radius: var(--ui-radius-lg);
-  background: var(--home-state-card-bg-color);
-  border: 1px solid var(--home-panel-border-color);
-  box-shadow: none;
-
-  strong {
-    color: var(--ui-text-primary);
-    font-size: 1.05rem;
-    font-weight: 700;
-  }
-
-  p {
-    margin: 0;
-    color: var(--ui-text-muted);
-    line-height: 1.6;
-    max-width: 36ch;
-  }
-
-  &__eyebrow {
-    font-size: 0.68rem;
-    letter-spacing: 0.18em;
-    text-transform: uppercase;
-    color: var(--ui-text-muted);
-    font-weight: 600;
-  }
-
-  &--error strong {
-    color: var(--ui-status-danger-text);
-  }
+  --gt-state-card-min-width: min(100%, 360px);
+  --gt-state-card-gap: 10px;
+  --gt-state-card-padding: 32px 34px;
+  --gt-state-card-radius: var(--ui-radius-lg);
+  --gt-state-card-background: var(--home-state-card-bg-color);
+  --gt-state-card-border-color: var(--home-panel-border-color);
+  --gt-state-card-shadow: none;
+  --gt-state-card-title-color: var(--ui-text-primary);
+  --gt-state-card-title-font-weight: 700;
+  --gt-state-card-description-color: var(--ui-text-muted);
+  --gt-state-card-description-max-width: 36ch;
 }
 
 /* ─── Comp Area Container ─── */
@@ -682,7 +697,7 @@
   border-top: var(--ui-border-width-thin) solid var(--ui-border-accent);
   justify-content: flex-end;
 
-  .ui-button {
+  > gt-button {
     flex: 1;
   }
 }
@@ -780,7 +795,7 @@
 
 @media (prefers-reduced-motion: reduce) {
   .category-slider,
-  .category-item.ui-button,
+   .category-item,
   .comp-area-container,
   .dialog-container {
     animation: none !important;

@@ -1,0 +1,5 @@
+:host { display: block; width: 100%; min-width: 0; font-family: var(--ui-font-family, var(--gt-font-family)); }
+[part="base"] { display: flex; width: 100%; min-width: 0; align-items: center; gap: 8px; }
+[part="base"] > gt-date-picker { min-width: 0; flex: 1.4; }
+[part="base"] > gt-time-picker { min-width: 0; flex: 1; }
+[part="base"].mode-date > gt-date-picker { flex: 1; }

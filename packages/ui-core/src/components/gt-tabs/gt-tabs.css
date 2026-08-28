@@ -1,12 +1,18 @@
-:host { --gt-tabs-active-index: 0; --gt-tabs-item-count: 1; --gt-tabs-indicator-color: var(--gt-color-primary); display: block; font-family: var(--gt-font-family); }
-[role="tablist"] { position: relative; display: flex; gap: var(--gt-space-xs); border-bottom: 1px solid var(--gt-color-border); }
-:host([variant="segmented"]) [role="tablist"] { border-bottom: 0; background: var(--gt-color-surface-muted); border-radius: var(--gt-radius-sm); padding: 2px; }
-:host([stretch]) button { flex: 1; }
-button { min-height: var(--gt-control-height-md); border: 0; border-bottom: 2px solid transparent; background: transparent; color: var(--gt-color-text-muted); font: inherit; cursor: pointer; }
-:host([size="sm"]) button { min-height: var(--gt-control-height-sm); }
-:host([size="lg"]) button { min-height: var(--gt-control-height-lg); }
-button[aria-selected="true"] { color: var(--gt-color-text); }
+:host { display: inline-flex; align-items: center; font-family: var(--ui-font-family, var(--gt-font-family)); }
+[role="tablist"] { position: relative; display: inline-flex; width: 100%; gap: 8px; }
+:host([stretch]) { display: block; }
+:host([stretch]) [role="tablist"] { display: flex; width: 100%; }
+:host([variant="line"]) [role="tablist"] { border-bottom: var(--ui-border-width-thin, 1px) solid var(--ui-tabs-border, var(--gt-color-border)); }
+:host([variant="segmented"]) [role="tablist"] { padding: 4px; background: var(--ui-tabs-segmented-bg, var(--gt-color-surface-muted)); border: var(--ui-border-width-thin, 1px) solid var(--ui-tabs-border, var(--gt-color-border)); border-radius: var(--ui-radius-md, var(--gt-radius-sm)); }
+:host([stretch]) button { flex: 1 1 0; }
+button { appearance: none; position: relative; z-index: 1; display: inline-flex; align-items: center; justify-content: center; box-sizing: border-box; min-width: 0; min-height: 40px; padding: 9px var(--ui-control-padding-x-lg, var(--gt-control-padding-x-lg)); border: 0; background: transparent; color: var(--ui-tabs-text, var(--gt-color-text-muted)); cursor: pointer; font: inherit; font-size: var(--ui-font-size-md, 0.9rem); font-weight: 600; transition: color var(--gt-motion-normal) var(--gt-motion-ease), background-color var(--gt-motion-normal) var(--gt-motion-ease), transform var(--gt-motion-normal) var(--gt-motion-ease); }
+:host([size="sm"]) button { min-height: var(--ui-control-height-sm, var(--gt-control-height-sm)); padding: 6px var(--ui-control-padding-x-sm, var(--gt-control-padding-x-sm)); font-size: var(--ui-font-size-sm, 0.84rem); }
+:host([size="lg"]) button { min-height: var(--ui-control-height-lg, var(--gt-control-height-lg)); padding: 9px var(--ui-control-padding-x-lg, var(--gt-control-padding-x-lg)); font-size: var(--ui-font-size-md, 0.96rem); }
+button:hover:not(:disabled) { color: var(--ui-tabs-hover-text, var(--gt-color-text)); }
+button[aria-selected="true"] { color: var(--ui-tabs-active-text, var(--gt-color-text)); }
+:host([variant="line"]) button[aria-selected="true"] { background: var(--ui-tabs-active-bg, transparent); }
+:host([variant="segmented"]) button { border-radius: var(--ui-radius-xs, 4px); }
 button:focus-visible { outline: none; box-shadow: var(--gt-focus-ring); }
 button:disabled { cursor: not-allowed; opacity: 0.5; }
-.indicator { position: absolute; bottom: -1px; left: 0; width: calc(100% / var(--gt-tabs-item-count)); height: 2px; background: var(--gt-tabs-indicator-color); transform: translateX(calc(var(--gt-tabs-active-index) * 100%)); transition: transform var(--gt-motion-normal) var(--gt-motion-ease), width var(--gt-motion-normal) var(--gt-motion-ease); }
-:host([variant="segmented"]) .indicator { display: none; }
+.indicator { position: absolute; bottom: -1px; left: 0; width: var(--gt-tabs-active-width, 0px); height: var(--ui-border-width-strong, 2px); background: var(--gt-tabs-indicator-color, var(--ui-tabs-active-indicator, var(--gt-color-primary))); transform: translate3d(0, 0, 0); transition: transform var(--gt-motion-normal) var(--gt-motion-ease), width var(--gt-motion-normal) var(--gt-motion-ease), opacity var(--gt-motion-normal) var(--gt-motion-ease); }
+:host([variant="segmented"]) .indicator { top: 4px; bottom: 4px; border-radius: var(--ui-radius-xs, 4px); background: var(--ui-tabs-active-bg, var(--gt-color-surface)); }

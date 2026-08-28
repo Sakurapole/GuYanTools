@@ -1,7 +1,10 @@
-:host { --gt-textarea-background: var(--gt-color-surface); --gt-textarea-border-color: var(--gt-color-border); --gt-textarea-color: var(--gt-color-text); display: block; font-family: var(--gt-font-family); }
-textarea { width: 100%; box-sizing: border-box; padding: var(--gt-space-sm); border: 1px solid var(--gt-textarea-border-color); border-radius: var(--gt-radius-sm); background: var(--gt-textarea-background); color: var(--gt-textarea-color); font: inherit; resize: vertical; }
+:host { display: block; width: 100%; font-family: var(--ui-font-family, var(--gt-font-family)); box-sizing: border-box; }
+[part="base"] { width: 100%; }
+textarea { width: 100%; min-width: 0; box-sizing: border-box; padding: var(--ui-control-padding-y-md, 10px) var(--gt-control-padding-x-md); border: var(--ui-border-width-thin, 1px) solid var(--gt-textarea-border-color, var(--ui-input-border, var(--gt-color-border))); border-radius: var(--ui-radius-sm, var(--gt-radius-sm)); background: var(--gt-textarea-background, var(--ui-input-bg, var(--gt-color-surface))); color: var(--gt-textarea-color, var(--ui-input-text, var(--gt-color-text))); font: inherit; line-height: 1.5; resize: vertical; transition: border-color 0.18s ease, box-shadow 0.18s ease, background-color 0.18s ease, color 0.18s ease; }
+textarea:focus { outline: none; border-color: var(--ui-input-focus-border, var(--gt-color-primary)); box-shadow: var(--gt-focus-ring); }
+textarea::placeholder { color: var(--ui-input-placeholder, var(--gt-color-text-subtle)); }
+textarea:disabled, textarea:read-only { background: var(--ui-input-disabled-bg, var(--gt-color-surface-muted)); color: var(--ui-input-disabled-text, var(--gt-color-text-muted)); }
 :host([resize="none"]) textarea { resize: none; }
 :host([resize="both"]) textarea { resize: both; }
 :host([resize="horizontal"]) textarea { resize: horizontal; }
-textarea:focus { outline: 0; box-shadow: var(--gt-focus-ring); }
-textarea:disabled { cursor: not-allowed; opacity: 0.56; }
+textarea:disabled { cursor: not-allowed; }

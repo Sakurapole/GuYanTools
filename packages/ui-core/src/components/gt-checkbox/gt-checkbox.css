@@ -1,4 +1,16 @@
-:host { --gt-checkbox-accent-color: var(--gt-color-primary); display: inline-block; font-family: var(--gt-font-family); }
-label { display: inline-flex; align-items: center; gap: var(--gt-space-sm); color: var(--gt-color-text); cursor: pointer; }
-input { accent-color: var(--gt-checkbox-accent-color); }
-input:disabled + span { cursor: not-allowed; opacity: 0.56; }
+:host { display: inline-flex; align-items: center; font-family: var(--ui-font-family, var(--gt-font-family)); }
+label { display: flex; align-items: center; gap: 8px; color: var(--ui-text-primary, var(--gt-color-text)); cursor: pointer; user-select: none; outline: none; }
+input { position: absolute; width: 1px; height: 1px; opacity: 0; pointer-events: none; }
+input:focus-visible + .box { border-color: var(--ui-checkbox-focus-border, var(--ui-input-focus-border, var(--gt-color-primary))); box-shadow: var(--gt-focus-ring); }
+.box { position: relative; display: inline-flex; align-items: center; justify-content: center; box-sizing: border-box; flex: 0 0 auto; width: 18px; height: 18px; border: var(--ui-border-width-thin, 1px) solid var(--ui-checkbox-border, var(--ui-input-border, var(--gt-color-border))); border-radius: var(--ui-radius-xs, 4px); background: var(--ui-checkbox-bg, var(--ui-input-bg, var(--gt-color-surface))); color: var(--ui-checkbox-check-color, var(--ui-text-inverse, #fff)); transition: background-color 0.16s cubic-bezier(0.4, 0, 0.2, 1), border-color 0.16s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.16s cubic-bezier(0.4, 0, 0.2, 1), transform 0.12s cubic-bezier(0.4, 0, 0.2, 1); }
+:host([size="sm"]) .box { width: 14px; height: 14px; border-radius: 3px; }
+:host(:not([disabled])) label:hover .box { border-color: var(--ui-checkbox-hover-border, var(--ui-input-focus-border, var(--gt-color-primary))); transform: scale(1.04); }
+:host([disabled]) label { cursor: not-allowed; opacity: 0.58; }
+:host([checked]) .box, :host([indeterminate]) .box { background: var(--ui-checkbox-checked-bg, var(--primary-color, var(--gt-checkbox-accent-color, var(--gt-color-primary)))); border-color: var(--ui-checkbox-checked-border, var(--primary-color, var(--gt-checkbox-accent-color, var(--gt-color-primary)))); }
+.icon { display: block; animation: gtCheckboxPop 0.18s cubic-bezier(0.34, 1.56, 0.64, 1) forwards; }
+:host([size="sm"]) .icon { width: 10px; height: 10px; }
+:host([size="md"]) .icon { width: 12px; height: 12px; }
+@keyframes gtCheckboxPop { from { opacity: 0; transform: scale(0.5); } to { opacity: 1; transform: scale(1); } }
+.label { color: var(--ui-text-primary, var(--gt-color-text)); font-size: 0.9rem; line-height: 1.4; }
+.label[hidden] { display: none; }
+:host([size="sm"]) .label { font-size: 0.82rem; }

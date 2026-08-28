@@ -1,4 +1,4 @@
-import { Component, Event, h, Host, Prop, type EventEmitter } from '@stencil/core';
+import { Component, Element, Event, h, Host, Prop, State, type EventEmitter } from '@stencil/core';
 
 export interface GtTabItem {
   disabled?: boolean;
@@ -20,6 +20,42 @@ export class GtTabs {
 
   @Event({ eventName: 'gt-change', bubbles: true, composed: true }) change!: EventEmitter<GtTabChangeDetail>;
 
+  @Element() host!: HTMLElement;
+  @State() private indicatorStyle = 'opacity: 0;';
+  private resizeObserver?: ResizeObserver;
+
+  componentDidLoad(): void {
+    this.updateIndicator();
+    if (typeof ResizeObserver !== 'undefined') {
+      this.resizeObserver = new ResizeObserver(this.updateIndicator);
+      this.resizeObserver.observe(this.host);
+    }
+    window.addEventListener('resize', this.updateIndicator);
+  }
+
+  componentDidRender(): void {
+    this.updateIndicator();
+  }
+
+  disconnectedCallback(): void {
+    this.resizeObserver?.disconnect();
+    window.removeEventListener('resize', this.updateIndicator);
+  }
+
+  private updateIndicator = (): void => {
+    const root = this.host.shadowRoot?.querySelector<HTMLElement>('[role="tablist"]');
+    const activeTab = root?.querySelector<HTMLElement>('button[aria-selected="true"]');
+    if (!root || !activeTab) {
+      if (this.indicatorStyle !== 'opacity: 0;') this.indicatorStyle = 'opacity: 0;';
+      return;
+    }
+
+    const rootRect = root.getBoundingClientRect();
+    const activeRect = activeTab.getBoundingClientRect();
+    const nextStyle = `opacity: 1; width: ${activeRect.width}px; transform: translate3d(${activeRect.left - rootRect.left}px, 0, 0);`;
+    if (this.indicatorStyle !== nextStyle) this.indicatorStyle = nextStyle;
+  };
+
   private select(item: GtTabItem): void {
     if (item.disabled || item.value === this.value) return;
     this.value = item.value;
@@ -27,17 +63,11 @@ export class GtTabs {
   }
 
   render() {
-    const activeIndex = Math.max(0, this.items.findIndex((item) => item.value === this.value));
-    const indicatorStyle = {
-      '--gt-tabs-active-index': String(activeIndex),
-      '--gt-tabs-item-count': String(Math.max(this.items.length, 1)),
-    };
-
     return (
       <Host>
-        <div part="base" role="tablist" style={indicatorStyle}>
+        <div part="base" role="tablist">
           {this.items.map((item) => <button part="tab" aria-selected={String(item.value === this.value)} data-value={item.value} disabled={item.disabled} role="tab" type="button" onClick={() => this.select(item)}>{item.label}</button>)}
-          <span part="indicator" class="indicator" />
+          <span part="indicator" class="indicator" style={{ cssText: this.indicatorStyle }} />
         </div>
       </Host>
     );

@@ -1,64 +1,105 @@
 :host {
-  --gt-button-background: var(--gt-color-surface-muted);
-  --gt-button-border-color: var(--gt-color-border);
-  --gt-button-color: var(--gt-color-text);
-  --gt-button-shadow: none;
   display: inline-block;
-  font-family: var(--gt-font-family);
+  font-family: var(--ui-font-family, var(--gt-font-family));
+  height: var(--ui-control-height-md, var(--gt-control-height-md));
+  min-height: var(--ui-control-height-md, var(--gt-control-height-md));
+  box-sizing: border-box;
+  padding: 0 var(--ui-control-padding-x-lg, var(--gt-control-padding-x-md));
+  border: 1px solid var(--gt-button-border-color, var(--gt-color-border));
+  border-radius: var(--ui-radius-sm, var(--gt-radius-sm));
+  background: var(--gt-button-background, var(--gt-color-surface-muted));
+  color: var(--gt-button-color, var(--gt-color-text));
+  box-shadow: var(--gt-button-shadow, none);
+  cursor: pointer;
+  font: inherit;
+  font-size: var(--ui-button-font-size-md, 0.9rem);
+  font-weight: 600;
+  line-height: 1.4;
+  white-space: nowrap;
+  user-select: none;
+  transition: background-color var(--gt-motion-normal) var(--gt-motion-ease), color var(--gt-motion-normal) var(--gt-motion-ease), border-color var(--gt-motion-normal) var(--gt-motion-ease), box-shadow var(--gt-motion-normal) var(--gt-motion-ease), transform var(--gt-motion-normal) var(--gt-motion-ease);
 }
 
 :host([block]) {
   display: block;
 }
+:host(:hover:not([disabled])) { transform: translateY(-1px); }
+:host(:active:not([disabled])), :host([active]:not([disabled])) { transform: translateY(0); }
+
+:host([size="sm"]) { height: var(--ui-control-height-sm, var(--gt-control-height-sm)); min-height: var(--ui-control-height-sm, var(--gt-control-height-sm)); padding-inline: var(--ui-control-padding-x-sm, var(--gt-control-padding-x-sm)); }
+:host([size="lg"]) { height: var(--ui-control-height-lg, var(--gt-control-height-lg)); min-height: var(--ui-control-height-lg, var(--gt-control-height-lg)); padding-inline: var(--ui-button-padding-x-lg, 18px); }
 
 button {
-  display: inline-flex;
+  appearance: none;
+  display: flex;
   align-items: center;
   justify-content: center;
   gap: var(--gt-space-sm);
-  min-height: var(--gt-control-height-md);
-  padding: 0 var(--gt-control-padding-x-md);
-  border: 1px solid var(--gt-button-border-color);
-  border-radius: var(--gt-radius-sm);
-  background: var(--gt-button-background);
-  color: var(--gt-button-color);
-  box-shadow: var(--gt-button-shadow);
-  cursor: pointer;
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+  box-sizing: border-box;
+  padding: 0;
+  border: 0;
+  border-radius: inherit;
+  background: transparent;
+  color: inherit;
+  box-shadow: none;
+  cursor: inherit;
   font: inherit;
-  font-weight: 600;
+  font-weight: inherit;
+  line-height: 1.4;
+  white-space: nowrap;
+  user-select: none;
+  transition: none;
+  transform: none;
 }
 
 :host([size="sm"]) button {
-  min-height: var(--gt-control-height-sm);
-  padding-inline: var(--gt-control-padding-x-sm);
+  min-height: 100%;
+  padding: 0;
+  font-size: var(--ui-font-size-sm, 0.82rem);
 }
 
 :host([size="lg"]) button {
-  min-height: var(--gt-control-height-lg);
-  padding-inline: var(--gt-control-padding-x-lg);
+  min-height: 100%;
+  padding: 0;
+  font-size: var(--ui-font-size-md, 0.96rem);
 }
 
-:host([variant="primary"]) button {
-  --gt-button-background: var(--gt-color-primary);
-  --gt-button-border-color: var(--gt-color-primary);
-  --gt-button-color: var(--gt-color-text-inverse);
+:host([variant="secondary"]) {
+  --gt-button-background: var(--ui-button-secondary-bg, var(--gt-color-surface-muted));
+  --gt-button-border-color: var(--ui-button-secondary-border, var(--gt-color-border));
+  --gt-button-color: var(--ui-button-secondary-text, var(--gt-color-text));
+  --gt-button-shadow: var(--ui-button-secondary-shadow, none);
 }
 
-:host([variant="danger"]) button {
-  --gt-button-background: var(--gt-color-danger-soft);
+:host([variant="primary"]) {
+  --gt-button-background: var(--ui-button-primary-bg, var(--gt-color-primary));
+  --gt-button-border-color: var(--ui-button-primary-border, var(--gt-color-primary));
+  --gt-button-color: var(--ui-button-primary-text, var(--gt-color-text-inverse));
+  --gt-button-shadow: var(--ui-button-primary-shadow, none);
+}
+
+:host([variant="danger"]) {
+  --gt-button-background: var(--ui-button-danger-bg, var(--gt-color-danger-soft));
+  --gt-button-border-color: var(--ui-button-danger-border, transparent);
+  --gt-button-color: var(--ui-button-danger-text, var(--gt-color-danger));
+  --gt-button-shadow: var(--ui-button-danger-shadow, none);
+}
+
+:host([variant="ghost"]) {
+  --gt-button-background: var(--ui-button-ghost-bg, transparent);
   --gt-button-border-color: transparent;
-  --gt-button-color: var(--gt-color-danger);
+  --gt-button-color: var(--ui-button-ghost-text, var(--gt-color-text-muted));
+  --gt-button-shadow: none;
 }
 
-:host([variant="ghost"]) button {
-  --gt-button-background: transparent;
-  --gt-button-border-color: transparent;
-}
-
-:host([active]) button,
-button:hover:not(:disabled) {
-  box-shadow: var(--gt-focus-ring);
-}
+:host(:focus-within) { box-shadow: var(--ui-focus-ring, var(--gt-focus-ring)); }
+:host([variant="primary"]:hover:not([disabled])) { background: var(--ui-button-primary-hover-bg, var(--gt-color-primary-hover)); }
+:host([variant="secondary"]:hover:not([disabled])), :host([variant="secondary"][active]) { background: var(--ui-button-secondary-hover-bg, var(--gt-color-surface-muted)); border-color: var(--ui-button-secondary-hover-border, var(--gt-color-border)); }
+:host([variant="ghost"]:hover:not([disabled])), :host([variant="ghost"][active]) { background: var(--ui-button-ghost-hover-bg, var(--gt-color-overlay)); color: var(--ui-button-ghost-hover-text, var(--gt-color-text)); }
+:host([variant="danger"]:hover:not([disabled])) { background: var(--ui-button-danger-hover-bg, var(--gt-color-danger-soft)); }
 
 :host([block]) button {
   width: 100%;
@@ -66,14 +107,16 @@ button:hover:not(:disabled) {
 
 button:focus-visible {
   outline: none;
-  box-shadow: var(--gt-focus-ring);
+  box-shadow: none;
 }
 
-button:disabled {
-  cursor: not-allowed;
-  opacity: 0.56;
-}
+button:disabled { cursor: inherit; }
+:host([disabled]) { cursor: not-allowed; opacity: 0.56; transform: none; box-shadow: none; }
 
+.prefix[hidden], .suffix[hidden] { display: none; }
 .label {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   min-width: 0;
 }

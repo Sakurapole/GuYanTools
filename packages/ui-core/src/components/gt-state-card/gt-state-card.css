@@ -1,7 +1,10 @@
-:host { --gt-state-card-background: var(--gt-color-surface); --gt-state-card-border-color: var(--gt-color-border); display: block; color: var(--gt-color-text); font-family: var(--gt-font-family); }
-article { display: flex; flex-direction: column; align-items: center; gap: var(--gt-space-sm); padding: var(--gt-space-xl); border: 1px solid var(--gt-state-card-border-color); border-radius: var(--gt-radius-md); background: var(--gt-state-card-background); text-align: center; }
-:host([compact]) article { padding: var(--gt-space-lg); }
-.eyebrow, p { margin: 0; color: var(--gt-color-text-muted); font-size: var(--gt-font-size-sm); }
-strong { color: var(--gt-color-text); }
-:host([state="error"]) strong { color: var(--gt-color-danger); }
-.actions { display: flex; gap: var(--gt-space-sm); }
+:host { position: relative; display: flex; min-width: var(--gt-state-card-min-width, min(100%, 360px)); min-height: 0; flex-direction: column; box-sizing: border-box; color: var(--gt-color-text); font-family: var(--ui-font-family, var(--gt-font-family)); }
+article { display: flex; width: 100%; min-width: 0; box-sizing: border-box; flex-direction: column; align-items: center; gap: var(--gt-state-card-gap, 8px); padding: var(--gt-state-card-padding, 0); border: var(--ui-border-width-thin, 1px) solid var(--gt-state-card-border-color, var(--ui-card-border, var(--gt-color-border))); border-radius: var(--gt-state-card-radius, var(--ui-radius-md, var(--gt-radius-md))); background: var(--gt-state-card-background, var(--ui-card-bg, var(--gt-color-surface))); box-shadow: var(--gt-state-card-shadow, var(--ui-card-shadow, var(--gt-shadow-sm))); text-align: center; }
+:host([compact]) { min-width: var(--gt-state-card-compact-min-width, min(100%, 280px)); }
+:host([compact]) article { padding-inline: var(--gt-state-card-compact-padding-inline, 20px); }
+[part="icon"][hidden], .actions[hidden] { display: none; }
+.eyebrow { margin: 0; color: var(--gt-state-card-eyebrow-color, var(--ui-state-muted, var(--gt-color-text-muted))); font-size: 0.72rem; letter-spacing: 0.18em; text-transform: uppercase; }
+p { max-width: var(--gt-state-card-description-max-width, none); margin: 0; color: var(--gt-state-card-description-color, var(--ui-state-muted, var(--gt-color-text-muted))); line-height: 1.6; }
+strong { color: var(--gt-state-card-title-color, var(--ui-state-title, var(--gt-color-text))); font-size: 1.05rem; font-weight: var(--gt-state-card-title-font-weight, bolder); }
+:host([state="error"]) strong { color: var(--gt-state-card-error-title-color, var(--ui-state-error, var(--gt-color-danger))); }
+.actions { display: flex; gap: var(--gt-state-card-actions-gap, 12px); margin-top: 4px; }

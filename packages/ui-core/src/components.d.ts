@@ -7,25 +7,41 @@
 import { HTMLStencilElement, JSXBase } from "@stencil/core/internal";
 import { GtButtonClickDetail } from "./components/gt-button/gt-button";
 import { GtCheckedChangeDetail } from "./components/gt-checkbox/gt-checkbox";
+import { GtDateChangeDetail } from "./components/gt-date-picker/gt-date-picker";
+import { GtDateTimeChangeDetail, GtDateTimeMode, GtDateTimeValueFormat } from "./components/gt-date-time-picker/gt-date-time-picker";
 import { GtOpenChangeDetail } from "./components/gt-dialog/gt-dialog";
+import { GtDisclosureChangeDetail } from "./components/gt-disclosure/gt-disclosure";
 import { GtOpenChangeDetail as GtOpenChangeDetail1 } from "./components/gt-dialog/gt-dialog";
 import { GtIconButtonClickDetail } from "./components/gt-icon-button/gt-icon-button";
 import { GtValueChangeDetail } from "./components/gt-input/gt-input";
+import { GtMenuCloseDetail } from "./components/gt-menu/gt-menu";
+import { GtMenuItemClickDetail } from "./components/gt-menu-item/gt-menu-item";
+import { GtPopupOpenChangeDetail, GtPopupPlacement, GtPopupVariant } from "./components/gt-popup-surface/gt-popup-surface";
 import { GtRadioChangeDetail } from "./components/gt-radio/gt-radio";
+import { GtSelectChangeDetail, GtSelectOption } from "./components/gt-select/gt-select";
 import { GtSwitchChangeDetail } from "./components/gt-switch/gt-switch";
 import { GtTabChangeDetail, GtTabItem } from "./components/gt-tabs/gt-tabs";
 import { GtValueChangeDetail as GtValueChangeDetail1 } from "./components/gt-input/gt-input";
+import { GtTimeChangeDetail } from "./components/gt-time-picker/gt-time-picker";
 import { OverlayPlacement } from "./utils/overlay-controller";
 export { GtButtonClickDetail } from "./components/gt-button/gt-button";
 export { GtCheckedChangeDetail } from "./components/gt-checkbox/gt-checkbox";
+export { GtDateChangeDetail } from "./components/gt-date-picker/gt-date-picker";
+export { GtDateTimeChangeDetail, GtDateTimeMode, GtDateTimeValueFormat } from "./components/gt-date-time-picker/gt-date-time-picker";
 export { GtOpenChangeDetail } from "./components/gt-dialog/gt-dialog";
+export { GtDisclosureChangeDetail } from "./components/gt-disclosure/gt-disclosure";
 export { GtOpenChangeDetail as GtOpenChangeDetail1 } from "./components/gt-dialog/gt-dialog";
 export { GtIconButtonClickDetail } from "./components/gt-icon-button/gt-icon-button";
 export { GtValueChangeDetail } from "./components/gt-input/gt-input";
+export { GtMenuCloseDetail } from "./components/gt-menu/gt-menu";
+export { GtMenuItemClickDetail } from "./components/gt-menu-item/gt-menu-item";
+export { GtPopupOpenChangeDetail, GtPopupPlacement, GtPopupVariant } from "./components/gt-popup-surface/gt-popup-surface";
 export { GtRadioChangeDetail } from "./components/gt-radio/gt-radio";
+export { GtSelectChangeDetail, GtSelectOption } from "./components/gt-select/gt-select";
 export { GtSwitchChangeDetail } from "./components/gt-switch/gt-switch";
 export { GtTabChangeDetail, GtTabItem } from "./components/gt-tabs/gt-tabs";
 export { GtValueChangeDetail as GtValueChangeDetail1 } from "./components/gt-input/gt-input";
+export { GtTimeChangeDetail } from "./components/gt-time-picker/gt-time-picker";
 export { OverlayPlacement } from "./utils/overlay-controller";
 export namespace Components {
     interface GtButton {
@@ -55,6 +71,10 @@ export namespace Components {
         "variant": 'primary' | 'secondary' | 'ghost' | 'danger';
     }
     interface GtCard {
+        /**
+          * @default true
+         */
+        "bordered": boolean;
         /**
           * @default false
          */
@@ -98,9 +118,88 @@ export namespace Components {
          */
         "name": string;
         /**
+          * @default 'md'
+         */
+        "size": 'sm' | 'md';
+        /**
           * @default ''
          */
         "value": string;
+    }
+    interface GtDatePicker {
+        /**
+          * @default true
+         */
+        "clearable": boolean;
+        /**
+          * @default true
+         */
+        "closeOnOutside": boolean;
+        /**
+          * @default false
+         */
+        "disabled": boolean;
+        /**
+          * @default ''
+         */
+        "max": string;
+        /**
+          * @default ''
+         */
+        "min": string;
+        /**
+          * @default '选择日期'
+         */
+        "placeholder": string;
+        /**
+          * @default 'md'
+         */
+        "size": 'sm' | 'md' | 'lg';
+        /**
+          * @default ''
+         */
+        "value": string;
+    }
+    interface GtDateTimePicker {
+        /**
+          * @default true
+         */
+        "clearable": boolean;
+        /**
+          * @default true
+         */
+        "closeOnOutside": boolean;
+        /**
+          * @default '日期'
+         */
+        "datePlaceholder": string;
+        /**
+          * @default false
+         */
+        "disabled": boolean;
+        /**
+          * @default 5
+         */
+        "minuteStep": number;
+        /**
+          * @default 'datetime'
+         */
+        "mode": GtDateTimeMode;
+        /**
+          * @default '选择日期和时间'
+         */
+        "placeholder": string;
+        /**
+          * @default 'md'
+         */
+        "size": 'sm' | 'md' | 'lg';
+        /**
+          * @default '时间'
+         */
+        "timePlaceholder": string;
+        "value": string | number | undefined;
+        "valueFormat"?: GtDateTimeValueFormat;
+        "valueType"?: 'string' | 'timestamp';
     }
     interface GtDialog {
         /**
@@ -127,6 +226,16 @@ export namespace Components {
           * @default false
          */
         "persistent": boolean;
+    }
+    interface GtDisclosure {
+        /**
+          * @default false
+         */
+        "open": boolean;
+        /**
+          * @default ''
+         */
+        "title": string;
     }
     interface GtDrawer {
         /**
@@ -233,10 +342,13 @@ export namespace Components {
         "variant": 'primary' | 'secondary' | 'ghost' | 'danger';
     }
     interface GtInput {
+        "autocapitalize"?: string;
+        "autocorrect"?: string;
         /**
           * @default false
          */
         "disabled": boolean;
+        "list"?: string;
         "max"?: string;
         "min"?: string;
         /**
@@ -251,6 +363,7 @@ export namespace Components {
           * @default 'md'
          */
         "size": 'sm' | 'md' | 'lg';
+        "spellcheck"?: boolean | 'true' | 'false';
         /**
           * @default '1'
          */
@@ -263,6 +376,134 @@ export namespace Components {
           * @default ''
          */
         "value": string;
+    }
+    interface GtMenu {
+        /**
+          * @default true
+         */
+        "closeOnClickOutside": boolean;
+        /**
+          * @default ''
+         */
+        "maxHeight": string;
+        /**
+          * @default ''
+         */
+        "outsideIgnoreSelector": string | string[];
+        /**
+          * @default false
+         */
+        "visible": boolean;
+        /**
+          * @default 0
+         */
+        "x": number;
+        /**
+          * @default 0
+         */
+        "y": number;
+    }
+    interface GtMenuDivider {
+    }
+    interface GtMenuItem {
+        /**
+          * @default false
+         */
+        "danger": boolean;
+        /**
+          * @default false
+         */
+        "disabled": boolean;
+    }
+    interface GtPopupSurface {
+        /**
+          * @default ''
+         */
+        "ariaLabel": string;
+        /**
+          * @default ''
+         */
+        "ariaLabelledby": string;
+        /**
+          * @default true
+         */
+        "closeOnEsc": boolean;
+        /**
+          * @default true
+         */
+        "closeOnMask": boolean;
+        /**
+          * @default true
+         */
+        "closeOnOutside": boolean;
+        /**
+          * @default true
+         */
+        "fixed": boolean;
+        /**
+          * @default ''
+         */
+        "height": string | number;
+        /**
+          * @default ''
+         */
+        "maxHeight": string | number;
+        /**
+          * @default ''
+         */
+        "maxWidth": string | number;
+        /**
+          * @default false
+         */
+        "modelValue": boolean;
+        /**
+          * @default true
+         */
+        "overlay": boolean;
+        /**
+          * @default ''
+         */
+        "overlayClass": string | string[] | Record<string, boolean>;
+        /**
+          * @default ''
+         */
+        "panelClass": string | string[] | Record<string, boolean>;
+        /**
+          * @default ''
+         */
+        "panelStyle": string | Record<string, string | number>;
+        /**
+          * @default false
+         */
+        "persistent": boolean;
+        /**
+          * @default 'center'
+         */
+        "placement": GtPopupPlacement;
+        /**
+          * @default 'dialog'
+         */
+        "role": string;
+        /**
+          * @default 'body'
+         */
+        "teleportTo": string;
+        /**
+          * @default true
+         */
+        "teleported": boolean;
+        /**
+          * @default 'dialog'
+         */
+        "variant": GtPopupVariant;
+        /**
+          * @default ''
+         */
+        "width": string | number;
+        /**
+          * @default 'var(--ui-z-toast)'
+         */
+        "zIndex": string | number;
     }
     interface GtRadio {
         /**
@@ -282,9 +523,43 @@ export namespace Components {
          */
         "name": string;
         /**
+          * @default 'md'
+         */
+        "size": 'sm' | 'md';
+        /**
           * @default ''
          */
         "value": string;
+    }
+    interface GtSelect {
+        /**
+          * @default 'slideScale'
+         */
+        "animation": 'fade' | 'slide' | 'scale' | 'slideScale';
+        /**
+          * @default true
+         */
+        "closeOnOutside": boolean;
+        /**
+          * @default false
+         */
+        "disabled": boolean;
+        /**
+          * @default []
+         */
+        "options": GtSelectOption[];
+        /**
+          * @default '请选择…'
+         */
+        "placeholder": string;
+        /**
+          * @default 'md'
+         */
+        "size": 'sm' | 'md' | 'lg';
+        /**
+          * @default ''
+         */
+        "value": string | number;
     }
     interface GtStateCard {
         /**
@@ -313,6 +588,10 @@ export namespace Components {
           * @default false
          */
         "disabled": boolean;
+        /**
+          * @default 'md'
+         */
+        "size": 'sm' | 'md';
     }
     interface GtTabs {
         /**
@@ -337,6 +616,8 @@ export namespace Components {
         "variant": 'line' | 'segmented';
     }
     interface GtTextarea {
+        "autocapitalize"?: string;
+        "autocorrect"?: string;
         /**
           * @default false
          */
@@ -354,10 +635,34 @@ export namespace Components {
           * @default 'vertical'
          */
         "resize": 'none' | 'both' | 'horizontal' | 'vertical';
+        "rows"?: number;
+        "spellcheck"?: boolean | 'true' | 'false';
         /**
-          * @default 3
+          * @default ''
          */
-        "rows": number;
+        "value": string;
+    }
+    interface GtTimePicker {
+        /**
+          * @default true
+         */
+        "closeOnOutside": boolean;
+        /**
+          * @default false
+         */
+        "disabled": boolean;
+        /**
+          * @default 5
+         */
+        "minuteStep": number;
+        /**
+          * @default '选择时间'
+         */
+        "placeholder": string;
+        /**
+          * @default 'md'
+         */
+        "size": 'sm' | 'md' | 'lg';
         /**
           * @default ''
          */
@@ -394,9 +699,21 @@ export interface GtCheckboxCustomEvent<T> extends CustomEvent<T> {
     detail: T;
     target: HTMLGtCheckboxElement;
 }
+export interface GtDatePickerCustomEvent<T> extends CustomEvent<T> {
+    detail: T;
+    target: HTMLGtDatePickerElement;
+}
+export interface GtDateTimePickerCustomEvent<T> extends CustomEvent<T> {
+    detail: T;
+    target: HTMLGtDateTimePickerElement;
+}
 export interface GtDialogCustomEvent<T> extends CustomEvent<T> {
     detail: T;
     target: HTMLGtDialogElement;
+}
+export interface GtDisclosureCustomEvent<T> extends CustomEvent<T> {
+    detail: T;
+    target: HTMLGtDisclosureElement;
 }
 export interface GtDrawerCustomEvent<T> extends CustomEvent<T> {
     detail: T;
@@ -410,9 +727,25 @@ export interface GtInputCustomEvent<T> extends CustomEvent<T> {
     detail: T;
     target: HTMLGtInputElement;
 }
+export interface GtMenuCustomEvent<T> extends CustomEvent<T> {
+    detail: T;
+    target: HTMLGtMenuElement;
+}
+export interface GtMenuItemCustomEvent<T> extends CustomEvent<T> {
+    detail: T;
+    target: HTMLGtMenuItemElement;
+}
+export interface GtPopupSurfaceCustomEvent<T> extends CustomEvent<T> {
+    detail: T;
+    target: HTMLGtPopupSurfaceElement;
+}
 export interface GtRadioCustomEvent<T> extends CustomEvent<T> {
     detail: T;
     target: HTMLGtRadioElement;
+}
+export interface GtSelectCustomEvent<T> extends CustomEvent<T> {
+    detail: T;
+    target: HTMLGtSelectElement;
 }
 export interface GtSwitchCustomEvent<T> extends CustomEvent<T> {
     detail: T;
@@ -425,6 +758,10 @@ export interface GtTabsCustomEvent<T> extends CustomEvent<T> {
 export interface GtTextareaCustomEvent<T> extends CustomEvent<T> {
     detail: T;
     target: HTMLGtTextareaElement;
+}
+export interface GtTimePickerCustomEvent<T> extends CustomEvent<T> {
+    detail: T;
+    target: HTMLGtTimePickerElement;
 }
 declare global {
     interface HTMLGtButtonElementEventMap {
@@ -467,6 +804,41 @@ declare global {
         prototype: HTMLGtCheckboxElement;
         new (): HTMLGtCheckboxElement;
     };
+    interface HTMLGtDatePickerElementEventMap {
+        "gt-change": GtDateChangeDetail;
+        "gt-clear": void;
+    }
+    interface HTMLGtDatePickerElement extends Components.GtDatePicker, HTMLStencilElement {
+        addEventListener<K extends keyof HTMLGtDatePickerElementEventMap>(type: K, listener: (this: HTMLGtDatePickerElement, ev: GtDatePickerCustomEvent<HTMLGtDatePickerElementEventMap[K]>) => any, options?: boolean | AddEventListenerOptions): void;
+        addEventListener<K extends keyof DocumentEventMap>(type: K, listener: (this: Document, ev: DocumentEventMap[K]) => any, options?: boolean | AddEventListenerOptions): void;
+        addEventListener<K extends keyof HTMLElementEventMap>(type: K, listener: (this: HTMLElement, ev: HTMLElementEventMap[K]) => any, options?: boolean | AddEventListenerOptions): void;
+        addEventListener(type: string, listener: EventListenerOrEventListenerObject, options?: boolean | AddEventListenerOptions): void;
+        removeEventListener<K extends keyof HTMLGtDatePickerElementEventMap>(type: K, listener: (this: HTMLGtDatePickerElement, ev: GtDatePickerCustomEvent<HTMLGtDatePickerElementEventMap[K]>) => any, options?: boolean | EventListenerOptions): void;
+        removeEventListener<K extends keyof DocumentEventMap>(type: K, listener: (this: Document, ev: DocumentEventMap[K]) => any, options?: boolean | EventListenerOptions): void;
+        removeEventListener<K extends keyof HTMLElementEventMap>(type: K, listener: (this: HTMLElement, ev: HTMLElementEventMap[K]) => any, options?: boolean | EventListenerOptions): void;
+        removeEventListener(type: string, listener: EventListenerOrEventListenerObject, options?: boolean | EventListenerOptions): void;
+    }
+    var HTMLGtDatePickerElement: {
+        prototype: HTMLGtDatePickerElement;
+        new (): HTMLGtDatePickerElement;
+    };
+    interface HTMLGtDateTimePickerElementEventMap {
+        "gt-change": GtDateTimeChangeDetail;
+    }
+    interface HTMLGtDateTimePickerElement extends Components.GtDateTimePicker, HTMLStencilElement {
+        addEventListener<K extends keyof HTMLGtDateTimePickerElementEventMap>(type: K, listener: (this: HTMLGtDateTimePickerElement, ev: GtDateTimePickerCustomEvent<HTMLGtDateTimePickerElementEventMap[K]>) => any, options?: boolean | AddEventListenerOptions): void;
+        addEventListener<K extends keyof DocumentEventMap>(type: K, listener: (this: Document, ev: DocumentEventMap[K]) => any, options?: boolean | AddEventListenerOptions): void;
+        addEventListener<K extends keyof HTMLElementEventMap>(type: K, listener: (this: HTMLElement, ev: HTMLElementEventMap[K]) => any, options?: boolean | AddEventListenerOptions): void;
+        addEventListener(type: string, listener: EventListenerOrEventListenerObject, options?: boolean | AddEventListenerOptions): void;
+        removeEventListener<K extends keyof HTMLGtDateTimePickerElementEventMap>(type: K, listener: (this: HTMLGtDateTimePickerElement, ev: GtDateTimePickerCustomEvent<HTMLGtDateTimePickerElementEventMap[K]>) => any, options?: boolean | EventListenerOptions): void;
+        removeEventListener<K extends keyof DocumentEventMap>(type: K, listener: (this: Document, ev: DocumentEventMap[K]) => any, options?: boolean | EventListenerOptions): void;
+        removeEventListener<K extends keyof HTMLElementEventMap>(type: K, listener: (this: HTMLElement, ev: HTMLElementEventMap[K]) => any, options?: boolean | EventListenerOptions): void;
+        removeEventListener(type: string, listener: EventListenerOrEventListenerObject, options?: boolean | EventListenerOptions): void;
+    }
+    var HTMLGtDateTimePickerElement: {
+        prototype: HTMLGtDateTimePickerElement;
+        new (): HTMLGtDateTimePickerElement;
+    };
     interface HTMLGtDialogElementEventMap {
         "gt-open-change": GtOpenChangeDetail;
     }
@@ -483,6 +855,23 @@ declare global {
     var HTMLGtDialogElement: {
         prototype: HTMLGtDialogElement;
         new (): HTMLGtDialogElement;
+    };
+    interface HTMLGtDisclosureElementEventMap {
+        "gt-open-change": GtDisclosureChangeDetail;
+    }
+    interface HTMLGtDisclosureElement extends Components.GtDisclosure, HTMLStencilElement {
+        addEventListener<K extends keyof HTMLGtDisclosureElementEventMap>(type: K, listener: (this: HTMLGtDisclosureElement, ev: GtDisclosureCustomEvent<HTMLGtDisclosureElementEventMap[K]>) => any, options?: boolean | AddEventListenerOptions): void;
+        addEventListener<K extends keyof DocumentEventMap>(type: K, listener: (this: Document, ev: DocumentEventMap[K]) => any, options?: boolean | AddEventListenerOptions): void;
+        addEventListener<K extends keyof HTMLElementEventMap>(type: K, listener: (this: HTMLElement, ev: HTMLElementEventMap[K]) => any, options?: boolean | AddEventListenerOptions): void;
+        addEventListener(type: string, listener: EventListenerOrEventListenerObject, options?: boolean | AddEventListenerOptions): void;
+        removeEventListener<K extends keyof HTMLGtDisclosureElementEventMap>(type: K, listener: (this: HTMLGtDisclosureElement, ev: GtDisclosureCustomEvent<HTMLGtDisclosureElementEventMap[K]>) => any, options?: boolean | EventListenerOptions): void;
+        removeEventListener<K extends keyof DocumentEventMap>(type: K, listener: (this: Document, ev: DocumentEventMap[K]) => any, options?: boolean | EventListenerOptions): void;
+        removeEventListener<K extends keyof HTMLElementEventMap>(type: K, listener: (this: HTMLElement, ev: HTMLElementEventMap[K]) => any, options?: boolean | EventListenerOptions): void;
+        removeEventListener(type: string, listener: EventListenerOrEventListenerObject, options?: boolean | EventListenerOptions): void;
+    }
+    var HTMLGtDisclosureElement: {
+        prototype: HTMLGtDisclosureElement;
+        new (): HTMLGtDisclosureElement;
     };
     interface HTMLGtDrawerElementEventMap {
         "gt-open-change": GtOpenChangeDetail1;
@@ -548,6 +937,67 @@ declare global {
         prototype: HTMLGtInputElement;
         new (): HTMLGtInputElement;
     };
+    interface HTMLGtMenuElementEventMap {
+        "gt-close": GtMenuCloseDetail;
+    }
+    interface HTMLGtMenuElement extends Components.GtMenu, HTMLStencilElement {
+        addEventListener<K extends keyof HTMLGtMenuElementEventMap>(type: K, listener: (this: HTMLGtMenuElement, ev: GtMenuCustomEvent<HTMLGtMenuElementEventMap[K]>) => any, options?: boolean | AddEventListenerOptions): void;
+        addEventListener<K extends keyof DocumentEventMap>(type: K, listener: (this: Document, ev: DocumentEventMap[K]) => any, options?: boolean | AddEventListenerOptions): void;
+        addEventListener<K extends keyof HTMLElementEventMap>(type: K, listener: (this: HTMLElement, ev: HTMLElementEventMap[K]) => any, options?: boolean | AddEventListenerOptions): void;
+        addEventListener(type: string, listener: EventListenerOrEventListenerObject, options?: boolean | AddEventListenerOptions): void;
+        removeEventListener<K extends keyof HTMLGtMenuElementEventMap>(type: K, listener: (this: HTMLGtMenuElement, ev: GtMenuCustomEvent<HTMLGtMenuElementEventMap[K]>) => any, options?: boolean | EventListenerOptions): void;
+        removeEventListener<K extends keyof DocumentEventMap>(type: K, listener: (this: Document, ev: DocumentEventMap[K]) => any, options?: boolean | EventListenerOptions): void;
+        removeEventListener<K extends keyof HTMLElementEventMap>(type: K, listener: (this: HTMLElement, ev: HTMLElementEventMap[K]) => any, options?: boolean | EventListenerOptions): void;
+        removeEventListener(type: string, listener: EventListenerOrEventListenerObject, options?: boolean | EventListenerOptions): void;
+    }
+    var HTMLGtMenuElement: {
+        prototype: HTMLGtMenuElement;
+        new (): HTMLGtMenuElement;
+    };
+    interface HTMLGtMenuDividerElement extends Components.GtMenuDivider, HTMLStencilElement {
+    }
+    var HTMLGtMenuDividerElement: {
+        prototype: HTMLGtMenuDividerElement;
+        new (): HTMLGtMenuDividerElement;
+    };
+    interface HTMLGtMenuItemElementEventMap {
+        "gt-click": GtMenuItemClickDetail;
+    }
+    interface HTMLGtMenuItemElement extends Components.GtMenuItem, HTMLStencilElement {
+        addEventListener<K extends keyof HTMLGtMenuItemElementEventMap>(type: K, listener: (this: HTMLGtMenuItemElement, ev: GtMenuItemCustomEvent<HTMLGtMenuItemElementEventMap[K]>) => any, options?: boolean | AddEventListenerOptions): void;
+        addEventListener<K extends keyof DocumentEventMap>(type: K, listener: (this: Document, ev: DocumentEventMap[K]) => any, options?: boolean | AddEventListenerOptions): void;
+        addEventListener<K extends keyof HTMLElementEventMap>(type: K, listener: (this: HTMLElement, ev: HTMLElementEventMap[K]) => any, options?: boolean | AddEventListenerOptions): void;
+        addEventListener(type: string, listener: EventListenerOrEventListenerObject, options?: boolean | AddEventListenerOptions): void;
+        removeEventListener<K extends keyof HTMLGtMenuItemElementEventMap>(type: K, listener: (this: HTMLGtMenuItemElement, ev: GtMenuItemCustomEvent<HTMLGtMenuItemElementEventMap[K]>) => any, options?: boolean | EventListenerOptions): void;
+        removeEventListener<K extends keyof DocumentEventMap>(type: K, listener: (this: Document, ev: DocumentEventMap[K]) => any, options?: boolean | EventListenerOptions): void;
+        removeEventListener<K extends keyof HTMLElementEventMap>(type: K, listener: (this: HTMLElement, ev: HTMLElementEventMap[K]) => any, options?: boolean | EventListenerOptions): void;
+        removeEventListener(type: string, listener: EventListenerOrEventListenerObject, options?: boolean | EventListenerOptions): void;
+    }
+    var HTMLGtMenuItemElement: {
+        prototype: HTMLGtMenuItemElement;
+        new (): HTMLGtMenuItemElement;
+    };
+    interface HTMLGtPopupSurfaceElementEventMap {
+        "gt-open-change": GtPopupOpenChangeDetail;
+        "gt-open": void;
+        "gt-close": void;
+        "gt-mask-click": void;
+        "gt-outside-click": void;
+    }
+    interface HTMLGtPopupSurfaceElement extends Components.GtPopupSurface, HTMLStencilElement {
+        addEventListener<K extends keyof HTMLGtPopupSurfaceElementEventMap>(type: K, listener: (this: HTMLGtPopupSurfaceElement, ev: GtPopupSurfaceCustomEvent<HTMLGtPopupSurfaceElementEventMap[K]>) => any, options?: boolean | AddEventListenerOptions): void;
+        addEventListener<K extends keyof DocumentEventMap>(type: K, listener: (this: Document, ev: DocumentEventMap[K]) => any, options?: boolean | AddEventListenerOptions): void;
+        addEventListener<K extends keyof HTMLElementEventMap>(type: K, listener: (this: HTMLElement, ev: HTMLElementEventMap[K]) => any, options?: boolean | AddEventListenerOptions): void;
+        addEventListener(type: string, listener: EventListenerOrEventListenerObject, options?: boolean | AddEventListenerOptions): void;
+        removeEventListener<K extends keyof HTMLGtPopupSurfaceElementEventMap>(type: K, listener: (this: HTMLGtPopupSurfaceElement, ev: GtPopupSurfaceCustomEvent<HTMLGtPopupSurfaceElementEventMap[K]>) => any, options?: boolean | EventListenerOptions): void;
+        removeEventListener<K extends keyof DocumentEventMap>(type: K, listener: (this: Document, ev: DocumentEventMap[K]) => any, options?: boolean | EventListenerOptions): void;
+        removeEventListener<K extends keyof HTMLElementEventMap>(type: K, listener: (this: HTMLElement, ev: HTMLElementEventMap[K]) => any, options?: boolean | EventListenerOptions): void;
+        removeEventListener(type: string, listener: EventListenerOrEventListenerObject, options?: boolean | EventListenerOptions): void;
+    }
+    var HTMLGtPopupSurfaceElement: {
+        prototype: HTMLGtPopupSurfaceElement;
+        new (): HTMLGtPopupSurfaceElement;
+    };
     interface HTMLGtRadioElementEventMap {
         "gt-change": GtRadioChangeDetail;
     }
@@ -564,6 +1014,25 @@ declare global {
     var HTMLGtRadioElement: {
         prototype: HTMLGtRadioElement;
         new (): HTMLGtRadioElement;
+    };
+    interface HTMLGtSelectElementEventMap {
+        "gt-change": GtSelectChangeDetail;
+        "gt-focus": void;
+        "gt-blur": void;
+    }
+    interface HTMLGtSelectElement extends Components.GtSelect, HTMLStencilElement {
+        addEventListener<K extends keyof HTMLGtSelectElementEventMap>(type: K, listener: (this: HTMLGtSelectElement, ev: GtSelectCustomEvent<HTMLGtSelectElementEventMap[K]>) => any, options?: boolean | AddEventListenerOptions): void;
+        addEventListener<K extends keyof DocumentEventMap>(type: K, listener: (this: Document, ev: DocumentEventMap[K]) => any, options?: boolean | AddEventListenerOptions): void;
+        addEventListener<K extends keyof HTMLElementEventMap>(type: K, listener: (this: HTMLElement, ev: HTMLElementEventMap[K]) => any, options?: boolean | AddEventListenerOptions): void;
+        addEventListener(type: string, listener: EventListenerOrEventListenerObject, options?: boolean | AddEventListenerOptions): void;
+        removeEventListener<K extends keyof HTMLGtSelectElementEventMap>(type: K, listener: (this: HTMLGtSelectElement, ev: GtSelectCustomEvent<HTMLGtSelectElementEventMap[K]>) => any, options?: boolean | EventListenerOptions): void;
+        removeEventListener<K extends keyof DocumentEventMap>(type: K, listener: (this: Document, ev: DocumentEventMap[K]) => any, options?: boolean | EventListenerOptions): void;
+        removeEventListener<K extends keyof HTMLElementEventMap>(type: K, listener: (this: HTMLElement, ev: HTMLElementEventMap[K]) => any, options?: boolean | EventListenerOptions): void;
+        removeEventListener(type: string, listener: EventListenerOrEventListenerObject, options?: boolean | EventListenerOptions): void;
+    }
+    var HTMLGtSelectElement: {
+        prototype: HTMLGtSelectElement;
+        new (): HTMLGtSelectElement;
     };
     interface HTMLGtStateCardElement extends Components.GtStateCard, HTMLStencilElement {
     }
@@ -623,6 +1092,23 @@ declare global {
         prototype: HTMLGtTextareaElement;
         new (): HTMLGtTextareaElement;
     };
+    interface HTMLGtTimePickerElementEventMap {
+        "gt-change": GtTimeChangeDetail;
+    }
+    interface HTMLGtTimePickerElement extends Components.GtTimePicker, HTMLStencilElement {
+        addEventListener<K extends keyof HTMLGtTimePickerElementEventMap>(type: K, listener: (this: HTMLGtTimePickerElement, ev: GtTimePickerCustomEvent<HTMLGtTimePickerElementEventMap[K]>) => any, options?: boolean | AddEventListenerOptions): void;
+        addEventListener<K extends keyof DocumentEventMap>(type: K, listener: (this: Document, ev: DocumentEventMap[K]) => any, options?: boolean | AddEventListenerOptions): void;
+        addEventListener<K extends keyof HTMLElementEventMap>(type: K, listener: (this: HTMLElement, ev: HTMLElementEventMap[K]) => any, options?: boolean | AddEventListenerOptions): void;
+        addEventListener(type: string, listener: EventListenerOrEventListenerObject, options?: boolean | AddEventListenerOptions): void;
+        removeEventListener<K extends keyof HTMLGtTimePickerElementEventMap>(type: K, listener: (this: HTMLGtTimePickerElement, ev: GtTimePickerCustomEvent<HTMLGtTimePickerElementEventMap[K]>) => any, options?: boolean | EventListenerOptions): void;
+        removeEventListener<K extends keyof DocumentEventMap>(type: K, listener: (this: Document, ev: DocumentEventMap[K]) => any, options?: boolean | EventListenerOptions): void;
+        removeEventListener<K extends keyof HTMLElementEventMap>(type: K, listener: (this: HTMLElement, ev: HTMLElementEventMap[K]) => any, options?: boolean | EventListenerOptions): void;
+        removeEventListener(type: string, listener: EventListenerOrEventListenerObject, options?: boolean | EventListenerOptions): void;
+    }
+    var HTMLGtTimePickerElement: {
+        prototype: HTMLGtTimePickerElement;
+        new (): HTMLGtTimePickerElement;
+    };
     interface HTMLGtTooltipElement extends Components.GtTooltip, HTMLStencilElement {
     }
     var HTMLGtTooltipElement: {
@@ -633,17 +1119,26 @@ declare global {
         "gt-button": HTMLGtButtonElement;
         "gt-card": HTMLGtCardElement;
         "gt-checkbox": HTMLGtCheckboxElement;
+        "gt-date-picker": HTMLGtDatePickerElement;
+        "gt-date-time-picker": HTMLGtDateTimePickerElement;
         "gt-dialog": HTMLGtDialogElement;
+        "gt-disclosure": HTMLGtDisclosureElement;
         "gt-drawer": HTMLGtDrawerElement;
         "gt-empty-state": HTMLGtEmptyStateElement;
         "gt-field": HTMLGtFieldElement;
         "gt-icon-button": HTMLGtIconButtonElement;
         "gt-input": HTMLGtInputElement;
+        "gt-menu": HTMLGtMenuElement;
+        "gt-menu-divider": HTMLGtMenuDividerElement;
+        "gt-menu-item": HTMLGtMenuItemElement;
+        "gt-popup-surface": HTMLGtPopupSurfaceElement;
         "gt-radio": HTMLGtRadioElement;
+        "gt-select": HTMLGtSelectElement;
         "gt-state-card": HTMLGtStateCardElement;
         "gt-switch": HTMLGtSwitchElement;
         "gt-tabs": HTMLGtTabsElement;
         "gt-textarea": HTMLGtTextareaElement;
+        "gt-time-picker": HTMLGtTimePickerElement;
         "gt-tooltip": HTMLGtTooltipElement;
     }
 }
@@ -676,6 +1171,10 @@ declare namespace LocalJSX {
         "variant"?: 'primary' | 'secondary' | 'ghost' | 'danger';
     }
     interface GtCard {
+        /**
+          * @default true
+         */
+        "bordered"?: boolean;
         /**
           * @default false
          */
@@ -720,9 +1219,91 @@ declare namespace LocalJSX {
         "name"?: string;
         "onGt-change"?: (event: GtCheckboxCustomEvent<GtCheckedChangeDetail>) => void;
         /**
+          * @default 'md'
+         */
+        "size"?: 'sm' | 'md';
+        /**
           * @default ''
          */
         "value"?: string;
+    }
+    interface GtDatePicker {
+        /**
+          * @default true
+         */
+        "clearable"?: boolean;
+        /**
+          * @default true
+         */
+        "closeOnOutside"?: boolean;
+        /**
+          * @default false
+         */
+        "disabled"?: boolean;
+        /**
+          * @default ''
+         */
+        "max"?: string;
+        /**
+          * @default ''
+         */
+        "min"?: string;
+        "onGt-change"?: (event: GtDatePickerCustomEvent<GtDateChangeDetail>) => void;
+        "onGt-clear"?: (event: GtDatePickerCustomEvent<void>) => void;
+        /**
+          * @default '选择日期'
+         */
+        "placeholder"?: string;
+        /**
+          * @default 'md'
+         */
+        "size"?: 'sm' | 'md' | 'lg';
+        /**
+          * @default ''
+         */
+        "value"?: string;
+    }
+    interface GtDateTimePicker {
+        /**
+          * @default true
+         */
+        "clearable"?: boolean;
+        /**
+          * @default true
+         */
+        "closeOnOutside"?: boolean;
+        /**
+          * @default '日期'
+         */
+        "datePlaceholder"?: string;
+        /**
+          * @default false
+         */
+        "disabled"?: boolean;
+        /**
+          * @default 5
+         */
+        "minuteStep"?: number;
+        /**
+          * @default 'datetime'
+         */
+        "mode"?: GtDateTimeMode;
+        "onGt-change"?: (event: GtDateTimePickerCustomEvent<GtDateTimeChangeDetail>) => void;
+        /**
+          * @default '选择日期和时间'
+         */
+        "placeholder"?: string;
+        /**
+          * @default 'md'
+         */
+        "size"?: 'sm' | 'md' | 'lg';
+        /**
+          * @default '时间'
+         */
+        "timePlaceholder"?: string;
+        "value"?: string | number | undefined;
+        "valueFormat"?: GtDateTimeValueFormat;
+        "valueType"?: 'string' | 'timestamp';
     }
     interface GtDialog {
         /**
@@ -750,6 +1331,17 @@ declare namespace LocalJSX {
           * @default false
          */
         "persistent"?: boolean;
+    }
+    interface GtDisclosure {
+        "onGt-open-change"?: (event: GtDisclosureCustomEvent<GtDisclosureChangeDetail>) => void;
+        /**
+          * @default false
+         */
+        "open"?: boolean;
+        /**
+          * @default ''
+         */
+        "title"?: string;
     }
     interface GtDrawer {
         /**
@@ -858,10 +1450,13 @@ declare namespace LocalJSX {
         "variant"?: 'primary' | 'secondary' | 'ghost' | 'danger';
     }
     interface GtInput {
+        "autocapitalize"?: string;
+        "autocorrect"?: string;
         /**
           * @default false
          */
         "disabled"?: boolean;
+        "list"?: string;
         "max"?: string;
         "min"?: string;
         "onGt-change"?: (event: GtInputCustomEvent<GtValueChangeDetail>) => void;
@@ -878,6 +1473,7 @@ declare namespace LocalJSX {
           * @default 'md'
          */
         "size"?: 'sm' | 'md' | 'lg';
+        "spellcheck"?: boolean | 'true' | 'false';
         /**
           * @default '1'
          */
@@ -890,6 +1486,141 @@ declare namespace LocalJSX {
           * @default ''
          */
         "value"?: string;
+    }
+    interface GtMenu {
+        /**
+          * @default true
+         */
+        "closeOnClickOutside"?: boolean;
+        /**
+          * @default ''
+         */
+        "maxHeight"?: string;
+        "onGt-close"?: (event: GtMenuCustomEvent<GtMenuCloseDetail>) => void;
+        /**
+          * @default ''
+         */
+        "outsideIgnoreSelector"?: string | string[];
+        /**
+          * @default false
+         */
+        "visible"?: boolean;
+        /**
+          * @default 0
+         */
+        "x"?: number;
+        /**
+          * @default 0
+         */
+        "y"?: number;
+    }
+    interface GtMenuDivider {
+    }
+    interface GtMenuItem {
+        /**
+          * @default false
+         */
+        "danger"?: boolean;
+        /**
+          * @default false
+         */
+        "disabled"?: boolean;
+        "onGt-click"?: (event: GtMenuItemCustomEvent<GtMenuItemClickDetail>) => void;
+    }
+    interface GtPopupSurface {
+        /**
+          * @default ''
+         */
+        "ariaLabel"?: string;
+        /**
+          * @default ''
+         */
+        "ariaLabelledby"?: string;
+        /**
+          * @default true
+         */
+        "closeOnEsc"?: boolean;
+        /**
+          * @default true
+         */
+        "closeOnMask"?: boolean;
+        /**
+          * @default true
+         */
+        "closeOnOutside"?: boolean;
+        /**
+          * @default true
+         */
+        "fixed"?: boolean;
+        /**
+          * @default ''
+         */
+        "height"?: string | number;
+        /**
+          * @default ''
+         */
+        "maxHeight"?: string | number;
+        /**
+          * @default ''
+         */
+        "maxWidth"?: string | number;
+        /**
+          * @default false
+         */
+        "modelValue"?: boolean;
+        "onGt-close"?: (event: GtPopupSurfaceCustomEvent<void>) => void;
+        "onGt-mask-click"?: (event: GtPopupSurfaceCustomEvent<void>) => void;
+        "onGt-open"?: (event: GtPopupSurfaceCustomEvent<void>) => void;
+        "onGt-open-change"?: (event: GtPopupSurfaceCustomEvent<GtPopupOpenChangeDetail>) => void;
+        "onGt-outside-click"?: (event: GtPopupSurfaceCustomEvent<void>) => void;
+        /**
+          * @default true
+         */
+        "overlay"?: boolean;
+        /**
+          * @default ''
+         */
+        "overlayClass"?: string | string[] | Record<string, boolean>;
+        /**
+          * @default ''
+         */
+        "panelClass"?: string | string[] | Record<string, boolean>;
+        /**
+          * @default ''
+         */
+        "panelStyle"?: string | Record<string, string | number>;
+        /**
+          * @default false
+         */
+        "persistent"?: boolean;
+        /**
+          * @default 'center'
+         */
+        "placement"?: GtPopupPlacement;
+        /**
+          * @default 'dialog'
+         */
+        "role"?: string;
+        /**
+          * @default 'body'
+         */
+        "teleportTo"?: string;
+        /**
+          * @default true
+         */
+        "teleported"?: boolean;
+        /**
+          * @default 'dialog'
+         */
+        "variant"?: GtPopupVariant;
+        /**
+          * @default ''
+         */
+        "width"?: string | number;
+        /**
+          * @default 'var(--ui-z-toast)'
+         */
+        "zIndex"?: string | number;
     }
     interface GtRadio {
         /**
@@ -910,9 +1641,46 @@ declare namespace LocalJSX {
         "name"?: string;
         "onGt-change"?: (event: GtRadioCustomEvent<GtRadioChangeDetail>) => void;
         /**
+          * @default 'md'
+         */
+        "size"?: 'sm' | 'md';
+        /**
           * @default ''
          */
         "value"?: string;
+    }
+    interface GtSelect {
+        /**
+          * @default 'slideScale'
+         */
+        "animation"?: 'fade' | 'slide' | 'scale' | 'slideScale';
+        /**
+          * @default true
+         */
+        "closeOnOutside"?: boolean;
+        /**
+          * @default false
+         */
+        "disabled"?: boolean;
+        "onGt-blur"?: (event: GtSelectCustomEvent<void>) => void;
+        "onGt-change"?: (event: GtSelectCustomEvent<GtSelectChangeDetail>) => void;
+        "onGt-focus"?: (event: GtSelectCustomEvent<void>) => void;
+        /**
+          * @default []
+         */
+        "options"?: GtSelectOption[];
+        /**
+          * @default '请选择…'
+         */
+        "placeholder"?: string;
+        /**
+          * @default 'md'
+         */
+        "size"?: 'sm' | 'md' | 'lg';
+        /**
+          * @default ''
+         */
+        "value"?: string | number;
     }
     interface GtStateCard {
         /**
@@ -942,6 +1710,10 @@ declare namespace LocalJSX {
          */
         "disabled"?: boolean;
         "onGt-change"?: (event: GtSwitchCustomEvent<GtSwitchChangeDetail>) => void;
+        /**
+          * @default 'md'
+         */
+        "size"?: 'sm' | 'md';
     }
     interface GtTabs {
         /**
@@ -967,6 +1739,8 @@ declare namespace LocalJSX {
         "variant"?: 'line' | 'segmented';
     }
     interface GtTextarea {
+        "autocapitalize"?: string;
+        "autocorrect"?: string;
         /**
           * @default false
          */
@@ -986,10 +1760,35 @@ declare namespace LocalJSX {
           * @default 'vertical'
          */
         "resize"?: 'none' | 'both' | 'horizontal' | 'vertical';
-        /**
-          * @default 3
-         */
         "rows"?: number;
+        "spellcheck"?: boolean | 'true' | 'false';
+        /**
+          * @default ''
+         */
+        "value"?: string;
+    }
+    interface GtTimePicker {
+        /**
+          * @default true
+         */
+        "closeOnOutside"?: boolean;
+        /**
+          * @default false
+         */
+        "disabled"?: boolean;
+        /**
+          * @default 5
+         */
+        "minuteStep"?: number;
+        "onGt-change"?: (event: GtTimePickerCustomEvent<GtTimeChangeDetail>) => void;
+        /**
+          * @default '选择时间'
+         */
+        "placeholder"?: string;
+        /**
+          * @default 'md'
+         */
+        "size"?: 'sm' | 'md' | 'lg';
         /**
           * @default ''
          */
@@ -1032,14 +1831,40 @@ declare namespace LocalJSX {
         "radius": 'none' | 'sm' | 'md' | 'lg';
         "hoverable": boolean;
         "interactive": boolean;
+        "bordered": boolean;
     }
     interface GtCheckboxAttributes {
         "checked": boolean;
         "indeterminate": boolean;
         "disabled": boolean;
+        "size": 'sm' | 'md';
         "label": string;
         "name": string;
         "value": string;
+    }
+    interface GtDatePickerAttributes {
+        "value": string;
+        "placeholder": string;
+        "clearable": boolean;
+        "disabled": boolean;
+        "size": 'sm' | 'md' | 'lg';
+        "min": string;
+        "max": string;
+        "closeOnOutside": boolean;
+    }
+    interface GtDateTimePickerAttributes {
+        "value": string;
+        "placeholder": string;
+        "datePlaceholder": string;
+        "timePlaceholder": string;
+        "disabled": boolean;
+        "size": 'sm' | 'md' | 'lg';
+        "mode": GtDateTimeMode;
+        "valueFormat": GtDateTimeValueFormat;
+        "valueType": 'string' | 'timestamp';
+        "minuteStep": number;
+        "clearable": boolean;
+        "closeOnOutside": boolean;
     }
     interface GtDialogAttributes {
         "open": boolean;
@@ -1048,6 +1873,10 @@ declare namespace LocalJSX {
         "closeOnEsc": boolean;
         "persistent": boolean;
         "ariaLabel": string;
+    }
+    interface GtDisclosureAttributes {
+        "title": string;
+        "open": boolean;
     }
     interface GtDrawerAttributes {
         "open": boolean;
@@ -1088,16 +1917,65 @@ declare namespace LocalJSX {
         "disabled": boolean;
         "readOnly": boolean;
         "size": 'sm' | 'md' | 'lg';
+        "spellcheck": string;
+        "autocorrect": string;
+        "autocapitalize": string;
+        "list": string;
         "min": string;
         "max": string;
         "step": string;
     }
+    interface GtMenuAttributes {
+        "visible": boolean;
+        "x": number;
+        "y": number;
+        "closeOnClickOutside": boolean;
+        "outsideIgnoreSelector": string | string[];
+        "maxHeight": string;
+    }
+    interface GtMenuItemAttributes {
+        "danger": boolean;
+        "disabled": boolean;
+    }
+    interface GtPopupSurfaceAttributes {
+        "modelValue": boolean;
+        "variant": GtPopupVariant;
+        "placement": GtPopupPlacement;
+        "teleported": boolean;
+        "teleportTo": string;
+        "fixed": boolean;
+        "overlay": boolean;
+        "width": string;
+        "maxWidth": string;
+        "height": string;
+        "maxHeight": string;
+        "zIndex": string;
+        "closeOnMask": boolean;
+        "closeOnOutside": boolean;
+        "closeOnEsc": boolean;
+        "persistent": boolean;
+        "role": string;
+        "ariaLabel": string;
+        "ariaLabelledby": string;
+        "panelClass": string | string[] | Record<string, boolean>;
+        "overlayClass": string | string[] | Record<string, boolean>;
+        "panelStyle": string | Record<string, string | number>;
+    }
     interface GtRadioAttributes {
         "checked": boolean;
         "disabled": boolean;
+        "size": 'sm' | 'md';
         "label": string;
         "name": string;
         "value": string;
+    }
+    interface GtSelectAttributes {
+        "value": string;
+        "disabled": boolean;
+        "size": 'sm' | 'md' | 'lg';
+        "placeholder": string;
+        "animation": 'fade' | 'slide' | 'scale' | 'slideScale';
+        "closeOnOutside": boolean;
     }
     interface GtStateCardAttributes {
         "state": 'loading' | 'empty' | 'error' | 'info';
@@ -1107,6 +1985,7 @@ declare namespace LocalJSX {
     interface GtSwitchAttributes {
         "checked": boolean;
         "disabled": boolean;
+        "size": 'sm' | 'md';
         "ariaLabel": string;
     }
     interface GtTabsAttributes {
@@ -1121,8 +2000,19 @@ declare namespace LocalJSX {
         "disabled": boolean;
         "readOnly": boolean;
         "rows": number;
+        "spellcheck": string;
+        "autocorrect": string;
+        "autocapitalize": string;
         "maxLength": number;
         "resize": 'none' | 'both' | 'horizontal' | 'vertical';
+    }
+    interface GtTimePickerAttributes {
+        "value": string;
+        "placeholder": string;
+        "disabled": boolean;
+        "size": 'sm' | 'md' | 'lg';
+        "minuteStep": number;
+        "closeOnOutside": boolean;
     }
     interface GtTooltipAttributes {
         "open": boolean;
@@ -1136,17 +2026,26 @@ declare namespace LocalJSX {
         "gt-button": Omit<GtButton, keyof GtButtonAttributes> & { [K in keyof GtButton & keyof GtButtonAttributes]?: GtButton[K] } & { [K in keyof GtButton & keyof GtButtonAttributes as `attr:${K}`]?: GtButtonAttributes[K] } & { [K in keyof GtButton & keyof GtButtonAttributes as `prop:${K}`]?: GtButton[K] };
         "gt-card": Omit<GtCard, keyof GtCardAttributes> & { [K in keyof GtCard & keyof GtCardAttributes]?: GtCard[K] } & { [K in keyof GtCard & keyof GtCardAttributes as `attr:${K}`]?: GtCardAttributes[K] } & { [K in keyof GtCard & keyof GtCardAttributes as `prop:${K}`]?: GtCard[K] };
         "gt-checkbox": Omit<GtCheckbox, keyof GtCheckboxAttributes> & { [K in keyof GtCheckbox & keyof GtCheckboxAttributes]?: GtCheckbox[K] } & { [K in keyof GtCheckbox & keyof GtCheckboxAttributes as `attr:${K}`]?: GtCheckboxAttributes[K] } & { [K in keyof GtCheckbox & keyof GtCheckboxAttributes as `prop:${K}`]?: GtCheckbox[K] };
+        "gt-date-picker": Omit<GtDatePicker, keyof GtDatePickerAttributes> & { [K in keyof GtDatePicker & keyof GtDatePickerAttributes]?: GtDatePicker[K] } & { [K in keyof GtDatePicker & keyof GtDatePickerAttributes as `attr:${K}`]?: GtDatePickerAttributes[K] } & { [K in keyof GtDatePicker & keyof GtDatePickerAttributes as `prop:${K}`]?: GtDatePicker[K] };
+        "gt-date-time-picker": Omit<GtDateTimePicker, keyof GtDateTimePickerAttributes> & { [K in keyof GtDateTimePicker & keyof GtDateTimePickerAttributes]?: GtDateTimePicker[K] } & { [K in keyof GtDateTimePicker & keyof GtDateTimePickerAttributes as `attr:${K}`]?: GtDateTimePickerAttributes[K] } & { [K in keyof GtDateTimePicker & keyof GtDateTimePickerAttributes as `prop:${K}`]?: GtDateTimePicker[K] };
         "gt-dialog": Omit<GtDialog, keyof GtDialogAttributes> & { [K in keyof GtDialog & keyof GtDialogAttributes]?: GtDialog[K] } & { [K in keyof GtDialog & keyof GtDialogAttributes as `attr:${K}`]?: GtDialogAttributes[K] } & { [K in keyof GtDialog & keyof GtDialogAttributes as `prop:${K}`]?: GtDialog[K] };
+        "gt-disclosure": Omit<GtDisclosure, keyof GtDisclosureAttributes> & { [K in keyof GtDisclosure & keyof GtDisclosureAttributes]?: GtDisclosure[K] } & { [K in keyof GtDisclosure & keyof GtDisclosureAttributes as `attr:${K}`]?: GtDisclosureAttributes[K] } & { [K in keyof GtDisclosure & keyof GtDisclosureAttributes as `prop:${K}`]?: GtDisclosure[K] };
         "gt-drawer": Omit<GtDrawer, keyof GtDrawerAttributes> & { [K in keyof GtDrawer & keyof GtDrawerAttributes]?: GtDrawer[K] } & { [K in keyof GtDrawer & keyof GtDrawerAttributes as `attr:${K}`]?: GtDrawerAttributes[K] } & { [K in keyof GtDrawer & keyof GtDrawerAttributes as `prop:${K}`]?: GtDrawer[K] };
         "gt-empty-state": Omit<GtEmptyState, keyof GtEmptyStateAttributes> & { [K in keyof GtEmptyState & keyof GtEmptyStateAttributes]?: GtEmptyState[K] } & { [K in keyof GtEmptyState & keyof GtEmptyStateAttributes as `attr:${K}`]?: GtEmptyStateAttributes[K] } & { [K in keyof GtEmptyState & keyof GtEmptyStateAttributes as `prop:${K}`]?: GtEmptyState[K] };
         "gt-field": Omit<GtField, keyof GtFieldAttributes> & { [K in keyof GtField & keyof GtFieldAttributes]?: GtField[K] } & { [K in keyof GtField & keyof GtFieldAttributes as `attr:${K}`]?: GtFieldAttributes[K] } & { [K in keyof GtField & keyof GtFieldAttributes as `prop:${K}`]?: GtField[K] };
         "gt-icon-button": Omit<GtIconButton, keyof GtIconButtonAttributes> & { [K in keyof GtIconButton & keyof GtIconButtonAttributes]?: GtIconButton[K] } & { [K in keyof GtIconButton & keyof GtIconButtonAttributes as `attr:${K}`]?: GtIconButtonAttributes[K] } & { [K in keyof GtIconButton & keyof GtIconButtonAttributes as `prop:${K}`]?: GtIconButton[K] };
         "gt-input": Omit<GtInput, keyof GtInputAttributes> & { [K in keyof GtInput & keyof GtInputAttributes]?: GtInput[K] } & { [K in keyof GtInput & keyof GtInputAttributes as `attr:${K}`]?: GtInputAttributes[K] } & { [K in keyof GtInput & keyof GtInputAttributes as `prop:${K}`]?: GtInput[K] };
+        "gt-menu": Omit<GtMenu, keyof GtMenuAttributes> & { [K in keyof GtMenu & keyof GtMenuAttributes]?: GtMenu[K] } & { [K in keyof GtMenu & keyof GtMenuAttributes as `attr:${K}`]?: GtMenuAttributes[K] } & { [K in keyof GtMenu & keyof GtMenuAttributes as `prop:${K}`]?: GtMenu[K] };
+        "gt-menu-divider": GtMenuDivider;
+        "gt-menu-item": Omit<GtMenuItem, keyof GtMenuItemAttributes> & { [K in keyof GtMenuItem & keyof GtMenuItemAttributes]?: GtMenuItem[K] } & { [K in keyof GtMenuItem & keyof GtMenuItemAttributes as `attr:${K}`]?: GtMenuItemAttributes[K] } & { [K in keyof GtMenuItem & keyof GtMenuItemAttributes as `prop:${K}`]?: GtMenuItem[K] };
+        "gt-popup-surface": Omit<GtPopupSurface, keyof GtPopupSurfaceAttributes> & { [K in keyof GtPopupSurface & keyof GtPopupSurfaceAttributes]?: GtPopupSurface[K] } & { [K in keyof GtPopupSurface & keyof GtPopupSurfaceAttributes as `attr:${K}`]?: GtPopupSurfaceAttributes[K] } & { [K in keyof GtPopupSurface & keyof GtPopupSurfaceAttributes as `prop:${K}`]?: GtPopupSurface[K] };
         "gt-radio": Omit<GtRadio, keyof GtRadioAttributes> & { [K in keyof GtRadio & keyof GtRadioAttributes]?: GtRadio[K] } & { [K in keyof GtRadio & keyof GtRadioAttributes as `attr:${K}`]?: GtRadioAttributes[K] } & { [K in keyof GtRadio & keyof GtRadioAttributes as `prop:${K}`]?: GtRadio[K] };
+        "gt-select": Omit<GtSelect, keyof GtSelectAttributes> & { [K in keyof GtSelect & keyof GtSelectAttributes]?: GtSelect[K] } & { [K in keyof GtSelect & keyof GtSelectAttributes as `attr:${K}`]?: GtSelectAttributes[K] } & { [K in keyof GtSelect & keyof GtSelectAttributes as `prop:${K}`]?: GtSelect[K] };
         "gt-state-card": Omit<GtStateCard, keyof GtStateCardAttributes> & { [K in keyof GtStateCard & keyof GtStateCardAttributes]?: GtStateCard[K] } & { [K in keyof GtStateCard & keyof GtStateCardAttributes as `attr:${K}`]?: GtStateCardAttributes[K] } & { [K in keyof GtStateCard & keyof GtStateCardAttributes as `prop:${K}`]?: GtStateCard[K] };
         "gt-switch": Omit<GtSwitch, keyof GtSwitchAttributes> & { [K in keyof GtSwitch & keyof GtSwitchAttributes]?: GtSwitch[K] } & { [K in keyof GtSwitch & keyof GtSwitchAttributes as `attr:${K}`]?: GtSwitchAttributes[K] } & { [K in keyof GtSwitch & keyof GtSwitchAttributes as `prop:${K}`]?: GtSwitch[K] };
         "gt-tabs": Omit<GtTabs, keyof GtTabsAttributes> & { [K in keyof GtTabs & keyof GtTabsAttributes]?: GtTabs[K] } & { [K in keyof GtTabs & keyof GtTabsAttributes as `attr:${K}`]?: GtTabsAttributes[K] } & { [K in keyof GtTabs & keyof GtTabsAttributes as `prop:${K}`]?: GtTabs[K] };
         "gt-textarea": Omit<GtTextarea, keyof GtTextareaAttributes> & { [K in keyof GtTextarea & keyof GtTextareaAttributes]?: GtTextarea[K] } & { [K in keyof GtTextarea & keyof GtTextareaAttributes as `attr:${K}`]?: GtTextareaAttributes[K] } & { [K in keyof GtTextarea & keyof GtTextareaAttributes as `prop:${K}`]?: GtTextarea[K] };
+        "gt-time-picker": Omit<GtTimePicker, keyof GtTimePickerAttributes> & { [K in keyof GtTimePicker & keyof GtTimePickerAttributes]?: GtTimePicker[K] } & { [K in keyof GtTimePicker & keyof GtTimePickerAttributes as `attr:${K}`]?: GtTimePickerAttributes[K] } & { [K in keyof GtTimePicker & keyof GtTimePickerAttributes as `prop:${K}`]?: GtTimePicker[K] };
         "gt-tooltip": Omit<GtTooltip, keyof GtTooltipAttributes> & { [K in keyof GtTooltip & keyof GtTooltipAttributes]?: GtTooltip[K] } & { [K in keyof GtTooltip & keyof GtTooltipAttributes as `attr:${K}`]?: GtTooltipAttributes[K] } & { [K in keyof GtTooltip & keyof GtTooltipAttributes as `prop:${K}`]?: GtTooltip[K] };
     }
 }
@@ -1157,17 +2056,26 @@ declare module "@stencil/core" {
             "gt-button": LocalJSX.IntrinsicElements["gt-button"] & JSXBase.HTMLAttributes<HTMLGtButtonElement>;
             "gt-card": LocalJSX.IntrinsicElements["gt-card"] & JSXBase.HTMLAttributes<HTMLGtCardElement>;
             "gt-checkbox": LocalJSX.IntrinsicElements["gt-checkbox"] & JSXBase.HTMLAttributes<HTMLGtCheckboxElement>;
+            "gt-date-picker": LocalJSX.IntrinsicElements["gt-date-picker"] & JSXBase.HTMLAttributes<HTMLGtDatePickerElement>;
+            "gt-date-time-picker": LocalJSX.IntrinsicElements["gt-date-time-picker"] & JSXBase.HTMLAttributes<HTMLGtDateTimePickerElement>;
             "gt-dialog": LocalJSX.IntrinsicElements["gt-dialog"] & JSXBase.HTMLAttributes<HTMLGtDialogElement>;
+            "gt-disclosure": LocalJSX.IntrinsicElements["gt-disclosure"] & JSXBase.HTMLAttributes<HTMLGtDisclosureElement>;
             "gt-drawer": LocalJSX.IntrinsicElements["gt-drawer"] & JSXBase.HTMLAttributes<HTMLGtDrawerElement>;
             "gt-empty-state": LocalJSX.IntrinsicElements["gt-empty-state"] & JSXBase.HTMLAttributes<HTMLGtEmptyStateElement>;
             "gt-field": LocalJSX.IntrinsicElements["gt-field"] & JSXBase.HTMLAttributes<HTMLGtFieldElement>;
             "gt-icon-button": LocalJSX.IntrinsicElements["gt-icon-button"] & JSXBase.HTMLAttributes<HTMLGtIconButtonElement>;
             "gt-input": LocalJSX.IntrinsicElements["gt-input"] & JSXBase.HTMLAttributes<HTMLGtInputElement>;
+            "gt-menu": LocalJSX.IntrinsicElements["gt-menu"] & JSXBase.HTMLAttributes<HTMLGtMenuElement>;
+            "gt-menu-divider": LocalJSX.IntrinsicElements["gt-menu-divider"] & JSXBase.HTMLAttributes<HTMLGtMenuDividerElement>;
+            "gt-menu-item": LocalJSX.IntrinsicElements["gt-menu-item"] & JSXBase.HTMLAttributes<HTMLGtMenuItemElement>;
+            "gt-popup-surface": LocalJSX.IntrinsicElements["gt-popup-surface"] & JSXBase.HTMLAttributes<HTMLGtPopupSurfaceElement>;
             "gt-radio": LocalJSX.IntrinsicElements["gt-radio"] & JSXBase.HTMLAttributes<HTMLGtRadioElement>;
+            "gt-select": LocalJSX.IntrinsicElements["gt-select"] & JSXBase.HTMLAttributes<HTMLGtSelectElement>;
             "gt-state-card": LocalJSX.IntrinsicElements["gt-state-card"] & JSXBase.HTMLAttributes<HTMLGtStateCardElement>;
             "gt-switch": LocalJSX.IntrinsicElements["gt-switch"] & JSXBase.HTMLAttributes<HTMLGtSwitchElement>;
             "gt-tabs": LocalJSX.IntrinsicElements["gt-tabs"] & JSXBase.HTMLAttributes<HTMLGtTabsElement>;
             "gt-textarea": LocalJSX.IntrinsicElements["gt-textarea"] & JSXBase.HTMLAttributes<HTMLGtTextareaElement>;
+            "gt-time-picker": LocalJSX.IntrinsicElements["gt-time-picker"] & JSXBase.HTMLAttributes<HTMLGtTimePickerElement>;
             "gt-tooltip": LocalJSX.IntrinsicElements["gt-tooltip"] & JSXBase.HTMLAttributes<HTMLGtTooltipElement>;
         }
     }

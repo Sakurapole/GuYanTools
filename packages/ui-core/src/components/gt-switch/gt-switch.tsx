@@ -8,6 +8,7 @@ export interface GtSwitchChangeDetail {
 export class GtSwitch {
   @Prop({ mutable: true, reflect: true }) checked = false;
   @Prop({ reflect: true }) disabled = false;
+  @Prop({ reflect: true }) size: 'sm' | 'md' = 'md';
   @Prop({ attribute: 'aria-label' }) ariaLabel = '';
 
   @Event({ eventName: 'gt-change', bubbles: true, composed: true }) change!: EventEmitter<GtSwitchChangeDetail>;

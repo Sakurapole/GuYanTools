@@ -618,6 +618,9 @@ git add packages/plugin-ui desktop/scripts/verify-plugin-framework.cjs pnpm-lock
 git commit -m "refactor(plugins): publish Stencil UI style contract"
 ```
 
+> 桌面端 Stencil 迁移计划曾拆分到 `docs/superpowers/plans/2026-07-24-desktop-stencil-ui-migration-plan.md`，但当前已暂停。
+> 桌面主应用暂时恢复迁移前的 Vue legacy 实现；Stencil 组件库、插件 SDK 与插件宿主能力继续保留。
+
 ### Task 7: 建立桌面 selector inventory、主题映射与批次门禁
 
 **Files:**

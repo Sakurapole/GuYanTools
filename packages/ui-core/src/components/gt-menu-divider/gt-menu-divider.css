@@ -1,0 +1,2 @@
+:host { display: block; padding: clamp(3px, .5vw, 6px) 0; }
+[part="base"] { height: 1px; background: var(--ui-menu-divider, var(--ui-border-subtle, var(--gt-color-border))); }

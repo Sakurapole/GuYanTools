@@ -1,7 +1,10 @@
-:host { --gt-switch-background: var(--gt-color-border); --gt-switch-thumb-background: #fff; --gt-switch-size: 38px; display: inline-block; }
-button { width: var(--gt-switch-size); height: 22px; padding: 2px; border: 0; border-radius: 999px; background: var(--gt-switch-background); cursor: pointer; }
-span { display: block; width: 18px; height: 18px; border-radius: 50%; background: var(--gt-switch-thumb-background); transition: transform var(--gt-motion-normal) var(--gt-motion-ease); }
-:host([checked]) { --gt-switch-background: var(--gt-color-primary); }
-:host([checked]) span { transform: translateX(16px); }
+:host { display: inline-flex; align-items: center; }
+button { display: inline-flex; flex: 0 0 auto; align-items: center; box-sizing: border-box; width: var(--gt-switch-size, 42px); height: 24px; padding: 2px; border: 0; border-radius: 999px; background: var(--gt-switch-background, var(--ui-surface-muted, var(--gt-color-border))); box-shadow: inset 0 0 0 var(--ui-border-width-thin, 1px) var(--ui-border-subtle, var(--gt-color-border)); cursor: pointer; transition: background-color var(--gt-motion-fast) var(--gt-motion-ease), opacity var(--gt-motion-fast) var(--gt-motion-ease); }
+span { display: block; width: 20px; height: 20px; border-radius: 50%; background: var(--gt-switch-thumb-background, var(--ui-surface-base, #fff)); box-shadow: var(--ui-shadow-sm, var(--gt-shadow-sm)); transform: translateX(0); transition: transform var(--gt-motion-fast) var(--gt-motion-ease); }
+:host([size="sm"]) button { width: 34px; height: 20px; }
+:host([size="sm"]) span { width: 16px; height: 16px; }
+:host([checked]) button { background: var(--ui-primary-color, var(--gt-color-primary)); box-shadow: none; }
+:host([checked]) span { transform: translateX(18px); }
+:host([checked][size="sm"]) span { transform: translateX(14px); }
 button:focus-visible { outline: none; box-shadow: var(--gt-focus-ring); }
-button:disabled { cursor: not-allowed; opacity: 0.56; }
+button:disabled { cursor: not-allowed; opacity: 0.58; }

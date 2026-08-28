@@ -1,0 +1,38 @@
+:host { display: block; width: 100%; min-width: 0; font-family: var(--ui-font-family, var(--gt-font-family)); }
+[part="base"] { width: 100%; }
+[part="trigger"] { display: flex; width: 100%; min-height: var(--ui-control-height-md, var(--gt-control-height-md)); align-items: center; gap: 8px; box-sizing: border-box; padding: var(--ui-control-padding-y-md, 7px) var(--ui-control-padding-x-md, 10px); border: 1px solid var(--ui-input-border, var(--gt-color-border)); border-radius: var(--ui-radius-sm, var(--gt-radius-sm)); background: var(--ui-input-bg, var(--gt-color-surface)); color: var(--ui-input-text, var(--gt-color-text)); cursor: pointer; font: inherit; text-align: left; }
+[part="trigger"]:hover:not(:disabled), [part="trigger"]:focus-visible { border-color: var(--ui-input-focus-border, var(--gt-color-primary)); }
+[part="trigger"]:focus-visible { outline: none; box-shadow: var(--ui-focus-ring, var(--gt-focus-ring)); }
+[part="trigger"]:disabled { opacity: .55; cursor: not-allowed; }
+:host([size="sm"]) [part="trigger"] { min-height: var(--ui-control-height-sm, var(--gt-control-height-sm)); padding: var(--ui-control-padding-y-sm, 5px) var(--ui-control-padding-x-sm, 8px); font-size: .82rem; }
+:host([size="lg"]) [part="trigger"] { min-height: var(--ui-control-height-lg, var(--gt-control-height-lg)); padding: var(--ui-control-padding-y-lg, 9px) var(--ui-control-padding-x-lg, 14px); font-size: .96rem; }
+[part="icon"] { color: var(--ui-text-muted, var(--gt-color-text-muted)); font-size: 15px; }
+[part="label"] { min-width: 0; flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; line-height: 1.5; }
+[part="label"][data-placeholder] { color: var(--ui-input-placeholder, var(--gt-color-text-subtle)); }
+[part="clear"] { display: inline-flex; width: 18px; height: 18px; align-items: center; justify-content: center; padding: 0; border: 0; border-radius: 50%; background: transparent; color: var(--ui-text-muted, var(--gt-color-text-muted)); cursor: pointer; font: inherit; }
+[part="clear"]:hover { background: var(--ui-button-ghost-hover-bg, var(--gt-color-surface-muted)); color: var(--ui-color-danger, var(--gt-color-danger)); }
+[data-gt-overlay="date-picker"] [part="panel"] { overflow: hidden; border: 1px solid var(--ui-border-subtle, var(--gt-color-border)); border-radius: var(--ui-radius-md, var(--gt-radius-md)); background: var(--ui-surface-glass-strong, var(--gt-color-surface)); box-shadow: var(--ui-menu-shadow, var(--gt-shadow-lg)); color: var(--ui-text-primary, var(--gt-color-text)); }
+[data-gt-overlay="date-picker"] [part="header"], [data-gt-overlay="date-picker"] [part="footer"] { display: none; }
+[data-gt-overlay="date-picker"] [part="body"] { padding: 12px; }
+[data-gt-overlay="date-picker"] [part="calendar"] { width: 100%; }
+[data-gt-overlay="date-picker"] [part="nav"] { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; }
+[data-gt-overlay="date-picker"] [part="nav-prev"], [data-gt-overlay="date-picker"] [part="nav-next"] { display: inline-flex; width: 28px; height: 28px; align-items: center; justify-content: center; padding: 0; border: 0; border-radius: var(--ui-radius-sm, var(--gt-radius-sm)); background: transparent; color: var(--ui-text-muted, var(--gt-color-text-muted)); cursor: pointer; font: inherit; font-size: 20px; line-height: 1; }
+[data-gt-overlay="date-picker"] [part="nav-prev"]:hover, [data-gt-overlay="date-picker"] [part="nav-next"]:hover, [data-gt-overlay="date-picker"] [part="nav-title"]:hover { background: var(--ui-button-ghost-hover-bg, var(--gt-color-surface-muted)); color: var(--ui-input-focus-border, var(--gt-color-primary)); }
+[data-gt-overlay="date-picker"] [part="nav-title"] { padding: 4px 10px; border: 0; border-radius: var(--ui-radius-sm, var(--gt-radius-sm)); background: transparent; color: var(--ui-input-text, var(--gt-color-text)); cursor: pointer; font: inherit; font-size: .9rem; font-weight: 600; }
+[data-gt-overlay="date-picker"] [part="weekdays"], [data-gt-overlay="date-picker"] [part="grid"] { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); }
+[data-gt-overlay="date-picker"] [part="weekdays"] { margin-bottom: 4px; }
+[data-gt-overlay="date-picker"] [part="weekdays"] span { padding: 4px 0; color: var(--ui-text-muted, var(--gt-color-text-muted)); font-size: .75rem; font-weight: 500; text-align: center; }
+[data-gt-overlay="date-picker"] [part="grid"] { gap: 2px; }
+[data-gt-overlay="date-picker"] [part="day"] { position: relative; display: flex; width: 100%; aspect-ratio: 1; align-items: center; justify-content: center; padding: 0; border: 0; border-radius: var(--ui-radius-sm, var(--gt-radius-sm)); background: transparent; color: var(--ui-input-text, var(--gt-color-text)); cursor: pointer; font: inherit; font-size: .82rem; }
+[data-gt-overlay="date-picker"] [part="day"]:hover:not(:disabled) { background: var(--ui-button-ghost-hover-bg, var(--gt-color-surface-muted)); }
+[data-gt-overlay="date-picker"] [part="day"][data-outside] { color: var(--ui-text-muted, var(--gt-color-text-muted)); opacity: .45; }
+[data-gt-overlay="date-picker"] [part="day"][data-today] { color: var(--ui-input-focus-border, var(--gt-color-primary)); font-weight: 700; }
+[data-gt-overlay="date-picker"] [part="day"][data-today]::after { position: absolute; bottom: 3px; left: 50%; width: 4px; height: 4px; border-radius: 50%; background: currentColor; content: ''; transform: translateX(-50%); }
+[data-gt-overlay="date-picker"] [part="day"][data-selected] { background: var(--ui-button-primary-bg, var(--gt-color-primary)); color: var(--ui-button-primary-text, #fff); font-weight: 600; }
+[data-gt-overlay="date-picker"] [part="day"][data-selected]::after { display: none; }
+[data-gt-overlay="date-picker"] [part="day"][data-disabled] { cursor: not-allowed; opacity: .4; }
+[data-gt-overlay="date-picker"] [part="panel"][data-placement="top"] { animation: gt-date-picker-in-top 160ms var(--gt-motion-ease, ease-out) both; }
+[data-gt-overlay="date-picker"] [part="panel"][data-placement="bottom"] { animation: gt-date-picker-in 160ms var(--gt-motion-ease, ease-out) both; }
+@keyframes gt-date-picker-in { from { opacity: 0; transform: translateY(-5px) scale(.98); } to { opacity: 1; transform: translateY(0) scale(1); } }
+@keyframes gt-date-picker-in-top { from { opacity: 0; transform: translateY(5px) scale(.98); } to { opacity: 1; transform: translateY(0) scale(1); } }
+@media (prefers-reduced-motion: reduce) { [data-gt-overlay="date-picker"] [part="panel"] { animation: none; } }

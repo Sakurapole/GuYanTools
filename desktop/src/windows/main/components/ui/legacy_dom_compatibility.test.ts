@@ -1,8 +1,14 @@
+import { readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
 import { mount } from '@vue/test-utils';
 import { describe, expect, it, vi } from 'vitest';
 import UiCard from './UiCard.vue';
 import UiDialog from './UiDialog.vue';
+import UiDatePicker from './UiDatePicker.vue';
+import UiDateTimePicker from './UiDateTimePicker.vue';
 import UiIconButton from './UiIconButton.vue';
+import UiSelect from './UiSelect.vue';
+import UiTimePicker from './UiTimePicker.vue';
 
 describe('legacy desktop UI DOM compatibility', () => {
   it('keeps class-addressable card and icon-button roots for existing desktop styles', () => {
@@ -24,5 +30,61 @@ describe('legacy desktop UI DOM compatibility', () => {
     expect(warn).not.toHaveBeenCalled();
     dialog.unmount();
     warn.mockRestore();
+  });
+
+  it('keeps Select as a Stencil-backed compatibility adapter', () => {
+    const selectSource = readFileSync(resolve(process.cwd(), 'src/windows/main/components/ui/UiSelect.vue'), 'utf8');
+
+    expect(selectSource).toContain("import { defineCustomElements } from '@guyantools/ui-core';");
+    expect(selectSource).toContain('<gt-select');
+    expect(selectSource).not.toContain('ui-select-dropdown');
+
+    const select = mount(UiSelect, {
+      props: {
+        modelValue: 'standard',
+        options: [{ label: '标准', value: 'standard' }],
+      },
+    });
+    expect(select.find('gt-select').exists()).toBe(true);
+    select.unmount();
+  });
+
+  it('maps the home state-card visual contract to shared public variables', () => {
+    const legacyStateCard = readFileSync(resolve(process.cwd(), 'src/windows/main/components/ui/UiStateCard.vue'), 'utf8');
+    const homeStyles = readFileSync(resolve(process.cwd(), 'src/windows/main/pages/Home/home.scss'), 'utf8');
+
+    for (const variable of [
+      '--gt-state-card-min-width',
+      '--gt-state-card-gap',
+      '--gt-state-card-padding',
+      '--gt-state-card-radius',
+      '--gt-state-card-background',
+      '--gt-state-card-border-color',
+      '--gt-state-card-shadow',
+      '--gt-state-card-title-color',
+      '--gt-state-card-description-color',
+      '--gt-state-card-description-max-width',
+    ]) {
+      expect(legacyStateCard).toContain(variable);
+      expect(homeStyles).toContain(variable);
+    }
+
+    expect(homeStyles).toContain('--gt-state-card-padding: 32px 34px;');
+    expect(homeStyles).toContain('--gt-state-card-radius: var(--ui-radius-lg);');
+    expect(homeStyles).toContain('--gt-state-card-shadow: none;');
+  });
+
+  it('keeps date and time pickers as Stencil-backed compatibility adapters', () => {
+    const date = mount(UiDatePicker, { props: { modelValue: '2026-08-15' } });
+    const time = mount(UiTimePicker, { props: { modelValue: '09:30' } });
+    const dateTime = mount(UiDateTimePicker, { props: { modelValue: '2026-08-15T09:30' } });
+
+    expect(date.find('gt-date-picker').exists()).toBe(true);
+    expect(time.find('gt-time-picker').exists()).toBe(true);
+    expect(dateTime.find('gt-date-time-picker').exists()).toBe(true);
+
+    date.unmount();
+    time.unmount();
+    dateTime.unmount();
   });
 });

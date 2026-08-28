@@ -1,4 +1,10 @@
 export type OverlayPlacement = 'top' | 'right' | 'bottom' | 'left';
+export type OverlayType = 'dialog' | 'drawer' | 'tooltip' | 'select' | 'popup';
+
+export interface OverlayPortalOptions {
+  target?: HTMLElement;
+  overlay?: boolean;
+}
 
 export interface OverlayRect {
   bottom: number;
@@ -34,7 +40,7 @@ export class OverlayPortal {
     this.element.dispatchEvent(new Event('gt-overlay-reposition'));
   };
 
-  constructor(type: 'dialog' | 'drawer' | 'tooltip', content: DocumentFragment | string, source: HTMLElement, onMask?: () => void) {
+  constructor(type: OverlayType, content: DocumentFragment | string, source: HTMLElement, onMask?: () => void, options: OverlayPortalOptions = {}) {
     this.source = source;
     this.element = document.createElement('div');
     this.element.dataset.gtOverlay = type;
@@ -42,7 +48,7 @@ export class OverlayPortal {
     layer.setAttribute('part', 'layer');
     this.element.append(layer);
 
-    if (type !== 'tooltip') {
+    if (type === 'dialog' || type === 'drawer' || (type === 'popup' && options.overlay)) {
       const mask = document.createElement('div');
       mask.dataset.overlayMask = '';
       mask.setAttribute('part', 'mask');
@@ -50,11 +56,11 @@ export class OverlayPortal {
       mask.addEventListener('click', () => onMask?.());
     }
 
-    const panel = document.createElement(type === 'tooltip' ? 'div' : 'section');
+    const panel = document.createElement(type === 'tooltip' || type === 'select' || type === 'popup' ? 'div' : 'section');
     panel.className = 'panel';
     panel.setAttribute('part', 'panel');
-    panel.setAttribute('role', type === 'tooltip' ? 'tooltip' : 'dialog');
-    if (type !== 'tooltip') {
+    panel.setAttribute('role', type === 'tooltip' ? 'tooltip' : type === 'select' ? 'listbox' : 'dialog');
+    if (type === 'dialog' || type === 'drawer') {
       panel.setAttribute('aria-modal', 'true');
       panel.tabIndex = -1;
     }
@@ -85,7 +91,7 @@ export class OverlayPortal {
       this.styleObserver.observe(this.source, { attributes: true, attributeFilter: ['class', 'style'] });
       this.styleObserver.observe(document.documentElement, { attributes: true, attributeFilter: ['class', 'style'] });
     }
-    document.body.append(this.element);
+    (options.target ?? document.body).append(this.element);
     window.addEventListener('resize', this.reposition);
     window.addEventListener('scroll', this.reposition, true);
   }
@@ -101,12 +107,19 @@ export class OverlayPortal {
     const styles = getComputedStyle(this.source);
     const names = new Set<string>();
 
+    this.element.style.fontFamily = styles.fontFamily;
+    this.element.style.fontSize = styles.fontSize;
+    this.element.style.fontWeight = styles.fontWeight;
+    this.element.style.lineHeight = styles.lineHeight;
+    this.element.style.letterSpacing = styles.letterSpacing;
+
+    for (const name of ['--ui-font-family', '--app-font-family', '--gt-font-family']) names.add(name);
     for (let index = 0; index < styles.length; index += 1) {
       const name = styles.item(index);
-      if (name.startsWith('--gt-')) names.add(name);
+      if (name.startsWith('--gt-') || name.startsWith('--ui-') || name.startsWith('--app-')) names.add(name);
     }
     const inlineStyle = this.source.getAttribute('style') ?? '';
-    for (const match of inlineStyle.matchAll(/(--gt-[\w-]+)\s*:/g)) names.add(match[1]);
+    for (const match of inlineStyle.matchAll(/(--(?:gt|ui|app)-[\w-]+)\s*:/g)) names.add(match[1]);
     for (const name of names) this.element.style.setProperty(name, styles.getPropertyValue(name) || this.source.style.getPropertyValue(name));
   }
 }

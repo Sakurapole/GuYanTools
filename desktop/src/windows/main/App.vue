@@ -329,6 +329,7 @@ onBeforeUnmount(() => {
 @use './assets/tooltip.scss';
 @use './assets/app.scss';
 @import '@guyantools/ui-core/tokens.css';
+@import '@guyantools/ui-core/overlay.css';
 
 .logo {
   height: 6em;

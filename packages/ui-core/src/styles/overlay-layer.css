@@ -2,7 +2,7 @@
   position: fixed;
   inset: 0;
   z-index: var(--gt-overlay-z-index, var(--gt-z-overlay));
-  font-family: var(--gt-font-family);
+  font-family: inherit;
 }
 
 [data-gt-overlay="tooltip"] {
@@ -24,7 +24,13 @@
 [data-gt-overlay] [part="mask"] {
   position: absolute;
   inset: 0;
-  background: var(--gt-color-overlay);
+  background: var(--gt-dialog-overlay, var(--ui-dialog-overlay, var(--gt-color-overlay)));
+  backdrop-filter: var(--gt-dialog-backdrop-filter, var(--ui-backdrop-blur-sm, none));
+  -webkit-backdrop-filter: var(--gt-dialog-backdrop-filter, var(--ui-backdrop-blur-sm, none));
+}
+
+[data-gt-overlay="dialog"] [part="mask"] {
+  animation: gt-dialog-mask-in 180ms var(--gt-motion-ease, ease-out) both;
 }
 
 [data-gt-overlay] [part="panel"] {
@@ -34,16 +40,26 @@
   max-width: calc(100vw - 32px);
   max-height: calc(100vh - 32px);
   overflow: auto;
-  border: 1px solid var(--gt-color-border);
-  border-radius: var(--gt-radius-md);
-  background: var(--gt-color-surface);
-  box-shadow: var(--gt-shadow-lg);
+  border: 1px solid var(--gt-dialog-border-color, var(--ui-card-border, var(--gt-color-border)));
+  border-radius: var(--gt-dialog-radius, var(--ui-radius-lg, var(--gt-radius-md)));
+  background: var(--gt-dialog-background, var(--ui-surface-dialog, var(--gt-color-surface)));
+  box-shadow: var(--gt-dialog-shadow, var(--ui-card-shadow, var(--gt-shadow-lg)));
   color: var(--gt-color-text);
 }
 
 [data-gt-overlay="dialog"] [part="panel"] {
-  width: min(var(--gt-dialog-width, 560px), calc(100vw - 32px));
-  margin-top: 10vh;
+  width: min(var(--gt-dialog-width, 560px), calc(100vw - 48px));
+  max-height: calc(100vh - 48px);
+  margin: 0;
+  animation: gt-dialog-panel-in 220ms var(--gt-motion-ease, ease-out) both;
+}
+
+[data-gt-overlay="dialog"] [part="layer"] {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  box-sizing: border-box;
 }
 
 [data-gt-overlay="dialog"] [part="panel"],
@@ -58,11 +74,11 @@
 }
 
 [data-gt-overlay] [part="header"]:not(:empty) {
-  border-bottom: 1px solid var(--gt-color-border);
+  border-bottom: 1px solid var(--gt-dialog-header-border, var(--ui-dialog-header-border, var(--gt-color-border)));
 }
 
 [data-gt-overlay] [part="footer"]:not(:empty) {
-  border-top: 1px solid var(--gt-color-border);
+  border-top: 1px solid var(--gt-dialog-footer-border, var(--ui-dialog-footer-border, var(--gt-color-border)));
 }
 
 [data-gt-overlay="drawer"] [part="panel"] {
@@ -86,4 +102,241 @@
   background: var(--gt-tooltip-background, var(--gt-color-surface));
   color: var(--gt-tooltip-color, var(--gt-color-text));
   white-space: nowrap;
+}
+
+[data-gt-overlay="select"] {
+  inset: 0;
+  pointer-events: none;
+  z-index: var(--gt-select-z-index, var(--ui-z-critical, var(--gt-z-overlay)));
+}
+
+[data-gt-overlay="select"] [part="layer"] {
+  width: 100%;
+  height: 100%;
+}
+
+[data-gt-overlay="select"] [part="panel"] {
+  pointer-events: auto;
+  width: auto;
+  max-width: min(480px, calc(100vw - 16px));
+  max-height: 280px;
+  margin: 0;
+  overflow: hidden;
+  border-radius: var(--ui-radius-sm, var(--gt-radius-sm));
+  background: var(--ui-select-dropdown-bg, var(--ui-surface-glass-strong, var(--gt-color-surface)));
+  border-color: var(--ui-select-dropdown-border, var(--ui-border-subtle, var(--gt-color-border)));
+  box-shadow: var(--ui-select-dropdown-shadow, var(--ui-card-shadow, var(--gt-shadow-lg)));
+}
+
+[data-gt-overlay="select"] [part="header"],
+[data-gt-overlay="select"] [part="footer"] {
+  display: none;
+}
+
+[data-gt-overlay="select"] [part="body"] {
+  overflow: auto;
+  padding: 5px;
+}
+
+[data-gt-overlay="select"] [data-select-options] {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+[data-gt-overlay="select"] [data-select-options] [part="option"] {
+  display: flex;
+  min-height: 34px;
+  align-items: center;
+  gap: 8px;
+  box-sizing: border-box;
+  padding: 8px 12px;
+  border-radius: calc(var(--ui-radius-sm, var(--gt-radius-sm)) - 3px);
+  color: var(--ui-select-text, var(--ui-text-primary, var(--gt-color-text)));
+  cursor: pointer;
+  transition: background-color 0.15s ease, color 0.15s ease;
+}
+
+[data-gt-overlay="select"] [data-select-options] [part="option"]:hover,
+[data-gt-overlay="select"] [data-select-options] [part="option"][data-highlighted] {
+  background: var(--ui-select-option-hover-bg, var(--ui-surface-panel-muted, var(--gt-color-surface-muted)));
+}
+
+[data-gt-overlay="select"] [data-select-options] [part="option"][data-selected] {
+  color: var(--ui-select-option-selected-text, var(--ui-text-primary, var(--gt-color-text)));
+  background: var(--ui-select-option-selected-bg, var(--ui-surface-panel-muted, var(--gt-color-surface-muted)));
+  font-weight: 500;
+}
+
+[data-gt-overlay="select"] [data-select-options] [part="option"][data-disabled] {
+  color: var(--ui-select-option-disabled-text, var(--ui-text-subtle, var(--gt-color-text-muted)));
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+[data-gt-overlay="select"] [data-select-options] [part="check"] {
+  display: inline-flex;
+  width: 16px;
+  height: 16px;
+  flex: 0 0 16px;
+  align-items: center;
+  justify-content: center;
+  color: var(--ui-select-focus-border, var(--gt-color-primary));
+}
+
+[data-gt-overlay="select"] [data-select-options] [part="check"] svg { width: 14px; height: 14px; }
+[data-gt-overlay="select"] [data-select-options] [part="option-label"] { min-width: 0; flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: var(--ui-font-size-md, 0.92rem); line-height: 1.5; }
+
+/* Date/time picker panels are body-level portals, so their surface styles must
+ * live in the shared overlay layer rather than in a component shadow root. */
+[data-gt-overlay="date-picker"] [part="panel"],
+[data-gt-overlay="time-picker"] [part="panel"] {
+  overflow: hidden;
+  border: 1px solid var(--ui-border-subtle, var(--gt-color-border));
+  border-radius: var(--ui-radius-md, var(--gt-radius-md));
+  background: var(--ui-surface-glass-strong, var(--gt-color-surface));
+  box-shadow: var(--ui-menu-shadow, var(--gt-shadow-lg));
+  color: var(--ui-text-primary, var(--gt-color-text));
+}
+
+[data-gt-overlay="date-picker"] [part="header"],
+[data-gt-overlay="date-picker"] [part="footer"],
+[data-gt-overlay="time-picker"] [part="header"],
+[data-gt-overlay="time-picker"] [part="footer"] {
+  display: none;
+}
+
+[data-gt-overlay="date-picker"] [part="body"] { padding: 12px; }
+[data-gt-overlay="date-picker"] [part="calendar"] { width: 100%; }
+[data-gt-overlay="date-picker"] [part="nav"] { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; }
+[data-gt-overlay="date-picker"] [part="nav-prev"],
+[data-gt-overlay="date-picker"] [part="nav-next"] {
+  display: inline-flex;
+  width: 28px;
+  height: 28px;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border: 0;
+  border-radius: var(--ui-radius-sm, var(--gt-radius-sm));
+  background: transparent;
+  color: var(--ui-text-muted, var(--gt-color-text-muted));
+  cursor: pointer;
+  font: inherit;
+  font-size: 20px;
+  line-height: 1;
+}
+[data-gt-overlay="date-picker"] [part="nav-prev"]:hover,
+[data-gt-overlay="date-picker"] [part="nav-next"]:hover,
+[data-gt-overlay="date-picker"] [part="nav-title"]:hover { background: var(--ui-button-ghost-hover-bg, var(--gt-color-surface-muted)); color: var(--ui-input-focus-border, var(--gt-color-primary)); }
+[data-gt-overlay="date-picker"] [part="nav-title"] { padding: 4px 10px; border: 0; border-radius: var(--ui-radius-sm, var(--gt-radius-sm)); background: transparent; color: var(--ui-input-text, var(--gt-color-text)); cursor: pointer; font: inherit; font-size: .9rem; font-weight: 600; }
+[data-gt-overlay="date-picker"] [part="weekdays"],
+[data-gt-overlay="date-picker"] [part="grid"] { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); }
+[data-gt-overlay="date-picker"] [part="weekdays"] { margin-bottom: 4px; }
+[data-gt-overlay="date-picker"] [part="weekdays"] span { padding: 4px 0; color: var(--ui-text-muted, var(--gt-color-text-muted)); font-size: .75rem; font-weight: 500; text-align: center; }
+[data-gt-overlay="date-picker"] [part="grid"] { gap: 2px; }
+[data-gt-overlay="date-picker"] [part="day"] { position: relative; display: flex; width: 100%; aspect-ratio: 1; align-items: center; justify-content: center; padding: 0; border: 0; border-radius: var(--ui-radius-sm, var(--gt-radius-sm)); background: transparent; color: var(--ui-input-text, var(--gt-color-text)); cursor: pointer; font: inherit; font-size: .82rem; }
+[data-gt-overlay="date-picker"] [part="day"]:hover:not(:disabled) { background: var(--ui-button-ghost-hover-bg, var(--gt-color-surface-muted)); }
+[data-gt-overlay="date-picker"] [part="day"][data-outside] { color: var(--ui-text-muted, var(--gt-color-text-muted)); opacity: .45; }
+[data-gt-overlay="date-picker"] [part="day"][data-today] { color: var(--ui-input-focus-border, var(--gt-color-primary)); font-weight: 700; }
+[data-gt-overlay="date-picker"] [part="day"][data-today]::after { position: absolute; bottom: 3px; left: 50%; width: 4px; height: 4px; border-radius: 50%; background: currentColor; content: ''; transform: translateX(-50%); }
+[data-gt-overlay="date-picker"] [part="day"][data-selected] { background: var(--ui-button-primary-bg, var(--gt-color-primary)); color: var(--ui-button-primary-text, #fff); font-weight: 600; }
+[data-gt-overlay="date-picker"] [part="day"][data-selected]::after { display: none; }
+[data-gt-overlay="date-picker"] [part="day"][data-disabled] { cursor: not-allowed; opacity: .4; }
+
+[data-gt-overlay="time-picker"] [part="body"] { padding: 8px 4px 4px; }
+[data-gt-overlay="time-picker"] [part="columns"] { display: flex; align-items: flex-start; }
+[data-gt-overlay="time-picker"] [part="column"] { display: flex; min-width: 0; flex: 1; flex-direction: column; }
+[data-gt-overlay="time-picker"] [part="column-header"] { padding: 0 0 6px; color: var(--ui-text-muted, var(--gt-color-text-muted)); font-size: .72rem; font-weight: 600; text-align: center; }
+[data-gt-overlay="time-picker"] [part="list"] { height: 180px; overflow-y: auto; scrollbar-width: none; }
+[data-gt-overlay="time-picker"] [part="list"]::-webkit-scrollbar { display: none; }
+[data-gt-overlay="time-picker"] [part="item"] { display: flex; width: 100%; height: 34px; align-items: center; justify-content: center; padding: 0; border: 0; border-radius: var(--ui-radius-sm, var(--gt-radius-sm)); background: transparent; color: var(--ui-input-text, var(--gt-color-text)); cursor: pointer; font: inherit; font-variant-numeric: tabular-nums; }
+[data-gt-overlay="time-picker"] [part="item"]:hover { background: var(--ui-icon-button-hover-bg, var(--gt-color-surface-muted)); }
+[data-gt-overlay="time-picker"] [part="item"][data-selected] { background: var(--ui-button-primary-bg, var(--gt-color-primary)); color: var(--ui-button-primary-text, #fff); font-weight: 600; }
+[data-gt-overlay="time-picker"] [part="separator"] { padding: 28px 2px 0; color: var(--ui-text-muted, var(--gt-color-text-muted)); font-size: 1rem; font-weight: 600; }
+[data-gt-overlay="time-picker"] [part="footer-actions"] { display: flex; justify-content: flex-end; gap: 6px; padding: 6px 8px; border-top: 1px solid var(--ui-border-subtle, var(--gt-color-border)); }
+[data-gt-overlay="time-picker"] [part="now"],
+[data-gt-overlay="time-picker"] [part="confirm"] { padding: 4px 12px; border: 0; border-radius: var(--ui-radius-sm, var(--gt-radius-sm)); cursor: pointer; font: inherit; font-size: .8rem; }
+[data-gt-overlay="time-picker"] [part="now"] { background: transparent; color: var(--ui-text-muted, var(--gt-color-text-muted)); }
+[data-gt-overlay="time-picker"] [part="confirm"] { background: var(--ui-button-primary-bg, var(--gt-color-primary)); color: var(--ui-button-primary-text, #fff); }
+[data-gt-overlay="date-picker"] [part="panel"][data-placement="top"],
+[data-gt-overlay="time-picker"] [part="panel"][data-placement="top"] { animation: gt-picker-in-top 160ms var(--gt-motion-ease, ease-out) both; }
+[data-gt-overlay="date-picker"] [part="panel"][data-placement="bottom"],
+[data-gt-overlay="time-picker"] [part="panel"][data-placement="bottom"] { animation: gt-picker-in 160ms var(--gt-motion-ease, ease-out) both; }
+@keyframes gt-picker-in { from { opacity: 0; transform: translateY(-5px) scale(.98); } to { opacity: 1; transform: translateY(0) scale(1); } }
+@keyframes gt-picker-in-top { from { opacity: 0; transform: translateY(5px) scale(.98); } to { opacity: 1; transform: translateY(0) scale(1); } }
+@media (prefers-reduced-motion: reduce) {
+  [data-gt-overlay="date-picker"] [part="panel"],
+  [data-gt-overlay="time-picker"] [part="panel"] { animation: none; }
+}
+
+[data-gt-overlay="popup"] {
+  position: fixed;
+  inset: 0;
+  z-index: var(--ui-z-toast, var(--gt-z-overlay));
+  font-family: inherit;
+}
+
+[data-gt-overlay="popup"] [part="layer"] { position: relative; width: 100%; height: 100%; box-sizing: border-box; }
+[data-gt-overlay="popup"] [part="panel"] { box-sizing: border-box; max-width: calc(100vw - 32px); max-height: calc(100vh - 32px); overflow: auto; background: var(--ui-surface-dialog, var(--gt-color-surface)); color: var(--ui-text-primary, var(--gt-color-text)); }
+[data-gt-overlay="popup"][data-variant="dialog"] [part="layer"] { display: flex; align-items: center; justify-content: center; padding: 24px; }
+[data-gt-overlay="popup"][data-variant="dialog"] [part="panel"] { width: min(560px, calc(100vw - 48px)); max-height: calc(100vh - 48px); margin: 0; border: 1px solid var(--ui-card-border, var(--gt-color-border)); border-radius: var(--ui-radius-lg, var(--gt-radius-md)); box-shadow: var(--ui-card-shadow, var(--gt-shadow-lg)); }
+[data-gt-overlay="popup"][data-variant="drawer"] [part="layer"] { display: flex; }
+[data-gt-overlay="popup"][data-variant="drawer"] [part="panel"] { height: 100%; margin: 0; border-radius: 0; box-shadow: -6px 0 24px rgba(0, 0, 0, .2); }
+[data-gt-overlay="popup"][data-variant="drawer"][data-placement="left"] [part="layer"] { justify-content: flex-start; }
+[data-gt-overlay="popup"][data-variant="drawer"][data-placement="right"] [part="layer"] { justify-content: flex-end; }
+[data-gt-overlay="popup"][data-variant="floating"] { pointer-events: none; inset: 0; background: transparent; }
+[data-gt-overlay="popup"][data-variant="floating"] [part="panel"] { pointer-events: auto; position: fixed; margin: 0; border: 1px solid var(--ui-border-subtle, var(--gt-color-border)); border-radius: var(--ui-radius-sm, var(--gt-radius-sm)); background: var(--ui-menu-bg, var(--gt-color-surface)); box-shadow: var(--ui-menu-shadow, var(--gt-shadow-lg)); }
+[data-gt-overlay="menu"] { pointer-events: none; }
+[data-gt-overlay="menu"] [part="panel"] { pointer-events: auto; width: max-content; min-width: clamp(80px, 18vw, 120px); max-width: clamp(200px, 28vw, 320px); max-height: clamp(200px, 50vh, 480px); padding: 4px; overflow: visible; border: 1px solid var(--ui-border-subtle, var(--gt-color-border)); border-radius: var(--ui-radius-sm, var(--gt-radius-sm)); background: var(--ui-menu-bg, var(--gt-color-surface)); backdrop-filter: blur(16px) saturate(1.6); -webkit-backdrop-filter: blur(16px) saturate(1.6); box-shadow: var(--ui-menu-shadow, var(--gt-shadow-lg)); animation: gt-popup-fade-in 120ms var(--gt-motion-ease, ease-out) both; }
+[data-gt-overlay="menu"] [part="body"] { max-height: inherit; overflow-y: auto; overflow-x: hidden; scrollbar-width: none; }
+[data-gt-overlay="menu"] [part="body"]::-webkit-scrollbar { display: none; width: 0; height: 0; }
+[data-gt-overlay="popup"] [part="mask"] { position: absolute; inset: 0; background: var(--ui-dialog-overlay, var(--gt-color-overlay)); backdrop-filter: var(--ui-backdrop-blur-sm, none); -webkit-backdrop-filter: var(--ui-backdrop-blur-sm, none); }
+
+@keyframes gt-popup-fade-in { from { opacity: 0; transform: translateY(-4px) scale(.98); } to { opacity: 1; transform: translateY(0) scale(1); } }
+
+[data-gt-overlay="select"][data-animation="fade"] [part="panel"] { animation: gt-select-fade-in 160ms var(--gt-motion-ease, ease-out) both; }
+[data-gt-overlay="select"][data-animation="slide"] [part="panel"] { animation: gt-select-slide-in 180ms var(--gt-motion-ease, ease-out) both; }
+[data-gt-overlay="select"][data-animation="scale"] [part="panel"] { animation: gt-select-scale-in 160ms var(--gt-motion-ease, ease-out) both; }
+[data-gt-overlay="select"][data-animation="slideScale"] [part="panel"] { animation: gt-select-slide-scale-in 180ms var(--gt-motion-ease, ease-out) both; }
+
+@media (prefers-reduced-motion: reduce) {
+  [data-gt-overlay="select"] [part="panel"] { animation: none; }
+}
+
+@keyframes gt-dialog-mask-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes gt-dialog-panel-in {
+  from { opacity: 0; transform: translateY(8px) scale(0.98); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+@keyframes gt-select-fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes gt-select-slide-in {
+  from { opacity: 0; transform: translateY(-6px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes gt-select-scale-in {
+  from { opacity: 0; transform: scale(0.98); transform-origin: top center; }
+  to { opacity: 1; transform: scale(1); transform-origin: top center; }
+}
+
+@keyframes gt-select-slide-scale-in {
+  from { opacity: 0; transform: translateY(-6px) scale(0.98); transform-origin: top center; }
+  to { opacity: 1; transform: translateY(0) scale(1); transform-origin: top center; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  [data-gt-overlay="dialog"] [part="mask"],
+  [data-gt-overlay="dialog"] [part="panel"] {
+    animation: none;
+  }
 }

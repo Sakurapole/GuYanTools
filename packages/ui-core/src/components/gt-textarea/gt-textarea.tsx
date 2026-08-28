@@ -8,7 +8,10 @@ export class GtTextarea {
   @Prop() placeholder = '';
   @Prop({ reflect: true }) disabled = false;
   @Prop({ attribute: 'readonly', reflect: true }) readOnly = false;
-  @Prop() rows = 3;
+  @Prop() rows?: number;
+  @Prop() spellcheck?: boolean | 'true' | 'false';
+  @Prop() autocorrect?: string;
+  @Prop() autocapitalize?: string;
   @Prop({ attribute: 'maxlength' }) maxLength?: number;
   @Prop({ reflect: true }) resize: 'none' | 'both' | 'horizontal' | 'vertical' = 'vertical';
 
@@ -42,10 +45,14 @@ export class GtTextarea {
             part="control"
             ref={(element) => { this.textareaElement = element; }}
             disabled={this.disabled}
+            id={this.host.id || undefined}
             maxLength={this.maxLength}
             placeholder={this.placeholder}
             readOnly={this.readOnly}
             rows={this.rows}
+            spellcheck={this.spellcheck}
+            autocorrect={this.autocorrect}
+            autocapitalize={this.autocapitalize}
             value={this.value}
             onInput={(event) => this.updateValue((event.target as HTMLTextAreaElement).value, 'input')}
             onChange={(event) => this.updateValue((event.target as HTMLTextAreaElement).value, 'change')}

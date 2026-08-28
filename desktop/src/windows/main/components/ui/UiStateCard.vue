@@ -53,12 +53,17 @@ const eyebrowText = computed(() => {
 
 <style lang="scss" scoped>
 .ui-state-card {
-  min-width: min(100%, 360px);
+  min-width: var(--gt-state-card-min-width, min(100%, 360px));
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 8px;
+  gap: var(--gt-state-card-gap, 8px);
+  padding: var(--gt-state-card-padding, 0);
   text-align: center;
+  border: var(--ui-border-width-thin) solid var(--gt-state-card-border-color, var(--ui-card-border));
+  border-radius: var(--gt-state-card-radius, var(--ui-radius-md));
+  background: var(--gt-state-card-background, var(--ui-card-bg));
+  box-shadow: var(--gt-state-card-shadow, var(--ui-card-shadow));
 }
 
 .ui-state-card__icon:empty {
@@ -69,23 +74,25 @@ const eyebrowText = computed(() => {
   font-size: 0.72rem;
   letter-spacing: 0.18em;
   text-transform: uppercase;
-  color: var(--ui-state-muted);
+  color: var(--gt-state-card-eyebrow-color, var(--ui-state-muted));
 }
 
 .ui-state-card__title {
-  color: var(--ui-state-title);
+  color: var(--gt-state-card-title-color, var(--ui-state-title));
   font-size: 1.05rem;
+  font-weight: var(--gt-state-card-title-font-weight, bolder);
 }
 
 .ui-state-card__description {
   margin: 0;
-  color: var(--ui-state-muted);
+  max-width: var(--gt-state-card-description-max-width, none);
+  color: var(--gt-state-card-description-color, var(--ui-state-muted));
   line-height: 1.6;
 }
 
 .ui-state-card__actions {
   display: flex;
-  gap: 12px;
+  gap: var(--gt-state-card-actions-gap, 12px);
   margin-top: 4px;
 }
 
@@ -96,11 +103,11 @@ const eyebrowText = computed(() => {
 }
 
 .ui-state-card--error .ui-state-card__title {
-  color: var(--ui-state-error);
+  color: var(--gt-state-card-error-title-color, var(--ui-state-error));
 }
 
 .ui-state-card--compact {
-  min-width: min(100%, 280px);
-  padding-inline: 20px;
+  min-width: var(--gt-state-card-compact-min-width, min(100%, 280px));
+  padding-inline: var(--gt-state-card-compact-padding-inline, 20px);
 }
 </style>

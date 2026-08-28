@@ -29,13 +29,14 @@ export type AppBottomBarTabId =
   | 'knowledge'
   | 'ai'
   | 'script-editor'
-  | 'devtools';
+  | 'devtools'
+  | 'ui-migration';
 
 export const APP_CONFIG_VERSION = 1;
 export const SYSTEM_FONT_OPTION_VALUE = 'system-default';
 export const SYSTEM_FONT_STACK = "'Geist Variable', system-ui, -apple-system, 'Segoe UI', sans-serif";
 export const APP_BOTTOM_BAR_REQUIRED_TAB_IDS: AppBottomBarTabId[] = ['home', 'settings'];
-export const APP_BOTTOM_BAR_DEFAULT_VISIBLE_TAB_IDS: AppBottomBarTabId[] = ['home', 'terminal', 'settings', 'ftp', 'knowledge', 'devtools'];
+export const APP_BOTTOM_BAR_DEFAULT_VISIBLE_TAB_IDS: AppBottomBarTabId[] = ['home', 'terminal', 'settings', 'ftp', 'knowledge', 'devtools', 'ui-migration'];
 
 export interface AppInternalFunctionDefinition {
   id: AppBottomBarTabId;
@@ -123,6 +124,14 @@ export const APP_INTERNAL_FUNCTIONS: AppInternalFunctionDefinition[] = [
     route: '/devtools',
     icon: 'devtools',
     description: '开发环境调试工具。',
+    devOnly: true,
+  },
+  {
+    id: 'ui-migration',
+    label: '组件对比',
+    route: '/devtools/ui-migration',
+    icon: 'devtools',
+    description: 'Vue legacy 与 Stencil 组件的迁移对比。',
     devOnly: true,
   },
 ];

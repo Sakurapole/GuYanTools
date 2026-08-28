@@ -8,17 +8,26 @@ import type { JSX } from '@guyantools/ui-core/dist/custom-elements';
 import { defineCustomElement as defineGtButton } from '@guyantools/ui-core/dist/custom-elements/gt-button.js';
 import { defineCustomElement as defineGtCard } from '@guyantools/ui-core/dist/custom-elements/gt-card.js';
 import { defineCustomElement as defineGtCheckbox } from '@guyantools/ui-core/dist/custom-elements/gt-checkbox.js';
+import { defineCustomElement as defineGtDatePicker } from '@guyantools/ui-core/dist/custom-elements/gt-date-picker.js';
+import { defineCustomElement as defineGtDateTimePicker } from '@guyantools/ui-core/dist/custom-elements/gt-date-time-picker.js';
 import { defineCustomElement as defineGtDialog } from '@guyantools/ui-core/dist/custom-elements/gt-dialog.js';
+import { defineCustomElement as defineGtDisclosure } from '@guyantools/ui-core/dist/custom-elements/gt-disclosure.js';
 import { defineCustomElement as defineGtDrawer } from '@guyantools/ui-core/dist/custom-elements/gt-drawer.js';
 import { defineCustomElement as defineGtEmptyState } from '@guyantools/ui-core/dist/custom-elements/gt-empty-state.js';
 import { defineCustomElement as defineGtField } from '@guyantools/ui-core/dist/custom-elements/gt-field.js';
 import { defineCustomElement as defineGtIconButton } from '@guyantools/ui-core/dist/custom-elements/gt-icon-button.js';
 import { defineCustomElement as defineGtInput } from '@guyantools/ui-core/dist/custom-elements/gt-input.js';
+import { defineCustomElement as defineGtMenu } from '@guyantools/ui-core/dist/custom-elements/gt-menu.js';
+import { defineCustomElement as defineGtMenuDivider } from '@guyantools/ui-core/dist/custom-elements/gt-menu-divider.js';
+import { defineCustomElement as defineGtMenuItem } from '@guyantools/ui-core/dist/custom-elements/gt-menu-item.js';
+import { defineCustomElement as defineGtPopupSurface } from '@guyantools/ui-core/dist/custom-elements/gt-popup-surface.js';
 import { defineCustomElement as defineGtRadio } from '@guyantools/ui-core/dist/custom-elements/gt-radio.js';
+import { defineCustomElement as defineGtSelect } from '@guyantools/ui-core/dist/custom-elements/gt-select.js';
 import { defineCustomElement as defineGtStateCard } from '@guyantools/ui-core/dist/custom-elements/gt-state-card.js';
 import { defineCustomElement as defineGtSwitch } from '@guyantools/ui-core/dist/custom-elements/gt-switch.js';
 import { defineCustomElement as defineGtTabs } from '@guyantools/ui-core/dist/custom-elements/gt-tabs.js';
 import { defineCustomElement as defineGtTextarea } from '@guyantools/ui-core/dist/custom-elements/gt-textarea.js';
+import { defineCustomElement as defineGtTimePicker } from '@guyantools/ui-core/dist/custom-elements/gt-time-picker.js';
 import { defineCustomElement as defineGtTooltip } from '@guyantools/ui-core/dist/custom-elements/gt-tooltip.js';
 
 
@@ -41,7 +50,8 @@ export const GtCard: StencilVueComponent<JSX.GtCard> = /*@__PURE__*/ defineConta
   'padding',
   'radius',
   'hoverable',
-  'interactive'
+  'interactive',
+  'bordered'
 ]);
 
 
@@ -49,9 +59,46 @@ export const GtCheckbox: StencilVueComponent<JSX.GtCheckbox> = /*@__PURE__*/ def
   'checked',
   'indeterminate',
   'disabled',
+  'size',
   'label',
   'name',
   'value',
+  'gt-change'
+], [
+  'gt-change'
+]);
+
+
+export const GtDatePicker: StencilVueComponent<JSX.GtDatePicker> = /*@__PURE__*/ defineContainer<JSX.GtDatePicker>('gt-date-picker', defineGtDatePicker, [
+  'value',
+  'placeholder',
+  'clearable',
+  'disabled',
+  'size',
+  'min',
+  'max',
+  'closeOnOutside',
+  'gt-change',
+  'gt-clear'
+], [
+  'gt-change',
+  'gt-clear'
+]);
+
+
+export const GtDateTimePicker: StencilVueComponent<JSX.GtDateTimePicker> = /*@__PURE__*/ defineContainer<JSX.GtDateTimePicker>('gt-date-time-picker', defineGtDateTimePicker, [
+  'value',
+  'placeholder',
+  'datePlaceholder',
+  'timePlaceholder',
+  'disabled',
+  'size',
+  'mode',
+  'valueFormat',
+  'valueType',
+  'minuteStep',
+  'clearable',
+  'closeOnOutside',
   'gt-change'
 ], [
   'gt-change'
@@ -65,6 +112,15 @@ export const GtDialog: StencilVueComponent<JSX.GtDialog> = /*@__PURE__*/ defineC
   'closeOnEsc',
   'persistent',
   'ariaLabel',
+  'gt-open-change'
+], [
+  'gt-open-change'
+]);
+
+
+export const GtDisclosure: StencilVueComponent<JSX.GtDisclosure> = /*@__PURE__*/ defineContainer<JSX.GtDisclosure>('gt-disclosure', defineGtDisclosure, [
+  'title',
+  'open',
   'gt-open-change'
 ], [
   'gt-open-change'
@@ -124,6 +180,10 @@ export const GtInput: StencilVueComponent<JSX.GtInput> = /*@__PURE__*/ defineCon
   'disabled',
   'readOnly',
   'size',
+  'spellcheck',
+  'autocorrect',
+  'autocapitalize',
+  'list',
   'min',
   'max',
   'step',
@@ -135,15 +195,96 @@ export const GtInput: StencilVueComponent<JSX.GtInput> = /*@__PURE__*/ defineCon
 ]);
 
 
+export const GtMenu: StencilVueComponent<JSX.GtMenu> = /*@__PURE__*/ defineContainer<JSX.GtMenu>('gt-menu', defineGtMenu, [
+  'visible',
+  'x',
+  'y',
+  'closeOnClickOutside',
+  'outsideIgnoreSelector',
+  'maxHeight',
+  'gt-close'
+], [
+  'gt-close'
+]);
+
+
+export const GtMenuDivider: StencilVueComponent<JSX.GtMenuDivider> = /*@__PURE__*/ defineContainer<JSX.GtMenuDivider>('gt-menu-divider', defineGtMenuDivider);
+
+
+export const GtMenuItem: StencilVueComponent<JSX.GtMenuItem> = /*@__PURE__*/ defineContainer<JSX.GtMenuItem>('gt-menu-item', defineGtMenuItem, [
+  'danger',
+  'disabled',
+  'gt-click'
+], [
+  'gt-click'
+]);
+
+
+export const GtPopupSurface: StencilVueComponent<JSX.GtPopupSurface> = /*@__PURE__*/ defineContainer<JSX.GtPopupSurface>('gt-popup-surface', defineGtPopupSurface, [
+  'modelValue',
+  'variant',
+  'placement',
+  'teleported',
+  'teleportTo',
+  'fixed',
+  'overlay',
+  'width',
+  'maxWidth',
+  'height',
+  'maxHeight',
+  'zIndex',
+  'closeOnMask',
+  'closeOnOutside',
+  'closeOnEsc',
+  'persistent',
+  'role',
+  'ariaLabel',
+  'ariaLabelledby',
+  'panelClass',
+  'overlayClass',
+  'panelStyle',
+  'gt-open-change',
+  'gt-open',
+  'gt-close',
+  'gt-mask-click',
+  'gt-outside-click'
+], [
+  'gt-open-change',
+  'gt-open',
+  'gt-close',
+  'gt-mask-click',
+  'gt-outside-click'
+]);
+
+
 export const GtRadio: StencilVueComponent<JSX.GtRadio> = /*@__PURE__*/ defineContainer<JSX.GtRadio>('gt-radio', defineGtRadio, [
   'checked',
   'disabled',
+  'size',
   'label',
   'name',
   'value',
   'gt-change'
 ], [
   'gt-change'
+]);
+
+
+export const GtSelect: StencilVueComponent<JSX.GtSelect> = /*@__PURE__*/ defineContainer<JSX.GtSelect>('gt-select', defineGtSelect, [
+  'value',
+  'options',
+  'disabled',
+  'size',
+  'placeholder',
+  'animation',
+  'closeOnOutside',
+  'gt-change',
+  'gt-focus',
+  'gt-blur'
+], [
+  'gt-change',
+  'gt-focus',
+  'gt-blur'
 ]);
 
 
@@ -157,6 +298,7 @@ export const GtStateCard: StencilVueComponent<JSX.GtStateCard> = /*@__PURE__*/ d
 export const GtSwitch: StencilVueComponent<JSX.GtSwitch> = /*@__PURE__*/ defineContainer<JSX.GtSwitch>('gt-switch', defineGtSwitch, [
   'checked',
   'disabled',
+  'size',
   'ariaLabel',
   'gt-change'
 ], [
@@ -182,12 +324,28 @@ export const GtTextarea: StencilVueComponent<JSX.GtTextarea> = /*@__PURE__*/ def
   'disabled',
   'readOnly',
   'rows',
+  'spellcheck',
+  'autocorrect',
+  'autocapitalize',
   'maxLength',
   'resize',
   'gt-input',
   'gt-change'
 ], [
   'gt-input',
+  'gt-change'
+]);
+
+
+export const GtTimePicker: StencilVueComponent<JSX.GtTimePicker> = /*@__PURE__*/ defineContainer<JSX.GtTimePicker>('gt-time-picker', defineGtTimePicker, [
+  'value',
+  'placeholder',
+  'disabled',
+  'size',
+  'minuteStep',
+  'closeOnOutside',
+  'gt-change'
+], [
   'gt-change'
 ]);
 

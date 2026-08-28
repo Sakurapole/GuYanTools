@@ -11,6 +11,7 @@
       "import": "./dist/index.js"
     },
     "./tokens.css": "./dist/tokens.css",
+    "./overlay.css": "./dist/overlay.css",
     "./loader": {
       "types": "./dist/loader.d.ts",
       "import": "./dist/loader.js"
@@ -32,10 +33,10 @@
     "dist"
   ],
   "scripts": {
-    "build": "stencil build && node scripts/copy-tokens.mjs && node scripts/create-entry.mjs",
+    "build": "stencil build && node scripts/copy-tokens.mjs && node scripts/create-entry.mjs && node scripts/assert-runtime-output.mjs",
     "typecheck": "stencil build --no-build",
-    "test": "stencil-test --project spec",
-    "verify:style-contract": "node scripts/assert-style-contract.mjs gt-button gt-icon-button gt-card gt-field gt-empty-state gt-state-card gt-input gt-textarea gt-checkbox gt-radio gt-switch gt-tabs gt-dialog gt-drawer gt-tooltip"
+    "test": "node scripts/run-tests.mjs",
+    "verify:style-contract": "node scripts/assert-style-contract.mjs gt-button gt-icon-button gt-card gt-field gt-empty-state gt-state-card gt-input gt-textarea gt-checkbox gt-radio gt-switch gt-tabs gt-dialog gt-drawer gt-tooltip gt-date-picker gt-time-picker gt-date-time-picker"
   },
   "devDependencies": {
     "@stencil/core": "^4.43.5",
