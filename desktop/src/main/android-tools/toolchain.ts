@@ -3,21 +3,11 @@ import crypto from 'node:crypto';
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import { promisify } from 'node:util';
+import type { AndroidToolName, AndroidToolchainStatus } from '@/contracts/android-tools';
 
 const execFile = promisify(nodeExecFile);
 
-export type AndroidToolName = 'adb' | 'fastboot' | 'scrcpy' | 'scrcpy-server';
-
-export interface AndroidToolchainStatus {
-  available: boolean;
-  platform: string;
-  architecture: string;
-  versions: { adb?: string; fastboot?: string; scrcpy?: string; scrcpyServer?: string };
-  rootPath?: string;
-  errorCode?: string;
-  errorMessage?: string;
-  checksums?: Partial<Record<AndroidToolName, string>>;
-}
+export type { AndroidToolName, AndroidToolchainStatus } from '@/contracts/android-tools';
 
 export interface AndroidToolchainOptions {
   rootPath?: string;
