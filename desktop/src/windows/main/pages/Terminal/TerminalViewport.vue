@@ -13,6 +13,7 @@ import { eventMatchesAccelerator } from '@/shared/shortcuts';
 import { useContextMenu } from '@/windows/main/composables/useContextMenu';
 import UiButton from '@/windows/main/components/ui/UiButton.vue';
 import { resolveScheme } from './terminal-themes';
+import { shouldSuppressTerminalResponses } from './terminal-buffer-replay';
 import '@xterm/xterm/css/xterm.css';
 
 const props = withDefaults(defineProps<{
@@ -76,8 +77,11 @@ let searchAddon: SearchAddon | null = null;
 let searchResultsDisposable: { dispose: () => void } | null = null;
 let resizeObserver: ResizeObserver | null = null;
 let lastRenderedBuffer = '';
+let hasRenderedBuffer = false;
 let wasmDecoderAvailability: Promise<boolean> | null = null;
 let renderQueue = Promise.resolve();
+// Historical buffers may contain Vim's terminal queries; never answer those back to the shell.
+let suppressTerminalResponses = false;
 const TRANSPARENT_BG = 'rgba(0, 0, 0, 0)';
 const COMMON_COMMANDS = [
   'cd',
@@ -271,8 +275,12 @@ async function createTerminal() {
   });
 
   nextTerminal.parser.registerCsiHandler({ final: 'n' }, (params) => {
-    if (params[0] !== 6 || !isActiveTerminalInstance(nextTerminal)) {
+    if (!isActiveTerminalInstance(nextTerminal) || params[0] !== 6) {
       return false;
+    }
+
+    if (suppressTerminalResponses) {
+      return true;
     }
 
     const row = nextTerminal.buffer.active.cursorY + 1;
@@ -282,8 +290,12 @@ async function createTerminal() {
   });
 
   nextTerminal.parser.registerCsiHandler({ prefix: '?', final: 'n' }, (params) => {
-    if (params[0] !== 6 || !isActiveTerminalInstance(nextTerminal)) {
+    if (!isActiveTerminalInstance(nextTerminal) || params[0] !== 6) {
       return false;
+    }
+
+    if (suppressTerminalResponses) {
+      return true;
     }
 
     const row = nextTerminal.buffer.active.cursorY + 1;
@@ -297,8 +309,18 @@ async function createTerminal() {
       return false;
     }
 
+    const replayingBuffer = suppressTerminalResponses;
+    if (replayingBuffer) {
+      return false;
+    }
+
     queueMicrotask(() => {
-      if (!isTerminalFocused()) {
+      if (
+        replayingBuffer
+        || suppressTerminalResponses
+        || !isActiveTerminalInstance(nextTerminal)
+        || !isTerminalFocused()
+      ) {
         return;
       }
 
@@ -531,13 +553,24 @@ function handleShortcutKey(event: KeyboardEvent): boolean {
   return true;
 }
 
-function enqueueTerminalWrite(data: string) {
+function enqueueTerminalWrite(data: string, suppressResponses = false) {
   if (!terminal || !data) {
     return Promise.resolve();
   }
 
+  const targetTerminal = terminal;
   renderQueue = renderQueue.then(() => new Promise<void>((resolve) => {
-    terminal?.write(data, () => resolve());
+    if (!targetTerminal) {
+      resolve();
+      return;
+    }
+
+    const previousSuppression = suppressTerminalResponses;
+    suppressTerminalResponses = suppressResponses;
+    targetTerminal.write(data, () => {
+      suppressTerminalResponses = previousSuppression;
+      resolve();
+    });
   }));
 
   return renderQueue;
@@ -546,11 +579,13 @@ function enqueueTerminalWrite(data: string) {
 function renderBuffer(nextBuffer: string) {
   if (!terminal) return;
 
-  if (!lastRenderedBuffer) {
+  const replayingBuffer = shouldSuppressTerminalResponses(lastRenderedBuffer, nextBuffer, hasRenderedBuffer);
+  if (!hasRenderedBuffer) {
     if (nextBuffer) {
-      void enqueueTerminalWrite(nextBuffer);
+      void enqueueTerminalWrite(nextBuffer, replayingBuffer);
     }
     lastRenderedBuffer = nextBuffer;
+    hasRenderedBuffer = true;
     return;
   }
 
@@ -566,9 +601,10 @@ function renderBuffer(nextBuffer: string) {
   terminal.reset();
   lastRenderedBuffer = '';
   if (nextBuffer) {
-    void enqueueTerminalWrite(nextBuffer);
+    void enqueueTerminalWrite(nextBuffer, replayingBuffer);
   }
   lastRenderedBuffer = nextBuffer;
+  hasRenderedBuffer = true;
 }
 
 async function handleContextMenu(event: MouseEvent) {
@@ -699,6 +735,8 @@ onBeforeUnmount(() => {
   searchResultsDisposable?.dispose();
   searchResultsDisposable = null;
   renderQueue = Promise.resolve();
+  suppressTerminalResponses = false;
+  hasRenderedBuffer = false;
   terminal?.dispose();
   terminal = null;
 });
