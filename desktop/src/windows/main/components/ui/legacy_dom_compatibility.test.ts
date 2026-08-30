@@ -11,13 +11,28 @@ import UiIconButton from './UiIconButton.vue';
 import UiSelect from './UiSelect.vue';
 import UiTimePicker from './UiTimePicker.vue';
 
+const firstWaveAdapters = [
+  'UiButton.vue',
+  'UiIconButton.vue',
+  'UiCard.vue',
+  'UiField.vue',
+  'UiInput.vue',
+  'UiTextarea.vue',
+  'UiCheckbox.vue',
+  'UiRadio.vue',
+  'UiSwitch.vue',
+  'UiTabs.vue',
+  'UiEmptyState.vue',
+  'UiStateCard.vue',
+] as const;
+
 describe('legacy desktop UI DOM compatibility', () => {
-  it('keeps class-addressable card and icon-button roots for existing desktop styles', () => {
+  it('keeps card and icon-button as Stencil-backed compatibility adapters', () => {
     const card = mount(UiCard, { attrs: { class: 'comp-area-panel' } });
     const iconButton = mount(UiIconButton, { attrs: { class: 'theme-btn' } });
 
-    expect(card.find('.ui-card.comp-area-panel').exists()).toBe(true);
-    expect(iconButton.find('button.ui-icon-button.theme-btn').exists()).toBe(true);
+    expect(card.find('gt-card.comp-area-panel').exists()).toBe(true);
+    expect(iconButton.find('gt-icon-button.theme-btn').exists()).toBe(true);
   });
 
   it('does not warn when a dialog receives a legacy CSS class', () => {
@@ -68,7 +83,7 @@ describe('legacy desktop UI DOM compatibility', () => {
   });
 
   it('maps the home state-card visual contract to shared public variables', () => {
-    const legacyStateCard = readFileSync(resolve(process.cwd(), 'src/windows/main/components/ui/UiStateCard.vue'), 'utf8');
+    const legacyStateCard = readFileSync(resolve(process.cwd(), '../packages/ui-core/src/components/gt-state-card/gt-state-card.css'), 'utf8');
     const homeStyles = readFileSync(resolve(process.cwd(), 'src/windows/main/pages/Home/home.scss'), 'utf8');
 
     for (const variable of [
@@ -104,5 +119,13 @@ describe('legacy desktop UI DOM compatibility', () => {
     date.unmount();
     time.unmount();
     dateTime.unmount();
+  });
+
+  it('keeps every first-wave desktop entrypoint as a ui-vue adapter', () => {
+    for (const file of firstWaveAdapters) {
+      const source = readFileSync(resolve(process.cwd(), 'src/windows/main/components/ui', file), 'utf8');
+      expect(source).toContain("@guyantools/ui-vue");
+      expect(source).not.toContain('<style');
+    }
   });
 });
