@@ -18,7 +18,9 @@ import { GtMenuCloseDetail } from "./components/gt-menu/gt-menu";
 import { GtMenuItemClickDetail } from "./components/gt-menu-item/gt-menu-item";
 import { GtPopupOpenChangeDetail, GtPopupPlacement, GtPopupVariant } from "./components/gt-popup-surface/gt-popup-surface";
 import { GtRadioChangeDetail } from "./components/gt-radio/gt-radio";
+import { Event } from "@stencil/core";
 import { GtSelectChangeDetail, GtSelectOption } from "./components/gt-select/gt-select";
+import { GtSliderFieldChangeDetail } from "./components/gt-slider-field/gt-slider-field";
 import { GtSwitchChangeDetail } from "./components/gt-switch/gt-switch";
 import { GtTabChangeDetail, GtTabItem } from "./components/gt-tabs/gt-tabs";
 import { GtValueChangeDetail as GtValueChangeDetail1 } from "./components/gt-input/gt-input";
@@ -37,7 +39,9 @@ export { GtMenuCloseDetail } from "./components/gt-menu/gt-menu";
 export { GtMenuItemClickDetail } from "./components/gt-menu-item/gt-menu-item";
 export { GtPopupOpenChangeDetail, GtPopupPlacement, GtPopupVariant } from "./components/gt-popup-surface/gt-popup-surface";
 export { GtRadioChangeDetail } from "./components/gt-radio/gt-radio";
+export { Event } from "@stencil/core";
 export { GtSelectChangeDetail, GtSelectOption } from "./components/gt-select/gt-select";
+export { GtSliderFieldChangeDetail } from "./components/gt-slider-field/gt-slider-field";
 export { GtSwitchChangeDetail } from "./components/gt-switch/gt-switch";
 export { GtTabChangeDetail, GtTabItem } from "./components/gt-tabs/gt-tabs";
 export { GtValueChangeDetail as GtValueChangeDetail1 } from "./components/gt-input/gt-input";
@@ -531,6 +535,70 @@ export namespace Components {
          */
         "value": string;
     }
+    interface GtRange {
+        /**
+          * @default ''
+         */
+        "ariaLabel": string;
+        /**
+          * @default false
+         */
+        "disabled": boolean;
+        /**
+          * @default 100
+         */
+        "max": number;
+        /**
+          * @default 0
+         */
+        "min": number;
+        /**
+          * @default 1
+         */
+        "step": number;
+        /**
+          * @default 0
+         */
+        "value": number;
+    }
+    interface GtScrollbar {
+        /**
+          * @default false
+         */
+        "alwaysVisible": boolean;
+        "refresh": () => Promise<void>;
+        "scrollBy": (options: ScrollToOptions) => Promise<void>;
+        "scrollTo": (options: ScrollToOptions) => Promise<void>;
+        /**
+          * @default true
+         */
+        "showOnHover": boolean;
+        /**
+          * @default 0
+         */
+        "size": number;
+        /**
+          * @default ''
+         */
+        "thumbColor": string;
+        /**
+          * @default ''
+         */
+        "thumbHoverColor": string;
+        /**
+          * @default ''
+         */
+        "trackColor": string;
+        "updateScrollableState": () => Promise<void>;
+        /**
+          * @default true
+         */
+        "x": boolean;
+        /**
+          * @default true
+         */
+        "y": boolean;
+    }
     interface GtSelect {
         /**
           * @default 'slideScale'
@@ -560,6 +628,44 @@ export namespace Components {
           * @default ''
          */
         "value": string | number;
+    }
+    interface GtSliderField {
+        /**
+          * @default ''
+         */
+        "ariaLabel": string;
+        /**
+          * @default false
+         */
+        "disabled": boolean;
+        /**
+          * @default ''
+         */
+        "label": string;
+        /**
+          * @default 100
+         */
+        "max": number;
+        /**
+          * @default 0
+         */
+        "min": number;
+        /**
+          * @default 1
+         */
+        "step": number;
+        /**
+          * @default ''
+         */
+        "unit": string;
+        /**
+          * @default 0
+         */
+        "value": number;
+        /**
+          * @default ''
+         */
+        "valueText": string;
     }
     interface GtStateCard {
         /**
@@ -743,9 +849,21 @@ export interface GtRadioCustomEvent<T> extends CustomEvent<T> {
     detail: T;
     target: HTMLGtRadioElement;
 }
+export interface GtRangeCustomEvent<T> extends CustomEvent<T> {
+    detail: T;
+    target: HTMLGtRangeElement;
+}
+export interface GtScrollbarCustomEvent<T> extends CustomEvent<T> {
+    detail: T;
+    target: HTMLGtScrollbarElement;
+}
 export interface GtSelectCustomEvent<T> extends CustomEvent<T> {
     detail: T;
     target: HTMLGtSelectElement;
+}
+export interface GtSliderFieldCustomEvent<T> extends CustomEvent<T> {
+    detail: T;
+    target: HTMLGtSliderFieldElement;
 }
 export interface GtSwitchCustomEvent<T> extends CustomEvent<T> {
     detail: T;
@@ -1015,6 +1133,42 @@ declare global {
         prototype: HTMLGtRadioElement;
         new (): HTMLGtRadioElement;
     };
+    interface HTMLGtRangeElementEventMap {
+        "gt-change": { value: number };
+    }
+    interface HTMLGtRangeElement extends Components.GtRange, HTMLStencilElement {
+        addEventListener<K extends keyof HTMLGtRangeElementEventMap>(type: K, listener: (this: HTMLGtRangeElement, ev: GtRangeCustomEvent<HTMLGtRangeElementEventMap[K]>) => any, options?: boolean | AddEventListenerOptions): void;
+        addEventListener<K extends keyof DocumentEventMap>(type: K, listener: (this: Document, ev: DocumentEventMap[K]) => any, options?: boolean | AddEventListenerOptions): void;
+        addEventListener<K extends keyof HTMLElementEventMap>(type: K, listener: (this: HTMLElement, ev: HTMLElementEventMap[K]) => any, options?: boolean | AddEventListenerOptions): void;
+        addEventListener(type: string, listener: EventListenerOrEventListenerObject, options?: boolean | AddEventListenerOptions): void;
+        removeEventListener<K extends keyof HTMLGtRangeElementEventMap>(type: K, listener: (this: HTMLGtRangeElement, ev: GtRangeCustomEvent<HTMLGtRangeElementEventMap[K]>) => any, options?: boolean | EventListenerOptions): void;
+        removeEventListener<K extends keyof DocumentEventMap>(type: K, listener: (this: Document, ev: DocumentEventMap[K]) => any, options?: boolean | EventListenerOptions): void;
+        removeEventListener<K extends keyof HTMLElementEventMap>(type: K, listener: (this: HTMLElement, ev: HTMLElementEventMap[K]) => any, options?: boolean | EventListenerOptions): void;
+        removeEventListener(type: string, listener: EventListenerOrEventListenerObject, options?: boolean | EventListenerOptions): void;
+    }
+    var HTMLGtRangeElement: {
+        prototype: HTMLGtRangeElement;
+        new (): HTMLGtRangeElement;
+    };
+    interface HTMLGtScrollbarElementEventMap {
+        "gt-scroll": Event;
+    }
+    interface HTMLGtScrollbarElement extends Omit<Components.GtScrollbar, "scrollBy" | "scrollTo">, HTMLStencilElement {
+        "scrollBy": (options: ScrollToOptions) => Promise<void>;
+        "scrollTo": (options: ScrollToOptions) => Promise<void>;
+        addEventListener<K extends keyof HTMLGtScrollbarElementEventMap>(type: K, listener: (this: HTMLGtScrollbarElement, ev: GtScrollbarCustomEvent<HTMLGtScrollbarElementEventMap[K]>) => any, options?: boolean | AddEventListenerOptions): void;
+        addEventListener<K extends keyof DocumentEventMap>(type: K, listener: (this: Document, ev: DocumentEventMap[K]) => any, options?: boolean | AddEventListenerOptions): void;
+        addEventListener<K extends keyof HTMLElementEventMap>(type: K, listener: (this: HTMLElement, ev: HTMLElementEventMap[K]) => any, options?: boolean | AddEventListenerOptions): void;
+        addEventListener(type: string, listener: EventListenerOrEventListenerObject, options?: boolean | AddEventListenerOptions): void;
+        removeEventListener<K extends keyof HTMLGtScrollbarElementEventMap>(type: K, listener: (this: HTMLGtScrollbarElement, ev: GtScrollbarCustomEvent<HTMLGtScrollbarElementEventMap[K]>) => any, options?: boolean | EventListenerOptions): void;
+        removeEventListener<K extends keyof DocumentEventMap>(type: K, listener: (this: Document, ev: DocumentEventMap[K]) => any, options?: boolean | EventListenerOptions): void;
+        removeEventListener<K extends keyof HTMLElementEventMap>(type: K, listener: (this: HTMLElement, ev: HTMLElementEventMap[K]) => any, options?: boolean | EventListenerOptions): void;
+        removeEventListener(type: string, listener: EventListenerOrEventListenerObject, options?: boolean | EventListenerOptions): void;
+    }
+    var HTMLGtScrollbarElement: {
+        prototype: HTMLGtScrollbarElement;
+        new (): HTMLGtScrollbarElement;
+    };
     interface HTMLGtSelectElementEventMap {
         "gt-change": GtSelectChangeDetail;
         "gt-focus": void;
@@ -1033,6 +1187,23 @@ declare global {
     var HTMLGtSelectElement: {
         prototype: HTMLGtSelectElement;
         new (): HTMLGtSelectElement;
+    };
+    interface HTMLGtSliderFieldElementEventMap {
+        "gt-change": GtSliderFieldChangeDetail;
+    }
+    interface HTMLGtSliderFieldElement extends Components.GtSliderField, HTMLStencilElement {
+        addEventListener<K extends keyof HTMLGtSliderFieldElementEventMap>(type: K, listener: (this: HTMLGtSliderFieldElement, ev: GtSliderFieldCustomEvent<HTMLGtSliderFieldElementEventMap[K]>) => any, options?: boolean | AddEventListenerOptions): void;
+        addEventListener<K extends keyof DocumentEventMap>(type: K, listener: (this: Document, ev: DocumentEventMap[K]) => any, options?: boolean | AddEventListenerOptions): void;
+        addEventListener<K extends keyof HTMLElementEventMap>(type: K, listener: (this: HTMLElement, ev: HTMLElementEventMap[K]) => any, options?: boolean | AddEventListenerOptions): void;
+        addEventListener(type: string, listener: EventListenerOrEventListenerObject, options?: boolean | AddEventListenerOptions): void;
+        removeEventListener<K extends keyof HTMLGtSliderFieldElementEventMap>(type: K, listener: (this: HTMLGtSliderFieldElement, ev: GtSliderFieldCustomEvent<HTMLGtSliderFieldElementEventMap[K]>) => any, options?: boolean | EventListenerOptions): void;
+        removeEventListener<K extends keyof DocumentEventMap>(type: K, listener: (this: Document, ev: DocumentEventMap[K]) => any, options?: boolean | EventListenerOptions): void;
+        removeEventListener<K extends keyof HTMLElementEventMap>(type: K, listener: (this: HTMLElement, ev: HTMLElementEventMap[K]) => any, options?: boolean | EventListenerOptions): void;
+        removeEventListener(type: string, listener: EventListenerOrEventListenerObject, options?: boolean | EventListenerOptions): void;
+    }
+    var HTMLGtSliderFieldElement: {
+        prototype: HTMLGtSliderFieldElement;
+        new (): HTMLGtSliderFieldElement;
     };
     interface HTMLGtStateCardElement extends Components.GtStateCard, HTMLStencilElement {
     }
@@ -1133,7 +1304,10 @@ declare global {
         "gt-menu-item": HTMLGtMenuItemElement;
         "gt-popup-surface": HTMLGtPopupSurfaceElement;
         "gt-radio": HTMLGtRadioElement;
+        "gt-range": HTMLGtRangeElement;
+        "gt-scrollbar": HTMLGtScrollbarElement;
         "gt-select": HTMLGtSelectElement;
+        "gt-slider-field": HTMLGtSliderFieldElement;
         "gt-state-card": HTMLGtStateCardElement;
         "gt-switch": HTMLGtSwitchElement;
         "gt-tabs": HTMLGtTabsElement;
@@ -1649,6 +1823,68 @@ declare namespace LocalJSX {
          */
         "value"?: string;
     }
+    interface GtRange {
+        /**
+          * @default ''
+         */
+        "ariaLabel"?: string;
+        /**
+          * @default false
+         */
+        "disabled"?: boolean;
+        /**
+          * @default 100
+         */
+        "max"?: number;
+        /**
+          * @default 0
+         */
+        "min"?: number;
+        "onGt-change"?: (event: GtRangeCustomEvent<{ value: number }>) => void;
+        /**
+          * @default 1
+         */
+        "step"?: number;
+        /**
+          * @default 0
+         */
+        "value"?: number;
+    }
+    interface GtScrollbar {
+        /**
+          * @default false
+         */
+        "alwaysVisible"?: boolean;
+        "onGt-scroll"?: (event: GtScrollbarCustomEvent<Event>) => void;
+        /**
+          * @default true
+         */
+        "showOnHover"?: boolean;
+        /**
+          * @default 0
+         */
+        "size"?: number;
+        /**
+          * @default ''
+         */
+        "thumbColor"?: string;
+        /**
+          * @default ''
+         */
+        "thumbHoverColor"?: string;
+        /**
+          * @default ''
+         */
+        "trackColor"?: string;
+        /**
+          * @default true
+         */
+        "x"?: boolean;
+        /**
+          * @default true
+         */
+        "y"?: boolean;
+    }
     interface GtSelect {
         /**
           * @default 'slideScale'
@@ -1681,6 +1917,45 @@ declare namespace LocalJSX {
           * @default ''
          */
         "value"?: string | number;
+    }
+    interface GtSliderField {
+        /**
+          * @default ''
+         */
+        "ariaLabel"?: string;
+        /**
+          * @default false
+         */
+        "disabled"?: boolean;
+        /**
+          * @default ''
+         */
+        "label"?: string;
+        /**
+          * @default 100
+         */
+        "max"?: number;
+        /**
+          * @default 0
+         */
+        "min"?: number;
+        "onGt-change"?: (event: GtSliderFieldCustomEvent<GtSliderFieldChangeDetail>) => void;
+        /**
+          * @default 1
+         */
+        "step"?: number;
+        /**
+          * @default ''
+         */
+        "unit"?: string;
+        /**
+          * @default 0
+         */
+        "value"?: number;
+        /**
+          * @default ''
+         */
+        "valueText"?: string;
     }
     interface GtStateCard {
         /**
@@ -1969,6 +2244,24 @@ declare namespace LocalJSX {
         "name": string;
         "value": string;
     }
+    interface GtRangeAttributes {
+        "value": number;
+        "min": number;
+        "max": number;
+        "step": number;
+        "disabled": boolean;
+        "ariaLabel": string;
+    }
+    interface GtScrollbarAttributes {
+        "x": boolean;
+        "y": boolean;
+        "showOnHover": boolean;
+        "thumbColor": string;
+        "thumbHoverColor": string;
+        "trackColor": string;
+        "alwaysVisible": boolean;
+        "size": number;
+    }
     interface GtSelectAttributes {
         "value": string;
         "disabled": boolean;
@@ -1976,6 +2269,17 @@ declare namespace LocalJSX {
         "placeholder": string;
         "animation": 'fade' | 'slide' | 'scale' | 'slideScale';
         "closeOnOutside": boolean;
+    }
+    interface GtSliderFieldAttributes {
+        "value": number;
+        "min": number;
+        "max": number;
+        "step": number;
+        "disabled": boolean;
+        "label": string;
+        "ariaLabel": string;
+        "valueText": string;
+        "unit": string;
     }
     interface GtStateCardAttributes {
         "state": 'loading' | 'empty' | 'error' | 'info';
@@ -2040,7 +2344,10 @@ declare namespace LocalJSX {
         "gt-menu-item": Omit<GtMenuItem, keyof GtMenuItemAttributes> & { [K in keyof GtMenuItem & keyof GtMenuItemAttributes]?: GtMenuItem[K] } & { [K in keyof GtMenuItem & keyof GtMenuItemAttributes as `attr:${K}`]?: GtMenuItemAttributes[K] } & { [K in keyof GtMenuItem & keyof GtMenuItemAttributes as `prop:${K}`]?: GtMenuItem[K] };
         "gt-popup-surface": Omit<GtPopupSurface, keyof GtPopupSurfaceAttributes> & { [K in keyof GtPopupSurface & keyof GtPopupSurfaceAttributes]?: GtPopupSurface[K] } & { [K in keyof GtPopupSurface & keyof GtPopupSurfaceAttributes as `attr:${K}`]?: GtPopupSurfaceAttributes[K] } & { [K in keyof GtPopupSurface & keyof GtPopupSurfaceAttributes as `prop:${K}`]?: GtPopupSurface[K] };
         "gt-radio": Omit<GtRadio, keyof GtRadioAttributes> & { [K in keyof GtRadio & keyof GtRadioAttributes]?: GtRadio[K] } & { [K in keyof GtRadio & keyof GtRadioAttributes as `attr:${K}`]?: GtRadioAttributes[K] } & { [K in keyof GtRadio & keyof GtRadioAttributes as `prop:${K}`]?: GtRadio[K] };
+        "gt-range": Omit<GtRange, keyof GtRangeAttributes> & { [K in keyof GtRange & keyof GtRangeAttributes]?: GtRange[K] } & { [K in keyof GtRange & keyof GtRangeAttributes as `attr:${K}`]?: GtRangeAttributes[K] } & { [K in keyof GtRange & keyof GtRangeAttributes as `prop:${K}`]?: GtRange[K] };
+        "gt-scrollbar": Omit<GtScrollbar, keyof GtScrollbarAttributes> & { [K in keyof GtScrollbar & keyof GtScrollbarAttributes]?: GtScrollbar[K] } & { [K in keyof GtScrollbar & keyof GtScrollbarAttributes as `attr:${K}`]?: GtScrollbarAttributes[K] } & { [K in keyof GtScrollbar & keyof GtScrollbarAttributes as `prop:${K}`]?: GtScrollbar[K] };
         "gt-select": Omit<GtSelect, keyof GtSelectAttributes> & { [K in keyof GtSelect & keyof GtSelectAttributes]?: GtSelect[K] } & { [K in keyof GtSelect & keyof GtSelectAttributes as `attr:${K}`]?: GtSelectAttributes[K] } & { [K in keyof GtSelect & keyof GtSelectAttributes as `prop:${K}`]?: GtSelect[K] };
+        "gt-slider-field": Omit<GtSliderField, keyof GtSliderFieldAttributes> & { [K in keyof GtSliderField & keyof GtSliderFieldAttributes]?: GtSliderField[K] } & { [K in keyof GtSliderField & keyof GtSliderFieldAttributes as `attr:${K}`]?: GtSliderFieldAttributes[K] } & { [K in keyof GtSliderField & keyof GtSliderFieldAttributes as `prop:${K}`]?: GtSliderField[K] };
         "gt-state-card": Omit<GtStateCard, keyof GtStateCardAttributes> & { [K in keyof GtStateCard & keyof GtStateCardAttributes]?: GtStateCard[K] } & { [K in keyof GtStateCard & keyof GtStateCardAttributes as `attr:${K}`]?: GtStateCardAttributes[K] } & { [K in keyof GtStateCard & keyof GtStateCardAttributes as `prop:${K}`]?: GtStateCard[K] };
         "gt-switch": Omit<GtSwitch, keyof GtSwitchAttributes> & { [K in keyof GtSwitch & keyof GtSwitchAttributes]?: GtSwitch[K] } & { [K in keyof GtSwitch & keyof GtSwitchAttributes as `attr:${K}`]?: GtSwitchAttributes[K] } & { [K in keyof GtSwitch & keyof GtSwitchAttributes as `prop:${K}`]?: GtSwitch[K] };
         "gt-tabs": Omit<GtTabs, keyof GtTabsAttributes> & { [K in keyof GtTabs & keyof GtTabsAttributes]?: GtTabs[K] } & { [K in keyof GtTabs & keyof GtTabsAttributes as `attr:${K}`]?: GtTabsAttributes[K] } & { [K in keyof GtTabs & keyof GtTabsAttributes as `prop:${K}`]?: GtTabs[K] };
@@ -2070,7 +2377,10 @@ declare module "@stencil/core" {
             "gt-menu-item": LocalJSX.IntrinsicElements["gt-menu-item"] & JSXBase.HTMLAttributes<HTMLGtMenuItemElement>;
             "gt-popup-surface": LocalJSX.IntrinsicElements["gt-popup-surface"] & JSXBase.HTMLAttributes<HTMLGtPopupSurfaceElement>;
             "gt-radio": LocalJSX.IntrinsicElements["gt-radio"] & JSXBase.HTMLAttributes<HTMLGtRadioElement>;
+            "gt-range": LocalJSX.IntrinsicElements["gt-range"] & JSXBase.HTMLAttributes<HTMLGtRangeElement>;
+            "gt-scrollbar": LocalJSX.IntrinsicElements["gt-scrollbar"] & JSXBase.HTMLAttributes<HTMLGtScrollbarElement>;
             "gt-select": LocalJSX.IntrinsicElements["gt-select"] & JSXBase.HTMLAttributes<HTMLGtSelectElement>;
+            "gt-slider-field": LocalJSX.IntrinsicElements["gt-slider-field"] & JSXBase.HTMLAttributes<HTMLGtSliderFieldElement>;
             "gt-state-card": LocalJSX.IntrinsicElements["gt-state-card"] & JSXBase.HTMLAttributes<HTMLGtStateCardElement>;
             "gt-switch": LocalJSX.IntrinsicElements["gt-switch"] & JSXBase.HTMLAttributes<HTMLGtSwitchElement>;
             "gt-tabs": LocalJSX.IntrinsicElements["gt-tabs"] & JSXBase.HTMLAttributes<HTMLGtTabsElement>;

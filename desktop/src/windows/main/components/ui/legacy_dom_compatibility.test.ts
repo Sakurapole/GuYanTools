@@ -58,9 +58,9 @@ describe('legacy desktop UI DOM compatibility', () => {
     await nextTick();
     await new Promise<void>(resolve => setTimeout(resolve, 0));
 
-    const panel = document.body.querySelector<HTMLElement>('[data-gt-overlay="popup"] [part="panel"]');
-    expect(panel?.style.width).toBe('420px');
-    expect(panel?.style.maxWidth).toBe('420px');
+    const host = dialog.find('gt-dialog').element as HTMLElement;
+    expect(host.style.getPropertyValue('--gt-dialog-width')).toBe('420px');
+    expect(host.style.getPropertyValue('--gt-dialog-max-width')).toBe('420px');
 
     dialog.unmount();
   });

@@ -63,6 +63,37 @@ describe('UI migration comparison page', () => {
     expect(pageSource).toContain('<div slot="footer" class="ui-migration-dialog__footer">');
   });
 
+  it('covers every desktop UI component and marks non-Stencil entries explicitly', () => {
+    const pageSource = readFileSync(pagePath, 'utf8');
+    const allComponentIds = [
+      'button', 'icon-button', 'card', 'field', 'input', 'textarea', 'checkbox', 'radio',
+      'switch', 'tabs', 'empty-state', 'state-card', 'dialog', 'drawer', 'tooltip',
+      'select', 'date-picker', 'time-picker', 'date-time-picker', 'menu', 'menu-item',
+      'menu-divider', 'disclosure', 'popup-surface', 'range', 'slider-field', 'scrollbar',
+      'panel-header', 'toolbar', 'setting-row', 'tag-chip', 'link', 'transfer-box', 'tree',
+      'tree-node-item', 'file-icon', 'file-input', 'suggest-input', 'color-picker',
+      'personalization-config',
+    ];
+
+    for (const id of allComponentIds) {
+      expect(pageSource).toContain(`id: '${id}'`);
+    }
+    expect(pageSource).toContain("status: 'legacy'");
+    expect(pageSource).toContain('Legacy 保留');
+    expect(pageSource).toContain('Legacy 示例待补充');
+    expect(pageSource).toContain('Stencil 示例待补充');
+    expect(pageSource).toContain("selectedComponent.id === 'state-card'");
+    expect(pageSource).toContain('<gt-tooltip content="提示内容" open>');
+    expect(pageSource).toContain('<gt-slider-field value="42"');
+    for (const id of ['tooltip', 'tree-node-item', 'personalization-config']) {
+      expect(pageSource).toContain(`{ id: '${id}'`);
+      expect(pageSource).toMatch(new RegExp(`id: '${id}'.*status: 'review'`));
+    }
+    for (const legacyPreview of ['UiDrawer', 'UiLink', 'UiPanelHeader', 'UiToolbar', 'UiSettingRow', 'UiTagChip', 'UiFileIcon', 'UiFileInput', 'UiSuggestInput', 'UiColorPicker', 'UiScrollbar', 'UiTransferBox', 'UiTree']) {
+      expect(pageSource).toContain(`<${legacyPreview}`);
+    }
+  });
+
   it('exposes the page through the development bottom-bar defaults', () => {
     const appConfigSource = readFileSync(resolve(desktopRoot, 'src/contracts/app_config.ts'), 'utf8');
 

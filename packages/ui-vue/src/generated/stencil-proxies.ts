@@ -22,7 +22,10 @@ import { defineCustomElement as defineGtMenuDivider } from '@guyantools/ui-core/
 import { defineCustomElement as defineGtMenuItem } from '@guyantools/ui-core/dist/custom-elements/gt-menu-item.js';
 import { defineCustomElement as defineGtPopupSurface } from '@guyantools/ui-core/dist/custom-elements/gt-popup-surface.js';
 import { defineCustomElement as defineGtRadio } from '@guyantools/ui-core/dist/custom-elements/gt-radio.js';
+import { defineCustomElement as defineGtRange } from '@guyantools/ui-core/dist/custom-elements/gt-range.js';
+import { defineCustomElement as defineGtScrollbar } from '@guyantools/ui-core/dist/custom-elements/gt-scrollbar.js';
 import { defineCustomElement as defineGtSelect } from '@guyantools/ui-core/dist/custom-elements/gt-select.js';
+import { defineCustomElement as defineGtSliderField } from '@guyantools/ui-core/dist/custom-elements/gt-slider-field.js';
 import { defineCustomElement as defineGtStateCard } from '@guyantools/ui-core/dist/custom-elements/gt-state-card.js';
 import { defineCustomElement as defineGtSwitch } from '@guyantools/ui-core/dist/custom-elements/gt-switch.js';
 import { defineCustomElement as defineGtTabs } from '@guyantools/ui-core/dist/custom-elements/gt-tabs.js';
@@ -270,6 +273,34 @@ export const GtRadio: StencilVueComponent<JSX.GtRadio> = /*@__PURE__*/ defineCon
 ]);
 
 
+export const GtRange: StencilVueComponent<JSX.GtRange> = /*@__PURE__*/ defineContainer<JSX.GtRange>('gt-range', defineGtRange, [
+  'value',
+  'min',
+  'max',
+  'step',
+  'disabled',
+  'ariaLabel',
+  'gt-change'
+], [
+  'gt-change'
+]);
+
+
+export const GtScrollbar: StencilVueComponent<JSX.GtScrollbar> = /*@__PURE__*/ defineContainer<JSX.GtScrollbar>('gt-scrollbar', defineGtScrollbar, [
+  'x',
+  'y',
+  'showOnHover',
+  'thumbColor',
+  'thumbHoverColor',
+  'trackColor',
+  'alwaysVisible',
+  'size',
+  'gt-scroll'
+], [
+  'gt-scroll'
+]);
+
+
 export const GtSelect: StencilVueComponent<JSX.GtSelect> = /*@__PURE__*/ defineContainer<JSX.GtSelect>('gt-select', defineGtSelect, [
   'value',
   'options',
@@ -285,6 +316,22 @@ export const GtSelect: StencilVueComponent<JSX.GtSelect> = /*@__PURE__*/ defineC
   'gt-change',
   'gt-focus',
   'gt-blur'
+]);
+
+
+export const GtSliderField: StencilVueComponent<JSX.GtSliderField> = /*@__PURE__*/ defineContainer<JSX.GtSliderField>('gt-slider-field', defineGtSliderField, [
+  'value',
+  'min',
+  'max',
+  'step',
+  'disabled',
+  'label',
+  'ariaLabel',
+  'valueText',
+  'unit',
+  'gt-change'
+], [
+  'gt-change'
 ]);
 
 

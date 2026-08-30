@@ -66,6 +66,8 @@ export class GtMenu {
     const height = panel.offsetHeight || 180;
     const maxLeft = Math.max(10, window.innerWidth - width - 10);
     const maxTop = Math.max(10, window.innerHeight - height - 10);
+    panel.style.position = 'fixed';
+    panel.style.margin = '0';
     panel.style.left = `${Math.min(Math.max(10, this.x), maxLeft)}px`;
     panel.style.top = `${Math.min(Math.max(10, this.y), maxTop)}px`;
     if (this.maxHeight) panel.style.maxHeight = this.maxHeight;

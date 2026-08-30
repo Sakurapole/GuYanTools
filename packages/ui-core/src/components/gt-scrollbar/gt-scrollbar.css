@@ -1,0 +1,12 @@
+:host { display: block; position: relative; width: 100%; height: 100%; overflow: hidden; --gt-scrollbar-size: 12px; }
+.viewport { width: 100%; height: 100%; scrollbar-width: none; }
+.viewport::-webkit-scrollbar { width: 0; height: 0; }
+.viewport.axis-x { overflow-x: auto; }
+.viewport.axis-y { overflow-y: auto; }
+[part="content"] { min-width: 100%; min-height: 100%; }
+.rail { position: absolute; z-index: 1; border-radius: 999px; background: var(--gt-scrollbar-track, var(--gt-color-border)); pointer-events: none; }
+.rail-x { left: 4px; right: 4px; bottom: 4px; height: var(--gt-scrollbar-size); }
+.rail-y { top: 4px; right: 4px; bottom: 4px; width: var(--gt-scrollbar-size); }
+.thumb { display: block; width: 40%; height: 100%; border-radius: inherit; background: var(--gt-scrollbar-thumb, var(--gt-color-primary)); }
+.rail-y .thumb { width: 100%; height: 40%; }
+[hidden] { display: none; }

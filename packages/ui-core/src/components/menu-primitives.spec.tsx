@@ -21,6 +21,9 @@ describe('menu primitives', () => {
     await waitForChanges();
     const portal = document.body.querySelector<HTMLElement>('[data-gt-overlay="menu"]');
     expect(portal).not.toBeNull();
+    const panel = portal?.querySelector<HTMLElement>('[part="panel"]');
+    expect(panel).not.toBeNull();
+    expect(panel?.style.position).toBe('fixed');
     expect(portal?.querySelector('[role="menu"]')).not.toBeNull();
     expect(portal?.querySelector('gt-menu-item')?.shadowRoot?.querySelector('[role="menuitem"]')).not.toBeNull();
     expect(portal?.querySelector('[role="separator"]')).not.toBeNull();

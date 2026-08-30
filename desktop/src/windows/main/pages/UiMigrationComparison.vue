@@ -5,26 +5,49 @@ import UiButton from '../components/ui/UiButton.vue';
 import UiCard from '../components/ui/UiCard.vue';
 import UiCheckbox from '../components/ui/UiCheckbox.vue';
 import UiDialog from '../components/ui/UiDialog.vue';
+import UiDrawer from '../components/ui/UiDrawer.vue';
 import UiDatePicker from '../components/ui/UiDatePicker.vue';
 import UiDateTimePicker from '../components/ui/UiDateTimePicker.vue';
 import UiEmptyState from '../components/ui/UiEmptyState.vue';
 import UiField from '../components/ui/UiField.vue';
 import UiIconButton from '../components/ui/UiIconButton.vue';
 import UiInput from '../components/ui/UiInput.vue';
+import UiMenu from '../components/ui/UiMenu.vue';
+import UiMenuItem from '../components/ui/UiMenuItem.vue';
+import UiMenuDivider from '../components/ui/UiMenuDivider.vue';
+import UiDisclosure from '../components/ui/UiDisclosure.vue';
+import UiPopupSurface from '../components/ui/UiPopupSurface.vue';
+import UiTooltip from '../components/ui/UiTooltip.vue';
+import UiTreeNodeItem from '../components/ui/UiTreeNodeItem.vue';
+import UiPersonalizationConfig from '../components/ui/UiPersonalizationConfig.vue';
+import UiColorPicker from '../components/ui/UiColorPicker.vue';
+import UiFileIcon from '../components/ui/UiFileIcon.vue';
+import UiFileInput from '../components/ui/UiFileInput.vue';
+import UiLink from '../components/ui/UiLink.vue';
+import UiPanelHeader from '../components/ui/UiPanelHeader.vue';
 import UiRadio from '../components/ui/UiRadio.vue';
+import UiRange from '../components/ui/UiRange.vue';
+import UiScrollbar from '../components/ui/UiScrollbar.vue';
+import UiSettingRow from '../components/ui/UiSettingRow.vue';
+import UiSliderField from '../components/ui/UiSliderField.vue';
 import UiSelect, { type UiSelectOption } from '../components/ui/UiSelect.vue';
 import UiStateCard from '../components/ui/UiStateCard.vue';
 import UiSwitch from '../components/ui/UiSwitch.vue';
 import UiTabs, { type UiTabItem } from '../components/ui/UiTabs.vue';
+import UiTagChip from '../components/ui/UiTagChip.vue';
 import UiTextarea from '../components/ui/UiTextarea.vue';
 import UiTimePicker from '../components/ui/UiTimePicker.vue';
+import UiToolbar from '../components/ui/UiToolbar.vue';
+import UiTransferBox from '../components/ui/UiTransferBox.vue';
+import UiTree from '../components/ui/UiTree.vue';
+import UiSuggestInput from '../components/ui/UiSuggestInput.vue';
 
-type ComponentStatus = 'aligned' | 'review';
+type ComponentStatus = 'aligned' | 'legacy' | 'review';
 
 type ComparisonComponent = {
   id: string;
   label: string;
-  group: '基础' | '表单' | '反馈';
+  group: '基础' | '表单' | '反馈' | '布局' | '高级';
   status: ComponentStatus;
   description: string;
 };
@@ -47,11 +70,34 @@ const componentCatalog: ComparisonComponent[] = [
   { id: 'empty-state', label: 'EmptyState', group: '反馈', status: 'aligned', description: '空内容提示与操作入口。' },
   { id: 'state-card', label: 'StateCard', group: '反馈', status: 'aligned', description: '首页加载、空态和错误态的共同样式契约。' },
   { id: 'dialog', label: 'Dialog', group: '基础', status: 'aligned', description: '遮罩、标题区、内容区、底部操作与关闭行为。' },
+  { id: 'drawer', label: 'Drawer', group: '基础', status: 'aligned', description: '侧滑面板、遮罩与关闭行为。' },
+  { id: 'tooltip', label: 'Tooltip', group: '反馈', status: 'review', description: '触发器提示、定位与可访问描述。' },
+  { id: 'menu', label: 'Menu', group: '基础', status: 'aligned', description: '菜单项、键盘导航与外部关闭。' },
+  { id: 'menu-item', label: 'MenuItem', group: '基础', status: 'aligned', description: '菜单项状态、快捷键和子菜单入口。' },
+  { id: 'menu-divider', label: 'MenuDivider', group: '基础', status: 'aligned', description: '菜单分隔线。' },
+  { id: 'disclosure', label: 'Disclosure', group: '基础', status: 'aligned', description: '可展开内容与键盘切换。' },
+  { id: 'popup-surface', label: 'PopupSurface', group: '基础', status: 'aligned', description: '统一浮层表面和 body portal。' },
+  { id: 'range', label: 'Range', group: '表单', status: 'aligned', description: '范围滑块、步长、键盘与禁用态。' },
+  { id: 'slider-field', label: 'SliderField', group: '表单', status: 'aligned', description: '带标签和值显示的范围控件。' },
+  { id: 'scrollbar', label: 'Scrollbar', group: '布局', status: 'aligned', description: '自定义滚动区域和滚动条。' },
+  { id: 'panel-header', label: 'PanelHeader', group: '布局', status: 'legacy', description: '面板标题、副标题与操作区。' },
+  { id: 'toolbar', label: 'Toolbar', group: '布局', status: 'legacy', description: '工具栏分组与响应式排列。' },
+  { id: 'setting-row', label: 'SettingRow', group: '布局', status: 'legacy', description: '设置项标签、提示和值控件。' },
+  { id: 'tag-chip', label: 'TagChip', group: '反馈', status: 'legacy', description: '标签颜色、删除操作与紧凑尺寸。' },
+  { id: 'link', label: 'Link', group: '基础', status: 'legacy', description: '链接状态、外部目标与键盘焦点。' },
+  { id: 'transfer-box', label: 'TransferBox', group: '高级', status: 'legacy', description: '双栏批量选择和拖放移动。' },
+  { id: 'tree', label: 'Tree', group: '高级', status: 'legacy', description: '树节点展开、选择与无障碍语义。' },
+  { id: 'tree-node-item', label: 'TreeNodeItem', group: '高级', status: 'review', description: '树节点行、层级缩进与拖放。' },
+  { id: 'file-icon', label: 'FileIcon', group: '高级', status: 'legacy', description: '文件类型图标映射。' },
+  { id: 'file-input', label: 'FileInput', group: '表单', status: 'legacy', description: '文件选择、取消与文件名展示。' },
+  { id: 'suggest-input', label: 'SuggestInput', group: '表单', status: 'legacy', description: '建议过滤、键盘选择与浮层。' },
+  { id: 'color-picker', label: 'ColorPicker', group: '表单', status: 'legacy', description: '颜色格式、透明度和色板。' },
+  { id: 'personalization-config', label: 'PersonalizationConfig', group: '高级', status: 'review', description: '个性化背景、主题和预览配置。' },
 ];
 
 const selectedId = ref('state-card');
 const selectedComponent = computed(() => componentCatalog.find(component => component.id === selectedId.value) ?? componentCatalog[0]);
-const groupedComponents = computed(() => ['基础', '表单', '反馈'].map(group => ({
+const groupedComponents = computed(() => ['基础', '表单', '反馈', '布局', '高级'].map(group => ({
   group,
   items: componentCatalog.filter(component => component.group === group),
 })));
@@ -74,11 +120,24 @@ const legacyDateTime = ref<string | number>('2026-08-15T09:30');
 const stencilDateTime = ref<string | number>('2026-08-15T09:30');
 const legacySwitch = ref(true);
 const stencilSwitch = ref(true);
+const legacyRange = ref(42);
+const stencilRange = ref(42);
+const legacySlider = ref(42);
+const legacyColor = ref('#38bdf8');
+const legacySuggest = ref('');
+const legacyTransfer = ref<string[]>(['two']);
+const legacyTreeExpanded = ref<string[]>(['root']);
+const legacyMenuVisible = ref(true);
+const legacyDisclosureOpen = ref(true);
+const legacyPopupOpen = ref(true);
+const legacyPersonalizationVisible = ref(true);
 const legacyTab = ref('overview');
 const stencilTab = ref('overview');
 const stateCardState = ref<'loading' | 'empty' | 'error'>('loading');
 const legacyDialogOpen = ref(false);
 const stencilDialogOpen = ref(false);
+const legacyDrawerOpen = ref(false);
+const stencilDrawerOpen = ref(false);
 
 const tabs: UiTabItem[] = [
   { key: 'overview', label: '概览' },
@@ -164,7 +223,7 @@ onMounted(() => {
           >
             <span>{{ component.label }}</span>
             <small :class="`ui-migration-page__status ui-migration-page__status--${component.status}`">
-              {{ component.status === 'aligned' ? '已对齐' : '待核对' }}
+              {{ component.status === 'aligned' ? '已对齐' : component.status === 'legacy' ? 'Legacy 保留' : '待核对' }}
             </small>
           </button>
         </section>
@@ -179,7 +238,7 @@ onMounted(() => {
           <p>{{ selectedComponent.description }}</p>
         </div>
         <span :class="`ui-migration-page__status ui-migration-page__status--${selectedComponent.status}`">
-          {{ selectedComponent.status === 'aligned' ? '样式已对齐' : '等待视觉核对' }}
+           {{ selectedComponent.status === 'aligned' ? '样式已对齐' : selectedComponent.status === 'legacy' ? 'Legacy 保留，等待迁移' : '等待视觉核对' }}
         </span>
       </header>
 
@@ -234,6 +293,32 @@ onMounted(() => {
             <template v-else-if="selectedComponent.id === 'switch'">
               <UiSwitch v-model="legacySwitch" aria-label="启用自动同步" />
             </template>
+            <template v-else-if="selectedComponent.id === 'range'">
+              <UiRange v-model="legacyRange" :min="0" :max="100" :step="5" aria-label="Legacy 范围" />
+            </template>
+            <template v-else-if="selectedComponent.id === 'slider-field'">
+              <UiSliderField v-model="legacySlider" :min="0" :max="100" :step="5" label="音量" unit="%" />
+            </template>
+            <template v-else-if="selectedComponent.id === 'link'"><UiLink href="#">打开设置</UiLink></template>
+            <template v-else-if="selectedComponent.id === 'panel-header'"><UiPanelHeader title="面板标题" subtitle="副标题" /></template>
+            <template v-else-if="selectedComponent.id === 'toolbar'"><UiToolbar><template #leading><UiButton size="sm">新增</UiButton></template><UiButton size="sm">刷新</UiButton></UiToolbar></template>
+            <template v-else-if="selectedComponent.id === 'setting-row'"><UiSettingRow label="自动同步" hint="同步最近配置" value="已开启"><UiSwitch v-model="legacySwitch" /></UiSettingRow></template>
+            <template v-else-if="selectedComponent.id === 'tag-chip'"><UiTagChip label="已连接" color="#10b981" removable /></template>
+            <template v-else-if="selectedComponent.id === 'file-icon'"><UiFileIcon name="settings.json" /></template>
+            <template v-else-if="selectedComponent.id === 'file-input'"><UiFileInput accept=".json" /></template>
+            <template v-else-if="selectedComponent.id === 'suggest-input'"><UiSuggestInput v-model="legacySuggest" :suggestions="['首页','设置','插件']" placeholder="搜索页面" /></template>
+            <template v-else-if="selectedComponent.id === 'color-picker'"><UiColorPicker v-model="legacyColor" label="主题色" :swatches="['#38bdf8','#10b981','#f59e0b']" /></template>
+            <template v-else-if="selectedComponent.id === 'scrollbar'"><UiScrollbar :x="false" :y="true" style="height: 120px"><div style="height: 260px; padding: 8px">滚动区域内容</div></UiScrollbar></template>
+            <template v-else-if="selectedComponent.id === 'transfer-box'"><UiTransferBox v-model="legacyTransfer" :items="[{ id: 'one', label: '项目一' }, { id: 'two', label: '项目二' }]" /></template>
+            <template v-else-if="selectedComponent.id === 'tree'"><UiTree :nodes="[{ id: 'root', label: '工作区', children: [{ id: 'child', label: '配置文件' }] }]" v-model:expanded-ids="legacyTreeExpanded" /></template>
+            <template v-else-if="selectedComponent.id === 'tree-node-item'"><UiTreeNodeItem :node="{ id: 'root', label: '工作区', children: [{ id: 'child', label: '配置文件' }] }" :expanded-ids="legacyTreeExpanded" /></template>
+            <template v-else-if="selectedComponent.id === 'menu'"><UiMenu :visible="legacyMenuVisible" :x="20" :y="20"><UiMenuItem>打开</UiMenuItem><UiMenuDivider /><UiMenuItem disabled>删除</UiMenuItem></UiMenu></template>
+            <template v-else-if="selectedComponent.id === 'menu-item'"><UiMenuItem>菜单操作</UiMenuItem></template>
+            <template v-else-if="selectedComponent.id === 'menu-divider'"><UiMenuDivider /></template>
+            <template v-else-if="selectedComponent.id === 'disclosure'"><UiDisclosure v-model:open="legacyDisclosureOpen" title="高级选项">展开内容</UiDisclosure></template>
+            <template v-else-if="selectedComponent.id === 'popup-surface'"><UiPopupSurface v-model="legacyPopupOpen" variant="floating" :teleported="false">浮层内容</UiPopupSurface></template>
+            <template v-else-if="selectedComponent.id === 'tooltip'"><UiTooltip content="提示内容"><UiButton size="sm">悬停查看</UiButton></UiTooltip></template>
+            <template v-else-if="selectedComponent.id === 'personalization-config'"><UiPersonalizationConfig :visible="legacyPersonalizationVisible" title="个性化配置" /></template>
             <template v-else-if="selectedComponent.id === 'tabs'">
               <UiTabs v-model="legacyTab" :items="tabs" />
             </template>
@@ -246,8 +331,23 @@ onMounted(() => {
                 <UiButton variant="secondary" @click="openComparisonDialog('legacy')">打开弹窗</UiButton>
               </div>
             </template>
-            <template v-else>
+            <template v-else-if="selectedComponent.id === 'drawer'">
+              <div class="ui-migration-page__dialog-trigger"><span>Legacy 抽屉</span><UiButton variant="secondary" @click="legacyDrawerOpen = true">打开抽屉</UiButton></div>
+            </template>
+            <template v-else-if="selectedComponent.status === 'legacy'">
+              <div class="ui-migration-page__legacy-placeholder">
+                <strong>Legacy 保留</strong>
+                <span>当前仍使用桌面 Vue 实现，完成迁移后此处替换为 Stencil 示例。</span>
+              </div>
+            </template>
+            <template v-else-if="selectedComponent.id === 'state-card'">
               <UiStateCard class="ui-migration-page__state-card" :state="stateCardState" title="首页布局加载中" description="正在恢复桌面工作台布局。" />
+            </template>
+            <template v-else>
+              <div class="ui-migration-page__sample-pending">
+                <strong>{{ selectedComponent.label }}</strong>
+                <span>Legacy 示例待补充</span>
+              </div>
             </template>
           </div>
         </article>
@@ -294,25 +394,58 @@ onMounted(() => {
             <template v-else-if="selectedComponent.id === 'switch'">
               <gt-switch :checked="stencilSwitch" aria-label="启用自动同步" @gt-change="updateStencilChecked('switch', $event)" />
             </template>
+            <template v-else-if="selectedComponent.id === 'range'">
+              <gt-range :value="stencilRange" min="0" max="100" step="5" aria-label="Stencil 范围" @gt-change="stencilRange = $event.detail.value" />
+            </template>
             <template v-else-if="selectedComponent.id === 'tabs'">
               <gt-tabs :value="stencilTab" :items="stencilTabs" @gt-change="updateStencilTab" />
             </template>
             <template v-else-if="selectedComponent.id === 'empty-state'">
               <gt-empty-state title="暂无组件" description="从左侧选择一个组件开始对比。"><gt-button size="sm">创建组件</gt-button></gt-empty-state>
             </template>
-            <template v-else-if="selectedComponent.id === 'dialog'">
+             <template v-else-if="selectedComponent.id === 'dialog'">
               <div class="ui-migration-page__dialog-trigger">
                 <span>Stencil 弹窗</span>
                 <gt-button variant="secondary" @gt-click="openComparisonDialog('stencil')">打开弹窗</gt-button>
               </div>
+             </template>
+             <template v-else-if="selectedComponent.id === 'drawer'">
+               <div class="ui-migration-page__dialog-trigger"><span>Stencil 抽屉</span><gt-button variant="secondary" @gt-click="stencilDrawerOpen = true">打开抽屉</gt-button></div>
+             </template>
+             <template v-else-if="selectedComponent.id === 'menu'"><gt-menu visible :x="20" :y="20"><gt-menu-item>打开</gt-menu-item><gt-menu-divider /><gt-menu-item disabled>删除</gt-menu-item></gt-menu></template>
+             <template v-else-if="selectedComponent.id === 'menu-item'"><gt-menu-item>菜单操作</gt-menu-item></template>
+             <template v-else-if="selectedComponent.id === 'menu-divider'"><gt-menu-divider /></template>
+             <template v-else-if="selectedComponent.id === 'disclosure'"><gt-disclosure title="高级选项" open>展开内容</gt-disclosure></template>
+             <template v-else-if="selectedComponent.id === 'popup-surface'"><gt-popup-surface model-value variant="floating" :teleported="false">浮层内容</gt-popup-surface></template>
+             <template v-else-if="selectedComponent.id === 'tooltip'"><gt-tooltip content="提示内容" open><gt-button size="sm">悬停查看</gt-button></gt-tooltip></template>
+             <template v-else-if="selectedComponent.id === 'slider-field'"><gt-slider-field value="42" min="0" max="100" step="5" label="音量" unit="%" /></template>
+             <template v-else-if="selectedComponent.id === 'scrollbar'"><gt-scrollbar x="false" y style="height: 120px"><div style="height: 260px; padding: 8px">滚动区域内容</div></gt-scrollbar></template>
+             <template v-else-if="selectedComponent.id === 'tree-node-item'"><div class="ui-migration-page__sample-pending"><strong>gt-tree-node-item</strong><span>Stencil 示例待迁移</span></div></template>
+             <template v-else-if="selectedComponent.id === 'personalization-config'"><div class="ui-migration-page__sample-pending"><strong>Stencil PersonalizationConfig</strong><span>业务组件不在通用迁移范围</span></div></template>
+            <template v-else-if="selectedComponent.status === 'legacy'">
+              <div class="ui-migration-page__legacy-placeholder">
+                <strong>等待 Stencil 迁移</strong>
+                <span>该组件已列入迁移计划，当前没有对应的 gt-* Custom Element。</span>
+              </div>
+            </template>
+            <template v-else-if="selectedComponent.id === 'state-card'">
+              <gt-state-card class="ui-migration-page__state-card" :state="stateCardState" title="首页布局加载中" description="正在恢复桌面工作台布局。" />
             </template>
             <template v-else>
-              <gt-state-card class="ui-migration-page__state-card" :state="stateCardState" title="首页布局加载中" description="正在恢复桌面工作台布局。" />
+              <div class="ui-migration-page__sample-pending">
+                <strong>{{ selectedComponent.label }}</strong>
+                <span>Stencil 示例待补充</span>
+              </div>
             </template>
           </div>
         </article>
       </div>
-    </section>
+     </section>
+
+     <UiDrawer v-model="legacyDrawerOpen" width="360px" aria-label="Legacy Drawer 对比">
+       <template #header><strong>Legacy Drawer</strong></template>
+       <p>这是原有 Vue Drawer 的真实渲染。</p>
+     </UiDrawer>
 
     <UiDialog
       v-model="legacyDialogOpen"
@@ -341,7 +474,7 @@ onMounted(() => {
       </template>
     </UiDialog>
 
-    <gt-dialog
+     <gt-dialog
       :open="stencilDialogOpen"
       class="ui-migration-dialog"
       style="--gt-dialog-width: 420px;"
@@ -362,7 +495,11 @@ onMounted(() => {
         <gt-button variant="secondary" @gt-click="stencilDialogOpen = false">取消</gt-button>
         <gt-button variant="primary" @gt-click="stencilDialogOpen = false">确认</gt-button>
       </div>
-    </gt-dialog>
+     </gt-dialog>
+     <gt-drawer :open="stencilDrawerOpen" width="360px" aria-label="Stencil Drawer 对比" @gt-open-change="stencilDrawerOpen = $event.detail.open">
+       <div slot="header"><strong>Stencil Drawer</strong></div>
+       <p>这是 Stencil Drawer 的真实渲染。</p>
+     </gt-drawer>
   </main>
 </template>
 
@@ -382,6 +519,7 @@ onMounted(() => {
 .ui-migration-page__catalog-item--active { background: color-mix(in srgb, var(--gt-color-primary) 13%, transparent); color: var(--ui-text-primary); }
 .ui-migration-page__status { display: inline-flex; flex: 0 0 auto; align-items: center; padding: 2px 6px; border-radius: var(--ui-radius-full); font-size: 0.67rem; font-weight: 700; white-space: nowrap; }
 .ui-migration-page__status--aligned { background: rgba(16, 185, 129, 0.14); color: #047857; }
+.ui-migration-page__status--legacy { background: rgba(245, 158, 11, 0.14); color: #b45309; }
 .ui-migration-page__status--review { background: color-mix(in srgb, var(--gt-color-primary) 13%, transparent); color: var(--ui-text-muted); }
 .ui-migration-page__workspace { min-width: 0; overflow: auto; padding: 28px 32px 32px; }
 .ui-migration-page__workspace-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 20px; padding-bottom: 20px; border-bottom: var(--ui-border-width-thin) solid var(--ui-border-subtle); }
@@ -401,6 +539,12 @@ onMounted(() => {
 .ui-migration-page__state-card { --gt-state-card-padding: 24px; --gt-state-card-radius: var(--ui-radius-md); --gt-state-card-shadow: var(--ui-card-shadow); width: min(100%, 360px); }
 .ui-migration-page__dialog-trigger { display: flex; width: min(100%, 260px); flex-direction: column; align-items: center; gap: 12px; color: var(--ui-text-muted); font-size: 0.82rem; }
 .ui-migration-page__dialog-trigger > .ui-button, .ui-migration-page__dialog-trigger > gt-button { width: 100%; }
+.ui-migration-page__legacy-placeholder { display: flex; width: min(100%, 320px); flex-direction: column; gap: 8px; padding: 18px; border: var(--ui-border-width-thin) dashed var(--ui-border-subtle); border-radius: var(--ui-radius-sm); color: var(--ui-text-muted); text-align: center; }
+.ui-migration-page__legacy-placeholder strong { color: var(--ui-text-primary); font-size: 0.86rem; }
+.ui-migration-page__legacy-placeholder span { font-size: 0.76rem; line-height: 1.5; }
+.ui-migration-page__sample-pending { display: flex; width: min(100%, 320px); min-height: 92px; flex-direction: column; align-items: center; justify-content: center; gap: 8px; border: var(--ui-border-width-thin) dashed var(--ui-border-subtle); border-radius: var(--ui-radius-sm); color: var(--ui-text-muted); text-align: center; }
+.ui-migration-page__sample-pending strong { color: var(--ui-text-primary); font-size: 0.9rem; }
+.ui-migration-page__sample-pending span { font-size: 0.76rem; }
 .ui-migration-dialog__header { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 20px 24px; border-bottom: var(--ui-border-width-thin) solid var(--ui-dialog-header-border); }
 .ui-migration-dialog__header h3 { margin: 0; color: var(--ui-text-primary); font-size: 1.05rem; font-weight: 700; }
 .ui-migration-dialog__body { display: flex; flex-direction: column; gap: 16px; padding: 24px; }
