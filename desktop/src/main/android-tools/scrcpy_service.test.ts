@@ -64,6 +64,20 @@ describe('ScrcpySessionService', () => {
     ]));
   });
 
+  it('surfaces scrcpy stderr when an audio session fails', async () => {
+    const { service, child } = createService();
+    const events: any[] = [];
+    service.onSessionEvent(event => events.push(event));
+    const session = await service.startAudio({ deviceSerial: 'ABC' });
+    child.stderr.emit('data', Buffer.from('ERROR: audio capture is not supported on this device\n'));
+    child.emit('close', 1);
+
+    expect(events.at(-1)).toMatchObject({
+      type: 'failed',
+      session: { sessionId: session.sessionId, errorMessage: 'ERROR: audio capture is not supported on this device' },
+    });
+  });
+
   it('retries a failed UHID launch once with SDK input', async () => {
     const first = createChild(100);
     const second = createChild(200);

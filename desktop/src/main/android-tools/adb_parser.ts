@@ -17,14 +17,16 @@ export function parseAdbDevices(output: string): AndroidDevice[] {
   for (const line of output.split(/\r?\n/)) {
     if (!line || line.startsWith('List of devices')) continue;
 
-    const columns = line.split('\t');
-    if (columns.length < 2) continue;
-    const serial = columns[0].trim();
-    const rawState = columns[1].trim().split(/\s+/, 1)[0];
+    const columns = line.trim().match(/^(\S+)\s+(\S+)(?:\s+(.+))?$/);
+    if (!columns) continue;
+    const serial = columns[1];
+    const rawState = columns[2];
     if (!serial || !rawState) continue;
 
-    const metadata = parseMetadata(columns.slice(1).join(' ').trim().split(/\s+/));
-    const usb = metadata.has('usb');
+    const metadataTokens = columns[3]?.trim().split(/\s+/) ?? [];
+    if (metadataTokens.length > 0 && !metadataTokens.some(token => token.includes(':'))) continue;
+    const metadata = parseMetadata(metadataTokens);
+    const usb = metadata.has('usb') || (metadata.has('transport_id') && !serial.includes(':'));
     const state = KNOWN_STATES.has(rawState as AndroidDeviceState)
       ? rawState as AndroidDeviceState
       : 'unknown';
@@ -40,4 +42,3 @@ export function parseAdbDevices(output: string): AndroidDevice[] {
   }
   return devices;
 }
-

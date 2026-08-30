@@ -54,10 +54,17 @@ export class AdbDeviceService {
 
   async listDevices() {
     if (this.disposed) throw new Error('ANDROID_SERVICE_DISPOSED');
-    const result = await this.executeCommand(['devices', '-l']);
-    const next = parseAdbDevices(result.stdout);
-    this.setDevices(next);
-    return next;
+    // A newly started adb daemon can report an empty snapshot while USB
+    // enumeration is still settling. Poll briefly so startup does not depend
+    // on a later unplug/replug event.
+    for (let attempt = 0; attempt < 3; attempt += 1) {
+      const result = await this.executeCommand(['devices', '-l']);
+      const next = parseAdbDevices(result.stdout);
+      this.setDevices(next);
+      if (next.length > 0 || attempt === 2) return next;
+      await new Promise<void>(resolve => setTimeout(resolve, 150));
+    }
+    return this.devices;
   }
 
   getDevice(serial: string) {

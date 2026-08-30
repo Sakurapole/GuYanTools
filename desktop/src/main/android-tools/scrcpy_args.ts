@@ -36,7 +36,7 @@ export function buildMirrorArgs(input: MirrorArgsInput) {
 
 export function buildAudioArgs(input: AudioArgsInput) {
   const serial = normalizeSerial(input.deviceSerial ?? input.serial ?? '');
-  const args = [`--serial=${serial}`, '--no-video', '--no-control'];
+  const args = [`--serial=${serial}`, '--no-window', '--no-video', '--no-control'];
   if (input.duplicateOnDevice) {
     if (!input.sdkLevel || input.sdkLevel < 33) {
       throw new Error('ANDROID_AUDIO_UNSUPPORTED');

@@ -34,6 +34,18 @@ describe('AdbDeviceService', () => {
     ]);
   });
 
+  it('retries device enumeration while adb is still warming up', async () => {
+    const execute = vi.fn()
+      .mockResolvedValueOnce({ stdout: '', stderr: '' })
+      .mockResolvedValueOnce({ stdout: 'List of devices attached\n', stderr: '' })
+      .mockResolvedValueOnce({ stdout: 'List of devices attached\nABC\tdevice usb:1-1 model:Pixel_8\n', stderr: '' });
+    const service = new AdbDeviceService(createToolchain(), { execute });
+
+    await service.initialize();
+    await expect(service.listDevices()).resolves.toHaveLength(1);
+    expect(execute).toHaveBeenCalledTimes(3);
+  });
+
   it('emits changed snapshots from track-devices and stops tracking on dispose', async () => {
     const tracker = createTracker();
     const execute = vi.fn().mockResolvedValue({ stdout: '', stderr: '' });

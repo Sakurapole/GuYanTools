@@ -21,10 +21,14 @@ describe('scrcpy argument builders', () => {
   it('builds audio-only playback and Android 13 duplication arguments', () => {
     expect(buildAudioArgs({ deviceSerial: 'ABC', sdkLevel: 33, duplicateOnDevice: true })).toEqual([
       '--serial=ABC',
+      '--no-window',
       '--no-video',
       '--no-control',
       '--audio-source=playback',
       '--audio-dup',
+    ]);
+    expect(buildAudioArgs({ deviceSerial: 'ABC' })).toEqual([
+      '--serial=ABC', '--no-window', '--no-video', '--no-control',
     ]);
   });
 

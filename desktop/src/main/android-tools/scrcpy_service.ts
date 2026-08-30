@@ -39,6 +39,7 @@ export class ScrcpySessionService {
   private readonly sessions = new Map<string, AndroidSession>();
   private readonly children = new Map<string, ScrcpyChild>();
   private readonly fallbackUsed = new Set<string>();
+  private readonly stderrBuffers = new Map<string, string>();
   private readonly emitter = new EventEmitter();
 
   constructor(toolchain: AndroidToolchainManager, devices: AdbDeviceService, options: ScrcpySessionServiceOptions = {}) {
@@ -117,6 +118,7 @@ export class ScrcpySessionService {
     this.emit('stopped', session);
     this.children.get(sessionId)?.kill();
     this.children.delete(sessionId);
+    this.stderrBuffers.delete(sessionId);
     session.status = 'exited';
     this.emit('exited', session);
   }
@@ -166,9 +168,14 @@ export class ScrcpySessionService {
       stdio: ['ignore', 'pipe', 'pipe'],
     });
     this.children.set(session.sessionId, child);
+    this.stderrBuffers.set(session.sessionId, '');
     session.pid = child.pid;
     child.stdout.on('data', () => undefined);
-    child.stderr.on('data', () => undefined);
+    child.stderr.on('data', chunk => {
+      const current = this.stderrBuffers.get(session.sessionId) ?? '';
+      const next = `${current}${chunk.toString()}`.replace(/\r/g, '');
+      this.stderrBuffers.set(session.sessionId, next.slice(-4096));
+    });
     child.on('error', (error: Error) => this.handleExit(session, 1, error.message, allowUhidFallback));
     child.on('close', (code: number | null) => this.handleExit(session, code ?? 1, undefined, allowUhidFallback));
   }
@@ -187,8 +194,10 @@ export class ScrcpySessionService {
     }
 
     session.status = code === 0 ? 'exited' : 'failed';
+    const stderr = this.stderrBuffers.get(session.sessionId)?.trim();
+    this.stderrBuffers.delete(session.sessionId);
     session.errorCode = code === 0 ? undefined : 'ANDROID_SESSION_EXITED';
-    session.errorMessage = message;
+    session.errorMessage = code === 0 ? undefined : (message || stderr || 'scrcpy 未返回具体错误信息');
     this.emit(code === 0 ? 'exited' : 'failed', session);
   }
 

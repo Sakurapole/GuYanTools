@@ -30,6 +30,21 @@ describe('parseAdbDevices', () => {
     ]);
   });
 
+  it('parses the space-aligned output emitted by adb 37 on Windows', () => {
+    expect(parseAdbDevices(
+      'List of devices attached\r\nfcfa696a               device product:sheng model:24018RPACC device:sheng transport_id:6\r\n\r\n',
+    )).toEqual([
+      {
+        serial: 'fcfa696a',
+        state: 'device',
+        transport: 'adb-usb',
+        model: '24018RPACC',
+        product: 'sheng',
+        usb: true,
+      },
+    ]);
+  });
+
   it('retains unauthorized and offline states without guessing malformed lines', () => {
     const devices = parseAdbDevices([
       'List of devices attached',
