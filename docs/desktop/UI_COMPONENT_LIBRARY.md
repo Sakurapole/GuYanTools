@@ -61,7 +61,7 @@ Select、Menu、DatePicker、TimePicker、DateTimePicker 和 floating PopupSurfa
 
 ## 迁移与边界
 
-剩余 Legacy 范围包括树、文件输入、颜色选择器、Transfer、滚动条、图标选择器、个性化配置和媒体裁剪器。后续迁移前，必须先以 `part`、CSS Custom Properties 和覆盖场景测试定义 Shadow DOM 样式契约；不得在插件中复制主应用 SCSS 或注册第二套同名 `gt-*` 元素。
+剩余 Legacy 范围包括 SliderField、树、文件输入、颜色选择器、Transfer、滚动条、图标选择器、个性化配置和媒体裁剪器。Range 已提供 `gt-range` 与 Vue adapter，并在开发对比页展示；其余控件后续迁移前，必须先以 `part`、CSS Custom Properties 和覆盖场景测试定义 Shadow DOM 样式契约；不得在插件中复制主应用 SCSS 或注册第二套同名 `gt-*` 元素。
 
 验证入口：
 

@@ -79,8 +79,8 @@
 - Modify: `desktop/src/windows/main/components/ui/UiRange.vue`, `UiSliderField.vue`
 - Test: keyboard/pointer/value/step/formatting specs
 
-- [ ] Step 1: 添加滑块值范围、步长、Home/End/Arrow、垂直居中和 disabled 的失败测试。
-- [ ] Step 2: 实现原生 input[type=range] 与公开 track/fill/thumb parts 的 Stencil 组件。
+- [x] Step 1: 添加滑块值范围、步长、Home/End/Arrow、垂直居中和 disabled 的失败测试。
+- [x] Step 2: 实现原生 input[type=range] 与公开 track/fill/thumb parts 的 Stencil 组件。
 - [ ] Step 3: 切换 adapters 并保留 `UiSliderField` 的 label/value slot 和 `v-model`。
 - [ ] Step 4: 运行包测试和 renderer 构建后勾选本任务。
 
@@ -138,7 +138,7 @@
 - Modify: `docs/desktop/PLUGIN_SYSTEM_CAPABILITIES.md`
 - Modify: this plan
 
-- [ ] Step 1: 对比页覆盖每个已迁移组件的 Legacy/Stencil 双栏、状态、主题和交互入口。
+- [x] Step 1: 对比页覆盖当前桌面 UI 组件全集；已迁移组件显示 Legacy/Stencil 双栏，未迁移组件明确标记 Legacy 保留并提供迁移占位。
 - [ ] Step 2: 文档记录每个组件的 props/events/parts/variables、Vue/React/custom-element 用法和剩余 Legacy 排除项。
 - [ ] Step 3: 运行全量验证矩阵：UI Core/Vue tests、desktop lint/typecheck/build、`git diff --check`。
 - [ ] Step 4: 仅在所有组件任务已勾选且验证通过后勾选收尾任务。
