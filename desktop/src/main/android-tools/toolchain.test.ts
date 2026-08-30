@@ -49,4 +49,29 @@ describe('AndroidToolchainManager', () => {
     expect(manager.getToolPath('fastboot')).toBe(path.join(root, 'platform-tools', 'fastboot.exe'));
     expect(manager.getToolPath('scrcpy-server')).toBe(path.join(root, 'scrcpy', 'scrcpy-server'));
   });
+
+  it('prefers a configured root over the managed and bundled roots', () => {
+    const configured = path.join(os.tmpdir(), 'android-configured');
+    const managed = path.join(os.tmpdir(), 'android-managed');
+    const manager = new AndroidToolchainManager({
+      platform: 'win32',
+      arch: 'x64',
+      getConfiguredRootPath: () => configured,
+      getManagedRootPath: () => managed,
+    });
+
+    expect(manager.resolve()).toMatchObject({ rootPath: configured, source: 'configured' });
+  });
+
+  it('uses the managed root when no configured path is set', () => {
+    const managed = path.join(os.tmpdir(), 'android-managed');
+    const manager = new AndroidToolchainManager({
+      platform: 'win32',
+      arch: 'x64',
+      getConfiguredRootPath: () => '',
+      getManagedRootPath: () => managed,
+    });
+
+    expect(manager.resolve()).toMatchObject({ rootPath: managed, source: 'managed' });
+  });
 });

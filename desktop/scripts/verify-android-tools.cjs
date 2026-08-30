@@ -21,9 +21,25 @@ const toolchain = assertIncludes('src/main/android-tools/toolchain.ts', [
   'getToolPath',
   'path.resolve',
   'ANDROID_TOOL_UNAVAILABLE',
+  "source: selected.source",
 ]);
 if (/process\.env\.PATH|process\.env\.ANDROID/i.test(toolchain)) {
   throw new Error('Android toolchain must not resolve executables from PATH/environment');
+}
+
+const downloader = assertIncludes('src/main/android-tools/downloader.ts', [
+  'https://dl.google.com/android/repository/platform-tools_r37.0.1-win.zip',
+  'https://github.com/Genymobile/scrcpy/releases/download/v4.1/scrcpy-win64-v4.1.zip',
+  'ANDROID_DOWNLOAD_REDIRECT_LIMIT',
+  'ANDROID_DOWNLOAD_HASH_MISMATCH',
+  "'/scrcpy-win64-v4.1/adb.exe'",
+  'THIRD-PARTY-NOTICES',
+]);
+if (!/sha256/i.test(downloader) || !/extractZip/.test(downloader)) {
+  throw new Error('Android downloader must verify SHA-256 and extract pinned archives');
+}
+if (/http:\/\//i.test(downloader)) {
+  throw new Error('Android downloader must use HTTPS sources only');
 }
 
 for (const relative of [

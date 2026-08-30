@@ -344,6 +344,48 @@
   border-left: 3px solid var(--ui-state-warning);
 }
 
+.android-toolchain-recovery {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 9px;
+}
+
+.android-toolchain-recovery span,
+.android-toolchain-download-error {
+  color: var(--ui-text-muted);
+  font-size: var(--ui-font-size-xs);
+}
+
+.android-toolchain-progress {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 10px;
+}
+
+.android-toolchain-progress__head {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.android-toolchain-progress__bar {
+  height: 6px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: var(--ui-surface-bg-muted);
+}
+
+.android-toolchain-progress__bar span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--primary-color);
+  transition: width 0.2s ease;
+}
+
 .android-tools-alert--warning strong {
   color: var(--ui-state-warning);
 }

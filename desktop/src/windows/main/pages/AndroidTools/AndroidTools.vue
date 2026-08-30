@@ -10,6 +10,7 @@ import type {
   AndroidDeviceState,
   AndroidSession,
   AndroidSessionEvent,
+  AndroidToolchainDownloadProgress,
   AndroidToolchainStatus,
 } from '@/contracts/android-tools';
 
@@ -25,9 +26,13 @@ const refreshing = ref(false);
 const busyAction = ref<'mirror' | 'audio' | 'otg' | string | null>(null);
 const loadError = ref('');
 const actionError = ref('');
+const toolchainDownloadProgress = ref<AndroidToolchainDownloadProgress>({ phase: 'idle', percent: 0 });
+const toolchainDownloadBusy = ref(false);
+const toolchainDownloadError = ref('');
 
 let removeDevicesChanged: (() => void) | undefined;
 let removeSessionEvent: (() => void) | undefined;
+let removeToolchainDownloadProgress: (() => void) | undefined;
 
 const selectedDevice = computed(() => devices.value.find(device => device.serial === selectedSerial.value) ?? null);
 const hasToolchain = computed(() => toolchain.value?.available === true);
@@ -83,12 +88,31 @@ const errorLabels: Record<string, string> = {
   ANDROID_SESSION_EXITED: 'scrcpy 会话已异常退出，请检查 USB 连接。',
   ANDROID_SESSION_NOT_FOUND: '找不到该会话，可能已经退出。',
   ANDROID_TOOL_UNAVAILABLE: 'Android 工具链不可用，请检查应用安装资源。',
+  ANDROID_PLATFORM_UNSUPPORTED: '当前平台暂不支持自动下载，请在设置中选择已有的 Windows x64 工具链。',
+  ANDROID_TOOLCHAIN_BUSY: '请先停止正在运行的 Android 会话，再更新工具链。',
+  ANDROID_DOWNLOAD_REDIRECT_LIMIT: '下载地址重定向次数过多，已停止下载。',
+  ANDROID_DOWNLOAD_URL_INVALID: '下载地址不安全，必须使用 HTTPS。',
+  ANDROID_DOWNLOAD_TOO_LARGE: '下载文件超过大小限制，已停止下载。',
+  ANDROID_DOWNLOAD_TIMEOUT: '下载超时，请检查网络后重试。',
+  ANDROID_DOWNLOAD_HTTP: '官方资源下载失败，请检查网络后重试。',
+  ANDROID_DOWNLOAD_HASH_MISMATCH: '下载文件校验失败，请重试。',
+  ANDROID_DOWNLOAD_MISSING: '下载包缺少必要文件，请重试或检查发行资源。',
 };
 
 function getErrorMessage(error: unknown) {
   const rawMessage = error instanceof Error ? error.message : typeof error === 'string' ? error : '';
-  if (rawMessage) return errorLabels[rawMessage] ?? rawMessage;
+  if (rawMessage) {
+    const exactLabel = errorLabels[rawMessage];
+    if (exactLabel) return exactLabel;
+    const prefixLabel = Object.entries(errorLabels).find(([code]) => rawMessage.startsWith(`${code}_`))?.[1];
+    return prefixLabel ?? rawMessage;
+  }
   return '操作失败，请检查设备连接和工具链状态。';
+}
+
+function bindDeviceEvents(api: NonNullable<typeof window.androidApi>) {
+  removeDevicesChanged?.();
+  removeDevicesChanged = api.onDevicesChanged(handleDevicesChanged);
 }
 
 function selectFirstReadyDevice(nextDevices: AndroidDevice[]) {
@@ -126,12 +150,18 @@ async function loadState() {
   }
 
   try {
-    const [nextToolchain, nextDevices, nextSessions] = await Promise.all([
-      api.getToolchainStatus(),
-      api.listDevices(),
-      api.listSessions(),
-    ]);
+    const nextToolchain = await api.getToolchainStatus();
     toolchain.value = nextToolchain;
+    if (!nextToolchain.available) {
+      removeDevicesChanged?.();
+      removeDevicesChanged = undefined;
+      applyDevices([]);
+      sessions.value = [];
+      loadError.value = '';
+      return;
+    }
+    bindDeviceEvents(api);
+    const [nextDevices, nextSessions] = await Promise.all([api.listDevices(), api.listSessions()]);
     applyDevices(nextDevices);
     sessions.value = nextSessions;
     loadError.value = '';
@@ -142,6 +172,28 @@ async function loadState() {
   }
 }
 
+async function downloadToolchain() {
+  const api = window.androidApi;
+  if (!api || toolchainDownloadBusy.value) return;
+  toolchainDownloadBusy.value = true;
+  toolchainDownloadError.value = '';
+  actionError.value = '';
+  try {
+    toolchain.value = await api.downloadToolchain();
+    toolchainDownloadProgress.value = { phase: 'completed', percent: 100, current: 'Android 工具链已安装' };
+    await loadState();
+  } catch (error) {
+    toolchainDownloadError.value = getErrorMessage(error);
+    toolchainDownloadProgress.value = {
+      phase: 'failed',
+      percent: 0,
+      errorMessage: error instanceof Error ? error.message : String(error),
+    };
+  } finally {
+    toolchainDownloadBusy.value = false;
+  }
+}
+
 async function refresh() {
   if (refreshing.value) return;
   const api = window.androidApi;
@@ -149,12 +201,18 @@ async function refresh() {
   refreshing.value = true;
   actionError.value = '';
   try {
-    const [nextToolchain, nextDevices, nextSessions] = await Promise.all([
-      api.getToolchainStatus(),
-      api.listDevices(),
-      api.listSessions(),
-    ]);
+    const nextToolchain = await api.getToolchainStatus();
     toolchain.value = nextToolchain;
+    if (!nextToolchain.available) {
+      removeDevicesChanged?.();
+      removeDevicesChanged = undefined;
+      applyDevices([]);
+      sessions.value = [];
+      loadError.value = '';
+      return;
+    }
+    bindDeviceEvents(api);
+    const [nextDevices, nextSessions] = await Promise.all([api.listDevices(), api.listSessions()]);
     applyDevices(nextDevices);
     sessions.value = nextSessions;
     loadError.value = '';
@@ -241,8 +299,19 @@ function handleDevicesChanged(event: { devices: AndroidDevice[] }) {
 onMounted(() => {
   const api = window.androidApi;
   if (api) {
-    removeDevicesChanged = api.onDevicesChanged(handleDevicesChanged);
     removeSessionEvent = api.onSessionEvent(handleSessionEvent);
+    removeToolchainDownloadProgress = api.onToolchainDownloadProgress((progress) => {
+      toolchainDownloadProgress.value = progress;
+      if (progress.phase === 'failed') {
+        toolchainDownloadError.value = getErrorMessage(progress.errorMessage);
+      }
+    });
+    void api.getToolchainDownloadStatus().then((progress) => {
+      toolchainDownloadProgress.value = progress;
+      if (progress.phase === 'failed') {
+        toolchainDownloadError.value = getErrorMessage(progress.errorMessage);
+      }
+    }).catch(() => undefined);
   }
   void loadState();
 });
@@ -250,6 +319,7 @@ onMounted(() => {
 onUnmounted(() => {
   removeDevicesChanged?.();
   removeSessionEvent?.();
+  removeToolchainDownloadProgress?.();
 });
 </script>
 
@@ -302,6 +372,21 @@ onUnmounted(() => {
         <div v-if="!hasToolchain" data-testid="android-toolchain-error" class="android-tools-alert android-tools-alert--error" role="alert">
           <strong>工具链不可用</strong>
           <span>{{ toolchain?.errorMessage || '请检查应用安装包中的 Android 工具资源。' }}</span>
+          <div class="android-toolchain-recovery">
+            <UiButton data-testid="download-android-toolchain" variant="primary" size="sm" :disabled="toolchainDownloadBusy" @click="downloadToolchain">
+              <template #prefix><IconRenderer icon="iconify:lucide:download" :size="16" /></template>
+              {{ toolchainDownloadBusy ? '下载中…' : '应用内下载并安装' }}
+            </UiButton>
+            <span>也可在设置的“系统路径”中选择已有工具链目录。</span>
+          </div>
+          <div v-if="toolchainDownloadBusy || toolchainDownloadProgress.phase === 'downloading' || toolchainDownloadProgress.phase === 'extracting' || toolchainDownloadProgress.phase === 'verifying'" class="android-toolchain-progress" data-testid="android-toolchain-progress">
+            <div class="android-toolchain-progress__head">
+              <span>{{ toolchainDownloadProgress.current || '正在准备下载' }}</span>
+              <strong>{{ toolchainDownloadProgress.percent }}%</strong>
+            </div>
+            <div class="android-toolchain-progress__bar"><span :style="{ width: `${toolchainDownloadProgress.percent}%` }" /></div>
+          </div>
+          <span v-if="toolchainDownloadError" class="android-toolchain-download-error">{{ toolchainDownloadError }}</span>
         </div>
         <div v-else class="android-tools-versions">
           <div><span>ADB</span><code>{{ toolchain?.versions.adb || '未读取' }}</code></div>

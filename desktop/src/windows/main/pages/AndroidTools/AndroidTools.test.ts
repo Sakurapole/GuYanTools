@@ -6,6 +6,7 @@ import type {
   AndroidSessionEvent,
   AndroidToolsApi,
   AndroidToolchainStatus,
+  AndroidToolchainDownloadProgress,
 } from '@/contracts/android-tools';
 import AndroidTools from './AndroidTools.vue';
 
@@ -34,6 +35,7 @@ const runningSession = (overrides: Partial<AndroidSession> = {}): AndroidSession
 function createApi(overrides: Partial<AndroidToolsApi> = {}) {
   let devicesListener: ((event: { devices: AndroidDevice[]; timestamp: string }) => void) | undefined;
   let sessionListener: ((event: AndroidSessionEvent) => void) | undefined;
+  let downloadListener: ((progress: AndroidToolchainDownloadProgress) => void) | undefined;
   const api: AndroidToolsApi = {
     getToolchainStatus: vi.fn(async () => ({
       available: true,
@@ -58,6 +60,18 @@ function createApi(overrides: Partial<AndroidToolsApi> = {}) {
       sessionListener = listener;
       return vi.fn();
     }),
+    getToolchainDownloadStatus: vi.fn(async () => ({ phase: 'idle', percent: 0 } satisfies AndroidToolchainDownloadProgress)),
+    downloadToolchain: vi.fn(async () => ({
+      available: true,
+      platform: 'win32',
+      architecture: 'x64',
+      versions: { adb: '37.0.1', fastboot: '37.0.1', scrcpy: '4.1' },
+      source: 'managed',
+    } satisfies AndroidToolchainStatus)),
+    onToolchainDownloadProgress: vi.fn(listener => {
+      downloadListener = listener;
+      return vi.fn();
+    }),
     ...overrides,
   };
 
@@ -65,6 +79,7 @@ function createApi(overrides: Partial<AndroidToolsApi> = {}) {
     api,
     emitDevices: (devices: AndroidDevice[]) => devicesListener?.({ devices, timestamp: new Date().toISOString() }),
     emitSession: (event: AndroidSessionEvent) => sessionListener?.(event),
+    emitDownload: (progress: AndroidToolchainDownloadProgress) => downloadListener?.(progress),
   };
 }
 
@@ -102,6 +117,37 @@ describe('AndroidTools', () => {
     expect(wrapper.text()).toContain('工具链不可用');
     expect(wrapper.text()).toContain('缺少 adb.exe');
     expect(wrapper.get('[data-testid="android-toolchain-error"]').attributes('role')).toBe('alert');
+    expect(api.listDevices).not.toHaveBeenCalled();
+    expect(api.listSessions).not.toHaveBeenCalled();
+  });
+
+  it('offers an in-app toolchain download and reloads state after completion', async () => {
+    const { api } = createApi({
+      getToolchainStatus: vi.fn()
+        .mockResolvedValueOnce({
+          available: false,
+          platform: 'win32',
+          architecture: 'x64',
+          versions: {},
+          errorCode: 'ANDROID_TOOL_UNAVAILABLE',
+          errorMessage: '缺少 adb.exe',
+        })
+        .mockResolvedValueOnce({
+          available: true,
+          platform: 'win32',
+          architecture: 'x64',
+          versions: { adb: '37.0.1', fastboot: '37.0.1', scrcpy: '4.1' },
+          source: 'managed',
+        }),
+    });
+    const wrapper = mountPage(api);
+    await flushPromises();
+
+    await wrapper.get('[data-testid="download-android-toolchain"]').trigger('click');
+    await flushPromises();
+
+    expect(api.downloadToolchain).toHaveBeenCalledOnce();
+    expect(wrapper.text()).toContain('可用');
   });
 
   it('explains authorization and disables controls for unauthorized devices', async () => {

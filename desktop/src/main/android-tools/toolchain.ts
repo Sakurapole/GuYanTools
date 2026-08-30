@@ -3,7 +3,7 @@ import crypto from 'node:crypto';
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import { promisify } from 'node:util';
-import type { AndroidToolName, AndroidToolchainStatus } from '@/contracts/android-tools';
+import type { AndroidToolName, AndroidToolchainSource, AndroidToolchainStatus } from '@/contracts/android-tools';
 
 const execFile = promisify(nodeExecFile);
 
@@ -14,6 +14,8 @@ export interface AndroidToolchainOptions {
   platform?: NodeJS.Platform;
   arch?: string;
   expectedSha256?: Partial<Record<AndroidToolName, string>>;
+  getConfiguredRootPath?: () => string | undefined;
+  getManagedRootPath?: () => string | undefined;
   execute?: (file: string, args: string[]) => Promise<{ stdout: string; stderr: string }>;
 }
 
@@ -27,13 +29,21 @@ function toolRelativePath(tool: AndroidToolName, platform: NodeJS.Platform) {
   return path.join('scrcpy', 'scrcpy-server');
 }
 
-function defaultRootPath(platform: NodeJS.Platform, arch: string) {
+function defaultRootPath(platform: NodeJS.Platform, arch: string): { rootPath: string; source: AndroidToolchainSource } {
   const resourcesPath = (process as NodeJS.Process & { resourcesPath?: string }).resourcesPath;
-  if (resourcesPath) {
-    return path.join(resourcesPath, 'android-tools', `${platform}-${arch}`);
+  const runtime = process as NodeJS.Process & { defaultApp?: boolean };
+  const isPackagedElectron = Boolean(process.versions.electron && resourcesPath && runtime.defaultApp !== true);
+  if (isPackagedElectron) {
+    return { rootPath: path.join(resourcesPath, 'android-tools', `${platform}-${arch}`), source: 'bundled' };
   }
 
-  return path.join(__dirname, 'resources', `${platform}-${arch}`);
+  // Forge's development main bundle lives under `.vite/build`; source runs
+  // (including Vitest) keep the resources next to this module.
+  const developmentResourcesRoot = path.basename(__dirname) === 'build'
+    && path.basename(path.dirname(__dirname)) === '.vite'
+    ? path.resolve(__dirname, '..', '..', 'src', 'main', 'android-tools', 'resources')
+    : path.join(__dirname, 'resources');
+  return { rootPath: path.join(developmentResourcesRoot, `${platform}-${arch}`), source: 'development' };
 }
 
 function isInsideRoot(candidate: string, root: string) {
@@ -52,7 +62,11 @@ function extractVersion(output: string, tool: AndroidToolName) {
 }
 
 export class AndroidToolchainManager {
-  private readonly rootPath: string;
+  private readonly explicitRootPath?: string;
+  private readonly getConfiguredRootPath?: () => string | undefined;
+  private readonly getManagedRootPath?: () => string | undefined;
+  private readonly defaultRoot: string;
+  private readonly defaultSource: AndroidToolchainSource;
   private readonly platform: NodeJS.Platform;
   private readonly arch: string;
   private readonly expectedSha256: Partial<Record<AndroidToolName, string>>;
@@ -61,7 +75,12 @@ export class AndroidToolchainManager {
   constructor(options: AndroidToolchainOptions = {}) {
     this.platform = options.platform ?? process.platform;
     this.arch = options.arch ?? process.arch;
-    this.rootPath = path.resolve(options.rootPath ?? defaultRootPath(this.platform, this.arch));
+    this.explicitRootPath = options.rootPath ? path.resolve(options.rootPath) : undefined;
+    this.getConfiguredRootPath = options.getConfiguredRootPath;
+    this.getManagedRootPath = options.getManagedRootPath;
+    const defaultRootInfo = defaultRootPath(this.platform, this.arch);
+    this.defaultRoot = defaultRootInfo.rootPath;
+    this.defaultSource = defaultRootInfo.source;
     this.expectedSha256 = options.expectedSha256 ?? {};
     this.execute = options.execute ?? (async (file, args) => execFile(file, args, {
       windowsHide: true,
@@ -70,18 +89,21 @@ export class AndroidToolchainManager {
   }
 
   resolve() {
+    const selected = this.selectRoot();
     return {
       platform: this.platform,
       architecture: this.arch,
-      rootPath: this.rootPath,
+      rootPath: selected.rootPath,
+      source: selected.source,
       versions: {},
-    } satisfies Pick<AndroidToolchainStatus, 'platform' | 'architecture' | 'rootPath' | 'versions'>;
+    } satisfies Pick<AndroidToolchainStatus, 'platform' | 'architecture' | 'rootPath' | 'versions' | 'source'>;
   }
 
   getToolPath(tool: AndroidToolName) {
     const relativePath = toolRelativePath(tool, this.platform);
-    const candidate = path.resolve(this.rootPath, relativePath);
-    if (!isInsideRoot(candidate, this.rootPath)) {
+    const rootPath = this.selectRoot().rootPath;
+    const candidate = path.resolve(rootPath, relativePath);
+    if (!isInsideRoot(candidate, rootPath)) {
       throw new Error('ANDROID_TOOL_UNAVAILABLE');
     }
 
@@ -146,5 +168,21 @@ export class AndroidToolchainManager {
   private async sha256(filePath: string) {
     const content = await fs.readFile(filePath);
     return crypto.createHash('sha256').update(content).digest('hex');
+  }
+
+  private getRootCandidates(): Array<{ rootPath: string; source: AndroidToolchainSource }> {
+    const candidates: Array<{ rootPath: string; source: AndroidToolchainSource }> = [];
+    if (this.explicitRootPath) candidates.push({ rootPath: this.explicitRootPath, source: 'configured' });
+    const configured = this.getConfiguredRootPath?.()?.trim();
+    if (configured) candidates.push({ rootPath: path.resolve(configured), source: 'configured' });
+    const managed = this.getManagedRootPath?.();
+    if (managed) candidates.push({ rootPath: path.resolve(managed), source: 'managed' });
+    candidates.push({ rootPath: this.defaultRoot, source: this.defaultSource });
+    return candidates.filter((candidate, index, all) => all.findIndex(item => item.rootPath === candidate.rootPath) === index);
+  }
+
+  private selectRoot() {
+    const candidates = this.getRootCandidates();
+    return candidates[0];
   }
 }

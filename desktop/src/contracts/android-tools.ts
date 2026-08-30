@@ -1,4 +1,5 @@
 export type AndroidToolName = 'adb' | 'fastboot' | 'scrcpy' | 'scrcpy-server';
+export type AndroidToolchainSource = 'configured' | 'managed' | 'bundled' | 'development';
 export type AndroidTransport = 'adb-usb' | 'adb-tcpip' | 'fastboot-usb';
 export type AndroidDeviceState = 'device' | 'unauthorized' | 'offline' | 'bootloader' | 'no-permissions' | 'unknown';
 
@@ -11,6 +12,18 @@ export interface AndroidToolchainStatus {
   errorCode?: string;
   errorMessage?: string;
   checksums?: Partial<Record<AndroidToolName, string>>;
+  source?: AndroidToolchainSource;
+}
+
+export type AndroidToolchainDownloadPhase = 'idle' | 'downloading' | 'extracting' | 'verifying' | 'completed' | 'failed';
+
+export interface AndroidToolchainDownloadProgress {
+  phase: AndroidToolchainDownloadPhase;
+  percent: number;
+  current?: string;
+  receivedBytes?: number;
+  totalBytes?: number;
+  errorMessage?: string;
 }
 
 export interface AndroidDevice {
@@ -62,6 +75,9 @@ export interface AndroidToolsApi {
   fastbootGetVars: (deviceSerial: string, names: string[]) => Promise<Record<string, string>>;
   fastbootReboot: (deviceSerial: string, target?: 'system' | 'bootloader') => Promise<void>;
   onSessionEvent: (listener: (event: AndroidSessionEvent) => void) => () => void;
+  getToolchainDownloadStatus: () => Promise<AndroidToolchainDownloadProgress>;
+  downloadToolchain: () => Promise<AndroidToolchainStatus>;
+  onToolchainDownloadProgress: (listener: (progress: AndroidToolchainDownloadProgress) => void) => () => void;
 }
 
 declare global {

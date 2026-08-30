@@ -2,7 +2,7 @@
 
 日期：2026-08-28
 
-状态：设计已确认，待实施
+状态：已实施（Windows x64 工具链支持应用内下载）
 
 ## 1. 背景与目标
 
@@ -14,7 +14,7 @@ GuYanTools 需要提供类似 Android 工具箱的桌面能力，依托 ADB、sc
 
 ### 2.1 本期包含
 
-1. Windows x64 内置 ADB、scrcpy、fastboot 及其运行时依赖。
+1. Windows x64 ADB、scrcpy、fastboot 及其运行时依赖；发布包可通过应用内下载并安装，开发/发行资源目录保留为可选内置来源。
 2. 工具路径、版本、SHA-256 和 scrcpy client/server 匹配检查。
 3. ADB 设备列表、授权状态、设备属性和 `track-devices` 热插拔事件。
 4. scrcpy 镜像/控制会话，默认优先 UHID 键盘鼠标，失败时可回退 SDK。
@@ -41,7 +41,7 @@ GuYanTools 需要提供类似 Android 工具箱的桌面能力，依托 ADB、sc
 - ADB/fastboot 使用同一版本的 Android Platform Tools，随应用发布，不依赖用户 PATH。
 - scrcpy client、`scrcpy-server` 和随附 SDL/FFmpeg/libusb DLL 必须来自同一发行包或经过兼容性验证的组合。
 - 发布包保留 Apache License 2.0、Android Platform Tools NOTICE 和各随附动态库许可证。
-- 应用启动时返回工具链诊断，不在线静默下载或替换生产工具。
+- 应用启动时返回工具链诊断；用户在设置或 Android 工具箱页面显式点击下载后，才从固定官方 HTTPS 地址下载并校验资源，不静默替换生产工具。
 
 ## 4. 总体架构
 
