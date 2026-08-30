@@ -22,12 +22,8 @@ type MainWindowBridge = {
 class WorkspaceWindowManager {
   private mainWindow?: MainWindowBridge;
   private readonly detachedWindows = new Map<WorkspaceWindowKey, BrowserWindow>();
-  private readonly prewarmedWindows = new Map<WorkspaceWindowKey, BrowserWindow>();
   private readonly pageStates = new Map<WorkspaceWindowKey, WorkspaceWindowPageState>();
   private readonly detachedRoutes = new Map<WorkspaceWindowKey, string>();
-  private prewarmStarted = false;
-  private prewarmQueue: WorkspaceWindowKey[] = [];
-  private prewarmTimer: NodeJS.Timeout | null = null;
 
   bindMainWindow(bridge: MainWindowBridge) {
     this.mainWindow = bridge;
@@ -46,8 +42,7 @@ class WorkspaceWindowManager {
       return this.getState();
     }
 
-    const prewarmed = this.takePrewarmedWindow(key);
-    const win = prewarmed ?? this.createWorkspaceWindow(key, true);
+    const win = this.createWorkspaceWindow(key, true);
 
     this.detachedWindows.set(key, win);
     this.configureDetachedWindow(key, win);
@@ -56,14 +51,6 @@ class WorkspaceWindowManager {
     this.loadDetachedRouteInBackground(win, key, options);
     this.broadcastState();
     return this.getState();
-  }
-
-  prewarmDetachedWindows() {
-    if (this.prewarmStarted) return;
-    this.prewarmStarted = true;
-
-    this.prewarmQueue = Object.keys(WORKSPACE_WINDOW_DEFINITIONS) as WorkspaceWindowKey[];
-    this.prewarmNextWindow();
   }
 
   async returnToMain(key: WorkspaceWindowKey): Promise<WorkspaceDetachedWindowState> {
@@ -122,11 +109,9 @@ class WorkspaceWindowManager {
     return isWorkspaceWindowKey(value);
   }
 
-  private async loadDetachedRoute(win: BrowserWindow, key: WorkspaceWindowKey, options?: { routeOverride?: string; prewarm?: boolean }) {
+  private async loadDetachedRoute(win: BrowserWindow, key: WorkspaceWindowKey, options?: { routeOverride?: string }) {
     const hashRoute = this.createDetachedHash(key, options);
-    if (!options?.prewarm) {
-      this.detachedRoutes.set(key, this.normalizeDetachedRouteOverride(WORKSPACE_WINDOW_DEFINITIONS[key].route, options?.routeOverride));
-    }
+    this.detachedRoutes.set(key, this.normalizeDetachedRouteOverride(WORKSPACE_WINDOW_DEFINITIONS[key].route, options?.routeOverride));
     if (MAIN_WINDOW_VITE_DEV_SERVER_URL) {
       await win.loadURL(`${MAIN_WINDOW_VITE_DEV_SERVER_URL}/workspace_window.html#${hashRoute}`);
       return;
@@ -138,7 +123,7 @@ class WorkspaceWindowManager {
     );
   }
 
-  private loadDetachedRouteInBackground(win: BrowserWindow, key: WorkspaceWindowKey, options?: { routeOverride?: string; prewarm?: boolean }) {
+  private loadDetachedRouteInBackground(win: BrowserWindow, key: WorkspaceWindowKey, options?: { routeOverride?: string }) {
     void this.loadDetachedRoute(win, key, options).catch((error) => {
       console.error(`[workspace-window] Failed to load detached ${key} window:`, error);
       if (!win.isDestroyed()) {
@@ -159,14 +144,11 @@ class WorkspaceWindowManager {
     });
   }
 
-  private createDetachedHash(key: WorkspaceWindowKey, options?: { routeOverride?: string; prewarm?: boolean }) {
+  private createDetachedHash(key: WorkspaceWindowKey, options?: { routeOverride?: string }) {
     const definition = WORKSPACE_WINDOW_DEFINITIONS[key];
-    const route = options?.prewarm ? '/__workspace-prewarm' : this.normalizeDetachedRouteOverride(definition.route, options?.routeOverride);
+    const route = this.normalizeDetachedRouteOverride(definition.route, options?.routeOverride);
     const query = new URLSearchParams();
     query.set('detached', key);
-    if (options?.prewarm) {
-      query.set('prewarm', '1');
-    }
     const [pathPart, queryPart = ''] = route.split('?');
     const mergedQuery = new URLSearchParams(queryPart);
     for (const [name, value] of query.entries()) {
@@ -232,7 +214,6 @@ class WorkspaceWindowManager {
         this.detachedWindows.delete(key);
         this.detachedRoutes.delete(key);
         this.broadcastState();
-        this.replenishPrewarmedWindow(key);
       }
     });
     win.webContents.on('page-title-updated', (event) => {
@@ -241,70 +222,6 @@ class WorkspaceWindowManager {
         win.setTitle(`${definition.title} - GuYanTools`);
       }
     });
-  }
-
-  private takePrewarmedWindow(key: WorkspaceWindowKey) {
-    const win = this.prewarmedWindows.get(key);
-    if (!win || win.isDestroyed()) {
-      this.prewarmedWindows.delete(key);
-      return null;
-    }
-    this.prewarmedWindows.delete(key);
-    return win;
-  }
-
-  private replenishPrewarmedWindow(key: WorkspaceWindowKey) {
-    if (!this.prewarmStarted || this.detachedWindows.has(key) || this.prewarmedWindows.has(key)) {
-      return;
-    }
-    this.prewarmQueue.push(key);
-    this.prewarmNextWindow();
-  }
-
-  dispose() {
-    this.prewarmStarted = false;
-    this.prewarmQueue = [];
-    if (this.prewarmTimer) {
-      clearTimeout(this.prewarmTimer);
-      this.prewarmTimer = null;
-    }
-
-    for (const win of this.prewarmedWindows.values()) {
-      if (!win.isDestroyed()) {
-        win.close();
-      }
-    }
-    this.prewarmedWindows.clear();
-  }
-
-  private prewarmNextWindow() {
-    if (!this.prewarmStarted || this.prewarmQueue.length === 0) return;
-    const key = this.prewarmQueue.shift()!;
-    if (this.detachedWindows.has(key) || this.prewarmedWindows.has(key)) {
-      this.schedulePrewarmNext(250);
-      return;
-    }
-    const win = this.createWorkspaceWindow(key, false);
-    this.prewarmedWindows.set(key, win);
-    win.on('closed', () => {
-      if (this.prewarmedWindows.get(key) === win) {
-        this.prewarmedWindows.delete(key);
-      }
-    });
-    this.loadDetachedRouteInBackground(win, key, { prewarm: true });
-    // Keep the prewarm pool, but spread hidden window creation across idle time.
-    this.schedulePrewarmNext(900);
-  }
-
-  private schedulePrewarmNext(delayMs: number) {
-    if (!this.prewarmStarted) return;
-    if (this.prewarmTimer) {
-      clearTimeout(this.prewarmTimer);
-    }
-    this.prewarmTimer = setTimeout(() => {
-      this.prewarmTimer = null;
-      this.prewarmNextWindow();
-    }, delayMs);
   }
 
   private showWindow(win: BrowserWindow) {

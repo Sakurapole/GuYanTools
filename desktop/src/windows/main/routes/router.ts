@@ -3,7 +3,6 @@ import { createRouter, createWebHashHistory, RouteRecordRaw } from "vue-router"
 
 const routes: RouteRecordRaw[] = [
   { path: '/', redirect: '/home' },
-  { path: '/__workspace-prewarm', component: () => import('@/windows/workspace-window/WorkspaceWindowSkeleton.vue'), meta: { title: '独立窗口预热' } },
   { path: '/home', name: 'Home', component: () => import('../pages/Home/Home.vue'), meta: { title: '首页', keepAlive: true } },
   { path: '/android-tools', name: 'AndroidTools', component: () => import('../pages/AndroidTools/AndroidTools.vue'), meta: { title: 'Android 工具箱', keepAlive: true } },
   { path: '/settings', component: () => import('../pages/Settings.vue'), meta: { title: '设置' } },

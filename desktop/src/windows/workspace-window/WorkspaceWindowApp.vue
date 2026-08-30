@@ -25,7 +25,6 @@ import '@/windows/main/assets/app.scss';
 const route = useRoute();
 const { ipcRenderer } = window;
 const webviewStore = useWebviewStore();
-const prewarmMode = computed(() => route.query.prewarm === '1');
 const currentKey = ref<WorkspaceWindowKey>(resolveWindowKey());
 const currentDefinition = computed(() => WORKSPACE_WINDOW_DEFINITIONS[currentKey.value]);
 const title = computed(() => `${currentDefinition.value.title} - GuYanTools`);
@@ -122,8 +121,7 @@ onBeforeUnmount(() => {
     </div>
 
     <main class="workspace-window-stage">
-      <WorkspaceWindowSkeleton v-if="prewarmMode" :page-key="currentKey" />
-      <router-view v-else v-slot="{ Component, route: activeRoute }">
+      <router-view v-slot="{ Component, route: activeRoute }">
         <Suspense>
           <component :is="Component" :key="activeRoute.path" v-show="!webviewStore.hasActiveInstance" />
           <template #fallback>

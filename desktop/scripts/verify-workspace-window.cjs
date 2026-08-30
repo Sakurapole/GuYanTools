@@ -35,16 +35,12 @@ function testWorkspaceWindowContractAndMainHandlers() {
   assert.match(contract, /onStateChanged/);
 
   assert.match(manager, /new BrowserWindow/);
-  assert.match(manager, /prewarmedWindows = new Map<WorkspaceWindowKey, BrowserWindow>/, 'expected detached workspace windows to use a prewarm pool');
-  assert.match(manager, /prewarmDetachedWindows\(\)/, 'expected detached workspace windows to expose prewarm entrypoint');
-  assert.match(manager, /takePrewarmedWindow\(key\)/, 'expected detached workspace windows to reuse prewarmed windows');
+  assert.doesNotMatch(manager, /prewarmedWindows|prewarmDetachedWindows|takePrewarmedWindow/, 'detached workspace windows must not create hidden prewarm renderers');
   assert.match(manager, /createWorkspaceWindow\(key, true\)/, 'expected cold detached workspace windows to be created visible immediately');
-  assert.match(manager, /createWorkspaceWindow\(key, false\)/, 'expected prewarmed detached workspace windows to stay hidden');
   assert.doesNotMatch(manager, /ready-to-show/, 'expected detached workspace windows not to delay visibility until ready-to-show');
   assert.doesNotMatch(manager, /await this\.loadDetachedRoute\(win, key, options\)/, 'expected new detached workspace windows not to block IPC on first renderer load');
   assert.match(manager, /workspace_window\.html#\$\{hashRoute\}/, 'expected detached workspace windows to load the dedicated renderer entry');
   assert.match(manager, /workspace_window\.html/, 'expected detached workspace windows to load the dedicated renderer html in production');
-  assert.match(manager, /query\.set\('prewarm', '1'\)/, 'expected prewarmed windows to load only the skeleton route');
   assert.match(manager, /query\.set\('detached', key\)/);
   assert.match(manager, /broadcastState/);
   assert.match(manager, /returnToMain/);
@@ -54,7 +50,7 @@ function testWorkspaceWindowContractAndMainHandlers() {
   assert.match(manager, /pageStates = new Map<WorkspaceWindowKey, WorkspaceWindowPageState>/);
   assert.match(manager, /getPageState\(key: WorkspaceWindowKey\)/);
   assert.match(manager, /setPageState\(key: WorkspaceWindowKey, state: WorkspaceWindowPageState\)/);
-  assert.match(main, /workspaceWindowManager\.prewarmDetachedWindows\(\)/, 'expected app startup to prewarm detached workspace windows');
+  assert.doesNotMatch(main, /prewarmDetachedWindows/, 'expected app startup not to create hidden detached workspace renderers');
   assert.match(rendererConfig, /workspace_window:\s*path\.resolve\(__dirname, 'workspace_window\.html'\)/, 'expected Vite renderer build to include workspace window html');
   assert.match(workspaceWindowHtml, /src\/windows\/workspace-window\/main\.ts/, 'expected dedicated workspace html to load the lightweight entry');
   assert.match(workspaceWindowMain, /createApp\(App\)/, 'expected workspace window entry to mount its own Vue app');
@@ -64,7 +60,7 @@ function testWorkspaceWindowContractAndMainHandlers() {
   assert.match(workspaceWindowApp, /<router-view/, 'expected workspace window app to render detachable pages through router');
   assert.match(workspaceWindowApp, /const \{ ipcRenderer \} = window/, 'expected workspace window app to use the preload ipcRenderer contract');
   assert.match(workspaceWindowSkeleton, /workspace-skeleton/, 'expected dedicated workspace skeleton component');
-  assert.match(router, /__workspace-prewarm/, 'expected workspace window prewarm route to avoid loading heavy pages');
+  assert.doesNotMatch(router, /__workspace-prewarm/, 'workspace window prewarm route must not remain after removing hidden renderers');
 
   assert.match(ipc, /workspace-window:open-detached/);
   assert.match(ipc, /options\?: WorkspaceDetachedOpenOptions/);

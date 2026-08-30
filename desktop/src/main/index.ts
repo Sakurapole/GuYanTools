@@ -348,9 +348,6 @@ class App {
             this.splashWindowCreator.close();
           }, 300);
 
-          // 保留独立页面预热；预热窗口只加载骨架，不进入主窗口渲染路径。
-          workspaceWindowManager.prewarmDetachedWindows();
-
           // Start Todo reminder scheduler
           startTodoScheduler();
           await this.processLaunchArgs(process.argv, { printOutput: true });
@@ -400,7 +397,6 @@ class App {
 
     app.on('will-quit', () => {
       stopTodoScheduler();
-      workspaceWindowManager.dispose();
       ftpSchedulerService.dispose();
       void multiDeviceClipboardService.dispose();
       shortcutService.dispose();
