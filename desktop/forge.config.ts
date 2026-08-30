@@ -111,6 +111,13 @@ const config: ForgeConfig = {
           target: 'main',
         },
         {
+          entry: 'src/main/sync/sync_worker_entry.ts',
+          config: 'vite.sync-worker.config.ts',
+          // Forge's Vite plugin only supports main/preload targets. The
+          // worker config uses SSR mode and keeps its own output filename.
+          target: 'main',
+        },
+        {
           entry: 'src/preload.ts',
           config: 'vite.preload.config.ts',
           target: 'preload',

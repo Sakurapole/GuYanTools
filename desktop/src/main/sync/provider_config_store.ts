@@ -6,7 +6,11 @@ import type { SyncServerProviderOptions } from './providers/sync_server_provider
 import { JIANGUOYUN_WEBDAV_PRESET } from './providers/webdav_provider';
 import { deleteSyncSecret, readSyncSecret, saveSyncSecret } from './secret_store';
 
-const CONFIG_FILE = path.join(app.getPath('userData'), 'sync', 'provider-config.json');
+const CONFIG_FILE = path.join(
+  app?.getPath?.('userData') ?? process.env.GUYANTOOLS_USER_DATA ?? path.join(process.cwd(), '.guyantools-data'),
+  'sync',
+  'provider-config.json',
+);
 const WEBDAV_PASSWORD_KEY = 'webdav.password';
 const SYNC_SERVER_ACCESS_TOKEN_KEY = 'sync-server.access-token';
 const SYNC_SERVER_REFRESH_TOKEN_KEY = 'sync-server.refresh-token';

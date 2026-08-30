@@ -8,6 +8,7 @@ const desktopRoot = path.resolve(__dirname, '..');
 
 const configMap = {
   main: 'vite.main.config.ts',
+  'sync-worker': 'vite.sync-worker.config.ts',
   preload: 'vite.preload.config.ts',
   'preload-plugin': 'vite.preload-plugin.config.ts',
   renderer: 'vite.renderer.config.ts',

@@ -7,6 +7,8 @@ const requiredFiles = [
   'src/main/sync/ipc.ts',
   'src/main/sync/sync_service.ts',
   'src/main/sync/sync_scheduler.ts',
+  'src/main/sync/sync_worker_entry.ts',
+  'src/main/sync/sync_worker_client.ts',
   'src/main/sync/providers/provider_types.ts',
   'src/main/sync/providers/webdav_provider.ts',
   'src/main/sync/providers/sync_server_provider.ts',
@@ -133,16 +135,25 @@ if (!ensureLocalProfileBody[1].includes('await this.enqueueChangedObjects([expor
 
 const schedulerSource = fs.readFileSync(path.join(root, 'src/main/sync/sync_scheduler.ts'), 'utf8');
 const schedulerTokens = [
-  'STARTUP_DELAY_MS',
-  'DEFAULT_INTERVAL_MS',
-  'CHANGE_DEBOUNCE_MS',
-  'backoffUntil',
-  'syncService.syncNow',
+  'manual-only',
+  'contains no timers',
 ];
 const missingSchedulerTokens = schedulerTokens.filter((token) => !schedulerSource.includes(token));
 if (missingSchedulerTokens.length > 0) {
   console.error(`Missing sync scheduler tokens: ${missingSchedulerTokens.join(', ')}`);
   process.exit(1);
+}
+if (/setInterval|setTimeout|requestSoon|syncService\.syncNow/.test(schedulerSource)) {
+  console.error('Sync scheduler must not trigger synchronization automatically.');
+  process.exit(1);
+}
+
+const workerClientSource = fs.readFileSync(path.join(root, 'src/main/sync/sync_worker_client.ts'), 'utf8');
+for (const token of ['utilityProcess.fork', 'sync-worker.js', 'postMessage', 'on(\'message\'']) {
+  if (!workerClientSource.includes(token)) {
+    console.error(`Missing sync utility process token: ${token}`);
+    process.exit(1);
+  }
 }
 
 console.log('Sync service and scheduler surfaces verified.');
@@ -191,6 +202,10 @@ for (const token of [
 }
 
 const ipcSource = fs.readFileSync(path.join(root, 'src/main/sync/ipc.ts'), 'utf8');
+if (!ipcSource.includes('syncWorkerClient.call') || ipcSource.includes("from './sync_service'")) {
+  console.error('Sync IPC must proxy calls to the utility process, not run SyncService in the main process.');
+  process.exit(1);
+}
 for (const token of ['sync:list-pending-items', 'listPendingItems', 'sync:login-sync-server', 'loginSyncServer', 'sync:logout-sync-server', 'logoutSyncServer']) {
   if (!ipcSource.includes(token)) {
     console.error(`Missing sync server login IPC token: ${token}`);

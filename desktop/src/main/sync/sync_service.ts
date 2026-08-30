@@ -110,6 +110,12 @@ type NativeSyncOutboxItem = {
 };
 type SyncMetadataDatabase = JsDatabase & {
   listSyncProfiles: () => Promise<NativeSyncProfile[]>;
+  listSyncProfileMetadata?: () => Promise<NativeSyncProfile[]>;
+  getSyncProfile?: (profileId: string) => Promise<NativeSyncProfile>;
+  purgeSyncedSyncOutbox?: (keepLatest?: number) => Promise<number>;
+  purgeResolvedSyncConflicts?: () => Promise<number>;
+  purgeOversizedLocalSyncProfiles?: (maxPayloadBytes: number) => Promise<number>;
+  getSyncConflict?: (conflictId: string) => Promise<NativeSyncConflict>;
   upsertSyncProfile: (profile: NativeSyncProfile) => Promise<NativeSyncProfile>;
   setActiveSyncProfile: (profileId: string) => Promise<void>;
   setDefaultSyncProfile: (profileId: string) => Promise<void>;
@@ -134,12 +140,14 @@ type SyncMetadataDatabase = JsDatabase & {
 };
 
 class SyncService {
+  // appConfigManager.subscribe is intentionally absent here: sync work is manual-only.
+  // The main-process compatibility path historically used app.getPath('userData').
   private readonly listeners = new Set<SyncEventListener>();
   private readonly deviceIdentity: SyncDeviceIdentity = {
     deviceId: createStableDeviceId(),
     deviceName: os.hostname() || '本机',
     platform: currentPlatformKey(),
-    appVersion: app.getVersion(),
+    appVersion: process.env.GUYANTOOLS_APP_VERSION ?? app?.getVersion?.() ?? 'unknown',
     createdAt: Date.now(),
   };
   private state: SyncCenterState = {
@@ -155,16 +163,10 @@ class SyncService {
   private initialized = false;
   private applyingRemoteProfile = false;
   private syncInFlight: Promise<SyncRunSummary> | null = null;
-  private requestAutoSync: (() => void) | null = null;
-
-  async initialize(options: { requestAutoSync?: () => void } = {}): Promise<void> {
+  async initialize(): Promise<void> {
     if (this.initialized) {
       return;
     }
-    this.requestAutoSync = options.requestAutoSync ?? null;
-    appConfigManager.subscribe((config) => {
-      void this.captureAppConfigChange(config);
-    });
     this.initialized = true;
     await this.ensureLocalProfile();
   }
@@ -336,7 +338,6 @@ class SyncService {
   private async runSyncNow(): Promise<SyncRunSummary> {
     const startedAt = Date.now();
     let profiles = await this.ensureLocalProfile();
-    let localProfiles = profiles.filter((profile) => profile.isLocal && profile.ownerDeviceId === this.deviceIdentity.deviceId);
     const provider = await this.createProvider();
     let pulled = 0;
     let pushed = 0;
@@ -353,8 +354,10 @@ class SyncService {
     this.emit({ type: 'state-changed', state: { ...this.state } });
     if (provider) {
       await this.captureCurrentSyncObjects();
-      profiles = await this.db().listSyncProfiles();
-      localProfiles = profiles.filter((profile) => profile.isLocal && profile.ownerDeviceId === this.deviceIdentity.deviceId);
+      // Keep this list metadata-only. A historical profile can contain large
+      // data URLs, and transferring every payload here would block the main
+      // process even though only pending local profiles need to be uploaded.
+      profiles = await this.listProfileMetadata();
       const pullResult = await provider.pull();
       const remoteObjects = sortRemoteObjectsForApply(pullResult.objects);
       const remoteDeletedObjects = sortRemoteObjectsForApply(pullResult.deletedObjects);
@@ -413,7 +416,22 @@ class SyncService {
 
       const pending = await this.db().listPendingSyncOutbox();
       const objectStates = await this.db().listSyncObjectStates();
-      const localProfileById = new Map(localProfiles.map((profile) => [profile.profileId, profile]));
+      const pendingProfileIds = new Set(
+        pending
+          .filter((item) => item.opKind !== 'delete' && item.collection === 'app.profile')
+          .map((item) => item.objectId),
+      );
+      const localProfileById = new Map<string, NativeSyncProfile>();
+      await Promise.all(Array.from(pendingProfileIds).map(async (profileId) => {
+        try {
+          const profile = await this.getSyncProfile(profileId);
+          if (profile.isLocal && profile.ownerDeviceId === this.deviceIdentity.deviceId) {
+            localProfileById.set(profile.profileId, profile);
+          }
+        } catch {
+          // Fall back to the pending outbox payload when the profile was removed.
+        }
+      }));
       const dirtyProfileObjects = dedupeSyncObjectsByIdentity(pending
         .filter((item) => item.opKind !== 'delete' && item.collection === 'app.profile')
         .map((item) => {
@@ -523,11 +541,8 @@ class SyncService {
 
   async applyProfile(_profileId: string): Promise<void> {
     const profileId = _profileId;
-    const profiles = await this.ensureLocalProfile();
-    const profile = profiles.find((item) => item.profileId === profileId);
-    if (!profile) {
-      throw new Error('同步配置档案不存在。');
-    }
+    await this.ensureLocalProfile();
+    const profile = await this.getSyncProfile(profileId);
 
     const payload = JSON.parse(profile.payloadJson) as AppConfig;
     await this.runWithoutCapturingLocalChanges(async () => {
@@ -559,7 +574,9 @@ class SyncService {
     if (_resolution === 'manual') {
       throw new Error('手动合并将在后续版本开放。');
     }
-    const conflict = (await this.db().listSyncConflicts()).find((item) => item.conflictId === conflictId);
+    const conflict = this.db().getSyncConflict
+      ? await this.db().getSyncConflict(conflictId).catch((): NativeSyncConflict | null => null)
+      : (await this.db().listSyncConflicts()).find((item) => item.conflictId === conflictId) ?? null;
     if (!conflict) {
       throw new Error('同步冲突不存在或已解决。');
     }
@@ -657,8 +674,51 @@ class SyncService {
     return dbManager.getDatabase() as SyncMetadataDatabase;
   }
 
+  async purgeSyncedHistory(): Promise<number> {
+    const database = this.db();
+    let deleted = 0;
+    // Native cleanup is deliberately batched. A single DELETE over old
+    // multi-megabyte payloads can hold SQLite's write lock for a minute.
+    for (let batch = 0; batch < 1_000; batch += 1) {
+      const deletedOutbox = database.purgeSyncedSyncOutbox
+        ? await database.purgeSyncedSyncOutbox(0)
+        : 0;
+      const deletedConflicts = database.purgeResolvedSyncConflicts
+        ? await database.purgeResolvedSyncConflicts()
+        : 0;
+      const deletedProfiles = database.purgeOversizedLocalSyncProfiles
+        ? await database.purgeOversizedLocalSyncProfiles(4 * 1024 * 1024)
+        : 0;
+      const batchDeleted = deletedOutbox + deletedConflicts + deletedProfiles;
+      deleted += batchDeleted;
+      if (batchDeleted === 0) {
+        break;
+      }
+      // Let renderer IPC and other database readers run between batches.
+      await new Promise<void>((resolve) => setTimeout(resolve, 25));
+    }
+    return deleted;
+  }
+
+  private listProfileMetadata(): Promise<NativeSyncProfile[]> {
+    const database = this.db();
+    return database.listSyncProfileMetadata?.() ?? database.listSyncProfiles();
+  }
+
+  private async getSyncProfile(profileId: string): Promise<NativeSyncProfile> {
+    const database = this.db();
+    if (database.getSyncProfile) {
+      return database.getSyncProfile(profileId);
+    }
+    const profile = (await database.listSyncProfiles()).find((item) => item.profileId === profileId);
+    if (!profile) {
+      throw new Error('同步配置档案不存在。');
+    }
+    return profile;
+  }
+
   private async ensureLocalProfile(): Promise<NativeSyncProfile[]> {
-    const profiles = await this.db().listSyncProfiles();
+    const profiles = await this.listProfileMetadata();
     if (profiles.some((profile) => profile.isLocal && profile.ownerDeviceId === this.deviceIdentity.deviceId)) {
       return profiles;
     }
@@ -670,7 +730,7 @@ class SyncService {
     });
     await this.upsertLocalProfileFromExport(exported.profile, profiles);
     await this.enqueueChangedObjects([exported.profile, ...exported.objects]);
-    return this.db().listSyncProfiles();
+    return this.listProfileMetadata();
   }
 
   private async captureAppConfigChange(config: AppConfig): Promise<void> {
@@ -682,14 +742,13 @@ class SyncService {
       profileId: `local-${this.deviceIdentity.deviceId}`,
       ownerDeviceId: this.deviceIdentity.deviceId,
     });
-    const profiles = await this.db().listSyncProfiles();
+    const profiles = await this.listProfileMetadata();
     await this.upsertLocalProfileFromExport(exported.profile, profiles);
     const aiObjects = exportAiConfigForSync(config.features.aiAgent, {
       ownerDeviceId: this.deviceIdentity.deviceId,
       updatedAt: exported.profile.updatedAt,
     }).objects;
     await this.enqueueChangedObjects([exported.profile, ...exported.objects, ...aiObjects]);
-    this.requestAutoSync?.();
   }
 
   private async captureCurrentSyncObjects(): Promise<void> {
@@ -712,7 +771,7 @@ class SyncService {
     profileObject: SyncObjectEnvelope<AppConfig>,
     knownProfiles?: NativeSyncProfile[],
   ): Promise<void> {
-    const profiles = knownProfiles ?? await this.db().listSyncProfiles();
+    const profiles = knownProfiles ?? await this.listProfileMetadata();
     const existingProfile = profiles.find((profile) => profile.profileId === profileObject.objectId);
     const now = profileObject.updatedAt;
     await this.db().upsertSyncProfile({
@@ -914,7 +973,10 @@ class SyncService {
     }
 
     const extension = typeof record.extension === 'string' ? record.extension : '';
-    const assetPath = path.join(app.getPath('userData'), 'knowledge-assets', `${hash}${normalizeAssetExtension(extension)}`);
+    // Legacy app.getPath('userData'), 'knowledge-assets' are resolved from the worker environment.
+    // The persisted asset directory remains named 'knowledge-assets'.
+    const assetRoot = app?.getPath?.('userData') ?? process.env.GUYANTOOLS_USER_DATA ?? path.join(process.cwd(), '.guyantools-data');
+    const assetPath = path.join(assetRoot, 'knowledge-assets', `${hash}${normalizeAssetExtension(extension)}`);
     const existing = await readFile(assetPath).catch((): null => null);
     if (!existing) {
       const provider = await this.createProvider();
@@ -1372,7 +1434,7 @@ class SyncService {
 
   private async refreshStateFromProfiles() {
     const [profiles, conflicts, pending] = await Promise.all([
-      this.db().listSyncProfiles(),
+      this.listProfileMetadata(),
       this.db().listSyncConflicts(),
       this.db().listPendingSyncOutbox(),
     ]);
@@ -1456,7 +1518,8 @@ function currentPlatformKey(): SyncDeviceIdentity['platform'] {
 }
 
 function createStableDeviceId() {
-  const seed = `${os.hostname() || 'device'}:${process.platform}:${app.getPath('userData')}`;
+  const userData = app?.getPath?.('userData') ?? process.env.GUYANTOOLS_USER_DATA ?? process.cwd();
+  const seed = `${os.hostname() || 'device'}:${process.platform}:${userData}`;
   return createHash('sha256').update(seed).digest('hex').slice(0, 16);
 }
 
