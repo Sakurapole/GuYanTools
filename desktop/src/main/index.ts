@@ -2,8 +2,10 @@ import './dev-env';
 import { app, BrowserWindow, ipcMain, protocol } from "electron";
 import { randomUUID } from 'node:crypto';
 import * as fs from 'node:fs/promises';
+import { createReadStream } from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
+import { Readable } from 'node:stream';
 import { dbManager } from "../core/database";
 import { registerAiIpcHandlers } from "./ai/ipc";
 import { registerAppConfigIpcHandlers } from "./app-config/ipc";
@@ -29,7 +31,7 @@ import { showScreenshotWindow } from "./screenshot/window";
 import { registerShortcutIpcHandlers } from "./shortcuts/ipc";
 import { shortcutService } from "./shortcuts/service";
 import { registerSyncIpcHandlers } from "./sync/ipc";
-import { syncScheduler } from "./sync/sync_scheduler";
+import { syncWorkerClient } from './sync/sync_worker_client';
 import { registerQuickLaunchIpcHandlers } from "./quick-launch/ipc";
 import { quickLaunchService } from "./quick-launch/service";
 import { preloadQuickLaunchWindow, toggleQuickLaunchWindow } from "./quick-launch/window";
@@ -56,11 +58,15 @@ import { registerTrayMenuWindowHandlers } from "./tray/tray_menu_window";
 import { registerProcessManagerIpcHandlers } from "./process-manager/ipc";
 import { setupAutoUpdater } from "./updater";
 import { registerAndroidToolsIpcHandlers } from './android-tools/ipc';
-import { disposeAndroidTools, initializeAndroidTools } from './android-tools';
+import { disposeAndroidTools, initializeAndroidTools, setAndroidToolchainConfiguredPath, setAndroidToolchainPathPersistence } from './android-tools';
+import { initializeProcessDiagnostics } from './diagnostics/process_diagnostics';
+
+initializeProcessDiagnostics();
 
 const delay = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms));
 const MULTI_DEVICE_CLIPBOARD_ASSET_HOST = 'multi-device-clipboard-assets';
 const KNOWLEDGE_ASSET_HOST = 'knowledge-assets';
+const HOME_LAYOUT_ASSET_HOST = 'home-layout-assets';
 
 type KnowledgeAssetProtocolRecord = {
   storagePath: string;
@@ -96,7 +102,16 @@ class App {
 
   constructor() {
     protocol.registerSchemesAsPrivileged([
-      { scheme: 'app', privileges: { secure: true, standard: true } }
+      {
+        scheme: 'app',
+        privileges: {
+          secure: true,
+          standard: true,
+          supportFetchAPI: true,
+          corsEnabled: true,
+          stream: true,
+        },
+      }
     ]);
     this.mainWindowCreator = main_window();
     this.splashWindowCreator = splash_window();
@@ -181,6 +196,13 @@ class App {
           await dbManager.initialize();
         }
         await appConfigManager.initialize();
+        setAndroidToolchainConfiguredPath(appConfigManager.getCachedConfig().tools.androidToolchainPath);
+        setAndroidToolchainPathPersistence(async (nextPath) => {
+          await appConfigManager.updateConfig({ tools: { androidToolchainPath: nextPath } });
+        });
+        appConfigManager.subscribe((config) => {
+          setAndroidToolchainConfiguredPath(config.tools.androidToolchainPath);
+        });
         try {
           const androidToolStatus = await initializeAndroidTools();
           if (!androidToolStatus.available) {
@@ -243,7 +265,6 @@ class App {
         await ftpSchedulerService.initialize();
         await pluginHost.initialize();
         await multiDeviceClipboardService.initialize();
-        await syncScheduler.start();
         await shortcutService.initialize(
           () => {
             try {
@@ -257,13 +278,19 @@ class App {
           captureClipboardToQuickNoteWindow,
           toggleQuickLaunchWindow,
           () => {
-            void showScreenshotWindow({ mode: 'region', recognize: true });
+            void showScreenshotWindow({ mode: 'region', recognize: true }).catch((error) => {
+              console.error('[screenshot] Failed to open capture window:', error);
+            });
           },
           () => {
-            void showScreenshotWindow({ mode: 'region', recognize: false });
+            void showScreenshotWindow({ mode: 'region', recognize: false }).catch((error) => {
+              console.error('[screenshot] Failed to open annotation window:', error);
+            });
           },
           (key) => {
-            void workspaceWindowManager.openDetached(key);
+            void workspaceWindowManager.openDetached(key).catch((error) => {
+              console.error(`[workspace-window] Failed to open detached ${key} window:`, error);
+            });
           },
         );
         void preloadQuickLaunchWindow();
@@ -321,6 +348,7 @@ class App {
             this.splashWindowCreator.close();
           }, 300);
 
+          // 保留独立页面预热；预热窗口只加载骨架，不进入主窗口渲染路径。
           workspaceWindowManager.prewarmDetachedWindows();
 
           // Start Todo reminder scheduler
@@ -372,12 +400,13 @@ class App {
 
     app.on('will-quit', () => {
       stopTodoScheduler();
-      syncScheduler.stop();
+      workspaceWindowManager.dispose();
       ftpSchedulerService.dispose();
       void multiDeviceClipboardService.dispose();
       shortcutService.dispose();
       destroyTray();
       void disposeAndroidTools();
+      syncWorkerClient.dispose();
     });
   }
 
@@ -391,11 +420,17 @@ class App {
       if (url.hostname === MULTI_DEVICE_CLIPBOARD_ASSET_HOST) {
         const assetRoot = path.resolve(app.getPath('userData'), 'multi-device-clipboard-assets');
         const requestedPath = decodeURIComponent(url.pathname.slice(1));
-        return serveLocalAsset(requestedPath, assetRoot);
+        return serveLocalAsset(request, requestedPath, assetRoot);
       }
 
       if (url.hostname === KNOWLEDGE_ASSET_HOST) {
-        return this.handleKnowledgeAssetProtocolRequest(url);
+        return this.handleKnowledgeAssetProtocolRequest(url, request);
+      }
+
+      if (url.hostname === HOME_LAYOUT_ASSET_HOST) {
+        const requestedPath = decodeURIComponent(url.pathname.slice(1));
+        const assetRoot = path.resolve(app.getPath('userData'), 'home-layout-assets');
+        return serveLocalAsset(request, requestedPath, assetRoot);
       }
 
       if (url.hostname === 'plugin-media-preview') {
@@ -406,7 +441,7 @@ class App {
     });
   }
 
-  private async handleKnowledgeAssetProtocolRequest(url: URL) {
+  private async handleKnowledgeAssetProtocolRequest(url: URL, request: Request) {
     const parts = url.pathname
       .split('/')
       .filter(Boolean)
@@ -415,7 +450,7 @@ class App {
     const assetRoot = path.resolve(app.getPath('userData'), 'knowledge-assets');
 
     if (mode === 'path' && parts[1]) {
-      return serveLocalAsset(parts[1], assetRoot);
+      return serveLocalAsset(request, parts[1], assetRoot);
     }
 
     if (mode !== 'id' || !parts[1]) {
@@ -431,7 +466,7 @@ class App {
         getKnowledgeAsset: (assetId: string) => Promise<KnowledgeAssetProtocolRecord>;
       };
       const asset = await database.getKnowledgeAsset(parts[1]);
-      return serveLocalAsset(asset.storagePath, assetRoot, asset.mimeType);
+      return serveLocalAsset(request, asset.storagePath, assetRoot, asset.mimeType);
     } catch {
       return new Response('Not found', { status: 404 });
     }
@@ -546,23 +581,82 @@ function isPathInsideRoot(filePath: string, rootPath: string) {
   return resolvedPath === resolvedRoot || resolvedPath.startsWith(`${resolvedRoot}${path.sep}`);
 }
 
-async function serveLocalAsset(filePath: string, rootPath: string, contentType?: string) {
-  const resolvedPath = path.resolve(filePath);
+async function serveLocalAsset(
+  request: Request,
+  filePath: string,
+  rootPath: string,
+  contentType?: string,
+) {
+  // Protocol URLs carry a root-relative asset name; knowledge records may already
+  // contain an absolute storage path. Resolve both forms before the traversal check.
+  const resolvedPath = path.isAbsolute(filePath)
+    ? path.resolve(filePath)
+    : path.resolve(rootPath, filePath);
   if (!isPathInsideRoot(resolvedPath, rootPath)) {
     return new Response('Forbidden', { status: 403 });
   }
 
   try {
-    const bytes = await fs.readFile(resolvedPath);
-    return new Response(new Uint8Array(bytes), {
-      headers: {
-        'Content-Type': contentType || guessLocalAssetMimeType(resolvedPath),
-        'Cache-Control': 'no-store',
-      },
+    const file = await fs.stat(resolvedPath);
+    if (!file.isFile()) {
+      return new Response('Not found', { status: 404 });
+    }
+
+    const headers = new Headers({
+      'Content-Type': contentType || guessLocalAssetMimeType(resolvedPath),
+      'Cache-Control': 'no-store',
+      'Accept-Ranges': 'bytes',
+      'Content-Length': String(file.size),
+      'Access-Control-Allow-Origin': '*',
+    });
+    const range = parseByteRange(request.headers.get('range'), file.size);
+    if (range && 'invalid' in range) {
+      headers.set('Content-Range', `bytes */${file.size}`);
+      headers.set('Content-Length', '0');
+      return new Response(null, { status: 416, headers });
+    }
+
+    const start = range && 'start' in range ? range.start : 0;
+    const end = range && 'end' in range ? range.end : Math.max(0, file.size - 1);
+    headers.set('Content-Length', String(Math.max(0, end - start + 1)));
+    if (range && 'start' in range) {
+      headers.set('Content-Range', `bytes ${start}-${end}/${file.size}`);
+    }
+
+    if (request.method === 'HEAD' || file.size === 0) {
+      return new Response(null, { status: range && 'start' in range ? 206 : 200, headers });
+    }
+
+    const stream = createReadStream(resolvedPath, { start, end });
+    return new Response(Readable.toWeb(stream) as unknown as BodyInit, {
+      status: range && 'start' in range ? 206 : 200,
+      headers,
     });
   } catch {
     return new Response('Not found', { status: 404 });
   }
+}
+
+function parseByteRange(value: string | null, size: number): { start: number; end: number } | { invalid: true } | null {
+  if (!value || size <= 0) return null;
+  const match = /^bytes=(\d*)-(\d*)$/.exec(value.trim());
+  if (!match || (!match[1] && !match[2])) return { invalid: true };
+
+  const requestedStart = match[1] ? Number(match[1]) : null;
+  const requestedEnd = match[2] ? Number(match[2]) : null;
+  if ((requestedStart !== null && !Number.isSafeInteger(requestedStart))
+    || (requestedEnd !== null && !Number.isSafeInteger(requestedEnd))) {
+    return { invalid: true };
+  }
+
+  const isSuffixRange = requestedStart === null;
+  const start = isSuffixRange
+    ? Math.max(0, size - (requestedEnd ?? 0))
+    : requestedStart;
+  const end = isSuffixRange
+    ? size - 1
+    : Math.min(size - 1, requestedEnd ?? size - 1);
+  return start <= end && start < size ? { start, end } : { invalid: true };
 }
 
 function guessLocalAssetMimeType(filePath: string) {
@@ -571,6 +665,9 @@ function guessLocalAssetMimeType(filePath: string) {
   if (ext === '.jpg' || ext === '.jpeg') return 'image/jpeg';
   if (ext === '.gif') return 'image/gif';
   if (ext === '.webp') return 'image/webp';
+  if (ext === '.mp4') return 'video/mp4';
+  if (ext === '.webm') return 'video/webm';
+  if (ext === '.mov') return 'video/quicktime';
   if (ext === '.svg') return 'image/svg+xml';
   if (ext === '.pdf') return 'application/pdf';
   if (ext === '.md' || ext === '.markdown') return 'text/markdown; charset=utf-8';

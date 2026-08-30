@@ -2,6 +2,7 @@ import type { GridItem, CategoryItem } from '../types/grid';
 import type {
   CreateHomeWidgetPayload,
   HomeLayoutDto,
+  HomeLayoutCategoryDto,
   HomeWidgetDto,
   ImportHomeLayoutPayload,
 } from '@/contracts/home_layout';
@@ -265,6 +266,20 @@ function toCategoryItems(layout: HomeLayoutDto): CategoryItem[] {
   }));
 }
 
+function toCategoryItem(category: HomeLayoutCategoryDto): CategoryItem {
+  return {
+    id: category.id,
+    label: category.label,
+    icon: category.icon,
+    sortOrder: category.sortOrder,
+    backgroundColor: category.backgroundColor,
+    backgroundImage: category.backgroundImage,
+    backgroundVideo: category.backgroundVideo,
+    backgroundStyle: category.backgroundStyle,
+    gridItems: category.widgets.map(toGridItem),
+  };
+}
+
 function toWidgetUpdatePayload(item: GridItem, categoryId: string) {
   return {
     categoryId,
@@ -458,6 +473,11 @@ export function useGridPersistence(storageKey: string) {
     return toCategoryItems(layout);
   }
 
+  async function loadHomeCategory(categoryId: string): Promise<CategoryItem> {
+    const category = await getHomeLayoutApi().getHomeCategoryLayout(categoryId);
+    return toCategoryItem(category);
+  }
+
   async function persistLayout(categoryId: string, gridItems: GridItem[]) {
     const sortedItems = [...gridItems].sort((a, b) => a.priority - b.priority);
     for (const item of sortedItems) {
@@ -525,6 +545,7 @@ export function useGridPersistence(storageKey: string) {
 
   return {
     loadHomeLayout,
+    loadHomeCategory,
     persistLayout,
     createCategory,
     deleteWidget,

@@ -1,9 +1,4 @@
 import { reactive } from 'vue';
-import * as html2canvasModule from 'html2canvas-pro';
-
-const html2canvas = ('default' in html2canvasModule
-  ? html2canvasModule.default
-  : html2canvasModule) as typeof import('html2canvas-pro').default;
 
 /**
  * 全局页面快照缓存
@@ -13,6 +8,8 @@ const snapshots = reactive<Record<string, string>>({});
 let isCapturing = false;
 let scheduledSnapshotTimer: number | undefined;
 let scheduledSnapshotRoutePath = '';
+let interactionUntil = 0;
+let interactionListenersInstalled = false;
 
 function isRenderBusy() {
   const root = document.documentElement;
@@ -31,7 +28,22 @@ function requestIdleTask(callback: () => void) {
     }, 1);
   });
 
-  requestIdleCallback(() => callback(), { timeout: 1200 });
+  requestIdleCallback((deadline) => {
+    if (interactionUntil > Date.now() || deadline.timeRemaining() < 8) {
+      schedulePageSnapshot(scheduledSnapshotRoutePath, 1200);
+      return;
+    }
+    callback();
+  }, { timeout: 5000 });
+}
+
+function installInteractionPause() {
+  if (interactionListenersInstalled) return;
+  interactionListenersInstalled = true;
+  const pause = () => { interactionUntil = Date.now() + 1200; };
+  window.addEventListener('pointerdown', pause, { passive: true });
+  window.addEventListener('keydown', pause, { passive: true });
+  window.addEventListener('wheel', pause, { passive: true });
 }
 
 function canvasToDataUrl(canvas: HTMLCanvasElement) {
@@ -56,12 +68,18 @@ function canvasToDataUrl(canvas: HTMLCanvasElement) {
 export async function capturePageSnapshot(routePath: string): Promise<void> {
   if (isCapturing) return;
   if (isRenderBusy()) return;
+  if (interactionUntil > Date.now()) return;
 
   const pageContainer = document.querySelector('.page-container');
   if (!pageContainer) return;
 
   isCapturing = true;
   try {
+    // 快照是低优先级的预览能力，按需加载截图库，避免阻塞首屏 renderer 初始化。
+    const html2canvasModule = await import('html2canvas-pro');
+    const html2canvas = ('default' in html2canvasModule
+      ? html2canvasModule.default
+      : html2canvasModule) as typeof import('html2canvas-pro').default;
     const canvas = await html2canvas(pageContainer as HTMLElement, {
       scale: 0.25,
       useCORS: true,
@@ -84,6 +102,7 @@ export async function capturePageSnapshot(routePath: string): Promise<void> {
 
 export function schedulePageSnapshot(routePath: string, delay = 650): void {
   if (!routePath || routePath === '/') return;
+  installInteractionPause();
 
   scheduledSnapshotRoutePath = routePath;
   window.clearTimeout(scheduledSnapshotTimer);

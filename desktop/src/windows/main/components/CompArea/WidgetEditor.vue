@@ -19,6 +19,13 @@ import IconRenderer from '../ui/IconRenderer.vue';
 import HomeWidgetConfigFields from '../../widgets/home/HomeWidgetConfigFields.vue';
 import { findWidgetSizePreset, getHomeWidgetDefinition, getWidgetSizeDefinition, normalizeWidgetConfig } from '../../widgets/home/registry';
 import { buildBackgroundTextVars } from '../../utils/backgroundTextColor';
+import { notifyWarning } from '../../composables/useInAppNotification';
+import {
+  formatMediaBytes,
+  isInlineVideoWithinLimit,
+  MAX_INLINE_VIDEO_BYTES,
+  saveHomeLayoutMediaDataUrl,
+} from '../../utils/inlineMedia';
 
 const props = withDefaults(defineProps<{
   visible: boolean;
@@ -365,7 +372,7 @@ function handleImageChange(event: Event) {
   if (!file) return;
 
   const reader = new FileReader();
-  reader.onload = (e) => {
+  reader.onload = async (e) => {
     originalImage.value = e.target?.result as string;
     showCropper.value = true;
   };
@@ -378,8 +385,8 @@ function handleCropperClose() {
   imageInput.value?.clear();
 }
 
-function handleCropperConfirm(croppedImage: string) {
-  selectedImage.value = croppedImage;
+async function handleCropperConfirm(croppedImage: string) {
+  selectedImage.value = (await saveHomeLayoutMediaDataUrl(croppedImage, 'widget-background.jpg'))?.url || croppedImage;
   showCropper.value = false;
   originalImage.value = '';
 }
@@ -416,14 +423,27 @@ function handleVideoCropperClose() {
   videoInput.value?.clear();
 }
 
-function handleVideoCropperConfirm(videoDataUrl: string) {
-  selectedVideo.value = videoDataUrl;
+async function handleVideoCropperConfirm(videoDataUrl: string) {
+  if (!isInlineVideoWithinLimit(videoDataUrl)) {
+    notifyWarning(
+      `处理后的视频超过 ${formatMediaBytes(MAX_INLINE_VIDEO_BYTES)}，未保存到组件配置。`,
+      '视频文件过大',
+    );
+    handleVideoCropperClose();
+    return;
+  }
+  selectedVideo.value = (await saveHomeLayoutMediaDataUrl(videoDataUrl, 'widget-background.webm'))?.url || videoDataUrl;
   showVideoCropper.value = false;
   if (originalVideoUrl.value) {
     URL.revokeObjectURL(originalVideoUrl.value);
     originalVideoUrl.value = '';
   }
   originalVideoFilePath.value = '';
+}
+
+function handleVideoCropperError(message: string) {
+  notifyWarning(message, '视频处理失败');
+  handleVideoCropperClose();
 }
 
 function handleClearVideo() {
@@ -454,6 +474,13 @@ function buildAction(): WidgetAction | undefined {
 }
 
 function handleConfirm() {
+  if (bgTab.value === 'video' && !isInlineVideoWithinLimit(selectedVideo.value)) {
+    notifyWarning(
+      `视频超过 ${formatMediaBytes(MAX_INLINE_VIDEO_BYTES)}，未保存到组件配置。`,
+      '视频文件过大',
+    );
+    return;
+  }
   const textColor = selectedTextColor.value.trim() || undefined;
   const backgroundStyle: BackgroundStyleConfig = {
     backgroundSize: bgSize.value,
@@ -864,7 +891,8 @@ watch(() => props.visible, (visible) => {
       :file-path="originalVideoFilePath"
       :target-width="props.previewWidth" :target-height="props.previewHeight"
       :processing-mode="videoProcessMode" :quality="compressQuality"
-      @close="handleVideoCropperClose" @confirm="handleVideoCropperConfirm" />
+      @close="handleVideoCropperClose" @confirm="handleVideoCropperConfirm"
+      @error="handleVideoCropperError" />
   </UiDialog>
 </template>
 

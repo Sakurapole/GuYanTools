@@ -14,7 +14,6 @@ import Topbar from './components/topbar/topbar.vue';
 import TrayContextMenu from './components/TrayContextMenu.vue';
 import WebViewKeepAlive from './components/webview/WebViewKeepAlive.vue';
 import { schedulePageSnapshot } from './composables/useTabSnapshot';
-import { useBarStore } from './stores/bar_store';
 import { useWebviewStore } from './stores/webview_store';
 import {
   WORKSPACE_WINDOW_DEFINITIONS,
@@ -30,29 +29,19 @@ const pageContainerRef = ref<HTMLElement | null>(null);
 const { width: containerWidth, height: containerHeight } = useElementSize(pageContainerRef);
 let removeNavigationListener: (() => void) | undefined;
 const webviewStore = useWebviewStore();
-const barStore = useBarStore();
-const pageTransitionName = ref('ui-page-forward');
+// 页面路由切换必须立即交互。首页内部仍保留分类切换动画，但跨页面使用
+// out-in 会先等待旧页面离场；复杂页面（首页、知识库、终端）在这段时间内
+// 会表现为整个渲染进程无响应。
+const pageTransitionName = ref('ui-page-instant');
 const firstVisitProgressVisible = ref(false);
 const workspaceWindowState = ref<WorkspaceDetachedWindowState>({ detached: {} });
 const workspaceWindowContext = ref<WorkspaceWindowContext>({ role: 'main' });
 let routeRenderTimer: number | undefined;
 let routeFirstVisitTimer: number | undefined;
+let overnightSnapshotTimer: number | undefined;
 let removeWorkspaceWindowStateListener: (() => void) | undefined;
 let routeFirstVisitStartedAt = 0;
 const visitedPagePaths = new Set<string>();
-const fallbackPageRouteOrder = [
-  '/home',
-  '/android-tools',
-  '/terminal',
-  '/settings',
-  '/ftp',
-  '/plugins',
-  '/todo',
-  '/webview',
-  '/script-editor',
-  '/devtools',
-];
-
 if (route.path && route.path !== '/') {
   visitedPagePaths.add(route.path);
 }
@@ -73,20 +62,6 @@ const isCurrentPageDetached = computed(() => (
 const currentDetachedDefinition = computed(() => (
   detachedRouteKey.value ? WORKSPACE_WINDOW_DEFINITIONS[detachedRouteKey.value] : null
 ));
-
-function routePathFromTabUrl(url: string) {
-  return url.split('?')[0] || url;
-}
-
-function getPageRouteOrder() {
-  const orderedTabPaths = barStore.tabPages
-    .map(tab => routePathFromTabUrl(tab.url))
-    .filter((path, index, paths) => path && paths.indexOf(path) === index);
-
-  return orderedTabPaths.concat(
-    fallbackPageRouteOrder.filter(path => !orderedTabPaths.includes(path)),
-  );
-}
 
 function markRouteRenderBusy() {
   const root = document.documentElement;
@@ -141,10 +116,6 @@ let removeBeforeEach: (() => void) | undefined;
 let removeAfterEach: (() => void) | undefined;
 let removeRouterError: (() => void) | undefined;
 removeBeforeEach = router.beforeEach((to, from, next) => {
-  if (to.path && to.path !== '/') {
-    schedulePageSnapshot(to.path);
-  }
-
   markRouteRenderBusy();
 
   const isFirstPageVisit = to.path !== from.path && to.path !== '/' && !visitedPagePaths.has(to.path);
@@ -154,20 +125,9 @@ removeBeforeEach = router.beforeEach((to, from, next) => {
     resetFirstVisitLoad();
   }
 
-  if (isFirstPageVisit) {
-    pageTransitionName.value = 'ui-page-instant';
-  } else {
-    const pageRouteOrder = getPageRouteOrder();
-    const fromIndex = pageRouteOrder.indexOf(from.path);
-    const toIndex = pageRouteOrder.indexOf(to.path);
-    if (from.path === to.path) {
-      pageTransitionName.value = 'ui-fade';
-    } else if (fromIndex === -1 || toIndex === -1) {
-      pageTransitionName.value = 'ui-page-forward';
-    } else {
-      pageTransitionName.value = toIndex >= fromIndex ? 'ui-page-forward' : 'ui-page-back';
-    }
-  }
+  // 跨页面导航不等待 CSS leave 动画，避免 router-view 在 out-in 期间
+  // 暂时没有可交互页面。局部组件仍可自行使用过渡效果。
+  pageTransitionName.value = 'ui-page-instant';
 
   if (workspaceWindowContext.value.role === 'detached' && from.query.detached) {
     const targetDefinition = Object.values(WORKSPACE_WINDOW_DEFINITIONS).find(definition => definition.route === to.path);
@@ -190,6 +150,7 @@ removeAfterEach = router.afterEach((to, _from, failure) => {
     resetFirstVisitLoad();
   } else {
     endFirstVisitLoad();
+    schedulePageSnapshot(to.path, 1800);
   }
 });
 
@@ -203,9 +164,15 @@ onMounted(() => {
     ipcRenderer?.send('plugin-host:navigate-complete');
   });
 
-  setTimeout(() => {
-    schedulePageSnapshot(router.currentRoute.value.path, 0);
-  }, 1500);
+  // 保留页面预览快照，但只在首屏稳定后的浏览器空闲期生成，避免参与启动和路由切换。
+  window.setTimeout(() => schedulePageSnapshot(router.currentRoute.value.path, 0), 2200);
+  // 夜间保留快照更新，但仅在 00:00-06:00 且页面空闲时排队，不参与白天交互。
+  overnightSnapshotTimer = window.setInterval(() => {
+    const hour = new Date().getHours();
+    if (hour >= 0 && hour < 6) {
+      schedulePageSnapshot(router.currentRoute.value.path, 0);
+    }
+  }, 10 * 60 * 1000);
 
   void window.workspaceWindowApi?.getState().then((state) => {
     workspaceWindowState.value = state;
@@ -226,6 +193,7 @@ onBeforeUnmount(() => {
   removeRouterError?.();
   window.clearTimeout(routeRenderTimer);
   window.clearTimeout(routeFirstVisitTimer);
+  window.clearInterval(overnightSnapshotTimer);
   document.documentElement.classList.remove('app-rendering-busy');
 })
 </script>
@@ -287,20 +255,17 @@ onBeforeUnmount(() => {
           </div>
         </section>
         <router-view v-slot="{ Component, route }">
-          <Transition :name="pageTransitionName" mode="out-in">
-            <KeepAlive>
+          <Transition :name="pageTransitionName">
+            <KeepAlive v-if="route.meta.keepAlive && !isCurrentPageDetached">
               <component
                 :is="Component"
-                v-if="route.meta.keepAlive && !isCurrentPageDetached"
                 :key="route.path"
                 v-show="!webviewStore.hasActiveInstance"
               />
             </KeepAlive>
-          </Transition>
-          <Transition :name="pageTransitionName" mode="out-in">
             <component
+              v-else-if="!isCurrentPageDetached"
               :is="Component"
-              v-if="!route.meta.keepAlive && !isCurrentPageDetached"
               :key="route.path"
               v-show="!webviewStore.hasActiveInstance"
             />

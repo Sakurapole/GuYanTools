@@ -106,6 +106,79 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return Boolean(value) && typeof value === 'object' && !Array.isArray(value);
 }
 
+// Keep data URLs small enough that one config IPC round-trip cannot monopolize
+// the renderer. Larger media should be stored as a file/http URL instead.
+const MAX_INLINE_MEDIA_BYTES = 4 * 1024 * 1024;
+
+/** Prevent large data URLs from being copied through config IPC and freezing startup. */
+function normalizeInlineMedia(value: unknown, fallback = ''): string {
+  if (typeof value !== 'string') {
+    return fallback;
+  }
+  if (!value.startsWith('data:image/') && !value.startsWith('data:video/')) {
+    return value;
+  }
+
+  const commaIndex = value.indexOf(',');
+  if (commaIndex < 0) {
+    return fallback;
+  }
+
+  // Valid base64 is normally whitespace-free. Using the raw length avoids
+  // creating another copy of a multi-megabyte payload during normalization.
+  const payloadLength = value.length - commaIndex - 1;
+  const padding = value.endsWith('==') ? 2 : value.endsWith('=') ? 1 : 0;
+  const estimatedBytes = Math.max(0, Math.floor((payloadLength * 3) / 4) - padding);
+  return estimatedBytes > MAX_INLINE_MEDIA_BYTES ? fallback : value;
+}
+
+function normalizeBackgroundBaseStyle(value: unknown, fallback: BackgroundStyleConfig = {}): BackgroundStyleConfig {
+  if (!isRecord(value)) {
+    return { ...fallback };
+  }
+
+  const style: BackgroundStyleConfig = {
+    backgroundSize: typeof value.backgroundSize === 'string' ? value.backgroundSize : fallback.backgroundSize,
+    backgroundPosition: typeof value.backgroundPosition === 'string' ? value.backgroundPosition : fallback.backgroundPosition,
+    backgroundRepeat: typeof value.backgroundRepeat === 'string' ? value.backgroundRepeat : fallback.backgroundRepeat,
+    opacity: normalizeAiNumber(value.opacity, fallback.opacity),
+    blur: normalizeAiNumber(value.blur, fallback.blur),
+    fitMode: value.fitMode === 'crop' || value.fitMode === 'style' ? value.fitMode : fallback.fitMode,
+    textColor: typeof value.textColor === 'string' ? value.textColor.trim() : fallback.textColor,
+  };
+
+  return Object.fromEntries(Object.entries(style).filter(([, item]) => item !== undefined)) as BackgroundStyleConfig;
+}
+
+/** Keep only the documented style fields and recursively size-limit themed media. */
+function normalizeBackgroundStyle(value: unknown, fallback: BackgroundStyleConfig = {}): BackgroundStyleConfig {
+  const style = normalizeBackgroundBaseStyle(value, fallback);
+  if (!isRecord(value) || !isRecord(value.themeVariants)) {
+    return style;
+  }
+
+  const variants: NonNullable<BackgroundStyleConfig['themeVariants']> = {};
+  for (const theme of ['light', 'dark'] as const) {
+    const variant = value.themeVariants[theme];
+    if (!isRecord(variant)) {
+      continue;
+    }
+
+    variants[theme] = {
+      type: variant.type === 'image' || variant.type === 'video' ? variant.type : 'color',
+      color: typeof variant.color === 'string' ? variant.color : '',
+      image: normalizeInlineMedia(variant.image),
+      video: normalizeInlineMedia(variant.video),
+      backgroundStyle: normalizeBackgroundBaseStyle(variant.backgroundStyle),
+    };
+  }
+
+  if (Object.keys(variants).length > 0) {
+    style.themeVariants = variants;
+  }
+  return style;
+}
+
 function normalizeTheme(value: unknown): AppTheme {
   return value === 'dark' ? 'dark' : 'light';
 }
@@ -376,40 +449,13 @@ function normalizeAiChatBackground(value: unknown, fallback: AiChatBackgroundCon
   }
 
   const type: BackgroundType = value.type === 'image' || value.type === 'video' ? value.type : 'color';
-  const styleValue = isRecord(value.backgroundStyle) ? value.backgroundStyle : {};
-  const backgroundStyle: BackgroundStyleConfig = {
-    backgroundSize: typeof styleValue.backgroundSize === 'string' ? styleValue.backgroundSize : undefined,
-    backgroundPosition: typeof styleValue.backgroundPosition === 'string' ? styleValue.backgroundPosition : undefined,
-    backgroundRepeat: typeof styleValue.backgroundRepeat === 'string' ? styleValue.backgroundRepeat : undefined,
-    opacity: normalizeAiNumber(styleValue.opacity),
-    blur: normalizeAiNumber(styleValue.blur),
-    fitMode: styleValue.fitMode === 'crop' || styleValue.fitMode === 'style' ? styleValue.fitMode : undefined,
-    textColor: typeof styleValue.textColor === 'string' ? styleValue.textColor.trim() : undefined,
-  };
-  if (isRecord(styleValue.themeVariants)) {
-    const variants: NonNullable<BackgroundStyleConfig['themeVariants']> = {};
-    for (const theme of ['light', 'dark'] as const) {
-      const variant = styleValue.themeVariants[theme];
-      if (typeof variant === 'string' || isRecord(variant)) {
-        variants[theme] = normalizeAiChatBackground(variant, {
-          type: 'color',
-          color: '',
-          image: '',
-          video: '',
-          backgroundStyle: {},
-        });
-      }
-    }
-    if (Object.keys(variants).length > 0) {
-      backgroundStyle.themeVariants = variants;
-    }
-  }
+  const backgroundStyle = normalizeBackgroundStyle(value.backgroundStyle);
 
   return {
     type,
     color: typeof value.color === 'string' ? value.color.trim() : '',
-    image: typeof value.image === 'string' ? value.image : '',
-    video: typeof value.video === 'string' ? value.video : '',
+    image: normalizeInlineMedia(value.image),
+    video: normalizeInlineMedia(value.video),
     backgroundStyle,
   };
 }
@@ -814,9 +860,9 @@ function normalizeSettingsTabPersonalization(
   return {
     type,
     color: typeof value.color === 'string' ? value.color : fallback.color,
-    image: typeof value.image === 'string' ? value.image : fallback.image,
-    video: typeof value.video === 'string' ? value.video : fallback.video,
-    style: isRecord(value.style) ? cloneConfig(value.style) : cloneConfig(fallback.style),
+    image: normalizeInlineMedia(value.image, fallback.image),
+    video: normalizeInlineMedia(value.video, fallback.video),
+    style: normalizeBackgroundStyle(value.style, fallback.style),
   };
 }
 
@@ -908,9 +954,7 @@ function normalizeQuickLaunchBackground(
   value: Record<string, unknown>,
   defaults: QuickLaunchFeatureConfig,
 ): Pick<QuickLaunchFeatureConfig, 'backgroundType' | 'backgroundColor' | 'backgroundImage' | 'backgroundVideo' | 'backgroundStyle'> {
-  const rawStyle = isRecord(value.backgroundStyle)
-    ? cloneConfig(value.backgroundStyle) as QuickLaunchFeatureConfig['backgroundStyle']
-    : cloneConfig(defaults.backgroundStyle);
+  const rawStyle = normalizeBackgroundStyle(value.backgroundStyle, defaults.backgroundStyle) as QuickLaunchFeatureConfig['backgroundStyle'];
   rawStyle.opacity = normalizeQuickLaunchOpacity(rawStyle.opacity, defaults.backgroundStyle.opacity ?? 1);
   if (rawStyle.blur !== undefined) {
     const blur = Number(rawStyle.blur);
@@ -922,8 +966,8 @@ function normalizeQuickLaunchBackground(
   return {
     backgroundType: value.backgroundType === 'image' || value.backgroundType === 'video' ? value.backgroundType : 'color',
     backgroundColor: typeof value.backgroundColor === 'string' ? value.backgroundColor : defaults.backgroundColor,
-    backgroundImage: typeof value.backgroundImage === 'string' ? value.backgroundImage : defaults.backgroundImage,
-    backgroundVideo: typeof value.backgroundVideo === 'string' ? value.backgroundVideo : defaults.backgroundVideo,
+    backgroundImage: normalizeInlineMedia(value.backgroundImage, defaults.backgroundImage),
+    backgroundVideo: normalizeInlineMedia(value.backgroundVideo, defaults.backgroundVideo),
     backgroundStyle: rawStyle,
   };
 }
@@ -961,9 +1005,7 @@ function normalizeKnowledgeQuickNoteWindow(value: unknown): AppKnowledgeQuickNot
     return cloneConfig(defaults);
   }
 
-  const rawStyle = isRecord(value.backgroundStyle)
-    ? cloneConfig(value.backgroundStyle) as Record<string, unknown>
-    : cloneConfig(defaults.backgroundStyle) as Record<string, unknown>;
+  const rawStyle = normalizeBackgroundStyle(value.backgroundStyle, defaults.backgroundStyle) as Record<string, unknown>;
   const opacity = Number(rawStyle.opacity);
   rawStyle.opacity = Number.isFinite(opacity)
     ? Math.max(0, Math.min(1, opacity))
@@ -972,8 +1014,8 @@ function normalizeKnowledgeQuickNoteWindow(value: unknown): AppKnowledgeQuickNot
   return {
     backgroundType: value.backgroundType === 'image' || value.backgroundType === 'video' ? value.backgroundType : 'color',
     backgroundColor: typeof value.backgroundColor === 'string' ? value.backgroundColor : defaults.backgroundColor,
-    backgroundImage: typeof value.backgroundImage === 'string' ? value.backgroundImage : defaults.backgroundImage,
-    backgroundVideo: typeof value.backgroundVideo === 'string' ? value.backgroundVideo : defaults.backgroundVideo,
+    backgroundImage: normalizeInlineMedia(value.backgroundImage, defaults.backgroundImage),
+    backgroundVideo: normalizeInlineMedia(value.backgroundVideo, defaults.backgroundVideo),
     backgroundStyle: rawStyle,
   };
 }
@@ -1017,11 +1059,9 @@ function normalizeTerminalFeature(value: unknown): AppFeaturesConfig['terminal']
     ? value.viewportBgType
     : defaults.viewportBgType;
   const viewportBgColor = typeof value.viewportBgColor === 'string' ? value.viewportBgColor : defaults.viewportBgColor;
-  const viewportBgImage = typeof value.viewportBgImage === 'string' ? value.viewportBgImage : defaults.viewportBgImage;
-  const viewportBgVideo = typeof value.viewportBgVideo === 'string' ? value.viewportBgVideo : defaults.viewportBgVideo;
-  // 浅拷贝即可：仅读取属性，不修改 themeVariants 等嵌套对象，
-  // 避免对含大 base64 图片的 themeVariants 做不必要的深拷贝
-  const viewportBgStyle = isRecord(value.viewportBgStyle) ? { ...value.viewportBgStyle } as Record<string, unknown> : { ...defaults.viewportBgStyle };
+  const viewportBgImage = normalizeInlineMedia(value.viewportBgImage, defaults.viewportBgImage);
+  const viewportBgVideo = normalizeInlineMedia(value.viewportBgVideo, defaults.viewportBgVideo);
+  const viewportBgStyle = normalizeBackgroundStyle(value.viewportBgStyle, defaults.viewportBgStyle);
 
   const env = isRecord(value.env)
     ? Object.fromEntries(
@@ -1168,12 +1208,12 @@ function normalizeTerminalBackground(value: unknown): TerminalBackgroundConfig {
   }
 
   const type = value.type === 'image' || value.type === 'video' ? value.type : 'color';
-  const style = isRecord(value.style) ? cloneConfig(value.style) as Record<string, unknown> : {};
+  const style = normalizeBackgroundStyle(value.style);
   return {
     type,
     color: typeof value.color === 'string' ? value.color : '',
-    image: typeof value.image === 'string' ? value.image : '',
-    video: typeof value.video === 'string' ? value.video : '',
+    image: normalizeInlineMedia(value.image),
+    video: normalizeInlineMedia(value.video),
     style,
   };
 }
@@ -1216,6 +1256,9 @@ function normalizeTools(value: unknown): AppToolsConfig {
 
   return {
     ffmpegPath: typeof value.ffmpegPath === 'string' ? value.ffmpegPath : defaults.ffmpegPath,
+    androidToolchainPath: typeof value.androidToolchainPath === 'string'
+      ? value.androidToolchainPath
+      : defaults.androidToolchainPath,
   };
 }
 

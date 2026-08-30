@@ -239,6 +239,8 @@ export interface AppPluginsConfig {
 
 export interface AppToolsConfig {
   ffmpegPath: string;
+  /** Optional directory containing platform-tools/ and scrcpy/. */
+  androidToolchainPath: string;
 }
 
 export interface AppBottomBarConfig {
@@ -517,6 +519,7 @@ export function createDefaultAppConfig(): AppConfig {
     },
     tools: {
       ffmpegPath: '',
+      androidToolchainPath: '',
     },
     web: {
       security: {

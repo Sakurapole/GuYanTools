@@ -99,7 +99,9 @@ class MultiDeviceClipboardService {
         return;
       }
 
-      void this.applyConfig(config);
+      void this.applyConfig(config).catch((error) => {
+        console.warn('[multi-device-clipboard] Failed to apply configuration:', error);
+      });
     });
     await this.applyConfig(this.config);
     this.initialized = true;
@@ -718,7 +720,9 @@ class MultiDeviceClipboardService {
       silent: false,
     });
     notification.on('click', () => {
-      void showMultiDeviceClipboardWindow();
+      void showMultiDeviceClipboardWindow().catch((error) => {
+        console.warn('[multi-device-clipboard] Failed to show clipboard window:', error);
+      });
     });
     notification.show();
   }
@@ -734,7 +738,9 @@ class MultiDeviceClipboardService {
       silent: true,
     });
     notification.on('click', () => {
-      void showMultiDeviceClipboardWindow();
+      void showMultiDeviceClipboardWindow().catch((error) => {
+        console.warn('[multi-device-clipboard] Failed to show clipboard window:', error);
+      });
     });
     notification.show();
   }

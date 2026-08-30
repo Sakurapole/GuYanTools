@@ -53,7 +53,6 @@ async function bootstrap() {
     i18n.global.locale.value = language;
   });
   appConfigStore.hydrate(initialConfig);
-  await appConfigStore.loadLocalFonts();
 
   const barStore = useBarStore(pinia);
   barStore.ensureFixedTabs();
@@ -71,6 +70,10 @@ async function bootstrap() {
   await router.isReady();
   barStore.activateTabByUrl(router.currentRoute.value.fullPath);
   app.mount('#guyan-tools');
+
+  // Font enumeration can be slow on Windows and is only needed by Settings.
+  // Keep it out of the first renderer paint and page navigation path.
+  void appConfigStore.loadLocalFonts().catch((): void => undefined);
 }
 
 void bootstrap();

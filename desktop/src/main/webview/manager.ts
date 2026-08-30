@@ -317,12 +317,16 @@ export class WebViewManager {
     const hashRoute = `#/webview?url=${encodedUrl}&popup=1`;
 
     if (MAIN_WINDOW_VITE_DEV_SERVER_URL) {
-      void win.loadURL(`${MAIN_WINDOW_VITE_DEV_SERVER_URL}/index.html${hashRoute}`);
+      void win.loadURL(`${MAIN_WINDOW_VITE_DEV_SERVER_URL}/index.html${hashRoute}`).catch((error) => {
+        console.warn('[WebView] Failed to load popup window:', error);
+      });
     } else {
       void win.loadFile(
         path.join(__dirname, `../renderer/${MAIN_WINDOW_VITE_NAME}/index.html`),
         { hash: `/webview?url=${encodedUrl}&popup=1` },
-      );
+      ).catch((error) => {
+        console.warn('[WebView] Failed to load popup window:', error);
+      });
     }
 
     win.webContents.on('page-title-updated', (_event, title) => {

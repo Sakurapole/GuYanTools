@@ -107,7 +107,7 @@ import IconRenderer from '@/windows/main/components/ui/IconRenderer.vue';
 import SvgIcon from '@/windows/main/components/svgs/svgicon.vue';
 import { useBarStore } from '@/windows/main/stores/bar_store';
 import { useWebviewStore } from '@/windows/main/stores/webview_store';
-import { computed, nextTick, ref, onBeforeUnmount } from 'vue';
+import { computed, nextTick, ref, onBeforeUnmount, watch } from 'vue';
 import { storeToRefs } from 'pinia';
 import { useRouter } from 'vue-router';
 
@@ -128,6 +128,11 @@ const previewTabName = ref('');
 const previewTabUrl = ref('');
 const previewTabIcon = ref<string | undefined>(undefined);
 const previewTriggerRect = ref<DOMRect | null>(null);
+
+// 页面切换时立即销毁旧页面的预览，避免鼠标未离开底栏时残留在新页面上。
+watch(() => router.currentRoute.value.fullPath, () => {
+  hidePreview();
+});
 
 let previewShowTimer: number | null = null;
 let previewHideTimer: number | null = null;
@@ -187,6 +192,15 @@ function handleTabHover(tabId: string, rect: DOMRect) {
   clearPreviewTimers();
   const tab = tabPages.value.find(t => t.id === tabId);
   if (!tab) return;
+
+  // 活动标签已经显示在主视图中，不需要再渲染预览浮层。
+  // 这也避免鼠标停留在当前页面标签时触发不必要的截图/媒体读取。
+  const currentRoutePath = router.currentRoute.value.fullPath.split('?')[0];
+  const tabRoutePath = tab.url.split('?')[0];
+  if (tab.active || (tabRoutePath && tabRoutePath === currentRoutePath)) {
+    hidePreview();
+    return;
+  }
 
   const applyPreview = () => {
     previewTabName.value = tab.name;

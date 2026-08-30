@@ -179,7 +179,9 @@ export function toggleMultiDeviceClipboardWindow() {
     closeMultiDeviceClipboardWindow();
     return;
   }
-  void showMultiDeviceClipboardWindow();
+  void showMultiDeviceClipboardWindow().catch((error) => {
+    console.warn('[multi-device-clipboard] Failed to show clipboard window:', error);
+  });
 }
 
 export function registerMultiDeviceClipboardWindowHandlers() {

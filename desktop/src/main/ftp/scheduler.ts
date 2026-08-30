@@ -71,7 +71,9 @@ class FtpSchedulerService {
     }
     await this.importLegacyState();
     this.timer = setInterval(() => {
-      void this.tick();
+      void this.tick().catch((error) => {
+        console.error('[FtpScheduler] Scheduled task tick failed:', error);
+      });
     }, 30_000);
     ftpHost.onEvent((event) => this.handleFtpEvent(event));
     this.initialized = true;
@@ -223,7 +225,9 @@ class FtpSchedulerService {
         : (event.task.errorMessage || '最近一次执行失败'),
       updatedAt: Date.now(),
     });
-    void this.persistState();
+    void this.persistState().catch((error) => {
+      console.error('[FtpScheduler] Failed to persist task completion:', error);
+    });
   }
 
   private replaceTask(task: FtpScheduledTaskRecord) {

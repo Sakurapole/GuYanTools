@@ -14,7 +14,10 @@ export default defineConfig({
     ...(isBuilderElectron ? {
       ssr: path.resolve(__dirname, 'src/main/index.ts'),
       outDir: path.resolve(__dirname, '.vite/build'),
-      emptyOutDir: true,
+      // Main, preload, and plugin-preload bundles share this directory.
+      // Clearing it during a main rebuild can remove preload.js while an
+      // already-running Electron window still points at that path.
+      emptyOutDir: false,
     } : {}),
     // 不要压缩,便于调试
     minify: false,

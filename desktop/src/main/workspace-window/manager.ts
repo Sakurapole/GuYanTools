@@ -26,6 +26,8 @@ class WorkspaceWindowManager {
   private readonly pageStates = new Map<WorkspaceWindowKey, WorkspaceWindowPageState>();
   private readonly detachedRoutes = new Map<WorkspaceWindowKey, string>();
   private prewarmStarted = false;
+  private prewarmQueue: WorkspaceWindowKey[] = [];
+  private prewarmTimer: NodeJS.Timeout | null = null;
 
   bindMainWindow(bridge: MainWindowBridge) {
     this.mainWindow = bridge;
@@ -60,20 +62,8 @@ class WorkspaceWindowManager {
     if (this.prewarmStarted) return;
     this.prewarmStarted = true;
 
-    for (const key of Object.keys(WORKSPACE_WINDOW_DEFINITIONS) as WorkspaceWindowKey[]) {
-      if (this.detachedWindows.has(key) || this.prewarmedWindows.has(key)) {
-        continue;
-      }
-
-      const win = this.createWorkspaceWindow(key, false);
-      this.prewarmedWindows.set(key, win);
-      win.on('closed', () => {
-        if (this.prewarmedWindows.get(key) === win) {
-          this.prewarmedWindows.delete(key);
-        }
-      });
-      this.loadDetachedRouteInBackground(win, key, { prewarm: true });
-    }
+    this.prewarmQueue = Object.keys(WORKSPACE_WINDOW_DEFINITIONS) as WorkspaceWindowKey[];
+    this.prewarmNextWindow();
   }
 
   async returnToMain(key: WorkspaceWindowKey): Promise<WorkspaceDetachedWindowState> {
@@ -267,6 +257,33 @@ class WorkspaceWindowManager {
     if (!this.prewarmStarted || this.detachedWindows.has(key) || this.prewarmedWindows.has(key)) {
       return;
     }
+    this.prewarmQueue.push(key);
+    this.prewarmNextWindow();
+  }
+
+  dispose() {
+    this.prewarmStarted = false;
+    this.prewarmQueue = [];
+    if (this.prewarmTimer) {
+      clearTimeout(this.prewarmTimer);
+      this.prewarmTimer = null;
+    }
+
+    for (const win of this.prewarmedWindows.values()) {
+      if (!win.isDestroyed()) {
+        win.close();
+      }
+    }
+    this.prewarmedWindows.clear();
+  }
+
+  private prewarmNextWindow() {
+    if (!this.prewarmStarted || this.prewarmQueue.length === 0) return;
+    const key = this.prewarmQueue.shift()!;
+    if (this.detachedWindows.has(key) || this.prewarmedWindows.has(key)) {
+      this.schedulePrewarmNext(250);
+      return;
+    }
     const win = this.createWorkspaceWindow(key, false);
     this.prewarmedWindows.set(key, win);
     win.on('closed', () => {
@@ -275,6 +292,19 @@ class WorkspaceWindowManager {
       }
     });
     this.loadDetachedRouteInBackground(win, key, { prewarm: true });
+    // Keep the prewarm pool, but spread hidden window creation across idle time.
+    this.schedulePrewarmNext(900);
+  }
+
+  private schedulePrewarmNext(delayMs: number) {
+    if (!this.prewarmStarted) return;
+    if (this.prewarmTimer) {
+      clearTimeout(this.prewarmTimer);
+    }
+    this.prewarmTimer = setTimeout(() => {
+      this.prewarmTimer = null;
+      this.prewarmNextWindow();
+    }, delayMs);
   }
 
   private showWindow(win: BrowserWindow) {

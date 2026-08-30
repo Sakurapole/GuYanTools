@@ -15,6 +15,7 @@ import { APP_BOTTOM_BAR_REQUIRED_TAB_IDS, APP_INTERNAL_FUNCTIONS, createDefaultA
 import type { BackgroundConfirmPayload } from '@/contracts/background';
 import { resolveThemeBackground, withThemeBackground } from '@/contracts/background';
 import type { FtpWindowsContextMenuStatus } from '@/contracts/ftp';
+import type { AndroidToolchainDownloadProgress, AndroidToolchainStatus } from '@/contracts/android-tools';
 import type { KnowledgeLibrary } from '@/contracts/knowledge';
 import type { MultiDeviceClipboardDeviceStatus } from '@/contracts/multi_device_clipboard';
 import type { InstalledPluginRecord, PluginHostSummary } from '@/contracts/plugin_host';
@@ -102,6 +103,22 @@ const ffmpegPathInput = ref(appConfigStore.config.tools?.ffmpegPath || '');
 const ffmpegStatus = ref<'idle' | 'checking' | 'valid' | 'invalid'>('idle');
 const ffmpegVersion = ref('');
 const ffmpegError = ref('');
+const androidToolchainPathInput = ref(appConfigStore.config.tools?.androidToolchainPath || '');
+const androidToolchainStatus = ref<AndroidToolchainStatus | null>(null);
+const androidToolchainDownloadProgress = ref<AndroidToolchainDownloadProgress>({ phase: 'idle', percent: 0 });
+const androidToolchainDownloadError = ref('');
+const androidToolchainDownloadBusy = ref(false);
+let stopAndroidToolchainDownloadProgress: (() => void) | undefined;
+
+const androidToolchainErrorLabels: Record<string, string> = {
+  ANDROID_PLATFORM_UNSUPPORTED: '当前平台暂不支持自动下载。',
+  ANDROID_TOOLCHAIN_BUSY: '请先停止正在运行的 Android 会话。',
+  ANDROID_DOWNLOAD_TIMEOUT: '下载超时，请检查网络后重试。',
+  ANDROID_DOWNLOAD_TOO_LARGE: '下载文件超过大小限制，已停止下载。',
+  ANDROID_DOWNLOAD_HTTP: '官方资源下载失败，请检查网络后重试。',
+  ANDROID_DOWNLOAD_HASH_MISMATCH: '下载文件校验失败，请重试。',
+  ANDROID_DOWNLOAD_MISSING: '下载包缺少必要文件，请重试或检查发行资源。',
+};
 const pluginConfigDrafts = ref<Record<string, string>>({});
 const pluginConfigErrors = ref<Record<string, string>>({});
 const terminalProfiles = ref<TerminalProfile[]>([]);
@@ -2193,6 +2210,77 @@ async function commitAndVerifyFfmpeg() {
   }
 }
 
+function androidToolchainSourceLabel(source?: AndroidToolchainStatus['source']) {
+  switch (source) {
+    case 'configured': return '自定义路径';
+    case 'managed': return '应用内下载';
+    case 'bundled': return '安装包内置';
+    case 'development': return '开发资源';
+    default: return '未检测';
+  }
+}
+
+function getAndroidToolchainErrorMessage(error: unknown) {
+  const rawMessage = error instanceof Error ? error.message : typeof error === 'string' ? error : '';
+  if (!rawMessage) return '下载失败，请检查网络后重试。';
+  return androidToolchainErrorLabels[rawMessage]
+    ?? Object.entries(androidToolchainErrorLabels).find(([code]) => rawMessage.startsWith(`${code}_`))?.[1]
+    ?? rawMessage;
+}
+
+async function refreshAndroidToolchainStatus() {
+  if (!window.androidApi) return;
+  try {
+    androidToolchainStatus.value = await window.androidApi.getToolchainStatus();
+  } catch (error) {
+    androidToolchainStatus.value = {
+      available: false,
+      platform: 'unknown',
+      architecture: 'unknown',
+      versions: {},
+      errorMessage: error instanceof Error ? error.message : String(error),
+    };
+  }
+}
+
+async function selectAndroidToolchainPath() {
+  const selectedPath = await window.shellApi.selectDirectory('选择 Android 工具链目录');
+  if (!selectedPath) return;
+  androidToolchainPathInput.value = selectedPath;
+  await appConfigStore.updateConfig({ tools: { androidToolchainPath: selectedPath } });
+  await refreshAndroidToolchainStatus();
+}
+
+async function clearAndroidToolchainPath() {
+  androidToolchainPathInput.value = '';
+  await appConfigStore.updateConfig({ tools: { androidToolchainPath: '' } });
+  await refreshAndroidToolchainStatus();
+}
+
+async function downloadAndroidToolchainResources() {
+  if (!window.androidApi || androidToolchainDownloadBusy.value) return;
+  androidToolchainDownloadBusy.value = true;
+  androidToolchainDownloadError.value = '';
+  androidToolchainDownloadProgress.value = { phase: 'downloading', percent: 0 };
+  try {
+    androidToolchainStatus.value = await window.androidApi.downloadToolchain();
+    // The main process selects and persists the managed copy only after the
+    // download has been installed and verified successfully.
+    androidToolchainPathInput.value = '';
+    androidToolchainDownloadProgress.value = { phase: 'completed', percent: 100, current: 'Android 工具链已安装' };
+  } catch (error) {
+    androidToolchainDownloadError.value = getAndroidToolchainErrorMessage(error);
+    androidToolchainDownloadProgress.value = {
+      phase: 'failed',
+      percent: 0,
+      errorMessage: androidToolchainDownloadError.value,
+    };
+    await refreshAndroidToolchainStatus();
+  } finally {
+    androidToolchainDownloadBusy.value = false;
+  }
+}
+
 async function saveGithubToken() {
   if (!canSaveGithubToken.value) return;
 
@@ -2561,12 +2649,29 @@ onMounted(() => {
   globalStore.setTopbarColor('');
   scheduleSettingsTabLoad(settingsStore.activeSettingsTab, settingsStore.activeSettingsTab === 'sync-center');
   stopSyncEventSubscription = syncStore.bindEvents();
+  if (window.androidApi) {
+    stopAndroidToolchainDownloadProgress = window.androidApi.onToolchainDownloadProgress((progress) => {
+      androidToolchainDownloadProgress.value = progress;
+      if (progress.phase === 'failed') {
+        androidToolchainDownloadError.value = getAndroidToolchainErrorMessage(progress.errorMessage);
+      }
+    });
+    void refreshAndroidToolchainStatus();
+    void window.androidApi.getToolchainDownloadStatus().then((progress) => {
+      androidToolchainDownloadProgress.value = progress;
+      if (progress.phase === 'failed') {
+        androidToolchainDownloadError.value = getAndroidToolchainErrorMessage(progress.errorMessage);
+      }
+    });
+  }
   queueSettingsSearchFilter();
 });
 
 onBeforeUnmount(() => {
   stopSyncEventSubscription?.();
   stopSyncEventSubscription = null;
+  stopAndroidToolchainDownloadProgress?.();
+  stopAndroidToolchainDownloadProgress = undefined;
 });
 
 // ─── 网页安全配置 ───
@@ -2962,6 +3067,38 @@ function scriptTypeLabel(type: string) {
                     </div>
                     <div v-else-if="ffmpegStatus === 'invalid'" class="ffmpeg-status ffmpeg-status--invalid">
                       FFmpeg 无效: {{ ffmpegError }}
+                    </div>
+                  </div>
+                </div>
+                <div class="settings-row settings-row--wide">
+                  <div class="settings-row__label">
+                    <span>Android 工具链</span>
+                    <small>可选：选择包含 platform-tools 和 scrcpy 子目录的目录，或直接在应用内下载。</small>
+                  </div>
+                  <div class="settings-row__control settings-row__control--wide">
+                    <div class="ffmpeg-path-row">
+                      <div class="ffmpeg-path-display" :class="{ 'ffmpeg-path-display--empty': !androidToolchainPathInput }">
+                        {{ androidToolchainPathInput || '未配置，将使用应用内置/下载资源' }}
+                      </div>
+                      <UiButton variant="secondary" size="sm" @click="selectAndroidToolchainPath">选择目录</UiButton>
+                      <UiButton v-if="androidToolchainPathInput" variant="danger" size="sm" @click="clearAndroidToolchainPath">清除</UiButton>
+                    </div>
+                    <div v-if="androidToolchainStatus" class="ffmpeg-status" :class="androidToolchainStatus.available ? 'ffmpeg-status--valid' : 'ffmpeg-status--invalid'">
+                      {{ androidToolchainStatus.available ? '工具链可用' : '工具链不可用' }} · {{ androidToolchainSourceLabel(androidToolchainStatus.source) }}
+                      <span v-if="androidToolchainStatus.errorMessage">：{{ androidToolchainStatus.errorMessage }}</span>
+                    </div>
+                    <div v-if="androidToolchainDownloadBusy || androidToolchainDownloadProgress.phase === 'downloading' || androidToolchainDownloadProgress.phase === 'extracting' || androidToolchainDownloadProgress.phase === 'verifying'" class="android-toolchain-download">
+                      <div class="android-toolchain-download__head">
+                        <span>{{ androidToolchainDownloadProgress.current || '正在准备 Android 工具链' }}</span>
+                        <strong>{{ androidToolchainDownloadProgress.percent }}%</strong>
+                      </div>
+                      <div class="android-toolchain-download__bar"><span :style="{ width: `${androidToolchainDownloadProgress.percent}%` }" /></div>
+                    </div>
+                    <div v-if="androidToolchainDownloadError" class="ffmpeg-status ffmpeg-status--invalid">下载失败：{{ androidToolchainDownloadError }}</div>
+                    <div class="settings-path-actions">
+                      <UiButton variant="primary" size="sm" :disabled="androidToolchainDownloadBusy" @click="downloadAndroidToolchainResources">
+                        {{ androidToolchainDownloadBusy ? '下载中…' : '应用内下载并安装' }}
+                      </UiButton>
                     </div>
                   </div>
                 </div>
@@ -6502,6 +6639,43 @@ function scriptTypeLabel(type: string) {
   &--invalid {
     color: var(--ui-danger-color, #f56c6c);
   }
+}
+
+.android-toolchain-download {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 10px;
+  color: var(--ui-text-secondary);
+  font-size: var(--ui-font-size-xs);
+}
+
+.android-toolchain-download__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.android-toolchain-download__bar {
+  height: 6px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: var(--ui-surface-bg-muted);
+}
+
+.android-toolchain-download__bar span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--primary-color);
+  transition: width 0.2s ease;
+}
+
+.settings-path-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 10px;
 }
 
 .update-summary-grid {

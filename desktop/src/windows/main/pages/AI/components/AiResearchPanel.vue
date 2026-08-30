@@ -161,7 +161,7 @@ function statusIcon(job: AiResearchJob) {
       <div class="ai-research-panel__controls">
         <UiSelect v-model="webMode" size="sm" :options="sourceModeOptions" placeholder="Web" />
         <UiSelect v-model="knowledgeMode" size="sm" :options="sourceModeOptions" placeholder="知识库" />
-        <UiInput v-model="maxSources" size="sm" type="number" min="3" max="24" placeholder="来源数" />
+        <UiInput v-model="maxSources" size="sm" type="number" :min="3" :max="24" placeholder="来源数" />
         <UiButton variant="primary" :disabled="!canStart" @click="startResearch">
           <template #prefix>
             <IconRenderer icon="iconify:lucide:search-check" :size="14" />

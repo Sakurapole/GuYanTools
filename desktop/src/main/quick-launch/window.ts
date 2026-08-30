@@ -151,7 +151,9 @@ export function toggleQuickLaunchWindow() {
     return;
   }
 
-  void showQuickLaunchWindow();
+  void showQuickLaunchWindow().catch((error) => {
+    console.warn('[quick-launch] Failed to show quick launch window:', error);
+  });
 }
 
 export function setQuickLaunchGameMode(enabled: boolean) {

@@ -1,5 +1,5 @@
 <script lang="ts" setup>
-import { computed, useAttrs } from 'vue';
+import { useAttrs } from 'vue';
 import UiCard from './UiCard.vue';
 import UiPopupSurface from './UiPopupSurface.vue';
 
@@ -38,18 +38,6 @@ const emit = defineEmits<{
 
 const attrs = useAttrs();
 
-function normalizeSize(value: string | number | undefined) {
-  if (value === '' || value === undefined) {
-    return undefined;
-  }
-
-  return typeof value === 'number' ? `${value}px` : value;
-}
-
-const dialogShellStyle = computed(() => ({
-  width: normalizeSize(props.width),
-  maxWidth: normalizeSize(props.maxWidth),
-}));
 </script>
 
 <template>
@@ -58,7 +46,8 @@ const dialogShellStyle = computed(() => ({
     variant="dialog"
     placement="center"
     panel-class="ui-dialog-shell"
-    :panel-style="dialogShellStyle"
+    :width="props.width"
+    :max-width="props.maxWidth"
     :close-on-mask="closeOnMask"
     :close-on-esc="closeOnEsc"
     :persistent="persistent"

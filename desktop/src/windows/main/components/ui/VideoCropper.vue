@@ -4,6 +4,7 @@ import type { CompressQuality } from '@/contracts/media';
 import UiButton from './UiButton.vue';
 import UiDialog from './UiDialog.vue';
 import UiIconButton from './UiIconButton.vue';
+import { formatMediaBytes, MAX_INLINE_VIDEO_BYTES } from '../../utils/inlineMedia';
 
 const props = withDefaults(defineProps<{
   visible: boolean;
@@ -23,6 +24,7 @@ const props = withDefaults(defineProps<{
 const emit = defineEmits<{
   close: [];
   confirm: [videoDataUrl: string];
+  error: [message: string];
 }>();
 
 const cropperContainer = ref<HTMLElement | null>(null);
@@ -43,6 +45,29 @@ const videoNaturalSize = ref({ width: 0, height: 0 });
 const isProcessing = ref(false);
 const processingProgress = ref(0);
 const needsCrop = ref(false);
+
+function emitVideoBlob(blob: Blob) {
+  if (blob.size > MAX_INLINE_VIDEO_BYTES) {
+    isProcessing.value = false;
+    emit(
+      'error',
+      `处理后的视频为 ${formatMediaBytes(blob.size)}，首页媒体不能超过 ${formatMediaBytes(MAX_INLINE_VIDEO_BYTES)}。`,
+    );
+    return;
+  }
+
+  const reader = new FileReader();
+  reader.onload = () => {
+    isProcessing.value = false;
+    processingProgress.value = 100;
+    emit('confirm', reader.result as string);
+  };
+  reader.onerror = () => {
+    isProcessing.value = false;
+    emit('error', '读取处理后的视频失败。');
+  };
+  reader.readAsDataURL(blob);
+}
 
 const targetAspect = computed(() => {
   if (props.targetWidth > 0 && props.targetHeight > 0) {
@@ -218,7 +243,12 @@ async function processCrop() {
   if (!videoElement.value || !canvas.value) return;
 
   if (!needsCrop.value && props.processingMode !== 'ffmpeg') {
-    emit('confirm', props.videoUrl);
+    try {
+      const response = await fetch(props.videoUrl);
+      emitVideoBlob(await response.blob());
+    } catch {
+      emit('error', '读取视频文件失败。');
+    }
     return;
   }
 
@@ -258,13 +288,7 @@ async function processCrop() {
       // 读取输出文件转为 data URL（短视频）
       const response = await fetch(`file://${outputPath}`);
       const blob = await response.blob();
-      const reader = new FileReader();
-      reader.onload = () => {
-        isProcessing.value = false;
-        processingProgress.value = 100;
-        emit('confirm', reader.result as string);
-      };
-      reader.readAsDataURL(blob);
+      emitVideoBlob(blob);
     } catch (error) {
       console.error('FFmpeg 视频压缩失败，回退到浏览器处理:', error);
       isProcessing.value = false;
@@ -338,14 +362,7 @@ async function processCropBrowser() {
 
   const blob = await recordingDone;
   cancelAnimationFrame(animId!);
-
-  const reader = new FileReader();
-  reader.onload = () => {
-    isProcessing.value = false;
-    processingProgress.value = 100;
-    emit('confirm', reader.result as string);
-  };
-  reader.readAsDataURL(blob);
+  emitVideoBlob(blob);
 }
 
 watch(() => props.visible, (visible) => {

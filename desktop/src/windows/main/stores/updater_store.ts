@@ -68,6 +68,12 @@ export const useUpdaterStore = defineStore('updater', () => {
     }
 
     initialized.value = true;
+    if (!window.updateApi) {
+      // Keep the renderer mountable when a stale development window briefly
+      // starts before its preload bundle has been rebuilt.
+      return;
+    }
+
     removeListener = window.updateApi.onEvent((payload) => {
       applyInfo(payload);
       isBusy.value = payload.status === 'checking' || payload.status === 'downloading';

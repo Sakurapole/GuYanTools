@@ -293,6 +293,9 @@
 [data-gt-overlay="menu"] [part="body"]::-webkit-scrollbar { display: none; width: 0; height: 0; }
 [data-gt-overlay="popup"] [part="mask"] { position: absolute; inset: 0; background: var(--ui-dialog-overlay, var(--gt-color-overlay)); backdrop-filter: var(--ui-backdrop-blur-sm, none); -webkit-backdrop-filter: var(--ui-backdrop-blur-sm, none); }
 
+[data-gt-overlay="popup"][data-variant="dialog"] [part="mask"] { animation: gt-dialog-mask-in 180ms var(--gt-motion-ease, ease-out) both; }
+[data-gt-overlay="popup"][data-variant="dialog"] [part="panel"] { animation: gt-dialog-panel-in 220ms var(--gt-motion-ease, ease-out) both; }
+
 @keyframes gt-popup-fade-in { from { opacity: 0; transform: translateY(-4px) scale(.98); } to { opacity: 1; transform: translateY(0) scale(1); } }
 
 [data-gt-overlay="select"][data-animation="fade"] [part="panel"] { animation: gt-select-fade-in 160ms var(--gt-motion-ease, ease-out) both; }
@@ -336,7 +339,9 @@
 
 @media (prefers-reduced-motion: reduce) {
   [data-gt-overlay="dialog"] [part="mask"],
-  [data-gt-overlay="dialog"] [part="panel"] {
+  [data-gt-overlay="dialog"] [part="panel"],
+  [data-gt-overlay="popup"][data-variant="dialog"] [part="mask"],
+  [data-gt-overlay="popup"][data-variant="dialog"] [part="panel"] {
     animation: none;
   }
 }

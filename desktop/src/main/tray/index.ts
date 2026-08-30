@@ -46,7 +46,9 @@ export function initializeTray(getWindow: () => BrowserWindow | null) {
   // Show custom context menu popup next to the tray icon on right-click.
   // `bounds` contains the screen-coordinate rectangle of the tray icon.
   tray.on('right-click', (_event, bounds) => {
-    void showTrayMenu(bounds);
+    void showTrayMenu(bounds).catch((error) => {
+      console.warn('[tray] Failed to show tray menu:', error);
+    });
   });
 }
 

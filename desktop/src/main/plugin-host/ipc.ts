@@ -262,7 +262,9 @@ export function registerPluginHostIpcHandlers(getMainWindow: () => BrowserWindow
   ipcMain.on('plugin-host:navigate-complete', () => {
     const mainWindow = getMainWindow();
     if (mainWindow) {
-      void pluginHost.unmountPage();
+      void pluginHost.unmountPage().catch((error) => {
+        pluginHost.getHostServices().observability.error('Plugin page cleanup failed', error);
+      });
     }
   });
 

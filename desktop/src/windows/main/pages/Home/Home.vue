@@ -121,6 +121,7 @@ let sidebarResizeObserver: ResizeObserver | null = null;
 
 const {
   loadHomeLayout,
+  loadHomeCategory,
   createCategory,
   persistLayout,
   deleteWidget,
@@ -129,11 +130,22 @@ const {
   migrateLegacyLayoutIfNeeded,
 } = useGridPersistence(STORAGE_KEY);
 
+const loadedCategoryIds = new Set<string>();
+const categoryLoadPromises = new Map<string, Promise<CategoryItem>>();
+let categorySwitchRequest = 0;
+let layoutGeneration = 0;
+
 const showCategoryBgPicker = ref(false);
 const contextMenu = useContextMenu();
 const homeProfileStore = useHomeProfileStore();
 const appConfigStore = useAppConfigStore();
 let profileReloadReady = false;
+const homeInitStartedAt = typeof performance !== 'undefined' ? performance.now() : Date.now();
+
+function reportHomeInit(label: string) {
+  const elapsedMs = (typeof performance !== 'undefined' ? performance.now() : Date.now()) - homeInitStartedAt;
+  window.ipcRenderer?.send('diagnostics:renderer-timing', { label, elapsedMs });
+}
 
 function getMeasuredSize(target: HTMLElement | { $el?: Element } | null, fallback: { width: number; height: number }) {
   const element = target instanceof HTMLElement
@@ -403,10 +415,67 @@ function applyCategories(nextCategories: CategoryItem[], options: { resetActive?
   });
 }
 
+function scheduleCategoryHydration(categoryId: string) {
+  const hydrate = () => {
+    void ensureCategoryLoaded(categoryId).catch((error) => {
+      console.warn(`[Home] Failed to hydrate category ${categoryId} background:`, error);
+    });
+  };
+
+  // 让首页先完成首帧和交互绑定，再读取当前分类可能包含的媒体字段。
+  if (typeof window.requestIdleCallback === 'function') {
+    window.requestIdleCallback(hydrate, { timeout: 1200 });
+  } else {
+    window.setTimeout(hydrate, 0);
+  }
+}
+
 async function reloadHomeLayout(options: { resetActive?: boolean } = {}) {
+  categorySwitchRequest += 1;
+  layoutGeneration += 1;
+  loadedCategoryIds.clear();
+  categoryLoadPromises.clear();
   const nextCategories = await loadHomeLayout();
   applyCategories(nextCategories, options);
+  const active = categories[activeCategoryIndex.value];
+  if (active) {
+    // 首屏只依赖布局元数据。完整分类可能包含较大的背景媒体，放到浏览器
+    // 空闲时段再补齐，避免首帧后的 IPC 返回和响应式替换占用交互时间。
+    scheduleCategoryHydration(active.id);
+  }
   loadError.value = '';
+}
+
+async function ensureCategoryLoaded(categoryId: string): Promise<CategoryItem> {
+  const generation = layoutGeneration;
+  const existing = categories.find(category => category.id === categoryId);
+  if (!existing) {
+    throw new Error(`首页分类 ${categoryId} 不存在`);
+  }
+
+  if (loadedCategoryIds.has(categoryId)) {
+    return existing;
+  }
+
+  let request = categoryLoadPromises.get(categoryId);
+  if (!request) {
+    request = loadHomeCategory(categoryId);
+    categoryLoadPromises.set(categoryId, request);
+  }
+
+  try {
+    const loaded = await request;
+    const currentIndex = categories.findIndex(category => category.id === categoryId);
+    if (generation === layoutGeneration && currentIndex >= 0) {
+      categories[currentIndex] = loaded;
+      loadedCategoryIds.add(categoryId);
+    }
+    return loaded;
+  } finally {
+    if (categoryLoadPromises.get(categoryId) === request) {
+      categoryLoadPromises.delete(categoryId);
+    }
+  }
 }
 
 function enqueueMutation(task: () => Promise<void>) {
@@ -496,15 +565,20 @@ async function loadWorkspaceBackgrounds() {
 async function initializeHomeLayout(options: { resetActive?: boolean } = {}) {
   isLoading.value = true;
   loadError.value = '';
+  reportHomeInit('start');
 
   try {
     await loadWorkspaceBackgrounds();
+    reportHomeInit('workspace-backgrounds');
     await reloadHomeLayout({ resetActive: options.resetActive });
+    reportHomeInit('layout-metadata');
     const migrated = homeProfileStore.activeProfileKey === 'default'
       ? await migrateLegacyLayoutIfNeeded()
       : false;
+    reportHomeInit(migrated ? 'legacy-migrated' : 'legacy-skipped');
     if (migrated) {
       await reloadHomeLayout({ resetActive: options.resetActive });
+      reportHomeInit('layout-after-migration');
     }
   } catch (error) {
     console.error('Failed to initialize home layout:', error);
@@ -512,15 +586,34 @@ async function initializeHomeLayout(options: { resetActive?: boolean } = {}) {
     notifyError(error, '首页布局加载失败');
   } finally {
     isLoading.value = false;
+    reportHomeInit('ready');
   }
 }
 
-function switchCategory(index: number) {
+async function switchCategory(index: number) {
   if (categories.length === 0 || index === activeCategoryIndex.value || index < 0 || index >= categories.length) {
     return;
   }
 
   if (isTransitioning.value) {
+    return;
+  }
+
+  const categoryId = categories[index]?.id;
+  if (!categoryId) {
+    return;
+  }
+
+  const requestId = ++categorySwitchRequest;
+  try {
+    await ensureCategoryLoaded(categoryId);
+  } catch (error) {
+    console.error(`Failed to load home category ${categoryId}:`, error);
+    notifyError(error, '首页分类加载失败');
+    return;
+  }
+
+  if (requestId !== categorySwitchRequest || categories[index]?.id !== categoryId) {
     return;
   }
 
@@ -649,6 +742,7 @@ function confirmAddCategory() {
 
   const wasEmpty = categories.length === 0;
   categories.push(newCategory);
+  loadedCategoryIds.add(newCategory.id);
   closeAddCategoryDialog();
   if (wasEmpty) {
     resetCategorySelection(true);
@@ -772,6 +866,7 @@ onMounted(() => {
   void (async () => {
     try {
       await homeProfileStore.loadProfiles();
+      reportHomeInit('profiles');
     } catch (error) {
       console.warn('[Home] 首页配置文件初始化失败，继续尝试加载默认布局:', error);
       notifyError(error, '首页配置文件加载失败');

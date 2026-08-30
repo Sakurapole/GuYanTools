@@ -35,6 +35,7 @@ describe('Stencil style contract', () => {
 
     expect(overlay).toContain('animation: gt-dialog-mask-in');
     expect(overlay).toContain('animation: gt-dialog-panel-in');
+    expect(overlay).toContain('[data-gt-overlay="popup"][data-variant="dialog"] [part="panel"]');
     expect(overlay).toContain('@media (prefers-reduced-motion: reduce)');
   });
 

@@ -1,6 +1,7 @@
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { mount } from '@vue/test-utils';
+import { nextTick } from 'vue';
 import { describe, expect, it, vi } from 'vitest';
 import UiCard from './UiCard.vue';
 import UiDialog from './UiDialog.vue';
@@ -30,6 +31,23 @@ describe('legacy desktop UI DOM compatibility', () => {
     expect(warn).not.toHaveBeenCalled();
     dialog.unmount();
     warn.mockRestore();
+  });
+
+  it('forwards legacy dialog dimensions to the body-level panel', async () => {
+    const dialog = mount(UiDialog, {
+      props: { modelValue: true, width: '420px', maxWidth: '420px' },
+      attachTo: document.body,
+      slots: { default: '内容' },
+    });
+
+    await nextTick();
+    await new Promise<void>(resolve => setTimeout(resolve, 0));
+
+    const panel = document.body.querySelector<HTMLElement>('[data-gt-overlay="popup"] [part="panel"]');
+    expect(panel?.style.width).toBe('420px');
+    expect(panel?.style.maxWidth).toBe('420px');
+
+    dialog.unmount();
   });
 
   it('keeps Select as a Stencil-backed compatibility adapter', () => {

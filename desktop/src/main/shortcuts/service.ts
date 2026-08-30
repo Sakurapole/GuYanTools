@@ -171,7 +171,9 @@ class ShortcutService {
         captureScreenshotRegion,
         captureScreenshotAnnotate,
         openWorkspaceDetachedWindow,
-      );
+      ).catch((error) => {
+        console.warn('[ShortcutService] Failed to refresh shortcuts:', error);
+      });
     });
     this.initialized = true;
   }

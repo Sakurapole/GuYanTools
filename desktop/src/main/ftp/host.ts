@@ -422,7 +422,9 @@ class FtpHost {
     });
     if (cleanupOnClose) {
       child.on('exit', () => {
-        void this.disposeExternalDraft(tempPath, true);
+        void this.disposeExternalDraft(tempPath, true).catch((error) => {
+          console.warn('[FtpHost] Failed to clean up external editor draft:', error);
+        });
       });
     }
     child.unref();

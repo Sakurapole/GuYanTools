@@ -16,6 +16,66 @@ function serializeBackground(bg: HomeWorkspaceBackground): string {
   return JSON.stringify(bg);
 }
 
+const MAX_INLINE_MEDIA_BYTES = 4 * 1024 * 1024;
+
+function isOversizedInlineMedia(value: unknown): value is string {
+  if (typeof value !== 'string' || (!value.startsWith('data:image/') && !value.startsWith('data:video/'))) {
+    return false;
+  }
+
+  const payload = value.split(',', 2)[1]?.replace(/\s/g, '') ?? '';
+  const padding = payload.endsWith('==') ? 2 : payload.endsWith('=') ? 1 : 0;
+  const estimatedBytes = Math.max(0, Math.floor((payload.length * 3) / 4) - padding);
+  return estimatedBytes > MAX_INLINE_MEDIA_BYTES;
+}
+
+function hasOversizedInlineMedia(value: unknown): boolean {
+  if (isOversizedInlineMedia(value)) {
+    return true;
+  }
+  if (Array.isArray(value)) {
+    return value.some(hasOversizedInlineMedia);
+  }
+  if (value && typeof value === 'object') {
+    return Object.values(value as Record<string, unknown>).some(hasOversizedInlineMedia);
+  }
+  return false;
+}
+
+function assertInlineMediaSize(background: HomeWorkspaceBackground | undefined) {
+  if (hasOversizedInlineMedia(background)) {
+    throw new Error('内嵌媒体不能超过 4 MiB，请选择较小的文件或使用外部文件 URL');
+  }
+}
+
+function sanitizeInlineMedia(value: unknown): unknown {
+  if (isOversizedInlineMedia(value)) {
+    return undefined;
+  }
+  if (Array.isArray(value)) {
+    return value.map(sanitizeInlineMedia).filter((item) => item !== undefined);
+  }
+  if (value && typeof value === 'object') {
+    const result: Record<string, unknown> = {};
+    for (const [key, child] of Object.entries(value as Record<string, unknown>)) {
+      const sanitized = sanitizeInlineMedia(child);
+      if (sanitized !== undefined) {
+        result[key] = sanitized;
+      }
+    }
+    return result;
+  }
+  return value;
+}
+
+function sanitizeBackground(background: HomeWorkspaceBackground): HomeWorkspaceBackground {
+  const sanitized = sanitizeInlineMedia(background);
+  if (!sanitized || typeof sanitized !== 'object' || Array.isArray(sanitized)) {
+    return {};
+  }
+  return sanitized as HomeWorkspaceBackground;
+}
+
 export function registerHomeWorkspaceIpcHandlers() {
   /**
    * 获取首页工作区背景（顶栏 + 侧边栏）
@@ -31,10 +91,9 @@ export function registerHomeWorkspaceIpcHandlers() {
 
     try {
       const parsed = JSON.parse(raw) as { header?: string | null; sidebar?: string | null };
-      return {
-        header: parseBackground(parsed.header),
-        sidebar: parseBackground(parsed.sidebar),
-      } satisfies HomeWorkspaceBgState;
+      const header = sanitizeBackground(parseBackground(parsed.header));
+      const sidebar = sanitizeBackground(parseBackground(parsed.sidebar));
+      return { header, sidebar } satisfies HomeWorkspaceBgState;
     } catch {
       return { header: {}, sidebar: {} } satisfies HomeWorkspaceBgState;
     }
@@ -66,6 +125,9 @@ export function registerHomeWorkspaceIpcHandlers() {
 
       const nextHeader = payload.header !== undefined ? payload.header : currentHeader;
       const nextSidebar = payload.sidebar !== undefined ? payload.sidebar : currentSidebar;
+
+      assertInlineMediaSize(nextHeader);
+      assertInlineMediaSize(nextSidebar);
 
       await db.updateHomeWorkspaceBackground(
         workspaceKey,

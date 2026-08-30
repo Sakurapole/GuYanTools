@@ -1,7 +1,6 @@
 <script lang="ts" setup>
-import { ref, watch, onBeforeUnmount, nextTick, computed } from 'vue';
-import { useRouter } from 'vue-router';
-import { getSnapshot, capturePageSnapshot, isSnapshotCapturing } from '@/windows/main/composables/useTabSnapshot';
+import { ref, watch, onBeforeUnmount, nextTick } from 'vue';
+import { getSnapshot } from '@/windows/main/composables/useTabSnapshot';
 
 const props = withDefaults(defineProps<{
   visible: boolean;
@@ -18,7 +17,6 @@ const emit = defineEmits<{
   mouseleave: [];
 }>();
 
-const router = useRouter();
 const previewRef = ref<HTMLElement | null>(null);
 const pos = ref({ x: 0, y: 0 });
 const localSnapshotUrl = ref<string | null>(null);
@@ -44,28 +42,11 @@ function updatePosition() {
 }
 
 async function loadSnapshot() {
-  const currentPath = router.currentRoute.value.path;
-  const isActiveTab = props.tabUrl === currentPath;
-
-  // 先尝试从缓存获取
-  const cached = getSnapshot(props.tabUrl);
-
-  if (isActiveTab) {
-    // 当前活跃的 Tab → 截新鲜的
-    isCapturing.value = true;
-    try {
-      await capturePageSnapshot(currentPath);
-      localSnapshotUrl.value = getSnapshot(props.tabUrl);
-    } finally {
-      isCapturing.value = false;
-    }
-  } else if (cached) {
-    // 非活跃 Tab 且有缓存 → 直接用
-    localSnapshotUrl.value = cached;
-  } else {
-    // 没有缓存
-    localSnapshotUrl.value = null;
-  }
+  // 预览不能在鼠标悬停期间对当前页面做 html2canvas 截图。
+  // html2canvas 会遍历整个页面并占用 renderer 主线程，首页含有背景媒体和多个
+  // widget 时尤其明显，容易把路由切换后的页面再次卡住。快照只使用已有缓存。
+  localSnapshotUrl.value = getSnapshot(props.tabUrl);
+  isCapturing.value = false;
 }
 
 watch(() => props.visible, async (v) => {
@@ -76,7 +57,7 @@ watch(() => props.visible, async (v) => {
   }
 });
 
-// 预览已显示时，切换到不同 Tab → 更新位置和截图
+// 预览已显示时，切换到不同 Tab → 更新位置和读取缓存
 watch(() => props.triggerRect, () => {
   if (props.visible) {
     updatePosition();

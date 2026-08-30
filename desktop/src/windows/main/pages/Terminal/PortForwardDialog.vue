@@ -357,7 +357,7 @@ async function save() {
                 <div class="pfd-field">
                   <label class="pfd-label">端口 <span class="pfd-required">*</span></label>
                   <UiInput :model-value="String(form.localPort)" class="pfd-input" size="sm" type="number"
-                    min="1" max="65535" placeholder="8080" id="pf-local-port"
+                    :min="1" :max="65535" placeholder="8080" id="pf-local-port"
                     @update:modelValue="updateNumberField('localPort', $event)" />
                 </div>
               </div>
@@ -374,7 +374,7 @@ async function save() {
                 <div class="pfd-field">
                   <label class="pfd-label">端口 <span class="pfd-required">*</span></label>
                   <UiInput :model-value="String(form.remotePort)" class="pfd-input" size="sm" type="number"
-                    min="1" max="65535" placeholder="3306" id="pf-remote-port"
+                    :min="1" :max="65535" placeholder="3306" id="pf-remote-port"
                     @update:modelValue="updateNumberField('remotePort', $event)" />
                 </div>
               </div>

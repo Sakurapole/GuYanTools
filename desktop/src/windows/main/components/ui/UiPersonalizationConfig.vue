@@ -11,6 +11,14 @@ import UiSelect from './UiSelect.vue';
 import UiTabs from './UiTabs.vue';
 import IconRenderer from './IconRenderer.vue';
 import { buildBackgroundTextVars } from '../../utils/backgroundTextColor';
+import { notifyWarning } from '../../composables/useInAppNotification';
+import {
+  formatMediaBytes,
+  isInlineVideoWithinLimit,
+  MAX_INLINE_VIDEO_BYTES,
+  saveHomeLayoutMediaDataUrl,
+  saveHomeLayoutMediaFile,
+} from '../../utils/inlineMedia';
 
 const props = withDefaults(defineProps<{
   visible: boolean;
@@ -590,12 +598,12 @@ function handleImageChange(event: Event) {
   if (!file) return;
 
   const reader = new FileReader();
-  reader.onload = (e) => {
+  reader.onload = async (e) => {
     originalImage.value = e.target?.result as string;
     if (bgFitMode.value === 'crop') {
       showCropper.value = true;
     } else {
-      selectedImage.value = originalImage.value;
+      selectedImage.value = (await saveHomeLayoutMediaDataUrl(originalImage.value, file.name))?.url || originalImage.value;
       originalImage.value = '';
       if (imageInput.value) imageInput.value.value = '';
     }
@@ -609,8 +617,8 @@ function handleCropperClose() {
   if (imageInput.value) imageInput.value.value = '';
 }
 
-function handleCropperConfirm(croppedImage: string) {
-  selectedImage.value = croppedImage;
+async function handleCropperConfirm(croppedImage: string) {
+  selectedImage.value = (await saveHomeLayoutMediaDataUrl(croppedImage, 'background-image.jpg'))?.url || croppedImage;
   showCropper.value = false;
   originalImage.value = '';
 }
@@ -624,18 +632,22 @@ function handleVideoSelect() {
   videoInput.value?.click();
 }
 
-function handleVideoChange(event: Event) {
+async function handleVideoChange(event: Event) {
   const target = event.target as HTMLInputElement;
   const file = target.files?.[0];
   if (!file) return;
 
   if (bgFitMode.value === 'style') {
-    const reader = new FileReader();
-    reader.onload = (e) => {
-      selectedVideo.value = e.target?.result as string;
-      if (videoInput.value) videoInput.value.value = '';
-    };
-    reader.readAsDataURL(file);
+    if (file.size > MAX_INLINE_VIDEO_BYTES) {
+      notifyWarning(
+        `视频文件为 ${formatMediaBytes(file.size)}，首页媒体不能超过 ${formatMediaBytes(MAX_INLINE_VIDEO_BYTES)}。`,
+        '视频文件过大',
+      );
+      target.value = '';
+      return;
+    }
+    selectedVideo.value = (await saveHomeLayoutMediaFile(file))?.url || '';
+    if (videoInput.value) videoInput.value.value = '';
     return;
   }
 
@@ -656,14 +668,27 @@ function handleVideoCropperClose() {
   if (videoInput.value) videoInput.value.value = '';
 }
 
-function handleVideoCropperConfirm(videoDataUrl: string) {
-  selectedVideo.value = videoDataUrl;
+async function handleVideoCropperConfirm(videoDataUrl: string) {
+  if (!isInlineVideoWithinLimit(videoDataUrl)) {
+    notifyWarning(
+      `处理后的视频超过 ${formatMediaBytes(MAX_INLINE_VIDEO_BYTES)}，未保存到首页配置。`,
+      '视频文件过大',
+    );
+    handleVideoCropperClose();
+    return;
+  }
+  selectedVideo.value = (await saveHomeLayoutMediaDataUrl(videoDataUrl, 'background-video.webm'))?.url || videoDataUrl;
   showVideoCropper.value = false;
   if (originalVideoUrl.value) {
     URL.revokeObjectURL(originalVideoUrl.value);
     originalVideoUrl.value = '';
   }
   originalVideoFilePath.value = '';
+}
+
+function handleVideoCropperError(message: string) {
+  notifyWarning(message, '视频处理失败');
+  handleVideoCropperClose();
 }
 
 function handleClearVideo() {
@@ -674,6 +699,13 @@ function handleClearVideo() {
 function handleConfirm() {
   if (!enabledFeatureSet.value.has(activeTab.value)) {
     activeTab.value = (personalizationTabs.value[0]?.key as BackgroundTab | undefined) ?? 'color';
+  }
+  if (activeTab.value === 'video' && !isInlineVideoWithinLimit(selectedVideo.value)) {
+    notifyWarning(
+      `视频超过 ${formatMediaBytes(MAX_INLINE_VIDEO_BYTES)}，未保存到首页配置。`,
+      '视频文件过大',
+    );
+    return;
   }
   const usesCropMode = bgFitMode.value === 'crop' && activeTab.value !== 'color';
   const textColor = selectedTextColor.value.trim() || undefined;
@@ -1083,7 +1115,8 @@ watch(() => props.visible, (visible) => {
       :target-width="targetPreviewSize.width" :target-height="targetPreviewSize.height"
       :processing-mode="videoProcessMode" :quality="compressQuality"
       @close="handleVideoCropperClose"
-      @confirm="handleVideoCropperConfirm" />
+      @confirm="handleVideoCropperConfirm"
+      @error="handleVideoCropperError" />
   </UiDialog>
 </template>
 

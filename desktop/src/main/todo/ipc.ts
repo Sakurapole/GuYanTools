@@ -27,6 +27,8 @@ const TODO_BACKGROUND_TARGETS: TodoBackgroundTarget[] = [
   'item',
   'sidebar-item',
 ];
+const MAX_INLINE_MEDIA_BYTES = 4 * 1024 * 1024;
+const MAX_BACKGROUND_STATE_BYTES = 4 * 1024 * 1024;
 
 /** 确保系统默认列表在数据库中存在。如果已存在则跳过。 */
 async function ensureSystemDefaultList(db: JsDatabase) {
@@ -61,11 +63,18 @@ async function setTodoSettingValue(database: TodoSettingsDatabase, key: string, 
 function parseTodoBackgroundState(raw: string | null | undefined): TodoBackgroundState {
   if (!raw) return {};
 
+  // Do not parse an unbounded JSON blob on the main process event loop. A
+  // previous version allowed a single data URL to grow to tens of megabytes.
+  if (raw.length > MAX_BACKGROUND_STATE_BYTES) return {};
+
   try {
     const parsed = JSON.parse(raw);
     if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) return {};
 
-    const record = parsed as Record<string, unknown>;
+    const sanitized = sanitizeInlineMedia(parsed);
+    if (!sanitized || typeof sanitized !== 'object' || Array.isArray(sanitized)) return {};
+
+    const record = sanitized as Record<string, unknown>;
     const state: TodoBackgroundState = {};
     for (const target of TODO_BACKGROUND_TARGETS) {
       const value = record[target];
@@ -83,6 +92,41 @@ function parseTodoBackgroundState(raw: string | null | undefined): TodoBackgroun
   } catch {
     return {};
   }
+}
+
+function isOversizedInlineMedia(value: unknown): value is string {
+  if (typeof value !== 'string' || (!value.startsWith('data:image/') && !value.startsWith('data:video/'))) {
+    return false;
+  }
+
+  const commaIndex = value.indexOf(',');
+  if (commaIndex < 0) return false;
+  const payloadLength = value.length - commaIndex - 1;
+  const padding = value.endsWith('==') ? 2 : value.endsWith('=') ? 1 : 0;
+  const estimatedBytes = Math.max(0, Math.floor((payloadLength * 3) / 4) - padding);
+  return estimatedBytes > MAX_INLINE_MEDIA_BYTES;
+}
+
+function sanitizeInlineMedia(value: unknown): unknown {
+  if (isOversizedInlineMedia(value)) return undefined;
+  if (Array.isArray(value)) {
+    return value.map(sanitizeInlineMedia).filter((item) => item !== undefined);
+  }
+  if (value && typeof value === 'object') {
+    const result: Record<string, unknown> = {};
+    for (const [key, child] of Object.entries(value as Record<string, unknown>)) {
+      const sanitized = sanitizeInlineMedia(child);
+      if (sanitized !== undefined) result[key] = sanitized;
+    }
+    return result;
+  }
+  return value;
+}
+
+function sanitizeTodoBackgroundState(state: TodoBackgroundState): TodoBackgroundState {
+  const sanitized = sanitizeInlineMedia(state);
+  if (!sanitized || typeof sanitized !== 'object' || Array.isArray(sanitized)) return {};
+  return sanitized as TodoBackgroundState;
 }
 
 function mergeTodoBackgroundState(
@@ -283,15 +327,22 @@ export function registerTodoIpcHandlers() {
   // ==================== 个性化背景 ====================
 
   ipcMain.handle('todo:get-backgrounds', async () => {
-    const raw = await getTodoSettingValue(db() as TodoSettingsDatabase, TODO_BACKGROUND_SETTING_KEY);
-    return parseTodoBackgroundState(raw);
+    const database = db() as TodoSettingsDatabase;
+    const raw = await getTodoSettingValue(database, TODO_BACKGROUND_SETTING_KEY);
+    const state = parseTodoBackgroundState(raw);
+    if (raw && (raw.length > MAX_BACKGROUND_STATE_BYTES || JSON.stringify(state).length < raw.length)) {
+      // Repair legacy rows after returning a bounded response so the first
+      // page render does not wait for a large SQLite write.
+      void setTodoSettingValue(database, TODO_BACKGROUND_SETTING_KEY, JSON.stringify(state)).catch((): void => undefined);
+    }
+    return state;
   });
 
   ipcMain.handle('todo:update-backgrounds', async (_event, payload: TodoBackgroundState) => {
     const database = db() as TodoSettingsDatabase;
     const raw = await getTodoSettingValue(database, TODO_BACKGROUND_SETTING_KEY);
     const current = parseTodoBackgroundState(raw);
-    const next = mergeTodoBackgroundState(current, payload ?? {});
+    const next = sanitizeTodoBackgroundState(mergeTodoBackgroundState(current, payload ?? {}));
     await setTodoSettingValue(database, TODO_BACKGROUND_SETTING_KEY, JSON.stringify(next));
     return next;
   });

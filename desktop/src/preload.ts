@@ -7,6 +7,7 @@ import type {
   ImportHomeLayoutPayload,
   UpdateHomeCategoryPayload,
   UpdateHomeWidgetPayload,
+  HomeLayoutMediaPayload,
 } from '@/contracts/home_layout';
 import type { AppConfigApi } from '@/contracts/app_config';
 import type { SyncApi, SyncEvent } from '@/contracts/sync';
@@ -44,7 +45,7 @@ import type {
   ResizeTerminalSessionPayload,
   TerminalEventEnvelope,
 } from '@/contracts/terminal';
-import type { AndroidToolsApi, AndroidDeviceEvent, AndroidSessionEvent } from '@/contracts/android-tools';
+import type { AndroidToolsApi, AndroidDeviceEvent, AndroidSessionEvent, AndroidToolchainDownloadProgress } from '@/contracts/android-tools';
 import type {
   SshApi,
   ConnectSshInput,
@@ -85,6 +86,8 @@ contextBridge.exposeInMainWorld('ipcRenderer', {
 
 contextBridge.exposeInMainWorld('homeLayoutApi', {
   getHomeLayout: () => ipcRenderer.invoke('home-layout:get'),
+  getHomeCategoryLayout: (categoryId: string) =>
+    ipcRenderer.invoke('home-layout:get-category', categoryId),
   createCategory: (input: CreateHomeCategoryPayload) =>
     ipcRenderer.invoke('home-layout:create-category', input),
   updateCategory: (categoryId: string, input: UpdateHomeCategoryPayload) =>
@@ -99,6 +102,7 @@ contextBridge.exposeInMainWorld('homeLayoutApi', {
     ipcRenderer.invoke('home-layout:delete-widget', widgetId),
   importLegacyLayout: (input: ImportHomeLayoutPayload) =>
     ipcRenderer.invoke('home-layout:import-layout', input),
+  saveMedia: (input: HomeLayoutMediaPayload) => ipcRenderer.invoke('home-layout:save-media', input),
 });
 
 const homeProfileApi: HomeProfileApi = {
@@ -617,6 +621,13 @@ const androidApi: AndroidToolsApi = {
     const wrappedListener = (_event: Electron.IpcRendererEvent, payload: AndroidSessionEvent) => listener(payload);
     ipcRenderer.on('android:session-event', wrappedListener);
     return () => ipcRenderer.removeListener('android:session-event', wrappedListener);
+  },
+  getToolchainDownloadStatus: () => ipcRenderer.invoke('android:get-toolchain-download-status'),
+  downloadToolchain: () => ipcRenderer.invoke('android:download-toolchain'),
+  onToolchainDownloadProgress: (listener: (progress: AndroidToolchainDownloadProgress) => void) => {
+    const wrappedListener = (_event: Electron.IpcRendererEvent, payload: AndroidToolchainDownloadProgress) => listener(payload);
+    ipcRenderer.on('android:toolchain-download-progress', wrappedListener);
+    return () => ipcRenderer.removeListener('android:toolchain-download-progress', wrappedListener);
   },
 };
 contextBridge.exposeInMainWorld('androidApi', androidApi);

@@ -1,4 +1,7 @@
-import { ipcMain } from 'electron';
+import { app, ipcMain } from 'electron';
+import { createHash } from 'node:crypto';
+import * as fs from 'node:fs/promises';
+import * as path from 'node:path';
 import { dbManager } from '../../core/database';
 import type {
   CreateHomeCategoryPayload,
@@ -6,6 +9,7 @@ import type {
   ImportHomeLayoutPayload,
   UpdateHomeCategoryPayload,
   UpdateHomeWidgetPayload,
+  HomeLayoutMediaPayload,
 } from '@/contracts/home_layout';
 import { getActiveHomeWorkspaceKey } from '../home-profile/ipc';
 
@@ -35,15 +39,117 @@ function deserializeWidgets(widgets: any[]): any[] {
   }));
 }
 
+function deserializeCategory(category: any): any {
+  return {
+    ...category,
+    backgroundStyle: deserializeJson(category.backgroundStyle),
+    widgets: deserializeWidgets(category.widgets ?? []),
+  };
+}
+
 function deserializeLayout(layout: any): any {
   return {
     ...layout,
-    categories: layout.categories.map((cat: any) => ({
-      ...cat,
-      backgroundStyle: deserializeJson(cat.backgroundStyle),
-      widgets: deserializeWidgets(cat.widgets),
-    })),
+    categories: (layout.categories ?? []).map(deserializeCategory),
   };
+}
+
+const MEDIA_HOST = 'home-layout-assets';
+const EXTENSIONS: Record<string, string> = {
+  'image/jpeg': '.jpg',
+  'image/png': '.png',
+  'image/gif': '.gif',
+  'image/webp': '.webp',
+  'video/mp4': '.mp4',
+  'video/webm': '.webm',
+  'video/quicktime': '.mov',
+};
+
+async function saveHomeLayoutMedia(input: HomeLayoutMediaPayload) {
+  const bytes = Buffer.from(input.data);
+  if (!bytes.length) throw new Error('首页媒体文件不能为空');
+  if (!input.mimeType.startsWith('image/') && !input.mimeType.startsWith('video/')) {
+    throw new Error('首页背景仅支持图片或视频');
+  }
+  if (bytes.length > 64 * 1024 * 1024) throw new Error('首页媒体不能超过 64 MB');
+  const hash = createHash('sha256').update(bytes).digest('hex');
+  const extension = EXTENSIONS[input.mimeType] || path.extname(input.fileName || '').toLowerCase().replace(/[^a-z0-9.]/g, '') || '.bin';
+  const root = path.join(app.getPath('userData'), 'home-layout-assets');
+  await fs.mkdir(root, { recursive: true });
+  const fileName = `${hash}${extension}`;
+  await fs.writeFile(path.join(root, fileName), bytes, { flag: 'wx' }).catch((error: NodeJS.ErrnoException) => {
+    if (error.code !== 'EEXIST') throw error;
+  });
+  return { url: `app://${MEDIA_HOST}/${encodeURIComponent(fileName)}`, sizeBytes: bytes.length };
+}
+
+async function normalizeMediaValue(value?: string) {
+  if (!value || !value.startsWith('data:')) return value;
+  return (await saveHomeLayoutMedia({
+    data: Uint8Array.from(Buffer.from(value.slice(value.indexOf(',') + 1), 'base64')),
+    mimeType: value.slice(5, value.indexOf(';')) || 'application/octet-stream',
+    fileName: 'legacy-background',
+  })).url;
+}
+
+async function normalizeBackgroundStyle(style: unknown) {
+  if (!style || typeof style !== 'object') return style;
+  const clone = structuredClone(style) as Record<string, unknown>;
+  const visit = async (value: unknown): Promise<void> => {
+    if (!value || typeof value !== 'object') return;
+    for (const [key, child] of Object.entries(value as Record<string, unknown>)) {
+      if ((key === 'image' || key === 'video') && typeof child === 'string') {
+        (value as Record<string, unknown>)[key] = await normalizeMediaValue(child);
+      } else {
+        await visit(child);
+      }
+    }
+  };
+  await visit(clone);
+  return clone;
+}
+
+async function prepareBackground(input: { backgroundImage?: string; backgroundVideo?: string; backgroundStyle?: unknown }) {
+  return {
+    backgroundImage: await normalizeMediaValue(input.backgroundImage),
+    backgroundVideo: await normalizeMediaValue(input.backgroundVideo),
+    backgroundStyle: await normalizeBackgroundStyle(input.backgroundStyle),
+  };
+}
+
+async function materializeCategoryMedia(rawCategory: any) {
+  const category = deserializeCategory(rawCategory);
+  const categoryBackground = await prepareBackground(category);
+  const categoryChanged = categoryBackground.backgroundImage !== category.backgroundImage
+    || categoryBackground.backgroundVideo !== category.backgroundVideo
+    || JSON.stringify(categoryBackground.backgroundStyle) !== JSON.stringify(category.backgroundStyle);
+  if (categoryChanged) {
+    await dbManager.getDatabase().updateHomeCategory(category.id, {
+      backgroundImage: categoryBackground.backgroundImage,
+      backgroundVideo: categoryBackground.backgroundVideo,
+      backgroundStyle: serializeJson(categoryBackground.backgroundStyle),
+    });
+    category.backgroundImage = categoryBackground.backgroundImage;
+    category.backgroundVideo = categoryBackground.backgroundVideo;
+    category.backgroundStyle = categoryBackground.backgroundStyle;
+  }
+
+  for (const widget of category.widgets ?? []) {
+    const widgetBackground = await prepareBackground(widget);
+    const widgetChanged = widgetBackground.backgroundImage !== widget.backgroundImage
+      || widgetBackground.backgroundVideo !== widget.backgroundVideo
+      || JSON.stringify(widgetBackground.backgroundStyle) !== JSON.stringify(widget.backgroundStyle);
+    if (!widgetChanged) continue;
+    await dbManager.getDatabase().updateHomeWidget(widget.id, {
+      backgroundImage: widgetBackground.backgroundImage,
+      backgroundVideo: widgetBackground.backgroundVideo,
+      backgroundStyle: serializeJson(widgetBackground.backgroundStyle),
+    });
+    widget.backgroundImage = widgetBackground.backgroundImage;
+    widget.backgroundVideo = widgetBackground.backgroundVideo;
+    widget.backgroundStyle = widgetBackground.backgroundStyle;
+  }
+  return category;
 }
 
 export function registerHomeLayoutIpcHandlers() {
@@ -53,12 +159,21 @@ export function registerHomeLayoutIpcHandlers() {
 
   ipcMain.handle('home-layout:get', async () => {
     const workspaceKey = await getActiveHomeWorkspaceKey();
-    const layout = await dbManager.getDatabase().getHomeLayout(workspaceKey);
+    const layout = await dbManager.getDatabase().getHomeLayoutMetadata(workspaceKey);
     return deserializeLayout(layout);
   });
 
+  ipcMain.handle('home-layout:get-category', async (_event, categoryId: string) => {
+    const workspaceKey = await getActiveHomeWorkspaceKey();
+    const category = await dbManager.getDatabase().getHomeCategoryLayout(workspaceKey, categoryId);
+    return materializeCategoryMedia(category);
+  });
+
+  ipcMain.handle('home-layout:save-media', async (_event, input: HomeLayoutMediaPayload) => saveHomeLayoutMedia(input));
+
   ipcMain.handle('home-layout:create-category', async (_event, input: CreateHomeCategoryPayload) => {
     const workspaceKey = await getActiveHomeWorkspaceKey();
+    const background = await prepareBackground(input);
     return dbManager.getDatabase().createHomeCategory({
       id: input.id,
       workspaceKey,
@@ -66,23 +181,22 @@ export function registerHomeLayoutIpcHandlers() {
       icon: input.icon,
       sortOrder: input.sortOrder,
       backgroundColor: input.backgroundColor,
-      backgroundImage: input.backgroundImage,
-      backgroundVideo: input.backgroundVideo,
-      backgroundStyle: serializeJson(input.backgroundStyle),
+      ...background,
+      backgroundStyle: serializeJson(background.backgroundStyle),
     });
   });
 
   ipcMain.handle(
     'home-layout:update-category',
     async (_event, categoryId: string, input: UpdateHomeCategoryPayload) => {
+      const background = await prepareBackground(input);
       return dbManager.getDatabase().updateHomeCategory(categoryId, {
         label: input.label,
         icon: input.icon,
         sortOrder: input.sortOrder,
         backgroundColor: input.backgroundColor,
-        backgroundImage: input.backgroundImage,
-        backgroundVideo: input.backgroundVideo,
-        backgroundStyle: serializeJson(input.backgroundStyle),
+        ...background,
+        backgroundStyle: serializeJson(background.backgroundStyle),
       });
     }
   );
@@ -93,6 +207,7 @@ export function registerHomeLayoutIpcHandlers() {
 
   ipcMain.handle('home-layout:create-widget', async (_event, input: CreateHomeWidgetPayload) => {
     const workspaceKey = await getActiveHomeWorkspaceKey();
+    const background = await prepareBackground(input);
     return dbManager.getDatabase().createHomeWidget({
       id: input.id,
       workspaceKey,
@@ -112,9 +227,8 @@ export function registerHomeLayoutIpcHandlers() {
       preferredRow: input.preferredRow,
       priority: input.priority,
       color: input.color,
-      backgroundImage: input.backgroundImage,
-      backgroundVideo: input.backgroundVideo,
-      backgroundStyle: serializeJson(input.backgroundStyle),
+      ...background,
+      backgroundStyle: serializeJson(background.backgroundStyle),
       hidden: input.hidden,
     });
   });
@@ -122,6 +236,7 @@ export function registerHomeLayoutIpcHandlers() {
   ipcMain.handle(
     'home-layout:update-widget',
     async (_event, widgetId: string, input: UpdateHomeWidgetPayload) => {
+      const background = await prepareBackground(input);
       return dbManager.getDatabase().updateHomeWidget(widgetId, {
         categoryId: input.categoryId,
         label: input.label,
@@ -139,9 +254,8 @@ export function registerHomeLayoutIpcHandlers() {
         preferredRow: input.preferredRow,
         priority: input.priority,
         color: input.color,
-        backgroundImage: input.backgroundImage,
-        backgroundVideo: input.backgroundVideo,
-        backgroundStyle: serializeJson(input.backgroundStyle),
+        ...background,
+        backgroundStyle: serializeJson(background.backgroundStyle),
         hidden: input.hidden,
       });
     }
@@ -153,17 +267,19 @@ export function registerHomeLayoutIpcHandlers() {
 
   ipcMain.handle('home-layout:import-layout', async (_event, input: ImportHomeLayoutPayload) => {
     const workspaceKey = await getActiveHomeWorkspaceKey();
-    const result = dbManager.getDatabase().importHomeLayout(workspaceKey, {
-      categories: input.categories.map(category => ({
+    const categories = await Promise.all(input.categories.map(async category => {
+      const categoryBackground = await prepareBackground(category);
+      return {
         id: category.id,
         label: category.label,
         icon: category.icon,
         sortOrder: category.sortOrder,
         backgroundColor: category.backgroundColor,
-        backgroundImage: category.backgroundImage,
-        backgroundVideo: category.backgroundVideo,
-        backgroundStyle: serializeJson(category.backgroundStyle),
-        widgets: category.widgets.map(widget => ({
+        ...categoryBackground,
+        backgroundStyle: serializeJson(categoryBackground.backgroundStyle),
+        widgets: await Promise.all(category.widgets.map(async widget => {
+          const widgetBackground = await prepareBackground(widget);
+          return {
           id: widget.id,
           label: widget.label,
           icon: widget.icon,
@@ -180,13 +296,14 @@ export function registerHomeLayoutIpcHandlers() {
           preferredRow: widget.preferredRow,
           priority: widget.priority,
           color: widget.color,
-          backgroundImage: widget.backgroundImage,
-          backgroundVideo: widget.backgroundVideo,
-          backgroundStyle: serializeJson(widget.backgroundStyle),
+          ...widgetBackground,
+          backgroundStyle: serializeJson(widgetBackground.backgroundStyle),
           hidden: widget.hidden,
+          };
         })),
-      })),
-    });
+      };
+    }));
+    const result = dbManager.getDatabase().importHomeLayout(workspaceKey, { categories });
     return deserializeLayout(await result);
   });
 

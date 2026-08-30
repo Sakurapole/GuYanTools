@@ -161,6 +161,7 @@ export interface ImportHomeLayoutPayload {
 
 export interface HomeLayoutApi {
   getHomeLayout: () => Promise<HomeLayoutDto>;
+  getHomeCategoryLayout: (categoryId: string) => Promise<HomeLayoutCategoryDto>;
   createCategory: (input: CreateHomeCategoryPayload) => Promise<HomeLayoutCategoryDto>;
   updateCategory: (categoryId: string, input: UpdateHomeCategoryPayload) => Promise<HomeLayoutCategoryDto>;
   deleteCategory: (categoryId: string) => Promise<void>;
@@ -168,4 +169,16 @@ export interface HomeLayoutApi {
   updateWidget: (widgetId: string, input: UpdateHomeWidgetPayload) => Promise<HomeWidgetDto>;
   deleteWidget: (widgetId: string) => Promise<void>;
   importLegacyLayout: (input: ImportHomeLayoutPayload) => Promise<HomeLayoutDto>;
+  saveMedia: (input: HomeLayoutMediaPayload) => Promise<HomeLayoutMediaResult>;
+}
+
+export interface HomeLayoutMediaPayload {
+  data: Uint8Array;
+  mimeType: string;
+  fileName?: string;
+}
+
+export interface HomeLayoutMediaResult {
+  url: string;
+  sizeBytes: number;
 }

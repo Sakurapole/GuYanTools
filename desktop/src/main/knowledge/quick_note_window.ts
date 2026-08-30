@@ -115,7 +115,9 @@ export async function createQuickNoteWindow(prefill?: QuickNotePrefillPayload) {
 export function toggleQuickNoteWindow() {
   const states = getSortedWindowStates();
   if (!states.length) {
-    void showQuickNoteWindow();
+    void showQuickNoteWindow().catch((error) => {
+      console.warn('[quick-note] Failed to show quick note window:', error);
+    });
     return;
   }
 
@@ -140,6 +142,8 @@ export function captureClipboardToQuickNoteWindow() {
     body: text,
     tags: ['剪贴板'],
     color: 'blue',
+  }).catch((error) => {
+    console.warn('[quick-note] Failed to open clipboard note window:', error);
   });
 }
 

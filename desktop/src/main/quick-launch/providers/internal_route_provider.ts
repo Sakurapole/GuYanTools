@@ -48,7 +48,9 @@ async function searchHomeWebpageActions(context: QuickLaunchProviderContext): Pr
 
   const db = dbManager.getDatabase();
   const workspaceKey = await db.getActiveHomeWorkspaceKey();
-  const layout = deserializeHomeLayout(await db.getHomeLayout(workspaceKey));
+  // 快捷启动只需要网页动作元数据。完整布局会携带可能数十 MB 的内嵌背景媒体，
+  // 不应在每次搜索时跨 N-API/IPC 传输。
+  const layout = deserializeHomeLayout(await db.getHomeLayoutMetadata(workspaceKey));
   const widgets = layout.categories.flatMap(category => category.widgets);
 
   return widgets

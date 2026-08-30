@@ -31,7 +31,9 @@ export class PluginRuntimeRouter {
     private readonly onPluginRuntimeDestroyed: (pluginId: string) => void = () => undefined,
   ) {
     this.idleCheckTimer = setInterval(() => {
-      void this.cleanupIdleMountedViews();
+      void this.cleanupIdleMountedViews().catch((error) => {
+        this.hostServices.observability.error('Plugin idle cleanup failed', error);
+      });
     }, 15_000);
     this.idleCheckTimer.unref?.();
   }
