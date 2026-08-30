@@ -29,6 +29,38 @@ const actionError = ref('');
 const toolchainDownloadProgress = ref<AndroidToolchainDownloadProgress>({ phase: 'idle', percent: 0 });
 const toolchainDownloadBusy = ref(false);
 const toolchainDownloadError = ref('');
+type AndroidFunctionId = 'mirror' | 'audio' | 'otg' | 'fastboot';
+const functionDefinitions: Array<{ id: AndroidFunctionId; label: string; description: string; icon: string }> = [
+  { id: 'mirror', label: '设备镜像', description: '镜像画面并共享键鼠', icon: 'iconify:lucide:monitor-play' },
+  { id: 'audio', label: '音频回传', description: '将设备声音播放到电脑', icon: 'iconify:lucide:volume-2' },
+  { id: 'otg', label: 'OTG 键鼠', description: '仅通过 OTG 共享键鼠', icon: 'iconify:lucide:mouse-pointer-2' },
+  { id: 'fastboot', label: 'Fastboot', description: '读取变量与安全重启', icon: 'iconify:lucide:zap' },
+];
+const pinnedFunctionIds = ref<AndroidFunctionId[]>(loadPinnedFunctions());
+const activeView = ref<'collection' | 'devices' | AndroidFunctionId>('collection');
+
+function loadPinnedFunctions(): AndroidFunctionId[] {
+  try {
+    const raw = localStorage.getItem('android-tools-pinned-functions');
+    if (!raw) return ['mirror'];
+    const parsed = JSON.parse(raw) as unknown;
+    return Array.isArray(parsed) ? parsed.filter((id): id is AndroidFunctionId => functionDefinitions.some(item => item.id === id)) : ['mirror'];
+  } catch {
+    return ['mirror'];
+  }
+}
+
+function togglePinnedFunction(id: AndroidFunctionId) {
+  pinnedFunctionIds.value = pinnedFunctionIds.value.includes(id)
+    ? pinnedFunctionIds.value.filter(item => item !== id)
+    : [...pinnedFunctionIds.value, id];
+  localStorage.setItem('android-tools-pinned-functions', JSON.stringify(pinnedFunctionIds.value));
+  if (pinnedFunctionIds.value.includes(id)) activeView.value = id;
+}
+
+function openFunction(id: AndroidFunctionId) {
+  activeView.value = id;
+}
 
 let removeDevicesChanged: (() => void) | undefined;
 let removeSessionEvent: (() => void) | undefined;
@@ -325,11 +357,38 @@ onUnmounted(() => {
 
 <template>
   <main class="android-tools-page">
+    <aside class="android-tools-sidebar" aria-label="Android 工具箱导航">
+      <div class="android-tools-sidebar__brand">
+        <span class="android-tools-sidebar__brand-icon"><IconRenderer icon="iconify:lucide:smartphone" :size="18" /></span>
+        <div><strong>Android 工具箱</strong><small>设备工作台</small></div>
+      </div>
+      <div class="android-tools-sidebar__section">
+        <span class="android-tools-sidebar__label">工作区</span>
+        <button class="android-tools-nav-item" :class="{ 'android-tools-nav-item--active': activeView === 'collection' }" data-testid="android-sidebar-collection" type="button" @click="activeView = 'collection'">
+          <IconRenderer icon="iconify:lucide:layout-grid" :size="16" /><span>功能集合</span><span class="android-tools-nav-item__count">{{ functionDefinitions.length }}</span>
+        </button>
+        <button class="android-tools-nav-item" :class="{ 'android-tools-nav-item--active': activeView === 'devices' }" data-testid="android-sidebar-devices" type="button" @click="activeView = 'devices'">
+          <IconRenderer icon="iconify:lucide:smartphone" :size="16" /><span>设备信息</span><span class="android-tools-nav-item__count">{{ devices.length }}</span>
+        </button>
+      </div>
+      <div class="android-tools-sidebar__section" v-if="pinnedFunctionIds.length">
+        <span class="android-tools-sidebar__label">已固定功能</span>
+        <button v-for="id in pinnedFunctionIds" :key="id" class="android-tools-nav-item" :class="{ 'android-tools-nav-item--active': activeView === id }" :data-testid="`android-sidebar-pinned-${id}`" type="button" @click="openFunction(id)">
+          <IconRenderer :icon="functionDefinitions.find(item => item.id === id)?.icon || 'iconify:lucide:box'" :size="16" /><span>{{ functionDefinitions.find(item => item.id === id)?.label }}</span>
+        </button>
+      </div>
+      <div class="android-tools-sidebar__footer">
+        <span class="android-tools-sidebar__status-dot" :class="{ 'android-tools-sidebar__status-dot--ok': hasToolchain }" />
+        <span>{{ hasToolchain ? '工具链就绪' : '工具链待处理' }}</span>
+      </div>
+    </aside>
+
+    <section class="android-tools-workspace">
     <header class="android-tools-page__header">
       <div>
-        <p class="android-tools-page__eyebrow">ANDROID TOOLBOX</p>
-        <h1>Android 工具箱</h1>
-        <p class="android-tools-page__intro">通过有线连接管理设备，启动镜像、键鼠共享或音频回传。</p>
+        <p class="android-tools-page__eyebrow">{{ activeView === 'collection' ? '功能集合' : activeView === 'devices' ? '设备信息' : functionDefinitions.find(item => item.id === activeView)?.label }}</p>
+        <h1>{{ activeView === 'collection' ? '选择一个功能开始' : activeView === 'devices' ? '设备信息' : functionDefinitions.find(item => item.id === activeView)?.label }}</h1>
+        <p class="android-tools-page__intro">{{ activeView === 'collection' ? '将常用功能固定到侧边栏，建立你的 Android 工作区。' : '通过有线连接管理设备，状态和操作集中在当前工作区。' }}</p>
       </div>
       <UiIconButton
         variant="secondary"
@@ -358,7 +417,23 @@ onUnmounted(() => {
     </UiStateCard>
 
     <div v-else class="android-tools-page__content">
-      <UiCard class="android-tools-panel android-tools-panel--toolchain" padding="lg" radius="md">
+      <UiCard v-if="activeView === 'collection'" class="android-tools-collection" padding="lg" radius="md">
+        <div class="android-tools-panel__heading"><div><h2>全部功能</h2><p>内置功能与插件注册的功能统一收纳在这里。</p></div></div>
+        <div class="android-tools-function-list" data-testid="android-function-collection">
+          <div v-for="item in functionDefinitions" :key="item.id" class="android-tools-function-row">
+            <button class="android-tools-function-row__open" type="button" @click="openFunction(item.id)">
+              <span class="android-tools-function-row__icon"><IconRenderer :icon="item.icon" :size="18" /></span><span><strong>{{ item.label }}</strong><small>{{ item.description }}</small></span>
+            </button>
+            <button class="android-tools-pin-button" :class="{ 'android-tools-pin-button--pinned': pinnedFunctionIds.includes(item.id) }" :data-testid="`pin-function-${item.id}`" type="button" :aria-label="pinnedFunctionIds.includes(item.id) ? `取消固定${item.label}` : `固定${item.label}`" @click="togglePinnedFunction(item.id)"><IconRenderer :icon="pinnedFunctionIds.includes(item.id) ? 'iconify:lucide:pin' : 'iconify:lucide:pin-off'" :size="16" /></button>
+          </div>
+        </div>
+      </UiCard>
+      <UiCard v-if="activeView === 'devices'" class="android-tools-device-information" padding="lg" radius="md" data-testid="android-device-information">
+        <div class="android-tools-panel__heading"><div><h2>设备信息</h2><p>查看连接状态、授权状态和工具链诊断。</p></div></div>
+        <div class="android-tools-device-summary"><strong>{{ selectedDevice?.model || '未选择设备' }}</strong><span>{{ selectedDevice?.serial || '连接 USB 并开启 USB 调试' }}</span><span v-if="selectedDevice">{{ stateLabels[selectedDevice.state] }} · {{ transportLabels[selectedDevice.transport] }}</span></div>
+        <div class="android-tools-versions" v-if="hasToolchain"><div><span>ADB</span><code>{{ toolchain?.versions.adb || '未读取' }}</code></div><div><span>scrcpy</span><code>{{ toolchain?.versions.scrcpy || '未读取' }}</code></div><div><span>fastboot</span><code>{{ toolchain?.versions.fastboot || '未读取' }}</code></div></div>
+      </UiCard>
+      <UiCard v-if="activeView !== 'collection' && activeView !== 'devices'" class="android-tools-panel android-tools-panel--toolchain" padding="lg" radius="md">
         <div class="android-tools-panel__heading">
           <div>
             <h2>工具链</h2>
@@ -395,7 +470,9 @@ onUnmounted(() => {
         </div>
       </UiCard>
 
-      <div class="android-tools-grid">
+      <div v-if="activeView !== 'collection' && activeView !== 'devices'" class="android-tools-grid">
+        <span v-if="activeView !== 'collection' && activeView !== 'devices'" class="android-tools-function-tab" :data-testid="`android-function-tab-${activeView}`" />
+        <span v-if="activeView !== 'collection' && activeView !== 'devices'" class="android-tools-function-content" :data-testid="`android-function-content-${activeView}`" />
         <UiCard class="android-tools-panel android-tools-panel--devices" padding="lg" radius="md">
           <div class="android-tools-panel__heading">
             <div>
@@ -516,7 +593,7 @@ onUnmounted(() => {
         </UiCard>
       </div>
 
-      <UiCard class="android-tools-panel android-tools-panel--sessions" padding="lg" radius="md">
+      <UiCard v-if="activeView !== 'collection' && activeView !== 'devices'" class="android-tools-panel android-tools-panel--sessions" padding="lg" radius="md">
         <div class="android-tools-panel__heading">
           <div>
             <h2>运行中的会话</h2>
@@ -532,6 +609,7 @@ onUnmounted(() => {
               <span>{{ session.deviceSerial }}</span>
             </div>
             <span class="android-session-row__status" :class="`android-session-row__status--${session.status}`">{{ sessionStatusLabels[session.status] }}</span>
+            <span v-if="session.errorMessage" class="android-session-row__error">{{ session.errorMessage }}</span>
             <UiButton
               v-if="session.status === 'starting' || session.status === 'running' || session.status === 'stopping'"
               :data-testid="`stop-${session.sessionId}`"
@@ -547,6 +625,7 @@ onUnmounted(() => {
         <p v-else class="android-tools-sessions-empty">暂无会话。选择设备后，从上方启动一种连接方式。</p>
       </UiCard>
     </div>
+    </section>
   </main>
 </template>
 

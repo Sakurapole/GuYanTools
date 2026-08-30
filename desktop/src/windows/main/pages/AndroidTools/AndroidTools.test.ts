@@ -121,6 +121,29 @@ describe('AndroidTools', () => {
     expect(api.listSessions).not.toHaveBeenCalled();
   });
 
+  it('pins a function from the collection into the sidebar and opens its tab', async () => {
+    const { api } = createApi();
+    const wrapper = mountPage(api);
+    await flushPromises();
+
+    expect(wrapper.find('[data-testid="android-sidebar-collection"]').exists()).toBe(true);
+    await wrapper.get('[data-testid="pin-function-mirror"]').trigger('click');
+    expect(wrapper.find('[data-testid="android-sidebar-pinned-mirror"]').exists()).toBe(true);
+    expect(wrapper.find('[data-testid="android-function-tab-mirror"]').exists()).toBe(true);
+  });
+
+  it('switches between device information and pinned function content', async () => {
+    const { api } = createApi();
+    const wrapper = mountPage(api);
+    await flushPromises();
+    await wrapper.get('[data-testid="pin-function-mirror"]').trigger('click');
+
+    await wrapper.get('[data-testid="android-sidebar-devices"]').trigger('click');
+    expect(wrapper.find('[data-testid="android-device-information"]').exists()).toBe(true);
+    await wrapper.get('[data-testid="android-sidebar-pinned-mirror"]').trigger('click');
+    expect(wrapper.find('[data-testid="android-function-content-mirror"]').exists()).toBe(true);
+  });
+
   it('offers an in-app toolchain download and reloads state after completion', async () => {
     const { api } = createApi({
       getToolchainStatus: vi.fn()
@@ -211,6 +234,14 @@ describe('AndroidTools', () => {
 
     await wrapper.get(`[data-testid="stop-${session.sessionId}"]`).trigger('click');
     expect(api.stopSession).toHaveBeenCalledWith(session.sessionId);
+  });
+
+  it('shows the session failure reason returned by scrcpy', async () => {
+    const failed = runningSession({ status: 'failed', errorCode: 'ANDROID_SESSION_EXITED', errorMessage: '音频采集不可用' });
+    const { api } = createApi({ listSessions: vi.fn(async () => [failed]) });
+    const wrapper = mountPage(api);
+    await flushPromises();
+    expect(wrapper.text()).toContain('音频采集不可用');
   });
 
   it('removes both event listeners when the page is unmounted', async () => {
