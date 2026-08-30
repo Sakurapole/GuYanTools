@@ -139,6 +139,14 @@ pub fn run_migrations(conn: &Connection) -> DbResult<()> {
             "031_add_plugin_platform",
             include_str!("../../migrations/031_add_plugin_platform.sql"),
         ),
+        (
+            "032_cleanup_oversized_inline_media",
+            include_str!("../../migrations/032_cleanup_oversized_inline_media.sql"),
+        ),
+        (
+            "033_cleanup_sync_payload_history",
+            include_str!("../../migrations/033_cleanup_sync_payload_history.sql"),
+        ),
     ];
 
     // 执行每个迁移
@@ -231,10 +239,18 @@ mod tests {
                     |row| row.get(0),
                 )
                 .unwrap();
-            assert!(exists, "{} should be created by plugin platform migration", table);
+            assert!(
+                exists,
+                "{} should be created by plugin platform migration",
+                table
+            );
         }
 
-        for index in ["idx_plugin_jobs_owner", "idx_plugin_jobs_status", "idx_plugin_file_grants_owner"] {
+        for index in [
+            "idx_plugin_jobs_owner",
+            "idx_plugin_jobs_status",
+            "idx_plugin_file_grants_owner",
+        ] {
             let exists: bool = conn
                 .query_row(
                     "SELECT EXISTS(SELECT 1 FROM sqlite_master WHERE type = 'index' AND name = ?1)",
@@ -242,7 +258,11 @@ mod tests {
                     |row| row.get(0),
                 )
                 .unwrap();
-            assert!(exists, "{} should be created by plugin platform migration", index);
+            assert!(
+                exists,
+                "{} should be created by plugin platform migration",
+                index
+            );
         }
 
         run_migrations(&conn).expect("running migrations twice should be idempotent");
@@ -295,6 +315,16 @@ mod tests {
                 metadata_json TEXT,
                 created_at TEXT NOT NULL DEFAULT (datetime('now')),
                 FOREIGN KEY (message_id) REFERENCES ai_chat_messages(id) ON DELETE CASCADE
+            );
+            CREATE TABLE home_categories (
+                id TEXT PRIMARY KEY,
+                background_image TEXT,
+                background_video TEXT
+            );
+            CREATE TABLE home_widgets (
+                id TEXT PRIMARY KEY,
+                background_image TEXT,
+                background_video TEXT
             );
             INSERT INTO ai_chat_conversations (
                 id, title, provider_id, model_id

@@ -1,7 +1,8 @@
 use crate::models::{
-    MultiDeviceClipboardDevice, MultiDeviceClipboardDeviceStatus, MultiDeviceClipboardDiscoveredDevice,
-    MultiDeviceClipboardDiscoveryConfig, MultiDeviceClipboardItem,
-    UpsertMultiDeviceClipboardDeviceInput, UpsertMultiDeviceClipboardItemInput,
+    MultiDeviceClipboardDevice, MultiDeviceClipboardDeviceStatus,
+    MultiDeviceClipboardDiscoveredDevice, MultiDeviceClipboardDiscoveryConfig,
+    MultiDeviceClipboardItem, UpsertMultiDeviceClipboardDeviceInput,
+    UpsertMultiDeviceClipboardItemInput,
 };
 
 pub fn create_mobile_clipboard_host(db_path: String) -> anyhow::Result<String> {

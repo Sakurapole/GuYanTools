@@ -1,0 +1,3 @@
+-- Sync history is purged asynchronously after the first renderer paint.
+-- Keeping startup migrations write-light prevents a multi-gigabyte DELETE
+-- from blocking the main process before the window can become responsive.

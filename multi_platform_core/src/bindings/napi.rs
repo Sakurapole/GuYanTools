@@ -1,9 +1,7 @@
 use crate::db::Database;
 use crate::models::*;
 use crate::multi_device_clipboard::*;
-use crate::screenshot::recognition::{
-    recognize_ui_blocks_from_rgba, ScreenshotRecognitionOptions,
-};
+use crate::screenshot::recognition::{recognize_ui_blocks_from_rgba, ScreenshotRecognitionOptions};
 use crate::services::*;
 use crate::terminal::*;
 use image::ImageReader;
@@ -34,8 +32,10 @@ pub async fn recognize_screenshot_ui_blocks(
 ) -> Result<String> {
     tokio::task::spawn_blocking(move || {
         let options = match options_json {
-            Some(value) if !value.trim().is_empty() => serde_json::from_str::<ScreenshotRecognitionOptions>(&value)
-                .map_err(|e| Error::from_reason(format!("截图识别参数无效: {}", e)))?,
+            Some(value) if !value.trim().is_empty() => {
+                serde_json::from_str::<ScreenshotRecognitionOptions>(&value)
+                    .map_err(|e| Error::from_reason(format!("截图识别参数无效: {}", e)))?
+            }
             _ => ScreenshotRecognitionOptions {
                 min_block_width: Some(16),
                 min_block_height: Some(12),
@@ -51,12 +51,8 @@ pub async fn recognize_screenshot_ui_blocks(
             .map_err(|e| Error::from_reason(format!("截图解码失败: {}", e)))?
             .to_rgba8();
 
-        let blocks = recognize_ui_blocks_from_rgba(
-            image.width(),
-            image.height(),
-            image.as_raw(),
-            options,
-        );
+        let blocks =
+            recognize_ui_blocks_from_rgba(image.width(), image.height(), image.as_raw(), options);
 
         serde_json::to_string(&blocks)
             .map_err(|e| Error::from_reason(format!("截图识别结果序列化失败: {}", e)))
@@ -455,6 +451,24 @@ impl JsDatabase {
             .map_err(|e| Error::from_reason(format!("列出同步配置失败: {}", e)))
     }
 
+    #[napi(js_name = "listSyncProfileMetadata")]
+    pub async fn list_sync_profile_metadata(&self) -> Result<Vec<SyncProfile>> {
+        let db = self.inner.clone();
+        tokio::task::spawn_blocking(move || SyncService::list_profile_metadata(&db))
+            .await
+            .map_err(|e| Error::from_reason(format!("任务执行失败: {}", e)))?
+            .map_err(|e| Error::from_reason(format!("列出同步配置元数据失败: {}", e)))
+    }
+
+    #[napi(js_name = "getSyncProfile")]
+    pub async fn get_sync_profile(&self, profile_id: String) -> Result<SyncProfile> {
+        let db = self.inner.clone();
+        tokio::task::spawn_blocking(move || SyncService::get_profile(&db, &profile_id))
+            .await
+            .map_err(|e| Error::from_reason(format!("任务执行失败: {}", e)))?
+            .map_err(|e| Error::from_reason(format!("获取同步配置失败: {}", e)))
+    }
+
     #[napi(js_name = "upsertSyncProfile")]
     pub async fn upsert_sync_profile(&self, profile: SyncProfile) -> Result<SyncProfile> {
         let db = self.inner.clone();
@@ -491,6 +505,15 @@ impl JsDatabase {
             .map_err(|e| Error::from_reason(format!("列出同步冲突失败: {}", e)))
     }
 
+    #[napi(js_name = "getSyncConflict")]
+    pub async fn get_sync_conflict(&self, conflict_id: String) -> Result<SyncConflict> {
+        let db = self.inner.clone();
+        tokio::task::spawn_blocking(move || SyncService::get_conflict(&db, &conflict_id))
+            .await
+            .map_err(|e| Error::from_reason(format!("任务执行失败: {}", e)))?
+            .map_err(|e| Error::from_reason(format!("获取同步冲突失败: {}", e)))
+    }
+
     #[napi(js_name = "listSyncObjectStates")]
     pub async fn list_sync_object_states(&self) -> Result<Vec<SyncObjectState>> {
         let db = self.inner.clone();
@@ -501,7 +524,10 @@ impl JsDatabase {
     }
 
     #[napi(js_name = "upsertSyncObjectState")]
-    pub async fn upsert_sync_object_state(&self, state: SyncObjectState) -> Result<SyncObjectState> {
+    pub async fn upsert_sync_object_state(
+        &self,
+        state: SyncObjectState,
+    ) -> Result<SyncObjectState> {
         let db = self.inner.clone();
         tokio::task::spawn_blocking(move || SyncService::upsert_object_state(&db, state))
             .await
@@ -518,6 +544,40 @@ impl JsDatabase {
             .map_err(|e| Error::from_reason(format!("列出同步待上传项失败: {}", e)))
     }
 
+    #[napi(js_name = "purgeSyncedSyncOutbox")]
+    pub async fn purge_synced_sync_outbox(&self, keep_latest: Option<i64>) -> Result<i64> {
+        let db = self.inner.clone();
+        tokio::task::spawn_blocking(move || {
+            SyncService::purge_synced_outbox(&db, keep_latest.unwrap_or(100))
+        })
+        .await
+        .map_err(|e| Error::from_reason(format!("任务执行失败: {}", e)))?
+        .map_err(|e| Error::from_reason(format!("清理同步历史失败: {}", e)))
+    }
+
+    #[napi(js_name = "purgeResolvedSyncConflicts")]
+    pub async fn purge_resolved_sync_conflicts(&self) -> Result<i64> {
+        let db = self.inner.clone();
+        tokio::task::spawn_blocking(move || SyncService::purge_resolved_conflicts(&db))
+            .await
+            .map_err(|e| Error::from_reason(format!("任务执行失败: {}", e)))?
+            .map_err(|e| Error::from_reason(format!("清理已解决同步冲突失败: {}", e)))
+    }
+
+    #[napi(js_name = "purgeOversizedLocalSyncProfiles")]
+    pub async fn purge_oversized_local_sync_profiles(
+        &self,
+        max_payload_bytes: i64,
+    ) -> Result<i64> {
+        let db = self.inner.clone();
+        tokio::task::spawn_blocking(move || {
+            SyncService::purge_oversized_local_profiles(&db, max_payload_bytes)
+        })
+        .await
+        .map_err(|e| Error::from_reason(format!("任务执行失败: {}", e)))?
+        .map_err(|e| Error::from_reason(format!("清理超大本地同步配置失败: {}", e)))
+    }
+
     #[napi(js_name = "upsertSyncOutboxItem")]
     pub async fn upsert_sync_outbox_item(&self, item: SyncOutboxItem) -> Result<SyncOutboxItem> {
         let db = self.inner.clone();
@@ -528,12 +588,18 @@ impl JsDatabase {
     }
 
     #[napi(js_name = "markSyncOutboxItemsSynced")]
-    pub async fn mark_sync_outbox_items_synced(&self, op_ids: Vec<String>, updated_at: i64) -> Result<()> {
+    pub async fn mark_sync_outbox_items_synced(
+        &self,
+        op_ids: Vec<String>,
+        updated_at: i64,
+    ) -> Result<()> {
         let db = self.inner.clone();
-        tokio::task::spawn_blocking(move || SyncService::mark_outbox_items_synced(&db, op_ids, updated_at))
-            .await
-            .map_err(|e| Error::from_reason(format!("任务执行失败: {}", e)))?
-            .map_err(|e| Error::from_reason(format!("标记同步待上传项失败: {}", e)))
+        tokio::task::spawn_blocking(move || {
+            SyncService::mark_outbox_items_synced(&db, op_ids, updated_at)
+        })
+        .await
+        .map_err(|e| Error::from_reason(format!("任务执行失败: {}", e)))?
+        .map_err(|e| Error::from_reason(format!("标记同步待上传项失败: {}", e)))
     }
 
     #[napi(js_name = "markSyncOutboxItemsSyncedByObject")]
@@ -545,7 +611,12 @@ impl JsDatabase {
     ) -> Result<()> {
         let db = self.inner.clone();
         tokio::task::spawn_blocking(move || {
-            SyncService::mark_outbox_items_synced_by_object(&db, &collection, &object_id, updated_at)
+            SyncService::mark_outbox_items_synced_by_object(
+                &db,
+                &collection,
+                &object_id,
+                updated_at,
+            )
         })
         .await
         .map_err(|e| Error::from_reason(format!("任务执行失败: {}", e)))?
@@ -564,10 +635,12 @@ impl JsDatabase {
     #[napi(js_name = "resolveSyncConflict")]
     pub async fn resolve_sync_conflict(&self, conflict_id: String, resolved_at: i64) -> Result<()> {
         let db = self.inner.clone();
-        tokio::task::spawn_blocking(move || SyncService::resolve_conflict(&db, &conflict_id, resolved_at))
-            .await
-            .map_err(|e| Error::from_reason(format!("任务执行失败: {}", e)))?
-            .map_err(|e| Error::from_reason(format!("解决同步冲突失败: {}", e)))
+        tokio::task::spawn_blocking(move || {
+            SyncService::resolve_conflict(&db, &conflict_id, resolved_at)
+        })
+        .await
+        .map_err(|e| Error::from_reason(format!("任务执行失败: {}", e)))?
+        .map_err(|e| Error::from_reason(format!("解决同步冲突失败: {}", e)))
     }
 
     #[napi(js_name = "applyKnowledgeSyncObject")]
@@ -650,6 +723,36 @@ impl JsDatabase {
         .await
         .map_err(|e| Error::from_reason(format!("任务执行失败: {}", e)))?
         .map_err(|e| Error::from_reason(format!("获取首页布局失败: {}", e)))
+    }
+
+    #[napi(js_name = "getHomeLayoutMetadata")]
+    pub async fn get_home_layout_metadata(&self, workspace_key: String) -> Result<HomeLayout> {
+        let db = self.inner.clone();
+        tokio::task::spawn_blocking(move || {
+            HomeLayoutService::get_layout_metadata_by_workspace_key(&db, &workspace_key)
+        })
+        .await
+        .map_err(|e| Error::from_reason(format!("任务执行失败: {}", e)))?
+        .map_err(|e| Error::from_reason(format!("获取首页布局元数据失败: {}", e)))
+    }
+
+    #[napi(js_name = "getHomeCategoryLayout")]
+    pub async fn get_home_category_layout(
+        &self,
+        workspace_key: String,
+        category_id: String,
+    ) -> Result<HomeLayoutCategory> {
+        let db = self.inner.clone();
+        tokio::task::spawn_blocking(move || {
+            HomeLayoutService::get_category_layout_by_workspace_key(
+                &db,
+                &workspace_key,
+                &category_id,
+            )
+        })
+        .await
+        .map_err(|e| Error::from_reason(format!("任务执行失败: {}", e)))?
+        .map_err(|e| Error::from_reason(format!("获取首页分类布局失败: {}", e)))
     }
 
     #[napi(js_name = "createHomeCategory")]
@@ -766,10 +869,12 @@ impl JsDatabase {
         input: UpdateKnowledgeLibraryInput,
     ) -> Result<KnowledgeLibrary> {
         let db = self.inner.clone();
-        tokio::task::spawn_blocking(move || KnowledgeService::update_library(&db, &library_id, input))
-            .await
-            .map_err(|e| Error::from_reason(format!("任务执行失败: {}", e)))?
-            .map_err(|e| Error::from_reason(format!("更新知识库失败: {}", e)))
+        tokio::task::spawn_blocking(move || {
+            KnowledgeService::update_library(&db, &library_id, input)
+        })
+        .await
+        .map_err(|e| Error::from_reason(format!("任务执行失败: {}", e)))?
+        .map_err(|e| Error::from_reason(format!("更新知识库失败: {}", e)))
     }
 
     #[napi(js_name = "deleteKnowledgeLibrary")]
@@ -1531,11 +1636,7 @@ impl JsDatabase {
     }
 
     #[napi(js_name = "deleteAiCanvasFile")]
-    pub async fn delete_ai_canvas_file(
-        &self,
-        workspace_id: String,
-        path: String,
-    ) -> Result<()> {
+    pub async fn delete_ai_canvas_file(&self, workspace_id: String, path: String) -> Result<()> {
         let db = self.inner.clone();
         tokio::task::spawn_blocking(move || {
             AiService::delete_canvas_file(&db, &workspace_id, &path)
@@ -1575,12 +1676,10 @@ impl JsDatabase {
         workspace_id: String,
     ) -> Result<Vec<AiCanvasOperation>> {
         let db = self.inner.clone();
-        tokio::task::spawn_blocking(move || {
-            AiService::list_canvas_operations(&db, &workspace_id)
-        })
-        .await
-        .map_err(|e| Error::from_reason(format!("任务执行失败: {}", e)))?
-        .map_err(|e| Error::from_reason(format!("获取 AI Canvas 操作失败: {}", e)))
+        tokio::task::spawn_blocking(move || AiService::list_canvas_operations(&db, &workspace_id))
+            .await
+            .map_err(|e| Error::from_reason(format!("任务执行失败: {}", e)))?
+            .map_err(|e| Error::from_reason(format!("获取 AI Canvas 操作失败: {}", e)))
     }
 
     #[napi(js_name = "getAiCanvasOperation")]
@@ -1601,7 +1700,7 @@ impl JsDatabase {
         tokio::task::spawn_blocking(move || AiService::create_canvas_operation(&db, input))
             .await
             .map_err(|e| Error::from_reason(format!("任务执行失败: {}", e)))?
-        .map_err(|e| Error::from_reason(format!("创建 AI Canvas 操作失败: {}", e)))
+            .map_err(|e| Error::from_reason(format!("创建 AI Canvas 操作失败: {}", e)))
     }
 
     #[napi(js_name = "updateAiCanvasOperation")]
@@ -1676,10 +1775,7 @@ impl JsDatabase {
     }
 
     #[napi(js_name = "listAiResearchSources")]
-    pub async fn list_ai_research_sources(
-        &self,
-        job_id: String,
-    ) -> Result<Vec<AiResearchSource>> {
+    pub async fn list_ai_research_sources(&self, job_id: String) -> Result<Vec<AiResearchSource>> {
         let db = self.inner.clone();
         tokio::task::spawn_blocking(move || AiService::list_research_sources(&db, &job_id))
             .await
@@ -2200,7 +2296,8 @@ impl JsDatabase {
     #[napi(js_name = "upsertPluginJob")]
     pub async fn upsert_plugin_job(&self, input: CreatePluginJobInput) -> Result<PluginJob> {
         let db = self.inner.clone();
-        tokio::task::spawn_blocking(move || PluginService::upsert_job(&db, input)).await
+        tokio::task::spawn_blocking(move || PluginService::upsert_job(&db, input))
+            .await
             .map_err(|e| Error::from_reason(format!("任务执行失败: {}", e)))?
             .map_err(|e| Error::from_reason(format!("保存插件任务失败: {}", e)))
     }
@@ -2208,23 +2305,32 @@ impl JsDatabase {
     #[napi(js_name = "retryPluginJob")]
     pub async fn retry_plugin_job(&self, source_id: String, new_id: String) -> Result<PluginJob> {
         let db = self.inner.clone();
-        tokio::task::spawn_blocking(move || PluginService::retry_job(&db, &source_id, &new_id)).await
+        tokio::task::spawn_blocking(move || PluginService::retry_job(&db, &source_id, &new_id))
+            .await
             .map_err(|e| Error::from_reason(format!("任务执行失败: {}", e)))?
             .map_err(|e| Error::from_reason(format!("重试插件任务失败: {}", e)))
     }
 
     #[napi(js_name = "upsertPluginInstallation")]
-    pub async fn upsert_plugin_installation(&self, input: UpsertPluginInstallationInput) -> Result<PluginInstallation> {
+    pub async fn upsert_plugin_installation(
+        &self,
+        input: UpsertPluginInstallationInput,
+    ) -> Result<PluginInstallation> {
         let db = self.inner.clone();
-        tokio::task::spawn_blocking(move || PluginService::upsert_installation(&db, input)).await
+        tokio::task::spawn_blocking(move || PluginService::upsert_installation(&db, input))
+            .await
             .map_err(|e| Error::from_reason(format!("任务执行失败: {}", e)))?
             .map_err(|e| Error::from_reason(format!("保存插件安装记录失败: {}", e)))
     }
 
     #[napi(js_name = "getPluginInstallation")]
-    pub async fn get_plugin_installation(&self, plugin_id: String) -> Result<Option<PluginInstallation>> {
+    pub async fn get_plugin_installation(
+        &self,
+        plugin_id: String,
+    ) -> Result<Option<PluginInstallation>> {
         let db = self.inner.clone();
-        tokio::task::spawn_blocking(move || PluginService::get_installation(&db, &plugin_id)).await
+        tokio::task::spawn_blocking(move || PluginService::get_installation(&db, &plugin_id))
+            .await
             .map_err(|e| Error::from_reason(format!("任务执行失败: {}", e)))?
             .map_err(|e| Error::from_reason(format!("获取插件安装记录失败: {}", e)))
     }
@@ -2232,15 +2338,20 @@ impl JsDatabase {
     #[napi(js_name = "deletePluginInstallation")]
     pub async fn delete_plugin_installation(&self, plugin_id: String) -> Result<()> {
         let db = self.inner.clone();
-        tokio::task::spawn_blocking(move || PluginService::delete_installation(&db, &plugin_id)).await
+        tokio::task::spawn_blocking(move || PluginService::delete_installation(&db, &plugin_id))
+            .await
             .map_err(|e| Error::from_reason(format!("任务执行失败: {}", e)))?
             .map_err(|e| Error::from_reason(format!("删除插件安装记录失败: {}", e)))
     }
 
     #[napi(js_name = "createFileGrant")]
-    pub async fn create_file_grant(&self, input: CreatePluginFileGrantInput) -> Result<PluginFileGrant> {
+    pub async fn create_file_grant(
+        &self,
+        input: CreatePluginFileGrantInput,
+    ) -> Result<PluginFileGrant> {
         let db = self.inner.clone();
-        tokio::task::spawn_blocking(move || PluginService::create_file_grant(&db, input)).await
+        tokio::task::spawn_blocking(move || PluginService::create_file_grant(&db, input))
+            .await
             .map_err(|e| Error::from_reason(format!("任务执行失败: {}", e)))?
             .map_err(|e| Error::from_reason(format!("创建文件授权失败: {}", e)))
     }
@@ -2248,7 +2359,8 @@ impl JsDatabase {
     #[napi(js_name = "revokeFileGrant")]
     pub async fn revoke_file_grant(&self, plugin_id: String, id: String) -> Result<()> {
         let db = self.inner.clone();
-        tokio::task::spawn_blocking(move || PluginService::revoke_file_grant(&db, &plugin_id, &id)).await
+        tokio::task::spawn_blocking(move || PluginService::revoke_file_grant(&db, &plugin_id, &id))
+            .await
             .map_err(|e| Error::from_reason(format!("任务执行失败: {}", e)))?
             .map_err(|e| Error::from_reason(format!("撤销文件授权失败: {}", e)))
     }
@@ -2256,15 +2368,20 @@ impl JsDatabase {
     #[napi(js_name = "listPluginMarketplaces")]
     pub async fn list_plugin_marketplaces(&self) -> Result<Vec<PluginMarketplaceCache>> {
         let db = self.inner.clone();
-        tokio::task::spawn_blocking(move || PluginService::list_marketplaces(&db)).await
+        tokio::task::spawn_blocking(move || PluginService::list_marketplaces(&db))
+            .await
             .map_err(|e| Error::from_reason(format!("任务执行失败: {}", e)))?
             .map_err(|e| Error::from_reason(format!("列出插件市场失败: {}", e)))
     }
 
     #[napi(js_name = "upsertPluginMarketplace")]
-    pub async fn upsert_plugin_marketplace(&self, input: UpsertPluginMarketplaceInput) -> Result<PluginMarketplaceCache> {
+    pub async fn upsert_plugin_marketplace(
+        &self,
+        input: UpsertPluginMarketplaceInput,
+    ) -> Result<PluginMarketplaceCache> {
         let db = self.inner.clone();
-        tokio::task::spawn_blocking(move || PluginService::upsert_marketplace(&db, input)).await
+        tokio::task::spawn_blocking(move || PluginService::upsert_marketplace(&db, input))
+            .await
             .map_err(|e| Error::from_reason(format!("任务执行失败: {}", e)))?
             .map_err(|e| Error::from_reason(format!("保存插件市场失败: {}", e)))
     }
@@ -2340,7 +2457,12 @@ impl JsDatabase {
     }
 
     #[napi(js_name = "setPluginSecret")]
-    pub async fn set_plugin_secret(&self, plugin_id: String, key: String, ciphertext: Buffer) -> Result<()> {
+    pub async fn set_plugin_secret(
+        &self,
+        plugin_id: String,
+        key: String,
+        ciphertext: Buffer,
+    ) -> Result<()> {
         let db = self.inner.clone();
         tokio::task::spawn_blocking(move || {
             db.transaction(|conn| {
@@ -2357,19 +2479,28 @@ impl JsDatabase {
     }
 
     #[napi(js_name = "getPluginSecret")]
-    pub async fn get_plugin_secret(&self, plugin_id: String, key: String) -> Result<Option<Buffer>> {
+    pub async fn get_plugin_secret(
+        &self,
+        plugin_id: String,
+        key: String,
+    ) -> Result<Option<Buffer>> {
         let db = self.inner.clone();
         tokio::task::spawn_blocking(move || {
             db.with_connection(|conn| {
-                let value: Option<Vec<u8>> = conn.query_row(
-                    "SELECT ciphertext FROM plugin_secrets WHERE plugin_id = ?1 AND key = ?2",
-                    rusqlite::params![plugin_id, key], |row| row.get(0),
-                ).optional().map_err(|e| crate::db::DbError::QueryFailed(e.to_string()))?;
+                let value: Option<Vec<u8>> = conn
+                    .query_row(
+                        "SELECT ciphertext FROM plugin_secrets WHERE plugin_id = ?1 AND key = ?2",
+                        rusqlite::params![plugin_id, key],
+                        |row| row.get(0),
+                    )
+                    .optional()
+                    .map_err(|e| crate::db::DbError::QueryFailed(e.to_string()))?;
                 Ok(value.map(Buffer::from))
             })
-        }).await
-            .map_err(|e| Error::from_reason(format!("任务执行失败: {}", e)))?
-            .map_err(|e| Error::from_reason(format!("获取插件密钥失败: {}", e)))
+        })
+        .await
+        .map_err(|e| Error::from_reason(format!("任务执行失败: {}", e)))?
+        .map_err(|e| Error::from_reason(format!("获取插件密钥失败: {}", e)))
     }
 
     #[napi(js_name = "deletePluginSecret")]
@@ -2377,13 +2508,17 @@ impl JsDatabase {
         let db = self.inner.clone();
         tokio::task::spawn_blocking(move || {
             db.transaction(|conn| {
-                conn.execute("DELETE FROM plugin_secrets WHERE plugin_id = ?1 AND key = ?2", rusqlite::params![plugin_id, key])
-                    .map_err(|e| crate::db::DbError::QueryFailed(e.to_string()))?;
+                conn.execute(
+                    "DELETE FROM plugin_secrets WHERE plugin_id = ?1 AND key = ?2",
+                    rusqlite::params![plugin_id, key],
+                )
+                .map_err(|e| crate::db::DbError::QueryFailed(e.to_string()))?;
                 Ok(())
             })
-        }).await
-            .map_err(|e| Error::from_reason(format!("任务执行失败: {}", e)))?
-            .map_err(|e| Error::from_reason(format!("删除插件密钥失败: {}", e)))
+        })
+        .await
+        .map_err(|e| Error::from_reason(format!("任务执行失败: {}", e)))?
+        .map_err(|e| Error::from_reason(format!("删除插件密钥失败: {}", e)))
     }
 }
 

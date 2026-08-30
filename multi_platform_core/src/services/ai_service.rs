@@ -1,14 +1,13 @@
 use crate::db::{Database, DbResult};
 use crate::models::{
-    AiCanvasFile, AiCanvasOperation, AiCanvasVersion, AiCanvasWorkspace, AiChatMessage,
-    AiCitation, AiConversation, AiMemory, AiProject, AiResearchJob, AiResearchSource,
+    AiCanvasFile, AiCanvasOperation, AiCanvasVersion, AiCanvasWorkspace, AiChatMessage, AiCitation,
+    AiConversation, AiMemory, AiProject, AiResearchJob, AiResearchSource,
     CreateAiCanvasOperationInput, CreateAiCanvasVersionInput, CreateAiCanvasWorkspaceInput,
     CreateAiCitationInput, CreateAiConversationInput, CreateAiMemoryInput, CreateAiMessageInput,
-    CreateAiProjectInput, CreateAiResearchJobInput, CreateAiResearchSourceInput, ListAiMemoriesInput,
-    ListAiResearchJobsInput,
-    UpdateAiCanvasOperationInput, UpdateAiCanvasWorkspaceInput, UpdateAiConversationInput,
-    UpdateAiMemoryInput, UpdateAiMessageInput, UpdateAiProjectInput, UpdateAiResearchJobInput,
-    UpsertAiCanvasFileInput,
+    CreateAiProjectInput, CreateAiResearchJobInput, CreateAiResearchSourceInput,
+    ListAiMemoriesInput, ListAiResearchJobsInput, UpdateAiCanvasOperationInput,
+    UpdateAiCanvasWorkspaceInput, UpdateAiConversationInput, UpdateAiMemoryInput,
+    UpdateAiMessageInput, UpdateAiProjectInput, UpdateAiResearchJobInput, UpsertAiCanvasFileInput,
 };
 use rusqlite::{params, Connection};
 
@@ -269,7 +268,10 @@ impl AiService {
 
     pub fn delete_canvas_workspace(db: &Database, id: &str) -> DbResult<()> {
         db.with_connection(|conn| {
-            conn.execute("DELETE FROM ai_canvas_workspaces WHERE id = ?1", params![id])?;
+            conn.execute(
+                "DELETE FROM ai_canvas_workspaces WHERE id = ?1",
+                params![id],
+            )?;
             Ok(())
         })
     }
@@ -724,10 +726,7 @@ impl AiService {
         })
     }
 
-    pub fn list_research_sources(
-        db: &Database,
-        job_id: &str,
-    ) -> DbResult<Vec<AiResearchSource>> {
+    pub fn list_research_sources(db: &Database, job_id: &str) -> DbResult<Vec<AiResearchSource>> {
         db.with_connection(|conn| {
             let mut stmt = conn.prepare(
                 "SELECT id, job_id, source_type, title, url, source_id, snippet, summary, metadata_json, created_at
@@ -1152,9 +1151,8 @@ mod tests {
                 id: "version-1".to_string(),
                 workspace_id: "canvas-1".to_string(),
                 version_no: 1,
-                snapshot_json:
-                    r#"{"files":[{"path":"index.html","content":"<h1>Hello</h1>"}]}"#
-                        .to_string(),
+                snapshot_json: r#"{"files":[{"path":"index.html","content":"<h1>Hello</h1>"}]}"#
+                    .to_string(),
                 source_message_id: None,
             },
         )
@@ -1181,7 +1179,10 @@ mod tests {
                 .len(),
             1
         );
-        assert_eq!(AiService::list_canvas_files(&db, "canvas-1").unwrap().len(), 1);
+        assert_eq!(
+            AiService::list_canvas_files(&db, "canvas-1").unwrap().len(),
+            1
+        );
         assert_eq!(
             AiService::list_canvas_versions(&db, "canvas-1")
                 .unwrap()
@@ -1196,11 +1197,9 @@ mod tests {
         );
 
         AiService::delete_conversation(&db, "conv-canvas").unwrap();
-        assert!(
-            AiService::list_canvas_workspaces(&db, "conv-canvas")
-                .unwrap()
-                .is_empty()
-        );
+        assert!(AiService::list_canvas_workspaces(&db, "conv-canvas")
+            .unwrap()
+            .is_empty());
     }
 
     #[test]

@@ -1,8 +1,8 @@
 use super::{DiscoveryBackend, MdnsDiscoveryBackend};
 use crate::db::{Database, DbResult};
 use crate::models::{
-    MultiDeviceClipboardDevice, MultiDeviceClipboardDiscoveredDevice,
-    MultiDeviceClipboardDeviceStatus, MultiDeviceClipboardDiscoveryConfig,
+    MultiDeviceClipboardDevice, MultiDeviceClipboardDeviceStatus,
+    MultiDeviceClipboardDiscoveredDevice, MultiDeviceClipboardDiscoveryConfig,
     MultiDeviceClipboardEvent, MultiDeviceClipboardItem, UpsertMultiDeviceClipboardDeviceInput,
     UpsertMultiDeviceClipboardItemInput,
 };
@@ -184,7 +184,9 @@ impl MultiDeviceClipboardManager {
                 last_address: discovered_device
                     .map(|value| value.address.clone())
                     .or(device.last_address),
-                last_port: discovered_device.map(|value| value.port).or(device.last_port),
+                last_port: discovered_device
+                    .map(|value| value.port)
+                    .or(device.last_port),
                 last_seen_at,
                 seconds_since_seen,
             });
@@ -469,7 +471,10 @@ fn latest_seen(
     stored_last_seen_at: Option<i64>,
     discovered: Option<&MultiDeviceClipboardDiscoveredDevice>,
 ) -> Option<i64> {
-    match (stored_last_seen_at, discovered.map(|device| device.last_seen_at)) {
+    match (
+        stored_last_seen_at,
+        discovered.map(|device| device.last_seen_at),
+    ) {
         (Some(a), Some(b)) => Some(a.max(b)),
         (Some(value), None) | (None, Some(value)) => Some(value),
         (None, None) => None,

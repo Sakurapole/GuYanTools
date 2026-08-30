@@ -155,11 +155,7 @@ impl KnowledgeService {
     const DEFAULT_SPACE_ID: &'static str = "space-default";
     const DEFAULT_INBOX_NODE_ID: &'static str = "node-inbox";
 
-    pub fn apply_sync_object(
-        db: &Database,
-        collection: &str,
-        payload_json: &str,
-    ) -> DbResult<()> {
+    pub fn apply_sync_object(db: &Database, collection: &str, payload_json: &str) -> DbResult<()> {
         db.transaction(|conn| {
             match collection {
                 "knowledge.library" => {
@@ -179,7 +175,8 @@ impl KnowledgeService {
                     let detail = if payload.get("node").is_some() && payload.get("page").is_some() {
                         serde_json::from_value::<KnowledgeSyncPageObjectPayload>(payload)?
                     } else {
-                        let page = serde_json::from_value::<KnowledgeSyncPageRecordPayload>(payload)?;
+                        let page =
+                            serde_json::from_value::<KnowledgeSyncPageRecordPayload>(payload)?;
                         let node = Self::get_node(conn, &page.id)?;
                         KnowledgeSyncPageObjectPayload {
                             node: KnowledgeSyncNodePayload::from_node(node),
@@ -257,7 +254,8 @@ impl KnowledgeService {
                 Some(name) => Self::normalize_required_text(name, "知识库名称不能为空")?,
                 None => current.name,
             };
-            let description = input.description
+            let description = input
+                .description
                 .and_then(|value| Some(value.trim().to_string()))
                 .unwrap_or(current.description);
 
@@ -282,7 +280,10 @@ impl KnowledgeService {
                 "DELETE FROM knowledge_search_fts WHERE library_id = ?1",
                 params![library_id],
             )?;
-            conn.execute("DELETE FROM knowledge_libraries WHERE id = ?1", params![library_id])?;
+            conn.execute(
+                "DELETE FROM knowledge_libraries WHERE id = ?1",
+                params![library_id],
+            )?;
             Ok(())
         })
     }
@@ -377,7 +378,10 @@ impl KnowledgeService {
                  )",
                 params![space.library_id, space_id],
             )?;
-            conn.execute("DELETE FROM knowledge_spaces WHERE id = ?1", params![space_id])?;
+            conn.execute(
+                "DELETE FROM knowledge_spaces WHERE id = ?1",
+                params![space_id],
+            )?;
             Ok(())
         })
     }
@@ -2112,8 +2116,10 @@ impl KnowledgeService {
         Self::get_library(conn, &library_id)?;
         let name = Self::normalize_required_text(payload.name, "空间名称不能为空")?;
         let description = Self::normalize_optional_text(payload.description).unwrap_or_default();
-        let icon = Self::normalize_optional_text(payload.icon).unwrap_or_else(|| "library".to_string());
-        let color = Self::normalize_optional_text(payload.color).unwrap_or_else(|| "#4A90D9".to_string());
+        let icon =
+            Self::normalize_optional_text(payload.icon).unwrap_or_else(|| "library".to_string());
+        let color =
+            Self::normalize_optional_text(payload.color).unwrap_or_else(|| "#4A90D9".to_string());
         let sort_order = payload.sort_order.unwrap_or(0);
         let is_default = payload.is_default.unwrap_or(false);
         if is_default {
@@ -2217,8 +2223,17 @@ impl KnowledgeService {
         conn: &Connection,
         payload: KnowledgeSyncPageObjectPayload,
     ) -> DbResult<KnowledgePageDetail> {
-        let node_type = payload.node.node_type.as_deref().unwrap_or("page").to_string();
-        let fallback = if node_type == "document" { "document" } else { "page" };
+        let node_type = payload
+            .node
+            .node_type
+            .as_deref()
+            .unwrap_or("page")
+            .to_string();
+        let fallback = if node_type == "document" {
+            "document"
+        } else {
+            "page"
+        };
         let node = Self::upsert_sync_node(conn, payload.node, fallback)?;
         let page_type = Self::normalize_page_type(payload.page.page_type)?;
         let content_markdown = payload.page.content_markdown.unwrap_or_default();
@@ -2282,10 +2297,12 @@ impl KnowledgeService {
             Self::normalize_required_text(payload.library_id, "同步资产知识库 ID 不能为空")?;
         Self::get_library(conn, &library_id)?;
         let hash = Self::normalize_required_text(payload.hash, "同步资产哈希不能为空")?;
-        let original_name = Self::normalize_required_text(payload.original_name, "资产名称不能为空")?;
+        let original_name =
+            Self::normalize_required_text(payload.original_name, "资产名称不能为空")?;
         let mime_type = Self::normalize_optional_text(payload.mime_type).unwrap_or_default();
         let extension = Self::normalize_optional_text(payload.extension).unwrap_or_default();
-        let extracted_text = Self::normalize_optional_text(payload.extracted_text).unwrap_or_default();
+        let extracted_text =
+            Self::normalize_optional_text(payload.extracted_text).unwrap_or_default();
         let import_status = Self::normalize_import_status(payload.import_status)?;
         let storage_path = Self::normalize_optional_text(payload.storage_path)
             .filter(|value| !value.is_empty())
@@ -2345,7 +2362,10 @@ impl KnowledgeService {
         Ok(asset)
     }
 
-    fn upsert_sync_tag(conn: &Connection, payload: KnowledgeSyncTagPayload) -> DbResult<KnowledgeTag> {
+    fn upsert_sync_tag(
+        conn: &Connection,
+        payload: KnowledgeSyncTagPayload,
+    ) -> DbResult<KnowledgeTag> {
         let id = Self::normalize_required_text(payload.id, "同步标签 ID 不能为空")?;
         let library_id =
             Self::normalize_required_text(payload.library_id, "同步标签知识库 ID 不能为空")?;
@@ -2380,12 +2400,15 @@ impl KnowledgeService {
 
     fn upsert_sync_link(conn: &Connection, payload: KnowledgeSyncLinkPayload) -> DbResult<()> {
         let id = Self::normalize_required_text(payload.id, "同步链接 ID 不能为空")?;
-        let source_type = Self::normalize_required_text(payload.source_type, "链接来源类型不能为空")?;
+        let source_type =
+            Self::normalize_required_text(payload.source_type, "链接来源类型不能为空")?;
         let source_id = Self::normalize_required_text(payload.source_id, "链接来源 ID 不能为空")?;
-        let target_type = Self::normalize_required_text(payload.target_type, "链接目标类型不能为空")?;
+        let target_type =
+            Self::normalize_required_text(payload.target_type, "链接目标类型不能为空")?;
         let target_id = Self::normalize_optional_text(payload.target_id);
         let target_url = Self::normalize_optional_text(payload.target_url);
-        let link_type = Self::normalize_optional_text(payload.link_type).unwrap_or_else(|| "reference".to_string());
+        let link_type = Self::normalize_optional_text(payload.link_type)
+            .unwrap_or_else(|| "reference".to_string());
         conn.execute(
             "INSERT INTO knowledge_links (
                 id, source_type, source_id, target_type, target_id, target_url, link_type, created_at
@@ -2441,7 +2464,8 @@ impl KnowledgeService {
     }
 
     fn normalize_sync_node_type(value: Option<String>, fallback: &str) -> DbResult<String> {
-        let node_type = Self::normalize_optional_text(value).unwrap_or_else(|| fallback.to_string());
+        let node_type =
+            Self::normalize_optional_text(value).unwrap_or_else(|| fallback.to_string());
         match node_type.as_str() {
             "folder" | "page" | "document" | "quick_note" => Ok(node_type),
             _ => Err(DbError::InvalidParameter(format!(
@@ -2798,7 +2822,10 @@ impl KnowledgeService {
             .collect::<Result<Vec<_>, _>>()?;
         for existing_id in existing_ids {
             if !expected_ids.iter().any(|id| id == &existing_id) {
-                conn.execute("DELETE FROM knowledge_links WHERE id = ?1", params![existing_id])?;
+                conn.execute(
+                    "DELETE FROM knowledge_links WHERE id = ?1",
+                    params![existing_id],
+                )?;
             }
         }
         Ok(())
@@ -3238,7 +3265,11 @@ impl KnowledgeService {
     }
 
     fn document_icon(extension: &str) -> &'static str {
-        match extension.trim_start_matches('.').to_ascii_lowercase().as_str() {
+        match extension
+            .trim_start_matches('.')
+            .to_ascii_lowercase()
+            .as_str()
+        {
             "md" | "markdown" => "file-type",
             "pdf" => "file-type-2",
             "doc" | "docx" => "file-type-2",
@@ -3883,13 +3914,16 @@ mod tests {
         assert_eq!(spaces[1].id, space.id);
 
         KnowledgeService::delete_space(&db, &space.id).unwrap();
-        let remaining_spaces = KnowledgeService::list_spaces(&db, Some(library.id.clone())).unwrap();
+        let remaining_spaces =
+            KnowledgeService::list_spaces(&db, Some(library.id.clone())).unwrap();
         assert!(remaining_spaces.iter().all(|item| item.id != space.id));
 
         KnowledgeService::delete_library(&db, &library.id).unwrap();
         let libraries = KnowledgeService::list_libraries(&db).unwrap();
         assert!(libraries.iter().all(|item| item.id != library.id));
-        assert!(KnowledgeService::delete_library(&db, KnowledgeService::DEFAULT_LIBRARY_ID).is_err());
+        assert!(
+            KnowledgeService::delete_library(&db, KnowledgeService::DEFAULT_LIBRARY_ID).is_err()
+        );
         assert!(KnowledgeService::delete_space(&db, KnowledgeService::DEFAULT_SPACE_ID).is_err());
     }
 
@@ -3950,7 +3984,9 @@ mod tests {
             },
         )
         .unwrap();
-        assert!(results.iter().any(|result| result.source_id == "sync-page-a"));
+        assert!(results
+            .iter()
+            .any(|result| result.source_id == "sync-page-a"));
 
         let links = KnowledgeService::list_page_links(&db, "sync-page-a").unwrap();
         assert!(links.iter().any(|link| link.id == "sync-link-a"));
@@ -3974,7 +4010,10 @@ mod tests {
         .unwrap();
 
         let asset = KnowledgeService::get_asset_by_id(&db, "sync-asset-a").unwrap();
-        assert_eq!(asset.storage_path, "D:/GuYanTools/knowledge-assets/sync-asset-hash.png");
+        assert_eq!(
+            asset.storage_path,
+            "D:/GuYanTools/knowledge-assets/sync-asset-hash.png"
+        );
     }
 
     #[test]
@@ -4056,7 +4095,10 @@ mod tests {
         assert_eq!(imported.document.page.page_type, "markdown");
         assert_eq!(imported.document.page.content_markdown, "# Meeting\n\n正文");
         assert_eq!(imported.document.page.content_text, "# Meeting\n\n正文");
-        assert_eq!(imported.document.page.source_asset_id.as_deref(), Some(imported.asset.id.as_str()));
+        assert_eq!(
+            imported.document.page.source_asset_id.as_deref(),
+            Some(imported.asset.id.as_str())
+        );
     }
 
     #[test]
@@ -4720,7 +4762,10 @@ mod tests {
 
         assert_eq!(imported.document.node.node_type, "page");
         assert_eq!(imported.document.page.page_type, "markdown");
-        assert_eq!(imported.document.page.source_asset_id.as_deref(), Some(imported.asset.id.as_str()));
+        assert_eq!(
+            imported.document.page.source_asset_id.as_deref(),
+            Some(imported.asset.id.as_str())
+        );
         assert_eq!(imported.index_job.status, "succeeded");
         assert!(!imported.duplicate_asset);
 
@@ -4737,7 +4782,10 @@ mod tests {
         .unwrap();
         assert_eq!(results.len(), 1);
         assert_eq!(results[0].source_type, "page");
-        assert_eq!(results[0].node_id.as_deref(), Some(imported.document.node.id.as_str()));
+        assert_eq!(
+            results[0].node_id.as_deref(),
+            Some(imported.document.node.id.as_str())
+        );
 
         let asset_results = KnowledgeService::search_knowledge(
             &db,

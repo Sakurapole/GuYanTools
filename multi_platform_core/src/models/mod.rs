@@ -1,8 +1,8 @@
 mod ai;
 pub mod home_layout;
 mod knowledge;
-mod plugin;
 pub mod multi_device_clipboard;
+mod plugin;
 mod project;
 mod setting;
 mod sync;
@@ -10,15 +10,14 @@ mod todo;
 mod user;
 
 pub use ai::{
-    AiCanvasFile, AiCanvasOperation, AiCanvasVersion, AiCanvasWorkspace, AiChatMessage,
-    AiCitation, AiConversation, AiMemory, AiProject, AiResearchJob, AiResearchSource,
+    AiCanvasFile, AiCanvasOperation, AiCanvasVersion, AiCanvasWorkspace, AiChatMessage, AiCitation,
+    AiConversation, AiMemory, AiProject, AiResearchJob, AiResearchSource,
     CreateAiCanvasOperationInput, CreateAiCanvasVersionInput, CreateAiCanvasWorkspaceInput,
     CreateAiCitationInput, CreateAiConversationInput, CreateAiMemoryInput, CreateAiMessageInput,
-    CreateAiProjectInput, CreateAiResearchJobInput, CreateAiResearchSourceInput, ListAiMemoriesInput,
-    ListAiResearchJobsInput,
-    UpdateAiCanvasOperationInput, UpdateAiCanvasWorkspaceInput, UpdateAiConversationInput,
-    UpdateAiMemoryInput, UpdateAiMessageInput, UpdateAiProjectInput, UpdateAiResearchJobInput,
-    UpsertAiCanvasFileInput,
+    CreateAiProjectInput, CreateAiResearchJobInput, CreateAiResearchSourceInput,
+    ListAiMemoriesInput, ListAiResearchJobsInput, UpdateAiCanvasOperationInput,
+    UpdateAiCanvasWorkspaceInput, UpdateAiConversationInput, UpdateAiMemoryInput,
+    UpdateAiMessageInput, UpdateAiProjectInput, UpdateAiResearchJobInput, UpsertAiCanvasFileInput,
 };
 pub use home_layout::{
     CreateHomeCategoryInput, CreateHomeWidgetInput, HomeCategory, HomeLayout, HomeLayoutCategory,
@@ -49,12 +48,12 @@ pub use multi_device_clipboard::{
     MultiDeviceClipboardEvent, MultiDeviceClipboardItem, UpsertMultiDeviceClipboardDeviceInput,
     UpsertMultiDeviceClipboardItemInput,
 };
-pub use project::{CreateProjectInput, Project, UpdateProjectInput};
 pub use plugin::{
     CreatePluginFileGrantInput, CreatePluginJobInput, PluginFileGrant, PluginInstallation,
     PluginJob, PluginMarketplaceCache, UpdatePluginJobInput, UpsertPluginInstallationInput,
     UpsertPluginMarketplaceInput,
 };
+pub use project::{CreateProjectInput, Project, UpdateProjectInput};
 pub use setting::{Setting, UpsertSettingInput};
 pub use sync::{SyncConflict, SyncObjectState, SyncOutboxItem, SyncProfile};
 pub use todo::{

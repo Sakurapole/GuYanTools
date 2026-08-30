@@ -13,6 +13,9 @@ pub struct HomeLayoutService;
 impl HomeLayoutService {
     const DEFAULT_WORKSPACE_KEY: &'static str = "default";
     const ACTIVE_WORKSPACE_SETTING_KEY: &'static str = "home.activeWorkspaceKey";
+    const MAX_INLINE_MEDIA_BYTES: usize = 4 * 1024 * 1024;
+    const MAX_BACKGROUND_STYLE_BYTES: usize = 4 * 1024 * 1024;
+    const MAX_METADATA_STYLE_BYTES: usize = 128 * 1024;
     pub const MOBILE_SCOPE_COMPACT: &'static str = "mobile_compact";
     pub const MOBILE_SCOPE_EXPANDED: &'static str = "mobile_expanded";
 
@@ -96,6 +99,36 @@ impl HomeLayoutService {
                 workspace_key: workspace_key.to_string(),
                 categories,
             })
+        })
+    }
+
+    /// 获取桌面端首页所需的轻量布局元数据。
+    ///
+    /// 背景媒体通常是 data URL，可能达到数十 MB。桌面端首次进入首页时只需要
+    /// 分类和组件元数据，媒体由激活分类的按需查询单独加载。
+    pub fn get_layout_metadata_by_workspace_key(
+        db: &Database,
+        workspace_key: &str,
+    ) -> DbResult<HomeLayout> {
+        db.with_connection(|conn| {
+            let workspace_id = Self::get_workspace_id(conn, workspace_key)?;
+            let categories =
+                Self::list_categories_with_widgets_without_backgrounds(conn, workspace_id)?;
+            Ok(HomeLayout {
+                workspace_key: workspace_key.to_string(),
+                categories,
+            })
+        })
+    }
+
+    pub fn get_category_layout_by_workspace_key(
+        db: &Database,
+        workspace_key: &str,
+        category_id: &str,
+    ) -> DbResult<HomeLayoutCategory> {
+        db.with_connection(|conn| {
+            let workspace_id = Self::get_workspace_id(conn, workspace_key)?;
+            Self::get_category_layout(conn, workspace_id, category_id)
         })
     }
 
@@ -209,9 +242,9 @@ impl HomeLayoutService {
         db.transaction(|conn| {
             let workspace_id = Self::get_workspace_id(conn, &input.workspace_key)?;
             let background_color = Self::normalize_optional_text(input.background_color);
-            let background_image = Self::normalize_optional_text(input.background_image);
-            let background_video = Self::normalize_optional_text(input.background_video);
-            let background_style = Self::normalize_optional_text(input.background_style);
+            let background_image = Self::normalize_optional_media(input.background_image)?;
+            let background_video = Self::normalize_optional_media(input.background_video)?;
+            let background_style = Self::sanitize_background_style(input.background_style, false);
 
             conn.execute(
                 "INSERT INTO home_categories (id, workspace_id, label, icon, sort_order, background_color, background_image, background_video, background_style)
@@ -235,15 +268,15 @@ impl HomeLayoutService {
             let icon = input.icon.unwrap_or(current.icon);
             let sort_order = input.sort_order.unwrap_or(current.sort_order);
             let background_color = match input.background_color {
-                Some(value) => Self::normalize_optional_text(Some(value)),
+                Some(value) => Self::sanitize_background_style(Some(value), false),
                 None => current.background_color,
             };
             let background_image = match input.background_image {
-                Some(value) => Self::normalize_optional_text(Some(value)),
+                Some(value) => Self::normalize_optional_media(Some(value))?,
                 None => current.background_image,
             };
             let background_video = match input.background_video {
-                Some(value) => Self::normalize_optional_text(Some(value)),
+                Some(value) => Self::normalize_optional_media(Some(value))?,
                 None => current.background_video,
             };
             let background_style = match input.background_style {
@@ -288,9 +321,9 @@ impl HomeLayoutService {
         db.transaction(|conn| {
             let workspace_id = Self::get_workspace_id(conn, &input.workspace_key)?;
             Self::ensure_category_in_workspace(conn, &input.category_id, workspace_id)?;
-            let background_image = Self::normalize_optional_text(input.background_image);
-            let background_video = Self::normalize_optional_text(input.background_video);
-            let background_style = Self::normalize_optional_text(input.background_style);
+            let background_image = Self::normalize_optional_media(input.background_image)?;
+            let background_video = Self::normalize_optional_media(input.background_video)?;
+            let background_style = Self::sanitize_background_style(input.background_style, false);
             let size_preset = Self::normalize_optional_text(input.size_preset);
             let widget_config = Self::normalize_optional_text(input.widget_config);
 
@@ -349,7 +382,7 @@ impl HomeLayoutService {
             let source_type = input.source_type.unwrap_or(current.source_type);
             let widget_type = input.widget_type.unwrap_or(current.widget_type);
             let size_preset = match input.size_preset {
-                Some(value) => Self::normalize_optional_text(Some(value)),
+                Some(value) => Self::sanitize_background_style(Some(value), false),
                 None => current.size_preset,
             };
             let widget_config = match input.widget_config {
@@ -365,11 +398,11 @@ impl HomeLayoutService {
             let priority = input.priority.unwrap_or(current.priority);
             let color = input.color.unwrap_or(current.color);
             let background_image = match input.background_image {
-                Some(value) => Self::normalize_optional_text(Some(value)),
+                Some(value) => Self::normalize_optional_media(Some(value))?,
                 None => current.background_image,
             };
             let background_video = match input.background_video {
-                Some(value) => Self::normalize_optional_text(Some(value)),
+                Some(value) => Self::normalize_optional_media(Some(value))?,
                 None => current.background_video,
             };
             let background_style = match input.background_style {
@@ -457,9 +490,9 @@ impl HomeLayoutService {
 
             for category in input.categories {
                 let bg_color = Self::normalize_optional_text(category.background_color);
-                let bg_image = Self::normalize_optional_text(category.background_image);
-                let bg_video = Self::normalize_optional_text(category.background_video);
-                let bg_style = Self::normalize_optional_text(category.background_style);
+                let bg_image = Self::normalize_optional_media(category.background_image)?;
+                let bg_video = Self::normalize_optional_media(category.background_video)?;
+                let bg_style = Self::sanitize_background_style(category.background_style, false);
 
                 conn.execute(
                     "INSERT INTO home_categories (id, workspace_id, label, icon, sort_order, background_color, background_image, background_video, background_style)
@@ -478,9 +511,9 @@ impl HomeLayoutService {
                 )?;
 
                 for widget in category.widgets {
-                    let background_image = Self::normalize_optional_text(widget.background_image);
-                    let background_video = Self::normalize_optional_text(widget.background_video);
-                    let background_style = Self::normalize_optional_text(widget.background_style);
+                    let background_image = Self::normalize_optional_media(widget.background_image)?;
+                    let background_video = Self::normalize_optional_media(widget.background_video)?;
+                    let background_style = Self::sanitize_background_style(widget.background_style, false);
                     let size_preset = Self::normalize_optional_text(widget.size_preset);
                     let widget_config = Self::normalize_optional_text(widget.widget_config);
                     conn.execute(
@@ -673,9 +706,9 @@ impl HomeLayoutService {
                     icon: row.get(3)?,
                     sort_order: row.get(4)?,
                     background_color: row.get(5)?,
-                    background_image: row.get(6)?,
-                    background_video: row.get(7)?,
-                    background_style: row.get(8)?,
+                    background_image: Self::sanitize_optional_media(row.get(6)?),
+                    background_video: Self::sanitize_optional_media(row.get(7)?),
+                    background_style: Self::sanitize_background_style(row.get(8)?, false),
                     widgets: Vec::new(),
                 })
             })?
@@ -684,6 +717,48 @@ impl HomeLayoutService {
         let mut result = Vec::with_capacity(categories.len());
         for mut category in categories {
             category.widgets = Self::list_widgets_by_category(conn, workspace_id, &category.id)?;
+            result.push(category);
+        }
+
+        Ok(result)
+    }
+
+    fn list_categories_with_widgets_without_backgrounds(
+        conn: &Connection,
+        workspace_id: i64,
+    ) -> DbResult<Vec<HomeLayoutCategory>> {
+        let mut stmt = conn.prepare(
+            "SELECT id, workspace_id, label, icon, sort_order,
+                    background_color, NULL AS background_image, NULL AS background_video, background_style
+             FROM home_categories
+             WHERE workspace_id = ?1
+             ORDER BY sort_order ASC, created_at ASC",
+        )?;
+
+        let categories = stmt
+            .query_map(params![workspace_id], |row| {
+                Ok(HomeLayoutCategory {
+                    id: row.get(0)?,
+                    workspace_id: row.get(1)?,
+                    label: row.get(2)?,
+                    icon: row.get(3)?,
+                    sort_order: row.get(4)?,
+                    background_color: row.get(5)?,
+                    background_image: None,
+                    background_video: None,
+                    background_style: Self::sanitize_background_style(row.get(8)?, true),
+                    widgets: Vec::new(),
+                })
+            })?
+            .collect::<Result<Vec<_>, _>>()?;
+
+        let mut result = Vec::with_capacity(categories.len());
+        for mut category in categories {
+            category.widgets = Self::list_widgets_by_category_without_backgrounds(
+                conn,
+                workspace_id,
+                &category.id,
+            )?;
             result.push(category);
         }
 
@@ -733,11 +808,99 @@ impl HomeLayoutService {
 
         let widgets = stmt
             .query_map(params![workspace_id, category_id], |row| {
-                Self::map_widget(row)
+                Self::map_widget(row, false)
             })?
             .collect::<Result<Vec<_>, _>>()?;
 
         Ok(widgets)
+    }
+
+    /// This is only used by the desktop compatibility path that converts an
+    /// already-persisted data URL to a file asset. New writes still reject it.
+    fn list_widgets_for_asset_materialization(
+        conn: &Connection,
+        workspace_id: i64,
+        category_id: &str,
+    ) -> DbResult<Vec<HomeWidget>> {
+        let mut stmt = conn.prepare(
+            "SELECT id, workspace_id, category_id, label, icon, action, source_type, widget_type,
+                    size_preset, widget_config, col, row, col_span, row_span,
+                    preferred_col, preferred_row, priority, color, background_image, background_video,
+                    background_style, hidden, created_at, updated_at
+             FROM home_widgets
+             WHERE workspace_id = ?1 AND category_id = ?2
+             ORDER BY priority ASC, created_at ASC",
+        )?;
+
+        let widgets = stmt
+            .query_map(params![workspace_id, category_id], |row| {
+                Self::map_widget(row, true)
+            })?
+            .collect::<Result<Vec<_>, _>>()?;
+
+        Ok(widgets)
+    }
+
+    fn list_widgets_by_category_without_backgrounds(
+        conn: &Connection,
+        workspace_id: i64,
+        category_id: &str,
+    ) -> DbResult<Vec<HomeWidget>> {
+        let mut stmt = conn.prepare(
+            "SELECT id, workspace_id, category_id, label, icon, action, source_type, widget_type,
+                    size_preset, widget_config, col, row, col_span, row_span,
+                    preferred_col, preferred_row, priority, color, NULL AS background_image,
+                    NULL AS background_video, background_style, hidden, created_at, updated_at
+             FROM home_widgets
+             WHERE workspace_id = ?1 AND category_id = ?2
+             ORDER BY priority ASC, created_at ASC",
+        )?;
+
+        let widgets = stmt
+            .query_map(params![workspace_id, category_id], |row| {
+                let mut widget = Self::map_widget(row, false)?;
+                widget.background_style =
+                    Self::sanitize_background_style(widget.background_style, true);
+                Ok(widget)
+            })?
+            .collect::<Result<Vec<_>, _>>()?;
+
+        Ok(widgets)
+    }
+
+    fn get_category_layout(
+        conn: &Connection,
+        workspace_id: i64,
+        category_id: &str,
+    ) -> DbResult<HomeLayoutCategory> {
+        let mut category = conn
+            .query_row(
+                "SELECT id, workspace_id, label, icon, sort_order,
+                        background_color, background_image, background_video, background_style
+                 FROM home_categories
+                 WHERE workspace_id = ?1 AND id = ?2",
+                params![workspace_id, category_id],
+                |row| {
+                    Ok(HomeLayoutCategory {
+                        id: row.get(0)?,
+                        workspace_id: row.get(1)?,
+                        label: row.get(2)?,
+                        icon: row.get(3)?,
+                        sort_order: row.get(4)?,
+                        background_color: row.get(5)?,
+                        background_image: Self::normalize_optional_text(row.get(6)?),
+                        background_video: Self::normalize_optional_text(row.get(7)?),
+                        background_style: Self::sanitize_background_style(row.get(8)?, false),
+                        widgets: Vec::new(),
+                    })
+                },
+            )
+            .optional()?
+            .ok_or_else(|| DbError::NotFound(format!("类别 {} 不存在", category_id)))?;
+
+        category.widgets =
+            Self::list_widgets_for_asset_materialization(conn, workspace_id, category_id)?;
+        Ok(category)
     }
 
     fn get_mobile_category_layout(
@@ -769,9 +932,9 @@ impl HomeLayoutService {
                     icon: row.get(3)?,
                     sort_order: row.get(4)?,
                     background_color: row.get(5)?,
-                    background_image: row.get(6)?,
-                    background_video: row.get(7)?,
-                    background_style: row.get(8)?,
+                    background_image: Self::sanitize_optional_media(row.get(6)?),
+                    background_video: Self::sanitize_optional_media(row.get(7)?),
+                    background_style: Self::sanitize_background_style(row.get(8)?, false),
                     created_at: row.get(9)?,
                     updated_at: row.get(10)?,
                 })
@@ -786,9 +949,9 @@ impl HomeLayoutService {
                     size_preset, widget_config, col, row, col_span, row_span,
                     preferred_col, preferred_row, priority, color, background_image, background_video,
                     background_style, hidden, created_at, updated_at
-             FROM home_widgets WHERE id = ?1",
+            FROM home_widgets WHERE id = ?1",
             params![widget_id],
-            Self::map_widget,
+            |row| Self::map_widget(row, false),
         )
         .map_err(DbError::from)
     }
@@ -841,7 +1004,12 @@ impl HomeLayoutService {
         }
     }
 
-    fn map_widget(row: &rusqlite::Row<'_>) -> rusqlite::Result<HomeWidget> {
+    fn map_widget(
+        row: &rusqlite::Row<'_>,
+        preserve_legacy_inline_media: bool,
+    ) -> rusqlite::Result<HomeWidget> {
+        let background_image: Option<String> = row.get(18)?;
+        let background_video: Option<String> = row.get(19)?;
         Ok(HomeWidget {
             id: row.get(0)?,
             workspace_id: row.get(1)?,
@@ -861,9 +1029,17 @@ impl HomeLayoutService {
             preferred_row: row.get(15)?,
             priority: row.get(16)?,
             color: row.get(17)?,
-            background_image: row.get(18)?,
-            background_video: row.get(19)?,
-            background_style: row.get(20)?,
+            background_image: if preserve_legacy_inline_media {
+                Self::normalize_optional_text(background_image)
+            } else {
+                Self::sanitize_optional_media(background_image)
+            },
+            background_video: if preserve_legacy_inline_media {
+                Self::normalize_optional_text(background_video)
+            } else {
+                Self::sanitize_optional_media(background_video)
+            },
+            background_style: Self::sanitize_background_style(row.get(20)?, false),
             hidden: row.get::<_, i64>(21)? != 0,
             created_at: row.get(22)?,
             updated_at: row.get(23)?,
@@ -878,6 +1054,150 @@ impl HomeLayoutService {
                 Some(text)
             }
         })
+    }
+
+    /// Remove oversized inline media from persisted background-style JSON.
+    ///
+    /// Metadata reads also omit all theme variants because they are not needed
+    /// to render the category list. The active category is fetched separately
+    /// and receives the bounded full style instead.
+    fn sanitize_background_style(value: Option<String>, metadata_only: bool) -> Option<String> {
+        let value = Self::normalize_optional_text(value);
+        let Some(raw) = value else {
+            return None;
+        };
+
+        // Avoid parsing an unbounded JSON blob merely to build first-paint
+        // metadata. Full styles are still bounded to the same 4 MiB limit.
+        let max_bytes = if metadata_only {
+            Self::MAX_METADATA_STYLE_BYTES
+        } else {
+            Self::MAX_BACKGROUND_STYLE_BYTES
+        };
+        if raw.len() > max_bytes {
+            return None;
+        }
+
+        let Ok(mut parsed) = serde_json::from_str::<serde_json::Value>(&raw) else {
+            return Some(raw);
+        };
+
+        Self::sanitize_background_value(&mut parsed, metadata_only);
+        serde_json::to_string(&parsed).ok().or(Some(raw))
+    }
+
+    fn sanitize_background_value(value: &mut serde_json::Value, metadata_only: bool) {
+        match value {
+            serde_json::Value::Object(object) => {
+                if metadata_only {
+                    object.remove("themeVariants");
+                }
+
+                object.retain(|key, child| {
+                    let is_media_field = key == "image" || key == "video";
+                    let remove_media = is_media_field
+                        && child
+                            .as_str()
+                            .map(Self::is_oversized_inline_media)
+                            .unwrap_or(false);
+                    if remove_media {
+                        return false;
+                    }
+                    Self::sanitize_background_value(child, metadata_only);
+                    true
+                });
+            }
+            serde_json::Value::Array(items) => {
+                for item in items {
+                    Self::sanitize_background_value(item, metadata_only);
+                }
+            }
+            _ => {}
+        }
+    }
+
+    fn is_oversized_inline_media(media: &str) -> bool {
+        if !media.starts_with("data:image/") && !media.starts_with("data:video/") {
+            return false;
+        }
+
+        let payload_len = media
+            .split_once(',')
+            .map(|(_, payload)| payload.len())
+            .unwrap_or(0);
+        let padding = if media.ends_with("==") {
+            2
+        } else if media.ends_with('=') {
+            1
+        } else {
+            0
+        };
+        let estimated_bytes = payload_len.saturating_mul(3) / 4;
+        estimated_bytes.saturating_sub(padding) > Self::MAX_INLINE_MEDIA_BYTES
+    }
+
+    fn sanitize_optional_media(value: Option<String>) -> Option<String> {
+        let value = Self::normalize_optional_text(value);
+        let Some(media) = value.as_deref() else {
+            return None;
+        };
+
+        if media.starts_with("data:image/") || media.starts_with("data:video/") {
+            let payload_len = media
+                .split_once(',')
+                .map(|(_, payload)| payload.len())
+                .unwrap_or(0);
+            let padding = if media.ends_with("==") {
+                2
+            } else if media.ends_with('=') {
+                1
+            } else {
+                0
+            };
+            let estimated_bytes = payload_len.saturating_mul(3) / 4;
+            let estimated_bytes = estimated_bytes.saturating_sub(padding);
+            if estimated_bytes > Self::MAX_INLINE_MEDIA_BYTES {
+                return None;
+            }
+        }
+
+        value
+    }
+
+    fn normalize_optional_media(value: Option<String>) -> DbResult<Option<String>> {
+        let value = Self::normalize_optional_text(value);
+        let Some(media) = value.as_deref() else {
+            return Ok(None);
+        };
+
+        if media.starts_with("data:image/") || media.starts_with("data:video/") {
+            let payload_len = media
+                .split_once(',')
+                .map(|(_, payload)| {
+                    payload
+                        .bytes()
+                        .filter(|byte| !byte.is_ascii_whitespace())
+                        .count()
+                })
+                .unwrap_or(0);
+            let padding = if media.ends_with("==") {
+                2
+            } else if media.ends_with('=') {
+                1
+            } else {
+                0
+            };
+            let estimated_bytes = payload_len.saturating_mul(3) / 4;
+            let estimated_bytes = estimated_bytes.saturating_sub(padding);
+            if estimated_bytes > Self::MAX_INLINE_MEDIA_BYTES {
+                return Err(DbError::InvalidParameter(format!(
+                    "内嵌媒体不能超过 {} MiB，请选择较小的文件或使用外部文件 URL",
+                    Self::MAX_INLINE_MEDIA_BYTES / (1024 * 1024)
+                )));
+            }
+        }
+
+        Ok(value)
     }
 
     fn normalize_required_name(value: String) -> DbResult<String> {
@@ -911,6 +1231,124 @@ mod tests {
         assert_eq!(layout.categories[1].widgets.len(), 2);
         assert_eq!(layout.categories[2].widgets.len(), 2);
         assert_eq!(layout.categories[3].widgets.len(), 1);
+    }
+
+    #[test]
+    fn test_home_layout_metadata_omits_background_media() {
+        let db = Database::new_in_memory().unwrap();
+        let category = HomeLayoutService::create_category(
+            &db,
+            CreateHomeCategoryInput {
+                id: "category-media-test".to_string(),
+                workspace_key: "default".to_string(),
+                label: "媒体测试".to_string(),
+                icon: "category-media".to_string(),
+                sort_order: 99,
+                background_color: Some("#123456".to_string()),
+                background_image: Some("data:image/png;base64,category".to_string()),
+                background_video: Some("data:video/mp4;base64,category".to_string()),
+                background_style: Some("{}".to_string()),
+            },
+        )
+        .unwrap();
+        HomeLayoutService::create_widget(
+            &db,
+            CreateHomeWidgetInput {
+                id: "widget-media-test".to_string(),
+                workspace_key: "default".to_string(),
+                category_id: category.id.clone(),
+                label: "媒体卡片".to_string(),
+                icon: Some("tool".to_string()),
+                action: None,
+                source_type: "shortcut".to_string(),
+                widget_type: "shortcut".to_string(),
+                size_preset: None,
+                widget_config: None,
+                col: 1,
+                row: 1,
+                col_span: 1,
+                row_span: 1,
+                preferred_col: 1,
+                preferred_row: 1,
+                priority: 1,
+                color: "#ffffff".to_string(),
+                background_image: Some("data:image/png;base64,widget".to_string()),
+                background_video: Some("data:video/mp4;base64,widget".to_string()),
+                background_style: None,
+                hidden: false,
+            },
+        )
+        .unwrap();
+
+        let metadata =
+            HomeLayoutService::get_layout_metadata_by_workspace_key(&db, "default").unwrap();
+        let metadata_category = metadata
+            .categories
+            .iter()
+            .find(|item| item.id == category.id)
+            .unwrap();
+        assert!(metadata_category.background_image.is_none());
+        assert!(metadata_category.background_video.is_none());
+        assert!(metadata_category.widgets[0].background_image.is_none());
+        assert!(metadata_category.widgets[0].background_video.is_none());
+
+        let full =
+            HomeLayoutService::get_category_layout_by_workspace_key(&db, "default", &category.id)
+                .unwrap();
+        assert_eq!(
+            full.background_image,
+            Some("data:image/png;base64,category".to_string())
+        );
+        assert_eq!(
+            full.widgets[0].background_video,
+            Some("data:video/mp4;base64,widget".to_string())
+        );
+    }
+
+    #[test]
+    fn test_oversized_inline_media_is_rejected() {
+        let payload = format!(
+            "data:video/webm;base64,{}",
+            "A".repeat((HomeLayoutService::MAX_INLINE_MEDIA_BYTES * 4 / 3) + 8)
+        );
+        let error = HomeLayoutService::normalize_optional_media(Some(payload)).unwrap_err();
+        assert!(error.to_string().contains("内嵌媒体不能超过"));
+    }
+
+    #[test]
+    fn test_layout_metadata_removes_theme_variant_media() {
+        let style = serde_json::json!({
+            "backgroundSize": "cover",
+            "themeVariants": {
+                "light": {
+                    "type": "image",
+                    "image": "data:image/png;base64,small"
+                }
+            }
+        });
+        let metadata =
+            HomeLayoutService::sanitize_background_style(Some(style.to_string()), true).unwrap();
+        let parsed: serde_json::Value = serde_json::from_str(&metadata).unwrap();
+        assert_eq!(parsed["backgroundSize"], "cover");
+        assert!(parsed.get("themeVariants").is_none());
+    }
+
+    #[test]
+    fn test_full_layout_style_drops_oversized_theme_media() {
+        let oversized = format!(
+            "data:image/jpeg;base64,{}",
+            "A".repeat((HomeLayoutService::MAX_INLINE_MEDIA_BYTES * 4 / 3) + 8)
+        );
+        let style = serde_json::json!({
+            "themeVariants": {
+                "light": {
+                    "type": "image",
+                    "image": oversized
+                }
+            }
+        });
+        let full = HomeLayoutService::sanitize_background_style(Some(style.to_string()), false);
+        assert!(full.is_none());
     }
 
     #[test]

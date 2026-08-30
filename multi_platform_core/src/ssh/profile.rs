@@ -341,7 +341,9 @@ impl super::SshConnectionManager {
     pub fn update_profile(&self, input: UpdateSshProfileInput) -> Result<SshProfile> {
         let now = unix_now();
         if input.folder_id.is_some() {
-            self.validate_profile_folder(normalize_optional_id(input.folder_id.as_deref()).as_deref())?;
+            self.validate_profile_folder(
+                normalize_optional_id(input.folder_id.as_deref()).as_deref(),
+            )?;
         }
 
         self.inner
@@ -638,7 +640,11 @@ impl super::SshConnectionManager {
             return Ok(());
         };
 
-        if self.list_folders()?.iter().any(|folder| folder.id == folder_id) {
+        if self
+            .list_folders()?
+            .iter()
+            .any(|folder| folder.id == folder_id)
+        {
             return Ok(());
         }
 

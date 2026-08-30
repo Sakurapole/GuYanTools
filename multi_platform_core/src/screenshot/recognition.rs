@@ -97,7 +97,8 @@ pub fn recognize_ui_blocks_from_rgba(
             .into_iter()
             .map(|candidate| {
                 let features = features_for_rect(width, rgba, &candidate.rect, candidate.color);
-                let kind = classify_rect(width, height, &candidate.rect, &features, candidate.color);
+                let kind =
+                    classify_rect(width, height, &candidate.rect, &features, candidate.color);
                 (candidate, features, kind)
             })
             .collect(),
@@ -121,8 +122,16 @@ pub fn recognize_ui_blocks_from_rgba(
 fn score_repeated_siblings(
     _width: u32,
     _height: u32,
-    mut entries: Vec<(CandidateRect, ScreenshotUiBlockFeatures, ScreenshotUiBlockKind)>,
-) -> Vec<(CandidateRect, ScreenshotUiBlockFeatures, ScreenshotUiBlockKind)> {
+    mut entries: Vec<(
+        CandidateRect,
+        ScreenshotUiBlockFeatures,
+        ScreenshotUiBlockKind,
+    )>,
+) -> Vec<(
+    CandidateRect,
+    ScreenshotUiBlockFeatures,
+    ScreenshotUiBlockKind,
+)> {
     for index in 0..entries.len() {
         let rect = &entries[index].0.rect;
         let similar_rows = entries
@@ -138,7 +147,9 @@ fn score_repeated_siblings(
             entries[index].1.repeated_sibling_score = 0.9;
             if !matches!(
                 entries[index].2,
-                ScreenshotUiBlockKind::Navigation | ScreenshotUiBlockKind::Card | ScreenshotUiBlockKind::Button
+                ScreenshotUiBlockKind::Navigation
+                    | ScreenshotUiBlockKind::Card
+                    | ScreenshotUiBlockKind::Button
             ) {
                 entries[index].2 = ScreenshotUiBlockKind::ListItem;
             }
@@ -239,7 +250,11 @@ fn features_for_rect(
         edge_density: edge_density(width, rgba, rect),
         fill_ratio: similar_fill_ratio(width, rgba, rect, color),
         aspect_ratio,
-        horizontal_alignment_score: if rect.width > rect.height * 3 { 0.85 } else { 0.35 },
+        horizontal_alignment_score: if rect.width > rect.height * 3 {
+            0.85
+        } else {
+            0.35
+        },
         repeated_sibling_score: 0.0,
     }
 }
@@ -354,24 +369,103 @@ mod tests {
             pixel.copy_from_slice(&[245, 247, 250, 255]);
         }
 
-        set_rect(&mut rgba, width, ScreenshotRect { x: 0, y: 0, width: 360, height: 44 }, [32, 42, 58, 255]);
-        set_rect(&mut rgba, width, ScreenshotRect { x: 24, y: 66, width: 312, height: 124 }, [255, 255, 255, 255]);
-        set_rect(&mut rgba, width, ScreenshotRect { x: 44, y: 88, width: 170, height: 28 }, [248, 250, 252, 255]);
-        set_rect(&mut rgba, width, ScreenshotRect { x: 230, y: 88, width: 82, height: 28 }, [37, 99, 235, 255]);
-        set_rect(&mut rgba, width, ScreenshotRect { x: 44, y: 132, width: 268, height: 24 }, [241, 245, 249, 255]);
-        set_rect(&mut rgba, width, ScreenshotRect { x: 44, y: 160, width: 268, height: 24 }, [241, 245, 249, 255]);
+        set_rect(
+            &mut rgba,
+            width,
+            ScreenshotRect {
+                x: 0,
+                y: 0,
+                width: 360,
+                height: 44,
+            },
+            [32, 42, 58, 255],
+        );
+        set_rect(
+            &mut rgba,
+            width,
+            ScreenshotRect {
+                x: 24,
+                y: 66,
+                width: 312,
+                height: 124,
+            },
+            [255, 255, 255, 255],
+        );
+        set_rect(
+            &mut rgba,
+            width,
+            ScreenshotRect {
+                x: 44,
+                y: 88,
+                width: 170,
+                height: 28,
+            },
+            [248, 250, 252, 255],
+        );
+        set_rect(
+            &mut rgba,
+            width,
+            ScreenshotRect {
+                x: 230,
+                y: 88,
+                width: 82,
+                height: 28,
+            },
+            [37, 99, 235, 255],
+        );
+        set_rect(
+            &mut rgba,
+            width,
+            ScreenshotRect {
+                x: 44,
+                y: 132,
+                width: 268,
+                height: 24,
+            },
+            [241, 245, 249, 255],
+        );
+        set_rect(
+            &mut rgba,
+            width,
+            ScreenshotRect {
+                x: 44,
+                y: 160,
+                width: 268,
+                height: 24,
+            },
+            [241, 245, 249, 255],
+        );
 
-        let blocks = recognize_ui_blocks_from_rgba(width, height, &rgba, ScreenshotRecognitionOptions {
-            min_block_width: Some(12),
-            min_block_height: Some(10),
-            merge_gap: Some(6),
-            max_blocks: Some(64),
-        });
+        let blocks = recognize_ui_blocks_from_rgba(
+            width,
+            height,
+            &rgba,
+            ScreenshotRecognitionOptions {
+                min_block_width: Some(12),
+                min_block_height: Some(10),
+                merge_gap: Some(6),
+                max_blocks: Some(64),
+            },
+        );
 
-        assert!(blocks.iter().any(|block| block.kind == ScreenshotUiBlockKind::Navigation));
-        assert!(blocks.iter().any(|block| block.kind == ScreenshotUiBlockKind::Card));
-        assert!(blocks.iter().any(|block| block.kind == ScreenshotUiBlockKind::Input));
-        assert!(blocks.iter().any(|block| block.kind == ScreenshotUiBlockKind::Button));
-        assert!(blocks.iter().filter(|block| block.kind == ScreenshotUiBlockKind::ListItem).count() >= 2);
+        assert!(blocks
+            .iter()
+            .any(|block| block.kind == ScreenshotUiBlockKind::Navigation));
+        assert!(blocks
+            .iter()
+            .any(|block| block.kind == ScreenshotUiBlockKind::Card));
+        assert!(blocks
+            .iter()
+            .any(|block| block.kind == ScreenshotUiBlockKind::Input));
+        assert!(blocks
+            .iter()
+            .any(|block| block.kind == ScreenshotUiBlockKind::Button));
+        assert!(
+            blocks
+                .iter()
+                .filter(|block| block.kind == ScreenshotUiBlockKind::ListItem)
+                .count()
+                >= 2
+        );
     }
 }

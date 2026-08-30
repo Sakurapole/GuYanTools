@@ -1,0 +1,4 @@
+-- Legacy oversized inline media must not be deleted during schema migration.
+-- Electron loads the active category on demand, writes the decoded bytes to
+-- userData/home-layout-assets, then replaces the database value with app://.
+-- This empty migration keeps the release sequence stable without data loss.

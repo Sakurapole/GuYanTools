@@ -335,7 +335,8 @@ fn probe_lan_clipboard_devices(
                     index
                 };
 
-                if let Some(device) = probe_lan_clipboard_device(&candidates[index], own_device_id) {
+                if let Some(device) = probe_lan_clipboard_device(&candidates[index], own_device_id)
+                {
                     if let Ok(mut guard) = found.lock() {
                         guard.push(device);
                     }
@@ -390,7 +391,9 @@ fn parse_http_status_body(response: &[u8]) -> Option<Vec<u8>> {
     if !response.starts_with(b"HTTP/1.1 200") && !response.starts_with(b"HTTP/1.0 200") {
         return None;
     }
-    let split = response.windows(4).position(|window| window == b"\r\n\r\n")?;
+    let split = response
+        .windows(4)
+        .position(|window| window == b"\r\n\r\n")?;
     let headers = String::from_utf8_lossy(&response[..split]).to_ascii_lowercase();
     let body = &response[(split + 4)..];
     if headers

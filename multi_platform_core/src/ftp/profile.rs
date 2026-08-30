@@ -1016,7 +1016,10 @@ fn normalize_ftp_direction(value: &str) -> Result<String> {
     match value.trim().to_lowercase().as_str() {
         "upload" => Ok("upload".to_string()),
         "download" => Ok("download".to_string()),
-        other => Err(anyhow!("unsupported FTP scheduled task direction '{}'", other)),
+        other => Err(anyhow!(
+            "unsupported FTP scheduled task direction '{}'",
+            other
+        )),
     }
 }
 
@@ -1129,7 +1132,10 @@ mod tests {
 
         assert_eq!(preset.id, "preset-1");
         assert_eq!(preset.label, "Logs");
-        assert_eq!(preset.rules_json, r#"{"mode":"files","extensionQuery":".log"}"#);
+        assert_eq!(
+            preset.rules_json,
+            r#"{"mode":"files","extensionQuery":".log"}"#
+        );
         assert!(!preset.is_builtin);
 
         let listed = manager.list_filter_presets().unwrap();

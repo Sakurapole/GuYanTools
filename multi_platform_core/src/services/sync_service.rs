@@ -4,6 +4,10 @@ use rusqlite::params;
 
 pub struct SyncService;
 
+const SYNC_OUTBOX_PURGE_BATCH_SIZE: i64 = 8;
+const SYNC_CONFLICT_PURGE_BATCH_SIZE: i64 = 2;
+const SYNC_PROFILE_PURGE_BATCH_SIZE: i64 = 2;
+
 impl SyncService {
     pub fn list_profiles(db: &Database) -> DbResult<Vec<SyncProfile>> {
         db.with_connection(|conn| {
@@ -18,6 +22,25 @@ impl SyncService {
                 .collect::<Result<Vec<_>, _>>()?;
             Ok(rows)
         })
+    }
+
+    pub fn list_profile_metadata(db: &Database) -> DbResult<Vec<SyncProfile>> {
+        db.with_connection(|conn| {
+            let mut stmt = conn.prepare(
+                "SELECT profile_id, profile_name, owner_device_id, schema_version, app_version,
+                        payload_hash, is_local, is_active, is_default, '' AS payload_json, created_at, updated_at
+                 FROM sync_profiles
+                 ORDER BY is_active DESC, is_default DESC, updated_at DESC, profile_name ASC",
+            )?;
+            let rows = stmt
+                .query_map([], map_profile)?
+                .collect::<Result<Vec<_>, _>>()?;
+            Ok(rows)
+        })
+    }
+
+    pub fn get_profile(db: &Database, profile_id: &str) -> DbResult<SyncProfile> {
+        db.with_connection(|conn| get_profile_with_conn(conn, profile_id))
     }
 
     pub fn upsert_profile(db: &Database, profile: SyncProfile) -> DbResult<SyncProfile> {
@@ -84,8 +107,9 @@ impl SyncService {
     pub fn list_conflicts(db: &Database) -> DbResult<Vec<SyncConflict>> {
         db.with_connection(|conn| {
             let mut stmt = conn.prepare(
-                "SELECT conflict_id, collection, object_id, title, local_payload_json, remote_payload_json,
-                        base_payload_json, local_updated_at, remote_updated_at, status, created_at, resolved_at
+                "SELECT conflict_id, collection, object_id, title, '' AS local_payload_json,
+                        '' AS remote_payload_json, NULL AS base_payload_json,
+                        local_updated_at, remote_updated_at, status, created_at, resolved_at
                  FROM sync_conflicts
                  WHERE status = 'pending'
                  ORDER BY created_at DESC",
@@ -95,6 +119,10 @@ impl SyncService {
                 .collect::<Result<Vec<_>, _>>()?;
             Ok(rows)
         })
+    }
+
+    pub fn get_conflict(db: &Database, conflict_id: &str) -> DbResult<SyncConflict> {
+        db.with_connection(|conn| get_conflict_with_conn(conn, conflict_id))
     }
 
     pub fn list_object_states(db: &Database) -> DbResult<Vec<SyncObjectState>> {
@@ -125,6 +153,75 @@ impl SyncService {
                 .query_map([], map_outbox_item)?
                 .collect::<Result<Vec<_>, _>>()?;
             Ok(rows)
+        })
+    }
+
+    /// Remove acknowledged outbox payloads while retaining a small recent audit trail.
+    /// Pending and failed operations are never touched.
+    pub fn purge_synced_outbox(db: &Database, keep_latest: i64) -> DbResult<i64> {
+        let keep_latest = keep_latest.clamp(0, 1_000);
+        db.with_connection(|conn| {
+            let deleted = conn.execute(
+                "DELETE FROM sync_outbox
+                 WHERE rowid IN (
+                   SELECT rowid FROM sync_outbox
+                   WHERE status = 'synced'
+                     AND rowid NOT IN (
+                       SELECT rowid FROM sync_outbox
+                       WHERE status = 'synced'
+                       ORDER BY updated_at DESC, created_at DESC
+                       LIMIT ?1
+                     )
+                   ORDER BY updated_at ASC, created_at ASC
+                   LIMIT ?2
+                 )",
+                params![keep_latest, SYNC_OUTBOX_PURGE_BATCH_SIZE],
+            )?;
+            Ok(deleted as i64)
+        })
+    }
+
+    /// Remove resolved conflict payloads after the renderer has painted.
+    ///
+    /// Resolved conflicts are no longer needed for conflict resolution. Keeping
+    /// their local/remote JSON made old inline media occupy gigabytes of the
+    /// SQLite file and made accidental full-row reads expensive.
+    pub fn purge_resolved_conflicts(db: &Database) -> DbResult<i64> {
+        db.with_connection(|conn| {
+            let deleted = conn.execute(
+                "DELETE FROM sync_conflicts
+                 WHERE rowid IN (
+                   SELECT rowid FROM sync_conflicts
+                   WHERE status = 'resolved'
+                   ORDER BY resolved_at ASC, created_at ASC
+                   LIMIT ?1
+                 )",
+                params![SYNC_CONFLICT_PURGE_BATCH_SIZE],
+            )?;
+            Ok(deleted as i64)
+        })
+    }
+
+    /// Remove stale local profiles whose payload is too large to safely move
+    /// across the Electron IPC boundary. Active/default profiles are retained
+    /// so a user's selected sync source is never removed automatically.
+    pub fn purge_oversized_local_profiles(db: &Database, max_payload_bytes: i64) -> DbResult<i64> {
+        let max_payload_bytes = max_payload_bytes.max(0);
+        db.with_connection(|conn| {
+            let deleted = conn.execute(
+                "DELETE FROM sync_profiles
+                 WHERE profile_id IN (
+                   SELECT profile_id FROM sync_profiles
+                   WHERE is_local = 1
+                     AND is_active = 0
+                     AND is_default = 0
+                     AND length(payload_json) > ?1
+                   ORDER BY updated_at ASC, created_at ASC
+                   LIMIT ?2
+                 )",
+                params![max_payload_bytes, SYNC_PROFILE_PURGE_BATCH_SIZE],
+            )?;
+            Ok(deleted as i64)
         })
     }
 
@@ -279,10 +376,7 @@ impl SyncService {
     }
 }
 
-fn get_profile_with_conn(
-    conn: &rusqlite::Connection,
-    profile_id: &str,
-) -> DbResult<SyncProfile> {
+fn get_profile_with_conn(conn: &rusqlite::Connection, profile_id: &str) -> DbResult<SyncProfile> {
     let profile = conn.query_row(
         "SELECT profile_id, profile_name, owner_device_id, schema_version, app_version,
                 payload_hash, is_local, is_active, is_default, payload_json, created_at, updated_at
@@ -343,10 +437,7 @@ fn get_object_state_with_conn(
     Ok(state)
 }
 
-fn get_outbox_item_with_conn(
-    conn: &rusqlite::Connection,
-    op_id: &str,
-) -> DbResult<SyncOutboxItem> {
+fn get_outbox_item_with_conn(conn: &rusqlite::Connection, op_id: &str) -> DbResult<SyncOutboxItem> {
     let item = conn.query_row(
         "SELECT op_id, collection, object_id, op_kind, base_rev, payload_json, payload_hash,
                 status, retry_count, last_error, created_at, updated_at
@@ -482,6 +573,25 @@ mod tests {
     }
 
     #[test]
+    fn purges_resolved_conflict_payloads() {
+        let db = Database::new_in_memory().unwrap();
+        db.with_connection(|conn| {
+            conn.execute(
+                "INSERT INTO sync_conflicts
+                 (conflict_id, collection, object_id, title, local_payload_json, remote_payload_json,
+                  base_payload_json, local_updated_at, remote_updated_at, status, created_at, resolved_at)
+                 VALUES ('resolved-1', 'app.appearance', 'default', 'Theme', ?1, ?2, ?3, 10, 20, 'resolved', 30, 40)",
+                rusqlite::params!["local", "remote", "base"],
+            )?;
+            Ok(())
+        })
+        .unwrap();
+
+        assert_eq!(SyncService::purge_resolved_conflicts(&db).unwrap(), 1);
+        assert!(SyncService::list_conflicts(&db).unwrap().is_empty());
+    }
+
+    #[test]
     fn upserts_object_state_and_pending_outbox() {
         let db = Database::new_in_memory().unwrap();
         SyncService::upsert_object_state(
@@ -533,10 +643,16 @@ mod tests {
     #[test]
     fn marks_pending_outbox_synced_by_object() {
         let db = Database::new_in_memory().unwrap();
-        SyncService::upsert_outbox_item(&db, sample_outbox_item("op-1", "app.appearance", "appearance"))
-            .unwrap();
-        SyncService::upsert_outbox_item(&db, sample_outbox_item("op-2", "app.shortcuts", "shortcuts"))
-            .unwrap();
+        SyncService::upsert_outbox_item(
+            &db,
+            sample_outbox_item("op-1", "app.appearance", "appearance"),
+        )
+        .unwrap();
+        SyncService::upsert_outbox_item(
+            &db,
+            sample_outbox_item("op-2", "app.shortcuts", "shortcuts"),
+        )
+        .unwrap();
 
         SyncService::mark_outbox_items_synced_by_object(&db, "app.appearance", "appearance", 200)
             .unwrap();
@@ -571,6 +687,37 @@ mod tests {
         assert_eq!(SyncService::list_conflicts(&db).unwrap().len(), 1);
         SyncService::resolve_conflict(&db, "conflict-1", 40).unwrap();
         assert!(SyncService::list_conflicts(&db).unwrap().is_empty());
+    }
+
+    #[test]
+    fn purges_only_stale_oversized_local_profiles() {
+        let db = Database::new_in_memory().unwrap();
+        let oversized = SyncProfile {
+            profile_id: "stale-local".to_string(),
+            profile_name: "Stale local".to_string(),
+            owner_device_id: "device-a".to_string(),
+            schema_version: 1,
+            app_version: "0.0.3".to_string(),
+            payload_hash: "hash-stale".to_string(),
+            is_local: true,
+            is_active: false,
+            is_default: false,
+            payload_json: "x".repeat(128),
+            created_at: 100,
+            updated_at: 100,
+        };
+        let active = SyncProfile {
+            profile_id: "active-local".to_string(),
+            is_active: true,
+            ..oversized.clone()
+        };
+        SyncService::upsert_profile(&db, oversized).unwrap();
+        SyncService::upsert_profile(&db, active).unwrap();
+
+        assert_eq!(SyncService::purge_oversized_local_profiles(&db, 64).unwrap(), 1);
+        let profiles = SyncService::list_profile_metadata(&db).unwrap();
+        assert!(profiles.iter().any(|profile| profile.profile_id == "active-local"));
+        assert!(!profiles.iter().any(|profile| profile.profile_id == "stale-local"));
     }
 
     fn sample_profile(profile_id: &str, active: bool, default: bool) -> SyncProfile {

@@ -1,7 +1,6 @@
 use aes_gcm::{
     aead::{Aead, AeadCore, KeyInit, OsRng},
-    Aes256Gcm,
-    Nonce,
+    Aes256Gcm, Nonce,
 };
 use anyhow::{anyhow, Context, Result};
 use sha2::{Digest, Sha256};
