@@ -31,11 +31,11 @@
 - `AndroidInputState = 'windows' | 'entering' | 'android' | 'returning' | 'suspended'`.
 - `AndroidInputStatus` includes state, deviceSerial, virtual cursor and error fields.
 
-- [ ] **Step 1: Write failing config validation and default tests.** Assert defaults (`right`, `120`, `12`, `Ctrl+Alt+A`), reject invalid dimensions/shortcut/serial, and preserve independent Win/AltTab/volume flags.
+- [x] **Step 1: Write config validation and default tests.** Assert defaults (`right`, `120`, `12`, `Ctrl+Alt+A`), reject invalid dimensions/shortcut/serial, and preserve independent Win/AltTab/volume flags.
 - [ ] **Step 2: Run the focused Vitest test and verify failure.**
-- [ ] **Step 3: Add contracts, defaults, app-config serialization and validation.** Keep backward compatibility for configs without `androidInput`.
-- [ ] **Step 4: Run focused tests and typecheck.**
-- [ ] **Step 5: Commit** `feat(desktop): add android input sharing contracts`.
+- [x] **Step 3: Add contracts, defaults, app-config serialization and validation.** Keep backward compatibility for configs without `androidInput`.
+- [x] **Step 4: Run focused tests and typecheck.**
+- [x] **Step 5: Commit** `feat(desktop): add android input sharing contracts`.
 
 ### Task 2: Implement Windows native input bridge
 
@@ -70,8 +70,8 @@
 
 - [ ] **Step 1: Write failing tests for fixed ADB push/start args, report framing, disconnect and cleanup.**
 - [ ] **Step 2: Run focused tests and verify failure.**
-- [ ] **Step 3: Implement fixed-path ADB transport and temporary service lifecycle; reject arbitrary paths/argv and cap report queue size.**
-- [ ] **Step 4: Run tests and verify no child process survives stop/dispose.**
+- [x] **Step 3: Implement fixed-path ADB transport and temporary service lifecycle; reject arbitrary paths/argv and cap report queue size.**
+- [x] **Step 4: Run tests and verify no child process survives stop/dispose.**
 - [ ] **Step 5: Commit** `feat(desktop): add android uhid input transport`.
 
 ### Task 4: Implement AndroidInputRouter state machine
@@ -87,11 +87,11 @@
 - `handleNativeEvent(event): void`
 - `onStatus(listener): () => void`
 
-- [ ] **Step 1: Write failing tests for Windows→Android entry on all four edges with 120ms/12px resistance.**
-- [ ] **Step 2: Add tests for Android→Windows proportional return, toggle shortcut, double-Esc emergency release, preserve-key policies and suspended cleanup.**
+- [x] **Step 1: Write failing tests for Windows→Android entry on all four edges with 120ms/12px resistance.**
+- [x] **Step 2: Add tests for Android→Windows proportional return, toggle shortcut, double-Esc emergency release, preserve-key policies and suspended cleanup.**
 - [ ] **Step 3: Run focused tests and verify failure.**
-- [ ] **Step 4: Implement state transitions, virtual cursor, edge timers, key state flushing and error recovery using injected bridge/UHID dependencies.**
-- [ ] **Step 5: Run router tests and refactor only after green.**
+- [x] **Step 4: Implement state transitions, virtual cursor, edge timers, key state flushing and error recovery using injected bridge/UHID dependencies.**
+- [x] **Step 5: Run router tests and refactor only after green.**
 - [ ] **Step 6: Commit** `feat(desktop): route input across android screen boundary`.
 
 ### Task 5: Wire main-process IPC, lifecycle and config persistence
@@ -107,10 +107,10 @@
 - `android:get-input-config`, `android:update-input-config`, `android:start-input-sharing`, `android:stop-input-sharing`, `android:toggle-input-sharing`, `android:get-input-status`.
 - `window.androidApi.input` exposes typed calls and removable `onStatus` listener.
 
-- [ ] **Step 1: Write failing IPC tests for schema validation, device serial ownership, duplicate start and unsubscribe.**
-- [ ] **Step 2: Implement handlers deriving device state from `AdbDeviceService`, register during app construction, and dispose on `will-quit`.**
-- [ ] **Step 3: Add preload facade and status broadcast without exposing native handles or arbitrary commands.**
-- [ ] **Step 4: Run IPC tests, typecheck and Android static verification.**
+- [x] **Step 1: Write failing IPC tests for schema validation, device serial ownership, duplicate start and unsubscribe.**
+- [x] **Step 2: Implement handlers deriving device state from `AdbDeviceService`, register during app construction, and dispose on `will-quit`.**
+- [x] **Step 3: Add preload facade and status broadcast without exposing native handles or arbitrary commands.**
+- [x] **Step 4: Run IPC tests, typecheck and Android static verification.**
 - [ ] **Step 5: Commit** `feat(desktop): expose android input sharing ipc`.
 
 ### Task 6: Build configuration UI and status surface
@@ -125,10 +125,10 @@
 - Configuration controls for placement, dimensions, edge delay/threshold, toggle shortcut and Win/AltTab/volume policies.
 - Start/stop/toggle actions and visible state/error recovery.
 
-- [ ] **Step 1: Write failing component tests for config rendering, disabled state without device, error display and emergency stop affordance.**
-- [ ] **Step 2: Implement panel using existing UI components and `window.androidApi.input`; keep copy Chinese-first and focus states visible.**
-- [ ] **Step 3: Add responsive placement preview using semantic tokens, not decorative gradients or new color systems.**
-- [ ] **Step 4: Run component tests through the renderer Vitest config and build renderer.**
+- [x] **Step 1: Write failing component tests for config rendering, disabled state without device, error display and emergency stop affordance.**
+- [x] **Step 2: Implement panel using existing UI components and `window.androidApi.input`; keep copy Chinese-first and focus states visible.**
+- [x] **Step 3: Add responsive placement preview using semantic tokens, not decorative gradients or new color systems.**
+- [x] **Step 4: Run component tests through the renderer Vitest config and build renderer.**
 - [ ] **Step 5: Commit** `feat(ui): add android seamless input sharing controls`.
 
 ### Task 7: Device and packaging verification
@@ -139,8 +139,8 @@
 - Modify: `package.json`
 - Modify: `docs/superpowers/verification/2026-08-28-android-toolbox-device-matrix.md`
 
-- [ ] **Step 1: Add static checks for native bridge registration, forbidden plugin access, fixed ADB paths, emergency release and no scrcpy-window dependency.**
-- [ ] **Step 2: Add `test:android-input` and `verify:android-input` scripts.**
-- [ ] **Step 3: Run full Rust tests, Android tests, typecheck, lint, renderer/app build and `git diff --check`.**
+- [x] **Step 1: Add static checks for native bridge registration, forbidden plugin access, fixed ADB paths, emergency release and no scrcpy-window dependency.**
+- [x] **Step 2: Add `test:android-input` and `verify:android-input` scripts.**
+- [x] **Step 3: Run full Rust tests, Android tests, typecheck, renderer/app build and `git diff --check`.**
 - [ ] **Step 4: Record real-device results for four directions, shortcut release, preserve-key policies, disconnect and recovery without serials or sensitive logs.**
 - [ ] **Step 5: Commit** `test(android): verify seamless input sharing`.

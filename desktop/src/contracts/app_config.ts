@@ -3,6 +3,7 @@ import type { TerminalFeatureConfig } from './terminal';
 import type { BackgroundStyleConfig } from './background';
 import type { AiAgentFeatureConfig } from './ai';
 import type { QuickLaunchFeatureConfig, QuickLaunchProviderId } from './quick_launch';
+import type { AndroidInputConfig } from './android-tools';
 
 export type AppTheme = 'light' | 'dark';
 export type AppLanguage = 'zh' | 'en';
@@ -278,6 +279,7 @@ export interface AppConfig {
   shortcuts: AppShortcutsConfig;
   plugins: AppPluginsConfig;
   tools: AppToolsConfig;
+  androidInput: AndroidInputConfig;
   web: AppWebConfig;
 }
 
@@ -312,6 +314,7 @@ export interface AppConfigPatch {
     items?: Record<string, Record<string, unknown>>;
   };
   tools?: Partial<AppToolsConfig>;
+  androidInput?: Partial<AndroidInputConfig>;
   web?: Partial<AppWebConfig>;
 }
 
@@ -521,6 +524,7 @@ export function createDefaultAppConfig(): AppConfig {
       ffmpegPath: '',
       androidToolchainPath: '',
     },
+    androidInput: createDefaultAndroidInputConfig(),
     web: {
       security: {
         whitelist: [],
@@ -530,6 +534,21 @@ export function createDefaultAppConfig(): AppConfig {
       keepAliveDomains: [],
       chromeExtensions: [],
     },
+  };
+}
+
+export function createDefaultAndroidInputConfig(): AndroidInputConfig {
+  return {
+    deviceSerial: '',
+    placement: 'right',
+    androidWidth: 1080,
+    androidHeight: 1920,
+    edgeDelayMs: 120,
+    edgeThresholdPx: 12,
+    toggleShortcut: 'Ctrl+Alt+A',
+    preserveWinKey: true,
+    preserveAltTab: true,
+    preserveVolumeKeys: false,
   };
 }
 

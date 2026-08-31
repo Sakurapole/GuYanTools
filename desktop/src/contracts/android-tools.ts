@@ -62,6 +62,30 @@ export interface AndroidDeviceEvent {
   timestamp: string;
 }
 
+export type AndroidInputPlacement = 'left' | 'right' | 'top' | 'bottom';
+export type AndroidInputState = 'windows' | 'entering' | 'android' | 'returning' | 'suspended';
+
+export interface AndroidInputConfig {
+  deviceSerial: string;
+  placement: AndroidInputPlacement;
+  androidWidth: number;
+  androidHeight: number;
+  edgeDelayMs: number;
+  edgeThresholdPx: number;
+  toggleShortcut: string;
+  preserveWinKey: boolean;
+  preserveAltTab: boolean;
+  preserveVolumeKeys: boolean;
+}
+
+export interface AndroidInputStatus {
+  state: AndroidInputState;
+  deviceSerial: string;
+  virtualCursor: { x: number; y: number };
+  errorCode?: string;
+  errorMessage?: string;
+}
+
 export interface AndroidToolsApi {
   getToolchainStatus: () => Promise<AndroidToolchainStatus>;
   listDevices: () => Promise<AndroidDevice[]>;
@@ -78,6 +102,17 @@ export interface AndroidToolsApi {
   getToolchainDownloadStatus: () => Promise<AndroidToolchainDownloadProgress>;
   downloadToolchain: () => Promise<AndroidToolchainStatus>;
   onToolchainDownloadProgress: (listener: (progress: AndroidToolchainDownloadProgress) => void) => () => void;
+  input?: AndroidInputApi;
+}
+
+export interface AndroidInputApi {
+  getConfig: () => Promise<AndroidInputConfig>;
+  updateConfig: (patch: Partial<AndroidInputConfig>) => Promise<AndroidInputConfig>;
+  start: () => Promise<AndroidInputStatus>;
+  stop: (reason?: string) => Promise<void>;
+  toggle: () => Promise<AndroidInputStatus>;
+  getStatus: () => Promise<AndroidInputStatus>;
+  onStatus: (listener: (status: AndroidInputStatus) => void) => () => void;
 }
 
 declare global {

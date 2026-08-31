@@ -22,6 +22,8 @@ import type {
   LocalFontOption,
   MultiDeviceClipboardFeatureConfig,
 } from '@/contracts/app_config';
+import type { AndroidInputConfig, AndroidInputPlacement } from '@/contracts/android-tools';
+import { createDefaultAndroidInputConfig } from '@/contracts/app_config';
 import type { QuickLaunchFeatureConfig, QuickLaunchProviderId } from '@/contracts/quick_launch';
 import type {
   AiAgentFeatureConfig,
@@ -1262,6 +1264,35 @@ function normalizeTools(value: unknown): AppToolsConfig {
   };
 }
 
+export function normalizeAndroidInput(value: unknown): AndroidInputConfig {
+  const defaults = createDefaultAndroidInputConfig();
+  if (!isRecord(value)) return cloneConfig(defaults);
+
+  const numberInRange = (key: keyof AndroidInputConfig, min: number, max: number) => {
+    const candidate = Number(value[key]);
+    return Number.isFinite(candidate) ? Math.min(max, Math.max(min, Math.round(candidate))) : defaults[key] as number;
+  };
+  const placement: AndroidInputPlacement = value.placement === 'left' || value.placement === 'top' || value.placement === 'bottom'
+    ? value.placement
+    : 'right';
+  const shortcut = typeof value.toggleShortcut === 'string' && /^[A-Za-z][A-Za-z0-9+ ]{0,63}$/.test(value.toggleShortcut.trim())
+    ? value.toggleShortcut.trim()
+    : defaults.toggleShortcut;
+
+  return {
+    deviceSerial: typeof value.deviceSerial === 'string' ? value.deviceSerial.trim().slice(0, 256) : defaults.deviceSerial,
+    placement,
+    androidWidth: numberInRange('androidWidth', 320, 16384),
+    androidHeight: numberInRange('androidHeight', 320, 16384),
+    edgeDelayMs: numberInRange('edgeDelayMs', 0, 5000),
+    edgeThresholdPx: numberInRange('edgeThresholdPx', 1, 100),
+    toggleShortcut: shortcut,
+    preserveWinKey: typeof value.preserveWinKey === 'boolean' ? value.preserveWinKey : defaults.preserveWinKey,
+    preserveAltTab: typeof value.preserveAltTab === 'boolean' ? value.preserveAltTab : defaults.preserveAltTab,
+    preserveVolumeKeys: typeof value.preserveVolumeKeys === 'boolean' ? value.preserveVolumeKeys : defaults.preserveVolumeKeys,
+  };
+}
+
 function normalizeWebScriptRule(value: unknown): WebScriptRule | null {
   if (!isRecord(value)) return null;
   const id = typeof value.id === 'string' ? value.id : '';
@@ -1340,6 +1371,7 @@ function normalizeAppConfig(value: unknown): AppConfig {
     shortcuts: normalizeShortcuts(value.shortcuts),
     plugins: normalizePlugins(value.plugins),
     tools: normalizeTools(value.tools),
+    androidInput: normalizeAndroidInput(value.androidInput),
     web: normalizeWeb(value.web),
   };
 }
@@ -1431,6 +1463,10 @@ function mergeConfig(current: AppConfig, patch: AppConfigPatch): AppConfig {
       ...current.tools,
       ...(patch.tools ?? {}),
     },
+    androidInput: normalizeAndroidInput({
+      ...current.androidInput,
+      ...(patch.androidInput ?? {}),
+    }),
     web: patch.web ? {
       security: patch.web.security ?? cloneConfig(current.web.security),
       scripts: patch.web.scripts ?? cloneConfig(current.web.scripts),
