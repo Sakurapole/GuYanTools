@@ -96,7 +96,10 @@ async function replaceInstalledToolchain(installRoot: string, destinationRoot: s
 
     await fsp.rename(installRoot, destinationRoot);
     if (movedExisting) {
-      await fsp.rm(backupRoot, { recursive: true, force: true });
+      // Windows may keep the previous adb.exe open while its server is alive.
+      // The new toolchain is already active, so a locked backup is harmless;
+      // leave it for a later cleanup instead of rolling back a valid install.
+      await fsp.rm(backupRoot, { recursive: true, force: true }).catch((): undefined => undefined);
     }
   } catch (error) {
     await fsp.rm(destinationRoot, { recursive: true, force: true }).catch((): undefined => undefined);

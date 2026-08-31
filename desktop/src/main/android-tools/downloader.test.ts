@@ -23,4 +23,9 @@ describe('Android toolchain downloader manifest', () => {
     expect(source).toContain("'/scrcpy-win64-v4.1/adb.exe'");
     expect(source).toContain("path.join(installRoot, 'scrcpy', 'adb.exe')");
   });
+
+  it('does not fail installation when a previous adb binary is locked on Windows', async () => {
+    const source = await import('node:fs/promises').then(fs => fs.readFile(new URL('./downloader.ts', import.meta.url), 'utf8'));
+    expect(source).toContain("fsp.rm(backupRoot, { recursive: true, force: true }).catch");
+  });
 });

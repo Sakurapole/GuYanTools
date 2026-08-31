@@ -1,6 +1,7 @@
 import { execFile as nodeExecFile } from 'node:child_process';
 import crypto from 'node:crypto';
 import fs from 'node:fs/promises';
+import fsSync from 'node:fs';
 import path from 'node:path';
 import { promisify } from 'node:util';
 import type { AndroidToolName, AndroidToolchainSource, AndroidToolchainStatus } from '@/contracts/android-tools';
@@ -180,8 +181,12 @@ export class AndroidToolchainManager {
 
   getInputServicePath() {
     const rootPath = this.selectRoot().rootPath;
-    const candidate = path.resolve(rootPath, 'android-uhid-service', 'guyantools-uhid-service');
+    const relative = path.join('android-uhid-service', 'guyantools-uhid-service');
+    const candidate = path.resolve(rootPath, relative);
     if (!isInsideRoot(candidate, rootPath)) throw new Error('ANDROID_TOOL_UNAVAILABLE');
+    if (fsSync.existsSync(candidate)) return candidate;
+    const bundled = path.resolve(this.defaultRoot, relative);
+    if (isInsideRoot(bundled, this.defaultRoot) && fsSync.existsSync(bundled)) return bundled;
     return candidate;
   }
 
