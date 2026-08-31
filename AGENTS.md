@@ -52,6 +52,7 @@ GuYanTools 是一个跨平台工具应用仓库，当前主要由四部分组成
 - Vue 组件优先使用 `<script lang="ts" setup>`、Composition API、`computed/ref/watch` 和 scoped SCSS。
 - Pinia store 当前多采用 setup store；异步操作负责维护本地状态、loading、事件通知和必要的 HMR。
 - UI 组件优先复用 `desktop/src/windows/main/components/ui/`，样式优先使用 `assets/*.scss` 中的 CSS variables、主题 token、现有半径/阴影/控件高度变量。
+- Stencil 迁移组件的样式边界：Vue 包装组件传递到 `gt-*` host 的是业务 class（例如 `.home-profile-switcher__trigger`），不要假设旧 `.ui-button`/`.ui-icon-button` 类会存在；Shadow DOM 内部元素必须通过组件公开的 `::part(...)` 选择器覆盖，组件提供的 `prefix`/默认插槽/`suffix` 等 named slot 应按语义分别放置内容，不要把多个布局元素全部塞入单一默认 slot。
 - 会从页面区域弹出的菜单、日期/时间选择器、下拉面板等浮层默认使用 `Teleport to="body"` + `position: fixed`，按触发器的 `getBoundingClientRect()` 计算位置，并处理窗口边缘翻转、resize/scroll 重算、点击外部关闭和足够高的 `z-index`；不要把这类菜单限制在右侧详情区、滚动容器或局部组件高度内。
 - 样式命名延续 BEM-like class，例如 `ui-button__label`、`ui-button--primary`。避免在页面内重复造通用控件。
 - 多窗口代码保持隔离，不要让主窗口专用 store/composable 泄漏到 tray、notification、terminal detached window，除非已经存在共享抽象。
