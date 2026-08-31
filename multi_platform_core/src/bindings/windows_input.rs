@@ -18,6 +18,8 @@ static LAST_CURSOR: OnceLock<Mutex<(i32, i32)>> = OnceLock::new();
 #[cfg(target_os = "windows")]
 static HOOK_RUNNING: AtomicBool = AtomicBool::new(false);
 #[cfg(target_os = "windows")]
+static HOOK_READY: AtomicBool = AtomicBool::new(false);
+#[cfg(target_os = "windows")]
 static HOOK_THREAD_ID: AtomicU32 = AtomicU32::new(0);
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
@@ -63,8 +65,15 @@ pub fn windows_input_start(_options: String, _callback: JsFunction) -> Result<()
             .map_err(|_| Error::from_reason("ANDROID_INPUT_BRIDGE_UNAVAILABLE"))?
             .replace(sink);
         if !HOOK_RUNNING.swap(true, Ordering::SeqCst) {
+            HOOK_READY.store(false, Ordering::SeqCst);
             std::thread::spawn(|| unsafe { hook_thread() });
         }
+        for _ in 0..50 {
+            if HOOK_READY.load(Ordering::Acquire) { return Ok(()); }
+            if !HOOK_RUNNING.load(Ordering::Acquire) { return Err(Error::from_reason("ANDROID_INPUT_BRIDGE_UNAVAILABLE")); }
+            std::thread::sleep(std::time::Duration::from_millis(10));
+        }
+        if !HOOK_READY.load(Ordering::Acquire) { return Err(Error::from_reason("ANDROID_INPUT_BRIDGE_UNAVAILABLE")); }
         return Ok(());
     }
     #[cfg(not(target_os = "windows"))]
@@ -118,14 +127,18 @@ unsafe fn hook_thread() {
     );
     if mouse.is_null() || keyboard.is_null() {
         HOOK_RUNNING.store(false, Ordering::SeqCst);
+        if !mouse.is_null() { windows_sys::Win32::UI::WindowsAndMessaging::UnhookWindowsHookEx(mouse); }
+        if !keyboard.is_null() { windows_sys::Win32::UI::WindowsAndMessaging::UnhookWindowsHookEx(keyboard); }
         return;
     }
+    HOOK_READY.store(true, Ordering::Release);
     let mut message = MSG::default();
     while HOOK_RUNNING.load(Ordering::Relaxed)
         && GetMessageW(&mut message, std::ptr::null_mut(), 0, 0) > 0
     {}
     windows_sys::Win32::UI::WindowsAndMessaging::UnhookWindowsHookEx(mouse);
     windows_sys::Win32::UI::WindowsAndMessaging::UnhookWindowsHookEx(keyboard);
+    HOOK_READY.store(false, Ordering::Release);
     HOOK_THREAD_ID.store(0, Ordering::Relaxed);
 }
 

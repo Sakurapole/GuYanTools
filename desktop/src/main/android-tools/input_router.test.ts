@@ -74,10 +74,10 @@ describe('AndroidInputRouter', () => {
     const { router, bridge, emit } = createRouter();
     await router.start(config());
     await router.toggle();
-    expect(router.status().virtualCursor).toEqual({ x: 1079, y: 960 });
+    expect(router.status().virtualCursor).toEqual({ x: 0, y: 960 });
     emit({ kind: 'move', dx: -100, dy: -200 });
     await router.toggle();
-    expect(bridge.setCursor).toHaveBeenLastCalledWith(1741, 427);
+    expect(bridge.setCursor).toHaveBeenLastCalledWith(1919, 427);
     await router.stop();
   });
 

@@ -5,7 +5,7 @@ import type { AndroidToolchainManager } from './toolchain';
 export interface KeyboardReport { modifiers: number; keys: number[] }
 export interface MouseReport { buttons: number; dx: number; dy: number; wheel: number }
 export interface AndroidUhidSessionOptions {
-  spawn?: (file: string, args: string[], options: { windowsHide: boolean; stdio: ['ignore', 'pipe', 'pipe'] }) => UhidChild;
+  spawn?: (file: string, args: string[], options: { windowsHide: boolean; stdio: ['pipe', 'pipe', 'pipe'] }) => UhidChild;
 }
 interface UhidChild { stdin?: { write(data: string): boolean; end(): void }; stdout?: NodeJS.EventEmitter; stderr?: NodeJS.EventEmitter; on(event: string, listener: (...args: any[]) => void): UhidChild; kill(): boolean; }
 
@@ -27,7 +27,7 @@ export class AndroidUhidSession {
     try {
       await this.toolchain.executeAdb(['-s', deviceSerial, 'push', servicePath, remotePath]);
       const child = this.spawnProcess(this.toolchain.getToolPath('adb'), ['-s', deviceSerial, 'shell', remotePath], {
-        windowsHide: true, stdio: ['ignore', 'pipe', 'pipe'],
+        windowsHide: true, stdio: ['pipe', 'pipe', 'pipe'],
       });
       this.child = child;
       this.serial = deviceSerial;

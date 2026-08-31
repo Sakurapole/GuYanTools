@@ -18,7 +18,13 @@ const nativeInput = nativeCore as unknown as NativeInputCore;
 const nativeBridge: WindowsInputBridge = {
   start: listener => {
     if (process.platform !== 'win32' || !nativeInput.windowsInputStart) throw new Error('ANDROID_INPUT_BRIDGE_UNAVAILABLE');
-    nativeInput.windowsInputStart(JSON.stringify({}), event => listener(event as any));
+    nativeInput.windowsInputStart(JSON.stringify({}), event => {
+      try {
+        listener(typeof event === 'string' ? JSON.parse(event) : event as any);
+      } catch {
+        // Ignore malformed native events rather than breaking the hook callback.
+      }
+    });
   },
   stop: () => nativeInput.windowsInputStop?.(),
   getCursor: () => {
