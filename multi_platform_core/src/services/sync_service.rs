@@ -714,10 +714,17 @@ mod tests {
         SyncService::upsert_profile(&db, oversized).unwrap();
         SyncService::upsert_profile(&db, active).unwrap();
 
-        assert_eq!(SyncService::purge_oversized_local_profiles(&db, 64).unwrap(), 1);
+        assert_eq!(
+            SyncService::purge_oversized_local_profiles(&db, 64).unwrap(),
+            1
+        );
         let profiles = SyncService::list_profile_metadata(&db).unwrap();
-        assert!(profiles.iter().any(|profile| profile.profile_id == "active-local"));
-        assert!(!profiles.iter().any(|profile| profile.profile_id == "stale-local"));
+        assert!(profiles
+            .iter()
+            .any(|profile| profile.profile_id == "active-local"));
+        assert!(!profiles
+            .iter()
+            .any(|profile| profile.profile_id == "stale-local"));
     }
 
     fn sample_profile(profile_id: &str, active: bool, default: bool) -> SyncProfile {
