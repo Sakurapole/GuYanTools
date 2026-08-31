@@ -7,6 +7,7 @@ set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 
 add_library(uhid_protocol STATIC
   src/protocol.cpp
+  src/uhid_device.cpp
 )
 target_include_directories(uhid_protocol PUBLIC src)
 if (MSVC)

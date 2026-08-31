@@ -47,8 +47,8 @@
 - stdin EOF、SIGTERM、UHID 设备错误都执行 UHID_DESTROY、关闭 fd 并退出。
 - 不使用 root 提权、不写入持久目录。
 
-- [ ] Step 1: 完成 UHID 设备封装。
-- [ ] Step 2: 完成键盘/鼠标 descriptor 和销毁流程。
+- [x] Step 1: 完成 UHID 设备封装。
+- [x] Step 2: 完成键盘/鼠标 descriptor 和销毁流程。
 
 ## 任务 3：实现 stdin JSON 协议与输入循环
 
@@ -142,4 +142,3 @@
 - [ ] test:android-input、verify:android-input、TypeScript、Rust、Renderer 构建通过。
 - [ ] 至少一台真实 Android ARM64 设备验证通过。
 - [ ] 无常驻 Android App、无 Root 依赖、无任意 shell/argv/path 注入。
-
