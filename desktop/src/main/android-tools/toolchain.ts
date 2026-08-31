@@ -140,6 +140,14 @@ export class AndroidToolchainManager {
       }
     }
 
+    try {
+      await fs.access(this.getInputServicePath());
+    } catch {
+      status.errorCode = 'ANDROID_TOOL_UNAVAILABLE';
+      status.errorMessage = `缺少 Android UHID 服务：${this.getInputServicePath()}`;
+      return status;
+    }
+
     for (const [tool, args] of [
       ['adb', ['version']],
       ['fastboot', ['--version']],

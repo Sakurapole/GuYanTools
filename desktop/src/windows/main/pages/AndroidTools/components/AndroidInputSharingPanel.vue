@@ -14,7 +14,7 @@ let removeStatus: (() => void) | undefined;
 const api = computed(() => window.androidApi?.input);
 const running = computed(() => status.value.state !== 'windows' && status.value.state !== 'suspended');
 const stateLabel: Record<AndroidInputState, string> = { windows: 'Windows', entering: '进入中', android: 'Android', returning: '返回中', suspended: '已暂停' };
-const errorLabels: Record<string, string> = { ANDROID_DEVICE_NOT_FOUND: '当前设备不可用，请在设备信息中选择一台已授权设备。', ANDROID_INPUT_BRIDGE_UNAVAILABLE: '系统输入桥接不可用，请确认当前运行环境为 Windows x64。', ANDROID_UHID_START_FAILED: 'Android 输入服务启动失败，请检查 USB 调试和设备授权。' };
+const errorLabels: Record<string, string> = { ANDROID_DEVICE_NOT_FOUND: '当前设备不可用，请在设备信息中选择一台已授权设备。', ANDROID_INPUT_BRIDGE_UNAVAILABLE: '系统输入桥接不可用，请确认当前运行环境为 Windows x64。', ANDROID_UHID_START_FAILED: 'Android 输入服务启动失败，请检查 USB 调试和设备授权，并确认工具链包含 UHID 服务。', ANDROID_TOOL_UNAVAILABLE: 'Android 工具链缺少 UHID 服务文件，请重新安装或更新工具链。' };
 function errorMessage(cause: unknown) { const raw = cause instanceof Error ? cause.message : String(cause); const code = Object.keys(errorLabels).find(key => raw.includes(key)); return code ? errorLabels[code] : raw || '操作失败，请检查设备连接和工具链状态。'; }
 
 async function load() {
