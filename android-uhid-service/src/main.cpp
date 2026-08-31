@@ -31,6 +31,8 @@ int main() {
   std::cout << "READY\n" << std::flush;
   std::string line;
   while (!g_stop && std::getline(std::cin, line)) {
+    if (!line.empty() && line.back() == '\r') line.pop_back();
+    if (line.empty()) continue;
     if (!keyboard.check_events(error) || !mouse.check_events(error)) {
       std::cerr << error << '\n';
       return 1;
