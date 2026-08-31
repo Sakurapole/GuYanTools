@@ -53,6 +53,15 @@
 }
 
 .android-tools-function-list { display:grid; gap:8px; }
+.android-input-sharing-form { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:10px; margin-bottom:14px; }
+.android-input-sharing-form label { display:flex; flex-direction:column; gap:6px; color:var(--ui-text-muted); font-size:var(--ui-font-size-xs); font-weight:650; }
+.android-input-sharing-form input:not([type='checkbox']),.android-input-sharing-form select { min-height:var(--ui-control-height-sm); box-sizing:border-box; padding:6px 10px; border:var(--ui-border-width-thin) solid var(--ui-input-border); border-radius:var(--ui-radius-sm); background:var(--ui-input-bg); color:var(--ui-input-text); font:inherit; }
+.android-input-sharing-check { flex-direction:row !important; align-items:center; gap:8px !important; margin-top:8px; }
+.android-input-sharing-preview { display:flex; align-items:center; justify-content:center; gap:10px; min-height:58px; margin-bottom:14px; border:var(--ui-border-width-thin) dashed var(--ui-border-subtle); border-radius:var(--ui-radius-sm); color:var(--ui-text-muted); font-size:var(--ui-font-size-xs); }
+.android-input-sharing-preview strong { display:grid; min-width:84px; min-height:34px; place-items:center; border:var(--ui-border-width-thin) solid var(--ui-border-accent-soft); border-radius:var(--ui-radius-sm); color:var(--ui-text-primary); font-size:var(--ui-font-size-sm); }
+.android-input-sharing-preview[data-placement='left'],.android-input-sharing-preview[data-placement='top'] { flex-direction:row-reverse; }
+.android-input-sharing-preview[data-placement='top'] { flex-direction:column-reverse; }
+.android-input-sharing-preview[data-placement='bottom'] { flex-direction:column; }
 .android-tools-function-row { display:flex; align-items:center; gap:8px; min-height:64px; padding:8px 10px; border-radius:var(--ui-radius-sm); background:var(--ui-surface-bg-muted); }
 .android-tools-function-row__open { display:flex; align-items:center; gap:12px; min-width:0; flex:1; border:0; background:transparent; color:inherit; text-align:left; cursor:pointer; }
 .android-tools-function-row__open span:last-child { display:grid; gap:3px; }
@@ -528,6 +537,7 @@
   .android-tools-options {
     grid-template-columns: 1fr;
   }
+  .android-input-sharing-form { grid-template-columns:1fr; }
 
   .android-session-row {
     align-items: flex-start;

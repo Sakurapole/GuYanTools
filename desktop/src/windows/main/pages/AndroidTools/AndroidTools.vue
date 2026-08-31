@@ -5,6 +5,7 @@ import UiButton from '../../components/ui/UiButton.vue';
 import UiCard from '../../components/ui/UiCard.vue';
 import UiIconButton from '../../components/ui/UiIconButton.vue';
 import UiStateCard from '../../components/ui/UiStateCard.vue';
+import AndroidInputSharingPanel from './components/AndroidInputSharingPanel.vue';
 import type {
   AndroidDevice,
   AndroidDeviceState,
@@ -428,6 +429,7 @@ onUnmounted(() => {
           </div>
         </div>
       </UiCard>
+      <AndroidInputSharingPanel v-if="activeView === 'collection'" :device-serial="selectedSerial" :device-ready="isSelectedDeviceReady" />
       <UiCard v-if="activeView === 'devices'" class="android-tools-device-information" padding="lg" radius="md" data-testid="android-device-information">
         <div class="android-tools-panel__heading"><div><h2>设备信息</h2><p>查看连接状态、授权状态和工具链诊断。</p></div></div>
         <div class="android-tools-device-summary"><strong>{{ selectedDevice?.model || '未选择设备' }}</strong><span>{{ selectedDevice?.serial || '连接 USB 并开启 USB 调试' }}</span><span v-if="selectedDevice">{{ stateLabels[selectedDevice.state] }} · {{ transportLabels[selectedDevice.transport] }}</span></div>

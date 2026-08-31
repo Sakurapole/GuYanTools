@@ -129,7 +129,7 @@
 - [x] **Step 2: Implement panel using existing UI components and `window.androidApi.input`; keep copy Chinese-first and focus states visible.**
 - [x] **Step 3: Add responsive placement preview using semantic tokens, not decorative gradients or new color systems.**
 - [x] **Step 4: Run component tests through the renderer Vitest config and build renderer.**
-- [ ] **Step 5: Commit** `feat(ui): add android seamless input sharing controls`.
+- [x] **Step 5: Commit** `feat(ui): add android seamless input sharing controls`.
 
 ### Task 7: Device and packaging verification
 
