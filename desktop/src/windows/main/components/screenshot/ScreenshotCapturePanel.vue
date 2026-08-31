@@ -265,9 +265,34 @@ async function createAiAttachment() {
   pointer-events: none;
 }
 
-.screenshot-capture__launcher.ui-icon-button {
+.screenshot-capture__launcher {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  min-height: 40px;
+  line-height: 0;
   pointer-events: auto;
   box-shadow: var(--ui-shadow-popover, var(--ui-shadow-lg));
+
+  &::part(base) {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    height: 100%;
+    min-height: 0;
+    padding: 0;
+    border: 0;
+    background: transparent;
+    color: inherit;
+  }
+
+  &:hover:not(:disabled),
+  &:active:not(:disabled) {
+    transform: none;
+  }
 }
 
 .screenshot-capture__panel {

@@ -1137,8 +1137,6 @@ export default {
 .bg-picker,
 .bg-picker.ui-card {
   max-height: 74vh;
-  display: flex;
-  flex-direction: column;
   border-radius: var(--ui-radius-md);
 }
 

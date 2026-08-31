@@ -608,7 +608,7 @@ function handleTitleKeydown(e: KeyboardEvent) {
 
 // ── Full mode: icon + text button ─────────────────────────────
 
-.toolbar-action-btn.ui-icon-button {
+.toolbar-action-btn {
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -645,7 +645,7 @@ function handleTitleKeydown(e: KeyboardEvent) {
   }
 }
 
-.toolbar-action-btn--active.ui-icon-button {
+.toolbar-action-btn--active {
   background: var(--terminal-toolbar-action-active-bg);
   color: var(--terminal-toolbar-action-active-text);
   border-color: var(--terminal-toolbar-action-active-border);
@@ -653,7 +653,7 @@ function handleTitleKeydown(e: KeyboardEvent) {
 
 // ── Icon-only mode ────────────────────────────────────────────
 
-.icon-action-btn.ui-icon-button {
+.icon-action-btn {
   display: flex;
   align-items: center;
   justify-content: center;
@@ -692,7 +692,7 @@ function handleTitleKeydown(e: KeyboardEvent) {
   }
 }
 
-.icon-action-btn--active.ui-icon-button {
+.icon-action-btn--active {
   background: var(--terminal-toolbar-action-active-bg);
   color: var(--terminal-toolbar-action-active-text);
   border-color: var(--terminal-toolbar-action-active-border);
@@ -767,7 +767,7 @@ function handleTitleKeydown(e: KeyboardEvent) {
     opacity: 0.52;
   }
 
-  :deep(.ui-button__label) {
+  &::part(label) {
     display: inline-flex;
     justify-content: flex-start;
     gap: 8px;

@@ -35,11 +35,21 @@
 .application-func-container {
   display: flex;
   align-items: stretch;
+  justify-content: flex-end;
   gap: 8px;
   height: 100%;
   padding: 0 16px;
   min-width: 160px;
+  flex: 0 0 auto;
+  box-sizing: border-box;
   -webkit-app-region: no-drag;
+
+  > .home-profile-switcher,
+  > .home-profile-switcher > .home-profile-switcher__trigger {
+    height: 100%;
+    min-height: 0;
+    align-self: stretch;
+  }
 
   &--empty {
     min-width: 0;
@@ -55,7 +65,8 @@
   -webkit-app-region: no-drag;
 }
 
-.home-profile-switcher__trigger.ui-button {
+.home-profile-switcher__trigger,
+.home-profile-switcher__trigger.hydrated {
   appearance: none;
   display: inline-flex;
   align-items: center;
@@ -79,6 +90,25 @@
     border-color 0.18s ease,
     box-shadow 0.18s ease;
 
+  &::part(base) {
+    height: 100%;
+    min-height: 0;
+    align-items: center;
+  }
+
+  &::part(label),
+  &::part(icon) {
+    display: inline-flex;
+    align-items: center;
+  }
+
+  &::part(label) { min-width: 0; }
+
+  &::part(icon) {
+    justify-content: center;
+    flex: 0 0 auto;
+  }
+
   &:hover,
   &.active {
     background: var(--ui-surface-glass-strong);
@@ -87,19 +117,12 @@
   }
 }
 
-.home-profile-switcher__trigger .ui-button__label {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  min-width: 0;
-}
-
 .home-profile-switcher__dot {
   width: 7px;
   height: 7px;
   border-radius: var(--ui-radius-full);
   background: var(--primary-color);
-  box-shadow: 0 0 0 3px color-mix(in srgb, var(--primary-color) 18%, transparent);
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--primary-color) 18%, transparent);
   flex: 0 0 auto;
 }
 
@@ -364,8 +387,21 @@
 }
 
 .home-profile-row__action {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  min-height: 28px;
+  margin: 0;
+  line-height: 0;
   flex: 0 0 auto;
   color: var(--ui-text-muted);
+
+  &:hover:not(:disabled),
+  &:active:not(:disabled) {
+    transform: none;
+  }
 
   &:hover:not(:disabled) {
     color: var(--ui-text-primary);
@@ -408,6 +444,8 @@
 .drag-area {
   flex: 1;
   height: 100%;
+  min-height: 0;
+  align-self: stretch;
   -webkit-app-region: drag;
 }
 
@@ -430,6 +468,13 @@
     border-radius: 0 !important;
     border-top: 0;
     border-bottom: 0;
+
+    // The native button receives focus inside the Stencil host. Topbar
+    // controls use the chrome surface itself as the focus boundary.
+    &:focus-within {
+      box-shadow: none;
+      outline: none;
+    }
 
     &:hover {
       background-color: var(--bar-btn-hover-bg-color);

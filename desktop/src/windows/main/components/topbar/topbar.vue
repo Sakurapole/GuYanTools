@@ -304,9 +304,9 @@ watch(showHomeProfileSwitcher, (visible) => {
           type="button"
           @click="toggleProfilePanel"
         >
-          <span class="home-profile-switcher__dot" />
+          <span slot="prefix" class="home-profile-switcher__dot" />
           <span class="home-profile-switcher__label">{{ activeProfileName }}</span>
-          <span class="home-profile-switcher__chevron" :class="{ open: profilePanelOpen }">
+          <span slot="suffix" class="home-profile-switcher__chevron" :class="{ open: profilePanelOpen }">
             <svg width="12" height="12" viewBox="0 0 12 12" aria-hidden="true" focusable="false">
               <path
                 d="M3 4.5L6 7.5L9 4.5"

@@ -33,9 +33,10 @@ const emit = defineEmits<{
 
 const compAreaViewport = ref<HTMLElement | null>(null);
 const compAreaScrollbar = ref<{
-  viewportRef: HTMLElement | null;
-  refresh: () => void;
-  scrollTo: (options: ScrollToOptions) => void;
+  viewportRef?: HTMLElement | null;
+  refresh?: () => void | Promise<void>;
+  scrollTo?: (options: ScrollToOptions) => void | Promise<void>;
+  $el?: Element;
 } | null>(null);
 const compArea = ref<HTMLElement | null>(null);
 const shouldEmitLayoutChangeAfterReflow = ref(false);
@@ -222,14 +223,14 @@ function handleResize() {
       if (restored) {
         // 恢复成功，只需扩展容器，不 reflow
         expandRowsForContent(gridItems.value);
-        compAreaScrollbar.value?.refresh();
+        refreshScrollbar();
         return;
       }
     }
     shouldEmitLayoutChangeAfterReflow.value = false;
     scheduleReflow();
   });
-  compAreaScrollbar.value?.refresh();
+  refreshScrollbar();
 }
 
 function isBlankCompAreaTarget(target: EventTarget | null) {
@@ -249,7 +250,7 @@ function handleAreaPointerDown(event: PointerEvent) {
     return;
   }
 
-  const viewport = compAreaScrollbar.value?.viewportRef;
+  const viewport = getScrollbarViewport();
   if (!viewport) {
     return;
   }
@@ -279,7 +280,7 @@ function handleAreaPanPointerMove(event: PointerEvent) {
     return;
   }
 
-  const viewport = compAreaScrollbar.value?.viewportRef;
+  const viewport = getScrollbarViewport();
   if (!viewport) {
     stopAreaPan();
     return;
@@ -299,7 +300,7 @@ function handleAreaPanPointerMove(event: PointerEvent) {
     top: areaPanState.startScrollTop - deltaY,
     behavior: 'auto',
   });
-  compAreaScrollbar.value?.refresh();
+  refreshScrollbar();
   event.preventDefault();
 }
 
@@ -323,7 +324,7 @@ function handleAreaPanContextMenu(event: MouseEvent) {
     return;
   }
 
-  const viewport = compAreaScrollbar.value?.viewportRef;
+  const viewport = getScrollbarViewport();
   if (!viewport || !(event.target instanceof Node) || !viewport.contains(event.target)) {
     return;
   }
@@ -510,38 +511,27 @@ function handleCreateWidget(payload: WidgetCreatePayload) {
 // 监听 category 变化，重新计算布局
 watch(() => props.category.id, () => {
   layoutReady.value = false;
-  compAreaScrollbar.value?.scrollTo({
+  scrollScrollbarTo({
     left: 0,
     top: 0,
     behavior: 'auto',
   });
 
-  updateUnitSize(() => {
-    lastColNum = colNum.value;
-    shouldEmitLayoutChangeAfterReflow.value = false;
-    scheduleReflow();
-    void nextTick(() => { layoutReady.value = true; });
-  });
+  initializeLayoutWhenReady();
   void nextTick(() => {
-    compAreaViewport.value = compAreaScrollbar.value?.viewportRef ?? null;
-    compAreaScrollbar.value?.refresh();
+    compAreaViewport.value = getScrollbarViewport();
+    refreshScrollbar();
   });
 });
 
 onMounted(() => {
   enableCategoryVideoAutoplay();
-  compAreaViewport.value = compAreaScrollbar.value?.viewportRef ?? null;
-  updateUnitSize(() => {
-    lastColNum = colNum.value;
-    shouldEmitLayoutChangeAfterReflow.value = false;
-    scheduleReflow();
-    void nextTick(() => { layoutReady.value = true; });
-  });
+  initializeLayoutWhenReady();
   window.addEventListener('resize', handleResize);
   window.addEventListener('contextmenu', handleAreaPanContextMenu, true);
   void nextTick(() => {
-    compAreaViewport.value = compAreaScrollbar.value?.viewportRef ?? null;
-    compAreaScrollbar.value?.refresh();
+    compAreaViewport.value = getScrollbarViewport();
+    refreshScrollbar();
   });
 });
 
@@ -619,6 +609,51 @@ const categoryTextStyle = computed(() => buildBackgroundTextVars(catBgTextColor.
     subtle: ['--ui-text-subtle'],
   },
 }));
+
+function getScrollbarViewport(): HTMLElement | null {
+  const api = compAreaScrollbar.value;
+  const exposedViewport = api?.viewportRef as unknown;
+  if (exposedViewport instanceof HTMLElement) return exposedViewport;
+  if (exposedViewport && typeof exposedViewport === 'object' && 'value' in exposedViewport) {
+    const value = (exposedViewport as { value?: unknown }).value;
+    if (value instanceof HTMLElement) return value;
+  }
+  const host = api?.$el instanceof HTMLElement ? api.$el : null;
+  return host?.shadowRoot?.querySelector<HTMLElement>('[part="viewport"]') ?? null;
+}
+
+function initializeLayout(): boolean {
+  compAreaViewport.value = getScrollbarViewport();
+  if (!compAreaViewport.value) return false;
+
+  updateUnitSize(() => {
+    lastColNum = colNum.value;
+    shouldEmitLayoutChangeAfterReflow.value = false;
+    scheduleReflow();
+    void nextTick(() => { layoutReady.value = true; });
+  });
+  return true;
+}
+
+function initializeLayoutWhenReady(attempt = 0): void {
+  if (initializeLayout() || attempt >= 10) return;
+  if (attempt < 3) {
+    void nextTick(() => initializeLayoutWhenReady(attempt + 1));
+    return;
+  }
+  window.setTimeout(() => initializeLayoutWhenReady(attempt + 1), 16);
+}
+
+function refreshScrollbar(): void {
+  const refresh = compAreaScrollbar.value?.refresh;
+  if (typeof refresh === 'function') void refresh.call(compAreaScrollbar.value);
+}
+
+function scrollScrollbarTo(options: ScrollToOptions): void {
+  const scrollTo = compAreaScrollbar.value?.scrollTo;
+  if (typeof scrollTo === 'function') void scrollTo.call(compAreaScrollbar.value, options);
+  else getScrollbarViewport()?.scrollTo(options);
+}
 
 function toObjectFit(backgroundSizeValue: string): 'contain' | 'cover' | 'fill' | 'none' {
   switch (backgroundSizeValue) {

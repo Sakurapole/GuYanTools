@@ -2138,21 +2138,25 @@ onBeforeUnmount(() => {
                       type="button"
                       @dblclick="createSession(profile.id)"
                     >
-                      <TerminalProfileIcon
-                        class="terminal-profile-item__icon"
-                        :profile-id="profile.id"
-                        :command="profile.command"
-                        :label="profile.label"
-                        :size="16"
-                      />
+                      <template #prefix>
+                        <TerminalProfileIcon
+                          class="terminal-profile-item__icon"
+                          :profile-id="profile.id"
+                          :command="profile.command"
+                          :label="profile.label"
+                          :size="16"
+                        />
+                      </template>
                       <span class="terminal-profile-item__text">
                         <span class="terminal-profile-item__label">{{ profile.label }}</span>
                         <span class="terminal-profile-item__command">{{ profile.command || profile.id }}</span>
                       </span>
-                      <svg class="terminal-profile-item__launch" viewBox="0 0 24 24" width="14" height="14" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round">
-                        <path d="M5 12h14" />
-                        <path d="m13 6 6 6-6 6" />
-                      </svg>
+                      <template #suffix>
+                        <svg class="terminal-profile-item__launch" viewBox="0 0 24 24" width="14" height="14" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round">
+                          <path d="M5 12h14" />
+                          <path d="m13 6 6 6-6 6" />
+                        </svg>
+                      </template>
                     </UiButton>
                     <div class="terminal-sidebar__divider" />
                   </div>
@@ -2530,6 +2534,23 @@ onBeforeUnmount(() => {
 </template>
 
 <style lang="scss">
+/* Stencil icon buttons expose their native button through the public base part. */
+.terminal-layout gt-icon-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 0;
+}
+
+.terminal-layout gt-icon-button::part(base) {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+  padding: 0;
+}
 .terminal-page {
   display: flex;
   flex: 1;
@@ -2602,7 +2623,7 @@ onBeforeUnmount(() => {
   padding: 10px 0;
 }
 
-.terminal-sidebar__toggle.ui-icon-button.ui-icon-button--sm:not(.ui-icon-button--labeled) {
+.terminal-sidebar__toggle {
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -2619,6 +2640,16 @@ onBeforeUnmount(() => {
     border-color 0.18s ease,
     color 0.18s ease;
   transform: none;
+
+  &::part(base) {
+    width: 100%;
+    height: 100%;
+    min-height: 0;
+    padding: 0;
+    border: 0;
+    background: transparent;
+    color: inherit;
+  }
 
   &:hover:not(:disabled) {
     border-color: var(--ui-border-subtle);
@@ -2645,7 +2676,7 @@ onBeforeUnmount(() => {
   padding: 3px;
 }
 
-.sidebar-tab.ui-button {
+.sidebar-tab {
   flex: 1;
   display: flex;
   align-items: center;
@@ -2669,12 +2700,12 @@ onBeforeUnmount(() => {
     transform: none;
   }
 
-  .ui-button__label {
+  &::part(label) {
     gap: 4px;
   }
 }
 
-.sidebar-tab--active.ui-button {
+.sidebar-tab--active {
   background: var(--ui-surface-panel);
   color: var(--ui-text-primary);
   box-shadow: 0 1px 4px rgba(0, 0, 0, 0.12);
@@ -2798,7 +2829,7 @@ onBeforeUnmount(() => {
   background: var(--ui-border-subtle);
 }
 
-.terminal-profile-item.ui-button {
+.terminal-profile-item {
   display: flex;
   align-items: center;
   justify-content: flex-start;
@@ -2816,6 +2847,22 @@ onBeforeUnmount(() => {
   box-shadow: none;
   transform: none;
 
+  &::part(base) {
+    display: flex;
+    align-items: center;
+    justify-content: flex-start;
+    gap: 8px;
+    width: 100%;
+    min-width: 0;
+    min-height: 0;
+    padding: 0;
+    border: 0;
+    background: transparent;
+    color: inherit;
+    font: inherit;
+    text-align: left;
+  }
+
   &:hover:not(:disabled) {
     border-color: var(--ui-border-accent-soft);
     background: var(--ui-button-ghost-hover-bg);
@@ -2828,9 +2875,10 @@ onBeforeUnmount(() => {
     }
   }
 
-  .ui-button__label {
+  &::part(label) {
     display: inline-flex;
     align-items: center;
+    flex: 1 1 auto;
     justify-content: flex-start;
     gap: 8px;
     min-width: 0;
@@ -2850,6 +2898,7 @@ onBeforeUnmount(() => {
 .terminal-profile-item__text {
   display: flex;
   flex-direction: column;
+  flex: 1 1 auto;
   gap: 2px;
   min-width: 0;
 }
@@ -2948,7 +2997,7 @@ onBeforeUnmount(() => {
   }
 }
 
-.terminal-sidebar__collapsed-action.ui-icon-button.ui-icon-button--sm:not(.ui-icon-button--labeled) {
+.terminal-sidebar__collapsed-action {
   position: relative;
   display: inline-flex;
   align-items: center;
@@ -2982,12 +3031,12 @@ onBeforeUnmount(() => {
   }
 }
 
-.terminal-sidebar__collapsed-action--ssh.ui-icon-button {
+.terminal-sidebar__collapsed-action--ssh {
   color: var(--primary-color);
   background: color-mix(in srgb, var(--primary-color) 8%, transparent);
 }
 
-.terminal-sidebar__collapsed-action--connecting.ui-icon-button::after {
+.terminal-sidebar__collapsed-action--connecting::after {
   content: '';
   position: absolute;
   right: 5px;
@@ -3000,7 +3049,7 @@ onBeforeUnmount(() => {
   animation: terminal-collapsed-pulse 0.9s ease-in-out infinite;
 }
 
-.terminal-sidebar__collapsed-action--muted.ui-icon-button {
+.terminal-sidebar__collapsed-action--muted {
   color: var(--ui-text-muted);
   background: color-mix(in srgb, var(--ui-surface-overlay) 72%, transparent);
 }
@@ -3347,7 +3396,7 @@ onBeforeUnmount(() => {
   text-transform: uppercase;
 }
 
-.terminal-pane__close.ui-icon-button.ui-icon-button--sm:not(.ui-icon-button--labeled) {
+.terminal-pane__close {
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -3475,7 +3524,7 @@ onBeforeUnmount(() => {
   font-weight: 700;
 }
 
-.terminal-pane-resizer.ui-icon-button.ui-icon-button--sm:not(.ui-icon-button--labeled) {
+.terminal-pane-resizer {
   position: absolute;
   z-index: var(--ui-z-floating);
   padding: 0;

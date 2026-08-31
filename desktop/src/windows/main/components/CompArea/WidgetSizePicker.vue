@@ -598,14 +598,28 @@ watch(() => props.visible, (visible) => {
   gap: 10px;
 }
 
-.widget-size-picker__swatch.ui-icon-button {
+.widget-size-picker__swatch {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   width: auto;
   height: 34px;
+  min-height: 34px;
   border-radius: 10px;
   border: var(--ui-border-width-thin) solid transparent;
   cursor: pointer;
   box-shadow: var(--ui-shadow-xs);
   transform: none;
+
+  &::part(base) {
+    width: 100%;
+    height: 100%;
+    min-height: 0;
+    padding: 0;
+    border: 0;
+    background: transparent;
+    color: inherit;
+  }
 
   &:hover:not(:disabled),
   &:active:not(:disabled) {

@@ -495,7 +495,7 @@ watch(todoMutationTick, () => {
 }
 
 .todo-widget__add-btn.ui-button,
-.todo-widget__add-btn.ui-icon-button {
+.todo-widget__add-btn {
   display: flex;
   align-items: center;
   gap: 5px;
@@ -510,6 +510,21 @@ watch(todoMutationTick, () => {
   white-space: nowrap;
   min-height: auto;
   transform: none;
+
+  &::part(base) {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 5px;
+    width: 100%;
+    height: 100%;
+    min-height: 0;
+    padding: 0;
+    border: 0;
+    background: transparent;
+    color: inherit;
+    font: inherit;
+  }
 
   svg {
     width: 12px;
