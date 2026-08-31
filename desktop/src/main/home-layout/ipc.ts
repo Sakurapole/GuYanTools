@@ -159,7 +159,9 @@ export function registerHomeLayoutIpcHandlers() {
 
   ipcMain.handle('home-layout:get', async () => {
     const workspaceKey = await getActiveHomeWorkspaceKey();
-    const layout = await dbManager.getDatabase().getHomeLayoutMetadata(workspaceKey);
+    // 首页配置量很小，直接返回完整布局，确保组件和分类背景在首次进入时
+    // 同步恢复，不依赖后续切换或空闲任务触发补载。
+    const layout = await dbManager.getDatabase().getHomeLayout(workspaceKey);
     return deserializeLayout(layout);
   });
 

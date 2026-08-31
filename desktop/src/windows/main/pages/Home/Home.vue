@@ -70,8 +70,6 @@ const isLoading = ref(true);
 const loadError = ref('');
 
 let mutationQueue = Promise.resolve();
-let wheelTimeout: NodeJS.Timeout | null = null;
-const WHEEL_DEBOUNCE_MS = 150;
 const categoryDescriptions: Record<string, string> = {
   'category-tools': '聚合高频工具和日常效率入口。',
   'category-media': '围绕音视频处理与素材工作流编排。',
@@ -415,21 +413,6 @@ function applyCategories(nextCategories: CategoryItem[], options: { resetActive?
   });
 }
 
-function scheduleCategoryHydration(categoryId: string) {
-  const hydrate = () => {
-    void ensureCategoryLoaded(categoryId).catch((error) => {
-      console.warn(`[Home] Failed to hydrate category ${categoryId} background:`, error);
-    });
-  };
-
-  // 让首页先完成首帧和交互绑定，再读取当前分类可能包含的媒体字段。
-  if (typeof window.requestIdleCallback === 'function') {
-    window.requestIdleCallback(hydrate, { timeout: 1200 });
-  } else {
-    window.setTimeout(hydrate, 0);
-  }
-}
-
 async function reloadHomeLayout(options: { resetActive?: boolean } = {}) {
   categorySwitchRequest += 1;
   layoutGeneration += 1;
@@ -437,12 +420,7 @@ async function reloadHomeLayout(options: { resetActive?: boolean } = {}) {
   categoryLoadPromises.clear();
   const nextCategories = await loadHomeLayout();
   applyCategories(nextCategories, options);
-  const active = categories[activeCategoryIndex.value];
-  if (active) {
-    // 首屏只依赖布局元数据。完整分类可能包含较大的背景媒体，放到浏览器
-    // 空闲时段再补齐，避免首帧后的 IPC 返回和响应式替换占用交互时间。
-    scheduleCategoryHydration(active.id);
-  }
+  for (const category of categories) loadedCategoryIds.add(category.id);
   loadError.value = '';
 }
 
@@ -841,26 +819,6 @@ function handleCategoryBgConfirm(payload: BackgroundConfirmPayload) {
   });
 }
 
-function handleWheel(event: WheelEvent) {
-  if (categories.length < 2 || isTransitioning.value) {
-    return;
-  }
-
-  if (wheelTimeout) {
-    return;
-  }
-
-  wheelTimeout = setTimeout(() => {
-    wheelTimeout = null;
-  }, WHEEL_DEBOUNCE_MS);
-
-  if (event.deltaY > 0) {
-    switchCategory((activeCategoryIndex.value + 1) % categories.length);
-  } else if (event.deltaY < 0) {
-    switchCategory((activeCategoryIndex.value - 1 + categories.length) % categories.length);
-  }
-}
-
 // ─── 首次挂载：仅初始化数据 ───
 onMounted(() => {
   void (async () => {
@@ -878,10 +836,6 @@ onMounted(() => {
 
 // ─── 辅助函数：绑定/解绑事件监听 ───
 function attachEventListeners() {
-  if (compAreaWrapper.value) {
-    compAreaWrapper.value.addEventListener('wheel', handleWheel, { passive: true });
-  }
-
   if (!sidebarResizeObserver) {
     sidebarResizeObserver = new ResizeObserver(() => {
       updateCategoryScrollState();
@@ -899,14 +853,6 @@ function attachEventListeners() {
 }
 
 function detachEventListeners() {
-  if (compAreaWrapper.value) {
-    compAreaWrapper.value.removeEventListener('wheel', handleWheel);
-  }
-
-  if (wheelTimeout) {
-    clearTimeout(wheelTimeout);
-  }
-
   sidebarResizeObserver?.disconnect();
   window.removeEventListener('resize', updateCategoryScrollState);
 }
