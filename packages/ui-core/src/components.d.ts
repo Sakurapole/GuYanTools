@@ -233,13 +233,13 @@ export namespace Components {
     }
     interface GtDisclosure {
         /**
+          * @default ''
+         */
+        "heading": string;
+        /**
           * @default false
          */
         "open": boolean;
-        /**
-          * @default ''
-         */
-        "title": string;
     }
     interface GtDrawer {
         /**
@@ -567,8 +567,8 @@ export namespace Components {
          */
         "alwaysVisible": boolean;
         "refresh": () => Promise<void>;
-        "scrollBy": (options: ScrollToOptions) => Promise<void>;
-        "scrollTo": (options: ScrollToOptions) => Promise<void>;
+        "scrollByPosition": (options: ScrollToOptions) => Promise<void>;
+        "scrollToPosition": (options: ScrollToOptions) => Promise<void>;
         /**
           * @default true
          */
@@ -1153,9 +1153,7 @@ declare global {
     interface HTMLGtScrollbarElementEventMap {
         "gt-scroll": Event;
     }
-    interface HTMLGtScrollbarElement extends Omit<Components.GtScrollbar, "scrollBy" | "scrollTo">, HTMLStencilElement {
-        "scrollBy": (options: ScrollToOptions) => Promise<void>;
-        "scrollTo": (options: ScrollToOptions) => Promise<void>;
+    interface HTMLGtScrollbarElement extends Components.GtScrollbar, HTMLStencilElement {
         addEventListener<K extends keyof HTMLGtScrollbarElementEventMap>(type: K, listener: (this: HTMLGtScrollbarElement, ev: GtScrollbarCustomEvent<HTMLGtScrollbarElementEventMap[K]>) => any, options?: boolean | AddEventListenerOptions): void;
         addEventListener<K extends keyof DocumentEventMap>(type: K, listener: (this: Document, ev: DocumentEventMap[K]) => any, options?: boolean | AddEventListenerOptions): void;
         addEventListener<K extends keyof HTMLElementEventMap>(type: K, listener: (this: HTMLElement, ev: HTMLElementEventMap[K]) => any, options?: boolean | AddEventListenerOptions): void;
@@ -1507,15 +1505,15 @@ declare namespace LocalJSX {
         "persistent"?: boolean;
     }
     interface GtDisclosure {
+        /**
+          * @default ''
+         */
+        "heading"?: string;
         "onGt-open-change"?: (event: GtDisclosureCustomEvent<GtDisclosureChangeDetail>) => void;
         /**
           * @default false
          */
         "open"?: boolean;
-        /**
-          * @default ''
-         */
-        "title"?: string;
     }
     interface GtDrawer {
         /**
@@ -2150,7 +2148,7 @@ declare namespace LocalJSX {
         "ariaLabel": string;
     }
     interface GtDisclosureAttributes {
-        "title": string;
+        "heading": string;
         "open": boolean;
     }
     interface GtDrawerAttributes {

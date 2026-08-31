@@ -122,7 +122,7 @@ export const GtDialog: StencilVueComponent<JSX.GtDialog> = /*@__PURE__*/ defineC
 
 
 export const GtDisclosure: StencilVueComponent<JSX.GtDisclosure> = /*@__PURE__*/ defineContainer<JSX.GtDisclosure>('gt-disclosure', defineGtDisclosure, [
-  'title',
+  'heading',
   'open',
   'gt-open-change'
 ], [

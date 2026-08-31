@@ -4,7 +4,7 @@ export interface GtDisclosureChangeDetail { open: boolean; }
 
 @Component({ tag: 'gt-disclosure', shadow: true, styleUrl: 'gt-disclosure.css' })
 export class GtDisclosure {
-  @Prop() title = '';
+  @Prop({ attribute: 'title' }) heading = '';
   @Prop({ mutable: true, reflect: true }) open = false;
   @Element() host!: HTMLElement;
 
@@ -20,7 +20,7 @@ export class GtDisclosure {
     return (
       <Host>
         <details part="base" open={this.open}>
-          <summary part="summary" aria-expanded={String(this.open)} onClick={this.toggle}>{this.title}</summary>
+          <summary part="summary" aria-expanded={String(this.open)} onClick={this.toggle}>{this.heading}</summary>
           <div part="body" hidden={!this.open}><slot /></div>
         </details>
       </Host>

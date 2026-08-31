@@ -20,8 +20,8 @@ describe('gt-scrollbar', () => {
     const { root } = await render(<gt-scrollbar />);
     const component = root as unknown as {
       refresh: () => Promise<void>;
-      scrollBy: (options: ScrollToOptions) => Promise<void>;
-      scrollTo: (options: ScrollToOptions) => Promise<void>;
+      scrollByPosition: (options: ScrollToOptions) => Promise<void>;
+      scrollToPosition: (options: ScrollToOptions) => Promise<void>;
     };
     const viewport = root.shadowRoot?.querySelector('[part="viewport"]') as HTMLElement;
     const calls: Array<[string, ScrollToOptions]> = [];
@@ -29,8 +29,8 @@ describe('gt-scrollbar', () => {
     (viewport as unknown as { scrollTo: (options: ScrollToOptions) => void }).scrollTo = (options) => { calls.push(['to', options]); };
 
     await expect(component.refresh()).resolves.toBeUndefined();
-    await component.scrollBy({ top: 20 });
-    await component.scrollTo({ left: 10 });
+    await component.scrollByPosition({ top: 20 });
+    await component.scrollToPosition({ left: 10 });
     expect(calls).toEqual([['by', { top: 20 }], ['to', { left: 10 }]]);
   });
 });

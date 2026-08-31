@@ -33,6 +33,7 @@
     "dist"
   ],
   "scripts": {
+    "prebuild": "node scripts/ensure-output-dirs.mjs",
     "build": "stencil build && node scripts/copy-tokens.mjs && node scripts/create-entry.mjs && node scripts/assert-runtime-output.mjs",
     "typecheck": "stencil build --no-build",
     "test": "node scripts/run-tests.mjs",
