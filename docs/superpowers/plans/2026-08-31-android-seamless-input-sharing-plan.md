@@ -111,7 +111,7 @@
 - [x] **Step 2: Implement handlers deriving device state from `AdbDeviceService`, register during app construction, and dispose on `will-quit`.**
 - [x] **Step 3: Add preload facade and status broadcast without exposing native handles or arbitrary commands.**
 - [x] **Step 4: Run IPC tests, typecheck and Android static verification.**
-- [ ] **Step 5: Commit** `feat(desktop): expose android input sharing ipc`.
+- [x] **Step 5: Commit** `feat(desktop): expose android input sharing ipc`.
 
 ### Task 6: Build configuration UI and status surface
 

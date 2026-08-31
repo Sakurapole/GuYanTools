@@ -45,7 +45,7 @@ import type {
   ResizeTerminalSessionPayload,
   TerminalEventEnvelope,
 } from '@/contracts/terminal';
-import type { AndroidToolsApi, AndroidDeviceEvent, AndroidSessionEvent, AndroidToolchainDownloadProgress } from '@/contracts/android-tools';
+import type { AndroidToolsApi, AndroidDeviceEvent, AndroidSessionEvent, AndroidToolchainDownloadProgress, AndroidInputApi } from '@/contracts/android-tools';
 import type {
   SshApi,
   ConnectSshInput,
@@ -629,6 +629,19 @@ const androidApi: AndroidToolsApi = {
     ipcRenderer.on('android:toolchain-download-progress', wrappedListener);
     return () => ipcRenderer.removeListener('android:toolchain-download-progress', wrappedListener);
   },
+  input: {
+    getConfig: () => ipcRenderer.invoke('android:get-input-config'),
+    updateConfig: patch => ipcRenderer.invoke('android:update-input-config', patch),
+    start: () => ipcRenderer.invoke('android:start-input-sharing'),
+    stop: reason => ipcRenderer.invoke('android:stop-input-sharing', reason),
+    toggle: () => ipcRenderer.invoke('android:toggle-input-sharing'),
+    getStatus: () => ipcRenderer.invoke('android:get-input-status'),
+    onStatus: (listener => {
+      const wrappedListener = (_event: Electron.IpcRendererEvent, status: import('@/contracts/android-tools').AndroidInputStatus) => listener(status);
+      ipcRenderer.on('android:input-status', wrappedListener);
+      return () => ipcRenderer.removeListener('android:input-status', wrappedListener);
+    }),
+  } satisfies AndroidInputApi,
 };
 contextBridge.exposeInMainWorld('androidApi', androidApi);
 

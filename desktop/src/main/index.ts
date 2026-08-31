@@ -58,6 +58,7 @@ import { registerTrayMenuWindowHandlers } from "./tray/tray_menu_window";
 import { registerProcessManagerIpcHandlers } from "./process-manager/ipc";
 import { setupAutoUpdater } from "./updater";
 import { registerAndroidToolsIpcHandlers } from './android-tools/ipc';
+import { disposeAndroidInput, registerAndroidInputIpcHandlers } from './android-tools/input_ipc';
 import { disposeAndroidTools, initializeAndroidTools, setAndroidToolchainConfiguredPath, setAndroidToolchainPathPersistence } from './android-tools';
 import { initializeProcessDiagnostics } from './diagnostics/process_diagnostics';
 
@@ -164,6 +165,7 @@ class App {
     registerWebScriptBridge();
     registerProcessManagerIpcHandlers();
     registerAndroidToolsIpcHandlers();
+    registerAndroidInputIpcHandlers();
 
     const singleLock = app.requestSingleInstanceLock(
       this.cliRelayResponsePath ? { ftpCliResponsePath: this.cliRelayResponsePath } : undefined,
@@ -402,6 +404,7 @@ class App {
       shortcutService.dispose();
       destroyTray();
       void disposeAndroidTools();
+      void disposeAndroidInput();
       syncWorkerClient.dispose();
     });
   }

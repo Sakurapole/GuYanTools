@@ -1,4 +1,5 @@
 import { isAllowedFastbootGetvar } from './fastboot_args';
+import type { AndroidInputConfig } from '@/contracts/android-tools';
 
 export function validateDeviceSerial(value: unknown) {
   if (typeof value !== 'string') throw new Error('ANDROID_DEVICE_NOT_FOUND');
@@ -7,6 +8,23 @@ export function validateDeviceSerial(value: unknown) {
     throw new Error('ANDROID_DEVICE_NOT_FOUND');
   }
   return serial;
+}
+
+export function validateInputConfigPatch(value: unknown): Partial<AndroidInputConfig> {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) throw new Error('ANDROID_PAYLOAD_INVALID');
+  const patch = { ...(value as Record<string, unknown>) };
+  const allowed = new Set(['deviceSerial', 'placement', 'androidWidth', 'androidHeight', 'edgeDelayMs', 'edgeThresholdPx', 'toggleShortcut', 'preserveWinKey', 'preserveAltTab', 'preserveVolumeKeys']);
+  if (Object.keys(patch).some(key => !allowed.has(key))) throw new Error('ANDROID_PAYLOAD_INVALID');
+  if (patch.deviceSerial !== undefined) patch.deviceSerial = validateDeviceSerial(patch.deviceSerial);
+  if (patch.placement !== undefined && !['left', 'right', 'top', 'bottom'].includes(String(patch.placement))) throw new Error('ANDROID_PAYLOAD_INVALID');
+  for (const key of ['androidWidth', 'androidHeight', 'edgeDelayMs', 'edgeThresholdPx']) {
+    if (patch[key] !== undefined && (!Number.isInteger(patch[key]) || Number(patch[key]) < 0 || Number(patch[key]) > 16384)) throw new Error('ANDROID_PAYLOAD_INVALID');
+  }
+  if (patch.toggleShortcut !== undefined && (typeof patch.toggleShortcut !== 'string' || patch.toggleShortcut.length > 64 || !/^[A-Za-z0-9+ ]+$/.test(patch.toggleShortcut))) throw new Error('ANDROID_PAYLOAD_INVALID');
+  for (const key of ['preserveWinKey', 'preserveAltTab', 'preserveVolumeKeys']) {
+    if (patch[key] !== undefined && typeof patch[key] !== 'boolean') throw new Error('ANDROID_PAYLOAD_INVALID');
+  }
+  return patch as Partial<AndroidInputConfig>;
 }
 
 export function validateSessionId(value: unknown) {
