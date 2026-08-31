@@ -92,7 +92,7 @@
 - [ ] **Step 3: Run focused tests and verify failure.**
 - [x] **Step 4: Implement state transitions, virtual cursor, edge timers, key state flushing and error recovery using injected bridge/UHID dependencies.**
 - [x] **Step 5: Run router tests and refactor only after green.**
-- [ ] **Step 6: Commit** `feat(desktop): route input across android screen boundary`.
+- [x] **Step 6: Commit** `feat(desktop): route input across android screen boundary`.
 
 ### Task 5: Wire main-process IPC, lifecycle and config persistence
 

@@ -70,6 +70,41 @@ describe('AndroidInputRouter', () => {
     await router.stop();
   });
 
+  it('maps the Windows cursor proportionally on entry and return', async () => {
+    const { router, bridge, emit } = createRouter();
+    await router.start(config());
+    await router.toggle();
+    expect(router.status().virtualCursor).toEqual({ x: 1079, y: 960 });
+    emit({ kind: 'move', dx: -100, dy: -200 });
+    await router.toggle();
+    expect(bridge.setCursor).toHaveBeenLastCalledWith(1741, 427);
+    await router.stop();
+  });
+
+  it('toggles with the configured shortcut', async () => {
+    const { router, emit } = createRouter();
+    await router.start(config());
+    emit({ kind: 'key', down: true, shortcut: 'Ctrl+Alt+A' });
+    await vi.waitFor(() => expect(router.status().state).toBe('android'));
+    emit({ kind: 'key', down: true, shortcut: 'Ctrl+Alt+A' });
+    await vi.waitFor(() => expect(router.status().state).toBe('windows'));
+    await router.stop();
+  });
+
+  it.each([
+    ['Win', { isWinKey: true }, 'preserveWinKey'],
+    ['AltTab', { isAltTab: true }, 'preserveAltTab'],
+    ['volume', { isVolumeKey: true }, 'preserveVolumeKeys'],
+  ] as const)('applies the %s policy independently', async (_name, marker, policy) => {
+    const { router, uhid, emit } = createRouter();
+    const enabled = { ...config(), [policy]: true };
+    await router.start(enabled);
+    await router.toggle();
+    emit({ kind: 'key', code: 42, down: true, ...marker });
+    expect(uhid.sendKeyboardReport).not.toHaveBeenCalled();
+    await router.stop();
+  });
+
   it('emergency-stops on double Escape and flushes pressed keys', async () => {
     vi.useFakeTimers();
     const { router, uhid, emit } = createRouter();
