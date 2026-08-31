@@ -310,7 +310,7 @@ if (!nativeBinding) {
   throw new Error(`Failed to load native binding`)
 }
 
-const { JsTerminalHost, JsDatabase, JsSshHost, JsFtpHost, JsMultiDeviceClipboardHost, recognizeScreenshotUiBlocks } = nativeBinding
+const { JsTerminalHost, JsDatabase, JsSshHost, JsFtpHost, JsMultiDeviceClipboardHost, recognizeScreenshotUiBlocks, windowsInputStart, windowsInputStop, windowsInputGetCursor, windowsInputSetCursor, windowsInputSetBlocked } = nativeBinding
 
 module.exports.JsTerminalHost = JsTerminalHost
 module.exports.JsDatabase = JsDatabase
@@ -319,3 +319,8 @@ module.exports.JsFtpHost = JsFtpHost
 module.exports.JsMultiDeviceClipboardHost = JsMultiDeviceClipboardHost
 
 module.exports.recognizeScreenshotUiBlocks = recognizeScreenshotUiBlocks
+module.exports.windowsInputStart = windowsInputStart
+module.exports.windowsInputStop = windowsInputStop
+module.exports.windowsInputGetCursor = windowsInputGetCursor
+module.exports.windowsInputSetCursor = windowsInputSetCursor
+module.exports.windowsInputSetBlocked = windowsInputSetBlocked
