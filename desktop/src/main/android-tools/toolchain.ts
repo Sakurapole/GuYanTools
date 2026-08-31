@@ -180,7 +180,7 @@ export class AndroidToolchainManager {
 
   getInputServicePath() {
     const rootPath = this.selectRoot().rootPath;
-    const candidate = path.resolve(rootPath, 'android-uhid-service', process.platform === 'win32' ? 'guyantools-uhid-service.apk' : 'guyantools-uhid-service.apk');
+    const candidate = path.resolve(rootPath, 'android-uhid-service', 'guyantools-uhid-service');
     if (!isInsideRoot(candidate, rootPath)) throw new Error('ANDROID_TOOL_UNAVAILABLE');
     return candidate;
   }

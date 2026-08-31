@@ -8,11 +8,12 @@ describe('AndroidUhidSession', () => {
     const writes: string[] = [];
     const stderr = new EventEmitter();
     const child = { stdin: { write: (value: string) => { writes.push(value); return true; }, end: vi.fn() }, stderr, on: vi.fn().mockReturnThis(), kill: vi.fn(() => true) };
-    const toolchain = { getInputServicePath: () => 'C:/tools/service.apk', getToolPath: () => 'adb.exe', executeAdb } as any;
+    const toolchain = { getInputServicePath: () => 'C:/tools/service', getToolPath: () => 'adb.exe', executeAdb } as any;
     const session = new AndroidUhidSession(toolchain, { spawn: vi.fn(() => child as any) });
     await session.start('R58M123');
     session.sendKeyboardReport({ modifiers: 0, keys: [4] });
-    expect(executeAdb).toHaveBeenCalledWith(expect.arrayContaining(['-s', 'R58M123', 'push', 'C:/tools/service.apk']));
+    expect(executeAdb).toHaveBeenCalledWith(expect.arrayContaining(['-s', 'R58M123', 'push', 'C:/tools/service']));
+    expect(executeAdb).toHaveBeenCalledWith(expect.arrayContaining(['-s', 'R58M123', 'shell', 'chmod', '700']));
     expect(writes[0]).toContain('keyboard');
     await session.stop();
     expect(child.kill).toHaveBeenCalled();
@@ -22,7 +23,7 @@ describe('AndroidUhidSession', () => {
   it('rejects duplicate sessions, malformed reports, and disconnected writes', async () => {
     const executeAdb = vi.fn(async () => ({ stdout: '', stderr: '' }));
     const child = { stdin: { write: vi.fn(() => true), end: vi.fn() }, stderr: new EventEmitter(), on: vi.fn().mockReturnThis(), kill: vi.fn(() => true) };
-    const toolchain = { getInputServicePath: () => 'C:/tools/service.apk', getToolPath: () => 'adb.exe', executeAdb } as any;
+    const toolchain = { getInputServicePath: () => 'C:/tools/service', getToolPath: () => 'adb.exe', executeAdb } as any;
     const session = new AndroidUhidSession(toolchain, { spawn: vi.fn(() => child as any) });
     await session.start('R58M123');
     await expect(session.start('R58M123')).rejects.toThrow('ANDROID_UHID_START_FAILED');
@@ -33,7 +34,7 @@ describe('AndroidUhidSession', () => {
 
   it('sanitizes startup stderr in the stable error', async () => {
     const child = { stderr: new EventEmitter(), on: vi.fn().mockReturnThis(), kill: vi.fn(() => true) };
-    const toolchain = { getInputServicePath: () => 'C:/tools/service.apk', getToolPath: () => 'adb.exe', executeAdb: vi.fn(async () => { throw new Error('push failed\nsecret'); }) } as any;
+    const toolchain = { getInputServicePath: () => 'C:/tools/service', getToolPath: () => 'adb.exe', executeAdb: vi.fn(async () => { throw new Error('push failed\nsecret'); }) } as any;
     const session = new AndroidUhidSession(toolchain, { spawn: vi.fn(() => child as any) });
     await expect(session.start('R58M123')).rejects.toThrow('ANDROID_UHID_START_FAILED');
   });

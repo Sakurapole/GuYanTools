@@ -12,6 +12,7 @@ interface UhidChild { stdin?: { write(data: string): boolean; end(): void }; std
 export class AndroidUhidSession {
   private child: UhidChild | null = null;
   private serial = '';
+  private remotePath = '';
   private readonly spawnProcess: NonNullable<AndroidUhidSessionOptions['spawn']>;
   private stderr = '';
 
@@ -24,13 +25,17 @@ export class AndroidUhidSession {
     if (!/^[A-Za-z0-9._:-]+$/.test(deviceSerial)) throw new Error('ANDROID_UHID_START_FAILED');
     const servicePath = this.toolchain.getInputServicePath();
     const remotePath = `/data/local/tmp/guyantools-uhid-${crypto.randomUUID()}.bin`;
+    let pushed = false;
     try {
       await this.toolchain.executeAdb(['-s', deviceSerial, 'push', servicePath, remotePath]);
+      pushed = true;
+      await this.toolchain.executeAdb(['-s', deviceSerial, 'shell', 'chmod', '700', remotePath]);
       const child = this.spawnProcess(this.toolchain.getToolPath('adb'), ['-s', deviceSerial, 'shell', remotePath], {
         windowsHide: true, stdio: ['pipe', 'pipe', 'pipe'],
       });
       this.child = child;
       this.serial = deviceSerial;
+      this.remotePath = remotePath;
       this.stderr = '';
       child.stderr?.on('data', (chunk: Buffer | string) => { this.stderr = `${this.stderr}${chunk}`.replace(/[\r\n]+/g, ' ').slice(-512); });
       child.on('close', () => { this.child = null; });
@@ -39,6 +44,9 @@ export class AndroidUhidSession {
     } catch (error) {
       this.child?.kill();
       this.child = null;
+      if (pushed) {
+        try { await this.toolchain.executeAdb(['-s', deviceSerial, 'shell', 'rm', '-f', remotePath]); } catch { /* best effort */ }
+      }
       throw new Error(`ANDROID_UHID_START_FAILED: ${sanitizeError(error)}${this.stderr ? ` (${this.stderr})` : ''}`);
     }
   }
@@ -53,9 +61,10 @@ export class AndroidUhidSession {
     child.stdin?.end();
     child.kill();
     if (this.serial) {
-      try { await this.toolchain.executeAdb(['-s', this.serial, 'shell', 'rm', '-f', '/data/local/tmp/guyantools-uhid-*']); } catch { /* cleanup is best effort */ }
+      try { await this.toolchain.executeAdb(['-s', this.serial, 'shell', 'rm', '-f', this.remotePath]); } catch { /* cleanup is best effort */ }
     }
     this.serial = '';
+    this.remotePath = '';
   }
 
   private write(message: unknown) {
