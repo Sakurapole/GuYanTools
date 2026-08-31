@@ -421,10 +421,10 @@ onUnmounted(() => {
     <div v-else class="android-tools-page__content">
       <UiCard v-if="activeView === 'collection'" class="android-tools-collection" padding="lg" radius="md">
         <div class="android-tools-panel__heading"><div><h2>全部功能</h2><p>内置功能与插件注册的功能统一收纳在这里。</p></div></div>
-        <div class="android-tools-function-list" data-testid="android-function-collection">
-          <div v-for="item in functionDefinitions" :key="item.id" class="android-tools-function-row">
-            <button class="android-tools-function-row__open" type="button" @click="openFunction(item.id)">
-              <span class="android-tools-function-row__icon"><IconRenderer :icon="item.icon" :size="18" /></span><span><strong>{{ item.label }}</strong><small>{{ item.description }}</small></span>
+        <div class="android-tools-function-grid" data-testid="android-function-collection">
+          <div v-for="item in functionDefinitions" :key="item.id" class="android-tools-function-card">
+            <button class="android-tools-function-card__open" type="button" @click="openFunction(item.id)">
+              <span class="android-tools-function-card__icon"><IconRenderer :icon="item.icon" :size="20" /></span><span class="android-tools-function-card__copy"><strong>{{ item.label }}</strong><small>{{ item.description }}</small></span>
             </button>
             <button class="android-tools-pin-button" :class="{ 'android-tools-pin-button--pinned': pinnedFunctionIds.includes(item.id) }" :data-testid="`pin-function-${item.id}`" type="button" :aria-label="pinnedFunctionIds.includes(item.id) ? `取消固定${item.label}` : `固定${item.label}`" @click="togglePinnedFunction(item.id)"><IconRenderer :icon="pinnedFunctionIds.includes(item.id) ? 'iconify:lucide:pin' : 'iconify:lucide:pin-off'" :size="16" /></button>
           </div>

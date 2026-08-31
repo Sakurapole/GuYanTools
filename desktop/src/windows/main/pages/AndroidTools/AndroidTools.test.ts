@@ -127,6 +127,8 @@ describe('AndroidTools', () => {
     await flushPromises();
 
     expect(wrapper.find('[data-testid="android-sidebar-collection"]').exists()).toBe(true);
+    expect(wrapper.get('[data-testid="android-function-collection"]').classes()).toContain('android-tools-function-grid');
+    expect(wrapper.findAll('.android-tools-function-card')).toHaveLength(5);
     await wrapper.get('[data-testid="pin-function-mirror"]').trigger('click');
     expect(wrapper.find('[data-testid="android-sidebar-pinned-mirror"]').exists()).toBe(true);
     expect(wrapper.find('[data-testid="android-function-tab-mirror"]').exists()).toBe(true);
