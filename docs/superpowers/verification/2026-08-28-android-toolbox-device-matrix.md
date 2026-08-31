@@ -32,6 +32,7 @@
 | 音频 capture 失败诊断 | 待测 | 待测 | 待测 | 记录 `ANDROID_AUDIO_CAPTURE_FAILED` 或上游错误 |
 | Android 13+ `audio-dup` | 不适用 | 不适用 | 待测 | 确认设备端继续播放且电脑有声音 |
 | UHID 键鼠失败后 SDK 回退 | 待测 | 待测 | 待测 | 记录回退后的 session 模式 |
+| UHID 临时服务 push/chmod/启动/键鼠报告/清理 smoke | 待测 | 待测 | 通过 | Android 17，`smoke=passed`；未记录 serial |
 | 小米额外安全设置 | 待测 | 待测 | 待测 | 记录设置项和错误码，不记录账号信息 |
 | OTG 键鼠 | 待测 | 待测 | 待测 | 仅 USB；不应启动镜像/音频 |
 | OTG 与 ADB/scrcpy 冲突 | 待测 | 待测 | 待测 | 预期 `ANDROID_USB_CONFLICT` |

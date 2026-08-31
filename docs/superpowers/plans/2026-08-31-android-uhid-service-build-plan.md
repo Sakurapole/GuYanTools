@@ -109,8 +109,8 @@
 - Electron extraResources 继续复制 resources 目录，安装包内路径与开发路径一致。
 - 禁止提交 build、target、未剥离调试符号和临时日志。
 
-- [ ] Step 1: 完成 NDK 构建脚本。
-- [ ] Step 2: 完成资源同步和打包检查。
+- [x] Step 1: 完成 NDK 构建脚本。
+- [x] Step 2: 完成资源同步和打包检查。
 
 ## 任务 6：真实设备验证与回归
 
@@ -129,8 +129,8 @@
 - /dev/uhid 权限失败时状态进入 suspended，Windows 输入恢复。
 - 小米等需要额外 USB 调试安全设置的设备单独记录。
 
-- [ ] Step 1: 完成 smoke 脚本。
-- [ ] Step 2: 记录真实设备矩阵。
+- [x] Step 1: 完成 smoke 脚本。
+- [x] Step 2: 记录真实设备矩阵。
 - [ ] Step 3: 完成发布前回归。
 
 ## 发布门禁
