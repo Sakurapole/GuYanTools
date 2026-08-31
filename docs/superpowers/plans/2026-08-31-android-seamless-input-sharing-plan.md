@@ -143,4 +143,4 @@
 - [x] **Step 2: Add `test:android-input` and `verify:android-input` scripts.**
 - [x] **Step 3: Run full Rust tests, Android tests, typecheck, renderer/app build and `git diff --check`.**
 - [ ] **Step 4: Record real-device results for four directions, shortcut release, preserve-key policies, disconnect and recovery without serials or sensitive logs.**
-- [ ] **Step 5: Commit** `test(android): verify seamless input sharing`.
+- [x] **Step 5: Commit** `test(android): verify seamless input sharing`.

@@ -26,6 +26,8 @@
         "verify:plugin-platform": "pnpm --dir desktop run test:plugin-platform && pnpm --dir desktop run verify:plugin-platform",
         "test:android-tools": "pnpm --dir desktop run test:android-tools",
         "verify:android-tools": "pnpm --dir desktop run verify:android-tools",
+        "test:android-input": "pnpm --dir desktop run test:android-input",
+        "verify:android-input": "pnpm --dir desktop run verify:android-input",
         "verify:plugin-framework": "node desktop/scripts/verify-plugin-framework.cjs",
         "release:desktop": "pnpm run desktop:publish",
         "start:desktop": "pnpm run desktop:start",

@@ -1,0 +1,16 @@
+const fs = require('node:fs');
+const path = require('node:path');
+const root = path.resolve(__dirname, '..');
+const read = relative => fs.readFileSync(path.join(root, relative), 'utf8');
+const router = read('src/main/android-tools/input_router.ts');
+const ipc = read('src/main/android-tools/input_ipc.ts');
+const guards = read('src/main/android-tools/ipc_guards.ts');
+const service = read('src/main/android-tools/android_uhid_service.ts');
+const preload = read('src/preload.ts');
+for (const token of ['edgeDelayMs', 'edgeThresholdPx', 'ANDROID_INPUT_SUSPENDED', 'setBlocked(false)', 'toggle()']) if (!router.includes(token)) throw new Error(`input router invariant missing: ${token}`);
+for (const token of ['android:start-input-sharing', 'android:input-status']) if (!ipc.includes(token)) throw new Error(`input IPC invariant missing: ${token}`);
+if (!guards.includes('validateDeviceSerial') || !guards.includes('validateInputConfigPatch')) throw new Error('input IPC validation invariant missing');
+for (const token of ['getInputServicePath', "['-s', deviceSerial, 'push'", 'ANDROID_UHID_START_FAILED', 'ANDROID_UHID_DISCONNECTED']) if (!service.includes(token)) throw new Error(`UHID invariant missing: ${token}`);
+if (/scrcpy/.test(service) || /shell\s*:\s*true/.test(service)) throw new Error('input sharing must not depend on a scrcpy window or shell execution');
+if (!preload.includes("android:start-input-sharing")) throw new Error('typed input preload facade missing');
+console.log('android input sharing verification passed');

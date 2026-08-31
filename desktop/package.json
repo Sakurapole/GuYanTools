@@ -29,6 +29,8 @@
     "verify:plugin-platform": "node scripts/verify-plugin-platform.cjs",
     "test:android-tools": "vitest run src/main/android-tools src/main/plugin-host/android_service.test.ts",
     "verify:android-tools": "node scripts/verify-android-tools.cjs",
+    "test:android-input": "vitest run --config vite.main.config.ts src/main/android-tools/input_router.test.ts src/main/android-tools/android_uhid_service.test.ts",
+    "verify:android-input": "node scripts/verify-android-input-sharing.cjs",
     "verify:plugin-framework": "node scripts/verify-plugin-framework.cjs",
     "verify:knowledge-editor": "node scripts/verify-knowledge-editor-foundation.cjs",
     "verify:ai-chat": "node scripts/verify-ai-chat.cjs",

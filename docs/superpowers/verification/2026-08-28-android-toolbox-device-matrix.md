@@ -15,6 +15,8 @@
 | 插件权限、session owner 隔离、任意 argv/写操作拒绝 | 已覆盖 | `android_service.test.ts` |
 | Android facade IPC/SDK 通道 | 已覆盖 | `packages/plugin-sdk/tests/runtime.test.ts`、插件平台测试 |
 | 静态安全门禁 | 已覆盖 | `pnpm run verify:android-tools` |
+| 无缝输入路由：四方向边缘进入/返回、快捷键、双击 Esc、按键策略 | 已覆盖 | `pnpm run test:android-input` |
+| 无缝输入静态安全门禁与固定 UHID 路径 | 已覆盖 | `pnpm run verify:android-input` |
 
 ## 真实设备矩阵
 
