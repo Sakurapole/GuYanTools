@@ -1,4 +1,4 @@
-import { BrowserWindow, ipcMain, screen } from 'electron';
+import { app, BrowserWindow, ipcMain, screen } from 'electron';
 import * as nativeCore from '@guyantools/core';
 import type { AndroidInputConfig } from '@/contracts/android-tools';
 import { appConfigManager } from '../app-config/manager';
@@ -39,7 +39,9 @@ function broadcast(status: unknown) {
 
 export function registerAndroidInputIpcHandlers() {
   if (registered) return;
-  routerDependencies.screen = screen.getPrimaryDisplay().workAreaSize;
+  const updateScreenSize = () => { routerDependencies.screen = screen.getPrimaryDisplay().workAreaSize; };
+  if (app.isReady()) updateScreenSize();
+  else app.once('ready', updateScreenSize);
   router.onStatus(broadcast);
   ipcMain.handle('android:get-input-config', () => appConfigManager.getCachedConfig().androidInput);
   ipcMain.handle('android:update-input-config', async (_event, value: unknown) => {
