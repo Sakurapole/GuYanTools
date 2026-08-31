@@ -131,14 +131,14 @@
 
 - [x] Step 1: 完成 smoke 脚本。
 - [x] Step 2: 记录真实设备矩阵。
-- [ ] Step 3: 完成发布前回归。
+- [x] Step 3: 完成发布前回归。
 
 ## 发布门禁
 
-- [ ] Android native service Release ELF 已构建并纳入资源。
-- [ ] 桌面端不再使用 .apk 作为可执行服务路径。
-- [ ] host 协议测试通过。
-- [ ] Electron UHID 测试通过。
-- [ ] test:android-input、verify:android-input、TypeScript、Rust、Renderer 构建通过。
-- [ ] 至少一台真实 Android ARM64 设备验证通过。
-- [ ] 无常驻 Android App、无 Root 依赖、无任意 shell/argv/path 注入。
+- [x] Android native service Release ELF 已构建并纳入资源。
+- [x] 桌面端不再使用 .apk 作为可执行服务路径。
+- [x] host 协议测试通过。
+- [x] Electron UHID 测试通过。
+- [x] test:android-input、verify:android-input、TypeScript、Rust、Renderer 构建通过。
+- [x] 至少一台真实 Android ARM64 设备验证通过。
+- [x] 无常驻 Android App、无 Root 依赖、无任意 shell/argv/path 注入。
