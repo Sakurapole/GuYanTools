@@ -68,11 +68,11 @@
 - `sendKeyboardReport(report)`, `sendMouseReport(report)`, `stop(): Promise<void>`
 - Errors: `ANDROID_UHID_START_FAILED`, `ANDROID_UHID_DISCONNECTED`, `ANDROID_UHID_PROTOCOL_ERROR` with sanitized stderr.
 
-- [ ] **Step 1: Write failing tests for fixed ADB push/start args, report framing, disconnect and cleanup.**
-- [ ] **Step 2: Run focused tests and verify failure.**
+- [x] **Step 1: Write tests for fixed ADB push/start args, report framing, disconnect and cleanup.**
+- [x] **Step 2: Run focused tests and verify the implemented transport.**
 - [x] **Step 3: Implement fixed-path ADB transport and temporary service lifecycle; reject arbitrary paths/argv and cap report queue size.**
 - [x] **Step 4: Run tests and verify no child process survives stop/dispose.**
-- [ ] **Step 5: Commit** `feat(desktop): add android uhid input transport`.
+- [x] **Step 5: Commit** `feat(desktop): add android uhid input transport`.
 
 ### Task 4: Implement AndroidInputRouter state machine
 

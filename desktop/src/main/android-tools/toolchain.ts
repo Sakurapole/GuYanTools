@@ -170,6 +170,17 @@ export class AndroidToolchainManager {
     return crypto.createHash('sha256').update(content).digest('hex');
   }
 
+  getInputServicePath() {
+    const rootPath = this.selectRoot().rootPath;
+    const candidate = path.resolve(rootPath, 'android-uhid-service', process.platform === 'win32' ? 'guyantools-uhid-service.apk' : 'guyantools-uhid-service.apk');
+    if (!isInsideRoot(candidate, rootPath)) throw new Error('ANDROID_TOOL_UNAVAILABLE');
+    return candidate;
+  }
+
+  async executeAdb(args: string[]) {
+    return this.execute(this.getToolPath('adb'), args);
+  }
+
   private getRootCandidates(): Array<{ rootPath: string; source: AndroidToolchainSource }> {
     const candidates: Array<{ rootPath: string; source: AndroidToolchainSource }> = [];
     if (this.explicitRootPath) candidates.push({ rootPath: this.explicitRootPath, source: 'configured' });
