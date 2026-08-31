@@ -67,8 +67,8 @@
 - 每条报告写入 UHID 后继续读取，协议错误输出 UHID_PROTOCOL_ERROR 并安全退出。
 - 与 desktop/src/main/android-tools/android_uhid_service.ts 的序列化结果逐字对齐。
 
-- [ ] Step 1: 完成协议解析。
-- [ ] Step 2: 完成输入循环和错误码。
+- [x] Step 1: 完成协议解析。
+- [x] Step 2: 完成输入循环和错误码。
 
 ## 任务 4：接入桌面端推送、权限和资源命名
 
