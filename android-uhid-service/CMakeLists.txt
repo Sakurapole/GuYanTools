@@ -9,18 +9,30 @@ add_library(uhid_protocol STATIC
   src/protocol.cpp
 )
 target_include_directories(uhid_protocol PUBLIC src)
-target_compile_options(uhid_protocol PRIVATE -Wall -Wextra -Werror)
+if (MSVC)
+  target_compile_options(uhid_protocol PRIVATE /W4 /WX)
+else()
+  target_compile_options(uhid_protocol PRIVATE -Wall -Wextra -Werror)
+endif()
 
 add_executable(guyantools-uhid-service
   src/main.cpp
 )
 target_link_libraries(guyantools-uhid-service PRIVATE uhid_protocol)
-target_compile_options(guyantools-uhid-service PRIVATE -Wall -Wextra -Werror)
+if (MSVC)
+  target_compile_options(guyantools-uhid-service PRIVATE /W4 /WX)
+else()
+  target_compile_options(guyantools-uhid-service PRIVATE -Wall -Wextra -Werror)
+endif()
 
 if (NOT ANDROID)
   enable_testing()
   add_executable(protocol_tests tests/protocol_tests.cpp)
   target_link_libraries(protocol_tests PRIVATE uhid_protocol)
-  target_compile_options(protocol_tests PRIVATE -Wall -Wextra -Werror)
+  if (MSVC)
+    target_compile_options(protocol_tests PRIVATE /W4 /WX)
+  else()
+    target_compile_options(protocol_tests PRIVATE -Wall -Wextra -Werror)
+  endif()
   add_test(NAME protocol_tests COMMAND protocol_tests)
 endif()
