@@ -12,6 +12,31 @@ use rusqlite::OptionalExtension;
 use std::io::Cursor;
 use std::sync::Arc;
 
+#[napi(js_name = "windowsInputStart")]
+pub fn windows_input_start(options: String, callback: JsFunction) -> Result<()> {
+    super::windows_input::windows_input_start(options, callback)
+}
+
+#[napi(js_name = "windowsInputStop")]
+pub fn windows_input_stop() -> Result<()> {
+    super::windows_input::windows_input_stop()
+}
+
+#[napi(js_name = "windowsInputGetCursor")]
+pub fn windows_input_get_cursor() -> Result<Vec<i32>> {
+    super::windows_input::windows_input_get_cursor()
+}
+
+#[napi(js_name = "windowsInputSetCursor")]
+pub fn windows_input_set_cursor(x: i32, y: i32) -> Result<()> {
+    super::windows_input::windows_input_set_cursor(x, y)
+}
+
+#[napi(js_name = "windowsInputSetBlocked")]
+pub fn windows_input_set_blocked(blocked: bool) -> Result<()> {
+    super::windows_input::windows_input_set_blocked(blocked)
+}
+
 /// 模块初始化：在 Windows 上将控制台输出编码设为 UTF-8（代码页 65001），
 /// 避免 Rust println! 输出中文时出现乱码。
 #[napi::module_init]

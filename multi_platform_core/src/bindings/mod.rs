@@ -1,5 +1,7 @@
 #[cfg(feature = "napi")]
 pub mod napi;
+#[cfg(feature = "napi")]
+pub mod windows_input;
 
 #[cfg(feature = "flutter")]
 pub mod flutter;

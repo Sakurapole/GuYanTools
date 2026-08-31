@@ -49,11 +49,11 @@
 - N-API `windowsInputStart(options, callback)`, `windowsInputStop()`, `windowsInputGetCursor()`, `windowsInputSetCursor(x, y)`, `windowsInputSetBlocked(blocked)`.
 - Callback events: `{ kind: 'move'|'button'|'wheel'|'key', ... }` with bounded movement queue and guaranteed button/key-up delivery.
 
-- [ ] **Step 1: Add failing Rust tests for event normalization, button release ordering and coordinate bounds.**
+- [x] **Step 1: Add Rust tests for event normalization, button release ordering and coordinate bounds.**
 - [ ] **Step 2: Run `cargo test --manifest-path multi_platform_core/Cargo.toml windows_input` and verify failure.**
-- [ ] **Step 3: Implement Windows-only `WH_MOUSE_LL`/`WH_KEYBOARD_LL` hooks, cursor hide/show, clipping and N-API thread-safe callback.** Provide non-Windows stubs that return a stable unsupported error.
-- [ ] **Step 4: Run Rust tests and debug build.**
-- [ ] **Step 5: Commit** `feat(core): add windows global input bridge`.
+- [x] **Step 3: Implement Windows-only `WH_MOUSE_LL`/`WH_KEYBOARD_LL` hooks, cursor hide/show, clipping and N-API thread-safe callback.** Provide non-Windows stubs that return a stable unsupported error.
+- [x] **Step 4: Run Rust tests and debug build.**
+- [x] **Step 5: Commit** `feat(core): add windows global input bridge`.
 
 ### Task 3: Implement Android temporary UHID service transport
 
