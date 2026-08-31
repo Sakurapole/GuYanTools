@@ -1,5 +1,5 @@
 <script lang="ts" setup>
-import { computed, onMounted, onUnmounted, ref } from 'vue';
+import { computed, onMounted, onUnmounted, ref, watch } from 'vue';
 import IconRenderer from '../../../components/ui/IconRenderer.vue';
 import UiButton from '../../../components/ui/UiButton.vue';
 import UiCard from '../../../components/ui/UiCard.vue';
@@ -14,22 +14,33 @@ let removeStatus: (() => void) | undefined;
 const api = computed(() => window.androidApi?.input);
 const running = computed(() => status.value.state !== 'windows' && status.value.state !== 'suspended');
 const stateLabel: Record<AndroidInputState, string> = { windows: 'Windows', entering: '进入中', android: 'Android', returning: '返回中', suspended: '已暂停' };
+const errorLabels: Record<string, string> = { ANDROID_DEVICE_NOT_FOUND: '当前设备不可用，请在设备信息中选择一台已授权设备。', ANDROID_INPUT_BRIDGE_UNAVAILABLE: '系统输入桥接不可用，请确认当前运行环境为 Windows x64。', ANDROID_UHID_START_FAILED: 'Android 输入服务启动失败，请检查 USB 调试和设备授权。' };
+function errorMessage(cause: unknown) { const raw = cause instanceof Error ? cause.message : String(cause); const code = Object.keys(errorLabels).find(key => raw.includes(key)); return code ? errorLabels[code] : raw || '操作失败，请检查设备连接和工具链状态。'; }
 
 async function load() {
   if (!api.value) return;
-  try { config.value = await api.value.getConfig(); status.value = await api.value.getStatus(); } catch (cause) { error.value = cause instanceof Error ? cause.message : '无法读取键鼠共享配置'; }
+  try {
+    config.value = await api.value.getConfig();
+    if (props.deviceReady && props.deviceSerial && config.value.deviceSerial !== props.deviceSerial) {
+      config.value = await api.value.updateConfig({ deviceSerial: props.deviceSerial });
+    }
+    status.value = await api.value.getStatus();
+  } catch (cause) { error.value = errorMessage(cause); }
 }
 async function update(patch: Partial<AndroidInputConfig>) {
   if (!api.value) return;
-  try { config.value = await api.value.updateConfig(patch); error.value = ''; } catch (cause) { error.value = cause instanceof Error ? cause.message : '配置保存失败'; }
+  try { config.value = await api.value.updateConfig(patch); error.value = ''; } catch (cause) { error.value = errorMessage(cause); }
 }
 async function startOrStop() {
   if (!api.value) return;
-  try { if (running.value) await api.value.stop(); else await api.value.start(); status.value = await api.value.getStatus(); error.value = ''; } catch (cause) { error.value = cause instanceof Error ? cause.message : '键鼠共享启动失败'; }
+  try { if (running.value) await api.value.stop(); else await api.value.start(); status.value = await api.value.getStatus(); error.value = ''; } catch (cause) { error.value = errorMessage(cause); }
 }
-async function toggle() { try { status.value = await api.value?.toggle() ?? status.value; } catch (cause) { error.value = cause instanceof Error ? cause.message : '切换失败'; } }
+async function toggle() { try { status.value = await api.value?.toggle() ?? status.value; } catch (cause) { error.value = errorMessage(cause); } }
 
 onMounted(() => { void load(); removeStatus = api.value?.onStatus(next => { status.value = next; }); });
+watch(() => [props.deviceSerial, props.deviceReady] as const, ([serial, ready]) => {
+  if (ready && serial && config.value?.deviceSerial !== serial) void update({ deviceSerial: serial });
+});
 onUnmounted(() => removeStatus?.());
 </script>
 

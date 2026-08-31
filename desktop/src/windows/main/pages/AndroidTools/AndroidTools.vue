@@ -30,11 +30,12 @@ const actionError = ref('');
 const toolchainDownloadProgress = ref<AndroidToolchainDownloadProgress>({ phase: 'idle', percent: 0 });
 const toolchainDownloadBusy = ref(false);
 const toolchainDownloadError = ref('');
-type AndroidFunctionId = 'mirror' | 'audio' | 'otg' | 'fastboot';
+type AndroidFunctionId = 'mirror' | 'audio' | 'otg' | 'fastboot' | 'input';
 const functionDefinitions: Array<{ id: AndroidFunctionId; label: string; description: string; icon: string }> = [
   { id: 'mirror', label: '设备镜像', description: '镜像画面并共享键鼠', icon: 'iconify:lucide:monitor-play' },
   { id: 'audio', label: '音频回传', description: '将设备声音播放到电脑', icon: 'iconify:lucide:volume-2' },
   { id: 'otg', label: 'OTG 键鼠', description: '仅通过 OTG 共享键鼠', icon: 'iconify:lucide:mouse-pointer-2' },
+  { id: 'input', label: '无缝键鼠共享', description: '将 Windows 键鼠延伸到 Android', icon: 'iconify:lucide:move-3d' },
   { id: 'fastboot', label: 'Fastboot', description: '读取变量与安全重启', icon: 'iconify:lucide:zap' },
 ];
 const pinnedFunctionIds = ref<AndroidFunctionId[]>(loadPinnedFunctions());
@@ -429,13 +430,13 @@ onUnmounted(() => {
           </div>
         </div>
       </UiCard>
-      <AndroidInputSharingPanel v-if="activeView === 'collection'" :device-serial="selectedSerial" :device-ready="isSelectedDeviceReady" />
+      <AndroidInputSharingPanel v-if="activeView === 'input'" :device-serial="selectedSerial" :device-ready="isSelectedDeviceReady" />
       <UiCard v-if="activeView === 'devices'" class="android-tools-device-information" padding="lg" radius="md" data-testid="android-device-information">
         <div class="android-tools-panel__heading"><div><h2>设备信息</h2><p>查看连接状态、授权状态和工具链诊断。</p></div></div>
         <div class="android-tools-device-summary"><strong>{{ selectedDevice?.model || '未选择设备' }}</strong><span>{{ selectedDevice?.serial || '连接 USB 并开启 USB 调试' }}</span><span v-if="selectedDevice">{{ stateLabels[selectedDevice.state] }} · {{ transportLabels[selectedDevice.transport] }}</span></div>
         <div class="android-tools-versions" v-if="hasToolchain"><div><span>ADB</span><code>{{ toolchain?.versions.adb || '未读取' }}</code></div><div><span>scrcpy</span><code>{{ toolchain?.versions.scrcpy || '未读取' }}</code></div><div><span>fastboot</span><code>{{ toolchain?.versions.fastboot || '未读取' }}</code></div></div>
       </UiCard>
-      <UiCard v-if="activeView !== 'collection' && activeView !== 'devices'" class="android-tools-panel android-tools-panel--toolchain" padding="lg" radius="md">
+      <UiCard v-if="activeView !== 'collection' && activeView !== 'devices' && activeView !== 'input'" class="android-tools-panel android-tools-panel--toolchain" padding="lg" radius="md">
         <div class="android-tools-panel__heading">
           <div>
             <h2>工具链</h2>
@@ -472,7 +473,7 @@ onUnmounted(() => {
         </div>
       </UiCard>
 
-      <div v-if="activeView !== 'collection' && activeView !== 'devices'" class="android-tools-grid">
+      <div v-if="activeView !== 'collection' && activeView !== 'devices' && activeView !== 'input'" class="android-tools-grid">
         <span v-if="activeView !== 'collection' && activeView !== 'devices'" class="android-tools-function-tab" :data-testid="`android-function-tab-${activeView}`" />
         <span v-if="activeView !== 'collection' && activeView !== 'devices'" class="android-tools-function-content" :data-testid="`android-function-content-${activeView}`" />
         <UiCard class="android-tools-panel android-tools-panel--devices" padding="lg" radius="md">
@@ -595,7 +596,7 @@ onUnmounted(() => {
         </UiCard>
       </div>
 
-      <UiCard v-if="activeView !== 'collection' && activeView !== 'devices'" class="android-tools-panel android-tools-panel--sessions" padding="lg" radius="md">
+      <UiCard v-if="activeView !== 'collection' && activeView !== 'devices' && activeView !== 'input'" class="android-tools-panel android-tools-panel--sessions" padding="lg" radius="md">
         <div class="android-tools-panel__heading">
           <div>
             <h2>运行中的会话</h2>
