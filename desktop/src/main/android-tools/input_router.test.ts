@@ -5,11 +5,12 @@ import { normalizeAndroidInput } from '../app-config/manager';
 
 function createRouter() {
   let listener: ((event: NativeInputEvent) => void) | undefined;
+  let disconnected: (() => void) | undefined;
   const bridge: WindowsInputBridge = {
     start: fn => { listener = fn; }, stop: vi.fn(), getCursor: () => ({ x: 1919, y: 540 }), setCursor: vi.fn(), setBlocked: vi.fn(),
   };
-  const uhid = { start: vi.fn(async () => ({ sessionId: 'uhid-1' })), stop: vi.fn(async () => undefined), sendKeyboardReport: vi.fn(), sendMouseReport: vi.fn() };
-  return { router: new AndroidInputRouter({ bridge, uhid, screen: { width: 1920, height: 1080 } }), bridge, uhid, emit: (event: NativeInputEvent) => listener?.(event) };
+  const uhid = { start: vi.fn(async () => ({ sessionId: 'uhid-1' })), stop: vi.fn(async () => undefined), sendKeyboardReport: vi.fn(), sendMouseReport: vi.fn(), onDisconnected: (fn: () => void) => { disconnected = fn; return () => true; } };
+  return { router: new AndroidInputRouter({ bridge, uhid, screen: { width: 1920, height: 1080 } }), bridge, uhid, emit: (event: NativeInputEvent) => listener?.(event), disconnect: () => disconnected?.() };
 }
 
 describe('AndroidInputRouter', () => {
@@ -55,6 +56,16 @@ describe('AndroidInputRouter', () => {
     await router.start({ deviceSerial: 'R58M123', placement: 'left', androidWidth: 1080, androidHeight: 1920, edgeDelayMs: 0, edgeThresholdPx: 1, toggleShortcut: 'Ctrl+Alt+A', preserveWinKey: true, preserveAltTab: true, preserveVolumeKeys: false });
     await router.stop('disconnect');
     expect(router.status().state).toBe('suspended');
+    expect(bridge.setBlocked).toHaveBeenLastCalledWith(false);
+  });
+
+  it('releases Windows input when the UHID process disconnects', async () => {
+    const { router, bridge, disconnect } = createRouter();
+    await router.start(config());
+    await router.toggle();
+    disconnect();
+    expect(router.status().state).toBe('suspended');
+    expect(router.status().running).toBe(false);
     expect(bridge.setBlocked).toHaveBeenLastCalledWith(false);
   });
 

@@ -3,7 +3,7 @@ import { AndroidUhidSession } from './android_uhid_service';
 
 export interface NativeInputEvent { kind: 'move' | 'button' | 'wheel' | 'key'; x?: number; y?: number; dx?: number; dy?: number; button?: number; down?: boolean; delta?: number; code?: number; modifiers?: number; shortcut?: string; isWinKey?: boolean; isAltTab?: boolean; isVolumeKey?: boolean }
 export interface WindowsInputBridge { start(listener: (event: NativeInputEvent) => void): void; stop(): void; getCursor(): { x: number; y: number }; setCursor(x: number, y: number): void; setBlocked(blocked: boolean): void }
-export interface InputRouterDependencies { bridge: WindowsInputBridge; uhid: Pick<AndroidUhidSession, 'start' | 'stop' | 'sendKeyboardReport' | 'sendMouseReport'>; screen?: { width: number; height: number } }
+export interface InputRouterDependencies { bridge: WindowsInputBridge; uhid: Pick<AndroidUhidSession, 'start' | 'stop' | 'sendKeyboardReport' | 'sendMouseReport'> & { onDisconnected?: (listener: () => void) => () => boolean }; screen?: { width: number; height: number } }
 
 export class AndroidInputRouter {
   private config: AndroidInputConfig | null = null;
@@ -18,7 +18,9 @@ export class AndroidInputRouter {
   private mouseButtons = 0;
   private nativeKeys = new Set<number>();
 
-  constructor(private readonly deps: InputRouterDependencies) {}
+  constructor(private readonly deps: InputRouterDependencies) {
+    this.deps.uhid.onDisconnected?.(() => this.handleUhidDisconnect());
+  }
 
   async start(config: AndroidInputConfig) {
     if (this.state !== 'windows' && this.state !== 'suspended') throw new Error('ANDROID_INPUT_ALREADY_RUNNING');
@@ -41,10 +43,10 @@ export class AndroidInputRouter {
 
   async stop(reason = 'user') {
     this.clearEdgeTimer();
-    this.flushKeys();
-    this.deps.bridge.setBlocked(false);
-    this.deps.bridge.stop();
-    await this.deps.uhid.stop();
+    try { this.flushKeys(); } catch { /* device may already be disconnected */ }
+    try { this.deps.bridge.stop(); } catch { /* hook cleanup is best effort */ }
+    try { await this.deps.uhid.stop(); } catch { /* remote cleanup is best effort */ }
+    try { this.deps.bridge.setBlocked(false); } catch { /* always attempt to release the hook */ }
     this.state = reason === 'user' ? 'windows' : 'suspended';
     if (reason === 'user') { this.config = null; this.serial = ''; }
     this.emit(this.state, reason === 'user' ? undefined : 'ANDROID_INPUT_SUSPENDED');
@@ -57,6 +59,14 @@ export class AndroidInputRouter {
   }
 
   handleNativeEvent(event: NativeInputEvent) {
+    try {
+      this.handleNativeEventInternal(event);
+    } catch {
+      this.handleUhidDisconnect();
+    }
+  }
+
+  private handleNativeEventInternal(event: NativeInputEvent) {
     if (!this.config || this.state === 'suspended') return;
     if (event.kind === 'key') {
       if (event.down) this.nativeKeys.add(event.code ?? 0); else this.nativeKeys.delete(event.code ?? 0);
@@ -117,16 +127,19 @@ export class AndroidInputRouter {
     if (!this.config) return;
     this.state = 'returning';
     this.emit('returning');
-    this.flushKeys();
-    const screen = this.deps.screen ?? { width: 1920, height: 1080 };
-    let x = this.mapCoordinate(this.virtualCursor.x, this.config.androidWidth, screen.width);
-    let y = this.mapCoordinate(this.virtualCursor.y, this.config.androidHeight, screen.height);
-    if (this.config.placement === 'right') x = screen.width - 1;
-    if (this.config.placement === 'left') x = 0;
-    if (this.config.placement === 'top') y = 0;
-    if (this.config.placement === 'bottom') y = screen.height - 1;
-    this.deps.bridge.setCursor(x, y);
-    this.deps.bridge.setBlocked(false);
+    try {
+      try { this.flushKeys(); } catch { /* continue releasing Windows input */ }
+      const screen = this.deps.screen ?? { width: 1920, height: 1080 };
+      let x = this.mapCoordinate(this.virtualCursor.x, this.config.androidWidth, screen.width);
+      let y = this.mapCoordinate(this.virtualCursor.y, this.config.androidHeight, screen.height);
+      if (this.config.placement === 'right') x = screen.width - 1;
+      if (this.config.placement === 'left') x = 0;
+      if (this.config.placement === 'top') y = 0;
+      if (this.config.placement === 'bottom') y = screen.height - 1;
+      try { this.deps.bridge.setCursor(x, y); } catch { /* cursor restoration is best effort */ }
+    } finally {
+      try { this.deps.bridge.setBlocked(false); } catch { /* release attempt remains unconditional */ }
+    }
     this.state = 'windows';
     this.emit('windows');
   }
@@ -142,6 +155,16 @@ export class AndroidInputRouter {
   private atConfiguredEdge(x: number, y: number) { const c = this.config!; return c.placement === 'right' ? x >= (this.deps.screen?.width ?? 1920) - 1 : c.placement === 'left' ? x <= 0 : c.placement === 'top' ? y <= 0 : y >= (this.deps.screen?.height ?? 1080) - 1; }
   private atAndroidReturnEdge() { const c = this.config!; return c.placement === 'right' ? this.virtualCursor.x <= 0 : c.placement === 'left' ? this.virtualCursor.x >= c.androidWidth - 1 : c.placement === 'top' ? this.virtualCursor.y >= c.androidHeight - 1 : this.virtualCursor.y <= 0; }
   private flushKeys() { for (const code of this.pressedKeys) this.deps.uhid.sendKeyboardReport({ modifiers: 0, keys: [] }); this.pressedKeys.clear(); }
+  private handleUhidDisconnect() {
+    if (!this.config || this.state === 'windows' || this.state === 'suspended') return;
+    this.clearEdgeTimer();
+    try { this.deps.bridge.stop(); } catch { /* best effort */ }
+    try { this.deps.bridge.setBlocked(false); } catch { /* unconditional release */ }
+    this.config = null;
+    this.serial = '';
+    this.state = 'suspended';
+    this.emit('suspended', 'ANDROID_UHID_DISCONNECTED');
+  }
   private clearEdgeTimer() { if (this.edgeTimer) clearTimeout(this.edgeTimer); this.edgeTimer = null; }
   private emit(state: AndroidInputState, errorCode?: string) { this.state = state; const status = { ...this.status(), errorCode }; for (const listener of this.listeners) listener(status); }
 }

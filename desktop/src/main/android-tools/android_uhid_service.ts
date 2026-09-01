@@ -15,6 +15,9 @@ export class AndroidUhidSession {
   private remotePath = '';
   private readonly spawnProcess: NonNullable<AndroidUhidSessionOptions['spawn']>;
   private stderr = '';
+  private readonly disconnectListeners = new Set<() => void>();
+
+  onDisconnected(listener: () => void) { this.disconnectListeners.add(listener); return () => this.disconnectListeners.delete(listener); }
 
   constructor(private readonly toolchain: AndroidToolchainManager, options: AndroidUhidSessionOptions = {}) {
     this.spawnProcess = options.spawn ?? ((file, args, spawnOptions) => nodeSpawn(file, args, spawnOptions) as unknown as UhidChild);
@@ -38,8 +41,16 @@ export class AndroidUhidSession {
       this.remotePath = remotePath;
       this.stderr = '';
       child.stderr?.on('data', (chunk: Buffer | string) => { this.stderr = `${this.stderr}${chunk}`.replace(/[\r\n]+/g, ' ').slice(-512); });
-      child.on('close', () => { this.child = null; });
-      child.on('error', () => { this.child = null; });
+      child.on('close', () => {
+        if (this.child !== child) return;
+        this.child = null;
+        for (const listener of this.disconnectListeners) listener();
+      });
+      child.on('error', () => {
+        if (this.child !== child) return;
+        this.child = null;
+        for (const listener of this.disconnectListeners) listener();
+      });
       return { sessionId: crypto.randomUUID() };
     } catch (error) {
       this.child?.kill();
