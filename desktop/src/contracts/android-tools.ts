@@ -80,6 +80,7 @@ export interface AndroidInputConfig {
 
 export interface AndroidInputStatus {
   state: AndroidInputState;
+  running: boolean;
   deviceSerial: string;
   virtualCursor: { x: number; y: number };
   errorCode?: string;

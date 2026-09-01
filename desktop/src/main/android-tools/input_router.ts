@@ -46,6 +46,7 @@ export class AndroidInputRouter {
     this.deps.bridge.stop();
     await this.deps.uhid.stop();
     this.state = reason === 'user' ? 'windows' : 'suspended';
+    if (reason === 'user') { this.config = null; this.serial = ''; }
     this.emit(this.state, reason === 'user' ? undefined : 'ANDROID_INPUT_SUSPENDED');
   }
 
@@ -97,7 +98,7 @@ export class AndroidInputRouter {
   }
 
   onStatus(listener: (status: AndroidInputStatus) => void) { this.listeners.add(listener); return () => this.listeners.delete(listener); }
-  status(): AndroidInputStatus { return { state: this.state, deviceSerial: this.serial, virtualCursor: { ...this.virtualCursor } }; }
+  status(): AndroidInputStatus { return { state: this.state, running: this.config !== null, deviceSerial: this.serial, virtualCursor: { ...this.virtualCursor } }; }
   private async enterAndroid() {
     if (!this.config) return;
     this.clearEdgeTimer();
