@@ -7,10 +7,13 @@ describe('AndroidUhidSession', () => {
     const executeAdb = vi.fn(async () => ({ stdout: '', stderr: '' }));
     const writes: string[] = [];
     const stderr = new EventEmitter();
-    const child = { stdin: { write: (value: string) => { writes.push(value); return true; }, end: vi.fn() }, stderr, on: vi.fn().mockReturnThis(), kill: vi.fn(() => true) };
+    const stdout = new EventEmitter();
+    const child = { stdin: { write: (value: string) => { writes.push(value); return true; }, end: vi.fn() }, stdout, stderr, on: vi.fn().mockReturnThis(), kill: vi.fn(() => true) };
     const toolchain = { getInputServicePath: () => 'C:/tools/service', getToolPath: () => 'adb.exe', executeAdb } as any;
     const session = new AndroidUhidSession(toolchain, { spawn: vi.fn(() => child as any) });
-    await session.start('R58M123');
+    const start = session.start('R58M123');
+    await new Promise<void>(resolve => setTimeout(() => { stdout.emit('data', 'READY\n'); resolve(); }, 0));
+    await start;
     session.sendKeyboardReport({ modifiers: 0, keys: [4] });
     expect(executeAdb).toHaveBeenCalledWith(expect.arrayContaining(['-s', 'R58M123', 'push', 'C:/tools/service']));
     expect(executeAdb).toHaveBeenCalledWith(expect.arrayContaining(['-s', 'R58M123', 'shell', 'chmod', '700']));

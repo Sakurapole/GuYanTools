@@ -41,6 +41,8 @@ export class AndroidUhidSession {
       this.remotePath = remotePath;
       this.stderr = '';
       child.stderr?.on('data', (chunk: Buffer | string) => { this.stderr = `${this.stderr}${chunk}`.replace(/[\r\n]+/g, ' ').slice(-512); });
+      const ready = await this.waitForReady(child);
+      if (!ready) throw new Error(this.stderr || 'ANDROID_UHID_START_FAILED');
       child.on('close', () => {
         if (this.child !== child) return;
         this.child = null;
@@ -60,6 +62,22 @@ export class AndroidUhidSession {
       }
       throw new Error(`ANDROID_UHID_START_FAILED: ${sanitizeError(error)}${this.stderr ? ` (${this.stderr})` : ''}`);
     }
+  }
+
+  private waitForReady(child: UhidChild): Promise<boolean> {
+    if (!child.stdout) return Promise.resolve(true);
+    return new Promise(resolve => {
+      let buffer = '';
+      let settled = false;
+      const finish = (value: boolean) => { if (settled) return; settled = true; clearTimeout(timer); resolve(value); };
+      const timer = setTimeout(() => finish(false), 5000);
+      child.stdout?.on('data', (chunk: Buffer | string) => {
+        buffer += chunk.toString();
+        if (buffer.split(/\r?\n/).some(line => line.trim() === 'READY')) finish(true);
+      });
+      child.on('close', () => finish(false));
+      child.on('error', () => finish(false));
+    });
   }
 
   sendKeyboardReport(report: KeyboardReport) { this.write({ type: 'keyboard', report }); }
