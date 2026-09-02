@@ -59,6 +59,17 @@ describe('AndroidInputRouter', () => {
     expect(bridge.setBlocked).toHaveBeenLastCalledWith(false);
   });
 
+  it('bounds wheel reports to the signed UHID byte range', async () => {
+    const { router, uhid, emit } = createRouter();
+    await router.start(config());
+    await router.toggle();
+    emit({ kind: 'wheel', delta: 120 });
+    expect(uhid.sendMouseReport).toHaveBeenLastCalledWith({ buttons: 0, dx: 0, dy: 0, wheel: 120 });
+    emit({ kind: 'wheel', delta: 500 });
+    expect(uhid.sendMouseReport).toHaveBeenLastCalledWith({ buttons: 0, dx: 0, dy: 0, wheel: 127 });
+    await router.stop();
+  });
+
   it('releases Windows input when the UHID process disconnects', async () => {
     const { router, bridge, disconnect } = createRouter();
     await router.start(config());

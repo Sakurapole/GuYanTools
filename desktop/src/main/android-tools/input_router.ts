@@ -89,7 +89,7 @@ export class AndroidInputRouter {
       this.virtualCursor.y = Math.max(0, Math.min(this.config.androidHeight - 1, this.virtualCursor.y + (event.dy ?? 0)));
       if (this.atAndroidReturnEdge()) { void this.returnToWindows(); return; }
       this.deps.uhid.sendMouseReport({ buttons: this.mouseButtons, dx: Math.max(-127, Math.min(127, event.dx ?? 0)), dy: Math.max(-127, Math.min(127, event.dy ?? 0)), wheel: 0 });
-    } else if (event.kind === 'wheel') this.deps.uhid.sendMouseReport({ buttons: this.mouseButtons, dx: 0, dy: 0, wheel: event.delta ?? 0 });
+    } else if (event.kind === 'wheel') this.deps.uhid.sendMouseReport({ buttons: this.mouseButtons, dx: 0, dy: 0, wheel: Math.max(-127, Math.min(127, event.delta ?? 0)) });
     else if (event.kind === 'button') {
       const mask = 1 << (event.button ?? 0);
       this.mouseButtons = event.down ? this.mouseButtons | mask : this.mouseButtons & ~mask;

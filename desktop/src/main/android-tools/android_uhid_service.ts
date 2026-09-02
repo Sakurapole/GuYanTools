@@ -106,7 +106,8 @@ function isValidReport(message: unknown) {
   if (!message || typeof message !== 'object') return false;
   const value = message as { type?: unknown; report?: any };
   if (value.type === 'keyboard') return Number.isInteger(value.report?.modifiers) && Array.isArray(value.report?.keys) && value.report.keys.length <= 6 && value.report.keys.every((key: unknown) => Number.isInteger(key) && Number(key) >= 0 && Number(key) <= 255);
-  if (value.type === 'mouse') return [value.report?.buttons, value.report?.dx, value.report?.dy, value.report?.wheel].every((item: unknown) => Number.isInteger(item));
+  if (value.type === 'mouse') return Number.isInteger(value.report?.buttons) && Number(value.report.buttons) >= 0 && Number(value.report.buttons) <= 31
+    && [value.report?.dx, value.report?.dy, value.report?.wheel].every((item: unknown) => Number.isInteger(item) && Number(item) >= -127 && Number(item) <= 127);
   return false;
 }
 
