@@ -41,11 +41,10 @@ export class AndroidUhidSession {
       this.remotePath = remotePath;
       this.stderr = '';
       child.stderr?.on('data', (chunk: Buffer | string) => { this.stderr = `${this.stderr}${chunk}`.replace(/[\r\n]+/g, ' ').slice(-512); });
-      const ready = await this.waitForReady(child);
-      if (!ready) throw new Error(this.stderr || 'ANDROID_UHID_START_FAILED');
-      child.on('close', () => {
+      child.on('close', (code?: number, signal?: string) => {
         if (this.child !== child) return;
         this.child = null;
+        if (code !== 0 || signal) this.stderr = `${this.stderr} exit=${code ?? 'null'} signal=${signal ?? 'none'}`.trim();
         for (const listener of this.disconnectListeners) listener();
       });
       child.on('error', () => {
@@ -53,6 +52,8 @@ export class AndroidUhidSession {
         this.child = null;
         for (const listener of this.disconnectListeners) listener();
       });
+      const ready = await this.waitForReady(child);
+      if (!ready) throw new Error(this.stderr || 'ANDROID_UHID_START_FAILED');
       return { sessionId: crypto.randomUUID() };
     } catch (error) {
       this.child?.kill();

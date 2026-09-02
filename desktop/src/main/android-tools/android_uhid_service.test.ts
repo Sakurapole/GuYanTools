@@ -41,4 +41,5 @@ describe('AndroidUhidSession', () => {
     const session = new AndroidUhidSession(toolchain, { spawn: vi.fn(() => child as any) });
     await expect(session.start('R58M123')).rejects.toThrow('ANDROID_UHID_START_FAILED');
   });
+
 });
