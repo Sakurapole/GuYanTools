@@ -1,5 +1,12 @@
 import type { AndroidInputConfig, AndroidInputState, AndroidInputStatus } from '@/contracts/android-tools';
 import { AndroidUhidSession } from './android_uhid_service';
+import fs from 'node:fs';
+import path from 'node:path';
+import { app } from 'electron';
+
+const routerDebugLog = (message: string) => {
+  try { fs.appendFileSync(path.join(app.getPath('userData'), 'android-input-debug.log'), `${new Date().toISOString()} ${message}\n`); } catch { /* diagnostics only */ }
+};
 
 export interface NativeInputEvent { kind: 'move' | 'button' | 'wheel' | 'key'; x?: number; y?: number; dx?: number; dy?: number; button?: number; down?: boolean; delta?: number; code?: number; modifiers?: number; shortcut?: string; isWinKey?: boolean; isAltTab?: boolean; isVolumeKey?: boolean }
 export interface WindowsInputBridge { start(listener: (event: NativeInputEvent) => void): void; stop(): void; getCursor(): { x: number; y: number }; setCursor(x: number, y: number): void; setBlocked(blocked: boolean): void }
@@ -23,15 +30,19 @@ export class AndroidInputRouter {
   }
 
   async start(config: AndroidInputConfig) {
+    routerDebugLog(`router start state=${this.state} serial=${config.deviceSerial}`);
     if (this.state !== 'windows' && this.state !== 'suspended') throw new Error('ANDROID_INPUT_ALREADY_RUNNING');
     this.config = config;
     this.serial = config.deviceSerial;
     try {
       await this.deps.uhid.start(config.deviceSerial);
+      routerDebugLog('router uhid started');
       this.deps.bridge.start(event => this.handleNativeEvent(event));
+      routerDebugLog('router native bridge started');
       this.emit('windows');
       return this.status();
     } catch (error) {
+      routerDebugLog(`router start error=${error instanceof Error ? error.message : String(error)}`);
       await this.deps.uhid.stop();
       this.config = null;
       this.serial = '';
@@ -53,6 +64,7 @@ export class AndroidInputRouter {
   }
 
   async toggle() {
+    routerDebugLog(`router toggle state=${this.state} config=${Boolean(this.config)}`);
     if (this.state === 'android' || this.state === 'entering') await this.returnToWindows();
     else if (this.config) await this.enterAndroid();
     return this.status();
@@ -120,6 +132,7 @@ export class AndroidInputRouter {
     if (this.config.placement === 'top') this.virtualCursor.y = this.config.androidHeight - 1;
     if (this.config.placement === 'bottom') this.virtualCursor.y = 0;
     this.state = 'android';
+    routerDebugLog('router entered android');
     this.deps.bridge.setBlocked(true);
     this.emit('android');
   }
@@ -154,9 +167,10 @@ export class AndroidInputRouter {
   }
   private atConfiguredEdge(x: number, y: number) { const c = this.config!; return c.placement === 'right' ? x >= (this.deps.screen?.width ?? 1920) - 1 : c.placement === 'left' ? x <= 0 : c.placement === 'top' ? y <= 0 : y >= (this.deps.screen?.height ?? 1080) - 1; }
   private atAndroidReturnEdge() { const c = this.config!; return c.placement === 'right' ? this.virtualCursor.x <= 0 : c.placement === 'left' ? this.virtualCursor.x >= c.androidWidth - 1 : c.placement === 'top' ? this.virtualCursor.y >= c.androidHeight - 1 : this.virtualCursor.y <= 0; }
-  private flushKeys() { for (const code of this.pressedKeys) this.deps.uhid.sendKeyboardReport({ modifiers: 0, keys: [] }); this.pressedKeys.clear(); }
+  private flushKeys() { if (this.pressedKeys.size) this.deps.uhid.sendKeyboardReport({ modifiers: 0, keys: [] }); this.pressedKeys.clear(); }
   private handleUhidDisconnect() {
     if (!this.config || this.state === 'windows' || this.state === 'suspended') return;
+    routerDebugLog(`router uhid disconnect state=${this.state}`);
     this.clearEdgeTimer();
     try { this.deps.bridge.stop(); } catch { /* best effort */ }
     try { this.deps.bridge.setBlocked(false); } catch { /* unconditional release */ }

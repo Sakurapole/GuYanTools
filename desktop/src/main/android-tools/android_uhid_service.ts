@@ -1,6 +1,13 @@
 import { spawn as nodeSpawn } from 'node:child_process';
 import crypto from 'node:crypto';
 import type { AndroidToolchainManager } from './toolchain';
+import fs from 'node:fs';
+import path from 'node:path';
+import { app } from 'electron';
+
+const uhidDebugLog = (message: string) => {
+  try { fs.appendFileSync(path.join(app.getPath('userData'), 'android-input-debug.log'), `${new Date().toISOString()} ${message}\n`); } catch { /* diagnostics only */ }
+};
 
 export interface KeyboardReport { modifiers: number; keys: number[] }
 export interface MouseReport { buttons: number; dx: number; dy: number; wheel: number }
@@ -24,6 +31,7 @@ export class AndroidUhidSession {
   }
 
   async start(deviceSerial: string): Promise<{ sessionId: string }> {
+    uhidDebugLog(`uhid start serial=${deviceSerial}`);
     if (this.child) throw new Error('ANDROID_UHID_START_FAILED');
     if (!/^[A-Za-z0-9._:-]+$/.test(deviceSerial)) throw new Error('ANDROID_UHID_START_FAILED');
     const servicePath = this.toolchain.getInputServicePath();
@@ -31,6 +39,7 @@ export class AndroidUhidSession {
     let pushed = false;
     try {
       await this.toolchain.executeAdb(['-s', deviceSerial, 'push', servicePath, remotePath]);
+      uhidDebugLog(`uhid pushed path=${remotePath} service=${servicePath}`);
       pushed = true;
       await this.toolchain.executeAdb(['-s', deviceSerial, 'shell', 'chmod', '700', remotePath]);
       const child = this.spawnProcess(this.toolchain.getToolPath('adb'), ['-s', deviceSerial, 'shell', remotePath], {
@@ -45,14 +54,17 @@ export class AndroidUhidSession {
         if (this.child !== child) return;
         this.child = null;
         if (code !== 0 || signal) this.stderr = `${this.stderr} exit=${code ?? 'null'} signal=${signal ?? 'none'}`.trim();
+        uhidDebugLog(`uhid child close code=${code ?? ''} signal=${signal ?? ''} stderr=${this.stderr}`);
         for (const listener of this.disconnectListeners) listener();
       });
       child.on('error', () => {
         if (this.child !== child) return;
         this.child = null;
+        uhidDebugLog('uhid child error');
         for (const listener of this.disconnectListeners) listener();
       });
       const ready = await this.waitForReady(child);
+      uhidDebugLog(`uhid ready=${ready}`);
       if (!ready) throw new Error(this.stderr || 'ANDROID_UHID_START_FAILED');
       return { sessionId: crypto.randomUUID() };
     } catch (error) {
@@ -85,6 +97,7 @@ export class AndroidUhidSession {
   sendMouseReport(report: MouseReport) { this.write({ type: 'mouse', report }); }
 
   async stop() {
+    uhidDebugLog(`uhid stop child=${Boolean(this.child)} serial=${this.serial}`);
     const child = this.child;
     this.child = null;
     child?.stdin?.end();

@@ -1,11 +1,19 @@
 import { app, BrowserWindow, ipcMain, screen } from 'electron';
 import * as nativeCore from '@guyantools/core';
-import type { AndroidInputConfig } from '@/contracts/android-tools';
 import { appConfigManager } from '../app-config/manager';
 import { androidAdbService, androidToolchain } from './index';
 import { AndroidInputRouter, type InputRouterDependencies, type WindowsInputBridge } from './input_router';
 import { AndroidUhidSession } from './android_uhid_service';
 import { validateInputConfigPatch } from './ipc_guards';
+import fs from 'node:fs';
+import path from 'node:path';
+
+const inputDebugLog = (message: string) => {
+  try {
+    const file = path.join(app.getPath('userData'), 'android-input-debug.log');
+    fs.appendFileSync(file, `${new Date().toISOString()} ${message}\n`);
+  } catch { /* diagnostics must never affect input handling */ }
+};
 
 type NativeInputCore = {
   windowsInputStart?: (options: string, callback: (event: unknown) => void) => void;
@@ -67,20 +75,25 @@ export function registerAndroidInputIpcHandlers() {
   });
   ipcMain.handle('android:get-input-status', () => router.status());
   ipcMain.handle('android:start-input-sharing', async () => {
+    inputDebugLog('ipc start begin');
     if (active) throw new Error('ANDROID_INPUT_ALREADY_RUNNING');
     const config = appConfigManager.getCachedConfig().androidInput;
     const device = androidAdbService.getDevice(config.deviceSerial);
     if (!device || device.state !== 'device') throw new Error('ANDROID_DEVICE_NOT_FOUND');
     const status = await router.start(config);
+    inputDebugLog(`ipc start complete state=${status.state} running=${status.running}`);
     active = true;
     return status;
   });
   ipcMain.handle('android:stop-input-sharing', async (_event, reason?: unknown) => {
+    inputDebugLog(`ipc stop reason=${String(reason)}`);
     await router.stop(typeof reason === 'string' ? reason : 'user');
     active = false;
   });
   ipcMain.handle('android:toggle-input-sharing', async () => {
+    inputDebugLog(`ipc toggle begin state=${router.status().state} running=${router.status().running}`);
     const status = await router.toggle();
+    inputDebugLog(`ipc toggle complete state=${status.state} running=${status.running} error=${status.errorCode ?? ''}`);
     active = status.running;
     return status;
   });
