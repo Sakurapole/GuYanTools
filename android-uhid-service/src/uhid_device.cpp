@@ -100,7 +100,8 @@ bool UhidDevice::check_events(std::string& error) {
       error = "UHID_DEVICE_ERROR";
       return false;
     }
-    if (event.type == UHID_STOP) { error = "UHID_DEVICE_STOPPED"; return false; }
+    // UHID_STOP is a normal consumer lifecycle event on some Android kernels;
+    // keep the virtual device alive so the next report can be delivered.
   }
   return true;
 #else
