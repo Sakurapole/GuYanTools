@@ -160,6 +160,7 @@ export class AndroidInputRouter {
     this.clearEdgeTimer();
     try { this.deps.bridge.stop(); } catch { /* best effort */ }
     try { this.deps.bridge.setBlocked(false); } catch { /* unconditional release */ }
+    void this.deps.uhid.stop().catch((): undefined => undefined);
     this.config = null;
     this.serial = '';
     this.state = 'suspended';

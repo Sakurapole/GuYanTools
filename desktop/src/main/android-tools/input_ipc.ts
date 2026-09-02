@@ -49,6 +49,12 @@ export function registerAndroidInputIpcHandlers() {
   if (app.isReady()) updateScreenSize();
   else app.once('ready', updateScreenSize);
   router.onStatus(broadcast);
+  // Keep the IPC session guard in sync with asynchronous UHID exits. Without
+  // this, a disconnected service leaves `active` latched and blocks restart.
+  router.onStatus(status => {
+    active = status.running;
+    if (status.errorCode) console.warn('[android-input] status:', status.errorCode);
+  });
   ipcMain.handle('android:get-input-config', () => appConfigManager.getCachedConfig().androidInput);
   ipcMain.handle('android:update-input-config', async (_event, value: unknown) => {
     const patch = validateInputConfigPatch(value);
@@ -73,7 +79,11 @@ export function registerAndroidInputIpcHandlers() {
     await router.stop(typeof reason === 'string' ? reason : 'user');
     active = false;
   });
-  ipcMain.handle('android:toggle-input-sharing', () => router.toggle());
+  ipcMain.handle('android:toggle-input-sharing', async () => {
+    const status = await router.toggle();
+    active = status.running;
+    return status;
+  });
   registered = true;
 }
 

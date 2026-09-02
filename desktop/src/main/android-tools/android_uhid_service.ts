@@ -68,9 +68,8 @@ export class AndroidUhidSession {
   async stop() {
     const child = this.child;
     this.child = null;
-    if (!child) return;
-    child.stdin?.end();
-    child.kill();
+    child?.stdin?.end();
+    child?.kill();
     if (this.serial) {
       try { await this.toolchain.executeAdb(['-s', this.serial, 'shell', 'rm', '-f', this.remotePath]); } catch { /* cleanup is best effort */ }
     }
