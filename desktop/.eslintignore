@@ -1,0 +1,28 @@
+# Dependencies
+node_modules/
+**/node_modules/
+
+# Build / release artifacts
+dist/
+out/
+out-*/
+.vite/
+release/
+build/
+output/
+packages/*/dist/
+packages/ui-core/loader/
+**/*.asar
+**/*.asar.unpacked/
+
+# Native / tool targets
+target/
+
+# Generated fixtures and third-party
+multi_platform_core/vendor/
+android-uhid-service/
+mobile/
+desktop/src/main/plugin-host/fixtures/
+
+# Scripts are smoke helpers, not app source
+desktop/scripts/
