@@ -906,8 +906,8 @@ onBeforeUnmount(() => {
   pointer-events: none;
 }
 
-.terminal-viewport .terminal-viewport__line-action.ui-button,
-.terminal-viewport .terminal-viewport__suggestion.ui-button {
+.terminal-viewport .terminal-viewport__line-action,
+.terminal-viewport .terminal-viewport__suggestion {
   position: absolute;
   z-index: 3;
   min-width: 0;
@@ -935,7 +935,7 @@ onBeforeUnmount(() => {
     transform: none;
   }
 
-  :deep(.ui-button__label) {
+  ::part(label) {
     line-height: 22px;
   }
 }

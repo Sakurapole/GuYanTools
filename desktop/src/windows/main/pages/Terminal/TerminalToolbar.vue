@@ -737,7 +737,7 @@ function handleTitleKeydown(e: KeyboardEvent) {
   transition: opacity 0.18s ease, transform 0.18s ease, visibility 0.18s;
 }
 
-.toolbar-overflow-item.ui-button {
+.toolbar-overflow-item {
   display: flex;
   align-items: center;
   justify-content: flex-start;
@@ -786,7 +786,7 @@ function handleTitleKeydown(e: KeyboardEvent) {
   }
 }
 
-.toolbar-overflow-item--active.ui-button {
+.toolbar-overflow-item--active {
   background: var(--terminal-toolbar-action-active-bg);
   color: var(--terminal-toolbar-action-active-text);
 }

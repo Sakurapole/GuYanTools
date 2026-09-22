@@ -119,7 +119,7 @@ defineExpose({
   flex-shrink: 0;
 }
 
-.terminal-search-panel__icon-btn.ui-icon-button {
+.terminal-search-panel__icon-btn {
   display: inline-flex;
   align-items: center;
   justify-content: center;

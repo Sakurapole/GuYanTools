@@ -3110,7 +3110,7 @@ onBeforeUnmount(() => {
   background: color-mix(in srgb, var(--ui-surface-panel) 84%, transparent);
 }
 
-.terminal-pane-tab.ui-button {
+.terminal-pane-tab {
   display: inline-flex;
   align-items: center;
   justify-content: flex-start;
@@ -3141,7 +3141,7 @@ onBeforeUnmount(() => {
     transform: none;
   }
 
-  .ui-button__label {
+  ::part(label) {
     display: inline-flex;
     align-items: center;
     justify-content: flex-start;
@@ -3150,7 +3150,7 @@ onBeforeUnmount(() => {
   }
 }
 
-.terminal-pane-tab--active.ui-button {
+.terminal-pane-tab--active {
   border-color: color-mix(in srgb, var(--primary-color) 28%, var(--ui-border-subtle));
   background: color-mix(in srgb, var(--primary-color) 10%, var(--ui-tabs-active-bg));
   color: color-mix(in srgb, var(--primary-color) 72%, var(--ui-text-primary));
@@ -3160,11 +3160,11 @@ onBeforeUnmount(() => {
     0 0 0 1px color-mix(in srgb, var(--primary-color) 12%, transparent);
 }
 
-.terminal-pane-tab--drop-target.ui-button {
+.terminal-pane-tab--drop-target {
   box-shadow: inset 2px 0 0 var(--primary-color);
 }
 
-.terminal-pane-tab--drag-placeholder.ui-button {
+.terminal-pane-tab--drag-placeholder {
   border-right-color: color-mix(in srgb, var(--primary-color) 34%, var(--ui-border-subtle));
   background:
     repeating-linear-gradient(
@@ -3748,7 +3748,7 @@ body.terminal-pane-dragging-active .terminal-pane-tab {
   font-weight: 600;
 }
 
-.statusbar-forward-chip.ui-button {
+.statusbar-forward-chip {
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -3776,7 +3776,7 @@ body.terminal-pane-dragging-active .terminal-pane-tab {
     transform: none;
   }
 
-  .ui-button__label {
+  ::part(label) {
     gap: 4px;
   }
 }
@@ -3836,7 +3836,7 @@ body.terminal-pane-dragging-active .terminal-pane-tab {
   }
 }
 
-.ssh-pwd-btn.ui-button {
+.ssh-pwd-btn {
   padding: 7px 18px;
   border-radius: var(--ui-radius-md);
   border: none;
@@ -3847,7 +3847,7 @@ body.terminal-pane-dragging-active .terminal-pane-tab {
   transform: none;
 }
 
-.ssh-pwd-btn--cancel.ui-button {
+.ssh-pwd-btn--cancel {
   background: var(--ui-surface-overlay);
   color: var(--ui-text-secondary);
 
@@ -3857,7 +3857,7 @@ body.terminal-pane-dragging-active .terminal-pane-tab {
   }
 }
 
-.ssh-pwd-btn--confirm.ui-button {
+.ssh-pwd-btn--confirm {
   background: var(--primary-color);
   color: #fff;
 

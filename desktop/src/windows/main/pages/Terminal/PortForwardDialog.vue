@@ -507,7 +507,7 @@ async function save() {
   }
 }
 
-.pfd-close-btn.ui-icon-button {
+.pfd-close-btn {
   display: flex;
   align-items: center;
   justify-content: center;
@@ -539,7 +539,7 @@ async function save() {
   gap: 8px;
 }
 
-.pfd-type-btn.ui-button {
+.pfd-type-btn {
   display: flex;
   align-items: center;
   justify-content: center;
@@ -562,7 +562,7 @@ async function save() {
     transform: none;
   }
 
-  .ui-button__label {
+  ::part(label) {
     gap: 6px;
   }
 
@@ -572,7 +572,7 @@ async function save() {
   }
 }
 
-.pfd-type-btn--active.ui-button {
+.pfd-type-btn--active {
   border-color: var(--primary-color);
   background: rgba(var(--primary-rgb, 99 102 241), 0.08);
   color: var(--primary-color);
@@ -775,7 +775,7 @@ async function save() {
   }
 }
 
-.pfd-btn.ui-button {
+.pfd-btn {
   padding: 7px 18px;
   border-radius: var(--ui-radius-md);
   font-size: 13px;
@@ -791,7 +791,7 @@ async function save() {
   }
 }
 
-.pfd-btn--primary.ui-button {
+.pfd-btn--primary {
   background: var(--primary-color);
   color: #fff;
   border-color: var(--primary-color);
@@ -802,7 +802,7 @@ async function save() {
   }
 }
 
-.pfd-btn--ghost.ui-button {
+.pfd-btn--ghost {
   background: transparent;
   color: var(--ui-text-secondary);
   border-color: var(--ui-border-subtle);

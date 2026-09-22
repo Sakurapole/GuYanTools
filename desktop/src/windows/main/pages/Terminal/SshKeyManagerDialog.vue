@@ -403,7 +403,7 @@ async function handleDeleteKey(key: SshManagedKey) {
     }
   }
 
-  &__close.ui-button {
+  &__close {
     padding: 8px 12px;
     border: 1px solid transparent;
     border-radius: var(--ui-radius-sm);
@@ -555,9 +555,9 @@ async function handleDeleteKey(key: SshManagedKey) {
   }
 }
 
-.key-primary-btn.ui-button,
-.key-secondary-btn.ui-button,
-.key-danger-btn.ui-button {
+.key-primary-btn,
+.key-secondary-btn,
+.key-danger-btn {
   min-height: var(--ui-control-height-sm);
   padding: 9px 12px;
   border-radius: var(--ui-radius-sm);
@@ -584,7 +584,7 @@ async function handleDeleteKey(key: SshManagedKey) {
   }
 }
 
-.key-primary-btn.ui-button {
+.key-primary-btn {
   background: var(--ui-button-primary-bg);
   color: var(--ui-button-primary-text);
   border-color: var(--ui-button-primary-border);
@@ -595,7 +595,7 @@ async function handleDeleteKey(key: SshManagedKey) {
   }
 }
 
-.key-secondary-btn.ui-button {
+.key-secondary-btn {
   background: var(--ui-button-secondary-bg);
   color: var(--ui-button-secondary-text);
   border-color: var(--ui-button-secondary-border);
@@ -607,7 +607,7 @@ async function handleDeleteKey(key: SshManagedKey) {
   }
 }
 
-.key-danger-btn.ui-button {
+.key-danger-btn {
   background: var(--ui-button-danger-bg);
   color: var(--ui-button-danger-text);
   border-color: var(--ui-button-danger-border);

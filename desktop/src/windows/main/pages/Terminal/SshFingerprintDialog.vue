@@ -316,7 +316,7 @@ function reject() {
   border-top: 1px solid var(--ui-border-subtle);
 }
 
-.fp-btn.ui-button {
+.fp-btn {
   padding: 7px 18px;
   border-radius: var(--ui-radius-md);
   font-size: 13px;
@@ -330,7 +330,7 @@ function reject() {
   }
 }
 
-.fp-btn--primary.ui-button {
+.fp-btn--primary {
   background: var(--primary-color);
   color: #fff;
   border-color: var(--primary-color);
@@ -340,7 +340,7 @@ function reject() {
   }
 }
 
-.fp-btn--ghost.ui-button {
+.fp-btn--ghost {
   background: transparent;
   color: var(--ui-text-secondary);
   border-color: var(--ui-border-subtle);

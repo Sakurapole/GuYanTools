@@ -661,7 +661,7 @@ async function handleImport() {
   gap: 2px;
 }
 
-.pfp__action-btn.ui-icon-button {
+.pfp__action-btn {
   display: flex;
   align-items: center;
   justify-content: center;
@@ -693,7 +693,7 @@ async function handleImport() {
   }
 }
 
-.pfp__action-btn--success.ui-icon-button {
+.pfp__action-btn--success {
   color: #22c55e;
 
   &:hover:not(:disabled) {
@@ -701,7 +701,7 @@ async function handleImport() {
   }
 }
 
-.pfp__action-btn--danger.ui-icon-button {
+.pfp__action-btn--danger {
   color: #ef4444;
 
   &:hover:not(:disabled) {
@@ -798,7 +798,7 @@ async function handleImport() {
   gap: 6px;
 }
 
-.pfp__conflict-btn.ui-button {
+.pfp__conflict-btn {
   height: 26px;
   min-height: 26px;
   padding: 0 9px;
@@ -823,7 +823,7 @@ async function handleImport() {
   }
 }
 
-.pfp__conflict-btn--danger.ui-button {
+.pfp__conflict-btn--danger {
   border-color: rgba(239, 68, 68, 0.34);
   color: #ef4444;
 
@@ -844,7 +844,7 @@ async function handleImport() {
   color: var(--ui-text-muted);
 }
 
-.pfp__empty-add.ui-button {
+.pfp__empty-add {
   display: flex;
   align-items: center;
   gap: 4px;
@@ -1013,7 +1013,7 @@ async function handleImport() {
   }
 }
 
-.pfp__item-conflict-action.ui-button {
+.pfp__item-conflict-action {
   height: 20px;
   min-height: 20px;
   padding: 0 7px;
@@ -1067,7 +1067,7 @@ async function handleImport() {
   flex-shrink: 0;
 }
 
-.pfp__copy-btn.ui-icon-button {
+.pfp__copy-btn {
   display: flex;
   align-items: center;
   justify-content: center;
@@ -1094,11 +1094,11 @@ async function handleImport() {
   }
 }
 
-.pfp__copy-btn--copied.ui-icon-button {
+.pfp__copy-btn--copied {
   color: #22c55e;
 }
 
-.pfp__toggle-btn.ui-icon-button {
+.pfp__toggle-btn {
   display: flex;
   align-items: center;
   justify-content: center;
@@ -1121,7 +1121,7 @@ async function handleImport() {
   }
 }
 
-.pfp__toggle-btn--start.ui-icon-button {
+.pfp__toggle-btn--start {
   background: rgba(34, 197, 94, 0.1);
   color: #22c55e;
 
@@ -1130,7 +1130,7 @@ async function handleImport() {
   }
 }
 
-.pfp__toggle-btn--stop.ui-icon-button {
+.pfp__toggle-btn--stop {
   background: rgba(239, 68, 68, 0.1);
   color: #ef4444;
 
@@ -1139,7 +1139,7 @@ async function handleImport() {
   }
 }
 
-.pfp__del-btn.ui-icon-button {
+.pfp__del-btn {
   display: flex;
   align-items: center;
   justify-content: center;
