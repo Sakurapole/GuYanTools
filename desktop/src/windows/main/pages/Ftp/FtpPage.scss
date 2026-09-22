@@ -1321,11 +1321,15 @@
   border-radius: 0;
   background: color-mix(in srgb, var(--ui-surface-panel) 90%, rgba(102, 204, 255, 0.12));
   color: var(--ui-text-primary);
-  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.24), 0 0 0 1px rgba(102, 204, 255, 0.1);
+  box-shadow:
+    0 10px 28px rgba(0, 0, 0, 0.24),
+    0 0 0 1px rgba(102, 204, 255, 0.1);
   pointer-events: none;
   transform: translate3d(0, 0, 0) scale(0.94);
   transform-origin: top left;
-  transition: opacity 0.12s ease, box-shadow 0.12s ease;
+  transition:
+    opacity 0.12s ease,
+    box-shadow 0.12s ease;
   backdrop-filter: blur(14px);
 }
 
@@ -1356,7 +1360,7 @@
 }
 
 .terminal-pane-resizer::after {
-  content: "";
+  content: '';
   position: absolute;
   inset: 0;
   background: color-mix(in srgb, var(--primary-color) 44%, transparent);
@@ -1431,7 +1435,7 @@ body.terminal-pane-dragging-active .terminal-pane-tab {
   touch-action: none;
 
   &::before {
-    content: "";
+    content: '';
     position: absolute;
     left: 50%;
     top: 3px;
@@ -1504,7 +1508,7 @@ body.terminal-pane-dragging-active .terminal-pane-tab {
     color 0.18s ease;
 
   &::after {
-    content: "";
+    content: '';
     position: absolute;
     left: 0;
     right: 0;
@@ -1802,7 +1806,7 @@ body.terminal-pane-dragging-active .terminal-pane-tab {
 
   /* 扩大可点击区域避免难以点中 */
   &::before {
-    content: "";
+    content: '';
     position: absolute;
     inset: -4px;
   }
@@ -1816,7 +1820,7 @@ body.terminal-pane-dragging-active .terminal-pane-tab {
 
   /* 中心指示点 */
   &::after {
-    content: "";
+    content: '';
     position: absolute;
     top: 50%;
     left: 50%;
@@ -1837,7 +1841,7 @@ body.terminal-pane-dragging-active .terminal-pane-tab {
 
   /* 中心指示点 */
   &::after {
-    content: "";
+    content: '';
     position: absolute;
     top: 50%;
     left: 50%;
@@ -2590,18 +2594,20 @@ body.terminal-pane-dragging-active .terminal-pane-tab {
 
 .ftp-table__head--local,
 .ftp-entry--local {
-  --ftp-table-columns: minmax(var(--ftp-name-col-min, 72px), 1fr) var(--ftp-col-2, 110px) var(--ftp-col-3, 170px);
+  --ftp-table-columns: minmax(var(--ftp-name-col-min, 72px), 1fr) var(--ftp-col-2, 110px)
+    var(--ftp-col-3, 170px);
 }
 
 .ftp-table__head--remote,
 .ftp-entry--remote {
-  --ftp-table-columns: minmax(var(--ftp-name-col-min, 72px), 1fr) var(--ftp-col-2, 150px) var(--ftp-col-3, 110px);
+  --ftp-table-columns: minmax(var(--ftp-name-col-min, 72px), 1fr) var(--ftp-col-2, 150px)
+    var(--ftp-col-3, 110px);
 }
 
 .ftp-table__head--details,
 .ftp-entry--details {
-  --ftp-table-columns: minmax(var(--ftp-name-col-min, 72px), 1fr) var(--ftp-col-2, 110px) var(--ftp-col-3, 150px)
-    var(--ftp-col-4, 90px) var(--ftp-col-5, 120px);
+  --ftp-table-columns: minmax(var(--ftp-name-col-min, 72px), 1fr) var(--ftp-col-2, 110px)
+    var(--ftp-col-3, 150px) var(--ftp-col-4, 90px) var(--ftp-col-5, 120px);
 }
 
 // Column header cell wrapper inside the grid
@@ -2700,7 +2706,7 @@ body.terminal-pane-dragging-active .terminal-pane-tab {
 
   // Visible separator line
   &::after {
-    content: "";
+    content: '';
     position: absolute;
     top: 18%;
     bottom: 18%;
@@ -3630,10 +3636,26 @@ body.terminal-pane-dragging-active .terminal-pane-tab {
   border: 1px solid var(--ui-border-subtle);
   border-radius: var(--ui-radius-md);
   background:
-    linear-gradient(45deg, color-mix(in srgb, var(--ui-surface-panel-muted) 80%, transparent) 25%, transparent 25%),
-    linear-gradient(-45deg, color-mix(in srgb, var(--ui-surface-panel-muted) 80%, transparent) 25%, transparent 25%),
-    linear-gradient(45deg, transparent 75%, color-mix(in srgb, var(--ui-surface-panel-muted) 80%, transparent) 75%),
-    linear-gradient(-45deg, transparent 75%, color-mix(in srgb, var(--ui-surface-panel-muted) 80%, transparent) 75%),
+    linear-gradient(
+      45deg,
+      color-mix(in srgb, var(--ui-surface-panel-muted) 80%, transparent) 25%,
+      transparent 25%
+    ),
+    linear-gradient(
+      -45deg,
+      color-mix(in srgb, var(--ui-surface-panel-muted) 80%, transparent) 25%,
+      transparent 25%
+    ),
+    linear-gradient(
+      45deg,
+      transparent 75%,
+      color-mix(in srgb, var(--ui-surface-panel-muted) 80%, transparent) 75%
+    ),
+    linear-gradient(
+      -45deg,
+      transparent 75%,
+      color-mix(in srgb, var(--ui-surface-panel-muted) 80%, transparent) 75%
+    ),
     var(--ui-surface-panel);
   background-position:
     0 0,
@@ -3777,7 +3799,11 @@ body.terminal-pane-dragging-active .terminal-pane-tab {
 }
 
 .ftp-log-panel__entry--danger {
-  border-bottom-color: color-mix(in srgb, var(--ui-status-danger-text) 22%, var(--ui-border-subtle));
+  border-bottom-color: color-mix(
+    in srgb,
+    var(--ui-status-danger-text) 22%,
+    var(--ui-border-subtle)
+  );
   background: color-mix(in srgb, var(--ui-status-danger-bg) 24%, transparent);
 }
 
@@ -4468,7 +4494,8 @@ body.terminal-pane-dragging-active .terminal-pane-tab {
   }
 
   /* 超小窗口：隐藏低优先级面板工作区控件 */
-  .ftp-panel__commandrow > .ui-button:is([title="收藏当前"], [title="添加目录"], [title="移除书签"]) {
+  .ftp-panel__commandrow
+    > .ui-button:is([title='收藏当前'], [title='添加目录'], [title='移除书签']) {
     display: none;
   }
 }

@@ -22,7 +22,9 @@
     "dist:win": "pnpm --dir .. run native:build && pnpm run build:app && electron-builder --config electron-builder.config.cjs --win nsis",
     "publish": "pnpm run publish:github",
     "publish:github": "pnpm --dir .. run native:build && pnpm run build:app && electron-builder --config electron-builder.config.cjs --win nsis --publish always",
-    "lint": "eslint --ext .ts,.tsx .",
+    "lint": "eslint --ext .ts,.tsx,.js,.vue .",
+    "format": "prettier --write \"src/**/*.{ts,tsx,js,vue,css,scss}\"",
+    "format:check": "prettier --check \"src/**/*.{ts,tsx,js,vue,css,scss}\"",
     "lint:design-system": "node scripts/check-design-system.mjs",
     "typecheck": "tsc --noEmit",
     "test:plugin-platform": "vitest run src/main/plugin-host --reporter=verbose",
@@ -79,12 +81,14 @@
     "eslint-import-resolver-alias": "^1.1.2",
     "eslint-import-resolver-typescript": "^4.4.4",
     "eslint-plugin-import": "^2.32.0",
+    "eslint-plugin-vue": "^10.11.0",
     "sass-embedded": "^1.89.2",
     "ts-node": "^10.9.2",
     "typescript": "^5.8.3",
     "vite": "^7.0.4",
     "vite-plugin-vue-devtools": "^8.0.0",
-    "vitest": "^4.1.10"
+    "vitest": "^4.1.10",
+    "vue-eslint-parser": "^10.4.1"
   },
   "dependencies": {
     "@ai-sdk/anthropic": "^3.0.81",

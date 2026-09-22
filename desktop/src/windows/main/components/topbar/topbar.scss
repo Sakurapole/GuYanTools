@@ -1,5 +1,5 @@
-@use "../../assets/layout.scss";
-@use "../../assets/cssvars.scss" as *;
+@use '../../assets/layout.scss';
+@use '../../assets/cssvars.scss' as *;
 
 #topbar-container {
   @include layout.flex-row($justify-content: space-between, $align-items: center);
@@ -102,7 +102,9 @@
     align-items: center;
   }
 
-  &::part(label) { min-width: 0; }
+  &::part(label) {
+    min-width: 0;
+  }
 
   &::part(icon) {
     justify-content: center;
@@ -122,7 +124,7 @@
   height: 7px;
   border-radius: var(--ui-radius-full);
   background: var(--primary-color);
-    box-shadow: 0 0 0 3px color-mix(in srgb, var(--primary-color) 18%, transparent);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--primary-color) 18%, transparent);
   flex: 0 0 auto;
 }
 

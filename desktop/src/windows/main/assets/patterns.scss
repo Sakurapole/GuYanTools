@@ -1,5 +1,6 @@
 .ui-glass-surface {
-  border: var(--ui-border-width-thin) solid color-mix(in srgb, var(--ui-border-accent) 70%, var(--ui-border-subtle));
+  border: var(--ui-border-width-thin) solid
+    color-mix(in srgb, var(--ui-border-accent) 70%, var(--ui-border-subtle));
   border-radius: var(--ui-radius-lg);
   background: var(--ui-surface-glass);
   box-shadow: var(--ui-panel-shadow);

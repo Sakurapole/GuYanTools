@@ -2776,8 +2776,8 @@ onBeforeUnmount(() => {
   flex-direction: column;
   flex: 1;
   overflow-y: auto;
-  padding: 12px;
-  gap: 6px;
+  padding: 8px 10px;
+  gap: 2px;
   animation: terminal-sidebar-content-in 0.32s cubic-bezier(0.22, 1, 0.36, 1);
 
   .ui-tooltip-trigger {
@@ -2833,11 +2833,13 @@ onBeforeUnmount(() => {
   display: flex;
   align-items: center;
   justify-content: flex-start;
-  gap: 8px;
+  gap: 10px;
   width: 100%;
   min-width: 0;
-  min-height: 0;
-  padding: 8px 10px;
+  // gt-button[size=sm] 会锁定高度，两行 label/command 会被压扁
+  height: auto;
+  min-height: 40px;
+  padding: 6px 10px;
   border: 1px solid transparent;
   border-radius: var(--ui-radius-md);
   background: transparent;
@@ -2851,10 +2853,11 @@ onBeforeUnmount(() => {
     display: flex;
     align-items: center;
     justify-content: flex-start;
-    gap: 8px;
+    gap: 10px;
     width: 100%;
     min-width: 0;
-    min-height: 0;
+    height: 100%;
+    min-height: inherit;
     padding: 0;
     border: 0;
     background: transparent;
@@ -2899,8 +2902,9 @@ onBeforeUnmount(() => {
   display: flex;
   flex-direction: column;
   flex: 1 1 auto;
-  gap: 2px;
+  gap: 1px;
   min-width: 0;
+  line-height: 1.3;
 }
 
 .terminal-profile-item__label,
@@ -2913,14 +2917,16 @@ onBeforeUnmount(() => {
 
 .terminal-profile-item__label {
   color: var(--ui-text-primary);
-  font-size: var(--ui-font-size-xs);
+  font-size: 13px;
   font-weight: 600;
+  line-height: 1.3;
 }
 
 .terminal-profile-item__command {
   color: var(--ui-text-muted);
   font-family: var(--ui-font-family-mono);
-  font-size: var(--ui-font-size-xs);
+  font-size: 11px;
+  line-height: 1.35;
 }
 
 .terminal-profile-item__launch {

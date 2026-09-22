@@ -170,12 +170,19 @@ function handleDrop(event: DragEvent) {
       <span v-if="node.badge" class="ui-tree-node__badge">{{ node.badge }}</span>
     </div>
 
-    <TransitionGroup v-if="hasChildren && expanded" name="ui-tree-list" tag="div" class="ui-tree-node__children" role="group">
-      <UiTreeNodeItem v-for="child in node.children" :key="child.id" :node="child" :level="level + 1"
-        :indent-size="indentSize" :expanded-ids="expandedIds" :selected-id="selectedId" @toggle="emit('toggle', $event)"
-        @select="emit('select', $event)" @activate="emit('activate', $event)" @contextmenu="emit('contextmenu', $event)"
-        @dragstart="emit('dragstart', $event)" @drop="emit('drop', $event)" />
-    </TransitionGroup>
+    <div
+      v-if="hasChildren"
+      class="ui-tree-node__children"
+      :class="{ 'ui-tree-node__children--expanded': expanded }"
+      role="group"
+    >
+      <div class="ui-tree-node__children-inner">
+        <UiTreeNodeItem v-for="child in node.children" :key="child.id" :node="child" :level="level + 1"
+          :indent-size="indentSize" :expanded-ids="expandedIds" :selected-id="selectedId" @toggle="emit('toggle', $event)"
+          @select="emit('select', $event)" @activate="emit('activate', $event)" @contextmenu="emit('contextmenu', $event)"
+          @dragstart="emit('dragstart', $event)" @drop="emit('drop', $event)" />
+      </div>
+    </div>
   </div>
 </template>
 
@@ -338,9 +345,25 @@ function handleDrop(event: DragEvent) {
 }
 
 .ui-tree-node__children {
+  display: grid;
+  grid-template-rows: 0fr;
+  opacity: 0;
+  transition:
+    grid-template-rows 0.22s var(--ui-motion-ease-emphasized, cubic-bezier(0.22, 1, 0.36, 1)),
+    opacity 0.16s var(--ui-motion-ease-standard, ease);
+}
+
+.ui-tree-node__children--expanded {
+  grid-template-rows: 1fr;
+  opacity: 1;
+}
+
+.ui-tree-node__children-inner {
   display: flex;
   flex-direction: column;
   gap: 4px;
+  min-height: 0;
+  overflow: hidden;
 }
 
 .ui-tree-list-move,
@@ -359,11 +382,16 @@ function handleDrop(event: DragEvent) {
 
 @media (prefers-reduced-motion: reduce) {
   .ui-tree-node__row,
+  .ui-tree-node__children,
   .ui-tree-list-move,
   .ui-tree-list-enter-active,
   .ui-tree-list-leave-active {
     transition: none;
     transform: none;
+  }
+
+  .ui-tree-node__children:not(.ui-tree-node__children--expanded) {
+    display: none;
   }
 }
 </style>

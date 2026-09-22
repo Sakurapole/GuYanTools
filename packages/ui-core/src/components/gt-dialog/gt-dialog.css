@@ -1,2 +1,6 @@
-:host { display: none; }
-:host([open]) { display: contents; }
+:host {
+  display: none;
+}
+:host([open]) {
+  display: contents;
+}

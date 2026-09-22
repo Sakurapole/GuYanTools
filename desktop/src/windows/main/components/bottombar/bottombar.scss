@@ -1,5 +1,5 @@
-@use "../../assets/layout.scss";
-@use "../../assets/cssvars.scss" as *;
+@use '../../assets/layout.scss';
+@use '../../assets/cssvars.scss' as *;
 
 .bottombar-container {
   @include layout.flex-row($justify-content: flex-start, $align-items: center);
@@ -11,7 +11,7 @@
   backdrop-filter: var(--ui-backdrop-blur-md);
 
   &::before {
-    content: "";
+    content: '';
     position: absolute;
     top: 0;
     left: 0;

@@ -17,17 +17,35 @@
   line-height: 1.4;
   white-space: nowrap;
   user-select: none;
-  transition: background-color var(--gt-motion-normal) var(--gt-motion-ease), color var(--gt-motion-normal) var(--gt-motion-ease), border-color var(--gt-motion-normal) var(--gt-motion-ease), box-shadow var(--gt-motion-normal) var(--gt-motion-ease), transform var(--gt-motion-normal) var(--gt-motion-ease);
+  transition:
+    background-color var(--gt-motion-normal) var(--gt-motion-ease),
+    color var(--gt-motion-normal) var(--gt-motion-ease),
+    border-color var(--gt-motion-normal) var(--gt-motion-ease),
+    box-shadow var(--gt-motion-normal) var(--gt-motion-ease),
+    transform var(--gt-motion-normal) var(--gt-motion-ease);
 }
 
 :host([block]) {
   display: block;
 }
-:host(:hover:not([disabled])) { transform: translateY(-1px); }
-:host(:active:not([disabled])), :host([active]:not([disabled])) { transform: translateY(0); }
+:host(:hover:not([disabled])) {
+  transform: translateY(-1px);
+}
+:host(:active:not([disabled])),
+:host([active]:not([disabled])) {
+  transform: translateY(0);
+}
 
-:host([size="sm"]) { height: var(--ui-control-height-sm, var(--gt-control-height-sm)); min-height: var(--ui-control-height-sm, var(--gt-control-height-sm)); padding-inline: var(--ui-control-padding-x-sm, var(--gt-control-padding-x-sm)); }
-:host([size="lg"]) { height: var(--ui-control-height-lg, var(--gt-control-height-lg)); min-height: var(--ui-control-height-lg, var(--gt-control-height-lg)); padding-inline: var(--ui-button-padding-x-lg, 18px); }
+:host([size='sm']) {
+  height: var(--ui-control-height-sm, var(--gt-control-height-sm));
+  min-height: var(--ui-control-height-sm, var(--gt-control-height-sm));
+  padding-inline: var(--ui-control-padding-x-sm, var(--gt-control-padding-x-sm));
+}
+:host([size='lg']) {
+  height: var(--ui-control-height-lg, var(--gt-control-height-lg));
+  min-height: var(--ui-control-height-lg, var(--gt-control-height-lg));
+  padding-inline: var(--ui-button-padding-x-lg, 18px);
+}
 
 button {
   appearance: none;
@@ -55,40 +73,40 @@ button {
   transform: none;
 }
 
-:host([size="sm"]) button {
+:host([size='sm']) button {
   min-height: 100%;
   padding: 0;
   font-size: var(--ui-font-size-sm, 0.82rem);
 }
 
-:host([size="lg"]) button {
+:host([size='lg']) button {
   min-height: 100%;
   padding: 0;
   font-size: var(--ui-font-size-md, 0.96rem);
 }
 
-:host([variant="secondary"]) {
+:host([variant='secondary']) {
   --gt-button-background: var(--ui-button-secondary-bg, var(--gt-color-surface-muted));
   --gt-button-border-color: var(--ui-button-secondary-border, var(--gt-color-border));
   --gt-button-color: var(--ui-button-secondary-text, var(--gt-color-text));
   --gt-button-shadow: var(--ui-button-secondary-shadow, none);
 }
 
-:host([variant="primary"]) {
+:host([variant='primary']) {
   --gt-button-background: var(--ui-button-primary-bg, var(--gt-color-primary));
   --gt-button-border-color: var(--ui-button-primary-border, var(--gt-color-primary));
   --gt-button-color: var(--ui-button-primary-text, var(--gt-color-text-inverse));
   --gt-button-shadow: var(--ui-button-primary-shadow, none);
 }
 
-:host([variant="danger"]) {
+:host([variant='danger']) {
   --gt-button-background: var(--ui-button-danger-bg, var(--gt-color-danger-soft));
   --gt-button-border-color: var(--ui-button-danger-border, transparent);
   --gt-button-color: var(--ui-button-danger-text, var(--gt-color-danger));
   --gt-button-shadow: var(--ui-button-danger-shadow, none);
 }
 
-:host([variant="ghost"]) {
+:host([variant='ghost']) {
   --gt-button-background: var(--ui-button-ghost-bg, transparent);
   --gt-button-border-color: transparent;
   --gt-button-color: var(--ui-button-ghost-text, var(--gt-color-text-muted));
@@ -96,11 +114,25 @@ button {
 }
 
 /* 仅键盘焦点显示环；鼠标点击后的 focus-within 会残留边框 */
-:host(:has(button:focus-visible)) { box-shadow: var(--ui-focus-ring, var(--gt-focus-ring)); }
-:host([variant="primary"]:hover:not([disabled])) { background: var(--ui-button-primary-hover-bg, var(--gt-color-primary-hover)); }
-:host([variant="secondary"]:hover:not([disabled])), :host([variant="secondary"][active]) { background: var(--ui-button-secondary-hover-bg, var(--gt-color-surface-muted)); border-color: var(--ui-button-secondary-hover-border, var(--gt-color-border)); }
-:host([variant="ghost"]:hover:not([disabled])), :host([variant="ghost"][active]) { background: var(--ui-button-ghost-hover-bg, var(--gt-color-overlay)); color: var(--ui-button-ghost-hover-text, var(--gt-color-text)); }
-:host([variant="danger"]:hover:not([disabled])) { background: var(--ui-button-danger-hover-bg, var(--gt-color-danger-soft)); }
+:host(:has(button:focus-visible)) {
+  box-shadow: var(--ui-focus-ring, var(--gt-focus-ring));
+}
+:host([variant='primary']:hover:not([disabled])) {
+  background: var(--ui-button-primary-hover-bg, var(--gt-color-primary-hover));
+}
+:host([variant='secondary']:hover:not([disabled])),
+:host([variant='secondary'][active]) {
+  background: var(--ui-button-secondary-hover-bg, var(--gt-color-surface-muted));
+  border-color: var(--ui-button-secondary-hover-border, var(--gt-color-border));
+}
+:host([variant='ghost']:hover:not([disabled])),
+:host([variant='ghost'][active]) {
+  background: var(--ui-button-ghost-hover-bg, var(--gt-color-overlay));
+  color: var(--ui-button-ghost-hover-text, var(--gt-color-text));
+}
+:host([variant='danger']:hover:not([disabled])) {
+  background: var(--ui-button-danger-hover-bg, var(--gt-color-danger-soft));
+}
 
 :host([block]) button {
   width: 100%;
@@ -115,10 +147,20 @@ button:focus-visible {
   box-shadow: none;
 }
 
-button:disabled { cursor: inherit; }
-:host([disabled]) { cursor: not-allowed; opacity: 0.56; transform: none; box-shadow: none; }
+button:disabled {
+  cursor: inherit;
+}
+:host([disabled]) {
+  cursor: not-allowed;
+  opacity: 0.56;
+  transform: none;
+  box-shadow: none;
+}
 
-.prefix[hidden], .suffix[hidden] { display: none; }
+.prefix[hidden],
+.suffix[hidden] {
+  display: none;
+}
 .label {
   display: inline-flex;
   align-items: center;

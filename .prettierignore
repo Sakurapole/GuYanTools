@@ -1,0 +1,48 @@
+# Dependencies
+node_modules/
+**/node_modules/
+.pnpm-store/
+
+# Build / release artifacts
+desktop/.vite/
+desktop/dist/
+desktop/out/
+desktop/out-*/
+desktop/release/
+desktop/build/
+desktop/output/
+desktop/**/*.asar
+desktop/**/*.asar.unpacked/
+packages/*/dist/
+packages/ui-core/loader/
+target/
+**/target/
+
+# Generated / vendored
+multi_platform_core/vendor/
+multi_platform_core/node_modules/
+android-uhid-service/
+mobile/
+
+# Lockfiles and binaries
+pnpm-lock.yaml
+*.node
+*.exe
+*.dll
+*.wasm
+
+# Coverage / caches
+coverage/
+**/coverage/
+.eslintcache
+.cache/
+
+# Docs media (keep source formatting intentional)
+docs/**/*.min.*
+**/*.min.css
+**/*.min.js
+
+# Inline HTML style strings and fixtures that must stay byte-stable
+desktop/src/main/plugin-host/fixtures/
+desktop/scripts/verify-*.cjs
+desktop/scripts/smoke-*.cjs

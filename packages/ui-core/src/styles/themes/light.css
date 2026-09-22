@@ -1,9 +1,9 @@
 :root,
 :root.light,
-:root[data-theme="light"],
+:root[data-theme='light'],
 :host,
 :host(.light),
-:host([data-theme="light"]) {
+:host([data-theme='light']) {
   --gt-color-background: #f7fbff;
   --gt-color-surface: #ffffff;
   --gt-color-surface-muted: #f7fafe;
