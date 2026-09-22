@@ -7,6 +7,7 @@ import type {
 
 export type PluginTrustLevel = 'sandboxed' | 'trusted';
 export type PluginRuntimeKind = 'ui' | 'worker' | 'hybrid' | 'host';
+export type PluginWorkerRuntimeKind = 'browser' | 'utility';
 export type PluginLifecycleState =
   | 'discovered'
   | 'installed'
@@ -62,6 +63,11 @@ export interface PluginCapabilityDeclaration {
   };
 }
 
+export interface PluginCapabilityDependency {
+  capability: string;
+  optional?: boolean;
+}
+
 export interface PluginPageContribution {
   id: string;
   title: string;
@@ -113,6 +119,18 @@ export interface PluginContributes {
   backgroundTasks?: PluginBackgroundTaskContribution[];
 }
 
+export interface PluginSettingSchema {
+  type: 'string' | 'number' | 'boolean' | 'select';
+  title: string;
+  description?: string;
+  default?: string | number | boolean;
+  options?: Array<{ label: string; value: string | number }>;
+  minLength?: number;
+  maxLength?: number;
+  minimum?: number;
+  maximum?: number;
+}
+
 export interface PluginManifest {
   schemaVersion: '1.0' | '1.1';
   id: string;
@@ -125,6 +143,12 @@ export interface PluginManifest {
   hostVersionRange: string;
   trustLevel: PluginTrustLevel;
   runtime: PluginRuntimeKind;
+  /**
+   * How the worker entry is hosted.
+   * - browser: sandboxed WebContentsView (legacy default)
+   * - utility: Electron utilityProcess (preferred for pure JS workers)
+   */
+  workerRuntime?: PluginWorkerRuntimeKind;
   entry: {
     ui?: string;
     worker?: string;
@@ -136,6 +160,9 @@ export interface PluginManifest {
   permissions: PluginPermission[];
   capabilities: PluginCapabilityDeclaration[];
   contributes: PluginContributes;
+  settings?: Record<string, PluginSettingSchema>;
+  /** Capabilities this plugin expects other enabled plugins to provide. */
+  dependencies?: PluginCapabilityDependency[];
 }
 
 export interface ResolvedPluginEntryPaths {
@@ -187,6 +214,13 @@ export interface MarketplacePluginSummary {
   hostVersionRange?: string;
   permissions?: PluginPermission[];
   capabilities?: PluginCapabilityDeclaration[];
+  packageSha256?: string;
+  signature?: {
+    algorithm: 'ed25519';
+    publicKey: string;
+    signature: string;
+    signedAt: string;
+  };
 }
 
 export interface MarketplaceCatalog {
@@ -195,6 +229,12 @@ export interface MarketplaceCatalog {
   name: string;
   plugins: MarketplacePluginSummary[];
   generatedAt?: string;
+  signature?: {
+    algorithm: 'ed25519';
+    publicKey: string;
+    signature: string;
+    signedAt: string;
+  };
 }
 
 export interface MarketplaceCacheRecord {
@@ -242,6 +282,9 @@ export interface InstalledPluginRecord {
   packageName?: string;
   localPath?: string;
   error?: string;
+  consecutiveStartFailures?: number;
+  signatureVerified?: boolean;
+  signatureWarning?: string;
   installedAt: string;
   updatedAt: string;
   packageSha256?: string;
@@ -293,13 +336,50 @@ export interface PluginViewportBounds {
   height: number;
 }
 
+export interface PluginPermissionCopy {
+  permission: PluginPermission;
+  title: string;
+  description: string;
+  tier: 'default' | 'elevated' | 'builtin';
+}
+
+export interface PluginContributionsSummary {
+  pages: PluginPageDescriptor[];
+  widgets: Array<{ pluginId: string; contribution: PluginWidgetContribution }>;
+  commands: Array<{ pluginId: string; contribution: PluginCommandContribution }>;
+  menus: Array<{ pluginId: string; contribution: PluginMenuContribution }>;
+  shortcuts: Array<{ pluginId: string; contribution: PluginShortcutContribution }>;
+  backgroundTasks: Array<{ pluginId: string; contribution: PluginBackgroundTaskContribution }>;
+}
+
+export interface PluginAuditEvent {
+  pluginId: string;
+  runtime: PluginRuntimeKind;
+  operation: string;
+  result: 'allowed' | 'denied';
+  at?: string;
+}
+
 export interface PluginHostApi {
   getHostSummary: () => Promise<PluginHostSummary>;
   listPlugins: () => Promise<InstalledPluginRecord[]>;
   listPages: () => Promise<PluginPageDescriptor[]>;
+  listContributions: () => Promise<PluginContributionsSummary>;
   listPluginJobs: (pluginId: string) => Promise<import('./plugin_media').JobRecord[]>;
-  installPluginFromPackage: (packageName: string) => Promise<InstalledPluginRecord>;
-  registerLocalPlugin: (inputPath: string) => Promise<InstalledPluginRecord>;
+  listAuditEvents: (pluginId?: string) => Promise<PluginAuditEvent[]>;
+  getPermissionCopy: () => Promise<PluginPermissionCopy[]>;
+  getPluginDebugInfo: (pluginId: string) => Promise<{
+    record: InstalledPluginRecord;
+    audit: PluginAuditEvent[];
+    contributions: PluginContributionsSummary;
+    capabilities: Array<{ pluginId: string; id: string; qualifiedId: string; kind: string; operations: string[] }>;
+    consecutiveStartFailures: number;
+  }>;
+  getPluginSettings: (pluginId: string) => Promise<Record<string, unknown>>;
+  setPluginSetting: (pluginId: string, key: string, value: unknown) => Promise<void>;
+  installPluginFromPackage: (packageName: string, approvedPermissions?: PluginPermission[]) => Promise<InstalledPluginRecord>;
+  registerLocalPlugin: (inputPath: string, approvedPermissions?: PluginPermission[]) => Promise<InstalledPluginRecord>;
+  approvePermissions: (pluginId: string, approvedPermissions: PluginPermission[]) => Promise<InstalledPluginRecord>;
   enablePlugin: (pluginId: string) => Promise<InstalledPluginRecord>;
   disablePlugin: (pluginId: string) => Promise<InstalledPluginRecord>;
   mountPage: (pluginId: string, pageId: string, bounds: PluginViewportBounds) => Promise<void>;
@@ -309,9 +389,9 @@ export interface PluginHostApi {
   refreshMarketplace: (input: { id: string; url: string; ref: string }) => Promise<MarketplaceCacheRecord>;
   searchMarketplace: (query: string) => Promise<MarketplacePluginSummary[]>;
   onInstallProgress: (listener: (progress: PluginInstallProgress) => void) => () => void;
-  installFromGit: (input: { url: string; ref: string; refType: 'branch' | 'tag' | 'commit'; expected?: Pick<MarketplacePluginSummary, 'id' | 'version' | 'resolvedCommit'> }) => Promise<InstalledPluginRecord>;
+  installFromGit: (input: { url: string; ref: string; refType: 'branch' | 'tag' | 'commit'; expected?: Pick<MarketplacePluginSummary, 'id' | 'version' | 'resolvedCommit'>; approvedPermissions?: PluginPermission[] }) => Promise<InstalledPluginRecord>;
   installFromMarketplace: (marketplaceId: string, pluginId: string, approvedPermissions: PluginPermission[]) => Promise<InstalledPluginRecord>;
-  updatePlugin: (pluginId: string) => Promise<InstalledPluginRecord>;
+  updatePlugin: (pluginId: string, approvedPermissions?: PluginPermission[]) => Promise<InstalledPluginRecord>;
   rollbackPlugin: (pluginId: string) => Promise<InstalledPluginRecord>;
   uninstallPlugin: (pluginId: string) => Promise<void>;
   listDevSessions: () => Promise<PluginDevSession[]>;
@@ -336,9 +416,6 @@ export interface PluginRuntimeApi {
   storage: PluginRuntimeStorageApi;
   navigation: {
     openRoute: (route: string) => Promise<void>;
-  };
-  commands: {
-    execute: (commandId: string, payload?: unknown) => Promise<{ accepted: boolean }>;
   };
   ui: {
     getPages: () => Promise<PluginPageDescriptor[]>;
@@ -373,6 +450,16 @@ export interface PluginRuntimeApi {
     update: (id: string, input: unknown) => Promise<import('./plugin_media').JobRecord>;
     cancel: (id: string) => Promise<import('./plugin_media').JobRecord>;
     retry: (sourceId: string) => Promise<import('./plugin_media').JobRecord>;
+    onEvent: (listener: (job: import('./plugin_media').JobRecord) => void) => () => void;
+  };
+  capabilities: {
+    list: () => Promise<Array<{ pluginId: string; id: string; qualifiedId: string; kind: string; operations: string[]; match?: { hosts?: string[]; schemes?: string[]; mimeTypes?: string[] } }>>;
+    resolveByUrl: (url: string) => Promise<Array<{ pluginId: string; id: string; qualifiedId: string; kind: string; operations: string[] }>>;
+    invoke: (input: { capabilityId: string; operation: string; payload?: unknown }) => Promise<unknown>;
+  };
+  commands: {
+    execute: (commandId: string, payload?: unknown) => Promise<{ accepted: boolean; result?: unknown }>;
+    register: (commandId: string) => Promise<void>;
   };
   media: {
     probe: (grantId: string, targetPath: string) => Promise<import('./plugin_media').MediaProbe>;

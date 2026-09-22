@@ -54,7 +54,7 @@ function handleChange(event: Event): void {
     :size="props.size"
     :placeholder="props.placeholder"
     :animation="props.animation"
-    :close-on-outside="props.closeOnOutside"
+    :closeOnOutside="props.closeOnOutside"
     :id="props.id || undefined"
     v-bind="$attrs"
     @gt-change="handleChange"

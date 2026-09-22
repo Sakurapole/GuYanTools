@@ -1,6 +1,7 @@
 import crypto from 'node:crypto';
 import { EventEmitter } from 'node:events';
 import type { JobRecord } from '@/contracts/plugin_media';
+import { PluginApiError } from '../plugin_api_error';
 
 type JobStore = {
   createPluginJob(input: unknown): Promise<unknown>;
@@ -13,7 +14,9 @@ type JobStore = {
 export class JobService {
   private readonly events = new EventEmitter();
 
-  constructor(private readonly db: JobStore) {}
+  constructor(private readonly db: JobStore) {
+    this.events.setMaxListeners(50);
+  }
 
   async create(pluginId: string, kind: string, input: unknown, parentJobId?: string) {
     const job = await this.db.createPluginJob({ id: crypto.randomUUID(), pluginId, kind, inputJson: JSON.stringify(input), parentJobId }) as JobRecord;
@@ -34,7 +37,8 @@ export class JobService {
 
   async get(pluginId: string, id: string) {
     const job = await this.db.getPluginJob(id) as JobRecord | null;
-    if (!job || job.pluginId !== pluginId) throw new Error('PLUGIN_JOB_OWNER_MISMATCH');
+    if (!job) throw new PluginApiError('JOB_NOT_FOUND', `PLUGIN_JOB_NOT_FOUND: ${id}`);
+    if (job.pluginId !== pluginId) throw new PluginApiError('OWNER_MISMATCH', 'PLUGIN_JOB_OWNER_MISMATCH');
     return job;
   }
 
@@ -52,6 +56,10 @@ export class JobService {
   onEvent(pluginId: string, listener: (job: JobRecord) => void) {
     this.events.on(pluginId, listener);
     return () => this.events.off(pluginId, listener);
+  }
+
+  offPlugin(pluginId: string) {
+    this.events.removeAllListeners(pluginId);
   }
 
   async recoverRunning(pluginId: string) {

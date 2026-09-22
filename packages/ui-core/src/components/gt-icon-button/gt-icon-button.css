@@ -50,7 +50,9 @@ button {
 :host([variant="secondary"]:hover:not([disabled])), :host([variant="secondary"][active]) { background: var(--ui-icon-button-secondary-hover-bg, var(--gt-color-overlay)); border-color: var(--ui-icon-button-secondary-hover-border, var(--gt-color-border)); }
 :host([variant="primary"]:hover:not([disabled])) { background: var(--ui-button-primary-hover-bg, var(--gt-color-primary-hover)); }
 :host([variant="danger"]:hover:not([disabled])), :host([variant="danger"][active]) { background: var(--ui-icon-button-danger-hover-bg, var(--gt-color-overlay)); color: var(--ui-icon-button-danger-hover-text, var(--gt-color-danger)); }
-:host(:focus-within) { box-shadow: var(--ui-focus-ring, var(--gt-focus-ring)); }
+/* 仅键盘焦点显示环；鼠标点击后的 focus-within 会残留边框 */
+:host(:has(button:focus-visible)) { box-shadow: var(--ui-focus-ring, var(--gt-focus-ring)); }
+button:focus { outline: none; }
 button:focus-visible { outline: none; box-shadow: none; }
 button:disabled { cursor: inherit; }
 :host([disabled]) { cursor: not-allowed; opacity: 0.5; transform: none; box-shadow: none; }

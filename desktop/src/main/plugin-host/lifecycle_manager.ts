@@ -1,12 +1,23 @@
 import fs from 'fs-extra';
 import path from 'path';
-import type { InstalledPluginRecord, MarketplacePluginSummary, PluginInstallProgress, PluginPermission } from '@/contracts/plugin_host';
+import type {
+  InstalledPluginRecord,
+  MarketplacePluginSummary,
+  PluginInstallProgress,
+  PluginPermission,
+} from '@/contracts/plugin_host';
 import PluginManager from '../../core/plugin_core/plugin_manager';
 import { PluginManifestResolver } from './manifest_resolver';
 import { PluginPermissionManager } from './permission_manager';
 import { PluginRegistry } from './plugin_registry';
 import { GitPluginInstaller } from './git_installer';
 import { PluginPaths } from './plugin_paths';
+import { diffPermissionSets } from './permission_matrix';
+import {
+  evaluatePackageSignaturePolicy,
+  readPackageSignature,
+  type SignaturePolicy,
+} from './plugin_signature';
 
 function nowIso() {
   return new Date().toISOString();
@@ -20,6 +31,10 @@ export interface GitPluginInstallInput {
   refType: 'branch' | 'tag' | 'commit';
   expected?: Pick<MarketplacePluginSummary, 'id' | 'version' | 'resolvedCommit' | 'permissions' | 'capabilities'>;
   marketplaceId?: string;
+  approvedPermissions?: PluginPermission[];
+}
+
+export interface LocalPluginInstallInput {
   approvedPermissions?: PluginPermission[];
 }
 
@@ -47,6 +62,10 @@ export function validateMarketplaceSummary(
   }
 }
 
+/**
+ * Install lifecycle never auto-approves permissions.
+ * Callers must pass an explicit approved list (possibly empty pending user confirmation).
+ */
 export class PluginLifecycleManager {
   constructor(
     private readonly registry: PluginRegistry,
@@ -56,15 +75,21 @@ export class PluginLifecycleManager {
     private readonly pluginBaseDir: string,
     private readonly pluginPaths = new PluginPaths(path.dirname(pluginBaseDir)),
     private readonly gitInstaller = new GitPluginInstaller(),
+    private readonly signaturePolicy: () => SignaturePolicy = () => 'warn',
   ) {}
 
-  async installFromPackage(packageName: string): Promise<InstalledPluginRecord> {
+  async installFromPackage(
+    packageName: string,
+    input: LocalPluginInstallInput = {},
+  ): Promise<InstalledPluginRecord> {
     await this.pluginManager.install([packageName], { isDev: false });
 
     const packageDir = path.join(this.pluginBaseDir, 'node_modules', packageName);
     const { manifest, resolvedEntryPaths } = await this.manifestResolver.resolveFromDirectory(packageDir);
     this.permissionManager.validateManifest(manifest);
     this.permissionManager.validateCompatibility(manifest);
+    const approvedPermissions = input.approvedPermissions ?? [];
+    this.permissionManager.validateApprovedPermissions(manifest, approvedPermissions);
 
     const record: InstalledPluginRecord = {
       manifest,
@@ -72,7 +97,7 @@ export class PluginLifecycleManager {
       status: 'resolved',
       installSource: { type: 'npm', value: packageName },
       resolvedEntryPaths,
-      approvedPermissions: manifest.permissions,
+      approvedPermissions,
       packageName,
       installedAt: nowIso(),
       updatedAt: nowIso(),
@@ -81,7 +106,10 @@ export class PluginLifecycleManager {
     return this.registry.upsert(record);
   }
 
-  async registerLocalPlugin(inputPath: string): Promise<InstalledPluginRecord> {
+  async registerLocalPlugin(
+    inputPath: string,
+    input: LocalPluginInstallInput = {},
+  ): Promise<InstalledPluginRecord> {
     const normalizedPath = path.resolve(inputPath);
     if (!await fs.pathExists(normalizedPath)) {
       throw new Error(`Plugin path not found: ${normalizedPath}`);
@@ -90,6 +118,8 @@ export class PluginLifecycleManager {
     const { manifest, resolvedEntryPaths } = await this.manifestResolver.resolveFromPath(normalizedPath);
     this.permissionManager.validateManifest(manifest);
     this.permissionManager.validateCompatibility(manifest);
+    const approvedPermissions = input.approvedPermissions ?? [];
+    this.permissionManager.validateApprovedPermissions(manifest, approvedPermissions);
 
     const record: InstalledPluginRecord = {
       manifest,
@@ -97,13 +127,35 @@ export class PluginLifecycleManager {
       status: 'resolved',
       installSource: { type: 'local', value: normalizedPath },
       resolvedEntryPaths,
-      approvedPermissions: manifest.permissions,
+      approvedPermissions,
       localPath: normalizedPath,
       installedAt: nowIso(),
       updatedAt: nowIso(),
     };
 
     return this.registry.upsert(record);
+  }
+
+  async approvePermissions(pluginId: string, approvedPermissions: PluginPermission[]) {
+    const current = this.registry.get(pluginId);
+    if (!current) {
+      throw new Error(`Plugin ${pluginId} is not registered`);
+    }
+    this.permissionManager.validateManifest(current.manifest);
+    this.permissionManager.validateCompatibility(current.manifest);
+    this.permissionManager.validateApprovedPermissions(current.manifest, approvedPermissions);
+    return this.registry.upsert({
+      ...current,
+      approvedPermissions: [...approvedPermissions],
+      status: current.enabled ? 'enabled' : 'resolved',
+    });
+  }
+
+  /** Permissions newly declared by an update that are not yet approved. */
+  getPendingPermissionDiff(pluginId: string): PluginPermission[] {
+    const current = this.registry.get(pluginId);
+    if (!current) return [];
+    return diffPermissionSets(current.manifest.permissions, current.approvedPermissions);
   }
 
   async installFromGit(
@@ -119,7 +171,10 @@ export class PluginLifecycleManager {
       this.permissionManager.validateManifest(manifest);
       this.permissionManager.validateCompatibility(manifest);
       validateMarketplaceSummary(manifest, result.resolvedCommit, input.expected);
-      const approvedPermissions = input.approvedPermissions ?? manifest.permissions;
+      const signature = await readPackageSignature(tempDir);
+      const signatureResult = evaluatePackageSignaturePolicy(this.signaturePolicy(), signature, result.packageSha256);
+      // Explicit empty default: never auto-approve.
+      const approvedPermissions = input.approvedPermissions ?? [];
       this.permissionManager.validateApprovedPermissions(manifest, approvedPermissions);
       const versionPath = this.pluginPaths.packageVersion(manifest.id, result.resolvedCommit);
       await fs.ensureDir(path.dirname(versionPath));
@@ -141,6 +196,8 @@ export class PluginLifecycleManager {
         resolvedEntryPaths: activatedManifest.resolvedEntryPaths,
         approvedPermissions,
         packageSha256: result.packageSha256,
+        signatureVerified: signatureResult.verified,
+        signatureWarning: signatureResult.warning,
         installedAt: timestamp,
         updatedAt: timestamp,
       });
@@ -151,12 +208,18 @@ export class PluginLifecycleManager {
     }
   }
 
-  async update(pluginId: string, reportProgress?: PluginInstallProgressReporter) {
+  async update(pluginId: string, reportProgress?: PluginInstallProgressReporter, approvedPermissions?: PluginPermission[]) {
     const current = this.registry.get(pluginId);
     if (!current || current.installSource.type !== 'git' || !current.installSource.url || !current.installSource.ref || !current.installSource.refType) {
       throw new Error(`Plugin ${pluginId} is not a Git installation`);
     }
-    return this.installFromGit({ url: current.installSource.url, ref: current.installSource.ref, refType: current.installSource.refType }, reportProgress);
+    return this.installFromGit({
+      url: current.installSource.url,
+      ref: current.installSource.ref,
+      refType: current.installSource.refType,
+      // Preserve previously approved set only; new permissions require re-approval.
+      approvedPermissions: approvedPermissions ?? current.approvedPermissions,
+    }, reportProgress);
   }
 
   async rollback(pluginId: string) {
@@ -184,6 +247,8 @@ export class PluginLifecycleManager {
     this.permissionManager.validateManifest(current.manifest);
     this.permissionManager.validateCompatibility(current.manifest);
     this.permissionManager.validateApprovedPermissions(current.manifest, current.approvedPermissions);
+
+    // Partial approval is allowed: unapproved permissions are denied at IPC time.
     return this.registry.updateStatus(pluginId, 'enabled', true, undefined);
   }
 

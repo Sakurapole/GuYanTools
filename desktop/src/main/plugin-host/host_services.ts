@@ -9,8 +9,12 @@ import { FileGrantService } from './services/file_grant_service';
 import { DownloadsService } from './services/downloads_service';
 import { MediaService } from './services/media_service';
 import { SecretService } from './services/secret_service';
-import { redactPluginLogMeta, validatePluginCommand } from './security_guards';
+import { redactPluginLogMeta } from './security_guards';
 import { AndroidHostService } from './android_service';
+import { PluginQuotaService } from './quota';
+import { PluginCommandRouter } from './command_router';
+import { CapabilityRouter } from './capability_router';
+import { PluginApiError } from './plugin_api_error';
 
 class WorkspaceService {
   getCurrentWorkspace() {
@@ -32,10 +36,6 @@ class DataService {
       'homeLayout.read',
       'homeLayout.write',
     ];
-  }
-
-  getDatabase() {
-    return dbManager.getDatabase();
   }
 }
 
@@ -86,19 +86,19 @@ class NavigationService {
 }
 
 class CommandService {
+  constructor(private readonly router: PluginCommandRouter) {}
+
   async executeHost(commandId: string, payload?: unknown) {
     console.log('[host-command]', commandId, redactPluginLogMeta(payload));
     return { accepted: true };
   }
 
   async execute(pluginId: string, commandId: string, payload?: unknown) {
-    validatePluginCommand(pluginId, commandId);
-    console.log('[plugin-command]', pluginId, commandId, redactPluginLogMeta(payload));
-    return { accepted: true };
+    return this.router.execute(pluginId, commandId, payload);
   }
 
   getCapabilities(): PluginCapabilitySummary['commands'] {
-    return ['execute'];
+    return ['execute', 'register'];
   }
 }
 
@@ -157,7 +157,10 @@ export class HostServiceRegistry {
   readonly data = new DataService();
   readonly storage: StorageService;
   readonly navigation = new NavigationService();
-  readonly commands = new CommandService();
+  readonly quota = new PluginQuotaService();
+  readonly commandRouter = new PluginCommandRouter();
+  readonly commands: CommandService;
+  readonly capabilities = new CapabilityRouter();
   readonly ui = new UiService();
   readonly system = new SystemService();
   readonly observability = new ObservabilityService();
@@ -172,11 +175,18 @@ export class HostServiceRegistry {
   constructor(pluginDataRoot = path.join(process.cwd(), 'guyantools-plugin-data')) {
     this.pluginDataRoot = pluginDataRoot;
     this.storage = new StorageService();
+    this.commands = new CommandService(this.commandRouter);
     this.android = new AndroidHostService();
     this.secrets = new SecretService(() => dbManager.getDatabase() as any);
-    this.network = new NetworkService((pluginId, key) => this.secrets.get(pluginId, key));
+    this.network = new NetworkService((pluginId, key) => this.secrets.get(pluginId, key), undefined, this.quota);
     this.downloads = new DownloadsService(this.network, this.files);
     this.media = new MediaService(this.files, undefined, undefined, (pluginId, key) => this.secrets.get(pluginId, key));
+  }
+
+  resetPluginQuota(pluginId: string) {
+    this.quota.resetPlugin(pluginId);
+    this.commandRouter.unregisterPlugin(pluginId);
+    this.capabilities.unregister(pluginId);
   }
 
   async createPluginDataGrant(pluginId: string, accessMode: 'read' | 'write' | 'read-write' = 'read-write') {
@@ -251,7 +261,7 @@ export class HostServiceRegistry {
       observability: this.observability.getCapabilities(),
       network: ['network.fetch'],
       downloads: ['downloads.direct'],
-      jobs: ['jobs.create', 'jobs.list', 'jobs.update'],
+      jobs: ['jobs.create', 'jobs.list', 'jobs.update', 'jobs.onEvent'],
       files: ['files.createGrant', 'files.read', 'files.write', 'files.revoke'],
       media: ['media.probe', 'media.transcode', 'media.preview', 'media.writeTags'],
       secrets: ['secrets.get', 'secrets.set', 'secrets.delete'],
@@ -259,3 +269,5 @@ export class HostServiceRegistry {
     };
   }
 }
+
+export { PluginApiError };

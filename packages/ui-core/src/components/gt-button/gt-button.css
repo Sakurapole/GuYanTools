@@ -95,7 +95,8 @@ button {
   --gt-button-shadow: none;
 }
 
-:host(:focus-within) { box-shadow: var(--ui-focus-ring, var(--gt-focus-ring)); }
+/* 仅键盘焦点显示环；鼠标点击后的 focus-within 会残留边框 */
+:host(:has(button:focus-visible)) { box-shadow: var(--ui-focus-ring, var(--gt-focus-ring)); }
 :host([variant="primary"]:hover:not([disabled])) { background: var(--ui-button-primary-hover-bg, var(--gt-color-primary-hover)); }
 :host([variant="secondary"]:hover:not([disabled])), :host([variant="secondary"][active]) { background: var(--ui-button-secondary-hover-bg, var(--gt-color-surface-muted)); border-color: var(--ui-button-secondary-hover-border, var(--gt-color-border)); }
 :host([variant="ghost"]:hover:not([disabled])), :host([variant="ghost"][active]) { background: var(--ui-button-ghost-hover-bg, var(--gt-color-overlay)); color: var(--ui-button-ghost-hover-text, var(--gt-color-text)); }
@@ -103,6 +104,10 @@ button {
 
 :host([block]) button {
   width: 100%;
+}
+
+button:focus {
+  outline: none;
 }
 
 button:focus-visible {

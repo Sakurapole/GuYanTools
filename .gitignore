@@ -133,3 +133,7 @@ pids/
 # Temporary files
 *.tmp
 *.temp
+
+# Accidental Windows path-expansion junk
+desktop/%SystemDrive%/
+%SystemDrive%/

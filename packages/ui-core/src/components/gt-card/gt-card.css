@@ -24,7 +24,7 @@ article { position: relative; display: flex; flex-direction: column; min-height:
 :host([hoverable]), :host([interactive]) { transition: transform var(--gt-motion-normal) var(--gt-motion-ease), box-shadow var(--gt-motion-normal) var(--gt-motion-ease); }
 :host([interactive]) { cursor: pointer; }
 :host([hoverable]):hover, :host([interactive]):hover { transform: translateY(-1px); box-shadow: var(--ui-card-shadow-hover, var(--gt-shadow-md)); }
-:host([interactive]):focus-within { box-shadow: var(--gt-focus-ring), var(--ui-card-shadow-hover, var(--gt-shadow-md)); }
+:host([interactive]):has(:focus-visible) { box-shadow: var(--gt-focus-ring), var(--ui-card-shadow-hover, var(--gt-shadow-md)); }
 .section { flex: 0 0 auto; padding: var(--ui-card-padding-md, var(--gt-space-lg)); }
 :host([padding="none"]) .section { padding: 0; }
 :host([padding="sm"]) .section { padding: var(--ui-card-padding-sm, var(--gt-space-sm)); }

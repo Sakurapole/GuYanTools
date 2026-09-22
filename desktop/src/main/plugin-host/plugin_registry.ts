@@ -62,6 +62,9 @@ function serializeRecord(record: InstalledPluginRecord): string {
     packageName: record.packageName ?? null,
     localPath: record.localPath ?? null,
     error: record.error ?? null,
+    consecutiveStartFailures: record.consecutiveStartFailures ?? 0,
+    signatureVerified: record.signatureVerified ?? false,
+    signatureWarning: record.signatureWarning ?? null,
     installedAt: record.installedAt,
     updatedAt: record.updatedAt,
     packageSha256: record.packageSha256 ?? null,
@@ -191,6 +194,24 @@ export class PluginRegistry {
       ...current,
       status,
       enabled: typeof enabled === 'boolean' ? enabled : current.enabled,
+      error,
+      updatedAt: nowIso(),
+    };
+
+    this.records.set(pluginId, next);
+    await this.persistRecord(next);
+    return next;
+  }
+
+  async updateStartFailures(pluginId: string, consecutiveStartFailures: number, error?: string) {
+    const current = this.records.get(pluginId);
+    if (!current) {
+      throw new Error(`Plugin ${pluginId} is not registered`);
+    }
+
+    const next: InstalledPluginRecord = {
+      ...current,
+      consecutiveStartFailures,
       error,
       updatedAt: nowIso(),
     };

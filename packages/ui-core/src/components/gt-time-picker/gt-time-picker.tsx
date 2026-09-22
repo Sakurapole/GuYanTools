@@ -1,6 +1,7 @@
 import { Component, Element, Event, h, Host, Prop, State, Watch, type EventEmitter } from '@stencil/core';
 
 import { OverlayPortal } from '../../utils/overlay-controller';
+import { isEventOutside } from '../../utils/outside-click';
 
 export interface GtTimeChangeDetail { value: string; }
 
@@ -25,6 +26,7 @@ export class GtTimePicker {
   componentDidLoad(): void {
     this.bindTrigger();
     document.addEventListener('mousedown', this.handleOutside, true);
+    document.addEventListener('pointerdown', this.handleOutside, true);
   }
 
   componentDidRender(): void { this.bindTrigger(); }
@@ -32,6 +34,7 @@ export class GtTimePicker {
   disconnectedCallback(): void {
     this.boundTriggerElement?.removeEventListener('keydown', this.handleKeydown);
     document.removeEventListener('mousedown', this.handleOutside, true);
+    document.removeEventListener('pointerdown', this.handleOutside, true);
     this.close(false);
   }
 
@@ -82,11 +85,10 @@ export class GtTimePicker {
     }
   };
 
-  private handleOutside = (event: MouseEvent): void => {
-    if (!this.isOpen || !this.closeOnOutside) return;
-    const target = event.target as Node | null;
+  private handleOutside = (event: Event): void => {
+    if ((!this.isOpen && !this.portal) || !this.closeOnOutside) return;
     const panel = this.portal?.element.querySelector<HTMLElement>('[part="panel"]');
-    if (target && (this.host.contains(target) || panel?.contains(target))) return;
+    if (!isEventOutside(event, [this.host, panel])) return;
     this.close(false);
   };
 

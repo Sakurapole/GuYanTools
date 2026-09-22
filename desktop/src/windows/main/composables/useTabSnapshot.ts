@@ -2,19 +2,35 @@ import { reactive } from 'vue';
 
 /**
  * 全局页面快照缓存
- * 在路由切换时自动截图并缓存，供 TabPreview 读取
+ * 路由切换后通过 Electron capturePage 生成缩略图，供 TabPreview 读取。
+ * 不可用 html2canvas：它会在 renderer 主线程遍历整页 DOM，首页含背景
+ * 视频/base64 图/多 widget 时会长时间阻塞交互（点击无响应）。
  */
 const snapshots = reactive<Record<string, string>>({});
+const capturedAt = new Map<string, number>();
 let isCapturing = false;
 let scheduledSnapshotTimer: number | undefined;
 let scheduledSnapshotRoutePath = '';
+let scheduledSnapshotForce = false;
 let interactionUntil = 0;
 let interactionListenersInstalled = false;
+
+const SNAPSHOT_TTL_MS = 30_000;
+const MAX_SNAPSHOT_ENTRIES = 8;
 
 function isRenderBusy() {
   const root = document.documentElement;
   return root.classList.contains('theme-transitioning')
     || root.classList.contains('app-rendering-busy');
+}
+
+function installInteractionPause() {
+  if (interactionListenersInstalled) return;
+  interactionListenersInstalled = true;
+  const pause = () => { interactionUntil = Date.now() + 800; };
+  window.addEventListener('pointerdown', pause, { passive: true });
+  window.addEventListener('keydown', pause, { passive: true });
+  window.addEventListener('wheel', pause, { passive: true });
 }
 
 function requestIdleTask(callback: () => void) {
@@ -30,69 +46,51 @@ function requestIdleTask(callback: () => void) {
 
   requestIdleCallback((deadline) => {
     if (interactionUntil > Date.now() || deadline.timeRemaining() < 8) {
-      schedulePageSnapshot(scheduledSnapshotRoutePath, 1200);
+      schedulePageSnapshot(scheduledSnapshotRoutePath, 1200, scheduledSnapshotForce);
       return;
     }
     callback();
-  }, { timeout: 5000 });
+  }, { timeout: 3000 });
 }
 
-function installInteractionPause() {
-  if (interactionListenersInstalled) return;
-  interactionListenersInstalled = true;
-  const pause = () => { interactionUntil = Date.now() + 1200; };
-  window.addEventListener('pointerdown', pause, { passive: true });
-  window.addEventListener('keydown', pause, { passive: true });
-  window.addEventListener('wheel', pause, { passive: true });
-}
+function pruneSnapshots() {
+  const keys = Object.keys(snapshots);
+  if (keys.length <= MAX_SNAPSHOT_ENTRIES) return;
 
-function canvasToDataUrl(canvas: HTMLCanvasElement) {
-  return new Promise<string>((resolve, reject) => {
-    canvas.toBlob((blob) => {
-      if (!blob) {
-        reject(new Error('页面快照编码失败'));
-        return;
-      }
-
-      const reader = new FileReader();
-      reader.onload = () => resolve(String(reader.result));
-      reader.onerror = () => reject(reader.error ?? new Error('页面快照读取失败'));
-      reader.readAsDataURL(blob);
-    }, 'image/jpeg', 0.55);
-  });
+  const sorted = keys
+    .map(key => ({ key, at: capturedAt.get(key) ?? 0 }))
+    .sort((a, b) => a.at - b.at);
+  const dropCount = keys.length - MAX_SNAPSHOT_ENTRIES;
+  for (let i = 0; i < dropCount; i += 1) {
+    const key = sorted[i]?.key;
+    if (!key) continue;
+    delete snapshots[key];
+    capturedAt.delete(key);
+  }
 }
 
 /**
- * 对当前页面内容区域截图，并缓存到指定路由路径下
+ * 对当前窗口截图，并缓存到指定路由路径下
  */
-export async function capturePageSnapshot(routePath: string): Promise<void> {
+export async function capturePageSnapshot(routePath: string, options: { force?: boolean } = {}): Promise<void> {
+  if (!routePath || routePath === '/') return;
   if (isCapturing) return;
   if (isRenderBusy()) return;
   if (interactionUntil > Date.now()) return;
 
-  const pageContainer = document.querySelector('.page-container');
-  if (!pageContainer) return;
+  const lastCapturedAt = capturedAt.get(routePath) ?? 0;
+  if (!options.force && snapshots[routePath] && Date.now() - lastCapturedAt < SNAPSHOT_TTL_MS) {
+    return;
+  }
 
   isCapturing = true;
   try {
-    // 快照是低优先级的预览能力，按需加载截图库，避免阻塞首屏 renderer 初始化。
-    const html2canvasModule = await import('html2canvas-pro');
-    const html2canvas = ('default' in html2canvasModule
-      ? html2canvasModule.default
-      : html2canvasModule) as typeof import('html2canvas-pro').default;
-    const canvas = await html2canvas(pageContainer as HTMLElement, {
-      scale: 0.25,
-      useCORS: true,
-      allowTaint: true,
-      backgroundColor: null,
-      logging: false,
-      width: pageContainer.clientWidth,
-      height: pageContainer.clientHeight,
-      windowWidth: pageContainer.clientWidth,
-      windowHeight: pageContainer.clientHeight,
-    });
-
-    snapshots[routePath] = await canvasToDataUrl(canvas);
+    const dataUrl = await window.tabPreviewApi?.captureWindow();
+    if (dataUrl) {
+      snapshots[routePath] = dataUrl;
+      capturedAt.set(routePath, Date.now());
+      pruneSnapshots();
+    }
   } catch (err) {
     console.warn('[useTabSnapshot] 截图失败:', err);
   } finally {
@@ -100,17 +98,20 @@ export async function capturePageSnapshot(routePath: string): Promise<void> {
   }
 }
 
-export function schedulePageSnapshot(routePath: string, delay = 650): void {
+export function schedulePageSnapshot(routePath: string, delay = 650, force = false): void {
   if (!routePath || routePath === '/') return;
   installInteractionPause();
 
   scheduledSnapshotRoutePath = routePath;
+  scheduledSnapshotForce = force;
   window.clearTimeout(scheduledSnapshotTimer);
   scheduledSnapshotTimer = window.setTimeout(() => {
     requestIdleTask(() => {
       const targetRoute = scheduledSnapshotRoutePath;
+      const shouldForce = scheduledSnapshotForce;
       scheduledSnapshotRoutePath = '';
-      void capturePageSnapshot(targetRoute);
+      scheduledSnapshotForce = false;
+      void capturePageSnapshot(targetRoute, { force: shouldForce });
     });
   }, delay);
 }

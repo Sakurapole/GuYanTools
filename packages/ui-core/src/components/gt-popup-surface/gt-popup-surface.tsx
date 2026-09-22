@@ -1,6 +1,7 @@
 import { Component, Element, Event, h, Host, Prop, Watch, type EventEmitter } from '@stencil/core';
 
 import { OverlayPortal } from '../../utils/overlay-controller';
+import { isEventOutside } from '../../utils/outside-click';
 
 export type GtPopupVariant = 'dialog' | 'drawer' | 'floating';
 export type GtPopupPlacement = 'center' | 'left' | 'right' | 'top' | 'bottom';
@@ -167,11 +168,10 @@ export class GtPopupSurface {
     }
   };
 
-  private handleOutside = (event: PointerEvent): void => {
+  private handleOutside = (event: Event): void => {
     if (!this.modelValue || this.hasOverlay() || !this.closeOnOutside) return;
-    const target = event.target as Node | null;
     const panel = this.panel();
-    if (target && panel?.contains(target)) return;
+    if (!isEventOutside(event, [this.host, panel])) return;
     this.outsideClick.emit();
     this.close('outside');
   };

@@ -111,7 +111,7 @@ onBeforeUnmount(() => {
           :model-value="hasChildren(item) && openSubmenuId === item.id"
           variant="floating"
           :overlay="false"
-          :close-on-outside="false"
+          :closeOnOutside="false"
           :close-on-esc="false"
           :panel-style="submenuStyle[item.id]"
           z-index="var(--ui-z-toast)"

@@ -36,5 +36,5 @@ function handleChange(event: Event): void {
 </script>
 
 <template>
-  <gt-date-time-picker :value="props.modelValue" :placeholder="props.placeholder" :date-placeholder="props.datePlaceholder" :time-placeholder="props.timePlaceholder" :disabled="props.disabled" :size="props.size" :mode="props.mode" :value-format="props.valueFormat" :value-type="props.valueType" :minute-step="props.minuteStep" :clearable="props.clearable" :close-on-outside="props.closeOnOutside" v-bind="$attrs" @gt-change="handleChange" />
+  <gt-date-time-picker :value="props.modelValue" :placeholder="props.placeholder" :date-placeholder="props.datePlaceholder" :time-placeholder="props.timePlaceholder" :disabled="props.disabled" :size="props.size" :mode="props.mode" :value-format="props.valueFormat" :value-type="props.valueType" :minute-step="props.minuteStep" :clearable="props.clearable" :closeOnOutside="props.closeOnOutside" v-bind="$attrs" @gt-change="handleChange" />
 </template>

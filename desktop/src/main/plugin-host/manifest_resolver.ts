@@ -152,6 +152,47 @@ export function validatePluginManifest(input: unknown): asserts input is PluginM
   if (!['ui', 'worker', 'hybrid'].includes(manifest.runtime ?? '')) {
     fail('PLUGIN_RUNTIME_INVALID', 'runtime must be ui, worker, or hybrid');
   }
+
+  if (manifest.settings !== undefined) {
+    if (!manifest.settings || typeof manifest.settings !== 'object' || Array.isArray(manifest.settings)) {
+      fail('PLUGIN_SETTINGS_INVALID', 'settings must be an object schema map');
+    }
+    for (const [key, schema] of Object.entries(manifest.settings)) {
+      if (!/^[a-zA-Z][a-zA-Z0-9._-]*$/.test(key)) {
+        fail('PLUGIN_SETTINGS_INVALID', `settings key is invalid: ${key}`);
+      }
+      if (!schema || typeof schema !== 'object') {
+        fail('PLUGIN_SETTINGS_INVALID', `settings.${key} must be an object`);
+      }
+      if (!['string', 'number', 'boolean', 'select'].includes(schema.type)) {
+        fail('PLUGIN_SETTINGS_INVALID', `settings.${key}.type is invalid`);
+      }
+      if (typeof schema.title !== 'string' || schema.title.length === 0) {
+        fail('PLUGIN_SETTINGS_INVALID', `settings.${key}.title is required`);
+      }
+      if (schema.type === 'select' && (!Array.isArray(schema.options) || schema.options.length === 0)) {
+        fail('PLUGIN_SETTINGS_INVALID', `settings.${key}.options is required for select`);
+      }
+    }
+  }
+
+  if (manifest.workerRuntime !== undefined && !['browser', 'utility'].includes(manifest.workerRuntime)) {
+    fail('PLUGIN_RUNTIME_INVALID', 'workerRuntime must be browser or utility');
+  }
+
+  if (manifest.dependencies !== undefined) {
+    if (!Array.isArray(manifest.dependencies)) {
+      fail('PLUGIN_DEPENDENCY_INVALID', 'dependencies must be an array');
+    }
+    for (const dependency of manifest.dependencies) {
+      if (!dependency || typeof dependency !== 'object') {
+        fail('PLUGIN_DEPENDENCY_INVALID', 'dependency must be an object');
+      }
+      if (typeof dependency.capability !== 'string' || !/^[a-z0-9][a-z0-9.-]*$/i.test(dependency.capability)) {
+        fail('PLUGIN_DEPENDENCY_INVALID', 'dependency.capability is invalid');
+      }
+    }
+  }
 }
 
 function normalizeEntry(input: Partial<PluginManifest> & { entry?: string | PluginManifest['entry'] }, packageJson?: PackageJsonLike): PluginManifest['entry'] {
@@ -181,10 +222,13 @@ function toManifestShape(input: Partial<PluginManifest> & { entry?: string | Plu
     hostVersionRange: input.hostVersionRange ?? DEFAULT_HOST_VERSION_RANGE,
     trustLevel: (input.trustLevel ?? 'sandboxed') as PluginTrustLevel,
     runtime: (input.runtime ?? 'ui') as PluginRuntimeKind,
+    ...(input.workerRuntime ? { workerRuntime: input.workerRuntime } : {}),
     entry,
     permissions: ensureArray(input.permissions) as PluginPermission[],
     capabilities: ensureArray(input.capabilities),
     contributes: input.contributes ?? {},
+    ...(input.settings ? { settings: input.settings } : {}),
+    ...(input.dependencies ? { dependencies: input.dependencies } : {}),
   };
 }
 

@@ -93,7 +93,7 @@ export interface PluginRuntimeApi {
   data: { getCapabilities: () => Promise<string[]> };
   storage: { get: (key: string) => Promise<unknown>; set: (key: string, value: unknown) => Promise<void> };
   navigation: { openRoute: (route: string) => Promise<void> };
-  commands: { execute: (commandId: string, payload?: unknown) => Promise<{ accepted: boolean }> };
+  commands: { execute: (commandId: string, payload?: unknown) => Promise<{ accepted: boolean; result?: unknown }>; register: (commandId: string) => Promise<void> };
   ui: {
     getPages: () => Promise<PluginPageDescriptor[]>;
     getTheme: () => Promise<PluginThemeDescriptor>;
@@ -117,6 +117,12 @@ export interface PluginRuntimeApi {
     update: (id: string, input: unknown) => Promise<JobRecord>;
     cancel: (id: string) => Promise<JobRecord>;
     retry: (sourceId: string) => Promise<JobRecord>;
+    onEvent: (listener: (job: JobRecord) => void) => () => void;
+  };
+  capabilities: {
+    list: () => Promise<Array<{ pluginId: string; id: string; qualifiedId: string; kind: string; operations: string[]; match?: { hosts?: string[]; schemes?: string[]; mimeTypes?: string[] } }>>;
+    resolveByUrl: (url: string) => Promise<Array<{ pluginId: string; id: string; qualifiedId: string; kind: string; operations: string[] }>>;
+    invoke: (input: { capabilityId: string; operation: string; payload?: unknown }) => Promise<unknown>;
   };
   media: {
     probe: (grantId: string, targetPath: string) => Promise<MediaProbe>;

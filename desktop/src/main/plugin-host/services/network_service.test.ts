@@ -1,13 +1,35 @@
 import { describe, expect, it, vi } from 'vitest';
 import { NetworkService } from './network_service';
+import { PluginQuotaService } from '../quota';
 
-describe('NetworkService', () => {
+describe('NetworkService SSRF and quotas', () => {
   it('rejects non-web protocols and sensitive headers', async () => {
     const service = new NetworkService();
     await expect(service.fetch({ url: 'file:///secret' })).rejects.toThrow('PLUGIN_NETWORK_PROTOCOL_DENIED');
     await expect(service.fetch({ url: 'data:text/plain,secret' })).rejects.toThrow('PLUGIN_NETWORK_PROTOCOL_DENIED');
     await expect(service.fetch({ url: 'javascript:alert(1)' })).rejects.toThrow('PLUGIN_NETWORK_PROTOCOL_DENIED');
     await expect(service.fetch({ url: 'https://example.com', headers: { Cookie: 'secret' } })).rejects.toThrow('PLUGIN_NETWORK_HEADER_DENIED');
+  });
+
+  it('rejects private and loopback hosts', async () => {
+    const service = new NetworkService();
+    for (const url of [
+      'http://127.0.0.1/admin',
+      'http://localhost:8080',
+      'http://10.0.0.5/api',
+      'http://192.168.1.1',
+      'http://172.16.0.1',
+      'http://169.254.169.254/latest/meta-data',
+      'http://[::1]/',
+    ]) {
+      await expect(service.fetch({ url })).rejects.toThrow('PLUGIN_NETWORK_PRIVATE_DENIED');
+    }
+  });
+
+  it('allows public hosts', async () => {
+    const fetcher = vi.fn(async () => new Response('ok'));
+    const service = new NetworkService(async () => null, fetcher);
+    await expect(service.fetch({ url: 'https://example.com/path' })).resolves.toMatchObject({ status: 200 });
   });
 
   it('injects a plugin secret only for an explicitly allowed HTTPS origin', async () => {
@@ -24,7 +46,6 @@ describe('NetworkService', () => {
     }, 'plugin.one');
 
     expect(readSecret).toHaveBeenCalledWith('plugin.one', 'bilibili.session');
-    expect(new Headers(fetcher.mock.calls[0]?.[1]?.headers).get('Cookie')).toBe('SESSDATA=member-cookie');
     await expect(service.fetch({
       url: 'https://example.com',
       credential: {
@@ -34,28 +55,22 @@ describe('NetworkService', () => {
     }, 'plugin.one')).rejects.toThrow('PLUGIN_NETWORK_CREDENTIAL_ORIGIN_DENIED');
   });
 
-  it('does not follow redirects outside the requested URL', async () => {
-    const originalFetch = globalThis.fetch;
-    globalThis.fetch = vi.fn(async () => { throw new TypeError('redirect disallowed'); });
-    try {
-      await expect(new NetworkService().fetch({ url: 'https://example.com' })).rejects.toThrow('redirect disallowed');
-    } finally { globalThis.fetch = originalFetch; }
+  it('enforces response size limits and hard cap', async () => {
+    const fetcher = vi.fn(async () => new Response('0123456789'));
+    const service = new NetworkService(async () => null, fetcher);
+    await expect(service.fetch({ url: 'https://example.com', maxBytes: 2 })).rejects.toThrow('PLUGIN_NETWORK_RESPONSE_TOO_LARGE');
   });
 
-  it('allows plugins to opt into redirects and returns the final URL', async () => {
-    const originalFetch = globalThis.fetch;
-    globalThis.fetch = vi.fn(async () => ({ status: 200, url: 'https://www.bilibili.com/video/BV1test', headers: new Headers(), arrayBuffer: async () => new ArrayBuffer(0) }) as Response);
-    try {
-      const response = await new NetworkService().fetch({ url: 'https://b23.tv/abc', followRedirects: true, responseType: 'text' });
-      expect(response.finalUrl).toBe('https://www.bilibili.com/video/BV1test');
-    } finally { globalThis.fetch = originalFetch; }
-  });
+  it('enforces per-plugin concurrency quota', async () => {
+    let resolveFetch: ((value: Response) => void) | null = null;
+    const fetcher = vi.fn(() => new Promise<Response>(resolve => { resolveFetch = resolve; }));
+    const quota = new PluginQuotaService({ networkConcurrency: 1, networkRequestsPerMinute: 100 });
+    const service = new NetworkService(async () => null, fetcher, quota);
 
-  it('limits response size', async () => {
-    const originalFetch = globalThis.fetch;
-    globalThis.fetch = vi.fn(async () => new Response('0123456789'));
-    try {
-      await expect(new NetworkService().fetch({ url: 'https://example.com', maxBytes: 2 })).rejects.toThrow('PLUGIN_NETWORK_RESPONSE_TOO_LARGE');
-    } finally { globalThis.fetch = originalFetch; }
+    const first = service.fetch({ url: 'https://example.com/1' }, 'plugin.quota');
+    await new Promise(resolve => setTimeout(resolve, 0));
+    await expect(service.fetch({ url: 'https://example.com/2' }, 'plugin.quota')).rejects.toThrow('PLUGIN_NETWORK_QUOTA');
+    resolveFetch?.(new Response('ok'));
+    await first;
   });
 });

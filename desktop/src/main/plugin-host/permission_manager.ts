@@ -3,51 +3,14 @@ import type {
   PluginPermission,
   PluginTrustLevel,
 } from '@/contracts/plugin_host';
-
-const SANDBOXED_ALLOWED: PluginPermission[] = [
-  'workspace.read',
-  'data.user.read',
-  'data.project.read',
-  'data.settings.read',
-  'storage.self',
-  'navigation.open',
-  'ui.contribute',
-  'commands.execute',
-  'system.dialog',
-  'system.clipboard',
-  'system.notifications',
-  'system.shortcuts',
-  'background.run',
-  'network.fetch',
-  'downloads.manage',
-  'jobs.manage',
-  'files.read',
-  'files.write',
-  'tools.ffmpeg',
-  'media.preview',
-  'media.transcode',
-  'media.tag',
-  'secrets.self',
-  'observability.logs',
-  'android.devices.read',
-  'android.sessions.read',
-  'android.sessions.control',
-  'android.audio.playback',
-  'android.otg.control',
-  'android.fastboot.read',
-  'android.fastboot.reboot',
-];
-
-const TRUSTED_ALLOWED: PluginPermission[] = [
-  ...SANDBOXED_ALLOWED,
-  'data.project.write',
-  'data.settings.write',
-];
+import { getAllowedPermissionsForTrust } from './permission_matrix';
 
 // Plugin compatibility follows the host platform API version, independent of the app package version.
-export const HOST_VERSION = '1.0.0';
+export const HOST_VERSION = '1.1.0';
 export const PLUGIN_API_VERSION = '1.0.0';
 export const PLUGIN_UI_API_VERSION = '1.0.0';
+/** Bumped when install-time authorization policy becomes stricter. */
+export const PLUGIN_POLICY_VERSION = '2';
 
 function versionParts(value: string) {
   const match = value.trim().replace(/^v/, '').match(/^(\d+)\.(\d+)\.(\d+)/);
@@ -75,7 +38,7 @@ function satisfiesRange(version: string, range: string) {
 
 export class PluginPermissionManager {
   getAllowedPermissions(trustLevel: PluginTrustLevel) {
-    return trustLevel === 'trusted' ? TRUSTED_ALLOWED : SANDBOXED_ALLOWED;
+    return getAllowedPermissionsForTrust(trustLevel);
   }
 
   validateManifest(manifest: PluginManifest) {

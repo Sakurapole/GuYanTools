@@ -36,5 +36,5 @@ function handleClear(): void {
 </script>
 
 <template>
-  <gt-date-picker :value="props.modelValue" :placeholder="props.placeholder" :clearable="props.clearable" :disabled="props.disabled" :size="props.size" :min="props.min" :max="props.max" :close-on-outside="props.closeOnOutside" v-bind="$attrs" @gt-change="handleChange" @gt-clear="handleClear" />
+  <gt-date-picker :value="props.modelValue" :placeholder="props.placeholder" :clearable="props.clearable" :disabled="props.disabled" :size="props.size" :min="props.min" :max="props.max" :closeOnOutside="props.closeOnOutside" v-bind="$attrs" @gt-change="handleChange" @gt-clear="handleClear" />
 </template>

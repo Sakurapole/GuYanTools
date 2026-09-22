@@ -1,6 +1,7 @@
 import { Component, Element as StencilElement, Event, h, Host, Prop, Watch, type EventEmitter } from '@stencil/core';
 
 import { OverlayPortal } from '../../utils/overlay-controller';
+import { isEventOutside } from '../../utils/outside-click';
 
 export type GtMenuCloseReason = 'outside' | 'escape' | 'programmatic';
 export interface GtMenuCloseDetail { reason: GtMenuCloseReason; }
@@ -23,11 +24,13 @@ export class GtMenu {
   componentDidLoad(): void {
     this.syncPortal();
     document.addEventListener('mousedown', this.handleOutside, true);
+    document.addEventListener('pointerdown', this.handleOutside, true);
     document.addEventListener('keydown', this.handleKeydown, true);
   }
 
   disconnectedCallback(): void {
     document.removeEventListener('mousedown', this.handleOutside, true);
+    document.removeEventListener('pointerdown', this.handleOutside, true);
     document.removeEventListener('keydown', this.handleKeydown, true);
     this.removePortal();
   }
@@ -98,11 +101,11 @@ export class GtMenu {
     }
   };
 
-  private handleOutside = (event: MouseEvent): void => {
+  private handleOutside = (event: Event): void => {
     if (!this.visible || !this.closeOnClickOutside) return;
-    const target = event.target as Node | null;
     const panel = this.panel();
-    if (target && (this.host.contains(target) || panel?.contains(target))) return;
+    if (!isEventOutside(event, [this.host, panel])) return;
+    const target = event.target as Node | null;
     const targetElement = target instanceof HTMLElement ? target : target?.parentElement;
     const selectors = Array.isArray(this.outsideIgnoreSelector) ? this.outsideIgnoreSelector : [this.outsideIgnoreSelector];
     if (targetElement && selectors.some(selector => selector && targetElement.closest(selector))) return;

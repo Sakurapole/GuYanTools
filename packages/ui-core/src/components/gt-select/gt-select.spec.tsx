@@ -97,6 +97,25 @@ describe('gt-select', () => {
     expect(document.body.querySelector('[data-gt-overlay="select"]')).not.toBeNull();
   });
 
+  it('closes when a real external control is pressed outside the panel', async () => {
+    const { root, waitForChanges } = await render(<gt-select options={options} />);
+    root.shadowRoot?.querySelector<HTMLButtonElement>('[part="trigger"]')?.click();
+    await waitForChanges();
+    expect(document.body.querySelector('[data-gt-overlay="select"]')).not.toBeNull();
+
+    const external = document.createElement('button');
+    external.type = 'button';
+    external.textContent = '外部按钮';
+    document.body.append(external);
+    external.dispatchEvent(new MouseEvent('mousedown', { bubbles: true, composed: true }));
+    external.dispatchEvent(new MouseEvent('pointerdown', { bubbles: true, composed: true }));
+    external.dispatchEvent(new MouseEvent('click', { bubbles: true, composed: true }));
+    await waitForChanges();
+    external.remove();
+
+    expect(document.body.querySelector('[data-gt-overlay="select"]')).toBeNull();
+  });
+
   it('exposes stable parts, size attributes and a fixed overlay contract', async () => {
     const { root } = await render(<gt-select options={options} size="sm" />);
     const css = readFileSync(new URL('./gt-select.css', import.meta.url), 'utf8');

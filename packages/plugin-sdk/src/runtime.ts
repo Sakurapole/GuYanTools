@@ -11,7 +11,10 @@ export function createPluginApi(invoke: PluginRuntimeInvoke, subscribe?: PluginR
     data: { getCapabilities: () => call('plugin-runtime:data:get-capabilities') },
     storage: { get: key => call('plugin-runtime:storage:get', key), set: (key, value) => call('plugin-runtime:storage:set', key, value) },
     navigation: { openRoute: route => call('plugin-runtime:navigation:open-route', route) },
-    commands: { execute: (commandId, payload) => call('plugin-runtime:commands:execute', commandId, payload) },
+    commands: {
+      execute: (commandId, payload) => call('plugin-runtime:commands:execute', commandId, payload),
+      register: commandId => call('plugin-runtime:commands:execute', commandId, { __register: true }),
+    },
     ui: {
       getPages: () => call('plugin-runtime:ui:get-pages'),
       getTheme: () => call<PluginThemeDescriptor>('plugin-runtime:ui:get-theme'),
@@ -32,6 +35,12 @@ export function createPluginApi(invoke: PluginRuntimeInvoke, subscribe?: PluginR
       create: (kind, input, parentJobId) => call('plugin-runtime:jobs:create', kind, input, parentJobId),
       list: () => call('plugin-runtime:jobs:list'), get: id => call('plugin-runtime:jobs:get', id), update: (id, input) => call('plugin-runtime:jobs:update', id, input),
       cancel: id => call('plugin-runtime:jobs:cancel', id), retry: sourceId => call('plugin-runtime:jobs:retry', sourceId),
+      onEvent: listener => subscribe?.('plugin-runtime:jobs:event', payload => listener(payload as import('./contracts').JobRecord)) ?? (() => undefined),
+    },
+    capabilities: {
+      list: () => call('plugin-runtime:capabilities:list'),
+      resolveByUrl: url => call('plugin-runtime:capabilities:resolve-by-url', url),
+      invoke: input => call('plugin-runtime:capabilities:invoke', input),
     },
     media: {
       probe: (grantId, targetPath) => call('plugin-runtime:media:probe', grantId, targetPath),

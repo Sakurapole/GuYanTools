@@ -28,5 +28,5 @@ function handleChange(event: Event): void {
 </script>
 
 <template>
-  <gt-time-picker :value="props.modelValue" :placeholder="props.placeholder" :disabled="props.disabled" :size="props.size" :minute-step="props.minuteStep" :close-on-outside="props.closeOnOutside" v-bind="$attrs" @gt-change="handleChange" />
+  <gt-time-picker :value="props.modelValue" :placeholder="props.placeholder" :disabled="props.disabled" :size="props.size" :minute-step="props.minuteStep" :closeOnOutside="props.closeOnOutside" v-bind="$attrs" @gt-change="handleChange" />
 </template>

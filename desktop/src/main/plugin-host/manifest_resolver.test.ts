@@ -170,3 +170,30 @@ describe('plugin permissions', () => {
     })).not.toThrow();
   });
 });
+
+describe('plugin settings schema validation', () => {
+  it('accepts a well-formed settings schema', async () => {
+    const { validatePluginManifest } = await import('./manifest_resolver');
+    expect(() => validatePluginManifest(manifest({
+      settings: {
+        quality: {
+          type: 'select',
+          title: '默认清晰度',
+          default: '1080p',
+          options: [{ label: '1080P', value: '1080p' }, { label: '720P', value: '720p' }],
+        },
+        autoStart: { type: 'boolean', title: '自动开始', default: false },
+      },
+    }))).not.toThrow();
+  });
+
+  it('rejects invalid settings schemas', async () => {
+    const { validatePluginManifest } = await import('./manifest_resolver');
+    expect(() => validatePluginManifest(manifest({ settings: { 'bad-key!': { type: 'boolean', title: 'x' } } })))
+      .toThrow('PLUGIN_SETTINGS_INVALID');
+    expect(() => validatePluginManifest(manifest({ settings: { quality: { type: 'select', title: 'q' } } })))
+      .toThrow('PLUGIN_SETTINGS_INVALID');
+    expect(() => validatePluginManifest(manifest({ settings: { quality: { type: 'enum', title: 'q' } } })))
+      .toThrow('PLUGIN_SETTINGS_INVALID');
+  });
+});

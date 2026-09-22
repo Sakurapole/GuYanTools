@@ -18,6 +18,7 @@ import type { AiApi, AiCanvasPreviewPayload, AiResearchEvent, AiStreamEvent } fr
 import type { PluginHostApi } from '@/contracts/plugin_host';
 import type { NotificationApi, NotificationPayload } from '@/contracts/notification';
 import type { SaveFileOptions, SelectFileOptions, ShellApi } from '@/contracts/shell';
+import type { TabPreviewApi } from '@/contracts/tab_preview';
 import type { HomeProfileApi } from '@/contracts/home_profile';
 import type { HomeWorkspaceApi } from '@/contracts/home_workspace';
 import type { UpdateApi } from '@/contracts/updater';
@@ -119,9 +120,19 @@ const pluginHostApi: PluginHostApi = {
   getHostSummary: () => ipcRenderer.invoke('plugin-host:get-summary'),
   listPlugins: () => ipcRenderer.invoke('plugin-host:list-plugins'),
   listPages: () => ipcRenderer.invoke('plugin-host:list-pages'),
+  listContributions: () => ipcRenderer.invoke('plugin-host:list-contributions'),
+  listAuditEvents: (pluginId?: string) => ipcRenderer.invoke('plugin-host:list-audit-events', pluginId),
+  getPermissionCopy: () => ipcRenderer.invoke('plugin-host:get-permission-copy'),
+  getPluginDebugInfo: (pluginId: string) => ipcRenderer.invoke('plugin-host:get-plugin-debug-info', pluginId),
+  getPluginSettings: (pluginId: string) => ipcRenderer.invoke('plugin-host:get-plugin-settings', pluginId),
+  setPluginSetting: (pluginId: string, key: string, value: unknown) => ipcRenderer.invoke('plugin-host:set-plugin-setting', pluginId, key, value),
   listPluginJobs: (pluginId) => ipcRenderer.invoke('plugin-host:list-jobs', pluginId),
-  installPluginFromPackage: (packageName: string) => ipcRenderer.invoke('plugin-host:install-package', packageName),
-  registerLocalPlugin: (inputPath: string) => ipcRenderer.invoke('plugin-host:register-local', inputPath),
+  installPluginFromPackage: (packageName: string, approvedPermissions?: import('@/contracts/plugin_host').PluginPermission[]) =>
+    ipcRenderer.invoke('plugin-host:install-package', packageName, approvedPermissions),
+  registerLocalPlugin: (inputPath: string, approvedPermissions?: import('@/contracts/plugin_host').PluginPermission[]) =>
+    ipcRenderer.invoke('plugin-host:register-local', inputPath, approvedPermissions),
+  approvePermissions: (pluginId: string, approvedPermissions: import('@/contracts/plugin_host').PluginPermission[]) =>
+    ipcRenderer.invoke('plugin-host:approve-permissions', pluginId, approvedPermissions),
   enablePlugin: (pluginId: string) => ipcRenderer.invoke('plugin-host:enable', pluginId),
   disablePlugin: (pluginId: string) => ipcRenderer.invoke('plugin-host:disable', pluginId),
   mountPage: (pluginId, pageId, bounds) => ipcRenderer.invoke('plugin-host:mount-page', pluginId, pageId, bounds),
@@ -137,7 +148,7 @@ const pluginHostApi: PluginHostApi = {
   },
   installFromGit: (input) => ipcRenderer.invoke('plugin-host:install-git', input),
   installFromMarketplace: (marketplaceId, pluginId, approvedPermissions) => ipcRenderer.invoke('plugin-host:install-marketplace', marketplaceId, pluginId, approvedPermissions),
-  updatePlugin: (pluginId) => ipcRenderer.invoke('plugin-host:update', pluginId),
+  updatePlugin: (pluginId, approvedPermissions) => ipcRenderer.invoke('plugin-host:update', pluginId, approvedPermissions),
   rollbackPlugin: (pluginId) => ipcRenderer.invoke('plugin-host:rollback', pluginId),
   uninstallPlugin: (pluginId) => ipcRenderer.invoke('plugin-host:uninstall', pluginId),
   listDevSessions: () => ipcRenderer.invoke('plugin-host:dev-sessions:list'),
@@ -391,6 +402,11 @@ const shellApi: ShellApi = {
   readClipboardPaths: () => ipcRenderer.invoke('shell:clipboard-read-paths'),
 };
 contextBridge.exposeInMainWorld('shellApi', shellApi);
+
+const tabPreviewApi: TabPreviewApi = {
+  captureWindow: () => ipcRenderer.invoke('tab-preview:capture-window'),
+};
+contextBridge.exposeInMainWorld('tabPreviewApi', tabPreviewApi);
 
 const todoApi: TodoApi = {
   getAllLists: () => ipcRenderer.invoke('todo:get-all-lists'),

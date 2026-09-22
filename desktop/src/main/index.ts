@@ -26,6 +26,7 @@ import { registerMultiDeviceClipboardWindowHandlers, toggleMultiDeviceClipboardW
 import { registerNotificationIpcHandlers } from "./notification/ipc";
 import { registerShellIpcHandlers } from "./shell/ipc";
 import { registerScreenshotIpcHandlers } from "./screenshot/ipc";
+import { registerTabPreviewIpcHandlers } from "./tab_preview/ipc";
 import { registerPinImageIpcHandlers } from "./screenshot/pin_window";
 import { showScreenshotWindow } from "./screenshot/window";
 import { registerShortcutIpcHandlers } from "./shortcuts/ipc";
@@ -135,6 +136,7 @@ class App {
     });
     registerShellIpcHandlers();
     registerScreenshotIpcHandlers();
+    registerTabPreviewIpcHandlers();
     registerPinImageIpcHandlers();
     registerShortcutIpcHandlers();
     registerSyncIpcHandlers();

@@ -1,8 +1,9 @@
 import { BrowserWindow, WebContentsView, webContents } from 'electron';
-import type { InstalledPluginRecord, PluginRuntimeContext, PluginViewportBounds, PluginDevSession } from '@/contracts/plugin_host';
+import type { InstalledPluginRecord, PluginRuntimeContext, PluginViewportBounds, PluginDevSession, PluginWorkerRuntimeKind } from '@/contracts/plugin_host';
 import { HostServiceRegistry } from './host_services';
 import { getSandboxedPluginWebPreferences, isAllowedPluginDevUrl } from './runtime_security';
 import { PluginDevSessionManager } from './dev_session';
+import { UtilityWorkerHost } from './utility_worker_host';
 
 type MountedPluginView = {
   mainWindow: BrowserWindow;
@@ -15,12 +16,32 @@ type MountedPluginView = {
 type WorkerPluginView = {
   view: WebContentsView;
   pluginId: string;
+  kind: 'browser';
 };
+
+type UtilityWorkerRecord = {
+  pluginId: string;
+  runtimeId: number;
+  kind: 'utility';
+};
+
+export function resolveWorkerRuntimeKind(record: InstalledPluginRecord): PluginWorkerRuntimeKind {
+  const declared = record.manifest.workerRuntime;
+  if (declared === 'utility' || declared === 'browser') return declared;
+  if (process.env.GUYANTOOLS_PLUGIN_WORKER_RUNTIME === 'utility') return 'utility';
+  // Prefer utility for pure JS workers that are not HTML documents.
+  const workerEntry = record.resolvedEntryPaths.worker ?? '';
+  if (workerEntry.endsWith('.js') || workerEntry.endsWith('.mjs') || workerEntry.endsWith('.cjs')) {
+    return 'utility';
+  }
+  return 'browser';
+}
 
 export class PluginRuntimeRouter {
   private readonly runtimeContextByWebContentsId = new Map<number, PluginRuntimeContext>();
   private mountedByWindowId = new Map<number, MountedPluginView>();
   private workerViewsByPluginId = new Map<string, WorkerPluginView>();
+  private readonly utilityWorkers: UtilityWorkerHost;
   private readonly idleCheckTimer: NodeJS.Timeout;
 
   constructor(
@@ -29,7 +50,9 @@ export class PluginRuntimeRouter {
     private readonly getUnloadAfterMinutes: () => number,
     private readonly devSessions: PluginDevSessionManager = new PluginDevSessionManager(),
     private readonly onPluginRuntimeDestroyed: (pluginId: string) => void = () => undefined,
+    utilityWorkers: UtilityWorkerHost = new UtilityWorkerHost(hostServices),
   ) {
+    this.utilityWorkers = utilityWorkers;
     this.idleCheckTimer = setInterval(() => {
       void this.cleanupIdleMountedViews().catch((error) => {
         this.hostServices.observability.error('Plugin idle cleanup failed', error);
@@ -39,7 +62,16 @@ export class PluginRuntimeRouter {
   }
 
   getRuntimeContext(webContentsId: number) {
-    return this.runtimeContextByWebContentsId.get(webContentsId) ?? null;
+    const direct = this.runtimeContextByWebContentsId.get(webContentsId);
+    if (direct) return direct;
+    for (const handle of this.utilityWorkers.list()) {
+      if (handle.runtimeId === webContentsId) return handle.context;
+    }
+    return null;
+  }
+
+  getUtilityWorkerHost() {
+    return this.utilityWorkers;
   }
 
   async mountUiPage(
@@ -103,6 +135,14 @@ export class PluginRuntimeRouter {
     const entryPath = record.resolvedEntryPaths.worker;
     if (!entryPath) throw new Error(`Plugin ${record.manifest.id} does not declare a worker entry`);
     await this.stopWorker(record.manifest.id);
+
+    const kind = resolveWorkerRuntimeKind(record);
+    if (kind === 'utility') {
+      const handle = await this.utilityWorkers.start(record);
+      this.runtimeContextByWebContentsId.set(handle.runtimeId, handle.context);
+      return;
+    }
+
     const view = new WebContentsView({
       webPreferences: getSandboxedPluginWebPreferences(this.preloadPath, record.manifest.id, '__worker__'),
     });
@@ -120,10 +160,16 @@ export class PluginRuntimeRouter {
       this.onPluginRuntimeDestroyed(record.manifest.id);
     });
     await view.webContents.loadURL(resolvePluginRuntimeUrl(record, this.devSessions.get(record.manifest.id), 'worker'));
-    this.workerViewsByPluginId.set(record.manifest.id, { view, pluginId: record.manifest.id });
+    this.workerViewsByPluginId.set(record.manifest.id, { view, pluginId: record.manifest.id, kind: 'browser' });
   }
 
   async stopWorker(pluginId: string) {
+    const utility = this.utilityWorkers.getHandle(pluginId);
+    if (utility) {
+      this.runtimeContextByWebContentsId.delete(utility.runtimeId);
+      await this.utilityWorkers.stop(pluginId);
+      this.onPluginRuntimeDestroyed(pluginId);
+    }
     const worker = this.workerViewsByPluginId.get(pluginId);
     if (!worker) return;
     this.workerViewsByPluginId.delete(pluginId);

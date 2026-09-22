@@ -110,6 +110,18 @@
   z-index: var(--gt-select-z-index, var(--ui-z-critical, var(--gt-z-overlay)));
 }
 
+/* 日期/时间选择器同样不能用全屏遮罩挡住页面点击，否则外部关闭与底层按钮都会失效 */
+[data-gt-overlay="date-picker"],
+[data-gt-overlay="time-picker"] {
+  inset: 0;
+  pointer-events: none;
+}
+
+[data-gt-overlay="date-picker"] [part="panel"],
+[data-gt-overlay="time-picker"] [part="panel"] {
+  pointer-events: auto;
+}
+
 [data-gt-overlay="select"] [part="layer"] {
   width: 100%;
   height: 100%;

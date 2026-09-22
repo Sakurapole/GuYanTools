@@ -25,8 +25,8 @@ const emit = defineEmits<{ close: [] }>();
     :visible="props.visible"
     :x="props.x"
     :y="props.y"
-    :close-on-click-outside="props.closeOnClickOutside"
-    :outside-ignore-selector="props.outsideIgnoreSelector"
+    :closeOnClickOutside="props.closeOnClickOutside"
+    :outsideIgnoreSelector="props.outsideIgnoreSelector"
     v-bind="$attrs"
     @gt-close="emit('close')"
   >

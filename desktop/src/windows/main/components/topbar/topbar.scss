@@ -454,12 +454,18 @@
   height: 100%;
   -webkit-app-region: no-drag;
 
-  & .ui-icon-button.theme-btn,
-  & .ui-icon-button.workspace-detach-topbar-btn,
-  & .ui-icon-button.task-manager-btn,
-  & .ui-icon-button.mini-btn,
-  & .ui-icon-button.max-btn,
-  & .ui-icon-button.close-btn {
+  & gt-icon-button.theme-btn,
+  & gt-icon-button.workspace-detach-topbar-btn,
+  & gt-icon-button.task-manager-btn,
+  & gt-icon-button.mini-btn,
+  & gt-icon-button.max-btn,
+  & gt-icon-button.close-btn,
+  & .theme-btn,
+  & .workspace-detach-topbar-btn,
+  & .task-manager-btn,
+  & .mini-btn,
+  & .max-btn,
+  & .close-btn {
     @include layout.flex-center();
     width: $topbar-height !important;
     height: 100% !important;
@@ -471,7 +477,9 @@
 
     // The native button receives focus inside the Stencil host. Topbar
     // controls use the chrome surface itself as the focus boundary.
-    &:focus-within {
+    &:focus,
+    &:focus-within,
+    &:focus-visible {
       box-shadow: none;
       outline: none;
     }

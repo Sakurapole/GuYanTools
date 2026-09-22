@@ -69,7 +69,7 @@ describe('action and feedback components', () => {
     expect(iconButtonCss).toContain('border-radius: var(--ui-radius-sm, var(--gt-radius-sm));');
     expect(iconButtonCss).toContain('font-family: var(--ui-font-family, var(--gt-font-family));');
     expect(iconButtonCss).toContain('--gt-icon-button-shadow: var(--ui-button-primary-shadow, none);');
-    expect(iconButtonCss).toContain(':host(:focus-within) { box-shadow: var(--ui-focus-ring, var(--gt-focus-ring)); }');
+    expect(iconButtonCss).toContain(':host(:has(button:focus-visible)) { box-shadow: var(--ui-focus-ring, var(--gt-focus-ring)); }');
     expect(iconButtonCss).not.toContain('background: inherit;');
     expect(iconButtonCss).not.toContain('box-shadow: inherit;');
     expect(iconButtonCss).not.toContain('transform: inherit;');
@@ -193,7 +193,7 @@ describe('action and feedback components', () => {
     expect(cardCss).not.toContain('box-shadow: inherit;');
     expect(cardCss).toContain(':host([hoverable]), :host([interactive]) { transition: transform');
     expect(cardCss).toContain(':host([hoverable]):hover, :host([interactive]):hover { transform: translateY(-1px); box-shadow: var(--ui-card-shadow-hover, var(--gt-shadow-md)); }');
-    expect(cardCss).toContain(':host([interactive]):focus-within { box-shadow: var(--gt-focus-ring), var(--ui-card-shadow-hover, var(--gt-shadow-md)); }');
+    expect(cardCss).toContain(':host([interactive]):has(:focus-visible) { box-shadow: var(--gt-focus-ring), var(--ui-card-shadow-hover, var(--gt-shadow-md)); }');
   });
 
   it('projects named icon and action slots for feedback components', async () => {

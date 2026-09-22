@@ -18,6 +18,7 @@ import UiInput from '../../components/ui/UiInput.vue';
 import { notifyError } from '../../composables/useInAppNotification';
 import PluginPermissionDialog from './PluginPermissionDialog.vue';
 import PluginJobPanel from './PluginJobPanel.vue';
+import PluginDebugPanel from './PluginDebugPanel.vue';
 import { serializeApprovedPermissions } from './plugin_install_serialization';
 
 type PluginTab = 'installed' | 'marketplace';
@@ -49,9 +50,14 @@ const isBusy = ref(false);
 const isMarketplaceRefreshing = ref(false);
 const errorMessage = ref('');
 const pendingMarketplacePlugin = ref<MarketplacePluginSummary | null>(null);
+const pendingPermissionPlugin = ref<InstalledPluginRecord | null>(null);
+const pendingLocalInstall = ref<{ type: 'package' | 'local' | 'git'; value: string; ref?: string; refType?: 'branch' | 'tag' | 'commit' } | null>(null);
+const pendingDeclaredPermissions = ref<import('@/contracts/plugin_host').PluginPermission[]>([]);
+const pendingPermissionTitle = ref('');
 const installProgress = ref<PluginInstallProgress | null>(null);
 const devSessions = ref<PluginDevSession[]>([]);
 const activeInstallPluginId = ref<string | null>(null);
+const debugPluginId = ref<string | null>(null);
 let removeInstallProgressListener: (() => void) | undefined;
 
 const enabledCount = computed(() => plugins.value.filter(plugin => plugin.enabled).length);
@@ -144,9 +150,11 @@ function openPluginPage(page: PluginPageDescriptor) {
 async function handleInstallPackage() {
   const value = packageName.value.trim();
   if (!value || !window.pluginHostApi) return;
+  // Install with empty approval first so the dialog can confirm before enable.
   await runMutation(async () => {
-    await window.pluginHostApi!.installPluginFromPackage(value);
+    const record = await window.pluginHostApi!.installPluginFromPackage(value, []);
     packageName.value = '';
+    pendingPermissionPlugin.value = record;
   });
 }
 
@@ -154,17 +162,62 @@ async function handleRegisterLocal() {
   const value = localPath.value.trim();
   if (!value || !window.pluginHostApi) return;
   await runMutation(async () => {
-    await window.pluginHostApi!.registerLocalPlugin(value);
+    const record = await window.pluginHostApi!.registerLocalPlugin(value, []);
     localPath.value = '';
+    pendingPermissionPlugin.value = record;
   });
 }
 
 async function handleInstallGit() {
   if (!gitUrl.value.trim() || !gitRef.value.trim() || !window.pluginHostApi) return;
   await runInstall(async () => {
-    await window.pluginHostApi!.installFromGit({ url: gitUrl.value.trim(), ref: gitRef.value.trim(), refType: gitRefType.value });
+    const record = await window.pluginHostApi!.installFromGit({
+      url: gitUrl.value.trim(),
+      ref: gitRef.value.trim(),
+      refType: gitRefType.value,
+      approvedPermissions: [],
+    });
     gitUrl.value = '';
     gitRef.value = '';
+    pendingPermissionPlugin.value = record;
+  });
+}
+
+function requestApprovePermissions(plugin: InstalledPluginRecord) {
+  pendingPermissionPlugin.value = plugin;
+}
+
+function openDebugPanel(pluginId: string) {
+  debugPluginId.value = pluginId;
+}
+
+function signatureBadgeClass(plugin: InstalledPluginRecord) {
+  if (plugin.signatureVerified) return 'signature-badge--verified';
+  if (plugin.signatureWarning) return 'signature-badge--warning';
+  if (plugin.packageSha256) return 'signature-badge--unsigned';
+  return 'signature-badge--na';
+}
+
+function signatureBadgeText(plugin: InstalledPluginRecord) {
+  if (plugin.signatureVerified) return '已签名';
+  if (plugin.signatureWarning) return '未签名';
+  if (plugin.packageSha256) return '未签名';
+  return '—';
+}
+
+function signatureBadgeTitle(plugin: InstalledPluginRecord) {
+  if (plugin.signatureVerified) return '包签名已校验通过';
+  if (plugin.signatureWarning) return plugin.signatureWarning;
+  if (plugin.packageSha256) return '安装时未提供有效签名';
+  return '本地/npm 安装通常无签名';
+}
+
+async function confirmApprovePermissions(approvedPermissions: import('@/contracts/plugin_host').PluginPermission[]) {
+  const plugin = pendingPermissionPlugin.value;
+  if (!plugin || !window.pluginHostApi) return;
+  pendingPermissionPlugin.value = null;
+  await runMutation(async () => {
+    await window.pluginHostApi!.approvePermissions(plugin.manifest.id, serializeApprovedPermissions(approvedPermissions));
   });
 }
 
@@ -308,17 +361,25 @@ onBeforeUnmount(() => removeInstallProgressListener?.());
           <article v-for="plugin in plugins" :key="plugin.manifest.id" class="installed-row ui-soft-surface">
             <div class="plugin-avatar" aria-hidden="true">{{ plugin.manifest.displayName.slice(0, 1) }}</div>
             <div class="installed-row__main">
-              <div class="installed-row__title"><h3>{{ plugin.manifest.displayName }}</h3><span class="status-dot" :class="{ 'status-dot--on': plugin.enabled }">{{ plugin.enabled ? '运行中' : '已停用' }}</span></div>
+              <div class="installed-row__title"><h3>{{ plugin.manifest.displayName }}</h3><span class="status-dot" :class="{ 'status-dot--on': plugin.enabled }">{{ plugin.enabled ? '运行中' : '已停用' }}</span><span class="signature-badge" :class="signatureBadgeClass(plugin)" :title="signatureBadgeTitle(plugin)">{{ signatureBadgeText(plugin) }}</span></div>
               <p>{{ plugin.manifest.description || '暂无描述' }}</p>
               <div class="plugin-meta"><span>{{ plugin.manifest.id }}</span><span>v{{ plugin.manifest.version }}</span><span>{{ plugin.installSource.type }}</span><span>{{ plugin.status }}</span></div>
-              <div class="plugin-permission-summary"><span>请求 {{ plugin.manifest.permissions.length }} 项权限</span><span>已批准 {{ plugin.approvedPermissions.length }} 项</span><span>{{ plugin.manifest.capabilities.length }} 项能力</span></div>
+              <div class="plugin-permission-summary"><span>请求 {{ plugin.manifest.permissions.length }} 项权限</span><span>已批准 {{ plugin.approvedPermissions.length }} 项</span><span>{{ plugin.manifest.capabilities.length }} 项能力</span><span v-if="plugin.manifest.dependencies?.length">{{ plugin.manifest.dependencies.length }} 项依赖</span></div>
             </div>
             <div class="installed-row__actions">
               <UiButton variant="secondary" size="sm" :disabled="isBusy" @click="togglePlugin(plugin)">{{ plugin.enabled ? '停用' : '启用' }}</UiButton>
+              <UiButton
+                v-if="plugin.manifest.permissions.length > 0 && plugin.approvedPermissions.length < plugin.manifest.permissions.length"
+                variant="primary"
+                size="sm"
+                :disabled="isBusy"
+                @click="requestApprovePermissions(plugin)"
+              >确认权限</UiButton>
               <UiButton v-if="plugin.installSource.type === 'git' || plugin.installSource.type === 'marketplace'" variant="ghost" size="sm" :disabled="isBusy" @click="updatePlugin(plugin)">更新</UiButton>
               <UiButton v-if="plugin.installSource.type === 'git' || plugin.installSource.type === 'marketplace'" variant="ghost" size="sm" :disabled="isBusy" @click="rollbackPlugin(plugin)">回滚</UiButton>
               <UiButton v-if="plugin.installSource.type === 'local' && devSessionFor(plugin.manifest.id)" variant="ghost" size="sm" :disabled="isBusy" @click="stopDevSession(plugin.manifest.id)">停止本地开发</UiButton>
               <UiButton v-if="plugin.installSource.type === 'local' && !devSessionFor(plugin.manifest.id)" variant="ghost" size="sm" :disabled="isBusy || !plugin.localPath" @click="reconnectLocalDevSession(plugin)">重连本地开发</UiButton>
+              <UiButton variant="ghost" size="sm" :disabled="isBusy" @click="openDebugPanel(plugin.manifest.id)">调试</UiButton>
               <UiButton variant="ghost" size="sm" :disabled="isBusy" @click="uninstallPlugin(plugin)">卸载</UiButton>
             </div>
             <div v-if="plugin.installSource.type === 'local' && devSessionFor(plugin.manifest.id)" class="dev-session-status">本地开发已连接 · {{ devSessionFor(plugin.manifest.id)?.port }}</div>
@@ -372,7 +433,9 @@ onBeforeUnmount(() => removeInstallProgressListener?.());
       </section>
     </main>
 
-    <PluginPermissionDialog :plugin="pendingMarketplacePlugin" :visible="Boolean(pendingMarketplacePlugin)" @cancel="pendingMarketplacePlugin = null" @confirm="confirmMarketplaceInstall" />
+    <PluginPermissionDialog :plugin="pendingMarketplacePlugin" :visible="Boolean(pendingMarketplacePlugin)" mode="install" @cancel="pendingMarketplacePlugin = null" @confirm="confirmMarketplaceInstall" />
+    <PluginPermissionDialog :plugin="pendingPermissionPlugin" :visible="Boolean(pendingPermissionPlugin)" mode="approve" @cancel="pendingPermissionPlugin = null" @confirm="confirmApprovePermissions" />
+    <PluginDebugPanel :plugin-id="debugPluginId || ''" :visible="Boolean(debugPluginId)" @close="debugPluginId = null" />
   </div>
 </template>
 
@@ -427,6 +490,10 @@ onBeforeUnmount(() => removeInstallProgressListener?.());
 .status-dot::before { content: ''; width: 6px; height: 6px; border-radius: 50%; background: var(--ui-text-muted); }
 .status-dot--on { color: var(--ui-state-success); }
 .status-dot--on::before { background: var(--ui-state-success); }
+.signature-badge { display: inline-flex; align-items: center; margin-left: 8px; padding: 1px 7px; border-radius: 999px; font-size: 0.68rem; font-weight: 700; line-height: 1.4; }
+.signature-badge--verified { background: color-mix(in srgb, var(--ui-state-success, #2f9e64) 16%, white); color: var(--ui-state-success, #2f9e64); }
+.signature-badge--warning, .signature-badge--unsigned { background: color-mix(in srgb, var(--ui-state-warning, #d18a00) 18%, white); color: var(--ui-state-warning, #d18a00); }
+.signature-badge--na { background: var(--ui-surface-bg-muted, #eef0f4); color: var(--ui-text-muted, #667085); }
 .plugin-meta, .marketplace-card__meta, .marketplace-status { display: flex; flex-wrap: wrap; gap: 8px 14px; color: var(--ui-text-muted); font-size: 0.74rem; }
 .plugin-meta { margin-top: 8px; }
 .plugin-permission-summary { display: flex; flex-wrap: wrap; gap: 6px 12px; margin-top: 8px; color: var(--ui-text-muted); font-size: 0.72rem; }
