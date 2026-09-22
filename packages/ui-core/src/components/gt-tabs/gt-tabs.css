@@ -15,4 +15,4 @@ button[aria-selected="true"] { color: var(--ui-tabs-active-text, var(--gt-color-
 button:focus-visible { outline: none; box-shadow: var(--gt-focus-ring); }
 button:disabled { cursor: not-allowed; opacity: 0.5; }
 .indicator { position: absolute; bottom: -1px; left: 0; width: var(--gt-tabs-active-width, 0px); height: var(--ui-border-width-strong, 2px); background: var(--gt-tabs-indicator-color, var(--ui-tabs-active-indicator, var(--gt-color-primary))); transform: translate3d(0, 0, 0); transition: transform var(--gt-motion-normal) var(--gt-motion-ease), width var(--gt-motion-normal) var(--gt-motion-ease), opacity var(--gt-motion-normal) var(--gt-motion-ease); }
-:host([variant="segmented"]) .indicator { top: 4px; bottom: 4px; border-radius: var(--ui-radius-xs, 4px); background: var(--ui-tabs-active-bg, var(--gt-color-surface)); }
+:host([variant="segmented"]) .indicator { top: 4px; bottom: 4px; height: auto; border-radius: var(--ui-radius-xs, 4px); background: var(--ui-tabs-active-bg, var(--gt-color-surface)); }
