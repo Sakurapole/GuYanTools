@@ -6,13 +6,16 @@ import UiIconButton from '../ui/UiIconButton.vue';
 import { useBarStore } from '../../stores/bar_store';
 import { useWebviewStore, type WebviewInstance } from '../../stores/webview_store';
 
-const props = withDefaults(defineProps<{
-  compact?: boolean;
-  emptyText?: string;
-}>(), {
-  compact: false,
-  emptyText: '暂无正在保活的网页',
-});
+const props = withDefaults(
+  defineProps<{
+    compact?: boolean;
+    emptyText?: string;
+  }>(),
+  {
+    compact: false,
+    emptyText: '暂无正在保活的网页',
+  }
+);
 
 const route = useRoute();
 const router = useRouter();
@@ -23,7 +26,7 @@ const sortedInstances = computed(() =>
   [...webviewStore.instances].sort((left, right) => {
     if (left.active !== right.active) return left.active ? -1 : 1;
     return (right.hiddenAt ?? right.createdAt) - (left.hiddenAt ?? left.createdAt);
-  }),
+  })
 );
 
 function webviewRoute(url: string) {
@@ -47,7 +50,7 @@ function openInstance(instance: WebviewInstance) {
 
 function closeInstance(instance: WebviewInstance) {
   const routePath = webviewRoute(instance.url);
-  const tab = barStore.tabPages.find(item => item.url === routePath);
+  const tab = barStore.tabPages.find((item) => item.url === routePath);
   const shouldNavigate = route.fullPath === routePath || tab?.active;
 
   webviewStore.removeInstance(instance.url);
@@ -72,14 +75,29 @@ function closeInstance(instance: WebviewInstance) {
       {{ props.emptyText }}
     </div>
     <div v-else class="webview-keepalive-list__items">
-      <div v-for="instance in sortedInstances" :key="instance.url" class="webview-keepalive-list__item">
-        <UiButton class="webview-keepalive-list__main" variant="ghost" size="sm" @click="openInstance(instance)">
+      <div
+        v-for="instance in sortedInstances"
+        :key="instance.url"
+        class="webview-keepalive-list__item"
+      >
+        <UiButton
+          class="webview-keepalive-list__main"
+          variant="ghost"
+          size="sm"
+          @click="openInstance(instance)"
+        >
           <span class="webview-keepalive-list__title">{{ instanceTitle(instance) }}</span>
-          <span v-if="!props.compact" class="webview-keepalive-list__meta">{{ instance.domain || instance.url }}</span>
+          <span v-if="!props.compact" class="webview-keepalive-list__meta">{{
+            instance.domain || instance.url
+          }}</span>
           <span v-if="!props.compact" class="webview-keepalive-list__url">{{ instance.url }}</span>
         </UiButton>
         <div class="webview-keepalive-list__actions">
-          <span v-if="!props.compact" class="webview-keepalive-list__status" :class="{ active: instance.active }">
+          <span
+            v-if="!props.compact"
+            class="webview-keepalive-list__status"
+            :class="{ active: instance.active }"
+          >
             {{ statusText(instance) }}
           </span>
           <UiIconButton
@@ -93,7 +111,9 @@ function closeInstance(instance: WebviewInstance) {
           >
             ×
           </UiIconButton>
-          <UiButton v-else variant="danger" size="sm" @click.stop="closeInstance(instance)">关闭</UiButton>
+          <UiButton v-else variant="danger" size="sm" @click.stop="closeInstance(instance)"
+            >关闭</UiButton
+          >
         </div>
       </div>
     </div>

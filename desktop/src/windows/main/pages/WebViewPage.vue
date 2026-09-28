@@ -25,15 +25,12 @@ const chromeUserAgent = navigator.userAgent
   .replace(/\s*GuYanTools\/\S+/i, '');
 
 // ─── Google 登录 URL 检测（用于引导提示，不再拦截） ───
-const GOOGLE_AUTH_PATTERNS = [
-  'accounts.google.com',
-  'accounts.youtube.com',
-];
+const GOOGLE_AUTH_PATTERNS = ['accounts.google.com', 'accounts.youtube.com'];
 
 function isGoogleAuthUrl(url: string): boolean {
   try {
     const u = new URL(url);
-    return GOOGLE_AUTH_PATTERNS.some(p => u.hostname === p);
+    return GOOGLE_AUTH_PATTERNS.some((p) => u.hostname === p);
   } catch {
     return false;
   }
@@ -92,12 +89,15 @@ const showGoogleLoginHint = ref(false);
 const currentFaviconUrl = ref('');
 
 const currentKeepAliveTargetUrl = computed(() => targetUrl.value);
-const canKeepAliveTemporarily = computed(() =>
-  Boolean(currentKeepAliveTargetUrl.value)
-  && (pageState.value === 'loaded' || pageState.value === 'loading')
-  && !webviewStore.isManagedKeepAliveUrl(currentKeepAliveTargetUrl.value),
+const canKeepAliveTemporarily = computed(
+  () =>
+    Boolean(currentKeepAliveTargetUrl.value) &&
+    (pageState.value === 'loaded' || pageState.value === 'loading') &&
+    !webviewStore.isManagedKeepAliveUrl(currentKeepAliveTargetUrl.value)
 );
-const isCurrentWebviewPinned = computed(() => Boolean(targetUrl.value) && barStore.isWebviewPinned(targetUrl.value));
+const isCurrentWebviewPinned = computed(
+  () => Boolean(targetUrl.value) && barStore.isWebviewPinned(targetUrl.value)
+);
 
 function openGoogleLoginTab() {
   // 在应用内新 tab 打开 Google 登录（共享同一 partition，登录态自动互通）
@@ -145,7 +145,7 @@ function syncPageTitle(wvEl: any) {
 }
 
 function syncPageFavicon(favicons: string[] | undefined) {
-  const faviconUrl = favicons?.find(item => typeof item === 'string' && item.length > 0);
+  const faviconUrl = favicons?.find((item) => typeof item === 'string' && item.length > 0);
   if (!faviconUrl) return;
 
   currentFaviconUrl.value = faviconUrl;
@@ -220,7 +220,10 @@ async function loadWebview() {
         } else if (script.type === 'css') {
           wv.insertCSS(script.content);
         } else if (script.type === 'html') {
-          const escaped = script.content.replace(/\\/g, '\\\\').replace(/`/g, '\\`').replace(/\$/g, '\\$');
+          const escaped = script.content
+            .replace(/\\/g, '\\\\')
+            .replace(/`/g, '\\`')
+            .replace(/\$/g, '\\$');
           wv.executeJavaScript(
             `(() => { const c = document.createElement('div'); c.innerHTML = \`${escaped}\`; document.body.appendChild(c); })()`
           );
@@ -248,7 +251,8 @@ async function loadWebview() {
   wv.addEventListener('did-navigate', (e: any) => {
     if (isGoogleAuthUrl(e.url)) {
       // 当前页面本身就是 Google 时不提示（用户可能正在登录）
-      const isGoogleSite = domain.value.endsWith('google.com') || domain.value.endsWith('youtube.com');
+      const isGoogleSite =
+        domain.value.endsWith('google.com') || domain.value.endsWith('youtube.com');
       if (!isGoogleSite) {
         showGoogleLoginHint.value = true;
       }
@@ -307,14 +311,22 @@ function startNavPolling() {
 
       // 同步刷新注入脚本列表
       const currentDomain = navState.value.url
-        ? (() => { try { return new URL(navState.value.url).hostname; } catch { return ''; } })()
+        ? (() => {
+            try {
+              return new URL(navState.value.url).hostname;
+            } catch {
+              return '';
+            }
+          })()
         : domain.value;
       if (currentDomain) {
-        window.webviewApi.getInjectedScripts(currentDomain).then(scripts => {
+        window.webviewApi.getInjectedScripts(currentDomain).then((scripts) => {
           injectedScripts.value = scripts;
         });
       }
-    } catch { /* ignore */ }
+    } catch {
+      /* ignore */
+    }
   }, 800);
 }
 
@@ -326,12 +338,16 @@ function stopNavPolling() {
 }
 
 // ─── 脚本类型标签 ───
-function scriptTypeLabel(type: string) {
+function _scriptTypeLabel(type: string) {
   switch (type) {
-    case 'js': return 'JavaScript';
-    case 'css': return 'CSS';
-    case 'html': return 'HTML';
-    default: return type;
+    case 'js':
+      return 'JavaScript';
+    case 'css':
+      return 'CSS';
+    case 'html':
+      return 'HTML';
+    default:
+      return type;
   }
 }
 
@@ -387,37 +403,108 @@ watch(targetUrl, () => {
     <!-- 导航栏 -->
     <div class="webview-nav" v-if="pageState === 'loaded' || pageState === 'loading'">
       <div class="webview-nav__buttons">
-        <UiIconButton variant="ghost" size="sm" shape="square" :disabled="!navState.canGoBack" title="后退" @click="goBack">
-          <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M10 3L5 8l5 5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        <UiIconButton
+          variant="ghost"
+          size="sm"
+          shape="square"
+          :disabled="!navState.canGoBack"
+          title="后退"
+          @click="goBack"
+        >
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+            <path
+              d="M10 3L5 8l5 5"
+              stroke="currentColor"
+              stroke-width="1.5"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            />
+          </svg>
         </UiIconButton>
-        <UiIconButton variant="ghost" size="sm" shape="square" :disabled="!navState.canGoForward" title="前进" @click="goForward">
-          <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M6 3l5 5-5 5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        <UiIconButton
+          variant="ghost"
+          size="sm"
+          shape="square"
+          :disabled="!navState.canGoForward"
+          title="前进"
+          @click="goForward"
+        >
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+            <path
+              d="M6 3l5 5-5 5"
+              stroke="currentColor"
+              stroke-width="1.5"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            />
+          </svg>
         </UiIconButton>
         <UiIconButton variant="ghost" size="sm" shape="square" title="刷新" @click="reload">
-          <svg v-if="!navState.isLoading" width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M13 8A5 5 0 113 8a5 5 0 0110 0z" stroke="currentColor" stroke-width="1.5"/><path d="M13 3v5h-5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          <svg v-if="!navState.isLoading" width="16" height="16" viewBox="0 0 16 16" fill="none">
+            <path d="M13 8A5 5 0 113 8a5 5 0 0110 0z" stroke="currentColor" stroke-width="1.5" />
+            <path
+              d="M13 3v5h-5"
+              stroke="currentColor"
+              stroke-width="1.5"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            />
+          </svg>
           <div v-else class="webview-nav__loading-indicator" />
         </UiIconButton>
       </div>
 
       <div class="webview-nav__url-bar">
-        <span :class="['webview-nav__status', statusClassMap[domainStatus]]">{{ statusLabelMap[domainStatus] }}</span>
+        <span :class="['webview-nav__status', statusClassMap[domainStatus]]">{{
+          statusLabelMap[domainStatus]
+        }}</span>
         <span class="webview-nav__url">{{ navState.url || targetUrl }}</span>
       </div>
 
       <div class="webview-nav__actions">
         <div class="webview-nav__scripts-btn-wrap">
           <UiIconButton
-            variant="ghost" size="sm" shape="square"
-            :title="injectedScripts.length > 0 ? `已注入 ${injectedScripts.length} 个脚本` : '查看注入脚本'"
+            variant="ghost"
+            size="sm"
+            shape="square"
+            :title="
+              injectedScripts.length > 0
+                ? `已注入 ${injectedScripts.length} 个脚本`
+                : '查看注入脚本'
+            "
             @click="showScriptsDrawer = true"
           >
-            <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M5 4l-3 4 3 4M11 4l3 4-3 4M9 2l-2 12" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+              <path
+                d="M5 4l-3 4 3 4M11 4l3 4-3 4M9 2l-2 12"
+                stroke="currentColor"
+                stroke-width="1.5"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              />
+            </svg>
           </UiIconButton>
-          <span v-if="injectedScripts.length > 0" class="webview-nav__scripts-badge">{{ injectedScripts.length }}</span>
+          <span v-if="injectedScripts.length > 0" class="webview-nav__scripts-badge">{{
+            injectedScripts.length
+          }}</span>
         </div>
 
-        <UiIconButton variant="ghost" size="sm" shape="square" title="打开 DevTools" @click="openDevTools">
-          <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M6 2H3a1 1 0 0 0-1 1v10a1 1 0 0 0 1 1h10a1 1 0 0 0 1-1v-3M9 2h5v5M14 2L7 9" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        <UiIconButton
+          variant="ghost"
+          size="sm"
+          shape="square"
+          title="打开 DevTools"
+          @click="openDevTools"
+        >
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+            <path
+              d="M6 2H3a1 1 0 0 0-1 1v10a1 1 0 0 0 1 1h10a1 1 0 0 0 1-1v-3M9 2h5v5M14 2L7 9"
+              stroke="currentColor"
+              stroke-width="1.3"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            />
+          </svg>
         </UiIconButton>
         <UiIconButton
           variant="ghost"
@@ -427,9 +514,21 @@ watch(targetUrl, () => {
           :title="isCurrentWebviewPinned ? '已固定到底栏' : '固定到底栏'"
           @click="pinCurrentWebviewToBottomBar"
         >
-          <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M5 2.5h6l-.8 4.2 2.3 2.3v1H8.7V14H7.3v-4H3.5V9l2.3-2.3L5 2.5z" stroke="currentColor" stroke-width="1.35" stroke-linejoin="round"/></svg>
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+            <path
+              d="M5 2.5h6l-.8 4.2 2.3 2.3v1H8.7V14H7.3v-4H3.5V9l2.3-2.3L5 2.5z"
+              stroke="currentColor"
+              stroke-width="1.35"
+              stroke-linejoin="round"
+            />
+          </svg>
         </UiIconButton>
-        <UiButton v-if="canKeepAliveTemporarily" variant="secondary" size="sm" @click="keepAliveTemporarily">
+        <UiButton
+          v-if="canKeepAliveTemporarily"
+          variant="secondary"
+          size="sm"
+          @click="keepAliveTemporarily"
+        >
           临时保活
         </UiButton>
       </div>
@@ -449,7 +548,9 @@ watch(targetUrl, () => {
         <div class="webview-state__icon">🚫</div>
         <h2>此域名已被禁止访问</h2>
         <p class="webview-state__domain">{{ domain }}</p>
-        <p class="webview-state__hint">该域名在黑名单中，如需访问请前往 设置 → 外部网页配置 调整。</p>
+        <p class="webview-state__hint">
+          该域名在黑名单中，如需访问请前往 设置 → 外部网页配置 调整。
+        </p>
       </div>
 
       <!-- 风险提示 -->
@@ -457,8 +558,12 @@ watch(targetUrl, () => {
         <div class="webview-state__icon">⚠️</div>
         <h2>此网页可能存在安全风险</h2>
         <p class="webview-state__domain">{{ domain }}</p>
-        <p class="webview-state__hint">该域名不在您的信任名单中。请确认您信任此来源后再继续访问。</p>
-        <UiButton variant="primary" size="md" @click="handleContinue">我了解风险，继续访问</UiButton>
+        <p class="webview-state__hint">
+          该域名不在您的信任名单中。请确认您信任此来源后再继续访问。
+        </p>
+        <UiButton variant="primary" size="md" @click="handleContinue"
+          >我了解风险，继续访问</UiButton
+        >
       </div>
 
       <!-- webview 标签 -->
@@ -476,8 +581,17 @@ watch(targetUrl, () => {
         <div v-if="showGoogleLoginHint" class="webview-login-hint">
           <div class="webview-login-hint__card">
             <div class="webview-login-hint__header">
-              <svg class="webview-login-hint__icon" width="20" height="20" viewBox="0 0 20 20" fill="none">
-                <path d="M10 2a4 4 0 0 1 4 4v2h1a2 2 0 0 1 2 2v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-6a2 2 0 0 1 2-2h1V6a4 4 0 0 1 4-4zm2 6V6a2 2 0 1 0-4 0v2h4zm-2 3a1.5 1.5 0 0 0-.5 2.915V15a.5.5 0 0 0 1 0v-1.085A1.5 1.5 0 0 0 10 11z" fill="currentColor"/>
+              <svg
+                class="webview-login-hint__icon"
+                width="20"
+                height="20"
+                viewBox="0 0 20 20"
+                fill="none"
+              >
+                <path
+                  d="M10 2a4 4 0 0 1 4 4v2h1a2 2 0 0 1 2 2v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-6a2 2 0 0 1 2-2h1V6a4 4 0 0 1 4-4zm2 6V6a2 2 0 1 0-4 0v2h4zm-2 3a1.5 1.5 0 0 0-.5 2.915V15a.5.5 0 0 0 1 0v-1.085A1.5 1.5 0 0 0 10 11z"
+                  fill="currentColor"
+                />
               </svg>
               <h3>需要 Google 登录</h3>
             </div>
@@ -486,7 +600,20 @@ watch(targetUrl, () => {
             </p>
             <div class="webview-login-hint__actions">
               <UiButton variant="primary" size="sm" @click="openGoogleLoginTab">
-                <svg width="14" height="14" viewBox="0 0 14 14" fill="none" style="margin-right:4px"><path d="M7 1v12M1 7h12" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+                <svg
+                  width="14"
+                  height="14"
+                  viewBox="0 0 14 14"
+                  fill="none"
+                  style="margin-right: 4px"
+                >
+                  <path
+                    d="M7 1v12M1 7h12"
+                    stroke="currentColor"
+                    stroke-width="1.5"
+                    stroke-linecap="round"
+                  />
+                </svg>
                 打开 Google 登录
               </UiButton>
               <UiButton variant="ghost" size="sm" @click="dismissGoogleLoginHint">忽略</UiButton>
@@ -514,44 +641,68 @@ watch(targetUrl, () => {
         aria-label="注入脚本"
         @close="showScriptsDrawer = false"
       >
-              <div class="sd-header">
-                <div class="sd-header__info">
-                  <h3>注入脚本</h3>
-                  <span v-if="injectedScripts.length > 0" class="sd-header__count">{{ injectedScripts.length }}</span>
-                </div>
-                <UiIconButton variant="ghost" size="sm" shape="square" @click="showScriptsDrawer = false">✕</UiIconButton>
-              </div>
+        <div class="sd-header">
+          <div class="sd-header__info">
+            <h3>注入脚本</h3>
+            <span v-if="injectedScripts.length > 0" class="sd-header__count">{{
+              injectedScripts.length
+            }}</span>
+          </div>
+          <UiIconButton variant="ghost" size="sm" shape="square" @click="showScriptsDrawer = false"
+            >✕</UiIconButton
+          >
+        </div>
 
-              <div class="sd-list">
-                <div v-for="script in injectedScripts" :key="script.id" class="sd-item" :class="{ 'sd-item--disabled': !script.enabled }">
-                  <div class="sd-item__row">
-                    <span class="sd-item__badge" :class="`sd-item__badge--${script.type}`">{{ script.type.toUpperCase() }}</span>
-                    <span class="sd-item__name">{{ script.name }}</span>
-                    <UiCheckbox
-                      class="sd-item__toggle"
-                      size="sm"
-                      :checked="script.enabled"
-                      :title="script.enabled ? '已启用' : '已禁用'"
-                      @change="toggleScript(script)"
-                    />
-                    <UiIconButton variant="ghost" size="sm" shape="square" @click="openScriptEditor(script.id)" title="编辑">
-                      <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M10.5 1.5l2 2L4.5 11.5l-3 1 1-3z" stroke="currentColor" stroke-width="1.2" stroke-linejoin="round"/></svg>
-                    </UiIconButton>
-                  </div>
-                  <div class="sd-item__domain">{{ script.domainPattern }}</div>
-                  <pre class="sd-item__code"><code>{{ script.content }}</code></pre>
-                </div>
-                <div v-if="injectedScripts.length === 0" class="sd-empty">
-                  <div class="sd-empty__icon">📜</div>
-                  <p>当前页面没有注入脚本</p>
-                </div>
-              </div>
+        <div class="sd-list">
+          <div
+            v-for="script in injectedScripts"
+            :key="script.id"
+            class="sd-item"
+            :class="{ 'sd-item--disabled': !script.enabled }"
+          >
+            <div class="sd-item__row">
+              <span class="sd-item__badge" :class="`sd-item__badge--${script.type}`">{{
+                script.type.toUpperCase()
+              }}</span>
+              <span class="sd-item__name">{{ script.name }}</span>
+              <UiCheckbox
+                class="sd-item__toggle"
+                size="sm"
+                :checked="script.enabled"
+                :title="script.enabled ? '已启用' : '已禁用'"
+                @change="toggleScript(script)"
+              />
+              <UiIconButton
+                variant="ghost"
+                size="sm"
+                shape="square"
+                @click="openScriptEditor(script.id)"
+                title="编辑"
+              >
+                <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+                  <path
+                    d="M10.5 1.5l2 2L4.5 11.5l-3 1 1-3z"
+                    stroke="currentColor"
+                    stroke-width="1.2"
+                    stroke-linejoin="round"
+                  />
+                </svg>
+              </UiIconButton>
+            </div>
+            <div class="sd-item__domain">{{ script.domainPattern }}</div>
+            <pre class="sd-item__code"><code>{{ script.content }}</code></pre>
+          </div>
+          <div v-if="injectedScripts.length === 0" class="sd-empty">
+            <div class="sd-empty__icon">📜</div>
+            <p>当前页面没有注入脚本</p>
+          </div>
+        </div>
 
-              <div class="sd-footer">
-                <UiButton variant="primary" size="sm" @click="openScriptEditor()" style="flex:1">
-                  📜 管理所有脚本
-                </UiButton>
-              </div>
+        <div class="sd-footer">
+          <UiButton variant="primary" size="sm" @click="openScriptEditor()" style="flex: 1">
+            📜 管理所有脚本
+          </UiButton>
+        </div>
       </UiPopupSurface>
     </div>
   </div>
@@ -607,9 +758,18 @@ watch(targetUrl, () => {
   border-radius: 3px;
   font-weight: 500;
 
-  &--safe { background: rgba(82, 196, 26, 0.12); color: #52c41a; }
-  &--danger { background: rgba(245, 108, 108, 0.12); color: #f56c6c; }
-  &--warn { background: rgba(250, 173, 20, 0.12); color: #faad14; }
+  &--safe {
+    background: rgba(82, 196, 26, 0.12);
+    color: #52c41a;
+  }
+  &--danger {
+    background: rgba(245, 108, 108, 0.12);
+    color: #f56c6c;
+  }
+  &--warn {
+    background: rgba(250, 173, 20, 0.12);
+    color: #faad14;
+  }
 }
 
 .webview-nav__url {
@@ -735,8 +895,16 @@ watch(targetUrl, () => {
   gap: 10px;
   padding: 18px 22px;
   border-radius: var(--ui-radius-lg, 12px);
-  background: var(--ui-surface-glass, color-mix(in srgb, var(--ui-surface-elevated, #1e1e2e) 85%, transparent));
-  border: var(--ui-border-width-thin, 1px) solid color-mix(in srgb, var(--ui-border-accent, rgba(128,128,128,0.2)) 60%, var(--ui-border-subtle, rgba(128,128,128,0.1)));
+  background: var(
+    --ui-surface-glass,
+    color-mix(in srgb, var(--ui-surface-elevated, #1e1e2e) 85%, transparent)
+  );
+  border: var(--ui-border-width-thin, 1px) solid
+    color-mix(
+      in srgb,
+      var(--ui-border-accent, rgba(128, 128, 128, 0.2)) 60%,
+      var(--ui-border-subtle, rgba(128, 128, 128, 0.1))
+    );
   backdrop-filter: var(--ui-backdrop-blur-md, blur(12px));
   box-shadow: var(--ui-panel-shadow, 0 8px 32px rgba(0, 0, 0, 0.18));
   max-width: 340px;
@@ -791,7 +959,11 @@ watch(targetUrl, () => {
   align-items: center;
   gap: 8px;
 
-  h3 { margin: 0; font-size: var(--ui-font-size-md); font-weight: 600; }
+  h3 {
+    margin: 0;
+    font-size: var(--ui-font-size-md);
+    font-weight: 600;
+  }
 }
 
 .sd-header__count {
@@ -825,10 +997,16 @@ watch(targetUrl, () => {
   border-radius: var(--ui-radius-md, 6px);
   background: var(--ui-input-bg, rgba(128, 128, 128, 0.05));
   border: 1px solid var(--ui-border-subtle, rgba(128, 128, 128, 0.08));
-  transition: border-color 0.15s, opacity 0.15s;
+  transition:
+    border-color 0.15s,
+    opacity 0.15s;
 
-  &:hover { border-color: var(--ui-border-accent, rgba(128, 128, 128, 0.2)); }
-  &--disabled { opacity: 0.45; }
+  &:hover {
+    border-color: var(--ui-border-accent, rgba(128, 128, 128, 0.2));
+  }
+  &--disabled {
+    opacity: 0.45;
+  }
 }
 
 .sd-item__row {
@@ -845,9 +1023,18 @@ watch(targetUrl, () => {
   flex-shrink: 0;
   text-transform: uppercase;
 
-  &--js  { background: rgba(234, 179, 8, 0.15); color: #eab308; }
-  &--css { background: rgba(59, 130, 246, 0.15); color: #3b82f6; }
-  &--html { background: rgba(239, 68, 68, 0.15); color: #ef4444; }
+  &--js {
+    background: rgba(234, 179, 8, 0.15);
+    color: #eab308;
+  }
+  &--css {
+    background: rgba(59, 130, 246, 0.15);
+    color: #3b82f6;
+  }
+  &--html {
+    background: rgba(239, 68, 68, 0.15);
+    color: #ef4444;
+  }
 }
 
 .sd-item__name {
@@ -891,7 +1078,9 @@ watch(targetUrl, () => {
   color: var(--ui-text-secondary);
   font-family: var(--ui-font-family-mono);
 
-  code { font: inherit; }
+  code {
+    font: inherit;
+  }
 }
 
 .sd-empty {
@@ -904,8 +1093,15 @@ watch(targetUrl, () => {
   text-align: center;
 }
 
-.sd-empty__icon { font-size: 32px; margin-bottom: 8px; opacity: 0.5; }
-.sd-empty p { margin: 0; font-size: var(--ui-font-size-sm); }
+.sd-empty__icon {
+  font-size: 32px;
+  margin-bottom: 8px;
+  opacity: 0.5;
+}
+.sd-empty p {
+  margin: 0;
+  font-size: var(--ui-font-size-sm);
+}
 
 .sd-footer {
   display: flex;

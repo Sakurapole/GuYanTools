@@ -29,13 +29,16 @@ const filteredScripts = computed(() => {
   }
   if (searchQuery.value) {
     const q = searchQuery.value.toLowerCase();
-    list = list.filter((s: WebScriptRule) => s.name.toLowerCase().includes(q) || s.domainPattern.toLowerCase().includes(q));
+    list = list.filter(
+      (s: WebScriptRule) =>
+        s.name.toLowerCase().includes(q) || s.domainPattern.toLowerCase().includes(q)
+    );
   }
   return list;
 });
 
-const selectedScript = computed(() =>
-  allScripts.value.find((s: WebScriptRule) => s.id === selectedScriptId.value) ?? null
+const selectedScript = computed(
+  () => allScripts.value.find((s: WebScriptRule) => s.id === selectedScriptId.value) ?? null
 );
 
 // ─── 编辑表单 ───
@@ -70,10 +73,14 @@ function selectScript(id: string) {
   if (script) loadScript(script);
 }
 
-watch([editName, editDomain, editType, editRunAt, editPermissions, editContent, editEnabled], () => {
-  isDirty.value = true;
-  saveMessage.value = '';
-}, { deep: true });
+watch(
+  [editName, editDomain, editType, editRunAt, editPermissions, editContent, editEnabled],
+  () => {
+    isDirty.value = true;
+    saveMessage.value = '';
+  },
+  { deep: true }
+);
 
 // ─── CRUD ───
 async function saveScript() {
@@ -86,7 +93,8 @@ async function saveScript() {
       domainPattern: editDomain.value.trim(),
       type: editType.value,
       runAt: editRunAt.value,
-      permissions: editPermissions.value.length > 0 ? [...editPermissions.value] as any : undefined,
+      permissions:
+        editPermissions.value.length > 0 ? ([...editPermissions.value] as any) : undefined,
       content: editContent.value,
       enabled: editEnabled.value,
     };
@@ -94,7 +102,7 @@ async function saveScript() {
   await appConfigStore.updateConfig({ web: { scripts } });
   isDirty.value = false;
   saveMessage.value = '已保存';
-  setTimeout(() => saveMessage.value = '', 2000);
+  setTimeout(() => (saveMessage.value = ''), 2000);
 }
 
 async function createScript() {
@@ -143,7 +151,7 @@ function setPermission(permissionKey: string, enabled: boolean) {
   editPermissions.value = [...nextPermissions];
 }
 
-function togglePermission(permissionKey: string) {
+function _togglePermission(permissionKey: string) {
   setPermission(permissionKey, !isPermissionEnabled(permissionKey));
 }
 
@@ -216,7 +224,12 @@ const editorPlaceholder = computed(() => {
           <UiButton variant="primary" size="sm" block @click="createScript">
             <template #prefix>
               <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
-                <path d="M7 2v10M2 7h10" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" />
+                <path
+                  d="M7 2v10M2 7h10"
+                  stroke="currentColor"
+                  stroke-width="1.5"
+                  stroke-linecap="round"
+                />
               </svg>
             </template>
             新建脚本
@@ -231,17 +244,28 @@ const editorPlaceholder = computed(() => {
           <span>🔗 {{ filterDomain }}</span>
           <UiIconButton size="sm" variant="ghost" title="清除筛选" @click="filterDomain = ''">
             <svg width="10" height="10" viewBox="0 0 10 10">
-              <path d="M1 1l8 8M9 1l-8 8" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" />
+              <path
+                d="M1 1l8 8M9 1l-8 8"
+                stroke="currentColor"
+                stroke-width="1.5"
+                stroke-linecap="round"
+              />
             </svg>
           </UiIconButton>
         </div>
 
         <UiScrollbar class="se-sidebar__list-wrap" :x="false">
           <div class="se-sidebar__list">
-            <div v-for="script in filteredScripts" :key="script.id" class="se-sidebar__item" :class="{
-              'se-sidebar__item--active': script.id === selectedScriptId,
-              'se-sidebar__item--disabled': !script.enabled,
-            }" @click="selectScript(script.id)">
+            <div
+              v-for="script in filteredScripts"
+              :key="script.id"
+              class="se-sidebar__item"
+              :class="{
+                'se-sidebar__item--active': script.id === selectedScriptId,
+                'se-sidebar__item--disabled': !script.enabled,
+              }"
+              @click="selectScript(script.id)"
+            >
               <div class="se-sidebar__item-title">{{ script.name }}</div>
               <div class="se-sidebar__item-sub">{{ script.domainPattern }}</div>
             </div>
@@ -259,16 +283,29 @@ const editorPlaceholder = computed(() => {
           <div class="se-action-bar__status">
             <span v-if="saveMessage" class="se-status se-status--saved">
               <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
-                <path d="M2 6l3 3 5-5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"
-                  stroke-linejoin="round" />
+                <path
+                  d="M2 6l3 3 5-5"
+                  stroke="currentColor"
+                  stroke-width="1.5"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                />
               </svg>
               {{ saveMessage }}
             </span>
             <span v-else-if="isDirty" class="se-status se-status--dirty">● 未保存</span>
           </div>
           <div class="se-action-bar__buttons">
-            <UiButton v-if="!selectedScript.builtin" variant="danger" size="sm" @click="deleteScript">删除</UiButton>
-            <UiButton variant="primary" size="sm" :disabled="!isDirty" @click="saveScript">保存</UiButton>
+            <UiButton
+              v-if="!selectedScript.builtin"
+              variant="danger"
+              size="sm"
+              @click="deleteScript"
+              >删除</UiButton
+            >
+            <UiButton variant="primary" size="sm" :disabled="!isDirty" @click="saveScript"
+              >保存</UiButton
+            >
           </div>
         </div>
 
@@ -299,22 +336,41 @@ const editorPlaceholder = computed(() => {
                   <span class="se-dot se-dot--yellow"></span>
                   <span class="se-dot se-dot--green"></span>
                 </div>
-                <span class="se-editor-pane__filename">{{ editName || 'untitled' }}.{{ editType }}</span>
-                <span class="se-editor-pane__lang">{{ typeLabel[editType] || editType.toUpperCase() }}</span>
+                <span class="se-editor-pane__filename"
+                  >{{ editName || 'untitled' }}.{{ editType }}</span
+                >
+                <span class="se-editor-pane__lang">{{
+                  typeLabel[editType] || editType.toUpperCase()
+                }}</span>
               </div>
             </template>
-            <UiTextarea v-model="editContent" class="se-editor-pane__textarea" :spellcheck="false"
-              :placeholder="editorPlaceholder" resize="none" />
+            <UiTextarea
+              v-model="editContent"
+              class="se-editor-pane__textarea"
+              :spellcheck="false"
+              :placeholder="editorPlaceholder"
+              resize="none"
+            />
             <template #footer>
               <div class="se-editor-pane__footer">
                 <div class="se-editor-pane__footer-left">
-                  <span class="se-status" :class="isDirty ? 'se-status--dirty' : 'se-status--saved'">
+                  <span
+                    class="se-status"
+                    :class="isDirty ? 'se-status--dirty' : 'se-status--saved'"
+                  >
                     {{ isDirty ? '● 待保存' : '✓ 已同步' }}
                   </span>
                 </div>
-                <UiButton class="se-editor-pane__toggle" variant="ghost" size="sm" type="button" @click.prevent="toggleEnabled">
-                  <span :class="editEnabled ? 'se-enabled--on' : 'se-enabled--off'">{{ editEnabled ? '已启用' : '已禁用'
-                    }}</span>
+                <UiButton
+                  class="se-editor-pane__toggle"
+                  variant="ghost"
+                  size="sm"
+                  type="button"
+                  @click.prevent="toggleEnabled"
+                >
+                  <span :class="editEnabled ? 'se-enabled--on' : 'se-enabled--off'">{{
+                    editEnabled ? '已启用' : '已禁用'
+                  }}</span>
                 </UiButton>
               </div>
             </template>
@@ -331,7 +387,7 @@ const editorPlaceholder = computed(() => {
                 :class="{ 'se-perms-panel__item--active': isPermissionEnabled(perm.key) }"
                 size="sm"
                 :checked="isPermissionEnabled(perm.key)"
-                @change="checked => setPermission(perm.key, checked)"
+                @change="(checked) => setPermission(perm.key, checked)"
               >
                 <div class="se-perms-panel__item-info">
                   <span class="se-perms-panel__item-icon">{{ perm.icon }}</span>
@@ -352,7 +408,12 @@ const editorPlaceholder = computed(() => {
           <UiButton variant="primary" @click="createScript">
             <template #prefix>
               <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
-                <path d="M7 2v10M2 7h10" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" />
+                <path
+                  d="M7 2v10M2 7h10"
+                  stroke="currentColor"
+                  stroke-width="1.5"
+                  stroke-linecap="round"
+                />
               </svg>
             </template>
             新建脚本
@@ -455,7 +516,9 @@ const editorPlaceholder = computed(() => {
   padding: 10px 12px;
   border-radius: var(--ui-radius-xs);
   cursor: pointer;
-  transition: background 0.15s ease, border-color 0.15s ease;
+  transition:
+    background 0.15s ease,
+    border-color 0.15s ease;
   margin-bottom: 2px;
   border-left: 3px solid transparent;
 
@@ -669,7 +732,13 @@ const editorPlaceholder = computed(() => {
   color: var(--ui-input-text);
   resize: none;
   box-sizing: border-box;
-  font: 13px/1.7 'JetBrains Mono', 'Fira Code', 'Cascadia Code', 'Courier New', Consolas, monospace;
+  font:
+    13px/1.7 'JetBrains Mono',
+    'Fira Code',
+    'Cascadia Code',
+    'Courier New',
+    Consolas,
+    monospace;
   tab-size: 2;
   outline: none;
   overflow-y: auto;
@@ -780,7 +849,9 @@ const editorPlaceholder = computed(() => {
   border: var(--ui-border-width-thin) solid var(--ui-border-subtle);
   background: var(--ui-input-bg);
   cursor: pointer;
-  transition: border-color 0.15s ease, background 0.15s ease;
+  transition:
+    border-color 0.15s ease,
+    background 0.15s ease;
 
   &:hover {
     border-color: var(--ui-border-accent);
@@ -812,5 +883,4 @@ const editorPlaceholder = computed(() => {
 .se-perms-panel__item-icon {
   font-size: 16px;
 }
-
 </style>

@@ -53,9 +53,7 @@ export class WebViewManager {
 
     // ─── UA 清洗 ───
     const originUA = ses.getUserAgent();
-    const cleanUA = originUA
-      .replace(/\s*Electron\/\S+/, '')
-      .replace(/\s*GuYanTools\/\S+/i, '');
+    const cleanUA = originUA.replace(/\s*Electron\/\S+/, '').replace(/\s*GuYanTools\/\S+/i, '');
     ses.setUserAgent(cleanUA);
 
     // ─── 请求头改写 ───
@@ -93,13 +91,7 @@ export class WebViewManager {
     const ses = this.sharedSession ?? session.fromPartition('persist:webview');
 
     await ses.clearStorageData({
-      storages: [
-        'cookies',
-        'filesystem',
-        'shadercache',
-        'serviceworkers',
-        'cachestorage',
-      ],
+      storages: ['cookies', 'filesystem', 'shadercache', 'serviceworkers', 'cachestorage'],
     });
     await ses.clearCache();
 
@@ -139,7 +131,7 @@ export class WebViewManager {
   getMatchedScripts(domain: string): WebScriptRule[] {
     const config = appConfigManager.getCachedConfig();
     return config.web.scripts.filter(
-      (rule) => rule.enabled && matchDomain(rule.domainPattern, domain),
+      (rule) => rule.enabled && matchDomain(rule.domainPattern, domain)
     );
   }
 
@@ -180,7 +172,7 @@ export class WebViewManager {
 
     // 读取 manifest.json 获取扩展信息
     const manifestPath = path.join(sourcePath, 'manifest.json');
-    if (!await fs.pathExists(manifestPath)) {
+    if (!(await fs.pathExists(manifestPath))) {
       throw new Error('所选目录缺少 manifest.json，不是有效的 Chrome 扩展');
     }
 
@@ -222,7 +214,7 @@ export class WebViewManager {
   async removeExtension(id: string) {
     const ses = this.sharedSession ?? session.fromPartition('persist:webview');
     const config = appConfigManager.getCachedConfig();
-    const ext = (config.web.chromeExtensions || []).find(e => e.id === id);
+    const ext = (config.web.chromeExtensions || []).find((e) => e.id === id);
 
     if (!ext) throw new Error(`扩展不存在: ${id}`);
 
@@ -243,7 +235,7 @@ export class WebViewManager {
     }
 
     // 更新配置
-    const extensions = (config.web.chromeExtensions || []).filter(e => e.id !== id);
+    const extensions = (config.web.chromeExtensions || []).filter((e) => e.id !== id);
     await appConfigManager.updateConfig({ web: { chromeExtensions: extensions } });
 
     console.log(`[WebView:Extension] Removed: ${ext.name} (${id})`);
@@ -255,10 +247,10 @@ export class WebViewManager {
   async toggleExtension(id: string, enabled: boolean) {
     const ses = this.sharedSession ?? session.fromPartition('persist:webview');
     const config = appConfigManager.getCachedConfig();
-    const extensions = (config.web.chromeExtensions || []).map(e =>
-      e.id === id ? { ...e, enabled } : { ...e },
+    const extensions = (config.web.chromeExtensions || []).map((e) =>
+      e.id === id ? { ...e, enabled } : { ...e }
     );
-    const ext = extensions.find(e => e.id === id);
+    const ext = extensions.find((e) => e.id === id);
 
     if (!ext) throw new Error(`扩展不存在: ${id}`);
 
@@ -317,16 +309,19 @@ export class WebViewManager {
     const hashRoute = `#/webview?url=${encodedUrl}&popup=1`;
 
     if (MAIN_WINDOW_VITE_DEV_SERVER_URL) {
-      void win.loadURL(`${MAIN_WINDOW_VITE_DEV_SERVER_URL}/index.html${hashRoute}`).catch((error) => {
-        console.warn('[WebView] Failed to load popup window:', error);
-      });
+      void win
+        .loadURL(`${MAIN_WINDOW_VITE_DEV_SERVER_URL}/index.html${hashRoute}`)
+        .catch((error) => {
+          console.warn('[WebView] Failed to load popup window:', error);
+        });
     } else {
-      void win.loadFile(
-        path.join(__dirname, `../renderer/${MAIN_WINDOW_VITE_NAME}/index.html`),
-        { hash: `/webview?url=${encodedUrl}&popup=1` },
-      ).catch((error) => {
-        console.warn('[WebView] Failed to load popup window:', error);
-      });
+      void win
+        .loadFile(path.join(__dirname, `../renderer/${MAIN_WINDOW_VITE_NAME}/index.html`), {
+          hash: `/webview?url=${encodedUrl}&popup=1`,
+        })
+        .catch((error) => {
+          console.warn('[WebView] Failed to load popup window:', error);
+        });
     }
 
     win.webContents.on('page-title-updated', (_event, title) => {

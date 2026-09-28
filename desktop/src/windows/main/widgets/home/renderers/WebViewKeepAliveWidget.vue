@@ -4,12 +4,15 @@ import type { GridItem } from '../../../types/grid';
 import WebViewKeepAliveList from '../../../components/webview/WebViewKeepAliveList.vue';
 import { useWebviewStore } from '../../../stores/webview_store';
 
-const props = withDefaults(defineProps<{
-  item: GridItem;
-  interactive?: boolean;
-}>(), {
-  interactive: true,
-});
+const props = withDefaults(
+  defineProps<{
+    item: GridItem;
+    interactive?: boolean;
+  }>(),
+  {
+    interactive: true,
+  }
+);
 
 const webviewStore = useWebviewStore();
 const isCompact = computed(() => props.item.rowSpan <= 2);
@@ -20,9 +23,23 @@ const countLabel = computed(() => `${webviewStore.instances.length} 个页面`);
   <div class="webview-keepalive-widget" :class="{ 'webview-keepalive-widget--compact': isCompact }">
     <div class="webview-keepalive-widget__head">
       <div class="webview-keepalive-widget__title-row">
-        <svg class="webview-keepalive-widget__icon" viewBox="0 0 20 20" fill="none" aria-hidden="true">
-          <path d="M10 2.5a7.5 7.5 0 1 0 0 15 7.5 7.5 0 0 0 0-15Z" stroke="currentColor" stroke-width="1.4"/>
-          <path d="M2.8 10h14.4M10 2.5c2 2.1 3 4.6 3 7.5s-1 5.4-3 7.5c-2-2.1-3-4.6-3-7.5s1-5.4 3-7.5Z" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/>
+        <svg
+          class="webview-keepalive-widget__icon"
+          viewBox="0 0 20 20"
+          fill="none"
+          aria-hidden="true"
+        >
+          <path
+            d="M10 2.5a7.5 7.5 0 1 0 0 15 7.5 7.5 0 0 0 0-15Z"
+            stroke="currentColor"
+            stroke-width="1.4"
+          />
+          <path
+            d="M2.8 10h14.4M10 2.5c2 2.1 3 4.6 3 7.5s-1 5.4-3 7.5c-2-2.1-3-4.6-3-7.5s1-5.4 3-7.5Z"
+            stroke="currentColor"
+            stroke-width="1.4"
+            stroke-linecap="round"
+          />
         </svg>
         <span>{{ props.item.label || '保活网页' }}</span>
       </div>

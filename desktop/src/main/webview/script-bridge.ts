@@ -14,74 +14,80 @@ export function registerWebScriptBridge() {
   if (registered) return;
 
   // GM_xmlhttpRequest 代理：绕过 CORS 限制
-  ipcMain.handle('web-script:gm-xhr', async (_event, requestData: {
-    url: string;
-    method?: string;
-    headers?: Record<string, string>;
-    data?: string;
-    responseType?: string;
-  }) => {
-    try {
-      const { url, method = 'GET', headers = {}, data } = requestData;
-
-      const request = net.request({
-        url,
-        method: method as any,
-      });
-
-      // 设置自定义 headers
-      for (const [key, value] of Object.entries(headers)) {
-        request.setHeader(key, value);
+  ipcMain.handle(
+    'web-script:gm-xhr',
+    async (
+      _event,
+      requestData: {
+        url: string;
+        method?: string;
+        headers?: Record<string, string>;
+        data?: string;
+        responseType?: string;
       }
+    ) => {
+      try {
+        const { url, method = 'GET', headers = {}, data } = requestData;
 
-      return await new Promise<{
-        status: number;
-        statusText: string;
-        responseHeaders: Record<string, string>;
-        responseText: string;
-      }>((resolve, reject) => {
-        const chunks: Buffer[] = [];
+        const request = net.request({
+          url,
+          method: method as any,
+        });
 
-        request.on('response', (response) => {
-          response.on('data', (chunk) => {
-            chunks.push(chunk);
-          });
+        // 设置自定义 headers
+        for (const [key, value] of Object.entries(headers)) {
+          request.setHeader(key, value);
+        }
 
-          response.on('end', () => {
-            const body = Buffer.concat(chunks);
-            const responseHeaders: Record<string, string> = {};
-            for (const key of Object.keys(response.headers)) {
-              const val = response.headers[key];
-              responseHeaders[key] = Array.isArray(val) ? val.join(', ') : (val ?? '');
-            }
+        return await new Promise<{
+          status: number;
+          statusText: string;
+          responseHeaders: Record<string, string>;
+          responseText: string;
+        }>((resolve, reject) => {
+          const chunks: Buffer[] = [];
 
-            resolve({
-              status: response.statusCode,
-              statusText: response.statusMessage || '',
-              responseHeaders,
-              responseText: body.toString('utf-8'),
+          request.on('response', (response) => {
+            response.on('data', (chunk) => {
+              chunks.push(chunk);
+            });
+
+            response.on('end', () => {
+              const body = Buffer.concat(chunks);
+              const responseHeaders: Record<string, string> = {};
+              for (const key of Object.keys(response.headers)) {
+                const val = response.headers[key];
+                responseHeaders[key] = Array.isArray(val) ? val.join(', ') : (val ?? '');
+              }
+
+              resolve({
+                status: response.statusCode,
+                statusText: response.statusMessage || '',
+                responseHeaders,
+                responseText: body.toString('utf-8'),
+              });
+            });
+
+            response.on('error', (err) => {
+              reject(err);
             });
           });
 
-          response.on('error', (err) => {
+          request.on('error', (err) => {
             reject(err);
           });
+
+          if (data) {
+            request.write(data);
+          }
+
+          request.end();
         });
-
-        request.on('error', (err) => {
-          reject(err);
-        });
-
-        if (data) {
-          request.write(data);
-        }
-
-        request.end();
-      });
-    } catch (err: any) {
-      return { error: err.message || 'Unknown error' };
+      } catch (err: any) {
+        return { error: err.message || 'Unknown error' };
+      }
     }
-  });
+  );
 
   // GM_setValue / GM_getValue：基于 session 的简单键值存储
   const scriptStorage = new Map<string, string>();

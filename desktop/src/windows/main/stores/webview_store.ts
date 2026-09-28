@@ -49,14 +49,12 @@ export const useWebviewStore = defineStore('webview', () => {
   const activeUrl = ref<string | null>(null);
 
   /** 保活域名列表（从配置读取） */
-  const keepAliveDomains = computed(() =>
-    appConfigStore.config.web?.keepAliveDomains ?? [],
-  );
+  const keepAliveDomains = computed(() => appConfigStore.config.web?.keepAliveDomains ?? []);
 
   /** 判断域名是否在保活列表中 */
   function isKeepAliveDomain(domain: string): boolean {
     if (!domain) return false;
-    return keepAliveDomains.value.some(pattern => matchDomain(pattern, domain));
+    return keepAliveDomains.value.some((pattern) => matchDomain(pattern, domain));
   }
 
   function isTemporaryKeepAliveUrl(url: string): boolean {
@@ -79,7 +77,7 @@ export const useWebviewStore = defineStore('webview', () => {
   }
 
   function isManagedKeepAliveUrl(url: string): boolean {
-    return Boolean(resolveKeepAliveMode(url)) || instances.value.some(inst => inst.url === url);
+    return Boolean(resolveKeepAliveMode(url)) || instances.value.some((inst) => inst.url === url);
   }
 
   /**
@@ -90,7 +88,7 @@ export const useWebviewStore = defineStore('webview', () => {
   function activate(url: string): boolean {
     const domain = extractDomain(url);
     const keepAliveMode = resolveKeepAliveMode(url);
-    const existing = instances.value.find(inst => inst.url === url);
+    const existing = instances.value.find((inst) => inst.url === url);
 
     if (!keepAliveMode && !existing) {
       // 非保活域名，取消所有激活
@@ -136,7 +134,7 @@ export const useWebviewStore = defineStore('webview', () => {
 
   /** 隐藏一个保活实例，并保留在后台列表中以便后续恢复 */
   function hideInstance(url: string) {
-    const inst = instances.value.find(item => item.url === url);
+    const inst = instances.value.find((item) => item.url === url);
     if (!inst) return;
 
     inst.active = false;
@@ -148,11 +146,11 @@ export const useWebviewStore = defineStore('webview', () => {
 
   /** 移除一个保活实例（关闭 tab 时调用） */
   function removeInstance(url: string) {
-    const idx = instances.value.findIndex(inst => inst.url === url);
+    const idx = instances.value.findIndex((inst) => inst.url === url);
     if (idx !== -1) {
       instances.value.splice(idx, 1);
     }
-    temporaryKeepAliveUrls.value = temporaryKeepAliveUrls.value.filter(item => item !== url);
+    temporaryKeepAliveUrls.value = temporaryKeepAliveUrls.value.filter((item) => item !== url);
     if (activeUrl.value === url) {
       activeUrl.value = null;
     }
@@ -175,7 +173,7 @@ export const useWebviewStore = defineStore('webview', () => {
 
   /** 更新实例标题，供后台列表恢复入口展示 */
   function updateInstanceTitle(url: string, title: string) {
-    const inst = instances.value.find(item => item.url === url);
+    const inst = instances.value.find((item) => item.url === url);
     if (!inst || !title) return;
     inst.title = title;
   }
@@ -184,9 +182,7 @@ export const useWebviewStore = defineStore('webview', () => {
   const hasActiveInstance = computed(() => activeUrl.value !== null);
 
   /** 已隐藏但仍保留加载状态的网页列表，后续恢复入口可直接使用 */
-  const backgroundInstances = computed(() =>
-    instances.value.filter(inst => !inst.active),
-  );
+  const backgroundInstances = computed(() => instances.value.filter((inst) => !inst.active));
 
   return {
     instances,

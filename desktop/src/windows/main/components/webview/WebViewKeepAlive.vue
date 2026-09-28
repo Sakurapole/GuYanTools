@@ -62,13 +62,18 @@ window.GM_setClipboard=function(t){navigator.clipboard.writeText(t).catch(()=>{}
 
 // ─── 每个保活实例的 refs ───
 const webviewRefs = ref<Record<string, HTMLElement | null>>({});
-const navStates = ref<Record<string, {
-  canGoBack: boolean;
-  canGoForward: boolean;
-  url: string;
-  title: string;
-  isLoading: boolean;
-}>>({});
+const navStates = ref<
+  Record<
+    string,
+    {
+      canGoBack: boolean;
+      canGoForward: boolean;
+      url: string;
+      title: string;
+      isLoading: boolean;
+    }
+  >
+>({});
 const faviconUrls = ref<Record<string, string>>({});
 const domainStatuses = ref<Record<string, DomainCheckResult>>({});
 const injectedScriptsMap = ref<Record<string, WebScriptRule[]>>({});
@@ -91,10 +96,14 @@ const statusClassMap: Record<DomainCheckResult, string> = {
 
 function scriptTypeLabel(type: string) {
   switch (type) {
-    case 'js': return 'JavaScript';
-    case 'css': return 'CSS';
-    case 'html': return 'HTML';
-    default: return type;
+    case 'js':
+      return 'JavaScript';
+    case 'css':
+      return 'CSS';
+    case 'html':
+      return 'HTML';
+    default:
+      return type;
   }
 }
 
@@ -123,13 +132,19 @@ function syncPageTitle(wvEl: any, instanceUrl: string) {
   }
 
   if (!navStates.value[instanceUrl]) {
-    navStates.value[instanceUrl] = { canGoBack: false, canGoForward: false, url: '', title: '', isLoading: false };
+    navStates.value[instanceUrl] = {
+      canGoBack: false,
+      canGoForward: false,
+      url: '',
+      title: '',
+      isLoading: false,
+    };
   }
   navStates.value[instanceUrl].title = title;
 }
 
 function syncPageFavicon(instanceUrl: string, favicons: string[] | undefined) {
-  const faviconUrl = favicons?.find(item => typeof item === 'string' && item.length > 0);
+  const faviconUrl = favicons?.find((item) => typeof item === 'string' && item.length > 0);
   if (!faviconUrl) return;
 
   faviconUrls.value[instanceUrl] = faviconUrl;
@@ -156,7 +171,9 @@ function startPolling(instanceUrl: string) {
         isLoading: wv.isLoading?.() ?? false,
       };
       syncPageTitle(wv, instanceUrl);
-    } catch { /* ignore */ }
+    } catch {
+      /* ignore */
+    }
   }, 800);
 }
 
@@ -216,7 +233,7 @@ async function initWebview(instanceUrl: string) {
   initializedUrls.value.add(instanceUrl);
 
   // ─── 脚本注入辅助 ───
-  function injectScript(wv: any, script: typeof injectedScriptsMap.value[string][number]) {
+  function injectScript(wv: any, script: (typeof injectedScriptsMap.value)[string][number]) {
     try {
       if (script.type === 'js') {
         // 如果脚本有 network/storage/clipboard 权限，先注入 GM API polyfill
@@ -230,7 +247,10 @@ async function initWebview(instanceUrl: string) {
       } else if (script.type === 'css') {
         wv.insertCSS(script.content);
       } else if (script.type === 'html') {
-        const escaped = script.content.replace(/\\/g, '\\\\').replace(/`/g, '\\`').replace(/\$/g, '\\$');
+        const escaped = script.content
+          .replace(/\\/g, '\\\\')
+          .replace(/`/g, '\\`')
+          .replace(/\$/g, '\\$');
         wv.executeJavaScript(
           `(() => { const c = document.createElement('div'); c.innerHTML = \`${escaped}\`; document.body.appendChild(c); })()`
         );
@@ -353,11 +373,11 @@ watch(
 
     webviewStore.activate(targetUrl);
   },
-  { immediate: true },
+  { immediate: true }
 );
 
 watch(
-  () => webviewStore.instances.map(inst => inst.url),
+  () => webviewStore.instances.map((inst) => inst.url),
   (urls) => {
     const liveUrls = new Set(urls);
     const trackedUrls = new Set([
@@ -382,7 +402,7 @@ watch(
       }
     }
   },
-  { immediate: true },
+  { immediate: true }
 );
 
 onBeforeUnmount(() => {
@@ -400,27 +420,84 @@ function setWebviewRef(url: string, el: any) {
     :style="{ display: webviewStore.hasActiveInstance ? 'flex' : 'none' }"
   >
     <template v-for="inst in webviewStore.instances" :key="inst.url">
-      <div
-        class="webview-keepalive-instance"
-        :style="{ display: inst.active ? 'flex' : 'none' }"
-      >
+      <div class="webview-keepalive-instance" :style="{ display: inst.active ? 'flex' : 'none' }">
         <!-- 导航栏 -->
         <div class="webview-nav">
           <div class="webview-nav__buttons">
-            <UiIconButton variant="ghost" size="sm" shape="square" :disabled="!navStates[inst.url]?.canGoBack" title="后退" @click="goBack(inst.url)">
-              <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M10 3L5 8l5 5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            <UiIconButton
+              variant="ghost"
+              size="sm"
+              shape="square"
+              :disabled="!navStates[inst.url]?.canGoBack"
+              title="后退"
+              @click="goBack(inst.url)"
+            >
+              <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+                <path
+                  d="M10 3L5 8l5 5"
+                  stroke="currentColor"
+                  stroke-width="1.5"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                />
+              </svg>
             </UiIconButton>
-            <UiIconButton variant="ghost" size="sm" shape="square" :disabled="!navStates[inst.url]?.canGoForward" title="前进" @click="goForward(inst.url)">
-              <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M6 3l5 5-5 5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            <UiIconButton
+              variant="ghost"
+              size="sm"
+              shape="square"
+              :disabled="!navStates[inst.url]?.canGoForward"
+              title="前进"
+              @click="goForward(inst.url)"
+            >
+              <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+                <path
+                  d="M6 3l5 5-5 5"
+                  stroke="currentColor"
+                  stroke-width="1.5"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                />
+              </svg>
             </UiIconButton>
-            <UiIconButton variant="ghost" size="sm" shape="square" title="刷新" @click="reload(inst.url)">
-              <svg v-if="!navStates[inst.url]?.isLoading" width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M13 8A5 5 0 113 8a5 5 0 0110 0z" stroke="currentColor" stroke-width="1.5"/><path d="M13 3v5h-5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            <UiIconButton
+              variant="ghost"
+              size="sm"
+              shape="square"
+              title="刷新"
+              @click="reload(inst.url)"
+            >
+              <svg
+                v-if="!navStates[inst.url]?.isLoading"
+                width="16"
+                height="16"
+                viewBox="0 0 16 16"
+                fill="none"
+              >
+                <path
+                  d="M13 8A5 5 0 113 8a5 5 0 0110 0z"
+                  stroke="currentColor"
+                  stroke-width="1.5"
+                />
+                <path
+                  d="M13 3v5h-5"
+                  stroke="currentColor"
+                  stroke-width="1.5"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                />
+              </svg>
               <div v-else class="webview-nav__loading-indicator" />
             </UiIconButton>
           </div>
 
           <div class="webview-nav__url-bar">
-            <span :class="['webview-nav__status', statusClassMap[domainStatuses[inst.url] || 'unknown']]">
+            <span
+              :class="[
+                'webview-nav__status',
+                statusClassMap[domainStatuses[inst.url] || 'unknown'],
+              ]"
+            >
               {{ statusLabelMap[domainStatuses[inst.url] || 'unknown'] }}
             </span>
             <span class="webview-nav__url">{{ navStates[inst.url]?.url || inst.url }}</span>
@@ -429,18 +506,49 @@ function setWebviewRef(url: string, el: any) {
           <div class="webview-nav__actions">
             <div class="webview-nav__scripts-btn-wrap">
               <UiIconButton
-                variant="ghost" size="sm" shape="square"
-                :title="(injectedScriptsMap[inst.url] || []).length > 0 ? `已注入 ${(injectedScriptsMap[inst.url] || []).length} 个脚本` : '查看注入脚本'"
+                variant="ghost"
+                size="sm"
+                shape="square"
+                :title="
+                  (injectedScriptsMap[inst.url] || []).length > 0
+                    ? `已注入 ${(injectedScriptsMap[inst.url] || []).length} 个脚本`
+                    : '查看注入脚本'
+                "
                 @click="showScriptsDrawerFor = inst.url"
               >
-                <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M5 4l-3 4 3 4M11 4l3 4-3 4M9 2l-2 12" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+                  <path
+                    d="M5 4l-3 4 3 4M11 4l3 4-3 4M9 2l-2 12"
+                    stroke="currentColor"
+                    stroke-width="1.5"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                  />
+                </svg>
               </UiIconButton>
-              <span v-if="(injectedScriptsMap[inst.url] || []).length > 0" class="webview-nav__scripts-badge">
+              <span
+                v-if="(injectedScriptsMap[inst.url] || []).length > 0"
+                class="webview-nav__scripts-badge"
+              >
                 {{ (injectedScriptsMap[inst.url] || []).length }}
               </span>
             </div>
-            <UiIconButton variant="ghost" size="sm" shape="square" title="打开 DevTools" @click="openDevTools(inst.url)">
-              <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M6 2H3a1 1 0 0 0-1 1v10a1 1 0 0 0 1 1h10a1 1 0 0 0 1-1v-3M9 2h5v5M14 2L7 9" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            <UiIconButton
+              variant="ghost"
+              size="sm"
+              shape="square"
+              title="打开 DevTools"
+              @click="openDevTools(inst.url)"
+            >
+              <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+                <path
+                  d="M6 2H3a1 1 0 0 0-1 1v10a1 1 0 0 0 1 1h10a1 1 0 0 0 1-1v-3M9 2h5v5M14 2L7 9"
+                  stroke="currentColor"
+                  stroke-width="1.3"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                />
+              </svg>
             </UiIconButton>
             <UiIconButton
               variant="ghost"
@@ -450,7 +558,14 @@ function setWebviewRef(url: string, el: any) {
               :title="barStore.isWebviewPinned(inst.url) ? '已固定到底栏' : '固定到底栏'"
               @click="pinWebviewInstance(inst.url)"
             >
-              <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M5 2.5h6l-.8 4.2 2.3 2.3v1H8.7V14H7.3v-4H3.5V9l2.3-2.3L5 2.5z" stroke="currentColor" stroke-width="1.35" stroke-linejoin="round"/></svg>
+              <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+                <path
+                  d="M5 2.5h6l-.8 4.2 2.3 2.3v1H8.7V14H7.3v-4H3.5V9l2.3-2.3L5 2.5z"
+                  stroke="currentColor"
+                  stroke-width="1.35"
+                  stroke-linejoin="round"
+                />
+              </svg>
             </UiIconButton>
           </div>
         </div>
@@ -470,20 +585,45 @@ function setWebviewRef(url: string, el: any) {
             <div v-if="showGoogleLoginHintFor === inst.url" class="webview-login-hint">
               <div class="webview-login-hint__card">
                 <div class="webview-login-hint__header">
-                  <svg class="webview-login-hint__icon" width="20" height="20" viewBox="0 0 20 20" fill="none">
-                    <path d="M10 2a4 4 0 0 1 4 4v2h1a2 2 0 0 1 2 2v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-6a2 2 0 0 1 2-2h1V6a4 4 0 0 1 4-4zm2 6V6a2 2 0 1 0-4 0v2h4zm-2 3a1.5 1.5 0 0 0-.5 2.915V15a.5.5 0 0 0 1 0v-1.085A1.5 1.5 0 0 0 10 11z" fill="currentColor"/>
+                  <svg
+                    class="webview-login-hint__icon"
+                    width="20"
+                    height="20"
+                    viewBox="0 0 20 20"
+                    fill="none"
+                  >
+                    <path
+                      d="M10 2a4 4 0 0 1 4 4v2h1a2 2 0 0 1 2 2v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-6a2 2 0 0 1 2-2h1V6a4 4 0 0 1 4-4zm2 6V6a2 2 0 1 0-4 0v2h4zm-2 3a1.5 1.5 0 0 0-.5 2.915V15a.5.5 0 0 0 1 0v-1.085A1.5 1.5 0 0 0 10 11z"
+                      fill="currentColor"
+                    />
                   </svg>
                   <h3>需要 Google 登录</h3>
                 </div>
                 <p class="webview-login-hint__text">
-                  此页面正在跳转到 Google 登录。建议先在新标签页中完成登录，登录态会自动同步到所有网页。
+                  此页面正在跳转到 Google
+                  登录。建议先在新标签页中完成登录，登录态会自动同步到所有网页。
                 </p>
                 <div class="webview-login-hint__actions">
                   <UiButton variant="primary" size="sm" @click="openGoogleLoginTab">
-                    <svg width="14" height="14" viewBox="0 0 14 14" fill="none" style="margin-right:4px"><path d="M7 1v12M1 7h12" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+                    <svg
+                      width="14"
+                      height="14"
+                      viewBox="0 0 14 14"
+                      fill="none"
+                      style="margin-right: 4px"
+                    >
+                      <path
+                        d="M7 1v12M1 7h12"
+                        stroke="currentColor"
+                        stroke-width="1.5"
+                        stroke-linecap="round"
+                      />
+                    </svg>
                     打开 Google 登录
                   </UiButton>
-                  <UiButton variant="ghost" size="sm" @click="showGoogleLoginHintFor = null">忽略</UiButton>
+                  <UiButton variant="ghost" size="sm" @click="showGoogleLoginHintFor = null"
+                    >忽略</UiButton
+                  >
                 </div>
               </div>
             </div>
@@ -501,22 +641,38 @@ function setWebviewRef(url: string, el: any) {
       <template #header>
         <div class="scripts-drawer__header">
           <h3>已注入的脚本</h3>
-          <UiIconButton variant="ghost" size="md" shape="square" @click="showScriptsDrawerFor = null">✕</UiIconButton>
+          <UiIconButton
+            variant="ghost"
+            size="md"
+            shape="square"
+            @click="showScriptsDrawerFor = null"
+            >✕</UiIconButton
+          >
         </div>
       </template>
       <div class="scripts-drawer__list">
         <template v-if="showScriptsDrawerFor">
-          <div v-for="script in (injectedScriptsMap[showScriptsDrawerFor] || [])" :key="script.id" class="scripts-drawer__item">
+          <div
+            v-for="script in injectedScriptsMap[showScriptsDrawerFor] || []"
+            :key="script.id"
+            class="scripts-drawer__item"
+          >
             <div class="scripts-drawer__item-head">
               <span class="scripts-drawer__item-name">{{ script.name }}</span>
-              <span class="scripts-drawer__item-type" :class="`scripts-drawer__item-type--${script.type}`">
+              <span
+                class="scripts-drawer__item-type"
+                :class="`scripts-drawer__item-type--${script.type}`"
+              >
                 {{ scriptTypeLabel(script.type) }}
               </span>
             </div>
             <div class="scripts-drawer__item-pattern">匹配: {{ script.domainPattern }}</div>
             <pre class="scripts-drawer__item-code"><code>{{ script.content }}</code></pre>
           </div>
-          <div v-if="(injectedScriptsMap[showScriptsDrawerFor] || []).length === 0" class="scripts-drawer__empty">
+          <div
+            v-if="(injectedScriptsMap[showScriptsDrawerFor] || []).length === 0"
+            class="scripts-drawer__empty"
+          >
             当前页面没有注入任何脚本
           </div>
         </template>
@@ -580,9 +736,18 @@ function setWebviewRef(url: string, el: any) {
   border-radius: 3px;
   font-weight: 500;
 
-  &--safe { background: rgba(82, 196, 26, 0.12); color: #52c41a; }
-  &--danger { background: rgba(245, 108, 108, 0.12); color: #f56c6c; }
-  &--warn { background: rgba(250, 173, 20, 0.12); color: #faad14; }
+  &--safe {
+    background: rgba(82, 196, 26, 0.12);
+    color: #52c41a;
+  }
+  &--danger {
+    background: rgba(245, 108, 108, 0.12);
+    color: #f56c6c;
+  }
+  &--warn {
+    background: rgba(250, 173, 20, 0.12);
+    color: #faad14;
+  }
 }
 
 .webview-nav__url {
@@ -656,8 +821,16 @@ function setWebviewRef(url: string, el: any) {
   gap: 10px;
   padding: 18px 22px;
   border-radius: var(--ui-radius-lg, 12px);
-  background: var(--ui-surface-glass, color-mix(in srgb, var(--ui-surface-elevated, #1e1e2e) 85%, transparent));
-  border: var(--ui-border-width-thin, 1px) solid color-mix(in srgb, var(--ui-border-accent, rgba(128,128,128,0.2)) 60%, var(--ui-border-subtle, rgba(128,128,128,0.1)));
+  background: var(
+    --ui-surface-glass,
+    color-mix(in srgb, var(--ui-surface-elevated, #1e1e2e) 85%, transparent)
+  );
+  border: var(--ui-border-width-thin, 1px) solid
+    color-mix(
+      in srgb,
+      var(--ui-border-accent, rgba(128, 128, 128, 0.2)) 60%,
+      var(--ui-border-subtle, rgba(128, 128, 128, 0.1))
+    );
   backdrop-filter: var(--ui-backdrop-blur-md, blur(12px));
   box-shadow: var(--ui-panel-shadow, 0 8px 32px rgba(0, 0, 0, 0.18));
   max-width: 340px;
@@ -702,7 +875,12 @@ function setWebviewRef(url: string, el: any) {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  h3 { margin: 0; font-size: 16px; font-weight: 600; color: var(--ui-text-primary); }
+  h3 {
+    margin: 0;
+    font-size: 16px;
+    font-weight: 600;
+    color: var(--ui-text-primary);
+  }
 }
 
 .scripts-drawer__list {
@@ -727,19 +905,35 @@ function setWebviewRef(url: string, el: any) {
   margin-bottom: 6px;
 }
 
-.scripts-drawer__item-name { font-weight: 500; color: var(--ui-text-primary); }
+.scripts-drawer__item-name {
+  font-weight: 500;
+  color: var(--ui-text-primary);
+}
 
 .scripts-drawer__item-type {
   font-size: 11px;
   padding: 1px 6px;
   border-radius: 3px;
   font-weight: 500;
-  &--js { background: rgba(250, 200, 50, 0.15); color: #e6a700; }
-  &--css { background: rgba(100, 160, 255, 0.15); color: #4a90d9; }
-  &--html { background: rgba(255, 120, 80, 0.15); color: #e06040; }
+  &--js {
+    background: rgba(250, 200, 50, 0.15);
+    color: #e6a700;
+  }
+  &--css {
+    background: rgba(100, 160, 255, 0.15);
+    color: #4a90d9;
+  }
+  &--html {
+    background: rgba(255, 120, 80, 0.15);
+    color: #e06040;
+  }
 }
 
-.scripts-drawer__item-pattern { font-size: 12px; color: var(--ui-text-muted); margin-bottom: 8px; }
+.scripts-drawer__item-pattern {
+  font-size: 12px;
+  color: var(--ui-text-muted);
+  margin-bottom: 8px;
+}
 
 .scripts-drawer__item-code {
   margin: 0;
@@ -753,10 +947,20 @@ function setWebviewRef(url: string, el: any) {
   white-space: pre-wrap;
   word-break: break-all;
   color: var(--ui-text-secondary);
-  code { font-family: 'Courier New', Consolas, monospace; }
+  code {
+    font-family: 'Courier New', Consolas, monospace;
+  }
 }
 
-.scripts-drawer__empty { text-align: center; padding: 24px; color: var(--ui-text-muted); }
+.scripts-drawer__empty {
+  text-align: center;
+  padding: 24px;
+  color: var(--ui-text-muted);
+}
 
-@keyframes webview-spin { to { transform: rotate(360deg); } }
+@keyframes webview-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
 </style>

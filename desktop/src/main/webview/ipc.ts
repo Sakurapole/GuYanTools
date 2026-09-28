@@ -41,44 +41,49 @@ export function registerWebviewIpcHandlers(getMainWindow: () => BrowserWindow | 
   });
 
   // ─── 脚本编辑器（新窗口） ───
-  ipcMain.handle('webview:open-script-editor', async (_event, scriptId?: string, domain?: string) => {
-    const mainWin = getMainWindow();
-    const parentBounds = mainWin?.getBounds();
+  ipcMain.handle(
+    'webview:open-script-editor',
+    async (_event, scriptId?: string, domain?: string) => {
+      const mainWin = getMainWindow();
+      const parentBounds = mainWin?.getBounds();
 
-    const query = new URLSearchParams();
-    query.set('popup', '1');
-    if (scriptId) query.set('scriptId', scriptId);
-    if (domain) query.set('domain', domain);
-    const hash = `/script-editor${query.toString() ? '?' + query.toString() : ''}`;
+      const query = new URLSearchParams();
+      query.set('popup', '1');
+      if (scriptId) query.set('scriptId', scriptId);
+      if (domain) query.set('domain', domain);
+      const hash = `/script-editor${query.toString() ? '?' + query.toString() : ''}`;
 
-    // 使用与主窗口相同的 preload 路径
-    const preloadPath = path.join(__dirname, 'preload.js');
+      // 使用与主窗口相同的 preload 路径
+      const preloadPath = path.join(__dirname, 'preload.js');
 
-    const win = new BrowserWindow({
-      width: 960,
-      height: 680,
-      minWidth: 720,
-      minHeight: 480,
-      frame: false,
-      titleBarStyle: 'hidden',
-      backgroundColor: '#00000000',
-      transparent: true,
-      webPreferences: {
-        preload: preloadPath,
-        contextIsolation: true,
-        nodeIntegration: false,
-      },
-      ...(parentBounds ? {
-        x: parentBounds.x + Math.round((parentBounds.width - 960) / 2),
-        y: parentBounds.y + Math.round((parentBounds.height - 680) / 2),
-      } : {}),
-    });
+      const win = new BrowserWindow({
+        width: 960,
+        height: 680,
+        minWidth: 720,
+        minHeight: 480,
+        frame: false,
+        titleBarStyle: 'hidden',
+        backgroundColor: '#00000000',
+        transparent: true,
+        webPreferences: {
+          preload: preloadPath,
+          contextIsolation: true,
+          nodeIntegration: false,
+        },
+        ...(parentBounds
+          ? {
+              x: parentBounds.x + Math.round((parentBounds.width - 960) / 2),
+              y: parentBounds.y + Math.round((parentBounds.height - 680) / 2),
+            }
+          : {}),
+      });
 
-    // 加载主应用 URL 并导航到脚本编辑器路由
-    const mainUrl = mainWin?.webContents.getURL() ?? '';
-    const baseUrl = mainUrl.split('#')[0];
-    await win.loadURL(`${baseUrl}#${hash}`);
-  });
+      // 加载主应用 URL 并导航到脚本编辑器路由
+      const mainUrl = mainWin?.webContents.getURL() ?? '';
+      const baseUrl = mainUrl.split('#')[0];
+      await win.loadURL(`${baseUrl}#${hash}`);
+    }
+  );
 
   // ─── 通用窗口控制（操作发送者所在的窗口，用于弹窗模式） ───
   ipcMain.on('window:minimize', (event) => {
