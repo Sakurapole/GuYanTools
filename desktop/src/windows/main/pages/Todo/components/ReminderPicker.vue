@@ -125,7 +125,8 @@ function onClickOutside(e: MouseEvent) {
   if (!isOpen.value) return;
   const target = e.target as Node;
   if (triggerRef.value?.contains(target) || panelRef.value?.contains(target)) return;
-  if (target instanceof Element && target.closest('.ui-datepicker__panel, .ui-timepicker__panel')) return;
+  if (target instanceof Element && target.closest('.ui-datepicker__panel, .ui-timepicker__panel'))
+    return;
   isOpen.value = false;
 }
 
@@ -159,7 +160,13 @@ onBeforeUnmount(() => {
       <div v-for="r in reminders" :key="r.id" class="reminder-tag" :class="{ sent: r.isSent }">
         <IconRenderer icon="iconify:lucide:bell" :size="12" />
         <span>{{ formatDateTime(r.remindAt) }}</span>
-        <UiIconButton class="reminder-remove" size="sm" variant="ghost" title="删除提醒" @click="removeReminder(r.id)">
+        <UiIconButton
+          class="reminder-remove"
+          size="sm"
+          variant="ghost"
+          title="删除提醒"
+          @click="removeReminder(r.id)"
+        >
           <IconRenderer icon="iconify:lucide:x" :size="10" />
         </UiIconButton>
       </div>
@@ -169,12 +176,24 @@ onBeforeUnmount(() => {
       <Transition :name="placement === 'top' ? 'ui-dropdown-up' : 'ui-dropdown'">
         <div v-if="isOpen" ref="panelRef" class="reminder-panel" :style="panelStyle">
           <div class="panel-title">设置提醒</div>
-          <UiButton v-for="opt in quickOptions" :key="opt.dateTime" class="panel-option" variant="ghost" type="button" @click="selectQuickOption(opt.dateTime)">
+          <UiButton
+            v-for="opt in quickOptions"
+            :key="opt.dateTime"
+            class="panel-option"
+            variant="ghost"
+            type="button"
+            @click="selectQuickOption(opt.dateTime)"
+          >
             <IconRenderer icon="iconify:lucide:clock" :size="14" />
             {{ opt.label }}
           </UiButton>
-          <div class="panel-divider"/>
-          <UiButton class="panel-option" variant="ghost" type="button" @click="showCustom = !showCustom">
+          <div class="panel-divider" />
+          <UiButton
+            class="panel-option"
+            variant="ghost"
+            type="button"
+            @click="showCustom = !showCustom"
+          >
             <IconRenderer icon="iconify:lucide:calendar-clock" :size="14" />
             自定义日期和时间...
           </UiButton>
@@ -187,7 +206,14 @@ onBeforeUnmount(() => {
               placeholder="选择提醒时间"
               class="custom-datetime"
             />
-            <UiButton class="custom-confirm" variant="primary" size="sm" :disabled="!customDateTime" @click="confirmCustom">确定</UiButton>
+            <UiButton
+              class="custom-confirm"
+              variant="primary"
+              size="sm"
+              :disabled="!customDateTime"
+              @click="confirmCustom"
+              >确定</UiButton
+            >
           </div>
         </div>
       </Transition>
@@ -218,7 +244,10 @@ onBeforeUnmount(() => {
   white-space: normal;
   transform: none;
 }
-.reminder-trigger.ui-button:hover:not(:disabled) { color: var(--ui-input-focus-border); transform: none; }
+.reminder-trigger.ui-button:hover:not(:disabled) {
+  color: var(--ui-input-focus-border);
+  transform: none;
+}
 .reminder-trigger :deep(.ui-button__label),
 .panel-option :deep(.ui-button__label) {
   justify-content: flex-start;
@@ -302,7 +331,10 @@ onBeforeUnmount(() => {
   white-space: normal;
   transform: none;
 }
-.panel-option.ui-button:hover:not(:disabled) { background: var(--ui-button-ghost-hover-bg); transform: none; }
+.panel-option.ui-button:hover:not(:disabled) {
+  background: var(--ui-button-ghost-hover-bg);
+  transform: none;
+}
 .panel-divider {
   height: 1px;
   background: var(--ui-border-subtle);
@@ -322,5 +354,4 @@ onBeforeUnmount(() => {
 .custom-confirm {
   min-width: 52px;
 }
-
 </style>

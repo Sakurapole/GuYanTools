@@ -34,7 +34,11 @@ interface RepeatRule {
 
 function parseRule(json?: string): RepeatRule | null {
   if (!json) return null;
-  try { return JSON.parse(json); } catch { return null; }
+  try {
+    return JSON.parse(json);
+  } catch {
+    return null;
+  }
 }
 
 const currentRule = computed(() => parseRule(props.modelValue));
@@ -42,15 +46,22 @@ const currentLabel = computed(() => {
   const r = currentRule.value;
   if (!r) return '不重复';
   switch (r.type) {
-    case 'daily': return '每天';
-    case 'weekday': return '每个工作日';
-    case 'weekly': return '每周';
-    case 'monthly': return '每月';
-    case 'yearly': return '每年';
-    case 'custom':
+    case 'daily':
+      return '每天';
+    case 'weekday':
+      return '每个工作日';
+    case 'weekly':
+      return '每周';
+    case 'monthly':
+      return '每月';
+    case 'yearly':
+      return '每年';
+    case 'custom': {
       const unitMap: Record<string, string> = { day: '天', week: '周', month: '月' };
       return `每 ${r.interval || 1} ${unitMap[r.unit || 'day'] || '天'}`;
-    default: return '不重复';
+    }
+    default:
+      return '不重复';
   }
 });
 
@@ -175,13 +186,25 @@ onBeforeUnmount(() => {
       <Transition :name="placement === 'top' ? 'ui-dropdown-up' : 'ui-dropdown'">
         <div v-if="isOpen" ref="panelRef" class="repeat-panel" :style="panelStyle">
           <div class="panel-title">重复规则</div>
-          <UiButton v-for="opt in presetOptions" :key="opt.value" class="panel-option" variant="ghost" type="button"
-            :class="{ selected: modelValue === opt.value }" @click="selectPreset(opt.value)">
+          <UiButton
+            v-for="opt in presetOptions"
+            :key="opt.value"
+            class="panel-option"
+            variant="ghost"
+            type="button"
+            :class="{ selected: modelValue === opt.value }"
+            @click="selectPreset(opt.value)"
+          >
             <IconRenderer icon="iconify:lucide:repeat-2" :size="14" />
             {{ opt.label }}
           </UiButton>
-          <div class="panel-divider"/>
-          <UiButton class="panel-option" variant="ghost" type="button" @click="showCustom = !showCustom">
+          <div class="panel-divider" />
+          <UiButton
+            class="panel-option"
+            variant="ghost"
+            type="button"
+            @click="showCustom = !showCustom"
+          >
             <IconRenderer icon="iconify:lucide:settings" :size="14" />
             自定义...
           </UiButton>
@@ -202,10 +225,18 @@ onBeforeUnmount(() => {
               class="custom-select"
               @update:model-value="setCustomUnit"
             />
-            <UiButton class="custom-confirm" variant="primary" size="sm" @click="confirmCustom">确定</UiButton>
+            <UiButton class="custom-confirm" variant="primary" size="sm" @click="confirmCustom"
+              >确定</UiButton
+            >
           </div>
-          <div v-if="hasRule" class="panel-divider"/>
-          <UiButton v-if="hasRule" class="panel-option panel-option--danger" variant="ghost" type="button" @click="clearRule">
+          <div v-if="hasRule" class="panel-divider" />
+          <UiButton
+            v-if="hasRule"
+            class="panel-option panel-option--danger"
+            variant="ghost"
+            type="button"
+            @click="clearRule"
+          >
             <IconRenderer icon="iconify:lucide:x" :size="14" />
             移除重复
           </UiButton>
@@ -238,13 +269,19 @@ onBeforeUnmount(() => {
   white-space: normal;
   transform: none;
 }
-.repeat-trigger.ui-button:hover:not(:disabled) { color: var(--ui-input-focus-border); transform: none; }
+.repeat-trigger.ui-button:hover:not(:disabled) {
+  color: var(--ui-input-focus-border);
+  transform: none;
+}
 .repeat-trigger :deep(.ui-button__label),
 .panel-option :deep(.ui-button__label) {
   justify-content: flex-start;
   width: 100%;
 }
-.has-value { color: var(--ui-input-focus-border); font-weight: 500; }
+.has-value {
+  color: var(--ui-input-focus-border);
+  font-weight: 500;
+}
 
 .repeat-panel {
   position: fixed;
@@ -282,10 +319,20 @@ onBeforeUnmount(() => {
   white-space: normal;
   transform: none;
 }
-.panel-option.ui-button:hover:not(:disabled) { background: var(--ui-button-ghost-hover-bg); transform: none; }
-.panel-option.selected { color: var(--ui-input-focus-border); font-weight: 600; }
-.panel-option--danger { color: #ef4444; }
-.panel-option--danger.ui-button:hover:not(:disabled) { background: var(--todo-danger-bg); }
+.panel-option.ui-button:hover:not(:disabled) {
+  background: var(--ui-button-ghost-hover-bg);
+  transform: none;
+}
+.panel-option.selected {
+  color: var(--ui-input-focus-border);
+  font-weight: 600;
+}
+.panel-option--danger {
+  color: #ef4444;
+}
+.panel-option--danger.ui-button:hover:not(:disabled) {
+  background: var(--todo-danger-bg);
+}
 .panel-divider {
   height: 1px;
   background: var(--ui-border-subtle);
@@ -317,5 +364,4 @@ onBeforeUnmount(() => {
 .custom-confirm {
   min-width: 52px;
 }
-
 </style>

@@ -24,17 +24,19 @@ function clearSearch() {
 
 <template>
   <div class="todo-search">
-    <UiInput
-      v-model="query"
-      class="search-input"
-      placeholder="搜索任务..."
-      type="text"
-    >
+    <UiInput v-model="query" class="search-input" placeholder="搜索任务..." type="text">
       <template #prefix>
         <IconRenderer class="search-icon" icon="iconify:lucide:search" :size="16" />
       </template>
       <template #suffix>
-        <UiIconButton v-if="query" class="search-clear" size="sm" variant="ghost" title="清除搜索" @click="clearSearch">
+        <UiIconButton
+          v-if="query"
+          class="search-clear"
+          size="sm"
+          variant="ghost"
+          title="清除搜索"
+          @click="clearSearch"
+        >
           <IconRenderer icon="iconify:lucide:x" :size="14" />
         </UiIconButton>
       </template>

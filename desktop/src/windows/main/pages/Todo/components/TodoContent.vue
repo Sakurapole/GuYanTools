@@ -2,7 +2,10 @@
 import { computed, inject, ref, watch } from 'vue';
 import { useTodoStore, type SortBy } from '@/windows/main/stores/todo_store';
 import { useContextMenu } from '@/windows/main/composables/useContextMenu';
-import { resolveTodoAreaBackground, useTodoSettings } from '@/windows/main/composables/useTodoSettings';
+import {
+  resolveTodoAreaBackground,
+  useTodoSettings,
+} from '@/windows/main/composables/useTodoSettings';
 import { useTodoListStore } from '@/windows/main/stores/todo_list_store';
 import { useAppConfigStore } from '@/windows/main/stores/app_config_store';
 import TodoItem from './TodoItem.vue';
@@ -17,16 +20,20 @@ const todoStore = useTodoStore();
 const listStore = useTodoListStore();
 const { contentBg } = useTodoSettings();
 const appConfigStore = useAppConfigStore();
-const activeContentBg = computed(() => resolveTodoAreaBackground(contentBg.value, appConfigStore.config.appearance.theme));
-const contentTextStyle = computed(() => buildBackgroundTextVars(activeContentBg.value.backgroundStyle?.textColor, {
-  aliases: {
-    primary: ['--ui-text-primary'],
-    secondary: ['--ui-text-secondary'],
-    muted: ['--ui-text-muted'],
-    subtle: ['--ui-text-subtle'],
-  },
-}));
-const openBgPicker = inject<Function>('openTodoBgPicker');
+const activeContentBg = computed(() =>
+  resolveTodoAreaBackground(contentBg.value, appConfigStore.config.appearance.theme)
+);
+const contentTextStyle = computed(() =>
+  buildBackgroundTextVars(activeContentBg.value.backgroundStyle?.textColor, {
+    aliases: {
+      primary: ['--ui-text-primary'],
+      secondary: ['--ui-text-secondary'],
+      muted: ['--ui-text-muted'],
+      subtle: ['--ui-text-subtle'],
+    },
+  })
+);
+const openBgPicker = inject<(target: string) => void>('openTodoBgPicker');
 const { open: openMenu } = useContextMenu();
 const completedSectionOpen = ref(false);
 
@@ -42,7 +49,7 @@ function handleContextMenu(e: MouseEvent) {
       id: 'todo-item-bg',
       label: '任务项个性化配置',
       action: () => openBgPicker && openBgPicker('item'),
-    }
+    },
   ]);
 }
 
@@ -50,14 +57,14 @@ const viewMeta = computed(() => {
   const v = todoStore.currentView;
   const map: Record<string, { icon: string; label: string }> = {
     'my-day': { icon: 'iconify:lucide:sun', label: '我的一天' },
-    'important': { icon: 'iconify:lucide:star', label: '重要' },
-    'planned': { icon: 'iconify:lucide:calendar', label: '已计划' },
-    'all': { icon: 'iconify:lucide:list-checks', label: '全部' },
-    'completed': { icon: 'iconify:lucide:badge-check', label: '已完成' },
+    important: { icon: 'iconify:lucide:star', label: '重要' },
+    planned: { icon: 'iconify:lucide:calendar', label: '已计划' },
+    all: { icon: 'iconify:lucide:list-checks', label: '全部' },
+    completed: { icon: 'iconify:lucide:badge-check', label: '已完成' },
   };
   if (map[v]) return map[v];
   // 用户自定义列表：查找列表名称
-  const userList = listStore.lists.find(l => l.id === v);
+  const userList = listStore.lists.find((l) => l.id === v);
   return {
     icon: userList?.icon || 'list',
     label: userList ? userList.name : '列表',
@@ -86,7 +93,9 @@ const sortOptions: { label: string; value: SortBy }[] = [
   { label: '按字母顺序', value: 'alphabetical' },
 ];
 
-const currentSortLabel = computed(() => sortOptions.find(o => o.value === todoStore.sortBy)?.label ?? '默认排序');
+const currentSortLabel = computed(
+  () => sortOptions.find((o) => o.value === todoStore.sortBy)?.label ?? '默认排序'
+);
 
 function selectSort(value: SortBy) {
   todoStore.sortBy = value;
@@ -96,15 +105,25 @@ function handleCompletedSectionToggle(e: Event) {
   completedSectionOpen.value = (e.currentTarget as HTMLDetailsElement).open;
 }
 
-watch(() => todoStore.currentView, () => {
-  completedSectionOpen.value = false;
-});
+watch(
+  () => todoStore.currentView,
+  () => {
+    completedSectionOpen.value = false;
+  }
+);
 </script>
 
 <template>
-  <main class="todo-content" :style="contentTextStyle" @contextmenu.prevent.stop="handleContextMenu">
+  <main
+    class="todo-content"
+    :style="contentTextStyle"
+    @contextmenu.prevent.stop="handleContextMenu"
+  >
     <TodoBackground :config="activeContentBg" />
-    <div class="content-inner" style="position: relative; z-index: 1; display: flex; flex-direction: column; height: 100%;">
+    <div
+      class="content-inner"
+      style="position: relative; z-index: 1; display: flex; flex-direction: column; height: 100%"
+    >
       <header class="content-header">
         <div class="header-info">
           <h1 class="view-title">
@@ -138,10 +157,7 @@ watch(() => todoStore.currentView, () => {
           </div>
 
           <!-- 已完成视图：直接展示所有已完成任务 -->
-          <div
-            v-if="todoStore.currentView === 'completed'"
-            class="todo-list"
-          >
+          <div v-if="todoStore.currentView === 'completed'" class="todo-list">
             <TodoItem
               v-for="todo in todoStore.completedTodos"
               :key="`completed-${todo.id}`"
@@ -171,9 +187,15 @@ watch(() => todoStore.currentView, () => {
           <div v-if="todoStore.todos.length === 0" class="empty-state">
             <IconRenderer class="empty-icon" icon="iconify:lucide:clipboard-list" :size="44" />
             <p class="empty-text" v-if="todoStore.currentView === 'my-day'">今天的任务列表是空的</p>
-            <p class="empty-text" v-else-if="todoStore.currentView === 'important'">标记重要的任务会出现在这里</p>
-            <p class="empty-text" v-else-if="todoStore.currentView === 'planned'">设置了截止日期的任务会出现在这里</p>
-            <p class="empty-text" v-else-if="todoStore.currentView === 'completed'">还没有完成的任务</p>
+            <p class="empty-text" v-else-if="todoStore.currentView === 'important'">
+              标记重要的任务会出现在这里
+            </p>
+            <p class="empty-text" v-else-if="todoStore.currentView === 'planned'">
+              设置了截止日期的任务会出现在这里
+            </p>
+            <p class="empty-text" v-else-if="todoStore.currentView === 'completed'">
+              还没有完成的任务
+            </p>
             <p class="empty-text" v-else>还没有任务，添加一些吧</p>
           </div>
         </div>
@@ -208,8 +230,14 @@ watch(() => todoStore.currentView, () => {
   padding: 24px 24px 12px;
   flex-shrink: 0;
 }
-.header-info { flex: 1; min-width: 0; }
-.header-actions { flex-shrink: 0; padding-top: 4px; }
+.header-info {
+  flex: 1;
+  min-width: 0;
+}
+.header-actions {
+  flex-shrink: 0;
+  padding-top: 4px;
+}
 .view-title {
   display: inline-flex;
   align-items: center;
@@ -260,8 +288,13 @@ watch(() => todoStore.currentView, () => {
   padding: 60px 20px;
   opacity: 0.5;
 }
-.empty-icon { color: var(--ui-text-muted); }
-.empty-text { font-size: 0.9em; margin: 8px 0 0; }
+.empty-icon {
+  color: var(--ui-text-muted);
+}
+.empty-text {
+  font-size: 0.9em;
+  margin: 8px 0 0;
+}
 
 .loading {
   flex: 1;
@@ -277,6 +310,9 @@ watch(() => todoStore.currentView, () => {
   border-radius: 50%;
   animation: spin 0.6s linear infinite;
 }
-@keyframes spin { to { transform: rotate(360deg); } }
-
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
 </style>

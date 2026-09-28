@@ -3,7 +3,10 @@ import { computed, ref, inject } from 'vue';
 import { useTodoStore, type SmartListType } from '@/windows/main/stores/todo_store';
 import { useTodoListStore } from '@/windows/main/stores/todo_list_store';
 import { useContextMenu } from '@/windows/main/composables/useContextMenu';
-import { resolveTodoAreaBackground, useTodoSettings } from '@/windows/main/composables/useTodoSettings';
+import {
+  resolveTodoAreaBackground,
+  useTodoSettings,
+} from '@/windows/main/composables/useTodoSettings';
 import { useAppConfigStore } from '@/windows/main/stores/app_config_store';
 import TodoBackground from './TodoBackground.vue';
 import TodoSearch from './TodoSearch.vue';
@@ -21,16 +24,20 @@ const todoStore = useTodoStore();
 const listStore = useTodoListStore();
 const { sidebarBg, isSidebarCollapsed } = useTodoSettings();
 const appConfigStore = useAppConfigStore();
-const activeSidebarBg = computed(() => resolveTodoAreaBackground(sidebarBg.value, appConfigStore.config.appearance.theme));
-const sidebarTextStyle = computed(() => buildBackgroundTextVars(activeSidebarBg.value.backgroundStyle?.textColor, {
-  aliases: {
-    primary: ['--ui-text-primary'],
-    secondary: ['--ui-text-secondary'],
-    muted: ['--ui-text-muted'],
-    subtle: ['--ui-text-subtle'],
-  },
-}));
-const openBgPicker = inject<Function>('openTodoBgPicker');
+const activeSidebarBg = computed(() =>
+  resolveTodoAreaBackground(sidebarBg.value, appConfigStore.config.appearance.theme)
+);
+const sidebarTextStyle = computed(() =>
+  buildBackgroundTextVars(activeSidebarBg.value.backgroundStyle?.textColor, {
+    aliases: {
+      primary: ['--ui-text-primary'],
+      secondary: ['--ui-text-secondary'],
+      muted: ['--ui-text-muted'],
+      subtle: ['--ui-text-subtle'],
+    },
+  })
+);
+const openBgPicker = inject<(target: string) => void>('openTodoBgPicker');
 const { open: openMenu } = useContextMenu();
 const { show: showConfirm } = useConfirmDialog();
 
@@ -45,7 +52,7 @@ function handleContextMenu(e: MouseEvent) {
       id: 'sidebar-item-bg',
       label: '侧边栏项个性化配置',
       action: () => openBgPicker && openBgPicker('sidebar-item'),
-    }
+    },
   ]);
 }
 const newListName = ref('');
@@ -194,9 +201,17 @@ function handleListContextMenu(e: MouseEvent, list: TodoList) {
 </script>
 
 <template>
-  <aside class="todo-sidebar" :class="{ 'collapsed': isSidebarCollapsed }" :style="sidebarTextStyle" @contextmenu.prevent.stop="handleContextMenu">
+  <aside
+    class="todo-sidebar"
+    :class="{ collapsed: isSidebarCollapsed }"
+    :style="sidebarTextStyle"
+    @contextmenu.prevent.stop="handleContextMenu"
+  >
     <TodoBackground :config="activeSidebarBg" />
-    <div class="sidebar-content" style="position: relative; z-index: 1; display: flex; flex-direction: column; height: 100%;">
+    <div
+      class="sidebar-content"
+      style="position: relative; z-index: 1; display: flex; flex-direction: column; height: 100%"
+    >
       <div class="sidebar-header">
         <h2 v-if="!isSidebarCollapsed">Todo</h2>
         <UiIconButton
@@ -211,81 +226,111 @@ function handleListContextMenu(e: MouseEvent, list: TodoList) {
           :title="isSidebarCollapsed ? '展开侧边栏' : '收起侧边栏'"
           @click="isSidebarCollapsed = !isSidebarCollapsed"
         >
-          <IconRenderer icon="iconify:lucide:chevron-left" :size="18" :class="{ 'collapse-icon-rotated': isSidebarCollapsed }" class="collapse-icon" />
+          <IconRenderer
+            icon="iconify:lucide:chevron-left"
+            :size="18"
+            :class="{ 'collapse-icon-rotated': isSidebarCollapsed }"
+            class="collapse-icon"
+          />
         </UiIconButton>
       </div>
 
       <!-- 搜索框 -->
       <TodoSearch v-if="!isSidebarCollapsed" />
 
-    <UiScrollbar :x="false" :size="6" class="sidebar-scroll-area">
-    <nav class="smart-lists">
-      <UiButton
-        v-for="item in smartLists"
-        :key="item.id"
-        v-tooltip="{ content: item.label, placement: 'right', disabled: !isSidebarCollapsed, block: true }"
-        class="nav-item"
-        variant="ghost"
-        type="button"
-        :class="{ active: todoStore.currentView === item.id }" @click="handleSmartListClick(item.id)"
-        @contextmenu.prevent.stop="handleSmartListContextMenu($event, item)"
-      >
-        <span class="nav-icon">
-          <IconRenderer :icon="item.icon" :size="20" />
-        </span>
-        <span class="nav-label">{{ item.label }}</span>
-        <span v-if="todoStore.smartListCounts[item.id] > 0" class="nav-badge">{{ todoStore.smartListCounts[item.id] }}</span>
-      </UiButton>
-    </nav>
+      <UiScrollbar :x="false" :size="6" class="sidebar-scroll-area">
+        <nav class="smart-lists">
+          <UiButton
+            v-for="item in smartLists"
+            :key="item.id"
+            v-tooltip="{
+              content: item.label,
+              placement: 'right',
+              disabled: !isSidebarCollapsed,
+              block: true,
+            }"
+            class="nav-item"
+            variant="ghost"
+            type="button"
+            :class="{ active: todoStore.currentView === item.id }"
+            @click="handleSmartListClick(item.id)"
+            @contextmenu.prevent.stop="handleSmartListContextMenu($event, item)"
+          >
+            <span class="nav-icon">
+              <IconRenderer :icon="item.icon" :size="20" />
+            </span>
+            <span class="nav-label">{{ item.label }}</span>
+            <span v-if="todoStore.smartListCounts[item.id] > 0" class="nav-badge">{{
+              todoStore.smartListCounts[item.id]
+            }}</span>
+          </UiButton>
+        </nav>
 
-    <div class="divider" />
+        <div class="divider" />
 
-    <nav class="user-lists">
-      <UiButton
-        v-for="list in listStore.lists"
-        :key="list.id"
-        v-tooltip="{ content: list.name, placement: 'right', disabled: !isSidebarCollapsed, block: true }"
-        class="nav-item"
-        variant="ghost"
-        type="button"
-        :class="{ active: todoStore.currentView === list.id }" @click="handleUserListClick(list.id)"
-        @contextmenu.prevent.stop="handleListContextMenu($event, list)"
-      >
-        <span class="nav-icon">
-          <IconRenderer :icon="list.icon || 'list'" :size="20" />
-        </span>
-        <span class="nav-label">{{ list.name }}</span>
-        <span class="nav-badge" v-if="list.incompleteCount > 0">{{ list.incompleteCount }}</span>
-      </UiButton>
-    </nav>
-    </UiScrollbar>
+        <nav class="user-lists">
+          <UiButton
+            v-for="list in listStore.lists"
+            :key="list.id"
+            v-tooltip="{
+              content: list.name,
+              placement: 'right',
+              disabled: !isSidebarCollapsed,
+              block: true,
+            }"
+            class="nav-item"
+            variant="ghost"
+            type="button"
+            :class="{ active: todoStore.currentView === list.id }"
+            @click="handleUserListClick(list.id)"
+            @contextmenu.prevent.stop="handleListContextMenu($event, list)"
+          >
+            <span class="nav-icon">
+              <IconRenderer :icon="list.icon || 'list'" :size="20" />
+            </span>
+            <span class="nav-label">{{ list.name }}</span>
+            <span class="nav-badge" v-if="list.incompleteCount > 0">{{
+              list.incompleteCount
+            }}</span>
+          </UiButton>
+        </nav>
+      </UiScrollbar>
 
-    <div class="sidebar-footer">
-      <template v-if="showNewListInput">
-        <UiInput
-          v-model="newListName"
-          class="new-list-input"
-          placeholder="输入列表名称..."
-          size="sm"
-          @keydown="handleNewListKeydown"
-          @blur="() => { if (!newListName.trim()) showNewListInput = false }"
-          autofocus
-        />
-      </template>
-      <UiButton
-        v-else
-        v-tooltip="{ content: '新建列表', placement: 'right', disabled: !isSidebarCollapsed, block: true }"
-        class="add-list-btn"
-        variant="ghost"
-        type="button"
-        @click="showNewListInput = true"
-      >
-        <span class="nav-icon">
-          <IconRenderer icon="iconify:lucide:plus" :size="20" />
-        </span>
-        <span class="nav-label">新建列表</span>
-      </UiButton>
-    </div>
+      <div class="sidebar-footer">
+        <template v-if="showNewListInput">
+          <UiInput
+            v-model="newListName"
+            class="new-list-input"
+            placeholder="输入列表名称..."
+            size="sm"
+            @keydown="handleNewListKeydown"
+            @blur="
+              () => {
+                if (!newListName.trim()) showNewListInput = false;
+              }
+            "
+            autofocus
+          />
+        </template>
+        <UiButton
+          v-else
+          v-tooltip="{
+            content: '新建列表',
+            placement: 'right',
+            disabled: !isSidebarCollapsed,
+            block: true,
+          }"
+          class="add-list-btn"
+          variant="ghost"
+          type="button"
+          @click="showNewListInput = true"
+        >
+          <span class="nav-icon">
+            <IconRenderer icon="iconify:lucide:plus" :size="20" />
+          </span>
+          <span class="nav-label">新建列表</span>
+        </UiButton>
+      </div>
     </div>
   </aside>
 
@@ -310,7 +355,9 @@ function handleListContextMenu(e: MouseEvent, list: TodoList) {
   overflow: hidden;
   box-sizing: border-box;
   position: relative;
-  transition: width 0.3s cubic-bezier(0.25, 0.8, 0.25, 1), min-width 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+  transition:
+    width 0.3s cubic-bezier(0.25, 0.8, 0.25, 1),
+    min-width 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
 }
 
 .todo-sidebar.collapsed {
@@ -346,7 +393,6 @@ function handleListContextMenu(e: MouseEvent, list: TodoList) {
   justify-content: center;
   padding: 16px 8px 8px;
 }
-
 
 .todo-sidebar.collapsed .smart-lists,
 .todo-sidebar.collapsed .user-lists {
@@ -443,7 +489,9 @@ function handleListContextMenu(e: MouseEvent, list: TodoList) {
   cursor: pointer;
   font-size: 0.9em;
   color: var(--ui-text-primary);
-  transition: background 0.15s, transform 0.1s;
+  transition:
+    background 0.15s,
+    transform 0.1s;
   text-align: left;
   width: 100%;
   font-weight: inherit;
@@ -580,7 +628,9 @@ function handleListContextMenu(e: MouseEvent, list: TodoList) {
   box-sizing: border-box;
   box-shadow: 0 0 0 3px var(--todo-accent-ring);
   animation: list-input-in 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
-  transition: box-shadow 0.2s ease, border-color 0.2s ease;
+  transition:
+    box-shadow 0.2s ease,
+    border-color 0.2s ease;
 }
 .new-list-input:focus {
   box-shadow: 0 0 0 3px var(--todo-accent-ring);

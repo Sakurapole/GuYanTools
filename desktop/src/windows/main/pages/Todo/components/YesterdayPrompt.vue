@@ -8,7 +8,7 @@ import UiScrollbar from '@/windows/main/components/ui/UiScrollbar.vue';
 const todoStore = useTodoStore();
 
 function addAllToToday() {
-  const ids = todoStore.yesterdayIncomplete.map(t => t.id);
+  const ids = todoStore.yesterdayIncomplete.map((t) => t.id);
   todoStore.addYesterdayToToday(ids);
 }
 
@@ -31,20 +31,23 @@ function dismiss() {
     z-index="var(--ui-z-popover)"
     @close="dismiss"
   >
-      <!-- 标题区域 -->
-      <div class="prompt-header">
-        <div class="prompt-icon">
-          <IconRenderer icon="iconify:lucide:clock-3" :size="24" />
-        </div>
-        <div class="prompt-header-text">
-          <h3 class="prompt-title">昨天有 <span class="prompt-count">{{ todoStore.yesterdayIncomplete.length }}</span> 个任务未完成</h3>
-          <p class="prompt-subtitle">选择添加到今天继续完成，或忽略它们</p>
-        </div>
+    <!-- 标题区域 -->
+    <div class="prompt-header">
+      <div class="prompt-icon">
+        <IconRenderer icon="iconify:lucide:clock-3" :size="24" />
       </div>
+      <div class="prompt-header-text">
+        <h3 class="prompt-title">
+          昨天有
+          <span class="prompt-count">{{ todoStore.yesterdayIncomplete.length }}</span> 个任务未完成
+        </h3>
+        <p class="prompt-subtitle">选择添加到今天继续完成，或忽略它们</p>
+      </div>
+    </div>
 
-      <!-- 任务列表 -->
-      <UiScrollbar :x="false" :size="4" class="prompt-list-scroll">
-        <div class="prompt-list">
+    <!-- 任务列表 -->
+    <UiScrollbar :x="false" :size="4" class="prompt-list-scroll">
+      <div class="prompt-list">
         <div
           v-for="(todo, index) in todoStore.yesterdayIncomplete"
           :key="todo.id"
@@ -60,19 +63,19 @@ function dismiss() {
             添加
           </UiButton>
         </div>
-        </div>
-      </UiScrollbar>
-
-      <!-- 底部操作 -->
-      <div class="prompt-actions">
-        <UiButton class="btn-secondary" variant="secondary" size="sm" @click="dismiss">忽略</UiButton>
-        <UiButton class="btn-primary" variant="primary" size="sm" @click="addAllToToday">
-          <template #prefix>
-            <IconRenderer icon="iconify:lucide:check" :size="14" />
-          </template>
-          全部添加到今天
-        </UiButton>
       </div>
+    </UiScrollbar>
+
+    <!-- 底部操作 -->
+    <div class="prompt-actions">
+      <UiButton class="btn-secondary" variant="secondary" size="sm" @click="dismiss">忽略</UiButton>
+      <UiButton class="btn-primary" variant="primary" size="sm" @click="addAllToToday">
+        <template #prefix>
+          <IconRenderer icon="iconify:lucide:check" :size="14" />
+        </template>
+        全部添加到今天
+      </UiButton>
+    </div>
   </UiPopupSurface>
 </template>
 
@@ -94,8 +97,12 @@ function dismiss() {
 }
 
 @keyframes overlay-in {
-  from { opacity: 0; }
-  to { opacity: 1; }
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
 }
 
 .prompt-card {
@@ -107,8 +114,7 @@ function dismiss() {
   padding: 0;
   max-width: 460px;
   width: 90%;
-  box-shadow:
-    var(--todo-popup-shadow);
+  box-shadow: var(--todo-popup-shadow);
   animation: card-in 0.35s cubic-bezier(0.34, 1.56, 0.64, 1);
   overflow: hidden;
 }
@@ -252,5 +258,4 @@ function dismiss() {
   padding: 14px 24px 20px;
   border-top: 1px solid var(--ui-border-subtle);
 }
-
 </style>

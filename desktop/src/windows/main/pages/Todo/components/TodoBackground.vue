@@ -26,12 +26,17 @@ const baseStyle = computed(() => {
 });
 
 const backgroundSize = computed(() => props.config.backgroundStyle?.backgroundSize || 'cover');
-const backgroundPosition = computed(() => props.config.backgroundStyle?.backgroundPosition || 'center');
-const backgroundRepeat = computed(() => props.config.backgroundStyle?.backgroundRepeat || 'no-repeat');
-const useImgTag = computed(() =>
-  props.config.type === 'image' &&
-  Boolean(props.config.image) &&
-  backgroundRepeat.value === 'no-repeat'
+const backgroundPosition = computed(
+  () => props.config.backgroundStyle?.backgroundPosition || 'center'
+);
+const backgroundRepeat = computed(
+  () => props.config.backgroundStyle?.backgroundRepeat || 'no-repeat'
+);
+const useImgTag = computed(
+  () =>
+    props.config.type === 'image' &&
+    Boolean(props.config.image) &&
+    backgroundRepeat.value === 'no-repeat'
 );
 
 const cssBackgroundImageStyle = computed(() => {
@@ -67,20 +72,26 @@ const imageStyle = computed(() => ({
   objectPosition: backgroundPosition.value,
 }));
 
-const backgroundMemoKey = computed(() => [
-  props.config.type,
-  props.config.color,
-  props.config.image,
-  props.config.video,
-  backgroundSize.value,
-  backgroundPosition.value,
-  backgroundRepeat.value,
-  String(props.config.backgroundStyle?.opacity ?? 1),
-].join('::'));
+const backgroundMemoKey = computed(() =>
+  [
+    props.config.type,
+    props.config.color,
+    props.config.image,
+    props.config.video,
+    backgroundSize.value,
+    backgroundPosition.value,
+    backgroundRepeat.value,
+    String(props.config.backgroundStyle?.opacity ?? 1),
+  ].join('::')
+);
 </script>
 
 <template>
-  <div v-memo="[backgroundMemoKey]" class="todo-background" :style="[baseStyle, cssBackgroundImageStyle]">
+  <div
+    v-memo="[backgroundMemoKey]"
+    class="todo-background"
+    :style="[baseStyle, cssBackgroundImageStyle]"
+  >
     <img
       v-if="useImgTag"
       :src="config.image"

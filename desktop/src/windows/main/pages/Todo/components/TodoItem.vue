@@ -11,7 +11,7 @@ const props = defineProps<{ todo: Todo }>();
 const todoStore = useTodoStore();
 const { open: openMenu } = useContextMenu();
 const { show: showConfirm } = useConfirmDialog();
-const openBgPicker = inject<Function>('openTodoBgPicker');
+const openBgPicker = inject<(target: string) => void>('openTodoBgPicker');
 
 function handleComplete() {
   if (props.todo.isCompleted) {
@@ -34,18 +34,18 @@ function dueDateLabel(date: string | undefined): string {
   if (!date) return '';
   const today = new Date();
   const d = new Date(date + 'T00:00:00');
-  const diffDays = Math.floor((d.getTime() - today.setHours(0,0,0,0)) / 86400000);
+  const diffDays = Math.floor((d.getTime() - today.setHours(0, 0, 0, 0)) / 86400000);
   if (diffDays < 0) return `过期 ${-diffDays}天`;
   if (diffDays === 0) return '今天';
   if (diffDays === 1) return '明天';
-  return `${d.getMonth()+1}/${d.getDate()}`;
+  return `${d.getMonth() + 1}/${d.getDate()}`;
 }
 
 function dueDateClass(date: string | undefined): string {
   if (!date) return '';
   const today = new Date();
   const d = new Date(date + 'T00:00:00');
-  const diffDays = Math.floor((d.getTime() - today.setHours(0,0,0,0)) / 86400000);
+  const diffDays = Math.floor((d.getTime() - today.setHours(0, 0, 0, 0)) / 86400000);
   if (diffDays < 0) return 'overdue';
   if (diffDays === 0) return 'today';
   return '';
@@ -54,7 +54,7 @@ function dueDateClass(date: string | undefined): string {
 const stepsInfo = () => {
   const steps = props.todo.steps;
   if (steps.length === 0) return '';
-  const done = steps.filter(s => s.isCompleted).length;
+  const done = steps.filter((s) => s.isCompleted).length;
   return `步骤 ${done}/${steps.length}`;
 };
 
@@ -99,8 +99,20 @@ function handleContextMenu(e: MouseEvent) {
 </script>
 
 <template>
-  <div class="todo-item" :class="{ completed: todo.isCompleted }" @click="handleTitleClick" @contextmenu="handleContextMenu">
-    <UiIconButton class="checkbox" :class="{ checked: todo.isCompleted }" size="sm" variant="ghost" :title="todo.isCompleted ? '标记为未完成' : '标记为完成'" @click.stop="handleComplete">
+  <div
+    class="todo-item"
+    :class="{ completed: todo.isCompleted }"
+    @click="handleTitleClick"
+    @contextmenu="handleContextMenu"
+  >
+    <UiIconButton
+      class="checkbox"
+      :class="{ checked: todo.isCompleted }"
+      size="sm"
+      variant="ghost"
+      :title="todo.isCompleted ? '标记为未完成' : '标记为完成'"
+      @click.stop="handleComplete"
+    >
       <IconRenderer v-if="todo.isCompleted" icon="iconify:lucide:check" :size="15" />
     </UiIconButton>
     <div class="item-body">
@@ -235,8 +247,12 @@ function handleContextMenu(e: MouseEvent) {
   align-items: center;
   gap: 3px;
 }
-.due-date.overdue { color: #D83B01; }
-.due-date.today { color: #F7A93B; }
+.due-date.overdue {
+  color: #d83b01;
+}
+.due-date.today {
+  color: #f7a93b;
+}
 
 .important-btn.ui-icon-button {
   background: none;
@@ -249,8 +265,13 @@ function handleContextMenu(e: MouseEvent) {
   padding: 0;
   transition: transform 0.2s;
 }
-.important-btn.active { color: #E8553D; fill: currentColor; }
-.important-btn.ui-icon-button:hover:not(:disabled) { transform: scale(1.2); }
+.important-btn.active {
+  color: #e8553d;
+  fill: currentColor;
+}
+.important-btn.ui-icon-button:hover:not(:disabled) {
+  transform: scale(1.2);
+}
 
 @keyframes todo-check-pop {
   from {

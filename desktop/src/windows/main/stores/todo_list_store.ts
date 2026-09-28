@@ -36,16 +36,19 @@ export const useTodoListStore = defineStore('todoList', () => {
     return newList;
   }
 
-  async function updateList(listId: string, patch: import('@/contracts/todo').UpdateTodoListPayload) {
+  async function updateList(
+    listId: string,
+    patch: import('@/contracts/todo').UpdateTodoListPayload
+  ) {
     const updated = await todoApi.updateList(listId, patch);
-    const idx = lists.value.findIndex(l => l.id === listId);
+    const idx = lists.value.findIndex((l) => l.id === listId);
     if (idx !== -1) lists.value[idx] = updated;
     return updated;
   }
 
   async function deleteList(listId: string) {
     await todoApi.deleteList(listId);
-    lists.value = lists.value.filter(l => l.id !== listId);
+    lists.value = lists.value.filter((l) => l.id !== listId);
   }
 
   async function reorderLists(ids: string[]) {

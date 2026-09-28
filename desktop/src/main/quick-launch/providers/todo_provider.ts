@@ -11,10 +11,12 @@ export const todoProvider: QuickLaunchProvider = {
       return [];
     }
 
-    const todos = await dbManager.getDatabase().searchTodos(context.query) as Todo[];
+    const todos = (await dbManager.getDatabase().searchTodos(context.query)) as Todo[];
     return todos
       .map((todo): QuickLaunchResult | null => {
-        const subtitle = compactSnippet(todo.note || (todo.isCompleted ? '已完成待办' : '待办任务'));
+        const subtitle = compactSnippet(
+          todo.note || (todo.isCompleted ? '已完成待办' : '待办任务')
+        );
         const match = scoreQuickLaunchFields(
           context.query,
           { value: todo.title, weight: todo.isCompleted ? 55 : 78 },
@@ -22,7 +24,7 @@ export const todoProvider: QuickLaunchProvider = {
           [
             { value: todo.id, weight: 12 },
             { value: todo.dueDate ?? '', weight: 18 },
-          ],
+          ]
         );
         if (!match) {
           return null;

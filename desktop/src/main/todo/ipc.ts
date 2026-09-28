@@ -33,7 +33,7 @@ const MAX_BACKGROUND_STATE_BYTES = 4 * 1024 * 1024;
 /** 确保系统默认列表在数据库中存在。如果已存在则跳过。 */
 async function ensureSystemDefaultList(db: JsDatabase) {
   const allLists = await db.getAllTodoLists();
-  const exists = allLists.some(l => l.id === SYSTEM_DEFAULT_LIST_ID);
+  const exists = allLists.some((l) => l.id === SYSTEM_DEFAULT_LIST_ID);
   if (!exists) {
     await db.createTodoList({
       id: SYSTEM_DEFAULT_LIST_ID,
@@ -48,7 +48,10 @@ type TodoSettingsDatabase = JsDatabase & {
   upsertSetting: (key: string, value: string, description?: string) => Promise<unknown>;
 };
 
-async function getTodoSettingValue(database: TodoSettingsDatabase, key: string): Promise<string | null> {
+async function getTodoSettingValue(
+  database: TodoSettingsDatabase,
+  key: string
+): Promise<string | null> {
   try {
     return await database.getSettingValue(`todo.${key}`);
   } catch {
@@ -56,7 +59,11 @@ async function getTodoSettingValue(database: TodoSettingsDatabase, key: string):
   }
 }
 
-async function setTodoSettingValue(database: TodoSettingsDatabase, key: string, value: string): Promise<void> {
+async function setTodoSettingValue(
+  database: TodoSettingsDatabase,
+  key: string,
+  value: string
+): Promise<void> {
   await database.upsertSetting(`todo.${key}`, value, 'Todo settings');
 }
 
@@ -84,7 +91,12 @@ function parseTodoBackgroundState(raw: string | null | undefined): TodoBackgroun
     }
 
     const sidebarItem = record.sidebarItem;
-    if (!state['sidebar-item'] && sidebarItem && typeof sidebarItem === 'object' && !Array.isArray(sidebarItem)) {
+    if (
+      !state['sidebar-item'] &&
+      sidebarItem &&
+      typeof sidebarItem === 'object' &&
+      !Array.isArray(sidebarItem)
+    ) {
       state['sidebar-item'] = sidebarItem as TodoBackgroundState[TodoBackgroundTarget];
     }
 
@@ -95,7 +107,10 @@ function parseTodoBackgroundState(raw: string | null | undefined): TodoBackgroun
 }
 
 function isOversizedInlineMedia(value: unknown): value is string {
-  if (typeof value !== 'string' || (!value.startsWith('data:image/') && !value.startsWith('data:video/'))) {
+  if (
+    typeof value !== 'string' ||
+    (!value.startsWith('data:image/') && !value.startsWith('data:video/'))
+  ) {
     return false;
   }
 
@@ -131,7 +146,7 @@ function sanitizeTodoBackgroundState(state: TodoBackgroundState): TodoBackground
 
 function mergeTodoBackgroundState(
   current: TodoBackgroundState,
-  patch: TodoBackgroundState,
+  patch: TodoBackgroundState
 ): TodoBackgroundState {
   const next: TodoBackgroundState = { ...current };
   for (const target of TODO_BACKGROUND_TARGETS) {
@@ -153,7 +168,7 @@ export function registerTodoIpcHandlers() {
   ipcMain.handle('todo:get-all-lists', async () => {
     const allLists = await db().getAllTodoLists();
     // 过滤掉系统内置列表，不向用户暴露
-    return allLists.filter(l => l.id !== SYSTEM_DEFAULT_LIST_ID);
+    return allLists.filter((l) => l.id !== SYSTEM_DEFAULT_LIST_ID);
   });
 
   ipcMain.handle('todo:create-list', async (_event, input: CreateTodoListPayload) => {
@@ -166,14 +181,17 @@ export function registerTodoIpcHandlers() {
     });
   });
 
-  ipcMain.handle('todo:update-list', async (_event, listId: string, input: UpdateTodoListPayload) => {
-    return db().updateTodoList(listId, {
-      name: input.name,
-      icon: input.icon,
-      themeColor: input.themeColor,
-      sortOrder: input.sortOrder,
-    });
-  });
+  ipcMain.handle(
+    'todo:update-list',
+    async (_event, listId: string, input: UpdateTodoListPayload) => {
+      return db().updateTodoList(listId, {
+        name: input.name,
+        icon: input.icon,
+        themeColor: input.themeColor,
+        sortOrder: input.sortOrder,
+      });
+    }
+  );
 
   ipcMain.handle('todo:delete-list', async (_event, listId: string) => {
     await db().deleteTodoList(listId);
@@ -289,14 +307,17 @@ export function registerTodoIpcHandlers() {
     });
   });
 
-  ipcMain.handle('todo:update-step', async (_event, stepId: string, input: UpdateTodoStepPayload) => {
-    return db().updateTodoStep(stepId, {
-      title: input.title,
-      imageUrl: input.imageUrl,
-      isCompleted: input.isCompleted,
-      sortOrder: input.sortOrder,
-    });
-  });
+  ipcMain.handle(
+    'todo:update-step',
+    async (_event, stepId: string, input: UpdateTodoStepPayload) => {
+      return db().updateTodoStep(stepId, {
+        title: input.title,
+        imageUrl: input.imageUrl,
+        isCompleted: input.isCompleted,
+        sortOrder: input.sortOrder,
+      });
+    }
+  );
 
   ipcMain.handle('todo:delete-step', async (_event, stepId: string) => {
     await db().deleteTodoStep(stepId);
@@ -330,10 +351,15 @@ export function registerTodoIpcHandlers() {
     const database = db() as TodoSettingsDatabase;
     const raw = await getTodoSettingValue(database, TODO_BACKGROUND_SETTING_KEY);
     const state = parseTodoBackgroundState(raw);
-    if (raw && (raw.length > MAX_BACKGROUND_STATE_BYTES || JSON.stringify(state).length < raw.length)) {
+    if (
+      raw &&
+      (raw.length > MAX_BACKGROUND_STATE_BYTES || JSON.stringify(state).length < raw.length)
+    ) {
       // Repair legacy rows after returning a bounded response so the first
       // page render does not wait for a large SQLite write.
-      void setTodoSettingValue(database, TODO_BACKGROUND_SETTING_KEY, JSON.stringify(state)).catch((): void => undefined);
+      void setTodoSettingValue(database, TODO_BACKGROUND_SETTING_KEY, JSON.stringify(state)).catch(
+        (): void => undefined
+      );
     }
     return state;
   });

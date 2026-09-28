@@ -1,6 +1,10 @@
 import { ref, type Ref } from 'vue';
 import { useLocalStorage } from '@vueuse/core';
-import type { BackgroundConfirmPayload, BackgroundStyleConfig, BackgroundTheme } from '@/contracts/background';
+import type {
+  BackgroundConfirmPayload,
+  BackgroundStyleConfig,
+  BackgroundTheme,
+} from '@/contracts/background';
 import { resolveThemeBackground, withThemeBackground } from '@/contracts/background';
 import type { TodoApi, TodoBackgroundState, TodoBackgroundTarget } from '@/contracts/todo';
 
@@ -30,14 +34,17 @@ const legacyStorageKeys: Record<TodoBackgroundTarget, string> = {
   'sidebar-item': 'todo_bg_sidebar_item',
 };
 
-export function resolveTodoAreaBackground(background: AreaBackground, theme: BackgroundTheme): AreaBackground {
+export function resolveTodoAreaBackground(
+  background: AreaBackground,
+  theme: BackgroundTheme
+): AreaBackground {
   return resolveThemeBackground(background, theme) as AreaBackground;
 }
 
 export function updateTodoAreaBackground(
   background: AreaBackground,
   theme: BackgroundTheme,
-  payload: BackgroundConfirmPayload,
+  payload: BackgroundConfirmPayload
 ): AreaBackground {
   return withThemeBackground(background, theme, {
     type: payload.type,
@@ -124,7 +131,11 @@ let backgroundLoadPromise: Promise<void> | null = null;
 
 function getTodoApi(): TodoApi | null {
   const candidate = (globalThis as { todoApi?: TodoApi }).todoApi;
-  if (!candidate || typeof candidate.getBackgrounds !== 'function' || typeof candidate.updateBackgrounds !== 'function') {
+  if (
+    !candidate ||
+    typeof candidate.getBackgrounds !== 'function' ||
+    typeof candidate.updateBackgrounds !== 'function'
+  ) {
     return null;
   }
   return candidate;
@@ -142,7 +153,10 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return Boolean(value) && typeof value === 'object' && !Array.isArray(value);
 }
 
-function normalizeBackgroundType(value: unknown, input: Record<string, unknown>): AreaBackground['type'] {
+function normalizeBackgroundType(
+  value: unknown,
+  input: Record<string, unknown>
+): AreaBackground['type'] {
   if (value === 'color' || value === 'image' || value === 'video') return value;
   if (typeof input.video === 'string' && input.video) return 'video';
   if (typeof input.image === 'string' && input.image) return 'image';
@@ -153,7 +167,7 @@ function normalizeAreaBackground(input: unknown, fallback: AreaBackground): Area
   if (!isRecord(input)) return cloneTodoAreaBackground(fallback);
 
   const style = isRecord(input.backgroundStyle)
-    ? input.backgroundStyle as BackgroundStyleConfig
+    ? (input.backgroundStyle as BackgroundStyleConfig)
     : {};
 
   return {
@@ -171,7 +185,7 @@ function normalizeAreaBackground(input: unknown, fallback: AreaBackground): Area
 function migrateLegacyDefaultBackground(
   background: AreaBackground,
   legacyColor: string,
-  nextColor: string,
+  nextColor: string
 ): AreaBackground {
   const isLegacyDefault =
     background.type === 'color' &&
@@ -190,14 +204,21 @@ function normalizeLegacyBackground(target: TodoBackgroundTarget, input: unknown)
     return migrateLegacyDefaultBackground(normalized, legacyDefaultAppColor, defaultTodoAppColor);
   }
   if (target === 'sidebar' || target === 'content' || target === 'detail') {
-    return migrateLegacyDefaultBackground(normalized, legacyDefaultPanelColor, defaultTodoPanelColor);
+    return migrateLegacyDefaultBackground(
+      normalized,
+      legacyDefaultPanelColor,
+      defaultTodoPanelColor
+    );
   }
   return normalized;
 }
 
 function applyTodoBackgroundState(state: TodoBackgroundState) {
   for (const target of TODO_BACKGROUND_TARGETS) {
-    backgroundRefs[target].value = normalizeAreaBackground(state[target], defaultBackgrounds[target]);
+    backgroundRefs[target].value = normalizeAreaBackground(
+      state[target],
+      defaultBackgrounds[target]
+    );
   }
 }
 
@@ -257,7 +278,7 @@ export async function loadTodoBackgrounds(): Promise<void> {
     }
 
     try {
-      const savedState = await api.getBackgrounds() ?? {};
+      const savedState = (await api.getBackgrounds()) ?? {};
       const { migrated, keysToRemove } = readLegacyBackgroundState(savedState);
       const hasMigratedState = Object.keys(migrated).length > 0;
       const nextState = hasMigratedState ? await api.updateBackgrounds(migrated) : savedState;
@@ -280,7 +301,7 @@ export async function loadTodoBackgrounds(): Promise<void> {
 
 export async function saveTodoAreaBackground(
   target: TodoBackgroundTarget,
-  background: AreaBackground,
+  background: AreaBackground
 ): Promise<AreaBackground> {
   const normalized = normalizeAreaBackground(background, defaultBackgrounds[target]);
   backgroundRefs[target].value = normalized;
@@ -300,7 +321,9 @@ export function getDefaultTodoAreaBackground(target: TodoBackgroundTarget): Area
   return cloneTodoAreaBackground(defaultBackgrounds[target]);
 }
 
-export async function resetTodoAreaBackground(target: TodoBackgroundTarget): Promise<AreaBackground> {
+export async function resetTodoAreaBackground(
+  target: TodoBackgroundTarget
+): Promise<AreaBackground> {
   return saveTodoAreaBackground(target, getDefaultTodoAreaBackground(target));
 }
 

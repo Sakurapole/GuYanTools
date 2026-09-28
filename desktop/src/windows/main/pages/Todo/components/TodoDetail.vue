@@ -4,7 +4,10 @@ import { useRouter } from 'vue-router';
 import { useTodoStore } from '@/windows/main/stores/todo_store';
 import { useKnowledgeStore } from '@/windows/main/stores/knowledge_store';
 import { useContextMenu } from '@/windows/main/composables/useContextMenu';
-import { resolveTodoAreaBackground, useTodoSettings } from '@/windows/main/composables/useTodoSettings';
+import {
+  resolveTodoAreaBackground,
+  useTodoSettings,
+} from '@/windows/main/composables/useTodoSettings';
 import { useAppConfigStore } from '@/windows/main/stores/app_config_store';
 import type { TodoStep } from '@/contracts/todo';
 import TodoBackground from './TodoBackground.vue';
@@ -28,16 +31,20 @@ const knowledgeStore = useKnowledgeStore();
 const router = useRouter();
 const { detailBg } = useTodoSettings();
 const appConfigStore = useAppConfigStore();
-const activeDetailBg = computed(() => resolveTodoAreaBackground(detailBg.value, appConfigStore.config.appearance.theme));
-const detailTextStyle = computed(() => buildBackgroundTextVars(activeDetailBg.value.backgroundStyle?.textColor, {
-  aliases: {
-    primary: ['--ui-text-primary'],
-    secondary: ['--ui-text-secondary'],
-    muted: ['--ui-text-muted'],
-    subtle: ['--ui-text-subtle'],
-  },
-}));
-const openBgPicker = inject<Function>('openTodoBgPicker');
+const activeDetailBg = computed(() =>
+  resolveTodoAreaBackground(detailBg.value, appConfigStore.config.appearance.theme)
+);
+const detailTextStyle = computed(() =>
+  buildBackgroundTextVars(activeDetailBg.value.backgroundStyle?.textColor, {
+    aliases: {
+      primary: ['--ui-text-primary'],
+      secondary: ['--ui-text-secondary'],
+      muted: ['--ui-text-muted'],
+      subtle: ['--ui-text-subtle'],
+    },
+  })
+);
+const openBgPicker = inject<(target: string) => void>('openTodoBgPicker');
 const { open: openMenu } = useContextMenu();
 
 const editingTitle = ref('');
@@ -45,7 +52,9 @@ const noteText = ref('');
 const newStepText = ref('');
 const newStepImages = ref<string[]>([]);
 const stepDrafts = ref<Record<string, string>>({});
-const stepStrikeLines = ref<Record<string, Array<{ top: number; width: number; delay: number }>>>({});
+const stepStrikeLines = ref<Record<string, Array<{ top: number; width: number; delay: number }>>>(
+  {}
+);
 const stepStrikeRuns = ref<Record<string, number>>({});
 const stepStrikeExiting = ref<Record<string, boolean>>({});
 const draggedStepId = ref<string | null>(null);
@@ -91,35 +100,49 @@ const knowledgeSource = computed(() => {
 });
 
 const stepPreviewImages = computed(() =>
-  (todoStore.selectedTodo?.steps ?? [])
-    .flatMap(step => parseStepImageUrls(step.imageUrl).map((src, index) => ({
+  (todoStore.selectedTodo?.steps ?? []).flatMap((step) =>
+    parseStepImageUrls(step.imageUrl).map((src, index) => ({
       src,
-      title: parseStepImageUrls(step.imageUrl).length > 1 ? `${step.title} (${index + 1})` : step.title,
+      title:
+        parseStepImageUrls(step.imageUrl).length > 1 ? `${step.title} (${index + 1})` : step.title,
       alt: `${step.title} 的步骤图片`,
-    }))),
+    }))
+  )
 );
 
-watch(() => todoStore.selectedTodo, (todo) => {
-  if (todo) {
-    editingTitle.value = todo.title;
-    noteText.value = todo.note;
-    syncStepDrafts(todo.steps);
-  }
-}, { immediate: true });
+watch(
+  () => todoStore.selectedTodo,
+  (todo) => {
+    if (todo) {
+      editingTitle.value = todo.title;
+      noteText.value = todo.note;
+      syncStepDrafts(todo.steps);
+    }
+  },
+  { immediate: true }
+);
 
-watch(() => todoStore.selectedTodo?.steps, (steps) => {
-  syncStepDrafts(steps ?? []);
-}, { deep: true });
+watch(
+  () => todoStore.selectedTodo?.steps,
+  (steps) => {
+    syncStepDrafts(steps ?? []);
+  },
+  { deep: true }
+);
 
-watch(detailRef, (el) => {
-  detailResizeObserver?.disconnect();
-  if (el && typeof ResizeObserver !== 'undefined') {
-    detailResizeObserver = new ResizeObserver(() => {
-      scheduleTextareaResize();
-    });
-    detailResizeObserver.observe(el);
-  }
-}, { flush: 'post' });
+watch(
+  detailRef,
+  (el) => {
+    detailResizeObserver?.disconnect();
+    if (el && typeof ResizeObserver !== 'undefined') {
+      detailResizeObserver = new ResizeObserver(() => {
+        scheduleTextareaResize();
+      });
+      detailResizeObserver.observe(el);
+    }
+  },
+  { flush: 'post' }
+);
 
 onBeforeUnmount(() => {
   detailResizeObserver?.disconnect();
@@ -149,7 +172,7 @@ function handleContextMenu(e: MouseEvent) {
       id: 'detail-bg',
       label: '详情面板个性化配置',
       action: () => openBgPicker && openBgPicker('detail'),
-    }
+    },
   ]);
 }
 
@@ -193,7 +216,11 @@ async function toggleMyDay() {
 async function addStep() {
   const title = newStepText.value.trim();
   if (!title || !todoStore.selectedTodo) return;
-  await todoStore.addStep(todoStore.selectedTodo.id, title, serializeStepImageUrls(newStepImages.value) || undefined);
+  await todoStore.addStep(
+    todoStore.selectedTodo.id,
+    title,
+    serializeStepImageUrls(newStepImages.value) || undefined
+  );
   newStepText.value = '';
   newStepImages.value = [];
   resizeAllStepTextareas();
@@ -294,15 +321,20 @@ function normalizeMarkdownTaskTitle(value: string) {
     .replace(/\r\n/g, '\n')
     .trim()
     .split('\n')
-    .map(line => line.trim());
+    .map((line) => line.trim());
   const normalized = lines.length ? lines : ['未命名步骤'];
   return normalized
-    .map((line, index) => (index === 0 ? (line || '未命名步骤') : `  ${line}`))
+    .map((line, index) => (index === 0 ? line || '未命名步骤' : `  ${line}`))
     .join('\n');
 }
 
 function escapeMarkdownAlt(value: string) {
-  return value.replace(/[\r\n]+/g, ' ').replace(/[[\]]/g, '').trim() || '步骤图片';
+  return (
+    value
+      .replace(/[\r\n]+/g, ' ')
+      .replace(/[[\]]/g, '')
+      .trim() || '步骤图片'
+  );
 }
 
 function handleStepPointerDown(event: PointerEvent, step: TodoStep) {
@@ -310,7 +342,7 @@ function handleStepPointerDown(event: PointerEvent, step: TodoStep) {
   event.preventDefault();
   event.stopPropagation();
   draggedStepId.value = step.id;
-  stepDragStartOrder = todoStore.selectedTodo.steps.map(item => item.id);
+  stepDragStartOrder = todoStore.selectedTodo.steps.map((item) => item.id);
   stepDragLatestOrder = [...stepDragStartOrder];
   stepDragStartedAt = { x: event.clientX, y: event.clientY };
   stepDragMoved = false;
@@ -330,7 +362,10 @@ function handleStepPointerMove(event: PointerEvent) {
   }
 
   event.preventDefault();
-  const distance = Math.hypot(event.clientX - stepDragStartedAt.x, event.clientY - stepDragStartedAt.y);
+  const distance = Math.hypot(
+    event.clientX - stepDragStartedAt.x,
+    event.clientY - stepDragStartedAt.y
+  );
   if (distance > 3) {
     stepDragMoved = true;
   }
@@ -338,7 +373,7 @@ function handleStepPointerMove(event: PointerEvent) {
   const target = findStepDragTarget(event.clientX, event.clientY);
   if (!target || target.stepId === sourceId) return;
 
-  const currentIds = todo.steps.map(step => step.id);
+  const currentIds = todo.steps.map((step) => step.id);
   const nextIds = moveStepId(currentIds, sourceId, target.stepId, target.insertAfter);
   if (arraysEqual(currentIds, nextIds)) return;
 
@@ -363,7 +398,9 @@ function handleStepPointerCancel() {
 async function finishStepDrag() {
   const todo = todoStore.selectedTodo;
   const finalOrder = [...stepDragLatestOrder];
-  const shouldPersist = Boolean(todo && stepDragMoved && !arraysEqual(stepDragStartOrder, stepDragLatestOrder));
+  const shouldPersist = Boolean(
+    todo && stepDragMoved && !arraysEqual(stepDragStartOrder, stepDragLatestOrder)
+  );
   teardownStepDrag();
   if (!todo || !shouldPersist) return;
   try {
@@ -394,9 +431,8 @@ function suppressStepDragContextMenu(event: MouseEvent) {
 
 function findStepDragTarget(clientX: number, clientY: number) {
   for (const element of document.elementsFromPoint(clientX, clientY)) {
-    const item = element instanceof Element
-      ? element.closest<HTMLElement>('.step-item[data-step-id]')
-      : null;
+    const item =
+      element instanceof Element ? element.closest<HTMLElement>('.step-item[data-step-id]') : null;
     if (!item?.dataset.stepId) continue;
     const rect = item.getBoundingClientRect();
     return {
@@ -408,7 +444,7 @@ function findStepDragTarget(clientX: number, clientY: number) {
 }
 
 function moveStepId(ids: string[], sourceId: string, targetId: string, insertAfter: boolean) {
-  const withoutSource = ids.filter(id => id !== sourceId);
+  const withoutSource = ids.filter((id) => id !== sourceId);
   const targetIndex = withoutSource.indexOf(targetId);
   if (targetIndex === -1) return ids;
   const insertIndex = targetIndex + (insertAfter ? 1 : 0);
@@ -431,7 +467,7 @@ function removeNewStepImage(index: number) {
 }
 
 function openStepImage(step: TodoStep, imageSrc: string) {
-  const index = stepPreviewImages.value.findIndex(image => image.src === imageSrc);
+  const index = stepPreviewImages.value.findIndex((image) => image.src === imageSrc);
   imagePreviewIndex.value = Math.max(index, 0);
   imagePreviewVisible.value = true;
 }
@@ -440,7 +476,7 @@ async function handleStepPaste(e: ClipboardEvent, stepId: string) {
   const imageUrl = await readPastedImageDataUrl(e);
   if (!imageUrl) return;
   e.preventDefault();
-  const step = todoStore.selectedTodo?.steps.find(item => item.id === stepId);
+  const step = todoStore.selectedTodo?.steps.find((item) => item.id === stepId);
   const nextImages = [...parseStepImageUrls(step?.imageUrl), imageUrl];
   await todoStore.updateStep(stepId, { imageUrl: serializeStepImageUrls(nextImages) });
 }
@@ -459,7 +495,9 @@ function parseStepImageUrls(value: string | undefined): string[] {
     try {
       const parsed = JSON.parse(raw);
       if (Array.isArray(parsed)) {
-        return parsed.filter((item): item is string => typeof item === 'string' && item.trim().length > 0);
+        return parsed.filter(
+          (item): item is string => typeof item === 'string' && item.trim().length > 0
+        );
       }
     } catch {
       return [raw];
@@ -469,7 +507,7 @@ function parseStepImageUrls(value: string | undefined): string[] {
 }
 
 function serializeStepImageUrls(urls: string[]): string {
-  const normalized = urls.map(url => url.trim()).filter(Boolean);
+  const normalized = urls.map((url) => url.trim()).filter(Boolean);
   if (normalized.length === 0) return '';
   if (normalized.length === 1) return normalized[0];
   return JSON.stringify(normalized);
@@ -477,7 +515,7 @@ function serializeStepImageUrls(urls: string[]): string {
 
 function readPastedImageDataUrl(e: ClipboardEvent): Promise<string | null> {
   const items = Array.from(e.clipboardData?.items ?? []);
-  const imageItem = items.find(item => item.type.startsWith('image/'));
+  const imageItem = items.find((item) => item.type.startsWith('image/'));
   const file = imageItem?.getAsFile();
   if (!file) return Promise.resolve(null);
 
@@ -493,7 +531,7 @@ function resizeStepTextarea(e: Event) {
   const textarea = e.currentTarget as HTMLTextAreaElement;
   resizeTextarea(textarea);
   const stepId = textarea.dataset.stepId;
-  const step = todoStore.selectedTodo?.steps.find(item => item.id === stepId);
+  const step = todoStore.selectedTodo?.steps.find((item) => item.id === stepId);
   if (step?.isCompleted && stepId) {
     updateStepStrikeLines(stepId);
   }
@@ -515,10 +553,12 @@ function scheduleTextareaResize() {
 
 function resizeAllStepTextareas() {
   nextTick(() => {
-    document.querySelectorAll<HTMLTextAreaElement>('.step-title-input, .step-add-input')
+    document
+      .querySelectorAll<HTMLTextAreaElement>('.step-title-input, .step-add-input')
       .forEach(resizeTextarea);
     requestAnimationFrame(() => {
-      document.querySelectorAll<HTMLTextAreaElement>('.step-title-input, .step-add-input')
+      document
+        .querySelectorAll<HTMLTextAreaElement>('.step-title-input, .step-add-input')
         .forEach(resizeTextarea);
       updateCompletedStepStrikeLines(todoStore.selectedTodo?.steps ?? []);
     });
@@ -581,7 +621,9 @@ function updateStepStrikeLines(stepId: string) {
 
 function measureStepStrikeLines(stepId: string, text: string) {
   if (typeof document === 'undefined') return [];
-  const textarea = document.querySelector<HTMLTextAreaElement>(`.step-title-input[data-step-id="${stepId}"]`);
+  const textarea = document.querySelector<HTMLTextAreaElement>(
+    `.step-title-input[data-step-id="${stepId}"]`
+  );
   if (!textarea) return [];
 
   const style = window.getComputedStyle(textarea);
@@ -596,11 +638,13 @@ function measureStepStrikeLines(stepId: string, text: string) {
 
   const visualLines = wrapTextToVisualLines(text || '', maxWidth, context);
 
-  return visualLines.map((line, index) => ({
-    top: index * lineHeight + lineHeight / 2,
-    width: Math.min(Math.ceil(context.measureText(line).width) + 2, maxWidth),
-    delay: index * STEP_STRIKE_LINE_DELAY_MS,
-  })).filter(line => line.width > 2);
+  return visualLines
+    .map((line, index) => ({
+      top: index * lineHeight + lineHeight / 2,
+      width: Math.min(Math.ceil(context.measureText(line).width) + 2, maxWidth),
+      delay: index * STEP_STRIKE_LINE_DELAY_MS,
+    }))
+    .filter((line) => line.width > 2);
 }
 
 function getStepStrikeAnimationDuration(lines: Array<{ delay: number }>) {
@@ -662,9 +706,18 @@ async function onDueDateChange(val: string | number | undefined) {
 </script>
 
 <template>
-  <aside ref="detailRef" class="todo-detail" v-if="todoStore.selectedTodo" :style="detailTextStyle" @contextmenu.prevent.stop="handleContextMenu">
+  <aside
+    ref="detailRef"
+    class="todo-detail"
+    v-if="todoStore.selectedTodo"
+    :style="detailTextStyle"
+    @contextmenu.prevent.stop="handleContextMenu"
+  >
     <TodoBackground :config="activeDetailBg" />
-    <div class="detail-inner" style="position: relative; z-index: 1; display: flex; flex-direction: column; height: 100%;">
+    <div
+      class="detail-inner"
+      style="position: relative; z-index: 1; display: flex; flex-direction: column; height: 100%"
+    >
       <div class="detail-header">
         <UiInput
           ref="titleRef"
@@ -679,223 +732,267 @@ async function onDueDateChange(val: string | number | undefined) {
       </div>
 
       <UiScrollbar :x="false" :size="6" class="detail-scroll-area">
-      <div class="detail-body">
-      <!-- 步骤 -->
-      <div class="detail-section">
-        <div class="section-label section-label--with-actions">
-          <span class="section-label__title">
-            <IconRenderer icon="iconify:lucide:list-checks" :size="15" />
-            <span>步骤</span>
-          </span>
-          <UiIconButton
-            class="copy-steps-btn"
-            size="sm"
-            variant="ghost"
-            :disabled="todoStore.selectedTodo.steps.length === 0"
-            title="复制步骤为 Markdown"
-            @click="copyStepsAsMarkdown"
-          >
-            <IconRenderer icon="iconify:lucide:copy" :size="14" />
-          </UiIconButton>
-        </div>
-        <UiScrollbar :x="false" :y="true" :size="5" class="steps-scroll-area">
-        <TransitionGroup name="step-reorder" tag="div" class="steps-list">
-          <div
-            v-for="step in todoStore.selectedTodo.steps"
-            :key="step.id"
-            class="step-item"
-            :class="{ 'is-completed': step.isCompleted, 'is-dragging': draggedStepId === step.id }"
-            :data-step-id="step.id"
-            title="右键拖动排序"
-            @pointerdown="handleStepPointerDown($event, step)"
-            @contextmenu.prevent.stop
-          >
-            <UiIconButton
-              class="step-check"
-              :class="{ checked: step.isCompleted }"
-              size="sm"
-              variant="ghost"
-              :title="step.isCompleted ? '标记步骤未完成' : '标记步骤完成'"
-              @click="toggleStep(step.id, step.isCompleted)"
-            >
-              <IconRenderer v-if="step.isCompleted" icon="iconify:lucide:check" :size="13" />
-            </UiIconButton>
-            <div class="step-main">
-              <div class="step-title-wrap" :class="{ done: step.isCompleted }">
-                <UiTextarea
-                  v-model="stepDrafts[step.id]"
-                  class="step-title-input"
-                  :data-step-id="step.id"
-                  :rows="1"
-                  wrap="soft"
-                  resize="none"
-                  @input="resizeStepTextarea"
-                  @blur="saveStepTitle(step)"
-                  @keydown="handleStepTitleKeydown"
-                  @paste="handleStepPaste($event, step.id)"
-                />
-                <span
-                  v-if="step.isCompleted || stepStrikeExiting[step.id]"
-                  :key="`${step.id}-${stepStrikeRuns[step.id] ?? 0}`"
-                  class="step-strike-lines"
-                  :class="{ 'is-exiting': stepStrikeExiting[step.id] }"
-                >
-                  <span
-                    v-for="(line, index) in stepStrikeLines[step.id] ?? []"
-                    :key="`${step.id}-line-${index}`"
-                    class="step-strike-line"
-                    :class="{ 'is-exiting': stepStrikeExiting[step.id] }"
-                    :style="{
-                      top: `${line.top}px`,
-                      width: `${line.width}px`,
-                      animationDelay: `${getStepStrikeLineDelay(step.id, index, line)}ms`,
-                    }"
-                  />
-                </span>
-              </div>
-              <div v-if="parseStepImageUrls(step.imageUrl).length > 0" class="step-images">
+        <div class="detail-body">
+          <!-- 步骤 -->
+          <div class="detail-section">
+            <div class="section-label section-label--with-actions">
+              <span class="section-label__title">
+                <IconRenderer icon="iconify:lucide:list-checks" :size="15" />
+                <span>步骤</span>
+              </span>
+              <UiIconButton
+                class="copy-steps-btn"
+                size="sm"
+                variant="ghost"
+                :disabled="todoStore.selectedTodo.steps.length === 0"
+                title="复制步骤为 Markdown"
+                @click="copyStepsAsMarkdown"
+              >
+                <IconRenderer icon="iconify:lucide:copy" :size="14" />
+              </UiIconButton>
+            </div>
+            <UiScrollbar :x="false" :y="true" :size="5" class="steps-scroll-area">
+              <TransitionGroup name="step-reorder" tag="div" class="steps-list">
                 <div
-                  v-for="(imageUrl, imageIndex) in parseStepImageUrls(step.imageUrl)"
-                  :key="`${step.id}-image-${imageIndex}`"
-                  class="step-image-preview"
+                  v-for="step in todoStore.selectedTodo.steps"
+                  :key="step.id"
+                  class="step-item"
+                  :class="{
+                    'is-completed': step.isCompleted,
+                    'is-dragging': draggedStepId === step.id,
+                  }"
+                  :data-step-id="step.id"
+                  title="右键拖动排序"
+                  @pointerdown="handleStepPointerDown($event, step)"
+                  @contextmenu.prevent.stop
                 >
-                  <UiButton class="step-image-open" variant="ghost" type="button" title="预览图片" @click="openStepImage(step, imageUrl)">
-                    <img :src="imageUrl" alt="步骤图片" draggable="false" />
-                  </UiButton>
-                  <UiIconButton class="step-image-remove" size="sm" variant="ghost" title="移除图片" @click="removeStepImage(step, imageIndex)">
-                    <IconRenderer icon="iconify:lucide:x" :size="14" />
+                  <UiIconButton
+                    class="step-check"
+                    :class="{ checked: step.isCompleted }"
+                    size="sm"
+                    variant="ghost"
+                    :title="step.isCompleted ? '标记步骤未完成' : '标记步骤完成'"
+                    @click="toggleStep(step.id, step.isCompleted)"
+                  >
+                    <IconRenderer v-if="step.isCompleted" icon="iconify:lucide:check" :size="13" />
+                  </UiIconButton>
+                  <div class="step-main">
+                    <div class="step-title-wrap" :class="{ done: step.isCompleted }">
+                      <UiTextarea
+                        v-model="stepDrafts[step.id]"
+                        class="step-title-input"
+                        :data-step-id="step.id"
+                        :rows="1"
+                        wrap="soft"
+                        resize="none"
+                        @input="resizeStepTextarea"
+                        @blur="saveStepTitle(step)"
+                        @keydown="handleStepTitleKeydown"
+                        @paste="handleStepPaste($event, step.id)"
+                      />
+                      <span
+                        v-if="step.isCompleted || stepStrikeExiting[step.id]"
+                        :key="`${step.id}-${stepStrikeRuns[step.id] ?? 0}`"
+                        class="step-strike-lines"
+                        :class="{ 'is-exiting': stepStrikeExiting[step.id] }"
+                      >
+                        <span
+                          v-for="(line, index) in stepStrikeLines[step.id] ?? []"
+                          :key="`${step.id}-line-${index}`"
+                          class="step-strike-line"
+                          :class="{ 'is-exiting': stepStrikeExiting[step.id] }"
+                          :style="{
+                            top: `${line.top}px`,
+                            width: `${line.width}px`,
+                            animationDelay: `${getStepStrikeLineDelay(step.id, index, line)}ms`,
+                          }"
+                        />
+                      </span>
+                    </div>
+                    <div v-if="parseStepImageUrls(step.imageUrl).length > 0" class="step-images">
+                      <div
+                        v-for="(imageUrl, imageIndex) in parseStepImageUrls(step.imageUrl)"
+                        :key="`${step.id}-image-${imageIndex}`"
+                        class="step-image-preview"
+                      >
+                        <UiButton
+                          class="step-image-open"
+                          variant="ghost"
+                          type="button"
+                          title="预览图片"
+                          @click="openStepImage(step, imageUrl)"
+                        >
+                          <img :src="imageUrl" alt="步骤图片" draggable="false" />
+                        </UiButton>
+                        <UiIconButton
+                          class="step-image-remove"
+                          size="sm"
+                          variant="ghost"
+                          title="移除图片"
+                          @click="removeStepImage(step, imageIndex)"
+                        >
+                          <IconRenderer icon="iconify:lucide:x" :size="14" />
+                        </UiIconButton>
+                      </div>
+                    </div>
+                  </div>
+                  <UiIconButton
+                    class="step-delete"
+                    size="sm"
+                    variant="ghost"
+                    title="删除步骤"
+                    @click="removeStep(step.id)"
+                  >
+                    <IconRenderer icon="iconify:lucide:x" :size="15" />
                   </UiIconButton>
                 </div>
-              </div>
-            </div>
-            <UiIconButton class="step-delete" size="sm" variant="ghost" title="删除步骤" @click="removeStep(step.id)">
-              <IconRenderer icon="iconify:lucide:x" :size="15" />
-            </UiIconButton>
+                <div key="step-add" class="step-add">
+                  <UiTextarea
+                    v-model="newStepText"
+                    class="step-add-input"
+                    placeholder="添加步骤"
+                    :rows="1"
+                    wrap="soft"
+                    resize="none"
+                    @input="resizeStepTextarea"
+                    @keydown="handleNewStepKeydown"
+                    @paste="handleNewStepPaste"
+                  />
+                  <div v-if="newStepImages.length > 0" class="step-images step-images--draft">
+                    <div
+                      v-for="(imageUrl, imageIndex) in newStepImages"
+                      :key="`draft-image-${imageIndex}`"
+                      class="step-image-preview step-image-preview--draft"
+                    >
+                      <img :src="imageUrl" alt="步骤图片" draggable="false" />
+                      <UiIconButton
+                        class="step-image-remove"
+                        size="sm"
+                        variant="ghost"
+                        title="移除图片"
+                        @click="removeNewStepImage(imageIndex)"
+                      >
+                        <IconRenderer icon="iconify:lucide:x" :size="14" />
+                      </UiIconButton>
+                    </div>
+                  </div>
+                </div>
+              </TransitionGroup>
+            </UiScrollbar>
           </div>
-          <div key="step-add" class="step-add">
-            <UiTextarea
-              v-model="newStepText"
-              class="step-add-input"
-              placeholder="添加步骤"
-              :rows="1"
-              wrap="soft"
-              resize="none"
-              @input="resizeStepTextarea"
-              @keydown="handleNewStepKeydown"
-              @paste="handleNewStepPaste"
+
+          <!-- 我的一天 -->
+          <UiButton class="detail-action" variant="ghost" type="button" @click="toggleMyDay">
+            <IconRenderer icon="iconify:lucide:sun" :size="17" />
+            <span>{{ todoStore.selectedTodo.isMyDay ? '从我的一天移除' : '添加到我的一天' }}</span>
+          </UiButton>
+
+          <!-- 截止日期 -->
+          <div class="detail-section">
+            <div class="section-label">
+              <IconRenderer icon="iconify:lucide:calendar" :size="15" />
+              <span>截止日期</span>
+            </div>
+            <UiDateTimePicker
+              :modelValue="todoStore.selectedTodo.dueDate || ''"
+              mode="date"
+              value-format="date"
+              @update:modelValue="onDueDateChange"
+              placeholder="设置截止日期"
+              size="sm"
             />
-            <div v-if="newStepImages.length > 0" class="step-images step-images--draft">
-              <div
-                v-for="(imageUrl, imageIndex) in newStepImages"
-                :key="`draft-image-${imageIndex}`"
-                class="step-image-preview step-image-preview--draft"
+          </div>
+
+          <!-- 提醒 -->
+          <div class="detail-section">
+            <div class="section-label">
+              <IconRenderer icon="iconify:lucide:alarm-clock" :size="15" />
+              <span>提醒</span>
+            </div>
+            <ReminderPicker
+              :todoId="todoStore.selectedTodo.id"
+              :reminders="todoStore.selectedTodo.reminders"
+            />
+          </div>
+
+          <!-- 重复 -->
+          <div class="detail-section">
+            <div class="section-label">
+              <IconRenderer icon="iconify:lucide:repeat-2" :size="15" />
+              <span>重复</span>
+            </div>
+            <RepeatPicker
+              :modelValue="todoStore.selectedTodo.repeatRule || ''"
+              @update:modelValue="
+                (v: string) =>
+                  todoStore.updateTodo(todoStore.selectedTodo!.id, { repeatRule: v || undefined })
+              "
+            />
+          </div>
+
+          <div v-if="knowledgeSource" class="detail-section knowledge-source-card">
+            <div class="section-label">
+              <IconRenderer icon="iconify:lucide:library" :size="15" />
+              <span>知识库来源</span>
+            </div>
+            <UiButton
+              type="button"
+              variant="ghost"
+              class="knowledge-source-card__button"
+              @click="openKnowledgeSource"
+            >
+              <strong>{{ knowledgeSource.title }}</strong>
+              <span
+                >{{ knowledgeSource.kind === 'page' ? '页面' : '速记' }} ·
+                {{ knowledgeSource.id }}</span
               >
-                <img :src="imageUrl" alt="步骤图片" draggable="false" />
-                <UiIconButton class="step-image-remove" size="sm" variant="ghost" title="移除图片" @click="removeNewStepImage(imageIndex)">
-                  <IconRenderer icon="iconify:lucide:x" :size="14" />
-                </UiIconButton>
-              </div>
+              <small v-if="knowledgeSource.blockId">块 ID：{{ knowledgeSource.blockId }}</small>
+            </UiButton>
+          </div>
+
+          <!-- 备注 -->
+          <div class="detail-section">
+            <div class="section-label">
+              <IconRenderer icon="iconify:lucide:sticky-note" :size="15" />
+              <span>备注</span>
+            </div>
+            <!-- 编辑模式 -->
+            <UiTextarea
+              v-if="noteEditing"
+              ref="noteRef"
+              v-model="noteText"
+              class="note-area note-area--editing"
+              placeholder="支持 Markdown 语法..."
+              resize="vertical"
+              @blur="leaveNoteEdit"
+            />
+            <!-- 渲染模式 -->
+            <div
+              v-else
+              class="note-area note-area--rendered"
+              :class="{ 'note-area--empty': !noteText }"
+              @click="enterNoteEdit"
+            >
+              <div v-if="noteText" class="note-md-content" v-html="renderedNote"></div>
+              <span v-else class="note-placeholder">添加备注（支持 Markdown）...</span>
             </div>
           </div>
-        </TransitionGroup>
-        </UiScrollbar>
-      </div>
-
-      <!-- 我的一天 -->
-      <UiButton class="detail-action" variant="ghost" type="button" @click="toggleMyDay">
-        <IconRenderer icon="iconify:lucide:sun" :size="17" />
-        <span>{{ todoStore.selectedTodo.isMyDay ? '从我的一天移除' : '添加到我的一天' }}</span>
-      </UiButton>
-
-      <!-- 截止日期 -->
-      <div class="detail-section">
-        <div class="section-label">
-          <IconRenderer icon="iconify:lucide:calendar" :size="15" />
-          <span>截止日期</span>
         </div>
-        <UiDateTimePicker
-          :modelValue="todoStore.selectedTodo.dueDate || ''"
-          mode="date"
-          value-format="date"
-          @update:modelValue="onDueDateChange"
-          placeholder="设置截止日期"
-          size="sm"
-        />
-      </div>
-
-      <!-- 提醒 -->
-      <div class="detail-section">
-        <div class="section-label">
-          <IconRenderer icon="iconify:lucide:alarm-clock" :size="15" />
-          <span>提醒</span>
-        </div>
-        <ReminderPicker
-          :todoId="todoStore.selectedTodo.id"
-          :reminders="todoStore.selectedTodo.reminders"
-        />
-      </div>
-
-      <!-- 重复 -->
-      <div class="detail-section">
-        <div class="section-label">
-          <IconRenderer icon="iconify:lucide:repeat-2" :size="15" />
-          <span>重复</span>
-        </div>
-        <RepeatPicker
-          :modelValue="todoStore.selectedTodo.repeatRule || ''"
-          @update:modelValue="(v: string) => todoStore.updateTodo(todoStore.selectedTodo!.id, { repeatRule: v || undefined })"
-        />
-      </div>
-
-      <div v-if="knowledgeSource" class="detail-section knowledge-source-card">
-        <div class="section-label">
-          <IconRenderer icon="iconify:lucide:library" :size="15" />
-          <span>知识库来源</span>
-        </div>
-        <UiButton type="button" variant="ghost" class="knowledge-source-card__button" @click="openKnowledgeSource">
-          <strong>{{ knowledgeSource.title }}</strong>
-          <span>{{ knowledgeSource.kind === 'page' ? '页面' : '速记' }} · {{ knowledgeSource.id }}</span>
-          <small v-if="knowledgeSource.blockId">块 ID：{{ knowledgeSource.blockId }}</small>
-        </UiButton>
-      </div>
-
-      <!-- 备注 -->
-      <div class="detail-section">
-        <div class="section-label">
-          <IconRenderer icon="iconify:lucide:sticky-note" :size="15" />
-          <span>备注</span>
-        </div>
-        <!-- 编辑模式 -->
-        <UiTextarea
-          v-if="noteEditing"
-          ref="noteRef"
-          v-model="noteText"
-          class="note-area note-area--editing"
-          placeholder="支持 Markdown 语法..."
-          resize="vertical"
-          @blur="leaveNoteEdit"
-        />
-        <!-- 渲染模式 -->
-        <div
-          v-else
-          class="note-area note-area--rendered"
-          :class="{ 'note-area--empty': !noteText }"
-          @click="enterNoteEdit"
-        >
-          <div v-if="noteText" class="note-md-content" v-html="renderedNote"></div>
-          <span v-else class="note-placeholder">添加备注（支持 Markdown）...</span>
-        </div>
-      </div>
-    </div>
       </UiScrollbar>
 
-    <div class="detail-footer">
-      <span class="created-info">创建于 {{ todoStore.selectedTodo.createdAt?.split('T')[0] ?? todoStore.selectedTodo.createdAt?.slice(0, 10) }}</span>
-      <UiButton class="delete-btn" variant="ghost" type="button" @click="deleteTodo">
-        <IconRenderer icon="iconify:lucide:trash-2" :size="15" />
-        <span>删除</span>
-      </UiButton>
-    </div>
+      <div class="detail-footer">
+        <span class="created-info"
+          >创建于
+          {{
+            todoStore.selectedTodo.createdAt?.split('T')[0] ??
+            todoStore.selectedTodo.createdAt?.slice(0, 10)
+          }}</span
+        >
+        <UiButton class="delete-btn" variant="ghost" type="button" @click="deleteTodo">
+          <IconRenderer icon="iconify:lucide:trash-2" :size="15" />
+          <span>删除</span>
+        </UiButton>
+      </div>
     </div>
 
     <ImagePreviewDialog
@@ -1107,7 +1204,9 @@ async function onDueDateChange(val: string | number | undefined) {
 .step-reorder-move,
 .step-reorder-enter-active,
 .step-reorder-leave-active {
-  transition: transform 0.18s cubic-bezier(0.2, 0, 0, 1), opacity 0.16s ease;
+  transition:
+    transform 0.18s cubic-bezier(0.2, 0, 0, 1),
+    opacity 0.16s ease;
 }
 .step-reorder-enter-from,
 .step-reorder-leave-to {
@@ -1138,9 +1237,17 @@ async function onDueDateChange(val: string | number | undefined) {
     border-color 0.18s cubic-bezier(0.4, 0, 0.2, 1),
     transform 0.14s cubic-bezier(0.4, 0, 0.2, 1);
 }
-.step-check.ui-icon-button:hover:not(:disabled) { transform: scale(1.06); border-color: var(--ui-input-focus-border); }
-.step-check.checked { background: var(--ui-input-focus-border); border-color: var(--ui-input-focus-border); }
-.step-check.checked :deep(*) { animation: step-check-pop 0.18s cubic-bezier(0.34, 1.56, 0.64, 1); }
+.step-check.ui-icon-button:hover:not(:disabled) {
+  transform: scale(1.06);
+  border-color: var(--ui-input-focus-border);
+}
+.step-check.checked {
+  background: var(--ui-input-focus-border);
+  border-color: var(--ui-input-focus-border);
+}
+.step-check.checked :deep(*) {
+  animation: step-check-pop 0.18s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
 .step-main {
   flex: 1;
   min-width: 0;
@@ -1214,7 +1321,9 @@ async function onDueDateChange(val: string | number | undefined) {
   transition: opacity 0.15s;
   transform: none;
 }
-.step-item:hover .step-delete { opacity: 1; }
+.step-item:hover .step-delete {
+  opacity: 1;
+}
 
 .step-add-input.ui-textarea {
   display: block;
@@ -1263,7 +1372,11 @@ async function onDueDateChange(val: string | number | undefined) {
     linear-gradient(45deg, transparent 75%, rgba(127, 127, 127, 0.12) 75%),
     linear-gradient(-45deg, transparent 75%, rgba(127, 127, 127, 0.12) 75%),
     var(--ui-surface-overlay);
-  background-position: 0 0, 0 6px, 6px -6px, -6px 0;
+  background-position:
+    0 0,
+    0 6px,
+    6px -6px,
+    -6px 0;
   background-size: 12px 12px;
 }
 .step-image-open.ui-button {
@@ -1335,13 +1448,14 @@ async function onDueDateChange(val: string | number | undefined) {
   white-space: normal;
   transform: none;
 }
-.detail-action.ui-button:hover:not(:disabled) { color: var(--ui-input-focus-border); transform: none; }
+.detail-action.ui-button:hover:not(:disabled) {
+  color: var(--ui-input-focus-border);
+  transform: none;
+}
 .detail-action :deep(.ui-button__label) {
   justify-content: flex-start;
   width: 100%;
 }
-
-
 
 .note-area {
   width: 100%;
@@ -1355,7 +1469,9 @@ async function onDueDateChange(val: string | number | undefined) {
   color: var(--ui-text-primary);
   font-family: inherit;
   box-sizing: border-box;
-  transition: border-color 0.18s ease, box-shadow 0.18s ease;
+  transition:
+    border-color 0.18s ease,
+    box-shadow 0.18s ease;
 }
 
 .note-area--editing.ui-textarea {
@@ -1400,10 +1516,18 @@ async function onDueDateChange(val: string | number | undefined) {
   line-height: 1.3;
   color: var(--ui-text-primary);
 }
-.note-md-content :deep(h1) { font-size: 1.2em; }
-.note-md-content :deep(h2) { font-size: 1.1em; }
-.note-md-content :deep(h3) { font-size: 1em; }
-.note-md-content :deep(h4) { font-size: 0.95em; }
+.note-md-content :deep(h1) {
+  font-size: 1.2em;
+}
+.note-md-content :deep(h2) {
+  font-size: 1.1em;
+}
+.note-md-content :deep(h3) {
+  font-size: 1em;
+}
+.note-md-content :deep(h4) {
+  font-size: 0.95em;
+}
 
 .note-md-content :deep(p) {
   margin: 4px 0;
@@ -1485,7 +1609,7 @@ async function onDueDateChange(val: string | number | undefined) {
   border-radius: 6px;
 }
 
-.note-md-content :deep(input[type="checkbox"]) {
+.note-md-content :deep(input[type='checkbox']) {
   margin-right: 6px;
   pointer-events: none;
 }
@@ -1511,7 +1635,10 @@ async function onDueDateChange(val: string | number | undefined) {
   font-weight: inherit;
   transform: none;
 }
-.delete-btn.ui-button:hover:not(:disabled) { text-decoration: underline; transform: none; }
+.delete-btn.ui-button:hover:not(:disabled) {
+  text-decoration: underline;
+  transform: none;
+}
 
 @keyframes step-check-pop {
   from {

@@ -33,10 +33,10 @@ export const useTodoStore = defineStore('todo', () => {
   const sortBy = ref<SortBy>('default');
   const smartListCounts = ref<Record<SmartListType, number>>({
     'my-day': 0,
-    'important': 0,
-    'planned': 0,
-    'all': 0,
-    'completed': 0,
+    important: 0,
+    planned: 0,
+    all: 0,
+    completed: 0,
   });
   const localMutationTicks = new Set<number>();
 
@@ -46,9 +46,11 @@ export const useTodoStore = defineStore('todo', () => {
   }
 
   // Computed
-  const selectedTodo = computed(() => todos.value.find(t => t.id === selectedTodoId.value) ?? null);
-  const incompleteTodos = computed(() => todos.value.filter(t => !t.isCompleted));
-  const completedTodos = computed(() => todos.value.filter(t => t.isCompleted));
+  const selectedTodo = computed(
+    () => todos.value.find((t) => t.id === selectedTodoId.value) ?? null
+  );
+  const incompleteTodos = computed(() => todos.value.filter((t) => !t.isCompleted));
+  const completedTodos = computed(() => todos.value.filter((t) => t.isCompleted));
 
   const sortedIncompleteTodos = computed(() => {
     const list = [...incompleteTodos.value];
@@ -133,7 +135,7 @@ export const useTodoStore = defineStore('todo', () => {
 
   async function updateTodo(todoId: string, patch: import('@/contracts/todo').UpdateTodoPayload) {
     const updated = await todoApi.updateTodo(todoId, patch);
-    const idx = todos.value.findIndex(t => t.id === todoId);
+    const idx = todos.value.findIndex((t) => t.id === todoId);
     if (idx !== -1) todos.value[idx] = updated;
     await refreshCounts();
     notifyLocalTodoMutated();
@@ -142,7 +144,7 @@ export const useTodoStore = defineStore('todo', () => {
 
   async function deleteTodo(todoId: string) {
     await todoApi.deleteTodo(todoId);
-    todos.value = todos.value.filter(t => t.id !== todoId);
+    todos.value = todos.value.filter((t) => t.id !== todoId);
     if (selectedTodoId.value === todoId) selectedTodoId.value = null;
     await refreshCounts();
     notifyLocalTodoMutated();
@@ -152,12 +154,12 @@ export const useTodoStore = defineStore('todo', () => {
     const targetTodos = await getTodosForView(viewId);
     if (targetTodos.length === 0) return 0;
 
-    const deletedIds = new Set(targetTodos.map(todo => todo.id));
+    const deletedIds = new Set(targetTodos.map((todo) => todo.id));
     for (const todo of targetTodos) {
       await todoApi.deleteTodo(todo.id);
     }
 
-    todos.value = todos.value.filter(todo => !deletedIds.has(todo.id));
+    todos.value = todos.value.filter((todo) => !deletedIds.has(todo.id));
     if (selectedTodoId.value && deletedIds.has(selectedTodoId.value)) {
       selectedTodoId.value = null;
     }
@@ -169,7 +171,7 @@ export const useTodoStore = defineStore('todo', () => {
 
   async function completeTodo(todoId: string): Promise<CompleteTodoResult> {
     const result = await todoApi.completeTodo(todoId);
-    const idx = todos.value.findIndex(t => t.id === todoId);
+    const idx = todos.value.findIndex((t) => t.id === todoId);
     if (idx !== -1) todos.value[idx] = result.completedTodo;
     if (result.nextTodo) {
       todos.value.splice(idx + 1, 0, result.nextTodo);
@@ -181,20 +183,20 @@ export const useTodoStore = defineStore('todo', () => {
 
   async function uncompleteTodo(todoId: string) {
     const updated = await todoApi.uncompleteTodo(todoId);
-    const idx = todos.value.findIndex(t => t.id === todoId);
+    const idx = todos.value.findIndex((t) => t.id === todoId);
     if (idx !== -1) todos.value[idx] = updated;
     await refreshCounts();
     notifyLocalTodoMutated();
   }
 
   async function toggleImportant(todoId: string) {
-    const todo = todos.value.find(t => t.id === todoId);
+    const todo = todos.value.find((t) => t.id === todoId);
     if (!todo) return;
     await updateTodo(todoId, { isImportant: !todo.isImportant });
   }
 
   async function toggleMyDay(todoId: string) {
-    const todo = todos.value.find(t => t.id === todoId);
+    const todo = todos.value.find((t) => t.id === todoId);
     if (!todo) return;
     if (todo.isMyDay) {
       await todoApi.removeFromMyDay(todoId);
@@ -225,14 +227,14 @@ export const useTodoStore = defineStore('todo', () => {
       todoId,
       remindAt,
     });
-    const todo = todos.value.find(t => t.id === todoId);
+    const todo = todos.value.find((t) => t.id === todoId);
     if (todo) todo.reminders.push(reminder);
   }
 
   async function deleteReminder(reminderId: string) {
     await todoApi.deleteReminder(reminderId);
     for (const todo of todos.value) {
-      todo.reminders = todo.reminders.filter(r => r.id !== reminderId);
+      todo.reminders = todo.reminders.filter((r) => r.id !== reminderId);
     }
   }
 
@@ -249,10 +251,10 @@ export const useTodoStore = defineStore('todo', () => {
       ]);
       smartListCounts.value = {
         'my-day': myDay.length,
-        'important': important.length,
-        'planned': planned.length,
-        'all': all.length,
-        'completed': completed.length,
+        important: important.length,
+        planned: planned.length,
+        all: all.length,
+        completed: completed.length,
       };
     } catch (err) {
       console.error('Failed to load smart list counts:', err);
@@ -261,10 +263,7 @@ export const useTodoStore = defineStore('todo', () => {
   }
 
   async function refreshCounts() {
-    await Promise.all([
-      loadSmartListCounts(),
-      listStore.loadLists(),
-    ]);
+    await Promise.all([loadSmartListCounts(), listStore.loadLists()]);
   }
 
   // ==================== 步骤 ====================
@@ -275,16 +274,19 @@ export const useTodoStore = defineStore('todo', () => {
       todoId,
       title,
       imageUrl,
-      sortOrder: (selectedTodo.value?.steps.length ?? 0),
+      sortOrder: selectedTodo.value?.steps.length ?? 0,
     });
-    const todo = todos.value.find(t => t.id === todoId);
+    const todo = todos.value.find((t) => t.id === todoId);
     if (todo) todo.steps.push(step);
   }
 
-  async function updateStep(stepId: string, patch: import('@/contracts/todo').UpdateTodoStepPayload) {
+  async function updateStep(
+    stepId: string,
+    patch: import('@/contracts/todo').UpdateTodoStepPayload
+  ) {
     const updated = await todoApi.updateStep(stepId, patch);
     for (const todo of todos.value) {
-      const idx = todo.steps.findIndex(s => s.id === stepId);
+      const idx = todo.steps.findIndex((s) => s.id === stepId);
       if (idx !== -1) {
         todo.steps[idx] = updated;
         break;
@@ -295,14 +297,14 @@ export const useTodoStore = defineStore('todo', () => {
   async function deleteStep(stepId: string) {
     await todoApi.deleteStep(stepId);
     for (const todo of todos.value) {
-      todo.steps = todo.steps.filter(s => s.id !== stepId);
+      todo.steps = todo.steps.filter((s) => s.id !== stepId);
     }
   }
 
   function setLocalStepOrder(todoId: string, ids: string[]) {
-    const todo = todos.value.find(t => t.id === todoId);
+    const todo = todos.value.find((t) => t.id === todoId);
     if (!todo) return;
-    const stepById = new Map(todo.steps.map(step => [step.id, step]));
+    const stepById = new Map(todo.steps.map((step) => [step.id, step]));
     const nextSteps = ids
       .map((id, index) => {
         const step = stepById.get(id);
@@ -312,14 +314,14 @@ export const useTodoStore = defineStore('todo', () => {
 
     const orderedIds = new Set(ids);
     const remainingSteps = todo.steps
-      .filter(step => !orderedIds.has(step.id))
+      .filter((step) => !orderedIds.has(step.id))
       .map((step, index) => ({ ...step, sortOrder: nextSteps.length + index }));
 
     todo.steps = [...nextSteps, ...remainingSteps];
   }
 
   async function reorderSteps(todoId: string, ids: string[]) {
-    const todo = todos.value.find(t => t.id === todoId);
+    const todo = todos.value.find((t) => t.id === todoId);
     const previousSteps = todo ? [...todo.steps] : null;
     setLocalStepOrder(todoId, ids);
     try {
@@ -358,7 +360,7 @@ export const useTodoStore = defineStore('todo', () => {
       await todoApi.addToMyDay(id, todayStr());
     }
     // 从列表中移除已添加的项目
-    yesterdayIncomplete.value = yesterdayIncomplete.value.filter(t => !todoIds.includes(t.id));
+    yesterdayIncomplete.value = yesterdayIncomplete.value.filter((t) => !todoIds.includes(t.id));
     // 如果全部添加完了，关闭弹窗并标记当天已忽略
     if (yesterdayIncomplete.value.length === 0) {
       showYesterdayPrompt.value = false;

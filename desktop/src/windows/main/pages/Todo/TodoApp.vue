@@ -63,29 +63,51 @@ function handleContextMenu(e: MouseEvent) {
       id: 'app-bg',
       label: '全局个性化配置',
       action: () => openBgPicker('app'),
-    }
+    },
   ]);
 }
 
 const currentBackgroundTheme = computed(() => appConfigStore.config.appearance.theme);
-const activeAppBg = computed(() => resolveTodoAreaBackground(appBg.value, currentBackgroundTheme.value));
-const activeSidebarBg = computed(() => resolveTodoAreaBackground(sidebarBg.value, currentBackgroundTheme.value));
-const activeContentBg = computed(() => resolveTodoAreaBackground(contentBg.value, currentBackgroundTheme.value));
-const activeDetailBg = computed(() => resolveTodoAreaBackground(detailBg.value, currentBackgroundTheme.value));
-const activeItemBg = computed(() => resolveTodoAreaBackground(itemBg.value, currentBackgroundTheme.value));
-const activeSidebarItemBg = computed(() => resolveTodoAreaBackground(sidebarItemBg.value, currentBackgroundTheme.value));
+const activeAppBg = computed(() =>
+  resolveTodoAreaBackground(appBg.value, currentBackgroundTheme.value)
+);
+const activeSidebarBg = computed(() =>
+  resolveTodoAreaBackground(sidebarBg.value, currentBackgroundTheme.value)
+);
+const activeContentBg = computed(() =>
+  resolveTodoAreaBackground(contentBg.value, currentBackgroundTheme.value)
+);
+const activeDetailBg = computed(() =>
+  resolveTodoAreaBackground(detailBg.value, currentBackgroundTheme.value)
+);
+const activeItemBg = computed(() =>
+  resolveTodoAreaBackground(itemBg.value, currentBackgroundTheme.value)
+);
+const activeSidebarItemBg = computed(() =>
+  resolveTodoAreaBackground(sidebarItemBg.value, currentBackgroundTheme.value)
+);
 
 function getCurrentTargetStorage() {
-  return currentBgTarget.value === 'app' ? appBg :
-    currentBgTarget.value === 'sidebar' ? sidebarBg :
-      currentBgTarget.value === 'content' ? contentBg :
-        currentBgTarget.value === 'detail' ? detailBg :
-          currentBgTarget.value === 'sidebar-item' ? sidebarItemBg : itemBg;
+  return currentBgTarget.value === 'app'
+    ? appBg
+    : currentBgTarget.value === 'sidebar'
+      ? sidebarBg
+      : currentBgTarget.value === 'content'
+        ? contentBg
+        : currentBgTarget.value === 'detail'
+          ? detailBg
+          : currentBgTarget.value === 'sidebar-item'
+            ? sidebarItemBg
+            : itemBg;
 }
 
 async function handleBgConfirm(payload: BackgroundConfirmPayload) {
   const targetBg = getCurrentTargetStorage();
-  const nextBackground = updateTodoAreaBackground(targetBg.value, currentBackgroundTheme.value, payload);
+  const nextBackground = updateTodoAreaBackground(
+    targetBg.value,
+    currentBackgroundTheme.value,
+    payload
+  );
   targetBg.value = nextBackground;
   try {
     await saveTodoAreaBackground(currentBgTarget.value, nextBackground);
@@ -107,13 +129,14 @@ const currentBgConfig = () => {
   if (currentBgTarget.value === 'sidebar') return activeSidebarBg.value;
   if (currentBgTarget.value === 'content') return activeContentBg.value;
   if (currentBgTarget.value === 'detail') return activeDetailBg.value;
-  if (currentBgTarget.value === 'sidebar-item') return withBackgroundStyleDefaults(activeSidebarItemBg.value, { blur: 0 });
+  if (currentBgTarget.value === 'sidebar-item')
+    return withBackgroundStyleDefaults(activeSidebarItemBg.value, { blur: 0 });
   return withBackgroundStyleDefaults(activeItemBg.value, { blur: 10 });
 };
 
 function withBackgroundStyleDefaults(
   background: AreaBackground,
-  defaults: Partial<AreaBackground['backgroundStyle']>,
+  defaults: Partial<AreaBackground['backgroundStyle']>
 ): AreaBackground {
   return {
     ...background,
@@ -126,7 +149,7 @@ function withBackgroundStyleDefaults(
 
 function routeQueryString(key: string) {
   const value = route.query[key];
-  return Array.isArray(value) ? value[0] ?? '' : typeof value === 'string' ? value : '';
+  return Array.isArray(value) ? (value[0] ?? '') : typeof value === 'string' ? value : '';
 }
 
 async function handleTodoOpenRequestFromRoute() {
@@ -160,20 +183,24 @@ const currentBgTitle = computed(() => {
 });
 
 const currentBgFeatures = computed<PersonalizationFeature[]>(() => {
-  if (currentBgTarget.value === 'item' || currentBgTarget.value === 'sidebar-item') return ['color', 'opacity', 'blur'];
+  if (currentBgTarget.value === 'item' || currentBgTarget.value === 'sidebar-item')
+    return ['color', 'opacity', 'blur'];
   return ['color', 'image', 'video', 'opacity', 'textColor'];
 });
 
-const currentBgShowReset = computed(() =>
-  currentBgTarget.value === 'sidebar' || currentBgTarget.value === 'item' || currentBgTarget.value === 'sidebar-item',
+const currentBgShowReset = computed(
+  () =>
+    currentBgTarget.value === 'sidebar' ||
+    currentBgTarget.value === 'item' ||
+    currentBgTarget.value === 'sidebar-item'
 );
 
-function getMeasuredSize(target: HTMLElement | { $el?: Element } | null, fallback: { width: number; height: number }) {
-  const element = target instanceof HTMLElement
-    ? target
-    : target?.$el instanceof HTMLElement
-      ? target.$el
-      : null;
+function getMeasuredSize(
+  target: HTMLElement | { $el?: Element } | null,
+  fallback: { width: number; height: number }
+) {
+  const element =
+    target instanceof HTMLElement ? target : target?.$el instanceof HTMLElement ? target.$el : null;
 
   if (!element) return fallback;
 
@@ -184,80 +211,80 @@ function getMeasuredSize(target: HTMLElement | { $el?: Element } | null, fallbac
 }
 
 const currentBgPreviewSize = computed(() => {
-  if (currentBgTarget.value === 'app') return getMeasuredSize(todoAppRef.value, { width: 960, height: 640 });
-  if (currentBgTarget.value === 'sidebar') return getMeasuredSize(todoSidebarRef.value, { width: 260, height: 640 });
-  if (currentBgTarget.value === 'content') return getMeasuredSize(todoContentRef.value, { width: 640, height: 640 });
+  if (currentBgTarget.value === 'app')
+    return getMeasuredSize(todoAppRef.value, { width: 960, height: 640 });
+  if (currentBgTarget.value === 'sidebar')
+    return getMeasuredSize(todoSidebarRef.value, { width: 260, height: 640 });
+  if (currentBgTarget.value === 'content')
+    return getMeasuredSize(todoContentRef.value, { width: 640, height: 640 });
   if (currentBgTarget.value === 'item') return { width: 560, height: 76 };
   if (currentBgTarget.value === 'sidebar-item') return { width: 220, height: 36 };
   return getMeasuredSize(todoDetailRef.value, { width: 320, height: 640 });
 });
 
-const appTextStyle = computed(() => buildBackgroundTextVars(activeAppBg.value.backgroundStyle?.textColor, {
-  aliases: {
-    primary: ['--color-text-primary', '--ui-text-primary'],
-    secondary: ['--color-text-secondary', '--ui-text-secondary'],
-    muted: ['--color-text-muted', '--ui-text-muted'],
-    subtle: ['--color-text-subtle', '--ui-text-subtle'],
-  },
-}));
+const appTextStyle = computed(() =>
+  buildBackgroundTextVars(activeAppBg.value.backgroundStyle?.textColor, {
+    aliases: {
+      primary: ['--color-text-primary', '--ui-text-primary'],
+      secondary: ['--color-text-secondary', '--ui-text-secondary'],
+      muted: ['--color-text-muted', '--ui-text-muted'],
+      subtle: ['--color-text-subtle', '--ui-text-subtle'],
+    },
+  })
+);
 
 const todoItemSurfaceVars = computed<CSSProperties>(() => {
-  const color = activeItemBg.value.type === 'color' ? activeItemBg.value.color : defaultTodoItemColor;
+  const color =
+    activeItemBg.value.type === 'color' ? activeItemBg.value.color : defaultTodoItemColor;
   const blur = activeItemBg.value.backgroundStyle?.blur ?? 10;
   return {
     '--todo-item-surface-bg': color,
-    '--todo-item-surface-hover-bg': color === defaultTodoItemColor ? 'var(--ui-surface-glass-strong)' : color,
+    '--todo-item-surface-hover-bg':
+      color === defaultTodoItemColor ? 'var(--ui-surface-glass-strong)' : color,
     '--todo-item-surface-opacity': String(activeItemBg.value.backgroundStyle?.opacity ?? 1),
     '--todo-item-backdrop-filter': blur > 0 ? `blur(${blur}px)` : 'none',
   } as CSSProperties;
 });
 
 const todoSidebarItemSurfaceVars = computed<CSSProperties>(() => {
-  const color = activeSidebarItemBg.value.type === 'color' ? activeSidebarItemBg.value.color : defaultTodoSidebarItemColor;
+  const color =
+    activeSidebarItemBg.value.type === 'color'
+      ? activeSidebarItemBg.value.color
+      : defaultTodoSidebarItemColor;
   const blur = activeSidebarItemBg.value.backgroundStyle?.blur ?? 0;
   return {
     '--todo-sidebar-item-surface-bg': color,
-    '--todo-sidebar-item-surface-opacity': String(activeSidebarItemBg.value.backgroundStyle?.opacity ?? 1),
+    '--todo-sidebar-item-surface-opacity': String(
+      activeSidebarItemBg.value.backgroundStyle?.opacity ?? 1
+    ),
     '--todo-sidebar-item-backdrop-filter': blur > 0 ? `blur(${blur}px)` : 'none',
   } as CSSProperties;
 });
 
-const appStyle = computed<CSSProperties>(() => ({
-  ...appTextStyle.value,
-  ...todoItemSurfaceVars.value,
-  ...todoSidebarItemSurfaceVars.value,
-} as CSSProperties));
+const appStyle = computed<CSSProperties>(
+  () =>
+    ({
+      ...appTextStyle.value,
+      ...todoItemSurfaceVars.value,
+      ...todoSidebarItemSurfaceVars.value,
+    }) as CSSProperties
+);
 
 onMounted(async () => {
-  await Promise.all([
-    loadTodoBackgrounds(),
-    listStore.loadLists(),
-  ]);
+  await Promise.all([loadTodoBackgrounds(), listStore.loadLists()]);
   await todoStore.switchView('my-day');
   await todoStore.checkYesterdayIncomplete();
   await todoStore.loadSmartListCounts();
   await handleTodoOpenRequestFromRoute();
 });
 
-watch(
-  [
-    () => route.name,
-    () => route.query.openTodoRequestId,
-    () => route.query.todoId,
-  ],
-  () => {
-    void handleTodoOpenRequestFromRoute();
-  },
-);
+watch([() => route.name, () => route.query.openTodoRequestId, () => route.query.todoId], () => {
+  void handleTodoOpenRequestFromRoute();
+});
 </script>
 
 <template>
-  <div
-    ref="todoAppRef"
-    class="todo-app"
-    :style="appStyle"
-    @contextmenu.prevent="handleContextMenu"
-  >
+  <div ref="todoAppRef" class="todo-app" :style="appStyle" @contextmenu.prevent="handleContextMenu">
     <TodoBackground :config="activeAppBg" />
     <TodoSidebar ref="todoSidebarRef" />
     <TodoContent ref="todoContentRef" />

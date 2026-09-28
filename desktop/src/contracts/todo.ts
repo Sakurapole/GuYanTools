@@ -119,7 +119,8 @@ export interface CreateTodoReminderPayload {
   remindAt: string;
 }
 
-export type TodoBackgroundTarget = 'app' | 'sidebar' | 'content' | 'detail' | 'item' | 'sidebar-item';
+export type TodoBackgroundTarget =
+  'app' | 'sidebar' | 'content' | 'detail' | 'item' | 'sidebar-item';
 
 export interface TodoBackgroundConfig {
   type: BackgroundType;
