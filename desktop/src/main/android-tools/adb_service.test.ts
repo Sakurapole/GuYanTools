@@ -9,7 +9,11 @@ function createToolchain() {
 }
 
 function createTracker() {
-  const tracker = new EventEmitter() as EventEmitter & { stdout: EventEmitter; stderr: EventEmitter; kill: ReturnType<typeof vi.fn> };
+  const tracker = new EventEmitter() as EventEmitter & {
+    stdout: EventEmitter;
+    stderr: EventEmitter;
+    kill: ReturnType<typeof vi.fn>;
+  };
   tracker.stdout = new EventEmitter();
   tracker.stderr = new EventEmitter();
   tracker.kill = vi.fn();
@@ -18,7 +22,8 @@ function createTracker() {
 
 describe('AdbDeviceService', () => {
   it('starts the adb server and returns the current device snapshot', async () => {
-    const execute = vi.fn()
+    const execute = vi
+      .fn()
       .mockResolvedValueOnce({ stdout: '', stderr: '' })
       .mockResolvedValueOnce({
         stdout: 'List of devices attached\nABC\tdevice usb:1-1 model:Pixel_8\n',
@@ -35,10 +40,14 @@ describe('AdbDeviceService', () => {
   });
 
   it('retries device enumeration while adb is still warming up', async () => {
-    const execute = vi.fn()
+    const execute = vi
+      .fn()
       .mockResolvedValueOnce({ stdout: '', stderr: '' })
       .mockResolvedValueOnce({ stdout: 'List of devices attached\n', stderr: '' })
-      .mockResolvedValueOnce({ stdout: 'List of devices attached\nABC\tdevice usb:1-1 model:Pixel_8\n', stderr: '' });
+      .mockResolvedValueOnce({
+        stdout: 'List of devices attached\nABC\tdevice usb:1-1 model:Pixel_8\n',
+        stderr: '',
+      });
     const service = new AdbDeviceService(createToolchain(), { execute });
 
     await service.initialize();
@@ -56,7 +65,10 @@ describe('AdbDeviceService', () => {
     const listener = vi.fn();
 
     service.onDevicesChanged(listener);
-    tracker.stdout.emit('data', Buffer.from('List of devices attached\nXYZ\tunauthorized usb:2-1\n'));
+    tracker.stdout.emit(
+      'data',
+      Buffer.from('List of devices attached\nXYZ\tunauthorized usb:2-1\n')
+    );
     await Promise.resolve();
 
     expect(listener).toHaveBeenCalledWith({

@@ -7,9 +7,11 @@ import { pipeline } from 'node:stream/promises';
 import extractZip from 'extract-zip';
 import type { AndroidToolchainDownloadProgress } from '@/contracts/android-tools';
 
-const PLATFORM_TOOLS_URL = 'https://dl.google.com/android/repository/platform-tools_r37.0.1-win.zip';
+const PLATFORM_TOOLS_URL =
+  'https://dl.google.com/android/repository/platform-tools_r37.0.1-win.zip';
 const PLATFORM_TOOLS_SHA256 = '45f4d63113e895ebde0c90f194099a4676b6ac653bd28d54314a9e022bbc1a99';
-const SCRCPY_URL = 'https://github.com/Genymobile/scrcpy/releases/download/v4.1/scrcpy-win64-v4.1.zip';
+const SCRCPY_URL =
+  'https://github.com/Genymobile/scrcpy/releases/download/v4.1/scrcpy-win64-v4.1.zip';
 const SCRCPY_SHA256 = '5b12172b3264b2889f4583ee64752ce832e29bc8b1089dca81093459697165db';
 const MAX_ARCHIVE_BYTES = 128 * 1024 * 1024;
 
@@ -20,14 +22,25 @@ const SPECS: DownloadSpec[] = [
   { name: 'scrcpy 4.1', url: SCRCPY_URL, sha256: SCRCPY_SHA256 },
 ];
 
-function downloadFile(spec: DownloadSpec, target: string, onProgress: (received: number, total?: number) => void, redirectCount = 0): Promise<void> {
+function downloadFile(
+  spec: DownloadSpec,
+  target: string,
+  onProgress: (received: number, total?: number) => void,
+  redirectCount = 0
+): Promise<void> {
   if (redirectCount > 3) return Promise.reject(new Error('ANDROID_DOWNLOAD_REDIRECT_LIMIT'));
   const parsed = new URL(spec.url);
-  if (parsed.protocol !== 'https:') return Promise.reject(new Error('ANDROID_DOWNLOAD_URL_INVALID'));
+  if (parsed.protocol !== 'https:')
+    return Promise.reject(new Error('ANDROID_DOWNLOAD_URL_INVALID'));
 
   return new Promise((resolve, reject) => {
-    const request = https.get(parsed, response => {
-      if (response.statusCode && response.statusCode >= 300 && response.statusCode < 400 && response.headers.location) {
+    const request = https.get(parsed, (response) => {
+      if (
+        response.statusCode &&
+        response.statusCode >= 300 &&
+        response.statusCode < 400 &&
+        response.headers.location
+      ) {
         response.resume();
         const redirected = { ...spec, url: new URL(response.headers.location, parsed).toString() };
         void downloadFile(redirected, target, onProgress, redirectCount + 1).then(resolve, reject);
@@ -45,7 +58,7 @@ function downloadFile(spec: DownloadSpec, target: string, onProgress: (received:
         return;
       }
       let received = 0;
-      response.on('data', chunk => {
+      response.on('data', (chunk) => {
         received += Buffer.byteLength(chunk);
         if (received > MAX_ARCHIVE_BYTES) response.destroy(new Error('ANDROID_DOWNLOAD_TOO_LARGE'));
         onProgress(received, total);
@@ -102,7 +115,9 @@ async function replaceInstalledToolchain(installRoot: string, destinationRoot: s
       await fsp.rm(backupRoot, { recursive: true, force: true }).catch((): undefined => undefined);
     }
   } catch (error) {
-    await fsp.rm(destinationRoot, { recursive: true, force: true }).catch((): undefined => undefined);
+    await fsp
+      .rm(destinationRoot, { recursive: true, force: true })
+      .catch((): undefined => undefined);
     if (movedExisting) {
       await fsp.rename(backupRoot, destinationRoot).catch((): undefined => undefined);
     }
@@ -112,9 +127,10 @@ async function replaceInstalledToolchain(installRoot: string, destinationRoot: s
 
 export async function downloadAndInstallAndroidToolchain(
   destinationRoot: string,
-  onProgress: (progress: AndroidToolchainDownloadProgress) => void,
+  onProgress: (progress: AndroidToolchainDownloadProgress) => void
 ) {
-  if (process.platform !== 'win32' || process.arch !== 'x64') throw new Error('ANDROID_PLATFORM_UNSUPPORTED');
+  if (process.platform !== 'win32' || process.arch !== 'x64')
+    throw new Error('ANDROID_PLATFORM_UNSUPPORTED');
   const destinationParent = path.dirname(path.resolve(destinationRoot));
   await fsp.mkdir(destinationParent, { recursive: true });
   // Keep staging and final install on the same volume so the final rename is
@@ -125,7 +141,11 @@ export async function downloadAndInstallAndroidToolchain(
     const archives: string[] = [];
     for (const spec of SPECS) {
       const archivePath = path.join(stagingRoot, `${completed}.zip`);
-      onProgress({ phase: 'downloading', percent: Math.round((completed / SPECS.length) * 80), current: spec.name });
+      onProgress({
+        phase: 'downloading',
+        percent: Math.round((completed / SPECS.length) * 80),
+        current: spec.name,
+      });
       await downloadFile(spec, archivePath, (received, total) => {
         const fraction = total ? received / total : 0;
         onProgress({
@@ -136,8 +156,13 @@ export async function downloadAndInstallAndroidToolchain(
           totalBytes: total,
         });
       });
-      onProgress({ phase: 'verifying', percent: Math.round(((completed + 0.5) / SPECS.length) * 80), current: spec.name });
-      if (!await verifyHash(archivePath, spec.sha256)) throw new Error(`ANDROID_DOWNLOAD_HASH_MISMATCH_${spec.name}`);
+      onProgress({
+        phase: 'verifying',
+        percent: Math.round(((completed + 0.5) / SPECS.length) * 80),
+        current: spec.name,
+      });
+      if (!(await verifyHash(archivePath, spec.sha256)))
+        throw new Error(`ANDROID_DOWNLOAD_HASH_MISMATCH_${spec.name}`);
       archives.push(archivePath);
       completed += 1;
     }
@@ -150,23 +175,78 @@ export async function downloadAndInstallAndroidToolchain(
     await extractZip(archives[1], { dir: extractedRoot });
 
     const installRoot = path.join(stagingRoot, 'install');
-    await copyRequiredFile(extractedRoot, '/platform-tools/adb.exe', path.join(installRoot, 'platform-tools', 'adb.exe'));
-    await copyRequiredFile(extractedRoot, '/platform-tools/fastboot.exe', path.join(installRoot, 'platform-tools', 'fastboot.exe'));
-    await copyRequiredFile(extractedRoot, '/platform-tools/AdbWinApi.dll', path.join(installRoot, 'platform-tools', 'AdbWinApi.dll'));
-    await copyRequiredFile(extractedRoot, '/platform-tools/AdbWinUsbApi.dll', path.join(installRoot, 'platform-tools', 'AdbWinUsbApi.dll'));
-    await copyRequiredFile(extractedRoot, '/platform-tools/libwinpthread-1.dll', path.join(installRoot, 'platform-tools', 'libwinpthread-1.dll'));
-    await copyRequiredFile(extractedRoot, '/scrcpy.exe', path.join(installRoot, 'scrcpy', 'scrcpy.exe'));
-    await copyRequiredFile(extractedRoot, '/scrcpy-server', path.join(installRoot, 'scrcpy', 'scrcpy-server'));
+    await copyRequiredFile(
+      extractedRoot,
+      '/platform-tools/adb.exe',
+      path.join(installRoot, 'platform-tools', 'adb.exe')
+    );
+    await copyRequiredFile(
+      extractedRoot,
+      '/platform-tools/fastboot.exe',
+      path.join(installRoot, 'platform-tools', 'fastboot.exe')
+    );
+    await copyRequiredFile(
+      extractedRoot,
+      '/platform-tools/AdbWinApi.dll',
+      path.join(installRoot, 'platform-tools', 'AdbWinApi.dll')
+    );
+    await copyRequiredFile(
+      extractedRoot,
+      '/platform-tools/AdbWinUsbApi.dll',
+      path.join(installRoot, 'platform-tools', 'AdbWinUsbApi.dll')
+    );
+    await copyRequiredFile(
+      extractedRoot,
+      '/platform-tools/libwinpthread-1.dll',
+      path.join(installRoot, 'platform-tools', 'libwinpthread-1.dll')
+    );
+    await copyRequiredFile(
+      extractedRoot,
+      '/scrcpy.exe',
+      path.join(installRoot, 'scrcpy', 'scrcpy.exe')
+    );
+    await copyRequiredFile(
+      extractedRoot,
+      '/scrcpy-server',
+      path.join(installRoot, 'scrcpy', 'scrcpy-server')
+    );
     // The Windows scrcpy bundle includes its matching adb launcher. Keep it
     // beside scrcpy.exe so the client can find ADB without modifying PATH.
-    await copyRequiredFile(extractedRoot, '/scrcpy-win64-v4.1/adb.exe', path.join(installRoot, 'scrcpy', 'adb.exe'));
-    await copyRequiredFile(extractedRoot, '/AdbWinApi.dll', path.join(installRoot, 'scrcpy', 'AdbWinApi.dll'));
-    await copyRequiredFile(extractedRoot, '/AdbWinUsbApi.dll', path.join(installRoot, 'scrcpy', 'AdbWinUsbApi.dll'));
-    for (const file of ['SDL3.dll', 'libusb-1.0.dll', 'avcodec-62.dll', 'avformat-62.dll', 'avutil-60.dll', 'swresample-6.dll']) {
+    await copyRequiredFile(
+      extractedRoot,
+      '/scrcpy-win64-v4.1/adb.exe',
+      path.join(installRoot, 'scrcpy', 'adb.exe')
+    );
+    await copyRequiredFile(
+      extractedRoot,
+      '/AdbWinApi.dll',
+      path.join(installRoot, 'scrcpy', 'AdbWinApi.dll')
+    );
+    await copyRequiredFile(
+      extractedRoot,
+      '/AdbWinUsbApi.dll',
+      path.join(installRoot, 'scrcpy', 'AdbWinUsbApi.dll')
+    );
+    for (const file of [
+      'SDL3.dll',
+      'libusb-1.0.dll',
+      'avcodec-62.dll',
+      'avformat-62.dll',
+      'avutil-60.dll',
+      'swresample-6.dll',
+    ]) {
       await copyRequiredFile(extractedRoot, `/${file}`, path.join(installRoot, 'scrcpy', file));
     }
-    await copyRequiredFile(extractedRoot, '/platform-tools/NOTICE.txt', path.join(installRoot, 'THIRD-PARTY-NOTICES', 'android-platform-tools-NOTICE.txt'));
-    await copyRequiredFile(extractedRoot, '/LICENSE.txt', path.join(installRoot, 'THIRD-PARTY-NOTICES', 'scrcpy-LICENSE.txt'));
+    await copyRequiredFile(
+      extractedRoot,
+      '/platform-tools/NOTICE.txt',
+      path.join(installRoot, 'THIRD-PARTY-NOTICES', 'android-platform-tools-NOTICE.txt')
+    );
+    await copyRequiredFile(
+      extractedRoot,
+      '/LICENSE.txt',
+      path.join(installRoot, 'THIRD-PARTY-NOTICES', 'scrcpy-LICENSE.txt')
+    );
 
     onProgress({ phase: 'verifying', percent: 96, current: '检查安装文件' });
     await fsp.access(path.join(installRoot, 'platform-tools', 'adb.exe'));
@@ -177,4 +257,8 @@ export async function downloadAndInstallAndroidToolchain(
   }
 }
 
-export const androidToolchainDownloadManifest = SPECS.map(spec => ({ name: spec.name, url: spec.url, sha256: spec.sha256 }));
+export const androidToolchainDownloadManifest = SPECS.map((spec) => ({
+  name: spec.name,
+  url: spec.url,
+  sha256: spec.sha256,
+}));

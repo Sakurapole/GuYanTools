@@ -60,35 +60,44 @@ export function getAndroidToolchainDownloadStatus() {
   return { ...downloadProgress };
 }
 
-export function onAndroidToolchainDownloadProgress(listener: (progress: AndroidToolchainDownloadProgress) => void) {
+export function onAndroidToolchainDownloadProgress(
+  listener: (progress: AndroidToolchainDownloadProgress) => void
+) {
   downloadEmitter.on('progress', listener);
   return () => downloadEmitter.off('progress', listener);
 }
 
 export async function downloadAndroidToolchain() {
-  if (process.platform !== 'win32' || process.arch !== 'x64') throw new Error('ANDROID_PLATFORM_UNSUPPORTED');
+  if (process.platform !== 'win32' || process.arch !== 'x64')
+    throw new Error('ANDROID_PLATFORM_UNSUPPORTED');
   if (downloadPromise) return downloadPromise.then(() => androidToolchain.verify());
-  if (androidScrcpyService.listSessions().some(session => ['starting', 'running', 'stopping'].includes(session.status))) {
+  if (
+    androidScrcpyService
+      .listSessions()
+      .some((session) => ['starting', 'running', 'stopping'].includes(session.status))
+  ) {
     throw new Error('ANDROID_TOOLCHAIN_BUSY');
   }
 
   const destination = getManagedToolchainPath();
   downloadProgress = { phase: 'downloading', percent: 0 };
   downloadEmitter.emit('progress', downloadProgress);
-  downloadPromise = downloadAndInstallAndroidToolchain(destination, progress => {
+  downloadPromise = downloadAndInstallAndroidToolchain(destination, (progress) => {
     downloadProgress = { ...progress };
     downloadEmitter.emit('progress', downloadProgress);
-  }).catch(error => {
-    downloadProgress = {
-      phase: 'failed',
-      percent: 0,
-      errorMessage: error instanceof Error ? error.message : String(error),
-    };
-    downloadEmitter.emit('progress', downloadProgress);
-    throw error;
-  }).finally(() => {
-    downloadPromise = null;
-  });
+  })
+    .catch((error) => {
+      downloadProgress = {
+        phase: 'failed',
+        percent: 0,
+        errorMessage: error instanceof Error ? error.message : String(error),
+      };
+      downloadEmitter.emit('progress', downloadProgress);
+      throw error;
+    })
+    .finally(() => {
+      downloadPromise = null;
+    });
   await downloadPromise;
 
   // A successful download explicitly selects the application-managed copy.
@@ -100,4 +109,3 @@ export async function downloadAndroidToolchain() {
   setAndroidToolchainConfiguredPath('');
   return androidToolchain.verify();
 }
-

@@ -4,7 +4,9 @@ import { validateDeviceSerial, validateFastbootVarNames, validateSessionId } fro
 describe('android IPC payload guards', () => {
   it('accepts a serial from the device protocol and rejects command injection text', () => {
     expect(validateDeviceSerial('R58M1234567')).toBe('R58M1234567');
-    expect(() => validateDeviceSerial('ABC\r\nadb shell rm -rf')).toThrow('ANDROID_DEVICE_NOT_FOUND');
+    expect(() => validateDeviceSerial('ABC\r\nadb shell rm -rf')).toThrow(
+      'ANDROID_DEVICE_NOT_FOUND'
+    );
     expect(() => validateDeviceSerial('')).toThrow('ANDROID_DEVICE_NOT_FOUND');
   });
 
@@ -14,7 +16,10 @@ describe('android IPC payload guards', () => {
   });
 
   it('restricts fastboot variables to the read-only allowlist', () => {
-    expect(validateFastbootVarNames(['product', 'current-slot'])).toEqual(['product', 'current-slot']);
+    expect(validateFastbootVarNames(['product', 'current-slot'])).toEqual([
+      'product',
+      'current-slot',
+    ]);
     expect(() => validateFastbootVarNames(['all'])).toThrow('ANDROID_FASTBOOT_OPERATION_DENIED');
   });
 });

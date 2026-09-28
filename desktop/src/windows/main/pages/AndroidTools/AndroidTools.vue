@@ -27,16 +27,49 @@ const refreshing = ref(false);
 const busyAction = ref<'mirror' | 'audio' | 'otg' | string | null>(null);
 const loadError = ref('');
 const actionError = ref('');
-const toolchainDownloadProgress = ref<AndroidToolchainDownloadProgress>({ phase: 'idle', percent: 0 });
+const toolchainDownloadProgress = ref<AndroidToolchainDownloadProgress>({
+  phase: 'idle',
+  percent: 0,
+});
 const toolchainDownloadBusy = ref(false);
 const toolchainDownloadError = ref('');
 type AndroidFunctionId = 'mirror' | 'audio' | 'otg' | 'fastboot' | 'input';
-const functionDefinitions: Array<{ id: AndroidFunctionId; label: string; description: string; icon: string }> = [
-  { id: 'mirror', label: '设备镜像', description: '镜像画面并共享键鼠', icon: 'iconify:lucide:monitor-play' },
-  { id: 'audio', label: '音频回传', description: '将设备声音播放到电脑', icon: 'iconify:lucide:volume-2' },
-  { id: 'otg', label: 'OTG 键鼠', description: '仅通过 OTG 共享键鼠', icon: 'iconify:lucide:mouse-pointer-2' },
-  { id: 'input', label: '无缝键鼠共享', description: '将 Windows 键鼠延伸到 Android', icon: 'iconify:lucide:move-3d' },
-  { id: 'fastboot', label: 'Fastboot', description: '读取变量与安全重启', icon: 'iconify:lucide:zap' },
+const functionDefinitions: Array<{
+  id: AndroidFunctionId;
+  label: string;
+  description: string;
+  icon: string;
+}> = [
+  {
+    id: 'mirror',
+    label: '设备镜像',
+    description: '镜像画面并共享键鼠',
+    icon: 'iconify:lucide:monitor-play',
+  },
+  {
+    id: 'audio',
+    label: '音频回传',
+    description: '将设备声音播放到电脑',
+    icon: 'iconify:lucide:volume-2',
+  },
+  {
+    id: 'otg',
+    label: 'OTG 键鼠',
+    description: '仅通过 OTG 共享键鼠',
+    icon: 'iconify:lucide:mouse-pointer-2',
+  },
+  {
+    id: 'input',
+    label: '无缝键鼠共享',
+    description: '将 Windows 键鼠延伸到 Android',
+    icon: 'iconify:lucide:move-3d',
+  },
+  {
+    id: 'fastboot',
+    label: 'Fastboot',
+    description: '读取变量与安全重启',
+    icon: 'iconify:lucide:zap',
+  },
 ];
 const pinnedFunctionIds = ref<AndroidFunctionId[]>(loadPinnedFunctions());
 const activeView = ref<'collection' | 'devices' | AndroidFunctionId>('collection');
@@ -46,7 +79,11 @@ function loadPinnedFunctions(): AndroidFunctionId[] {
     const raw = localStorage.getItem('android-tools-pinned-functions');
     if (!raw) return ['mirror'];
     const parsed = JSON.parse(raw) as unknown;
-    return Array.isArray(parsed) ? parsed.filter((id): id is AndroidFunctionId => functionDefinitions.some(item => item.id === id)) : ['mirror'];
+    return Array.isArray(parsed)
+      ? parsed.filter((id): id is AndroidFunctionId =>
+          functionDefinitions.some((item) => item.id === id)
+        )
+      : ['mirror'];
   } catch {
     return ['mirror'];
   }
@@ -54,7 +91,7 @@ function loadPinnedFunctions(): AndroidFunctionId[] {
 
 function togglePinnedFunction(id: AndroidFunctionId) {
   pinnedFunctionIds.value = pinnedFunctionIds.value.includes(id)
-    ? pinnedFunctionIds.value.filter(item => item !== id)
+    ? pinnedFunctionIds.value.filter((item) => item !== id)
     : [...pinnedFunctionIds.value, id];
   localStorage.setItem('android-tools-pinned-functions', JSON.stringify(pinnedFunctionIds.value));
   if (pinnedFunctionIds.value.includes(id)) activeView.value = id;
@@ -68,7 +105,9 @@ let removeDevicesChanged: (() => void) | undefined;
 let removeSessionEvent: (() => void) | undefined;
 let removeToolchainDownloadProgress: (() => void) | undefined;
 
-const selectedDevice = computed(() => devices.value.find(device => device.serial === selectedSerial.value) ?? null);
+const selectedDevice = computed(
+  () => devices.value.find((device) => device.serial === selectedSerial.value) ?? null
+);
 const hasToolchain = computed(() => toolchain.value?.available === true);
 const isSelectedDeviceReady = computed(() => selectedDevice.value?.state === 'device');
 const audioSupported = computed(() => {
@@ -76,10 +115,15 @@ const audioSupported = computed(() => {
   return sdkLevel === undefined || sdkLevel >= 30;
 });
 const duplicateSupported = computed(() => (selectedDevice.value?.sdkLevel ?? 0) >= 33);
-const otgSupported = computed(() => selectedDevice.value?.usb === true && selectedDevice.value?.transport === 'adb-usb');
-const hasActiveSession = computed(() => sessions.value.some(session => (
-  session.status === 'starting' || session.status === 'running' || session.status === 'stopping'
-)));
+const otgSupported = computed(
+  () => selectedDevice.value?.usb === true && selectedDevice.value?.transport === 'adb-usb'
+);
+const hasActiveSession = computed(() =>
+  sessions.value.some(
+    (session) =>
+      session.status === 'starting' || session.status === 'running' || session.status === 'stopping'
+  )
+);
 
 const stateLabels: Record<AndroidDeviceState, string> = {
   device: '已连接',
@@ -122,7 +166,8 @@ const errorLabels: Record<string, string> = {
   ANDROID_SESSION_EXITED: 'scrcpy 会话已异常退出，请检查 USB 连接。',
   ANDROID_SESSION_NOT_FOUND: '找不到该会话，可能已经退出。',
   ANDROID_TOOL_UNAVAILABLE: 'Android 工具链不可用，请检查应用安装资源。',
-  ANDROID_PLATFORM_UNSUPPORTED: '当前平台暂不支持自动下载，请在设置中选择已有的 Windows x64 工具链。',
+  ANDROID_PLATFORM_UNSUPPORTED:
+    '当前平台暂不支持自动下载，请在设置中选择已有的 Windows x64 工具链。',
   ANDROID_TOOLCHAIN_BUSY: '请先停止正在运行的 Android 会话，再更新工具链。',
   ANDROID_DOWNLOAD_REDIRECT_LIMIT: '下载地址重定向次数过多，已停止下载。',
   ANDROID_DOWNLOAD_URL_INVALID: '下载地址不安全，必须使用 HTTPS。',
@@ -134,11 +179,14 @@ const errorLabels: Record<string, string> = {
 };
 
 function getErrorMessage(error: unknown) {
-  const rawMessage = error instanceof Error ? error.message : typeof error === 'string' ? error : '';
+  const rawMessage =
+    error instanceof Error ? error.message : typeof error === 'string' ? error : '';
   if (rawMessage) {
     const exactLabel = errorLabels[rawMessage];
     if (exactLabel) return exactLabel;
-    const prefixLabel = Object.entries(errorLabels).find(([code]) => rawMessage.startsWith(`${code}_`))?.[1];
+    const prefixLabel = Object.entries(errorLabels).find(([code]) =>
+      rawMessage.startsWith(`${code}_`)
+    )?.[1];
     return prefixLabel ?? rawMessage;
   }
   return '操作失败，请检查设备连接和工具链状态。';
@@ -150,9 +198,10 @@ function bindDeviceEvents(api: NonNullable<typeof window.androidApi>) {
 }
 
 function selectFirstReadyDevice(nextDevices: AndroidDevice[]) {
-  const selectedStillExists = nextDevices.some(device => device.serial === selectedSerial.value);
+  const selectedStillExists = nextDevices.some((device) => device.serial === selectedSerial.value);
   if (selectedStillExists) return;
-  selectedSerial.value = nextDevices.find(device => device.state === 'device')?.serial ?? nextDevices[0]?.serial ?? '';
+  selectedSerial.value =
+    nextDevices.find((device) => device.state === 'device')?.serial ?? nextDevices[0]?.serial ?? '';
 }
 
 function applyDevices(nextDevices: AndroidDevice[]) {
@@ -161,14 +210,14 @@ function applyDevices(nextDevices: AndroidDevice[]) {
 }
 
 function mergeSession(nextSession: AndroidSession) {
-  const index = sessions.value.findIndex(session => session.sessionId === nextSession.sessionId);
+  const index = sessions.value.findIndex((session) => session.sessionId === nextSession.sessionId);
   if (index === -1) {
     sessions.value = [...sessions.value, nextSession];
     return;
   }
-  sessions.value = sessions.value.map((session, sessionIndex) => (
+  sessions.value = sessions.value.map((session, sessionIndex) =>
     sessionIndex === index ? nextSession : session
-  ));
+  );
 }
 
 function handleSessionEvent(event: AndroidSessionEvent) {
@@ -214,7 +263,11 @@ async function downloadToolchain() {
   actionError.value = '';
   try {
     toolchain.value = await api.downloadToolchain();
-    toolchainDownloadProgress.value = { phase: 'completed', percent: 100, current: 'Android 工具链已安装' };
+    toolchainDownloadProgress.value = {
+      phase: 'completed',
+      percent: 100,
+      current: 'Android 工具链已安装',
+    };
     await loadState();
   } catch (error) {
     toolchainDownloadError.value = getErrorMessage(error);
@@ -258,7 +311,8 @@ async function refresh() {
 }
 
 function canStart(kind: 'mirror' | 'audio' | 'otg') {
-  if (!hasToolchain.value || !isSelectedDeviceReady.value || busyAction.value !== null) return false;
+  if (!hasToolchain.value || !isSelectedDeviceReady.value || busyAction.value !== null)
+    return false;
   if (kind === 'audio' && !audioSupported.value) return false;
   if (kind === 'otg' && !otgSupported.value) return false;
   return true;
@@ -271,7 +325,9 @@ async function startMirror() {
   busyAction.value = 'mirror';
   actionError.value = '';
   try {
-    mergeSession(await api.startMirror({ deviceSerial, keyboard: keyboardMode.value, mouse: mouseMode.value }));
+    mergeSession(
+      await api.startMirror({ deviceSerial, keyboard: keyboardMode.value, mouse: mouseMode.value })
+    );
   } catch (error) {
     actionError.value = getErrorMessage(error);
   } finally {
@@ -286,7 +342,9 @@ async function startAudio() {
   busyAction.value = 'audio';
   actionError.value = '';
   try {
-    mergeSession(await api.startAudio({ deviceSerial, duplicateOnDevice: duplicateOnDevice.value }));
+    mergeSession(
+      await api.startAudio({ deviceSerial, duplicateOnDevice: duplicateOnDevice.value })
+    );
   } catch (error) {
     actionError.value = getErrorMessage(error);
   } finally {
@@ -316,9 +374,9 @@ async function stopSession(sessionId: string) {
   actionError.value = '';
   try {
     await api.stopSession(sessionId);
-    sessions.value = sessions.value.map(session => (
+    sessions.value = sessions.value.map((session) =>
       session.sessionId === sessionId ? { ...session, status: 'exited' } : session
-    ));
+    );
   } catch (error) {
     actionError.value = getErrorMessage(error);
   } finally {
@@ -340,12 +398,15 @@ onMounted(() => {
         toolchainDownloadError.value = getErrorMessage(progress.errorMessage);
       }
     });
-    void api.getToolchainDownloadStatus().then((progress) => {
-      toolchainDownloadProgress.value = progress;
-      if (progress.phase === 'failed') {
-        toolchainDownloadError.value = getErrorMessage(progress.errorMessage);
-      }
-    }).catch(() => undefined);
+    void api
+      .getToolchainDownloadStatus()
+      .then((progress) => {
+        toolchainDownloadProgress.value = progress;
+        if (progress.phase === 'failed') {
+          toolchainDownloadError.value = getErrorMessage(progress.errorMessage);
+        }
+      })
+      .catch(() => undefined);
   }
   void loadState();
 });
@@ -361,273 +422,550 @@ onUnmounted(() => {
   <main class="android-tools-page">
     <aside class="android-tools-sidebar" aria-label="Android 工具箱导航">
       <div class="android-tools-sidebar__brand">
-        <span class="android-tools-sidebar__brand-icon"><IconRenderer icon="iconify:lucide:smartphone" :size="18" /></span>
+        <span class="android-tools-sidebar__brand-icon"
+          ><IconRenderer icon="iconify:lucide:smartphone" :size="18"
+        /></span>
         <div><strong>Android 工具箱</strong><small>设备工作台</small></div>
       </div>
       <div class="android-tools-sidebar__section">
         <span class="android-tools-sidebar__label">工作区</span>
-        <button class="android-tools-nav-item" :class="{ 'android-tools-nav-item--active': activeView === 'collection' }" data-testid="android-sidebar-collection" type="button" @click="activeView = 'collection'">
-          <IconRenderer icon="iconify:lucide:layout-grid" :size="16" /><span>功能集合</span><span class="android-tools-nav-item__count">{{ functionDefinitions.length }}</span>
+        <button
+          class="android-tools-nav-item"
+          :class="{ 'android-tools-nav-item--active': activeView === 'collection' }"
+          data-testid="android-sidebar-collection"
+          type="button"
+          @click="activeView = 'collection'"
+        >
+          <IconRenderer icon="iconify:lucide:layout-grid" :size="16" /><span>功能集合</span
+          ><span class="android-tools-nav-item__count">{{ functionDefinitions.length }}</span>
         </button>
-        <button class="android-tools-nav-item" :class="{ 'android-tools-nav-item--active': activeView === 'devices' }" data-testid="android-sidebar-devices" type="button" @click="activeView = 'devices'">
-          <IconRenderer icon="iconify:lucide:smartphone" :size="16" /><span>设备信息</span><span class="android-tools-nav-item__count">{{ devices.length }}</span>
+        <button
+          class="android-tools-nav-item"
+          :class="{ 'android-tools-nav-item--active': activeView === 'devices' }"
+          data-testid="android-sidebar-devices"
+          type="button"
+          @click="activeView = 'devices'"
+        >
+          <IconRenderer icon="iconify:lucide:smartphone" :size="16" /><span>设备信息</span
+          ><span class="android-tools-nav-item__count">{{ devices.length }}</span>
         </button>
       </div>
       <div class="android-tools-sidebar__section" v-if="pinnedFunctionIds.length">
         <span class="android-tools-sidebar__label">已固定功能</span>
-        <button v-for="id in pinnedFunctionIds" :key="id" class="android-tools-nav-item" :class="{ 'android-tools-nav-item--active': activeView === id }" :data-testid="`android-sidebar-pinned-${id}`" type="button" @click="openFunction(id)">
-          <IconRenderer :icon="functionDefinitions.find(item => item.id === id)?.icon || 'iconify:lucide:box'" :size="16" /><span>{{ functionDefinitions.find(item => item.id === id)?.label }}</span>
+        <button
+          v-for="id in pinnedFunctionIds"
+          :key="id"
+          class="android-tools-nav-item"
+          :class="{ 'android-tools-nav-item--active': activeView === id }"
+          :data-testid="`android-sidebar-pinned-${id}`"
+          type="button"
+          @click="openFunction(id)"
+        >
+          <IconRenderer
+            :icon="functionDefinitions.find((item) => item.id === id)?.icon || 'iconify:lucide:box'"
+            :size="16"
+          /><span>{{ functionDefinitions.find((item) => item.id === id)?.label }}</span>
         </button>
       </div>
       <div class="android-tools-sidebar__footer">
-        <span class="android-tools-sidebar__status-dot" :class="{ 'android-tools-sidebar__status-dot--ok': hasToolchain }" />
+        <span
+          class="android-tools-sidebar__status-dot"
+          :class="{ 'android-tools-sidebar__status-dot--ok': hasToolchain }"
+        />
         <span>{{ hasToolchain ? '工具链就绪' : '工具链待处理' }}</span>
       </div>
     </aside>
 
     <section class="android-tools-workspace">
-    <header class="android-tools-page__header">
-      <div>
-        <p class="android-tools-page__eyebrow">{{ activeView === 'collection' ? '功能集合' : activeView === 'devices' ? '设备信息' : functionDefinitions.find(item => item.id === activeView)?.label }}</p>
-        <h1>{{ activeView === 'collection' ? '选择一个功能开始' : activeView === 'devices' ? '设备信息' : functionDefinitions.find(item => item.id === activeView)?.label }}</h1>
-        <p class="android-tools-page__intro">{{ activeView === 'collection' ? '将常用功能固定到侧边栏，建立你的 Android 工作区。' : '通过有线连接管理设备，状态和操作集中在当前工作区。' }}</p>
+      <header class="android-tools-page__header">
+        <div>
+          <p class="android-tools-page__eyebrow">
+            {{
+              activeView === 'collection'
+                ? '功能集合'
+                : activeView === 'devices'
+                  ? '设备信息'
+                  : functionDefinitions.find((item) => item.id === activeView)?.label
+            }}
+          </p>
+          <h1>
+            {{
+              activeView === 'collection'
+                ? '选择一个功能开始'
+                : activeView === 'devices'
+                  ? '设备信息'
+                  : functionDefinitions.find((item) => item.id === activeView)?.label
+            }}
+          </h1>
+          <p class="android-tools-page__intro">
+            {{
+              activeView === 'collection'
+                ? '将常用功能固定到侧边栏，建立你的 Android 工作区。'
+                : '通过有线连接管理设备，状态和操作集中在当前工作区。'
+            }}
+          </p>
+        </div>
+        <UiIconButton
+          variant="secondary"
+          size="md"
+          title="刷新工具链和设备"
+          :disabled="refreshing"
+          @click="refresh"
+        >
+          <IconRenderer icon="iconify:lucide:refresh-cw" :size="17" />
+        </UiIconButton>
+      </header>
+
+      <div v-if="loading" class="android-tools-page__loading" role="status">
+        正在检查 Android 工具链和设备…
       </div>
-      <UiIconButton
-        variant="secondary"
-        size="md"
-        title="刷新工具链和设备"
-        :disabled="refreshing"
-        @click="refresh"
+
+      <UiStateCard
+        v-else-if="loadError"
+        state="error"
+        title="无法读取 Android 状态"
+        :description="loadError"
+        class="android-tools-page__state"
       >
-        <IconRenderer icon="iconify:lucide:refresh-cw" :size="17" />
-      </UiIconButton>
-    </header>
+        <template #icon><IconRenderer icon="iconify:lucide:triangle-alert" :size="22" /></template>
+        <template #actions>
+          <UiButton size="sm" variant="secondary" @click="refresh">重新检查</UiButton>
+        </template>
+      </UiStateCard>
 
-    <div v-if="loading" class="android-tools-page__loading" role="status">正在检查 Android 工具链和设备…</div>
-
-    <UiStateCard
-      v-else-if="loadError"
-      state="error"
-      title="无法读取 Android 状态"
-      :description="loadError"
-      class="android-tools-page__state"
-    >
-      <template #icon><IconRenderer icon="iconify:lucide:triangle-alert" :size="22" /></template>
-      <template #actions>
-        <UiButton size="sm" variant="secondary" @click="refresh">重新检查</UiButton>
-      </template>
-    </UiStateCard>
-
-    <div v-else class="android-tools-page__content">
-      <UiCard v-if="activeView === 'collection'" class="android-tools-collection" padding="lg" radius="md">
-        <div class="android-tools-panel__heading"><div><h2>全部功能</h2><p>内置功能与插件注册的功能统一收纳在这里。</p></div></div>
-        <div class="android-tools-function-grid" data-testid="android-function-collection">
-          <div v-for="item in functionDefinitions" :key="item.id" class="android-tools-function-card">
-            <button class="android-tools-function-card__open" type="button" @click="openFunction(item.id)">
-              <span class="android-tools-function-card__icon"><IconRenderer :icon="item.icon" :size="20" /></span><span class="android-tools-function-card__copy"><strong>{{ item.label }}</strong><small>{{ item.description }}</small></span>
-            </button>
-            <button class="android-tools-pin-button" :class="{ 'android-tools-pin-button--pinned': pinnedFunctionIds.includes(item.id) }" :data-testid="`pin-function-${item.id}`" type="button" :aria-label="pinnedFunctionIds.includes(item.id) ? `取消固定${item.label}` : `固定${item.label}`" @click="togglePinnedFunction(item.id)"><IconRenderer :icon="pinnedFunctionIds.includes(item.id) ? 'iconify:lucide:pin' : 'iconify:lucide:pin-off'" :size="16" /></button>
-          </div>
-        </div>
-      </UiCard>
-      <AndroidInputSharingPanel v-if="activeView === 'input'" :device-serial="selectedSerial" :device-ready="isSelectedDeviceReady" />
-      <UiCard v-if="activeView === 'devices'" class="android-tools-device-information" padding="lg" radius="md" data-testid="android-device-information">
-        <div class="android-tools-panel__heading"><div><h2>设备信息</h2><p>查看连接状态、授权状态和工具链诊断。</p></div></div>
-        <div class="android-tools-device-summary"><strong>{{ selectedDevice?.model || '未选择设备' }}</strong><span>{{ selectedDevice?.serial || '连接 USB 并开启 USB 调试' }}</span><span v-if="selectedDevice">{{ stateLabels[selectedDevice.state] }} · {{ transportLabels[selectedDevice.transport] }}</span></div>
-        <div class="android-tools-versions" v-if="hasToolchain"><div><span>ADB</span><code>{{ toolchain?.versions.adb || '未读取' }}</code></div><div><span>scrcpy</span><code>{{ toolchain?.versions.scrcpy || '未读取' }}</code></div><div><span>fastboot</span><code>{{ toolchain?.versions.fastboot || '未读取' }}</code></div></div>
-      </UiCard>
-      <UiCard v-if="activeView !== 'collection' && activeView !== 'devices' && activeView !== 'input'" class="android-tools-panel android-tools-panel--toolchain" padding="lg" radius="md">
-        <div class="android-tools-panel__heading">
-          <div>
-            <h2>工具链</h2>
-            <p>应用内置 ADB、scrcpy 和 fastboot，不依赖系统 PATH。</p>
-          </div>
-          <span class="android-tools-status" :class="{ 'android-tools-status--ok': hasToolchain, 'android-tools-status--error': !hasToolchain }">
-            <span class="android-tools-status__dot" />
-            {{ hasToolchain ? '可用' : '不可用' }}
-          </span>
-        </div>
-        <div v-if="!hasToolchain" data-testid="android-toolchain-error" class="android-tools-alert android-tools-alert--error" role="alert">
-          <strong>工具链不可用</strong>
-          <span>{{ toolchain?.errorMessage || '请检查应用安装包中的 Android 工具资源。' }}</span>
-          <div class="android-toolchain-recovery">
-            <UiButton data-testid="download-android-toolchain" variant="primary" size="sm" :disabled="toolchainDownloadBusy" @click="downloadToolchain">
-              <template #prefix><IconRenderer icon="iconify:lucide:download" :size="16" /></template>
-              {{ toolchainDownloadBusy ? '下载中…' : '应用内下载并安装' }}
-            </UiButton>
-            <span>也可在设置的“系统路径”中选择已有工具链目录。</span>
-          </div>
-          <div v-if="toolchainDownloadBusy || toolchainDownloadProgress.phase === 'downloading' || toolchainDownloadProgress.phase === 'extracting' || toolchainDownloadProgress.phase === 'verifying'" class="android-toolchain-progress" data-testid="android-toolchain-progress">
-            <div class="android-toolchain-progress__head">
-              <span>{{ toolchainDownloadProgress.current || '正在准备下载' }}</span>
-              <strong>{{ toolchainDownloadProgress.percent }}%</strong>
-            </div>
-            <div class="android-toolchain-progress__bar"><span :style="{ width: `${toolchainDownloadProgress.percent}%` }" /></div>
-          </div>
-          <span v-if="toolchainDownloadError" class="android-toolchain-download-error">{{ toolchainDownloadError }}</span>
-        </div>
-        <div v-else class="android-tools-versions">
-          <div><span>ADB</span><code>{{ toolchain?.versions.adb || '未读取' }}</code></div>
-          <div><span>scrcpy</span><code>{{ toolchain?.versions.scrcpy || '未读取' }}</code></div>
-          <div><span>fastboot</span><code>{{ toolchain?.versions.fastboot || '未读取' }}</code></div>
-        </div>
-      </UiCard>
-
-      <div v-if="activeView !== 'collection' && activeView !== 'devices' && activeView !== 'input'" class="android-tools-grid">
-        <span v-if="activeView !== 'collection' && activeView !== 'devices'" class="android-tools-function-tab" :data-testid="`android-function-tab-${activeView}`" />
-        <span v-if="activeView !== 'collection' && activeView !== 'devices'" class="android-tools-function-content" :data-testid="`android-function-content-${activeView}`" />
-        <UiCard class="android-tools-panel android-tools-panel--devices" padding="lg" radius="md">
+      <div v-else class="android-tools-page__content">
+        <UiCard
+          v-if="activeView === 'collection'"
+          class="android-tools-collection"
+          padding="lg"
+          radius="md"
+        >
           <div class="android-tools-panel__heading">
             <div>
-              <h2>设备</h2>
-              <p>选择一个已授权的 ADB 设备开始操作。</p>
+              <h2>全部功能</h2>
+              <p>内置功能与插件注册的功能统一收纳在这里。</p>
             </div>
-            <span class="android-tools-count">{{ devices.length }}</span>
           </div>
-
-          <div v-if="devices.length" class="android-device-list" role="listbox" aria-label="Android 设备">
-            <button
-              v-for="device in devices"
-              :key="device.serial"
-              class="android-device-row"
-              :class="{ 'android-device-row--selected': device.serial === selectedSerial }"
-              type="button"
-              role="option"
-              :aria-selected="device.serial === selectedSerial"
-              :data-testid="`device-${device.serial}`"
-              @click="selectedSerial = device.serial"
+          <div class="android-tools-function-grid" data-testid="android-function-collection">
+            <div
+              v-for="item in functionDefinitions"
+              :key="item.id"
+              class="android-tools-function-card"
             >
-              <span class="android-device-row__state" :class="`android-device-row__state--${device.state}`" />
-              <span class="android-device-row__main">
-                <strong>{{ device.model || device.serial }}</strong>
-                <small>{{ device.serial }}</small>
-              </span>
-              <span class="android-device-row__meta">
-                <span>{{ stateLabels[device.state] }}</span>
-                <span>{{ transportLabels[device.transport] }}</span>
-              </span>
-            </button>
+              <button
+                class="android-tools-function-card__open"
+                type="button"
+                @click="openFunction(item.id)"
+              >
+                <span class="android-tools-function-card__icon"
+                  ><IconRenderer :icon="item.icon" :size="20" /></span
+                ><span class="android-tools-function-card__copy"
+                  ><strong>{{ item.label }}</strong
+                  ><small>{{ item.description }}</small></span
+                >
+              </button>
+              <button
+                class="android-tools-pin-button"
+                :class="{ 'android-tools-pin-button--pinned': pinnedFunctionIds.includes(item.id) }"
+                :data-testid="`pin-function-${item.id}`"
+                type="button"
+                :aria-label="
+                  pinnedFunctionIds.includes(item.id)
+                    ? `取消固定${item.label}`
+                    : `固定${item.label}`
+                "
+                @click="togglePinnedFunction(item.id)"
+              >
+                <IconRenderer
+                  :icon="
+                    pinnedFunctionIds.includes(item.id)
+                      ? 'iconify:lucide:pin'
+                      : 'iconify:lucide:pin-off'
+                  "
+                  :size="16"
+                />
+              </button>
+            </div>
           </div>
-          <UiStateCard
-            v-else
-            state="empty"
-            title="未发现 Android 设备"
-            description="连接 USB 并开启 USB 调试后，点击右上角刷新。"
-            compact
+        </UiCard>
+        <AndroidInputSharingPanel
+          v-if="activeView === 'input'"
+          :device-serial="selectedSerial"
+          :device-ready="isSelectedDeviceReady"
+        />
+        <UiCard
+          v-if="activeView === 'devices'"
+          class="android-tools-device-information"
+          padding="lg"
+          radius="md"
+          data-testid="android-device-information"
+        >
+          <div class="android-tools-panel__heading">
+            <div>
+              <h2>设备信息</h2>
+              <p>查看连接状态、授权状态和工具链诊断。</p>
+            </div>
+          </div>
+          <div class="android-tools-device-summary">
+            <strong>{{ selectedDevice?.model || '未选择设备' }}</strong
+            ><span>{{ selectedDevice?.serial || '连接 USB 并开启 USB 调试' }}</span
+            ><span v-if="selectedDevice"
+              >{{ stateLabels[selectedDevice.state] }} ·
+              {{ transportLabels[selectedDevice.transport] }}</span
+            >
+          </div>
+          <div class="android-tools-versions" v-if="hasToolchain">
+            <div>
+              <span>ADB</span><code>{{ toolchain?.versions.adb || '未读取' }}</code>
+            </div>
+            <div>
+              <span>scrcpy</span><code>{{ toolchain?.versions.scrcpy || '未读取' }}</code>
+            </div>
+            <div>
+              <span>fastboot</span><code>{{ toolchain?.versions.fastboot || '未读取' }}</code>
+            </div>
+          </div>
+        </UiCard>
+        <UiCard
+          v-if="activeView !== 'collection' && activeView !== 'devices' && activeView !== 'input'"
+          class="android-tools-panel android-tools-panel--toolchain"
+          padding="lg"
+          radius="md"
+        >
+          <div class="android-tools-panel__heading">
+            <div>
+              <h2>工具链</h2>
+              <p>应用内置 ADB、scrcpy 和 fastboot，不依赖系统 PATH。</p>
+            </div>
+            <span
+              class="android-tools-status"
+              :class="{
+                'android-tools-status--ok': hasToolchain,
+                'android-tools-status--error': !hasToolchain,
+              }"
+            >
+              <span class="android-tools-status__dot" />
+              {{ hasToolchain ? '可用' : '不可用' }}
+            </span>
+          </div>
+          <div
+            v-if="!hasToolchain"
+            data-testid="android-toolchain-error"
+            class="android-tools-alert android-tools-alert--error"
+            role="alert"
           >
-            <template #icon><IconRenderer icon="iconify:lucide:smartphone" :size="22" /></template>
-          </UiStateCard>
-
-          <div v-if="selectedDevice?.state === 'unauthorized'" class="android-tools-alert android-tools-alert--warning" role="status">
-            <strong>需要设备授权</strong>
-            <span>请在设备上允许 USB 调试授权，然后重新刷新设备列表。</span>
+            <strong>工具链不可用</strong>
+            <span>{{ toolchain?.errorMessage || '请检查应用安装包中的 Android 工具资源。' }}</span>
+            <div class="android-toolchain-recovery">
+              <UiButton
+                data-testid="download-android-toolchain"
+                variant="primary"
+                size="sm"
+                :disabled="toolchainDownloadBusy"
+                @click="downloadToolchain"
+              >
+                <template #prefix
+                  ><IconRenderer icon="iconify:lucide:download" :size="16"
+                /></template>
+                {{ toolchainDownloadBusy ? '下载中…' : '应用内下载并安装' }}
+              </UiButton>
+              <span>也可在设置的“系统路径”中选择已有工具链目录。</span>
+            </div>
+            <div
+              v-if="
+                toolchainDownloadBusy ||
+                toolchainDownloadProgress.phase === 'downloading' ||
+                toolchainDownloadProgress.phase === 'extracting' ||
+                toolchainDownloadProgress.phase === 'verifying'
+              "
+              class="android-toolchain-progress"
+              data-testid="android-toolchain-progress"
+            >
+              <div class="android-toolchain-progress__head">
+                <span>{{ toolchainDownloadProgress.current || '正在准备下载' }}</span>
+                <strong>{{ toolchainDownloadProgress.percent }}%</strong>
+              </div>
+              <div class="android-toolchain-progress__bar">
+                <span :style="{ width: `${toolchainDownloadProgress.percent}%` }" />
+              </div>
+            </div>
+            <span v-if="toolchainDownloadError" class="android-toolchain-download-error">{{
+              toolchainDownloadError
+            }}</span>
           </div>
-          <div v-else-if="selectedDevice?.state === 'offline'" class="android-tools-alert android-tools-alert--warning" role="status">
-            <strong>设备当前离线</strong>
-            <span>重新插拔 USB 线或确认设备没有被其他 ADB 客户端占用。</span>
-          </div>
-          <div v-else-if="selectedDevice?.state !== 'device' && selectedDevice" class="android-tools-alert android-tools-alert--warning" role="status">
-            <strong>设备状态不可用</strong>
-            <span>当前状态为 {{ stateLabels[selectedDevice.state] }}，暂时不能启动会话。</span>
+          <div v-else class="android-tools-versions">
+            <div>
+              <span>ADB</span><code>{{ toolchain?.versions.adb || '未读取' }}</code>
+            </div>
+            <div>
+              <span>scrcpy</span><code>{{ toolchain?.versions.scrcpy || '未读取' }}</code>
+            </div>
+            <div>
+              <span>fastboot</span><code>{{ toolchain?.versions.fastboot || '未读取' }}</code>
+            </div>
           </div>
         </UiCard>
 
-        <UiCard class="android-tools-panel android-tools-panel--actions" padding="lg" radius="md">
+        <div
+          v-if="activeView !== 'collection' && activeView !== 'devices' && activeView !== 'input'"
+          class="android-tools-grid"
+        >
+          <span
+            v-if="activeView !== 'collection' && activeView !== 'devices'"
+            class="android-tools-function-tab"
+            :data-testid="`android-function-tab-${activeView}`"
+          />
+          <span
+            v-if="activeView !== 'collection' && activeView !== 'devices'"
+            class="android-tools-function-content"
+            :data-testid="`android-function-content-${activeView}`"
+          />
+          <UiCard class="android-tools-panel android-tools-panel--devices" padding="lg" radius="md">
+            <div class="android-tools-panel__heading">
+              <div>
+                <h2>设备</h2>
+                <p>选择一个已授权的 ADB 设备开始操作。</p>
+              </div>
+              <span class="android-tools-count">{{ devices.length }}</span>
+            </div>
+
+            <div
+              v-if="devices.length"
+              class="android-device-list"
+              role="listbox"
+              aria-label="Android 设备"
+            >
+              <button
+                v-for="device in devices"
+                :key="device.serial"
+                class="android-device-row"
+                :class="{ 'android-device-row--selected': device.serial === selectedSerial }"
+                type="button"
+                role="option"
+                :aria-selected="device.serial === selectedSerial"
+                :data-testid="`device-${device.serial}`"
+                @click="selectedSerial = device.serial"
+              >
+                <span
+                  class="android-device-row__state"
+                  :class="`android-device-row__state--${device.state}`"
+                />
+                <span class="android-device-row__main">
+                  <strong>{{ device.model || device.serial }}</strong>
+                  <small>{{ device.serial }}</small>
+                </span>
+                <span class="android-device-row__meta">
+                  <span>{{ stateLabels[device.state] }}</span>
+                  <span>{{ transportLabels[device.transport] }}</span>
+                </span>
+              </button>
+            </div>
+            <UiStateCard
+              v-else
+              state="empty"
+              title="未发现 Android 设备"
+              description="连接 USB 并开启 USB 调试后，点击右上角刷新。"
+              compact
+            >
+              <template #icon
+                ><IconRenderer icon="iconify:lucide:smartphone" :size="22"
+              /></template>
+            </UiStateCard>
+
+            <div
+              v-if="selectedDevice?.state === 'unauthorized'"
+              class="android-tools-alert android-tools-alert--warning"
+              role="status"
+            >
+              <strong>需要设备授权</strong>
+              <span>请在设备上允许 USB 调试授权，然后重新刷新设备列表。</span>
+            </div>
+            <div
+              v-else-if="selectedDevice?.state === 'offline'"
+              class="android-tools-alert android-tools-alert--warning"
+              role="status"
+            >
+              <strong>设备当前离线</strong>
+              <span>重新插拔 USB 线或确认设备没有被其他 ADB 客户端占用。</span>
+            </div>
+            <div
+              v-else-if="selectedDevice?.state !== 'device' && selectedDevice"
+              class="android-tools-alert android-tools-alert--warning"
+              role="status"
+            >
+              <strong>设备状态不可用</strong>
+              <span>当前状态为 {{ stateLabels[selectedDevice.state] }}，暂时不能启动会话。</span>
+            </div>
+          </UiCard>
+
+          <UiCard class="android-tools-panel android-tools-panel--actions" padding="lg" radius="md">
+            <div class="android-tools-panel__heading">
+              <div>
+                <h2>连接方式</h2>
+                <p>
+                  {{
+                    selectedDevice
+                      ? `当前设备：${selectedDevice.model || selectedDevice.serial}`
+                      : '先选择一个设备'
+                  }}
+                </p>
+              </div>
+            </div>
+
+            <div class="android-tools-options">
+              <label>
+                <span>键盘</span>
+                <select v-model="keyboardMode" :disabled="!isSelectedDeviceReady || !hasToolchain">
+                  <option value="uhid">UHID（推荐）</option>
+                  <option value="sdk">SDK 兼容模式</option>
+                </select>
+              </label>
+              <label>
+                <span>鼠标</span>
+                <select v-model="mouseMode" :disabled="!isSelectedDeviceReady || !hasToolchain">
+                  <option value="uhid">UHID（推荐）</option>
+                  <option value="sdk">SDK 兼容模式</option>
+                </select>
+              </label>
+            </div>
+
+            <div class="android-tools-actions">
+              <UiButton
+                data-testid="start-mirror"
+                variant="primary"
+                :disabled="!canStart('mirror')"
+                @click="startMirror"
+              >
+                <template #prefix
+                  ><IconRenderer icon="iconify:lucide:monitor-play" :size="16"
+                /></template>
+                {{ busyAction === 'mirror' ? '启动中…' : '启动镜像' }}
+              </UiButton>
+              <UiButton
+                data-testid="start-audio"
+                variant="secondary"
+                :disabled="!canStart('audio')"
+                @click="startAudio"
+              >
+                <template #prefix
+                  ><IconRenderer icon="iconify:lucide:volume-2" :size="16"
+                /></template>
+                {{ busyAction === 'audio' ? '启动中…' : '音频回传' }}
+              </UiButton>
+              <UiButton
+                data-testid="start-otg"
+                variant="secondary"
+                :disabled="!canStart('otg')"
+                @click="startOtg"
+              >
+                <template #prefix
+                  ><IconRenderer icon="iconify:lucide:mouse-pointer-2" :size="16"
+                /></template>
+                {{ busyAction === 'otg' ? '启动中…' : 'OTG 键鼠' }}
+              </UiButton>
+            </div>
+
+            <label v-if="duplicateSupported" class="android-tools-checkbox">
+              <input v-model="duplicateOnDevice" type="checkbox" :disabled="!canStart('audio')" />
+              <span>在设备端保留播放（audio-dup）</span>
+            </label>
+            <p
+              v-if="selectedDevice && !audioSupported"
+              class="android-tools-help"
+              data-testid="audio-unsupported"
+            >
+              Android 11 及以上才支持音频回传。
+            </p>
+            <p v-else-if="selectedDevice?.sdkLevel === 30" class="android-tools-help">
+              Android 11 设备需要在启动音频回传时保持解锁。
+            </p>
+            <p
+              v-else-if="selectedDevice && audioSupported && selectedDevice.sdkLevel === undefined"
+              class="android-tools-help"
+            >
+              未读取到 Android 版本，音频能力将在启动时由 scrcpy 校验。
+            </p>
+            <p v-if="selectedDevice && !otgSupported" class="android-tools-help">
+              OTG 仅支持 USB 连接；如果 ADB 占用设备，请先停止其他 ADB 会话。
+            </p>
+            <p class="android-tools-help">
+              UHID 失败时可改用 SDK 兼容模式；部分设备需要开启“USB 调试（安全设置）”。
+            </p>
+
+            <div
+              v-if="actionError"
+              class="android-tools-alert android-tools-alert--error"
+              role="alert"
+            >
+              {{ actionError }}
+            </div>
+          </UiCard>
+        </div>
+
+        <UiCard
+          v-if="activeView !== 'collection' && activeView !== 'devices' && activeView !== 'input'"
+          class="android-tools-panel android-tools-panel--sessions"
+          padding="lg"
+          radius="md"
+        >
           <div class="android-tools-panel__heading">
             <div>
-              <h2>连接方式</h2>
-              <p>{{ selectedDevice ? `当前设备：${selectedDevice.model || selectedDevice.serial}` : '先选择一个设备' }}</p>
+              <h2>运行中的会话</h2>
+              <p>scrcpy 使用独立窗口播放镜像或音频，关闭页面不会自动停止会话。</p>
+            </div>
+            <span v-if="hasActiveSession" class="android-tools-live-indicator"
+              ><span />{{
+                sessions.filter((session) => session.status === 'running').length
+              }}
+              个运行中</span
+            >
+          </div>
+          <div v-if="sessions.length" class="android-session-list">
+            <div v-for="session in sessions" :key="session.sessionId" class="android-session-row">
+              <span class="android-session-row__icon"
+                ><IconRenderer
+                  :icon="
+                    session.mode === 'audio-only'
+                      ? 'iconify:lucide:volume-2'
+                      : session.mode === 'otg'
+                        ? 'iconify:lucide:mouse-pointer-2'
+                        : 'iconify:lucide:monitor-play'
+                  "
+                  :size="17"
+              /></span>
+              <div class="android-session-row__main">
+                <strong>{{ sessionModeLabels[session.mode] }}</strong>
+                <span>{{ session.deviceSerial }}</span>
+              </div>
+              <span
+                class="android-session-row__status"
+                :class="`android-session-row__status--${session.status}`"
+                >{{ sessionStatusLabels[session.status] }}</span
+              >
+              <span v-if="session.errorMessage" class="android-session-row__error">{{
+                session.errorMessage
+              }}</span>
+              <UiButton
+                v-if="
+                  session.status === 'starting' ||
+                  session.status === 'running' ||
+                  session.status === 'stopping'
+                "
+                :data-testid="`stop-${session.sessionId}`"
+                variant="danger"
+                size="sm"
+                :disabled="busyAction !== null"
+                @click="stopSession(session.sessionId)"
+              >
+                {{ busyAction === `stop:${session.sessionId}` ? '停止中…' : '停止' }}
+              </UiButton>
             </div>
           </div>
-
-          <div class="android-tools-options">
-            <label>
-              <span>键盘</span>
-              <select v-model="keyboardMode" :disabled="!isSelectedDeviceReady || !hasToolchain">
-                <option value="uhid">UHID（推荐）</option>
-                <option value="sdk">SDK 兼容模式</option>
-              </select>
-            </label>
-            <label>
-              <span>鼠标</span>
-              <select v-model="mouseMode" :disabled="!isSelectedDeviceReady || !hasToolchain">
-                <option value="uhid">UHID（推荐）</option>
-                <option value="sdk">SDK 兼容模式</option>
-              </select>
-            </label>
-          </div>
-
-          <div class="android-tools-actions">
-            <UiButton data-testid="start-mirror" variant="primary" :disabled="!canStart('mirror')" @click="startMirror">
-              <template #prefix><IconRenderer icon="iconify:lucide:monitor-play" :size="16" /></template>
-              {{ busyAction === 'mirror' ? '启动中…' : '启动镜像' }}
-            </UiButton>
-            <UiButton data-testid="start-audio" variant="secondary" :disabled="!canStart('audio')" @click="startAudio">
-              <template #prefix><IconRenderer icon="iconify:lucide:volume-2" :size="16" /></template>
-              {{ busyAction === 'audio' ? '启动中…' : '音频回传' }}
-            </UiButton>
-            <UiButton data-testid="start-otg" variant="secondary" :disabled="!canStart('otg')" @click="startOtg">
-              <template #prefix><IconRenderer icon="iconify:lucide:mouse-pointer-2" :size="16" /></template>
-              {{ busyAction === 'otg' ? '启动中…' : 'OTG 键鼠' }}
-            </UiButton>
-          </div>
-
-          <label v-if="duplicateSupported" class="android-tools-checkbox">
-            <input v-model="duplicateOnDevice" type="checkbox" :disabled="!canStart('audio')">
-            <span>在设备端保留播放（audio-dup）</span>
-          </label>
-          <p v-if="selectedDevice && !audioSupported" class="android-tools-help" data-testid="audio-unsupported">
-            Android 11 及以上才支持音频回传。
+          <p v-else class="android-tools-sessions-empty">
+            暂无会话。选择设备后，从上方启动一种连接方式。
           </p>
-          <p v-else-if="selectedDevice?.sdkLevel === 30" class="android-tools-help">
-            Android 11 设备需要在启动音频回传时保持解锁。
-          </p>
-          <p v-else-if="selectedDevice && audioSupported && selectedDevice.sdkLevel === undefined" class="android-tools-help">
-            未读取到 Android 版本，音频能力将在启动时由 scrcpy 校验。
-          </p>
-          <p v-if="selectedDevice && !otgSupported" class="android-tools-help">
-            OTG 仅支持 USB 连接；如果 ADB 占用设备，请先停止其他 ADB 会话。
-          </p>
-          <p class="android-tools-help">UHID 失败时可改用 SDK 兼容模式；部分设备需要开启“USB 调试（安全设置）”。</p>
-
-          <div v-if="actionError" class="android-tools-alert android-tools-alert--error" role="alert">
-            {{ actionError }}
-          </div>
         </UiCard>
       </div>
-
-      <UiCard v-if="activeView !== 'collection' && activeView !== 'devices' && activeView !== 'input'" class="android-tools-panel android-tools-panel--sessions" padding="lg" radius="md">
-        <div class="android-tools-panel__heading">
-          <div>
-            <h2>运行中的会话</h2>
-            <p>scrcpy 使用独立窗口播放镜像或音频，关闭页面不会自动停止会话。</p>
-          </div>
-          <span v-if="hasActiveSession" class="android-tools-live-indicator"><span />{{ sessions.filter(session => session.status === 'running').length }} 个运行中</span>
-        </div>
-        <div v-if="sessions.length" class="android-session-list">
-          <div v-for="session in sessions" :key="session.sessionId" class="android-session-row">
-            <span class="android-session-row__icon"><IconRenderer :icon="session.mode === 'audio-only' ? 'iconify:lucide:volume-2' : session.mode === 'otg' ? 'iconify:lucide:mouse-pointer-2' : 'iconify:lucide:monitor-play'" :size="17" /></span>
-            <div class="android-session-row__main">
-              <strong>{{ sessionModeLabels[session.mode] }}</strong>
-              <span>{{ session.deviceSerial }}</span>
-            </div>
-            <span class="android-session-row__status" :class="`android-session-row__status--${session.status}`">{{ sessionStatusLabels[session.status] }}</span>
-            <span v-if="session.errorMessage" class="android-session-row__error">{{ session.errorMessage }}</span>
-            <UiButton
-              v-if="session.status === 'starting' || session.status === 'running' || session.status === 'stopping'"
-              :data-testid="`stop-${session.sessionId}`"
-              variant="danger"
-              size="sm"
-              :disabled="busyAction !== null"
-              @click="stopSession(session.sessionId)"
-            >
-              {{ busyAction === `stop:${session.sessionId}` ? '停止中…' : '停止' }}
-            </UiButton>
-          </div>
-        </div>
-        <p v-else class="android-tools-sessions-empty">暂无会话。选择设备后，从上方启动一种连接方式。</p>
-      </UiCard>
-    </div>
     </section>
   </main>
 </template>

@@ -15,17 +15,23 @@ describe('Android toolchain downloader manifest', () => {
         sha256: '5b12172b3264b2889f4583ee64752ce832e29bc8b1089dca81093459697165db',
       },
     ]);
-    expect(androidToolchainDownloadManifest.every(item => item.url.startsWith('https://'))).toBe(true);
+    expect(androidToolchainDownloadManifest.every((item) => item.url.startsWith('https://'))).toBe(
+      true
+    );
   });
 
   it('keeps scrcpy self-contained so it can locate its matching adb binary', async () => {
-    const source = await import('node:fs/promises').then(fs => fs.readFile(new URL('./downloader.ts', import.meta.url), 'utf8'));
+    const source = await import('node:fs/promises').then((fs) =>
+      fs.readFile(new URL('./downloader.ts', import.meta.url), 'utf8')
+    );
     expect(source).toContain("'/scrcpy-win64-v4.1/adb.exe'");
     expect(source).toContain("path.join(installRoot, 'scrcpy', 'adb.exe')");
   });
 
   it('does not fail installation when a previous adb binary is locked on Windows', async () => {
-    const source = await import('node:fs/promises').then(fs => fs.readFile(new URL('./downloader.ts', import.meta.url), 'utf8'));
-    expect(source).toContain("fsp.rm(backupRoot, { recursive: true, force: true }).catch");
+    const source = await import('node:fs/promises').then((fs) =>
+      fs.readFile(new URL('./downloader.ts', import.meta.url), 'utf8')
+    );
+    expect(source).toContain('fsp.rm(backupRoot, { recursive: true, force: true }).catch');
   });
 });

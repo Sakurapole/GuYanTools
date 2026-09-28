@@ -15,12 +15,16 @@ interface ScrcpyChild {
 }
 
 interface ScrcpySessionServiceOptions {
-  spawn?: (file: string, args: string[], options: {
-    shell: false;
-    windowsHide: boolean;
-    detached: boolean;
-    stdio: ['ignore', 'pipe', 'pipe'];
-  }) => ScrcpyChild;
+  spawn?: (
+    file: string,
+    args: string[],
+    options: {
+      shell: false;
+      windowsHide: boolean;
+      detached: boolean;
+      stdio: ['ignore', 'pipe', 'pipe'];
+    }
+  ) => ScrcpyChild;
 }
 
 type SessionInput = { deviceSerial: string };
@@ -42,15 +46,20 @@ export class ScrcpySessionService {
   private readonly stderrBuffers = new Map<string, string>();
   private readonly emitter = new EventEmitter();
 
-  constructor(toolchain: AndroidToolchainManager, devices: AdbDeviceService, options: ScrcpySessionServiceOptions = {}) {
+  constructor(
+    toolchain: AndroidToolchainManager,
+    devices: AdbDeviceService,
+    options: ScrcpySessionServiceOptions = {}
+  ) {
     this.toolchain = toolchain;
     this.devices = devices;
-    this.spawnProcess = options.spawn ?? ((file, args, spawnOptions) => nodeSpawn(file, args, spawnOptions));
+    this.spawnProcess =
+      options.spawn ?? ((file, args, spawnOptions) => nodeSpawn(file, args, spawnOptions));
   }
 
   async startMirror(
     input: SessionInput & { keyboard?: 'uhid' | 'sdk'; mouse?: 'uhid' | 'sdk' },
-    ownerPluginId?: string,
+    ownerPluginId?: string
   ) {
     const device = this.devices.getDevice(input.deviceSerial);
     assertDevice(device);
@@ -62,7 +71,8 @@ export class ScrcpySessionService {
       mouse: input.mouse ?? 'uhid',
       args,
       ownerPluginId,
-      allowUhidFallback: (input.keyboard ?? 'uhid') === 'uhid' && (input.mouse ?? 'uhid') === 'uhid',
+      allowUhidFallback:
+        (input.keyboard ?? 'uhid') === 'uhid' && (input.mouse ?? 'uhid') === 'uhid',
     });
   }
 
@@ -72,7 +82,11 @@ export class ScrcpySessionService {
     if (device.sdkLevel !== undefined && device.sdkLevel < 30) {
       throw new Error('ANDROID_AUDIO_UNSUPPORTED');
     }
-    const args = buildAudioArgs({ deviceSerial: device.serial, sdkLevel: device.sdkLevel, duplicateOnDevice: input.duplicateOnDevice });
+    const args = buildAudioArgs({
+      deviceSerial: device.serial,
+      sdkLevel: device.sdkLevel,
+      duplicateOnDevice: input.duplicateOnDevice,
+    });
     return this.startProcess({
       deviceSerial: device.serial,
       mode: 'audio-only',
@@ -84,7 +98,10 @@ export class ScrcpySessionService {
     });
   }
 
-  async startOtg(input: SessionInput & { keyboard?: boolean; mouse?: boolean }, ownerPluginId?: string) {
+  async startOtg(
+    input: SessionInput & { keyboard?: boolean; mouse?: boolean },
+    ownerPluginId?: string
+  ) {
     const device = this.devices.getDevice(input.deviceSerial);
     assertDevice(device);
     if (device.usb !== true || device.transport !== 'adb-usb') {
@@ -102,7 +119,7 @@ export class ScrcpySessionService {
   }
 
   listSessions() {
-    return Array.from(this.sessions.values()).map(session => ({ ...session }));
+    return Array.from(this.sessions.values()).map((session) => ({ ...session }));
   }
 
   onSessionEvent(listener: (event: AndroidSessionEvent) => void) {
@@ -124,12 +141,12 @@ export class ScrcpySessionService {
   }
 
   async stopSessionsForOwner(ownerPluginId: string) {
-    const owned = this.listSessions().filter(session => session.ownerPluginId === ownerPluginId);
-    await Promise.all(owned.map(session => this.stopSession(session.sessionId)));
+    const owned = this.listSessions().filter((session) => session.ownerPluginId === ownerPluginId);
+    await Promise.all(owned.map((session) => this.stopSession(session.sessionId)));
   }
 
   async dispose() {
-    await Promise.all(this.listSessions().map(session => this.stopSession(session.sessionId)));
+    await Promise.all(this.listSessions().map((session) => this.stopSession(session.sessionId)));
     this.emitter.removeAllListeners();
   }
 
@@ -171,23 +188,36 @@ export class ScrcpySessionService {
     this.stderrBuffers.set(session.sessionId, '');
     session.pid = child.pid;
     child.stdout.on('data', () => undefined);
-    child.stderr.on('data', chunk => {
+    child.stderr.on('data', (chunk) => {
       const current = this.stderrBuffers.get(session.sessionId) ?? '';
       const next = `${current}${chunk.toString()}`.replace(/\r/g, '');
       this.stderrBuffers.set(session.sessionId, next.slice(-4096));
     });
-    child.on('error', (error: Error) => this.handleExit(session, 1, error.message, allowUhidFallback));
-    child.on('close', (code: number | null) => this.handleExit(session, code ?? 1, undefined, allowUhidFallback));
+    child.on('error', (error: Error) =>
+      this.handleExit(session, 1, error.message, allowUhidFallback)
+    );
+    child.on('close', (code: number | null) =>
+      this.handleExit(session, code ?? 1, undefined, allowUhidFallback)
+    );
   }
 
-  private handleExit(session: AndroidSession, code: number, message: string | undefined, allowUhidFallback: boolean) {
+  private handleExit(
+    session: AndroidSession,
+    code: number,
+    message: string | undefined,
+    allowUhidFallback: boolean
+  ) {
     if (!this.sessions.has(session.sessionId) || session.status === 'exited') return;
     this.children.delete(session.sessionId);
     if (code !== 0 && allowUhidFallback && !this.fallbackUsed.has(session.sessionId)) {
       this.fallbackUsed.add(session.sessionId);
       session.keyboard = 'sdk';
       session.mouse = 'sdk';
-      this.spawnForSession(session, buildMirrorArgs({ deviceSerial: session.deviceSerial, keyboard: 'sdk', mouse: 'sdk' }), false);
+      this.spawnForSession(
+        session,
+        buildMirrorArgs({ deviceSerial: session.deviceSerial, keyboard: 'sdk', mouse: 'sdk' }),
+        false
+      );
       session.status = 'running';
       this.emit('started', session);
       return;
@@ -197,7 +227,8 @@ export class ScrcpySessionService {
     const stderr = this.stderrBuffers.get(session.sessionId)?.trim();
     this.stderrBuffers.delete(session.sessionId);
     session.errorCode = code === 0 ? undefined : 'ANDROID_SESSION_EXITED';
-    session.errorMessage = code === 0 ? undefined : (message || stderr || 'scrcpy 未返回具体错误信息');
+    session.errorMessage =
+      code === 0 ? undefined : message || stderr || 'scrcpy 未返回具体错误信息';
     this.emit(code === 0 ? 'exited' : 'failed', session);
   }
 

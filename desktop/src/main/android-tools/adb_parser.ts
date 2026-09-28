@@ -24,11 +24,11 @@ export function parseAdbDevices(output: string): AndroidDevice[] {
     if (!serial || !rawState) continue;
 
     const metadataTokens = columns[3]?.trim().split(/\s+/) ?? [];
-    if (metadataTokens.length > 0 && !metadataTokens.some(token => token.includes(':'))) continue;
+    if (metadataTokens.length > 0 && !metadataTokens.some((token) => token.includes(':'))) continue;
     const metadata = parseMetadata(metadataTokens);
     const usb = metadata.has('usb') || (metadata.has('transport_id') && !serial.includes(':'));
     const state = KNOWN_STATES.has(rawState as AndroidDeviceState)
-      ? rawState as AndroidDeviceState
+      ? (rawState as AndroidDeviceState)
       : 'unknown';
     const model = metadata.get('model')?.replace(/_/g, ' ');
     devices.push({

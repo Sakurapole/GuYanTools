@@ -1,16 +1,54 @@
-import type { AndroidInputConfig, AndroidInputState, AndroidInputStatus } from '@/contracts/android-tools';
+import type {
+  AndroidInputConfig,
+  AndroidInputState,
+  AndroidInputStatus,
+} from '@/contracts/android-tools';
 import { AndroidUhidSession } from './android_uhid_service';
 import fs from 'node:fs';
 import path from 'node:path';
 import { app } from 'electron';
 
 const routerDebugLog = (message: string) => {
-  try { fs.appendFileSync(path.join(app.getPath('userData'), 'android-input-debug.log'), `${new Date().toISOString()} ${message}\n`); } catch { /* diagnostics only */ }
+  try {
+    fs.appendFileSync(
+      path.join(app.getPath('userData'), 'android-input-debug.log'),
+      `${new Date().toISOString()} ${message}\n`
+    );
+  } catch {
+    /* diagnostics only */
+  }
 };
 
-export interface NativeInputEvent { kind: 'move' | 'button' | 'wheel' | 'key'; x?: number; y?: number; dx?: number; dy?: number; button?: number; down?: boolean; delta?: number; code?: number; modifiers?: number; shortcut?: string; isWinKey?: boolean; isAltTab?: boolean; isVolumeKey?: boolean }
-export interface WindowsInputBridge { start(listener: (event: NativeInputEvent) => void): void; stop(): void; getCursor(): { x: number; y: number }; setCursor(x: number, y: number): void; setBlocked(blocked: boolean): void }
-export interface InputRouterDependencies { bridge: WindowsInputBridge; uhid: Pick<AndroidUhidSession, 'start' | 'stop' | 'sendKeyboardReport' | 'sendMouseReport'> & { onDisconnected?: (listener: () => void) => () => boolean }; screen?: { width: number; height: number } }
+export interface NativeInputEvent {
+  kind: 'move' | 'button' | 'wheel' | 'key';
+  x?: number;
+  y?: number;
+  dx?: number;
+  dy?: number;
+  button?: number;
+  down?: boolean;
+  delta?: number;
+  code?: number;
+  modifiers?: number;
+  shortcut?: string;
+  isWinKey?: boolean;
+  isAltTab?: boolean;
+  isVolumeKey?: boolean;
+}
+export interface WindowsInputBridge {
+  start(listener: (event: NativeInputEvent) => void): void;
+  stop(): void;
+  getCursor(): { x: number; y: number };
+  setCursor(x: number, y: number): void;
+  setBlocked(blocked: boolean): void;
+}
+export interface InputRouterDependencies {
+  bridge: WindowsInputBridge;
+  uhid: Pick<AndroidUhidSession, 'start' | 'stop' | 'sendKeyboardReport' | 'sendMouseReport'> & {
+    onDisconnected?: (listener: () => void) => () => boolean;
+  };
+  screen?: { width: number; height: number };
+}
 
 export class AndroidInputRouter {
   private config: AndroidInputConfig | null = null;
@@ -31,18 +69,21 @@ export class AndroidInputRouter {
 
   async start(config: AndroidInputConfig) {
     routerDebugLog(`router start state=${this.state} serial=${config.deviceSerial}`);
-    if (this.state !== 'windows' && this.state !== 'suspended') throw new Error('ANDROID_INPUT_ALREADY_RUNNING');
+    if (this.state !== 'windows' && this.state !== 'suspended')
+      throw new Error('ANDROID_INPUT_ALREADY_RUNNING');
     this.config = config;
     this.serial = config.deviceSerial;
     try {
       await this.deps.uhid.start(config.deviceSerial);
       routerDebugLog('router uhid started');
-      this.deps.bridge.start(event => this.handleNativeEvent(event));
+      this.deps.bridge.start((event) => this.handleNativeEvent(event));
       routerDebugLog('router native bridge started');
       this.emit('windows');
       return this.status();
     } catch (error) {
-      routerDebugLog(`router start error=${error instanceof Error ? error.message : String(error)}`);
+      routerDebugLog(
+        `router start error=${error instanceof Error ? error.message : String(error)}`
+      );
       await this.deps.uhid.stop();
       this.config = null;
       this.serial = '';
@@ -54,12 +95,31 @@ export class AndroidInputRouter {
 
   async stop(reason = 'user') {
     this.clearEdgeTimer();
-    try { this.flushKeys(); } catch { /* device may already be disconnected */ }
-    try { this.deps.bridge.stop(); } catch { /* hook cleanup is best effort */ }
-    try { await this.deps.uhid.stop(); } catch { /* remote cleanup is best effort */ }
-    try { this.deps.bridge.setBlocked(false); } catch { /* always attempt to release the hook */ }
+    try {
+      this.flushKeys();
+    } catch {
+      /* device may already be disconnected */
+    }
+    try {
+      this.deps.bridge.stop();
+    } catch {
+      /* hook cleanup is best effort */
+    }
+    try {
+      await this.deps.uhid.stop();
+    } catch {
+      /* remote cleanup is best effort */
+    }
+    try {
+      this.deps.bridge.setBlocked(false);
+    } catch {
+      /* always attempt to release the hook */
+    }
     this.state = reason === 'user' ? 'windows' : 'suspended';
-    if (reason === 'user') { this.config = null; this.serial = ''; }
+    if (reason === 'user') {
+      this.config = null;
+      this.serial = '';
+    }
     this.emit(this.state, reason === 'user' ? undefined : 'ANDROID_INPUT_SUSPENDED');
   }
 
@@ -81,52 +141,116 @@ export class AndroidInputRouter {
   private handleNativeEventInternal(event: NativeInputEvent) {
     if (!this.config || this.state === 'suspended') return;
     if (event.kind === 'key') {
-      if (event.down) this.nativeKeys.add(event.code ?? 0); else this.nativeKeys.delete(event.code ?? 0);
+      if (event.down) this.nativeKeys.add(event.code ?? 0);
+      else this.nativeKeys.delete(event.code ?? 0);
       const shortcut = event.shortcut ?? this.detectShortcut();
-      if (event.down && shortcut === this.config.toggleShortcut) { this.nativeKeys.clear(); void this.toggle(); return; }
+      if (event.down && shortcut === this.config.toggleShortcut) {
+        this.nativeKeys.clear();
+        void this.toggle();
+        return;
+      }
     }
     if (this.state === 'windows' || this.state === 'entering') {
       if (event.kind === 'move' && this.atConfiguredEdge(event.x ?? 0, event.y ?? 0)) {
         this.edgeTravel += Math.abs(event.dx ?? 0) + Math.abs(event.dy ?? 0);
         if (this.edgeTravel >= this.config.edgeThresholdPx) {
-          if (!this.edgeTimer) this.edgeTimer = setTimeout(() => { void this.enterAndroid(); }, this.config.edgeDelayMs);
-          this.state = 'entering'; this.emit('entering');
+          if (!this.edgeTimer)
+            this.edgeTimer = setTimeout(() => {
+              void this.enterAndroid();
+            }, this.config.edgeDelayMs);
+          this.state = 'entering';
+          this.emit('entering');
         }
-      } else { this.edgeTravel = 0; this.clearEdgeTimer(); if (this.state === 'entering') { this.state = 'windows'; this.emit('windows'); } }
+      } else {
+        this.edgeTravel = 0;
+        this.clearEdgeTimer();
+        if (this.state === 'entering') {
+          this.state = 'windows';
+          this.emit('windows');
+        }
+      }
       return;
     }
     if (this.state !== 'android') return;
     if (event.kind === 'move') {
-      this.virtualCursor.x = Math.max(0, Math.min(this.config.androidWidth - 1, this.virtualCursor.x + (event.dx ?? 0)));
-      this.virtualCursor.y = Math.max(0, Math.min(this.config.androidHeight - 1, this.virtualCursor.y + (event.dy ?? 0)));
-      if (this.atAndroidReturnEdge()) { void this.returnToWindows(); return; }
-      this.deps.uhid.sendMouseReport({ buttons: this.mouseButtons, dx: Math.max(-127, Math.min(127, event.dx ?? 0)), dy: Math.max(-127, Math.min(127, event.dy ?? 0)), wheel: 0 });
-    } else if (event.kind === 'wheel') this.deps.uhid.sendMouseReport({ buttons: this.mouseButtons, dx: 0, dy: 0, wheel: Math.max(-127, Math.min(127, event.delta ?? 0)) });
+      this.virtualCursor.x = Math.max(
+        0,
+        Math.min(this.config.androidWidth - 1, this.virtualCursor.x + (event.dx ?? 0))
+      );
+      this.virtualCursor.y = Math.max(
+        0,
+        Math.min(this.config.androidHeight - 1, this.virtualCursor.y + (event.dy ?? 0))
+      );
+      if (this.atAndroidReturnEdge()) {
+        void this.returnToWindows();
+        return;
+      }
+      this.deps.uhid.sendMouseReport({
+        buttons: this.mouseButtons,
+        dx: Math.max(-127, Math.min(127, event.dx ?? 0)),
+        dy: Math.max(-127, Math.min(127, event.dy ?? 0)),
+        wheel: 0,
+      });
+    } else if (event.kind === 'wheel')
+      this.deps.uhid.sendMouseReport({
+        buttons: this.mouseButtons,
+        dx: 0,
+        dy: 0,
+        wheel: Math.max(-127, Math.min(127, event.delta ?? 0)),
+      });
     else if (event.kind === 'button') {
       const mask = 1 << (event.button ?? 0);
       this.mouseButtons = event.down ? this.mouseButtons | mask : this.mouseButtons & ~mask;
       this.deps.uhid.sendMouseReport({ buttons: this.mouseButtons, dx: 0, dy: 0, wheel: 0 });
-    }
-    else if (event.kind === 'key') {
+    } else if (event.kind === 'key') {
       const code = event.code ?? 0;
-      if (code === 27 && event.down) { const now = Date.now(); if (now - this.lastEscapeAt <= 400) { void this.stop('emergency'); return; } this.lastEscapeAt = now; }
-      if (event.down) this.pressedKeys.add(code); else this.pressedKeys.delete(code);
+      if (code === 27 && event.down) {
+        const now = Date.now();
+        if (now - this.lastEscapeAt <= 400) {
+          void this.stop('emergency');
+          return;
+        }
+        this.lastEscapeAt = now;
+      }
+      if (event.down) this.pressedKeys.add(code);
+      else this.pressedKeys.delete(code);
       const isWinKey = event.isWinKey || code === 91 || code === 92;
       const isAltTab = event.isAltTab || (code === 9 && (event.modifiers ?? 0) & 0x1);
       const isVolumeKey = event.isVolumeKey || [175, 174, 173].includes(code);
-      if ((isWinKey && this.config.preserveWinKey) || (isAltTab && this.config.preserveAltTab) || (isVolumeKey && this.config.preserveVolumeKeys)) return;
-      this.deps.uhid.sendKeyboardReport({ modifiers: event.modifiers ?? 0, keys: event.down ? [code] : [] });
+      if (
+        (isWinKey && this.config.preserveWinKey) ||
+        (isAltTab && this.config.preserveAltTab) ||
+        (isVolumeKey && this.config.preserveVolumeKeys)
+      )
+        return;
+      this.deps.uhid.sendKeyboardReport({
+        modifiers: event.modifiers ?? 0,
+        keys: event.down ? [code] : [],
+      });
     }
   }
 
-  onStatus(listener: (status: AndroidInputStatus) => void) { this.listeners.add(listener); return () => this.listeners.delete(listener); }
-  status(): AndroidInputStatus { return { state: this.state, running: this.config !== null, deviceSerial: this.serial, virtualCursor: { ...this.virtualCursor } }; }
+  onStatus(listener: (status: AndroidInputStatus) => void) {
+    this.listeners.add(listener);
+    return () => this.listeners.delete(listener);
+  }
+  status(): AndroidInputStatus {
+    return {
+      state: this.state,
+      running: this.config !== null,
+      deviceSerial: this.serial,
+      virtualCursor: { ...this.virtualCursor },
+    };
+  }
   private async enterAndroid() {
     if (!this.config) return;
     this.clearEdgeTimer();
     const cursor = this.deps.bridge.getCursor();
     const screen = this.deps.screen ?? { width: 1920, height: 1080 };
-    this.virtualCursor = { x: this.mapCoordinate(cursor.x, screen.width, this.config.androidWidth), y: this.mapCoordinate(cursor.y, screen.height, this.config.androidHeight) };
+    this.virtualCursor = {
+      x: this.mapCoordinate(cursor.x, screen.width, this.config.androidWidth),
+      y: this.mapCoordinate(cursor.y, screen.height, this.config.androidHeight),
+    };
     if (this.config.placement === 'right') this.virtualCursor.x = 0;
     if (this.config.placement === 'left') this.virtualCursor.x = this.config.androidWidth - 1;
     if (this.config.placement === 'top') this.virtualCursor.y = this.config.androidHeight - 1;
@@ -141,7 +265,11 @@ export class AndroidInputRouter {
     this.state = 'returning';
     this.emit('returning');
     try {
-      try { this.flushKeys(); } catch { /* continue releasing Windows input */ }
+      try {
+        this.flushKeys();
+      } catch {
+        /* continue releasing Windows input */
+      }
       const screen = this.deps.screen ?? { width: 1920, height: 1080 };
       let x = this.mapCoordinate(this.virtualCursor.x, this.config.androidWidth, screen.width);
       let y = this.mapCoordinate(this.virtualCursor.y, this.config.androidHeight, screen.height);
@@ -149,9 +277,17 @@ export class AndroidInputRouter {
       if (this.config.placement === 'left') x = 0;
       if (this.config.placement === 'top') y = 0;
       if (this.config.placement === 'bottom') y = screen.height - 1;
-      try { this.deps.bridge.setCursor(x, y); } catch { /* cursor restoration is best effort */ }
+      try {
+        this.deps.bridge.setCursor(x, y);
+      } catch {
+        /* cursor restoration is best effort */
+      }
     } finally {
-      try { this.deps.bridge.setBlocked(false); } catch { /* release attempt remains unconditional */ }
+      try {
+        this.deps.bridge.setBlocked(false);
+      } catch {
+        /* release attempt remains unconditional */
+      }
     }
     this.state = 'windows';
     this.emit('windows');
@@ -162,24 +298,65 @@ export class AndroidInputRouter {
     return Math.round(ratio * (targetSize - 1));
   }
   private detectShortcut() {
-    if (this.nativeKeys.has(65) && [...this.nativeKeys].some(code => code === 17 || code === 162 || code === 163) && [...this.nativeKeys].some(code => code === 18 || code === 164 || code === 165)) return 'Ctrl+Alt+A';
+    if (
+      this.nativeKeys.has(65) &&
+      [...this.nativeKeys].some((code) => code === 17 || code === 162 || code === 163) &&
+      [...this.nativeKeys].some((code) => code === 18 || code === 164 || code === 165)
+    )
+      return 'Ctrl+Alt+A';
     return undefined;
   }
-  private atConfiguredEdge(x: number, y: number) { const c = this.config!; return c.placement === 'right' ? x >= (this.deps.screen?.width ?? 1920) - 1 : c.placement === 'left' ? x <= 0 : c.placement === 'top' ? y <= 0 : y >= (this.deps.screen?.height ?? 1080) - 1; }
-  private atAndroidReturnEdge() { const c = this.config!; return c.placement === 'right' ? this.virtualCursor.x <= 0 : c.placement === 'left' ? this.virtualCursor.x >= c.androidWidth - 1 : c.placement === 'top' ? this.virtualCursor.y >= c.androidHeight - 1 : this.virtualCursor.y <= 0; }
-  private flushKeys() { if (this.pressedKeys.size) this.deps.uhid.sendKeyboardReport({ modifiers: 0, keys: [] }); this.pressedKeys.clear(); }
+  private atConfiguredEdge(x: number, y: number) {
+    const c = this.config!;
+    return c.placement === 'right'
+      ? x >= (this.deps.screen?.width ?? 1920) - 1
+      : c.placement === 'left'
+        ? x <= 0
+        : c.placement === 'top'
+          ? y <= 0
+          : y >= (this.deps.screen?.height ?? 1080) - 1;
+  }
+  private atAndroidReturnEdge() {
+    const c = this.config!;
+    return c.placement === 'right'
+      ? this.virtualCursor.x <= 0
+      : c.placement === 'left'
+        ? this.virtualCursor.x >= c.androidWidth - 1
+        : c.placement === 'top'
+          ? this.virtualCursor.y >= c.androidHeight - 1
+          : this.virtualCursor.y <= 0;
+  }
+  private flushKeys() {
+    if (this.pressedKeys.size) this.deps.uhid.sendKeyboardReport({ modifiers: 0, keys: [] });
+    this.pressedKeys.clear();
+  }
   private handleUhidDisconnect() {
     if (!this.config || this.state === 'windows' || this.state === 'suspended') return;
     routerDebugLog(`router uhid disconnect state=${this.state}`);
     this.clearEdgeTimer();
-    try { this.deps.bridge.stop(); } catch { /* best effort */ }
-    try { this.deps.bridge.setBlocked(false); } catch { /* unconditional release */ }
+    try {
+      this.deps.bridge.stop();
+    } catch {
+      /* best effort */
+    }
+    try {
+      this.deps.bridge.setBlocked(false);
+    } catch {
+      /* unconditional release */
+    }
     void this.deps.uhid.stop().catch((): undefined => undefined);
     this.config = null;
     this.serial = '';
     this.state = 'suspended';
     this.emit('suspended', 'ANDROID_UHID_DISCONNECTED');
   }
-  private clearEdgeTimer() { if (this.edgeTimer) clearTimeout(this.edgeTimer); this.edgeTimer = null; }
-  private emit(state: AndroidInputState, errorCode?: string) { this.state = state; const status = { ...this.status(), errorCode }; for (const listener of this.listeners) listener(status); }
+  private clearEdgeTimer() {
+    if (this.edgeTimer) clearTimeout(this.edgeTimer);
+    this.edgeTimer = null;
+  }
+  private emit(state: AndroidInputState, errorCode?: string) {
+    this.state = state;
+    const status = { ...this.status(), errorCode };
+    for (const listener of this.listeners) listener(status);
+  }
 }

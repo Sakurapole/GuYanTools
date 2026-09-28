@@ -1,7 +1,8 @@
 export type AndroidToolName = 'adb' | 'fastboot' | 'scrcpy' | 'scrcpy-server';
 export type AndroidToolchainSource = 'configured' | 'managed' | 'bundled' | 'development';
 export type AndroidTransport = 'adb-usb' | 'adb-tcpip' | 'fastboot-usb';
-export type AndroidDeviceState = 'device' | 'unauthorized' | 'offline' | 'bootloader' | 'no-permissions' | 'unknown';
+export type AndroidDeviceState =
+  'device' | 'unauthorized' | 'offline' | 'bootloader' | 'no-permissions' | 'unknown';
 
 export interface AndroidToolchainStatus {
   available: boolean;
@@ -15,7 +16,8 @@ export interface AndroidToolchainStatus {
   source?: AndroidToolchainSource;
 }
 
-export type AndroidToolchainDownloadPhase = 'idle' | 'downloading' | 'extracting' | 'verifying' | 'completed' | 'failed';
+export type AndroidToolchainDownloadPhase =
+  'idle' | 'downloading' | 'extracting' | 'verifying' | 'completed' | 'failed';
 
 export interface AndroidToolchainDownloadProgress {
   phase: AndroidToolchainDownloadPhase;
@@ -92,9 +94,20 @@ export interface AndroidToolsApi {
   listDevices: () => Promise<AndroidDevice[]>;
   onDevicesChanged: (listener: (event: AndroidDeviceEvent) => void) => () => void;
   listSessions: () => Promise<AndroidSession[]>;
-  startMirror: (input: { deviceSerial: string; keyboard?: 'uhid' | 'sdk'; mouse?: 'uhid' | 'sdk' }) => Promise<AndroidSession>;
-  startAudio: (input: { deviceSerial: string; duplicateOnDevice?: boolean }) => Promise<AndroidSession>;
-  startOtg: (input: { deviceSerial: string; keyboard?: boolean; mouse?: boolean }) => Promise<AndroidSession>;
+  startMirror: (input: {
+    deviceSerial: string;
+    keyboard?: 'uhid' | 'sdk';
+    mouse?: 'uhid' | 'sdk';
+  }) => Promise<AndroidSession>;
+  startAudio: (input: {
+    deviceSerial: string;
+    duplicateOnDevice?: boolean;
+  }) => Promise<AndroidSession>;
+  startOtg: (input: {
+    deviceSerial: string;
+    keyboard?: boolean;
+    mouse?: boolean;
+  }) => Promise<AndroidSession>;
   stopSession: (sessionId: string) => Promise<void>;
   getFastbootDevices: () => Promise<AndroidDevice[]>;
   fastbootGetVars: (deviceSerial: string, names: string[]) => Promise<Record<string, string>>;
@@ -102,7 +115,9 @@ export interface AndroidToolsApi {
   onSessionEvent: (listener: (event: AndroidSessionEvent) => void) => () => void;
   getToolchainDownloadStatus: () => Promise<AndroidToolchainDownloadProgress>;
   downloadToolchain: () => Promise<AndroidToolchainStatus>;
-  onToolchainDownloadProgress: (listener: (progress: AndroidToolchainDownloadProgress) => void) => () => void;
+  onToolchainDownloadProgress: (
+    listener: (progress: AndroidToolchainDownloadProgress) => void
+  ) => () => void;
   input?: AndroidInputApi;
 }
 
@@ -121,4 +136,3 @@ declare global {
     androidApi: AndroidToolsApi;
   }
 }
-

@@ -16,7 +16,15 @@ function createChild(pid = 1234) {
   return child;
 }
 
-function createService(device: { serial: string; state: string; transport: string; usb: boolean; sdkLevel?: number } = { serial: 'ABC', state: 'device', transport: 'adb-usb', usb: true, sdkLevel: 33 }) {
+function createService(
+  device: { serial: string; state: string; transport: string; usb: boolean; sdkLevel?: number } = {
+    serial: 'ABC',
+    state: 'device',
+    transport: 'adb-usb',
+    usb: true,
+    sdkLevel: 33,
+  }
+) {
   const child = createChild();
   const spawn = vi.fn(() => child as any);
   const devices = { getDevice: vi.fn(() => device) };
@@ -31,80 +39,138 @@ describe('ScrcpySessionService', () => {
 
     const session = await service.startMirror({ deviceSerial: 'ABC' });
 
-    expect(spawn).toHaveBeenCalledWith('C:/tools/scrcpy.exe', [
-      '--serial=ABC', '--keyboard=uhid', '--mouse=uhid',
-    ], expect.objectContaining({ shell: false, windowsHide: true }));
+    expect(spawn).toHaveBeenCalledWith(
+      'C:/tools/scrcpy.exe',
+      ['--serial=ABC', '--keyboard=uhid', '--mouse=uhid'],
+      expect.objectContaining({ shell: false, windowsHide: true })
+    );
     expect(session).toMatchObject({
-      deviceSerial: 'ABC', mode: 'mirror-control', keyboard: 'uhid', mouse: 'uhid', status: 'running', pid: 1234,
+      deviceSerial: 'ABC',
+      mode: 'mirror-control',
+      keyboard: 'uhid',
+      mouse: 'uhid',
+      status: 'running',
+      pid: 1234,
     });
   });
 
   it('starts an audio-only session and rejects unsupported duplication', async () => {
-    const { service } = createService({ serial: 'ABC', state: 'device', transport: 'adb-usb', usb: true, sdkLevel: 32 });
+    const { service } = createService({
+      serial: 'ABC',
+      state: 'device',
+      transport: 'adb-usb',
+      usb: true,
+      sdkLevel: 32,
+    });
 
-    await expect(service.startAudio({ deviceSerial: 'ABC' })).resolves.toMatchObject({ mode: 'audio-only' });
-    await expect(service.startAudio({ deviceSerial: 'ABC', duplicateOnDevice: true }))
-      .rejects.toThrow('ANDROID_AUDIO_UNSUPPORTED');
+    await expect(service.startAudio({ deviceSerial: 'ABC' })).resolves.toMatchObject({
+      mode: 'audio-only',
+    });
+    await expect(
+      service.startAudio({ deviceSerial: 'ABC', duplicateOnDevice: true })
+    ).rejects.toThrow('ANDROID_AUDIO_UNSUPPORTED');
   });
 
   it('stops a session and emits a lifecycle event', async () => {
     const { service, child } = createService();
     const events: unknown[] = [];
-    service.onSessionEvent(event => events.push(event));
+    service.onSessionEvent((event) => events.push(event));
     const session = await service.startMirror({ deviceSerial: 'ABC' });
 
     await service.stopSession(session.sessionId);
 
     expect(child.kill).toHaveBeenCalled();
-    expect(service.listSessions()[0]).toMatchObject({ sessionId: session.sessionId, status: 'exited' });
-    expect(events).toEqual(expect.arrayContaining([
-      expect.objectContaining({ type: 'created' }),
-      expect.objectContaining({ type: 'started' }),
-      expect.objectContaining({ type: 'stopped' }),
-    ]));
+    expect(service.listSessions()[0]).toMatchObject({
+      sessionId: session.sessionId,
+      status: 'exited',
+    });
+    expect(events).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ type: 'created' }),
+        expect.objectContaining({ type: 'started' }),
+        expect.objectContaining({ type: 'stopped' }),
+      ])
+    );
   });
 
   it('surfaces scrcpy stderr when an audio session fails', async () => {
     const { service, child } = createService();
     const events: any[] = [];
-    service.onSessionEvent(event => events.push(event));
+    service.onSessionEvent((event) => events.push(event));
     const session = await service.startAudio({ deviceSerial: 'ABC' });
-    child.stderr.emit('data', Buffer.from('ERROR: audio capture is not supported on this device\n'));
+    child.stderr.emit(
+      'data',
+      Buffer.from('ERROR: audio capture is not supported on this device\n')
+    );
     child.emit('close', 1);
 
     expect(events.at(-1)).toMatchObject({
       type: 'failed',
-      session: { sessionId: session.sessionId, errorMessage: 'ERROR: audio capture is not supported on this device' },
+      session: {
+        sessionId: session.sessionId,
+        errorMessage: 'ERROR: audio capture is not supported on this device',
+      },
     });
   });
 
   it('retries a failed UHID launch once with SDK input', async () => {
     const first = createChild(100);
     const second = createChild(200);
-    const spawn = vi.fn()
+    const spawn = vi
+      .fn()
       .mockReturnValueOnce(first as any)
       .mockReturnValueOnce(second as any);
     const service = new ScrcpySessionService(
       { getToolPath: () => 'C:/tools/scrcpy.exe' } as any,
-      { getDevice: () => ({ serial: 'ABC', state: 'device', transport: 'adb-usb', usb: true, sdkLevel: 33 }) } as any,
-      { spawn },
+      {
+        getDevice: () => ({
+          serial: 'ABC',
+          state: 'device',
+          transport: 'adb-usb',
+          usb: true,
+          sdkLevel: 33,
+        }),
+      } as any,
+      { spawn }
     );
     const sessionPromise = service.startMirror({ deviceSerial: 'ABC' });
     first.emit('close', 1);
     const session = await sessionPromise;
 
-    expect(spawn).toHaveBeenNthCalledWith(2, 'C:/tools/scrcpy.exe', [
-      '--serial=ABC', '--keyboard=sdk', '--mouse=sdk',
-    ], expect.anything());
+    expect(spawn).toHaveBeenNthCalledWith(
+      2,
+      'C:/tools/scrcpy.exe',
+      ['--serial=ABC', '--keyboard=sdk', '--mouse=sdk'],
+      expect.anything()
+    );
     expect(session).toMatchObject({ keyboard: 'uhid', mouse: 'uhid', pid: 100, status: 'running' });
-    expect(service.listSessions()[0]).toMatchObject({ keyboard: 'sdk', mouse: 'sdk', pid: 200, status: 'running' });
+    expect(service.listSessions()[0]).toMatchObject({
+      keyboard: 'sdk',
+      mouse: 'sdk',
+      pid: 200,
+      status: 'running',
+    });
   });
 
   it('requires an online device and USB transport for OTG', async () => {
-    const offline = createService({ serial: 'ABC', state: 'offline', transport: 'adb-usb', usb: true });
-    await expect(offline.service.startMirror({ deviceSerial: 'ABC' })).rejects.toThrow('ANDROID_DEVICE_OFFLINE');
+    const offline = createService({
+      serial: 'ABC',
+      state: 'offline',
+      transport: 'adb-usb',
+      usb: true,
+    });
+    await expect(offline.service.startMirror({ deviceSerial: 'ABC' })).rejects.toThrow(
+      'ANDROID_DEVICE_OFFLINE'
+    );
 
-    const tcp = createService({ serial: 'ABC', state: 'device', transport: 'adb-tcpip', usb: false });
-    await expect(tcp.service.startOtg({ deviceSerial: 'ABC' })).rejects.toThrow('ANDROID_USB_CONFLICT');
+    const tcp = createService({
+      serial: 'ABC',
+      state: 'device',
+      transport: 'adb-tcpip',
+      usb: false,
+    });
+    await expect(tcp.service.startOtg({ deviceSerial: 'ABC' })).rejects.toThrow(
+      'ANDROID_USB_CONFLICT'
+    );
   });
 });

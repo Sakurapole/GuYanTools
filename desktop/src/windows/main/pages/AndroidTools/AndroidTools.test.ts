@@ -33,42 +33,53 @@ const runningSession = (overrides: Partial<AndroidSession> = {}): AndroidSession
 });
 
 function createApi(overrides: Partial<AndroidToolsApi> = {}) {
-  let devicesListener: ((event: { devices: AndroidDevice[]; timestamp: string }) => void) | undefined;
+  let devicesListener:
+    ((event: { devices: AndroidDevice[]; timestamp: string }) => void) | undefined;
   let sessionListener: ((event: AndroidSessionEvent) => void) | undefined;
   let downloadListener: ((progress: AndroidToolchainDownloadProgress) => void) | undefined;
   const api: AndroidToolsApi = {
-    getToolchainStatus: vi.fn(async () => ({
-      available: true,
-      platform: 'win32',
-      architecture: 'x64',
-      versions: { adb: '35.0.2', fastboot: '35.0.2', scrcpy: '3.3.1' },
-    } satisfies AndroidToolchainStatus)),
+    getToolchainStatus: vi.fn(
+      async () =>
+        ({
+          available: true,
+          platform: 'win32',
+          architecture: 'x64',
+          versions: { adb: '35.0.2', fastboot: '35.0.2', scrcpy: '3.3.1' },
+        }) satisfies AndroidToolchainStatus
+    ),
     listDevices: vi.fn(async () => [pixel()]),
-    onDevicesChanged: vi.fn(listener => {
+    onDevicesChanged: vi.fn((listener) => {
       devicesListener = listener;
       return vi.fn();
     }),
     listSessions: vi.fn(async () => []),
     startMirror: vi.fn(async () => runningSession()),
-    startAudio: vi.fn(async () => runningSession({ mode: 'audio-only', keyboard: 'disabled', mouse: 'disabled' })),
+    startAudio: vi.fn(async () =>
+      runningSession({ mode: 'audio-only', keyboard: 'disabled', mouse: 'disabled' })
+    ),
     startOtg: vi.fn(async () => runningSession({ mode: 'otg', keyboard: 'uhid', mouse: 'uhid' })),
     stopSession: vi.fn(async () => undefined),
     getFastbootDevices: vi.fn(async () => []),
     fastbootGetVars: vi.fn(async () => ({})),
     fastbootReboot: vi.fn(async () => undefined),
-    onSessionEvent: vi.fn(listener => {
+    onSessionEvent: vi.fn((listener) => {
       sessionListener = listener;
       return vi.fn();
     }),
-    getToolchainDownloadStatus: vi.fn(async () => ({ phase: 'idle', percent: 0 } satisfies AndroidToolchainDownloadProgress)),
-    downloadToolchain: vi.fn(async () => ({
-      available: true,
-      platform: 'win32',
-      architecture: 'x64',
-      versions: { adb: '37.0.1', fastboot: '37.0.1', scrcpy: '4.1' },
-      source: 'managed',
-    } satisfies AndroidToolchainStatus)),
-    onToolchainDownloadProgress: vi.fn(listener => {
+    getToolchainDownloadStatus: vi.fn(
+      async () => ({ phase: 'idle', percent: 0 }) satisfies AndroidToolchainDownloadProgress
+    ),
+    downloadToolchain: vi.fn(
+      async () =>
+        ({
+          available: true,
+          platform: 'win32',
+          architecture: 'x64',
+          versions: { adb: '37.0.1', fastboot: '37.0.1', scrcpy: '4.1' },
+          source: 'managed',
+        }) satisfies AndroidToolchainStatus
+    ),
+    onToolchainDownloadProgress: vi.fn((listener) => {
       downloadListener = listener;
       return vi.fn();
     }),
@@ -77,7 +88,8 @@ function createApi(overrides: Partial<AndroidToolsApi> = {}) {
 
   return {
     api,
-    emitDevices: (devices: AndroidDevice[]) => devicesListener?.({ devices, timestamp: new Date().toISOString() }),
+    emitDevices: (devices: AndroidDevice[]) =>
+      devicesListener?.({ devices, timestamp: new Date().toISOString() }),
     emitSession: (event: AndroidSessionEvent) => sessionListener?.(event),
     emitDownload: (progress: AndroidToolchainDownloadProgress) => downloadListener?.(progress),
   };
@@ -127,7 +139,9 @@ describe('AndroidTools', () => {
     await flushPromises();
 
     expect(wrapper.find('[data-testid="android-sidebar-collection"]').exists()).toBe(true);
-    expect(wrapper.get('[data-testid="android-function-collection"]').classes()).toContain('android-tools-function-grid');
+    expect(wrapper.get('[data-testid="android-function-collection"]').classes()).toContain(
+      'android-tools-function-grid'
+    );
     expect(wrapper.findAll('.android-tools-function-card')).toHaveLength(5);
     await wrapper.get('[data-testid="pin-function-mirror"]').trigger('click');
     expect(wrapper.find('[data-testid="android-sidebar-pinned-mirror"]').exists()).toBe(true);
@@ -148,7 +162,8 @@ describe('AndroidTools', () => {
 
   it('offers an in-app toolchain download and reloads state after completion', async () => {
     const { api } = createApi({
-      getToolchainStatus: vi.fn()
+      getToolchainStatus: vi
+        .fn()
         .mockResolvedValueOnce({
           available: false,
           platform: 'win32',
@@ -176,7 +191,9 @@ describe('AndroidTools', () => {
   });
 
   it('explains authorization and disables controls for unauthorized devices', async () => {
-    const { api } = createApi({ listDevices: vi.fn(async () => [pixel({ state: 'unauthorized' })]) });
+    const { api } = createApi({
+      listDevices: vi.fn(async () => [pixel({ state: 'unauthorized' })]),
+    });
     const wrapper = mountPage(api);
     await flushPromises();
 
@@ -186,18 +203,21 @@ describe('AndroidTools', () => {
   });
 
   it('disables audio on Android 10 and allows it on Android 11+', async () => {
-    const { api } = createApi({ listDevices: vi.fn(async () => [pixel({ androidVersion: '10', sdkLevel: 29 })]) });
+    const { api } = createApi({
+      listDevices: vi.fn(async () => [pixel({ androidVersion: '10', sdkLevel: 29 })]),
+    });
     const wrapper = mountPage(api);
     await flushPromises();
 
     const audioButton = wrapper.get('[data-testid="start-audio"]');
     expect(audioButton.attributes('disabled')).toBeDefined();
     expect(wrapper.text()).toContain('Android 11 及以上才支持音频回传');
-
   });
 
   it('shows the unlock requirement for Android 11 audio capture', async () => {
-    const { api } = createApi({ listDevices: vi.fn(async () => [pixel({ androidVersion: '11', sdkLevel: 30 })]) });
+    const { api } = createApi({
+      listDevices: vi.fn(async () => [pixel({ androidVersion: '11', sdkLevel: 30 })]),
+    });
     const wrapper = mountPage(api);
     await flushPromises();
 
@@ -215,11 +235,16 @@ describe('AndroidTools', () => {
   });
 
   it('selects a device, starts mirror control, and stops the running session', async () => {
-    const second = pixel({ serial: 'USB-SAMSUNG-02', model: 'Galaxy S24', sdkLevel: 35, androidVersion: '15' });
+    const second = pixel({
+      serial: 'USB-SAMSUNG-02',
+      model: 'Galaxy S24',
+      sdkLevel: 35,
+      androidVersion: '15',
+    });
     const session = runningSession({ deviceSerial: second.serial });
     const { api } = createApi({
       listDevices: vi.fn(async () => [pixel(), second]),
-      startMirror: vi.fn(async input => {
+      startMirror: vi.fn(async (input) => {
         expect(input.deviceSerial).toBe(second.serial);
         return session;
       }),
@@ -231,7 +256,11 @@ describe('AndroidTools', () => {
     await wrapper.get(`[data-testid="device-${second.serial}"]`).trigger('click');
     await wrapper.get('[data-testid="start-mirror"]').trigger('click');
     await flushPromises();
-    expect(api.startMirror).toHaveBeenCalledWith({ deviceSerial: second.serial, keyboard: 'uhid', mouse: 'uhid' });
+    expect(api.startMirror).toHaveBeenCalledWith({
+      deviceSerial: second.serial,
+      keyboard: 'uhid',
+      mouse: 'uhid',
+    });
     expect(wrapper.text()).toContain('镜像控制');
 
     await wrapper.get(`[data-testid="stop-${session.sessionId}"]`).trigger('click');
@@ -239,7 +268,11 @@ describe('AndroidTools', () => {
   });
 
   it('shows the session failure reason returned by scrcpy', async () => {
-    const failed = runningSession({ status: 'failed', errorCode: 'ANDROID_SESSION_EXITED', errorMessage: '音频采集不可用' });
+    const failed = runningSession({
+      status: 'failed',
+      errorCode: 'ANDROID_SESSION_EXITED',
+      errorMessage: '音频采集不可用',
+    });
     const { api } = createApi({ listSessions: vi.fn(async () => [failed]) });
     const wrapper = mountPage(api);
     await flushPromises();

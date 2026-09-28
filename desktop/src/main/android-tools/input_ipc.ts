@@ -2,7 +2,11 @@ import { app, BrowserWindow, ipcMain, screen } from 'electron';
 import * as nativeCore from '@guyantools/core';
 import { appConfigManager } from '../app-config/manager';
 import { androidAdbService, androidToolchain } from './index';
-import { AndroidInputRouter, type InputRouterDependencies, type WindowsInputBridge } from './input_router';
+import {
+  AndroidInputRouter,
+  type InputRouterDependencies,
+  type WindowsInputBridge,
+} from './input_router';
 import { AndroidUhidSession } from './android_uhid_service';
 import { validateInputConfigPatch } from './ipc_guards';
 import fs from 'node:fs';
@@ -12,7 +16,9 @@ const inputDebugLog = (message: string) => {
   try {
     const file = path.join(app.getPath('userData'), 'android-input-debug.log');
     fs.appendFileSync(file, `${new Date().toISOString()} ${message}\n`);
-  } catch { /* diagnostics must never affect input handling */ }
+  } catch {
+    /* diagnostics must never affect input handling */
+  }
 };
 
 type NativeInputCore = {
@@ -24,11 +30,12 @@ type NativeInputCore = {
 };
 const nativeInput = nativeCore as unknown as NativeInputCore;
 const nativeBridge: WindowsInputBridge = {
-  start: listener => {
-    if (process.platform !== 'win32' || !nativeInput.windowsInputStart) throw new Error('ANDROID_INPUT_BRIDGE_UNAVAILABLE');
-    nativeInput.windowsInputStart(JSON.stringify({}), event => {
+  start: (listener) => {
+    if (process.platform !== 'win32' || !nativeInput.windowsInputStart)
+      throw new Error('ANDROID_INPUT_BRIDGE_UNAVAILABLE');
+    nativeInput.windowsInputStart(JSON.stringify({}), (event) => {
       try {
-        listener(typeof event === 'string' ? JSON.parse(event) : event as any);
+        listener(typeof event === 'string' ? JSON.parse(event) : (event as any));
       } catch {
         // Ignore malformed native events rather than breaking the hook callback.
       }
@@ -40,26 +47,32 @@ const nativeBridge: WindowsInputBridge = {
     return { x, y };
   },
   setCursor: (x, y) => nativeInput.windowsInputSetCursor?.(x, y),
-  setBlocked: blocked => nativeInput.windowsInputSetBlocked?.(blocked),
+  setBlocked: (blocked) => nativeInput.windowsInputSetBlocked?.(blocked),
 };
-const routerDependencies: InputRouterDependencies = { bridge: nativeBridge, uhid: new AndroidUhidSession(androidToolchain) };
+const routerDependencies: InputRouterDependencies = {
+  bridge: nativeBridge,
+  uhid: new AndroidUhidSession(androidToolchain),
+};
 const router = new AndroidInputRouter(routerDependencies);
 let registered = false;
 let active = false;
 
 function broadcast(status: unknown) {
-  for (const window of BrowserWindow.getAllWindows()) if (!window.isDestroyed()) window.webContents.send('android:input-status', status);
+  for (const window of BrowserWindow.getAllWindows())
+    if (!window.isDestroyed()) window.webContents.send('android:input-status', status);
 }
 
 export function registerAndroidInputIpcHandlers() {
   if (registered) return;
-  const updateScreenSize = () => { routerDependencies.screen = screen.getPrimaryDisplay().workAreaSize; };
+  const updateScreenSize = () => {
+    routerDependencies.screen = screen.getPrimaryDisplay().workAreaSize;
+  };
   if (app.isReady()) updateScreenSize();
   else app.once('ready', updateScreenSize);
   router.onStatus(broadcast);
   // Keep the IPC session guard in sync with asynchronous UHID exits. Without
   // this, a disconnected service leaves `active` latched and blocks restart.
-  router.onStatus(status => {
+  router.onStatus((status) => {
     active = status.running;
     if (status.errorCode) console.warn('[android-input] status:', status.errorCode);
   });
@@ -91,13 +104,20 @@ export function registerAndroidInputIpcHandlers() {
     active = false;
   });
   ipcMain.handle('android:toggle-input-sharing', async () => {
-    inputDebugLog(`ipc toggle begin state=${router.status().state} running=${router.status().running}`);
+    inputDebugLog(
+      `ipc toggle begin state=${router.status().state} running=${router.status().running}`
+    );
     const status = await router.toggle();
-    inputDebugLog(`ipc toggle complete state=${status.state} running=${status.running} error=${status.errorCode ?? ''}`);
+    inputDebugLog(
+      `ipc toggle complete state=${status.state} running=${status.running} error=${status.errorCode ?? ''}`
+    );
     active = status.running;
     return status;
   });
   registered = true;
 }
 
-export async function disposeAndroidInput() { await router.stop('shutdown'); active = false; }
+export async function disposeAndroidInput() {
+  await router.stop('shutdown');
+  active = false;
+}

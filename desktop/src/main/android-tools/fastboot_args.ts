@@ -33,4 +33,3 @@ export function buildFastbootRebootArgs(target?: FastbootRebootTarget) {
 export function isAllowedFastbootGetvar(name: string) {
   return ALLOWED_GETVARS.has(name.trim());
 }
-

@@ -2,16 +2,27 @@ import { execFile as nodeExecFile } from 'node:child_process';
 import { promisify } from 'node:util';
 import type { AndroidDevice } from '@/contracts/android-tools';
 import type { AndroidToolchainManager } from './toolchain';
-import { buildFastbootDevicesArgs, buildFastbootGetvarArgs, buildFastbootRebootArgs } from './fastboot_args';
+import {
+  buildFastbootDevicesArgs,
+  buildFastbootGetvarArgs,
+  buildFastbootRebootArgs,
+} from './fastboot_args';
 
 const execFile = promisify(nodeExecFile);
 type Execute = (args: string[]) => Promise<{ stdout: string; stderr: string }>;
 
 function parseFastbootDevices(output: string): AndroidDevice[] {
-  return output.split(/\r?\n/).flatMap(line => {
+  return output.split(/\r?\n/).flatMap((line) => {
     const match = line.trim().match(/^(\S+)\s+fastboot(?:\s+.*)?$/i);
     if (!match) return [];
-    return [{ serial: match[1], state: 'bootloader', transport: 'fastboot-usb', usb: true } satisfies AndroidDevice];
+    return [
+      {
+        serial: match[1],
+        state: 'bootloader',
+        transport: 'fastboot-usb',
+        usb: true,
+      } satisfies AndroidDevice,
+    ];
   });
 }
 
@@ -36,13 +47,15 @@ export class FastbootService {
 
   constructor(toolchain: AndroidToolchainManager, options: { execute?: Execute } = {}) {
     this.toolchain = toolchain;
-    this.executeCommand = options.execute ?? (async args => {
-      const output = await execFile(this.toolchain.getToolPath('fastboot'), args, {
-        windowsHide: true,
-        maxBuffer: 512 * 1024,
+    this.executeCommand =
+      options.execute ??
+      (async (args) => {
+        const output = await execFile(this.toolchain.getToolPath('fastboot'), args, {
+          windowsHide: true,
+          maxBuffer: 512 * 1024,
+        });
+        return { stdout: output.stdout, stderr: output.stderr };
       });
-      return { stdout: output.stdout, stderr: output.stderr };
-    });
   }
 
   async listDevices() {
@@ -52,7 +65,7 @@ export class FastbootService {
   }
 
   async getVars(serial: string, names: string[]) {
-    const device = (await this.listDevices()).find(item => item.serial === serial);
+    const device = (await this.listDevices()).find((item) => item.serial === serial);
     if (!device) throw new Error('ANDROID_FASTBOOT_REQUIRED');
 
     const values: Record<string, string> = {};
@@ -65,10 +78,9 @@ export class FastbootService {
   }
 
   async reboot(serial: string, target?: 'system' | 'bootloader') {
-    const device = (await this.listDevices()).find(item => item.serial === serial);
+    const device = (await this.listDevices()).find((item) => item.serial === serial);
     if (!device) throw new Error('ANDROID_FASTBOOT_REQUIRED');
     const output = await this.executeCommand(buildFastbootRebootArgs(target));
     assertFastbootSuccess(output);
   }
 }
-

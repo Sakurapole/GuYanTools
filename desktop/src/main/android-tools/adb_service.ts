@@ -18,7 +18,11 @@ interface TrackerProcess {
 
 interface AdbDeviceServiceOptions {
   execute?: Execute;
-  spawn?: (file: string, args: string[], options: { windowsHide: boolean; stdio: ['ignore', 'pipe', 'pipe'] }) => TrackerProcess;
+  spawn?: (
+    file: string,
+    args: string[],
+    options: { windowsHide: boolean; stdio: ['ignore', 'pipe', 'pipe'] }
+  ) => TrackerProcess;
 }
 
 function sameDevices(left: AndroidDevice[], right: AndroidDevice[]) {
@@ -37,14 +41,17 @@ export class AdbDeviceService {
 
   constructor(toolchain: AndroidToolchainManager, options: AdbDeviceServiceOptions = {}) {
     this.toolchain = toolchain;
-    this.executeCommand = options.execute ?? (async args => {
-      const result = await execFile(this.toolchain.getToolPath('adb'), args, {
-        windowsHide: true,
-        maxBuffer: 512 * 1024,
+    this.executeCommand =
+      options.execute ??
+      (async (args) => {
+        const result = await execFile(this.toolchain.getToolPath('adb'), args, {
+          windowsHide: true,
+          maxBuffer: 512 * 1024,
+        });
+        return { stdout: result.stdout, stderr: result.stderr };
       });
-      return { stdout: result.stdout, stderr: result.stderr };
-    });
-    this.spawnTracker = options.spawn ?? ((file, args, spawnOptions) => nodeSpawn(file, args, spawnOptions));
+    this.spawnTracker =
+      options.spawn ?? ((file, args, spawnOptions) => nodeSpawn(file, args, spawnOptions));
   }
 
   async initialize() {
@@ -62,13 +69,13 @@ export class AdbDeviceService {
       const next = parseAdbDevices(result.stdout);
       this.setDevices(next);
       if (next.length > 0 || attempt === 2) return next;
-      await new Promise<void>(resolve => setTimeout(resolve, 150));
+      await new Promise<void>((resolve) => setTimeout(resolve, 150));
     }
     return this.devices;
   }
 
   getDevice(serial: string) {
-    return this.devices.find(device => device.serial === serial) ?? null;
+    return this.devices.find((device) => device.serial === serial) ?? null;
   }
 
   onDevicesChanged(listener: (event: AndroidDeviceEvent) => void) {
@@ -92,7 +99,9 @@ export class AdbDeviceService {
       windowsHide: true,
       stdio: ['ignore', 'pipe', 'pipe'],
     });
-    this.tracker.stdout.on('data', (chunk: Buffer | string) => this.consumeTrackData(chunk.toString()));
+    this.tracker.stdout.on('data', (chunk: Buffer | string) =>
+      this.consumeTrackData(chunk.toString())
+    );
     this.tracker.on('close', () => {
       this.tracker = null;
       this.trackBuffer = '';

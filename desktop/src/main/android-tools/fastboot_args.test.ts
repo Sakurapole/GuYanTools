@@ -1,5 +1,9 @@
 import { describe, expect, it } from 'vitest';
-import { buildFastbootDevicesArgs, buildFastbootGetvarArgs, buildFastbootRebootArgs } from './fastboot_args';
+import {
+  buildFastbootDevicesArgs,
+  buildFastbootGetvarArgs,
+  buildFastbootRebootArgs,
+} from './fastboot_args';
 
 describe('fastboot argument builders', () => {
   it('builds the device listing command', () => {
@@ -15,6 +19,8 @@ describe('fastboot argument builders', () => {
   it('builds reboot commands without accepting arbitrary arguments', () => {
     expect(buildFastbootRebootArgs()).toEqual(['reboot']);
     expect(buildFastbootRebootArgs('bootloader')).toEqual(['reboot', 'bootloader']);
-    expect(() => buildFastbootRebootArgs('recovery' as any)).toThrow('ANDROID_FASTBOOT_OPERATION_DENIED');
+    expect(() => buildFastbootRebootArgs('recovery' as any)).toThrow(
+      'ANDROID_FASTBOOT_OPERATION_DENIED'
+    );
   });
 });

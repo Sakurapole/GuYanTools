@@ -28,13 +28,17 @@ describe('scrcpy argument builders', () => {
       '--audio-dup',
     ]);
     expect(buildAudioArgs({ deviceSerial: 'ABC' })).toEqual([
-      '--serial=ABC', '--no-window', '--no-video', '--no-control',
+      '--serial=ABC',
+      '--no-window',
+      '--no-video',
+      '--no-control',
     ]);
   });
 
   it('rejects audio duplication on Android versions below 13', () => {
-    expect(() => buildAudioArgs({ deviceSerial: 'ABC', sdkLevel: 32, duplicateOnDevice: true }))
-      .toThrow('ANDROID_AUDIO_UNSUPPORTED');
+    expect(() =>
+      buildAudioArgs({ deviceSerial: 'ABC', sdkLevel: 32, duplicateOnDevice: true })
+    ).toThrow('ANDROID_AUDIO_UNSUPPORTED');
   });
 
   it('builds OTG arguments with explicit keyboard and mouse switches', () => {
