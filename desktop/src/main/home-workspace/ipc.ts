@@ -19,7 +19,10 @@ function serializeBackground(bg: HomeWorkspaceBackground): string {
 const MAX_INLINE_MEDIA_BYTES = 4 * 1024 * 1024;
 
 function isOversizedInlineMedia(value: unknown): value is string {
-  if (typeof value !== 'string' || (!value.startsWith('data:image/') && !value.startsWith('data:video/'))) {
+  if (
+    typeof value !== 'string' ||
+    (!value.startsWith('data:image/') && !value.startsWith('data:video/'))
+  ) {
     return false;
   }
 
@@ -104,7 +107,10 @@ export function registerHomeWorkspaceIpcHandlers() {
    */
   ipcMain.handle(
     'home-workspace:update-background',
-    async (_event, payload: { header?: HomeWorkspaceBackground; sidebar?: HomeWorkspaceBackground }) => {
+    async (
+      _event,
+      payload: { header?: HomeWorkspaceBackground; sidebar?: HomeWorkspaceBackground }
+    ) => {
       const db = dbManager.getDatabase();
       const workspaceKey = await getActiveHomeWorkspaceKey();
 
@@ -115,7 +121,10 @@ export function registerHomeWorkspaceIpcHandlers() {
 
       if (existing) {
         try {
-          const parsed = JSON.parse(existing) as { header?: string | null; sidebar?: string | null };
+          const parsed = JSON.parse(existing) as {
+            header?: string | null;
+            sidebar?: string | null;
+          };
           currentHeader = parseBackground(parsed.header);
           currentSidebar = parseBackground(parsed.sidebar);
         } catch {
@@ -132,10 +141,10 @@ export function registerHomeWorkspaceIpcHandlers() {
       await db.updateHomeWorkspaceBackground(
         workspaceKey,
         serializeBackground(nextHeader),
-        serializeBackground(nextSidebar),
+        serializeBackground(nextSidebar)
       );
 
       return { header: nextHeader, sidebar: nextSidebar } satisfies HomeWorkspaceBgState;
-    },
+    }
   );
 }

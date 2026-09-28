@@ -1,7 +1,15 @@
 <script lang="ts" setup>
 import { computed, ref, watch } from 'vue';
 import type { CSSProperties } from 'vue';
-import type { GridItem, HomeWidgetType, WidgetConfig, WidgetCreatePayload, WidgetSizePreset, BackgroundConfirmPayload, BackgroundStyleConfig } from '../../types/grid';
+import type {
+  GridItem,
+  HomeWidgetType,
+  WidgetConfig,
+  WidgetCreatePayload,
+  WidgetSizePreset,
+  BackgroundConfirmPayload,
+  BackgroundStyleConfig,
+} from '../../types/grid';
 import UiButton from '../ui/UiButton.vue';
 import UiDialog from '../ui/UiDialog.vue';
 import UiField from '../ui/UiField.vue';
@@ -13,7 +21,12 @@ import IconPicker from '../ui/IconPicker.vue';
 import UiPersonalizationConfig from '../ui/UiPersonalizationConfig.vue';
 import HomeWidgetRenderer from '../../widgets/home/HomeWidgetRenderer.vue';
 import HomeWidgetConfigFields from '../../widgets/home/HomeWidgetConfigFields.vue';
-import { HOME_WIDGET_DEFINITIONS, getHomeWidgetDefinition, getWidgetSizeDefinition, normalizeWidgetConfig } from '../../widgets/home/registry';
+import {
+  HOME_WIDGET_DEFINITIONS,
+  getHomeWidgetDefinition,
+  getWidgetSizeDefinition,
+  normalizeWidgetConfig,
+} from '../../widgets/home/registry';
 import { useAppConfigStore } from '../../stores/app_config_store';
 import { resolveThemeBackground, withThemeBackground } from '@/contracts/background';
 import { buildBackgroundTextVars } from '../../utils/backgroundTextColor';
@@ -45,20 +58,27 @@ const appConfigStore = useAppConfigStore();
 const selectedDefinition = computed(() => getHomeWidgetDefinition(selectedWidgetType.value));
 const sizeOptions = computed(() => selectedDefinition.value.supportedSizes);
 const isShortcutWidget = computed(() => selectedWidgetType.value === 'shortcut');
-const hasWidgetConfig = computed(() => !isShortcutWidget.value && selectedWidgetType.value !== 'webview_keepalive');
+const hasWidgetConfig = computed(
+  () => !isShortcutWidget.value && selectedWidgetType.value !== 'webview_keepalive'
+);
 const currentBackgroundTheme = computed(() => appConfigStore.config.appearance.theme);
-const activeCreateBackground = computed(() => resolveThemeBackground({
-  type: editBackgroundVideo.value ? 'video' : editBackgroundImage.value ? 'image' : 'color',
-  color: editColor.value,
-  image: editBackgroundImage.value,
-  video: editBackgroundVideo.value,
-  backgroundStyle: editBackgroundStyle.value,
-}, currentBackgroundTheme.value));
+const activeCreateBackground = computed(() =>
+  resolveThemeBackground(
+    {
+      type: editBackgroundVideo.value ? 'video' : editBackgroundImage.value ? 'image' : 'color',
+      color: editColor.value,
+      image: editBackgroundImage.value,
+      video: editBackgroundVideo.value,
+      backgroundStyle: editBackgroundStyle.value,
+    },
+    currentBackgroundTheme.value
+  )
+);
 const widgetTypeOptions = computed(() =>
   HOME_WIDGET_DEFINITIONS.map((definition) => ({
     label: definition.title,
     value: definition.widgetType,
-  })),
+  }))
 );
 
 const PRESET_GRADIENTS = [
@@ -73,9 +93,18 @@ const PRESET_GRADIENTS = [
 ];
 
 const PRESET_COLORS = [
-  '#667eea', '#f093fb', '#4facfe', '#43e97b',
-  '#fa709a', '#30cfd0', '#a8edea', '#ff9a9e',
-  '#ffecd2', '#ff6e7f', '#e0c3fc', '#f8b500',
+  '#667eea',
+  '#f093fb',
+  '#4facfe',
+  '#43e97b',
+  '#fa709a',
+  '#30cfd0',
+  '#a8edea',
+  '#ff9a9e',
+  '#ffecd2',
+  '#ff6e7f',
+  '#e0c3fc',
+  '#f8b500',
 ];
 
 function applyWidgetDefaults(widgetType: HomeWidgetType) {
@@ -130,19 +159,23 @@ function handleConfirm() {
 }
 
 function handleBackgroundConfirm(payload: BackgroundConfirmPayload) {
-  const background = withThemeBackground({
-    type: editBackgroundVideo.value ? 'video' : editBackgroundImage.value ? 'image' : 'color',
-    color: editColor.value,
-    image: editBackgroundImage.value,
-    video: editBackgroundVideo.value,
-    backgroundStyle: editBackgroundStyle.value,
-  }, currentBackgroundTheme.value, {
-    type: payload.type,
-    color: payload.color ?? '',
-    image: payload.image ?? '',
-    video: payload.video ?? '',
-    backgroundStyle: payload.backgroundStyle ?? {},
-  });
+  const background = withThemeBackground(
+    {
+      type: editBackgroundVideo.value ? 'video' : editBackgroundImage.value ? 'image' : 'color',
+      color: editColor.value,
+      image: editBackgroundImage.value,
+      video: editBackgroundVideo.value,
+      backgroundStyle: editBackgroundStyle.value,
+    },
+    currentBackgroundTheme.value,
+    {
+      type: payload.type,
+      color: payload.color ?? '',
+      image: payload.image ?? '',
+      video: payload.video ?? '',
+      backgroundStyle: payload.backgroundStyle ?? {},
+    }
+  );
 
   editColor.value = background.color;
   editBackgroundImage.value = background.image;
@@ -163,18 +196,22 @@ function selectPresetColor(color: string) {
   editColor.value = color;
   editBackgroundImage.value = '';
   editBackgroundVideo.value = '';
-  editBackgroundStyle.value = withThemeBackground({
-    type: 'color',
-    color: editColor.value,
-    backgroundStyle: editBackgroundStyle.value,
-  }, currentBackgroundTheme.value, {
-    type: 'color',
-    color,
-    backgroundStyle: {
-      ...activeCreateBackground.value.backgroundStyle,
-      opacity: activeCreateBackground.value.backgroundStyle.opacity ?? 1,
+  editBackgroundStyle.value = withThemeBackground(
+    {
+      type: 'color',
+      color: editColor.value,
+      backgroundStyle: editBackgroundStyle.value,
     },
-  }).backgroundStyle;
+    currentBackgroundTheme.value,
+    {
+      type: 'color',
+      color,
+      backgroundStyle: {
+        ...activeCreateBackground.value.backgroundStyle,
+        opacity: activeCreateBackground.value.backgroundStyle.opacity ?? 1,
+      },
+    }
+  ).backgroundStyle;
 }
 
 function handleClose() {
@@ -233,17 +270,25 @@ function toObjectFit(backgroundSizeValue: string): 'contain' | 'cover' | 'fill' 
   return 'cover';
 }
 
-const previewBackgroundSize = computed(() => activeCreateBackground.value.backgroundStyle.backgroundSize || 'cover');
-const previewBackgroundPosition = computed(() => activeCreateBackground.value.backgroundStyle.backgroundPosition || 'center');
-const previewBackgroundRepeat = computed(() => activeCreateBackground.value.backgroundStyle.backgroundRepeat || 'no-repeat');
+const previewBackgroundSize = computed(
+  () => activeCreateBackground.value.backgroundStyle.backgroundSize || 'cover'
+);
+const previewBackgroundPosition = computed(
+  () => activeCreateBackground.value.backgroundStyle.backgroundPosition || 'center'
+);
+const previewBackgroundRepeat = computed(
+  () => activeCreateBackground.value.backgroundStyle.backgroundRepeat || 'no-repeat'
+);
 const previewBackgroundOpacity = computed(() => {
   const opacity = activeCreateBackground.value.backgroundStyle.opacity;
   return opacity != null && Number.isFinite(opacity) ? opacity : 1;
 });
 const previewUsesImgTag = computed(() => {
-  return Boolean(activeCreateBackground.value.image)
-    && !activeCreateBackground.value.video
-    && previewBackgroundRepeat.value === 'no-repeat';
+  return (
+    Boolean(activeCreateBackground.value.image) &&
+    !activeCreateBackground.value.video &&
+    previewBackgroundRepeat.value === 'no-repeat'
+  );
 });
 const previewBackgroundLayerStyle = computed<CSSProperties>(() => {
   const background = activeCreateBackground.value;
@@ -267,32 +312,47 @@ const previewBackgroundMediaStyle = computed<CSSProperties>(() => ({
   objectFit: toObjectFit(previewBackgroundSize.value),
   objectPosition: previewBackgroundPosition.value,
 }));
-const previewContentStyle = computed<CSSProperties>(() => buildBackgroundTextVars(
-  activeCreateBackground.value.backgroundStyle.textColor,
-  {
+const previewContentStyle = computed<CSSProperties>(() =>
+  buildBackgroundTextVars(activeCreateBackground.value.backgroundStyle.textColor, {
     aliases: {
       primary: ['--widget-text-primary', '--ui-text-primary'],
       secondary: ['--widget-text-secondary', '--ui-text-secondary'],
       muted: ['--widget-text-muted', '--ui-text-muted'],
       subtle: ['--widget-text-subtle', '--ui-text-subtle'],
     },
-  },
-));
+  })
+);
 
-watch(() => props.visible, (visible) => {
-  if (visible) {
-    applyWidgetDefaults('pomodoro');
+watch(
+  () => props.visible,
+  (visible) => {
+    if (visible) {
+      applyWidgetDefaults('pomodoro');
+    }
   }
-});
+);
 </script>
 
 <template>
-  <UiDialog class="widget-size-picker" :model-value="visible" width="940px" max-width="940px" :close-on-mask="false"
-    @update:modelValue="handleDialogModelValueChange">
+  <UiDialog
+    class="widget-size-picker"
+    :model-value="visible"
+    width="940px"
+    max-width="940px"
+    :close-on-mask="false"
+    @update:modelValue="handleDialogModelValueChange"
+  >
     <template #header>
       <div class="widget-size-picker__header">
         <h3>创建组件</h3>
-        <UiIconButton class="close-btn" variant="ghost" size="md" shape="square" title="关闭" @click="handleClose">
+        <UiIconButton
+          class="close-btn"
+          variant="ghost"
+          size="md"
+          shape="square"
+          title="关闭"
+          @click="handleClose"
+        >
           ✕
         </UiIconButton>
       </div>
@@ -304,8 +364,12 @@ watch(() => props.visible, (visible) => {
           <section class="widget-size-picker__panel widget-size-picker__panel--primary">
             <div class="widget-size-picker__section-title">组件类型</div>
             <UiField label="类型">
-              <UiSelect :model-value="selectedWidgetType" :options="widgetTypeOptions" size="md"
-                @update:modelValue="handleWidgetTypeChange" />
+              <UiSelect
+                :model-value="selectedWidgetType"
+                :options="widgetTypeOptions"
+                size="md"
+                @update:modelValue="handleWidgetTypeChange"
+              />
             </UiField>
             <div class="widget-size-picker__type-summary">
               <strong>{{ selectedDefinition.title }}</strong>
@@ -316,9 +380,17 @@ watch(() => props.visible, (visible) => {
           <section class="widget-size-picker__panel">
             <div v-if="!isShortcutWidget" class="widget-size-picker__section-title">尺寸</div>
             <div v-if="!isShortcutWidget" class="widget-size-picker__size-grid">
-              <UiButton v-for="size in sizeOptions" :key="size.preset" type="button" variant="ghost" class="widget-size-picker__size-card"
-                :class="{ 'widget-size-picker__size-card--active': selectedSizePreset === size.preset }"
-                @click="selectedSizePreset = size.preset">
+              <UiButton
+                v-for="size in sizeOptions"
+                :key="size.preset"
+                type="button"
+                variant="ghost"
+                class="widget-size-picker__size-card"
+                :class="{
+                  'widget-size-picker__size-card--active': selectedSizePreset === size.preset,
+                }"
+                @click="selectedSizePreset = size.preset"
+              >
                 <strong>{{ size.label }}</strong>
                 <span>{{ size.description }}</span>
               </UiButton>
@@ -328,12 +400,24 @@ watch(() => props.visible, (visible) => {
               <div class="widget-size-picker__section-title">尺寸</div>
               <div class="widget-size-picker__size-fields">
                 <UiField label="宽度 (列数)">
-                  <UiInput :model-value="String(editColSpan)" type="number" :min="1" :max="6" size="md"
-                    @update:modelValue="updateShortcutColSpan" />
+                  <UiInput
+                    :model-value="String(editColSpan)"
+                    type="number"
+                    :min="1"
+                    :max="6"
+                    size="md"
+                    @update:modelValue="updateShortcutColSpan"
+                  />
                 </UiField>
                 <UiField label="高度 (行数)">
-                  <UiInput :model-value="String(editRowSpan)" type="number" :min="1" :max="6" size="md"
-                    @update:modelValue="updateShortcutRowSpan" />
+                  <UiInput
+                    :model-value="String(editRowSpan)"
+                    type="number"
+                    :min="1"
+                    :max="6"
+                    size="md"
+                    @update:modelValue="updateShortcutRowSpan"
+                  />
                 </UiField>
               </div>
             </div>
@@ -354,14 +438,24 @@ watch(() => props.visible, (visible) => {
             <template v-if="selectedWidgetType === 'shortcut'">
               <div class="widget-size-picker__section-title">卡片颜色</div>
               <div class="widget-size-picker__swatch-grid">
-                <UiIconButton v-for="gradient in PRESET_GRADIENTS" :key="gradient" class="widget-size-picker__swatch"
+                <UiIconButton
+                  v-for="gradient in PRESET_GRADIENTS"
+                  :key="gradient"
+                  class="widget-size-picker__swatch"
                   :class="{ 'widget-size-picker__swatch--selected': editColor === gradient }"
-                  :style="{ background: gradient }" @click="selectPresetColor(gradient)" />
+                  :style="{ background: gradient }"
+                  @click="selectPresetColor(gradient)"
+                />
               </div>
               <div class="widget-size-picker__swatch-grid widget-size-picker__swatch-grid--solid">
-                <UiIconButton v-for="color in PRESET_COLORS" :key="color" class="widget-size-picker__swatch"
+                <UiIconButton
+                  v-for="color in PRESET_COLORS"
+                  :key="color"
+                  class="widget-size-picker__swatch"
                   :class="{ 'widget-size-picker__swatch--selected': editColor === color }"
-                  :style="{ background: color }" @click="selectPresetColor(color)" />
+                  :style="{ background: color }"
+                  @click="selectPresetColor(color)"
+                />
               </div>
             </template>
 
@@ -369,14 +463,25 @@ watch(() => props.visible, (visible) => {
             <div class="widget-size-picker__personalization">
               <div class="widget-size-picker__personalization-summary">
                 <strong>当前主题</strong>
-                <span>{{ activeCreateBackground.type === 'image' ? '图片背景' : activeCreateBackground.type === 'video' ? '视频背景' : '颜色背景' }}</span>
+                <span>{{
+                  activeCreateBackground.type === 'image'
+                    ? '图片背景'
+                    : activeCreateBackground.type === 'video'
+                      ? '视频背景'
+                      : '颜色背景'
+                }}</span>
               </div>
-              <UiButton variant="secondary" size="sm" @click="showBackgroundPicker = true">配置</UiButton>
+              <UiButton variant="secondary" size="sm" @click="showBackgroundPicker = true"
+                >配置</UiButton
+              >
             </div>
 
             <div v-if="hasWidgetConfig" class="widget-size-picker__section-title">组件配置</div>
-            <HomeWidgetConfigFields v-if="hasWidgetConfig" v-model="widgetConfig"
-              :widget-type="selectedWidgetType" />
+            <HomeWidgetConfigFields
+              v-if="hasWidgetConfig"
+              v-model="widgetConfig"
+              :widget-type="selectedWidgetType"
+            />
           </section>
         </div>
 
@@ -421,7 +526,9 @@ watch(() => props.visible, (visible) => {
     <template #footer>
       <div class="widget-size-picker__footer">
         <UiButton variant="secondary" @click="handleClose">取消</UiButton>
-        <UiButton variant="primary" :disabled="!editLabel.trim()" @click="handleConfirm">确认创建</UiButton>
+        <UiButton variant="primary" :disabled="!editLabel.trim()" @click="handleConfirm"
+          >确认创建</UiButton
+        >
       </div>
     </template>
 

@@ -20,7 +20,9 @@ const props = defineProps<{
   interactive?: boolean;
 }>();
 
-const config = computed(() => normalizeWidgetConfig('weather', props.item.widgetConfig) as WeatherWidgetConfig);
+const config = computed(
+  () => normalizeWidgetConfig('weather', props.item.widgetConfig) as WeatherWidgetConfig
+);
 const status = ref<'idle' | 'loading' | 'success' | 'error'>('idle');
 const errorMessage = ref('');
 const snapshot = ref<WeatherSnapshot | null>(null);
@@ -150,9 +152,12 @@ function resetRefreshTimer() {
   if (refreshTimer.value) {
     clearInterval(refreshTimer.value);
   }
-  refreshTimer.value = window.setInterval(() => {
-    void fetchWeather();
-  }, selectedRefreshMinutes.value * 60 * 1000);
+  refreshTimer.value = window.setInterval(
+    () => {
+      void fetchWeather();
+    },
+    selectedRefreshMinutes.value * 60 * 1000
+  );
 }
 
 function clearRefreshTimer() {
@@ -183,10 +188,15 @@ onMounted(() => {
 });
 
 watch(
-  () => [selectedCity.value, selectedUnit.value, selectedRefreshMinutes.value, Boolean(props.interactive)],
+  () => [
+    selectedCity.value,
+    selectedUnit.value,
+    selectedRefreshMinutes.value,
+    Boolean(props.interactive),
+  ],
   () => {
     syncWeatherState();
-  },
+  }
 );
 
 onBeforeUnmount(() => {

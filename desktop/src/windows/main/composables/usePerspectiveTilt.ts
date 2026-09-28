@@ -23,12 +23,7 @@ export interface PerspectiveTiltOptions {
  *   <div ref="tiltRef" :style="tiltStyle">...</div>
  */
 export function usePerspectiveTilt(options: PerspectiveTiltOptions = {}) {
-  const {
-    maxTilt = 6,
-    perspective = 800,
-    resetDuration = 600,
-    enabled = true,
-  } = options;
+  const { maxTilt = 6, perspective = 800, resetDuration = 600, enabled = true } = options;
 
   const tiltRef = ref<HTMLElement | null>(null) as Ref<HTMLElement | null>;
   const tiltStyle = ref<Record<string, string>>({});

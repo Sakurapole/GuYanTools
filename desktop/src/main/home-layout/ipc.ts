@@ -17,7 +17,8 @@ let registered = false;
 
 function serializeJson(value: unknown): string | undefined {
   if (value == null) return undefined;
-  if (typeof value === 'object' && Object.keys(value as Record<string, unknown>).length === 0) return undefined;
+  if (typeof value === 'object' && Object.keys(value as Record<string, unknown>).length === 0)
+    return undefined;
   return JSON.stringify(value);
 }
 
@@ -31,7 +32,7 @@ function deserializeJson<T>(json: string | null | undefined): T | undefined {
 }
 
 function deserializeWidgets(widgets: any[]): any[] {
-  return widgets.map(w => ({
+  return widgets.map((w) => ({
     ...w,
     action: deserializeJson(w.action),
     backgroundStyle: deserializeJson(w.backgroundStyle),
@@ -73,23 +74,33 @@ async function saveHomeLayoutMedia(input: HomeLayoutMediaPayload) {
   }
   if (bytes.length > 64 * 1024 * 1024) throw new Error('首页媒体不能超过 64 MB');
   const hash = createHash('sha256').update(bytes).digest('hex');
-  const extension = EXTENSIONS[input.mimeType] || path.extname(input.fileName || '').toLowerCase().replace(/[^a-z0-9.]/g, '') || '.bin';
+  const extension =
+    EXTENSIONS[input.mimeType] ||
+    path
+      .extname(input.fileName || '')
+      .toLowerCase()
+      .replace(/[^a-z0-9.]/g, '') ||
+    '.bin';
   const root = path.join(app.getPath('userData'), 'home-layout-assets');
   await fs.mkdir(root, { recursive: true });
   const fileName = `${hash}${extension}`;
-  await fs.writeFile(path.join(root, fileName), bytes, { flag: 'wx' }).catch((error: NodeJS.ErrnoException) => {
-    if (error.code !== 'EEXIST') throw error;
-  });
+  await fs
+    .writeFile(path.join(root, fileName), bytes, { flag: 'wx' })
+    .catch((error: NodeJS.ErrnoException) => {
+      if (error.code !== 'EEXIST') throw error;
+    });
   return { url: `app://${MEDIA_HOST}/${encodeURIComponent(fileName)}`, sizeBytes: bytes.length };
 }
 
 async function normalizeMediaValue(value?: string) {
   if (!value || !value.startsWith('data:')) return value;
-  return (await saveHomeLayoutMedia({
-    data: Uint8Array.from(Buffer.from(value.slice(value.indexOf(',') + 1), 'base64')),
-    mimeType: value.slice(5, value.indexOf(';')) || 'application/octet-stream',
-    fileName: 'legacy-background',
-  })).url;
+  return (
+    await saveHomeLayoutMedia({
+      data: Uint8Array.from(Buffer.from(value.slice(value.indexOf(',') + 1), 'base64')),
+      mimeType: value.slice(5, value.indexOf(';')) || 'application/octet-stream',
+      fileName: 'legacy-background',
+    })
+  ).url;
 }
 
 async function normalizeBackgroundStyle(style: unknown) {
@@ -109,7 +120,11 @@ async function normalizeBackgroundStyle(style: unknown) {
   return clone;
 }
 
-async function prepareBackground(input: { backgroundImage?: string; backgroundVideo?: string; backgroundStyle?: unknown }) {
+async function prepareBackground(input: {
+  backgroundImage?: string;
+  backgroundVideo?: string;
+  backgroundStyle?: unknown;
+}) {
   return {
     backgroundImage: await normalizeMediaValue(input.backgroundImage),
     backgroundVideo: await normalizeMediaValue(input.backgroundVideo),
@@ -120,9 +135,10 @@ async function prepareBackground(input: { backgroundImage?: string; backgroundVi
 async function materializeCategoryMedia(rawCategory: any) {
   const category = deserializeCategory(rawCategory);
   const categoryBackground = await prepareBackground(category);
-  const categoryChanged = categoryBackground.backgroundImage !== category.backgroundImage
-    || categoryBackground.backgroundVideo !== category.backgroundVideo
-    || JSON.stringify(categoryBackground.backgroundStyle) !== JSON.stringify(category.backgroundStyle);
+  const categoryChanged =
+    categoryBackground.backgroundImage !== category.backgroundImage ||
+    categoryBackground.backgroundVideo !== category.backgroundVideo ||
+    JSON.stringify(categoryBackground.backgroundStyle) !== JSON.stringify(category.backgroundStyle);
   if (categoryChanged) {
     await dbManager.getDatabase().updateHomeCategory(category.id, {
       backgroundImage: categoryBackground.backgroundImage,
@@ -136,9 +152,10 @@ async function materializeCategoryMedia(rawCategory: any) {
 
   for (const widget of category.widgets ?? []) {
     const widgetBackground = await prepareBackground(widget);
-    const widgetChanged = widgetBackground.backgroundImage !== widget.backgroundImage
-      || widgetBackground.backgroundVideo !== widget.backgroundVideo
-      || JSON.stringify(widgetBackground.backgroundStyle) !== JSON.stringify(widget.backgroundStyle);
+    const widgetChanged =
+      widgetBackground.backgroundImage !== widget.backgroundImage ||
+      widgetBackground.backgroundVideo !== widget.backgroundVideo ||
+      JSON.stringify(widgetBackground.backgroundStyle) !== JSON.stringify(widget.backgroundStyle);
     if (!widgetChanged) continue;
     await dbManager.getDatabase().updateHomeWidget(widget.id, {
       backgroundImage: widgetBackground.backgroundImage,
@@ -171,22 +188,27 @@ export function registerHomeLayoutIpcHandlers() {
     return materializeCategoryMedia(category);
   });
 
-  ipcMain.handle('home-layout:save-media', async (_event, input: HomeLayoutMediaPayload) => saveHomeLayoutMedia(input));
+  ipcMain.handle('home-layout:save-media', async (_event, input: HomeLayoutMediaPayload) =>
+    saveHomeLayoutMedia(input)
+  );
 
-  ipcMain.handle('home-layout:create-category', async (_event, input: CreateHomeCategoryPayload) => {
-    const workspaceKey = await getActiveHomeWorkspaceKey();
-    const background = await prepareBackground(input);
-    return dbManager.getDatabase().createHomeCategory({
-      id: input.id,
-      workspaceKey,
-      label: input.label,
-      icon: input.icon,
-      sortOrder: input.sortOrder,
-      backgroundColor: input.backgroundColor,
-      ...background,
-      backgroundStyle: serializeJson(background.backgroundStyle),
-    });
-  });
+  ipcMain.handle(
+    'home-layout:create-category',
+    async (_event, input: CreateHomeCategoryPayload) => {
+      const workspaceKey = await getActiveHomeWorkspaceKey();
+      const background = await prepareBackground(input);
+      return dbManager.getDatabase().createHomeCategory({
+        id: input.id,
+        workspaceKey,
+        label: input.label,
+        icon: input.icon,
+        sortOrder: input.sortOrder,
+        backgroundColor: input.backgroundColor,
+        ...background,
+        backgroundStyle: serializeJson(background.backgroundStyle),
+      });
+    }
+  );
 
   ipcMain.handle(
     'home-layout:update-category',
@@ -269,42 +291,46 @@ export function registerHomeLayoutIpcHandlers() {
 
   ipcMain.handle('home-layout:import-layout', async (_event, input: ImportHomeLayoutPayload) => {
     const workspaceKey = await getActiveHomeWorkspaceKey();
-    const categories = await Promise.all(input.categories.map(async category => {
-      const categoryBackground = await prepareBackground(category);
-      return {
-        id: category.id,
-        label: category.label,
-        icon: category.icon,
-        sortOrder: category.sortOrder,
-        backgroundColor: category.backgroundColor,
-        ...categoryBackground,
-        backgroundStyle: serializeJson(categoryBackground.backgroundStyle),
-        widgets: await Promise.all(category.widgets.map(async widget => {
-          const widgetBackground = await prepareBackground(widget);
-          return {
-          id: widget.id,
-          label: widget.label,
-          icon: widget.icon,
-          action: serializeJson(widget.action),
-          sourceType: widget.sourceType ?? 'shortcut',
-          widgetType: widget.widgetType ?? 'shortcut',
-          sizePreset: widget.sizePreset,
-          widgetConfig: serializeJson(widget.widgetConfig),
-          col: widget.col,
-          row: widget.row,
-          colSpan: widget.colSpan,
-          rowSpan: widget.rowSpan,
-          preferredCol: widget.preferredCol,
-          preferredRow: widget.preferredRow,
-          priority: widget.priority,
-          color: widget.color,
-          ...widgetBackground,
-          backgroundStyle: serializeJson(widgetBackground.backgroundStyle),
-          hidden: widget.hidden,
-          };
-        })),
-      };
-    }));
+    const categories = await Promise.all(
+      input.categories.map(async (category) => {
+        const categoryBackground = await prepareBackground(category);
+        return {
+          id: category.id,
+          label: category.label,
+          icon: category.icon,
+          sortOrder: category.sortOrder,
+          backgroundColor: category.backgroundColor,
+          ...categoryBackground,
+          backgroundStyle: serializeJson(categoryBackground.backgroundStyle),
+          widgets: await Promise.all(
+            category.widgets.map(async (widget) => {
+              const widgetBackground = await prepareBackground(widget);
+              return {
+                id: widget.id,
+                label: widget.label,
+                icon: widget.icon,
+                action: serializeJson(widget.action),
+                sourceType: widget.sourceType ?? 'shortcut',
+                widgetType: widget.widgetType ?? 'shortcut',
+                sizePreset: widget.sizePreset,
+                widgetConfig: serializeJson(widget.widgetConfig),
+                col: widget.col,
+                row: widget.row,
+                colSpan: widget.colSpan,
+                rowSpan: widget.rowSpan,
+                preferredCol: widget.preferredCol,
+                preferredRow: widget.preferredRow,
+                priority: widget.priority,
+                color: widget.color,
+                ...widgetBackground,
+                backgroundStyle: serializeJson(widgetBackground.backgroundStyle),
+                hidden: widget.hidden,
+              };
+            })
+          ),
+        };
+      })
+    );
     const result = dbManager.getDatabase().importHomeLayout(workspaceKey, { categories });
     return deserializeLayout(await result);
   });

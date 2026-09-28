@@ -16,8 +16,11 @@ export const useHomeProfileStore = defineStore('home-profile', () => {
   const switching = ref(false);
   const error = ref('');
 
-  const activeProfile = computed(() =>
-    profiles.value.find(profile => profile.key === activeProfileKey.value) ?? profiles.value[0] ?? null
+  const activeProfile = computed(
+    () =>
+      profiles.value.find((profile) => profile.key === activeProfileKey.value) ??
+      profiles.value[0] ??
+      null
   );
   const canDeleteActiveProfile = computed(() => profiles.value.length > 1);
 
@@ -51,7 +54,7 @@ export const useHomeProfileStore = defineStore('home-profile', () => {
     try {
       const profile = await getHomeProfileApi().setActiveProfile(key);
       activeProfileKey.value = profile.key;
-      const existingIndex = profiles.value.findIndex(item => item.key === profile.key);
+      const existingIndex = profiles.value.findIndex((item) => item.key === profile.key);
       if (existingIndex >= 0) {
         profiles.value.splice(existingIndex, 1, profile);
       }
@@ -87,7 +90,7 @@ export const useHomeProfileStore = defineStore('home-profile', () => {
     error.value = '';
     try {
       const profile = await getHomeProfileApi().renameProfile(key, name);
-      const index = profiles.value.findIndex(item => item.key === key);
+      const index = profiles.value.findIndex((item) => item.key === key);
       if (index >= 0) {
         profiles.value.splice(index, 1, profile);
       }

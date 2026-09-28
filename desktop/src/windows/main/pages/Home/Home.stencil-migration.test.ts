@@ -7,7 +7,8 @@ const homePath = resolve(process.cwd(), 'src/windows/main/pages/Home/Home.vue');
 describe('home category sidebar Stencil migration', () => {
   it('renders category actions with Stencil button elements and keeps the local registration boundary', () => {
     const homeSource = readFileSync(homePath, 'utf8');
-    const sidebarSource = homeSource.match(/<aside class="category-sidebar"[\s\S]*?<\/aside>/)?.[0] ?? '';
+    const sidebarSource =
+      homeSource.match(/<aside class="category-sidebar"[\s\S]*?<\/aside>/)?.[0] ?? '';
 
     expect(homeSource).toContain("import { defineCustomElements } from '@guyantools/ui-core';");
     expect(homeSource).toContain('defineCustomElements();');
@@ -20,7 +21,10 @@ describe('home category sidebar Stencil migration', () => {
     expect(sidebarSource).not.toContain('<UiIconButton v-if="canScrollCategoryUp"');
     expect(sidebarSource).not.toContain('<UiIconButton v-if="canScrollCategoryDown"');
 
-    const homeStyles = readFileSync(resolve(process.cwd(), 'src/windows/main/pages/Home/home.scss'), 'utf8');
+    const homeStyles = readFileSync(
+      resolve(process.cwd(), 'src/windows/main/pages/Home/home.scss'),
+      'utf8'
+    );
     expect(homeStyles).toContain('.category-item::part(base)');
     expect(homeStyles).toContain('.category-item::part(label)');
     expect(homeStyles).not.toContain('.category-item.ui-button');
@@ -29,7 +33,10 @@ describe('home category sidebar Stencil migration', () => {
 
   it('maps both home card containers to Stencil card parts', () => {
     const homeSource = readFileSync(homePath, 'utf8');
-    const homeStyles = readFileSync(resolve(process.cwd(), 'src/windows/main/pages/Home/home.scss'), 'utf8');
+    const homeStyles = readFileSync(
+      resolve(process.cwd(), 'src/windows/main/pages/Home/home.scss'),
+      'utf8'
+    );
 
     expect(homeSource).toContain('<gt-card ref="sidebarPanelRef"');
     expect(homeSource).toContain('<gt-card class="comp-area-panel"');
@@ -41,8 +48,12 @@ describe('home category sidebar Stencil migration', () => {
 
   it('uses Stencil state cards for loading, empty, and error feedback', () => {
     const homeSource = readFileSync(homePath, 'utf8');
-    const stateSource = homeSource.match(/<div v-if="isLoading" class="home-state">[\s\S]*?<\/div>/)?.[0] ?? '';
-    const emptyStateSource = homeSource.match(/<div v-else-if="!activeSlotCategory" class="home-state">[\s\S]*?<\/div>/)?.[0] ?? '';
+    const stateSource =
+      homeSource.match(/<div v-if="isLoading" class="home-state">[\s\S]*?<\/div>/)?.[0] ?? '';
+    const emptyStateSource =
+      homeSource.match(
+        /<div v-else-if="!activeSlotCategory" class="home-state">[\s\S]*?<\/div>/
+      )?.[0] ?? '';
 
     expect(stateSource).toContain('<gt-state-card');
     expect(stateSource).toContain('title="首页布局加载中..."');
@@ -53,7 +64,8 @@ describe('home category sidebar Stencil migration', () => {
 
   it('uses the Stencil dialog contract for adding a category', () => {
     const homeSource = readFileSync(homePath, 'utf8');
-    const dialogSource = homeSource.match(/<!-- 添加类别对话框 -->[\s\S]*?<\/gt-dialog>/)?.[0] ?? '';
+    const dialogSource =
+      homeSource.match(/<!-- 添加类别对话框 -->[\s\S]*?<\/gt-dialog>/)?.[0] ?? '';
 
     expect(dialogSource).toContain('<gt-dialog');
     expect(dialogSource).toContain(':open="showAddCategoryDialog"');
@@ -67,7 +79,9 @@ describe('home category sidebar Stencil migration', () => {
     expect(dialogSource).toContain('<gt-field label="图标" for="category-icon">');
     expect(dialogSource).toContain('<gt-input id="category-label" :value="newCategoryForm.label"');
     expect(dialogSource).toContain('@gt-input="handleCategoryLabelInput"');
-    expect(dialogSource).toContain('<gt-button variant="secondary" @gt-click="closeAddCategoryDialog">取消</gt-button>');
+    expect(dialogSource).toContain(
+      '<gt-button variant="secondary" @gt-click="closeAddCategoryDialog">取消</gt-button>'
+    );
     expect(dialogSource).toContain('@gt-click="confirmAddCategory"');
     expect(dialogSource).not.toContain('<UiButton');
     expect(dialogSource).not.toContain('<UiInput');
@@ -76,7 +90,10 @@ describe('home category sidebar Stencil migration', () => {
     expect(dialogSource).not.toContain('<template #header>');
     expect(dialogSource).not.toContain('<template #footer>');
     expect(dialogSource).not.toContain('<UiDialog');
-    const homeStyles = readFileSync(resolve(process.cwd(), 'src/windows/main/pages/Home/home.scss'), 'utf8');
+    const homeStyles = readFileSync(
+      resolve(process.cwd(), 'src/windows/main/pages/Home/home.scss'),
+      'utf8'
+    );
     expect(homeStyles).toContain('> gt-button');
   });
 });

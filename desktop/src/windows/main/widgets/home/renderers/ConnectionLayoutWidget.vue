@@ -12,25 +12,34 @@ import { openConnectionLayoutFromHome } from '../connectionLayoutNavigation';
 import { normalizeWidgetConfig } from '../registry';
 import UiButton from '../../../components/ui/UiButton.vue';
 
-const props = withDefaults(defineProps<{
-  item: GridItem;
-  interactive?: boolean;
-}>(), {
-  interactive: true,
-});
+const props = withDefaults(
+  defineProps<{
+    item: GridItem;
+    interactive?: boolean;
+  }>(),
+  {
+    interactive: true,
+  }
+);
 
 const refreshTick = ref(0);
-const config = computed(() =>
-  normalizeWidgetConfig('connection_layout', props.item.widgetConfig) as ConnectionLayoutWidgetConfig,
+const config = computed(
+  () =>
+    normalizeWidgetConfig(
+      'connection_layout',
+      props.item.widgetConfig
+    ) as ConnectionLayoutWidgetConfig
 );
 const layout = computed<ConnectionLayoutConfig | null>(() => {
-  refreshTick.value;
+  void refreshTick.value;
   return config.value.layoutId ? getConnectionLayoutConfig(config.value.layoutId) : null;
 });
 const isWide = computed(() => props.item.colSpan >= 4);
 const isTall = computed(() => props.item.rowSpan >= 3);
 const title = computed(() => layout.value?.name || props.item.label || '连接布局');
-const meta = computed(() => layout.value ? describeConnectionLayoutConfig(layout.value) : '选择布局后可快速打开多连接工作区');
+const meta = computed(() =>
+  layout.value ? describeConnectionLayoutConfig(layout.value) : '选择布局后可快速打开多连接工作区'
+);
 const visibleTargets = computed(() => layout.value?.targets.slice(0, isTall.value ? 4 : 2) ?? []);
 
 function refreshLayout() {
@@ -52,7 +61,11 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-  <div class="connection-layout-widget" :class="{ 'connection-layout-widget--wide': isWide, 'connection-layout-widget--tall': isTall }" @dblclick.stop="openLayout">
+  <div
+    class="connection-layout-widget"
+    :class="{ 'connection-layout-widget--wide': isWide, 'connection-layout-widget--tall': isTall }"
+    @dblclick.stop="openLayout"
+  >
     <header class="connection-layout-widget__header">
       <span class="connection-layout-widget__mark">
         <svg viewBox="0 0 24 24" aria-hidden="true">
@@ -61,7 +74,9 @@ onBeforeUnmount(() => {
           <rect x="3" y="15" width="18" height="5" rx="1.5" />
         </svg>
       </span>
-      <span class="connection-layout-widget__surface">{{ layout?.surface === 'ftp' ? '传输' : '终端' }}</span>
+      <span class="connection-layout-widget__surface">{{
+        layout?.surface === 'ftp' ? '传输' : '终端'
+      }}</span>
     </header>
 
     <main class="connection-layout-widget__main">
@@ -73,12 +88,21 @@ onBeforeUnmount(() => {
     </main>
 
     <div v-if="visibleTargets.length && isWide" class="connection-layout-widget__targets">
-      <span v-for="target in visibleTargets" :key="`${target.surface}:${target.kind}:${target.label ?? ''}:${'profileId' in target ? target.profileId ?? '' : target.path}`">
+      <span
+        v-for="target in visibleTargets"
+        :key="`${target.surface}:${target.kind}:${target.label ?? ''}:${'profileId' in target ? (target.profileId ?? '') : target.path}`"
+      >
         {{ target.label || (target.kind === 'local' ? '本地' : target.kind.toUpperCase()) }}
       </span>
     </div>
 
-    <UiButton class="connection-layout-widget__action" variant="ghost" type="button" :disabled="!layout || !interactive" @click.stop="openLayout">
+    <UiButton
+      class="connection-layout-widget__action"
+      variant="ghost"
+      type="button"
+      :disabled="!layout || !interactive"
+      @click.stop="openLayout"
+    >
       打开布局
     </UiButton>
   </div>

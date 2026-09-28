@@ -10,10 +10,20 @@ import type { BackgroundStyleConfig } from '@/contracts/background';
 
 const LEGACY_MIGRATION_MARKER = 'home-layout-legacy-migrated';
 
-type LegacySavedGridItem = Partial<Pick<
-  GridItem,
-  'id' | 'col' | 'row' | 'colSpan' | 'rowSpan' | 'preferredCol' | 'preferredRow' | 'priority' | 'hidden'
->> & { id: string };
+type LegacySavedGridItem = Partial<
+  Pick<
+    GridItem,
+    | 'id'
+    | 'col'
+    | 'row'
+    | 'colSpan'
+    | 'rowSpan'
+    | 'preferredCol'
+    | 'preferredRow'
+    | 'priority'
+    | 'hidden'
+  >
+> & { id: string };
 
 function toPlainJson<T>(value: T): T {
   return JSON.parse(JSON.stringify(value ?? null)) as T;
@@ -220,9 +230,9 @@ function getLayoutStorage(): Storage | null {
 }
 
 function cloneLegacyDefaults(): CategoryItem[] {
-  return LEGACY_DEFAULT_CATEGORIES.map(category => ({
+  return LEGACY_DEFAULT_CATEGORIES.map((category) => ({
     ...category,
-    gridItems: category.gridItems.map(item => ({ ...item })),
+    gridItems: category.gridItems.map((item) => ({ ...item })),
   }));
 }
 
@@ -253,7 +263,7 @@ function toGridItem(widget: HomeWidgetDto): GridItem {
 }
 
 function toCategoryItems(layout: HomeLayoutDto): CategoryItem[] {
-  return layout.categories.map(category => ({
+  return layout.categories.map((category) => ({
     id: category.id,
     label: category.label,
     icon: category.icon,
@@ -366,7 +376,12 @@ function loadLegacyCategoryList(storage: Storage) {
     }
 
     return parsed.filter((entry): entry is { id: string; label: string; icon: string } => {
-      return Boolean(entry && typeof entry.id === 'string' && typeof entry.label === 'string' && typeof entry.icon === 'string');
+      return Boolean(
+        entry &&
+        typeof entry.id === 'string' &&
+        typeof entry.label === 'string' &&
+        typeof entry.icon === 'string'
+      );
     });
   } catch {
     return null;
@@ -380,7 +395,7 @@ function buildLegacyImportPayload(storageKey: string): ImportHomeLayoutPayload |
   }
 
   const defaults = cloneLegacyDefaults();
-  const defaultCategoryMap = new Map(defaults.map(category => [category.id, category]));
+  const defaultCategoryMap = new Map(defaults.map((category) => [category.id, category]));
   const savedCategoryList = loadLegacyCategoryList(storage);
   const legacyLayoutKeys = Array.from({ length: storage.length })
     .map((_, index) => storage.key(index))
@@ -392,25 +407,25 @@ function buildLegacyImportPayload(storageKey: string): ImportHomeLayoutPayload |
 
   const sourceCategories = savedCategoryList?.length
     ? savedCategoryList.map((category, index) => ({
-      id: category.id,
-      label: category.label,
-      icon: category.icon,
-      sortOrder: defaultCategoryMap.get(category.id)?.sortOrder ?? (index + 1),
-    }))
-    : defaults.map(category => ({
-      id: category.id,
-      label: category.label,
-      icon: category.icon,
-      sortOrder: category.sortOrder,
-    }));
+        id: category.id,
+        label: category.label,
+        icon: category.icon,
+        sortOrder: defaultCategoryMap.get(category.id)?.sortOrder ?? index + 1,
+      }))
+    : defaults.map((category) => ({
+        id: category.id,
+        label: category.label,
+        icon: category.icon,
+        sortOrder: category.sortOrder,
+      }));
 
   return {
-    categories: sourceCategories.map(category => {
+    categories: sourceCategories.map((category) => {
       const baseCategory = defaultCategoryMap.get(category.id);
       const savedMap = parseSavedGridItems(storage.getItem(`${storageKey}-${category.id}`));
       const widgets = (baseCategory?.gridItems ?? [])
-        .map(item => mergeLegacyWidget(item, savedMap.get(item.id)))
-        .map(item => ({
+        .map((item) => mergeLegacyWidget(item, savedMap.get(item.id)))
+        .map((item) => ({
           id: item.id,
           label: item.label,
           icon: item.icon,
@@ -485,7 +500,9 @@ export function useGridPersistence(storageKey: string) {
     }
   }
 
-  async function createCategory(category: Pick<CategoryItem, 'id' | 'label' | 'icon' | 'sortOrder'>) {
+  async function createCategory(
+    category: Pick<CategoryItem, 'id' | 'label' | 'icon' | 'sortOrder'>
+  ) {
     return getHomeLayoutApi().createCategory({
       id: category.id,
       label: category.label,
@@ -518,7 +535,7 @@ export function useGridPersistence(storageKey: string) {
       backgroundImage?: string;
       backgroundVideo?: string;
       backgroundStyle?: BackgroundStyleConfig;
-    },
+    }
   ) {
     await getHomeLayoutApi().updateCategory(categoryId, {
       ...background,

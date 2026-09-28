@@ -1,12 +1,7 @@
 import type { BackgroundStyleConfig } from './background';
 
 export type WidgetActionType =
-  | 'none'
-  | 'external_app'
-  | 'internal_route'
-  | 'plugin_page'
-  | 'plugin_command'
-  | 'open_webpage';
+  'none' | 'external_app' | 'internal_route' | 'plugin_page' | 'plugin_command' | 'open_webpage';
 
 export type WebpageOpenMode = 'main_window' | 'new_window';
 

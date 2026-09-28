@@ -67,13 +67,20 @@ export function useGridLayout(
     // 横向：根据 viewport 宽度动态计算列数（窗口越宽列越多）
     const viewportWidth = viewportElement.clientWidth;
     const availableWidth = Math.max(viewportWidth, config.MIN_VIEWPORT_WIDTH);
-    const dynamicCols = cell > 0
-      ? Math.max(1, Math.floor((availableWidth - config.GRID_PADDING * 2 + config.GRID_GAP) / cell))
-      : config.FIXED_COLUMNS;
+    const dynamicCols =
+      cell > 0
+        ? Math.max(
+            1,
+            Math.floor((availableWidth - config.GRID_PADDING * 2 + config.GRID_GAP) / cell)
+          )
+        : config.FIXED_COLUMNS;
     colNum.value = Math.max(config.FIXED_COLUMNS, dynamicCols);
 
     // 画布宽度 = 实际列数所需的宽度与 viewport 取大值
-    const gridNativeWidth = colNum.value * nextUnit + config.GRID_GAP * Math.max(0, colNum.value - 1) + config.GRID_PADDING * 2;
+    const gridNativeWidth =
+      colNum.value * nextUnit +
+      config.GRID_GAP * Math.max(0, colNum.value - 1) +
+      config.GRID_PADDING * 2;
     canvasWidth.value = Math.max(viewportWidth, gridNativeWidth, config.MIN_VIEWPORT_WIDTH);
 
     // 左对齐，让 widget 从最左上角开始排列
@@ -81,9 +88,13 @@ export function useGridLayout(
 
     // 纵向：根据 viewport 高度计算可视行数（初始值，后续会被 expandRowsForContent 扩展）
     const viewportHeight = viewportElement.clientHeight;
-    const viewportRows = cell > 0
-      ? Math.max(1, Math.floor((viewportHeight - config.GRID_PADDING * 2 + config.GRID_GAP) / cell))
-      : 1;
+    const viewportRows =
+      cell > 0
+        ? Math.max(
+            1,
+            Math.floor((viewportHeight - config.GRID_PADDING * 2 + config.GRID_GAP) / cell)
+          )
+        : 1;
     rowNum.value = viewportRows;
 
     // 画布高度初始值取 viewport 与最低值中较大的
@@ -97,10 +108,10 @@ export function useGridLayout(
    * 在 reflow 完成后调用，确保容器能容纳所有 widget。
    */
   function expandRowsForContent(items: GridItem[]) {
-    const visibleItems = items.filter(i => !i.hidden);
+    const visibleItems = items.filter((i) => !i.hidden);
     if (visibleItems.length === 0) return;
 
-    const maxRowEnd = Math.max(...visibleItems.map(i => i.row + i.rowSpan - 1));
+    const maxRowEnd = Math.max(...visibleItems.map((i) => i.row + i.rowSpan - 1));
     const neededRows = maxRowEnd + 1; // 留一行余量
     if (neededRows > rowNum.value) {
       rowNum.value = neededRows;

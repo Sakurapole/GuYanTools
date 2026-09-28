@@ -1,5 +1,16 @@
 <script lang="ts" setup>
-import { computed, defineAsyncComponent, nextTick, onActivated, onDeactivated, onMounted, onUnmounted, reactive, ref, watch } from 'vue';
+import {
+  computed,
+  defineAsyncComponent,
+  nextTick,
+  onActivated,
+  onDeactivated,
+  onMounted,
+  onUnmounted,
+  reactive,
+  ref,
+  watch,
+} from 'vue';
 import CompArea from '../../components/CompArea/CompArea.vue';
 import UiPersonalizationConfig from '../../components/ui/UiPersonalizationConfig.vue';
 import IconPicker from '../../components/ui/IconPicker.vue';
@@ -10,7 +21,12 @@ import { useGridPersistence } from '../../composables/useGridPersistence';
 import { useContextMenu, type ContextMenuItem } from '../../composables/useContextMenu';
 import { useHomeProfileStore } from '../../stores/home_profile_store';
 import { useAppConfigStore } from '../../stores/app_config_store';
-import type { CategoryItem, GridConfig, GridItem, BackgroundConfirmPayload } from '../../types/grid';
+import type {
+  CategoryItem,
+  GridConfig,
+  GridItem,
+  BackgroundConfirmPayload,
+} from '../../types/grid';
 import type { CreateHomeWidgetPayload } from '@/contracts/home_layout';
 import { resolveThemeBackground, withThemeBackground } from '@/contracts/background';
 import { buildBackgroundTextVars } from '../../utils/backgroundTextColor';
@@ -40,10 +56,12 @@ const gridConfig: GridConfig = {
   MIN_VIEWPORT_HEIGHT,
 };
 
-
-
-const AddIconComponent = defineAsyncComponent(() => import('../../components/svgs/icons/AddIcon.vue'));
-const ChevronIconComponent = defineAsyncComponent(() => import('../../components/svgs/icons/ChevronIcon.vue'));
+const AddIconComponent = defineAsyncComponent(
+  () => import('../../components/svgs/icons/AddIcon.vue')
+);
+const ChevronIconComponent = defineAsyncComponent(
+  () => import('../../components/svgs/icons/ChevronIcon.vue')
+);
 
 const homeShellRef = ref<HTMLElement | null>(null);
 const compAreaWrapper = ref<HTMLElement | null>(null);
@@ -77,34 +95,51 @@ const categoryDescriptions: Record<string, string> = {
   'category-dev': '面向开发调试与接口效率能力。',
 };
 
-
-const slotACategory = computed<CategoryItem | null>(() => slotAIndex.value >= 0 ? categories[slotAIndex.value] ?? null : null);
-const slotBCategory = computed<CategoryItem | null>(() => slotBIndex.value >= 0 ? categories[slotBIndex.value] ?? null : null);
-const activeSlotCategory = computed<CategoryItem | null>(() => activeSlot.value === 'A' ? slotACategory.value : slotBCategory.value);
-const activeCategory = computed<CategoryItem | null>(() => categories[activeCategoryIndex.value] ?? activeSlotCategory.value);
+const slotACategory = computed<CategoryItem | null>(() =>
+  slotAIndex.value >= 0 ? (categories[slotAIndex.value] ?? null) : null
+);
+const slotBCategory = computed<CategoryItem | null>(() =>
+  slotBIndex.value >= 0 ? (categories[slotBIndex.value] ?? null) : null
+);
+const activeSlotCategory = computed<CategoryItem | null>(() =>
+  activeSlot.value === 'A' ? slotACategory.value : slotBCategory.value
+);
+const activeCategory = computed<CategoryItem | null>(
+  () => categories[activeCategoryIndex.value] ?? activeSlotCategory.value
+);
 const activeCategoryBackground = computed(() => {
   const category = activeCategory.value;
-  return resolveThemeBackground({
-    type: category?.backgroundVideo ? 'video' : category?.backgroundImage ? 'image' : 'color',
-    color: category?.backgroundColor,
-    image: category?.backgroundImage,
-    video: category?.backgroundVideo,
-    backgroundStyle: category?.backgroundStyle,
-  }, appConfigStore.config.appearance.theme);
+  return resolveThemeBackground(
+    {
+      type: category?.backgroundVideo ? 'video' : category?.backgroundImage ? 'image' : 'color',
+      color: category?.backgroundColor,
+      image: category?.backgroundImage,
+      video: category?.backgroundVideo,
+      backgroundStyle: category?.backgroundStyle,
+    },
+    appConfigStore.config.appearance.theme
+  );
 });
 const activeCategoryDescription = computed(() => {
   if (!activeCategory.value) {
     return '从左侧选择分类，进入你的桌面工作台。';
   }
 
-  return categoryDescriptions[activeCategory.value.icon] ?? `聚合「${activeCategory.value.label}」相关能力。`;
+  return (
+    categoryDescriptions[activeCategory.value.icon] ??
+    `聚合「${activeCategory.value.label}」相关能力。`
+  );
 });
-const activeCategoryWidgetCount = computed(() => activeCategory.value?.gridItems.filter(item => !item.hidden).length ?? 0);
+const activeCategoryWidgetCount = computed(
+  () => activeCategory.value?.gridItems.filter((item) => !item.hidden).length ?? 0
+);
 const visibleCategoryCount = computed(() => categories.length);
-const totalWidgetCount = computed(() => categories.reduce(
-  (sum, category) => sum + category.gridItems.filter(item => !item.hidden).length,
-  0
-));
+const totalWidgetCount = computed(() =>
+  categories.reduce(
+    (sum, category) => sum + category.gridItems.filter((item) => !item.hidden).length,
+    0
+  )
+);
 
 const showAddCategoryDialog = ref(false);
 const showCategoryIconPicker = ref(false);
@@ -141,16 +176,17 @@ let profileReloadReady = false;
 const homeInitStartedAt = typeof performance !== 'undefined' ? performance.now() : Date.now();
 
 function reportHomeInit(label: string) {
-  const elapsedMs = (typeof performance !== 'undefined' ? performance.now() : Date.now()) - homeInitStartedAt;
+  const elapsedMs =
+    (typeof performance !== 'undefined' ? performance.now() : Date.now()) - homeInitStartedAt;
   window.ipcRenderer?.send('diagnostics:renderer-timing', { label, elapsedMs });
 }
 
-function getMeasuredSize(target: HTMLElement | { $el?: Element } | null, fallback: { width: number; height: number }) {
-  const element = target instanceof HTMLElement
-    ? target
-    : target?.$el instanceof HTMLElement
-      ? target.$el
-      : null;
+function getMeasuredSize(
+  target: HTMLElement | { $el?: Element } | null,
+  fallback: { width: number; height: number }
+) {
+  const element =
+    target instanceof HTMLElement ? target : target?.$el instanceof HTMLElement ? target.$el : null;
 
   if (!element) return fallback;
 
@@ -160,9 +196,15 @@ function getMeasuredSize(target: HTMLElement | { $el?: Element } | null, fallbac
     : fallback;
 }
 
-const categoryBgPreviewSize = computed(() => getMeasuredSize(compAreaStageRef.value ?? compAreaWrapper.value, { width: 800, height: 500 }));
-const headerBgPreviewSize = computed(() => getMeasuredSize(homeHeaderRef.value, { width: 800, height: 120 }));
-const sidebarBgPreviewSize = computed(() => getMeasuredSize(sidebarPanelRef.value, { width: 200, height: 600 }));
+const categoryBgPreviewSize = computed(() =>
+  getMeasuredSize(compAreaStageRef.value ?? compAreaWrapper.value, { width: 800, height: 500 })
+);
+const headerBgPreviewSize = computed(() =>
+  getMeasuredSize(homeHeaderRef.value, { width: 800, height: 120 })
+);
+const sidebarBgPreviewSize = computed(() =>
+  getMeasuredSize(sidebarPanelRef.value, { width: 200, height: 600 })
+);
 
 function toObjectFit(backgroundSizeValue?: string): 'contain' | 'cover' | 'fill' | 'none' {
   switch (backgroundSizeValue) {
@@ -197,13 +239,18 @@ const headerBg = reactive({
   style: undefined as import('../../types/grid').BackgroundStyleConfig | undefined,
 });
 const showHeaderBgPicker = ref(false);
-const activeHeaderBg = computed(() => resolveThemeBackground({
-  type: headerBg.video ? 'video' : headerBg.image ? 'image' : 'color',
-  color: headerBg.color,
-  image: headerBg.image,
-  video: headerBg.video,
-  backgroundStyle: headerBg.style,
-}, appConfigStore.config.appearance.theme));
+const activeHeaderBg = computed(() =>
+  resolveThemeBackground(
+    {
+      type: headerBg.video ? 'video' : headerBg.image ? 'image' : 'color',
+      color: headerBg.color,
+      image: headerBg.image,
+      video: headerBg.video,
+      backgroundStyle: headerBg.style,
+    },
+    appConfigStore.config.appearance.theme
+  )
+);
 
 const headerBgStyle = computed(() => {
   const background = activeHeaderBg.value;
@@ -235,26 +282,32 @@ function handleHeaderContextMenu(e: MouseEvent) {
       id: 'header-bg',
       label: '顶栏个性化配置',
       icon: EditIcon,
-      action: () => { showHeaderBgPicker.value = true; },
+      action: () => {
+        showHeaderBgPicker.value = true;
+      },
     },
   ];
   contextMenu.open(e.clientX, e.clientY, menuItems);
 }
 
 function handleHeaderBgConfirm(payload: BackgroundConfirmPayload) {
-  const background = withThemeBackground({
-    type: headerBg.video ? 'video' : headerBg.image ? 'image' : 'color',
-    color: headerBg.color,
-    image: headerBg.image,
-    video: headerBg.video,
-    backgroundStyle: headerBg.style,
-  }, appConfigStore.config.appearance.theme, {
-    type: payload.type,
-    color: payload.color ?? '',
-    image: payload.image ?? '',
-    video: payload.video ?? '',
-    backgroundStyle: payload.backgroundStyle ?? {},
-  });
+  const background = withThemeBackground(
+    {
+      type: headerBg.video ? 'video' : headerBg.image ? 'image' : 'color',
+      color: headerBg.color,
+      image: headerBg.image,
+      video: headerBg.video,
+      backgroundStyle: headerBg.style,
+    },
+    appConfigStore.config.appearance.theme,
+    {
+      type: payload.type,
+      color: payload.color ?? '',
+      image: payload.image ?? '',
+      video: payload.video ?? '',
+      backgroundStyle: payload.backgroundStyle ?? {},
+    }
+  );
 
   headerBg.color = background.color;
   headerBg.image = background.image;
@@ -262,18 +315,30 @@ function handleHeaderBgConfirm(payload: BackgroundConfirmPayload) {
   headerBg.style = background.backgroundStyle;
 
   try {
-    window.homeWorkspaceApi?.updateBackground({
-      header: {
-        color: headerBg.color,
-        image: headerBg.image,
-        video: headerBg.video,
-        style: background.backgroundStyle as Record<string, unknown>,
-      },
-    }).catch(() => {
-      // fallback: 写 localStorage
-      localStorage.setItem(HEADER_BG_STORAGE_KEY, JSON.stringify({ color: headerBg.color, image: headerBg.image, video: headerBg.video, style: headerBg.style }));
-    });
-  } catch { /* ignore */ }
+    window.homeWorkspaceApi
+      ?.updateBackground({
+        header: {
+          color: headerBg.color,
+          image: headerBg.image,
+          video: headerBg.video,
+          style: background.backgroundStyle as Record<string, unknown>,
+        },
+      })
+      .catch(() => {
+        // fallback: 写 localStorage
+        localStorage.setItem(
+          HEADER_BG_STORAGE_KEY,
+          JSON.stringify({
+            color: headerBg.color,
+            image: headerBg.image,
+            video: headerBg.video,
+            style: headerBg.style,
+          })
+        );
+      });
+  } catch {
+    /* ignore */
+  }
 }
 
 // ─── 侧边栏背景 ───
@@ -285,13 +350,18 @@ const sidebarBg = reactive({
   style: undefined as import('../../types/grid').BackgroundStyleConfig | undefined,
 });
 const showSidebarBgPicker = ref(false);
-const activeSidebarBg = computed(() => resolveThemeBackground({
-  type: sidebarBg.video ? 'video' : sidebarBg.image ? 'image' : 'color',
-  color: sidebarBg.color,
-  image: sidebarBg.image,
-  video: sidebarBg.video,
-  backgroundStyle: sidebarBg.style,
-}, appConfigStore.config.appearance.theme));
+const activeSidebarBg = computed(() =>
+  resolveThemeBackground(
+    {
+      type: sidebarBg.video ? 'video' : sidebarBg.image ? 'image' : 'color',
+      color: sidebarBg.color,
+      image: sidebarBg.image,
+      video: sidebarBg.video,
+      backgroundStyle: sidebarBg.style,
+    },
+    appConfigStore.config.appearance.theme
+  )
+);
 
 const sidebarBgStyle = computed(() => {
   const background = activeSidebarBg.value;
@@ -323,32 +393,40 @@ function handleSidebarContextMenu(e: MouseEvent) {
       id: 'sidebar-add-category',
       label: '添加类别',
       icon: AddIconComponent,
-      action: () => { openAddCategoryDialog(); },
+      action: () => {
+        openAddCategoryDialog();
+      },
     },
     {
       id: 'sidebar-bg',
       label: '侧边栏个性化配置',
       icon: EditIcon,
-      action: () => { showSidebarBgPicker.value = true; },
+      action: () => {
+        showSidebarBgPicker.value = true;
+      },
     },
   ];
   contextMenu.open(e.clientX, e.clientY, menuItems);
 }
 
 function handleSidebarBgConfirm(payload: BackgroundConfirmPayload) {
-  const background = withThemeBackground({
-    type: sidebarBg.video ? 'video' : sidebarBg.image ? 'image' : 'color',
-    color: sidebarBg.color,
-    image: sidebarBg.image,
-    video: sidebarBg.video,
-    backgroundStyle: sidebarBg.style,
-  }, appConfigStore.config.appearance.theme, {
-    type: payload.type,
-    color: payload.color ?? '',
-    image: payload.image ?? '',
-    video: payload.video ?? '',
-    backgroundStyle: payload.backgroundStyle ?? {},
-  });
+  const background = withThemeBackground(
+    {
+      type: sidebarBg.video ? 'video' : sidebarBg.image ? 'image' : 'color',
+      color: sidebarBg.color,
+      image: sidebarBg.image,
+      video: sidebarBg.video,
+      backgroundStyle: sidebarBg.style,
+    },
+    appConfigStore.config.appearance.theme,
+    {
+      type: payload.type,
+      color: payload.color ?? '',
+      image: payload.image ?? '',
+      video: payload.video ?? '',
+      backgroundStyle: payload.backgroundStyle ?? {},
+    }
+  );
 
   sidebarBg.color = background.color;
   sidebarBg.image = background.image;
@@ -356,17 +434,29 @@ function handleSidebarBgConfirm(payload: BackgroundConfirmPayload) {
   sidebarBg.style = background.backgroundStyle;
 
   try {
-    window.homeWorkspaceApi?.updateBackground({
-      sidebar: {
-        color: sidebarBg.color,
-        image: sidebarBg.image,
-        video: sidebarBg.video,
-        style: background.backgroundStyle as Record<string, unknown>,
-      },
-    }).catch(() => {
-      localStorage.setItem(SIDEBAR_BG_STORAGE_KEY, JSON.stringify({ color: sidebarBg.color, image: sidebarBg.image, video: sidebarBg.video, style: sidebarBg.style }));
-    });
-  } catch { /* ignore */ }
+    window.homeWorkspaceApi
+      ?.updateBackground({
+        sidebar: {
+          color: sidebarBg.color,
+          image: sidebarBg.image,
+          video: sidebarBg.video,
+          style: background.backgroundStyle as Record<string, unknown>,
+        },
+      })
+      .catch(() => {
+        localStorage.setItem(
+          SIDEBAR_BG_STORAGE_KEY,
+          JSON.stringify({
+            color: sidebarBg.color,
+            image: sidebarBg.image,
+            video: sidebarBg.video,
+            style: sidebarBg.style,
+          })
+        );
+      });
+  } catch {
+    /* ignore */
+  }
 }
 
 function resetCategorySelection(hasCategories: boolean) {
@@ -397,9 +487,10 @@ function applyCategories(nextCategories: CategoryItem[], options: { resetActive?
   }
 
   const matchedIndex = previousActiveCategoryId
-    ? categories.findIndex(category => category.id === previousActiveCategoryId)
+    ? categories.findIndex((category) => category.id === previousActiveCategoryId)
     : -1;
-  const resolvedIndex = matchedIndex >= 0 ? matchedIndex : Math.min(activeCategoryIndex.value, categories.length - 1);
+  const resolvedIndex =
+    matchedIndex >= 0 ? matchedIndex : Math.min(activeCategoryIndex.value, categories.length - 1);
 
   activeCategoryIndex.value = resolvedIndex;
   if (activeSlot.value === 'A') {
@@ -426,7 +517,7 @@ async function reloadHomeLayout(options: { resetActive?: boolean } = {}) {
 
 async function ensureCategoryLoaded(categoryId: string): Promise<CategoryItem> {
   const generation = layoutGeneration;
-  const existing = categories.find(category => category.id === categoryId);
+  const existing = categories.find((category) => category.id === categoryId);
   if (!existing) {
     throw new Error(`首页分类 ${categoryId} 不存在`);
   }
@@ -443,7 +534,7 @@ async function ensureCategoryLoaded(categoryId: string): Promise<CategoryItem> {
 
   try {
     const loaded = await request;
-    const currentIndex = categories.findIndex(category => category.id === categoryId);
+    const currentIndex = categories.findIndex((category) => category.id === categoryId);
     if (generation === layoutGeneration && currentIndex >= 0) {
       categories[currentIndex] = loaded;
       loadedCategoryIds.add(categoryId);
@@ -457,20 +548,18 @@ async function ensureCategoryLoaded(categoryId: string): Promise<CategoryItem> {
 }
 
 function enqueueMutation(task: () => Promise<void>) {
-  mutationQueue = mutationQueue
-    .then(task)
-    .catch(async error => {
-      console.error('Failed to persist home layout mutation:', error);
-      loadError.value = '首页布局保存失败，已自动重新加载。';
-      notifyError(error, '首页布局保存失败');
+  mutationQueue = mutationQueue.then(task).catch(async (error) => {
+    console.error('Failed to persist home layout mutation:', error);
+    loadError.value = '首页布局保存失败，已自动重新加载。';
+    notifyError(error, '首页布局保存失败');
 
-      try {
-        await reloadHomeLayout();
-      } catch (reloadError) {
-        console.error('Failed to reload home layout after mutation error:', reloadError);
-        notifyError(reloadError, '首页布局重新加载失败');
-      }
-    });
+    try {
+      await reloadHomeLayout();
+    } catch (reloadError) {
+      console.error('Failed to reload home layout after mutation error:', reloadError);
+      notifyError(reloadError, '首页布局重新加载失败');
+    }
+  });
 
   return mutationQueue;
 }
@@ -550,9 +639,8 @@ async function initializeHomeLayout(options: { resetActive?: boolean } = {}) {
     reportHomeInit('workspace-backgrounds');
     await reloadHomeLayout({ resetActive: options.resetActive });
     reportHomeInit('layout-metadata');
-    const migrated = homeProfileStore.activeProfileKey === 'default'
-      ? await migrateLegacyLayoutIfNeeded()
-      : false;
+    const migrated =
+      homeProfileStore.activeProfileKey === 'default' ? await migrateLegacyLayoutIfNeeded() : false;
     reportHomeInit(migrated ? 'legacy-migrated' : 'legacy-skipped');
     if (migrated) {
       await reloadHomeLayout({ resetActive: options.resetActive });
@@ -569,7 +657,12 @@ async function initializeHomeLayout(options: { resetActive?: boolean } = {}) {
 }
 
 async function switchCategory(index: number) {
-  if (categories.length === 0 || index === activeCategoryIndex.value || index < 0 || index >= categories.length) {
+  if (
+    categories.length === 0 ||
+    index === activeCategoryIndex.value ||
+    index < 0 ||
+    index >= categories.length
+  ) {
     return;
   }
 
@@ -790,19 +883,23 @@ function handleCategoryBgConfirm(payload: BackgroundConfirmPayload) {
   const cat = activeCategory.value;
   if (!cat) return;
 
-  const background = withThemeBackground({
-    type: cat.backgroundVideo ? 'video' : cat.backgroundImage ? 'image' : 'color',
-    color: cat.backgroundColor,
-    image: cat.backgroundImage,
-    video: cat.backgroundVideo,
-    backgroundStyle: cat.backgroundStyle,
-  }, appConfigStore.config.appearance.theme, {
-    type: payload.type,
-    color: payload.color ?? '',
-    image: payload.image ?? '',
-    video: payload.video ?? '',
-    backgroundStyle: payload.backgroundStyle ?? {},
-  });
+  const background = withThemeBackground(
+    {
+      type: cat.backgroundVideo ? 'video' : cat.backgroundImage ? 'image' : 'color',
+      color: cat.backgroundColor,
+      image: cat.backgroundImage,
+      video: cat.backgroundVideo,
+      backgroundStyle: cat.backgroundStyle,
+    },
+    appConfigStore.config.appearance.theme,
+    {
+      type: payload.type,
+      color: payload.color ?? '',
+      image: payload.image ?? '',
+      video: payload.video ?? '',
+      backgroundStyle: payload.backgroundStyle ?? {},
+    }
+  );
 
   cat.backgroundColor = background.color;
   cat.backgroundImage = background.image;
@@ -861,9 +958,11 @@ function detachEventListeners() {
 function resumeAllVideos() {
   if (!homeShellRef.value) return;
   const videos = homeShellRef.value.querySelectorAll('video');
-  videos.forEach(video => {
+  videos.forEach((video) => {
     if (video.paused && video.src) {
-      video.play().catch(() => { /* 忽略自动播放被阻止的情况 */ });
+      video.play().catch(() => {
+        /* 忽略自动播放被阻止的情况 */
+      });
     }
   });
 }
@@ -871,7 +970,7 @@ function resumeAllVideos() {
 function pauseAllVideos() {
   if (!homeShellRef.value) return;
   const videos = homeShellRef.value.querySelectorAll('video');
-  videos.forEach(video => {
+  videos.forEach((video) => {
     if (!video.paused) {
       video.pause();
     }
@@ -898,11 +997,14 @@ onUnmounted(() => {
   sidebarResizeObserver = null;
 });
 
-watch(() => categories.length, async () => {
-  await nextTick();
-  updateCategoryScrollState();
-  updateSliderPosition();
-});
+watch(
+  () => categories.length,
+  async () => {
+    await nextTick();
+    updateCategoryScrollState();
+    updateSliderPosition();
+  }
+);
 
 // ─── 监听活跃分类索引变化，更新滑块位置 ───
 watch(activeCategoryIndex, async () => {
@@ -910,29 +1012,55 @@ watch(activeCategoryIndex, async () => {
   updateSliderPosition();
 });
 
-watch(() => homeProfileStore.activeProfileKey, (key, previousKey) => {
-  if (!profileReloadReady || key === previousKey) {
-    return;
-  }
+watch(
+  () => homeProfileStore.activeProfileKey,
+  (key, previousKey) => {
+    if (!profileReloadReady || key === previousKey) {
+      return;
+    }
 
-  void initializeHomeLayout({ resetActive: true });
-});
+    void initializeHomeLayout({ resetActive: true });
+  }
+);
 </script>
 
 <template>
   <div class="home-shell" ref="homeShellRef">
     <div class="home-container">
       <aside class="category-sidebar" @contextmenu="handleSidebarContextMenu">
-        <gt-card ref="sidebarPanelRef" class="sidebar-panel" variant="elevated" :bordered="false" padding="none" radius="lg" :style="sidebarBgStyle">
-          <video v-if="activeSidebarBg.video" class="sidebar-panel__video" :src="activeSidebarBg.video" :style="sidebarBgVideoStyle"
-            autoplay loop muted playsinline />
+        <gt-card
+          ref="sidebarPanelRef"
+          class="sidebar-panel"
+          variant="elevated"
+          :bordered="false"
+          padding="none"
+          radius="lg"
+          :style="sidebarBgStyle"
+        >
+          <video
+            v-if="activeSidebarBg.video"
+            class="sidebar-panel__video"
+            :src="activeSidebarBg.video"
+            :style="sidebarBgVideoStyle"
+            autoplay
+            loop
+            muted
+            playsinline
+          />
           <div class="sidebar-heading">
             <span class="sidebar-heading__title">分类导航</span>
           </div>
 
           <div class="category-list-shell">
-            <gt-icon-button v-if="canScrollCategoryUp" class="category-scroll-btn category-scroll-btn--up" size="sm" variant="ghost"
-              title="向上滚动分类列表" aria-label="向上滚动分类列表" @gt-click="scrollCategoryList('up')">
+            <gt-icon-button
+              v-if="canScrollCategoryUp"
+              class="category-scroll-btn category-scroll-btn--up"
+              size="sm"
+              variant="ghost"
+              title="向上滚动分类列表"
+              aria-label="向上滚动分类列表"
+              @gt-click="scrollCategoryList('up')"
+            >
               <span class="category-scroll-btn__icon">
                 <ChevronIconComponent direction="up" :width="18" :height="18" />
               </span>
@@ -947,9 +1075,17 @@ watch(() => homeProfileStore.activeProfileKey, (key, previousKey) => {
                   height: `${sliderStyle.height}px`,
                 }"
               />
-              <gt-button v-for="(category, index) in categories" :key="category.id" class="category-item" variant="ghost" type="button"
-                :active="index === activeCategoryIndex" :class="{ active: index === activeCategoryIndex }" :title="category.label"
-                @gt-click="switchCategory(index)">
+              <gt-button
+                v-for="(category, index) in categories"
+                :key="category.id"
+                class="category-item"
+                variant="ghost"
+                type="button"
+                :active="index === activeCategoryIndex"
+                :class="{ active: index === activeCategoryIndex }"
+                :title="category.label"
+                @gt-click="switchCategory(index)"
+              >
                 <div class="category-icon">
                   <IconRenderer :icon="category.icon" :size="26" />
                 </div>
@@ -957,8 +1093,15 @@ watch(() => homeProfileStore.activeProfileKey, (key, previousKey) => {
               </gt-button>
             </div>
 
-            <gt-icon-button v-if="canScrollCategoryDown" class="category-scroll-btn category-scroll-btn--down" size="sm" variant="ghost"
-              title="向下滚动分类列表" aria-label="向下滚动分类列表" @gt-click="scrollCategoryList('down')">
+            <gt-icon-button
+              v-if="canScrollCategoryDown"
+              class="category-scroll-btn category-scroll-btn--down"
+              size="sm"
+              variant="ghost"
+              title="向下滚动分类列表"
+              aria-label="向下滚动分类列表"
+              @gt-click="scrollCategoryList('down')"
+            >
               <span class="category-scroll-btn__icon">
                 <ChevronIconComponent direction="down" :width="18" :height="18" />
               </span>
@@ -968,9 +1111,22 @@ watch(() => homeProfileStore.activeProfileKey, (key, previousKey) => {
       </aside>
 
       <section class="home-stage">
-        <header ref="homeHeaderRef" class="home-stage__header" :style="headerBgStyle" @contextmenu="handleHeaderContextMenu">
-          <video v-if="activeHeaderBg.video" class="home-stage__header-video" :src="activeHeaderBg.video" :style="headerBgVideoStyle"
-            autoplay loop muted playsinline />
+        <header
+          ref="homeHeaderRef"
+          class="home-stage__header"
+          :style="headerBgStyle"
+          @contextmenu="handleHeaderContextMenu"
+        >
+          <video
+            v-if="activeHeaderBg.video"
+            class="home-stage__header-video"
+            :src="activeHeaderBg.video"
+            :style="headerBgVideoStyle"
+            autoplay
+            loop
+            muted
+            playsinline
+          />
           <div class="home-stage__header-inner">
             <div class="home-stage__title-group">
               <h1>{{ activeCategory?.label || '首页工作台' }}</h1>
@@ -998,28 +1154,67 @@ watch(() => homeProfileStore.activeProfileKey, (key, previousKey) => {
         </header>
 
         <div class="comp-area-wrapper" ref="compAreaWrapper">
-          <gt-card class="comp-area-panel" variant="elevated" :bordered="false" padding="none" radius="lg">
+          <gt-card
+            class="comp-area-panel"
+            variant="elevated"
+            :bordered="false"
+            padding="none"
+            radius="lg"
+          >
             <div v-if="isLoading" class="home-state">
-              <gt-state-card class="home-state-card" state="loading" title="首页布局加载中..." description="正在恢复你的桌面工作台布局。" />
+              <gt-state-card
+                class="home-state-card"
+                state="loading"
+                title="首页布局加载中..."
+                description="正在恢复你的桌面工作台布局。"
+              />
             </div>
             <div v-else-if="!activeSlotCategory" class="home-state">
-              <gt-state-card class="home-state-card" :state="loadError ? 'error' : 'empty'" :title="loadError || '暂无首页分类'"
-                :description="loadError ? '请稍后重试，或检查布局数据。' : '从左侧添加一个类别，开始组织你的工具。'" />
+              <gt-state-card
+                class="home-state-card"
+                :state="loadError ? 'error' : 'empty'"
+                :title="loadError || '暂无首页分类'"
+                :description="
+                  loadError
+                    ? '请稍后重试，或检查布局数据。'
+                    : '从左侧添加一个类别，开始组织你的工具。'
+                "
+              />
             </div>
 
             <div v-else ref="compAreaStageRef" class="comp-area-stage">
               <!-- Slot A -->
-              <div class="comp-area-container" :class="getSlotClasses('A')" :style="getSlotStyle('A')">
-                <CompArea v-if="slotACategory" :category="slotACategory" :config="gridConfig"
-                  @layout-change="handleLayoutChange" @item-deleted="handleItemDeleted"
-                  @item-created="handleItemCreated" @change-background="openCategoryBgPicker" />
+              <div
+                class="comp-area-container"
+                :class="getSlotClasses('A')"
+                :style="getSlotStyle('A')"
+              >
+                <CompArea
+                  v-if="slotACategory"
+                  :category="slotACategory"
+                  :config="gridConfig"
+                  @layout-change="handleLayoutChange"
+                  @item-deleted="handleItemDeleted"
+                  @item-created="handleItemCreated"
+                  @change-background="openCategoryBgPicker"
+                />
               </div>
 
               <!-- Slot B -->
-              <div class="comp-area-container" :class="getSlotClasses('B')" :style="getSlotStyle('B')">
-                <CompArea v-if="slotBCategory" :category="slotBCategory" :config="gridConfig"
-                  @layout-change="handleLayoutChange" @item-deleted="handleItemDeleted"
-                  @item-created="handleItemCreated" @change-background="openCategoryBgPicker" />
+              <div
+                class="comp-area-container"
+                :class="getSlotClasses('B')"
+                :style="getSlotStyle('B')"
+              >
+                <CompArea
+                  v-if="slotBCategory"
+                  :category="slotBCategory"
+                  :config="gridConfig"
+                  @layout-change="handleLayoutChange"
+                  @item-deleted="handleItemDeleted"
+                  @item-created="handleItemCreated"
+                  @change-background="openCategoryBgPicker"
+                />
               </div>
             </div>
           </gt-card>
@@ -1031,29 +1226,43 @@ watch(() => homeProfileStore.activeProfileKey, (key, previousKey) => {
     <gt-dialog
       :open="showAddCategoryDialog"
       class="dialog-container"
-      style="--gt-dialog-width: 400px;"
+      style="--gt-dialog-width: 400px"
       aria-label="添加新类别"
       :close-on-mask="false"
       @gt-open-change="handleAddCategoryDialogChange"
     >
       <div slot="header" class="dialog-header">
         <h3>添加新类别</h3>
-        <gt-icon-button class="dialog-close-btn" variant="ghost" size="md" shape="square" title="关闭"
-          @gt-click="closeAddCategoryDialog">
+        <gt-icon-button
+          class="dialog-close-btn"
+          variant="ghost"
+          size="md"
+          shape="square"
+          title="关闭"
+          @gt-click="closeAddCategoryDialog"
+        >
           ✕
         </gt-icon-button>
       </div>
 
       <div class="dialog-body">
         <gt-field label="类别名称" for="category-label">
-          <gt-input id="category-label" :value="newCategoryForm.label" placeholder="请输入类别名称"
+          <gt-input
+            id="category-label"
+            :value="newCategoryForm.label"
+            placeholder="请输入类别名称"
             @gt-input="handleCategoryLabelInput"
-            @keydown="handleCategoryLabelKeydown" />
+            @keydown="handleCategoryLabelKeydown"
+          />
         </gt-field>
         <gt-field label="图标" for="category-icon">
           <div class="icon-pick-trigger" @click="showCategoryIconPicker = true">
             <div v-if="newCategoryForm.icon" class="icon-pick-trigger__preview">
-              <IconRenderer :icon="newCategoryForm.icon" :size="20" color="var(--ui-text-primary)" />
+              <IconRenderer
+                :icon="newCategoryForm.icon"
+                :size="20"
+                color="var(--ui-text-primary)"
+              />
               <span class="icon-pick-trigger__label">更换图标</span>
             </div>
             <span v-else class="icon-pick-trigger__placeholder">点击选择图标</span>
@@ -1061,37 +1270,62 @@ watch(() => homeProfileStore.activeProfileKey, (key, previousKey) => {
           </div>
         </gt-field>
 
-        <IconPicker :visible="showCategoryIconPicker" v-model="newCategoryForm.icon"
-          @close="showCategoryIconPicker = false" />
+        <IconPicker
+          :visible="showCategoryIconPicker"
+          v-model="newCategoryForm.icon"
+          @close="showCategoryIconPicker = false"
+        />
       </div>
 
       <div slot="footer" class="dialog-footer">
         <gt-button variant="secondary" @gt-click="closeAddCategoryDialog">取消</gt-button>
-        <gt-button variant="primary" :disabled="!newCategoryForm.label.trim()" @gt-click="confirmAddCategory">确认</gt-button>
+        <gt-button
+          variant="primary"
+          :disabled="!newCategoryForm.label.trim()"
+          @gt-click="confirmAddCategory"
+          >确认</gt-button
+        >
       </div>
     </gt-dialog>
 
     <!-- 类别区域个性化配置 -->
-    <UiPersonalizationConfig :visible="showCategoryBgPicker" :currentBackground="activeCategoryBackground.color"
+    <UiPersonalizationConfig
+      :visible="showCategoryBgPicker"
+      :currentBackground="activeCategoryBackground.color"
       :currentBackgroundImage="activeCategoryBackground.image"
       :currentBackgroundVideo="activeCategoryBackground.video"
       :currentBackgroundStyle="activeCategoryBackground.backgroundStyle"
-      :preview-width="categoryBgPreviewSize.width" :preview-height="categoryBgPreviewSize.height"
-      @close="closeCategoryBgPicker" @confirm="handleCategoryBgConfirm" />
+      :preview-width="categoryBgPreviewSize.width"
+      :preview-height="categoryBgPreviewSize.height"
+      @close="closeCategoryBgPicker"
+      @confirm="handleCategoryBgConfirm"
+    />
 
     <!-- 顶栏个性化配置 -->
-    <UiPersonalizationConfig :visible="showHeaderBgPicker" :currentBackground="activeHeaderBg.color"
-      :currentBackgroundImage="activeHeaderBg.image" :currentBackgroundVideo="activeHeaderBg.video"
+    <UiPersonalizationConfig
+      :visible="showHeaderBgPicker"
+      :currentBackground="activeHeaderBg.color"
+      :currentBackgroundImage="activeHeaderBg.image"
+      :currentBackgroundVideo="activeHeaderBg.video"
       :currentBackgroundStyle="activeHeaderBg.backgroundStyle"
-      :preview-width="headerBgPreviewSize.width" :preview-height="headerBgPreviewSize.height"
-      @close="showHeaderBgPicker = false" @confirm="handleHeaderBgConfirm" />
+      :preview-width="headerBgPreviewSize.width"
+      :preview-height="headerBgPreviewSize.height"
+      @close="showHeaderBgPicker = false"
+      @confirm="handleHeaderBgConfirm"
+    />
 
     <!-- 侧边栏个性化配置 -->
-    <UiPersonalizationConfig :visible="showSidebarBgPicker" :currentBackground="activeSidebarBg.color"
-      :currentBackgroundImage="activeSidebarBg.image" :currentBackgroundVideo="activeSidebarBg.video"
+    <UiPersonalizationConfig
+      :visible="showSidebarBgPicker"
+      :currentBackground="activeSidebarBg.color"
+      :currentBackgroundImage="activeSidebarBg.image"
+      :currentBackgroundVideo="activeSidebarBg.video"
       :currentBackgroundStyle="activeSidebarBg.backgroundStyle"
-      :preview-width="sidebarBgPreviewSize.width" :preview-height="sidebarBgPreviewSize.height"
-      @close="showSidebarBgPicker = false" @confirm="handleSidebarBgConfirm" />
+      :preview-width="sidebarBgPreviewSize.width"
+      :preview-height="sidebarBgPreviewSize.height"
+      @close="showSidebarBgPicker = false"
+      @confirm="handleSidebarBgConfirm"
+    />
   </div>
 </template>
 

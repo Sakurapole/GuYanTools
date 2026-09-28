@@ -19,7 +19,12 @@ export function useGridDrag(
     clampCoordinate: (value: number, min: number, max: number) => number;
     toGridPosition: (value: number) => number;
     syncDraggingPosition: (item: GridItem, draggingPosition: Ref<{ x: number; y: number }>) => void;
-    findAvailablePosition: (item: GridItem, targetCol: number, targetRow: number, initialPosition: { col: number; row: number }) => { col: number; row: number };
+    findAvailablePosition: (
+      item: GridItem,
+      targetCol: number,
+      targetRow: number,
+      initialPosition: { col: number; row: number }
+    ) => { col: number; row: number };
   },
   onDragEnd: () => void
 ) {
@@ -58,15 +63,8 @@ export function useGridDrag(
     if (!areaRect) return;
 
     const rawX =
-      event.clientX -
-      areaRect.left -
-      layoutHelpers.horizontalOffset.value -
-      pointerOffset.value.x;
-    const rawY =
-      event.clientY -
-      areaRect.top -
-      config.GRID_PADDING -
-      pointerOffset.value.y;
+      event.clientX - areaRect.left - layoutHelpers.horizontalOffset.value - pointerOffset.value.x;
+    const rawY = event.clientY - areaRect.top - config.GRID_PADDING - pointerOffset.value.y;
 
     const maxX =
       (layoutHelpers.colNum.value - draggingItem.value.colSpan) * layoutHelpers.cellSize.value;
@@ -81,7 +79,8 @@ export function useGridDrag(
 
   function stopDragging(event?: PointerEvent) {
     if (!draggingItem.value) return;
-    if (event && activePointerId.value !== null && event.pointerId !== activePointerId.value) return;
+    if (event && activePointerId.value !== null && event.pointerId !== activePointerId.value)
+      return;
 
     const item = draggingItem.value;
 
@@ -96,7 +95,12 @@ export function useGridDrag(
       Math.max(1, layoutHelpers.rowNum.value - item.rowSpan + 1)
     );
 
-    const finalPosition = layoutHelpers.findAvailablePosition(item, snappedCol, snappedRow, initialPosition.value);
+    const finalPosition = layoutHelpers.findAvailablePosition(
+      item,
+      snappedCol,
+      snappedRow,
+      initialPosition.value
+    );
 
     item.col = finalPosition.col;
     item.row = finalPosition.row;
@@ -249,4 +253,3 @@ export function useGridDrag(
     cleanup,
   };
 }
-

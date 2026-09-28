@@ -14,17 +14,28 @@ const isHorizontal = computed(() => props.item.colSpan > 1 && props.item.rowSpan
 </script>
 
 <template>
-  <div class="shortcut-widget" :class="{
-    'shortcut-widget--interactive': props.interactive !== false,
-    'shortcut-widget--hero': props.item.colSpan >= 4 || props.item.rowSpan >= 3,
-    'shortcut-widget--icon-only': isIconOnly,
-    'shortcut-widget--horizontal': isHorizontal,
-  }" :title="isIconOnly ? props.item.label : undefined">
+  <div
+    class="shortcut-widget"
+    :class="{
+      'shortcut-widget--interactive': props.interactive !== false,
+      'shortcut-widget--hero': props.item.colSpan >= 4 || props.item.rowSpan >= 3,
+      'shortcut-widget--icon-only': isIconOnly,
+      'shortcut-widget--horizontal': isHorizontal,
+    }"
+    :title="isIconOnly ? props.item.label : undefined"
+  >
     <div class="shortcut-widget__icon">
-      <IconRenderer v-if="hasIcon" :icon="props.item.icon!" :size="isIconOnly || isHorizontal ? 20 : (props.item.colSpan >= 4 ? 32 : 24)" color="var(--widget-text-primary, white)" />
+      <IconRenderer
+        v-if="hasIcon"
+        :icon="props.item.icon!"
+        :size="isIconOnly || isHorizontal ? 20 : props.item.colSpan >= 4 ? 32 : 24"
+        color="var(--widget-text-primary, white)"
+      />
       <span v-else class="shortcut-widget__text-icon">{{ props.item.label.slice(0, 1) }}</span>
     </div>
-    <div v-if="!isIconOnly" class="shortcut-widget__label" :title="props.item.label">{{ props.item.label }}</div>
+    <div v-if="!isIconOnly" class="shortcut-widget__label" :title="props.item.label">
+      {{ props.item.label }}
+    </div>
   </div>
 </template>
 
@@ -67,7 +78,11 @@ const isHorizontal = computed(() => props.item.colSpan > 1 && props.item.rowSpan
   width: 72%;
   height: 72%;
   border-radius: 999px;
-  background: radial-gradient(circle, color-mix(in srgb, var(--widget-text-primary, white) 26%, transparent) 0%, transparent 70%);
+  background: radial-gradient(
+    circle,
+    color-mix(in srgb, var(--widget-text-primary, white) 26%, transparent) 0%,
+    transparent 70%
+  );
   transform: translate3d(-8px, 10px, 0) scale(0.92);
   z-index: 0;
 }
@@ -77,7 +92,13 @@ const isHorizontal = computed(() => props.item.colSpan > 1 && props.item.rowSpan
   left: -140%;
   width: 90%;
   height: 100%;
-  background: linear-gradient(115deg, transparent 0%, color-mix(in srgb, var(--widget-text-primary, white) 8%, transparent) 42%, color-mix(in srgb, var(--widget-text-primary, white) 24%, transparent) 50%, transparent 58%);
+  background: linear-gradient(
+    115deg,
+    transparent 0%,
+    color-mix(in srgb, var(--widget-text-primary, white) 8%, transparent) 42%,
+    color-mix(in srgb, var(--widget-text-primary, white) 24%, transparent) 50%,
+    transparent 58%
+  );
   transform: skewX(-20deg);
   z-index: 1;
 }

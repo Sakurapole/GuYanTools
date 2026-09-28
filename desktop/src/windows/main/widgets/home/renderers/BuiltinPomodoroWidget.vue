@@ -4,12 +4,15 @@ import type { GridItem, PomodoroWidgetConfig } from '../../../types/grid';
 import UiButton from '../../../components/ui/UiButton.vue';
 import { normalizeWidgetConfig } from '../registry';
 
-const props = withDefaults(defineProps<{
-  item: GridItem;
-  interactive?: boolean;
-}>(), {
-  interactive: true,
-});
+const props = withDefaults(
+  defineProps<{
+    item: GridItem;
+    interactive?: boolean;
+  }>(),
+  {
+    interactive: true,
+  }
+);
 
 type PomodoroMode = 'focus' | 'shortBreak' | 'longBreak';
 
@@ -20,7 +23,9 @@ type PomodoroRuntimeState = {
   completedFocusSessions: number;
 };
 
-const config = computed(() => normalizeWidgetConfig('pomodoro', props.item.widgetConfig) as PomodoroWidgetConfig);
+const config = computed(
+  () => normalizeWidgetConfig('pomodoro', props.item.widgetConfig) as PomodoroWidgetConfig
+);
 const isCompact = computed(() => props.item.colSpan <= 2 && props.item.rowSpan <= 2);
 const isLarge = computed(() => props.item.colSpan >= 4 && props.item.rowSpan >= 3);
 const tickTimer = ref<number | null>(null);
@@ -54,10 +59,13 @@ function hydrateState() {
 
   try {
     const parsed = JSON.parse(raw) as Partial<PomodoroRuntimeState>;
-    runtime.mode = parsed.mode === 'shortBreak' || parsed.mode === 'longBreak' ? parsed.mode : 'focus';
+    runtime.mode =
+      parsed.mode === 'shortBreak' || parsed.mode === 'longBreak' ? parsed.mode : 'focus';
     runtime.endAt = typeof parsed.endAt === 'number' ? parsed.endAt : null;
-    runtime.remainingMs = typeof parsed.remainingMs === 'number' ? parsed.remainingMs : getModeDurationMs(runtime.mode);
-    runtime.completedFocusSessions = typeof parsed.completedFocusSessions === 'number' ? parsed.completedFocusSessions : 0;
+    runtime.remainingMs =
+      typeof parsed.remainingMs === 'number' ? parsed.remainingMs : getModeDurationMs(runtime.mode);
+    runtime.completedFocusSessions =
+      typeof parsed.completedFocusSessions === 'number' ? parsed.completedFocusSessions : 0;
   } catch {
     runtime.mode = 'focus';
     runtime.endAt = null;
@@ -72,13 +80,17 @@ function emitNotification() {
   }
 
   const message = runtime.mode === 'focus' ? '休息结束，继续专注。' : '开始休息一下。';
-  window.notificationApi?.show({
-    type: 'text',
-    size: 'sm',
-    title: `${props.item.label} 已完成`,
-    message,
-    duration: 5000,
-  }).catch(() => { /* ignore */ });
+  window.notificationApi
+    ?.show({
+      type: 'text',
+      size: 'sm',
+      title: `${props.item.label} 已完成`,
+      message,
+      duration: 5000,
+    })
+    .catch(() => {
+      /* ignore */
+    });
 }
 
 function resetForMode(mode: PomodoroMode) {
@@ -157,11 +169,15 @@ const modeLabel = computed(() => {
   return '专注';
 });
 
-watch(() => props.item.widgetConfig, () => {
-  if (!runtime.endAt) {
-    runtime.remainingMs = getModeDurationMs(runtime.mode);
-  }
-}, { deep: true });
+watch(
+  () => props.item.widgetConfig,
+  () => {
+    if (!runtime.endAt) {
+      runtime.remainingMs = getModeDurationMs(runtime.mode);
+    }
+  },
+  { deep: true }
+);
 
 onMounted(() => {
   hydrateState();
@@ -180,25 +196,64 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-  <div class="pomodoro-widget" :class="{ 'pomodoro-widget--compact': isCompact, 'pomodoro-widget--large': isLarge }">
+  <div
+    class="pomodoro-widget"
+    :class="{ 'pomodoro-widget--compact': isCompact, 'pomodoro-widget--large': isLarge }"
+  >
     <div class="pomodoro-widget__header">
       <span class="pomodoro-widget__eyebrow">{{ modeLabel }}</span>
-      <span v-if="!isCompact" class="pomodoro-widget__meta">已完成 {{ runtime.completedFocusSessions }} 次</span>
+      <span v-if="!isCompact" class="pomodoro-widget__meta"
+        >已完成 {{ runtime.completedFocusSessions }} 次</span
+      >
     </div>
 
     <div class="pomodoro-widget__time">{{ remainingText }}</div>
 
     <div v-if="!isCompact" class="pomodoro-widget__modes">
-      <UiButton type="button" variant="ghost" :class="{ active: runtime.mode === 'focus' }" @click.stop="setMode('focus')" @pointerdown.stop>专注</UiButton>
-      <UiButton type="button" variant="ghost" :class="{ active: runtime.mode === 'shortBreak' }" @click.stop="setMode('shortBreak')" @pointerdown.stop>短休</UiButton>
-      <UiButton type="button" variant="ghost" :class="{ active: runtime.mode === 'longBreak' }" @click.stop="setMode('longBreak')" @pointerdown.stop>长休</UiButton>
+      <UiButton
+        type="button"
+        variant="ghost"
+        :class="{ active: runtime.mode === 'focus' }"
+        @click.stop="setMode('focus')"
+        @pointerdown.stop
+        >专注</UiButton
+      >
+      <UiButton
+        type="button"
+        variant="ghost"
+        :class="{ active: runtime.mode === 'shortBreak' }"
+        @click.stop="setMode('shortBreak')"
+        @pointerdown.stop
+        >短休</UiButton
+      >
+      <UiButton
+        type="button"
+        variant="ghost"
+        :class="{ active: runtime.mode === 'longBreak' }"
+        @click.stop="setMode('longBreak')"
+        @pointerdown.stop
+        >长休</UiButton
+      >
     </div>
 
     <div class="pomodoro-widget__actions">
-      <UiButton type="button" variant="ghost" class="primary" @click.stop="toggleTimer" @pointerdown.stop>
+      <UiButton
+        type="button"
+        variant="ghost"
+        class="primary"
+        @click.stop="toggleTimer"
+        @pointerdown.stop
+      >
         {{ runtime.endAt ? '暂停' : '开始' }}
       </UiButton>
-      <UiButton v-if="!isCompact" type="button" variant="ghost" @click.stop="resetTimer" @pointerdown.stop>重置</UiButton>
+      <UiButton
+        v-if="!isCompact"
+        type="button"
+        variant="ghost"
+        @click.stop="resetTimer"
+        @pointerdown.stop
+        >重置</UiButton
+      >
     </div>
 
     <div v-if="isLarge" class="pomodoro-widget__footer">

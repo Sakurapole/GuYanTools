@@ -5,19 +5,22 @@ import UiButton from '../ui/UiButton.vue';
 import UiDialog from '../ui/UiDialog.vue';
 import UiIconButton from '../ui/UiIconButton.vue';
 
-const props = withDefaults(defineProps<{
-  visible: boolean;
-  image: string;
-  targetWidth?: number;
-  targetHeight?: number;
-  processingMode?: 'canvas' | 'ffmpeg';
-  quality?: CompressQuality;
-}>(), {
-  targetWidth: 1,
-  targetHeight: 1,
-  processingMode: 'canvas',
-  quality: 'high',
-});
+const props = withDefaults(
+  defineProps<{
+    visible: boolean;
+    image: string;
+    targetWidth?: number;
+    targetHeight?: number;
+    processingMode?: 'canvas' | 'ffmpeg';
+    quality?: CompressQuality;
+  }>(),
+  {
+    targetWidth: 1,
+    targetHeight: 1,
+    processingMode: 'canvas',
+    quality: 'high',
+  }
+);
 
 const emit = defineEmits<{
   close: [];
@@ -122,7 +125,12 @@ const initializeImage = () => {
     };
 
     // 初始化裁剪框位置（按目标区域比例居中）
-    const { width: initialWidth, height: initialHeight } = getFittedCropSize(displayWidth, displayHeight, targetAspect.value, 0.72);
+    const { width: initialWidth, height: initialHeight } = getFittedCropSize(
+      displayWidth,
+      displayHeight,
+      targetAspect.value,
+      0.72
+    );
     cropBox.value = {
       x: imageOffset.value.x + (displayWidth - initialWidth) / 2,
       y: imageOffset.value.y + (displayHeight - initialHeight) / 2,
@@ -204,9 +212,7 @@ const handleMouseMove = (e: MouseEvent) => {
     const proposedHeight = fromTop ? cropBox.value.height - deltaY : cropBox.value.height + deltaY;
     const minWidth = Math.min(50, maxWidth);
     const minHeight = Math.min(minWidth / aspect, maxHeight);
-    let nextWidth = Math.abs(deltaX) >= Math.abs(deltaY)
-      ? proposedWidth
-      : proposedHeight * aspect;
+    let nextWidth = Math.abs(deltaX) >= Math.abs(deltaY) ? proposedWidth : proposedHeight * aspect;
     nextWidth = Math.max(minWidth, Math.min(maxWidth, nextWidth));
     let nextHeight = nextWidth / aspect;
 
@@ -259,7 +265,12 @@ const cropImage = async () => {
     isProcessing.value = true;
     try {
       const result = await window.mediaApi.compressImage(props.image, {
-        crop: { x: Math.round(sourceX), y: Math.round(sourceY), width: Math.round(sourceWidth), height: Math.round(sourceHeight) },
+        crop: {
+          x: Math.round(sourceX),
+          y: Math.round(sourceY),
+          width: Math.round(sourceWidth),
+          height: Math.round(sourceHeight),
+        },
         maxSize: MAX_CROPPED_OUTPUT_SIZE,
         quality: props.quality,
         format: 'jpeg',
@@ -276,9 +287,17 @@ const cropImage = async () => {
   }
 };
 
-function cropImageCanvas(ctx: CanvasRenderingContext2D, img: HTMLImageElement, sourceX: number, sourceY: number, sourceWidth: number, sourceHeight: number) {
+function cropImageCanvas(
+  ctx: CanvasRenderingContext2D,
+  img: HTMLImageElement,
+  sourceX: number,
+  sourceY: number,
+  sourceWidth: number,
+  sourceHeight: number
+) {
   const maxSourceSide = Math.max(sourceWidth, sourceHeight);
-  const outputScale = maxSourceSide > MAX_CROPPED_OUTPUT_SIZE ? MAX_CROPPED_OUTPUT_SIZE / maxSourceSide : 1;
+  const outputScale =
+    maxSourceSide > MAX_CROPPED_OUTPUT_SIZE ? MAX_CROPPED_OUTPUT_SIZE / maxSourceSide : 1;
   const outputWidth = Math.max(1, Math.round(sourceWidth * outputScale));
   const outputHeight = Math.max(1, Math.round(sourceHeight * outputScale));
   canvas.value!.width = outputWidth;
@@ -286,7 +305,7 @@ function cropImageCanvas(ctx: CanvasRenderingContext2D, img: HTMLImageElement, s
   ctx.drawImage(img, sourceX, sourceY, sourceWidth, sourceHeight, 0, 0, outputWidth, outputHeight);
   const croppedImage = canvas.value!.toDataURL('image/jpeg', 0.92);
   emit('confirm', croppedImage);
-};
+}
 
 // 处理窗口大小变化
 const handleResize = () => {
@@ -294,17 +313,23 @@ const handleResize = () => {
 };
 
 // 监听图片变化
-watch(() => props.image, (newImage) => {
-  if (newImage && props.visible) {
-    setTimeout(initializeImage, 100);
+watch(
+  () => props.image,
+  (newImage) => {
+    if (newImage && props.visible) {
+      setTimeout(initializeImage, 100);
+    }
   }
-});
+);
 
-watch(() => props.visible, (visible) => {
-  if (visible && props.image) {
-    setTimeout(initializeImage, 100);
+watch(
+  () => props.visible,
+  (visible) => {
+    if (visible && props.image) {
+      setTimeout(initializeImage, 100);
+    }
   }
-});
+);
 
 onMounted(() => {
   document.addEventListener('mousemove', handleMouseMove);
@@ -330,27 +355,45 @@ const handleDialogModelValueChange = (value: boolean) => {
 </script>
 
 <template>
-  <UiDialog class="image-cropper" :model-value="visible" width="800px" max-width="800px" :close-on-mask="false"
-    @update:modelValue="handleDialogModelValueChange">
+  <UiDialog
+    class="image-cropper"
+    :model-value="visible"
+    width="800px"
+    max-width="800px"
+    :close-on-mask="false"
+    @update:modelValue="handleDialogModelValueChange"
+  >
     <template #header>
-        <div class="cropper-header">
-          <h3>裁剪图片</h3>
-          <UiIconButton class="close-btn" variant="ghost" size="md" shape="square" title="关闭"
-            @click="emit('close')">
-            ✕
-          </UiIconButton>
-        </div>
+      <div class="cropper-header">
+        <h3>裁剪图片</h3>
+        <UiIconButton
+          class="close-btn"
+          variant="ghost"
+          size="md"
+          shape="square"
+          title="关闭"
+          @click="emit('close')"
+        >
+          ✕
+        </UiIconButton>
+      </div>
     </template>
 
     <div class="cropper-body">
       <div ref="cropperContainer" class="cropper-container">
         <!-- 图片 -->
-        <img ref="imageElement" :src="image" class="cropper-image" :style="{
-          width: `${imageSize.width}px`,
-          height: `${imageSize.height}px`,
-          left: `${imageOffset.x}px`,
-          top: `${imageOffset.y}px`,
-        }" draggable="false" />
+        <img
+          ref="imageElement"
+          :src="image"
+          class="cropper-image"
+          :style="{
+            width: `${imageSize.width}px`,
+            height: `${imageSize.height}px`,
+            left: `${imageOffset.x}px`,
+            top: `${imageOffset.y}px`,
+          }"
+          draggable="false"
+        />
 
         <!-- 遮罩 -->
         <svg class="cropper-mask" :width="containerSize.width" :height="containerSize.height">
@@ -368,10 +411,22 @@ const handleDialogModelValueChange = (value: boolean) => {
           </div>
 
           <!-- 调整手柄 -->
-          <div class="resize-handle handle-tl" @mousedown.stop="handleMouseDown($event, 'tl')"></div>
-          <div class="resize-handle handle-tr" @mousedown.stop="handleMouseDown($event, 'tr')"></div>
-          <div class="resize-handle handle-bl" @mousedown.stop="handleMouseDown($event, 'bl')"></div>
-          <div class="resize-handle handle-br" @mousedown.stop="handleMouseDown($event, 'br')"></div>
+          <div
+            class="resize-handle handle-tl"
+            @mousedown.stop="handleMouseDown($event, 'tl')"
+          ></div>
+          <div
+            class="resize-handle handle-tr"
+            @mousedown.stop="handleMouseDown($event, 'tr')"
+          ></div>
+          <div
+            class="resize-handle handle-bl"
+            @mousedown.stop="handleMouseDown($event, 'bl')"
+          ></div>
+          <div
+            class="resize-handle handle-br"
+            @mousedown.stop="handleMouseDown($event, 'br')"
+          ></div>
         </div>
       </div>
 
@@ -534,7 +589,9 @@ const handleDialogModelValueChange = (value: boolean) => {
   padding: 12px 24px;
   background: var(--modal-preview-bg-color);
   border-top: var(--ui-border-width-thin) solid var(--modal-header-border-color);
-  transition: background 0.3s ease, border 0.3s ease;
+  transition:
+    background 0.3s ease,
+    border 0.3s ease;
 
   p {
     margin: 0;

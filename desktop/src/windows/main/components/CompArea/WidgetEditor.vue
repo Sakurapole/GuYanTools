@@ -1,7 +1,19 @@
 <script lang="ts" setup>
-import { computed, onMounted, ref, watch } from 'vue';
-import type { GridItem, WidgetConfig, WidgetEditPayload, BackgroundStyleConfig, WidgetAction, WidgetActionType, WebpageOpenMode } from '../../types/grid';
-import type { InstalledPluginRecord, PluginPageDescriptor, PluginCommandContribution } from '@/contracts/plugin_host';
+import { computed, ref, watch } from 'vue';
+import type {
+  GridItem,
+  WidgetConfig,
+  WidgetEditPayload,
+  BackgroundStyleConfig,
+  WidgetAction,
+  WidgetActionType,
+  WebpageOpenMode,
+} from '../../types/grid';
+import type {
+  InstalledPluginRecord,
+  PluginPageDescriptor,
+  PluginCommandContribution,
+} from '@/contracts/plugin_host';
 import type { CompressQuality } from '@/contracts/media';
 import { useAppConfigStore } from '../../stores/app_config_store';
 import { resolveThemeBackground, withThemeBackground } from '@/contracts/background';
@@ -17,7 +29,12 @@ import UiTabs from '../ui/UiTabs.vue';
 import IconPicker from '../ui/IconPicker.vue';
 import IconRenderer from '../ui/IconRenderer.vue';
 import HomeWidgetConfigFields from '../../widgets/home/HomeWidgetConfigFields.vue';
-import { findWidgetSizePreset, getHomeWidgetDefinition, getWidgetSizeDefinition, normalizeWidgetConfig } from '../../widgets/home/registry';
+import {
+  findWidgetSizePreset,
+  getHomeWidgetDefinition,
+  getWidgetSizeDefinition,
+  normalizeWidgetConfig,
+} from '../../widgets/home/registry';
 import { buildBackgroundTextVars } from '../../utils/backgroundTextColor';
 import { notifyWarning } from '../../composables/useInAppNotification';
 import {
@@ -27,15 +44,18 @@ import {
   saveHomeLayoutMediaDataUrl,
 } from '../../utils/inlineMedia';
 
-const props = withDefaults(defineProps<{
-  visible: boolean;
-  item: GridItem;
-  previewWidth?: number;
-  previewHeight?: number;
-}>(), {
-  previewWidth: 320,
-  previewHeight: 200,
-});
+const props = withDefaults(
+  defineProps<{
+    visible: boolean;
+    item: GridItem;
+    previewWidth?: number;
+    previewHeight?: number;
+  }>(),
+  {
+    previewWidth: 320,
+    previewHeight: 200,
+  }
+);
 
 const emit = defineEmits<{
   close: [];
@@ -100,23 +120,28 @@ const originalVideoFilePath = ref('');
 
 // ─── FFmpeg 处理选项 ───
 const appConfigStore = useAppConfigStore();
-const activeWidgetBackground = computed(() => resolveThemeBackground({
-  type: props.item.backgroundVideo ? 'video' : props.item.backgroundImage ? 'image' : 'color',
-  color: props.item.color,
-  image: props.item.backgroundImage,
-  video: props.item.backgroundVideo,
-  backgroundStyle: props.item.backgroundStyle,
-}, appConfigStore.config.appearance.theme));
+const activeWidgetBackground = computed(() =>
+  resolveThemeBackground(
+    {
+      type: props.item.backgroundVideo ? 'video' : props.item.backgroundImage ? 'image' : 'color',
+      color: props.item.color,
+      image: props.item.backgroundImage,
+      video: props.item.backgroundVideo,
+      backgroundStyle: props.item.backgroundStyle,
+    },
+    appConfigStore.config.appearance.theme
+  )
+);
 const imageProcessMode = ref<'canvas' | 'ffmpeg'>('canvas');
 const videoProcessMode = ref<'browser' | 'ffmpeg'>('browser');
 const compressQuality = ref<CompressQuality>('high');
 
 const ffmpegAvailable = computed(() => {
-  return !!(appConfigStore.config.tools?.ffmpegPath);
+  return !!appConfigStore.config.tools?.ffmpegPath;
 });
 const bgOpacityPercent = computed({
   get: () => Math.round(bgOpacity.value * 100),
-  set: value => {
+  set: (value) => {
     bgOpacity.value = Math.max(0, Math.min(100, value)) / 100;
   },
 });
@@ -150,21 +175,23 @@ const backgroundSubTabs = [
 ];
 
 watch(activeTab, (next, previous) => {
-  editorTabTransition.value = editorTabOrder.indexOf(next) >= editorTabOrder.indexOf(previous)
-    ? 'ui-tab-forward'
-    : 'ui-tab-back';
+  editorTabTransition.value =
+    editorTabOrder.indexOf(next) >= editorTabOrder.indexOf(previous)
+      ? 'ui-tab-forward'
+      : 'ui-tab-back';
 });
 
 watch(bgTab, (next, previous) => {
-  bgTabTransition.value = bgTabOrder.indexOf(next) >= bgTabOrder.indexOf(previous)
-    ? 'ui-tab-forward'
-    : 'ui-tab-back';
+  bgTabTransition.value =
+    bgTabOrder.indexOf(next) >= bgTabOrder.indexOf(previous) ? 'ui-tab-forward' : 'ui-tab-back';
 });
 
 const showIconPicker = ref(false);
 const widgetDefinition = computed(() => getHomeWidgetDefinition(props.item.widgetType));
 const isShortcutWidget = computed(() => props.item.widgetType === 'shortcut');
-const hasWidgetConfig = computed(() => !isShortcutWidget.value && props.item.widgetType !== 'webview_keepalive');
+const hasWidgetConfig = computed(
+  () => !isShortcutWidget.value && props.item.widgetType !== 'webview_keepalive'
+);
 const sizePresetOptions = computed(() => widgetDefinition.value.supportedSizes);
 
 const actionTypeOptions = [
@@ -188,18 +215,18 @@ const internalRouteOptions = [
 
 const pluginSelectOptions = computed(() =>
   pluginList.value
-    .filter(p => p.enabled)
-    .map(p => ({ label: p.manifest.displayName || p.manifest.name, value: p.manifest.id }))
+    .filter((p) => p.enabled)
+    .map((p) => ({ label: p.manifest.displayName || p.manifest.name, value: p.manifest.id }))
 );
 
 const pluginPageSelectOptions = computed(() =>
   pluginPageList.value
-    .filter(p => p.pluginId === editActionPluginId.value)
-    .map(p => ({ label: p.title, value: p.pageId }))
+    .filter((p) => p.pluginId === editActionPluginId.value)
+    .map((p) => ({ label: p.title, value: p.pageId }))
 );
 
 const pluginCommandSelectOptions = computed(() =>
-  pluginCommandList.value.map(c => ({ label: c.title, value: c.id }))
+  pluginCommandList.value.map((c) => ({ label: c.title, value: c.id }))
 );
 
 async function loadPluginData() {
@@ -214,7 +241,7 @@ async function loadPluginData() {
 
 // 选中插件时更新命令列表
 watch(editActionPluginId, (pluginId) => {
-  const plugin = pluginList.value.find(p => p.manifest.id === pluginId);
+  const plugin = pluginList.value.find((p) => p.manifest.id === pluginId);
   pluginCommandList.value = plugin?.manifest.contributes.commands ?? [];
   // 切换插件后重置 pageId / commandId
   editActionPageId.value = '';
@@ -303,21 +330,21 @@ const presetGradients = [
 ];
 
 const presetColors = [
-  '#667eea', '#f093fb', '#4facfe', '#43e97b',
-  '#fa709a', '#30cfd0', '#a8edea', '#ff9a9e',
-  '#ffecd2', '#ff6e7f', '#e0c3fc', '#f8b500',
+  '#667eea',
+  '#f093fb',
+  '#4facfe',
+  '#43e97b',
+  '#fa709a',
+  '#30cfd0',
+  '#a8edea',
+  '#ff9a9e',
+  '#ffecd2',
+  '#ff6e7f',
+  '#e0c3fc',
+  '#f8b500',
 ];
 
 // ─── 尺寸预览 ───
-const sizePreviewStyle = computed(() => {
-  const unit = 48;
-  const gap = 4;
-  return {
-    width: `${editColSpan.value * unit + Math.max(0, editColSpan.value - 1) * gap}px`,
-    height: `${editRowSpan.value * unit + Math.max(0, editRowSpan.value - 1) * gap}px`,
-  };
-});
-
 // ─── 背景预览 ───
 const bgPreviewBoxStyle = computed(() => {
   const maxW = 500;
@@ -386,7 +413,8 @@ function handleCropperClose() {
 }
 
 async function handleCropperConfirm(croppedImage: string) {
-  selectedImage.value = (await saveHomeLayoutMediaDataUrl(croppedImage, 'widget-background.jpg'))?.url || croppedImage;
+  selectedImage.value =
+    (await saveHomeLayoutMediaDataUrl(croppedImage, 'widget-background.jpg'))?.url || croppedImage;
   showCropper.value = false;
   originalImage.value = '';
 }
@@ -427,12 +455,13 @@ async function handleVideoCropperConfirm(videoDataUrl: string) {
   if (!isInlineVideoWithinLimit(videoDataUrl)) {
     notifyWarning(
       `处理后的视频超过 ${formatMediaBytes(MAX_INLINE_VIDEO_BYTES)}，未保存到组件配置。`,
-      '视频文件过大',
+      '视频文件过大'
     );
     handleVideoCropperClose();
     return;
   }
-  selectedVideo.value = (await saveHomeLayoutMediaDataUrl(videoDataUrl, 'widget-background.webm'))?.url || videoDataUrl;
+  selectedVideo.value =
+    (await saveHomeLayoutMediaDataUrl(videoDataUrl, 'widget-background.webm'))?.url || videoDataUrl;
   showVideoCropper.value = false;
   if (originalVideoUrl.value) {
     URL.revokeObjectURL(originalVideoUrl.value);
@@ -477,7 +506,7 @@ function handleConfirm() {
   if (bgTab.value === 'video' && !isInlineVideoWithinLimit(selectedVideo.value)) {
     notifyWarning(
       `视频超过 ${formatMediaBytes(MAX_INLINE_VIDEO_BYTES)}，未保存到组件配置。`,
-      '视频文件过大',
+      '视频文件过大'
     );
     return;
   }
@@ -505,23 +534,27 @@ function handleConfirm() {
     backgroundVideo = selectedVideo.value;
   }
 
-  const scopedBackground = withThemeBackground({
-    type: props.item.backgroundVideo ? 'video' : props.item.backgroundImage ? 'image' : 'color',
-    color: props.item.color,
-    image: props.item.backgroundImage,
-    video: props.item.backgroundVideo,
-    backgroundStyle: props.item.backgroundStyle,
-  }, appConfigStore.config.appearance.theme, {
-    type: bgTab.value,
-    color,
-    image: backgroundImage,
-    video: backgroundVideo,
-    backgroundStyle: finalBgStyle,
-  });
+  const scopedBackground = withThemeBackground(
+    {
+      type: props.item.backgroundVideo ? 'video' : props.item.backgroundImage ? 'image' : 'color',
+      color: props.item.color,
+      image: props.item.backgroundImage,
+      video: props.item.backgroundVideo,
+      backgroundStyle: props.item.backgroundStyle,
+    },
+    appConfigStore.config.appearance.theme,
+    {
+      type: bgTab.value,
+      color,
+      image: backgroundImage,
+      video: backgroundVideo,
+      backgroundStyle: finalBgStyle,
+    }
+  );
 
   const payload: WidgetEditPayload = {
     label: editLabel.value,
-    icon: isShortcutWidget.value ? (editIcon.value || undefined) : props.item.icon,
+    icon: isShortcutWidget.value ? editIcon.value || undefined : props.item.icon,
     action: isShortcutWidget.value ? buildAction() : props.item.action,
     colSpan: editColSpan.value,
     rowSpan: editRowSpan.value,
@@ -546,62 +579,83 @@ function handleDialogModelValueChange(value: boolean) {
 }
 
 // ─── 同步 props ───
-watch(() => props.visible, (visible) => {
-  if (visible) {
-    activeTab.value = 'basic';
+watch(
+  () => props.visible,
+  (visible) => {
+    if (visible) {
+      activeTab.value = 'basic';
 
-    // 基础信息
-    editLabel.value = props.item.label || '';
-    editIcon.value = props.item.icon || '';
+      // 基础信息
+      editLabel.value = props.item.label || '';
+      editIcon.value = props.item.icon || '';
 
-    // 动作
-    const action = props.item.action;
-    editActionType.value = action?.type || 'none';
-    editActionTarget.value = action?.target || '';
-    editActionPluginId.value = action?.pluginId || '';
-    editActionPageId.value = action?.pageId || '';
-    editActionCommandId.value = action?.commandId || '';
-    editActionUrl.value = action?.url || '';
-    editActionOpenMode.value = action?.openMode || 'main_window';
+      // 动作
+      const action = props.item.action;
+      editActionType.value = action?.type || 'none';
+      editActionTarget.value = action?.target || '';
+      editActionPluginId.value = action?.pluginId || '';
+      editActionPageId.value = action?.pageId || '';
+      editActionCommandId.value = action?.commandId || '';
+      editActionUrl.value = action?.url || '';
+      editActionOpenMode.value = action?.openMode || 'main_window';
 
-    // 尺寸
-    editColSpan.value = props.item.colSpan || 1;
-    editRowSpan.value = props.item.rowSpan || 1;
-    editSizePreset.value = props.item.sizePreset || findWidgetSizePreset(props.item.widgetType, props.item.colSpan, props.item.rowSpan);
-    editWidgetConfig.value = normalizeWidgetConfig(props.item.widgetType, props.item.widgetConfig);
+      // 尺寸
+      editColSpan.value = props.item.colSpan || 1;
+      editRowSpan.value = props.item.rowSpan || 1;
+      editSizePreset.value =
+        props.item.sizePreset ||
+        findWidgetSizePreset(props.item.widgetType, props.item.colSpan, props.item.rowSpan);
+      editWidgetConfig.value = normalizeWidgetConfig(
+        props.item.widgetType,
+        props.item.widgetConfig
+      );
 
-    // 背景
-    const background = activeWidgetBackground.value;
-    selectedColor.value = background.color || 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)';
-    selectedImage.value = background.image || '';
-    selectedVideo.value = background.video || '';
-    bgSize.value = background.backgroundStyle?.backgroundSize || 'cover';
-    bgPosition.value = background.backgroundStyle?.backgroundPosition || 'center';
-    bgRepeat.value = background.backgroundStyle?.backgroundRepeat || 'no-repeat';
-    bgOpacity.value = background.backgroundStyle?.opacity ?? 1;
-    selectedTextColor.value = background.backgroundStyle?.textColor || '';
+      // 背景
+      const background = activeWidgetBackground.value;
+      selectedColor.value = background.color || 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)';
+      selectedImage.value = background.image || '';
+      selectedVideo.value = background.video || '';
+      bgSize.value = background.backgroundStyle?.backgroundSize || 'cover';
+      bgPosition.value = background.backgroundStyle?.backgroundPosition || 'center';
+      bgRepeat.value = background.backgroundStyle?.backgroundRepeat || 'no-repeat';
+      bgOpacity.value = background.backgroundStyle?.opacity ?? 1;
+      selectedTextColor.value = background.backgroundStyle?.textColor || '';
 
-    if (background.video) {
-      bgTab.value = 'video';
-    } else if (background.image) {
-      bgTab.value = 'image';
-    } else {
-      bgTab.value = 'color';
+      if (background.video) {
+        bgTab.value = 'video';
+      } else if (background.image) {
+        bgTab.value = 'image';
+      } else {
+        bgTab.value = 'color';
+      }
+
+      // 加载插件数据（用于插件相关动作类型的选择器）
+      void loadPluginData();
     }
-
-    // 加载插件数据（用于插件相关动作类型的选择器）
-    void loadPluginData();
   }
-});
+);
 </script>
 
 <template>
-  <UiDialog class="widget-editor" :model-value="visible" width="620px" max-width="620px" :close-on-mask="false"
-    @update:modelValue="handleDialogModelValueChange">
+  <UiDialog
+    class="widget-editor"
+    :model-value="visible"
+    width="620px"
+    max-width="620px"
+    :close-on-mask="false"
+    @update:modelValue="handleDialogModelValueChange"
+  >
     <template #header>
       <div class="widget-editor__header">
         <h3>编辑组件</h3>
-        <UiIconButton class="close-btn" variant="ghost" size="md" shape="square" title="关闭" @click="handleClose">
+        <UiIconButton
+          class="close-btn"
+          variant="ghost"
+          size="md"
+          shape="square"
+          title="关闭"
+          @click="handleClose"
+        >
           ✕
         </UiIconButton>
       </div>
@@ -613,286 +667,423 @@ watch(() => props.visible, (visible) => {
 
     <div class="widget-editor__content">
       <Transition :name="editorTabTransition" mode="out-in">
-      <!-- ═══ 基础信息 ═══ -->
-      <div v-if="activeTab === 'basic'" class="widget-editor__section">
-        <UiField label="组件名称" required>
-          <UiInput v-model="editLabel" placeholder="输入组件名称" size="md" />
-        </UiField>
-        <UiField v-if="widgetDefinition.allowCustomIcon" label="图标">
-          <div class="icon-pick-trigger" @click="showIconPicker = true">
-            <div v-if="editIcon" class="icon-pick-trigger__preview">
-              <IconRenderer :icon="editIcon" :size="20" color="var(--ui-text-primary)" />
-              <span class="icon-pick-trigger__label">更换图标</span>
+        <!-- ═══ 基础信息 ═══ -->
+        <div v-if="activeTab === 'basic'" class="widget-editor__section">
+          <UiField label="组件名称" required>
+            <UiInput v-model="editLabel" placeholder="输入组件名称" size="md" />
+          </UiField>
+          <UiField v-if="widgetDefinition.allowCustomIcon" label="图标">
+            <div class="icon-pick-trigger" @click="showIconPicker = true">
+              <div v-if="editIcon" class="icon-pick-trigger__preview">
+                <IconRenderer :icon="editIcon" :size="20" color="var(--ui-text-primary)" />
+                <span class="icon-pick-trigger__label">更换图标</span>
+              </div>
+              <span v-else class="icon-pick-trigger__placeholder">点击选择图标</span>
+              <span class="icon-pick-trigger__arrow" />
             </div>
-            <span v-else class="icon-pick-trigger__placeholder">点击选择图标</span>
-            <span class="icon-pick-trigger__arrow" />
-          </div>
-        </UiField>
-
-        <IconPicker :visible="showIconPicker" v-model="editIcon" @close="showIconPicker = false" />
-
-        <div v-if="!isShortcutWidget" class="widget-editor__builtin-hint">
-          <div class="widget-editor__builtin-title">{{ widgetDefinition.title }}</div>
-          <div class="widget-editor__builtin-desc">{{ widgetDefinition.description }}</div>
-        </div>
-
-        <HomeWidgetConfigFields v-if="hasWidgetConfig" v-model="editWidgetConfig" :widget-type="props.item.widgetType" />
-
-        <UiField v-if="isShortcutWidget" label="动作类型">
-          <UiSelect v-model="editActionType" :options="actionTypeOptions" size="md" />
-        </UiField>
-
-        <!-- 外部应用 -->
-        <UiField v-if="isShortcutWidget && editActionType === 'external_app'" label="应用程序路径">
-          <div class="widget-editor__file-row">
-            <UiInput v-model="editActionTarget" placeholder="选择可执行文件路径" size="md" />
-            <UiButton variant="secondary" size="md" @click="handleBrowseExecutable">浏览</UiButton>
-          </div>
-        </UiField>
-
-        <!-- 内部路由 -->
-        <UiField v-if="isShortcutWidget && editActionType === 'internal_route'" label="选择功能">
-          <UiSelect v-model="editActionTarget" :options="internalRouteOptions" size="md" placeholder="请选择内部功能" />
-        </UiField>
-
-        <!-- 插件页面 -->
-        <template v-if="isShortcutWidget && editActionType === 'plugin_page'">
-          <UiField label="选择插件">
-            <UiSelect v-model="editActionPluginId" :options="pluginSelectOptions" size="md" placeholder="请选择插件" />
           </UiField>
-          <UiField v-if="editActionPluginId" label="选择页面">
-            <UiSelect v-model="editActionPageId" :options="pluginPageSelectOptions" size="md" placeholder="请选择页面" />
-          </UiField>
-        </template>
 
-        <!-- 插件命令 -->
-        <template v-if="isShortcutWidget && editActionType === 'plugin_command'">
-          <UiField label="选择插件">
-            <UiSelect v-model="editActionPluginId" :options="pluginSelectOptions" size="md" placeholder="请选择插件" />
-          </UiField>
-          <UiField v-if="editActionPluginId" label="选择命令">
-            <UiSelect v-model="editActionCommandId" :options="pluginCommandSelectOptions" size="md"
-              placeholder="请选择命令" />
-          </UiField>
-        </template>
+          <IconPicker
+            :visible="showIconPicker"
+            v-model="editIcon"
+            @close="showIconPicker = false"
+          />
 
-        <!-- 打开网页 -->
-        <template v-if="isShortcutWidget && editActionType === 'open_webpage'">
-          <UiField label="网页地址">
-            <UiInput v-model="editActionUrl" placeholder="输入网页 URL，如 https://github.com" size="md" />
-          </UiField>
-          <UiField label="打开方式">
-            <UiSelect v-model="editActionOpenMode" :options="openModeOptions" size="md" />
-          </UiField>
-        </template>
-      </div>
-
-      <!-- ═══ 尺寸配置 ═══ -->
-      <div v-else-if="activeTab === 'size'" class="widget-editor__section">
-        <div v-if="sizePresetOptions.length" class="widget-editor__size-preset-grid">
-          <UiButton v-for="size in sizePresetOptions" :key="size.preset" type="button" variant="ghost" class="widget-editor__size-preset"
-            :class="{ 'widget-editor__size-preset--active': editSizePreset === size.preset }"
-            @click="editSizePreset = size.preset">
-            <strong>{{ size.label }}</strong>
-            <span>{{ size.description }}</span>
-          </UiButton>
-        </div>
-
-        <div v-if="isShortcutWidget" class="widget-editor__size-fields">
-          <UiField label="宽度 (列数)">
-            <UiSelect v-model="editColSpan" :options="spanOptions" size="md" />
-          </UiField>
-          <UiField label="高度 (行数)">
-            <UiSelect v-model="editRowSpan" :options="spanOptions" size="md" />
-          </UiField>
-        </div>
-
-        <div class="widget-editor__size-preview">
-          <div class="widget-editor__section-title">预览</div>
-          <div class="widget-editor__size-preview-area">
-            <div class="widget-editor__size-preview-grid">
-              <template v-for="r in 6" :key="r">
-                <div v-for="c in 6" :key="`${r}-${c}`" class="widget-editor__size-preview-cell"
-                  :class="{ 'widget-editor__size-preview-cell--active': c <= editColSpan && r <= editRowSpan }" />
-              </template>
-            </div>
-            <div class="widget-editor__size-preview-label">
-              {{ editColSpan }} × {{ editRowSpan }}
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <!-- ═══ 个性化配置 ═══ -->
-      <div v-else class="widget-editor__section">
-        <div class="widget-editor__bg-tabs">
-          <UiTabs v-model="bgTab" :items="backgroundSubTabs" variant="segmented" size="sm" stretch />
-        </div>
-
-        <!-- 背景预览 -->
-        <div class="widget-editor__bg-preview">
-          <div class="widget-editor__bg-preview-wrapper"
-            :class="{ 'widget-editor__bg-preview-wrapper--checker': bgOpacity < 1 }">
-            <div class="widget-editor__bg-preview-box" :style="bgPreviewBoxStyle">
-              <video v-if="bgTab === 'video' && selectedVideo" :src="selectedVideo"
-                class="widget-editor__bg-preview-video" autoplay loop muted playsinline />
-              <span v-else class="widget-editor__bg-preview-text">预览</span>
-            </div>
-          </div>
-        </div>
-
-        <Transition :name="bgTabTransition" mode="out-in">
-        <!-- 颜色选择 -->
-        <div v-if="bgTab === 'color'" class="widget-editor__color-section">
-          <div class="widget-editor__section-title">渐变色</div>
-          <div class="widget-editor__gradient-grid">
-            <div v-for="(gradient, index) in presetGradients" :key="index" class="widget-editor__swatch"
-              :class="{ 'widget-editor__swatch--selected': selectedColor === gradient }"
-              :style="{ background: gradient }" @click="selectedColor = gradient">
-              <div v-if="selectedColor === gradient" class="widget-editor__swatch-check">✓</div>
-            </div>
+          <div v-if="!isShortcutWidget" class="widget-editor__builtin-hint">
+            <div class="widget-editor__builtin-title">{{ widgetDefinition.title }}</div>
+            <div class="widget-editor__builtin-desc">{{ widgetDefinition.description }}</div>
           </div>
 
-          <div class="widget-editor__section-title">纯色</div>
-          <div class="widget-editor__color-grid">
-            <div v-for="(color, index) in presetColors" :key="index" class="widget-editor__swatch"
-              :class="{ 'widget-editor__swatch--selected': selectedColor === color }" :style="{ background: color }"
-              @click="selectedColor = color">
-              <div v-if="selectedColor === color" class="widget-editor__swatch-check">✓</div>
+          <HomeWidgetConfigFields
+            v-if="hasWidgetConfig"
+            v-model="editWidgetConfig"
+            :widget-type="props.item.widgetType"
+          />
+
+          <UiField v-if="isShortcutWidget" label="动作类型">
+            <UiSelect v-model="editActionType" :options="actionTypeOptions" size="md" />
+          </UiField>
+
+          <!-- 外部应用 -->
+          <UiField
+            v-if="isShortcutWidget && editActionType === 'external_app'"
+            label="应用程序路径"
+          >
+            <div class="widget-editor__file-row">
+              <UiInput v-model="editActionTarget" placeholder="选择可执行文件路径" size="md" />
+              <UiButton variant="secondary" size="md" @click="handleBrowseExecutable"
+                >浏览</UiButton
+              >
             </div>
-          </div>
+          </UiField>
+
+          <!-- 内部路由 -->
+          <UiField v-if="isShortcutWidget && editActionType === 'internal_route'" label="选择功能">
+            <UiSelect
+              v-model="editActionTarget"
+              :options="internalRouteOptions"
+              size="md"
+              placeholder="请选择内部功能"
+            />
+          </UiField>
+
+          <!-- 插件页面 -->
+          <template v-if="isShortcutWidget && editActionType === 'plugin_page'">
+            <UiField label="选择插件">
+              <UiSelect
+                v-model="editActionPluginId"
+                :options="pluginSelectOptions"
+                size="md"
+                placeholder="请选择插件"
+              />
+            </UiField>
+            <UiField v-if="editActionPluginId" label="选择页面">
+              <UiSelect
+                v-model="editActionPageId"
+                :options="pluginPageSelectOptions"
+                size="md"
+                placeholder="请选择页面"
+              />
+            </UiField>
+          </template>
+
+          <!-- 插件命令 -->
+          <template v-if="isShortcutWidget && editActionType === 'plugin_command'">
+            <UiField label="选择插件">
+              <UiSelect
+                v-model="editActionPluginId"
+                :options="pluginSelectOptions"
+                size="md"
+                placeholder="请选择插件"
+              />
+            </UiField>
+            <UiField v-if="editActionPluginId" label="选择命令">
+              <UiSelect
+                v-model="editActionCommandId"
+                :options="pluginCommandSelectOptions"
+                size="md"
+                placeholder="请选择命令"
+              />
+            </UiField>
+          </template>
+
+          <!-- 打开网页 -->
+          <template v-if="isShortcutWidget && editActionType === 'open_webpage'">
+            <UiField label="网页地址">
+              <UiInput
+                v-model="editActionUrl"
+                placeholder="输入网页 URL，如 https://github.com"
+                size="md"
+              />
+            </UiField>
+            <UiField label="打开方式">
+              <UiSelect v-model="editActionOpenMode" :options="openModeOptions" size="md" />
+            </UiField>
+          </template>
         </div>
 
-        <!-- 图片选择 -->
-        <div v-else-if="bgTab === 'image'" class="widget-editor__image-section">
-          <div class="widget-editor__image-actions">
-            <UiFileInput ref="imageInput" accept="image/*" @change="handleImageChange" />
-            <UiButton class="widget-editor__upload-btn" variant="secondary" size="md" @click="handleImageSelect">
-              <span class="upload-icon">📁</span>
-              <span>选择图片</span>
+        <!-- ═══ 尺寸配置 ═══ -->
+        <div v-else-if="activeTab === 'size'" class="widget-editor__section">
+          <div v-if="sizePresetOptions.length" class="widget-editor__size-preset-grid">
+            <UiButton
+              v-for="size in sizePresetOptions"
+              :key="size.preset"
+              type="button"
+              variant="ghost"
+              class="widget-editor__size-preset"
+              :class="{ 'widget-editor__size-preset--active': editSizePreset === size.preset }"
+              @click="editSizePreset = size.preset"
+            >
+              <strong>{{ size.label }}</strong>
+              <span>{{ size.description }}</span>
             </UiButton>
-            <UiButton v-if="selectedImage" variant="danger" size="md" @click="handleClearImage">清除</UiButton>
           </div>
 
-          <div v-if="selectedImage" class="widget-editor__style-panel">
-            <div class="widget-editor__section-title">背景样式</div>
-            <div class="widget-editor__style-grid">
-              <div class="widget-editor__style-field">
-                <label>填充模式</label>
-                <UiSelect v-model="bgSize" :options="bgSizeOptions" size="sm" />
+          <div v-if="isShortcutWidget" class="widget-editor__size-fields">
+            <UiField label="宽度 (列数)">
+              <UiSelect v-model="editColSpan" :options="spanOptions" size="md" />
+            </UiField>
+            <UiField label="高度 (行数)">
+              <UiSelect v-model="editRowSpan" :options="spanOptions" size="md" />
+            </UiField>
+          </div>
+
+          <div class="widget-editor__size-preview">
+            <div class="widget-editor__section-title">预览</div>
+            <div class="widget-editor__size-preview-area">
+              <div class="widget-editor__size-preview-grid">
+                <template v-for="r in 6" :key="r">
+                  <div
+                    v-for="c in 6"
+                    :key="`${r}-${c}`"
+                    class="widget-editor__size-preview-cell"
+                    :class="{
+                      'widget-editor__size-preview-cell--active':
+                        c <= editColSpan && r <= editRowSpan,
+                    }"
+                  />
+                </template>
               </div>
-              <div class="widget-editor__style-field">
-                <label>重复方式</label>
-                <UiSelect v-model="bgRepeat" :options="bgRepeatOptions" size="sm" />
+              <div class="widget-editor__size-preview-label">
+                {{ editColSpan }} × {{ editRowSpan }}
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- ═══ 个性化配置 ═══ -->
+        <div v-else class="widget-editor__section">
+          <div class="widget-editor__bg-tabs">
+            <UiTabs
+              v-model="bgTab"
+              :items="backgroundSubTabs"
+              variant="segmented"
+              size="sm"
+              stretch
+            />
+          </div>
+
+          <!-- 背景预览 -->
+          <div class="widget-editor__bg-preview">
+            <div
+              class="widget-editor__bg-preview-wrapper"
+              :class="{ 'widget-editor__bg-preview-wrapper--checker': bgOpacity < 1 }"
+            >
+              <div class="widget-editor__bg-preview-box" :style="bgPreviewBoxStyle">
+                <video
+                  v-if="bgTab === 'video' && selectedVideo"
+                  :src="selectedVideo"
+                  class="widget-editor__bg-preview-video"
+                  autoplay
+                  loop
+                  muted
+                  playsinline
+                />
+                <span v-else class="widget-editor__bg-preview-text">预览</span>
+              </div>
+            </div>
+          </div>
+
+          <Transition :name="bgTabTransition" mode="out-in">
+            <!-- 颜色选择 -->
+            <div v-if="bgTab === 'color'" class="widget-editor__color-section">
+              <div class="widget-editor__section-title">渐变色</div>
+              <div class="widget-editor__gradient-grid">
+                <div
+                  v-for="(gradient, index) in presetGradients"
+                  :key="index"
+                  class="widget-editor__swatch"
+                  :class="{ 'widget-editor__swatch--selected': selectedColor === gradient }"
+                  :style="{ background: gradient }"
+                  @click="selectedColor = gradient"
+                >
+                  <div v-if="selectedColor === gradient" class="widget-editor__swatch-check">✓</div>
+                </div>
+              </div>
+
+              <div class="widget-editor__section-title">纯色</div>
+              <div class="widget-editor__color-grid">
+                <div
+                  v-for="(color, index) in presetColors"
+                  :key="index"
+                  class="widget-editor__swatch"
+                  :class="{ 'widget-editor__swatch--selected': selectedColor === color }"
+                  :style="{ background: color }"
+                  @click="selectedColor = color"
+                >
+                  <div v-if="selectedColor === color" class="widget-editor__swatch-check">✓</div>
+                </div>
               </div>
             </div>
 
-            <div class="widget-editor__section-title">定位</div>
-            <div class="widget-editor__position-grid">
-              <UiButton v-for="pos in positionGrid" :key="pos.value" class="widget-editor__pos-cell" variant="ghost" size="sm" type="button"
-                :class="{ 'widget-editor__pos-cell--active': bgPosition === pos.value }" :title="pos.value"
-                @click="bgPosition = pos.value">
-                {{ pos.label }}
+            <!-- 图片选择 -->
+            <div v-else-if="bgTab === 'image'" class="widget-editor__image-section">
+              <div class="widget-editor__image-actions">
+                <UiFileInput ref="imageInput" accept="image/*" @change="handleImageChange" />
+                <UiButton
+                  class="widget-editor__upload-btn"
+                  variant="secondary"
+                  size="md"
+                  @click="handleImageSelect"
+                >
+                  <span class="upload-icon">📁</span>
+                  <span>选择图片</span>
+                </UiButton>
+                <UiButton v-if="selectedImage" variant="danger" size="md" @click="handleClearImage"
+                  >清除</UiButton
+                >
+              </div>
+
+              <div v-if="selectedImage" class="widget-editor__style-panel">
+                <div class="widget-editor__section-title">背景样式</div>
+                <div class="widget-editor__style-grid">
+                  <div class="widget-editor__style-field">
+                    <label>填充模式</label>
+                    <UiSelect v-model="bgSize" :options="bgSizeOptions" size="sm" />
+                  </div>
+                  <div class="widget-editor__style-field">
+                    <label>重复方式</label>
+                    <UiSelect v-model="bgRepeat" :options="bgRepeatOptions" size="sm" />
+                  </div>
+                </div>
+
+                <div class="widget-editor__section-title">定位</div>
+                <div class="widget-editor__position-grid">
+                  <UiButton
+                    v-for="pos in positionGrid"
+                    :key="pos.value"
+                    class="widget-editor__pos-cell"
+                    variant="ghost"
+                    size="sm"
+                    type="button"
+                    :class="{ 'widget-editor__pos-cell--active': bgPosition === pos.value }"
+                    :title="pos.value"
+                    @click="bgPosition = pos.value"
+                  >
+                    {{ pos.label }}
+                  </UiButton>
+                </div>
+              </div>
+
+              <p class="widget-editor__hint">支持 JPG, PNG, GIF, WebP 格式</p>
+
+              <div class="widget-editor__process-options">
+                <div class="widget-editor__section-title">处理方式</div>
+                <div class="widget-editor__style-grid">
+                  <div class="widget-editor__style-field">
+                    <label>处理模式</label>
+                    <UiSelect v-model="imageProcessMode" :options="imageProcessOptions" size="sm" />
+                  </div>
+                  <div v-if="imageProcessMode === 'ffmpeg'" class="widget-editor__style-field">
+                    <label>压缩质量</label>
+                    <UiSelect v-model="compressQuality" :options="qualityOptions" size="sm" />
+                  </div>
+                </div>
+                <p v-if="!ffmpegAvailable" class="widget-editor__hint widget-editor__hint--warn">
+                  ⚠️ 未配置 FFmpeg 路径，请前往 设置 → 工具 进行配置
+                </p>
+              </div>
+            </div>
+
+            <!-- 视频选择 -->
+            <div v-else class="widget-editor__video-section">
+              <div class="widget-editor__image-actions">
+                <UiFileInput ref="videoInput" accept="video/*" @change="handleVideoChange" />
+                <UiButton
+                  class="widget-editor__upload-btn"
+                  variant="secondary"
+                  size="md"
+                  @click="handleVideoSelect"
+                >
+                  <span class="upload-icon">🎬</span>
+                  <span>选择视频</span>
+                </UiButton>
+                <UiButton v-if="selectedVideo" variant="danger" size="md" @click="handleClearVideo"
+                  >清除</UiButton
+                >
+              </div>
+              <p class="widget-editor__hint">支持 MP4, WebM, MOV 格式</p>
+
+              <div class="widget-editor__process-options">
+                <div class="widget-editor__section-title">处理方式</div>
+                <div class="widget-editor__style-grid">
+                  <div class="widget-editor__style-field">
+                    <label>处理模式</label>
+                    <UiSelect v-model="videoProcessMode" :options="videoProcessOptions" size="sm" />
+                  </div>
+                  <div v-if="videoProcessMode === 'ffmpeg'" class="widget-editor__style-field">
+                    <label>压缩质量</label>
+                    <UiSelect v-model="compressQuality" :options="qualityOptions" size="sm" />
+                  </div>
+                </div>
+                <p v-if="!ffmpegAvailable" class="widget-editor__hint widget-editor__hint--warn">
+                  ⚠️ 未配置 FFmpeg 路径，请前往 设置 → 工具 进行配置
+                </p>
+              </div>
+            </div>
+          </Transition>
+
+          <!-- 透明度（通用） -->
+          <div class="widget-editor__opacity-panel">
+            <div class="widget-editor__section-title">透明度</div>
+            <div class="widget-editor__opacity-row">
+              <UiRange
+                v-model="bgOpacityPercent"
+                class="widget-editor__opacity-slider"
+                :min="0"
+                :max="100"
+                :step="1"
+                aria-label="背景透明度"
+              />
+              <span class="widget-editor__opacity-value">{{ Math.round(bgOpacity * 100) }}%</span>
+            </div>
+          </div>
+
+          <div class="widget-editor__text-color-panel">
+            <div class="widget-editor__section-title">文字颜色</div>
+            <div class="widget-editor__text-color-row">
+              <UiInput
+                class="widget-editor__text-color-swatch"
+                type="color"
+                :model-value="selectedTextColor || '#ffffff'"
+                @update:modelValue="selectedTextColor = $event"
+              />
+              <UiInput
+                v-model="selectedTextColor"
+                class="widget-editor__text-color-input"
+                placeholder="默认文字颜色"
+              />
+              <UiButton
+                class="widget-editor__text-color-reset"
+                variant="ghost"
+                size="sm"
+                type="button"
+                @click="selectedTextColor = ''"
+              >
+                重置
               </UiButton>
             </div>
           </div>
-
-          <p class="widget-editor__hint">支持 JPG, PNG, GIF, WebP 格式</p>
-
-          <div class="widget-editor__process-options">
-            <div class="widget-editor__section-title">处理方式</div>
-            <div class="widget-editor__style-grid">
-              <div class="widget-editor__style-field">
-                <label>处理模式</label>
-                <UiSelect v-model="imageProcessMode" :options="imageProcessOptions" size="sm" />
-              </div>
-              <div v-if="imageProcessMode === 'ffmpeg'" class="widget-editor__style-field">
-                <label>压缩质量</label>
-                <UiSelect v-model="compressQuality" :options="qualityOptions" size="sm" />
-              </div>
-            </div>
-            <p v-if="!ffmpegAvailable" class="widget-editor__hint widget-editor__hint--warn">⚠️ 未配置 FFmpeg 路径，请前往 设置 → 工具 进行配置</p>
-          </div>
         </div>
-
-        <!-- 视频选择 -->
-        <div v-else class="widget-editor__video-section">
-          <div class="widget-editor__image-actions">
-            <UiFileInput ref="videoInput" accept="video/*" @change="handleVideoChange" />
-            <UiButton class="widget-editor__upload-btn" variant="secondary" size="md" @click="handleVideoSelect">
-              <span class="upload-icon">🎬</span>
-              <span>选择视频</span>
-            </UiButton>
-            <UiButton v-if="selectedVideo" variant="danger" size="md" @click="handleClearVideo">清除</UiButton>
-          </div>
-          <p class="widget-editor__hint">支持 MP4, WebM, MOV 格式</p>
-
-          <div class="widget-editor__process-options">
-            <div class="widget-editor__section-title">处理方式</div>
-            <div class="widget-editor__style-grid">
-              <div class="widget-editor__style-field">
-                <label>处理模式</label>
-                <UiSelect v-model="videoProcessMode" :options="videoProcessOptions" size="sm" />
-              </div>
-              <div v-if="videoProcessMode === 'ffmpeg'" class="widget-editor__style-field">
-                <label>压缩质量</label>
-                <UiSelect v-model="compressQuality" :options="qualityOptions" size="sm" />
-              </div>
-            </div>
-            <p v-if="!ffmpegAvailable" class="widget-editor__hint widget-editor__hint--warn">⚠️ 未配置 FFmpeg 路径，请前往 设置 → 工具 进行配置</p>
-          </div>
-        </div>
-        </Transition>
-
-        <!-- 透明度（通用） -->
-        <div class="widget-editor__opacity-panel">
-          <div class="widget-editor__section-title">透明度</div>
-          <div class="widget-editor__opacity-row">
-            <UiRange v-model="bgOpacityPercent" class="widget-editor__opacity-slider" :min="0"
-              :max="100" :step="1" aria-label="背景透明度" />
-            <span class="widget-editor__opacity-value">{{ Math.round(bgOpacity * 100) }}%</span>
-          </div>
-        </div>
-
-        <div class="widget-editor__text-color-panel">
-          <div class="widget-editor__section-title">文字颜色</div>
-          <div class="widget-editor__text-color-row">
-            <UiInput
-              class="widget-editor__text-color-swatch"
-              type="color"
-              :model-value="selectedTextColor || '#ffffff'"
-              @update:modelValue="selectedTextColor = $event"
-            />
-            <UiInput v-model="selectedTextColor" class="widget-editor__text-color-input" placeholder="默认文字颜色" />
-            <UiButton class="widget-editor__text-color-reset" variant="ghost" size="sm" type="button" @click="selectedTextColor = ''">
-              重置
-            </UiButton>
-          </div>
-        </div>
-      </div>
       </Transition>
     </div>
 
     <template #footer>
       <div class="widget-editor__footer">
         <UiButton variant="secondary" @click="handleClose">取消</UiButton>
-        <UiButton variant="primary" :disabled="!editLabel.trim()" @click="handleConfirm">保存</UiButton>
+        <UiButton variant="primary" :disabled="!editLabel.trim()" @click="handleConfirm"
+          >保存</UiButton
+        >
       </div>
     </template>
 
     <!-- 图片裁剪器 -->
-    <ImageCropper v-if="showCropper" :visible="showCropper" :image="originalImage"
-      :target-width="props.previewWidth" :target-height="props.previewHeight"
-      :processing-mode="imageProcessMode" :quality="compressQuality"
-      @close="handleCropperClose" @confirm="handleCropperConfirm" />
+    <ImageCropper
+      v-if="showCropper"
+      :visible="showCropper"
+      :image="originalImage"
+      :target-width="props.previewWidth"
+      :target-height="props.previewHeight"
+      :processing-mode="imageProcessMode"
+      :quality="compressQuality"
+      @close="handleCropperClose"
+      @confirm="handleCropperConfirm"
+    />
 
     <!-- 视频裁剪器 -->
-    <VideoCropper v-if="showVideoCropper" :visible="showVideoCropper" :video-url="originalVideoUrl"
+    <VideoCropper
+      v-if="showVideoCropper"
+      :visible="showVideoCropper"
+      :video-url="originalVideoUrl"
       :file-path="originalVideoFilePath"
-      :target-width="props.previewWidth" :target-height="props.previewHeight"
-      :processing-mode="videoProcessMode" :quality="compressQuality"
-      @close="handleVideoCropperClose" @confirm="handleVideoCropperConfirm"
-      @error="handleVideoCropperError" />
+      :target-width="props.previewWidth"
+      :target-height="props.previewHeight"
+      :processing-mode="videoProcessMode"
+      :quality="compressQuality"
+      @close="handleVideoCropperClose"
+      @confirm="handleVideoCropperConfirm"
+      @error="handleVideoCropperError"
+    />
   </UiDialog>
 </template>
 
@@ -1091,8 +1282,10 @@ export default {
     box-shadow: var(--ui-shadow-md);
 
     &--checker {
-      background-image: repeating-conic-gradient(rgba(128, 128, 128, 0.15) 0% 25%,
-          transparent 0% 50%);
+      background-image: repeating-conic-gradient(
+        rgba(128, 128, 128, 0.15) 0% 25%,
+        transparent 0% 50%
+      );
       background-size: 16px 16px;
     }
   }
@@ -1365,7 +1558,9 @@ export default {
     border: 2px solid var(--ui-text-inverse);
     box-shadow: var(--ui-shadow-sm);
     cursor: pointer;
-    transition: transform 0.15s ease, box-shadow 0.15s ease;
+    transition:
+      transform 0.15s ease,
+      box-shadow 0.15s ease;
   }
 
   &::-webkit-slider-thumb:hover {
@@ -1423,7 +1618,8 @@ export default {
   color: var(--ui-select-text);
   border-radius: var(--ui-radius-sm);
   min-height: var(--ui-control-height-md);
-  padding: var(--ui-control-padding-y-md) 40px var(--ui-control-padding-y-md) var(--ui-control-padding-x-md);
+  padding: var(--ui-control-padding-y-md) 40px var(--ui-control-padding-y-md)
+    var(--ui-control-padding-x-md);
   font-size: 0.95rem;
   position: relative;
   transition:

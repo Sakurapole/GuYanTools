@@ -10,20 +10,28 @@ const props = defineProps<{
 
 const now = ref(new Date());
 const timer = ref<number | null>(null);
-const config = computed(() => normalizeWidgetConfig('date', props.item.widgetConfig) as DateWidgetConfig);
+const config = computed(
+  () => normalizeWidgetConfig('date', props.item.widgetConfig) as DateWidgetConfig
+);
 const isCompact = computed(() => props.item.colSpan <= 2 && props.item.rowSpan <= 2);
 const isLarge = computed(() => props.item.colSpan >= 4 && props.item.rowSpan >= 3);
 
-const dateFormatter = computed(() => new Intl.DateTimeFormat('zh-CN', {
-  month: 'long',
-  day: 'numeric',
-  weekday: 'long',
-}));
+const dateFormatter = computed(
+  () =>
+    new Intl.DateTimeFormat('zh-CN', {
+      month: 'long',
+      day: 'numeric',
+      weekday: 'long',
+    })
+);
 
-const yearFormatter = computed(() => new Intl.DateTimeFormat('zh-CN', {
-  year: 'numeric',
-  month: '2-digit',
-}));
+const yearFormatter = computed(
+  () =>
+    new Intl.DateTimeFormat('zh-CN', {
+      year: 'numeric',
+      month: '2-digit',
+    })
+);
 
 const monthGrid = computed(() => {
   const current = now.value;
@@ -64,7 +72,10 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-  <div class="date-widget" :class="{ 'date-widget--compact': isCompact, 'date-widget--large': isLarge }">
+  <div
+    class="date-widget"
+    :class="{ 'date-widget--compact': isCompact, 'date-widget--large': isLarge }"
+  >
     <div class="date-widget__top">
       <div class="date-widget__year">{{ yearFormatter.format(now) }}</div>
       <div class="date-widget__headline">{{ dateFormatter.format(now) }}</div>
@@ -72,12 +83,21 @@ onBeforeUnmount(() => {
     </div>
 
     <div v-if="!isCompact" class="date-widget__weekdays">
-      <span v-for="label in config.weekStartsOn === 'sunday' ? ['日', '一', '二', '三', '四', '五', '六'] : ['一', '二', '三', '四', '五', '六', '日']"
-        :key="label">{{ label }}</span>
+      <span
+        v-for="label in config.weekStartsOn === 'sunday'
+          ? ['日', '一', '二', '三', '四', '五', '六']
+          : ['一', '二', '三', '四', '五', '六', '日']"
+        :key="label"
+        >{{ label }}</span
+      >
     </div>
 
     <div v-if="isLarge" class="date-widget__grid">
-      <span v-for="(cell, index) in monthGrid" :key="index" :class="{ active: cell.today, muted: !cell.day }">
+      <span
+        v-for="(cell, index) in monthGrid"
+        :key="index"
+        :class="{ active: cell.today, muted: !cell.day }"
+      >
         {{ cell.day ?? '' }}
       </span>
     </div>

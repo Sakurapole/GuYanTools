@@ -2,22 +2,25 @@
 import UiPersonalizationConfig from '../ui/UiPersonalizationConfig.vue';
 import type { BackgroundConfirmPayload, BackgroundStyleConfig } from '../../types/grid';
 
-withDefaults(defineProps<{
-  visible: boolean;
-  currentBackground?: string;
-  currentBackgroundImage?: string;
-  currentBackgroundVideo?: string;
-  currentBackgroundStyle?: BackgroundStyleConfig;
-  previewWidth?: number;
-  previewHeight?: number;
-}>(), {
-  currentBackground: '',
-  currentBackgroundImage: '',
-  currentBackgroundVideo: '',
-  currentBackgroundStyle: () => ({}),
-  previewWidth: 320,
-  previewHeight: 200,
-});
+withDefaults(
+  defineProps<{
+    visible: boolean;
+    currentBackground?: string;
+    currentBackgroundImage?: string;
+    currentBackgroundVideo?: string;
+    currentBackgroundStyle?: BackgroundStyleConfig;
+    previewWidth?: number;
+    previewHeight?: number;
+  }>(),
+  {
+    currentBackground: '',
+    currentBackgroundImage: '',
+    currentBackgroundVideo: '',
+    currentBackgroundStyle: () => ({}),
+    previewWidth: 320,
+    previewHeight: 200,
+  }
+);
 
 const emit = defineEmits<{
   close: [];

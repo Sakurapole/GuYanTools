@@ -13,12 +13,15 @@ import TerminalProfileWidget from './renderers/TerminalProfileWidget.vue';
 import WebViewKeepAliveWidget from './renderers/WebViewKeepAliveWidget.vue';
 import ShortcutWidget from './renderers/ShortcutWidget.vue';
 
-const props = withDefaults(defineProps<{
-  item: GridItem;
-  interactive?: boolean;
-}>(), {
-  interactive: true,
-});
+const props = withDefaults(
+  defineProps<{
+    item: GridItem;
+    interactive?: boolean;
+  }>(),
+  {
+    interactive: true,
+  }
+);
 
 const rendererComponent = computed(() => {
   if (props.item.widgetType === 'pomodoro') return BuiltinPomodoroWidget;

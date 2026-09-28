@@ -1,12 +1,28 @@
 <script lang="ts" setup>
-import { computed, nextTick, onActivated, onBeforeUnmount, onDeactivated, onMounted, ref, watch, shallowRef } from 'vue';
+import {
+  computed,
+  nextTick,
+  onActivated,
+  onBeforeUnmount,
+  onDeactivated,
+  onMounted,
+  ref,
+  watch,
+  shallowRef,
+} from 'vue';
 import { useGridCollision } from '../../composables/useGridCollision';
 import { useGridDrag } from '../../composables/useGridDrag';
 import { useGridLayout } from '../../composables/useGridLayout';
 import { useGridLayoutMemory } from '../../composables/useGridLayoutMemory';
 import { useGridReflow } from '../../composables/useGridReflow';
 import { useContextMenu, type ContextMenuItem } from '../../composables/useContextMenu';
-import type { CategoryItem, GridConfig, GridItem, WidgetCreatePayload, WidgetEditPayload } from '../../types/grid';
+import type {
+  CategoryItem,
+  GridConfig,
+  GridItem,
+  WidgetCreatePayload,
+  WidgetEditPayload,
+} from '../../types/grid';
 import UiScrollbar from '../ui/UiScrollbar.vue';
 import GridItemComponent from './GridItem.vue';
 import WidgetSizePicker from './WidgetSizePicker.vue';
@@ -42,16 +58,25 @@ const compArea = ref<HTMLElement | null>(null);
 const shouldEmitLayoutChangeAfterReflow = ref(false);
 const layoutReady = ref(false);
 const gridItems = computed(() => props.category.gridItems);
-const visibleGridItems = computed(() => gridItems.value.filter(item => !item.hidden));
+const visibleGridItems = computed(() => gridItems.value.filter((item) => !item.hidden));
 const isAreaPanning = ref(false);
 const appConfigStore = useAppConfigStore();
-const activeCategoryBackground = computed(() => resolveThemeBackground({
-  type: props.category.backgroundVideo ? 'video' : props.category.backgroundImage ? 'image' : 'color',
-  color: props.category.backgroundColor,
-  image: props.category.backgroundImage,
-  video: props.category.backgroundVideo,
-  backgroundStyle: props.category.backgroundStyle,
-}, appConfigStore.config.appearance.theme));
+const activeCategoryBackground = computed(() =>
+  resolveThemeBackground(
+    {
+      type: props.category.backgroundVideo
+        ? 'video'
+        : props.category.backgroundImage
+          ? 'image'
+          : 'color',
+      color: props.category.backgroundColor,
+      image: props.category.backgroundImage,
+      video: props.category.backgroundVideo,
+      backgroundStyle: props.category.backgroundStyle,
+    },
+    appConfigStore.config.appearance.theme
+  )
+);
 
 type ItemStyle = Record<string, string | number>;
 
@@ -90,7 +115,7 @@ const {
 } = layoutHelpers;
 
 // 碰撞检测
-const { hasCollision, findAvailablePosition, canPlaceAt, occupySlot } = useGridCollision(
+const { findAvailablePosition, canPlaceAt, occupySlot } = useGridCollision(
   gridItems,
   colNum,
   rowNum,
@@ -166,9 +191,11 @@ function buildBaseItemStyle(item: GridItem): ItemStyle {
 
 const baseItemStyleMap = shallowRef<Record<string, ItemStyle>>({});
 
-const itemLayoutSignature = computed(() => visibleGridItems.value
-  .map(item => `${item.id}:${item.col}:${item.row}:${item.colSpan}:${item.rowSpan}`)
-  .join('|'));
+const itemLayoutSignature = computed(() =>
+  visibleGridItems.value
+    .map((item) => `${item.id}:${item.col}:${item.row}:${item.colSpan}:${item.rowSpan}`)
+    .join('|')
+);
 
 function syncBaseItemStyles() {
   const nextStyles: Record<string, ItemStyle> = {};
@@ -180,11 +207,9 @@ function syncBaseItemStyles() {
   baseItemStyleMap.value = nextStyles;
 }
 
-watch(
-  [itemLayoutSignature, unitSize, cellSize, horizontalOffset],
-  syncBaseItemStyles,
-  { immediate: true }
-);
+watch([itemLayoutSignature, unitSize, cellSize, horizontalOffset], syncBaseItemStyles, {
+  immediate: true,
+});
 
 const activeDraggingStyle = computed<ItemStyle | null>(() => {
   const item = draggingItem.value;
@@ -215,7 +240,6 @@ function handleResize() {
     if (newColNum !== lastColNum) {
       // 保存旧列数的布局快照
       saveSnapshot(props.category.id, lastColNum, gridItems.value);
-      const prevColNum = lastColNum;
       lastColNum = newColNum;
 
       // 尝试恢复新列数的布局
@@ -377,7 +401,7 @@ async function handleItemOpen(item: GridItem) {
 
 // 删除小组件
 function handleItemDelete(item: GridItem) {
-  const index = gridItems.value.findIndex(i => i.id === item.id);
+  const index = gridItems.value.findIndex((i) => i.id === item.id);
   if (index !== -1) {
     gridItems.value.splice(index, 1);
     clearLayoutMemory(props.category.id); // widget 变化后旧快照失效
@@ -389,7 +413,7 @@ function handleItemDelete(item: GridItem) {
 
 // 更新小组件（编辑组件）
 function handleItemUpdateWidget(item: GridItem, payload: WidgetEditPayload) {
-  const index = gridItems.value.findIndex(i => i.id === item.id);
+  const index = gridItems.value.findIndex((i) => i.id === item.id);
   if (index !== -1) {
     const widget = gridItems.value[index];
     const sizeChanged = widget.colSpan !== payload.colSpan || widget.rowSpan !== payload.rowSpan;
@@ -445,14 +469,18 @@ function handleAreaContextMenu(event: MouseEvent) {
       id: 'area-create',
       label: '新建组件',
       icon: AddIcon,
-      action: () => { showSizePicker.value = true; },
+      action: () => {
+        showSizePicker.value = true;
+      },
     },
     {
       id: 'area-bg',
       label: '区域个性化配置',
       icon: EditIcon,
       divided: true,
-      action: () => { emit('changeBackground'); },
+      action: () => {
+        emit('changeBackground');
+      },
     },
   ];
   contextMenu.open(event.clientX, event.clientY, menuItems);
@@ -509,20 +537,23 @@ function handleCreateWidget(payload: WidgetCreatePayload) {
 }
 
 // 监听 category 变化，重新计算布局
-watch(() => props.category.id, () => {
-  layoutReady.value = false;
-  scrollScrollbarTo({
-    left: 0,
-    top: 0,
-    behavior: 'auto',
-  });
+watch(
+  () => props.category.id,
+  () => {
+    layoutReady.value = false;
+    scrollScrollbarTo({
+      left: 0,
+      top: 0,
+      behavior: 'auto',
+    });
 
-  initializeLayoutWhenReady();
-  void nextTick(() => {
-    compAreaViewport.value = getScrollbarViewport();
-    refreshScrollbar();
-  });
-});
+    initializeLayoutWhenReady();
+    void nextTick(() => {
+      compAreaViewport.value = getScrollbarViewport();
+      refreshScrollbar();
+    });
+  }
+);
 
 onMounted(() => {
   enableCategoryVideoAutoplay();
@@ -565,9 +596,11 @@ function syncCategoryBackground() {
   catBgSize.value = background.backgroundStyle?.backgroundSize || 'cover';
   catBgPosition.value = background.backgroundStyle?.backgroundPosition || 'center';
   catBgRepeat.value = background.backgroundStyle?.backgroundRepeat || 'no-repeat';
-  catBgOpacity.value = background.backgroundStyle?.opacity != null && Number.isFinite(background.backgroundStyle.opacity)
-    ? background.backgroundStyle.opacity
-    : 1;
+  catBgOpacity.value =
+    background.backgroundStyle?.opacity != null &&
+    Number.isFinite(background.backgroundStyle.opacity)
+      ? background.backgroundStyle.opacity
+      : 1;
   catBgTextColor.value = background.backgroundStyle?.textColor || '';
 }
 
@@ -601,14 +634,16 @@ const categoryBgStyle = computed(() => {
   return style;
 });
 
-const categoryTextStyle = computed(() => buildBackgroundTextVars(catBgTextColor.value, {
-  aliases: {
-    primary: ['--ui-text-primary'],
-    secondary: ['--ui-text-secondary'],
-    muted: ['--ui-text-muted'],
-    subtle: ['--ui-text-subtle'],
-  },
-}));
+const categoryTextStyle = computed(() =>
+  buildBackgroundTextVars(catBgTextColor.value, {
+    aliases: {
+      primary: ['--ui-text-primary'],
+      secondary: ['--ui-text-secondary'],
+      muted: ['--ui-text-muted'],
+      subtle: ['--ui-text-subtle'],
+    },
+  })
+);
 
 function getScrollbarViewport(): HTMLElement | null {
   const api = compAreaScrollbar.value;
@@ -630,7 +665,9 @@ function initializeLayout(): boolean {
     lastColNum = colNum.value;
     shouldEmitLayoutChangeAfterReflow.value = false;
     scheduleReflow();
-    void nextTick(() => { layoutReady.value = true; });
+    void nextTick(() => {
+      layoutReady.value = true;
+    });
   });
   return true;
 }
@@ -677,16 +714,18 @@ const hasCategoryBackground = computed(() => {
   return Boolean(catBgColor.value || catBgImage.value || catBgVideo.value);
 });
 
-const categoryBackgroundMemoKey = computed(() => [
-  catBgColor.value,
-  catBgImage.value,
-  catBgVideo.value,
-  catBgSize.value,
-  catBgPosition.value,
-  catBgRepeat.value,
-  String(catBgOpacity.value),
-  catBgTextColor.value,
-].join('::'));
+const categoryBackgroundMemoKey = computed(() =>
+  [
+    catBgColor.value,
+    catBgImage.value,
+    catBgVideo.value,
+    catBgSize.value,
+    catBgPosition.value,
+    catBgRepeat.value,
+    String(catBgOpacity.value),
+    catBgTextColor.value,
+  ].join('::')
+);
 
 function clearCategoryVideoResumeTimer() {
   if (categoryVideoResumeTimer) {
@@ -762,14 +801,25 @@ onDeactivated(disableCategoryVideoAutoplay);
 </script>
 
 <template>
-  <UiScrollbar ref="compAreaScrollbar" class="comp-area-viewport" :style="categoryTextStyle" :x="true" :y="true" :show-on-hover="true"
+  <UiScrollbar
+    ref="compAreaScrollbar"
+    class="comp-area-viewport"
+    :style="categoryTextStyle"
+    :x="true"
+    :y="true"
+    :show-on-hover="true"
     :size="6"
     thumb-color="var(--workspace-scrollbar-thumb-color)"
     thumb-hover-color="var(--workspace-scrollbar-thumb-hover-color)"
     track-color="var(--workspace-scrollbar-track-color)"
   >
     <!-- 类别背景层 -->
-    <div v-if="hasCategoryBackground" v-memo="[categoryBackgroundMemoKey]" class="comp-area-bg" :style="categoryBgStyle">
+    <div
+      v-if="hasCategoryBackground"
+      v-memo="[categoryBackgroundMemoKey]"
+      class="comp-area-bg"
+      :style="categoryBgStyle"
+    >
       <video
         v-if="catBgVideo"
         ref="categoryBgVideoRef"
@@ -789,20 +839,39 @@ onDeactivated(disableCategoryVideoAutoplay);
       />
     </div>
 
-    <div class="comp-area" :class="{ 'comp-area--panning': isAreaPanning }" ref="compArea" :style="compAreaStyle"
-      @pointerdown="handleAreaPointerDown" @contextmenu="handleAreaContextMenu">
+    <div
+      class="comp-area"
+      :class="{ 'comp-area--panning': isAreaPanning }"
+      ref="compArea"
+      :style="compAreaStyle"
+      @pointerdown="handleAreaPointerDown"
+      @contextmenu="handleAreaContextMenu"
+    >
       <template v-if="layoutReady">
-        <GridItemComponent v-for="item in visibleGridItems" :key="item.id" :item="item"
-          :isDragging="draggingItem?.id === item.id" :style="getItemStyle(item)"
-          @pointerdown="handleItemPointerDown(item, $event)" @pointermove="handleItemPointerMove($event)"
-          @pointerup="handleItemPointerUp($event)" @pointercancel="handleItemPointerCancel($event)"
-          @pointerleave="handleItemPointerLeave($event)" @open="handleItemOpen" @delete="handleItemDelete"
-          @updateWidget="handleItemUpdateWidget" />
+        <GridItemComponent
+          v-for="item in visibleGridItems"
+          :key="item.id"
+          :item="item"
+          :isDragging="draggingItem?.id === item.id"
+          :style="getItemStyle(item)"
+          @pointerdown="handleItemPointerDown(item, $event)"
+          @pointermove="handleItemPointerMove($event)"
+          @pointerup="handleItemPointerUp($event)"
+          @pointercancel="handleItemPointerCancel($event)"
+          @pointerleave="handleItemPointerLeave($event)"
+          @open="handleItemOpen"
+          @delete="handleItemDelete"
+          @updateWidget="handleItemUpdateWidget"
+        />
       </template>
     </div>
 
     <!-- 尺寸选择弹框 -->
-    <WidgetSizePicker :visible="showSizePicker" @close="handleSizePickerClose" @confirm="handleCreateWidget" />
+    <WidgetSizePicker
+      :visible="showSizePicker"
+      @close="handleSizePickerClose"
+      @confirm="handleCreateWidget"
+    />
   </UiScrollbar>
 </template>
 

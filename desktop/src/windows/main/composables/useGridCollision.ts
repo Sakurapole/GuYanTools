@@ -26,7 +26,7 @@ export function useGridCollision(
   }
 
   function hasCollision(item: GridItem, col: number, row: number) {
-    return gridItems.value.some(other => !other.hidden && overlaps(item, col, row, other));
+    return gridItems.value.some((other) => !other.hidden && overlaps(item, col, row, other));
   }
 
   function findAvailablePosition(
@@ -57,12 +57,7 @@ export function useGridCollision(
     return { col: initialPosition.col, row: initialPosition.row };
   }
 
-  function canPlaceAt(
-    occupancy: (string | null)[][],
-    item: GridItem,
-    col: number,
-    row: number
-  ) {
+  function canPlaceAt(occupancy: (string | null)[][], item: GridItem, col: number, row: number) {
     if (!isWithinBounds(item, col, row)) return false;
 
     for (let r = 0; r < item.rowSpan; r += 1) {
@@ -78,17 +73,17 @@ export function useGridCollision(
     return true;
   }
 
-  function occupySlot(
-    occupancy: (string | null)[][],
-    item: GridItem,
-    col: number,
-    row: number
-  ) {
+  function occupySlot(occupancy: (string | null)[][], item: GridItem, col: number, row: number) {
     for (let r = 0; r < item.rowSpan; r += 1) {
       for (let c = 0; c < item.colSpan; c += 1) {
         const occRow = row + r - 1;
         const occCol = col + c - 1;
-        if (occRow >= 0 && occRow < occupancy.length && occCol >= 0 && occCol < occupancy[0].length) {
+        if (
+          occRow >= 0 &&
+          occRow < occupancy.length &&
+          occCol >= 0 &&
+          occCol < occupancy[0].length
+        ) {
           occupancy[occRow][occCol] = item.id;
         }
       }
@@ -102,4 +97,3 @@ export function useGridCollision(
     occupySlot,
   };
 }
-

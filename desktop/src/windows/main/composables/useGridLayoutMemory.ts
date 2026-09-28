@@ -151,8 +151,8 @@ export function useGridLayoutMemory() {
     if (!snapshot) return false;
 
     // 检查所有可见 item 在快照中都有记录
-    const visibleItems = items.filter(i => !i.hidden);
-    const allPresent = visibleItems.every(item => snapshot.has(item.id));
+    const visibleItems = items.filter((i) => !i.hidden);
+    const allPresent = visibleItems.every((item) => snapshot.has(item.id));
     if (!allPresent) {
       // 快照已失效（item 列表发生了变化），移除它
       catStore.delete(colNum);

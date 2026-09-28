@@ -240,20 +240,31 @@ export const HOME_WIDGET_DEFINITIONS: HomeWidgetDefinition[] = [
   },
 ];
 
-const widgetDefinitionMap = new Map(HOME_WIDGET_DEFINITIONS.map(definition => [definition.widgetType, definition]));
+const widgetDefinitionMap = new Map(
+  HOME_WIDGET_DEFINITIONS.map((definition) => [definition.widgetType, definition])
+);
 
 export function getHomeWidgetDefinition(widgetType: HomeWidgetType): HomeWidgetDefinition {
   return widgetDefinitionMap.get(widgetType) ?? widgetDefinitionMap.get('shortcut')!;
 }
 
-export function getWidgetSizeDefinition(widgetType: HomeWidgetType, preset?: string | null): WidgetSizeDefinition | undefined {
+export function getWidgetSizeDefinition(
+  widgetType: HomeWidgetType,
+  preset?: string | null
+): WidgetSizeDefinition | undefined {
   const definition = getHomeWidgetDefinition(widgetType);
-  return definition.supportedSizes.find(item => item.preset === preset);
+  return definition.supportedSizes.find((item) => item.preset === preset);
 }
 
-export function findWidgetSizePreset(widgetType: HomeWidgetType, colSpan: number, rowSpan: number): WidgetSizePreset {
+export function findWidgetSizePreset(
+  widgetType: HomeWidgetType,
+  colSpan: number,
+  rowSpan: number
+): WidgetSizePreset {
   const definition = getHomeWidgetDefinition(widgetType);
-  const matched = definition.supportedSizes.find(item => item.colSpan === colSpan && item.rowSpan === rowSpan);
+  const matched = definition.supportedSizes.find(
+    (item) => item.colSpan === colSpan && item.rowSpan === rowSpan
+  );
   return matched?.preset ?? 'custom';
 }
 
@@ -271,7 +282,10 @@ function toBoolean(value: unknown, fallback: boolean) {
   return fallback;
 }
 
-export function normalizeWidgetConfig(widgetType: HomeWidgetType, value: WidgetConfig | undefined): WidgetConfig | undefined {
+export function normalizeWidgetConfig(
+  widgetType: HomeWidgetType,
+  value: WidgetConfig | undefined
+): WidgetConfig | undefined {
   if (widgetType === 'pomodoro') {
     const raw = (value ?? {}) as Partial<PomodoroWidgetConfig>;
     return {

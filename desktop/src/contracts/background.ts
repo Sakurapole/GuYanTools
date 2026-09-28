@@ -41,10 +41,12 @@ export type BackgroundSourceInput = {
 
 function clonePlain<T>(value: T): T {
   // 使用 structuredClone 替代 JSON round-trip，避免大 base64 字符串导致内存峰值
-  return structuredClone(value ?? {} as T);
+  return structuredClone(value ?? ({} as T));
 }
 
-export function stripBackgroundThemeVariants(style?: BackgroundStyleConfig): BackgroundBaseStyleConfig {
+export function stripBackgroundThemeVariants(
+  style?: BackgroundStyleConfig
+): BackgroundBaseStyleConfig {
   if (!style) return {};
   const baseStyle = { ...style };
   delete baseStyle.themeVariants;
@@ -73,7 +75,7 @@ export function toBackgroundValueConfig(input: BackgroundSourceInput = {}): Back
 
 export function resolveThemeBackground(
   input: BackgroundSourceInput,
-  theme: BackgroundTheme,
+  theme: BackgroundTheme
 ): BackgroundValueConfig {
   const fallback = toBackgroundValueConfig(input);
   const variant = input.backgroundStyle?.themeVariants?.[theme];
@@ -83,7 +85,7 @@ export function resolveThemeBackground(
 export function withThemeBackground(
   current: BackgroundSourceInput,
   theme: BackgroundTheme,
-  next: BackgroundSourceInput,
+  next: BackgroundSourceInput
 ): BackgroundValueConfig & { backgroundStyle: BackgroundStyleConfig } {
   const currentValue = toBackgroundValueConfig(current);
   const nextValue = toBackgroundValueConfig(next);

@@ -163,7 +163,10 @@ export interface HomeLayoutApi {
   getHomeLayout: () => Promise<HomeLayoutDto>;
   getHomeCategoryLayout: (categoryId: string) => Promise<HomeLayoutCategoryDto>;
   createCategory: (input: CreateHomeCategoryPayload) => Promise<HomeLayoutCategoryDto>;
-  updateCategory: (categoryId: string, input: UpdateHomeCategoryPayload) => Promise<HomeLayoutCategoryDto>;
+  updateCategory: (
+    categoryId: string,
+    input: UpdateHomeCategoryPayload
+  ) => Promise<HomeLayoutCategoryDto>;
   deleteCategory: (categoryId: string) => Promise<void>;
   createWidget: (input: CreateHomeWidgetPayload) => Promise<HomeWidgetDto>;
   updateWidget: (widgetId: string, input: UpdateHomeWidgetPayload) => Promise<HomeWidgetDto>;
