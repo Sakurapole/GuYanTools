@@ -7,18 +7,21 @@ const sourceRoot = join(process.cwd(), 'src');
 
 describe('Stencil style contract', () => {
   it('loads tokens through the Stencil global stylesheet', () => {
-    expect(readFileSync(join(sourceRoot, 'global/gt-tokens.css'), 'utf8'))
-      .toContain("@import '../styles/tokens.css'");
+    expect(readFileSync(join(sourceRoot, 'global/gt-tokens.css'), 'utf8')).toContain(
+      "@import '../styles/tokens.css'"
+    );
   });
 
   it('keeps the published token entry as a stylesheet-only re-export', () => {
-    expect(readFileSync(join(sourceRoot, 'tokens.css'), 'utf8').trim())
-      .toBe("@import './styles/tokens.css';");
+    expect(readFileSync(join(sourceRoot, 'tokens.css'), 'utf8').trim()).toBe(
+      "@import './styles/tokens.css';"
+    );
   });
 
   it('publishes the global overlay layer separately from tokens', () => {
-    expect(readFileSync(join(sourceRoot, 'overlay.css'), 'utf8').trim())
-      .toBe("@import './styles/overlay-layer.css';");
+    expect(readFileSync(join(sourceRoot, 'overlay.css'), 'utf8').trim()).toBe(
+      "@import './styles/overlay-layer.css';"
+    );
   });
 
   it('bridges dialog overlays to the desktop dialog visual tokens', () => {

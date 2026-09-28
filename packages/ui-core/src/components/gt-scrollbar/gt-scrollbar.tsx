@@ -31,12 +31,22 @@ export class GtScrollbar {
     if (this.hideTimer !== undefined) window.clearTimeout(this.hideTimer);
   }
 
-  @Method() async refresh(): Promise<void> { this.updateRails(); }
-  @Method() async updateScrollableState(): Promise<void> { this.updateRails(); }
-  @Method() async scrollByPosition(options: ScrollToOptions): Promise<void> { this.viewport()?.scrollBy(options); }
-  @Method() async scrollToPosition(options: ScrollToOptions): Promise<void> { this.viewport()?.scrollTo(options); }
+  @Method() async refresh(): Promise<void> {
+    this.updateRails();
+  }
+  @Method() async updateScrollableState(): Promise<void> {
+    this.updateRails();
+  }
+  @Method() async scrollByPosition(options: ScrollToOptions): Promise<void> {
+    this.viewport()?.scrollBy(options);
+  }
+  @Method() async scrollToPosition(options: ScrollToOptions): Promise<void> {
+    this.viewport()?.scrollTo(options);
+  }
 
-  private viewport(): HTMLElement | undefined { return this.host.shadowRoot?.querySelector('[part="viewport"]') as HTMLElement | undefined; }
+  private viewport(): HTMLElement | undefined {
+    return this.host.shadowRoot?.querySelector('[part="viewport"]') as HTMLElement | undefined;
+  }
   private updateRails(): void {
     const viewport = this.viewport();
     if (!viewport) return;
@@ -48,7 +58,10 @@ export class GtScrollbar {
       xOverflow ? railX.removeAttribute('hidden') : railX.setAttribute('hidden', '');
       const thumb = railX.querySelector<HTMLElement>('[part="thumb-x"]');
       if (thumb) {
-        const ratio = Math.max(0.01, Math.min(1, viewport.clientWidth / Math.max(viewport.scrollWidth, 1)));
+        const ratio = Math.max(
+          0.01,
+          Math.min(1, viewport.clientWidth / Math.max(viewport.scrollWidth, 1))
+        );
         thumb.style.width = `${Math.max(12, ratio * 100)}%`;
         const track = Math.max(0, railX.clientWidth - thumb.offsetWidth);
         thumb.style.transform = `translateX(${track * (viewport.scrollLeft / Math.max(1, viewport.scrollWidth - viewport.clientWidth))}px)`;
@@ -58,7 +71,10 @@ export class GtScrollbar {
       yOverflow ? railY.removeAttribute('hidden') : railY.setAttribute('hidden', '');
       const thumb = railY.querySelector<HTMLElement>('[part="thumb-y"]');
       if (thumb) {
-        const ratio = Math.max(0.01, Math.min(1, viewport.clientHeight / Math.max(viewport.scrollHeight, 1)));
+        const ratio = Math.max(
+          0.01,
+          Math.min(1, viewport.clientHeight / Math.max(viewport.scrollHeight, 1))
+        );
         thumb.style.height = `${Math.max(12, ratio * 100)}%`;
         const track = Math.max(0, railY.clientHeight - thumb.offsetHeight);
         thumb.style.transform = `translateY(${track * (viewport.scrollTop / Math.max(1, viewport.scrollHeight - viewport.clientHeight))}px)`;
@@ -84,10 +100,28 @@ export class GtScrollbar {
       '--gt-scrollbar-thumb-hover': this.thumbHoverColor || undefined,
       '--gt-scrollbar-track': this.trackColor || undefined,
     };
-    return <Host style={style}>
-      <div part="viewport" class={{ viewport: true, 'axis-x': this.x, 'axis-y': this.y }} onScroll={this.handleScroll}><div part="content"><slot /></div></div>
-      {this.x && <div part="rail-x" class="rail rail-x"><span part="thumb-x" class="thumb" /></div>}
-      {this.y && <div part="rail-y" class="rail rail-y"><span part="thumb-y" class="thumb" /></div>}
-    </Host>;
+    return (
+      <Host style={style}>
+        <div
+          part="viewport"
+          class={{ viewport: true, 'axis-x': this.x, 'axis-y': this.y }}
+          onScroll={this.handleScroll}
+        >
+          <div part="content">
+            <slot />
+          </div>
+        </div>
+        {this.x && (
+          <div part="rail-x" class="rail rail-x">
+            <span part="thumb-x" class="thumb" />
+          </div>
+        )}
+        {this.y && (
+          <div part="rail-y" class="rail rail-y">
+            <span part="thumb-y" class="thumb" />
+          </div>
+        )}
+      </Host>
+    );
   }
 }

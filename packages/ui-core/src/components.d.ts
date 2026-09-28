@@ -1134,7 +1134,9 @@ declare global {
         new (): HTMLGtRadioElement;
     };
     interface HTMLGtRangeElementEventMap {
-        "gt-change": { value: number };
+        "gt-change": {
+    value: number;
+  };
     }
     interface HTMLGtRangeElement extends Components.GtRange, HTMLStencilElement {
         addEventListener<K extends keyof HTMLGtRangeElementEventMap>(type: K, listener: (this: HTMLGtRangeElement, ev: GtRangeCustomEvent<HTMLGtRangeElementEventMap[K]>) => any, options?: boolean | AddEventListenerOptions): void;
@@ -1838,7 +1840,9 @@ declare namespace LocalJSX {
           * @default 0
          */
         "min"?: number;
-        "onGt-change"?: (event: GtRangeCustomEvent<{ value: number }>) => void;
+        "onGt-change"?: (event: GtRangeCustomEvent<{
+    value: number;
+  }>) => void;
         /**
           * @default 1
          */

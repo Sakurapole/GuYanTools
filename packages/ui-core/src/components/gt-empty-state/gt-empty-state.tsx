@@ -32,8 +32,12 @@ export class GtEmptyState {
   }
 
   private syncSlots = (): void => {
-    const hasContent = (slot?: HTMLSlotElement): boolean => Boolean(slot?.assignedNodes({ flatten: true })
-      .some(node => node.nodeType !== 3 || Boolean(node.textContent?.trim())));
+    const hasContent = (slot?: HTMLSlotElement): boolean =>
+      Boolean(
+        slot
+          ?.assignedNodes({ flatten: true })
+          .some((node) => node.nodeType !== 3 || Boolean(node.textContent?.trim()))
+      );
 
     this.hasIcon = hasContent(this.iconSlot);
     this.hasActions = hasContent(this.namedActionsSlot) || hasContent(this.defaultActionsSlot);
@@ -43,10 +47,32 @@ export class GtEmptyState {
     return (
       <Host>
         <section part="base">
-          <span part="icon" hidden={!this.hasIcon}><slot name="icon" ref={(element) => { this.iconSlot = element; }} onSlotchange={this.syncSlots} /></span>
+          <span part="icon" hidden={!this.hasIcon}>
+            <slot
+              name="icon"
+              ref={(element) => {
+                this.iconSlot = element;
+              }}
+              onSlotchange={this.syncSlots}
+            />
+          </span>
           {this.nativeTitle ? <h3 part="title">{this.nativeTitle}</h3> : null}
           {this.description ? <p part="description">{this.description}</p> : null}
-          <div part="actions" class="actions" hidden={!this.hasActions}><slot name="actions" ref={(element) => { this.namedActionsSlot = element; }} onSlotchange={this.syncSlots} /><slot ref={(element) => { this.defaultActionsSlot = element; }} onSlotchange={this.syncSlots} /></div>
+          <div part="actions" class="actions" hidden={!this.hasActions}>
+            <slot
+              name="actions"
+              ref={(element) => {
+                this.namedActionsSlot = element;
+              }}
+              onSlotchange={this.syncSlots}
+            />
+            <slot
+              ref={(element) => {
+                this.defaultActionsSlot = element;
+              }}
+              onSlotchange={this.syncSlots}
+            />
+          </div>
         </section>
       </Host>
     );

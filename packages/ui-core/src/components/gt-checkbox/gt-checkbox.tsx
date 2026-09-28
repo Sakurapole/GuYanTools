@@ -15,7 +15,8 @@ export class GtCheckbox {
   @Prop() name = '';
   @Prop() value = '';
 
-  @Event({ eventName: 'gt-change', bubbles: true, composed: true }) change!: EventEmitter<GtCheckedChangeDetail>;
+  @Event({ eventName: 'gt-change', bubbles: true, composed: true })
+  change!: EventEmitter<GtCheckedChangeDetail>;
 
   @Element() host!: HTMLElement;
   private checkbox?: HTMLInputElement;
@@ -37,8 +38,11 @@ export class GtCheckbox {
   };
 
   private syncLabelSlot = (): void => {
-    this.hasLabelSlot = Boolean(this.labelSlot?.assignedNodes({ flatten: true })
-      .some(node => node.nodeType !== 3 || Boolean(node.textContent?.trim())));
+    this.hasLabelSlot = Boolean(
+      this.labelSlot
+        ?.assignedNodes({ flatten: true })
+        .some((node) => node.nodeType !== 3 || Boolean(node.textContent?.trim()))
+    );
   };
 
   render() {
@@ -47,12 +51,47 @@ export class GtCheckbox {
     return (
       <Host>
         <label part="base">
-          <input part="input" ref={(element) => { this.checkbox = element; }} checked={this.checked} disabled={this.disabled} id={this.host.id || undefined} name={this.name} type="checkbox" value={this.value} onChange={this.handleChange} />
+          <input
+            part="input"
+            ref={(element) => {
+              this.checkbox = element;
+            }}
+            checked={this.checked}
+            disabled={this.disabled}
+            id={this.host.id || undefined}
+            name={this.name}
+            type="checkbox"
+            value={this.value}
+            onChange={this.handleChange}
+          />
           <span part="control" class="box" aria-hidden="true">
-            {this.checked && !this.indeterminate ? <svg class="icon" viewBox="0 0 14 14" fill="none" aria-hidden="true"><path d="M2.5 7L5.5 10L11.5 4" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" /></svg> : null}
-            {this.indeterminate ? <svg class="icon" viewBox="0 0 14 14" fill="none" aria-hidden="true"><path d="M3 7H11" stroke="currentColor" stroke-width="2" stroke-linecap="round" /></svg> : null}
+            {this.checked && !this.indeterminate ? (
+              <svg class="icon" viewBox="0 0 14 14" fill="none" aria-hidden="true">
+                <path
+                  d="M2.5 7L5.5 10L11.5 4"
+                  stroke="currentColor"
+                  stroke-width="2"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                />
+              </svg>
+            ) : null}
+            {this.indeterminate ? (
+              <svg class="icon" viewBox="0 0 14 14" fill="none" aria-hidden="true">
+                <path d="M3 7H11" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
+              </svg>
+            ) : null}
           </span>
-          <span part="label" class="label" hidden={!hasLabel}><slot ref={(element) => { this.labelSlot = element; }} onSlotchange={this.syncLabelSlot}>{this.label}</slot></span>
+          <span part="label" class="label" hidden={!hasLabel}>
+            <slot
+              ref={(element) => {
+                this.labelSlot = element;
+              }}
+              onSlotchange={this.syncLabelSlot}
+            >
+              {this.label}
+            </slot>
+          </span>
         </label>
       </Host>
     );

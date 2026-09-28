@@ -38,7 +38,8 @@ export class GtIconButton {
     this.titleObserver?.disconnect();
   }
 
-  @Event({ eventName: 'gt-click', bubbles: true, composed: true }) click!: EventEmitter<GtIconButtonClickDetail>;
+  @Event({ eventName: 'gt-click', bubbles: true, composed: true })
+  click!: EventEmitter<GtIconButtonClickDetail>;
 
   private handleClick = (): void => {
     this.click.emit({ disabled: this.disabled });
@@ -53,8 +54,22 @@ export class GtIconButton {
 
     return (
       <Host>
-        <button part="base" aria-label={accessibleLabel} disabled={this.disabled} title={this.nativeTitle} type={this.type} onClick={this.handleClick}>
-          <span part="icon" class="icon" hidden={!this.hasIcon}><slot ref={(element) => { this.iconSlot = element; }} onSlotchange={this.syncIconSlot} /></span>
+        <button
+          part="base"
+          aria-label={accessibleLabel}
+          disabled={this.disabled}
+          title={this.nativeTitle}
+          type={this.type}
+          onClick={this.handleClick}
+        >
+          <span part="icon" class="icon" hidden={!this.hasIcon}>
+            <slot
+              ref={(element) => {
+                this.iconSlot = element;
+              }}
+              onSlotchange={this.syncIconSlot}
+            />
+          </span>
           {this.label ? <span part="label">{this.label}</span> : null}
         </button>
       </Host>

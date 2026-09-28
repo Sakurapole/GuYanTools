@@ -7,7 +7,9 @@ import './gt-date-time-picker/gt-date-time-picker';
 
 describe('date and time pickers', () => {
   it('opens a date calendar in a body portal, selects and clears a date', async () => {
-    const { root, spyOnEvent, waitForChanges } = await render(<gt-date-picker value="2026-08-15" clearable />);
+    const { root, spyOnEvent, waitForChanges } = await render(
+      <gt-date-picker value="2026-08-15" clearable />
+    );
     const change = spyOnEvent('gt-change');
     root.shadowRoot?.querySelector<HTMLButtonElement>('[part="trigger"]')?.click();
     await waitForChanges();
@@ -32,7 +34,9 @@ describe('date and time pickers', () => {
     const portal = document.body.querySelector<HTMLElement>('[data-gt-overlay="time-picker"]');
     expect(portal?.querySelectorAll('[data-minute]').length).toBe(6);
     const trigger = root.shadowRoot?.querySelector<HTMLButtonElement>('[part="trigger"]');
-    trigger?.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, composed: true }));
+    trigger?.dispatchEvent(
+      new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, composed: true })
+    );
     await waitForChanges();
     expect(document.body.querySelector('[data-gt-overlay="time-picker"]')).toBeNull();
   });
@@ -42,7 +46,9 @@ describe('date and time pickers', () => {
     date.root.shadowRoot?.querySelector<HTMLButtonElement>('[part="trigger"]')?.click();
     await date.waitForChanges();
     const datePortal = document.body.querySelector<HTMLElement>('[data-gt-overlay="date-picker"]');
-    datePortal?.querySelector<HTMLElement>('[part="layer"]')?.dispatchEvent(new MouseEvent('mousedown', { bubbles: true }));
+    datePortal
+      ?.querySelector<HTMLElement>('[part="layer"]')
+      ?.dispatchEvent(new MouseEvent('mousedown', { bubbles: true }));
     await date.waitForChanges();
     expect(document.body.querySelector('[data-gt-overlay="date-picker"]')).toBeNull();
 
@@ -50,7 +56,9 @@ describe('date and time pickers', () => {
     time.root.shadowRoot?.querySelector<HTMLButtonElement>('[part="trigger"]')?.click();
     await time.waitForChanges();
     const timePortal = document.body.querySelector<HTMLElement>('[data-gt-overlay="time-picker"]');
-    timePortal?.querySelector<HTMLElement>('[part="layer"]')?.dispatchEvent(new MouseEvent('mousedown', { bubbles: true }));
+    timePortal
+      ?.querySelector<HTMLElement>('[part="layer"]')
+      ?.dispatchEvent(new MouseEvent('mousedown', { bubbles: true }));
     await time.waitForChanges();
     expect(document.body.querySelector('[data-gt-overlay="time-picker"]')).toBeNull();
   });
@@ -60,7 +68,9 @@ describe('date and time pickers', () => {
     (date.root as unknown as { closeOnOutside: boolean }).closeOnOutside = false;
     date.root.shadowRoot?.querySelector<HTMLButtonElement>('[part="trigger"]')?.click();
     await date.waitForChanges();
-    document.body.querySelector<HTMLElement>('[data-gt-overlay="date-picker"] [part="layer"]')?.dispatchEvent(new MouseEvent('mousedown', { bubbles: true }));
+    document.body
+      .querySelector<HTMLElement>('[data-gt-overlay="date-picker"] [part="layer"]')
+      ?.dispatchEvent(new MouseEvent('mousedown', { bubbles: true }));
     await date.waitForChanges();
     expect(document.body.querySelector('[data-gt-overlay="date-picker"]')).not.toBeNull();
 
@@ -68,18 +78,26 @@ describe('date and time pickers', () => {
     (time.root as unknown as { closeOnOutside: boolean }).closeOnOutside = false;
     time.root.shadowRoot?.querySelector<HTMLButtonElement>('[part="trigger"]')?.click();
     await time.waitForChanges();
-    document.body.querySelector<HTMLElement>('[data-gt-overlay="time-picker"] [part="layer"]')?.dispatchEvent(new MouseEvent('mousedown', { bubbles: true }));
+    document.body
+      .querySelector<HTMLElement>('[data-gt-overlay="time-picker"] [part="layer"]')
+      ?.dispatchEvent(new MouseEvent('mousedown', { bubbles: true }));
     await time.waitForChanges();
     expect(document.body.querySelector('[data-gt-overlay="time-picker"]')).not.toBeNull();
   });
 
   it('formats DateTime values without timezone drift', async () => {
     const { root, spyOnEvent, waitForChanges } = await render(
-      <gt-date-time-picker value="2026-08-15T09:30" valueFormat="sql" />,
+      <gt-date-time-picker value="2026-08-15T09:30" valueFormat="sql" />
     );
     const change = spyOnEvent('gt-change');
     const date = root.shadowRoot?.querySelector('gt-date-picker');
-    date?.dispatchEvent(new CustomEvent('gt-change', { detail: { value: '2026-08-20' }, bubbles: true, composed: true }));
+    date?.dispatchEvent(
+      new CustomEvent('gt-change', {
+        detail: { value: '2026-08-20' },
+        bubbles: true,
+        composed: true,
+      })
+    );
     await waitForChanges();
     expect(change).toHaveReceivedEventDetail({ value: '2026-08-20 09:30:00' });
   });

@@ -19,7 +19,8 @@ export class GtButton {
   @State() private hasPrefix = false;
   @State() private hasSuffix = false;
 
-  @Event({ eventName: 'gt-click', bubbles: true, composed: true }) click!: EventEmitter<GtButtonClickDetail>;
+  @Event({ eventName: 'gt-click', bubbles: true, composed: true })
+  click!: EventEmitter<GtButtonClickDetail>;
 
   private prefixSlot?: HTMLSlotElement;
   private suffixSlot?: HTMLSlotElement;
@@ -41,9 +42,27 @@ export class GtButton {
     return (
       <Host>
         <button part="base" disabled={this.disabled} type={this.type} onClick={this.handleClick}>
-          <span part="icon" class="prefix" hidden={!this.hasPrefix}><slot name="prefix" ref={(element) => { this.prefixSlot = element; }} onSlotchange={this.syncSlots} /></span>
-          <span part="label" class="label"><slot /></span>
-          <span part="icon" class="suffix" hidden={!this.hasSuffix}><slot name="suffix" ref={(element) => { this.suffixSlot = element; }} onSlotchange={this.syncSlots} /></span>
+          <span part="icon" class="prefix" hidden={!this.hasPrefix}>
+            <slot
+              name="prefix"
+              ref={(element) => {
+                this.prefixSlot = element;
+              }}
+              onSlotchange={this.syncSlots}
+            />
+          </span>
+          <span part="label" class="label">
+            <slot />
+          </span>
+          <span part="icon" class="suffix" hidden={!this.hasSuffix}>
+            <slot
+              name="suffix"
+              ref={(element) => {
+                this.suffixSlot = element;
+              }}
+              onSlotchange={this.syncSlots}
+            />
+          </span>
         </button>
       </Host>
     );

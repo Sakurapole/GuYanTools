@@ -7,30 +7,33 @@ defineOptions({ inheritAttrs: false });
 
 ensureGuYanElements();
 
-const props = withDefaults(defineProps<{
-  modelValue: boolean;
-  width?: string;
-  position?: 'right' | 'left';
-  teleported?: boolean;
-  teleportTo?: string;
-  fixed?: boolean;
-  overlay?: boolean;
-  closeOnMask?: boolean;
-  closeOnEsc?: boolean;
-  persistent?: boolean;
-  zIndex?: number | string;
-}>(), {
-  width: '400px',
-  position: 'right',
-  teleported: true,
-  teleportTo: 'body',
-  fixed: true,
-  overlay: true,
-  closeOnMask: true,
-  closeOnEsc: true,
-  persistent: false,
-  zIndex: 'var(--gt-z-overlay)',
-});
+const props = withDefaults(
+  defineProps<{
+    modelValue: boolean;
+    width?: string;
+    position?: 'right' | 'left';
+    teleported?: boolean;
+    teleportTo?: string;
+    fixed?: boolean;
+    overlay?: boolean;
+    closeOnMask?: boolean;
+    closeOnEsc?: boolean;
+    persistent?: boolean;
+    zIndex?: number | string;
+  }>(),
+  {
+    width: '400px',
+    position: 'right',
+    teleported: true,
+    teleportTo: 'body',
+    fixed: true,
+    overlay: true,
+    closeOnMask: true,
+    closeOnEsc: true,
+    persistent: false,
+    zIndex: 'var(--gt-z-overlay)',
+  }
+);
 
 const emit = defineEmits<{
   'update:modelValue': [value: boolean];

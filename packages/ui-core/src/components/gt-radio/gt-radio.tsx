@@ -14,7 +14,8 @@ export class GtRadio {
   @Prop() name = '';
   @Prop() value = '';
 
-  @Event({ eventName: 'gt-change', bubbles: true, composed: true }) change!: EventEmitter<GtRadioChangeDetail>;
+  @Event({ eventName: 'gt-change', bubbles: true, composed: true })
+  change!: EventEmitter<GtRadioChangeDetail>;
 
   @Element() host!: HTMLElement;
   private labelSlot?: HTMLSlotElement;
@@ -30,8 +31,11 @@ export class GtRadio {
   };
 
   private syncLabelSlot = (): void => {
-    this.hasLabelSlot = Boolean(this.labelSlot?.assignedNodes({ flatten: true })
-      .some(node => node.nodeType !== 3 || Boolean(node.textContent?.trim())));
+    this.hasLabelSlot = Boolean(
+      this.labelSlot
+        ?.assignedNodes({ flatten: true })
+        .some((node) => node.nodeType !== 3 || Boolean(node.textContent?.trim()))
+    );
   };
 
   render() {
@@ -40,9 +44,29 @@ export class GtRadio {
     return (
       <Host>
         <label part="base">
-          <input part="input" checked={this.checked} disabled={this.disabled} id={this.host.id || undefined} name={this.name} type="radio" value={this.value} onChange={this.handleChange} />
-          <span part="control" class="mark" aria-hidden="true"><span class="dot" /></span>
-          <span part="label" class="label" hidden={!hasLabel}><slot ref={(element) => { this.labelSlot = element; }} onSlotchange={this.syncLabelSlot}>{this.label}</slot></span>
+          <input
+            part="input"
+            checked={this.checked}
+            disabled={this.disabled}
+            id={this.host.id || undefined}
+            name={this.name}
+            type="radio"
+            value={this.value}
+            onChange={this.handleChange}
+          />
+          <span part="control" class="mark" aria-hidden="true">
+            <span class="dot" />
+          </span>
+          <span part="label" class="label" hidden={!hasLabel}>
+            <slot
+              ref={(element) => {
+                this.labelSlot = element;
+              }}
+              onSlotchange={this.syncLabelSlot}
+            >
+              {this.label}
+            </slot>
+          </span>
         </label>
       </Host>
     );

@@ -18,14 +18,19 @@ export class GtSliderField {
   @Prop({ attribute: 'value-text' }) valueText = '';
   @Prop() unit = '';
 
-  @Event({ eventName: 'gt-change', bubbles: true, composed: true }) change!: EventEmitter<GtSliderFieldChangeDetail>;
+  @Event({ eventName: 'gt-change', bubbles: true, composed: true })
+  change!: EventEmitter<GtSliderFieldChangeDetail>;
 
   componentDidLoad(): void {
-    this.host.shadowRoot?.querySelector('gt-range')?.addEventListener('gt-change', this.handleChange as EventListener);
+    this.host.shadowRoot
+      ?.querySelector('gt-range')
+      ?.addEventListener('gt-change', this.handleChange as EventListener);
   }
 
   disconnectedCallback(): void {
-    this.host.shadowRoot?.querySelector('gt-range')?.removeEventListener('gt-change', this.handleChange as EventListener);
+    this.host.shadowRoot
+      ?.querySelector('gt-range')
+      ?.removeEventListener('gt-change', this.handleChange as EventListener);
   }
 
   private handleChange = (event: Event): void => {
@@ -40,9 +45,18 @@ export class GtSliderField {
     return (
       <Host>
         <label part="base">
-          <span part="label" hidden={!this.label}>{this.label}</span>
+          <span part="label" hidden={!this.label}>
+            {this.label}
+          </span>
           <span part="control">
-            <gt-range value={this.value} min={this.min} max={this.max} step={this.step} disabled={this.disabled} aria-label={this.ariaLabel || this.label || undefined} />
+            <gt-range
+              value={this.value}
+              min={this.min}
+              max={this.max}
+              step={this.step}
+              disabled={this.disabled}
+              aria-label={this.ariaLabel || this.label || undefined}
+            />
             <span part="value">{displayValue}</span>
           </span>
         </label>

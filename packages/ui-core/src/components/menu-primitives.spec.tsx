@@ -11,10 +11,12 @@ describe('menu primitives', () => {
   it('opens a body-level menu, exposes menu semantics, and closes from outside or Escape', async () => {
     const { root, spyOnEvent, waitForChanges } = await render(
       <gt-menu visible x={120} y={160}>
-        <gt-menu-item><span slot="icon">I</span>打开</gt-menu-item>
+        <gt-menu-item>
+          <span slot="icon">I</span>打开
+        </gt-menu-item>
         <gt-menu-divider />
         <gt-menu-item disabled>不可用</gt-menu-item>
-      </gt-menu>,
+      </gt-menu>
     );
     const close = spyOnEvent('gt-close');
 
@@ -25,9 +27,15 @@ describe('menu primitives', () => {
     expect(panel).not.toBeNull();
     expect(panel?.style.position).toBe('fixed');
     expect(portal?.querySelector('[role="menu"]')).not.toBeNull();
-    expect(portal?.querySelector('gt-menu-item')?.shadowRoot?.querySelector('[role="menuitem"]')).not.toBeNull();
+    expect(
+      portal?.querySelector('gt-menu-item')?.shadowRoot?.querySelector('[role="menuitem"]')
+    ).not.toBeNull();
     expect(portal?.querySelector('[role="separator"]')).not.toBeNull();
-    expect(portal?.querySelectorAll('gt-menu-item')[1]?.shadowRoot?.querySelector('[role="menuitem"][aria-disabled="true"]')).not.toBeNull();
+    expect(
+      portal
+        ?.querySelectorAll('gt-menu-item')[1]
+        ?.shadowRoot?.querySelector('[role="menuitem"][aria-disabled="true"]')
+    ).not.toBeNull();
 
     document.dispatchEvent(new MouseEvent('mousedown', { bubbles: true }));
     await waitForChanges();
@@ -42,16 +50,24 @@ describe('menu primitives', () => {
   });
 
   it('treats a menu portal layer click as outside the panel', async () => {
-    const { waitForChanges } = await render(<gt-menu visible x={120} y={160}><gt-menu-item>打开</gt-menu-item></gt-menu>);
+    const { waitForChanges } = await render(
+      <gt-menu visible x={120} y={160}>
+        <gt-menu-item>打开</gt-menu-item>
+      </gt-menu>
+    );
     await waitForChanges();
-    document.body.querySelector<HTMLElement>('[data-gt-overlay="menu"] [part="layer"]')?.dispatchEvent(new MouseEvent('mousedown', { bubbles: true }));
+    document.body
+      .querySelector<HTMLElement>('[data-gt-overlay="menu"] [part="layer"]')
+      ?.dispatchEvent(new MouseEvent('mousedown', { bubbles: true }));
     await waitForChanges();
     expect(document.body.querySelector('[data-gt-overlay="menu"]')).toBeNull();
   });
 
   it('renders disclosure state and emits toggle changes', async () => {
     const { root, spyOnEvent, waitForChanges } = await render(
-      <gt-disclosure title="更多信息"><span>内容</span></gt-disclosure>,
+      <gt-disclosure title="更多信息">
+        <span>内容</span>
+      </gt-disclosure>
     );
     const toggle = spyOnEvent('gt-open-change');
     const summary = root.shadowRoot?.querySelector<HTMLElement>('summary');
@@ -67,7 +83,7 @@ describe('menu primitives', () => {
     const { root, spyOnEvent, waitForChanges } = await render(
       <gt-popup-surface modelValue variant="floating" width="240px" panelClass="test-panel">
         <span>浮层内容</span>
-      </gt-popup-surface>,
+      </gt-popup-surface>
     );
     const change = spyOnEvent('gt-open-change');
 
@@ -85,9 +101,15 @@ describe('menu primitives', () => {
   });
 
   it('treats a floating popup portal layer click as outside the panel', async () => {
-    const { waitForChanges } = await render(<gt-popup-surface modelValue variant="floating"><span>浮层内容</span></gt-popup-surface>);
+    const { waitForChanges } = await render(
+      <gt-popup-surface modelValue variant="floating">
+        <span>浮层内容</span>
+      </gt-popup-surface>
+    );
     await waitForChanges();
-    document.body.querySelector<HTMLElement>('[data-gt-overlay="popup"] [part="layer"]')?.dispatchEvent(new Event('pointerdown', { bubbles: true }));
+    document.body
+      .querySelector<HTMLElement>('[data-gt-overlay="popup"] [part="layer"]')
+      ?.dispatchEvent(new Event('pointerdown', { bubbles: true }));
     await waitForChanges();
     expect(document.body.querySelector('[data-gt-overlay="popup"]')).toBeNull();
   });

@@ -42,11 +42,29 @@ export class GtStateCard {
     return (
       <Host>
         <article part="base" aria-live="polite" role="status">
-          <span part="icon" hidden={!this.hasIcon}><slot name="icon" ref={(element) => { this.iconSlot = element; }} onSlotchange={this.syncSlots} /></span>
-          <span part="label" class="eyebrow">{label}</span>
+          <span part="icon" hidden={!this.hasIcon}>
+            <slot
+              name="icon"
+              ref={(element) => {
+                this.iconSlot = element;
+              }}
+              onSlotchange={this.syncSlots}
+            />
+          </span>
+          <span part="label" class="eyebrow">
+            {label}
+          </span>
           {this.nativeTitle ? <strong part="title">{this.nativeTitle}</strong> : null}
           {this.description ? <p part="description">{this.description}</p> : null}
-          <div part="actions" class="actions" hidden={!this.hasActions}><slot name="actions" ref={(element) => { this.actionsSlot = element; }} onSlotchange={this.syncSlots} /></div>
+          <div part="actions" class="actions" hidden={!this.hasActions}>
+            <slot
+              name="actions"
+              ref={(element) => {
+                this.actionsSlot = element;
+              }}
+              onSlotchange={this.syncSlots}
+            />
+          </div>
         </article>
       </Host>
     );

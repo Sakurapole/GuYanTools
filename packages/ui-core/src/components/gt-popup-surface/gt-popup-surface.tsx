@@ -6,7 +6,10 @@ import { isEventOutside } from '../../utils/outside-click';
 export type GtPopupVariant = 'dialog' | 'drawer' | 'floating';
 export type GtPopupPlacement = 'center' | 'left' | 'right' | 'top' | 'bottom';
 export type GtPopupCloseReason = 'mask' | 'outside' | 'escape' | 'programmatic';
-export interface GtPopupOpenChangeDetail { open: boolean; reason: GtPopupCloseReason; }
+export interface GtPopupOpenChangeDetail {
+  open: boolean;
+  reason: GtPopupCloseReason;
+}
 
 @Component({ tag: 'gt-popup-surface', shadow: true, styleUrl: 'gt-popup-surface.css' })
 export class GtPopupSurface {
@@ -30,15 +33,19 @@ export class GtPopupSurface {
   @Prop({ attribute: 'aria-label' }) ariaLabel = '';
   @Prop({ attribute: 'aria-labelledby' }) ariaLabelledby = '';
   @Prop({ attribute: 'panel-class' }) panelClass: string | string[] | Record<string, boolean> = '';
-  @Prop({ attribute: 'overlay-class' }) overlayClass: string | string[] | Record<string, boolean> = '';
+  @Prop({ attribute: 'overlay-class' }) overlayClass: string | string[] | Record<string, boolean> =
+    '';
   @Prop({ attribute: 'panel-style' }) panelStyle: string | Record<string, string | number> = '';
   @Element() host!: HTMLElement;
 
-  @Event({ eventName: 'gt-open-change', bubbles: true, composed: true }) openChange!: EventEmitter<GtPopupOpenChangeDetail>;
+  @Event({ eventName: 'gt-open-change', bubbles: true, composed: true })
+  openChange!: EventEmitter<GtPopupOpenChangeDetail>;
   @Event({ eventName: 'gt-open', bubbles: true, composed: true }) openEvent!: EventEmitter<void>;
   @Event({ eventName: 'gt-close', bubbles: true, composed: true }) closeEvent!: EventEmitter<void>;
-  @Event({ eventName: 'gt-mask-click', bubbles: true, composed: true }) maskClick!: EventEmitter<void>;
-  @Event({ eventName: 'gt-outside-click', bubbles: true, composed: true }) outsideClick!: EventEmitter<void>;
+  @Event({ eventName: 'gt-mask-click', bubbles: true, composed: true })
+  maskClick!: EventEmitter<void>;
+  @Event({ eventName: 'gt-outside-click', bubbles: true, composed: true })
+  outsideClick!: EventEmitter<void>;
 
   private portal?: OverlayPortal;
   private contentNodes: Node[] = [];
@@ -75,7 +82,10 @@ export class GtPopupSurface {
       const content = document.createDocumentFragment();
       content.append(...this.contentNodes);
       const target = this.resolveTarget();
-      this.portal = new OverlayPortal('popup', content, this.host, () => this.close('mask'), { target, overlay: this.hasOverlay() });
+      this.portal = new OverlayPortal('popup', content, this.host, () => this.close('mask'), {
+        target,
+        overlay: this.hasOverlay(),
+      });
       this.portal.element.dataset.variant = this.variant;
       this.portal.element.dataset.placement = this.placement;
       this.applyPortalClasses();
@@ -92,9 +102,13 @@ export class GtPopupSurface {
     return document.querySelector<HTMLElement>(this.teleportTo) ?? document.body;
   }
 
-  private hasOverlay(): boolean { return this.overlay && this.variant !== 'floating'; }
+  private hasOverlay(): boolean {
+    return this.overlay && this.variant !== 'floating';
+  }
 
-  private panel(): HTMLElement | undefined { return this.portal?.element.querySelector<HTMLElement>('[part="panel"]') ?? undefined; }
+  private panel(): HTMLElement | undefined {
+    return this.portal?.element.querySelector<HTMLElement>('[part="panel"]') ?? undefined;
+  }
 
   private applyPortalClasses(): void {
     if (!this.portal) return;
@@ -116,18 +130,29 @@ export class GtPopupSurface {
     const style = this.panelStyle;
     if (typeof style === 'string') panel.setAttribute('style', `${style};${this.baseStyle()}`);
     else {
-      Object.entries(style ?? {}).forEach(([key, value]) => { panel.style.setProperty(this.toCssName(key), String(value)); });
-      Object.entries(this.baseStyleMap()).forEach(([key, value]) => { panel.style.setProperty(key, value); });
+      Object.entries(style ?? {}).forEach(([key, value]) => {
+        panel.style.setProperty(this.toCssName(key), String(value));
+      });
+      Object.entries(this.baseStyleMap()).forEach(([key, value]) => {
+        panel.style.setProperty(key, value);
+      });
     }
   }
 
   private baseStyle(): string {
-    return Object.entries(this.baseStyleMap()).map(([key, value]) => `${key}:${value}`).join(';');
+    return Object.entries(this.baseStyleMap())
+      .map(([key, value]) => `${key}:${value}`)
+      .join(';');
   }
 
   private baseStyleMap(): Record<string, string> {
     const result: Record<string, string> = { position: this.fixed ? 'fixed' : 'absolute' };
-    for (const [key, value] of [['width', this.width], ['max-width', this.maxWidth], ['height', this.height], ['max-height', this.maxHeight]] as const) {
+    for (const [key, value] of [
+      ['width', this.width],
+      ['max-width', this.maxWidth],
+      ['height', this.height],
+      ['max-height', this.maxHeight],
+    ] as const) {
       const normalized = this.normalizeSize(value);
       if (normalized) result[key] = normalized;
     }
@@ -139,11 +164,22 @@ export class GtPopupSurface {
     return typeof value === 'number' ? `${value}px` : value;
   }
 
-  private toCssName(key: string): string { return key.startsWith('--') ? key : key.replace(/[A-Z]/g, match => `-${match.toLowerCase()}`); }
+  private toCssName(key: string): string {
+    return key.startsWith('--') ? key : key.replace(/[A-Z]/g, (match) => `-${match.toLowerCase()}`);
+  }
 
-  private applyClasses(element: HTMLElement, value: string | string[] | Record<string, boolean>): void {
-    const classes = Array.isArray(value) ? value : typeof value === 'string' ? value.split(/\s+/) : Object.entries(value).filter(([, enabled]) => enabled).map(([name]) => name);
-    classes.filter(Boolean).forEach(name => element.classList.add(name));
+  private applyClasses(
+    element: HTMLElement,
+    value: string | string[] | Record<string, boolean>
+  ): void {
+    const classes = Array.isArray(value)
+      ? value
+      : typeof value === 'string'
+        ? value.split(/\s+/)
+        : Object.entries(value)
+            .filter(([, enabled]) => enabled)
+            .map(([name]) => name);
+    classes.filter(Boolean).forEach((name) => element.classList.add(name));
   }
 
   private removePortal(): void {
@@ -176,5 +212,11 @@ export class GtPopupSurface {
     this.close('outside');
   };
 
-  render() { return <Host hidden={!this.modelValue}><slot /></Host>; }
+  render() {
+    return (
+      <Host hidden={!this.modelValue}>
+        <slot />
+      </Host>
+    );
+  }
 }

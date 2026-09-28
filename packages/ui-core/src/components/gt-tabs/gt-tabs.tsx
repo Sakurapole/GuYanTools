@@ -18,7 +18,8 @@ export class GtTabs {
   @Prop({ reflect: true }) size: 'sm' | 'md' | 'lg' = 'md';
   @Prop({ reflect: true }) stretch = false;
 
-  @Event({ eventName: 'gt-change', bubbles: true, composed: true }) change!: EventEmitter<GtTabChangeDetail>;
+  @Event({ eventName: 'gt-change', bubbles: true, composed: true })
+  change!: EventEmitter<GtTabChangeDetail>;
 
   @Element() host!: HTMLElement;
   @State() private indicatorStyle = 'opacity: 0;';
@@ -66,7 +67,19 @@ export class GtTabs {
     return (
       <Host>
         <div part="base" role="tablist">
-          {this.items.map((item) => <button part="tab" aria-selected={String(item.value === this.value)} data-value={item.value} disabled={item.disabled} role="tab" type="button" onClick={() => this.select(item)}>{item.label}</button>)}
+          {this.items.map((item) => (
+            <button
+              part="tab"
+              aria-selected={String(item.value === this.value)}
+              data-value={item.value}
+              disabled={item.disabled}
+              role="tab"
+              type="button"
+              onClick={() => this.select(item)}
+            >
+              {item.label}
+            </button>
+          ))}
           <span part="indicator" class="indicator" style={{ cssText: this.indicatorStyle }} />
         </div>
       </Host>

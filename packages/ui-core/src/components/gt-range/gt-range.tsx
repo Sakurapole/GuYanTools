@@ -9,7 +9,9 @@ export class GtRange {
   @Prop({ reflect: true }) disabled = false;
   @Prop({ attribute: 'aria-label' }) ariaLabel = '';
 
-  @Event({ eventName: 'gt-change', bubbles: true, composed: true }) change!: EventEmitter<{ value: number }>;
+  @Event({ eventName: 'gt-change', bubbles: true, composed: true }) change!: EventEmitter<{
+    value: number;
+  }>;
 
   private clamp(value: number): number {
     const min = Number(this.min);
@@ -28,12 +30,26 @@ export class GtRange {
   render() {
     const range = Number(this.max) - Number(this.min);
     const progress = range > 0 ? ((Number(this.value) - Number(this.min)) / range) * 100 : 0;
-    return <Host style={{ '--gt-range-progress': `${Math.max(0, Math.min(100, progress))}%` }}>
-      <div part="base" class="base">
-        <div part="track" class="track"><div part="fill" class="fill" /></div>
-        <input part="input" type="range" value={String(this.value)} min={String(this.min)} max={String(this.max)} step={String(this.step)} disabled={this.disabled} aria-label={this.ariaLabel || undefined} onInput={this.handleInput} />
-        <span part="thumb" class="thumb" aria-hidden="true" />
-      </div>
-    </Host>;
+    return (
+      <Host style={{ '--gt-range-progress': `${Math.max(0, Math.min(100, progress))}%` }}>
+        <div part="base" class="base">
+          <div part="track" class="track">
+            <div part="fill" class="fill" />
+          </div>
+          <input
+            part="input"
+            type="range"
+            value={String(this.value)}
+            min={String(this.min)}
+            max={String(this.max)}
+            step={String(this.step)}
+            disabled={this.disabled}
+            aria-label={this.ariaLabel || undefined}
+            onInput={this.handleInput}
+          />
+          <span part="thumb" class="thumb" aria-hidden="true" />
+        </div>
+      </Host>
+    );
   }
 }

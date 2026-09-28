@@ -15,7 +15,7 @@ const options: SelectOption[] = [
 describe('gt-select', () => {
   it('renders the selected label and emits a value detail when an option is chosen', async () => {
     const { root, spyOnEvent, waitForChanges } = await render(
-      <gt-select options={options} value="standard" placeholder="请选择" />,
+      <gt-select options={options} value="standard" placeholder="请选择" />
     );
     const change = spyOnEvent('gt-change');
 
@@ -23,7 +23,9 @@ describe('gt-select', () => {
     root.shadowRoot?.querySelector<HTMLButtonElement>('[part="trigger"]')?.click();
     await waitForChanges();
 
-    const advanced = document.body.querySelector<HTMLElement>('[data-gt-overlay="select"] [role="option"][data-value="advanced"]');
+    const advanced = document.body.querySelector<HTMLElement>(
+      '[data-gt-overlay="select"] [role="option"][data-value="advanced"]'
+    );
     expect(advanced).not.toBeNull();
     advanced?.dispatchEvent(new MouseEvent('click', { bubbles: true }));
     await waitForChanges();
@@ -38,18 +40,31 @@ describe('gt-select', () => {
     const trigger = root.shadowRoot?.querySelector<HTMLButtonElement>('[part="trigger"]');
 
     trigger?.focus();
-    trigger?.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowDown', bubbles: true, composed: true, cancelable: true }));
+    trigger?.dispatchEvent(
+      new KeyboardEvent('keydown', {
+        key: 'ArrowDown',
+        bubbles: true,
+        composed: true,
+        cancelable: true,
+      })
+    );
     await waitForChanges();
     expect(document.body.querySelector('[data-gt-overlay="select"]')).not.toBeNull();
 
     const currentTrigger = root.shadowRoot?.querySelector<HTMLButtonElement>('[part="trigger"]');
-    currentTrigger?.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowDown', bubbles: true, composed: true }));
+    currentTrigger?.dispatchEvent(
+      new KeyboardEvent('keydown', { key: 'ArrowDown', bubbles: true, composed: true })
+    );
     await waitForChanges();
     const navigatedTrigger = root.shadowRoot?.querySelector<HTMLButtonElement>('[part="trigger"]');
-    navigatedTrigger?.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowDown', bubbles: true, composed: true }));
+    navigatedTrigger?.dispatchEvent(
+      new KeyboardEvent('keydown', { key: 'ArrowDown', bubbles: true, composed: true })
+    );
     await waitForChanges();
     const finalTrigger = root.shadowRoot?.querySelector<HTMLButtonElement>('[part="trigger"]');
-    finalTrigger?.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true, composed: true }));
+    finalTrigger?.dispatchEvent(
+      new KeyboardEvent('keydown', { key: 'Enter', bubbles: true, composed: true })
+    );
     await waitForChanges();
     expect(change).toHaveReceivedEventDetail({ value: 'advanced' });
 
@@ -64,8 +79,11 @@ describe('gt-select', () => {
     const escapeTrigger = root.shadowRoot?.querySelector<HTMLButtonElement>('[part="trigger"]');
     escapeTrigger?.click();
     await waitForChanges();
-    const currentEscapeTrigger = root.shadowRoot?.querySelector<HTMLButtonElement>('[part="trigger"]');
-    currentEscapeTrigger?.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, composed: true }));
+    const currentEscapeTrigger =
+      root.shadowRoot?.querySelector<HTMLButtonElement>('[part="trigger"]');
+    currentEscapeTrigger?.dispatchEvent(
+      new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, composed: true })
+    );
     await waitForChanges();
     expect(document.body.querySelector('[data-gt-overlay="select"]')).toBeNull();
   });
@@ -90,7 +108,9 @@ describe('gt-select', () => {
     root.shadowRoot?.querySelector<HTMLButtonElement>('[part="trigger"]')?.click();
     await waitForChanges();
 
-    const layer = document.body.querySelector<HTMLElement>('[data-gt-overlay="select"] [part="layer"]');
+    const layer = document.body.querySelector<HTMLElement>(
+      '[data-gt-overlay="select"] [part="layer"]'
+    );
     layer?.dispatchEvent(new MouseEvent('mousedown', { bubbles: true }));
     await waitForChanges();
 
@@ -119,12 +139,17 @@ describe('gt-select', () => {
   it('exposes stable parts, size attributes and a fixed overlay contract', async () => {
     const { root } = await render(<gt-select options={options} size="sm" />);
     const css = readFileSync(new URL('./gt-select.css', import.meta.url), 'utf8');
-    const overlayCss = readFileSync(new URL('../../styles/overlay-layer.css', import.meta.url), 'utf8');
+    const overlayCss = readFileSync(
+      new URL('../../styles/overlay-layer.css', import.meta.url),
+      'utf8'
+    );
 
     expect(root.shadowRoot?.querySelector('[part="base"]')).not.toBeNull();
     expect(root.shadowRoot?.querySelector('[part="trigger"]')).not.toBeNull();
     expect(root.shadowRoot?.querySelector('[part="label"]')).not.toBeNull();
-    expect(root.shadowRoot?.querySelector('[part="label"]')?.hasAttribute('data-placeholder')).toBe(true);
+    expect(root.shadowRoot?.querySelector('[part="label"]')?.hasAttribute('data-placeholder')).toBe(
+      true
+    );
     expect(root.getAttribute('size')).toBe('sm');
     expect(overlayCss).toContain('[data-gt-overlay="select"]');
     expect(overlayCss).toContain('position: fixed;');

@@ -1,9 +1,21 @@
-import { Component, Element, Event, h, Host, Prop, State, Watch, type EventEmitter } from '@stencil/core';
+import {
+  Component,
+  Element,
+  Event,
+  h,
+  Host,
+  Prop,
+  State,
+  Watch,
+  type EventEmitter,
+} from '@stencil/core';
 
 import { OverlayPortal } from '../../utils/overlay-controller';
 import { isEventOutside } from '../../utils/outside-click';
 
-export interface GtTimeChangeDetail { value: string; }
+export interface GtTimeChangeDetail {
+  value: string;
+}
 
 @Component({ tag: 'gt-time-picker', shadow: true, styleUrl: 'gt-time-picker.css' })
 export class GtTimePicker {
@@ -15,7 +27,8 @@ export class GtTimePicker {
   @Prop({ attribute: 'close-on-outside' }) closeOnOutside = true;
   @Element() host!: HTMLElement;
 
-  @Event({ eventName: 'gt-change', bubbles: true, composed: true }) change!: EventEmitter<GtTimeChangeDetail>;
+  @Event({ eventName: 'gt-change', bubbles: true, composed: true })
+  change!: EventEmitter<GtTimeChangeDetail>;
 
   @State() private isOpen = false;
 
@@ -29,7 +42,9 @@ export class GtTimePicker {
     document.addEventListener('pointerdown', this.handleOutside, true);
   }
 
-  componentDidRender(): void { this.bindTrigger(); }
+  componentDidRender(): void {
+    this.bindTrigger();
+  }
 
   disconnectedCallback(): void {
     this.boundTriggerElement?.removeEventListener('keydown', this.handleKeydown);
@@ -73,7 +88,10 @@ export class GtTimePicker {
     if (restoreFocus) this.triggerElement?.focus();
   }
 
-  private toggle = (): void => { if (this.isOpen) this.close(); else this.open(); };
+  private toggle = (): void => {
+    if (this.isOpen) this.close();
+    else this.open();
+  };
 
   private handleKeydown = (event: KeyboardEvent): void => {
     if (!this.isOpen && ['Enter', ' ', 'ArrowDown'].includes(event.key)) {
@@ -98,7 +116,9 @@ export class GtTimePicker {
     return { hour: Number(match[1]), minute: Number(match[2]) };
   }
 
-  private pad(value: number): string { return String(value).padStart(2, '0'); }
+  private pad(value: number): string {
+    return String(value).padStart(2, '0');
+  }
 
   private normalizedStep(): number {
     const step = Number(this.minuteStep);
@@ -136,7 +156,13 @@ export class GtTimePicker {
     const columns = document.createElement('div');
     columns.setAttribute('part', 'columns');
 
-    const createColumn = (label: string, values: number[], selected: number, onSelect: (value: number) => void, key: string): HTMLElement => {
+    const createColumn = (
+      label: string,
+      values: number[],
+      selected: number,
+      onSelect: (value: number) => void,
+      key: string
+    ): HTMLElement => {
       const column = document.createElement('div');
       column.setAttribute('part', 'column');
       const heading = document.createElement('div');
@@ -145,7 +171,7 @@ export class GtTimePicker {
       const list = document.createElement('div');
       list.setAttribute('part', 'list');
       list.dataset.column = key;
-      values.forEach(value => {
+      values.forEach((value) => {
         const item = document.createElement('button');
         item.type = 'button';
         item.setAttribute('part', 'item');
@@ -161,19 +187,31 @@ export class GtTimePicker {
     };
 
     const hours = Array.from({ length: 24 }, (_, index) => index);
-    const minutes = Array.from({ length: Math.ceil(60 / this.normalizedStep()) }, (_, index) => index * this.normalizedStep()).filter(value => value < 60);
+    const minutes = Array.from(
+      { length: Math.ceil(60 / this.normalizedStep()) },
+      (_, index) => index * this.normalizedStep()
+    ).filter((value) => value < 60);
     columns.append(createColumn('时', hours, selectedHour, this.selectHour, 'hour'));
     const separator = document.createElement('span');
     separator.setAttribute('part', 'separator');
     separator.textContent = ':';
-    columns.append(separator, createColumn('分', minutes, selectedMinute, this.selectMinute, 'minute'));
+    columns.append(
+      separator,
+      createColumn('分', minutes, selectedMinute, this.selectMinute, 'minute')
+    );
 
     const footer = document.createElement('div');
     footer.setAttribute('part', 'footer-actions');
     const now = document.createElement('button');
-    now.type = 'button'; now.setAttribute('part', 'now'); now.textContent = '现在'; now.addEventListener('click', this.selectNow);
+    now.type = 'button';
+    now.setAttribute('part', 'now');
+    now.textContent = '现在';
+    now.addEventListener('click', this.selectNow);
     const close = document.createElement('button');
-    close.type = 'button'; close.setAttribute('part', 'confirm'); close.textContent = '确定'; close.addEventListener('click', () => this.close());
+    close.type = 'button';
+    close.setAttribute('part', 'confirm');
+    close.textContent = '确定';
+    close.addEventListener('click', () => this.close());
     footer.append(now, close);
     body.append(columns, footer);
   }
@@ -188,7 +226,9 @@ export class GtTimePicker {
     panel.style.position = 'fixed';
     panel.style.width = `${width}px`;
     panel.style.left = `${Math.max(8, Math.min(anchor.left, window.innerWidth - width - 8))}px`;
-    panel.style.top = openUpward ? `${Math.max(8, anchor.top - height - 6)}px` : `${anchor.bottom + 6}px`;
+    panel.style.top = openUpward
+      ? `${Math.max(8, anchor.top - height - 6)}px`
+      : `${anchor.bottom + 6}px`;
     panel.dataset.placement = openUpward ? 'top' : 'bottom';
   };
 
@@ -203,7 +243,9 @@ export class GtTimePicker {
       <Host>
         <div part="base">
           <button
-            ref={element => { this.triggerElement = element; }}
+            ref={(element) => {
+              this.triggerElement = element;
+            }}
             part="trigger"
             type="button"
             disabled={this.disabled}
@@ -211,8 +253,12 @@ export class GtTimePicker {
             aria-expanded={String(this.isOpen)}
             onClick={this.toggle}
           >
-            <span part="icon" aria-hidden="true">◷</span>
-            <span part="label" data-placeholder={!label ? '' : undefined}>{label || this.placeholder}</span>
+            <span part="icon" aria-hidden="true">
+              ◷
+            </span>
+            <span part="label" data-placeholder={!label ? '' : undefined}>
+              {label || this.placeholder}
+            </span>
             <span part="arrow" aria-hidden="true" />
           </button>
         </div>

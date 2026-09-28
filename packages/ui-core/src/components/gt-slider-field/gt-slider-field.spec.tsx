@@ -6,9 +6,11 @@ import './gt-slider-field';
 describe('gt-slider-field', () => {
   it('renders a labelled range with formatted value and emits numeric changes', async () => {
     const { root, spyOnEvent, waitForChanges } = await render(
-      <gt-slider-field label="透明度" value={42} min={0} max={100} step={1} unit="%" />,
+      <gt-slider-field label="透明度" value={42} min={0} max={100} step={1} unit="%" />
     );
-    const input = root.shadowRoot?.querySelector('gt-range')?.shadowRoot?.querySelector('input') as HTMLInputElement;
+    const input = root.shadowRoot
+      ?.querySelector('gt-range')
+      ?.shadowRoot?.querySelector('input') as HTMLInputElement;
     const change = spyOnEvent('gt-change');
 
     expect(root.shadowRoot?.querySelector('[part="label"]')?.textContent).toBe('透明度');
@@ -24,7 +26,7 @@ describe('gt-slider-field', () => {
 
   it('prefers value-text and propagates disabled and aria label', async () => {
     const { root } = await render(
-      <gt-slider-field value={25} valueText="自动" disabled ariaLabel="自动调节" />,
+      <gt-slider-field value={25} valueText="自动" disabled ariaLabel="自动调节" />
     );
     expect(root.shadowRoot?.querySelector('[part="value"]')?.textContent).toBe('自动');
     const range = root.shadowRoot?.querySelector('gt-range');

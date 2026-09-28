@@ -6,7 +6,9 @@ import '../gt-time-picker/gt-time-picker';
 export type GtDateTimeMode = 'date' | 'datetime';
 export type GtDateTimeValueFormat = 'date' | 'datetime-local' | 'sql' | 'timestamp';
 
-export interface GtDateTimeChangeDetail { value: string | number | undefined; }
+export interface GtDateTimeChangeDetail {
+  value: string | number | undefined;
+}
 
 @Component({ tag: 'gt-date-time-picker', shadow: true, styleUrl: 'gt-date-time-picker.css' })
 export class GtDateTimePicker {
@@ -24,7 +26,8 @@ export class GtDateTimePicker {
   @Prop({ attribute: 'close-on-outside' }) closeOnOutside = true;
   @Element() host!: HTMLElement;
 
-  @Event({ eventName: 'gt-change', bubbles: true, composed: true }) change!: EventEmitter<GtDateTimeChangeDetail>;
+  @Event({ eventName: 'gt-change', bubbles: true, composed: true })
+  change!: EventEmitter<GtDateTimeChangeDetail>;
 
   @State() private datePart = '';
   @State() private timePart = '00:00';
@@ -32,14 +35,18 @@ export class GtDateTimePicker {
   private dateElement?: HTMLElement;
   private timeElement?: HTMLElement;
 
-  componentWillLoad(): void { this.syncParts(); }
+  componentWillLoad(): void {
+    this.syncParts();
+  }
 
   componentDidLoad(): void {
     this.bindChildren();
     this.host.addEventListener('gt-change', this.handleBubbledChange as EventListener);
   }
 
-  componentDidRender(): void { this.bindChildren(); }
+  componentDidRender(): void {
+    this.bindChildren();
+  }
 
   disconnectedCallback(): void {
     this.host.removeEventListener('gt-change', this.handleBubbledChange as EventListener);
@@ -154,7 +161,15 @@ export class GtDateTimePicker {
             ref={this.bindDateElement}
           />
           {this.mode === 'datetime' ? (
-            <gt-time-picker ref={this.bindTimeElement} value={this.timePart} placeholder={this.timePlaceholder} disabled={this.disabled || !this.datePart} minuteStep={this.minuteStep} closeOnOutside={this.closeOnOutside} size={this.size} />
+            <gt-time-picker
+              ref={this.bindTimeElement}
+              value={this.timePart}
+              placeholder={this.timePlaceholder}
+              disabled={this.disabled || !this.datePart}
+              minuteStep={this.minuteStep}
+              closeOnOutside={this.closeOnOutside}
+              size={this.size}
+            />
           ) : null}
         </div>
       </Host>

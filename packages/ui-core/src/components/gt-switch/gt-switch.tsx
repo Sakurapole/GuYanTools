@@ -11,7 +11,8 @@ export class GtSwitch {
   @Prop({ reflect: true }) size: 'sm' | 'md' = 'md';
   @Prop({ attribute: 'aria-label' }) ariaLabel = '';
 
-  @Event({ eventName: 'gt-change', bubbles: true, composed: true }) change!: EventEmitter<GtSwitchChangeDetail>;
+  @Event({ eventName: 'gt-change', bubbles: true, composed: true })
+  change!: EventEmitter<GtSwitchChangeDetail>;
 
   private toggle = (): void => {
     if (this.disabled) return;
@@ -22,7 +23,17 @@ export class GtSwitch {
   render() {
     return (
       <Host>
-        <button part="base" aria-checked={String(this.checked)} aria-label={this.ariaLabel} disabled={this.disabled} role="switch" type="button" onClick={this.toggle}><span part="control" /></button>
+        <button
+          part="base"
+          aria-checked={String(this.checked)}
+          aria-label={this.ariaLabel}
+          disabled={this.disabled}
+          role="switch"
+          type="button"
+          onClick={this.toggle}
+        >
+          <span part="control" />
+        </button>
       </Host>
     );
   }

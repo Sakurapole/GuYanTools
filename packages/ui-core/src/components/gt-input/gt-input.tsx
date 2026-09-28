@@ -20,8 +20,10 @@ export class GtInput {
   @Prop() max?: string;
   @Prop() step = '1';
 
-  @Event({ eventName: 'gt-input', bubbles: true, composed: true }) input!: EventEmitter<GtValueChangeDetail>;
-  @Event({ eventName: 'gt-change', bubbles: true, composed: true }) change!: EventEmitter<GtValueChangeDetail>;
+  @Event({ eventName: 'gt-input', bubbles: true, composed: true })
+  input!: EventEmitter<GtValueChangeDetail>;
+  @Event({ eventName: 'gt-change', bubbles: true, composed: true })
+  change!: EventEmitter<GtValueChangeDetail>;
 
   @Element() host!: HTMLElement & { select?: () => Promise<void> };
   private inputElement?: HTMLInputElement;
@@ -66,8 +68,11 @@ export class GtInput {
   };
 
   private slotHasContent(slot?: HTMLSlotElement): boolean {
-    return Boolean(slot?.assignedNodes({ flatten: true })
-      .some(node => node.nodeType !== 3 || Boolean(node.textContent?.trim())));
+    return Boolean(
+      slot
+        ?.assignedNodes({ flatten: true })
+        .some((node) => node.nodeType !== 3 || Boolean(node.textContent?.trim()))
+    );
   }
 
   render() {
@@ -77,11 +82,19 @@ export class GtInput {
       <Host>
         <div part="base" class="shell">
           <span part="prefix" hidden={!this.hasPrefix}>
-            <slot name="prefix" ref={(element) => { this.prefixSlot = element; }} onSlotchange={this.syncSlots} />
+            <slot
+              name="prefix"
+              ref={(element) => {
+                this.prefixSlot = element;
+              }}
+              onSlotchange={this.syncSlots}
+            />
           </span>
           <input
             part="control"
-            ref={(element) => { this.inputElement = element; }}
+            ref={(element) => {
+              this.inputElement = element;
+            }}
             disabled={this.disabled}
             id={this.host.id || undefined}
             list={this.list}
@@ -96,18 +109,54 @@ export class GtInput {
             autocapitalize={this.autocapitalize}
             value={this.value}
             onInput={(event) => this.updateValue((event.target as HTMLInputElement).value, 'input')}
-            onChange={(event) => this.updateValue((event.target as HTMLInputElement).value, 'change')}
+            onChange={(event) =>
+              this.updateValue((event.target as HTMLInputElement).value, 'change')
+            }
           />
           <span part="suffix" hidden={!this.hasSuffix}>
-            <slot name="suffix" ref={(element) => { this.suffixSlot = element; }} onSlotchange={this.syncSlots} />
+            <slot
+              name="suffix"
+              ref={(element) => {
+                this.suffixSlot = element;
+              }}
+              onSlotchange={this.syncSlots}
+            />
           </span>
           {numeric ? (
             <div part="stepper" class="stepper">
-              <button data-step="up" disabled={this.disabled || this.readOnly} type="button" onClick={() => this.stepValue(1)} aria-label="Increase value">
-                <svg width="10" height="10" viewBox="0 0 10 10" fill="none" aria-hidden="true"><path d="M2 6.5L5 3.5L8 6.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" /></svg>
+              <button
+                data-step="up"
+                disabled={this.disabled || this.readOnly}
+                type="button"
+                onClick={() => this.stepValue(1)}
+                aria-label="Increase value"
+              >
+                <svg width="10" height="10" viewBox="0 0 10 10" fill="none" aria-hidden="true">
+                  <path
+                    d="M2 6.5L5 3.5L8 6.5"
+                    stroke="currentColor"
+                    stroke-width="1.5"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                  />
+                </svg>
               </button>
-              <button data-step="down" disabled={this.disabled || this.readOnly} type="button" onClick={() => this.stepValue(-1)} aria-label="Decrease value">
-                <svg width="10" height="10" viewBox="0 0 10 10" fill="none" aria-hidden="true"><path d="M2 3.5L5 6.5L8 3.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" /></svg>
+              <button
+                data-step="down"
+                disabled={this.disabled || this.readOnly}
+                type="button"
+                onClick={() => this.stepValue(-1)}
+                aria-label="Decrease value"
+              >
+                <svg width="10" height="10" viewBox="0 0 10 10" fill="none" aria-hidden="true">
+                  <path
+                    d="M2 3.5L5 6.5L8 3.5"
+                    stroke="currentColor"
+                    stroke-width="1.5"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                  />
+                </svg>
               </button>
             </div>
           ) : null}

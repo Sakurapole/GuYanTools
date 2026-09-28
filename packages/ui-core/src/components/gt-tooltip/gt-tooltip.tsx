@@ -1,6 +1,10 @@
 import { Component, Element, h, Host, Listen, Prop, Watch } from '@stencil/core';
 
-import { computeOverlayPlacement, OverlayPortal, type OverlayPlacement } from '../../utils/overlay-controller';
+import {
+  computeOverlayPlacement,
+  OverlayPortal,
+  type OverlayPlacement,
+} from '../../utils/overlay-controller';
 
 @Component({ tag: 'gt-tooltip', shadow: true, styleUrl: 'gt-tooltip.css' })
 export class GtTooltip {
@@ -39,7 +43,12 @@ export class GtTooltip {
   scheduleOpen(): void {
     if (this.disabled) return;
     window.clearTimeout(this.showTimer);
-    this.showTimer = window.setTimeout(() => { this.open = true; }, Number(this.delay) || 0);
+    this.showTimer = window.setTimeout(
+      () => {
+        this.open = true;
+      },
+      Number(this.delay) || 0
+    );
   }
 
   @Listen('mouseleave')
@@ -54,10 +63,15 @@ export class GtTooltip {
     const panel = this.portal?.element.querySelector<HTMLElement>('.panel');
     if (!panel) return;
     const anchor = this.host.getBoundingClientRect();
-    const placement = computeOverlayPlacement(this.placement, anchor, panel.getBoundingClientRect(), {
-      height: window.innerHeight,
-      width: window.innerWidth,
-    });
+    const placement = computeOverlayPlacement(
+      this.placement,
+      anchor,
+      panel.getBoundingClientRect(),
+      {
+        height: window.innerHeight,
+        width: window.innerWidth,
+      }
+    );
     panel.dataset.placement = placement;
     panel.style.left = `${placement === 'left' ? anchor.left - panel.offsetWidth : placement === 'right' ? anchor.right : anchor.left}px`;
     panel.style.top = `${placement === 'top' ? anchor.top - panel.offsetHeight : placement === 'bottom' ? anchor.bottom : anchor.top}px`;
@@ -69,6 +83,12 @@ export class GtTooltip {
   }
 
   render() {
-    return <Host><span part="base"><slot /></span></Host>;
+    return (
+      <Host>
+        <span part="base">
+          <slot />
+        </span>
+      </Host>
+    );
   }
 }

@@ -1,9 +1,21 @@
-import { Component, Element, Event, h, Host, Prop, State, Watch, type EventEmitter } from '@stencil/core';
+import {
+  Component,
+  Element,
+  Event,
+  h,
+  Host,
+  Prop,
+  State,
+  Watch,
+  type EventEmitter,
+} from '@stencil/core';
 
 import { OverlayPortal } from '../../utils/overlay-controller';
 import { isEventOutside } from '../../utils/outside-click';
 
-export interface GtDateChangeDetail { value: string; }
+export interface GtDateChangeDetail {
+  value: string;
+}
 
 @Component({ tag: 'gt-date-picker', shadow: true, styleUrl: 'gt-date-picker.css' })
 export class GtDatePicker {
@@ -17,7 +29,8 @@ export class GtDatePicker {
   @Prop({ attribute: 'close-on-outside' }) closeOnOutside = true;
   @Element() host!: HTMLElement;
 
-  @Event({ eventName: 'gt-change', bubbles: true, composed: true }) change!: EventEmitter<GtDateChangeDetail>;
+  @Event({ eventName: 'gt-change', bubbles: true, composed: true })
+  change!: EventEmitter<GtDateChangeDetail>;
   @Event({ eventName: 'gt-clear', bubbles: true, composed: true }) clear!: EventEmitter<void>;
 
   @State() private isOpen = false;
@@ -35,7 +48,9 @@ export class GtDatePicker {
     document.addEventListener('pointerdown', this.handleOutside, true);
   }
 
-  componentDidRender(): void { this.bindTrigger(); }
+  componentDidRender(): void {
+    this.bindTrigger();
+  }
 
   disconnectedCallback(): void {
     this.boundTriggerElement?.removeEventListener('keydown', this.handleKeydown);
@@ -80,7 +95,10 @@ export class GtDatePicker {
     if (restoreFocus) this.triggerElement?.focus();
   }
 
-  private toggle = (): void => { if (this.isOpen) this.close(); else this.open(); };
+  private toggle = (): void => {
+    if (this.isOpen) this.close();
+    else this.open();
+  };
 
   private handleKeydown = (event: KeyboardEvent): void => {
     if (!this.isOpen && ['Enter', ' ', 'ArrowDown'].includes(event.key)) {
@@ -123,12 +141,18 @@ export class GtDatePicker {
     this.close(false);
   };
 
-  private monthLabel(): string { return `${this.viewYear}年${this.viewMonth + 1}月`; }
+  private monthLabel(): string {
+    return `${this.viewYear}年${this.viewMonth + 1}月`;
+  }
 
   private moveMonth(direction: 1 | -1): void {
-    if (direction > 0 && this.viewMonth === 11) { this.viewMonth = 0; this.viewYear += 1; }
-    else if (direction < 0 && this.viewMonth === 0) { this.viewMonth = 11; this.viewYear -= 1; }
-    else this.viewMonth += direction;
+    if (direction > 0 && this.viewMonth === 11) {
+      this.viewMonth = 0;
+      this.viewYear += 1;
+    } else if (direction < 0 && this.viewMonth === 0) {
+      this.viewMonth = 11;
+      this.viewYear -= 1;
+    } else this.viewMonth += direction;
     this.renderPanel();
   }
 
@@ -142,19 +166,37 @@ export class GtDatePicker {
     const nav = document.createElement('div');
     nav.setAttribute('part', 'nav');
     const previous = document.createElement('button');
-    previous.type = 'button'; previous.setAttribute('part', 'nav-prev'); previous.setAttribute('aria-label', '上个月'); previous.textContent = '‹';
+    previous.type = 'button';
+    previous.setAttribute('part', 'nav-prev');
+    previous.setAttribute('aria-label', '上个月');
+    previous.textContent = '‹';
     previous.addEventListener('click', () => this.moveMonth(-1));
     const title = document.createElement('button');
-    title.type = 'button'; title.setAttribute('part', 'nav-title'); title.textContent = this.monthLabel(); title.addEventListener('click', () => { const now = new Date(); this.viewYear = now.getFullYear(); this.viewMonth = now.getMonth(); this.renderPanel(); });
+    title.type = 'button';
+    title.setAttribute('part', 'nav-title');
+    title.textContent = this.monthLabel();
+    title.addEventListener('click', () => {
+      const now = new Date();
+      this.viewYear = now.getFullYear();
+      this.viewMonth = now.getMonth();
+      this.renderPanel();
+    });
     const next = document.createElement('button');
-    next.type = 'button'; next.setAttribute('part', 'nav-next'); next.setAttribute('aria-label', '下个月'); next.textContent = '›';
+    next.type = 'button';
+    next.setAttribute('part', 'nav-next');
+    next.setAttribute('aria-label', '下个月');
+    next.textContent = '›';
     next.addEventListener('click', () => this.moveMonth(1));
     nav.append(previous, title, next);
     calendar.append(nav);
 
     const weekdays = document.createElement('div');
     weekdays.setAttribute('part', 'weekdays');
-    ['日', '一', '二', '三', '四', '五', '六'].forEach(label => { const day = document.createElement('span'); day.textContent = label; weekdays.append(day); });
+    ['日', '一', '二', '三', '四', '五', '六'].forEach((label) => {
+      const day = document.createElement('span');
+      day.textContent = label;
+      weekdays.append(day);
+    });
     calendar.append(weekdays);
 
     const grid = document.createElement('div');
@@ -169,7 +211,10 @@ export class GtDatePicker {
       const date = new Date(this.viewYear, this.viewMonth, dayOffset);
       const dateValue = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
       const button = document.createElement('button');
-      button.type = 'button'; button.setAttribute('part', 'day'); button.dataset.date = dateValue; button.textContent = String(date.getDate());
+      button.type = 'button';
+      button.setAttribute('part', 'day');
+      button.dataset.date = dateValue;
+      button.textContent = String(date.getDate());
       if (date.getMonth() !== this.viewMonth) button.dataset.outside = '';
       if (dateValue === todayValue) button.dataset.today = '';
       if (dateValue === this.value) button.dataset.selected = '';
@@ -179,7 +224,8 @@ export class GtDatePicker {
       button.addEventListener('click', () => this.selectDate(dateValue));
       grid.append(button);
     }
-    void daysInMonth; void daysInPreviousMonth;
+    void daysInMonth;
+    void daysInPreviousMonth;
     calendar.append(grid);
     body.append(calendar);
     const panel = this.portal?.element.querySelector<HTMLElement>('[part="panel"]');
@@ -197,7 +243,9 @@ export class GtDatePicker {
     panel.style.position = 'fixed';
     panel.style.width = `${width}px`;
     panel.style.left = `${Math.max(8, Math.min(anchor.left, window.innerWidth - width - 8))}px`;
-    panel.style.top = openUpward ? `${Math.max(8, anchor.top - height - 6)}px` : `${anchor.bottom + 6}px`;
+    panel.style.top = openUpward
+      ? `${Math.max(8, anchor.top - height - 6)}px`
+      : `${anchor.bottom + 6}px`;
     panel.dataset.placement = openUpward ? 'top' : 'bottom';
   };
 
@@ -206,10 +254,28 @@ export class GtDatePicker {
     return (
       <Host>
         <div part="base" class={{ disabled: this.disabled }}>
-          <button ref={element => { this.triggerElement = element; }} part="trigger" type="button" disabled={this.disabled} aria-haspopup="dialog" aria-expanded={String(this.isOpen)} onClick={this.toggle}>
-            <span part="icon" aria-hidden="true">▣</span>
-            <span part="label" data-placeholder={!label ? '' : undefined}>{label || this.placeholder}</span>
-            {this.clearable && this.value ? <button part="clear" type="button" aria-label="清除日期" onClick={this.clearDate}>×</button> : null}
+          <button
+            ref={(element) => {
+              this.triggerElement = element;
+            }}
+            part="trigger"
+            type="button"
+            disabled={this.disabled}
+            aria-haspopup="dialog"
+            aria-expanded={String(this.isOpen)}
+            onClick={this.toggle}
+          >
+            <span part="icon" aria-hidden="true">
+              ▣
+            </span>
+            <span part="label" data-placeholder={!label ? '' : undefined}>
+              {label || this.placeholder}
+            </span>
+            {this.clearable && this.value ? (
+              <button part="clear" type="button" aria-label="清除日期" onClick={this.clearDate}>
+                ×
+              </button>
+            ) : null}
           </button>
         </div>
       </Host>

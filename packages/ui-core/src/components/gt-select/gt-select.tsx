@@ -1,4 +1,14 @@
-import { Component, Element, Event, h, Host, Prop, State, Watch, type EventEmitter } from '@stencil/core';
+import {
+  Component,
+  Element,
+  Event,
+  h,
+  Host,
+  Prop,
+  State,
+  Watch,
+  type EventEmitter,
+} from '@stencil/core';
 
 import { OverlayPortal } from '../../utils/overlay-controller';
 import { isEventOutside } from '../../utils/outside-click';
@@ -24,7 +34,8 @@ export class GtSelect {
   @Prop({ attribute: 'close-on-outside' }) closeOnOutside = true;
   @Element() host!: HTMLElement;
 
-  @Event({ eventName: 'gt-change', bubbles: true, composed: true }) change!: EventEmitter<GtSelectChangeDetail>;
+  @Event({ eventName: 'gt-change', bubbles: true, composed: true })
+  change!: EventEmitter<GtSelectChangeDetail>;
   @Event({ eventName: 'gt-focus', bubbles: true, composed: true }) focusEvent!: EventEmitter<void>;
   @Event({ eventName: 'gt-blur', bubbles: true, composed: true }) blurEvent!: EventEmitter<void>;
 
@@ -85,7 +96,11 @@ export class GtSelect {
   };
 
   private slotHasContent(slot?: HTMLSlotElement): boolean {
-    return Boolean(slot?.assignedNodes({ flatten: true }).some((node) => node.nodeType !== 3 || Boolean(node.textContent?.trim())));
+    return Boolean(
+      slot
+        ?.assignedNodes({ flatten: true })
+        .some((node) => node.nodeType !== 3 || Boolean(node.textContent?.trim()))
+    );
   }
 
   private selectedIndex(): number {
@@ -209,7 +224,8 @@ export class GtSelect {
         const check = document.createElement('span');
         check.setAttribute('part', 'check');
         if (selected) {
-          check.innerHTML = '<svg viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M3.5 8.5L6.5 11.5L12.5 4.5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" /></svg>';
+          check.innerHTML =
+            '<svg viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M3.5 8.5L6.5 11.5L12.5 4.5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" /></svg>';
         }
         const label = document.createElement('span');
         label.setAttribute('part', 'option-label');
@@ -228,7 +244,9 @@ export class GtSelect {
     const slot = `option-${index}`;
     const existing = this.movedOptionNodes.get(index);
     if (existing) return existing;
-    const node = Array.from(this.host.children).find((child) => child.getAttribute('slot') === slot);
+    const node = Array.from(this.host.children).find(
+      (child) => child.getAttribute('slot') === slot
+    );
     if (!(node instanceof HTMLElement)) return undefined;
     const entry = { node, slot };
     this.movedOptionNodes.set(index, entry);
@@ -244,15 +262,21 @@ export class GtSelect {
   }
 
   private updateHighlightedOptions(): void {
-    this.portal?.element.querySelectorAll<HTMLElement>('[data-select-options] [part="option"]').forEach((item) => {
-      if (Number(item.dataset.index) === this.highlightedIndex) item.setAttribute('data-highlighted', '');
-      else item.removeAttribute('data-highlighted');
-    });
+    this.portal?.element
+      .querySelectorAll<HTMLElement>('[data-select-options] [part="option"]')
+      .forEach((item) => {
+        if (Number(item.dataset.index) === this.highlightedIndex)
+          item.setAttribute('data-highlighted', '');
+        else item.removeAttribute('data-highlighted');
+      });
   }
 
   private scrollHighlightedIntoView(): void {
-    const item = this.portal?.element.querySelector<HTMLElement>(`[data-select-options] [data-index="${this.highlightedIndex}"]`);
-    if (item && typeof item.scrollIntoView === 'function') item.scrollIntoView({ block: 'nearest' });
+    const item = this.portal?.element.querySelector<HTMLElement>(
+      `[data-select-options] [data-index="${this.highlightedIndex}"]`
+    );
+    if (item && typeof item.scrollIntoView === 'function')
+      item.scrollIntoView({ block: 'nearest' });
     this.updateHighlightedOptions();
   }
 
@@ -263,11 +287,14 @@ export class GtSelect {
     const availableBelow = Math.max(0, window.innerHeight - anchor.bottom - 16);
     const availableAbove = Math.max(0, anchor.top - 16);
     const measuredHeight = panel.getBoundingClientRect().height || 260;
-    const openUpward = availableBelow < Math.min(measuredHeight, 280) && availableAbove > availableBelow;
+    const openUpward =
+      availableBelow < Math.min(measuredHeight, 280) && availableAbove > availableBelow;
     panel.dataset.placement = openUpward ? 'top' : 'bottom';
     panel.style.position = 'fixed';
     panel.style.left = `${Math.max(8, anchor.left)}px`;
-    panel.style.top = openUpward ? `${Math.max(8, anchor.top - Math.min(measuredHeight, 280) - 6)}px` : `${anchor.bottom + 6}px`;
+    panel.style.top = openUpward
+      ? `${Math.max(8, anchor.top - Math.min(measuredHeight, 280) - 6)}px`
+      : `${anchor.bottom + 6}px`;
     panel.style.minWidth = `${anchor.width}px`;
     panel.style.maxHeight = `${Math.max(96, Math.min(280, openUpward ? availableAbove : availableBelow || 280))}px`;
   };
@@ -278,7 +305,9 @@ export class GtSelect {
       <Host>
         <div part="base" class="shell">
           <button
-            ref={(element) => { this.triggerElement = element; }}
+            ref={(element) => {
+              this.triggerElement = element;
+            }}
             part="trigger"
             type="button"
             disabled={this.disabled}
@@ -287,9 +316,27 @@ export class GtSelect {
             aria-controls={this.isOpen ? `${this.host.id || 'gt-select'}-listbox` : undefined}
             onClick={this.toggle}
           >
-            <span part="prefix" hidden={!this.hasPrefix}><slot name="prefix" ref={(element) => { this.prefixSlot = element; }} onSlotchange={this.syncSlots} /></span>
-            <span part="label" data-placeholder={!selectedLabel ? '' : undefined}>{selectedLabel || this.placeholder}</span>
-            <span part="suffix" hidden={!this.hasSuffix}><slot name="suffix" ref={(element) => { this.suffixSlot = element; }} onSlotchange={this.syncSlots} /></span>
+            <span part="prefix" hidden={!this.hasPrefix}>
+              <slot
+                name="prefix"
+                ref={(element) => {
+                  this.prefixSlot = element;
+                }}
+                onSlotchange={this.syncSlots}
+              />
+            </span>
+            <span part="label" data-placeholder={!selectedLabel ? '' : undefined}>
+              {selectedLabel || this.placeholder}
+            </span>
+            <span part="suffix" hidden={!this.hasSuffix}>
+              <slot
+                name="suffix"
+                ref={(element) => {
+                  this.suffixSlot = element;
+                }}
+                onSlotchange={this.syncSlots}
+              />
+            </span>
             <span part="arrow" aria-hidden="true" />
           </button>
         </div>

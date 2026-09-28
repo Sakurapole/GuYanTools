@@ -5,7 +5,9 @@ import './gt-range';
 
 describe('gt-range', () => {
   it('emits numeric values and exposes public slider parts', async () => {
-    const { root, spyOnEvent, waitForChanges } = await render(<gt-range value={25} min={0} max={100} step={5} />);
+    const { root, spyOnEvent, waitForChanges } = await render(
+      <gt-range value={25} min={0} max={100} step={5} />
+    );
     const input = root.shadowRoot?.querySelector('input') as HTMLInputElement;
     const change = spyOnEvent('gt-change');
     input.value = '40';

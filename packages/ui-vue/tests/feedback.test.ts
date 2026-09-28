@@ -14,8 +14,14 @@ describe('Vue feedback adapters', () => {
   });
 
   it('keeps field and state-card named slots', () => {
-    const field = mount(UiField, { props: { label: 'Name', error: 'Required' }, slots: { default: '<input />' } });
-    const state = mount(UiStateCard, { props: { state: 'error', title: 'Failed' }, slots: { actions: '<button>Retry</button>' } });
+    const field = mount(UiField, {
+      props: { label: 'Name', error: 'Required' },
+      slots: { default: '<input />' },
+    });
+    const state = mount(UiStateCard, {
+      props: { state: 'error', title: 'Failed' },
+      slots: { actions: '<button>Retry</button>' },
+    });
 
     expect(field.find('gt-field').exists()).toBe(true);
     expect(state.text()).toContain('Retry');

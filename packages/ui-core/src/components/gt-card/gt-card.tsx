@@ -27,9 +27,27 @@ export class GtCard {
     return (
       <Host>
         <article part="base" data-variant={this.variant}>
-          <header part="header" class="section" hidden={!this.hasHeader}><slot name="header" ref={(element) => { this.headerSlot = element; }} onSlotchange={this.syncSlots} /></header>
-          <div part="body" class="section"><slot /></div>
-          <footer part="footer" class="section" hidden={!this.hasFooter}><slot name="footer" ref={(element) => { this.footerSlot = element; }} onSlotchange={this.syncSlots} /></footer>
+          <header part="header" class="section" hidden={!this.hasHeader}>
+            <slot
+              name="header"
+              ref={(element) => {
+                this.headerSlot = element;
+              }}
+              onSlotchange={this.syncSlots}
+            />
+          </header>
+          <div part="body" class="section">
+            <slot />
+          </div>
+          <footer part="footer" class="section" hidden={!this.hasFooter}>
+            <slot
+              name="footer"
+              ref={(element) => {
+                this.footerSlot = element;
+              }}
+              onSlotchange={this.syncSlots}
+            />
+          </footer>
         </article>
       </Host>
     );

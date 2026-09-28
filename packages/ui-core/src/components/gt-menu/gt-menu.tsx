@@ -1,10 +1,21 @@
-import { Component, Element as StencilElement, Event, h, Host, Prop, Watch, type EventEmitter } from '@stencil/core';
+import {
+  Component,
+  Element as StencilElement,
+  Event,
+  h,
+  Host,
+  Prop,
+  Watch,
+  type EventEmitter,
+} from '@stencil/core';
 
 import { OverlayPortal } from '../../utils/overlay-controller';
 import { isEventOutside } from '../../utils/outside-click';
 
 export type GtMenuCloseReason = 'outside' | 'escape' | 'programmatic';
-export interface GtMenuCloseDetail { reason: GtMenuCloseReason; }
+export interface GtMenuCloseDetail {
+  reason: GtMenuCloseReason;
+}
 
 @Component({ tag: 'gt-menu', shadow: true, styleUrl: 'gt-menu.css' })
 export class GtMenu {
@@ -16,7 +27,8 @@ export class GtMenu {
   @Prop() maxHeight = '';
   @StencilElement() host!: HTMLElement;
 
-  @Event({ eventName: 'gt-close', bubbles: true, composed: true }) close!: EventEmitter<GtMenuCloseDetail>;
+  @Event({ eventName: 'gt-close', bubbles: true, composed: true })
+  close!: EventEmitter<GtMenuCloseDetail>;
 
   private portal?: OverlayPortal;
   private contentNodes: Node[] = [];
@@ -107,12 +119,19 @@ export class GtMenu {
     if (!isEventOutside(event, [this.host, panel])) return;
     const target = event.target as Node | null;
     const targetElement = target instanceof HTMLElement ? target : target?.parentElement;
-    const selectors = Array.isArray(this.outsideIgnoreSelector) ? this.outsideIgnoreSelector : [this.outsideIgnoreSelector];
-    if (targetElement && selectors.some(selector => selector && targetElement.closest(selector))) return;
+    const selectors = Array.isArray(this.outsideIgnoreSelector)
+      ? this.outsideIgnoreSelector
+      : [this.outsideIgnoreSelector];
+    if (targetElement && selectors.some((selector) => selector && targetElement.closest(selector)))
+      return;
     this.closeMenu('outside');
   };
 
   render() {
-    return <Host hidden={!this.visible}><slot /></Host>;
+    return (
+      <Host hidden={!this.visible}>
+        <slot />
+      </Host>
+    );
   }
 }

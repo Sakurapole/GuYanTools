@@ -22,7 +22,7 @@ export function computeOverlayPlacement(
   placement: OverlayPlacement,
   anchor: OverlayRect,
   overlay: OverlaySize,
-  viewport: OverlaySize,
+  viewport: OverlaySize
 ): OverlayPlacement {
   if (placement === 'right' && anchor.right + overlay.width > viewport.width) return 'left';
   if (placement === 'left' && anchor.left - overlay.width < 0) return 'right';
@@ -40,7 +40,13 @@ export class OverlayPortal {
     this.element.dispatchEvent(new Event('gt-overlay-reposition'));
   };
 
-  constructor(type: OverlayType, content: DocumentFragment | string, source: HTMLElement, onMask?: () => void, options: OverlayPortalOptions = {}) {
+  constructor(
+    type: OverlayType,
+    content: DocumentFragment | string,
+    source: HTMLElement,
+    onMask?: () => void,
+    options: OverlayPortalOptions = {}
+  ) {
     this.source = source;
     this.element = document.createElement('div');
     this.element.dataset.gtOverlay = type;
@@ -56,10 +62,15 @@ export class OverlayPortal {
       mask.addEventListener('click', () => onMask?.());
     }
 
-    const panel = document.createElement(type === 'tooltip' || type === 'select' || type === 'popup' ? 'div' : 'section');
+    const panel = document.createElement(
+      type === 'tooltip' || type === 'select' || type === 'popup' ? 'div' : 'section'
+    );
     panel.className = 'panel';
     panel.setAttribute('part', 'panel');
-    panel.setAttribute('role', type === 'tooltip' ? 'tooltip' : type === 'select' ? 'listbox' : 'dialog');
+    panel.setAttribute(
+      'role',
+      type === 'tooltip' ? 'tooltip' : type === 'select' ? 'listbox' : 'dialog'
+    );
     if (type === 'dialog' || type === 'drawer') {
       panel.setAttribute('aria-modal', 'true');
       panel.tabIndex = -1;
@@ -88,8 +99,14 @@ export class OverlayPortal {
     this.copyVariables();
     if (typeof MutationObserver !== 'undefined') {
       this.styleObserver = new MutationObserver(() => this.copyVariables());
-      this.styleObserver.observe(this.source, { attributes: true, attributeFilter: ['class', 'style'] });
-      this.styleObserver.observe(document.documentElement, { attributes: true, attributeFilter: ['class', 'style'] });
+      this.styleObserver.observe(this.source, {
+        attributes: true,
+        attributeFilter: ['class', 'style'],
+      });
+      this.styleObserver.observe(document.documentElement, {
+        attributes: true,
+        attributeFilter: ['class', 'style'],
+      });
     }
     (options.target ?? document.body).append(this.element);
     window.addEventListener('resize', this.reposition);
@@ -113,13 +130,19 @@ export class OverlayPortal {
     this.element.style.lineHeight = styles.lineHeight;
     this.element.style.letterSpacing = styles.letterSpacing;
 
-    for (const name of ['--ui-font-family', '--app-font-family', '--gt-font-family']) names.add(name);
+    for (const name of ['--ui-font-family', '--app-font-family', '--gt-font-family'])
+      names.add(name);
     for (let index = 0; index < styles.length; index += 1) {
       const name = styles.item(index);
-      if (name.startsWith('--gt-') || name.startsWith('--ui-') || name.startsWith('--app-')) names.add(name);
+      if (name.startsWith('--gt-') || name.startsWith('--ui-') || name.startsWith('--app-'))
+        names.add(name);
     }
     const inlineStyle = this.source.getAttribute('style') ?? '';
     for (const match of inlineStyle.matchAll(/(--(?:gt|ui|app)-[\w-]+)\s*:/g)) names.add(match[1]);
-    for (const name of names) this.element.style.setProperty(name, styles.getPropertyValue(name) || this.source.style.getPropertyValue(name));
+    for (const name of names)
+      this.element.style.setProperty(
+        name,
+        styles.getPropertyValue(name) || this.source.style.getPropertyValue(name)
+      );
   }
 }

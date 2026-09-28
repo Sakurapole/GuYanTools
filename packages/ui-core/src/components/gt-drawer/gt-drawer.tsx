@@ -15,7 +15,8 @@ export class GtDrawer {
   @Prop({ attribute: 'aria-label' }) ariaLabel = 'Drawer';
   @Element() host!: HTMLElement;
 
-  @Event({ eventName: 'gt-open-change', bubbles: true, composed: true }) openChange!: EventEmitter<GtOpenChangeDetail>;
+  @Event({ eventName: 'gt-open-change', bubbles: true, composed: true })
+  openChange!: EventEmitter<GtOpenChangeDetail>;
 
   private contentNodes: Node[] = [];
   private portal?: OverlayPortal;
@@ -54,7 +55,8 @@ export class GtDrawer {
       if (labelledBy) panel.setAttribute('aria-labelledby', labelledBy);
       this.portal.element.style.setProperty('--gt-drawer-width', this.width);
       panel.dataset.position = this.position;
-      if (!this.overlay) this.portal.element.querySelector<HTMLElement>('[data-overlay-mask]')?.remove();
+      if (!this.overlay)
+        this.portal.element.querySelector<HTMLElement>('[data-overlay-mask]')?.remove();
     }
     queueMicrotask(() => panel?.focus());
   }
@@ -74,7 +76,11 @@ export class GtDrawer {
   private trapFocus(event: KeyboardEvent): void {
     const panel = this.portal?.element.querySelector<HTMLElement>('.panel');
     if (!panel) return;
-    const focusable = Array.from(panel.querySelectorAll<HTMLElement>('a[href],button:not([disabled]),input:not([disabled]),select:not([disabled]),textarea:not([disabled]),[tabindex]:not([tabindex="-1"])'));
+    const focusable = Array.from(
+      panel.querySelectorAll<HTMLElement>(
+        'a[href],button:not([disabled]),input:not([disabled]),select:not([disabled]),textarea:not([disabled]),[tabindex]:not([tabindex="-1"])'
+      )
+    );
     if (focusable.length === 0) {
       event.preventDefault();
       panel.focus();
@@ -108,6 +114,12 @@ export class GtDrawer {
   }
 
   render() {
-    return <Host><span part="base"><slot /></span></Host>;
+    return (
+      <Host>
+        <span part="base">
+          <slot />
+        </span>
+      </Host>
+    );
   }
 }

@@ -6,7 +6,7 @@
 export function isEventOutside(event: Event, nodes: Array<Node | null | undefined>): boolean {
   const path = typeof event.composedPath === 'function' ? event.composedPath() : [];
   if (path.length > 0) {
-    return !nodes.some(node => Boolean(node) && path.includes(node as Node));
+    return !nodes.some((node) => Boolean(node) && path.includes(node as Node));
   }
 
   const target = event.target as Node | null;

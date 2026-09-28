@@ -7,28 +7,31 @@ defineOptions({ inheritAttrs: false });
 
 ensureGuYanElements();
 
-const props = withDefaults(defineProps<{
-  modelValue: boolean;
-  width?: string | number;
-  maxWidth?: string | number;
-  closeOnMask?: boolean;
-  closeOnEsc?: boolean;
-  persistent?: boolean;
-  role?: string;
-  ariaLabel?: string;
-  ariaLabelledby?: string;
-  zIndex?: number | string;
-}>(), {
-  width: '',
-  maxWidth: '',
-  closeOnMask: true,
-  closeOnEsc: true,
-  persistent: false,
-  role: 'dialog',
-  ariaLabel: '',
-  ariaLabelledby: '',
-  zIndex: 'var(--gt-z-overlay)',
-});
+const props = withDefaults(
+  defineProps<{
+    modelValue: boolean;
+    width?: string | number;
+    maxWidth?: string | number;
+    closeOnMask?: boolean;
+    closeOnEsc?: boolean;
+    persistent?: boolean;
+    role?: string;
+    ariaLabel?: string;
+    ariaLabelledby?: string;
+    zIndex?: number | string;
+  }>(),
+  {
+    width: '',
+    maxWidth: '',
+    closeOnMask: true,
+    closeOnEsc: true,
+    persistent: false,
+    role: 'dialog',
+    ariaLabel: '',
+    ariaLabelledby: '',
+    zIndex: 'var(--gt-z-overlay)',
+  }
+);
 
 const emit = defineEmits<{
   'update:modelValue': [value: boolean];

@@ -15,8 +15,10 @@ export class GtTextarea {
   @Prop({ attribute: 'maxlength' }) maxLength?: number;
   @Prop({ reflect: true }) resize: 'none' | 'both' | 'horizontal' | 'vertical' = 'vertical';
 
-  @Event({ eventName: 'gt-input', bubbles: true, composed: true }) input!: EventEmitter<GtValueChangeDetail>;
-  @Event({ eventName: 'gt-change', bubbles: true, composed: true }) change!: EventEmitter<GtValueChangeDetail>;
+  @Event({ eventName: 'gt-input', bubbles: true, composed: true })
+  input!: EventEmitter<GtValueChangeDetail>;
+  @Event({ eventName: 'gt-change', bubbles: true, composed: true })
+  change!: EventEmitter<GtValueChangeDetail>;
 
   @Element() host!: HTMLElement & { select?: () => Promise<void> };
   private textareaElement?: HTMLTextAreaElement;
@@ -43,7 +45,9 @@ export class GtTextarea {
         <div part="base">
           <textarea
             part="control"
-            ref={(element) => { this.textareaElement = element; }}
+            ref={(element) => {
+              this.textareaElement = element;
+            }}
             disabled={this.disabled}
             id={this.host.id || undefined}
             maxLength={this.maxLength}
@@ -54,8 +58,12 @@ export class GtTextarea {
             autocorrect={this.autocorrect}
             autocapitalize={this.autocapitalize}
             value={this.value}
-            onInput={(event) => this.updateValue((event.target as HTMLTextAreaElement).value, 'input')}
-            onChange={(event) => this.updateValue((event.target as HTMLTextAreaElement).value, 'change')}
+            onInput={(event) =>
+              this.updateValue((event.target as HTMLTextAreaElement).value, 'input')
+            }
+            onChange={(event) =>
+              this.updateValue((event.target as HTMLTextAreaElement).value, 'change')
+            }
           />
         </div>
       </Host>
