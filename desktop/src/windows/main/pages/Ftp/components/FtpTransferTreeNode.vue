@@ -32,14 +32,14 @@ const sortedChildren = computed(() =>
     const rightIsDirectory = right.kind === 'directory';
     if (leftIsDirectory !== rightIsDirectory) return leftIsDirectory ? -1 : 1;
     return left.name.localeCompare(right.name, undefined, { numeric: true, sensitivity: 'base' });
-  }),
+  })
 );
 
 watch(
   () => props.node.relativePath,
   () => {
     expanded.value = false;
-  },
+  }
 );
 
 function toggleExpanded() {
@@ -95,7 +95,15 @@ function toggleExpanded() {
       <span class="ftp-task-tree-node__meta">
         {{ formatSize(node.transferredSize) }} / {{ formatSize(node.size) }}
       </span>
-      <span class="ftp-task-tree-node__status">{{ node.status === 'completed' ? '完成' : node.status === 'transferring' ? '传输中' : node.status === 'failed' ? '失败' : '等待' }}</span>
+      <span class="ftp-task-tree-node__status">{{
+        node.status === 'completed'
+          ? '完成'
+          : node.status === 'transferring'
+            ? '传输中'
+            : node.status === 'failed'
+              ? '失败'
+              : '等待'
+      }}</span>
     </div>
     <div v-if="hasChildren && expanded" class="ftp-task-tree-node__children">
       <FtpTransferTreeNode

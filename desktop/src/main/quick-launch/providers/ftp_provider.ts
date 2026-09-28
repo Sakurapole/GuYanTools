@@ -21,7 +21,7 @@ export const ftpProvider: QuickLaunchProvider = {
             { value: profile.username, weight: 30 },
             { value: profile.defaultRemotePath, weight: 28 },
             { value: profile.defaultLocalPath, weight: 24 },
-          ],
+          ]
         );
         if (!match) {
           return null;

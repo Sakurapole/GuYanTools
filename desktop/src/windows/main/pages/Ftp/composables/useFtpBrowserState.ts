@@ -11,31 +11,71 @@ const BUILTIN_FILTER_PRESETS: PanelFilterPreset[] = [
     id: 'builtin-images',
     name: '图片文件',
     builtIn: true,
-    filter: { mode: 'files', operator: 'and', hideHidden: false, extensionQuery: '.jpg,.jpeg,.png,.gif,.bmp,.webp,.svg', minSizeKb: '', maxSizeKb: '', modifiedWithinDays: '' },
+    filter: {
+      mode: 'files',
+      operator: 'and',
+      hideHidden: false,
+      extensionQuery: '.jpg,.jpeg,.png,.gif,.bmp,.webp,.svg',
+      minSizeKb: '',
+      maxSizeKb: '',
+      modifiedWithinDays: '',
+    },
   },
   {
     id: 'builtin-logs',
     name: '日志与配置',
     builtIn: true,
-    filter: { mode: 'files', operator: 'or', hideHidden: false, extensionQuery: '.log,.txt,.cfg,.conf,.ini,.json,.yaml,.yml', minSizeKb: '', maxSizeKb: '', modifiedWithinDays: '30' },
+    filter: {
+      mode: 'files',
+      operator: 'or',
+      hideHidden: false,
+      extensionQuery: '.log,.txt,.cfg,.conf,.ini,.json,.yaml,.yml',
+      minSizeKb: '',
+      maxSizeKb: '',
+      modifiedWithinDays: '30',
+    },
   },
   {
     id: 'builtin-large-files',
     name: '大文件',
     builtIn: true,
-    filter: { mode: 'files', operator: 'and', hideHidden: false, extensionQuery: '', minSizeKb: '10240', maxSizeKb: '', modifiedWithinDays: '' },
+    filter: {
+      mode: 'files',
+      operator: 'and',
+      hideHidden: false,
+      extensionQuery: '',
+      minSizeKb: '10240',
+      maxSizeKb: '',
+      modifiedWithinDays: '',
+    },
   },
   {
     id: 'builtin-recent-files',
     name: '最近修改',
     builtIn: true,
-    filter: { mode: 'files', operator: 'and', hideHidden: false, extensionQuery: '', minSizeKb: '', maxSizeKb: '', modifiedWithinDays: '7' },
+    filter: {
+      mode: 'files',
+      operator: 'and',
+      hideHidden: false,
+      extensionQuery: '',
+      minSizeKb: '',
+      maxSizeKb: '',
+      modifiedWithinDays: '7',
+    },
   },
   {
     id: 'builtin-folders',
     name: '仅目录',
     builtIn: true,
-    filter: { mode: 'folders', operator: 'and', hideHidden: false, extensionQuery: '', minSizeKb: '', maxSizeKb: '', modifiedWithinDays: '' },
+    filter: {
+      mode: 'folders',
+      operator: 'and',
+      hideHidden: false,
+      extensionQuery: '',
+      minSizeKb: '',
+      maxSizeKb: '',
+      modifiedWithinDays: '',
+    },
   },
 ];
 
@@ -99,23 +139,31 @@ export function useFtpBrowserState(options: UseFtpBrowserStateOptions) {
 
   const filteredLocalEntries = computed(() =>
     sortEntries(
-      options.ftpStore.localEntries.filter((entry) => matchesPanelFilter(entry, localFilterQuery.value, localRuleFilter)),
+      options.ftpStore.localEntries.filter((entry) =>
+        matchesPanelFilter(entry, localFilterQuery.value, localRuleFilter)
+      ),
       localSortKey.value,
-      localSortDirection.value,
-    ),
+      localSortDirection.value
+    )
   );
   const filteredRemoteEntries = computed(() =>
     sortEntries(
-      options.ftpStore.remoteEntries.filter((entry) => matchesPanelFilter(entry, remoteFilterQuery.value, remoteRuleFilter)),
+      options.ftpStore.remoteEntries.filter((entry) =>
+        matchesPanelFilter(entry, remoteFilterQuery.value, remoteRuleFilter)
+      ),
       remoteSortKey.value,
-      remoteSortDirection.value,
-    ),
+      remoteSortDirection.value
+    )
   );
-  const currentLocalWorkspaceBookmarked = computed(() => options.ftpStore.localWorkspaces.includes(options.ftpStore.localPath));
+  const currentLocalWorkspaceBookmarked = computed(() =>
+    options.ftpStore.localWorkspaces.includes(options.ftpStore.localPath)
+  );
   const currentRemoteWorkspaceBookmarked = computed(() => {
     const profileId = options.activeSession.value?.profileId;
     if (!profileId || !options.ftpStore.remotePath) return false;
-    return options.ftpStore.getRemoteWorkspaces(profileId).includes(normalizeRemoteWorkspacePath(options.ftpStore.remotePath));
+    return options.ftpStore
+      .getRemoteWorkspaces(profileId)
+      .includes(normalizeRemoteWorkspacePath(options.ftpStore.remotePath));
   });
   const localWorkspacePaths = computed(() => {
     const seen = new Set<string>();
@@ -175,10 +223,12 @@ export function useFtpBrowserState(options: UseFtpBrowserStateOptions) {
     return profileId ? [...options.ftpStore.getRemoteWorkspaces(profileId)] : [];
   });
   const localPathSuggestions = computed(() =>
-    buildPathSuggestions(options.ftpStore.localEntries, localPathInput.value),
+    buildPathSuggestions(options.ftpStore.localEntries, localPathInput.value)
   );
   const remotePathSuggestions = computed(() =>
-    options.activeSession.value ? buildPathSuggestions(options.ftpStore.remoteEntries, remotePathInput.value) : [],
+    options.activeSession.value
+      ? buildPathSuggestions(options.ftpStore.remoteEntries, remotePathInput.value)
+      : []
   );
   const localFilterSummary = computed(() => panelFilterSummary(localRuleFilter));
   const remoteFilterSummary = computed(() => panelFilterSummary(remoteRuleFilter));
@@ -191,15 +241,23 @@ export function useFtpBrowserState(options: UseFtpBrowserStateOptions) {
     })),
   ]);
 
-  watch(() => options.ftpStore.localPath, (value) => {
-    localPathInput.value = value;
-    options.onLocalPathChange?.();
-  }, { immediate: true });
+  watch(
+    () => options.ftpStore.localPath,
+    (value) => {
+      localPathInput.value = value;
+      options.onLocalPathChange?.();
+    },
+    { immediate: true }
+  );
 
-  watch(() => options.ftpStore.remotePath, (value) => {
-    remotePathInput.value = value;
-    options.onRemotePathChange?.();
-  }, { immediate: true });
+  watch(
+    () => options.ftpStore.remotePath,
+    (value) => {
+      remotePathInput.value = value;
+      options.onRemotePathChange?.();
+    },
+    { immediate: true }
+  );
 
   function toggleRuleFilter(kind: 'local' | 'remote') {
     if (kind === 'local') {
@@ -258,7 +316,9 @@ export function useFtpBrowserState(options: UseFtpBrowserStateOptions) {
       filter: clonePanelFilterState(source),
     });
     filterPresets.value = [
-      ...filterPresets.value.filter((preset) => preset.id !== nextPreset.id && preset.name !== name),
+      ...filterPresets.value.filter(
+        (preset) => preset.id !== nextPreset.id && preset.name !== name
+      ),
       nextPreset,
     ];
     if (kind === 'local') {
@@ -402,7 +462,9 @@ export function useFtpBrowserState(options: UseFtpBrowserStateOptions) {
 
   async function openRemotePath() {
     if (!options.activeSession.value) return;
-    await options.ftpStore.refreshRemoteDirectory(remotePathInput.value.trim() || options.activeSession.value.remoteRoot);
+    await options.ftpStore.refreshRemoteDirectory(
+      remotePathInput.value.trim() || options.activeSession.value.remoteRoot
+    );
   }
 
   function toggleLocalSortDirection() {
@@ -540,7 +602,7 @@ function parseRulesJson(value: string) {
 }
 
 function normalizePanelFilterState(value: unknown): PanelFilterState {
-  const item = value && typeof value === 'object' ? value as Record<string, unknown> : {};
+  const item = value && typeof value === 'object' ? (value as Record<string, unknown>) : {};
   return {
     mode: item.mode === 'files' || item.mode === 'folders' ? item.mode : 'all',
     operator: item.operator === 'or' ? 'or' : 'and',

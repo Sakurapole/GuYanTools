@@ -20,7 +20,12 @@ const emit = defineEmits<{
 </script>
 
 <template>
-  <UiDialog :model-value="modelValue" width="520" max-width="92vw" @update:modelValue="emit('update:modelValue', $event)">
+  <UiDialog
+    :model-value="modelValue"
+    width="520"
+    max-width="92vw"
+    @update:modelValue="emit('update:modelValue', $event)"
+  >
     <template #header>
       <div class="ftp-dialog__header">{{ title }}</div>
     </template>

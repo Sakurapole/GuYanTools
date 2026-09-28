@@ -7,8 +7,17 @@ import EditIcon from '@/windows/main/components/svgs/icons/EditIcon.vue';
 import OpenIcon from '@/windows/main/components/svgs/icons/OpenIcon.vue';
 import SettingsIcon from '@/windows/main/components/svgs/icons/SettingsIcon.vue';
 import ToolIcon from '@/windows/main/components/svgs/icons/ToolIcon.vue';
-import { joinLocalPath, joinRemotePath, parentLocalPath, parentRemotePath } from '../utils/ftpPaths';
-import type { FileTransferEntry, FtpConnectionDescriptor, FtpTransferOptions } from '@/contracts/ftp';
+import {
+  joinLocalPath,
+  joinRemotePath,
+  parentLocalPath,
+  parentRemotePath,
+} from '../utils/ftpPaths';
+import type {
+  FileTransferEntry,
+  FtpConnectionDescriptor,
+  FtpTransferOptions,
+} from '@/contracts/ftp';
 import type { useFtpStore } from '@/windows/main/stores/ftp_store';
 import type { ContextMenuItem } from '@/windows/main/composables/useContextMenu';
 import type { EntrySortKey, PanelKind } from '../types';
@@ -70,13 +79,21 @@ export function useFtpPanelInteractions(options: UseFtpPanelInteractionsOptions)
   const lastRemoteSelectedIndex = ref(-1);
 
   const selectedLocalEntries = computed(() =>
-    options.filteredLocalEntries.value.filter((entry) => localSelectedPaths.value.includes(entry.path)),
+    options.filteredLocalEntries.value.filter((entry) =>
+      localSelectedPaths.value.includes(entry.path)
+    )
   );
   const selectedRemoteEntries = computed(() =>
-    options.filteredRemoteEntries.value.filter((entry) => remoteSelectedPaths.value.includes(entry.path)),
+    options.filteredRemoteEntries.value.filter((entry) =>
+      remoteSelectedPaths.value.includes(entry.path)
+    )
   );
-  const selectedLocalEntry = computed(() => (selectedLocalEntries.value.length === 1 ? selectedLocalEntries.value[0] : null));
-  const selectedRemoteEntry = computed(() => (selectedRemoteEntries.value.length === 1 ? selectedRemoteEntries.value[0] : null));
+  const selectedLocalEntry = computed(() =>
+    selectedLocalEntries.value.length === 1 ? selectedLocalEntries.value[0] : null
+  );
+  const selectedRemoteEntry = computed(() =>
+    selectedRemoteEntries.value.length === 1 ? selectedRemoteEntries.value[0] : null
+  );
   const preparedRemoteDragKey = ref('');
   const preparedRemoteDragPaths = ref<string[]>([]);
   const preparingRemoteDragKey = ref('');
@@ -89,14 +106,20 @@ export function useFtpPanelInteractions(options: UseFtpPanelInteractionsOptions)
     return path.replace(/\\/g, '/').split('/').filter(Boolean).length;
   }
 
-  const canUpload = computed(() => Boolean(options.activeSession.value && selectedLocalEntries.value.length));
-  const canDownload = computed(() => Boolean(options.activeSession.value && selectedRemoteEntries.value.length));
+  const canUpload = computed(() =>
+    Boolean(options.activeSession.value && selectedLocalEntries.value.length)
+  );
+  const canDownload = computed(() =>
+    Boolean(options.activeSession.value && selectedRemoteEntries.value.length)
+  );
   const uploadActionLabel = computed(() => {
-    if (selectedLocalEntries.value.length > 1) return `批量上传 (${selectedLocalEntries.value.length})`;
+    if (selectedLocalEntries.value.length > 1)
+      return `批量上传 (${selectedLocalEntries.value.length})`;
     return selectedLocalEntry.value?.isDir ? '上传目录' : '上传';
   });
   const downloadActionLabel = computed(() => {
-    if (selectedRemoteEntries.value.length > 1) return `批量下载 (${selectedRemoteEntries.value.length})`;
+    if (selectedRemoteEntries.value.length > 1)
+      return `批量下载 (${selectedRemoteEntries.value.length})`;
     return selectedRemoteEntry.value?.isDir ? '下载目录' : '下载';
   });
 
@@ -164,7 +187,10 @@ export function useFtpPanelInteractions(options: UseFtpPanelInteractionsOptions)
 
   function buildRemoteDragKey(entries: FileTransferEntry[]) {
     const sessionId = options.activeSession.value?.sessionId ?? '';
-    return `${sessionId}:${entries.map((entry) => entry.path).sort().join('|')}`;
+    return `${sessionId}:${entries
+      .map((entry) => entry.path)
+      .sort()
+      .join('|')}`;
   }
 
   async function primeRemoteDragExport(entries: FileTransferEntry[]) {
@@ -185,7 +211,7 @@ export function useFtpPanelInteractions(options: UseFtpPanelInteractionsOptions)
     try {
       const localPaths = await options.prepareRemoteDragExport(
         options.activeSession.value.sessionId,
-        entries.map((entry) => entry.path),
+        entries.map((entry) => entry.path)
       );
       if (preparingRemoteDragKey.value === key) {
         preparedRemoteDragKey.value = key;
@@ -207,11 +233,13 @@ export function useFtpPanelInteractions(options: UseFtpPanelInteractionsOptions)
 
   function handleLocalEntryClick(event: MouseEvent, entry: FileTransferEntry, index: number) {
     if (event.shiftKey && lastLocalSelectedIndex.value >= 0) {
-      const [start, end] = [lastLocalSelectedIndex.value, index].sort((left, right) => left - right);
+      const [start, end] = [lastLocalSelectedIndex.value, index].sort(
+        (left, right) => left - right
+      );
       updateLocalSelection(
         options.filteredLocalEntries.value.slice(start, end + 1).map((item) => item.path),
         entry.path,
-        index,
+        index
       );
       return;
     }
@@ -229,11 +257,13 @@ export function useFtpPanelInteractions(options: UseFtpPanelInteractionsOptions)
 
   function handleRemoteEntryClick(event: MouseEvent, entry: FileTransferEntry, index: number) {
     if (event.shiftKey && lastRemoteSelectedIndex.value >= 0) {
-      const [start, end] = [lastRemoteSelectedIndex.value, index].sort((left, right) => left - right);
+      const [start, end] = [lastRemoteSelectedIndex.value, index].sort(
+        (left, right) => left - right
+      );
       updateRemoteSelection(
         options.filteredRemoteEntries.value.slice(start, end + 1).map((item) => item.path),
         entry.path,
-        index,
+        index
       );
       return;
     }
@@ -272,21 +302,27 @@ export function useFtpPanelInteractions(options: UseFtpPanelInteractionsOptions)
 
   async function syncRemotePanelToChild(entryName: string) {
     if (!options.linkNavigationEnabled.value || !options.activeSession.value) return;
-    const matchedEntry = options.ftpStore.remoteEntries.find((entry) => entry.isDir && entry.name === entryName);
+    const matchedEntry = options.ftpStore.remoteEntries.find(
+      (entry) => entry.isDir && entry.name === entryName
+    );
     if (!matchedEntry) return;
     await options.ftpStore.refreshRemoteDirectory(matchedEntry.path);
   }
 
   async function syncLocalPanelToChild(entryName: string) {
     if (!options.linkNavigationEnabled.value) return;
-    const matchedEntry = options.ftpStore.localEntries.find((entry) => entry.isDir && entry.name === entryName);
+    const matchedEntry = options.ftpStore.localEntries.find(
+      (entry) => entry.isDir && entry.name === entryName
+    );
     if (!matchedEntry) return;
     await options.ftpStore.refreshLocalDirectory(matchedEntry.path);
   }
 
   async function syncRemotePanelToParent() {
     if (!options.linkNavigationEnabled.value || !options.activeSession.value) return;
-    await options.ftpStore.refreshRemoteDirectory(parentRemotePath(options.ftpStore.remotePath || options.activeSession.value.remoteRoot));
+    await options.ftpStore.refreshRemoteDirectory(
+      parentRemotePath(options.ftpStore.remotePath || options.activeSession.value.remoteRoot)
+    );
   }
 
   async function syncLocalPanelToParent() {
@@ -295,14 +331,22 @@ export function useFtpPanelInteractions(options: UseFtpPanelInteractionsOptions)
   }
 
   async function openLocalEntry(entry: FileTransferEntry) {
-    updateLocalSelection([entry.path], entry.path, options.filteredLocalEntries.value.findIndex((item) => item.path === entry.path));
+    updateLocalSelection(
+      [entry.path],
+      entry.path,
+      options.filteredLocalEntries.value.findIndex((item) => item.path === entry.path)
+    );
     if (!entry.isDir) return;
     await options.ftpStore.refreshLocalDirectory(entry.path);
     await syncRemotePanelToChild(entry.name);
   }
 
   async function openRemoteEntry(entry: FileTransferEntry) {
-    updateRemoteSelection([entry.path], entry.path, options.filteredRemoteEntries.value.findIndex((item) => item.path === entry.path));
+    updateRemoteSelection(
+      [entry.path],
+      entry.path,
+      options.filteredRemoteEntries.value.findIndex((item) => item.path === entry.path)
+    );
     if (!entry.isDir) return;
     await options.ftpStore.refreshRemoteDirectory(entry.path);
     await syncLocalPanelToChild(entry.name);
@@ -340,7 +384,9 @@ export function useFtpPanelInteractions(options: UseFtpPanelInteractionsOptions)
       placeholder: '请输入目录名称',
     });
     if (!name) return;
-    await options.ftpStore.createRemoteDir(joinRemotePath(options.ftpStore.remotePath || options.activeSession.value.remoteRoot, name));
+    await options.ftpStore.createRemoteDir(
+      joinRemotePath(options.ftpStore.remotePath || options.activeSession.value.remoteRoot, name)
+    );
   }
 
   async function renameLocalSelected() {
@@ -354,7 +400,10 @@ export function useFtpPanelInteractions(options: UseFtpPanelInteractionsOptions)
       placeholder: '请输入新名称',
     });
     if (!nextName || nextName === entry.name) return;
-    await options.ftpStore.renameLocalPath(entry.path, joinLocalPath(parentLocalPath(entry.path), nextName));
+    await options.ftpStore.renameLocalPath(
+      entry.path,
+      joinLocalPath(parentLocalPath(entry.path), nextName)
+    );
   }
 
   async function renameRemoteSelected() {
@@ -368,14 +417,18 @@ export function useFtpPanelInteractions(options: UseFtpPanelInteractionsOptions)
       placeholder: '请输入新名称',
     });
     if (!nextName || nextName === entry.name) return;
-    await options.ftpStore.renameRemotePath(entry.path, joinRemotePath(parentRemotePath(entry.path), nextName));
+    await options.ftpStore.renameRemotePath(
+      entry.path,
+      joinRemotePath(parentRemotePath(entry.path), nextName)
+    );
   }
 
   async function deleteLocalSelected() {
     if (!selectedLocalEntries.value.length) return;
-    const message = selectedLocalEntries.value.length === 1
-      ? `确认删除本地条目“${selectedLocalEntries.value[0].name}”吗？`
-      : `确认删除选中的 ${selectedLocalEntries.value.length} 个本地条目吗？`;
+    const message =
+      selectedLocalEntries.value.length === 1
+        ? `确认删除本地条目“${selectedLocalEntries.value[0].name}”吗？`
+        : `确认删除选中的 ${selectedLocalEntries.value.length} 个本地条目吗？`;
     const confirmed = await options.showConfirm({
       title: '删除本地条目',
       message,
@@ -393,15 +446,19 @@ export function useFtpPanelInteractions(options: UseFtpPanelInteractionsOptions)
     const entries = [...selectedRemoteEntries.value];
     const directories = entries.filter((entry) => entry.isDir);
     const directoryCount = directories.length;
-    const deepDirectoryCount = directories.filter((entry) => remotePathDepth(entry.path) > 3).length;
-    const targetMessage = entries.length === 1
-      ? `确认删除远程条目“${entries[0].name}”吗？`
-      : `确认删除选中的 ${entries.length} 个远程条目吗？`;
-    const message = deepDirectoryCount > 0 && options.activeSession.value?.protocol === 'sftp'
-      ? `${targetMessage} 检测到超过 3 层深度的远程目录，接下来会执行类似 rm -rf ./ 的整体删除效果，目录内全部子目录和文件都会被删除，此操作不可撤销。`
-      : directoryCount > 0
-        ? `${targetMessage} 目录内全部子目录和文件都会被删除，此操作不可撤销。`
-        : `${targetMessage} 此操作不可撤销。`;
+    const deepDirectoryCount = directories.filter(
+      (entry) => remotePathDepth(entry.path) > 3
+    ).length;
+    const targetMessage =
+      entries.length === 1
+        ? `确认删除远程条目“${entries[0].name}”吗？`
+        : `确认删除选中的 ${entries.length} 个远程条目吗？`;
+    const message =
+      deepDirectoryCount > 0 && options.activeSession.value?.protocol === 'sftp'
+        ? `${targetMessage} 检测到超过 3 层深度的远程目录，接下来会执行类似 rm -rf ./ 的整体删除效果，目录内全部子目录和文件都会被删除，此操作不可撤销。`
+        : directoryCount > 0
+          ? `${targetMessage} 目录内全部子目录和文件都会被删除，此操作不可撤销。`
+          : `${targetMessage} 此操作不可撤销。`;
     const confirmed = await options.showConfirm({
       title: '删除远程条目',
       message,
@@ -439,8 +496,11 @@ export function useFtpPanelInteractions(options: UseFtpPanelInteractionsOptions)
     for (const entry of selectedLocalEntries.value) {
       await options.ftpStore.uploadFile(
         entry.path,
-        joinRemotePath(options.ftpStore.remotePath || options.activeSession.value.remoteRoot, entry.name),
-        transferOptions,
+        joinRemotePath(
+          options.ftpStore.remotePath || options.activeSession.value.remoteRoot,
+          entry.name
+        ),
+        transferOptions
       );
     }
   }
@@ -448,7 +508,11 @@ export function useFtpPanelInteractions(options: UseFtpPanelInteractionsOptions)
   async function downloadSelected(transferOptions?: FtpTransferOptions) {
     if (!selectedRemoteEntries.value.length) return;
     for (const entry of selectedRemoteEntries.value) {
-      await options.ftpStore.downloadFile(entry.path, joinLocalPath(options.ftpStore.localPath, entry.name), transferOptions);
+      await options.ftpStore.downloadFile(
+        entry.path,
+        joinLocalPath(options.ftpStore.localPath, entry.name),
+        transferOptions
+      );
     }
   }
 
@@ -457,15 +521,22 @@ export function useFtpPanelInteractions(options: UseFtpPanelInteractionsOptions)
     for (const entry of selectedLocalEntries.value.filter((item) => item.isDir)) {
       await options.ftpStore.uploadFile(
         entry.path,
-        joinRemotePath(options.ftpStore.remotePath || options.activeSession.value.remoteRoot, entry.name),
-        transferOptions,
+        joinRemotePath(
+          options.ftpStore.remotePath || options.activeSession.value.remoteRoot,
+          entry.name
+        ),
+        transferOptions
       );
     }
   }
 
   async function downloadSelectedDirectories(transferOptions?: FtpTransferOptions) {
     for (const entry of selectedRemoteEntries.value.filter((item) => item.isDir)) {
-      await options.ftpStore.downloadFile(entry.path, joinLocalPath(options.ftpStore.localPath, entry.name), transferOptions);
+      await options.ftpStore.downloadFile(
+        entry.path,
+        joinLocalPath(options.ftpStore.localPath, entry.name),
+        transferOptions
+      );
     }
   }
 
@@ -475,25 +546,41 @@ export function useFtpPanelInteractions(options: UseFtpPanelInteractionsOptions)
     const selectedEntry = isLocal ? selectedLocalEntry.value : selectedRemoteEntry.value;
     const disabledRemoteAction = !isLocal && !options.activeSession.value;
     const currentSortKey = isLocal ? options.localSortKey.value : options.remoteSortKey.value;
-    const currentSortDirection = isLocal ? options.localSortDirection.value : options.remoteSortDirection.value;
+    const currentSortDirection = isLocal
+      ? options.localSortDirection.value
+      : options.remoteSortDirection.value;
     const canOpenTerminal = options.canOpenTerminalForPanel?.(kind) ?? false;
     const canPreviewImage = Boolean(
-      selectedEntry && (isLocal ? options.canPreviewLocalImage?.(selectedEntry) : options.canPreviewRemoteImage?.(selectedEntry)),
+      selectedEntry &&
+      (isLocal
+        ? options.canPreviewLocalImage?.(selectedEntry)
+        : options.canPreviewRemoteImage?.(selectedEntry))
     );
-    const canPreviewText = Boolean(selectedEntry && !isLocal && options.canPreviewRemoteText?.(selectedEntry));
-    const canInternalEdit = Boolean(selectedEntry && options.canOpenInternalEditor?.(kind, selectedEntry));
-    const canExternalEdit = Boolean(selectedEntry && options.canOpenExternalEditor?.(kind, selectedEntry));
+    const canPreviewText = Boolean(
+      selectedEntry && !isLocal && options.canPreviewRemoteText?.(selectedEntry)
+    );
+    const canInternalEdit = Boolean(
+      selectedEntry && options.canOpenInternalEditor?.(kind, selectedEntry)
+    );
+    const canExternalEdit = Boolean(
+      selectedEntry && options.canOpenExternalEditor?.(kind, selectedEntry)
+    );
     const selectedDirectoryCount = selectedEntries.filter((entry) => entry.isDir).length;
     const directoryTransferLabel = isLocal
-      ? (selectedDirectoryCount > 1 ? `上传所选 ${selectedDirectoryCount} 个目录` : '上传目录')
-      : (selectedDirectoryCount > 1 ? `下载所选 ${selectedDirectoryCount} 个目录` : '下载目录');
-    const localExplorerTarget = isLocal && options.openLocalPathInExplorer
-      ? selectedEntry?.isDir
-        ? selectedEntry.path
-        : selectedEntries.length === 0
-          ? options.ftpStore.localPath
-          : ''
-      : '';
+      ? selectedDirectoryCount > 1
+        ? `上传所选 ${selectedDirectoryCount} 个目录`
+        : '上传目录'
+      : selectedDirectoryCount > 1
+        ? `下载所选 ${selectedDirectoryCount} 个目录`
+        : '下载目录';
+    const localExplorerTarget =
+      isLocal && options.openLocalPathInExplorer
+        ? selectedEntry?.isDir
+          ? selectedEntry.path
+          : selectedEntries.length === 0
+            ? options.ftpStore.localPath
+            : ''
+        : '';
 
     return [
       {
@@ -509,48 +596,59 @@ export function useFtpPanelInteractions(options: UseFtpPanelInteractionsOptions)
         },
         disabled: disabledRemoteAction,
       },
-      ...(isLocal && selectedDirectoryCount < selectedEntries.length ? [{
-        id: `${kind}-upload-selected`,
-        label: selectedEntries.length > 1 ? `上传所选 ${selectedEntries.length} 项` : '上传所选文件',
-        icon: AddIcon,
-        disabled: !selectedEntries.length || !options.activeSession.value,
-        action: () => {
-          void uploadSelected();
-        },
-      }] : []),
-      ...((selectedDirectoryCount ? [{
-        id: `${kind}-directory-transfer`,
-        label: directoryTransferLabel,
-        icon: AddIcon,
-        disabled: disabledRemoteAction || (isLocal && !options.activeSession.value),
-        children: [
-          {
-            id: `${kind}-directory-transfer-direct`,
-            label: '直接传输',
-            icon: AddIcon,
-            action: () => {
-              if (isLocal) {
-                void uploadSelectedDirectories();
-              } else {
-                void downloadSelectedDirectories();
-              }
+      ...(isLocal && selectedDirectoryCount < selectedEntries.length
+        ? [
+            {
+              id: `${kind}-upload-selected`,
+              label:
+                selectedEntries.length > 1
+                  ? `上传所选 ${selectedEntries.length} 项`
+                  : '上传所选文件',
+              icon: AddIcon,
+              disabled: !selectedEntries.length || !options.activeSession.value,
+              action: () => {
+                void uploadSelected();
+              },
             },
-          },
-          {
-            id: `${kind}-directory-transfer-archive`,
-            label: '打包传输(SFTP)',
-            icon: AddIcon,
-            action: () => {
-              const transferOptions = { method: 'archive' as const };
-              if (isLocal) {
-                void uploadSelectedDirectories(transferOptions);
-              } else {
-                void downloadSelectedDirectories(transferOptions);
-              }
+          ]
+        : []),
+      ...((selectedDirectoryCount
+        ? [
+            {
+              id: `${kind}-directory-transfer`,
+              label: directoryTransferLabel,
+              icon: AddIcon,
+              disabled: disabledRemoteAction || (isLocal && !options.activeSession.value),
+              children: [
+                {
+                  id: `${kind}-directory-transfer-direct`,
+                  label: '直接传输',
+                  icon: AddIcon,
+                  action: () => {
+                    if (isLocal) {
+                      void uploadSelectedDirectories();
+                    } else {
+                      void downloadSelectedDirectories();
+                    }
+                  },
+                },
+                {
+                  id: `${kind}-directory-transfer-archive`,
+                  label: '打包传输(SFTP)',
+                  icon: AddIcon,
+                  action: () => {
+                    const transferOptions = { method: 'archive' as const };
+                    if (isLocal) {
+                      void uploadSelectedDirectories(transferOptions);
+                    } else {
+                      void downloadSelectedDirectories(transferOptions);
+                    }
+                  },
+                },
+              ],
             },
-          },
-        ],
-      }] : []) satisfies ContextMenuItem[]),
+          ]
+        : []) satisfies ContextMenuItem[]),
       {
         id: `${kind}-open-terminal`,
         label: isLocal ? '在本地终端打开' : '在 SSH 终端打开',
@@ -563,16 +661,20 @@ export function useFtpPanelInteractions(options: UseFtpPanelInteractionsOptions)
           }
         },
       },
-      ...(localExplorerTarget ? [{
-        id: `${kind}-open-explorer`,
-        label: selectedEntry?.isDir ? '在资源管理器中打开' : '在资源管理器中打开当前目录',
-        icon: OpenIcon,
-        action: () => {
-          if (options.openLocalPathInExplorer) {
-            void options.openLocalPathInExplorer(localExplorerTarget);
-          }
-        },
-      }] : []),
+      ...(localExplorerTarget
+        ? [
+            {
+              id: `${kind}-open-explorer`,
+              label: selectedEntry?.isDir ? '在资源管理器中打开' : '在资源管理器中打开当前目录',
+              icon: OpenIcon,
+              action: () => {
+                if (options.openLocalPathInExplorer) {
+                  void options.openLocalPathInExplorer(localExplorerTarget);
+                }
+              },
+            },
+          ]
+        : []),
       {
         id: `${kind}-sort`,
         label: '排序方式',
@@ -614,7 +716,8 @@ export function useFtpPanelInteractions(options: UseFtpPanelInteractionsOptions)
       },
       {
         id: `${kind}-copy-info`,
-        label: selectedEntries.length > 1 ? `复制 ${selectedEntries.length} 项信息` : '复制文件信息',
+        label:
+          selectedEntries.length > 1 ? `复制 ${selectedEntries.length} 项信息` : '复制文件信息',
         icon: CategoryTextIcon,
         divided: true,
         disabled: !selectedEntries.length || !options.copySelectionInfo,
@@ -624,24 +727,31 @@ export function useFtpPanelInteractions(options: UseFtpPanelInteractionsOptions)
           }
         },
       },
-      ...(!isLocal ? [{
-        id: `${kind}-paste-upload`,
-        label: '粘贴上传',
-        icon: AddIcon,
-        disabled: disabledRemoteAction || !options.pasteClipboardToRemote,
-        action: () => {
-          if (options.pasteClipboardToRemote) {
-            void options.pasteClipboardToRemote();
-          }
-        },
-      }] : []),
+      ...(!isLocal
+        ? [
+            {
+              id: `${kind}-paste-upload`,
+              label: '粘贴上传',
+              icon: AddIcon,
+              disabled: disabledRemoteAction || !options.pasteClipboardToRemote,
+              action: () => {
+                if (options.pasteClipboardToRemote) {
+                  void options.pasteClipboardToRemote();
+                }
+              },
+            },
+          ]
+        : []),
       {
         id: `${kind}-preview-image`,
         label: '预览图片',
         icon: CategoryMediaIcon,
         divided: true,
-        disabled: disabledRemoteAction || !canPreviewImage || !selectedEntry
-          || (isLocal ? !options.previewLocalImage : !options.previewRemoteImage),
+        disabled:
+          disabledRemoteAction ||
+          !canPreviewImage ||
+          !selectedEntry ||
+          (isLocal ? !options.previewLocalImage : !options.previewRemoteImage),
         action: () => {
           if (!selectedEntry) return;
           if (isLocal && options.previewLocalImage) {
@@ -653,19 +763,25 @@ export function useFtpPanelInteractions(options: UseFtpPanelInteractionsOptions)
           }
         },
       },
-      ...(!isLocal ? [
-        {
-          id: `${kind}-preview-text`,
-          label: '预览文本',
-          icon: CategoryTextIcon,
-          disabled: disabledRemoteAction || !canPreviewText || !selectedEntry || !options.previewRemoteText,
-          action: () => {
-            if (selectedEntry && options.previewRemoteText) {
-              void options.previewRemoteText(selectedEntry);
-            }
-          },
-        },
-      ] : []),
+      ...(!isLocal
+        ? [
+            {
+              id: `${kind}-preview-text`,
+              label: '预览文本',
+              icon: CategoryTextIcon,
+              disabled:
+                disabledRemoteAction ||
+                !canPreviewText ||
+                !selectedEntry ||
+                !options.previewRemoteText,
+              action: () => {
+                if (selectedEntry && options.previewRemoteText) {
+                  void options.previewRemoteText(selectedEntry);
+                }
+              },
+            },
+          ]
+        : []),
       {
         id: `${kind}-internal-edit`,
         label: '内部编辑',
@@ -702,17 +818,21 @@ export function useFtpPanelInteractions(options: UseFtpPanelInteractionsOptions)
           }
         },
       },
-      ...(!isLocal ? [{
-        id: `${kind}-chmod`,
-        label: '修改权限',
-        icon: EditIcon,
-        disabled: !selectedEntry || disabledRemoteAction || !options.changeRemotePermissions,
-        action: () => {
-          if (selectedEntry && options.changeRemotePermissions) {
-            void options.changeRemotePermissions(selectedEntry);
-          }
-        },
-      }] : []),
+      ...(!isLocal
+        ? [
+            {
+              id: `${kind}-chmod`,
+              label: '修改权限',
+              icon: EditIcon,
+              disabled: !selectedEntry || disabledRemoteAction || !options.changeRemotePermissions,
+              action: () => {
+                if (selectedEntry && options.changeRemotePermissions) {
+                  void options.changeRemotePermissions(selectedEntry);
+                }
+              },
+            },
+          ]
+        : []),
       {
         id: `${kind}-delete`,
         label: selectedEntries.length > 1 ? `删除所选 ${selectedEntries.length} 项` : '删除',
@@ -740,7 +860,12 @@ export function useFtpPanelInteractions(options: UseFtpPanelInteractionsOptions)
     openPanelContextMenu(event, kind);
   }
 
-  function handleEntryContextMenu(event: MouseEvent, kind: PanelKind, entry: FileTransferEntry, index: number) {
+  function handleEntryContextMenu(
+    event: MouseEvent,
+    kind: PanelKind,
+    entry: FileTransferEntry,
+    index: number
+  ) {
     event.preventDefault();
     event.stopPropagation();
     ensureEntryContextSelection(kind, entry, index);
@@ -750,17 +875,25 @@ export function useFtpPanelInteractions(options: UseFtpPanelInteractionsOptions)
   function handleLocalDragStart(event: DragEvent, entry: FileTransferEntry) {
     if (!event.dataTransfer) return;
     event.dataTransfer.effectAllowed = 'copy';
-    const entries = localSelectedPaths.value.includes(entry.path) ? selectedLocalEntries.value : [entry];
+    const entries = localSelectedPaths.value.includes(entry.path)
+      ? selectedLocalEntries.value
+      : [entry];
     event.dataTransfer.setData('application/x-guyantools-local-entries', JSON.stringify(entries));
   }
 
   function handleRemoteDragStart(event: DragEvent, entry: FileTransferEntry) {
     if (!event.dataTransfer) return;
     event.dataTransfer.effectAllowed = 'copy';
-    const entries = remoteSelectedPaths.value.includes(entry.path) ? selectedRemoteEntries.value : [entry];
+    const entries = remoteSelectedPaths.value.includes(entry.path)
+      ? selectedRemoteEntries.value
+      : [entry];
     event.dataTransfer.setData('application/x-guyantools-remote-entries', JSON.stringify(entries));
     const dragKey = buildRemoteDragKey(entries);
-    if (preparedRemoteDragKey.value === dragKey && preparedRemoteDragPaths.value.length && options.startPreparedDrag) {
+    if (
+      preparedRemoteDragKey.value === dragKey &&
+      preparedRemoteDragPaths.value.length &&
+      options.startPreparedDrag
+    ) {
       try {
         options.startPreparedDrag([...preparedRemoteDragPaths.value]);
       } catch {
@@ -781,13 +914,17 @@ export function useFtpPanelInteractions(options: UseFtpPanelInteractionsOptions)
   }
 
   function hasLocalDragPayload(event: DragEvent) {
-    return hasDragType(event, 'application/x-guyantools-local-entries')
-      || hasDragType(event, 'application/x-guyantools-local-entry');
+    return (
+      hasDragType(event, 'application/x-guyantools-local-entries') ||
+      hasDragType(event, 'application/x-guyantools-local-entry')
+    );
   }
 
   function hasRemoteDragPayload(event: DragEvent) {
-    return hasDragType(event, 'application/x-guyantools-remote-entries')
-      || hasDragType(event, 'application/x-guyantools-remote-entry');
+    return (
+      hasDragType(event, 'application/x-guyantools-remote-entries') ||
+      hasDragType(event, 'application/x-guyantools-remote-entry')
+    );
   }
 
   function hasExternalFilePayload(event: DragEvent) {
@@ -849,15 +986,19 @@ export function useFtpPanelInteractions(options: UseFtpPanelInteractionsOptions)
     remoteDropActive.value = false;
     if (!acceptsDrop || !options.activeSession.value || !event.dataTransfer) return;
 
-    const localPayload = event.dataTransfer.getData('application/x-guyantools-local-entries')
-      || event.dataTransfer.getData('application/x-guyantools-local-entry');
+    const localPayload =
+      event.dataTransfer.getData('application/x-guyantools-local-entries') ||
+      event.dataTransfer.getData('application/x-guyantools-local-entry');
     if (localPayload) {
       const entries = JSON.parse(localPayload) as FileTransferEntry[] | FileTransferEntry;
       const items = Array.isArray(entries) ? entries : [entries];
       for (const entry of items) {
         await options.ftpStore.uploadFile(
           entry.path,
-          joinRemotePath(options.ftpStore.remotePath || options.activeSession.value.remoteRoot, entry.name),
+          joinRemotePath(
+            options.ftpStore.remotePath || options.activeSession.value.remoteRoot,
+            entry.name
+          )
         );
       }
       return;
@@ -869,7 +1010,10 @@ export function useFtpPanelInteractions(options: UseFtpPanelInteractionsOptions)
       if (!externalPath) continue;
       await options.ftpStore.uploadFile(
         externalPath,
-        joinRemotePath(options.ftpStore.remotePath || options.activeSession.value.remoteRoot, file.name),
+        joinRemotePath(
+          options.ftpStore.remotePath || options.activeSession.value.remoteRoot,
+          file.name
+        )
       );
     }
   }
@@ -897,13 +1041,17 @@ export function useFtpPanelInteractions(options: UseFtpPanelInteractionsOptions)
     const acceptsDrop = canDropOnLocal(event);
     localDropActive.value = false;
     if (!acceptsDrop || !event.dataTransfer) return;
-    const remotePayload = event.dataTransfer.getData('application/x-guyantools-remote-entries')
-      || event.dataTransfer.getData('application/x-guyantools-remote-entry');
+    const remotePayload =
+      event.dataTransfer.getData('application/x-guyantools-remote-entries') ||
+      event.dataTransfer.getData('application/x-guyantools-remote-entry');
     if (remotePayload) {
       const entries = JSON.parse(remotePayload) as FileTransferEntry[] | FileTransferEntry;
       const items = Array.isArray(entries) ? entries : [entries];
       for (const entry of items) {
-        await options.ftpStore.downloadFile(entry.path, joinLocalPath(options.ftpStore.localPath, entry.name));
+        await options.ftpStore.downloadFile(
+          entry.path,
+          joinLocalPath(options.ftpStore.localPath, entry.name)
+        );
       }
       return;
     }
@@ -932,7 +1080,11 @@ export function useFtpPanelInteractions(options: UseFtpPanelInteractionsOptions)
   });
 
   watch(
-    () => `${options.activeSession.value?.sessionId ?? ''}:${selectedRemoteEntries.value.map((entry) => entry.path).sort().join('|')}`,
+    () =>
+      `${options.activeSession.value?.sessionId ?? ''}:${selectedRemoteEntries.value
+        .map((entry) => entry.path)
+        .sort()
+        .join('|')}`,
     () => {
       if (!selectedRemoteEntries.value.length) {
         preparedRemoteDragKey.value = '';
@@ -941,7 +1093,7 @@ export function useFtpPanelInteractions(options: UseFtpPanelInteractionsOptions)
         return;
       }
       void primeRemoteDragExport(selectedRemoteEntries.value);
-    },
+    }
   );
 
   return {

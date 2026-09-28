@@ -47,7 +47,7 @@ import { useFtpPanelInteractions } from '@/windows/main/pages/Ftp/composables/us
 import { useFtpSidebar } from '@/windows/main/pages/Ftp/composables/useFtpSidebar';
 import { useFtpThumbnails } from '@/windows/main/pages/Ftp/composables/useFtpThumbnails';
 import type {
-  PanelFilterState,
+  _PanelFilterState,
   EntrySortKey,
   PanelKind,
   PanelViewMode,
@@ -58,7 +58,12 @@ import type {
   SyncPreviewItem,
   TaskSortKey,
 } from '@/windows/main/pages/Ftp/types';
-import { highlightEntryName, isRuleFilterActive, matchesPanelFilter, panelFilterSummary } from '@/windows/main/pages/Ftp/utils/ftpFilters';
+import {
+  highlightEntryName,
+  isRuleFilterActive,
+  matchesPanelFilter,
+  _panelFilterSummary,
+} from '@/windows/main/pages/Ftp/utils/ftpFilters';
 import { formatSize, formatTime } from '@/windows/main/pages/Ftp/utils/ftpFormat';
 import {
   baseName,
@@ -105,7 +110,10 @@ type FtpWorkspacePaneKey = string;
 type EditorTargetKind = 'local' | 'remote';
 type RemotePreviewKind = 'image' | 'text';
 type AuxiliaryDockTab = 'queue' | 'log';
-type TransferTaskRefreshSnapshot = Pick<TransferTask, 'id' | 'status' | 'direction' | 'sessionId' | 'remotePath'>;
+type TransferTaskRefreshSnapshot = Pick<
+  TransferTask,
+  'id' | 'status' | 'direction' | 'sessionId' | 'remotePath'
+>;
 type RemoteRefreshTarget = {
   panel: string;
   sessionId: string;
@@ -171,8 +179,7 @@ type FtpDwindleLayoutModel = {
   handles: FtpPaneResizeHandle[];
 };
 type TerminalOpenTarget =
-  | { kind: 'local'; path: string }
-  | { kind: 'ssh'; path: string; sshProfileId: string };
+  { kind: 'local'; path: string } | { kind: 'ssh'; path: string; sshProfileId: string };
 type DisconnectedSessionNotice = {
   sessionId: string;
   profileId: string;
@@ -188,7 +195,15 @@ type ClosedSessionSnapshot = {
 };
 type FtpWorkspacePaneSnapshot = Pick<
   FtpWorkspacePane,
-  'key' | 'title' | 'kind' | 'sessionId' | 'profileId' | 'protocol' | 'path' | 'pathInput' | 'viewMode'
+  | 'key'
+  | 'title'
+  | 'kind'
+  | 'sessionId'
+  | 'profileId'
+  | 'protocol'
+  | 'path'
+  | 'pathInput'
+  | 'viewMode'
 >;
 type FtpWorkspaceWindowState = {
   activeBrowserPanel?: string;
@@ -215,8 +230,8 @@ const REMOTE_TEXT_PREVIEW_MAX_BYTES = 2 * 1024 * 1024;
 
 const globalStore = useGlobalStore();
 const ftpStore = useFtpStore();
-const sshStore = useSshStore();
-const terminalStore = useTerminalStore();
+const _sshStore = useSshStore();
+const _terminalStore = useTerminalStore();
 const settingsStore = useSettingStore();
 const router = useRouter();
 const route = useRoute();
@@ -441,22 +456,21 @@ const selectedConnectionLayoutId = ref('');
 
 function routeQueryString(key: string) {
   const value = route.query[key];
-  return Array.isArray(value) ? value[0] ?? '' : typeof value === 'string' ? value : '';
+  return Array.isArray(value) ? (value[0] ?? '') : typeof value === 'string' ? value : '';
 }
 
 function findSftpProfileForPendingOpenRequest(request: PendingSshOpenRequest) {
   const requestHost = request.host.toLowerCase();
   const requestUser = request.username.toLowerCase();
-  return ftpStore.profiles.find((profile) => (
-    profile.protocol.toLowerCase() === 'sftp'
-    && (
-      profile.sshProfileId === request.sshProfileId
-      || (
-        profile.host.toLowerCase() === requestHost
-        && profile.username.toLowerCase() === requestUser
-      )
-    )
-  )) ?? null;
+  return (
+    ftpStore.profiles.find(
+      (profile) =>
+        profile.protocol.toLowerCase() === 'sftp' &&
+        (profile.sshProfileId === request.sshProfileId ||
+          (profile.host.toLowerCase() === requestHost &&
+            profile.username.toLowerCase() === requestUser))
+    ) ?? null
+  );
 }
 
 async function ensureSftpProfileForPendingOpenRequest(request: PendingSshOpenRequest) {
@@ -497,7 +511,8 @@ async function processPendingProfileOpenRequest(request: PendingProfileOpenReque
   }
 
   const targetPath = request.remotePath || targetProfile.defaultRemotePath || '/';
-  const existingSession = ftpStore.sessions.find((session) => session.profileId === targetProfile.id) ?? null;
+  const existingSession =
+    ftpStore.sessions.find((session) => session.profileId === targetProfile.id) ?? null;
   if (existingSession) {
     ftpStore.focusSession(existingSession.sessionId, targetPath || existingSession.remoteRoot);
     if (targetPath && targetPath !== (ftpStore.remotePath || existingSession.remoteRoot)) {
@@ -510,7 +525,8 @@ async function processPendingProfileOpenRequest(request: PendingProfileOpenReque
 
   await connectProfile(targetProfile);
 
-  const connectedSession = ftpStore.sessions.find((session) => session.profileId === targetProfile.id) ?? null;
+  const connectedSession =
+    ftpStore.sessions.find((session) => session.profileId === targetProfile.id) ?? null;
   if (!connectedSession) {
     return;
   }
@@ -538,11 +554,18 @@ async function processPendingOpenRequest() {
     }
 
     const targetProfile = await ensureSftpProfileForPendingOpenRequest(request);
-    const existingSession = ftpStore.sessions.find((session) => session.profileId === targetProfile.id) ?? null;
+    const existingSession =
+      ftpStore.sessions.find((session) => session.profileId === targetProfile.id) ?? null;
 
     if (existingSession) {
-      ftpStore.focusSession(existingSession.sessionId, request.remotePath || existingSession.remoteRoot);
-      if (request.remotePath && request.remotePath !== (ftpStore.remotePath || existingSession.remoteRoot)) {
+      ftpStore.focusSession(
+        existingSession.sessionId,
+        request.remotePath || existingSession.remoteRoot
+      );
+      if (
+        request.remotePath &&
+        request.remotePath !== (ftpStore.remotePath || existingSession.remoteRoot)
+      ) {
         busyMessage.value = `正在打开 ${request.remotePath}...`;
         await refreshPrimaryRemoteDirectory(request.remotePath);
       }
@@ -552,12 +575,16 @@ async function processPendingOpenRequest() {
 
     await connectProfile(targetProfile);
 
-    const connectedSession = ftpStore.sessions.find((session) => session.profileId === targetProfile.id) ?? null;
+    const connectedSession =
+      ftpStore.sessions.find((session) => session.profileId === targetProfile.id) ?? null;
     if (!connectedSession) {
       return;
     }
 
-    ftpStore.focusSession(connectedSession.sessionId, request.remotePath || connectedSession.remoteRoot);
+    ftpStore.focusSession(
+      connectedSession.sessionId,
+      request.remotePath || connectedSession.remoteRoot
+    );
     if (request.remotePath && request.remotePath !== connectedSession.remoteRoot) {
       busyMessage.value = `正在打开 ${request.remotePath}...`;
       await refreshPrimaryRemoteDirectory(request.remotePath);
@@ -575,12 +602,14 @@ async function processPendingOpenRequest() {
 
 async function processFtpConnectionLayoutOpenRequest() {
   if (route.name !== 'FileTransfer') return;
-  const requestId = typeof route.query.openConnectionLayoutRequestId === 'string'
-    ? route.query.openConnectionLayoutRequestId
-    : '';
-  const layoutId = typeof route.query.openConnectionLayoutId === 'string'
-    ? route.query.openConnectionLayoutId
-    : '';
+  const requestId =
+    typeof route.query.openConnectionLayoutRequestId === 'string'
+      ? route.query.openConnectionLayoutRequestId
+      : '';
+  const layoutId =
+    typeof route.query.openConnectionLayoutId === 'string'
+      ? route.query.openConnectionLayoutId
+      : '';
   if (!requestId || !layoutId || handledFtpConnectionLayoutRequestIds.has(requestId)) return;
 
   handledFtpConnectionLayoutRequestIds.add(requestId);
@@ -616,22 +645,27 @@ async function handleFtpOpenRequestFromRoute() {
 
 const sortedTransferTasks = computed(() =>
   [...ftpStore.transferTasks].sort((left, right) =>
-    compareTaskValues(left, right, taskSortKey.value, taskSortDirection.value),
-  ),
+    compareTaskValues(left, right, taskSortKey.value, taskSortDirection.value)
+  )
 );
-const activeTaskCount = computed(() =>
-  ftpStore.transferTasks.filter((task) => ['pending', 'retrying', 'transferring'].includes(task.status)).length,
+const activeTaskCount = computed(
+  () =>
+    ftpStore.transferTasks.filter((task) =>
+      ['pending', 'retrying', 'transferring'].includes(task.status)
+    ).length
 );
-const pausedTaskCount = computed(() =>
-  ftpStore.transferTasks.filter((task) => task.status === 'paused').length,
+const pausedTaskCount = computed(
+  () => ftpStore.transferTasks.filter((task) => task.status === 'paused').length
 );
-const completedTaskCount = computed(() =>
-  ftpStore.transferTasks.filter((task) => task.status === 'completed').length,
+const completedTaskCount = computed(
+  () => ftpStore.transferTasks.filter((task) => task.status === 'completed').length
 );
-const failedTaskCount = computed(() =>
-  ftpStore.transferTasks.filter((task) => task.status === 'failed').length,
+const failedTaskCount = computed(
+  () => ftpStore.transferTasks.filter((task) => task.status === 'failed').length
 );
-const isDenseViewport = computed(() => viewportHeight.value > 0 && (viewportHeight.value < 980 || viewportWidth.value < 1480));
+const isDenseViewport = computed(
+  () => viewportHeight.value > 0 && (viewportHeight.value < 980 || viewportWidth.value < 1480)
+);
 const useAuxDockTabs = computed(() => showLogPanel.value);
 const showQueuePanelInDock = computed(() => auxDockActiveTab.value === 'queue');
 const showLogPanelInDock = computed(() => auxDockActiveTab.value === 'log');
@@ -663,8 +697,8 @@ const {
   remoteWorkspaceSelectValue,
   remoteWorkspaceOptions,
   remoteWorkspaceBookmarkValues,
-  localPathSuggestions,
-  remotePathSuggestions,
+  _localPathSuggestions,
+  _remotePathSuggestions,
   localFilterSummary,
   remoteFilterSummary,
   filterPresetOptions,
@@ -683,8 +717,8 @@ const {
   removeCurrentLocalWorkspace,
   addCurrentRemoteWorkspace,
   removeCurrentRemoteWorkspace,
-  openLocalPath,
-  openRemotePath,
+  _openLocalPath,
+  _openRemotePath,
   toggleSearch,
   setPanelSortKey,
   togglePanelSortDirection,
@@ -695,46 +729,46 @@ const {
   showConfirm,
 });
 const {
-  localDropActive,
-  remoteDropActive,
-  localSelectedPaths,
-  remoteSelectedPaths,
+  _localDropActive,
+  _remoteDropActive,
+  _localSelectedPaths,
+  _remoteSelectedPaths,
   selectedLocalEntries,
   selectedRemoteEntries,
   selectedLocalEntry,
   selectedRemoteEntry,
-  canUpload,
-  canDownload,
-  uploadActionLabel,
-  downloadActionLabel,
+  _canUpload,
+  _canDownload,
+  _uploadActionLabel,
+  _downloadActionLabel,
   clearLocalSelection,
   clearRemoteSelection,
-  selectAllLocalEntries,
-  selectAllRemoteEntries,
-  handleLocalMarqueeSelect,
-  handleRemoteMarqueeSelect,
-  handleLocalEntryClick,
-  handleRemoteEntryClick,
+  _selectAllLocalEntries,
+  _selectAllRemoteEntries,
+  _handleLocalMarqueeSelect,
+  _handleRemoteMarqueeSelect,
+  _handleLocalEntryClick,
+  _handleRemoteEntryClick,
   handlePanelListContextMenu,
   handleEntryContextMenu,
   openLocalEntry,
   openRemoteEntry,
-  goLocalParent,
-  goRemoteParent,
-  createLocalDirectory,
-  createRemoteDirectory,
-  uploadSelected,
-  downloadSelected,
-  handleLocalDragStart,
-  handleRemoteDragStart,
-  handleRemoteDragEnter,
-  handleRemoteDragOver,
-  handleRemoteDragLeave,
-  handleRemoteDrop,
-  handleLocalDragEnter,
-  handleLocalDragOver,
-  handleLocalDragLeave,
-  handleLocalDrop,
+  _goLocalParent,
+  _goRemoteParent,
+  _createLocalDirectory,
+  _createRemoteDirectory,
+  _uploadSelected,
+  _downloadSelected,
+  _handleLocalDragStart,
+  _handleRemoteDragStart,
+  _handleRemoteDragEnter,
+  _handleRemoteDragOver,
+  _handleRemoteDragLeave,
+  _handleRemoteDrop,
+  _handleLocalDragEnter,
+  _handleLocalDragOver,
+  _handleLocalDragLeave,
+  _handleLocalDrop,
   handleEntryDragEnd,
 } = useFtpPanelInteractions({
   ftpStore,
@@ -760,7 +794,7 @@ const {
   openLocalPathInExplorer,
   canPreviewLocalImage: canPreviewLocalImageEntry,
   previewLocalImage,
-  canPreviewRemoteImage: canPreviewRemoteImageEntry,
+  _canPreviewRemoteImage: canPreviewRemoteImageEntry,
   previewRemoteImage,
   canPreviewRemoteText: canPreviewRemoteTextEntry,
   previewRemoteText,
@@ -768,33 +802,42 @@ const {
   openInternalEditor,
   canOpenExternalEditor,
   openExternalEditor: openExternalEditorForEntry,
-  prepareRemoteDragExport: (sessionId, remotePaths) => window.ftpApi.prepareRemoteDragExport(sessionId, remotePaths),
-  startPreparedDrag: (localPaths) => window.ftpApi.startPreparedDrag(localPaths.map((localPath) => String(localPath))),
+  prepareRemoteDragExport: (sessionId, remotePaths) =>
+    window.ftpApi.prepareRemoteDragExport(sessionId, remotePaths),
+  startPreparedDrag: (localPaths) =>
+    window.ftpApi.startPreparedDrag(localPaths.map((localPath) => String(localPath))),
   copyLocalPathsToCurrentLocal: async (paths) => {
     for (const sourcePath of paths) {
-      await window.ftpApi.copyLocalPath(sourcePath, joinLocalPath(ftpStore.localPath, baseName(sourcePath)));
+      await window.ftpApi.copyLocalPath(
+        sourcePath,
+        joinLocalPath(ftpStore.localPath, baseName(sourcePath))
+      );
     }
     await ftpStore.refreshLocalDirectory(ftpStore.localPath);
   },
 });
 const activeFtpProfile = computed(() =>
   activeSession.value
-    ? ftpStore.profiles.find((profile) => profile.id === activeSession.value?.profileId) ?? null
-    : null,
+    ? (ftpStore.profiles.find((profile) => profile.id === activeSession.value?.profileId) ?? null)
+    : null
 );
 const disconnectedSessionProfile = computed(() =>
   disconnectedSessionNotice.value
-    ? ftpStore.profiles.find((profile) => profile.id === disconnectedSessionNotice.value?.profileId) ?? null
-    : null,
+    ? (ftpStore.profiles.find(
+        (profile) => profile.id === disconnectedSessionNotice.value?.profileId
+      ) ?? null)
+    : null
 );
 const canEditRemoteFile = computed(() => {
   const pane = activeFtpWorkspacePane();
   return Boolean(pane?.kind === 'remote' && isEditableTextEntry(selectedActivePaneEntry.value));
 });
-const canPreviewRemoteImage = computed(() => canPreviewRemoteImageEntry(selectedRemoteEntry.value));
+const _canPreviewRemoteImage = computed(() => canPreviewRemoteImageEntry(selectedRemoteEntry.value));
 const canPreviewRemoteText = computed(() => {
   const pane = activeFtpWorkspacePane();
-  return Boolean(pane?.kind === 'remote' && canPreviewRemoteTextEntry(selectedActivePaneEntry.value));
+  return Boolean(
+    pane?.kind === 'remote' && canPreviewRemoteTextEntry(selectedActivePaneEntry.value)
+  );
 });
 const selectedActivePaneEntries = computed(() => {
   const pane = activeFtpWorkspacePane();
@@ -818,14 +861,20 @@ const canChmodRemoteFile = computed(() => {
   const pane = activeFtpWorkspacePane();
   return Boolean(pane?.kind === 'remote' && pane.sessionId && selectedActivePaneEntry.value);
 });
-function resolveTerminalOpenTarget(panel: ActiveBrowserPanel = activeBrowserPanel.value): TerminalOpenTarget | null {
+function resolveTerminalOpenTarget(
+  panel: ActiveBrowserPanel = activeBrowserPanel.value
+): TerminalOpenTarget | null {
   const pane = findFtpWorkspacePane(panel);
   if (pane?.kind === 'local') {
     return pane.path ? { kind: 'local', path: pane.path } : null;
   }
   if (pane?.kind === 'remote') {
-    const session = pane.sessionId ? ftpStore.sessions.find((item) => item.sessionId === pane.sessionId) ?? null : null;
-    const profile = session ? ftpStore.profiles.find((item) => item.id === session.profileId) ?? null : null;
+    const session = pane.sessionId
+      ? (ftpStore.sessions.find((item) => item.sessionId === pane.sessionId) ?? null)
+      : null;
+    const profile = session
+      ? (ftpStore.profiles.find((item) => item.id === session.profileId) ?? null)
+      : null;
     if (!session || !profile?.sshProfileId) return null;
     return {
       kind: 'ssh',
@@ -903,10 +952,16 @@ function errorMessage(error: unknown) {
 }
 
 function isFtpSessionClosedError(error: unknown) {
-  return /session closed|connection closed|not connected|broken pipe|connection reset/i.test(errorMessage(error));
+  return /session closed|connection closed|not connected|broken pipe|connection reset/i.test(
+    errorMessage(error)
+  );
 }
 
-function noticeDisconnectedSession(error: unknown, session = activeSession.value, remotePath = ftpStore.remotePath) {
+function noticeDisconnectedSession(
+  error: unknown,
+  session = activeSession.value,
+  remotePath = ftpStore.remotePath
+) {
   if (!isFtpSessionClosedError(error)) return false;
 
   const message = errorMessage(error);
@@ -922,7 +977,11 @@ function noticeDisconnectedSession(error: unknown, session = activeSession.value
   return true;
 }
 
-function handleFtpOperationError(error: unknown, session = activeSession.value, remotePath = ftpStore.remotePath) {
+function handleFtpOperationError(
+  error: unknown,
+  session = activeSession.value,
+  remotePath = ftpStore.remotePath
+) {
   if (noticeDisconnectedSession(error, session, remotePath)) return;
   actionError.value = errorMessage(error);
   notifyError(error, 'FTP 操作失败');
@@ -952,7 +1011,10 @@ async function reconnectDisconnectedSession() {
     message: `正在重连 ${notice.label}...`,
   });
   try {
-    if (notice.sessionId && ftpStore.sessions.some((session) => session.sessionId === notice.sessionId)) {
+    if (
+      notice.sessionId &&
+      ftpStore.sessions.some((session) => session.sessionId === notice.sessionId)
+    ) {
       try {
         await ftpStore.disconnect(notice.sessionId);
       } catch {
@@ -960,7 +1022,12 @@ async function reconnectDisconnectedSession() {
       }
     }
     await connectProfileBase(profile);
-    completeConnectingRemoteWorkspacePane(profile, pendingKey, previousSessionIds, notice.remotePath);
+    completeConnectingRemoteWorkspacePane(
+      profile,
+      pendingKey,
+      previousSessionIds,
+      notice.remotePath
+    );
     disconnectedSessionNotice.value = null;
   } catch (error) {
     actionError.value = errorMessage(error);
@@ -984,28 +1051,34 @@ async function refreshPrimaryRemoteDirectory(path = ftpStore.remotePath) {
 function isEditableKeyboardTarget(target: EventTarget | null) {
   const element = target instanceof HTMLElement ? target : null;
   if (!element) return false;
-  return Boolean(element.closest(
-    'input, textarea, select, [contenteditable], [role="textbox"], .cm-editor, .cm-content',
-  ));
+  return Boolean(
+    element.closest(
+      'input, textarea, select, [contenteditable], [role="textbox"], .cm-editor, .cm-content'
+    )
+  );
 }
 
 function shouldIgnoreExplorerShortcut(target: EventTarget | null) {
-  return isEditableKeyboardTarget(target)
-    || remoteEditorDialogVisible.value
-    || remotePreviewDialogVisible.value
-    || scheduleDialogVisible.value
-    || permissionDialogVisible.value
-    || profileDialogVisible.value
-    || folderDialogVisible.value
-    || passwordDialogVisible.value
-    || authChallengeDialogVisible.value
-    || entryNameDialogVisible.value
-    || syncPanelVisible.value;
+  return (
+    isEditableKeyboardTarget(target) ||
+    remoteEditorDialogVisible.value ||
+    remotePreviewDialogVisible.value ||
+    scheduleDialogVisible.value ||
+    permissionDialogVisible.value ||
+    profileDialogVisible.value ||
+    folderDialogVisible.value ||
+    passwordDialogVisible.value ||
+    authChallengeDialogVisible.value ||
+    entryNameDialogVisible.value ||
+    syncPanelVisible.value
+  );
 }
 
 function isExplorerPasteShortcut(event: KeyboardEvent) {
-  const pasteByModifier = (event.ctrlKey || event.metaKey) && !event.altKey && event.key.toLowerCase() === 'v';
-  const pasteByInsert = event.key === 'Insert' && event.shiftKey && !event.ctrlKey && !event.metaKey && !event.altKey;
+  const pasteByModifier =
+    (event.ctrlKey || event.metaKey) && !event.altKey && event.key.toLowerCase() === 'v';
+  const pasteByInsert =
+    event.key === 'Insert' && event.shiftKey && !event.ctrlKey && !event.metaKey && !event.altKey;
   return pasteByModifier || pasteByInsert;
 }
 
@@ -1020,10 +1093,12 @@ function handleExplorerPasteShortcut(event: KeyboardEvent) {
 }
 
 function isExplorerSelectAllShortcut(event: KeyboardEvent) {
-  return (event.ctrlKey || event.metaKey)
-    && !event.altKey
-    && !event.shiftKey
-    && event.key.toLowerCase() === 'a';
+  return (
+    (event.ctrlKey || event.metaKey) &&
+    !event.altKey &&
+    !event.shiftKey &&
+    event.key.toLowerCase() === 'a'
+  );
 }
 
 function selectAllActiveBrowserEntries() {
@@ -1039,18 +1114,17 @@ function handleExplorerSelectAllShortcut(event: KeyboardEvent) {
   event.preventDefault();
   selectAllActiveBrowserEntries();
 }
-const {
-  thumbnailUrlFor,
-  isThumbnailLoading,
-} = useFtpThumbnails({
+const { thumbnailUrlFor, isThumbnailLoading } = useFtpThumbnails({
   ftpStore,
   filteredLocalEntries,
   filteredRemoteEntries,
-  workspacePanes: computed(() => ftpWorkspacePanes.value.map((pane) => ({
-    kind: pane.kind,
-    sessionId: pane.sessionId,
-    entries: ftpPaneFilteredEntries(pane),
-  }))),
+  workspacePanes: computed(() =>
+    ftpWorkspacePanes.value.map((pane) => ({
+      kind: pane.kind,
+      sessionId: pane.sessionId,
+      entries: ftpPaneFilteredEntries(pane),
+    }))
+  ),
 });
 function makeLocalPaneKey() {
   localWorkspacePaneCounter.value += 1;
@@ -1066,7 +1140,10 @@ function createLocalWorkspacePane(path: string): FtpWorkspacePane {
   return {
     key,
     kind: 'local',
-    title: localWorkspacePaneCounter.value === 1 ? '本地连接' : `本地连接 ${localWorkspacePaneCounter.value}`,
+    title:
+      localWorkspacePaneCounter.value === 1
+        ? '本地连接'
+        : `本地连接 ${localWorkspacePaneCounter.value}`,
     path,
     pathInput: path,
     entries: [],
@@ -1077,7 +1154,10 @@ function createLocalWorkspacePane(path: string): FtpWorkspacePane {
   };
 }
 
-function createRemoteWorkspacePane(session: NonNullable<typeof activeSession.value>, path?: string): FtpWorkspacePane {
+function createRemoteWorkspacePane(
+  session: NonNullable<typeof activeSession.value>,
+  path?: string
+): FtpWorkspacePane {
   const nextPath = path || session.remoteRoot || '/';
   return {
     key: makeRemotePaneKey(session.sessionId),
@@ -1103,7 +1183,7 @@ function makePendingRemotePaneKey(profileId: string) {
 function createConnectingRemoteWorkspacePane(
   profile: FtpProfile,
   path = '/',
-  message = '正在建立连接...',
+  message = '正在建立连接...'
 ): FtpWorkspacePane {
   const nextPath = path || '/';
   return {
@@ -1129,7 +1209,8 @@ function isPlainRecord(value: unknown): value is Record<string, unknown> {
 }
 
 function readNumberArray(value: unknown) {
-  return Array.isArray(value) && value.every((item) => typeof item === 'number' && Number.isFinite(item))
+  return Array.isArray(value) &&
+    value.every((item) => typeof item === 'number' && Number.isFinite(item))
     ? value
     : null;
 }
@@ -1147,20 +1228,31 @@ function readLayoutSizeState(value: unknown) {
 }
 
 function cloneFtpLayoutSizeState(value: Record<string, number[]>) {
-  return Object.fromEntries(
-    Object.entries(value).map(([key, sizes]) => [key, [...sizes]]),
-  );
+  return Object.fromEntries(Object.entries(value).map(([key, sizes]) => [key, [...sizes]]));
 }
 
 function restoreFtpWorkspacePane(snapshot: FtpWorkspacePaneSnapshot): FtpWorkspacePane | null {
-  if (!snapshot || typeof snapshot.key !== 'string' || (snapshot.kind !== 'local' && snapshot.kind !== 'remote')) {
+  if (
+    !snapshot ||
+    typeof snapshot.key !== 'string' ||
+    (snapshot.kind !== 'local' && snapshot.kind !== 'remote')
+  ) {
     return null;
   }
-  const path = typeof snapshot.path === 'string' && snapshot.path ? snapshot.path : snapshot.kind === 'remote' ? '/' : ftpStore.localPath;
+  const path =
+    typeof snapshot.path === 'string' && snapshot.path
+      ? snapshot.path
+      : snapshot.kind === 'remote'
+        ? '/'
+        : ftpStore.localPath;
   const viewMode = snapshot.viewMode === 'list' ? 'list' : 'details';
-  if (snapshot.kind === 'remote' && snapshot.sessionId && !ftpStore.sessions.some((session) => session.sessionId === snapshot.sessionId)) {
+  if (
+    snapshot.kind === 'remote' &&
+    snapshot.sessionId &&
+    !ftpStore.sessions.some((session) => session.sessionId === snapshot.sessionId)
+  ) {
     const profile = snapshot.profileId
-      ? ftpStore.profiles.find((item) => item.id === snapshot.profileId) ?? null
+      ? (ftpStore.profiles.find((item) => item.id === snapshot.profileId) ?? null)
       : null;
     if (!profile) return null;
     return {
@@ -1168,19 +1260,26 @@ function restoreFtpWorkspacePane(snapshot: FtpWorkspacePaneSnapshot): FtpWorkspa
       key: snapshot.key,
       title: typeof snapshot.title === 'string' && snapshot.title ? snapshot.title : profile.label,
       path,
-      pathInput: typeof snapshot.pathInput === 'string' && snapshot.pathInput ? snapshot.pathInput : path,
+      pathInput:
+        typeof snapshot.pathInput === 'string' && snapshot.pathInput ? snapshot.pathInput : path,
       viewMode,
     };
   }
   return {
     key: snapshot.key,
-    title: typeof snapshot.title === 'string' && snapshot.title ? snapshot.title : snapshot.kind === 'remote' ? '远程连接' : '本地连接',
+    title:
+      typeof snapshot.title === 'string' && snapshot.title
+        ? snapshot.title
+        : snapshot.kind === 'remote'
+          ? '远程连接'
+          : '本地连接',
     kind: snapshot.kind,
     sessionId: snapshot.sessionId,
     profileId: snapshot.profileId,
     protocol: snapshot.protocol,
     path,
-    pathInput: typeof snapshot.pathInput === 'string' && snapshot.pathInput ? snapshot.pathInput : path,
+    pathInput:
+      typeof snapshot.pathInput === 'string' && snapshot.pathInput ? snapshot.pathInput : path,
     entries: [],
     selectedPaths: [],
     lastSelectedIndex: -1,
@@ -1190,9 +1289,9 @@ function restoreFtpWorkspacePane(snapshot: FtpWorkspacePaneSnapshot): FtpWorkspa
 }
 
 function updateFtpWorkspacePane(key: string, patch: Partial<FtpWorkspacePane>) {
-  ftpWorkspacePanes.value = ftpWorkspacePanes.value.map((pane) => (
+  ftpWorkspacePanes.value = ftpWorkspacePanes.value.map((pane) =>
     pane.key === key ? { ...pane, ...patch } : pane
-  ));
+  );
 }
 
 function findFtpWorkspacePane(key = activeBrowserPanel.value) {
@@ -1208,7 +1307,11 @@ function ftpPaneDisconnectedNotice(pane: FtpWorkspacePane) {
   if (pane.sessionId && disconnectedSessionNotice.value.sessionId === pane.sessionId) {
     return disconnectedSessionNotice.value;
   }
-  if (!pane.sessionId && pane.profileId && disconnectedSessionNotice.value.profileId === pane.profileId) {
+  if (
+    !pane.sessionId &&
+    pane.profileId &&
+    disconnectedSessionNotice.value.profileId === pane.profileId
+  ) {
     return disconnectedSessionNotice.value;
   }
   return null;
@@ -1220,7 +1323,7 @@ function findFirstFtpPane(kind: PanelKind) {
 
 function ensureConnectingRemoteWorkspacePane(
   profile: FtpProfile,
-  options: { replaceKey?: string; path?: string; message?: string } = {},
+  options: { replaceKey?: string; path?: string; message?: string } = {}
 ) {
   const pendingKey = makePendingRemotePaneKey(profile.id);
   const pane = createConnectingRemoteWorkspacePane(profile, options.path, options.message);
@@ -1253,13 +1356,16 @@ function completeConnectingRemoteWorkspacePane(
   pendingKey: string,
   previousSessionIds: Set<string>,
   preferredPath?: string,
-  options: { activate?: boolean } = {},
+  options: { activate?: boolean } = {}
 ) {
-  const nextSession = [...ftpStore.sessions]
-    .reverse()
-    .find((session) => session.profileId === profile.id && !previousSessionIds.has(session.sessionId))
-    ?? [...ftpStore.sessions].reverse().find((session) => session.profileId === profile.id)
-    ?? null;
+  const nextSession =
+    [...ftpStore.sessions]
+      .reverse()
+      .find(
+        (session) => session.profileId === profile.id && !previousSessionIds.has(session.sessionId)
+      ) ??
+    [...ftpStore.sessions].reverse().find((session) => session.profileId === profile.id) ??
+    null;
   if (!nextSession) return false;
 
   const pane = createRemoteWorkspacePane(nextSession, preferredPath || nextSession.remoteRoot);
@@ -1283,7 +1389,7 @@ async function connectProfile(
   profile: FtpProfile,
   password?: string,
   authSessionId?: string,
-  challengeResponses?: string[],
+  challengeResponses?: string[]
 ) {
   const previousSessionIds = new Set(ftpStore.sessions.map((session) => session.sessionId));
   const pendingKey = ensureConnectingRemoteWorkspacePane(profile, {
@@ -1319,7 +1425,7 @@ function cancelPasswordPrompt() {
 
 async function submitAuthChallenge() {
   const profile = pendingAuthChallenge.value
-    ? ftpStore.profiles.find((item) => item.id === pendingAuthChallenge.value?.profileId) ?? null
+    ? (ftpStore.profiles.find((item) => item.id === pendingAuthChallenge.value?.profileId) ?? null)
     : null;
   const previousSessionIds = new Set(ftpStore.sessions.map((session) => session.sessionId));
   const pendingKey = profile
@@ -1346,7 +1452,7 @@ async function refreshFtpWorkspacePaneDirectory(key: string, path?: string) {
   updateFtpWorkspacePane(key, { loading: true });
   try {
     if (pane.kind === 'local') {
-      const targetPath = nextPath || await window.ftpApi.getDefaultLocalPath();
+      const targetPath = nextPath || (await window.ftpApi.getDefaultLocalPath());
       const entries = await window.ftpApi.listLocalDirectory(targetPath);
       updateFtpWorkspacePane(key, {
         path: targetPath,
@@ -1380,14 +1486,14 @@ async function refreshFtpWorkspacePaneDirectory(key: string, path?: string) {
   } catch (error) {
     updateFtpWorkspacePane(key, { loading: false });
     const session = pane.sessionId
-      ? ftpStore.sessions.find((item) => item.sessionId === pane.sessionId) ?? null
+      ? (ftpStore.sessions.find((item) => item.sessionId === pane.sessionId) ?? null)
       : null;
     handleFtpOperationError(error, session, nextPath);
   }
 }
 
 async function addLocalWorkspacePane(path = ftpStore.localPath) {
-  const nextPath = path || await window.ftpApi.getDefaultLocalPath();
+  const nextPath = path || (await window.ftpApi.getDefaultLocalPath());
   const pane = createLocalWorkspacePane(nextPath);
   ftpWorkspacePanes.value = [...ftpWorkspacePanes.value, pane];
   activeBrowserPanel.value = pane.key;
@@ -1404,9 +1510,11 @@ function ensureRemoteWorkspacePanes() {
       if (pane.kind === 'local') return pane;
       if (pane.connectionState === 'connecting') {
         const session = pane.profileId
-          ? [...ftpStore.sessions].reverse().find((item) => item.profileId === pane.profileId) ?? null
+          ? ([...ftpStore.sessions].reverse().find((item) => item.profileId === pane.profileId) ??
+            null)
           : null;
-        if (!session) return !pane.profileId || !connectedProfileIds.has(pane.profileId) ? pane : null;
+        if (!session)
+          return !pane.profileId || !connectedProfileIds.has(pane.profileId) ? pane : null;
         const restoredPane = createRemoteWorkspacePane(session, pane.path || session.remoteRoot);
         if (activeBrowserPanel.value === pane.key) {
           activeReplacementKey = restoredPane.key;
@@ -1427,7 +1535,7 @@ function ensureRemoteWorkspacePanes() {
   const representedSessionIds = new Set(
     nextPanes
       .filter((pane) => pane.kind === 'remote' && pane.sessionId)
-      .map((pane) => pane.sessionId),
+      .map((pane) => pane.sessionId)
   );
   const appendedRemotePanes = ftpStore.sessions
     .filter((session) => !representedSessionIds.has(session.sessionId))
@@ -1452,24 +1560,31 @@ function ensurePendingRemoteWorkspacePanesForRestoreStates() {
   const representedProfileIds = new Set(
     ftpWorkspacePanes.value
       .filter((pane) => pane.kind === 'remote' && pane.profileId)
-      .map((pane) => pane.profileId as string),
+      .map((pane) => pane.profileId as string)
   );
   const panes = [...ftpWorkspacePanes.value];
-  for (const state of [...ftpStore.restoreStates].sort((left, right) => left.tabOrder - right.tabOrder)) {
+  for (const state of [...ftpStore.restoreStates].sort(
+    (left, right) => left.tabOrder - right.tabOrder
+  )) {
     if (representedProfileIds.has(state.sessionId)) continue;
-    const existingSession = ftpStore.sessions.find((session) => session.profileId === state.sessionId) ?? null;
+    const existingSession =
+      ftpStore.sessions.find((session) => session.profileId === state.sessionId) ?? null;
     if (existingSession) {
-      panes.push(createRemoteWorkspacePane(existingSession, state.remotePath || existingSession.remoteRoot));
+      panes.push(
+        createRemoteWorkspacePane(existingSession, state.remotePath || existingSession.remoteRoot)
+      );
       representedProfileIds.add(state.sessionId);
       continue;
     }
     const profile = ftpStore.profiles.find((item) => item.id === state.sessionId) ?? null;
     if (!profile) continue;
-    panes.push(createConnectingRemoteWorkspacePane(
-      profile,
-      state.remotePath || profile.defaultRemotePath || '/',
-      `正在恢复 ${profile.label}...`,
-    ));
+    panes.push(
+      createConnectingRemoteWorkspacePane(
+        profile,
+        state.remotePath || profile.defaultRemotePath || '/',
+        `正在恢复 ${profile.label}...`
+      )
+    );
     representedProfileIds.add(state.sessionId);
   }
   ftpWorkspacePanes.value = panes;
@@ -1561,14 +1676,15 @@ function handleFtpPanePointerMove(event: PointerEvent) {
     return;
   }
 
-  const nextOrder = dropTarget.key === draggingFtpPaneKey.value
-    ? interaction.originalOrder
-    : makePanePreviewOrder(
-      interaction.originalOrder,
-      draggingFtpPaneKey.value,
-      dropTarget.key,
-      dropTarget.insertAfter,
-    );
+  const nextOrder =
+    dropTarget.key === draggingFtpPaneKey.value
+      ? interaction.originalOrder
+      : makePanePreviewOrder(
+          interaction.originalOrder,
+          draggingFtpPaneKey.value,
+          dropTarget.key,
+          dropTarget.insertAfter
+        );
   if (!areStringArraysEqual(nextOrder, interaction.previewOrder)) {
     interaction.previewOrder = nextOrder;
     ftpPaneDragPreviewOrder.value = nextOrder;
@@ -1633,7 +1749,10 @@ function ftpPaneKindLabel(kind: PanelKind | '') {
   return '';
 }
 
-function findFtpPaneDropTargetAtPoint(clientX: number, clientY: number): { key: string; insertAfter: boolean } | null {
+function findFtpPaneDropTargetAtPoint(
+  clientX: number,
+  clientY: number
+): { key: string; insertAfter: boolean } | null {
   const target = document.elementFromPoint(clientX, clientY);
   if (!(target instanceof Element)) return null;
   const paneElement = target.closest<HTMLElement>('[data-ftp-pane-key]');
@@ -1647,7 +1766,12 @@ function findFtpPaneDropTargetAtPoint(clientX: number, clientY: number): { key: 
   return { key, insertAfter };
 }
 
-function makePanePreviewOrder(order: string[], sourceKey: string, targetKey: string, insertAfter: boolean) {
+function makePanePreviewOrder(
+  order: string[],
+  sourceKey: string,
+  targetKey: string,
+  insertAfter: boolean
+) {
   if (!sourceKey || !targetKey || sourceKey === targetKey) return order;
   const keys = [...order];
   const sourceIndex = keys.indexOf(sourceKey);
@@ -1688,11 +1812,12 @@ function ftpPaneFilteredEntries(pane: FtpWorkspacePane) {
   const query = pane.kind === 'local' ? localFilterQuery.value : remoteFilterQuery.value;
   const ruleFilter = pane.kind === 'local' ? localRuleFilter : remoteRuleFilter;
   const sortKey = pane.kind === 'local' ? localSortKey.value : remoteSortKey.value;
-  const sortDirection = pane.kind === 'local' ? localSortDirection.value : remoteSortDirection.value;
+  const sortDirection =
+    pane.kind === 'local' ? localSortDirection.value : remoteSortDirection.value;
   return sortEntries(
     pane.entries.filter((entry) => matchesPanelFilter(entry, query, ruleFilter)),
     sortKey,
-    sortDirection,
+    sortDirection
   );
 }
 
@@ -1701,7 +1826,9 @@ function ftpPanePathSuggestions(pane: FtpWorkspacePane) {
 }
 
 function ftpPaneBreadcrumbs(pane: FtpWorkspacePane) {
-  return pane.kind === 'local' ? buildLocalBreadcrumbs(pane.path) : buildRemoteBreadcrumbs(pane.path || '/');
+  return pane.kind === 'local'
+    ? buildLocalBreadcrumbs(pane.path)
+    : buildRemoteBreadcrumbs(pane.path || '/');
 }
 
 function ftpPaneFilterSummary(pane: FtpWorkspacePane) {
@@ -1766,7 +1893,12 @@ function updateFtpPaneSelection(pane: FtpWorkspacePane, paths: string[], lastSel
   updateFtpWorkspacePane(pane.key, { selectedPaths: paths, lastSelectedIndex });
 }
 
-function handleFtpPaneEntryClick(pane: FtpWorkspacePane, event: MouseEvent, entry: FileTransferEntry, index: number) {
+function handleFtpPaneEntryClick(
+  pane: FtpWorkspacePane,
+  event: MouseEvent,
+  entry: FileTransferEntry,
+  index: number
+) {
   const entries = ftpPaneFilteredEntries(pane);
   let nextPaths = [entry.path];
   if (event.shiftKey && pane.lastSelectedIndex >= 0) {
@@ -1782,25 +1914,34 @@ function handleFtpPaneEntryClick(pane: FtpWorkspacePane, event: MouseEvent, entr
   setActiveBrowserPanel(pane.key);
 }
 
-function handleFtpPaneMarqueeSelect(pane: FtpWorkspacePane, payload: { paths: string[]; additive: boolean }) {
+function handleFtpPaneMarqueeSelect(
+  pane: FtpWorkspacePane,
+  payload: { paths: string[]; additive: boolean }
+) {
   updateFtpPaneSelection(
     pane,
-    payload.additive ? [...new Set([...pane.selectedPaths, ...payload.paths])] : payload.paths,
+    payload.additive ? [...new Set([...pane.selectedPaths, ...payload.paths])] : payload.paths
   );
 }
 
 function selectAllFtpPaneEntries(pane: FtpWorkspacePane) {
-  updateFtpPaneSelection(pane, ftpPaneFilteredEntries(pane).map((entry) => entry.path));
+  updateFtpPaneSelection(
+    pane,
+    ftpPaneFilteredEntries(pane).map((entry) => entry.path)
+  );
 }
 
 async function openFtpPanePath(pane: FtpWorkspacePane, path = pane.pathInput) {
-  await refreshFtpWorkspacePaneDirectory(pane.key, path.trim() || (pane.kind === 'remote' ? '/' : pane.path));
+  await refreshFtpWorkspacePaneDirectory(
+    pane.key,
+    path.trim() || (pane.kind === 'remote' ? '/' : pane.path)
+  );
 }
 
 async function goFtpPaneParent(pane: FtpWorkspacePane) {
   await refreshFtpWorkspacePaneDirectory(
     pane.key,
-    pane.kind === 'local' ? parentLocalPath(pane.path) : parentRemotePath(pane.path),
+    pane.kind === 'local' ? parentLocalPath(pane.path) : parentRemotePath(pane.path)
   );
 }
 
@@ -1835,23 +1976,33 @@ async function createFtpPaneDirectory(pane: FtpWorkspacePane) {
 
 async function runFtpPanePrimaryAction(pane: FtpWorkspacePane) {
   if (pane.kind === 'local') {
-    const targetRemote = activeFtpWorkspacePane()?.kind === 'remote'
-      ? activeFtpWorkspacePane()
-      : findFirstFtpPane('remote');
+    const targetRemote =
+      activeFtpWorkspacePane()?.kind === 'remote'
+        ? activeFtpWorkspacePane()
+        : findFirstFtpPane('remote');
     if (!targetRemote?.sessionId || !pane.selectedPaths.length) return;
     for (const localPath of pane.selectedPaths) {
-      await ftpStore.uploadFileToSession(targetRemote.sessionId, localPath, joinRemotePath(targetRemote.path || '/', baseName(localPath)));
+      await ftpStore.uploadFileToSession(
+        targetRemote.sessionId,
+        localPath,
+        joinRemotePath(targetRemote.path || '/', baseName(localPath))
+      );
     }
     await refreshFtpWorkspacePaneDirectory(targetRemote.key, targetRemote.path);
     return;
   }
 
-  const targetLocal = activeFtpWorkspacePane()?.kind === 'local'
-    ? activeFtpWorkspacePane()
-    : findFirstFtpPane('local');
+  const targetLocal =
+    activeFtpWorkspacePane()?.kind === 'local'
+      ? activeFtpWorkspacePane()
+      : findFirstFtpPane('local');
   if (!pane.sessionId || !targetLocal || !pane.selectedPaths.length) return;
   for (const remotePath of pane.selectedPaths) {
-    await window.ftpApi.downloadFile(pane.sessionId, remotePath, joinLocalPath(targetLocal.path, baseName(remotePath)));
+    await window.ftpApi.downloadFile(
+      pane.sessionId,
+      remotePath,
+      joinLocalPath(targetLocal.path, baseName(remotePath))
+    );
   }
   await refreshFtpWorkspacePaneDirectory(targetLocal.key, targetLocal.path);
 }
@@ -1887,8 +2038,10 @@ function setFtpPaneDragPayload(event: DragEvent, pane: FtpWorkspacePane, entry: 
   event.dataTransfer.effectAllowed = 'copy';
   event.dataTransfer.setData('application/x-guyantools-ftp-pane-entries', JSON.stringify(payload));
   event.dataTransfer.setData(
-    pane.kind === 'local' ? 'application/x-guyantools-local-entries' : 'application/x-guyantools-remote-entries',
-    JSON.stringify(entries),
+    pane.kind === 'local'
+      ? 'application/x-guyantools-local-entries'
+      : 'application/x-guyantools-remote-entries',
+    JSON.stringify(entries)
   );
   setActiveBrowserPanel(pane.key);
 }
@@ -1906,13 +2059,17 @@ function hasFtpPaneDragPayload(event: DragEvent) {
 }
 
 function hasFtpLocalDragPayload(event: DragEvent) {
-  return hasFtpDragType(event, 'application/x-guyantools-local-entries')
-    || hasFtpDragType(event, 'application/x-guyantools-local-entry');
+  return (
+    hasFtpDragType(event, 'application/x-guyantools-local-entries') ||
+    hasFtpDragType(event, 'application/x-guyantools-local-entry')
+  );
 }
 
 function hasFtpRemoteDragPayload(event: DragEvent) {
-  return hasFtpDragType(event, 'application/x-guyantools-remote-entries')
-    || hasFtpDragType(event, 'application/x-guyantools-remote-entry');
+  return (
+    hasFtpDragType(event, 'application/x-guyantools-remote-entries') ||
+    hasFtpDragType(event, 'application/x-guyantools-remote-entry')
+  );
 }
 
 function hasFtpExternalFilePayload(event: DragEvent) {
@@ -1921,10 +2078,11 @@ function hasFtpExternalFilePayload(event: DragEvent) {
 
 function canDropOnFtpPane(event: DragEvent, pane: FtpWorkspacePane) {
   if (!event.dataTransfer) return false;
-  const hasSupportedPayload = hasFtpPaneDragPayload(event)
-    || hasFtpLocalDragPayload(event)
-    || hasFtpRemoteDragPayload(event)
-    || hasFtpExternalFilePayload(event);
+  const hasSupportedPayload =
+    hasFtpPaneDragPayload(event) ||
+    hasFtpLocalDragPayload(event) ||
+    hasFtpRemoteDragPayload(event) ||
+    hasFtpExternalFilePayload(event);
   if (!hasSupportedPayload) return false;
   return pane.kind === 'local' || Boolean(pane.sessionId);
 }
@@ -1945,8 +2103,9 @@ function parseFtpPaneDragPayload(event: DragEvent): FtpPaneDragPayload | null {
     };
   }
 
-  const localPayload = event.dataTransfer?.getData('application/x-guyantools-local-entries')
-    || event.dataTransfer?.getData('application/x-guyantools-local-entry');
+  const localPayload =
+    event.dataTransfer?.getData('application/x-guyantools-local-entries') ||
+    event.dataTransfer?.getData('application/x-guyantools-local-entry');
   if (localPayload) {
     const entries = JSON.parse(localPayload) as FileTransferEntry[] | FileTransferEntry;
     return {
@@ -1956,8 +2115,9 @@ function parseFtpPaneDragPayload(event: DragEvent): FtpPaneDragPayload | null {
     };
   }
 
-  const remotePayload = event.dataTransfer?.getData('application/x-guyantools-remote-entries')
-    || event.dataTransfer?.getData('application/x-guyantools-remote-entry');
+  const remotePayload =
+    event.dataTransfer?.getData('application/x-guyantools-remote-entries') ||
+    event.dataTransfer?.getData('application/x-guyantools-remote-entry');
   if (remotePayload) {
     const entries = JSON.parse(remotePayload) as FileTransferEntry[] | FileTransferEntry;
     return {
@@ -1977,49 +2137,64 @@ function ftpDropEntryName(entry: FileTransferEntry) {
 
 function ftpSessionById(sessionId?: string) {
   return sessionId
-    ? ftpStore.sessions.find((session) => session.sessionId === sessionId) ?? null
+    ? (ftpStore.sessions.find((session) => session.sessionId === sessionId) ?? null)
     : null;
 }
 
-async function copyDroppedLocalEntriesToLocal(entries: FileTransferEntry[], targetPane: FtpWorkspacePane) {
+async function copyDroppedLocalEntriesToLocal(
+  entries: FileTransferEntry[],
+  targetPane: FtpWorkspacePane
+) {
   for (const entry of entries) {
-    await window.ftpApi.copyLocalPath(entry.path, joinLocalPath(targetPane.path, ftpDropEntryName(entry)));
+    await window.ftpApi.copyLocalPath(
+      entry.path,
+      joinLocalPath(targetPane.path, ftpDropEntryName(entry))
+    );
   }
   await refreshFtpWorkspacePaneDirectory(targetPane.key, targetPane.path);
 }
 
-async function downloadDroppedRemoteEntriesToLocal(payload: FtpPaneDragPayload, targetPane: FtpWorkspacePane) {
+async function downloadDroppedRemoteEntriesToLocal(
+  payload: FtpPaneDragPayload,
+  targetPane: FtpWorkspacePane
+) {
   if (!payload.sourceSessionId) return;
   for (const entry of payload.entries) {
     await ftpStore.downloadFileFromSession(
       payload.sourceSessionId,
       entry.path,
-      joinLocalPath(targetPane.path, ftpDropEntryName(entry)),
+      joinLocalPath(targetPane.path, ftpDropEntryName(entry))
     );
   }
   await refreshFtpWorkspacePaneDirectory(targetPane.key, targetPane.path);
 }
 
-async function uploadDroppedLocalEntriesToRemote(entries: FileTransferEntry[], targetPane: FtpWorkspacePane) {
+async function uploadDroppedLocalEntriesToRemote(
+  entries: FileTransferEntry[],
+  targetPane: FtpWorkspacePane
+) {
   if (!targetPane.sessionId) return;
   for (const entry of entries) {
     await ftpStore.uploadFileToSession(
       targetPane.sessionId,
       entry.path,
-      joinRemotePath(targetPane.path || '/', ftpDropEntryName(entry)),
+      joinRemotePath(targetPane.path || '/', ftpDropEntryName(entry))
     );
   }
   await refreshFtpWorkspacePaneDirectory(targetPane.key, targetPane.path);
 }
 
-async function copyDroppedRemoteEntriesToRemote(payload: FtpPaneDragPayload, targetPane: FtpWorkspacePane) {
+async function copyDroppedRemoteEntriesToRemote(
+  payload: FtpPaneDragPayload,
+  targetPane: FtpWorkspacePane
+) {
   if (!payload.sourceSessionId || !targetPane.sessionId) return;
   for (const entry of payload.entries) {
     await ftpStore.fxpTransfer(
       payload.sourceSessionId,
       entry.path,
       targetPane.sessionId,
-      joinRemotePath(targetPane.path || '/', ftpDropEntryName(entry)),
+      joinRemotePath(targetPane.path || '/', ftpDropEntryName(entry))
     );
   }
   await refreshFtpWorkspacePaneDirectory(targetPane.key, targetPane.path);
@@ -2034,14 +2209,17 @@ async function uploadExternalFilesToFtpPane(event: DragEvent, targetPane: FtpWor
 
   if (targetPane.kind === 'local') {
     for (const sourcePath of localPaths) {
-      await window.ftpApi.copyLocalPath(sourcePath, joinLocalPath(targetPane.path, baseName(sourcePath)));
+      await window.ftpApi.copyLocalPath(
+        sourcePath,
+        joinLocalPath(targetPane.path, baseName(sourcePath))
+      );
     }
   } else if (targetPane.sessionId) {
     for (const sourcePath of localPaths) {
       await ftpStore.uploadFileToSession(
         targetPane.sessionId,
         sourcePath,
-        joinRemotePath(targetPane.path || '/', baseName(sourcePath)),
+        joinRemotePath(targetPane.path || '/', baseName(sourcePath))
       );
     }
   }
@@ -2063,7 +2241,11 @@ function handleFtpPaneDragOver(event: DragEvent, pane: FtpWorkspacePane) {
 function handleFtpPaneDragLeave(event: DragEvent, pane: FtpWorkspacePane) {
   const currentTarget = event.currentTarget as Node | null;
   const relatedTarget = event.relatedTarget as Node | null;
-  if (ftpFileDropTargetPaneKey.value === pane.key && currentTarget && (!relatedTarget || !currentTarget.contains(relatedTarget))) {
+  if (
+    ftpFileDropTargetPaneKey.value === pane.key &&
+    currentTarget &&
+    (!relatedTarget || !currentTarget.contains(relatedTarget))
+  ) {
     ftpFileDropTargetPaneKey.value = '';
   }
 }
@@ -2095,9 +2277,10 @@ async function handleFtpPaneDrop(event: DragEvent, targetPane: FtpWorkspacePane)
 
     await uploadExternalFilesToFtpPane(event, targetPane);
   } catch (error) {
-    const session = targetPane.kind === 'remote'
-      ? ftpSessionById(targetPane.sessionId)
-      : ftpSessionById(sourceSessionId);
+    const session =
+      targetPane.kind === 'remote'
+        ? ftpSessionById(targetPane.sessionId)
+        : ftpSessionById(sourceSessionId);
     handleFtpOperationError(error, session, targetPane.path);
   }
 }
@@ -2121,12 +2304,17 @@ const visibleFtpWorkspacePanes = computed<FtpWorkspacePane[]>(() => {
   if (panelLayoutMode.value !== 'tabbed') {
     return orderedFtpWorkspacePanes.value;
   }
-  const activePane = orderedFtpWorkspacePanes.value.find((pane) => pane.key === activeBrowserPanel.value)
-    ?? orderedFtpWorkspacePanes.value[0];
+  const activePane =
+    orderedFtpWorkspacePanes.value.find((pane) => pane.key === activeBrowserPanel.value) ??
+    orderedFtpWorkspacePanes.value[0];
   return activePane ? [activePane] : [];
 });
-const ftpGridColumnCount = computed(() => Math.max(1, Math.ceil(Math.sqrt(visibleFtpWorkspacePanes.value.length))));
-const ftpGridRowCount = computed(() => Math.max(1, Math.ceil(visibleFtpWorkspacePanes.value.length / ftpGridColumnCount.value)));
+const ftpGridColumnCount = computed(() =>
+  Math.max(1, Math.ceil(Math.sqrt(visibleFtpWorkspacePanes.value.length)))
+);
+const ftpGridRowCount = computed(() =>
+  Math.max(1, Math.ceil(visibleFtpWorkspacePanes.value.length / ftpGridColumnCount.value))
+);
 const ftpMasterStackCount = computed(() => Math.max(0, visibleFtpWorkspacePanes.value.length - 1));
 const ftpPaneWorkspaceStyle = computed<Record<string, string>>(() => {
   const count = visibleFtpWorkspacePanes.value.length;
@@ -2145,18 +2333,24 @@ const ftpPaneWorkspaceStyle = computed<Record<string, string>>(() => {
   if (panelLayoutMode.value === 'master-stack' && count > 1) {
     return {
       gridTemplateColumns: `${ftpMasterMainRatio.value}% ${100 - ftpMasterMainRatio.value}%`,
-      gridTemplateRows: toFtpGridTemplate(ensureFtpLayoutSizes('master-stack:stack-rows', ftpMasterStackCount.value)),
+      gridTemplateRows: toFtpGridTemplate(
+        ensureFtpLayoutSizes('master-stack:stack-rows', ftpMasterStackCount.value)
+      ),
     };
   }
   if (panelLayoutMode.value === 'grid') {
     return {
-      gridTemplateColumns: toFtpGridTemplate(ensureFtpLayoutSizes('grid:columns', ftpGridColumnCount.value)),
+      gridTemplateColumns: toFtpGridTemplate(
+        ensureFtpLayoutSizes('grid:columns', ftpGridColumnCount.value)
+      ),
       gridTemplateRows: toFtpGridTemplate(ensureFtpLayoutSizes('grid:rows', ftpGridRowCount.value)),
     };
   }
   return {};
 });
-const ftpDwindleLayoutModel = computed<FtpDwindleLayoutModel>(() => buildFtpDwindleLayout(visibleFtpWorkspacePanes.value));
+const ftpDwindleLayoutModel = computed<FtpDwindleLayoutModel>(() =>
+  buildFtpDwindleLayout(visibleFtpWorkspacePanes.value)
+);
 const ftpPaneLayoutItems = computed<FtpWorkspacePaneLayoutItem[]>(() => {
   if (panelLayoutMode.value === 'dwindle') {
     return ftpDwindleLayoutModel.value.items;
@@ -2166,7 +2360,9 @@ const ftpPaneLayoutItems = computed<FtpWorkspacePaneLayoutItem[]>(() => {
     style: getFtpGridPaneStyle(index),
   }));
 });
-const ftpPaneLayoutByKey = computed(() => new Map(ftpPaneLayoutItems.value.map((item) => [item.pane.key, item])));
+const ftpPaneLayoutByKey = computed(
+  () => new Map(ftpPaneLayoutItems.value.map((item) => [item.pane.key, item]))
+);
 const ftpPaneResizeHandles = computed<FtpPaneResizeHandle[]>(() => {
   const count = visibleFtpWorkspacePanes.value.length;
   if (count <= 1 || panelLayoutMode.value === 'tabbed') {
@@ -2179,16 +2375,20 @@ const ftpPaneResizeHandles = computed<FtpPaneResizeHandle[]>(() => {
     return buildFtpSplitHandles('split-vertical:columns', 'vertical', 'split', count);
   }
   if (panelLayoutMode.value === 'master-stack') {
-    const stackHandles = buildFtpSplitHandles('master-stack:stack-rows', 'horizontal', 'split', ftpMasterStackCount.value)
-      .map((handle) => ({
-        ...handle,
-        id: `master-stack:${handle.id}`,
-        style: {
-          ...handle.style,
-          left: `${ftpMasterMainRatio.value}%`,
-          width: `${100 - ftpMasterMainRatio.value}%`,
-        },
-      }));
+    const stackHandles = buildFtpSplitHandles(
+      'master-stack:stack-rows',
+      'horizontal',
+      'split',
+      ftpMasterStackCount.value
+    ).map((handle) => ({
+      ...handle,
+      id: `master-stack:${handle.id}`,
+      style: {
+        ...handle.style,
+        left: `${ftpMasterMainRatio.value}%`,
+        width: `${100 - ftpMasterMainRatio.value}%`,
+      },
+    }));
     return [
       {
         id: 'master-main',
@@ -2259,7 +2459,7 @@ function buildFtpSplitHandles(
   key: string,
   orientation: FtpPaneResizeOrientation,
   kind: FtpPaneResizeKind,
-  count: number,
+  count: number
 ): FtpPaneResizeHandle[] {
   if (count <= 1) return [];
   const sizes = ensureFtpLayoutSizes(key, count);
@@ -2272,9 +2472,10 @@ function buildFtpSplitHandles(
       orientation,
       stateKey: key,
       index,
-      style: orientation === 'vertical'
-        ? { left: `${offset}%`, top: '0%', height: '100%' }
-        : { top: `${offset}%`, left: '0%', width: '100%' },
+      style:
+        orientation === 'vertical'
+          ? { left: `${offset}%`, top: '0%', height: '100%' }
+          : { top: `${offset}%`, left: '0%', width: '100%' },
     };
   });
 }
@@ -2328,7 +2529,10 @@ function buildFtpDwindleLayout(panes: FtpWorkspacePane[]): FtpDwindleLayoutModel
   });
 
   return {
-    items: panes.map((pane, index) => ({ pane, style: rects[index] ?? toFtpRectStyle(0, 0, 100, 100) })),
+    items: panes.map((pane, index) => ({
+      pane,
+      style: rects[index] ?? toFtpRectStyle(0, 0, 100, 100),
+    })),
     handles,
   };
 }
@@ -2338,11 +2542,19 @@ function ensureFtpDwindleRatios(count: number) {
   if (ftpDwindleSplitRatios.value.length === count) {
     return ftpDwindleSplitRatios.value;
   }
-  ftpDwindleSplitRatios.value = Array.from({ length: count }, (_, index) => ftpDwindleSplitRatios.value[index] ?? 50);
+  ftpDwindleSplitRatios.value = Array.from(
+    { length: count },
+    (_, index) => ftpDwindleSplitRatios.value[index] ?? 50
+  );
   return ftpDwindleSplitRatios.value;
 }
 
-function toFtpRectStyle(left: number, top: number, width: number, height: number): Record<string, string> {
+function toFtpRectStyle(
+  left: number,
+  top: number,
+  width: number,
+  height: number
+): Record<string, string> {
   return {
     left: `${left}%`,
     top: `${top}%`,
@@ -2364,7 +2576,9 @@ function startFtpPaneResize(event: PointerEvent, handle: FtpPaneResizeHandle) {
     handle,
     startX: event.clientX,
     startY: event.clientY,
-    startSizes: handle.stateKey ? [...ensureFtpLayoutSizes(handle.stateKey, inferFtpResizeSizeCount(handle.stateKey))] : [],
+    startSizes: handle.stateKey
+      ? [...ensureFtpLayoutSizes(handle.stateKey, inferFtpResizeSizeCount(handle.stateKey))]
+      : [],
     rect: workspace.getBoundingClientRect(),
   };
   document.body.classList.add('terminal-pane-resizing');
@@ -2379,24 +2593,34 @@ function handleFtpPaneResizeMove(event: PointerEvent) {
 
   const { handle, rect } = interaction;
   if (handle.kind === 'master-main') {
-    ftpMasterMainRatio.value = clampFtpLayoutValue(((event.clientX - rect.left) / rect.width) * 100, 24, 76);
+    ftpMasterMainRatio.value = clampFtpLayoutValue(
+      ((event.clientX - rect.left) / rect.width) * 100,
+      24,
+      76
+    );
     return;
   }
 
   if (handle.kind === 'dwindle' && handle.bounds && handle.splitIndex !== undefined) {
     const next = [...ftpDwindleSplitRatios.value];
-    const ratio = handle.orientation === 'vertical'
-      ? ((event.clientX - rect.left - (handle.bounds.left / 100) * rect.width) / ((handle.bounds.width / 100) * rect.width)) * 100
-      : ((event.clientY - rect.top - (handle.bounds.top / 100) * rect.height) / ((handle.bounds.height / 100) * rect.height)) * 100;
+    const ratio =
+      handle.orientation === 'vertical'
+        ? ((event.clientX - rect.left - (handle.bounds.left / 100) * rect.width) /
+            ((handle.bounds.width / 100) * rect.width)) *
+          100
+        : ((event.clientY - rect.top - (handle.bounds.top / 100) * rect.height) /
+            ((handle.bounds.height / 100) * rect.height)) *
+          100;
     next[handle.splitIndex] = clampFtpLayoutValue(ratio, 20, 80);
     ftpDwindleSplitRatios.value = next;
     return;
   }
 
   if (!handle.stateKey || handle.index === undefined) return;
-  const deltaPercent = handle.orientation === 'vertical'
-    ? ((event.clientX - interaction.startX) / rect.width) * 100
-    : ((event.clientY - interaction.startY) / rect.height) * 100;
+  const deltaPercent =
+    handle.orientation === 'vertical'
+      ? ((event.clientX - interaction.startX) / rect.width) * 100
+      : ((event.clientY - interaction.startY) / rect.height) * 100;
   const next = [...interaction.startSizes];
   const current = next[handle.index] ?? 0;
   const following = next[handle.index + 1] ?? 0;
@@ -2432,8 +2656,8 @@ function setFtpWorkspaceLayoutMode(mode: TerminalLayoutMode) {
 function loadConnectionLayoutConfigs() {
   connectionLayoutConfigs.value = listConnectionLayoutConfigs('ftp');
   if (
-    selectedConnectionLayoutId.value
-    && !connectionLayoutConfigs.value.some((layout) => layout.id === selectedConnectionLayoutId.value)
+    selectedConnectionLayoutId.value &&
+    !connectionLayoutConfigs.value.some((layout) => layout.id === selectedConnectionLayoutId.value)
   ) {
     selectedConnectionLayoutId.value = '';
   }
@@ -2536,14 +2760,18 @@ async function replaceExistingFtpConnections() {
   ftpWorkspaceRemoteRestoreReady.value = true;
 }
 
-function openLocalTargetFromConnectionLayout(target: Extract<ConnectionLayoutTarget, { surface: 'ftp'; kind: 'local' }>) {
+function openLocalTargetFromConnectionLayout(
+  target: Extract<ConnectionLayoutTarget, { surface: 'ftp'; kind: 'local' }>
+) {
   const pane = createLocalWorkspacePane(target.path);
   ftpWorkspacePanes.value = [...ftpWorkspacePanes.value, pane];
   void refreshFtpWorkspacePaneDirectory(pane.key, target.path);
   return pane.key;
 }
 
-async function openRemoteTargetFromConnectionLayout(target: Extract<ConnectionLayoutTarget, { surface: 'ftp'; kind: 'remote' }>) {
+async function openRemoteTargetFromConnectionLayout(
+  target: Extract<ConnectionLayoutTarget, { surface: 'ftp'; kind: 'remote' }>
+) {
   let profile = ftpStore.profiles.find((item) => item.id === target.profileId) ?? null;
   if (!profile) {
     await ftpStore.refreshProfiles();
@@ -2571,9 +2799,15 @@ async function openRemoteTargetFromConnectionLayout(target: Extract<ConnectionLa
     try {
       await connectProfileBase(profile);
       if (passwordDialogVisible.value || authChallengeDialogVisible.value) return;
-      const completed = completeConnectingRemoteWorkspacePane(profile, pendingKey, previousSessionIds, targetPath, {
-        activate: false,
-      });
+      const completed = completeConnectingRemoteWorkspacePane(
+        profile,
+        pendingKey,
+        previousSessionIds,
+        targetPath,
+        {
+          activate: false,
+        }
+      );
       if (!completed) {
         updateFtpWorkspacePane(pendingKey, {
           connectionMessage: `${profile.label} 连接未完成，请从左侧配置重新连接。`,
@@ -2629,14 +2863,16 @@ async function openFtpConnectionLayout(layoutId: string) {
     }
     await replaceExistingFtpConnections();
     applyFtpConnectionLayoutViewState(layout);
-    const desiredKeys = (await Promise.all(
-      layout.targets.map((target) => {
-        if (target.surface !== 'ftp') return Promise.resolve('');
-        return target.kind === 'local'
-          ? openLocalTargetFromConnectionLayout(target)
-          : openRemoteTargetFromConnectionLayout(target);
-      }),
-    )).filter(Boolean);
+    const desiredKeys = (
+      await Promise.all(
+        layout.targets.map((target) => {
+          if (target.surface !== 'ftp') return Promise.resolve('');
+          return target.kind === 'local'
+            ? openLocalTargetFromConnectionLayout(target)
+            : openRemoteTargetFromConnectionLayout(target);
+        })
+      )
+    ).filter(Boolean);
 
     const paneByKey = new Map(ftpWorkspacePanes.value.map((pane) => [pane.key, pane]));
     const ordered = desiredKeys
@@ -2659,24 +2895,32 @@ function handleFtpConnectionLayoutSelect(value: string | number) {
   }
 }
 
-function isFtpPaneVisible(key: FtpWorkspacePaneKey) {
+function _isFtpPaneVisible(key: FtpWorkspacePaneKey) {
   return ftpPaneLayoutByKey.value.has(key);
 }
 
-function ftpPaneStyle(key: FtpWorkspacePaneKey) {
+function _ftpPaneStyle(key: FtpWorkspacePaneKey) {
   return ftpPaneLayoutByKey.value.get(key)?.style ?? {};
 }
 
-const localBreadcrumbs = computed(() => buildLocalBreadcrumbs(ftpStore.localPath));
-const remoteBreadcrumbs = computed(() => buildRemoteBreadcrumbs(ftpStore.remotePath || activeSession.value?.remoteRoot || '/'));
-const recentClosedSessionSummary = computed(() => (
+const _localBreadcrumbs = computed(() => buildLocalBreadcrumbs(ftpStore.localPath));
+const _remoteBreadcrumbs = computed(() =>
+  buildRemoteBreadcrumbs(ftpStore.remotePath || activeSession.value?.remoteRoot || '/')
+);
+const recentClosedSessionSummary = computed(() =>
   recentlyClosedSessions.value.length
     ? `最近关闭 ${recentlyClosedSessions.value[0]?.profileLabel}`
     : '当前没有可恢复的最近关闭标签'
-));
-const remoteEditorDirty = computed(() => remoteEditorContent.value !== remoteEditorOriginalContent.value);
-const editorDialogTitle = computed(() => (editorTargetKind.value === 'local' ? '编辑本地文件' : '编辑远程文件'));
-const remotePreviewImageScopeLabel = computed(() => (remotePreviewSource.value === 'local' ? '本地图片预览' : '远程图片预览'));
+);
+const remoteEditorDirty = computed(
+  () => remoteEditorContent.value !== remoteEditorOriginalContent.value
+);
+const editorDialogTitle = computed(() =>
+  editorTargetKind.value === 'local' ? '编辑本地文件' : '编辑远程文件'
+);
+const remotePreviewImageScopeLabel = computed(() =>
+  remotePreviewSource.value === 'local' ? '本地图片预览' : '远程图片预览'
+);
 const remotePreviewTitle = computed(() => {
   if (remotePreviewKind.value === 'text') return '预览远程文本';
   return remotePreviewSource.value === 'local' ? '预览本地图片' : '预览远程图片';
@@ -2689,7 +2933,9 @@ const editorSyncLabel = computed(() => {
   if (remoteEditorDirty.value) return '有未保存修改';
   return editorTargetKind.value === 'local' ? '已与本地文件同步' : '已与远程同步';
 });
-const editorLoadingText = computed(() => (editorTargetKind.value === 'local' ? '正在加载本地文件...' : '正在加载远程文件...'));
+const editorLoadingText = computed(() =>
+  editorTargetKind.value === 'local' ? '正在加载本地文件...' : '正在加载远程文件...'
+);
 const editorSaveText = computed(() => {
   if (remoteEditorSaving.value) return '保存中...';
   return editorTargetKind.value === 'local' ? '保存到本地' : '保存并回传';
@@ -2697,7 +2943,7 @@ const editorSaveText = computed(() => {
 const isDeletingRemote = computed(() => busyMessage.value.startsWith('正在删除远程'));
 const sessionTabs = computed(() => ftpStore.sessions);
 const scheduledTaskProfileOptions = computed(() =>
-  ftpStore.profiles.map((profile) => ({ label: profile.label, value: profile.id })),
+  ftpStore.profiles.map((profile) => ({ label: profile.label, value: profile.id }))
 );
 const scheduledDirectionOptions = [
   { label: '本地上传到远程', value: 'upload' },
@@ -2725,7 +2971,9 @@ const weekDayOptions = [
 ];
 const cronExpressionHint = '五段式：分钟 小时 日 月 周，例如 0 2 * * 1-5';
 const pendingExternalSummary = computed(() =>
-  pendingExternalPaths.value.length ? `待导入 ${pendingExternalPaths.value.length} 项 Explorer 内容` : '',
+  pendingExternalPaths.value.length
+    ? `待导入 ${pendingExternalPaths.value.length} 项 Explorer 内容`
+    : ''
 );
 const syncDirectionOptions = [
   { label: '本地 -> 远程', value: 'localToRemote' },
@@ -2766,10 +3014,12 @@ const syncPreviewItems = computed<SyncPreviewItem[]>(() =>
   syncComparisonItems.value.map((item) => ({
     ...item,
     action: determineSyncAction(item, syncDirection.value, syncConflictPolicy.value),
-  })),
+  }))
 );
 const selectedSyncPreviewItems = computed(() =>
-  syncPreviewItems.value.filter((item) => syncSelectedKeys.value.includes(item.key) && item.action !== 'skip'),
+  syncPreviewItems.value.filter(
+    (item) => syncSelectedKeys.value.includes(item.key) && item.action !== 'skip'
+  )
 );
 const syncPreviewSummary = computed(() => {
   const counts: Record<SyncActionKind, number> = {
@@ -2830,13 +3080,21 @@ const {
   connectProfile,
 });
 
-watch(() => ftpStore.localPath, () => {
-  clearLocalSelection();
-}, { immediate: false });
+watch(
+  () => ftpStore.localPath,
+  () => {
+    clearLocalSelection();
+  },
+  { immediate: false }
+);
 
-watch(() => ftpStore.remotePath, () => {
-  clearRemoteSelection();
-}, { immediate: false });
+watch(
+  () => ftpStore.remotePath,
+  () => {
+    clearRemoteSelection();
+  },
+  { immediate: false }
+);
 
 watch([syncDirection, syncConflictPolicy], () => {
   if (!syncComparisonItems.value.length) return;
@@ -2851,11 +3109,15 @@ function isEditableTextEntry(entry: { name: string; isDir: boolean } | null) {
   if (['dockerfile', 'makefile', '.gitignore', '.env', '.bashrc', '.zshrc'].includes(loweredName)) {
     return true;
   }
-  return /\.(txt|md|markdown|mdx|json|jsonc|ya?ml|toml|ini|conf|cfg|log|csv|env|xml|svg|html?|css|scss|sass|less|js|jsx|mjs|cjs|ts|tsx|mts|cts|vue|rs|py|sh|bash|zsh|sql)$/i.test(entry.name);
+  return /\.(txt|md|markdown|mdx|json|jsonc|ya?ml|toml|ini|conf|cfg|log|csv|env|xml|svg|html?|css|scss|sass|less|js|jsx|mjs|cjs|ts|tsx|mts|cts|vue|rs|py|sh|bash|zsh|sql)$/i.test(
+    entry.name
+  );
 }
 
 function isPreviewableImageEntry(entry: { name: string; isDir: boolean } | null) {
-  return Boolean(entry && !entry.isDir && /\.(jpg|jpeg|png|gif|bmp|webp|svg|ico|avif)$/i.test(entry.name));
+  return Boolean(
+    entry && !entry.isDir && /\.(jpg|jpeg|png|gif|bmp|webp|svg|ico|avif)$/i.test(entry.name)
+  );
 }
 
 function canPreviewRemoteImageEntry(entry: FileTransferEntry | null) {
@@ -2915,7 +3177,9 @@ async function openLocalEditor(entry = selectedLocalEntry.value) {
 async function openRemoteEditor(entry = selectedRemoteEntry.value) {
   const pane = activeFtpWorkspacePane();
   const sessionId = pane?.kind === 'remote' ? pane.sessionId : activeSession.value?.sessionId;
-  const session = sessionId ? ftpStore.sessions.find((item) => item.sessionId === sessionId) ?? activeSession.value : activeSession.value;
+  const session = sessionId
+    ? (ftpStore.sessions.find((item) => item.sessionId === sessionId) ?? activeSession.value)
+    : activeSession.value;
   if (!sessionId || !isEditableTextEntry(entry)) return;
   editorTargetKind.value = 'remote';
   remoteEditorLoading.value = true;
@@ -2944,7 +3208,9 @@ function resetRemotePreviewContent() {
 async function previewRemoteImage(entry = selectedRemoteEntry.value) {
   const pane = activeFtpWorkspacePane();
   const sessionId = pane?.kind === 'remote' ? pane.sessionId : activeSession.value?.sessionId;
-  const session = sessionId ? ftpStore.sessions.find((item) => item.sessionId === sessionId) ?? activeSession.value : activeSession.value;
+  const session = sessionId
+    ? (ftpStore.sessions.find((item) => item.sessionId === sessionId) ?? activeSession.value)
+    : activeSession.value;
   if (!sessionId || !isPreviewableImageEntry(entry)) return;
   remotePreviewSource.value = 'remote';
   remotePreviewKind.value = 'image';
@@ -2955,7 +3221,11 @@ async function previewRemoteImage(entry = selectedRemoteEntry.value) {
   resetRemotePreviewContent();
   actionError.value = '';
   try {
-    const dataUrl = await window.ftpApi.loadRemoteImagePreview(sessionId, entry.path, IMAGE_PREVIEW_MAX_BYTES);
+    const dataUrl = await window.ftpApi.loadRemoteImagePreview(
+      sessionId,
+      entry.path,
+      IMAGE_PREVIEW_MAX_BYTES
+    );
     if (!dataUrl) {
       remotePreviewError.value = '该图片无法预览，可能超过大小限制或格式不受支持。';
       return;
@@ -3008,7 +3278,9 @@ async function previewActiveImage() {
 async function previewRemoteText(entry = selectedRemoteEntry.value) {
   const pane = activeFtpWorkspacePane();
   const sessionId = pane?.kind === 'remote' ? pane.sessionId : activeSession.value?.sessionId;
-  const session = sessionId ? ftpStore.sessions.find((item) => item.sessionId === sessionId) ?? activeSession.value : activeSession.value;
+  const session = sessionId
+    ? (ftpStore.sessions.find((item) => item.sessionId === sessionId) ?? activeSession.value)
+    : activeSession.value;
   if (!sessionId || !isEditableTextEntry(entry)) return;
   remotePreviewSource.value = 'remote';
   remotePreviewKind.value = 'text';
@@ -3022,7 +3294,7 @@ async function previewRemoteText(entry = selectedRemoteEntry.value) {
     remotePreviewText.value = await window.ftpApi.loadRemoteTextFile(
       sessionId,
       entry.path,
-      REMOTE_TEXT_PREVIEW_MAX_BYTES,
+      REMOTE_TEXT_PREVIEW_MAX_BYTES
     );
   } catch (error) {
     remotePreviewError.value = errorMessage(error);
@@ -3050,7 +3322,11 @@ async function saveRemoteEditor() {
       await ftpStore.refreshLocalDirectory(ftpStore.localPath);
     } else {
       if (!activeSession.value) return;
-      await window.ftpApi.saveRemoteTextFile(activeSession.value.sessionId, remoteEditorPath.value, remoteEditorContent.value);
+      await window.ftpApi.saveRemoteTextFile(
+        activeSession.value.sessionId,
+        remoteEditorPath.value,
+        remoteEditorContent.value
+      );
       await refreshPrimaryRemoteDirectory();
     }
     remoteEditorOriginalContent.value = remoteEditorContent.value;
@@ -3078,7 +3354,9 @@ async function openLocalExternalEditor(entry = selectedLocalEntry.value) {
 async function openRemoteExternalEditor(entry = selectedRemoteEntry.value) {
   const pane = activeFtpWorkspacePane();
   const sessionId = pane?.kind === 'remote' ? pane.sessionId : activeSession.value?.sessionId;
-  const session = sessionId ? ftpStore.sessions.find((item) => item.sessionId === sessionId) ?? activeSession.value : activeSession.value;
+  const session = sessionId
+    ? (ftpStore.sessions.find((item) => item.sessionId === sessionId) ?? activeSession.value)
+    : activeSession.value;
   if (!sessionId || !isEditableTextEntry(entry)) return;
   actionError.value = '';
   try {
@@ -3117,21 +3395,25 @@ function canOpenTerminalForPanel(panel: PanelKind) {
   return Boolean(resolveTerminalOpenTarget(panel));
 }
 
-async function openTerminalForPanel(panel: PanelKind | ActiveBrowserPanel = activeBrowserPanel.value) {
+async function openTerminalForPanel(
+  panel: PanelKind | ActiveBrowserPanel = activeBrowserPanel.value
+) {
   const target = resolveTerminalOpenTarget(panel);
   if (!target) {
-    actionError.value = panel === activeBrowserPanel.value
-      ? terminalOpenTooltip.value
-      : panel === 'local'
-        ? '当前本地目录不可用'
-        : '当前远程连接未绑定 SSH Profile';
+    actionError.value =
+      panel === activeBrowserPanel.value
+        ? terminalOpenTooltip.value
+        : panel === 'local'
+          ? '当前本地目录不可用'
+          : '当前远程连接未绑定 SSH Profile';
     return;
   }
   actionError.value = '';
   try {
-    const requestId = typeof crypto !== 'undefined' && 'randomUUID' in crypto
-      ? crypto.randomUUID()
-      : `${Date.now()}-${Math.random().toString(16).slice(2)}`;
+    const requestId =
+      typeof crypto !== 'undefined' && 'randomUUID' in crypto
+        ? crypto.randomUUID()
+        : `${Date.now()}-${Math.random().toString(16).slice(2)}`;
     if (target.kind === 'local') {
       if (isDetachedWindow.value) {
         await window.workspaceWindowApi?.openDetached('terminal', {
@@ -3204,7 +3486,8 @@ function formatScheduledTaskRule(task: FtpScheduledTask) {
     case 'daily':
       return `每日 ${task.timeOfDay || '09:00'} 执行`;
     case 'weekly': {
-      const weekDay = weekDayOptions.find((item) => item.value === (task.dayOfWeek ?? 1))?.label || '周一';
+      const weekDay =
+        weekDayOptions.find((item) => item.value === (task.dayOfWeek ?? 1))?.label || '周一';
       return `${weekDay} ${task.timeOfDay || '09:00'} 执行`;
     }
     case 'cron':
@@ -3290,7 +3573,7 @@ async function uploadPendingExternalPaths() {
       await ftpStore.uploadFileToSession(
         session.sessionId,
         itemPath,
-        joinRemotePath(targetBasePath, fileName),
+        joinRemotePath(targetBasePath, fileName)
       );
     }
     await refreshFtpWorkspacePaneDirectory(pane.key, targetBasePath);
@@ -3309,7 +3592,10 @@ async function discardPendingExternalPaths() {
 function focusTaskFromRoute(taskId: string) {
   const matchedTask = ftpStore.transferTasks.find((item) => item.id === taskId);
   if (!matchedTask) return;
-  if (matchedTask.sessionId && ftpStore.sessions.some((item) => item.sessionId === matchedTask.sessionId)) {
+  if (
+    matchedTask.sessionId &&
+    ftpStore.sessions.some((item) => item.sessionId === matchedTask.sessionId)
+  ) {
     ftpStore.focusSession(matchedTask.sessionId);
   }
   openTransferQueuePanel();
@@ -3360,16 +3646,19 @@ function loadPanelLayout() {
 }
 
 function persistPanelLayout() {
-  window.localStorage.setItem(FTP_LAYOUT_STORAGE_KEY, JSON.stringify({
-    mode: panelLayoutMode.value,
-    sidebarDockSide: sidebarDockSide.value,
-    auxiliaryDockSide: auxiliaryDockSide.value,
-    auxiliaryDockSize: auxiliaryDockSize.value,
-    showSidebar: showSidebarPanel.value,
-    auxCollapsed: auxiliaryDockCollapsed.value,
-    auxiliaryDockCollapsed: auxiliaryDockCollapsed.value,
-    auxDockActiveTab: auxDockActiveTab.value,
-  }));
+  window.localStorage.setItem(
+    FTP_LAYOUT_STORAGE_KEY,
+    JSON.stringify({
+      mode: panelLayoutMode.value,
+      sidebarDockSide: sidebarDockSide.value,
+      auxiliaryDockSide: auxiliaryDockSide.value,
+      auxiliaryDockSize: auxiliaryDockSize.value,
+      showSidebar: showSidebarPanel.value,
+      auxCollapsed: auxiliaryDockCollapsed.value,
+      auxiliaryDockCollapsed: auxiliaryDockCollapsed.value,
+      auxDockActiveTab: auxDockActiveTab.value,
+    })
+  );
 }
 
 function toggleAuxiliaryDockCollapsed() {
@@ -3423,7 +3712,8 @@ function loadFtpPreferences() {
       localPanelViewMode: PanelViewMode;
       remotePanelViewMode: PanelViewMode;
     }>;
-    externalEditorPath.value = typeof parsed.externalEditorPath === 'string' ? parsed.externalEditorPath : '';
+    externalEditorPath.value =
+      typeof parsed.externalEditorPath === 'string' ? parsed.externalEditorPath : '';
     cleanupExternalDraftsOnClose.value = Boolean(parsed.cleanupExternalDraftsOnClose);
     linkNavigationEnabled.value = Boolean(parsed.linkNavigationEnabled);
     localPanelViewMode.value = parsed.localPanelViewMode === 'list' ? 'list' : 'details';
@@ -3438,27 +3728,36 @@ function loadFtpPreferences() {
 }
 
 function persistFtpPreferences() {
-  window.localStorage.setItem(FTP_PREFERENCES_STORAGE_KEY, JSON.stringify({
-    externalEditorPath: externalEditorPath.value,
-    cleanupExternalDraftsOnClose: cleanupExternalDraftsOnClose.value,
-    linkNavigationEnabled: linkNavigationEnabled.value,
-    localPanelViewMode: localPanelViewMode.value,
-    remotePanelViewMode: remotePanelViewMode.value,
-  }));
+  window.localStorage.setItem(
+    FTP_PREFERENCES_STORAGE_KEY,
+    JSON.stringify({
+      externalEditorPath: externalEditorPath.value,
+      cleanupExternalDraftsOnClose: cleanupExternalDraftsOnClose.value,
+      linkNavigationEnabled: linkNavigationEnabled.value,
+      localPanelViewMode: localPanelViewMode.value,
+      remotePanelViewMode: remotePanelViewMode.value,
+    })
+  );
 }
 
 async function loadFtpWorkspaceWindowState() {
   try {
-    const state = await window.workspaceWindowApi?.getPageState('ftp') as FtpWorkspaceWindowState | null | undefined;
+    const state = (await window.workspaceWindowApi?.getPageState('ftp')) as
+      FtpWorkspaceWindowState | null | undefined;
     if (!isPlainRecord(state)) return;
 
     if (ftpWorkspaceLayoutOptions.some((option) => option.value === state.panelLayoutMode)) {
       panelLayoutMode.value = state.panelLayoutMode as PanelLayoutMode;
     }
     sidebarDockSide.value = state.sidebarDockSide === 'right' ? 'right' : sidebarDockSide.value;
-    auxiliaryDockSide.value = state.auxiliaryDockSide === 'right' ? 'right' : auxiliaryDockSide.value;
+    auxiliaryDockSide.value =
+      state.auxiliaryDockSide === 'right' ? 'right' : auxiliaryDockSide.value;
     if (typeof state.auxiliaryDockSize === 'string') {
-      auxiliaryDockSize.value = normalizePanelSize(state.auxiliaryDockSize, 180, auxiliaryDockSize.value);
+      auxiliaryDockSize.value = normalizePanelSize(
+        state.auxiliaryDockSize,
+        180,
+        auxiliaryDockSize.value
+      );
     }
     if (typeof state.auxiliaryDockCollapsed === 'boolean') {
       auxiliaryDockCollapsed.value = state.auxiliaryDockCollapsed;
@@ -3480,17 +3779,23 @@ async function loadFtpWorkspaceWindowState() {
     if (nextDwindleSplitRatios) {
       ftpDwindleSplitRatios.value = nextDwindleSplitRatios;
     }
-    if (typeof state.localWorkspacePaneCounter === 'number' && Number.isFinite(state.localWorkspacePaneCounter)) {
+    if (
+      typeof state.localWorkspacePaneCounter === 'number' &&
+      Number.isFinite(state.localWorkspacePaneCounter)
+    ) {
       localWorkspacePaneCounter.value = Math.max(0, Math.round(state.localWorkspacePaneCounter));
     }
     const restoredPanes = Array.isArray(state.ftpWorkspacePanes)
       ? state.ftpWorkspacePanes
-        .map((pane) => restoreFtpWorkspacePane(pane))
-        .filter((pane): pane is FtpWorkspacePane => Boolean(pane))
+          .map((pane) => restoreFtpWorkspacePane(pane))
+          .filter((pane): pane is FtpWorkspacePane => Boolean(pane))
       : [];
     if (restoredPanes.length) {
       ftpWorkspacePanes.value = restoredPanes;
-      if (typeof state.activeBrowserPanel === 'string' && restoredPanes.some((pane) => pane.key === state.activeBrowserPanel)) {
+      if (
+        typeof state.activeBrowserPanel === 'string' &&
+        restoredPanes.some((pane) => pane.key === state.activeBrowserPanel)
+      ) {
         activeBrowserPanel.value = state.activeBrowserPanel;
       } else {
         activeBrowserPanel.value = restoredPanes[0].key;
@@ -3554,11 +3859,11 @@ function normalizePanelSize(value: string | undefined, min: number, fallback: st
   return String(Math.max(min, parsed));
 }
 
-async function openLocalBreadcrumb(path: string) {
+async function _openLocalBreadcrumb(path: string) {
   await ftpStore.refreshLocalDirectory(path);
 }
 
-async function openRemoteBreadcrumb(path: string) {
+async function _openRemoteBreadcrumb(path: string) {
   if (!activeSession.value) return;
   await refreshPrimaryRemoteDirectory(path);
 }
@@ -3577,16 +3882,26 @@ function remoteTransferAffectsDirectory(taskRemotePath: string, directoryPath: s
   const targetPath = normalizeRemoteDirectoryPath(taskRemotePath);
   const currentDirectory = normalizeRemoteDirectoryPath(directoryPath);
   const targetParent = normalizeRemoteDirectoryPath(parentRemotePath(targetPath));
-  return currentDirectory === targetParent
-    || isRemotePathWithin(currentDirectory, targetPath)
-    || isRemotePathWithin(targetPath, currentDirectory);
+  return (
+    currentDirectory === targetParent ||
+    isRemotePathWithin(currentDirectory, targetPath) ||
+    isRemotePathWithin(targetPath, currentDirectory)
+  );
 }
 
 function shouldRefreshRemoteDirectoryForTask(task: TransferTaskRefreshSnapshot) {
-  return ['upload', 'fxp', 'remote_copy'].includes(task.direction) && task.status === 'completed' && Boolean(task.remotePath);
+  return (
+    ['upload', 'fxp', 'remote_copy'].includes(task.direction) &&
+    task.status === 'completed' &&
+    Boolean(task.remotePath)
+  );
 }
 
-function queueRemoteDirectoryRefresh(panel: RemoteRefreshTarget['panel'], sessionId: string, path: string) {
+function queueRemoteDirectoryRefresh(
+  panel: RemoteRefreshTarget['panel'],
+  sessionId: string,
+  path: string
+) {
   if (!sessionId || !path) return;
   const normalizedPath = normalizeRemoteDirectoryPath(path);
   const key = `${panel}:${sessionId}:${normalizedPath}`;
@@ -3622,7 +3937,11 @@ function refreshVisibleRemoteDirectoriesForCompletedTask(task: TransferTaskRefre
 
 function applyPermissionMode(mode: string) {
   permissionModeInput.value = mode;
-  const digits = mode.padStart(3, '0').slice(-3).split('').map((digit) => Number(digit) || 0);
+  const digits = mode
+    .padStart(3, '0')
+    .slice(-3)
+    .split('')
+    .map((digit) => Number(digit) || 0);
   permissionMatrix.value = permissionMatrix.value.map((bucket, index) => ({
     ...bucket,
     read: Boolean(digits[index] & 4),
@@ -3633,20 +3952,18 @@ function applyPermissionMode(mode: string) {
 
 function syncPermissionModeFromMatrix() {
   permissionModeInput.value = permissionMatrix.value
-    .map((bucket) => (
-      (bucket.read ? 4 : 0)
-      + (bucket.write ? 2 : 0)
-      + (bucket.execute ? 1 : 0)
-    ))
+    .map((bucket) => (bucket.read ? 4 : 0) + (bucket.write ? 2 : 0) + (bucket.execute ? 1 : 0))
     .join('');
 }
 
-function updatePermissionMatrix(bucketKey: string, field: 'read' | 'write' | 'execute', checked: boolean) {
-  permissionMatrix.value = permissionMatrix.value.map((bucket) => (
-    bucket.key === bucketKey
-      ? { ...bucket, [field]: checked }
-      : bucket
-  ));
+function updatePermissionMatrix(
+  bucketKey: string,
+  field: 'read' | 'write' | 'execute',
+  checked: boolean
+) {
+  permissionMatrix.value = permissionMatrix.value.map((bucket) =>
+    bucket.key === bucketKey ? { ...bucket, [field]: checked } : bucket
+  );
   syncPermissionModeFromMatrix();
 }
 
@@ -3659,8 +3976,14 @@ async function applyRemotePermissionDialog() {
   if (!permissionDialogTargetPath.value || !permissionDialogSessionId.value) return;
   actionError.value = '';
   try {
-    await window.ftpApi.chmodRemotePath(permissionDialogSessionId.value, permissionDialogTargetPath.value, permissionModeInput.value);
-    const pane = ftpWorkspacePanes.value.find((item) => item.sessionId === permissionDialogSessionId.value);
+    await window.ftpApi.chmodRemotePath(
+      permissionDialogSessionId.value,
+      permissionDialogTargetPath.value,
+      permissionModeInput.value
+    );
+    const pane = ftpWorkspacePanes.value.find(
+      (item) => item.sessionId === permissionDialogSessionId.value
+    );
     if (pane) {
       await refreshFtpWorkspacePaneDirectory(pane.key, pane.path);
     }
@@ -3679,11 +4002,10 @@ function parsePermissionMode(value?: string) {
   const symbolic = raw.slice(-9);
   if (/^[rwx-]{9}$/i.test(symbolic)) {
     return [symbolic.slice(0, 3), symbolic.slice(3, 6), symbolic.slice(6, 9)]
-      .map((chunk) => (
-        (chunk[0] === 'r' ? 4 : 0)
-        + (chunk[1] === 'w' ? 2 : 0)
-        + (/[xs]/i.test(chunk[2]) ? 1 : 0)
-      ))
+      .map(
+        (chunk) =>
+          (chunk[0] === 'r' ? 4 : 0) + (chunk[1] === 'w' ? 2 : 0) + (/[xs]/i.test(chunk[2]) ? 1 : 0)
+      )
       .join('');
   }
   return '644';
@@ -3725,7 +4047,7 @@ async function pasteClipboardToRemote(panel = activeBrowserPanel.value) {
     await ftpStore.uploadFileToSession(
       target.sessionId,
       itemPath,
-      joinRemotePath(target.remotePath || target.remoteRoot, fileName),
+      joinRemotePath(target.remotePath || target.remoteRoot, fileName)
     );
   }
   await refreshFtpWorkspacePaneDirectory(target.panel, target.remotePath || target.remoteRoot);
@@ -3768,7 +4090,8 @@ function openSessionTabContextMenu(event: MouseEvent, sessionId: string) {
   if (!session) return;
   const sessionIndex = sessionTabs.value.findIndex((item) => item.sessionId === sessionId);
   const hasClosedSession = Boolean(recentlyClosedSessions.value.length);
-  const reconnectProfile = ftpStore.profiles.find((profile) => profile.id === session.profileId) ?? null;
+  const reconnectProfile =
+    ftpStore.profiles.find((profile) => profile.id === session.profileId) ?? null;
   openContextMenu(event.clientX, event.clientY, [
     {
       id: `ftp-tab-reconnect-${sessionId}`,
@@ -3817,7 +4140,9 @@ function openSessionTabContextMenu(event: MouseEvent, sessionId: string) {
     },
     {
       id: `ftp-tab-reopen-last`,
-      label: hasClosedSession ? `重新打开 ${recentlyClosedSessions.value[0]?.profileLabel}` : '重新打开最近关闭标签',
+      label: hasClosedSession
+        ? `重新打开 ${recentlyClosedSessions.value[0]?.profileLabel}`
+        : '重新打开最近关闭标签',
       icon: OpenIcon,
       disabled: !hasClosedSession,
       divided: true,
@@ -3842,21 +4167,24 @@ async function compareCurrentDirectories() {
   try {
     syncComparisonItems.value = recursiveCompareEnabled.value
       ? await buildRecursiveSyncComparisonItems({
-        sessionId: activeSession.value.sessionId,
-        localRootPath: ftpStore.localPath,
-        remoteRootPath: ftpStore.remotePath || activeSession.value.remoteRoot,
-      })
+          sessionId: activeSession.value.sessionId,
+          localRootPath: ftpStore.localPath,
+          remoteRootPath: ftpStore.remotePath || activeSession.value.remoteRoot,
+        })
       : buildSyncComparisonItems(ftpStore.localEntries, ftpStore.remoteEntries);
     if (checksumCompareEnabled.value) {
       busyMessage.value = '正在校验文件内容...';
       checksumCompareRunning.value = true;
       syncComparisonItems.value = await verifySyncComparisonContent(
         syncComparisonItems.value,
-        activeSession.value.sessionId,
+        activeSession.value.sessionId
       );
     }
     syncSelectedKeys.value = syncComparisonItems.value
-      .filter((item) => determineSyncAction(item, syncDirection.value, syncConflictPolicy.value) !== 'skip')
+      .filter(
+        (item) =>
+          determineSyncAction(item, syncDirection.value, syncConflictPolicy.value) !== 'skip'
+      )
       .map((item) => item.key);
     syncComparisonExpanded.value = true;
   } catch (error) {
@@ -3912,10 +4240,7 @@ async function executeSyncPreview() {
       await executeSyncAction(item);
       syncExecutionCurrentIndex.value = index + 1;
     }
-    await Promise.all([
-      ftpStore.refreshLocalDirectory(),
-      refreshPrimaryRemoteDirectory(),
-    ]);
+    await Promise.all([ftpStore.refreshLocalDirectory(), refreshPrimaryRemoteDirectory()]);
     await compareCurrentDirectories();
   } catch (error) {
     handleFtpOperationError(error);
@@ -3950,7 +4275,10 @@ function setAllSyncPreviewItems(selected: boolean) {
 }
 
 async function executeSyncAction(item: SyncPreviewItem) {
-  const remoteTargetPath = joinRemotePath(ftpStore.remotePath || activeSession.value?.remoteRoot || '/', item.relativePath);
+  const remoteTargetPath = joinRemotePath(
+    ftpStore.remotePath || activeSession.value?.remoteRoot || '/',
+    item.relativePath
+  );
   const localTargetPath = joinLocalPath(ftpStore.localPath, item.relativePath);
 
   if (item.action === 'upload') {
@@ -3992,26 +4320,32 @@ async function executeSyncAction(item: SyncPreviewItem) {
   }
 }
 
-async function syncRemotePanelToChild(entryName: string) {
+async function _syncRemotePanelToChild(entryName: string) {
   if (!linkNavigationEnabled.value || !activeSession.value) return;
-  const matchedEntry = ftpStore.remoteEntries.find((entry) => entry.isDir && entry.name === entryName);
+  const matchedEntry = ftpStore.remoteEntries.find(
+    (entry) => entry.isDir && entry.name === entryName
+  );
   if (!matchedEntry) return;
   await refreshPrimaryRemoteDirectory(matchedEntry.path);
 }
 
-async function syncLocalPanelToChild(entryName: string) {
+async function _syncLocalPanelToChild(entryName: string) {
   if (!linkNavigationEnabled.value) return;
-  const matchedEntry = ftpStore.localEntries.find((entry) => entry.isDir && entry.name === entryName);
+  const matchedEntry = ftpStore.localEntries.find(
+    (entry) => entry.isDir && entry.name === entryName
+  );
   if (!matchedEntry) return;
   await ftpStore.refreshLocalDirectory(matchedEntry.path);
 }
 
-async function syncRemotePanelToParent() {
+async function _syncRemotePanelToParent() {
   if (!linkNavigationEnabled.value || !activeSession.value) return;
-  await refreshPrimaryRemoteDirectory(parentRemotePath(ftpStore.remotePath || activeSession.value.remoteRoot));
+  await refreshPrimaryRemoteDirectory(
+    parentRemotePath(ftpStore.remotePath || activeSession.value.remoteRoot)
+  );
 }
 
-async function syncLocalPanelToParent() {
+async function _syncLocalPanelToParent() {
   if (!linkNavigationEnabled.value) return;
   await ftpStore.refreshLocalDirectory(parentLocalPath(ftpStore.localPath));
 }
@@ -4123,45 +4457,55 @@ async function deleteCompletedTasks() {
   }
 }
 
-watch(() => ftpStore.transferTasks.map((task) => task.id), (taskIds, previousTaskIds) => {
-  expandedTaskIds.value = expandedTaskIds.value.filter((id) => taskIds.includes(id));
-  autoExpandedTreeTaskIds.value = autoExpandedTreeTaskIds.value.filter((id) => taskIds.includes(id));
-  if (!transferTaskListWatcherInitialized) {
-    transferTaskListWatcherInitialized = true;
-    return;
-  }
-  if (!ftpStore.initialized) return;
-  const previousTaskIdSet = new Set(previousTaskIds ?? []);
-  const hasNewTask = taskIds.some((taskId) => !previousTaskIdSet.has(taskId));
-  if (hasNewTask) {
-    openTransferQueuePanel();
-  }
-}, { immediate: true });
+watch(
+  () => ftpStore.transferTasks.map((task) => task.id),
+  (taskIds, previousTaskIds) => {
+    expandedTaskIds.value = expandedTaskIds.value.filter((id) => taskIds.includes(id));
+    autoExpandedTreeTaskIds.value = autoExpandedTreeTaskIds.value.filter((id) =>
+      taskIds.includes(id)
+    );
+    if (!transferTaskListWatcherInitialized) {
+      transferTaskListWatcherInitialized = true;
+      return;
+    }
+    if (!ftpStore.initialized) return;
+    const previousTaskIdSet = new Set(previousTaskIds ?? []);
+    const hasNewTask = taskIds.some((taskId) => !previousTaskIdSet.has(taskId));
+    if (hasNewTask) {
+      openTransferQueuePanel();
+    }
+  },
+  { immediate: true }
+);
 
 watch(
-  () => ftpStore.transferTasks.map((task) => ({
-    id: task.id,
-    hasTree: Boolean(task.transferTreeJson),
-  })),
+  () =>
+    ftpStore.transferTasks.map((task) => ({
+      id: task.id,
+      hasTree: Boolean(task.transferTreeJson),
+    })),
   (tasks) => {
     const treeTaskIds = tasks.filter((task) => task.hasTree).map((task) => task.id);
-    const nextAutoExpandedIds = treeTaskIds.filter((taskId) => !autoExpandedTreeTaskIds.value.includes(taskId));
+    const nextAutoExpandedIds = treeTaskIds.filter(
+      (taskId) => !autoExpandedTreeTaskIds.value.includes(taskId)
+    );
     if (!nextAutoExpandedIds.length) return;
     autoExpandedTreeTaskIds.value = [...autoExpandedTreeTaskIds.value, ...nextAutoExpandedIds];
     expandedTaskIds.value = [...new Set([...expandedTaskIds.value, ...nextAutoExpandedIds])];
     openTransferQueuePanel();
   },
-  { immediate: true },
+  { immediate: true }
 );
 
 watch(
-  () => ftpStore.transferTasks.map((task): TransferTaskRefreshSnapshot => ({
-    id: task.id,
-    status: task.status,
-    direction: task.direction,
-    sessionId: task.sessionId,
-    remotePath: task.remotePath,
-  })),
+  () =>
+    ftpStore.transferTasks.map((task): TransferTaskRefreshSnapshot => ({
+      id: task.id,
+      status: task.status,
+      direction: task.direction,
+      sessionId: task.sessionId,
+      remotePath: task.remotePath,
+    })),
   (tasks, previousTasks) => {
     if (!transferTaskRefreshWatcherInitialized) {
       transferTaskRefreshWatcherInitialized = true;
@@ -4174,7 +4518,7 @@ watch(
       refreshVisibleRemoteDirectoriesForCompletedTask(task);
     }
   },
-  { immediate: true },
+  { immediate: true }
 );
 
 watch(
@@ -4184,7 +4528,7 @@ watch(
       focusTaskFromRoute(taskId);
     }
   },
-  { immediate: true },
+  { immediate: true }
 );
 
 watch(
@@ -4201,7 +4545,7 @@ watch(
   () => {
     persistPanelLayout();
   },
-  { immediate: false },
+  { immediate: false }
 );
 
 watch(
@@ -4221,15 +4565,19 @@ watch(
     ftpDwindleSplitRatios,
   ],
   scheduleFtpWorkspaceWindowStatePersist,
-  { deep: true },
+  { deep: true }
 );
 
-watch(ftpWorkspacePanes, (panes) => {
-  if (!panes.length) return;
-  if (!panes.some((pane) => pane.key === activeBrowserPanel.value)) {
-    activeBrowserPanel.value = panes[0].key;
-  }
-}, { immediate: true });
+watch(
+  ftpWorkspacePanes,
+  (panes) => {
+    if (!panes.length) return;
+    if (!panes.some((pane) => pane.key === activeBrowserPanel.value)) {
+      activeBrowserPanel.value = panes[0].key;
+    }
+  },
+  { immediate: true }
+);
 
 watch(
   [
@@ -4242,7 +4590,7 @@ watch(
   () => {
     persistFtpPreferences();
   },
-  { immediate: false },
+  { immediate: false }
 );
 
 watch(
@@ -4253,7 +4601,7 @@ watch(
   () => {
     ensureRemoteWorkspacePanes();
   },
-  { immediate: false },
+  { immediate: false }
 );
 
 watch(isDenseViewport, (dense, previousDense) => {
@@ -4279,7 +4627,7 @@ watch(
     void handleFtpOpenRequestFromRoute();
     void processFtpConnectionLayoutOpenRequest();
   },
-  { immediate: false },
+  { immediate: false }
 );
 
 async function initializeFtpPage() {
@@ -4366,802 +4714,1316 @@ onBeforeUnmount(() => {
     }"
   >
     <template #sidebar>
-      <FtpConfigSidebar :sidebar-collapsed="sidebarCollapsed"
-      :profiles-count="ftpStore.profiles.length" :sessions-count="ftpStore.sessions.length"
-      :config-tree-nodes="configTreeNodes" :selected-config-tree-node-id="selectedConfigTreeNodeId"
-      :config-tree-expanded-ids="configTreeExpandedIds" :sessions="ftpStore.sessions"
-      :active-session-id="ftpStore.activeSessionId"
-      :restore-failure-profiles="restoreFailureProfiles" :session-status-label="sessionStatusLabel"
-      :session-status-tone="sessionStatusTone" @toggle-sidebar="toggleSidebarCollapsed"
-      @create-local-connection="addLocalWorkspacePane()"
-      @open-create-dialog="openCreateDialog($event)" @open-create-folder-dialog="openCreateFolderDialog($event)"
-      @open-collapsed-configs-menu="openCollapsedConfigsMenu" @update:expandedIds="configTreeExpandedIds = $event"
-      @select-config="handleConfigTreeSelect" @activate-config="handleConfigTreeActivate"
-      @contextmenu-config="openConfigNodeContextMenu" @drop-config="handleConfigTreeDrop"
-      @focus-session="focusRemoteWorkspacePane"
-      @disconnect-session="disconnectSession" @reconnect-profile="connectProfile"
-      @session-contextmenu="openSessionTabContextMenu($event.event, $event.sessionId)"
-      @session-dragstart="handleSessionTabDragStart($event)" @session-drop="handleSessionTabDrop($event)" />
+      <FtpConfigSidebar
+        :sidebar-collapsed="sidebarCollapsed"
+        :profiles-count="ftpStore.profiles.length"
+        :sessions-count="ftpStore.sessions.length"
+        :config-tree-nodes="configTreeNodes"
+        :selected-config-tree-node-id="selectedConfigTreeNodeId"
+        :config-tree-expanded-ids="configTreeExpandedIds"
+        :sessions="ftpStore.sessions"
+        :active-session-id="ftpStore.activeSessionId"
+        :restore-failure-profiles="restoreFailureProfiles"
+        :session-status-label="sessionStatusLabel"
+        :session-status-tone="sessionStatusTone"
+        @toggle-sidebar="toggleSidebarCollapsed"
+        @create-local-connection="addLocalWorkspacePane()"
+        @open-create-dialog="openCreateDialog($event)"
+        @open-create-folder-dialog="openCreateFolderDialog($event)"
+        @open-collapsed-configs-menu="openCollapsedConfigsMenu"
+        @update:expandedIds="configTreeExpandedIds = $event"
+        @select-config="handleConfigTreeSelect"
+        @activate-config="handleConfigTreeActivate"
+        @contextmenu-config="openConfigNodeContextMenu"
+        @drop-config="handleConfigTreeDrop"
+        @focus-session="focusRemoteWorkspacePane"
+        @disconnect-session="disconnectSession"
+        @reconnect-profile="connectProfile"
+        @session-contextmenu="openSessionTabContextMenu($event.event, $event.sessionId)"
+        @session-dragstart="handleSessionTabDragStart($event)"
+        @session-drop="handleSessionTabDrop($event)"
+      />
     </template>
 
     <template #main-before>
-          <section class="terminal-toolbar ftp-toolbar">
-            <div class="terminal-toolbar__left">
-              <div class="terminal-toolbar__title">
-                <span class="title-name">{{ activeFtpWorkspacePane()?.title ?? '文件传输' }}</span>
-              </div>
-            </div>
-            <div class="terminal-toolbar__right ftp-hero__actions" aria-label="文件传输快捷操作">
-              <span v-if="busyMessage" class="ftp-badge ftp-badge--accent ftp-hero__busy">{{ busyMessage }}</span>
-              <UiSelect
-                class="ftp-hero__layout-select"
-                size="sm"
-                :model-value="panelLayoutMode"
-                :options="ftpWorkspaceLayoutOptions"
-                @change="setFtpWorkspaceLayoutMode($event as TerminalLayoutMode)"
-              />
-              <UiSelect
-                class="ftp-hero__layout-select"
-                size="sm"
-                :model-value="selectedConnectionLayoutId"
-                :options="connectionLayoutOptions"
-                @update:modelValue="handleFtpConnectionLayoutSelect"
-              />
-              <span v-tooltip="{ content: '删除选中的连接布局', placement: 'bottom' }">
-                <UiIconButton size="sm" variant="ghost" :disabled="!selectedConnectionLayoutId" title="删除选中的连接布局"
-                  @click="deleteFtpConnectionLayout(selectedConnectionLayoutId)">
-                  <svg viewBox="0 0 24 24" width="14" height="14" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round">
-                    <polyline points="3 6 5 6 21 6" />
-                    <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6" />
-                    <path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
-                  </svg>
-                </UiIconButton>
-              </span>
-              <span v-tooltip="{ content: '保存当前连接布局', placement: 'bottom' }">
-                <UiIconButton size="sm" variant="ghost" title="保存当前连接布局" @click="openSaveFtpLayoutDialog">
-                  <svg viewBox="0 0 24 24" width="14" height="14" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round">
-                    <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z" />
-                    <path d="M17 21v-8H7v8" />
-                    <path d="M7 3v5h8" />
-                  </svg>
-                </UiIconButton>
-              </span>
-              <span v-tooltip="{ content: '定时任务', placement: 'bottom' }">
-                <UiIconButton size="sm" variant="ghost" title="定时任务" @click="openScheduleDialog()">
-                  <svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.6"
-                    stroke-linecap="round" stroke-linejoin="round">
-                    <circle cx="8" cy="8" r="6" />
-                    <path d="M8 5v3l2 1.5" />
-                  </svg>
-                </UiIconButton>
-              </span>
-              <span v-tooltip="{ content: `恢复标签 · ${recentClosedSessionSummary}`, placement: 'bottom' }">
-                <UiIconButton size="sm" variant="ghost" :disabled="!recentlyClosedSessions.length"
-                  :title="`恢复标签 · ${recentClosedSessionSummary}`" @click="reopenLastClosedSession()">
-                  <svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.6"
-                    stroke-linecap="round" stroke-linejoin="round">
-                    <path d="M3.5 8A4.5 4.5 0 1 0 5 4.2L3.5 5.5" />
-                    <path d="M3.5 2.8v2.7H6.2" />
-                  </svg>
-                </UiIconButton>
-              </span>
-              <span v-tooltip="{ content: '预览图片', placement: 'bottom' }">
-                <UiIconButton size="sm" variant="ghost" :disabled="!canPreviewActiveImage" title="预览图片"
-                  @click="previewActiveImage()">
-                  <svg viewBox="0 0 24 24" width="14" height="14" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round">
-                    <rect x="3" y="3" width="18" height="18" rx="2" />
-                    <circle cx="8.5" cy="8.5" r="1.5" />
-                    <path d="m21 15-5-5L5 21" />
-                  </svg>
-                </UiIconButton>
-              </span>
-              <span v-tooltip="{ content: '预览文本', placement: 'bottom' }">
-                <UiIconButton size="sm" variant="ghost" :disabled="!canPreviewRemoteText" title="预览文本"
-                  @click="previewRemoteText(selectedActivePaneEntry)">
-                  <svg viewBox="0 0 24 24" width="14" height="14" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round">
-                    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
-                    <path d="M14 2v6h6" />
-                    <path d="M8 13h8" />
-                    <path d="M8 17h5" />
-                  </svg>
-                </UiIconButton>
-              </span>
-              <span v-tooltip="{ content: '编辑远程', placement: 'bottom' }">
-                <UiIconButton size="sm" variant="ghost" :disabled="!canEditRemoteFile" title="编辑远程"
-                  @click="openRemoteEditor(selectedActivePaneEntry)">
-                  <svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.6"
-                    stroke-linecap="round" stroke-linejoin="round">
-                    <path d="M11 2.5l2.5 2.5-7 7-3 .5.5-3z" />
-                    <path d="M9.5 4l2.5 2.5" />
-                  </svg>
-                </UiIconButton>
-              </span>
-              <span v-tooltip="{ content: '外部编辑', placement: 'bottom' }">
-                <UiIconButton size="sm" variant="ghost" :disabled="!canEditRemoteFile" title="外部编辑"
-                  @click="openExternalEditor()">
-                  <svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.6"
-                    stroke-linecap="round" stroke-linejoin="round">
-                    <path d="M9 2h5v5M9 7l5-5M7 4H3a1 1 0 0 0-1 1v8a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1V9" />
-                  </svg>
-                </UiIconButton>
-              </span>
-              <span v-tooltip="{ content: '修改权限', placement: 'bottom' }">
-                <UiIconButton size="sm" variant="ghost" :disabled="!canChmodRemoteFile" title="修改权限"
-                  @click="changeRemotePermissions(selectedActivePaneEntry)">
-                  <svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.6"
-                    stroke-linecap="round" stroke-linejoin="round">
-                    <path d="M8 1L6 3v2L4.5 6.5A5 5 0 1 0 9.5 11.5L11 10h2l2-2-2-2h-1V4z" />
-                    <circle cx="10" cy="10" r="1.5" />
-                  </svg>
-                </UiIconButton>
-              </span>
-              <span v-tooltip="{ content: terminalOpenTooltip, placement: 'bottom' }">
-                <UiIconButton size="sm" variant="ghost" :disabled="!canOpenTerminalFromFtp"
-                  :title="terminalOpenTooltip" @click="openTerminalForCurrentFtp">
-                  <svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.6"
-                    stroke-linecap="round" stroke-linejoin="round">
-                    <rect x="1" y="2" width="14" height="12" rx="1.5" />
-                    <path d="M4 6l3 2.5L4 11M9 11h3" />
-                  </svg>
-                </UiIconButton>
-              </span>
-              <span v-tooltip="{ content: '目录比较/同步', placement: 'bottom' }">
-                <UiIconButton size="sm" variant="ghost" title="目录比较/同步" @click="openSyncPanel">
-                  <svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.6"
-                    stroke-linecap="round" stroke-linejoin="round">
-                    <path d="M2 4h5v8H2zM9 4h5v8H9M7 8h2" />
-                  </svg>
-                </UiIconButton>
-              </span>
-              <span v-if="!isDetachedWindow" v-tooltip="{ content: '传输设置', placement: 'bottom' }">
-                <UiIconButton size="sm" variant="ghost" title="传输设置" @click="openTransferSettingsPage">
-                  <svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.6"
-                    stroke-linecap="round" stroke-linejoin="round">
-                    <circle cx="8" cy="8" r="2" />
-                    <path
-                      d="M8 1v2M8 13v2M1 8h2M13 8h2M3.4 3.4l1.4 1.4M11.2 11.2l1.4 1.4M3.4 12.6l1.4-1.4M11.2 4.8l1.4-1.4" />
-                  </svg>
-                </UiIconButton>
-              </span>
-            </div>
-          </section>
-
-          <div v-if="pendingExternalSummary" class="ftp-alert ftp-alert--info">
-            <span>{{ pendingExternalSummary }}</span>
-            <div class="ftp-alert__actions">
-              <UiIconButton size="sm" variant="secondary" :disabled="!activeRemoteWorkspacePane" label="上传到当前远程"
-                @click="uploadPendingExternalPaths()">
-                <svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.6"
-                  stroke-linecap="round" stroke-linejoin="round">
-                  <path d="M8 11V3M4.5 6.5L8 3l3.5 3.5M3 13h10" />
-                </svg>
-              </UiIconButton>
-              <UiIconButton size="sm" variant="ghost" label="忽略" @click="discardPendingExternalPaths()">
-                <svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.6"
-                  stroke-linecap="round">
-                  <path d="M3 3l10 10M13 3 3 13" />
-                </svg>
-              </UiIconButton>
-            </div>
+      <section class="terminal-toolbar ftp-toolbar">
+        <div class="terminal-toolbar__left">
+          <div class="terminal-toolbar__title">
+            <span class="title-name">{{ activeFtpWorkspacePane()?.title ?? '文件传输' }}</span>
           </div>
+        </div>
+        <div class="terminal-toolbar__right ftp-hero__actions" aria-label="文件传输快捷操作">
+          <span v-if="busyMessage" class="ftp-badge ftp-badge--accent ftp-hero__busy">{{
+            busyMessage
+          }}</span>
+          <UiSelect
+            class="ftp-hero__layout-select"
+            size="sm"
+            :model-value="panelLayoutMode"
+            :options="ftpWorkspaceLayoutOptions"
+            @change="setFtpWorkspaceLayoutMode($event as TerminalLayoutMode)"
+          />
+          <UiSelect
+            class="ftp-hero__layout-select"
+            size="sm"
+            :model-value="selectedConnectionLayoutId"
+            :options="connectionLayoutOptions"
+            @update:modelValue="handleFtpConnectionLayoutSelect"
+          />
+          <span v-tooltip="{ content: '删除选中的连接布局', placement: 'bottom' }">
+            <UiIconButton
+              size="sm"
+              variant="ghost"
+              :disabled="!selectedConnectionLayoutId"
+              title="删除选中的连接布局"
+              @click="deleteFtpConnectionLayout(selectedConnectionLayoutId)"
+            >
+              <svg
+                viewBox="0 0 24 24"
+                width="14"
+                height="14"
+                stroke="currentColor"
+                stroke-width="2"
+                fill="none"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              >
+                <polyline points="3 6 5 6 21 6" />
+                <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6" />
+                <path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+              </svg>
+            </UiIconButton>
+          </span>
+          <span v-tooltip="{ content: '保存当前连接布局', placement: 'bottom' }">
+            <UiIconButton
+              size="sm"
+              variant="ghost"
+              title="保存当前连接布局"
+              @click="openSaveFtpLayoutDialog"
+            >
+              <svg
+                viewBox="0 0 24 24"
+                width="14"
+                height="14"
+                stroke="currentColor"
+                stroke-width="2"
+                fill="none"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              >
+                <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z" />
+                <path d="M17 21v-8H7v8" />
+                <path d="M7 3v5h8" />
+              </svg>
+            </UiIconButton>
+          </span>
+          <span v-tooltip="{ content: '定时任务', placement: 'bottom' }">
+            <UiIconButton size="sm" variant="ghost" title="定时任务" @click="openScheduleDialog()">
+              <svg
+                viewBox="0 0 16 16"
+                width="14"
+                height="14"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="1.6"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              >
+                <circle cx="8" cy="8" r="6" />
+                <path d="M8 5v3l2 1.5" />
+              </svg>
+            </UiIconButton>
+          </span>
+          <span
+            v-tooltip="{ content: `恢复标签 · ${recentClosedSessionSummary}`, placement: 'bottom' }"
+          >
+            <UiIconButton
+              size="sm"
+              variant="ghost"
+              :disabled="!recentlyClosedSessions.length"
+              :title="`恢复标签 · ${recentClosedSessionSummary}`"
+              @click="reopenLastClosedSession()"
+            >
+              <svg
+                viewBox="0 0 16 16"
+                width="14"
+                height="14"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="1.6"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              >
+                <path d="M3.5 8A4.5 4.5 0 1 0 5 4.2L3.5 5.5" />
+                <path d="M3.5 2.8v2.7H6.2" />
+              </svg>
+            </UiIconButton>
+          </span>
+          <span v-tooltip="{ content: '预览图片', placement: 'bottom' }">
+            <UiIconButton
+              size="sm"
+              variant="ghost"
+              :disabled="!canPreviewActiveImage"
+              title="预览图片"
+              @click="previewActiveImage()"
+            >
+              <svg
+                viewBox="0 0 24 24"
+                width="14"
+                height="14"
+                stroke="currentColor"
+                stroke-width="2"
+                fill="none"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              >
+                <rect x="3" y="3" width="18" height="18" rx="2" />
+                <circle cx="8.5" cy="8.5" r="1.5" />
+                <path d="m21 15-5-5L5 21" />
+              </svg>
+            </UiIconButton>
+          </span>
+          <span v-tooltip="{ content: '预览文本', placement: 'bottom' }">
+            <UiIconButton
+              size="sm"
+              variant="ghost"
+              :disabled="!canPreviewRemoteText"
+              title="预览文本"
+              @click="previewRemoteText(selectedActivePaneEntry)"
+            >
+              <svg
+                viewBox="0 0 24 24"
+                width="14"
+                height="14"
+                stroke="currentColor"
+                stroke-width="2"
+                fill="none"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              >
+                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+                <path d="M14 2v6h6" />
+                <path d="M8 13h8" />
+                <path d="M8 17h5" />
+              </svg>
+            </UiIconButton>
+          </span>
+          <span v-tooltip="{ content: '编辑远程', placement: 'bottom' }">
+            <UiIconButton
+              size="sm"
+              variant="ghost"
+              :disabled="!canEditRemoteFile"
+              title="编辑远程"
+              @click="openRemoteEditor(selectedActivePaneEntry)"
+            >
+              <svg
+                viewBox="0 0 16 16"
+                width="14"
+                height="14"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="1.6"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              >
+                <path d="M11 2.5l2.5 2.5-7 7-3 .5.5-3z" />
+                <path d="M9.5 4l2.5 2.5" />
+              </svg>
+            </UiIconButton>
+          </span>
+          <span v-tooltip="{ content: '外部编辑', placement: 'bottom' }">
+            <UiIconButton
+              size="sm"
+              variant="ghost"
+              :disabled="!canEditRemoteFile"
+              title="外部编辑"
+              @click="openExternalEditor()"
+            >
+              <svg
+                viewBox="0 0 16 16"
+                width="14"
+                height="14"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="1.6"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              >
+                <path d="M9 2h5v5M9 7l5-5M7 4H3a1 1 0 0 0-1 1v8a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1V9" />
+              </svg>
+            </UiIconButton>
+          </span>
+          <span v-tooltip="{ content: '修改权限', placement: 'bottom' }">
+            <UiIconButton
+              size="sm"
+              variant="ghost"
+              :disabled="!canChmodRemoteFile"
+              title="修改权限"
+              @click="changeRemotePermissions(selectedActivePaneEntry)"
+            >
+              <svg
+                viewBox="0 0 16 16"
+                width="14"
+                height="14"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="1.6"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              >
+                <path d="M8 1L6 3v2L4.5 6.5A5 5 0 1 0 9.5 11.5L11 10h2l2-2-2-2h-1V4z" />
+                <circle cx="10" cy="10" r="1.5" />
+              </svg>
+            </UiIconButton>
+          </span>
+          <span v-tooltip="{ content: terminalOpenTooltip, placement: 'bottom' }">
+            <UiIconButton
+              size="sm"
+              variant="ghost"
+              :disabled="!canOpenTerminalFromFtp"
+              :title="terminalOpenTooltip"
+              @click="openTerminalForCurrentFtp"
+            >
+              <svg
+                viewBox="0 0 16 16"
+                width="14"
+                height="14"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="1.6"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              >
+                <rect x="1" y="2" width="14" height="12" rx="1.5" />
+                <path d="M4 6l3 2.5L4 11M9 11h3" />
+              </svg>
+            </UiIconButton>
+          </span>
+          <span v-tooltip="{ content: '目录比较/同步', placement: 'bottom' }">
+            <UiIconButton size="sm" variant="ghost" title="目录比较/同步" @click="openSyncPanel">
+              <svg
+                viewBox="0 0 16 16"
+                width="14"
+                height="14"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="1.6"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              >
+                <path d="M2 4h5v8H2zM9 4h5v8H9M7 8h2" />
+              </svg>
+            </UiIconButton>
+          </span>
+          <span v-if="!isDetachedWindow" v-tooltip="{ content: '传输设置', placement: 'bottom' }">
+            <UiIconButton
+              size="sm"
+              variant="ghost"
+              title="传输设置"
+              @click="openTransferSettingsPage"
+            >
+              <svg
+                viewBox="0 0 16 16"
+                width="14"
+                height="14"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="1.6"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              >
+                <circle cx="8" cy="8" r="2" />
+                <path
+                  d="M8 1v2M8 13v2M1 8h2M13 8h2M3.4 3.4l1.4 1.4M11.2 11.2l1.4 1.4M3.4 12.6l1.4-1.4M11.2 4.8l1.4-1.4"
+                />
+              </svg>
+            </UiIconButton>
+          </span>
+        </div>
+      </section>
+
+      <div v-if="pendingExternalSummary" class="ftp-alert ftp-alert--info">
+        <span>{{ pendingExternalSummary }}</span>
+        <div class="ftp-alert__actions">
+          <UiIconButton
+            size="sm"
+            variant="secondary"
+            :disabled="!activeRemoteWorkspacePane"
+            label="上传到当前远程"
+            @click="uploadPendingExternalPaths()"
+          >
+            <svg
+              viewBox="0 0 16 16"
+              width="14"
+              height="14"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="1.6"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            >
+              <path d="M8 11V3M4.5 6.5L8 3l3.5 3.5M3 13h10" />
+            </svg>
+          </UiIconButton>
+          <UiIconButton
+            size="sm"
+            variant="ghost"
+            label="忽略"
+            @click="discardPendingExternalPaths()"
+          >
+            <svg
+              viewBox="0 0 16 16"
+              width="14"
+              height="14"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="1.6"
+              stroke-linecap="round"
+            >
+              <path d="M3 3l10 10M13 3 3 13" />
+            </svg>
+          </UiIconButton>
+        </div>
+      </div>
     </template>
 
     <template #stage>
-        <div class="ftp-workspace">
-
-          <div v-if="panelLayoutMode === 'tabbed' && orderedFtpWorkspacePanes.length > 1" class="terminal-pane-tabs ftp-workspace-tabs">
-            <UiButton
-              v-for="pane in orderedFtpWorkspacePanes"
-              :key="pane.key"
-              type="button"
-              size="sm"
-              variant="ghost"
-              class="terminal-pane-tab"
-              :data-ftp-pane-key="pane.key"
-              :active="pane.key === activeBrowserPanel"
-              :class="{
-                'terminal-pane-tab--active': pane.key === activeBrowserPanel,
-                'terminal-pane-tab--drop-target': pane.key === dropTargetFtpPaneKey,
-                'terminal-pane-tab--drag-placeholder': pane.key === draggingFtpPaneKey,
-              }"
-              @pointerdown="startFtpPanePointerDrag($event, pane)"
-            >
-              <span class="terminal-pane-tab__kind">{{ pane.kind === 'local' ? '本地' : '远程' }}</span>
-              <span class="terminal-pane-tab__title">{{ pane.title }}</span>
-              <span
-                class="terminal-pane-tab__close"
-                role="button"
-                tabindex="-1"
-                title="关闭工作区"
-                aria-label="关闭工作区"
-                @pointerdown.stop
-                @click.stop="removeFtpWorkspacePane(pane.key)"
-              >
-                <svg viewBox="0 0 16 16" width="12" height="12" aria-hidden="true">
-                  <path d="M4.5 4.5l7 7M11.5 4.5l-7 7" />
-                </svg>
-              </span>
-            </UiButton>
-          </div>
-
-          <section
-            ref="ftpPaneWorkspaceRef"
-            class="ftp-panels terminal-pane-workspace"
+      <div class="ftp-workspace">
+        <div
+          v-if="panelLayoutMode === 'tabbed' && orderedFtpWorkspacePanes.length > 1"
+          class="terminal-pane-tabs ftp-workspace-tabs"
+        >
+          <UiButton
+            v-for="pane in orderedFtpWorkspacePanes"
+            :key="pane.key"
+            type="button"
+            size="sm"
+            variant="ghost"
+            class="terminal-pane-tab"
+            :data-ftp-pane-key="pane.key"
+            :active="pane.key === activeBrowserPanel"
             :class="{
-              'ftp-panels--single': visibleBrowserPanelCount <= 1,
+              'terminal-pane-tab--active': pane.key === activeBrowserPanel,
+              'terminal-pane-tab--drop-target': pane.key === dropTargetFtpPaneKey,
+              'terminal-pane-tab--drag-placeholder': pane.key === draggingFtpPaneKey,
             }"
-            :style="ftpPaneWorkspaceStyle"
+            @pointerdown="startFtpPanePointerDrag($event, pane)"
           >
-            <div
-              v-for="item in ftpPaneLayoutItems"
-              :key="item.pane.key"
-              class="terminal-pane ftp-workspace-pane"
-              :data-ftp-pane-key="item.pane.key"
-              :class="{
-                'terminal-pane--active': item.pane.key === activeBrowserPanel,
-                'terminal-pane--drag-placeholder': item.pane.key === draggingFtpPaneKey,
-                'terminal-pane--drop-target': item.pane.key === dropTargetFtpPaneKey,
-              }"
-              :style="item.style"
-              @pointerdown.capture="setActiveBrowserPanel(item.pane.key)"
+            <span class="terminal-pane-tab__kind">{{
+              pane.kind === 'local' ? '本地' : '远程'
+            }}</span>
+            <span class="terminal-pane-tab__title">{{ pane.title }}</span>
+            <span
+              class="terminal-pane-tab__close"
+              role="button"
+              tabindex="-1"
+              title="关闭工作区"
+              aria-label="关闭工作区"
+              @pointerdown.stop
+              @click.stop="removeFtpWorkspacePane(pane.key)"
             >
-              <div
-                class="terminal-pane__header"
-                title="拖动以调整传输工作区位置"
-                @pointerdown="startFtpPanePointerDrag($event, item.pane)"
-              >
-                <span class="terminal-pane__kind">{{ item.pane.kind === 'local' ? '本地' : '远程' }}</span>
-                <span class="terminal-pane__title">{{ item.pane.title }}</span>
-                <span class="terminal-pane__status">
-                  {{ item.pane.key === draggingFtpPaneKey ? '占位' : (item.pane.kind === 'local' ? `${ftpPaneFilteredEntries(item.pane).length} 项` : (item.pane.protocol || 'SFTP').toUpperCase()) }}
-                </span>
-                <UiIconButton
-                  class="terminal-pane__close"
-                  type="button"
-                  title="关闭工作区"
-                  aria-label="关闭工作区"
-                  size="sm"
-                  variant="ghost"
-                  @click.stop="removeFtpWorkspacePane(item.pane.key)"
-                >
-                  <svg viewBox="0 0 24 24" width="13" height="13" stroke="currentColor" stroke-width="2.2" fill="none" stroke-linecap="round" stroke-linejoin="round">
-                    <line x1="18" y1="6" x2="6" y2="18" />
-                    <line x1="6" y1="6" x2="18" y2="18" />
-                  </svg>
-                </UiIconButton>
-              </div>
-              <div v-if="item.pane.connectionState === 'connecting'" class="ftp-pane-connection-state">
-                <span class="ftp-pane-connection-state__spinner" aria-hidden="true" />
-                <div class="ftp-pane-connection-state__text">
-                  <strong>{{ item.pane.connectionMessage || `正在连接 ${item.pane.title}...` }}</strong>
-                  <span>{{ item.pane.protocol ? item.pane.protocol.toUpperCase() : 'FTP' }}</span>
-                </div>
-              </div>
-              <div v-else-if="ftpPaneDisconnectedNotice(item.pane)" class="ftp-pane-connection-state ftp-pane-connection-state--disconnected">
-                <svg viewBox="0 0 24 24" width="30" height="30" aria-hidden="true">
-                  <path d="M12 3v7" />
-                  <path d="M7.8 7.8a6 6 0 1 0 8.4 0" />
-                </svg>
-                <div class="ftp-pane-connection-state__text">
-                  <strong>{{ ftpPaneDisconnectedNotice(item.pane)?.label || item.pane.title }} 已断开</strong>
-                  <span>{{ ftpPaneDisconnectedNotice(item.pane)?.message || 'session closed' }}</span>
-                  <span>目录：{{ ftpPaneDisconnectedNotice(item.pane)?.remotePath || item.pane.path || '/' }}</span>
-                </div>
-                <UiButton
-                  size="sm"
-                  variant="primary"
-                  :disabled="reconnectingDisconnectedSession || !disconnectedSessionProfile"
-                  @click="reconnectDisconnectedSession"
-                >
-                  {{ reconnectingDisconnectedSession ? '重连中' : '重连' }}
-                </UiButton>
-              </div>
-              <FtpBrowserPanel
-                v-else
-                :kind="item.pane.kind"
-                :title="item.pane.title"
-                :show-titlebar="false"
-                :badges="[
-                  { text: item.pane.kind === 'local' ? '本地' : (item.pane.protocol || 'SFTP').toUpperCase(), accent: item.pane.kind === 'remote' },
-                  { text: `${ftpPaneFilteredEntries(item.pane).length} 项` },
-                ]"
-                :drop-active="ftpFileDropTargetPaneKey === item.pane.key"
-                :active="activeBrowserPanel === item.pane.key"
-                :breadcrumbs="ftpPaneBreadcrumbs(item.pane)"
-                :path-input="item.pane.pathInput"
-                :path-suggestions="ftpPanePathSuggestions(item.pane)"
-                :path-placeholder="item.pane.kind === 'local' ? '输入本地目录' : '输入远程目录'"
-                :view-mode="item.pane.viewMode"
-                :sort-key="ftpPaneSortKey(item.pane)"
-                :sort-direction="ftpPaneSortDirection(item.pane)"
-                :path-input-disabled="item.pane.kind === 'remote' && !item.pane.sessionId"
-                :open-path-disabled="item.pane.kind === 'remote' && !item.pane.sessionId"
-                :go-parent-disabled="item.pane.kind === 'remote' && !item.pane.sessionId"
-                :refresh-disabled="item.pane.kind === 'remote' && !item.pane.sessionId"
-                :search-expanded="ftpPaneSearchExpanded(item.pane)"
-                :search-active="ftpPaneSearchExpanded(item.pane) || !!ftpPaneFilterQuery(item.pane)"
-                :filter-expanded="ftpPaneRuleFilterExpanded(item.pane)"
-                :filter-active="ftpPaneRuleFilterExpanded(item.pane) || isRuleFilterActive(ftpPaneRuleFilter(item.pane))"
-                :filter-query="ftpPaneFilterQuery(item.pane)"
-                :filter-state="ftpPaneRuleFilter(item.pane)"
-                :filter-summary="ftpPaneFilterSummary(item.pane)"
-                :filter-preset-id="ftpPaneFilterPresetId(item.pane)"
-                :filter-preset-options="filterPresetOptions"
-                :entries="ftpPaneFilteredEntries(item.pane)"
-                :loading="item.pane.loading"
-                :loading-text="item.pane.kind === 'local' ? '正在读取本地目录...' : '正在读取远程目录...'"
-                :empty-text="ftpPaneFilterQuery(item.pane) || isRuleFilterActive(ftpPaneRuleFilter(item.pane)) ? '没有匹配的文件。' : '目录为空。'"
-                :drop-hint="ftpPaneDropHint(item.pane)"
-                :selected-paths="item.pane.selectedPaths"
-                :selected-count="item.pane.selectedPaths.length"
-                :primary-action-label="ftpPanePrimaryActionLabel(item.pane)"
-                :primary-action-variant="item.pane.kind === 'local' ? 'primary' : 'secondary'"
-                :primary-action-disabled="!canRunFtpPanePrimaryAction(item.pane)"
-                :show-workspace-controls="true"
-                :show-workspace-picker="item.pane.kind === 'local'"
-                :workspace-select-value="item.pane.kind === 'local' ? localWorkspaceSelectValue : remoteWorkspaceSelectValue"
-                :workspace-options="item.pane.kind === 'local' ? localWorkspaceOptions : remoteWorkspaceOptions"
-                :workspace-removable-values="item.pane.kind === 'local' ? localWorkspaceBookmarkValues : remoteWorkspaceBookmarkValues"
-                :bookmark-disabled="!item.pane.path"
-                :remove-bookmark-disabled="item.pane.kind === 'local' ? !currentLocalWorkspaceBookmarked : !currentRemoteWorkspaceBookmarked"
-                :show-create-directory-action="false"
-                :create-directory-disabled="item.pane.kind === 'remote' && !item.pane.sessionId"
-                secondary-meta-label="大小"
-                tertiary-meta-label="修改时间"
-                :size-value="(entry) => (entry.isDir ? '--' : formatSize(entry.size))"
-                :modified-value="(entry) => formatTime(entry.modifiedAt)"
-                :permissions-value="(entry) => entry.permissions || '--'" :owner-value="(entry) => entry.owner || '--'"
-                :secondary-meta-value="(entry) => (entry.isDir ? '--' : formatSize(entry.size))"
-                :tertiary-meta-value="(entry) => formatTime(entry.modifiedAt)"
-                secondary-meta-class=""
-                :thumbnail-url-for="(entry) => thumbnailUrlFor(item.pane.kind, entry, item.pane.sessionId)"
-                :is-thumbnail-loading="(entry) => isThumbnailLoading(item.pane.kind, entry, item.pane.sessionId)"
-                :highlight-entry-name="highlightEntryName"
-                :show-connecting-overlay="item.pane.kind === 'remote' && activeBrowserPanel === item.pane.key && isDeletingRemote"
-                connecting-title="正在删除远程条目"
-                :connecting-message="busyMessage"
-                @update:pathInput="setFtpPanePathInput(item.pane, $event)"
-                @update:filterQuery="item.pane.kind === 'local' ? localFilterQuery = $event : remoteFilterQuery = $event"
-                @update:extensionQuery="item.pane.kind === 'local' ? localRuleFilter.extensionQuery = $event : remoteRuleFilter.extensionQuery = $event"
-                @update:minSizeKb="item.pane.kind === 'local' ? localRuleFilter.minSizeKb = $event : remoteRuleFilter.minSizeKb = $event"
-                @update:maxSizeKb="item.pane.kind === 'local' ? localRuleFilter.maxSizeKb = $event : remoteRuleFilter.maxSizeKb = $event"
-                @update:modifiedWithinDays="item.pane.kind === 'local' ? localRuleFilter.modifiedWithinDays = $event : remoteRuleFilter.modifiedWithinDays = $event"
-                @primary-action="runFtpPanePrimaryAction(item.pane)"
-                @create-directory="createFtpPaneDirectory(item.pane)"
-                @switch-workspace="item.pane.kind === 'local' ? switchLocalWorkspace($event) : switchRemoteWorkspace($event)"
-                @bookmark-current="item.pane.kind === 'local' ? addCurrentLocalWorkspace() : addCurrentRemoteWorkspace()"
-                @pick-workspace="pickLocalWorkspace"
-                @remove-workspace="item.pane.kind === 'local' ? removeCurrentLocalWorkspace($event) : removeCurrentRemoteWorkspace($event)"
-                @open-breadcrumb="openFtpPanePath(item.pane, $event)"
-                @open-path="openFtpPanePath(item.pane)"
-                @go-parent="goFtpPaneParent(item.pane)"
-                @refresh="refreshFtpWorkspacePaneDirectory(item.pane.key, item.pane.path)"
-                @toggle-search="toggleSearch(item.pane.kind)"
-                @toggle-filter="toggleRuleFilter(item.pane.kind)"
-                @set-view-mode="setFtpPaneViewMode(item.pane, $event)"
-                @sort-column="sortFtpPaneByColumn(item.pane, $event)"
-                @set-filter-mode="setRuleFilterMode(item.pane.kind, $event)"
-                @set-filter-operator="setRuleFilterOperator(item.pane.kind, $event)"
-                @toggle-hide-hidden="toggleHideHidden(item.pane.kind)"
-                @apply-filter-preset="applyFilterPreset(item.pane.kind, $event)"
-                @save-filter-preset="saveFilterPreset(item.pane.kind)"
-                @delete-filter-preset="deleteSelectedFilterPreset(item.pane.kind)"
-                @reset-filter="resetRuleFilter(item.pane.kind)"
-                @panel-activate="setActiveBrowserPanel(item.pane.key)"
-                @dragenter="handleFtpPaneDragEnter($event, item.pane)"
-                @dragover="handleFtpPaneDragOver($event, item.pane)"
-                @dragleave="handleFtpPaneDragLeave($event, item.pane)"
-                @drop="handleFtpPaneDrop($event, item.pane)"
-                @select-all="selectAllFtpPaneEntries(item.pane)"
-                @marquee-select="handleFtpPaneMarqueeSelect(item.pane, $event)"
-                @list-contextmenu="handlePanelListContextMenu($event, item.pane.kind)"
-                @entry-click="handleFtpPaneEntryClick(item.pane, $event.event, $event.entry, $event.index)"
-                @entry-dblclick="openFtpPaneEntry(item.pane, $event)"
-                @entry-dragstart="setFtpPaneDragPayload($event.event, item.pane, $event.entry)"
-                @entry-dragend="handleFtpPaneEntryDragEnd"
-                @entry-contextmenu="handleEntryContextMenu($event.event, item.pane.kind, $event.entry, $event.index)" />
-            </div>
-
-            <UiIconButton
-              v-for="handle in ftpPaneResizeHandles"
-              :key="handle.id"
-              type="button"
-              size="sm"
-              variant="ghost"
-              class="terminal-pane-resizer"
-              :class="`terminal-pane-resizer--${handle.orientation}`"
-              :style="handle.style"
-              aria-label="调整传输工作区大小"
-              @pointerdown="startFtpPaneResize($event, handle)"
-            />
-            <div
-              v-if="ftpPaneDragPreview.visible"
-              class="terminal-pane-drag-preview"
-              :style="{
-                left: `${ftpPaneDragPreview.left}px`,
-                top: `${ftpPaneDragPreview.top}px`,
-              }"
-            >
-              <span class="terminal-pane-drag-preview__kind">{{ ftpPaneKindLabel(ftpPaneDragPreview.kind) }}</span>
-              <span class="terminal-pane-drag-preview__title">{{ ftpPaneDragPreview.title }}</span>
-            </div>
-          </section>
-
+              <svg viewBox="0 0 16 16" width="12" height="12" aria-hidden="true">
+                <path d="M4.5 4.5l7 7M11.5 4.5l-7 7" />
+              </svg>
+            </span>
+          </UiButton>
         </div>
 
-        <section class="ftp-aux-dock" :class="[
+        <section
+          ref="ftpPaneWorkspaceRef"
+          class="ftp-panels terminal-pane-workspace"
+          :class="{
+            'ftp-panels--single': visibleBrowserPanelCount <= 1,
+          }"
+          :style="ftpPaneWorkspaceStyle"
+        >
+          <div
+            v-for="item in ftpPaneLayoutItems"
+            :key="item.pane.key"
+            class="terminal-pane ftp-workspace-pane"
+            :data-ftp-pane-key="item.pane.key"
+            :class="{
+              'terminal-pane--active': item.pane.key === activeBrowserPanel,
+              'terminal-pane--drag-placeholder': item.pane.key === draggingFtpPaneKey,
+              'terminal-pane--drop-target': item.pane.key === dropTargetFtpPaneKey,
+            }"
+            :style="item.style"
+            @pointerdown.capture="setActiveBrowserPanel(item.pane.key)"
+          >
+            <div
+              class="terminal-pane__header"
+              title="拖动以调整传输工作区位置"
+              @pointerdown="startFtpPanePointerDrag($event, item.pane)"
+            >
+              <span class="terminal-pane__kind">{{
+                item.pane.kind === 'local' ? '本地' : '远程'
+              }}</span>
+              <span class="terminal-pane__title">{{ item.pane.title }}</span>
+              <span class="terminal-pane__status">
+                {{
+                  item.pane.key === draggingFtpPaneKey
+                    ? '占位'
+                    : item.pane.kind === 'local'
+                      ? `${ftpPaneFilteredEntries(item.pane).length} 项`
+                      : (item.pane.protocol || 'SFTP').toUpperCase()
+                }}
+              </span>
+              <UiIconButton
+                class="terminal-pane__close"
+                type="button"
+                title="关闭工作区"
+                aria-label="关闭工作区"
+                size="sm"
+                variant="ghost"
+                @click.stop="removeFtpWorkspacePane(item.pane.key)"
+              >
+                <svg
+                  viewBox="0 0 24 24"
+                  width="13"
+                  height="13"
+                  stroke="currentColor"
+                  stroke-width="2.2"
+                  fill="none"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                >
+                  <line x1="18" y1="6" x2="6" y2="18" />
+                  <line x1="6" y1="6" x2="18" y2="18" />
+                </svg>
+              </UiIconButton>
+            </div>
+            <div
+              v-if="item.pane.connectionState === 'connecting'"
+              class="ftp-pane-connection-state"
+            >
+              <span class="ftp-pane-connection-state__spinner" aria-hidden="true" />
+              <div class="ftp-pane-connection-state__text">
+                <strong>{{
+                  item.pane.connectionMessage || `正在连接 ${item.pane.title}...`
+                }}</strong>
+                <span>{{ item.pane.protocol ? item.pane.protocol.toUpperCase() : 'FTP' }}</span>
+              </div>
+            </div>
+            <div
+              v-else-if="ftpPaneDisconnectedNotice(item.pane)"
+              class="ftp-pane-connection-state ftp-pane-connection-state--disconnected"
+            >
+              <svg viewBox="0 0 24 24" width="30" height="30" aria-hidden="true">
+                <path d="M12 3v7" />
+                <path d="M7.8 7.8a6 6 0 1 0 8.4 0" />
+              </svg>
+              <div class="ftp-pane-connection-state__text">
+                <strong
+                  >{{
+                    ftpPaneDisconnectedNotice(item.pane)?.label || item.pane.title
+                  }}
+                  已断开</strong
+                >
+                <span>{{ ftpPaneDisconnectedNotice(item.pane)?.message || 'session closed' }}</span>
+                <span
+                  >目录：{{
+                    ftpPaneDisconnectedNotice(item.pane)?.remotePath || item.pane.path || '/'
+                  }}</span
+                >
+              </div>
+              <UiButton
+                size="sm"
+                variant="primary"
+                :disabled="reconnectingDisconnectedSession || !disconnectedSessionProfile"
+                @click="reconnectDisconnectedSession"
+              >
+                {{ reconnectingDisconnectedSession ? '重连中' : '重连' }}
+              </UiButton>
+            </div>
+            <FtpBrowserPanel
+              v-else
+              :kind="item.pane.kind"
+              :title="item.pane.title"
+              :show-titlebar="false"
+              :badges="[
+                {
+                  text:
+                    item.pane.kind === 'local'
+                      ? '本地'
+                      : (item.pane.protocol || 'SFTP').toUpperCase(),
+                  accent: item.pane.kind === 'remote',
+                },
+                { text: `${ftpPaneFilteredEntries(item.pane).length} 项` },
+              ]"
+              :drop-active="ftpFileDropTargetPaneKey === item.pane.key"
+              :active="activeBrowserPanel === item.pane.key"
+              :breadcrumbs="ftpPaneBreadcrumbs(item.pane)"
+              :path-input="item.pane.pathInput"
+              :path-suggestions="ftpPanePathSuggestions(item.pane)"
+              :path-placeholder="item.pane.kind === 'local' ? '输入本地目录' : '输入远程目录'"
+              :view-mode="item.pane.viewMode"
+              :sort-key="ftpPaneSortKey(item.pane)"
+              :sort-direction="ftpPaneSortDirection(item.pane)"
+              :path-input-disabled="item.pane.kind === 'remote' && !item.pane.sessionId"
+              :open-path-disabled="item.pane.kind === 'remote' && !item.pane.sessionId"
+              :go-parent-disabled="item.pane.kind === 'remote' && !item.pane.sessionId"
+              :refresh-disabled="item.pane.kind === 'remote' && !item.pane.sessionId"
+              :search-expanded="ftpPaneSearchExpanded(item.pane)"
+              :search-active="ftpPaneSearchExpanded(item.pane) || !!ftpPaneFilterQuery(item.pane)"
+              :filter-expanded="ftpPaneRuleFilterExpanded(item.pane)"
+              :filter-active="
+                ftpPaneRuleFilterExpanded(item.pane) ||
+                isRuleFilterActive(ftpPaneRuleFilter(item.pane))
+              "
+              :filter-query="ftpPaneFilterQuery(item.pane)"
+              :filter-state="ftpPaneRuleFilter(item.pane)"
+              :filter-summary="ftpPaneFilterSummary(item.pane)"
+              :filter-preset-id="ftpPaneFilterPresetId(item.pane)"
+              :filter-preset-options="filterPresetOptions"
+              :entries="ftpPaneFilteredEntries(item.pane)"
+              :loading="item.pane.loading"
+              :loading-text="
+                item.pane.kind === 'local' ? '正在读取本地目录...' : '正在读取远程目录...'
+              "
+              :empty-text="
+                ftpPaneFilterQuery(item.pane) || isRuleFilterActive(ftpPaneRuleFilter(item.pane))
+                  ? '没有匹配的文件。'
+                  : '目录为空。'
+              "
+              :drop-hint="ftpPaneDropHint(item.pane)"
+              :selected-paths="item.pane.selectedPaths"
+              :selected-count="item.pane.selectedPaths.length"
+              :primary-action-label="ftpPanePrimaryActionLabel(item.pane)"
+              :primary-action-variant="item.pane.kind === 'local' ? 'primary' : 'secondary'"
+              :primary-action-disabled="!canRunFtpPanePrimaryAction(item.pane)"
+              :show-workspace-controls="true"
+              :show-workspace-picker="item.pane.kind === 'local'"
+              :workspace-select-value="
+                item.pane.kind === 'local' ? localWorkspaceSelectValue : remoteWorkspaceSelectValue
+              "
+              :workspace-options="
+                item.pane.kind === 'local' ? localWorkspaceOptions : remoteWorkspaceOptions
+              "
+              :workspace-removable-values="
+                item.pane.kind === 'local'
+                  ? localWorkspaceBookmarkValues
+                  : remoteWorkspaceBookmarkValues
+              "
+              :bookmark-disabled="!item.pane.path"
+              :remove-bookmark-disabled="
+                item.pane.kind === 'local'
+                  ? !currentLocalWorkspaceBookmarked
+                  : !currentRemoteWorkspaceBookmarked
+              "
+              :show-create-directory-action="false"
+              :create-directory-disabled="item.pane.kind === 'remote' && !item.pane.sessionId"
+              secondary-meta-label="大小"
+              tertiary-meta-label="修改时间"
+              :size-value="(entry) => (entry.isDir ? '--' : formatSize(entry.size))"
+              :modified-value="(entry) => formatTime(entry.modifiedAt)"
+              :permissions-value="(entry) => entry.permissions || '--'"
+              :owner-value="(entry) => entry.owner || '--'"
+              :secondary-meta-value="(entry) => (entry.isDir ? '--' : formatSize(entry.size))"
+              :tertiary-meta-value="(entry) => formatTime(entry.modifiedAt)"
+              secondary-meta-class=""
+              :thumbnail-url-for="
+                (entry) => thumbnailUrlFor(item.pane.kind, entry, item.pane.sessionId)
+              "
+              :is-thumbnail-loading="
+                (entry) => isThumbnailLoading(item.pane.kind, entry, item.pane.sessionId)
+              "
+              :highlight-entry-name="highlightEntryName"
+              :show-connecting-overlay="
+                item.pane.kind === 'remote' &&
+                activeBrowserPanel === item.pane.key &&
+                isDeletingRemote
+              "
+              connecting-title="正在删除远程条目"
+              :connecting-message="busyMessage"
+              @update:pathInput="setFtpPanePathInput(item.pane, $event)"
+              @update:filterQuery="
+                item.pane.kind === 'local'
+                  ? (localFilterQuery = $event)
+                  : (remoteFilterQuery = $event)
+              "
+              @update:extensionQuery="
+                item.pane.kind === 'local'
+                  ? (localRuleFilter.extensionQuery = $event)
+                  : (remoteRuleFilter.extensionQuery = $event)
+              "
+              @update:minSizeKb="
+                item.pane.kind === 'local'
+                  ? (localRuleFilter.minSizeKb = $event)
+                  : (remoteRuleFilter.minSizeKb = $event)
+              "
+              @update:maxSizeKb="
+                item.pane.kind === 'local'
+                  ? (localRuleFilter.maxSizeKb = $event)
+                  : (remoteRuleFilter.maxSizeKb = $event)
+              "
+              @update:modifiedWithinDays="
+                item.pane.kind === 'local'
+                  ? (localRuleFilter.modifiedWithinDays = $event)
+                  : (remoteRuleFilter.modifiedWithinDays = $event)
+              "
+              @primary-action="runFtpPanePrimaryAction(item.pane)"
+              @create-directory="createFtpPaneDirectory(item.pane)"
+              @switch-workspace="
+                item.pane.kind === 'local'
+                  ? switchLocalWorkspace($event)
+                  : switchRemoteWorkspace($event)
+              "
+              @bookmark-current="
+                item.pane.kind === 'local'
+                  ? addCurrentLocalWorkspace()
+                  : addCurrentRemoteWorkspace()
+              "
+              @pick-workspace="pickLocalWorkspace"
+              @remove-workspace="
+                item.pane.kind === 'local'
+                  ? removeCurrentLocalWorkspace($event)
+                  : removeCurrentRemoteWorkspace($event)
+              "
+              @open-breadcrumb="openFtpPanePath(item.pane, $event)"
+              @open-path="openFtpPanePath(item.pane)"
+              @go-parent="goFtpPaneParent(item.pane)"
+              @refresh="refreshFtpWorkspacePaneDirectory(item.pane.key, item.pane.path)"
+              @toggle-search="toggleSearch(item.pane.kind)"
+              @toggle-filter="toggleRuleFilter(item.pane.kind)"
+              @set-view-mode="setFtpPaneViewMode(item.pane, $event)"
+              @sort-column="sortFtpPaneByColumn(item.pane, $event)"
+              @set-filter-mode="setRuleFilterMode(item.pane.kind, $event)"
+              @set-filter-operator="setRuleFilterOperator(item.pane.kind, $event)"
+              @toggle-hide-hidden="toggleHideHidden(item.pane.kind)"
+              @apply-filter-preset="applyFilterPreset(item.pane.kind, $event)"
+              @save-filter-preset="saveFilterPreset(item.pane.kind)"
+              @delete-filter-preset="deleteSelectedFilterPreset(item.pane.kind)"
+              @reset-filter="resetRuleFilter(item.pane.kind)"
+              @panel-activate="setActiveBrowserPanel(item.pane.key)"
+              @dragenter="handleFtpPaneDragEnter($event, item.pane)"
+              @dragover="handleFtpPaneDragOver($event, item.pane)"
+              @dragleave="handleFtpPaneDragLeave($event, item.pane)"
+              @drop="handleFtpPaneDrop($event, item.pane)"
+              @select-all="selectAllFtpPaneEntries(item.pane)"
+              @marquee-select="handleFtpPaneMarqueeSelect(item.pane, $event)"
+              @list-contextmenu="handlePanelListContextMenu($event, item.pane.kind)"
+              @entry-click="
+                handleFtpPaneEntryClick(item.pane, $event.event, $event.entry, $event.index)
+              "
+              @entry-dblclick="openFtpPaneEntry(item.pane, $event)"
+              @entry-dragstart="setFtpPaneDragPayload($event.event, item.pane, $event.entry)"
+              @entry-dragend="handleFtpPaneEntryDragEnd"
+              @entry-contextmenu="
+                handleEntryContextMenu($event.event, item.pane.kind, $event.entry, $event.index)
+              "
+            />
+          </div>
+
+          <UiIconButton
+            v-for="handle in ftpPaneResizeHandles"
+            :key="handle.id"
+            type="button"
+            size="sm"
+            variant="ghost"
+            class="terminal-pane-resizer"
+            :class="`terminal-pane-resizer--${handle.orientation}`"
+            :style="handle.style"
+            aria-label="调整传输工作区大小"
+            @pointerdown="startFtpPaneResize($event, handle)"
+          />
+          <div
+            v-if="ftpPaneDragPreview.visible"
+            class="terminal-pane-drag-preview"
+            :style="{
+              left: `${ftpPaneDragPreview.left}px`,
+              top: `${ftpPaneDragPreview.top}px`,
+            }"
+          >
+            <span class="terminal-pane-drag-preview__kind">{{
+              ftpPaneKindLabel(ftpPaneDragPreview.kind)
+            }}</span>
+            <span class="terminal-pane-drag-preview__title">{{ ftpPaneDragPreview.title }}</span>
+          </div>
+        </section>
+      </div>
+
+      <section
+        class="ftp-aux-dock"
+        :class="[
           `ftp-aux-dock--${auxiliaryDockSide}`,
           {
             'ftp-aux-dock--tabbed': useAuxDockTabs,
             'ftp-aux-dock--collapsed': auxiliaryDockCollapsed,
           },
-        ]">
-          <div
-            v-if="auxiliaryDockSide === 'bottom' && !auxiliaryDockCollapsed"
-            class="ftp-aux-dock__resize-handle"
-            role="separator"
-            aria-orientation="horizontal"
-            aria-label="调整底部栏高度"
-            title="拖拽调整底部栏高度"
-            @mousedown="startAuxiliaryDockResize"
-          />
-          <div v-if="useAuxDockTabs" class="ftp-aux-dock__tabs">
-            <div class="ftp-aux-dock__tab-list">
-              <UiButton type="button" size="sm" variant="ghost" class="ftp-aux-dock__tab"
-                :active="auxDockActiveTab === 'queue'"
-                :class="{ 'ftp-aux-dock__tab--active': auxDockActiveTab === 'queue' }"
-                @click="auxDockActiveTab = 'queue'">
-                传输队列
-                <span class="ftp-badge ftp-badge--accent">{{ activeTaskCount }}</span>
-              </UiButton>
-              <UiButton v-if="showLogPanel" type="button" size="sm" variant="ghost" class="ftp-aux-dock__tab"
-                :active="auxDockActiveTab === 'log'"
-                :class="{ 'ftp-aux-dock__tab--active': auxDockActiveTab === 'log' }" @click="auxDockActiveTab = 'log'">
-                操作日志
-                <span class="ftp-badge">{{ ftpStore.logs.length }}</span>
-              </UiButton>
-            </div>
-            <div class="ftp-aux-dock__toolbar">
-              <template v-if="auxDockActiveTab === 'queue' && !auxiliaryDockCollapsed">
-                <UiIconButton
-                  v-if="completedTaskCount"
-                  size="sm"
-                  variant="ghost"
-                  title="清除已完成"
-                  @click="deleteCompletedTasks()"
-                >
-                  <svg viewBox="0 0 24 24" aria-hidden="true">
-                    <path d="M5 7h14M9 7V5h6v2M8 7l1 12h6l1-12M10.5 10v6M13.5 10v6" />
-                  </svg>
-                </UiIconButton>
-                <UiIconButton size="sm" variant="ghost" title="全部暂停" @click="pauseAllTasks()">
-                  <svg viewBox="0 0 24 24" aria-hidden="true">
-                    <path d="M9 5v14M15 5v14" />
-                  </svg>
-                </UiIconButton>
-                <UiIconButton size="sm" variant="ghost" title="全部恢复" @click="resumeAllTasks()">
-                  <svg viewBox="0 0 24 24" aria-hidden="true">
-                    <path d="M8 5v14l11-7-11-7z" />
-                  </svg>
-                </UiIconButton>
-                <UiSelect class="ftp-aux-dock__sort-select" size="sm" :model-value="taskSortKey" :options="taskSortOptions"
-                  @change="taskSortKey = String($event) as TaskSortKey" />
-                <UiIconButton
-                  size="sm"
-                  variant="ghost"
-                  :title="taskSortDirection === 'asc' ? '升序' : '降序'"
-                  @click="toggleTaskSortDirection"
-                >
-                  <svg viewBox="0 0 24 24" aria-hidden="true" :class="{ 'ftp-aux-dock__sort-icon--desc': taskSortDirection === 'desc' }">
-                    <path d="M12 19V5M7.5 9.5 12 5l4.5 4.5" />
-                  </svg>
-                </UiIconButton>
-                <UiIconButton size="sm" variant="ghost" title="刷新任务" @click="ftpStore.reloadRuntimeState()">
-                  <svg viewBox="0 0 24 24" aria-hidden="true">
-                    <path d="M19 8a7 7 0 1 0 1 4M19 5v3h-3" />
-                  </svg>
-                </UiIconButton>
-              </template>
-              <template v-else-if="auxDockActiveTab === 'log' && !auxiliaryDockCollapsed">
-                <UiButton size="sm" variant="ghost" :disabled="!ftpStore.logs.length" @click="ftpStore.clearLogs()">
-                  <template #prefix>
-                    <DeleteIcon width="14" height="14" />
-                  </template>
-                  清空日志
-                </UiButton>
-              </template>
-              <UiIconButton class="ftp-aux-dock__collapse-button" size="sm" variant="ghost"
-                title="切换底部栏" aria-label="切换底部栏" @click="toggleAuxiliaryDockCollapsed">
-                <svg viewBox="0 0 24 24" aria-hidden="true"
-                  :class="{ 'ftp-aux-dock__collapse-icon--collapsed': auxiliaryDockCollapsed }">
-                  <path d="m7 10 5 5 5-5" />
+        ]"
+      >
+        <div
+          v-if="auxiliaryDockSide === 'bottom' && !auxiliaryDockCollapsed"
+          class="ftp-aux-dock__resize-handle"
+          role="separator"
+          aria-orientation="horizontal"
+          aria-label="调整底部栏高度"
+          title="拖拽调整底部栏高度"
+          @mousedown="startAuxiliaryDockResize"
+        />
+        <div v-if="useAuxDockTabs" class="ftp-aux-dock__tabs">
+          <div class="ftp-aux-dock__tab-list">
+            <UiButton
+              type="button"
+              size="sm"
+              variant="ghost"
+              class="ftp-aux-dock__tab"
+              :active="auxDockActiveTab === 'queue'"
+              :class="{ 'ftp-aux-dock__tab--active': auxDockActiveTab === 'queue' }"
+              @click="auxDockActiveTab = 'queue'"
+            >
+              传输队列
+              <span class="ftp-badge ftp-badge--accent">{{ activeTaskCount }}</span>
+            </UiButton>
+            <UiButton
+              v-if="showLogPanel"
+              type="button"
+              size="sm"
+              variant="ghost"
+              class="ftp-aux-dock__tab"
+              :active="auxDockActiveTab === 'log'"
+              :class="{ 'ftp-aux-dock__tab--active': auxDockActiveTab === 'log' }"
+              @click="auxDockActiveTab = 'log'"
+            >
+              操作日志
+              <span class="ftp-badge">{{ ftpStore.logs.length }}</span>
+            </UiButton>
+          </div>
+          <div class="ftp-aux-dock__toolbar">
+            <template v-if="auxDockActiveTab === 'queue' && !auxiliaryDockCollapsed">
+              <UiIconButton
+                v-if="completedTaskCount"
+                size="sm"
+                variant="ghost"
+                title="清除已完成"
+                @click="deleteCompletedTasks()"
+              >
+                <svg viewBox="0 0 24 24" aria-hidden="true">
+                  <path d="M5 7h14M9 7V5h6v2M8 7l1 12h6l1-12M10.5 10v6M13.5 10v6" />
                 </svg>
               </UiIconButton>
-            </div>
+              <UiIconButton size="sm" variant="ghost" title="全部暂停" @click="pauseAllTasks()">
+                <svg viewBox="0 0 24 24" aria-hidden="true">
+                  <path d="M9 5v14M15 5v14" />
+                </svg>
+              </UiIconButton>
+              <UiIconButton size="sm" variant="ghost" title="全部恢复" @click="resumeAllTasks()">
+                <svg viewBox="0 0 24 24" aria-hidden="true">
+                  <path d="M8 5v14l11-7-11-7z" />
+                </svg>
+              </UiIconButton>
+              <UiSelect
+                class="ftp-aux-dock__sort-select"
+                size="sm"
+                :model-value="taskSortKey"
+                :options="taskSortOptions"
+                @change="taskSortKey = String($event) as TaskSortKey"
+              />
+              <UiIconButton
+                size="sm"
+                variant="ghost"
+                :title="taskSortDirection === 'asc' ? '升序' : '降序'"
+                @click="toggleTaskSortDirection"
+              >
+                <svg
+                  viewBox="0 0 24 24"
+                  aria-hidden="true"
+                  :class="{ 'ftp-aux-dock__sort-icon--desc': taskSortDirection === 'desc' }"
+                >
+                  <path d="M12 19V5M7.5 9.5 12 5l4.5 4.5" />
+                </svg>
+              </UiIconButton>
+              <UiIconButton
+                size="sm"
+                variant="ghost"
+                title="刷新任务"
+                @click="ftpStore.reloadRuntimeState()"
+              >
+                <svg viewBox="0 0 24 24" aria-hidden="true">
+                  <path d="M19 8a7 7 0 1 0 1 4M19 5v3h-3" />
+                </svg>
+              </UiIconButton>
+            </template>
+            <template v-else-if="auxDockActiveTab === 'log' && !auxiliaryDockCollapsed">
+              <UiButton
+                size="sm"
+                variant="ghost"
+                :disabled="!ftpStore.logs.length"
+                @click="ftpStore.clearLogs()"
+              >
+                <template #prefix>
+                  <DeleteIcon width="14" height="14" />
+                </template>
+                清空日志
+              </UiButton>
+            </template>
+            <UiIconButton
+              class="ftp-aux-dock__collapse-button"
+              size="sm"
+              variant="ghost"
+              title="切换底部栏"
+              aria-label="切换底部栏"
+              @click="toggleAuxiliaryDockCollapsed"
+            >
+              <svg
+                viewBox="0 0 24 24"
+                aria-hidden="true"
+                :class="{ 'ftp-aux-dock__collapse-icon--collapsed': auxiliaryDockCollapsed }"
+              >
+                <path d="m7 10 5 5 5-5" />
+              </svg>
+            </UiIconButton>
           </div>
-          <Transition name="ui-tab-fade" mode="out-in">
-            <FtpTransferQueue v-if="!auxiliaryDockCollapsed && showQueuePanelInDock" :collapsed="false" :active-task-count="activeTaskCount"
-              :paused-task-count="pausedTaskCount" :completed-task-count="completedTaskCount"
-              :failed-task-count="failedTaskCount" :tasks="sortedTransferTasks" :is-task-expanded="isTaskExpanded"
-              :task-priority-label="taskPriorityLabel" :task-status-label="taskStatusLabel"
-              :can-pause-task="canPauseTask" :can-resume-task="canResumeTask" :can-retry-task="canRetryTask"
-              :format-size="formatSize" :format-eta="formatTaskEta" @toggle-task-expanded="toggleTaskExpanded"
-              @update-task-priority="updateTaskPriority($event.taskId, $event.priority)" @pause-task="pauseTask"
-              @resume-task="resumeTask" @retry-task="retryTask" @delete-task="deleteTransferTask" />
+        </div>
+        <Transition name="ui-tab-fade" mode="out-in">
+          <FtpTransferQueue
+            v-if="!auxiliaryDockCollapsed && showQueuePanelInDock"
+            :collapsed="false"
+            :active-task-count="activeTaskCount"
+            :paused-task-count="pausedTaskCount"
+            :completed-task-count="completedTaskCount"
+            :failed-task-count="failedTaskCount"
+            :tasks="sortedTransferTasks"
+            :is-task-expanded="isTaskExpanded"
+            :task-priority-label="taskPriorityLabel"
+            :task-status-label="taskStatusLabel"
+            :can-pause-task="canPauseTask"
+            :can-resume-task="canResumeTask"
+            :can-retry-task="canRetryTask"
+            :format-size="formatSize"
+            :format-eta="formatTaskEta"
+            @toggle-task-expanded="toggleTaskExpanded"
+            @update-task-priority="updateTaskPriority($event.taskId, $event.priority)"
+            @pause-task="pauseTask"
+            @resume-task="resumeTask"
+            @retry-task="retryTask"
+            @delete-task="deleteTransferTask"
+          />
 
-            <section v-else-if="!auxiliaryDockCollapsed && showLogPanelInDock" class="ftp-log-panel ftp-inner-card">
-              <div class="ftp-log-panel__body">
-                <div v-if="!ftpStore.logs.length" class="ftp-empty-state">当前还没有 FTP 操作日志。</div>
-                <div v-else class="ftp-log-panel__list">
-                  <div v-for="entry in ftpStore.logs" :key="entry.id" class="ftp-log-panel__entry"
-                    :class="`ftp-log-panel__entry--${entry.tone}`">
-                    <span class="ftp-log-panel__time">{{ formatLogTime(entry.timestamp) }}</span>
-                    <span class="ftp-log-panel__message">{{ entry.message }}</span>
-                  </div>
+          <section
+            v-else-if="!auxiliaryDockCollapsed && showLogPanelInDock"
+            class="ftp-log-panel ftp-inner-card"
+          >
+            <div class="ftp-log-panel__body">
+              <div v-if="!ftpStore.logs.length" class="ftp-empty-state">
+                当前还没有 FTP 操作日志。
+              </div>
+              <div v-else class="ftp-log-panel__list">
+                <div
+                  v-for="entry in ftpStore.logs"
+                  :key="entry.id"
+                  class="ftp-log-panel__entry"
+                  :class="`ftp-log-panel__entry--${entry.tone}`"
+                >
+                  <span class="ftp-log-panel__time">{{ formatLogTime(entry.timestamp) }}</span>
+                  <span class="ftp-log-panel__message">{{ entry.message }}</span>
                 </div>
               </div>
-            </section>
-          </Transition>
-        </section>
+            </div>
+          </section>
+        </Transition>
+      </section>
 
-      <FtpSyncPanel :model-value="syncPanelVisible" :active-session="Boolean(activeSession)"
-        :sync-direction="syncDirection" :sync-direction-options="syncDirectionOptions"
-        :sync-conflict-policy="syncConflictPolicy" :sync-conflict-policy-options="syncConflictPolicyOptions"
-        :recursive-compare-enabled="recursiveCompareEnabled" :checksum-compare-enabled="checksumCompareEnabled"
-        :sync-executable-count="syncExecutableCount" :sync-executing="syncExecuting"
-        :checksum-compare-running="checksumCompareRunning" :sync-execution-summary="syncExecutionSummary"
-        :sync-cancel-requested="syncCancelRequested" :sync-comparison-expanded="syncComparisonExpanded"
-        :sync-summary="syncSummary" :sync-preview-summary="syncPreviewSummary" :sync-preview-items="syncPreviewItems"
-        :selected-preview-keys="syncSelectedKeys" :format-size="formatSize" :sync-status-label="syncStatusLabel"
-        :sync-action-label="syncActionLabel" :sync-difference-label="syncDifferenceLabel"
-        @update:modelValue="syncPanelVisible = $event" @update:syncDirection="syncDirection = $event"
+      <FtpSyncPanel
+        :model-value="syncPanelVisible"
+        :active-session="Boolean(activeSession)"
+        :sync-direction="syncDirection"
+        :sync-direction-options="syncDirectionOptions"
+        :sync-conflict-policy="syncConflictPolicy"
+        :sync-conflict-policy-options="syncConflictPolicyOptions"
+        :recursive-compare-enabled="recursiveCompareEnabled"
+        :checksum-compare-enabled="checksumCompareEnabled"
+        :sync-executable-count="syncExecutableCount"
+        :sync-executing="syncExecuting"
+        :checksum-compare-running="checksumCompareRunning"
+        :sync-execution-summary="syncExecutionSummary"
+        :sync-cancel-requested="syncCancelRequested"
+        :sync-comparison-expanded="syncComparisonExpanded"
+        :sync-summary="syncSummary"
+        :sync-preview-summary="syncPreviewSummary"
+        :sync-preview-items="syncPreviewItems"
+        :selected-preview-keys="syncSelectedKeys"
+        :format-size="formatSize"
+        :sync-status-label="syncStatusLabel"
+        :sync-action-label="syncActionLabel"
+        :sync-difference-label="syncDifferenceLabel"
+        @update:modelValue="syncPanelVisible = $event"
+        @update:syncDirection="syncDirection = $event"
         @update:syncConflictPolicy="syncConflictPolicy = $event"
         @update:recursiveCompareEnabled="recursiveCompareEnabled = $event"
-        @update:checksumCompareEnabled="checksumCompareEnabled = $event" @compare="compareCurrentDirectories"
-        @execute="executeSyncPreview" @cancel="cancelSyncExecution" @toggle-preview-item="toggleSyncPreviewItem"
-        @set-all-preview-items="setAllSyncPreviewItems" />
-
+        @update:checksumCompareEnabled="checksumCompareEnabled = $event"
+        @compare="compareCurrentDirectories"
+        @execute="executeSyncPreview"
+        @cancel="cancelSyncExecution"
+        @toggle-preview-item="toggleSyncPreviewItem"
+        @set-all-preview-items="setAllSyncPreviewItems"
+      />
     </template>
 
     <template #overlays>
-
-    <UiDialog v-model="saveLayoutDialogVisible" width="420" max-width="calc(100vw - 48px)">
-      <template #header>
-        <div class="ftp-dialog__header">保存连接布局</div>
-      </template>
-      <div class="ftp-dialog__body">
-        <UiInput
-          v-model="saveLayoutName"
-          placeholder="输入布局名称"
-          @keydown.enter="saveCurrentFtpConnectionLayout"
-        />
-      </div>
-      <template #footer>
-        <div class="ftp-dialog__footer">
-          <UiButton size="sm" variant="ghost" @click="saveLayoutDialogVisible = false">取消</UiButton>
-          <UiButton size="sm" variant="primary" @click="saveCurrentFtpConnectionLayout">保存</UiButton>
+      <UiDialog v-model="saveLayoutDialogVisible" width="420" max-width="calc(100vw - 48px)">
+        <template #header>
+          <div class="ftp-dialog__header">保存连接布局</div>
+        </template>
+        <div class="ftp-dialog__body">
+          <UiInput
+            v-model="saveLayoutName"
+            placeholder="输入布局名称"
+            @keydown.enter="saveCurrentFtpConnectionLayout"
+          />
         </div>
-      </template>
-    </UiDialog>
+        <template #footer>
+          <div class="ftp-dialog__footer">
+            <UiButton size="sm" variant="ghost" @click="saveLayoutDialogVisible = false"
+              >取消</UiButton
+            >
+            <UiButton size="sm" variant="primary" @click="saveCurrentFtpConnectionLayout"
+              >保存</UiButton
+            >
+          </div>
+        </template>
+      </UiDialog>
 
-    <FtpProfileDialog :model-value="profileDialogVisible" :title="editingProfileId ? '编辑传输配置' : '新建传输配置'"
-      :form="profileForm" :protocol-options="protocolOptions" :ssh-profile-options="sshProfileOptions"
-      :folder-select-options="folderSelectOptions" :auth-type-options="authTypeOptions"
-      :ssh-profile-enabled="sshProfileEnabled" :ssh-profile-label="sshProfileLabel"
-      @update:modelValue="profileDialogVisible = $event" @apply-ssh-profile="applySshProfile" @save="saveProfile" />
+      <FtpProfileDialog
+        :model-value="profileDialogVisible"
+        :title="editingProfileId ? '编辑传输配置' : '新建传输配置'"
+        :form="profileForm"
+        :protocol-options="protocolOptions"
+        :ssh-profile-options="sshProfileOptions"
+        :folder-select-options="folderSelectOptions"
+        :auth-type-options="authTypeOptions"
+        :ssh-profile-enabled="sshProfileEnabled"
+        :ssh-profile-label="sshProfileLabel"
+        @update:modelValue="profileDialogVisible = $event"
+        @apply-ssh-profile="applySshProfile"
+        @save="saveProfile"
+      />
 
-    <FtpFolderDialog :model-value="folderDialogVisible" :title="editingFolderId ? '编辑文件夹' : '新建文件夹'" :form="folderForm"
-      :parent-options="folderParentOptions" @update:modelValue="folderDialogVisible = $event" @save="saveFolder" />
+      <FtpFolderDialog
+        :model-value="folderDialogVisible"
+        :title="editingFolderId ? '编辑文件夹' : '新建文件夹'"
+        :form="folderForm"
+        :parent-options="folderParentOptions"
+        @update:modelValue="folderDialogVisible = $event"
+        @save="saveFolder"
+      />
 
-    <FtpEntryNameDialog :model-value="entryNameDialogVisible" :title="entryNameDialogTitle"
-      :label="entryNameDialogLabel" :confirm-text="entryNameDialogConfirmText" :value="entryNameDialogValue"
-      :placeholder="entryNameDialogPlaceholder" @update:modelValue="(value) => !value && cancelEntryNameDialog()"
-      @update:value="entryNameDialogValue = $event" @submit="submitEntryNameDialog" @cancel="cancelEntryNameDialog" />
+      <FtpEntryNameDialog
+        :model-value="entryNameDialogVisible"
+        :title="entryNameDialogTitle"
+        :label="entryNameDialogLabel"
+        :confirm-text="entryNameDialogConfirmText"
+        :value="entryNameDialogValue"
+        :placeholder="entryNameDialogPlaceholder"
+        @update:modelValue="(value) => !value && cancelEntryNameDialog()"
+        @update:value="entryNameDialogValue = $event"
+        @submit="submitEntryNameDialog"
+        @cancel="cancelEntryNameDialog"
+      />
 
-    <FtpPasswordDialog :model-value="passwordDialogVisible"
-      :label="pendingConnectProfile ? `${pendingConnectProfile.username}@${pendingConnectProfile.host}` : '密码'"
-      :password="connectPassword" @update:modelValue="passwordDialogVisible = $event"
-      @update:password="connectPassword = $event" @submit="submitPasswordConnect" @cancel="cancelPasswordPrompt" />
+      <FtpPasswordDialog
+        :model-value="passwordDialogVisible"
+        :label="
+          pendingConnectProfile
+            ? `${pendingConnectProfile.username}@${pendingConnectProfile.host}`
+            : '密码'
+        "
+        :password="connectPassword"
+        @update:modelValue="passwordDialogVisible = $event"
+        @update:password="connectPassword = $event"
+        @submit="submitPasswordConnect"
+        @cancel="cancelPasswordPrompt"
+      />
 
-    <FtpAuthChallengeDialog :model-value="authChallengeDialogVisible" :challenge="pendingAuthChallenge"
-      :responses="authChallengeResponses" @update:modelValue="(value) => !value && cancelAuthChallenge()"
-      @update:responses="authChallengeResponses = $event" @submit="submitAuthChallenge" @cancel="cancelAuthChallenge" />
+      <FtpAuthChallengeDialog
+        :model-value="authChallengeDialogVisible"
+        :challenge="pendingAuthChallenge"
+        :responses="authChallengeResponses"
+        @update:modelValue="(value) => !value && cancelAuthChallenge()"
+        @update:responses="authChallengeResponses = $event"
+        @submit="submitAuthChallenge"
+        @cancel="cancelAuthChallenge"
+      />
 
-    <UiDialog v-model="scheduleDialogVisible" width="880" max-width="96vw">
-      <template #header>
-        <div class="ftp-dialog__header">定时传输任务</div>
-      </template>
-      <div class="ftp-dialog__body">
-        <div class="ftp-dialog__grid">
-          <label class="ftp-form-field">
-            <span>任务名称</span>
-            <UiInput :model-value="scheduleForm.label" placeholder="例如：夜间日志下载"
-              @update:modelValue="scheduleForm.label = String($event)" />
-          </label>
-          <label class="ftp-form-field">
-            <span>传输配置</span>
-            <UiSelect :model-value="scheduleForm.profileId" :options="scheduledTaskProfileOptions"
-              @change="scheduleForm.profileId = String($event)" />
-          </label>
-          <label class="ftp-form-field">
-            <span>执行方向</span>
-            <UiSelect :model-value="scheduleForm.direction" :options="scheduledDirectionOptions"
-              @change="scheduleForm.direction = String($event)" />
-          </label>
-          <label class="ftp-form-field">
-            <span>计划类型</span>
-            <UiSelect :model-value="scheduleForm.scheduleType" :options="scheduledTypeOptions"
-              @change="scheduleForm.scheduleType = String($event)" />
-          </label>
-          <label class="ftp-form-field">
-            <span>冲突策略</span>
-            <UiSelect :model-value="scheduleForm.conflictPolicy || 'skip'" :options="scheduledConflictPolicyOptions"
-              @change="scheduleForm.conflictPolicy = String($event) as 'skip' | 'parallel'" />
-          </label>
-          <label class="ftp-form-field ftp-form-field--full">
-            <span>本地路径</span>
-            <UiInput :model-value="scheduleForm.localPath" placeholder="本地文件或目录路径"
-              @update:modelValue="scheduleForm.localPath = String($event)" />
-          </label>
-          <label class="ftp-form-field ftp-form-field--full">
-            <span>远程路径</span>
-            <UiInput :model-value="scheduleForm.remotePath" placeholder="远程文件或目录路径"
-              @update:modelValue="scheduleForm.remotePath = String($event)" />
-          </label>
-          <label v-if="scheduleForm.scheduleType === 'once'" class="ftp-form-field">
-            <span>执行时间</span>
-            <UiDateTimePicker :model-value="scheduleForm.onceAt" value-type="timestamp" placeholder="选择执行日期和时间"
-              @update:model-value="scheduleForm.onceAt = ($event as number | undefined)" />
-          </label>
-          <label v-if="scheduleForm.scheduleType === 'hourly'" class="ftp-form-field">
-            <span>间隔小时</span>
-            <UiInput class="ftp-native-input" type="number" :min="1" :model-value="String(scheduleForm.intervalHours || 1)"
-              @update:modelValue="scheduleForm.intervalHours = Number($event) || 1" />
-          </label>
-          <label v-if="scheduleForm.scheduleType === 'daily' || scheduleForm.scheduleType === 'weekly'"
-            class="ftp-form-field">
-            <span>执行时刻</span>
-            <UiTimePicker :model-value="scheduleForm.timeOfDay || '09:00'" :minute-step="1"
-              @update:model-value="scheduleForm.timeOfDay = String($event)" />
-          </label>
-          <label v-if="scheduleForm.scheduleType === 'weekly'" class="ftp-form-field">
-            <span>每周执行日</span>
-            <UiSelect :model-value="String(scheduleForm.dayOfWeek ?? 1)"
-              :options="weekDayOptions.map((item) => ({ ...item, value: String(item.value) }))"
-              @change="scheduleForm.dayOfWeek = Number($event)" />
-          </label>
-          <label v-if="scheduleForm.scheduleType === 'cron'" class="ftp-form-field ftp-form-field--full">
-            <span>Cron 表达式</span>
-            <UiInput :model-value="scheduleForm.cronExpression || ''" :placeholder="cronExpressionHint"
-              @update:modelValue="scheduleForm.cronExpression = String($event)" />
-            <div class="ftp-schedule-form__hint">{{ cronExpressionHint }}</div>
-          </label>
-        </div>
+      <UiDialog v-model="scheduleDialogVisible" width="880" max-width="96vw">
+        <template #header>
+          <div class="ftp-dialog__header">定时传输任务</div>
+        </template>
+        <div class="ftp-dialog__body">
+          <div class="ftp-dialog__grid">
+            <label class="ftp-form-field">
+              <span>任务名称</span>
+              <UiInput
+                :model-value="scheduleForm.label"
+                placeholder="例如：夜间日志下载"
+                @update:modelValue="scheduleForm.label = String($event)"
+              />
+            </label>
+            <label class="ftp-form-field">
+              <span>传输配置</span>
+              <UiSelect
+                :model-value="scheduleForm.profileId"
+                :options="scheduledTaskProfileOptions"
+                @change="scheduleForm.profileId = String($event)"
+              />
+            </label>
+            <label class="ftp-form-field">
+              <span>执行方向</span>
+              <UiSelect
+                :model-value="scheduleForm.direction"
+                :options="scheduledDirectionOptions"
+                @change="scheduleForm.direction = String($event)"
+              />
+            </label>
+            <label class="ftp-form-field">
+              <span>计划类型</span>
+              <UiSelect
+                :model-value="scheduleForm.scheduleType"
+                :options="scheduledTypeOptions"
+                @change="scheduleForm.scheduleType = String($event)"
+              />
+            </label>
+            <label class="ftp-form-field">
+              <span>冲突策略</span>
+              <UiSelect
+                :model-value="scheduleForm.conflictPolicy || 'skip'"
+                :options="scheduledConflictPolicyOptions"
+                @change="scheduleForm.conflictPolicy = String($event) as 'skip' | 'parallel'"
+              />
+            </label>
+            <label class="ftp-form-field ftp-form-field--full">
+              <span>本地路径</span>
+              <UiInput
+                :model-value="scheduleForm.localPath"
+                placeholder="本地文件或目录路径"
+                @update:modelValue="scheduleForm.localPath = String($event)"
+              />
+            </label>
+            <label class="ftp-form-field ftp-form-field--full">
+              <span>远程路径</span>
+              <UiInput
+                :model-value="scheduleForm.remotePath"
+                placeholder="远程文件或目录路径"
+                @update:modelValue="scheduleForm.remotePath = String($event)"
+              />
+            </label>
+            <label v-if="scheduleForm.scheduleType === 'once'" class="ftp-form-field">
+              <span>执行时间</span>
+              <UiDateTimePicker
+                :model-value="scheduleForm.onceAt"
+                value-type="timestamp"
+                placeholder="选择执行日期和时间"
+                @update:model-value="scheduleForm.onceAt = $event as number | undefined"
+              />
+            </label>
+            <label v-if="scheduleForm.scheduleType === 'hourly'" class="ftp-form-field">
+              <span>间隔小时</span>
+              <UiInput
+                class="ftp-native-input"
+                type="number"
+                :min="1"
+                :model-value="String(scheduleForm.intervalHours || 1)"
+                @update:modelValue="scheduleForm.intervalHours = Number($event) || 1"
+              />
+            </label>
+            <label
+              v-if="scheduleForm.scheduleType === 'daily' || scheduleForm.scheduleType === 'weekly'"
+              class="ftp-form-field"
+            >
+              <span>执行时刻</span>
+              <UiTimePicker
+                :model-value="scheduleForm.timeOfDay || '09:00'"
+                :minute-step="1"
+                @update:model-value="scheduleForm.timeOfDay = String($event)"
+              />
+            </label>
+            <label v-if="scheduleForm.scheduleType === 'weekly'" class="ftp-form-field">
+              <span>每周执行日</span>
+              <UiSelect
+                :model-value="String(scheduleForm.dayOfWeek ?? 1)"
+                :options="weekDayOptions.map((item) => ({ ...item, value: String(item.value) }))"
+                @change="scheduleForm.dayOfWeek = Number($event)"
+              />
+            </label>
+            <label
+              v-if="scheduleForm.scheduleType === 'cron'"
+              class="ftp-form-field ftp-form-field--full"
+            >
+              <span>Cron 表达式</span>
+              <UiInput
+                :model-value="scheduleForm.cronExpression || ''"
+                :placeholder="cronExpressionHint"
+                @update:modelValue="scheduleForm.cronExpression = String($event)"
+              />
+              <div class="ftp-schedule-form__hint">{{ cronExpressionHint }}</div>
+            </label>
+          </div>
 
-        <UiCheckbox v-model="scheduleForm.enabled">启用这个计划任务</UiCheckbox>
+          <UiCheckbox v-model="scheduleForm.enabled">启用这个计划任务</UiCheckbox>
 
-        <div class="ftp-schedule-list">
-          <div v-for="task in scheduledTasks" :key="task.id" class="ftp-schedule-item">
-            <div class="ftp-schedule-item__main">
-              <div class="ftp-schedule-item__title">{{ task.label }}</div>
-              <div class="ftp-schedule-item__meta">
-                {{ task.direction === 'upload' ? '上传' : '下载' }} · {{ formatScheduledTaskRule(task) }} · 下次执行 {{
-                  task.nextRunAt ? formatTime(task.nextRunAt) : '未计划' }}
+          <div class="ftp-schedule-list">
+            <div v-for="task in scheduledTasks" :key="task.id" class="ftp-schedule-item">
+              <div class="ftp-schedule-item__main">
+                <div class="ftp-schedule-item__title">{{ task.label }}</div>
+                <div class="ftp-schedule-item__meta">
+                  {{ task.direction === 'upload' ? '上传' : '下载' }} ·
+                  {{ formatScheduledTaskRule(task) }} · 下次执行
+                  {{ task.nextRunAt ? formatTime(task.nextRunAt) : '未计划' }}
+                </div>
+                <div class="ftp-schedule-item__meta">
+                  冲突策略：{{ task.conflictPolicy === 'parallel' ? '允许并行' : '冲突时跳过' }} ·
+                  最近结果：{{ task.lastResult || '暂无' }}
+                </div>
               </div>
-              <div class="ftp-schedule-item__meta">
-                冲突策略：{{ task.conflictPolicy === 'parallel' ? '允许并行' : '冲突时跳过' }} · 最近结果：{{ task.lastResult || '暂无' }}
+              <div class="ftp-schedule-item__actions">
+                <UiButton size="sm" variant="ghost" @click="openScheduleDialog(task)"
+                  >编辑</UiButton
+                >
+                <UiButton size="sm" variant="ghost" @click="runScheduledTaskNow(task.id)"
+                  >立即执行</UiButton
+                >
+                <UiButton size="sm" variant="danger" @click="deleteScheduledTask(task.id)"
+                  >删除</UiButton
+                >
               </div>
             </div>
-            <div class="ftp-schedule-item__actions">
-              <UiButton size="sm" variant="ghost" @click="openScheduleDialog(task)">编辑</UiButton>
-              <UiButton size="sm" variant="ghost" @click="runScheduledTaskNow(task.id)">立即执行</UiButton>
-              <UiButton size="sm" variant="danger" @click="deleteScheduledTask(task.id)">删除</UiButton>
+            <div v-if="!scheduledTasks.length" class="ftp-empty-state">
+              当前还没有定时传输任务。
             </div>
           </div>
-          <div v-if="!scheduledTasks.length" class="ftp-empty-state">当前还没有定时传输任务。</div>
         </div>
-      </div>
-      <template #footer>
-        <div class="ftp-dialog__footer">
-          <UiButton variant="ghost" @click="scheduleDialogVisible = false">关闭</UiButton>
-          <UiButton variant="primary" @click="saveScheduledTask">{{ editingScheduledTaskId ? '保存修改' : '创建任务' }}
-          </UiButton>
-        </div>
-      </template>
-    </UiDialog>
+        <template #footer>
+          <div class="ftp-dialog__footer">
+            <UiButton variant="ghost" @click="scheduleDialogVisible = false">关闭</UiButton>
+            <UiButton variant="primary" @click="saveScheduledTask"
+              >{{ editingScheduledTaskId ? '保存修改' : '创建任务' }}
+            </UiButton>
+          </div>
+        </template>
+      </UiDialog>
 
-    <UiDialog v-model="remotePreviewDialogVisible" width="960" max-width="96vw">
-      <template #header>
-        <div class="ftp-dialog__header">{{ remotePreviewTitle }}</div>
-      </template>
-      <div class="ftp-remote-preview">
-        <div class="ftp-remote-editor__path-wrap">
-          <div class="ftp-remote-editor__path">{{ remotePreviewPath }}</div>
-          <span class="ftp-badge ftp-badge--accent">
-            {{ remotePreviewKind === 'image' ? remotePreviewImageScopeLabel : '远程文本预览' }}
-          </span>
+      <UiDialog v-model="remotePreviewDialogVisible" width="960" max-width="96vw">
+        <template #header>
+          <div class="ftp-dialog__header">{{ remotePreviewTitle }}</div>
+        </template>
+        <div class="ftp-remote-preview">
+          <div class="ftp-remote-editor__path-wrap">
+            <div class="ftp-remote-editor__path">{{ remotePreviewPath }}</div>
+            <span class="ftp-badge ftp-badge--accent">
+              {{ remotePreviewKind === 'image' ? remotePreviewImageScopeLabel : '远程文本预览' }}
+            </span>
+          </div>
+          <div v-if="remotePreviewLoading" class="ftp-empty-state">
+            {{ remotePreviewLoadingText }}
+          </div>
+          <div v-else-if="remotePreviewError" class="ftp-empty-state ftp-empty-state--danger">
+            {{ remotePreviewError }}
+          </div>
+          <div v-else-if="remotePreviewKind === 'image'" class="ftp-remote-preview__image-shell">
+            <img
+              v-if="remotePreviewImageSrc"
+              class="ftp-remote-preview__image"
+              :src="remotePreviewImageSrc"
+              :alt="remotePreviewName"
+            />
+          </div>
+          <pre v-else class="ftp-remote-preview__text">{{ remotePreviewText }}</pre>
         </div>
-        <div v-if="remotePreviewLoading" class="ftp-empty-state">
-          {{ remotePreviewLoadingText }}
-        </div>
-        <div v-else-if="remotePreviewError" class="ftp-empty-state ftp-empty-state--danger">
-          {{ remotePreviewError }}
-        </div>
-        <div v-else-if="remotePreviewKind === 'image'" class="ftp-remote-preview__image-shell">
-          <img v-if="remotePreviewImageSrc" class="ftp-remote-preview__image" :src="remotePreviewImageSrc"
-            :alt="remotePreviewName" />
-        </div>
-        <pre v-else class="ftp-remote-preview__text">{{ remotePreviewText }}</pre>
-      </div>
-      <template #footer>
-        <div class="ftp-dialog__footer">
-          <UiButton variant="ghost" @click="remotePreviewDialogVisible = false">关闭</UiButton>
-        </div>
-      </template>
-    </UiDialog>
+        <template #footer>
+          <div class="ftp-dialog__footer">
+            <UiButton variant="ghost" @click="remotePreviewDialogVisible = false">关闭</UiButton>
+          </div>
+        </template>
+      </UiDialog>
 
-    <UiDialog v-model="remoteEditorDialogVisible" width="min(1280px, calc(100vw - 32px))" max-width="98vw">
-      <template #header>
-        <div class="ftp-dialog__header">{{ editorDialogTitle }}</div>
-      </template>
-      <div class="ftp-remote-editor">
-        <div class="ftp-remote-editor__path-wrap">
-          <div class="ftp-remote-editor__path">{{ remoteEditorPath }}</div>
-          <span class="ftp-badge" :class="{ 'ftp-badge--accent': remoteEditorDirty }">
-            {{ editorSyncLabel }}
-          </span>
+      <UiDialog
+        v-model="remoteEditorDialogVisible"
+        width="min(1280px, calc(100vw - 32px))"
+        max-width="98vw"
+      >
+        <template #header>
+          <div class="ftp-dialog__header">{{ editorDialogTitle }}</div>
+        </template>
+        <div class="ftp-remote-editor">
+          <div class="ftp-remote-editor__path-wrap">
+            <div class="ftp-remote-editor__path">{{ remoteEditorPath }}</div>
+            <span class="ftp-badge" :class="{ 'ftp-badge--accent': remoteEditorDirty }">
+              {{ editorSyncLabel }}
+            </span>
+          </div>
+          <div v-if="remoteEditorLoading" class="ftp-loading-state ftp-remote-editor__loading">
+            <span class="ftp-loading-state__spinner" />
+            <span class="ftp-loading-state__text">{{ editorLoadingText }}</span>
+          </div>
+          <FtpCodeEditor
+            v-else
+            v-model="remoteEditorContent"
+            :file-path="remoteEditorPath"
+            @save-requested="saveRemoteEditor"
+          />
         </div>
-        <div v-if="remoteEditorLoading" class="ftp-loading-state ftp-remote-editor__loading">
-          <span class="ftp-loading-state__spinner" />
-          <span class="ftp-loading-state__text">{{ editorLoadingText }}</span>
-        </div>
-        <FtpCodeEditor v-else v-model="remoteEditorContent" :file-path="remoteEditorPath"
-          @save-requested="saveRemoteEditor" />
-      </div>
-      <template #footer>
-        <div class="ftp-dialog__footer">
-          <UiButton variant="ghost" @click="remoteEditorDialogVisible = false">关闭</UiButton>
-          <UiButton variant="primary" :disabled="remoteEditorLoading || remoteEditorSaving" @click="saveRemoteEditor">
-            {{ editorSaveText }}
-          </UiButton>
-        </div>
-      </template>
-    </UiDialog>
+        <template #footer>
+          <div class="ftp-dialog__footer">
+            <UiButton variant="ghost" @click="remoteEditorDialogVisible = false">关闭</UiButton>
+            <UiButton
+              variant="primary"
+              :disabled="remoteEditorLoading || remoteEditorSaving"
+              @click="saveRemoteEditor"
+            >
+              {{ editorSaveText }}
+            </UiButton>
+          </div>
+        </template>
+      </UiDialog>
 
-    <UiDialog v-model="permissionDialogVisible" width="720" max-width="92vw">
-      <template #header>
-        <div class="ftp-dialog__header">修改远程权限</div>
-      </template>
-      <div class="ftp-dialog__body">
-        <div class="ftp-remote-editor__path">{{ permissionDialogTargetLabel }} · {{ permissionDialogTargetPath }}</div>
-        <div class="ftp-permission-grid">
-          <div class="ftp-permission-grid__head">主体</div>
-          <div class="ftp-permission-grid__head">读</div>
-          <div class="ftp-permission-grid__head">写</div>
-          <div class="ftp-permission-grid__head">执行</div>
-          <template v-for="bucket in permissionMatrix" :key="bucket.key">
-            <div class="ftp-permission-grid__label">{{ bucket.label }}</div>
-            <UiCheckbox size="sm" :checked="bucket.read"
-              @change="updatePermissionMatrix(bucket.key, 'read', $event as boolean)" />
-            <UiCheckbox size="sm" :checked="bucket.write"
-              @change="updatePermissionMatrix(bucket.key, 'write', $event as boolean)" />
-            <UiCheckbox size="sm" :checked="bucket.execute"
-              @change="updatePermissionMatrix(bucket.key, 'execute', $event as boolean)" />
-          </template>
+      <UiDialog v-model="permissionDialogVisible" width="720" max-width="92vw">
+        <template #header>
+          <div class="ftp-dialog__header">修改远程权限</div>
+        </template>
+        <div class="ftp-dialog__body">
+          <div class="ftp-remote-editor__path">
+            {{ permissionDialogTargetLabel }} · {{ permissionDialogTargetPath }}
+          </div>
+          <div class="ftp-permission-grid">
+            <div class="ftp-permission-grid__head">主体</div>
+            <div class="ftp-permission-grid__head">读</div>
+            <div class="ftp-permission-grid__head">写</div>
+            <div class="ftp-permission-grid__head">执行</div>
+            <template v-for="bucket in permissionMatrix" :key="bucket.key">
+              <div class="ftp-permission-grid__label">{{ bucket.label }}</div>
+              <UiCheckbox
+                size="sm"
+                :checked="bucket.read"
+                @change="updatePermissionMatrix(bucket.key, 'read', $event as boolean)"
+              />
+              <UiCheckbox
+                size="sm"
+                :checked="bucket.write"
+                @change="updatePermissionMatrix(bucket.key, 'write', $event as boolean)"
+              />
+              <UiCheckbox
+                size="sm"
+                :checked="bucket.execute"
+                @change="updatePermissionMatrix(bucket.key, 'execute', $event as boolean)"
+              />
+            </template>
+          </div>
+          <label class="ftp-form-field ftp-form-field--full">
+            <span>数字权限</span>
+            <UiInput
+              :model-value="permissionModeInput"
+              placeholder="例如：755"
+              @update:modelValue="handlePermissionModeInput(String($event))"
+            />
+          </label>
         </div>
-        <label class="ftp-form-field ftp-form-field--full">
-          <span>数字权限</span>
-          <UiInput :model-value="permissionModeInput" placeholder="例如：755"
-            @update:modelValue="handlePermissionModeInput(String($event))" />
-        </label>
-      </div>
-      <template #footer>
-        <div class="ftp-dialog__footer">
-          <UiButton variant="ghost" @click="permissionDialogVisible = false">取消</UiButton>
-          <UiButton variant="primary" @click="applyRemotePermissionDialog">应用权限</UiButton>
-        </div>
-      </template>
-    </UiDialog>
+        <template #footer>
+          <div class="ftp-dialog__footer">
+            <UiButton variant="ghost" @click="permissionDialogVisible = false">取消</UiButton>
+            <UiButton variant="primary" @click="applyRemotePermissionDialog">应用权限</UiButton>
+          </div>
+        </template>
+      </UiDialog>
     </template>
   </MainPageLayout>
 </template>

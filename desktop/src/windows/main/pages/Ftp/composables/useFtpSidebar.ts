@@ -6,7 +6,11 @@ import OpenIcon from '@/windows/main/components/svgs/icons/OpenIcon.vue';
 import SettingsIcon from '@/windows/main/components/svgs/icons/SettingsIcon.vue';
 import { useFtpStore } from '@/windows/main/stores/ftp_store';
 import type { ContextMenuItem } from '@/windows/main/composables/useContextMenu';
-import type { UiTreeDropPayload, UiTreeEventPayload, UiTreeNodeData } from '@/windows/main/components/ui/ui_tree';
+import type {
+  UiTreeDropPayload,
+  UiTreeEventPayload,
+  UiTreeNodeData,
+} from '@/windows/main/components/ui/ui_tree';
 import type { FtpConnectionDescriptor, FtpProfile, FtpSessionFolder } from '@/contracts/ftp';
 import type { ConfigTreeNode } from '../types';
 
@@ -53,7 +57,10 @@ export function useFtpSidebar(options: UseFtpSidebarOptions) {
   const ungroupedProfiles = computed(() =>
     options.ftpStore.profiles
       .filter((profile) => !profile.folderId)
-      .sort((left, right) => left.sortOrder - right.sortOrder || left.label.localeCompare(right.label, 'zh-CN')),
+      .sort(
+        (left, right) =>
+          left.sortOrder - right.sortOrder || left.label.localeCompare(right.label, 'zh-CN')
+      )
   );
   const restoreFailureProfiles = computed(() =>
     options.ftpStore.restoreFailures
@@ -61,30 +68,43 @@ export function useFtpSidebar(options: UseFtpSidebarOptions) {
         ...item,
         profile: options.ftpStore.profiles.find((profile) => profile.id === item.profileId) ?? null,
       }))
-      .filter((item) => item.profile),
+      .filter((item) => item.profile)
   );
-  const selectedConfigTreeNodeId = computed(() =>
-    selectedConfigNodeId.value || (options.activeSession.value ? `profile:${options.activeSession.value.profileId}` : ''),
+  const selectedConfigTreeNodeId = computed(
+    () =>
+      selectedConfigNodeId.value ||
+      (options.activeSession.value ? `profile:${options.activeSession.value.profileId}` : '')
   );
   const configTreeNodes = computed<ConfigTreeNode[]>(() => buildConfigTreeNodes());
 
-  watch(() => options.activeSession.value?.profileId, (profileId) => {
-    if (profileId) {
-      selectedConfigNodeId.value = profileTreeNodeId(profileId);
-    }
-  }, { immediate: true });
+  watch(
+    () => options.activeSession.value?.profileId,
+    (profileId) => {
+      if (profileId) {
+        selectedConfigNodeId.value = profileTreeNodeId(profileId);
+      }
+    },
+    { immediate: true }
+  );
 
-  watch([configTreeNodes, selectedConfigTreeNodeId], ([nodes, selectedId]) => {
-    const expandableIds = collectExpandableIds(nodes);
-    const nextExpanded = configTreeHydrated.value
-      ? configTreeExpandedIds.value.filter((id) => expandableIds.includes(id))
-      : [...expandableIds];
-    const ancestorIds = selectedId ? collectAncestorNodeIds(nodes, selectedId) : [];
-    configTreeExpandedIds.value = Array.from(new Set([...nextExpanded, ...ancestorIds]));
-    configTreeHydrated.value = true;
-  }, { immediate: true });
+  watch(
+    [configTreeNodes, selectedConfigTreeNodeId],
+    ([nodes, selectedId]) => {
+      const expandableIds = collectExpandableIds(nodes);
+      const nextExpanded = configTreeHydrated.value
+        ? configTreeExpandedIds.value.filter((id) => expandableIds.includes(id))
+        : [...expandableIds];
+      const ancestorIds = selectedId ? collectAncestorNodeIds(nodes, selectedId) : [];
+      configTreeExpandedIds.value = Array.from(new Set([...nextExpanded, ...ancestorIds]));
+      configTreeHydrated.value = true;
+    },
+    { immediate: true }
+  );
 
-  function flattenFolders(parentId?: string, depth = 0): Array<{ folder: FtpSessionFolder; depth: number }> {
+  function flattenFolders(
+    parentId?: string,
+    depth = 0
+  ): Array<{ folder: FtpSessionFolder; depth: number }> {
     const nodes = options.ftpStore.folders
       .filter((folder) => (folder.parentId ?? '') === (parentId ?? ''))
       .sort((left, right) => left.sortOrder - right.sortOrder || left.createdAt - right.createdAt);
@@ -99,7 +119,10 @@ export function useFtpSidebar(options: UseFtpSidebarOptions) {
   function profilesInFolder(folderId: string) {
     return options.ftpStore.profiles
       .filter((profile) => profile.folderId === folderId)
-      .sort((left, right) => left.sortOrder - right.sortOrder || left.label.localeCompare(right.label, 'zh-CN'));
+      .sort(
+        (left, right) =>
+          left.sortOrder - right.sortOrder || left.label.localeCompare(right.label, 'zh-CN')
+      );
   }
 
   function folderTreeNodeId(id: string) {
@@ -113,7 +136,10 @@ export function useFtpSidebar(options: UseFtpSidebarOptions) {
   function countProfilesInFolder(folderId: string): number {
     const directProfiles = profilesInFolder(folderId).length;
     const childFolders = options.ftpStore.folders.filter((folder) => folder.parentId === folderId);
-    return directProfiles + childFolders.reduce((total, folder) => total + countProfilesInFolder(folder.id), 0);
+    return (
+      directProfiles +
+      childFolders.reduce((total, folder) => total + countProfilesInFolder(folder.id), 0)
+    );
   }
 
   function buildProfileTreeNode(profile: FtpProfile): ConfigTreeNode {
@@ -133,7 +159,9 @@ export function useFtpSidebar(options: UseFtpSidebarOptions) {
       .filter((item) => item.parentId === folder.id)
       .sort((left, right) => left.sortOrder - right.sortOrder || left.createdAt - right.createdAt)
       .map((item) => buildFolderTreeNode(item));
-    const childProfiles = profilesInFolder(folder.id).map((profile) => buildProfileTreeNode(profile));
+    const childProfiles = profilesInFolder(folder.id).map((profile) =>
+      buildProfileTreeNode(profile)
+    );
     const totalProfiles = countProfilesInFolder(folder.id);
 
     return {
@@ -169,7 +197,9 @@ export function useFtpSidebar(options: UseFtpSidebarOptions) {
   }
 
   function runProfilePrimaryAction(profile: FtpProfile) {
-    const linkedSession = options.ftpStore.sessions.find((session) => session.profileId === profile.id);
+    const linkedSession = options.ftpStore.sessions.find(
+      (session) => session.profileId === profile.id
+    );
     if (linkedSession) {
       options.ftpStore.focusSession(linkedSession.sessionId);
       return;
@@ -188,13 +218,20 @@ export function useFtpSidebar(options: UseFtpSidebarOptions) {
     return ids;
   }
 
-  function collectAncestorNodeIds(nodes: ConfigTreeNode[], targetId: string, parents: string[] = []): string[] {
+  function collectAncestorNodeIds(
+    nodes: ConfigTreeNode[],
+    targetId: string,
+    parents: string[] = []
+  ): string[] {
     for (const node of nodes) {
       if (node.id === targetId) {
         return parents;
       }
       if (node.children?.length) {
-        const found = collectAncestorNodeIds(node.children as ConfigTreeNode[], targetId, [...parents, node.id]);
+        const found = collectAncestorNodeIds(node.children as ConfigTreeNode[], targetId, [
+          ...parents,
+          node.id,
+        ]);
         if (found.length) {
           return found;
         }
@@ -222,7 +259,9 @@ export function useFtpSidebar(options: UseFtpSidebarOptions) {
     const node = payload.node as ConfigTreeNode;
     if (node.kind === 'profile' && node.data) {
       const profile = node.data as FtpProfile;
-      const linkedSessions = options.ftpStore.sessions.filter((session) => session.profileId === profile.id);
+      const linkedSessions = options.ftpStore.sessions.filter(
+        (session) => session.profileId === profile.id
+      );
       const latestSession = linkedSessions[linkedSessions.length - 1];
       options.openContextMenu(payload.event.clientX, payload.event.clientY, [
         {
@@ -233,14 +272,18 @@ export function useFtpSidebar(options: UseFtpSidebarOptions) {
             void options.connectProfile(profile);
           },
         },
-        ...(latestSession ? [{
-          id: `config-focus-latest-${profile.id}`,
-          label: '切换到最近会话',
-          icon: OpenIcon,
-          action: () => {
-            options.ftpStore.focusSession(latestSession.sessionId);
-          },
-        }] : []),
+        ...(latestSession
+          ? [
+              {
+                id: `config-focus-latest-${profile.id}`,
+                label: '切换到最近会话',
+                icon: OpenIcon,
+                action: () => {
+                  options.ftpStore.focusSession(latestSession.sessionId);
+                },
+              },
+            ]
+          : []),
         {
           id: `config-edit-${profile.id}`,
           label: '编辑配置',
@@ -319,7 +362,9 @@ export function useFtpSidebar(options: UseFtpSidebarOptions) {
     return nodes.map((node) => {
       if (node.kind === 'profile' && node.data) {
         const profile = node.data as FtpProfile;
-        const linkedSession = options.ftpStore.sessions.find((session) => session.profileId === profile.id);
+        const linkedSession = options.ftpStore.sessions.find(
+          (session) => session.profileId === profile.id
+        );
         return {
           id: `collapsed-${node.id}`,
           label: linkedSession ? `${profile.label} · 已连接` : profile.label,
@@ -332,7 +377,9 @@ export function useFtpSidebar(options: UseFtpSidebarOptions) {
         id: `collapsed-${node.id}`,
         label: node.label,
         icon: OpenIcon,
-        children: node.children?.length ? buildCollapsedConfigMenuItems(node.children as ConfigTreeNode[]) : undefined,
+        children: node.children?.length
+          ? buildCollapsedConfigMenuItems(node.children as ConfigTreeNode[])
+          : undefined,
       } satisfies ContextMenuItem;
     });
   }
@@ -353,7 +400,11 @@ export function useFtpSidebar(options: UseFtpSidebarOptions) {
     }
 
     const rect = target.getBoundingClientRect();
-    options.openContextMenu(rect.right + 8, rect.top, buildCollapsedConfigMenuItems(configTreeNodes.value));
+    options.openContextMenu(
+      rect.right + 8,
+      rect.top,
+      buildCollapsedConfigMenuItems(configTreeNodes.value)
+    );
   }
 
   function sessionStatusTone(status: string) {
@@ -414,28 +465,48 @@ export function useFtpSidebar(options: UseFtpSidebarOptions) {
     if (targetNode.kind === 'profile' && targetNode.data) {
       const targetProfile = targetNode.data as FtpProfile;
       const sortOrder = nextFolderSortOrder(targetProfile.folderId ?? '');
-      await options.ftpStore.updateFolder({ id: folder.id, parentId: targetProfile.folderId ?? '', sortOrder });
+      await options.ftpStore.updateFolder({
+        id: folder.id,
+        parentId: targetProfile.folderId ?? '',
+        sortOrder,
+      });
     }
   }
 
   function nextProfileSortOrder(folderId: string) {
-    const siblings = options.ftpStore.profiles.filter((profile) => (profile.folderId ?? '') === folderId);
+    const siblings = options.ftpStore.profiles.filter(
+      (profile) => (profile.folderId ?? '') === folderId
+    );
     return siblings.reduce((max, item) => Math.max(max, item.sortOrder), 0) + 1;
   }
 
   function nextFolderSortOrder(parentId: string) {
-    const siblings = options.ftpStore.folders.filter((folder) => (folder.parentId ?? '') === parentId);
+    const siblings = options.ftpStore.folders.filter(
+      (folder) => (folder.parentId ?? '') === parentId
+    );
     return siblings.reduce((max, item) => Math.max(max, item.sortOrder), 0) + 1;
   }
 
-  async function reorderProfiles(draggedProfile: FtpProfile, targetFolderId: string, targetProfileId: string) {
+  async function reorderProfiles(
+    draggedProfile: FtpProfile,
+    targetFolderId: string,
+    targetProfileId: string
+  ) {
     const siblings = options.ftpStore.profiles
-      .filter((profile) => (profile.folderId ?? '') === targetFolderId && profile.id !== draggedProfile.id)
-      .sort((left, right) => left.sortOrder - right.sortOrder || left.label.localeCompare(right.label, 'zh-CN'));
+      .filter(
+        (profile) => (profile.folderId ?? '') === targetFolderId && profile.id !== draggedProfile.id
+      )
+      .sort(
+        (left, right) =>
+          left.sortOrder - right.sortOrder || left.label.localeCompare(right.label, 'zh-CN')
+      );
     const targetIndex = siblings.findIndex((profile) => profile.id === targetProfileId);
     const nextProfiles = [...siblings];
     const insertIndex = targetIndex < 0 ? nextProfiles.length : targetIndex + 1;
-    nextProfiles.splice(insertIndex, 0, { ...draggedProfile, folderId: targetFolderId || undefined });
+    nextProfiles.splice(insertIndex, 0, {
+      ...draggedProfile,
+      folderId: targetFolderId || undefined,
+    });
     for (const [index, profile] of nextProfiles.entries()) {
       await options.ftpStore.updateProfile({
         id: profile.id,

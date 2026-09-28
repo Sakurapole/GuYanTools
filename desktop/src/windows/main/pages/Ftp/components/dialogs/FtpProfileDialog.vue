@@ -27,7 +27,12 @@ const emit = defineEmits<{
 </script>
 
 <template>
-  <UiDialog :model-value="modelValue" width="720" max-width="92vw" @update:modelValue="emit('update:modelValue', $event)">
+  <UiDialog
+    :model-value="modelValue"
+    width="720"
+    max-width="92vw"
+    @update:modelValue="emit('update:modelValue', $event)"
+  >
     <template #header>
       <div class="ftp-dialog__header">{{ title }}</div>
     </template>
@@ -40,10 +45,17 @@ const emit = defineEmits<{
           <UiSelect v-model="form.protocol" :options="protocolOptions" />
         </UiField>
         <UiField v-if="sshProfileEnabled" :label="sshProfileLabel">
-          <UiSelect v-model="form.sshProfileId" :options="sshProfileOptions" @change="emit('apply-ssh-profile', String($event))" />
+          <UiSelect
+            v-model="form.sshProfileId"
+            :options="sshProfileOptions"
+            @change="emit('apply-ssh-profile', String($event))"
+          />
         </UiField>
         <UiField v-if="form.protocol !== 'sftp'" label="隧道说明">
-          <UiInput model-value="所选 SSH 配置仅用作 FTP/FTPS 到目标主机的隧道，不会覆盖当前 FTP 主机和用户名" disabled />
+          <UiInput
+            model-value="所选 SSH 配置仅用作 FTP/FTPS 到目标主机的隧道，不会覆盖当前 FTP 主机和用户名"
+            disabled
+          />
         </UiField>
         <UiField label="所属文件夹">
           <UiSelect v-model="form.folderId" :options="folderSelectOptions" />
@@ -70,7 +82,10 @@ const emit = defineEmits<{
           <UiInput v-model="form.privateKeyPath" placeholder="C:\Users\me\.ssh\id_ed25519" />
         </UiField>
         <UiField v-if="form.authType === 'privateKey'" label="OpenSSH 证书路径">
-          <UiInput v-model="form.certificatePath" placeholder="C:\Users\me\.ssh\id_ed25519-cert.pub" />
+          <UiInput
+            v-model="form.certificatePath"
+            placeholder="C:\Users\me\.ssh\id_ed25519-cert.pub"
+          />
         </UiField>
         <UiField v-if="form.protocol === 'sftp'" label="主机 CA 公钥路径">
           <UiInput v-model="form.hostCaKeyPath" placeholder="C:\Users\me\.ssh\ssh_host_ca.pub" />

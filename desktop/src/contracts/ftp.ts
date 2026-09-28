@@ -262,11 +262,23 @@ export interface FtpApi {
 
   listRemoteDirectory: (sessionId: string, path: string) => Promise<FileTransferEntry[]>;
   computeRemoteFileSha256: (sessionId: string, path: string) => Promise<string | null>;
-  loadRemoteImagePreview: (sessionId: string, path: string, maxBytes?: number) => Promise<string | null>;
+  loadRemoteImagePreview: (
+    sessionId: string,
+    path: string,
+    maxBytes?: number
+  ) => Promise<string | null>;
   loadRemoteTextFile: (sessionId: string, path: string, maxBytes?: number) => Promise<string>;
   saveRemoteTextFile: (sessionId: string, path: string, content: string) => Promise<void>;
-  exportRemotePathToLocal: (sessionId: string, remotePath: string, localPath: string) => Promise<void>;
-  openExternalEditorDraft: (sessionId: string, path: string, options?: FtpExternalEditorOptions) => Promise<string>;
+  exportRemotePathToLocal: (
+    sessionId: string,
+    remotePath: string,
+    localPath: string
+  ) => Promise<void>;
+  openExternalEditorDraft: (
+    sessionId: string,
+    path: string,
+    options?: FtpExternalEditorOptions
+  ) => Promise<string>;
   createRemoteDir: (sessionId: string, path: string) => Promise<void>;
   renameRemotePath: (sessionId: string, oldPath: string, newPath: string) => Promise<void>;
   deleteRemotePath: (sessionId: string, path: string) => Promise<void>;
@@ -281,14 +293,32 @@ export interface FtpApi {
   copyLocalPath: (sourcePath: string, targetPath: string) => Promise<void>;
   getDefaultLocalPath: () => Promise<string>;
 
-  uploadFile: (sessionId: string, localPath: string, remotePath: string, options?: FtpTransferOptions) => Promise<TransferTask>;
-  downloadFile: (sessionId: string, remotePath: string, localPath: string, options?: FtpTransferOptions) => Promise<TransferTask>;
-  fxpTransfer: (sourceSessionId: string, sourcePath: string, targetSessionId: string, targetPath: string) => Promise<TransferTask>;
+  uploadFile: (
+    sessionId: string,
+    localPath: string,
+    remotePath: string,
+    options?: FtpTransferOptions
+  ) => Promise<TransferTask>;
+  downloadFile: (
+    sessionId: string,
+    remotePath: string,
+    localPath: string,
+    options?: FtpTransferOptions
+  ) => Promise<TransferTask>;
+  fxpTransfer: (
+    sourceSessionId: string,
+    sourcePath: string,
+    targetSessionId: string,
+    targetPath: string
+  ) => Promise<TransferTask>;
   listTransferTasks: () => Promise<TransferTask[]>;
   getRetryPolicy: () => Promise<FtpRetryPolicy>;
   updateRetryPolicy: (input: FtpRetryPolicy) => Promise<FtpRetryPolicy>;
   deleteTransferTask: (taskId: string) => Promise<void>;
-  updateTaskPriority: (taskId: string, priority: 'high' | 'medium' | 'low' | string) => Promise<TransferTask>;
+  updateTaskPriority: (
+    taskId: string,
+    priority: 'high' | 'medium' | 'low' | string
+  ) => Promise<TransferTask>;
   pauseTask: (taskId: string) => Promise<TransferTask>;
   resumeTask: (taskId: string) => Promise<TransferTask>;
   retryTask: (taskId: string) => Promise<TransferTask>;

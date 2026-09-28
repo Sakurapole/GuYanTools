@@ -55,7 +55,11 @@ type JsFtpHostConstructor = new (db: unknown) => {
   disconnect(sessionId: string): Promise<void>;
   listRemoteDirectory(sessionId: string, path: string): Promise<FileTransferEntry[]>;
   computeRemoteFileSha256(sessionId: string, path: string): Promise<string | null>;
-  loadRemoteImagePreview(sessionId: string, path: string, maxBytes?: number): Promise<string | null>;
+  loadRemoteImagePreview(
+    sessionId: string,
+    path: string,
+    maxBytes?: number
+  ): Promise<string | null>;
   loadRemoteTextFile(sessionId: string, path: string, maxBytes?: number): Promise<string>;
   saveRemoteTextFile(sessionId: string, path: string, content: string): Promise<void>;
   exportRemotePathToLocal?(sessionId: string, remotePath: string, localPath: string): Promise<void>;
@@ -72,9 +76,24 @@ type JsFtpHostConstructor = new (db: unknown) => {
   deleteLocalPath(path: string): Promise<void>;
   copyLocalPath?(sourcePath: string, targetPath: string): Promise<void>;
   getDefaultLocalPath(): string;
-  uploadFile(sessionId: string, localPath: string, remotePath: string, options?: FtpTransferOptions): Promise<TransferTask>;
-  downloadFile(sessionId: string, remotePath: string, localPath: string, options?: FtpTransferOptions): Promise<TransferTask>;
-  fxpTransfer(sourceSessionId: string, sourcePath: string, targetSessionId: string, targetPath: string): Promise<TransferTask>;
+  uploadFile(
+    sessionId: string,
+    localPath: string,
+    remotePath: string,
+    options?: FtpTransferOptions
+  ): Promise<TransferTask>;
+  downloadFile(
+    sessionId: string,
+    remotePath: string,
+    localPath: string,
+    options?: FtpTransferOptions
+  ): Promise<TransferTask>;
+  fxpTransfer(
+    sourceSessionId: string,
+    sourcePath: string,
+    targetSessionId: string,
+    targetPath: string
+  ): Promise<TransferTask>;
   listTransferTasks(): TransferTask[];
   getRetryPolicy(): FtpRetryPolicy;
   updateRetryPolicy(input: FtpRetryPolicy): FtpRetryPolicy;
@@ -94,7 +113,10 @@ class FtpHost {
   private host!: JsFtpHostInstance;
   private readonly emitter = new EventEmitter();
   private initialized = false;
-  private readonly externalDraftWatchers = new Map<string, { watcher: FSWatcher; timer: NodeJS.Timeout | null }>();
+  private readonly externalDraftWatchers = new Map<
+    string,
+    { watcher: FSWatcher; timer: NodeJS.Timeout | null }
+  >();
   private readonly dragExportRoots = new Set<string>();
 
   initialize() {
@@ -224,11 +246,17 @@ class FtpHost {
     return this.host.exportRemotePathToLocal(sessionId, remotePath, localPath);
   }
 
-  async openExternalEditorDraft(sessionId: string, remotePath: string, options: FtpExternalEditorOptions = {}) {
+  async openExternalEditorDraft(
+    sessionId: string,
+    remotePath: string,
+    options: FtpExternalEditorOptions = {}
+  ) {
     const content = await this.host.loadRemoteTextFile(sessionId, remotePath, 512_000);
     const tempDir = path.join(os.tmpdir(), 'guyantools-ftp-edits');
     await fs.mkdir(tempDir, { recursive: true });
-    const fileName = sanitizeDraftFileName(path.basename(remotePath.replaceAll('/', path.sep)) || 'remote-file.txt');
+    const fileName = sanitizeDraftFileName(
+      path.basename(remotePath.replaceAll('/', path.sep)) || 'remote-file.txt'
+    );
     const tempPath = path.join(tempDir, `${Date.now()}-${fileName}`);
     await fs.writeFile(tempPath, content, 'utf8');
     this.registerExternalDraftWatcher(tempPath, sessionId, remotePath);
@@ -291,15 +319,30 @@ class FtpHost {
     return this.host.getDefaultLocalPath();
   }
 
-  async uploadFile(sessionId: string, localPath: string, remotePath: string, options?: FtpTransferOptions) {
+  async uploadFile(
+    sessionId: string,
+    localPath: string,
+    remotePath: string,
+    options?: FtpTransferOptions
+  ) {
     return this.host.uploadFile(sessionId, localPath, remotePath, options);
   }
 
-  async downloadFile(sessionId: string, remotePath: string, localPath: string, options?: FtpTransferOptions) {
+  async downloadFile(
+    sessionId: string,
+    remotePath: string,
+    localPath: string,
+    options?: FtpTransferOptions
+  ) {
     return this.host.downloadFile(sessionId, remotePath, localPath, options);
   }
 
-  async fxpTransfer(sourceSessionId: string, sourcePath: string, targetSessionId: string, targetPath: string) {
+  async fxpTransfer(
+    sourceSessionId: string,
+    sourcePath: string,
+    targetSessionId: string,
+    targetPath: string
+  ) {
     return this.host.fxpTransfer(sourceSessionId, sourcePath, targetSessionId, targetPath);
   }
 
@@ -308,13 +351,19 @@ class FtpHost {
       return [] as string[];
     }
     await this.cleanupStaleDragExports();
-    const exportRoot = path.join(os.tmpdir(), 'guyantools-ftp-drag', `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`);
+    const exportRoot = path.join(
+      os.tmpdir(),
+      'guyantools-ftp-drag',
+      `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
+    );
     await fs.mkdir(exportRoot, { recursive: true });
     this.dragExportRoots.add(exportRoot);
     const usedNames = new Set<string>();
     const exportedPaths: string[] = [];
     for (const remotePath of remotePaths) {
-      const baseName = sanitizeDraftFileName(path.basename(remotePath.replaceAll('/', path.sep)) || 'remote-item');
+      const baseName = sanitizeDraftFileName(
+        path.basename(remotePath.replaceAll('/', path.sep)) || 'remote-item'
+      );
       const localName = uniqueLocalName(baseName, usedNames);
       const targetPath = path.join(exportRoot, localName);
       await this.exportRemotePathToLocal(sessionId, remotePath, targetPath);
@@ -394,19 +443,22 @@ class FtpHost {
 
   private registerExternalDraftWatcher(tempPath: string, sessionId: string, remotePath: string) {
     this.externalDraftWatchers.get(tempPath)?.watcher.close();
-    const state = { watcher: fsWatch(tempPath, () => {
-      if (state.timer) {
-        clearTimeout(state.timer);
-      }
-      state.timer = setTimeout(async () => {
-        try {
-          const content = await fs.readFile(tempPath, 'utf8');
-          await this.host.saveRemoteTextFile(sessionId, remotePath, content);
-        } catch (error) {
-          console.error('[FtpHost] External editor draft sync failed:', error);
+    const state = {
+      watcher: fsWatch(tempPath, () => {
+        if (state.timer) {
+          clearTimeout(state.timer);
         }
-      }, 500);
-    }), timer: null as NodeJS.Timeout | null };
+        state.timer = setTimeout(async () => {
+          try {
+            const content = await fs.readFile(tempPath, 'utf8');
+            await this.host.saveRemoteTextFile(sessionId, remotePath, content);
+          } catch (error) {
+            console.error('[FtpHost] External editor draft sync failed:', error);
+          }
+        }, 500);
+      }),
+      timer: null as NodeJS.Timeout | null,
+    };
     this.externalDraftWatchers.set(tempPath, state);
   }
 

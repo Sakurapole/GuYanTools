@@ -5,7 +5,8 @@ import type { FileTransferEntry, FtpProfile, TransferTask } from '@/contracts/ft
 
 export type FtpRunnerDirection = 'upload' | 'download';
 export type FtpRunnerSyncDirection = 'localToRemote' | 'remoteToLocal' | 'bidirectional';
-export type FtpRunnerSyncConflictPolicy = 'keepNewer' | 'preferLocal' | 'preferRemote' | 'skipConflicts';
+export type FtpRunnerSyncConflictPolicy =
+  'keepNewer' | 'preferLocal' | 'preferRemote' | 'skipConflicts';
 
 export type RunFtpTransferInput = {
   profileId?: string;
@@ -36,7 +37,14 @@ export class FtpCliUsageError extends Error {
 type SyncDiffStatus = 'localOnly' | 'remoteOnly' | 'different' | 'same';
 type SyncDifferenceKind = 'type' | 'size' | 'modifiedAt' | 'content';
 type SyncContentVerification = 'notCompared' | 'same' | 'different';
-type SyncActionKind = 'upload' | 'download' | 'deleteRemote' | 'deleteLocal' | 'replaceRemote' | 'replaceLocal' | 'skip';
+type SyncActionKind =
+  | 'upload'
+  | 'download'
+  | 'deleteRemote'
+  | 'deleteLocal'
+  | 'replaceRemote'
+  | 'replaceLocal'
+  | 'skip';
 
 type SyncComparisonItem = {
   key: string;
@@ -88,7 +96,9 @@ export async function resolveDefaultFtpProfile(): Promise<FtpProfile> {
   const restoreStates = await ftpHost.listRestoreStates();
   if (restoreStates.length) {
     const profiles = await ftpHost.listProfiles();
-    const restoreProfileId = [...restoreStates].sort((left, right) => left.tabOrder - right.tabOrder)[0]?.sessionId;
+    const restoreProfileId = [...restoreStates].sort(
+      (left, right) => left.tabOrder - right.tabOrder
+    )[0]?.sessionId;
     const matched = profiles.find((item) => item.id === restoreProfileId);
     if (matched) {
       return matched;
@@ -109,9 +119,10 @@ export async function runFtpTransfer(input: RunFtpTransferInput): Promise<{
 }> {
   const profile = await resolveFtpProfile(input);
   const session = await ftpHost.connect({ profileId: profile.id });
-  const task = input.direction === 'upload'
-    ? await ftpHost.uploadFile(session.sessionId, input.localPath, input.remotePath)
-    : await ftpHost.downloadFile(session.sessionId, input.remotePath, input.localPath);
+  const task =
+    input.direction === 'upload'
+      ? await ftpHost.uploadFile(session.sessionId, input.localPath, input.remotePath)
+      : await ftpHost.downloadFile(session.sessionId, input.remotePath, input.localPath);
   return {
     profile,
     sessionId: session.sessionId,
@@ -167,7 +178,12 @@ export async function runFtpSync(input: RunFtpSyncInput): Promise<{
     if (!['deleteRemote', 'deleteLocal', 'skip'].includes(item.action)) {
       transferSize += item.transferSize;
     }
-    const queuedTask = await executeSyncAction(session.sessionId, localRootPath, remoteRootPath, item);
+    const queuedTask = await executeSyncAction(
+      session.sessionId,
+      localRootPath,
+      remoteRootPath,
+      item
+    );
     if (queuedTask?.id) {
       taskIds.push(queuedTask.id);
     }
@@ -190,18 +206,30 @@ async function executeSyncAction(
   sessionId: string,
   localRootPath: string,
   remoteRootPath: string,
-  item: SyncPreviewItem,
+  item: SyncPreviewItem
 ) {
-  const localTargetPath = item.relativePath ? path.join(localRootPath, ...item.relativePath.split('/')) : localRootPath;
-  const remoteTargetPath = item.relativePath ? joinRemotePath(remoteRootPath, item.relativePath) : remoteRootPath;
+  const localTargetPath = item.relativePath
+    ? path.join(localRootPath, ...item.relativePath.split('/'))
+    : localRootPath;
+  const remoteTargetPath = item.relativePath
+    ? joinRemotePath(remoteRootPath, item.relativePath)
+    : remoteRootPath;
 
   switch (item.action) {
     case 'upload':
     case 'replaceRemote':
-      return ftpHost.uploadFile(sessionId, item.localEntry?.path || localTargetPath, remoteTargetPath);
+      return ftpHost.uploadFile(
+        sessionId,
+        item.localEntry?.path || localTargetPath,
+        remoteTargetPath
+      );
     case 'download':
     case 'replaceLocal':
-      return ftpHost.downloadFile(sessionId, item.remoteEntry?.path || remoteTargetPath, localTargetPath);
+      return ftpHost.downloadFile(
+        sessionId,
+        item.remoteEntry?.path || remoteTargetPath,
+        localTargetPath
+      );
     case 'deleteRemote':
       await ftpHost.deleteRemotePath(sessionId, item.remoteEntry?.path || remoteTargetPath);
       return null;
@@ -213,7 +241,11 @@ async function executeSyncAction(
   }
 }
 
-async function buildShallowSyncComparisonItems(sessionId: string, localRootPath: string, remoteRootPath: string) {
+async function buildShallowSyncComparisonItems(
+  sessionId: string,
+  localRootPath: string,
+  remoteRootPath: string
+) {
   const localRootEntry = await getLocalRootEntry(localRootPath);
   const remoteRootEntry = await getRemoteRootEntry(sessionId, remoteRootPath);
   if (!localRootEntry?.isDir || !remoteRootEntry?.isDir) {
@@ -226,7 +258,11 @@ async function buildShallowSyncComparisonItems(sessionId: string, localRootPath:
   return buildSyncComparisonItems(localEntries, remoteEntries);
 }
 
-async function buildRecursiveSyncComparisonItems(sessionId: string, localRootPath: string, remoteRootPath: string) {
+async function buildRecursiveSyncComparisonItems(
+  sessionId: string,
+  localRootPath: string,
+  remoteRootPath: string
+) {
   const localRootEntry = await getLocalRootEntry(localRootPath);
   const remoteRootEntry = await getRemoteRootEntry(sessionId, remoteRootPath);
   if (!localRootEntry?.isDir || !remoteRootEntry?.isDir) {
@@ -269,21 +305,32 @@ async function verifySyncComparisonContent(items: SyncComparisonItem[], sessionI
       ftpHost.computeLocalFileSha256(item.localEntry.path),
       ftpHost.computeRemoteFileSha256(sessionId, item.remoteEntry.path),
     ]);
-    item.contentVerification = localHash && remoteHash && localHash === remoteHash ? 'same' : 'different';
+    item.contentVerification =
+      localHash && remoteHash && localHash === remoteHash ? 'same' : 'different';
     item.differenceKinds = item.differenceKinds.filter((kind) => kind !== 'content');
     if (item.contentVerification === 'different') {
       item.differenceKinds.push('content');
     }
-    item.status = syncStatusFromDifferences(item.localEntry, item.remoteEntry, item.differenceKinds);
+    item.status = syncStatusFromDifferences(
+      item.localEntry,
+      item.remoteEntry,
+      item.differenceKinds
+    );
   }
   return nextItems;
 }
 
-function buildSyncComparisonItems(localEntries: FileTransferEntry[], remoteEntries: FileTransferEntry[], parentRelativePath = '') {
-  const allNames = Array.from(new Set([
-    ...localEntries.map((entry) => entry.name),
-    ...remoteEntries.map((entry) => entry.name),
-  ])).sort((left, right) => left.localeCompare(right, 'zh-CN'));
+function buildSyncComparisonItems(
+  localEntries: FileTransferEntry[],
+  remoteEntries: FileTransferEntry[],
+  parentRelativePath = ''
+) {
+  const allNames = Array.from(
+    new Set([
+      ...localEntries.map((entry) => entry.name),
+      ...remoteEntries.map((entry) => entry.name),
+    ])
+  ).sort((left, right) => left.localeCompare(right, 'zh-CN'));
 
   return allNames.map((name) => {
     const localEntry = localEntries.find((entry) => entry.name === name) ?? null;
@@ -305,7 +352,10 @@ function buildSyncComparisonItems(localEntries: FileTransferEntry[], remoteEntri
   });
 }
 
-function buildRootComparisonItem(localEntry: FileTransferEntry | null, remoteEntry: FileTransferEntry | null): SyncComparisonItem {
+function buildRootComparisonItem(
+  localEntry: FileTransferEntry | null,
+  remoteEntry: FileTransferEntry | null
+): SyncComparisonItem {
   const differenceKinds = determineSyncDifferenceKinds(localEntry, remoteEntry);
   return {
     key: '__root__',
@@ -321,7 +371,10 @@ function buildRootComparisonItem(localEntry: FileTransferEntry | null, remoteEnt
   };
 }
 
-function determineSyncDifferenceKinds(localEntry: FileTransferEntry | null, remoteEntry: FileTransferEntry | null): SyncDifferenceKind[] {
+function determineSyncDifferenceKinds(
+  localEntry: FileTransferEntry | null,
+  remoteEntry: FileTransferEntry | null
+): SyncDifferenceKind[] {
   if (localEntry && !remoteEntry) return [];
   if (!localEntry && remoteEntry) return [];
   if (!localEntry || !remoteEntry) return [];
@@ -341,7 +394,7 @@ function determineSyncDifferenceKinds(localEntry: FileTransferEntry | null, remo
 function determineSyncAction(
   item: SyncComparisonItem,
   direction: FtpRunnerSyncDirection,
-  conflictPolicy: FtpRunnerSyncConflictPolicy,
+  conflictPolicy: FtpRunnerSyncConflictPolicy
 ): SyncActionKind {
   if (item.status === 'same') return 'skip';
   if (item.status === 'localOnly') {
@@ -364,7 +417,7 @@ function determineSyncAction(
 function syncStatusFromDifferences(
   localEntry: FileTransferEntry | null,
   remoteEntry: FileTransferEntry | null,
-  differenceKinds: SyncDifferenceKind[],
+  differenceKinds: SyncDifferenceKind[]
 ): SyncDiffStatus {
   if (localEntry && !remoteEntry) return 'localOnly';
   if (!localEntry && remoteEntry) return 'remoteOnly';
@@ -388,7 +441,10 @@ async function getLocalRootEntry(localRootPath: string): Promise<FileTransferEnt
   }
 }
 
-async function getRemoteRootEntry(sessionId: string, remoteRootPath: string): Promise<FileTransferEntry | null> {
+async function getRemoteRootEntry(
+  sessionId: string,
+  remoteRootPath: string
+): Promise<FileTransferEntry | null> {
   const normalizedPath = normalizeRemotePath(remoteRootPath);
   const parentPath = parentRemotePath(normalizedPath);
   const targetName = normalizedPath.split('/').filter(Boolean).pop() || normalizedPath;

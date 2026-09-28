@@ -6,28 +6,35 @@ import { normalizeWidgetConfig } from '../registry';
 import { openFtpProfileFromHome } from '../ftpWidgetNavigation';
 import UiButton from '../../../components/ui/UiButton.vue';
 
-const props = withDefaults(defineProps<{
-  item: GridItem;
-  interactive?: boolean;
-}>(), {
-  interactive: true,
-});
+const props = withDefaults(
+  defineProps<{
+    item: GridItem;
+    interactive?: boolean;
+  }>(),
+  {
+    interactive: true,
+  }
+);
 
 const ftpStore = useFtpStore();
 const loading = ref(false);
-const config = computed(() =>
-  normalizeWidgetConfig('ftp_profile', props.item.widgetConfig) as FtpProfileWidgetConfig,
+const config = computed(
+  () => normalizeWidgetConfig('ftp_profile', props.item.widgetConfig) as FtpProfileWidgetConfig
 );
-const profile = computed(() =>
-  ftpStore.profiles.find((item) => item.id === config.value.profileId) ?? null,
+const profile = computed(
+  () => ftpStore.profiles.find((item) => item.id === config.value.profileId) ?? null
 );
 const connectedSession = computed(() =>
-  profile.value ? ftpStore.sessions.find((session) => session.profileId === profile.value?.id) ?? null : null,
+  profile.value
+    ? (ftpStore.sessions.find((session) => session.profileId === profile.value?.id) ?? null)
+    : null
 );
 const isWide = computed(() => props.item.colSpan >= 4);
 const isCompact = computed(() => props.item.colSpan <= 2 && props.item.rowSpan <= 2);
 const title = computed(() => profile.value?.label || props.item.label || '传输配置');
-const remoteRoot = computed(() => profile.value?.defaultRemotePath || connectedSession.value?.remoteRoot || '/');
+const remoteRoot = computed(
+  () => profile.value?.defaultRemotePath || connectedSession.value?.remoteRoot || '/'
+);
 
 function profileMeta() {
   if (!profile.value) return '选择配置后可快速打开远程连接';
@@ -54,7 +61,11 @@ onMounted(() => {
 </script>
 
 <template>
-  <div class="ftp-profile-widget" :class="{ 'ftp-profile-widget--wide': isWide, 'ftp-profile-widget--compact': isCompact }" @dblclick.stop="openProfile">
+  <div
+    class="ftp-profile-widget"
+    :class="{ 'ftp-profile-widget--wide': isWide, 'ftp-profile-widget--compact': isCompact }"
+    @dblclick.stop="openProfile"
+  >
     <header class="ftp-profile-widget__header">
       <span class="ftp-profile-widget__mark">
         <svg viewBox="0 0 24 24" aria-hidden="true">
@@ -63,7 +74,10 @@ onMounted(() => {
           <path d="M7 7h.01M7 17h.01M11 7h6M11 17h6" />
         </svg>
       </span>
-      <span class="ftp-profile-widget__state" :class="{ 'ftp-profile-widget__state--connected': connectedSession }">
+      <span
+        class="ftp-profile-widget__state"
+        :class="{ 'ftp-profile-widget__state--connected': connectedSession }"
+      >
         {{ connectedSession ? '已连接' : '可连接' }}
       </span>
     </header>
@@ -76,7 +90,13 @@ onMounted(() => {
     <div v-if="profile" class="ftp-profile-widget__path" :title="remoteRoot">{{ remoteRoot }}</div>
     <div v-else-if="loading" class="ftp-profile-widget__path">读取配置中...</div>
 
-    <UiButton class="ftp-profile-widget__action" variant="ghost" type="button" :disabled="!profile || !interactive" @click.stop="openProfile">
+    <UiButton
+      class="ftp-profile-widget__action"
+      variant="ghost"
+      type="button"
+      :disabled="!profile || !interactive"
+      @click.stop="openProfile"
+    >
       打开传输
     </UiButton>
   </div>

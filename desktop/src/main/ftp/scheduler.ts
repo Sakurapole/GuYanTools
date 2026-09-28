@@ -80,7 +80,10 @@ class FtpSchedulerService {
   }
 
   async listTasks() {
-    return [...this.tasks].sort((left, right) => (left.nextRunAt ?? Number.MAX_SAFE_INTEGER) - (right.nextRunAt ?? Number.MAX_SAFE_INTEGER));
+    return [...this.tasks].sort(
+      (left, right) =>
+        (left.nextRunAt ?? Number.MAX_SAFE_INTEGER) - (right.nextRunAt ?? Number.MAX_SAFE_INTEGER)
+    );
   }
 
   async upsertTask(input: UpsertFtpScheduledTaskInput) {
@@ -117,7 +120,9 @@ class FtpSchedulerService {
     if (existingIndex === -1) {
       this.tasks = [...this.tasks, persistedRecord];
     } else {
-      this.tasks = this.tasks.map((item, index) => (index === existingIndex ? persistedRecord : item));
+      this.tasks = this.tasks.map((item, index) =>
+        index === existingIndex ? persistedRecord : item
+      );
     }
     return persistedRecord;
   }
@@ -144,7 +149,9 @@ class FtpSchedulerService {
 
   private async tick() {
     const now = Date.now();
-    const dueTasks = this.tasks.filter((item) => item.enabled && item.nextRunAt && item.nextRunAt <= now);
+    const dueTasks = this.tasks.filter(
+      (item) => item.enabled && item.nextRunAt && item.nextRunAt <= now
+    );
     for (const task of dueTasks) {
       await this.executeTask(task, now, false);
     }
@@ -158,9 +165,7 @@ class FtpSchedulerService {
         lastStatus: 'idle',
         lastResult: '上一次执行仍在进行中，已按冲突策略跳过本次触发',
         updatedAt: now,
-        nextRunAt: task.scheduleType === 'once'
-          ? undefined
-          : computeNextRunAt(task, now + 60_000),
+        nextRunAt: task.scheduleType === 'once' ? undefined : computeNextRunAt(task, now + 60_000),
       });
       await this.persistState();
       return null;
@@ -172,9 +177,7 @@ class FtpSchedulerService {
       lastStatus: 'running',
       lastResult: manual ? '手动触发，正在入队' : '计划触发，正在入队',
       updatedAt: now,
-      nextRunAt: task.scheduleType === 'once'
-        ? undefined
-        : computeNextRunAt(task, now + 60_000),
+      nextRunAt: task.scheduleType === 'once' ? undefined : computeNextRunAt(task, now + 60_000),
       enabled: task.scheduleType === 'once' ? false : task.enabled,
     };
     this.replaceTask(updatedTask);
@@ -220,9 +223,10 @@ class FtpSchedulerService {
     this.replaceTask({
       ...schedule,
       lastStatus: event.task.status === 'completed' ? 'success' : 'failed',
-      lastResult: event.task.status === 'completed'
-        ? '最近一次执行成功'
-        : (event.task.errorMessage || '最近一次执行失败'),
+      lastResult:
+        event.task.status === 'completed'
+          ? '最近一次执行成功'
+          : event.task.errorMessage || '最近一次执行失败',
       updatedAt: Date.now(),
     });
     void this.persistState().catch((error) => {
@@ -459,7 +463,8 @@ function normalizeLoadedTask(raw: unknown, now: number) {
     intervalHours: toNumberOrUndefined(candidate.intervalHours),
     timeOfDay: typeof candidate.timeOfDay === 'string' ? candidate.timeOfDay : undefined,
     dayOfWeek: toNumberOrUndefined(candidate.dayOfWeek),
-    cronExpression: typeof candidate.cronExpression === 'string' ? candidate.cronExpression.trim() : undefined,
+    cronExpression:
+      typeof candidate.cronExpression === 'string' ? candidate.cronExpression.trim() : undefined,
     nextRunAt: toNumberOrUndefined(candidate.nextRunAt),
     lastRunAt: toNumberOrUndefined(candidate.lastRunAt),
     lastStatus: normalizeLastStatus(candidate.lastStatus),
@@ -494,7 +499,13 @@ function normalizeLoadedTask(raw: unknown, now: number) {
 }
 
 function normalizeScheduleType(value?: string): FtpScheduleType | null {
-  if (value === 'once' || value === 'hourly' || value === 'daily' || value === 'weekly' || value === 'cron') {
+  if (
+    value === 'once' ||
+    value === 'hourly' ||
+    value === 'daily' ||
+    value === 'weekly' ||
+    value === 'cron'
+  ) {
     return value;
   }
   return null;
@@ -548,7 +559,7 @@ function parseCronField(
   min: number,
   max: number,
   label: string,
-  normalizeSunday = false,
+  normalizeSunday = false
 ): CronField {
   const raw = segment.trim();
   if (!raw) {
@@ -640,8 +651,9 @@ function matchesCronExpression(cron: ParsedCronExpression, date: Date) {
 
   const dayOfMonthMatches = cron.dayOfMonth.allowed.has(date.getDate());
   const dayOfWeekMatches = cron.dayOfWeek.allowed.has(date.getDay());
-  const dayMatches = cron.dayOfMonth.wildcard || cron.dayOfWeek.wildcard
-    ? dayOfMonthMatches && dayOfWeekMatches
-    : dayOfMonthMatches || dayOfWeekMatches;
+  const dayMatches =
+    cron.dayOfMonth.wildcard || cron.dayOfWeek.wildcard
+      ? dayOfMonthMatches && dayOfWeekMatches
+      : dayOfMonthMatches || dayOfWeekMatches;
   return dayMatches;
 }

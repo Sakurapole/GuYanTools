@@ -42,7 +42,7 @@ defineProps<{
   formatEta: (task: TransferTask) => string;
 }>();
 
-const emit = defineEmits<{
+const _emit = defineEmits<{
   'toggle-task-expanded': [taskId: string];
   'update-task-priority': [payload: { taskId: string; priority: string }];
   'pause-task': [taskId: string];
@@ -63,26 +63,35 @@ function parseTransferTree(task: TransferTask): RawTransferTreeNode[] {
 
 function transferTreeRootsForTask(task: TransferTask): RawTransferTreeNode[] {
   const children = parseTransferTree(task);
-  const rootName = task.fileName || baseName(task.direction === 'download' ? task.remotePath : task.localPath) || '传输目录';
-  const rootSize = children.reduce((total, child) => total + Math.max(0, Number(child.size) || 0), 0);
-  return [{
-    name: rootName,
-    relativePath: '',
-    kind: 'directory',
-    size: rootSize,
-    children,
-  }];
+  const rootName =
+    task.fileName ||
+    baseName(task.direction === 'download' ? task.remotePath : task.localPath) ||
+    '传输目录';
+  const rootSize = children.reduce(
+    (total, child) => total + Math.max(0, Number(child.size) || 0),
+    0
+  );
+  return [
+    {
+      name: rootName,
+      relativePath: '',
+      kind: 'directory',
+      size: rootSize,
+      children,
+    },
+  ];
 }
 
 function transferTreeForTask(task: TransferTask): FtpTransferTreeNodeView[] {
   if (task.transferMethod === 'archive') {
-    const archiveStatus = task.status === 'completed'
-      ? 'completed'
-      : task.status === 'failed'
-        ? 'failed'
-        : ['pending', 'retrying', 'paused'].includes(task.status)
-          ? 'pending'
-          : 'transferring';
+    const archiveStatus =
+      task.status === 'completed'
+        ? 'completed'
+        : task.status === 'failed'
+          ? 'failed'
+          : ['pending', 'retrying', 'paused'].includes(task.status)
+            ? 'pending'
+            : 'transferring';
     const decorateArchive = (node: RawTransferTreeNode): FtpTransferTreeNodeView => {
       const children = (node.children ?? []).map(decorateArchive);
       const size = Math.max(0, Number(node.size) || 0);
@@ -105,27 +114,31 @@ function transferTreeForTask(task: TransferTask): FtpTransferTreeNodeView[] {
     if (node.kind === 'directory') {
       const transferredSize = children.reduce((total, child) => total + child.transferredSize, 0);
       const childStatuses = children.map((child) => child.status);
-      const status = task.status === 'completed' || (children.length > 0 && childStatuses.every((item) => item === 'completed'))
-        ? 'completed'
-        : task.status === 'failed' && currentRelativePath.startsWith(node.relativePath)
-          ? 'failed'
-          : childStatuses.some((item) => item === 'transferring' || item === 'failed' || item === 'completed')
-            ? 'transferring'
-            : 'pending';
+      const status =
+        task.status === 'completed' ||
+        (children.length > 0 && childStatuses.every((item) => item === 'completed'))
+          ? 'completed'
+          : task.status === 'failed' && currentRelativePath.startsWith(node.relativePath)
+            ? 'failed'
+            : childStatuses.some(
+                  (item) => item === 'transferring' || item === 'failed' || item === 'completed'
+                )
+              ? 'transferring'
+              : 'pending';
       return { ...node, size, transferredSize, status, children };
     }
 
-    const transferredSize = task.status === 'completed'
-      ? size
-      : Math.max(0, Math.min(size, remaining));
+    const transferredSize =
+      task.status === 'completed' ? size : Math.max(0, Math.min(size, remaining));
     remaining = Math.max(0, remaining - size);
-    const status = task.status === 'completed' || transferredSize >= size
-      ? 'completed'
-      : task.status === 'failed' && currentRelativePath === node.relativePath
-        ? 'failed'
-        : transferredSize > 0 || currentRelativePath === node.relativePath
-          ? 'transferring'
-          : 'pending';
+    const status =
+      task.status === 'completed' || transferredSize >= size
+        ? 'completed'
+        : task.status === 'failed' && currentRelativePath === node.relativePath
+          ? 'failed'
+          : transferredSize > 0 || currentRelativePath === node.relativePath
+            ? 'transferring'
+            : 'pending';
     return { ...node, size, transferredSize, status, children: [] };
   };
   return transferTreeRootsForTask(task).map(decorate);
@@ -186,7 +199,9 @@ function hasTransferTree(task: TransferTask) {
 
             <div class="ftp-task-item__summary-main">
               <div class="ftp-task-item__summary-top">
-                <div class="ftp-task-item__title">{{ task.fileName || baseName(task.localPath || task.remotePath) }}</div>
+                <div class="ftp-task-item__title">
+                  {{ task.fileName || baseName(task.localPath || task.remotePath) }}
+                </div>
                 <div class="ftp-task-item__status">{{ taskStatusLabel(task.status) }}</div>
               </div>
               <div class="ftp-task-item__meta">
@@ -207,21 +222,33 @@ function hasTransferTree(task: TransferTask) {
               <div class="ftp-task-item__progress">
                 <span class="ftp-task-item__percent">{{ Math.round(task.progress) }}%</span>
                 <div class="ftp-task-item__bar">
-                  <div class="ftp-task-item__bar-fill" :style="{ width: `${Math.max(0, Math.min(100, task.progress))}%` }" />
+                  <div
+                    class="ftp-task-item__bar-fill"
+                    :style="{ width: `${Math.max(0, Math.min(100, task.progress))}%` }"
+                  />
                 </div>
               </div>
             </div>
 
-            <span class="ftp-task-item__chevron" :class="{ 'ftp-task-item__chevron--expanded': isTaskExpanded(task.id) }">
+            <span
+              class="ftp-task-item__chevron"
+              :class="{ 'ftp-task-item__chevron--expanded': isTaskExpanded(task.id) }"
+            >
               <svg viewBox="0 0 16 16" aria-hidden="true">
                 <path d="M4.5 6l3.5 3.5L11.5 6" />
               </svg>
             </span>
           </UiButton>
 
-          <div v-if="isTaskExpanded(task.id)" :id="`ftp-task-details-${task.id}`" class="ftp-task-item__details">
+          <div
+            v-if="isTaskExpanded(task.id)"
+            :id="`ftp-task-details-${task.id}`"
+            class="ftp-task-item__details"
+          >
             <div class="ftp-task-item__path">{{ task.localPath }} -> {{ task.remotePath }}</div>
-            <div v-if="task.transferMethod === 'archive'" class="ftp-task-item__method">打包传输：先生成临时压缩包，传输后解压并清理两端临时文件。</div>
+            <div v-if="task.transferMethod === 'archive'" class="ftp-task-item__method">
+              打包传输：先生成临时压缩包，传输后解压并清理两端临时文件。
+            </div>
             <div v-if="hasTransferTree(task)" class="ftp-task-tree">
               <FtpTransferTreeNode
                 v-for="node in transferTreeForTask(task)"
@@ -240,13 +267,35 @@ function hasTransferTree(task: TransferTask) {
                   { label: '中优先级', value: 'medium' },
                   { label: '低优先级', value: 'low' },
                 ]"
-                @change="$emit('update-task-priority', { taskId: task.id, priority: String($event) })"
+                @change="
+                  $emit('update-task-priority', { taskId: task.id, priority: String($event) })
+                "
               />
 
-              <UiButton v-if="canPauseTask(task)" size="sm" variant="ghost" @click.stop="$emit('pause-task', task.id)">暂停</UiButton>
-              <UiButton v-else-if="canResumeTask(task)" size="sm" variant="ghost" @click.stop="$emit('resume-task', task.id)">恢复</UiButton>
-              <UiButton v-else-if="canRetryTask(task)" size="sm" variant="ghost" @click.stop="$emit('retry-task', task.id)">续传</UiButton>
-              <UiButton size="sm" variant="danger" @click.stop="$emit('delete-task', task.id)">删除</UiButton>
+              <UiButton
+                v-if="canPauseTask(task)"
+                size="sm"
+                variant="ghost"
+                @click.stop="$emit('pause-task', task.id)"
+                >暂停</UiButton
+              >
+              <UiButton
+                v-else-if="canResumeTask(task)"
+                size="sm"
+                variant="ghost"
+                @click.stop="$emit('resume-task', task.id)"
+                >恢复</UiButton
+              >
+              <UiButton
+                v-else-if="canRetryTask(task)"
+                size="sm"
+                variant="ghost"
+                @click.stop="$emit('retry-task', task.id)"
+                >续传</UiButton
+              >
+              <UiButton size="sm" variant="danger" @click.stop="$emit('delete-task', task.id)"
+                >删除</UiButton
+              >
             </div>
             <div v-if="task.errorMessage" class="ftp-task-item__error">{{ task.errorMessage }}</div>
           </div>

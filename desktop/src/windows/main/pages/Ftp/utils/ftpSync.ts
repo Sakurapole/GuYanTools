@@ -18,12 +18,14 @@ type RecursiveSyncOptions = {
 export function buildSyncComparisonItems(
   localEntries: FileTransferEntry[],
   remoteEntries: FileTransferEntry[],
-  parentRelativePath = '',
+  parentRelativePath = ''
 ): SyncComparisonItem[] {
-  const allNames = Array.from(new Set([
-    ...localEntries.map((entry) => entry.name),
-    ...remoteEntries.map((entry) => entry.name),
-  ])).sort((left, right) => left.localeCompare(right, 'zh-CN'));
+  const allNames = Array.from(
+    new Set([
+      ...localEntries.map((entry) => entry.name),
+      ...remoteEntries.map((entry) => entry.name),
+    ])
+  ).sort((left, right) => left.localeCompare(right, 'zh-CN'));
 
   return allNames.map((name) => {
     const localEntry = localEntries.find((entry) => entry.name === name) ?? null;
@@ -47,18 +49,18 @@ export function buildSyncComparisonItems(
 
 export function determineSyncDiffStatus(
   localEntry: FileTransferEntry | null,
-  remoteEntry: FileTransferEntry | null,
+  remoteEntry: FileTransferEntry | null
 ): SyncDiffStatus {
   return syncStatusFromDifferences(
     localEntry,
     remoteEntry,
-    determineSyncDifferenceKinds(localEntry, remoteEntry),
+    determineSyncDifferenceKinds(localEntry, remoteEntry)
   );
 }
 
 export function determineSyncDifferenceKinds(
   localEntry: FileTransferEntry | null,
-  remoteEntry: FileTransferEntry | null,
+  remoteEntry: FileTransferEntry | null
 ): SyncDifferenceKind[] {
   if (localEntry && !remoteEntry) return [];
   if (!localEntry && remoteEntry) return [];
@@ -93,7 +95,7 @@ export function syncDifferenceLabel(kind: SyncDifferenceKind) {
 export function determineSyncAction(
   item: SyncComparisonItem,
   direction: SyncDirection,
-  conflictPolicy: SyncConflictPolicy = 'keepNewer',
+  conflictPolicy: SyncConflictPolicy = 'keepNewer'
 ): SyncActionKind {
   if (item.status === 'same') return 'skip';
   if (item.status === 'localOnly') {
@@ -151,7 +153,7 @@ export async function buildRecursiveSyncComparisonItems(options: RecursiveSyncOp
 export async function verifySyncComparisonContent(
   items: SyncComparisonItem[],
   sessionId: string,
-  concurrency = 3,
+  concurrency = 3
 ) {
   const nextItems = items.map((item) => ({
     ...item,
@@ -159,12 +161,13 @@ export async function verifySyncComparisonContent(
   }));
   const comparableIndexes = nextItems
     .map((item, index) => ({ item, index }))
-    .filter(({ item }) =>
-      Boolean(item.localEntry)
-      && Boolean(item.remoteEntry)
-      && !item.localEntry?.isDir
-      && !item.remoteEntry?.isDir
-      && item.localEntry?.size === item.remoteEntry?.size,
+    .filter(
+      ({ item }) =>
+        Boolean(item.localEntry) &&
+        Boolean(item.remoteEntry) &&
+        !item.localEntry?.isDir &&
+        !item.remoteEntry?.isDir &&
+        item.localEntry?.size === item.remoteEntry?.size
     );
 
   let cursor = 0;
@@ -183,18 +186,19 @@ export async function verifySyncComparisonContent(
         window.ftpApi.computeLocalFileSha256(localPath),
         window.ftpApi.computeRemoteFileSha256(sessionId, remotePath),
       ]);
-      const contentVerification: SyncContentVerification = localHash && remoteHash && localHash === remoteHash
-        ? 'same'
-        : 'different';
+      const contentVerification: SyncContentVerification =
+        localHash && remoteHash && localHash === remoteHash ? 'same' : 'different';
       current.item.contentVerification = contentVerification;
-      current.item.differenceKinds = current.item.differenceKinds.filter((kind) => kind !== 'content');
+      current.item.differenceKinds = current.item.differenceKinds.filter(
+        (kind) => kind !== 'content'
+      );
       if (contentVerification === 'different') {
         current.item.differenceKinds.push('content');
       }
       current.item.status = syncStatusFromDifferences(
         current.item.localEntry,
         current.item.remoteEntry,
-        current.item.differenceKinds,
+        current.item.differenceKinds
       );
       nextItems[current.index] = current.item;
     }
@@ -207,7 +211,7 @@ export async function verifySyncComparisonContent(
 function syncStatusFromDifferences(
   localEntry: FileTransferEntry | null,
   remoteEntry: FileTransferEntry | null,
-  differenceKinds: SyncDifferenceKind[],
+  differenceKinds: SyncDifferenceKind[]
 ): SyncDiffStatus {
   if (localEntry && !remoteEntry) return 'localOnly';
   if (!localEntry && remoteEntry) return 'remoteOnly';

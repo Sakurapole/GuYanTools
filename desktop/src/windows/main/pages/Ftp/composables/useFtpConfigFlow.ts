@@ -90,20 +90,20 @@ export function useFtpConfigFlow(options: UseFtpConfigFlowOptions) {
     { label: 'FTPS', value: 'ftps' },
   ];
 
-  const authTypeOptions = computed(() => (
+  const authTypeOptions = computed(() =>
     profileForm.protocol === 'sftp'
       ? [
-        { label: '密码', value: 'password' },
-        { label: '私钥', value: 'privateKey' },
-        { label: 'Keyboard-Interactive', value: 'keyboardInteractive' },
-      ]
+          { label: '密码', value: 'password' },
+          { label: '私钥', value: 'privateKey' },
+          { label: 'Keyboard-Interactive', value: 'keyboardInteractive' },
+        ]
       : [{ label: '密码', value: 'password' }]
-  ));
+  );
 
   const sshProfileEnabled = computed(() => true);
-  const sshProfileLabel = computed(() => (
+  const sshProfileLabel = computed(() =>
     profileForm.protocol === 'sftp' ? '复用 SSH' : 'SSH 隧道'
-  ));
+  );
 
   const sshProfileOptions = computed(() => [
     { label: '不复用 SSH 配置', value: '' },
@@ -209,33 +209,37 @@ export function useFtpConfigFlow(options: UseFtpConfigFlowOptions) {
     sshProfiles.value = await window.sshApi.listProfiles();
   }
 
-  watch(() => profileForm.protocol, (nextProtocol, previousProtocol) => {
-    if (nextProtocol === previousProtocol) return;
-    if (nextProtocol !== 'sftp') {
-      profileForm.authType = 'password';
-      profileForm.privateKeyPath = '';
-      profileForm.certificatePath = '';
-      profileForm.hostCaKeyPath = '';
-      profileForm.privateKeyPassphrase = '';
-      profileForm.savePassword = Boolean(profileForm.savePassword);
-      profileForm.port = '21';
-      return;
-    }
+  watch(
+    () => profileForm.protocol,
+    (nextProtocol, previousProtocol) => {
+      if (nextProtocol === previousProtocol) return;
+      if (nextProtocol !== 'sftp') {
+        profileForm.authType = 'password';
+        profileForm.privateKeyPath = '';
+        profileForm.certificatePath = '';
+        profileForm.hostCaKeyPath = '';
+        profileForm.privateKeyPassphrase = '';
+        profileForm.savePassword = Boolean(profileForm.savePassword);
+        profileForm.port = '21';
+        return;
+      }
 
-    if (profileForm.authType !== 'password' && profileForm.authType !== 'privateKey' && profileForm.authType !== 'keyboardInteractive') {
-      profileForm.authType = 'password';
+      if (
+        profileForm.authType !== 'password' &&
+        profileForm.authType !== 'privateKey' &&
+        profileForm.authType !== 'keyboardInteractive'
+      ) {
+        profileForm.authType = 'password';
+      }
+      profileForm.port = '22';
     }
-    profileForm.port = '22';
-  });
+  );
 
   async function initializePage() {
     options.busyMessage.value = '正在加载文件传输模块...';
     options.actionError.value = '';
     try {
-      await Promise.all([
-        options.ftpStore.initialize(),
-        loadSshProfiles(),
-      ]);
+      await Promise.all([options.ftpStore.initialize(), loadSshProfiles()]);
     } finally {
       options.busyMessage.value = '';
     }
@@ -252,12 +256,24 @@ export function useFtpConfigFlow(options: UseFtpConfigFlowOptions) {
         port: Number(profileForm.port) || 22,
         username: profileForm.username.trim(),
         authType: profileForm.authType,
-        savePassword: profileForm.authType === 'keyboardInteractive' ? false : profileForm.savePassword,
-        password: profileForm.authType === 'password' ? (profileForm.password || undefined) : undefined,
-        privateKeyPath: profileForm.authType === 'privateKey' ? (profileForm.privateKeyPath || undefined) : undefined,
-        certificatePath: profileForm.authType === 'privateKey' ? (profileForm.certificatePath || undefined) : undefined,
-        hostCaKeyPath: profileForm.protocol === 'sftp' ? (profileForm.hostCaKeyPath || undefined) : undefined,
-        privateKeyPassphrase: profileForm.authType === 'privateKey' ? (profileForm.privateKeyPassphrase || undefined) : undefined,
+        savePassword:
+          profileForm.authType === 'keyboardInteractive' ? false : profileForm.savePassword,
+        password:
+          profileForm.authType === 'password' ? profileForm.password || undefined : undefined,
+        privateKeyPath:
+          profileForm.authType === 'privateKey'
+            ? profileForm.privateKeyPath || undefined
+            : undefined,
+        certificatePath:
+          profileForm.authType === 'privateKey'
+            ? profileForm.certificatePath || undefined
+            : undefined,
+        hostCaKeyPath:
+          profileForm.protocol === 'sftp' ? profileForm.hostCaKeyPath || undefined : undefined,
+        privateKeyPassphrase:
+          profileForm.authType === 'privateKey'
+            ? profileForm.privateKeyPassphrase || undefined
+            : undefined,
         sshProfileId: profileForm.sshProfileId || undefined,
         folderId: profileForm.folderId,
         defaultRemotePath: profileForm.defaultRemotePath || '/',
@@ -374,7 +390,7 @@ export function useFtpConfigFlow(options: UseFtpConfigFlowOptions) {
     profile: FtpProfile,
     password?: string,
     authSessionId?: string,
-    challengeResponses?: string[],
+    challengeResponses?: string[]
   ) {
     await options.ftpStore.connect({
       profileId: profile.id,
@@ -388,7 +404,7 @@ export function useFtpConfigFlow(options: UseFtpConfigFlowOptions) {
     profile: FtpProfile,
     password?: string,
     authSessionId?: string,
-    challengeResponses?: string[],
+    challengeResponses?: string[]
   ) {
     options.actionError.value = '';
     options.busyMessage.value = `正在连接 ${profile.label}...`;
@@ -404,13 +420,13 @@ export function useFtpConfigFlow(options: UseFtpConfigFlowOptions) {
           title: isMismatch ? '主机密钥已变更' : '信任主机',
           message: isMismatch
             ? [
-              `检测到 ${hostVerification.host}:${hostVerification.port} 的主机密钥与已信任记录不一致。`,
-              `算法: ${hostVerification.algorithm}`,
-              `当前指纹: ${hostVerification.fingerprint}`,
-              `已存指纹: ${hostVerification.storedFingerprint}`,
-              '',
-              '这可能意味着服务器已重装、密钥轮换，或存在中间人攻击风险。仅在确认变更可信后再覆盖已信任指纹。',
-            ].join('\n')
+                `检测到 ${hostVerification.host}:${hostVerification.port} 的主机密钥与已信任记录不一致。`,
+                `算法: ${hostVerification.algorithm}`,
+                `当前指纹: ${hostVerification.fingerprint}`,
+                `已存指纹: ${hostVerification.storedFingerprint}`,
+                '',
+                '这可能意味着服务器已重装、密钥轮换，或存在中间人攻击风险。仅在确认变更可信后再覆盖已信任指纹。',
+              ].join('\n')
             : `首次连接 ${hostVerification.host}:${hostVerification.port}\n算法: ${hostVerification.algorithm}\n指纹: ${hostVerification.fingerprint}\n\n是否信任该主机？`,
           confirmText: isMismatch ? '覆盖信任' : '信任',
           danger: isMismatch,
@@ -468,7 +484,9 @@ export function useFtpConfigFlow(options: UseFtpConfigFlowOptions) {
     }
     authChallengeDialogVisible.value = false;
     pendingAuthChallenge.value = null;
-    await connectProfile(profile, undefined, challenge.authSessionId, [...authChallengeResponses.value]);
+    await connectProfile(profile, undefined, challenge.authSessionId, [
+      ...authChallengeResponses.value,
+    ]);
   }
 
   async function cancelAuthChallenge() {

@@ -5,7 +5,7 @@ export function compareEntryValues(
   left: FileTransferEntry,
   right: FileTransferEntry,
   sortKey: EntrySortKey,
-  direction: 'asc' | 'desc',
+  direction: 'asc' | 'desc'
 ) {
   if (left.isDir !== right.isDir) {
     return left.isDir ? -1 : 1;
@@ -17,8 +17,9 @@ export function compareEntryValues(
   } else if (sortKey === 'modifiedAt') {
     comparison = (left.modifiedAt ?? 0) - (right.modifiedAt ?? 0);
   } else if (sortKey === 'type') {
-    comparison = String(left.isDir).localeCompare(String(right.isDir))
-      || left.name.localeCompare(right.name, 'zh-CN');
+    comparison =
+      String(left.isDir).localeCompare(String(right.isDir)) ||
+      left.name.localeCompare(right.name, 'zh-CN');
   } else {
     comparison = left.name.localeCompare(right.name, 'zh-CN');
   }
@@ -29,7 +30,7 @@ export function compareEntryValues(
 export function sortEntries(
   entries: FileTransferEntry[],
   sortKey: EntrySortKey,
-  direction: 'asc' | 'desc',
+  direction: 'asc' | 'desc'
 ) {
   return [...entries].sort((left, right) => compareEntryValues(left, right, sortKey, direction));
 }
@@ -38,7 +39,7 @@ export function compareTaskValues(
   left: Pick<TransferTask, 'createdAt' | 'fileName' | 'fileSize' | 'status' | 'priority'>,
   right: Pick<TransferTask, 'createdAt' | 'fileName' | 'fileSize' | 'status' | 'priority'>,
   sortKey: TaskSortKey,
-  direction: 'asc' | 'desc',
+  direction: 'asc' | 'desc'
 ) {
   let comparison = 0;
   if (sortKey === 'fileName') {

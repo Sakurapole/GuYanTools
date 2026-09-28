@@ -1,7 +1,11 @@
 import type { FileTransferEntry } from '@/contracts/ftp';
 import type { PanelFilterState } from '../types';
 
-export function matchesPanelFilter(entry: FileTransferEntry, query: string, filterState: PanelFilterState) {
+export function matchesPanelFilter(
+  entry: FileTransferEntry,
+  query: string,
+  filterState: PanelFilterState
+) {
   return matchesSearchQuery(entry, query) && matchesRuleFilter(entry, filterState);
 }
 
@@ -12,8 +16,10 @@ export function matchesSearchQuery(entry: FileTransferEntry, query: string) {
     const matcher = wildcardToRegExp(normalizedQuery);
     return matcher.test(entry.name.toLowerCase()) || matcher.test(entry.path.toLowerCase());
   }
-  return entry.name.toLowerCase().includes(normalizedQuery)
-    || entry.path.toLowerCase().includes(normalizedQuery);
+  return (
+    entry.name.toLowerCase().includes(normalizedQuery) ||
+    entry.path.toLowerCase().includes(normalizedQuery)
+  );
 }
 
 export function hasWildcardQuery(query: string) {
@@ -31,9 +37,9 @@ export function highlightEntryName(name: string, query: string) {
 
   const tokens = hasWildcardQuery(normalizedQuery)
     ? normalizedQuery
-      .split(/[*?]+/)
-      .map((token) => token.trim())
-      .filter(Boolean)
+        .split(/[*?]+/)
+        .map((token) => token.trim())
+        .filter(Boolean)
     : [normalizedQuery];
   if (!tokens.length) return escapeHtml(name);
 
@@ -118,9 +124,7 @@ export function matchesRuleFilter(entry: FileTransferEntry, filterState: PanelFi
     return true;
   }
 
-  return filterState.operator === 'or'
-    ? conditions.some(Boolean)
-    : conditions.every(Boolean);
+  return filterState.operator === 'or' ? conditions.some(Boolean) : conditions.every(Boolean);
 }
 
 export function isHiddenEntry(name: string) {
@@ -138,10 +142,12 @@ export function panelFilterSummary(filterState: PanelFilterState) {
   if (filterState.mode === 'files') tokens.push('仅文件');
   if (filterState.mode === 'folders') tokens.push('仅文件夹');
   if (filterState.hideHidden) tokens.push('隐藏隐藏项');
-  if (filterState.extensionQuery.trim()) tokens.push(`扩展名 ${normalizeExtensionFilter(filterState.extensionQuery)}`);
+  if (filterState.extensionQuery.trim())
+    tokens.push(`扩展名 ${normalizeExtensionFilter(filterState.extensionQuery)}`);
   if (filterState.minSizeKb.trim()) tokens.push(`最小 ${filterState.minSizeKb.trim()} KB`);
   if (filterState.maxSizeKb.trim()) tokens.push(`最大 ${filterState.maxSizeKb.trim()} KB`);
-  if (filterState.modifiedWithinDays.trim()) tokens.push(`最近 ${filterState.modifiedWithinDays.trim()} 天`);
+  if (filterState.modifiedWithinDays.trim())
+    tokens.push(`最近 ${filterState.modifiedWithinDays.trim()} 天`);
   if (tokens.length > 1) {
     tokens.unshift(filterState.operator === 'or' ? 'OR' : 'AND');
   }
@@ -161,12 +167,14 @@ export function clonePanelFilterState(filterState: PanelFilterState): PanelFilte
 }
 
 export function isRuleFilterActive(filterState: PanelFilterState) {
-  return filterState.mode !== 'all'
-    || filterState.hideHidden
-    || Boolean(filterState.extensionQuery.trim())
-    || Boolean(filterState.minSizeKb.trim())
-    || Boolean(filterState.maxSizeKb.trim())
-    || Boolean(filterState.modifiedWithinDays.trim());
+  return (
+    filterState.mode !== 'all' ||
+    filterState.hideHidden ||
+    Boolean(filterState.extensionQuery.trim()) ||
+    Boolean(filterState.minSizeKb.trim()) ||
+    Boolean(filterState.maxSizeKb.trim()) ||
+    Boolean(filterState.modifiedWithinDays.trim())
+  );
 }
 
 export function normalizeSizeFilter(value: string) {

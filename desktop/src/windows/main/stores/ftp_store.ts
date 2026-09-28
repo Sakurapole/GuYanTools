@@ -29,28 +29,30 @@ type FtpLogEntry = {
   message: string;
 };
 
-export type PendingFtpOpenRequest = {
-  requestId: string;
-  source: 'ssh';
-  sshSessionId: string;
-  sshProfileId: string;
-  label: string;
-  host: string;
-  port: number;
-  username: string;
-  authType: SshProfile['authType'];
-  savePassword: boolean;
-  privateKeyPath?: string;
-  certificatePath?: string;
-  hostCaKeyPath?: string;
-  remotePath: string;
-} | {
-  requestId: string;
-  source: 'profile';
-  profileId: string;
-  label: string;
-  remotePath?: string;
-};
+export type PendingFtpOpenRequest =
+  | {
+      requestId: string;
+      source: 'ssh';
+      sshSessionId: string;
+      sshProfileId: string;
+      label: string;
+      host: string;
+      port: number;
+      username: string;
+      authType: SshProfile['authType'];
+      savePassword: boolean;
+      privateKeyPath?: string;
+      certificatePath?: string;
+      hostCaKeyPath?: string;
+      remotePath: string;
+    }
+  | {
+      requestId: string;
+      source: 'profile';
+      profileId: string;
+      label: string;
+      remotePath?: string;
+    };
 
 export const useFtpStore = defineStore('ftp', () => {
   const profiles = ref<FtpProfile[]>([]);
@@ -82,7 +84,7 @@ export const useFtpStore = defineStore('ftp', () => {
   let removeListener: (() => void) | null = null;
 
   const activeSession = computed(
-    () => sessions.value.find((session) => session.sessionId === activeSessionId.value) ?? null,
+    () => sessions.value.find((session) => session.sessionId === activeSessionId.value) ?? null
   );
 
   async function initialize() {
@@ -124,7 +126,9 @@ export const useFtpStore = defineStore('ftp', () => {
       const roots = await window.shellApi.listLocalRoots();
       localRootPaths.value = roots
         .map((item) => normalizeWorkspacePath(item))
-        .filter((item, index, array): item is string => Boolean(item) && array.indexOf(item) === index);
+        .filter(
+          (item, index, array): item is string => Boolean(item) && array.indexOf(item) === index
+        );
     } catch {
       localRootPaths.value = [];
     }
@@ -151,7 +155,9 @@ export const useFtpStore = defineStore('ftp', () => {
   async function deleteFolder(id: string) {
     await window.ftpApi.deleteFolder(id);
     folders.value = folders.value.filter((item) => item.id !== id);
-    profiles.value = profiles.value.map((item) => (item.folderId === id ? { ...item, folderId: undefined } : item));
+    profiles.value = profiles.value.map((item) =>
+      item.folderId === id ? { ...item, folderId: undefined } : item
+    );
   }
 
   async function createProfile(input: CreateFtpProfileInput) {
@@ -189,7 +195,9 @@ export const useFtpStore = defineStore('ftp', () => {
     };
     remotePath.value = sessionRemotePaths.value[descriptor.sessionId];
     localPath.value = sessionLocalPaths.value[descriptor.sessionId];
-    restoreFailures.value = restoreFailures.value.filter((item) => item.profileId !== descriptor.profileId);
+    restoreFailures.value = restoreFailures.value.filter(
+      (item) => item.profileId !== descriptor.profileId
+    );
     await Promise.all([
       refreshRemoteDirectory(remotePath.value),
       refreshLocalDirectory(localPath.value),
@@ -210,7 +218,9 @@ export const useFtpStore = defineStore('ftp', () => {
       sessionLocalPaths.value = nextLocal;
       sessionRemotePaths.value = nextRemote;
       await window.ftpApi.deleteRestoreState(session.profileId);
-      restoreStates.value = restoreStates.value.filter((item) => item.sessionId !== session.profileId);
+      restoreStates.value = restoreStates.value.filter(
+        (item) => item.sessionId !== session.profileId
+      );
     }
     if (activeSessionId.value === sessionId) {
       activeSessionId.value = sessions.value[0]?.sessionId ?? '';
@@ -230,7 +240,8 @@ export const useFtpStore = defineStore('ftp', () => {
     const session = sessions.value.find((item) => item.sessionId === sessionId);
     if (!session) return;
     activeSessionId.value = sessionId;
-    remotePath.value = preferredRemotePath || sessionRemotePaths.value[sessionId] || session.remoteRoot;
+    remotePath.value =
+      preferredRemotePath || sessionRemotePaths.value[sessionId] || session.remoteRoot;
     localPath.value = sessionLocalPaths.value[sessionId] || localPath.value || session.localRoot;
     void Promise.all([
       refreshRemoteDirectory(remotePath.value || session.remoteRoot, sessionId),
@@ -252,7 +263,7 @@ export const useFtpStore = defineStore('ftp', () => {
   async function refreshLocalDirectory(path = localPath.value) {
     localLoading.value = true;
     try {
-      const nextPath = path || await window.ftpApi.getDefaultLocalPath();
+      const nextPath = path || (await window.ftpApi.getDefaultLocalPath());
       localEntries.value = await window.ftpApi.listLocalDirectory(nextPath);
       localPath.value = nextPath;
       if (activeSessionId.value) {
@@ -268,7 +279,10 @@ export const useFtpStore = defineStore('ftp', () => {
     }
   }
 
-  async function refreshRemoteDirectory(path = remotePath.value, sessionId = activeSessionId.value) {
+  async function refreshRemoteDirectory(
+    path = remotePath.value,
+    sessionId = activeSessionId.value
+  ) {
     if (!sessionId) {
       remoteEntries.value = [];
       return;
@@ -338,32 +352,65 @@ export const useFtpStore = defineStore('ftp', () => {
     await refreshLocalDirectory(localPath.value);
   }
 
-  async function uploadFileToSession(sessionId: string, localFilePath: string, remoteFilePath: string, options?: FtpTransferOptions) {
+  async function uploadFileToSession(
+    sessionId: string,
+    localFilePath: string,
+    remoteFilePath: string,
+    options?: FtpTransferOptions
+  ) {
     if (!sessionId) return null;
     const task = await window.ftpApi.uploadFile(sessionId, localFilePath, remoteFilePath, options);
     upsertTask(task);
     return task;
   }
 
-  async function uploadFile(localFilePath: string, remoteFilePath: string, options?: FtpTransferOptions) {
+  async function uploadFile(
+    localFilePath: string,
+    remoteFilePath: string,
+    options?: FtpTransferOptions
+  ) {
     if (!activeSessionId.value) return null;
     return uploadFileToSession(activeSessionId.value, localFilePath, remoteFilePath, options);
   }
 
-  async function downloadFile(remoteFilePath: string, localFilePath: string, options?: FtpTransferOptions) {
+  async function downloadFile(
+    remoteFilePath: string,
+    localFilePath: string,
+    options?: FtpTransferOptions
+  ) {
     if (!activeSessionId.value) return null;
     return downloadFileFromSession(activeSessionId.value, remoteFilePath, localFilePath, options);
   }
 
-  async function downloadFileFromSession(sessionId: string, remoteFilePath: string, localFilePath: string, options?: FtpTransferOptions) {
+  async function downloadFileFromSession(
+    sessionId: string,
+    remoteFilePath: string,
+    localFilePath: string,
+    options?: FtpTransferOptions
+  ) {
     if (!sessionId) return null;
-    const task = await window.ftpApi.downloadFile(sessionId, remoteFilePath, localFilePath, options);
+    const task = await window.ftpApi.downloadFile(
+      sessionId,
+      remoteFilePath,
+      localFilePath,
+      options
+    );
     upsertTask(task);
     return task;
   }
 
-  async function fxpTransfer(sourceSessionId: string, sourcePath: string, targetSessionId: string, targetPath: string) {
-    const task = await window.ftpApi.fxpTransfer(sourceSessionId, sourcePath, targetSessionId, targetPath);
+  async function fxpTransfer(
+    sourceSessionId: string,
+    sourcePath: string,
+    targetSessionId: string,
+    targetPath: string
+  ) {
+    const task = await window.ftpApi.fxpTransfer(
+      sourceSessionId,
+      sourcePath,
+      targetSessionId,
+      targetPath
+    );
     upsertTask(task);
     return task;
   }
@@ -412,7 +459,10 @@ export const useFtpStore = defineStore('ftp', () => {
   async function addLocalWorkspace(path?: string) {
     const candidate = normalizeWorkspacePath(path || localPath.value);
     if (!candidate) return null;
-    localWorkspaces.value = [candidate, ...localWorkspaces.value.filter((item) => item !== candidate)];
+    localWorkspaces.value = [
+      candidate,
+      ...localWorkspaces.value.filter((item) => item !== candidate),
+    ];
     persistLocalWorkspaces();
     return candidate;
   }
@@ -486,7 +536,9 @@ export const useFtpStore = defineStore('ftp', () => {
     if (event.session) {
       upsertSession(event.session);
       if (event.session.status === 'disconnected') {
-        sessions.value = sessions.value.filter((item) => item.sessionId !== event.session?.sessionId);
+        sessions.value = sessions.value.filter(
+          (item) => item.sessionId !== event.session?.sessionId
+        );
       }
     }
     if (event.task) {
@@ -513,7 +565,9 @@ export const useFtpStore = defineStore('ftp', () => {
       };
       return;
     }
-    sessions.value = sessions.value.map((item, itemIndex) => (itemIndex === index ? session : item));
+    sessions.value = sessions.value.map((item, itemIndex) =>
+      itemIndex === index ? session : item
+    );
   }
 
   function upsertTask(task: TransferTask) {
@@ -527,7 +581,9 @@ export const useFtpStore = defineStore('ftp', () => {
       ...task,
       transferTreeJson: task.transferTreeJson ?? previous.transferTreeJson,
     };
-    transferTasks.value = transferTasks.value.map((item, itemIndex) => (itemIndex === index ? mergedTask : item));
+    transferTasks.value = transferTasks.value.map((item, itemIndex) =>
+      itemIndex === index ? mergedTask : item
+    );
   }
 
   function maybeNotifyTaskState(task: TransferTask) {
@@ -548,7 +604,8 @@ export const useFtpStore = defineStore('ftp', () => {
         type: 'text',
         size: 'md',
         title: '传输失败',
-        message: task.errorMessage || `${task.fileName || task.remotePath || task.localPath} 传输失败`,
+        message:
+          task.errorMessage || `${task.fileName || task.remotePath || task.localPath} 传输失败`,
         duration: 6000,
         clickRoute: `/ftp?taskId=${encodeURIComponent(task.id)}`,
       });
@@ -602,49 +659,58 @@ export const useFtpStore = defineStore('ftp', () => {
   async function restorePreviousSessions() {
     if (!restoreStates.value.length) return;
 
-    const sortedStates = [...restoreStates.value].sort((left, right) => left.tabOrder - right.tabOrder);
-    await Promise.all(sortedStates.map(async (state) => {
-      // 若后端进程仍存活（如前端 HMR 刷新），该 profileId 对应的 session 可能已在
-      // listSessions() 中加载，直接复用，不再重复建立连接。
-      const existing = sessions.value.find((s) => s.profileId === state.sessionId);
-      if (existing) {
-        sessionRemotePaths.value = {
-          ...sessionRemotePaths.value,
-          [existing.sessionId]: state.remotePath || sessionRemotePaths.value[existing.sessionId] || existing.remoteRoot,
-        };
-        sessionLocalPaths.value = {
-          ...sessionLocalPaths.value,
-          [existing.sessionId]: state.localPath || sessionLocalPaths.value[existing.sessionId] || existing.localRoot,
-        };
-        return;
-      }
+    const sortedStates = [...restoreStates.value].sort(
+      (left, right) => left.tabOrder - right.tabOrder
+    );
+    await Promise.all(
+      sortedStates.map(async (state) => {
+        // 若后端进程仍存活（如前端 HMR 刷新），该 profileId 对应的 session 可能已在
+        // listSessions() 中加载，直接复用，不再重复建立连接。
+        const existing = sessions.value.find((s) => s.profileId === state.sessionId);
+        if (existing) {
+          sessionRemotePaths.value = {
+            ...sessionRemotePaths.value,
+            [existing.sessionId]:
+              state.remotePath ||
+              sessionRemotePaths.value[existing.sessionId] ||
+              existing.remoteRoot,
+          };
+          sessionLocalPaths.value = {
+            ...sessionLocalPaths.value,
+            [existing.sessionId]:
+              state.localPath || sessionLocalPaths.value[existing.sessionId] || existing.localRoot,
+          };
+          return;
+        }
 
-      try {
-        const descriptor = await window.ftpApi.connect({ profileId: state.sessionId });
-        upsertSession(descriptor);
-        sessionRemotePaths.value = {
-          ...sessionRemotePaths.value,
-          [descriptor.sessionId]: state.remotePath || descriptor.remoteRoot,
-        };
-        sessionLocalPaths.value = {
-          ...sessionLocalPaths.value,
-          [descriptor.sessionId]: state.localPath || descriptor.localRoot,
-        };
-      } catch (error) {
-        restoreFailures.value = [
-          ...restoreFailures.value.filter((item) => item.profileId !== state.sessionId),
-          {
-            profileId: state.sessionId,
-            errorMessage: error instanceof Error ? error.message : String(error),
-          },
-        ];
-      }
-    }));
+        try {
+          const descriptor = await window.ftpApi.connect({ profileId: state.sessionId });
+          upsertSession(descriptor);
+          sessionRemotePaths.value = {
+            ...sessionRemotePaths.value,
+            [descriptor.sessionId]: state.remotePath || descriptor.remoteRoot,
+          };
+          sessionLocalPaths.value = {
+            ...sessionLocalPaths.value,
+            [descriptor.sessionId]: state.localPath || descriptor.localRoot,
+          };
+        } catch (error) {
+          restoreFailures.value = [
+            ...restoreFailures.value.filter((item) => item.profileId !== state.sessionId),
+            {
+              profileId: state.sessionId,
+              errorMessage: error instanceof Error ? error.message : String(error),
+            },
+          ];
+        }
+      })
+    );
 
     const firstSession = sessions.value[0];
     if (firstSession) {
       activeSessionId.value = firstSession.sessionId;
-      remotePath.value = sessionRemotePaths.value[firstSession.sessionId] || firstSession.remoteRoot;
+      remotePath.value =
+        sessionRemotePaths.value[firstSession.sessionId] || firstSession.remoteRoot;
       localPath.value = sessionLocalPaths.value[firstSession.sessionId] || firstSession.localRoot;
       await Promise.all([
         refreshRemoteDirectory(remotePath.value),
@@ -676,7 +742,9 @@ export const useFtpStore = defineStore('ftp', () => {
       if (!Array.isArray(parsed)) return;
       localWorkspaces.value = parsed
         .map((item) => normalizeWorkspacePath(String(item)))
-        .filter((item, index, array): item is string => Boolean(item) && array.indexOf(item) === index);
+        .filter(
+          (item, index, array): item is string => Boolean(item) && array.indexOf(item) === index
+        );
     } catch {
       localWorkspaces.value = [];
     }
@@ -697,7 +765,9 @@ export const useFtpStore = defineStore('ftp', () => {
         if (!Array.isArray(paths)) continue;
         const normalizedPaths = paths
           .map((item) => normalizeRemoteWorkspacePath(String(item)))
-          .filter((item, index, array): item is string => Boolean(item) && array.indexOf(item) === index);
+          .filter(
+            (item, index, array): item is string => Boolean(item) && array.indexOf(item) === index
+          );
         if (normalizedPaths.length) {
           nextWorkspaces[profileId] = normalizedPaths;
         }
@@ -709,7 +779,10 @@ export const useFtpStore = defineStore('ftp', () => {
   }
 
   function persistRemoteWorkspaces() {
-    window.localStorage.setItem(REMOTE_WORKSPACE_STORAGE_KEY, JSON.stringify(remoteWorkspaces.value));
+    window.localStorage.setItem(
+      REMOTE_WORKSPACE_STORAGE_KEY,
+      JSON.stringify(remoteWorkspaces.value)
+    );
   }
 
   return {

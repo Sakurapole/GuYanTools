@@ -30,13 +30,16 @@ import {
 } from '@codemirror/view';
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 
-const props = withDefaults(defineProps<{
-  modelValue: string;
-  filePath: string;
-  readOnly?: boolean;
-}>(), {
-  readOnly: false,
-});
+const props = withDefaults(
+  defineProps<{
+    modelValue: string;
+    filePath: string;
+    readOnly?: boolean;
+  }>(),
+  {
+    readOnly: false,
+  }
+);
 
 const emit = defineEmits<{
   'update:modelValue': [value: string];
@@ -69,11 +72,7 @@ const ftpBaseEditorExtensions: Extension[] = [
   crosshairCursor(),
   highlightActiveLine(),
   highlightActiveLineGutter(),
-  keymap.of([
-    ...closeBracketsKeymap,
-    ...foldKeymap,
-    ...completionKeymap,
-  ]),
+  keymap.of([...closeBracketsKeymap, ...foldKeymap, ...completionKeymap]),
 ];
 
 const ftpCodeEditorTheme = EditorView.theme({
@@ -133,11 +132,11 @@ const ftpCodeEditorTheme = EditorView.theme({
   },
 });
 
-const editorStatus = computed(() => (
+const editorStatus = computed(() =>
   editorReady.value
     ? `${editorLanguageLabel.value} 语法高亮已启用 · Ctrl/Cmd+S 保存 · Ctrl+Space 提示`
     : '正在加载编辑器能力...'
-));
+);
 
 onMounted(() => {
   if (!editorRoot.value) return;
@@ -166,10 +165,12 @@ onMounted(() => {
           EditorView.editable.of(!props.readOnly),
         ]),
         languageCompartment.of([]),
-        completionCompartment.of(autocompletion({
-          override: [],
-          activateOnTyping: true,
-        })),
+        completionCompartment.of(
+          autocompletion({
+            override: [],
+            activateOnTyping: true,
+          })
+        ),
         EditorView.updateListener.of((update) => {
           if (!update.docChanged || updatingFromOutside) return;
           emit('update:modelValue', update.state.doc.toString());
@@ -188,35 +189,46 @@ onBeforeUnmount(() => {
   editorView = null;
 });
 
-watch(() => props.modelValue, (value) => {
-  if (!editorView) return;
-  const current = editorView.state.doc.toString();
-  if (current === value) return;
-  updatingFromOutside = true;
-  editorView.dispatch({
-    changes: {
-      from: 0,
-      to: current.length,
-      insert: value,
-    },
-    selection: EditorSelection.cursor(Math.min(editorView.state.selection.main.head, value.length)),
-  });
-  updatingFromOutside = false;
-});
+watch(
+  () => props.modelValue,
+  (value) => {
+    if (!editorView) return;
+    const current = editorView.state.doc.toString();
+    if (current === value) return;
+    updatingFromOutside = true;
+    editorView.dispatch({
+      changes: {
+        from: 0,
+        to: current.length,
+        insert: value,
+      },
+      selection: EditorSelection.cursor(
+        Math.min(editorView.state.selection.main.head, value.length)
+      ),
+    });
+    updatingFromOutside = false;
+  }
+);
 
-watch(() => props.filePath, () => {
-  void reconfigureLanguage();
-});
+watch(
+  () => props.filePath,
+  () => {
+    void reconfigureLanguage();
+  }
+);
 
-watch(() => props.readOnly, (value) => {
-  if (!editorView) return;
-  editorView.dispatch({
-    effects: editableCompartment.reconfigure([
-      EditorState.readOnly.of(value),
-      EditorView.editable.of(!value),
-    ]),
-  });
-});
+watch(
+  () => props.readOnly,
+  (value) => {
+    if (!editorView) return;
+    editorView.dispatch({
+      effects: editableCompartment.reconfigure([
+        EditorState.readOnly.of(value),
+        EditorView.editable.of(!value),
+      ]),
+    });
+  }
+);
 
 async function reconfigureLanguage() {
   if (!editorView) return;
@@ -225,10 +237,12 @@ async function reconfigureLanguage() {
   editorView.dispatch({
     effects: [
       languageCompartment.reconfigure(config.extension),
-      completionCompartment.reconfigure(autocompletion({
-        override: config.completions.length ? [completeFromList(config.completions)] : [],
-        activateOnTyping: true,
-      })),
+      completionCompartment.reconfigure(
+        autocompletion({
+          override: config.completions.length ? [completeFromList(config.completions)] : [],
+          activateOnTyping: true,
+        })
+      ),
     ],
   });
 }
@@ -344,52 +358,213 @@ function keywordCompletions(keywords: string[], type: Completion['type'], detail
 }
 
 const javascriptKeywords = [
-  'async', 'await', 'break', 'case', 'catch', 'class', 'const', 'continue', 'default', 'else',
-  'export', 'extends', 'finally', 'for', 'function', 'if', 'import', 'let', 'new', 'return',
-  'switch', 'throw', 'try', 'typeof', 'var', 'while', 'yield', 'Promise', 'console', 'map',
-  'filter', 'reduce', 'Object', 'Array',
+  'async',
+  'await',
+  'break',
+  'case',
+  'catch',
+  'class',
+  'const',
+  'continue',
+  'default',
+  'else',
+  'export',
+  'extends',
+  'finally',
+  'for',
+  'function',
+  'if',
+  'import',
+  'let',
+  'new',
+  'return',
+  'switch',
+  'throw',
+  'try',
+  'typeof',
+  'var',
+  'while',
+  'yield',
+  'Promise',
+  'console',
+  'map',
+  'filter',
+  'reduce',
+  'Object',
+  'Array',
 ];
 
 const typescriptKeywords = [
   ...javascriptKeywords,
-  'interface', 'type', 'enum', 'implements', 'readonly', 'keyof', 'infer', 'unknown', 'never',
-  'Record', 'Partial', 'Pick', 'Omit',
+  'interface',
+  'type',
+  'enum',
+  'implements',
+  'readonly',
+  'keyof',
+  'infer',
+  'unknown',
+  'never',
+  'Record',
+  'Partial',
+  'Pick',
+  'Omit',
 ];
 
 const htmlKeywords = [
-  'div', 'span', 'section', 'article', 'header', 'footer', 'main', 'aside', 'nav', 'button',
-  'input', 'textarea', 'select', 'option', 'label', 'form', 'table', 'thead', 'tbody', 'tr',
-  'td', 'th', 'img', 'a', 'ul', 'ol', 'li', 'script', 'style', 'template',
+  'div',
+  'span',
+  'section',
+  'article',
+  'header',
+  'footer',
+  'main',
+  'aside',
+  'nav',
+  'button',
+  'input',
+  'textarea',
+  'select',
+  'option',
+  'label',
+  'form',
+  'table',
+  'thead',
+  'tbody',
+  'tr',
+  'td',
+  'th',
+  'img',
+  'a',
+  'ul',
+  'ol',
+  'li',
+  'script',
+  'style',
+  'template',
 ];
 
 const cssKeywords = [
-  'display', 'position', 'color', 'background', 'background-color', 'font-size', 'font-weight',
-  'line-height', 'margin', 'padding', 'border', 'border-radius', 'width', 'height', 'max-width',
-  'min-height', 'flex', 'grid', 'gap', 'align-items', 'justify-content', 'overflow', 'transition',
-  'transform', 'opacity', 'z-index',
+  'display',
+  'position',
+  'color',
+  'background',
+  'background-color',
+  'font-size',
+  'font-weight',
+  'line-height',
+  'margin',
+  'padding',
+  'border',
+  'border-radius',
+  'width',
+  'height',
+  'max-width',
+  'min-height',
+  'flex',
+  'grid',
+  'gap',
+  'align-items',
+  'justify-content',
+  'overflow',
+  'transition',
+  'transform',
+  'opacity',
+  'z-index',
 ];
 
 const markdownKeywords = [
-  '#', '##', '###', '-', '*', '`code`', '```', '[link](https://)', '![image](path)', '> quote',
+  '#',
+  '##',
+  '###',
+  '-',
+  '*',
+  '`code`',
+  '```',
+  '[link](https://)',
+  '![image](path)',
+  '> quote',
 ];
 
 const sqlKeywords = [
-  'SELECT', 'FROM', 'WHERE', 'JOIN', 'LEFT JOIN', 'INNER JOIN', 'INSERT INTO', 'UPDATE', 'DELETE',
-  'CREATE TABLE', 'ALTER TABLE', 'ORDER BY', 'GROUP BY', 'LIMIT', 'OFFSET', 'AND', 'OR', 'NULL',
+  'SELECT',
+  'FROM',
+  'WHERE',
+  'JOIN',
+  'LEFT JOIN',
+  'INNER JOIN',
+  'INSERT INTO',
+  'UPDATE',
+  'DELETE',
+  'CREATE TABLE',
+  'ALTER TABLE',
+  'ORDER BY',
+  'GROUP BY',
+  'LIMIT',
+  'OFFSET',
+  'AND',
+  'OR',
+  'NULL',
 ];
 
 const xmlKeywords = [
-  'xml', 'svg', 'path', 'g', 'defs', 'clipPath', 'linearGradient', 'stop', 'viewBox', 'xmlns',
+  'xml',
+  'svg',
+  'path',
+  'g',
+  'defs',
+  'clipPath',
+  'linearGradient',
+  'stop',
+  'viewBox',
+  'xmlns',
 ];
 
 const pythonKeywords = [
-  'def', 'class', 'import', 'from', 'return', 'if', 'elif', 'else', 'for', 'while', 'try',
-  'except', 'with', 'as', 'async', 'await', 'lambda', 'None', 'True', 'False',
+  'def',
+  'class',
+  'import',
+  'from',
+  'return',
+  'if',
+  'elif',
+  'else',
+  'for',
+  'while',
+  'try',
+  'except',
+  'with',
+  'as',
+  'async',
+  'await',
+  'lambda',
+  'None',
+  'True',
+  'False',
 ];
 
 const rustKeywords = [
-  'fn', 'let', 'mut', 'struct', 'enum', 'impl', 'trait', 'match', 'if', 'else', 'loop', 'while',
-  'for', 'use', 'pub', 'crate', 'mod', 'Result', 'Option', 'String', 'Vec',
+  'fn',
+  'let',
+  'mut',
+  'struct',
+  'enum',
+  'impl',
+  'trait',
+  'match',
+  'if',
+  'else',
+  'loop',
+  'while',
+  'for',
+  'use',
+  'pub',
+  'crate',
+  'mod',
+  'Result',
+  'Option',
+  'String',
+  'Vec',
 ];
 </script>
 

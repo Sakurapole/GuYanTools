@@ -38,11 +38,14 @@ export function useFtpThumbnails(options: UseFtpThumbnailsOptions) {
   }
 
   function persistThumbnailPreferences() {
-    window.localStorage.setItem(FTP_THUMBNAIL_STORAGE_KEY, JSON.stringify({
-      enabled: thumbnailsEnabled.value,
-      maxBytesKb: thumbnailMaxBytesKb.value,
-      prefetchLimit: thumbnailPrefetchLimit.value,
-    }));
+    window.localStorage.setItem(
+      FTP_THUMBNAIL_STORAGE_KEY,
+      JSON.stringify({
+        enabled: thumbnailsEnabled.value,
+        maxBytesKb: thumbnailMaxBytesKb.value,
+        prefetchLimit: thumbnailPrefetchLimit.value,
+      })
+    );
   }
 
   function toggleThumbnails() {
@@ -51,13 +54,17 @@ export function useFtpThumbnails(options: UseFtpThumbnailsOptions) {
   }
 
   function setThumbnailMaxBytesKb(value: string) {
-    thumbnailMaxBytesKb.value = String(Math.max(1, Number(value.replace(/\D/g, '')) || DEFAULT_THUMBNAIL_MAX_BYTES_KB));
+    thumbnailMaxBytesKb.value = String(
+      Math.max(1, Number(value.replace(/\D/g, '')) || DEFAULT_THUMBNAIL_MAX_BYTES_KB)
+    );
     resetThumbnailCache();
     persistThumbnailPreferences();
   }
 
   function setThumbnailPrefetchLimit(value: string) {
-    thumbnailPrefetchLimit.value = String(Math.max(1, Number(value.replace(/\D/g, '')) || DEFAULT_THUMBNAIL_PREFETCH_LIMIT));
+    thumbnailPrefetchLimit.value = String(
+      Math.max(1, Number(value.replace(/\D/g, '')) || DEFAULT_THUMBNAIL_PREFETCH_LIMIT)
+    );
     persistThumbnailPreferences();
   }
 
@@ -127,7 +134,10 @@ export function useFtpThumbnails(options: UseFtpThumbnailsOptions) {
     let bestCandidate = dataUrl;
     let bestCandidateBytes = dataUrlBytes(dataUrl);
 
-    while (targetWidth >= GENERATED_THUMBNAIL_MIN_EDGE_PX && targetHeight >= GENERATED_THUMBNAIL_MIN_EDGE_PX) {
+    while (
+      targetWidth >= GENERATED_THUMBNAIL_MIN_EDGE_PX &&
+      targetHeight >= GENERATED_THUMBNAIL_MIN_EDGE_PX
+    ) {
       canvas.width = targetWidth;
       canvas.height = targetHeight;
       context.clearRect(0, 0, targetWidth, targetHeight);
@@ -160,11 +170,15 @@ export function useFtpThumbnails(options: UseFtpThumbnailsOptions) {
       keepKeys.add(key);
     }
     thumbnailUrls.value = Object.fromEntries(
-      Object.entries(thumbnailUrls.value).filter(([key]) => keepKeys.has(key)),
+      Object.entries(thumbnailUrls.value).filter(([key]) => keepKeys.has(key))
     );
   }
 
-  async function ensureEntryThumbnail(kind: ThumbnailPanelKind, entry: FileTransferEntry, sessionId = '') {
+  async function ensureEntryThumbnail(
+    kind: ThumbnailPanelKind,
+    entry: FileTransferEntry,
+    sessionId = ''
+  ) {
     if (!thumbnailsEnabled.value || entry.isDir || !isImageEntry(entry)) return;
     const cacheKey = thumbnailCacheKey(kind, entry, sessionId);
     if (thumbnailUrls.value[cacheKey] || thumbnailLoadingKeys.value.includes(cacheKey)) return;
@@ -172,13 +186,16 @@ export function useFtpThumbnails(options: UseFtpThumbnailsOptions) {
     try {
       const maxBytes = parsedThumbnailMaxBytes();
       const remoteSessionId = sessionId || options.ftpStore.activeSessionId;
-      const dataUrl = kind === 'local'
-        ? await window.ftpApi.loadLocalImagePreview(entry.path, maxBytes)
-        : remoteSessionId
-          ? await window.ftpApi.loadRemoteImagePreview(remoteSessionId, entry.path, maxBytes)
-          : null;
+      const dataUrl =
+        kind === 'local'
+          ? await window.ftpApi.loadLocalImagePreview(entry.path, maxBytes)
+          : remoteSessionId
+            ? await window.ftpApi.loadRemoteImagePreview(remoteSessionId, entry.path, maxBytes)
+            : null;
       if (dataUrl) {
-        const optimizedDataUrl = await generateCompressedThumbnail(dataUrl, maxBytes).catch(() => dataUrl);
+        const optimizedDataUrl = await generateCompressedThumbnail(dataUrl, maxBytes).catch(
+          () => dataUrl
+        );
         thumbnailUrls.value = {
           ...thumbnailUrls.value,
           [cacheKey]: optimizedDataUrl,
@@ -192,30 +209,39 @@ export function useFtpThumbnails(options: UseFtpThumbnailsOptions) {
   async function ensureVisibleThumbnails() {
     if (!thumbnailsEnabled.value) return;
     const prefetchLimit = parsedThumbnailPrefetchLimit();
-    const paneTargets = options.workspacePanes?.value.flatMap((pane) => (
-      pane.entries
-        .filter((entry) => !entry.isDir && isImageEntry(entry))
-        .slice(0, prefetchLimit)
-        .map((entry) => ({ kind: pane.kind, sessionId: pane.sessionId ?? '', entry }))
-    )) ?? [];
+    const paneTargets =
+      options.workspacePanes?.value.flatMap((pane) =>
+        pane.entries
+          .filter((entry) => !entry.isDir && isImageEntry(entry))
+          .slice(0, prefetchLimit)
+          .map((entry) => ({ kind: pane.kind, sessionId: pane.sessionId ?? '', entry }))
+      ) ?? [];
     const fallbackTargets = paneTargets.length
       ? []
       : [
-        ...options.filteredLocalEntries.value
-          .filter((entry) => !entry.isDir && isImageEntry(entry))
-          .slice(0, prefetchLimit)
-          .map((entry) => ({ kind: 'local' as const, sessionId: '', entry })),
-        ...options.filteredRemoteEntries.value
-          .filter((entry) => !entry.isDir && isImageEntry(entry))
-          .slice(0, prefetchLimit)
-          .map((entry) => ({ kind: 'remote' as const, sessionId: options.ftpStore.activeSessionId, entry })),
-      ];
+          ...options.filteredLocalEntries.value
+            .filter((entry) => !entry.isDir && isImageEntry(entry))
+            .slice(0, prefetchLimit)
+            .map((entry) => ({ kind: 'local' as const, sessionId: '', entry })),
+          ...options.filteredRemoteEntries.value
+            .filter((entry) => !entry.isDir && isImageEntry(entry))
+            .slice(0, prefetchLimit)
+            .map((entry) => ({
+              kind: 'remote' as const,
+              sessionId: options.ftpStore.activeSessionId,
+              entry,
+            })),
+        ];
     const thumbnailTargets = paneTargets.length ? paneTargets : fallbackTargets;
     trimThumbnailCache([
-      ...thumbnailTargets.map((target) => thumbnailCacheKey(target.kind, target.entry, target.sessionId)),
+      ...thumbnailTargets.map((target) =>
+        thumbnailCacheKey(target.kind, target.entry, target.sessionId)
+      ),
     ]);
     await Promise.allSettled([
-      ...thumbnailTargets.map((target) => ensureEntryThumbnail(target.kind, target.entry, target.sessionId)),
+      ...thumbnailTargets.map((target) =>
+        ensureEntryThumbnail(target.kind, target.entry, target.sessionId)
+      ),
     ]);
   }
 
@@ -225,14 +251,19 @@ export function useFtpThumbnails(options: UseFtpThumbnailsOptions) {
       thumbnailMaxBytesKb.value,
       thumbnailPrefetchLimit.value,
       options.ftpStore.activeSessionId,
-      options.workspacePanes?.value.map((pane) => `${pane.kind}:${pane.sessionId ?? ''}:${pane.entries.map((entry) => entry.path).join('|')}`).join('||') ?? '',
+      options.workspacePanes?.value
+        .map(
+          (pane) =>
+            `${pane.kind}:${pane.sessionId ?? ''}:${pane.entries.map((entry) => entry.path).join('|')}`
+        )
+        .join('||') ?? '',
       options.filteredLocalEntries.value.map((entry) => entry.path).join('|'),
       options.filteredRemoteEntries.value.map((entry) => entry.path).join('|'),
     ],
     () => {
       void ensureVisibleThumbnails();
     },
-    { immediate: true },
+    { immediate: true }
   );
 
   onMounted(() => {
@@ -245,8 +276,14 @@ export function useFtpThumbnails(options: UseFtpThumbnailsOptions) {
           prefetchLimit: string;
         }>;
         thumbnailsEnabled.value = parsed.enabled !== false;
-        thumbnailMaxBytesKb.value = typeof parsed.maxBytesKb === 'string' ? parsed.maxBytesKb : String(DEFAULT_THUMBNAIL_MAX_BYTES_KB);
-        thumbnailPrefetchLimit.value = typeof parsed.prefetchLimit === 'string' ? parsed.prefetchLimit : String(DEFAULT_THUMBNAIL_PREFETCH_LIMIT);
+        thumbnailMaxBytesKb.value =
+          typeof parsed.maxBytesKb === 'string'
+            ? parsed.maxBytesKb
+            : String(DEFAULT_THUMBNAIL_MAX_BYTES_KB);
+        thumbnailPrefetchLimit.value =
+          typeof parsed.prefetchLimit === 'string'
+            ? parsed.prefetchLimit
+            : String(DEFAULT_THUMBNAIL_PREFETCH_LIMIT);
       }
     } catch {
       thumbnailsEnabled.value = true;

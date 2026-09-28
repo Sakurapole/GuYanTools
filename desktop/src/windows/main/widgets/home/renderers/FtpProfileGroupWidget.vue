@@ -6,22 +6,29 @@ import { useFtpStore } from '../../../stores/ftp_store';
 import { normalizeWidgetConfig } from '../registry';
 import { openFtpProfileFromHome } from '../ftpWidgetNavigation';
 
-const props = withDefaults(defineProps<{
-  item: GridItem;
-  interactive?: boolean;
-}>(), {
-  interactive: true,
-});
+const props = withDefaults(
+  defineProps<{
+    item: GridItem;
+    interactive?: boolean;
+  }>(),
+  {
+    interactive: true,
+  }
+);
 
 const ftpStore = useFtpStore();
 const loading = ref(false);
-const config = computed(() =>
-  normalizeWidgetConfig('ftp_profile_group', props.item.widgetConfig) as FtpProfileGroupWidgetConfig,
+const config = computed(
+  () =>
+    normalizeWidgetConfig(
+      'ftp_profile_group',
+      props.item.widgetConfig
+    ) as FtpProfileGroupWidgetConfig
 );
 const selectedFolder = computed(() =>
   config.value.folderId
-    ? ftpStore.folders.find((folder) => folder.id === config.value.folderId) ?? null
-    : null,
+    ? (ftpStore.folders.find((folder) => folder.id === config.value.folderId) ?? null)
+    : null
 );
 const title = computed(() => selectedFolder.value?.label || '未分组');
 const profiles = computed(() => {
@@ -30,8 +37,9 @@ const profiles = computed(() => {
     ? ftpStore.profiles.filter((profile) => isProfileInsideFolder(profile, folderId))
     : ftpStore.profiles.filter((profile) => !profile.folderId);
 
-  return profileList.sort((left, right) =>
-    left.sortOrder - right.sortOrder || left.label.localeCompare(right.label, 'zh-CN'),
+  return profileList.sort(
+    (left, right) =>
+      left.sortOrder - right.sortOrder || left.label.localeCompare(right.label, 'zh-CN')
   );
 });
 const isCompact = computed(() => props.item.rowSpan <= 2);
@@ -40,7 +48,9 @@ function isProfileInsideFolder(profile: FtpProfile, folderId: string) {
   let currentId = profile.folderId || '';
   while (currentId) {
     if (currentId === folderId) return true;
-    const folder: FtpSessionFolder | undefined = ftpStore.folders.find((item) => item.id === currentId);
+    const folder: FtpSessionFolder | undefined = ftpStore.folders.find(
+      (item) => item.id === currentId
+    );
     currentId = folder?.parentId || '';
   }
   return false;
@@ -57,10 +67,7 @@ function isProfileConnected(profileId: string) {
 async function loadProfiles() {
   loading.value = true;
   try {
-    await Promise.all([
-      ftpStore.refreshProfiles(),
-      ftpStore.refreshFolders(),
-    ]);
+    await Promise.all([ftpStore.refreshProfiles(), ftpStore.refreshFolders()]);
   } finally {
     loading.value = false;
   }
@@ -99,7 +106,10 @@ onMounted(() => {
         @dblclick.stop="openProfile(profile)"
         @keydown.enter.prevent.stop="openProfile(profile)"
       >
-        <span class="ftp-group-widget__status" :class="{ 'ftp-group-widget__status--connected': isProfileConnected(profile.id) }" />
+        <span
+          class="ftp-group-widget__status"
+          :class="{ 'ftp-group-widget__status--connected': isProfileConnected(profile.id) }"
+        />
         <div class="ftp-group-widget__item-main">
           <span class="ftp-group-widget__item-title">{{ profile.label }}</span>
           <span class="ftp-group-widget__item-meta">{{ profileMeta(profile) }}</span>

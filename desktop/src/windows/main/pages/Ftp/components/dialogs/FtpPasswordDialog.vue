@@ -19,7 +19,12 @@ const emit = defineEmits<{
 </script>
 
 <template>
-  <UiDialog :model-value="modelValue" width="420" max-width="92vw" @update:modelValue="emit('update:modelValue', $event)">
+  <UiDialog
+    :model-value="modelValue"
+    width="420"
+    max-width="92vw"
+    @update:modelValue="emit('update:modelValue', $event)"
+  >
     <template #header>
       <div class="ftp-dialog__header">输入连接密码</div>
     </template>

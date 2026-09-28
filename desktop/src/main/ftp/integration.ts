@@ -30,10 +30,9 @@ export type FtpCliInvocationResult = {
 };
 
 export function addPendingExternalPaths(paths: string[]) {
-  pendingExternalPaths = Array.from(new Set([
-    ...pendingExternalPaths,
-    ...paths.map((item) => item.trim()).filter(Boolean),
-  ]));
+  pendingExternalPaths = Array.from(
+    new Set([...pendingExternalPaths, ...paths.map((item) => item.trim()).filter(Boolean)])
+  );
 }
 
 export function getPendingExternalPaths() {
@@ -126,7 +125,9 @@ export async function handleFtpCliArgs(argv: string[]): Promise<FtpCliInvocation
   if (command === 'sync') {
     const syncDirection = resolveCliSyncDirection(options.get('direction'));
     const conflictPolicy = resolveCliConflictPolicy(options.get('conflict-policy'));
-    const verifyContent = resolveCliBoolean(options.get('checksum') ?? options.get('verify-content'));
+    const verifyContent = resolveCliBoolean(
+      options.get('checksum') ?? options.get('verify-content')
+    );
     const recursive = resolveCliBoolean(options.get('recursive'), true);
     const result = await runFtpSync({
       ...profile,
@@ -206,11 +207,7 @@ function parseCliOptions(args: string[]) {
 }
 
 function collectImportPaths(options: Map<string, string>, args: string[]) {
-  const collected = [
-    options.get('path'),
-    options.get('paths'),
-    ...extractPositionalArgs(args),
-  ]
+  const collected = [options.get('path'), options.get('paths'), ...extractPositionalArgs(args)]
     .filter(Boolean)
     .flatMap((value) => String(value).split(/[;\r\n]+/))
     .map((item) => item.trim().replace(/^"|"$/g, ''))

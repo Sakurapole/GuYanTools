@@ -60,7 +60,11 @@ export function buildPathSuggestions(entries: FileTransferEntry[], input: string
 }
 
 export function buildRemoteBreadcrumbs(path: string): PathBreadcrumb[] {
-  const normalized = `/${(path || '/').replace(/\/+/g, '/').replace(/^\/?/, '').replace(/\/+$/, '')}`.replace(/\/{2,}/g, '/');
+  const normalized =
+    `/${(path || '/').replace(/\/+/g, '/').replace(/^\/?/, '').replace(/\/+$/, '')}`.replace(
+      /\/{2,}/g,
+      '/'
+    );
   if (normalized === '/') {
     return [{ label: '/', path: '/' }];
   }

@@ -26,7 +26,12 @@ function updateResponse(index: number, value: string) {
 </script>
 
 <template>
-  <UiDialog :model-value="modelValue" width="520" max-width="92vw" @update:modelValue="emit('update:modelValue', $event)">
+  <UiDialog
+    :model-value="modelValue"
+    width="520"
+    max-width="92vw"
+    @update:modelValue="emit('update:modelValue', $event)"
+  >
     <template #header>
       <div class="ftp-dialog__header">{{ challenge?.name || '输入交互式认证信息' }}</div>
     </template>
