@@ -20,7 +20,23 @@
     "ecmaVersion": "latest",
     "sourceType": "module"
   },
+  "ignorePatterns": [
+    "dist/",
+    "out/",
+    ".vite/",
+    "release/",
+    "node_modules/",
+    "**/node_modules/",
+    "src/main/plugin-host/fixtures/",
+    "scripts/"
+  ],
   "overrides": [
+    {
+      "files": ["*.ts", "*.tsx", "*.vue"],
+      "rules": {
+        "no-undef": "off"
+      }
+    },
     {
       "files": ["*.ts", "*.tsx"],
       "parser": "@typescript-eslint/parser"
@@ -28,17 +44,39 @@
     {
       "files": ["*.js", "*.cjs", "*.mjs"],
       "rules": {
-        "@typescript-eslint/no-var-requires": "off"
+        "@typescript-eslint/no-var-requires": "off",
+        "no-undef": "off"
+      }
+    },
+    {
+      "files": ["**/AiCanvasPreview.vue", "**/KnowledgeMarkdownEditor.vue"],
+      "rules": {
+        "no-useless-escape": "off",
+        "no-control-regex": "off"
+      }
+    },
+    {
+      "files": ["**/*.test.ts", "**/*.spec.ts", "**/*.spec.tsx"],
+      "rules": {
+        "@typescript-eslint/no-unused-vars": [
+          "error",
+          { "argsIgnorePattern": "^_", "varsIgnorePattern": "^_" }
+        ]
       }
     }
   ],
   "rules": {
     "@typescript-eslint/no-explicit-any": "off",
+    "@typescript-eslint/no-unused-vars": [
+      "error",
+      { "argsIgnorePattern": "^_", "varsIgnorePattern": "^_" }
+    ],
     "no-var": "off",
     "vue/multi-word-component-names": "off",
     "vue/no-deprecated-slot-attribute": "off",
     "vue/no-v-html": "off",
-    "vue/no-mutating-props": "warn"
+    "vue/no-mutating-props": "warn",
+    "import/no-named-as-default-member": "off"
   },
   "settings": {
     "import/resolver": {

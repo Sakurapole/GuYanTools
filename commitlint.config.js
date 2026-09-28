@@ -65,7 +65,8 @@ module.exports = {
       breaking: '列出破坏性变更（可选）。使用 "|" 换行:\n',
       footerPrefixesSelect: '选择 Git trailer / issue 前缀（可选）:',
       customFooterPrefix: '输入自定义 trailer 前缀:',
-      footer: '填写 Lore trailer 或关联 issue（可选），例如 "Confidence: high"、"Tested: pnpm test":\n',
+      footer:
+        '填写 Lore trailer 或关联 issue（可选），例如 "Confidence: high"、"Tested: pnpm test":\n',
       generatingByAI: '正在通过 AI 生成提交描述...',
       generatedSelectByAI: '选择一个 AI 生成的提交描述:',
       confirmCommit: '确认提交?',
