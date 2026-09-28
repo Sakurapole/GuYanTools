@@ -19,13 +19,7 @@ export type SyncCollectionKind =
   | 'ai.model_config';
 
 export type SyncStatus =
-  | 'disabled'
-  | 'idle'
-  | 'syncing'
-  | 'offline'
-  | 'error'
-  | 'conflict'
-  | 'device_revoked';
+  'disabled' | 'idle' | 'syncing' | 'offline' | 'error' | 'conflict' | 'device_revoked';
 
 export type SyncConflictResolution = 'use-local' | 'use-remote' | 'keep-both' | 'manual';
 export type SyncRunPhase = 'download' | 'upload';

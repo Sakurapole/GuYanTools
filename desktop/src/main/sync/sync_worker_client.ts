@@ -34,7 +34,8 @@ class SyncWorkerClient {
   }
 
   dispose() {
-    for (const pending of this.pending.values()) pending.reject(new Error('同步 utility process 已退出'));
+    for (const pending of this.pending.values())
+      pending.reject(new Error('同步 utility process 已退出'));
     this.pending.clear();
     this.process?.kill();
     this.process = null;

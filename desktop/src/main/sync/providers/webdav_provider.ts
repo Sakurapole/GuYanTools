@@ -1,5 +1,14 @@
-import type { SyncConnectionResult, SyncObjectEnvelope, SyncProfileSummary } from '@/contracts/sync';
-import { SyncProviderObjectError, type SyncProvider, type SyncPullResult, type SyncPushInput } from './provider_types';
+import type {
+  SyncConnectionResult,
+  SyncObjectEnvelope,
+  SyncProfileSummary,
+} from '@/contracts/sync';
+import {
+  SyncProviderObjectError,
+  type SyncProvider,
+  type SyncPullResult,
+  type SyncPushInput,
+} from './provider_types';
 
 export interface WebDavSyncProviderOptions {
   endpoint: string;
@@ -46,7 +55,9 @@ export class WebDavSyncProvider implements SyncProvider {
     const deletedObjects: SyncObjectEnvelope[] = [];
 
     for (const deviceDir of deviceDirs) {
-      const deviceId = decodeURIComponent(deviceDir.replace(/\/$/, '').split('/').filter(Boolean).at(-1) || '');
+      const deviceId = decodeURIComponent(
+        deviceDir.replace(/\/$/, '').split('/').filter(Boolean).at(-1) || ''
+      );
       const profilePaths = await this.listDirectory(`${deviceDir}profiles/`);
       for (const profilePath of profilePaths) {
         const envelope = await this.readJson<SyncObjectEnvelope>(profilePath);
@@ -107,7 +118,10 @@ export class WebDavSyncProvider implements SyncProvider {
       updatedAt: Date.now(),
     });
     for (const profile of input.profiles) {
-      await this.writeJson(`${createDeviceRoot(input.deviceId)}/profiles/${profile.objectId}.json`, profile);
+      await this.writeJson(
+        `${createDeviceRoot(input.deviceId)}/profiles/${profile.objectId}.json`,
+        profile
+      );
     }
     for (const object of input.objects) {
       await this.ensureObjectFolder(input.deviceId, 'objects', object.collection);
@@ -141,7 +155,9 @@ export class WebDavSyncProvider implements SyncProvider {
       body: new Uint8Array(bytes),
     });
     if (!response.ok) {
-      throw new Error(`WebDAV 资产上传失败：${normalizedKey} payloadBytes=${bytes.byteLength} HTTP ${response.status}${await readErrorBody(response)}`);
+      throw new Error(
+        `WebDAV 资产上传失败：${normalizedKey} payloadBytes=${bytes.byteLength} HTTP ${response.status}${await readErrorBody(response)}`
+      );
     }
   }
 
@@ -169,7 +185,11 @@ export class WebDavSyncProvider implements SyncProvider {
     await this.ensureCollection(`${deviceRoot}/tombstones/`);
   }
 
-  private async ensureObjectFolder(deviceId: string, root: 'objects' | 'tombstones', collection: string) {
+  private async ensureObjectFolder(
+    deviceId: string,
+    root: 'objects' | 'tombstones',
+    collection: string
+  ) {
     await this.ensureCollection(`${createDeviceRoot(deviceId)}/${root}/`);
     await this.ensureNestedCollections(`${createDeviceRoot(deviceId)}/${root}/${collection}/`);
   }
@@ -203,19 +223,22 @@ export class WebDavSyncProvider implements SyncProvider {
       body,
     });
     if (!response.ok) {
-      const object = value && typeof value === 'object'
-        ? value as Partial<Pick<SyncObjectEnvelope, 'collection' | 'objectId'>>
-        : {};
+      const object =
+        value && typeof value === 'object'
+          ? (value as Partial<Pick<SyncObjectEnvelope, 'collection' | 'objectId'>>)
+          : {};
       const requestBytes = Buffer.byteLength(body, 'utf8');
       if (object.collection && object.objectId) {
         throw new SyncProviderObjectError(
           `WebDAV 写入失败：${relativePath} payloadBytes=${requestBytes} HTTP ${response.status}${await readErrorBody(response)}`,
           object.collection,
           object.objectId,
-          requestBytes,
+          requestBytes
         );
       }
-      throw new Error(`WebDAV 写入失败：${relativePath} payloadBytes=${requestBytes} HTTP ${response.status}${await readErrorBody(response)}`);
+      throw new Error(
+        `WebDAV 写入失败：${relativePath} payloadBytes=${requestBytes} HTTP ${response.status}${await readErrorBody(response)}`
+      );
     }
   }
 
@@ -304,7 +327,7 @@ export function createKnowledgeAssetRemoteKey(hash: string, extension?: string):
 function createObjectPath(
   deviceId: string,
   root: 'objects' | 'tombstones',
-  object: Pick<SyncObjectEnvelope, 'collection' | 'objectId'>,
+  object: Pick<SyncObjectEnvelope, 'collection' | 'objectId'>
 ) {
   return `${createDeviceRoot(deviceId)}/${root}/${object.collection}/${object.objectId}.json`;
 }

@@ -40,7 +40,7 @@ export class SyncProviderObjectError extends Error {
     message: string,
     readonly collection: SyncCollectionKind,
     readonly objectId: string,
-    readonly requestBytes?: number,
+    readonly requestBytes?: number
   ) {
     super(message);
     this.name = 'SyncProviderObjectError';

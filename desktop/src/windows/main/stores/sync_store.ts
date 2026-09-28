@@ -86,7 +86,9 @@ export const useSyncStore = defineStore('sync', () => {
     return providerConfig.value;
   }
 
-  async function loginSyncServer(payload: SyncServerLoginPayload): Promise<SyncServerLoginResult | null> {
+  async function loginSyncServer(
+    payload: SyncServerLoginPayload
+  ): Promise<SyncServerLoginResult | null> {
     if (!window.syncApi) {
       return null;
     }
@@ -143,13 +145,15 @@ export const useSyncStore = defineStore('sync', () => {
   }
 
   function bindEvents() {
-    return window.syncApi?.onEvent((event) => {
-      if (event.type === 'state-changed') {
-        state.value = event.state;
-      } else {
-        void refresh();
-      }
-    }) ?? (() => undefined);
+    return (
+      window.syncApi?.onEvent((event) => {
+        if (event.type === 'state-changed') {
+          state.value = event.state;
+        } else {
+          void refresh();
+        }
+      }) ?? (() => undefined)
+    );
   }
 
   return {

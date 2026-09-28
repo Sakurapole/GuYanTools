@@ -3,7 +3,10 @@ import { syncService } from './sync_service';
 
 type WorkerMessage = { id: number; method: string; args?: unknown[] };
 type WorkerPort = {
-  on: (event: string, listener: (message: { data?: WorkerMessage } | WorkerMessage) => void) => void;
+  on: (
+    event: string,
+    listener: (message: { data?: WorkerMessage } | WorkerMessage) => void
+  ) => void;
   postMessage: (message: unknown) => void;
 };
 
@@ -25,7 +28,9 @@ port.on('message', async (rawMessage) => {
   if (!message) return;
   try {
     await ready;
-    const method = (syncService as unknown as Record<string, (...args: unknown[]) => Promise<unknown>>)[message.method];
+    const method = (
+      syncService as unknown as Record<string, (...args: unknown[]) => Promise<unknown>>
+    )[message.method];
     if (typeof method !== 'function') throw new Error(`未知同步操作: ${message.method}`);
     const result = await method.apply(syncService, message.args ?? []);
     port.postMessage({ id: message.id, result });

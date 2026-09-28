@@ -27,7 +27,11 @@ import type {
   UpdateSyncWebDavConfigPayload,
 } from '@/contracts/sync';
 import { appConfigManager } from '../app-config/manager';
-import { createAppConfigPatchFromSyncProfile, exportAppConfigForSync, sanitizeAppConfigForSync } from './mappers/app_config_mapper';
+import {
+  createAppConfigPatchFromSyncProfile,
+  exportAppConfigForSync,
+  sanitizeAppConfigForSync,
+} from './mappers/app_config_mapper';
 import { exportAiConfigForSync } from './mappers/ai_mapper';
 import { exportKnowledgeForSync } from './mappers/knowledge_mapper';
 import {
@@ -41,7 +45,12 @@ import {
 } from './provider_config_store';
 import { SyncServerProvider } from './providers/sync_server_provider';
 import { createKnowledgeAssetRemoteKey, WebDavSyncProvider } from './providers/webdav_provider';
-import { SyncProviderObjectError, type SyncProvider, type SyncProviderAppliedObject, type SyncProviderPushConflict } from './providers/provider_types';
+import {
+  SyncProviderObjectError,
+  type SyncProvider,
+  type SyncProviderAppliedObject,
+  type SyncProviderPushConflict,
+} from './providers/provider_types';
 import type {
   KnowledgeAsset,
   KnowledgeLibrary,
@@ -125,7 +134,11 @@ type SyncMetadataDatabase = JsDatabase & {
   listPendingSyncOutbox: () => Promise<NativeSyncOutboxItem[]>;
   upsertSyncOutboxItem: (item: NativeSyncOutboxItem) => Promise<NativeSyncOutboxItem>;
   markSyncOutboxItemsSynced: (opIds: string[], updatedAt: number) => Promise<void>;
-  markSyncOutboxItemsSyncedByObject: (collection: string, objectId: string, updatedAt: number) => Promise<void>;
+  markSyncOutboxItemsSyncedByObject: (
+    collection: string,
+    objectId: string,
+    updatedAt: number
+  ) => Promise<void>;
   upsertSyncConflict: (conflict: NativeSyncConflict) => Promise<NativeSyncConflict>;
   resolveSyncConflict: (conflictId: string, resolvedAt: number) => Promise<void>;
   listKnowledgeLibraries?: () => Promise<KnowledgeLibrary[]>;
@@ -203,26 +216,32 @@ class SyncService {
 
   async listPendingItems(): Promise<SyncPendingItemSummary[]> {
     const items = await this.db().listPendingSyncOutbox();
-    return Promise.all(items.map(async (item) => {
-      const payload = parseJsonObject(item.payloadJson);
-      const assetDiagnostics = await this.getPendingAssetDiagnostics(item.collection, item.objectId, payload);
-      const payloadBytes = byteLengthUtf8(item.payloadJson);
-      return {
-        id: item.opId,
-        collection: item.collection as SyncCollectionKind,
-        objectId: item.objectId,
-        operation: item.opKind,
-        title: createPendingItemTitle(item),
-        payloadHash: item.payloadHash,
-        payloadBytes,
-        requestBytes: estimateSyncObjectRequestBytes(item, payload),
-        ...assetDiagnostics,
-        retryCount: item.retryCount,
-        lastError: item.lastError,
-        createdAt: item.createdAt,
-        updatedAt: item.updatedAt,
-      };
-    }));
+    return Promise.all(
+      items.map(async (item) => {
+        const payload = parseJsonObject(item.payloadJson);
+        const assetDiagnostics = await this.getPendingAssetDiagnostics(
+          item.collection,
+          item.objectId,
+          payload
+        );
+        const payloadBytes = byteLengthUtf8(item.payloadJson);
+        return {
+          id: item.opId,
+          collection: item.collection as SyncCollectionKind,
+          objectId: item.objectId,
+          operation: item.opKind,
+          title: createPendingItemTitle(item),
+          payloadHash: item.payloadHash,
+          payloadBytes,
+          requestBytes: estimateSyncObjectRequestBytes(item, payload),
+          ...assetDiagnostics,
+          retryCount: item.retryCount,
+          lastError: item.lastError,
+          createdAt: item.createdAt,
+          updatedAt: item.updatedAt,
+        };
+      })
+    );
   }
 
   async getProviderConfig(): Promise<SyncProviderConfig> {
@@ -239,7 +258,9 @@ class SyncService {
     return config;
   }
 
-  async updateSyncServerConfig(payload: UpdateSyncServerConfigPayload): Promise<SyncProviderConfig> {
+  async updateSyncServerConfig(
+    payload: UpdateSyncServerConfigPayload
+  ): Promise<SyncProviderConfig> {
     const config = await updateSyncServerConfig(payload);
     this.state = {
       ...this.state,
@@ -271,7 +292,11 @@ class SyncService {
 
   async logoutSyncServer(): Promise<SyncProviderConfig> {
     const config = await readSyncProviderRuntimeConfig();
-    if (config.syncServer?.endpoint && config.syncServer.deviceId && config.syncServer.accessToken) {
+    if (
+      config.syncServer?.endpoint &&
+      config.syncServer.deviceId &&
+      config.syncServer.accessToken
+    ) {
       await this.createSyncServerProvider(config.syncServer)
         .revokeDevice(config.syncServer.deviceId)
         .catch((): void => undefined);
@@ -419,47 +444,62 @@ class SyncService {
       const pendingProfileIds = new Set(
         pending
           .filter((item) => item.opKind !== 'delete' && item.collection === 'app.profile')
-          .map((item) => item.objectId),
+          .map((item) => item.objectId)
       );
       const localProfileById = new Map<string, NativeSyncProfile>();
-      await Promise.all(Array.from(pendingProfileIds).map(async (profileId) => {
-        try {
-          const profile = await this.getSyncProfile(profileId);
-          if (profile.isLocal && profile.ownerDeviceId === this.deviceIdentity.deviceId) {
-            localProfileById.set(profile.profileId, profile);
+      await Promise.all(
+        Array.from(pendingProfileIds).map(async (profileId) => {
+          try {
+            const profile = await this.getSyncProfile(profileId);
+            if (profile.isLocal && profile.ownerDeviceId === this.deviceIdentity.deviceId) {
+              localProfileById.set(profile.profileId, profile);
+            }
+          } catch {
+            // Fall back to the pending outbox payload when the profile was removed.
           }
-        } catch {
-          // Fall back to the pending outbox payload when the profile was removed.
-        }
-      }));
-      const dirtyProfileObjects = dedupeSyncObjectsByIdentity(pending
-        .filter((item) => item.opKind !== 'delete' && item.collection === 'app.profile')
-        .map((item) => {
-          const profile = localProfileById.get(item.objectId);
-          if (profile) {
-            return syncProfileToEnvelope(
-              profile,
-              objectStates.find((state) => state.collection === 'app.profile' && state.objectId === profile.profileId),
-            );
-          }
-          return outboxItemToEnvelope(item, this.deviceIdentity.deviceId);
-        }));
-      const profileKeys = new Set(dirtyProfileObjects.map((profile) => `${profile.collection}:${profile.objectId}`));
+        })
+      );
+      const dirtyProfileObjects = dedupeSyncObjectsByIdentity(
+        pending
+          .filter((item) => item.opKind !== 'delete' && item.collection === 'app.profile')
+          .map((item) => {
+            const profile = localProfileById.get(item.objectId);
+            if (profile) {
+              return syncProfileToEnvelope(
+                profile,
+                objectStates.find(
+                  (state) =>
+                    state.collection === 'app.profile' && state.objectId === profile.profileId
+                )
+              );
+            }
+            return outboxItemToEnvelope(item, this.deviceIdentity.deviceId);
+          })
+      );
+      const profileKeys = new Set(
+        dirtyProfileObjects.map((profile) => `${profile.collection}:${profile.objectId}`)
+      );
       const pendingObjects = pending
         .filter((item) => item.opKind !== 'delete' && item.collection !== 'app.profile')
         .map((item) => outboxItemToEnvelope(item, this.deviceIdentity.deviceId));
       const dedupedPendingObjects = dedupeSyncObjectsByIdentity(
-        pendingObjects.filter((object) => !profileKeys.has(`${object.collection}:${object.objectId}`)),
+        pendingObjects.filter(
+          (object) => !profileKeys.has(`${object.collection}:${object.objectId}`)
+        )
       );
       const pendingTombstones = pending
         .filter((item) => item.opKind === 'delete')
         .map((item) => outboxItemToEnvelope(item, this.deviceIdentity.deviceId));
       const dedupedPendingTombstones = dedupeSyncObjectsByIdentity(pendingTombstones);
-      const hasPendingPushObjects = dirtyProfileObjects.length > 0
-        || dedupedPendingObjects.length > 0
-        || dedupedPendingTombstones.length > 0;
+      const hasPendingPushObjects =
+        dirtyProfileObjects.length > 0 ||
+        dedupedPendingObjects.length > 0 ||
+        dedupedPendingTombstones.length > 0;
       if (hasPendingPushObjects) {
-        const pushTotal = dirtyProfileObjects.length + dedupedPendingObjects.length + dedupedPendingTombstones.length;
+        const pushTotal =
+          dirtyProfileObjects.length +
+          dedupedPendingObjects.length +
+          dedupedPendingTombstones.length;
         this.updateSyncProgress('upload', 0, pushTotal);
         await this.uploadPendingKnowledgeAssets(provider, dedupedPendingObjects, (completed) => {
           this.updateSyncProgress('upload', completed, pushTotal);
@@ -474,7 +514,7 @@ class SyncService {
           if (error instanceof SyncProviderObjectError) {
             const message = createSyncObjectFailureMessage(
               `对象写入失败，估算请求体 ${formatBytes(error.requestBytes ?? 0)}`,
-              error,
+              error
             );
             await this.recordPendingFailureForObject(error.collection, error.objectId, message);
             throw error;
@@ -482,11 +522,11 @@ class SyncService {
           const requestBytes = estimateProviderPushRequestBytes(pushInput);
           const message = createSyncObjectFailureMessage(
             `批量同步请求失败，估算请求体 ${formatBytes(requestBytes)}`,
-            error,
+            error
           );
           await this.recordPendingFailureForObjects(
             [...dirtyProfileObjects, ...dedupedPendingObjects, ...dedupedPendingTombstones],
-            message,
+            message
           );
           throw error;
         });
@@ -503,15 +543,31 @@ class SyncService {
         }
         if (pending.length > 0) {
           const now = Date.now();
-          const conflictedKeys = new Set((pushResult.conflicts ?? []).map((item) => `${item.collection}:${item.objectId}`));
+          const conflictedKeys = new Set(
+            (pushResult.conflicts ?? []).map((item) => `${item.collection}:${item.objectId}`)
+          );
           const appliedRevisions = createAppliedRevisionMap(pushResult.applied ?? []);
-          const syncedPending = pending.filter((item) => !conflictedKeys.has(`${item.collection}:${item.objectId}`));
-          await this.db().markSyncOutboxItemsSynced(syncedPending.map((item) => item.opId), now);
-          for (const object of [...dirtyProfileObjects, ...dedupedPendingObjects, ...dedupedPendingTombstones]) {
+          const syncedPending = pending.filter(
+            (item) => !conflictedKeys.has(`${item.collection}:${item.objectId}`)
+          );
+          await this.db().markSyncOutboxItemsSynced(
+            syncedPending.map((item) => item.opId),
+            now
+          );
+          for (const object of [
+            ...dirtyProfileObjects,
+            ...dedupedPendingObjects,
+            ...dedupedPendingTombstones,
+          ]) {
             if (conflictedKeys.has(`${object.collection}:${object.objectId}`)) {
               continue;
             }
-            await this.markObjectClean(object, now, appliedRevisions.get(`${object.collection}:${object.objectId}`) ?? pushResult.serverRev);
+            await this.markObjectClean(
+              object,
+              now,
+              appliedRevisions.get(`${object.collection}:${object.objectId}`) ??
+                pushResult.serverRev
+            );
           }
         }
         this.updateSyncProgress('upload', pushTotal, pushTotal);
@@ -546,16 +602,18 @@ class SyncService {
 
     const payload = JSON.parse(profile.payloadJson) as AppConfig;
     await this.runWithoutCapturingLocalChanges(async () => {
-      await appConfigManager.updateConfig(createSafeAppConfigPatchFromSyncProfile({
-        collection: 'app.profile',
-        objectId: profile.profileId,
-        ownerDeviceId: profile.ownerDeviceId,
-        schemaVersion: profile.schemaVersion,
-        payloadHash: profile.payloadHash,
-        payload,
-        deleted: false,
-        updatedAt: profile.updatedAt,
-      }));
+      await appConfigManager.updateConfig(
+        createSafeAppConfigPatchFromSyncProfile({
+          collection: 'app.profile',
+          objectId: profile.profileId,
+          ownerDeviceId: profile.ownerDeviceId,
+          schemaVersion: profile.schemaVersion,
+          payloadHash: profile.payloadHash,
+          payload,
+          deleted: false,
+          updatedAt: profile.updatedAt,
+        })
+      );
     });
     await this.db().setActiveSyncProfile(profileId);
     await this.refreshStateFromProfiles();
@@ -575,8 +633,11 @@ class SyncService {
       throw new Error('手动合并将在后续版本开放。');
     }
     const conflict = this.db().getSyncConflict
-      ? await this.db().getSyncConflict(conflictId).catch((): NativeSyncConflict | null => null)
-      : (await this.db().listSyncConflicts()).find((item) => item.conflictId === conflictId) ?? null;
+      ? await this.db()
+          .getSyncConflict(conflictId)
+          .catch((): NativeSyncConflict | null => null)
+      : ((await this.db().listSyncConflicts()).find((item) => item.conflictId === conflictId) ??
+        null);
     if (!conflict) {
       throw new Error('同步冲突不存在或已解决。');
     }
@@ -589,9 +650,15 @@ class SyncService {
     }
     if (_resolution === 'use-local') {
       const remoteObject = conflictToRemoteEnvelope(conflict);
-      const localObject = await this.findCurrentLocalObject(remoteObject.collection, remoteObject.objectId);
+      const localObject = await this.findCurrentLocalObject(
+        remoteObject.collection,
+        remoteObject.objectId
+      );
       const { serverRev } = parseServerConflictMetadata(conflict.basePayloadJson);
-      await this.enqueueChangedObjects([localObject ?? conflictToLocalEnvelope(conflict, this.deviceIdentity.deviceId)], serverRev);
+      await this.enqueueChangedObjects(
+        [localObject ?? conflictToLocalEnvelope(conflict, this.deviceIdentity.deviceId)],
+        serverRev
+      );
       await this.resolvePendingConflictsForObject(remoteObject);
     }
     if (_resolution === 'keep-both') {
@@ -599,7 +666,10 @@ class SyncService {
       if (isAppConfigCollection(remoteObject.collection)) {
         await this.storeKeepBothRemoteProfile(conflict, remoteObject);
         await this.clearPendingOutboxForObject(remoteObject);
-        const localObject = await this.findCurrentLocalObject(remoteObject.collection, remoteObject.objectId);
+        const localObject = await this.findCurrentLocalObject(
+          remoteObject.collection,
+          remoteObject.objectId
+        );
         if (localObject) {
           await this.enqueueChangedObjects([localObject], getObjectRemoteRevision(remoteObject));
         }
@@ -710,7 +780,9 @@ class SyncService {
     if (database.getSyncProfile) {
       return database.getSyncProfile(profileId);
     }
-    const profile = (await database.listSyncProfiles()).find((item) => item.profileId === profileId);
+    const profile = (await database.listSyncProfiles()).find(
+      (item) => item.profileId === profileId
+    );
     if (!profile) {
       throw new Error('同步配置档案不存在。');
     }
@@ -719,7 +791,11 @@ class SyncService {
 
   private async ensureLocalProfile(): Promise<NativeSyncProfile[]> {
     const profiles = await this.listProfileMetadata();
-    if (profiles.some((profile) => profile.isLocal && profile.ownerDeviceId === this.deviceIdentity.deviceId)) {
+    if (
+      profiles.some(
+        (profile) => profile.isLocal && profile.ownerDeviceId === this.deviceIdentity.deviceId
+      )
+    ) {
       return profiles;
     }
 
@@ -764,15 +840,22 @@ class SyncService {
     }).objects;
     const knowledgeObjects = await this.exportKnowledgeObjectsForSync();
     await this.clearStalePendingWikilinkOutbox(knowledgeObjects);
-    await this.enqueueChangedObjects([exported.profile, ...exported.objects, ...aiObjects, ...knowledgeObjects]);
+    await this.enqueueChangedObjects([
+      exported.profile,
+      ...exported.objects,
+      ...aiObjects,
+      ...knowledgeObjects,
+    ]);
   }
 
   private async upsertLocalProfileFromExport(
     profileObject: SyncObjectEnvelope<AppConfig>,
-    knownProfiles?: NativeSyncProfile[],
+    knownProfiles?: NativeSyncProfile[]
   ): Promise<void> {
-    const profiles = knownProfiles ?? await this.listProfileMetadata();
-    const existingProfile = profiles.find((profile) => profile.profileId === profileObject.objectId);
+    const profiles = knownProfiles ?? (await this.listProfileMetadata());
+    const existingProfile = profiles.find(
+      (profile) => profile.profileId === profileObject.objectId
+    );
     const now = profileObject.updatedAt;
     await this.db().upsertSyncProfile({
       profileId: profileObject.objectId,
@@ -792,30 +875,59 @@ class SyncService {
 
   private async exportKnowledgeObjectsForSync(): Promise<SyncObjectEnvelope[]> {
     const database = this.db();
-    if (!database.listKnowledgeLibraries || !database.listKnowledgeSpaces || !database.listKnowledgeTree) {
+    if (
+      !database.listKnowledgeLibraries ||
+      !database.listKnowledgeSpaces ||
+      !database.listKnowledgeTree
+    ) {
       return [];
     }
 
     const libraries = await database.listKnowledgeLibraries();
-    const spaces = dedupeById((await Promise.all(
-      libraries.map((library) => database.listKnowledgeSpaces?.(library.id) ?? Promise.resolve([])),
-    )).flat());
-    const nodes = dedupeById((await Promise.all(
-      libraries.map((library) => database.listKnowledgeTree?.({
-        libraryId: library.id,
-        includeArchived: true,
-      }) ?? Promise.resolve([])),
-    )).flat());
-    const tags = dedupeById((await Promise.all(
-      libraries.map((library) => database.listKnowledgeTags?.({ libraryId: library.id }) ?? Promise.resolve([])),
-    )).flat());
-    const pageNodes = nodes.filter((node) => node.nodeType === 'page' || node.nodeType === 'document');
-    const pageDetails = await Promise.all(pageNodes.map((node) => this.safeGetKnowledgePage(node.id)));
+    const spaces = dedupeById(
+      (
+        await Promise.all(
+          libraries.map(
+            (library) => database.listKnowledgeSpaces?.(library.id) ?? Promise.resolve([])
+          )
+        )
+      ).flat()
+    );
+    const nodes = dedupeById(
+      (
+        await Promise.all(
+          libraries.map(
+            (library) =>
+              database.listKnowledgeTree?.({
+                libraryId: library.id,
+                includeArchived: true,
+              }) ?? Promise.resolve([])
+          )
+        )
+      ).flat()
+    );
+    const tags = dedupeById(
+      (
+        await Promise.all(
+          libraries.map(
+            (library) =>
+              database.listKnowledgeTags?.({ libraryId: library.id }) ?? Promise.resolve([])
+          )
+        )
+      ).flat()
+    );
+    const pageNodes = nodes.filter(
+      (node) => node.nodeType === 'page' || node.nodeType === 'document'
+    );
+    const pageDetails = await Promise.all(
+      pageNodes.map((node) => this.safeGetKnowledgePage(node.id))
+    );
     const pages = pageDetails
       .filter((detail): detail is KnowledgePageDetail => Boolean(detail))
       .map((detail) => detail.page);
-    const links = (await Promise.all(pageNodes.map((node) => this.safeListKnowledgePageLinks(node.id))))
-      .flat();
+    const links = (
+      await Promise.all(pageNodes.map((node) => this.safeListKnowledgePageLinks(node.id)))
+    ).flat();
     const assetIds = new Set<string>();
     for (const page of pages) {
       if (page.sourceAssetId) {
@@ -830,23 +942,30 @@ class SyncService {
         assetIds.add(link.sourceId);
       }
     }
-    const assets = (await Promise.all(Array.from(assetIds).map((assetId) => this.safeGetKnowledgeAsset(assetId))))
-      .filter((asset): asset is KnowledgeAsset => Boolean(asset));
+    const assets = (
+      await Promise.all(Array.from(assetIds).map((assetId) => this.safeGetKnowledgeAsset(assetId)))
+    ).filter((asset): asset is KnowledgeAsset => Boolean(asset));
 
-    return exportKnowledgeForSync({
-      libraries,
-      spaces,
-      nodes,
-      pageDetails: pageDetails.filter((detail): detail is KnowledgePageDetail => Boolean(detail)),
-      assets,
-      tags,
-      links,
-    }, {
-      ownerDeviceId: this.deviceIdentity.deviceId,
-    }).objects;
+    return exportKnowledgeForSync(
+      {
+        libraries,
+        spaces,
+        nodes,
+        pageDetails: pageDetails.filter((detail): detail is KnowledgePageDetail => Boolean(detail)),
+        assets,
+        tags,
+        links,
+      },
+      {
+        ownerDeviceId: this.deviceIdentity.deviceId,
+      }
+    ).objects;
   }
 
-  private async findCurrentLocalObject(collection: SyncCollectionKind, objectId: string): Promise<SyncObjectEnvelope | null> {
+  private async findCurrentLocalObject(
+    collection: SyncCollectionKind,
+    objectId: string
+  ): Promise<SyncObjectEnvelope | null> {
     const config = await appConfigManager.getConfig();
     const exported = exportAppConfigForSync(config, {
       profileId: `local-${this.deviceIdentity.deviceId}`,
@@ -857,8 +976,11 @@ class SyncService {
       updatedAt: Date.now(),
     }).objects;
     const knowledgeObjects = await this.exportKnowledgeObjectsForSync();
-    return [exported.profile, ...exported.objects, ...aiObjects, ...knowledgeObjects]
-      .find((object) => object.collection === collection && object.objectId === objectId) ?? null;
+    return (
+      [exported.profile, ...exported.objects, ...aiObjects, ...knowledgeObjects].find(
+        (object) => object.collection === collection && object.objectId === objectId
+      ) ?? null
+    );
   }
 
   private async safeGetKnowledgePage(pageId: string): Promise<KnowledgePageDetail | null> {
@@ -888,19 +1010,29 @@ class SyncService {
   private async getPendingAssetDiagnostics(
     collection: string,
     objectId: string,
-    payload: unknown,
-  ): Promise<Pick<SyncPendingItemSummary, 'assetFileBytes' | 'assetStoragePath' | 'assetRemoteKey'>> {
+    payload: unknown
+  ): Promise<
+    Pick<SyncPendingItemSummary, 'assetFileBytes' | 'assetStoragePath' | 'assetRemoteKey'>
+  > {
     if (collection !== 'knowledge.asset') {
       return {};
     }
     const asset = await this.safeGetKnowledgeAsset(objectId);
-    const record = payload && typeof payload === 'object' ? payload as Record<string, unknown> : {};
-    const storagePath = asset?.storagePath || (typeof record.storagePath === 'string' ? record.storagePath : '');
+    const record =
+      payload && typeof payload === 'object' ? (payload as Record<string, unknown>) : {};
+    const storagePath =
+      asset?.storagePath || (typeof record.storagePath === 'string' ? record.storagePath : '');
     const hash = asset?.hash || (typeof record.hash === 'string' ? record.hash : '');
-    const extension = asset?.extension || (typeof record.extension === 'string' ? record.extension : undefined);
-    const assetFileBytes = storagePath && !storagePath.startsWith('sync-pending://')
-      ? await stat(storagePath).then((info) => info.size).catch((): undefined => undefined)
-      : typeof record.sizeBytes === 'number' ? record.sizeBytes : undefined;
+    const extension =
+      asset?.extension || (typeof record.extension === 'string' ? record.extension : undefined);
+    const assetFileBytes =
+      storagePath && !storagePath.startsWith('sync-pending://')
+        ? await stat(storagePath)
+            .then((info) => info.size)
+            .catch((): undefined => undefined)
+        : typeof record.sizeBytes === 'number'
+          ? record.sizeBytes
+          : undefined;
     return {
       assetFileBytes,
       assetStoragePath: storagePath || undefined,
@@ -908,19 +1040,25 @@ class SyncService {
     };
   }
 
-  private async clearStalePendingWikilinkOutbox(knowledgeObjects: SyncObjectEnvelope[]): Promise<void> {
+  private async clearStalePendingWikilinkOutbox(
+    knowledgeObjects: SyncObjectEnvelope[]
+  ): Promise<void> {
     const currentWikilinkIds = new Set(
       knowledgeObjects
-        .filter((object) => object.collection === 'knowledge.link' && getKnowledgeLinkType(object.payload) === 'wikilink')
-        .map((object) => object.objectId),
+        .filter(
+          (object) =>
+            object.collection === 'knowledge.link' &&
+            getKnowledgeLinkType(object.payload) === 'wikilink'
+        )
+        .map((object) => object.objectId)
     );
     const pending = await this.db().listPendingSyncOutbox();
     const now = Date.now();
     for (const item of pending) {
       if (
-        item.collection === 'knowledge.link'
-        && !currentWikilinkIds.has(item.objectId)
-        && getKnowledgeLinkType(parseJsonObject(item.payloadJson)) === 'wikilink'
+        item.collection === 'knowledge.link' &&
+        !currentWikilinkIds.has(item.objectId) &&
+        getKnowledgeLinkType(parseJsonObject(item.payloadJson)) === 'wikilink'
       ) {
         await this.db().markSyncOutboxItemsSyncedByObject(item.collection, item.objectId, now);
       }
@@ -930,9 +1068,11 @@ class SyncService {
   private async uploadPendingKnowledgeAssets(
     provider: SyncProvider,
     objects: SyncObjectEnvelope[],
-    onProgress?: (completed: number) => void,
+    onProgress?: (completed: number) => void
   ): Promise<void> {
-    const assetObjects = objects.filter((object) => object.collection === 'knowledge.asset' && !object.deleted);
+    const assetObjects = objects.filter(
+      (object) => object.collection === 'knowledge.asset' && !object.deleted
+    );
     let completed = 0;
     for (const object of assetObjects) {
       const asset = await this.safeGetKnowledgeAsset(object.objectId);
@@ -948,21 +1088,27 @@ class SyncService {
         continue;
       }
       const assetRemoteKey = createKnowledgeAssetRemoteKey(asset.hash, asset.extension);
-      await provider.uploadAsset(assetRemoteKey, bytes, asset.mimeType || 'application/octet-stream').catch(async (error) => {
-        const message = createSyncObjectFailureMessage(
-          `附件上传失败，文件 ${formatBytes(bytes.byteLength)}，远端 ${assetRemoteKey}`,
-          error,
-        );
-        await this.recordPendingFailureForObjects([object], message);
-        throw error;
-      });
+      await provider
+        .uploadAsset(assetRemoteKey, bytes, asset.mimeType || 'application/octet-stream')
+        .catch(async (error) => {
+          const message = createSyncObjectFailureMessage(
+            `附件上传失败，文件 ${formatBytes(bytes.byteLength)}，远端 ${assetRemoteKey}`,
+            error
+          );
+          await this.recordPendingFailureForObjects([object], message);
+          throw error;
+        });
       completed += 1;
       onProgress?.(completed);
     }
   }
 
   private async prepareRemoteKnowledgeAsset(object: SyncObjectEnvelope): Promise<unknown> {
-    if (object.collection !== 'knowledge.asset' || !object.payload || typeof object.payload !== 'object') {
+    if (
+      object.collection !== 'knowledge.asset' ||
+      !object.payload ||
+      typeof object.payload !== 'object'
+    ) {
       return object.payload;
     }
 
@@ -975,19 +1121,28 @@ class SyncService {
     const extension = typeof record.extension === 'string' ? record.extension : '';
     // Legacy app.getPath('userData'), 'knowledge-assets' are resolved from the worker environment.
     // The persisted asset directory remains named 'knowledge-assets'.
-    const assetRoot = app?.getPath?.('userData') ?? process.env.GUYANTOOLS_USER_DATA ?? path.join(process.cwd(), '.guyantools-data');
-    const assetPath = path.join(assetRoot, 'knowledge-assets', `${hash}${normalizeAssetExtension(extension)}`);
+    const assetRoot =
+      app?.getPath?.('userData') ??
+      process.env.GUYANTOOLS_USER_DATA ??
+      path.join(process.cwd(), '.guyantools-data');
+    const assetPath = path.join(
+      assetRoot,
+      'knowledge-assets',
+      `${hash}${normalizeAssetExtension(extension)}`
+    );
     const existing = await readFile(assetPath).catch((): null => null);
     if (!existing) {
       const provider = await this.createProvider();
       const bytes = await provider?.downloadAsset(createKnowledgeAssetRemoteKey(hash, extension));
       if (bytes) {
         await mkdir(path.dirname(assetPath), { recursive: true });
-        await writeFile(assetPath, bytes, { flag: 'wx' }).catch(async (error: NodeJS.ErrnoException) => {
-          if (error.code !== 'EEXIST') {
-            throw error;
+        await writeFile(assetPath, bytes, { flag: 'wx' }).catch(
+          async (error: NodeJS.ErrnoException) => {
+            if (error.code !== 'EEXIST') {
+              throw error;
+            }
           }
-        });
+        );
       }
     }
 
@@ -997,23 +1152,36 @@ class SyncService {
     };
   }
 
-  private async enqueueChangedObjects(objects: SyncObjectEnvelope[], baseRevOverride?: string): Promise<void> {
+  private async enqueueChangedObjects(
+    objects: SyncObjectEnvelope[],
+    baseRevOverride?: string
+  ): Promise<void> {
     const states = await this.db().listSyncObjectStates();
     const pending = await this.db().listPendingSyncOutbox();
     for (const object of objects) {
-      const state = states.find((item) => item.collection === object.collection && item.objectId === object.objectId);
+      const state = states.find(
+        (item) => item.collection === object.collection && item.objectId === object.objectId
+      );
       const opKind = object.deleted ? 'delete' : 'upsert';
-      const pendingForObject = pending.filter((item) =>
-        item.collection === object.collection
-        && item.objectId === object.objectId);
-      const hasSamePendingObject = pendingForObject.some((item) =>
-        item.opKind === opKind
-        && item.payloadHash === object.payloadHash);
-      if (!baseRevOverride && state?.payloadHash === object.payloadHash && (!state.dirty || hasSamePendingObject)) {
+      const pendingForObject = pending.filter(
+        (item) => item.collection === object.collection && item.objectId === object.objectId
+      );
+      const hasSamePendingObject = pendingForObject.some(
+        (item) => item.opKind === opKind && item.payloadHash === object.payloadHash
+      );
+      if (
+        !baseRevOverride &&
+        state?.payloadHash === object.payloadHash &&
+        (!state.dirty || hasSamePendingObject)
+      ) {
         continue;
       }
       if (pendingForObject.length > 0) {
-        await this.db().markSyncOutboxItemsSyncedByObject(object.collection, object.objectId, Date.now());
+        await this.db().markSyncOutboxItemsSyncedByObject(
+          object.collection,
+          object.objectId,
+          Date.now()
+        );
       }
       const baseRev = baseRevOverride ?? state?.remoteRev ?? state?.baseRev;
       const now = Date.now();
@@ -1046,7 +1214,10 @@ class SyncService {
     }
   }
 
-  private async recordPendingFailureForObjects(objects: SyncObjectEnvelope[], message: string): Promise<void> {
+  private async recordPendingFailureForObjects(
+    objects: SyncObjectEnvelope[],
+    message: string
+  ): Promise<void> {
     const pending = await this.db().listPendingSyncOutbox();
     const now = Date.now();
     const keys = new Set(objects.map((object) => `${object.collection}:${object.objectId}`));
@@ -1064,9 +1235,15 @@ class SyncService {
     }
   }
 
-  private async recordPendingFailureForObject(collection: string, objectId: string, message: string): Promise<void> {
+  private async recordPendingFailureForObject(
+    collection: string,
+    objectId: string,
+    message: string
+  ): Promise<void> {
     const pending = await this.db().listPendingSyncOutbox();
-    const item = pending.find((entry) => entry.collection === collection && entry.objectId === objectId);
+    const item = pending.find(
+      (entry) => entry.collection === collection && entry.objectId === objectId
+    );
     if (!item) {
       return;
     }
@@ -1079,11 +1256,18 @@ class SyncService {
     });
   }
 
-  private async handleRemoteObject(object: SyncObjectEnvelope): Promise<{ pulled: number; conflicts: number; skipped: number }> {
+  private async handleRemoteObject(
+    object: SyncObjectEnvelope
+  ): Promise<{ pulled: number; conflicts: number; skipped: number }> {
     const states = await this.db().listSyncObjectStates();
-    const state = states.find((item) => item.collection === object.collection && item.objectId === object.objectId);
+    const state = states.find(
+      (item) => item.collection === object.collection && item.objectId === object.objectId
+    );
     const remoteRev = getObjectRemoteRevision(object);
-    if (state?.remoteRev === remoteRev && (!state.dirty || state.payloadHash === object.payloadHash)) {
+    if (
+      state?.remoteRev === remoteRev &&
+      (!state.dirty || state.payloadHash === object.payloadHash)
+    ) {
       await this.clearPendingOutboxForObject(object);
       return { pulled: 0, conflicts: 0, skipped: 1 };
     }
@@ -1134,7 +1318,9 @@ class SyncService {
     }
   }
 
-  private async createAppConfigPatchFromRemoteObject(object: SyncObjectEnvelope): Promise<AppConfigPatch | null> {
+  private async createAppConfigPatchFromRemoteObject(
+    object: SyncObjectEnvelope
+  ): Promise<AppConfigPatch | null> {
     if (object.deleted) {
       return null;
     }
@@ -1192,7 +1378,10 @@ class SyncService {
   }
 
   private async createAiProviderPatch(payload: unknown): Promise<AppConfigPatch | null> {
-    const provider = payload as Partial<AiProviderConfig> & { id?: string; hasCredential?: boolean };
+    const provider = payload as Partial<AiProviderConfig> & {
+      id?: string;
+      hasCredential?: boolean;
+    };
     if (!provider.id || !provider.kind || !provider.name) {
       return null;
     }
@@ -1225,7 +1414,10 @@ class SyncService {
     };
   }
 
-  private async createAiModelPatch(objectId: string, payload: unknown): Promise<AppConfigPatch | null> {
+  private async createAiModelPatch(
+    objectId: string,
+    payload: unknown
+  ): Promise<AppConfigPatch | null> {
     if (objectId === 'research-settings') {
       const research = payload as Partial<AppConfig['features']['aiAgent']['research']>;
       const config = await appConfigManager.getConfig();
@@ -1242,9 +1434,10 @@ class SyncService {
       };
     }
 
-    const providerId = typeof (payload as Record<string, unknown>).providerId === 'string'
-      ? (payload as Record<string, unknown>).providerId as string
-      : objectId.split(':')[0];
+    const providerId =
+      typeof (payload as Record<string, unknown>).providerId === 'string'
+        ? ((payload as Record<string, unknown>).providerId as string)
+        : objectId.split(':')[0];
     const model = payload as Partial<AiModelConfig> & { id?: string };
     if (!providerId || !model.id) {
       return null;
@@ -1273,12 +1466,16 @@ class SyncService {
     };
   }
 
-  private async recordConflict(object: SyncObjectEnvelope, state: NativeSyncObjectState): Promise<void> {
-    const existing = (await this.db().listSyncConflicts())
-      .some((conflict) =>
-        conflict.collection === object.collection
-        && conflict.objectId === object.objectId
-        && conflict.status === 'pending');
+  private async recordConflict(
+    object: SyncObjectEnvelope,
+    state: NativeSyncObjectState
+  ): Promise<void> {
+    const existing = (await this.db().listSyncConflicts()).some(
+      (conflict) =>
+        conflict.collection === object.collection &&
+        conflict.objectId === object.objectId &&
+        conflict.status === 'pending'
+    );
     if (existing) {
       return;
     }
@@ -1316,7 +1513,9 @@ class SyncService {
         objectId: conflict.objectId,
         ownerDeviceId: 'server',
         schemaVersion: 1,
-        payloadHash: createHash('sha256').update(JSON.stringify(conflict.serverPayload)).digest('hex'),
+        payloadHash: createHash('sha256')
+          .update(JSON.stringify(conflict.serverPayload))
+          .digest('hex'),
         payload: conflict.serverPayload,
         deleted: conflict.deleted,
         updatedAt: now,
@@ -1336,7 +1535,7 @@ class SyncService {
 
   private async resolveServerConflictIfNeeded(
     conflict: NativeSyncConflict,
-    resolution: SyncConflictResolution,
+    resolution: SyncConflictResolution
   ): Promise<void> {
     const { serverConflictId } = parseServerConflictMetadata(conflict.basePayloadJson);
     if (!serverConflictId) {
@@ -1352,21 +1551,36 @@ class SyncService {
     await provider.resolveConflict(serverConflictId, resolution);
   }
 
-  private async clearPendingOutboxForObject(object: Pick<SyncObjectEnvelope, 'collection' | 'objectId'>): Promise<void> {
-    await this.db().markSyncOutboxItemsSyncedByObject(object.collection, object.objectId, Date.now());
+  private async clearPendingOutboxForObject(
+    object: Pick<SyncObjectEnvelope, 'collection' | 'objectId'>
+  ): Promise<void> {
+    await this.db().markSyncOutboxItemsSyncedByObject(
+      object.collection,
+      object.objectId,
+      Date.now()
+    );
   }
 
-  private async resolvePendingConflictsForObject(object: Pick<SyncObjectEnvelope, 'collection' | 'objectId'>): Promise<void> {
+  private async resolvePendingConflictsForObject(
+    object: Pick<SyncObjectEnvelope, 'collection' | 'objectId'>
+  ): Promise<void> {
     const now = Date.now();
     const conflicts = await this.db().listSyncConflicts();
     for (const conflict of conflicts) {
-      if (conflict.collection === object.collection && conflict.objectId === object.objectId && conflict.status === 'pending') {
+      if (
+        conflict.collection === object.collection &&
+        conflict.objectId === object.objectId &&
+        conflict.status === 'pending'
+      ) {
         await this.db().resolveSyncConflict(conflict.conflictId, now);
       }
     }
   }
 
-  private async storeKeepBothRemoteProfile(conflict: NativeSyncConflict, remoteObject: SyncObjectEnvelope): Promise<void> {
+  private async storeKeepBothRemoteProfile(
+    conflict: NativeSyncConflict,
+    remoteObject: SyncObjectEnvelope
+  ): Promise<void> {
     const config = await appConfigManager.getConfig();
     const remoteConfig = createRemoteConfigForKeepBoth(config, remoteObject);
     const payload = sanitizeRemoteAppConfigForApply(remoteConfig);
@@ -1390,12 +1604,15 @@ class SyncService {
 
   private async recordAppliedRemoteObjectState(object: SyncObjectEnvelope): Promise<void> {
     const localObject = await this.findCurrentLocalObject(object.collection, object.objectId);
-    await this.recordObjectState({
-      ...object,
-      payload: localObject?.payload ?? object.payload,
-      payloadHash: localObject?.payloadHash ?? object.payloadHash,
-      updatedAt: localObject?.updatedAt ?? object.updatedAt,
-    }, false);
+    await this.recordObjectState(
+      {
+        ...object,
+        payload: localObject?.payload ?? object.payload,
+        payloadHash: localObject?.payloadHash ?? object.payloadHash,
+        updatedAt: localObject?.updatedAt ?? object.updatedAt,
+      },
+      false
+    );
   }
 
   private async recordObjectState(object: SyncObjectEnvelope, dirty: boolean): Promise<void> {
@@ -1415,7 +1632,11 @@ class SyncService {
     });
   }
 
-  private async markObjectClean(object: SyncObjectEnvelope, updatedAt: number, serverRev?: string): Promise<void> {
+  private async markObjectClean(
+    object: SyncObjectEnvelope,
+    updatedAt: number,
+    serverRev?: string
+  ): Promise<void> {
     const remoteRev = serverRev || getObjectRemoteRevision(object);
     await this.db().upsertSyncObjectState({
       collection: object.collection,
@@ -1451,7 +1672,8 @@ class SyncService {
   }
 
   private updateSyncProgress(phase: SyncRunPhase, completed: number, total: number): void {
-    const percent = total > 0 ? Math.min(100, Math.max(0, Math.round((completed / total) * 100))) : 100;
+    const percent =
+      total > 0 ? Math.min(100, Math.max(0, Math.round((completed / total) * 100))) : 100;
     this.setSyncProgress({
       phase,
       completed,
@@ -1465,9 +1687,10 @@ class SyncService {
       profileId: profile.profileId,
       profileName: profile.profileName,
       ownerDeviceId: profile.ownerDeviceId,
-      ownerDeviceName: profile.ownerDeviceId === this.deviceIdentity.deviceId
-        ? this.deviceIdentity.deviceName
-        : profile.ownerDeviceId,
+      ownerDeviceName:
+        profile.ownerDeviceId === this.deviceIdentity.deviceId
+          ? this.deviceIdentity.deviceName
+          : profile.ownerDeviceId,
       schemaVersion: profile.schemaVersion,
       appVersion: profile.appVersion,
       payloadHash: profile.payloadHash,
@@ -1484,7 +1707,11 @@ class SyncService {
       return this.createSyncServerProvider(config.syncServer);
     }
 
-    if (config.providerKind !== 'webdav' || !config.webdav?.username || !config.webdav.hasPassword) {
+    if (
+      config.providerKind !== 'webdav' ||
+      !config.webdav?.username ||
+      !config.webdav.hasPassword
+    ) {
       return null;
     }
 
@@ -1496,7 +1723,9 @@ class SyncService {
     });
   }
 
-  private createSyncServerProvider(config: NonNullable<SyncProviderConfig['syncServer']>): SyncServerProvider {
+  private createSyncServerProvider(
+    config: NonNullable<SyncProviderConfig['syncServer']>
+  ): SyncServerProvider {
     return new SyncServerProvider({
       ...config,
       onTokensRefreshed: async (tokens) => {
@@ -1530,7 +1759,9 @@ function getRemoteProfileName(payload: unknown) {
   return '远程配置';
 }
 
-function createSafeAppConfigPatchFromSyncProfile(profile: SyncObjectEnvelope<AppConfig>): AppConfigPatch {
+function createSafeAppConfigPatchFromSyncProfile(
+  profile: SyncObjectEnvelope<AppConfig>
+): AppConfigPatch {
   return createAppConfigPatchFromSyncProfile({
     ...profile,
     payload: sanitizeRemoteAppConfigForApply(profile.payload),
@@ -1554,7 +1785,10 @@ function sanitizeRemoteAppConfigForApply(config: AppConfig): AppConfig {
   };
 }
 
-function outboxItemToEnvelope(item: NativeSyncOutboxItem, ownerDeviceId: string): SyncObjectEnvelope {
+function outboxItemToEnvelope(
+  item: NativeSyncOutboxItem,
+  ownerDeviceId: string
+): SyncObjectEnvelope {
   return {
     collection: item.collection as SyncCollectionKind,
     objectId: item.objectId,
@@ -1570,13 +1804,15 @@ function outboxItemToEnvelope(item: NativeSyncOutboxItem, ownerDeviceId: string)
 }
 
 function estimateSyncObjectRequestBytes(item: NativeSyncOutboxItem, payload: unknown): number {
-  return byteLengthUtf8(JSON.stringify({
-    collection: item.collection,
-    objectId: item.objectId,
-    baseRev: item.baseRev,
-    payload,
-    deleted: item.opKind === 'delete',
-  }));
+  return byteLengthUtf8(
+    JSON.stringify({
+      collection: item.collection,
+      objectId: item.objectId,
+      baseRev: item.baseRev,
+      payload,
+      deleted: item.opKind === 'delete',
+    })
+  );
 }
 
 function estimateProviderPushRequestBytes(input: {
@@ -1585,15 +1821,17 @@ function estimateProviderPushRequestBytes(input: {
   objects: SyncObjectEnvelope[];
   tombstones: SyncObjectEnvelope[];
 }): number {
-  return byteLengthUtf8(JSON.stringify({
-    deviceId: input.deviceId,
-    opId: 'diagnostic',
-    objects: [...input.profiles, ...input.objects].map(toProviderRequestObject),
-    tombstones: input.tombstones.map((object) => ({
-      ...toProviderRequestObject(object),
-      deleted: true,
-    })),
-  }));
+  return byteLengthUtf8(
+    JSON.stringify({
+      deviceId: input.deviceId,
+      opId: 'diagnostic',
+      objects: [...input.profiles, ...input.objects].map(toProviderRequestObject),
+      tombstones: input.tombstones.map((object) => ({
+        ...toProviderRequestObject(object),
+        deleted: true,
+      })),
+    })
+  );
 }
 
 function toProviderRequestObject(object: SyncObjectEnvelope) {
@@ -1634,7 +1872,10 @@ function createPendingItemTitle(item: NativeSyncOutboxItem): string {
   return `${operation} ${item.collection}:${item.objectId}`;
 }
 
-function syncProfileToEnvelope(profile: NativeSyncProfile, state?: NativeSyncObjectState): SyncObjectEnvelope<AppConfig> {
+function syncProfileToEnvelope(
+  profile: NativeSyncProfile,
+  state?: NativeSyncObjectState
+): SyncObjectEnvelope<AppConfig> {
   return {
     collection: 'app.profile',
     objectId: profile.profileId,
@@ -1667,14 +1908,19 @@ function getKnowledgeLinkType(payload: unknown): string {
 }
 
 function isAppConfigCollection(collection: SyncCollectionKind): boolean {
-  return collection === 'app.appearance'
-    || collection === 'app.bottom_bar'
-    || collection === 'app.shortcuts'
-    || collection === 'app.features'
-    || collection === 'app.profile';
+  return (
+    collection === 'app.appearance' ||
+    collection === 'app.bottom_bar' ||
+    collection === 'app.shortcuts' ||
+    collection === 'app.features' ||
+    collection === 'app.profile'
+  );
 }
 
-function createRemoteConfigForKeepBoth(config: AppConfig, remoteObject: SyncObjectEnvelope): AppConfig {
+function createRemoteConfigForKeepBoth(
+  config: AppConfig,
+  remoteObject: SyncObjectEnvelope
+): AppConfig {
   if (remoteObject.collection === 'app.profile') {
     return remoteObject.payload as AppConfig;
   }
@@ -1709,7 +1955,10 @@ function isLikelyOfflineError(message: string): boolean {
   return /network|fetch failed|ECONN|ENOTFOUND|ETIMEDOUT|EAI_AGAIN|offline/i.test(message);
 }
 
-function parseServerConflictMetadata(value?: string): { serverRev?: string; serverConflictId?: string } {
+function parseServerConflictMetadata(value?: string): {
+  serverRev?: string;
+  serverConflictId?: string;
+} {
   if (!value) {
     return {};
   }
@@ -1719,10 +1968,14 @@ function parseServerConflictMetadata(value?: string): { serverRev?: string; serv
   }
   const record = metadata as Record<string, unknown>;
   return {
-    serverRev: typeof record.serverRev === 'string'
-      ? record.serverRev
-      : typeof record.baseRev === 'string' ? record.baseRev : undefined,
-    serverConflictId: typeof record.serverConflictId === 'string' ? record.serverConflictId : undefined,
+    serverRev:
+      typeof record.serverRev === 'string'
+        ? record.serverRev
+        : typeof record.baseRev === 'string'
+          ? record.baseRev
+          : undefined,
+    serverConflictId:
+      typeof record.serverConflictId === 'string' ? record.serverConflictId : undefined,
   };
 }
 
@@ -1768,7 +2021,12 @@ function duplicateKnowledgePayload(payload: unknown, duplicatedId: string): unkn
     return payload;
   }
   const record = payload as Record<string, unknown>;
-  if (record.node && typeof record.node === 'object' && record.page && typeof record.page === 'object') {
+  if (
+    record.node &&
+    typeof record.node === 'object' &&
+    record.page &&
+    typeof record.page === 'object'
+  ) {
     return {
       ...record,
       node: {
@@ -1806,19 +2064,23 @@ function createAppliedRevisionMap(applied: SyncProviderAppliedObject[]): Map<str
 
 function dedupeSyncObjectsByIdentity(objects: SyncObjectEnvelope[]): SyncObjectEnvelope[] {
   return Array.from(
-    objects.reduce((items, object) => {
-      items.set(`${object.collection}:${object.objectId}`, object);
-      return items;
-    }, new Map<string, SyncObjectEnvelope>()).values(),
+    objects
+      .reduce((items, object) => {
+        items.set(`${object.collection}:${object.objectId}`, object);
+        return items;
+      }, new Map<string, SyncObjectEnvelope>())
+      .values()
   );
 }
 
 function dedupeById<T extends { id: string }>(items: T[]): T[] {
   return Array.from(
-    items.reduce((deduped, item) => {
-      deduped.set(item.id, item);
-      return deduped;
-    }, new Map<string, T>()).values(),
+    items
+      .reduce((deduped, item) => {
+        deduped.set(item.id, item);
+        return deduped;
+      }, new Map<string, T>())
+      .values()
   );
 }
 
@@ -1840,7 +2102,7 @@ function upsertById<T extends { id: string }>(items: T[], next: T): T[] {
   if (index < 0) {
     return [...items, next];
   }
-  return items.map((item, itemIndex) => itemIndex === index ? next : item);
+  return items.map((item, itemIndex) => (itemIndex === index ? next : item));
 }
 
 function createFallbackAssistant(id: string): AiAssistantConfig {
@@ -1919,11 +2181,15 @@ function conflictToRemoteEnvelope(conflict: NativeSyncConflict): SyncObjectEnvel
   };
 }
 
-function conflictToLocalEnvelope(conflict: NativeSyncConflict, ownerDeviceId: string): SyncObjectEnvelope {
+function conflictToLocalEnvelope(
+  conflict: NativeSyncConflict,
+  ownerDeviceId: string
+): SyncObjectEnvelope {
   const payload = parseJsonObject(conflict.localPayloadJson);
-  const payloadHash = typeof (payload as Record<string, unknown>).payloadHash === 'string'
-    ? (payload as Record<string, unknown>).payloadHash as string
-    : createHash('sha256').update(conflict.localPayloadJson).digest('hex');
+  const payloadHash =
+    typeof (payload as Record<string, unknown>).payloadHash === 'string'
+      ? ((payload as Record<string, unknown>).payloadHash as string)
+      : createHash('sha256').update(conflict.localPayloadJson).digest('hex');
   return {
     collection: conflict.collection as SyncCollectionKind,
     objectId: conflict.objectId,

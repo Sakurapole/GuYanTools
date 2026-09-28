@@ -29,6 +29,9 @@ export async function deleteSyncSecret(key: string): Promise<void> {
 
 function secretPath(key: string) {
   const safeKey = key.replace(/[^\w.-]+/g, '_');
-  const root = app?.getPath?.('userData') ?? process.env.GUYANTOOLS_USER_DATA ?? path.join(process.cwd(), '.guyantools-data');
+  const root =
+    app?.getPath?.('userData') ??
+    process.env.GUYANTOOLS_USER_DATA ??
+    path.join(process.cwd(), '.guyantools-data');
   return path.join(root, 'sync-secrets', `${safeKey}.secret`);
 }

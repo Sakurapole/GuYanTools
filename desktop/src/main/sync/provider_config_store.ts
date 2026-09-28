@@ -1,26 +1,34 @@
 import { app } from 'electron';
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import path from 'node:path';
-import type { SyncProviderConfig, UpdateSyncServerConfigPayload, UpdateSyncWebDavConfigPayload } from '@/contracts/sync';
+import type {
+  SyncProviderConfig,
+  UpdateSyncServerConfigPayload,
+  UpdateSyncWebDavConfigPayload,
+} from '@/contracts/sync';
 import type { SyncServerProviderOptions } from './providers/sync_server_provider';
 import { JIANGUOYUN_WEBDAV_PRESET } from './providers/webdav_provider';
 import { deleteSyncSecret, readSyncSecret, saveSyncSecret } from './secret_store';
 
 const CONFIG_FILE = path.join(
-  app?.getPath?.('userData') ?? process.env.GUYANTOOLS_USER_DATA ?? path.join(process.cwd(), '.guyantools-data'),
+  app?.getPath?.('userData') ??
+    process.env.GUYANTOOLS_USER_DATA ??
+    path.join(process.cwd(), '.guyantools-data'),
   'sync',
-  'provider-config.json',
+  'provider-config.json'
 );
 const WEBDAV_PASSWORD_KEY = 'webdav.password';
 const SYNC_SERVER_ACCESS_TOKEN_KEY = 'sync-server.access-token';
 const SYNC_SERVER_REFRESH_TOKEN_KEY = 'sync-server.refresh-token';
 const SYNC_SERVER_DEVICE_TOKEN_KEY = 'sync-server.device-token';
 
-type RuntimeSyncServerConfig = SyncProviderConfig['syncServer'] & Pick<SyncServerProviderOptions, 'accessToken' | 'refreshToken' | 'deviceToken'>;
+type RuntimeSyncServerConfig = SyncProviderConfig['syncServer'] &
+  Pick<SyncServerProviderOptions, 'accessToken' | 'refreshToken' | 'deviceToken'>;
 type RuntimeSyncProviderConfig = SyncProviderConfig & {
   syncServer?: RuntimeSyncServerConfig;
 };
-export type UpdateSyncServerRuntimeConfigPayload = UpdateSyncServerConfigPayload & Pick<SyncServerProviderOptions, 'accessToken' | 'refreshToken' | 'deviceToken'>;
+export type UpdateSyncServerRuntimeConfigPayload = UpdateSyncServerConfigPayload &
+  Pick<SyncServerProviderOptions, 'accessToken' | 'refreshToken' | 'deviceToken'>;
 
 export async function readSyncProviderConfig(): Promise<SyncProviderConfig> {
   return toRendererProviderConfig(await readSyncProviderRuntimeConfig());
@@ -36,33 +44,52 @@ export async function readSyncProviderRuntimeConfig(): Promise<RuntimeSyncProvid
     const parsed = JSON.parse(raw) as SyncProviderConfig & { syncServer?: Record<string, unknown> };
     const legacySyncServer = parsed.syncServer;
     const shouldCleanLegacySecrets = hasLegacySyncServerSecrets(legacySyncServer);
-    await migrateLegacySyncServerSecret(SYNC_SERVER_ACCESS_TOKEN_KEY, legacySyncServer?.accessToken);
-    await migrateLegacySyncServerSecret(SYNC_SERVER_REFRESH_TOKEN_KEY, legacySyncServer?.refreshToken);
-    await migrateLegacySyncServerSecret(SYNC_SERVER_DEVICE_TOKEN_KEY, legacySyncServer?.deviceToken);
+    await migrateLegacySyncServerSecret(
+      SYNC_SERVER_ACCESS_TOKEN_KEY,
+      legacySyncServer?.accessToken
+    );
+    await migrateLegacySyncServerSecret(
+      SYNC_SERVER_REFRESH_TOKEN_KEY,
+      legacySyncServer?.refreshToken
+    );
+    await migrateLegacySyncServerSecret(
+      SYNC_SERVER_DEVICE_TOKEN_KEY,
+      legacySyncServer?.deviceToken
+    );
     const accessToken = await readSyncSecret(SYNC_SERVER_ACCESS_TOKEN_KEY);
     const refreshToken = await readSyncSecret(SYNC_SERVER_REFRESH_TOKEN_KEY);
     const deviceToken = await readSyncSecret(SYNC_SERVER_DEVICE_TOKEN_KEY);
     const config: RuntimeSyncProviderConfig = {
       providerKind: parsed.providerKind === 'sync-server' ? 'sync-server' : 'webdav',
       secretSyncMode: parsed.secretSyncMode === 'encrypted' ? 'encrypted' : 'disabled',
-      webdav: parsed.webdav ? {
-        preset: parsed.webdav.preset === 'custom' ? 'custom' : 'jianguoyun',
-        endpoint: parsed.webdav.endpoint || JIANGUOYUN_WEBDAV_PRESET.endpoint,
-        username: parsed.webdav.username || '',
-        remoteRoot: parsed.webdav.remoteRoot || JIANGUOYUN_WEBDAV_PRESET.remoteRoot,
-        hasPassword: Boolean(parsed.webdav.hasPassword),
-      } : createDefaultProviderRuntimeConfig().webdav,
-      syncServer: parsed.syncServer ? {
-        endpoint: typeof parsed.syncServer.endpoint === 'string' ? parsed.syncServer.endpoint : '',
-        deviceId: typeof parsed.syncServer.deviceId === 'string' ? parsed.syncServer.deviceId : '',
-        hasAccessToken: Boolean(accessToken),
-        hasRefreshToken: Boolean(refreshToken),
-        hasDeviceToken: Boolean(deviceToken),
-        accessToken,
-        refreshToken,
-        deviceToken,
-        cursor: typeof parsed.syncServer.cursor === 'number' && Number.isFinite(parsed.syncServer.cursor) ? parsed.syncServer.cursor : 0,
-      } : createDefaultProviderRuntimeConfig().syncServer,
+      webdav: parsed.webdav
+        ? {
+            preset: parsed.webdav.preset === 'custom' ? 'custom' : 'jianguoyun',
+            endpoint: parsed.webdav.endpoint || JIANGUOYUN_WEBDAV_PRESET.endpoint,
+            username: parsed.webdav.username || '',
+            remoteRoot: parsed.webdav.remoteRoot || JIANGUOYUN_WEBDAV_PRESET.remoteRoot,
+            hasPassword: Boolean(parsed.webdav.hasPassword),
+          }
+        : createDefaultProviderRuntimeConfig().webdav,
+      syncServer: parsed.syncServer
+        ? {
+            endpoint:
+              typeof parsed.syncServer.endpoint === 'string' ? parsed.syncServer.endpoint : '',
+            deviceId:
+              typeof parsed.syncServer.deviceId === 'string' ? parsed.syncServer.deviceId : '',
+            hasAccessToken: Boolean(accessToken),
+            hasRefreshToken: Boolean(refreshToken),
+            hasDeviceToken: Boolean(deviceToken),
+            accessToken,
+            refreshToken,
+            deviceToken,
+            cursor:
+              typeof parsed.syncServer.cursor === 'number' &&
+              Number.isFinite(parsed.syncServer.cursor)
+                ? parsed.syncServer.cursor
+                : 0,
+          }
+        : createDefaultProviderRuntimeConfig().syncServer,
     };
     if (shouldCleanLegacySecrets) {
       await writeProviderConfig(config);
@@ -73,7 +100,9 @@ export async function readSyncProviderRuntimeConfig(): Promise<RuntimeSyncProvid
   }
 }
 
-export async function updateSyncServerConfig(payload: UpdateSyncServerRuntimeConfigPayload): Promise<SyncProviderConfig> {
+export async function updateSyncServerConfig(
+  payload: UpdateSyncServerRuntimeConfigPayload
+): Promise<SyncProviderConfig> {
   const current = await readSyncProviderRuntimeConfig();
   await saveOptionalSyncSecret(SYNC_SERVER_ACCESS_TOKEN_KEY, payload.accessToken);
   await saveOptionalSyncSecret(SYNC_SERVER_REFRESH_TOKEN_KEY, payload.refreshToken);
@@ -136,7 +165,9 @@ export async function updateSyncServerCursor(cursor: number): Promise<SyncProvid
   return toRendererProviderConfig(next);
 }
 
-export async function updateSyncWebDavConfig(payload: UpdateSyncWebDavConfigPayload): Promise<SyncProviderConfig> {
+export async function updateSyncWebDavConfig(
+  payload: UpdateSyncWebDavConfigPayload
+): Promise<SyncProviderConfig> {
   const current = await readSyncProviderRuntimeConfig();
   if (payload.password !== undefined) {
     await saveSyncSecret(WEBDAV_PASSWORD_KEY, payload.password);
@@ -150,7 +181,10 @@ export async function updateSyncWebDavConfig(payload: UpdateSyncWebDavConfigPayl
       endpoint: payload.endpoint.trim() || JIANGUOYUN_WEBDAV_PRESET.endpoint,
       username: payload.username.trim(),
       remoteRoot: payload.remoteRoot.trim() || JIANGUOYUN_WEBDAV_PRESET.remoteRoot,
-      hasPassword: payload.password !== undefined ? payload.password.length > 0 : Boolean(current.webdav?.hasPassword),
+      hasPassword:
+        payload.password !== undefined
+          ? payload.password.length > 0
+          : Boolean(current.webdav?.hasPassword),
     },
   };
   await writeProviderConfig(next);
@@ -161,7 +195,9 @@ export async function readWebDavPassword(): Promise<string> {
   return readSyncSecret(WEBDAV_PASSWORD_KEY);
 }
 
-function createDefaultProviderRuntimeConfig(): RuntimeSyncProviderConfig & { syncServer: RuntimeSyncServerConfig } {
+function createDefaultProviderRuntimeConfig(): RuntimeSyncProviderConfig & {
+  syncServer: RuntimeSyncServerConfig;
+} {
   return {
     providerKind: 'webdav',
     secretSyncMode: 'disabled',
@@ -211,9 +247,9 @@ async function migrateLegacySyncServerSecret(key: string, value: unknown): Promi
 
 function hasLegacySyncServerSecrets(syncServer: Record<string, unknown> | undefined): boolean {
   return Boolean(
-    typeof syncServer?.accessToken === 'string'
-    || typeof syncServer?.refreshToken === 'string'
-    || typeof syncServer?.deviceToken === 'string',
+    typeof syncServer?.accessToken === 'string' ||
+    typeof syncServer?.refreshToken === 'string' ||
+    typeof syncServer?.deviceToken === 'string'
   );
 }
 
@@ -222,30 +258,37 @@ function toPersistedProviderConfig(config: SyncProviderConfig): Record<string, u
     providerKind: config.providerKind,
     secretSyncMode: config.secretSyncMode,
     webdav: config.webdav,
-    syncServer: config.syncServer ? {
-      endpoint: config.syncServer.endpoint,
-      deviceId: config.syncServer.deviceId,
-      cursor: config.syncServer.cursor,
-    } : undefined,
+    syncServer: config.syncServer
+      ? {
+          endpoint: config.syncServer.endpoint,
+          deviceId: config.syncServer.deviceId,
+          cursor: config.syncServer.cursor,
+        }
+      : undefined,
   };
 }
 
-function toRendererProviderConfig(config: RuntimeSyncProviderConfig | SyncProviderConfig): SyncProviderConfig {
+function toRendererProviderConfig(
+  config: RuntimeSyncProviderConfig | SyncProviderConfig
+): SyncProviderConfig {
   const syncServerRecord = (config.syncServer ?? {}) as unknown as Record<string, unknown>;
   const accessToken = 'accessToken' in syncServerRecord ? syncServerRecord.accessToken : undefined;
-  const refreshToken = 'refreshToken' in syncServerRecord ? syncServerRecord.refreshToken : undefined;
+  const refreshToken =
+    'refreshToken' in syncServerRecord ? syncServerRecord.refreshToken : undefined;
   const deviceToken = 'deviceToken' in syncServerRecord ? syncServerRecord.deviceToken : undefined;
   return {
     providerKind: config.providerKind,
     secretSyncMode: config.secretSyncMode,
     webdav: config.webdav,
-    syncServer: config.syncServer ? {
-      endpoint: config.syncServer.endpoint,
-      deviceId: config.syncServer.deviceId,
-      hasAccessToken: Boolean(accessToken || config.syncServer.hasAccessToken),
-      hasRefreshToken: Boolean(refreshToken || config.syncServer.hasRefreshToken),
-      hasDeviceToken: Boolean(deviceToken || config.syncServer.hasDeviceToken),
-      cursor: config.syncServer.cursor,
-    } : undefined,
+    syncServer: config.syncServer
+      ? {
+          endpoint: config.syncServer.endpoint,
+          deviceId: config.syncServer.deviceId,
+          hasAccessToken: Boolean(accessToken || config.syncServer.hasAccessToken),
+          hasRefreshToken: Boolean(refreshToken || config.syncServer.hasRefreshToken),
+          hasDeviceToken: Boolean(deviceToken || config.syncServer.hasDeviceToken),
+          cursor: config.syncServer.cursor,
+        }
+      : undefined,
   };
 }

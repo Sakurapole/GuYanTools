@@ -21,7 +21,9 @@ export interface SyncServerProviderOptions {
   refreshToken?: string;
   deviceToken?: string;
   cursor?: number;
-  onTokensRefreshed?: (tokens: Pick<AuthResponse, 'accessToken' | 'refreshToken'>) => Promise<void> | void;
+  onTokensRefreshed?: (
+    tokens: Pick<AuthResponse, 'accessToken' | 'refreshToken'>
+  ) => Promise<void> | void;
 }
 
 interface ServerPullObject {
@@ -84,7 +86,9 @@ export class SyncServerProvider implements SyncProvider {
     this.endpoint = normalizeSyncServerEndpoint(options.endpoint);
   }
 
-  static async loginOrRegister(payload: SyncServerLoginPayload): Promise<SyncServerLoginRuntimeResult> {
+  static async loginOrRegister(
+    payload: SyncServerLoginPayload
+  ): Promise<SyncServerLoginRuntimeResult> {
     const endpoint = normalizeSyncServerEndpoint(payload.endpoint);
     const authBody = JSON.stringify({
       email: payload.email.trim(),
@@ -96,7 +100,7 @@ export class SyncServerProvider implements SyncProvider {
       body: authBody,
     });
     const auth = loginResponse.ok
-      ? await loginResponse.json() as AuthResponse
+      ? ((await loginResponse.json()) as AuthResponse)
       : await registerSyncServerAccount(endpoint, authBody);
 
     const deviceResponse = await fetch(createSyncServerUrl(endpoint, '/v1/devices/register'), {
@@ -114,7 +118,7 @@ export class SyncServerProvider implements SyncProvider {
       throw new Error(`同步后端设备注册失败：HTTP ${deviceResponse.status}`);
     }
 
-    const device = await deviceResponse.json() as RegisterDeviceResponse;
+    const device = (await deviceResponse.json()) as RegisterDeviceResponse;
     return {
       userId: auth.userId,
       accessToken: auth.accessToken,
@@ -253,7 +257,9 @@ export class SyncServerProvider implements SyncProvider {
       body: new Uint8Array(bytes),
     });
     if (!response.ok) {
-      throw new Error(`同步后端资产上传失败：${key} payloadBytes=${payloadBytes} HTTP ${response.status}${await readErrorBody(response)}`);
+      throw new Error(
+        `同步后端资产上传失败：${key} payloadBytes=${payloadBytes} HTTP ${response.status}${await readErrorBody(response)}`
+      );
     }
   }
 
@@ -272,7 +278,10 @@ export class SyncServerProvider implements SyncProvider {
     return this.requestOnce<T>(path, init, true, true);
   }
 
-  private async requestAccessOnly<T = unknown>(path: string, init: SyncServerRequestInit = {}): Promise<T> {
+  private async requestAccessOnly<T = unknown>(
+    path: string,
+    init: SyncServerRequestInit = {}
+  ): Promise<T> {
     return this.requestOnce<T>(path, init, true, false);
   }
 
@@ -280,7 +289,7 @@ export class SyncServerProvider implements SyncProvider {
     path: string,
     init: SyncServerRequestInit = {},
     retryAfterRefresh: boolean,
-    includeDeviceToken: boolean,
+    includeDeviceToken: boolean
   ): Promise<T> {
     const { diagnosticLabel, ...fetchInit } = init;
     const response = await fetch(this.url(path), {
@@ -304,18 +313,26 @@ export class SyncServerProvider implements SyncProvider {
     return response.json() as Promise<T>;
   }
 
-  private async fetchAssetWithRefresh(path: string, init: RequestInit, retryAfterRefresh = true): Promise<Response> {
+  private async fetchAssetWithRefresh(
+    path: string,
+    init: RequestInit,
+    retryAfterRefresh = true
+  ): Promise<Response> {
     const response = await fetch(this.url(path), init);
     if (response.status === 401 && retryAfterRefresh) {
       const refreshed = await this.refreshAccessToken();
       if (refreshed) {
-        return this.fetchAssetWithRefresh(path, {
-          ...init,
-          headers: {
-            ...(init.headers ?? {}),
-            ...this.headers(),
+        return this.fetchAssetWithRefresh(
+          path,
+          {
+            ...init,
+            headers: {
+              ...(init.headers ?? {}),
+              ...this.headers(),
+            },
           },
-        }, false);
+          false
+        );
       }
     }
     return response;
@@ -337,7 +354,7 @@ export class SyncServerProvider implements SyncProvider {
       return false;
     }
 
-    const auth = await response.json() as AuthResponse;
+    const auth = (await response.json()) as AuthResponse;
     this.options.accessToken = auth.accessToken;
     this.options.refreshToken = auth.refreshToken;
     await this.options.onTokensRefreshed?.({
@@ -426,7 +443,13 @@ function currentPlatformKey(): SyncServerLoginResult['platform'] {
 }
 
 function normalizePlatform(value: string): SyncServerLoginResult['platform'] {
-  if (value === 'windows' || value === 'macos' || value === 'linux' || value === 'android' || value === 'ios') {
+  if (
+    value === 'windows' ||
+    value === 'macos' ||
+    value === 'linux' ||
+    value === 'android' ||
+    value === 'ios'
+  ) {
     return value;
   }
   return 'unknown';
@@ -445,7 +468,7 @@ function toServerObject(object: SyncObjectEnvelope) {
 function createStableSyncServerOpId(
   deviceId: string,
   objects: ReturnType<typeof toServerObject>[],
-  tombstones: Array<ReturnType<typeof toServerObject> & { deleted: boolean }>,
+  tombstones: Array<ReturnType<typeof toServerObject> & { deleted: boolean }>
 ): string {
   const payload = JSON.stringify({
     deviceId,
@@ -459,7 +482,10 @@ function createSyncPushRequestBytes(body: string): number {
   return Buffer.byteLength(body, 'utf8');
 }
 
-function compareServerObjects(left: ReturnType<typeof toServerObject>, right: ReturnType<typeof toServerObject>): number {
+function compareServerObjects(
+  left: ReturnType<typeof toServerObject>,
+  right: ReturnType<typeof toServerObject>
+): number {
   const leftKey = `${left.collection}:${left.objectId}`;
   const rightKey = `${right.collection}:${right.objectId}`;
   return leftKey.localeCompare(rightKey);

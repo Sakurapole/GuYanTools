@@ -13,22 +13,54 @@ export function exportAppConfigForSync(
     profileId: string;
     ownerDeviceId: string;
     updatedAt?: number;
-  },
+  }
 ): AppConfigSyncExport {
   const updatedAt = input.updatedAt ?? Date.now();
   const safeConfig = sanitizeAppConfigForSync(config);
   return {
-    profile: createEnvelope('app.profile', input.profileId, input.ownerDeviceId, safeConfig, updatedAt),
+    profile: createEnvelope(
+      'app.profile',
+      input.profileId,
+      input.ownerDeviceId,
+      safeConfig,
+      updatedAt
+    ),
     objects: [
-      createEnvelope('app.appearance', 'appearance', input.ownerDeviceId, safeConfig.appearance, updatedAt),
-      createEnvelope('app.bottom_bar', 'bottom_bar', input.ownerDeviceId, safeConfig.bottomBar, updatedAt),
-      createEnvelope('app.shortcuts', 'shortcuts', input.ownerDeviceId, safeConfig.shortcuts, updatedAt),
-      createEnvelope('app.features', 'features', input.ownerDeviceId, safeConfig.features, updatedAt),
+      createEnvelope(
+        'app.appearance',
+        'appearance',
+        input.ownerDeviceId,
+        safeConfig.appearance,
+        updatedAt
+      ),
+      createEnvelope(
+        'app.bottom_bar',
+        'bottom_bar',
+        input.ownerDeviceId,
+        safeConfig.bottomBar,
+        updatedAt
+      ),
+      createEnvelope(
+        'app.shortcuts',
+        'shortcuts',
+        input.ownerDeviceId,
+        safeConfig.shortcuts,
+        updatedAt
+      ),
+      createEnvelope(
+        'app.features',
+        'features',
+        input.ownerDeviceId,
+        safeConfig.features,
+        updatedAt
+      ),
     ],
   };
 }
 
-export function createAppConfigPatchFromSyncProfile(profile: SyncObjectEnvelope<AppConfig>): AppConfigPatch {
+export function createAppConfigPatchFromSyncProfile(
+  profile: SyncObjectEnvelope<AppConfig>
+): AppConfigPatch {
   return profile.payload;
 }
 
@@ -40,7 +72,10 @@ export function sanitizeAppConfigForSync(config: AppConfig): AppConfig {
       terminal: {
         ...config.features.terminal,
         defaultCwd: '',
-        localProfiles: config.features.terminal.localProfiles.map((profile) => ({ ...profile, cwd: '' })),
+        localProfiles: config.features.terminal.localProfiles.map((profile) => ({
+          ...profile,
+          cwd: '',
+        })),
       },
       knowledge: {
         ...config.features.knowledge,
@@ -84,7 +119,7 @@ function createEnvelope<TPayload>(
   objectId: string,
   ownerDeviceId: string,
   payload: TPayload,
-  updatedAt: number,
+  updatedAt: number
 ): SyncObjectEnvelope<TPayload> {
   const body = JSON.stringify(payload);
   return {
