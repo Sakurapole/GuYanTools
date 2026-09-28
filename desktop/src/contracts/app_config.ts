@@ -35,9 +35,18 @@ export type AppBottomBarTabId =
 
 export const APP_CONFIG_VERSION = 1;
 export const SYSTEM_FONT_OPTION_VALUE = 'system-default';
-export const SYSTEM_FONT_STACK = "'Geist Variable', system-ui, -apple-system, 'Segoe UI', sans-serif";
+export const SYSTEM_FONT_STACK =
+  "'Geist Variable', system-ui, -apple-system, 'Segoe UI', sans-serif";
 export const APP_BOTTOM_BAR_REQUIRED_TAB_IDS: AppBottomBarTabId[] = ['home', 'settings'];
-export const APP_BOTTOM_BAR_DEFAULT_VISIBLE_TAB_IDS: AppBottomBarTabId[] = ['home', 'terminal', 'settings', 'ftp', 'knowledge', 'devtools', 'ui-migration'];
+export const APP_BOTTOM_BAR_DEFAULT_VISIBLE_TAB_IDS: AppBottomBarTabId[] = [
+  'home',
+  'terminal',
+  'settings',
+  'ftp',
+  'knowledge',
+  'devtools',
+  'ui-migration',
+];
 
 export interface AppInternalFunctionDefinition {
   id: AppBottomBarTabId;
@@ -475,7 +484,17 @@ export function createDefaultAppConfig(): AppConfig {
       quickLaunch: {
         enabled: true,
         maxResults: 12,
-        enabledProviders: ['internal-route', 'terminal', 'ssh', 'ftp', 'todo', 'knowledge', 'plugin', 'app', 'file'],
+        enabledProviders: [
+          'internal-route',
+          'terminal',
+          'ssh',
+          'ftp',
+          'todo',
+          'knowledge',
+          'plugin',
+          'app',
+          'file',
+        ],
         hideOnBlur: true,
         everythingEsPath: '',
         backgroundType: 'color',

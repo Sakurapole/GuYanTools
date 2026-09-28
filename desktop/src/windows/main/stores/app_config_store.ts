@@ -1,6 +1,12 @@
 import { acceptHMRUpdate, defineStore } from 'pinia';
 import { ref } from 'vue';
-import type { AppAppearanceConfig, AppConfig, AppConfigPatch, AppLanguage, LocalFontOption } from '@/contracts/app_config';
+import type {
+  AppAppearanceConfig,
+  AppConfig,
+  AppConfigPatch,
+  AppLanguage,
+  LocalFontOption,
+} from '@/contracts/app_config';
 import {
   createDefaultAppConfig,
   getSystemDefaultFontOption,
@@ -39,7 +45,10 @@ export const useAppConfigStore = defineStore('app-config', () => {
     root.classList.remove('light', 'dark');
     root.classList.add(nextConfig.appearance.theme);
     root.style.fontSize = `${nextConfig.appearance.baseFontSize}px`;
-    root.style.setProperty('--app-font-family', buildFontFamilyValue(nextConfig.appearance.fontFamily));
+    root.style.setProperty(
+      '--app-font-family',
+      buildFontFamilyValue(nextConfig.appearance.fontFamily)
+    );
     applyLanguage?.(nextConfig.appearance.language);
   }
 

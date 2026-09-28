@@ -11,11 +11,19 @@ import type {
   AppTheme,
   LocalNetworkInterfaceOption,
 } from '@/contracts/app_config';
-import { APP_BOTTOM_BAR_REQUIRED_TAB_IDS, APP_INTERNAL_FUNCTIONS, createDefaultAppConfig, createDefaultSettingsTabPersonalization } from '@/contracts/app_config';
+import {
+  APP_BOTTOM_BAR_REQUIRED_TAB_IDS,
+  APP_INTERNAL_FUNCTIONS,
+  createDefaultAppConfig,
+  createDefaultSettingsTabPersonalization,
+} from '@/contracts/app_config';
 import type { BackgroundConfirmPayload } from '@/contracts/background';
 import { resolveThemeBackground, withThemeBackground } from '@/contracts/background';
 import type { FtpWindowsContextMenuStatus } from '@/contracts/ftp';
-import type { AndroidToolchainDownloadProgress, AndroidToolchainStatus } from '@/contracts/android-tools';
+import type {
+  AndroidToolchainDownloadProgress,
+  AndroidToolchainStatus,
+} from '@/contracts/android-tools';
 import type { KnowledgeLibrary } from '@/contracts/knowledge';
 import type { MultiDeviceClipboardDeviceStatus } from '@/contracts/multi_device_clipboard';
 import type { InstalledPluginRecord, PluginHostSummary } from '@/contracts/plugin_host';
@@ -23,7 +31,7 @@ import type { QuickLaunchProviderId } from '@/contracts/quick_launch';
 import type {
   AppSystemShortcutKey,
   ShortcutInspectionResult,
-  ShortcutProbeStatus
+  ShortcutProbeStatus,
 } from '@/contracts/shortcuts';
 import type {
   LocalTerminalProfileConfig,
@@ -31,7 +39,7 @@ import type {
   TerminalProfile,
   TerminalRendererMode,
 } from '@/contracts/terminal';
-import type { WebScriptRule } from '@/contracts/webview';
+import type { ChromeExtensionRecord, WebScriptRule } from '@/contracts/webview';
 import type { CSSProperties } from 'vue';
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 import ShortcutRecorder from '../components/ui/ShortcutRecorder.vue';
@@ -105,7 +113,10 @@ const ffmpegVersion = ref('');
 const ffmpegError = ref('');
 const androidToolchainPathInput = ref(appConfigStore.config.tools?.androidToolchainPath || '');
 const androidToolchainStatus = ref<AndroidToolchainStatus | null>(null);
-const androidToolchainDownloadProgress = ref<AndroidToolchainDownloadProgress>({ phase: 'idle', percent: 0 });
+const androidToolchainDownloadProgress = ref<AndroidToolchainDownloadProgress>({
+  phase: 'idle',
+  percent: 0,
+});
 const androidToolchainDownloadError = ref('');
 const androidToolchainDownloadBusy = ref(false);
 let stopAndroidToolchainDownloadProgress: (() => void) | undefined;
@@ -123,14 +134,28 @@ const pluginConfigDrafts = ref<Record<string, string>>({});
 const pluginConfigErrors = ref<Record<string, string>>({});
 const terminalProfiles = ref<TerminalProfile[]>([]);
 const terminalDefaultCwdInput = ref(appConfigStore.config.features.terminal.defaultCwd || '');
-const multiDeviceClipboardDeviceNameInput = ref(appConfigStore.config.features.multiDeviceClipboard.deviceName || '');
-const multiDeviceClipboardMaxSyncMbInput = ref(String(Math.round(appConfigStore.config.features.multiDeviceClipboard.maxSyncBytes / 1024 / 1024)));
-const multiDeviceClipboardHistoryLimitInput = ref(String(appConfigStore.config.features.multiDeviceClipboard.historyLimit));
+const multiDeviceClipboardDeviceNameInput = ref(
+  appConfigStore.config.features.multiDeviceClipboard.deviceName || ''
+);
+const multiDeviceClipboardMaxSyncMbInput = ref(
+  String(Math.round(appConfigStore.config.features.multiDeviceClipboard.maxSyncBytes / 1024 / 1024))
+);
+const multiDeviceClipboardHistoryLimitInput = ref(
+  String(appConfigStore.config.features.multiDeviceClipboard.historyLimit)
+);
 const knowledgeLibraries = ref<KnowledgeLibrary[]>([]);
-const knowledgeMaxImportFileSizeMbInput = ref(String(appConfigStore.config.features.knowledge.maxImportFileSizeMb));
-const knowledgePreviewCacheTtlDaysInput = ref(String(appConfigStore.config.features.knowledge.previewCacheTtlDays));
-const knowledgeLibreOfficePathInput = ref(appConfigStore.config.features.knowledge.libreOfficePath || '');
-const knowledgeCustomAssetDirectoryInput = ref(appConfigStore.config.features.knowledge.customAssetDirectory || '');
+const knowledgeMaxImportFileSizeMbInput = ref(
+  String(appConfigStore.config.features.knowledge.maxImportFileSizeMb)
+);
+const knowledgePreviewCacheTtlDaysInput = ref(
+  String(appConfigStore.config.features.knowledge.previewCacheTtlDays)
+);
+const knowledgeLibreOfficePathInput = ref(
+  appConfigStore.config.features.knowledge.libreOfficePath || ''
+);
+const knowledgeCustomAssetDirectoryInput = ref(
+  appConfigStore.config.features.knowledge.customAssetDirectory || ''
+);
 const agentMaxStepsInput = ref(String(appConfigStore.config.features.aiAgent.agent.maxSteps || 5));
 const aiProviderDrawerVisible = ref(false);
 const editingAiProviderId = ref('');
@@ -151,7 +176,9 @@ const localTerminalProfileForm = ref({
   envText: '{}',
   configFilePath: '',
 });
-const sshReconnectMaxAttemptsInput = ref(String(appConfigStore.config.features.terminal.sshReconnectMaxAttempts || 3));
+const sshReconnectMaxAttemptsInput = ref(
+  String(appConfigStore.config.features.terminal.sshReconnectMaxAttempts || 3)
+);
 const githubTokenInput = ref('');
 const updaterAuthMessage = ref('');
 const updaterAuthSaving = ref(false);
@@ -175,14 +202,26 @@ const shortcutInspection = ref<ShortcutInspectionResult | null>(null);
 const shortcutInspectionLoading = ref(false);
 const shortcutRetryingKeys = ref<Partial<Record<AppSystemShortcutKey, boolean>>>({});
 const shortcutValidationMessages = ref<Partial<Record<AppSystemShortcutKey, string>>>({});
-const quickLaunchMaxResultsInput = ref(String(appConfigStore.config.features.quickLaunch.maxResults || 12));
-const quickLaunchEverythingEsPathInput = ref(appConfigStore.config.features.quickLaunch.everythingEsPath || '');
+const quickLaunchMaxResultsInput = ref(
+  String(appConfigStore.config.features.quickLaunch.maxResults || 12)
+);
+const quickLaunchEverythingEsPathInput = ref(
+  appConfigStore.config.features.quickLaunch.everythingEsPath || ''
+);
 const quickLaunchBackgroundPickerVisible = ref(false);
 const quickLaunchWindowOpacityInput = ref(appConfigStore.config.features.quickLaunch.windowOpacity);
-const quickLaunchSelectionColorInput = ref(appConfigStore.config.features.quickLaunch.selectionColor);
-const quickLaunchSelectionOpacityInput = ref(appConfigStore.config.features.quickLaunch.selectionOpacity);
-const quickLaunchResultTitleColorInput = ref(appConfigStore.config.features.quickLaunch.resultTitleColor);
-const quickLaunchResultSubtitleColorInput = ref(appConfigStore.config.features.quickLaunch.resultSubtitleColor);
+const quickLaunchSelectionColorInput = ref(
+  appConfigStore.config.features.quickLaunch.selectionColor
+);
+const quickLaunchSelectionOpacityInput = ref(
+  appConfigStore.config.features.quickLaunch.selectionOpacity
+);
+const quickLaunchResultTitleColorInput = ref(
+  appConfigStore.config.features.quickLaunch.resultTitleColor
+);
+const quickLaunchResultSubtitleColorInput = ref(
+  appConfigStore.config.features.quickLaunch.resultSubtitleColor
+);
 const syncWebDavPreset = ref<'jianguoyun' | 'custom'>('jianguoyun');
 const syncWebDavEndpoint = ref('https://dav.jianguoyun.com/dav/');
 const syncWebDavUsername = ref('');
@@ -252,7 +291,7 @@ const settingsTabs: UiTabItem[] = [
   { key: 'quick-launch', label: '快速启动' },
   { key: 'shortcuts', label: '快捷键' },
 ];
-const settingsTabOrder = settingsTabs.map(tab => tab.key) as SettingsTabKey[];
+const settingsTabOrder = settingsTabs.map((tab) => tab.key) as SettingsTabKey[];
 const settingsTabTransition = ref('ui-tab-forward');
 const loadedSettingsTabs = new Set<SettingsTabKey>();
 let stopSyncEventSubscription: (() => void) | null = null;
@@ -262,34 +301,44 @@ const settingsSearchHasMatches = ref(true);
 const settingsBodyRef = ref<HTMLElement | null>(null);
 
 const isSearchingSettings = computed(() => settingsSearchQuery.value.trim().length > 0);
-const normalizedSettingsSearchQuery = computed(() => settingsSearchQuery.value.trim().toLocaleLowerCase());
-const displayedSettingsTabs = computed<UiTabItem[]>(() => (isSearchingSettings.value ? [searchTabItem] : settingsTabs));
-const activeSettingsTabForView = computed(() => (isSearchingSettings.value ? 'search' : settingsStore.activeSettingsTab));
-const settingsContentKey = computed(() => (isSearchingSettings.value ? 'search' : settingsStore.activeSettingsTab));
+const normalizedSettingsSearchQuery = computed(() =>
+  settingsSearchQuery.value.trim().toLocaleLowerCase()
+);
+const displayedSettingsTabs = computed<UiTabItem[]>(() =>
+  isSearchingSettings.value ? [searchTabItem] : settingsTabs
+);
+const activeSettingsTabForView = computed(() =>
+  isSearchingSettings.value ? 'search' : settingsStore.activeSettingsTab
+);
+const settingsContentKey = computed(() =>
+  isSearchingSettings.value ? 'search' : settingsStore.activeSettingsTab
+);
 
 const themeOptions = [
   { label: '浅色主题', value: 'light' },
   { label: '深色主题', value: 'dark' },
 ];
 
-const bottomBarTabOptions = computed(() => APP_INTERNAL_FUNCTIONS
-  .filter(item => !item.devOnly || import.meta.env.DEV)
-  .map(item => ({
+const bottomBarTabOptions = computed(() =>
+  APP_INTERNAL_FUNCTIONS.filter((item) => !item.devOnly || import.meta.env.DEV).map((item) => ({
     id: item.id,
     label: item.label,
     description: item.description,
     locked: APP_BOTTOM_BAR_REQUIRED_TAB_IDS.includes(item.id),
-  })));
+  }))
+);
 
-const bottomBarTransferItems = computed<TransferBoxItem[]>(() => bottomBarTabOptions.value.map(item => ({
-  key: item.id,
-  label: item.label,
-  description: item.description,
-  locked: item.locked,
-})));
+const bottomBarTransferItems = computed<TransferBoxItem[]>(() =>
+  bottomBarTabOptions.value.map((item) => ({
+    key: item.id,
+    label: item.label,
+    description: item.description,
+    locked: item.locked,
+  }))
+);
 
 const bottomBarVisibleTabIds = computed(() => {
-  const validIds = new Set(bottomBarTabOptions.value.map(item => item.id));
+  const validIds = new Set(bottomBarTabOptions.value.map((item) => item.id));
   const seen = new Set<AppBottomBarTabId>();
   const result: AppBottomBarTabId[] = [];
 
@@ -311,39 +360,43 @@ const bottomBarVisibleTabIds = computed(() => {
 });
 
 const bottomBarVisibleSummary = computed(() => {
-  const labelMap = new Map(bottomBarTabOptions.value.map(tab => [tab.id, tab.label]));
+  const labelMap = new Map(bottomBarTabOptions.value.map((tab) => [tab.id, tab.label]));
   const labels = bottomBarVisibleTabIds.value
-    .map(tabId => labelMap.get(tabId))
+    .map((tabId) => labelMap.get(tabId))
     .filter((label): label is string => Boolean(label));
   return labels.length ? `默认显示：${labels.join('、')}` : '默认显示：首页、设置';
 });
 
 const bottomBarCollectionOptions = computed(() => [
   { label: '不加入集合', value: '' },
-  ...appConfigStore.config.bottomBar.collections.map(collection => ({
+  ...appConfigStore.config.bottomBar.collections.map((collection) => ({
     label: collection.name,
     value: collection.id,
   })),
 ]);
 
-const bottomBarInternalDisplayRows = computed(() => bottomBarVisibleTabIds.value.map(tabId => {
-  const option = bottomBarTabOptions.value.find(item => item.id === tabId);
-  const display = appConfigStore.config.bottomBar.tabDisplay[tabId];
-  return {
-    id: tabId,
-    label: option?.label ?? tabId,
-    description: option?.description ?? '',
-    icon: APP_INTERNAL_FUNCTIONS.find(item => item.id === tabId)?.icon ?? 'iconify:lucide:square',
-    iconOnly: display?.iconOnly === true,
-    collectionId: display?.collectionId ?? '',
-  };
-}));
+const bottomBarInternalDisplayRows = computed(() =>
+  bottomBarVisibleTabIds.value.map((tabId) => {
+    const option = bottomBarTabOptions.value.find((item) => item.id === tabId);
+    const display = appConfigStore.config.bottomBar.tabDisplay[tabId];
+    return {
+      id: tabId,
+      label: option?.label ?? tabId,
+      description: option?.description ?? '',
+      icon:
+        APP_INTERNAL_FUNCTIONS.find((item) => item.id === tabId)?.icon ?? 'iconify:lucide:square',
+      iconOnly: display?.iconOnly === true,
+      collectionId: display?.collectionId ?? '',
+    };
+  })
+);
 
 const bottomBarPinnedWebviews = computed(() => appConfigStore.config.bottomBar.pinnedWebviews);
 const bottomBarCollections = computed(() => appConfigStore.config.bottomBar.collections);
 
 const orderedNetworkInterfaces = computed(() => {
-  const priority = appConfigStore.config.features.multiDeviceClipboard.networkInterfacePriority ?? [];
+  const priority =
+    appConfigStore.config.features.multiDeviceClipboard.networkInterfacePriority ?? [];
   return [...localNetworkInterfaces.value].sort((a, b) => {
     const aIndex = networkInterfacePriorityIndex(a, priority);
     const bIndex = networkInterfacePriorityIndex(b, priority);
@@ -352,9 +405,12 @@ const orderedNetworkInterfaces = computed(() => {
   });
 });
 
-const activeNetworkInterface = computed(() => orderedNetworkInterfaces.value.find(item => !item.internal));
+const activeNetworkInterface = computed(() =>
+  orderedNetworkInterfaces.value.find((item) => !item.internal)
+);
 const pairedMultiDeviceClipboardDevices = computed(() =>
-  multiDeviceClipboardDevices.value.filter(device => device.trusted && !device.isSelf));
+  multiDeviceClipboardDevices.value.filter((device) => device.trusted && !device.isSelf)
+);
 
 const languageOptions = [
   { label: '简体中文', value: 'zh' },
@@ -378,11 +434,15 @@ const updateStatusLabels: Record<string, string> = {
   error: '更新失败',
 };
 
-const pluginTabs = computed<UiTabItem[]>(() => installedPlugins.value.map((plugin) => ({
-  key: plugin.manifest.id,
-  label: plugin.manifest.displayName,
-})));
-const customTerminalProfiles = computed(() => appConfigStore.config.features.terminal.localProfiles ?? []);
+const pluginTabs = computed<UiTabItem[]>(() =>
+  installedPlugins.value.map((plugin) => ({
+    key: plugin.manifest.id,
+    label: plugin.manifest.displayName,
+  }))
+);
+const customTerminalProfiles = computed(
+  () => appConfigStore.config.features.terminal.localProfiles ?? []
+);
 const terminalProfileOptions = computed(() => [
   ...terminalProfiles.value.map((profile) => ({
     label: profile.label,
@@ -400,10 +460,11 @@ const knowledgeLibraryOptions = computed(() => [
     value: library.id,
   })),
 ]);
-const knowledgeAssetStorageOptions: Array<{ label: string; value: AppKnowledgeAssetStorageMode }> = [
-  { label: '应用数据目录', value: 'app-data' },
-  { label: '自定义目录', value: 'custom' },
-];
+const knowledgeAssetStorageOptions: Array<{ label: string; value: AppKnowledgeAssetStorageMode }> =
+  [
+    { label: '应用数据目录', value: 'app-data' },
+    { label: '自定义目录', value: 'custom' },
+  ];
 const quickLaunchProviderOptions: Array<{ label: string; value: QuickLaunchProviderId }> = [
   { label: '应用功能', value: 'internal-route' },
   { label: '终端配置', value: 'terminal' },
@@ -423,33 +484,33 @@ const quickLaunchWindowShortcutGroups: Array<{
   title: string;
   shortcuts: Array<{ label: string; keys: string }>;
 }> = [
-    {
-      title: '结果操作',
-      shortcuts: [
-        { label: '打开选中结果', keys: 'Enter' },
-        { label: '打开操作面板', keys: 'Ctrl+O / Shift+Enter / → / 右键' },
-        { label: '打开所在位置 / 在资源管理器中打开', keys: 'Ctrl+Enter' },
-        { label: '以管理员身份启动', keys: 'Ctrl+Shift+Enter' },
-        { label: '复制结果', keys: 'Ctrl+C' },
-        { label: '复制路径', keys: 'Ctrl+Shift+C' },
-        { label: '刷新结果', keys: 'Ctrl+R / F5' },
-      ],
-    },
-    {
-      title: '导航与窗口',
-      shortcuts: [
-        { label: '切换选中结果', keys: '↑ / ↓ / Tab' },
-        { label: '翻页选择', keys: 'PageUp / PageDown' },
-        { label: '直接打开前十项', keys: 'Alt+1...0' },
-        { label: '补全选中标题', keys: 'Ctrl+Tab' },
-        { label: '显示结果预览', keys: 'F1' },
-        { label: '搜索历史', keys: 'Ctrl+H' },
-        { label: '调整结果数量', keys: 'Ctrl+Plus / Ctrl+Minus' },
-        { label: '调整窗口宽度', keys: 'Ctrl+[ / Ctrl+]' },
-        { label: '游戏模式', keys: 'Ctrl+F12' },
-      ],
-    },
-  ];
+  {
+    title: '结果操作',
+    shortcuts: [
+      { label: '打开选中结果', keys: 'Enter' },
+      { label: '打开操作面板', keys: 'Ctrl+O / Shift+Enter / → / 右键' },
+      { label: '打开所在位置 / 在资源管理器中打开', keys: 'Ctrl+Enter' },
+      { label: '以管理员身份启动', keys: 'Ctrl+Shift+Enter' },
+      { label: '复制结果', keys: 'Ctrl+C' },
+      { label: '复制路径', keys: 'Ctrl+Shift+C' },
+      { label: '刷新结果', keys: 'Ctrl+R / F5' },
+    ],
+  },
+  {
+    title: '导航与窗口',
+    shortcuts: [
+      { label: '切换选中结果', keys: '↑ / ↓ / Tab' },
+      { label: '翻页选择', keys: 'PageUp / PageDown' },
+      { label: '直接打开前十项', keys: 'Alt+1...0' },
+      { label: '补全选中标题', keys: 'Ctrl+Tab' },
+      { label: '显示结果预览', keys: 'F1' },
+      { label: '搜索历史', keys: 'Ctrl+H' },
+      { label: '调整结果数量', keys: 'Ctrl+Plus / Ctrl+Minus' },
+      { label: '调整窗口宽度', keys: 'Ctrl+[ / Ctrl+]' },
+      { label: '游戏模式', keys: 'Ctrl+F12' },
+    ],
+  },
+];
 const aiDefaultModeOptions: Array<{ label: string; value: AiInteractionMode }> = [
   { label: 'AI 问答', value: 'chat' },
   { label: '通用 Agent', value: 'general-agent' },
@@ -459,11 +520,11 @@ const aiAgentModeOptions: Array<{ label: string; value: AiAgentMode }> = [
   { label: '通用 Agent', value: 'general-agent' },
   { label: 'Code Agent', value: 'code-agent' },
 ];
-const knowledgeIndexingSummary = computed(() => (
+const knowledgeIndexingSummary = computed(() =>
   appConfigStore.config.features.knowledge.indexingEnabled
     ? '导入时会抽取文本并写入搜索索引'
     : '导入只保存文件和元数据，不抽取全文'
-));
+);
 const syncPendingCollectionCounts = computed(() => {
   const counts = new Map<string, number>();
   for (const item of syncStore.pendingItems) {
@@ -473,17 +534,27 @@ const syncPendingCollectionCounts = computed(() => {
     .map(([collection, count]) => ({ collection, count }))
     .sort((left, right) => left.collection.localeCompare(right.collection));
 });
-const syncPendingTotalHeight = computed(() => syncStore.pendingItems.length * SYNC_PENDING_ROW_HEIGHT);
+const syncPendingTotalHeight = computed(
+  () => syncStore.pendingItems.length * SYNC_PENDING_ROW_HEIGHT
+);
 const syncPendingStartIndex = computed(() =>
-  Math.max(0, Math.floor(syncPendingScrollTop.value / SYNC_PENDING_ROW_HEIGHT) - SYNC_PENDING_OVERSCAN));
-const syncPendingVisibleCount = computed(() =>
-  Math.ceil(SYNC_PENDING_LIST_HEIGHT / SYNC_PENDING_ROW_HEIGHT) + SYNC_PENDING_OVERSCAN * 2);
+  Math.max(
+    0,
+    Math.floor(syncPendingScrollTop.value / SYNC_PENDING_ROW_HEIGHT) - SYNC_PENDING_OVERSCAN
+  )
+);
+const syncPendingVisibleCount = computed(
+  () => Math.ceil(SYNC_PENDING_LIST_HEIGHT / SYNC_PENDING_ROW_HEIGHT) + SYNC_PENDING_OVERSCAN * 2
+);
 const syncPendingVisibleItems = computed(() =>
   syncStore.pendingItems.slice(
     syncPendingStartIndex.value,
-    syncPendingStartIndex.value + syncPendingVisibleCount.value,
-  ));
-const syncPendingVirtualOffsetY = computed(() => syncPendingStartIndex.value * SYNC_PENDING_ROW_HEIGHT);
+    syncPendingStartIndex.value + syncPendingVisibleCount.value
+  )
+);
+const syncPendingVirtualOffsetY = computed(
+  () => syncPendingStartIndex.value * SYNC_PENDING_ROW_HEIGHT
+);
 const knowledgePreviewCacheSummary = computed(() => {
   const days = appConfigStore.config.features.knowledge.previewCacheTtlDays;
   return days === 0 ? '缓存只手动清理' : `缓存保留 ${days} 天`;
@@ -492,31 +563,36 @@ const ftpLinkNavigationSummary = computed(() => {
   if (!ftpLinkNavigationEnabled.value) return '联动导航已关闭';
   return '当前工作区内的文件面板会联动导航';
 });
-const ftpThumbnailSummary = computed(() => (
+const ftpThumbnailSummary = computed(() =>
   ftpThumbnailsEnabled.value
     ? `图片缩略图已开启 · 单张最多 ${ftpThumbnailMaxBytesKb.value} KB · 每侧预加载 ${ftpThumbnailPrefetchLimit.value} 张`
     : '图片缩略图已关闭'
-));
-const ftpExternalEditorSummary = computed(() => (
+);
+const ftpExternalEditorSummary = computed(() =>
   ftpExternalEditorPath.value
     ? `自定义编辑器：${ftpExternalEditorPath.value}${ftpCleanupExternalDraftsOnClose.value ? ' · 关闭后清理临时文件' : ''}`
     : '当前使用系统默认编辑器'
-));
+);
 const ftpKnownHostSummary = computed(() => {
   if (ftpKnownHostsLoading.value) return '正在加载已信任主机指纹';
   if (!sshStore.knownHosts.length) return '当前没有已信任的主机指纹';
   return `已信任 ${sshStore.knownHosts.length} 条主机指纹`;
 });
-const ftpRetryPolicySummary = computed(() => `失败后最多自动重试 ${ftpRetryMaxRetries.value} 次，基础等待 ${ftpRetryBaseDelaySecs.value} 秒`);
-const ftpWindowsContextMenuSummary = computed(() => (
+const ftpRetryPolicySummary = computed(
+  () =>
+    `失败后最多自动重试 ${ftpRetryMaxRetries.value} 次，基础等待 ${ftpRetryBaseDelaySecs.value} 秒`
+);
+const ftpWindowsContextMenuSummary = computed(() =>
   ftpWindowsContextMenuStatus.value.installed
     ? '已安装到 Windows 资源管理器右键菜单'
     : '尚未安装 Windows 资源管理器右键菜单'
-));
-const ftpWindowsContextMenuCommandSummary = computed(() => (
-  ftpWindowsContextMenuStatus.value.command || '暂无可用命令'
-));
-const updateStatusLabel = computed(() => updateStatusLabels[updaterStore.status] ?? updaterStore.status);
+);
+const ftpWindowsContextMenuCommandSummary = computed(
+  () => ftpWindowsContextMenuStatus.value.command || '暂无可用命令'
+);
+const updateStatusLabel = computed(
+  () => updateStatusLabels[updaterStore.status] ?? updaterStore.status
+);
 const updateProgressPercent = computed(() => Math.round(updaterStore.progress?.percent ?? 0));
 const syncProgressVisible = computed(() => Boolean(syncStore.state?.syncProgress));
 const syncProgressPercent = computed(() => Math.round(syncStore.state?.syncProgress?.percent ?? 0));
@@ -545,19 +621,25 @@ const updateReleaseDateText = computed(() => {
   return releaseDate.toLocaleString();
 });
 const canCheckUpdate = computed(() => !updaterStore.isBusy && updaterStore.status !== 'downloaded');
-const canDownloadUpdate = computed(() => updaterStore.status === 'available' && !updaterStore.isBusy);
+const canDownloadUpdate = computed(
+  () => updaterStore.status === 'available' && !updaterStore.isBusy
+);
 const canInstallUpdate = computed(() => updaterStore.status === 'downloaded');
 const updaterAuthSourceText = computed(() => {
   if (!updaterStore.auth.hasToken) return '未配置';
   return updaterStore.auth.source === 'environment' ? '环境变量' : '本机安全存储';
 });
-const canSaveGithubToken = computed(() => Boolean(githubTokenInput.value.trim()) && !updaterAuthSaving.value);
+const canSaveGithubToken = computed(
+  () => Boolean(githubTokenInput.value.trim()) && !updaterAuthSaving.value
+);
 const shortcutRegisteredCount = computed(() => shortcutInspection.value?.summary.registered ?? 0);
 const shortcutConflictCount = computed(() => shortcutInspection.value?.summary.conflict ?? 0);
 const shortcutAvailableCount = computed(() => shortcutInspection.value?.summary.available ?? 0);
 const highlightedCommonShortcutProbes = computed(() => {
   const probes = shortcutInspection.value?.common ?? [];
-  const conflicts = probes.filter((probe) => probe.status === 'conflict' || probe.status === 'invalid');
+  const conflicts = probes.filter(
+    (probe) => probe.status === 'conflict' || probe.status === 'invalid'
+  );
   return (conflicts.length ? conflicts : probes).slice(0, 8);
 });
 
@@ -566,34 +648,66 @@ const detachedWindowShortcutRows: Array<{
   label: string;
   description: string;
 }> = [
-    { key: 'openDetachedTerminal', label: '独立窗口：终端', description: '系统级快捷键，默认 Ctrl+Shift+T 打开终端页面独立窗口。' },
-    { key: 'openDetachedFtp', label: '独立窗口：传输', description: '系统级快捷键，打开传输页面独立窗口。' },
-    { key: 'openDetachedTodo', label: '独立窗口：待办', description: '系统级快捷键，打开待办页面独立窗口。' },
-    { key: 'openDetachedAi', label: '独立窗口：AI', description: '系统级快捷键，打开 AI 页面独立窗口。' },
-    { key: 'openDetachedKnowledge', label: '独立窗口：知识库', description: '系统级快捷键，打开知识库页面独立窗口。' },
-  ];
+  {
+    key: 'openDetachedTerminal',
+    label: '独立窗口：终端',
+    description: '系统级快捷键，默认 Ctrl+Shift+T 打开终端页面独立窗口。',
+  },
+  {
+    key: 'openDetachedFtp',
+    label: '独立窗口：传输',
+    description: '系统级快捷键，打开传输页面独立窗口。',
+  },
+  {
+    key: 'openDetachedTodo',
+    label: '独立窗口：待办',
+    description: '系统级快捷键，打开待办页面独立窗口。',
+  },
+  {
+    key: 'openDetachedAi',
+    label: '独立窗口：AI',
+    description: '系统级快捷键，打开 AI 页面独立窗口。',
+  },
+  {
+    key: 'openDetachedKnowledge',
+    label: '独立窗口：知识库',
+    description: '系统级快捷键，打开知识库页面独立窗口。',
+  },
+];
 const shortcutInspectionTimeText = computed(() => {
   if (!shortcutInspection.value) return '尚未检测';
   return new Date(shortcutInspection.value.checkedAt).toLocaleTimeString();
 });
 
-const activePlugin = computed(() => installedPlugins.value.find(
-  (plugin) => plugin.manifest.id === settingsStore.activePluginConfigId,
-) ?? null);
-const activeSettingsTabPersonalization = computed(() => getSettingsTabPersonalization(settingsStore.activeSettingsTab));
-const activeSettingsPageStyle = computed<CSSProperties>(() => buildSettingsTabBackgroundStyle(activeSettingsTabPersonalization.value));
-const activeSettingsBackgroundVideo = computed(() => (
-  activeSettingsTabPersonalization.value.type === 'video' ? activeSettingsTabPersonalization.value.video : ''
-));
+const activePlugin = computed(
+  () =>
+    installedPlugins.value.find(
+      (plugin) => plugin.manifest.id === settingsStore.activePluginConfigId
+    ) ?? null
+);
+const activeSettingsTabPersonalization = computed(() =>
+  getSettingsTabPersonalization(settingsStore.activeSettingsTab)
+);
+const activeSettingsPageStyle = computed<CSSProperties>(() =>
+  buildSettingsTabBackgroundStyle(activeSettingsTabPersonalization.value)
+);
+const activeSettingsBackgroundVideo = computed(() =>
+  activeSettingsTabPersonalization.value.type === 'video'
+    ? activeSettingsTabPersonalization.value.video
+    : ''
+);
 const activeQuickLaunchBackground = computed(() => {
   const config = appConfigStore.config.features.quickLaunch;
-  return resolveThemeBackground({
-    type: config.backgroundType,
-    color: config.backgroundColor,
-    image: config.backgroundImage,
-    video: config.backgroundVideo,
-    backgroundStyle: config.backgroundStyle,
-  }, appConfigStore.config.appearance.theme);
+  return resolveThemeBackground(
+    {
+      type: config.backgroundType,
+      color: config.backgroundColor,
+      image: config.backgroundImage,
+      video: config.backgroundVideo,
+      backgroundStyle: config.backgroundStyle,
+    },
+    appConfigStore.config.appearance.theme
+  );
 });
 const quickLaunchBackgroundSummary = computed(() => {
   const background = activeQuickLaunchBackground.value;
@@ -625,22 +739,30 @@ const quickLaunchBackgroundPreviewStyle = computed<CSSProperties>(() => {
 
   return previewStyle;
 });
-const quickLaunchWindowOpacityLabel = computed(() => `${Math.round(quickLaunchWindowOpacityInput.value * 100)}%`);
-const quickLaunchSelectionOpacityLabel = computed(() => `${Math.round(quickLaunchSelectionOpacityInput.value * 100)}%`);
+const quickLaunchWindowOpacityLabel = computed(
+  () => `${Math.round(quickLaunchWindowOpacityInput.value * 100)}%`
+);
+const quickLaunchSelectionOpacityLabel = computed(
+  () => `${Math.round(quickLaunchSelectionOpacityInput.value * 100)}%`
+);
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return Boolean(value) && typeof value === 'object' && !Array.isArray(value);
 }
 
 function getSettingsTabPersonalization(tab: AppSettingsTabId): AppSettingsTabPersonalizationConfig {
-  const config = appConfigStore.config.features.settings.tabs[tab] ?? createDefaultSettingsTabPersonalization();
-  const background = resolveThemeBackground({
-    type: config.type,
-    color: config.color,
-    image: config.image,
-    video: config.video,
-    backgroundStyle: config.style,
-  }, appConfigStore.config.appearance.theme);
+  const config =
+    appConfigStore.config.features.settings.tabs[tab] ?? createDefaultSettingsTabPersonalization();
+  const background = resolveThemeBackground(
+    {
+      type: config.type,
+      color: config.color,
+      image: config.image,
+      video: config.video,
+      backgroundStyle: config.style,
+    },
+    appConfigStore.config.appearance.theme
+  );
   return {
     type: background.type,
     color: background.color,
@@ -650,7 +772,9 @@ function getSettingsTabPersonalization(tab: AppSettingsTabId): AppSettingsTabPer
   };
 }
 
-function buildSettingsTabBackgroundStyle(config: AppSettingsTabPersonalizationConfig): CSSProperties {
+function buildSettingsTabBackgroundStyle(
+  config: AppSettingsTabPersonalizationConfig
+): CSSProperties {
   const style: CSSProperties = {};
 
   if (config.type === 'image' && config.image) {
@@ -670,13 +794,16 @@ function isSettingsTabRendered(tab: SettingsTabKey) {
 }
 
 function isSearchContainerCard(element: HTMLElement) {
-  return element.classList.contains('settings-card')
-    && Boolean(element.querySelector('.settings-row, .ui-field'));
+  return (
+    element.classList.contains('settings-card') &&
+    Boolean(element.querySelector('.settings-row, .ui-field'))
+  );
 }
 
 function getSearchableSettingItems(root: HTMLElement) {
-  return Array.from(root.querySelectorAll<HTMLElement>('.settings-row, .ui-field, .settings-card'))
-    .filter(item => !isSearchContainerCard(item));
+  return Array.from(
+    root.querySelectorAll<HTMLElement>('.settings-row, .ui-field, .settings-card')
+  ).filter((item) => !isSearchContainerCard(item));
 }
 
 function collectSettingSearchText(element: HTMLElement) {
@@ -684,7 +811,8 @@ function collectSettingSearchText(element: HTMLElement) {
 }
 
 function getCssHighlightApi() {
-  const highlightConstructor = (window as typeof window & { Highlight?: CssHighlightConstructor }).Highlight;
+  const highlightConstructor = (window as typeof window & { Highlight?: CssHighlightConstructor })
+    .Highlight;
   const highlightRegistry = (CSS as typeof CSS & { highlights?: CssHighlightRegistry }).highlights;
 
   if (!highlightConstructor || !highlightRegistry) {
@@ -705,20 +833,18 @@ function shouldHighlightSearchNode(node: Node) {
   const parentElement = node.parentElement;
   if (!parentElement) return false;
 
-  return !parentElement.closest('input, textarea, select, option, button, script, style, .is-search-hidden');
+  return !parentElement.closest(
+    'input, textarea, select, option, button, script, style, .is-search-hidden'
+  );
 }
 
 function collectSettingHighlightRanges(element: HTMLElement, query: string) {
   const ranges: Range[] = [];
-  const walker = document.createTreeWalker(
-    element,
-    NodeFilter.SHOW_TEXT,
-    {
-      acceptNode(node) {
-        return shouldHighlightSearchNode(node) ? NodeFilter.FILTER_ACCEPT : NodeFilter.FILTER_REJECT;
-      },
+  const walker = document.createTreeWalker(element, NodeFilter.SHOW_TEXT, {
+    acceptNode(node) {
+      return shouldHighlightSearchNode(node) ? NodeFilter.FILTER_ACCEPT : NodeFilter.FILTER_REJECT;
     },
-  );
+  });
 
   while (walker.nextNode()) {
     const textNode = walker.currentNode;
@@ -746,11 +872,14 @@ function updateSettingsSearchHighlights(query: string, settingItems: HTMLElement
   if (!query) return;
 
   const ranges = settingItems
-    .filter(item => !item.classList.contains('is-search-hidden'))
-    .flatMap(item => collectSettingHighlightRanges(item, query));
+    .filter((item) => !item.classList.contains('is-search-hidden'))
+    .flatMap((item) => collectSettingHighlightRanges(item, query));
 
   if (ranges.length) {
-    cssHighlightApi.registry.set(SETTINGS_SEARCH_HIGHLIGHT_NAME, new cssHighlightApi.Highlight(...ranges));
+    cssHighlightApi.registry.set(
+      SETTINGS_SEARCH_HIGHLIGHT_NAME,
+      new cssHighlightApi.Highlight(...ranges)
+    );
   }
 }
 
@@ -766,29 +895,36 @@ function applySettingsSearchFilter() {
 
   for (const item of settingItems) {
     const searchText = collectSettingSearchText(item).toLocaleLowerCase();
-    item.classList.toggle('is-search-hidden', Boolean(query) && (!searchText || !searchText.includes(query)));
+    item.classList.toggle(
+      'is-search-hidden',
+      Boolean(query) && (!searchText || !searchText.includes(query))
+    );
   }
 
-  const containerCards = Array.from(root.querySelectorAll<HTMLElement>('.settings-card'))
-    .filter(isSearchContainerCard);
+  const containerCards = Array.from(root.querySelectorAll<HTMLElement>('.settings-card')).filter(
+    isSearchContainerCard
+  );
   for (const card of containerCards) {
-    const hasVisibleItem = Array.from(card.querySelectorAll<HTMLElement>('.settings-row, .ui-field'))
-      .some(item => !item.classList.contains('is-search-hidden'));
+    const hasVisibleItem = Array.from(
+      card.querySelectorAll<HTMLElement>('.settings-row, .ui-field')
+    ).some((item) => !item.classList.contains('is-search-hidden'));
     card.classList.toggle('is-search-hidden', Boolean(query) && !hasVisibleItem);
   }
 
   const groups = Array.from(root.querySelectorAll<HTMLElement>('.settings-group'));
   for (const group of groups) {
-    const hasVisibleItem = getSearchableSettingItems(group)
-      .some(item => !item.classList.contains('is-search-hidden'));
+    const hasVisibleItem = getSearchableSettingItems(group).some(
+      (item) => !item.classList.contains('is-search-hidden')
+    );
     group.classList.toggle('is-search-hidden', Boolean(query) && !hasVisibleItem);
   }
 
   const sections = Array.from(root.querySelectorAll<HTMLElement>('.settings-section'));
   let hasAnyVisibleSection = false;
   for (const section of sections) {
-    const hasVisibleItem = getSearchableSettingItems(section)
-      .some(item => !item.classList.contains('is-search-hidden'));
+    const hasVisibleItem = getSearchableSettingItems(section).some(
+      (item) => !item.classList.contains('is-search-hidden')
+    );
     section.classList.toggle('settings-section--search-empty', Boolean(query) && !hasVisibleItem);
     hasAnyVisibleSection ||= hasVisibleItem;
   }
@@ -801,7 +937,11 @@ function queueSettingsSearchFilter() {
 }
 
 function syncPluginDraft(pluginId: string) {
-  pluginConfigDrafts.value[pluginId] = JSON.stringify(appConfigStore.config.plugins.items[pluginId] ?? {}, null, 2);
+  pluginConfigDrafts.value[pluginId] = JSON.stringify(
+    appConfigStore.config.plugins.items[pluginId] ?? {},
+    null,
+    2
+  );
   pluginConfigErrors.value[pluginId] = '';
 }
 
@@ -821,7 +961,9 @@ async function loadPluginContext() {
       return;
     }
 
-    const hasActivePlugin = installedPlugins.value.some((plugin) => plugin.manifest.id === settingsStore.activePluginConfigId);
+    const hasActivePlugin = installedPlugins.value.some(
+      (plugin) => plugin.manifest.id === settingsStore.activePluginConfigId
+    );
     if (!hasActivePlugin) {
       settingsStore.setActivePluginConfigId(installedPlugins.value[0].manifest.id);
     }
@@ -850,7 +992,7 @@ async function handleLanguageChange(value: string) {
 }
 
 async function handleBottomBarVisibleTabsChange(value: string[]) {
-  const validIds = new Set(bottomBarTabOptions.value.map(tab => tab.id));
+  const validIds = new Set(bottomBarTabOptions.value.map((tab) => tab.id));
   const seen = new Set<AppBottomBarTabId>();
   const nextIds: AppBottomBarTabId[] = [];
   let candidateIds = value;
@@ -877,7 +1019,10 @@ async function handleBottomBarInternalIconOnlyChange(tabId: AppBottomBarTabId, i
   await barStore.updateTabIconOnly(tabId, iconOnly);
 }
 
-async function handleBottomBarInternalCollectionChange(tabId: AppBottomBarTabId, collectionId: string) {
+async function handleBottomBarInternalCollectionChange(
+  tabId: AppBottomBarTabId,
+  collectionId: string
+) {
   await barStore.updateTabCollection(tabId, collectionId);
 }
 
@@ -931,7 +1076,9 @@ async function updateAiAgentSettings(patch: AiAgentFeaturePatch) {
   });
 }
 
-async function updateAiAgentReservedSettings(patch: Partial<typeof appConfigStore.config.features.aiAgent.agent>) {
+async function updateAiAgentReservedSettings(
+  patch: Partial<typeof appConfigStore.config.features.aiAgent.agent>
+) {
   const current = appConfigStore.config.features.aiAgent.agent;
   await updateAiAgentSettings({
     agent: {
@@ -1062,7 +1209,8 @@ function loadFtpSettingsDraft() {
     if (rawPreferences) {
       const parsed = JSON.parse(rawPreferences) as unknown;
       if (isRecord(parsed)) {
-        ftpExternalEditorPath.value = typeof parsed.externalEditorPath === 'string' ? parsed.externalEditorPath : '';
+        ftpExternalEditorPath.value =
+          typeof parsed.externalEditorPath === 'string' ? parsed.externalEditorPath : '';
         ftpCleanupExternalDraftsOnClose.value = Boolean(parsed.cleanupExternalDraftsOnClose);
         ftpLinkNavigationEnabled.value = Boolean(parsed.linkNavigationEnabled);
       }
@@ -1076,8 +1224,10 @@ function loadFtpSettingsDraft() {
         prefetchLimit: string;
       }>;
       ftpThumbnailsEnabled.value = parsed.enabled !== false;
-      ftpThumbnailMaxBytesKb.value = typeof parsed.maxBytesKb === 'string' ? parsed.maxBytesKb : '256';
-      ftpThumbnailPrefetchLimit.value = typeof parsed.prefetchLimit === 'string' ? parsed.prefetchLimit : '18';
+      ftpThumbnailMaxBytesKb.value =
+        typeof parsed.maxBytesKb === 'string' ? parsed.maxBytesKb : '256';
+      ftpThumbnailPrefetchLimit.value =
+        typeof parsed.prefetchLimit === 'string' ? parsed.prefetchLimit : '18';
     }
   } catch {
     ftpLinkNavigationEnabled.value = false;
@@ -1096,26 +1246,32 @@ function persistFtpPreferenceSettings() {
   let existingPreferences: Record<string, unknown> = {};
   try {
     const rawPreferences = window.localStorage.getItem(FTP_PREFERENCES_STORAGE_KEY);
-    const parsed = rawPreferences ? JSON.parse(rawPreferences) as unknown : {};
+    const parsed = rawPreferences ? (JSON.parse(rawPreferences) as unknown) : {};
     existingPreferences = isRecord(parsed) ? parsed : {};
   } catch {
     existingPreferences = {};
   }
-  window.localStorage.setItem(FTP_PREFERENCES_STORAGE_KEY, JSON.stringify({
-    ...existingPreferences,
-    externalEditorPath: ftpExternalEditorPath.value,
-    cleanupExternalDraftsOnClose: ftpCleanupExternalDraftsOnClose.value,
-    linkNavigationEnabled: ftpLinkNavigationEnabled.value,
-  }));
+  window.localStorage.setItem(
+    FTP_PREFERENCES_STORAGE_KEY,
+    JSON.stringify({
+      ...existingPreferences,
+      externalEditorPath: ftpExternalEditorPath.value,
+      cleanupExternalDraftsOnClose: ftpCleanupExternalDraftsOnClose.value,
+      linkNavigationEnabled: ftpLinkNavigationEnabled.value,
+    })
+  );
 }
 
 function persistFtpThumbnailSettings() {
   if (!ftpSettingsLoaded.value) return;
-  window.localStorage.setItem(FTP_THUMBNAIL_STORAGE_KEY, JSON.stringify({
-    enabled: ftpThumbnailsEnabled.value,
-    maxBytesKb: ftpThumbnailMaxBytesKb.value,
-    prefetchLimit: ftpThumbnailPrefetchLimit.value,
-  }));
+  window.localStorage.setItem(
+    FTP_THUMBNAIL_STORAGE_KEY,
+    JSON.stringify({
+      enabled: ftpThumbnailsEnabled.value,
+      maxBytesKb: ftpThumbnailMaxBytesKb.value,
+      prefetchLimit: ftpThumbnailPrefetchLimit.value,
+    })
+  );
 }
 
 function setFtpThumbnailMaxBytesKb(value: string) {
@@ -1294,13 +1450,16 @@ function fillLocalTerminalProfileFromBase(profileId: string) {
 }
 
 function createDefaultTerminalBackground(): TerminalBackgroundConfig {
-  const background = resolveThemeBackground({
-    type: appConfigStore.config.features.terminal.viewportBgType ?? 'color',
-    color: appConfigStore.config.features.terminal.viewportBgColor ?? '',
-    image: appConfigStore.config.features.terminal.viewportBgImage ?? '',
-    video: appConfigStore.config.features.terminal.viewportBgVideo ?? '',
-    backgroundStyle: appConfigStore.config.features.terminal.viewportBgStyle ?? {},
-  }, appConfigStore.config.appearance.theme);
+  const background = resolveThemeBackground(
+    {
+      type: appConfigStore.config.features.terminal.viewportBgType ?? 'color',
+      color: appConfigStore.config.features.terminal.viewportBgColor ?? '',
+      image: appConfigStore.config.features.terminal.viewportBgImage ?? '',
+      video: appConfigStore.config.features.terminal.viewportBgVideo ?? '',
+      backgroundStyle: appConfigStore.config.features.terminal.viewportBgStyle ?? {},
+    },
+    appConfigStore.config.appearance.theme
+  );
   return {
     type: background.type,
     color: background.color,
@@ -1313,8 +1472,9 @@ function createDefaultTerminalBackground(): TerminalBackgroundConfig {
 function resetLocalTerminalProfileForm() {
   localTerminalEditingId.value = '';
   localTerminalProfileError.value = '';
-  const profile = terminalProfiles.value.find((item) => item.id === localTerminalBaseProfileId.value)
-    ?? terminalProfiles.value[0];
+  const profile =
+    terminalProfiles.value.find((item) => item.id === localTerminalBaseProfileId.value) ??
+    terminalProfiles.value[0];
   localTerminalProfileForm.value = {
     label: profile ? `${profile.label} 自定义` : '',
     command: profile?.command ?? '',
@@ -1381,8 +1541,10 @@ function parseTerminalEnv(value: string) {
   }
 
   return Object.fromEntries(
-    Object.entries(parsed)
-      .filter((entry): entry is [string, string] => typeof entry[1] === 'string' && entry[0].trim().length > 0),
+    Object.entries(parsed).filter(
+      (entry): entry is [string, string] =>
+        typeof entry[1] === 'string' && entry[0].trim().length > 0
+    )
   );
 }
 
@@ -1398,7 +1560,8 @@ async function saveLocalTerminalProfile() {
   try {
     env = parseTerminalEnv(localTerminalProfileForm.value.envText);
   } catch (error) {
-    localTerminalProfileError.value = error instanceof Error ? error.message : '环境变量格式不正确。';
+    localTerminalProfileError.value =
+      error instanceof Error ? error.message : '环境变量格式不正确。';
     return;
   }
 
@@ -1412,11 +1575,14 @@ async function saveLocalTerminalProfile() {
     env,
     configFilePath: localTerminalProfileForm.value.configFilePath.trim(),
     background: localTerminalEditingId.value
-      ? customTerminalProfiles.value.find((profile) => profile.id === localTerminalEditingId.value)?.background ?? createDefaultTerminalBackground()
+      ? (customTerminalProfiles.value.find((profile) => profile.id === localTerminalEditingId.value)
+          ?.background ?? createDefaultTerminalBackground())
       : createDefaultTerminalBackground(),
   };
   const nextProfiles = localTerminalEditingId.value
-    ? customTerminalProfiles.value.map((profile) => profile.id === localTerminalEditingId.value ? nextProfile : profile)
+    ? customTerminalProfiles.value.map((profile) =>
+        profile.id === localTerminalEditingId.value ? nextProfile : profile
+      )
     : [...customTerminalProfiles.value, nextProfile];
 
   await appConfigStore.updateConfig({
@@ -1452,9 +1618,10 @@ async function deleteLocalTerminalProfile(profile: LocalTerminalProfileConfig) {
   if (!confirmed) return;
 
   const nextProfiles = customTerminalProfiles.value.filter((item) => item.id !== profile.id);
-  const fallbackProfileId = appConfigStore.config.features.terminal.defaultProfileId === profile.id
-    ? terminalProfiles.value[0]?.id ?? ''
-    : appConfigStore.config.features.terminal.defaultProfileId;
+  const fallbackProfileId =
+    appConfigStore.config.features.terminal.defaultProfileId === profile.id
+      ? (terminalProfiles.value[0]?.id ?? '')
+      : appConfigStore.config.features.terminal.defaultProfileId;
   await appConfigStore.updateConfig({
     features: {
       terminal: {
@@ -1500,9 +1667,7 @@ async function handleTerminalDetachChange(enabled: boolean) {
 
 async function commitSshReconnectMaxAttempts() {
   const numeric = Number(sshReconnectMaxAttemptsInput.value);
-  const nextValue = Number.isFinite(numeric)
-    ? Math.max(1, Math.min(20, Math.round(numeric)))
-    : 3;
+  const nextValue = Number.isFinite(numeric) ? Math.max(1, Math.min(20, Math.round(numeric))) : 3;
   sshReconnectMaxAttemptsInput.value = String(nextValue);
   await appConfigStore.updateConfig({
     features: {
@@ -1535,9 +1700,7 @@ async function commitMultiDeviceClipboardDeviceName() {
 
 async function commitMultiDeviceClipboardMaxSyncMb() {
   const numeric = Number(multiDeviceClipboardMaxSyncMbInput.value);
-  const mb = Number.isFinite(numeric)
-    ? Math.max(1, Math.min(1024, Math.round(numeric)))
-    : 100;
+  const mb = Number.isFinite(numeric) ? Math.max(1, Math.min(1024, Math.round(numeric))) : 100;
   multiDeviceClipboardMaxSyncMbInput.value = String(mb);
   await appConfigStore.updateConfig({
     features: {
@@ -1550,9 +1713,7 @@ async function commitMultiDeviceClipboardMaxSyncMb() {
 
 async function commitMultiDeviceClipboardHistoryLimit() {
   const numeric = Number(multiDeviceClipboardHistoryLimitInput.value);
-  const limit = Number.isFinite(numeric)
-    ? Math.max(1, Math.min(5000, Math.round(numeric)))
-    : 200;
+  const limit = Number.isFinite(numeric) ? Math.max(1, Math.min(5000, Math.round(numeric))) : 200;
   multiDeviceClipboardHistoryLimitInput.value = String(limit);
   await appConfigStore.updateConfig({
     features: {
@@ -1573,11 +1734,8 @@ async function loadNetworkInterfaces() {
   }
 }
 
-function networkInterfacePriorityIndex(
-  item: LocalNetworkInterfaceOption,
-  priority: string[],
-) {
-  const index = priority.findIndex(value => value === item.key || value === item.address);
+function networkInterfacePriorityIndex(item: LocalNetworkInterfaceOption, priority: string[]) {
+  const index = priority.findIndex((value) => value === item.key || value === item.address);
   return index === -1 ? Number.MAX_SAFE_INTEGER : index;
 }
 
@@ -1595,7 +1753,7 @@ async function moveNetworkInterface(fromIndex: number, toIndex: number) {
   if (fromIndex === toIndex) return;
   const items = orderedNetworkInterfaces.value;
   if (!items[fromIndex] || !items[toIndex]) return;
-  const keys = items.map(item => item.key);
+  const keys = items.map((item) => item.key);
   const [moved] = keys.splice(fromIndex, 1);
   keys.splice(toIndex, 0, moved);
   await saveNetworkInterfacePriority(keys);
@@ -1611,12 +1769,13 @@ function handleNetworkInterfaceDragStart(key: string, event: DragEvent) {
 
 async function handleNetworkInterfaceDrop(targetKey: string, event: DragEvent) {
   event.preventDefault();
-  const sourceKey = draggedNetworkInterfaceKey.value || event.dataTransfer?.getData('text/plain') || '';
+  const sourceKey =
+    draggedNetworkInterfaceKey.value || event.dataTransfer?.getData('text/plain') || '';
   draggedNetworkInterfaceKey.value = '';
   if (!sourceKey || sourceKey === targetKey) return;
   const items = orderedNetworkInterfaces.value;
-  const fromIndex = items.findIndex(item => item.key === sourceKey);
-  const toIndex = items.findIndex(item => item.key === targetKey);
+  const fromIndex = items.findIndex((item) => item.key === sourceKey);
+  const toIndex = items.findIndex((item) => item.key === targetKey);
   await moveNetworkInterface(fromIndex, toIndex);
 }
 
@@ -1656,18 +1815,23 @@ function multiDeviceClipboardDeviceStatusLabel(device: MultiDeviceClipboardDevic
 }
 
 function multiDeviceClipboardDeviceMeta(device: MultiDeviceClipboardDeviceStatus) {
-  const endpoint = device.lastAddress ? `${device.lastAddress}${device.lastPort ? `:${device.lastPort}` : ''}` : '';
-  const seen = device.secondsSinceSeen == null
-    ? ''
-    : device.secondsSinceSeen < 60
-      ? `${Math.round(device.secondsSinceSeen)} 秒前`
-      : `${Math.round(device.secondsSinceSeen / 60)} 分钟前`;
+  const endpoint = device.lastAddress
+    ? `${device.lastAddress}${device.lastPort ? `:${device.lastPort}` : ''}`
+    : '';
+  const seen =
+    device.secondsSinceSeen == null
+      ? ''
+      : device.secondsSinceSeen < 60
+        ? `${Math.round(device.secondsSinceSeen)} 秒前`
+        : `${Math.round(device.secondsSinceSeen / 60)} 分钟前`;
   return [
     multiDeviceClipboardDeviceStatusLabel(device),
     device.platform || 'unknown',
     endpoint,
     seen ? `上次发现 ${seen}` : '',
-  ].filter(Boolean).join(' · ');
+  ]
+    .filter(Boolean)
+    .join(' · ');
 }
 
 async function commitBaseFontSize() {
@@ -1679,10 +1843,7 @@ async function commitBaseFontSize() {
   });
 }
 
-async function updateInternalShortcut(
-  key: keyof typeof defaultShortcuts.internal,
-  value: string,
-) {
+async function updateInternalShortcut(key: keyof typeof defaultShortcuts.internal, value: string) {
   await appConfigStore.updateConfig({
     shortcuts: {
       internal: {
@@ -1717,7 +1878,9 @@ function getSystemShortcutMessage(key: AppSystemShortcutKey) {
 }
 
 function getSystemShortcutStatus(key: AppSystemShortcutKey): ShortcutProbeStatus | '' {
-  return shortcutValidationMessages.value[key] ? 'conflict' : getSystemShortcutProbe(key)?.status ?? '';
+  return shortcutValidationMessages.value[key]
+    ? 'conflict'
+    : (getSystemShortcutProbe(key)?.status ?? '');
 }
 
 function shortcutStatusText(status: ShortcutProbeStatus | '') {
@@ -1776,10 +1939,7 @@ async function retrySystemShortcut(key: AppSystemShortcutKey) {
   }
 }
 
-async function updateSystemShortcut(
-  key: keyof typeof defaultShortcuts.system,
-  value: string,
-) {
+async function updateSystemShortcut(key: keyof typeof defaultShortcuts.system, value: string) {
   if (window.shortcutsApi) {
     try {
       const validation = await window.shortcutsApi.validateSystemShortcut({
@@ -1852,23 +2012,22 @@ async function toggleQuickLaunchHideOnBlur(hideOnBlur: boolean) {
 }
 
 function normalizeQuickLaunchOpacityInput(value: number, fallback: number, min = 0) {
-  return Number.isFinite(value)
-    ? Number(Math.max(min, Math.min(1, value)).toFixed(2))
-    : fallback;
+  return Number.isFinite(value) ? Number(Math.max(min, Math.min(1, value)).toFixed(2)) : fallback;
 }
 
-function normalizeQuickLaunchColorInput(value: string, fallback = defaultQuickLaunchConfig.selectionColor) {
+function normalizeQuickLaunchColorInput(
+  value: string,
+  fallback = defaultQuickLaunchConfig.selectionColor
+) {
   const trimmed = value.trim();
-  return /^#[0-9a-f]{6}$/i.test(trimmed)
-    ? trimmed
-    : fallback;
+  return /^#[0-9a-f]{6}$/i.test(trimmed) ? trimmed : fallback;
 }
 
 async function commitQuickLaunchWindowOpacity(value = quickLaunchWindowOpacityInput.value) {
   const windowOpacity = normalizeQuickLaunchOpacityInput(
     value,
     defaultQuickLaunchConfig.windowOpacity,
-    0.2,
+    0.2
   );
   quickLaunchWindowOpacityInput.value = windowOpacity;
   await appConfigStore.updateConfig({
@@ -1895,7 +2054,7 @@ async function commitQuickLaunchSelectionColor() {
 async function commitQuickLaunchSelectionOpacity(value = quickLaunchSelectionOpacityInput.value) {
   const selectionOpacity = normalizeQuickLaunchOpacityInput(
     value,
-    defaultQuickLaunchConfig.selectionOpacity,
+    defaultQuickLaunchConfig.selectionOpacity
   );
   quickLaunchSelectionOpacityInput.value = selectionOpacity;
   await appConfigStore.updateConfig({
@@ -1910,7 +2069,7 @@ async function commitQuickLaunchSelectionOpacity(value = quickLaunchSelectionOpa
 async function commitQuickLaunchResultTitleColor() {
   const resultTitleColor = normalizeQuickLaunchColorInput(
     quickLaunchResultTitleColorInput.value,
-    defaultQuickLaunchConfig.resultTitleColor,
+    defaultQuickLaunchConfig.resultTitleColor
   );
   quickLaunchResultTitleColorInput.value = resultTitleColor;
   await appConfigStore.updateConfig({
@@ -1925,7 +2084,7 @@ async function commitQuickLaunchResultTitleColor() {
 async function commitQuickLaunchResultSubtitleColor() {
   const resultSubtitleColor = normalizeQuickLaunchColorInput(
     quickLaunchResultSubtitleColorInput.value,
-    defaultQuickLaunchConfig.resultSubtitleColor,
+    defaultQuickLaunchConfig.resultSubtitleColor
   );
   quickLaunchResultSubtitleColorInput.value = resultSubtitleColor;
   await appConfigStore.updateConfig({
@@ -1939,9 +2098,7 @@ async function commitQuickLaunchResultSubtitleColor() {
 
 async function commitQuickLaunchMaxResults() {
   const value = Number(quickLaunchMaxResultsInput.value);
-  const maxResults = Number.isFinite(value)
-    ? Math.max(4, Math.min(50, Math.round(value)))
-    : 12;
+  const maxResults = Number.isFinite(value) ? Math.max(4, Math.min(50, Math.round(value))) : 12;
   quickLaunchMaxResultsInput.value = String(maxResults);
   await appConfigStore.updateConfig({
     features: {
@@ -1983,19 +2140,23 @@ async function clearQuickLaunchEverythingEsPath() {
 
 async function handleQuickLaunchBackgroundConfirm(payload: BackgroundConfirmPayload) {
   const current = appConfigStore.config.features.quickLaunch;
-  const nextBackground = withThemeBackground({
-    type: current.backgroundType,
-    color: current.backgroundColor,
-    image: current.backgroundImage,
-    video: current.backgroundVideo,
-    backgroundStyle: current.backgroundStyle,
-  }, appConfigStore.config.appearance.theme, {
-    type: payload.type,
-    color: payload.color,
-    image: payload.image,
-    video: payload.video,
-    backgroundStyle: payload.backgroundStyle,
-  });
+  const nextBackground = withThemeBackground(
+    {
+      type: current.backgroundType,
+      color: current.backgroundColor,
+      image: current.backgroundImage,
+      video: current.backgroundVideo,
+      backgroundStyle: current.backgroundStyle,
+    },
+    appConfigStore.config.appearance.theme,
+    {
+      type: payload.type,
+      color: payload.color,
+      image: payload.image,
+      video: payload.video,
+      backgroundStyle: payload.backgroundStyle,
+    }
+  );
 
   await appConfigStore.updateConfig({
     features: {
@@ -2028,7 +2189,7 @@ async function resetQuickLaunchBackground() {
 
 async function loadKnowledgeLibraries() {
   try {
-    knowledgeLibraries.value = await window.knowledgeApi?.listLibraries() ?? [];
+    knowledgeLibraries.value = (await window.knowledgeApi?.listLibraries()) ?? [];
   } catch (error) {
     notifyError(error, '知识库列表加载失败');
     knowledgeLibraries.value = [];
@@ -2124,7 +2285,9 @@ async function commitKnowledgeMaxImportSize() {
   await appConfigStore.updateConfig({
     features: {
       knowledge: {
-        maxImportFileSizeMb: Number.isFinite(numeric) ? numeric : createDefaultAppConfig().features.knowledge.maxImportFileSizeMb,
+        maxImportFileSizeMb: Number.isFinite(numeric)
+          ? numeric
+          : createDefaultAppConfig().features.knowledge.maxImportFileSizeMb,
       },
     },
   });
@@ -2135,7 +2298,9 @@ async function commitKnowledgePreviewCacheTtl() {
   await appConfigStore.updateConfig({
     features: {
       knowledge: {
-        previewCacheTtlDays: Number.isFinite(numeric) ? numeric : createDefaultAppConfig().features.knowledge.previewCacheTtlDays,
+        previewCacheTtlDays: Number.isFinite(numeric)
+          ? numeric
+          : createDefaultAppConfig().features.knowledge.previewCacheTtlDays,
       },
     },
   });
@@ -2148,7 +2313,7 @@ async function clearKnowledgePreviewCache() {
     const result = await window.knowledgeApi.clearPreviewCache();
     notifySuccess(
       `已清理 ${result.removedFiles} 个缓存文件，释放 ${Math.round(result.removedBytes / 1024)} KB`,
-      '知识库缓存',
+      '知识库缓存'
     );
   } catch (error) {
     notifyError(error, '预览缓存清理失败');
@@ -2212,20 +2377,30 @@ async function commitAndVerifyFfmpeg() {
 
 function androidToolchainSourceLabel(source?: AndroidToolchainStatus['source']) {
   switch (source) {
-    case 'configured': return '自定义路径';
-    case 'managed': return '应用内下载';
-    case 'bundled': return '安装包内置';
-    case 'development': return '开发资源';
-    default: return '未检测';
+    case 'configured':
+      return '自定义路径';
+    case 'managed':
+      return '应用内下载';
+    case 'bundled':
+      return '安装包内置';
+    case 'development':
+      return '开发资源';
+    default:
+      return '未检测';
   }
 }
 
 function getAndroidToolchainErrorMessage(error: unknown) {
-  const rawMessage = error instanceof Error ? error.message : typeof error === 'string' ? error : '';
+  const rawMessage =
+    error instanceof Error ? error.message : typeof error === 'string' ? error : '';
   if (!rawMessage) return '下载失败，请检查网络后重试。';
-  return androidToolchainErrorLabels[rawMessage]
-    ?? Object.entries(androidToolchainErrorLabels).find(([code]) => rawMessage.startsWith(`${code}_`))?.[1]
-    ?? rawMessage;
+  return (
+    androidToolchainErrorLabels[rawMessage] ??
+    Object.entries(androidToolchainErrorLabels).find(([code]) =>
+      rawMessage.startsWith(`${code}_`)
+    )?.[1] ??
+    rawMessage
+  );
 }
 
 async function refreshAndroidToolchainStatus() {
@@ -2267,7 +2442,11 @@ async function downloadAndroidToolchainResources() {
     // The main process selects and persists the managed copy only after the
     // download has been installed and verified successfully.
     androidToolchainPathInput.value = '';
-    androidToolchainDownloadProgress.value = { phase: 'completed', percent: 100, current: 'Android 工具链已安装' };
+    androidToolchainDownloadProgress.value = {
+      phase: 'completed',
+      percent: 100,
+      current: 'Android 工具链已安装',
+    };
   } catch (error) {
     androidToolchainDownloadError.value = getAndroidToolchainErrorMessage(error);
     androidToolchainDownloadProgress.value = {
@@ -2336,7 +2515,8 @@ async function savePluginConfig(pluginId: string) {
     });
     syncPluginDraft(pluginId);
   } catch (error) {
-    pluginConfigErrors.value[pluginId] = error instanceof Error ? error.message : '插件配置保存失败';
+    pluginConfigErrors.value[pluginId] =
+      error instanceof Error ? error.message : '插件配置保存失败';
     notifyError(error, '插件配置保存失败');
   }
 }
@@ -2390,7 +2570,9 @@ async function saveSyncServerConfig() {
       endpoint: syncServerEndpoint.value,
       deviceId: syncServerDeviceId.value,
     });
-    syncConnectionMessage.value = config ? '自建同步后端配置已保存。' : '自建同步后端配置保存失败。';
+    syncConnectionMessage.value = config
+      ? '自建同步后端配置已保存。'
+      : '自建同步后端配置保存失败。';
     notifySuccess('自建同步后端配置已保存');
   } catch (error) {
     notifyError(error, '保存自建同步后端配置失败');
@@ -2403,7 +2585,10 @@ async function loginSyncServer() {
       endpoint: syncServerEndpoint.value,
       email: syncServerEmail.value,
       password: syncServerPassword.value,
-      deviceName: syncServerDeviceName.value || appConfigStore.config.features.multiDeviceClipboard.deviceName || 'GuYanTools Device',
+      deviceName:
+        syncServerDeviceName.value ||
+        appConfigStore.config.features.multiDeviceClipboard.deviceName ||
+        'GuYanTools Device',
     });
     if (result) {
       syncServerDeviceId.value = result.deviceId;
@@ -2449,7 +2634,9 @@ async function testSyncConnection() {
 async function runSyncNow() {
   const summary = await syncStore.syncNow();
   if (summary) {
-    notifySuccess(`同步完成：上传 ${summary.pushed}，拉取 ${summary.pulled}，冲突 ${summary.conflicts}`);
+    notifySuccess(
+      `同步完成：上传 ${summary.pushed}，拉取 ${summary.pulled}，冲突 ${summary.conflicts}`
+    );
   } else if (syncStore.error) {
     notifyError(syncStore.error, '同步失败');
   }
@@ -2511,119 +2698,197 @@ async function setDefaultSyncProfile(profileId: string) {
   }
 }
 
-watch(() => appConfigStore.config.appearance.baseFontSize, (value) => {
-  baseFontSizeInput.value = String(value);
-}, { immediate: true });
-
-watch(() => appConfigStore.config.plugins.unloadAfterMinutes, (value) => {
-  unloadAfterMinutesInput.value = String(value);
-}, { immediate: true });
-
-watch(() => appConfigStore.config.plugins.items, (items) => {
-  for (const plugin of installedPlugins.value) {
-    pluginConfigDrafts.value[plugin.manifest.id] = JSON.stringify(items[plugin.manifest.id] ?? {}, null, 2);
-  }
-}, { deep: true });
-
-watch(() => appConfigStore.config.features.terminal.defaultCwd, (value) => {
-  terminalDefaultCwdInput.value = value || '';
-}, { immediate: true });
-
-watch(() => appConfigStore.config.features.terminal.sshReconnectMaxAttempts, (value) => {
-  sshReconnectMaxAttemptsInput.value = String(value || 3);
-}, { immediate: true });
-
-watch(() => appConfigStore.config.features.multiDeviceClipboard.deviceName, (value) => {
-  multiDeviceClipboardDeviceNameInput.value = value || '';
-}, { immediate: true });
-
-watch(() => appConfigStore.config.features.multiDeviceClipboard.maxSyncBytes, (value) => {
-  multiDeviceClipboardMaxSyncMbInput.value = String(Math.round((value || 0) / 1024 / 1024));
-}, { immediate: true });
-
-watch(() => appConfigStore.config.features.multiDeviceClipboard.historyLimit, (value) => {
-  multiDeviceClipboardHistoryLimitInput.value = String(value || 200);
-}, { immediate: true });
-
-watch(() => appConfigStore.config.features.knowledge.maxImportFileSizeMb, (value) => {
-  knowledgeMaxImportFileSizeMbInput.value = String(value || 200);
-}, { immediate: true });
-
-watch(() => appConfigStore.config.features.knowledge.previewCacheTtlDays, (value) => {
-  knowledgePreviewCacheTtlDaysInput.value = String(value ?? 30);
-}, { immediate: true });
-
-watch(() => appConfigStore.config.features.knowledge.libreOfficePath, (value) => {
-  knowledgeLibreOfficePathInput.value = value || '';
-}, { immediate: true });
-
-watch(() => appConfigStore.config.features.knowledge.customAssetDirectory, (value) => {
-  knowledgeCustomAssetDirectoryInput.value = value || '';
-}, { immediate: true });
-
-watch(() => appConfigStore.config.features.quickLaunch.maxResults, (value) => {
-  quickLaunchMaxResultsInput.value = String(value || 12);
-}, { immediate: true });
-
-watch(() => appConfigStore.config.features.quickLaunch.everythingEsPath, (value) => {
-  quickLaunchEverythingEsPathInput.value = value || '';
-}, { immediate: true });
-
-watch(() => appConfigStore.config.features.quickLaunch.windowOpacity, (value) => {
-  quickLaunchWindowOpacityInput.value = normalizeQuickLaunchOpacityInput(
-    value,
-    defaultQuickLaunchConfig.windowOpacity,
-    0.2,
-  );
-}, { immediate: true });
-
-watch(() => appConfigStore.config.features.quickLaunch.selectionColor, (value) => {
-  quickLaunchSelectionColorInput.value = normalizeQuickLaunchColorInput(value || defaultQuickLaunchConfig.selectionColor);
-}, { immediate: true });
-
-watch(() => appConfigStore.config.features.quickLaunch.selectionOpacity, (value) => {
-  quickLaunchSelectionOpacityInput.value = normalizeQuickLaunchOpacityInput(
-    value,
-    defaultQuickLaunchConfig.selectionOpacity,
-  );
-}, { immediate: true });
-
-watch(() => appConfigStore.config.features.quickLaunch.resultTitleColor, (value) => {
-  quickLaunchResultTitleColorInput.value = normalizeQuickLaunchColorInput(
-    value || defaultQuickLaunchConfig.resultTitleColor,
-    defaultQuickLaunchConfig.resultTitleColor,
-  );
-}, { immediate: true });
-
-watch(() => appConfigStore.config.features.quickLaunch.resultSubtitleColor, (value) => {
-  quickLaunchResultSubtitleColorInput.value = normalizeQuickLaunchColorInput(
-    value || defaultQuickLaunchConfig.resultSubtitleColor,
-    defaultQuickLaunchConfig.resultSubtitleColor,
-  );
-}, { immediate: true });
-
-watch(() => appConfigStore.config.features.aiAgent.agent.maxSteps, (value) => {
-  agentMaxStepsInput.value = String(value || 5);
-}, { immediate: true });
-
 watch(
-  [
-    ftpExternalEditorPath,
-    ftpCleanupExternalDraftsOnClose,
-    ftpLinkNavigationEnabled,
-  ],
-  persistFtpPreferenceSettings,
-  { immediate: false },
+  () => appConfigStore.config.appearance.baseFontSize,
+  (value) => {
+    baseFontSizeInput.value = String(value);
+  },
+  { immediate: true }
 );
 
 watch(
-  [
-    ftpThumbnailsEnabled,
-    ftpThumbnailMaxBytesKb,
-    ftpThumbnailPrefetchLimit,
-  ],
+  () => appConfigStore.config.plugins.unloadAfterMinutes,
+  (value) => {
+    unloadAfterMinutesInput.value = String(value);
+  },
+  { immediate: true }
+);
+
+watch(
+  () => appConfigStore.config.plugins.items,
+  (items) => {
+    for (const plugin of installedPlugins.value) {
+      pluginConfigDrafts.value[plugin.manifest.id] = JSON.stringify(
+        items[plugin.manifest.id] ?? {},
+        null,
+        2
+      );
+    }
+  },
+  { deep: true }
+);
+
+watch(
+  () => appConfigStore.config.features.terminal.defaultCwd,
+  (value) => {
+    terminalDefaultCwdInput.value = value || '';
+  },
+  { immediate: true }
+);
+
+watch(
+  () => appConfigStore.config.features.terminal.sshReconnectMaxAttempts,
+  (value) => {
+    sshReconnectMaxAttemptsInput.value = String(value || 3);
+  },
+  { immediate: true }
+);
+
+watch(
+  () => appConfigStore.config.features.multiDeviceClipboard.deviceName,
+  (value) => {
+    multiDeviceClipboardDeviceNameInput.value = value || '';
+  },
+  { immediate: true }
+);
+
+watch(
+  () => appConfigStore.config.features.multiDeviceClipboard.maxSyncBytes,
+  (value) => {
+    multiDeviceClipboardMaxSyncMbInput.value = String(Math.round((value || 0) / 1024 / 1024));
+  },
+  { immediate: true }
+);
+
+watch(
+  () => appConfigStore.config.features.multiDeviceClipboard.historyLimit,
+  (value) => {
+    multiDeviceClipboardHistoryLimitInput.value = String(value || 200);
+  },
+  { immediate: true }
+);
+
+watch(
+  () => appConfigStore.config.features.knowledge.maxImportFileSizeMb,
+  (value) => {
+    knowledgeMaxImportFileSizeMbInput.value = String(value || 200);
+  },
+  { immediate: true }
+);
+
+watch(
+  () => appConfigStore.config.features.knowledge.previewCacheTtlDays,
+  (value) => {
+    knowledgePreviewCacheTtlDaysInput.value = String(value ?? 30);
+  },
+  { immediate: true }
+);
+
+watch(
+  () => appConfigStore.config.features.knowledge.libreOfficePath,
+  (value) => {
+    knowledgeLibreOfficePathInput.value = value || '';
+  },
+  { immediate: true }
+);
+
+watch(
+  () => appConfigStore.config.features.knowledge.customAssetDirectory,
+  (value) => {
+    knowledgeCustomAssetDirectoryInput.value = value || '';
+  },
+  { immediate: true }
+);
+
+watch(
+  () => appConfigStore.config.features.quickLaunch.maxResults,
+  (value) => {
+    quickLaunchMaxResultsInput.value = String(value || 12);
+  },
+  { immediate: true }
+);
+
+watch(
+  () => appConfigStore.config.features.quickLaunch.everythingEsPath,
+  (value) => {
+    quickLaunchEverythingEsPathInput.value = value || '';
+  },
+  { immediate: true }
+);
+
+watch(
+  () => appConfigStore.config.features.quickLaunch.windowOpacity,
+  (value) => {
+    quickLaunchWindowOpacityInput.value = normalizeQuickLaunchOpacityInput(
+      value,
+      defaultQuickLaunchConfig.windowOpacity,
+      0.2
+    );
+  },
+  { immediate: true }
+);
+
+watch(
+  () => appConfigStore.config.features.quickLaunch.selectionColor,
+  (value) => {
+    quickLaunchSelectionColorInput.value = normalizeQuickLaunchColorInput(
+      value || defaultQuickLaunchConfig.selectionColor
+    );
+  },
+  { immediate: true }
+);
+
+watch(
+  () => appConfigStore.config.features.quickLaunch.selectionOpacity,
+  (value) => {
+    quickLaunchSelectionOpacityInput.value = normalizeQuickLaunchOpacityInput(
+      value,
+      defaultQuickLaunchConfig.selectionOpacity
+    );
+  },
+  { immediate: true }
+);
+
+watch(
+  () => appConfigStore.config.features.quickLaunch.resultTitleColor,
+  (value) => {
+    quickLaunchResultTitleColorInput.value = normalizeQuickLaunchColorInput(
+      value || defaultQuickLaunchConfig.resultTitleColor,
+      defaultQuickLaunchConfig.resultTitleColor
+    );
+  },
+  { immediate: true }
+);
+
+watch(
+  () => appConfigStore.config.features.quickLaunch.resultSubtitleColor,
+  (value) => {
+    quickLaunchResultSubtitleColorInput.value = normalizeQuickLaunchColorInput(
+      value || defaultQuickLaunchConfig.resultSubtitleColor,
+      defaultQuickLaunchConfig.resultSubtitleColor
+    );
+  },
+  { immediate: true }
+);
+
+watch(
+  () => appConfigStore.config.features.aiAgent.agent.maxSteps,
+  (value) => {
+    agentMaxStepsInput.value = String(value || 5);
+  },
+  { immediate: true }
+);
+
+watch(
+  [ftpExternalEditorPath, ftpCleanupExternalDraftsOnClose, ftpLinkNavigationEnabled],
+  persistFtpPreferenceSettings,
+  { immediate: false }
+);
+
+watch(
+  [ftpThumbnailsEnabled, ftpThumbnailMaxBytesKb, ftpThumbnailPrefetchLimit],
   persistFtpThumbnailSettings,
-  { immediate: false },
+  { immediate: false }
 );
 
 watch(settingsSearchQuery, () => {
@@ -2642,25 +2907,34 @@ watch(
     () => hostSummary.value,
     () => pluginLoadError.value,
   ],
-  queueSettingsSearchFilter,
+  queueSettingsSearchFilter
 );
 
 onMounted(() => {
   globalStore.setTopbarColor('');
-  scheduleSettingsTabLoad(settingsStore.activeSettingsTab, settingsStore.activeSettingsTab === 'sync-center');
+  scheduleSettingsTabLoad(
+    settingsStore.activeSettingsTab,
+    settingsStore.activeSettingsTab === 'sync-center'
+  );
   stopSyncEventSubscription = syncStore.bindEvents();
   if (window.androidApi) {
-    stopAndroidToolchainDownloadProgress = window.androidApi.onToolchainDownloadProgress((progress) => {
-      androidToolchainDownloadProgress.value = progress;
-      if (progress.phase === 'failed') {
-        androidToolchainDownloadError.value = getAndroidToolchainErrorMessage(progress.errorMessage);
+    stopAndroidToolchainDownloadProgress = window.androidApi.onToolchainDownloadProgress(
+      (progress) => {
+        androidToolchainDownloadProgress.value = progress;
+        if (progress.phase === 'failed') {
+          androidToolchainDownloadError.value = getAndroidToolchainErrorMessage(
+            progress.errorMessage
+          );
+        }
       }
-    });
+    );
     void refreshAndroidToolchainStatus();
     void window.androidApi.getToolchainDownloadStatus().then((progress) => {
       androidToolchainDownloadProgress.value = progress;
       if (progress.phase === 'failed') {
-        androidToolchainDownloadError.value = getAndroidToolchainErrorMessage(progress.errorMessage);
+        androidToolchainDownloadError.value = getAndroidToolchainErrorMessage(
+          progress.errorMessage
+        );
       }
     });
   }
@@ -2705,7 +2979,6 @@ const webKeepAliveDomains = computed(() => appConfigStore.config.web?.keepAliveD
 const newKeepAliveDomain = ref('');
 
 // ─── Chrome 扩展管理 ───
-import type { ChromeExtensionRecord } from '@/contracts/webview';
 const chromeExtensions = ref<ChromeExtensionRecord[]>([]);
 const extensionInstalling = ref(false);
 
@@ -2764,26 +3037,34 @@ async function addWhiteDomain() {
   const d = newWhiteDomain.value.trim();
   if (!d) return;
   const list = [...webWhitelist.value, d];
-  await appConfigStore.updateConfig({ web: { security: { whitelist: list, blacklist: webBlacklist.value } } });
+  await appConfigStore.updateConfig({
+    web: { security: { whitelist: list, blacklist: webBlacklist.value } },
+  });
   newWhiteDomain.value = '';
 }
 
 async function removeWhiteDomain(domain: string) {
-  const list = webWhitelist.value.filter(d => d !== domain);
-  await appConfigStore.updateConfig({ web: { security: { whitelist: list, blacklist: webBlacklist.value } } });
+  const list = webWhitelist.value.filter((d) => d !== domain);
+  await appConfigStore.updateConfig({
+    web: { security: { whitelist: list, blacklist: webBlacklist.value } },
+  });
 }
 
 async function addBlackDomain() {
   const d = newBlackDomain.value.trim();
   if (!d) return;
   const list = [...webBlacklist.value, d];
-  await appConfigStore.updateConfig({ web: { security: { whitelist: webWhitelist.value, blacklist: list } } });
+  await appConfigStore.updateConfig({
+    web: { security: { whitelist: webWhitelist.value, blacklist: list } },
+  });
   newBlackDomain.value = '';
 }
 
 async function removeBlackDomain(domain: string) {
-  const list = webBlacklist.value.filter(d => d !== domain);
-  await appConfigStore.updateConfig({ web: { security: { whitelist: webWhitelist.value, blacklist: list } } });
+  const list = webBlacklist.value.filter((d) => d !== domain);
+  await appConfigStore.updateConfig({
+    web: { security: { whitelist: webWhitelist.value, blacklist: list } },
+  });
 }
 
 async function addKeepAliveDomain() {
@@ -2795,13 +3076,13 @@ async function addKeepAliveDomain() {
 }
 
 async function removeKeepAliveDomain(domain: string) {
-  const list = webKeepAliveDomains.value.filter(d => d !== domain);
+  const list = webKeepAliveDomains.value.filter((d) => d !== domain);
   await appConfigStore.updateConfig({ web: { keepAliveDomains: list } });
 }
 
 async function toggleScript(scriptId: string) {
-  const scripts = webScripts.value.map(s =>
-    s.id === scriptId ? { ...s, enabled: !s.enabled } : { ...s },
+  const scripts = webScripts.value.map((s) =>
+    s.id === scriptId ? { ...s, enabled: !s.enabled } : { ...s }
   );
   await appConfigStore.updateConfig({ web: { scripts } });
 }
@@ -2809,11 +3090,11 @@ async function toggleScript(scriptId: string) {
 function toggleNewScriptPermission(permission: string, enabled: boolean) {
   newScriptPermissions.value = enabled
     ? Array.from(new Set([...newScriptPermissions.value, permission]))
-    : newScriptPermissions.value.filter(item => item !== permission);
+    : newScriptPermissions.value.filter((item) => item !== permission);
 }
 
 async function removeScript(scriptId: string) {
-  const scripts = webScripts.value.filter(s => s.id !== scriptId);
+  const scripts = webScripts.value.filter((s) => s.id !== scriptId);
   await appConfigStore.updateConfig({ web: { scripts } });
 }
 
@@ -2832,7 +3113,8 @@ async function addScript() {
     enabled: true,
     builtin: false,
     runAt: newScriptRunAt.value,
-    permissions: newScriptPermissions.value.length > 0 ? [...newScriptPermissions.value] as any : undefined,
+    permissions:
+      newScriptPermissions.value.length > 0 ? ([...newScriptPermissions.value] as any) : undefined,
   };
 
   const scripts = [...webScripts.value, newRule];
@@ -2847,24 +3129,46 @@ async function addScript() {
 
 function scriptTypeLabel(type: string) {
   switch (type) {
-    case 'js': return 'JS';
-    case 'css': return 'CSS';
-    case 'html': return 'HTML';
-    default: return type;
+    case 'js':
+      return 'JS';
+    case 'css':
+      return 'CSS';
+    case 'html':
+      return 'HTML';
+    default:
+      return type;
   }
 }
 </script>
 
 <template>
-  <UiScrollbar class="settings-page" :style="activeSettingsPageStyle" :x="false" :y="true" :size="8">
-    <video v-if="activeSettingsBackgroundVideo && !isSearchingSettings" class="settings-page__background-video"
-      :src="activeSettingsBackgroundVideo" autoplay muted loop playsinline />
+  <UiScrollbar
+    class="settings-page"
+    :style="activeSettingsPageStyle"
+    :x="false"
+    :y="true"
+    :size="8"
+  >
+    <video
+      v-if="activeSettingsBackgroundVideo && !isSearchingSettings"
+      class="settings-page__background-video"
+      :src="activeSettingsBackgroundVideo"
+      autoplay
+      muted
+      loop
+      playsinline
+    />
     <header class="page-header">
       <div class="page-title-row">
         <h1>设置</h1>
         <div class="settings-search" role="search">
-          <UiInput v-model="settingsSearchQuery" class="settings-search__input" type="search" placeholder="搜索设置"
-            aria-label="搜索设置">
+          <UiInput
+            v-model="settingsSearchQuery"
+            class="settings-search__input"
+            type="search"
+            placeholder="搜索设置"
+            aria-label="搜索设置"
+          >
             <template #prefix>
               <span class="settings-search__icon" aria-hidden="true" />
             </template>
@@ -2872,15 +3176,28 @@ function scriptTypeLabel(type: string) {
         </div>
       </div>
       <nav class="settings-nav" aria-label="设置分类">
-        <UiTabs :model-value="activeSettingsTabForView" :items="displayedSettingsTabs" variant="line" size="md"
-          @update:modelValue="handleSettingsTabChange" />
+        <UiTabs
+          :model-value="activeSettingsTabForView"
+          :items="displayedSettingsTabs"
+          variant="line"
+          size="md"
+          @update:modelValue="handleSettingsTabChange"
+        />
       </nav>
     </header>
 
     <div class="page-body">
-      <Transition :name="settingsTabTransition" mode="out-in" @after-enter="queueSettingsSearchFilter">
-        <div :key="settingsContentKey" ref="settingsBodyRef" class="settings-content-stack"
-          :class="{ 'settings-content-stack--search': isSearchingSettings }">
+      <Transition
+        :name="settingsTabTransition"
+        mode="out-in"
+        @after-enter="queueSettingsSearchFilter"
+      >
+        <div
+          :key="settingsContentKey"
+          ref="settingsBodyRef"
+          class="settings-content-stack"
+          :class="{ 'settings-content-stack--search': isSearchingSettings }"
+        >
           <section v-if="isSettingsTabRendered('general')" key="general" class="settings-section">
             <div class="section-head section-head--standalone">
               <h2>基础设置</h2>
@@ -2896,8 +3213,11 @@ function scriptTypeLabel(type: string) {
                     <small>当前支持中文和英文。</small>
                   </div>
                   <div class="settings-row__control">
-                    <UiSelect :model-value="appConfigStore.config.appearance.language" :options="languageOptions"
-                      @update:modelValue="handleLanguageChange" />
+                    <UiSelect
+                      :model-value="appConfigStore.config.appearance.language"
+                      :options="languageOptions"
+                      @update:modelValue="handleLanguageChange"
+                    />
                   </div>
                 </div>
                 <div class="settings-row">
@@ -2906,8 +3226,11 @@ function scriptTypeLabel(type: string) {
                     <small>修改后立即同步到桌面应用外观。</small>
                   </div>
                   <div class="settings-row__control">
-                    <UiSelect :model-value="appConfigStore.config.appearance.theme" :options="themeOptions"
-                      @update:modelValue="handleThemeChange" />
+                    <UiSelect
+                      :model-value="appConfigStore.config.appearance.theme"
+                      :options="themeOptions"
+                      @update:modelValue="handleThemeChange"
+                    />
                   </div>
                 </div>
                 <div class="settings-row settings-row--wide">
@@ -2916,11 +3239,18 @@ function scriptTypeLabel(type: string) {
                     <small>控制应用底栏启动后默认显示的固定标签。</small>
                   </div>
                   <div class="settings-row__control settings-row__control--wide">
-                    <UiTransferBox :model-value="bottomBarVisibleTabIds" :items="bottomBarTransferItems"
-                      source-title="所有内部功能" target-title="固定显示" target-empty-text="至少保留首页和设置"
-                      @update:modelValue="handleBottomBarVisibleTabsChange" />
+                    <UiTransferBox
+                      :model-value="bottomBarVisibleTabIds"
+                      :items="bottomBarTransferItems"
+                      source-title="所有内部功能"
+                      target-title="固定显示"
+                      target-empty-text="至少保留首页和设置"
+                      @update:modelValue="handleBottomBarVisibleTabsChange"
+                    />
                     <div class="settings-inline-badges settings-inline-badges--mt">
-                      <span class="settings-badge settings-badge--accent">{{ bottomBarVisibleSummary }}</span>
+                      <span class="settings-badge settings-badge--accent">{{
+                        bottomBarVisibleSummary
+                      }}</span>
                       <span class="settings-badge">右侧上下顺序同步为底栏显示顺序</span>
                     </div>
                   </div>
@@ -2932,19 +3262,36 @@ function scriptTypeLabel(type: string) {
                   </div>
                   <div class="settings-row__control settings-row__control--wide">
                     <div class="bottom-bar-manager">
-                      <div v-if="bottomBarInternalDisplayRows.length" class="bottom-bar-manager__list">
-                        <div v-for="tab in bottomBarInternalDisplayRows" :key="tab.id" class="bottom-bar-manager__row">
+                      <div
+                        v-if="bottomBarInternalDisplayRows.length"
+                        class="bottom-bar-manager__list"
+                      >
+                        <div
+                          v-for="tab in bottomBarInternalDisplayRows"
+                          :key="tab.id"
+                          class="bottom-bar-manager__row"
+                        >
                           <div class="bottom-bar-manager__main">
                             <strong>{{ tab.label }}</strong>
                             <span>{{ tab.description }}</span>
                           </div>
                           <div class="bottom-bar-manager__controls">
-                            <UiCheckbox :model-value="tab.iconOnly" size="sm"
-                              @update:modelValue="handleBottomBarInternalIconOnlyChange(tab.id, $event)">
+                            <UiCheckbox
+                              :model-value="tab.iconOnly"
+                              size="sm"
+                              @update:modelValue="
+                                handleBottomBarInternalIconOnlyChange(tab.id, $event)
+                              "
+                            >
                               图标按钮
                             </UiCheckbox>
-                            <UiSelect :model-value="tab.collectionId" :options="bottomBarCollectionOptions"
-                              @update:modelValue="handleBottomBarInternalCollectionChange(tab.id, $event)" />
+                            <UiSelect
+                              :model-value="tab.collectionId"
+                              :options="bottomBarCollectionOptions"
+                              @update:modelValue="
+                                handleBottomBarInternalCollectionChange(tab.id, $event)
+                              "
+                            />
                           </div>
                         </div>
                       </div>
@@ -2960,33 +3307,70 @@ function scriptTypeLabel(type: string) {
                   <div class="settings-row__control settings-row__control--wide">
                     <div class="bottom-bar-manager">
                       <div v-if="bottomBarPinnedWebviews.length" class="bottom-bar-manager__list">
-                        <div v-for="item in bottomBarPinnedWebviews" :key="item.id" class="bottom-bar-manager__row">
+                        <div
+                          v-for="item in bottomBarPinnedWebviews"
+                          :key="item.id"
+                          class="bottom-bar-manager__row"
+                        >
                           <div class="bottom-bar-manager__main bottom-bar-manager__main--webview">
-                            <IconRenderer :icon="item.faviconUrl ? `image:${item.faviconUrl}` : 'iconify:lucide:globe-2'"
-                              :size="18" color="currentColor" />
+                            <IconRenderer
+                              :icon="
+                                item.faviconUrl
+                                  ? `image:${item.faviconUrl}`
+                                  : 'iconify:lucide:globe-2'
+                              "
+                              :size="18"
+                              color="currentColor"
+                            />
                             <div class="bottom-bar-manager__text">
-                              <UiInput :model-value="item.title" size="sm"
-                                @blur="handlePinnedWebviewTitleBlur(item.id, $event)" />
+                              <UiInput
+                                :model-value="item.title"
+                                size="sm"
+                                @blur="handlePinnedWebviewTitleBlur(item.id, $event)"
+                              />
                               <span>{{ item.url }}</span>
                             </div>
                           </div>
                           <div class="bottom-bar-manager__controls">
-                            <UiCheckbox :model-value="item.iconOnly" size="sm"
-                              @update:modelValue="handlePinnedWebviewIconOnlyChange(item.id, $event)">
+                            <UiCheckbox
+                              :model-value="item.iconOnly"
+                              size="sm"
+                              @update:modelValue="
+                                handlePinnedWebviewIconOnlyChange(item.id, $event)
+                              "
+                            >
                               图标按钮
                             </UiCheckbox>
-                            <UiSelect :model-value="item.collectionId" :options="bottomBarCollectionOptions"
-                              @update:modelValue="handlePinnedWebviewCollectionChange(item.id, $event)" />
-                            <UiIconButton variant="danger" size="sm" shape="square" title="取消固定"
-                              @click="handleUnpinWebview(item.id)">
+                            <UiSelect
+                              :model-value="item.collectionId"
+                              :options="bottomBarCollectionOptions"
+                              @update:modelValue="
+                                handlePinnedWebviewCollectionChange(item.id, $event)
+                              "
+                            />
+                            <UiIconButton
+                              variant="danger"
+                              size="sm"
+                              shape="square"
+                              title="取消固定"
+                              @click="handleUnpinWebview(item.id)"
+                            >
                               <svg width="15" height="15" viewBox="0 0 16 16" fill="none">
-                                <path d="M5 2.5h6l-.8 4.2 2.3 2.3v1H8.7V14H7.3v-4H3.5V9l2.3-2.3L5 2.5zM3 3l10 10" stroke="currentColor" stroke-width="1.35" stroke-linecap="round" stroke-linejoin="round"/>
+                                <path
+                                  d="M5 2.5h6l-.8 4.2 2.3 2.3v1H8.7V14H7.3v-4H3.5V9l2.3-2.3L5 2.5zM3 3l10 10"
+                                  stroke="currentColor"
+                                  stroke-width="1.35"
+                                  stroke-linecap="round"
+                                  stroke-linejoin="round"
+                                />
                               </svg>
                             </UiIconButton>
                           </div>
                         </div>
                       </div>
-                      <div v-else class="bottom-bar-manager__empty">打开网页后，可从 WebView 工具栏固定到底栏。</div>
+                      <div v-else class="bottom-bar-manager__empty">
+                        打开网页后，可从 WebView 工具栏固定到底栏。
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -2998,23 +3382,43 @@ function scriptTypeLabel(type: string) {
                   <div class="settings-row__control settings-row__control--wide">
                     <div class="bottom-bar-manager">
                       <div v-if="bottomBarCollections.length" class="bottom-bar-manager__list">
-                        <div v-for="collection in bottomBarCollections" :key="collection.id" class="bottom-bar-manager__row">
+                        <div
+                          v-for="collection in bottomBarCollections"
+                          :key="collection.id"
+                          class="bottom-bar-manager__row"
+                        >
                           <div class="bottom-bar-manager__main">
-                            <UiInput :model-value="collection.name" size="sm"
-                              @blur="handleCollectionNameBlur(collection.id, $event)" />
+                            <UiInput
+                              :model-value="collection.name"
+                              size="sm"
+                              @blur="handleCollectionNameBlur(collection.id, $event)"
+                            />
                             <span>悬浮集合按钮时显示上方图标面板。</span>
                           </div>
                           <div class="bottom-bar-manager__controls">
-                            <UiIconButton variant="danger" size="sm" shape="square" title="删除集合"
-                              @click="handleDeleteBottomBarCollection(collection.id)">
+                            <UiIconButton
+                              variant="danger"
+                              size="sm"
+                              shape="square"
+                              title="删除集合"
+                              @click="handleDeleteBottomBarCollection(collection.id)"
+                            >
                               <svg width="15" height="15" viewBox="0 0 16 16" fill="none">
-                                <path d="M3 4h10M6 4V2.8h4V4m-5.5 2 .5 7h6l.5-7M7 7.5v4M9 7.5v4" stroke="currentColor" stroke-width="1.35" stroke-linecap="round" stroke-linejoin="round"/>
+                                <path
+                                  d="M3 4h10M6 4V2.8h4V4m-5.5 2 .5 7h6l.5-7M7 7.5v4M9 7.5v4"
+                                  stroke="currentColor"
+                                  stroke-width="1.35"
+                                  stroke-linecap="round"
+                                  stroke-linejoin="round"
+                                />
                               </svg>
                             </UiIconButton>
                           </div>
                         </div>
                       </div>
-                      <div v-else class="bottom-bar-manager__empty">按住 Shift 将底栏标签拖到另一个标签上即可创建集合。</div>
+                      <div v-else class="bottom-bar-manager__empty">
+                        按住 Shift 将底栏标签拖到另一个标签上即可创建集合。
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -3028,8 +3432,11 @@ function scriptTypeLabel(type: string) {
                     <small>优先显示本地可枚举字体。</small>
                   </div>
                   <div class="settings-row__control">
-                    <UiSelect :model-value="appConfigStore.config.appearance.fontFamily"
-                      :options="appConfigStore.fontOptions" @update:modelValue="handleFontChange" />
+                    <UiSelect
+                      :model-value="appConfigStore.config.appearance.fontFamily"
+                      :options="appConfigStore.fontOptions"
+                      @update:modelValue="handleFontChange"
+                    />
                   </div>
                 </div>
                 <div class="settings-row">
@@ -3038,8 +3445,15 @@ function scriptTypeLabel(type: string) {
                     <small>全局 rem 基线，推荐 12-24。</small>
                   </div>
                   <div class="settings-row__control settings-row__control--compact">
-                    <UiInput v-model="baseFontSizeInput" type="number" :min="12" :max="24" @blur="commitBaseFontSize"
-                      @change="commitBaseFontSize" @keydown.enter.prevent="commitBaseFontSize" />
+                    <UiInput
+                      v-model="baseFontSizeInput"
+                      type="number"
+                      :min="12"
+                      :max="24"
+                      @blur="commitBaseFontSize"
+                      @change="commitBaseFontSize"
+                      @keydown.enter.prevent="commitBaseFontSize"
+                    />
                   </div>
                 </div>
               </section>
@@ -3053,19 +3467,39 @@ function scriptTypeLabel(type: string) {
                   </div>
                   <div class="settings-row__control settings-row__control--wide">
                     <div class="ffmpeg-path-row">
-                      <div class="ffmpeg-path-display" :class="{ 'ffmpeg-path-display--empty': !ffmpegPathInput }">
+                      <div
+                        class="ffmpeg-path-display"
+                        :class="{ 'ffmpeg-path-display--empty': !ffmpegPathInput }"
+                      >
                         {{ ffmpegPathInput || '未配置' }}
                       </div>
-                      <UiButton variant="secondary" size="sm" @click="selectFfmpegPath">选择</UiButton>
-                      <UiButton v-if="ffmpegPathInput" variant="danger" size="sm" @click="clearFfmpegPath">清除</UiButton>
+                      <UiButton variant="secondary" size="sm" @click="selectFfmpegPath"
+                        >选择</UiButton
+                      >
+                      <UiButton
+                        v-if="ffmpegPathInput"
+                        variant="danger"
+                        size="sm"
+                        @click="clearFfmpegPath"
+                        >清除</UiButton
+                      >
                     </div>
-                    <div v-if="ffmpegStatus === 'checking'" class="ffmpeg-status ffmpeg-status--checking">
+                    <div
+                      v-if="ffmpegStatus === 'checking'"
+                      class="ffmpeg-status ffmpeg-status--checking"
+                    >
                       正在验证 FFmpeg...
                     </div>
-                    <div v-else-if="ffmpegStatus === 'valid'" class="ffmpeg-status ffmpeg-status--valid">
+                    <div
+                      v-else-if="ffmpegStatus === 'valid'"
+                      class="ffmpeg-status ffmpeg-status--valid"
+                    >
                       FFmpeg 可用 (版本: {{ ffmpegVersion }})
                     </div>
-                    <div v-else-if="ffmpegStatus === 'invalid'" class="ffmpeg-status ffmpeg-status--invalid">
+                    <div
+                      v-else-if="ffmpegStatus === 'invalid'"
+                      class="ffmpeg-status ffmpeg-status--invalid"
+                    >
                       FFmpeg 无效: {{ ffmpegError }}
                     </div>
                   </div>
@@ -3073,30 +3507,77 @@ function scriptTypeLabel(type: string) {
                 <div class="settings-row settings-row--wide">
                   <div class="settings-row__label">
                     <span>Android 工具链</span>
-                    <small>可选：选择包含 platform-tools 和 scrcpy 子目录的目录，或直接在应用内下载。</small>
+                    <small
+                      >可选：选择包含 platform-tools 和 scrcpy
+                      子目录的目录，或直接在应用内下载。</small
+                    >
                   </div>
                   <div class="settings-row__control settings-row__control--wide">
                     <div class="ffmpeg-path-row">
-                      <div class="ffmpeg-path-display" :class="{ 'ffmpeg-path-display--empty': !androidToolchainPathInput }">
+                      <div
+                        class="ffmpeg-path-display"
+                        :class="{ 'ffmpeg-path-display--empty': !androidToolchainPathInput }"
+                      >
                         {{ androidToolchainPathInput || '未配置，将使用应用内置/下载资源' }}
                       </div>
-                      <UiButton variant="secondary" size="sm" @click="selectAndroidToolchainPath">选择目录</UiButton>
-                      <UiButton v-if="androidToolchainPathInput" variant="danger" size="sm" @click="clearAndroidToolchainPath">清除</UiButton>
+                      <UiButton variant="secondary" size="sm" @click="selectAndroidToolchainPath"
+                        >选择目录</UiButton
+                      >
+                      <UiButton
+                        v-if="androidToolchainPathInput"
+                        variant="danger"
+                        size="sm"
+                        @click="clearAndroidToolchainPath"
+                        >清除</UiButton
+                      >
                     </div>
-                    <div v-if="androidToolchainStatus" class="ffmpeg-status" :class="androidToolchainStatus.available ? 'ffmpeg-status--valid' : 'ffmpeg-status--invalid'">
-                      {{ androidToolchainStatus.available ? '工具链可用' : '工具链不可用' }} · {{ androidToolchainSourceLabel(androidToolchainStatus.source) }}
-                      <span v-if="androidToolchainStatus.errorMessage">：{{ androidToolchainStatus.errorMessage }}</span>
+                    <div
+                      v-if="androidToolchainStatus"
+                      class="ffmpeg-status"
+                      :class="
+                        androidToolchainStatus.available
+                          ? 'ffmpeg-status--valid'
+                          : 'ffmpeg-status--invalid'
+                      "
+                    >
+                      {{ androidToolchainStatus.available ? '工具链可用' : '工具链不可用' }} ·
+                      {{ androidToolchainSourceLabel(androidToolchainStatus.source) }}
+                      <span v-if="androidToolchainStatus.errorMessage"
+                        >：{{ androidToolchainStatus.errorMessage }}</span
+                      >
                     </div>
-                    <div v-if="androidToolchainDownloadBusy || androidToolchainDownloadProgress.phase === 'downloading' || androidToolchainDownloadProgress.phase === 'extracting' || androidToolchainDownloadProgress.phase === 'verifying'" class="android-toolchain-download">
+                    <div
+                      v-if="
+                        androidToolchainDownloadBusy ||
+                        androidToolchainDownloadProgress.phase === 'downloading' ||
+                        androidToolchainDownloadProgress.phase === 'extracting' ||
+                        androidToolchainDownloadProgress.phase === 'verifying'
+                      "
+                      class="android-toolchain-download"
+                    >
                       <div class="android-toolchain-download__head">
-                        <span>{{ androidToolchainDownloadProgress.current || '正在准备 Android 工具链' }}</span>
+                        <span>{{
+                          androidToolchainDownloadProgress.current || '正在准备 Android 工具链'
+                        }}</span>
                         <strong>{{ androidToolchainDownloadProgress.percent }}%</strong>
                       </div>
-                      <div class="android-toolchain-download__bar"><span :style="{ width: `${androidToolchainDownloadProgress.percent}%` }" /></div>
+                      <div class="android-toolchain-download__bar">
+                        <span :style="{ width: `${androidToolchainDownloadProgress.percent}%` }" />
+                      </div>
                     </div>
-                    <div v-if="androidToolchainDownloadError" class="ffmpeg-status ffmpeg-status--invalid">下载失败：{{ androidToolchainDownloadError }}</div>
+                    <div
+                      v-if="androidToolchainDownloadError"
+                      class="ffmpeg-status ffmpeg-status--invalid"
+                    >
+                      下载失败：{{ androidToolchainDownloadError }}
+                    </div>
                     <div class="settings-path-actions">
-                      <UiButton variant="primary" size="sm" :disabled="androidToolchainDownloadBusy" @click="downloadAndroidToolchainResources">
+                      <UiButton
+                        variant="primary"
+                        size="sm"
+                        :disabled="androidToolchainDownloadBusy"
+                        @click="downloadAndroidToolchainResources"
+                      >
                         {{ androidToolchainDownloadBusy ? '下载中…' : '应用内下载并安装' }}
                       </UiButton>
                     </div>
@@ -3111,7 +3592,9 @@ function scriptTypeLabel(type: string) {
                     <span>版本状态</span>
                     <small>正式发布包使用 GitHub Release 检查和下载新版本。</small>
                   </div>
-                  <div class="settings-row__control settings-row__control--wide update-version-panel">
+                  <div
+                    class="settings-row__control settings-row__control--wide update-version-panel"
+                  >
                     <div class="update-summary-grid">
                       <div class="meta-item ui-soft-surface">
                         <span>当前版本</span>
@@ -3119,8 +3602,11 @@ function scriptTypeLabel(type: string) {
                       </div>
                       <div class="meta-item ui-soft-surface">
                         <span>最新版本</span>
-                        <strong>{{ updaterStore.info.latestVersion ? `v${updaterStore.info.latestVersion}` : '未知'
-                          }}</strong>
+                        <strong>{{
+                          updaterStore.info.latestVersion
+                            ? `v${updaterStore.info.latestVersion}`
+                            : '未知'
+                        }}</strong>
                       </div>
                       <div class="meta-item ui-soft-surface">
                         <span>发布时间</span>
@@ -3134,8 +3620,10 @@ function scriptTypeLabel(type: string) {
                   </div>
                 </div>
 
-                <div v-if="updaterStore.status === 'downloading' && updaterStore.progress"
-                  class="settings-row settings-row--wide">
+                <div
+                  v-if="updaterStore.status === 'downloading' && updaterStore.progress"
+                  class="settings-row settings-row--wide"
+                >
                   <div class="settings-row__label">
                     <span>下载进度</span>
                     <small>当前更新包下载状态。</small>
@@ -3147,12 +3635,22 @@ function scriptTypeLabel(type: string) {
                         <strong>{{ updateProgressPercent }}%</strong>
                       </div>
                       <div class="update-progress__bar">
-                        <div class="update-progress__bar-fill" :style="{ width: `${updateProgressPercent}%` }" />
+                        <div
+                          class="update-progress__bar-fill"
+                          :style="{ width: `${updateProgressPercent}%` }"
+                        />
                       </div>
                       <div class="update-progress__meta">
-                        <span>{{ (updaterStore.progress.transferred / 1024 / 1024).toFixed(1) }} MB / {{
-                          (updaterStore.progress.total / 1024 / 1024).toFixed(1) }} MB</span>
-                        <span>{{ (updaterStore.progress.bytesPerSecond / 1024 / 1024).toFixed(2) }} MB/s</span>
+                        <span
+                          >{{ (updaterStore.progress.transferred / 1024 / 1024).toFixed(1) }} MB /
+                          {{ (updaterStore.progress.total / 1024 / 1024).toFixed(1) }} MB</span
+                        >
+                        <span
+                          >{{
+                            (updaterStore.progress.bytesPerSecond / 1024 / 1024).toFixed(2)
+                          }}
+                          MB/s</span
+                        >
                       </div>
                     </div>
                   </div>
@@ -3182,25 +3680,48 @@ function scriptTypeLabel(type: string) {
                         <strong>{{ updaterAuthSourceText }}</strong>
                       </div>
                       <div class="update-auth__controls">
-                        <UiInput v-model="githubTokenInput" type="password"
-                          placeholder="GitHub fine-grained token 或 classic PAT" size="sm"
-                          :disabled="updaterAuthSaving || updaterStore.auth.source === 'environment'"
-                          @keydown.enter.prevent="saveGithubToken" />
-                        <UiButton variant="primary" size="sm"
-                          :disabled="!canSaveGithubToken || updaterStore.auth.source === 'environment'"
-                          @click="saveGithubToken">
+                        <UiInput
+                          v-model="githubTokenInput"
+                          type="password"
+                          placeholder="GitHub fine-grained token 或 classic PAT"
+                          size="sm"
+                          :disabled="
+                            updaterAuthSaving || updaterStore.auth.source === 'environment'
+                          "
+                          @keydown.enter.prevent="saveGithubToken"
+                        />
+                        <UiButton
+                          variant="primary"
+                          size="sm"
+                          :disabled="
+                            !canSaveGithubToken || updaterStore.auth.source === 'environment'
+                          "
+                          @click="saveGithubToken"
+                        >
                           保存
                         </UiButton>
-                        <UiButton variant="danger" size="sm"
-                          :disabled="updaterAuthSaving || !updaterStore.auth.hasToken || updaterStore.auth.source === 'environment'"
-                          @click="clearGithubToken">
+                        <UiButton
+                          variant="danger"
+                          size="sm"
+                          :disabled="
+                            updaterAuthSaving ||
+                            !updaterStore.auth.hasToken ||
+                            updaterStore.auth.source === 'environment'
+                          "
+                          @click="clearGithubToken"
+                        >
                           清除
                         </UiButton>
                       </div>
-                      <p v-if="updaterStore.auth.source === 'environment'" class="update-auth__hint">
+                      <p
+                        v-if="updaterStore.auth.source === 'environment'"
+                        class="update-auth__hint"
+                      >
                         当前使用环境变量中的 Token，不能从设置页清除。
                       </p>
-                      <p v-else-if="updaterAuthMessage" class="update-auth__hint">{{ updaterAuthMessage }}</p>
+                      <p v-else-if="updaterAuthMessage" class="update-auth__hint">
+                        {{ updaterAuthMessage }}
+                      </p>
                     </div>
                   </div>
                 </div>
@@ -3212,16 +3733,28 @@ function scriptTypeLabel(type: string) {
                   </div>
                   <div class="settings-row__control settings-row__control--wide">
                     <div class="update-actions">
-                      <UiButton variant="secondary" size="sm" :disabled="!canCheckUpdate"
-                        @click="updaterStore.checkForUpdates">
+                      <UiButton
+                        variant="secondary"
+                        size="sm"
+                        :disabled="!canCheckUpdate"
+                        @click="updaterStore.checkForUpdates"
+                      >
                         检查更新
                       </UiButton>
-                      <UiButton variant="primary" size="sm" :disabled="!canDownloadUpdate"
-                        @click="updaterStore.downloadUpdate">
+                      <UiButton
+                        variant="primary"
+                        size="sm"
+                        :disabled="!canDownloadUpdate"
+                        @click="updaterStore.downloadUpdate"
+                      >
                         下载更新
                       </UiButton>
-                      <UiButton variant="primary" size="sm" :disabled="!canInstallUpdate"
-                        @click="updaterStore.installUpdate">
+                      <UiButton
+                        variant="primary"
+                        size="sm"
+                        :disabled="!canInstallUpdate"
+                        @click="updaterStore.installUpdate"
+                      >
                         重启安装
                       </UiButton>
                       <UiButton variant="secondary" size="sm" @click="updaterStore.openReleasePage">
@@ -3234,7 +3767,11 @@ function scriptTypeLabel(type: string) {
             </div>
           </section>
 
-          <section v-if="isSettingsTabRendered('file-transfer')" key="file-transfer" class="settings-section">
+          <section
+            v-if="isSettingsTabRendered('file-transfer')"
+            key="file-transfer"
+            class="settings-section"
+          >
             <div class="section-head section-head--standalone">
               <h2>文件传输</h2>
               <p>配置传输页浏览行为、缩略图、重试策略和主机信任。</p>
@@ -3259,8 +3796,11 @@ function scriptTypeLabel(type: string) {
                   </div>
                   <div class="settings-row__control settings-row__control--wide">
                     <div class="settings-inline-badges">
-                      <span class="settings-badge" :class="{ 'settings-badge--accent': ftpLinkNavigationEnabled }">{{
-                        ftpLinkNavigationSummary }}</span>
+                      <span
+                        class="settings-badge"
+                        :class="{ 'settings-badge--accent': ftpLinkNavigationEnabled }"
+                        >{{ ftpLinkNavigationSummary }}</span
+                      >
                     </div>
                   </div>
                 </div>
@@ -3283,8 +3823,12 @@ function scriptTypeLabel(type: string) {
                     <small>避免大图片拖慢浏览。</small>
                   </div>
                   <div class="settings-row__control settings-row__control--compact">
-                    <UiInput :model-value="ftpThumbnailMaxBytesKb" type="number" :min="1"
-                      @update:modelValue="setFtpThumbnailMaxBytesKb(String($event))" />
+                    <UiInput
+                      :model-value="ftpThumbnailMaxBytesKb"
+                      type="number"
+                      :min="1"
+                      @update:modelValue="setFtpThumbnailMaxBytesKb(String($event))"
+                    />
                   </div>
                 </div>
                 <div class="settings-row">
@@ -3293,8 +3837,12 @@ function scriptTypeLabel(type: string) {
                     <small>限制本地和远程预取数量。</small>
                   </div>
                   <div class="settings-row__control settings-row__control--compact">
-                    <UiInput :model-value="ftpThumbnailPrefetchLimit" type="number" :min="1"
-                      @update:modelValue="setFtpThumbnailPrefetchLimit(String($event))" />
+                    <UiInput
+                      :model-value="ftpThumbnailPrefetchLimit"
+                      type="number"
+                      :min="1"
+                      @update:modelValue="setFtpThumbnailPrefetchLimit(String($event))"
+                    />
                   </div>
                 </div>
                 <div class="settings-row settings-row--wide">
@@ -3304,8 +3852,11 @@ function scriptTypeLabel(type: string) {
                   </div>
                   <div class="settings-row__control settings-row__control--wide">
                     <div class="settings-inline-badges">
-                      <span class="settings-badge" :class="{ 'settings-badge--accent': ftpThumbnailsEnabled }">{{
-                        ftpThumbnailSummary }}</span>
+                      <span
+                        class="settings-badge"
+                        :class="{ 'settings-badge--accent': ftpThumbnailsEnabled }"
+                        >{{ ftpThumbnailSummary }}</span
+                      >
                     </div>
                   </div>
                 </div>
@@ -3317,22 +3868,43 @@ function scriptTypeLabel(type: string) {
                   </div>
                   <div class="settings-row__control settings-row__control--wide">
                     <div class="settings-inline-badges">
-                      <span class="settings-badge"
-                        :class="{ 'settings-badge--accent': ftpWindowsContextMenuStatus.installed }">
+                      <span
+                        class="settings-badge"
+                        :class="{ 'settings-badge--accent': ftpWindowsContextMenuStatus.installed }"
+                      >
                         {{ ftpWindowsContextMenuSummary }}
                       </span>
-                      <UiButton size="sm" variant="secondary" :disabled="ftpWindowsContextMenuLoading"
-                        @click="ftpWindowsContextMenuStatus.installed ? uninstallFtpWindowsContextMenu() : installFtpWindowsContextMenu()">
-                        {{ ftpWindowsContextMenuStatus.installed ? '移除右键菜单' : '安装右键菜单' }}
+                      <UiButton
+                        size="sm"
+                        variant="secondary"
+                        :disabled="ftpWindowsContextMenuLoading"
+                        @click="
+                          ftpWindowsContextMenuStatus.installed
+                            ? uninstallFtpWindowsContextMenu()
+                            : installFtpWindowsContextMenu()
+                        "
+                      >
+                        {{
+                          ftpWindowsContextMenuStatus.installed ? '移除右键菜单' : '安装右键菜单'
+                        }}
                       </UiButton>
-                      <UiButton size="sm" variant="ghost" :disabled="ftpWindowsContextMenuLoading"
-                        @click="refreshFtpWindowsContextMenuStatus">
+                      <UiButton
+                        size="sm"
+                        variant="ghost"
+                        :disabled="ftpWindowsContextMenuLoading"
+                        @click="refreshFtpWindowsContextMenuStatus"
+                      >
                         刷新状态
                       </UiButton>
                     </div>
                     <div class="settings-inline-badges settings-inline-badges--mt">
-                      <span class="settings-badge settings-badge--code">{{ ftpWindowsContextMenuCommandSummary }}</span>
-                      <span v-if="ftpWindowsContextMenuError" class="settings-badge settings-badge--danger">
+                      <span class="settings-badge settings-badge--code">{{
+                        ftpWindowsContextMenuCommandSummary
+                      }}</span>
+                      <span
+                        v-if="ftpWindowsContextMenuError"
+                        class="settings-badge settings-badge--danger"
+                      >
                         {{ ftpWindowsContextMenuError }}
                       </span>
                     </div>
@@ -3345,8 +3917,13 @@ function scriptTypeLabel(type: string) {
                     <small>传输失败后的自动重试上限。</small>
                   </div>
                   <div class="settings-row__control settings-row__control--compact">
-                    <UiInput :model-value="ftpRetryMaxRetries" type="number" :min="0" :max="10"
-                      @update:modelValue="setFtpRetryMaxRetries(String($event))" />
+                    <UiInput
+                      :model-value="ftpRetryMaxRetries"
+                      type="number"
+                      :min="0"
+                      :max="10"
+                      @update:modelValue="setFtpRetryMaxRetries(String($event))"
+                    />
                   </div>
                 </div>
                 <div class="settings-row">
@@ -3355,8 +3932,13 @@ function scriptTypeLabel(type: string) {
                     <small>指数退避的初始等待时间。</small>
                   </div>
                   <div class="settings-row__control settings-row__control--compact">
-                    <UiInput :model-value="ftpRetryBaseDelaySecs" type="number" :min="1" :max="300"
-                      @update:modelValue="setFtpRetryBaseDelaySecs(String($event))" />
+                    <UiInput
+                      :model-value="ftpRetryBaseDelaySecs"
+                      type="number"
+                      :min="1"
+                      :max="300"
+                      @update:modelValue="setFtpRetryBaseDelaySecs(String($event))"
+                    />
                   </div>
                 </div>
                 <div class="settings-row settings-row--wide">
@@ -3366,8 +3948,12 @@ function scriptTypeLabel(type: string) {
                   </div>
                   <div class="settings-row__control settings-row__control--wide">
                     <div class="settings-inline-badges">
-                      <span class="settings-badge settings-badge--accent">{{ ftpRetryPolicySummary }}</span>
-                      <UiButton size="sm" variant="secondary" @click="applyFtpRetryPolicy">应用策略</UiButton>
+                      <span class="settings-badge settings-badge--accent">{{
+                        ftpRetryPolicySummary
+                      }}</span>
+                      <UiButton size="sm" variant="secondary" @click="applyFtpRetryPolicy"
+                        >应用策略</UiButton
+                      >
                     </div>
                   </div>
                 </div>
@@ -3382,17 +3968,32 @@ function scriptTypeLabel(type: string) {
                   </div>
                   <div class="settings-row__control settings-row__control--wide">
                     <div class="settings-path-row">
-                      <div class="settings-path-display"
-                        :class="{ 'settings-path-display--empty': !ftpExternalEditorPath }">
+                      <div
+                        class="settings-path-display"
+                        :class="{ 'settings-path-display--empty': !ftpExternalEditorPath }"
+                      >
                         {{ ftpExternalEditorPath || '未配置' }}
                       </div>
-                      <UiButton size="sm" variant="secondary" @click="pickFtpExternalEditor">选择</UiButton>
-                      <UiButton size="sm" variant="ghost" :disabled="!ftpExternalEditorPath"
-                        @click="ftpExternalEditorPath = ''">清空</UiButton>
+                      <UiButton size="sm" variant="secondary" @click="pickFtpExternalEditor"
+                        >选择</UiButton
+                      >
+                      <UiButton
+                        size="sm"
+                        variant="ghost"
+                        :disabled="!ftpExternalEditorPath"
+                        @click="ftpExternalEditorPath = ''"
+                        >清空</UiButton
+                      >
                     </div>
                     <div class="settings-inline-badges settings-inline-badges--mt">
-                      <span class="settings-badge settings-badge--accent">{{ ftpExternalEditorSummary }}</span>
-                      <UiCheckbox v-model="ftpCleanupExternalDraftsOnClose" class="settings-check" size="sm">
+                      <span class="settings-badge settings-badge--accent">{{
+                        ftpExternalEditorSummary
+                      }}</span>
+                      <UiCheckbox
+                        v-model="ftpCleanupExternalDraftsOnClose"
+                        class="settings-check"
+                        size="sm"
+                      >
                         关闭后清理临时文件
                       </UiCheckbox>
                     </div>
@@ -3406,24 +4007,39 @@ function scriptTypeLabel(type: string) {
                   </div>
                   <div class="settings-row__control settings-row__control--wide">
                     <div class="settings-inline-badges">
-                      <span class="settings-badge"
-                        :class="{ 'settings-badge--accent': sshStore.knownHosts.length > 0 }">{{
-                        ftpKnownHostSummary }}</span>
-                      <UiButton size="sm" variant="secondary" :disabled="ftpKnownHostsLoading"
-                        @click="refreshFtpKnownHosts">
+                      <span
+                        class="settings-badge"
+                        :class="{ 'settings-badge--accent': sshStore.knownHosts.length > 0 }"
+                        >{{ ftpKnownHostSummary }}</span
+                      >
+                      <UiButton
+                        size="sm"
+                        variant="secondary"
+                        :disabled="ftpKnownHostsLoading"
+                        @click="refreshFtpKnownHosts"
+                      >
                         {{ ftpKnownHostsLoading ? '刷新中' : '刷新列表' }}
                       </UiButton>
                     </div>
                     <div v-if="sshStore.knownHosts.length" class="settings-known-hosts">
-                      <div v-for="host in sshStore.knownHosts" :key="host.id" class="settings-known-host">
+                      <div
+                        v-for="host in sshStore.knownHosts"
+                        :key="host.id"
+                        class="settings-known-host"
+                      >
                         <div class="settings-known-host__main">
-                          <div class="settings-known-host__title">{{ host.host }}:{{ host.port }}</div>
+                          <div class="settings-known-host__title">
+                            {{ host.host }}:{{ host.port }}
+                          </div>
                           <div class="settings-known-host__meta">
-                            算法 {{ host.algorithm }} · {{ host.trustMode === 'session' ? '仅本次会话信任' : '永久信任' }}
+                            算法 {{ host.algorithm }} ·
+                            {{ host.trustMode === 'session' ? '仅本次会话信任' : '永久信任' }}
                           </div>
                           <div class="settings-known-host__fingerprint">{{ host.fingerprint }}</div>
                         </div>
-                        <UiButton size="sm" variant="danger" @click="deleteFtpKnownHost(host.id)">删除</UiButton>
+                        <UiButton size="sm" variant="danger" @click="deleteFtpKnownHost(host.id)"
+                          >删除</UiButton
+                        >
                       </div>
                     </div>
                     <div v-else class="settings-muted-empty">当前还没有已信任的主机指纹。</div>
@@ -3449,9 +4065,15 @@ function scriptTypeLabel(type: string) {
                   </div>
                   <div class="settings-row__control">
                     <UiSelect
-                      :model-value="appConfigStore.config.features.terminal.defaultProfileId || terminalProfileOptions[0]?.value || ''"
-                      :options="terminalProfileOptions" placeholder="选择默认终端"
-                      @update:modelValue="handleTerminalProfileChange(String($event))" />
+                      :model-value="
+                        appConfigStore.config.features.terminal.defaultProfileId ||
+                        terminalProfileOptions[0]?.value ||
+                        ''
+                      "
+                      :options="terminalProfileOptions"
+                      placeholder="选择默认终端"
+                      @update:modelValue="handleTerminalProfileChange(String($event))"
+                    />
                   </div>
                 </div>
                 <div class="settings-row">
@@ -3460,8 +4082,11 @@ function scriptTypeLabel(type: string) {
                     <small>终端前端使用的渲染器。</small>
                   </div>
                   <div class="settings-row__control">
-                    <UiSelect :model-value="appConfigStore.config.features.terminal.rendererMode"
-                      :options="terminalRendererOptions" @update:modelValue="handleTerminalRendererChange" />
+                    <UiSelect
+                      :model-value="appConfigStore.config.features.terminal.rendererMode"
+                      :options="terminalRendererOptions"
+                      @update:modelValue="handleTerminalRendererChange"
+                    />
                   </div>
                 </div>
                 <div class="settings-row">
@@ -3470,54 +4095,114 @@ function scriptTypeLabel(type: string) {
                     <small>为空时使用应用当前工作目录。</small>
                   </div>
                   <div class="settings-row__control settings-row__control--wide">
-                    <UiInput v-model="terminalDefaultCwdInput" placeholder="例如：D:\\Projects"
-                      @blur="commitTerminalDefaultCwd" @keydown.enter.prevent="commitTerminalDefaultCwd" />
+                    <UiInput
+                      v-model="terminalDefaultCwdInput"
+                      placeholder="例如：D:\\Projects"
+                      @blur="commitTerminalDefaultCwd"
+                      @keydown.enter.prevent="commitTerminalDefaultCwd"
+                    />
                   </div>
                 </div>
                 <div class="settings-row settings-row--wide">
                   <div class="settings-row__label">
                     <span>本地终端类型</span>
-                    <small>为不同本地终端保存独立命令、参数、工作目录、环境变量、启动配置文件和背景配置。</small>
+                    <small
+                      >为不同本地终端保存独立命令、参数、工作目录、环境变量、启动配置文件和背景配置。</small
+                    >
                   </div>
                   <div class="settings-row__control settings-row__control--wide">
                     <div class="terminal-profile-editor">
                       <div class="terminal-profile-editor__grid">
-                        <UiSelect :model-value="localTerminalBaseProfileId"
-                          :options="terminalProfiles.map((profile) => ({ label: profile.label, value: profile.id }))"
-                          placeholder="从系统终端复制" @update:modelValue="fillLocalTerminalProfileFromBase(String($event))" />
-                        <UiInput v-model="localTerminalProfileForm.label" placeholder="类型名称，例如：项目 PowerShell" />
-                        <UiInput v-model="localTerminalProfileForm.command" placeholder="命令，例如：pwsh.exe" />
-                        <UiInput v-model="localTerminalProfileForm.argsText" placeholder="启动参数，例如：-NoLogo" />
-                        <UiInput v-model="localTerminalProfileForm.cwd" placeholder="工作目录，可留空" />
-                        <UiInput v-model="localTerminalProfileForm.configFilePath"
-                          placeholder="启动配置文件路径，例如：D:\\profiles\\project.ps1" />
+                        <UiSelect
+                          :model-value="localTerminalBaseProfileId"
+                          :options="
+                            terminalProfiles.map((profile) => ({
+                              label: profile.label,
+                              value: profile.id,
+                            }))
+                          "
+                          placeholder="从系统终端复制"
+                          @update:modelValue="fillLocalTerminalProfileFromBase(String($event))"
+                        />
+                        <UiInput
+                          v-model="localTerminalProfileForm.label"
+                          placeholder="类型名称，例如：项目 PowerShell"
+                        />
+                        <UiInput
+                          v-model="localTerminalProfileForm.command"
+                          placeholder="命令，例如：pwsh.exe"
+                        />
+                        <UiInput
+                          v-model="localTerminalProfileForm.argsText"
+                          placeholder="启动参数，例如：-NoLogo"
+                        />
+                        <UiInput
+                          v-model="localTerminalProfileForm.cwd"
+                          placeholder="工作目录，可留空"
+                        />
+                        <UiInput
+                          v-model="localTerminalProfileForm.configFilePath"
+                          placeholder="启动配置文件路径，例如：D:\\profiles\\project.ps1"
+                        />
                       </div>
-                      <UiTextarea v-model="localTerminalProfileForm.envText" class="terminal-profile-editor__env"
-                        :rows="4" placeholder='环境变量 JSON，例如：{"NODE_ENV":"development"}' />
-                      <p v-if="localTerminalProfileError" class="settings-error">{{ localTerminalProfileError }}</p>
+                      <UiTextarea
+                        v-model="localTerminalProfileForm.envText"
+                        class="terminal-profile-editor__env"
+                        :rows="4"
+                        placeholder='环境变量 JSON，例如：{"NODE_ENV":"development"}'
+                      />
+                      <p v-if="localTerminalProfileError" class="settings-error">
+                        {{ localTerminalProfileError }}
+                      </p>
                       <div class="terminal-profile-editor__actions">
                         <UiButton size="sm" variant="primary" @click="saveLocalTerminalProfile">
                           {{ localTerminalEditingId ? '保存类型' : '添加类型' }}
                         </UiButton>
-                        <UiButton size="sm" variant="ghost" @click="resetLocalTerminalProfileForm">重置</UiButton>
+                        <UiButton size="sm" variant="ghost" @click="resetLocalTerminalProfileForm"
+                          >重置</UiButton
+                        >
                       </div>
                     </div>
                     <div v-if="customTerminalProfiles.length" class="terminal-profile-list">
-                      <div v-for="profile in customTerminalProfiles" :key="profile.id"
-                        class="terminal-profile-list__item">
+                      <div
+                        v-for="profile in customTerminalProfiles"
+                        :key="profile.id"
+                        class="terminal-profile-list__item"
+                      >
                         <div class="terminal-profile-list__main">
                           <strong>{{ profile.label }}</strong>
                           <span>{{ profile.command }} {{ profile.args.join(' ') }}</span>
-                          <small v-if="profile.configFilePath">启动配置文件：{{ profile.configFilePath }}</small>
-                          <small>背景：{{ profile.background.type === 'image' ? '图片' : profile.background.type === 'video'
-                            ?
-                            '视频' : '颜色' }}</small>
+                          <small v-if="profile.configFilePath"
+                            >启动配置文件：{{ profile.configFilePath }}</small
+                          >
+                          <small
+                            >背景：{{
+                              profile.background.type === 'image'
+                                ? '图片'
+                                : profile.background.type === 'video'
+                                  ? '视频'
+                                  : '颜色'
+                            }}</small
+                          >
                         </div>
                         <div class="terminal-profile-list__actions">
-                          <UiButton size="sm" variant="ghost" @click="handleTerminalProfileChange(profile.id)">设为默认
+                          <UiButton
+                            size="sm"
+                            variant="ghost"
+                            @click="handleTerminalProfileChange(profile.id)"
+                            >设为默认
                           </UiButton>
-                          <UiButton size="sm" variant="ghost" @click="editLocalTerminalProfile(profile)">编辑</UiButton>
-                          <UiButton size="sm" variant="danger" @click="deleteLocalTerminalProfile(profile)">删除
+                          <UiButton
+                            size="sm"
+                            variant="ghost"
+                            @click="editLocalTerminalProfile(profile)"
+                            >编辑</UiButton
+                          >
+                          <UiButton
+                            size="sm"
+                            variant="danger"
+                            @click="deleteLocalTerminalProfile(profile)"
+                            >删除
                           </UiButton>
                         </div>
                       </div>
@@ -3534,8 +4219,11 @@ function scriptTypeLabel(type: string) {
                     <small>允许 BEL 提示音；关闭后保留终端输出但不播放滴声。</small>
                   </div>
                   <div class="settings-row__control settings-row__control--switch">
-                    <UiCheckbox size="sm" :checked="appConfigStore.config.features.terminal.enableBell"
-                      @change="handleTerminalBellChange" />
+                    <UiCheckbox
+                      size="sm"
+                      :checked="appConfigStore.config.features.terminal.enableBell"
+                      @change="handleTerminalBellChange"
+                    />
                   </div>
                 </div>
                 <div class="settings-row">
@@ -3544,8 +4232,11 @@ function scriptTypeLabel(type: string) {
                     <small>启用 sixel/图像扩展。</small>
                   </div>
                   <div class="settings-row__control settings-row__control--switch">
-                    <UiCheckbox size="sm" :checked="appConfigStore.config.features.terminal.enableSixel"
-                      @change="handleTerminalSixelChange" />
+                    <UiCheckbox
+                      size="sm"
+                      :checked="appConfigStore.config.features.terminal.enableSixel"
+                      @change="handleTerminalSixelChange"
+                    />
                   </div>
                 </div>
                 <div class="settings-row">
@@ -3554,8 +4245,11 @@ function scriptTypeLabel(type: string) {
                     <small>优先在新窗口中拆分会话。</small>
                   </div>
                   <div class="settings-row__control settings-row__control--switch">
-                    <UiCheckbox size="sm" :checked="appConfigStore.config.features.terminal.detachToWindowByDefault"
-                      @change="handleTerminalDetachChange" />
+                    <UiCheckbox
+                      size="sm"
+                      :checked="appConfigStore.config.features.terminal.detachToWindowByDefault"
+                      @change="handleTerminalDetachChange"
+                    />
                   </div>
                 </div>
                 <div class="settings-row">
@@ -3564,17 +4258,26 @@ function scriptTypeLabel(type: string) {
                     <small>超过次数后暂停，并在终端等待任意键手动重连。</small>
                   </div>
                   <div class="settings-row__control settings-row__control--compact">
-                    <UiInput v-model="sshReconnectMaxAttemptsInput" type="number" :min="1" :max="20"
-                      @blur="commitSshReconnectMaxAttempts" @change="commitSshReconnectMaxAttempts"
-                      @keydown.enter.prevent="commitSshReconnectMaxAttempts" />
+                    <UiInput
+                      v-model="sshReconnectMaxAttemptsInput"
+                      type="number"
+                      :min="1"
+                      :max="20"
+                      @blur="commitSshReconnectMaxAttempts"
+                      @change="commitSshReconnectMaxAttempts"
+                      @keydown.enter.prevent="commitSshReconnectMaxAttempts"
+                    />
                   </div>
                 </div>
               </section>
             </div>
           </section>
 
-          <section v-if="isSettingsTabRendered('multi-device-clipboard')" key="multi-device-clipboard"
-            class="settings-section">
+          <section
+            v-if="isSettingsTabRendered('multi-device-clipboard')"
+            key="multi-device-clipboard"
+            class="settings-section"
+          >
             <div class="section-head section-head--standalone">
               <h2>多设备剪贴板</h2>
               <p>配置局域网发现、同步大小和历史记录。</p>
@@ -3589,8 +4292,11 @@ function scriptTypeLabel(type: string) {
                     <small>启用后会通过 mDNS 在局域网发布和发现设备。</small>
                   </div>
                   <div class="settings-row__control settings-row__control--switch">
-                    <UiCheckbox size="sm" :checked="appConfigStore.config.features.multiDeviceClipboard.enabled"
-                      @change="handleMultiDeviceClipboardEnabledChange" />
+                    <UiCheckbox
+                      size="sm"
+                      :checked="appConfigStore.config.features.multiDeviceClipboard.enabled"
+                      @change="handleMultiDeviceClipboardEnabledChange"
+                    />
                   </div>
                 </div>
                 <div class="settings-row">
@@ -3599,9 +4305,12 @@ function scriptTypeLabel(type: string) {
                     <small>为空时使用当前系统主机名。</small>
                   </div>
                   <div class="settings-row__control settings-row__control--wide">
-                    <UiInput v-model="multiDeviceClipboardDeviceNameInput" placeholder="例如：工作笔记本"
+                    <UiInput
+                      v-model="multiDeviceClipboardDeviceNameInput"
+                      placeholder="例如：工作笔记本"
                       @blur="commitMultiDeviceClipboardDeviceName"
-                      @keydown.enter.prevent="commitMultiDeviceClipboardDeviceName" />
+                      @keydown.enter.prevent="commitMultiDeviceClipboardDeviceName"
+                    />
                   </div>
                 </div>
                 <div class="settings-row">
@@ -3610,9 +4319,15 @@ function scriptTypeLabel(type: string) {
                     <small>系统级快捷键；如果 Alt+V 已被系统占用，可以改成其他组合。</small>
                   </div>
                   <div class="settings-row__control settings-row__control--wide">
-                    <ShortcutRecorder :model-value="appConfigStore.config.shortcuts.system.toggleMultiDeviceClipboard"
+                    <ShortcutRecorder
+                      :model-value="
+                        appConfigStore.config.shortcuts.system.toggleMultiDeviceClipboard
+                      "
                       :default-value="defaultShortcuts.system.toggleMultiDeviceClipboard"
-                      @update:modelValue="updateSystemShortcut('toggleMultiDeviceClipboard', $event)" />
+                      @update:modelValue="
+                        updateSystemShortcut('toggleMultiDeviceClipboard', $event)
+                      "
+                    />
                   </div>
                 </div>
                 <div class="settings-row">
@@ -3621,9 +4336,15 @@ function scriptTypeLabel(type: string) {
                     <small>单位 MB，最大 1024 MB；超限内容只保留本机历史。</small>
                   </div>
                   <div class="settings-row__control settings-row__control--compact">
-                    <UiInput v-model="multiDeviceClipboardMaxSyncMbInput" type="number" :min="1" :max="1024"
-                      @blur="commitMultiDeviceClipboardMaxSyncMb" @change="commitMultiDeviceClipboardMaxSyncMb"
-                      @keydown.enter.prevent="commitMultiDeviceClipboardMaxSyncMb" />
+                    <UiInput
+                      v-model="multiDeviceClipboardMaxSyncMbInput"
+                      type="number"
+                      :min="1"
+                      :max="1024"
+                      @blur="commitMultiDeviceClipboardMaxSyncMb"
+                      @change="commitMultiDeviceClipboardMaxSyncMb"
+                      @keydown.enter.prevent="commitMultiDeviceClipboardMaxSyncMb"
+                    />
                   </div>
                 </div>
                 <div class="settings-row">
@@ -3632,9 +4353,15 @@ function scriptTypeLabel(type: string) {
                     <small>最多保留 5000 条，多余记录会自动裁剪。</small>
                   </div>
                   <div class="settings-row__control settings-row__control--compact">
-                    <UiInput v-model="multiDeviceClipboardHistoryLimitInput" type="number" :min="1" :max="5000"
-                      @blur="commitMultiDeviceClipboardHistoryLimit" @change="commitMultiDeviceClipboardHistoryLimit"
-                      @keydown.enter.prevent="commitMultiDeviceClipboardHistoryLimit" />
+                    <UiInput
+                      v-model="multiDeviceClipboardHistoryLimitInput"
+                      type="number"
+                      :min="1"
+                      :max="5000"
+                      @blur="commitMultiDeviceClipboardHistoryLimit"
+                      @change="commitMultiDeviceClipboardHistoryLimit"
+                      @keydown.enter.prevent="commitMultiDeviceClipboardHistoryLimit"
+                    />
                   </div>
                 </div>
               </section>
@@ -3649,26 +4376,44 @@ function scriptTypeLabel(type: string) {
                   <div class="settings-row__control settings-row__control--wide">
                     <div class="clipboard-device-panel">
                       <div class="clipboard-device-panel__actions">
-                        <UiButton size="sm" variant="secondary" :disabled="multiDeviceClipboardDevicesLoading"
-                          @click="loadMultiDeviceClipboardDevices">
+                        <UiButton
+                          size="sm"
+                          variant="secondary"
+                          :disabled="multiDeviceClipboardDevicesLoading"
+                          @click="loadMultiDeviceClipboardDevices"
+                        >
                           刷新设备
                         </UiButton>
                       </div>
 
-                      <div v-if="pairedMultiDeviceClipboardDevices.length" class="clipboard-device-list">
-                        <article v-for="device in pairedMultiDeviceClipboardDevices" :key="device.deviceId"
-                          class="clipboard-device-item">
+                      <div
+                        v-if="pairedMultiDeviceClipboardDevices.length"
+                        class="clipboard-device-list"
+                      >
+                        <article
+                          v-for="device in pairedMultiDeviceClipboardDevices"
+                          :key="device.deviceId"
+                          class="clipboard-device-item"
+                        >
                           <div class="clipboard-device-item__body">
                             <strong>{{ device.name }}</strong>
                             <small>{{ multiDeviceClipboardDeviceMeta(device) }}</small>
                           </div>
-                          <UiButton size="sm" variant="danger" @click="forgetMultiDeviceClipboardDevice(device)">
+                          <UiButton
+                            size="sm"
+                            variant="danger"
+                            @click="forgetMultiDeviceClipboardDevice(device)"
+                          >
                             移除
                           </UiButton>
                         </article>
                       </div>
                       <p v-else class="clipboard-device-empty">
-                        {{ multiDeviceClipboardDevicesLoading ? '正在读取已配对设备...' : '暂无已配对设备' }}
+                        {{
+                          multiDeviceClipboardDevicesLoading
+                            ? '正在读取已配对设备...'
+                            : '暂无已配对设备'
+                        }}
                       </p>
                     </div>
                   </div>
@@ -3682,15 +4427,22 @@ function scriptTypeLabel(type: string) {
                     <span>自动发现广播地址</span>
                     <small>
                       拖动排序，排在最上方的可用 IPv4 会优先用于 mDNS 广播；当前首选：
-                      {{ activeNetworkInterface ? `${activeNetworkInterface.name} · ${activeNetworkInterface.address}` :
-                      '未检测到可用网卡' }}
+                      {{
+                        activeNetworkInterface
+                          ? `${activeNetworkInterface.name} · ${activeNetworkInterface.address}`
+                          : '未检测到可用网卡'
+                      }}
                     </small>
                   </div>
                   <div class="settings-row__control settings-row__control--wide">
                     <div class="network-priority-panel">
                       <div class="network-priority-panel__actions">
-                        <UiButton size="sm" variant="secondary" :disabled="networkInterfacesLoading"
-                          @click="loadNetworkInterfaces">
+                        <UiButton
+                          size="sm"
+                          variant="secondary"
+                          :disabled="networkInterfacesLoading"
+                          @click="loadNetworkInterfaces"
+                        >
                           刷新网卡
                         </UiButton>
                         <UiButton size="sm" variant="ghost" @click="resetNetworkInterfacePriority">
@@ -3699,28 +4451,47 @@ function scriptTypeLabel(type: string) {
                       </div>
 
                       <div v-if="orderedNetworkInterfaces.length" class="network-priority-list">
-                        <article v-for="(networkInterface, index) in orderedNetworkInterfaces"
-                          :key="networkInterface.key" class="network-priority-item"
-                          :class="{ 'network-priority-item--active': index === 0 }" draggable="true"
+                        <article
+                          v-for="(networkInterface, index) in orderedNetworkInterfaces"
+                          :key="networkInterface.key"
+                          class="network-priority-item"
+                          :class="{ 'network-priority-item--active': index === 0 }"
+                          draggable="true"
                           @dragstart="handleNetworkInterfaceDragStart(networkInterface.key, $event)"
-                          @dragend="draggedNetworkInterfaceKey = ''" @dragover.prevent
-                          @drop="handleNetworkInterfaceDrop(networkInterface.key, $event)">
+                          @dragend="draggedNetworkInterfaceKey = ''"
+                          @dragover.prevent
+                          @drop="handleNetworkInterfaceDrop(networkInterface.key, $event)"
+                        >
                           <span class="network-priority-item__handle" aria-hidden="true">⋮⋮</span>
                           <div class="network-priority-item__body">
                             <strong>{{ networkInterface.name }}</strong>
-                            <small>{{ networkInterface.address }} · {{ networkInterface.cidr || 'IPv4' }}</small>
+                            <small
+                              >{{ networkInterface.address }} ·
+                              {{ networkInterface.cidr || 'IPv4' }}</small
+                            >
                           </div>
                           <div class="network-priority-item__actions">
-                            <UiButton size="sm" variant="ghost" :disabled="index === 0"
-                              @click="moveNetworkInterface(index, index - 1)">上移</UiButton>
-                            <UiButton size="sm" variant="ghost"
+                            <UiButton
+                              size="sm"
+                              variant="ghost"
+                              :disabled="index === 0"
+                              @click="moveNetworkInterface(index, index - 1)"
+                              >上移</UiButton
+                            >
+                            <UiButton
+                              size="sm"
+                              variant="ghost"
                               :disabled="index === orderedNetworkInterfaces.length - 1"
-                              @click="moveNetworkInterface(index, index + 1)">下移</UiButton>
+                              @click="moveNetworkInterface(index, index + 1)"
+                              >下移</UiButton
+                            >
                           </div>
                         </article>
                       </div>
                       <p v-else class="network-priority-empty">
-                        {{ networkInterfacesLoading ? '正在读取本机网卡...' : '未检测到 IPv4 网卡' }}
+                        {{
+                          networkInterfacesLoading ? '正在读取本机网卡...' : '未检测到 IPv4 网卡'
+                        }}
                       </p>
                     </div>
                   </div>
@@ -3729,7 +4500,11 @@ function scriptTypeLabel(type: string) {
             </div>
           </section>
 
-          <section v-if="isSettingsTabRendered('sync-center')" key="sync-center" class="settings-section">
+          <section
+            v-if="isSettingsTabRendered('sync-center')"
+            key="sync-center"
+            class="settings-section"
+          >
             <div class="section-head section-head--standalone">
               <h2>同步中心</h2>
               <p>管理本机配置、远程配置、知识库和 AI 元数据同步。</p>
@@ -3741,23 +4516,44 @@ function scriptTypeLabel(type: string) {
                 <div class="settings-row">
                   <div class="settings-row__label">
                     <span>同步状态</span>
-                    <small>{{ syncStore.state?.lastError || '当前同步通道已接入，可使用 WebDAV 或自建后端同步应用配置、知识库和 AI 元数据。' }}</small>
+                    <small>{{
+                      syncStore.state?.lastError ||
+                      '当前同步通道已接入，可使用 WebDAV 或自建后端同步应用配置、知识库和 AI 元数据。'
+                    }}</small>
                   </div>
                   <div class="settings-row__control settings-row__control--wide">
                     <div class="segmented-actions">
-                      <span class="settings-badge">{{ syncStore.state?.status || 'disabled' }}</span>
-                      <span class="settings-badge">待同步 {{ syncStore.state?.pendingCount ?? 0 }}</span>
+                      <span class="settings-badge">{{
+                        syncStore.state?.status || 'disabled'
+                      }}</span>
                       <span class="settings-badge"
-                        :class="{ 'settings-badge--danger': (syncStore.state?.conflictCount ?? 0) > 0 }">
+                        >待同步 {{ syncStore.state?.pendingCount ?? 0 }}</span
+                      >
+                      <span
+                        class="settings-badge"
+                        :class="{
+                          'settings-badge--danger': (syncStore.state?.conflictCount ?? 0) > 0,
+                        }"
+                      >
                         冲突 {{ syncStore.state?.conflictCount ?? 0 }}
                       </span>
-                      <UiButton size="sm" variant="secondary" :disabled="syncStore.loading" @click="syncStore.refresh">
+                      <UiButton
+                        size="sm"
+                        variant="secondary"
+                        :disabled="syncStore.loading"
+                        @click="syncStore.refresh"
+                      >
                         刷新
                       </UiButton>
                       <UiButton size="sm" variant="ghost" @click="openSyncBoundaryDrawer">
                         查看同步边界
                       </UiButton>
-                      <UiButton size="sm" variant="primary" :disabled="syncStore.loading" @click="runSyncNow">
+                      <UiButton
+                        size="sm"
+                        variant="primary"
+                        :disabled="syncStore.loading"
+                        @click="runSyncNow"
+                      >
                         立即同步
                       </UiButton>
                     </div>
@@ -3774,13 +4570,23 @@ function scriptTypeLabel(type: string) {
                         <span>{{ syncProgressLabel }}</span>
                         <strong>{{ syncProgressPercent }}%</strong>
                       </div>
-                      <div class="sync-progress__bar" role="progressbar" :aria-valuenow="syncProgressPercent"
-                        aria-valuemin="0" aria-valuemax="100">
-                        <div class="sync-progress__bar-fill" :style="{ width: `${syncProgressPercent}%` }" />
+                      <div
+                        class="sync-progress__bar"
+                        role="progressbar"
+                        :aria-valuenow="syncProgressPercent"
+                        aria-valuemin="0"
+                        aria-valuemax="100"
+                      >
+                        <div
+                          class="sync-progress__bar-fill"
+                          :style="{ width: `${syncProgressPercent}%` }"
+                        />
                       </div>
                       <div class="sync-progress__meta">
                         <span>{{ syncProgressDetail }}</span>
-                        <span>{{ syncStore.state?.status === 'syncing' ? '同步中' : syncStore.state?.status }}</span>
+                        <span>{{
+                          syncStore.state?.status === 'syncing' ? '同步中' : syncStore.state?.status
+                        }}</span>
                       </div>
                     </div>
                   </div>
@@ -3804,7 +4610,10 @@ function scriptTypeLabel(type: string) {
                     <small>坚果云默认地址为 https://dav.jianguoyun.com/dav/。</small>
                   </div>
                   <div class="settings-row__control settings-row__control--wide">
-                    <UiInput v-model="syncWebDavEndpoint" placeholder="https://dav.jianguoyun.com/dav/" />
+                    <UiInput
+                      v-model="syncWebDavEndpoint"
+                      placeholder="https://dav.jianguoyun.com/dav/"
+                    />
                   </div>
                 </div>
                 <div class="settings-row">
@@ -3819,11 +4628,18 @@ function scriptTypeLabel(type: string) {
                 <div class="settings-row">
                   <div class="settings-row__label">
                     <span>第三方应用密码</span>
-                    <small>{{ syncStore.providerConfig?.webdav?.hasPassword ? '已保存密码；留空表示不修改。' : '密码只保存在本机安全存储，不进入同步配置。'
-                      }}</small>
+                    <small>{{
+                      syncStore.providerConfig?.webdav?.hasPassword
+                        ? '已保存密码；留空表示不修改。'
+                        : '密码只保存在本机安全存储，不进入同步配置。'
+                    }}</small>
                   </div>
                   <div class="settings-row__control settings-row__control--wide">
-                    <UiInput v-model="syncWebDavPassword" type="password" placeholder="留空则不修改已保存密码" />
+                    <UiInput
+                      v-model="syncWebDavPassword"
+                      type="password"
+                      placeholder="留空则不修改已保存密码"
+                    />
                   </div>
                 </div>
                 <div class="settings-row">
@@ -3842,8 +4658,12 @@ function scriptTypeLabel(type: string) {
                   </div>
                   <div class="settings-row__control settings-row__control--wide">
                     <div class="segmented-actions">
-                      <UiButton size="sm" variant="primary" @click="saveSyncWebDavConfig">保存配置</UiButton>
-                      <UiButton size="sm" variant="secondary" @click="testSyncConnection">测试连接</UiButton>
+                      <UiButton size="sm" variant="primary" @click="saveSyncWebDavConfig"
+                        >保存配置</UiButton
+                      >
+                      <UiButton size="sm" variant="secondary" @click="testSyncConnection"
+                        >测试连接</UiButton
+                      >
                     </div>
                   </div>
                 </div>
@@ -3875,7 +4695,11 @@ function scriptTypeLabel(type: string) {
                     <small>只用于本次登录，不会保存到本地配置。</small>
                   </div>
                   <div class="settings-row__control settings-row__control--wide">
-                    <UiInput v-model="syncServerPassword" type="password" placeholder="输入后点击登录并绑定当前设备" />
+                    <UiInput
+                      v-model="syncServerPassword"
+                      type="password"
+                      placeholder="输入后点击登录并绑定当前设备"
+                    />
                   </div>
                 </div>
                 <div class="settings-row">
@@ -3897,7 +4721,7 @@ function scriptTypeLabel(type: string) {
                     <small>
                       {{
                         syncStore.providerConfig?.syncServer?.hasAccessToken &&
-                          syncStore.providerConfig?.syncServer?.hasDeviceToken
+                        syncStore.providerConfig?.syncServer?.hasDeviceToken
                           ? '访问令牌和设备令牌已保存在本机安全存储。'
                           : '登录后会自动获取访问令牌和设备令牌，不需要手动配置。'
                       }}
@@ -3911,10 +4735,18 @@ function scriptTypeLabel(type: string) {
                   </div>
                   <div class="settings-row__control settings-row__control--wide">
                     <div class="segmented-actions">
-                      <UiButton size="sm" variant="primary" @click="loginSyncServer">登录并绑定当前设备</UiButton>
-                      <UiButton size="sm" variant="primary" @click="saveSyncServerConfig">保存后端配置</UiButton>
-                      <UiButton size="sm" variant="secondary" @click="testSyncConnection">测试连接</UiButton>
-                      <UiButton size="sm" variant="secondary" @click="logoutSyncServer">退出并解绑当前设备</UiButton>
+                      <UiButton size="sm" variant="primary" @click="loginSyncServer"
+                        >登录并绑定当前设备</UiButton
+                      >
+                      <UiButton size="sm" variant="primary" @click="saveSyncServerConfig"
+                        >保存后端配置</UiButton
+                      >
+                      <UiButton size="sm" variant="secondary" @click="testSyncConnection"
+                        >测试连接</UiButton
+                      >
+                      <UiButton size="sm" variant="secondary" @click="logoutSyncServer"
+                        >退出并解绑当前设备</UiButton
+                      >
                     </div>
                   </div>
                 </div>
@@ -3929,22 +4761,42 @@ function scriptTypeLabel(type: string) {
                   </div>
                   <div class="settings-row__control settings-row__control--wide">
                     <div v-if="syncStore.profiles.length" class="sync-profile-list">
-                      <article v-for="profile in syncStore.profiles" :key="profile.profileId" class="sync-profile-item">
+                      <article
+                        v-for="profile in syncStore.profiles"
+                        :key="profile.profileId"
+                        class="sync-profile-item"
+                      >
                         <div class="sync-profile-item__main">
                           <strong>{{ profile.profileName }}</strong>
-                          <small>{{ profile.ownerDeviceName }} · {{ new Date(profile.updatedAt).toLocaleString()
-                            }}</small>
-                          <small class="settings-badge settings-badge--code">{{ profile.profileId }}</small>
+                          <small
+                            >{{ profile.ownerDeviceName }} ·
+                            {{ new Date(profile.updatedAt).toLocaleString() }}</small
+                          >
+                          <small class="settings-badge settings-badge--code">{{
+                            profile.profileId
+                          }}</small>
                         </div>
                         <div class="sync-profile-item__actions">
-                          <span v-if="profile.isActive" class="settings-badge settings-badge--accent">当前</span>
+                          <span
+                            v-if="profile.isActive"
+                            class="settings-badge settings-badge--accent"
+                            >当前</span
+                          >
                           <span v-if="profile.isDefault" class="settings-badge">默认</span>
-                          <UiButton size="sm" variant="secondary" :disabled="profile.isActive"
-                            @click="applySyncProfile(profile.profileId)">
+                          <UiButton
+                            size="sm"
+                            variant="secondary"
+                            :disabled="profile.isActive"
+                            @click="applySyncProfile(profile.profileId)"
+                          >
                             应用
                           </UiButton>
-                          <UiButton size="sm" variant="ghost" :disabled="profile.isDefault"
-                            @click="setDefaultSyncProfile(profile.profileId)">
+                          <UiButton
+                            size="sm"
+                            variant="ghost"
+                            :disabled="profile.isDefault"
+                            @click="setDefaultSyncProfile(profile.profileId)"
+                          >
                             设为默认
                           </UiButton>
                         </div>
@@ -3966,21 +4818,38 @@ function scriptTypeLabel(type: string) {
                   </div>
                   <div class="settings-row__control settings-row__control--wide">
                     <div v-if="syncStore.conflicts.length" class="sync-profile-list">
-                      <article v-for="conflict in syncStore.conflicts" :key="conflict.conflictId"
-                        class="sync-profile-item">
+                      <article
+                        v-for="conflict in syncStore.conflicts"
+                        :key="conflict.conflictId"
+                        class="sync-profile-item"
+                      >
                         <div class="sync-profile-item__main">
                           <strong>{{ conflict.title }}</strong>
                           <small>{{ conflict.collection }} · {{ conflict.objectId }}</small>
-                          <small>本机 {{ new Date(conflict.localUpdatedAt).toLocaleString() }} · 远端 {{ new
-                            Date(conflict.remoteUpdatedAt).toLocaleString() }}</small>
+                          <small
+                            >本机 {{ new Date(conflict.localUpdatedAt).toLocaleString() }} · 远端
+                            {{ new Date(conflict.remoteUpdatedAt).toLocaleString() }}</small
+                          >
                         </div>
                         <div class="sync-profile-item__actions">
-                          <UiButton size="sm" variant="secondary"
-                            @click="syncStore.resolveConflict(conflict.conflictId, 'use-local')">使用本机</UiButton>
-                          <UiButton size="sm" variant="secondary"
-                            @click="syncStore.resolveConflict(conflict.conflictId, 'use-remote')">使用远端</UiButton>
-                          <UiButton size="sm" variant="ghost"
-                            @click="syncStore.resolveConflict(conflict.conflictId, 'keep-both')">保留两份</UiButton>
+                          <UiButton
+                            size="sm"
+                            variant="secondary"
+                            @click="syncStore.resolveConflict(conflict.conflictId, 'use-local')"
+                            >使用本机</UiButton
+                          >
+                          <UiButton
+                            size="sm"
+                            variant="secondary"
+                            @click="syncStore.resolveConflict(conflict.conflictId, 'use-remote')"
+                            >使用远端</UiButton
+                          >
+                          <UiButton
+                            size="sm"
+                            variant="ghost"
+                            @click="syncStore.resolveConflict(conflict.conflictId, 'keep-both')"
+                            >保留两份</UiButton
+                          >
                         </div>
                       </article>
                     </div>
@@ -3993,35 +4862,62 @@ function scriptTypeLabel(type: string) {
 
           <UiDrawer v-model="syncBoundaryDrawerVisible" class="sync-boundary-drawer" width="520px">
             <template #header>
-              <UiPanelHeader title="同步边界" subtitle="WebDAV 和自建后端共用同一套同步内容与规则" />
+              <UiPanelHeader
+                title="同步边界"
+                subtitle="WebDAV 和自建后端共用同一套同步内容与规则"
+              />
             </template>
 
             <div class="sync-boundary-drawer__body">
               <section class="sync-boundary-drawer__section">
                 <div class="sync-boundary-drawer__section-head">
                   <h3>待同步明细</h3>
-                  <p>当前共有 {{ syncStore.pendingItems.length }} 条本机待上传变更，列表按固定行高虚拟渲染。</p>
+                  <p>
+                    当前共有
+                    {{ syncStore.pendingItems.length }} 条本机待上传变更，列表按固定行高虚拟渲染。
+                  </p>
                 </div>
 
                 <div v-if="syncPendingCollectionCounts.length" class="sync-pending-counts">
-                  <span v-for="item in syncPendingCollectionCounts" :key="item.collection" class="settings-badge">
+                  <span
+                    v-for="item in syncPendingCollectionCounts"
+                    :key="item.collection"
+                    class="settings-badge"
+                  >
                     {{ item.collection }}：{{ item.count }}
                   </span>
                 </div>
 
-                <div v-if="syncStore.pendingItems.length" ref="syncPendingVirtualListRef"
-                  class="sync-pending-virtual-list" @scroll="handleSyncPendingVirtualScroll">
-                  <div class="sync-pending-virtual-list__spacer" :style="{ height: `${syncPendingTotalHeight}px` }">
-                    <div class="sync-pending-virtual-list__items"
-                      :style="{ transform: `translateY(${syncPendingVirtualOffsetY}px)` }">
-                      <article v-for="item in syncPendingVisibleItems" :key="item.id" class="sync-pending-row">
+                <div
+                  v-if="syncStore.pendingItems.length"
+                  ref="syncPendingVirtualListRef"
+                  class="sync-pending-virtual-list"
+                  @scroll="handleSyncPendingVirtualScroll"
+                >
+                  <div
+                    class="sync-pending-virtual-list__spacer"
+                    :style="{ height: `${syncPendingTotalHeight}px` }"
+                  >
+                    <div
+                      class="sync-pending-virtual-list__items"
+                      :style="{ transform: `translateY(${syncPendingVirtualOffsetY}px)` }"
+                    >
+                      <article
+                        v-for="item in syncPendingVisibleItems"
+                        :key="item.id"
+                        class="sync-pending-row"
+                      >
                         <div class="sync-pending-row__main">
                           <strong>{{ item.title }}</strong>
                           <small>{{ item.collection }} · {{ item.objectId }}</small>
                           <div class="sync-pending-row__sizes">
                             <span>对象 {{ formatSyncBytes(item.payloadBytes) }}</span>
-                            <span v-if="item.requestBytes">请求 {{ formatSyncBytes(item.requestBytes) }}</span>
-                            <span v-if="item.assetFileBytes">文件 {{ formatSyncBytes(item.assetFileBytes) }}</span>
+                            <span v-if="item.requestBytes"
+                              >请求 {{ formatSyncBytes(item.requestBytes) }}</span
+                            >
+                            <span v-if="item.assetFileBytes"
+                              >文件 {{ formatSyncBytes(item.assetFileBytes) }}</span
+                            >
                           </div>
                           <small v-if="item.assetStoragePath" class="sync-pending-row__path">
                             本地 {{ item.assetStoragePath }}
@@ -4034,7 +4930,9 @@ function scriptTypeLabel(type: string) {
                           </small>
                         </div>
                         <div class="sync-pending-row__meta">
-                          <span class="settings-badge">{{ syncPendingOperationLabel(item.operation) }}</span>
+                          <span class="settings-badge">{{
+                            syncPendingOperationLabel(item.operation)
+                          }}</span>
                           <small>{{ formatSyncPendingTime(item.updatedAt) }}</small>
                           <small v-if="item.retryCount > 0">重试 {{ item.retryCount }}</small>
                         </div>
@@ -4045,8 +4943,11 @@ function scriptTypeLabel(type: string) {
                 <p v-else class="settings-muted-empty">暂无待同步内容</p>
               </section>
 
-              <section v-for="section in syncBoundarySections" :key="section.title"
-                class="sync-boundary-drawer__section">
+              <section
+                v-for="section in syncBoundarySections"
+                :key="section.title"
+                class="sync-boundary-drawer__section"
+              >
                 <div class="sync-boundary-drawer__section-head">
                   <h3>{{ section.title }}</h3>
                   <p v-if="section.hint">{{ section.hint }}</p>
@@ -4058,8 +4959,11 @@ function scriptTypeLabel(type: string) {
             </div>
           </UiDrawer>
 
-          <section v-if="isSettingsTabRendered('knowledge')" key="knowledge" class="settings-section">
-
+          <section
+            v-if="isSettingsTabRendered('knowledge')"
+            key="knowledge"
+            class="settings-section"
+          >
             <div class="section-head section-head--standalone">
               <h2>知识库</h2>
               <p>配置默认库、附件保存策略、索引和预览缓存。</p>
@@ -4074,8 +4978,11 @@ function scriptTypeLabel(type: string) {
                     <small>未指定库的导入、粘贴附件会优先写入这里。</small>
                   </div>
                   <div class="settings-row__control settings-row__control--wide">
-                    <UiSelect :model-value="appConfigStore.config.features.knowledge.defaultLibraryId"
-                      :options="knowledgeLibraryOptions" @update:modelValue="updateKnowledgeDefaultLibrary" />
+                    <UiSelect
+                      :model-value="appConfigStore.config.features.knowledge.defaultLibraryId"
+                      :options="knowledgeLibraryOptions"
+                      @update:modelValue="updateKnowledgeDefaultLibrary"
+                    />
                   </div>
                 </div>
                 <div class="settings-row">
@@ -4084,8 +4991,11 @@ function scriptTypeLabel(type: string) {
                     <small>{{ knowledgeIndexingSummary }}</small>
                   </div>
                   <div class="settings-row__control settings-row__control--switch">
-                    <UiCheckbox size="sm" :checked="appConfigStore.config.features.knowledge.indexingEnabled"
-                      @change="toggleKnowledgeIndexing" />
+                    <UiCheckbox
+                      size="sm"
+                      :checked="appConfigStore.config.features.knowledge.indexingEnabled"
+                      @change="toggleKnowledgeIndexing"
+                    />
                   </div>
                 </div>
                 <div class="settings-row">
@@ -4094,9 +5004,15 @@ function scriptTypeLabel(type: string) {
                     <small>超过上限的文件会被跳过，避免抽取或复制拖慢应用。</small>
                   </div>
                   <div class="settings-row__control settings-row__control--compact">
-                    <UiInput v-model="knowledgeMaxImportFileSizeMbInput" type="number" :min="1" :max="10240"
-                      @blur="commitKnowledgeMaxImportSize" @change="commitKnowledgeMaxImportSize"
-                      @keydown.enter.prevent="commitKnowledgeMaxImportSize" />
+                    <UiInput
+                      v-model="knowledgeMaxImportFileSizeMbInput"
+                      type="number"
+                      :min="1"
+                      :max="10240"
+                      @blur="commitKnowledgeMaxImportSize"
+                      @change="commitKnowledgeMaxImportSize"
+                      @keydown.enter.prevent="commitKnowledgeMaxImportSize"
+                    />
                   </div>
                 </div>
               </section>
@@ -4109,8 +5025,11 @@ function scriptTypeLabel(type: string) {
                     <small>默认使用应用数据目录，自定义目录适合大体积资料库。</small>
                   </div>
                   <div class="settings-row__control settings-row__control--wide">
-                    <UiSelect :model-value="appConfigStore.config.features.knowledge.assetStorageMode"
-                      :options="knowledgeAssetStorageOptions" @update:modelValue="updateKnowledgeAssetStorageMode" />
+                    <UiSelect
+                      :model-value="appConfigStore.config.features.knowledge.assetStorageMode"
+                      :options="knowledgeAssetStorageOptions"
+                      @update:modelValue="updateKnowledgeAssetStorageMode"
+                    />
                   </div>
                 </div>
                 <div class="settings-row settings-row--wide">
@@ -4120,13 +5039,24 @@ function scriptTypeLabel(type: string) {
                   </div>
                   <div class="settings-row__control settings-row__control--wide">
                     <div class="ffmpeg-path-row">
-                      <div class="ffmpeg-path-display"
-                        :class="{ 'ffmpeg-path-display--empty': !knowledgeCustomAssetDirectoryInput }">
+                      <div
+                        class="ffmpeg-path-display"
+                        :class="{
+                          'ffmpeg-path-display--empty': !knowledgeCustomAssetDirectoryInput,
+                        }"
+                      >
                         {{ knowledgeCustomAssetDirectoryInput || '未配置' }}
                       </div>
-                      <UiButton variant="secondary" size="sm" @click="selectKnowledgeAssetDirectory">选择</UiButton>
-                      <UiButton v-if="knowledgeCustomAssetDirectoryInput" variant="danger" size="sm"
-                        @click="clearKnowledgeAssetDirectory">清除</UiButton>
+                      <UiButton variant="secondary" size="sm" @click="selectKnowledgeAssetDirectory"
+                        >选择</UiButton
+                      >
+                      <UiButton
+                        v-if="knowledgeCustomAssetDirectoryInput"
+                        variant="danger"
+                        size="sm"
+                        @click="clearKnowledgeAssetDirectory"
+                        >清除</UiButton
+                      >
                     </div>
                   </div>
                 </div>
@@ -4141,13 +5071,25 @@ function scriptTypeLabel(type: string) {
                   </div>
                   <div class="settings-row__control settings-row__control--wide">
                     <div class="ffmpeg-path-row">
-                      <div class="ffmpeg-path-display"
-                        :class="{ 'ffmpeg-path-display--empty': !knowledgeLibreOfficePathInput }">
+                      <div
+                        class="ffmpeg-path-display"
+                        :class="{ 'ffmpeg-path-display--empty': !knowledgeLibreOfficePathInput }"
+                      >
                         {{ knowledgeLibreOfficePathInput || '未配置' }}
                       </div>
-                      <UiButton variant="secondary" size="sm" @click="selectKnowledgeLibreOfficePath">选择</UiButton>
-                      <UiButton v-if="knowledgeLibreOfficePathInput" variant="danger" size="sm"
-                        @click="clearKnowledgeLibreOfficePath">清除</UiButton>
+                      <UiButton
+                        variant="secondary"
+                        size="sm"
+                        @click="selectKnowledgeLibreOfficePath"
+                        >选择</UiButton
+                      >
+                      <UiButton
+                        v-if="knowledgeLibreOfficePathInput"
+                        variant="danger"
+                        size="sm"
+                        @click="clearKnowledgeLibreOfficePath"
+                        >清除</UiButton
+                      >
                     </div>
                   </div>
                 </div>
@@ -4157,9 +5099,15 @@ function scriptTypeLabel(type: string) {
                     <small>{{ knowledgePreviewCacheSummary }}</small>
                   </div>
                   <div class="settings-row__control settings-row__control--compact">
-                    <UiInput v-model="knowledgePreviewCacheTtlDaysInput" type="number" :min="0" :max="3650"
-                      @blur="commitKnowledgePreviewCacheTtl" @change="commitKnowledgePreviewCacheTtl"
-                      @keydown.enter.prevent="commitKnowledgePreviewCacheTtl" />
+                    <UiInput
+                      v-model="knowledgePreviewCacheTtlDaysInput"
+                      type="number"
+                      :min="0"
+                      :max="3650"
+                      @blur="commitKnowledgePreviewCacheTtl"
+                      @change="commitKnowledgePreviewCacheTtl"
+                      @keydown.enter.prevent="commitKnowledgePreviewCacheTtl"
+                    />
                   </div>
                 </div>
                 <div class="settings-row">
@@ -4168,8 +5116,12 @@ function scriptTypeLabel(type: string) {
                     <small>只清理知识库预览缓存，不删除原始附件。</small>
                   </div>
                   <div class="settings-row__control">
-                    <UiButton variant="secondary" size="sm" :disabled="knowledgeClearingCache"
-                      @click="clearKnowledgePreviewCache">
+                    <UiButton
+                      variant="secondary"
+                      size="sm"
+                      :disabled="knowledgeClearingCache"
+                      @click="clearKnowledgePreviewCache"
+                    >
                       {{ knowledgeClearingCache ? '清理中' : '立即清理' }}
                     </UiButton>
                   </div>
@@ -4178,7 +5130,11 @@ function scriptTypeLabel(type: string) {
             </div>
           </section>
 
-          <section v-if="isSettingsTabRendered('quick-launch')" key="quick-launch" class="settings-section">
+          <section
+            v-if="isSettingsTabRendered('quick-launch')"
+            key="quick-launch"
+            class="settings-section"
+          >
             <div class="section-head section-head--standalone">
               <h2>快速启动</h2>
               <p>配置全局唤起、显示行为、搜索结果数量、搜索源和 Everything 文件搜索。</p>
@@ -4193,8 +5149,10 @@ function scriptTypeLabel(type: string) {
                     <small>关闭后全局快捷键不会唤出快速启动窗口。</small>
                   </div>
                   <div class="settings-row__control settings-row__control--switch">
-                    <UiCheckbox :checked="appConfigStore.config.features.quickLaunch.enabled"
-                      @change="toggleQuickLaunchEnabled" />
+                    <UiCheckbox
+                      :checked="appConfigStore.config.features.quickLaunch.enabled"
+                      @change="toggleQuickLaunchEnabled"
+                    />
                   </div>
                 </div>
                 <div class="settings-row">
@@ -4203,8 +5161,10 @@ function scriptTypeLabel(type: string) {
                     <small>窗口失去焦点时自动隐藏，适合命令面板式操作。</small>
                   </div>
                   <div class="settings-row__control settings-row__control--switch">
-                    <UiCheckbox :checked="appConfigStore.config.features.quickLaunch.hideOnBlur"
-                      @change="toggleQuickLaunchHideOnBlur" />
+                    <UiCheckbox
+                      :checked="appConfigStore.config.features.quickLaunch.hideOnBlur"
+                      @change="toggleQuickLaunchHideOnBlur"
+                    />
                   </div>
                 </div>
                 <div class="settings-row">
@@ -4213,9 +5173,16 @@ function scriptTypeLabel(type: string) {
                     <small>限制每次搜索展示的总结果数量，范围 4-50。</small>
                   </div>
                   <div class="settings-row__control settings-row__control--compact">
-                    <UiInput v-model="quickLaunchMaxResultsInput" type="number" :min="4" :max="50" size="sm"
-                      @blur="commitQuickLaunchMaxResults" @change="commitQuickLaunchMaxResults"
-                      @keydown.enter.prevent="commitQuickLaunchMaxResults" />
+                    <UiInput
+                      v-model="quickLaunchMaxResultsInput"
+                      type="number"
+                      :min="4"
+                      :max="50"
+                      size="sm"
+                      @blur="commitQuickLaunchMaxResults"
+                      @change="commitQuickLaunchMaxResults"
+                      @keydown.enter.prevent="commitQuickLaunchMaxResults"
+                    />
                   </div>
                 </div>
               </section>
@@ -4230,18 +5197,33 @@ function scriptTypeLabel(type: string) {
                   <div class="settings-row__control settings-row__control--wide">
                     <div class="quick-launch-background-control">
                       <span class="quick-launch-background-preview">
-                        <span class="quick-launch-background-preview__fill"
-                          :style="quickLaunchBackgroundPreviewStyle" />
+                        <span
+                          class="quick-launch-background-preview__fill"
+                          :style="quickLaunchBackgroundPreviewStyle"
+                        />
                       </span>
                       <span class="quick-launch-background-control__meta">
                         <strong>{{ quickLaunchBackgroundSummary }}</strong>
-                        <small>{{ appConfigStore.config.appearance.theme === 'dark' ? '暗色主题配置' : '亮色主题配置' }}</small>
+                        <small>{{
+                          appConfigStore.config.appearance.theme === 'dark'
+                            ? '暗色主题配置'
+                            : '亮色主题配置'
+                        }}</small>
                       </span>
-                      <UiButton type="button" variant="secondary" size="sm"
-                        @click="quickLaunchBackgroundPickerVisible = true">
+                      <UiButton
+                        type="button"
+                        variant="secondary"
+                        size="sm"
+                        @click="quickLaunchBackgroundPickerVisible = true"
+                      >
                         配置
                       </UiButton>
-                      <UiButton type="button" variant="ghost" size="sm" @click="resetQuickLaunchBackground">
+                      <UiButton
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        @click="resetQuickLaunchBackground"
+                      >
                         重置
                       </UiButton>
                     </div>
@@ -4253,9 +5235,15 @@ function scriptTypeLabel(type: string) {
                     <small>调整快速启动窗口表面的透明度，不影响背景图片或视频自身透明度。</small>
                   </div>
                   <div class="settings-row__control">
-                    <UiSliderField v-model="quickLaunchWindowOpacityInput" :min="0.2" :max="1" :step="0.01"
-                      :value-text="quickLaunchWindowOpacityLabel" aria-label="快速启动窗口透明度"
-                      @change="commitQuickLaunchWindowOpacity" />
+                    <UiSliderField
+                      v-model="quickLaunchWindowOpacityInput"
+                      :min="0.2"
+                      :max="1"
+                      :step="0.01"
+                      :value-text="quickLaunchWindowOpacityLabel"
+                      aria-label="快速启动窗口透明度"
+                      @change="commitQuickLaunchWindowOpacity"
+                    />
                   </div>
                 </div>
                 <div class="settings-row">
@@ -4265,11 +5253,20 @@ function scriptTypeLabel(type: string) {
                   </div>
                   <div class="settings-row__control">
                     <div class="quick-launch-color-control">
-                      <input v-model="quickLaunchSelectionColorInput" class="quick-launch-color-input" type="color"
-                        aria-label="快速启动选中状态颜色" @change="commitQuickLaunchSelectionColor">
-                      <UiInput v-model="quickLaunchSelectionColorInput" size="sm" spellcheck="false"
+                      <input
+                        v-model="quickLaunchSelectionColorInput"
+                        class="quick-launch-color-input"
+                        type="color"
+                        aria-label="快速启动选中状态颜色"
+                        @change="commitQuickLaunchSelectionColor"
+                      />
+                      <UiInput
+                        v-model="quickLaunchSelectionColorInput"
+                        size="sm"
+                        spellcheck="false"
                         @blur="commitQuickLaunchSelectionColor"
-                        @keydown.enter.prevent="commitQuickLaunchSelectionColor" />
+                        @keydown.enter.prevent="commitQuickLaunchSelectionColor"
+                      />
                     </div>
                   </div>
                 </div>
@@ -4279,9 +5276,15 @@ function scriptTypeLabel(type: string) {
                     <small>控制结果高亮的覆盖强度，默认是轻量透明蓝。</small>
                   </div>
                   <div class="settings-row__control">
-                    <UiSliderField v-model="quickLaunchSelectionOpacityInput" :min="0" :max="1" :step="0.01"
-                      :value-text="quickLaunchSelectionOpacityLabel" aria-label="快速启动选中状态透明度"
-                      @change="commitQuickLaunchSelectionOpacity" />
+                    <UiSliderField
+                      v-model="quickLaunchSelectionOpacityInput"
+                      :min="0"
+                      :max="1"
+                      :step="0.01"
+                      :value-text="quickLaunchSelectionOpacityLabel"
+                      aria-label="快速启动选中状态透明度"
+                      @change="commitQuickLaunchSelectionOpacity"
+                    />
                   </div>
                 </div>
                 <div class="settings-row">
@@ -4291,11 +5294,20 @@ function scriptTypeLabel(type: string) {
                   </div>
                   <div class="settings-row__control">
                     <div class="quick-launch-color-control">
-                      <input v-model="quickLaunchResultTitleColorInput" class="quick-launch-color-input" type="color"
-                        aria-label="快速启动结果标题颜色" @change="commitQuickLaunchResultTitleColor">
-                      <UiInput v-model="quickLaunchResultTitleColorInput" size="sm" spellcheck="false"
+                      <input
+                        v-model="quickLaunchResultTitleColorInput"
+                        class="quick-launch-color-input"
+                        type="color"
+                        aria-label="快速启动结果标题颜色"
+                        @change="commitQuickLaunchResultTitleColor"
+                      />
+                      <UiInput
+                        v-model="quickLaunchResultTitleColorInput"
+                        size="sm"
+                        spellcheck="false"
                         @blur="commitQuickLaunchResultTitleColor"
-                        @keydown.enter.prevent="commitQuickLaunchResultTitleColor" />
+                        @keydown.enter.prevent="commitQuickLaunchResultTitleColor"
+                      />
                     </div>
                   </div>
                 </div>
@@ -4306,11 +5318,20 @@ function scriptTypeLabel(type: string) {
                   </div>
                   <div class="settings-row__control">
                     <div class="quick-launch-color-control">
-                      <input v-model="quickLaunchResultSubtitleColorInput" class="quick-launch-color-input" type="color"
-                        aria-label="快速启动结果副标题颜色" @change="commitQuickLaunchResultSubtitleColor">
-                      <UiInput v-model="quickLaunchResultSubtitleColorInput" size="sm" spellcheck="false"
+                      <input
+                        v-model="quickLaunchResultSubtitleColorInput"
+                        class="quick-launch-color-input"
+                        type="color"
+                        aria-label="快速启动结果副标题颜色"
+                        @change="commitQuickLaunchResultSubtitleColor"
+                      />
+                      <UiInput
+                        v-model="quickLaunchResultSubtitleColorInput"
+                        size="sm"
+                        spellcheck="false"
                         @blur="commitQuickLaunchResultSubtitleColor"
-                        @keydown.enter.prevent="commitQuickLaunchResultSubtitleColor" />
+                        @keydown.enter.prevent="commitQuickLaunchResultSubtitleColor"
+                      />
                     </div>
                   </div>
                 </div>
@@ -4325,11 +5346,20 @@ function scriptTypeLabel(type: string) {
                   </div>
                   <div class="settings-row__control settings-row__control--wide">
                     <div class="quick-launch-provider-list">
-                      <label v-for="provider in quickLaunchProviderOptions" :key="provider.value"
-                        class="quick-launch-provider-item">
-                        <UiCheckbox size="sm"
-                          :checked="appConfigStore.config.features.quickLaunch.enabledProviders.includes(provider.value)"
-                          @change="toggleQuickLaunchProvider(provider.value, $event)" />
+                      <label
+                        v-for="provider in quickLaunchProviderOptions"
+                        :key="provider.value"
+                        class="quick-launch-provider-item"
+                      >
+                        <UiCheckbox
+                          size="sm"
+                          :checked="
+                            appConfigStore.config.features.quickLaunch.enabledProviders.includes(
+                              provider.value
+                            )
+                          "
+                          @change="toggleQuickLaunchProvider(provider.value, $event)"
+                        />
                         <span>{{ provider.label }}</span>
                       </label>
                     </div>
@@ -4342,20 +5372,35 @@ function scriptTypeLabel(type: string) {
                   </div>
                   <div class="settings-row__control settings-row__control--wide">
                     <div class="quick-launch-es-path">
-                      <UiInput v-model="quickLaunchEverythingEsPathInput" size="sm"
-                        placeholder="留空自动探测 PATH 或常见安装目录中的 es.exe" @blur="commitQuickLaunchEverythingEsPath"
+                      <UiInput
+                        v-model="quickLaunchEverythingEsPathInput"
+                        size="sm"
+                        placeholder="留空自动探测 PATH 或常见安装目录中的 es.exe"
+                        @blur="commitQuickLaunchEverythingEsPath"
                         @change="commitQuickLaunchEverythingEsPath"
-                        @keydown.enter.prevent="commitQuickLaunchEverythingEsPath" />
-                      <UiButton type="button" variant="secondary" size="sm" @click="selectQuickLaunchEverythingEsPath">
+                        @keydown.enter.prevent="commitQuickLaunchEverythingEsPath"
+                      />
+                      <UiButton
+                        type="button"
+                        variant="secondary"
+                        size="sm"
+                        @click="selectQuickLaunchEverythingEsPath"
+                      >
                         选择
                       </UiButton>
-                      <UiButton type="button" variant="ghost" size="sm" :disabled="!quickLaunchEverythingEsPathInput"
-                        @click="clearQuickLaunchEverythingEsPath">
+                      <UiButton
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        :disabled="!quickLaunchEverythingEsPathInput"
+                        @click="clearQuickLaunchEverythingEsPath"
+                      >
                         清除
                       </UiButton>
                     </div>
                     <p class="quick-launch-es-path__hint">
-                      缺失时 QuickLaunch 会提示确认是否已安装 Everything 应用和命令行 ES；配置后按 Ctrl+R 可刷新快速启动索引。
+                      缺失时 QuickLaunch 会提示确认是否已安装 Everything 应用和命令行 ES；配置后按
+                      Ctrl+R 可刷新快速启动索引。
                     </p>
                   </div>
                 </div>
@@ -4363,7 +5408,11 @@ function scriptTypeLabel(type: string) {
             </div>
           </section>
 
-          <section v-if="isSettingsTabRendered('shortcuts')" key="shortcuts" class="settings-section">
+          <section
+            v-if="isSettingsTabRendered('shortcuts')"
+            key="shortcuts"
+            class="settings-section"
+          >
             <div class="section-head section-head--standalone">
               <h2>快捷键</h2>
               <p>配置终端、速记窗口和系统级显示隐藏快捷键。</p>
@@ -4378,9 +5427,11 @@ function scriptTypeLabel(type: string) {
                     <small>终端聚焦时生效，默认 Ctrl+Shift+C。</small>
                   </div>
                   <div class="settings-row__control settings-row__control--wide">
-                    <ShortcutRecorder :model-value="appConfigStore.config.shortcuts.internal.terminalCopy"
+                    <ShortcutRecorder
+                      :model-value="appConfigStore.config.shortcuts.internal.terminalCopy"
                       :default-value="defaultShortcuts.internal.terminalCopy"
-                      @update:modelValue="updateInternalShortcut('terminalCopy', $event)" />
+                      @update:modelValue="updateInternalShortcut('terminalCopy', $event)"
+                    />
                   </div>
                 </div>
                 <div class="settings-row">
@@ -4389,9 +5440,11 @@ function scriptTypeLabel(type: string) {
                     <small>终端聚焦时生效，默认 Ctrl+Shift+V。</small>
                   </div>
                   <div class="settings-row__control settings-row__control--wide">
-                    <ShortcutRecorder :model-value="appConfigStore.config.shortcuts.internal.terminalPaste"
+                    <ShortcutRecorder
+                      :model-value="appConfigStore.config.shortcuts.internal.terminalPaste"
                       :default-value="defaultShortcuts.internal.terminalPaste"
-                      @update:modelValue="updateInternalShortcut('terminalPaste', $event)" />
+                      @update:modelValue="updateInternalShortcut('terminalPaste', $event)"
+                    />
                   </div>
                 </div>
               </section>
@@ -4404,9 +5457,11 @@ function scriptTypeLabel(type: string) {
                     <small>速记窗口聚焦时生效，默认 Ctrl+S。</small>
                   </div>
                   <div class="settings-row__control settings-row__control--wide">
-                    <ShortcutRecorder :model-value="appConfigStore.config.shortcuts.internal.quickNoteSave"
+                    <ShortcutRecorder
+                      :model-value="appConfigStore.config.shortcuts.internal.quickNoteSave"
                       :default-value="defaultShortcuts.internal.quickNoteSave"
-                      @update:modelValue="updateInternalShortcut('quickNoteSave', $event)" />
+                      @update:modelValue="updateInternalShortcut('quickNoteSave', $event)"
+                    />
                   </div>
                 </div>
                 <div class="settings-row">
@@ -4415,9 +5470,11 @@ function scriptTypeLabel(type: string) {
                     <small>清空当前草稿并开始新记录，默认 Ctrl+N。</small>
                   </div>
                   <div class="settings-row__control settings-row__control--wide">
-                    <ShortcutRecorder :model-value="appConfigStore.config.shortcuts.internal.quickNoteNew"
+                    <ShortcutRecorder
+                      :model-value="appConfigStore.config.shortcuts.internal.quickNoteNew"
                       :default-value="defaultShortcuts.internal.quickNoteNew"
-                      @update:modelValue="updateInternalShortcut('quickNoteNew', $event)" />
+                      @update:modelValue="updateInternalShortcut('quickNoteNew', $event)"
+                    />
                   </div>
                 </div>
                 <div class="settings-row">
@@ -4426,9 +5483,11 @@ function scriptTypeLabel(type: string) {
                     <small>在编辑窗口和标题条之间切换，默认 Ctrl+M。</small>
                   </div>
                   <div class="settings-row__control settings-row__control--wide">
-                    <ShortcutRecorder :model-value="appConfigStore.config.shortcuts.internal.quickNoteCollapse"
+                    <ShortcutRecorder
+                      :model-value="appConfigStore.config.shortcuts.internal.quickNoteCollapse"
                       :default-value="defaultShortcuts.internal.quickNoteCollapse"
-                      @update:modelValue="updateInternalShortcut('quickNoteCollapse', $event)" />
+                      @update:modelValue="updateInternalShortcut('quickNoteCollapse', $event)"
+                    />
                   </div>
                 </div>
                 <div class="settings-row">
@@ -4437,9 +5496,11 @@ function scriptTypeLabel(type: string) {
                     <small>隐藏速记窗口，默认 Escape。</small>
                   </div>
                   <div class="settings-row__control settings-row__control--wide">
-                    <ShortcutRecorder :model-value="appConfigStore.config.shortcuts.internal.quickNoteClose"
+                    <ShortcutRecorder
+                      :model-value="appConfigStore.config.shortcuts.internal.quickNoteClose"
                       :default-value="defaultShortcuts.internal.quickNoteClose"
-                      @update:modelValue="updateInternalShortcut('quickNoteClose', $event)" />
+                      @update:modelValue="updateInternalShortcut('quickNoteClose', $event)"
+                    />
                   </div>
                 </div>
               </section>
@@ -4453,13 +5514,21 @@ function scriptTypeLabel(type: string) {
                   </div>
                   <div class="settings-row__control settings-row__control--wide">
                     <div class="quick-launch-shortcut-map" aria-label="快速启动窗口快捷键">
-                      <section v-for="group in quickLaunchWindowShortcutGroups" :key="group.title"
-                        class="quick-launch-shortcut-map__group">
+                      <section
+                        v-for="group in quickLaunchWindowShortcutGroups"
+                        :key="group.title"
+                        class="quick-launch-shortcut-map__group"
+                      >
                         <h4 class="quick-launch-shortcut-map__title">{{ group.title }}</h4>
                         <div class="quick-launch-shortcut-map__list">
-                          <div v-for="shortcut in group.shortcuts" :key="`${group.title}:${shortcut.label}`"
-                            class="quick-launch-shortcut-map__row">
-                            <span class="quick-launch-shortcut-map__label">{{ shortcut.label }}</span>
+                          <div
+                            v-for="shortcut in group.shortcuts"
+                            :key="`${group.title}:${shortcut.label}`"
+                            class="quick-launch-shortcut-map__row"
+                          >
+                            <span class="quick-launch-shortcut-map__label">{{
+                              shortcut.label
+                            }}</span>
                             <kbd class="quick-launch-shortcut-map__keys">{{ shortcut.keys }}</kbd>
                           </div>
                         </div>
@@ -4477,8 +5546,12 @@ function scriptTypeLabel(type: string) {
                       <strong>系统快捷键占用检测</strong>
                       <small>检测本应用注册状态，并探测当前平台常见全局快捷键占用。</small>
                     </div>
-                    <UiButton variant="secondary" size="sm" :disabled="shortcutInspectionLoading"
-                      @click="refreshSystemShortcutInspection">
+                    <UiButton
+                      variant="secondary"
+                      size="sm"
+                      :disabled="shortcutInspectionLoading"
+                      @click="refreshSystemShortcutInspection"
+                    >
                       {{ shortcutInspectionLoading ? '检测中' : '重新检测' }}
                     </UiButton>
                   </div>
@@ -4489,10 +5562,15 @@ function scriptTypeLabel(type: string) {
                     <span>{{ shortcutInspectionTimeText }}</span>
                   </div>
                   <div v-if="highlightedCommonShortcutProbes.length" class="shortcut-probe-list">
-                    <span v-for="probe in highlightedCommonShortcutProbes" :key="probe.id" class="shortcut-probe-chip"
-                      :class="`shortcut-probe-chip--${probe.status}`" :title="probe.message">
-                      {{ probe.label }} · {{ probe.normalizedAccelerator || probe.accelerator }} · {{
-                      shortcutStatusText(probe.status) }}
+                    <span
+                      v-for="probe in highlightedCommonShortcutProbes"
+                      :key="probe.id"
+                      class="shortcut-probe-chip"
+                      :class="`shortcut-probe-chip--${probe.status}`"
+                      :title="probe.message"
+                    >
+                      {{ probe.label }} · {{ probe.normalizedAccelerator || probe.accelerator }} ·
+                      {{ shortcutStatusText(probe.status) }}
                     </span>
                   </div>
                 </div>
@@ -4502,18 +5580,28 @@ function scriptTypeLabel(type: string) {
                     <small>系统级快捷键，保存到 SQLite 后立即重新注册。</small>
                   </div>
                   <div class="settings-row__control settings-row__control--wide">
-                    <ShortcutRecorder :model-value="appConfigStore.config.shortcuts.system.toggleAppVisibility"
+                    <ShortcutRecorder
+                      :model-value="appConfigStore.config.shortcuts.system.toggleAppVisibility"
                       :default-value="defaultShortcuts.system.toggleAppVisibility"
-                      @update:modelValue="updateSystemShortcut('toggleAppVisibility', $event)" />
+                      @update:modelValue="updateSystemShortcut('toggleAppVisibility', $event)"
+                    />
                     <div class="shortcut-status-row">
-                      <p class="shortcut-status"
-                        :class="`shortcut-status--${getSystemShortcutStatus('toggleAppVisibility') || 'pending'}`">
+                      <p
+                        class="shortcut-status"
+                        :class="`shortcut-status--${getSystemShortcutStatus('toggleAppVisibility') || 'pending'}`"
+                      >
                         {{ shortcutStatusText(getSystemShortcutStatus('toggleAppVisibility')) }}：{{
-                          getSystemShortcutMessage('toggleAppVisibility') || '等待检测结果。' }}
+                          getSystemShortcutMessage('toggleAppVisibility') || '等待检测结果。'
+                        }}
                       </p>
-                      <UiButton v-if="canRetrySystemShortcut('toggleAppVisibility')" type="button" variant="ghost"
-                        size="sm" :disabled="Boolean(shortcutRetryingKeys.toggleAppVisibility)"
-                        @click="retrySystemShortcut('toggleAppVisibility')">
+                      <UiButton
+                        v-if="canRetrySystemShortcut('toggleAppVisibility')"
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        :disabled="Boolean(shortcutRetryingKeys.toggleAppVisibility)"
+                        @click="retrySystemShortcut('toggleAppVisibility')"
+                      >
                         {{ shortcutRetryingKeys.toggleAppVisibility ? '正在注册' : '重新注册' }}
                       </UiButton>
                     </div>
@@ -4525,18 +5613,28 @@ function scriptTypeLabel(type: string) {
                     <small>系统级快捷键，默认 Alt+Space 唤出搜索面板。</small>
                   </div>
                   <div class="settings-row__control settings-row__control--wide">
-                    <ShortcutRecorder :model-value="appConfigStore.config.shortcuts.system.toggleQuickLaunch"
+                    <ShortcutRecorder
+                      :model-value="appConfigStore.config.shortcuts.system.toggleQuickLaunch"
                       :default-value="defaultShortcuts.system.toggleQuickLaunch"
-                      @update:modelValue="updateSystemShortcut('toggleQuickLaunch', $event)" />
+                      @update:modelValue="updateSystemShortcut('toggleQuickLaunch', $event)"
+                    />
                     <div class="shortcut-status-row">
-                      <p class="shortcut-status"
-                        :class="`shortcut-status--${getSystemShortcutStatus('toggleQuickLaunch') || 'pending'}`">
+                      <p
+                        class="shortcut-status"
+                        :class="`shortcut-status--${getSystemShortcutStatus('toggleQuickLaunch') || 'pending'}`"
+                      >
                         {{ shortcutStatusText(getSystemShortcutStatus('toggleQuickLaunch')) }}：{{
-                          getSystemShortcutMessage('toggleQuickLaunch') || '等待检测结果。' }}
+                          getSystemShortcutMessage('toggleQuickLaunch') || '等待检测结果。'
+                        }}
                       </p>
-                      <UiButton v-if="canRetrySystemShortcut('toggleQuickLaunch')" type="button" variant="ghost"
-                        size="sm" :disabled="Boolean(shortcutRetryingKeys.toggleQuickLaunch)"
-                        @click="retrySystemShortcut('toggleQuickLaunch')">
+                      <UiButton
+                        v-if="canRetrySystemShortcut('toggleQuickLaunch')"
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        :disabled="Boolean(shortcutRetryingKeys.toggleQuickLaunch)"
+                        @click="retrySystemShortcut('toggleQuickLaunch')"
+                      >
                         {{ shortcutRetryingKeys.toggleQuickLaunch ? '正在注册' : '重新注册' }}
                       </UiButton>
                     </div>
@@ -4548,19 +5646,37 @@ function scriptTypeLabel(type: string) {
                     <small>系统级快捷键，默认 Alt+V 唤出右下角窗口。</small>
                   </div>
                   <div class="settings-row__control settings-row__control--wide">
-                    <ShortcutRecorder :model-value="appConfigStore.config.shortcuts.system.toggleMultiDeviceClipboard"
+                    <ShortcutRecorder
+                      :model-value="
+                        appConfigStore.config.shortcuts.system.toggleMultiDeviceClipboard
+                      "
                       :default-value="defaultShortcuts.system.toggleMultiDeviceClipboard"
-                      @update:modelValue="updateSystemShortcut('toggleMultiDeviceClipboard', $event)" />
+                      @update:modelValue="
+                        updateSystemShortcut('toggleMultiDeviceClipboard', $event)
+                      "
+                    />
                     <div class="shortcut-status-row">
-                      <p class="shortcut-status"
-                        :class="`shortcut-status--${getSystemShortcutStatus('toggleMultiDeviceClipboard') || 'pending'}`">
-                        {{ shortcutStatusText(getSystemShortcutStatus('toggleMultiDeviceClipboard')) }}：{{
-                          getSystemShortcutMessage('toggleMultiDeviceClipboard') || '等待检测结果。' }}
+                      <p
+                        class="shortcut-status"
+                        :class="`shortcut-status--${getSystemShortcutStatus('toggleMultiDeviceClipboard') || 'pending'}`"
+                      >
+                        {{
+                          shortcutStatusText(getSystemShortcutStatus('toggleMultiDeviceClipboard'))
+                        }}：{{
+                          getSystemShortcutMessage('toggleMultiDeviceClipboard') || '等待检测结果。'
+                        }}
                       </p>
-                      <UiButton v-if="canRetrySystemShortcut('toggleMultiDeviceClipboard')" type="button"
-                        variant="ghost" size="sm" :disabled="Boolean(shortcutRetryingKeys.toggleMultiDeviceClipboard)"
-                        @click="retrySystemShortcut('toggleMultiDeviceClipboard')">
-                        {{ shortcutRetryingKeys.toggleMultiDeviceClipboard ? '正在注册' : '重新注册' }}
+                      <UiButton
+                        v-if="canRetrySystemShortcut('toggleMultiDeviceClipboard')"
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        :disabled="Boolean(shortcutRetryingKeys.toggleMultiDeviceClipboard)"
+                        @click="retrySystemShortcut('toggleMultiDeviceClipboard')"
+                      >
+                        {{
+                          shortcutRetryingKeys.toggleMultiDeviceClipboard ? '正在注册' : '重新注册'
+                        }}
                       </UiButton>
                     </div>
                   </div>
@@ -4571,18 +5687,28 @@ function scriptTypeLabel(type: string) {
                     <small>系统级快捷键，默认 Ctrl+Alt+N 唤出速记窗口。</small>
                   </div>
                   <div class="settings-row__control settings-row__control--wide">
-                    <ShortcutRecorder :model-value="appConfigStore.config.shortcuts.system.toggleQuickNote"
+                    <ShortcutRecorder
+                      :model-value="appConfigStore.config.shortcuts.system.toggleQuickNote"
                       :default-value="defaultShortcuts.system.toggleQuickNote"
-                      @update:modelValue="updateSystemShortcut('toggleQuickNote', $event)" />
+                      @update:modelValue="updateSystemShortcut('toggleQuickNote', $event)"
+                    />
                     <div class="shortcut-status-row">
-                      <p class="shortcut-status"
-                        :class="`shortcut-status--${getSystemShortcutStatus('toggleQuickNote') || 'pending'}`">
+                      <p
+                        class="shortcut-status"
+                        :class="`shortcut-status--${getSystemShortcutStatus('toggleQuickNote') || 'pending'}`"
+                      >
                         {{ shortcutStatusText(getSystemShortcutStatus('toggleQuickNote')) }}：{{
-                          getSystemShortcutMessage('toggleQuickNote') || '等待检测结果。' }}
+                          getSystemShortcutMessage('toggleQuickNote') || '等待检测结果。'
+                        }}
                       </p>
-                      <UiButton v-if="canRetrySystemShortcut('toggleQuickNote')" type="button" variant="ghost" size="sm"
+                      <UiButton
+                        v-if="canRetrySystemShortcut('toggleQuickNote')"
+                        type="button"
+                        variant="ghost"
+                        size="sm"
                         :disabled="Boolean(shortcutRetryingKeys.toggleQuickNote)"
-                        @click="retrySystemShortcut('toggleQuickNote')">
+                        @click="retrySystemShortcut('toggleQuickNote')"
+                      >
                         {{ shortcutRetryingKeys.toggleQuickNote ? '正在注册' : '重新注册' }}
                       </UiButton>
                     </div>
@@ -4594,19 +5720,40 @@ function scriptTypeLabel(type: string) {
                     <small>系统级快捷键，默认 Ctrl+Alt+Shift+N 捕获当前剪贴板文本。</small>
                   </div>
                   <div class="settings-row__control settings-row__control--wide">
-                    <ShortcutRecorder :model-value="appConfigStore.config.shortcuts.system.captureClipboardToQuickNote"
+                    <ShortcutRecorder
+                      :model-value="
+                        appConfigStore.config.shortcuts.system.captureClipboardToQuickNote
+                      "
                       :default-value="defaultShortcuts.system.captureClipboardToQuickNote"
-                      @update:modelValue="updateSystemShortcut('captureClipboardToQuickNote', $event)" />
+                      @update:modelValue="
+                        updateSystemShortcut('captureClipboardToQuickNote', $event)
+                      "
+                    />
                     <div class="shortcut-status-row">
-                      <p class="shortcut-status"
-                        :class="`shortcut-status--${getSystemShortcutStatus('captureClipboardToQuickNote') || 'pending'}`">
-                        {{ shortcutStatusText(getSystemShortcutStatus('captureClipboardToQuickNote')) }}：{{
-                          getSystemShortcutMessage('captureClipboardToQuickNote') || '等待检测结果。' }}
+                      <p
+                        class="shortcut-status"
+                        :class="`shortcut-status--${getSystemShortcutStatus('captureClipboardToQuickNote') || 'pending'}`"
+                      >
+                        {{
+                          shortcutStatusText(
+                            getSystemShortcutStatus('captureClipboardToQuickNote')
+                          )
+                        }}：{{
+                          getSystemShortcutMessage('captureClipboardToQuickNote') ||
+                          '等待检测结果。'
+                        }}
                       </p>
-                      <UiButton v-if="canRetrySystemShortcut('captureClipboardToQuickNote')" type="button"
-                        variant="ghost" size="sm" :disabled="Boolean(shortcutRetryingKeys.captureClipboardToQuickNote)"
-                        @click="retrySystemShortcut('captureClipboardToQuickNote')">
-                        {{ shortcutRetryingKeys.captureClipboardToQuickNote ? '正在注册' : '重新注册' }}
+                      <UiButton
+                        v-if="canRetrySystemShortcut('captureClipboardToQuickNote')"
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        :disabled="Boolean(shortcutRetryingKeys.captureClipboardToQuickNote)"
+                        @click="retrySystemShortcut('captureClipboardToQuickNote')"
+                      >
+                        {{
+                          shortcutRetryingKeys.captureClipboardToQuickNote ? '正在注册' : '重新注册'
+                        }}
                       </UiButton>
                     </div>
                   </div>
@@ -4614,21 +5761,35 @@ function scriptTypeLabel(type: string) {
                 <div class="settings-row">
                   <div class="settings-row__label">
                     <span>区域截图识别</span>
-                    <small>框选屏幕区域并识别按钮、输入框、卡片、列表项和导航等结构化 UI 块。</small>
+                    <small
+                      >框选屏幕区域并识别按钮、输入框、卡片、列表项和导航等结构化 UI 块。</small
+                    >
                   </div>
                   <div class="settings-row__control settings-row__control--wide">
-                    <ShortcutRecorder :model-value="appConfigStore.config.shortcuts.system.captureScreenshotRegion"
+                    <ShortcutRecorder
+                      :model-value="appConfigStore.config.shortcuts.system.captureScreenshotRegion"
                       :default-value="defaultShortcuts.system.captureScreenshotRegion"
-                      @update:modelValue="updateSystemShortcut('captureScreenshotRegion', $event)" />
+                      @update:modelValue="updateSystemShortcut('captureScreenshotRegion', $event)"
+                    />
                     <div class="shortcut-status-row">
-                      <p class="shortcut-status"
-                        :class="`shortcut-status--${getSystemShortcutStatus('captureScreenshotRegion') || 'pending'}`">
-                        {{ shortcutStatusText(getSystemShortcutStatus('captureScreenshotRegion')) }}：{{
-                          getSystemShortcutMessage('captureScreenshotRegion') || '等待检测结果。' }}
+                      <p
+                        class="shortcut-status"
+                        :class="`shortcut-status--${getSystemShortcutStatus('captureScreenshotRegion') || 'pending'}`"
+                      >
+                        {{
+                          shortcutStatusText(getSystemShortcutStatus('captureScreenshotRegion'))
+                        }}：{{
+                          getSystemShortcutMessage('captureScreenshotRegion') || '等待检测结果。'
+                        }}
                       </p>
-                      <UiButton v-if="canRetrySystemShortcut('captureScreenshotRegion')" type="button"
-                        variant="ghost" size="sm" :disabled="Boolean(shortcutRetryingKeys.captureScreenshotRegion)"
-                        @click="retrySystemShortcut('captureScreenshotRegion')">
+                      <UiButton
+                        v-if="canRetrySystemShortcut('captureScreenshotRegion')"
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        :disabled="Boolean(shortcutRetryingKeys.captureScreenshotRegion)"
+                        @click="retrySystemShortcut('captureScreenshotRegion')"
+                      >
                         {{ shortcutRetryingKeys.captureScreenshotRegion ? '正在注册' : '重新注册' }}
                       </UiButton>
                     </div>
@@ -4640,18 +5801,28 @@ function scriptTypeLabel(type: string) {
                     <small>{{ row.description }}</small>
                   </div>
                   <div class="settings-row__control settings-row__control--wide">
-                    <ShortcutRecorder :model-value="appConfigStore.config.shortcuts.system[row.key]"
+                    <ShortcutRecorder
+                      :model-value="appConfigStore.config.shortcuts.system[row.key]"
                       :default-value="defaultShortcuts.system[row.key]"
-                      @update:modelValue="updateSystemShortcut(row.key, $event)" />
+                      @update:modelValue="updateSystemShortcut(row.key, $event)"
+                    />
                     <div class="shortcut-status-row">
-                      <p class="shortcut-status"
-                        :class="`shortcut-status--${getSystemShortcutStatus(row.key) || 'pending'}`">
-                        {{ shortcutStatusText(getSystemShortcutStatus(row.key)) }}：{{ getSystemShortcutMessage(row.key)
-                        ||
-                        '等待检测结果。' }}
+                      <p
+                        class="shortcut-status"
+                        :class="`shortcut-status--${getSystemShortcutStatus(row.key) || 'pending'}`"
+                      >
+                        {{ shortcutStatusText(getSystemShortcutStatus(row.key)) }}：{{
+                          getSystemShortcutMessage(row.key) || '等待检测结果。'
+                        }}
                       </p>
-                      <UiButton v-if="canRetrySystemShortcut(row.key)" type="button" variant="ghost" size="sm"
-                        :disabled="Boolean(shortcutRetryingKeys[row.key])" @click="retrySystemShortcut(row.key)">
+                      <UiButton
+                        v-if="canRetrySystemShortcut(row.key)"
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        :disabled="Boolean(shortcutRetryingKeys[row.key])"
+                        @click="retrySystemShortcut(row.key)"
+                      >
                         {{ shortcutRetryingKeys[row.key] ? '正在注册' : '重新注册' }}
                       </UiButton>
                     </div>
@@ -4661,14 +5832,20 @@ function scriptTypeLabel(type: string) {
             </div>
           </section>
 
-          <section v-if="isSettingsTabRendered('ai-agent')" key="ai-agent"
-            class="settings-section settings-section--ai">
+          <section
+            v-if="isSettingsTabRendered('ai-agent')"
+            key="ai-agent"
+            class="settings-section settings-section--ai"
+          >
             <div class="section-head section-head--standalone">
               <h2>AI</h2>
               <p>模型接入、问答默认参数、知识检索和 Agent 预留策略。</p>
             </div>
 
-            <AiSettingsPanel class="settings-ai-panel" @open-provider-drawer="openAiProviderDrawer" />
+            <AiSettingsPanel
+              class="settings-ai-panel"
+              @open-provider-drawer="openAiProviderDrawer"
+            />
 
             <div class="cards-grid cards-grid--1col">
               <div class="settings-card ui-glass-surface ui-glass-surface--strong">
@@ -4683,8 +5860,11 @@ function scriptTypeLabel(type: string) {
                       <small>控制 AI 问答和后续 Agent 入口是否可用。</small>
                     </div>
                     <div class="settings-row__control settings-row__control--switch">
-                      <UiCheckbox size="sm" :checked="appConfigStore.config.features.aiAgent.enabled"
-                        @change="handleAiFeatureEnabledChange" />
+                      <UiCheckbox
+                        size="sm"
+                        :checked="appConfigStore.config.features.aiAgent.enabled"
+                        @change="handleAiFeatureEnabledChange"
+                      />
                     </div>
                   </div>
                   <div class="settings-row">
@@ -4693,8 +5873,11 @@ function scriptTypeLabel(type: string) {
                       <small>打开 AI 模块时优先使用的交互模式。</small>
                     </div>
                     <div class="settings-row__control">
-                      <UiSelect :model-value="appConfigStore.config.features.aiAgent.defaultMode"
-                        :options="aiDefaultModeOptions" @change="handleAiDefaultModeChange" />
+                      <UiSelect
+                        :model-value="appConfigStore.config.features.aiAgent.defaultMode"
+                        :options="aiDefaultModeOptions"
+                        @change="handleAiDefaultModeChange"
+                      />
                     </div>
                   </div>
                 </div>
@@ -4712,8 +5895,11 @@ function scriptTypeLabel(type: string) {
                       <small>开启后 AI 页面显示 Agent 预留工作区；本版本仍不执行工具。</small>
                     </div>
                     <div class="settings-row__control settings-row__control--switch">
-                      <UiCheckbox size="sm" :checked="appConfigStore.config.features.aiAgent.agent.enabled"
-                        @change="updateAiAgentReservedSettings({ enabled: $event })" />
+                      <UiCheckbox
+                        size="sm"
+                        :checked="appConfigStore.config.features.aiAgent.agent.enabled"
+                        @change="updateAiAgentReservedSettings({ enabled: $event })"
+                      />
                     </div>
                   </div>
                   <div class="settings-row">
@@ -4722,8 +5908,11 @@ function scriptTypeLabel(type: string) {
                       <small>后续进入 Agent 模式时默认选中的执行器。</small>
                     </div>
                     <div class="settings-row__control">
-                      <UiSelect :model-value="appConfigStore.config.features.aiAgent.agent.defaultAgentMode"
-                        :options="aiAgentModeOptions" @change="handleAiAgentDefaultModeChange" />
+                      <UiSelect
+                        :model-value="appConfigStore.config.features.aiAgent.agent.defaultAgentMode"
+                        :options="aiAgentModeOptions"
+                        @change="handleAiAgentDefaultModeChange"
+                      />
                     </div>
                   </div>
                   <div class="settings-row">
@@ -4732,9 +5921,15 @@ function scriptTypeLabel(type: string) {
                       <small>限制 Agent 循环步数，当前保存为预留策略。</small>
                     </div>
                     <div class="settings-row__control settings-row__control--compact">
-                      <UiInput v-model="agentMaxStepsInput" type="number" :min="1" :max="32"
-                        @blur="commitAiAgentMaxSteps" @change="commitAiAgentMaxSteps"
-                        @keydown.enter.prevent="commitAiAgentMaxSteps" />
+                      <UiInput
+                        v-model="agentMaxStepsInput"
+                        type="number"
+                        :min="1"
+                        :max="32"
+                        @blur="commitAiAgentMaxSteps"
+                        @change="commitAiAgentMaxSteps"
+                        @keydown.enter.prevent="commitAiAgentMaxSteps"
+                      />
                     </div>
                   </div>
                   <div class="settings-row">
@@ -4743,9 +5938,15 @@ function scriptTypeLabel(type: string) {
                       <small>后续文件写入、命令执行等工具默认需要确认。</small>
                     </div>
                     <div class="settings-row__control settings-row__control--switch">
-                      <UiCheckbox size="sm"
-                        :checked="appConfigStore.config.features.aiAgent.agent.requireApprovalForWriteTools"
-                        @change="updateAiAgentReservedSettings({ requireApprovalForWriteTools: $event })" />
+                      <UiCheckbox
+                        size="sm"
+                        :checked="
+                          appConfigStore.config.features.aiAgent.agent.requireApprovalForWriteTools
+                        "
+                        @change="
+                          updateAiAgentReservedSettings({ requireApprovalForWriteTools: $event })
+                        "
+                      />
                     </div>
                   </div>
                 </div>
@@ -4763,13 +5964,18 @@ function scriptTypeLabel(type: string) {
                       <small>预留给自定义提示词、工具集合和任务模板。</small>
                     </div>
                     <div class="settings-row__control settings-row__control--switch">
-                      <UiCheckbox size="sm" :checked="appConfigStore.config.features.aiAgent.agent.general.enabled"
-                        @change="updateAiAgentReservedSettings({
-                          general: {
-                            ...appConfigStore.config.features.aiAgent.agent.general,
-                            enabled: $event,
-                          },
-                        })" />
+                      <UiCheckbox
+                        size="sm"
+                        :checked="appConfigStore.config.features.aiAgent.agent.general.enabled"
+                        @change="
+                          updateAiAgentReservedSettings({
+                            general: {
+                              ...appConfigStore.config.features.aiAgent.agent.general,
+                              enabled: $event,
+                            },
+                          })
+                        "
+                      />
                     </div>
                   </div>
                   <div class="settings-row">
@@ -4778,13 +5984,18 @@ function scriptTypeLabel(type: string) {
                       <small>预留给后续 Codex SDK，不在本版本执行代码或命令。</small>
                     </div>
                     <div class="settings-row__control settings-row__control--switch">
-                      <UiCheckbox size="sm" :checked="appConfigStore.config.features.aiAgent.agent.codex.enabled"
-                        @change="updateAiAgentReservedSettings({
-                          codex: {
-                            ...appConfigStore.config.features.aiAgent.agent.codex,
-                            enabled: $event,
-                          },
-                        })" />
+                      <UiCheckbox
+                        size="sm"
+                        :checked="appConfigStore.config.features.aiAgent.agent.codex.enabled"
+                        @change="
+                          updateAiAgentReservedSettings({
+                            codex: {
+                              ...appConfigStore.config.features.aiAgent.agent.codex,
+                              enabled: $event,
+                            },
+                          })
+                        "
+                      />
                     </div>
                   </div>
                   <div class="settings-row">
@@ -4793,13 +6004,20 @@ function scriptTypeLabel(type: string) {
                       <small>关闭时 Code Agent 运行前需要确认工作目录是 Git 仓库。</small>
                     </div>
                     <div class="settings-row__control settings-row__control--switch">
-                      <UiCheckbox size="sm"
-                        :checked="appConfigStore.config.features.aiAgent.agent.codex.skipGitRepoCheck" @change="updateAiAgentReservedSettings({
-                          codex: {
-                            ...appConfigStore.config.features.aiAgent.agent.codex,
-                            skipGitRepoCheck: $event,
-                          },
-                        })" />
+                      <UiCheckbox
+                        size="sm"
+                        :checked="
+                          appConfigStore.config.features.aiAgent.agent.codex.skipGitRepoCheck
+                        "
+                        @change="
+                          updateAiAgentReservedSettings({
+                            codex: {
+                              ...appConfigStore.config.features.aiAgent.agent.codex,
+                              skipGitRepoCheck: $event,
+                            },
+                          })
+                        "
+                      />
                     </div>
                   </div>
                 </div>
@@ -4825,18 +6043,29 @@ function scriptTypeLabel(type: string) {
                 </div>
                 <div class="settings-card__fields settings-card__fields--inline">
                   <UiField label="闲置自动卸载" hint="单位为分钟，0 表示关闭。">
-                    <UiInput v-model="unloadAfterMinutesInput" type="number" :min="0" @blur="commitUnloadAfterMinutes"
-                      @change="commitUnloadAfterMinutes" @keydown.enter.prevent="commitUnloadAfterMinutes" />
+                    <UiInput
+                      v-model="unloadAfterMinutesInput"
+                      type="number"
+                      :min="0"
+                      @blur="commitUnloadAfterMinutes"
+                      @change="commitUnloadAfterMinutes"
+                      @keydown.enter.prevent="commitUnloadAfterMinutes"
+                    />
                   </UiField>
                 </div>
               </div>
 
-              <div v-if="pluginLoadError" class="error-banner ui-status-banner ui-status-banner--danger">
+              <div
+                v-if="pluginLoadError"
+                class="error-banner ui-status-banner ui-status-banner--danger"
+              >
                 {{ pluginLoadError }}
               </div>
 
-              <div v-else-if="!installedPlugins.length"
-                class="settings-card settings-card--placeholder ui-glass-surface ui-glass-surface--strong">
+              <div
+                v-else-if="!installedPlugins.length"
+                class="settings-card settings-card--placeholder ui-glass-surface ui-glass-surface--strong"
+              >
                 <div class="settings-card__head">
                   <span class="settings-card__icon">📦</span>
                   <h3>暂无插件</h3>
@@ -4845,9 +6074,17 @@ function scriptTypeLabel(type: string) {
               </div>
 
               <template v-else>
-                <UiTabs v-model="settingsStore.activePluginConfigId" :items="pluginTabs" variant="line" size="md" />
+                <UiTabs
+                  v-model="settingsStore.activePluginConfigId"
+                  :items="pluginTabs"
+                  variant="line"
+                  size="md"
+                />
 
-                <div v-if="activePlugin" class="settings-card ui-glass-surface ui-glass-surface--strong">
+                <div
+                  v-if="activePlugin"
+                  class="settings-card ui-glass-surface ui-glass-surface--strong"
+                >
                   <div class="settings-card__head">
                     <span class="settings-card__icon">🔌</span>
                     <h3>{{ activePlugin.manifest.displayName }}</h3>
@@ -4855,7 +6092,9 @@ function scriptTypeLabel(type: string) {
                       <span>{{ activePlugin.status }} · {{ activePlugin.manifest.runtime }}</span>
                     </div>
                   </div>
-                  <p class="settings-card__desc">{{ activePlugin.manifest.description || '该插件尚未提供描述。' }}</p>
+                  <p class="settings-card__desc">
+                    {{ activePlugin.manifest.description || '该插件尚未提供描述。' }}
+                  </p>
 
                   <div class="plugin-meta-grid">
                     <div class="meta-item ui-soft-surface">
@@ -4872,17 +6111,31 @@ function scriptTypeLabel(type: string) {
                     </div>
                   </div>
 
-                  <UiField label="插件 JSON 配置" :error="pluginConfigErrors[activePlugin.manifest.id]"
-                    hint="宿主直接维护每个插件的 JSON 对象。">
-                    <UiTextarea v-model="pluginConfigDrafts[activePlugin.manifest.id]" class="plugin-json-editor"
-                      spellcheck="false" />
+                  <UiField
+                    label="插件 JSON 配置"
+                    :error="pluginConfigErrors[activePlugin.manifest.id]"
+                    hint="宿主直接维护每个插件的 JSON 对象。"
+                  >
+                    <UiTextarea
+                      v-model="pluginConfigDrafts[activePlugin.manifest.id]"
+                      class="plugin-json-editor"
+                      spellcheck="false"
+                    />
                   </UiField>
 
                   <div class="plugin-actions">
-                    <UiButton variant="primary" size="sm" @click="savePluginConfig(activePlugin.manifest.id)">
+                    <UiButton
+                      variant="primary"
+                      size="sm"
+                      @click="savePluginConfig(activePlugin.manifest.id)"
+                    >
                       保存配置
                     </UiButton>
-                    <UiButton variant="secondary" size="sm" @click="resetPluginConfig(activePlugin.manifest.id)">
+                    <UiButton
+                      variant="secondary"
+                      size="sm"
+                      @click="resetPluginConfig(activePlugin.manifest.id)"
+                    >
                       重置
                     </UiButton>
                   </div>
@@ -4891,7 +6144,11 @@ function scriptTypeLabel(type: string) {
             </div>
           </section>
 
-          <section v-if="isSettingsTabRendered('web-security')" key="web-security" class="settings-section">
+          <section
+            v-if="isSettingsTabRendered('web-security')"
+            key="web-security"
+            class="settings-section"
+          >
             <div class="section-head section-head--standalone">
               <h2>外部网页配置</h2>
               <p>管理域名策略、保活规则、Chrome 扩展和增强脚本。</p>
@@ -4910,15 +6167,27 @@ function scriptTypeLabel(type: string) {
                       <div class="web-domain-list">
                         <div v-for="domain in webWhitelist" :key="domain" class="web-domain-item">
                           <span>{{ domain }}</span>
-                          <UiButton variant="danger" size="sm" @click="removeWhiteDomain(domain)">移除</UiButton>
+                          <UiButton variant="danger" size="sm" @click="removeWhiteDomain(domain)"
+                            >移除</UiButton
+                          >
                         </div>
-                        <div v-if="webWhitelist.length === 0" class="web-domain-empty">暂无信任域名</div>
+                        <div v-if="webWhitelist.length === 0" class="web-domain-empty">
+                          暂无信任域名
+                        </div>
                       </div>
                       <div class="web-domain-add">
-                        <UiInput v-model="newWhiteDomain" placeholder="*.google.com" size="sm"
-                          @keydown.enter.prevent="addWhiteDomain" />
-                        <UiButton variant="primary" size="sm" :disabled="!newWhiteDomain.trim()"
-                          @click="addWhiteDomain">添加
+                        <UiInput
+                          v-model="newWhiteDomain"
+                          placeholder="*.google.com"
+                          size="sm"
+                          @keydown.enter.prevent="addWhiteDomain"
+                        />
+                        <UiButton
+                          variant="primary"
+                          size="sm"
+                          :disabled="!newWhiteDomain.trim()"
+                          @click="addWhiteDomain"
+                          >添加
                         </UiButton>
                       </div>
                     </div>
@@ -4935,15 +6204,27 @@ function scriptTypeLabel(type: string) {
                       <div class="web-domain-list">
                         <div v-for="domain in webBlacklist" :key="domain" class="web-domain-item">
                           <span>{{ domain }}</span>
-                          <UiButton variant="danger" size="sm" @click="removeBlackDomain(domain)">移除</UiButton>
+                          <UiButton variant="danger" size="sm" @click="removeBlackDomain(domain)"
+                            >移除</UiButton
+                          >
                         </div>
-                        <div v-if="webBlacklist.length === 0" class="web-domain-empty">暂无禁止域名</div>
+                        <div v-if="webBlacklist.length === 0" class="web-domain-empty">
+                          暂无禁止域名
+                        </div>
                       </div>
                       <div class="web-domain-add">
-                        <UiInput v-model="newBlackDomain" placeholder="evil.com" size="sm"
-                          @keydown.enter.prevent="addBlackDomain" />
-                        <UiButton variant="primary" size="sm" :disabled="!newBlackDomain.trim()"
-                          @click="addBlackDomain">添加
+                        <UiInput
+                          v-model="newBlackDomain"
+                          placeholder="evil.com"
+                          size="sm"
+                          @keydown.enter.prevent="addBlackDomain"
+                        />
+                        <UiButton
+                          variant="primary"
+                          size="sm"
+                          :disabled="!newBlackDomain.trim()"
+                          @click="addBlackDomain"
+                          >添加
                         </UiButton>
                       </div>
                     </div>
@@ -4970,17 +6251,37 @@ function scriptTypeLabel(type: string) {
                   <div class="settings-row__control settings-row__control--wide">
                     <div class="web-domain-section">
                       <div class="web-domain-list">
-                        <div v-for="domain in webKeepAliveDomains" :key="domain" class="web-domain-item">
+                        <div
+                          v-for="domain in webKeepAliveDomains"
+                          :key="domain"
+                          class="web-domain-item"
+                        >
                           <span>{{ domain }}</span>
-                          <UiButton variant="danger" size="sm" @click="removeKeepAliveDomain(domain)">移除</UiButton>
+                          <UiButton
+                            variant="danger"
+                            size="sm"
+                            @click="removeKeepAliveDomain(domain)"
+                            >移除</UiButton
+                          >
                         </div>
-                        <div v-if="webKeepAliveDomains.length === 0" class="web-domain-empty">暂无保活域名</div>
+                        <div v-if="webKeepAliveDomains.length === 0" class="web-domain-empty">
+                          暂无保活域名
+                        </div>
                       </div>
                       <div class="web-domain-add">
-                        <UiInput v-model="newKeepAliveDomain" placeholder="*.google.com" size="sm"
-                          @keydown.enter.prevent="addKeepAliveDomain" />
-                        <UiButton variant="primary" size="sm" :disabled="!newKeepAliveDomain.trim()"
-                          @click="addKeepAliveDomain">添加</UiButton>
+                        <UiInput
+                          v-model="newKeepAliveDomain"
+                          placeholder="*.google.com"
+                          size="sm"
+                          @keydown.enter.prevent="addKeepAliveDomain"
+                        />
+                        <UiButton
+                          variant="primary"
+                          size="sm"
+                          :disabled="!newKeepAliveDomain.trim()"
+                          @click="addKeepAliveDomain"
+                          >添加</UiButton
+                        >
                       </div>
                     </div>
                   </div>
@@ -5000,19 +6301,34 @@ function scriptTypeLabel(type: string) {
                         <div class="web-extension-item__info">
                           <div class="web-extension-item__name">{{ ext.name }}</div>
                           <div class="web-extension-item__meta">v{{ ext.version }}</div>
-                          <div v-if="ext.description" class="web-extension-item__desc">{{ ext.description }}</div>
+                          <div v-if="ext.description" class="web-extension-item__desc">
+                            {{ ext.description }}
+                          </div>
                         </div>
                         <div class="web-extension-item__actions">
-                          <UiCheckbox class="web-extension-item__toggle" size="sm" :checked="ext.enabled"
-                            @change="toggleExtension(ext.id, !ext.enabled)">
+                          <UiCheckbox
+                            class="web-extension-item__toggle"
+                            size="sm"
+                            :checked="ext.enabled"
+                            @change="toggleExtension(ext.id, !ext.enabled)"
+                          >
                             {{ ext.enabled ? '已启用' : '已禁用' }}
                           </UiCheckbox>
-                          <UiButton variant="danger" size="sm" @click="removeExtension(ext.id)">卸载</UiButton>
+                          <UiButton variant="danger" size="sm" @click="removeExtension(ext.id)"
+                            >卸载</UiButton
+                          >
                         </div>
                       </div>
-                      <div v-if="chromeExtensions.length === 0" class="web-domain-empty">暂无已安装的扩展</div>
+                      <div v-if="chromeExtensions.length === 0" class="web-domain-empty">
+                        暂无已安装的扩展
+                      </div>
                     </div>
-                    <UiButton variant="secondary" size="sm" :disabled="extensionInstalling" @click="installExtension">
+                    <UiButton
+                      variant="secondary"
+                      size="sm"
+                      :disabled="extensionInstalling"
+                      @click="installExtension"
+                    >
                       {{ extensionInstalling ? '安装中...' : '安装扩展' }}
                     </UiButton>
                   </div>
@@ -5031,23 +6347,42 @@ function scriptTypeLabel(type: string) {
                       <div v-for="script in webScripts" :key="script.id" class="web-script-item">
                         <div class="web-script-item__head">
                           <span class="web-script-item__name">{{ script.name }}</span>
-                          <span class="web-script-item__type" :class="`web-script-item__type--${script.type}`">
+                          <span
+                            class="web-script-item__type"
+                            :class="`web-script-item__type--${script.type}`"
+                          >
                             {{ scriptTypeLabel(script.type) }}
                           </span>
                           <span class="web-script-item__pattern">{{ script.domainPattern }}</span>
-                          <UiCheckbox class="web-script-item__toggle" size="sm" :checked="script.enabled"
-                            @change="toggleScript(script.id)">
+                          <UiCheckbox
+                            class="web-script-item__toggle"
+                            size="sm"
+                            :checked="script.enabled"
+                            @change="toggleScript(script.id)"
+                          >
                             {{ script.enabled ? '已启用' : '已禁用' }}
                           </UiCheckbox>
-                          <UiButton v-if="!script.builtin" variant="danger" size="sm" @click="removeScript(script.id)">
+                          <UiButton
+                            v-if="!script.builtin"
+                            variant="danger"
+                            size="sm"
+                            @click="removeScript(script.id)"
+                          >
                             删除
                           </UiButton>
                         </div>
                       </div>
-                      <div v-if="webScripts.length === 0" class="web-domain-empty">暂无注入脚本</div>
+                      <div v-if="webScripts.length === 0" class="web-domain-empty">
+                        暂无注入脚本
+                      </div>
                     </div>
 
-                    <UiButton v-if="!showAddScript" variant="secondary" size="sm" @click="showAddScript = true">添加脚本
+                    <UiButton
+                      v-if="!showAddScript"
+                      variant="secondary"
+                      size="sm"
+                      @click="showAddScript = true"
+                      >添加脚本
                     </UiButton>
 
                     <div v-if="showAddScript" class="web-add-script-form">
@@ -5056,37 +6391,83 @@ function scriptTypeLabel(type: string) {
                           <UiInput v-model="newScriptName" placeholder="例如：暗色模式" size="sm" />
                         </UiField>
                         <UiField label="匹配域名">
-                          <UiInput v-model="newScriptDomain" placeholder="例如：*.bilibili.com" size="sm" />
+                          <UiInput
+                            v-model="newScriptDomain"
+                            placeholder="例如：*.bilibili.com"
+                            size="sm"
+                          />
                         </UiField>
                         <UiField label="类型">
-                          <UiSelect v-model="newScriptType" :options="scriptTypeOptions" size="sm" />
+                          <UiSelect
+                            v-model="newScriptType"
+                            :options="scriptTypeOptions"
+                            size="sm"
+                          />
                         </UiField>
                       </div>
                       <div class="web-add-script-form__row">
                         <UiField label="注入时机">
-                          <UiSelect v-model="newScriptRunAt" :options="scriptRunAtOptions" size="sm" />
+                          <UiSelect
+                            v-model="newScriptRunAt"
+                            :options="scriptRunAtOptions"
+                            size="sm"
+                          />
                         </UiField>
-                        <UiField v-if="newScriptType === 'js'" label="脚本权限" style="grid-column: span 2">
+                        <UiField
+                          v-if="newScriptType === 'js'"
+                          label="脚本权限"
+                          style="grid-column: span 2"
+                        >
                           <div class="web-add-script-form__perms">
-                            <UiCheckbox v-for="perm in ['network', 'storage', 'clipboard']" :key="perm"
-                              class="web-add-script-form__perm-label" size="sm"
+                            <UiCheckbox
+                              v-for="perm in ['network', 'storage', 'clipboard']"
+                              :key="perm"
+                              class="web-add-script-form__perm-label"
+                              size="sm"
                               :checked="newScriptPermissions.includes(perm)"
-                              @change="toggleNewScriptPermission(perm, $event)">
-                              {{ perm === 'network' ? '网络请求' : perm === 'storage' ? '本地存储' : '剪贴板' }}
+                              @change="toggleNewScriptPermission(perm, $event)"
+                            >
+                              {{
+                                perm === 'network'
+                                  ? '网络请求'
+                                  : perm === 'storage'
+                                    ? '本地存储'
+                                    : '剪贴板'
+                              }}
                             </UiCheckbox>
                           </div>
                         </UiField>
                       </div>
                       <UiField label="内容">
-                        <UiTextarea v-model="newScriptContent" class="web-script-editor" :rows="6"
-                          :placeholder="newScriptType === 'css' ? 'body { background: #1a1a2e !important; }' : newScriptType === 'html' ? '&lt;div class=&quot;my-widget&quot;&gt;...&lt;/div&gt;' : 'console.log(&quot;injected!&quot;);'"
-                          spellcheck="false" />
+                        <UiTextarea
+                          v-model="newScriptContent"
+                          class="web-script-editor"
+                          :rows="6"
+                          :placeholder="
+                            newScriptType === 'css'
+                              ? 'body { background: #1a1a2e !important; }'
+                              : newScriptType === 'html'
+                                ? '&lt;div class=&quot;my-widget&quot;&gt;...&lt;/div&gt;'
+                                : 'console.log(&quot;injected!&quot;);'
+                          "
+                          spellcheck="false"
+                        />
                       </UiField>
                       <div class="web-add-script-form__actions">
-                        <UiButton variant="secondary" size="sm" @click="showAddScript = false">取消</UiButton>
-                        <UiButton variant="primary" size="sm"
-                          :disabled="!newScriptName.trim() || !newScriptDomain.trim() || !newScriptContent.trim()"
-                          @click="addScript">保存</UiButton>
+                        <UiButton variant="secondary" size="sm" @click="showAddScript = false"
+                          >取消</UiButton
+                        >
+                        <UiButton
+                          variant="primary"
+                          size="sm"
+                          :disabled="
+                            !newScriptName.trim() ||
+                            !newScriptDomain.trim() ||
+                            !newScriptContent.trim()
+                          "
+                          @click="addScript"
+                          >保存</UiButton
+                        >
                       </div>
                     </div>
                   </div>
@@ -5094,26 +6475,47 @@ function scriptTypeLabel(type: string) {
               </section>
             </div>
           </section>
-          <div v-if="isSearchingSettings && !settingsSearchHasMatches" class="settings-search-empty">
+          <div
+            v-if="isSearchingSettings && !settingsSearchHasMatches"
+            class="settings-search-empty"
+          >
             未找到匹配的设置项
           </div>
         </div>
       </Transition>
     </div>
 
-    <UiPersonalizationConfig :visible="quickLaunchBackgroundPickerVisible" title="快速启动窗口背景"
-      :current-background="activeQuickLaunchBackground.type === 'color' ? activeQuickLaunchBackground.color : ''"
-      :current-background-image="activeQuickLaunchBackground.type === 'image' ? activeQuickLaunchBackground.image : ''"
-      :current-background-video="activeQuickLaunchBackground.type === 'video' ? activeQuickLaunchBackground.video : ''"
+    <UiPersonalizationConfig
+      :visible="quickLaunchBackgroundPickerVisible"
+      title="快速启动窗口背景"
+      :current-background="
+        activeQuickLaunchBackground.type === 'color' ? activeQuickLaunchBackground.color : ''
+      "
+      :current-background-image="
+        activeQuickLaunchBackground.type === 'image' ? activeQuickLaunchBackground.image : ''
+      "
+      :current-background-video="
+        activeQuickLaunchBackground.type === 'video' ? activeQuickLaunchBackground.video : ''
+      "
       :current-background-style="activeQuickLaunchBackground.backgroundStyle"
-      :enabled-features="['color', 'image', 'video', 'opacity', 'blur', 'textColor']" :show-reset="true"
-      :preview-width="720" :preview-height="460" :fill-viewport="true" reset-text="恢复默认背景"
-      @close="quickLaunchBackgroundPickerVisible = false" @confirm="handleQuickLaunchBackgroundConfirm"
-      @reset="resetQuickLaunchBackground" />
+      :enabled-features="['color', 'image', 'video', 'opacity', 'blur', 'textColor']"
+      :show-reset="true"
+      :preview-width="720"
+      :preview-height="460"
+      :fill-viewport="true"
+      reset-text="恢复默认背景"
+      @close="quickLaunchBackgroundPickerVisible = false"
+      @confirm="handleQuickLaunchBackgroundConfirm"
+      @reset="resetQuickLaunchBackground"
+    />
 
-    <AiProviderDrawer v-if="activeSettingsTabForView === 'ai-agent' && !isSearchingSettings"
-      v-model="aiProviderDrawerVisible" v-model:provider-id="editingAiProviderId" :teleported="false" :fixed="false" />
-
+    <AiProviderDrawer
+      v-if="activeSettingsTabForView === 'ai-agent' && !isSearchingSettings"
+      v-model="aiProviderDrawerVisible"
+      v-model:provider-id="editingAiProviderId"
+      :teleported="false"
+      :fixed="false"
+    />
   </UiScrollbar>
 </template>
 
@@ -5130,15 +6532,27 @@ function scriptTypeLabel(type: string) {
 }
 
 .settings-page::before {
-  content: "";
+  content: '';
   position: absolute;
   inset: 0;
   z-index: 0;
   pointer-events: none;
   background:
-    radial-gradient(circle at 18% -10%, color-mix(in srgb, #66CCFF 22%, transparent) 0%, transparent 36%),
-    radial-gradient(circle at 86% 8%, color-mix(in srgb, #66CCFF 10%, transparent) 0%, transparent 30%),
-    linear-gradient(180deg, color-mix(in srgb, var(--background-color) 92%, #66CCFF 8%) 0%, var(--background-color) 72%);
+    radial-gradient(
+      circle at 18% -10%,
+      color-mix(in srgb, #66ccff 22%, transparent) 0%,
+      transparent 36%
+    ),
+    radial-gradient(
+      circle at 86% 8%,
+      color-mix(in srgb, #66ccff 10%, transparent) 0%,
+      transparent 30%
+    ),
+    linear-gradient(
+      180deg,
+      color-mix(in srgb, var(--background-color) 92%, #66ccff 8%) 0%,
+      var(--background-color) 72%
+    );
 }
 
 .settings-page__background-video {
@@ -5160,8 +6574,11 @@ function scriptTypeLabel(type: string) {
   flex-direction: column;
   align-items: stretch;
   backdrop-filter: var(--ui-backdrop-blur-lg);
-  background:
-    linear-gradient(180deg, color-mix(in srgb, var(--background-color) 68%, #66CCFF 7%) 0%, color-mix(in srgb, var(--background-color) 72%, transparent) 100%);
+  background: linear-gradient(
+    180deg,
+    color-mix(in srgb, var(--background-color) 68%, #66ccff 7%) 0%,
+    color-mix(in srgb, var(--background-color) 72%, transparent) 100%
+  );
   padding: 12px 24px 0;
   box-sizing: border-box;
 }
@@ -5286,7 +6703,10 @@ function scriptTypeLabel(type: string) {
     font: inherit;
     font-size: var(--ui-font-size-md);
     outline: none;
-    transition: border-color 0.16s ease, box-shadow 0.16s ease, background-color 0.16s ease;
+    transition:
+      border-color 0.16s ease,
+      box-shadow 0.16s ease,
+      background-color 0.16s ease;
 
     &:focus {
       border-color: var(--ui-input-focus-border);
@@ -5312,7 +6732,7 @@ function scriptTypeLabel(type: string) {
   pointer-events: none;
 
   &::after {
-    content: "";
+    content: '';
     position: absolute;
     right: -6px;
     bottom: -5px;
@@ -5576,7 +6996,11 @@ function scriptTypeLabel(type: string) {
     linear-gradient(-45deg, rgba(148, 163, 184, 0.18) 25%, transparent 25%),
     linear-gradient(45deg, transparent 75%, rgba(148, 163, 184, 0.18) 75%),
     linear-gradient(-45deg, transparent 75%, rgba(148, 163, 184, 0.18) 75%);
-  background-position: 0 0, 0 8px, 8px -8px, -8px 0;
+  background-position:
+    0 0,
+    0 8px,
+    8px -8px,
+    -8px 0;
   background-size: 16px 16px;
   box-sizing: border-box;
 }
@@ -5787,7 +7211,7 @@ function scriptTypeLabel(type: string) {
   border-radius: 5px;
   background: color-mix(in srgb, var(--ui-panel-bg) 94%, transparent);
   color: var(--ui-text-primary);
-  font-family: var(--ui-font-family-mono, "Geist Mono", Consolas, monospace);
+  font-family: var(--ui-font-family-mono, 'Geist Mono', Consolas, monospace);
   font-size: var(--ui-font-size-xs);
   font-weight: 600;
   line-height: 1.4;
@@ -6183,10 +7607,12 @@ function scriptTypeLabel(type: string) {
     border-radius: 999px;
     background: color-mix(in srgb, var(--ui-text-muted) 30%, transparent);
     box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--ui-border-subtle) 80%, transparent);
-    transition: background-color 0.18s ease, box-shadow 0.18s ease;
+    transition:
+      background-color 0.18s ease,
+      box-shadow 0.18s ease;
 
     &::after {
-      content: "";
+      content: '';
       position: absolute;
       top: 3px;
       left: 3px;
@@ -6199,7 +7625,7 @@ function scriptTypeLabel(type: string) {
     }
   }
 
-  input:checked+span {
+  input:checked + span {
     background: #0b67d8;
     box-shadow: inset 0 0 0 1px color-mix(in srgb, #0b67d8 70%, transparent);
 
@@ -6208,8 +7634,10 @@ function scriptTypeLabel(type: string) {
     }
   }
 
-  input:focus-visible+span {
-    box-shadow: var(--ui-focus-ring), inset 0 0 0 1px var(--ui-input-focus-border);
+  input:focus-visible + span {
+    box-shadow:
+      var(--ui-focus-ring),
+      inset 0 0 0 1px var(--ui-input-focus-border);
   }
 }
 
@@ -6795,7 +8223,11 @@ function scriptTypeLabel(type: string) {
 .sync-progress__bar-fill {
   height: 100%;
   border-radius: inherit;
-  background: linear-gradient(90deg, var(--ui-button-primary-bg, #5c9ded) 0%, var(--primary-color, #66ccff) 100%);
+  background: linear-gradient(
+    90deg,
+    var(--ui-button-primary-bg, #5c9ded) 0%,
+    var(--primary-color, #66ccff) 100%
+  );
   transition: width 180ms ease-out;
 }
 
@@ -7121,7 +8553,6 @@ function scriptTypeLabel(type: string) {
 }
 
 @media (max-width: 760px) {
-
   .terminal-profile-editor__grid,
   .terminal-profile-list__item {
     grid-template-columns: 1fr;
