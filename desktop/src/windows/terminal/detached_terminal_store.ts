@@ -50,7 +50,7 @@ export const useDetachedTerminalStore = defineStore('detached-terminal', () => {
     sid: string,
     target: string,
     label?: string,
-    kind: DetachedTerminalSessionKind = 'local',
+    kind: DetachedTerminalSessionKind = 'local'
   ) {
     sessionId.value = sid;
     attachedTarget.value = target;
@@ -91,9 +91,10 @@ export const useDetachedTerminalStore = defineStore('detached-terminal', () => {
 
   function ensureEventSubscription() {
     if (removeListener) return;
-    removeListener = sessionKind.value === 'ssh'
-      ? window.sshApi.onEvent(handleSshEvent)
-      : window.terminalApi.onEvent(handleTerminalEvent);
+    removeListener =
+      sessionKind.value === 'ssh'
+        ? window.sshApi.onEvent(handleSshEvent)
+        : window.terminalApi.onEvent(handleTerminalEvent);
   }
 
   function handleTerminalEvent(event: TerminalEventEnvelope) {

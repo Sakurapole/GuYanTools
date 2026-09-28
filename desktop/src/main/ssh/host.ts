@@ -53,7 +53,7 @@ type JsSshHostConstructor = new (db: unknown) => {
     host: string,
     port: number,
     algorithm: string,
-    fingerprint: string,
+    fingerprint: string
   ): Promise<HostVerifyResult>;
   trustHost(input: unknown): Promise<void>;
   deleteKnownHost(id: string): Promise<void>;
@@ -220,7 +220,7 @@ class SshHost {
     host: string,
     port: number,
     algorithm: string,
-    fingerprint: string,
+    fingerprint: string
   ): Promise<HostVerifyResult> {
     return this.host.verifyHostFingerprint(host, port, algorithm, fingerprint);
   }
@@ -345,7 +345,8 @@ class SshHost {
   private withSessionAttachedTarget(session: SshSessionDescriptor): SshSessionDescriptor {
     return {
       ...session,
-      attachedTarget: this.attachedTargets.get(session.sessionId) ?? session.attachedTarget ?? 'main',
+      attachedTarget:
+        this.attachedTargets.get(session.sessionId) ?? session.attachedTarget ?? 'main',
     };
   }
 
@@ -419,7 +420,10 @@ async function findPortOccupant(host: string, port: number): Promise<PortOccupan
   return findUnixPortOccupant(port);
 }
 
-async function findWindowsPortOccupant(host: string, port: number): Promise<PortOccupantInfo | null> {
+async function findWindowsPortOccupant(
+  host: string,
+  port: number
+): Promise<PortOccupantInfo | null> {
   const escapedHost = host.replace(/'/g, "''");
   const command = [
     `$connections = Get-NetTCPConnection -State Listen -LocalPort ${port} -ErrorAction SilentlyContinue`,

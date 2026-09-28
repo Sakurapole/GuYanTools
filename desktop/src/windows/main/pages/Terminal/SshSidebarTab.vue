@@ -15,7 +15,11 @@ import UiTree from '@/windows/main/components/ui/UiTree.vue';
 import { useConfirmDialog } from '@/windows/main/composables/useConfirmDialog';
 import { useContextMenu } from '@/windows/main/composables/useContextMenu';
 import { useSshStore } from '@/windows/main/stores/ssh_store';
-import type { UiTreeDropPayload, UiTreeEventPayload, UiTreeNodeData } from '@/windows/main/components/ui/ui_tree';
+import type {
+  UiTreeDropPayload,
+  UiTreeEventPayload,
+  UiTreeNodeData,
+} from '@/windows/main/components/ui/ui_tree';
 import type { SshProfile, SshProfileFolder, SshSessionDescriptor } from '@/contracts/ssh';
 
 const SSH_CONFIG_UNGROUPED_ID = 'ssh-config-ungrouped';
@@ -26,19 +30,22 @@ type SshConfigTreeNode = UiTreeNodeData & {
   data?: SshProfileFolder | SshProfile;
 };
 
-const props = withDefaults(defineProps<{
-  connectingProfileIds?: string[];
-  showActiveSessions?: boolean;
-  showProfiles?: boolean;
-  activeSectionLabel?: string;
-  profileSectionLabel?: string;
-}>(), {
-  connectingProfileIds: () => [],
-  showActiveSessions: true,
-  showProfiles: true,
-  activeSectionLabel: '活跃连接',
-  profileSectionLabel: 'SSH 配置',
-});
+const props = withDefaults(
+  defineProps<{
+    connectingProfileIds?: string[];
+    showActiveSessions?: boolean;
+    showProfiles?: boolean;
+    activeSectionLabel?: string;
+    profileSectionLabel?: string;
+  }>(),
+  {
+    connectingProfileIds: () => [],
+    showActiveSessions: true,
+    showProfiles: true,
+    activeSectionLabel: '活跃连接',
+    profileSectionLabel: 'SSH 配置',
+  }
+);
 
 const emit = defineEmits<{
   /** User wants to open the profile edit dialog */
@@ -71,31 +78,42 @@ const groupForm = reactive({
 });
 
 const sshFolders = computed(() =>
-  [...sshStore.folders]
-    .sort((a, b) => a.sortOrder - b.sortOrder || a.createdAt - b.createdAt || a.label.localeCompare(b.label, 'zh-CN')),
+  [...sshStore.folders].sort(
+    (a, b) =>
+      a.sortOrder - b.sortOrder ||
+      a.createdAt - b.createdAt ||
+      a.label.localeCompare(b.label, 'zh-CN')
+  )
 );
 const sshFolderIds = computed(() => new Set(sshFolders.value.map((group) => group.id)));
 const filteredProfiles = computed(() => {
   const q = searchQuery.value.trim().toLowerCase();
   const profiles = [...sshStore.profiles].sort(
-    (left, right) => left.sortOrder - right.sortOrder || left.label.localeCompare(right.label, 'zh-CN'),
+    (left, right) =>
+      left.sortOrder - right.sortOrder || left.label.localeCompare(right.label, 'zh-CN')
   );
   if (!q) return profiles;
   return profiles.filter(
     (profile) =>
       profile.label.toLowerCase().includes(q) ||
       profile.host.toLowerCase().includes(q) ||
-      profile.username.toLowerCase().includes(q),
+      profile.username.toLowerCase().includes(q)
   );
 });
-const selectedConfigTreeNodeId = computed(() =>
-  selectedConfigNodeId.value || (sshStore.activeSshSession ? profileTreeNodeId(sshStore.activeSshSession.profileId) : ''),
+const selectedConfigTreeNodeId = computed(
+  () =>
+    selectedConfigNodeId.value ||
+    (sshStore.activeSshSession ? profileTreeNodeId(sshStore.activeSshSession.profileId) : '')
 );
 const flattenedGroups = computed(() => flattenGroups());
 const groupParentOptions = computed(() => [
   { label: '根目录', value: '' },
   ...flattenedGroups.value
-    .filter((item) => item.group.id !== editingGroupId.value && !isDescendantGroup(editingGroupId.value, item.group.id))
+    .filter(
+      (item) =>
+        item.group.id !== editingGroupId.value &&
+        !isDescendantGroup(editingGroupId.value, item.group.id)
+    )
     .map((item) => ({
       label: `${'  '.repeat(item.depth)}${item.group.label}`,
       value: item.group.id,
@@ -103,21 +121,29 @@ const groupParentOptions = computed(() => [
 ]);
 const configTreeNodes = computed<SshConfigTreeNode[]>(() => buildConfigTreeNodes());
 
-watch(() => sshStore.activeSshSession?.profileId, (profileId) => {
-  if (profileId) {
-    selectedConfigNodeId.value = profileTreeNodeId(profileId);
-  }
-}, { immediate: true });
+watch(
+  () => sshStore.activeSshSession?.profileId,
+  (profileId) => {
+    if (profileId) {
+      selectedConfigNodeId.value = profileTreeNodeId(profileId);
+    }
+  },
+  { immediate: true }
+);
 
-watch([configTreeNodes, selectedConfigTreeNodeId], ([nodes, selectedId]) => {
-  const expandableIds = collectExpandableIds(nodes);
-  const nextExpanded = configTreeHydrated.value
-    ? configTreeExpandedIds.value.filter((id) => expandableIds.includes(id))
-    : [...expandableIds];
-  const ancestorIds = selectedId ? collectAncestorNodeIds(nodes, selectedId) : [];
-  configTreeExpandedIds.value = Array.from(new Set([...nextExpanded, ...ancestorIds]));
-  configTreeHydrated.value = true;
-}, { immediate: true });
+watch(
+  [configTreeNodes, selectedConfigTreeNodeId],
+  ([nodes, selectedId]) => {
+    const expandableIds = collectExpandableIds(nodes);
+    const nextExpanded = configTreeHydrated.value
+      ? configTreeExpandedIds.value.filter((id) => expandableIds.includes(id))
+      : [...expandableIds];
+    const ancestorIds = selectedId ? collectAncestorNodeIds(nodes, selectedId) : [];
+    configTreeExpandedIds.value = Array.from(new Set([...nextExpanded, ...ancestorIds]));
+    configTreeHydrated.value = true;
+  },
+  { immediate: true }
+);
 
 function statusColor(status: string) {
   if (status === 'connected') return 'ssh-dot--connected';
@@ -126,7 +152,9 @@ function statusColor(status: string) {
 }
 
 function profileSessionId(profileId: string): string | null {
-  return sshStore.mainSessions.find((session) => session.profileId === profileId)?.sessionId ?? null;
+  return (
+    sshStore.mainSessions.find((session) => session.profileId === profileId)?.sessionId ?? null
+  );
 }
 
 function isSessionActive(sessionId: string) {
@@ -154,7 +182,10 @@ function groupsByParent(parentId = '') {
   return sshFolders.value.filter((group) => (group.parentId ?? '') === parentId);
 }
 
-function flattenGroups(parentId = '', depth = 0): Array<{ group: SshProfileFolder; depth: number }> {
+function flattenGroups(
+  parentId = '',
+  depth = 0
+): Array<{ group: SshProfileFolder; depth: number }> {
   const output: Array<{ group: SshProfileFolder; depth: number }> = [];
   for (const group of groupsByParent(parentId)) {
     output.push({ group, depth });
@@ -170,12 +201,20 @@ function profilesInGroup(groupId: string) {
 function allProfilesInGroup(groupId: string) {
   return [...sshStore.profiles]
     .filter((profile) => profileGroupId(profile.id) === groupId)
-    .sort((left, right) => left.sortOrder - right.sortOrder || left.label.localeCompare(right.label, 'zh-CN'));
+    .sort(
+      (left, right) =>
+        left.sortOrder - right.sortOrder || left.label.localeCompare(right.label, 'zh-CN')
+    );
 }
 
 function countProfilesInGroup(groupId: string): number {
-  const directProfiles = sshStore.profiles.filter((profile) => profileGroupId(profile.id) === groupId).length;
-  return directProfiles + groupsByParent(groupId).reduce((total, group) => total + countProfilesInGroup(group.id), 0);
+  const directProfiles = sshStore.profiles.filter(
+    (profile) => profileGroupId(profile.id) === groupId
+  ).length;
+  return (
+    directProfiles +
+    groupsByParent(groupId).reduce((total, group) => total + countProfilesInGroup(group.id), 0)
+  );
 }
 
 function buildProfileTreeNode(profile: SshProfile): SshConfigTreeNode {
@@ -201,7 +240,11 @@ function buildGroupTreeNode(group: SshProfileFolder): SshConfigTreeNode | null {
   const childProfiles = profilesInGroup(group.id).map((profile) => buildProfileTreeNode(profile));
   const searching = Boolean(searchQuery.value.trim());
   const children = [...childGroups, ...childProfiles];
-  if (searching && !children.length && !group.label.toLowerCase().includes(searchQuery.value.trim().toLowerCase())) {
+  if (
+    searching &&
+    !children.length &&
+    !group.label.toLowerCase().includes(searchQuery.value.trim().toLowerCase())
+  ) {
     return null;
   }
 
@@ -246,13 +289,20 @@ function collectExpandableIds(nodes: SshConfigTreeNode[]): string[] {
   return ids;
 }
 
-function collectAncestorNodeIds(nodes: SshConfigTreeNode[], targetId: string, parents: string[] = []): string[] {
+function collectAncestorNodeIds(
+  nodes: SshConfigTreeNode[],
+  targetId: string,
+  parents: string[] = []
+): string[] {
   for (const node of nodes) {
     if (node.id === targetId) {
       return parents;
     }
     if (node.children?.length) {
-      const found = collectAncestorNodeIds(node.children as SshConfigTreeNode[], targetId, [...parents, node.id]);
+      const found = collectAncestorNodeIds(node.children as SshConfigTreeNode[], targetId, [
+        ...parents,
+        node.id,
+      ]);
       if (found.length) {
         return found;
       }
@@ -293,7 +343,9 @@ async function saveGroup() {
   const label = groupForm.label.trim();
   if (!label) return;
   const parentId = groupForm.parentId;
-  const editingGroup = editingGroupId.value ? sshFolders.value.find((group) => group.id === editingGroupId.value) : null;
+  const editingGroup = editingGroupId.value
+    ? sshFolders.value.find((group) => group.id === editingGroupId.value)
+    : null;
   if (editingGroup) {
     if (editingGroup.id === parentId || isDescendantGroup(editingGroup.id, parentId)) {
       return;
@@ -302,7 +354,10 @@ async function saveGroup() {
       id: editingGroup.id,
       label,
       parentId,
-      sortOrder: (editingGroup.parentId ?? '') === parentId ? editingGroup.sortOrder : nextGroupSortOrder(parentId),
+      sortOrder:
+        (editingGroup.parentId ?? '') === parentId
+          ? editingGroup.sortOrder
+          : nextGroupSortOrder(parentId),
     });
     groupDialogVisible.value = false;
     return;
@@ -312,7 +367,12 @@ async function saveGroup() {
     label,
     parentId: parentId || undefined,
   });
-  configTreeExpandedIds.value = Array.from(new Set([...configTreeExpandedIds.value, parentId ? groupNodeId(parentId) : groupNodeId(group.id)]));
+  configTreeExpandedIds.value = Array.from(
+    new Set([
+      ...configTreeExpandedIds.value,
+      parentId ? groupNodeId(parentId) : groupNodeId(group.id),
+    ])
+  );
   groupDialogVisible.value = false;
 }
 
@@ -337,7 +397,11 @@ async function moveProfileToGroup(profile: SshProfile, groupId: string) {
   });
 }
 
-async function reorderProfileAround(profile: SshProfile, targetProfile: SshProfile, position: 'before' | 'after') {
+async function reorderProfileAround(
+  profile: SshProfile,
+  targetProfile: SshProfile,
+  position: 'before' | 'after'
+) {
   const groupId = profileGroupId(targetProfile.id);
   const siblings = allProfilesInGroup(groupId).filter((item) => item.id !== profile.id);
   const targetIndex = siblings.findIndex((item) => item.id === targetProfile.id);
@@ -352,7 +416,11 @@ async function reorderProfileAround(profile: SshProfile, targetProfile: SshProfi
   }
 }
 
-async function reorderGroupAround(group: SshProfileFolder, targetGroup: SshProfileFolder, position: 'before' | 'after') {
+async function reorderGroupAround(
+  group: SshProfileFolder,
+  targetGroup: SshProfileFolder,
+  position: 'before' | 'after'
+) {
   if (group.id === targetGroup.id) return;
   const parentId = targetGroup.parentId ?? '';
   if (group.id === parentId || isDescendantGroup(group.id, parentId)) return;
@@ -443,7 +511,11 @@ async function handleConfigTreeDrop(payload: UiTreeDropPayload) {
 
   if (draggedNode.kind === 'profile' && draggedNode.data) {
     const draggedProfile = draggedNode.data as SshProfile;
-    if ((payload.position === 'before' || payload.position === 'after') && targetNode.kind === 'profile' && targetNode.data) {
+    if (
+      (payload.position === 'before' || payload.position === 'after') &&
+      targetNode.kind === 'profile' &&
+      targetNode.data
+    ) {
       await reorderProfileAround(draggedProfile, targetNode.data as SshProfile, payload.position);
       return;
     }
@@ -453,7 +525,11 @@ async function handleConfigTreeDrop(payload: UiTreeDropPayload) {
 
   if (draggedNode.kind === 'folder' && draggedNode.data) {
     const draggedGroup = draggedNode.data as SshProfileFolder;
-    if ((payload.position === 'before' || payload.position === 'after') && targetNode.kind === 'folder' && targetNode.data) {
+    if (
+      (payload.position === 'before' || payload.position === 'after') &&
+      targetNode.kind === 'folder' &&
+      targetNode.data
+    ) {
       await reorderGroupAround(draggedGroup, targetNode.data as SshProfileFolder, payload.position);
       return;
     }
@@ -487,12 +563,16 @@ function openConfigNodeContextMenu(payload: UiTreeEventPayload) {
         disabled: isProfileConnecting(profile.id),
         action: () => emit('connect', profile),
       },
-      ...(linkedSession ? [{
-        id: `ssh-focus-${profile.id}`,
-        label: '切换到已连接会话',
-        icon: OpenIcon,
-        action: () => emit('focusSession', linkedSession),
-      }] : []),
+      ...(linkedSession
+        ? [
+            {
+              id: `ssh-focus-${profile.id}`,
+              label: '切换到已连接会话',
+              icon: OpenIcon,
+              action: () => emit('focusSession', linkedSession),
+            },
+          ]
+        : []),
       {
         id: `ssh-edit-${profile.id}`,
         label: '编辑配置',
@@ -617,8 +697,16 @@ async function deleteProfile(profile: SshProfile) {
           title="断开连接"
           @click.stop="emit('disconnect', session.sessionId)"
         >
-          <svg viewBox="0 0 24 24" width="14" height="14" stroke="currentColor" stroke-width="2"
-            fill="none" stroke-linecap="round" stroke-linejoin="round">
+          <svg
+            viewBox="0 0 24 24"
+            width="14"
+            height="14"
+            stroke="currentColor"
+            stroke-width="2"
+            fill="none"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          >
             <line x1="18" y1="6" x2="6" y2="18" />
             <line x1="6" y1="6" x2="18" y2="18" />
           </svg>
@@ -629,17 +717,39 @@ async function deleteProfile(profile: SshProfile) {
 
     <template v-if="props.showProfiles">
       <section class="ssh-tab__section ssh-tab__section--actions">
-        <UiButton class="ssh-action-btn" size="sm" variant="primary" @click="emit('createProfileInGroup')">
+        <UiButton
+          class="ssh-action-btn"
+          size="sm"
+          variant="primary"
+          @click="emit('createProfileInGroup')"
+        >
           <template #prefix>
             <AddIcon width="15" height="15" />
           </template>
           新建连接
         </UiButton>
-        <UiButton class="ssh-action-btn" size="sm" variant="secondary" @click="openCreateGroupDialog()">
+        <UiButton
+          class="ssh-action-btn"
+          size="sm"
+          variant="secondary"
+          @click="openCreateGroupDialog()"
+        >
           <template #prefix>
             <svg viewBox="0 0 16 16" width="15" height="15" aria-hidden="true">
-              <path d="M2.5 5.5h4l1 1h6v6.5h-11z" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round" />
-              <path d="M11.5 2.5v3M10 4h3" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" />
+              <path
+                d="M2.5 5.5h4l1 1h6v6.5h-11z"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="1.5"
+                stroke-linejoin="round"
+              />
+              <path
+                d="M11.5 2.5v3M10 4h3"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="1.5"
+                stroke-linecap="round"
+              />
             </svg>
           </template>
           新建分组
@@ -649,7 +759,12 @@ async function deleteProfile(profile: SshProfile) {
       <div class="ssh-tab__section-header">
         <span class="ssh-tab__section-label">{{ props.profileSectionLabel }}</span>
         <div class="ssh-tab__actions">
-          <UiIconButton size="sm" variant="ghost" title="SSH 密钥管理" @click="emit('openKeyManager')">
+          <UiIconButton
+            size="sm"
+            variant="ghost"
+            title="SSH 密钥管理"
+            @click="emit('openKeyManager')"
+          >
             <svg viewBox="0 0 16 16" aria-hidden="true">
               <path d="M13.5 2.5l-1.4 1.4" />
               <path d="M5.5 6.5L2.5 9.5l2.4 2.4 3-3" />
@@ -661,10 +776,22 @@ async function deleteProfile(profile: SshProfile) {
       </div>
 
       <div v-if="sshStore.profiles.length > 3" class="ssh-search">
-        <UiInput v-model="searchQuery" class="ssh-search__input" size="sm" placeholder="搜索配置...">
+        <UiInput
+          v-model="searchQuery"
+          class="ssh-search__input"
+          size="sm"
+          placeholder="搜索配置..."
+        >
           <template #prefix>
-            <svg class="ssh-search__icon" viewBox="0 0 24 24" width="13" height="13"
-              stroke="currentColor" stroke-width="2" fill="none">
+            <svg
+              class="ssh-search__icon"
+              viewBox="0 0 24 24"
+              width="13"
+              height="13"
+              stroke="currentColor"
+              stroke-width="2"
+              fill="none"
+            >
               <circle cx="11" cy="11" r="8" />
               <line x1="21" y1="21" x2="16.65" y2="16.65" />
             </svg>
@@ -687,9 +814,13 @@ async function deleteProfile(profile: SshProfile) {
       />
 
       <div v-if="sshStore.profiles.length === 0" class="ssh-empty-action">
-        <UiButton size="sm" block variant="secondary" @click="emit('createProfileInGroup')">添加第一个配置</UiButton>
+        <UiButton size="sm" block variant="secondary" @click="emit('createProfileInGroup')"
+          >添加第一个配置</UiButton
+        >
       </div>
-      <div v-else-if="searchQuery.trim() && configTreeNodes.length === 0" class="ssh-no-results">未找到匹配的配置</div>
+      <div v-else-if="searchQuery.trim() && configTreeNodes.length === 0" class="ssh-no-results">
+        未找到匹配的配置
+      </div>
     </template>
 
     <UiDialog
@@ -703,7 +834,11 @@ async function deleteProfile(profile: SshProfile) {
       </template>
       <div class="ssh-dialog__body">
         <UiField label="名称" required>
-          <UiInput v-model="groupForm.label" placeholder="例如：生产服务器" @keydown.enter="saveGroup" />
+          <UiInput
+            v-model="groupForm.label"
+            placeholder="例如：生产服务器"
+            @keydown.enter="saveGroup"
+          />
         </UiField>
         <UiField label="父级分组">
           <UiSelect v-model="groupForm.parentId" :options="groupParentOptions" />
@@ -969,7 +1104,12 @@ async function deleteProfile(profile: SshProfile) {
 }
 
 @keyframes ssh-pulse {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0.5; }
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.5;
+  }
 }
 </style>

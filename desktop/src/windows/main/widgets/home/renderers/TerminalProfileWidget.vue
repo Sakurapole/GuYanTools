@@ -9,37 +9,54 @@ import { normalizeWidgetConfig } from '../registry';
 import { openTerminalProfileFromHome } from '../terminalWidgetNavigation';
 import UiButton from '../../../components/ui/UiButton.vue';
 
-const props = withDefaults(defineProps<{
-  item: GridItem;
-  interactive?: boolean;
-}>(), {
-  interactive: true,
-});
+const props = withDefaults(
+  defineProps<{
+    item: GridItem;
+    interactive?: boolean;
+  }>(),
+  {
+    interactive: true,
+  }
+);
 
 const terminalStore = useTerminalStore();
 const sshStore = useSshStore();
 const loading = ref(false);
-const config = computed(() =>
-  normalizeWidgetConfig('terminal_profile', props.item.widgetConfig) as TerminalProfileWidgetConfig,
+const config = computed(
+  () =>
+    normalizeWidgetConfig(
+      'terminal_profile',
+      props.item.widgetConfig
+    ) as TerminalProfileWidgetConfig
 );
 const localProfile = computed(() =>
   config.value.profileKind === 'local'
-    ? terminalStore.profiles.find((item) => item.id === config.value.profileId) ?? null
-    : null,
+    ? (terminalStore.profiles.find((item) => item.id === config.value.profileId) ?? null)
+    : null
 );
 const sshProfile = computed(() =>
   config.value.profileKind === 'ssh'
-    ? sshStore.profiles.find((item) => item.id === config.value.profileId) ?? null
-    : null,
+    ? (sshStore.profiles.find((item) => item.id === config.value.profileId) ?? null)
+    : null
 );
 const connectedSshSession = computed(() =>
-  sshProfile.value ? sshStore.mainSessions.find((session) => session.profileId === sshProfile.value?.id) ?? null : null,
+  sshProfile.value
+    ? (sshStore.mainSessions.find((session) => session.profileId === sshProfile.value?.id) ?? null)
+    : null
 );
 const isWide = computed(() => props.item.colSpan >= 4);
 const isCompact = computed(() => props.item.colSpan <= 2 && props.item.rowSpan <= 2);
-const title = computed(() => localProfile.value?.label || sshProfile.value?.label || props.item.label || '终端配置');
-const kindLabel = computed(() => config.value.profileKind === 'ssh' ? 'SSH' : '本地');
-const actionLabel = computed(() => config.value.profileKind === 'ssh' ? (connectedSshSession.value ? '切换终端' : '连接 SSH') : '新建终端');
+const title = computed(
+  () => localProfile.value?.label || sshProfile.value?.label || props.item.label || '终端配置'
+);
+const kindLabel = computed(() => (config.value.profileKind === 'ssh' ? 'SSH' : '本地'));
+const actionLabel = computed(() =>
+  config.value.profileKind === 'ssh'
+    ? connectedSshSession.value
+      ? '切换终端'
+      : '连接 SSH'
+    : '新建终端'
+);
 
 function localMeta(profile: TerminalProfile) {
   const cwd = profile.cwd ? ` · ${profile.cwd}` : '';
@@ -57,7 +74,8 @@ const meta = computed(() => {
 });
 const pathText = computed(() => {
   if (localProfile.value?.cwd) return localProfile.value.cwd;
-  if (sshProfile.value) return sshProfile.value.authType === 'password' ? 'Password' : sshProfile.value.authType;
+  if (sshProfile.value)
+    return sshProfile.value.authType === 'password' ? 'Password' : sshProfile.value.authType;
   if (loading.value) return '读取配置中...';
   return '';
 });
@@ -65,10 +83,7 @@ const pathText = computed(() => {
 async function loadProfiles() {
   loading.value = true;
   try {
-    await Promise.all([
-      terminalStore.initialize(),
-      sshStore.initialize(),
-    ]);
+    await Promise.all([terminalStore.initialize(), sshStore.initialize()]);
   } finally {
     loading.value = false;
   }
@@ -88,7 +103,14 @@ onMounted(() => {
 </script>
 
 <template>
-  <div class="terminal-profile-widget" :class="{ 'terminal-profile-widget--wide': isWide, 'terminal-profile-widget--compact': isCompact }" @dblclick.stop="openProfile">
+  <div
+    class="terminal-profile-widget"
+    :class="{
+      'terminal-profile-widget--wide': isWide,
+      'terminal-profile-widget--compact': isCompact,
+    }"
+    @dblclick.stop="openProfile"
+  >
     <header class="terminal-profile-widget__header">
       <span class="terminal-profile-widget__mark">
         <svg viewBox="0 0 24 24" aria-hidden="true">
@@ -96,7 +118,10 @@ onMounted(() => {
           <line x1="12" y1="19" x2="20" y2="19" />
         </svg>
       </span>
-      <span class="terminal-profile-widget__state" :class="{ 'terminal-profile-widget__state--connected': connectedSshSession }">
+      <span
+        class="terminal-profile-widget__state"
+        :class="{ 'terminal-profile-widget__state--connected': connectedSshSession }"
+      >
         {{ connectedSshSession ? '已连接' : kindLabel }}
       </span>
     </header>
@@ -106,9 +131,17 @@ onMounted(() => {
       <div class="terminal-profile-widget__meta" :title="meta">{{ meta }}</div>
     </main>
 
-    <div v-if="pathText" class="terminal-profile-widget__path" :title="pathText">{{ pathText }}</div>
+    <div v-if="pathText" class="terminal-profile-widget__path" :title="pathText">
+      {{ pathText }}
+    </div>
 
-    <UiButton class="terminal-profile-widget__action" variant="ghost" type="button" :disabled="!config.profileId || !interactive" @click.stop="openProfile">
+    <UiButton
+      class="terminal-profile-widget__action"
+      variant="ghost"
+      type="button"
+      :disabled="!config.profileId || !interactive"
+      @click.stop="openProfile"
+    >
       {{ actionLabel }}
     </UiButton>
   </div>

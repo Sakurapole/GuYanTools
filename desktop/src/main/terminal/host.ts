@@ -103,7 +103,10 @@ class TerminalHost {
       return;
     }
 
-    this.sessionBuffers.set(sessionId, next.slice(next.length - TerminalHost.MAX_SESSION_BUFFER_CHARS));
+    this.sessionBuffers.set(
+      sessionId,
+      next.slice(next.length - TerminalHost.MAX_SESSION_BUFFER_CHARS)
+    );
   }
 
   private broadcast(event: TerminalEventEnvelope) {

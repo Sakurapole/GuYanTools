@@ -9,7 +9,9 @@ export const terminalProvider: QuickLaunchProvider = {
   async search(context: QuickLaunchProviderContext): Promise<QuickLaunchResult[]> {
     const config = await appConfigManager.getConfig();
     const profiles = terminalHost.listProfiles();
-    const localConfigById = new Map(config.features.terminal.localProfiles.map((profile) => [profile.id, profile]));
+    const localConfigById = new Map(
+      config.features.terminal.localProfiles.map((profile) => [profile.id, profile])
+    );
 
     return profiles
       .map((profile): QuickLaunchResult | null => {
@@ -24,7 +26,7 @@ export const terminalProvider: QuickLaunchProvider = {
             { value: profile.id, weight: 30 },
             { value: profile.command, weight: 34 },
             { value: localConfig?.cwd ?? '', weight: 28 },
-          ],
+          ]
         );
         if (!match) {
           return null;

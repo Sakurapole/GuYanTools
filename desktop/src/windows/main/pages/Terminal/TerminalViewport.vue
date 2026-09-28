@@ -16,50 +16,53 @@ import { resolveScheme } from './terminal-themes';
 import { shouldSuppressTerminalResponses } from './terminal-buffer-replay';
 import '@xterm/xterm/css/xterm.css';
 
-const props = withDefaults(defineProps<{
-  sessionId: string;
-  buffer: string;
-  rendererMode: TerminalRendererMode;
-  enableBell: boolean;
-  enableSixel: boolean;
-  colorSchemeId: string;
-  /** Viewport background type */
-  bgType?: 'color' | 'image' | 'video';
-  /** Color / gradient CSS value */
-  bgColor?: string;
-  /** Image data-URL or path */
-  bgImage?: string;
-  /** Video data-URL or path */
-  bgVideo?: string;
-  /** Background CSS style overrides */
-  bgStyle?: BackgroundStyleConfig;
-  /**
-   * Optional custom write handler for the terminal's stdin.
-   * When provided (e.g. for SSH sessions), this is called instead of
-   * window.terminalApi.write() so the data is routed to the SSH channel.
-   */
-  writeHandler?: (data: string) => void | Promise<void>;
-  /**
-   * Optional custom resize handler.
-   * When provided (e.g. for SSH sessions), this is called instead of
-   * window.terminalApi.resizeSession().
-   */
-  resizeHandler?: (cols: number, rows: number) => void | Promise<void>;
-  autoFocus?: boolean;
-  copyShortcut?: string;
-  pasteShortcut?: string;
-}>(), {
-  bgType: 'color',
-  bgColor: '',
-  bgImage: '',
-  bgVideo: '',
-  bgStyle: () => ({}),
-  writeHandler: undefined,
-  resizeHandler: undefined,
-  autoFocus: true,
-  copyShortcut: 'CommandOrControl+Shift+C',
-  pasteShortcut: 'CommandOrControl+Shift+V',
-});
+const props = withDefaults(
+  defineProps<{
+    sessionId: string;
+    buffer: string;
+    rendererMode: TerminalRendererMode;
+    enableBell: boolean;
+    enableSixel: boolean;
+    colorSchemeId: string;
+    /** Viewport background type */
+    bgType?: 'color' | 'image' | 'video';
+    /** Color / gradient CSS value */
+    bgColor?: string;
+    /** Image data-URL or path */
+    bgImage?: string;
+    /** Video data-URL or path */
+    bgVideo?: string;
+    /** Background CSS style overrides */
+    bgStyle?: BackgroundStyleConfig;
+    /**
+     * Optional custom write handler for the terminal's stdin.
+     * When provided (e.g. for SSH sessions), this is called instead of
+     * window.terminalApi.write() so the data is routed to the SSH channel.
+     */
+    writeHandler?: (data: string) => void | Promise<void>;
+    /**
+     * Optional custom resize handler.
+     * When provided (e.g. for SSH sessions), this is called instead of
+     * window.terminalApi.resizeSession().
+     */
+    resizeHandler?: (cols: number, rows: number) => void | Promise<void>;
+    autoFocus?: boolean;
+    copyShortcut?: string;
+    pasteShortcut?: string;
+  }>(),
+  {
+    bgType: 'color',
+    bgColor: '',
+    bgImage: '',
+    bgVideo: '',
+    bgStyle: () => ({}),
+    writeHandler: undefined,
+    resizeHandler: undefined,
+    autoFocus: true,
+    copyShortcut: 'CommandOrControl+Shift+C',
+    pasteShortcut: 'CommandOrControl+Shift+V',
+  }
+);
 
 const emit = defineEmits<{
   rendererFallback: [mode: Exclude<TerminalRendererMode, 'webgl'>];
@@ -82,7 +85,7 @@ let wasmDecoderAvailability: Promise<boolean> | null = null;
 let renderQueue = Promise.resolve();
 // Historical buffers may contain Vim's terminal queries; never answer those back to the shell.
 let suppressTerminalResponses = false;
-const TRANSPARENT_BG = 'rgba(0, 0, 0, 0)';
+const _TRANSPARENT_BG = 'rgba(0, 0, 0, 0)';
 const COMMON_COMMANDS = [
   'cd',
   'clear',
@@ -107,9 +110,9 @@ const SEARCH_DECORATIONS: NonNullable<ISearchOptions['decorations']> = {
 };
 
 function hasParam(params: ReadonlyArray<number | number[]>, expected: number) {
-  return params.some((param) => Array.isArray(param)
-    ? param.includes(expected)
-    : param === expected);
+  return params.some((param) =>
+    Array.isArray(param) ? param.includes(expected) : param === expected
+  );
 }
 
 function isTerminalFocused() {
@@ -118,8 +121,10 @@ function isTerminalFocused() {
   }
 
   const activeElement = document.activeElement;
-  return activeElement === terminal.textarea
-    || (!!terminal.element && terminal.element.contains(activeElement));
+  return (
+    activeElement === terminal.textarea ||
+    (!!terminal.element && terminal.element.contains(activeElement))
+  );
 }
 
 function isActiveTerminalInstance(value: Terminal) {
@@ -132,11 +137,14 @@ async function canUseWasmDecoder() {
   }
 
   wasmDecoderAvailability = WebAssembly.compile(
-    new Uint8Array([0x00, 0x61, 0x73, 0x6d, 0x01, 0x00, 0x00, 0x00]),
+    new Uint8Array([0x00, 0x61, 0x73, 0x6d, 0x01, 0x00, 0x00, 0x00])
   )
     .then(() => true)
     .catch((error) => {
-      console.warn('[TerminalViewport] WebAssembly decoder disabled by current CSP, sixel will be skipped:', error);
+      console.warn(
+        '[TerminalViewport] WebAssembly decoder disabled by current CSP, sixel will be skipped:',
+        error
+      );
       return false;
     });
 
@@ -214,16 +222,18 @@ const backgroundLayerStyle = computed(() => {
   return style;
 });
 
-const backgroundMemoKey = computed(() => [
-  props.bgType,
-  props.bgColor,
-  props.bgImage,
-  props.bgVideo,
-  backgroundSize.value,
-  backgroundPosition.value,
-  backgroundRepeat.value,
-  String(props.bgStyle?.opacity ?? 1),
-].join('::'));
+const backgroundMemoKey = computed(() =>
+  [
+    props.bgType,
+    props.bgColor,
+    props.bgImage,
+    props.bgVideo,
+    backgroundSize.value,
+    backgroundPosition.value,
+    backgroundRepeat.value,
+    String(props.bgStyle?.opacity ?? 1),
+  ].join('::')
+);
 
 function toObjectFit(backgroundSizeValue?: string): 'contain' | 'cover' | 'fill' | 'none' {
   switch (backgroundSizeValue) {
@@ -316,10 +326,10 @@ async function createTerminal() {
 
     queueMicrotask(() => {
       if (
-        replayingBuffer
-        || suppressTerminalResponses
-        || !isActiveTerminalInstance(nextTerminal)
-        || !isTerminalFocused()
+        replayingBuffer ||
+        suppressTerminalResponses ||
+        !isActiveTerminalInstance(nextTerminal) ||
+        !isTerminalFocused()
       ) {
         return;
       }
@@ -330,18 +340,20 @@ async function createTerminal() {
     return false;
   });
 
-  const canUseSixel = props.enableSixel && await canUseWasmDecoder();
+  const canUseSixel = props.enableSixel && (await canUseWasmDecoder());
   if (!isActiveTerminalInstance(nextTerminal)) {
     return;
   }
 
   if (canUseSixel) {
     try {
-      nextTerminal.loadAddon(new ImageAddon({
-        enableSizeReports: true,
-        sixelSupport: true,
-        sixelScrolling: true,
-      }));
+      nextTerminal.loadAddon(
+        new ImageAddon({
+          enableSizeReports: true,
+          sixelSupport: true,
+          sixelScrolling: true,
+        })
+      );
     } catch (error) {
       console.warn('[TerminalViewport] Failed to load image addon:', error);
     }
@@ -413,7 +425,9 @@ function buildCommandSuggestion(lineText: string, bufferLine: number) {
     return '';
   }
 
-  const suggestion = COMMON_COMMANDS.find((command) => command.startsWith(prefix) && command !== prefix);
+  const suggestion = COMMON_COMMANDS.find(
+    (command) => command.startsWith(prefix) && command !== prefix
+  );
   return suggestion ?? '';
 }
 
@@ -431,7 +445,10 @@ function handleMouseMove(event: MouseEvent) {
   }
 
   const rect = hostRef.value.getBoundingClientRect();
-  const nextRow = Math.max(0, Math.min(terminal.rows - 1, Math.floor((event.clientY - rect.top) / rowHeight)));
+  const nextRow = Math.max(
+    0,
+    Math.min(terminal.rows - 1, Math.floor((event.clientY - rect.top) / rowHeight))
+  );
   hoveredViewportRow.value = nextRow;
   const bufferLine = getHoveredBufferLine();
   const lineText = bufferLine === null ? '' : readBufferLine(bufferLine);
@@ -559,19 +576,22 @@ function enqueueTerminalWrite(data: string, suppressResponses = false) {
   }
 
   const targetTerminal = terminal;
-  renderQueue = renderQueue.then(() => new Promise<void>((resolve) => {
-    if (!targetTerminal) {
-      resolve();
-      return;
-    }
+  renderQueue = renderQueue.then(
+    () =>
+      new Promise<void>((resolve) => {
+        if (!targetTerminal) {
+          resolve();
+          return;
+        }
 
-    const previousSuppression = suppressTerminalResponses;
-    suppressTerminalResponses = suppressResponses;
-    targetTerminal.write(data, () => {
-      suppressTerminalResponses = previousSuppression;
-      resolve();
-    });
-  }));
+        const previousSuppression = suppressTerminalResponses;
+        suppressTerminalResponses = suppressResponses;
+        targetTerminal.write(data, () => {
+          suppressTerminalResponses = previousSuppression;
+          resolve();
+        });
+      })
+  );
 
   return renderQueue;
 }
@@ -579,7 +599,11 @@ function enqueueTerminalWrite(data: string, suppressResponses = false) {
 function renderBuffer(nextBuffer: string) {
   if (!terminal) return;
 
-  const replayingBuffer = shouldSuppressTerminalResponses(lastRenderedBuffer, nextBuffer, hasRenderedBuffer);
+  const replayingBuffer = shouldSuppressTerminalResponses(
+    lastRenderedBuffer,
+    nextBuffer,
+    hasRenderedBuffer
+  );
   if (!hasRenderedBuffer) {
     if (nextBuffer) {
       void enqueueTerminalWrite(nextBuffer, replayingBuffer);
@@ -693,21 +717,31 @@ defineExpose({
   findPrevious,
 });
 
-watch(() => props.buffer, (value) => {
-  renderBuffer(value);
-}, { flush: 'post' });
+watch(
+  () => props.buffer,
+  (value) => {
+    renderBuffer(value);
+  },
+  { flush: 'post' }
+);
 
 // Live-update xterm theme + viewport background when scheme changes
-watch(() => [props.colorSchemeId, props.bgStyle?.textColor], () => {
-  if (!terminal) return;
-  terminal.options.theme = resolveTerminalTheme();
-  terminal.refresh(0, terminal.rows - 1);
-});
+watch(
+  () => [props.colorSchemeId, props.bgStyle?.textColor],
+  () => {
+    if (!terminal) return;
+    terminal.options.theme = resolveTerminalTheme();
+    terminal.refresh(0, terminal.rows - 1);
+  }
+);
 
-watch(() => props.enableBell, (value) => {
-  if (!terminal) return;
-  terminal.options.bellStyle = value ? 'sound' : 'none';
-});
+watch(
+  () => props.enableBell,
+  (value) => {
+    if (!terminal) return;
+    terminal.options.bellStyle = value ? 'sound' : 'none';
+  }
+);
 
 onMounted(async () => {
   await createTerminal();
@@ -743,10 +777,17 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-  <div class="terminal-viewport" :class="{
-    'terminal-viewport--no-grid': !activeScheme.showGrid || hasCustomBg,
-    'terminal-viewport--custom-bg': hasCustomBg,
-  }" :style="viewportInlineStyle" @mousemove="handleMouseMove" @mouseleave="clearHoveredLine" @contextmenu="handleContextMenu">
+  <div
+    class="terminal-viewport"
+    :class="{
+      'terminal-viewport--no-grid': !activeScheme.showGrid || hasCustomBg,
+      'terminal-viewport--custom-bg': hasCustomBg,
+    }"
+    :style="viewportInlineStyle"
+    @mousemove="handleMouseMove"
+    @mouseleave="clearHoveredLine"
+    @contextmenu="handleContextMenu"
+  >
     <div
       v-if="hasCustomBg && !showVideo"
       v-memo="[backgroundMemoKey]"
@@ -773,7 +814,10 @@ onBeforeUnmount(() => {
     <div
       v-if="hoveredViewportRow !== null"
       class="terminal-viewport__row-highlight"
-      :style="{ top: `${hoveredViewportRow * getTerminalRowHeight()}px`, height: `${getTerminalRowHeight()}px` }"
+      :style="{
+        top: `${hoveredViewportRow * getTerminalRowHeight()}px`,
+        height: `${getTerminalRowHeight()}px`,
+      }"
       aria-hidden="true"
     />
 
@@ -919,7 +963,7 @@ onBeforeUnmount(() => {
   border-radius: 6px;
   background: rgba(15, 23, 42, 0.78);
   color: #d8f3ff;
-  font-family: Consolas, "Cascadia Mono", monospace;
+  font-family: Consolas, 'Cascadia Mono', monospace;
   font-size: 11px;
   font-weight: 500;
   line-height: 22px;

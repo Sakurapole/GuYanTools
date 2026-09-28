@@ -37,7 +37,7 @@ export const sshProvider: QuickLaunchProvider = {
             { value: profile.host, weight: 42 },
             { value: profile.username, weight: 34 },
             ...tags.map((tag) => ({ value: tag, weight: 30 })),
-          ],
+          ]
         );
         if (!match) {
           return null;

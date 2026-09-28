@@ -91,15 +91,12 @@ export function registerSshIpcHandlers() {
     return sshHost.listKnownHosts();
   });
 
-  ipcMain.handle('ssh:verify-host-fingerprint', async (
-    _event,
-    host: string,
-    port: number,
-    algorithm: string,
-    fingerprint: string
-  ) => {
-    return sshHost.verifyHostFingerprint(host, port, algorithm, fingerprint);
-  });
+  ipcMain.handle(
+    'ssh:verify-host-fingerprint',
+    async (_event, host: string, port: number, algorithm: string, fingerprint: string) => {
+      return sshHost.verifyHostFingerprint(host, port, algorithm, fingerprint);
+    }
+  );
 
   ipcMain.handle('ssh:trust-host', async (_event, input: TrustHostInput) => {
     return sshHost.trustHost(input);
@@ -185,9 +182,12 @@ export function registerSshIpcHandlers() {
     return sshHost.exportPortForwards(profileId);
   });
 
-  ipcMain.handle('ssh:import-port-forwards', async (_event, profileId: string, jsonData: string) => {
-    return sshHost.importPortForwards(profileId, jsonData);
-  });
+  ipcMain.handle(
+    'ssh:import-port-forwards',
+    async (_event, profileId: string, jsonData: string) => {
+      return sshHost.importPortForwards(profileId, jsonData);
+    }
+  );
 
   registered = true;
   console.log('[SshIpc] Handlers registered');

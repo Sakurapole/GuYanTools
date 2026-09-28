@@ -8,19 +8,27 @@ import UiPopupSurface from '@/windows/main/components/ui/UiPopupSurface.vue';
 import UiScrollbar from '@/windows/main/components/ui/UiScrollbar.vue';
 import UiSelect from '@/windows/main/components/ui/UiSelect.vue';
 import { useSshStore } from '@/windows/main/stores/ssh_store';
-import type { CreateSshProfileInput, SshProfile, SshProfileFolder, UpdateSshProfileInput } from '@/contracts/ssh';
+import type {
+  CreateSshProfileInput,
+  SshProfile,
+  SshProfileFolder,
+  UpdateSshProfileInput,
+} from '@/contracts/ssh';
 
 // ── Props & Emits ─────────────────────────────────────────────
 
-const props = withDefaults(defineProps<{
-  visible: boolean;
-  /** Pass null to create a new profile, pass profile to edit */
-  profile: SshProfile | null;
-  /** Initial group when creating from a group node */
-  initialGroupId?: string;
-}>(), {
-  initialGroupId: '',
-});
+const props = withDefaults(
+  defineProps<{
+    visible: boolean;
+    /** Pass null to create a new profile, pass profile to edit */
+    profile: SshProfile | null;
+    /** Initial group when creating from a group node */
+    initialGroupId?: string;
+  }>(),
+  {
+    initialGroupId: '',
+  }
+);
 
 const emit = defineEmits<{
   close: [];
@@ -78,14 +86,18 @@ const selectedGroupId = ref('');
 const isEdit = computed(() => props.profile !== null);
 const dialogTitle = computed(() => (isEdit.value ? '编辑 SSH 配置' : '新建 SSH 配置'));
 const privateKeyPlaceholder = computed(() =>
-  isEdit.value ? '未重新选择则保持当前私钥文件' : '请选择私钥文件',
+  isEdit.value ? '未重新选择则保持当前私钥文件' : '请选择私钥文件'
 );
 const authTypeOptions = computed(() =>
-  AUTH_TYPES.map((item) => ({ label: item.label, value: item.value })),
+  AUTH_TYPES.map((item) => ({ label: item.label, value: item.value }))
 );
 const sshGroups = computed(() =>
-  [...sshStore.folders]
-    .sort((a, b) => a.sortOrder - b.sortOrder || a.createdAt - b.createdAt || a.label.localeCompare(b.label, 'zh-CN')),
+  [...sshStore.folders].sort(
+    (a, b) =>
+      a.sortOrder - b.sortOrder ||
+      a.createdAt - b.createdAt ||
+      a.label.localeCompare(b.label, 'zh-CN')
+  )
 );
 const sshGroupIds = computed(() => new Set(sshGroups.value.map((group) => group.id)));
 const groupOptions = computed(() => [
@@ -100,7 +112,10 @@ function groupsByParent(parentId = '') {
   return sshGroups.value.filter((group) => (group.parentId ?? '') === parentId);
 }
 
-function flattenGroups(parentId = '', depth = 0): Array<{ group: SshProfileFolder; depth: number }> {
+function flattenGroups(
+  parentId = '',
+  depth = 0
+): Array<{ group: SshProfileFolder; depth: number }> {
   const output: Array<{ group: SshProfileFolder; depth: number }> = [];
   for (const group of groupsByParent(parentId)) {
     output.push({ group, depth });
@@ -168,12 +183,13 @@ watch(
       }
     } else {
       Object.assign(form, blankForm());
-      selectedGroupId.value = props.initialGroupId && sshGroupIds.value.has(props.initialGroupId)
-        ? props.initialGroupId
-        : '';
+      selectedGroupId.value =
+        props.initialGroupId && sshGroupIds.value.has(props.initialGroupId)
+          ? props.initialGroupId
+          : '';
     }
   },
-  { immediate: true },
+  { immediate: true }
 );
 
 // ── Validation ────────────────────────────────────────────────
@@ -289,9 +305,17 @@ async function handleDelete() {
 // ── Color presets ─────────────────────────────────────────────
 
 const COLOR_PRESETS = [
-  '#6366f1', '#8b5cf6', '#ec4899', '#ef4444',
-  '#f97316', '#eab308', '#22c55e', '#06b6d4',
-  '#3b82f6', '#64748b', '',
+  '#6366f1',
+  '#8b5cf6',
+  '#ec4899',
+  '#ef4444',
+  '#f97316',
+  '#eab308',
+  '#22c55e',
+  '#06b6d4',
+  '#3b82f6',
+  '#64748b',
+  '',
 ];
 
 function selectColor(c: string) {
@@ -361,300 +385,380 @@ function clearSelectedCertificate() {
     z-index="var(--ui-z-popover)"
     @close="emit('close')"
   >
-          <!-- Header -->
-          <div class="sp-dialog__header">
-            <h3 class="sp-dialog__title">{{ dialogTitle }}</h3>
-            <UiIconButton class="sp-close-btn" size="sm" variant="ghost" title="关闭" @click="emit('close')">
-              <svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" stroke-width="2"
-                fill="none" stroke-linecap="round" stroke-linejoin="round">
-                <line x1="18" y1="6" x2="6" y2="18" />
-                <line x1="6" y1="6" x2="18" y2="18" />
-              </svg>
-            </UiIconButton>
-          </div>
+    <!-- Header -->
+    <div class="sp-dialog__header">
+      <h3 class="sp-dialog__title">{{ dialogTitle }}</h3>
+      <UiIconButton
+        class="sp-close-btn"
+        size="sm"
+        variant="ghost"
+        title="关闭"
+        @click="emit('close')"
+      >
+        <svg
+          viewBox="0 0 24 24"
+          width="16"
+          height="16"
+          stroke="currentColor"
+          stroke-width="2"
+          fill="none"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+        >
+          <line x1="18" y1="6" x2="6" y2="18" />
+          <line x1="6" y1="6" x2="18" y2="18" />
+        </svg>
+      </UiIconButton>
+    </div>
 
-          <!-- Body -->
-          <div class="sp-dialog__body">
-            <UiScrollbar class="sp-dialog__scroll" :x="false" :size="6">
-              <div class="sp-dialog__content">
-                <!-- Basic info -->
-                <div class="sp-section">
-              <div class="sp-section__title">基本信息</div>
-              <div class="sp-grid sp-grid--2">
-                <div class="sp-field sp-field--full">
-                  <label class="sp-label">配置名称 <span class="sp-required">*</span></label>
-                  <UiInput v-model="form.label" size="sm" placeholder="例如：我的服务器" id="ssh-profile-label" />
-                </div>
-                <div class="sp-field">
-                  <label class="sp-label">主机地址 <span class="sp-required">*</span></label>
-                  <UiInput v-model="form.host" size="sm" placeholder="192.168.1.1 或 example.com" id="ssh-profile-host" />
-                </div>
-                <div class="sp-field">
-                  <label class="sp-label">端口</label>
-                  <UiInput
-                    :model-value="String(form.port)"
-                    size="sm"
-                    type="number"
-                    :min="1"
-                    :max="65535"
-                    id="ssh-profile-port"
-                    @update:modelValue="updatePort"
-                  />
-                </div>
-                <div class="sp-field">
-                  <label class="sp-label">用户名 <span class="sp-required">*</span></label>
-                  <UiInput v-model="form.username" size="sm" placeholder="root" id="ssh-profile-username" />
-                </div>
-                <div class="sp-field">
-                  <label class="sp-label">所属分组</label>
-                  <UiSelect
-                    v-model="selectedGroupId"
-                    :options="groupOptions"
-                    size="sm"
-                    id="ssh-profile-group"
-                  />
-                </div>
-                <!-- Color tag -->
-                <div class="sp-field">
-                  <label class="sp-label">颜色标记</label>
-                  <div class="sp-colors">
-                    <UiIconButton
-                      v-for="c in COLOR_PRESETS"
-                      :key="c"
-                      class="sp-color-swatch"
-                      size="sm"
-                      variant="ghost"
-                      :class="{ 'sp-color-swatch--selected': form.color === c }"
-                      :style="c ? { background: c } : {}"
-                      @click="selectColor(c)"
-                      :title="c || '无'"
-                    >
-                      <svg v-if="!c" viewBox="0 0 24 24" width="10" height="10" stroke="currentColor"
-                        stroke-width="2" fill="none" stroke-linecap="round">
-                        <line x1="18" y1="6" x2="6" y2="18" />
-                      </svg>
-                    </UiIconButton>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            <!-- Authentication -->
-            <div class="sp-section">
-              <div class="sp-section__title">认证方式</div>
-              <div class="sp-auth-tabs">
-                <UiButton
-                  v-for="at in AUTH_TYPES"
-                  :key="at.value"
-                  class="sp-auth-tab"
+    <!-- Body -->
+    <div class="sp-dialog__body">
+      <UiScrollbar class="sp-dialog__scroll" :x="false" :size="6">
+        <div class="sp-dialog__content">
+          <!-- Basic info -->
+          <div class="sp-section">
+            <div class="sp-section__title">基本信息</div>
+            <div class="sp-grid sp-grid--2">
+              <div class="sp-field sp-field--full">
+                <label class="sp-label">配置名称 <span class="sp-required">*</span></label>
+                <UiInput
+                  v-model="form.label"
                   size="sm"
-                  variant="ghost"
-                  type="button"
-                  :active="form.authType === at.value"
-                  :class="{ 'sp-auth-tab--active': form.authType === at.value }"
-                  :id="`ssh-auth-${at.value}`"
-                  @click="form.authType = at.value"
-                >{{ at.label }}</UiButton>
+                  placeholder="例如：我的服务器"
+                  id="ssh-profile-label"
+                />
               </div>
-
-              <!-- Password auth -->
-              <template v-if="form.authType === 'password'">
-                <div class="sp-grid sp-grid--1" style="margin-top: 12px">
-                  <div class="sp-field">
-                    <label class="sp-label">密码</label>
-                    <UiInput v-model="form.password" size="sm" type="password"
-                      :placeholder="isEdit ? '留空则保持不变' : '输入密码'" id="ssh-profile-password" />
-                  </div>
-                  <UiCheckbox v-model="form.savePassword" size="sm" id="ssh-save-password">
-                    记住密码（加密存储到系统密钥链）
-                  </UiCheckbox>
+              <div class="sp-field">
+                <label class="sp-label">主机地址 <span class="sp-required">*</span></label>
+                <UiInput
+                  v-model="form.host"
+                  size="sm"
+                  placeholder="192.168.1.1 或 example.com"
+                  id="ssh-profile-host"
+                />
+              </div>
+              <div class="sp-field">
+                <label class="sp-label">端口</label>
+                <UiInput
+                  :model-value="String(form.port)"
+                  size="sm"
+                  type="number"
+                  :min="1"
+                  :max="65535"
+                  id="ssh-profile-port"
+                  @update:modelValue="updatePort"
+                />
+              </div>
+              <div class="sp-field">
+                <label class="sp-label">用户名 <span class="sp-required">*</span></label>
+                <UiInput
+                  v-model="form.username"
+                  size="sm"
+                  placeholder="root"
+                  id="ssh-profile-username"
+                />
+              </div>
+              <div class="sp-field">
+                <label class="sp-label">所属分组</label>
+                <UiSelect
+                  v-model="selectedGroupId"
+                  :options="groupOptions"
+                  size="sm"
+                  id="ssh-profile-group"
+                />
+              </div>
+              <!-- Color tag -->
+              <div class="sp-field">
+                <label class="sp-label">颜色标记</label>
+                <div class="sp-colors">
+                  <UiIconButton
+                    v-for="c in COLOR_PRESETS"
+                    :key="c"
+                    class="sp-color-swatch"
+                    size="sm"
+                    variant="ghost"
+                    :class="{ 'sp-color-swatch--selected': form.color === c }"
+                    :style="c ? { background: c } : {}"
+                    @click="selectColor(c)"
+                    :title="c || '无'"
+                  >
+                    <svg
+                      v-if="!c"
+                      viewBox="0 0 24 24"
+                      width="10"
+                      height="10"
+                      stroke="currentColor"
+                      stroke-width="2"
+                      fill="none"
+                      stroke-linecap="round"
+                    >
+                      <line x1="18" y1="6" x2="6" y2="18" />
+                    </svg>
+                  </UiIconButton>
                 </div>
-              </template>
+              </div>
+            </div>
+          </div>
 
-              <!-- Private key auth -->
-              <template v-else-if="form.authType === 'privateKey'">
-                <div class="sp-grid sp-grid--1" style="margin-top: 12px">
-                  <div class="sp-field">
-                    <label class="sp-label">私钥文件路径</label>
-                    <div class="sp-input-action">
-                      <UiInput
-                        :model-value="form.privateKeyPath"
-                        size="sm"
-                        :placeholder="privateKeyPlaceholder"
-                        id="ssh-private-key-path"
-                        readonly
-                      />
-                      <UiButton
-                        class="sp-inline-btn"
-                        variant="ghost"
-                        size="sm"
-                        type="button"
-                        :disabled="pickingPrivateKey"
-                        @click="handleSelectPrivateKey"
-                      >
-                        {{ pickingPrivateKey ? '选择中...' : '选择文件' }}
-                      </UiButton>
-                      <UiButton
-                        v-if="form.privateKeyPath"
-                        class="sp-inline-btn"
-                        variant="ghost"
-                        size="sm"
-                        type="button"
-                        @click="clearSelectedPrivateKey"
-                      >
-                        清空
-                      </UiButton>
-                    </div>
-                    <span v-if="isEdit && !form.privateKeyPath" class="sp-hint">
-                      未重新选择时，将继续使用当前已保存的私钥文件。
-                    </span>
-                  </div>
-                  <div class="sp-field">
-                    <label class="sp-label">私钥密码短语（可留空）</label>
-                    <UiInput v-model="form.privateKeyPassphrase" size="sm" type="password"
-                      placeholder="Passphrase" id="ssh-key-passphrase" />
-                  </div>
-                  <div class="sp-field">
-                    <label class="sp-label">主机 CA 公钥（可选）</label>
-                    <UiInput v-model="form.hostCaKeyPath" size="sm"
-                      placeholder="C:\\Users\\me\\.ssh\\ssh_host_ca.pub" id="ssh-host-ca-path" />
-                    <span class="sp-hint">
-                      服务器使用 OpenSSH Host Certificate 时，可指定签发该证书的 CA 公钥路径。
-                    </span>
-                  </div>
-                  <div class="sp-field">
-                    <label class="sp-label">OpenSSH 用户证书（可选）</label>
-                    <div class="sp-input-action">
-                      <UiInput
-                        :model-value="form.certificatePath"
-                        size="sm"
-                        placeholder="选择 *-cert.pub 证书文件"
-                        id="ssh-certificate-path"
-                        readonly
-                      />
-                      <UiButton
-                        class="sp-inline-btn"
-                        variant="ghost"
-                        size="sm"
-                        type="button"
-                        :disabled="pickingCertificate"
-                        @click="handleSelectCertificate"
-                      >
-                        {{ pickingCertificate ? '选择中...' : '选择文件' }}
-                      </UiButton>
-                      <UiButton
-                        v-if="form.certificatePath"
-                        class="sp-inline-btn"
-                        variant="ghost"
-                        size="sm"
-                        type="button"
-                        @click="clearSelectedCertificate"
-                      >
-                        清空
-                      </UiButton>
-                    </div>
-                    <span class="sp-hint">
-                      选择 OpenSSH CA 签发的用户证书后，会改用证书认证；未选择时继续使用普通公钥认证。
-                    </span>
-                  </div>
-                </div>
-              </template>
-
-              <!-- Agent auth -->
-              <template v-else>
-                <div class="sp-agent-hint">
-                  <svg viewBox="0 0 24 24" width="15" height="15" stroke="currentColor"
-                    stroke-width="2" fill="none">
-                    <circle cx="12" cy="12" r="10" />
-                    <line x1="12" y1="8" x2="12" y2="12" />
-                    <line x1="12" y1="16" x2="12.01" y2="16" />
-                  </svg>
-                  将使用系统 SSH Agent（Pageant / ssh-agent）中加载的密钥进行认证。
-                </div>
-              </template>
+          <!-- Authentication -->
+          <div class="sp-section">
+            <div class="sp-section__title">认证方式</div>
+            <div class="sp-auth-tabs">
+              <UiButton
+                v-for="at in AUTH_TYPES"
+                :key="at.value"
+                class="sp-auth-tab"
+                size="sm"
+                variant="ghost"
+                type="button"
+                :active="form.authType === at.value"
+                :class="{ 'sp-auth-tab--active': form.authType === at.value }"
+                :id="`ssh-auth-${at.value}`"
+                @click="form.authType = at.value"
+                >{{ at.label }}</UiButton
+              >
             </div>
 
-            <!-- Jump host -->
-            <div class="sp-section">
-              <UiCheckbox v-model="form.useJumpHost" size="sm" id="ssh-use-jump-host">
-                <span class="sp-section__title sp-section__title--inline">启用跳板机（JumpHost）</span>
-              </UiCheckbox>
-
-              <div v-if="form.useJumpHost" class="sp-grid sp-grid--2" style="margin-top: 12px">
+            <!-- Password auth -->
+            <template v-if="form.authType === 'password'">
+              <div class="sp-grid sp-grid--1" style="margin-top: 12px">
                 <div class="sp-field">
-                  <label class="sp-label">跳板机地址</label>
-                  <UiInput v-model="form.jumpHost" size="sm" placeholder="jump.example.com" id="ssh-jump-host" />
-                </div>
-                <div class="sp-field">
-                  <label class="sp-label">端口</label>
+                  <label class="sp-label">密码</label>
                   <UiInput
-                    :model-value="String(form.jumpPort)"
+                    v-model="form.password"
                     size="sm"
-                    type="number"
-                    :min="1"
-                    :max="65535"
-                    id="ssh-jump-port"
-                    @update:modelValue="updateJumpPort"
+                    type="password"
+                    :placeholder="isEdit ? '留空则保持不变' : '输入密码'"
+                    id="ssh-profile-password"
+                  />
+                </div>
+                <UiCheckbox v-model="form.savePassword" size="sm" id="ssh-save-password">
+                  记住密码（加密存储到系统密钥链）
+                </UiCheckbox>
+              </div>
+            </template>
+
+            <!-- Private key auth -->
+            <template v-else-if="form.authType === 'privateKey'">
+              <div class="sp-grid sp-grid--1" style="margin-top: 12px">
+                <div class="sp-field">
+                  <label class="sp-label">私钥文件路径</label>
+                  <div class="sp-input-action">
+                    <UiInput
+                      :model-value="form.privateKeyPath"
+                      size="sm"
+                      :placeholder="privateKeyPlaceholder"
+                      id="ssh-private-key-path"
+                      readonly
+                    />
+                    <UiButton
+                      class="sp-inline-btn"
+                      variant="ghost"
+                      size="sm"
+                      type="button"
+                      :disabled="pickingPrivateKey"
+                      @click="handleSelectPrivateKey"
+                    >
+                      {{ pickingPrivateKey ? '选择中...' : '选择文件' }}
+                    </UiButton>
+                    <UiButton
+                      v-if="form.privateKeyPath"
+                      class="sp-inline-btn"
+                      variant="ghost"
+                      size="sm"
+                      type="button"
+                      @click="clearSelectedPrivateKey"
+                    >
+                      清空
+                    </UiButton>
+                  </div>
+                  <span v-if="isEdit && !form.privateKeyPath" class="sp-hint">
+                    未重新选择时，将继续使用当前已保存的私钥文件。
+                  </span>
+                </div>
+                <div class="sp-field">
+                  <label class="sp-label">私钥密码短语（可留空）</label>
+                  <UiInput
+                    v-model="form.privateKeyPassphrase"
+                    size="sm"
+                    type="password"
+                    placeholder="Passphrase"
+                    id="ssh-key-passphrase"
                   />
                 </div>
                 <div class="sp-field">
-                  <label class="sp-label">用户名</label>
-                  <UiInput v-model="form.jumpUsername" size="sm" placeholder="root" id="ssh-jump-username" />
+                  <label class="sp-label">主机 CA 公钥（可选）</label>
+                  <UiInput
+                    v-model="form.hostCaKeyPath"
+                    size="sm"
+                    placeholder="C:\\Users\\me\\.ssh\\ssh_host_ca.pub"
+                    id="ssh-host-ca-path"
+                  />
+                  <span class="sp-hint">
+                    服务器使用 OpenSSH Host Certificate 时，可指定签发该证书的 CA 公钥路径。
+                  </span>
                 </div>
                 <div class="sp-field">
-                  <label class="sp-label">认证方式</label>
-                  <UiSelect
-                    :model-value="form.jumpAuthType"
-                    :options="authTypeOptions"
-                    size="sm"
-                    id="ssh-jump-auth-type"
-                    @update:modelValue="updateJumpAuthType"
-                  />
-                </div>
-                <div class="sp-field sp-field--full">
-                  <label class="sp-label">跳板机 Host CA 公钥（可选）</label>
-                  <UiInput v-model="form.jumpHostCaKeyPath" size="sm"
-                    placeholder="C:\\Users\\me\\.ssh\\jump_host_ca.pub" id="ssh-jump-host-ca-path" />
+                  <label class="sp-label">OpenSSH 用户证书（可选）</label>
+                  <div class="sp-input-action">
+                    <UiInput
+                      :model-value="form.certificatePath"
+                      size="sm"
+                      placeholder="选择 *-cert.pub 证书文件"
+                      id="ssh-certificate-path"
+                      readonly
+                    />
+                    <UiButton
+                      class="sp-inline-btn"
+                      variant="ghost"
+                      size="sm"
+                      type="button"
+                      :disabled="pickingCertificate"
+                      @click="handleSelectCertificate"
+                    >
+                      {{ pickingCertificate ? '选择中...' : '选择文件' }}
+                    </UiButton>
+                    <UiButton
+                      v-if="form.certificatePath"
+                      class="sp-inline-btn"
+                      variant="ghost"
+                      size="sm"
+                      type="button"
+                      @click="clearSelectedCertificate"
+                    >
+                      清空
+                    </UiButton>
+                  </div>
+                  <span class="sp-hint">
+                    选择 OpenSSH CA 签发的用户证书后，会改用证书认证；未选择时继续使用普通公钥认证。
+                  </span>
                 </div>
               </div>
-            </div>
+            </template>
 
-            <!-- Advanced -->
-            <div class="sp-section">
-              <div class="sp-section__title">高级选项</div>
-              <UiCheckbox v-model="form.autoReconnect" size="sm" id="ssh-auto-reconnect">
-                连接断开后自动重连
-              </UiCheckbox>
-            </div>
-
-            <!-- Error -->
-            <div v-if="error" class="sp-error">
-              <svg viewBox="0 0 24 24" width="14" height="14" stroke="currentColor"
-                stroke-width="2" fill="none" stroke-linecap="round">
-                <circle cx="12" cy="12" r="10" />
-                <line x1="12" y1="8" x2="12" y2="12" />
-                <line x1="12" y1="16" x2="12.01" y2="16" />
-              </svg>
-              {{ error }}
-            </div>
+            <!-- Agent auth -->
+            <template v-else>
+              <div class="sp-agent-hint">
+                <svg
+                  viewBox="0 0 24 24"
+                  width="15"
+                  height="15"
+                  stroke="currentColor"
+                  stroke-width="2"
+                  fill="none"
+                >
+                  <circle cx="12" cy="12" r="10" />
+                  <line x1="12" y1="8" x2="12" y2="12" />
+                  <line x1="12" y1="16" x2="12.01" y2="16" />
+                </svg>
+                将使用系统 SSH Agent（Pageant / ssh-agent）中加载的密钥进行认证。
               </div>
-            </UiScrollbar>
+            </template>
           </div>
 
-          <!-- Footer -->
-          <div class="sp-dialog__footer">
-            <!-- Delete button (edit mode only) -->
-            <UiButton v-if="isEdit" variant="danger" size="sm" :disabled="deleting"
-              @click="handleDelete">
-              {{ confirmDelete ? '确认删除' : '删除配置' }}
-            </UiButton>
-            <div class="sp-dialog__footer-right">
-              <UiButton variant="ghost" size="sm" @click="emit('close')">取消</UiButton>
-              <UiButton variant="primary" size="sm" :disabled="saving" @click="save" id="ssh-save-btn">
-                {{ saving ? '保存中...' : '保存' }}
-              </UiButton>
+          <!-- Jump host -->
+          <div class="sp-section">
+            <UiCheckbox v-model="form.useJumpHost" size="sm" id="ssh-use-jump-host">
+              <span class="sp-section__title sp-section__title--inline"
+                >启用跳板机（JumpHost）</span
+              >
+            </UiCheckbox>
+
+            <div v-if="form.useJumpHost" class="sp-grid sp-grid--2" style="margin-top: 12px">
+              <div class="sp-field">
+                <label class="sp-label">跳板机地址</label>
+                <UiInput
+                  v-model="form.jumpHost"
+                  size="sm"
+                  placeholder="jump.example.com"
+                  id="ssh-jump-host"
+                />
+              </div>
+              <div class="sp-field">
+                <label class="sp-label">端口</label>
+                <UiInput
+                  :model-value="String(form.jumpPort)"
+                  size="sm"
+                  type="number"
+                  :min="1"
+                  :max="65535"
+                  id="ssh-jump-port"
+                  @update:modelValue="updateJumpPort"
+                />
+              </div>
+              <div class="sp-field">
+                <label class="sp-label">用户名</label>
+                <UiInput
+                  v-model="form.jumpUsername"
+                  size="sm"
+                  placeholder="root"
+                  id="ssh-jump-username"
+                />
+              </div>
+              <div class="sp-field">
+                <label class="sp-label">认证方式</label>
+                <UiSelect
+                  :model-value="form.jumpAuthType"
+                  :options="authTypeOptions"
+                  size="sm"
+                  id="ssh-jump-auth-type"
+                  @update:modelValue="updateJumpAuthType"
+                />
+              </div>
+              <div class="sp-field sp-field--full">
+                <label class="sp-label">跳板机 Host CA 公钥（可选）</label>
+                <UiInput
+                  v-model="form.jumpHostCaKeyPath"
+                  size="sm"
+                  placeholder="C:\\Users\\me\\.ssh\\jump_host_ca.pub"
+                  id="ssh-jump-host-ca-path"
+                />
+              </div>
             </div>
           </div>
+
+          <!-- Advanced -->
+          <div class="sp-section">
+            <div class="sp-section__title">高级选项</div>
+            <UiCheckbox v-model="form.autoReconnect" size="sm" id="ssh-auto-reconnect">
+              连接断开后自动重连
+            </UiCheckbox>
+          </div>
+
+          <!-- Error -->
+          <div v-if="error" class="sp-error">
+            <svg
+              viewBox="0 0 24 24"
+              width="14"
+              height="14"
+              stroke="currentColor"
+              stroke-width="2"
+              fill="none"
+              stroke-linecap="round"
+            >
+              <circle cx="12" cy="12" r="10" />
+              <line x1="12" y1="8" x2="12" y2="12" />
+              <line x1="12" y1="16" x2="12.01" y2="16" />
+            </svg>
+            {{ error }}
+          </div>
+        </div>
+      </UiScrollbar>
+    </div>
+
+    <!-- Footer -->
+    <div class="sp-dialog__footer">
+      <!-- Delete button (edit mode only) -->
+      <UiButton v-if="isEdit" variant="danger" size="sm" :disabled="deleting" @click="handleDelete">
+        {{ confirmDelete ? '确认删除' : '删除配置' }}
+      </UiButton>
+      <div class="sp-dialog__footer-right">
+        <UiButton variant="ghost" size="sm" @click="emit('close')">取消</UiButton>
+        <UiButton variant="primary" size="sm" :disabled="saving" @click="save" id="ssh-save-btn">
+          {{ saving ? '保存中...' : '保存' }}
+        </UiButton>
+      </div>
+    </div>
   </UiPopupSurface>
 </template>
 
@@ -682,7 +786,9 @@ function clearSelectedCertificate() {
   border-radius: var(--ui-radius-xs, 6px);
   background: var(--ui-surface-dialog, var(--ui-surface-panel));
   border: 1px solid var(--ui-border-subtle);
-  box-shadow: 0 24px 64px rgba(0, 0, 0, 0.4), 0 4px 16px rgba(0, 0, 0, 0.2);
+  box-shadow:
+    0 24px 64px rgba(0, 0, 0, 0.4),
+    0 4px 16px rgba(0, 0, 0, 0.2);
   overflow: hidden;
 
   &__header {
@@ -789,8 +895,12 @@ function clearSelectedCertificate() {
   display: grid;
   gap: 10px;
 
-  &--1 { grid-template-columns: 1fr; }
-  &--2 { grid-template-columns: 1fr 1fr; }
+  &--1 {
+    grid-template-columns: 1fr;
+  }
+  &--2 {
+    grid-template-columns: 1fr 1fr;
+  }
 }
 
 .sp-field {
@@ -798,7 +908,9 @@ function clearSelectedCertificate() {
   flex-direction: column;
   gap: 4px;
 
-  &--full { grid-column: 1 / -1; }
+  &--full {
+    grid-column: 1 / -1;
+  }
 }
 
 // ── Form controls ─────────────────────────────────────────────
@@ -889,7 +1001,10 @@ function clearSelectedCertificate() {
   margin-top: 12px;
   line-height: 1.5;
 
-  svg { flex-shrink: 0; margin-top: 1px; }
+  svg {
+    flex-shrink: 0;
+    margin-top: 1px;
+  }
 }
 
 // ── Color swatches ────────────────────────────────────────────
@@ -953,7 +1068,9 @@ function clearSelectedCertificate() {
   transition: opacity 0.2s;
 
   .sp-dialog {
-    transition: transform 0.22s cubic-bezier(0.34, 1.56, 0.64, 1), opacity 0.2s;
+    transition:
+      transform 0.22s cubic-bezier(0.34, 1.56, 0.64, 1),
+      opacity 0.2s;
   }
 }
 

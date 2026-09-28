@@ -1,7 +1,7 @@
 export function shouldSuppressTerminalResponses(
   lastRenderedBuffer: string,
   nextBuffer: string,
-  hasRenderedBuffer = false,
+  hasRenderedBuffer = false
 ) {
   return !hasRenderedBuffer || !nextBuffer.startsWith(lastRenderedBuffer);
 }

@@ -28,12 +28,12 @@ export const useTerminalStore = defineStore('terminal', () => {
     mergeTerminalProfiles(
       systemProfiles.value,
       appConfigStore.config.features.terminal.localProfiles,
-      appConfigStore.config.features.terminal.defaultProfileId,
-    ),
+      appConfigStore.config.features.terminal.defaultProfileId
+    )
   );
 
-  const activeSession = computed(() =>
-    sessions.value.find((session) => session.sessionId === activeSessionId.value) ?? null,
+  const activeSession = computed(
+    () => sessions.value.find((session) => session.sessionId === activeSessionId.value) ?? null
   );
 
   /**
@@ -41,7 +41,7 @@ export const useTerminalStore = defineStore('terminal', () => {
    * Excludes sessions that have been detached to independent windows.
    */
   const mainSessions = computed(() =>
-    sessions.value.filter((session) => !isDetachedTarget(session.attachedTarget)),
+    sessions.value.filter((session) => !isDetachedTarget(session.attachedTarget))
   );
 
   function isDetachedTarget(target: string | undefined) {
@@ -71,7 +71,10 @@ export const useTerminalStore = defineStore('terminal', () => {
 
   async function ensureSession(preferredSessionId?: string) {
     await initialize(preferredSessionId);
-    if (preferredSessionId && sessions.value.some((session) => session.sessionId === preferredSessionId)) {
+    if (
+      preferredSessionId &&
+      sessions.value.some((session) => session.sessionId === preferredSessionId)
+    ) {
       activeSessionId.value = preferredSessionId;
       return activeSession.value;
     }
@@ -93,7 +96,10 @@ export const useTerminalStore = defineStore('terminal', () => {
     if (!activeSessionId.value && sessions.value.length > 0) {
       activeSessionId.value = sessions.value[0].sessionId;
     }
-    if (activeSessionId.value && !sessions.value.some((session) => session.sessionId === activeSessionId.value)) {
+    if (
+      activeSessionId.value &&
+      !sessions.value.some((session) => session.sessionId === activeSessionId.value)
+    ) {
       activeSessionId.value = sessions.value[0]?.sessionId ?? '';
     }
   }
@@ -101,13 +107,20 @@ export const useTerminalStore = defineStore('terminal', () => {
   async function createSession(payload: Partial<CreateTerminalSessionPayload> = {}) {
     const defaultProfileId = appConfigStore.config.features.terminal.defaultProfileId || undefined;
     const defaultCwd = appConfigStore.config.features.terminal.defaultCwd || undefined;
-    const profile = profiles.value.find((item) => item.id === (payload.profileId ?? defaultProfileId));
-    const localProfile = findLocalProfile(appConfigStore.config.features.terminal.localProfiles, profile?.id);
+    const profile = profiles.value.find(
+      (item) => item.id === (payload.profileId ?? defaultProfileId)
+    );
+    const localProfile = findLocalProfile(
+      appConfigStore.config.features.terminal.localProfiles,
+      profile?.id
+    );
     const launchArgs = payload.args ?? buildLocalProfileArgs(localProfile);
     const launchEnv = {
       ...appConfigStore.config.features.terminal.env,
       ...(localProfile?.env ?? {}),
-      ...(localProfile?.configFilePath ? { GUYANTOOLS_TERMINAL_CONFIG_FILE: localProfile.configFilePath } : {}),
+      ...(localProfile?.configFilePath
+        ? { GUYANTOOLS_TERMINAL_CONFIG_FILE: localProfile.configFilePath }
+        : {}),
       ...(payload.env ?? {}),
     };
     const descriptor = await window.terminalApi.createSession({
@@ -145,7 +158,13 @@ export const useTerminalStore = defineStore('terminal', () => {
     await window.terminalApi.write(sessionId, data);
   }
 
-  async function resizeSession(sessionId: string, cols: number, rows: number, pixelWidth: number, pixelHeight: number) {
+  async function resizeSession(
+    sessionId: string,
+    cols: number,
+    rows: number,
+    pixelWidth: number,
+    pixelHeight: number
+  ) {
     await window.terminalApi.resizeSession({
       sessionId,
       cols,
@@ -182,7 +201,7 @@ export const useTerminalStore = defineStore('terminal', () => {
     const index = sessions.value.findIndex((s) => s.sessionId === sessionId);
     if (index === -1) return;
     sessions.value = sessions.value.map((s, i) =>
-      i === index ? { ...s, profileLabel: trimmed } : s,
+      i === index ? { ...s, profileLabel: trimmed } : s
     );
   }
 
@@ -253,7 +272,9 @@ export const useTerminalStore = defineStore('terminal', () => {
       processId: event.processId ?? current.processId,
     };
 
-    sessions.value = sessions.value.map((session, itemIndex) => itemIndex === index ? next : session);
+    sessions.value = sessions.value.map((session, itemIndex) =>
+      itemIndex === index ? next : session
+    );
   }
 
   function upsertSession(session: TerminalSessionDescriptor) {
@@ -263,11 +284,15 @@ export const useTerminalStore = defineStore('terminal', () => {
       return;
     }
 
-    sessions.value = sessions.value.map((item, itemIndex) => itemIndex === index ? session : item);
+    sessions.value = sessions.value.map((item, itemIndex) =>
+      itemIndex === index ? session : item
+    );
   }
 
   function focusReturnedSessionIfNeeded(sessionId: string) {
-    const activeMainSession = mainSessions.value.find((session) => session.sessionId === activeSessionId.value);
+    const activeMainSession = mainSessions.value.find(
+      (session) => session.sessionId === activeSessionId.value
+    );
     if (activeMainSession) {
       return;
     }
@@ -312,7 +337,8 @@ export const useTerminalStore = defineStore('terminal', () => {
     sessionBootReported.value = nextReported;
 
     if (activeSessionId.value === sessionId) {
-      activeSessionId.value = sessions.value.length > 0 ? sessions.value[sessions.value.length - 1].sessionId : '';
+      activeSessionId.value =
+        sessions.value.length > 0 ? sessions.value[sessions.value.length - 1].sessionId : '';
     }
   }
 
@@ -352,13 +378,19 @@ export const useTerminalStore = defineStore('terminal', () => {
 
   function looksLikeInitialPrompt(sessionId: string, chunk: string) {
     const existingBuffer = sessionBuffers.value[sessionId] ?? '';
-    if (existingBuffer.includes('> ') || existingBuffer.includes('$ ') || existingBuffer.includes('# ')) {
+    if (
+      existingBuffer.includes('> ') ||
+      existingBuffer.includes('$ ') ||
+      existingBuffer.includes('# ')
+    ) {
       return false;
     }
 
-    return /(?:\([^)]+\)\s*)?PS [^\r\n>]+> $/.test(chunk)
-      || /^[A-Za-z]:\\[^\r\n>]*> ?$/.test(chunk)
-      || /^[^\r\n]*[$#] $/.test(chunk);
+    return (
+      /(?:\([^)]+\)\s*)?PS [^\r\n>]+> $/.test(chunk) ||
+      /^[A-Za-z]:\\[^\r\n>]*> ?$/.test(chunk) ||
+      /^[^\r\n]*[$#] $/.test(chunk)
+    );
   }
 
   function isPowerShellSession(profileLabel?: string) {
@@ -393,7 +425,7 @@ export const useTerminalStore = defineStore('terminal', () => {
 function mergeTerminalProfiles(
   systemProfiles: TerminalProfile[],
   localProfiles: LocalTerminalProfileConfig[],
-  defaultProfileId?: string,
+  defaultProfileId?: string
 ) {
   return [
     ...systemProfiles.map((profile) => ({
@@ -429,10 +461,7 @@ function buildLocalProfileArgs(profile: LocalTerminalProfileConfig | null) {
     return [];
   }
 
-  return [
-    ...profile.args,
-    ...buildConfigFileArgs(profile.command, profile.configFilePath),
-  ];
+  return [...profile.args, ...buildConfigFileArgs(profile.command, profile.configFilePath)];
 }
 
 function buildConfigFileArgs(command: string, configFilePath?: string) {
@@ -441,12 +470,18 @@ function buildConfigFileArgs(command: string, configFilePath?: string) {
     return [];
   }
 
-  const commandName = command.toLowerCase().replace(/\\/g, '/').split('/').pop() ?? command.toLowerCase();
+  const commandName =
+    command.toLowerCase().replace(/\\/g, '/').split('/').pop() ?? command.toLowerCase();
   if (commandName === 'cmd.exe' || commandName === 'cmd') {
     return ['/K', configPath];
   }
 
-  if (commandName === 'pwsh.exe' || commandName === 'pwsh' || commandName === 'powershell.exe' || commandName === 'powershell') {
+  if (
+    commandName === 'pwsh.exe' ||
+    commandName === 'pwsh' ||
+    commandName === 'powershell.exe' ||
+    commandName === 'powershell'
+  ) {
     return ['-NoProfile', '-NoExit', '-ExecutionPolicy', 'Bypass', '-File', configPath];
   }
 

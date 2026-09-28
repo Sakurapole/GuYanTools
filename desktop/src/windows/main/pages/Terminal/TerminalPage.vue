@@ -1,5 +1,14 @@
 <script setup lang="ts">
-import { computed, defineAsyncComponent, nextTick, onActivated, onBeforeUnmount, onMounted, ref, watch } from 'vue';
+import {
+  computed,
+  defineAsyncComponent,
+  nextTick,
+  onActivated,
+  onBeforeUnmount,
+  onMounted,
+  ref,
+  watch,
+} from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import MainPageLayout from '@/windows/main/components/layout/MainPageLayout.vue';
 import UiButton from '@/windows/main/components/ui/UiButton.vue';
@@ -23,11 +32,19 @@ import { useTerminalStore } from '@/windows/main/stores/terminal_store';
 import { useAppConfigStore } from '@/windows/main/stores/app_config_store';
 import { useFtpStore } from '@/windows/main/stores/ftp_store';
 import { useSshStore } from '@/windows/main/stores/ssh_store';
-import type { TerminalBackgroundConfig, TerminalLayoutMode, TerminalRendererMode, TerminalSessionDescriptor } from '@/contracts/terminal';
+import type {
+  TerminalBackgroundConfig,
+  TerminalLayoutMode,
+  TerminalRendererMode,
+  TerminalSessionDescriptor,
+} from '@/contracts/terminal';
 import type { BackgroundConfirmPayload } from '@/contracts/background';
 import { resolveThemeBackground, withThemeBackground } from '@/contracts/background';
 import type { SshProfile, SshSessionDescriptor } from '@/contracts/ssh';
-import type { WorkspaceDetachedWindowState, WorkspaceWindowContext } from '@/contracts/workspace_window';
+import type {
+  WorkspaceDetachedWindowState,
+  WorkspaceWindowContext,
+} from '@/contracts/workspace_window';
 import TerminalSearchPanel from './TerminalSearchPanel.vue';
 import TerminalToolbar from './TerminalToolbar.vue';
 import TerminalProfileIcon from './TerminalProfileIcon.vue';
@@ -39,7 +56,9 @@ import SshFingerprintDialog from './SshFingerprintDialog.vue';
 import PortForwardPanel from './PortForwardPanel.vue';
 import PortForwardDialog from './PortForwardDialog.vue';
 
-const UiPersonalizationConfig = defineAsyncComponent(() => import('@/windows/main/components/ui/UiPersonalizationConfig.vue'));
+const UiPersonalizationConfig = defineAsyncComponent(
+  () => import('@/windows/main/components/ui/UiPersonalizationConfig.vue')
+);
 
 /**
  * Main-window terminal page.
@@ -173,13 +192,22 @@ function syncSidebarTabFromRoute() {
 
 function routeQueryString(key: string) {
   const value = route.query[key];
-  return Array.isArray(value) ? value[0] ?? '' : typeof value === 'string' ? value : '';
+  return Array.isArray(value) ? (value[0] ?? '') : typeof value === 'string' ? value : '';
 }
 
 function hasTerminalOpenRequest() {
-  return Boolean(routeQueryString('openTerminalRequestId') && (
-    routeQueryString('openLocalCwd') || routeQueryString('openLocalProfileId') || routeQueryString('connectSshProfileId')
-  )) || Boolean(routeQueryString('openConnectionLayoutRequestId') && routeQueryString('openConnectionLayoutId'));
+  return (
+    Boolean(
+      routeQueryString('openTerminalRequestId') &&
+      (routeQueryString('openLocalCwd') ||
+        routeQueryString('openLocalProfileId') ||
+        routeQueryString('connectSshProfileId'))
+    ) ||
+    Boolean(
+      routeQueryString('openConnectionLayoutRequestId') &&
+      routeQueryString('openConnectionLayoutId')
+    )
+  );
 }
 
 function activateSidebarTab() {
@@ -195,7 +223,8 @@ function readStringArray(value: unknown) {
 }
 
 function readNumberArray(value: unknown) {
-  return Array.isArray(value) && value.every((item) => typeof item === 'number' && Number.isFinite(item))
+  return Array.isArray(value) &&
+    value.every((item) => typeof item === 'number' && Number.isFinite(item))
     ? value
     : null;
 }
@@ -213,14 +242,13 @@ function readLayoutSizeState(value: unknown) {
 }
 
 function cloneLayoutSizeState(value: Record<string, number[]>) {
-  return Object.fromEntries(
-    Object.entries(value).map(([key, sizes]) => [key, [...sizes]]),
-  );
+  return Object.fromEntries(Object.entries(value).map(([key, sizes]) => [key, [...sizes]]));
 }
 
 async function loadTerminalWorkspaceWindowState() {
   try {
-    const state = await window.workspaceWindowApi?.getPageState('terminal') as TerminalWorkspaceWindowState | null | undefined;
+    const state = (await window.workspaceWindowApi?.getPageState('terminal')) as
+      TerminalWorkspaceWindowState | null | undefined;
     if (!isPlainRecord(state)) return;
 
     if (typeof state.focusedTerminalPaneKey === 'string') {
@@ -420,7 +448,7 @@ async function handleSshConnectFailure(
   profile: SshProfile,
   password: string | undefined,
   err: unknown,
-  doConnect: (pwd?: string) => Promise<SshSessionDescriptor>,
+  doConnect: (pwd?: string) => Promise<SshSessionDescriptor>
 ): Promise<SshSessionDescriptor | null> {
   const msg = err instanceof Error ? err.message : String(err);
   const hostVerification = extractSshHostVerification(msg);
@@ -453,12 +481,14 @@ function extractSshHostVerification(message: string) {
   const jsonStart = message.indexOf('{');
   if ((message.includes('unknown_host') || message.includes('mismatch')) && jsonStart !== -1) {
     try {
-      const parsed = JSON.parse(message.slice(jsonStart)) as Partial<typeof sshFingerprintInfo.value>;
+      const parsed = JSON.parse(message.slice(jsonStart)) as Partial<
+        typeof sshFingerprintInfo.value
+      >;
       if (
-        typeof parsed.host === 'string'
-        && typeof parsed.port === 'number'
-        && typeof parsed.algorithm === 'string'
-        && typeof parsed.fingerprint === 'string'
+        typeof parsed.host === 'string' &&
+        typeof parsed.port === 'number' &&
+        typeof parsed.algorithm === 'string' &&
+        typeof parsed.fingerprint === 'string'
       ) {
         return {
           host: parsed.host,
@@ -472,7 +502,9 @@ function extractSshHostVerification(message: string) {
     }
   }
 
-  const match = message.match(/host_verification_(?:required|mismatch):([^:]+):(\d+):([^:]+):([^\s]+)/);
+  const match = message.match(
+    /host_verification_(?:required|mismatch):([^:]+):(\d+):([^:]+):([^\s]+)/
+  );
   if (!match) return null;
 
   return {
@@ -531,7 +563,9 @@ const rendererMode = computed(() => appConfigStore.config.features.terminal.rend
 const layoutMode = computed(() => appConfigStore.config.features.terminal.layoutMode ?? 'tabbed');
 const enableBell = computed(() => appConfigStore.config.features.terminal.enableBell);
 const enableSixel = computed(() => appConfigStore.config.features.terminal.enableSixel);
-const colorSchemeId = computed(() => appConfigStore.config.features.terminal.colorSchemeId ?? 'dark-default');
+const colorSchemeId = computed(
+  () => appConfigStore.config.features.terminal.colorSchemeId ?? 'dark-default'
+);
 const forwardedPortSummaries = computed(() => sshStore.runningPortForwardSummaries);
 const localTerminalPanes = computed<TerminalPane[]>(() =>
   terminalStore.mainSessions.map((session) => ({
@@ -544,7 +578,7 @@ const localTerminalPanes = computed<TerminalPane[]>(() =>
     status: session.status,
     buffer: terminalStore.getBuffer(session.sessionId),
     session,
-  })),
+  }))
 );
 const sshTerminalPanes = computed<TerminalPane[]>(() =>
   sshStore.mainSessions.map((session) => ({
@@ -557,7 +591,7 @@ const sshTerminalPanes = computed<TerminalPane[]>(() =>
     status: session.status,
     buffer: sshStore.getBuffer(session.sessionId),
     session,
-  })),
+  }))
 );
 const pendingSshTerminalPanes = computed<TerminalPane[]>(() =>
   sshConnectingProfileIds.value
@@ -573,7 +607,7 @@ const pendingSshTerminalPanes = computed<TerminalPane[]>(() =>
       status: 'connecting',
       buffer: '',
       session: profile,
-    })),
+    }))
 );
 const terminalPanes = computed<TerminalPane[]>(() => [
   ...localTerminalPanes.value,
@@ -592,12 +626,16 @@ const orderedTerminalPanes = computed<TerminalPane[]>(() => {
 });
 const activeTerminalPane = computed<TerminalPane | null>(() => {
   const panes = terminalPanes.value;
-  return panes.find((pane) => pane.key === focusedTerminalPaneKey.value)
-    ?? panes.find((pane) => pane.kind === 'ssh' && pane.sessionId === sshStore.activeSshSessionId)
-    ?? panes.find((pane) => pane.kind === 'local' && pane.sessionId === terminalStore.activeSessionId)
-    ?? panes.find((pane) => pane.kind === 'ssh-pending')
-    ?? panes[0]
-    ?? null;
+  return (
+    panes.find((pane) => pane.key === focusedTerminalPaneKey.value) ??
+    panes.find((pane) => pane.kind === 'ssh' && pane.sessionId === sshStore.activeSshSessionId) ??
+    panes.find(
+      (pane) => pane.kind === 'local' && pane.sessionId === terminalStore.activeSessionId
+    ) ??
+    panes.find((pane) => pane.kind === 'ssh-pending') ??
+    panes[0] ??
+    null
+  );
 });
 const activeToolbarSession = computed<TerminalSessionDescriptor | null>(() => {
   const pane = activeTerminalPane.value;
@@ -663,7 +701,9 @@ const terminalPaneWorkspaceStyle = computed<Record<string, string>>(() => {
   if (layoutMode.value === 'master-stack' && count > 1) {
     return {
       gridTemplateColumns: `${masterMainRatio.value}% ${100 - masterMainRatio.value}%`,
-      gridTemplateRows: toGridTemplate(ensureLayoutSizes('master-stack:stack-rows', masterStackCount.value)),
+      gridTemplateRows: toGridTemplate(
+        ensureLayoutSizes('master-stack:stack-rows', masterStackCount.value)
+      ),
     };
   }
 
@@ -676,7 +716,9 @@ const terminalPaneWorkspaceStyle = computed<Record<string, string>>(() => {
 
   return {};
 });
-const dwindleLayoutModel = computed<DwindleLayoutModel>(() => buildDwindleLayout(visibleTerminalPanes.value));
+const dwindleLayoutModel = computed<DwindleLayoutModel>(() =>
+  buildDwindleLayout(visibleTerminalPanes.value)
+);
 const terminalPaneLayoutItems = computed<TerminalPaneLayoutItem[]>(() => {
   if (layoutMode.value === 'dwindle') {
     return dwindleLayoutModel.value.items;
@@ -702,16 +744,18 @@ const terminalPaneResizeHandles = computed<TerminalPaneResizeHandle[]>(() => {
   }
 
   if (layoutMode.value === 'master-stack') {
-    const handles: TerminalPaneResizeHandle[] = [{
-      id: 'master-stack:main',
-      kind: 'master-main',
-      orientation: 'vertical',
-      style: {
-        left: `${masterMainRatio.value}%`,
-        top: '0%',
-        height: '100%',
+    const handles: TerminalPaneResizeHandle[] = [
+      {
+        id: 'master-stack:main',
+        kind: 'master-main',
+        orientation: 'vertical',
+        style: {
+          left: `${masterMainRatio.value}%`,
+          top: '0%',
+          height: '100%',
+        },
       },
-    }];
+    ];
     return [
       ...handles,
       ...buildLinearResizeHandles('master-stack:stack-rows', 'horizontal', {
@@ -737,12 +781,14 @@ const terminalPaneResizeHandles = computed<TerminalPaneResizeHandle[]>(() => {
 const activeSshSessionForPane = computed(() =>
   activeTerminalPane.value?.kind === 'ssh'
     ? (activeTerminalPane.value.session as SshSessionDescriptor)
-    : null,
+    : null
 );
 const activeSshProfile = computed(() =>
   activeSshSessionForPane.value
-    ? sshStore.profiles.find((profile) => profile.id === activeSshSessionForPane.value?.profileId) ?? null
-    : null,
+    ? (sshStore.profiles.find(
+        (profile) => profile.id === activeSshSessionForPane.value?.profileId
+      ) ?? null)
+    : null
 );
 /** Whether the active viewport is for an SSH session */
 const isSshMode = computed(() => activeTerminalPane.value?.kind === 'ssh');
@@ -752,16 +798,23 @@ const activeLocalTerminalProfile = computed(() => {
     return null;
   }
 
-  return appConfigStore.config.features.terminal.localProfiles.find((profile) => profile.id === activePane.profileId) ?? null;
+  return (
+    appConfigStore.config.features.terminal.localProfiles.find(
+      (profile) => profile.id === activePane.profileId
+    ) ?? null
+  );
 });
 
-watch(() => sshStore.activeSshSessionId, (sessionId) => {
-  if (sessionId || activeSession.value) {
-    return;
+watch(
+  () => sshStore.activeSshSessionId,
+  (sessionId) => {
+    if (sessionId || activeSession.value) {
+      return;
+    }
+
+    sshStore.togglePortForwardPanel(false);
   }
-
-  sshStore.togglePortForwardPanel(false);
-});
+);
 
 watch(terminalPanes, (panes) => {
   const activePane = activeTerminalPane.value;
@@ -793,13 +846,16 @@ function getGlobalTerminalBackground(): TerminalBackgroundConfig {
 }
 
 function resolveTerminalBackground(background: TerminalBackgroundConfig): TerminalBackgroundConfig {
-  const resolved = resolveThemeBackground({
-    type: background.type,
-    color: background.color,
-    image: background.image,
-    video: background.video,
-    backgroundStyle: background.style,
-  }, appConfigStore.config.appearance.theme);
+  const resolved = resolveThemeBackground(
+    {
+      type: background.type,
+      color: background.color,
+      image: background.image,
+      video: background.video,
+      backgroundStyle: background.style,
+    },
+    appConfigStore.config.appearance.theme
+  );
   return {
     type: resolved.type,
     color: resolved.color,
@@ -809,9 +865,11 @@ function resolveTerminalBackground(background: TerminalBackgroundConfig): Termin
   };
 }
 
-const activeTerminalBackground = computed(() => resolveTerminalBackground(
-  activeLocalTerminalProfile.value?.background ?? getGlobalTerminalBackground(),
-));
+const activeTerminalBackground = computed(() =>
+  resolveTerminalBackground(
+    activeLocalTerminalProfile.value?.background ?? getGlobalTerminalBackground()
+  )
+);
 const termBgType = computed(() => activeTerminalBackground.value.type);
 const termBgColor = computed(() => activeTerminalBackground.value.color);
 const termBgImage = computed(() => activeTerminalBackground.value.image);
@@ -819,7 +877,10 @@ const termBgVideo = computed(() => activeTerminalBackground.value.video);
 const termBgStyle = computed(() => activeTerminalBackground.value.style);
 const bgPickerVisible = ref(false);
 
-function getMeasuredElementSize(element: HTMLElement | null, fallback: { width: number; height: number }) {
+function getMeasuredElementSize(
+  element: HTMLElement | null,
+  fallback: { width: number; height: number }
+) {
   if (!element) return fallback;
 
   const rect = element.getBoundingClientRect();
@@ -828,12 +889,12 @@ function getMeasuredElementSize(element: HTMLElement | null, fallback: { width: 
     : fallback;
 }
 
-const terminalBgPreviewSize = computed(() => (
+const terminalBgPreviewSize = computed(() =>
   getMeasuredElementSize(
     terminalLayoutRef.value?.stageElement ?? terminalLayoutRef.value?.mainElement ?? null,
-    { width: 320, height: 200 },
+    { width: 320, height: 200 }
   )
-));
+);
 
 function makePaneKey(kind: TerminalPaneKind, sessionId: string) {
   return `${kind}:${sessionId}`;
@@ -850,10 +911,14 @@ function parsePaneKey(key: string): { kind: TerminalPaneKind; sessionId: string 
   return { kind, sessionId };
 }
 
-function isTerminalViewportInstance(value: unknown): value is InstanceType<typeof TerminalViewport> {
-  return Boolean(value)
-    && typeof (value as { focus?: unknown }).focus === 'function'
-    && typeof (value as { clear?: unknown }).clear === 'function';
+function isTerminalViewportInstance(
+  value: unknown
+): value is InstanceType<typeof TerminalViewport> {
+  return (
+    Boolean(value) &&
+    typeof (value as { focus?: unknown }).focus === 'function' &&
+    typeof (value as { clear?: unknown }).clear === 'function'
+  );
 }
 
 function setViewportRef(key: string, instance: unknown) {
@@ -866,7 +931,7 @@ function setViewportRef(key: string, instance: unknown) {
 
 function getActiveViewportRef() {
   const key = activeTerminalPane.value?.key;
-  return key ? viewportRefs.get(key) ?? null : null;
+  return key ? (viewportRefs.get(key) ?? null) : null;
 }
 
 function refitTerminalViewports() {
@@ -937,7 +1002,7 @@ function getGridPaneStyle(index: number): Record<string, string> {
 function buildLinearResizeHandles(
   stateKey: string,
   orientation: PaneResizeOrientation,
-  bounds: Record<string, string> = {},
+  bounds: Record<string, string> = {}
 ): TerminalPaneResizeHandle[] {
   const sizes = ensureLayoutSizes(
     stateKey,
@@ -947,7 +1012,7 @@ function buildLinearResizeHandles(
         ? gridRowCount.value
         : stateKey === 'master-stack:stack-rows'
           ? masterStackCount.value
-          : visibleTerminalPanes.value.length,
+          : visibleTerminalPanes.value.length
   );
 
   if (sizes.length <= 1) return [];
@@ -962,9 +1027,10 @@ function buildLinearResizeHandles(
       orientation,
       stateKey,
       index,
-      style: orientation === 'vertical'
-        ? { left: `${percent}%`, top: '0%', height: '100%', ...bounds }
-        : { top: `${percent}%`, left: '0%', width: '100%', ...bounds },
+      style:
+        orientation === 'vertical'
+          ? { left: `${percent}%`, top: '0%', height: '100%', ...bounds }
+          : { top: `${percent}%`, left: '0%', width: '100%', ...bounds },
     };
   });
 }
@@ -1051,7 +1117,9 @@ function toDwindleStyle(left: number, top: number, width: number, height: number
 
 function resolvePaneBackground(pane: TerminalPane) {
   if (pane.kind === 'local') {
-    const localProfile = appConfigStore.config.features.terminal.localProfiles.find((profile) => profile.id === pane.profileId);
+    const localProfile = appConfigStore.config.features.terminal.localProfiles.find(
+      (profile) => profile.id === pane.profileId
+    );
     if (localProfile?.background) {
       return resolveTerminalBackground(localProfile.background);
     }
@@ -1069,7 +1137,7 @@ function paneHasCustomBg(pane: TerminalPane) {
 }
 
 // Whether a user-defined background is active (drives WebGL skip + terminal key)
-const hasCustomBg = computed(() => {
+const _hasCustomBg = computed(() => {
   if (termBgType.value === 'image' && termBgImage.value) return true;
   if (termBgType.value === 'video' && termBgVideo.value) return true;
   if (termBgType.value === 'color' && termBgColor.value) return true;
@@ -1081,7 +1149,8 @@ async function initializePage() {
 }
 
 async function createSession(profileId?: string) {
-  const requestedProfileId = profileId || appConfigStore.config.features.terminal.defaultProfileId || undefined;
+  const requestedProfileId =
+    profileId || appConfigStore.config.features.terminal.defaultProfileId || undefined;
   const session = await terminalStore.createSession({
     profileId: requestedProfileId,
   });
@@ -1240,7 +1309,7 @@ async function openTerminalTargetFromConnectionLayout(target: ConnectionLayoutTa
   }
 
   const existing = sshStore.sessions.find(
-    (session) => session.profileId === target.profileId && session.status === 'connected',
+    (session) => session.profileId === target.profileId && session.status === 'connected'
   );
   if (existing) {
     focusSshSession(existing.sessionId, false);
@@ -1253,10 +1322,13 @@ async function openTerminalTargetFromConnectionLayout(target: ConnectionLayoutTa
   if (!profile) return '';
 
   await handleSshConnect(profile);
-  const created = [...sshStore.sessions]
-    .reverse()
-    .find((session) => session.profileId === target.profileId && !beforeSessionIds.has(session.sessionId))
-    ?? null;
+  const created =
+    [...sshStore.sessions]
+      .reverse()
+      .find(
+        (session) =>
+          session.profileId === target.profileId && !beforeSessionIds.has(session.sessionId)
+      ) ?? null;
   if (!created) return '';
 
   await cdSshSession(created.sessionId, target.cwd ?? '');
@@ -1274,9 +1346,11 @@ async function openTerminalConnectionLayout(layoutId: string) {
     await terminalStore.initialize();
     await sshStore.initialize();
     await replaceExistingTerminalConnections();
-    const desiredKeys = (await Promise.all(
-      layout.targets.map((target) => openTerminalTargetFromConnectionLayout(target)),
-    )).filter(Boolean);
+    const desiredKeys = (
+      await Promise.all(
+        layout.targets.map((target) => openTerminalTargetFromConnectionLayout(target))
+      )
+    ).filter(Boolean);
 
     if (layout.viewState.layoutSizeState) {
       layoutSizeState.value = layout.viewState.layoutSizeState;
@@ -1299,7 +1373,7 @@ async function openTerminalConnectionLayout(layoutId: string) {
 }
 
 function shellQuote(path: string) {
-  return `'${path.replaceAll("'", `'\"'\"'`)}'`;
+  return `'${path.replaceAll("'", `'"'"'`)}'`;
 }
 
 async function cdSshSession(sessionId: string, cwd: string) {
@@ -1319,7 +1393,11 @@ async function handleTerminalOpenRequestFromRoute() {
   if (route.path !== '/terminal') return;
   const layoutRequestId = routeQueryString('openConnectionLayoutRequestId');
   const layoutId = routeQueryString('openConnectionLayoutId');
-  if (layoutRequestId && layoutId && !handledTerminalOpenRequestIds.has(`layout:${layoutRequestId}`)) {
+  if (
+    layoutRequestId &&
+    layoutId &&
+    !handledTerminalOpenRequestIds.has(`layout:${layoutRequestId}`)
+  ) {
     handledTerminalOpenRequestIds.add(`layout:${layoutRequestId}`);
     await openTerminalConnectionLayout(layoutId);
     return;
@@ -1350,7 +1428,7 @@ async function handleTerminalOpenRequestFromRoute() {
 
     await sshStore.initialize();
     const existing = sshStore.sessions.find(
-      (session) => session.profileId === sshProfileId && session.status === 'connected',
+      (session) => session.profileId === sshProfileId && session.status === 'connected'
     );
     if (existing) {
       focusSshSession(existing.sessionId, true);
@@ -1365,13 +1443,16 @@ async function handleTerminalOpenRequestFromRoute() {
     }
 
     await handleSshConnect(profile);
-    const connectedSession = sshStore.sessions.find(
-      (session) => session.profileId === profile.id
-        && session.status === 'connected'
-        && session.sessionId === sshStore.activeSshSessionId,
-    ) ?? sshStore.sessions.find(
-      (session) => session.profileId === profile.id && session.status === 'connected',
-    );
+    const connectedSession =
+      sshStore.sessions.find(
+        (session) =>
+          session.profileId === profile.id &&
+          session.status === 'connected' &&
+          session.sessionId === sshStore.activeSshSessionId
+      ) ??
+      sshStore.sessions.find(
+        (session) => session.profileId === profile.id && session.status === 'connected'
+      );
     if (connectedSession) {
       await cdSshSession(connectedSession.sessionId, cwd);
     }
@@ -1380,7 +1461,11 @@ async function handleTerminalOpenRequestFromRoute() {
   }
 }
 
-function startPanePointerDrag(event: PointerEvent, pane: TerminalPane, focusViewportOnClick = false) {
+function startPanePointerDrag(
+  event: PointerEvent,
+  pane: TerminalPane,
+  focusViewportOnClick = false
+) {
   if (orderedTerminalPanes.value.length <= 1 || event.button !== 0) return;
   if (event.target instanceof Element) {
     const control = event.target.closest('button, input, textarea, select, a');
@@ -1433,14 +1518,15 @@ function handlePanePointerMove(event: PointerEvent) {
     return;
   }
 
-  const nextOrder = dropTarget.key === draggingPaneKey.value
-    ? interaction.originalOrder
-    : makePanePreviewOrder(
-      interaction.originalOrder,
-      draggingPaneKey.value,
-      dropTarget.key,
-      dropTarget.insertAfter,
-    );
+  const nextOrder =
+    dropTarget.key === draggingPaneKey.value
+      ? interaction.originalOrder
+      : makePanePreviewOrder(
+          interaction.originalOrder,
+          draggingPaneKey.value,
+          dropTarget.key,
+          dropTarget.insertAfter
+        );
   if (!areStringArraysEqual(nextOrder, interaction.previewOrder)) {
     interaction.previewOrder = nextOrder;
     paneDragPreviewOrder.value = nextOrder;
@@ -1487,7 +1573,12 @@ function clearPaneDragState() {
   document.body.classList.remove('terminal-pane-dragging-active');
 }
 
-function makePanePreviewOrder(order: string[], sourceKey: string, targetKey: string, insertAfter: boolean) {
+function makePanePreviewOrder(
+  order: string[],
+  sourceKey: string,
+  targetKey: string,
+  insertAfter: boolean
+) {
   if (!sourceKey || !targetKey || sourceKey === targetKey) return order;
   const keys = [...order];
   const sourceIndex = keys.indexOf(sourceKey);
@@ -1516,7 +1607,10 @@ function updatePaneDragPreview(clientX: number, clientY: number, pane?: Terminal
   };
 }
 
-function findPaneDropTargetAtPoint(clientX: number, clientY: number): { key: string; insertAfter: boolean } | null {
+function findPaneDropTargetAtPoint(
+  clientX: number,
+  clientY: number
+): { key: string; insertAfter: boolean } | null {
   const target = document.elementFromPoint(clientX, clientY);
   if (!(target instanceof Element)) return null;
   const paneElement = target.closest<HTMLElement>('[data-terminal-pane-key]');
@@ -1531,7 +1625,9 @@ function findPaneDropTargetAtPoint(clientX: number, clientY: number): { key: str
 }
 
 function startPaneResize(event: PointerEvent, handle: TerminalPaneResizeHandle) {
-  const workspace = terminalLayoutRef.value?.stageElement?.querySelector('.terminal-pane-workspace');
+  const workspace = terminalLayoutRef.value?.stageElement?.querySelector(
+    '.terminal-pane-workspace'
+  );
   if (!(workspace instanceof HTMLElement)) return;
 
   event.preventDefault();
@@ -1541,7 +1637,9 @@ function startPaneResize(event: PointerEvent, handle: TerminalPaneResizeHandle) 
     handle,
     startX: event.clientX,
     startY: event.clientY,
-    startSizes: handle.stateKey ? [...ensureLayoutSizes(handle.stateKey, getResizeStateCount(handle.stateKey))] : [],
+    startSizes: handle.stateKey
+      ? [...ensureLayoutSizes(handle.stateKey, getResizeStateCount(handle.stateKey))]
+      : [],
     rect: workspace.getBoundingClientRect(),
   };
 
@@ -1565,18 +1663,20 @@ function handlePaneResizeMove(event: PointerEvent) {
     const next = [...dwindleSplitRatios.value];
     const bounds = handle.bounds;
     if (!bounds) return;
-    const ratio = handle.orientation === 'vertical'
-      ? ((event.clientX - rect.left) / rect.width * 100 - bounds.left) / bounds.width
-      : ((event.clientY - rect.top) / rect.height * 100 - bounds.top) / bounds.height;
+    const ratio =
+      handle.orientation === 'vertical'
+        ? (((event.clientX - rect.left) / rect.width) * 100 - bounds.left) / bounds.width
+        : (((event.clientY - rect.top) / rect.height) * 100 - bounds.top) / bounds.height;
     next[handle.splitIndex] = clamp(ratio, 0.18, 0.82);
     dwindleSplitRatios.value = next;
     return;
   }
 
   if (!handle.stateKey || typeof handle.index !== 'number') return;
-  const delta = handle.orientation === 'vertical'
-    ? (event.clientX - interaction.startX) / rect.width
-    : (event.clientY - interaction.startY) / rect.height;
+  const delta =
+    handle.orientation === 'vertical'
+      ? (event.clientX - interaction.startX) / rect.width
+      : (event.clientY - interaction.startY) / rect.height;
   resizeAdjacentSizes(handle.stateKey, handle.index, interaction.startSizes, delta);
 }
 
@@ -1686,7 +1786,13 @@ function handleTerminalPageKeydown(event: KeyboardEvent) {
     return;
   }
 
-  if (!event.ctrlKey || event.altKey || event.shiftKey || event.metaKey || event.key.toLowerCase() !== 'f') {
+  if (
+    !event.ctrlKey ||
+    event.altKey ||
+    event.shiftKey ||
+    event.metaKey ||
+    event.key.toLowerCase() !== 'f'
+  ) {
     return;
   }
 
@@ -1779,19 +1885,23 @@ async function updateColorScheme(schemeId: string) {
 async function handleBgConfirm(payload: BackgroundConfirmPayload) {
   const localProfile = activeLocalTerminalProfile.value;
   const currentBackground = localProfile?.background ?? getGlobalTerminalBackground();
-  const scopedBackground = withThemeBackground({
-    type: currentBackground.type,
-    color: currentBackground.color,
-    image: currentBackground.image,
-    video: currentBackground.video,
-    backgroundStyle: currentBackground.style,
-  }, appConfigStore.config.appearance.theme, {
-    type: payload.type,
-    color: payload.color ?? '',
-    image: payload.image ?? '',
-    video: payload.video ?? '',
-    backgroundStyle: payload.backgroundStyle ?? {},
-  });
+  const scopedBackground = withThemeBackground(
+    {
+      type: currentBackground.type,
+      color: currentBackground.color,
+      image: currentBackground.image,
+      video: currentBackground.video,
+      backgroundStyle: currentBackground.style,
+    },
+    appConfigStore.config.appearance.theme,
+    {
+      type: payload.type,
+      color: payload.color ?? '',
+      image: payload.image ?? '',
+      video: payload.video ?? '',
+      backgroundStyle: payload.backgroundStyle ?? {},
+    }
+  );
 
   if (localProfile) {
     await appConfigStore.updateConfig({
@@ -1809,7 +1919,7 @@ async function handleBgConfirm(payload: BackgroundConfirmPayload) {
                     style: scopedBackground.backgroundStyle,
                   },
                 }
-              : profile,
+              : profile
           ),
         },
       },
@@ -1830,8 +1940,6 @@ async function handleBgConfirm(payload: BackgroundConfirmPayload) {
   });
 }
 
-
-
 function clearTerminal() {
   const activePane = activeTerminalPane.value;
   if (!activePane) return;
@@ -1847,7 +1955,10 @@ function clearTerminal() {
 async function openFileManagerForCurrentSsh() {
   const sshSession = activeSshSessionForPane.value;
   if (!sshSession) return;
-  const sshProfile = activeSshProfile.value ?? sshStore.profiles.find((profile) => profile.id === sshSession.profileId) ?? null;
+  const sshProfile =
+    activeSshProfile.value ??
+    sshStore.profiles.find((profile) => profile.id === sshSession.profileId) ??
+    null;
   if (!sshProfile) return;
 
   ftpStore.setPendingOpenRequest({
@@ -1882,16 +1993,19 @@ function getErrorMessage(error: unknown) {
 }
 
 function isSshSessionClosedError(error: unknown) {
-  return /SSH session ['"][^'"]+['"] not found|session ['"][^'"]+['"] not found|connection closed|broken pipe|connection reset/i
-    .test(getErrorMessage(error));
+  return /SSH session ['"][^'"]+['"] not found|session ['"][^'"]+['"] not found|connection closed|broken pipe|connection reset/i.test(
+    getErrorMessage(error)
+  );
 }
 
 function extractSshSessionIdFromError(error: unknown) {
   const message = getErrorMessage(error);
-  return message.match(/SSH session ['"]([^'"]+)['"] not found/i)?.[1]
-    ?? message.match(/session ['"]([^'"]+)['"] not found/i)?.[1]
-    ?? activeSshSessionForPane.value?.sessionId
-    ?? '';
+  return (
+    message.match(/SSH session ['"]([^'"]+)['"] not found/i)?.[1] ??
+    message.match(/session ['"]([^'"]+)['"] not found/i)?.[1] ??
+    activeSshSessionForPane.value?.sessionId ??
+    ''
+  );
 }
 
 function handleUnhandledSshRejection(event: PromiseRejectionEvent) {
@@ -1912,7 +2026,7 @@ watch(
     sidebarCollapsed,
   ],
   scheduleTerminalWorkspaceWindowStatePersist,
-  { deep: true },
+  { deep: true }
 );
 
 watch(
@@ -1929,7 +2043,7 @@ watch(
   () => {
     void handleTerminalOpenRequestFromRoute();
   },
-  { immediate: true },
+  { immediate: true }
 );
 
 onActivated(() => {
@@ -1956,7 +2070,8 @@ onMounted(() => {
   window.addEventListener('keydown', handleTerminalPageKeydown, true);
   window.addEventListener('unhandledrejection', handleUnhandledSshRejection);
   if (hasTerminalOpenRequest()) {
-    void terminalStore.initialize()
+    void terminalStore
+      .initialize()
       .then(() => refreshTerminalWorkspaceSessions())
       .catch((error) => {
         console.warn('[workspace-window] Failed to initialize terminal sessions:', error);
@@ -1968,7 +2083,8 @@ onMounted(() => {
         console.warn('[workspace-window] Failed to initialize terminal page:', error);
       });
   }
-  void sshStore.initialize()
+  void sshStore
+    .initialize()
     .then(() => refreshTerminalWorkspaceSessions())
     .catch((error) => {
       console.warn('[workspace-window] Failed to initialize SSH sessions:', error);
@@ -2004,531 +2120,639 @@ onBeforeUnmount(() => {
     ]"
   >
     <template #sidebar>
-        <div class="terminal-sidebar__header">
-          <UiIconButton
-            class="terminal-sidebar__toggle"
+      <div class="terminal-sidebar__header">
+        <UiIconButton
+          class="terminal-sidebar__toggle"
+          size="sm"
+          variant="ghost"
+          :aria-label="sidebarCollapsed ? '展开侧边栏' : '收起侧边栏'"
+          :title="sidebarCollapsed ? '展开侧边栏' : '收起侧边栏'"
+          @click="toggleSidebar"
+        >
+          <svg
+            v-if="sidebarCollapsed"
+            viewBox="0 0 24 24"
+            width="18"
+            height="18"
+            stroke="currentColor"
+            stroke-width="2"
+            fill="none"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          >
+            <path d="m9 18 6-6-6-6" />
+          </svg>
+          <svg
+            v-else
+            viewBox="0 0 24 24"
+            width="18"
+            height="18"
+            stroke="currentColor"
+            stroke-width="2"
+            fill="none"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          >
+            <rect x="4" y="4" width="16" height="16" rx="2" />
+            <path d="M9 4v16" />
+            <path d="m15 9-3 3 3 3" />
+          </svg>
+        </UiIconButton>
+        <!-- Tab switcher (only visible when sidebar is expanded) -->
+        <div v-show="!sidebarCollapsed" class="sidebar-tabs">
+          <UiButton
+            class="sidebar-tab"
             size="sm"
             variant="ghost"
-            :aria-label="sidebarCollapsed ? '展开侧边栏' : '收起侧边栏'"
-            :title="sidebarCollapsed ? '展开侧边栏' : '收起侧边栏'"
-            @click="toggleSidebar"
+            type="button"
+            :active="sidebarTab === 'config'"
+            :class="{ 'sidebar-tab--active': sidebarTab === 'config' }"
+            id="sidebar-tab-config"
+            @click="activateSidebarTab()"
           >
             <svg
-              v-if="sidebarCollapsed"
               viewBox="0 0 24 24"
-              width="18"
-              height="18"
+              width="13"
+              height="13"
               stroke="currentColor"
               stroke-width="2"
               fill="none"
               stroke-linecap="round"
               stroke-linejoin="round"
             >
-              <path d="m9 18 6-6-6-6" />
+              <path d="M12 15.5A3.5 3.5 0 1 0 12 8a3.5 3.5 0 0 0 0 7.5Z" />
+              <path
+                d="M19.4 15a1.7 1.7 0 0 0 .34 1.88l.04.04a2 2 0 1 1-2.83 2.83l-.04-.04A1.7 1.7 0 0 0 15 19.4a1.7 1.7 0 0 0-1 .6l-.06.06a2 2 0 1 1-3.88 0L10 20a1.7 1.7 0 0 0-1-.6 1.7 1.7 0 0 0-1.88.34l-.04.04a2 2 0 1 1-2.83-2.83l.04-.04A1.7 1.7 0 0 0 4.6 15a1.7 1.7 0 0 0-.6-1l-.06-.06a2 2 0 1 1 0-3.88L4 10a1.7 1.7 0 0 0 .6-1 1.7 1.7 0 0 0-.34-1.88l-.04-.04a2 2 0 1 1 2.83-2.83l.04.04A1.7 1.7 0 0 0 9 4.6a1.7 1.7 0 0 0 1-.6l.06-.06a2 2 0 1 1 3.88 0L14 4a1.7 1.7 0 0 0 1 .6 1.7 1.7 0 0 0 1.88-.34l.04-.04a2 2 0 1 1 2.83 2.83l-.04.04A1.7 1.7 0 0 0 19.4 9c.19.35.4.69.6 1l.06.06a2 2 0 1 1 0 3.88L20 14a1.7 1.7 0 0 0-.6 1Z"
+              />
             </svg>
-            <svg
-              v-else
-              viewBox="0 0 24 24"
-              width="18"
-              height="18"
-              stroke="currentColor"
-              stroke-width="2"
-              fill="none"
-              stroke-linecap="round"
-              stroke-linejoin="round"
-            >
-              <rect x="4" y="4" width="16" height="16" rx="2" />
-              <path d="M9 4v16" />
-              <path d="m15 9-3 3 3 3" />
-            </svg>
-          </UiIconButton>
-          <!-- Tab switcher (only visible when sidebar is expanded) -->
-          <div v-show="!sidebarCollapsed" class="sidebar-tabs">
-            <UiButton
-              class="sidebar-tab"
-              size="sm"
-              variant="ghost"
-              type="button"
-              :active="sidebarTab === 'config'"
-              :class="{ 'sidebar-tab--active': sidebarTab === 'config' }"
-              id="sidebar-tab-config"
-              @click="activateSidebarTab()"
-            >
-              <svg viewBox="0 0 24 24" width="13" height="13" stroke="currentColor" stroke-width="2"
-                fill="none" stroke-linecap="round" stroke-linejoin="round">
-                <path d="M12 15.5A3.5 3.5 0 1 0 12 8a3.5 3.5 0 0 0 0 7.5Z" />
-                <path d="M19.4 15a1.7 1.7 0 0 0 .34 1.88l.04.04a2 2 0 1 1-2.83 2.83l-.04-.04A1.7 1.7 0 0 0 15 19.4a1.7 1.7 0 0 0-1 .6l-.06.06a2 2 0 1 1-3.88 0L10 20a1.7 1.7 0 0 0-1-.6 1.7 1.7 0 0 0-1.88.34l-.04.04a2 2 0 1 1-2.83-2.83l.04-.04A1.7 1.7 0 0 0 4.6 15a1.7 1.7 0 0 0-.6-1l-.06-.06a2 2 0 1 1 0-3.88L4 10a1.7 1.7 0 0 0 .6-1 1.7 1.7 0 0 0-.34-1.88l-.04-.04a2 2 0 1 1 2.83-2.83l.04.04A1.7 1.7 0 0 0 9 4.6a1.7 1.7 0 0 0 1-.6l.06-.06a2 2 0 1 1 3.88 0L14 4a1.7 1.7 0 0 0 1 .6 1.7 1.7 0 0 0 1.88-.34l.04-.04a2 2 0 1 1 2.83 2.83l-.04.04A1.7 1.7 0 0 0 19.4 9c.19.35.4.69.6 1l.06.06a2 2 0 1 1 0 3.88L20 14a1.7 1.7 0 0 0-.6 1Z" />
-              </svg>
-              配置
-            </UiButton>
-          </div>
+            配置
+          </UiButton>
         </div>
+      </div>
 
-        <div class="terminal-sidebar__tab-panels">
-          <!-- Config tab -->
-          <div class="terminal-sidebar__panel terminal-sidebar__panel--config">
-            <template v-if="sidebarCollapsed">
-              <div class="terminal-sidebar__collapsed-rail">
-                <UiIconButton
-                  v-for="profile in terminalStore.profiles"
-                  :key="profile.id"
-                  class="terminal-sidebar__collapsed-action"
-                  size="sm"
-                  variant="ghost"
-                  :title="`双击新建本地终端：${profile.label}`"
-                  @dblclick="createSession(profile.id)"
-                >
-                  <TerminalProfileIcon
-                    :profile-id="profile.id"
-                    :command="profile.command"
-                    :label="profile.label"
-                    :size="18"
-                  />
-                </UiIconButton>
-                <div class="terminal-sidebar__collapsed-divider" />
-                <UiIconButton
-                  v-for="profile in sshStore.profiles"
-                  :key="profile.id"
-                  class="terminal-sidebar__collapsed-action terminal-sidebar__collapsed-action--ssh"
-                  size="sm"
-                  variant="ghost"
-                  :class="{ 'terminal-sidebar__collapsed-action--connecting': isSshProfileConnecting(profile.id) }"
-                  :title="isSshProfileConnecting(profile.id)
+      <div class="terminal-sidebar__tab-panels">
+        <!-- Config tab -->
+        <div class="terminal-sidebar__panel terminal-sidebar__panel--config">
+          <template v-if="sidebarCollapsed">
+            <div class="terminal-sidebar__collapsed-rail">
+              <UiIconButton
+                v-for="profile in terminalStore.profiles"
+                :key="profile.id"
+                class="terminal-sidebar__collapsed-action"
+                size="sm"
+                variant="ghost"
+                :title="`双击新建本地终端：${profile.label}`"
+                @dblclick="createSession(profile.id)"
+              >
+                <TerminalProfileIcon
+                  :profile-id="profile.id"
+                  :command="profile.command"
+                  :label="profile.label"
+                  :size="18"
+                />
+              </UiIconButton>
+              <div class="terminal-sidebar__collapsed-divider" />
+              <UiIconButton
+                v-for="profile in sshStore.profiles"
+                :key="profile.id"
+                class="terminal-sidebar__collapsed-action terminal-sidebar__collapsed-action--ssh"
+                size="sm"
+                variant="ghost"
+                :class="{
+                  'terminal-sidebar__collapsed-action--connecting': isSshProfileConnecting(
+                    profile.id
+                  ),
+                }"
+                :title="
+                  isSshProfileConnecting(profile.id)
                     ? `正在连接 SSH：${profile.label}`
-                    : `连接 SSH：${profile.label}`"
-                  :disabled="isSshProfileConnecting(profile.id)"
-                  @click="handleSshConnect(profile)"
+                    : `连接 SSH：${profile.label}`
+                "
+                :disabled="isSshProfileConnecting(profile.id)"
+                @click="handleSshConnect(profile)"
+              >
+                <span
+                  v-if="profile.color"
+                  class="terminal-sidebar__collapsed-color"
+                  :style="{ background: profile.color }"
+                />
+                <svg
+                  viewBox="0 0 24 24"
+                  width="18"
+                  height="18"
+                  stroke="currentColor"
+                  stroke-width="2"
+                  fill="none"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
                 >
-                  <span v-if="profile.color" class="terminal-sidebar__collapsed-color" :style="{ background: profile.color }" />
-                  <svg viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" stroke-width="2"
-                    fill="none" stroke-linecap="round" stroke-linejoin="round">
-                    <polyline points="4 17 10 11 4 5" />
-                    <line x1="12" y1="19" x2="20" y2="19" />
-                  </svg>
-                </UiIconButton>
-                <div class="terminal-sidebar__collapsed-divider" />
-                <UiIconButton
-                  class="terminal-sidebar__collapsed-action terminal-sidebar__collapsed-action--muted"
-                  size="sm"
-                  variant="ghost"
-                  title="新建 SSH 配置"
-                  @click="openSshProfileDialog(null)"
+                  <polyline points="4 17 10 11 4 5" />
+                  <line x1="12" y1="19" x2="20" y2="19" />
+                </svg>
+              </UiIconButton>
+              <div class="terminal-sidebar__collapsed-divider" />
+              <UiIconButton
+                class="terminal-sidebar__collapsed-action terminal-sidebar__collapsed-action--muted"
+                size="sm"
+                variant="ghost"
+                title="新建 SSH 配置"
+                @click="openSshProfileDialog(null)"
+              >
+                <svg
+                  viewBox="0 0 24 24"
+                  width="18"
+                  height="18"
+                  stroke="currentColor"
+                  stroke-width="2"
+                  fill="none"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
                 >
-                  <svg viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" stroke-width="2"
-                    fill="none" stroke-linecap="round" stroke-linejoin="round">
-                    <path d="M12 5v14" />
-                    <path d="M5 12h14" />
-                  </svg>
-                </UiIconButton>
-              </div>
-            </template>
-            <template v-else>
-              <UiScrollbar class="terminal-sidebar__expanded-scroll" :x="false" :size="6">
-                <div class="terminal-sidebar__expanded-content">
-                  <div class="terminal-sidebar__sessions terminal-sidebar__config-list">
-                    <div class="terminal-sidebar__section-header">
-                      <span class="terminal-sidebar__section-label">本地终端配置</span>
-                    </div>
-                    <UiButton
-                      v-for="profile in terminalStore.profiles"
-                      :key="profile.id"
-                      class="terminal-profile-item"
-                      size="sm"
-                      variant="ghost"
-                      type="button"
-                      @dblclick="createSession(profile.id)"
-                    >
-                      <template #prefix>
-                        <TerminalProfileIcon
-                          class="terminal-profile-item__icon"
-                          :profile-id="profile.id"
-                          :command="profile.command"
-                          :label="profile.label"
-                          :size="16"
-                        />
-                      </template>
-                      <span class="terminal-profile-item__text">
-                        <span class="terminal-profile-item__label">{{ profile.label }}</span>
-                        <span class="terminal-profile-item__command">{{ profile.command || profile.id }}</span>
-                      </span>
-                      <template #suffix>
-                        <svg class="terminal-profile-item__launch" viewBox="0 0 24 24" width="14" height="14" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round">
-                          <path d="M5 12h14" />
-                          <path d="m13 6 6 6-6 6" />
-                        </svg>
-                      </template>
-                    </UiButton>
-                    <div class="terminal-sidebar__divider" />
+                  <path d="M12 5v14" />
+                  <path d="M5 12h14" />
+                </svg>
+              </UiIconButton>
+            </div>
+          </template>
+          <template v-else>
+            <UiScrollbar class="terminal-sidebar__expanded-scroll" :x="false" :size="6">
+              <div class="terminal-sidebar__expanded-content">
+                <div class="terminal-sidebar__sessions terminal-sidebar__config-list">
+                  <div class="terminal-sidebar__section-header">
+                    <span class="terminal-sidebar__section-label">本地终端配置</span>
                   </div>
-                  <SshSidebarTab
-                    class="terminal-sidebar__ssh-configs"
-                    :show-active-sessions="false"
-                    :profile-section-label="'SSH 配置'"
-                    :connecting-profile-ids="sshConnectingProfileIds"
-                    @edit-profile="openSshProfileDialog"
-                    @create-profile-in-group="openSshProfileDialog(null, $event)"
-                    @open-key-manager="sshKeyManagerVisible = true"
-                    @connect="handleSshConnect"
-                    @focus-session="handleSshFocusSession"
-                    @disconnect="handleSshDisconnect"
-                  />
+                  <UiButton
+                    v-for="profile in terminalStore.profiles"
+                    :key="profile.id"
+                    class="terminal-profile-item"
+                    size="sm"
+                    variant="ghost"
+                    type="button"
+                    @dblclick="createSession(profile.id)"
+                  >
+                    <template #prefix>
+                      <TerminalProfileIcon
+                        class="terminal-profile-item__icon"
+                        :profile-id="profile.id"
+                        :command="profile.command"
+                        :label="profile.label"
+                        :size="16"
+                      />
+                    </template>
+                    <span class="terminal-profile-item__text">
+                      <span class="terminal-profile-item__label">{{ profile.label }}</span>
+                      <span class="terminal-profile-item__command">{{
+                        profile.command || profile.id
+                      }}</span>
+                    </span>
+                    <template #suffix>
+                      <svg
+                        class="terminal-profile-item__launch"
+                        viewBox="0 0 24 24"
+                        width="14"
+                        height="14"
+                        stroke="currentColor"
+                        stroke-width="2"
+                        fill="none"
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                      >
+                        <path d="M5 12h14" />
+                        <path d="m13 6 6 6-6 6" />
+                      </svg>
+                    </template>
+                  </UiButton>
+                  <div class="terminal-sidebar__divider" />
                 </div>
-              </UiScrollbar>
-            </template>
-          </div>
+                <SshSidebarTab
+                  class="terminal-sidebar__ssh-configs"
+                  :show-active-sessions="false"
+                  :profile-section-label="'SSH 配置'"
+                  :connecting-profile-ids="sshConnectingProfileIds"
+                  @edit-profile="openSshProfileDialog"
+                  @create-profile-in-group="openSshProfileDialog(null, $event)"
+                  @open-key-manager="sshKeyManagerVisible = true"
+                  @connect="handleSshConnect"
+                  @focus-session="handleSshFocusSession"
+                  @disconnect="handleSshDisconnect"
+                />
+              </div>
+            </UiScrollbar>
+          </template>
         </div>
+      </div>
     </template>
 
     <template #main-before>
-        <TerminalToolbar :active-session="activeToolbarSession"
-          :renderer-mode="rendererMode"
-          :layout-mode="layoutMode"
-          :color-scheme-id="colorSchemeId"
-          :connection-layouts="connectionLayoutConfigs"
-          :ssh-mode="isSshMode" :port-forward-open="sshStore.portForwardPanelOpen"
-          :can-detach="!!activeTerminalPane && activeTerminalPane.kind !== 'ssh-pending'"
-          :title-editable="activeTerminalPane?.kind === 'local'"
-          @search="toggleSearchPanel" @clear="clearTerminal" @detach="detachActiveSession"
-          @rename="handleRenameSession" @update:rendererMode="updateRendererMode"
-          @update:layoutMode="updateLayoutMode"
-          @save-connection-layout="openSaveTerminalLayoutDialog"
-          @open-connection-layout="openTerminalConnectionLayout"
-          @delete-connection-layout="deleteTerminalConnectionLayout"
-          @reset-layout-size="resetTerminalLayoutSize"
-          @update:colorSchemeId="updateColorScheme" @background="bgPickerVisible = true"
-          @port-forward="sshStore.togglePortForwardPanel()"
-          @open-file-manager="openFileManagerForCurrentSsh" />
+      <TerminalToolbar
+        :active-session="activeToolbarSession"
+        :renderer-mode="rendererMode"
+        :layout-mode="layoutMode"
+        :color-scheme-id="colorSchemeId"
+        :connection-layouts="connectionLayoutConfigs"
+        :ssh-mode="isSshMode"
+        :port-forward-open="sshStore.portForwardPanelOpen"
+        :can-detach="!!activeTerminalPane && activeTerminalPane.kind !== 'ssh-pending'"
+        :title-editable="activeTerminalPane?.kind === 'local'"
+        @search="toggleSearchPanel"
+        @clear="clearTerminal"
+        @detach="detachActiveSession"
+        @rename="handleRenameSession"
+        @update:rendererMode="updateRendererMode"
+        @update:layoutMode="updateLayoutMode"
+        @save-connection-layout="openSaveTerminalLayoutDialog"
+        @open-connection-layout="openTerminalConnectionLayout"
+        @delete-connection-layout="deleteTerminalConnectionLayout"
+        @reset-layout-size="resetTerminalLayoutSize"
+        @update:colorSchemeId="updateColorScheme"
+        @background="bgPickerVisible = true"
+        @port-forward="sshStore.togglePortForwardPanel()"
+        @open-file-manager="openFileManagerForCurrentSsh"
+      />
 
-        <Transition name="ui-panel-pop">
-          <TerminalSearchPanel
-            v-if="searchVisible"
-            ref="searchPanelRef"
-            :query="searchQuery"
-            :result-index="searchResultIndex"
-            :result-count="searchResultCount"
-            @update:query="updateSearchQuery"
-            @next="findNext"
-            @previous="findPrevious"
-            @close="closeSearchPanel"
-          />
-        </Transition>
-
+      <Transition name="ui-panel-pop">
+        <TerminalSearchPanel
+          v-if="searchVisible"
+          ref="searchPanelRef"
+          :query="searchQuery"
+          :result-index="searchResultIndex"
+          :result-count="searchResultCount"
+          @update:query="updateSearchQuery"
+          @next="findNext"
+          @previous="findPrevious"
+          @close="closeSearchPanel"
+        />
+      </Transition>
     </template>
 
     <template #stage>
-          <div v-if="layoutMode === 'tabbed' && terminalPanes.length > 1" class="terminal-pane-tabs">
-            <UiButton
-              v-for="pane in orderedTerminalPanes"
-              :key="pane.key"
-              class="terminal-pane-tab"
-              size="sm"
-              variant="ghost"
-              type="button"
-              :active="pane.key === activeTerminalPane?.key"
-              :data-terminal-pane-key="pane.key"
-              :class="{
-                'terminal-pane-tab--active': pane.key === activeTerminalPane?.key,
-                'terminal-pane-tab--drop-target': pane.key === dropTargetPaneKey,
-                'terminal-pane-tab--drag-placeholder': pane.key === draggingPaneKey,
-              }"
-              @pointerdown="startPanePointerDrag($event, pane, true)"
-            >
-              <span class="terminal-pane-tab__kind">{{ pane.kind === 'local' ? '本地' : 'SSH' }}</span>
-              <span class="terminal-pane-tab__title">{{ pane.title }}</span>
-              <span
-                class="terminal-pane-tab__close"
-                role="button"
-                tabindex="-1"
-                title="关闭终端"
-                aria-label="关闭终端"
-                @pointerdown.stop
-                @click.stop="closePane(pane)"
-              >
-                <svg viewBox="0 0 16 16" width="12" height="12" aria-hidden="true">
-                  <path d="M4.5 4.5l7 7M11.5 4.5l-7 7" />
-                </svg>
-              </span>
-            </UiButton>
-          </div>
-
-          <div
-            class="terminal-pane-workspace"
-            :style="terminalPaneWorkspaceStyle"
+      <div v-if="layoutMode === 'tabbed' && terminalPanes.length > 1" class="terminal-pane-tabs">
+        <UiButton
+          v-for="pane in orderedTerminalPanes"
+          :key="pane.key"
+          class="terminal-pane-tab"
+          size="sm"
+          variant="ghost"
+          type="button"
+          :active="pane.key === activeTerminalPane?.key"
+          :data-terminal-pane-key="pane.key"
+          :class="{
+            'terminal-pane-tab--active': pane.key === activeTerminalPane?.key,
+            'terminal-pane-tab--drop-target': pane.key === dropTargetPaneKey,
+            'terminal-pane-tab--drag-placeholder': pane.key === draggingPaneKey,
+          }"
+          @pointerdown="startPanePointerDrag($event, pane, true)"
+        >
+          <span class="terminal-pane-tab__kind">{{ pane.kind === 'local' ? '本地' : 'SSH' }}</span>
+          <span class="terminal-pane-tab__title">{{ pane.title }}</span>
+          <span
+            class="terminal-pane-tab__close"
+            role="button"
+            tabindex="-1"
+            title="关闭终端"
+            aria-label="关闭终端"
+            @pointerdown.stop
+            @click.stop="closePane(pane)"
           >
-            <div
-              v-for="item in terminalPaneLayoutItems"
-              :key="item.pane.key"
-              class="terminal-pane"
-              :data-terminal-pane-key="item.pane.key"
-              :class="{
-                'terminal-pane--active': item.pane.key === activeTerminalPane?.key,
-                'terminal-pane--ssh': item.pane.kind === 'ssh',
-                'terminal-pane--pending': item.pane.kind === 'ssh-pending',
-                'terminal-pane--drag-placeholder': item.pane.key === draggingPaneKey,
-                'terminal-pane--drop-target': item.pane.key === dropTargetPaneKey,
-              }"
-              :style="item.style"
-              @pointerdown.capture="focusPane(item.pane, false)"
-            >
-              <div
-                class="terminal-pane__header"
-                title="拖动以调整终端位置"
-                @pointerdown="startPanePointerDrag($event, item.pane)"
-              >
-                <span class="terminal-pane__kind">{{ item.pane.kind === 'local' ? '本地' : 'SSH' }}</span>
-                <span class="terminal-pane__title">{{ item.pane.title }}</span>
-                <span class="terminal-pane__status">{{ item.pane.key === draggingPaneKey ? '占位' : item.pane.status }}</span>
-                <UiIconButton
-                  class="terminal-pane__close"
-                  size="sm"
-                  variant="ghost"
-                  title="关闭终端"
-                  aria-label="关闭终端"
-                  @click.stop="closePane(item.pane)"
-                >
-                  <svg viewBox="0 0 24 24" width="13" height="13" stroke="currentColor" stroke-width="2.2" fill="none" stroke-linecap="round" stroke-linejoin="round">
-                    <line x1="18" y1="6" x2="6" y2="18" />
-                    <line x1="6" y1="6" x2="18" y2="18" />
-                  </svg>
-                </UiIconButton>
-              </div>
-              <div v-if="item.pane.kind === 'ssh-pending'" class="terminal-pane__connecting">
-                <span class="terminal-pane__connecting-spinner" aria-hidden="true" />
-                <div class="terminal-pane__connecting-text">
-                  <strong>正在连接 {{ item.pane.title }}</strong>
-                  <span>{{ item.pane.subtitle }}</span>
-                </div>
-              </div>
-              <TerminalViewport
-                v-else
-                :key="`${item.pane.key}:${rendererMode}:${enableBell}:${enableSixel}:${paneHasCustomBg(item.pane)}`"
-                :ref="(instance) => setViewportRef(item.pane.key, instance)"
-                :session-id="item.pane.sessionId"
-                :buffer="item.pane.buffer"
-                :renderer-mode="rendererMode"
-                :enable-bell="enableBell"
-                :enable-sixel="enableSixel"
-                :color-scheme-id="colorSchemeId"
-                :bg-type="resolvePaneBackground(item.pane).type"
-                :bg-color="resolvePaneBackground(item.pane).color"
-                :bg-image="resolvePaneBackground(item.pane).image"
-                :bg-video="resolvePaneBackground(item.pane).video"
-                :bg-style="resolvePaneBackground(item.pane).style"
-                :copy-shortcut="appConfigStore.config.shortcuts.internal.terminalCopy"
-                :paste-shortcut="appConfigStore.config.shortcuts.internal.terminalPaste"
-                :auto-focus="item.pane.key === activeTerminalPane?.key"
-                :write-handler="item.pane.kind === 'ssh'
-                  ? (data: string) => sshStore.write(item.pane.sessionId, data)
-                  : undefined"
-                :resize-handler="item.pane.kind === 'ssh'
-                  ? (cols: number, rows: number) => sshStore.resizeSession({ sessionId: item.pane.sessionId, cols, rows })
-                  : undefined"
-                @renderer-fallback="handleRendererFallback"
-                @search-results="item.pane.key === activeTerminalPane?.key ? handleSearchResults($event) : undefined"
-              />
-            </div>
+            <svg viewBox="0 0 16 16" width="12" height="12" aria-hidden="true">
+              <path d="M4.5 4.5l7 7M11.5 4.5l-7 7" />
+            </svg>
+          </span>
+        </UiButton>
+      </div>
+
+      <div class="terminal-pane-workspace" :style="terminalPaneWorkspaceStyle">
+        <div
+          v-for="item in terminalPaneLayoutItems"
+          :key="item.pane.key"
+          class="terminal-pane"
+          :data-terminal-pane-key="item.pane.key"
+          :class="{
+            'terminal-pane--active': item.pane.key === activeTerminalPane?.key,
+            'terminal-pane--ssh': item.pane.kind === 'ssh',
+            'terminal-pane--pending': item.pane.kind === 'ssh-pending',
+            'terminal-pane--drag-placeholder': item.pane.key === draggingPaneKey,
+            'terminal-pane--drop-target': item.pane.key === dropTargetPaneKey,
+          }"
+          :style="item.style"
+          @pointerdown.capture="focusPane(item.pane, false)"
+        >
+          <div
+            class="terminal-pane__header"
+            title="拖动以调整终端位置"
+            @pointerdown="startPanePointerDrag($event, item.pane)"
+          >
+            <span class="terminal-pane__kind">{{
+              item.pane.kind === 'local' ? '本地' : 'SSH'
+            }}</span>
+            <span class="terminal-pane__title">{{ item.pane.title }}</span>
+            <span class="terminal-pane__status">{{
+              item.pane.key === draggingPaneKey ? '占位' : item.pane.status
+            }}</span>
             <UiIconButton
-              v-for="handle in terminalPaneResizeHandles"
-              :key="handle.id"
-              class="terminal-pane-resizer"
+              class="terminal-pane__close"
               size="sm"
               variant="ghost"
-              :class="`terminal-pane-resizer--${handle.orientation}`"
-              :style="handle.style"
-              title="调整终端区域大小"
-              @pointerdown="startPaneResize($event, handle)"
-            />
-            <div
-              v-if="paneDragPreview.visible"
-              class="terminal-pane-drag-preview"
-              :style="{
-                left: `${paneDragPreview.left}px`,
-                top: `${paneDragPreview.top}px`,
-              }"
+              title="关闭终端"
+              aria-label="关闭终端"
+              @click.stop="closePane(item.pane)"
             >
-              <span class="terminal-pane-drag-preview__kind">{{ paneDragPreview.kind === 'local' ? '本地' : 'SSH' }}</span>
-              <span class="terminal-pane-drag-preview__title">{{ paneDragPreview.title }}</span>
+              <svg
+                viewBox="0 0 24 24"
+                width="13"
+                height="13"
+                stroke="currentColor"
+                stroke-width="2.2"
+                fill="none"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              >
+                <line x1="18" y1="6" x2="6" y2="18" />
+                <line x1="6" y1="6" x2="18" y2="18" />
+              </svg>
+            </UiIconButton>
+          </div>
+          <div v-if="item.pane.kind === 'ssh-pending'" class="terminal-pane__connecting">
+            <span class="terminal-pane__connecting-spinner" aria-hidden="true" />
+            <div class="terminal-pane__connecting-text">
+              <strong>正在连接 {{ item.pane.title }}</strong>
+              <span>{{ item.pane.subtitle }}</span>
             </div>
           </div>
+          <TerminalViewport
+            v-else
+            :key="`${item.pane.key}:${rendererMode}:${enableBell}:${enableSixel}:${paneHasCustomBg(item.pane)}`"
+            :ref="(instance) => setViewportRef(item.pane.key, instance)"
+            :session-id="item.pane.sessionId"
+            :buffer="item.pane.buffer"
+            :renderer-mode="rendererMode"
+            :enable-bell="enableBell"
+            :enable-sixel="enableSixel"
+            :color-scheme-id="colorSchemeId"
+            :bg-type="resolvePaneBackground(item.pane).type"
+            :bg-color="resolvePaneBackground(item.pane).color"
+            :bg-image="resolvePaneBackground(item.pane).image"
+            :bg-video="resolvePaneBackground(item.pane).video"
+            :bg-style="resolvePaneBackground(item.pane).style"
+            :copy-shortcut="appConfigStore.config.shortcuts.internal.terminalCopy"
+            :paste-shortcut="appConfigStore.config.shortcuts.internal.terminalPaste"
+            :auto-focus="item.pane.key === activeTerminalPane?.key"
+            :write-handler="
+              item.pane.kind === 'ssh'
+                ? (data: string) => sshStore.write(item.pane.sessionId, data)
+                : undefined
+            "
+            :resize-handler="
+              item.pane.kind === 'ssh'
+                ? (cols: number, rows: number) =>
+                    sshStore.resizeSession({ sessionId: item.pane.sessionId, cols, rows })
+                : undefined
+            "
+            @renderer-fallback="handleRendererFallback"
+            @search-results="
+              item.pane.key === activeTerminalPane?.key ? handleSearchResults($event) : undefined
+            "
+          />
+        </div>
+        <UiIconButton
+          v-for="handle in terminalPaneResizeHandles"
+          :key="handle.id"
+          class="terminal-pane-resizer"
+          size="sm"
+          variant="ghost"
+          :class="`terminal-pane-resizer--${handle.orientation}`"
+          :style="handle.style"
+          title="调整终端区域大小"
+          @pointerdown="startPaneResize($event, handle)"
+        />
+        <div
+          v-if="paneDragPreview.visible"
+          class="terminal-pane-drag-preview"
+          :style="{
+            left: `${paneDragPreview.left}px`,
+            top: `${paneDragPreview.top}px`,
+          }"
+        >
+          <span class="terminal-pane-drag-preview__kind">{{
+            paneDragPreview.kind === 'local' ? '本地' : 'SSH'
+          }}</span>
+          <span class="terminal-pane-drag-preview__title">{{ paneDragPreview.title }}</span>
+        </div>
+      </div>
 
-          <!-- Port forward floating panel (SSH mode only, main window) -->
-          <Transition name="ui-pop">
-          <div
-            v-if="isSshMode && sshStore.portForwardPanelOpen && activeSshSessionForPane"
-            class="terminal-port-forward-overlay"
-            @click.self="sshStore.togglePortForwardPanel(false)"
-          >
-            <PortForwardPanel
-              :session-id="activeSshSessionForPane.sessionId"
-              :profile-id="activeSshSessionForPane.profileId"
-              @close="sshStore.togglePortForwardPanel(false)"
-              @add-forward="openPortForwardDialog(null)"
-              @edit-forward="openPortForwardDialog($event)"
-            />
-          </div>
-          </Transition>
+      <!-- Port forward floating panel (SSH mode only, main window) -->
+      <Transition name="ui-pop">
+        <div
+          v-if="isSshMode && sshStore.portForwardPanelOpen && activeSshSessionForPane"
+          class="terminal-port-forward-overlay"
+          @click.self="sshStore.togglePortForwardPanel(false)"
+        >
+          <PortForwardPanel
+            :session-id="activeSshSessionForPane.sessionId"
+            :profile-id="activeSshSessionForPane.profileId"
+            @close="sshStore.togglePortForwardPanel(false)"
+            @add-forward="openPortForwardDialog(null)"
+            @edit-forward="openPortForwardDialog($event)"
+          />
+        </div>
+      </Transition>
     </template>
 
     <template #main-after>
-        <div v-if="!terminalPanes.length" class="terminal-empty ui-glass-surface ui-glass-surface--strong">
-          <div class="terminal-empty__title">
-            {{ isAnySshProfileConnecting ? '正在连接 SSH' : '没有活跃连接' }}
-          </div>
-          <div v-if="sshConnectError" class="terminal-empty__error">
-            {{ sshConnectError }}
-          </div>
-          <div class="terminal-empty__desc">
-            {{ isAnySshProfileConnecting ? '正在建立连接，请稍候。' : '从左侧配置列表点击本地终端或 SSH 配置来创建连接。' }}
-          </div>
-          <div class="terminal-empty__actions">
-            <UiButton variant="primary" size="sm" @click="activateSidebarTab()">查看配置</UiButton>
+      <div
+        v-if="!terminalPanes.length"
+        class="terminal-empty ui-glass-surface ui-glass-surface--strong"
+      >
+        <div class="terminal-empty__title">
+          {{ isAnySshProfileConnecting ? '正在连接 SSH' : '没有活跃连接' }}
+        </div>
+        <div v-if="sshConnectError" class="terminal-empty__error">
+          {{ sshConnectError }}
+        </div>
+        <div class="terminal-empty__desc">
+          {{
+            isAnySshProfileConnecting
+              ? '正在建立连接，请稍候。'
+              : '从左侧配置列表点击本地终端或 SSH 配置来创建连接。'
+          }}
+        </div>
+        <div class="terminal-empty__actions">
+          <UiButton variant="primary" size="sm" @click="activateSidebarTab()">查看配置</UiButton>
+          <UiButton
+            v-if="sshLastFailedProfile"
+            variant="secondary"
+            size="sm"
+            :disabled="isSshProfileConnecting(sshLastFailedProfile.id)"
+            @click="handleSshConnect(sshLastFailedProfile)"
+          >
+            重新连接
+          </UiButton>
+        </div>
+      </div>
+
+      <div class="terminal-statusbar">
+        <div class="terminal-statusbar__left">
+          <span v-if="isSshMode && activeSshSessionForPane" class="statusbar-ssh-indicator">
+            <span class="ssh-dot ssh-dot--connected" />
+            SSH: {{ activeSshSessionForPane.username }}@{{ activeSshSessionForPane.host }}
+          </span>
+        </div>
+        <div class="terminal-statusbar__right">
+          <div v-if="forwardedPortSummaries.length > 0" class="statusbar-forward-list">
+            <span class="statusbar-forward-list__label">转发</span>
             <UiButton
-              v-if="sshLastFailedProfile"
-              variant="secondary"
+              v-for="port in forwardedPortSummaries"
+              :key="`${port.sessionId}:${port.forwardId}`"
+              class="statusbar-forward-chip"
               size="sm"
-              :disabled="isSshProfileConnecting(sshLastFailedProfile.id)"
-              @click="handleSshConnect(sshLastFailedProfile)"
+              variant="ghost"
+              type="button"
+              :title="`${port.profileLabel} · ${port.label} · ${port.address}`"
+              @click="openPortForwardPanelForSession(port.sessionId)"
             >
-              重新连接
+              <span class="statusbar-forward-chip__type">{{
+                port.forwardType.slice(0, 1).toUpperCase()
+              }}</span>
+              <span class="statusbar-forward-chip__port">{{ port.port }}</span>
             </UiButton>
           </div>
+          <span>{{ activeTerminalPane?.kind === 'local' ? '本地' : 'SSH' }}</span>
         </div>
-
-        <div class="terminal-statusbar">
-          <div class="terminal-statusbar__left">
-            <span v-if="isSshMode && activeSshSessionForPane" class="statusbar-ssh-indicator">
-              <span class="ssh-dot ssh-dot--connected" />
-              SSH: {{ activeSshSessionForPane.username }}@{{ activeSshSessionForPane.host }}
-            </span>
-          </div>
-          <div class="terminal-statusbar__right">
-            <div v-if="forwardedPortSummaries.length > 0" class="statusbar-forward-list">
-              <span class="statusbar-forward-list__label">转发</span>
-              <UiButton
-                v-for="port in forwardedPortSummaries"
-                :key="`${port.sessionId}:${port.forwardId}`"
-                class="statusbar-forward-chip"
-                size="sm"
-                variant="ghost"
-                type="button"
-                :title="`${port.profileLabel} · ${port.label} · ${port.address}`"
-                @click="openPortForwardPanelForSession(port.sessionId)"
-              >
-                <span class="statusbar-forward-chip__type">{{ port.forwardType.slice(0, 1).toUpperCase() }}</span>
-                <span class="statusbar-forward-chip__port">{{ port.port }}</span>
-              </UiButton>
-            </div>
-            <span>{{ activeTerminalPane?.kind === 'local' ? '本地' : 'SSH' }}</span>
-          </div>
-        </div>
+      </div>
     </template>
 
     <template #overlays>
-    <UiDialog v-model="saveLayoutDialogVisible" width="420" max-width="calc(100vw - 48px)">
-      <template #header>
-        <div class="terminal-layout-dialog__header">保存连接布局</div>
-      </template>
-      <div class="terminal-layout-dialog__body">
-        <UiInput
-          v-model="saveLayoutName"
-          placeholder="输入布局名称"
-          @keydown.enter="saveCurrentTerminalConnectionLayout"
-        />
-      </div>
-      <template #footer>
-        <div class="terminal-layout-dialog__footer">
-          <UiButton size="sm" variant="ghost" @click="saveLayoutDialogVisible = false">取消</UiButton>
-          <UiButton size="sm" variant="primary" @click="saveCurrentTerminalConnectionLayout">保存</UiButton>
+      <UiDialog v-model="saveLayoutDialogVisible" width="420" max-width="calc(100vw - 48px)">
+        <template #header>
+          <div class="terminal-layout-dialog__header">保存连接布局</div>
+        </template>
+        <div class="terminal-layout-dialog__body">
+          <UiInput
+            v-model="saveLayoutName"
+            placeholder="输入布局名称"
+            @keydown.enter="saveCurrentTerminalConnectionLayout"
+          />
         </div>
-      </template>
-    </UiDialog>
+        <template #footer>
+          <div class="terminal-layout-dialog__footer">
+            <UiButton size="sm" variant="ghost" @click="saveLayoutDialogVisible = false"
+              >取消</UiButton
+            >
+            <UiButton size="sm" variant="primary" @click="saveCurrentTerminalConnectionLayout"
+              >保存</UiButton
+            >
+          </div>
+        </template>
+      </UiDialog>
 
-    <!-- Personalization Dialog -->
-    <UiPersonalizationConfig
-      :visible="bgPickerVisible"
-      :current-background="termBgColor"
-      :current-background-image="termBgImage"
-      :current-background-video="termBgVideo"
-      :current-background-style="termBgStyle"
-      :preview-width="terminalBgPreviewSize.width"
-      :preview-height="terminalBgPreviewSize.height"
-      @close="bgPickerVisible = false"
-      @confirm="handleBgConfirm"
-    />
-
-    <!-- SSH dialogs (only in main window context) -->
-    <template>
-      <SshProfileDialog
-        :visible="sshProfileDialogVisible"
-        :profile="sshProfileDialogTarget"
-        :initial-group-id="sshProfileDialogGroupId"
-        @close="sshProfileDialogVisible = false"
-        @saved="handleSshProfileSaved"
-        @deleted="sshProfileDialogVisible = false"
+      <!-- Personalization Dialog -->
+      <UiPersonalizationConfig
+        :visible="bgPickerVisible"
+        :current-background="termBgColor"
+        :current-background-image="termBgImage"
+        :current-background-video="termBgVideo"
+        :current-background-style="termBgStyle"
+        :preview-width="terminalBgPreviewSize.width"
+        :preview-height="terminalBgPreviewSize.height"
+        @close="bgPickerVisible = false"
+        @confirm="handleBgConfirm"
       />
 
-      <SshKeyManagerDialog
-        :visible="sshKeyManagerVisible"
-        @close="sshKeyManagerVisible = false"
-      />
+      <!-- SSH dialogs (only in main window context) -->
+      <template>
+        <SshProfileDialog
+          :visible="sshProfileDialogVisible"
+          :profile="sshProfileDialogTarget"
+          :initial-group-id="sshProfileDialogGroupId"
+          @close="sshProfileDialogVisible = false"
+          @saved="handleSshProfileSaved"
+          @deleted="sshProfileDialogVisible = false"
+        />
 
-      <SshFingerprintDialog
-        :visible="sshFingerprintVisible"
-        :host="sshFingerprintInfo.host"
-        :port="sshFingerprintInfo.port"
-        :algorithm="sshFingerprintInfo.algorithm"
-        :fingerprint="sshFingerprintInfo.fingerprint"
-        @trusted="handleSshFingerprintTrusted"
-        @rejected="handleSshFingerprintRejected"
-      />
+        <SshKeyManagerDialog
+          :visible="sshKeyManagerVisible"
+          @close="sshKeyManagerVisible = false"
+        />
 
-      <!-- SSH Password Prompt Dialog -->
-      <UiPopupSurface
-        :model-value="sshPasswordPromptVisible"
-        variant="dialog"
-        width="340px"
-        max-width="calc(100vw - 48px)"
-        z-index="var(--ui-z-secure-modal)"
-        aria-label="输入 SSH 密码"
-        @close="handleSshPasswordCancel"
-      >
-            <div class="ssh-pwd-dialog ui-glass-surface ui-glass-surface--strong">
-              <div class="ssh-pwd-dialog__header">
-                <svg viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" stroke-width="2"
-                  fill="none" stroke-linecap="round" stroke-linejoin="round">
-                  <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/>
-                  <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
-                </svg>
-                <span>输入 SSH 密码</span>
-              </div>
-              <p class="ssh-pwd-dialog__sub">{{ sshPasswordPromptLabel }}</p>
-              <UiInput
-                id="ssh-password-input"
-                v-model="sshPasswordPromptValue"
-                type="password"
-                class="ssh-pwd-dialog__input"
-                size="md"
-                placeholder="请输入密码..."
-                autofocus
-                @keydown.enter="handleSshPasswordConfirm"
-                @keydown.esc="handleSshPasswordCancel"
-              />
-              <div class="ssh-pwd-dialog__actions">
-                <UiButton class="ssh-pwd-btn ssh-pwd-btn--cancel" size="sm" variant="ghost" type="button" @click="handleSshPasswordCancel">取消</UiButton>
-                <UiButton class="ssh-pwd-btn ssh-pwd-btn--confirm" size="sm" variant="primary" type="button" @click="handleSshPasswordConfirm">连接</UiButton>
-              </div>
+        <SshFingerprintDialog
+          :visible="sshFingerprintVisible"
+          :host="sshFingerprintInfo.host"
+          :port="sshFingerprintInfo.port"
+          :algorithm="sshFingerprintInfo.algorithm"
+          :fingerprint="sshFingerprintInfo.fingerprint"
+          @trusted="handleSshFingerprintTrusted"
+          @rejected="handleSshFingerprintRejected"
+        />
+
+        <!-- SSH Password Prompt Dialog -->
+        <UiPopupSurface
+          :model-value="sshPasswordPromptVisible"
+          variant="dialog"
+          width="340px"
+          max-width="calc(100vw - 48px)"
+          z-index="var(--ui-z-secure-modal)"
+          aria-label="输入 SSH 密码"
+          @close="handleSshPasswordCancel"
+        >
+          <div class="ssh-pwd-dialog ui-glass-surface ui-glass-surface--strong">
+            <div class="ssh-pwd-dialog__header">
+              <svg
+                viewBox="0 0 24 24"
+                width="18"
+                height="18"
+                stroke="currentColor"
+                stroke-width="2"
+                fill="none"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              >
+                <rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
+                <path d="M7 11V7a5 5 0 0 1 10 0v4" />
+              </svg>
+              <span>输入 SSH 密码</span>
             </div>
-      </UiPopupSurface>
+            <p class="ssh-pwd-dialog__sub">{{ sshPasswordPromptLabel }}</p>
+            <UiInput
+              id="ssh-password-input"
+              v-model="sshPasswordPromptValue"
+              type="password"
+              class="ssh-pwd-dialog__input"
+              size="md"
+              placeholder="请输入密码..."
+              autofocus
+              @keydown.enter="handleSshPasswordConfirm"
+              @keydown.esc="handleSshPasswordCancel"
+            />
+            <div class="ssh-pwd-dialog__actions">
+              <UiButton
+                class="ssh-pwd-btn ssh-pwd-btn--cancel"
+                size="sm"
+                variant="ghost"
+                type="button"
+                @click="handleSshPasswordCancel"
+                >取消</UiButton
+              >
+              <UiButton
+                class="ssh-pwd-btn ssh-pwd-btn--confirm"
+                size="sm"
+                variant="primary"
+                type="button"
+                @click="handleSshPasswordConfirm"
+                >连接</UiButton
+              >
+            </div>
+          </div>
+        </UiPopupSurface>
 
-      <!-- Port Forward Dialog -->
-      <PortForwardDialog
-        :visible="pfDialogVisible"
-        :profile-id="activeSshSessionForPane?.profileId ?? ''"
-        :forward="pfDialogTarget"
-        @close="pfDialogVisible = false"
-        @saved="pfDialogVisible = false"
-      />
-    </template>
+        <!-- Port Forward Dialog -->
+        <PortForwardDialog
+          :visible="pfDialogVisible"
+          :profile-id="activeSshSessionForPane?.profileId ?? ''"
+          :forward="pfDialogTarget"
+          @close="pfDialogVisible = false"
+          @saved="pfDialogVisible = false"
+        />
+      </template>
     </template>
   </MainPageLayout>
 </template>
@@ -3077,8 +3301,13 @@ onBeforeUnmount(() => {
 }
 
 @keyframes terminal-collapsed-pulse {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0.45; }
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.45;
+  }
 }
 
 /* Main Content Styles */
@@ -3238,7 +3467,9 @@ onBeforeUnmount(() => {
   min-height: 0;
   gap: 0;
   overflow: hidden;
-  transition: grid-template-columns 0.18s ease, grid-template-rows 0.18s ease;
+  transition:
+    grid-template-columns 0.18s ease,
+    grid-template-rows 0.18s ease;
 }
 
 .terminal-stage--tabbed .terminal-pane-workspace,
@@ -3317,12 +3548,11 @@ onBeforeUnmount(() => {
 
 .terminal-pane--active .terminal-pane__header {
   border-bottom-color: color-mix(in srgb, var(--primary-color) 38%, var(--ui-border-subtle));
-  background:
-    linear-gradient(
-      90deg,
-      color-mix(in srgb, var(--primary-color) 18%, var(--ui-surface-panel)) 0%,
-      color-mix(in srgb, var(--primary-color) 9%, var(--ui-surface-panel)) 100%
-    );
+  background: linear-gradient(
+    90deg,
+    color-mix(in srgb, var(--primary-color) 18%, var(--ui-surface-panel)) 0%,
+    color-mix(in srgb, var(--primary-color) 9%, var(--ui-surface-panel)) 100%
+  );
   color: var(--ui-text-primary);
   box-shadow:
     inset 0 1px 0 rgba(255, 255, 255, 0.08),
@@ -3416,7 +3646,10 @@ onBeforeUnmount(() => {
   background: transparent;
   color: var(--ui-text-muted);
   opacity: 0.72;
-  transition: background-color 0.14s ease, color 0.14s ease, opacity 0.14s ease;
+  transition:
+    background-color 0.14s ease,
+    color 0.14s ease,
+    opacity 0.14s ease;
   transform: none;
 
   &:hover:not(:disabled) {
@@ -3505,11 +3738,15 @@ onBeforeUnmount(() => {
   border-radius: 0;
   background: color-mix(in srgb, var(--ui-surface-panel) 90%, rgba(102, 204, 255, 0.12));
   color: var(--ui-text-primary);
-  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.24), 0 0 0 1px rgba(102, 204, 255, 0.1);
+  box-shadow:
+    0 10px 28px rgba(0, 0, 0, 0.24),
+    0 0 0 1px rgba(102, 204, 255, 0.1);
   pointer-events: none;
   transform: translate3d(0, 0, 0) scale(0.94);
   transform-origin: top left;
-  transition: opacity 0.12s ease, box-shadow 0.12s ease;
+  transition:
+    opacity 0.12s ease,
+    box-shadow 0.12s ease;
   backdrop-filter: blur(14px);
 }
 
@@ -3537,7 +3774,9 @@ onBeforeUnmount(() => {
   border: none;
   border-radius: 0;
   background: transparent;
-  transition: background-color 0.12s ease, box-shadow 0.12s ease;
+  transition:
+    background-color 0.12s ease,
+    box-shadow 0.12s ease;
   transform: none;
 
   &::after {
@@ -3545,7 +3784,9 @@ onBeforeUnmount(() => {
     position: absolute;
     inset: 0;
     background: transparent;
-    transition: background-color 0.12s ease, box-shadow 0.12s ease;
+    transition:
+      background-color 0.12s ease,
+      box-shadow 0.12s ease;
   }
 
   &:hover::after,
@@ -3817,7 +4058,9 @@ body.terminal-pane-dragging-active .terminal-pane-tab {
     font-weight: 700;
     color: var(--ui-text-primary);
 
-    svg { color: var(--primary-color); }
+    svg {
+      color: var(--primary-color);
+    }
   }
 
   &__sub {

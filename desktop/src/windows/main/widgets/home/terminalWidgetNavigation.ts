@@ -2,8 +2,7 @@ import { router } from '../../routes/router';
 import { useBarStore } from '../../stores/bar_store';
 
 export type TerminalHomeOpenTarget =
-  | { kind: 'local'; profileId: string }
-  | { kind: 'ssh'; profileId: string; cwd?: string };
+  { kind: 'local'; profileId: string } | { kind: 'ssh'; profileId: string; cwd?: string };
 
 export async function openTerminalProfileFromHome(target: TerminalHomeOpenTarget) {
   const barStore = useBarStore();

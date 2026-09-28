@@ -3,7 +3,11 @@ import UiButton from '@/windows/main/components/ui/UiButton.vue';
 import UiIconButton from '@/windows/main/components/ui/UiIconButton.vue';
 import UiInput from '@/windows/main/components/ui/UiInput.vue';
 import UiSelect from '@/windows/main/components/ui/UiSelect.vue';
-import type { TerminalLayoutMode, TerminalRendererMode, TerminalSessionDescriptor } from '@/contracts/terminal';
+import type {
+  TerminalLayoutMode,
+  TerminalRendererMode,
+  TerminalSessionDescriptor,
+} from '@/contracts/terminal';
 import type { UiSelectOption } from '@/windows/main/components/ui/UiSelect.vue';
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 import type { ConnectionLayoutConfig } from '@/windows/main/session_layouts';
@@ -74,7 +78,7 @@ watch(
     if (!(layouts ?? []).some((layout) => layout.id === selectedConnectionLayoutId.value)) {
       selectedConnectionLayoutId.value = '';
     }
-  },
+  }
 );
 
 const schemeOptions = computed<UiSelectOption[]>(() => {
@@ -276,7 +280,8 @@ function handleTitleKeydown(e: KeyboardEvent) {
           :class="{ 'title-name--editable': titleEditable }"
           :title="activeSession.profileLabel"
           @click="startTitleEdit"
-        >{{ activeSession.profileLabel }}</span>
+          >{{ activeSession.profileLabel }}</span
+        >
       </div>
     </div>
 
@@ -313,7 +318,16 @@ function handleTitleKeydown(e: KeyboardEvent) {
         title="删除选中的连接布局"
         @click="emit('deleteConnectionLayout', selectedConnectionLayoutId)"
       >
-        <svg viewBox="0 0 24 24" width="14" height="14" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round">
+        <svg
+          viewBox="0 0 24 24"
+          width="14"
+          height="14"
+          stroke="currentColor"
+          stroke-width="2"
+          fill="none"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+        >
           <polyline points="3 6 5 6 21 6" />
           <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6" />
           <path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
@@ -327,7 +341,16 @@ function handleTitleKeydown(e: KeyboardEvent) {
         title="保存当前连接布局"
         @click="emit('saveConnectionLayout')"
       >
-        <svg viewBox="0 0 24 24" width="14" height="14" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round">
+        <svg
+          viewBox="0 0 24 24"
+          width="14"
+          height="14"
+          stroke="currentColor"
+          stroke-width="2"
+          fill="none"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+        >
           <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z" />
           <path d="M17 21v-8H7v8" />
           <path d="M7 3v5h8" />
@@ -350,33 +373,125 @@ function handleTitleKeydown(e: KeyboardEvent) {
           @click="handleAction(action)"
         >
           <!-- SVG icon -->
-          <svg v-if="action.icon === 'background'" viewBox="0 0 24 24" width="14" height="14" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round">
-            <rect x="3" y="3" width="18" height="18" rx="2" ry="2" /><circle cx="8.5" cy="8.5" r="1.5" /><polyline points="21 15 16 10 5 21" />
+          <svg
+            v-if="action.icon === 'background'"
+            viewBox="0 0 24 24"
+            width="14"
+            height="14"
+            stroke="currentColor"
+            stroke-width="2"
+            fill="none"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          >
+            <rect x="3" y="3" width="18" height="18" rx="2" ry="2" />
+            <circle cx="8.5" cy="8.5" r="1.5" />
+            <polyline points="21 15 16 10 5 21" />
           </svg>
-          <svg v-else-if="action.icon === 'portForward'" viewBox="0 0 24 24" width="14" height="14" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round">
-            <circle cx="12" cy="12" r="2"/><path d="M16.24 7.76a6 6 0 0 1 0 8.49m-8.48-.01a6 6 0 0 1 0-8.49m11.31-2.82a10 10 0 0 1 0 14.14m-14.14 0a10 10 0 0 1 0-14.14"/>
+          <svg
+            v-else-if="action.icon === 'portForward'"
+            viewBox="0 0 24 24"
+            width="14"
+            height="14"
+            stroke="currentColor"
+            stroke-width="2"
+            fill="none"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          >
+            <circle cx="12" cy="12" r="2" />
+            <path
+              d="M16.24 7.76a6 6 0 0 1 0 8.49m-8.48-.01a6 6 0 0 1 0-8.49m11.31-2.82a10 10 0 0 1 0 14.14m-14.14 0a10 10 0 0 1 0-14.14"
+            />
           </svg>
-          <svg v-else-if="action.icon === 'fileManager'" viewBox="0 0 24 24" width="14" height="14" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round">
+          <svg
+            v-else-if="action.icon === 'fileManager'"
+            viewBox="0 0 24 24"
+            width="14"
+            height="14"
+            stroke="currentColor"
+            stroke-width="2"
+            fill="none"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          >
             <path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
             <path d="M3 10h18" />
           </svg>
-          <svg v-else-if="action.icon === 'resetLayoutSize'" viewBox="0 0 24 24" width="14" height="14" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round">
+          <svg
+            v-else-if="action.icon === 'resetLayoutSize'"
+            viewBox="0 0 24 24"
+            width="14"
+            height="14"
+            stroke="currentColor"
+            stroke-width="2"
+            fill="none"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          >
             <path d="M3 12a9 9 0 1 0 3-6.7" />
             <path d="M3 3v6h6" />
             <path d="M8 12h8" />
             <path d="M12 8v8" />
           </svg>
-          <svg v-else-if="action.icon === 'search'" viewBox="0 0 24 24" width="14" height="14" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round">
-            <circle cx="11" cy="11" r="8" /><line x1="21" y1="21" x2="16.65" y2="16.65" />
+          <svg
+            v-else-if="action.icon === 'search'"
+            viewBox="0 0 24 24"
+            width="14"
+            height="14"
+            stroke="currentColor"
+            stroke-width="2"
+            fill="none"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          >
+            <circle cx="11" cy="11" r="8" />
+            <line x1="21" y1="21" x2="16.65" y2="16.65" />
           </svg>
-          <svg v-else-if="action.icon === 'detach'" viewBox="0 0 24 24" width="14" height="14" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round">
-            <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" /><polyline points="15 3 21 3 21 9" /><line x1="10" y1="14" x2="21" y2="3" />
+          <svg
+            v-else-if="action.icon === 'detach'"
+            viewBox="0 0 24 24"
+            width="14"
+            height="14"
+            stroke="currentColor"
+            stroke-width="2"
+            fill="none"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          >
+            <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" />
+            <polyline points="15 3 21 3 21 9" />
+            <line x1="10" y1="14" x2="21" y2="3" />
           </svg>
-          <svg v-else-if="action.icon === 'clear'" viewBox="0 0 24 24" width="14" height="14" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round">
-            <polyline points="3 6 5 6 21 6" /><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+          <svg
+            v-else-if="action.icon === 'clear'"
+            viewBox="0 0 24 24"
+            width="14"
+            height="14"
+            stroke="currentColor"
+            stroke-width="2"
+            fill="none"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          >
+            <polyline points="3 6 5 6 21 6" />
+            <path
+              d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"
+            />
           </svg>
-          <svg v-else-if="action.icon === 'kill'" viewBox="0 0 24 24" width="14" height="14" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round">
-            <line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" />
+          <svg
+            v-else-if="action.icon === 'kill'"
+            viewBox="0 0 24 24"
+            width="14"
+            height="14"
+            stroke="currentColor"
+            stroke-width="2"
+            fill="none"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          >
+            <line x1="18" y1="6" x2="6" y2="18" />
+            <line x1="6" y1="6" x2="18" y2="18" />
           </svg>
         </UiIconButton>
       </template>
@@ -396,42 +511,150 @@ function handleTitleKeydown(e: KeyboardEvent) {
           :title="action.label"
           @click="handleAction(action)"
         >
-          <svg v-if="action.icon === 'background'" viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round">
-            <rect x="3" y="3" width="18" height="18" rx="2" ry="2" /><circle cx="8.5" cy="8.5" r="1.5" /><polyline points="21 15 16 10 5 21" />
+          <svg
+            v-if="action.icon === 'background'"
+            viewBox="0 0 24 24"
+            width="16"
+            height="16"
+            stroke="currentColor"
+            stroke-width="2"
+            fill="none"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          >
+            <rect x="3" y="3" width="18" height="18" rx="2" ry="2" />
+            <circle cx="8.5" cy="8.5" r="1.5" />
+            <polyline points="21 15 16 10 5 21" />
           </svg>
-          <svg v-else-if="action.icon === 'portForward'" viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round">
-            <circle cx="12" cy="12" r="2"/><path d="M16.24 7.76a6 6 0 0 1 0 8.49m-8.48-.01a6 6 0 0 1 0-8.49m11.31-2.82a10 10 0 0 1 0 14.14m-14.14 0a10 10 0 0 1 0-14.14"/>
+          <svg
+            v-else-if="action.icon === 'portForward'"
+            viewBox="0 0 24 24"
+            width="16"
+            height="16"
+            stroke="currentColor"
+            stroke-width="2"
+            fill="none"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          >
+            <circle cx="12" cy="12" r="2" />
+            <path
+              d="M16.24 7.76a6 6 0 0 1 0 8.49m-8.48-.01a6 6 0 0 1 0-8.49m11.31-2.82a10 10 0 0 1 0 14.14m-14.14 0a10 10 0 0 1 0-14.14"
+            />
           </svg>
-          <svg v-else-if="action.icon === 'fileManager'" viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round">
+          <svg
+            v-else-if="action.icon === 'fileManager'"
+            viewBox="0 0 24 24"
+            width="16"
+            height="16"
+            stroke="currentColor"
+            stroke-width="2"
+            fill="none"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          >
             <path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
             <path d="M3 10h18" />
           </svg>
-          <svg v-else-if="action.icon === 'resetLayoutSize'" viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round">
+          <svg
+            v-else-if="action.icon === 'resetLayoutSize'"
+            viewBox="0 0 24 24"
+            width="16"
+            height="16"
+            stroke="currentColor"
+            stroke-width="2"
+            fill="none"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          >
             <path d="M3 12a9 9 0 1 0 3-6.7" />
             <path d="M3 3v6h6" />
             <path d="M8 12h8" />
             <path d="M12 8v8" />
           </svg>
-          <svg v-else-if="action.icon === 'search'" viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round">
-            <circle cx="11" cy="11" r="8" /><line x1="21" y1="21" x2="16.65" y2="16.65" />
+          <svg
+            v-else-if="action.icon === 'search'"
+            viewBox="0 0 24 24"
+            width="16"
+            height="16"
+            stroke="currentColor"
+            stroke-width="2"
+            fill="none"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          >
+            <circle cx="11" cy="11" r="8" />
+            <line x1="21" y1="21" x2="16.65" y2="16.65" />
           </svg>
-          <svg v-else-if="action.icon === 'detach'" viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round">
-            <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" /><polyline points="15 3 21 3 21 9" /><line x1="10" y1="14" x2="21" y2="3" />
+          <svg
+            v-else-if="action.icon === 'detach'"
+            viewBox="0 0 24 24"
+            width="16"
+            height="16"
+            stroke="currentColor"
+            stroke-width="2"
+            fill="none"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          >
+            <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" />
+            <polyline points="15 3 21 3 21 9" />
+            <line x1="10" y1="14" x2="21" y2="3" />
           </svg>
-          <svg v-else-if="action.icon === 'clear'" viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round">
-            <polyline points="3 6 5 6 21 6" /><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+          <svg
+            v-else-if="action.icon === 'clear'"
+            viewBox="0 0 24 24"
+            width="16"
+            height="16"
+            stroke="currentColor"
+            stroke-width="2"
+            fill="none"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          >
+            <polyline points="3 6 5 6 21 6" />
+            <path
+              d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"
+            />
           </svg>
-          <svg v-else-if="action.icon === 'kill'" viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round">
-            <line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" />
+          <svg
+            v-else-if="action.icon === 'kill'"
+            viewBox="0 0 24 24"
+            width="16"
+            height="16"
+            stroke="currentColor"
+            stroke-width="2"
+            fill="none"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          >
+            <line x1="18" y1="6" x2="6" y2="18" />
+            <line x1="6" y1="6" x2="18" y2="18" />
           </svg>
         </UiIconButton>
       </template>
 
       <!-- Collapsed mode: overflow menu trigger -->
       <div v-else class="toolbar-overflow-wrapper">
-        <UiIconButton class="icon-action-btn toolbar-overflow-trigger" size="sm" variant="ghost" title="更多操作">
-          <svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round">
-            <circle cx="12" cy="5" r="1" fill="currentColor" /><circle cx="12" cy="12" r="1" fill="currentColor" /><circle cx="12" cy="19" r="1" fill="currentColor" />
+        <UiIconButton
+          class="icon-action-btn toolbar-overflow-trigger"
+          size="sm"
+          variant="ghost"
+          title="更多操作"
+        >
+          <svg
+            viewBox="0 0 24 24"
+            width="16"
+            height="16"
+            stroke="currentColor"
+            stroke-width="2"
+            fill="none"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          >
+            <circle cx="12" cy="5" r="1" fill="currentColor" />
+            <circle cx="12" cy="12" r="1" fill="currentColor" />
+            <circle cx="12" cy="19" r="1" fill="currentColor" />
           </svg>
         </UiIconButton>
         <div class="toolbar-overflow-menu">
@@ -447,33 +670,125 @@ function handleTitleKeydown(e: KeyboardEvent) {
             :disabled="action.disabled()"
             @click="handleAction(action)"
           >
-            <svg v-if="action.icon === 'background'" viewBox="0 0 24 24" width="14" height="14" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round">
-              <rect x="3" y="3" width="18" height="18" rx="2" ry="2" /><circle cx="8.5" cy="8.5" r="1.5" /><polyline points="21 15 16 10 5 21" />
+            <svg
+              v-if="action.icon === 'background'"
+              viewBox="0 0 24 24"
+              width="14"
+              height="14"
+              stroke="currentColor"
+              stroke-width="2"
+              fill="none"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            >
+              <rect x="3" y="3" width="18" height="18" rx="2" ry="2" />
+              <circle cx="8.5" cy="8.5" r="1.5" />
+              <polyline points="21 15 16 10 5 21" />
             </svg>
-            <svg v-else-if="action.icon === 'portForward'" viewBox="0 0 24 24" width="14" height="14" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round">
-              <circle cx="12" cy="12" r="2"/><path d="M16.24 7.76a6 6 0 0 1 0 8.49m-8.48-.01a6 6 0 0 1 0-8.49m11.31-2.82a10 10 0 0 1 0 14.14m-14.14 0a10 10 0 0 1 0-14.14"/>
+            <svg
+              v-else-if="action.icon === 'portForward'"
+              viewBox="0 0 24 24"
+              width="14"
+              height="14"
+              stroke="currentColor"
+              stroke-width="2"
+              fill="none"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            >
+              <circle cx="12" cy="12" r="2" />
+              <path
+                d="M16.24 7.76a6 6 0 0 1 0 8.49m-8.48-.01a6 6 0 0 1 0-8.49m11.31-2.82a10 10 0 0 1 0 14.14m-14.14 0a10 10 0 0 1 0-14.14"
+              />
             </svg>
-            <svg v-else-if="action.icon === 'fileManager'" viewBox="0 0 24 24" width="14" height="14" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round">
+            <svg
+              v-else-if="action.icon === 'fileManager'"
+              viewBox="0 0 24 24"
+              width="14"
+              height="14"
+              stroke="currentColor"
+              stroke-width="2"
+              fill="none"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            >
               <path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
               <path d="M3 10h18" />
             </svg>
-            <svg v-else-if="action.icon === 'resetLayoutSize'" viewBox="0 0 24 24" width="14" height="14" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round">
+            <svg
+              v-else-if="action.icon === 'resetLayoutSize'"
+              viewBox="0 0 24 24"
+              width="14"
+              height="14"
+              stroke="currentColor"
+              stroke-width="2"
+              fill="none"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            >
               <path d="M3 12a9 9 0 1 0 3-6.7" />
               <path d="M3 3v6h6" />
               <path d="M8 12h8" />
               <path d="M12 8v8" />
             </svg>
-            <svg v-else-if="action.icon === 'search'" viewBox="0 0 24 24" width="14" height="14" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round">
-              <circle cx="11" cy="11" r="8" /><line x1="21" y1="21" x2="16.65" y2="16.65" />
+            <svg
+              v-else-if="action.icon === 'search'"
+              viewBox="0 0 24 24"
+              width="14"
+              height="14"
+              stroke="currentColor"
+              stroke-width="2"
+              fill="none"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            >
+              <circle cx="11" cy="11" r="8" />
+              <line x1="21" y1="21" x2="16.65" y2="16.65" />
             </svg>
-            <svg v-else-if="action.icon === 'detach'" viewBox="0 0 24 24" width="14" height="14" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round">
-              <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" /><polyline points="15 3 21 3 21 9" /><line x1="10" y1="14" x2="21" y2="3" />
+            <svg
+              v-else-if="action.icon === 'detach'"
+              viewBox="0 0 24 24"
+              width="14"
+              height="14"
+              stroke="currentColor"
+              stroke-width="2"
+              fill="none"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            >
+              <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" />
+              <polyline points="15 3 21 3 21 9" />
+              <line x1="10" y1="14" x2="21" y2="3" />
             </svg>
-            <svg v-else-if="action.icon === 'clear'" viewBox="0 0 24 24" width="14" height="14" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round">
-              <polyline points="3 6 5 6 21 6" /><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+            <svg
+              v-else-if="action.icon === 'clear'"
+              viewBox="0 0 24 24"
+              width="14"
+              height="14"
+              stroke="currentColor"
+              stroke-width="2"
+              fill="none"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            >
+              <polyline points="3 6 5 6 21 6" />
+              <path
+                d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"
+              />
             </svg>
-            <svg v-else-if="action.icon === 'kill'" viewBox="0 0 24 24" width="14" height="14" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round">
-              <line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" />
+            <svg
+              v-else-if="action.icon === 'kill'"
+              viewBox="0 0 24 24"
+              width="14"
+              height="14"
+              stroke="currentColor"
+              stroke-width="2"
+              fill="none"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            >
+              <line x1="18" y1="6" x2="6" y2="18" />
+              <line x1="6" y1="6" x2="18" y2="18" />
             </svg>
             <span class="toolbar-overflow-item__label">{{ action.label }}</span>
           </UiButton>
@@ -686,7 +1001,7 @@ function handleTitleKeydown(e: KeyboardEvent) {
     stroke: currentColor;
   }
 
-  :deep(circle[fill="currentColor"]) {
+  :deep(circle[fill='currentColor']) {
     fill: currentColor;
     stroke: none;
   }
@@ -734,7 +1049,10 @@ function handleTitleKeydown(e: KeyboardEvent) {
   visibility: hidden;
   transform: translateY(-4px);
   pointer-events: none;
-  transition: opacity 0.18s ease, transform 0.18s ease, visibility 0.18s;
+  transition:
+    opacity 0.18s ease,
+    transform 0.18s ease,
+    visibility 0.18s;
 }
 
 .toolbar-overflow-item {
@@ -773,7 +1091,6 @@ function handleTitleKeydown(e: KeyboardEvent) {
     gap: 8px;
     width: 100%;
   }
-
 
   :deep(svg) {
     flex: 0 0 auto;

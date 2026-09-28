@@ -3,14 +3,17 @@ import UiIconButton from '@/windows/main/components/ui/UiIconButton.vue';
 import UiInput from '@/windows/main/components/ui/UiInput.vue';
 import { computed, nextTick, onMounted, ref } from 'vue';
 
-const props = withDefaults(defineProps<{
-  query: string;
-  resultIndex?: number;
-  resultCount?: number;
-}>(), {
-  resultIndex: -1,
-  resultCount: 0,
-});
+const props = withDefaults(
+  defineProps<{
+    query: string;
+    resultIndex?: number;
+    resultCount?: number;
+  }>(),
+  {
+    resultIndex: -1,
+    resultCount: 0,
+  }
+);
 
 const emit = defineEmits<{
   'update:query': [value: string];
@@ -62,18 +65,63 @@ defineExpose({
       {{ resultLabel }}
     </span>
     <div class="terminal-search-panel__actions">
-      <UiIconButton class="terminal-search-panel__icon-btn" size="sm" variant="ghost" title="上一个" @click="emit('previous')">
-        <svg viewBox="0 0 24 24" width="15" height="15" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round">
+      <UiIconButton
+        class="terminal-search-panel__icon-btn"
+        size="sm"
+        variant="ghost"
+        title="上一个"
+        @click="emit('previous')"
+      >
+        <svg
+          viewBox="0 0 24 24"
+          width="15"
+          height="15"
+          stroke="currentColor"
+          stroke-width="2"
+          fill="none"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+        >
           <path d="m18 15-6-6-6 6" />
         </svg>
       </UiIconButton>
-      <UiIconButton class="terminal-search-panel__icon-btn" size="sm" variant="ghost" title="下一个" @click="emit('next')">
-        <svg viewBox="0 0 24 24" width="15" height="15" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round">
+      <UiIconButton
+        class="terminal-search-panel__icon-btn"
+        size="sm"
+        variant="ghost"
+        title="下一个"
+        @click="emit('next')"
+      >
+        <svg
+          viewBox="0 0 24 24"
+          width="15"
+          height="15"
+          stroke="currentColor"
+          stroke-width="2"
+          fill="none"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+        >
           <path d="m6 9 6 6 6-6" />
         </svg>
       </UiIconButton>
-      <UiIconButton class="terminal-search-panel__icon-btn" size="sm" variant="ghost" title="关闭" @click="emit('close')">
-        <svg viewBox="0 0 24 24" width="15" height="15" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round">
+      <UiIconButton
+        class="terminal-search-panel__icon-btn"
+        size="sm"
+        variant="ghost"
+        title="关闭"
+        @click="emit('close')"
+      >
+        <svg
+          viewBox="0 0 24 24"
+          width="15"
+          height="15"
+          stroke="currentColor"
+          stroke-width="2"
+          fill="none"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+        >
           <path d="M18 6 6 18" />
           <path d="m6 6 12 12" />
         </svg>

@@ -7,25 +7,102 @@ import UiIconButton from '@/windows/main/components/ui/UiIconButton.vue';
 import UiInput from '@/windows/main/components/ui/UiInput.vue';
 import UiPopupSurface from '@/windows/main/components/ui/UiPopupSurface.vue';
 import UiSelect from '@/windows/main/components/ui/UiSelect.vue';
-import type { CreatePortForwardInput, SshPortForward, UpdatePortForwardInput, PortForwardType } from '@/contracts/ssh';
+import type {
+  CreatePortForwardInput,
+  SshPortForward,
+  UpdatePortForwardInput,
+  PortForwardType,
+} from '@/contracts/ssh';
 
 /** Well-known wildcard addresses that listen on all interfaces */
 const WILDCARD_HOSTS = ['0.0.0.0', '::', '*'];
 
 /** Commonly used port forwarding templates */
 const TEMPLATES = [
-  { label: 'MySQL',         forwardType: 'local' as PortForwardType, localPort: 3306, remoteHost: 'localhost', remotePort: 3306 },
-  { label: 'PostgreSQL',    forwardType: 'local' as PortForwardType, localPort: 5432, remoteHost: 'localhost', remotePort: 5432 },
-  { label: 'Redis',         forwardType: 'local' as PortForwardType, localPort: 6379, remoteHost: 'localhost', remotePort: 6379 },
-  { label: 'MongoDB',       forwardType: 'local' as PortForwardType, localPort: 27017, remoteHost: 'localhost', remotePort: 27017 },
-  { label: 'Web HTTP',      forwardType: 'local' as PortForwardType, localPort: 8080, remoteHost: 'localhost', remotePort: 80 },
-  { label: 'Web HTTPS',     forwardType: 'local' as PortForwardType, localPort: 8443, remoteHost: 'localhost', remotePort: 443 },
-  { label: 'SSH Tunnel',    forwardType: 'local' as PortForwardType, localPort: 2222, remoteHost: 'localhost', remotePort: 22 },
-  { label: 'RDP',           forwardType: 'local' as PortForwardType, localPort: 3389, remoteHost: 'localhost', remotePort: 3389 },
-  { label: 'VNC',           forwardType: 'local' as PortForwardType, localPort: 5900, remoteHost: 'localhost', remotePort: 5900 },
-  { label: 'Expose Local Web', forwardType: 'remote' as PortForwardType, localPort: 3000, remoteHost: '0.0.0.0', remotePort: 8080 },
-  { label: 'Expose Local API', forwardType: 'remote' as PortForwardType, localPort: 8080, remoteHost: '0.0.0.0', remotePort: 9090 },
-  { label: 'SOCKS5 代理',   forwardType: 'dynamic' as PortForwardType, localPort: 1080, remoteHost: '', remotePort: 0 },
+  {
+    label: 'MySQL',
+    forwardType: 'local' as PortForwardType,
+    localPort: 3306,
+    remoteHost: 'localhost',
+    remotePort: 3306,
+  },
+  {
+    label: 'PostgreSQL',
+    forwardType: 'local' as PortForwardType,
+    localPort: 5432,
+    remoteHost: 'localhost',
+    remotePort: 5432,
+  },
+  {
+    label: 'Redis',
+    forwardType: 'local' as PortForwardType,
+    localPort: 6379,
+    remoteHost: 'localhost',
+    remotePort: 6379,
+  },
+  {
+    label: 'MongoDB',
+    forwardType: 'local' as PortForwardType,
+    localPort: 27017,
+    remoteHost: 'localhost',
+    remotePort: 27017,
+  },
+  {
+    label: 'Web HTTP',
+    forwardType: 'local' as PortForwardType,
+    localPort: 8080,
+    remoteHost: 'localhost',
+    remotePort: 80,
+  },
+  {
+    label: 'Web HTTPS',
+    forwardType: 'local' as PortForwardType,
+    localPort: 8443,
+    remoteHost: 'localhost',
+    remotePort: 443,
+  },
+  {
+    label: 'SSH Tunnel',
+    forwardType: 'local' as PortForwardType,
+    localPort: 2222,
+    remoteHost: 'localhost',
+    remotePort: 22,
+  },
+  {
+    label: 'RDP',
+    forwardType: 'local' as PortForwardType,
+    localPort: 3389,
+    remoteHost: 'localhost',
+    remotePort: 3389,
+  },
+  {
+    label: 'VNC',
+    forwardType: 'local' as PortForwardType,
+    localPort: 5900,
+    remoteHost: 'localhost',
+    remotePort: 5900,
+  },
+  {
+    label: 'Expose Local Web',
+    forwardType: 'remote' as PortForwardType,
+    localPort: 3000,
+    remoteHost: '0.0.0.0',
+    remotePort: 8080,
+  },
+  {
+    label: 'Expose Local API',
+    forwardType: 'remote' as PortForwardType,
+    localPort: 8080,
+    remoteHost: '0.0.0.0',
+    remotePort: 9090,
+  },
+  {
+    label: 'SOCKS5 代理',
+    forwardType: 'dynamic' as PortForwardType,
+    localPort: 1080,
+    remoteHost: '',
+    remotePort: 0,
+  },
 ];
 
 const props = defineProps<{
@@ -75,16 +152,14 @@ const localSectionTitle = computed(() => {
   if (form.forwardType === 'dynamic') return 'SOCKS5 监听';
   return form.forwardType === 'local' ? '本地监听' : '本地目标';
 });
-const remoteSectionTitle = computed(() =>
-  form.forwardType === 'local' ? '远程目标' : '远程监听',
-);
+const remoteSectionTitle = computed(() => (form.forwardType === 'local' ? '远程目标' : '远程监听'));
 
 /** Whether to show the remote section (hidden for dynamic) */
 const showRemoteSection = computed(() => form.forwardType !== 'dynamic');
 
 /** Filtered templates based on currently selected forward type */
 const filteredTemplates = computed(() =>
-  TEMPLATES.filter(t => t.forwardType === form.forwardType),
+  TEMPLATES.filter((t) => t.forwardType === form.forwardType)
 );
 const templateOptions = computed(() => [
   { label: '选择预设模板…', value: '' },
@@ -114,7 +189,7 @@ watch(
       Object.assign(form, blankForm());
     }
   },
-  { immediate: true },
+  { immediate: true }
 );
 
 /** Apply a template preset to the form */
@@ -122,7 +197,7 @@ function applyTemplate(value: string | number) {
   const val = String(value || '');
   selectedTemplate.value = val;
   if (!val) return;
-  const tpl = TEMPLATES.find(t => t.label === val);
+  const tpl = TEMPLATES.find((t) => t.label === val);
   if (!tpl) return;
   form.label = tpl.label;
   form.forwardType = tpl.forwardType;
@@ -155,9 +230,9 @@ function checkPortConflict(): string | null {
     if (r.id === editingId) return false;
     if (r.forwardType !== 'local') return false;
     if (r.localPort !== port) return false;
-    return r.localHost === host
-      || WILDCARD_HOSTS.includes(r.localHost)
-      || WILDCARD_HOSTS.includes(host);
+    return (
+      r.localHost === host || WILDCARD_HOSTS.includes(r.localHost) || WILDCARD_HOSTS.includes(host)
+    );
   });
   if (conflict) {
     return `本地端口 ${port} 已被规则 "${conflict.label || conflict.id}" 占用`;
@@ -178,7 +253,10 @@ function validate(): string | null {
 
 async function save() {
   const msg = validate();
-  if (msg) { error.value = msg; return; }
+  if (msg) {
+    error.value = msg;
+    return;
+  }
   saving.value = true;
   error.value = '';
   try {
@@ -228,222 +306,382 @@ async function save() {
     z-index="var(--ui-z-popover)"
     @close="emit('close')"
   >
-          <!-- Header -->
-          <div class="pfd-dialog__header">
-            <h3 class="pfd-dialog__title">{{ dialogTitle }}</h3>
-            <UiIconButton class="pfd-close-btn" size="sm" variant="ghost" title="关闭" @click="emit('close')">
-              <svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" stroke-width="2"
-                fill="none" stroke-linecap="round" stroke-linejoin="round">
-                <line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" />
-              </svg>
-            </UiIconButton>
+    <!-- Header -->
+    <div class="pfd-dialog__header">
+      <h3 class="pfd-dialog__title">{{ dialogTitle }}</h3>
+      <UiIconButton
+        class="pfd-close-btn"
+        size="sm"
+        variant="ghost"
+        title="关闭"
+        @click="emit('close')"
+      >
+        <svg
+          viewBox="0 0 24 24"
+          width="16"
+          height="16"
+          stroke="currentColor"
+          stroke-width="2"
+          fill="none"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+        >
+          <line x1="18" y1="6" x2="6" y2="18" />
+          <line x1="6" y1="6" x2="18" y2="18" />
+        </svg>
+      </UiIconButton>
+    </div>
+
+    <!-- Body -->
+    <div class="pfd-dialog__body">
+      <!-- Forward type selector -->
+      <div class="pfd-type-selector">
+        <UiButton
+          class="pfd-type-btn"
+          size="sm"
+          variant="ghost"
+          type="button"
+          :active="form.forwardType === 'local'"
+          :class="{ 'pfd-type-btn--active': form.forwardType === 'local' }"
+          @click="form.forwardType = 'local'"
+          id="pf-type-local"
+        >
+          <svg
+            viewBox="0 0 24 24"
+            width="14"
+            height="14"
+            stroke="currentColor"
+            stroke-width="2"
+            fill="none"
+          >
+            <polyline points="7,11 12,16 17,11" />
+            <line x1="12" y1="16" x2="12" y2="4" />
+            <rect x="3" y="18" width="18" height="2" rx="1" />
+          </svg>
+          <span class="pfd-type-btn__text">本地转发</span>
+          <span class="pfd-type-btn__sub">-L</span>
+        </UiButton>
+        <UiButton
+          class="pfd-type-btn"
+          size="sm"
+          variant="ghost"
+          type="button"
+          :active="form.forwardType === 'remote'"
+          :class="{ 'pfd-type-btn--active': form.forwardType === 'remote' }"
+          @click="form.forwardType = 'remote'"
+          id="pf-type-remote"
+        >
+          <svg
+            viewBox="0 0 24 24"
+            width="14"
+            height="14"
+            stroke="currentColor"
+            stroke-width="2"
+            fill="none"
+          >
+            <polyline points="7,13 12,8 17,13" />
+            <line x1="12" y1="8" x2="12" y2="20" />
+            <rect x="3" y="4" width="18" height="2" rx="1" />
+          </svg>
+          <span class="pfd-type-btn__text">远程转发</span>
+          <span class="pfd-type-btn__sub">-R</span>
+        </UiButton>
+        <UiButton
+          class="pfd-type-btn"
+          size="sm"
+          variant="ghost"
+          type="button"
+          :active="form.forwardType === 'dynamic'"
+          :class="{ 'pfd-type-btn--active': form.forwardType === 'dynamic' }"
+          @click="form.forwardType = 'dynamic'"
+          id="pf-type-dynamic"
+        >
+          <svg
+            viewBox="0 0 24 24"
+            width="14"
+            height="14"
+            stroke="currentColor"
+            stroke-width="2"
+            fill="none"
+          >
+            <circle cx="12" cy="12" r="3" />
+            <path
+              d="M12 1v4m0 14v4m-7.07-15.07l2.83 2.83m8.48 8.48l2.83 2.83M1 12h4m14 0h4M4.93 19.07l2.83-2.83m8.48-8.48l2.83-2.83"
+            />
+          </svg>
+          <span class="pfd-type-btn__text">SOCKS5</span>
+          <span class="pfd-type-btn__sub">-D</span>
+        </UiButton>
+      </div>
+
+      <!-- Template preset selector -->
+      <div v-if="!isEdit" class="pfd-template-row">
+        <label class="pfd-label pfd-label--inline">模板</label>
+        <UiSelect
+          :model-value="selectedTemplate"
+          class="pfd-select"
+          :options="templateOptions"
+          size="sm"
+          id="pf-template"
+          @update:modelValue="applyTemplate"
+        />
+      </div>
+
+      <!-- Diagram -->
+      <div class="pfd-diagram">
+        <div
+          class="pfd-diagram__node"
+          :class="{
+            'pfd-diagram__node--source':
+              form.forwardType === 'local' || form.forwardType === 'dynamic',
+          }"
+        >
+          <span class="pfd-diagram__label">{{
+            form.forwardType === 'remote' ? '远程' : '本地'
+          }}</span>
+          <span class="pfd-diagram__value">
+            <template v-if="form.forwardType === 'remote'"
+              >{{ form.remoteHost || '...' }}:{{ form.remotePort || '...' }}</template
+            >
+            <template v-else
+              >{{ form.localHost || '127.0.0.1' }}:{{ form.localPort || '...' }}</template
+            >
+          </span>
+        </div>
+        <div class="pfd-diagram__arrow">
+          <svg viewBox="0 0 40 16" width="40" height="16">
+            <line x1="0" y1="8" x2="32" y2="8" stroke="currentColor" stroke-width="2" />
+            <polyline
+              points="28,3 35,8 28,13"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linejoin="round"
+            />
+          </svg>
+          <span class="pfd-diagram__tunnel-label">{{
+            form.forwardType === 'dynamic' ? 'SOCKS5' : 'SSH 隧道'
+          }}</span>
+        </div>
+        <div
+          class="pfd-diagram__node pfd-diagram__node--remote"
+          :class="{ 'pfd-diagram__node--source': form.forwardType === 'remote' }"
+        >
+          <span class="pfd-diagram__label">{{
+            form.forwardType === 'dynamic'
+              ? '任意目标'
+              : form.forwardType === 'local'
+                ? '远程'
+                : '本地'
+          }}</span>
+          <span class="pfd-diagram__value">
+            <template v-if="form.forwardType === 'dynamic'">*:*</template>
+            <template v-else-if="form.forwardType === 'local'"
+              >{{ form.remoteHost || '...' }}:{{ form.remotePort || '...' }}</template
+            >
+            <template v-else
+              >{{ form.localHost || '127.0.0.1' }}:{{ form.localPort || '...' }}</template
+            >
+          </span>
+        </div>
+      </div>
+
+      <!-- Form fields -->
+      <div class="pfd-section">
+        <div class="pfd-field pfd-field--full">
+          <label class="pfd-label">标签（可选）</label>
+          <UiInput
+            v-model="form.label"
+            class="pfd-input"
+            size="sm"
+            placeholder="例如：MySQL、Redis …"
+            id="pf-label"
+          />
+        </div>
+      </div>
+
+      <div class="pfd-section">
+        <div class="pfd-section__title">{{ localSectionTitle }}</div>
+        <div class="pfd-grid">
+          <div class="pfd-field">
+            <label class="pfd-label">地址</label>
+            <UiInput
+              v-model="form.localHost"
+              class="pfd-input"
+              size="sm"
+              placeholder="127.0.0.1"
+              id="pf-local-host"
+            />
           </div>
-
-          <!-- Body -->
-          <div class="pfd-dialog__body">
-            <!-- Forward type selector -->
-            <div class="pfd-type-selector">
-              <UiButton
-                class="pfd-type-btn"
-                size="sm"
-                variant="ghost"
-                type="button"
-                :active="form.forwardType === 'local'"
-                :class="{ 'pfd-type-btn--active': form.forwardType === 'local' }"
-                @click="form.forwardType = 'local'"
-                id="pf-type-local"
-              >
-                <svg viewBox="0 0 24 24" width="14" height="14" stroke="currentColor" stroke-width="2" fill="none">
-                  <polyline points="7,11 12,16 17,11" />
-                  <line x1="12" y1="16" x2="12" y2="4" />
-                  <rect x="3" y="18" width="18" height="2" rx="1" />
-                </svg>
-                <span class="pfd-type-btn__text">本地转发</span>
-                <span class="pfd-type-btn__sub">-L</span>
-              </UiButton>
-              <UiButton
-                class="pfd-type-btn"
-                size="sm"
-                variant="ghost"
-                type="button"
-                :active="form.forwardType === 'remote'"
-                :class="{ 'pfd-type-btn--active': form.forwardType === 'remote' }"
-                @click="form.forwardType = 'remote'"
-                id="pf-type-remote"
-              >
-                <svg viewBox="0 0 24 24" width="14" height="14" stroke="currentColor" stroke-width="2" fill="none">
-                  <polyline points="7,13 12,8 17,13" />
-                  <line x1="12" y1="8" x2="12" y2="20" />
-                  <rect x="3" y="4" width="18" height="2" rx="1" />
-                </svg>
-                <span class="pfd-type-btn__text">远程转发</span>
-                <span class="pfd-type-btn__sub">-R</span>
-              </UiButton>
-              <UiButton
-                class="pfd-type-btn"
-                size="sm"
-                variant="ghost"
-                type="button"
-                :active="form.forwardType === 'dynamic'"
-                :class="{ 'pfd-type-btn--active': form.forwardType === 'dynamic' }"
-                @click="form.forwardType = 'dynamic'"
-                id="pf-type-dynamic"
-              >
-                <svg viewBox="0 0 24 24" width="14" height="14" stroke="currentColor" stroke-width="2" fill="none">
-                  <circle cx="12" cy="12" r="3" />
-                  <path d="M12 1v4m0 14v4m-7.07-15.07l2.83 2.83m8.48 8.48l2.83 2.83M1 12h4m14 0h4M4.93 19.07l2.83-2.83m8.48-8.48l2.83-2.83" />
-                </svg>
-                <span class="pfd-type-btn__text">SOCKS5</span>
-                <span class="pfd-type-btn__sub">-D</span>
-              </UiButton>
-            </div>
-
-            <!-- Template preset selector -->
-            <div v-if="!isEdit" class="pfd-template-row">
-              <label class="pfd-label pfd-label--inline">模板</label>
-              <UiSelect
-                :model-value="selectedTemplate"
-                class="pfd-select"
-                :options="templateOptions"
-                size="sm"
-                id="pf-template"
-                @update:modelValue="applyTemplate"
-              />
-            </div>
-
-            <!-- Diagram -->
-            <div class="pfd-diagram">
-              <div class="pfd-diagram__node" :class="{ 'pfd-diagram__node--source': form.forwardType === 'local' || form.forwardType === 'dynamic' }">
-                <span class="pfd-diagram__label">{{ form.forwardType === 'remote' ? '远程' : '本地' }}</span>
-                <span class="pfd-diagram__value">
-                  <template v-if="form.forwardType === 'remote'">{{ form.remoteHost || '...' }}:{{ form.remotePort || '...' }}</template>
-                  <template v-else>{{ form.localHost || '127.0.0.1' }}:{{ form.localPort || '...' }}</template>
-                </span>
-              </div>
-              <div class="pfd-diagram__arrow">
-                <svg viewBox="0 0 40 16" width="40" height="16">
-                  <line x1="0" y1="8" x2="32" y2="8" stroke="currentColor" stroke-width="2"/>
-                  <polyline points="28,3 35,8 28,13" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/>
-                </svg>
-                <span class="pfd-diagram__tunnel-label">{{ form.forwardType === 'dynamic' ? 'SOCKS5' : 'SSH 隧道' }}</span>
-              </div>
-              <div class="pfd-diagram__node pfd-diagram__node--remote" :class="{ 'pfd-diagram__node--source': form.forwardType === 'remote' }">
-                <span class="pfd-diagram__label">{{ form.forwardType === 'dynamic' ? '任意目标' : (form.forwardType === 'local' ? '远程' : '本地') }}</span>
-                <span class="pfd-diagram__value">
-                  <template v-if="form.forwardType === 'dynamic'">*:*</template>
-                  <template v-else-if="form.forwardType === 'local'">{{ form.remoteHost || '...' }}:{{ form.remotePort || '...' }}</template>
-                  <template v-else>{{ form.localHost || '127.0.0.1' }}:{{ form.localPort || '...' }}</template>
-                </span>
-              </div>
-            </div>
-
-            <!-- Form fields -->
-            <div class="pfd-section">
-              <div class="pfd-field pfd-field--full">
-                <label class="pfd-label">标签（可选）</label>
-                <UiInput v-model="form.label" class="pfd-input" size="sm" placeholder="例如：MySQL、Redis …"
-                  id="pf-label" />
-              </div>
-            </div>
-
-            <div class="pfd-section">
-              <div class="pfd-section__title">{{ localSectionTitle }}</div>
-              <div class="pfd-grid">
-                <div class="pfd-field">
-                  <label class="pfd-label">地址</label>
-                  <UiInput v-model="form.localHost" class="pfd-input" size="sm" placeholder="127.0.0.1"
-                    id="pf-local-host" />
-                </div>
-                <div class="pfd-field">
-                  <label class="pfd-label">端口 <span class="pfd-required">*</span></label>
-                  <UiInput :model-value="String(form.localPort)" class="pfd-input" size="sm" type="number"
-                    :min="1" :max="65535" placeholder="8080" id="pf-local-port"
-                    @update:modelValue="updateNumberField('localPort', $event)" />
-                </div>
-              </div>
-            </div>
-
-            <div v-if="showRemoteSection" class="pfd-section">
-              <div class="pfd-section__title">{{ remoteSectionTitle }}</div>
-              <div class="pfd-grid">
-                <div class="pfd-field">
-                  <label class="pfd-label">主机 <span class="pfd-required">*</span></label>
-                  <UiInput v-model="form.remoteHost" class="pfd-input" size="sm" placeholder="localhost 或 10.0.0.5"
-                    id="pf-remote-host" />
-                </div>
-                <div class="pfd-field">
-                  <label class="pfd-label">端口 <span class="pfd-required">*</span></label>
-                  <UiInput :model-value="String(form.remotePort)" class="pfd-input" size="sm" type="number"
-                    :min="1" :max="65535" placeholder="3306" id="pf-remote-port"
-                    @update:modelValue="updateNumberField('remotePort', $event)" />
-                </div>
-              </div>
-            </div>
-
-            <!-- 0.0.0.0 security warning (local type only) -->
-            <div v-if="showWildcardWarning" class="pfd-warning">
-              <svg viewBox="0 0 24 24" width="14" height="14" stroke="currentColor"
-                stroke-width="2" fill="none" stroke-linecap="round">
-                <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/>
-                <line x1="12" y1="9" x2="12" y2="13"/>
-                <line x1="12" y1="17" x2="12.01" y2="17"/>
-              </svg>
-              <span>绑定 <code>{{ form.localHost }}</code> 将监听所有网络接口，局域网内其他设备也能访问。如非必要，建议使用 <code>127.0.0.1</code>。</span>
-            </div>
-
-            <!-- Remote type info hint -->
-            <div v-if="form.forwardType === 'remote'" class="pfd-info">
-              <svg viewBox="0 0 24 24" width="14" height="14" stroke="currentColor"
-                stroke-width="2" fill="none" stroke-linecap="round">
-                <circle cx="12" cy="12" r="10" />
-                <line x1="12" y1="16" x2="12" y2="12" />
-                <line x1="12" y1="8" x2="12.01" y2="8" />
-              </svg>
-              <span>远程转发会让 SSH 服务器监听指定端口，将外部流量转发到本地服务。需要服务端配置 <code>GatewayPorts</code> 才能绑定 <code>0.0.0.0</code>。</span>
-            </div>
-
-            <!-- SOCKS5 info hint -->
-            <div v-if="form.forwardType === 'dynamic'" class="pfd-info">
-              <svg viewBox="0 0 24 24" width="14" height="14" stroke="currentColor"
-                stroke-width="2" fill="none" stroke-linecap="round">
-                <circle cx="12" cy="12" r="10" />
-                <line x1="12" y1="16" x2="12" y2="12" />
-                <line x1="12" y1="8" x2="12.01" y2="8" />
-              </svg>
-              <span>SOCKS5 动态代理在本地启动一个 SOCKS5 服务器，通过 SSH 隧道转发所有连接。配置浏览器或应用的 SOCKS5 代理为 <code>{{ form.localHost || '127.0.0.1' }}:{{ form.localPort || '...' }}</code> 即可使用。</span>
-            </div>
-
-            <div class="pfd-section">
-              <UiCheckbox
-                v-model="form.autoStart"
-                class="pfd-auto-start"
-                size="sm"
-                id="pf-auto-start"
-                title="启用后，SSH 连接建立时将自动启动此转发规则"
-              >
-                连接后自动启用该转发
-              </UiCheckbox>
-            </div>
-
-            <!-- Error -->
-            <div v-if="error" class="pfd-error">
-              <svg viewBox="0 0 24 24" width="14" height="14" stroke="currentColor"
-                stroke-width="2" fill="none" stroke-linecap="round">
-                <circle cx="12" cy="12" r="10" /><line x1="12" y1="8" x2="12" y2="12" />
-                <line x1="12" y1="16" x2="12.01" y2="16" />
-              </svg>
-              {{ error }}
-            </div>
+          <div class="pfd-field">
+            <label class="pfd-label">端口 <span class="pfd-required">*</span></label>
+            <UiInput
+              :model-value="String(form.localPort)"
+              class="pfd-input"
+              size="sm"
+              type="number"
+              :min="1"
+              :max="65535"
+              placeholder="8080"
+              id="pf-local-port"
+              @update:modelValue="updateNumberField('localPort', $event)"
+            />
           </div>
+        </div>
+      </div>
 
-          <!-- Footer -->
-          <div class="pfd-dialog__footer">
-            <UiButton class="pfd-btn pfd-btn--ghost" size="sm" variant="ghost" type="button" @click="emit('close')">取消</UiButton>
-            <UiButton class="pfd-btn pfd-btn--primary" size="sm" variant="primary" type="button" :disabled="saving" @click="save"
-              id="pf-save-btn">
-              {{ saving ? '保存中...' : '保存' }}
-            </UiButton>
+      <div v-if="showRemoteSection" class="pfd-section">
+        <div class="pfd-section__title">{{ remoteSectionTitle }}</div>
+        <div class="pfd-grid">
+          <div class="pfd-field">
+            <label class="pfd-label">主机 <span class="pfd-required">*</span></label>
+            <UiInput
+              v-model="form.remoteHost"
+              class="pfd-input"
+              size="sm"
+              placeholder="localhost 或 10.0.0.5"
+              id="pf-remote-host"
+            />
           </div>
+          <div class="pfd-field">
+            <label class="pfd-label">端口 <span class="pfd-required">*</span></label>
+            <UiInput
+              :model-value="String(form.remotePort)"
+              class="pfd-input"
+              size="sm"
+              type="number"
+              :min="1"
+              :max="65535"
+              placeholder="3306"
+              id="pf-remote-port"
+              @update:modelValue="updateNumberField('remotePort', $event)"
+            />
+          </div>
+        </div>
+      </div>
+
+      <!-- 0.0.0.0 security warning (local type only) -->
+      <div v-if="showWildcardWarning" class="pfd-warning">
+        <svg
+          viewBox="0 0 24 24"
+          width="14"
+          height="14"
+          stroke="currentColor"
+          stroke-width="2"
+          fill="none"
+          stroke-linecap="round"
+        >
+          <path
+            d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"
+          />
+          <line x1="12" y1="9" x2="12" y2="13" />
+          <line x1="12" y1="17" x2="12.01" y2="17" />
+        </svg>
+        <span
+          >绑定
+          <code>{{ form.localHost }}</code>
+          将监听所有网络接口，局域网内其他设备也能访问。如非必要，建议使用
+          <code>127.0.0.1</code>。</span
+        >
+      </div>
+
+      <!-- Remote type info hint -->
+      <div v-if="form.forwardType === 'remote'" class="pfd-info">
+        <svg
+          viewBox="0 0 24 24"
+          width="14"
+          height="14"
+          stroke="currentColor"
+          stroke-width="2"
+          fill="none"
+          stroke-linecap="round"
+        >
+          <circle cx="12" cy="12" r="10" />
+          <line x1="12" y1="16" x2="12" y2="12" />
+          <line x1="12" y1="8" x2="12.01" y2="8" />
+        </svg>
+        <span
+          >远程转发会让 SSH 服务器监听指定端口，将外部流量转发到本地服务。需要服务端配置
+          <code>GatewayPorts</code> 才能绑定 <code>0.0.0.0</code>。</span
+        >
+      </div>
+
+      <!-- SOCKS5 info hint -->
+      <div v-if="form.forwardType === 'dynamic'" class="pfd-info">
+        <svg
+          viewBox="0 0 24 24"
+          width="14"
+          height="14"
+          stroke="currentColor"
+          stroke-width="2"
+          fill="none"
+          stroke-linecap="round"
+        >
+          <circle cx="12" cy="12" r="10" />
+          <line x1="12" y1="16" x2="12" y2="12" />
+          <line x1="12" y1="8" x2="12.01" y2="8" />
+        </svg>
+        <span
+          >SOCKS5 动态代理在本地启动一个 SOCKS5 服务器，通过 SSH
+          隧道转发所有连接。配置浏览器或应用的 SOCKS5 代理为
+          <code>{{ form.localHost || '127.0.0.1' }}:{{ form.localPort || '...' }}</code>
+          即可使用。</span
+        >
+      </div>
+
+      <div class="pfd-section">
+        <UiCheckbox
+          v-model="form.autoStart"
+          class="pfd-auto-start"
+          size="sm"
+          id="pf-auto-start"
+          title="启用后，SSH 连接建立时将自动启动此转发规则"
+        >
+          连接后自动启用该转发
+        </UiCheckbox>
+      </div>
+
+      <!-- Error -->
+      <div v-if="error" class="pfd-error">
+        <svg
+          viewBox="0 0 24 24"
+          width="14"
+          height="14"
+          stroke="currentColor"
+          stroke-width="2"
+          fill="none"
+          stroke-linecap="round"
+        >
+          <circle cx="12" cy="12" r="10" />
+          <line x1="12" y1="8" x2="12" y2="12" />
+          <line x1="12" y1="16" x2="12.01" y2="16" />
+        </svg>
+        {{ error }}
+      </div>
+    </div>
+
+    <!-- Footer -->
+    <div class="pfd-dialog__footer">
+      <UiButton
+        class="pfd-btn pfd-btn--ghost"
+        size="sm"
+        variant="ghost"
+        type="button"
+        @click="emit('close')"
+        >取消</UiButton
+      >
+      <UiButton
+        class="pfd-btn pfd-btn--primary"
+        size="sm"
+        variant="primary"
+        type="button"
+        :disabled="saving"
+        @click="save"
+        id="pf-save-btn"
+      >
+        {{ saving ? '保存中...' : '保存' }}
+      </UiButton>
+    </div>
   </UiPopupSurface>
 </template>
 
@@ -468,7 +706,9 @@ async function save() {
   border-radius: var(--ui-radius-md);
   background: var(--ui-surface-dialog, var(--ui-surface-panel));
   border: 1px solid var(--ui-border-subtle);
-  box-shadow: 0 24px 64px rgba(0, 0, 0, 0.4), 0 4px 16px rgba(0, 0, 0, 0.2);
+  box-shadow:
+    0 24px 64px rgba(0, 0, 0, 0.4),
+    0 4px 16px rgba(0, 0, 0, 0.2);
   overflow: hidden;
 
   &__header {
@@ -581,7 +821,9 @@ async function save() {
 }
 
 .pfd-type-btn {
-  &__text { white-space: nowrap; }
+  &__text {
+    white-space: nowrap;
+  }
 
   &__sub {
     font-family: Consolas, 'Cascadia Mono', monospace;
@@ -625,8 +867,12 @@ async function save() {
   border: 1px solid var(--ui-border-subtle);
   min-width: 100px;
 
-  &--remote { border-color: var(--primary-color); }
-  &--source { border-color: var(--ui-state-success, #22c55e); }
+  &--remote {
+    border-color: var(--primary-color);
+  }
+  &--source {
+    border-color: var(--ui-state-success, #22c55e);
+  }
 }
 
 .pfd-diagram__label {
@@ -686,7 +932,9 @@ async function save() {
   display: flex;
   flex-direction: column;
   gap: 4px;
-  &--full { grid-column: 1 / -1; }
+  &--full {
+    grid-column: 1 / -1;
+  }
 }
 
 .pfd-label {
@@ -743,7 +991,10 @@ async function save() {
   color: #f59e0b;
   line-height: 1.5;
 
-  svg { flex-shrink: 0; margin-top: 1px; }
+  svg {
+    flex-shrink: 0;
+    margin-top: 1px;
+  }
   code {
     padding: 1px 4px;
     border-radius: 3px;
@@ -765,7 +1016,10 @@ async function save() {
   color: var(--primary-color);
   line-height: 1.5;
 
-  svg { flex-shrink: 0; margin-top: 1px; }
+  svg {
+    flex-shrink: 0;
+    margin-top: 1px;
+  }
   code {
     padding: 1px 4px;
     border-radius: 3px;
@@ -818,11 +1072,15 @@ async function save() {
 .dialog-fade-enter-active,
 .dialog-fade-leave-active {
   transition: opacity 0.2s ease;
-  .pfd-dialog { transition: transform 0.2s ease; }
+  .pfd-dialog {
+    transition: transform 0.2s ease;
+  }
 }
 .dialog-fade-enter-from,
 .dialog-fade-leave-to {
   opacity: 0;
-  .pfd-dialog { transform: translateY(-12px) scale(0.97); }
+  .pfd-dialog {
+    transform: translateY(-12px) scale(0.97);
+  }
 }
 </style>

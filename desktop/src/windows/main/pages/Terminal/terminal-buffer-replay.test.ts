@@ -9,6 +9,8 @@ describe('shouldSuppressTerminalResponses', () => {
 
   it('allows responses for a live buffer append', () => {
     expect(shouldSuppressTerminalResponses('', 'first live output', true)).toBe(false);
-    expect(shouldSuppressTerminalResponses('old output', 'old output\r\nnext output', true)).toBe(false);
+    expect(shouldSuppressTerminalResponses('old output', 'old output\r\nnext output', true)).toBe(
+      false
+    );
   });
 });

@@ -31,6 +31,6 @@ console.log(
   'label:',
   initialLabel,
   'kind:',
-  sessionKind,
+  sessionKind
 );
 </script>

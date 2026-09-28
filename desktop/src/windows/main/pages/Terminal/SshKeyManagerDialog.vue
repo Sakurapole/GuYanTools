@@ -58,7 +58,7 @@ watch(
         loading.value = false;
       }
     }
-  },
+  }
 );
 
 function resetGenerateForm() {
@@ -227,124 +227,161 @@ async function handleDeleteKey(key: SshManagedKey) {
     z-index="var(--ui-z-modal)"
     @close="emit('close')"
   >
-          <div class="key-manager__header">
-            <div>
-              <h3>SSH 密钥管理</h3>
-              <p>集中生成、导入、导出和保管应用内 SSH 私钥，私钥内容按当前应用加密存储。</p>
-            </div>
-            <UiButton class="key-manager__close" size="sm" variant="ghost" type="button" @click="emit('close')">关闭</UiButton>
+    <div class="key-manager__header">
+      <div>
+        <h3>SSH 密钥管理</h3>
+        <p>集中生成、导入、导出和保管应用内 SSH 私钥，私钥内容按当前应用加密存储。</p>
+      </div>
+      <UiButton
+        class="key-manager__close"
+        size="sm"
+        variant="ghost"
+        type="button"
+        @click="emit('close')"
+        >关闭</UiButton
+      >
+    </div>
+
+    <div class="key-manager__body">
+      <section class="key-manager__panel">
+        <div class="key-manager__panel-title">生成新密钥</div>
+        <label class="key-field">
+          <span>名称</span>
+          <UiInput v-model="generateForm.label" size="md" placeholder="例如：Prod Bastion" />
+        </label>
+        <label class="key-field">
+          <span>算法</span>
+          <UiSelect
+            :model-value="generateForm.algorithm"
+            :options="algorithmOptions"
+            size="md"
+            @update:modelValue="updateAlgorithm"
+          />
+        </label>
+        <label class="key-field">
+          <span>注释</span>
+          <UiInput v-model="generateForm.comment" size="md" placeholder="留空时默认使用名称" />
+        </label>
+        <UiButton
+          class="key-primary-btn"
+          size="sm"
+          variant="primary"
+          type="button"
+          :disabled="generating"
+          @click="handleGenerate"
+        >
+          {{ generating ? '生成中...' : '生成并保存' }}
+        </UiButton>
+
+        <div class="key-manager__panel-title key-manager__panel-title--spaced">导入现有密钥</div>
+        <label class="key-field">
+          <span>显示名称</span>
+          <UiInput v-model="importLabel" size="md" placeholder="可选，留空则自动推断" />
+        </label>
+        <div class="key-manager__actions">
+          <UiButton
+            class="key-secondary-btn"
+            size="sm"
+            variant="secondary"
+            type="button"
+            :disabled="importing"
+            @click="handleImportFromFile"
+          >
+            {{ importing ? '导入中...' : '从文件导入' }}
+          </UiButton>
+          <UiButton
+            class="key-secondary-btn"
+            size="sm"
+            variant="secondary"
+            type="button"
+            :disabled="importing"
+            @click="handleImportFromClipboard"
+          >
+            {{ importing ? '导入中...' : '从剪贴板导入' }}
+          </UiButton>
+        </div>
+      </section>
+
+      <section class="key-manager__panel key-manager__panel--list">
+        <div class="key-manager__list-header">
+          <div>
+            <div class="key-manager__panel-title">已管理密钥</div>
+            <p>{{ visibleKeys.length }} 个条目</p>
           </div>
+          <UiButton
+            class="key-secondary-btn"
+            size="sm"
+            variant="secondary"
+            type="button"
+            :disabled="loading"
+            @click="sshStore.refreshManagedKeys()"
+          >
+            刷新
+          </UiButton>
+        </div>
 
-          <div class="key-manager__body">
-            <section class="key-manager__panel">
-              <div class="key-manager__panel-title">生成新密钥</div>
-              <label class="key-field">
-                <span>名称</span>
-                <UiInput v-model="generateForm.label" size="md" placeholder="例如：Prod Bastion" />
-              </label>
-              <label class="key-field">
-                <span>算法</span>
-                <UiSelect
-                  :model-value="generateForm.algorithm"
-                  :options="algorithmOptions"
-                  size="md"
-                  @update:modelValue="updateAlgorithm"
-                />
-              </label>
-              <label class="key-field">
-                <span>注释</span>
-                <UiInput v-model="generateForm.comment" size="md" placeholder="留空时默认使用名称" />
-              </label>
-              <UiButton class="key-primary-btn" size="sm" variant="primary" type="button" :disabled="generating" @click="handleGenerate">
-                {{ generating ? '生成中...' : '生成并保存' }}
-              </UiButton>
+        <div v-if="error" class="key-manager__message key-manager__message--error">{{ error }}</div>
+        <div v-else-if="success" class="key-manager__message key-manager__message--success">
+          {{ success }}
+        </div>
 
-              <div class="key-manager__panel-title key-manager__panel-title--spaced">导入现有密钥</div>
-              <label class="key-field">
-                <span>显示名称</span>
-                <UiInput v-model="importLabel" size="md" placeholder="可选，留空则自动推断" />
-              </label>
-              <div class="key-manager__actions">
-                <UiButton class="key-secondary-btn" size="sm" variant="secondary" type="button" :disabled="importing" @click="handleImportFromFile">
-                  {{ importing ? '导入中...' : '从文件导入' }}
-                </UiButton>
-                <UiButton class="key-secondary-btn" size="sm" variant="secondary" type="button" :disabled="importing" @click="handleImportFromClipboard">
-                  {{ importing ? '导入中...' : '从剪贴板导入' }}
-                </UiButton>
-              </div>
-            </section>
-
-            <section class="key-manager__panel key-manager__panel--list">
-              <div class="key-manager__list-header">
-                <div>
-                  <div class="key-manager__panel-title">已管理密钥</div>
-                  <p>{{ visibleKeys.length }} 个条目</p>
+        <div v-if="loading" class="key-manager__empty">正在加载 SSH 密钥列表...</div>
+        <div v-else-if="visibleKeys.length === 0" class="key-manager__empty">
+          还没有托管密钥。可以先生成一把 Ed25519 密钥，或导入现有 OpenSSH 私钥。
+        </div>
+        <div v-else class="key-manager__list">
+          <article v-for="key in visibleKeys" :key="key.id" class="managed-key-card">
+            <div class="managed-key-card__top">
+              <div>
+                <div class="managed-key-card__title">{{ key.label }}</div>
+                <div class="managed-key-card__meta">
+                  <span>{{ key.algorithm }}</span>
+                  <span>{{ key.source === 'generated' ? '应用生成' : '外部导入' }}</span>
+                  <span>{{ key.isEncrypted ? '源文件已加密' : 'OpenSSH 明文格式' }}</span>
                 </div>
-                <UiButton class="key-secondary-btn" size="sm" variant="secondary" type="button" :disabled="loading" @click="sshStore.refreshManagedKeys()">
-                  刷新
-                </UiButton>
               </div>
+              <div class="managed-key-card__time">{{ formatDate(key.updatedAt) }}</div>
+            </div>
 
-              <div v-if="error" class="key-manager__message key-manager__message--error">{{ error }}</div>
-              <div v-else-if="success" class="key-manager__message key-manager__message--success">{{ success }}</div>
+            <div class="managed-key-card__fingerprint">{{ key.fingerprint }}</div>
+            <div v-if="key.comment" class="managed-key-card__comment">{{ key.comment }}</div>
 
-              <div v-if="loading" class="key-manager__empty">正在加载 SSH 密钥列表...</div>
-              <div v-else-if="visibleKeys.length === 0" class="key-manager__empty">
-                还没有托管密钥。可以先生成一把 Ed25519 密钥，或导入现有 OpenSSH 私钥。
-              </div>
-              <div v-else class="key-manager__list">
-                <article v-for="key in visibleKeys" :key="key.id" class="managed-key-card">
-                  <div class="managed-key-card__top">
-                    <div>
-                      <div class="managed-key-card__title">{{ key.label }}</div>
-                      <div class="managed-key-card__meta">
-                        <span>{{ key.algorithm }}</span>
-                        <span>{{ key.source === 'generated' ? '应用生成' : '外部导入' }}</span>
-                        <span>{{ key.isEncrypted ? '源文件已加密' : 'OpenSSH 明文格式' }}</span>
-                      </div>
-                    </div>
-                    <div class="managed-key-card__time">{{ formatDate(key.updatedAt) }}</div>
-                  </div>
-
-                  <div class="managed-key-card__fingerprint">{{ key.fingerprint }}</div>
-                  <div v-if="key.comment" class="managed-key-card__comment">{{ key.comment }}</div>
-
-                  <div class="managed-key-card__actions">
-                    <UiButton
-                      class="key-secondary-btn"
-                      size="sm"
-                      variant="secondary"
-                      type="button"
-                      :disabled="actionKeyId === key.id"
-                      @click="handleCopyPublicKey(key)"
-                    >
-                      复制公钥
-                    </UiButton>
-                    <UiButton
-                      class="key-secondary-btn"
-                      size="sm"
-                      variant="secondary"
-                      type="button"
-                      :disabled="actionKeyId === key.id"
-                      @click="handleExportKey(key)"
-                    >
-                      导出
-                    </UiButton>
-                    <UiButton
-                      class="key-danger-btn"
-                      size="sm"
-                      variant="danger"
-                      type="button"
-                      :disabled="actionKeyId === key.id"
-                      @click="handleDeleteKey(key)"
-                    >
-                      {{ deleteKeyId === key.id ? '再次点击确认删除' : '删除' }}
-                    </UiButton>
-                  </div>
-                </article>
-              </div>
-            </section>
-          </div>
+            <div class="managed-key-card__actions">
+              <UiButton
+                class="key-secondary-btn"
+                size="sm"
+                variant="secondary"
+                type="button"
+                :disabled="actionKeyId === key.id"
+                @click="handleCopyPublicKey(key)"
+              >
+                复制公钥
+              </UiButton>
+              <UiButton
+                class="key-secondary-btn"
+                size="sm"
+                variant="secondary"
+                type="button"
+                :disabled="actionKeyId === key.id"
+                @click="handleExportKey(key)"
+              >
+                导出
+              </UiButton>
+              <UiButton
+                class="key-danger-btn"
+                size="sm"
+                variant="danger"
+                type="button"
+                :disabled="actionKeyId === key.id"
+                @click="handleDeleteKey(key)"
+              >
+                {{ deleteKeyId === key.id ? '再次点击确认删除' : '删除' }}
+              </UiButton>
+            </div>
+          </article>
+        </div>
+      </section>
+    </div>
   </UiPopupSurface>
 </template>
 
@@ -458,7 +495,7 @@ async function handleDeleteKey(key: SshManagedKey) {
   }
 
   &__panel-title::before {
-    content: "";
+    content: '';
     display: inline-block;
     width: 3px;
     height: 12px;

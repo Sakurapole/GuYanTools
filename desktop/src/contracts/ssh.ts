@@ -107,12 +107,7 @@ export interface UpdateSshProfileFolderInput {
 // ── Active session ────────────────────────────────────────────
 
 export type SshSessionStatus =
-  | 'connecting'
-  | 'connected'
-  | 'disconnecting'
-  | 'disconnected'
-  | 'failed'
-  | 'exited';
+  'connecting' | 'connected' | 'disconnecting' | 'disconnected' | 'failed' | 'exited';
 
 export interface SshSessionDescriptor {
   sessionId: string;
@@ -329,7 +324,12 @@ export interface SshApi {
 
   // Known hosts
   listKnownHosts: () => Promise<SshKnownHost[]>;
-  verifyHostFingerprint: (host: string, port: number, algorithm: string, fingerprint: string) => Promise<HostVerifyResult>;
+  verifyHostFingerprint: (
+    host: string,
+    port: number,
+    algorithm: string,
+    fingerprint: string
+  ) => Promise<HostVerifyResult>;
   trustHost: (input: TrustHostInput) => Promise<void>;
   deleteKnownHost: (id: string) => Promise<void>;
 

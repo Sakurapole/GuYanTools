@@ -2,7 +2,10 @@ import { BrowserWindow, clipboard, ipcMain } from 'electron';
 import path from 'path';
 import { terminalHost } from './host';
 import { sshHost } from '../ssh/host';
-import { persistWindowBounds, resolvePersistedWindowBounds } from '../windows/persisted_window_bounds';
+import {
+  persistWindowBounds,
+  resolvePersistedWindowBounds,
+} from '../windows/persisted_window_bounds';
 import type {
   CreateTerminalSessionPayload,
   DetachedTerminalSessionKind,
@@ -25,7 +28,7 @@ async function openDetachedTerminalWindow(
   sourceWindow: BrowserWindow,
   sessionId: string,
   kind: DetachedTerminalSessionKind = 'local',
-  requestedLabel = '',
+  requestedLabel = ''
 ) {
   const target = buildPopupTarget(sessionId, kind);
   let label = requestedLabel || 'Terminal';
@@ -107,7 +110,10 @@ async function openDetachedTerminalWindow(
     console.log('[terminal] Opening detached window at:', terminalUrl);
     await win.loadURL(terminalUrl);
   } else {
-    const terminalHtmlPath = path.join(__dirname, `../renderer/${MAIN_WINDOW_VITE_NAME}/index_terminal.html`);
+    const terminalHtmlPath = path.join(
+      __dirname,
+      `../renderer/${MAIN_WINDOW_VITE_NAME}/index_terminal.html`
+    );
     console.log('[terminal] Opening detached window from file:', terminalHtmlPath);
     await win.loadFile(terminalHtmlPath, { query: { sessionId, target, label, kind } });
   }
@@ -124,9 +130,12 @@ export function registerTerminalIpcHandlers() {
     return terminalHost.listSessions();
   });
 
-  ipcMain.handle('terminal:create-session', async (_event, payload: CreateTerminalSessionPayload) => {
-    return terminalHost.createSession(payload);
-  });
+  ipcMain.handle(
+    'terminal:create-session',
+    async (_event, payload: CreateTerminalSessionPayload) => {
+      return terminalHost.createSession(payload);
+    }
+  );
 
   ipcMain.handle('terminal:get-buffer', async (_event, sessionId: string) => {
     return terminalHost.getBuffer(sessionId);
@@ -140,9 +149,12 @@ export function registerTerminalIpcHandlers() {
     terminalHost.write(sessionId, data);
   });
 
-  ipcMain.handle('terminal:resize-session', async (_event, payload: ResizeTerminalSessionPayload) => {
-    terminalHost.resizeSession(payload);
-  });
+  ipcMain.handle(
+    'terminal:resize-session',
+    async (_event, payload: ResizeTerminalSessionPayload) => {
+      terminalHost.resizeSession(payload);
+    }
+  );
 
   ipcMain.handle('terminal:kill-session', async (_event, sessionId: string) => {
     terminalHost.killSession(sessionId);
@@ -156,39 +168,40 @@ export function registerTerminalIpcHandlers() {
     terminalHost.attachToMain(sessionId);
   });
 
-  ipcMain.handle('terminal:detach-to-window', async (
-    event,
-    sessionId: string,
-    kind: DetachedTerminalSessionKind = 'local',
-    label = '',
-  ) => {
-    const sourceWindow = BrowserWindow.fromWebContents(event.sender);
-    if (!sourceWindow || sourceWindow.isDestroyed()) {
-      throw new Error('无法获取当前窗口');
+  ipcMain.handle(
+    'terminal:detach-to-window',
+    async (event, sessionId: string, kind: DetachedTerminalSessionKind = 'local', label = '') => {
+      const sourceWindow = BrowserWindow.fromWebContents(event.sender);
+      if (!sourceWindow || sourceWindow.isDestroyed()) {
+        throw new Error('无法获取当前窗口');
+      }
+      const sessionKind = kind === 'ssh' ? 'ssh' : 'local';
+      await openDetachedTerminalWindow(sourceWindow, sessionId, sessionKind, label);
     }
-    const sessionKind = kind === 'ssh' ? 'ssh' : 'local';
-    await openDetachedTerminalWindow(sourceWindow, sessionId, sessionKind, label);
-  });
+  );
 
-  ipcMain.handle('terminal:return-detached-to-main', async (
-    event,
-    sessionId: string,
-    target: string,
-    kind: DetachedTerminalSessionKind = 'local',
-  ) => {
-    const sourceWindow = BrowserWindow.fromWebContents(event.sender);
-    const sessionKind = kind === 'ssh' ? 'ssh' : 'local';
-    if (sessionKind === 'ssh') {
-      sshHost.closeDetachedView(sessionId, target);
-    } else {
-      terminalHost.closeDetachedView(sessionId, target);
-    }
+  ipcMain.handle(
+    'terminal:return-detached-to-main',
+    async (
+      event,
+      sessionId: string,
+      target: string,
+      kind: DetachedTerminalSessionKind = 'local'
+    ) => {
+      const sourceWindow = BrowserWindow.fromWebContents(event.sender);
+      const sessionKind = kind === 'ssh' ? 'ssh' : 'local';
+      if (sessionKind === 'ssh') {
+        sshHost.closeDetachedView(sessionId, target);
+      } else {
+        terminalHost.closeDetachedView(sessionId, target);
+      }
 
-    if (sourceWindow && !sourceWindow.isDestroyed()) {
-      detachedWindowCloseModes.set(sourceWindow.id, 'return-to-main');
-      sourceWindow.close();
+      if (sourceWindow && !sourceWindow.isDestroyed()) {
+        detachedWindowCloseModes.set(sourceWindow.id, 'return-to-main');
+        sourceWindow.close();
+      }
     }
-  });
+  );
 
   ipcMain.handle('terminal:clipboard-read', async () => {
     return clipboard.readText();

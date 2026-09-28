@@ -6,22 +6,29 @@ import { useSshStore } from '../../../stores/ssh_store';
 import { normalizeWidgetConfig } from '../registry';
 import { openTerminalProfileFromHome } from '../terminalWidgetNavigation';
 
-const props = withDefaults(defineProps<{
-  item: GridItem;
-  interactive?: boolean;
-}>(), {
-  interactive: true,
-});
+const props = withDefaults(
+  defineProps<{
+    item: GridItem;
+    interactive?: boolean;
+  }>(),
+  {
+    interactive: true,
+  }
+);
 
 const sshStore = useSshStore();
 const loading = ref(false);
-const config = computed(() =>
-  normalizeWidgetConfig('terminal_profile_group', props.item.widgetConfig) as TerminalProfileGroupWidgetConfig,
+const config = computed(
+  () =>
+    normalizeWidgetConfig(
+      'terminal_profile_group',
+      props.item.widgetConfig
+    ) as TerminalProfileGroupWidgetConfig
 );
 const selectedFolder = computed(() =>
   config.value.folderId
-    ? sshStore.folders.find((folder) => folder.id === config.value.folderId) ?? null
-    : null,
+    ? (sshStore.folders.find((folder) => folder.id === config.value.folderId) ?? null)
+    : null
 );
 const title = computed(() => selectedFolder.value?.label || '未分组');
 const profiles = computed(() => {
@@ -30,8 +37,9 @@ const profiles = computed(() => {
     ? sshStore.profiles.filter((profile) => isProfileInsideFolder(profile, folderId))
     : sshStore.profiles.filter((profile) => !profile.folderId);
 
-  return profileList.sort((left, right) =>
-    left.sortOrder - right.sortOrder || left.label.localeCompare(right.label, 'zh-CN'),
+  return profileList.sort(
+    (left, right) =>
+      left.sortOrder - right.sortOrder || left.label.localeCompare(right.label, 'zh-CN')
   );
 });
 const isCompact = computed(() => props.item.rowSpan <= 2);
@@ -40,7 +48,9 @@ function isProfileInsideFolder(profile: SshProfile, folderId: string) {
   let currentId = profile.folderId || '';
   while (currentId) {
     if (currentId === folderId) return true;
-    const folder: SshProfileFolder | undefined = sshStore.folders.find((item) => item.id === currentId);
+    const folder: SshProfileFolder | undefined = sshStore.folders.find(
+      (item) => item.id === currentId
+    );
     currentId = folder?.parentId || '';
   }
   return false;
@@ -58,10 +68,7 @@ async function loadProfiles() {
   loading.value = true;
   try {
     await sshStore.initialize();
-    await Promise.all([
-      sshStore.refreshProfiles(),
-      sshStore.refreshFolders(),
-    ]);
+    await Promise.all([sshStore.refreshProfiles(), sshStore.refreshFolders()]);
   } finally {
     loading.value = false;
   }
@@ -88,7 +95,9 @@ onMounted(() => {
     </header>
 
     <div v-if="loading && !profiles.length" class="terminal-group-widget__state">读取配置中...</div>
-    <div v-else-if="!profiles.length" class="terminal-group-widget__state">这个分组还没有配置。</div>
+    <div v-else-if="!profiles.length" class="terminal-group-widget__state">
+      这个分组还没有配置。
+    </div>
     <div v-else class="terminal-group-widget__list">
       <div
         v-for="profile in profiles"
@@ -100,7 +109,10 @@ onMounted(() => {
         @dblclick.stop="openProfile(profile)"
         @keydown.enter.prevent.stop="openProfile(profile)"
       >
-        <span class="terminal-group-widget__status" :class="{ 'terminal-group-widget__status--connected': profileSession(profile.id) }" />
+        <span
+          class="terminal-group-widget__status"
+          :class="{ 'terminal-group-widget__status--connected': profileSession(profile.id) }"
+        />
         <div class="terminal-group-widget__item-main">
           <span class="terminal-group-widget__item-title">{{ profile.label }}</span>
           <span class="terminal-group-widget__item-meta">{{ profileMeta(profile) }}</span>

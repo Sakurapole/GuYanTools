@@ -65,76 +65,102 @@ function reject() {
     :close-on-mask="false"
     z-index="var(--ui-z-dialog)"
   >
-          <!-- Warning icon -->
-          <div class="fp-icon-wrap">
-            <div class="fp-icon">
-              <svg viewBox="0 0 24 24" width="28" height="28" stroke="currentColor"
-                stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round">
-                <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" />
-                <line x1="12" y1="9" x2="12" y2="13" />
-                <line x1="12" y1="17" x2="12.01" y2="17" />
-              </svg>
-            </div>
+    <!-- Warning icon -->
+    <div class="fp-icon-wrap">
+      <div class="fp-icon">
+        <svg
+          viewBox="0 0 24 24"
+          width="28"
+          height="28"
+          stroke="currentColor"
+          stroke-width="2"
+          fill="none"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+        >
+          <path
+            d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"
+          />
+          <line x1="12" y1="9" x2="12" y2="13" />
+          <line x1="12" y1="17" x2="12.01" y2="17" />
+        </svg>
+      </div>
+    </div>
+
+    <!-- Content -->
+    <div class="fp-body">
+      <h3 class="fp-title" id="fp-title">验证主机真实性</h3>
+      <p class="fp-desc">
+        无法确认主机 <code class="fp-code">{{ host }}:{{ port }}</code> 的真实性。
+        服务器发来的指纹如下，请与系统管理员确认后再决定是否信任。
+      </p>
+
+      <div class="fp-fingerprint">
+        <div class="fp-fingerprint__row">
+          <span class="fp-fingerprint__key">算法</span>
+          <span class="fp-fingerprint__val">{{ algorithm }}</span>
+        </div>
+        <div class="fp-fingerprint__row">
+          <span class="fp-fingerprint__key">指纹</span>
+          <code class="fp-fingerprint__hash">{{ fingerprint }}</code>
+        </div>
+      </div>
+
+      <!-- Trust mode selection -->
+      <div class="fp-trust-mode">
+        <UiRadio
+          v-model="trustMode"
+          class="fp-radio"
+          value="permanent"
+          id="fp-trust-permanent"
+          name="ssh-fingerprint-trust-mode"
+        >
+          <div class="fp-radio__content">
+            <span class="fp-radio__label">永久信任</span>
+            <span class="fp-radio__desc">将指纹保存到已知主机列表，下次自动验证</span>
           </div>
-
-          <!-- Content -->
-          <div class="fp-body">
-            <h3 class="fp-title" id="fp-title">验证主机真实性</h3>
-            <p class="fp-desc">
-              无法确认主机 <code class="fp-code">{{ host }}:{{ port }}</code> 的真实性。
-              服务器发来的指纹如下，请与系统管理员确认后再决定是否信任。
-            </p>
-
-            <div class="fp-fingerprint">
-              <div class="fp-fingerprint__row">
-                <span class="fp-fingerprint__key">算法</span>
-                <span class="fp-fingerprint__val">{{ algorithm }}</span>
-              </div>
-              <div class="fp-fingerprint__row">
-                <span class="fp-fingerprint__key">指纹</span>
-                <code class="fp-fingerprint__hash">{{ fingerprint }}</code>
-              </div>
-            </div>
-
-            <!-- Trust mode selection -->
-            <div class="fp-trust-mode">
-              <UiRadio
-                v-model="trustMode"
-                class="fp-radio"
-                value="permanent"
-                id="fp-trust-permanent"
-                name="ssh-fingerprint-trust-mode"
-              >
-                <div class="fp-radio__content">
-                  <span class="fp-radio__label">永久信任</span>
-                  <span class="fp-radio__desc">将指纹保存到已知主机列表，下次自动验证</span>
-                </div>
-              </UiRadio>
-              <UiRadio
-                v-model="trustMode"
-                class="fp-radio"
-                value="session"
-                id="fp-trust-session"
-                name="ssh-fingerprint-trust-mode"
-              >
-                <div class="fp-radio__content">
-                  <span class="fp-radio__label">仅本次信任</span>
-                  <span class="fp-radio__desc">本次连接后不再保存该指纹</span>
-                </div>
-              </UiRadio>
-            </div>
-
-            <!-- Error -->
-            <div v-if="error" class="fp-error">{{ error }}</div>
+        </UiRadio>
+        <UiRadio
+          v-model="trustMode"
+          class="fp-radio"
+          value="session"
+          id="fp-trust-session"
+          name="ssh-fingerprint-trust-mode"
+        >
+          <div class="fp-radio__content">
+            <span class="fp-radio__label">仅本次信任</span>
+            <span class="fp-radio__desc">本次连接后不再保存该指纹</span>
           </div>
+        </UiRadio>
+      </div>
 
-          <!-- Footer -->
-          <div class="fp-footer">
-            <UiButton class="fp-btn fp-btn--ghost" variant="ghost" size="sm" type="button" @click="reject" id="fp-reject-btn">拒绝连接</UiButton>
-            <UiButton class="fp-btn fp-btn--primary" variant="primary" size="sm" type="button" :disabled="saving" @click="accept" id="fp-accept-btn">
-              {{ saving ? '保存中...' : '信任并连接' }}
-            </UiButton>
-          </div>
+      <!-- Error -->
+      <div v-if="error" class="fp-error">{{ error }}</div>
+    </div>
+
+    <!-- Footer -->
+    <div class="fp-footer">
+      <UiButton
+        class="fp-btn fp-btn--ghost"
+        variant="ghost"
+        size="sm"
+        type="button"
+        @click="reject"
+        id="fp-reject-btn"
+        >拒绝连接</UiButton
+      >
+      <UiButton
+        class="fp-btn fp-btn--primary"
+        variant="primary"
+        size="sm"
+        type="button"
+        :disabled="saving"
+        @click="accept"
+        id="fp-accept-btn"
+      >
+        {{ saving ? '保存中...' : '信任并连接' }}
+      </UiButton>
+    </div>
   </UiPopupSurface>
 </template>
 
@@ -156,7 +182,9 @@ function reject() {
   border-radius: var(--ui-radius-xl);
   background: var(--ui-surface-dialog, var(--ui-surface-panel));
   border: 1px solid var(--ui-border-subtle);
-  box-shadow: 0 32px 80px rgba(0, 0, 0, 0.5), 0 4px 16px rgba(0, 0, 0, 0.2);
+  box-shadow:
+    0 32px 80px rgba(0, 0, 0, 0.5),
+    0 4px 16px rgba(0, 0, 0, 0.2);
   overflow: hidden;
 }
 
@@ -357,7 +385,9 @@ function reject() {
   transition: opacity 0.2s;
 
   .fp-dialog {
-    transition: transform 0.22s cubic-bezier(0.34, 1.56, 0.64, 1), opacity 0.2s;
+    transition:
+      transform 0.22s cubic-bezier(0.34, 1.56, 0.64, 1),
+      opacity 0.2s;
   }
 }
 

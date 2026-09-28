@@ -36,12 +36,16 @@ const searchResultCount = ref(0);
 const rendererMode = computed(() => appConfigStore.config.features.terminal.rendererMode);
 const enableBell = computed(() => appConfigStore.config.features.terminal.enableBell);
 const enableSixel = computed(() => appConfigStore.config.features.terminal.enableSixel);
-const colorSchemeId = computed(() => appConfigStore.config.features.terminal.colorSchemeId ?? 'dark-default');
+const colorSchemeId = computed(
+  () => appConfigStore.config.features.terminal.colorSchemeId ?? 'dark-default'
+);
 const writeHandler = computed(() => (store.sessionKind === 'ssh' ? store.write : undefined));
 const resizeHandler = computed(() => (store.sessionKind === 'ssh' ? store.resize : undefined));
 
 // Background config (read-only in detached window)
-const termBgType = computed(() => appConfigStore.config.features.terminal.viewportBgType ?? 'color');
+const termBgType = computed(
+  () => appConfigStore.config.features.terminal.viewportBgType ?? 'color'
+);
 const termBgColor = computed(() => appConfigStore.config.features.terminal.viewportBgColor ?? '');
 const termBgImage = computed(() => appConfigStore.config.features.terminal.viewportBgImage ?? '');
 const termBgVideo = computed(() => appConfigStore.config.features.terminal.viewportBgVideo ?? '');
@@ -57,7 +61,11 @@ const hasCustomBg = computed(() => {
 // ── Window title display ──────────────────────────────────────
 const windowTitle = computed(() => {
   const label = store.profileLabel || 'Terminal';
-  const statusText = store.isRunning ? (store.sessionKind === 'ssh' ? 'Connected' : 'Running') : 'Stopped';
+  const statusText = store.isRunning
+    ? store.sessionKind === 'ssh'
+      ? 'Connected'
+      : 'Running'
+    : 'Stopped';
   return `${label} — ${statusText}`;
 });
 
@@ -82,7 +90,7 @@ async function returnToMainWindow() {
   await window.terminalApi.returnDetachedToMain(
     props.sessionId,
     props.target,
-    props.sessionKind ?? 'local',
+    props.sessionKind ?? 'local'
   );
 }
 
@@ -172,7 +180,12 @@ function handleRendererFallback(nextMode: Exclude<TerminalRendererMode, 'webgl'>
 
 // ── Lifecycle ─────────────────────────────────────────────────
 onMounted(async () => {
-  await store.initialize(props.sessionId, props.target, props.initialLabel, props.sessionKind ?? 'local');
+  await store.initialize(
+    props.sessionId,
+    props.target,
+    props.initialLabel,
+    props.sessionKind ?? 'local'
+  );
 });
 
 onBeforeUnmount(() => {
@@ -185,9 +198,18 @@ onBeforeUnmount(() => {
     <!-- Custom frameless title bar -->
     <div class="detached-titlebar">
       <div class="detached-titlebar__icon">
-        <svg viewBox="0 0 24 24" width="14" height="14" stroke="currentColor" stroke-width="2"
-          fill="none" stroke-linecap="round" stroke-linejoin="round">
-          <polyline points="4 17 10 11 4 5" /><line x1="12" y1="19" x2="20" y2="19" />
+        <svg
+          viewBox="0 0 24 24"
+          width="14"
+          height="14"
+          stroke="currentColor"
+          stroke-width="2"
+          fill="none"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+        >
+          <polyline points="4 17 10 11 4 5" />
+          <line x1="12" y1="19" x2="20" y2="19" />
         </svg>
       </div>
       <div class="detached-titlebar__title">{{ windowTitle }}</div>
@@ -200,8 +222,16 @@ onBeforeUnmount(() => {
       <div class="detached-titlebar__drag" />
       <div class="detached-titlebar__actions">
         <button class="detached-titlebar__btn" title="返回主窗口" @click="returnToMainWindow">
-          <svg viewBox="0 0 24 24" width="14" height="14" stroke="currentColor" stroke-width="2"
-            fill="none" stroke-linecap="round" stroke-linejoin="round">
+          <svg
+            viewBox="0 0 24 24"
+            width="14"
+            height="14"
+            stroke="currentColor"
+            stroke-width="2"
+            fill="none"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          >
             <path d="M9 14l-4-4 4-4" />
             <path d="M5 10h11a4 4 0 0 1 0 8h-1" />
             <rect x="14" y="4" width="7" height="5" rx="1" />
@@ -209,17 +239,34 @@ onBeforeUnmount(() => {
         </button>
         <button class="detached-titlebar__btn" title="最小化" @click="minimizeWindow">
           <svg width="10" height="1" viewBox="0 0 10 1">
-            <line x1="0" y1="0.5" x2="10" y2="0.5" stroke="currentColor" stroke-width="1"/>
+            <line x1="0" y1="0.5" x2="10" y2="0.5" stroke="currentColor" stroke-width="1" />
           </svg>
         </button>
         <button class="detached-titlebar__btn" title="最大化" @click="maximizeWindow">
           <svg width="10" height="10" viewBox="0 0 10 10" fill="none">
-            <rect x="0.5" y="0.5" width="9" height="9" rx="1" stroke="currentColor" stroke-width="1"/>
+            <rect
+              x="0.5"
+              y="0.5"
+              width="9"
+              height="9"
+              rx="1"
+              stroke="currentColor"
+              stroke-width="1"
+            />
           </svg>
         </button>
-        <button class="detached-titlebar__btn detached-titlebar__btn--close" title="关闭" @click="closeWindow">
+        <button
+          class="detached-titlebar__btn detached-titlebar__btn--close"
+          title="关闭"
+          @click="closeWindow"
+        >
           <svg width="10" height="10" viewBox="0 0 10 10">
-            <path d="M1 1l8 8M9 1l-8 8" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+            <path
+              d="M1 1l8 8M9 1l-8 8"
+              stroke="currentColor"
+              stroke-width="1.5"
+              stroke-linecap="round"
+            />
           </svg>
         </button>
       </div>
@@ -278,9 +325,7 @@ onBeforeUnmount(() => {
     <!-- Empty state (session not found or exited) -->
     <div v-else class="detached-empty">
       <div class="detached-empty__title">会话不可用</div>
-      <div class="detached-empty__desc">
-        终端会话已结束或未找到。请关闭此窗口。
-      </div>
+      <div class="detached-empty__desc">终端会话已结束或未找到。请关闭此窗口。</div>
     </div>
 
     <!-- Status bar -->
@@ -404,7 +449,9 @@ body {
   background: transparent;
   color: var(--ui-text-secondary);
   cursor: pointer;
-  transition: background 0.15s, color 0.15s;
+  transition:
+    background 0.15s,
+    color 0.15s;
 
   &:hover {
     background: rgba(128, 128, 128, 0.12);

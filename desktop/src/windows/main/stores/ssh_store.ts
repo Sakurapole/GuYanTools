@@ -105,15 +105,15 @@ export const useSshStore = defineStore('ssh', () => {
 
   // ── Derived ───────────────────────────────────────────────────
   const activeSshSession = computed(
-    () => sessions.value.find((s) => s.sessionId === activeSshSessionId.value) ?? null,
+    () => sessions.value.find((s) => s.sessionId === activeSshSessionId.value) ?? null
   );
 
   const mainSessions = computed(() =>
-    sessions.value.filter((session) => !isDetachedTarget(session.attachedTarget)),
+    sessions.value.filter((session) => !isDetachedTarget(session.attachedTarget))
   );
 
-  const connectedSessions = computed(
-    () => mainSessions.value.filter((s) => s.status === 'connected'),
+  const connectedSessions = computed(() =>
+    mainSessions.value.filter((s) => s.status === 'connected')
   );
 
   const runningPortForwardSummaries = computed<RunningPortForwardSummary[]>(() => {
@@ -129,14 +129,10 @@ export const useSshStore = defineStore('ssh', () => {
         const rule = rules.find((item) => item.id === status.forwardId);
         if (!rule) continue;
 
-        const port = rule.forwardType === 'remote'
-          ? rule.remotePort
-          : rule.localPort;
+        const port = rule.forwardType === 'remote' ? rule.remotePort : rule.localPort;
         if (typeof port !== 'number') continue;
 
-        const host = rule.forwardType === 'remote'
-          ? (rule.remoteHost || '0.0.0.0')
-          : rule.localHost;
+        const host = rule.forwardType === 'remote' ? rule.remoteHost || '0.0.0.0' : rule.localHost;
 
         summaries.push({
           sessionId: session.sessionId,
@@ -176,7 +172,10 @@ export const useSshStore = defineStore('ssh', () => {
   async function refreshSessions() {
     sessions.value = await window.sshApi.listSessions();
     await hydrateSessionBuffers(sessions.value.map((session) => session.sessionId));
-    if (activeSshSessionId.value && !sessions.value.some((session) => session.sessionId === activeSshSessionId.value)) {
+    if (
+      activeSshSessionId.value &&
+      !sessions.value.some((session) => session.sessionId === activeSshSessionId.value)
+    ) {
       activeSshSessionId.value = sessions.value[0]?.sessionId ?? '';
     }
     await hydratePortForwardRuntimeState();
@@ -195,8 +194,12 @@ export const useSshStore = defineStore('ssh', () => {
       return;
     }
 
-    const remaining = [...legacyGroups]
-      .sort((a, b) => a.sortOrder - b.sortOrder || a.createdAt - b.createdAt || a.label.localeCompare(b.label, 'zh-CN'));
+    const remaining = [...legacyGroups].sort(
+      (a, b) =>
+        a.sortOrder - b.sortOrder ||
+        a.createdAt - b.createdAt ||
+        a.label.localeCompare(b.label, 'zh-CN')
+    );
     const idMap = new Map<string, string>();
     const knownLegacyIds = new Set(remaining.map((group) => group.id));
 
@@ -204,9 +207,8 @@ export const useSshStore = defineStore('ssh', () => {
       let progressed = false;
       for (let index = 0; index < remaining.length;) {
         const group = remaining[index];
-        const parentId = group.parentId && knownLegacyIds.has(group.parentId)
-          ? idMap.get(group.parentId)
-          : '';
+        const parentId =
+          group.parentId && knownLegacyIds.has(group.parentId) ? idMap.get(group.parentId) : '';
         if (group.parentId && knownLegacyIds.has(group.parentId) && !parentId) {
           index += 1;
           continue;
@@ -270,7 +272,9 @@ export const useSshStore = defineStore('ssh', () => {
     const nestedIds = collectFolderDescendantIds(id);
     folders.value = folders.value.filter((item) => !nestedIds.includes(item.id));
     profiles.value = profiles.value.map((profile) =>
-      profile.folderId && nestedIds.includes(profile.folderId) ? { ...profile, folderId: undefined } : profile,
+      profile.folderId && nestedIds.includes(profile.folderId)
+        ? { ...profile, folderId: undefined }
+        : profile
     );
   }
 
@@ -325,7 +329,7 @@ export const useSshStore = defineStore('ssh', () => {
     activeSshSessionId.value = descriptor.sessionId;
     if (descriptor.status === 'connected') {
       autoStartPortForwards(descriptor.sessionId).catch((err) =>
-        console.warn('[SshStore] auto-start forwards error:', err),
+        console.warn('[SshStore] auto-start forwards error:', err)
       );
     }
     return descriptor;
@@ -421,7 +425,7 @@ export const useSshStore = defineStore('ssh', () => {
     host: string,
     port: number,
     algorithm: string,
-    fingerprint: string,
+    fingerprint: string
   ): Promise<HostVerifyResult> {
     return window.sshApi.verifyHostFingerprint(host, port, algorithm, fingerprint);
   }
@@ -470,7 +474,9 @@ export const useSshStore = defineStore('ssh', () => {
     switch (event.eventType) {
       case 'data': {
         updateWorkingDirectoryFromOutput(event.sessionId, event.data ?? '');
-        const matchedSession = sessions.value.find((session) => session.sessionId === event.sessionId);
+        const matchedSession = sessions.value.find(
+          (session) => session.sessionId === event.sessionId
+        );
         if (matchedSession && isDetachedTarget(matchedSession.attachedTarget)) {
           break;
         }
@@ -486,18 +492,20 @@ export const useSshStore = defineStore('ssh', () => {
           focusReturnedSessionIfNeeded(event.sessionId);
           void hydrateSessionBuffer(event.sessionId);
         } else if (
-          event.attachedTarget
-          && isDetachedTarget(event.attachedTarget)
-          && activeSshSessionId.value === event.sessionId
+          event.attachedTarget &&
+          isDetachedTarget(event.attachedTarget) &&
+          activeSshSessionId.value === event.sessionId
         ) {
-          const nextSession = mainSessions.value.find((session) => session.sessionId !== event.sessionId);
+          const nextSession = mainSessions.value.find(
+            (session) => session.sessionId !== event.sessionId
+          );
           activeSshSessionId.value = nextSession?.sessionId ?? '';
         }
         // Auto-start port forwards when session becomes connected
         if (event.status === 'connected') {
           clearReconnectState(event.sessionId);
           autoStartPortForwards(event.sessionId).catch((err) =>
-            console.warn('[SshStore] auto-start forwards error:', err),
+            console.warn('[SshStore] auto-start forwards error:', err)
           );
         } else if (event.status === 'disconnected') {
           handleUnexpectedDisconnect(event);
@@ -524,7 +532,9 @@ export const useSshStore = defineStore('ssh', () => {
           try {
             const status = JSON.parse(event.data) as PortForwardStatus;
             updateForwardStatus(event.sessionId, status);
-          } catch { /* ignore parse errors */ }
+          } catch {
+            /* ignore parse errors */
+          }
         }
         break;
       }
@@ -552,11 +562,11 @@ export const useSshStore = defineStore('ssh', () => {
     sessions.value = sessions.value.map((s, i) =>
       i === index
         ? {
-          ...current,
-          status: event.status ?? current.status,
-          attachedTarget: event.attachedTarget ?? current.attachedTarget,
-        }
-        : s,
+            ...current,
+            status: event.status ?? current.status,
+            attachedTarget: event.attachedTarget ?? current.attachedTarget,
+          }
+        : s
     );
   }
 
@@ -565,7 +575,9 @@ export const useSshStore = defineStore('ssh', () => {
   }
 
   function focusReturnedSessionIfNeeded(sessionId: string) {
-    const activeMainSession = mainSessions.value.find((session) => session.sessionId === activeSshSessionId.value);
+    const activeMainSession = mainSessions.value.find(
+      (session) => session.sessionId === activeSshSessionId.value
+    );
     if (activeMainSession) {
       return;
     }
@@ -662,14 +674,18 @@ export const useSshStore = defineStore('ssh', () => {
 
   function isMissingSessionError(err: unknown) {
     const message = err instanceof Error ? err.message : String(err);
-    return /SSH session ['"][^'"]+['"] not found/i.test(message)
-      || /session ['"][^'"]+['"] not found/i.test(message);
+    return (
+      /SSH session ['"][^'"]+['"] not found/i.test(message) ||
+      /session ['"][^'"]+['"] not found/i.test(message)
+    );
   }
 
   function handleMissingSessionError(sessionId: string, err: unknown) {
     if (!isMissingSessionError(err)) return false;
     const message = err instanceof Error ? err.message : String(err);
-    console.warn(`[SshStore] SSH session ${sessionId} is no longer available; marking disconnected.`);
+    console.warn(
+      `[SshStore] SSH session ${sessionId} is no longer available; marking disconnected.`
+    );
     markSessionUnavailable(sessionId, message);
     return true;
   }
@@ -730,9 +746,7 @@ export const useSshStore = defineStore('ssh', () => {
     if (!session) return;
 
     sessions.value = sessions.value.map((item) =>
-      item.sessionId === sessionId
-        ? { ...item, status: 'disconnected' }
-        : item,
+      item.sessionId === sessionId ? { ...item, status: 'disconnected' } : item
     );
 
     if (reconnectStates.value[sessionId]) {
@@ -756,7 +770,7 @@ export const useSshStore = defineStore('ssh', () => {
 
     appendSystemMessage(
       sessionId,
-      `连接已断开：${message || 'SSH session closed'}。请点击重连后继续操作。`,
+      `连接已断开：${message || 'SSH session closed'}。请点击重连后继续操作。`
     );
   }
 
@@ -785,7 +799,7 @@ export const useSshStore = defineStore('ssh', () => {
     });
     appendSystemMessage(
       sessionId,
-      `${state.status === 'manual' ? '手动' : '自动'}重连中（${nextAttempt}/${state.maxAttempts}）...`,
+      `${state.status === 'manual' ? '手动' : '自动'}重连中（${nextAttempt}/${state.maxAttempts}）...`
     );
 
     try {
@@ -817,7 +831,7 @@ export const useSshStore = defineStore('ssh', () => {
     updateReconnectState(sessionId, { status: 'manual-wait' });
     appendSystemMessage(
       sessionId,
-      `自动重连 ${state.maxAttempts} 次仍未成功${state.lastError ? `：${state.lastError}` : ''}。按任意键手动重连。`,
+      `自动重连 ${state.maxAttempts} 次仍未成功${state.lastError ? `：${state.lastError}` : ''}。按任意键手动重连。`
     );
   }
 
@@ -827,7 +841,8 @@ export const useSshStore = defineStore('ssh', () => {
     updateReconnectState(sessionId, {
       attempts: 0,
       status: 'manual',
-      maxAttempts: appConfigStore.config.features.terminal.sshReconnectMaxAttempts || state.maxAttempts,
+      maxAttempts:
+        appConfigStore.config.features.terminal.sshReconnectMaxAttempts || state.maxAttempts,
     });
     appendSystemMessage(sessionId, '收到输入，开始手动重连。');
     await runReconnectAttempt(sessionId);
@@ -885,7 +900,7 @@ export const useSshStore = defineStore('ssh', () => {
       connectedSessions.value.map(async (session) => {
         await loadPortForwards(session.profileId);
         await refreshForwardStatus(session.sessionId);
-      }),
+      })
     );
   }
 
@@ -975,8 +990,8 @@ export const useSshStore = defineStore('ssh', () => {
    */
   async function autoStartPortForwards(sessionId: string) {
     if (
-      autoStartedPortForwardSessionIds.has(sessionId)
-      || autoStartingPortForwardSessionIds.has(sessionId)
+      autoStartedPortForwardSessionIds.has(sessionId) ||
+      autoStartingPortForwardSessionIds.has(sessionId)
     ) {
       return;
     }
@@ -988,13 +1003,11 @@ export const useSshStore = defineStore('ssh', () => {
     try {
       const rules = await loadPortForwards(session.profileId);
       const autoRules = rules.filter((r) => r.autoStart && r.enabled);
-      const currentStatuses = autoRules.length > 0
-        ? await refreshForwardStatus(sessionId)
-        : [];
+      const currentStatuses = autoRules.length > 0 ? await refreshForwardStatus(sessionId) : [];
       const runningForwardIds = new Set(
         currentStatuses
           .filter((status) => status.status === 'running' || status.status === 'starting')
-          .map((status) => status.forwardId),
+          .map((status) => status.forwardId)
       );
       const pendingRules = autoRules.filter((rule) => !runningForwardIds.has(rule.id));
 
@@ -1065,7 +1078,9 @@ export const useSshStore = defineStore('ssh', () => {
     }
 
     const session = sessions.value.find((item) => item.sessionId === sessionId);
-    const rule = session ? (portForwards.value[session.profileId] ?? []).find((item) => item.id === forwardId) : null;
+    const rule = session
+      ? (portForwards.value[session.profileId] ?? []).find((item) => item.id === forwardId)
+      : null;
     if (!session || !rule || rule.forwardType === 'remote') {
       notifyWarning(message, '端口转发启动失败', {
         dedupeKey: `ssh-forward:${sessionId}:${forwardId}:bind`,
@@ -1075,7 +1090,9 @@ export const useSshStore = defineStore('ssh', () => {
 
     const host = rule.localHost || '127.0.0.1';
     const port = rule.localPort;
-    const occupant = await window.sshApi.getPortOccupant(host, port).catch((): PortOccupantInfo | null => null);
+    const occupant = await window.sshApi
+      .getPortOccupant(host, port)
+      .catch((): PortOccupantInfo | null => null);
     const conflict: PortForwardConflict = {
       sessionId,
       profileId: session.profileId,
@@ -1098,7 +1115,7 @@ export const useSshStore = defineStore('ssh', () => {
         ? `${host}:${port} 被 ${occupant.name || '未知进程'} (PID ${occupant.pid}) 占用，可在端口转发面板中释放后重试。`
         : `${host}:${port} 已被占用，可在端口转发面板中查看并重试。`,
       '端口转发端口被占用',
-      { dedupeKey: `ssh-forward:${sessionId}:${forwardId}:occupied` },
+      { dedupeKey: `ssh-forward:${sessionId}:${forwardId}:occupied` }
     );
   }
 
@@ -1107,11 +1124,13 @@ export const useSshStore = defineStore('ssh', () => {
   }
 
   function looksLikeLocalPortBindError(message: string) {
-    return /failed to bind/i.test(message)
-      || /address already in use/i.test(message)
-      || /only one usage of each socket address/i.test(message)
-      || /通常每个套接字地址/i.test(message)
-      || /端口.*占用/.test(message);
+    return (
+      /failed to bind/i.test(message) ||
+      /address already in use/i.test(message) ||
+      /only one usage of each socket address/i.test(message) ||
+      /通常每个套接字地址/i.test(message) ||
+      /端口.*占用/.test(message)
+    );
   }
 
   async function resolvePortConflict(sessionId: string, forwardId: string) {
@@ -1139,7 +1158,9 @@ export const useSshStore = defineStore('ssh', () => {
 
   async function waitForPortRelease(host: string, port: number) {
     for (let index = 0; index < 10; index += 1) {
-      const occupant = await window.sshApi.getPortOccupant(host, port).catch((): PortOccupantInfo | null => null);
+      const occupant = await window.sshApi
+        .getPortOccupant(host, port)
+        .catch((): PortOccupantInfo | null => null);
       if (!occupant) {
         return;
       }
@@ -1245,8 +1266,8 @@ export const useSshStore = defineStore('ssh', () => {
 
   function stripWrappingQuotes(value: string) {
     if (
-      (value.startsWith('"') && value.endsWith('"'))
-      || (value.startsWith('\'') && value.endsWith('\''))
+      (value.startsWith('"') && value.endsWith('"')) ||
+      (value.startsWith("'") && value.endsWith("'"))
     ) {
       return value.slice(1, -1);
     }

@@ -1,22 +1,25 @@
 <script setup lang="ts">
 import { computed } from 'vue';
 
-const props = withDefaults(defineProps<{
-  profileId?: string;
-  command?: string;
-  label?: string;
-  size?: number;
-}>(), {
-  profileId: '',
-  command: '',
-  label: '',
-  size: 16,
-});
+const props = withDefaults(
+  defineProps<{
+    profileId?: string;
+    command?: string;
+    label?: string;
+    size?: number;
+  }>(),
+  {
+    profileId: '',
+    command: '',
+    label: '',
+    size: 16,
+  }
+);
 
 type ProfileIconKind = 'cmd' | 'powershell' | 'pwsh' | 'bash' | 'zsh' | 'sh' | 'terminal';
 
 const normalizedProfileText = computed(() =>
-  `${props.profileId} ${props.command} ${props.label}`.toLowerCase(),
+  `${props.profileId} ${props.command} ${props.label}`.toLowerCase()
 );
 
 const iconKind = computed<ProfileIconKind>(() => {
@@ -95,7 +98,13 @@ const iconStyle = computed(() => ({
     :title="iconLabel"
     aria-hidden="true"
   >
-    <svg viewBox="0 0 24 24" width="100%" height="100%" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <svg
+      viewBox="0 0 24 24"
+      width="100%"
+      height="100%"
+      fill="none"
+      xmlns="http://www.w3.org/2000/svg"
+    >
       <rect class="terminal-profile-icon__bg" x="2.75" y="4.25" width="18.5" height="15.5" rx="3" />
       <path class="terminal-profile-icon__prompt" d="M6.75 9.25 9.75 12l-3 2.75" />
       <path class="terminal-profile-icon__cursor" d="M11.25 15.25h5.25" />
@@ -105,7 +114,9 @@ const iconStyle = computed(() => ({
         y="11.1"
         text-anchor="middle"
         dominant-baseline="middle"
-      >{{ iconMark }}</text>
+      >
+        {{ iconMark }}
+      </text>
     </svg>
   </span>
 </template>
