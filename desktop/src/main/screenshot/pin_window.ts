@@ -125,9 +125,7 @@ async function createPinWindow(config: PinImageConfig): Promise<{ pinId: number 
     await waitForDevServer(url);
     await win.loadURL(url);
   } else {
-    await win.loadFile(
-      path.join(__dirname, `../renderer/${MAIN_WINDOW_VITE_NAME}/pin_image.html`),
-    );
+    await win.loadFile(path.join(__dirname, `../renderer/${MAIN_WINDOW_VITE_NAME}/pin_image.html`));
   }
 
   win.show();

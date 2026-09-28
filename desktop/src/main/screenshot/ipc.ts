@@ -1,7 +1,16 @@
 import { randomUUID, createHash } from 'node:crypto';
 import fs from 'node:fs/promises';
 import path from 'node:path';
-import { app, BrowserWindow, clipboard, desktopCapturer, dialog, ipcMain, nativeImage, screen } from 'electron';
+import {
+  app,
+  BrowserWindow,
+  clipboard,
+  desktopCapturer,
+  dialog,
+  ipcMain,
+  nativeImage,
+  screen,
+} from 'electron';
 import type {
   ScreenshotCaptureImage,
   ScreenshotCaptureRequest,
@@ -13,7 +22,12 @@ import type { CreateKnowledgeAssetPayload, KnowledgeAsset } from '@/contracts/kn
 import { dbManager } from '@/core/database';
 import { captureScreenshotRegion, captureRegionFromPreloaded } from './capture';
 import { recognizeScreenshotUiBlocksNative } from './native_recognition';
-import { closeScreenshotWindow, isScreenshotWindow, registerScreenshotWindowEvents, showScreenshotWindow } from './window';
+import {
+  closeScreenshotWindow,
+  isScreenshotWindow,
+  registerScreenshotWindowEvents,
+  showScreenshotWindow,
+} from './window';
 import { detectVisibleWindows } from './window_detection';
 
 let registered = false;
@@ -25,7 +39,8 @@ export function registerScreenshotIpcHandlers() {
   registerScreenshotWindowEvents();
 
   ipcMain.handle('screenshot:start-capture', async (_event, input?: ScreenshotCaptureRequest) =>
-    showScreenshotWindow(input ?? { mode: 'region', recognize: true }));
+    showScreenshotWindow(input ?? { mode: 'region', recognize: true })
+  );
 
   ipcMain.handle('screenshot:capture-region', async (event, region, displayId: number) => {
     // 优先使用预截取缓存，避免隐藏窗口→等待→desktopCapturer→恢复窗口的链路延迟
@@ -33,44 +48,59 @@ export function registerScreenshotIpcHandlers() {
       return captureRegionFromPreloaded(region, displayId);
     } catch {
       // 预截取不可用时回退到原始方式
-      return captureRegionWithoutOverlay(region, displayId, BrowserWindow.fromWebContents(event.sender));
+      return captureRegionWithoutOverlay(
+        region,
+        displayId,
+        BrowserWindow.fromWebContents(event.sender)
+      );
     }
   });
 
-  ipcMain.handle('screenshot:recognize-image', async (_event, image: ScreenshotCaptureImage, options?: ScreenshotRecognitionOptions) =>
-    recognizeImage(image, options));
+  ipcMain.handle(
+    'screenshot:recognize-image',
+    async (_event, image: ScreenshotCaptureImage, options?: ScreenshotRecognitionOptions) =>
+      recognizeImage(image, options)
+  );
 
-  ipcMain.handle('screenshot-overlay:complete', async (event, result: ScreenshotRecognitionResult) => {
-    closeScreenshotWindow();
-    broadcastCaptureResult(result, BrowserWindow.fromWebContents(event.sender));
-  });
+  ipcMain.handle(
+    'screenshot-overlay:complete',
+    async (event, result: ScreenshotRecognitionResult) => {
+      closeScreenshotWindow();
+      broadcastCaptureResult(result, BrowserWindow.fromWebContents(event.sender));
+    }
+  );
 
-  ipcMain.handle('screenshot:save-to-knowledge', async (_event, result: ScreenshotRecognitionResult) =>
-    saveCaptureToKnowledge(result));
+  ipcMain.handle(
+    'screenshot:save-to-knowledge',
+    async (_event, result: ScreenshotRecognitionResult) => saveCaptureToKnowledge(result)
+  );
 
-  ipcMain.handle('screenshot:create-ai-attachment', async (_event, result: ScreenshotRecognitionResult): Promise<AiChatAttachment> => ({
-    id: randomUUID(),
-    kind: 'image',
-    source: 'clipboard',
-    name: `screenshot-${result.image.capturedAt.replace(/[:.]/g, '-')}.png`,
-    mimeType: 'image/png',
-    size: result.image.byteSize,
-    data: result.image.pngBase64,
-    metadata: {
-      screenshotRecognition: {
-        region: result.image.region,
-        blocks: result.blocks,
-        elapsedMs: result.elapsedMs,
+  ipcMain.handle(
+    'screenshot:create-ai-attachment',
+    async (_event, result: ScreenshotRecognitionResult): Promise<AiChatAttachment> => ({
+      id: randomUUID(),
+      kind: 'image',
+      source: 'clipboard',
+      name: `screenshot-${result.image.capturedAt.replace(/[:.]/g, '-')}.png`,
+      mimeType: 'image/png',
+      size: result.image.byteSize,
+      data: result.image.pngBase64,
+      metadata: {
+        screenshotRecognition: {
+          region: result.image.region,
+          blocks: result.blocks,
+          elapsedMs: result.elapsedMs,
+        },
       },
-    },
-  }));
+    })
+  );
 
   registerScreenshotOutputHandlers();
 }
 
 async function recognizeImage(
   image: ScreenshotCaptureImage,
-  options?: ScreenshotRecognitionOptions,
+  options?: ScreenshotRecognitionOptions
 ): Promise<ScreenshotRecognitionResult> {
   const startedAt = Date.now();
   const pngBytes = Buffer.from(image.pngBase64, 'base64');
@@ -86,9 +116,11 @@ async function recognizeImage(
 async function captureRegionWithoutOverlay(
   region: ScreenshotCaptureImage['region'],
   displayId: number,
-  sourceWindow: BrowserWindow | null,
+  sourceWindow: BrowserWindow | null
 ) {
-  const shouldRestoreWindow = Boolean(isScreenshotWindow(sourceWindow) && sourceWindow?.isVisible());
+  const shouldRestoreWindow = Boolean(
+    isScreenshotWindow(sourceWindow) && sourceWindow?.isVisible()
+  );
   if (sourceWindow && shouldRestoreWindow) {
     sourceWindow.hide();
     await waitForWindowCompositor();
@@ -139,7 +171,12 @@ async function saveCaptureToKnowledge(result: ScreenshotRecognitionResult) {
 }
 
 async function writeScreenshotKnowledgeAsset(hash: string, bytes: Buffer) {
-  const assetDir = path.join(app.getPath('userData'), 'knowledge-assets', 'screenshots', hash.slice(0, 2));
+  const assetDir = path.join(
+    app.getPath('userData'),
+    'knowledge-assets',
+    'screenshots',
+    hash.slice(0, 2)
+  );
   await fs.mkdir(assetDir, { recursive: true });
   const storagePath = path.join(assetDir, `${hash}.png`);
   try {
@@ -152,7 +189,10 @@ async function writeScreenshotKnowledgeAsset(hash: string, bytes: Buffer) {
   return storagePath;
 }
 
-function broadcastCaptureResult(result: ScreenshotRecognitionResult, sourceWindow: BrowserWindow | null) {
+function broadcastCaptureResult(
+  result: ScreenshotRecognitionResult,
+  sourceWindow: BrowserWindow | null
+) {
   for (const win of BrowserWindow.getAllWindows()) {
     if (win.isDestroyed() || win === sourceWindow) continue;
     win.webContents.send('screenshot:capture-result', result);
@@ -182,7 +222,7 @@ function registerScreenshotOutputHandlers() {
       const buffer = Buffer.from(pngBase64, 'base64');
       await fs.writeFile(result.filePath, buffer);
       return { filePath: result.filePath };
-    },
+    }
   );
 
   ipcMain.handle('screenshot:detect-windows', async () => detectVisibleWindows());
@@ -226,8 +266,9 @@ function registerScreenshotOutputHandlers() {
   ipcMain.handle(
     'screenshot:pick-color',
     async (_event, x: number, y: number, displayId: number) => {
-      const display = screen.getAllDisplays().find((item) => item.id === displayId)
-        ?? screen.getDisplayNearestPoint({ x, y });
+      const display =
+        screen.getAllDisplays().find((item) => item.id === displayId) ??
+        screen.getDisplayNearestPoint({ x, y });
       const scaleFactor = display.scaleFactor || 1;
 
       const sources = await desktopCapturer.getSources({
@@ -258,6 +299,6 @@ function registerScreenshotOutputHandlers() {
       const rgb = `rgb(${r}, ${g}, ${b})`;
 
       return { hex, rgb, position: { x, y } };
-    },
+    }
   );
 }

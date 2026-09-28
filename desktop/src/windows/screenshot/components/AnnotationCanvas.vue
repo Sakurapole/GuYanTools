@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue';
-import type { ScreenshotAnnotationElement, ScreenshotAnnotationTool } from '@/contracts/screenshot';
+import type { ScreenshotAnnotationElement } from '@/contracts/screenshot';
 import { useAnnotation } from '../composables/useAnnotation';
 
 const props = defineProps<{
@@ -179,11 +179,11 @@ function renderArrow(ctx: CanvasRenderingContext2D, el: ScreenshotAnnotationElem
   ctx.moveTo(end.x, end.y);
   ctx.lineTo(
     end.x - headLength * Math.cos(angle - Math.PI / 6),
-    end.y - headLength * Math.sin(angle - Math.PI / 6),
+    end.y - headLength * Math.sin(angle - Math.PI / 6)
   );
   ctx.lineTo(
     end.x - headLength * Math.cos(angle + Math.PI / 6),
-    end.y - headLength * Math.sin(angle + Math.PI / 6),
+    end.y - headLength * Math.sin(angle + Math.PI / 6)
   );
   ctx.closePath();
   ctx.fill();
@@ -358,7 +358,11 @@ function onPointerMove(event: PointerEvent) {
 }
 
 function onPointerUp(event: PointerEvent) {
-  try { (event.currentTarget as Element).releasePointerCapture(event.pointerId); } catch { /* ignore */ }
+  try {
+    (event.currentTarget as Element).releasePointerCapture(event.pointerId);
+  } catch {
+    /* ignore */
+  }
   if (!isDrawing.value) return;
   isDrawing.value = false;
   drawStart.value = null;
@@ -442,8 +446,15 @@ onBeforeUnmount(() => {
 });
 
 // 标注元素或绘制中元素变化时触发重绘
-watch(() => props.annotation.elements.value, () => requestRender(), { deep: true });
-watch(() => props.annotation.drawingElement.value, () => requestRender());
+watch(
+  () => props.annotation.elements.value,
+  () => requestRender(),
+  { deep: true }
+);
+watch(
+  () => props.annotation.drawingElement.value,
+  () => requestRender()
+);
 </script>
 
 <template>

@@ -1,12 +1,18 @@
 import { BrowserWindow, ipcMain, screen } from 'electron';
 import path from 'node:path';
-import type { ScreenshotCaptureRequest, ScreenshotDisplayInfo, ScreenshotRect } from '@/contracts/screenshot';
+import type {
+  ScreenshotCaptureRequest,
+  ScreenshotDisplayInfo,
+  ScreenshotRect,
+} from '@/contracts/screenshot';
 import { waitForDevServer } from '@/main/windows/wait_for_dev_server';
 import { preloadScreenCaptures, clearPreloadedScreens } from './capture';
 
 let screenshotWindow: BrowserWindow | null = null;
 
-export async function showScreenshotWindow(input: ScreenshotCaptureRequest = { mode: 'region', recognize: true }) {
+export async function showScreenshotWindow(
+  input: ScreenshotCaptureRequest = { mode: 'region', recognize: true }
+) {
   if (screenshotWindow && !screenshotWindow.isDestroyed()) {
     screenshotWindow.focus();
     return { accepted: true };
@@ -14,7 +20,12 @@ export async function showScreenshotWindow(input: ScreenshotCaptureRequest = { m
 
   // 检测鼠标当前位置，确定目标显示器（只在鼠标所在屏幕上截图）
   const cursorPos = screen.getCursorScreenPoint();
-  const targetDisplay = screen.getDisplayMatching({ x: cursorPos.x, y: cursorPos.y, width: 1, height: 1 });
+  const targetDisplay = screen.getDisplayMatching({
+    x: cursorPos.x,
+    y: cursorPos.y,
+    width: 1,
+    height: 1,
+  });
 
   // 窗口只覆盖目标显示器，而非所有显示器的联合区域
   const bounds: ScreenshotRect = {
@@ -80,15 +91,12 @@ export async function showScreenshotWindow(input: ScreenshotCaptureRequest = { m
       await win.loadURL(url);
     } else {
       await win.loadFile(
-        path.join(__dirname, `../renderer/${MAIN_WINDOW_VITE_NAME}/screenshot.html`),
+        path.join(__dirname, `../renderer/${MAIN_WINDOW_VITE_NAME}/screenshot.html`)
       );
     }
   };
 
-  await Promise.all([
-    preloadScreenCaptures(targetDisplay.id),
-    loadPage(),
-  ]);
+  await Promise.all([preloadScreenCaptures(targetDisplay.id), loadPage()]);
 
   win.show();
   win.focus();
@@ -97,8 +105,16 @@ export async function showScreenshotWindow(input: ScreenshotCaptureRequest = { m
   // 验证窗口实际位置，修正 DWM 透明窗口可能的位置偏移
   const [actualX, actualY] = win.getPosition();
   const [actualW, actualH] = win.getSize();
-  console.log('[screenshot] actual window pos:', { x: actualX, y: actualY }, 'size:', { w: actualW, h: actualH });
-  if (actualX !== bounds.x || actualY !== bounds.y || actualW !== bounds.width || actualH !== bounds.height) {
+  console.log('[screenshot] actual window pos:', { x: actualX, y: actualY }, 'size:', {
+    w: actualW,
+    h: actualH,
+  });
+  if (
+    actualX !== bounds.x ||
+    actualY !== bounds.y ||
+    actualW !== bounds.width ||
+    actualH !== bounds.height
+  ) {
     console.log('[screenshot] position mismatch, correcting...');
     win.setBounds({ x: bounds.x, y: bounds.y, width: bounds.width, height: bounds.height });
   }
@@ -123,7 +139,8 @@ export function registerScreenshotWindowEvents() {
 }
 
 function getDisplays(displayId?: number): ScreenshotDisplayInfo[] {
-  return screen.getAllDisplays()
+  return screen
+    .getAllDisplays()
     .filter((d) => displayId == null || d.id === displayId)
     .map((display) => ({
       id: display.id,

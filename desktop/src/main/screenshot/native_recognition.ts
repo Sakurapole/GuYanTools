@@ -8,7 +8,7 @@ type NativeRecognitionModule = typeof nativeCore & {
 
 export async function recognizeScreenshotUiBlocksNative(
   pngBytes: Buffer,
-  options: ScreenshotRecognitionOptions = {},
+  options: ScreenshotRecognitionOptions = {}
 ): Promise<ScreenshotUiBlock[]> {
   const recognizer = (nativeCore as NativeRecognitionModule).recognizeScreenshotUiBlocks;
   if (!recognizer) {
@@ -25,9 +25,13 @@ export async function recognizeScreenshotUiBlocksNative(
 }
 
 function normalizeNativeBlock(value: unknown): ScreenshotUiBlock {
-  const record = value && typeof value === 'object' ? value as Record<string, unknown> : {};
-  const rect = record.rect && typeof record.rect === 'object' ? record.rect as Record<string, unknown> : {};
-  const features = record.features && typeof record.features === 'object' ? record.features as Record<string, unknown> : {};
+  const record = value && typeof value === 'object' ? (value as Record<string, unknown>) : {};
+  const rect =
+    record.rect && typeof record.rect === 'object' ? (record.rect as Record<string, unknown>) : {};
+  const features =
+    record.features && typeof record.features === 'object'
+      ? (record.features as Record<string, unknown>)
+      : {};
 
   return {
     id: typeof record.id === 'string' ? record.id : randomUUID(),
@@ -40,7 +44,9 @@ function normalizeNativeBlock(value: unknown): ScreenshotUiBlock {
     },
     confidence: clamp(numeric(record.confidence), 0, 1),
     parentId: typeof record.parentId === 'string' ? record.parentId : undefined,
-    childIds: Array.isArray(record.childIds) ? record.childIds.filter((item): item is string => typeof item === 'string') : [],
+    childIds: Array.isArray(record.childIds)
+      ? record.childIds.filter((item): item is string => typeof item === 'string')
+      : [],
     source: 'local-heuristic',
     features: {
       edgeDensity: numeric(features.edgeDensity),
@@ -51,20 +57,23 @@ function normalizeNativeBlock(value: unknown): ScreenshotUiBlock {
     },
     text: typeof record.text === 'string' ? record.text : undefined,
     textConfidence: typeof record.textConfidence === 'number' ? record.textConfidence : undefined,
-    metadata: record.metadata && typeof record.metadata === 'object' ? record.metadata as Record<string, unknown> : undefined,
+    metadata:
+      record.metadata && typeof record.metadata === 'object'
+        ? (record.metadata as Record<string, unknown>)
+        : undefined,
   };
 }
 
 function normalizeKind(value: unknown): ScreenshotUiBlock['kind'] {
   if (
-    value === 'button'
-    || value === 'input'
-    || value === 'card'
-    || value === 'list_item'
-    || value === 'navigation'
-    || value === 'image'
-    || value === 'group'
-    || value === 'unknown'
+    value === 'button' ||
+    value === 'input' ||
+    value === 'card' ||
+    value === 'list_item' ||
+    value === 'navigation' ||
+    value === 'image' ||
+    value === 'group' ||
+    value === 'unknown'
   ) {
     return value;
   }

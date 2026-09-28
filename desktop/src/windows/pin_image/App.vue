@@ -98,10 +98,31 @@ onBeforeUnmount(() => {
 
     <!-- 控制条 -->
     <div class="pin-image__controls">
-      <button type="button" class="pin-image__btn" title="降低透明度" @click.stop="adjustOpacity(-0.1)">−</button>
+      <button
+        type="button"
+        class="pin-image__btn"
+        title="降低透明度"
+        @click.stop="adjustOpacity(-0.1)"
+      >
+        −
+      </button>
       <span class="pin-image__opacity">{{ Math.round(opacity * 100) }}%</span>
-      <button type="button" class="pin-image__btn" title="增加透明度" @click.stop="adjustOpacity(0.1)">+</button>
-      <button type="button" class="pin-image__btn pin-image__btn--close" title="关闭（双击）" @click.stop="close">✕</button>
+      <button
+        type="button"
+        class="pin-image__btn"
+        title="增加透明度"
+        @click.stop="adjustOpacity(0.1)"
+      >
+        +
+      </button>
+      <button
+        type="button"
+        class="pin-image__btn pin-image__btn--close"
+        title="关闭（双击）"
+        @click.stop="close"
+      >
+        ✕
+      </button>
     </div>
   </div>
 </template>
@@ -137,7 +158,9 @@ onBeforeUnmount(() => {
   backdrop-filter: blur(4px);
   opacity: 0;
   transition: opacity 0.2s;
-  font: 11px/1 system-ui, sans-serif;
+  font:
+    11px/1 system-ui,
+    sans-serif;
   color: #e2e8f0;
 }
 

@@ -2,20 +2,10 @@ import type { AiChatAttachment } from './ai';
 
 export type ScreenshotCaptureMode = 'region' | 'window' | 'fullscreen';
 
-export type ScreenshotRecognitionSource =
-  | 'local-heuristic'
-  | 'ai-vision'
-  | 'paddleocr-onnx';
+export type ScreenshotRecognitionSource = 'local-heuristic' | 'ai-vision' | 'paddleocr-onnx';
 
 export type ScreenshotUiBlockKind =
-  | 'button'
-  | 'input'
-  | 'card'
-  | 'list_item'
-  | 'navigation'
-  | 'image'
-  | 'group'
-  | 'unknown';
+  'button' | 'input' | 'card' | 'list_item' | 'navigation' | 'image' | 'group' | 'unknown';
 
 export interface ScreenshotRect {
   x: number;
@@ -98,7 +88,7 @@ export interface ScreenshotApi {
   startCapture: (input?: ScreenshotCaptureRequest) => Promise<ScreenshotStartCaptureResult>;
   recognizeImage: (
     image: ScreenshotCaptureImage,
-    options?: ScreenshotRecognitionOptions,
+    options?: ScreenshotRecognitionOptions
   ) => Promise<ScreenshotRecognitionResult>;
   saveCaptureToKnowledge: (result: ScreenshotRecognitionResult) => Promise<{ assetId: string }>;
   createAiAttachment: (result: ScreenshotRecognitionResult) => Promise<AiChatAttachment>;
@@ -124,15 +114,7 @@ export interface ScreenshotApi {
 // ── 标注相关类型 ──────────────────────────────────────────────
 
 export type ScreenshotAnnotationTool =
-  | 'rect'
-  | 'ellipse'
-  | 'arrow'
-  | 'line'
-  | 'text'
-  | 'pen'
-  | 'mosaic'
-  | 'highlight'
-  | 'number';
+  'rect' | 'ellipse' | 'arrow' | 'line' | 'text' | 'pen' | 'mosaic' | 'highlight' | 'number';
 
 export interface ScreenshotAnnotationElement {
   id: string;

@@ -25,15 +25,16 @@ export function useWindowDetection() {
     if (detectTimer) clearTimeout(detectTimer);
 
     detectTimer = setTimeout(() => {
-      const match = detectedWindows.value.find((win) => {
-        const b = win.bounds;
-        return (
-          screenX >= b.x
-          && screenY >= b.y
-          && screenX <= b.x + b.width
-          && screenY <= b.y + b.height
-        );
-      }) ?? null;
+      const match =
+        detectedWindows.value.find((win) => {
+          const b = win.bounds;
+          return (
+            screenX >= b.x &&
+            screenY >= b.y &&
+            screenX <= b.x + b.width &&
+            screenY <= b.y + b.height
+          );
+        }) ?? null;
 
       hoveredWindow.value = match;
     }, DETECT_DEBOUNCE_MS);

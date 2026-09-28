@@ -11,21 +11,22 @@ const previewSize = ref({ width: 0, height: 0 });
 
 const latestResult = computed(() => store.latestResult);
 const showPanel = computed(() => store.panelOpen && Boolean(latestResult.value));
-const imageSrc = computed(() => (
+const imageSrc = computed(() =>
   latestResult.value ? `data:image/png;base64,${latestResult.value.image.pngBase64}` : ''
-));
+);
 const previewFrameStyle = computed(() => {
   const { width, height } = previewSize.value;
   return width > 0 && height > 0
     ? { aspectRatio: `${width} / ${height}` }
     : { aspectRatio: '16 / 9' };
 });
-const topBlocks = computed(() => (
-  latestResult.value?.blocks
-    .slice()
-    .sort((left, right) => right.confidence - left.confidence)
-    .slice(0, 6) ?? []
-));
+const topBlocks = computed(
+  () =>
+    latestResult.value?.blocks
+      .slice()
+      .sort((left, right) => right.confidence - left.confidence)
+      .slice(0, 6) ?? []
+);
 const capturedAtText = computed(() => {
   const capturedAt = latestResult.value?.image.capturedAt;
   if (!capturedAt) return '';
@@ -136,7 +137,13 @@ async function createAiAttachment() {
           >
             <IconRenderer icon="iconify:lucide:refresh-cw" :size="14" />
           </UiIconButton>
-          <UiIconButton variant="ghost" size="sm" shape="square" title="收起" @click="store.closePanel">
+          <UiIconButton
+            variant="ghost"
+            size="sm"
+            shape="square"
+            title="收起"
+            @click="store.closePanel"
+          >
             <IconRenderer icon="iconify:lucide:x" :size="15" />
           </UiIconButton>
         </div>
@@ -189,7 +196,8 @@ async function createAiAttachment() {
       <div v-if="store.ocrResult" class="screenshot-capture__ocr">
         <p class="screenshot-capture__ocr-text">{{ store.ocrResult.text }}</p>
         <span class="screenshot-capture__ocr-meta">
-          {{ store.ocrResult.blocks.length }} 块 · {{ store.ocrResult.elapsedMs }}ms · {{ store.ocrResult.engine }}
+          {{ store.ocrResult.blocks.length }} 块 · {{ store.ocrResult.elapsedMs }}ms ·
+          {{ store.ocrResult.engine }}
         </span>
       </div>
 

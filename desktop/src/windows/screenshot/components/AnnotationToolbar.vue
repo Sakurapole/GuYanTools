@@ -39,10 +39,14 @@ const tools: ToolDef[] = [
         v-for="def in tools"
         :key="def.tool"
         class="annotation-toolbar__tool-btn"
-        :class="{ 'annotation-toolbar__tool-btn--active': annotation.activeTool.value === def.tool }"
+        :class="{
+          'annotation-toolbar__tool-btn--active': annotation.activeTool.value === def.tool,
+        }"
         :title="def.label"
         type="button"
-        @click="annotation.setActiveTool(annotation.activeTool.value === def.tool ? null : def.tool)"
+        @click="
+          annotation.setActiveTool(annotation.activeTool.value === def.tool ? null : def.tool)
+        "
       >
         <span class="annotation-toolbar__tool-icon">{{ def.icon }}</span>
       </button>
@@ -74,7 +78,9 @@ const tools: ToolDef[] = [
         v-for="w in annotation.strokeWidthes"
         :key="w"
         class="annotation-toolbar__width-btn"
-        :class="{ 'annotation-toolbar__width-btn--active': annotation.style.value.strokeWidth === w }"
+        :class="{
+          'annotation-toolbar__width-btn--active': annotation.style.value.strokeWidth === w,
+        }"
         :title="`${w}px`"
         type="button"
         @click="annotation.setStrokeWidth(w)"
@@ -196,7 +202,9 @@ const tools: ToolDef[] = [
   background: transparent;
   color: #e2e8f0;
   cursor: pointer;
-  transition: background 0.15s, border-color 0.15s;
+  transition:
+    background 0.15s,
+    border-color 0.15s;
 }
 
 .annotation-toolbar__tool-btn:hover {
@@ -220,7 +228,9 @@ const tools: ToolDef[] = [
   border: 2px solid transparent;
   border-radius: 50%;
   cursor: pointer;
-  transition: border-color 0.15s, transform 0.15s;
+  transition:
+    border-color 0.15s,
+    transform 0.15s;
 }
 
 .annotation-toolbar__color-btn:hover {

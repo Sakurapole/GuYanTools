@@ -12,9 +12,7 @@ export async function preloadScreenCaptures(displayId?: number): Promise<void> {
   if (allDisplays.length === 0) return;
 
   // 如果指定了显示器 ID，只截取该显示器；否则截取所有显示器
-  const displays = displayId != null
-    ? allDisplays.filter((d) => d.id === displayId)
-    : allDisplays;
+  const displays = displayId != null ? allDisplays.filter((d) => d.id === displayId) : allDisplays;
   if (displays.length === 0) return;
 
   const maxWidth = Math.max(...displays.map((d) => Math.ceil(d.bounds.width * d.scaleFactor)));
@@ -41,9 +39,13 @@ export function hasPreloadedScreen(displayId: number): boolean {
 }
 
 /** 从预截取缓存中裁剪区域，无需隐藏窗口和重新调用 desktopCapturer */
-export function captureRegionFromPreloaded(region: ScreenshotRect, displayId: number): ScreenshotCaptureImage {
-  const display = screen.getAllDisplays().find((item) => item.id === displayId)
-    ?? screen.getDisplayMatching(region);
+export function captureRegionFromPreloaded(
+  region: ScreenshotRect,
+  displayId: number
+): ScreenshotCaptureImage {
+  const display =
+    screen.getAllDisplays().find((item) => item.id === displayId) ??
+    screen.getDisplayMatching(region);
   const fullImage = preloadedScreens.get(display.id);
   if (!fullImage || fullImage.isEmpty()) {
     throw new Error('预截取屏幕数据不可用');
@@ -84,9 +86,13 @@ export function captureRegionFromPreloaded(region: ScreenshotRect, displayId: nu
 
 // ── 原始截图方式（回退用） ────────────────────────
 
-export async function captureScreenshotRegion(region: ScreenshotRect, displayId: number): Promise<ScreenshotCaptureImage> {
-  const display = screen.getAllDisplays().find((item) => item.id === displayId)
-    ?? screen.getDisplayMatching(region);
+export async function captureScreenshotRegion(
+  region: ScreenshotRect,
+  displayId: number
+): Promise<ScreenshotCaptureImage> {
+  const display =
+    screen.getAllDisplays().find((item) => item.id === displayId) ??
+    screen.getDisplayMatching(region);
   const source = await getScreenSource(display.id);
   const fullImage = source.thumbnail;
   if (fullImage.isEmpty()) {
@@ -119,8 +125,12 @@ export async function captureScreenshotRegion(region: ScreenshotRect, displayId:
 
 async function getScreenSource(displayId: number) {
   const displays = screen.getAllDisplays();
-  const maxWidth = Math.max(...displays.map((display) => Math.ceil(display.bounds.width * display.scaleFactor)));
-  const maxHeight = Math.max(...displays.map((display) => Math.ceil(display.bounds.height * display.scaleFactor)));
+  const maxWidth = Math.max(
+    ...displays.map((display) => Math.ceil(display.bounds.width * display.scaleFactor))
+  );
+  const maxHeight = Math.max(
+    ...displays.map((display) => Math.ceil(display.bounds.height * display.scaleFactor))
+  );
   const sources = await desktopCapturer.getSources({
     types: ['screen'],
     thumbnailSize: { width: maxWidth, height: maxHeight },

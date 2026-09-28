@@ -27,7 +27,17 @@ const error = ref('');
 let unsubscribeCaptureOptions: (() => void) | undefined;
 
 // ── 选区拖拽/调整 ──────────────────────────────────
-type DragMode = 'new' | 'move' | 'resize-nw' | 'resize-ne' | 'resize-sw' | 'resize-se' | 'resize-n' | 'resize-s' | 'resize-w' | 'resize-e';
+type DragMode =
+  | 'new'
+  | 'move'
+  | 'resize-nw'
+  | 'resize-ne'
+  | 'resize-sw'
+  | 'resize-se'
+  | 'resize-n'
+  | 'resize-s'
+  | 'resize-w'
+  | 'resize-e';
 const dragMode = ref<DragMode>('new');
 const dragOffset = ref<{ x: number; y: number } | null>(null);
 const overlayCursor = ref('crosshair');
@@ -67,7 +77,8 @@ function getDragMode(x: number, y: number, sel: ScreenshotRect): DragMode {
   const nearRight = Math.abs(x - (sel.x + sel.width)) <= h;
   const nearTop = Math.abs(y - sel.y) <= h;
   const nearBottom = Math.abs(y - (sel.y + sel.height)) <= h;
-  const inside = x > sel.x + h && x < sel.x + sel.width - h && y > sel.y + h && y < sel.y + sel.height - h;
+  const inside =
+    x > sel.x + h && x < sel.x + sel.width - h && y > sel.y + h && y < sel.y + sel.height - h;
 
   if (nearLeft && nearTop) return 'resize-nw';
   if (nearRight && nearTop) return 'resize-ne';
@@ -89,16 +100,27 @@ function updateCursorStyle(x: number, y: number) {
   }
   const mode = getDragMode(x, y, sel);
   switch (mode) {
-    case 'move': overlayCursor.value = 'move'; break;
+    case 'move':
+      overlayCursor.value = 'move';
+      break;
     case 'resize-nw':
-    case 'resize-se': overlayCursor.value = 'nwse-resize'; break;
+    case 'resize-se':
+      overlayCursor.value = 'nwse-resize';
+      break;
     case 'resize-ne':
-    case 'resize-sw': overlayCursor.value = 'nesw-resize'; break;
+    case 'resize-sw':
+      overlayCursor.value = 'nesw-resize';
+      break;
     case 'resize-n':
-    case 'resize-s': overlayCursor.value = 'ns-resize'; break;
+    case 'resize-s':
+      overlayCursor.value = 'ns-resize';
+      break;
     case 'resize-w':
-    case 'resize-e': overlayCursor.value = 'ew-resize'; break;
-    default: overlayCursor.value = 'crosshair';
+    case 'resize-e':
+      overlayCursor.value = 'ew-resize';
+      break;
+    default:
+      overlayCursor.value = 'crosshair';
   }
 }
 
@@ -113,14 +135,46 @@ const resizeHandles = computed(() => {
   const h = sel.height;
   const s = 8;
   return [
-    { pos: 'nw', style: { left: `${left - s / 2}px`, top: `${top - s / 2}px`, cursor: 'nwse-resize' } },
-    { pos: 'n', style: { left: `${left + w / 2 - s / 2}px`, top: `${top - s / 2}px`, cursor: 'ns-resize' } },
-    { pos: 'ne', style: { left: `${left + w - s / 2}px`, top: `${top - s / 2}px`, cursor: 'nesw-resize' } },
-    { pos: 'e', style: { left: `${left + w - s / 2}px`, top: `${top + h / 2 - s / 2}px`, cursor: 'ew-resize' } },
-    { pos: 'se', style: { left: `${left + w - s / 2}px`, top: `${top + h - s / 2}px`, cursor: 'nwse-resize' } },
-    { pos: 's', style: { left: `${left + w / 2 - s / 2}px`, top: `${top + h - s / 2}px`, cursor: 'ns-resize' } },
-    { pos: 'sw', style: { left: `${left - s / 2}px`, top: `${top + h - s / 2}px`, cursor: 'nesw-resize' } },
-    { pos: 'w', style: { left: `${left - s / 2}px`, top: `${top + h / 2 - s / 2}px`, cursor: 'ew-resize' } },
+    {
+      pos: 'nw',
+      style: { left: `${left - s / 2}px`, top: `${top - s / 2}px`, cursor: 'nwse-resize' },
+    },
+    {
+      pos: 'n',
+      style: { left: `${left + w / 2 - s / 2}px`, top: `${top - s / 2}px`, cursor: 'ns-resize' },
+    },
+    {
+      pos: 'ne',
+      style: { left: `${left + w - s / 2}px`, top: `${top - s / 2}px`, cursor: 'nesw-resize' },
+    },
+    {
+      pos: 'e',
+      style: {
+        left: `${left + w - s / 2}px`,
+        top: `${top + h / 2 - s / 2}px`,
+        cursor: 'ew-resize',
+      },
+    },
+    {
+      pos: 'se',
+      style: { left: `${left + w - s / 2}px`, top: `${top + h - s / 2}px`, cursor: 'nwse-resize' },
+    },
+    {
+      pos: 's',
+      style: {
+        left: `${left + w / 2 - s / 2}px`,
+        top: `${top + h - s / 2}px`,
+        cursor: 'ns-resize',
+      },
+    },
+    {
+      pos: 'sw',
+      style: { left: `${left - s / 2}px`, top: `${top + h - s / 2}px`, cursor: 'nesw-resize' },
+    },
+    {
+      pos: 'w',
+      style: { left: `${left - s / 2}px`, top: `${top + h / 2 - s / 2}px`, cursor: 'ew-resize' },
+    },
   ].map((item) => ({ ...item, style: { ...item.style, width: `${s}px`, height: `${s}px` } }));
 });
 
@@ -253,7 +307,11 @@ function onPointerMove(event: PointerEvent) {
 }
 
 async function onPointerUp(event: PointerEvent) {
-  try { (event.currentTarget as Element).releasePointerCapture(event.pointerId); } catch { /* ignore */ }
+  try {
+    (event.currentTarget as Element).releasePointerCapture(event.pointerId);
+  } catch {
+    /* ignore */
+  }
   if (phase.value !== 'select' || busy.value) return;
 
   // 拖拽结束：将结果保存到 selectionRect
@@ -287,7 +345,11 @@ async function onPointerUp(event: PointerEvent) {
 }
 
 function onPointerCancel(event: PointerEvent) {
-  try { (event.currentTarget as Element).releasePointerCapture(event.pointerId); } catch { /* ignore */ }
+  try {
+    (event.currentTarget as Element).releasePointerCapture(event.pointerId);
+  } catch {
+    /* ignore */
+  }
   isDragging.value = false;
   dragStart.value = null;
   dragCurrent.value = null;
@@ -362,12 +424,15 @@ async function onAnnotationRecognize() {
   error.value = '';
   try {
     phase.value = 'recognize';
-    recognitionResult.value = await window.screenshotApi.recognizeImage(JSON.parse(JSON.stringify(capturedImage.value)), {
-      minBlockWidth: 14,
-      minBlockHeight: 10,
-      mergeGap: 6,
-      maxBlocks: 160,
-    });
+    recognitionResult.value = await window.screenshotApi.recognizeImage(
+      JSON.parse(JSON.stringify(capturedImage.value)),
+      {
+        minBlockWidth: 14,
+        minBlockHeight: 10,
+        mergeGap: 6,
+        maxBlocks: 160,
+      }
+    );
     phase.value = 'confirm';
   } catch (err) {
     error.value = err instanceof Error ? err.message : String(err);
@@ -414,12 +479,15 @@ async function sendToKnowledgeOrAi() {
     if (!capturedImage.value) return;
     busy.value = true;
     try {
-      recognitionResult.value = await window.screenshotApi.recognizeImage(JSON.parse(JSON.stringify(capturedImage.value)), {
-        minBlockWidth: 14,
-        minBlockHeight: 10,
-        mergeGap: 6,
-        maxBlocks: 160,
-      });
+      recognitionResult.value = await window.screenshotApi.recognizeImage(
+        JSON.parse(JSON.stringify(capturedImage.value)),
+        {
+          minBlockWidth: 14,
+          minBlockHeight: 10,
+          mergeGap: 6,
+          maxBlocks: 160,
+        }
+      );
     } catch (err) {
       error.value = err instanceof Error ? err.message : String(err);
       return;
@@ -427,7 +495,9 @@ async function sendToKnowledgeOrAi() {
       busy.value = false;
     }
   }
-  await window.screenshotApi?.completeOverlayCapture(JSON.parse(JSON.stringify(recognitionResult.value)));
+  await window.screenshotApi?.completeOverlayCapture(
+    JSON.parse(JSON.stringify(recognitionResult.value))
+  );
 }
 
 // ── 通用操作 ──────────────────────────────────────
@@ -444,17 +514,21 @@ async function cancel() {
 
 function displayForRect(rect: ScreenshotRect) {
   const displays = payload.value?.displays ?? [];
-  return displays.find((display) =>
-    rect.x >= display.bounds.x
-    && rect.y >= display.bounds.y
-    && rect.x <= display.bounds.x + display.bounds.width
-    && rect.y <= display.bounds.y + display.bounds.height,
-  ) ?? displays[0] ?? {
-    id: 0,
-    scaleFactor: 1,
-    bounds: rect,
-    workArea: rect,
-  };
+  return (
+    displays.find(
+      (display) =>
+        rect.x >= display.bounds.x &&
+        rect.y >= display.bounds.y &&
+        rect.x <= display.bounds.x + display.bounds.width &&
+        rect.y <= display.bounds.y + display.bounds.height
+    ) ??
+    displays[0] ?? {
+      id: 0,
+      scaleFactor: 1,
+      bounds: rect,
+      workArea: rect,
+    }
+  );
 }
 
 // ── UI 块样式（保留旧功能） ──────────────────────
@@ -609,11 +683,7 @@ onBeforeUnmount(() => {
     </div>
 
     <!-- ── 确认阶段：输出操作面板 ────────────── -->
-    <section
-      v-if="phase === 'confirm'"
-      class="screenshot-overlay__output"
-      @pointerdown.stop
-    >
+    <section v-if="phase === 'confirm'" class="screenshot-overlay__output" @pointerdown.stop>
       <button
         class="screenshot-overlay__output-btn screenshot-overlay__output-btn--primary"
         type="button"
@@ -621,25 +691,13 @@ onBeforeUnmount(() => {
       >
         📋 复制到剪贴板
       </button>
-      <button
-        class="screenshot-overlay__output-btn"
-        type="button"
-        @click="saveToFile"
-      >
+      <button class="screenshot-overlay__output-btn" type="button" @click="saveToFile">
         💾 保存文件
       </button>
-      <button
-        class="screenshot-overlay__output-btn"
-        type="button"
-        @click="pinToScreen"
-      >
+      <button class="screenshot-overlay__output-btn" type="button" @click="pinToScreen">
         📌 贴图
       </button>
-      <button
-        class="screenshot-overlay__output-btn"
-        type="button"
-        @click="sendToKnowledgeOrAi"
-      >
+      <button class="screenshot-overlay__output-btn" type="button" @click="sendToKnowledgeOrAi">
         📎 发送到知识库/AI
       </button>
       <button
@@ -689,7 +747,9 @@ onBeforeUnmount(() => {
   inset: 0;
   overflow: hidden;
   color: #f8fafc;
-  font: 12px/1.4 system-ui, sans-serif;
+  font:
+    12px/1.4 system-ui,
+    sans-serif;
   cursor: crosshair;
   user-select: none;
 }
@@ -805,7 +865,9 @@ onBeforeUnmount(() => {
   color: #e2e8f0;
   font-size: 13px;
   cursor: pointer;
-  transition: background 0.15s, border-color 0.15s;
+  transition:
+    background 0.15s,
+    border-color 0.15s;
   white-space: nowrap;
 }
 

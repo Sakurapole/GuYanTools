@@ -44,7 +44,9 @@ export function useAnnotation() {
     style.value = { ...style.value, strokeWidth: width };
   }
 
-  function createTemporaryElement(points: Array<{ x: number; y: number }>): ScreenshotAnnotationElement {
+  function createTemporaryElement(
+    points: Array<{ x: number; y: number }>
+  ): ScreenshotAnnotationElement {
     return {
       id: `tmp-${nextElementId++}`,
       tool: activeTool.value ?? 'rect',
@@ -88,10 +90,7 @@ export function useAnnotation() {
     drawingElement.value = null;
   }
 
-  function addTextElement(
-    position: { x: number; y: number },
-    text: string,
-  ) {
+  function addTextElement(position: { x: number; y: number }, text: string) {
     if (!text.trim()) return;
     pushUndo();
     elements.value = [

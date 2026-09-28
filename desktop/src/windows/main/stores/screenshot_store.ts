@@ -46,9 +46,9 @@ export const useScreenshotStore = defineStore('screenshot', () => {
     for (const block of latestResult.value?.blocks ?? []) {
       counts.set(block.kind, (counts.get(block.kind) ?? 0) + 1);
     }
-    return BLOCK_KIND_ORDER
-      .map((kind) => ({ kind, count: counts.get(kind) ?? 0 }))
-      .filter((item) => item.count > 0);
+    return BLOCK_KIND_ORDER.map((kind) => ({ kind, count: counts.get(kind) ?? 0 })).filter(
+      (item) => item.count > 0
+    );
   });
 
   function ensureCaptureSubscription() {

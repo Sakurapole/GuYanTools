@@ -23,9 +23,7 @@ export async function detectVisibleWindows(): Promise<ScreenshotDetectedWindow[]
     if (!source.name || !source.name.trim()) continue;
 
     const displayId = source.display_id ? Number(source.display_id) : null;
-    const display = displayId
-      ? displays.find((item) => item.id === displayId)
-      : null;
+    const display = displayId ? displays.find((item) => item.id === displayId) : null;
 
     if (!display) continue;
 
