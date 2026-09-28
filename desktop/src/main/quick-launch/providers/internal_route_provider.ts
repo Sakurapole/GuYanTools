@@ -1,7 +1,4 @@
-import {
-  APP_INTERNAL_FUNCTIONS,
-  type AppInternalFunctionDefinition,
-} from '@/contracts/app_config';
+import { APP_INTERNAL_FUNCTIONS, type AppInternalFunctionDefinition } from '@/contracts/app_config';
 import type { HomeLayoutDto, HomeWidgetDto } from '@/contracts/home_layout';
 import type { WidgetAction } from '@/contracts/home_widget';
 import type { QuickLaunchResult } from '@/contracts/quick_launch';
@@ -10,7 +7,11 @@ import { compactSnippet, scoreQuickLaunchFields } from '../matcher';
 import type { QuickLaunchProvider, QuickLaunchProviderContext } from '../types';
 
 function routeVisible(item: AppInternalFunctionDefinition) {
-  return !item.devOnly || Boolean(MAIN_WINDOW_VITE_DEV_SERVER_URL) || process.env.NODE_ENV === 'development';
+  return (
+    !item.devOnly ||
+    Boolean(MAIN_WINDOW_VITE_DEV_SERVER_URL) ||
+    process.env.NODE_ENV === 'development'
+  );
 }
 
 function deserializeJson<T>(json: unknown): T | undefined {
@@ -41,7 +42,9 @@ function deserializeHomeLayout(layout: any): HomeLayoutDto {
   };
 }
 
-async function searchHomeWebpageActions(context: QuickLaunchProviderContext): Promise<QuickLaunchResult[]> {
+async function searchHomeWebpageActions(
+  context: QuickLaunchProviderContext
+): Promise<QuickLaunchResult[]> {
   if (!dbManager.isInitialized()) {
     return [];
   }
@@ -51,12 +54,17 @@ async function searchHomeWebpageActions(context: QuickLaunchProviderContext): Pr
   // 快捷启动只需要网页动作元数据。完整布局会携带可能数十 MB 的内嵌背景媒体，
   // 不应在每次搜索时跨 N-API/IPC 传输。
   const layout = deserializeHomeLayout(await db.getHomeLayoutMetadata(workspaceKey));
-  const widgets = layout.categories.flatMap(category => category.widgets);
+  const widgets = layout.categories.flatMap((category) => category.widgets);
 
   return widgets
     .map((widget: HomeWidgetDto): QuickLaunchResult | null => {
       const action = widget.action;
-      if (widget.hidden || widget.widgetType !== 'shortcut' || action?.type !== 'open_webpage' || !action.url) {
+      if (
+        widget.hidden ||
+        widget.widgetType !== 'shortcut' ||
+        action?.type !== 'open_webpage' ||
+        !action.url
+      ) {
         return null;
       }
 
@@ -69,7 +77,7 @@ async function searchHomeWebpageActions(context: QuickLaunchProviderContext): Pr
         [
           { value: action.url, weight: 64 },
           { value: widget.icon ?? '', weight: 18 },
-        ],
+        ]
       );
       if (!match) {
         return null;
@@ -101,8 +109,7 @@ async function searchHomeWebpageActions(context: QuickLaunchProviderContext): Pr
 export const internalRouteProvider: QuickLaunchProvider = {
   id: 'internal-route',
   async search(context: QuickLaunchProviderContext): Promise<QuickLaunchResult[]> {
-    const internalResults = APP_INTERNAL_FUNCTIONS
-      .filter(routeVisible)
+    const internalResults = APP_INTERNAL_FUNCTIONS.filter(routeVisible)
       .map((item): QuickLaunchResult | null => {
         const match = scoreQuickLaunchFields(
           context.query,
@@ -111,7 +118,7 @@ export const internalRouteProvider: QuickLaunchProvider = {
           [
             { value: item.id, weight: 42 },
             { value: item.route, weight: 42 },
-          ],
+          ]
         );
         if (!match) {
           return null;

@@ -3,7 +3,11 @@ import path from 'node:path';
 import type { QuickLaunchResult } from '@/contracts/quick_launch';
 import { appConfigManager } from '@/main/app-config/manager';
 import { compactSnippet, scoreQuickLaunchFields } from '../matcher';
-import { resetEverythingEsPathCache, searchEverything, type EverythingSearchStatus } from '../everything_client';
+import {
+  resetEverythingEsPathCache,
+  searchEverything,
+  type EverythingSearchStatus,
+} from '../everything_client';
 import type { QuickLaunchProvider, QuickLaunchProviderContext } from '../types';
 
 type FileEntryMetadata = {
@@ -42,22 +46,31 @@ async function readMetadata(filePath: string): Promise<FileEntryMetadata> {
   }
 }
 
-function makeUnavailableResult(status: EverythingSearchStatus, message?: string): QuickLaunchResult {
+function makeUnavailableResult(
+  status: EverythingSearchStatus,
+  message?: string
+): QuickLaunchResult {
   const isMissing = status === 'missing-es';
   const isNotRunning = status === 'not-running';
   const title = isMissing ? '配置 Everything 文件搜索' : '启动 Everything 后重试文件搜索';
-  const subtitle = message || (isMissing
-    ? '请确认已安装 Everything 主程序和 ES 命令行工具，并在设置中配置 es.exe 路径。'
-    : isNotRunning
-      ? 'Everything 当前未运行。可以直接启动 Everything 后继续搜索本机文件。'
-      : 'Everything 文件索引服务当前不可用。');
+  const subtitle =
+    message ||
+    (isMissing
+      ? '请确认已安装 Everything 主程序和 ES 命令行工具，并在设置中配置 es.exe 路径。'
+      : isNotRunning
+        ? 'Everything 当前未运行。可以直接启动 Everything 后继续搜索本机文件。'
+        : 'Everything 文件索引服务当前不可用。');
 
   return {
     id: `file:${status}`,
     providerId: 'file',
     title,
     subtitle,
-    detail: isMissing ? EVERYTHING_DOWNLOAD_URL : isNotRunning ? 'Everything.exe' : EVERYTHING_HELP_URL,
+    detail: isMissing
+      ? EVERYTHING_DOWNLOAD_URL
+      : isNotRunning
+        ? 'Everything.exe'
+        : EVERYTHING_HELP_URL,
     keywords: ['everything', 'es.exe', 'file search', '文件搜索'],
     score: isMissing ? 48 : 46,
     action: isNotRunning
@@ -69,7 +82,11 @@ function makeUnavailableResult(status: EverythingSearchStatus, message?: string)
   };
 }
 
-async function makeFileResult(filePath: string, query: string, index: number): Promise<QuickLaunchResult> {
+async function makeFileResult(
+  filePath: string,
+  query: string,
+  index: number
+): Promise<QuickLaunchResult> {
   const metadata = await readMetadata(filePath);
   const title = path.basename(filePath) || filePath;
   const directory = path.dirname(filePath);
@@ -77,7 +94,7 @@ async function makeFileResult(filePath: string, query: string, index: number): P
     query,
     { value: title, weight: 72 },
     { value: directory, weight: 38 },
-    [{ value: filePath, weight: 30 }],
+    [{ value: filePath, weight: 30 }]
   );
   const modified = metadata.modifiedAt
     ? new Date(metadata.modifiedAt).toLocaleString('zh-CN', { hour12: false })
@@ -93,10 +110,12 @@ async function makeFileResult(filePath: string, query: string, index: number): P
     detail: [kind, size, modified].filter(Boolean).join(' · '),
     keywords: [directory, filePath],
     score: Math.max(20, (match?.score ?? 64) - index),
-    highlights: match ? {
-      title: match.titleHighlights,
-      subtitle: match.subtitleHighlights,
-    } : undefined,
+    highlights: match
+      ? {
+          title: match.titleHighlights,
+          subtitle: match.subtitleHighlights,
+        }
+      : undefined,
     action: {
       type: 'open-path',
       path: filePath,
@@ -116,15 +135,17 @@ export const everythingFileProvider: QuickLaunchProvider = {
     const response = await searchEverything(
       query,
       Math.min(context.limit, 30),
-      config.features.quickLaunch.everythingEsPath,
+      config.features.quickLaunch.everythingEsPath
     );
     if (response.status !== 'ok') {
       return [makeUnavailableResult(response.status, response.message)];
     }
 
-    return Promise.all(response.paths.slice(0, context.limit).map((filePath, index) =>
-      makeFileResult(filePath, query, index),
-    ));
+    return Promise.all(
+      response.paths
+        .slice(0, context.limit)
+        .map((filePath, index) => makeFileResult(filePath, query, index))
+    );
   },
   async refresh() {
     resetEverythingEsPathCache();

@@ -23,7 +23,7 @@ export function scoreQuickLaunchFields(
   query: string,
   title: MatchField,
   subtitle?: MatchField,
-  keywords: MatchField[] = [],
+  keywords: MatchField[] = []
 ): MatchScore | null {
   const normalizedQuery = normalize(query);
   const fields = [
@@ -53,7 +53,10 @@ export function scoreQuickLaunchFields(
 
     const exactBoost = normalizedValue === normalizedQuery ? 120 : 0;
     const prefixBoost = index === 0 ? 60 : 0;
-    const densityBoost = Math.min(30, Math.round((normalizedQuery.length / normalizedValue.length) * 30));
+    const densityBoost = Math.min(
+      30,
+      Math.round((normalizedQuery.length / normalizedValue.length) * 30)
+    );
     const score = field.weight + exactBoost + prefixBoost + densityBoost;
     if (score > bestScore) {
       bestScore = score;

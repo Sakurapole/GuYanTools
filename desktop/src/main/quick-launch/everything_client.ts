@@ -4,12 +4,7 @@ import fs from 'node:fs/promises';
 import { TextDecoder } from 'node:util';
 import path from 'node:path';
 
-export type EverythingSearchStatus =
-  | 'ok'
-  | 'missing-es'
-  | 'not-running'
-  | 'timeout'
-  | 'error';
+export type EverythingSearchStatus = 'ok' | 'missing-es' | 'not-running' | 'timeout' | 'error';
 
 export type EverythingSearchResponse = {
   status: EverythingSearchStatus;
@@ -41,7 +36,7 @@ async function fileExists(filePath: string) {
 function splitPathDirectories() {
   return (process.env.PATH ?? '')
     .split(path.delimiter)
-    .map(item => item.trim())
+    .map((item) => item.trim())
     .filter(Boolean);
 }
 
@@ -67,7 +62,7 @@ function candidateEsPaths(configuredPath?: string) {
 
   candidates.push(
     'C:\\Program Files\\Everything\\es.exe',
-    'C:\\Program Files (x86)\\Everything\\es.exe',
+    'C:\\Program Files (x86)\\Everything\\es.exe'
   );
 
   if (localAppData) {
@@ -78,11 +73,11 @@ function candidateEsPaths(configuredPath?: string) {
     candidates.push(
       path.join(root, 'shims', 'es.exe'),
       path.join(root, 'apps', 'everything', 'current', 'es.exe'),
-      path.join(root, 'apps', 'es', 'current', 'es.exe'),
+      path.join(root, 'apps', 'es', 'current', 'es.exe')
     );
   }
 
-  return [...new Set(candidates.map(item => path.resolve(item)))];
+  return [...new Set(candidates.map((item) => path.resolve(item)))];
 }
 
 function candidateEverythingAppPaths(esPath?: string | null) {
@@ -97,7 +92,7 @@ function candidateEverythingAppPaths(esPath?: string | null) {
 
   candidates.push(
     'C:\\Program Files\\Everything\\Everything.exe',
-    'C:\\Program Files (x86)\\Everything\\Everything.exe',
+    'C:\\Program Files (x86)\\Everything\\Everything.exe'
   );
 
   if (localAppData) {
@@ -107,11 +102,11 @@ function candidateEverythingAppPaths(esPath?: string | null) {
   for (const root of [scoop, scoopGlobal].filter((item): item is string => Boolean(item))) {
     candidates.push(
       path.join(root, 'apps', 'everything', 'current', 'Everything.exe'),
-      path.join(root, 'apps', 'es', 'current', 'Everything.exe'),
+      path.join(root, 'apps', 'es', 'current', 'Everything.exe')
     );
   }
 
-  return [...new Set(candidates.map(item => path.resolve(item)))];
+  return [...new Set(candidates.map((item) => path.resolve(item)))];
 }
 
 export async function resolveEverythingEsPath(configuredPath?: string) {
@@ -153,29 +148,34 @@ async function resolveEverythingAppPath(configuredPath?: string) {
 }
 
 function execEverything(esPath: string, args: string[]) {
-  return new Promise<{ stdout: string; stderr: string; code: number | null; timedOut: boolean }>((resolve) => {
-    execFile(
-      esPath,
-      args,
-      {
-        encoding: 'buffer',
-        maxBuffer: EVERYTHING_MAX_BUFFER,
-        timeout: EVERYTHING_TIMEOUT_MS,
-        windowsHide: true,
-      },
-      (error, stdout, stderr) => {
-        const code = typeof (error as { code?: unknown } | null)?.code === 'number'
-          ? (error as { code: number }).code
-          : error ? 1 : 0;
-        resolve({
-          stdout: decodeEverythingOutput(stdout ?? Buffer.alloc(0)),
-          stderr: decodeEverythingOutput(stderr ?? Buffer.alloc(0)),
-          code,
-          timedOut: Boolean((error as { killed?: boolean } | null)?.killed),
-        });
-      },
-    );
-  });
+  return new Promise<{ stdout: string; stderr: string; code: number | null; timedOut: boolean }>(
+    (resolve) => {
+      execFile(
+        esPath,
+        args,
+        {
+          encoding: 'buffer',
+          maxBuffer: EVERYTHING_MAX_BUFFER,
+          timeout: EVERYTHING_TIMEOUT_MS,
+          windowsHide: true,
+        },
+        (error, stdout, stderr) => {
+          const code =
+            typeof (error as { code?: unknown } | null)?.code === 'number'
+              ? (error as { code: number }).code
+              : error
+                ? 1
+                : 0;
+          resolve({
+            stdout: decodeEverythingOutput(stdout ?? Buffer.alloc(0)),
+            stderr: decodeEverythingOutput(stderr ?? Buffer.alloc(0)),
+            code,
+            timedOut: Boolean((error as { killed?: boolean } | null)?.killed),
+          });
+        }
+      );
+    }
+  );
 }
 
 function decodeEverythingOutput(output: Buffer) {
@@ -193,7 +193,7 @@ function decodeEverythingOutput(output: Buffer) {
 export async function searchEverything(
   query: string,
   limit: number,
-  configuredPath?: string,
+  configuredPath?: string
 ): Promise<EverythingSearchResponse> {
   const esPath = await resolveEverythingEsPath(configuredPath);
   if (!esPath) {
@@ -211,7 +211,12 @@ export async function searchEverything(
   }
 
   if (response.code === 8) {
-    return { status: 'not-running', esPath, paths: [], message: 'Everything 未运行或 IPC 不可用。' };
+    return {
+      status: 'not-running',
+      esPath,
+      paths: [],
+      message: 'Everything 未运行或 IPC 不可用。',
+    };
   }
 
   if (response.code !== 0) {
@@ -225,7 +230,7 @@ export async function searchEverything(
 
   const paths = response.stdout
     .split(/\r?\n/)
-    .map(item => item.trim())
+    .map((item) => item.trim())
     .filter(Boolean)
     .slice(0, boundedLimit);
 

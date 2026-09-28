@@ -14,14 +14,12 @@ const RENDERER_READY_TIMEOUT_MS = 700;
 let quickLaunchWindow: BrowserWindow | null = null;
 let quickLaunchGameModeEnabled = false;
 let quickLaunchLoadPromise: Promise<BrowserWindow | null> | null = null;
-let pendingRendererReady:
-  | {
-      webContentsId: number;
-      resolve: () => void;
-      timeout: ReturnType<typeof setTimeout>;
-      promise: Promise<void>;
-    }
-  | null = null;
+let pendingRendererReady: {
+  webContentsId: number;
+  resolve: () => void;
+  timeout: ReturnType<typeof setTimeout>;
+  promise: Promise<void>;
+} | null = null;
 
 export async function preloadQuickLaunchWindow() {
   try {
@@ -55,10 +53,9 @@ async function ensureQuickLaunchWindow() {
     return quickLaunchLoadPromise;
   }
 
-  quickLaunchLoadPromise = createQuickLaunchWindow()
-    .finally(() => {
-      quickLaunchLoadPromise = null;
-    });
+  quickLaunchLoadPromise = createQuickLaunchWindow().finally(() => {
+    quickLaunchLoadPromise = null;
+  });
 
   return quickLaunchLoadPromise;
 }
@@ -110,7 +107,7 @@ async function createQuickLaunchWindow() {
       await win.loadURL(url);
     } else {
       await win.loadFile(
-        path.join(__dirname, `../renderer/${MAIN_WINDOW_VITE_NAME}/quick_launcher.html`),
+        path.join(__dirname, `../renderer/${MAIN_WINDOW_VITE_NAME}/quick_launcher.html`)
       );
     }
 
@@ -177,8 +174,16 @@ export function resizeQuickLaunchWindow(input: { widthDelta?: number; heightDelt
   const display = screen.getDisplayMatching(quickLaunchWindow.getBounds());
   const maxWidth = Math.min(MAX_WINDOW_WIDTH, display.workArea.width - 32);
   const maxHeight = Math.min(MAX_WINDOW_HEIGHT, display.workArea.height - 32);
-  const width = clampWindowSize(currentWidth + Math.round(input.widthDelta ?? 0), MIN_WINDOW_WIDTH, maxWidth);
-  const height = clampWindowSize(currentHeight + Math.round(input.heightDelta ?? 0), MIN_WINDOW_HEIGHT, maxHeight);
+  const width = clampWindowSize(
+    currentWidth + Math.round(input.widthDelta ?? 0),
+    MIN_WINDOW_WIDTH,
+    maxWidth
+  );
+  const height = clampWindowSize(
+    currentHeight + Math.round(input.heightDelta ?? 0),
+    MIN_WINDOW_HEIGHT,
+    maxHeight
+  );
   quickLaunchWindow.setSize(width, height, true);
   positionWindow(quickLaunchWindow);
 }

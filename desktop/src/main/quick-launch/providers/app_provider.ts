@@ -40,7 +40,8 @@ const APP_INDEX_CACHE_TTL_MS = 5 * 60 * 1000;
 const MAX_SHORTCUT_WALK_DEPTH = 8;
 const MAX_PATH_EXECUTABLES = 400;
 const MAX_WINDOWS_APPS = 500;
-const NOISE_PATTERN = /(^|[\s._-])(uninstall|unins|uninstaller|remove|repair|updater?|helper|卸载|修复|更新)([\s._-]|$)/i;
+const NOISE_PATTERN =
+  /(^|[\s._-])(uninstall|unins|uninstaller|remove|repair|updater?|helper|卸载|修复|更新)([\s._-]|$)/i;
 const START_MENU_APP_ALIAS_KEYWORDS: Record<string, string[]> = {
   [normalizeTitleKey('计算器')]: ['calculator', 'calc', 'jisuanqi'],
   [normalizeTitleKey('便笺')]: ['sticky notes', 'stickynotes', 'notes', 'note', 'bianjian'],
@@ -60,7 +61,8 @@ function normalizePathKey(value: string) {
 }
 
 function normalizeTitle(filePath: string) {
-  return path.basename(filePath, path.extname(filePath))
+  return path
+    .basename(filePath, path.extname(filePath))
     .replace(/\s+-\s+快捷方式$/i, '')
     .replace(/\s+shortcut$/i, '')
     .trim();
@@ -92,7 +94,7 @@ function shortcutRoots(): ShortcutRoot[] {
 
   roots.push(
     { directory: path.join(os.homedir(), 'Desktop'), label: '桌面快捷方式' },
-    { directory: path.join(publicDir, 'Desktop'), label: '公共桌面' },
+    { directory: path.join(publicDir, 'Desktop'), label: '公共桌面' }
   );
 
   return roots;
@@ -137,7 +139,9 @@ function resolveShortcutMetadata(filePath: string): { targetPath?: string; iconP
 
   try {
     const shortcut = shell.readShortcutLink(filePath);
-    const targetPath = shortcut.target ? expandWindowsEnvironmentVariables(shortcut.target) : undefined;
+    const targetPath = shortcut.target
+      ? expandWindowsEnvironmentVariables(shortcut.target)
+      : undefined;
     const iconPath = shortcut.icon ? expandWindowsEnvironmentVariables(shortcut.icon) : undefined;
     return {
       targetPath,
@@ -152,13 +156,16 @@ function makeShortcutEntry(
   root: ShortcutRoot,
   filePath: string,
   targetUrl?: string,
-  metadata: { targetPath?: string; iconPath?: string } = {},
+  metadata: { targetPath?: string; iconPath?: string } = {}
 ): AppIndexEntry {
   const extension = path.extname(filePath).toLocaleLowerCase();
   const relativeDir = path.dirname(path.relative(root.directory, filePath));
-  const folderLabel = relativeDir && relativeDir !== '.' ? relativeDir.split(/[\\/]/).join(' / ') : root.label;
+  const folderLabel =
+    relativeDir && relativeDir !== '.' ? relativeDir.split(/[\\/]/).join(' / ') : root.label;
   const title = normalizeTitle(filePath);
-  const key = targetUrl || (metadata.targetPath ? normalizePathKey(metadata.targetPath) : normalizePathKey(filePath));
+  const key =
+    targetUrl ||
+    (metadata.targetPath ? normalizePathKey(metadata.targetPath) : normalizePathKey(filePath));
 
   return {
     id: `app:${hashId(key)}`,
@@ -188,7 +195,7 @@ function titleDedupeKeyForEntry(entry: AppIndexEntry) {
 }
 
 async function collectShortcuts(root: ShortcutRoot, depth = 0): Promise<AppIndexEntry[]> {
-  if (depth > MAX_SHORTCUT_WALK_DEPTH || !await pathExists(root.directory)) {
+  if (depth > MAX_SHORTCUT_WALK_DEPTH || !(await pathExists(root.directory))) {
     return [];
   }
 
@@ -199,7 +206,7 @@ async function collectShortcuts(root: ShortcutRoot, depth = 0): Promise<AppIndex
     const filePath = path.join(root.directory, entry.name);
     if (entry.isDirectory()) {
       const nestedRoot = { ...root, directory: filePath };
-      results.push(...await collectShortcuts(nestedRoot, depth + 1));
+      results.push(...(await collectShortcuts(nestedRoot, depth + 1)));
       continue;
     }
 
@@ -333,14 +340,14 @@ function getWindowsStartApps() {
         } catch {
           resolve([]);
         }
-      },
+      }
     );
   });
 }
 
 async function buildAppIndex() {
   const entries = [
-    ...(await Promise.all(shortcutRoots().map(root => collectShortcuts(root)))).flat(),
+    ...(await Promise.all(shortcutRoots().map((root) => collectShortcuts(root)))).flat(),
     ...(await collectWindowsApps()),
     ...(await collectPathExecutables()),
   ];
@@ -384,9 +391,10 @@ function appAction(entry: AppIndexEntry): QuickLaunchAction {
 }
 
 async function resolveIconDataUrl(entry: AppIndexEntry) {
-  const cacheKey = entry.targetUrl
-    || (entry.appUserModelId ? `windows-app:${entry.appUserModelId.toLocaleLowerCase()}` : '')
-    || normalizePathKey(entry.iconPath || entry.targetPath || entry.launchPath);
+  const cacheKey =
+    entry.targetUrl ||
+    (entry.appUserModelId ? `windows-app:${entry.appUserModelId.toLocaleLowerCase()}` : '') ||
+    normalizePathKey(entry.iconPath || entry.targetPath || entry.launchPath);
   const cached = iconDataUrlCache.get(cacheKey);
   if (cached !== undefined) {
     return cached || undefined;
@@ -411,11 +419,9 @@ async function resolveIconDataUrl(entry: AppIndexEntry) {
 }
 
 async function resolveIconCandidatePaths(entry: AppIndexEntry) {
-  const candidates = [
-    entry.targetPath,
-    entry.iconPath,
-    entry.launchPath,
-  ].filter((value): value is string => Boolean(value));
+  const candidates = [entry.targetPath, entry.iconPath, entry.launchPath].filter(
+    (value): value is string => Boolean(value)
+  );
   const result: string[] = [];
   const seen = new Set<string>();
 
@@ -447,7 +453,7 @@ export const appProvider: QuickLaunchProvider = {
           context.query,
           { value: entry.title, weight: 82 },
           { value: entry.subtitle, weight: 36 },
-          entry.keywords.map((value) => ({ value, weight: 26 })),
+          entry.keywords.map((value) => ({ value, weight: 26 }))
         );
         if (!match) {
           return null;
@@ -471,15 +477,19 @@ export const appProvider: QuickLaunchProvider = {
         return { entry, result };
       })
       .filter((item): item is { entry: AppIndexEntry; result: QuickLaunchResult } => Boolean(item))
-      .sort((left, right) =>
-        right.result.score - left.result.score || left.result.title.localeCompare(right.result.title),
+      .sort(
+        (left, right) =>
+          right.result.score - left.result.score ||
+          left.result.title.localeCompare(right.result.title)
       )
       .slice(0, context.limit);
 
-    return Promise.all(matches.map(async ({ entry, result }) => ({
-      ...result,
-      iconDataUrl: await resolveIconDataUrl(entry),
-    })));
+    return Promise.all(
+      matches.map(async ({ entry, result }) => ({
+        ...result,
+        iconDataUrl: await resolveIconDataUrl(entry),
+      }))
+    );
   },
   async refresh() {
     cachedIndex = await buildAppIndex();

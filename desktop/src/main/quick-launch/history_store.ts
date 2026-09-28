@@ -16,13 +16,14 @@ function normalizeHistory(value: unknown): QuickLaunchHistoryEntry[] {
   }
 
   return value
-    .filter((item): item is QuickLaunchHistoryEntry => (
-      Boolean(item)
-      && typeof item === 'object'
-      && typeof (item as QuickLaunchHistoryEntry).id === 'string'
-      && typeof (item as QuickLaunchHistoryEntry).useCount === 'number'
-      && typeof (item as QuickLaunchHistoryEntry).lastUsedAt === 'number'
-    ))
+    .filter(
+      (item): item is QuickLaunchHistoryEntry =>
+        Boolean(item) &&
+        typeof item === 'object' &&
+        typeof (item as QuickLaunchHistoryEntry).id === 'string' &&
+        typeof (item as QuickLaunchHistoryEntry).useCount === 'number' &&
+        typeof (item as QuickLaunchHistoryEntry).lastUsedAt === 'number'
+    )
     .slice(0, MAX_HISTORY_ITEMS);
 }
 
@@ -40,7 +41,10 @@ export class QuickLaunchHistoryStore {
 
       return {
         ...result,
-        score: result.score + Math.min(80, entry.useCount * 8) + Math.min(40, this.recencyBoost(entry.lastUsedAt)),
+        score:
+          result.score +
+          Math.min(80, entry.useCount * 8) +
+          Math.min(40, this.recencyBoost(entry.lastUsedAt)),
         useCount: entry.useCount,
         lastUsedAt: entry.lastUsedAt,
       };
@@ -86,11 +90,9 @@ export class QuickLaunchHistoryStore {
       return;
     }
 
-    await dbManager.getDatabase().upsertSetting(
-      HISTORY_SETTING_KEY,
-      JSON.stringify(this.cache),
-      'Quick launch usage history',
-    );
+    await dbManager
+      .getDatabase()
+      .upsertSetting(HISTORY_SETTING_KEY, JSON.stringify(this.cache), 'Quick launch usage history');
   }
 
   private recencyBoost(lastUsedAt: number) {

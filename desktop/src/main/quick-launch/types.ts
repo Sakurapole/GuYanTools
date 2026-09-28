@@ -1,7 +1,4 @@
-import type {
-  QuickLaunchProviderId,
-  QuickLaunchResult,
-} from '@/contracts/quick_launch';
+import type { QuickLaunchProviderId, QuickLaunchResult } from '@/contracts/quick_launch';
 
 export interface QuickLaunchProviderContext {
   query: string;

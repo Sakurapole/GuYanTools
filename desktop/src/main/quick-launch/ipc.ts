@@ -7,7 +7,11 @@ import type {
   QuickLaunchSearchInput,
 } from '@/contracts/quick_launch';
 import { quickLaunchService } from './service';
-import { closeQuickLaunchWindow, notifyQuickLaunchRendererReady, showQuickLaunchWindow } from './window';
+import {
+  closeQuickLaunchWindow,
+  notifyQuickLaunchRendererReady,
+  showQuickLaunchWindow,
+} from './window';
 
 let registered = false;
 
@@ -17,33 +21,34 @@ export function registerQuickLaunchIpcHandlers() {
   }
 
   ipcMain.handle('quick-launch:search', async (_event, input: QuickLaunchSearchInput) =>
-    quickLaunchService.search(input, (progress) => {
-      _event.sender.send('quick-launch:search-progress', progress);
-    }, (payload) => {
-      _event.sender.send('quick-launch:search-results', payload);
-    }),
+    quickLaunchService.search(
+      input,
+      (progress) => {
+        _event.sender.send('quick-launch:search-progress', progress);
+      },
+      (payload) => {
+        _event.sender.send('quick-launch:search-results', payload);
+      }
+    )
   );
-  ipcMain.handle('quick-launch:execute', async (
-    _event,
-    result: QuickLaunchResult,
-    options?: QuickLaunchExecuteOptions,
-  ) => {
-    await quickLaunchService.execute(result, options);
-    if (options?.mode !== 'copy' && options?.mode !== 'copy-path') {
-      closeQuickLaunchWindow();
+  ipcMain.handle(
+    'quick-launch:execute',
+    async (_event, result: QuickLaunchResult, options?: QuickLaunchExecuteOptions) => {
+      await quickLaunchService.execute(result, options);
+      if (options?.mode !== 'copy' && options?.mode !== 'copy-path') {
+        closeQuickLaunchWindow();
+      }
     }
-  });
+  );
   ipcMain.handle('quick-launch:refresh-index', async (_event, input?: QuickLaunchRefreshInput) =>
-    quickLaunchService.refreshIndex(input),
+    quickLaunchService.refreshIndex(input)
   );
-  ipcMain.handle('quick-launch:start-everything', async () =>
-    quickLaunchService.startEverything(),
-  );
+  ipcMain.handle('quick-launch:start-everything', async () => quickLaunchService.startEverything());
   ipcMain.handle('quick-launch:set-game-mode', async (_event, enabled: boolean) =>
-    quickLaunchService.setGameMode(Boolean(enabled)),
+    quickLaunchService.setGameMode(Boolean(enabled))
   );
   ipcMain.handle('quick-launch:get-game-mode-status', async () =>
-    quickLaunchService.getGameModeStatus(),
+    quickLaunchService.getGameModeStatus()
   );
   ipcMain.handle('quick-launch:resize-window', async (_event, input: QuickLaunchResizeInput) => {
     quickLaunchService.resizeWindow(input);

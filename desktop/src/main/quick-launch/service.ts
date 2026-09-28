@@ -33,7 +33,10 @@ import { appProvider } from './providers/app_provider';
 import { everythingFileProvider } from './providers/everything_file_provider';
 import { startEverything } from './everything_client';
 import type { QuickLaunchProvider } from './types';
-import { WORKSPACE_WINDOW_DEFINITIONS, type WorkspaceWindowKey } from '@/contracts/workspace_window';
+import {
+  WORKSPACE_WINDOW_DEFINITIONS,
+  type WorkspaceWindowKey,
+} from '@/contracts/workspace_window';
 import { workspaceWindowManager } from '@/main/workspace-window/manager';
 import {
   getQuickLaunchGameModeStatus,
@@ -51,12 +54,13 @@ const DEFAULT_LIMIT = 12;
 type QuickLaunchSearchProgressReporter = (event: QuickLaunchSearchProgressEvent) => void;
 type QuickLaunchSearchResultsReporter = (event: QuickLaunchSearchResultsEvent) => void;
 const providerPriority = new Map<QuickLaunchProviderId, number>(
-  QUICK_LAUNCH_PROVIDER_DISPLAY_ORDER.map((providerId, index) => [providerId, index]),
+  QUICK_LAUNCH_PROVIDER_DISPLAY_ORDER.map((providerId, index) => [providerId, index])
 );
 
 function compareQuickLaunchResults(left: QuickLaunchResult, right: QuickLaunchResult) {
-  const priorityDelta = (providerPriority.get(left.providerId) ?? Number.MAX_SAFE_INTEGER)
-    - (providerPriority.get(right.providerId) ?? Number.MAX_SAFE_INTEGER);
+  const priorityDelta =
+    (providerPriority.get(left.providerId) ?? Number.MAX_SAFE_INTEGER) -
+    (providerPriority.get(right.providerId) ?? Number.MAX_SAFE_INTEGER);
   if (priorityDelta !== 0) {
     return priorityDelta;
   }
@@ -77,7 +81,7 @@ export class QuickLaunchService {
       pluginProvider,
       appProvider,
       everythingFileProvider,
-    ].map((provider) => [provider.id, provider]),
+    ].map((provider) => [provider.id, provider])
   );
 
   bindMainWindow(bridge: MainWindowBridge): void {
@@ -87,25 +91,31 @@ export class QuickLaunchService {
   async search(
     input: QuickLaunchSearchInput,
     onProgress?: QuickLaunchSearchProgressReporter,
-    onResults?: QuickLaunchSearchResultsReporter,
+    onResults?: QuickLaunchSearchResultsReporter
   ): Promise<QuickLaunchSearchResponse> {
     const startedAt = Date.now();
     const config = await appConfigManager.getConfig();
     const feature = config.features.quickLaunch;
     const query = input.query ?? '';
     const sessionId = input.sessionId || `main-${startedAt}`;
-    const limit = Math.max(1, Math.min(50, Math.round(input.limit ?? feature.maxResults ?? DEFAULT_LIMIT)));
-    const requestedProviders = input.providers?.length
-      ? input.providers
-      : feature.enabledProviders;
-    const searchedProviders = requestedProviders.filter((providerId) => (
-      feature.enabledProviders.includes(providerId)
-      && this.providers.has(providerId)
-    ));
+    const limit = Math.max(
+      1,
+      Math.min(50, Math.round(input.limit ?? feature.maxResults ?? DEFAULT_LIMIT))
+    );
+    const requestedProviders = input.providers?.length ? input.providers : feature.enabledProviders;
+    const searchedProviders = requestedProviders.filter(
+      (providerId) =>
+        feature.enabledProviders.includes(providerId) && this.providers.has(providerId)
+    );
     let completedProviders = 0;
     const emitProgress = (
       stage: QuickLaunchSearchProgressEvent['stage'],
-      patch: Partial<Omit<QuickLaunchSearchProgressEvent, 'sessionId' | 'query' | 'stage' | 'completedProviders' | 'totalProviders' | 'elapsedMs'>> = {},
+      patch: Partial<
+        Omit<
+          QuickLaunchSearchProgressEvent,
+          'sessionId' | 'query' | 'stage' | 'completedProviders' | 'totalProviders' | 'elapsedMs'
+        >
+      > = {}
     ) => {
       onProgress?.({
         sessionId,
@@ -117,7 +127,10 @@ export class QuickLaunchService {
         ...patch,
       });
     };
-    const emitResults = (providerId: QuickLaunchProviderId, providerResults: QuickLaunchResult[]) => {
+    const emitResults = (
+      providerId: QuickLaunchProviderId,
+      providerResults: QuickLaunchResult[]
+    ) => {
       onResults?.({
         sessionId,
         query,
@@ -128,7 +141,9 @@ export class QuickLaunchService {
     };
 
     if (!feature.enabled || searchedProviders.length === 0) {
-      emitProgress('completed', { message: feature.enabled ? '没有启用的搜索源。' : '快速启动已关闭。' });
+      emitProgress('completed', {
+        message: feature.enabled ? '没有启用的搜索源。' : '快速启动已关闭。',
+      });
       return {
         query,
         sessionId,
@@ -142,27 +157,29 @@ export class QuickLaunchService {
 
     emitProgress('started', { message: '准备搜索。' });
     const errors: QuickLaunchSearchResponse['errors'] = [];
-    const batches = await Promise.all(searchedProviders.map(async (providerId) => {
-      const provider = this.providers.get(providerId);
-      if (!provider) {
-        return [];
-      }
+    const batches = await Promise.all(
+      searchedProviders.map(async (providerId) => {
+        const provider = this.providers.get(providerId);
+        if (!provider) {
+          return [];
+        }
 
-      emitProgress('provider-started', { providerId });
-      try {
-        const providerResults = await provider.search({ query, limit });
-        emitResults(providerId, providerResults);
-        return providerResults;
-      } catch (error) {
-        const message = error instanceof Error ? error.message : String(error);
-        errors.push({ providerId, message });
-        console.warn(`[quick-launch] Provider "${providerId}" failed:`, error);
-        return [];
-      } finally {
-        completedProviders += 1;
-        emitProgress('provider-completed', { providerId });
-      }
-    }));
+        emitProgress('provider-started', { providerId });
+        try {
+          const providerResults = await provider.search({ query, limit });
+          emitResults(providerId, providerResults);
+          return providerResults;
+        } catch (error) {
+          const message = error instanceof Error ? error.message : String(error);
+          errors.push({ providerId, message });
+          console.warn(`[quick-launch] Provider "${providerId}" failed:`, error);
+          return [];
+        } finally {
+          completedProviders += 1;
+          emitProgress('provider-completed', { providerId });
+        }
+      })
+    );
 
     let decorated = batches.flat();
     emitProgress('ranking', {
@@ -174,9 +191,7 @@ export class QuickLaunchService {
     } catch (error) {
       console.warn('[quick-launch] Failed to apply usage history:', error);
     }
-    const results = decorated
-      .sort(compareQuickLaunchResults)
-      .slice(0, limit);
+    const results = decorated.sort(compareQuickLaunchResults).slice(0, limit);
 
     emitProgress('completed', {
       message: '搜索完成。',
@@ -212,14 +227,20 @@ export class QuickLaunchService {
     const startedAt = Date.now();
     const config = await appConfigManager.getConfig();
     const enabledProviders = input?.providers?.length
-      ? input.providers.filter((providerId) => config.features.quickLaunch.enabledProviders.includes(providerId))
+      ? input.providers.filter((providerId) =>
+          config.features.quickLaunch.enabledProviders.includes(providerId)
+        )
       : config.features.quickLaunch.enabledProviders;
 
-    const refreshedProviders = enabledProviders.filter((providerId) => this.providers.has(providerId));
-    await Promise.all(refreshedProviders.map(async (providerId) => {
-      const provider = this.providers.get(providerId);
-      await provider?.refresh?.();
-    }));
+    const refreshedProviders = enabledProviders.filter((providerId) =>
+      this.providers.has(providerId)
+    );
+    await Promise.all(
+      refreshedProviders.map(async (providerId) => {
+        const provider = this.providers.get(providerId);
+        await provider?.refresh?.();
+      })
+    );
 
     return {
       refreshedProviders,
@@ -244,7 +265,10 @@ export class QuickLaunchService {
     resizeQuickLaunchWindow(input);
   }
 
-  private async executeAction(action: QuickLaunchAction, mode: QuickLaunchExecutionMode = 'default'): Promise<void> {
+  private async executeAction(
+    action: QuickLaunchAction,
+    mode: QuickLaunchExecutionMode = 'default'
+  ): Promise<void> {
     if (mode === 'open-detached-window') {
       const target = workspaceWindowTargetFromAction(action, () => this.nextRequestId());
       if (!target) {
@@ -277,22 +301,34 @@ export class QuickLaunchService {
         await this.openMainRoute(action.route);
         return;
       case 'open-terminal-profile':
-        await this.openMainRoute(`/terminal?openTerminalRequestId=${this.nextRequestId()}&openLocalProfileId=${encodeURIComponent(action.profileId)}`);
+        await this.openMainRoute(
+          `/terminal?openTerminalRequestId=${this.nextRequestId()}&openLocalProfileId=${encodeURIComponent(action.profileId)}`
+        );
         return;
       case 'open-ssh-profile':
-        await this.openMainRoute(`/terminal?openTerminalRequestId=${this.nextRequestId()}&connectSshProfileId=${encodeURIComponent(action.profileId)}`);
+        await this.openMainRoute(
+          `/terminal?openTerminalRequestId=${this.nextRequestId()}&connectSshProfileId=${encodeURIComponent(action.profileId)}`
+        );
         return;
       case 'open-ftp-profile':
-        await this.openMainRoute(`/ftp?openFtpRequestId=${this.nextRequestId()}&openFtpProfileId=${encodeURIComponent(action.profileId)}`);
+        await this.openMainRoute(
+          `/ftp?openFtpRequestId=${this.nextRequestId()}&openFtpProfileId=${encodeURIComponent(action.profileId)}`
+        );
         return;
       case 'open-todo':
-        await this.openMainRoute(`/todo?openTodoRequestId=${this.nextRequestId()}&todoId=${encodeURIComponent(action.todoId)}`);
+        await this.openMainRoute(
+          `/todo?openTodoRequestId=${this.nextRequestId()}&todoId=${encodeURIComponent(action.todoId)}`
+        );
         return;
       case 'open-knowledge-result':
-        await this.openMainRoute(`/knowledge?openKnowledgeRequestId=${this.nextRequestId()}&nodeId=${encodeURIComponent(action.nodeId ?? action.sourceId)}`);
+        await this.openMainRoute(
+          `/knowledge?openKnowledgeRequestId=${this.nextRequestId()}&nodeId=${encodeURIComponent(action.nodeId ?? action.sourceId)}`
+        );
         return;
       case 'open-plugin-page':
-        await this.openMainRoute(action.routePath || `/plugins/${action.pluginId}/${action.pageId}`);
+        await this.openMainRoute(
+          action.routePath || `/plugins/${action.pluginId}/${action.pageId}`
+        );
         return;
       case 'execute-plugin-command':
         await pluginHost.getHostServices().commands.executeHost(action.commandId, action.payload);
@@ -370,7 +406,9 @@ function assertNever(value: never): never {
   throw new Error(`Unsupported quick launch action: ${JSON.stringify(value)}`);
 }
 
-function normalizeQuickLaunchExecutionMode(value: QuickLaunchExecuteOptions['mode']): QuickLaunchExecutionMode {
+function normalizeQuickLaunchExecutionMode(
+  value: QuickLaunchExecuteOptions['mode']
+): QuickLaunchExecutionMode {
   switch (value) {
     case 'open-detached-window':
     case 'open-containing-folder':
@@ -389,13 +427,15 @@ function workspaceWindowKeyFromAction(action: QuickLaunchAction): WorkspaceWindo
   }
 
   const routePath = action.route.split('?')[0];
-  const definition = Object.values(WORKSPACE_WINDOW_DEFINITIONS).find(item => item.route === routePath);
+  const definition = Object.values(WORKSPACE_WINDOW_DEFINITIONS).find(
+    (item) => item.route === routePath
+  );
   return definition?.key ?? null;
 }
 
 function workspaceWindowTargetFromAction(
   action: QuickLaunchAction,
-  nextRequestId: () => string,
+  nextRequestId: () => string
 ): { key: WorkspaceWindowKey; route: string } | null {
   const key = workspaceWindowKeyFromAction(action);
   if (key && action.type === 'open-route') {
@@ -516,14 +556,13 @@ function runWindowsPathAsAdmin(targetPath: string, workingDirectory: string): Pr
       },
       (error, _stdout, stderr) => {
         if (error) {
-          const message = typeof stderr === 'string' && stderr.trim()
-            ? stderr.trim()
-            : error.message;
+          const message =
+            typeof stderr === 'string' && stderr.trim() ? stderr.trim() : error.message;
           reject(new Error(message));
           return;
         }
         resolve();
-      },
+      }
     );
   });
 }

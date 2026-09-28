@@ -43,13 +43,22 @@
         {{ errors[0] }}
       </div>
 
-      <section v-if="everythingStartPromptVisible" class="quick-launch-everything-prompt" role="dialog" aria-live="polite">
+      <section
+        v-if="everythingStartPromptVisible"
+        class="quick-launch-everything-prompt"
+        role="dialog"
+        aria-live="polite"
+      >
         <div class="quick-launch-everything-prompt__body">
           <strong>Everything 未运行</strong>
           <span>{{ everythingStartPromptMessage }}</span>
         </div>
         <div class="quick-launch-everything-prompt__actions">
-          <button type="button" class="quick-launch-everything-prompt__button" @click="dismissEverythingStartPrompt">
+          <button
+            type="button"
+            class="quick-launch-everything-prompt__button"
+            @click="dismissEverythingStartPrompt"
+          >
             稍后
           </button>
           <button
@@ -63,13 +72,21 @@
         </div>
       </section>
 
-      <section v-if="searchProgressVisible" class="quick-launch-progress" role="status" aria-live="polite">
+      <section
+        v-if="searchProgressVisible"
+        class="quick-launch-progress"
+        role="status"
+        aria-live="polite"
+      >
         <div class="quick-launch-progress__meta">
           <span>{{ searchProgressText }}</span>
           <small>{{ searchProgressCountText }}</small>
         </div>
         <div class="quick-launch-progress__track">
-          <span class="quick-launch-progress__bar" :style="{ width: `${searchProgressPercent}%` }" />
+          <span
+            class="quick-launch-progress__bar"
+            :style="{ width: `${searchProgressPercent}%` }"
+          />
         </div>
       </section>
 
@@ -95,12 +112,15 @@
           >
             {{ item }}
           </button>
-          <div v-if="queryHistory.length === 0" class="quick-launch-empty">
-            暂无搜索历史
-          </div>
+          <div v-if="queryHistory.length === 0" class="quick-launch-empty">暂无搜索历史</div>
         </div>
 
-        <div v-else-if="actionPanelOpen" class="quick-launch-action-panel" role="menu" :aria-label="actionPanelTargetLabel">
+        <div
+          v-else-if="actionPanelOpen"
+          class="quick-launch-action-panel"
+          role="menu"
+          :aria-label="actionPanelTargetLabel"
+        >
           <button
             v-for="(action, index) in filteredContextActions"
             :key="action.id"
@@ -147,10 +167,14 @@
               <span v-if="item.result.iconDataUrl" class="quick-launch-result__icon">
                 <img :src="item.result.iconDataUrl" alt="" />
               </span>
-              <span v-else class="quick-launch-result__provider">{{ providerLabels[item.result.providerId] }}</span>
+              <span v-else class="quick-launch-result__provider">{{
+                providerLabels[item.result.providerId]
+              }}</span>
               <span class="quick-launch-result__body">
                 <span class="quick-launch-result__title">{{ item.result.title }}</span>
-                <span v-if="item.result.subtitle" class="quick-launch-result__subtitle">{{ item.result.subtitle }}</span>
+                <span v-if="item.result.subtitle" class="quick-launch-result__subtitle">{{
+                  item.result.subtitle
+                }}</span>
               </span>
             </button>
           </section>
@@ -158,14 +182,14 @@
           <div v-if="!loading && query && results.length === 0" class="quick-launch-empty">
             {{ emptyStateText }}
           </div>
-          <div v-if="loading && results.length === 0" class="quick-launch-empty">
-            正在搜索
-          </div>
+          <div v-if="loading && results.length === 0" class="quick-launch-empty">正在搜索</div>
         </div>
       </UiScrollbar>
 
       <section v-if="previewVisible && activeResult" class="quick-launch-preview">
-        <span class="quick-launch-preview__provider">{{ providerLabels[activeResult.providerId] }}</span>
+        <span class="quick-launch-preview__provider">{{
+          providerLabels[activeResult.providerId]
+        }}</span>
         <span class="quick-launch-preview__content">
           <strong>{{ activeResult.title }}</strong>
           <span v-if="activeResult.subtitle">{{ activeResult.subtitle }}</span>
@@ -202,19 +226,47 @@ const PROVIDER_FILTER_OPTIONS: Array<{
   label: string;
   aliases: string[];
 }> = [
-  { value: 'internal-route', label: '功能', aliases: ['功能', 'gn', 'function', 'functions', 'route', 'routes'] },
-  { value: 'terminal', label: '终端', aliases: ['终端', 'zd', 'zhongduan', 'terminal', 'term', 'shell', 'cmd', 'powershell', 'pwsh'] },
+  {
+    value: 'internal-route',
+    label: '功能',
+    aliases: ['功能', 'gn', 'function', 'functions', 'route', 'routes'],
+  },
+  {
+    value: 'terminal',
+    label: '终端',
+    aliases: ['终端', 'zd', 'zhongduan', 'terminal', 'term', 'shell', 'cmd', 'powershell', 'pwsh'],
+  },
   { value: 'ssh', label: 'SSH', aliases: ['ssh', '连接', 'lj', 'lianjie', 'server', 'remote'] },
-  { value: 'ftp', label: '传输', aliases: ['传输', 'cs', 'chuanshu', 'ftp', 'sftp', 'transfer', 'filetransfer'] },
+  {
+    value: 'ftp',
+    label: '传输',
+    aliases: ['传输', 'cs', 'chuanshu', 'ftp', 'sftp', 'transfer', 'filetransfer'],
+  },
   { value: 'todo', label: '待办', aliases: ['待办', 'db', 'daiban', 'todo', 'task', 'tasks'] },
-  { value: 'knowledge', label: '知识库', aliases: ['知识库', 'zsk', 'zhishiku', 'knowledge', 'kb', 'note', 'notes'] },
-  { value: 'plugin', label: '插件', aliases: ['插件', 'cj', 'chajian', 'plugin', 'plugins', 'extension'] },
-  { value: 'app', label: '应用', aliases: ['应用', 'yy', 'yingyong', 'app', 'apps', 'application'] },
-  { value: 'file', label: '文件', aliases: ['文件', 'wj', 'wenjian', 'file', 'files', 'everything'] },
+  {
+    value: 'knowledge',
+    label: '知识库',
+    aliases: ['知识库', 'zsk', 'zhishiku', 'knowledge', 'kb', 'note', 'notes'],
+  },
+  {
+    value: 'plugin',
+    label: '插件',
+    aliases: ['插件', 'cj', 'chajian', 'plugin', 'plugins', 'extension'],
+  },
+  {
+    value: 'app',
+    label: '应用',
+    aliases: ['应用', 'yy', 'yingyong', 'app', 'apps', 'application'],
+  },
+  {
+    value: 'file',
+    label: '文件',
+    aliases: ['文件', 'wj', 'wenjian', 'file', 'files', 'everything'],
+  },
 ];
 
 const providerLabels = Object.fromEntries(
-  PROVIDER_FILTER_OPTIONS.map((option) => [option.value, option.label]),
+  PROVIDER_FILTER_OPTIONS.map((option) => [option.value, option.label])
 ) as Record<QuickLaunchProviderId, string>;
 
 const QUERY_HISTORY_STORAGE_KEY = 'guyantools.quickLaunch.queryHistory';
@@ -250,7 +302,7 @@ interface QuickLaunchResultSection {
 }
 
 const providerDisplayPriority = new Map<QuickLaunchProviderId, number>(
-  QUICK_LAUNCH_PROVIDER_DISPLAY_ORDER.map((providerId, index) => [providerId, index]),
+  QUICK_LAUNCH_PROVIDER_DISPLAY_ORDER.map((providerId, index) => [providerId, index])
 );
 
 const query = ref('');
@@ -282,16 +334,21 @@ const resultButtonRefs = ref<Array<HTMLElement | null>>([]);
 const resultsScrollbarRef = ref<InstanceType<typeof UiScrollbar> | null>(null);
 const appConfig = ref<AppConfig>(createDefaultAppConfig());
 const api = computed(() => window.quickLaunchApi);
-const selectedProviderFilterOptions = computed(() => (
+const selectedProviderFilterOptions = computed(() =>
   selectedProviderFilters.value
     .map((providerId) => PROVIDER_FILTER_OPTIONS.find((option) => option.value === providerId))
-    .filter((option): option is typeof PROVIDER_FILTER_OPTIONS[number] => Boolean(option))
-));
+    .filter((option): option is (typeof PROVIDER_FILTER_OPTIONS)[number] => Boolean(option))
+);
 const quickLaunchConfig = computed(() => appConfig.value.features.quickLaunch);
-const effectiveMaxResults = computed(() => (
-  Math.max(1, Math.min(50, Math.round(runtimeMaxResults.value ?? quickLaunchConfig.value.maxResults ?? 12)))
-));
-const activeResult = computed(() => historyVisible.value ? null : results.value[activeIndex.value]);
+const effectiveMaxResults = computed(() =>
+  Math.max(
+    1,
+    Math.min(50, Math.round(runtimeMaxResults.value ?? quickLaunchConfig.value.maxResults ?? 12))
+  )
+);
+const activeResult = computed(() =>
+  historyVisible.value ? null : results.value[activeIndex.value]
+);
 const resultSections = computed<QuickLaunchResultSection[]>(() => {
   const sections = new Map<QuickLaunchProviderId, QuickLaunchResultSectionItem[]>();
   results.value.forEach((result, index) => {
@@ -301,29 +358,36 @@ const resultSections = computed<QuickLaunchResultSection[]>(() => {
   });
 
   return Array.from(sections.entries())
-    .sort(([leftProviderId], [rightProviderId]) => providerSortWeight(leftProviderId) - providerSortWeight(rightProviderId))
+    .sort(
+      ([leftProviderId], [rightProviderId]) =>
+        providerSortWeight(leftProviderId) - providerSortWeight(rightProviderId)
+    )
     .map(([providerId, items]) => ({
       providerId,
       title: QUICK_LAUNCH_PROVIDER_SECTION_LABELS[providerId] ?? providerLabels[providerId],
-      statusText: searchPendingProviderIds.value.includes(providerId) ? '搜索中' : `${items.length} 项`,
+      statusText: searchPendingProviderIds.value.includes(providerId)
+        ? '搜索中'
+        : `${items.length} 项`,
       items,
     }));
 });
-const actionTargetResult = computed(() => (
+const actionTargetResult = computed(() =>
   actionPanelOpen.value ? contextPanelTargetResult.value : activeResult.value
-));
-const actionTargetHasPath = computed(() => Boolean(actionTargetResult.value && resultPath(actionTargetResult.value)));
+);
+const actionTargetHasPath = computed(() =>
+  Boolean(actionTargetResult.value && resultPath(actionTargetResult.value))
+);
 const actionTargetIsApp = computed(() => actionTargetResult.value?.providerId === 'app');
 const actionTargetIsFile = computed(() => actionTargetResult.value?.providerId === 'file');
-const actionTargetCanOpenDetached = computed(() => Boolean(actionTargetResult.value && canOpenDetachedWindow(actionTargetResult.value)));
+const actionTargetCanOpenDetached = computed(() =>
+  Boolean(actionTargetResult.value && canOpenDetachedWindow(actionTargetResult.value))
+);
 const contextActions = computed<QuickLaunchContextAction[]>(() => {
   if (!actionTargetResult.value) {
     return [];
   }
 
-  const actions: QuickLaunchContextAction[] = [
-    { id: 'open', label: '打开', shortcut: 'Enter' },
-  ];
+  const actions: QuickLaunchContextAction[] = [{ id: 'open', label: '打开', shortcut: 'Enter' }];
 
   if (actionTargetCanOpenDetached.value) {
     actions.push({ id: 'open-detached-window', label: '在独立窗口打开', shortcut: 'Alt+Enter' });
@@ -360,20 +424,21 @@ const filteredContextActions = computed(() => {
     return contextActions.value;
   }
 
-  return contextActions.value.filter((action) => (
-    normalizeActionPanelQuery(action.label).includes(normalizedQuery)
-    || normalizeActionPanelQuery(action.shortcut).includes(normalizedQuery)
-    || normalizeActionPanelQuery(action.id).includes(normalizedQuery)
-  ));
+  return contextActions.value.filter(
+    (action) =>
+      normalizeActionPanelQuery(action.label).includes(normalizedQuery) ||
+      normalizeActionPanelQuery(action.shortcut).includes(normalizedQuery) ||
+      normalizeActionPanelQuery(action.id).includes(normalizedQuery)
+  );
 });
-const previewTargetText = computed(() => (
+const previewTargetText = computed(() =>
   activeResult.value ? describeActionTarget(activeResult.value) : ''
-));
-const actionPanelTargetLabel = computed(() => (
+);
+const actionPanelTargetLabel = computed(() =>
   contextPanelTargetResult.value
     ? `操作：${contextPanelTargetResult.value.title}`
     : '快速启动操作面板'
-));
+);
 const searchInputPlaceholder = computed(() => {
   if (actionPanelOpen.value) {
     return '在此处输入以搜索操作';
@@ -385,17 +450,22 @@ const searchInputPlaceholder = computed(() => {
 });
 const activeQuickLaunchBackground = computed(() => {
   const config = quickLaunchConfig.value;
-  return resolveThemeBackground({
-    type: config.backgroundType,
-    color: config.backgroundColor,
-    image: config.backgroundImage,
-    video: config.backgroundVideo,
-    backgroundStyle: config.backgroundStyle,
-  }, appConfig.value.appearance.theme);
+  return resolveThemeBackground(
+    {
+      type: config.backgroundType,
+      color: config.backgroundColor,
+      image: config.backgroundImage,
+      video: config.backgroundVideo,
+      backgroundStyle: config.backgroundStyle,
+    },
+    appConfig.value.appearance.theme
+  );
 });
-const hasBackgroundVideo = computed(() => (
-  activeQuickLaunchBackground.value.type === 'video' && Boolean(activeQuickLaunchBackground.value.video)
-));
+const hasBackgroundVideo = computed(
+  () =>
+    activeQuickLaunchBackground.value.type === 'video' &&
+    Boolean(activeQuickLaunchBackground.value.video)
+);
 const backgroundLayerStyle = computed<CSSProperties>(() => {
   const background = activeQuickLaunchBackground.value;
   const style = background.backgroundStyle ?? {};
@@ -446,10 +516,11 @@ const quickLaunchPanelStyle = computed<CSSProperties>(() => {
 });
 const emptyStateText = computed(() => '没有匹配结果');
 const everythingStartPromptVisible = computed(() => Boolean(everythingStartPromptResult.value));
-const everythingStartPromptMessage = computed(() => (
-  everythingStartPromptResult.value?.subtitle
-  || 'Everything 当前未运行。是否现在启动 Everything 并继续搜索本机文件？'
-));
+const everythingStartPromptMessage = computed(
+  () =>
+    everythingStartPromptResult.value?.subtitle ||
+    'Everything 当前未运行。是否现在启动 Everything 并继续搜索本机文件？'
+);
 const searchProgressVisible = computed(() => Boolean(loading.value || searchProgress.value));
 const searchProgressPercent = computed(() => {
   const progress = searchProgress.value;
@@ -655,7 +726,9 @@ async function search() {
     } else {
       results.value = sortQuickLaunchResults(results.value);
     }
-    errors.value = (response?.errors ?? []).map((error) => `${providerLabels[error.providerId]}：${error.message}`);
+    errors.value = (response?.errors ?? []).map(
+      (error) => `${providerLabels[error.providerId]}：${error.message}`
+    );
     syncEverythingStartPrompt(results.value);
     activeIndex.value = 0;
   } catch (error) {
@@ -690,7 +763,9 @@ function handleSearchProgress(progress: QuickLaunchSearchProgressEvent) {
 
   searchProgress.value = progress;
   if (progress.stage === 'provider-completed' && progress.providerId) {
-    searchPendingProviderIds.value = searchPendingProviderIds.value.filter((providerId) => providerId !== progress.providerId);
+    searchPendingProviderIds.value = searchPendingProviderIds.value.filter(
+      (providerId) => providerId !== progress.providerId
+    );
   }
   if (progress.stage === 'completed') {
     searchPendingProviderIds.value = [];
@@ -720,7 +795,7 @@ function handleSearchResults(payload: QuickLaunchSearchResultsEvent) {
 async function execute(
   result: QuickLaunchResult,
   mode: QuickLaunchExecutionMode = 'default',
-  historyQuery = query.value,
+  historyQuery = query.value
 ) {
   if (executing.value) {
     return;
@@ -869,7 +944,8 @@ function providerSortWeight(providerId: QuickLaunchProviderId) {
 
 function sortQuickLaunchResults(items: QuickLaunchResult[]) {
   return [...items].sort((left, right) => {
-    const providerDelta = providerSortWeight(left.providerId) - providerSortWeight(right.providerId);
+    const providerDelta =
+      providerSortWeight(left.providerId) - providerSortWeight(right.providerId);
     if (providerDelta !== 0) {
       return providerDelta;
     }
@@ -905,7 +981,13 @@ function handleKeydown(event: KeyboardEvent) {
   } else if (event.key === 'ArrowLeft') {
     event.preventDefault();
     closeActionPanel();
-  } else if (event.altKey && /^[0-9]$/.test(event.key) && !event.ctrlKey && !event.metaKey && !event.shiftKey) {
+  } else if (
+    event.altKey &&
+    /^[0-9]$/.test(event.key) &&
+    !event.ctrlKey &&
+    !event.metaKey &&
+    !event.shiftKey
+  ) {
     event.preventDefault();
     executeResultByNumber(event.key);
   } else if (event.altKey && event.key === 'Home') {
@@ -1015,10 +1097,10 @@ function cloneQuickLaunchResult(result: QuickLaunchResult): QuickLaunchResult {
   return JSON.parse(JSON.stringify(toRaw(result))) as QuickLaunchResult;
 }
 
-function cloneQuickLaunchExecuteOptions(mode: QuickLaunchExecutionMode): QuickLaunchExecuteOptions | undefined {
-  return mode === 'default'
-    ? undefined
-    : { mode };
+function cloneQuickLaunchExecuteOptions(
+  mode: QuickLaunchExecutionMode
+): QuickLaunchExecuteOptions | undefined {
+  return mode === 'default' ? undefined : { mode };
 }
 
 function cloneQuickLaunchSearchInput(sessionId: string): QuickLaunchSearchInput {
@@ -1046,7 +1128,13 @@ function normalizeActionPanelQuery(value: string) {
 }
 
 function handleActionPanelKeydown(event: KeyboardEvent) {
-  if (event.altKey && /^[0-9]$/.test(event.key) && !event.ctrlKey && !event.metaKey && !event.shiftKey) {
+  if (
+    event.altKey &&
+    /^[0-9]$/.test(event.key) &&
+    !event.ctrlKey &&
+    !event.metaKey &&
+    !event.shiftKey
+  ) {
     event.preventDefault();
     runActionPanelActionByNumber(event.key);
     return true;
@@ -1145,7 +1233,9 @@ function handleHistoryKeydown(event: KeyboardEvent) {
   return false;
 }
 
-function openActionPanel(result: QuickLaunchResult | null = activeResult.value ?? contextPanelTargetResult.value) {
+function openActionPanel(
+  result: QuickLaunchResult | null = activeResult.value ?? contextPanelTargetResult.value
+) {
   if (!result) {
     return;
   }
@@ -1228,7 +1318,10 @@ function runActionPanelActionByNumber(key: string) {
   }
 }
 
-function executeContextTargetResult(mode: QuickLaunchExecutionMode = 'default', historyQuery = actionPanelReturnQuery.value) {
+function executeContextTargetResult(
+  mode: QuickLaunchExecutionMode = 'default',
+  historyQuery = actionPanelReturnQuery.value
+) {
   const result = contextPanelTargetResult.value;
   if (result) {
     void execute(result, mode, historyQuery);
@@ -1240,8 +1333,10 @@ function canOpenDetachedWindow(result: QuickLaunchResult) {
     return true;
   }
 
-  return result.action.type === 'open-route'
-    && ['/terminal', '/ftp', '/todo', '/ai', '/knowledge'].includes(result.action.route.split('?')[0]);
+  return (
+    result.action.type === 'open-route' &&
+    ['/terminal', '/ftp', '/todo', '/ai', '/knowledge'].includes(result.action.route.split('?')[0])
+  );
 }
 
 function moveActionPanelIndex(delta: 1 | -1) {
@@ -1263,7 +1358,8 @@ function moveHistoryIndex(delta: 1 | -1) {
   if (!queryHistory.value.length) {
     return;
   }
-  historyActiveIndex.value = (historyActiveIndex.value + delta + queryHistory.value.length) % queryHistory.value.length;
+  historyActiveIndex.value =
+    (historyActiveIndex.value + delta + queryHistory.value.length) % queryHistory.value.length;
 }
 
 function applyHistoryQuery(index: number) {
@@ -1281,7 +1377,9 @@ function loadQueryHistory() {
   try {
     const value = JSON.parse(localStorage.getItem(QUERY_HISTORY_STORAGE_KEY) || '[]') as unknown;
     queryHistory.value = Array.isArray(value)
-      ? value.filter((item): item is string => typeof item === 'string' && Boolean(item.trim())).slice(0, MAX_QUERY_HISTORY)
+      ? value
+          .filter((item): item is string => typeof item === 'string' && Boolean(item.trim()))
+          .slice(0, MAX_QUERY_HISTORY)
       : [];
   } catch {
     queryHistory.value = [];
@@ -1303,7 +1401,9 @@ function recordQueryHistory(value: string) {
 
 function loadLastActionPanelTarget() {
   try {
-    const value = JSON.parse(localStorage.getItem(ACTION_PANEL_TARGET_STORAGE_KEY) || 'null') as unknown;
+    const value = JSON.parse(
+      localStorage.getItem(ACTION_PANEL_TARGET_STORAGE_KEY) || 'null'
+    ) as unknown;
     if (isQuickLaunchResultLike(value)) {
       contextPanelTargetResult.value = value;
     }
@@ -1313,17 +1413,22 @@ function loadLastActionPanelTarget() {
 }
 
 function saveLastActionPanelTarget(result: QuickLaunchResult) {
-  localStorage.setItem(ACTION_PANEL_TARGET_STORAGE_KEY, JSON.stringify(cloneQuickLaunchResult(result)));
+  localStorage.setItem(
+    ACTION_PANEL_TARGET_STORAGE_KEY,
+    JSON.stringify(cloneQuickLaunchResult(result))
+  );
 }
 
 function isQuickLaunchResultLike(value: unknown): value is QuickLaunchResult {
-  return Boolean(value)
-    && typeof value === 'object'
-    && typeof (value as QuickLaunchResult).id === 'string'
-    && typeof (value as QuickLaunchResult).providerId === 'string'
-    && typeof (value as QuickLaunchResult).title === 'string'
-    && Boolean((value as QuickLaunchResult).action)
-    && typeof (value as QuickLaunchResult).action === 'object';
+  return (
+    Boolean(value) &&
+    typeof value === 'object' &&
+    typeof (value as QuickLaunchResult).id === 'string' &&
+    typeof (value as QuickLaunchResult).providerId === 'string' &&
+    typeof (value as QuickLaunchResult).title === 'string' &&
+    Boolean((value as QuickLaunchResult).action) &&
+    typeof (value as QuickLaunchResult).action === 'object'
+  );
 }
 
 async function loadGameModeStatus() {
@@ -1367,7 +1472,10 @@ function moveActiveIndexByPage(direction: 1 | -1) {
     return;
   }
   const pageSize = Math.max(1, Math.min(results.value.length, effectiveMaxResults.value || 8));
-  activeIndex.value = Math.max(0, Math.min(results.value.length - 1, activeIndex.value + (direction * pageSize)));
+  activeIndex.value = Math.max(
+    0,
+    Math.min(results.value.length - 1, activeIndex.value + direction * pageSize)
+  );
 }
 
 function adjustRuntimeMaxResults(delta: 1 | -1) {
@@ -1459,7 +1567,10 @@ function scrollActiveResultIntoView() {
 }
 
 function normalizeProviderAlias(value: string) {
-  return value.trim().toLocaleLowerCase().replace(/[\s_-]+/g, '');
+  return value
+    .trim()
+    .toLocaleLowerCase()
+    .replace(/[\s_-]+/g, '');
 }
 
 function findProviderFilterByAlias(value: string) {
@@ -1468,10 +1579,11 @@ function findProviderFilterByAlias(value: string) {
     return undefined;
   }
 
-  return PROVIDER_FILTER_OPTIONS.find((option) => (
-    normalizeProviderAlias(option.label) === normalized
-    || option.aliases.some((alias) => normalizeProviderAlias(alias) === normalized)
-  ));
+  return PROVIDER_FILTER_OPTIONS.find(
+    (option) =>
+      normalizeProviderAlias(option.label) === normalized ||
+      option.aliases.some((alias) => normalizeProviderAlias(alias) === normalized)
+  );
 }
 
 function commitProviderFilterFromQuery() {
@@ -1490,7 +1602,9 @@ function commitProviderFilterFromQuery() {
 }
 
 function removeProviderFilter(providerId: QuickLaunchProviderId) {
-  selectedProviderFilters.value = selectedProviderFilters.value.filter((item) => item !== providerId);
+  selectedProviderFilters.value = selectedProviderFilters.value.filter(
+    (item) => item !== providerId
+  );
   void nextTick(() => inputRef.value?.focus());
 }
 
@@ -1509,9 +1623,7 @@ function toObjectFit(backgroundSizeValue: string): 'contain' | 'cover' | 'fill' 
 }
 
 function clampUnit(value: number | undefined, fallback: number, min = 0) {
-  return Number.isFinite(value)
-    ? Math.max(min, Math.min(1, Number(value)))
-    : fallback;
+  return Number.isFinite(value) ? Math.max(min, Math.min(1, Number(value))) : fallback;
 }
 
 function toPercent(value: number) {
@@ -1531,7 +1643,13 @@ function formatError(error: unknown) {
   margin: 0;
   background: transparent;
   overflow: hidden;
-  font-family: 'Geist Variable', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  font-family:
+    'Geist Variable',
+    system-ui,
+    -apple-system,
+    BlinkMacSystemFont,
+    'Segoe UI',
+    sans-serif;
 }
 
 :global(*) {
@@ -1852,7 +1970,10 @@ function formatError(error: unknown) {
 }
 
 .quick-launch-result__subtitle {
-  color: var(--quick-launch-result-subtitle-color, color-mix(in srgb, var(--quick-launch-text-color, #667385) 68%, transparent));
+  color: var(
+    --quick-launch-result-subtitle-color,
+    color-mix(in srgb, var(--quick-launch-text-color, #667385) 68%, transparent)
+  );
   font-size: 12px;
 }
 
@@ -1954,11 +2075,7 @@ function formatError(error: unknown) {
 }
 
 .quick-launch-everything-prompt__button--primary {
-  border-color: color-mix(
-    in srgb,
-    var(--quick-launch-selection-color, #3b82f6) 42%,
-    transparent
-  );
+  border-color: color-mix(in srgb, var(--quick-launch-selection-color, #3b82f6) 42%, transparent);
   background: color-mix(
     in srgb,
     var(--quick-launch-selection-color, #3b82f6) 14%,
@@ -2013,11 +2130,7 @@ function formatError(error: unknown) {
   display: block;
   height: 100%;
   border-radius: inherit;
-  background: color-mix(
-    in srgb,
-    var(--quick-launch-selection-color, #3b82f6) 70%,
-    #ffffff 10%
-  );
+  background: color-mix(in srgb, var(--quick-launch-selection-color, #3b82f6) 70%, #ffffff 10%);
   box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.16) inset;
   transition: width 180ms cubic-bezier(0.16, 1, 0.3, 1);
 }
@@ -2117,11 +2230,7 @@ function formatError(error: unknown) {
   height: 28px;
   padding: 0 9px;
   border-radius: 6px;
-  background: color-mix(
-    in srgb,
-    var(--quick-launch-selection-color, #3b82f6) 12%,
-    transparent
-  );
+  background: color-mix(in srgb, var(--quick-launch-selection-color, #3b82f6) 12%, transparent);
   color: var(--quick-launch-selection-color, #24568f);
   font-size: 12px;
   font-weight: 700;

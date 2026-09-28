@@ -1,15 +1,7 @@
 import type { BackgroundStyleConfig, BackgroundType } from './background';
 
 export type QuickLaunchProviderId =
-  | 'internal-route'
-  | 'terminal'
-  | 'ssh'
-  | 'ftp'
-  | 'todo'
-  | 'knowledge'
-  | 'plugin'
-  | 'app'
-  | 'file';
+  'internal-route' | 'terminal' | 'ssh' | 'ftp' | 'todo' | 'knowledge' | 'plugin' | 'app' | 'file';
 
 export const QUICK_LAUNCH_PROVIDER_DISPLAY_ORDER: QuickLaunchProviderId[] = [
   'app',
@@ -127,11 +119,7 @@ export interface QuickLaunchSearchResponse {
 }
 
 export type QuickLaunchSearchProgressStage =
-  | 'started'
-  | 'provider-started'
-  | 'provider-completed'
-  | 'ranking'
-  | 'completed';
+  'started' | 'provider-started' | 'provider-completed' | 'ranking' | 'completed';
 
 export interface QuickLaunchSearchProgressEvent {
   sessionId: string;
