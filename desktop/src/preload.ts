@@ -13,7 +13,10 @@ import type { AppConfigApi } from '@/contracts/app_config';
 import type { SyncApi, SyncEvent } from '@/contracts/sync';
 import type { ShortcutsApi } from '@/contracts/shortcuts';
 import type { QuickLaunchApi } from '@/contracts/quick_launch';
-import type { WorkspaceWindowApi, WorkspaceDetachedWindowState } from '@/contracts/workspace_window';
+import type {
+  WorkspaceWindowApi,
+  WorkspaceDetachedWindowState,
+} from '@/contracts/workspace_window';
 import type { AiApi, AiCanvasPreviewPayload, AiResearchEvent, AiStreamEvent } from '@/contracts/ai';
 import type { PluginHostApi } from '@/contracts/plugin_host';
 import type { NotificationApi, NotificationPayload } from '@/contracts/notification';
@@ -46,7 +49,13 @@ import type {
   ResizeTerminalSessionPayload,
   TerminalEventEnvelope,
 } from '@/contracts/terminal';
-import type { AndroidToolsApi, AndroidDeviceEvent, AndroidSessionEvent, AndroidToolchainDownloadProgress, AndroidInputApi } from '@/contracts/android-tools';
+import type {
+  AndroidToolsApi,
+  AndroidDeviceEvent,
+  AndroidSessionEvent,
+  AndroidToolchainDownloadProgress,
+  AndroidInputApi,
+} from '@/contracts/android-tools';
 import type {
   SshApi,
   ConnectSshInput,
@@ -79,7 +88,8 @@ contextBridge.exposeInMainWorld('ipcRenderer', {
     ipcRenderer.send(channel, ...args);
   },
   on: (channel: string, listener: (...args: any[]) => void) => {
-    const wrappedListener = (_event: Electron.IpcRendererEvent, ...args: any[]) => listener(...args);
+    const wrappedListener = (_event: Electron.IpcRendererEvent, ...args: any[]) =>
+      listener(...args);
     ipcRenderer.on(channel, wrappedListener);
     return () => ipcRenderer.removeListener(channel, wrappedListener);
   },
@@ -99,8 +109,7 @@ contextBridge.exposeInMainWorld('homeLayoutApi', {
     ipcRenderer.invoke('home-layout:create-widget', input),
   updateWidget: (widgetId: string, input: UpdateHomeWidgetPayload) =>
     ipcRenderer.invoke('home-layout:update-widget', widgetId, input),
-  deleteWidget: (widgetId: string) =>
-    ipcRenderer.invoke('home-layout:delete-widget', widgetId),
+  deleteWidget: (widgetId: string) => ipcRenderer.invoke('home-layout:delete-widget', widgetId),
   importLegacyLayout: (input: ImportHomeLayoutPayload) =>
     ipcRenderer.invoke('home-layout:import-layout', input),
   saveMedia: (input: HomeLayoutMediaPayload) => ipcRenderer.invoke('home-layout:save-media', input),
@@ -111,7 +120,8 @@ const homeProfileApi: HomeProfileApi = {
   getActiveProfileKey: () => ipcRenderer.invoke('home-profile:get-active'),
   setActiveProfile: (key: string) => ipcRenderer.invoke('home-profile:set-active', key),
   createProfile: (input: { name: string }) => ipcRenderer.invoke('home-profile:create', input),
-  renameProfile: (key: string, name: string) => ipcRenderer.invoke('home-profile:rename', key, name),
+  renameProfile: (key: string, name: string) =>
+    ipcRenderer.invoke('home-profile:rename', key, name),
   deleteProfile: (key: string) => ipcRenderer.invoke('home-profile:delete', key),
 };
 contextBridge.exposeInMainWorld('homeProfileApi', homeProfileApi);
@@ -121,40 +131,64 @@ const pluginHostApi: PluginHostApi = {
   listPlugins: () => ipcRenderer.invoke('plugin-host:list-plugins'),
   listPages: () => ipcRenderer.invoke('plugin-host:list-pages'),
   listContributions: () => ipcRenderer.invoke('plugin-host:list-contributions'),
-  listAuditEvents: (pluginId?: string) => ipcRenderer.invoke('plugin-host:list-audit-events', pluginId),
+  listAuditEvents: (pluginId?: string) =>
+    ipcRenderer.invoke('plugin-host:list-audit-events', pluginId),
   getPermissionCopy: () => ipcRenderer.invoke('plugin-host:get-permission-copy'),
-  getPluginDebugInfo: (pluginId: string) => ipcRenderer.invoke('plugin-host:get-plugin-debug-info', pluginId),
-  getPluginSettings: (pluginId: string) => ipcRenderer.invoke('plugin-host:get-plugin-settings', pluginId),
-  setPluginSetting: (pluginId: string, key: string, value: unknown) => ipcRenderer.invoke('plugin-host:set-plugin-setting', pluginId, key, value),
+  getPluginDebugInfo: (pluginId: string) =>
+    ipcRenderer.invoke('plugin-host:get-plugin-debug-info', pluginId),
+  getPluginSettings: (pluginId: string) =>
+    ipcRenderer.invoke('plugin-host:get-plugin-settings', pluginId),
+  setPluginSetting: (pluginId: string, key: string, value: unknown) =>
+    ipcRenderer.invoke('plugin-host:set-plugin-setting', pluginId, key, value),
   listPluginJobs: (pluginId) => ipcRenderer.invoke('plugin-host:list-jobs', pluginId),
-  installPluginFromPackage: (packageName: string, approvedPermissions?: import('@/contracts/plugin_host').PluginPermission[]) =>
-    ipcRenderer.invoke('plugin-host:install-package', packageName, approvedPermissions),
-  registerLocalPlugin: (inputPath: string, approvedPermissions?: import('@/contracts/plugin_host').PluginPermission[]) =>
-    ipcRenderer.invoke('plugin-host:register-local', inputPath, approvedPermissions),
-  approvePermissions: (pluginId: string, approvedPermissions: import('@/contracts/plugin_host').PluginPermission[]) =>
-    ipcRenderer.invoke('plugin-host:approve-permissions', pluginId, approvedPermissions),
+  installPluginFromPackage: (
+    packageName: string,
+    approvedPermissions?: import('@/contracts/plugin_host').PluginPermission[]
+  ) => ipcRenderer.invoke('plugin-host:install-package', packageName, approvedPermissions),
+  registerLocalPlugin: (
+    inputPath: string,
+    approvedPermissions?: import('@/contracts/plugin_host').PluginPermission[]
+  ) => ipcRenderer.invoke('plugin-host:register-local', inputPath, approvedPermissions),
+  approvePermissions: (
+    pluginId: string,
+    approvedPermissions: import('@/contracts/plugin_host').PluginPermission[]
+  ) => ipcRenderer.invoke('plugin-host:approve-permissions', pluginId, approvedPermissions),
   enablePlugin: (pluginId: string) => ipcRenderer.invoke('plugin-host:enable', pluginId),
   disablePlugin: (pluginId: string) => ipcRenderer.invoke('plugin-host:disable', pluginId),
-  mountPage: (pluginId, pageId, bounds) => ipcRenderer.invoke('plugin-host:mount-page', pluginId, pageId, bounds),
+  mountPage: (pluginId, pageId, bounds) =>
+    ipcRenderer.invoke('plugin-host:mount-page', pluginId, pageId, bounds),
   updateMountedPageBounds: (bounds) => ipcRenderer.invoke('plugin-host:update-page-bounds', bounds),
-  unmountPage: (pluginId?: string, pageId?: string) => ipcRenderer.invoke('plugin-host:unmount-page', pluginId, pageId),
+  unmountPage: (pluginId?: string, pageId?: string) =>
+    ipcRenderer.invoke('plugin-host:unmount-page', pluginId, pageId),
   listMarketplaces: () => ipcRenderer.invoke('plugin-host:marketplaces:list'),
   refreshMarketplace: (input) => ipcRenderer.invoke('plugin-host:marketplaces:refresh', input),
   searchMarketplace: (query) => ipcRenderer.invoke('plugin-host:marketplaces:search', query),
   onInstallProgress: (listener) => {
-    const handler = (_event: Electron.IpcRendererEvent, progress: import('@/contracts/plugin_host').PluginInstallProgress) => listener(progress);
+    const handler = (
+      _event: Electron.IpcRendererEvent,
+      progress: import('@/contracts/plugin_host').PluginInstallProgress
+    ) => listener(progress);
     ipcRenderer.on('plugin-host:install-progress', handler);
     return () => ipcRenderer.removeListener('plugin-host:install-progress', handler);
   },
   installFromGit: (input) => ipcRenderer.invoke('plugin-host:install-git', input),
-  installFromMarketplace: (marketplaceId, pluginId, approvedPermissions) => ipcRenderer.invoke('plugin-host:install-marketplace', marketplaceId, pluginId, approvedPermissions),
-  updatePlugin: (pluginId, approvedPermissions) => ipcRenderer.invoke('plugin-host:update', pluginId, approvedPermissions),
+  installFromMarketplace: (marketplaceId, pluginId, approvedPermissions) =>
+    ipcRenderer.invoke(
+      'plugin-host:install-marketplace',
+      marketplaceId,
+      pluginId,
+      approvedPermissions
+    ),
+  updatePlugin: (pluginId, approvedPermissions) =>
+    ipcRenderer.invoke('plugin-host:update', pluginId, approvedPermissions),
   rollbackPlugin: (pluginId) => ipcRenderer.invoke('plugin-host:rollback', pluginId),
   uninstallPlugin: (pluginId) => ipcRenderer.invoke('plugin-host:uninstall', pluginId),
   listDevSessions: () => ipcRenderer.invoke('plugin-host:dev-sessions:list'),
   connectDevSession: (session) => ipcRenderer.invoke('plugin-host:dev-sessions:connect', session),
-  connectDevSessionFromFile: (rootPath) => ipcRenderer.invoke('plugin-host:dev-sessions:connect-file', rootPath),
-  disconnectDevSession: (pluginId) => ipcRenderer.invoke('plugin-host:dev-sessions:disconnect', pluginId),
+  connectDevSessionFromFile: (rootPath) =>
+    ipcRenderer.invoke('plugin-host:dev-sessions:connect-file', rootPath),
+  disconnectDevSession: (pluginId) =>
+    ipcRenderer.invoke('plugin-host:dev-sessions:disconnect', pluginId),
 };
 
 const appConfigApi: AppConfigApi = {
@@ -163,7 +197,10 @@ const appConfigApi: AppConfigApi = {
   listLocalFonts: () => ipcRenderer.invoke('app-config:list-fonts'),
   listNetworkInterfaces: () => ipcRenderer.invoke('app-config:list-network-interfaces'),
   onDidChange: (listener) => {
-    const wrappedListener = (_event: Electron.IpcRendererEvent, config: Awaited<ReturnType<AppConfigApi['getConfig']>>) => listener(config);
+    const wrappedListener = (
+      _event: Electron.IpcRendererEvent,
+      config: Awaited<ReturnType<AppConfigApi['getConfig']>>
+    ) => listener(config);
     ipcRenderer.on('app-config:changed', wrappedListener);
     return () => ipcRenderer.removeListener('app-config:changed', wrappedListener);
   },
@@ -187,7 +224,8 @@ const syncApi: SyncApi = {
   listPendingItems: () => ipcRenderer.invoke('sync:list-pending-items'),
   getProviderConfig: () => ipcRenderer.invoke('sync:get-provider-config'),
   updateWebDavConfig: (payload) => ipcRenderer.invoke('sync:update-webdav-config', payload),
-  updateSyncServerConfig: (payload) => ipcRenderer.invoke('sync:update-sync-server-config', payload),
+  updateSyncServerConfig: (payload) =>
+    ipcRenderer.invoke('sync:update-sync-server-config', payload),
   loginSyncServer: (payload) => ipcRenderer.invoke('sync:login-sync-server', payload),
   logoutSyncServer: () => ipcRenderer.invoke('sync:logout-sync-server'),
   testConnection: () => ipcRenderer.invoke('sync:test-connection'),
@@ -197,7 +235,8 @@ const syncApi: SyncApi = {
   resolveConflict: (conflictId, resolution) =>
     ipcRenderer.invoke('sync:resolve-conflict', conflictId, resolution),
   onEvent: (listener) => {
-    const wrappedListener = (_event: Electron.IpcRendererEvent, payload: SyncEvent) => listener(payload);
+    const wrappedListener = (_event: Electron.IpcRendererEvent, payload: SyncEvent) =>
+      listener(payload);
     ipcRenderer.on('sync:event', wrappedListener);
     return () => ipcRenderer.removeListener('sync:event', wrappedListener);
   },
@@ -216,12 +255,18 @@ const quickLaunchApi: QuickLaunchApi = {
   close: () => ipcRenderer.invoke('quick-launch:close'),
   notifyReady: () => ipcRenderer.invoke('quick-launch:renderer-ready'),
   onSearchProgress: (listener) => {
-    const wrappedListener = (_event: Electron.IpcRendererEvent, progress: Parameters<typeof listener>[0]) => listener(progress);
+    const wrappedListener = (
+      _event: Electron.IpcRendererEvent,
+      progress: Parameters<typeof listener>[0]
+    ) => listener(progress);
     ipcRenderer.on('quick-launch:search-progress', wrappedListener);
     return () => ipcRenderer.removeListener('quick-launch:search-progress', wrappedListener);
   },
   onSearchResults: (listener) => {
-    const wrappedListener = (_event: Electron.IpcRendererEvent, payload: Parameters<typeof listener>[0]) => listener(payload);
+    const wrappedListener = (
+      _event: Electron.IpcRendererEvent,
+      payload: Parameters<typeof listener>[0]
+    ) => listener(payload);
     ipcRenderer.on('quick-launch:search-results', wrappedListener);
     return () => ipcRenderer.removeListener('quick-launch:search-results', wrappedListener);
   },
@@ -240,14 +285,18 @@ const quickLaunchApi: QuickLaunchApi = {
 contextBridge.exposeInMainWorld('quickLaunchApi', quickLaunchApi);
 
 const workspaceWindowApi: WorkspaceWindowApi = {
-  openDetached: (key, options) => ipcRenderer.invoke('workspace-window:open-detached', key, options),
+  openDetached: (key, options) =>
+    ipcRenderer.invoke('workspace-window:open-detached', key, options),
   returnToMain: (key) => ipcRenderer.invoke('workspace-window:return-to-main', key),
   getState: () => ipcRenderer.invoke('workspace-window:get-state'),
   getContext: () => ipcRenderer.invoke('workspace-window:get-context'),
   getPageState: (key) => ipcRenderer.invoke('workspace-window:get-page-state', key),
   setPageState: (key, state) => ipcRenderer.invoke('workspace-window:set-page-state', key, state),
   onStateChanged: (listener) => {
-    const wrappedListener = (_event: Electron.IpcRendererEvent, state: WorkspaceDetachedWindowState) => listener(state);
+    const wrappedListener = (
+      _event: Electron.IpcRendererEvent,
+      state: WorkspaceDetachedWindowState
+    ) => listener(state);
     ipcRenderer.on('workspace-window:state-changed', wrappedListener);
     return () => ipcRenderer.removeListener('workspace-window:state-changed', wrappedListener);
   },
@@ -283,18 +332,23 @@ const aiApi: AiApi = {
   sendMessage: (input) => ipcRenderer.invoke('ai:send-message', input),
   regenerateMessage: (input) => ipcRenderer.invoke('ai:regenerate-message', input),
   stopRun: (runId) => ipcRenderer.invoke('ai:stop-run', runId),
-  getKnowledgeEmbeddingStats: (input) => ipcRenderer.invoke('ai:get-knowledge-embedding-stats', input),
-  rebuildKnowledgeEmbeddings: (input) => ipcRenderer.invoke('ai:rebuild-knowledge-embeddings', input),
-  listCanvasWorkspaces: (conversationId) => ipcRenderer.invoke('ai:list-canvas-workspaces', conversationId),
+  getKnowledgeEmbeddingStats: (input) =>
+    ipcRenderer.invoke('ai:get-knowledge-embedding-stats', input),
+  rebuildKnowledgeEmbeddings: (input) =>
+    ipcRenderer.invoke('ai:rebuild-knowledge-embeddings', input),
+  listCanvasWorkspaces: (conversationId) =>
+    ipcRenderer.invoke('ai:list-canvas-workspaces', conversationId),
   createCanvasWorkspace: (input) => ipcRenderer.invoke('ai:create-canvas-workspace', input),
   updateCanvasWorkspace: (id, input) => ipcRenderer.invoke('ai:update-canvas-workspace', id, input),
   deleteCanvasWorkspace: (id) => ipcRenderer.invoke('ai:delete-canvas-workspace', id),
   listCanvasFiles: (workspaceId) => ipcRenderer.invoke('ai:list-canvas-files', workspaceId),
   upsertCanvasFile: (input) => ipcRenderer.invoke('ai:upsert-canvas-file', input),
-  deleteCanvasFile: (workspaceId, path) => ipcRenderer.invoke('ai:delete-canvas-file', workspaceId, path),
+  deleteCanvasFile: (workspaceId, path) =>
+    ipcRenderer.invoke('ai:delete-canvas-file', workspaceId, path),
   listCanvasVersions: (workspaceId) => ipcRenderer.invoke('ai:list-canvas-versions', workspaceId),
   createCanvasVersion: (input) => ipcRenderer.invoke('ai:create-canvas-version', input),
-  listCanvasOperations: (workspaceId) => ipcRenderer.invoke('ai:list-canvas-operations', workspaceId),
+  listCanvasOperations: (workspaceId) =>
+    ipcRenderer.invoke('ai:list-canvas-operations', workspaceId),
   updateCanvasOperation: (id, input) => ipcRenderer.invoke('ai:update-canvas-operation', id, input),
   applyCanvasOperation: (id) => ipcRenderer.invoke('ai:apply-canvas-operation', id),
   rejectCanvasOperation: (id) => ipcRenderer.invoke('ai:reject-canvas-operation', id),
@@ -306,12 +360,14 @@ const aiApi: AiApi = {
   retryResearch: (input) => ipcRenderer.invoke('ai:retry-research', input),
   cancelResearch: (jobId) => ipcRenderer.invoke('ai:cancel-research', jobId),
   onStreamEvent: (listener) => {
-    const wrappedListener = (_event: Electron.IpcRendererEvent, payload: AiStreamEvent) => listener(payload);
+    const wrappedListener = (_event: Electron.IpcRendererEvent, payload: AiStreamEvent) =>
+      listener(payload);
     ipcRenderer.on('ai:stream-event', wrappedListener);
     return () => ipcRenderer.removeListener('ai:stream-event', wrappedListener);
   },
   onResearchEvent: (listener) => {
-    const wrappedListener = (_event: Electron.IpcRendererEvent, payload: AiResearchEvent) => listener(payload);
+    const wrappedListener = (_event: Electron.IpcRendererEvent, payload: AiResearchEvent) =>
+      listener(payload);
     ipcRenderer.on('ai:research-event', wrappedListener);
     return () => ipcRenderer.removeListener('ai:research-event', wrappedListener);
   },
@@ -320,7 +376,8 @@ contextBridge.exposeInMainWorld('aiApi', aiApi);
 
 contextBridge.exposeInMainWorld('aiCanvasPreviewWindowApi', {
   onPayload: (listener: (payload: AiCanvasPreviewPayload) => void) => {
-    const wrappedListener = (_event: Electron.IpcRendererEvent, payload: AiCanvasPreviewPayload) => listener(payload);
+    const wrappedListener = (_event: Electron.IpcRendererEvent, payload: AiCanvasPreviewPayload) =>
+      listener(payload);
     ipcRenderer.on('ai:canvas-preview-payload', wrappedListener);
     return () => ipcRenderer.removeListener('ai:canvas-preview-payload', wrappedListener);
   },
@@ -333,24 +390,33 @@ contextBridge.exposeInMainWorld('notificationApi', notificationApi);
 
 const screenshotApi: ScreenshotApi = {
   startCapture: (input) => ipcRenderer.invoke('screenshot:start-capture', input),
-  recognizeImage: (image, options) => ipcRenderer.invoke('screenshot:recognize-image', image, options),
+  recognizeImage: (image, options) =>
+    ipcRenderer.invoke('screenshot:recognize-image', image, options),
   saveCaptureToKnowledge: (result) => ipcRenderer.invoke('screenshot:save-to-knowledge', result),
   createAiAttachment: (result) => ipcRenderer.invoke('screenshot:create-ai-attachment', result),
-  captureRegion: (region, displayId) => ipcRenderer.invoke('screenshot:capture-region', region, displayId),
+  captureRegion: (region, displayId) =>
+    ipcRenderer.invoke('screenshot:capture-region', region, displayId),
   completeOverlayCapture: (result) => ipcRenderer.invoke('screenshot-overlay:complete', result),
   closeOverlay: () => ipcRenderer.invoke('screenshot-overlay:close'),
   onCaptureOptions: (listener) => {
-    const wrappedListener = (_event: Electron.IpcRendererEvent, payload: ScreenshotOverlayPayload) => listener(payload);
+    const wrappedListener = (
+      _event: Electron.IpcRendererEvent,
+      payload: ScreenshotOverlayPayload
+    ) => listener(payload);
     ipcRenderer.on('screenshot:capture-options', wrappedListener);
     return () => ipcRenderer.removeListener('screenshot:capture-options', wrappedListener);
   },
   onCaptureResult: (listener) => {
-    const wrappedListener = (_event: Electron.IpcRendererEvent, payload: Parameters<typeof listener>[0]) => listener(payload);
+    const wrappedListener = (
+      _event: Electron.IpcRendererEvent,
+      payload: Parameters<typeof listener>[0]
+    ) => listener(payload);
     ipcRenderer.on('screenshot:capture-result', wrappedListener);
     return () => ipcRenderer.removeListener('screenshot:capture-result', wrappedListener);
   },
   saveToClipboard: (pngBase64) => ipcRenderer.invoke('screenshot:save-to-clipboard', pngBase64),
-  saveToFile: (pngBase64, defaultName) => ipcRenderer.invoke('screenshot:save-to-file', pngBase64, defaultName),
+  saveToFile: (pngBase64, defaultName) =>
+    ipcRenderer.invoke('screenshot:save-to-file', pngBase64, defaultName),
   detectWindows: () => ipcRenderer.invoke('screenshot:detect-windows'),
   performOcr: (pngBase64) => ipcRenderer.invoke('screenshot:ocr', pngBase64),
   pickColor: (x, y, displayId) => ipcRenderer.invoke('screenshot:pick-color', x, y, displayId),
@@ -364,7 +430,10 @@ const pinImageApi: import('@/contracts/pin_image').PinImageApi = {
   setOpacity: (pinId, opacity) => ipcRenderer.invoke('pin-image:set-opacity', pinId, opacity),
   list: () => ipcRenderer.invoke('pin-image:list'),
   onImagePayload: (listener) => {
-    const wrappedListener = (_event: Electron.IpcRendererEvent, payload: { pinId: number; pngBase64: string }) => listener(payload);
+    const wrappedListener = (
+      _event: Electron.IpcRendererEvent,
+      payload: { pinId: number; pngBase64: string }
+    ) => listener(payload);
     ipcRenderer.on('pin-image:payload', wrappedListener);
     return () => ipcRenderer.removeListener('pin-image:payload', wrappedListener);
   },
@@ -381,7 +450,10 @@ const updateApi: UpdateApi = {
   install: () => ipcRenderer.invoke('updater:install'),
   openReleasePage: () => ipcRenderer.invoke('updater:open-release-page'),
   onEvent: (listener) => {
-    const wrappedListener = (_event: Electron.IpcRendererEvent, payload: Awaited<ReturnType<UpdateApi['getStatus']>>) => listener(payload);
+    const wrappedListener = (
+      _event: Electron.IpcRendererEvent,
+      payload: Awaited<ReturnType<UpdateApi['getStatus']>>
+    ) => listener(payload);
     ipcRenderer.on('updater:event', wrappedListener);
     return () => ipcRenderer.removeListener('updater:event', wrappedListener);
   },
@@ -395,8 +467,10 @@ const shellApi: ShellApi = {
   selectFile: (options?: SelectFileOptions) => ipcRenderer.invoke('shell:select-file', options),
   saveFile: (options?: SaveFileOptions) => ipcRenderer.invoke('shell:save-file', options),
   selectDirectory: (title?: string) => ipcRenderer.invoke('shell:select-directory', title),
-  readTextFile: (path: string, maxBytes?: number) => ipcRenderer.invoke('shell:read-text-file', path, maxBytes),
-  writeTextFile: (path: string, content: string) => ipcRenderer.invoke('shell:write-text-file', path, content),
+  readTextFile: (path: string, maxBytes?: number) =>
+    ipcRenderer.invoke('shell:read-text-file', path, maxBytes),
+  writeTextFile: (path: string, content: string) =>
+    ipcRenderer.invoke('shell:write-text-file', path, content),
   readClipboardText: () => ipcRenderer.invoke('shell:clipboard-read-text'),
   writeClipboardText: (text: string) => ipcRenderer.invoke('shell:clipboard-write-text', text),
   readClipboardPaths: () => ipcRenderer.invoke('shell:clipboard-read-paths'),
@@ -411,18 +485,22 @@ contextBridge.exposeInMainWorld('tabPreviewApi', tabPreviewApi);
 const todoApi: TodoApi = {
   getAllLists: () => ipcRenderer.invoke('todo:get-all-lists'),
   createList: (input: CreateTodoListPayload) => ipcRenderer.invoke('todo:create-list', input),
-  updateList: (listId: string, input: UpdateTodoListPayload) => ipcRenderer.invoke('todo:update-list', listId, input),
+  updateList: (listId: string, input: UpdateTodoListPayload) =>
+    ipcRenderer.invoke('todo:update-list', listId, input),
   deleteList: (listId: string) => ipcRenderer.invoke('todo:delete-list', listId),
   reorderLists: (ids: string[]) => ipcRenderer.invoke('todo:reorder-lists', ids),
 
   createTodo: (input: CreateTodoPayload) => ipcRenderer.invoke('todo:create-todo', input),
-  updateTodo: (todoId: string, input: UpdateTodoPayload) => ipcRenderer.invoke('todo:update-todo', todoId, input),
+  updateTodo: (todoId: string, input: UpdateTodoPayload) =>
+    ipcRenderer.invoke('todo:update-todo', todoId, input),
   deleteTodo: (todoId: string) => ipcRenderer.invoke('todo:delete-todo', todoId),
   completeTodo: (todoId: string) => ipcRenderer.invoke('todo:complete-todo', todoId),
   uncompleteTodo: (todoId: string) => ipcRenderer.invoke('todo:uncomplete-todo', todoId),
-  getTodosByList: (listId: string, includeCompleted: boolean) => ipcRenderer.invoke('todo:get-by-list', listId, includeCompleted),
+  getTodosByList: (listId: string, includeCompleted: boolean) =>
+    ipcRenderer.invoke('todo:get-by-list', listId, includeCompleted),
   searchTodos: (query: string) => ipcRenderer.invoke('todo:search', query),
-  moveTodo: (todoId: string, targetListId: string) => ipcRenderer.invoke('todo:move', todoId, targetListId),
+  moveTodo: (todoId: string, targetListId: string) =>
+    ipcRenderer.invoke('todo:move', todoId, targetListId),
 
   getMyDayTodos: (date: string) => ipcRenderer.invoke('todo:get-my-day', date),
   getImportantTodos: () => ipcRenderer.invoke('todo:get-important'),
@@ -430,17 +508,21 @@ const todoApi: TodoApi = {
   getAllTodos: () => ipcRenderer.invoke('todo:get-all'),
   getCompletedTodos: () => ipcRenderer.invoke('todo:get-completed'),
 
-  addToMyDay: (todoId: string, date: string) => ipcRenderer.invoke('todo:add-to-my-day', todoId, date),
+  addToMyDay: (todoId: string, date: string) =>
+    ipcRenderer.invoke('todo:add-to-my-day', todoId, date),
   removeFromMyDay: (todoId: string) => ipcRenderer.invoke('todo:remove-from-my-day', todoId),
-  getYesterdayIncomplete: (today: string) => ipcRenderer.invoke('todo:get-yesterday-incomplete', today),
+  getYesterdayIncomplete: (today: string) =>
+    ipcRenderer.invoke('todo:get-yesterday-incomplete', today),
   getMyDaySuggestions: (today: string) => ipcRenderer.invoke('todo:get-my-day-suggestions', today),
 
   createStep: (input: CreateTodoStepPayload) => ipcRenderer.invoke('todo:create-step', input),
-  updateStep: (stepId: string, input: UpdateTodoStepPayload) => ipcRenderer.invoke('todo:update-step', stepId, input),
+  updateStep: (stepId: string, input: UpdateTodoStepPayload) =>
+    ipcRenderer.invoke('todo:update-step', stepId, input),
   deleteStep: (stepId: string) => ipcRenderer.invoke('todo:delete-step', stepId),
   reorderSteps: (ids: string[]) => ipcRenderer.invoke('todo:reorder-steps', ids),
 
-  createReminder: (input: CreateTodoReminderPayload) => ipcRenderer.invoke('todo:create-reminder', input),
+  createReminder: (input: CreateTodoReminderPayload) =>
+    ipcRenderer.invoke('todo:create-reminder', input),
   deleteReminder: (reminderId: string) => ipcRenderer.invoke('todo:delete-reminder', reminderId),
   getRemindersByTodo: (todoId: string) => ipcRenderer.invoke('todo:get-reminders', todoId),
 
@@ -455,7 +537,8 @@ contextBridge.exposeInMainWorld('todoApi', todoApi);
 const knowledgeApi: KnowledgeApi = {
   listLibraries: () => ipcRenderer.invoke('knowledge:list-libraries'),
   createLibrary: (input) => ipcRenderer.invoke('knowledge:create-library', input),
-  updateLibrary: (libraryId, input) => ipcRenderer.invoke('knowledge:update-library', libraryId, input),
+  updateLibrary: (libraryId, input) =>
+    ipcRenderer.invoke('knowledge:update-library', libraryId, input),
   deleteLibrary: (libraryId: string) => ipcRenderer.invoke('knowledge:delete-library', libraryId),
   listSpaces: (libraryId?: string) => ipcRenderer.invoke('knowledge:list-spaces', libraryId),
   createSpace: (input) => ipcRenderer.invoke('knowledge:create-space', input),
@@ -468,14 +551,18 @@ const knowledgeApi: KnowledgeApi = {
   updatePage: (pageId, input) => ipcRenderer.invoke('knowledge:update-page', pageId, input),
   listQuickNotes: (input) => ipcRenderer.invoke('knowledge:list-quick-notes', input),
   createQuickNote: (input) => ipcRenderer.invoke('knowledge:create-quick-note', input),
-  updateQuickNote: (noteId, input) => ipcRenderer.invoke('knowledge:update-quick-note', noteId, input),
+  updateQuickNote: (noteId, input) =>
+    ipcRenderer.invoke('knowledge:update-quick-note', noteId, input),
   archiveQuickNote: (noteId: string) => ipcRenderer.invoke('knowledge:archive-quick-note', noteId),
-  convertQuickNoteToPage: (noteId, input) => ipcRenderer.invoke('knowledge:convert-quick-note-to-page', noteId, input),
-  linkQuickNoteTodo: (noteId: string, todoId: string) => ipcRenderer.invoke('knowledge:link-quick-note-todo', noteId, todoId),
+  convertQuickNoteToPage: (noteId, input) =>
+    ipcRenderer.invoke('knowledge:convert-quick-note-to-page', noteId, input),
+  linkQuickNoteTodo: (noteId: string, todoId: string) =>
+    ipcRenderer.invoke('knowledge:link-quick-note-todo', noteId, todoId),
   saveAsset: (input) => ipcRenderer.invoke('knowledge:save-asset', input),
   getAsset: (assetId: string) => ipcRenderer.invoke('knowledge:get-asset', assetId),
   openAsset: (assetId: string) => ipcRenderer.invoke('knowledge:open-asset', assetId),
-  showAssetInFolder: (assetId: string) => ipcRenderer.invoke('knowledge:show-asset-in-folder', assetId),
+  showAssetInFolder: (assetId: string) =>
+    ipcRenderer.invoke('knowledge:show-asset-in-folder', assetId),
   importFiles: (input) => ipcRenderer.invoke('knowledge:import-files', input),
   listIndexJobs: (input) => ipcRenderer.invoke('knowledge:list-index-jobs', input),
   retryIndexJob: (jobId: string) => ipcRenderer.invoke('knowledge:retry-index-job', jobId),
@@ -496,7 +583,8 @@ const knowledgeApi: KnowledgeApi = {
   moveNode: (nodeId, input) => ipcRenderer.invoke('knowledge:move-node', nodeId, input),
   updateNode: (nodeId, input) => ipcRenderer.invoke('knowledge:update-node', nodeId, input),
   archiveNode: (nodeId: string) => ipcRenderer.invoke('knowledge:archive-node', nodeId),
-  toggleFavorite: (nodeId: string, favorite: boolean) => ipcRenderer.invoke('knowledge:toggle-favorite', nodeId, favorite),
+  toggleFavorite: (nodeId: string, favorite: boolean) =>
+    ipcRenderer.invoke('knowledge:toggle-favorite', nodeId, favorite),
   deleteNode: (nodeId: string) => ipcRenderer.invoke('knowledge:delete-node', nodeId),
 };
 contextBridge.exposeInMainWorld('knowledgeApi', knowledgeApi);
@@ -509,12 +597,15 @@ contextBridge.exposeInMainWorld('quickNoteWindowApi', {
   collapse: () => ipcRenderer.invoke('quick-note:collapse-window'),
   expand: () => ipcRenderer.invoke('quick-note:expand-window'),
   preview: (expanded: boolean) => ipcRenderer.invoke('quick-note:preview-window', expanded),
-  setAlwaysOnTop: (alwaysOnTop: boolean) => ipcRenderer.invoke('quick-note:set-always-on-top', alwaysOnTop),
+  setAlwaysOnTop: (alwaysOnTop: boolean) =>
+    ipcRenderer.invoke('quick-note:set-always-on-top', alwaysOnTop),
   getWindowMeta: () => ipcRenderer.invoke('quick-note:get-window-meta'),
-  onPrefill: (listener: (payload: import('@/contracts/knowledge').QuickNotePrefillPayload) => void) => {
+  onPrefill: (
+    listener: (payload: import('@/contracts/knowledge').QuickNotePrefillPayload) => void
+  ) => {
     const wrappedListener = (
       _event: Electron.IpcRendererEvent,
-      payload: import('@/contracts/knowledge').QuickNotePrefillPayload,
+      payload: import('@/contracts/knowledge').QuickNotePrefillPayload
     ) => listener(payload);
     ipcRenderer.on('quick-note:prefill', wrappedListener);
     return () => ipcRenderer.removeListener('quick-note:prefill', wrappedListener);
@@ -523,7 +614,7 @@ contextBridge.exposeInMainWorld('quickNoteWindowApi', {
     const wrappedListener = (
       _event: Electron.IpcRendererEvent,
       collapsed: boolean,
-      previewing: boolean,
+      previewing: boolean
     ) => listener(collapsed, previewing);
     ipcRenderer.on('quick-note:collapsed-state', wrappedListener);
     return () => ipcRenderer.removeListener('quick-note:collapsed-state', wrappedListener);
@@ -552,7 +643,8 @@ const multiDeviceClipboardApi: MultiDeviceClipboardApi = {
   listItems: () => ipcRenderer.invoke('multi-device-clipboard:list-items'),
   applyItem: (itemId: string) => ipcRenderer.invoke('multi-device-clipboard:apply-item', itemId),
   copyItem: (itemId: string) => ipcRenderer.invoke('multi-device-clipboard:copy-item', itemId),
-  showItemPreview: (itemId: string) => ipcRenderer.invoke('multi-device-clipboard:show-item-preview', itemId),
+  showItemPreview: (itemId: string) =>
+    ipcRenderer.invoke('multi-device-clipboard:show-item-preview', itemId),
   deleteItem: (itemId: string) => ipcRenderer.invoke('multi-device-clipboard:delete-item', itemId),
   clearHistory: () => ipcRenderer.invoke('multi-device-clipboard:clear-history'),
   listDevices: () => ipcRenderer.invoke('multi-device-clipboard:list-devices'),
@@ -562,16 +654,24 @@ const multiDeviceClipboardApi: MultiDeviceClipboardApi = {
     ipcRenderer.invoke('multi-device-clipboard:scan-devices', onlineWindowSeconds),
   listDiscoveredDevices: () => ipcRenderer.invoke('multi-device-clipboard:list-discovered-devices'),
   listPairingRequests: () => ipcRenderer.invoke('multi-device-clipboard:list-pairing-requests'),
-  startPairing: (deviceId: string) => ipcRenderer.invoke('multi-device-clipboard:start-pairing', deviceId),
-  startPairingByAddress: (endpoint: string) => ipcRenderer.invoke('multi-device-clipboard:start-pairing-by-address', endpoint),
-  approvePairing: (requestId: string) => ipcRenderer.invoke('multi-device-clipboard:approve-pairing', requestId),
-  rejectPairing: (requestId: string) => ipcRenderer.invoke('multi-device-clipboard:reject-pairing', requestId),
-  forgetDevice: (deviceId: string) => ipcRenderer.invoke('multi-device-clipboard:forget-device', deviceId),
+  startPairing: (deviceId: string) =>
+    ipcRenderer.invoke('multi-device-clipboard:start-pairing', deviceId),
+  startPairingByAddress: (endpoint: string) =>
+    ipcRenderer.invoke('multi-device-clipboard:start-pairing-by-address', endpoint),
+  approvePairing: (requestId: string) =>
+    ipcRenderer.invoke('multi-device-clipboard:approve-pairing', requestId),
+  rejectPairing: (requestId: string) =>
+    ipcRenderer.invoke('multi-device-clipboard:reject-pairing', requestId),
+  forgetDevice: (deviceId: string) =>
+    ipcRenderer.invoke('multi-device-clipboard:forget-device', deviceId),
   showWindow: () => ipcRenderer.invoke('multi-device-clipboard:show-window'),
   closeWindow: () => ipcRenderer.invoke('multi-device-clipboard:close-window'),
   openDevTools: () => ipcRenderer.invoke('multi-device-clipboard:open-devtools'),
   onEvent: (listener: (event: MultiDeviceClipboardEvent) => void) => {
-    const wrappedListener = (_event: Electron.IpcRendererEvent, payload: MultiDeviceClipboardEvent) => listener(payload);
+    const wrappedListener = (
+      _event: Electron.IpcRendererEvent,
+      payload: MultiDeviceClipboardEvent
+    ) => listener(payload);
     ipcRenderer.on('multi-device-clipboard:event', wrappedListener);
     return () => ipcRenderer.removeListener('multi-device-clipboard:event', wrappedListener);
   },
@@ -580,28 +680,35 @@ contextBridge.exposeInMainWorld('multiDeviceClipboardApi', multiDeviceClipboardA
 
 const webviewApi = {
   checkDomain: (domain: string) => ipcRenderer.invoke('webview:check-domain', domain),
-  getInjectedScripts: (domain: string) => ipcRenderer.invoke('webview:get-injected-scripts', domain),
+  getInjectedScripts: (domain: string) =>
+    ipcRenderer.invoke('webview:get-injected-scripts', domain),
   openNewWindow: (url: string) => ipcRenderer.invoke('webview:open-new-window', url),
   clearSession: () => ipcRenderer.invoke('webview:clear-session'),
   // Chrome 扩展管理
-  installExtension: (sourcePath: string) => ipcRenderer.invoke('webview:install-extension', sourcePath),
+  installExtension: (sourcePath: string) =>
+    ipcRenderer.invoke('webview:install-extension', sourcePath),
   removeExtension: (id: string) => ipcRenderer.invoke('webview:remove-extension', id),
-  toggleExtension: (id: string, enabled: boolean) => ipcRenderer.invoke('webview:toggle-extension', id, enabled),
+  toggleExtension: (id: string, enabled: boolean) =>
+    ipcRenderer.invoke('webview:toggle-extension', id, enabled),
   getExtensions: () => ipcRenderer.invoke('webview:get-extensions'),
-  openScriptEditor: (scriptId?: string, domain?: string) => ipcRenderer.invoke('webview:open-script-editor', scriptId, domain),
+  openScriptEditor: (scriptId?: string, domain?: string) =>
+    ipcRenderer.invoke('webview:open-script-editor', scriptId, domain),
 };
 contextBridge.exposeInMainWorld('webviewApi', webviewApi);
 
 const terminalApi: TerminalApi = {
   listProfiles: () => ipcRenderer.invoke('terminal:list-profiles'),
   listSessions: () => ipcRenderer.invoke('terminal:list-sessions'),
-  createSession: (payload: CreateTerminalSessionPayload) => ipcRenderer.invoke('terminal:create-session', payload),
+  createSession: (payload: CreateTerminalSessionPayload) =>
+    ipcRenderer.invoke('terminal:create-session', payload),
   getBuffer: (sessionId: string) => ipcRenderer.invoke('terminal:get-buffer', sessionId),
   clearBuffer: (sessionId: string) => ipcRenderer.invoke('terminal:clear-buffer', sessionId),
   write: (sessionId: string, data: string) => ipcRenderer.invoke('terminal:write', sessionId, data),
-  resizeSession: (payload: ResizeTerminalSessionPayload) => ipcRenderer.invoke('terminal:resize-session', payload),
+  resizeSession: (payload: ResizeTerminalSessionPayload) =>
+    ipcRenderer.invoke('terminal:resize-session', payload),
   killSession: (sessionId: string) => ipcRenderer.invoke('terminal:kill-session', sessionId),
-  attachSession: (sessionId: string, target: string) => ipcRenderer.invoke('terminal:attach-session', sessionId, target),
+  attachSession: (sessionId: string, target: string) =>
+    ipcRenderer.invoke('terminal:attach-session', sessionId, target),
   attachToMain: (sessionId: string) => ipcRenderer.invoke('terminal:attach-main', sessionId),
   detachToWindow: (sessionId: string, kind?: DetachedTerminalSessionKind, label?: string) =>
     ipcRenderer.invoke('terminal:detach-to-window', sessionId, kind ?? 'local', label ?? ''),
@@ -610,7 +717,8 @@ const terminalApi: TerminalApi = {
   readClipboardText: () => ipcRenderer.invoke('terminal:clipboard-read'),
   writeClipboardText: (text: string) => ipcRenderer.invoke('terminal:clipboard-write', text),
   onEvent: (listener: (event: TerminalEventEnvelope) => void) => {
-    const wrappedListener = (_event: Electron.IpcRendererEvent, payload: TerminalEventEnvelope) => listener(payload);
+    const wrappedListener = (_event: Electron.IpcRendererEvent, payload: TerminalEventEnvelope) =>
+      listener(payload);
     ipcRenderer.on('terminal:event', wrappedListener);
     return () => ipcRenderer.removeListener('terminal:event', wrappedListener);
   },
@@ -621,42 +729,52 @@ const androidApi: AndroidToolsApi = {
   getToolchainStatus: () => ipcRenderer.invoke('android:get-toolchain-status'),
   listDevices: () => ipcRenderer.invoke('android:list-devices'),
   onDevicesChanged: (listener: (event: AndroidDeviceEvent) => void) => {
-    const wrappedListener = (_event: Electron.IpcRendererEvent, payload: AndroidDeviceEvent) => listener(payload);
+    const wrappedListener = (_event: Electron.IpcRendererEvent, payload: AndroidDeviceEvent) =>
+      listener(payload);
     ipcRenderer.on('android:devices-changed', wrappedListener);
     return () => ipcRenderer.removeListener('android:devices-changed', wrappedListener);
   },
   listSessions: () => ipcRenderer.invoke('android:list-sessions'),
-  startMirror: input => ipcRenderer.invoke('android:start-mirror', input),
-  startAudio: input => ipcRenderer.invoke('android:start-audio', input),
-  startOtg: input => ipcRenderer.invoke('android:start-otg', input),
-  stopSession: sessionId => ipcRenderer.invoke('android:stop-session', sessionId),
+  startMirror: (input) => ipcRenderer.invoke('android:start-mirror', input),
+  startAudio: (input) => ipcRenderer.invoke('android:start-audio', input),
+  startOtg: (input) => ipcRenderer.invoke('android:start-otg', input),
+  stopSession: (sessionId) => ipcRenderer.invoke('android:stop-session', sessionId),
   getFastbootDevices: () => ipcRenderer.invoke('android:fastboot-list-devices'),
-  fastbootGetVars: (deviceSerial, names) => ipcRenderer.invoke('android:fastboot-get-vars', deviceSerial, names),
-  fastbootReboot: (deviceSerial, target) => ipcRenderer.invoke('android:fastboot-reboot', deviceSerial, target),
+  fastbootGetVars: (deviceSerial, names) =>
+    ipcRenderer.invoke('android:fastboot-get-vars', deviceSerial, names),
+  fastbootReboot: (deviceSerial, target) =>
+    ipcRenderer.invoke('android:fastboot-reboot', deviceSerial, target),
   onSessionEvent: (listener: (event: AndroidSessionEvent) => void) => {
-    const wrappedListener = (_event: Electron.IpcRendererEvent, payload: AndroidSessionEvent) => listener(payload);
+    const wrappedListener = (_event: Electron.IpcRendererEvent, payload: AndroidSessionEvent) =>
+      listener(payload);
     ipcRenderer.on('android:session-event', wrappedListener);
     return () => ipcRenderer.removeListener('android:session-event', wrappedListener);
   },
   getToolchainDownloadStatus: () => ipcRenderer.invoke('android:get-toolchain-download-status'),
   downloadToolchain: () => ipcRenderer.invoke('android:download-toolchain'),
   onToolchainDownloadProgress: (listener: (progress: AndroidToolchainDownloadProgress) => void) => {
-    const wrappedListener = (_event: Electron.IpcRendererEvent, payload: AndroidToolchainDownloadProgress) => listener(payload);
+    const wrappedListener = (
+      _event: Electron.IpcRendererEvent,
+      payload: AndroidToolchainDownloadProgress
+    ) => listener(payload);
     ipcRenderer.on('android:toolchain-download-progress', wrappedListener);
     return () => ipcRenderer.removeListener('android:toolchain-download-progress', wrappedListener);
   },
   input: {
     getConfig: () => ipcRenderer.invoke('android:get-input-config'),
-    updateConfig: patch => ipcRenderer.invoke('android:update-input-config', patch),
+    updateConfig: (patch) => ipcRenderer.invoke('android:update-input-config', patch),
     start: () => ipcRenderer.invoke('android:start-input-sharing'),
-    stop: reason => ipcRenderer.invoke('android:stop-input-sharing', reason),
+    stop: (reason) => ipcRenderer.invoke('android:stop-input-sharing', reason),
     toggle: () => ipcRenderer.invoke('android:toggle-input-sharing'),
     getStatus: () => ipcRenderer.invoke('android:get-input-status'),
-    onStatus: (listener => {
-      const wrappedListener = (_event: Electron.IpcRendererEvent, status: import('@/contracts/android-tools').AndroidInputStatus) => listener(status);
+    onStatus: (listener) => {
+      const wrappedListener = (
+        _event: Electron.IpcRendererEvent,
+        status: import('@/contracts/android-tools').AndroidInputStatus
+      ) => listener(status);
       ipcRenderer.on('android:input-status', wrappedListener);
       return () => ipcRenderer.removeListener('android:input-status', wrappedListener);
-    }),
+    },
   } satisfies AndroidInputApi,
 };
 contextBridge.exposeInMainWorld('androidApi', androidApi);
@@ -667,8 +785,10 @@ const sshApi: SshApi = {
   // Profile CRUD
   listProfiles: () => ipcRenderer.invoke('ssh:list-profiles'),
   listFolders: () => ipcRenderer.invoke('ssh:list-folders'),
-  createFolder: (input: CreateSshProfileFolderInput) => ipcRenderer.invoke('ssh:create-folder', input),
-  updateFolder: (input: UpdateSshProfileFolderInput) => ipcRenderer.invoke('ssh:update-folder', input),
+  createFolder: (input: CreateSshProfileFolderInput) =>
+    ipcRenderer.invoke('ssh:create-folder', input),
+  updateFolder: (input: UpdateSshProfileFolderInput) =>
+    ipcRenderer.invoke('ssh:update-folder', input),
   deleteFolder: (id: string) => ipcRenderer.invoke('ssh:delete-folder', id),
   createProfile: (input: CreateSshProfileInput) => ipcRenderer.invoke('ssh:create-profile', input),
   updateProfile: (input: UpdateSshProfileInput) => ipcRenderer.invoke('ssh:update-profile', input),
@@ -704,25 +824,35 @@ const sshApi: SshApi = {
 
   // Port forwarding
   listPortForwards: (profileId: string) => ipcRenderer.invoke('ssh:list-port-forwards', profileId),
-  createPortForward: (input: CreatePortForwardInput) => ipcRenderer.invoke('ssh:create-port-forward', input),
-  updatePortForward: (input: UpdatePortForwardInput) => ipcRenderer.invoke('ssh:update-port-forward', input),
+  createPortForward: (input: CreatePortForwardInput) =>
+    ipcRenderer.invoke('ssh:create-port-forward', input),
+  updatePortForward: (input: UpdatePortForwardInput) =>
+    ipcRenderer.invoke('ssh:update-port-forward', input),
   deletePortForward: (id: string) => ipcRenderer.invoke('ssh:delete-port-forward', id),
-  startPortForward: (sessionId: string, forwardId: string) => ipcRenderer.invoke('ssh:start-port-forward', sessionId, forwardId),
-  stopPortForward: (sessionId: string, forwardId: string) => ipcRenderer.invoke('ssh:stop-port-forward', sessionId, forwardId),
-  listForwardStatus: (sessionId: string) => ipcRenderer.invoke('ssh:list-forward-status', sessionId),
-  getPortOccupant: (host: string, port: number) => ipcRenderer.invoke('ssh:get-port-occupant', host, port),
+  startPortForward: (sessionId: string, forwardId: string) =>
+    ipcRenderer.invoke('ssh:start-port-forward', sessionId, forwardId),
+  stopPortForward: (sessionId: string, forwardId: string) =>
+    ipcRenderer.invoke('ssh:stop-port-forward', sessionId, forwardId),
+  listForwardStatus: (sessionId: string) =>
+    ipcRenderer.invoke('ssh:list-forward-status', sessionId),
+  getPortOccupant: (host: string, port: number) =>
+    ipcRenderer.invoke('ssh:get-port-occupant', host, port),
   killPortOccupant: (pid: number) => ipcRenderer.invoke('ssh:kill-port-occupant', pid),
 
   // Traffic statistics
-  getForwardTraffic: (sessionId: string) => ipcRenderer.invoke('ssh:get-forward-traffic', sessionId),
+  getForwardTraffic: (sessionId: string) =>
+    ipcRenderer.invoke('ssh:get-forward-traffic', sessionId),
 
   // Port forward import/export
-  exportPortForwards: (profileId: string) => ipcRenderer.invoke('ssh:export-port-forwards', profileId),
-  importPortForwards: (profileId: string, jsonData: string) => ipcRenderer.invoke('ssh:import-port-forwards', profileId, jsonData),
+  exportPortForwards: (profileId: string) =>
+    ipcRenderer.invoke('ssh:export-port-forwards', profileId),
+  importPortForwards: (profileId: string, jsonData: string) =>
+    ipcRenderer.invoke('ssh:import-port-forwards', profileId, jsonData),
 
   // Event subscription
   onEvent: (listener: (event: SshEventEnvelope) => void) => {
-    const wrappedListener = (_event: Electron.IpcRendererEvent, payload: SshEventEnvelope) => listener(payload);
+    const wrappedListener = (_event: Electron.IpcRendererEvent, payload: SshEventEnvelope) =>
+      listener(payload);
     ipcRenderer.on('ssh:event', wrappedListener);
     return () => ipcRenderer.removeListener('ssh:event', wrappedListener);
   },
@@ -732,8 +862,10 @@ contextBridge.exposeInMainWorld('sshApi', sshApi);
 const ftpApi: FtpApi = {
   listProfiles: () => ipcRenderer.invoke('ftp:list-profiles'),
   listFolders: () => ipcRenderer.invoke('ftp:list-folders'),
-  createFolder: (input: CreateFtpSessionFolderInput) => ipcRenderer.invoke('ftp:create-folder', input),
-  updateFolder: (input: UpdateFtpSessionFolderInput) => ipcRenderer.invoke('ftp:update-folder', input),
+  createFolder: (input: CreateFtpSessionFolderInput) =>
+    ipcRenderer.invoke('ftp:create-folder', input),
+  updateFolder: (input: UpdateFtpSessionFolderInput) =>
+    ipcRenderer.invoke('ftp:update-folder', input),
   deleteFolder: (id: string) => ipcRenderer.invoke('ftp:delete-folder', id),
   createProfile: (input: CreateFtpProfileInput) => ipcRenderer.invoke('ftp:create-profile', input),
   updateProfile: (input: UpdateFtpProfileInput) => ipcRenderer.invoke('ftp:update-profile', input),
@@ -741,10 +873,13 @@ const ftpApi: FtpApi = {
 
   listSessions: () => ipcRenderer.invoke('ftp:list-sessions'),
   listRestoreStates: () => ipcRenderer.invoke('ftp:list-restore-states'),
-  upsertRestoreState: (input: UpsertFtpRestoreStateInput) => ipcRenderer.invoke('ftp:upsert-restore-state', input),
-  deleteRestoreState: (sessionId: string) => ipcRenderer.invoke('ftp:delete-restore-state', sessionId),
+  upsertRestoreState: (input: UpsertFtpRestoreStateInput) =>
+    ipcRenderer.invoke('ftp:upsert-restore-state', input),
+  deleteRestoreState: (sessionId: string) =>
+    ipcRenderer.invoke('ftp:delete-restore-state', sessionId),
   connect: (input: ConnectFtpInput) => ipcRenderer.invoke('ftp:connect', input),
-  cancelAuthChallenge: (authSessionId: string) => ipcRenderer.invoke('ftp:cancel-auth-challenge', authSessionId),
+  cancelAuthChallenge: (authSessionId: string) =>
+    ipcRenderer.invoke('ftp:cancel-auth-challenge', authSessionId),
   disconnect: (sessionId: string) => ipcRenderer.invoke('ftp:disconnect', sessionId),
 
   listRemoteDirectory: (sessionId: string, path: string) =>
@@ -783,15 +918,35 @@ const ftpApi: FtpApi = {
     ipcRenderer.invoke('ftp:copy-local-path', sourcePath, targetPath),
   getDefaultLocalPath: () => ipcRenderer.invoke('ftp:get-default-local-path'),
 
-  uploadFile: (sessionId: string, localPath: string, remotePath: string, options?: FtpTransferOptions) =>
-    ipcRenderer.invoke('ftp:upload-file', sessionId, localPath, remotePath, options),
-  downloadFile: (sessionId: string, remotePath: string, localPath: string, options?: FtpTransferOptions) =>
-    ipcRenderer.invoke('ftp:download-file', sessionId, remotePath, localPath, options),
-  fxpTransfer: (sourceSessionId: string, sourcePath: string, targetSessionId: string, targetPath: string) =>
-    ipcRenderer.invoke('ftp:fxp-transfer', sourceSessionId, sourcePath, targetSessionId, targetPath),
+  uploadFile: (
+    sessionId: string,
+    localPath: string,
+    remotePath: string,
+    options?: FtpTransferOptions
+  ) => ipcRenderer.invoke('ftp:upload-file', sessionId, localPath, remotePath, options),
+  downloadFile: (
+    sessionId: string,
+    remotePath: string,
+    localPath: string,
+    options?: FtpTransferOptions
+  ) => ipcRenderer.invoke('ftp:download-file', sessionId, remotePath, localPath, options),
+  fxpTransfer: (
+    sourceSessionId: string,
+    sourcePath: string,
+    targetSessionId: string,
+    targetPath: string
+  ) =>
+    ipcRenderer.invoke(
+      'ftp:fxp-transfer',
+      sourceSessionId,
+      sourcePath,
+      targetSessionId,
+      targetPath
+    ),
   listTransferTasks: () => ipcRenderer.invoke('ftp:list-transfer-tasks'),
   getRetryPolicy: () => ipcRenderer.invoke('ftp:get-retry-policy'),
-  updateRetryPolicy: (input: FtpRetryPolicy) => ipcRenderer.invoke('ftp:update-retry-policy', input),
+  updateRetryPolicy: (input: FtpRetryPolicy) =>
+    ipcRenderer.invoke('ftp:update-retry-policy', input),
   deleteTransferTask: (taskId: string) => ipcRenderer.invoke('ftp:delete-transfer-task', taskId),
   updateTaskPriority: (taskId: string, priority: string) =>
     ipcRenderer.invoke('ftp:update-task-priority', taskId, priority),
@@ -806,12 +961,14 @@ const ftpApi: FtpApi = {
   runScheduledTaskNow: (taskId: string) => ipcRenderer.invoke('ftp:run-scheduled-task-now', taskId),
   listFilterPresets: () => ipcRenderer.invoke('ftp:list-filter-presets'),
   upsertFilterPreset: (input) => ipcRenderer.invoke('ftp:upsert-filter-preset', input),
-  deleteFilterPreset: (presetId: string) => ipcRenderer.invoke('ftp:delete-filter-preset', presetId),
+  deleteFilterPreset: (presetId: string) =>
+    ipcRenderer.invoke('ftp:delete-filter-preset', presetId),
   getWindowsContextMenuStatus: () => ipcRenderer.invoke('ftp:get-windows-context-menu-status'),
   installWindowsContextMenu: () => ipcRenderer.invoke('ftp:install-windows-context-menu'),
   uninstallWindowsContextMenu: () => ipcRenderer.invoke('ftp:uninstall-windows-context-menu'),
   getPendingExternalPaths: () => ipcRenderer.invoke('ftp:get-pending-external-paths'),
-  clearPendingExternalPaths: (paths?: string[]) => ipcRenderer.invoke('ftp:clear-pending-external-paths', paths),
+  clearPendingExternalPaths: (paths?: string[]) =>
+    ipcRenderer.invoke('ftp:clear-pending-external-paths', paths),
   prepareRemoteDragExport: (sessionId: string, remotePaths: string[]) =>
     ipcRenderer.invoke('ftp:prepare-remote-drag-export', sessionId, remotePaths),
   startPreparedDrag: (localPaths: string[]) => {
@@ -819,7 +976,8 @@ const ftpApi: FtpApi = {
   },
 
   onEvent: (listener: (event: FtpEventEnvelope) => void) => {
-    const wrappedListener = (_event: Electron.IpcRendererEvent, payload: FtpEventEnvelope) => listener(payload);
+    const wrappedListener = (_event: Electron.IpcRendererEvent, payload: FtpEventEnvelope) =>
+      listener(payload);
     ipcRenderer.on('ftp:event', wrappedListener);
     return () => ipcRenderer.removeListener('ftp:event', wrappedListener);
   },

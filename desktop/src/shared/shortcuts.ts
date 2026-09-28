@@ -1,6 +1,6 @@
 const MODIFIER_ORDER = ['CommandOrControl', 'Shift', 'Alt', 'Super'] as const;
 
-const MODIFIER_ALIASES: Record<string, typeof MODIFIER_ORDER[number]> = {
+const MODIFIER_ALIASES: Record<string, (typeof MODIFIER_ORDER)[number]> = {
   cmdorctrl: 'CommandOrControl',
   commandorcontrol: 'CommandOrControl',
   ctrl: 'CommandOrControl',
@@ -72,7 +72,7 @@ function normalizeMainKeyToken(token: string): string {
     : `${trimmed.charAt(0).toUpperCase()}${trimmed.slice(1).toLowerCase()}`;
 }
 
-function normalizeModifierToken(token: string): typeof MODIFIER_ORDER[number] | '' {
+function normalizeModifierToken(token: string): (typeof MODIFIER_ORDER)[number] | '' {
   return MODIFIER_ALIASES[token.trim().toLowerCase()] ?? '';
 }
 
@@ -81,7 +81,7 @@ export function normalizeAccelerator(accelerator: string): string {
     return '';
   }
 
-  const modifiers = new Set<typeof MODIFIER_ORDER[number]>();
+  const modifiers = new Set<(typeof MODIFIER_ORDER)[number]>();
   let mainKey = '';
 
   for (const token of accelerator.split('+')) {

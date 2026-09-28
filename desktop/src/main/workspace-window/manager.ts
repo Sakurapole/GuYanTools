@@ -9,7 +9,10 @@ import {
   type WorkspaceWindowKey,
 } from '@/contracts/workspace_window';
 import { resolveWindowIconPath } from '../windows/window_icon';
-import { persistWindowBounds, resolvePersistedWindowBounds } from '../windows/persisted_window_bounds';
+import {
+  persistWindowBounds,
+  resolvePersistedWindowBounds,
+} from '../windows/persisted_window_bounds';
 
 const WORKSPACE_WINDOW_BOUNDS_STATE_FILE = 'workspace_window_bounds.json';
 
@@ -29,7 +32,10 @@ class WorkspaceWindowManager {
     this.mainWindow = bridge;
   }
 
-  async openDetached(key: WorkspaceWindowKey, options?: { routeOverride?: string }): Promise<WorkspaceDetachedWindowState> {
+  async openDetached(
+    key: WorkspaceWindowKey,
+    options?: { routeOverride?: string }
+  ): Promise<WorkspaceDetachedWindowState> {
     const definition = WORKSPACE_WINDOW_DEFINITIONS[key];
     if (!definition) {
       throw new Error(`未知独立窗口页面: ${key}`);
@@ -109,9 +115,19 @@ class WorkspaceWindowManager {
     return isWorkspaceWindowKey(value);
   }
 
-  private async loadDetachedRoute(win: BrowserWindow, key: WorkspaceWindowKey, options?: { routeOverride?: string }) {
+  private async loadDetachedRoute(
+    win: BrowserWindow,
+    key: WorkspaceWindowKey,
+    options?: { routeOverride?: string }
+  ) {
     const hashRoute = this.createDetachedHash(key, options);
-    this.detachedRoutes.set(key, this.normalizeDetachedRouteOverride(WORKSPACE_WINDOW_DEFINITIONS[key].route, options?.routeOverride));
+    this.detachedRoutes.set(
+      key,
+      this.normalizeDetachedRouteOverride(
+        WORKSPACE_WINDOW_DEFINITIONS[key].route,
+        options?.routeOverride
+      )
+    );
     if (MAIN_WINDOW_VITE_DEV_SERVER_URL) {
       await win.loadURL(`${MAIN_WINDOW_VITE_DEV_SERVER_URL}/workspace_window.html#${hashRoute}`);
       return;
@@ -119,11 +135,15 @@ class WorkspaceWindowManager {
 
     await win.loadFile(
       path.join(__dirname, `../renderer/${MAIN_WINDOW_VITE_NAME}/workspace_window.html`),
-      { hash: hashRoute.slice(1) },
+      { hash: hashRoute.slice(1) }
     );
   }
 
-  private loadDetachedRouteInBackground(win: BrowserWindow, key: WorkspaceWindowKey, options?: { routeOverride?: string }) {
+  private loadDetachedRouteInBackground(
+    win: BrowserWindow,
+    key: WorkspaceWindowKey,
+    options?: { routeOverride?: string }
+  ) {
     void this.loadDetachedRoute(win, key, options).catch((error) => {
       console.error(`[workspace-window] Failed to load detached ${key} window:`, error);
       if (!win.isDestroyed()) {
@@ -132,16 +152,25 @@ class WorkspaceWindowManager {
     });
   }
 
-  private navigateDetachedRouteInBackground(win: BrowserWindow, key: WorkspaceWindowKey, options?: { routeOverride?: string }) {
+  private navigateDetachedRouteInBackground(
+    win: BrowserWindow,
+    key: WorkspaceWindowKey,
+    options?: { routeOverride?: string }
+  ) {
     const hashRoute = this.createDetachedHash(key, options);
-    this.detachedRoutes.set(key, this.normalizeDetachedRouteOverride(WORKSPACE_WINDOW_DEFINITIONS[key].route, options?.routeOverride));
-    void win.webContents.executeJavaScript(
-      `window.location.hash = ${JSON.stringify(hashRoute)};`,
-      true,
-    ).catch((error) => {
-      console.error(`[workspace-window] Failed to navigate detached ${key} window:`, error);
-      this.loadDetachedRouteInBackground(win, key, options);
-    });
+    this.detachedRoutes.set(
+      key,
+      this.normalizeDetachedRouteOverride(
+        WORKSPACE_WINDOW_DEFINITIONS[key].route,
+        options?.routeOverride
+      )
+    );
+    void win.webContents
+      .executeJavaScript(`window.location.hash = ${JSON.stringify(hashRoute)};`, true)
+      .catch((error) => {
+        console.error(`[workspace-window] Failed to navigate detached ${key} window:`, error);
+        this.loadDetachedRouteInBackground(win, key, options);
+      });
   }
 
   private createDetachedHash(key: WorkspaceWindowKey, options?: { routeOverride?: string }) {

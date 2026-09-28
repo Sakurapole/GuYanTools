@@ -26,7 +26,9 @@ type PersistWindowBoundsOptions = {
 
 const stateCache = new Map<string, Record<string, Electron.Rectangle>>();
 
-export function resolvePersistedWindowBounds(options: ResolveWindowBoundsOptions): Electron.Rectangle {
+export function resolvePersistedWindowBounds(
+  options: ResolveWindowBoundsOptions
+): Electron.Rectangle {
   const state = readWindowBoundsState(options.stateFileName);
   const persistedBounds = state[options.key];
   if (persistedBounds) {
@@ -41,12 +43,16 @@ export function resolvePersistedWindowBounds(options: ResolveWindowBoundsOptions
   const height = clampDimension(options.height, options.minHeight, workArea.height);
   const centerSource = options.parentBounds ?? workArea;
 
-  return coerceBoundsToVisibleArea({
-    x: Math.round(centerSource.x + (centerSource.width - width) / 2),
-    y: Math.round(centerSource.y + (centerSource.height - height) / 2),
-    width,
-    height,
-  }, options.minWidth, options.minHeight);
+  return coerceBoundsToVisibleArea(
+    {
+      x: Math.round(centerSource.x + (centerSource.width - width) / 2),
+      y: Math.round(centerSource.y + (centerSource.height - height) / 2),
+      width,
+      height,
+    },
+    options.minWidth,
+    options.minHeight
+  );
 }
 
 export function persistWindowBounds(win: BrowserWindow, options: PersistWindowBoundsOptions) {
@@ -98,7 +104,7 @@ function readWindowBoundsState(stateFileName: string) {
     const bounds = Object.fromEntries(
       Object.entries(parsed.bounds ?? {})
         .map(([key, value]) => [key, normalizeBounds(value)])
-        .filter((entry): entry is [string, Electron.Rectangle] => Boolean(entry[1])),
+        .filter((entry): entry is [string, Electron.Rectangle] => Boolean(entry[1]))
     );
     stateCache.set(statePath, bounds);
     return bounds;
@@ -153,7 +159,7 @@ function normalizeBounds(value: unknown): Electron.Rectangle | null {
 function coerceBoundsToVisibleArea(
   bounds: Electron.Rectangle,
   minWidth: number,
-  minHeight: number,
+  minHeight: number
 ): Electron.Rectangle {
   const display = screen.getDisplayMatching(bounds);
   const { workArea } = display;

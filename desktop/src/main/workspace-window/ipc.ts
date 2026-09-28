@@ -17,10 +17,13 @@ function assertWorkspaceWindowKey(key: WorkspaceWindowKey) {
 export function registerWorkspaceWindowIpcHandlers() {
   if (registered) return;
 
-  ipcMain.handle('workspace-window:open-detached', async (_event, key: WorkspaceWindowKey, options?: WorkspaceDetachedOpenOptions) => {
-    assertWorkspaceWindowKey(key);
-    return workspaceWindowManager.openDetached(key, options);
-  });
+  ipcMain.handle(
+    'workspace-window:open-detached',
+    async (_event, key: WorkspaceWindowKey, options?: WorkspaceDetachedOpenOptions) => {
+      assertWorkspaceWindowKey(key);
+      return workspaceWindowManager.openDetached(key, options);
+    }
+  );
 
   ipcMain.handle('workspace-window:return-to-main', async (_event, key: WorkspaceWindowKey) => {
     assertWorkspaceWindowKey(key);
@@ -30,17 +33,21 @@ export function registerWorkspaceWindowIpcHandlers() {
   ipcMain.handle('workspace-window:get-state', async () => workspaceWindowManager.getState());
 
   ipcMain.handle('workspace-window:get-context', async (event) =>
-    workspaceWindowManager.getContext(BrowserWindow.fromWebContents(event.sender)));
+    workspaceWindowManager.getContext(BrowserWindow.fromWebContents(event.sender))
+  );
 
   ipcMain.handle('workspace-window:get-page-state', async (_event, key: WorkspaceWindowKey) => {
     assertWorkspaceWindowKey(key);
     return workspaceWindowManager.getPageState(key);
   });
 
-  ipcMain.handle('workspace-window:set-page-state', async (_event, key: WorkspaceWindowKey, state: WorkspaceWindowPageState) => {
-    assertWorkspaceWindowKey(key);
-    workspaceWindowManager.setPageState(key, state);
-  });
+  ipcMain.handle(
+    'workspace-window:set-page-state',
+    async (_event, key: WorkspaceWindowKey, state: WorkspaceWindowPageState) => {
+      assertWorkspaceWindowKey(key);
+      workspaceWindowManager.setPageState(key, state);
+    }
+  );
 
   registered = true;
 }

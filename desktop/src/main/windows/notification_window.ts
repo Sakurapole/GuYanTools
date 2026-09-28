@@ -2,7 +2,11 @@ import { BrowserWindow, screen } from 'electron';
 import fs from 'fs/promises';
 import path from 'path';
 import { fileURLToPath } from 'url';
-import type { NotificationImageSource, NotificationPayload, NotificationTheme } from '@/contracts/notification';
+import type {
+  NotificationImageSource,
+  NotificationPayload,
+  NotificationTheme,
+} from '@/contracts/notification';
 import { NOTIFICATION_SIZE_MAP } from '@/contracts/notification';
 import { appConfigManager } from '../app-config/manager';
 import { waitForDevServer } from './wait_for_dev_server';
@@ -87,7 +91,10 @@ function bytesToBuffer(value: unknown): Buffer | null {
   if (ArrayBuffer.isView(value)) {
     return Buffer.from(value.buffer, value.byteOffset, value.byteLength);
   }
-  if (Array.isArray(value) && value.every(item => Number.isInteger(item) && item >= 0 && item <= 255)) {
+  if (
+    Array.isArray(value) &&
+    value.every((item) => Number.isInteger(item) && item >= 0 && item <= 255)
+  ) {
     return Buffer.from(value);
   }
   return null;
@@ -108,7 +115,10 @@ function isLocalImagePath(value: string) {
   return path.isAbsolute(value) || /^[A-Za-z]:[\\/]/.test(value);
 }
 
-async function resolveImageSource(source?: NotificationImageSource, legacyImageUrl?: string): Promise<string | undefined> {
+async function resolveImageSource(
+  source?: NotificationImageSource,
+  legacyImageUrl?: string
+): Promise<string | undefined> {
   if (source) {
     switch (source.type) {
       case 'url':
@@ -201,7 +211,7 @@ export async function showNotification(payload: NotificationPayload): Promise<vo
   win.setPosition(
     workArea.x + workAreaSize.width,
     workArea.y + workAreaSize.height - MARGIN - sizeSpec.height,
-    false,
+    false
   );
 
   // 加载页面
@@ -211,7 +221,7 @@ export async function showNotification(payload: NotificationPayload): Promise<vo
     await win.loadURL(url);
   } else {
     await win.loadFile(
-      path.join(__dirname, `../renderer/${MAIN_WINDOW_VITE_NAME}/notification.html`),
+      path.join(__dirname, `../renderer/${MAIN_WINDOW_VITE_NAME}/notification.html`)
     );
   }
 
@@ -237,7 +247,7 @@ export async function showNotification(payload: NotificationPayload): Promise<vo
  */
 export function closeNotificationByWebContentsId(webContentsId: number) {
   const item = activeNotifications.find(
-    (n) => !n.win.isDestroyed() && n.win.webContents.id === webContentsId,
+    (n) => !n.win.isDestroyed() && n.win.webContents.id === webContentsId
   );
   if (item) {
     removeNotification(item.win);

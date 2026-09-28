@@ -16,7 +16,7 @@ import type { KnowledgeApi, QuickNoteWindowApi } from '@/contracts/knowledge';
 import type { ScreenshotApi } from '@/contracts/screenshot';
 
 // export * from './plugin.d.ts';
-export { };
+export {};
 
 interface IpcRenderer {
   send: (channel: string, ...args: any[]) => void;
@@ -31,7 +31,10 @@ declare global {
       plguins: PluginInfo[];
       downloadPlugin: (plugin: PluginInfo) => Promise<void>;
       importFromLocalFiles: () => Promise<void>;
-      getPluginWebContentsView: (plugin: PluginInfo, windowOptions: { width: number, height: number, x: number, y: number }) => Promise<WebContentsView>;
+      getPluginWebContentsView: (
+        plugin: PluginInfo,
+        windowOptions: { width: number; height: number; x: number; y: number }
+      ) => Promise<WebContentsView>;
     };
   }
 

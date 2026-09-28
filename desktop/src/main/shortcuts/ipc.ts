@@ -11,9 +11,11 @@ export function registerShortcutIpcHandlers() {
 
   ipcMain.handle('shortcuts:inspect-system', async () => shortcutService.inspectSystemShortcuts());
   ipcMain.handle('shortcuts:validate-system', async (_event, input: ValidateSystemShortcutInput) =>
-    shortcutService.validateSystemShortcut(input));
+    shortcutService.validateSystemShortcut(input)
+  );
   ipcMain.handle('shortcuts:retry-system', async (_event, input: RetrySystemShortcutInput) =>
-    shortcutService.retrySystemShortcut(input));
+    shortcutService.retrySystemShortcut(input)
+  );
 
   registered = true;
 }

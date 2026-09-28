@@ -1,6 +1,6 @@
-import { BrowserWindow } from "electron";
+import { BrowserWindow } from 'electron';
 import path from 'path';
-import { waitForDevServer } from "./wait_for_dev_server";
+import { waitForDevServer } from './wait_for_dev_server';
 
 export default () => {
   let splashWindow: BrowserWindow | null = null;
@@ -29,7 +29,9 @@ export default () => {
       await waitForDevServer(splashUrl);
       await splashWindow.loadURL(splashUrl);
     } else {
-      await splashWindow.loadFile(path.join(__dirname, `../renderer/${MAIN_WINDOW_VITE_NAME}/splash.html`));
+      await splashWindow.loadFile(
+        path.join(__dirname, `../renderer/${MAIN_WINDOW_VITE_NAME}/splash.html`)
+      );
     }
 
     splashWindow.show();
@@ -45,6 +47,6 @@ export default () => {
 
   return {
     create,
-    close
+    close,
   };
 };

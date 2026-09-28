@@ -26,13 +26,14 @@ export function registerTabPreviewIpcHandlers() {
       }
 
       const scale = Math.min(1, THUMB_MAX_WIDTH / width);
-      const thumb = scale < 1
-        ? image.resize({
-          width: Math.max(1, Math.round(width * scale)),
-          height: Math.max(1, Math.round(height * scale)),
-          quality: 'good',
-        })
-        : image;
+      const thumb =
+        scale < 1
+          ? image.resize({
+              width: Math.max(1, Math.round(width * scale)),
+              height: Math.max(1, Math.round(height * scale)),
+              quality: 'good',
+            })
+          : image;
 
       return `data:image/jpeg;base64,${thumb.toJPEG(JPEG_QUALITY).toString('base64')}`;
     } catch (error) {

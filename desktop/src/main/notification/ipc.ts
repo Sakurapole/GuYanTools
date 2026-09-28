@@ -2,7 +2,9 @@ import { ipcMain } from 'electron';
 import type { NotificationPayload } from '@/contracts/notification';
 import { closeNotificationByWebContentsId, showNotification } from '../windows';
 
-export function registerNotificationIpcHandlers(getMainWindow?: () => Electron.BrowserWindow | null) {
+export function registerNotificationIpcHandlers(
+  getMainWindow?: () => Electron.BrowserWindow | null
+) {
   // 主渲染进程/任意进程请求显示通知
   ipcMain.handle('notification:show', async (_event, payload: NotificationPayload) => {
     await showNotification(payload);
@@ -26,7 +28,7 @@ export function registerNotificationIpcHandlers(getMainWindow?: () => Electron.B
     win.focus();
     await win.webContents.executeJavaScript(
       `window.location.hash = ${JSON.stringify(route.startsWith('#') ? route : `#${route}`)};`,
-      true,
+      true
     );
   });
 }

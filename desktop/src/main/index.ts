@@ -1,66 +1,78 @@
 import './dev-env';
-import { app, BrowserWindow, ipcMain, protocol } from "electron";
+import { app, BrowserWindow, ipcMain, protocol } from 'electron';
 import { randomUUID } from 'node:crypto';
 import * as fs from 'node:fs/promises';
 import { createReadStream } from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
 import { Readable } from 'node:stream';
-import { dbManager } from "../core/database";
-import { registerAiIpcHandlers } from "./ai/ipc";
-import { registerAppConfigIpcHandlers } from "./app-config/ipc";
-import { appConfigManager } from "./app-config/manager";
-import { registerHomeLayoutIpcHandlers } from "./home-layout/ipc";
-import { registerHomeProfileIpcHandlers } from "./home-profile/ipc";
-import { registerHomeWorkspaceIpcHandlers } from "./home-workspace/ipc";
-import { registerKnowledgeIpcHandlers } from "./knowledge/ipc";
+import { dbManager } from '../core/database';
+import { registerAiIpcHandlers } from './ai/ipc';
+import { registerAppConfigIpcHandlers } from './app-config/ipc';
+import { appConfigManager } from './app-config/manager';
+import { registerHomeLayoutIpcHandlers } from './home-layout/ipc';
+import { registerHomeProfileIpcHandlers } from './home-profile/ipc';
+import { registerHomeWorkspaceIpcHandlers } from './home-workspace/ipc';
+import { registerKnowledgeIpcHandlers } from './knowledge/ipc';
 import {
   captureClipboardToQuickNoteWindow,
   registerQuickNoteWindowHandlers,
   toggleQuickNoteWindow,
-} from "./knowledge/quick_note_window";
-import { registerMediaIpcHandlers } from "./media/ipc";
-import { registerMultiDeviceClipboardIpcHandlers } from "./multi-device-clipboard/ipc";
-import { multiDeviceClipboardService } from "./multi-device-clipboard/service";
-import { registerMultiDeviceClipboardWindowHandlers, toggleMultiDeviceClipboardWindow } from "./multi-device-clipboard/window";
-import { registerNotificationIpcHandlers } from "./notification/ipc";
-import { registerShellIpcHandlers } from "./shell/ipc";
-import { registerScreenshotIpcHandlers } from "./screenshot/ipc";
-import { registerTabPreviewIpcHandlers } from "./tab_preview/ipc";
-import { registerPinImageIpcHandlers } from "./screenshot/pin_window";
-import { showScreenshotWindow } from "./screenshot/window";
-import { registerShortcutIpcHandlers } from "./shortcuts/ipc";
-import { shortcutService } from "./shortcuts/service";
-import { registerSyncIpcHandlers } from "./sync/ipc";
+} from './knowledge/quick_note_window';
+import { registerMediaIpcHandlers } from './media/ipc';
+import { registerMultiDeviceClipboardIpcHandlers } from './multi-device-clipboard/ipc';
+import { multiDeviceClipboardService } from './multi-device-clipboard/service';
+import {
+  registerMultiDeviceClipboardWindowHandlers,
+  toggleMultiDeviceClipboardWindow,
+} from './multi-device-clipboard/window';
+import { registerNotificationIpcHandlers } from './notification/ipc';
+import { registerShellIpcHandlers } from './shell/ipc';
+import { registerScreenshotIpcHandlers } from './screenshot/ipc';
+import { registerTabPreviewIpcHandlers } from './tab_preview/ipc';
+import { registerPinImageIpcHandlers } from './screenshot/pin_window';
+import { showScreenshotWindow } from './screenshot/window';
+import { registerShortcutIpcHandlers } from './shortcuts/ipc';
+import { shortcutService } from './shortcuts/service';
+import { registerSyncIpcHandlers } from './sync/ipc';
 import { syncWorkerClient } from './sync/sync_worker_client';
-import { registerQuickLaunchIpcHandlers } from "./quick-launch/ipc";
-import { quickLaunchService } from "./quick-launch/service";
-import { preloadQuickLaunchWindow, toggleQuickLaunchWindow } from "./quick-launch/window";
-import { registerTerminalIpcHandlers } from "./terminal/ipc";
-import { registerTodoIpcHandlers, initializeTodoData } from "./todo/ipc";
-import { startTodoScheduler, stopTodoScheduler } from "./todo/scheduler";
-import { registerPluginHostIpcHandlers } from "./plugin-host/ipc";
-import { pluginHost } from "./plugin-host";
-import { registerWebviewIpcHandlers } from "./webview/ipc";
-import { webViewManager } from "./webview/manager";
-import { registerWebScriptBridge } from "./webview/script-bridge";
-import { registerWorkspaceWindowIpcHandlers } from "./workspace-window/ipc";
-import { workspaceWindowManager } from "./workspace-window/manager";
-import { registerSshIpcHandlers } from "./ssh/ipc";
-import { sshHost } from "./ssh/host";
-import { registerFtpIpcHandlers } from "./ftp/ipc";
-import { ftpHost } from "./ftp/host";
-import { handleFtpCliArgs, resolveCliExitCode, type FtpCliInvocationResult } from "./ftp/integration";
-import { ftpSchedulerService } from "./ftp/scheduler";
-import { main_window, splash_window } from "./windows";
-import { initializeTray, destroyTray } from "./tray";
-import { registerTrayIpcHandlers } from "./tray/ipc";
-import { registerTrayMenuWindowHandlers } from "./tray/tray_menu_window";
-import { registerProcessManagerIpcHandlers } from "./process-manager/ipc";
-import { setupAutoUpdater } from "./updater";
+import { registerQuickLaunchIpcHandlers } from './quick-launch/ipc';
+import { quickLaunchService } from './quick-launch/service';
+import { preloadQuickLaunchWindow, toggleQuickLaunchWindow } from './quick-launch/window';
+import { registerTerminalIpcHandlers } from './terminal/ipc';
+import { registerTodoIpcHandlers, initializeTodoData } from './todo/ipc';
+import { startTodoScheduler, stopTodoScheduler } from './todo/scheduler';
+import { registerPluginHostIpcHandlers } from './plugin-host/ipc';
+import { pluginHost } from './plugin-host';
+import { registerWebviewIpcHandlers } from './webview/ipc';
+import { webViewManager } from './webview/manager';
+import { registerWebScriptBridge } from './webview/script-bridge';
+import { registerWorkspaceWindowIpcHandlers } from './workspace-window/ipc';
+import { workspaceWindowManager } from './workspace-window/manager';
+import { registerSshIpcHandlers } from './ssh/ipc';
+import { sshHost } from './ssh/host';
+import { registerFtpIpcHandlers } from './ftp/ipc';
+import { ftpHost } from './ftp/host';
+import {
+  handleFtpCliArgs,
+  resolveCliExitCode,
+  type FtpCliInvocationResult,
+} from './ftp/integration';
+import { ftpSchedulerService } from './ftp/scheduler';
+import { main_window, splash_window } from './windows';
+import { initializeTray, destroyTray } from './tray';
+import { registerTrayIpcHandlers } from './tray/ipc';
+import { registerTrayMenuWindowHandlers } from './tray/tray_menu_window';
+import { registerProcessManagerIpcHandlers } from './process-manager/ipc';
+import { setupAutoUpdater } from './updater';
 import { registerAndroidToolsIpcHandlers } from './android-tools/ipc';
 import { disposeAndroidInput, registerAndroidInputIpcHandlers } from './android-tools/input_ipc';
-import { disposeAndroidTools, initializeAndroidTools, setAndroidToolchainConfiguredPath, setAndroidToolchainPathPersistence } from './android-tools';
+import {
+  disposeAndroidTools,
+  initializeAndroidTools,
+  setAndroidToolchainConfiguredPath,
+  setAndroidToolchainPathPersistence,
+} from './android-tools';
 import { initializeProcessDiagnostics } from './diagnostics/process_diagnostics';
 
 initializeProcessDiagnostics();
@@ -113,7 +125,7 @@ class App {
           corsEnabled: true,
           stream: true,
         },
-      }
+      },
     ]);
     this.mainWindowCreator = main_window();
     this.splashWindowCreator = splash_window();
@@ -170,14 +182,14 @@ class App {
     registerAndroidInputIpcHandlers();
 
     const singleLock = app.requestSingleInstanceLock(
-      this.cliRelayResponsePath ? { ftpCliResponsePath: this.cliRelayResponsePath } : undefined,
+      this.cliRelayResponsePath ? { ftpCliResponsePath: this.cliRelayResponsePath } : undefined
     );
     if (!singleLock) {
       if (this.cliRelayResponsePath) {
         void this.awaitCliRelayAndExit(this.cliRelayResponsePath);
         return;
       }
-      app.quit()
+      app.quit();
     } else {
       this.beforeReady();
       this.onReady();
@@ -200,7 +212,9 @@ class App {
           await dbManager.initialize();
         }
         await appConfigManager.initialize();
-        setAndroidToolchainConfiguredPath(appConfigManager.getCachedConfig().tools.androidToolchainPath);
+        setAndroidToolchainConfiguredPath(
+          appConfigManager.getCachedConfig().tools.androidToolchainPath
+        );
         setAndroidToolchainPathPersistence(async (nextPath) => {
           await appConfigManager.updateConfig({ tools: { androidToolchainPath: nextPath } });
         });
@@ -295,7 +309,7 @@ class App {
             void workspaceWindowManager.openDetached(key).catch((error) => {
               console.error(`[workspace-window] Failed to open detached ${key} window:`, error);
             });
-          },
+          }
         );
         void preloadQuickLaunchWindow();
 
@@ -331,10 +345,13 @@ class App {
 
           const mainWindow = this.mainWindowCreator.getWindow();
           pluginHost.bindMainWindow(mainWindow);
-          mainWindow.webContents.on('did-start-navigation', (_event, _url, isInPlace, isMainFrame) => {
-            if (isInPlace || !isMainFrame) return;
-            void sshHost.releasePortForwardsForTarget('main');
-          });
+          mainWindow.webContents.on(
+            'did-start-navigation',
+            (_event, _url, isInPlace, isMainFrame) => {
+              if (isInPlace || !isMainFrame) return;
+              void sshHost.releasePortForwardsForTarget('main');
+            }
+          );
           if (!mainWindow.isVisible()) {
             mainWindow.show();
           }
@@ -365,7 +382,7 @@ class App {
         this.splashWindowCreator.close();
         app.quit();
       }
-    }
+    };
 
     if (!app.isReady()) {
       app.on('ready', readyFunc);
@@ -375,21 +392,24 @@ class App {
   }
 
   onRunning() {
-    app.on('second-instance', async (_event, argv, _workingDirectory, additionalData: FtpCliRelayAdditionalData) => {
-      try {
-        await this.processLaunchArgs(argv, {
-          responsePath: additionalData?.ftpCliResponsePath,
-          printOutput: false,
-        });
-      } catch (error) {
-        console.error('Failed to process second-instance FTP args:', error);
+    app.on(
+      'second-instance',
+      async (_event, argv, _workingDirectory, additionalData: FtpCliRelayAdditionalData) => {
+        try {
+          await this.processLaunchArgs(argv, {
+            responsePath: additionalData?.ftpCliResponsePath,
+            printOutput: false,
+          });
+        } catch (error) {
+          console.error('Failed to process second-instance FTP args:', error);
+        }
+        try {
+          this.mainWindowCreator.showWindow();
+        } catch {
+          // ignore
+        }
       }
-      try {
-        this.mainWindowCreator.showWindow();
-      } catch {
-        // ignore
-      }
-    });
+    );
   }
 
   onQuit() {
@@ -478,7 +498,7 @@ class App {
     options: {
       responsePath?: string;
       printOutput?: boolean;
-    } = {},
+    } = {}
   ) {
     try {
       const result = await handleFtpCliArgs(argv);
@@ -586,7 +606,7 @@ async function serveLocalAsset(
   request: Request,
   filePath: string,
   rootPath: string,
-  contentType?: string,
+  contentType?: string
 ) {
   // Protocol URLs carry a root-relative asset name; knowledge records may already
   // contain an absolute storage path. Resolve both forms before the traversal check.
@@ -638,25 +658,26 @@ async function serveLocalAsset(
   }
 }
 
-function parseByteRange(value: string | null, size: number): { start: number; end: number } | { invalid: true } | null {
+function parseByteRange(
+  value: string | null,
+  size: number
+): { start: number; end: number } | { invalid: true } | null {
   if (!value || size <= 0) return null;
   const match = /^bytes=(\d*)-(\d*)$/.exec(value.trim());
   if (!match || (!match[1] && !match[2])) return { invalid: true };
 
   const requestedStart = match[1] ? Number(match[1]) : null;
   const requestedEnd = match[2] ? Number(match[2]) : null;
-  if ((requestedStart !== null && !Number.isSafeInteger(requestedStart))
-    || (requestedEnd !== null && !Number.isSafeInteger(requestedEnd))) {
+  if (
+    (requestedStart !== null && !Number.isSafeInteger(requestedStart)) ||
+    (requestedEnd !== null && !Number.isSafeInteger(requestedEnd))
+  ) {
     return { invalid: true };
   }
 
   const isSuffixRange = requestedStart === null;
-  const start = isSuffixRange
-    ? Math.max(0, size - (requestedEnd ?? 0))
-    : requestedStart;
-  const end = isSuffixRange
-    ? size - 1
-    : Math.min(size - 1, requestedEnd ?? size - 1);
+  const start = isSuffixRange ? Math.max(0, size - (requestedEnd ?? 0)) : requestedStart;
+  const end = isSuffixRange ? size - 1 : Math.min(size - 1, requestedEnd ?? size - 1);
   return start <= end && start < size ? { start, end } : { invalid: true };
 }
 

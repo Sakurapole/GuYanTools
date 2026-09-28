@@ -68,7 +68,7 @@ export function registerProcessManagerIpcHandlers() {
 
   ipcMain.handle('process-manager:gpu-info', async () => {
     try {
-      const gpuInfo = await app.getGPUInfo('basic') as Record<string, unknown> | null;
+      const gpuInfo = (await app.getGPUInfo('basic')) as Record<string, unknown> | null;
       const featureStatus = app.getGPUFeatureStatus() as unknown as Record<string, string>;
       const gpuDevice = (gpuInfo?.gpuDevice as Array<Record<string, string>> | undefined)?.[0];
       const summary: GpuInfoSummary = {

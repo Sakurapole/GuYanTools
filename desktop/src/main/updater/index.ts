@@ -2,7 +2,11 @@ import path from 'node:path';
 import { app, BrowserWindow, ipcMain, safeStorage, shell } from 'electron';
 import fs from 'fs-extra';
 import * as electronUpdater from 'electron-updater';
-import type { ProgressInfo, UpdateDownloadedEvent, UpdateInfo as ElectronUpdateInfo } from 'electron-updater';
+import type {
+  ProgressInfo,
+  UpdateDownloadedEvent,
+  UpdateInfo as ElectronUpdateInfo,
+} from 'electron-updater';
 import type { UpdateInfo, UpdaterAuthInfo } from '@/contracts/updater';
 
 const { autoUpdater } = electronUpdater;
@@ -90,10 +94,9 @@ function getAuthFilePath() {
 }
 
 function getEnvironmentToken() {
-  return process.env.GUYANTOOLS_GITHUB_TOKEN
-    || process.env.GH_TOKEN
-    || process.env.GITHUB_TOKEN
-    || null;
+  return (
+    process.env.GUYANTOOLS_GITHUB_TOKEN || process.env.GH_TOKEN || process.env.GITHUB_TOKEN || null
+  );
 }
 
 async function loadStoredToken() {
@@ -103,7 +106,7 @@ async function loadStoredToken() {
 
   storedTokenLoaded = true;
   try {
-    const payload = await fs.readJSON(getAuthFilePath()) as { encryptedToken?: string };
+    const payload = (await fs.readJSON(getAuthFilePath())) as { encryptedToken?: string };
     if (payload.encryptedToken && safeStorage.isEncryptionAvailable()) {
       storedToken = safeStorage.decryptString(Buffer.from(payload.encryptedToken, 'base64'));
     }
@@ -119,7 +122,9 @@ async function loadStoredToken() {
 
 async function persistStoredToken(token: string) {
   if (!safeStorage.isEncryptionAvailable()) {
-    throw new Error('当前系统不支持安全保存 GitHub Token，可改用 GUYANTOOLS_GITHUB_TOKEN 环境变量。');
+    throw new Error(
+      '当前系统不支持安全保存 GitHub Token，可改用 GUYANTOOLS_GITHUB_TOKEN 环境变量。'
+    );
   }
 
   const encryptedToken = safeStorage.encryptString(token).toString('base64');
@@ -136,7 +141,7 @@ async function clearStoredToken() {
 }
 
 async function resolveUpdaterToken() {
-  return getEnvironmentToken() || await loadStoredToken();
+  return getEnvironmentToken() || (await loadStoredToken());
 }
 
 async function getAuthInfo(): Promise<UpdaterAuthInfo> {

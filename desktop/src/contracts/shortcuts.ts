@@ -55,7 +55,9 @@ export interface RetrySystemShortcutResult {
 
 export interface ShortcutsApi {
   inspectSystemShortcuts: () => Promise<ShortcutInspectionResult>;
-  validateSystemShortcut: (input: ValidateSystemShortcutInput) => Promise<ValidateSystemShortcutResult>;
+  validateSystemShortcut: (
+    input: ValidateSystemShortcutInput
+  ) => Promise<ValidateSystemShortcutResult>;
   retrySystemShortcut: (input: RetrySystemShortcutInput) => Promise<RetrySystemShortcutResult>;
 }
 

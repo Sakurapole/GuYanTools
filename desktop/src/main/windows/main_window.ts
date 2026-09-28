@@ -1,7 +1,7 @@
-import { app, BrowserWindow, ipcMain } from "electron";
+import { app, BrowserWindow, ipcMain } from 'electron';
 import path from 'path';
-import { dbManager } from "../../core/database";
-import { waitForDevServer } from "./wait_for_dev_server";
+import { dbManager } from '../../core/database';
+import { waitForDevServer } from './wait_for_dev_server';
 import { resolveWindowIconPath } from './window_icon';
 
 export default () => {
@@ -14,7 +14,7 @@ export default () => {
 
   const init = async () => {
     await createWindow();
-  }
+  };
 
   const createWindow = async () => {
     if (!dbManager.isInitialized()) {
@@ -45,7 +45,9 @@ export default () => {
       await waitForDevServer(mainWindowUrl);
       await mainWindow.loadURL(mainWindowUrl);
     } else {
-      await mainWindow.loadFile(path.join(__dirname, `../renderer/${MAIN_WINDOW_VITE_NAME}/index.html`));
+      await mainWindow.loadFile(
+        path.join(__dirname, `../renderer/${MAIN_WINDOW_VITE_NAME}/index.html`)
+      );
     }
 
     // Open the DevTools.
@@ -88,7 +90,7 @@ export default () => {
       // 关闭窗口时的处理逻辑
       mainWindow.close();
     });
-  }
+  };
 
   const getWindow = () => mainWindow;
 
@@ -101,20 +103,20 @@ export default () => {
       mainWindow.show();
     }
     mainWindow.focus();
-  }
+  };
 
   const navigateToHash = async (hashPath: string) => {
     if (!mainWindow || mainWindow.isDestroyed()) return;
     const normalizedHash = hashPath.startsWith('#') ? hashPath : `#${hashPath}`;
     await mainWindow.webContents.executeJavaScript(
       `window.location.hash = ${JSON.stringify(normalizedHash)};`,
-      true,
+      true
     );
-  }
+  };
 
   const prepareForQuit = () => {
     isQuitting = true;
-  }
+  };
 
   return {
     init,
@@ -122,5 +124,5 @@ export default () => {
     showWindow,
     navigateToHash,
     prepareForQuit,
-  }
-}
+  };
+};

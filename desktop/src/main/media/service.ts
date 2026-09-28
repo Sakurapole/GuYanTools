@@ -3,7 +3,12 @@ import fs from 'fs-extra';
 import os from 'os';
 import path from 'path';
 import { appConfigManager } from '../app-config/manager';
-import type { CompressQuality, CompressImageOptions, CompressVideoOptions, FfmpegCheckResult } from '@/contracts/media';
+import type {
+  CompressQuality,
+  CompressImageOptions,
+  CompressVideoOptions,
+  FfmpegCheckResult,
+} from '@/contracts/media';
 
 // ─── 质量映射 ───
 
@@ -33,8 +38,8 @@ interface HwEncoder {
 /** 按优先级排列的 GPU 编码器候选 */
 const HW_ENCODER_CANDIDATES: HwEncoder[] = [
   { name: 'h264_nvenc', label: 'NVIDIA NVENC' },
-  { name: 'h264_qsv',  label: 'Intel QuickSync' },
-  { name: 'h264_amf',  label: 'AMD AMF' },
+  { name: 'h264_qsv', label: 'Intel QuickSync' },
+  { name: 'h264_amf', label: 'AMD AMF' },
 ];
 
 /** 缓存检测结果：undefined=未检测，null=无 GPU，HwEncoder=已检测到 */
@@ -87,31 +92,38 @@ function buildVideoEncoderArgs(encoder: HwEncoder | null, quality: CompressQuali
       // NVENC: -rc vbr -cq <val> -b:v 0 让码率完全由 cq 控制
       const preset = quality === 'low' ? 'fast' : quality === 'medium' ? 'medium' : 'slow';
       return [
-        '-c:v', 'h264_nvenc',
-        '-preset', preset,
-        '-rc', 'vbr',
-        '-cq', String(qVal),
-        '-b:v', '0',
+        '-c:v',
+        'h264_nvenc',
+        '-preset',
+        preset,
+        '-rc',
+        'vbr',
+        '-cq',
+        String(qVal),
+        '-b:v',
+        '0',
       ];
     }
 
     case 'h264_qsv': {
       const preset = quality === 'low' ? 'veryfast' : quality === 'medium' ? 'medium' : 'veryslow';
-      return [
-        '-c:v', 'h264_qsv',
-        '-preset', preset,
-        '-global_quality', String(qVal),
-      ];
+      return ['-c:v', 'h264_qsv', '-preset', preset, '-global_quality', String(qVal)];
     }
 
     case 'h264_amf': {
-      const qualityStr = quality === 'low' ? 'speed' : quality === 'medium' ? 'balanced' : 'quality';
+      const qualityStr =
+        quality === 'low' ? 'speed' : quality === 'medium' ? 'balanced' : 'quality';
       return [
-        '-c:v', 'h264_amf',
-        '-quality', qualityStr,
-        '-rc', 'cqp',
-        '-qp_i', String(qVal),
-        '-qp_p', String(qVal),
+        '-c:v',
+        'h264_amf',
+        '-quality',
+        qualityStr,
+        '-rc',
+        'cqp',
+        '-qp_i',
+        String(qVal),
+        '-qp_p',
+        String(qVal),
       ];
     }
 
@@ -178,7 +190,10 @@ export async function checkFfmpeg(): Promise<FfmpegCheckResult> {
   }
 }
 
-export async function compressImage(dataUrl: string, options: CompressImageOptions): Promise<string> {
+export async function compressImage(
+  dataUrl: string,
+  options: CompressImageOptions
+): Promise<string> {
   const ffmpegPath = getFfmpegPath();
   if (!ffmpegPath) throw new Error('未配置 FFmpeg 路径');
 
@@ -206,7 +221,9 @@ export async function compressImage(dataUrl: string, options: CompressImageOptio
     }
 
     if (options.maxSize) {
-      filters.push(`scale='if(gt(iw,ih),min(${options.maxSize},iw),-2)':'if(gt(ih,iw),min(${options.maxSize},ih),-2)'`);
+      filters.push(
+        `scale='if(gt(iw,ih),min(${options.maxSize},iw),-2)':'if(gt(ih,iw),min(${options.maxSize},ih),-2)'`
+      );
     }
 
     if (filters.length > 0) {
@@ -244,7 +261,7 @@ async function runVideoEncode(
   filePath: string,
   outputPath: string,
   options: CompressVideoOptions,
-  encoder: HwEncoder | null,
+  encoder: HwEncoder | null
 ): Promise<void> {
   const args = ['-y'];
 
@@ -264,7 +281,9 @@ async function runVideoEncode(
   }
 
   if (options.maxSize) {
-    filters.push(`scale='min(${options.maxSize},iw)':'min(${options.maxSize},ih)':force_original_aspect_ratio=decrease`);
+    filters.push(
+      `scale='min(${options.maxSize},iw)':'min(${options.maxSize},ih)':force_original_aspect_ratio=decrease`
+    );
     // 编码器要求宽高均为偶数
     filters.push('pad=ceil(iw/2)*2:ceil(ih/2)*2');
   }
@@ -275,18 +294,15 @@ async function runVideoEncode(
 
   // ─── 编码参数 ───
   const encoderArgs = buildVideoEncoderArgs(encoder, options.quality);
-  args.push(
-    ...encoderArgs,
-    '-pix_fmt', 'yuv420p',
-    '-an',
-    '-movflags', '+faststart',
-    outputPath,
-  );
+  args.push(...encoderArgs, '-pix_fmt', 'yuv420p', '-an', '-movflags', '+faststart', outputPath);
 
   await runFfmpeg(ffmpegPath, args);
 }
 
-export async function compressVideo(filePath: string, options: CompressVideoOptions): Promise<string> {
+export async function compressVideo(
+  filePath: string,
+  options: CompressVideoOptions
+): Promise<string> {
   const ffmpegPath = getFfmpegPath();
   if (!ffmpegPath) throw new Error('未配置 FFmpeg 路径');
 

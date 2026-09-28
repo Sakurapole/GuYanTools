@@ -11,13 +11,19 @@ export function registerMediaIpcHandlers() {
     return mediaService.checkFfmpeg();
   });
 
-  ipcMain.handle('media:compress-image', async (_event, dataUrl: string, options: CompressImageOptions) => {
-    return mediaService.compressImage(dataUrl, options);
-  });
+  ipcMain.handle(
+    'media:compress-image',
+    async (_event, dataUrl: string, options: CompressImageOptions) => {
+      return mediaService.compressImage(dataUrl, options);
+    }
+  );
 
-  ipcMain.handle('media:compress-video', async (_event, filePath: string, options: CompressVideoOptions) => {
-    return mediaService.compressVideo(filePath, options);
-  });
+  ipcMain.handle(
+    'media:compress-video',
+    async (_event, filePath: string, options: CompressVideoOptions) => {
+      return mediaService.compressVideo(filePath, options);
+    }
+  );
 
   registered = true;
 }

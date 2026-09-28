@@ -83,7 +83,10 @@ export interface WorkspaceWindowContext {
 export type WorkspaceWindowPageState = Record<string, unknown>;
 
 export interface WorkspaceWindowApi {
-  openDetached: (key: WorkspaceWindowKey, options?: WorkspaceDetachedOpenOptions) => Promise<WorkspaceDetachedWindowState>;
+  openDetached: (
+    key: WorkspaceWindowKey,
+    options?: WorkspaceDetachedOpenOptions
+  ) => Promise<WorkspaceDetachedWindowState>;
   returnToMain: (key: WorkspaceWindowKey) => Promise<WorkspaceDetachedWindowState>;
   getState: () => Promise<WorkspaceDetachedWindowState>;
   getContext: () => Promise<WorkspaceWindowContext>;

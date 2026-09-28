@@ -52,15 +52,31 @@ const SYSTEM_SHORTCUT_ACTIONS: SystemShortcutActionDefinition[] = [
   { key: 'toggleAppVisibility', field: 'toggleVisibilityShortcut', label: '显示/隐藏应用' },
   { key: 'toggleMultiDeviceClipboard', field: 'toggleClipboardShortcut', label: '多设备剪贴板' },
   { key: 'toggleQuickNote', field: 'toggleQuickNoteShortcut', label: '知识库速记' },
-  { key: 'captureClipboardToQuickNote', field: 'captureClipboardToQuickNoteShortcut', label: '剪贴板转速记' },
-  { key: 'captureScreenshotRegion', field: 'captureScreenshotRegionShortcut', label: '区域截图识别' },
-  { key: 'captureScreenshotAnnotate', field: 'captureScreenshotAnnotateShortcut', label: '截图标注' },
+  {
+    key: 'captureClipboardToQuickNote',
+    field: 'captureClipboardToQuickNoteShortcut',
+    label: '剪贴板转速记',
+  },
+  {
+    key: 'captureScreenshotRegion',
+    field: 'captureScreenshotRegionShortcut',
+    label: '区域截图识别',
+  },
+  {
+    key: 'captureScreenshotAnnotate',
+    field: 'captureScreenshotAnnotateShortcut',
+    label: '截图标注',
+  },
   { key: 'toggleQuickLaunch', field: 'toggleQuickLaunchShortcut', label: '快速启动' },
   { key: 'openDetachedTerminal', field: 'openDetachedTerminalShortcut', label: '独立窗口：终端' },
   { key: 'openDetachedFtp', field: 'openDetachedFtpShortcut', label: '独立窗口：传输' },
   { key: 'openDetachedTodo', field: 'openDetachedTodoShortcut', label: '独立窗口：待办' },
   { key: 'openDetachedAi', field: 'openDetachedAiShortcut', label: '独立窗口：AI' },
-  { key: 'openDetachedKnowledge', field: 'openDetachedKnowledgeShortcut', label: '独立窗口：知识库' },
+  {
+    key: 'openDetachedKnowledge',
+    field: 'openDetachedKnowledgeShortcut',
+    label: '独立窗口：知识库',
+  },
 ];
 
 const COMMON_SHORTCUT_CANDIDATES: Record<string, CommonShortcutCandidate[]> = {
@@ -130,7 +146,7 @@ class ShortcutService {
     toggleQuickLaunchWindow?: QuickLaunchWindowToggle,
     captureScreenshotRegion?: ScreenshotCaptureOpener,
     captureScreenshotAnnotate?: ScreenshotCaptureOpener,
-    openWorkspaceDetachedWindow?: WorkspaceDetachedWindowOpener,
+    openWorkspaceDetachedWindow?: WorkspaceDetachedWindowOpener
   ) {
     if (this.initialized) {
       return;
@@ -154,7 +170,7 @@ class ShortcutService {
       toggleQuickLaunchWindow,
       captureScreenshotRegion,
       captureScreenshotAnnotate,
-      openWorkspaceDetachedWindow,
+      openWorkspaceDetachedWindow
     );
     this.unsubscribeConfig = appConfigManager.subscribe((config, patch) => {
       if (!patch?.shortcuts) {
@@ -170,7 +186,7 @@ class ShortcutService {
         toggleQuickLaunchWindow,
         captureScreenshotRegion,
         captureScreenshotAnnotate,
-        openWorkspaceDetachedWindow,
+        openWorkspaceDetachedWindow
       ).catch((error) => {
         console.warn('[ShortcutService] Failed to refresh shortcuts:', error);
       });
@@ -265,13 +281,15 @@ class ShortcutService {
         const normalized = normalizeAccelerator(candidate.accelerator);
         return normalized && !configuredAccelerators.has(normalized);
       })
-      .map((candidate) => this.probeAccelerator({
-        id: candidate.id,
-        label: candidate.label,
-        accelerator: candidate.accelerator,
-        source: 'common',
-        config,
-      }));
+      .map((candidate) =>
+        this.probeAccelerator({
+          id: candidate.id,
+          label: candidate.label,
+          accelerator: candidate.accelerator,
+          source: 'common',
+          config,
+        })
+      );
 
     return {
       platform: process.platform,
@@ -282,7 +300,9 @@ class ShortcutService {
     };
   }
 
-  async validateSystemShortcut(input: ValidateSystemShortcutInput): Promise<ValidateSystemShortcutResult> {
+  async validateSystemShortcut(
+    input: ValidateSystemShortcutInput
+  ): Promise<ValidateSystemShortcutResult> {
     const config = await appConfigManager.getConfig();
     const action = SYSTEM_SHORTCUT_ACTIONS.find((item) => item.key === input.actionKey);
     const probe = this.probeAccelerator({
@@ -328,7 +348,11 @@ class ShortcutService {
       actionKey: action.key,
       config,
     });
-    if (beforeProbe.status === 'empty' || beforeProbe.status === 'invalid' || beforeProbe.owner === 'app') {
+    if (
+      beforeProbe.status === 'empty' ||
+      beforeProbe.status === 'invalid' ||
+      beforeProbe.owner === 'app'
+    ) {
       return {
         ok: beforeProbe.status === 'registered',
         probe: beforeProbe,
@@ -365,55 +389,91 @@ class ShortcutService {
     toggleQuickLaunchWindow?: QuickLaunchWindowToggle,
     captureScreenshotRegion?: ScreenshotCaptureOpener,
     captureScreenshotAnnotate?: ScreenshotCaptureOpener,
-    openWorkspaceDetachedWindow?: WorkspaceDetachedWindowOpener,
+    openWorkspaceDetachedWindow?: WorkspaceDetachedWindowOpener
   ) {
     const accelerator = normalizeAccelerator(config.shortcuts.system.toggleAppVisibility);
     await this.registerToggleVisibilityShortcut(accelerator, getMainWindow);
-    const clipboardAccelerator = normalizeAccelerator(config.shortcuts.system.toggleMultiDeviceClipboard);
+    const clipboardAccelerator = normalizeAccelerator(
+      config.shortcuts.system.toggleMultiDeviceClipboard
+    );
     await this.registerToggleClipboardShortcut(clipboardAccelerator, toggleClipboardWindow);
     const quickNoteAccelerator = normalizeAccelerator(config.shortcuts.system.toggleQuickNote);
     await this.registerSimpleShortcut(
       'toggleQuickNoteShortcut',
       quickNoteAccelerator,
       toggleQuickNoteWindow,
-      'quick note toggle',
+      'quick note toggle'
     );
-    const captureAccelerator = normalizeAccelerator(config.shortcuts.system.captureClipboardToQuickNote);
+    const captureAccelerator = normalizeAccelerator(
+      config.shortcuts.system.captureClipboardToQuickNote
+    );
     await this.registerSimpleShortcut(
       'captureClipboardToQuickNoteShortcut',
       captureAccelerator,
       captureClipboardToQuickNote,
-      'quick note clipboard capture',
+      'quick note clipboard capture'
     );
-    const screenshotAccelerator = normalizeAccelerator(config.shortcuts.system.captureScreenshotRegion);
+    const screenshotAccelerator = normalizeAccelerator(
+      config.shortcuts.system.captureScreenshotRegion
+    );
     await this.registerSimpleShortcut(
       'captureScreenshotRegionShortcut',
       screenshotAccelerator,
       captureScreenshotRegion,
-      'screenshot region capture',
+      'screenshot region capture'
     );
-    const screenshotAnnotateAccelerator = normalizeAccelerator(config.shortcuts.system.captureScreenshotAnnotate);
+    const screenshotAnnotateAccelerator = normalizeAccelerator(
+      config.shortcuts.system.captureScreenshotAnnotate
+    );
     await this.registerSimpleShortcut(
       'captureScreenshotAnnotateShortcut',
       screenshotAnnotateAccelerator,
       captureScreenshotAnnotate,
-      'screenshot annotate capture',
+      'screenshot annotate capture'
     );
     const quickLaunchAccelerator = normalizeAccelerator(config.shortcuts.system.toggleQuickLaunch);
     await this.registerSimpleShortcut(
       'toggleQuickLaunchShortcut',
       quickLaunchAccelerator,
       toggleQuickLaunchWindow,
-      'quick launch toggle',
+      'quick launch toggle'
     );
-    await this.registerDetachedWindowShortcut('openDetachedTerminalShortcut', config.shortcuts.system.openDetachedTerminal, 'terminal', openWorkspaceDetachedWindow);
-    await this.registerDetachedWindowShortcut('openDetachedFtpShortcut', config.shortcuts.system.openDetachedFtp, 'ftp', openWorkspaceDetachedWindow);
-    await this.registerDetachedWindowShortcut('openDetachedTodoShortcut', config.shortcuts.system.openDetachedTodo, 'todo', openWorkspaceDetachedWindow);
-    await this.registerDetachedWindowShortcut('openDetachedAiShortcut', config.shortcuts.system.openDetachedAi, 'ai', openWorkspaceDetachedWindow);
-    await this.registerDetachedWindowShortcut('openDetachedKnowledgeShortcut', config.shortcuts.system.openDetachedKnowledge, 'knowledge', openWorkspaceDetachedWindow);
+    await this.registerDetachedWindowShortcut(
+      'openDetachedTerminalShortcut',
+      config.shortcuts.system.openDetachedTerminal,
+      'terminal',
+      openWorkspaceDetachedWindow
+    );
+    await this.registerDetachedWindowShortcut(
+      'openDetachedFtpShortcut',
+      config.shortcuts.system.openDetachedFtp,
+      'ftp',
+      openWorkspaceDetachedWindow
+    );
+    await this.registerDetachedWindowShortcut(
+      'openDetachedTodoShortcut',
+      config.shortcuts.system.openDetachedTodo,
+      'todo',
+      openWorkspaceDetachedWindow
+    );
+    await this.registerDetachedWindowShortcut(
+      'openDetachedAiShortcut',
+      config.shortcuts.system.openDetachedAi,
+      'ai',
+      openWorkspaceDetachedWindow
+    );
+    await this.registerDetachedWindowShortcut(
+      'openDetachedKnowledgeShortcut',
+      config.shortcuts.system.openDetachedKnowledge,
+      'knowledge',
+      openWorkspaceDetachedWindow
+    );
   }
 
-  private async registerConfiguredShortcut(action: SystemShortcutActionDefinition, config: AppConfig) {
+  private async registerConfiguredShortcut(
+    action: SystemShortcutActionDefinition,
+    config: AppConfig
+  ) {
     const accelerator = normalizeAccelerator(config.shortcuts.system[action.key]);
     switch (action.key) {
       case 'toggleAppVisibility':
@@ -426,46 +486,76 @@ class ShortcutService {
           'toggleQuickNoteShortcut',
           accelerator,
           this.toggleQuickNoteWindow,
-          'quick note toggle',
+          'quick note toggle'
         );
       case 'captureClipboardToQuickNote':
         return this.registerSimpleShortcut(
           'captureClipboardToQuickNoteShortcut',
           accelerator,
           this.captureClipboardToQuickNote,
-          'quick note clipboard capture',
+          'quick note clipboard capture'
         );
       case 'captureScreenshotRegion':
         return this.registerSimpleShortcut(
           'captureScreenshotRegionShortcut',
           accelerator,
           this.captureScreenshotRegion,
-          'screenshot region capture',
+          'screenshot region capture'
         );
       case 'captureScreenshotAnnotate':
         return this.registerSimpleShortcut(
           'captureScreenshotAnnotateShortcut',
           accelerator,
           this.captureScreenshotAnnotate,
-          'screenshot annotate capture',
+          'screenshot annotate capture'
         );
       case 'toggleQuickLaunch':
         return this.registerSimpleShortcut(
           'toggleQuickLaunchShortcut',
           accelerator,
           this.toggleQuickLaunchWindow,
-          'quick launch toggle',
+          'quick launch toggle'
         );
       case 'openDetachedTerminal':
-        return this.registerDetachedWindowShortcut('openDetachedTerminalShortcut', accelerator, 'terminal', this.openWorkspaceDetachedWindow, true);
+        return this.registerDetachedWindowShortcut(
+          'openDetachedTerminalShortcut',
+          accelerator,
+          'terminal',
+          this.openWorkspaceDetachedWindow,
+          true
+        );
       case 'openDetachedFtp':
-        return this.registerDetachedWindowShortcut('openDetachedFtpShortcut', accelerator, 'ftp', this.openWorkspaceDetachedWindow, true);
+        return this.registerDetachedWindowShortcut(
+          'openDetachedFtpShortcut',
+          accelerator,
+          'ftp',
+          this.openWorkspaceDetachedWindow,
+          true
+        );
       case 'openDetachedTodo':
-        return this.registerDetachedWindowShortcut('openDetachedTodoShortcut', accelerator, 'todo', this.openWorkspaceDetachedWindow, true);
+        return this.registerDetachedWindowShortcut(
+          'openDetachedTodoShortcut',
+          accelerator,
+          'todo',
+          this.openWorkspaceDetachedWindow,
+          true
+        );
       case 'openDetachedAi':
-        return this.registerDetachedWindowShortcut('openDetachedAiShortcut', accelerator, 'ai', this.openWorkspaceDetachedWindow, true);
+        return this.registerDetachedWindowShortcut(
+          'openDetachedAiShortcut',
+          accelerator,
+          'ai',
+          this.openWorkspaceDetachedWindow,
+          true
+        );
       case 'openDetachedKnowledge':
-        return this.registerDetachedWindowShortcut('openDetachedKnowledgeShortcut', accelerator, 'knowledge', this.openWorkspaceDetachedWindow, true);
+        return this.registerDetachedWindowShortcut(
+          'openDetachedKnowledgeShortcut',
+          accelerator,
+          'knowledge',
+          this.openWorkspaceDetachedWindow,
+          true
+        );
       default:
         return false;
     }
@@ -512,7 +602,10 @@ class ShortcutService {
     return true;
   }
 
-  private async registerToggleClipboardShortcut(accelerator: string, toggleClipboardWindow?: ClipboardWindowToggle) {
+  private async registerToggleClipboardShortcut(
+    accelerator: string,
+    toggleClipboardWindow?: ClipboardWindowToggle
+  ) {
     if (this.toggleClipboardShortcut) {
       globalShortcut.unregister(this.toggleClipboardShortcut);
       this.toggleClipboardShortcut = '';
@@ -527,7 +620,9 @@ class ShortcutService {
     });
 
     if (!registered) {
-      console.warn(`[ShortcutService] Failed to register multi-device clipboard shortcut: ${accelerator}`);
+      console.warn(
+        `[ShortcutService] Failed to register multi-device clipboard shortcut: ${accelerator}`
+      );
       return false;
     }
 
@@ -539,7 +634,7 @@ class ShortcutService {
     field: RegisteredShortcutField,
     accelerator: string,
     action: (() => void) | undefined,
-    label: string,
+    label: string
   ) {
     if (this[field]) {
       globalShortcut.unregister(this[field]);
@@ -566,14 +661,16 @@ class ShortcutService {
     acceleratorOrRaw: string,
     key: WorkspaceWindowKey,
     openWorkspaceDetachedWindow?: WorkspaceDetachedWindowOpener,
-    alreadyNormalized = false,
+    alreadyNormalized = false
   ) {
-    const accelerator = alreadyNormalized ? acceleratorOrRaw : normalizeAccelerator(acceleratorOrRaw);
+    const accelerator = alreadyNormalized
+      ? acceleratorOrRaw
+      : normalizeAccelerator(acceleratorOrRaw);
     return this.registerSimpleShortcut(
       field,
       accelerator,
       openWorkspaceDetachedWindow ? () => openWorkspaceDetachedWindow(key) : undefined,
-      `detached ${key} window`,
+      `detached ${key} window`
     );
   }
 
@@ -606,7 +703,7 @@ class ShortcutService {
     const configuredConflict = this.findConfiguredConflict(
       input.config.shortcuts.system,
       normalizedAccelerator,
-      input.actionKey,
+      input.actionKey
     );
     if (configuredConflict) {
       return {
@@ -690,37 +787,43 @@ class ShortcutService {
   private findConfiguredConflict(
     shortcuts: AppSystemShortcutsConfig,
     normalizedAccelerator: string,
-    excludeActionKey?: AppSystemShortcutKey,
+    excludeActionKey?: AppSystemShortcutKey
   ) {
-    return SYSTEM_SHORTCUT_ACTIONS.find((action) => (
-      action.key !== excludeActionKey
-      && normalizeAccelerator(shortcuts[action.key]) === normalizedAccelerator
-    ));
+    return SYSTEM_SHORTCUT_ACTIONS.find(
+      (action) =>
+        action.key !== excludeActionKey &&
+        normalizeAccelerator(shortcuts[action.key]) === normalizedAccelerator
+    );
   }
 
   private findRegisteredAppAction(normalizedAccelerator: string) {
-    return SYSTEM_SHORTCUT_ACTIONS.find((action) => (
-      this[action.field] === normalizedAccelerator && globalShortcut.isRegistered(normalizedAccelerator)
-    ));
+    return SYSTEM_SHORTCUT_ACTIONS.find(
+      (action) =>
+        this[action.field] === normalizedAccelerator &&
+        globalShortcut.isRegistered(normalizedAccelerator)
+    );
   }
 
   private getCommonShortcutCandidates() {
-    return COMMON_SHORTCUT_CANDIDATES[process.platform]
-      ?? COMMON_SHORTCUT_CANDIDATES.linux
-      ?? [];
+    return COMMON_SHORTCUT_CANDIDATES[process.platform] ?? COMMON_SHORTCUT_CANDIDATES.linux ?? [];
   }
 
-  private summarizeProbes(probes: SystemShortcutProbeResult[]): ShortcutInspectionResult['summary'] {
-    return probes.reduce<ShortcutInspectionResult['summary']>((summary, probe) => {
-      summary[probe.status] += 1;
-      return summary;
-    }, {
-      registered: 0,
-      available: 0,
-      conflict: 0,
-      invalid: 0,
-      empty: 0,
-    });
+  private summarizeProbes(
+    probes: SystemShortcutProbeResult[]
+  ): ShortcutInspectionResult['summary'] {
+    return probes.reduce<ShortcutInspectionResult['summary']>(
+      (summary, probe) => {
+        summary[probe.status] += 1;
+        return summary;
+      },
+      {
+        registered: 0,
+        available: 0,
+        conflict: 0,
+        invalid: 0,
+        empty: 0,
+      }
+    );
   }
 }
 

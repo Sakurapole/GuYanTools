@@ -8,4 +8,3 @@ export interface TrayApi {
   /** Subscribe to context-menu events from the tray */
   onContextMenu: (listener: (x: number, y: number) => void) => () => void;
 }
-

@@ -16,7 +16,7 @@ function calcMenuPosition(
   trayX: number,
   trayY: number,
   trayW: number,
-  trayH: number,
+  trayH: number
 ): { x: number; y: number } {
   const display = screen.getDisplayNearestPoint({ x: trayX, y: trayY });
   const { workArea } = display;
@@ -25,9 +25,9 @@ function calcMenuPosition(
   const trayCX = trayX + trayW / 2;
   const trayCY = trayY + trayH / 2;
 
-  const fromLeft   = trayCX - workArea.x;
-  const fromRight  = workArea.x + workArea.width  - trayCX;
-  const fromTop    = trayCY - workArea.y;
+  const fromLeft = trayCX - workArea.x;
+  const fromRight = workArea.x + workArea.width - trayCX;
+  const fromTop = trayCY - workArea.y;
   const fromBottom = workArea.y + workArea.height - trayCY;
 
   const minDist = Math.min(fromLeft, fromRight, fromTop, fromBottom);
@@ -54,7 +54,7 @@ function calcMenuPosition(
   }
 
   // Clamp to work area bounds
-  x = Math.max(workArea.x + 4, Math.min(x, workArea.x + workArea.width  - MENU_WIDTH  - 4));
+  x = Math.max(workArea.x + 4, Math.min(x, workArea.x + workArea.width - MENU_WIDTH - 4));
   y = Math.max(workArea.y + 4, Math.min(y, workArea.y + workArea.height - MENU_HEIGHT - 4));
 
   return { x: Math.round(x), y: Math.round(y) };
@@ -73,7 +73,7 @@ export async function showTrayMenu(trayBounds: Electron.Rectangle): Promise<void
     trayBounds.x,
     trayBounds.y,
     trayBounds.width,
-    trayBounds.height,
+    trayBounds.height
   );
 
   menuWindow = new BrowserWindow({
@@ -103,7 +103,7 @@ export async function showTrayMenu(trayBounds: Electron.Rectangle): Promise<void
     await menuWindow.loadURL(url);
   } else {
     await menuWindow.loadFile(
-      path.join(__dirname, `../renderer/${MAIN_WINDOW_VITE_NAME}/tray_menu.html`),
+      path.join(__dirname, `../renderer/${MAIN_WINDOW_VITE_NAME}/tray_menu.html`)
     );
   }
 
