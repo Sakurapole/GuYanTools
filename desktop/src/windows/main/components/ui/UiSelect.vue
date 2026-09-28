@@ -14,23 +14,26 @@ export type UiSelectOption = {
   disabled?: boolean;
 };
 
-const props = withDefaults(defineProps<{
-  modelValue: string | number;
-  options: UiSelectOption[];
-  disabled?: boolean;
-  size?: SelectSize;
-  id?: string;
-  placeholder?: string;
-  animation?: SelectAnimation;
-  closeOnOutside?: boolean;
-}>(), {
-  disabled: false,
-  size: 'md',
-  id: '',
-  placeholder: '请选择…',
-  animation: 'slideScale',
-  closeOnOutside: true,
-});
+const props = withDefaults(
+  defineProps<{
+    modelValue: string | number;
+    options: UiSelectOption[];
+    disabled?: boolean;
+    size?: SelectSize;
+    id?: string;
+    placeholder?: string;
+    animation?: SelectAnimation;
+    closeOnOutside?: boolean;
+  }>(),
+  {
+    disabled: false,
+    size: 'md',
+    id: '',
+    placeholder: '请选择…',
+    animation: 'slideScale',
+    closeOnOutside: true,
+  }
+);
 
 const emit = defineEmits<{
   'update:modelValue': [value: string | number];

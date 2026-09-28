@@ -31,8 +31,9 @@ function oppositePlacement(placement: TooltipPlacement): TooltipPlacement {
 
 function getPlacementOrder(placement: TooltipPlacement): TooltipPlacement[] {
   const opposite = oppositePlacement(placement);
-  const rest = (['top', 'bottom', 'right', 'left'] as TooltipPlacement[])
-    .filter((item) => item !== placement && item !== opposite);
+  const rest = (['top', 'bottom', 'right', 'left'] as TooltipPlacement[]).filter(
+    (item) => item !== placement && item !== opposite
+  );
   return [placement, opposite, ...rest];
 }
 
@@ -41,7 +42,11 @@ function clamp(value: number, min: number, max: number) {
   return Math.min(Math.max(value, min), max);
 }
 
-function getBasePosition(placement: TooltipPlacement, triggerRect: DOMRect, tooltipRect: DOMRect): TooltipPoint {
+function getBasePosition(
+  placement: TooltipPlacement,
+  triggerRect: DOMRect,
+  tooltipRect: DOMRect
+): TooltipPoint {
   switch (placement) {
     case 'top':
       return {
@@ -82,8 +87,16 @@ function getVisibleArea(point: TooltipPoint, tooltipRect: DOMRect) {
   const viewportHeight = window.innerHeight;
   const left = clamp(point.x, VIEWPORT_PADDING, viewportWidth - VIEWPORT_PADDING);
   const top = clamp(point.y, VIEWPORT_PADDING, viewportHeight - VIEWPORT_PADDING);
-  const right = clamp(point.x + tooltipRect.width, VIEWPORT_PADDING, viewportWidth - VIEWPORT_PADDING);
-  const bottom = clamp(point.y + tooltipRect.height, VIEWPORT_PADDING, viewportHeight - VIEWPORT_PADDING);
+  const right = clamp(
+    point.x + tooltipRect.width,
+    VIEWPORT_PADDING,
+    viewportWidth - VIEWPORT_PADDING
+  );
+  const bottom = clamp(
+    point.y + tooltipRect.height,
+    VIEWPORT_PADDING,
+    viewportHeight - VIEWPORT_PADDING
+  );
   return Math.max(0, right - left) * Math.max(0, bottom - top);
 }
 
@@ -104,7 +117,9 @@ function createTooltipElement(content: string) {
   return tooltip;
 }
 
-export function normalizeTooltipOptions(value: string | TooltipOptions | null | undefined): Required<TooltipOptions> {
+export function normalizeTooltipOptions(
+  value: string | TooltipOptions | null | undefined
+): Required<TooltipOptions> {
   if (typeof value === 'string') {
     return {
       content: value,
@@ -127,7 +142,7 @@ export function normalizeTooltipOptions(value: string | TooltipOptions | null | 
 export function createTooltipController(
   trigger: HTMLElement,
   getOptions: () => string | TooltipOptions | null | undefined,
-  getAnchor: () => HTMLElement = () => trigger,
+  getAnchor: () => HTMLElement = () => trigger
 ) {
   let tooltip: HTMLElement | null = null;
   let showTimer: number | null = null;
@@ -175,7 +190,10 @@ export function createTooltipController(
     const tooltipRect = tooltip.getBoundingClientRect();
     const viewportWidth = window.innerWidth;
     const viewportHeight = window.innerHeight;
-    const maxWidth = Math.max(80, Math.min(DEFAULT_MAX_WIDTH, viewportWidth - VIEWPORT_PADDING * 2));
+    const maxWidth = Math.max(
+      80,
+      Math.min(DEFAULT_MAX_WIDTH, viewportWidth - VIEWPORT_PADDING * 2)
+    );
 
     tooltip.style.maxWidth = `${maxWidth}px`;
 
@@ -184,26 +202,49 @@ export function createTooltipController(
       point: getBasePosition(placement, rect, tooltipRect),
     }));
     const fitted = candidates.find(({ point }) => fitsViewport(point, tooltipRect));
-    const best = fitted ?? candidates.reduce((winner, candidate) => (
-      getVisibleArea(candidate.point, tooltipRect) > getVisibleArea(winner.point, tooltipRect) ? candidate : winner
-    ));
+    const best =
+      fitted ??
+      candidates.reduce((winner, candidate) =>
+        getVisibleArea(candidate.point, tooltipRect) > getVisibleArea(winner.point, tooltipRect)
+          ? candidate
+          : winner
+      );
 
-    const x = clamp(best.point.x, VIEWPORT_PADDING, viewportWidth - tooltipRect.width - VIEWPORT_PADDING);
-    const y = clamp(best.point.y, VIEWPORT_PADDING, viewportHeight - tooltipRect.height - VIEWPORT_PADDING);
+    const x = clamp(
+      best.point.x,
+      VIEWPORT_PADDING,
+      viewportWidth - tooltipRect.width - VIEWPORT_PADDING
+    );
+    const y = clamp(
+      best.point.y,
+      VIEWPORT_PADDING,
+      viewportHeight - tooltipRect.height - VIEWPORT_PADDING
+    );
     const anchorX = rect.left + rect.width / 2;
     const anchorY = rect.top + rect.height / 2;
 
-    tooltip.classList.remove('ui-tooltip--top', 'ui-tooltip--bottom', 'ui-tooltip--left', 'ui-tooltip--right');
+    tooltip.classList.remove(
+      'ui-tooltip--top',
+      'ui-tooltip--bottom',
+      'ui-tooltip--left',
+      'ui-tooltip--right'
+    );
     tooltip.classList.add(`ui-tooltip--${best.placement}`);
     tooltip.style.left = `${x}px`;
     tooltip.style.top = `${y}px`;
     tooltip.style.visibility = 'visible';
 
     if (best.placement === 'top' || best.placement === 'bottom') {
-      tooltip.style.setProperty('--ui-tooltip-arrow-x', `${clamp(anchorX - x, EDGE_PADDING, tooltipRect.width - EDGE_PADDING)}px`);
+      tooltip.style.setProperty(
+        '--ui-tooltip-arrow-x',
+        `${clamp(anchorX - x, EDGE_PADDING, tooltipRect.width - EDGE_PADDING)}px`
+      );
       tooltip.style.removeProperty('--ui-tooltip-arrow-y');
     } else {
-      tooltip.style.setProperty('--ui-tooltip-arrow-y', `${clamp(anchorY - y, EDGE_PADDING, tooltipRect.height - EDGE_PADDING)}px`);
+      tooltip.style.setProperty(
+        '--ui-tooltip-arrow-y',
+        `${clamp(anchorY - y, EDGE_PADDING, tooltipRect.height - EDGE_PADDING)}px`
+      );
       tooltip.style.removeProperty('--ui-tooltip-arrow-x');
     }
   }
@@ -302,7 +343,11 @@ export function createTooltipController(
       clearTimers();
       clearPositionFrame();
       removeTooltip();
-      trigger.classList.remove('ui-tooltip-trigger', 'ui-tooltip-trigger--block', 'ui-tooltip-trigger--component');
+      trigger.classList.remove(
+        'ui-tooltip-trigger',
+        'ui-tooltip-trigger--block',
+        'ui-tooltip-trigger--component'
+      );
       trigger.removeEventListener('mouseenter', handleMouseEnter);
       trigger.removeEventListener('mouseleave', handleMouseLeave);
       trigger.removeEventListener('focus', handleMouseEnter);

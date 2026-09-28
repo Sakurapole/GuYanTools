@@ -5,23 +5,26 @@ import UiScrollbar from './UiScrollbar.vue';
 
 type InputSize = 'sm' | 'md' | 'lg';
 
-const props = withDefaults(defineProps<{
-  modelValue: string;
-  suggestions: string[];
-  placeholder?: string;
-  disabled?: boolean;
-  size?: InputSize;
-  spellcheck?: boolean | 'true' | 'false';
-  autocorrect?: string;
-  autocapitalize?: string;
-}>(), {
-  placeholder: '',
-  disabled: false,
-  size: 'md',
-  spellcheck: undefined,
-  autocorrect: undefined,
-  autocapitalize: undefined,
-});
+const props = withDefaults(
+  defineProps<{
+    modelValue: string;
+    suggestions: string[];
+    placeholder?: string;
+    disabled?: boolean;
+    size?: InputSize;
+    spellcheck?: boolean | 'true' | 'false';
+    autocorrect?: string;
+    autocapitalize?: string;
+  }>(),
+  {
+    placeholder: '',
+    disabled: false,
+    size: 'md',
+    spellcheck: undefined,
+    autocorrect: undefined,
+    autocapitalize: undefined,
+  }
+);
 
 const emit = defineEmits<{
   'update:modelValue': [value: string];
@@ -38,7 +41,7 @@ const highlightedIndex = ref(-1);
 let blurTimer: number | null = null;
 
 const normalizedSuggestions = computed(() =>
-  props.suggestions.filter((item, index, array) => item && array.indexOf(item) === index),
+  props.suggestions.filter((item, index, array) => item && array.indexOf(item) === index)
 );
 const dropdownStyle = computed(() => ({
   '--ui-suggest-input-dropdown-height': `${Math.min(normalizedSuggestions.value.length, 5) * 44 + 10}px`,
@@ -90,9 +93,13 @@ function moveHighlight(direction: 1 | -1) {
   }
 
   const max = normalizedSuggestions.value.length - 1;
-  const next = highlightedIndex.value < 0
-    ? (direction === 1 ? 0 : max)
-    : (highlightedIndex.value + direction + normalizedSuggestions.value.length) % normalizedSuggestions.value.length;
+  const next =
+    highlightedIndex.value < 0
+      ? direction === 1
+        ? 0
+        : max
+      : (highlightedIndex.value + direction + normalizedSuggestions.value.length) %
+        normalizedSuggestions.value.length;
   highlightedIndex.value = next;
   open.value = true;
 }
@@ -164,7 +171,11 @@ function handleBlur() {
     />
 
     <transition name="ui-dropdown">
-      <div v-if="open && normalizedSuggestions.length" class="ui-suggest-input__dropdown" :style="dropdownStyle">
+      <div
+        v-if="open && normalizedSuggestions.length"
+        class="ui-suggest-input__dropdown"
+        :style="dropdownStyle"
+      >
         <UiScrollbar :x="false" :size="6" class="ui-suggest-input__scroll">
           <div class="ui-suggest-input__list">
             <button
@@ -239,5 +250,4 @@ function handleBlur() {
     background: var(--ui-select-option-hover-bg);
   }
 }
-
 </style>

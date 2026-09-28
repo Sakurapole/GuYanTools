@@ -4,26 +4,29 @@ import IconRenderer from './IconRenderer.vue';
 import UiIconButton from './UiIconButton.vue';
 import UiInput from './UiInput.vue';
 
-const props = withDefaults(defineProps<{
-  modelValue: string;
-  swatches?: string[];
-  label?: string;
-  ariaLabel?: string;
-  placeholder?: string;
-  allowTransparent?: boolean;
-  allowEmpty?: boolean;
-  showInput?: boolean;
-  size?: 'sm' | 'md';
-}>(), {
-  swatches: () => [],
-  label: '',
-  ariaLabel: '',
-  placeholder: '#ffffff',
-  allowTransparent: false,
-  allowEmpty: false,
-  showInput: true,
-  size: 'sm',
-});
+const props = withDefaults(
+  defineProps<{
+    modelValue: string;
+    swatches?: string[];
+    label?: string;
+    ariaLabel?: string;
+    placeholder?: string;
+    allowTransparent?: boolean;
+    allowEmpty?: boolean;
+    showInput?: boolean;
+    size?: 'sm' | 'md';
+  }>(),
+  {
+    swatches: () => [],
+    label: '',
+    ariaLabel: '',
+    placeholder: '#ffffff',
+    allowTransparent: false,
+    allowEmpty: false,
+    showInput: true,
+    size: 'sm',
+  }
+);
 
 const emit = defineEmits<{
   'update:modelValue': [value: string];
@@ -32,9 +35,7 @@ const emit = defineEmits<{
 
 const normalizedValue = computed(() => props.modelValue?.trim() || '');
 const colorInputValue = computed(() => toNativeColorValue(normalizedValue.value));
-const eyeDropperSupported = computed(() =>
-  typeof window !== 'undefined' && 'EyeDropper' in window,
-);
+const eyeDropperSupported = computed(() => typeof window !== 'undefined' && 'EyeDropper' in window);
 const visibleSwatches = computed(() => {
   const values = props.allowTransparent ? ['transparent', ...props.swatches] : props.swatches;
   return [...new Set(values.filter(Boolean))];
@@ -65,7 +66,9 @@ function commit(value: string) {
 async function pickFromScreen() {
   if (!eyeDropperSupported.value) return;
   try {
-    const EyeDropperCtor = (window as unknown as { EyeDropper?: new () => { open: () => Promise<{ sRGBHex: string }> } }).EyeDropper;
+    const EyeDropperCtor = (
+      window as unknown as { EyeDropper?: new () => { open: () => Promise<{ sRGBHex: string }> } }
+    ).EyeDropper;
     if (!EyeDropperCtor) return;
     const result = await new EyeDropperCtor().open();
     commit(result.sRGBHex);
@@ -79,7 +82,12 @@ async function pickFromScreen() {
   <label class="ui-color-picker" :class="[`ui-color-picker--${size}`]">
     <span v-if="label" class="ui-color-picker__label">{{ label }}</span>
     <span class="ui-color-picker__body">
-      <span v-if="visibleSwatches.length" class="ui-color-picker__swatches" role="listbox" :aria-label="ariaLabel || label || '颜色选择'">
+      <span
+        v-if="visibleSwatches.length"
+        class="ui-color-picker__swatches"
+        role="listbox"
+        :aria-label="ariaLabel || label || '颜色选择'"
+      >
         <button
           v-for="color in visibleSwatches"
           :key="color"
@@ -100,7 +108,7 @@ async function pickFromScreen() {
           :value="colorInputValue"
           :aria-label="ariaLabel || label || '自定义颜色'"
           @input="commit(($event.target as HTMLInputElement).value)"
-        >
+        />
         <UiInput
           v-if="showInput"
           class="ui-color-picker__input"

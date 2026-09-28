@@ -23,7 +23,7 @@ const ripple: Directive = {
       ripple.style.pointerEvents = 'none';
       ripple.style.left = `${e.clientX - rect.left - radius}px`;
       ripple.style.top = `${e.clientY - rect.top - radius}px`;
-      
+
       ripple.style.transform = 'scale(0)';
       ripple.style.opacity = '0.6';
       ripple.style.transition = 'transform 0.6s ease, opacity 1s ease';
@@ -55,7 +55,7 @@ const ripple: Directive = {
       (el as any)._rippleCleanup();
       delete (el as any)._rippleCleanup;
     }
-  }
+  },
 };
 
 export default ripple;

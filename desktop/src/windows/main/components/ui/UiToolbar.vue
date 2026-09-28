@@ -3,15 +3,18 @@ import { computed } from 'vue';
 
 type ToolbarDensity = 'compact' | 'normal';
 
-const props = withDefaults(defineProps<{
-  density?: ToolbarDensity;
-  wrap?: boolean;
-  align?: 'start' | 'center' | 'end' | 'between';
-}>(), {
-  density: 'normal',
-  wrap: false,
-  align: 'start',
-});
+const props = withDefaults(
+  defineProps<{
+    density?: ToolbarDensity;
+    wrap?: boolean;
+    align?: 'start' | 'center' | 'end' | 'between';
+  }>(),
+  {
+    density: 'normal',
+    wrap: false,
+    align: 'start',
+  }
+);
 
 const toolbarClass = computed(() => [
   'ui-toolbar',

@@ -10,12 +10,35 @@ const { visible, options, confirm, cancel } = useConfirmDialog();
     <template #header>
       <div class="confirm-header">
         <span class="confirm-icon" :class="{ 'confirm-icon--danger': options.danger }">
-          <svg v-if="options.danger" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/>
-            <line x1="12" x2="12" y1="9" y2="13"/><line x1="12" x2="12.01" y1="17" y2="17"/>
+          <svg
+            v-if="options.danger"
+            width="22"
+            height="22"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          >
+            <path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z" />
+            <line x1="12" x2="12" y1="9" y2="13" />
+            <line x1="12" x2="12.01" y1="17" y2="17" />
           </svg>
-          <svg v-else width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/>
+          <svg
+            v-else
+            width="22"
+            height="22"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          >
+            <circle cx="12" cy="12" r="10" />
+            <path d="M12 16v-4" />
+            <path d="M12 8h.01" />
           </svg>
         </span>
         <span class="confirm-title">{{ options.title }}</span>
@@ -31,7 +54,7 @@ const { visible, options, confirm, cancel } = useConfirmDialog();
         <button class="confirm-btn confirm-btn--cancel" @click="cancel">
           {{ options.cancelText }}
         </button>
-        <button 
+        <button
           class="confirm-btn confirm-btn--confirm"
           :class="{ 'confirm-btn--danger': options.danger }"
           @click="confirm"
@@ -65,7 +88,7 @@ const { visible, options, confirm, cancel } = useConfirmDialog();
 
 .confirm-icon--danger {
   background: rgba(220, 59, 1, 0.1);
-  color: var(--ui-button-danger-text, #D83B01);
+  color: var(--ui-button-danger-text, #d83b01);
 }
 
 .confirm-title {
@@ -127,7 +150,7 @@ const { visible, options, confirm, cancel } = useConfirmDialog();
 }
 
 .confirm-btn--danger {
-  background: var(--ui-button-danger-text, #D83B01);
+  background: var(--ui-button-danger-text, #d83b01);
   box-shadow: 0 2px 8px rgba(220, 59, 1, 0.25);
 }
 .confirm-btn--danger:hover {

@@ -1,13 +1,16 @@
 <script lang="ts" setup>
-withDefaults(defineProps<{
-  href?: string;
-  target?: string;
-  rel?: string;
-}>(), {
-  href: '',
-  target: '',
-  rel: '',
-});
+withDefaults(
+  defineProps<{
+    href?: string;
+    target?: string;
+    rel?: string;
+  }>(),
+  {
+    href: '',
+    target: '',
+    rel: '',
+  }
+);
 </script>
 
 <template>

@@ -6,16 +6,27 @@ defineCustomElements();
 
 type PickerSize = 'sm' | 'md' | 'lg';
 
-const props = withDefaults(defineProps<{
-  modelValue: string;
-  placeholder?: string;
-  clearable?: boolean;
-  disabled?: boolean;
-  size?: PickerSize;
-  min?: string;
-  max?: string;
-  closeOnOutside?: boolean;
-}>(), { placeholder: '选择日期', clearable: true, disabled: false, size: 'md', min: '', max: '', closeOnOutside: true });
+const props = withDefaults(
+  defineProps<{
+    modelValue: string;
+    placeholder?: string;
+    clearable?: boolean;
+    disabled?: boolean;
+    size?: PickerSize;
+    min?: string;
+    max?: string;
+    closeOnOutside?: boolean;
+  }>(),
+  {
+    placeholder: '选择日期',
+    clearable: true,
+    disabled: false,
+    size: 'md',
+    min: '',
+    max: '',
+    closeOnOutside: true,
+  }
+);
 
 const emit = defineEmits<{
   'update:modelValue': [value: string];
@@ -36,5 +47,17 @@ function handleClear(): void {
 </script>
 
 <template>
-  <gt-date-picker :value="props.modelValue" :placeholder="props.placeholder" :clearable="props.clearable" :disabled="props.disabled" :size="props.size" :min="props.min" :max="props.max" :closeOnOutside="props.closeOnOutside" v-bind="$attrs" @gt-change="handleChange" @gt-clear="handleClear" />
+  <gt-date-picker
+    :value="props.modelValue"
+    :placeholder="props.placeholder"
+    :clearable="props.clearable"
+    :disabled="props.disabled"
+    :size="props.size"
+    :min="props.min"
+    :max="props.max"
+    :closeOnOutside="props.closeOnOutside"
+    v-bind="$attrs"
+    @gt-change="handleChange"
+    @gt-clear="handleClear"
+  />
 </template>

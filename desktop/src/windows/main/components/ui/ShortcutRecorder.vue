@@ -2,14 +2,17 @@
 import { computed, ref } from 'vue';
 import { acceleratorFromKeyboardEvent, humanizeAccelerator } from '@/shared/shortcuts';
 
-const props = withDefaults(defineProps<{
-  modelValue: string;
-  defaultValue?: string;
-  placeholder?: string;
-}>(), {
-  defaultValue: '',
-  placeholder: '未设置',
-});
+const props = withDefaults(
+  defineProps<{
+    modelValue: string;
+    defaultValue?: string;
+    placeholder?: string;
+  }>(),
+  {
+    defaultValue: '',
+    placeholder: '未设置',
+  }
+);
 
 const emit = defineEmits<{
   'update:modelValue': [value: string];

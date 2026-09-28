@@ -1,15 +1,18 @@
 <script setup lang="ts">
 import { ref } from 'vue';
 
-const props = withDefaults(defineProps<{
-  accept?: string;
-  multiple?: boolean;
-  disabled?: boolean;
-}>(), {
-  accept: '',
-  multiple: false,
-  disabled: false,
-});
+const _props = withDefaults(
+  defineProps<{
+    accept?: string;
+    multiple?: boolean;
+    disabled?: boolean;
+  }>(),
+  {
+    accept: '',
+    multiple: false,
+    disabled: false,
+  }
+);
 
 const emit = defineEmits<{
   change: [event: Event];
@@ -52,7 +55,7 @@ defineExpose({
     :multiple="multiple"
     :disabled="disabled"
     @change="handleChange"
-  >
+  />
 </template>
 
 <style scoped lang="scss">

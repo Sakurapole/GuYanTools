@@ -1,17 +1,20 @@
 <script lang="ts" setup>
 import { computed } from 'vue';
 
-const props = withDefaults(defineProps<{
-  label?: string;
-  hint?: string;
-  value?: string | number;
-  bordered?: boolean;
-}>(), {
-  label: '',
-  hint: '',
-  value: '',
-  bordered: true,
-});
+const props = withDefaults(
+  defineProps<{
+    label?: string;
+    hint?: string;
+    value?: string | number;
+    bordered?: boolean;
+  }>(),
+  {
+    label: '',
+    hint: '',
+    value: '',
+    bordered: true,
+  }
+);
 
 const rowClass = computed(() => [
   'ui-setting-row',

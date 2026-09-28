@@ -10,13 +10,16 @@ interface ImagePreviewItem {
   alt?: string;
 }
 
-const props = withDefaults(defineProps<{
-  modelValue: boolean;
-  images: Array<string | ImagePreviewItem>;
-  initialIndex?: number;
-}>(), {
-  initialIndex: 0,
-});
+const props = withDefaults(
+  defineProps<{
+    modelValue: boolean;
+    images: Array<string | ImagePreviewItem>;
+    initialIndex?: number;
+  }>(),
+  {
+    initialIndex: 0,
+  }
+);
 
 const emit = defineEmits<{
   'update:modelValue': [value: boolean];
@@ -29,30 +32,38 @@ const rotation = ref(0);
 
 const normalizedImages = computed<ImagePreviewItem[]>(() =>
   props.images
-    .map((item) => typeof item === 'string' ? { src: item } : item)
-    .filter((item) => Boolean(item.src)),
+    .map((item) => (typeof item === 'string' ? { src: item } : item))
+    .filter((item) => Boolean(item.src))
 );
 
 const currentImage = computed(() => normalizedImages.value[currentIndex.value] ?? null);
 const hasMultiple = computed(() => normalizedImages.value.length > 1);
-const imageTitle = computed(() =>
-  currentImage.value?.title || `图片 ${currentIndex.value + 1}/${Math.max(normalizedImages.value.length, 1)}`,
+const imageTitle = computed(
+  () =>
+    currentImage.value?.title ||
+    `图片 ${currentIndex.value + 1}/${Math.max(normalizedImages.value.length, 1)}`
 );
 const imageTransform = computed(() => ({
   transform: `scale(${scale.value}) rotate(${rotation.value}deg)`,
 }));
 
-watch(() => props.modelValue, (visible) => {
-  if (!visible) return;
-  currentIndex.value = clampIndex(props.initialIndex);
-  resetView();
-});
+watch(
+  () => props.modelValue,
+  (visible) => {
+    if (!visible) return;
+    currentIndex.value = clampIndex(props.initialIndex);
+    resetView();
+  }
+);
 
-watch(() => props.initialIndex, (index) => {
-  if (!props.modelValue) return;
-  currentIndex.value = clampIndex(index);
-  resetView();
-});
+watch(
+  () => props.initialIndex,
+  (index) => {
+    if (!props.modelValue) return;
+    currentIndex.value = clampIndex(index);
+    resetView();
+  }
+);
 
 function clampIndex(index: number) {
   const last = normalizedImages.value.length - 1;
@@ -248,7 +259,11 @@ onBeforeUnmount(() => window.removeEventListener('keydown', handleKeydown));
     linear-gradient(45deg, transparent 75%, rgba(127, 127, 127, 0.09) 75%),
     linear-gradient(-45deg, transparent 75%, rgba(127, 127, 127, 0.09) 75%),
     var(--ui-surface-overlay);
-  background-position: 0 0, 0 8px, 8px -8px, -8px 0;
+  background-position:
+    0 0,
+    0 8px,
+    8px -8px,
+    -8px 0;
   background-size: 16px 16px;
   overflow: hidden;
 }

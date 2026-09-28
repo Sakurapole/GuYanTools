@@ -1,13 +1,16 @@
 <script lang="ts" setup>
-withDefaults(defineProps<{
-  direction?: 'up' | 'down';
-  width?: number;
-  height?: number;
-}>(), {
-  direction: 'down',
-  width: 18,
-  height: 18,
-});
+withDefaults(
+  defineProps<{
+    direction?: 'up' | 'down';
+    width?: number;
+    height?: number;
+  }>(),
+  {
+    direction: 'down',
+    width: 18,
+    height: 18,
+  }
+);
 </script>
 
 <template>

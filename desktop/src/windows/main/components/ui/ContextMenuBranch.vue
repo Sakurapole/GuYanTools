@@ -7,13 +7,16 @@ import UiPopupSurface from './UiPopupSurface.vue';
 
 defineOptions({ name: 'ContextMenuBranch' });
 
-const props = withDefaults(defineProps<{
-  items: ContextMenuItem[];
-  nested?: boolean;
-  closeMenu: () => void;
-}>(), {
-  nested: false,
-});
+const props = withDefaults(
+  defineProps<{
+    items: ContextMenuItem[];
+    nested?: boolean;
+    closeMenu: () => void;
+  }>(),
+  {
+    nested: false,
+  }
+);
 
 const openSubmenuId = ref('');
 const submenuDirection = ref<Record<string, 'left' | 'right'>>({});
@@ -94,14 +97,21 @@ onBeforeUnmount(() => {
   <div class="context-menu-branch" :class="{ 'context-menu-branch--nested': nested }">
     <template v-for="(item, index) in items" :key="item.id">
       <UiMenuDivider v-if="item.divided && index > 0" />
-      <div class="context-menu-branch__item" @mouseenter="handleItemEnter($event, item)" @mouseleave="handleItemLeave(item)">
+      <div
+        class="context-menu-branch__item"
+        @mouseenter="handleItemEnter($event, item)"
+        @mouseleave="handleItemLeave(item)"
+      >
         <UiMenuItem :danger="item.danger" :disabled="item.disabled" @click="handleItemClick(item)">
           <template v-if="item.icon" #icon>
             <component :is="item.icon" :width="16" :height="16" v-bind="item.iconProps" />
           </template>
           {{ item.label }}
           <template v-if="hasChildren(item)" #suffix>
-            <span class="context-menu-branch__arrow" :class="{ 'context-menu-branch__arrow--left': submenuDirection[item.id] === 'left' }">
+            <span
+              class="context-menu-branch__arrow"
+              :class="{ 'context-menu-branch__arrow--left': submenuDirection[item.id] === 'left' }"
+            >
               {{ submenuDirection[item.id] === 'left' ? '‹' : '›' }}
             </span>
           </template>

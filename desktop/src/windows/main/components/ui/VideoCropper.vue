@@ -6,20 +6,23 @@ import UiDialog from './UiDialog.vue';
 import UiIconButton from './UiIconButton.vue';
 import { formatMediaBytes, MAX_INLINE_VIDEO_BYTES } from '../../utils/inlineMedia';
 
-const props = withDefaults(defineProps<{
-  visible: boolean;
-  videoUrl: string;
-  /** 视频文件的真实磁盘路径（Electron File.path），FFmpeg 模式需要 */
-  filePath?: string;
-  targetWidth: number;
-  targetHeight: number;
-  processingMode?: 'browser' | 'ffmpeg';
-  quality?: CompressQuality;
-}>(), {
-  filePath: '',
-  processingMode: 'browser',
-  quality: 'high',
-});
+const props = withDefaults(
+  defineProps<{
+    visible: boolean;
+    videoUrl: string;
+    /** 视频文件的真实磁盘路径（Electron File.path），FFmpeg 模式需要 */
+    filePath?: string;
+    targetWidth: number;
+    targetHeight: number;
+    processingMode?: 'browser' | 'ffmpeg';
+    quality?: CompressQuality;
+  }>(),
+  {
+    filePath: '',
+    processingMode: 'browser',
+    quality: 'high',
+  }
+);
 
 const emit = defineEmits<{
   close: [];
@@ -51,7 +54,7 @@ function emitVideoBlob(blob: Blob) {
     isProcessing.value = false;
     emit(
       'error',
-      `处理后的视频为 ${formatMediaBytes(blob.size)}，首页媒体不能超过 ${formatMediaBytes(MAX_INLINE_VIDEO_BYTES)}。`,
+      `处理后的视频为 ${formatMediaBytes(blob.size)}，首页媒体不能超过 ${formatMediaBytes(MAX_INLINE_VIDEO_BYTES)}。`
     );
     return;
   }
@@ -105,9 +108,10 @@ function initializeVideo() {
 
   // 检查是否需要裁剪：尺寸超出或比例与目标区域不一致时，都需要按目标比例框选。
   const videoAspect = natW / natH;
-  needsCrop.value = natW > props.targetWidth
-    || natH > props.targetHeight
-    || Math.abs(videoAspect - targetAspect.value) > 0.01;
+  needsCrop.value =
+    natW > props.targetWidth ||
+    natH > props.targetHeight ||
+    Math.abs(videoAspect - targetAspect.value) > 0.01;
 
   // 缩放以适配容器
   const vRatio = natW / natH;
@@ -207,9 +211,7 @@ function handleMouseMove(e: MouseEvent) {
     const proposedHeight = fromTop ? cropBox.value.height - dy : cropBox.value.height + dy;
     const minWidth = Math.min(40, maxWidth);
     const minHeight = Math.min(minWidth / aspect, maxHeight);
-    let nextWidth = Math.abs(dx) >= Math.abs(dy)
-      ? proposedWidth
-      : proposedHeight * aspect;
+    let nextWidth = Math.abs(dx) >= Math.abs(dy) ? proposedWidth : proposedHeight * aspect;
     nextWidth = Math.max(minWidth, Math.min(maxWidth, nextWidth));
     let nextHeight = nextWidth / aspect;
 
@@ -279,7 +281,14 @@ async function processCrop() {
       // FFmpeg 需要磁盘真实路径，不能使用 blob URL
       const inputPath = props.filePath || props.videoUrl;
       const outputPath = await window.mediaApi.compressVideo(inputPath, {
-        crop: needsCrop.value ? { x: Math.round(srcX), y: Math.round(srcY), width: Math.round(srcW), height: Math.round(srcH) } : undefined,
+        crop: needsCrop.value
+          ? {
+              x: Math.round(srcX),
+              y: Math.round(srcY),
+              width: Math.round(srcW),
+              height: Math.round(srcH),
+            }
+          : undefined,
         maxSize,
         quality: props.quality,
       });
@@ -365,11 +374,14 @@ async function processCropBrowser() {
   emitVideoBlob(blob);
 }
 
-watch(() => props.visible, (visible) => {
-  if (visible && props.videoUrl) {
-    setTimeout(initializeVideo, 200);
+watch(
+  () => props.visible,
+  (visible) => {
+    if (visible && props.videoUrl) {
+      setTimeout(initializeVideo, 200);
+    }
   }
-});
+);
 
 onMounted(() => {
   document.addEventListener('mousemove', handleMouseMove);
@@ -387,13 +399,24 @@ function handleDialogModelValueChange(value: boolean) {
 </script>
 
 <template>
-  <UiDialog class="video-cropper" :model-value="visible" width="800px" max-width="800px"
-    @update:modelValue="handleDialogModelValueChange">
+  <UiDialog
+    class="video-cropper"
+    :model-value="visible"
+    width="800px"
+    max-width="800px"
+    @update:modelValue="handleDialogModelValueChange"
+  >
     <template #header>
       <div class="vc-header">
         <h3>{{ needsCrop ? '裁剪视频' : '视频预览' }}</h3>
-        <UiIconButton class="close-btn" variant="ghost" size="md" shape="square" title="关闭"
-          @click="emit('close')">
+        <UiIconButton
+          class="close-btn"
+          variant="ghost"
+          size="md"
+          shape="square"
+          title="关闭"
+          @click="emit('close')"
+        >
           ✕
         </UiIconButton>
       </div>
@@ -439,21 +462,17 @@ function handleDialogModelValueChange(value: boolean) {
       </div>
 
       <div class="vc-tips">
-        <p v-if="isProcessing">
-          ⏳ 正在处理视频… {{ processingProgress }}%
-        </p>
-        <p v-else-if="needsCrop">
-          💡 拖动裁剪框移动位置，拖动四角调整大小
-        </p>
-        <p v-else>
-          ✅ 视频尺寸适合目标区域，无需裁剪
-        </p>
+        <p v-if="isProcessing">⏳ 正在处理视频… {{ processingProgress }}%</p>
+        <p v-else-if="needsCrop">💡 拖动裁剪框移动位置，拖动四角调整大小</p>
+        <p v-else>✅ 视频尺寸适合目标区域，无需裁剪</p>
       </div>
     </div>
 
     <template #footer>
       <div class="vc-footer">
-        <UiButton variant="secondary" @click="emit('close')" :disabled="isProcessing">取消</UiButton>
+        <UiButton variant="secondary" @click="emit('close')" :disabled="isProcessing"
+          >取消</UiButton
+        >
         <UiButton variant="primary" @click="processCrop" :disabled="isProcessing">
           {{ isProcessing ? '处理中…' : needsCrop ? '确认裁剪' : '确认使用' }}
         </UiButton>
@@ -563,10 +582,26 @@ function handleDialogModelValueChange(value: boolean) {
     box-shadow: var(--ui-shadow-sm);
   }
 
-  &-tl { top: -6px; left: -6px; cursor: nwse-resize; }
-  &-tr { top: -6px; right: -6px; cursor: nesw-resize; }
-  &-bl { bottom: -6px; left: -6px; cursor: nesw-resize; }
-  &-br { bottom: -6px; right: -6px; cursor: nwse-resize; }
+  &-tl {
+    top: -6px;
+    left: -6px;
+    cursor: nwse-resize;
+  }
+  &-tr {
+    top: -6px;
+    right: -6px;
+    cursor: nesw-resize;
+  }
+  &-bl {
+    bottom: -6px;
+    left: -6px;
+    cursor: nesw-resize;
+  }
+  &-br {
+    bottom: -6px;
+    right: -6px;
+    cursor: nwse-resize;
+  }
 }
 
 .vc-tips {

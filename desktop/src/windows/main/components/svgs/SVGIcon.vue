@@ -1,6 +1,12 @@
 <template>
-  <svg xmlns="http://www.w3.org/2000/svg" :width="width" :height="height" :fill="color" v-bind="$attrs"
-    :viewBox="viewBox">
+  <svg
+    xmlns="http://www.w3.org/2000/svg"
+    :width="width"
+    :height="height"
+    :fill="color"
+    v-bind="$attrs"
+    :viewBox="viewBox"
+  >
     <slot />
   </svg>
 </template>
@@ -13,20 +19,20 @@ export default defineComponent({
   props: {
     width: {
       type: [Number, String],
-      default: 24
+      default: 24,
     },
     height: {
       type: [Number, String],
-      default: 24
+      default: 24,
     },
     color: {
       type: String,
-      default: 'currentColor'
+      default: 'currentColor',
     },
     viewBox: {
       type: String,
-      default: '0 0 1024 1024'
-    }
-  }
-})
+      default: '0 0 1024 1024',
+    },
+  },
+});
 </script>

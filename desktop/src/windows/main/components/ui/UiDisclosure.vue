@@ -15,7 +15,12 @@ function handleChange(event: Event): void {
 </script>
 
 <template>
-  <gt-disclosure :heading="props.title" :open="props.open" v-bind="$attrs" @gt-open-change="handleChange">
+  <gt-disclosure
+    :heading="props.title"
+    :open="props.open"
+    v-bind="$attrs"
+    @gt-open-change="handleChange"
+  >
     <slot />
   </gt-disclosure>
 </template>

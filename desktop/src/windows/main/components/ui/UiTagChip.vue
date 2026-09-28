@@ -1,16 +1,19 @@
 <script setup lang="ts">
 import IconRenderer from './IconRenderer.vue';
 
-withDefaults(defineProps<{
-  label: string;
-  color?: string;
-  subtle?: boolean;
-  removable?: boolean;
-}>(), {
-  color: 'var(--primary-color)',
-  subtle: false,
-  removable: false,
-});
+withDefaults(
+  defineProps<{
+    label: string;
+    color?: string;
+    subtle?: boolean;
+    removable?: boolean;
+  }>(),
+  {
+    color: 'var(--primary-color)',
+    subtle: false,
+    removable: false,
+  }
+);
 
 defineEmits<{
   remove: [];

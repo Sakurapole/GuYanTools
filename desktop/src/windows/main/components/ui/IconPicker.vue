@@ -15,10 +15,13 @@ import {
   encodeSvgIcon,
 } from '../../composables/iconUtils';
 
-const props = withDefaults(defineProps<{
-  modelValue: string;
-  visible: boolean;
-}>(), {});
+const props = withDefaults(
+  defineProps<{
+    modelValue: string;
+    visible: boolean;
+  }>(),
+  {}
+);
 
 const emit = defineEmits<{
   'update:modelValue': [value: string];
@@ -50,9 +53,10 @@ const pickerTabs = [
 ];
 
 watch(activeTab, (next, previous) => {
-  activeTabTransition.value = activeTabOrder.indexOf(next) >= activeTabOrder.indexOf(previous)
-    ? 'ui-tab-forward'
-    : 'ui-tab-back';
+  activeTabTransition.value =
+    activeTabOrder.indexOf(next) >= activeTabOrder.indexOf(previous)
+      ? 'ui-tab-forward'
+      : 'ui-tab-back';
 });
 
 const displayIcons = computed(() => {
@@ -79,7 +83,7 @@ async function searchIcons(query: string) {
   try {
     const resp = await fetch(
       `https://api.iconify.design/search?query=${encodeURIComponent(query)}&limit=80`,
-      { signal: abortController.signal },
+      { signal: abortController.signal }
     );
     const data = await resp.json();
     searchResults.value = data.icons ?? [];
@@ -98,9 +102,7 @@ async function browseIconSet(prefix: string) {
   isBrowsing.value = true;
 
   try {
-    const resp = await fetch(
-      `https://api.iconify.design/collection?prefix=${prefix}`,
-    );
+    const resp = await fetch(`https://api.iconify.design/collection?prefix=${prefix}`);
     const data = await resp.json();
 
     // API 返回 uncategorized/categories 列表
@@ -112,7 +114,7 @@ async function browseIconSet(prefix: string) {
       }
     } else if (data.categories) {
       for (const cat of Object.values(data.categories)) {
-        for (const name of (cat as string[])) {
+        for (const name of cat as string[]) {
           icons.push(`${prefix}:${name}`);
           if (icons.length >= 120) break;
         }
@@ -227,24 +229,32 @@ function handleDialogUpdate(value: boolean) {
 }
 
 // ─── 打开时初始化 ───
-watch(() => props.visible, (visible) => {
-  if (visible) {
-    activeTab.value = 'library';
-    selectedIcon.value = props.modelValue || '';
-    searchQuery.value = '';
-    searchResults.value = [];
-    browseIcons.value = [];
-    svgPreview.value = '';
-    svgFileName.value = '';
-    imagePreview.value = '';
-    imageFileName.value = '';
+watch(
+  () => props.visible,
+  (visible) => {
+    if (visible) {
+      activeTab.value = 'library';
+      selectedIcon.value = props.modelValue || '';
+      searchQuery.value = '';
+      searchResults.value = [];
+      browseIcons.value = [];
+      svgPreview.value = '';
+      svgFileName.value = '';
+      imagePreview.value = '';
+      imageFileName.value = '';
+    }
   }
-});
+);
 </script>
 
 <template>
-  <UiDialog class="icon-picker" :model-value="visible" width="640px" max-width="640px"
-    @update:modelValue="handleDialogUpdate">
+  <UiDialog
+    class="icon-picker"
+    :model-value="visible"
+    width="640px"
+    max-width="640px"
+    @update:modelValue="handleDialogUpdate"
+  >
     <template #header>
       <div class="icon-picker__header">
         <h3>选择图标</h3>
@@ -253,7 +263,14 @@ watch(() => props.visible, (visible) => {
             <IconRenderer :icon="selectedIcon" :size="24" color="var(--ui-text-primary)" />
           </div>
         </div>
-        <UiIconButton class="close-btn" variant="ghost" size="md" shape="square" title="关闭" @click="handleClose">
+        <UiIconButton
+          class="close-btn"
+          variant="ghost"
+          size="md"
+          shape="square"
+          title="关闭"
+          @click="handleClose"
+        >
           ✕
         </UiIconButton>
       </div>
@@ -265,101 +282,133 @@ watch(() => props.visible, (visible) => {
 
     <div class="icon-picker__content">
       <Transition :name="activeTabTransition" mode="out-in">
-      <!-- ═══ 图标库 ═══ -->
-      <div v-if="activeTab === 'library'" class="icon-picker__library">
-        <div class="icon-picker__search">
-          <UiInput
-            :model-value="searchQuery"
-            placeholder="搜索图标…（如 home, settings, video）"
-            size="md"
-            @update:modelValue="handleSearchInput"
-          />
-        </div>
-
-        <!-- 图标集切换 -->
-        <div v-if="!searchQuery.trim()" class="icon-picker__set-chips">
-          <button
-            v-for="iconSet in POPULAR_ICON_SETS"
-            :key="iconSet.prefix"
-            class="icon-picker__chip"
-            :class="{ 'icon-picker__chip--active': activeSetPrefix === iconSet.prefix && browseIcons.length > 0 }"
-            @click="browseIconSet(iconSet.prefix)"
-          >
-            {{ iconSet.name }}
-          </button>
-        </div>
-
-        <!-- 加载指示 -->
-        <div v-if="isSearching || isBrowsing" class="icon-picker__loading">
-          <span class="icon-picker__spinner" />
-          <span>加载中…</span>
-        </div>
-
-        <!-- 快捷推荐标签 -->
-        <div v-if="showingQuickPicks" class="icon-picker__section-label">常用图标</div>
-
-        <!-- 图标网格 -->
-        <div class="icon-picker__grid">
-          <button
-            v-for="iconName in displayIcons"
-            :key="iconName"
-            class="icon-picker__icon-cell"
-            :class="{
-              'icon-picker__icon-cell--selected': selectedIcon === `iconify:${iconName}`,
-            }"
-            :title="iconName"
-            @click="selectIconifyIcon(iconName)"
-          >
-            <Icon :icon="iconName" :width="22" :height="22" />
-          </button>
-        </div>
-
-        <div v-if="!isSearching && searchQuery.trim() && searchResults.length === 0" class="icon-picker__empty">
-          未找到相关图标，换个关键词试试
-        </div>
-      </div>
-
-      <!-- ═══ 上传 SVG ═══ -->
-      <div v-else-if="activeTab === 'svg'" class="icon-picker__upload-section">
-        <input ref="svgInput" type="file" accept=".svg" style="display: none" @change="handleSvgChange" />
-        <UiButton class="icon-picker__upload-btn" variant="secondary" size="md" @click="handleSvgSelect">
-          <span class="upload-icon">📄</span>
-          <span>{{ svgFileName || '选择 SVG 文件' }}</span>
-        </UiButton>
-        <UiButton v-if="svgPreview" variant="danger" size="sm" @click="clearSvg">清除</UiButton>
-
-        <div v-if="svgPreview" class="icon-picker__upload-preview">
-          <div class="icon-picker__preview-box" v-html="svgPreview" />
-          <p class="icon-picker__preview-label">SVG 预览</p>
-        </div>
-
-        <p class="icon-picker__hint">支持 .svg 格式的矢量图标文件</p>
-      </div>
-
-      <!-- ═══ 上传图片 ═══ -->
-      <div v-else class="icon-picker__upload-section">
-        <input ref="imageInput" type="file" accept="image/*" style="display: none" @change="handleImageChange" />
-        <UiButton class="icon-picker__upload-btn" variant="secondary" size="md" @click="handleImageSelect">
-          <span class="upload-icon">🖼️</span>
-          <span>{{ imageFileName || '选择图片文件' }}</span>
-        </UiButton>
-        <UiButton v-if="imagePreview" variant="danger" size="sm" @click="clearImage">清除</UiButton>
-
-        <div v-if="imagePreview" class="icon-picker__upload-preview">
-          <div class="icon-picker__preview-box">
-            <img :src="imagePreview" alt="preview" class="icon-picker__preview-image" />
+        <!-- ═══ 图标库 ═══ -->
+        <div v-if="activeTab === 'library'" class="icon-picker__library">
+          <div class="icon-picker__search">
+            <UiInput
+              :model-value="searchQuery"
+              placeholder="搜索图标…（如 home, settings, video）"
+              size="md"
+              @update:modelValue="handleSearchInput"
+            />
           </div>
-          <p class="icon-picker__preview-label">图片预览</p>
+
+          <!-- 图标集切换 -->
+          <div v-if="!searchQuery.trim()" class="icon-picker__set-chips">
+            <button
+              v-for="iconSet in POPULAR_ICON_SETS"
+              :key="iconSet.prefix"
+              class="icon-picker__chip"
+              :class="{
+                'icon-picker__chip--active':
+                  activeSetPrefix === iconSet.prefix && browseIcons.length > 0,
+              }"
+              @click="browseIconSet(iconSet.prefix)"
+            >
+              {{ iconSet.name }}
+            </button>
+          </div>
+
+          <!-- 加载指示 -->
+          <div v-if="isSearching || isBrowsing" class="icon-picker__loading">
+            <span class="icon-picker__spinner" />
+            <span>加载中…</span>
+          </div>
+
+          <!-- 快捷推荐标签 -->
+          <div v-if="showingQuickPicks" class="icon-picker__section-label">常用图标</div>
+
+          <!-- 图标网格 -->
+          <div class="icon-picker__grid">
+            <button
+              v-for="iconName in displayIcons"
+              :key="iconName"
+              class="icon-picker__icon-cell"
+              :class="{
+                'icon-picker__icon-cell--selected': selectedIcon === `iconify:${iconName}`,
+              }"
+              :title="iconName"
+              @click="selectIconifyIcon(iconName)"
+            >
+              <Icon :icon="iconName" :width="22" :height="22" />
+            </button>
+          </div>
+
+          <div
+            v-if="!isSearching && searchQuery.trim() && searchResults.length === 0"
+            class="icon-picker__empty"
+          >
+            未找到相关图标，换个关键词试试
+          </div>
         </div>
 
-        <p class="icon-picker__hint">支持 JPG, PNG, GIF, WebP, SVG 等格式</p>
-      </div>
+        <!-- ═══ 上传 SVG ═══ -->
+        <div v-else-if="activeTab === 'svg'" class="icon-picker__upload-section">
+          <input
+            ref="svgInput"
+            type="file"
+            accept=".svg"
+            style="display: none"
+            @change="handleSvgChange"
+          />
+          <UiButton
+            class="icon-picker__upload-btn"
+            variant="secondary"
+            size="md"
+            @click="handleSvgSelect"
+          >
+            <span class="upload-icon">📄</span>
+            <span>{{ svgFileName || '选择 SVG 文件' }}</span>
+          </UiButton>
+          <UiButton v-if="svgPreview" variant="danger" size="sm" @click="clearSvg">清除</UiButton>
+
+          <div v-if="svgPreview" class="icon-picker__upload-preview">
+            <div class="icon-picker__preview-box" v-html="svgPreview" />
+            <p class="icon-picker__preview-label">SVG 预览</p>
+          </div>
+
+          <p class="icon-picker__hint">支持 .svg 格式的矢量图标文件</p>
+        </div>
+
+        <!-- ═══ 上传图片 ═══ -->
+        <div v-else class="icon-picker__upload-section">
+          <input
+            ref="imageInput"
+            type="file"
+            accept="image/*"
+            style="display: none"
+            @change="handleImageChange"
+          />
+          <UiButton
+            class="icon-picker__upload-btn"
+            variant="secondary"
+            size="md"
+            @click="handleImageSelect"
+          >
+            <span class="upload-icon">🖼️</span>
+            <span>{{ imageFileName || '选择图片文件' }}</span>
+          </UiButton>
+          <UiButton v-if="imagePreview" variant="danger" size="sm" @click="clearImage"
+            >清除</UiButton
+          >
+
+          <div v-if="imagePreview" class="icon-picker__upload-preview">
+            <div class="icon-picker__preview-box">
+              <img :src="imagePreview" alt="preview" class="icon-picker__preview-image" />
+            </div>
+            <p class="icon-picker__preview-label">图片预览</p>
+          </div>
+
+          <p class="icon-picker__hint">支持 JPG, PNG, GIF, WebP, SVG 等格式</p>
+        </div>
       </Transition>
     </div>
 
     <template #footer>
       <div class="icon-picker__footer">
-        <UiButton v-if="selectedIcon" variant="ghost" size="sm" @click="clearIcon">清除图标</UiButton>
+        <UiButton v-if="selectedIcon" variant="ghost" size="sm" @click="clearIcon"
+          >清除图标</UiButton
+        >
         <div class="icon-picker__footer-actions">
           <UiButton variant="secondary" @click="handleClose">取消</UiButton>
           <UiButton variant="primary" @click="handleConfirm">确认</UiButton>
@@ -483,7 +532,9 @@ watch(() => props.visible, (visible) => {
 }
 
 @keyframes icon-picker-spin {
-  to { transform: rotate(360deg); }
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 .icon-picker__grid {

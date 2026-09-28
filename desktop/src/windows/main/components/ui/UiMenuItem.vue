@@ -17,7 +17,12 @@ function handleClick(event: MouseEvent): void {
 </script>
 
 <template>
-  <gt-menu-item :danger="props.danger" :disabled="props.disabled" v-bind="$attrs" @click="handleClick">
+  <gt-menu-item
+    :danger="props.danger"
+    :disabled="props.disabled"
+    v-bind="$attrs"
+    @click="handleClick"
+  >
     <span v-if="$slots.icon" slot="icon"><slot name="icon" /></span>
     <slot />
     <span v-if="$slots.suffix" slot="suffix"><slot name="suffix" /></span>

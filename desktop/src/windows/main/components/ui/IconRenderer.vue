@@ -3,14 +3,17 @@ import { computed } from 'vue';
 import { Icon } from '@iconify/vue';
 import { parseIconValue, decodeSvgIcon } from '../../composables/iconUtils';
 
-const props = withDefaults(defineProps<{
-  icon: string;
-  size?: number;
-  color?: string;
-}>(), {
-  size: 24,
-  color: 'currentColor',
-});
+const props = withDefaults(
+  defineProps<{
+    icon: string;
+    size?: number;
+    color?: string;
+  }>(),
+  {
+    size: 24,
+    color: 'currentColor',
+  }
+);
 
 const parsed = computed(() => parseIconValue(props.icon));
 

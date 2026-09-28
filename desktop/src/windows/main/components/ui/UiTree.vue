@@ -3,18 +3,21 @@ import { ref } from 'vue';
 import UiTreeNodeItem from './UiTreeNodeItem.vue';
 import type { UiTreeDropPayload, UiTreeEventPayload, UiTreeNodeData } from './ui_tree';
 
-const props = withDefaults(defineProps<{
-  nodes: UiTreeNodeData[];
-  selectedId?: string;
-  expandedIds?: string[];
-  emptyText?: string;
-  indentSize?: number;
-}>(), {
-  selectedId: '',
-  expandedIds: () => [],
-  emptyText: '暂无内容',
-  indentSize: 16,
-});
+const props = withDefaults(
+  defineProps<{
+    nodes: UiTreeNodeData[];
+    selectedId?: string;
+    expandedIds?: string[];
+    emptyText?: string;
+    indentSize?: number;
+  }>(),
+  {
+    selectedId: '',
+    expandedIds: () => [],
+    emptyText: '暂无内容',
+    indentSize: 16,
+  }
+);
 
 const emit = defineEmits<{
   'update:expandedIds': [ids: string[]];
@@ -41,7 +44,11 @@ function handleDragStart(node: UiTreeNodeData) {
   draggedNode.value = node;
 }
 
-function handleDrop(payload: { event: DragEvent; node: UiTreeNodeData; position: UiTreeDropPayload['position'] }) {
+function handleDrop(payload: {
+  event: DragEvent;
+  node: UiTreeNodeData;
+  position: UiTreeDropPayload['position'];
+}) {
   if (!draggedNode.value || draggedNode.value.id === payload.node.id) {
     return;
   }

@@ -9,52 +9,55 @@ type PopupPlacement = 'center' | 'left' | 'right' | 'top' | 'bottom';
 type ClassValue = string | string[] | Record<string, boolean>;
 type StyleValue = string | Record<string, string | number>;
 
-const props = withDefaults(defineProps<{
-  modelValue: boolean;
-  variant?: PopupVariant;
-  placement?: PopupPlacement;
-  teleported?: boolean;
-  teleportTo?: string;
-  fixed?: boolean;
-  overlay?: boolean;
-  width?: string | number;
-  maxWidth?: string | number;
-  height?: string | number;
-  maxHeight?: string | number;
-  zIndex?: number | string;
-  closeOnMask?: boolean;
-  closeOnOutside?: boolean;
-  closeOnEsc?: boolean;
-  persistent?: boolean;
-  role?: string;
-  ariaLabel?: string;
-  ariaLabelledby?: string;
-  overlayClass?: ClassValue;
-  panelClass?: ClassValue;
-  panelStyle?: StyleValue;
-}>(), {
-  variant: 'dialog',
-  placement: 'center',
-  teleported: true,
-  teleportTo: 'body',
-  fixed: true,
-  overlay: true,
-  width: '',
-  maxWidth: '',
-  height: '',
-  maxHeight: '',
-  zIndex: 'var(--ui-z-toast)',
-  closeOnMask: true,
-  closeOnOutside: true,
-  closeOnEsc: true,
-  persistent: false,
-  role: 'dialog',
-  ariaLabel: '',
-  ariaLabelledby: '',
-  overlayClass: '',
-  panelClass: '',
-  panelStyle: '',
-});
+const props = withDefaults(
+  defineProps<{
+    modelValue: boolean;
+    variant?: PopupVariant;
+    placement?: PopupPlacement;
+    teleported?: boolean;
+    teleportTo?: string;
+    fixed?: boolean;
+    overlay?: boolean;
+    width?: string | number;
+    maxWidth?: string | number;
+    height?: string | number;
+    maxHeight?: string | number;
+    zIndex?: number | string;
+    closeOnMask?: boolean;
+    closeOnOutside?: boolean;
+    closeOnEsc?: boolean;
+    persistent?: boolean;
+    role?: string;
+    ariaLabel?: string;
+    ariaLabelledby?: string;
+    overlayClass?: ClassValue;
+    panelClass?: ClassValue;
+    panelStyle?: StyleValue;
+  }>(),
+  {
+    variant: 'dialog',
+    placement: 'center',
+    teleported: true,
+    teleportTo: 'body',
+    fixed: true,
+    overlay: true,
+    width: '',
+    maxWidth: '',
+    height: '',
+    maxHeight: '',
+    zIndex: 'var(--ui-z-toast)',
+    closeOnMask: true,
+    closeOnOutside: true,
+    closeOnEsc: true,
+    persistent: false,
+    role: 'dialog',
+    ariaLabel: '',
+    ariaLabelledby: '',
+    overlayClass: '',
+    panelClass: '',
+    panelStyle: '',
+  }
+);
 
 const emit = defineEmits<{
   'update:modelValue': [value: boolean];

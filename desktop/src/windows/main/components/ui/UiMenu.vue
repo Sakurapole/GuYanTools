@@ -4,18 +4,21 @@ import { defineCustomElements } from '@guyantools/ui-core';
 defineOptions({ inheritAttrs: false });
 defineCustomElements();
 
-const props = withDefaults(defineProps<{
-  visible: boolean;
-  x?: number;
-  y?: number;
-  closeOnClickOutside?: boolean;
-  outsideIgnoreSelector?: string | string[];
-}>(), {
-  x: 0,
-  y: 0,
-  closeOnClickOutside: true,
-  outsideIgnoreSelector: '',
-});
+const props = withDefaults(
+  defineProps<{
+    visible: boolean;
+    x?: number;
+    y?: number;
+    closeOnClickOutside?: boolean;
+    outsideIgnoreSelector?: string | string[];
+  }>(),
+  {
+    x: 0,
+    y: 0,
+    closeOnClickOutside: true,
+    outsideIgnoreSelector: '',
+  }
+);
 
 const emit = defineEmits<{ close: [] }>();
 </script>

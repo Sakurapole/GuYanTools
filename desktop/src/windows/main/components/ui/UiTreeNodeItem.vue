@@ -4,18 +4,21 @@ import type { UiTreeEventPayload, UiTreeNodeData } from './ui_tree';
 
 defineOptions({ name: 'UiTreeNodeItem' });
 
-const props = withDefaults(defineProps<{
-  node: UiTreeNodeData;
-  level?: number;
-  indentSize?: number;
-  expandedIds?: string[];
-  selectedId?: string;
-}>(), {
-  level: 0,
-  indentSize: 16,
-  expandedIds: () => [],
-  selectedId: '',
-});
+const props = withDefaults(
+  defineProps<{
+    node: UiTreeNodeData;
+    level?: number;
+    indentSize?: number;
+    expandedIds?: string[];
+    selectedId?: string;
+  }>(),
+  {
+    level: 0,
+    indentSize: 16,
+    expandedIds: () => [],
+    selectedId: '',
+  }
+);
 
 const emit = defineEmits<{
   toggle: [node: UiTreeNodeData];
@@ -23,7 +26,9 @@ const emit = defineEmits<{
   activate: [node: UiTreeNodeData];
   contextmenu: [payload: UiTreeEventPayload];
   dragstart: [node: UiTreeNodeData];
-  drop: [payload: { event: DragEvent; node: UiTreeNodeData; position: 'before' | 'inside' | 'after' }];
+  drop: [
+    payload: { event: DragEvent; node: UiTreeNodeData; position: 'before' | 'inside' | 'after' },
+  ];
 }>();
 
 const hasChildren = computed(() => Boolean(props.node.children?.length));
@@ -138,18 +143,40 @@ function handleDrop(event: DragEvent) {
 
 <template>
   <div :class="nodeClass">
-    <div class="ui-tree-node__row" :class="{
-      'ui-tree-node__row--selected': selected,
-      'ui-tree-node__row--disabled': node.disabled,
-      [`ui-tree-node__row--drop-${dropPosition}`]: Boolean(dropPosition),
-    }" :style="rowStyle" role="treeitem" :aria-expanded="hasChildren ? expanded : undefined" :aria-selected="selected"
-      :draggable="!node.disabled" tabindex="0" @click="handleRowClick" @dblclick="handleRowDoubleClick"
-      @keydown="handleRowKeydown" @contextmenu.prevent="handleContextMenu" @dragstart="handleDragStart"
-      @dragover="handleDragOver" @dragleave="clearDropPosition" @dragend="clearDropPosition" @drop="handleDrop">
-      <button class="ui-tree-node__toggle" :class="{
-        'ui-tree-node__toggle--hidden': !hasChildren,
-        'ui-tree-node__toggle--expanded': expanded,
-      }" type="button" tabindex="-1" :disabled="!hasChildren || node.disabled" @click="handleToggle">
+    <div
+      class="ui-tree-node__row"
+      :class="{
+        'ui-tree-node__row--selected': selected,
+        'ui-tree-node__row--disabled': node.disabled,
+        [`ui-tree-node__row--drop-${dropPosition}`]: Boolean(dropPosition),
+      }"
+      :style="rowStyle"
+      role="treeitem"
+      :aria-expanded="hasChildren ? expanded : undefined"
+      :aria-selected="selected"
+      :draggable="!node.disabled"
+      tabindex="0"
+      @click="handleRowClick"
+      @dblclick="handleRowDoubleClick"
+      @keydown="handleRowKeydown"
+      @contextmenu.prevent="handleContextMenu"
+      @dragstart="handleDragStart"
+      @dragover="handleDragOver"
+      @dragleave="clearDropPosition"
+      @dragend="clearDropPosition"
+      @drop="handleDrop"
+    >
+      <button
+        class="ui-tree-node__toggle"
+        :class="{
+          'ui-tree-node__toggle--hidden': !hasChildren,
+          'ui-tree-node__toggle--expanded': expanded,
+        }"
+        type="button"
+        tabindex="-1"
+        :disabled="!hasChildren || node.disabled"
+        @click="handleToggle"
+      >
         <svg viewBox="0 0 16 16" aria-hidden="true">
           <path d="M5.5 3.5L10.5 8L5.5 12.5" />
         </svg>
@@ -161,9 +188,16 @@ function handleDrop(event: DragEvent) {
 
       <span class="ui-tree-node__content">
         <span
-          v-tooltip="{ content: node.tooltip, placement: 'right', delay: 450, block: true, disabled: !node.tooltip }"
+          v-tooltip="{
+            content: node.tooltip,
+            placement: 'right',
+            delay: 450,
+            block: true,
+            disabled: !node.tooltip,
+          }"
           class="ui-tree-node__label"
-        >{{ node.label }}</span>
+          >{{ node.label }}</span
+        >
         <span v-if="node.meta" class="ui-tree-node__meta">{{ node.meta }}</span>
       </span>
 
@@ -177,10 +211,21 @@ function handleDrop(event: DragEvent) {
       role="group"
     >
       <div class="ui-tree-node__children-inner">
-        <UiTreeNodeItem v-for="child in node.children" :key="child.id" :node="child" :level="level + 1"
-          :indent-size="indentSize" :expanded-ids="expandedIds" :selected-id="selectedId" @toggle="emit('toggle', $event)"
-          @select="emit('select', $event)" @activate="emit('activate', $event)" @contextmenu="emit('contextmenu', $event)"
-          @dragstart="emit('dragstart', $event)" @drop="emit('drop', $event)" />
+        <UiTreeNodeItem
+          v-for="child in node.children"
+          :key="child.id"
+          :node="child"
+          :level="level + 1"
+          :indent-size="indentSize"
+          :expanded-ids="expandedIds"
+          :selected-id="selectedId"
+          @toggle="emit('toggle', $event)"
+          @select="emit('select', $event)"
+          @activate="emit('activate', $event)"
+          @contextmenu="emit('contextmenu', $event)"
+          @dragstart="emit('dragstart', $event)"
+          @drop="emit('drop', $event)"
+        />
       </div>
     </div>
   </div>

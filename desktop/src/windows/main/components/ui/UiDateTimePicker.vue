@@ -8,20 +8,35 @@ type PickerSize = 'sm' | 'md' | 'lg';
 type PickerMode = 'date' | 'datetime';
 type ValueFormat = 'date' | 'datetime-local' | 'sql' | 'timestamp';
 
-const props = withDefaults(defineProps<{
-  modelValue: string | number | undefined;
-  placeholder?: string;
-  datePlaceholder?: string;
-  timePlaceholder?: string;
-  disabled?: boolean;
-  size?: PickerSize;
-  mode?: PickerMode;
-  valueFormat?: ValueFormat;
-  valueType?: 'string' | 'timestamp';
-  minuteStep?: number;
-  clearable?: boolean;
-  closeOnOutside?: boolean;
-}>(), { placeholder: '选择日期和时间', datePlaceholder: '日期', timePlaceholder: '时间', disabled: false, size: 'md', mode: 'datetime', valueFormat: undefined, valueType: undefined, minuteStep: 5, clearable: true, closeOnOutside: true });
+const props = withDefaults(
+  defineProps<{
+    modelValue: string | number | undefined;
+    placeholder?: string;
+    datePlaceholder?: string;
+    timePlaceholder?: string;
+    disabled?: boolean;
+    size?: PickerSize;
+    mode?: PickerMode;
+    valueFormat?: ValueFormat;
+    valueType?: 'string' | 'timestamp';
+    minuteStep?: number;
+    clearable?: boolean;
+    closeOnOutside?: boolean;
+  }>(),
+  {
+    placeholder: '选择日期和时间',
+    datePlaceholder: '日期',
+    timePlaceholder: '时间',
+    disabled: false,
+    size: 'md',
+    mode: 'datetime',
+    valueFormat: undefined,
+    valueType: undefined,
+    minuteStep: 5,
+    clearable: true,
+    closeOnOutside: true,
+  }
+);
 
 const emit = defineEmits<{
   'update:modelValue': [value: string | number | undefined];
@@ -36,5 +51,20 @@ function handleChange(event: Event): void {
 </script>
 
 <template>
-  <gt-date-time-picker :value="props.modelValue" :placeholder="props.placeholder" :date-placeholder="props.datePlaceholder" :time-placeholder="props.timePlaceholder" :disabled="props.disabled" :size="props.size" :mode="props.mode" :value-format="props.valueFormat" :value-type="props.valueType" :minute-step="props.minuteStep" :clearable="props.clearable" :closeOnOutside="props.closeOnOutside" v-bind="$attrs" @gt-change="handleChange" />
+  <gt-date-time-picker
+    :value="props.modelValue"
+    :placeholder="props.placeholder"
+    :date-placeholder="props.datePlaceholder"
+    :time-placeholder="props.timePlaceholder"
+    :disabled="props.disabled"
+    :size="props.size"
+    :mode="props.mode"
+    :value-format="props.valueFormat"
+    :value-type="props.valueType"
+    :minute-step="props.minuteStep"
+    :clearable="props.clearable"
+    :closeOnOutside="props.closeOnOutside"
+    v-bind="$attrs"
+    @gt-change="handleChange"
+  />
 </template>

@@ -1,5 +1,11 @@
 <template>
-  <svg xmlns="http://www.w3.org/2000/svg" :width="width" :height="height" :fill="color" viewBox="0 0 24 24">
+  <svg
+    xmlns="http://www.w3.org/2000/svg"
+    :width="width"
+    :height="height"
+    :fill="color"
+    viewBox="0 0 24 24"
+  >
     <path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z" />
   </svg>
 </template>
@@ -12,16 +18,16 @@ export default defineComponent({
   props: {
     width: {
       type: [Number, String],
-      default: 24
+      default: 24,
     },
     height: {
       type: [Number, String],
-      default: 24
+      default: 24,
     },
     color: {
       type: String,
-      default: 'currentColor'
-    }
-  }
+      default: 'currentColor',
+    },
+  },
 });
 </script>

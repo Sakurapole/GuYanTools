@@ -1,12 +1,15 @@
 <script setup lang="ts">
 import { computed } from 'vue';
 
-const props = withDefaults(defineProps<{
-  name: string;
-  isDir?: boolean;
-}>(), {
-  isDir: false,
-});
+const props = withDefaults(
+  defineProps<{
+    name: string;
+    isDir?: boolean;
+  }>(),
+  {
+    isDir: false,
+  }
+);
 
 const extension = computed(() => {
   const name = props.name || '';
@@ -22,9 +25,33 @@ const iconType = computed(() => {
   if (['mp4', 'mov', 'mkv', 'avi', 'webm', 'm4v'].includes(ext)) return 'video';
   if (['mp3', 'wav', 'flac', 'aac', 'ogg', 'm4a'].includes(ext)) return 'audio';
   if (['zip', 'rar', '7z', 'tar', 'gz', 'bz2', 'xz'].includes(ext)) return 'archive';
-  if (['js', 'ts', 'jsx', 'tsx', 'rs', 'py', 'java', 'c', 'cpp', 'h', 'hpp', 'go', 'php', 'cs', 'vue', 'html', 'css', 'scss'].includes(ext)) return 'code';
-  if (['pdf', 'doc', 'docx', 'txt', 'md', 'xls', 'xlsx', 'ppt', 'pptx'].includes(ext)) return 'document';
-  if (['json', 'yaml', 'yml', 'toml', 'ini', 'env', 'conf', 'config', 'lock'].includes(ext)) return 'config';
+  if (
+    [
+      'js',
+      'ts',
+      'jsx',
+      'tsx',
+      'rs',
+      'py',
+      'java',
+      'c',
+      'cpp',
+      'h',
+      'hpp',
+      'go',
+      'php',
+      'cs',
+      'vue',
+      'html',
+      'css',
+      'scss',
+    ].includes(ext)
+  )
+    return 'code';
+  if (['pdf', 'doc', 'docx', 'txt', 'md', 'xls', 'xlsx', 'ppt', 'pptx'].includes(ext))
+    return 'document';
+  if (['json', 'yaml', 'yml', 'toml', 'ini', 'env', 'conf', 'config', 'lock'].includes(ext))
+    return 'config';
   if (['sh', 'bat', 'cmd', 'ps1'].includes(ext)) return 'shell';
   return 'generic';
 });
@@ -63,13 +90,17 @@ const iconType = computed(() => {
       <path d="M11.2 5l-2.4 10" />
     </svg>
     <svg v-else-if="iconType === 'document'" viewBox="0 0 20 20" aria-hidden="true">
-      <path d="M6 3.5h5.5L15 7v9a1.5 1.5 0 0 1-1.5 1.5h-7A1.5 1.5 0 0 1 5 16V5a1.5 1.5 0 0 1 1-1.4z" />
+      <path
+        d="M6 3.5h5.5L15 7v9a1.5 1.5 0 0 1-1.5 1.5h-7A1.5 1.5 0 0 1 5 16V5a1.5 1.5 0 0 1 1-1.4z"
+      />
       <path d="M11.5 3.5V7H15" />
       <path d="M7.5 10h5" />
       <path d="M7.5 12.5h5" />
     </svg>
     <svg v-else-if="iconType === 'config'" viewBox="0 0 20 20" aria-hidden="true">
-      <path d="M10 3.2l1 .7 1.2-.2.8 1 .9.3.1 1.2.9.8-.4 1.1.4 1.1-.9.8-.1 1.2-.9.3-.8 1-1.2-.2-1 .7-1-.7-1.2.2-.8-1-.9-.3-.1-1.2-.9-.8.4-1.1-.4-1.1.9-.8.1-1.2.9-.3.8-1 1.2.2z" />
+      <path
+        d="M10 3.2l1 .7 1.2-.2.8 1 .9.3.1 1.2.9.8-.4 1.1.4 1.1-.9.8-.1 1.2-.9.3-.8 1-1.2-.2-1 .7-1-.7-1.2.2-.8-1-.9-.3-.1-1.2-.9-.8.4-1.1-.4-1.1.9-.8.1-1.2.9-.3.8-1 1.2.2z"
+      />
       <circle cx="10" cy="10" r="2.2" />
     </svg>
     <svg v-else-if="iconType === 'shell'" viewBox="0 0 20 20" aria-hidden="true">
@@ -78,7 +109,9 @@ const iconType = computed(() => {
       <path d="M9.8 12h3.7" />
     </svg>
     <svg v-else viewBox="0 0 20 20" aria-hidden="true">
-      <path d="M6 3.5h5.5L15 7v9a1.5 1.5 0 0 1-1.5 1.5h-7A1.5 1.5 0 0 1 5 16V5a1.5 1.5 0 0 1 1-1.4z" />
+      <path
+        d="M6 3.5h5.5L15 7v9a1.5 1.5 0 0 1-1.5 1.5h-7A1.5 1.5 0 0 1 5 16V5a1.5 1.5 0 0 1 1-1.4z"
+      />
       <path d="M11.5 3.5V7H15" />
     </svg>
   </span>

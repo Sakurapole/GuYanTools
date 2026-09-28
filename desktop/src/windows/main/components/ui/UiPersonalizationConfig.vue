@@ -20,38 +20,41 @@ import {
   saveHomeLayoutMediaFile,
 } from '../../utils/inlineMedia';
 
-const props = withDefaults(defineProps<{
-  visible: boolean;
-  title?: string;
-  currentBackground?: string;
-  currentBackgroundImage?: string;
-  currentBackgroundVideo?: string;
-  currentBackgroundStyle?: BackgroundStyleConfig;
-  enabledFeatures?: PersonalizationFeature[];
-  showReset?: boolean;
-  resetText?: string;
-  /** 目标区域宽度 (px)，预览框按此比例渲染 */
-  previewWidth?: number;
-  /** 目标区域高度 (px)，预览框按此比例渲染 */
-  previewHeight?: number;
-  /** 是否显示预览区 */
-  showPreview?: boolean;
-  /** 是否让配置面板尽量占满当前窗口高度 */
-  fillViewport?: boolean;
-}>(), {
-  title: '个性化配置',
-  currentBackground: '',
-  currentBackgroundImage: '',
-  currentBackgroundVideo: '',
-  currentBackgroundStyle: () => ({}),
-  enabledFeatures: () => ['color', 'image', 'video', 'opacity', 'textColor'],
-  showReset: false,
-  resetText: '还原默认',
-  previewWidth: 320,
-  previewHeight: 200,
-  showPreview: true,
-  fillViewport: false,
-});
+const props = withDefaults(
+  defineProps<{
+    visible: boolean;
+    title?: string;
+    currentBackground?: string;
+    currentBackgroundImage?: string;
+    currentBackgroundVideo?: string;
+    currentBackgroundStyle?: BackgroundStyleConfig;
+    enabledFeatures?: PersonalizationFeature[];
+    showReset?: boolean;
+    resetText?: string;
+    /** 目标区域宽度 (px)，预览框按此比例渲染 */
+    previewWidth?: number;
+    /** 目标区域高度 (px)，预览框按此比例渲染 */
+    previewHeight?: number;
+    /** 是否显示预览区 */
+    showPreview?: boolean;
+    /** 是否让配置面板尽量占满当前窗口高度 */
+    fillViewport?: boolean;
+  }>(),
+  {
+    title: '个性化配置',
+    currentBackground: '',
+    currentBackgroundImage: '',
+    currentBackgroundVideo: '',
+    currentBackgroundStyle: () => ({}),
+    enabledFeatures: () => ['color', 'image', 'video', 'opacity', 'textColor'],
+    showReset: false,
+    resetText: '还原默认',
+    previewWidth: 320,
+    previewHeight: 200,
+    showPreview: true,
+    fillViewport: false,
+  }
+);
 
 const emit = defineEmits<{
   close: [];
@@ -66,7 +69,9 @@ type PersonalizationFeature = BackgroundTab | 'opacity' | 'blur' | 'textColor';
 const activeTab = ref<BackgroundTab>('color');
 const activeTabTransition = ref('ui-tab-forward');
 const activeTabOrder: BackgroundTab[] = ['color', 'image', 'video'];
-const selectedColor = ref(props.currentBackground || 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)');
+const selectedColor = ref(
+  props.currentBackground || 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)'
+);
 const selectedImage = ref(props.currentBackgroundImage || '');
 const selectedVideo = ref(props.currentBackgroundVideo || '');
 const imageInput = ref<HTMLInputElement | null>(null);
@@ -97,11 +102,11 @@ const videoProcessMode = ref<'browser' | 'ffmpeg'>('browser');
 const compressQuality = ref<CompressQuality>('high');
 
 const ffmpegAvailable = computed(() => {
-  return !!(appConfigStore.config.tools?.ffmpegPath);
+  return !!appConfigStore.config.tools?.ffmpegPath;
 });
-const activeThemeLabel = computed(() => (
+const activeThemeLabel = computed(() =>
   appConfigStore.config.appearance.theme === 'dark' ? '暗色主题配置' : '亮色主题配置'
-));
+);
 
 const imageProcessOptions = computed(() => [
   { label: '原始处理', value: 'canvas' },
@@ -166,19 +171,28 @@ const presetGradients = [
 ];
 
 const presetColors = [
-  '#667eea', '#f093fb', '#4facfe', '#43e97b',
-  '#fa709a', '#30cfd0', '#a8edea', '#ff9a9e',
-  '#ffecd2', '#ff6e7f', '#e0c3fc', '#f8b500',
+  '#667eea',
+  '#f093fb',
+  '#4facfe',
+  '#43e97b',
+  '#fa709a',
+  '#30cfd0',
+  '#a8edea',
+  '#ff9a9e',
+  '#ffecd2',
+  '#ff6e7f',
+  '#e0c3fc',
+  '#f8b500',
 ];
 
 // ─── 自定义颜色 (画板 + 取色器 + 直接输入) ───
 const showCustomPicker = ref(false);
 const satBrightCanvas = ref<HTMLCanvasElement | null>(null);
 const hueSlider = ref<HTMLCanvasElement | null>(null);
-const customHue = ref(0);        // 0~360
-const customSat = ref(100);      // 0~100
-const customBright = ref(100);   // 0~100
-const customAlpha = ref(1);      // 0~1
+const customHue = ref(0); // 0~360
+const customSat = ref(100); // 0~100
+const customBright = ref(100); // 0~100
+const customAlpha = ref(1); // 0~1
 const hexInput = ref('#667eea');
 const rgbaInput = ref('rgba(102, 126, 234, 1)');
 const colorInputMode = ref<'hex' | 'rgba'>('hex');
@@ -188,24 +202,49 @@ const eyeDropperSupported = ref(typeof (window as any).EyeDropper !== 'undefined
 
 // ── HSV → RGB ──
 function hsvToRgb(h: number, s: number, v: number): [number, number, number] {
-  s /= 100; v /= 100;
+  s /= 100;
+  v /= 100;
   const c = v * s;
   const x = c * (1 - Math.abs(((h / 60) % 2) - 1));
   const m = v - c;
-  let r = 0, g = 0, b = 0;
-  if (h < 60)      { r = c; g = x; b = 0; }
-  else if (h < 120) { r = x; g = c; b = 0; }
-  else if (h < 180) { r = 0; g = c; b = x; }
-  else if (h < 240) { r = 0; g = x; b = c; }
-  else if (h < 300) { r = x; g = 0; b = c; }
-  else              { r = c; g = 0; b = x; }
+  let r = 0,
+    g = 0,
+    b = 0;
+  if (h < 60) {
+    r = c;
+    g = x;
+    b = 0;
+  } else if (h < 120) {
+    r = x;
+    g = c;
+    b = 0;
+  } else if (h < 180) {
+    r = 0;
+    g = c;
+    b = x;
+  } else if (h < 240) {
+    r = 0;
+    g = x;
+    b = c;
+  } else if (h < 300) {
+    r = x;
+    g = 0;
+    b = c;
+  } else {
+    r = c;
+    g = 0;
+    b = x;
+  }
   return [Math.round((r + m) * 255), Math.round((g + m) * 255), Math.round((b + m) * 255)];
 }
 
 // ── RGB → HSV ──
 function rgbToHsv(r: number, g: number, b: number): [number, number, number] {
-  r /= 255; g /= 255; b /= 255;
-  const max = Math.max(r, g, b), min = Math.min(r, g, b);
+  r /= 255;
+  g /= 255;
+  b /= 255;
+  const max = Math.max(r, g, b),
+    min = Math.min(r, g, b);
   const d = max - min;
   let h = 0;
   if (d !== 0) {
@@ -222,7 +261,7 @@ function rgbToHsv(r: number, g: number, b: number): [number, number, number] {
 
 // ── RGB → HEX ──
 function rgbToHex(r: number, g: number, b: number): string {
-  return '#' + [r, g, b].map(c => c.toString(16).padStart(2, '0')).join('');
+  return '#' + [r, g, b].map((c) => c.toString(16).padStart(2, '0')).join('');
 }
 
 // ── HEX → RGB ──
@@ -232,7 +271,11 @@ function hexToRgb(hex: string): [number, number, number] | null {
     // 尝试3位短格式
     const short = hex.replace('#', '').match(/^([0-9a-f])([0-9a-f])([0-9a-f])$/i);
     if (!short) return null;
-    return [parseInt(short[1] + short[1], 16), parseInt(short[2] + short[2], 16), parseInt(short[3] + short[3], 16)];
+    return [
+      parseInt(short[1] + short[1], 16),
+      parseInt(short[2] + short[2], 16),
+      parseInt(short[3] + short[3], 16),
+    ];
   }
   return [parseInt(m[1], 16), parseInt(m[2], 16), parseInt(m[3], 16)];
 }
@@ -241,7 +284,12 @@ function hexToRgb(hex: string): [number, number, number] | null {
 function parseRgba(str: string): { r: number; g: number; b: number; a: number } | null {
   const m = str.match(/rgba?\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)(?:\s*,\s*([\d.]+))?\s*\)/);
   if (!m) return null;
-  return { r: Number(m[1]), g: Number(m[2]), b: Number(m[3]), a: m[4] !== undefined ? Number(m[4]) : 1 };
+  return {
+    r: Number(m[1]),
+    g: Number(m[2]),
+    b: Number(m[3]),
+    a: m[4] !== undefined ? Number(m[4]) : 1,
+  };
 }
 
 // ── 获取当前自定义颜色的 CSS 值 ──
@@ -490,21 +538,26 @@ const enabledFeatureSet = computed(() => new Set(props.enabledFeatures));
 const canUseOpacity = computed(() => enabledFeatureSet.value.has('opacity'));
 const canUseBlur = computed(() => enabledFeatureSet.value.has('blur'));
 const canUseTextColor = computed(() => enabledFeatureSet.value.has('textColor'));
-const personalizationTabs = computed(() => [
-  { key: 'color', label: '颜色' },
-  { key: 'image', label: '图片' },
-  { key: 'video', label: '视频' },
-].filter(tab => enabledFeatureSet.value.has(tab.key as PersonalizationFeature)));
+const personalizationTabs = computed(() =>
+  [
+    { key: 'color', label: '颜色' },
+    { key: 'image', label: '图片' },
+    { key: 'video', label: '视频' },
+  ].filter((tab) => enabledFeatureSet.value.has(tab.key as PersonalizationFeature))
+);
 
 watch(activeTab, (next, previous) => {
-  activeTabTransition.value = activeTabOrder.indexOf(next) >= activeTabOrder.indexOf(previous)
-    ? 'ui-tab-forward'
-    : 'ui-tab-back';
+  activeTabTransition.value =
+    activeTabOrder.indexOf(next) >= activeTabOrder.indexOf(previous)
+      ? 'ui-tab-forward'
+      : 'ui-tab-back';
 });
 
 const targetPreviewSize = computed(() => {
-  const width = Number.isFinite(props.previewWidth) && props.previewWidth > 0 ? props.previewWidth : 320;
-  const height = Number.isFinite(props.previewHeight) && props.previewHeight > 0 ? props.previewHeight : 200;
+  const width =
+    Number.isFinite(props.previewWidth) && props.previewWidth > 0 ? props.previewWidth : 320;
+  const height =
+    Number.isFinite(props.previewHeight) && props.previewHeight > 0 ? props.previewHeight : 200;
   return { width, height };
 });
 
@@ -603,7 +656,9 @@ function handleImageChange(event: Event) {
     if (bgFitMode.value === 'crop') {
       showCropper.value = true;
     } else {
-      selectedImage.value = (await saveHomeLayoutMediaDataUrl(originalImage.value, file.name))?.url || originalImage.value;
+      selectedImage.value =
+        (await saveHomeLayoutMediaDataUrl(originalImage.value, file.name))?.url ||
+        originalImage.value;
       originalImage.value = '';
       if (imageInput.value) imageInput.value.value = '';
     }
@@ -618,7 +673,8 @@ function handleCropperClose() {
 }
 
 async function handleCropperConfirm(croppedImage: string) {
-  selectedImage.value = (await saveHomeLayoutMediaDataUrl(croppedImage, 'background-image.jpg'))?.url || croppedImage;
+  selectedImage.value =
+    (await saveHomeLayoutMediaDataUrl(croppedImage, 'background-image.jpg'))?.url || croppedImage;
   showCropper.value = false;
   originalImage.value = '';
 }
@@ -641,7 +697,7 @@ async function handleVideoChange(event: Event) {
     if (file.size > MAX_INLINE_VIDEO_BYTES) {
       notifyWarning(
         `视频文件为 ${formatMediaBytes(file.size)}，首页媒体不能超过 ${formatMediaBytes(MAX_INLINE_VIDEO_BYTES)}。`,
-        '视频文件过大',
+        '视频文件过大'
       );
       target.value = '';
       return;
@@ -672,12 +728,13 @@ async function handleVideoCropperConfirm(videoDataUrl: string) {
   if (!isInlineVideoWithinLimit(videoDataUrl)) {
     notifyWarning(
       `处理后的视频超过 ${formatMediaBytes(MAX_INLINE_VIDEO_BYTES)}，未保存到首页配置。`,
-      '视频文件过大',
+      '视频文件过大'
     );
     handleVideoCropperClose();
     return;
   }
-  selectedVideo.value = (await saveHomeLayoutMediaDataUrl(videoDataUrl, 'background-video.webm'))?.url || videoDataUrl;
+  selectedVideo.value =
+    (await saveHomeLayoutMediaDataUrl(videoDataUrl, 'background-video.webm'))?.url || videoDataUrl;
   showVideoCropper.value = false;
   if (originalVideoUrl.value) {
     URL.revokeObjectURL(originalVideoUrl.value);
@@ -703,7 +760,7 @@ function handleConfirm() {
   if (activeTab.value === 'video' && !isInlineVideoWithinLimit(selectedVideo.value)) {
     notifyWarning(
       `视频超过 ${formatMediaBytes(MAX_INLINE_VIDEO_BYTES)}，未保存到首页配置。`,
-      '视频文件过大',
+      '视频文件过大'
     );
     return;
   }
@@ -725,11 +782,29 @@ function handleConfirm() {
       blur: canUseBlur.value ? bgBlur.value : undefined,
       textColor: canUseTextColor.value ? textColor : undefined,
     };
-    emit('confirm', { type: 'color', color: selectedColor.value, image: '', video: '', backgroundStyle: colorStyle });
+    emit('confirm', {
+      type: 'color',
+      color: selectedColor.value,
+      image: '',
+      video: '',
+      backgroundStyle: colorStyle,
+    });
   } else if (activeTab.value === 'image') {
-    emit('confirm', { type: 'image', color: '', image: selectedImage.value, video: '', backgroundStyle });
+    emit('confirm', {
+      type: 'image',
+      color: '',
+      image: selectedImage.value,
+      video: '',
+      backgroundStyle,
+    });
   } else {
-    emit('confirm', { type: 'video', color: '', image: '', video: selectedVideo.value, backgroundStyle });
+    emit('confirm', {
+      type: 'video',
+      color: '',
+      image: '',
+      video: selectedVideo.value,
+      backgroundStyle,
+    });
   }
   emit('close');
 }
@@ -748,50 +823,55 @@ function handleDialogModelValueChange(value: boolean) {
 }
 
 // 同步 props 到本地状态
-watch(() => props.visible, (visible) => {
-  if (visible) {
-    selectedColor.value = props.currentBackground || 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)';
-    selectedImage.value = props.currentBackgroundImage || '';
-    selectedVideo.value = props.currentBackgroundVideo || '';
-    bgSize.value = props.currentBackgroundStyle?.backgroundSize || 'cover';
-    bgPosition.value = props.currentBackgroundStyle?.backgroundPosition || 'center';
-    bgRepeat.value = props.currentBackgroundStyle?.backgroundRepeat || 'no-repeat';
-    bgOpacity.value = props.currentBackgroundStyle?.opacity ?? 1;
-    bgBlur.value = props.currentBackgroundStyle?.blur ?? 0;
-    selectedTextColor.value = props.currentBackgroundStyle?.textColor || '';
-    bgFitMode.value = props.currentBackgroundStyle?.fitMode
-      ?? (
-        props.currentBackgroundStyle?.backgroundSize && props.currentBackgroundStyle.backgroundSize !== 'cover'
+watch(
+  () => props.visible,
+  (visible) => {
+    if (visible) {
+      selectedColor.value =
+        props.currentBackground || 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)';
+      selectedImage.value = props.currentBackgroundImage || '';
+      selectedVideo.value = props.currentBackgroundVideo || '';
+      bgSize.value = props.currentBackgroundStyle?.backgroundSize || 'cover';
+      bgPosition.value = props.currentBackgroundStyle?.backgroundPosition || 'center';
+      bgRepeat.value = props.currentBackgroundStyle?.backgroundRepeat || 'no-repeat';
+      bgOpacity.value = props.currentBackgroundStyle?.opacity ?? 1;
+      bgBlur.value = props.currentBackgroundStyle?.blur ?? 0;
+      selectedTextColor.value = props.currentBackgroundStyle?.textColor || '';
+      bgFitMode.value =
+        props.currentBackgroundStyle?.fitMode ??
+        (props.currentBackgroundStyle?.backgroundSize &&
+        props.currentBackgroundStyle.backgroundSize !== 'cover'
           ? 'style'
-          : 'crop'
-      );
+          : 'crop');
 
-    // 自动选择合适的 tab
-    const nextTab = props.currentBackgroundVideo && enabledFeatureSet.value.has('video')
-      ? 'video'
-      : props.currentBackgroundImage && enabledFeatureSet.value.has('image')
-        ? 'image'
-        : enabledFeatureSet.value.has('color')
-          ? 'color'
-          : (personalizationTabs.value[0]?.key as BackgroundTab | undefined) ?? 'color';
+      // 自动选择合适的 tab
+      const nextTab =
+        props.currentBackgroundVideo && enabledFeatureSet.value.has('video')
+          ? 'video'
+          : props.currentBackgroundImage && enabledFeatureSet.value.has('image')
+            ? 'image'
+            : enabledFeatureSet.value.has('color')
+              ? 'color'
+              : ((personalizationTabs.value[0]?.key as BackgroundTab | undefined) ?? 'color');
 
-    if (nextTab === 'video') {
-      activeTab.value = 'video';
-    } else if (nextTab === 'image') {
-      activeTab.value = 'image';
-    } else {
-      activeTab.value = 'color';
-    }
+      if (nextTab === 'video') {
+        activeTab.value = 'video';
+      } else if (nextTab === 'image') {
+        activeTab.value = 'image';
+      } else {
+        activeTab.value = 'color';
+      }
 
-    // 对话框重新打开时，若画板已展开，重新绘制 canvas
-    if (showCustomPicker.value) {
-      nextTick(() => {
-        drawSatBrightCanvas();
-        drawHueSlider();
-      });
+      // 对话框重新打开时，若画板已展开，重新绘制 canvas
+      if (showCustomPicker.value) {
+        nextTick(() => {
+          drawSatBrightCanvas();
+          drawHueSlider();
+        });
+      }
     }
   }
-});
+);
 </script>
 
 <template>
@@ -807,14 +887,22 @@ watch(() => props.visible, (visible) => {
     width="580px"
     max-width="580px"
     :close-on-mask="false"
-    @update:modelValue="handleDialogModelValueChange">
+    @update:modelValue="handleDialogModelValueChange"
+  >
     <template #header>
       <div class="bg-picker__header">
         <div class="bg-picker__title">
           <h3>{{ title }}</h3>
           <span class="bg-picker__theme-badge">{{ activeThemeLabel }}</span>
         </div>
-        <UiIconButton class="close-btn" variant="ghost" size="sm" shape="square" title="关闭" @click="handleClose">
+        <UiIconButton
+          class="close-btn"
+          variant="ghost"
+          size="sm"
+          shape="square"
+          title="关闭"
+          @click="handleClose"
+        >
           ✕
         </UiIconButton>
       </div>
@@ -832,8 +920,16 @@ watch(() => props.visible, (visible) => {
         :style="previewFrameStyle"
       >
         <div class="bg-picker__preview-box" :style="previewBoxStyle">
-          <video v-if="activeTab === 'video' && selectedVideo" :src="selectedVideo" class="bg-picker__preview-video"
-            :style="previewVideoStyle" autoplay loop muted playsinline />
+          <video
+            v-if="activeTab === 'video' && selectedVideo"
+            :src="selectedVideo"
+            class="bg-picker__preview-video"
+            :style="previewVideoStyle"
+            autoplay
+            loop
+            muted
+            playsinline
+          />
           <span v-else class="bg-picker__preview-text">预览</span>
         </div>
       </div>
@@ -841,216 +937,365 @@ watch(() => props.visible, (visible) => {
 
     <div class="bg-picker__content">
       <Transition :name="activeTabTransition" mode="out-in">
-      <!-- 颜色选择 -->
-      <div v-if="activeTab === 'color' && enabledFeatureSet.has('color')" class="bg-picker__color-section">
-        <div class="bg-picker__section-title">渐变色</div>
-        <div class="bg-picker__gradient-grid">
-          <div v-for="(gradient, index) in presetGradients" :key="index" class="bg-picker__swatch"
-            :class="{ 'bg-picker__swatch--selected': selectedColor === gradient }" :style="{ background: gradient }"
-            @click="handleColorSelect(gradient)">
-            <div v-if="selectedColor === gradient" class="bg-picker__swatch-check">✓</div>
+        <!-- 颜色选择 -->
+        <div
+          v-if="activeTab === 'color' && enabledFeatureSet.has('color')"
+          class="bg-picker__color-section"
+        >
+          <div class="bg-picker__section-title">渐变色</div>
+          <div class="bg-picker__gradient-grid">
+            <div
+              v-for="(gradient, index) in presetGradients"
+              :key="index"
+              class="bg-picker__swatch"
+              :class="{ 'bg-picker__swatch--selected': selectedColor === gradient }"
+              :style="{ background: gradient }"
+              @click="handleColorSelect(gradient)"
+            >
+              <div v-if="selectedColor === gradient" class="bg-picker__swatch-check">✓</div>
+            </div>
+          </div>
+
+          <div class="bg-picker__section-title">纯色</div>
+          <UiColorPicker
+            :model-value="selectedColor"
+            :swatches="presetColors"
+            aria-label="选择背景纯色"
+            placeholder="#667eea"
+            @update:model-value="handleColorSelect"
+          />
+
+          <!-- 自定义颜色区域 -->
+          <div class="bg-picker__custom-section">
+            <div class="bg-picker__custom-header">
+              <div class="bg-picker__section-title">自定义颜色</div>
+              <div class="bg-picker__custom-actions">
+                <button
+                  v-if="eyeDropperSupported"
+                  class="bg-picker__tool-btn"
+                  title="从屏幕拾取颜色"
+                  @click="handleEyeDropper"
+                >
+                  <svg
+                    width="16"
+                    height="16"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="2"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                  >
+                    <path d="m2 22 1-1h3l9-9" />
+                    <path d="M3 21v-3l9-9" />
+                    <path
+                      d="m15 6 3.4-3.4a2.1 2.1 0 1 1 3 3L18 9l.4.4a2.1 2.1 0 1 1-3 3l-3.8-3.8a2.1 2.1 0 1 1 3-3L15 6"
+                    />
+                  </svg>
+                  <span>取色</span>
+                </button>
+                <button
+                  class="bg-picker__tool-btn"
+                  :class="{ 'bg-picker__tool-btn--active': showCustomPicker }"
+                  @click="toggleCustomPicker"
+                >
+                  <svg
+                    width="16"
+                    height="16"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="2"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                  >
+                    <circle cx="13.5" cy="6.5" r=".5" fill="currentColor" />
+                    <circle cx="17.5" cy="10.5" r=".5" fill="currentColor" />
+                    <circle cx="8.5" cy="7.5" r=".5" fill="currentColor" />
+                    <circle cx="6.5" cy="12.5" r=".5" fill="currentColor" />
+                    <path
+                      d="M12 2C6.5 2 2 6.5 2 12s4.5 10 10 10c.926 0 1.648-.746 1.648-1.688 0-.437-.18-.835-.437-1.125-.29-.289-.438-.652-.438-1.125a1.64 1.64 0 0 1 1.668-1.668h1.996c3.051 0 5.555-2.503 5.555-5.554C21.965 6.012 17.461 2 12 2z"
+                    />
+                  </svg>
+                  <span>画板</span>
+                </button>
+              </div>
+            </div>
+
+            <!-- 颜色画板 -->
+            <div v-if="showCustomPicker" class="bg-picker__palette-panel">
+              <div class="bg-picker__palette-row">
+                <!-- 饱和度/明度画板 -->
+                <div class="bg-picker__sb-wrapper">
+                  <canvas
+                    ref="satBrightCanvas"
+                    class="bg-picker__sb-canvas"
+                    width="260"
+                    height="160"
+                    @mousedown="handleSBMouseDown"
+                  ></canvas>
+                  <div class="bg-picker__sb-pointer" :style="sbPointerStyle"></div>
+                </div>
+                <!-- 颜色预览 -->
+                <div class="bg-picker__color-preview-col">
+                  <div
+                    class="bg-picker__color-swatch-preview"
+                    :style="{ background: customColorPreview }"
+                  ></div>
+                  <button class="bg-picker__apply-color-btn" @click="applyCustomColor">应用</button>
+                </div>
+              </div>
+
+              <!-- 色相滑杆 -->
+              <div class="bg-picker__hue-wrapper">
+                <canvas
+                  ref="hueSlider"
+                  class="bg-picker__hue-canvas"
+                  width="260"
+                  height="14"
+                  @mousedown="handleHueMouseDown"
+                ></canvas>
+                <div class="bg-picker__hue-pointer" :style="huePointerStyle"></div>
+              </div>
+
+              <!-- 透明度滑杆 -->
+              <div class="bg-picker__alpha-wrapper">
+                <label class="bg-picker__alpha-label">不透明度</label>
+                <input
+                  type="range"
+                  class="bg-picker__alpha-range"
+                  :value="Math.round(customAlpha * 100)"
+                  min="0"
+                  max="100"
+                  step="1"
+                  @input="handleAlphaInput"
+                />
+                <span class="bg-picker__alpha-val">{{ Math.round(customAlpha * 100) }}%</span>
+              </div>
+
+              <!-- 颜色值输入 -->
+              <div class="bg-picker__input-row">
+                <div class="bg-picker__input-tabs">
+                  <button
+                    class="bg-picker__input-tab"
+                    :class="{ 'bg-picker__input-tab--active': colorInputMode === 'hex' }"
+                    @click="colorInputMode = 'hex'"
+                  >
+                    HEX
+                  </button>
+                  <button
+                    class="bg-picker__input-tab"
+                    :class="{ 'bg-picker__input-tab--active': colorInputMode === 'rgba' }"
+                    @click="colorInputMode = 'rgba'"
+                  >
+                    RGBA
+                  </button>
+                </div>
+                <div class="bg-picker__input-field">
+                  <input
+                    v-if="colorInputMode === 'hex'"
+                    v-model="hexInput"
+                    class="bg-picker__color-input"
+                    placeholder="#667eea"
+                    @change="handleHexInput"
+                    @keyup.enter="handleHexInput"
+                  />
+                  <input
+                    v-else
+                    v-model="rgbaInput"
+                    class="bg-picker__color-input"
+                    placeholder="rgba(102, 126, 234, 1)"
+                    @change="handleRgbaInput"
+                    @keyup.enter="handleRgbaInput"
+                  />
+                </div>
+              </div>
+            </div>
           </div>
         </div>
 
-        <div class="bg-picker__section-title">纯色</div>
-        <UiColorPicker
-          :model-value="selectedColor"
-          :swatches="presetColors"
-          aria-label="选择背景纯色"
-          placeholder="#667eea"
-          @update:model-value="handleColorSelect"
-        />
+        <!-- 图片选择 + CSS 参数 -->
+        <div
+          v-else-if="activeTab === 'image' && enabledFeatureSet.has('image')"
+          class="bg-picker__image-section"
+        >
+          <div class="bg-picker__fit-panel">
+            <div class="bg-picker__section-title">适配方式</div>
+            <UiTabs
+              v-model="bgFitMode"
+              :items="bgFitModeOptions"
+              variant="segmented"
+              size="sm"
+              stretch
+            />
+          </div>
 
-        <!-- 自定义颜色区域 -->
-        <div class="bg-picker__custom-section">
-          <div class="bg-picker__custom-header">
-            <div class="bg-picker__section-title">自定义颜色</div>
-            <div class="bg-picker__custom-actions">
-              <button v-if="eyeDropperSupported" class="bg-picker__tool-btn" title="从屏幕拾取颜色" @click="handleEyeDropper">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                  <path d="m2 22 1-1h3l9-9"/>
-                  <path d="M3 21v-3l9-9"/>
-                  <path d="m15 6 3.4-3.4a2.1 2.1 0 1 1 3 3L18 9l.4.4a2.1 2.1 0 1 1-3 3l-3.8-3.8a2.1 2.1 0 1 1 3-3L15 6"/>
-                </svg>
-                <span>取色</span>
+          <div class="bg-picker__image-actions">
+            <input
+              ref="imageInput"
+              type="file"
+              accept="image/*"
+              style="display: none"
+              @change="handleImageChange"
+            />
+            <UiButton
+              class="bg-picker__upload-btn"
+              variant="secondary"
+              size="sm"
+              @click="handleImageSelect"
+            >
+              <span class="upload-icon">📁</span>
+              <span>选择图片</span>
+            </UiButton>
+            <UiButton v-if="selectedImage" variant="danger" size="sm" @click="handleClearImage">
+              清除
+            </UiButton>
+          </div>
+
+          <!-- CSS 背景参数面板 -->
+          <div v-if="selectedImage && bgFitMode === 'style'" class="bg-picker__style-panel">
+            <div class="bg-picker__section-title">背景样式</div>
+            <div class="bg-picker__style-grid">
+              <div class="bg-picker__style-field">
+                <label>填充模式</label>
+                <UiSelect v-model="bgSize" :options="bgSizeOptions" size="sm" />
+              </div>
+              <div class="bg-picker__style-field">
+                <label>重复方式</label>
+                <UiSelect v-model="bgRepeat" :options="bgRepeatOptions" size="sm" />
+              </div>
+            </div>
+
+            <div class="bg-picker__section-title">定位</div>
+            <div class="bg-picker__position-grid">
+              <button
+                v-for="pos in positionGrid"
+                :key="pos.value"
+                class="bg-picker__pos-cell"
+                :class="{ 'bg-picker__pos-cell--active': bgPosition === pos.value }"
+                :title="pos.value"
+                @click="bgPosition = pos.value"
+              >
+                {{ pos.label }}
               </button>
-              <button class="bg-picker__tool-btn" :class="{ 'bg-picker__tool-btn--active': showCustomPicker }" @click="toggleCustomPicker">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                  <circle cx="13.5" cy="6.5" r=".5" fill="currentColor"/>
-                  <circle cx="17.5" cy="10.5" r=".5" fill="currentColor"/>
-                  <circle cx="8.5" cy="7.5" r=".5" fill="currentColor"/>
-                  <circle cx="6.5" cy="12.5" r=".5" fill="currentColor"/>
-                  <path d="M12 2C6.5 2 2 6.5 2 12s4.5 10 10 10c.926 0 1.648-.746 1.648-1.688 0-.437-.18-.835-.437-1.125-.29-.289-.438-.652-.438-1.125a1.64 1.64 0 0 1 1.668-1.668h1.996c3.051 0 5.555-2.503 5.555-5.554C21.965 6.012 17.461 2 12 2z"/>
-                </svg>
-                <span>画板</span>
+            </div>
+          </div>
+
+          <p class="bg-picker__hint">支持 JPG, PNG, GIF, WebP 格式</p>
+
+          <div v-if="bgFitMode === 'crop'" class="bg-picker__process-options">
+            <div class="bg-picker__section-title">处理方式</div>
+            <div class="bg-picker__style-grid">
+              <div class="bg-picker__style-field">
+                <label>处理模式</label>
+                <UiSelect v-model="imageProcessMode" :options="imageProcessOptions" size="sm" />
+              </div>
+              <div v-if="imageProcessMode === 'ffmpeg'" class="bg-picker__style-field">
+                <label>压缩质量</label>
+                <UiSelect v-model="compressQuality" :options="qualityOptions" size="sm" />
+              </div>
+            </div>
+            <p v-if="!ffmpegAvailable" class="bg-picker__hint bg-picker__hint--warn">
+              ⚠️ 未配置 FFmpeg 路径，请前往 设置 → 工具 进行配置
+            </p>
+          </div>
+        </div>
+
+        <!-- 视频选择 -->
+        <div
+          v-else-if="activeTab === 'video' && enabledFeatureSet.has('video')"
+          class="bg-picker__video-section"
+        >
+          <div class="bg-picker__fit-panel">
+            <div class="bg-picker__section-title">适配方式</div>
+            <UiTabs
+              v-model="bgFitMode"
+              :items="bgFitModeOptions"
+              variant="segmented"
+              size="sm"
+              stretch
+            />
+          </div>
+
+          <div class="bg-picker__image-actions">
+            <input
+              ref="videoInput"
+              type="file"
+              accept="video/*"
+              style="display: none"
+              @change="handleVideoChange"
+            />
+            <UiButton
+              class="bg-picker__upload-btn"
+              variant="secondary"
+              size="sm"
+              @click="handleVideoSelect"
+            >
+              <span class="upload-icon">🎬</span>
+              <span>选择视频</span>
+            </UiButton>
+            <UiButton v-if="selectedVideo" variant="danger" size="sm" @click="handleClearVideo">
+              清除
+            </UiButton>
+          </div>
+          <p class="bg-picker__hint">支持 MP4, WebM, MOV 格式</p>
+
+          <div v-if="selectedVideo && bgFitMode === 'style'" class="bg-picker__style-panel">
+            <div class="bg-picker__section-title">背景样式</div>
+            <div class="bg-picker__style-grid">
+              <div class="bg-picker__style-field">
+                <label>填充模式</label>
+                <UiSelect v-model="bgSize" :options="bgSizeOptions" size="sm" />
+              </div>
+            </div>
+
+            <div class="bg-picker__section-title">定位</div>
+            <div class="bg-picker__position-grid">
+              <button
+                v-for="pos in positionGrid"
+                :key="pos.value"
+                class="bg-picker__pos-cell"
+                :class="{ 'bg-picker__pos-cell--active': bgPosition === pos.value }"
+                :title="pos.value"
+                @click="bgPosition = pos.value"
+              >
+                {{ pos.label }}
               </button>
             </div>
           </div>
 
-          <!-- 颜色画板 -->
-          <div v-if="showCustomPicker" class="bg-picker__palette-panel">
-            <div class="bg-picker__palette-row">
-              <!-- 饱和度/明度画板 -->
-              <div class="bg-picker__sb-wrapper">
-                <canvas ref="satBrightCanvas" class="bg-picker__sb-canvas" width="260" height="160" @mousedown="handleSBMouseDown"></canvas>
-                <div class="bg-picker__sb-pointer" :style="sbPointerStyle"></div>
+          <div v-if="bgFitMode === 'crop'" class="bg-picker__process-options">
+            <div class="bg-picker__section-title">处理方式</div>
+            <div class="bg-picker__style-grid">
+              <div class="bg-picker__style-field">
+                <label>处理模式</label>
+                <UiSelect v-model="videoProcessMode" :options="videoProcessOptions" size="sm" />
               </div>
-              <!-- 颜色预览 -->
-              <div class="bg-picker__color-preview-col">
-                <div class="bg-picker__color-swatch-preview" :style="{ background: customColorPreview }"></div>
-                <button class="bg-picker__apply-color-btn" @click="applyCustomColor">应用</button>
+              <div v-if="videoProcessMode === 'ffmpeg'" class="bg-picker__style-field">
+                <label>压缩质量</label>
+                <UiSelect v-model="compressQuality" :options="qualityOptions" size="sm" />
               </div>
             </div>
-
-            <!-- 色相滑杆 -->
-            <div class="bg-picker__hue-wrapper">
-              <canvas ref="hueSlider" class="bg-picker__hue-canvas" width="260" height="14" @mousedown="handleHueMouseDown"></canvas>
-              <div class="bg-picker__hue-pointer" :style="huePointerStyle"></div>
-            </div>
-
-            <!-- 透明度滑杆 -->
-            <div class="bg-picker__alpha-wrapper">
-              <label class="bg-picker__alpha-label">不透明度</label>
-              <input type="range" class="bg-picker__alpha-range" :value="Math.round(customAlpha * 100)" min="0" max="100" step="1" @input="handleAlphaInput" />
-              <span class="bg-picker__alpha-val">{{ Math.round(customAlpha * 100) }}%</span>
-            </div>
-
-            <!-- 颜色值输入 -->
-            <div class="bg-picker__input-row">
-              <div class="bg-picker__input-tabs">
-                <button class="bg-picker__input-tab" :class="{ 'bg-picker__input-tab--active': colorInputMode === 'hex' }" @click="colorInputMode = 'hex'">HEX</button>
-                <button class="bg-picker__input-tab" :class="{ 'bg-picker__input-tab--active': colorInputMode === 'rgba' }" @click="colorInputMode = 'rgba'">RGBA</button>
-              </div>
-              <div class="bg-picker__input-field">
-                <input v-if="colorInputMode === 'hex'" v-model="hexInput" class="bg-picker__color-input" placeholder="#667eea" @change="handleHexInput" @keyup.enter="handleHexInput" />
-                <input v-else v-model="rgbaInput" class="bg-picker__color-input" placeholder="rgba(102, 126, 234, 1)" @change="handleRgbaInput" @keyup.enter="handleRgbaInput" />
-              </div>
-            </div>
+            <p v-if="!ffmpegAvailable" class="bg-picker__hint bg-picker__hint--warn">
+              ⚠️ 未配置 FFmpeg 路径，请前往 设置 → 工具 进行配置
+            </p>
           </div>
         </div>
-      </div>
-
-      <!-- 图片选择 + CSS 参数 -->
-      <div v-else-if="activeTab === 'image' && enabledFeatureSet.has('image')" class="bg-picker__image-section">
-        <div class="bg-picker__fit-panel">
-          <div class="bg-picker__section-title">适配方式</div>
-          <UiTabs v-model="bgFitMode" :items="bgFitModeOptions" variant="segmented" size="sm" stretch />
-        </div>
-
-        <div class="bg-picker__image-actions">
-          <input ref="imageInput" type="file" accept="image/*" style="display: none" @change="handleImageChange" />
-          <UiButton class="bg-picker__upload-btn" variant="secondary" size="sm" @click="handleImageSelect">
-            <span class="upload-icon">📁</span>
-            <span>选择图片</span>
-          </UiButton>
-          <UiButton v-if="selectedImage" variant="danger" size="sm" @click="handleClearImage">
-            清除
-          </UiButton>
-        </div>
-
-        <!-- CSS 背景参数面板 -->
-        <div v-if="selectedImage && bgFitMode === 'style'" class="bg-picker__style-panel">
-          <div class="bg-picker__section-title">背景样式</div>
-          <div class="bg-picker__style-grid">
-            <div class="bg-picker__style-field">
-              <label>填充模式</label>
-              <UiSelect v-model="bgSize" :options="bgSizeOptions" size="sm" />
-            </div>
-            <div class="bg-picker__style-field">
-              <label>重复方式</label>
-              <UiSelect v-model="bgRepeat" :options="bgRepeatOptions" size="sm" />
-            </div>
-          </div>
-
-          <div class="bg-picker__section-title">定位</div>
-          <div class="bg-picker__position-grid">
-            <button v-for="pos in positionGrid" :key="pos.value" class="bg-picker__pos-cell"
-              :class="{ 'bg-picker__pos-cell--active': bgPosition === pos.value }" :title="pos.value"
-              @click="bgPosition = pos.value">
-              {{ pos.label }}
-            </button>
-          </div>
-        </div>
-
-        <p class="bg-picker__hint">支持 JPG, PNG, GIF, WebP 格式</p>
-
-        <div v-if="bgFitMode === 'crop'" class="bg-picker__process-options">
-          <div class="bg-picker__section-title">处理方式</div>
-          <div class="bg-picker__style-grid">
-            <div class="bg-picker__style-field">
-              <label>处理模式</label>
-              <UiSelect v-model="imageProcessMode" :options="imageProcessOptions" size="sm" />
-            </div>
-            <div v-if="imageProcessMode === 'ffmpeg'" class="bg-picker__style-field">
-              <label>压缩质量</label>
-              <UiSelect v-model="compressQuality" :options="qualityOptions" size="sm" />
-            </div>
-          </div>
-          <p v-if="!ffmpegAvailable" class="bg-picker__hint bg-picker__hint--warn">⚠️ 未配置 FFmpeg 路径，请前往 设置 → 工具 进行配置</p>
-        </div>
-      </div>
-
-      <!-- 视频选择 -->
-      <div v-else-if="activeTab === 'video' && enabledFeatureSet.has('video')" class="bg-picker__video-section">
-        <div class="bg-picker__fit-panel">
-          <div class="bg-picker__section-title">适配方式</div>
-          <UiTabs v-model="bgFitMode" :items="bgFitModeOptions" variant="segmented" size="sm" stretch />
-        </div>
-
-        <div class="bg-picker__image-actions">
-          <input ref="videoInput" type="file" accept="video/*" style="display: none" @change="handleVideoChange" />
-          <UiButton class="bg-picker__upload-btn" variant="secondary" size="sm" @click="handleVideoSelect">
-            <span class="upload-icon">🎬</span>
-            <span>选择视频</span>
-          </UiButton>
-          <UiButton v-if="selectedVideo" variant="danger" size="sm" @click="handleClearVideo">
-            清除
-          </UiButton>
-        </div>
-        <p class="bg-picker__hint">支持 MP4, WebM, MOV 格式</p>
-
-        <div v-if="selectedVideo && bgFitMode === 'style'" class="bg-picker__style-panel">
-          <div class="bg-picker__section-title">背景样式</div>
-          <div class="bg-picker__style-grid">
-            <div class="bg-picker__style-field">
-              <label>填充模式</label>
-              <UiSelect v-model="bgSize" :options="bgSizeOptions" size="sm" />
-            </div>
-          </div>
-
-          <div class="bg-picker__section-title">定位</div>
-          <div class="bg-picker__position-grid">
-            <button v-for="pos in positionGrid" :key="pos.value" class="bg-picker__pos-cell"
-              :class="{ 'bg-picker__pos-cell--active': bgPosition === pos.value }" :title="pos.value"
-              @click="bgPosition = pos.value">
-              {{ pos.label }}
-            </button>
-          </div>
-        </div>
-
-        <div v-if="bgFitMode === 'crop'" class="bg-picker__process-options">
-          <div class="bg-picker__section-title">处理方式</div>
-          <div class="bg-picker__style-grid">
-            <div class="bg-picker__style-field">
-              <label>处理模式</label>
-              <UiSelect v-model="videoProcessMode" :options="videoProcessOptions" size="sm" />
-            </div>
-            <div v-if="videoProcessMode === 'ffmpeg'" class="bg-picker__style-field">
-              <label>压缩质量</label>
-              <UiSelect v-model="compressQuality" :options="qualityOptions" size="sm" />
-            </div>
-          </div>
-          <p v-if="!ffmpegAvailable" class="bg-picker__hint bg-picker__hint--warn">⚠️ 未配置 FFmpeg 路径，请前往 设置 → 工具 进行配置</p>
-        </div>
-      </div>
       </Transition>
 
       <!-- 透明度设置（所有 tab 通用） -->
       <div v-if="canUseOpacity" class="bg-picker__opacity-panel">
         <div class="bg-picker__section-title">透明度</div>
         <div class="bg-picker__opacity-row">
-          <input type="range" class="bg-picker__opacity-slider" :value="Math.round(bgOpacity * 100)" min="0" max="100"
-            step="1" @input="bgOpacity = Number(($event.target as HTMLInputElement).value) / 100" />
+          <input
+            type="range"
+            class="bg-picker__opacity-slider"
+            :value="Math.round(bgOpacity * 100)"
+            min="0"
+            max="100"
+            step="1"
+            @input="bgOpacity = Number(($event.target as HTMLInputElement).value) / 100"
+          />
           <span class="bg-picker__opacity-value">{{ Math.round(bgOpacity * 100) }}%</span>
         </div>
       </div>
@@ -1104,19 +1349,32 @@ watch(() => props.visible, (visible) => {
     </template>
 
     <!-- 图片裁剪器（保留原有组件） -->
-    <ImageCropper v-if="showCropper" :visible="showCropper" :image="originalImage"
-      :target-width="targetPreviewSize.width" :target-height="targetPreviewSize.height"
-      :processing-mode="imageProcessMode" :quality="compressQuality"
-      @close="handleCropperClose" @confirm="handleCropperConfirm" />
+    <ImageCropper
+      v-if="showCropper"
+      :visible="showCropper"
+      :image="originalImage"
+      :target-width="targetPreviewSize.width"
+      :target-height="targetPreviewSize.height"
+      :processing-mode="imageProcessMode"
+      :quality="compressQuality"
+      @close="handleCropperClose"
+      @confirm="handleCropperConfirm"
+    />
 
     <!-- 视频裁剪器 -->
-    <VideoCropper v-if="showVideoCropper" :visible="showVideoCropper" :video-url="originalVideoUrl"
+    <VideoCropper
+      v-if="showVideoCropper"
+      :visible="showVideoCropper"
+      :video-url="originalVideoUrl"
       :file-path="originalVideoFilePath"
-      :target-width="targetPreviewSize.width" :target-height="targetPreviewSize.height"
-      :processing-mode="videoProcessMode" :quality="compressQuality"
+      :target-width="targetPreviewSize.width"
+      :target-height="targetPreviewSize.height"
+      :processing-mode="videoProcessMode"
+      :quality="compressQuality"
       @close="handleVideoCropperClose"
       @confirm="handleVideoCropperConfirm"
-      @error="handleVideoCropperError" />
+      @error="handleVideoCropperError"
+    />
   </UiDialog>
 </template>
 
@@ -1193,8 +1451,10 @@ export default {
     box-shadow: var(--ui-shadow-sm);
 
     &--checker {
-      background-image: repeating-conic-gradient(rgba(128, 128, 128, 0.15) 0% 25%,
-          transparent 0% 50%);
+      background-image: repeating-conic-gradient(
+        rgba(128, 128, 128, 0.15) 0% 25%,
+        transparent 0% 50%
+      );
       background-size: 16px 16px;
     }
   }
@@ -1392,7 +1652,9 @@ export default {
   height: 14px;
   border-radius: 50%;
   border: 2px solid #fff;
-  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.3), inset 0 0 0 1px rgba(0, 0, 0, 0.2);
+  box-shadow:
+    0 0 0 1px rgba(0, 0, 0, 0.3),
+    inset 0 0 0 1px rgba(0, 0, 0, 0.2);
   transform: translate(-50%, -50%);
   pointer-events: none;
   z-index: 1;
@@ -1787,7 +2049,9 @@ export default {
     border: 2px solid var(--ui-text-inverse);
     box-shadow: var(--ui-shadow-sm);
     cursor: pointer;
-    transition: transform 0.15s ease, box-shadow 0.15s ease;
+    transition:
+      transform 0.15s ease,
+      box-shadow 0.15s ease;
   }
 
   &::-webkit-slider-thumb:hover {
@@ -1803,7 +2067,9 @@ export default {
     border: 2px solid var(--ui-text-inverse);
     box-shadow: var(--ui-shadow-sm);
     cursor: pointer;
-    transition: transform 0.15s ease, box-shadow 0.15s ease;
+    transition:
+      transform 0.15s ease,
+      box-shadow 0.15s ease;
   }
 
   &::-moz-range-track {

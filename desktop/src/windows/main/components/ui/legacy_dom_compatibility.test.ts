@@ -56,7 +56,7 @@ describe('legacy desktop UI DOM compatibility', () => {
     });
 
     await nextTick();
-    await new Promise<void>(resolve => setTimeout(resolve, 0));
+    await new Promise<void>((resolve) => setTimeout(resolve, 0));
 
     const host = dialog.find('gt-dialog').element as HTMLElement;
     expect(host.style.getPropertyValue('--gt-dialog-width')).toBe('420px');
@@ -66,7 +66,10 @@ describe('legacy desktop UI DOM compatibility', () => {
   });
 
   it('keeps Select as a Stencil-backed compatibility adapter', () => {
-    const selectSource = readFileSync(resolve(process.cwd(), 'src/windows/main/components/ui/UiSelect.vue'), 'utf8');
+    const selectSource = readFileSync(
+      resolve(process.cwd(), 'src/windows/main/components/ui/UiSelect.vue'),
+      'utf8'
+    );
 
     expect(selectSource).toContain("import { defineCustomElements } from '@guyantools/ui-core';");
     expect(selectSource).toContain('<gt-select');
@@ -83,8 +86,14 @@ describe('legacy desktop UI DOM compatibility', () => {
   });
 
   it('maps the home state-card visual contract to shared public variables', () => {
-    const legacyStateCard = readFileSync(resolve(process.cwd(), '../packages/ui-core/src/components/gt-state-card/gt-state-card.css'), 'utf8');
-    const homeStyles = readFileSync(resolve(process.cwd(), 'src/windows/main/pages/Home/home.scss'), 'utf8');
+    const legacyStateCard = readFileSync(
+      resolve(process.cwd(), '../packages/ui-core/src/components/gt-state-card/gt-state-card.css'),
+      'utf8'
+    );
+    const homeStyles = readFileSync(
+      resolve(process.cwd(), 'src/windows/main/pages/Home/home.scss'),
+      'utf8'
+    );
 
     for (const variable of [
       '--gt-state-card-min-width',
@@ -123,8 +132,11 @@ describe('legacy desktop UI DOM compatibility', () => {
 
   it('keeps every first-wave desktop entrypoint as a ui-vue adapter', () => {
     for (const file of firstWaveAdapters) {
-      const source = readFileSync(resolve(process.cwd(), 'src/windows/main/components/ui', file), 'utf8');
-      expect(source).toContain("@guyantools/ui-vue");
+      const source = readFileSync(
+        resolve(process.cwd(), 'src/windows/main/components/ui', file),
+        'utf8'
+      );
+      expect(source).toContain('@guyantools/ui-vue');
       expect(source).not.toContain('<style');
     }
   });

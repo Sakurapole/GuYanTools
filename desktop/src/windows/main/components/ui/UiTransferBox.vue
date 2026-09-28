@@ -19,19 +19,22 @@ interface TransferDragState {
   origin: TransferDragOrigin;
 }
 
-const props = withDefaults(defineProps<{
-  items: UiTransferBoxItem[];
-  modelValue: string[];
-  sourceTitle?: string;
-  targetTitle?: string;
-  sourceEmptyText?: string;
-  targetEmptyText?: string;
-}>(), {
-  sourceTitle: '可选项',
-  targetTitle: '已选择',
-  sourceEmptyText: '暂无可选项',
-  targetEmptyText: '暂无选择项',
-});
+const props = withDefaults(
+  defineProps<{
+    items: UiTransferBoxItem[];
+    modelValue: string[];
+    sourceTitle?: string;
+    targetTitle?: string;
+    sourceEmptyText?: string;
+    targetEmptyText?: string;
+  }>(),
+  {
+    sourceTitle: '可选项',
+    targetTitle: '已选择',
+    sourceEmptyText: '暂无可选项',
+    targetEmptyText: '暂无选择项',
+  }
+);
 
 const emit = defineEmits<{
   'update:modelValue': [value: string[]];
@@ -44,16 +47,20 @@ const dragState = ref<TransferDragState | null>(null);
 const dragOverPanel = ref<TransferDropPanel>('');
 const dragOverTargetIndex = ref<number | null>(null);
 
-const itemMap = computed(() => new Map(props.items.map(item => [item.key, item])));
+const itemMap = computed(() => new Map(props.items.map((item) => [item.key, item])));
 const selectedSet = computed(() => new Set(props.modelValue));
-const selectedItems = computed(() => props.modelValue
-  .map(key => itemMap.value.get(key))
-  .filter((item): item is UiTransferBoxItem => Boolean(item)));
-const canAddAll = computed(() => props.items.some(item => !item.disabled && !selectedSet.value.has(item.key)));
-const canRemoveAll = computed(() => selectedItems.value.some(item => !item.locked));
+const selectedItems = computed(() =>
+  props.modelValue
+    .map((key) => itemMap.value.get(key))
+    .filter((item): item is UiTransferBoxItem => Boolean(item))
+);
+const canAddAll = computed(() =>
+  props.items.some((item) => !item.disabled && !selectedSet.value.has(item.key))
+);
+const canRemoveAll = computed(() => selectedItems.value.some((item) => !item.locked));
 
 function updateValue(nextValue: string[]) {
-  const validKeys = new Set(props.items.map(item => item.key));
+  const validKeys = new Set(props.items.map((item) => item.key));
   const seen = new Set<string>();
   const normalized = nextValue.filter((key) => {
     if (!validKeys.has(key) || seen.has(key)) return false;
@@ -75,7 +82,7 @@ function addItem(key: string) {
 function removeItem(key: string) {
   const item = itemMap.value.get(key);
   if (item?.locked) return;
-  updateValue(props.modelValue.filter(itemKey => itemKey !== key));
+  updateValue(props.modelValue.filter((itemKey) => itemKey !== key));
   activeTargetKey.value = '';
 }
 
@@ -90,7 +97,7 @@ function addAll() {
 }
 
 function removeAll() {
-  updateValue(props.modelValue.filter(key => itemMap.value.get(key)?.locked));
+  updateValue(props.modelValue.filter((key) => itemMap.value.get(key)?.locked));
   activeTargetKey.value = '';
 }
 
@@ -272,7 +279,9 @@ function itemTooltip(item: UiTransferBoxItem) {
           >
             <span class="ui-transfer-box__item-main">
               <span class="ui-transfer-box__item-label">{{ item.label }}</span>
-              <span v-if="item.description" class="ui-transfer-box__item-desc">{{ item.description }}</span>
+              <span v-if="item.description" class="ui-transfer-box__item-desc">{{
+                item.description
+              }}</span>
             </span>
             <span v-if="selectedSet.has(item.key)" class="ui-transfer-box__pill">已固定</span>
             <span v-else class="ui-transfer-box__pill ui-transfer-box__pill--muted">可添加</span>
@@ -329,7 +338,8 @@ function itemTooltip(item: UiTransferBoxItem) {
             :class="{
               'is-active': activeTargetKey === item.key,
               'is-drop-before': dragOverTargetIndex === index,
-              'is-drop-after': dragOverTargetIndex === selectedItems.length && index === selectedItems.length - 1,
+              'is-drop-after':
+                dragOverTargetIndex === selectedItems.length && index === selectedItems.length - 1,
             }"
             draggable="true"
             @click="activeTargetKey = item.key"
@@ -345,12 +355,35 @@ function itemTooltip(item: UiTransferBoxItem) {
             </span>
             <span v-if="item.locked" class="ui-transfer-box__pill">常驻</span>
             <span class="ui-transfer-box__inline-actions">
-              <button type="button" :disabled="index === 0" title="上移" @click.stop="moveItem(item.key, -1)">↑</button>
-              <button type="button" :disabled="index === selectedItems.length - 1" title="下移" @click.stop="moveItem(item.key, 1)">↓</button>
-              <button type="button" :disabled="item.locked" title="移除" @click.stop="removeItem(item.key)">×</button>
+              <button
+                type="button"
+                :disabled="index === 0"
+                title="上移"
+                @click.stop="moveItem(item.key, -1)"
+              >
+                ↑
+              </button>
+              <button
+                type="button"
+                :disabled="index === selectedItems.length - 1"
+                title="下移"
+                @click.stop="moveItem(item.key, 1)"
+              >
+                ↓
+              </button>
+              <button
+                type="button"
+                :disabled="item.locked"
+                title="移除"
+                @click.stop="removeItem(item.key)"
+              >
+                ×
+              </button>
             </span>
           </div>
-          <div v-if="!selectedItems.length" class="ui-transfer-box__empty">{{ targetEmptyText }}</div>
+          <div v-if="!selectedItems.length" class="ui-transfer-box__empty">
+            {{ targetEmptyText }}
+          </div>
         </div>
       </UiScrollbar>
     </section>
@@ -462,7 +495,7 @@ function itemTooltip(item: UiTransferBoxItem) {
     opacity: 0.55;
   }
 
-  &[draggable="true"] {
+  &[draggable='true'] {
     cursor: grab;
 
     &:active {
@@ -491,7 +524,7 @@ function itemTooltip(item: UiTransferBoxItem) {
 
   &.is-drop-before::before,
   &.is-drop-after::after {
-    content: "";
+    content: '';
     position: absolute;
     left: 8px;
     right: 8px;
