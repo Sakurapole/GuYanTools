@@ -10,7 +10,8 @@ let registered = false;
  */
 export function registerGuYanPluginExtras(): void {
   if (registered) return;
-  if (!customElements.get('gt-progress')) customElements.define('gt-progress', GuYanProgressElement);
+  if (!customElements.get('gt-progress'))
+    customElements.define('gt-progress', GuYanProgressElement);
   if (!customElements.get('gt-badge')) customElements.define('gt-badge', GuYanBadgeElement);
   if (!customElements.get('gt-log-view')) customElements.define('gt-log-view', GuYanLogViewElement);
   registered = true;

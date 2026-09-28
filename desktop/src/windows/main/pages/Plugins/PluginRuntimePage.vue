@@ -8,10 +8,12 @@ import type { PluginDevSession } from '@/contracts/plugin_host';
 const route = useRoute();
 const hostRef = ref<HTMLElement | null>(null);
 
-const pluginIdentity = computed(() => resolvePluginPageIdentity({
-  meta: route.meta as Record<string, unknown>,
-  params: route.params as Record<string, unknown>,
-}));
+const pluginIdentity = computed(() =>
+  resolvePluginPageIdentity({
+    meta: route.meta as Record<string, unknown>,
+    params: route.params as Record<string, unknown>,
+  })
+);
 const pluginId = computed(() => pluginIdentity.value.pluginId);
 const pageId = computed(() => pluginIdentity.value.pageId);
 const title = computed(() => String(route.meta.title ?? `${pluginId.value}/${pageId.value}`));
@@ -47,7 +49,10 @@ async function syncPageMount() {
   }
 
   try {
-    devSession.value = (await window.pluginHostApi.listDevSessions()).find(session => session.pluginId === pluginId.value) ?? null;
+    devSession.value =
+      (await window.pluginHostApi.listDevSessions()).find(
+        (session) => session.pluginId === pluginId.value
+      ) ?? null;
     await window.pluginHostApi.mountPage(pluginId.value, pageId.value, bounds);
     errorMessage.value = '';
   } catch (error) {
@@ -101,7 +106,10 @@ onBeforeUnmount(() => {
     </header>
 
     <div class="plugin-runtime-page__surface ui-glass-surface" ref="hostRef">
-      <div v-if="errorMessage" class="plugin-runtime-page__error ui-status-banner ui-status-banner--danger">
+      <div
+        v-if="errorMessage"
+        class="plugin-runtime-page__error ui-status-banner ui-status-banner--danger"
+      >
         {{ errorMessage }}
       </div>
       <div v-else class="plugin-runtime-page__hint ui-status-hint">
@@ -120,8 +128,7 @@ onBeforeUnmount(() => {
   padding: 24px;
   box-sizing: border-box;
   background:
-    linear-gradient(135deg, rgba(93, 158, 237, 0.12), transparent 35%),
-    var(--background-color);
+    linear-gradient(135deg, rgba(93, 158, 237, 0.12), transparent 35%), var(--background-color);
 }
 
 .plugin-runtime-page__header h1,

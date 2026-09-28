@@ -9,7 +9,8 @@ function readRouteValue(value: unknown): string | undefined {
 
 export function resolvePluginPageIdentity(location: PluginRuntimeRouteLocation) {
   return {
-    pluginId: readRouteValue(location.meta.pluginId) ?? readRouteValue(location.params.pluginId) ?? '',
+    pluginId:
+      readRouteValue(location.meta.pluginId) ?? readRouteValue(location.params.pluginId) ?? '',
     pageId: readRouteValue(location.meta.pageId) ?? readRouteValue(location.params.pageId) ?? '',
   };
 }

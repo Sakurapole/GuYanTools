@@ -26,7 +26,8 @@ export function defineGuYanPluginConfig(options: GuYanPluginViteOptions): UserCo
         external: ['fsevents', 'vite', '@vitejs/plugin-vue', '@vitejs/plugin-react', /^node:/],
         input: workerEntry ? { index: uiEntry, worker: workerEntry } : { index: uiEntry },
         output: {
-          entryFileNames: chunk => chunk.name === 'worker' ? 'worker.js' : 'assets/[name]-[hash].js',
+          entryFileNames: (chunk) =>
+            chunk.name === 'worker' ? 'worker.js' : 'assets/[name]-[hash].js',
           chunkFileNames: 'assets/[name]-[hash].js',
           assetFileNames: 'assets/[name]-[hash][extname]',
         },

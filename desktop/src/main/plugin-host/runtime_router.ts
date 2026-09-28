@@ -1,5 +1,11 @@
 import { BrowserWindow, WebContentsView, webContents } from 'electron';
-import type { InstalledPluginRecord, PluginRuntimeContext, PluginViewportBounds, PluginDevSession, PluginWorkerRuntimeKind } from '@/contracts/plugin_host';
+import type {
+  InstalledPluginRecord,
+  PluginRuntimeContext,
+  PluginViewportBounds,
+  PluginDevSession,
+  PluginWorkerRuntimeKind,
+} from '@/contracts/plugin_host';
 import { HostServiceRegistry } from './host_services';
 import { getSandboxedPluginWebPreferences, isAllowedPluginDevUrl } from './runtime_security';
 import { PluginDevSessionManager } from './dev_session';
@@ -17,12 +23,6 @@ type WorkerPluginView = {
   view: WebContentsView;
   pluginId: string;
   kind: 'browser';
-};
-
-type UtilityWorkerRecord = {
-  pluginId: string;
-  runtimeId: number;
-  kind: 'utility';
 };
 
 export function resolveWorkerRuntimeKind(record: InstalledPluginRecord): PluginWorkerRuntimeKind {
@@ -50,7 +50,7 @@ export class PluginRuntimeRouter {
     private readonly getUnloadAfterMinutes: () => number,
     private readonly devSessions: PluginDevSessionManager = new PluginDevSessionManager(),
     private readonly onPluginRuntimeDestroyed: (pluginId: string) => void = () => undefined,
-    utilityWorkers: UtilityWorkerHost = new UtilityWorkerHost(hostServices),
+    utilityWorkers: UtilityWorkerHost = new UtilityWorkerHost(hostServices)
   ) {
     this.utilityWorkers = utilityWorkers;
     this.idleCheckTimer = setInterval(() => {
@@ -78,7 +78,7 @@ export class PluginRuntimeRouter {
     mainWindow: BrowserWindow,
     record: InstalledPluginRecord,
     pageId: string,
-    bounds: PluginViewportBounds,
+    bounds: PluginViewportBounds
   ) {
     if (!['ui', 'hybrid'].includes(record.manifest.runtime)) {
       throw new Error(`Plugin ${record.manifest.id} does not support UI runtime`);
@@ -87,7 +87,11 @@ export class PluginRuntimeRouter {
     await this.unmountUiPage(mainWindow, record.manifest.id);
 
     const pluginView = new WebContentsView({
-      webPreferences: getSandboxedPluginWebPreferences(this.preloadPath, record.manifest.id, pageId),
+      webPreferences: getSandboxedPluginWebPreferences(
+        this.preloadPath,
+        record.manifest.id,
+        pageId
+      ),
     });
 
     const context: PluginRuntimeContext = {
@@ -106,10 +110,14 @@ export class PluginRuntimeRouter {
     });
 
     pluginView.webContents.on('console-message', (_event, _level, message, line, sourceId) => {
-      this.hostServices.observability.info(record.manifest.id, `Plugin console ${record.manifest.id}: ${message}`, {
-        line,
-        sourceId,
-      });
+      this.hostServices.observability.info(
+        record.manifest.id,
+        `Plugin console ${record.manifest.id}: ${message}`,
+        {
+          line,
+          sourceId,
+        }
+      );
     });
 
     const entryPath = record.resolvedEntryPaths.ui;
@@ -117,7 +125,9 @@ export class PluginRuntimeRouter {
       throw new Error(`Plugin ${record.manifest.id} does not declare a UI entry`);
     }
 
-    await pluginView.webContents.loadURL(resolvePluginRuntimeUrl(record, this.devSessions.get(record.manifest.id), 'ui'));
+    await pluginView.webContents.loadURL(
+      resolvePluginRuntimeUrl(record, this.devSessions.get(record.manifest.id), 'ui')
+    );
     pluginView.setBounds(bounds);
 
     mainWindow.contentView.addChildView(pluginView);
@@ -144,7 +154,11 @@ export class PluginRuntimeRouter {
     }
 
     const view = new WebContentsView({
-      webPreferences: getSandboxedPluginWebPreferences(this.preloadPath, record.manifest.id, '__worker__'),
+      webPreferences: getSandboxedPluginWebPreferences(
+        this.preloadPath,
+        record.manifest.id,
+        '__worker__'
+      ),
     });
     const context: PluginRuntimeContext = {
       pluginId: record.manifest.id,
@@ -159,8 +173,14 @@ export class PluginRuntimeRouter {
       this.workerViewsByPluginId.delete(record.manifest.id);
       this.onPluginRuntimeDestroyed(record.manifest.id);
     });
-    await view.webContents.loadURL(resolvePluginRuntimeUrl(record, this.devSessions.get(record.manifest.id), 'worker'));
-    this.workerViewsByPluginId.set(record.manifest.id, { view, pluginId: record.manifest.id, kind: 'browser' });
+    await view.webContents.loadURL(
+      resolvePluginRuntimeUrl(record, this.devSessions.get(record.manifest.id), 'worker')
+    );
+    this.workerViewsByPluginId.set(record.manifest.id, {
+      view,
+      pluginId: record.manifest.id,
+      kind: 'browser',
+    });
   }
 
   async stopWorker(pluginId: string) {
@@ -177,11 +197,21 @@ export class PluginRuntimeRouter {
     if (!worker.view.webContents.isDestroyed()) worker.view.webContents.close();
   }
 
-  connectDevSession(session: PluginDevSession) { return this.devSessions.connect(session); }
-  disconnectDevSession(pluginId: string) { this.devSessions.disconnect(pluginId); }
-  getDevSession(pluginId: string) { return this.devSessions.get(pluginId); }
-  listDevSessions() { return this.devSessions.list(); }
-  disconnectAllDevSessions() { this.devSessions.disconnectAll(); }
+  connectDevSession(session: PluginDevSession) {
+    return this.devSessions.connect(session);
+  }
+  disconnectDevSession(pluginId: string) {
+    this.devSessions.disconnect(pluginId);
+  }
+  getDevSession(pluginId: string) {
+    return this.devSessions.get(pluginId);
+  }
+  listDevSessions() {
+    return this.devSessions.list();
+  }
+  disconnectAllDevSessions() {
+    this.devSessions.disconnectAll();
+  }
 
   broadcastTheme(theme: unknown) {
     for (const [webContentsId, context] of this.runtimeContextByWebContentsId) {
@@ -249,7 +279,11 @@ export class PluginRuntimeRouter {
   }
 }
 
-export function resolvePluginRuntimeUrl(record: InstalledPluginRecord, session: PluginDevSession | null, kind: 'ui' | 'worker'): string {
+export function resolvePluginRuntimeUrl(
+  record: InstalledPluginRecord,
+  session: PluginDevSession | null,
+  kind: 'ui' | 'worker'
+): string {
   const filePath = kind === 'ui' ? record.resolvedEntryPaths.ui : record.resolvedEntryPaths.worker;
   if (!filePath) throw new Error(`Plugin ${record.manifest.id} does not declare a ${kind} entry`);
   const devUrl = kind === 'ui' ? session?.uiUrl : session?.workerUrl;

@@ -23,7 +23,9 @@ function record(overrides: Partial<InstalledPluginRecord> = {}): InstalledPlugin
         commands: [{ id: 'guyantools.demo.resolve', title: '解析' }],
         widgets: [{ id: 'status', title: '状态', target: 'home' }],
         menus: [{ id: 'open', title: '打开', target: 'app', commandId: 'guyantools.demo.resolve' }],
-        shortcuts: [{ id: 'open', accelerator: 'CmdOrCtrl+Shift+D', commandId: 'guyantools.demo.resolve' }],
+        shortcuts: [
+          { id: 'open', accelerator: 'CmdOrCtrl+Shift+D', commandId: 'guyantools.demo.resolve' },
+        ],
         backgroundTasks: [{ id: 'sync', title: '同步' }],
       },
     },

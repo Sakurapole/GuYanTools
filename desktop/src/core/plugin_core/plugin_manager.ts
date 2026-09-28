@@ -12,19 +12,17 @@ class PluginManager {
   constructor(options: PluginManagerOptions) {
     if (!fs.existsSync(options.baseDir)) {
       fs.mkdirSync(options.baseDir, { recursive: true });
-      fs.writeFileSync(
-        `${options.baseDir}/package.json`,
-        '{"dependencies":{}}'
-      );
+      fs.writeFileSync(`${options.baseDir}/package.json`, '{"dependencies":{}}');
     }
 
     this.baseDir = options.baseDir;
-    this.registry = options.registry || 'https://registry.npmmirror.com/'
+    this.registry = options.registry || 'https://registry.npmmirror.com/';
   }
 
   async getPluginInfo(pluginName: string, pluginPath?: string): Promise<PluginInfo> {
     let pluginInfo: PluginInfo;
-    const infoPath = pluginPath || path.resolve(this.baseDir, 'node_modules', pluginName, 'package.json');
+    const infoPath =
+      pluginPath || path.resolve(this.baseDir, 'node_modules', pluginName, 'package.json');
     if (await fs.pathExists(infoPath)) {
       pluginInfo = JSON.parse(await fs.readFileSync(infoPath, 'utf-8')) as PluginInfo;
     } else {
@@ -36,10 +34,8 @@ class PluginManager {
   }
 
   async upgradePlugin(pluginName: string): Promise<void> {
-    const pluginPackageJson = JSON.parse(
-      fs.readFileSync(`${this.baseDir}/package.json`, 'utf-8')
-    );
-    const pluginRegistryUrl = `https://registry.npmmirror.com/${pluginName}`
+    const pluginPackageJson = JSON.parse(fs.readFileSync(`${this.baseDir}/package.json`, 'utf-8'));
+    const pluginRegistryUrl = `https://registry.npmmirror.com/${pluginName}`;
 
     try {
       const installedVersion = pluginPackageJson.dependencies[pluginName].replace('^', '');
@@ -72,9 +68,7 @@ class PluginManager {
   }
 
   async list() {
-    const installInfo = JSON.parse(
-      await fs.readFile(`${this.baseDir}/package.json`, 'utf-8')
-    );
+    const installInfo = JSON.parse(await fs.readFile(`${this.baseDir}/package.json`, 'utf-8'));
     const plugins: string[] = [];
     for (const adapter in installInfo.dependencies) {
       plugins.push(adapter);
@@ -88,9 +82,7 @@ class PluginManager {
         cmd !== 'uninstall' && cmd !== 'link' ? modules.map((m) => `${m}@latest`) : modules
       );
       if (cmd !== 'link') {
-        args = args.concat('--color=always')
-          .concat('--save')
-          .concat(`--registry=${this.registry}`);
+        args = args.concat('--color=always').concat('--save').concat(`--registry=${this.registry}`);
       }
 
       const npmCommand = process.platform === 'win32' ? 'npm.cmd' : 'npm';
@@ -101,9 +93,11 @@ class PluginManager {
       console.log(args);
 
       let output = '';
-      npm.stdout.on('data', (data: string) => {
-        output += data;
-      }).pipe(process.stdout)
+      npm.stdout
+        .on('data', (data: string) => {
+          output += data;
+        })
+        .pipe(process.stdout);
 
       npm.stderr
         .on('data', (data: string) => {
@@ -118,7 +112,7 @@ class PluginManager {
           reject({ code: code, data: output }); // 如果报错就输出报错日志
         }
       });
-    })
+    });
   }
 }
 

@@ -16,17 +16,25 @@ export class GuYanDialogElement extends GuYanElement {
     super();
     this.root.innerHTML = `<style>${styles}</style><dialog><div class="dialog__body"><slot></slot></div></dialog>`;
     this.dialog = this.root.querySelector('dialog')!;
-    this.dialog.addEventListener('cancel', event => {
+    this.dialog.addEventListener('cancel', (event) => {
       event.preventDefault();
       this.close('cancel');
     });
   }
 
-  get open(): boolean { return this.booleanAttribute('open'); }
-  set open(value: boolean) { value ? this.setAttribute('open', '') : this.removeAttribute('open'); }
+  get open(): boolean {
+    return this.booleanAttribute('open');
+  }
+  set open(value: boolean) {
+    value ? this.setAttribute('open', '') : this.removeAttribute('open');
+  }
 
-  connectedCallback() { this.render(); }
-  attributeChangedCallback() { this.render(); }
+  connectedCallback() {
+    this.render();
+  }
+  attributeChangedCallback() {
+    this.render();
+  }
 
   close(reason = 'close') {
     this.removeAttribute('open');

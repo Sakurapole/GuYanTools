@@ -14,11 +14,13 @@ describe('capability registry', () => {
 
     registry.register('guyantools.example', [declaration]);
 
-    expect(registry.list()).toEqual([{
-      ...declaration,
-      pluginId: 'guyantools.example',
-      qualifiedId: 'guyantools.example.source',
-    }]);
+    expect(registry.list()).toEqual([
+      {
+        ...declaration,
+        pluginId: 'guyantools.example',
+        qualifiedId: 'guyantools.example.source',
+      },
+    ]);
   });
 
   it('replaces only the registering plugin capabilities', async () => {
@@ -29,7 +31,7 @@ describe('capability registry', () => {
     registry.register('guyantools.two', [{ ...declaration, id: 'other' }]);
     registry.register('guyantools.one', [{ ...declaration, id: 'replacement' }]);
 
-    expect(registry.list().map(item => item.qualifiedId)).toEqual([
+    expect(registry.list().map((item) => item.qualifiedId)).toEqual([
       'guyantools.two.other',
       'guyantools.one.replacement',
     ]);

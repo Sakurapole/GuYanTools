@@ -15,18 +15,34 @@ type DownloadSource = {
 type Sleep = (milliseconds: number) => Promise<void>;
 type NetworkClient = Pick<NetworkService, 'fetch'>;
 
-const defaultSleep: Sleep = milliseconds => new Promise(resolve => setTimeout(resolve, milliseconds));
+const defaultSleep: Sleep = (milliseconds) =>
+  new Promise((resolve) => setTimeout(resolve, milliseconds));
 
 export class DownloadsService {
-  constructor(private readonly network: NetworkClient, private readonly grants: FileGrantService, private readonly sleep: Sleep = defaultSleep) {}
+  constructor(
+    private readonly network: NetworkClient,
+    private readonly grants: FileGrantService,
+    private readonly sleep: Sleep = defaultSleep
+  ) {}
 
-  private async downloadOne(pluginId: string, source: DownloadSource, signal?: AbortSignal, rateLimitBytesPerSecond?: number) {
+  private async downloadOne(
+    pluginId: string,
+    source: DownloadSource,
+    signal?: AbortSignal,
+    rateLimitBytesPerSecond?: number
+  ) {
     if (signal?.aborted) throw new Error('PLUGIN_DOWNLOAD_CANCELLED');
     let url: URL;
-    try { url = new URL(source.url); } catch { throw new Error('PLUGIN_DOWNLOAD_URL_INVALID'); }
-    if (!['http:', 'https:'].includes(url.protocol) || url.username || url.password) throw new Error('PLUGIN_DOWNLOAD_URL_INVALID');
+    try {
+      url = new URL(source.url);
+    } catch {
+      throw new Error('PLUGIN_DOWNLOAD_URL_INVALID');
+    }
+    if (!['http:', 'https:'].includes(url.protocol) || url.username || url.password)
+      throw new Error('PLUGIN_DOWNLOAD_URL_INVALID');
     const fileName = path.basename(source.fileName);
-    if (!fileName || fileName === '.' || fileName === '..') throw new Error('PLUGIN_DOWNLOAD_FILENAME_INVALID');
+    if (!fileName || fileName === '.' || fileName === '..')
+      throw new Error('PLUGIN_DOWNLOAD_FILENAME_INVALID');
     const resumeFrom = Math.max(0, source.resumeFrom ?? 0);
     const response = await this.network.fetch({
       url: source.url,
@@ -45,8 +61,13 @@ export class DownloadsService {
       const prefix = await this.grants.read(pluginId, source.grantId, fileName);
       complete = Buffer.concat([prefix, bytes]);
     }
-    if (source.expectedBytes !== undefined && source.expectedBytes !== complete.byteLength) throw new Error('PLUGIN_DOWNLOAD_SIZE_MISMATCH');
-    if (source.sha256 && crypto.createHash('sha256').update(complete).digest('hex') !== source.sha256.toLowerCase()) throw new Error('PLUGIN_DOWNLOAD_HASH_MISMATCH');
+    if (source.expectedBytes !== undefined && source.expectedBytes !== complete.byteLength)
+      throw new Error('PLUGIN_DOWNLOAD_SIZE_MISMATCH');
+    if (
+      source.sha256 &&
+      crypto.createHash('sha256').update(complete).digest('hex') !== source.sha256.toLowerCase()
+    )
+      throw new Error('PLUGIN_DOWNLOAD_HASH_MISMATCH');
     return resumed
       ? this.grants.append(pluginId, source.grantId, fileName, bytes)
       : this.grants.write(pluginId, source.grantId, fileName, bytes);
@@ -56,7 +77,16 @@ export class DownloadsService {
     return this.downloadOne(pluginId, source, options.signal, source.rateLimitBytesPerSecond);
   }
 
-  async downloadMany(pluginId: string, sources: DownloadSource[], options: { maxRetries?: number; signal?: AbortSignal; rateLimitBytesPerSecond?: number; onProgress?: (completed: number, total: number) => void } = {}) {
+  async downloadMany(
+    pluginId: string,
+    sources: DownloadSource[],
+    options: {
+      maxRetries?: number;
+      signal?: AbortSignal;
+      rateLimitBytesPerSecond?: number;
+      onProgress?: (completed: number, total: number) => void;
+    } = {}
+  ) {
     const results: string[] = [];
     const total = sources.length;
     for (let index = 0; index < sources.length; index += 1) {
@@ -64,7 +94,14 @@ export class DownloadsService {
       let lastError: unknown;
       for (let attempt = 0; attempt <= (options.maxRetries ?? 2); attempt += 1) {
         try {
-          results.push(await this.downloadOne(pluginId, source, options.signal, source.rateLimitBytesPerSecond ?? options.rateLimitBytesPerSecond));
+          results.push(
+            await this.downloadOne(
+              pluginId,
+              source,
+              options.signal,
+              source.rateLimitBytesPerSecond ?? options.rateLimitBytesPerSecond
+            )
+          );
           options.onProgress?.(index + 1, total);
           lastError = undefined;
           break;

@@ -1,1 +1,1 @@
-import "./local_plugin";
+import './local_plugin';

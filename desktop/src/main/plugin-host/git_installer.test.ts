@@ -6,12 +6,14 @@ describe('GitPluginInstaller', () => {
     const runGit = vi.fn();
     const installer = new GitPluginInstaller(runGit, async () => 'deadbeef');
 
-    await expect(installer.install({
-      url: 'git@github.com:Sakurapole/plugin.git',
-      destination: 'C:/tmp/plugin',
-      ref: 'v1.0.0',
-      refType: 'tag',
-    })).rejects.toThrow('PLUGIN_GIT_URL_INVALID');
+    await expect(
+      installer.install({
+        url: 'git@github.com:Sakurapole/plugin.git',
+        destination: 'C:/tmp/plugin',
+        ref: 'v1.0.0',
+        refType: 'tag',
+      })
+    ).rejects.toThrow('PLUGIN_GIT_URL_INVALID');
     expect(runGit).not.toHaveBeenCalled();
   });
 
@@ -44,10 +46,13 @@ describe('GitPluginInstaller', () => {
   it('fetches a branch ref without treating the word branch as a refspec', async () => {
     const { GitPluginInstaller } = await import('./git_installer');
     const calls: string[][] = [];
-    const installer = new GitPluginInstaller(async args => {
-      calls.push(args);
-      return args[0] === 'rev-parse' ? 'abc1234' : '';
-    }, async () => 'deadbeef');
+    const installer = new GitPluginInstaller(
+      async (args) => {
+        calls.push(args);
+        return args[0] === 'rev-parse' ? 'abc1234' : '';
+      },
+      async () => 'deadbeef'
+    );
 
     await installer.install({
       url: 'https://github.com/Sakurapole/plugin.git',

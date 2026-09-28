@@ -14,7 +14,10 @@ describe('plugin runtime SDK', () => {
 
   it('returns an exact cleanup function for theme listeners', () => {
     const unsubscribe = vi.fn();
-    const api = createPluginApi(() => Promise.resolve(), (_channel, _listener) => unsubscribe);
+    const api = createPluginApi(
+      () => Promise.resolve(),
+      (_channel, _listener) => unsubscribe
+    );
     const cleanup = api.ui.onThemeChanged(() => undefined);
     cleanup();
     expect(unsubscribe).toHaveBeenCalledOnce();

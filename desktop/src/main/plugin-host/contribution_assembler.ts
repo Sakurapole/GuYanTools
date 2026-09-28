@@ -42,24 +42,34 @@ export class PluginContributionAssembler {
     return pages.sort((a, b) => a.title.localeCompare(b.title));
   }
 
-  listWidgets(records: InstalledPluginRecord[]): QualifiedPluginContribution<PluginWidgetContribution>[] {
-    return this.collect(records, record => record.manifest.contributes.widgets ?? []);
+  listWidgets(
+    records: InstalledPluginRecord[]
+  ): QualifiedPluginContribution<PluginWidgetContribution>[] {
+    return this.collect(records, (record) => record.manifest.contributes.widgets ?? []);
   }
 
-  listCommands(records: InstalledPluginRecord[]): QualifiedPluginContribution<PluginCommandContribution>[] {
-    return this.collect(records, record => record.manifest.contributes.commands ?? []);
+  listCommands(
+    records: InstalledPluginRecord[]
+  ): QualifiedPluginContribution<PluginCommandContribution>[] {
+    return this.collect(records, (record) => record.manifest.contributes.commands ?? []);
   }
 
-  listMenus(records: InstalledPluginRecord[]): QualifiedPluginContribution<PluginMenuContribution>[] {
-    return this.collect(records, record => record.manifest.contributes.menus ?? []);
+  listMenus(
+    records: InstalledPluginRecord[]
+  ): QualifiedPluginContribution<PluginMenuContribution>[] {
+    return this.collect(records, (record) => record.manifest.contributes.menus ?? []);
   }
 
-  listShortcuts(records: InstalledPluginRecord[]): QualifiedPluginContribution<PluginShortcutContribution>[] {
-    return this.collect(records, record => record.manifest.contributes.shortcuts ?? []);
+  listShortcuts(
+    records: InstalledPluginRecord[]
+  ): QualifiedPluginContribution<PluginShortcutContribution>[] {
+    return this.collect(records, (record) => record.manifest.contributes.shortcuts ?? []);
   }
 
-  listBackgroundTasks(records: InstalledPluginRecord[]): QualifiedPluginContribution<PluginBackgroundTaskContribution>[] {
-    return this.collect(records, record => record.manifest.contributes.backgroundTasks ?? []);
+  listBackgroundTasks(
+    records: InstalledPluginRecord[]
+  ): QualifiedPluginContribution<PluginBackgroundTaskContribution>[] {
+    return this.collect(records, (record) => record.manifest.contributes.backgroundTasks ?? []);
   }
 
   listAll(records: InstalledPluginRecord[]) {
@@ -75,7 +85,7 @@ export class PluginContributionAssembler {
 
   private collect<T>(
     records: InstalledPluginRecord[],
-    pick: (record: InstalledPluginRecord) => T[],
+    pick: (record: InstalledPluginRecord) => T[]
   ): QualifiedPluginContribution<T>[] {
     const result: QualifiedPluginContribution<T>[] = [];
     for (const record of records) {

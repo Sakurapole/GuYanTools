@@ -9,13 +9,7 @@ export type PluginTrustLevel = 'sandboxed' | 'trusted';
 export type PluginRuntimeKind = 'ui' | 'worker' | 'hybrid' | 'host';
 export type PluginWorkerRuntimeKind = 'browser' | 'utility';
 export type PluginLifecycleState =
-  | 'discovered'
-  | 'installed'
-  | 'resolved'
-  | 'enabled'
-  | 'disabled'
-  | 'errored'
-  | 'incompatible';
+  'discovered' | 'installed' | 'resolved' | 'enabled' | 'disabled' | 'errored' | 'incompatible';
 
 export type PluginPermission =
   | 'workspace.read'
@@ -372,26 +366,58 @@ export interface PluginHostApi {
     record: InstalledPluginRecord;
     audit: PluginAuditEvent[];
     contributions: PluginContributionsSummary;
-    capabilities: Array<{ pluginId: string; id: string; qualifiedId: string; kind: string; operations: string[] }>;
+    capabilities: Array<{
+      pluginId: string;
+      id: string;
+      qualifiedId: string;
+      kind: string;
+      operations: string[];
+    }>;
     consecutiveStartFailures: number;
   }>;
   getPluginSettings: (pluginId: string) => Promise<Record<string, unknown>>;
   setPluginSetting: (pluginId: string, key: string, value: unknown) => Promise<void>;
-  installPluginFromPackage: (packageName: string, approvedPermissions?: PluginPermission[]) => Promise<InstalledPluginRecord>;
-  registerLocalPlugin: (inputPath: string, approvedPermissions?: PluginPermission[]) => Promise<InstalledPluginRecord>;
-  approvePermissions: (pluginId: string, approvedPermissions: PluginPermission[]) => Promise<InstalledPluginRecord>;
+  installPluginFromPackage: (
+    packageName: string,
+    approvedPermissions?: PluginPermission[]
+  ) => Promise<InstalledPluginRecord>;
+  registerLocalPlugin: (
+    inputPath: string,
+    approvedPermissions?: PluginPermission[]
+  ) => Promise<InstalledPluginRecord>;
+  approvePermissions: (
+    pluginId: string,
+    approvedPermissions: PluginPermission[]
+  ) => Promise<InstalledPluginRecord>;
   enablePlugin: (pluginId: string) => Promise<InstalledPluginRecord>;
   disablePlugin: (pluginId: string) => Promise<InstalledPluginRecord>;
   mountPage: (pluginId: string, pageId: string, bounds: PluginViewportBounds) => Promise<void>;
   updateMountedPageBounds: (bounds: PluginViewportBounds) => Promise<void>;
   unmountPage: (pluginId?: string, pageId?: string) => Promise<void>;
   listMarketplaces: () => Promise<MarketplaceCacheRecord[]>;
-  refreshMarketplace: (input: { id: string; url: string; ref: string }) => Promise<MarketplaceCacheRecord>;
+  refreshMarketplace: (input: {
+    id: string;
+    url: string;
+    ref: string;
+  }) => Promise<MarketplaceCacheRecord>;
   searchMarketplace: (query: string) => Promise<MarketplacePluginSummary[]>;
   onInstallProgress: (listener: (progress: PluginInstallProgress) => void) => () => void;
-  installFromGit: (input: { url: string; ref: string; refType: 'branch' | 'tag' | 'commit'; expected?: Pick<MarketplacePluginSummary, 'id' | 'version' | 'resolvedCommit'>; approvedPermissions?: PluginPermission[] }) => Promise<InstalledPluginRecord>;
-  installFromMarketplace: (marketplaceId: string, pluginId: string, approvedPermissions: PluginPermission[]) => Promise<InstalledPluginRecord>;
-  updatePlugin: (pluginId: string, approvedPermissions?: PluginPermission[]) => Promise<InstalledPluginRecord>;
+  installFromGit: (input: {
+    url: string;
+    ref: string;
+    refType: 'branch' | 'tag' | 'commit';
+    expected?: Pick<MarketplacePluginSummary, 'id' | 'version' | 'resolvedCommit'>;
+    approvedPermissions?: PluginPermission[];
+  }) => Promise<InstalledPluginRecord>;
+  installFromMarketplace: (
+    marketplaceId: string,
+    pluginId: string,
+    approvedPermissions: PluginPermission[]
+  ) => Promise<InstalledPluginRecord>;
+  updatePlugin: (
+    pluginId: string,
+    approvedPermissions?: PluginPermission[]
+  ) => Promise<InstalledPluginRecord>;
   rollbackPlugin: (pluginId: string) => Promise<InstalledPluginRecord>;
   uninstallPlugin: (pluginId: string) => Promise<void>;
   listDevSessions: () => Promise<PluginDevSession[]>;
@@ -431,10 +457,14 @@ export interface PluginRuntimeApi {
     error: (message: string, meta?: unknown) => Promise<void>;
   };
   network: {
-    fetch: (input: import('./plugin_media').NetworkRequest) => Promise<import('./plugin_media').NetworkResponse>;
+    fetch: (
+      input: import('./plugin_media').NetworkRequest
+    ) => Promise<import('./plugin_media').NetworkResponse>;
   };
   files: {
-    createDataGrant: (accessMode?: import('./plugin_media').FileGrant['accessMode']) => Promise<import('./plugin_media').FileGrant>;
+    createDataGrant: (
+      accessMode?: import('./plugin_media').FileGrant['accessMode']
+    ) => Promise<import('./plugin_media').FileGrant>;
     pickDirectoryGrant: () => Promise<import('./plugin_media').FileGrant | null>;
     revoke: (grantId: string) => Promise<void>;
     read: (grantId: string, targetPath: string) => Promise<string>;
@@ -444,7 +474,11 @@ export interface PluginRuntimeApi {
     direct: (input: { url: string; grantId: string; fileName: string }) => Promise<string>;
   };
   jobs: {
-    create: (kind: string, input: unknown, parentJobId?: string) => Promise<import('./plugin_media').JobRecord>;
+    create: (
+      kind: string,
+      input: unknown,
+      parentJobId?: string
+    ) => Promise<import('./plugin_media').JobRecord>;
     list: () => Promise<import('./plugin_media').JobRecord[]>;
     get: (id: string) => Promise<import('./plugin_media').JobRecord>;
     update: (id: string, input: unknown) => Promise<import('./plugin_media').JobRecord>;
@@ -453,19 +487,65 @@ export interface PluginRuntimeApi {
     onEvent: (listener: (job: import('./plugin_media').JobRecord) => void) => () => void;
   };
   capabilities: {
-    list: () => Promise<Array<{ pluginId: string; id: string; qualifiedId: string; kind: string; operations: string[]; match?: { hosts?: string[]; schemes?: string[]; mimeTypes?: string[] } }>>;
-    resolveByUrl: (url: string) => Promise<Array<{ pluginId: string; id: string; qualifiedId: string; kind: string; operations: string[] }>>;
-    invoke: (input: { capabilityId: string; operation: string; payload?: unknown }) => Promise<unknown>;
+    list: () => Promise<
+      Array<{
+        pluginId: string;
+        id: string;
+        qualifiedId: string;
+        kind: string;
+        operations: string[];
+        match?: { hosts?: string[]; schemes?: string[]; mimeTypes?: string[] };
+      }>
+    >;
+    resolveByUrl: (
+      url: string
+    ) => Promise<
+      Array<{
+        pluginId: string;
+        id: string;
+        qualifiedId: string;
+        kind: string;
+        operations: string[];
+      }>
+    >;
+    invoke: (input: {
+      capabilityId: string;
+      operation: string;
+      payload?: unknown;
+    }) => Promise<unknown>;
   };
   commands: {
-    execute: (commandId: string, payload?: unknown) => Promise<{ accepted: boolean; result?: unknown }>;
+    execute: (
+      commandId: string,
+      payload?: unknown
+    ) => Promise<{ accepted: boolean; result?: unknown }>;
     register: (commandId: string) => Promise<void>;
   };
   media: {
     probe: (grantId: string, targetPath: string) => Promise<import('./plugin_media').MediaProbe>;
-    transcode: (input: { inputGrantId: string; inputPath: string; outputGrantId: string; outputPath: string; options?: { audioCodec?: string; videoCodec?: string; format?: string; additionalInputPaths?: string[] } }) => Promise<string>;
-    preview: (url: string, mimeType?: string, headers?: Record<string, string>, credential?: import('./plugin_media').PluginCredentialReference) => Promise<import('./plugin_media').PreviewGrant>;
-    writeTags: (grantId: string, targetPath: string, tags: import('./plugin_media').MediaTags) => Promise<string>;
+    transcode: (input: {
+      inputGrantId: string;
+      inputPath: string;
+      outputGrantId: string;
+      outputPath: string;
+      options?: {
+        audioCodec?: string;
+        videoCodec?: string;
+        format?: string;
+        additionalInputPaths?: string[];
+      };
+    }) => Promise<string>;
+    preview: (
+      url: string,
+      mimeType?: string,
+      headers?: Record<string, string>,
+      credential?: import('./plugin_media').PluginCredentialReference
+    ) => Promise<import('./plugin_media').PreviewGrant>;
+    writeTags: (
+      grantId: string,
+      targetPath: string,
+      tags: import('./plugin_media').MediaTags
+    ) => Promise<string>;
   };
   android: {
     devices: {
@@ -474,9 +554,20 @@ export interface PluginRuntimeApi {
     };
     sessions: {
       list: () => Promise<AndroidSession[]>;
-      startMirror: (input: { deviceSerial: string; keyboard?: 'uhid' | 'sdk'; mouse?: 'uhid' | 'sdk' }) => Promise<AndroidSession>;
-      startAudio: (input: { deviceSerial: string; duplicateOnDevice?: boolean }) => Promise<AndroidSession>;
-      startOtg: (input: { deviceSerial: string; keyboard?: boolean; mouse?: boolean }) => Promise<AndroidSession>;
+      startMirror: (input: {
+        deviceSerial: string;
+        keyboard?: 'uhid' | 'sdk';
+        mouse?: 'uhid' | 'sdk';
+      }) => Promise<AndroidSession>;
+      startAudio: (input: {
+        deviceSerial: string;
+        duplicateOnDevice?: boolean;
+      }) => Promise<AndroidSession>;
+      startOtg: (input: {
+        deviceSerial: string;
+        keyboard?: boolean;
+        mouse?: boolean;
+      }) => Promise<AndroidSession>;
       stop: (sessionId: string) => Promise<void>;
       onEvent: (listener: (event: AndroidSessionEvent) => void) => () => void;
     };

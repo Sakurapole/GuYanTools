@@ -23,7 +23,8 @@ function getSenderPluginContext(senderId: number) {
 function broadcastPluginDevices(event: AndroidDeviceEvent) {
   for (const target of webContents.getAllWebContents()) {
     const context = pluginHost.getRuntimeContext(target.id);
-    if (!context || !context.permissions.includes('android.devices.read') || target.isDestroyed()) continue;
+    if (!context || !context.permissions.includes('android.devices.read') || target.isDestroyed())
+      continue;
     target.send('plugin-runtime:android:devices:changed', event);
   }
 }
@@ -31,16 +32,28 @@ function broadcastPluginDevices(event: AndroidDeviceEvent) {
 function broadcastPluginSession(event: AndroidSessionEvent) {
   for (const target of webContents.getAllWebContents()) {
     const context = pluginHost.getRuntimeContext(target.id);
-    if (!context || context.pluginId !== event.session.ownerPluginId || !context.permissions.includes('android.sessions.read') || target.isDestroyed()) continue;
+    if (
+      !context ||
+      context.pluginId !== event.session.ownerPluginId ||
+      !context.permissions.includes('android.sessions.read') ||
+      target.isDestroyed()
+    )
+      continue;
     target.send('plugin-runtime:android:sessions:event', event);
   }
 }
 
-type RuntimeHandler = (event: Electron.IpcMainInvokeEvent, ...args: any[]) => Promise<unknown> | unknown;
+type RuntimeHandler = (
+  event: Electron.IpcMainInvokeEvent,
+  ...args: any[]
+) => Promise<unknown> | unknown;
 
-const runtimeRoutes: Record<string, { permission?: PluginPermission | PluginPermission[]; handler: RuntimeHandler }> = {
+const runtimeRoutes: Record<
+  string,
+  { permission?: PluginPermission | PluginPermission[]; handler: RuntimeHandler }
+> = {
   'plugin-runtime:get-context': {
-    handler: event => getSenderPluginContext(event.sender.id),
+    handler: (event) => getSenderPluginContext(event.sender.id),
   },
   'plugin-runtime:workspace:get-current': {
     permission: 'workspace.read',
@@ -52,12 +65,17 @@ const runtimeRoutes: Record<string, { permission?: PluginPermission | PluginPerm
   },
   'plugin-runtime:storage:get': {
     permission: 'storage.self',
-    handler: (event, key: string) => pluginHost.getPluginStorageValue(getSenderPluginContext(event.sender.id).pluginId, key),
+    handler: (event, key: string) =>
+      pluginHost.getPluginStorageValue(getSenderPluginContext(event.sender.id).pluginId, key),
   },
   'plugin-runtime:storage:set': {
     permission: 'storage.self',
     handler: async (event, key: string, value: unknown) => {
-      await pluginHost.setPluginStorageValue(getSenderPluginContext(event.sender.id).pluginId, key, value);
+      await pluginHost.setPluginStorageValue(
+        getSenderPluginContext(event.sender.id).pluginId,
+        key,
+        value
+      );
     },
   },
   'plugin-runtime:navigation:open-route': {
@@ -78,7 +96,7 @@ const runtimeRoutes: Record<string, { permission?: PluginPermission | PluginPerm
     handler: () => pluginHost.listPages(),
   },
   'plugin-runtime:ui:get-theme': {
-    handler: event => {
+    handler: (event) => {
       getSenderPluginContext(event.sender.id);
       return toPluginThemeDescriptor(appConfigManager.getCachedConfig().appearance.theme);
     },
@@ -129,7 +147,7 @@ const runtimeRoutes: Record<string, { permission?: PluginPermission | PluginPerm
   },
   'plugin-runtime:files:pick-directory-grant': {
     permission: ['system.dialog', 'files.write'],
-    handler: event => {
+    handler: (event) => {
       const context = getSenderPluginContext(event.sender.id);
       return pluginHost.getHostServices().pickPluginDirectoryGrant(context.pluginId);
     },
@@ -145,7 +163,9 @@ const runtimeRoutes: Record<string, { permission?: PluginPermission | PluginPerm
     permission: 'files.read',
     handler: async (event, grantId: string, targetPath: string) => {
       const context = getSenderPluginContext(event.sender.id);
-      const data = await pluginHost.getHostServices().files.read(context.pluginId, grantId, targetPath);
+      const data = await pluginHost
+        .getHostServices()
+        .files.read(context.pluginId, grantId, targetPath);
       return data.toString('base64');
     },
   },
@@ -153,7 +173,9 @@ const runtimeRoutes: Record<string, { permission?: PluginPermission | PluginPerm
     permission: 'files.write',
     handler: async (event, grantId: string, targetPath: string, bytesBase64: string) => {
       const context = getSenderPluginContext(event.sender.id);
-      await pluginHost.getHostServices().files.write(context.pluginId, grantId, targetPath, Buffer.from(bytesBase64, 'base64'));
+      await pluginHost
+        .getHostServices()
+        .files.write(context.pluginId, grantId, targetPath, Buffer.from(bytesBase64, 'base64'));
     },
   },
   'plugin-runtime:downloads:direct': {
@@ -170,15 +192,18 @@ const runtimeRoutes: Record<string, { permission?: PluginPermission | PluginPerm
       if (!pluginHost.getQuotaService().tryAcquireJobSlot(context.pluginId)) {
         throw new PluginApiError('QUOTA_EXCEEDED', 'PLUGIN_JOB_QUOTA');
       }
-      return pluginHost.getJobService().create(context.pluginId, kind, input, parentJobId).catch(error => {
-        pluginHost.getQuotaService().releaseJobSlot(context.pluginId);
-        throw error;
-      });
+      return pluginHost
+        .getJobService()
+        .create(context.pluginId, kind, input, parentJobId)
+        .catch((error) => {
+          pluginHost.getQuotaService().releaseJobSlot(context.pluginId);
+          throw error;
+        });
     },
   },
   'plugin-runtime:jobs:list': {
     permission: 'jobs.manage',
-    handler: event => {
+    handler: (event) => {
       const context = getSenderPluginContext(event.sender.id);
       return pluginHost.getJobService().list(context.pluginId);
     },
@@ -213,7 +238,7 @@ const runtimeRoutes: Record<string, { permission?: PluginPermission | PluginPerm
   },
   'plugin-runtime:capabilities:list': {
     permission: 'ui.contribute',
-    handler: event => {
+    handler: (event) => {
       const context = getSenderPluginContext(event.sender.id);
       return pluginHost.getCapabilityRouter().list(context.pluginId);
     },
@@ -243,21 +268,40 @@ const runtimeRoutes: Record<string, { permission?: PluginPermission | PluginPerm
     permission: 'media.transcode',
     handler: (event, input) => {
       const context = getSenderPluginContext(event.sender.id);
-      return pluginHost.getHostServices().media.transcode(context.pluginId, input.inputGrantId, input.inputPath, input.outputGrantId, input.outputPath, input.options);
+      return pluginHost
+        .getHostServices()
+        .media.transcode(
+          context.pluginId,
+          input.inputGrantId,
+          input.inputPath,
+          input.outputGrantId,
+          input.outputPath,
+          input.options
+        );
     },
   },
   'plugin-runtime:media:preview': {
     permission: 'media.preview',
-    handler: (event, url: string, mimeType?: string, headers?: Record<string, string>, credential?: import('@/contracts/plugin_media').PluginCredentialReference) => {
+    handler: (
+      event,
+      url: string,
+      mimeType?: string,
+      headers?: Record<string, string>,
+      credential?: import('@/contracts/plugin_media').PluginCredentialReference
+    ) => {
       const context = getSenderPluginContext(event.sender.id);
-      return pluginHost.getHostServices().media.createPreview(context.pluginId, url, mimeType, headers, credential);
+      return pluginHost
+        .getHostServices()
+        .media.createPreview(context.pluginId, url, mimeType, headers, credential);
     },
   },
   'plugin-runtime:media:write-tags': {
     permission: 'media.tag',
     handler: (event, grantId: string, targetPath: string, tags) => {
       const context = getSenderPluginContext(event.sender.id);
-      return pluginHost.getHostServices().media.writeTags(context.pluginId, grantId, targetPath, tags);
+      return pluginHost
+        .getHostServices()
+        .media.writeTags(context.pluginId, grantId, targetPath, tags);
     },
   },
   'plugin-runtime:secrets:get': {
@@ -282,35 +326,63 @@ const runtimeRoutes: Record<string, { permission?: PluginPermission | PluginPerm
     },
   },
   'plugin-runtime:android:devices:list': {
-    handler: event => pluginHost.getHostServices().android.listDevices(getSenderPluginContext(event.sender.id)),
+    handler: (event) =>
+      pluginHost.getHostServices().android.listDevices(getSenderPluginContext(event.sender.id)),
   },
   'plugin-runtime:android:sessions:list': {
-    handler: event => pluginHost.getHostServices().android.listSessions(getSenderPluginContext(event.sender.id)),
+    handler: (event) =>
+      pluginHost.getHostServices().android.listSessions(getSenderPluginContext(event.sender.id)),
   },
   'plugin-runtime:android:sessions:start-mirror': {
-    handler: (event, input: unknown) => pluginHost.getHostServices().android.startMirror(getSenderPluginContext(event.sender.id), input as never),
+    handler: (event, input: unknown) =>
+      pluginHost
+        .getHostServices()
+        .android.startMirror(getSenderPluginContext(event.sender.id), input as never),
   },
   'plugin-runtime:android:sessions:start-audio': {
-    handler: (event, input: unknown) => pluginHost.getHostServices().android.startAudio(getSenderPluginContext(event.sender.id), input as never),
+    handler: (event, input: unknown) =>
+      pluginHost
+        .getHostServices()
+        .android.startAudio(getSenderPluginContext(event.sender.id), input as never),
   },
   'plugin-runtime:android:sessions:start-otg': {
-    handler: (event, input: unknown) => pluginHost.getHostServices().android.startOtg(getSenderPluginContext(event.sender.id), input as never),
+    handler: (event, input: unknown) =>
+      pluginHost
+        .getHostServices()
+        .android.startOtg(getSenderPluginContext(event.sender.id), input as never),
   },
   'plugin-runtime:android:sessions:stop': {
     handler: async (event, sessionId: unknown) => {
-      await pluginHost.getHostServices().android.stop(getSenderPluginContext(event.sender.id), sessionId as string);
+      await pluginHost
+        .getHostServices()
+        .android.stop(getSenderPluginContext(event.sender.id), sessionId as string);
     },
   },
   'plugin-runtime:android:fastboot:list': {
-    handler: event => pluginHost.getHostServices().android.getFastbootDevices(getSenderPluginContext(event.sender.id)),
+    handler: (event) =>
+      pluginHost
+        .getHostServices()
+        .android.getFastbootDevices(getSenderPluginContext(event.sender.id)),
   },
   'plugin-runtime:android:fastboot:get-vars': {
     handler: (event, serial: unknown, names: unknown) =>
-      pluginHost.getHostServices().android.getFastbootVars(getSenderPluginContext(event.sender.id), serial as string, names as string[]),
+      pluginHost
+        .getHostServices()
+        .android.getFastbootVars(
+          getSenderPluginContext(event.sender.id),
+          serial as string,
+          names as string[]
+        ),
   },
   'plugin-runtime:android:fastboot:reboot': {
     handler: async (event, serial: unknown, target: unknown) => {
-      await pluginHost.getHostServices().android.fastbootReboot(getSenderPluginContext(event.sender.id), serial as string, target as 'system' | 'bootloader' | undefined);
+      await pluginHost
+        .getHostServices()
+        .android.fastbootReboot(
+          getSenderPluginContext(event.sender.id),
+          serial as string,
+          target as 'system' | 'bootloader' | undefined
+        );
     },
   },
 };
@@ -324,44 +396,101 @@ export function registerPluginHostIpcHandlers(getMainWindow: () => BrowserWindow
   ipcMain.handle('plugin-host:list-plugins', async () => pluginHost.listPlugins());
   ipcMain.handle('plugin-host:list-pages', async () => pluginHost.listPages());
   ipcMain.handle('plugin-host:list-contributions', async () => pluginHost.listContributions());
-  ipcMain.handle('plugin-host:list-audit-events', async (_event, pluginId?: string) => pluginHost.listAuditEvents(pluginId));
-  ipcMain.handle('plugin-host:get-plugin-debug-info', async (_event, pluginId: string) => pluginHost.getPluginDebugInfo(pluginId));
-  ipcMain.handle('plugin-host:get-plugin-settings', async (_event, pluginId: string) => pluginHost.getPluginSettings(pluginId));
-  ipcMain.handle('plugin-host:set-plugin-setting', async (_event, pluginId: string, key: string, value: unknown) => pluginHost.setPluginSetting(pluginId, key, value));
+  ipcMain.handle('plugin-host:list-audit-events', async (_event, pluginId?: string) =>
+    pluginHost.listAuditEvents(pluginId)
+  );
+  ipcMain.handle('plugin-host:get-plugin-debug-info', async (_event, pluginId: string) =>
+    pluginHost.getPluginDebugInfo(pluginId)
+  );
+  ipcMain.handle('plugin-host:get-plugin-settings', async (_event, pluginId: string) =>
+    pluginHost.getPluginSettings(pluginId)
+  );
+  ipcMain.handle(
+    'plugin-host:set-plugin-setting',
+    async (_event, pluginId: string, key: string, value: unknown) =>
+      pluginHost.setPluginSetting(pluginId, key, value)
+  );
   ipcMain.handle('plugin-host:get-permission-copy', async () => pluginHost.getPermissionCopy());
-  ipcMain.handle('plugin-host:list-jobs', async (_event, pluginId: string) => pluginHost.listPluginJobs(pluginId));
-  ipcMain.handle('plugin-host:install-package', async (_event, packageName: string, approvedPermissions?: PluginPermission[]) =>
-    pluginHost.installPluginFromPackage(packageName, approvedPermissions));
-  ipcMain.handle('plugin-host:register-local', async (_event, inputPath: string, approvedPermissions?: PluginPermission[]) =>
-    pluginHost.registerLocalPlugin(inputPath, approvedPermissions));
-  ipcMain.handle('plugin-host:approve-permissions', async (_event, pluginId: string, approvedPermissions: PluginPermission[]) =>
-    pluginHost.approvePermissions(pluginId, approvedPermissions));
-  ipcMain.handle('plugin-host:install-git', async (_event, input) => pluginHost.installFromGit(input));
-  ipcMain.handle('plugin-host:install-marketplace', async (_event, marketplaceId: string, pluginId: string, approvedPermissions) =>
-    pluginHost.installFromMarketplace(marketplaceId, pluginId, approvedPermissions));
-  ipcMain.handle('plugin-host:update', async (_event, pluginId: string, approvedPermissions?: PluginPermission[]) =>
-    pluginHost.updatePlugin(pluginId, approvedPermissions));
-  ipcMain.handle('plugin-host:rollback', async (_event, pluginId: string) => pluginHost.rollbackPlugin(pluginId));
-  ipcMain.handle('plugin-host:uninstall', async (_event, pluginId: string) => pluginHost.uninstallPlugin(pluginId));
+  ipcMain.handle('plugin-host:list-jobs', async (_event, pluginId: string) =>
+    pluginHost.listPluginJobs(pluginId)
+  );
+  ipcMain.handle(
+    'plugin-host:install-package',
+    async (_event, packageName: string, approvedPermissions?: PluginPermission[]) =>
+      pluginHost.installPluginFromPackage(packageName, approvedPermissions)
+  );
+  ipcMain.handle(
+    'plugin-host:register-local',
+    async (_event, inputPath: string, approvedPermissions?: PluginPermission[]) =>
+      pluginHost.registerLocalPlugin(inputPath, approvedPermissions)
+  );
+  ipcMain.handle(
+    'plugin-host:approve-permissions',
+    async (_event, pluginId: string, approvedPermissions: PluginPermission[]) =>
+      pluginHost.approvePermissions(pluginId, approvedPermissions)
+  );
+  ipcMain.handle('plugin-host:install-git', async (_event, input) =>
+    pluginHost.installFromGit(input)
+  );
+  ipcMain.handle(
+    'plugin-host:install-marketplace',
+    async (_event, marketplaceId: string, pluginId: string, approvedPermissions) =>
+      pluginHost.installFromMarketplace(marketplaceId, pluginId, approvedPermissions)
+  );
+  ipcMain.handle(
+    'plugin-host:update',
+    async (_event, pluginId: string, approvedPermissions?: PluginPermission[]) =>
+      pluginHost.updatePlugin(pluginId, approvedPermissions)
+  );
+  ipcMain.handle('plugin-host:rollback', async (_event, pluginId: string) =>
+    pluginHost.rollbackPlugin(pluginId)
+  );
+  ipcMain.handle('plugin-host:uninstall', async (_event, pluginId: string) =>
+    pluginHost.uninstallPlugin(pluginId)
+  );
   ipcMain.handle('plugin-host:dev-sessions:list', async () => pluginHost.listDevSessions());
-  ipcMain.handle('plugin-host:dev-sessions:connect', async (_event, session) => pluginHost.connectDevSession(session));
-  ipcMain.handle('plugin-host:dev-sessions:connect-file', async (_event, rootPath: string) => pluginHost.connectDevSessionFromFile(rootPath));
-  ipcMain.handle('plugin-host:dev-sessions:disconnect', async (_event, pluginId: string) => pluginHost.disconnectDevSession(pluginId));
+  ipcMain.handle('plugin-host:dev-sessions:connect', async (_event, session) =>
+    pluginHost.connectDevSession(session)
+  );
+  ipcMain.handle('plugin-host:dev-sessions:connect-file', async (_event, rootPath: string) =>
+    pluginHost.connectDevSessionFromFile(rootPath)
+  );
+  ipcMain.handle('plugin-host:dev-sessions:disconnect', async (_event, pluginId: string) =>
+    pluginHost.disconnectDevSession(pluginId)
+  );
   ipcMain.handle('plugin-host:marketplaces:list', async () => pluginHost.listMarketplaces());
-  ipcMain.handle('plugin-host:marketplaces:refresh', async (_event, input) => pluginHost.refreshMarketplace(input));
-  ipcMain.handle('plugin-host:marketplaces:search', async (_event, query: string) => pluginHost.searchMarketplace(query));
-  ipcMain.handle('plugin-host:enable', async (_event, pluginId: string) => pluginHost.enablePlugin(pluginId));
-  ipcMain.handle('plugin-host:disable', async (_event, pluginId: string) => pluginHost.disablePlugin(pluginId));
-  ipcMain.handle('plugin-host:mount-page', async (_event, pluginId: string, pageId: string, bounds) => pluginHost.mountPage(pluginId, pageId, bounds));
-  ipcMain.handle('plugin-host:update-page-bounds', async (_event, bounds) => pluginHost.updateMountedPageBounds(bounds));
-  ipcMain.handle('plugin-host:unmount-page', async (_event, pluginId?: string) => pluginHost.unmountPage(pluginId));
+  ipcMain.handle('plugin-host:marketplaces:refresh', async (_event, input) =>
+    pluginHost.refreshMarketplace(input)
+  );
+  ipcMain.handle('plugin-host:marketplaces:search', async (_event, query: string) =>
+    pluginHost.searchMarketplace(query)
+  );
+  ipcMain.handle('plugin-host:enable', async (_event, pluginId: string) =>
+    pluginHost.enablePlugin(pluginId)
+  );
+  ipcMain.handle('plugin-host:disable', async (_event, pluginId: string) =>
+    pluginHost.disablePlugin(pluginId)
+  );
+  ipcMain.handle(
+    'plugin-host:mount-page',
+    async (_event, pluginId: string, pageId: string, bounds) =>
+      pluginHost.mountPage(pluginId, pageId, bounds)
+  );
+  ipcMain.handle('plugin-host:update-page-bounds', async (_event, bounds) =>
+    pluginHost.updateMountedPageBounds(bounds)
+  );
+  ipcMain.handle('plugin-host:unmount-page', async (_event, pluginId?: string) =>
+    pluginHost.unmountPage(pluginId)
+  );
 
   for (const [channel, route] of Object.entries(runtimeRoutes)) {
     ipcMain.handle(channel, async (event, ...args) => {
       try {
         const context = getSenderPluginContext(event.sender.id);
         if (route.permission) {
-          const permissions = Array.isArray(route.permission) ? route.permission : [route.permission];
+          const permissions = Array.isArray(route.permission)
+            ? route.permission
+            : [route.permission];
           for (const permission of permissions) {
             guard.requirePermission(context, permission);
           }

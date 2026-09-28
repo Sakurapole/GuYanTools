@@ -1,7 +1,16 @@
 import { describe, expect, it } from 'vitest';
 import { PluginDevSessionManager, validateDevSession } from './dev_session';
 
-const session = { pluginId: 'example.plugin', rootPath: 'C:/plugins/example', uiUrl: 'http://127.0.0.1:5173/index.html', workerUrl: 'http://127.0.0.1:5173/worker.js', host: '127.0.0.1' as const, port: 5173, sessionToken: 'a'.repeat(32), startedAt: new Date().toISOString() };
+const session = {
+  pluginId: 'example.plugin',
+  rootPath: 'C:/plugins/example',
+  uiUrl: 'http://127.0.0.1:5173/index.html',
+  workerUrl: 'http://127.0.0.1:5173/worker.js',
+  host: '127.0.0.1' as const,
+  port: 5173,
+  sessionToken: 'a'.repeat(32),
+  startedAt: new Date().toISOString(),
+};
 
 describe('plugin dev sessions', () => {
   it('validates and replaces sessions per plugin', () => {
@@ -14,6 +23,8 @@ describe('plugin dev sessions', () => {
   });
 
   it('rejects non-loopback sessions', () => {
-    expect(() => validateDevSession({ ...session, uiUrl: 'http://0.0.0.0:5173/index.html' })).toThrow('PLUGIN_DEV_SESSION_INVALID');
+    expect(() =>
+      validateDevSession({ ...session, uiUrl: 'http://0.0.0.0:5173/index.html' })
+    ).toThrow('PLUGIN_DEV_SESSION_INVALID');
   });
 });

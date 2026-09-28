@@ -16,7 +16,11 @@ export class PluginCrashPolicy {
     this.failures.delete(pluginId);
   }
 
-  recordStartFailure(pluginId: string, error: unknown, threshold = PLUGIN_START_FAILURE_THRESHOLD): PluginStartFailureTracker {
+  recordStartFailure(
+    pluginId: string,
+    error: unknown,
+    threshold = PLUGIN_START_FAILURE_THRESHOLD
+  ): PluginStartFailureTracker {
     const next = (this.failures.get(pluginId) ?? 0) + 1;
     this.failures.set(pluginId, next);
     const message = error instanceof Error ? error.message : String(error);

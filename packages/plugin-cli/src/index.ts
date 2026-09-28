@@ -16,28 +16,50 @@ export { publish } from './commands/publish.js';
 async function main(args: string[]) {
   const [command, value] = args;
   if (command === 'create' && value) {
-    const framework = args.includes('--framework') && args[args.indexOf('--framework') + 1] === 'react' ? 'react' : 'vue';
+    const framework =
+      args.includes('--framework') && args[args.indexOf('--framework') + 1] === 'react'
+        ? 'react'
+        : 'vue';
     console.log(await createPlugin(value, framework));
     return;
   }
-  if (command === 'dev') { console.log(JSON.stringify(await devPlugin())); return; }
-  if (command === 'validate') { console.log(JSON.stringify(await validatePlugin())); return; }
-  if (command === 'build') { console.log(JSON.stringify(await buildPlugin())); return; }
-  if (command === 'pack') { console.log(JSON.stringify(await packPlugin())); return; }
+  if (command === 'dev') {
+    console.log(JSON.stringify(await devPlugin()));
+    return;
+  }
+  if (command === 'validate') {
+    console.log(JSON.stringify(await validatePlugin()));
+    return;
+  }
+  if (command === 'build') {
+    console.log(JSON.stringify(await buildPlugin()));
+    return;
+  }
+  if (command === 'pack') {
+    console.log(JSON.stringify(await packPlugin()));
+    return;
+  }
   if (command === 'publish') {
     const config = await readPublishConfig();
     const mode = args[args.indexOf('--catalog-mode') + 1];
-    console.log(JSON.stringify(await publish({
-      config,
-      dryRun: args.includes('--dry-run'),
-      noPush: args.includes('--no-push'),
-      catalogMode: mode === 'pull-request' || mode === 'direct' ? mode : undefined,
-    })));
+    console.log(
+      JSON.stringify(
+        await publish({
+          config,
+          dryRun: args.includes('--dry-run'),
+          noPush: args.includes('--no-push'),
+          catalogMode: mode === 'pull-request' || mode === 'direct' ? mode : undefined,
+        })
+      )
+    );
     return;
   }
   throw new Error('Usage: guyantools-plugin <create|dev|validate|build|pack|publish>');
 }
 
 if (process.argv[1]?.endsWith('index.js')) {
-  main(process.argv.slice(2)).catch(error => { console.error(error instanceof Error ? error.message : error); process.exitCode = 1; });
+  main(process.argv.slice(2)).catch((error) => {
+    console.error(error instanceof Error ? error.message : error);
+    process.exitCode = 1;
+  });
 }

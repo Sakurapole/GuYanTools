@@ -90,7 +90,7 @@ export class PluginRegistry {
 
   constructor(
     /** 仅用于旧版 JSON 注册表的迁移 */
-    private readonly legacyRegistryFile: string,
+    private readonly legacyRegistryFile: string
   ) {}
 
   async initialize() {
@@ -107,7 +107,7 @@ export class PluginRegistry {
     }
 
     // 2. 如果 SQLite 里没有记录，则尝试从旧 JSON 文件迁移
-    if (this.records.size === 0 && await fs.pathExists(this.legacyRegistryFile)) {
+    if (this.records.size === 0 && (await fs.pathExists(this.legacyRegistryFile))) {
       console.log('[PluginRegistry] 检测到旧版 JSON 注册表，正在迁移到 SQLite...');
       await this.migrateLegacyFile();
     }
@@ -164,7 +164,7 @@ export class PluginRegistry {
 
   list() {
     return Array.from(this.records.values()).sort((a, b) =>
-      a.manifest.displayName.localeCompare(b.manifest.displayName),
+      a.manifest.displayName.localeCompare(b.manifest.displayName)
     );
   }
 
@@ -183,7 +183,7 @@ export class PluginRegistry {
     pluginId: string,
     status: PluginLifecycleState,
     enabled?: boolean,
-    error?: string,
+    error?: string
   ) {
     const current = this.records.get(pluginId);
     if (!current) {

@@ -32,15 +32,24 @@ export class GuYanButtonElement extends GuYanElement {
     this.button.addEventListener('click', () => this.emit('gt-click', { disabled: this.disabled }));
   }
 
-  get disabled(): boolean { return this.booleanAttribute('disabled'); }
-  set disabled(value: boolean) { value ? this.setAttribute('disabled', '') : this.removeAttribute('disabled'); }
+  get disabled(): boolean {
+    return this.booleanAttribute('disabled');
+  }
+  set disabled(value: boolean) {
+    value ? this.setAttribute('disabled', '') : this.removeAttribute('disabled');
+  }
 
-  connectedCallback() { this.render(); }
-  attributeChangedCallback() { this.render(); }
+  connectedCallback() {
+    this.render();
+  }
+  attributeChangedCallback() {
+    this.render();
+  }
 
   private render() {
     this.button.disabled = this.disabled;
-    this.button.dataset.variant = (this.getAttribute('variant') as GuYanButtonVariant | null) ?? 'secondary';
+    this.button.dataset.variant =
+      (this.getAttribute('variant') as GuYanButtonVariant | null) ?? 'secondary';
     this.button.dataset.size = (this.getAttribute('size') as GuYanButtonSize | null) ?? 'md';
     this.button.dataset.active = this.booleanAttribute('active') ? 'true' : 'false';
   }

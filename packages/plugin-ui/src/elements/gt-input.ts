@@ -22,16 +22,26 @@ export class GuYanInputElement extends GuYanElement {
       this.setAttribute('value', this.input.value);
       this.emit('gt-input', { value: this.input.value });
     });
-    this.input.addEventListener('change', () => this.emit('gt-change', { value: this.input.value }));
-    this.input.addEventListener('focus', event => this.emit('gt-focus', event));
-    this.input.addEventListener('blur', event => this.emit('gt-blur', event));
+    this.input.addEventListener('change', () =>
+      this.emit('gt-change', { value: this.input.value })
+    );
+    this.input.addEventListener('focus', (event) => this.emit('gt-focus', event));
+    this.input.addEventListener('blur', (event) => this.emit('gt-blur', event));
   }
 
-  get value(): string { return this.getAttribute('value') ?? ''; }
-  set value(value: string) { this.setAttribute('value', value); }
+  get value(): string {
+    return this.getAttribute('value') ?? '';
+  }
+  set value(value: string) {
+    this.setAttribute('value', value);
+  }
 
-  connectedCallback() { this.render(); }
-  attributeChangedCallback() { this.render(); }
+  connectedCallback() {
+    this.render();
+  }
+  attributeChangedCallback() {
+    this.render();
+  }
 
   private render() {
     this.input.value = this.value;

@@ -60,7 +60,12 @@ const VALID_PERMISSIONS = new Set<PluginPermission>([
   'android.fastboot.reboot',
 ]);
 
-const VALID_CAPABILITY_KINDS = new Set(['media-source', 'metadata-provider', 'transformer', 'importer']);
+const VALID_CAPABILITY_KINDS = new Set([
+  'media-source',
+  'metadata-provider',
+  'transformer',
+  'importer',
+]);
 
 function fail(code: string, message: string): never {
   throw new Error(`${code}: ${message}`);
@@ -80,7 +85,10 @@ export function validatePluginManifest(input: unknown): asserts input is PluginM
     fail('PLUGIN_TRUST_UNSUPPORTED', 'market plugins must use sandboxed trust level');
   }
 
-  if (!['1.0', '1.1'].includes(manifest.schemaVersion ?? '') || typeof manifest.version !== 'string') {
+  if (
+    !['1.0', '1.1'].includes(manifest.schemaVersion ?? '') ||
+    typeof manifest.version !== 'string'
+  ) {
     fail('PLUGIN_MANIFEST_INVALID', 'schemaVersion and version are required');
   }
 
@@ -91,7 +99,12 @@ export function validatePluginManifest(input: unknown): asserts input is PluginM
   }
 
   if (manifest.ui !== undefined) {
-    if (!manifest.ui || manifest.ui.theme !== 'guyantools' || typeof manifest.ui.components !== 'string' || manifest.ui.components.length === 0) {
+    if (
+      !manifest.ui ||
+      manifest.ui.theme !== 'guyantools' ||
+      typeof manifest.ui.components !== 'string' ||
+      manifest.ui.components.length === 0
+    ) {
       fail('PLUGIN_UI_INVALID', 'ui must declare the guyantools theme and components package');
     }
     if (typeof manifest.uiApiVersion !== 'string') {
@@ -99,39 +112,83 @@ export function validatePluginManifest(input: unknown): asserts input is PluginM
     }
   }
 
-  if (!Array.isArray(manifest.permissions) || manifest.permissions.some(permission => !VALID_PERMISSIONS.has(permission as PluginPermission))) {
+  if (
+    !Array.isArray(manifest.permissions) ||
+    manifest.permissions.some(
+      (permission) => !VALID_PERMISSIONS.has(permission as PluginPermission)
+    )
+  ) {
     fail('PLUGIN_PERMISSION_UNKNOWN', 'permissions must use the host allowlist');
   }
 
   if (!Array.isArray(manifest.capabilities)) {
-    fail('PLUGIN_CAPABILITIES_REQUIRED', 'capabilities must be declared separately from permissions');
+    fail(
+      'PLUGIN_CAPABILITIES_REQUIRED',
+      'capabilities must be declared separately from permissions'
+    );
   }
 
   const capabilityIds = new Set<string>();
   for (const capability of manifest.capabilities) {
-    if (!capability || typeof capability !== 'object' || typeof capability.id !== 'string' || !/^[a-z0-9][a-z0-9.-]*$/.test(capability.id)) {
+    if (
+      !capability ||
+      typeof capability !== 'object' ||
+      typeof capability.id !== 'string' ||
+      !/^[a-z0-9][a-z0-9.-]*$/.test(capability.id)
+    ) {
       fail('PLUGIN_CAPABILITY_INVALID', 'capability id is invalid');
     }
     if (capabilityIds.has(capability.id)) {
       fail('PLUGIN_CAPABILITY_INVALID', `duplicate capability id: ${capability.id}`);
     }
     capabilityIds.add(capability.id);
-    if (!VALID_CAPABILITY_KINDS.has(capability.kind) || !Array.isArray(capability.operations) || capability.operations.length === 0 || capability.operations.some(operation => typeof operation !== 'string' || operation.length === 0)) {
-      fail('PLUGIN_CAPABILITY_INVALID', `capability ${capability.id} has invalid kind or operations`);
+    if (
+      !VALID_CAPABILITY_KINDS.has(capability.kind) ||
+      !Array.isArray(capability.operations) ||
+      capability.operations.length === 0 ||
+      capability.operations.some(
+        (operation) => typeof operation !== 'string' || operation.length === 0
+      )
+    ) {
+      fail(
+        'PLUGIN_CAPABILITY_INVALID',
+        `capability ${capability.id} has invalid kind or operations`
+      );
     }
     if (capability.match !== undefined) {
       const match = capability.match;
       if (!match || typeof match !== 'object') {
         fail('PLUGIN_CAPABILITY_INVALID', `capability ${capability.id} has an invalid match`);
       }
-      if (match.hosts !== undefined && (!Array.isArray(match.hosts) || match.hosts.some(host => typeof host !== 'string' || !/^[a-z0-9.-]+(?::\d+)?$/i.test(host)))) {
+      if (
+        match.hosts !== undefined &&
+        (!Array.isArray(match.hosts) ||
+          match.hosts.some(
+            (host) => typeof host !== 'string' || !/^[a-z0-9.-]+(?::\d+)?$/i.test(host)
+          ))
+      ) {
         fail('PLUGIN_CAPABILITY_INVALID', `capability ${capability.id} has invalid host matches`);
       }
-      if (match.schemes !== undefined && (!Array.isArray(match.schemes) || match.schemes.some(scheme => typeof scheme !== 'string' || !/^[a-z][a-z0-9+.-]*$/i.test(scheme)))) {
+      if (
+        match.schemes !== undefined &&
+        (!Array.isArray(match.schemes) ||
+          match.schemes.some(
+            (scheme) => typeof scheme !== 'string' || !/^[a-z][a-z0-9+.-]*$/i.test(scheme)
+          ))
+      ) {
         fail('PLUGIN_CAPABILITY_INVALID', `capability ${capability.id} has invalid scheme matches`);
       }
-      if (match.mimeTypes !== undefined && (!Array.isArray(match.mimeTypes) || match.mimeTypes.some(mimeType => typeof mimeType !== 'string' || !/^[\w.+-]+\/[\w.+-]+$/.test(mimeType)))) {
-        fail('PLUGIN_CAPABILITY_INVALID', `capability ${capability.id} has invalid mime type matches`);
+      if (
+        match.mimeTypes !== undefined &&
+        (!Array.isArray(match.mimeTypes) ||
+          match.mimeTypes.some(
+            (mimeType) => typeof mimeType !== 'string' || !/^[\w.+-]+\/[\w.+-]+$/.test(mimeType)
+          ))
+      ) {
+        fail(
+          'PLUGIN_CAPABILITY_INVALID',
+          `capability ${capability.id} has invalid mime type matches`
+        );
       }
     }
   }
@@ -146,7 +203,10 @@ export function validatePluginManifest(input: unknown): asserts input is PluginM
   if (manifest.runtime === 'worker' && typeof entry.worker !== 'string') {
     fail('PLUGIN_ENTRY_INVALID', 'worker runtime requires entry.worker');
   }
-  if (manifest.runtime === 'hybrid' && (typeof entry.ui !== 'string' || typeof entry.worker !== 'string')) {
+  if (
+    manifest.runtime === 'hybrid' &&
+    (typeof entry.ui !== 'string' || typeof entry.worker !== 'string')
+  ) {
     fail('PLUGIN_ENTRY_INVALID', 'hybrid runtime requires entry.ui and entry.worker');
   }
   if (!['ui', 'worker', 'hybrid'].includes(manifest.runtime ?? '')) {
@@ -154,7 +214,11 @@ export function validatePluginManifest(input: unknown): asserts input is PluginM
   }
 
   if (manifest.settings !== undefined) {
-    if (!manifest.settings || typeof manifest.settings !== 'object' || Array.isArray(manifest.settings)) {
+    if (
+      !manifest.settings ||
+      typeof manifest.settings !== 'object' ||
+      Array.isArray(manifest.settings)
+    ) {
       fail('PLUGIN_SETTINGS_INVALID', 'settings must be an object schema map');
     }
     for (const [key, schema] of Object.entries(manifest.settings)) {
@@ -170,13 +234,19 @@ export function validatePluginManifest(input: unknown): asserts input is PluginM
       if (typeof schema.title !== 'string' || schema.title.length === 0) {
         fail('PLUGIN_SETTINGS_INVALID', `settings.${key}.title is required`);
       }
-      if (schema.type === 'select' && (!Array.isArray(schema.options) || schema.options.length === 0)) {
+      if (
+        schema.type === 'select' &&
+        (!Array.isArray(schema.options) || schema.options.length === 0)
+      ) {
         fail('PLUGIN_SETTINGS_INVALID', `settings.${key}.options is required for select`);
       }
     }
   }
 
-  if (manifest.workerRuntime !== undefined && !['browser', 'utility'].includes(manifest.workerRuntime)) {
+  if (
+    manifest.workerRuntime !== undefined &&
+    !['browser', 'utility'].includes(manifest.workerRuntime)
+  ) {
     fail('PLUGIN_RUNTIME_INVALID', 'workerRuntime must be browser or utility');
   }
 
@@ -188,14 +258,20 @@ export function validatePluginManifest(input: unknown): asserts input is PluginM
       if (!dependency || typeof dependency !== 'object') {
         fail('PLUGIN_DEPENDENCY_INVALID', 'dependency must be an object');
       }
-      if (typeof dependency.capability !== 'string' || !/^[a-z0-9][a-z0-9.-]*$/i.test(dependency.capability)) {
+      if (
+        typeof dependency.capability !== 'string' ||
+        !/^[a-z0-9][a-z0-9.-]*$/i.test(dependency.capability)
+      ) {
         fail('PLUGIN_DEPENDENCY_INVALID', 'dependency.capability is invalid');
       }
     }
   }
 }
 
-function normalizeEntry(input: Partial<PluginManifest> & { entry?: string | PluginManifest['entry'] }, packageJson?: PackageJsonLike): PluginManifest['entry'] {
+function normalizeEntry(
+  input: Partial<PluginManifest> & { entry?: string | PluginManifest['entry'] },
+  packageJson?: PackageJsonLike
+): PluginManifest['entry'] {
   const rawEntry = input.entry ?? packageJson?.main ?? 'index.html';
   if (typeof rawEntry === 'string') {
     return { ui: rawEntry };
@@ -203,7 +279,10 @@ function normalizeEntry(input: Partial<PluginManifest> & { entry?: string | Plug
   return rawEntry;
 }
 
-function toManifestShape(input: Partial<PluginManifest> & { entry?: string | PluginManifest['entry'] }, packageJson?: PackageJsonLike): PluginManifest {
+function toManifestShape(
+  input: Partial<PluginManifest> & { entry?: string | PluginManifest['entry'] },
+  packageJson?: PackageJsonLike
+): PluginManifest {
   const name = input.name ?? packageJson?.name ?? input.id ?? 'unknown-plugin';
   const entry = normalizeEntry(input, packageJson);
 
@@ -215,10 +294,12 @@ function toManifestShape(input: Partial<PluginManifest> & { entry?: string | Plu
     displayName: input.displayName ?? name,
     description: input.description ?? packageJson?.description ?? '',
     pluginApiVersion: input.pluginApiVersion ?? DEFAULT_PLUGIN_API_VERSION,
-    ...(input.uiApiVersion || input.ui ? {
-      uiApiVersion: input.uiApiVersion ?? DEFAULT_UI_API_VERSION,
-      ...(input.ui ? { ui: input.ui } : {}),
-    } : {}),
+    ...(input.uiApiVersion || input.ui
+      ? {
+          uiApiVersion: input.uiApiVersion ?? DEFAULT_UI_API_VERSION,
+          ...(input.ui ? { ui: input.ui } : {}),
+        }
+      : {}),
     hostVersionRange: input.hostVersionRange ?? DEFAULT_HOST_VERSION_RANGE,
     trustLevel: (input.trustLevel ?? 'sandboxed') as PluginTrustLevel,
     runtime: (input.runtime ?? 'ui') as PluginRuntimeKind,
@@ -233,7 +314,9 @@ function toManifestShape(input: Partial<PluginManifest> & { entry?: string | Plu
 }
 
 export class PluginManifestResolver {
-  async resolveFromDirectory(directoryPath: string): Promise<{ manifest: PluginManifest; resolvedEntryPaths: ResolvedPluginEntryPaths }> {
+  async resolveFromDirectory(
+    directoryPath: string
+  ): Promise<{ manifest: PluginManifest; resolvedEntryPaths: ResolvedPluginEntryPaths }> {
     const pluginJsonPath = path.join(directoryPath, 'guyantools.plugin.json');
     const legacyPluginJsonPath = path.join(directoryPath, 'plugin.json');
     const packageJsonPath = path.join(directoryPath, 'package.json');
@@ -282,7 +365,7 @@ export class PluginManifestResolver {
       if (resolvedEntryPath !== rootPath && !resolvedEntryPath.startsWith(rootPrefix)) {
         fail('PLUGIN_ENTRY_INVALID', `entry.${kind} escapes the plugin directory`);
       }
-      if (!await fs.pathExists(resolvedEntryPath)) {
+      if (!(await fs.pathExists(resolvedEntryPath))) {
         throw new Error(`Plugin entry not found: ${resolvedEntryPath}`);
       }
       const entryStats = await fs.lstat(resolvedEntryPath);

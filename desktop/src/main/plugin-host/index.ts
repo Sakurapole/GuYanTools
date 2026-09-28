@@ -58,23 +58,28 @@ export class PluginHost {
     PLUGIN_INSTALL_DIR,
     undefined,
     undefined,
-    () => (process.env.GUYANTOOLS_PLUGIN_SIGNATURE_POLICY as 'enforce' | 'warn' | 'off' | undefined) ?? 'warn',
+    () =>
+      (process.env.GUYANTOOLS_PLUGIN_SIGNATURE_POLICY as 'enforce' | 'warn' | 'off' | undefined) ??
+      'warn'
   );
   private readonly runtimeRouter = new PluginRuntimeRouter(
     this.hostServices,
     resolvePluginPreloadPath(path.join(__dirname, '..', '..', '.vite', 'build')),
     () => appConfigManager.getCachedConfig().plugins.unloadAfterMinutes,
     this.devSessions,
-    pluginId => {
+    (pluginId) => {
       void this.hostServices.android.stopSessionsForOwner(pluginId);
       this.hostServices.resetPluginQuota(pluginId);
       this.jobService?.offPlugin(pluginId);
-    },
+    }
   );
-  private readonly devChannel = new LocalPluginDevChannel(session => { this.runtimeRouter.connectDevSession(session); });
+  private readonly devChannel = new LocalPluginDevChannel((session) => {
+    this.runtimeRouter.connectDevSession(session);
+  });
   private readonly marketplaceResolver = new MarketplaceResolver(async (url, ref) => {
     const source = new URL(url);
-    const githubMatch = source.hostname === 'github.com' && source.pathname.match(/^\/([^/]+)\/([^/]+)(?:\/|$)/);
+    const githubMatch =
+      source.hostname === 'github.com' && source.pathname.match(/^\/([^/]+)\/([^/]+)(?:\/|$)/);
     const target = githubMatch
       ? `https://raw.githubusercontent.com/${githubMatch[1]}/${githubMatch[2].replace(/\.git$/, '')}/${encodeURIComponent(ref)}/catalog.json`
       : url;
@@ -83,14 +88,22 @@ export class PluginHost {
     const raw = await response.text();
     try {
       const parsed = JSON.parse(raw) as {
-        signature?: { algorithm: 'ed25519'; publicKey: string; signature: string; signedAt: string };
+        signature?: {
+          algorithm: 'ed25519';
+          publicKey: string;
+          signature: string;
+          signedAt: string;
+        };
       } & Record<string, unknown>;
       if (parsed?.signature) {
         const { signature, ...body } = parsed;
         verifyCatalogSignature(JSON.stringify(body), signature);
       }
     } catch (error) {
-      if (String(error).includes('PLUGIN_CATALOG_SIGNATURE_INVALID') || String(error).includes('PLUGIN_SIGNATURE_')) {
+      if (
+        String(error).includes('PLUGIN_CATALOG_SIGNATURE_INVALID') ||
+        String(error).includes('PLUGIN_SIGNATURE_')
+      ) {
         throw error;
       }
     }
@@ -114,15 +127,17 @@ export class PluginHost {
       const cached = await (dbManager.getDatabase() as any).listPluginMarketplaces();
       const validCached = cached.flatMap((record: any) => {
         try {
-          return [{
-            marketplaceId: record.id,
-            url: record.url,
-            ref: record.refName ?? record.ref_name,
-            catalog: JSON.parse(record.catalogJson ?? record.catalog_json),
-            catalogSha256: record.catalogSha256 ?? record.catalog_sha256,
-            refreshedAt: record.refreshedAt ?? record.refreshed_at,
-            fromCache: true,
-          }];
+          return [
+            {
+              marketplaceId: record.id,
+              url: record.url,
+              ref: record.refName ?? record.ref_name,
+              catalog: JSON.parse(record.catalogJson ?? record.catalog_json),
+              catalogSha256: record.catalogSha256 ?? record.catalog_sha256,
+              refreshedAt: record.refreshedAt ?? record.refreshed_at,
+              fromCache: true,
+            },
+          ];
         } catch {
           return [];
         }
@@ -131,7 +146,9 @@ export class PluginHost {
     }
     this.initialized = true;
     await this.devChannel.start();
-    appConfigManager.subscribe(config => this.runtimeRouter.broadcastTheme(toPluginThemeDescriptor(config.appearance.theme)));
+    appConfigManager.subscribe((config) =>
+      this.runtimeRouter.broadcastTheme(toPluginThemeDescriptor(config.appearance.theme))
+    );
   }
 
   getJobService() {
@@ -145,7 +162,7 @@ export class PluginHost {
   private attachJobEventBridge(pluginId: string) {
     const jobService = this.getJobService();
     jobService.offPlugin(pluginId);
-    jobService.onEvent(pluginId, job => this.broadcastJobEvent(pluginId, job));
+    jobService.onEvent(pluginId, (job) => this.broadcastJobEvent(pluginId, job));
   }
 
   getAuditStore() {
@@ -176,9 +193,16 @@ export class PluginHost {
     return this.runtimeRouter.getRuntimeContext(webContentsId);
   }
 
-  connectDevSession(session: import('@/contracts/plugin_host').PluginDevSession) { return this.runtimeRouter.connectDevSession(session); }
+  connectDevSession(session: import('@/contracts/plugin_host').PluginDevSession) {
+    return this.runtimeRouter.connectDevSession(session);
+  }
   async connectDevSessionFromFile(rootPath: string) {
-    const source = await fs.readJSON(path.join(rootPath, '.guyantools', 'plugin.dev.json')) as { pluginId: string; uiUrl: string; workerUrl?: string; sessionToken: string };
+    const source = (await fs.readJSON(path.join(rootPath, '.guyantools', 'plugin.dev.json'))) as {
+      pluginId: string;
+      uiUrl: string;
+      workerUrl?: string;
+      sessionToken: string;
+    };
     const url = new URL(source.uiUrl);
     const session = {
       ...source,
@@ -189,8 +213,12 @@ export class PluginHost {
     };
     return this.runtimeRouter.connectDevSession(session);
   }
-  disconnectDevSession(pluginId: string) { this.runtimeRouter.disconnectDevSession(pluginId); }
-  listDevSessions() { return this.runtimeRouter.listDevSessions(); }
+  disconnectDevSession(pluginId: string) {
+    this.runtimeRouter.disconnectDevSession(pluginId);
+  }
+  listDevSessions() {
+    return this.runtimeRouter.listDevSessions();
+  }
 
   getHostSummary(): PluginHostSummary {
     return {
@@ -218,7 +246,7 @@ export class PluginHost {
   }
 
   getPermissionCopy(): PluginPermissionCopy[] {
-    return PLUGIN_PERMISSION_META.map(meta => ({
+    return PLUGIN_PERMISSION_META.map((meta) => ({
       permission: meta.permission,
       title: meta.title,
       description: meta.description,
@@ -235,11 +263,15 @@ export class PluginHost {
   }
 
   async installPluginFromPackage(packageName: string, approvedPermissions?: PluginPermission[]) {
-    return this.lifecycleManager.installFromPackage(packageName, { approvedPermissions: approvedPermissions ?? [] });
+    return this.lifecycleManager.installFromPackage(packageName, {
+      approvedPermissions: approvedPermissions ?? [],
+    });
   }
 
   async registerLocalPlugin(inputPath: string, approvedPermissions?: PluginPermission[]) {
-    return this.lifecycleManager.registerLocalPlugin(inputPath, { approvedPermissions: approvedPermissions ?? [] });
+    return this.lifecycleManager.registerLocalPlugin(inputPath, {
+      approvedPermissions: approvedPermissions ?? [],
+    });
   }
 
   async approvePermissions(pluginId: string, approvedPermissions: PluginPermission[]) {
@@ -248,10 +280,13 @@ export class PluginHost {
 
   async installFromGit(input: GitPluginInstallInput) {
     try {
-      return await this.lifecycleManager.installFromGit({
-        ...input,
-        approvedPermissions: input.approvedPermissions ?? [],
-      }, progress => this.publishInstallProgress(progress));
+      return await this.lifecycleManager.installFromGit(
+        {
+          ...input,
+          approvedPermissions: input.approvedPermissions ?? [],
+        },
+        (progress) => this.publishInstallProgress(progress)
+      );
     } catch (error) {
       this.publishInstallProgress({
         phase: 'failed',
@@ -262,11 +297,16 @@ export class PluginHost {
     }
   }
 
-  async installFromMarketplace(marketplaceId: string, pluginId: string, approvedPermissions: PluginPermission[]) {
+  async installFromMarketplace(
+    marketplaceId: string,
+    pluginId: string,
+    approvedPermissions: PluginPermission[]
+  ) {
     this.publishInstallProgress({ phase: 'resolving-marketplace', progress: 0.05, pluginId });
-    const entry = this.marketplaceResolver.list()
-      .find(marketplace => marketplace.marketplaceId === marketplaceId)?.catalog.plugins
-      .find(plugin => plugin.id === pluginId);
+    const entry = this.marketplaceResolver
+      .list()
+      .find((marketplace) => marketplace.marketplaceId === marketplaceId)
+      ?.catalog.plugins.find((plugin) => plugin.id === pluginId);
     if (!entry) {
       const error = new Error(`PLUGIN_MARKETPLACE_ENTRY_NOT_FOUND: ${marketplaceId}/${pluginId}`);
       this.publishInstallProgress({ phase: 'failed', progress: 1, pluginId, error: error.message });
@@ -295,17 +335,22 @@ export class PluginHost {
       return this.installFromMarketplace(
         marketplaceId,
         pluginId,
-        approvedPermissions ?? current.approvedPermissions,
+        approvedPermissions ?? current.approvedPermissions
       );
     }
     try {
       return await this.lifecycleManager.update(
         pluginId,
-        progress => this.publishInstallProgress(progress),
-        approvedPermissions,
+        (progress) => this.publishInstallProgress(progress),
+        approvedPermissions
       );
     } catch (error) {
-      this.publishInstallProgress({ phase: 'failed', progress: 1, pluginId, error: error instanceof Error ? error.message : 'Plugin update failed' });
+      this.publishInstallProgress({
+        phase: 'failed',
+        progress: 1,
+        pluginId,
+        error: error instanceof Error ? error.message : 'Plugin update failed',
+      });
       throw error;
     }
   }
@@ -325,7 +370,7 @@ export class PluginHost {
   }
 
   refreshMarketplace(input: { id: string; url: string; ref: string }) {
-    return this.marketplaceResolver.refresh(input).then(async record => {
+    return this.marketplaceResolver.refresh(input).then(async (record) => {
       const db = dbManager.getDatabase() as any;
       if (typeof db.upsertPluginMarketplace === 'function') {
         await db.upsertPluginMarketplace({
@@ -400,7 +445,8 @@ export class PluginHost {
         backgroundTasks: this.contributionAssembler.listBackgroundTasks([record]),
       },
       capabilities: this.hostServices.capabilities.list(pluginId),
-      consecutiveStartFailures: record.consecutiveStartFailures ?? this.crashPolicy.getConsecutiveFailures(pluginId),
+      consecutiveStartFailures:
+        record.consecutiveStartFailures ?? this.crashPolicy.getConsecutiveFailures(pluginId),
     };
   }
 
@@ -437,7 +483,7 @@ export class PluginHost {
       throw new Error('PLUGIN_SETTING_INVALID');
     }
     if (definition.type === 'select') {
-      const allowed = (definition.options ?? []).map(option => option.value);
+      const allowed = (definition.options ?? []).map((option) => option.value);
       if (!allowed.includes(value as string | number)) {
         throw new Error('PLUGIN_SETTING_INVALID');
       }

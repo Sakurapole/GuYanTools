@@ -9,7 +9,11 @@ export interface PluginCapabilityDependency {
 
 export function validateDependencyDeclarations(dependencies: PluginCapabilityDependency[]) {
   for (const dependency of dependencies) {
-    if (!dependency || typeof dependency.capability !== 'string' || !/^[a-z0-9][a-z0-9.-]*(\.[a-z0-9][a-z0-9-]*)?$/i.test(dependency.capability)) {
+    if (
+      !dependency ||
+      typeof dependency.capability !== 'string' ||
+      !/^[a-z0-9][a-z0-9.-]*(\.[a-z0-9][a-z0-9-]*)?$/i.test(dependency.capability)
+    ) {
       throw new Error(`PLUGIN_DEPENDENCY_INVALID: ${String(dependency?.capability)}`);
     }
   }
@@ -21,18 +25,23 @@ export function validateDependencyDeclarations(dependencies: PluginCapabilityDep
  */
 export function resolvePluginDependencies(
   record: Pick<InstalledPluginRecord, 'manifest'>,
-  capabilityRouter: CapabilityRouter,
-): { satisfied: boolean; missing: PluginCapabilityDependency[]; resolved: Array<{ dependency: string; providerPluginId: string; qualifiedId: string }> } {
+  capabilityRouter: CapabilityRouter
+): {
+  satisfied: boolean;
+  missing: PluginCapabilityDependency[];
+  resolved: Array<{ dependency: string; providerPluginId: string; qualifiedId: string }>;
+} {
   const dependencies = record.manifest.dependencies ?? [];
   const missing: PluginCapabilityDependency[] = [];
   const resolved: Array<{ dependency: string; providerPluginId: string; qualifiedId: string }> = [];
   const registered = capabilityRouter.list();
 
   for (const dependency of dependencies) {
-    const qualified = registered.find(capability =>
-      capability.qualifiedId === dependency.capability
-      || capability.id === dependency.capability
-      || capability.qualifiedId.endsWith(`.${dependency.capability}`),
+    const qualified = registered.find(
+      (capability) =>
+        capability.qualifiedId === dependency.capability ||
+        capability.id === dependency.capability ||
+        capability.qualifiedId.endsWith(`.${dependency.capability}`)
     );
     if (qualified && qualified.pluginId !== record.manifest.id) {
       resolved.push({
@@ -54,10 +63,13 @@ export function resolvePluginDependencies(
   };
 }
 
-export function assertPluginDependencies(record: Pick<InstalledPluginRecord, 'manifest'>, capabilityRouter: CapabilityRouter) {
+export function assertPluginDependencies(
+  record: Pick<InstalledPluginRecord, 'manifest'>,
+  capabilityRouter: CapabilityRouter
+) {
   const result = resolvePluginDependencies(record, capabilityRouter);
   if (!result.satisfied) {
-    const names = result.missing.map(item => item.capability).join(', ');
+    const names = result.missing.map((item) => item.capability).join(', ');
     throw new PluginApiError('INCOMPATIBLE_HOST', `PLUGIN_DEPENDENCY_MISSING: ${names}`);
   }
   return result;

@@ -29,7 +29,10 @@ export interface GitPluginInstallInput {
   url: string;
   ref: string;
   refType: 'branch' | 'tag' | 'commit';
-  expected?: Pick<MarketplacePluginSummary, 'id' | 'version' | 'resolvedCommit' | 'permissions' | 'capabilities'>;
+  expected?: Pick<
+    MarketplacePluginSummary,
+    'id' | 'version' | 'resolvedCommit' | 'permissions' | 'capabilities'
+  >;
   marketplaceId?: string;
   approvedPermissions?: PluginPermission[];
 }
@@ -41,7 +44,13 @@ export interface LocalPluginInstallInput {
 function stableSerialize(value: unknown): string {
   if (Array.isArray(value)) return `[${value.map(stableSerialize).join(',')}]`;
   if (value && typeof value === 'object') {
-    return `{${Object.keys(value as Record<string, unknown>).sort().map(key => `${JSON.stringify(key)}:${stableSerialize((value as Record<string, unknown>)[key])}`).join(',')}}`;
+    return `{${Object.keys(value as Record<string, unknown>)
+      .sort()
+      .map(
+        (key) =>
+          `${JSON.stringify(key)}:${stableSerialize((value as Record<string, unknown>)[key])}`
+      )
+      .join(',')}}`;
   }
   return JSON.stringify(value);
 }
@@ -49,16 +58,36 @@ function stableSerialize(value: unknown): string {
 export function validateMarketplaceSummary(
   manifest: InstalledPluginRecord['manifest'],
   resolvedCommit: string,
-  expected?: Pick<MarketplacePluginSummary, 'id' | 'version' | 'resolvedCommit' | 'permissions' | 'capabilities'>,
+  expected?: Pick<
+    MarketplacePluginSummary,
+    'id' | 'version' | 'resolvedCommit' | 'permissions' | 'capabilities'
+  >
 ) {
-  if (expected && (expected.id !== manifest.id || expected.version !== manifest.version || expected.resolvedCommit !== resolvedCommit)) {
-    throw new Error('PLUGIN_CATALOG_MISMATCH: catalog summary does not match plugin manifest or commit');
+  if (
+    expected &&
+    (expected.id !== manifest.id ||
+      expected.version !== manifest.version ||
+      expected.resolvedCommit !== resolvedCommit)
+  ) {
+    throw new Error(
+      'PLUGIN_CATALOG_MISMATCH: catalog summary does not match plugin manifest or commit'
+    );
   }
-  if (expected?.permissions !== undefined && stableSerialize(expected.permissions) !== stableSerialize(manifest.permissions)) {
-    throw new Error('PLUGIN_CATALOG_MISMATCH: catalog permission summary does not match plugin manifest');
+  if (
+    expected?.permissions !== undefined &&
+    stableSerialize(expected.permissions) !== stableSerialize(manifest.permissions)
+  ) {
+    throw new Error(
+      'PLUGIN_CATALOG_MISMATCH: catalog permission summary does not match plugin manifest'
+    );
   }
-  if (expected?.capabilities !== undefined && stableSerialize(expected.capabilities) !== stableSerialize(manifest.capabilities)) {
-    throw new Error('PLUGIN_CATALOG_MISMATCH: catalog capability summary does not match plugin manifest');
+  if (
+    expected?.capabilities !== undefined &&
+    stableSerialize(expected.capabilities) !== stableSerialize(manifest.capabilities)
+  ) {
+    throw new Error(
+      'PLUGIN_CATALOG_MISMATCH: catalog capability summary does not match plugin manifest'
+    );
   }
 }
 
@@ -75,17 +104,18 @@ export class PluginLifecycleManager {
     private readonly pluginBaseDir: string,
     private readonly pluginPaths = new PluginPaths(path.dirname(pluginBaseDir)),
     private readonly gitInstaller = new GitPluginInstaller(),
-    private readonly signaturePolicy: () => SignaturePolicy = () => 'warn',
+    private readonly signaturePolicy: () => SignaturePolicy = () => 'warn'
   ) {}
 
   async installFromPackage(
     packageName: string,
-    input: LocalPluginInstallInput = {},
+    input: LocalPluginInstallInput = {}
   ): Promise<InstalledPluginRecord> {
     await this.pluginManager.install([packageName], { isDev: false });
 
     const packageDir = path.join(this.pluginBaseDir, 'node_modules', packageName);
-    const { manifest, resolvedEntryPaths } = await this.manifestResolver.resolveFromDirectory(packageDir);
+    const { manifest, resolvedEntryPaths } =
+      await this.manifestResolver.resolveFromDirectory(packageDir);
     this.permissionManager.validateManifest(manifest);
     this.permissionManager.validateCompatibility(manifest);
     const approvedPermissions = input.approvedPermissions ?? [];
@@ -108,14 +138,15 @@ export class PluginLifecycleManager {
 
   async registerLocalPlugin(
     inputPath: string,
-    input: LocalPluginInstallInput = {},
+    input: LocalPluginInstallInput = {}
   ): Promise<InstalledPluginRecord> {
     const normalizedPath = path.resolve(inputPath);
-    if (!await fs.pathExists(normalizedPath)) {
+    if (!(await fs.pathExists(normalizedPath))) {
       throw new Error(`Plugin path not found: ${normalizedPath}`);
     }
 
-    const { manifest, resolvedEntryPaths } = await this.manifestResolver.resolveFromPath(normalizedPath);
+    const { manifest, resolvedEntryPaths } =
+      await this.manifestResolver.resolveFromPath(normalizedPath);
     this.permissionManager.validateManifest(manifest);
     this.permissionManager.validateCompatibility(manifest);
     const approvedPermissions = input.approvedPermissions ?? [];
@@ -160,19 +191,28 @@ export class PluginLifecycleManager {
 
   async installFromGit(
     input: GitPluginInstallInput,
-    reportProgress?: PluginInstallProgressReporter,
+    reportProgress?: PluginInstallProgressReporter
   ): Promise<InstalledPluginRecord> {
     const tempDir = await this.pluginPaths.createTemp('guyantools-plugin-git-');
     try {
       reportProgress?.({ phase: 'cloning', progress: 0.2 });
-      const result = await this.gitInstaller.install({ url: input.url, ref: input.ref, refType: input.refType, destination: tempDir });
+      const result = await this.gitInstaller.install({
+        url: input.url,
+        ref: input.ref,
+        refType: input.refType,
+        destination: tempDir,
+      });
       reportProgress?.({ phase: 'validating', progress: 0.5 });
       const { manifest } = await this.manifestResolver.resolveFromDirectory(tempDir);
       this.permissionManager.validateManifest(manifest);
       this.permissionManager.validateCompatibility(manifest);
       validateMarketplaceSummary(manifest, result.resolvedCommit, input.expected);
       const signature = await readPackageSignature(tempDir);
-      const signatureResult = evaluatePackageSignaturePolicy(this.signaturePolicy(), signature, result.packageSha256);
+      const signatureResult = evaluatePackageSignaturePolicy(
+        this.signaturePolicy(),
+        signature,
+        result.packageSha256
+      );
       // Explicit empty default: never auto-approve.
       const approvedPermissions = input.approvedPermissions ?? [];
       this.permissionManager.validateApprovedPermissions(manifest, approvedPermissions);
@@ -183,7 +223,9 @@ export class PluginLifecycleManager {
       }
       reportProgress?.({ phase: 'activating', progress: 0.75, pluginId: manifest.id });
       const activated = await this.pluginPaths.activate(manifest.id, versionPath);
-      const activatedManifest = await this.manifestResolver.resolveFromDirectory(activated.destination);
+      const activatedManifest = await this.manifestResolver.resolveFromDirectory(
+        activated.destination
+      );
       const timestamp = nowIso();
       reportProgress?.({ phase: 'registering', progress: 0.9, pluginId: manifest.id });
       const record = await this.registry.upsert({
@@ -191,8 +233,22 @@ export class PluginLifecycleManager {
         enabled: false,
         status: 'resolved',
         installSource: input.marketplaceId
-          ? { type: 'marketplace', marketplaceId: input.marketplaceId, pluginId: manifest.id, url: input.url, ref: input.ref, refType: input.refType, resolvedCommit: result.resolvedCommit }
-          : { type: 'git', url: input.url, ref: input.ref, refType: input.refType, resolvedCommit: result.resolvedCommit },
+          ? {
+              type: 'marketplace',
+              marketplaceId: input.marketplaceId,
+              pluginId: manifest.id,
+              url: input.url,
+              ref: input.ref,
+              refType: input.refType,
+              resolvedCommit: result.resolvedCommit,
+            }
+          : {
+              type: 'git',
+              url: input.url,
+              ref: input.ref,
+              refType: input.refType,
+              resolvedCommit: result.resolvedCommit,
+            },
         resolvedEntryPaths: activatedManifest.resolvedEntryPaths,
         approvedPermissions,
         packageSha256: result.packageSha256,
@@ -208,28 +264,48 @@ export class PluginLifecycleManager {
     }
   }
 
-  async update(pluginId: string, reportProgress?: PluginInstallProgressReporter, approvedPermissions?: PluginPermission[]) {
+  async update(
+    pluginId: string,
+    reportProgress?: PluginInstallProgressReporter,
+    approvedPermissions?: PluginPermission[]
+  ) {
     const current = this.registry.get(pluginId);
-    if (!current || current.installSource.type !== 'git' || !current.installSource.url || !current.installSource.ref || !current.installSource.refType) {
+    if (
+      !current ||
+      current.installSource.type !== 'git' ||
+      !current.installSource.url ||
+      !current.installSource.ref ||
+      !current.installSource.refType
+    ) {
       throw new Error(`Plugin ${pluginId} is not a Git installation`);
     }
-    return this.installFromGit({
-      url: current.installSource.url,
-      ref: current.installSource.ref,
-      refType: current.installSource.refType,
-      // Preserve previously approved set only; new permissions require re-approval.
-      approvedPermissions: approvedPermissions ?? current.approvedPermissions,
-    }, reportProgress);
+    return this.installFromGit(
+      {
+        url: current.installSource.url,
+        ref: current.installSource.ref,
+        refType: current.installSource.refType,
+        // Preserve previously approved set only; new permissions require re-approval.
+        approvedPermissions: approvedPermissions ?? current.approvedPermissions,
+      },
+      reportProgress
+    );
   }
 
   async rollback(pluginId: string) {
     const current = this.registry.get(pluginId);
     if (!current) throw new Error(`Plugin ${pluginId} is not registered`);
     const previousPath = `${this.pluginPaths.currentPath(pluginId)}.previous`;
-    if (!(await fs.pathExists(previousPath))) throw new Error(`Plugin ${pluginId} has no previous version`);
+    if (!(await fs.pathExists(previousPath)))
+      throw new Error(`Plugin ${pluginId} has no previous version`);
     const activated = await this.pluginPaths.activate(pluginId, previousPath);
     const resolved = await this.manifestResolver.resolveFromDirectory(activated.destination);
-    return this.registry.upsert({ ...current, manifest: resolved.manifest, resolvedEntryPaths: resolved.resolvedEntryPaths, status: 'disabled', enabled: false });
+    return this.registry.upsert({
+      ...current,
+      manifest: resolved.manifest,
+      resolvedEntryPaths: resolved.resolvedEntryPaths,
+      status: 'disabled',
+      enabled: false,
+    });
   }
 
   async uninstall(pluginId: string) {
@@ -246,7 +322,10 @@ export class PluginLifecycleManager {
 
     this.permissionManager.validateManifest(current.manifest);
     this.permissionManager.validateCompatibility(current.manifest);
-    this.permissionManager.validateApprovedPermissions(current.manifest, current.approvedPermissions);
+    this.permissionManager.validateApprovedPermissions(
+      current.manifest,
+      current.approvedPermissions
+    );
 
     // Partial approval is allowed: unapproved permissions are denied at IPC time.
     return this.registry.updateStatus(pluginId, 'enabled', true, undefined);

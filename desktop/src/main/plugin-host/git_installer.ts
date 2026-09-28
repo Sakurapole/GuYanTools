@@ -49,14 +49,14 @@ function runGitCommand(args: string[], cwd?: string): Promise<string> {
     });
     let stdout = '';
     let stderr = '';
-    child.stdout.on('data', chunk => {
+    child.stdout.on('data', (chunk) => {
       stdout += String(chunk);
     });
-    child.stderr.on('data', chunk => {
+    child.stderr.on('data', (chunk) => {
       stderr += String(chunk);
     });
     child.once('error', reject);
-    child.once('close', code => {
+    child.once('close', (code) => {
       if (code === 0) {
         resolve(stdout.trim());
         return;
@@ -74,14 +74,16 @@ function validateGitUrl(url: string): void {
     throw new Error('PLUGIN_GIT_URL_INVALID: repository URL is not valid');
   }
   if (parsed.protocol !== 'https:' || parsed.username || parsed.password || !parsed.hostname) {
-    throw new Error('PLUGIN_GIT_URL_INVALID: repository URL must be an HTTPS URL without credentials');
+    throw new Error(
+      'PLUGIN_GIT_URL_INVALID: repository URL must be an HTTPS URL without credentials'
+    );
   }
 }
 
 export class GitPluginInstaller {
   constructor(
     private readonly runGit: GitCommandRunner = runGitCommand,
-    private readonly hash = hashDirectory,
+    private readonly hash = hashDirectory
   ) {}
 
   async install(input: GitInstallInput): Promise<GitInstallResult> {
@@ -97,11 +99,21 @@ export class GitPluginInstaller {
       if (!['branch', 'tag', 'commit'].includes(refType)) {
         throw new Error(`PLUGIN_GIT_REF_INVALID: unsupported ref type ${refType}`);
       }
-      const fetchArgs = refType === 'commit'
-        ? ['fetch', '--depth', '1', 'origin', input.ref]
-        : ['fetch', '--depth', '1', 'origin', `refs/${refType === 'branch' ? 'heads' : 'tags'}/${input.ref}`];
+      const fetchArgs =
+        refType === 'commit'
+          ? ['fetch', '--depth', '1', 'origin', input.ref]
+          : [
+              'fetch',
+              '--depth',
+              '1',
+              'origin',
+              `refs/${refType === 'branch' ? 'heads' : 'tags'}/${input.ref}`,
+            ];
       await this.runGit(fetchArgs, input.destination);
-      await this.runGit(['checkout', '--detach', refType === 'branch' ? 'FETCH_HEAD' : input.ref], input.destination);
+      await this.runGit(
+        ['checkout', '--detach', refType === 'branch' ? 'FETCH_HEAD' : input.ref],
+        input.destination
+      );
     }
 
     const resolvedCommit = (await this.runGit(['rev-parse', 'HEAD'], input.destination)).trim();

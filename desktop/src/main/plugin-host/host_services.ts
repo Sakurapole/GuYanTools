@@ -113,9 +113,7 @@ class SystemService {
     const result = await dialog.showOpenDialog({
       title: '选择插件目录或清单文件',
       properties: ['openFile', 'openDirectory'],
-      filters: [
-        { name: 'Plugin manifest', extensions: ['json'] },
-      ],
+      filters: [{ name: 'Plugin manifest', extensions: ['json'] }],
     });
 
     if (result.canceled || result.filePaths.length === 0) {
@@ -178,9 +176,15 @@ export class HostServiceRegistry {
     this.commands = new CommandService(this.commandRouter);
     this.android = new AndroidHostService();
     this.secrets = new SecretService(() => dbManager.getDatabase() as any);
-    this.network = new NetworkService((pluginId, key) => this.secrets.get(pluginId, key), undefined, this.quota);
+    this.network = new NetworkService(
+      (pluginId, key) => this.secrets.get(pluginId, key),
+      undefined,
+      this.quota
+    );
     this.downloads = new DownloadsService(this.network, this.files);
-    this.media = new MediaService(this.files, undefined, undefined, (pluginId, key) => this.secrets.get(pluginId, key));
+    this.media = new MediaService(this.files, undefined, undefined, (pluginId, key) =>
+      this.secrets.get(pluginId, key)
+    );
   }
 
   resetPluginQuota(pluginId: string) {
@@ -189,7 +193,10 @@ export class HostServiceRegistry {
     this.capabilities.unregister(pluginId);
   }
 
-  async createPluginDataGrant(pluginId: string, accessMode: 'read' | 'write' | 'read-write' = 'read-write') {
+  async createPluginDataGrant(
+    pluginId: string,
+    accessMode: 'read' | 'write' | 'read-write' = 'read-write'
+  ) {
     const grant = this.files.create(pluginId, {
       purpose: 'plugin-data',
       rootPath: path.join(this.pluginDataRoot, pluginId),
@@ -233,15 +240,16 @@ export class HostServiceRegistry {
       maxBytes: 2 * 1024 * 1024 * 1024,
     });
     const db = dbManager.getDatabase() as any;
-    if (typeof db.createFileGrant === 'function') await db.createFileGrant({
-      id: grant.id,
-      pluginId: grant.pluginId,
-      purpose: grant.purpose,
-      rootPath: grant.rootPath,
-      accessMode: grant.accessMode,
-      expiresAt: grant.expiresAt,
-      maxBytes: grant.maxBytes,
-    });
+    if (typeof db.createFileGrant === 'function')
+      await db.createFileGrant({
+        id: grant.id,
+        pluginId: grant.pluginId,
+        purpose: grant.purpose,
+        rootPath: grant.rootPath,
+        accessMode: grant.accessMode,
+        expiresAt: grant.expiresAt,
+        maxBytes: grant.maxBytes,
+      });
     return grant;
   }
 

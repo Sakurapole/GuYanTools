@@ -1,7 +1,7 @@
 type PLGUIN = {
   name: string;
   isDev: boolean;
-}
+};
 
 interface PluginManagerOptions {
   baseDir: string;
@@ -14,7 +14,7 @@ interface PluginCache {
 
 interface PluginInfo {
   id?: string;
-  type?: "ui" | "system";
+  type?: 'ui' | 'system';
   name: string;
   pluginName?: string;
   author?: string;
@@ -25,8 +25,8 @@ interface PluginInfo {
   displayName?: string;
   pluginApiVersion?: string;
   hostVersionRange?: string;
-  trustLevel?: "sandboxed" | "trusted";
-  runtime?: "ui" | "worker" | "hybrid" | "host";
+  trustLevel?: 'sandboxed' | 'trusted';
+  runtime?: 'ui' | 'worker' | 'hybrid' | 'host';
   entry?: string;
   permissions?: string[];
   contributes?: Record<string, unknown>;

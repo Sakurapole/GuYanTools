@@ -49,7 +49,14 @@ export class PluginQuotaService {
   }
 
   async acquireNetworkSlot(pluginId: string): Promise<QuotaDecision> {
-    if (!this.hitWindow(this.networkWindows, pluginId, this.limits.networkRequestsPerMinute, Date.now())) {
+    if (
+      !this.hitWindow(
+        this.networkWindows,
+        pluginId,
+        this.limits.networkRequestsPerMinute,
+        Date.now()
+      )
+    ) {
       return { allowed: false, remaining: 0, limit: this.limits.networkRequestsPerMinute };
     }
     const current = this.networkInFlight.get(pluginId) ?? 0;
@@ -57,7 +64,11 @@ export class PluginQuotaService {
       return { allowed: false, remaining: 0, limit: this.limits.networkConcurrency };
     }
     this.networkInFlight.set(pluginId, current + 1);
-    return { allowed: true, remaining: this.limits.networkConcurrency - current - 1, limit: this.limits.networkConcurrency };
+    return {
+      allowed: true,
+      remaining: this.limits.networkConcurrency - current - 1,
+      limit: this.limits.networkConcurrency,
+    };
   }
 
   releaseNetworkSlot(pluginId: string) {
@@ -90,7 +101,12 @@ export class PluginQuotaService {
     this.jobCounts.delete(pluginId);
   }
 
-  private hitWindow(map: Map<string, WindowCounter>, key: string, limit: number, now: number): boolean {
+  private hitWindow(
+    map: Map<string, WindowCounter>,
+    key: string,
+    limit: number,
+    now: number
+  ): boolean {
     const entry = map.get(key);
     if (!entry || now - entry.windowStart >= 60_000) {
       map.set(key, { windowStart: now, count: 1 });

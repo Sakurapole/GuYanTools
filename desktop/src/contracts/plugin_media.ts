@@ -65,7 +65,11 @@ export interface MediaProbe {
   height?: number;
   bitrate?: number;
   mimeType?: string;
-  streams: Array<{ kind: 'audio' | 'video' | 'subtitle' | 'data'; codec?: string; language?: string }>;
+  streams: Array<{
+    kind: 'audio' | 'video' | 'subtitle' | 'data';
+    codec?: string;
+    language?: string;
+  }>;
 }
 
 export interface MediaTags {

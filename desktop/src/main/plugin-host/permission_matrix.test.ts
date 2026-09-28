@@ -54,10 +54,9 @@ describe('permission matrix', () => {
   });
 
   it('diffs newly declared permissions for re-approval', () => {
-    expect(diffPermissionSets(
-      ['workspace.read', 'storage.self', 'files.write'],
-      ['workspace.read'],
-    )).toEqual(['storage.self', 'files.write']);
+    expect(
+      diffPermissionSets(['workspace.read', 'storage.self', 'files.write'], ['workspace.read'])
+    ).toEqual(['storage.self', 'files.write']);
     expect(diffPermissionSets(['workspace.read'], ['workspace.read', 'storage.self'])).toEqual([]);
   });
 
@@ -73,20 +72,26 @@ describe('permission matrix', () => {
 describe('PluginPermissionManager matrix enforcement', () => {
   it('rejects sandboxed manifests requesting builtin permissions', () => {
     const manager = new PluginPermissionManager();
-    expect(() => manager.validateManifest(manifest({ permissions: ['data.project.write'] })))
-      .toThrow('unsupported permissions');
+    expect(() =>
+      manager.validateManifest(manifest({ permissions: ['data.project.write'] }))
+    ).toThrow('unsupported permissions');
   });
 
   it('allows elevated permissions for sandboxed manifests', () => {
     const manager = new PluginPermissionManager();
-    expect(() => manager.validateManifest(manifest({ permissions: ['files.write', 'android.sessions.control'] })))
-      .not.toThrow();
+    expect(() =>
+      manager.validateManifest(
+        manifest({ permissions: ['files.write', 'android.sessions.control'] })
+      )
+    ).not.toThrow();
   });
 
   it('rejects approved permissions outside the declared set', () => {
     const manager = new PluginPermissionManager();
     const m = manifest({ permissions: ['workspace.read'] });
-    expect(() => manager.validateApprovedPermissions(m, ['files.write'])).toThrow('PLUGIN_APPROVED_PERMISSION_INVALID');
+    expect(() => manager.validateApprovedPermissions(m, ['files.write'])).toThrow(
+      'PLUGIN_APPROVED_PERMISSION_INVALID'
+    );
   });
 
   it('accepts empty approved permissions as pending confirmation', () => {
@@ -97,7 +102,11 @@ describe('PluginPermissionManager matrix enforcement', () => {
 
   it('validates host version against bumped HOST_VERSION', () => {
     const manager = new PluginPermissionManager();
-    expect(() => manager.validateCompatibility(manifest({ hostVersionRange: '>=1.0.0' }))).not.toThrow();
-    expect(() => manager.validateCompatibility(manifest({ hostVersionRange: '>=2.0.0' }))).toThrow('PLUGIN_HOST_VERSION_UNSUPPORTED');
+    expect(() =>
+      manager.validateCompatibility(manifest({ hostVersionRange: '>=1.0.0' }))
+    ).not.toThrow();
+    expect(() => manager.validateCompatibility(manifest({ hostVersionRange: '>=2.0.0' }))).toThrow(
+      'PLUGIN_HOST_VERSION_UNSUPPORTED'
+    );
   });
 });

@@ -20,7 +20,10 @@ export interface ResolvedCapability extends PluginCapabilityDeclaration {
  */
 export class CapabilityRouter {
   private readonly providers = new Map<string, ResolvedCapability>();
-  private readonly invokeHandlers = new Map<string, (input: CapabilityInvokeInput) => Promise<unknown>>();
+  private readonly invokeHandlers = new Map<
+    string,
+    (input: CapabilityInvokeInput) => Promise<unknown>
+  >();
 
   register(pluginId: string, declarations: PluginCapabilityDeclaration[]): ResolvedCapability[] {
     this.unregister(pluginId);
@@ -47,25 +50,36 @@ export class CapabilityRouter {
   }
 
   list(pluginId?: string): ResolvedCapability[] {
-    return [...this.providers.values()].filter(capability => !pluginId || capability.pluginId === pluginId);
+    return [...this.providers.values()].filter(
+      (capability) => !pluginId || capability.pluginId === pluginId
+    );
   }
 
   findByHost(host: string): ResolvedCapability[] {
     const normalized = host.toLowerCase();
-    return this.list().filter(capability => capability.match?.hosts?.some(entry => {
-      const candidate = entry.toLowerCase();
-      return normalized === candidate || normalized.endsWith(`.${candidate}`);
-    }) ?? false);
+    return this.list().filter(
+      (capability) =>
+        capability.match?.hosts?.some((entry) => {
+          const candidate = entry.toLowerCase();
+          return normalized === candidate || normalized.endsWith(`.${candidate}`);
+        }) ?? false
+    );
   }
 
   findByMime(mimeType: string): ResolvedCapability[] {
     const normalized = mimeType.toLowerCase();
-    return this.list().filter(capability => capability.match?.mimeTypes?.some(entry => entry.toLowerCase() === normalized) ?? false);
+    return this.list().filter(
+      (capability) =>
+        capability.match?.mimeTypes?.some((entry) => entry.toLowerCase() === normalized) ?? false
+    );
   }
 
   findByScheme(scheme: string): ResolvedCapability[] {
     const normalized = scheme.toLowerCase().replace(/:$/, '');
-    return this.list().filter(capability => capability.match?.schemes?.some(entry => entry.toLowerCase() === normalized) ?? false);
+    return this.list().filter(
+      (capability) =>
+        capability.match?.schemes?.some((entry) => entry.toLowerCase() === normalized) ?? false
+    );
   }
 
   findByUrl(rawUrl: string): ResolvedCapability[] {
@@ -79,7 +93,11 @@ export class CapabilityRouter {
     }
   }
 
-  registerInvokeHandler(pluginId: string, capabilityId: string, handler: (input: CapabilityInvokeInput) => Promise<unknown>) {
+  registerInvokeHandler(
+    pluginId: string,
+    capabilityId: string,
+    handler: (input: CapabilityInvokeInput) => Promise<unknown>
+  ) {
     this.invokeHandlers.set(`${pluginId}.${capabilityId}`, handler);
   }
 
@@ -95,7 +113,10 @@ export class CapabilityRouter {
       throw new PluginApiError('OWNER_MISMATCH', 'PLUGIN_CAPABILITY_OWNER_MISMATCH');
     }
     if (!capability.operations.includes(input.operation)) {
-      throw new PluginApiError('INVALID_INPUT', `PLUGIN_CAPABILITY_OPERATION_DENIED: ${input.operation}`);
+      throw new PluginApiError(
+        'INVALID_INPUT',
+        `PLUGIN_CAPABILITY_OPERATION_DENIED: ${input.operation}`
+      );
     }
     const handler = this.invokeHandlers.get(qualifiedId);
     if (!handler) {

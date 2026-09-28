@@ -13,7 +13,10 @@ export interface SecretStorage {
 }
 
 export class SecretService {
-  constructor(private readonly getStore: () => SecretStore, private readonly storage: SecretStorage = safeStorage) {}
+  constructor(
+    private readonly getStore: () => SecretStore,
+    private readonly storage: SecretStorage = safeStorage
+  ) {}
 
   async set(pluginId: string, key: string, value: string) {
     if (!/^[a-zA-Z0-9._-]+$/.test(key)) throw new Error('PLUGIN_SECRET_KEY_INVALID');

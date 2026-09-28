@@ -1,9 +1,17 @@
 import type { MarketplaceCatalogEntry } from './publish_config.js';
 
-export function createCatalogEntry(manifest: Record<string, unknown>, repository: string, tag: string, resolvedCommit: string): MarketplaceCatalogEntry {
+export function createCatalogEntry(
+  manifest: Record<string, unknown>,
+  repository: string,
+  tag: string,
+  resolvedCommit: string
+): MarketplaceCatalogEntry {
   return {
     id: requireString(manifest, 'id'),
-    name: optionalString(manifest, 'displayName') ?? optionalString(manifest, 'name') ?? requireString(manifest, 'id'),
+    name:
+      optionalString(manifest, 'displayName') ??
+      optionalString(manifest, 'name') ??
+      requireString(manifest, 'id'),
     version: requireString(manifest, 'version'),
     description: optionalString(manifest, 'description'),
     repository,
@@ -28,5 +36,7 @@ function optionalString(value: Record<string, unknown>, key: string): string | u
 }
 
 function stringArray(value: unknown): string[] {
-  return Array.isArray(value) ? value.filter((item): item is string => typeof item === 'string') : [];
+  return Array.isArray(value)
+    ? value.filter((item): item is string => typeof item === 'string')
+    : [];
 }

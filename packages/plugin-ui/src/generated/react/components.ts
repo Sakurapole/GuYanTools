@@ -252,7 +252,7 @@ export const GtRadio: StencilReactComponent<GtRadioElement, GtRadioEvents, Compo
     defineCustomElement: defineGtRadio
 });
 
-export type GtRangeEvents = { onGtChange: EventName<GtRangeCustomEvent<{ value: number }>> };
+export type GtRangeEvents = { onGtChange: EventName<GtRangeCustomEvent<{ value: number; }>> };
 
 export const GtRange: StencilReactComponent<GtRangeElement, GtRangeEvents, Components.GtRange> = /*@__PURE__*/ createComponent<GtRangeElement, GtRangeEvents, Components.GtRange>({
     tagName: 'gt-range',

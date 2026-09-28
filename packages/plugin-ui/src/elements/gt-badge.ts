@@ -39,8 +39,12 @@ export class GuYanBadgeElement extends GuYanElement {
     this.root.innerHTML = `<style>${styles}</style><span class="dot" part="dot" hidden></span><span part="label"><slot></slot></span>`;
   }
 
-  connectedCallback() { this.render(); }
-  attributeChangedCallback() { this.render(); }
+  connectedCallback() {
+    this.render();
+  }
+  attributeChangedCallback() {
+    this.render();
+  }
 
   private render() {
     if (!this.hasAttribute('tone')) this.setAttribute('tone', 'neutral');

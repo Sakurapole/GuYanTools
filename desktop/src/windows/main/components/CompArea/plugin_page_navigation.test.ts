@@ -12,7 +12,11 @@ describe('home plugin page navigation', () => {
       trustLevel: 'sandboxed',
     };
 
-    expect(resolvePluginPageRoute([page], page.pluginId, page.pageId)).toBe('/custom/bilibili-media');
-    expect(resolvePluginPageRoute([], page.pluginId, page.pageId)).toBe('/plugins/runtime/guyantools.bilibili/media');
+    expect(resolvePluginPageRoute([page], page.pluginId, page.pageId)).toBe(
+      '/custom/bilibili-media'
+    );
+    expect(resolvePluginPageRoute([], page.pluginId, page.pageId)).toBe(
+      '/plugins/runtime/guyantools.bilibili/media'
+    );
   });
 });

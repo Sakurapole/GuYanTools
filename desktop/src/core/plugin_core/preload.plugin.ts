@@ -8,7 +8,7 @@ const pluginAPI = createPluginApi(
     const handler = (_event: Electron.IpcRendererEvent, payload: unknown) => listener(payload);
     ipcRenderer.on(channel, handler);
     return () => ipcRenderer.removeListener(channel, handler);
-  }) satisfies PluginRuntimeSubscribe,
+  }) satisfies PluginRuntimeSubscribe
 );
 
 contextBridge.exposeInMainWorld('pluginAPI', pluginAPI);

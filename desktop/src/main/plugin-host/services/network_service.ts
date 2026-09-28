@@ -1,4 +1,8 @@
-import type { NetworkRequest, NetworkResponse, PluginCredentialReference } from '@/contracts/plugin_media';
+import type {
+  NetworkRequest,
+  NetworkResponse,
+  PluginCredentialReference,
+} from '@/contracts/plugin_media';
 import { PluginApiError } from '../plugin_api_error';
 import type { PluginQuotaService } from '../quota';
 
@@ -46,12 +50,14 @@ export class NetworkService {
   constructor(
     private readonly readSecret: SecretReader = async () => null,
     private readonly fetcher: NetworkFetcher = globalThis.fetch.bind(globalThis),
-    private readonly quota?: PluginQuotaService,
+    private readonly quota?: PluginQuotaService
   ) {}
 
   async fetch(input: NetworkRequest, pluginId?: string): Promise<NetworkResponse> {
     let url: URL;
-    try { url = new URL(input.url); } catch {
+    try {
+      url = new URL(input.url);
+    } catch {
       throw new PluginApiError('INVALID_INPUT', 'PLUGIN_NETWORK_URL_INVALID');
     }
     if (!['http:', 'https:'].includes(url.protocol) || url.username || url.password) {
@@ -83,9 +89,8 @@ export class NetworkService {
       ? this.quota.clampNetworkResponseBytes(input.maxBytes)
       : Math.min(input.maxBytes ?? 8 * 1024 * 1024, 32 * 1024 * 1024);
 
-    const acquiredSlot = pluginId && this.quota
-      ? await this.quota.acquireNetworkSlot(pluginId)
-      : null;
+    const acquiredSlot =
+      pluginId && this.quota ? await this.quota.acquireNetworkSlot(pluginId) : null;
     if (acquiredSlot && !acquiredSlot.allowed) {
       throw new PluginApiError('QUOTA_EXCEEDED', 'PLUGIN_NETWORK_QUOTA');
     }
@@ -109,7 +114,9 @@ export class NetworkService {
       let body: unknown = new TextDecoder().decode(bytes);
       if (responseType === 'bytes') body = Buffer.from(bytes).toString('base64');
       if (responseType === 'json') {
-        try { body = JSON.parse(String(body)); } catch {
+        try {
+          body = JSON.parse(String(body));
+        } catch {
           throw new PluginApiError('INVALID_INPUT', 'PLUGIN_NETWORK_JSON_INVALID');
         }
       }

@@ -2,7 +2,10 @@ import { describe, expect, it } from 'vitest';
 import { resolveWorkerRuntimeKind } from './runtime_router';
 import type { InstalledPluginRecord } from '@/contracts/plugin_host';
 
-function record(workerRuntime?: 'browser' | 'utility', workerEntry = 'worker.js'): InstalledPluginRecord {
+function record(
+  workerRuntime?: 'browser' | 'utility',
+  workerEntry = 'worker.js'
+): InstalledPluginRecord {
   return {
     manifest: {
       schemaVersion: '1.1',

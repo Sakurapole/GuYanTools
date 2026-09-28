@@ -8,10 +8,13 @@ export interface RegisteredPluginCapability extends PluginCapabilityDeclaration 
 export class CapabilityRegistry {
   private readonly capabilities = new Map<string, RegisteredPluginCapability>();
 
-  register(pluginId: string, declarations: PluginCapabilityDeclaration[]): RegisteredPluginCapability[] {
+  register(
+    pluginId: string,
+    declarations: PluginCapabilityDeclaration[]
+  ): RegisteredPluginCapability[] {
     this.unregister(pluginId);
 
-    const registered = declarations.map(declaration => ({
+    const registered = declarations.map((declaration) => ({
       ...declaration,
       pluginId,
       qualifiedId: `${pluginId}.${declaration.id}`,
@@ -36,10 +39,12 @@ export class CapabilityRegistry {
   }
 
   list(pluginId?: string): RegisteredPluginCapability[] {
-    return Array.from(this.capabilities.values()).filter(capability => !pluginId || capability.pluginId === pluginId);
+    return Array.from(this.capabilities.values()).filter(
+      (capability) => !pluginId || capability.pluginId === pluginId
+    );
   }
 
   findByHost(host: string): RegisteredPluginCapability[] {
-    return this.list().filter(capability => capability.match?.hosts?.includes(host) ?? false);
+    return this.list().filter((capability) => capability.match?.hosts?.includes(host) ?? false);
   }
 }

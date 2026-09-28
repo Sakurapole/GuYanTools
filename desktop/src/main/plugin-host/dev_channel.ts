@@ -20,7 +20,11 @@ export class LocalPluginDevChannel implements PluginDevChannel {
   async start() {
     if (this.server) return { address: this.address, token: this.token };
     if (process.platform === 'win32') {
-      try { return await this.startNamedPipe(); } catch { /* loopback fallback below */ }
+      try {
+        return await this.startNamedPipe();
+      } catch {
+        /* loopback fallback below */
+      }
     }
     return this.startHttpFallback();
   }
@@ -29,7 +33,8 @@ export class LocalPluginDevChannel implements PluginDevChannel {
     validateDevSession(input.session);
     const expected = Buffer.from(this.token);
     const received = Buffer.from(input.token);
-    if (expected.length !== received.length || !crypto.timingSafeEqual(expected, received)) throw new Error('PLUGIN_DEV_SESSION_UNAUTHORIZED');
+    if (expected.length !== received.length || !crypto.timingSafeEqual(expected, received))
+      throw new Error('PLUGIN_DEV_SESSION_UNAUTHORIZED');
     const session = { ...input.session };
     await this.onAccepted?.(session);
     return session;
@@ -39,17 +44,22 @@ export class LocalPluginDevChannel implements PluginDevChannel {
     const server = this.server;
     this.server = null;
     if (!server) return;
-    await new Promise<void>(resolve => server.close(() => resolve()));
+    await new Promise<void>((resolve) => server.close(() => resolve()));
   }
 
   private startNamedPipe() {
     const pipePath = `\\\\.\\pipe\\guyantools-plugin-${crypto.randomBytes(8).toString('hex')}`;
     return new Promise<{ address: string; token: string }>((resolve, reject) => {
-      const server = net.createServer(socket => {
+      const server = net.createServer((socket) => {
         let payload = '';
-        socket.on('data', chunk => { payload += chunk.toString(); });
+        socket.on('data', (chunk) => {
+          payload += chunk.toString();
+        });
         socket.once('end', () => {
-          void this.acceptJson(payload).then(() => socket.end('ok\n'), () => socket.end('error\n'));
+          void this.acceptJson(payload).then(
+            () => socket.end('ok\n'),
+            () => socket.end('error\n')
+          );
         });
       });
       server.once('error', reject);
@@ -65,16 +75,36 @@ export class LocalPluginDevChannel implements PluginDevChannel {
   private startHttpFallback() {
     return new Promise<{ address: string; token: string }>((resolve, reject) => {
       const server = http.createServer((request, response) => {
-        if (request.method !== 'POST' || request.url !== '/sessions') { response.writeHead(404); response.end(); return; }
+        if (request.method !== 'POST' || request.url !== '/sessions') {
+          response.writeHead(404);
+          response.end();
+          return;
+        }
         let payload = '';
-        request.on('data', chunk => { payload += chunk.toString(); });
-        request.once('end', () => void this.acceptJson(payload).then(() => { response.writeHead(204); response.end(); }, () => { response.writeHead(403); response.end(); }));
+        request.on('data', (chunk) => {
+          payload += chunk.toString();
+        });
+        request.once(
+          'end',
+          () =>
+            void this.acceptJson(payload).then(
+              () => {
+                response.writeHead(204);
+                response.end();
+              },
+              () => {
+                response.writeHead(403);
+                response.end();
+              }
+            )
+        );
       });
       server.once('error', reject);
       server.listen(0, '127.0.0.1', () => {
         server.removeListener('error', reject);
         const address = server.address();
-        if (!address || typeof address === 'string') return reject(new Error('PLUGIN_DEV_CHANNEL_START_FAILED'));
+        if (!address || typeof address === 'string')
+          return reject(new Error('PLUGIN_DEV_CHANNEL_START_FAILED'));
         this.server = server;
         this.address = `http://127.0.0.1:${address.port}`;
         resolve({ address: this.address, token: this.token });

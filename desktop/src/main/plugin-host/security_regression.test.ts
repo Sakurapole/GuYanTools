@@ -27,31 +27,52 @@ function manifest(overrides: Record<string, unknown> = {}) {
 
 describe('plugin security regression guards', () => {
   it('rejects arbitrary commands outside the plugin namespace', () => {
-    expect(() => validatePluginCommand('guyantools.example', 'shell.exec')).toThrow('PLUGIN_COMMAND_DENIED');
-    expect(() => validatePluginCommand('guyantools.example', 'guyantools.example.resolve')).not.toThrow();
+    expect(() => validatePluginCommand('guyantools.example', 'shell.exec')).toThrow(
+      'PLUGIN_COMMAND_DENIED'
+    );
+    expect(() =>
+      validatePluginCommand('guyantools.example', 'guyantools.example.resolve')
+    ).not.toThrow();
   });
 
   it('redacts credentials and sensitive fields before plugin metadata is logged', () => {
-    const safe = redactPluginLogMeta({ token: 'secret-token', Cookie: 'SESSDATA=secret', nested: { password: 'secret-password' }, ok: 'value' });
+    const safe = redactPluginLogMeta({
+      token: 'secret-token',
+      Cookie: 'SESSDATA=secret',
+      nested: { password: 'secret-password' },
+      ok: 'value',
+    });
     expect(JSON.stringify(safe)).not.toContain('secret-token');
     expect(JSON.stringify(safe)).not.toContain('SESSDATA');
     expect(JSON.stringify(safe)).not.toContain('secret-password');
-    expect(safe).toMatchObject({ token: '[REDACTED]', Cookie: '[REDACTED]', nested: { password: '[REDACTED]' }, ok: 'value' });
+    expect(safe).toMatchObject({
+      token: '[REDACTED]',
+      Cookie: '[REDACTED]',
+      nested: { password: '[REDACTED]' },
+      ok: 'value',
+    });
   });
 
   it('blocks sandboxed host-runtime privilege escalation', () => {
     const manager = new PluginPermissionManager();
-    expect(() => manager.validateManifest(manifest({ runtime: 'host' }))).toThrow('cannot use host runtime');
+    expect(() => manager.validateManifest(manifest({ runtime: 'host' }))).toThrow(
+      'cannot use host runtime'
+    );
   });
 
   it('blocks unknown permissions in the manifest', () => {
     const manager = new PluginPermissionManager();
-    expect(() => manager.validateManifest(manifest({ permissions: ['not.a.real.permission' as never] })))
-      .toThrow('unsupported permissions');
+    expect(() =>
+      manager.validateManifest(manifest({ permissions: ['not.a.real.permission' as never] }))
+    ).toThrow('unsupported permissions');
   });
 
   it('enforces hardened sandbox webPreferences', () => {
-    const prefs = getSandboxedPluginWebPreferences('/tmp/preload.js', 'guyantools.demo', 'home') as Record<string, unknown>;
+    const prefs = getSandboxedPluginWebPreferences(
+      '/tmp/preload.js',
+      'guyantools.demo',
+      'home'
+    ) as Record<string, unknown>;
     expect(prefs.contextIsolation).toBe(true);
     expect(prefs.sandbox).toBe(true);
     expect(prefs.nodeIntegration).toBe(false);
@@ -78,23 +99,27 @@ describe('plugin security regression guards', () => {
 
   it('rejects invalid dev session payloads', () => {
     expect(() => validateDevSession(null)).toThrow('PLUGIN_DEV_SESSION_INVALID');
-    expect(() => validateDevSession({
-      pluginId: 'guyantools.demo',
-      rootPath: 'relative/path',
-      uiUrl: 'http://127.0.0.1:5173/',
-      host: '127.0.0.1',
-      port: 5173,
-      sessionToken: 'a'.repeat(40),
-      startedAt: new Date().toISOString(),
-    })).toThrow('rootPath must be absolute');
-    expect(() => validateDevSession({
-      pluginId: 'guyantools.demo',
-      rootPath: 'C:\\tmp\\demo',
-      uiUrl: 'http://0.0.0.0:5173/',
-      host: '127.0.0.1',
-      port: 5173,
-      sessionToken: 'a'.repeat(40),
-      startedAt: new Date().toISOString(),
-    })).toThrow('uiUrl must be loopback');
+    expect(() =>
+      validateDevSession({
+        pluginId: 'guyantools.demo',
+        rootPath: 'relative/path',
+        uiUrl: 'http://127.0.0.1:5173/',
+        host: '127.0.0.1',
+        port: 5173,
+        sessionToken: 'a'.repeat(40),
+        startedAt: new Date().toISOString(),
+      })
+    ).toThrow('rootPath must be absolute');
+    expect(() =>
+      validateDevSession({
+        pluginId: 'guyantools.demo',
+        rootPath: 'C:\\tmp\\demo',
+        uiUrl: 'http://0.0.0.0:5173/',
+        host: '127.0.0.1',
+        port: 5173,
+        sessionToken: 'a'.repeat(40),
+        startedAt: new Date().toISOString(),
+      })
+    ).toThrow('uiUrl must be loopback');
   });
 });

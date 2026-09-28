@@ -67,7 +67,7 @@ export class PluginPaths {
     try {
       await fs.rename(staging, destination);
     } catch (error) {
-      if (await fs.pathExists(previous) && !(await fs.pathExists(destination))) {
+      if ((await fs.pathExists(previous)) && !(await fs.pathExists(destination))) {
         await fs.rename(previous, destination);
       }
       throw error;

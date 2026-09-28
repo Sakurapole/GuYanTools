@@ -29,7 +29,7 @@ export class PluginCommandRouter {
   }
 
   list(pluginId?: string): PluginCommandRoute[] {
-    return [...this.handlers.values()].filter(route => !pluginId || route.pluginId === pluginId);
+    return [...this.handlers.values()].filter((route) => !pluginId || route.pluginId === pluginId);
   }
 
   has(commandId: string) {
@@ -55,9 +55,12 @@ export class PluginCommandRouter {
     }
 
     return Promise.race([
-      (result as Promise<unknown>).then(value => ({ accepted: true, result: value })),
+      (result as Promise<unknown>).then((value) => ({ accepted: true, result: value })),
       new Promise<never>((_, reject) => {
-        setTimeout(() => reject(new PluginApiError('INTERNAL', `PLUGIN_COMMAND_TIMEOUT: ${commandId}`)), timeoutMs);
+        setTimeout(
+          () => reject(new PluginApiError('INTERNAL', `PLUGIN_COMMAND_TIMEOUT: ${commandId}`)),
+          timeoutMs
+        );
       }),
     ]);
   }

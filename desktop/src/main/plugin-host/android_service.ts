@@ -6,7 +6,11 @@ import type {
 } from '@/contracts/android-tools';
 import type { PluginRuntimeContext } from '@/contracts/plugin_host';
 import { androidAdbService, androidFastbootService, androidScrcpyService } from '../android-tools';
-import { validateDeviceSerial, validateFastbootVarNames, validateSessionId } from '../android-tools/ipc_guards';
+import {
+  validateDeviceSerial,
+  validateFastbootVarNames,
+  validateSessionId,
+} from '../android-tools/ipc_guards';
 import { PluginContextGuard } from './context_guard';
 
 interface AndroidDeviceServiceLike {
@@ -15,9 +19,18 @@ interface AndroidDeviceServiceLike {
 }
 
 interface AndroidSessionServiceLike {
-  startMirror: (input: { deviceSerial: string; keyboard?: 'uhid' | 'sdk'; mouse?: 'uhid' | 'sdk' }, ownerPluginId?: string) => Promise<AndroidSession>;
-  startAudio: (input: { deviceSerial: string; duplicateOnDevice?: boolean }, ownerPluginId?: string) => Promise<AndroidSession>;
-  startOtg: (input: { deviceSerial: string; keyboard?: boolean; mouse?: boolean }, ownerPluginId?: string) => Promise<AndroidSession>;
+  startMirror: (
+    input: { deviceSerial: string; keyboard?: 'uhid' | 'sdk'; mouse?: 'uhid' | 'sdk' },
+    ownerPluginId?: string
+  ) => Promise<AndroidSession>;
+  startAudio: (
+    input: { deviceSerial: string; duplicateOnDevice?: boolean },
+    ownerPluginId?: string
+  ) => Promise<AndroidSession>;
+  startOtg: (
+    input: { deviceSerial: string; keyboard?: boolean; mouse?: boolean },
+    ownerPluginId?: string
+  ) => Promise<AndroidSession>;
   listSessions: () => AndroidSession[];
   stopSession: (sessionId: string) => Promise<void>;
   stopSessionsForOwner: (ownerPluginId: string) => Promise<void>;
@@ -42,9 +55,11 @@ type AudioInput = { deviceSerial: string; duplicateOnDevice?: boolean };
 type OtgInput = { deviceSerial: string; keyboard?: boolean; mouse?: boolean };
 
 function readObject(input: unknown, allowedKeys: readonly string[]) {
-  if (!input || typeof input !== 'object' || Array.isArray(input)) throw new Error('ANDROID_PAYLOAD_INVALID');
+  if (!input || typeof input !== 'object' || Array.isArray(input))
+    throw new Error('ANDROID_PAYLOAD_INVALID');
   const record = input as Record<string, unknown>;
-  if (Object.keys(record).some(key => !allowedKeys.includes(key))) throw new Error('ANDROID_PAYLOAD_INVALID');
+  if (Object.keys(record).some((key) => !allowedKeys.includes(key)))
+    throw new Error('ANDROID_PAYLOAD_INVALID');
   return record;
 }
 
@@ -55,8 +70,10 @@ function readSerial(input: Record<string, unknown>) {
 function readMirrorInput(input: unknown): MirrorInput {
   const record = readObject(input, ['deviceSerial', 'keyboard', 'mouse']);
   const deviceSerial = readSerial(record);
-  if (record.keyboard !== undefined && record.keyboard !== 'uhid' && record.keyboard !== 'sdk') throw new Error('ANDROID_PAYLOAD_INVALID');
-  if (record.mouse !== undefined && record.mouse !== 'uhid' && record.mouse !== 'sdk') throw new Error('ANDROID_PAYLOAD_INVALID');
+  if (record.keyboard !== undefined && record.keyboard !== 'uhid' && record.keyboard !== 'sdk')
+    throw new Error('ANDROID_PAYLOAD_INVALID');
+  if (record.mouse !== undefined && record.mouse !== 'uhid' && record.mouse !== 'sdk')
+    throw new Error('ANDROID_PAYLOAD_INVALID');
   return {
     deviceSerial,
     keyboard: record.keyboard as MirrorInput['keyboard'],
@@ -67,15 +84,18 @@ function readMirrorInput(input: unknown): MirrorInput {
 function readAudioInput(input: unknown): AudioInput {
   const record = readObject(input, ['deviceSerial', 'duplicateOnDevice']);
   const deviceSerial = readSerial(record);
-  if (record.duplicateOnDevice !== undefined && typeof record.duplicateOnDevice !== 'boolean') throw new Error('ANDROID_PAYLOAD_INVALID');
+  if (record.duplicateOnDevice !== undefined && typeof record.duplicateOnDevice !== 'boolean')
+    throw new Error('ANDROID_PAYLOAD_INVALID');
   return { deviceSerial, duplicateOnDevice: record.duplicateOnDevice as boolean | undefined };
 }
 
 function readOtgInput(input: unknown): OtgInput {
   const record = readObject(input, ['deviceSerial', 'keyboard', 'mouse']);
   const deviceSerial = readSerial(record);
-  if (record.keyboard !== undefined && typeof record.keyboard !== 'boolean') throw new Error('ANDROID_PAYLOAD_INVALID');
-  if (record.mouse !== undefined && typeof record.mouse !== 'boolean') throw new Error('ANDROID_PAYLOAD_INVALID');
+  if (record.keyboard !== undefined && typeof record.keyboard !== 'boolean')
+    throw new Error('ANDROID_PAYLOAD_INVALID');
+  if (record.mouse !== undefined && typeof record.mouse !== 'boolean')
+    throw new Error('ANDROID_PAYLOAD_INVALID');
   return {
     deviceSerial,
     keyboard: record.keyboard as boolean | undefined,
@@ -108,14 +128,20 @@ export class AndroidHostService {
 
   onDevicesChanged(context: PluginRuntimeContext, listener: (event: AndroidDeviceEvent) => void) {
     this.guard.requirePermission(context, 'android.devices.read');
-    const unsubscribe = this.devices.onDevicesChanged(event => listener({ devices: event.devices.map(device => ({ ...device })), timestamp: event.timestamp }));
+    const unsubscribe = this.devices.onDevicesChanged((event) =>
+      listener({
+        devices: event.devices.map((device) => ({ ...device })),
+        timestamp: event.timestamp,
+      })
+    );
     return this.trackSubscription(context.pluginId, unsubscribe);
   }
 
   async listSessions(context: PluginRuntimeContext) {
     this.guard.requirePermission(context, 'android.sessions.read');
-    return this.sessions.listSessions()
-      .filter(session => session.ownerPluginId === context.pluginId)
+    return this.sessions
+      .listSessions()
+      .filter((session) => session.ownerPluginId === context.pluginId)
       .map(cloneSession);
   }
 
@@ -145,7 +171,7 @@ export class AndroidHostService {
   async stop(context: PluginRuntimeContext, sessionId: string) {
     this.guard.requirePermission(context, 'android.sessions.control');
     const id = validateSessionId(sessionId);
-    const session = this.sessions.listSessions().find(candidate => candidate.sessionId === id);
+    const session = this.sessions.listSessions().find((candidate) => candidate.sessionId === id);
     if (!session) throw new Error('ANDROID_SESSION_NOT_FOUND');
     this.guard.requireOwner(context, session.ownerPluginId ?? '');
     await this.sessions.stopSession(id);
@@ -153,7 +179,7 @@ export class AndroidHostService {
 
   onSessionEvent(context: PluginRuntimeContext, listener: (event: AndroidSessionEvent) => void) {
     this.guard.requirePermission(context, 'android.sessions.read');
-    const unsubscribe = this.sessions.onSessionEvent(event => {
+    const unsubscribe = this.sessions.onSessionEvent((event) => {
       if (event.session.ownerPluginId !== context.pluginId) return;
       listener({ ...event, session: cloneSession(event.session) });
     });
@@ -170,9 +196,14 @@ export class AndroidHostService {
     return this.fastboot.getVars(validateDeviceSerial(serial), validateFastbootVarNames(names));
   }
 
-  async fastbootReboot(context: PluginRuntimeContext, serial: string, target?: 'system' | 'bootloader') {
+  async fastbootReboot(
+    context: PluginRuntimeContext,
+    serial: string,
+    target?: 'system' | 'bootloader'
+  ) {
     this.guard.requirePermission(context, 'android.fastboot.reboot');
-    if (target !== undefined && target !== 'system' && target !== 'bootloader') throw new Error('ANDROID_FASTBOOT_OPERATION_DENIED');
+    if (target !== undefined && target !== 'system' && target !== 'bootloader')
+      throw new Error('ANDROID_FASTBOOT_OPERATION_DENIED');
     await this.fastboot.reboot(validateDeviceSerial(serial), target);
   }
 

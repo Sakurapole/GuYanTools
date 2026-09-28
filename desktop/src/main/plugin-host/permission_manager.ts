@@ -1,8 +1,4 @@
-import type {
-  PluginManifest,
-  PluginPermission,
-  PluginTrustLevel,
-} from '@/contracts/plugin_host';
+import type { PluginManifest, PluginPermission, PluginTrustLevel } from '@/contracts/plugin_host';
 import { getAllowedPermissionsForTrust } from './permission_matrix';
 
 // Plugin compatibility follows the host platform API version, independent of the app package version.
@@ -13,7 +9,10 @@ export const PLUGIN_UI_API_VERSION = '1.0.0';
 export const PLUGIN_POLICY_VERSION = '2';
 
 function versionParts(value: string) {
-  const match = value.trim().replace(/^v/, '').match(/^(\d+)\.(\d+)\.(\d+)/);
+  const match = value
+    .trim()
+    .replace(/^v/, '')
+    .match(/^(\d+)\.(\d+)\.(\d+)/);
   return match ? match.slice(1).map(Number) : null;
 }
 
@@ -26,13 +25,20 @@ function satisfiesRange(version: string, range: string) {
   const target = [Number(match[2]), Number(match[3]), Number(match[4])];
   const comparison = actual[0] - target[0] || actual[1] - target[1] || actual[2] - target[2];
   switch (match[1]) {
-    case '>=': return comparison >= 0;
-    case '>': return comparison > 0;
-    case '<=': return comparison <= 0;
-    case '<': return comparison < 0;
-    case '^': return actual[0] === target[0] && comparison >= 0;
-    case '~': return actual[0] === target[0] && actual[1] === target[1] && comparison >= 0;
-    default: return comparison === 0;
+    case '>=':
+      return comparison >= 0;
+    case '>':
+      return comparison > 0;
+    case '<=':
+      return comparison <= 0;
+    case '<':
+      return comparison < 0;
+    case '^':
+      return actual[0] === target[0] && comparison >= 0;
+    case '~':
+      return actual[0] === target[0] && actual[1] === target[1] && comparison >= 0;
+    default:
+      return comparison === 0;
   }
 }
 
@@ -43,9 +49,11 @@ export class PluginPermissionManager {
 
   validateManifest(manifest: PluginManifest) {
     const allowed = this.getAllowedPermissions(manifest.trustLevel);
-    const rejected = manifest.permissions.filter(permission => !allowed.includes(permission));
+    const rejected = manifest.permissions.filter((permission) => !allowed.includes(permission));
     if (rejected.length > 0) {
-      throw new Error(`Plugin ${manifest.id} requested unsupported permissions: ${rejected.join(', ')}`);
+      throw new Error(
+        `Plugin ${manifest.id} requested unsupported permissions: ${rejected.join(', ')}`
+      );
     }
 
     if (manifest.trustLevel === 'sandboxed' && manifest.runtime === 'host') {
@@ -67,11 +75,11 @@ export class PluginPermissionManager {
 
   validateApprovedPermissions(manifest: PluginManifest, approvedPermissions: PluginPermission[]) {
     const declared = new Set(manifest.permissions);
-    if (approvedPermissions.some(permission => !declared.has(permission))) {
+    if (approvedPermissions.some((permission) => !declared.has(permission))) {
       throw new Error(`PLUGIN_APPROVED_PERMISSION_INVALID: ${manifest.id}`);
     }
     const allowed = new Set(this.getAllowedPermissions(manifest.trustLevel));
-    if (approvedPermissions.some(permission => !allowed.has(permission))) {
+    if (approvedPermissions.some((permission) => !allowed.has(permission))) {
       throw new Error(`PLUGIN_APPROVED_PERMISSION_INVALID: ${manifest.id}`);
     }
   }

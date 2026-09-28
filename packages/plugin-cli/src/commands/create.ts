@@ -6,7 +6,9 @@ export async function createPlugin(name: string, framework: 'vue' | 'react', cwd
   if (!/^[a-z0-9][a-z0-9-]*$/.test(name)) throw new Error('PLUGIN_CREATE_INVALID_NAME');
   const moduleDirectory = path.dirname(fileURLToPath(import.meta.url));
   const bundledTemplates = path.resolve(moduleDirectory, '..', 'templates');
-  const sourceRoot = await exists(bundledTemplates) ? bundledTemplates : path.resolve(moduleDirectory, '..', '..', 'src', 'templates');
+  const sourceRoot = (await exists(bundledTemplates))
+    ? bundledTemplates
+    : path.resolve(moduleDirectory, '..', '..', 'src', 'templates');
   const targetRoot = path.join(cwd, name);
   await fs.cp(path.join(sourceRoot, 'shared'), targetRoot, { recursive: true });
   await fs.cp(path.join(sourceRoot, framework), targetRoot, { recursive: true, force: true });
@@ -25,4 +27,11 @@ export async function createPlugin(name: string, framework: 'vue' | 'react', cwd
   return targetRoot;
 }
 
-async function exists(directory: string) { try { await fs.access(directory); return true; } catch { return false; } }
+async function exists(directory: string) {
+  try {
+    await fs.access(directory);
+    return true;
+  } catch {
+    return false;
+  }
+}

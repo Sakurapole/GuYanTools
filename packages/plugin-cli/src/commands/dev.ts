@@ -18,13 +18,35 @@ export async function devPlugin(options: DevOptions = {}) {
   const rootPath = path.resolve(options.rootPath ?? process.cwd());
   const command = options.command ?? 'vite';
   const port = options.port ?? 5173;
-  const child = spawn(command, options.commandArgs ?? ['--host', '127.0.0.1', '--port', String(port), '--strictPort'], { cwd: rootPath, shell: false, stdio: ['ignore', 'pipe', 'pipe'] });
+  const child = spawn(
+    command,
+    options.commandArgs ?? ['--host', '127.0.0.1', '--port', String(port), '--strictPort'],
+    { cwd: rootPath, shell: false, stdio: ['ignore', 'pipe', 'pipe'] }
+  );
   const actualPort = await waitForVitePort(child, port);
-  const pluginId = (JSON.parse(await fs.readFile(path.join(rootPath, 'guyantools.plugin.json'), 'utf8')) as { id: string }).id;
-  const session = { pluginId, uiUrl: `http://127.0.0.1:${actualPort}/index.html`, workerUrl: `http://127.0.0.1:${actualPort}/worker.js`, sessionToken: createSessionToken() };
-  const devSession: PluginDevSession = { ...session, rootPath, host: '127.0.0.1', port: actualPort, startedAt: new Date().toISOString() };
+  const pluginId = (
+    JSON.parse(await fs.readFile(path.join(rootPath, 'guyantools.plugin.json'), 'utf8')) as {
+      id: string;
+    }
+  ).id;
+  const session = {
+    pluginId,
+    uiUrl: `http://127.0.0.1:${actualPort}/index.html`,
+    workerUrl: `http://127.0.0.1:${actualPort}/worker.js`,
+    sessionToken: createSessionToken(),
+  };
+  const devSession: PluginDevSession = {
+    ...session,
+    rootPath,
+    host: '127.0.0.1',
+    port: actualPort,
+    startedAt: new Date().toISOString(),
+  };
   const sessionPath = await writeSessionFile(rootPath, session);
-  const cleanup = async () => { if (!child.killed) child.kill(); await removeSessionFile(rootPath); };
+  const cleanup = async () => {
+    if (!child.killed) child.kill();
+    await removeSessionFile(rootPath);
+  };
   child.once('error', () => void cleanup());
   process.once('SIGINT', () => void cleanup());
   process.once('SIGTERM', () => void cleanup());
@@ -46,15 +68,20 @@ function waitForVitePort(child: ReturnType<typeof spawn>, fallbackPort: number):
       const match = output.match(/https?:\/\/127\.0\.0\.1:(\d+)\//);
       if (match) finish(Number(match[1]));
     };
-    const onExit = (code: number | null) => finish(fallbackPort, code === 0 ? undefined : new Error(`PLUGIN_DEV_SERVER_EXITED: ${code}`));
+    const onExit = (code: number | null) =>
+      finish(fallbackPort, code === 0 ? undefined : new Error(`PLUGIN_DEV_SERVER_EXITED: ${code}`));
     const onError = (error: Error) => finish(fallbackPort, error);
     const finish = (port: number, error?: Error) => {
-      child.stdout?.off('data', onData); child.stderr?.off('data', onData);
-      child.off('exit', onExit); child.off('error', onError);
+      child.stdout?.off('data', onData);
+      child.stderr?.off('data', onData);
+      child.off('exit', onExit);
+      child.off('error', onError);
       error ? reject(error) : resolve(port);
     };
-    child.stdout?.on('data', onData); child.stderr?.on('data', onData);
-    child.once('exit', onExit); child.once('error', onError);
+    child.stdout?.on('data', onData);
+    child.stderr?.on('data', onData);
+    child.once('exit', onExit);
+    child.once('error', onError);
     setTimeout(() => finish(fallbackPort), 1_500).unref?.();
   });
 }

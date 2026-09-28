@@ -7,7 +7,8 @@ export async function validatePlugin(rootPath = process.cwd()) {
   const manifest = JSON.parse(await fs.readFile(manifestPath, 'utf8')) as Record<string, any>;
   validateProductionManifest(manifest);
   for (const entry of Object.values(manifest.entry) as unknown[]) {
-    if (typeof entry !== 'string' || path.isAbsolute(entry)) throw new Error('PLUGIN_ENTRY_INVALID');
+    if (typeof entry !== 'string' || path.isAbsolute(entry))
+      throw new Error('PLUGIN_ENTRY_INVALID');
   }
   return manifest;
 }

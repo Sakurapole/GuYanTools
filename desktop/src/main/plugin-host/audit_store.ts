@@ -55,7 +55,9 @@ export class PluginAuditStore {
   }
 
   listRecent(pluginId?: string, limit = 100): PluginAuditEvent[] {
-    const filtered = pluginId ? this.recent.filter(event => event.pluginId === pluginId) : this.recent;
+    const filtered = pluginId
+      ? this.recent.filter((event) => event.pluginId === pluginId)
+      : this.recent;
     return filtered.slice(-limit);
   }
 }

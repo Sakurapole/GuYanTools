@@ -3,7 +3,9 @@ import { resolvePluginDependencies, assertPluginDependencies } from './dependenc
 import { CapabilityRouter } from './capability_router';
 import type { InstalledPluginRecord } from '@/contracts/plugin_host';
 
-function record(dependencies?: Array<{ capability: string; optional?: boolean }>): Pick<InstalledPluginRecord, 'manifest'> {
+function record(
+  dependencies?: Array<{ capability: string; optional?: boolean }>
+): Pick<InstalledPluginRecord, 'manifest'> {
   return {
     manifest: {
       schemaVersion: '1.1',
@@ -28,14 +30,16 @@ function record(dependencies?: Array<{ capability: string; optional?: boolean }>
 describe('PluginCapabilityDependency resolver', () => {
   it('satisfies dependencies when another plugin provides the capability', () => {
     const router = new CapabilityRouter();
-    router.register('guyantools.provider', [{
-      id: 'source',
-      kind: 'media-source',
-      operations: ['resolve'],
-    }]);
+    router.register('guyantools.provider', [
+      {
+        id: 'source',
+        kind: 'media-source',
+        operations: ['resolve'],
+      },
+    ]);
     const result = resolvePluginDependencies(
       record([{ capability: 'guyantools.provider.source' }]),
-      router,
+      router
     );
     expect(result.satisfied).toBe(true);
     expect(result.resolved[0].providerPluginId).toBe('guyantools.provider');
@@ -51,7 +55,7 @@ describe('PluginCapabilityDependency resolver', () => {
     const router = new CapabilityRouter();
     const result = resolvePluginDependencies(
       record([{ capability: 'guyantools.provider.source', optional: true }]),
-      router,
+      router
     );
     expect(result.satisfied).toBe(true);
     expect(result.missing).toHaveLength(0);

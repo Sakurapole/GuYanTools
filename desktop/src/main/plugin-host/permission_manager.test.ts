@@ -26,6 +26,8 @@ describe('plugin UI API compatibility', () => {
   it('rejects an unsupported UI API version', () => {
     const manager = new PluginPermissionManager();
 
-    expect(() => manager.validateCompatibility(manifest({ uiApiVersion: '2.0.0' }))).toThrow('PLUGIN_UI_API_VERSION_UNSUPPORTED');
+    expect(() => manager.validateCompatibility(manifest({ uiApiVersion: '2.0.0' }))).toThrow(
+      'PLUGIN_UI_API_VERSION_UNSUPPORTED'
+    );
   });
 });

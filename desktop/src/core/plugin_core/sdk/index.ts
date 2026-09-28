@@ -1,6 +1,4 @@
-export {
-  createPluginApi,
-} from '@guyantools/plugin-sdk';
+export { createPluginApi } from '@guyantools/plugin-sdk';
 export type {
   PluginRuntimeApi,
   PluginRuntimeContext,

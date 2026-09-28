@@ -29,34 +29,51 @@ export function generateSigningKeyPair() {
   return crypto.generateKeyPairSync('ed25519');
 }
 
-export function signPayload(privateKey: crypto.KeyObject | string, payload: string | Buffer): string {
-  const key = typeof privateKey === 'string'
-    ? crypto.createPrivateKey({ key: privateKey, format: 'pem', type: 'pkcs8' })
-    : privateKey;
-  return crypto.sign(null, Buffer.isBuffer(payload) ? payload : Buffer.from(payload), key).toString('base64');
+export function signPayload(
+  privateKey: crypto.KeyObject | string,
+  payload: string | Buffer
+): string {
+  const key =
+    typeof privateKey === 'string'
+      ? crypto.createPrivateKey({ key: privateKey, format: 'pem', type: 'pkcs8' })
+      : privateKey;
+  return crypto
+    .sign(null, Buffer.isBuffer(payload) ? payload : Buffer.from(payload), key)
+    .toString('base64');
 }
 
-export function verifyPayload(publicKey: crypto.KeyObject | string, payload: string | Buffer, signatureBase64: string): boolean {
+export function verifyPayload(
+  publicKey: crypto.KeyObject | string,
+  payload: string | Buffer,
+  signatureBase64: string
+): boolean {
   try {
-    const key = typeof publicKey === 'string'
-      ? crypto.createPublicKey({ key: publicKey, format: 'pem', type: 'spki' })
-      : publicKey;
+    const key =
+      typeof publicKey === 'string'
+        ? crypto.createPublicKey({ key: publicKey, format: 'pem', type: 'spki' })
+        : publicKey;
     return crypto.verify(
       null,
       Buffer.isBuffer(payload) ? payload : Buffer.from(payload),
       key,
-      base64ToBuffer(signatureBase64),
+      base64ToBuffer(signatureBase64)
     );
   } catch {
     return false;
   }
 }
 
-export function verifyPackageSignature(signature: PluginPackageSignature, packageSha256: string): void {
+export function verifyPackageSignature(
+  signature: PluginPackageSignature,
+  packageSha256: string
+): void {
   if (signature.algorithm !== 'ed25519') {
     throw new Error('PLUGIN_SIGNATURE_ALGORITHM_UNSUPPORTED');
   }
-  if (!/^[0-9a-f]{64}$/i.test(signature.packageSha256) || signature.packageSha256.toLowerCase() !== packageSha256.toLowerCase()) {
+  if (
+    !/^[0-9a-f]{64}$/i.test(signature.packageSha256) ||
+    signature.packageSha256.toLowerCase() !== packageSha256.toLowerCase()
+  ) {
     throw new Error('PLUGIN_SIGNATURE_PACKAGE_MISMATCH');
   }
   const payload = `${signature.pluginId}\n${signature.version}\n${signature.packageSha256.toLowerCase()}`;
@@ -74,7 +91,9 @@ export function verifyCatalogSignature(catalogRaw: string, signature: CatalogSig
   }
 }
 
-export async function readPackageSignature(pluginRoot: string): Promise<PluginPackageSignature | null> {
+export async function readPackageSignature(
+  pluginRoot: string
+): Promise<PluginPackageSignature | null> {
   const signaturePath = path.join(pluginRoot, 'signature.json');
   try {
     const raw = await fs.readFile(signaturePath, 'utf8');
@@ -93,7 +112,7 @@ export async function readPackageSignature(pluginRoot: string): Promise<PluginPa
 export function evaluatePackageSignaturePolicy(
   policy: SignaturePolicy,
   signature: PluginPackageSignature | null,
-  packageSha256: string,
+  packageSha256: string
 ): { verified: boolean; warning?: string } {
   if (policy === 'off') return { verified: false };
   if (!signature) {

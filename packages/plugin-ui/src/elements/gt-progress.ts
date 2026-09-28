@@ -54,14 +54,26 @@ export class GuYanProgressElement extends GuYanElement {
     this.valueEl = this.root.querySelector('.value')!;
   }
 
-  get value(): number { return Number(this.getAttribute('value') ?? 0); }
-  set value(value: number) { this.setAttribute('value', String(value)); }
+  get value(): number {
+    return Number(this.getAttribute('value') ?? 0);
+  }
+  set value(value: number) {
+    this.setAttribute('value', String(value));
+  }
 
-  get max(): number { return Number(this.getAttribute('max') ?? 100); }
-  set max(value: number) { this.setAttribute('max', String(value)); }
+  get max(): number {
+    return Number(this.getAttribute('max') ?? 100);
+  }
+  set max(value: number) {
+    this.setAttribute('max', String(value));
+  }
 
-  connectedCallback() { this.render(); }
-  attributeChangedCallback() { this.render(); }
+  connectedCallback() {
+    this.render();
+  }
+  attributeChangedCallback() {
+    this.render();
+  }
 
   private render() {
     const max = Number.isFinite(this.max) && this.max > 0 ? this.max : 100;

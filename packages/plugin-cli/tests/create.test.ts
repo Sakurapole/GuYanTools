@@ -9,6 +9,8 @@ describe('plugin create', () => {
     const cwd = await fs.mkdtemp(path.join(os.tmpdir(), 'guyantools-cli-'));
     const root = await createPlugin('demo', 'react', cwd);
     expect(await fs.stat(path.join(root, 'src/ui/main.tsx'))).toBeTruthy();
-    expect(JSON.parse(await fs.readFile(path.join(root, 'guyantools.plugin.json'), 'utf8')).runtime).toBe('hybrid');
+    expect(
+      JSON.parse(await fs.readFile(path.join(root, 'guyantools.plugin.json'), 'utf8')).runtime
+    ).toBe('hybrid');
   });
 });

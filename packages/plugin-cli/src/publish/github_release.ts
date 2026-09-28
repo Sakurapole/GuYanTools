@@ -4,15 +4,32 @@ import type { CommandExecutor, CommandResult, CommandSpec } from './publish_conf
 export const processCommandExecutor: CommandExecutor = {
   run(command) {
     return new Promise<CommandResult>((resolve, reject) => {
-      const child = spawn(command.command, command.args, { cwd: command.cwd, shell: false, windowsHide: true });
+      const child = spawn(command.command, command.args, {
+        cwd: command.cwd,
+        shell: false,
+        windowsHide: true,
+      });
       let stdout = '';
       let stderr = '';
-      child.stdout.on('data', data => { stdout += data.toString(); });
-      child.stderr.on('data', data => { stderr += data.toString(); });
-      child.once('error', error => reject(new Error(`PLUGIN_PUBLISH_COMMAND_FAILED: ${displayCommand(command)}: ${error.message}`)));
-      child.once('close', code => {
+      child.stdout.on('data', (data) => {
+        stdout += data.toString();
+      });
+      child.stderr.on('data', (data) => {
+        stderr += data.toString();
+      });
+      child.once('error', (error) =>
+        reject(
+          new Error(`PLUGIN_PUBLISH_COMMAND_FAILED: ${displayCommand(command)}: ${error.message}`)
+        )
+      );
+      child.once('close', (code) => {
         if (code === 0) resolve({ stdout, stderr });
-        else reject(new Error(`PLUGIN_PUBLISH_COMMAND_FAILED: ${displayCommand(command)} (${code ?? 'unknown'}): ${stderr || stdout}`.trim()));
+        else
+          reject(
+            new Error(
+              `PLUGIN_PUBLISH_COMMAND_FAILED: ${displayCommand(command)} (${code ?? 'unknown'}): ${stderr || stdout}`.trim()
+            )
+          );
       });
     });
   },
@@ -29,5 +46,10 @@ export async function ensureGitHubCredentials(executor: CommandExecutor): Promis
 }
 
 export function displayCommand(command: CommandSpec): string {
-  return [command.command, ...command.args.map(argument => /[\s"]/u.test(argument) ? JSON.stringify(argument) : argument)].join(' ');
+  return [
+    command.command,
+    ...command.args.map((argument) =>
+      /[\s"]/u.test(argument) ? JSON.stringify(argument) : argument
+    ),
+  ].join(' ');
 }

@@ -67,8 +67,12 @@ export class GuYanLogViewElement extends GuYanElement {
     this.scrollTop = this.scrollHeight;
   }
 
-  connectedCallback() { this.render(); }
-  attributeChangedCallback() { this.render(); }
+  connectedCallback() {
+    this.render();
+  }
+  attributeChangedCallback() {
+    this.render();
+  }
 
   private render() {
     if (this.entries.length === 0) {
@@ -78,14 +82,16 @@ export class GuYanLogViewElement extends GuYanElement {
       return;
     }
     this.removeAttribute('empty');
-    this.container.innerHTML = this.entries.map(entry => {
-      const level = entry.level ?? 'info';
-      const time = entry.time ?? '';
-      const message = String(entry.message ?? '')
-        .replaceAll('&', '&amp;')
-        .replaceAll('<', '&lt;')
-        .replaceAll('>', '&gt;');
-      return `<div class="row"><span class="time">${time}</span><span class="level" data-level="${level}">${level}</span><span class="message">${message}</span></div>`;
-    }).join('');
+    this.container.innerHTML = this.entries
+      .map((entry) => {
+        const level = entry.level ?? 'info';
+        const time = entry.time ?? '';
+        const message = String(entry.message ?? '')
+          .replaceAll('&', '&amp;')
+          .replaceAll('<', '&lt;')
+          .replaceAll('>', '&gt;');
+        return `<div class="row"><span class="time">${time}</span><span class="level" data-level="${level}">${level}</span><span class="message">${message}</span></div>`;
+      })
+      .join('');
   }
 }

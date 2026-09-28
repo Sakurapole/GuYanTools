@@ -36,19 +36,32 @@ describe('plugin signature chain', () => {
   it('signs and verifies package payloads', () => {
     const signed = makeSignedPackage();
     expect(() => verifyPackageSignature(signed.signature, signed.packageSha256)).not.toThrow();
-    expect(verifyPayload(signed.publicKey, 'hello', signPayload(signed.privateKey, 'hello'))).toBe(true);
+    expect(verifyPayload(signed.publicKey, 'hello', signPayload(signed.privateKey, 'hello'))).toBe(
+      true
+    );
   });
 
   it('rejects tampered package hashes and signatures', () => {
     const signed = makeSignedPackage();
-    expect(() => verifyPackageSignature(signed.signature, 'b'.repeat(64))).toThrow('PLUGIN_SIGNATURE_PACKAGE_MISMATCH');
-    expect(() => verifyPackageSignature({ ...signed.signature, signature: Buffer.from('nope').toString('base64') }, signed.packageSha256))
-      .toThrow('PLUGIN_SIGNATURE_INVALID');
+    expect(() => verifyPackageSignature(signed.signature, 'b'.repeat(64))).toThrow(
+      'PLUGIN_SIGNATURE_PACKAGE_MISMATCH'
+    );
+    expect(() =>
+      verifyPackageSignature(
+        { ...signed.signature, signature: Buffer.from('nope').toString('base64') },
+        signed.packageSha256
+      )
+    ).toThrow('PLUGIN_SIGNATURE_INVALID');
   });
 
   it('verifies catalog signatures over raw catalog bytes', () => {
     const { publicKey, privateKey } = generateSigningKeyPair();
-    const raw = JSON.stringify({ schemaVersion: '1.0', marketplaceId: 'official', name: 'Official', plugins: [] });
+    const raw = JSON.stringify({
+      schemaVersion: '1.0',
+      marketplaceId: 'official',
+      name: 'Official',
+      plugins: [],
+    });
     const signature = {
       algorithm: 'ed25519' as const,
       publicKey: publicKey.export({ type: 'spki', format: 'pem' }).toString(),
@@ -56,14 +69,23 @@ describe('plugin signature chain', () => {
       signedAt: new Date().toISOString(),
     };
     expect(() => verifyCatalogSignature(raw, signature)).not.toThrow();
-    expect(() => verifyCatalogSignature(`${raw} `, signature)).toThrow('PLUGIN_CATALOG_SIGNATURE_INVALID');
+    expect(() => verifyCatalogSignature(`${raw} `, signature)).toThrow(
+      'PLUGIN_CATALOG_SIGNATURE_INVALID'
+    );
   });
 
   it('applies enforce/warn signature policies', () => {
     const signed = makeSignedPackage();
-    expect(() => evaluatePackageSignaturePolicy('enforce', null, signed.packageSha256)).toThrow('PLUGIN_SIGNATURE_REQUIRED');
-    expect(evaluatePackageSignaturePolicy('warn', null, signed.packageSha256)).toMatchObject({ verified: false, warning: 'PLUGIN_SIGNATURE_MISSING' });
-    expect(evaluatePackageSignaturePolicy('enforce', signed.signature, signed.packageSha256).verified).toBe(true);
+    expect(() => evaluatePackageSignaturePolicy('enforce', null, signed.packageSha256)).toThrow(
+      'PLUGIN_SIGNATURE_REQUIRED'
+    );
+    expect(evaluatePackageSignaturePolicy('warn', null, signed.packageSha256)).toMatchObject({
+      verified: false,
+      warning: 'PLUGIN_SIGNATURE_MISSING',
+    });
+    expect(
+      evaluatePackageSignaturePolicy('enforce', signed.signature, signed.packageSha256).verified
+    ).toBe(true);
     expect(evaluatePackageSignaturePolicy('off', null, signed.packageSha256).verified).toBe(false);
   });
 

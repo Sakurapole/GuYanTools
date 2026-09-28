@@ -18,7 +18,7 @@ export const pluginProvider: QuickLaunchProvider = {
         [
           { value: page.pluginId, weight: 24 },
           { value: page.routePath, weight: 26 },
-        ],
+        ]
       );
       if (!match) {
         continue;
@@ -57,7 +57,7 @@ export const pluginProvider: QuickLaunchProvider = {
           [
             { value: command.id, weight: 26 },
             { value: plugin.manifest.id, weight: 22 },
-          ],
+          ]
         );
         if (!match) {
           continue;

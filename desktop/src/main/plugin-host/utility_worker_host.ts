@@ -1,4 +1,9 @@
-import { utilityProcess, MessageChannelMain, type MessagePortMain, type UtilityProcess } from 'electron';
+import {
+  utilityProcess,
+  MessageChannelMain,
+  type MessagePortMain,
+  type UtilityProcess,
+} from 'electron';
 import path from 'node:path';
 import type { InstalledPluginRecord, PluginRuntimeContext } from '@/contracts/plugin_host';
 import type { HostServiceRegistry } from './host_services';
@@ -73,10 +78,13 @@ export class UtilityWorkerHost {
     child.postMessage('guyantools:port', [channel.port1]);
     this.bindInvokePort(channel.port2, context);
 
-    child.once('exit', code => {
+    child.once('exit', (code) => {
       this.workers.delete(record.manifest.id);
       if (code !== 0) {
-        this.hostServices.observability.error(record.manifest.id, `Utility worker exited with code ${code}`);
+        this.hostServices.observability.error(
+          record.manifest.id,
+          `Utility worker exited with code ${code}`
+        );
       }
     });
 
@@ -102,7 +110,7 @@ export class UtilityWorkerHost {
   }
 
   async stopAll() {
-    await Promise.all([...this.workers.keys()].map(pluginId => this.stop(pluginId)));
+    await Promise.all([...this.workers.keys()].map((pluginId) => this.stop(pluginId)));
   }
 
   private bindInvokePort(port: MessagePortMain, context: PluginRuntimeContext) {
@@ -126,7 +134,8 @@ export class UtilityWorkerHost {
   private async dispatch(context: PluginRuntimeContext, channel: string, args: unknown[]) {
     const host = this.hostServices;
     const pluginId = context.pluginId;
-    const require = (permission: Parameters<typeof requirePermission>[1]) => requirePermission(context, permission);
+    const require = (permission: Parameters<typeof requirePermission>[1]) =>
+      requirePermission(context, permission);
 
     switch (channel) {
       case 'plugin-runtime:get-context':
@@ -143,12 +152,14 @@ export class UtilityWorkerHost {
         return undefined;
       case 'plugin-runtime:logger:info':
         require('observability.logs');
-        if (!host.quota.allowLog(pluginId)) throw new PluginApiError('QUOTA_EXCEEDED', 'PLUGIN_LOG_QUOTA');
+        if (!host.quota.allowLog(pluginId))
+          throw new PluginApiError('QUOTA_EXCEEDED', 'PLUGIN_LOG_QUOTA');
         host.observability.info(pluginId, String(args[0]), args[1]);
         return undefined;
       case 'plugin-runtime:logger:error':
         require('observability.logs');
-        if (!host.quota.allowLog(pluginId)) throw new PluginApiError('QUOTA_EXCEEDED', 'PLUGIN_LOG_QUOTA');
+        if (!host.quota.allowLog(pluginId))
+          throw new PluginApiError('QUOTA_EXCEEDED', 'PLUGIN_LOG_QUOTA');
         host.observability.error(pluginId, String(args[0]), args[1]);
         return undefined;
       case 'plugin-runtime:network:fetch':
@@ -156,10 +167,16 @@ export class UtilityWorkerHost {
         return host.network.fetch(args[0] as never, pluginId);
       case 'plugin-runtime:jobs:create': {
         require('jobs.manage');
-        if (!host.quota.tryAcquireJobSlot(pluginId)) throw new PluginApiError('QUOTA_EXCEEDED', 'PLUGIN_JOB_QUOTA');
+        if (!host.quota.tryAcquireJobSlot(pluginId))
+          throw new PluginApiError('QUOTA_EXCEEDED', 'PLUGIN_JOB_QUOTA');
         const { JobService } = await import('./services/job_service');
         const { dbManager } = await import('../../core/database');
-        return new JobService(dbManager.getDatabase() as never).create(pluginId, String(args[0]), args[1], args[2] as string | undefined);
+        return new JobService(dbManager.getDatabase() as never).create(
+          pluginId,
+          String(args[0]),
+          args[1],
+          args[2] as string | undefined
+        );
       }
       case 'plugin-runtime:commands:execute':
         require('commands.execute');
@@ -170,9 +187,15 @@ export class UtilityWorkerHost {
   }
 }
 
-function requirePermission(context: PluginRuntimeContext, permission: PluginRuntimeContext['permissions'][number]) {
+function requirePermission(
+  context: PluginRuntimeContext,
+  permission: PluginRuntimeContext['permissions'][number]
+) {
   if (!context.permissions.includes(permission)) {
-    throw new PluginApiError('PERMISSION_DENIED', `PLUGIN_PERMISSION_DENIED: ${context.pluginId} lacks ${permission}`);
+    throw new PluginApiError(
+      'PERMISSION_DENIED',
+      `PLUGIN_PERMISSION_DENIED: ${context.pluginId} lacks ${permission}`
+    );
   }
 }
 

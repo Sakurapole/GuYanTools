@@ -23,6 +23,8 @@ describe('PluginCrashPolicy', () => {
     policy.recordStartFailure('guyantools.demo', new Error('boom'));
     policy.recordStartSuccess('guyantools.demo');
     expect(policy.getConsecutiveFailures('guyantools.demo')).toBe(0);
-    expect(policy.recordStartFailure('guyantools.demo', new Error('boom')).consecutiveFailures).toBe(1);
+    expect(
+      policy.recordStartFailure('guyantools.demo', new Error('boom')).consecutiveFailures
+    ).toBe(1);
   });
 });
