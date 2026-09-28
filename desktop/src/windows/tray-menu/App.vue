@@ -1,16 +1,17 @@
 <script lang="ts" setup>
 import { onBeforeUnmount, onMounted } from 'vue';
 import type { AppConfig } from '@/contracts/app_config';
-import {
-  SYSTEM_FONT_OPTION_VALUE,
-  SYSTEM_FONT_STACK,
-} from '@/contracts/app_config';
+import { SYSTEM_FONT_OPTION_VALUE, SYSTEM_FONT_STACK } from '@/contracts/app_config';
 
 // ipcRenderer is injected by preload.ts into every renderer window
-const ipc = (window as any).ipcRenderer as { send: (channel: string, ...args: any[]) => void } | undefined;
+const ipc = (window as any).ipcRenderer as
+  { send: (channel: string, ...args: any[]) => void } | undefined;
 let removeConfigListener: (() => void) | undefined;
 
-if (!document.documentElement.classList.contains('light') && !document.documentElement.classList.contains('dark')) {
+if (
+  !document.documentElement.classList.contains('light') &&
+  !document.documentElement.classList.contains('dark')
+) {
   document.documentElement.classList.add('light');
 }
 
@@ -59,9 +60,21 @@ onBeforeUnmount(() => {
     <!-- App header -->
     <div class="tray-menu__header">
       <div class="tray-menu__header-icon">
-        <svg width="22" height="22" viewBox="0 0 22 22" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <svg
+          width="22"
+          height="22"
+          viewBox="0 0 22 22"
+          fill="none"
+          xmlns="http://www.w3.org/2000/svg"
+        >
           <rect width="22" height="22" rx="6" fill="url(#grad-hdr)" />
-          <path d="M6 12V9L11 6L16 9V13L11 16L8 14.5" stroke="white" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" />
+          <path
+            d="M6 12V9L11 6L16 9V13L11 16L8 14.5"
+            stroke="white"
+            stroke-width="1.5"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          />
           <defs>
             <linearGradient id="grad-hdr" x1="0" y1="0" x2="22" y2="22">
               <stop offset="0%" stop-color="#00d4aa" />
@@ -79,7 +92,15 @@ onBeforeUnmount(() => {
     <button class="tray-menu__item" @click="handleShowWindow">
       <span class="tray-menu__item-icon">
         <svg width="15" height="15" viewBox="0 0 15 15" fill="none">
-          <rect x="1" y="2" width="13" height="10" rx="1.5" stroke="currentColor" stroke-width="1.3" />
+          <rect
+            x="1"
+            y="2"
+            width="13"
+            height="10"
+            rx="1.5"
+            stroke="currentColor"
+            stroke-width="1.3"
+          />
           <path d="M1 5.5h13" stroke="currentColor" stroke-width="1.3" />
           <circle cx="3.2" cy="3.8" r="0.65" fill="currentColor" />
           <circle cx="5.4" cy="3.8" r="0.65" fill="currentColor" />
@@ -94,8 +115,19 @@ onBeforeUnmount(() => {
     <button class="tray-menu__item tray-menu__item--danger" @click="handleQuit">
       <span class="tray-menu__item-icon">
         <svg width="15" height="15" viewBox="0 0 15 15" fill="none">
-          <path d="M9.5 2H12C12.3 2 12.5 2.2 12.5 2.5V12.5C12.5 12.8 12.3 13 12 13H9.5" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" />
-          <path d="M6.5 10L9.5 7.5L6.5 5" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round" />
+          <path
+            d="M9.5 2H12C12.3 2 12.5 2.2 12.5 2.5V12.5C12.5 12.8 12.3 13 12 13H9.5"
+            stroke="currentColor"
+            stroke-width="1.3"
+            stroke-linecap="round"
+          />
+          <path
+            d="M6.5 10L9.5 7.5L6.5 5"
+            stroke="currentColor"
+            stroke-width="1.3"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          />
           <path d="M2.5 7.5H9.5" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" />
         </svg>
       </span>
@@ -109,7 +141,9 @@ onBeforeUnmount(() => {
 @use '../main/assets/theme.scss';
 
 /* Reset */
-*, *::before, *::after {
+*,
+*::before,
+*::after {
   box-sizing: border-box;
   margin: 0;
   padding: 0;
@@ -117,7 +151,15 @@ onBeforeUnmount(() => {
 
 /* Global font */
 body {
-  font-family: var(--app-font-family, 'Geist Variable', -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif);
+  font-family: var(
+    --app-font-family,
+    'Geist Variable',
+    -apple-system,
+    BlinkMacSystemFont,
+    'Segoe UI',
+    system-ui,
+    sans-serif
+  );
   -webkit-font-smoothing: antialiased;
   background: transparent;
   overflow: hidden;
@@ -198,7 +240,9 @@ body {
   font-weight: 500;
   font-family: inherit;
   text-align: left;
-  transition: background 0.1s ease, color 0.1s ease;
+  transition:
+    background 0.1s ease,
+    color 0.1s ease;
 }
 
 .tray-menu__item:hover {

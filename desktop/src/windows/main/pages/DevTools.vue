@@ -14,8 +14,15 @@
           <div class="devtools-row">
             <label class="devtools-label">类型</label>
             <div class="devtools-radio-group">
-              <UiRadio v-for="t in typeOptions" :key="t.value" v-model="notifForm.type" :value="t.value" name="devtools-notification-type" class="devtools-radio"
-                :class="{ active: notifForm.type === t.value }">
+              <UiRadio
+                v-for="t in typeOptions"
+                :key="t.value"
+                v-model="notifForm.type"
+                :value="t.value"
+                name="devtools-notification-type"
+                class="devtools-radio"
+                :class="{ active: notifForm.type === t.value }"
+              >
                 {{ t.label }}
               </UiRadio>
             </div>
@@ -24,8 +31,15 @@
           <div class="devtools-row">
             <label class="devtools-label">尺寸</label>
             <div class="devtools-radio-group">
-              <UiRadio v-for="s in sizeOptions" :key="s.value" v-model="notifForm.size" :value="s.value" name="devtools-notification-size" class="devtools-radio"
-                :class="{ active: notifForm.size === s.value }">
+              <UiRadio
+                v-for="s in sizeOptions"
+                :key="s.value"
+                v-model="notifForm.size"
+                :value="s.value"
+                name="devtools-notification-size"
+                class="devtools-radio"
+                :class="{ active: notifForm.size === s.value }"
+              >
                 {{ s.label }}
               </UiRadio>
             </div>
@@ -38,28 +52,59 @@
 
           <div class="devtools-row">
             <label class="devtools-label">内容</label>
-            <UiTextarea v-model="notifForm.message" class="devtools-input devtools-textarea"
-              placeholder="通知内容" :rows="3" />
+            <UiTextarea
+              v-model="notifForm.message"
+              class="devtools-input devtools-textarea"
+              placeholder="通知内容"
+              :rows="3"
+            />
           </div>
 
-          <div v-if="notifForm.type === 'image' || notifForm.type === 'richText'" class="devtools-row">
+          <div
+            v-if="notifForm.type === 'image' || notifForm.type === 'richText'"
+            class="devtools-row"
+          >
             <label class="devtools-label">图片来源</label>
             <div class="devtools-radio-group">
-              <UiRadio v-for="source in imageSourceOptions" :key="source.value" v-model="notifForm.imageSourceType" :value="source.value" name="devtools-notification-image-source" class="devtools-radio"
-                :class="{ active: notifForm.imageSourceType === source.value }">
+              <UiRadio
+                v-for="source in imageSourceOptions"
+                :key="source.value"
+                v-model="notifForm.imageSourceType"
+                :value="source.value"
+                name="devtools-notification-image-source"
+                class="devtools-radio"
+                :class="{ active: notifForm.imageSourceType === source.value }"
+              >
                 {{ source.label }}
               </UiRadio>
             </div>
           </div>
 
-          <div v-if="notifForm.type === 'image' || notifForm.type === 'richText'" class="devtools-row">
+          <div
+            v-if="notifForm.type === 'image' || notifForm.type === 'richText'"
+            class="devtools-row"
+          >
             <label class="devtools-label">图片内容</label>
-            <UiInput v-model="notifForm.imageValue" class="devtools-input" :placeholder="imageSourcePlaceholder" />
+            <UiInput
+              v-model="notifForm.imageValue"
+              class="devtools-input"
+              :placeholder="imageSourcePlaceholder"
+            />
           </div>
 
-          <div v-if="(notifForm.type === 'image' || notifForm.type === 'richText') && notifForm.imageSourceType === 'base64'" class="devtools-row">
+          <div
+            v-if="
+              (notifForm.type === 'image' || notifForm.type === 'richText') &&
+              notifForm.imageSourceType === 'base64'
+            "
+            class="devtools-row"
+          >
             <label class="devtools-label">MIME</label>
-            <UiInput v-model="notifForm.imageMimeType" class="devtools-input devtools-input--short" placeholder="image/png" />
+            <UiInput
+              v-model="notifForm.imageMimeType"
+              class="devtools-input devtools-input--short"
+              placeholder="image/png"
+            />
           </div>
 
           <div v-if="notifForm.type === 'richText'" class="devtools-row">
@@ -69,18 +114,37 @@
 
           <div class="devtools-row">
             <label class="devtools-label">自动关闭(ms)</label>
-            <UiInput v-model="notifDurationInput" class="devtools-input devtools-input--short" type="number"
-              placeholder="5000" />
+            <UiInput
+              v-model="notifDurationInput"
+              class="devtools-input devtools-input--short"
+              type="number"
+              placeholder="5000"
+            />
           </div>
 
           <div class="devtools-actions">
-            <UiButton class="devtools-btn devtools-btn--primary" variant="primary" type="button" @click="sendNotification">
+            <UiButton
+              class="devtools-btn devtools-btn--primary"
+              variant="primary"
+              type="button"
+              @click="sendNotification"
+            >
               发送通知
             </UiButton>
-            <UiButton class="devtools-btn devtools-btn--secondary" variant="secondary" type="button" @click="sendQuickText">
+            <UiButton
+              class="devtools-btn devtools-btn--secondary"
+              variant="secondary"
+              type="button"
+              @click="sendQuickText"
+            >
               快速文本通知
             </UiButton>
-            <UiButton class="devtools-btn devtools-btn--secondary" variant="secondary" type="button" @click="sendQuickRich">
+            <UiButton
+              class="devtools-btn devtools-btn--secondary"
+              variant="secondary"
+              type="button"
+              @click="sendQuickRich"
+            >
               快速富文本通知
             </UiButton>
           </div>
@@ -94,8 +158,15 @@
           <div class="devtools-row">
             <label class="devtools-label">类型</label>
             <div class="devtools-radio-group">
-              <UiRadio v-for="t in typeOptions" :key="`in-app-${t.value}`" v-model="inAppForm.type" :value="t.value" name="devtools-in-app-type" class="devtools-radio"
-                :class="{ active: inAppForm.type === t.value }">
+              <UiRadio
+                v-for="t in typeOptions"
+                :key="`in-app-${t.value}`"
+                v-model="inAppForm.type"
+                :value="t.value"
+                name="devtools-in-app-type"
+                class="devtools-radio"
+                :class="{ active: inAppForm.type === t.value }"
+              >
                 {{ t.label }}
               </UiRadio>
             </div>
@@ -104,26 +175,50 @@
           <div class="devtools-row">
             <label class="devtools-label">尺寸</label>
             <div class="devtools-radio-group">
-              <UiRadio v-for="s in sizeOptions" :key="`in-app-size-${s.value}`" v-model="inAppForm.size" :value="s.value" name="devtools-in-app-size" class="devtools-radio"
-                :class="{ active: inAppForm.size === s.value }">
+              <UiRadio
+                v-for="s in sizeOptions"
+                :key="`in-app-size-${s.value}`"
+                v-model="inAppForm.size"
+                :value="s.value"
+                name="devtools-in-app-size"
+                class="devtools-radio"
+                :class="{ active: inAppForm.size === s.value }"
+              >
                 {{ s.label }}
               </UiRadio>
             </div>
           </div>
 
-          <div v-if="inAppForm.type === 'image' || inAppForm.type === 'richText'" class="devtools-row">
+          <div
+            v-if="inAppForm.type === 'image' || inAppForm.type === 'richText'"
+            class="devtools-row"
+          >
             <label class="devtools-label">图片来源</label>
             <div class="devtools-radio-group">
-              <UiRadio v-for="source in inAppImageSourceOptions" :key="`in-app-${source.value}`" v-model="inAppForm.imageSourceType" :value="source.value" name="devtools-in-app-image-source" class="devtools-radio"
-                :class="{ active: inAppForm.imageSourceType === source.value }">
+              <UiRadio
+                v-for="source in inAppImageSourceOptions"
+                :key="`in-app-${source.value}`"
+                v-model="inAppForm.imageSourceType"
+                :value="source.value"
+                name="devtools-in-app-image-source"
+                class="devtools-radio"
+                :class="{ active: inAppForm.imageSourceType === source.value }"
+              >
                 {{ source.label }}
               </UiRadio>
             </div>
           </div>
 
-          <div v-if="inAppForm.type === 'image' || inAppForm.type === 'richText'" class="devtools-row">
+          <div
+            v-if="inAppForm.type === 'image' || inAppForm.type === 'richText'"
+            class="devtools-row"
+          >
             <label class="devtools-label">图片内容</label>
-            <UiInput v-model="inAppForm.imageValue" class="devtools-input" :placeholder="inAppImageSourcePlaceholder" />
+            <UiInput
+              v-model="inAppForm.imageValue"
+              class="devtools-input"
+              :placeholder="inAppImageSourcePlaceholder"
+            />
           </div>
 
           <div class="devtools-row">
@@ -133,33 +228,71 @@
 
           <div class="devtools-row">
             <label class="devtools-label">内容</label>
-            <UiTextarea v-model="inAppForm.message" class="devtools-input devtools-textarea"
-              placeholder="页内通知内容" :rows="3" />
+            <UiTextarea
+              v-model="inAppForm.message"
+              class="devtools-input devtools-textarea"
+              placeholder="页内通知内容"
+              :rows="3"
+            />
           </div>
 
           <div class="devtools-row">
             <label class="devtools-label">自动关闭(ms)</label>
-            <UiInput v-model="inAppDurationInput" class="devtools-input devtools-input--short" type="number"
-              placeholder="3000" />
+            <UiInput
+              v-model="inAppDurationInput"
+              class="devtools-input devtools-input--short"
+              type="number"
+              placeholder="3000"
+            />
           </div>
 
           <div class="devtools-actions devtools-actions--wrap">
-            <UiButton class="devtools-btn devtools-btn--secondary" variant="secondary" type="button" @click="sendInAppInfo">
+            <UiButton
+              class="devtools-btn devtools-btn--secondary"
+              variant="secondary"
+              type="button"
+              @click="sendInAppInfo"
+            >
               Info
             </UiButton>
-            <UiButton class="devtools-btn devtools-btn--success" variant="secondary" type="button" @click="sendInAppSuccess">
+            <UiButton
+              class="devtools-btn devtools-btn--success"
+              variant="secondary"
+              type="button"
+              @click="sendInAppSuccess"
+            >
               Success
             </UiButton>
-            <UiButton class="devtools-btn devtools-btn--warning" variant="secondary" type="button" @click="sendInAppWarning">
+            <UiButton
+              class="devtools-btn devtools-btn--warning"
+              variant="secondary"
+              type="button"
+              @click="sendInAppWarning"
+            >
               Warning
             </UiButton>
-            <UiButton class="devtools-btn devtools-btn--danger" variant="danger" type="button" @click="sendInAppError">
+            <UiButton
+              class="devtools-btn devtools-btn--danger"
+              variant="danger"
+              type="button"
+              @click="sendInAppError"
+            >
               Error
             </UiButton>
-            <UiButton class="devtools-btn devtools-btn--secondary" variant="secondary" type="button" @click="throwVueError">
+            <UiButton
+              class="devtools-btn devtools-btn--secondary"
+              variant="secondary"
+              type="button"
+              @click="throwVueError"
+            >
               触发组件异常
             </UiButton>
-            <UiButton class="devtools-btn devtools-btn--secondary" variant="secondary" type="button" @click="rejectPromise">
+            <UiButton
+              class="devtools-btn devtools-btn--secondary"
+              variant="secondary"
+              type="button"
+              @click="rejectPromise"
+            >
               触发 Promise 异常
             </UiButton>
           </div>
@@ -183,7 +316,12 @@ import UiInput from '../components/ui/UiInput.vue';
 import UiRadio from '../components/ui/UiRadio.vue';
 import UiTextarea from '../components/ui/UiTextarea.vue';
 import { useGlobalStore } from '../stores/global_store';
-import type { NotificationImageSource, NotificationPayload, NotificationType, NotificationSize } from '@/contracts/notification';
+import type {
+  NotificationImageSource,
+  NotificationPayload,
+  NotificationType,
+  NotificationSize,
+} from '@/contracts/notification';
 
 declare global {
   interface Window {
@@ -212,14 +350,14 @@ const imageSourceOptions = [
   { value: 'base64', label: 'Base64' },
 ] as const;
 
-const inAppImageSourceOptions = imageSourceOptions.filter(option => option.value !== 'path');
+const inAppImageSourceOptions = imageSourceOptions.filter((option) => option.value !== 'path');
 
 const notifForm = reactive({
   type: 'text' as NotificationType,
   size: 'md' as NotificationSize,
   title: '测试通知',
   message: '这是一条测试通知消息',
-  imageSourceType: 'url' as typeof imageSourceOptions[number]['value'],
+  imageSourceType: 'url' as (typeof imageSourceOptions)[number]['value'],
   imageValue: '',
   imageMimeType: 'image/png',
   icon: '🔔',
@@ -231,7 +369,7 @@ const inAppForm = reactive({
   size: 'md' as NotificationSize,
   title: '页内通知测试',
   message: '这是一条显示在应用右上角的页内通知。',
-  imageSourceType: 'url' as typeof inAppImageSourceOptions[number]['value'],
+  imageSourceType: 'url' as (typeof inAppImageSourceOptions)[number]['value'],
   imageValue: '',
   icon: '🔔',
 });
@@ -243,7 +381,9 @@ onMounted(() => {
 });
 
 const imageSourcePlaceholder = computed(() => imagePlaceholderForType(notifForm.imageSourceType));
-const inAppImageSourcePlaceholder = computed(() => imagePlaceholderForType(inAppForm.imageSourceType));
+const inAppImageSourcePlaceholder = computed(() =>
+  imagePlaceholderForType(inAppForm.imageSourceType)
+);
 
 function imagePlaceholderForType(type: string) {
   if (type === 'path') return 'D:\\\\Pictures\\\\notice.png 或 file:///D:/Pictures/notice.png';
@@ -256,23 +396,35 @@ function parseDuration(value: string) {
   return Math.max(0, Number(value) || 0);
 }
 
-function buildImageSource(type: string, value: string, mimeType?: string): { imageUrl?: string; imageSource?: NotificationImageSource } {
+function buildImageSource(
+  type: string,
+  value: string,
+  mimeType?: string
+): { imageUrl?: string; imageSource?: NotificationImageSource } {
   const trimmed = value.trim();
   if (!trimmed) return {};
   if (type === 'url') {
     return { imageUrl: trimmed };
   }
   if (type === 'path') {
-    return { imageSource: { type: 'path', path: trimmed, mimeType: mimeType?.trim() || undefined } };
+    return {
+      imageSource: { type: 'path', path: trimmed, mimeType: mimeType?.trim() || undefined },
+    };
   }
   if (type === 'dataUrl') {
     return { imageSource: { type: 'dataUrl', dataUrl: trimmed } };
   }
-  return { imageSource: { type: 'base64', base64: trimmed, mimeType: mimeType?.trim() || 'image/png' } };
+  return {
+    imageSource: { type: 'base64', base64: trimmed, mimeType: mimeType?.trim() || 'image/png' },
+  };
 }
 
 function sendNotification() {
-  const imageFields = buildImageSource(notifForm.imageSourceType, notifForm.imageValue, notifForm.imageMimeType);
+  const imageFields = buildImageSource(
+    notifForm.imageSourceType,
+    notifForm.imageValue,
+    notifForm.imageMimeType
+  );
   const payload: NotificationPayload = {
     type: notifForm.type,
     size: notifForm.size,

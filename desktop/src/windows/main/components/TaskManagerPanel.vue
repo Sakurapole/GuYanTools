@@ -40,12 +40,8 @@ const sortedProcesses = computed(() => {
   });
 });
 
-const totalCpu = computed(() =>
-  processes.value.reduce((sum, p) => sum + p.cpuPercent, 0),
-);
-const totalMemory = computed(() =>
-  processes.value.reduce((sum, p) => sum + p.memoryWorkingSet, 0),
-);
+const totalCpu = computed(() => processes.value.reduce((sum, p) => sum + p.cpuPercent, 0));
+const totalMemory = computed(() => processes.value.reduce((sum, p) => sum + p.memoryWorkingSet, 0));
 const processCount = computed(() => processes.value.length);
 
 function formatMemory(kb: number): string {
@@ -146,12 +142,19 @@ onBeforeUnmount(() => {
       <div class="tm-header__info">
         <span class="tm-header__title">任务管理器</span>
         <span class="tm-header__stats">
-          {{ processCount }} 个进程 · CPU {{ formatCpu(totalCpu) }} · 内存 {{ formatMemory(totalMemory) }}
+          {{ processCount }} 个进程 · CPU {{ formatCpu(totalCpu) }} · 内存
+          {{ formatMemory(totalMemory) }}
         </span>
       </div>
       <button class="tm-header__close" title="关闭" @click="emit('close')">
         <svg width="14" height="14" viewBox="0 0 16 16" aria-hidden="true">
-          <path d="M3.5 3.5L12.5 12.5M12.5 3.5L3.5 12.5" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/>
+          <path
+            d="M3.5 3.5L12.5 12.5M12.5 3.5L3.5 12.5"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="1.6"
+            stroke-linecap="round"
+          />
         </svg>
       </button>
     </div>
@@ -283,7 +286,9 @@ onBeforeUnmount(() => {
   background: transparent;
   color: var(--ui-text-muted);
   cursor: pointer;
-  transition: background-color 0.15s ease, color 0.15s ease;
+  transition:
+    background-color 0.15s ease,
+    color 0.15s ease;
 
   &:hover {
     background: var(--ui-icon-button-hover-bg);

@@ -4,35 +4,35 @@ export type ConnectionLayoutSurface = 'terminal' | 'ftp';
 
 export type TerminalConnectionLayoutTarget =
   | {
-    surface: 'terminal';
-    kind: 'local';
-    profileId?: string;
-    cwd?: string;
-    label?: string;
-  }
+      surface: 'terminal';
+      kind: 'local';
+      profileId?: string;
+      cwd?: string;
+      label?: string;
+    }
   | {
-    surface: 'terminal';
-    kind: 'ssh';
-    profileId: string;
-    cwd?: string;
-    label?: string;
-  };
+      surface: 'terminal';
+      kind: 'ssh';
+      profileId: string;
+      cwd?: string;
+      label?: string;
+    };
 
 export type FtpConnectionLayoutTarget =
   | {
-    surface: 'ftp';
-    kind: 'local';
-    path: string;
-    label?: string;
-  }
+      surface: 'ftp';
+      kind: 'local';
+      path: string;
+      label?: string;
+    }
   | {
-    surface: 'ftp';
-    kind: 'remote';
-    profileId: string;
-    remotePath?: string;
-    localPath?: string;
-    label?: string;
-  };
+      surface: 'ftp';
+      kind: 'remote';
+      profileId: string;
+      remotePath?: string;
+      localPath?: string;
+      label?: string;
+    };
 
 export type ConnectionLayoutTarget = TerminalConnectionLayoutTarget | FtpConnectionLayoutTarget;
 
@@ -59,7 +59,10 @@ export interface ConnectionLayoutConfig {
   updatedAt: number;
 }
 
-export type SaveConnectionLayoutInput = Omit<ConnectionLayoutConfig, 'id' | 'createdAt' | 'updatedAt'> & {
+export type SaveConnectionLayoutInput = Omit<
+  ConnectionLayoutConfig,
+  'id' | 'createdAt' | 'updatedAt'
+> & {
   id?: string;
 };
 
@@ -72,12 +75,12 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 
 function normalizeLayoutMode(value: unknown): TerminalLayoutMode {
   if (
-    value === 'tabbed'
-    || value === 'split-horizontal'
-    || value === 'split-vertical'
-    || value === 'master-stack'
-    || value === 'dwindle'
-    || value === 'grid'
+    value === 'tabbed' ||
+    value === 'split-horizontal' ||
+    value === 'split-vertical' ||
+    value === 'master-stack' ||
+    value === 'dwindle' ||
+    value === 'grid'
   ) {
     return value;
   }
@@ -86,9 +89,7 @@ function normalizeLayoutMode(value: unknown): TerminalLayoutMode {
 
 function normalizeNumberArray(value: unknown) {
   if (!Array.isArray(value)) return [];
-  return value
-    .map((item) => Number(item))
-    .filter((item) => Number.isFinite(item) && item > 0);
+  return value.map((item) => Number(item)).filter((item) => Number.isFinite(item) && item > 0);
 }
 
 function normalizeLayoutSizeState(value: unknown) {
@@ -152,14 +153,17 @@ function normalizeTarget(value: unknown): ConnectionLayoutTarget | null {
 
 function normalizeConfig(value: unknown): ConnectionLayoutConfig | null {
   if (!isRecord(value)) return null;
-  const surface = value.surface === 'ftp' ? 'ftp' : value.surface === 'terminal' ? 'terminal' : null;
+  const surface =
+    value.surface === 'ftp' ? 'ftp' : value.surface === 'terminal' ? 'terminal' : null;
   if (!surface || typeof value.id !== 'string' || !value.id || typeof value.name !== 'string') {
     return null;
   }
 
   const viewState = isRecord(value.viewState) ? value.viewState : {};
   const targets = Array.isArray(value.targets)
-    ? value.targets.map(normalizeTarget).filter((item): item is ConnectionLayoutTarget => Boolean(item))
+    ? value.targets
+        .map(normalizeTarget)
+        .filter((item): item is ConnectionLayoutTarget => Boolean(item))
     : [];
 
   return {
@@ -171,12 +175,27 @@ function normalizeConfig(value: unknown): ConnectionLayoutConfig | null {
       layoutMode: normalizeLayoutMode(viewState.layoutMode),
       order: Array.isArray(viewState.order) ? viewState.order.map(String).filter(Boolean) : [],
       layoutSizeState: normalizeLayoutSizeState(viewState.layoutSizeState),
-      masterMainRatio: typeof viewState.masterMainRatio === 'number' ? viewState.masterMainRatio : undefined,
+      masterMainRatio:
+        typeof viewState.masterMainRatio === 'number' ? viewState.masterMainRatio : undefined,
       dwindleSplitRatios: normalizeNumberArray(viewState.dwindleSplitRatios),
-      sidebarDockSide: viewState.sidebarDockSide === 'right' ? 'right' : viewState.sidebarDockSide === 'left' ? 'left' : undefined,
-      auxiliaryDockSide: viewState.auxiliaryDockSide === 'right' ? 'right' : viewState.auxiliaryDockSide === 'bottom' ? 'bottom' : undefined,
-      auxiliaryDockSize: typeof viewState.auxiliaryDockSize === 'string' ? viewState.auxiliaryDockSize : undefined,
-      auxiliaryDockCollapsed: typeof viewState.auxiliaryDockCollapsed === 'boolean' ? viewState.auxiliaryDockCollapsed : undefined,
+      sidebarDockSide:
+        viewState.sidebarDockSide === 'right'
+          ? 'right'
+          : viewState.sidebarDockSide === 'left'
+            ? 'left'
+            : undefined,
+      auxiliaryDockSide:
+        viewState.auxiliaryDockSide === 'right'
+          ? 'right'
+          : viewState.auxiliaryDockSide === 'bottom'
+            ? 'bottom'
+            : undefined,
+      auxiliaryDockSize:
+        typeof viewState.auxiliaryDockSize === 'string' ? viewState.auxiliaryDockSize : undefined,
+      auxiliaryDockCollapsed:
+        typeof viewState.auxiliaryDockCollapsed === 'boolean'
+          ? viewState.auxiliaryDockCollapsed
+          : undefined,
       showSidebar: typeof viewState.showSidebar === 'boolean' ? viewState.showSidebar : undefined,
     },
     createdAt: typeof value.createdAt === 'number' ? value.createdAt : Date.now(),
@@ -207,7 +226,7 @@ export function getConnectionLayoutConfig(id: string) {
 export function saveConnectionLayoutConfig(input: SaveConnectionLayoutInput) {
   const now = Date.now();
   const configs = listConnectionLayoutConfigs();
-  const existing = input.id ? configs.find((item) => item.id === input.id) ?? null : null;
+  const existing = input.id ? (configs.find((item) => item.id === input.id) ?? null) : null;
   const next: ConnectionLayoutConfig = {
     ...input,
     id: input.id || crypto.randomUUID(),
@@ -215,10 +234,7 @@ export function saveConnectionLayoutConfig(input: SaveConnectionLayoutInput) {
     createdAt: existing?.createdAt ?? now,
     updatedAt: now,
   };
-  const merged = [
-    next,
-    ...configs.filter((item) => item.id !== next.id),
-  ];
+  const merged = [next, ...configs.filter((item) => item.id !== next.id)];
   window.localStorage.setItem(CONNECTION_LAYOUT_STORAGE_KEY, JSON.stringify(merged));
   window.dispatchEvent(new CustomEvent(CONNECTION_LAYOUTS_CHANGED_EVENT));
   return next;

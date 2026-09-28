@@ -6,10 +6,8 @@
     </svg>
   </div> -->
 
-  <div class="sidebar-container" :class="{ 'visible': sidebarVisible }">
-    <div class="sidebar-expand">
-
-    </div>
+  <div class="sidebar-container" :class="{ visible: sidebarVisible }">
+    <div class="sidebar-expand"></div>
   </div>
 </template>
 
@@ -20,46 +18,48 @@ import { useDraggable, useElementSize } from '@vueuse/core';
 import { onMounted, toRefs, useTemplateRef } from 'vue';
 import { useTheme } from '../../composables/theme';
 
-const props = withDefaults(defineProps<{
-  boundsTop?: number;
-  boundsLeft?: number;
-  parentWidth?: number;
-  parentHeight?: number;
-}>(), {
-});
-const { parentWidth, parentHeight } = toRefs(props);
+const props = withDefaults(
+  defineProps<{
+    boundsTop?: number;
+    boundsLeft?: number;
+    parentWidth?: number;
+    parentHeight?: number;
+  }>(),
+  {}
+);
+const { parentHeight } = toRefs(props);
 
 const { sidebarVisible } = toRefs(useBarStore());
 const { setSidebarVisible } = useBarStore();
 const smallSidebarBtn = useTemplateRef<HTMLDivElement>('small-sidebar-btn-ref');
-const { width: elWidth, height: elHeight } = useElementSize(smallSidebarBtn);
+const { height: elHeight } = useElementSize(smallSidebarBtn);
 
-const { x, y, style } = useDraggable(smallSidebarBtn, {
+const { y } = useDraggable(smallSidebarBtn, {
   initialValue: { x: 0, y: parentHeight.value / 2 },
   preventDefault: true,
   axis: 'y',
-  onMove: (position, e) => {
+  onMove: (position) => {
     // 计算 y 的最大可移动值
     const maxY = parentHeight.value - elHeight.value;
 
     // 限制 y 的范围
     position.y = Math.max(0, Math.min(position.y - 30, maxY));
-  }
+  },
 });
 
-const { toggleTheme } = useTheme();
+useTheme();
 
 onMounted(() => {
   y.value = window.innerHeight - bottombarHeight - topbarHeight - sidebarBtnSize;
   document.addEventListener('mousedown', (e) => {
     const container = document.querySelector('.sidebar-container');
-    const bottombarContainer = document.querySelector('.bottombar-container');
+    document.querySelector('.bottombar-container');
     const switchSidebarBtn = document.querySelector('.switch-sidebar-btn');
     if (!container.contains(e.target as Node) && !switchSidebarBtn.contains(e.target as Node)) {
       setSidebarVisible(false);
     }
-  })
-})
+  });
+});
 </script>
 
 <style lang="scss">

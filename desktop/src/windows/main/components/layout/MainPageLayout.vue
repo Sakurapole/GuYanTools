@@ -2,37 +2,36 @@
 import { computed, ref, type StyleValue } from 'vue';
 
 type ClassValue =
-  | string
-  | Record<string, boolean>
-  | Array<string | Record<string, boolean>>
-  | null
-  | undefined;
+  string | Record<string, boolean> | Array<string | Record<string, boolean>> | null | undefined;
 
-const props = withDefaults(defineProps<{
-  pageClass?: ClassValue;
-  layoutClass?: ClassValue;
-  sidebarClass?: ClassValue;
-  sidebarCollapsedClass?: string;
-  mainClass?: ClassValue;
-  stageClass?: ClassValue;
-  sidebarCollapsed?: boolean;
-  sidebarHidden?: boolean;
-  sidebarSide?: 'left' | 'right';
-  stageVisible?: boolean;
-  style?: StyleValue;
-}>(), {
-  pageClass: undefined,
-  layoutClass: undefined,
-  sidebarClass: undefined,
-  sidebarCollapsedClass: '',
-  mainClass: undefined,
-  stageClass: undefined,
-  sidebarCollapsed: false,
-  sidebarHidden: false,
-  sidebarSide: 'left',
-  stageVisible: true,
-  style: undefined,
-});
+const props = withDefaults(
+  defineProps<{
+    pageClass?: ClassValue;
+    layoutClass?: ClassValue;
+    sidebarClass?: ClassValue;
+    sidebarCollapsedClass?: string;
+    mainClass?: ClassValue;
+    stageClass?: ClassValue;
+    sidebarCollapsed?: boolean;
+    sidebarHidden?: boolean;
+    sidebarSide?: 'left' | 'right';
+    stageVisible?: boolean;
+    style?: StyleValue;
+  }>(),
+  {
+    pageClass: undefined,
+    layoutClass: undefined,
+    sidebarClass: undefined,
+    sidebarCollapsedClass: '',
+    mainClass: undefined,
+    stageClass: undefined,
+    sidebarCollapsed: false,
+    sidebarHidden: false,
+    sidebarSide: 'left',
+    stageVisible: true,
+    style: undefined,
+  }
+);
 
 const mainElement = ref<HTMLElement | null>(null);
 const stageElement = ref<HTMLElement | null>(null);
@@ -62,11 +61,7 @@ defineExpose({
 <template>
   <div class="main-page-shell" :class="shellClasses" :style="style">
     <div class="main-page-shell__layout" :class="layoutClass">
-      <aside
-        v-if="!sidebarHidden"
-        class="main-page-shell__sidebar"
-        :class="sidebarClasses"
-      >
+      <aside v-if="!sidebarHidden" class="main-page-shell__sidebar" :class="sidebarClasses">
         <slot name="sidebar" />
       </aside>
 

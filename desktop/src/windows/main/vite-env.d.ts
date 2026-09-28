@@ -6,6 +6,6 @@ interface Window {
   syncApi?: import('@/contracts/sync').SyncApi;
 }
 
-declare module 'gasp'
+declare module 'gasp';
 declare module '*.vue';
 declare module 'fs-extra';

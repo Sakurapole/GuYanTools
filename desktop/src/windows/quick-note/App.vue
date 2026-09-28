@@ -6,7 +6,10 @@ import UiIconButton from '@/windows/main/components/ui/UiIconButton.vue';
 import UiPersonalizationConfig from '@/windows/main/components/ui/UiPersonalizationConfig.vue';
 import UiTagChip from '@/windows/main/components/ui/UiTagChip.vue';
 import type { AppConfig } from '@/contracts/app_config';
-import { createDefaultAppConfig, createDefaultKnowledgeQuickNoteWindowConfig } from '@/contracts/app_config';
+import {
+  createDefaultAppConfig,
+  createDefaultKnowledgeQuickNoteWindowConfig,
+} from '@/contracts/app_config';
 import type { BackgroundConfirmPayload } from '@/contracts/background';
 import { resolveThemeBackground, withThemeBackground } from '@/contracts/background';
 import type {
@@ -45,13 +48,16 @@ const displayTitle = computed(() => title.value.trim() || titleFromBody(body.val
 const canSave = computed(() => body.value.trim().length > 0);
 const activeQuickNoteBackground = computed(() => {
   const config = appConfig.value.features.knowledge.quickNote;
-  return resolveThemeBackground({
-    type: config.backgroundType,
-    color: config.backgroundColor,
-    image: config.backgroundImage,
-    video: config.backgroundVideo,
-    backgroundStyle: config.backgroundStyle,
-  }, appConfig.value.appearance.theme);
+  return resolveThemeBackground(
+    {
+      type: config.backgroundType,
+      color: config.backgroundColor,
+      image: config.backgroundImage,
+      video: config.backgroundVideo,
+      backgroundStyle: config.backgroundStyle,
+    },
+    appConfig.value.appearance.theme
+  );
 });
 const rootClass = computed(() => [
   'quick-note-app',
@@ -78,12 +84,17 @@ const backgroundStyle = computed<CSSProperties>(() => {
   } else if (background.type === 'color' && background.color) {
     result.background = background.color;
   } else {
-    result.background = 'linear-gradient(180deg, color-mix(in srgb, var(--note-color) 82%, var(--ui-surface-panel)) 0%, var(--ui-surface-panel) 100%)';
+    result.background =
+      'linear-gradient(180deg, color-mix(in srgb, var(--note-color) 82%, var(--ui-surface-panel)) 0%, var(--ui-surface-panel) 100%)';
   }
 
   return result;
 });
-const hasBackgroundVideo = computed(() => activeQuickNoteBackground.value.type === 'video' && Boolean(activeQuickNoteBackground.value.video));
+const hasBackgroundVideo = computed(
+  () =>
+    activeQuickNoteBackground.value.type === 'video' &&
+    Boolean(activeQuickNoteBackground.value.video)
+);
 const backgroundVideoStyle = computed<CSSProperties>(() => {
   const style = activeQuickNoteBackground.value.backgroundStyle ?? {};
   return {
@@ -95,7 +106,7 @@ const backgroundVideoStyle = computed<CSSProperties>(() => {
 });
 const rootStyle = computed<CSSProperties>(() => {
   const textColor = activeQuickNoteBackground.value.backgroundStyle?.textColor?.trim();
-  return textColor ? { '--quick-note-text': textColor } as CSSProperties : {};
+  return textColor ? ({ '--quick-note-text': textColor } as CSSProperties) : {};
 });
 
 onMounted(async () => {
@@ -103,10 +114,12 @@ onMounted(async () => {
   isPrimaryWindow.value = (await window.quickNoteWindowApi?.getWindowMeta())?.isPrimary ?? false;
   removeConfigListener = window.appConfigApi?.onDidChange(applyTheme);
   removePrefillListener = window.quickNoteWindowApi?.onPrefill(applyPrefill);
-  removeCollapsedStateListener = window.quickNoteWindowApi?.onCollapsedState((collapsed, previewing) => {
-    isCollapsed.value = collapsed;
-    isPreviewing.value = previewing;
-  });
+  removeCollapsedStateListener = window.quickNoteWindowApi?.onCollapsedState(
+    (collapsed, previewing) => {
+      isCollapsed.value = collapsed;
+      isPreviewing.value = previewing;
+    }
+  );
   window.quickNoteWindowApi?.setAlwaysOnTop(isPinned.value);
   window.addEventListener('keydown', handleQuickNoteKeydown, true);
   window.addEventListener('pointerdown', handleWindowPointerDown, true);
@@ -130,7 +143,7 @@ function applyTheme(config: AppConfig) {
 
 async function applyInitialTheme() {
   try {
-    appConfig.value = await window.appConfigApi?.getConfig() ?? createDefaultAppConfig();
+    appConfig.value = (await window.appConfigApi?.getConfig()) ?? createDefaultAppConfig();
     applyTheme(appConfig.value);
   } catch {
     applyTheme(createDefaultAppConfig());
@@ -156,11 +169,13 @@ function showMessage(text: string, kind: 'info' | 'error' = 'info') {
 }
 
 function titleFromBody(value: string) {
-  return value
-    .split(/\r?\n/)
-    .map((line) => line.trim())
-    .find(Boolean)
-    ?.slice(0, 60) || '未命名速记';
+  return (
+    value
+      .split(/\r?\n/)
+      .map((line) => line.trim())
+      .find(Boolean)
+      ?.slice(0, 60) || '未命名速记'
+  );
 }
 
 function todoId() {
@@ -203,7 +218,7 @@ async function saveNote() {
 }
 
 async function convertToPage() {
-  const note = savedNote.value ?? await saveNote();
+  const note = savedNote.value ?? (await saveNote());
   if (!note || !window.knowledgeApi) return;
 
   saving.value = true;
@@ -223,7 +238,7 @@ async function convertToPage() {
 }
 
 async function convertToTodo() {
-  const note = savedNote.value ?? await saveNote();
+  const note = savedNote.value ?? (await saveNote());
   if (!note || !window.todoApi || !window.knowledgeApi) return;
 
   saving.value = true;
@@ -293,9 +308,7 @@ function parseTagDraft(value: string, keepRemainder: boolean) {
 
   const hasTrailingSeparator = TAG_SEPARATOR_INPUT_PATTERN.test(value.at(-1) ?? '');
   const parts = value.split(TAG_SEPARATOR_PATTERN);
-  const remainder = keepRemainder && !hasTrailingSeparator
-    ? parts.pop()?.trim() ?? ''
-    : '';
+  const remainder = keepRemainder && !hasTrailingSeparator ? (parts.pop()?.trim() ?? '') : '';
   addTags(parts);
   tagDraft.value = remainder;
 }
@@ -396,19 +409,23 @@ function openBackgroundPicker() {
 
 async function handleBackgroundConfirm(payload: BackgroundConfirmPayload) {
   const current = appConfig.value.features.knowledge.quickNote;
-  const nextBackground = withThemeBackground({
-    type: current.backgroundType,
-    color: current.backgroundColor,
-    image: current.backgroundImage,
-    video: current.backgroundVideo,
-    backgroundStyle: current.backgroundStyle,
-  }, appConfig.value.appearance.theme, {
-    type: payload.type,
-    color: payload.color,
-    image: payload.image,
-    video: payload.video,
-    backgroundStyle: payload.backgroundStyle,
-  });
+  const nextBackground = withThemeBackground(
+    {
+      type: current.backgroundType,
+      color: current.backgroundColor,
+      image: current.backgroundImage,
+      video: current.backgroundVideo,
+      backgroundStyle: current.backgroundStyle,
+    },
+    appConfig.value.appearance.theme,
+    {
+      type: payload.type,
+      color: payload.color,
+      image: payload.image,
+      video: payload.video,
+      backgroundStyle: payload.backgroundStyle,
+    }
+  );
 
   await window.appConfigApi?.updateConfig({
     features: {
@@ -497,8 +514,16 @@ function closeWindow() {
         >
           <IconRenderer icon="iconify:lucide:plus" :size="14" />
         </UiIconButton>
-        <UiIconButton type="button" size="sm" :title="isPinned ? '取消置顶' : '置顶'" @click="togglePinned">
-          <IconRenderer :icon="isPinned ? 'iconify:lucide:pin' : 'iconify:lucide:pin-off'" :size="14" />
+        <UiIconButton
+          type="button"
+          size="sm"
+          :title="isPinned ? '取消置顶' : '置顶'"
+          @click="togglePinned"
+        >
+          <IconRenderer
+            :icon="isPinned ? 'iconify:lucide:pin' : 'iconify:lucide:pin-off'"
+            :size="14"
+          />
         </UiIconButton>
         <UiIconButton
           type="button"
@@ -506,7 +531,10 @@ function closeWindow() {
           :title="isCollapsed ? '展开编辑' : '收起为标题条'"
           @click="toggleCollapsedWindow"
         >
-          <IconRenderer :icon="isCollapsed ? 'iconify:lucide:maximize-2' : 'iconify:lucide:minimize-2'" :size="14" />
+          <IconRenderer
+            :icon="isCollapsed ? 'iconify:lucide:maximize-2' : 'iconify:lucide:minimize-2'"
+            :size="14"
+          />
         </UiIconButton>
         <UiIconButton type="button" size="sm" title="关闭" @click="closeWindow">
           <IconRenderer icon="iconify:lucide:x" :size="15" />
@@ -569,7 +597,10 @@ function closeWindow() {
     </section>
 
     <section v-if="!isCollapsed" class="quick-note-controls" aria-label="便签设置">
-      <span class="quick-note-status" :class="{ 'quick-note-status--error': messageKind === 'error' }">
+      <span
+        class="quick-note-status"
+        :class="{ 'quick-note-status--error': messageKind === 'error' }"
+      >
         {{ message || (savedNote ? '已保存' : '未保存') }}
       </span>
     </section>
@@ -645,9 +676,15 @@ function closeWindow() {
     <UiPersonalizationConfig
       :visible="backgroundPickerVisible"
       title="速记窗口背景"
-      :current-background="activeQuickNoteBackground.type === 'color' ? activeQuickNoteBackground.color : ''"
-      :current-background-image="activeQuickNoteBackground.type === 'image' ? activeQuickNoteBackground.image : ''"
-      :current-background-video="activeQuickNoteBackground.type === 'video' ? activeQuickNoteBackground.video : ''"
+      :current-background="
+        activeQuickNoteBackground.type === 'color' ? activeQuickNoteBackground.color : ''
+      "
+      :current-background-image="
+        activeQuickNoteBackground.type === 'image' ? activeQuickNoteBackground.image : ''
+      "
+      :current-background-video="
+        activeQuickNoteBackground.type === 'video' ? activeQuickNoteBackground.video : ''
+      "
       :current-background-style="activeQuickNoteBackground.backgroundStyle"
       :enabled-features="['color', 'image', 'video', 'opacity', 'textColor']"
       :show-reset="true"
@@ -706,7 +743,7 @@ function closeWindow() {
   background: transparent;
   box-shadow:
     0 2px 8px rgba(15, 23, 42, 0.08),
-    0 8px 18px rgba(15, 23, 42, 0.10);
+    0 8px 18px rgba(15, 23, 42, 0.1);
 }
 
 .quick-note-background--video {

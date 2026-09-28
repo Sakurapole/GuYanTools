@@ -67,14 +67,15 @@ async function returnToMainWindow() {
   await window.workspaceWindowApi?.returnToMain(currentKey.value);
 }
 
-watch(title, (nextTitle) => {
-  document.title = nextTitle;
-}, { immediate: true });
-
 watch(
-  () => [route.path, route.query.detached],
-  updateKeyFromLocation,
+  title,
+  (nextTitle) => {
+    document.title = nextTitle;
+  },
+  { immediate: true }
 );
+
+watch(() => [route.path, route.query.detached], updateKeyFromLocation);
 
 onMounted(() => {
   window.addEventListener('hashchange', updateKeyFromLocation);
@@ -99,23 +100,81 @@ onBeforeUnmount(() => {
     <div class="workspace-window-titlebar">
       <div class="workspace-window-titlebar__mark" aria-hidden="true">
         <svg width="15" height="15" viewBox="0 0 16 16" fill="none">
-          <path d="M5.25 2.75H3.75C3.2 2.75 2.75 3.2 2.75 3.75V12.25C2.75 12.8 3.2 13.25 3.75 13.25H12.25C12.8 13.25 13.25 12.8 13.25 12.25V10.75M8.25 2.75H13.25V7.75M7.75 8.25L13 3" stroke="currentColor" stroke-width="1.45" stroke-linecap="round" stroke-linejoin="round"/>
+          <path
+            d="M5.25 2.75H3.75C3.2 2.75 2.75 3.2 2.75 3.75V12.25C2.75 12.8 3.2 13.25 3.75 13.25H12.25C12.8 13.25 13.25 12.8 13.25 12.25V10.75M8.25 2.75H13.25V7.75M7.75 8.25L13 3"
+            stroke="currentColor"
+            stroke-width="1.45"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          />
         </svg>
       </div>
       <div class="workspace-window-titlebar__title">{{ currentDefinition.title }}</div>
       <div class="workspace-window-titlebar__drag" />
       <div class="workspace-window-titlebar__actions">
-        <UiIconButton size="sm" variant="ghost" shape="square" title="回到主窗口" @click="returnToMainWindow">
-          <svg width="13" height="13" viewBox="0 0 12 12" fill="none"><path d="M5 2 1.5 5.5 5 9M2 5.5h8" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        <UiIconButton
+          size="sm"
+          variant="ghost"
+          shape="square"
+          title="回到主窗口"
+          @click="returnToMainWindow"
+        >
+          <svg width="13" height="13" viewBox="0 0 12 12" fill="none">
+            <path
+              d="M5 2 1.5 5.5 5 9M2 5.5h8"
+              stroke="currentColor"
+              stroke-width="1.4"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            />
+          </svg>
         </UiIconButton>
-        <UiIconButton size="sm" variant="ghost" shape="square" title="最小化" @click="minimizeWindow">
-          <svg width="10" height="1" viewBox="0 0 10 1"><line x1="0" y1="0.5" x2="10" y2="0.5" stroke="currentColor" stroke-width="1"/></svg>
+        <UiIconButton
+          size="sm"
+          variant="ghost"
+          shape="square"
+          title="最小化"
+          @click="minimizeWindow"
+        >
+          <svg width="10" height="1" viewBox="0 0 10 1">
+            <line x1="0" y1="0.5" x2="10" y2="0.5" stroke="currentColor" stroke-width="1" />
+          </svg>
         </UiIconButton>
-        <UiIconButton size="sm" variant="ghost" shape="square" title="最大化" @click="maximizeWindow">
-          <svg width="10" height="10" viewBox="0 0 10 10" fill="none"><rect x="0.5" y="0.5" width="9" height="9" rx="1" stroke="currentColor" stroke-width="1"/></svg>
+        <UiIconButton
+          size="sm"
+          variant="ghost"
+          shape="square"
+          title="最大化"
+          @click="maximizeWindow"
+        >
+          <svg width="10" height="10" viewBox="0 0 10 10" fill="none">
+            <rect
+              x="0.5"
+              y="0.5"
+              width="9"
+              height="9"
+              rx="1"
+              stroke="currentColor"
+              stroke-width="1"
+            />
+          </svg>
         </UiIconButton>
-        <UiIconButton class="workspace-window-titlebar__close" size="sm" variant="ghost" shape="square" title="关闭" @click="closeWindow">
-          <svg width="10" height="10" viewBox="0 0 10 10"><path d="M1 1l8 8M9 1l-8 8" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+        <UiIconButton
+          class="workspace-window-titlebar__close"
+          size="sm"
+          variant="ghost"
+          shape="square"
+          title="关闭"
+          @click="closeWindow"
+        >
+          <svg width="10" height="10" viewBox="0 0 10 10">
+            <path
+              d="M1 1l8 8M9 1l-8 8"
+              stroke="currentColor"
+              stroke-width="1.5"
+              stroke-linecap="round"
+            />
+          </svg>
         </UiIconButton>
       </div>
     </div>
@@ -123,7 +182,11 @@ onBeforeUnmount(() => {
     <main class="workspace-window-stage">
       <router-view v-slot="{ Component, route: activeRoute }">
         <Suspense>
-          <component :is="Component" :key="activeRoute.path" v-show="!webviewStore.hasActiveInstance" />
+          <component
+            :is="Component"
+            :key="activeRoute.path"
+            v-show="!webviewStore.hasActiveInstance"
+          />
           <template #fallback>
             <WorkspaceWindowSkeleton :page-key="currentKey" />
           </template>

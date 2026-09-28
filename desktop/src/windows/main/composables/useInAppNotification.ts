@@ -1,5 +1,9 @@
 import type { App } from 'vue';
-import { useInAppNotificationStore, type InAppNotificationInput, type InAppNotificationTone } from '../stores/in_app_notification_store';
+import {
+  useInAppNotificationStore,
+  type InAppNotificationInput,
+  type InAppNotificationTone,
+} from '../stores/in_app_notification_store';
 
 export function getErrorMessage(error: unknown, fallback = '未知错误') {
   if (error instanceof Error && error.message.trim()) {
@@ -19,7 +23,7 @@ export function notifyInApp(
   tone: InAppNotificationTone,
   title: string,
   message: string,
-  options?: Omit<InAppNotificationInput, 'tone' | 'title' | 'message'>,
+  options?: Omit<InAppNotificationInput, 'tone' | 'title' | 'message'>
 ) {
   return useInAppNotificationStore().notify({
     ...options,
@@ -33,27 +37,43 @@ export function notifyInAppPayload(input: InAppNotificationInput) {
   return useInAppNotificationStore().notify(input);
 }
 
-export function notifyError(error: unknown, title = '操作失败', options?: { duration?: number; dedupeKey?: string }) {
+export function notifyError(
+  error: unknown,
+  title = '操作失败',
+  options?: { duration?: number; dedupeKey?: string }
+) {
   return notifyInApp('error', title, getErrorMessage(error), options);
 }
 
-export function notifyWarning(message: string, title = '请注意', options?: { duration?: number; dedupeKey?: string }) {
+export function notifyWarning(
+  message: string,
+  title = '请注意',
+  options?: { duration?: number; dedupeKey?: string }
+) {
   return notifyInApp('warning', title, message, options);
 }
 
-export function notifyInfo(message: string, title = '提示', options?: { duration?: number; dedupeKey?: string }) {
+export function notifyInfo(
+  message: string,
+  title = '提示',
+  options?: { duration?: number; dedupeKey?: string }
+) {
   return notifyInApp('info', title, message, options);
 }
 
-export function notifySuccess(message: string, title = '已完成', options?: { duration?: number; dedupeKey?: string }) {
+export function notifySuccess(
+  message: string,
+  title = '已完成',
+  options?: { duration?: number; dedupeKey?: string }
+) {
   return notifyInApp('success', title, message, options);
 }
 
 export function isBenignResizeObserverLoopError(error: unknown) {
   const message = getErrorMessage(error, '');
   return (
-    message === 'ResizeObserver loop completed with undelivered notifications.'
-    || message === 'ResizeObserver loop limit exceeded'
+    message === 'ResizeObserver loop completed with undelivered notifications.' ||
+    message === 'ResizeObserver loop limit exceeded'
   );
 }
 

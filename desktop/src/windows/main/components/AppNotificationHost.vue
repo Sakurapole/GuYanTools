@@ -3,13 +3,19 @@ import { computed } from 'vue';
 import { useRouter } from 'vue-router';
 import type { NotificationImageSource } from '@/contracts/notification';
 import UiIconButton from './ui/UiIconButton.vue';
-import { useInAppNotificationStore, type InAppNotificationItem } from '../stores/in_app_notification_store';
+import {
+  useInAppNotificationStore,
+  type InAppNotificationItem,
+} from '../stores/in_app_notification_store';
 
-const props = withDefaults(defineProps<{
-  popup?: boolean;
-}>(), {
-  popup: false,
-});
+const props = withDefaults(
+  defineProps<{
+    popup?: boolean;
+  }>(),
+  {
+    popup: false,
+  }
+);
 
 const notificationStore = useInAppNotificationStore();
 const router = useRouter();
@@ -37,7 +43,9 @@ function resolveImageSource(source?: NotificationImageSource) {
   if (source.type === 'base64') {
     const base64 = source.base64.trim();
     if (!base64) return '';
-    return base64.startsWith('data:') ? base64 : `data:${source.mimeType || 'image/png'};base64,${base64}`;
+    return base64.startsWith('data:')
+      ? base64
+      : `data:${source.mimeType || 'image/png'};base64,${base64}`;
   }
   return '';
 }
@@ -96,7 +104,12 @@ function activate(item: InAppNotificationItem) {
           @click.stop="notificationStore.dismiss(item.id)"
         >
           <svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true" focusable="false">
-            <path d="M4 4L12 12M12 4L4 12" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" />
+            <path
+              d="M4 4L12 12M12 4L4 12"
+              stroke="currentColor"
+              stroke-width="1.7"
+              stroke-linecap="round"
+            />
           </svg>
         </UiIconButton>
       </article>
@@ -221,7 +234,9 @@ function activate(item: InAppNotificationItem) {
   background: transparent;
   color: var(--ui-icon-button-text);
   cursor: pointer;
-  transition: background-color 0.16s ease, color 0.16s ease;
+  transition:
+    background-color 0.16s ease,
+    color 0.16s ease;
   transform: none;
 
   &:hover:not(:disabled) {
@@ -263,7 +278,9 @@ function activate(item: InAppNotificationItem) {
 .in-app-notification-enter-active,
 .in-app-notification-leave-active,
 .in-app-notification-move {
-  transition: opacity 0.18s ease, transform 0.18s ease;
+  transition:
+    opacity 0.18s ease,
+    transform 0.18s ease;
 }
 
 .in-app-notification-enter-from,

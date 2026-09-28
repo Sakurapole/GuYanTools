@@ -1,23 +1,23 @@
-import '@fontsource-variable/geist'
-import '@fontsource-variable/geist-mono'
-import 'katex/dist/katex.min.css'
-import { createPinia } from 'pinia'
-import { createApp } from 'vue'
-import App from './App.vue'
-import ripple from './directives/ripple'
-import tooltip from './directives/tooltip'
-import './global.css'
-import { installInAppErrorHandlers } from './composables/useInAppNotification'
-import { registerPluginRoutes, router } from './routes/router'
-import { useAppConfigStore } from './stores/app_config_store'
-import { useBarStore } from './stores/bar_store'
-import { useGlobalStore } from './stores/global_store'
-import { useUpdaterStore } from './stores/updater_store'
+import '@fontsource-variable/geist';
+import '@fontsource-variable/geist-mono';
+import 'katex/dist/katex.min.css';
+import { createPinia } from 'pinia';
+import { createApp } from 'vue';
+import App from './App.vue';
+import ripple from './directives/ripple';
+import tooltip from './directives/tooltip';
+import './global.css';
+import { installInAppErrorHandlers } from './composables/useInAppNotification';
+import { registerPluginRoutes, router } from './routes/router';
+import { useAppConfigStore } from './stores/app_config_store';
+import { useBarStore } from './stores/bar_store';
+import { useGlobalStore } from './stores/global_store';
+import { useUpdaterStore } from './stores/updater_store';
 
-import en from './i18n/en'
-import zh from './i18n/zh'
-import { createDefaultAppConfig } from '@/contracts/app_config'
-import { createI18n } from "vue-i18n"
+import en from './i18n/en';
+import zh from './i18n/zh';
+import { createDefaultAppConfig } from '@/contracts/app_config';
+import { createI18n } from 'vue-i18n';
 
 async function bootstrap() {
   const initialConfig = window.appConfigApi
@@ -31,7 +31,7 @@ async function bootstrap() {
     messages: {
       zh,
       en,
-    }
+    },
   });
 
   if (window.pluginHostApi) {

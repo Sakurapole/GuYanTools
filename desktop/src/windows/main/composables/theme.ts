@@ -66,15 +66,14 @@ export const useTheme = () => {
   const persistTheme = (patch: AppConfigPatch) => {
     const persistVersion = ++themePersistVersion;
 
-    void appConfigStore.persistConfigPatch(patch)
-      .catch((error) => {
-        console.error('[Theme] 持久化主题配置失败:', error);
-        if (persistVersion === themePersistVersion) {
-          void appConfigStore.refreshConfig().catch((refreshError) => {
-            console.error('[Theme] 回滚主题配置失败:', refreshError);
-          });
-        }
-      });
+    void appConfigStore.persistConfigPatch(patch).catch((error) => {
+      console.error('[Theme] 持久化主题配置失败:', error);
+      if (persistVersion === themePersistVersion) {
+        void appConfigStore.refreshConfig().catch((refreshError) => {
+          console.error('[Theme] 回滚主题配置失败:', refreshError);
+        });
+      }
+    });
   };
 
   const setTheme = (value: Theme, shouldGuardRender = true) => {
@@ -118,7 +117,7 @@ export const useTheme = () => {
     const y = event?.clientY ?? 0;
     const endRadius = Math.hypot(
       Math.max(x, window.innerWidth - x),
-      Math.max(y, window.innerHeight - y),
+      Math.max(y, window.innerHeight - y)
     );
 
     void transition.ready
@@ -136,13 +135,12 @@ export const useTheme = () => {
             duration: THEME_VIEW_TRANSITION_DURATION,
             easing: 'ease-in',
             pseudoElement: willDark ? '::view-transition-new(root)' : '::view-transition-old(root)',
-          },
+          }
         );
       })
       .catch((error) => {
         console.warn('[Theme] View transition animation failed:', error);
       });
-
   };
 
   return { theme, setTheme, toggleTheme };

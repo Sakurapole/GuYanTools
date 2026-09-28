@@ -1,6 +1,10 @@
 import { acceptHMRUpdate, defineStore } from 'pinia';
 import { readonly, ref } from 'vue';
-import type { NotificationImageSource, NotificationSize, NotificationType } from '@/contracts/notification';
+import type {
+  NotificationImageSource,
+  NotificationSize,
+  NotificationType,
+} from '@/contracts/notification';
 
 export type InAppNotificationTone = 'info' | 'success' | 'warning' | 'error';
 

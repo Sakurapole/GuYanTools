@@ -1,10 +1,8 @@
 export default {
-  common: {
-
-  },
+  common: {},
   tab: {
-    home: "Home",
-    settings: "Settings",
-    about: "About"
-  }
-}
+    home: 'Home',
+    settings: 'Settings',
+    about: 'About',
+  },
+};

@@ -51,17 +51,20 @@ const isPopupMode = computed(() => route.query.popup === '1');
 /** 页面自带标题栏（如脚本编辑器），popup 模式下跳过 App 自带的标题栏 */
 const hasSelfTitlebar = computed(() => false);
 const detachedRouteKey = computed<WorkspaceWindowKey | null>(() => {
-  const matched = Object.values(WORKSPACE_WINDOW_DEFINITIONS).find(definition => definition.route === route.path);
+  const matched = Object.values(WORKSPACE_WINDOW_DEFINITIONS).find(
+    (definition) => definition.route === route.path
+  );
   return matched?.key ?? null;
 });
 const isDetachedWindow = computed(() => workspaceWindowContext.value.role === 'detached');
-const isCurrentPageDetached = computed(() => (
-  workspaceWindowContext.value.role === 'main'
-  && Boolean(detachedRouteKey.value && workspaceWindowState.value.detached[detachedRouteKey.value])
-));
-const currentDetachedDefinition = computed(() => (
+const isCurrentPageDetached = computed(
+  () =>
+    workspaceWindowContext.value.role === 'main' &&
+    Boolean(detachedRouteKey.value && workspaceWindowState.value.detached[detachedRouteKey.value])
+);
+const currentDetachedDefinition = computed(() =>
   detachedRouteKey.value ? WORKSPACE_WINDOW_DEFINITIONS[detachedRouteKey.value] : null
-));
+);
 
 function markRouteRenderBusy() {
   const root = document.documentElement;
@@ -96,20 +99,23 @@ function resetFirstVisitLoad() {
 
 async function openCurrentPageDetached() {
   if (!detachedRouteKey.value) return;
-  workspaceWindowState.value = await window.workspaceWindowApi?.openDetached(detachedRouteKey.value, { routeOverride: route.fullPath })
-    ?? workspaceWindowState.value;
+  workspaceWindowState.value =
+    (await window.workspaceWindowApi?.openDetached(detachedRouteKey.value, {
+      routeOverride: route.fullPath,
+    })) ?? workspaceWindowState.value;
 }
 
 async function openDetachedRouteFromDetachedWindow(key: WorkspaceWindowKey, fullPath: string) {
-  workspaceWindowState.value = await window.workspaceWindowApi?.openDetached(key, { routeOverride: fullPath })
-    ?? workspaceWindowState.value;
+  workspaceWindowState.value =
+    (await window.workspaceWindowApi?.openDetached(key, { routeOverride: fullPath })) ??
+    workspaceWindowState.value;
 }
 
 async function returnDetachedPageToMain() {
   const key = workspaceWindowContext.value.detachedKey ?? detachedRouteKey.value;
   if (!key) return;
-  workspaceWindowState.value = await window.workspaceWindowApi?.returnToMain(key)
-    ?? workspaceWindowState.value;
+  workspaceWindowState.value =
+    (await window.workspaceWindowApi?.returnToMain(key)) ?? workspaceWindowState.value;
 }
 
 let removeBeforeEach: (() => void) | undefined;
@@ -118,7 +124,8 @@ let removeRouterError: (() => void) | undefined;
 removeBeforeEach = router.beforeEach((to, from, next) => {
   markRouteRenderBusy();
 
-  const isFirstPageVisit = to.path !== from.path && to.path !== '/' && !visitedPagePaths.has(to.path);
+  const isFirstPageVisit =
+    to.path !== from.path && to.path !== '/' && !visitedPagePaths.has(to.path);
   if (isFirstPageVisit) {
     beginFirstVisitLoad();
   } else {
@@ -130,7 +137,9 @@ removeBeforeEach = router.beforeEach((to, from, next) => {
   pageTransitionName.value = 'ui-page-instant';
 
   if (workspaceWindowContext.value.role === 'detached' && from.query.detached) {
-    const targetDefinition = Object.values(WORKSPACE_WINDOW_DEFINITIONS).find(definition => definition.route === to.path);
+    const targetDefinition = Object.values(WORKSPACE_WINDOW_DEFINITIONS).find(
+      (definition) => definition.route === to.path
+    );
     if (targetDefinition) {
       void openDetachedRouteFromDetachedWindow(targetDefinition.key, to.fullPath);
     }
@@ -167,12 +176,15 @@ onMounted(() => {
   // 保留页面预览快照，但只在首屏稳定后的浏览器空闲期生成，避免参与启动和路由切换。
   window.setTimeout(() => schedulePageSnapshot(router.currentRoute.value.path, 0), 2200);
   // 夜间保留快照更新，但仅在 00:00-06:00 且页面空闲时排队，不参与白天交互。
-  overnightSnapshotTimer = window.setInterval(() => {
-    const hour = new Date().getHours();
-    if (hour >= 0 && hour < 6) {
-      schedulePageSnapshot(router.currentRoute.value.path, 0);
-    }
-  }, 10 * 60 * 1000);
+  overnightSnapshotTimer = window.setInterval(
+    () => {
+      const hour = new Date().getHours();
+      if (hour >= 0 && hour < 6) {
+        schedulePageSnapshot(router.currentRoute.value.path, 0);
+      }
+    },
+    10 * 60 * 1000
+  );
 
   void window.workspaceWindowApi?.getState().then((state) => {
     workspaceWindowState.value = state;
@@ -183,7 +195,7 @@ onMounted(() => {
   removeWorkspaceWindowStateListener = window.workspaceWindowApi?.onStateChanged((state) => {
     workspaceWindowState.value = state;
   });
-})
+});
 
 onBeforeUnmount(() => {
   removeNavigationListener?.();
@@ -195,7 +207,7 @@ onBeforeUnmount(() => {
   window.clearTimeout(routeFirstVisitTimer);
   window.clearInterval(overnightSnapshotTimer);
   document.documentElement.classList.remove('app-rendering-busy');
-})
+});
 </script>
 
 <template>
@@ -215,16 +227,61 @@ onBeforeUnmount(() => {
           title="回到主窗口"
           @click="returnDetachedPageToMain"
         >
-          <svg width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M5 2 1.5 5.5 5 9M2 5.5h8" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
+            <path
+              d="M5 2 1.5 5.5 5 9M2 5.5h8"
+              stroke="currentColor"
+              stroke-width="1.4"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            />
+          </svg>
         </UiIconButton>
-        <UiIconButton class="popup-titlebar__btn" size="sm" variant="ghost" title="最小化" @click="ipcRenderer.send('window:minimize')">
-          <svg width="10" height="1" viewBox="0 0 10 1"><line x1="0" y1="0.5" x2="10" y2="0.5" stroke="currentColor" stroke-width="1"/></svg>
+        <UiIconButton
+          class="popup-titlebar__btn"
+          size="sm"
+          variant="ghost"
+          title="最小化"
+          @click="ipcRenderer.send('window:minimize')"
+        >
+          <svg width="10" height="1" viewBox="0 0 10 1">
+            <line x1="0" y1="0.5" x2="10" y2="0.5" stroke="currentColor" stroke-width="1" />
+          </svg>
         </UiIconButton>
-        <UiIconButton class="popup-titlebar__btn" size="sm" variant="ghost" title="最大化" @click="ipcRenderer.send('window:maximize')">
-          <svg width="10" height="10" viewBox="0 0 10 10" fill="none"><rect x="0.5" y="0.5" width="9" height="9" rx="1" stroke="currentColor" stroke-width="1"/></svg>
+        <UiIconButton
+          class="popup-titlebar__btn"
+          size="sm"
+          variant="ghost"
+          title="最大化"
+          @click="ipcRenderer.send('window:maximize')"
+        >
+          <svg width="10" height="10" viewBox="0 0 10 10" fill="none">
+            <rect
+              x="0.5"
+              y="0.5"
+              width="9"
+              height="9"
+              rx="1"
+              stroke="currentColor"
+              stroke-width="1"
+            />
+          </svg>
         </UiIconButton>
-        <UiIconButton class="popup-titlebar__btn popup-titlebar__btn--close" size="sm" variant="ghost" title="关闭" @click="ipcRenderer.send('window:close')">
-          <svg width="10" height="10" viewBox="0 0 10 10"><path d="M1 1l8 8M9 1l-8 8" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+        <UiIconButton
+          class="popup-titlebar__btn popup-titlebar__btn--close"
+          size="sm"
+          variant="ghost"
+          title="关闭"
+          @click="ipcRenderer.send('window:close')"
+        >
+          <svg width="10" height="10" viewBox="0 0 10 10">
+            <path
+              d="M1 1l8 8M9 1l-8 8"
+              stroke="currentColor"
+              stroke-width="1.5"
+              stroke-linecap="round"
+            />
+          </svg>
         </UiIconButton>
       </div>
     </div>
@@ -235,7 +292,11 @@ onBeforeUnmount(() => {
       @detach-current-page="openCurrentPageDetached"
     />
     <div class="page-container" ref="pageContainerRef">
-      <Sidebar v-if="!isPopupMode" :parent-height="containerHeight" :parent-width="containerWidth" />
+      <Sidebar
+        v-if="!isPopupMode"
+        :parent-height="containerHeight"
+        :parent-width="containerWidth"
+      />
       <div class="page-router-viewport">
         <div
           v-show="firstVisitProgressVisible"
@@ -244,12 +305,21 @@ onBeforeUnmount(() => {
         >
           <div class="page-first-visit-progress__bar" />
         </div>
-        <section v-if="isCurrentPageDetached && currentDetachedDefinition" class="workspace-detached-placeholder">
+        <section
+          v-if="isCurrentPageDetached && currentDetachedDefinition"
+          class="workspace-detached-placeholder"
+        >
           <div class="workspace-detached-placeholder__panel">
             <div class="workspace-detached-placeholder__eyebrow">独立窗口</div>
             <h2>当前页面已独立显示</h2>
-            <p>{{ currentDetachedDefinition.title }} 已在独立窗口中打开。主窗口可以继续查看其它页面。</p>
-            <button class="workspace-detached-placeholder__button" type="button" @click="returnDetachedPageToMain">
+            <p>
+              {{ currentDetachedDefinition.title }} 已在独立窗口中打开。主窗口可以继续查看其它页面。
+            </p>
+            <button
+              class="workspace-detached-placeholder__button"
+              type="button"
+              @click="returnDetachedPageToMain"
+            >
               回到主窗口
             </button>
           </div>
@@ -356,7 +426,9 @@ onBeforeUnmount(() => {
   background: transparent;
   color: var(--ui-text-secondary);
   cursor: pointer;
-  transition: background 0.15s, color 0.15s;
+  transition:
+    background 0.15s,
+    color 0.15s;
 
   &:hover:not(:disabled) {
     background: rgba(128, 128, 128, 0.12);
@@ -416,7 +488,10 @@ onBeforeUnmount(() => {
   font-weight: 700;
   cursor: pointer;
   pointer-events: auto;
-  transition: background-color 140ms ease, border-color 140ms ease, color 140ms ease;
+  transition:
+    background-color 140ms ease,
+    border-color 140ms ease,
+    color 140ms ease;
 }
 
 .workspace-detached-placeholder__button:hover {

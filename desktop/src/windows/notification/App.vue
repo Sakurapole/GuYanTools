@@ -8,11 +8,21 @@
       { 'notification--visible': visible },
     ]"
   >
-    <div class="notification-card" @mouseenter="pauseAutoClose" @mouseleave="resumeAutoClose" @click="activateNotification">
+    <div
+      class="notification-card"
+      @mouseenter="pauseAutoClose"
+      @mouseleave="resumeAutoClose"
+      @click="activateNotification"
+    >
       <!-- 关闭按钮 -->
       <button class="notification-close" @click.stop="close" title="关闭">
         <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
-          <path d="M11 3L3 11M3 3l8 8" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" />
+          <path
+            d="M11 3L3 11M3 3l8 8"
+            stroke="currentColor"
+            stroke-width="1.6"
+            stroke-linecap="round"
+          />
         </svg>
       </button>
 
@@ -57,7 +67,10 @@
       <div v-if="duration > 0" class="notification-progress">
         <div
           class="notification-progress__bar"
-          :style="{ animationDuration: `${duration}ms`, animationPlayState: paused ? 'paused' : 'running' }"
+          :style="{
+            animationDuration: `${duration}ms`,
+            animationPlayState: paused ? 'paused' : 'running',
+          }"
         />
       </div>
     </div>
@@ -69,10 +82,12 @@ import { onBeforeUnmount, onMounted, reactive, ref } from 'vue';
 import type { NotificationPayload, NotificationTheme } from '@/contracts/notification';
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
-const ipc = (window as any).ipcRenderer as {
-  send: (channel: string, ...args: unknown[]) => void;
-  on: (channel: string, listener: (...args: any[]) => void) => (() => void) | undefined;
-} | undefined;
+const ipc = (window as any).ipcRenderer as
+  | {
+      send: (channel: string, ...args: unknown[]) => void;
+      on: (channel: string, listener: (...args: any[]) => void) => (() => void) | undefined;
+    }
+  | undefined;
 
 const data = reactive<NotificationPayload>({
   type: 'text',
@@ -192,8 +207,9 @@ body {
 
   transform: translateX(110%);
   opacity: 0;
-  transition: transform 0.36s cubic-bezier(0.22, 1, 0.36, 1),
-              opacity 0.28s ease-out;
+  transition:
+    transform 0.36s cubic-bezier(0.22, 1, 0.36, 1),
+    opacity 0.28s ease-out;
 }
 
 .notification-wrapper.notification--visible {

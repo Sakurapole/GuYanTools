@@ -1,6 +1,11 @@
 import { computed, ref } from 'vue';
 import { defineStore } from 'pinia';
-import type { UpdateInfo, UpdateProgress, UpdateStatus, UpdaterAuthInfo } from '@/contracts/updater';
+import type {
+  UpdateInfo,
+  UpdateProgress,
+  UpdateStatus,
+  UpdaterAuthInfo,
+} from '@/contracts/updater';
 
 function defaultState(): UpdateInfo {
   return {
@@ -45,10 +50,10 @@ export const useUpdaterStore = defineStore('updater', () => {
     };
 
     if (
-      info.value.status === 'available'
-      && info.value.latestVersion
-      && info.value.latestVersion !== notifiedVersion.value
-      && window.notificationApi
+      info.value.status === 'available' &&
+      info.value.latestVersion &&
+      info.value.latestVersion !== notifiedVersion.value &&
+      window.notificationApi
     ) {
       notifiedVersion.value = info.value.latestVersion;
       void window.notificationApi.show({

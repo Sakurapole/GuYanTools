@@ -1,9 +1,8 @@
 <template>
-  <div :class="[
-    'spacer',
-    `spacer--${direction}`,
-    { 'spacer--divider': type === 'divider' }
-  ]" :style="spacerStyle">
+  <div
+    :class="['spacer', `spacer--${direction}`, { 'spacer--divider': type === 'divider' }]"
+    :style="spacerStyle"
+  >
     <span v-if="type === 'divider'" class="spacer__divider-line">|</span>
   </div>
 </template>
@@ -35,14 +34,14 @@ const spacerStyle = computed(() => {
       return {
         display: 'inline-flex',
         alignItems: 'center',
-        margin: `0 ${s}`
+        margin: `0 ${s}`,
       };
     } else {
       return {
         display: 'inline-flex',
         alignItems: 'center',
-        flexDirection: 'column' as 'column',
-        margin: `${s} 0`
+        flexDirection: 'column' as const,
+        margin: `${s} 0`,
       };
     }
   }

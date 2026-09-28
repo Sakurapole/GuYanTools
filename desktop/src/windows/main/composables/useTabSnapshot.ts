@@ -20,37 +20,45 @@ const MAX_SNAPSHOT_ENTRIES = 8;
 
 function isRenderBusy() {
   const root = document.documentElement;
-  return root.classList.contains('theme-transitioning')
-    || root.classList.contains('app-rendering-busy');
+  return (
+    root.classList.contains('theme-transitioning') || root.classList.contains('app-rendering-busy')
+  );
 }
 
 function installInteractionPause() {
   if (interactionListenersInstalled) return;
   interactionListenersInstalled = true;
-  const pause = () => { interactionUntil = Date.now() + 800; };
+  const pause = () => {
+    interactionUntil = Date.now() + 800;
+  };
   window.addEventListener('pointerdown', pause, { passive: true });
   window.addEventListener('keydown', pause, { passive: true });
   window.addEventListener('wheel', pause, { passive: true });
 }
 
 function requestIdleTask(callback: () => void) {
-  const requestIdleCallback = window.requestIdleCallback ?? ((handler: IdleRequestCallback) => {
-    const startedAt = window.performance.now();
-    return window.setTimeout(() => {
-      handler({
-        didTimeout: false,
-        timeRemaining: () => Math.max(0, 16 - (window.performance.now() - startedAt)),
-      });
-    }, 1);
-  });
+  const requestIdleCallback =
+    window.requestIdleCallback ??
+    ((handler: IdleRequestCallback) => {
+      const startedAt = window.performance.now();
+      return window.setTimeout(() => {
+        handler({
+          didTimeout: false,
+          timeRemaining: () => Math.max(0, 16 - (window.performance.now() - startedAt)),
+        });
+      }, 1);
+    });
 
-  requestIdleCallback((deadline) => {
-    if (interactionUntil > Date.now() || deadline.timeRemaining() < 8) {
-      schedulePageSnapshot(scheduledSnapshotRoutePath, 1200, scheduledSnapshotForce);
-      return;
-    }
-    callback();
-  }, { timeout: 3000 });
+  requestIdleCallback(
+    (deadline) => {
+      if (interactionUntil > Date.now() || deadline.timeRemaining() < 8) {
+        schedulePageSnapshot(scheduledSnapshotRoutePath, 1200, scheduledSnapshotForce);
+        return;
+      }
+      callback();
+    },
+    { timeout: 3000 }
+  );
 }
 
 function pruneSnapshots() {
@@ -58,7 +66,7 @@ function pruneSnapshots() {
   if (keys.length <= MAX_SNAPSHOT_ENTRIES) return;
 
   const sorted = keys
-    .map(key => ({ key, at: capturedAt.get(key) ?? 0 }))
+    .map((key) => ({ key, at: capturedAt.get(key) ?? 0 }))
     .sort((a, b) => a.at - b.at);
   const dropCount = keys.length - MAX_SNAPSHOT_ENTRIES;
   for (let i = 0; i < dropCount; i += 1) {
@@ -72,7 +80,10 @@ function pruneSnapshots() {
 /**
  * 对当前窗口截图，并缓存到指定路由路径下
  */
-export async function capturePageSnapshot(routePath: string, options: { force?: boolean } = {}): Promise<void> {
+export async function capturePageSnapshot(
+  routePath: string,
+  options: { force?: boolean } = {}
+): Promise<void> {
   if (!routePath || routePath === '/') return;
   if (isCapturing) return;
   if (isRenderBusy()) return;

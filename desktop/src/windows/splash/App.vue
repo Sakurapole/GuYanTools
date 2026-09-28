@@ -33,23 +33,18 @@ onMounted(() => {
   const tl = gsap.timeline({
     onComplete: () => {
       window.ipcRenderer?.send('splash-animation-finished');
-    }
+    },
   });
 
-  tl.fromTo(logoContainer.value,
+  tl.fromTo(
+    logoContainer.value,
     { opacity: 0, scale: 0.5 },
-    { opacity: 1, scale: 1, duration: 0.8, ease: "back.out" }
+    { opacity: 1, scale: 1, duration: 0.8, ease: 'back.out' }
   );
 
-  tl.fromTo(".app-info",
-    { opacity: 0, y: 20 },
-    { opacity: 1, y: 0, duration: 0.5 }
-  );
+  tl.fromTo('.app-info', { opacity: 0, y: 20 }, { opacity: 1, y: 0, duration: 0.5 });
 
-  tl.fromTo(progressBar.value,
-    { scaleX: 0 },
-    { scaleX: 1, duration: 1, ease: "power1.inOut" }
-  );
+  tl.fromTo(progressBar.value, { scaleX: 0 }, { scaleX: 1, duration: 1, ease: 'power1.inOut' });
 });
 </script>
 

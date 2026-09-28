@@ -5,22 +5,36 @@
         <SvgIcon width="24" height="24" viewBox="0 0 1024 1024">
           <path
             d="M896 261.4272L524.7488 475.136a25.6 25.6 0 0 1-25.6 0L128 261.4272a25.6 25.6 0 0 1 0-44.3392L499.2512 3.4304a25.6 25.6 0 0 1 25.6 0L896 217.088a25.6 25.6 0 0 1 0 44.3392zM934.3488 333.4656L563.7632 547.84a25.6 25.6 0 0 0-12.7488 22.1184l-0.512 428.1856a25.6 25.6 0 0 0 38.4512 22.2208l370.5856-214.528a25.6 25.6 0 0 0 12.7488-22.1696l0.512-428.1856a25.6 25.6 0 0 0-38.4512-22.016zM51.2 355.6352l0.512 428.1856a25.6 25.6 0 0 0 12.7488 22.1696L435.2 1020.5184a25.6 25.6 0 0 0 38.2976-22.1184l-0.512-428.1856a25.6 25.6 0 0 0-12.7488-22.3744L89.6512 333.4656A25.6 25.6 0 0 0 51.2 355.6352z"
-            p-id="2031"></path>
+            p-id="2031"
+          ></path>
         </SvgIcon>
       </div>
     </div>
     <div class="bottombar-running-tool-container">
-      <TransitionGroup name="tab-move" tag="div" class="tab-list" :class="{ 'tab-list--instant': tabListInstant }">
-        <ToolItem v-for="tab in ungroupedTabPages" :key="tab.id"
-          :tab-id="tab.id" :tab-name="tab.name" :url="tab.url"
-          :icon="tab.icon" :active="tab.active" :closable="tab.closable !== false" :icon-only="tab.iconOnly"
+      <TransitionGroup
+        name="tab-move"
+        tag="div"
+        class="tab-list"
+        :class="{ 'tab-list--instant': tabListInstant }"
+      >
+        <ToolItem
+          v-for="tab in ungroupedTabPages"
+          :key="tab.id"
+          :tab-id="tab.id"
+          :tab-name="tab.name"
+          :url="tab.url"
+          :icon="tab.icon"
+          :active="tab.active"
+          :closable="tab.closable !== false"
+          :icon-only="tab.iconOnly"
           @close="handleTabClose"
           @dragstart="handleDragStart"
           @dragenter="handleDragEnter"
           @drop="handleTabDrop"
           @dragend="handleDragEnd"
           @hover="handleTabHover"
-          @hoverend="handleTabHoverEnd" />
+          @hoverend="handleTabHoverEnd"
+        />
         <div
           v-for="collection in collections"
           :key="collection.id"
@@ -97,14 +111,13 @@
       </div>
     </Transition>
   </Teleport>
-
 </template>
 
 <script lang="ts" setup>
 import ToolItem from '@/windows/main/components/bottombar/tool_item.vue';
 import TabPreview from '@/windows/main/components/bottombar/TabPreview.vue';
 import IconRenderer from '@/windows/main/components/ui/IconRenderer.vue';
-import SvgIcon from '@/windows/main/components/svgs/svgicon.vue';
+import SvgIcon from '@/windows/main/components/svgs/SVGIcon.vue';
 import { useBarStore } from '@/windows/main/stores/bar_store';
 import { useWebviewStore } from '@/windows/main/stores/webview_store';
 import { computed, nextTick, ref, onBeforeUnmount, watch } from 'vue';
@@ -130,9 +143,12 @@ const previewTabIcon = ref<string | undefined>(undefined);
 const previewTriggerRect = ref<DOMRect | null>(null);
 
 // 页面切换时立即销毁旧页面的预览，避免鼠标未离开底栏时残留在新页面上。
-watch(() => router.currentRoute.value.fullPath, () => {
-  hidePreview();
-});
+watch(
+  () => router.currentRoute.value.fullPath,
+  () => {
+    hidePreview();
+  }
+);
 
 let previewShowTimer: number | null = null;
 let previewHideTimer: number | null = null;
@@ -142,7 +158,9 @@ let collectionHideTimer: number | null = null;
 const collectionPanelVisible = ref(false);
 const collectionPanelId = ref('');
 const collectionTriggerRect = ref<DOMRect | null>(null);
-const activeCollection = computed(() => collections.value.find(collection => collection.id === collectionPanelId.value));
+const activeCollection = computed(() =>
+  collections.value.find((collection) => collection.id === collectionPanelId.value)
+);
 const collectionPanelStyle = computed(() => {
   const rect = collectionTriggerRect.value;
   const width = Math.min(420, Math.max(220, (activeCollection.value?.tabs.length ?? 1) * 66 + 24));
@@ -151,7 +169,10 @@ const collectionPanelStyle = computed(() => {
   }
 
   const halfWidth = width / 2 + 10;
-  const x = Math.min(window.innerWidth - halfWidth, Math.max(halfWidth, rect.left + rect.width / 2));
+  const x = Math.min(
+    window.innerWidth - halfWidth,
+    Math.max(halfWidth, rect.left + rect.width / 2)
+  );
   return {
     left: `${x}px`,
     top: `${rect.top - 10}px`,
@@ -161,20 +182,32 @@ const collectionPanelStyle = computed(() => {
 
 const svgIcons: Record<string, string> = {
   home: 'M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8z',
-  settings: 'M19.14 12.94c.04-.3.06-.61.06-.94 0-.32-.02-.64-.07-.94l2.03-1.58c.18-.14.23-.41.12-.61l-1.92-3.32c-.12-.22-.37-.29-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94L14.4 2.81c-.04-.24-.24-.41-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96c-.22-.08-.47 0-.59.22L2.74 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.05.3-.09.63-.09.94s.02.64.07.94l-2.03 1.58c-.18.14-.23.41-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.12-.22.07-.47-.12-.61l-2.01-1.58zM12 15.6c-1.98 0-3.6-1.62-3.6-3.6s1.62-3.6 3.6-3.6 3.6 1.62 3.6 3.6-1.62 3.6-3.6 3.6z',
-  plugins: 'M20.5 11H19V7a2 2 0 0 0-2-2h-4V3.5a2.5 2.5 0 0 0-5 0V5H4a2 2 0 0 0-2 2v3.8h1.5a2.7 2.7 0 0 1 0 5.4H2V20a2 2 0 0 0 2 2h3.8v-1.5a2.7 2.7 0 0 1 5.4 0V22H17a2 2 0 0 0 2-2v-4h1.5a2.5 2.5 0 0 0 0-5z',
-  terminal: 'M4 5h16a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2zm1.5 3.5L8.5 11l-3 2.5 1 1.2L11 11l-4.5-3.7-1 1.2zM12 14h6v-1.5h-6V14z',
+  settings:
+    'M19.14 12.94c.04-.3.06-.61.06-.94 0-.32-.02-.64-.07-.94l2.03-1.58c.18-.14.23-.41.12-.61l-1.92-3.32c-.12-.22-.37-.29-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94L14.4 2.81c-.04-.24-.24-.41-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96c-.22-.08-.47 0-.59.22L2.74 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.05.3-.09.63-.09.94s.02.64.07.94l-2.03 1.58c-.18.14-.23.41-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.12-.22.07-.47-.12-.61l-2.01-1.58zM12 15.6c-1.98 0-3.6-1.62-3.6-3.6s1.62-3.6 3.6-3.6 3.6 1.62 3.6 3.6-1.62 3.6-3.6 3.6z',
+  plugins:
+    'M20.5 11H19V7a2 2 0 0 0-2-2h-4V3.5a2.5 2.5 0 0 0-5 0V5H4a2 2 0 0 0-2 2v3.8h1.5a2.7 2.7 0 0 1 0 5.4H2V20a2 2 0 0 0 2 2h3.8v-1.5a2.7 2.7 0 0 1 5.4 0V22H17a2 2 0 0 0 2-2v-4h1.5a2.5 2.5 0 0 0 0-5z',
+  terminal:
+    'M4 5h16a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2zm1.5 3.5L8.5 11l-3 2.5 1 1.2L11 11l-4.5-3.7-1 1.2zM12 14h6v-1.5h-6V14z',
   ftp: 'M15 5H5a2 2 0 0 0-2 2v10h2V7h10V5zm4 4H9a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V11a2 2 0 0 0-2-2zm-5 9h-2v-2h2v2zm0-3h-2v-4h2v4zm5 3h-2v-2h2v2zm-3-5-3 3-3-3h2V11h2v2h2z',
   todo: 'M22 5.18L10.59 16.6l-4.24-4.24 1.41-1.41 2.83 2.83 10-10L22 5.18zM12 20c-4.41 0-8-3.59-8-8s3.59-8 8-8c1.57 0 3.04.46 4.28 1.25l1.45-1.45A10.02 10.02 0 0 0 12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10h-2c0 4.41-3.59 8-8 8z',
-  knowledge: 'M5 4.5A2.5 2.5 0 0 1 7.5 2H20v16H8a2 2 0 0 0-2 2h14v2H7a4 4 0 0 1-4-4V6.5A2 2 0 0 1 5 4.5zM6 6.5V17.1c.57-.36 1.26-.6 2-.6h10V4H7.5A1.5 1.5 0 0 0 6 5.5v1zM8 7h8v2H8V7zm0 4h6v2H8v-2z',
+  knowledge:
+    'M5 4.5A2.5 2.5 0 0 1 7.5 2H20v16H8a2 2 0 0 0-2 2h14v2H7a4 4 0 0 1-4-4V6.5A2 2 0 0 1 5 4.5zM6 6.5V17.1c.57-.36 1.26-.6 2-.6h10V4H7.5A1.5 1.5 0 0 0 6 5.5v1zM8 7h8v2H8V7zm0 4h6v2H8v-2z',
   ai: 'M12 2a6 6 0 0 1 6 6v1.2a4.8 4.8 0 0 1 1.4 8.2l1.3 2.6h-2.2l-1-2H6.5l-1 2H3.3l1.3-2.6A4.8 4.8 0 0 1 6 9.2V8a6 6 0 0 1 6-6zm0 2a4 4 0 0 0-4 4v1h8V8a4 4 0 0 0-4-4zm-1 7H8.8A2.8 2.8 0 0 0 6 13.8v.4A2.8 2.8 0 0 0 8.8 17H11v-6zm2 0v6h2.2a2.8 2.8 0 0 0 2.8-2.8v-.4a2.8 2.8 0 0 0-2.8-2.8H13zm-4 2h1.5v2H9v-2zm4.5 0H15v2h-1.5v-2z',
-  script: 'M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8l-6-6zm0 2.5L17.5 8H14V4.5zM8.6 17.4 5.8 14.6l2.8-2.8L10 13.2l-1.4 1.4L10 16l-1.4 1.4zm6.8 0L14 16l1.4-1.4L14 13.2l1.4-1.4 2.8 2.8-2.8 2.8zm-4.3.1-1.4-.5 3.2-8.5 1.4.5-3.2 8.5z',
-  devtools: 'M9.4 16.6L4.8 12l4.6-4.6L8 6l-6 6 6 6 1.4-1.4zm5.2 0L19.2 12l-4.6-4.6L16 6l6 6-6 6-1.4-1.4z',
+  script:
+    'M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8l-6-6zm0 2.5L17.5 8H14V4.5zM8.6 17.4 5.8 14.6l2.8-2.8L10 13.2l-1.4 1.4L10 16l-1.4 1.4zm6.8 0L14 16l1.4-1.4L14 13.2l1.4-1.4 2.8 2.8-2.8 2.8zm-4.3.1-1.4-.5 3.2-8.5 1.4.5-3.2 8.5z',
+  devtools:
+    'M9.4 16.6L4.8 12l4.6-4.6L8 6l-6 6 6 6 1.4-1.4zm5.2 0L19.2 12l-4.6-4.6L16 6l6 6-6 6-1.4-1.4z',
 };
 
 function clearPreviewTimers() {
-  if (previewShowTimer !== null) { clearTimeout(previewShowTimer); previewShowTimer = null; }
-  if (previewHideTimer !== null) { clearTimeout(previewHideTimer); previewHideTimer = null; }
+  if (previewShowTimer !== null) {
+    clearTimeout(previewShowTimer);
+    previewShowTimer = null;
+  }
+  if (previewHideTimer !== null) {
+    clearTimeout(previewHideTimer);
+    previewHideTimer = null;
+  }
 }
 
 function hidePreview() {
@@ -184,13 +217,19 @@ function hidePreview() {
 }
 
 function clearCollectionTimers() {
-  if (collectionShowTimer !== null) { clearTimeout(collectionShowTimer); collectionShowTimer = null; }
-  if (collectionHideTimer !== null) { clearTimeout(collectionHideTimer); collectionHideTimer = null; }
+  if (collectionShowTimer !== null) {
+    clearTimeout(collectionShowTimer);
+    collectionShowTimer = null;
+  }
+  if (collectionHideTimer !== null) {
+    clearTimeout(collectionHideTimer);
+    collectionHideTimer = null;
+  }
 }
 
 function handleTabHover(tabId: string, rect: DOMRect) {
   clearPreviewTimers();
-  const tab = tabPages.value.find(t => t.id === tabId);
+  const tab = tabPages.value.find((t) => t.id === tabId);
   if (!tab) return;
 
   // 活动标签已经显示在主视图中，不需要再渲染预览浮层。
@@ -272,7 +311,7 @@ function closeTabAndNavigate(tabId: string) {
 }
 
 function handleTabClose(tabId: string) {
-  const tab = tabPages.value.find(item => item.id === tabId);
+  const tab = tabPages.value.find((item) => item.id === tabId);
   if (!tab) return;
 
   const targetUrl = getKeepAliveTargetUrl(tab.url);
@@ -324,7 +363,7 @@ function handleDragEnd() {
 }
 
 function handleCollectionDragStart(collectionId: string, e: DragEvent) {
-  const firstTab = collections.value.find(collection => collection.id === collectionId)?.tabs[0];
+  const firstTab = collections.value.find((collection) => collection.id === collectionId)?.tabs[0];
   if (!firstTab) return;
   draggingTabId.value = firstTab.id;
   if (e.dataTransfer) {
@@ -335,7 +374,7 @@ function handleCollectionDragStart(collectionId: string, e: DragEvent) {
 
 function handleCollectionDrop(collectionId: string, _e: DragEvent) {
   const sourceId = draggingTabId.value;
-  const targetTab = collections.value.find(collection => collection.id === collectionId)?.tabs[0];
+  const targetTab = collections.value.find((collection) => collection.id === collectionId)?.tabs[0];
   if (!sourceId || !targetTab || sourceId === targetTab.id) return;
 
   hidePreview();
@@ -388,7 +427,7 @@ function onCollectionPanelMouseLeave() {
 }
 
 function openCollectionFirstTab(collectionId: string) {
-  const firstTab = collections.value.find(collection => collection.id === collectionId)?.tabs[0];
+  const firstTab = collections.value.find((collection) => collection.id === collectionId)?.tabs[0];
   if (firstTab) {
     void router.push(firstTab.url);
   }
@@ -398,11 +437,10 @@ function activatePanelTab(url: string) {
   void router.push(url);
   collectionPanelVisible.value = false;
 }
-
 </script>
 
 <style lang="scss">
-@use "./bottombar.scss";
+@use './bottombar.scss';
 
 .tab-list {
   display: flex;
@@ -424,7 +462,10 @@ function activatePanelTab(url: string) {
   background: var(--ui-surface-glass);
   color: var(--ui-text-muted);
   cursor: pointer;
-  transition: background-color 0.18s ease, color 0.18s ease, box-shadow 0.18s ease;
+  transition:
+    background-color 0.18s ease,
+    color 0.18s ease,
+    box-shadow 0.18s ease;
 
   &:hover,
   &.is-active {
@@ -522,7 +563,10 @@ function activatePanelTab(url: string) {
   color: var(--ui-icon-button-text);
   cursor: pointer;
   outline: none;
-  transition: background-color 0.16s ease, color 0.16s ease, border-color 0.16s ease;
+  transition:
+    background-color 0.16s ease,
+    color 0.16s ease,
+    border-color 0.16s ease;
 
   &:hover,
   &:focus-visible,
@@ -558,7 +602,9 @@ function activatePanelTab(url: string) {
 
 .tab-collection-panel-enter-active,
 .tab-collection-panel-leave-active {
-  transition: opacity 0.16s ease, transform 0.16s ease;
+  transition:
+    opacity 0.16s ease,
+    transform 0.16s ease;
 }
 
 .tab-collection-panel-enter-from,
@@ -595,11 +641,15 @@ function activatePanelTab(url: string) {
 }
 
 .tab-move-enter-active {
-  transition: opacity 0.2s ease, transform 0.2s ease;
+  transition:
+    opacity 0.2s ease,
+    transform 0.2s ease;
 }
 
 .tab-move-leave-active {
-  transition: opacity 0.15s ease, transform 0.15s ease;
+  transition:
+    opacity 0.15s ease,
+    transform 0.15s ease;
   position: absolute;
 }
 
@@ -612,5 +662,4 @@ function activatePanelTab(url: string) {
   opacity: 0;
   transform: translateX(12px);
 }
-
 </style>

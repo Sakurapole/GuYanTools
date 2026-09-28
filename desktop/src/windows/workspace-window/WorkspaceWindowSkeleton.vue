@@ -1,11 +1,14 @@
 <script setup lang="ts">
 import type { WorkspaceWindowKey } from '@/contracts/workspace_window';
 
-const props = withDefaults(defineProps<{
-  pageKey?: WorkspaceWindowKey;
-}>(), {
-  pageKey: 'knowledge',
-});
+const props = withDefaults(
+  defineProps<{
+    pageKey?: WorkspaceWindowKey;
+  }>(),
+  {
+    pageKey: 'knowledge',
+  }
+);
 
 const skeletonRows: Record<WorkspaceWindowKey, { side: number; main: number; aside: number }> = {
   terminal: { side: 6, main: 8, aside: 4 },
@@ -75,8 +78,11 @@ const layout = skeletonRows[props.pageKey] ?? skeletonRows.knowledge;
 .workspace-skeleton__aside {
   min-width: 0;
   min-height: 0;
-  background:
-    linear-gradient(120deg, color-mix(in srgb, var(--ui-surface-panel) 94%, transparent), color-mix(in srgb, var(--ui-surface-muted) 90%, transparent));
+  background: linear-gradient(
+    120deg,
+    color-mix(in srgb, var(--ui-surface-panel) 94%, transparent),
+    color-mix(in srgb, var(--ui-surface-muted) 90%, transparent)
+  );
 }
 
 .workspace-skeleton__sidebar,
@@ -124,11 +130,16 @@ const layout = skeletonRows[props.pageKey] ?? skeletonRows.knowledge;
   background: color-mix(in srgb, var(--ui-text-muted) 18%, transparent);
 
   &::after {
-    content: "";
+    content: '';
     position: absolute;
     inset: 0;
     transform: translateX(-100%);
-    background: linear-gradient(90deg, transparent, color-mix(in srgb, var(--ui-surface-glass-strong) 52%, transparent), transparent);
+    background: linear-gradient(
+      90deg,
+      transparent,
+      color-mix(in srgb, var(--ui-surface-glass-strong) 52%, transparent),
+      transparent
+    );
     animation: workspace-skeleton-shimmer 1.25s ease-in-out infinite;
   }
 }

@@ -2,15 +2,18 @@
 import { ref, watch, onBeforeUnmount, nextTick } from 'vue';
 import { getSnapshot } from '@/windows/main/composables/useTabSnapshot';
 
-const props = withDefaults(defineProps<{
-  visible: boolean;
-  tabName: string;
-  tabUrl: string;
-  tabIcon?: string;
-  triggerRect: DOMRect | null;
-}>(), {
-  visible: false,
-});
+const props = withDefaults(
+  defineProps<{
+    visible: boolean;
+    tabName: string;
+    tabUrl: string;
+    tabIcon?: string;
+    triggerRect: DOMRect | null;
+  }>(),
+  {
+    visible: false,
+  }
+);
 
 const emit = defineEmits<{
   mouseenter: [];
@@ -49,27 +52,36 @@ async function loadSnapshot() {
   isCapturing.value = false;
 }
 
-watch(() => props.visible, async (v) => {
-  if (v) {
-    updatePosition();
-    await nextTick();
-    await loadSnapshot();
+watch(
+  () => props.visible,
+  async (v) => {
+    if (v) {
+      updatePosition();
+      await nextTick();
+      await loadSnapshot();
+    }
   }
-});
+);
 
 // 预览已显示时，切换到不同 Tab → 更新位置和读取缓存
-watch(() => props.triggerRect, () => {
-  if (props.visible) {
-    updatePosition();
+watch(
+  () => props.triggerRect,
+  () => {
+    if (props.visible) {
+      updatePosition();
+    }
   }
-});
+);
 
-watch(() => props.tabUrl, async () => {
-  if (props.visible) {
-    await nextTick();
-    await loadSnapshot();
+watch(
+  () => props.tabUrl,
+  async () => {
+    if (props.visible) {
+      await nextTick();
+      await loadSnapshot();
+    }
   }
-});
+);
 
 onBeforeUnmount(() => {
   localSnapshotUrl.value = null;
@@ -78,11 +90,14 @@ onBeforeUnmount(() => {
 // 内置 SVG 图标（复用 tool_item 中的）
 const svgIcons: Record<string, string> = {
   home: 'M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8z',
-  settings: 'M19.14 12.94c.04-.3.06-.61.06-.94 0-.32-.02-.64-.07-.94l2.03-1.58c.18-.14.23-.41.12-.61l-1.92-3.32c-.12-.22-.37-.29-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94L14.4 2.81c-.04-.24-.24-.41-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96c-.22-.08-.47 0-.59.22L2.74 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.05.3-.09.63-.09.94s.02.64.07.94l-2.03 1.58c-.18.14-.23.41-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.12-.22.07-.47-.12-.61l-2.01-1.58zM12 15.6c-1.98 0-3.6-1.62-3.6-3.6s1.62-3.6 3.6-3.6 3.6 1.62 3.6 3.6-1.62 3.6-3.6 3.6z',
+  settings:
+    'M19.14 12.94c.04-.3.06-.61.06-.94 0-.32-.02-.64-.07-.94l2.03-1.58c.18-.14.23-.41.12-.61l-1.92-3.32c-.12-.22-.37-.29-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94L14.4 2.81c-.04-.24-.24-.41-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96c-.22-.08-.47 0-.59.22L2.74 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.05.3-.09.63-.09.94s.02.64.07.94l-2.03 1.58c-.18.14-.23.41-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.12-.22.07-.47-.12-.61l-2.01-1.58zM12 15.6c-1.98 0-3.6-1.62-3.6-3.6s1.62-3.6 3.6-3.6 3.6 1.62 3.6 3.6-1.62 3.6-3.6 3.6z',
   ftp: 'M15 5H5a2 2 0 0 0-2 2v10h2V7h10V5zm4 4H9a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V11a2 2 0 0 0-2-2zm-5 9h-2v-2h2v2zm0-3h-2v-4h2v4zm5 3h-2v-2h2v2zm-3-5-3 3-3-3h2V11h2v2h2z',
   todo: 'M22 5.18L10.59 16.6l-4.24-4.24 1.41-1.41 2.83 2.83 10-10L22 5.18zM12 20c-4.41 0-8-3.59-8-8s3.59-8 8-8c1.57 0 3.04.46 4.28 1.25l1.45-1.45A10.02 10.02 0 0 0 12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10h-2c0 4.41-3.59 8-8 8z',
-  script: 'M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8l-6-6zm0 2.5L17.5 8H14V4.5zM8.6 17.4 5.8 14.6l2.8-2.8L10 13.2l-1.4 1.4L10 16l-1.4 1.4zm6.8 0L14 16l1.4-1.4L14 13.2l1.4-1.4 2.8 2.8-2.8 2.8zm-4.3.1-1.4-.5 3.2-8.5 1.4.5-3.2 8.5z',
-  devtools: 'M9.4 16.6L4.8 12l4.6-4.6L8 6l-6 6 6 6 1.4-1.4zm5.2 0L19.2 12l-4.6-4.6L16 6l6 6-6 6-1.4-1.4z',
+  script:
+    'M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8l-6-6zm0 2.5L17.5 8H14V4.5zM8.6 17.4 5.8 14.6l2.8-2.8L10 13.2l-1.4 1.4L10 16l-1.4 1.4zm6.8 0L14 16l1.4-1.4L14 13.2l1.4-1.4 2.8 2.8-2.8 2.8zm-4.3.1-1.4-.5 3.2-8.5 1.4.5-3.2 8.5z',
+  devtools:
+    'M9.4 16.6L4.8 12l4.6-4.6L8 6l-6 6 6 6 1.4-1.4zm5.2 0L19.2 12l-4.6-4.6L16 6l6 6-6 6-1.4-1.4z',
 };
 </script>
 
@@ -234,13 +249,15 @@ const svgIcons: Record<string, string> = {
 
 // ─── 入场 / 出场动画 ───
 .tab-preview-enter-active {
-  transition: opacity 0.2s cubic-bezier(0.16, 1, 0.3, 1),
-              transform 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  transition:
+    opacity 0.2s cubic-bezier(0.16, 1, 0.3, 1),
+    transform 0.2s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 .tab-preview-leave-active {
-  transition: opacity 0.15s ease,
-              transform 0.15s ease;
+  transition:
+    opacity 0.15s ease,
+    transform 0.15s ease;
 }
 
 .tab-preview-enter-from {
