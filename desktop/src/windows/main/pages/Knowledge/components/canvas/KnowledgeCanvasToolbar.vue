@@ -3,7 +3,17 @@ import IconRenderer from '@/windows/main/components/ui/IconRenderer.vue';
 import UiButton from '@/windows/main/components/ui/UiButton.vue';
 import UiRange from '@/windows/main/components/ui/UiRange.vue';
 
-export type CanvasTool = 'select' | 'text' | 'rect' | 'arrow' | 'path' | 'image' | 'file' | 'page_card' | 'todo_card' | 'group';
+export type CanvasTool =
+  | 'select'
+  | 'text'
+  | 'rect'
+  | 'arrow'
+  | 'path'
+  | 'image'
+  | 'file'
+  | 'page_card'
+  | 'todo_card'
+  | 'group';
 export type CanvasAlignCommand = 'left' | 'center' | 'right' | 'top' | 'middle' | 'bottom';
 export type CanvasDistributeCommand = 'horizontal' | 'vertical';
 
@@ -84,12 +94,40 @@ const distributeActions: Array<{ value: CanvasDistributeCommand; icon: string; l
     <div class="knowledge-canvas-toolbar__actions">
       <label class="knowledge-canvas-toolbar__zoom">
         缩放
-        <UiRange :model-value="zoom" :min="0.1" :max="4" :step="0.05" aria-label="画布缩放" @update:model-value="emit('zoom', Number($event))" />
+        <UiRange
+          :model-value="zoom"
+          :min="0.1"
+          :max="4"
+          :step="0.05"
+          aria-label="画布缩放"
+          @update:model-value="emit('zoom', Number($event))"
+        />
         <span>{{ Math.round(zoom * 100) }}%</span>
       </label>
-      <UiButton type="button" variant="secondary" size="sm" :disabled="!hasSelection" @click="emit('duplicate')">复制</UiButton>
-      <UiButton type="button" variant="secondary" size="sm" :disabled="!hasSelection" @click="emit('front')">置顶</UiButton>
-      <UiButton type="button" variant="secondary" size="sm" :disabled="!hasSelection" @click="emit('back')">置底</UiButton>
+      <UiButton
+        type="button"
+        variant="secondary"
+        size="sm"
+        :disabled="!hasSelection"
+        @click="emit('duplicate')"
+        >复制</UiButton
+      >
+      <UiButton
+        type="button"
+        variant="secondary"
+        size="sm"
+        :disabled="!hasSelection"
+        @click="emit('front')"
+        >置顶</UiButton
+      >
+      <UiButton
+        type="button"
+        variant="secondary"
+        size="sm"
+        :disabled="!hasSelection"
+        @click="emit('back')"
+        >置底</UiButton
+      >
       <div class="knowledge-canvas-toolbar__group" role="group" aria-label="对齐元素">
         <UiButton
           v-for="item in alignActions"
@@ -126,22 +164,46 @@ const distributeActions: Array<{ value: CanvasDistributeCommand; icon: string; l
           {{ item.label }}
         </UiButton>
       </div>
-      <UiButton type="button" variant="secondary" size="sm" :disabled="!hasSelection" title="合并选中的文本容器" @click="emit('merge')">
+      <UiButton
+        type="button"
+        variant="secondary"
+        size="sm"
+        :disabled="!hasSelection"
+        title="合并选中的文本容器"
+        @click="emit('merge')"
+      >
         <template #prefix>
           <IconRenderer icon="iconify:lucide:combine" :size="14" />
         </template>
         合并
       </UiButton>
-      <UiButton type="button" variant="danger" size="sm" :disabled="!hasSelection" @click="emit('delete')">删除</UiButton>
+      <UiButton
+        type="button"
+        variant="danger"
+        size="sm"
+        :disabled="!hasSelection"
+        @click="emit('delete')"
+        >删除</UiButton
+      >
       <UiButton type="button" variant="secondary" size="sm" @click="emit('image')">
         <template #prefix>
           <IconRenderer icon="iconify:lucide:image-plus" :size="14" />
         </template>
         插入图片
       </UiButton>
-      <UiButton type="button" variant="secondary" size="sm" @click="emit('export-svg')">导出 SVG</UiButton>
-      <UiButton type="button" variant="secondary" size="sm" @click="emit('export-png')">导出 PNG</UiButton>
-      <UiButton type="button" variant="primary" size="sm" :disabled="saving || !dirty" @click="emit('save')">
+      <UiButton type="button" variant="secondary" size="sm" @click="emit('export-svg')"
+        >导出 SVG</UiButton
+      >
+      <UiButton type="button" variant="secondary" size="sm" @click="emit('export-png')"
+        >导出 PNG</UiButton
+      >
+      <UiButton
+        type="button"
+        variant="primary"
+        size="sm"
+        :disabled="saving || !dirty"
+        @click="emit('save')"
+      >
         <template #prefix>
           <IconRenderer icon="iconify:lucide:save" :size="14" />
         </template>

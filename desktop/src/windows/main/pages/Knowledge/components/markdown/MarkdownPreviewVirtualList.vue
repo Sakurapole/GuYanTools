@@ -81,7 +81,7 @@ watch(
       syncViewport();
       renderVisibleMermaid();
     });
-  },
+  }
 );
 
 watch(visibleSegments, () => {
@@ -112,7 +112,11 @@ onBeforeUnmount(() => {
   <div
     ref="scrollHost"
     class="markdown-body markdown-preview-virtual-list"
-    :style="{ '--knowledge-selection-bg': props.selectionBackgroundColor || 'color-mix(in srgb, var(--ui-primary-color) 30%, transparent)' }"
+    :style="{
+      '--knowledge-selection-bg':
+        props.selectionBackgroundColor ||
+        'color-mix(in srgb, var(--ui-primary-color) 30%, transparent)',
+    }"
     tabindex="0"
     @scroll="syncViewport"
     @click="emit('preview-click', $event)"
@@ -134,7 +138,11 @@ onBeforeUnmount(() => {
 
 <style scoped lang="scss">
 .markdown-preview-virtual-list {
-  --knowledge-md-default-block-bg: color-mix(in srgb, var(--ui-surface-panel-muted) 72%, transparent);
+  --knowledge-md-default-block-bg: color-mix(
+    in srgb,
+    var(--ui-surface-panel-muted) 72%,
+    transparent
+  );
   --knowledge-md-block-border: color-mix(in srgb, var(--ui-border-subtle) 76%, transparent);
   --knowledge-md-block-strong-border: color-mix(in srgb, var(--ui-text-muted) 30%, transparent);
 
@@ -146,7 +154,10 @@ onBeforeUnmount(() => {
 }
 
 .markdown-preview-virtual-list :deep(::selection) {
-  background: var(--knowledge-selection-bg, color-mix(in srgb, var(--ui-primary-color) 30%, transparent));
+  background: var(
+    --knowledge-selection-bg,
+    color-mix(in srgb, var(--ui-primary-color) 30%, transparent)
+  );
 }
 
 .markdown-preview-virtual-list__spacer {
@@ -187,7 +198,10 @@ onBeforeUnmount(() => {
 .markdown-preview-virtual-list :deep(code) {
   padding: 0.12em 0.32em;
   border-radius: 4px;
-  background: var(--knowledge-md-inline-code-bg, var(--knowledge-md-block-bg, var(--knowledge-md-default-block-bg)));
+  background: var(
+    --knowledge-md-inline-code-bg,
+    var(--knowledge-md-block-bg, var(--knowledge-md-default-block-bg))
+  );
   font-family: var(--font-mono, 'Cascadia Mono', Consolas, monospace);
 }
 
@@ -200,7 +214,10 @@ onBeforeUnmount(() => {
   padding: 10px 12px;
   border: 1px solid var(--knowledge-md-block-border);
   border-radius: 7px;
-  background: var(--knowledge-md-code-bg, var(--knowledge-md-block-bg, var(--knowledge-md-default-block-bg)));
+  background: var(
+    --knowledge-md-code-bg,
+    var(--knowledge-md-block-bg, var(--knowledge-md-default-block-bg))
+  );
   line-height: 1.55;
 }
 
@@ -217,7 +234,10 @@ onBeforeUnmount(() => {
   border-left: 3px solid var(--knowledge-md-block-strong-border);
   border-radius: 7px;
   color: var(--ui-text-muted);
-  background: var(--knowledge-md-quote-bg, var(--knowledge-md-block-bg, var(--knowledge-md-default-block-bg)));
+  background: var(
+    --knowledge-md-quote-bg,
+    var(--knowledge-md-block-bg, var(--knowledge-md-default-block-bg))
+  );
 }
 
 .markdown-preview-virtual-list :deep(.knowledge-md-callout) {
@@ -227,7 +247,10 @@ onBeforeUnmount(() => {
   border-left: 3px solid var(--knowledge-md-block-strong-border);
   border-radius: 7px;
   color: var(--ui-text-primary);
-  background: var(--knowledge-md-callout-bg, var(--knowledge-md-block-bg, var(--knowledge-md-default-block-bg)));
+  background: var(
+    --knowledge-md-callout-bg,
+    var(--knowledge-md-block-bg, var(--knowledge-md-default-block-bg))
+  );
 }
 
 .markdown-preview-virtual-list :deep(.knowledge-md-callout__title) {
@@ -242,7 +265,10 @@ onBeforeUnmount(() => {
   border: 1px solid var(--knowledge-md-block-border);
   border-radius: 7px;
   color: var(--ui-text-primary);
-  background: var(--knowledge-md-diagram-bg, var(--knowledge-md-block-bg, var(--knowledge-md-default-block-bg)));
+  background: var(
+    --knowledge-md-diagram-bg,
+    var(--knowledge-md-block-bg, var(--knowledge-md-default-block-bg))
+  );
   font-family: var(--font-mono, 'Cascadia Mono', Consolas, monospace);
 }
 
@@ -269,7 +295,10 @@ onBeforeUnmount(() => {
   padding: 6px 8px;
   border: 1px solid var(--knowledge-md-block-border);
   border-radius: 7px;
-  background: var(--knowledge-md-diagram-bg, var(--knowledge-md-block-bg, var(--knowledge-md-default-block-bg)));
+  background: var(
+    --knowledge-md-diagram-bg,
+    var(--knowledge-md-block-bg, var(--knowledge-md-default-block-bg))
+  );
   text-align: center;
 }
 
@@ -311,7 +340,10 @@ onBeforeUnmount(() => {
   table-layout: fixed;
   border: 1px solid var(--knowledge-md-block-border);
   border-radius: 7px;
-  background: var(--knowledge-md-table-bg, var(--knowledge-md-block-bg, var(--knowledge-md-default-block-bg)));
+  background: var(
+    --knowledge-md-table-bg,
+    var(--knowledge-md-block-bg, var(--knowledge-md-default-block-bg))
+  );
 }
 
 .markdown-preview-virtual-list :deep(th),
@@ -325,7 +357,10 @@ onBeforeUnmount(() => {
 
 .markdown-preview-virtual-list :deep(th) {
   color: var(--ui-text-primary);
-  background: var(--knowledge-md-table-bg, color-mix(in srgb, var(--ui-surface-panel-muted) 86%, transparent));
+  background: var(
+    --knowledge-md-table-bg,
+    color-mix(in srgb, var(--ui-surface-panel-muted) 86%, transparent)
+  );
   font-weight: 750;
 }
 

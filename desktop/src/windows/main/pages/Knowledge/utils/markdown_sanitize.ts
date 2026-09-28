@@ -16,8 +16,7 @@ const blockedTags = [
 ] as const;
 
 const dangerousDataHtmlPattern = /^data:text\/html(?:[;,]|$)/i;
-const attributePattern =
-  /\s+([^\s"'<>/=]+)(?:\s*=\s*("([^"]*)"|'([^']*)'|([^\s"'=<>`]+)))?/g;
+const attributePattern = /\s+([^\s"'<>/=]+)(?:\s*=\s*("([^"]*)"|'([^']*)'|([^\s"'=<>`]+)))?/g;
 
 const calloutLabels: Record<string, string> = {
   note: 'NOTE',
@@ -94,19 +93,19 @@ function sanitizeWithoutDomParser(html: string): string {
   let sanitized = html;
 
   for (const tag of blockedTags) {
-    sanitized = sanitized.replace(
-      new RegExp(`<${tag}\\b[^>]*>[\\s\\S]*?<\\/${tag}>`, 'gi'),
-      '',
-    );
+    sanitized = sanitized.replace(new RegExp(`<${tag}\\b[^>]*>[\\s\\S]*?<\\/${tag}>`, 'gi'), '');
     sanitized = sanitized.replace(new RegExp(`<${tag}\\b[^>]*\\/?>`, 'gi'), '');
     sanitized = sanitized.replace(new RegExp(`<\\/${tag}>`, 'gi'), '');
   }
 
-  sanitized = sanitized.replace(/<([A-Za-z][A-Za-z0-9:-]*)([^>]*)>/g, (match, tagName: string, attributes: string) => {
-    if (tagName.startsWith('/')) return match;
-    const safeAttributes = sanitizeAttributeText(attributes);
-    return `<${tagName}${safeAttributes}>`;
-  });
+  sanitized = sanitized.replace(
+    /<([A-Za-z][A-Za-z0-9:-]*)([^>]*)>/g,
+    (match, tagName: string, attributes: string) => {
+      if (tagName.startsWith('/')) return match;
+      const safeAttributes = sanitizeAttributeText(attributes);
+      return `<${tagName}${safeAttributes}>`;
+    }
+  );
 
   return decorateCalloutHtmlFallback(sanitized);
 }
@@ -114,7 +113,14 @@ function sanitizeWithoutDomParser(html: string): string {
 function sanitizeAttributeText(attributes: string): string {
   return attributes.replace(
     attributePattern,
-    (attribute, rawName: string, _rawValue: string, doubleQuoted?: string, singleQuoted?: string, unquoted?: string) => {
+    (
+      attribute,
+      rawName: string,
+      _rawValue: string,
+      doubleQuoted?: string,
+      singleQuoted?: string,
+      unquoted?: string
+    ) => {
       const name = rawName.toLowerCase();
       const value = doubleQuoted ?? singleQuoted ?? unquoted ?? '';
       const normalizedValue = normalizeKnowledgeAssetReference(value.trim());
@@ -128,7 +134,7 @@ function sanitizeAttributeText(attributes: string): string {
       }
 
       return ` ${rawName}="${escapeAttribute(normalizedValue)}"`;
-    },
+    }
   );
 }
 
@@ -158,10 +164,10 @@ function normalizeReferenceForSafetyCheck(value: string): string {
 function decodeBasicHtmlEntities(value: string): string {
   return value
     .replace(/&#x([0-9a-fA-F]+);?/g, (_match, codePoint: string) =>
-      decodeCodePoint(Number.parseInt(codePoint, 16)),
+      decodeCodePoint(Number.parseInt(codePoint, 16))
     )
     .replace(/&#([0-9]+);?/g, (_match, codePoint: string) =>
-      decodeCodePoint(Number.parseInt(codePoint, 10)),
+      decodeCodePoint(Number.parseInt(codePoint, 10))
     )
     .replace(/&(colon|tab|newline);/gi, (_match, entity: string) => {
       const normalizedEntity = entity.toLowerCase();
@@ -199,12 +205,10 @@ function decorateCallouts(doc: Document): void {
     header.className = 'knowledge-md-callout__title';
     header.textContent = title
       ? `${calloutLabels[type] ?? type.toUpperCase()} · ${title}`
-      : calloutLabels[type] ?? type.toUpperCase();
+      : (calloutLabels[type] ?? type.toUpperCase());
     quote.insertBefore(header, quote.firstChild);
 
-    const bodyHtml = html
-      .replace(/^\s*\\?\[![A-Za-z]+\]\s*[^<\n]*(<br\s*\/?>)?/i, '')
-      .trim();
+    const bodyHtml = html.replace(/^\s*\\?\[![A-Za-z]+\]\s*[^<\n]*(<br\s*\/?>)?/i, '').trim();
     if (bodyHtml) {
       firstParagraph.innerHTML = bodyHtml;
     } else {
@@ -222,22 +226,22 @@ function decorateCalloutHtmlFallback(html: string): string {
       paragraphAttributes: string,
       rawType: string,
       rawTitle: string,
-      bodyHtml: string,
+      bodyHtml: string
     ) => {
       const type = rawType.toLowerCase();
       const title = rawTitle.replace(/<[^>]+>/g, '').trim();
       const label = title
         ? `${calloutLabels[type] ?? type.toUpperCase()} · ${title}`
-        : calloutLabels[type] ?? type.toUpperCase();
+        : (calloutLabels[type] ?? type.toUpperCase());
       const classAttribute = mergeClassAttribute(
         blockquoteAttributes,
-        `knowledge-md-callout knowledge-md-callout--${type}`,
+        `knowledge-md-callout knowledge-md-callout--${type}`
       );
       const trimmedBody = bodyHtml.replace(/^\s*<br\s*\/?>/i, '').trim();
       const paragraph = trimmedBody ? `<p${paragraphAttributes}>${trimmedBody}</p>` : '';
 
       return `<blockquote${classAttribute}><div class="knowledge-md-callout__title">${escapeHtml(label)}</div>${paragraph}`;
-    },
+    }
   );
 }
 

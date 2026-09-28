@@ -8,15 +8,7 @@ import type {
 import { createCanvasElement, normalizeCanvasDocument } from './knowledge_canvas';
 
 export type KnowledgeCanvasElementV2Type =
-  | 'rich_text'
-  | 'image'
-  | 'rect'
-  | 'arrow'
-  | 'path'
-  | 'file'
-  | 'page_card'
-  | 'todo_card'
-  | 'group';
+  'rich_text' | 'image' | 'rect' | 'arrow' | 'path' | 'file' | 'page_card' | 'todo_card' | 'group';
 
 export interface KnowledgeCanvasElementV2 {
   id: string;
@@ -80,7 +72,7 @@ export function createDefaultCanvasDocumentV2(title = '画布页面'): Knowledge
 
 export function createCanvasElementV2(
   type: KnowledgeCanvasElementV2Type,
-  input: Partial<KnowledgeCanvasElementV2> = {},
+  input: Partial<KnowledgeCanvasElementV2> = {}
 ): KnowledgeCanvasElementV2 {
   const now = new Date().toISOString();
   return {
@@ -103,7 +95,9 @@ export function createCanvasElementV2(
   };
 }
 
-export function migrateCanvasDocumentToV2(document: KnowledgeCanvasDocument): KnowledgeCanvasDocumentV2 {
+export function migrateCanvasDocumentToV2(
+  document: KnowledgeCanvasDocument
+): KnowledgeCanvasDocumentV2 {
   const normalized = normalizeCanvasDocument(document);
   return normalizeCanvasDocumentV2({
     type: 'guyantools.canvas-page',
@@ -116,7 +110,9 @@ export function migrateCanvasDocumentToV2(document: KnowledgeCanvasDocument): Kn
   });
 }
 
-export function canvasDocumentV2ToV1Document(document: KnowledgeCanvasDocumentV2): KnowledgeCanvasDocument {
+export function canvasDocumentV2ToV1Document(
+  document: KnowledgeCanvasDocumentV2
+): KnowledgeCanvasDocument {
   const normalized = normalizeCanvasDocumentV2(document);
   return normalizeCanvasDocument({
     type: 'guyantools.canvas-page',
@@ -128,7 +124,10 @@ export function canvasDocumentV2ToV1Document(document: KnowledgeCanvasDocumentV2
   });
 }
 
-export function parseKnowledgeCanvasDocumentV2(value?: string | null, fallbackTitle?: string): KnowledgeCanvasDocumentV2 {
+export function parseKnowledgeCanvasDocumentV2(
+  value?: string | null,
+  fallbackTitle?: string
+): KnowledgeCanvasDocumentV2 {
   if (!value) return createDefaultCanvasDocumentV2(fallbackTitle);
   try {
     return normalizeCanvasDocumentV2(JSON.parse(value) as unknown, fallbackTitle);
@@ -137,14 +136,18 @@ export function parseKnowledgeCanvasDocumentV2(value?: string | null, fallbackTi
   }
 }
 
-export function normalizeCanvasDocumentV2(value: unknown, fallbackTitle?: string): KnowledgeCanvasDocumentV2 {
+export function normalizeCanvasDocumentV2(
+  value: unknown,
+  fallbackTitle?: string
+): KnowledgeCanvasDocumentV2 {
   const source = isRecord(value) ? value : {};
-  if (source.version !== 2) return migrateCanvasDocumentToV2(normalizeCanvasDocument(value, fallbackTitle));
+  if (source.version !== 2)
+    return migrateCanvasDocumentToV2(normalizeCanvasDocument(value, fallbackTitle));
 
   const elements = Array.isArray(source.elements)
     ? source.elements
-      .map((element) => normalizeCanvasElementV2(element))
-      .filter((element): element is KnowledgeCanvasElementV2 => Boolean(element))
+        .map((element) => normalizeCanvasElementV2(element))
+        .filter((element): element is KnowledgeCanvasElementV2 => Boolean(element))
     : [];
 
   return {
@@ -154,7 +157,9 @@ export function normalizeCanvasDocumentV2(value: unknown, fallbackTitle?: string
     height: normalizeNumber(source.height, 1200, 480, 6000),
     viewport: normalizeViewport(source.viewport),
     updatedAt: typeof source.updatedAt === 'string' ? source.updatedAt : new Date().toISOString(),
-    elements: elements.length ? elements.sort((a, b) => a.zIndex - b.zIndex) : createDefaultCanvasDocumentV2(fallbackTitle).elements,
+    elements: elements.length
+      ? elements.sort((a, b) => a.zIndex - b.zIndex)
+      : createDefaultCanvasDocumentV2(fallbackTitle).elements,
   };
 }
 
@@ -166,15 +171,15 @@ export function serializeCanvasDocumentV2(document: KnowledgeCanvasDocumentV2): 
 }
 
 export function canvasDocumentV2ToPlainText(document: KnowledgeCanvasDocumentV2): string {
-  return normalizeCanvasDocumentV2(document).elements
-    .map((element) => canvasElementV2ToPlainText(element))
+  return normalizeCanvasDocumentV2(document)
+    .elements.map((element) => canvasElementV2ToPlainText(element))
     .filter(Boolean)
     .join('\n');
 }
 
 export function canvasDocumentV2ToMarkdown(document: KnowledgeCanvasDocumentV2): string {
-  return normalizeCanvasDocumentV2(document).elements
-    .map((element) => canvasElementV2ToMarkdown(element))
+  return normalizeCanvasDocumentV2(document)
+    .elements.map((element) => canvasElementV2ToMarkdown(element))
     .filter(Boolean)
     .join('\n\n');
 }
@@ -182,7 +187,7 @@ export function canvasDocumentV2ToMarkdown(document: KnowledgeCanvasDocumentV2):
 export function updateCanvasElementV2(
   document: KnowledgeCanvasDocumentV2,
   elementId: string,
-  patch: Partial<KnowledgeCanvasElementV2>,
+  patch: Partial<KnowledgeCanvasElementV2>
 ): KnowledgeCanvasDocumentV2 {
   return normalizeCanvasDocumentV2({
     ...document,
@@ -196,7 +201,7 @@ export function updateCanvasElementV2(
             refs: patch.refs ? patch.refs : element.refs,
             updatedAt: new Date().toISOString(),
           }
-        : element,
+        : element
     ),
   });
 }
@@ -205,9 +210,11 @@ export function attachAssetToCanvasElementV2(
   document: KnowledgeCanvasDocumentV2,
   elementId: string | null,
   asset: KnowledgeAsset,
-  position?: { x: number; y: number },
+  position?: { x: number; y: number }
 ): KnowledgeCanvasDocumentV2 {
-  const targetType: KnowledgeCanvasElementV2Type = asset.mimeType.startsWith('image/') ? 'image' : 'file';
+  const targetType: KnowledgeCanvasElementV2Type = asset.mimeType.startsWith('image/')
+    ? 'image'
+    : 'file';
   const assetPatch = {
     refs: { assetId: asset.id },
     title: asset.originalName,
@@ -219,7 +226,10 @@ export function attachAssetToCanvasElementV2(
     },
   };
 
-  if (elementId && document.elements.some((element) => element.id === elementId && element.type === targetType)) {
+  if (
+    elementId &&
+    document.elements.some((element) => element.id === elementId && element.type === targetType)
+  ) {
     return updateCanvasElementV2(document, elementId, assetPatch);
   }
 
@@ -241,14 +251,14 @@ export function attachAssetToCanvasElementV2(
 
 export function findCanvasElementV2(
   elements: KnowledgeCanvasElementV2[],
-  elementId: string,
+  elementId: string
 ): KnowledgeCanvasElementV2 | null {
   return elements.find((element) => element.id === elementId) ?? null;
 }
 
 export function duplicateCanvasElementsV2(
   elements: KnowledgeCanvasElementV2[],
-  selectedIds: Set<string>,
+  selectedIds: Set<string>
 ): KnowledgeCanvasElementV2[] {
   const copies = elements
     .filter((element) => selectedIds.has(element.id))
@@ -269,8 +279,10 @@ function migrateElement(element: KnowledgeCanvasElement, index: number): Knowled
     id: element.id,
     x: element.x,
     y: element.y,
-    width: element.width ?? defaultWidthForType(element.type === 'text' ? 'rich_text' : element.type),
-    height: element.height ?? defaultHeightForType(element.type === 'text' ? 'rich_text' : element.type),
+    width:
+      element.width ?? defaultWidthForType(element.type === 'text' ? 'rich_text' : element.type),
+    height:
+      element.height ?? defaultHeightForType(element.type === 'text' ? 'rich_text' : element.type),
     zIndex: index,
     text: element.text,
     title: element.title,
@@ -306,11 +318,13 @@ function elementV2ToV1(element: KnowledgeCanvasElementV2): KnowledgeCanvasElemen
     text: element.text,
     stroke: typeof element.style?.stroke === 'string' ? element.style.stroke : undefined,
     fill: typeof element.style?.fill === 'string' ? element.style.fill : undefined,
-    strokeWidth: typeof element.style?.strokeWidth === 'number' ? element.style.strokeWidth : undefined,
+    strokeWidth:
+      typeof element.style?.strokeWidth === 'number' ? element.style.strokeWidth : undefined,
     points: element.points,
     assetId: element.refs?.assetId,
     assetName: typeof element.style?.assetName === 'string' ? element.style.assetName : undefined,
-    assetMimeType: typeof element.style?.assetMimeType === 'string' ? element.style.assetMimeType : undefined,
+    assetMimeType:
+      typeof element.style?.assetMimeType === 'string' ? element.style.assetMimeType : undefined,
     assetUrl: typeof element.style?.assetUrl === 'string' ? element.style.assetUrl : undefined,
     pageId: element.refs?.pageId,
     todoId: element.refs?.todoId,
@@ -321,7 +335,8 @@ function elementV2ToV1(element: KnowledgeCanvasElementV2): KnowledgeCanvasElemen
 }
 
 function normalizeCanvasElementV2(value: unknown): KnowledgeCanvasElementV2 | null {
-  if (!isRecord(value) || typeof value.id !== 'string' || typeof value.type !== 'string') return null;
+  if (!isRecord(value) || typeof value.id !== 'string' || typeof value.type !== 'string')
+    return null;
   const type = normalizeCanvasElementV2Type(value.type);
   return createCanvasElementV2(type, {
     id: value.id,
@@ -350,35 +365,41 @@ function canvasElementV2ToPlainText(element: KnowledgeCanvasElementV2): string {
     element.refs?.pageId ? `[页面] ${element.refs.pageId}` : '',
     element.refs?.todoId ? `[Todo] ${element.refs.todoId}` : '',
   ];
-  return parts.map((part) => part?.trim()).filter(Boolean).join(' ');
+  return parts
+    .map((part) => part?.trim())
+    .filter(Boolean)
+    .join(' ');
 }
 
 function canvasElementV2ToMarkdown(element: KnowledgeCanvasElementV2): string {
   const text = canvasElementV2ToPlainText(element);
   const assetUrl = typeof element.style?.assetUrl === 'string' ? element.style.assetUrl : '';
-  const assetName = typeof element.style?.assetName === 'string' ? element.style.assetName : element.title;
+  const assetName =
+    typeof element.style?.assetName === 'string' ? element.style.assetName : element.title;
   if (element.type === 'image' && assetUrl) return `![${assetName || 'canvas image'}](${assetUrl})`;
   if (element.type === 'file' && assetUrl) return `[${assetName || 'canvas file'}](${assetUrl})`;
   if (element.type === 'rich_text') return text;
   if (element.type === 'rect') return text ? `> ${text}` : '[矩形标注]';
   if (element.type === 'arrow') return text ? `[箭头] ${text}` : '[箭头标注]';
   if (element.type === 'path') return text ? `[线条] ${text}` : '[自由线条]';
-  if (element.type === 'page_card') return element.refs?.pageId ? `[[${text || element.refs.pageId}]]` : text;
-  if (element.type === 'todo_card') return element.refs?.todoId ? `- [ ] ${text || element.refs.todoId}` : text;
+  if (element.type === 'page_card')
+    return element.refs?.pageId ? `[[${text || element.refs.pageId}]]` : text;
+  if (element.type === 'todo_card')
+    return element.refs?.todoId ? `- [ ] ${text || element.refs.todoId}` : text;
   return text;
 }
 
 function normalizeCanvasElementV2Type(value: string): KnowledgeCanvasElementV2Type {
   if (
-    value === 'rich_text'
-    || value === 'image'
-    || value === 'rect'
-    || value === 'arrow'
-    || value === 'path'
-    || value === 'file'
-    || value === 'page_card'
-    || value === 'todo_card'
-    || value === 'group'
+    value === 'rich_text' ||
+    value === 'image' ||
+    value === 'rect' ||
+    value === 'arrow' ||
+    value === 'path' ||
+    value === 'file' ||
+    value === 'page_card' ||
+    value === 'todo_card' ||
+    value === 'group'
   ) {
     return value;
   }
@@ -388,7 +409,8 @@ function normalizeCanvasElementV2Type(value: string): KnowledgeCanvasElementV2Ty
 
 function toV1CanvasElementType(value: KnowledgeCanvasElementV2Type): KnowledgeCanvasElementType {
   if (value === 'rich_text') return 'text';
-  if (value === 'file' || value === 'page_card' || value === 'todo_card' || value === 'group') return 'rect';
+  if (value === 'file' || value === 'page_card' || value === 'todo_card' || value === 'group')
+    return 'rect';
   return value;
 }
 
@@ -459,7 +481,7 @@ function normalizeNumber(value: unknown, fallback: number, min: number, max: num
 
 function compactRecord<T extends Record<string, unknown>>(value: T): Partial<T> {
   return Object.fromEntries(
-    Object.entries(value).filter(([, entry]) => entry !== undefined),
+    Object.entries(value).filter(([, entry]) => entry !== undefined)
   ) as Partial<T>;
 }
 

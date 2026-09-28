@@ -31,7 +31,9 @@ function styleValue(key: string, fallback = '') {
   return fallback;
 }
 
-function fillValue(fallback = 'var(--knowledge-canvas-element-bg, color-mix(in srgb, var(--ui-surface-panel) 42%, transparent))') {
+function fillValue(
+  fallback = 'var(--knowledge-canvas-element-bg, color-mix(in srgb, var(--ui-surface-panel) 42%, transparent))'
+) {
   const fill = styleValue('fill', '');
   if (!fill || isLegacyDefaultFill(fill)) return fallback;
   return fill;
@@ -56,7 +58,9 @@ function canvasElementLabel() {
 }
 
 function isInlineTextEditable() {
-  return ['rich_text', 'rect', 'file', 'page_card', 'todo_card', 'group'].includes(props.element.type);
+  return ['rich_text', 'rect', 'file', 'page_card', 'todo_card', 'group'].includes(
+    props.element.type
+  );
 }
 </script>
 
@@ -64,7 +68,10 @@ function isInlineTextEditable() {
   <g
     data-canvas-element="true"
     class="knowledge-canvas-element"
-    :class="{ 'knowledge-canvas-element--selected': selected, 'knowledge-canvas-element--locked': element.locked }"
+    :class="{
+      'knowledge-canvas-element--selected': selected,
+      'knowledge-canvas-element--locked': element.locked,
+    }"
     :transform="`translate(${element.x} ${element.y}) rotate(${element.rotation ?? 0})`"
     @pointerdown="emit('pointerdown', $event)"
     @dblclick.stop="emit('double-click', element.id)"
@@ -89,7 +96,7 @@ function isInlineTextEditable() {
           @pointerdown.stop
           @keydown.esc.stop.prevent="emit('stop-editing')"
           @blur="emit('stop-editing')"
-          @update:model-value="text => emit('commit-text', { elementId: element.id, text })"
+          @update:model-value="(text) => emit('commit-text', { elementId: element.id, text })"
         />
         <div
           v-else
@@ -110,7 +117,13 @@ function isInlineTextEditable() {
     </g>
 
     <g v-else-if="element.type === 'image'">
-      <rect :width="element.width" :height="element.height" rx="10" :fill="fillValue('var(--knowledge-canvas-element-bg, transparent)')" stroke="var(--ui-border-subtle)" />
+      <rect
+        :width="element.width"
+        :height="element.height"
+        rx="10"
+        :fill="fillValue('var(--knowledge-canvas-element-bg, transparent)')"
+        stroke="var(--ui-border-subtle)"
+      />
       <image
         v-if="styleValue('assetUrl')"
         :href="styleValue('assetUrl')"
@@ -118,8 +131,15 @@ function isInlineTextEditable() {
         :height="element.height"
         preserveAspectRatio="xMidYMid meet"
       />
-      <text v-else x="18" y="36" class="knowledge-canvas-element__placeholder">选择图片或粘贴截图</text>
-      <text v-if="element.title || styleValue('assetName')" x="12" :y="element.height - 14" class="knowledge-canvas-element__caption">
+      <text v-else x="18" y="36" class="knowledge-canvas-element__placeholder"
+        >选择图片或粘贴截图</text
+      >
+      <text
+        v-if="element.title || styleValue('assetName')"
+        x="12"
+        :y="element.height - 14"
+        class="knowledge-canvas-element__caption"
+      >
         {{ element.title || styleValue('assetName') }}
       </text>
     </g>
@@ -198,7 +218,10 @@ function isInlineTextEditable() {
   border-radius: 10px;
   padding: 10px 12px;
   color: var(--ui-text-primary);
-  background: var(--knowledge-canvas-element-bg, color-mix(in srgb, var(--ui-primary-color) 10%, var(--ui-surface-panel)));
+  background: var(
+    --knowledge-canvas-element-bg,
+    color-mix(in srgb, var(--ui-primary-color) 10%, var(--ui-surface-panel))
+  );
   font-size: 18px;
   line-height: 1.45;
   white-space: pre-wrap;

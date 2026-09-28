@@ -32,14 +32,7 @@ const emit = defineEmits<{
 
 const menuRef = ref<HTMLElement | null>(null);
 const activeIndex = ref(0);
-const suggestedCommands = [
-  'paragraph',
-  'heading_1',
-  'bullet_list',
-  'task_list',
-  'toggle',
-  'code',
-];
+const suggestedCommands = ['paragraph', 'heading_1', 'bullet_list', 'task_list', 'toggle', 'code'];
 const suggestedCommandSet = new Set<string>(suggestedCommands);
 
 function optionCommandKey(option: SlashMenuOption) {
@@ -53,11 +46,13 @@ const menuStyle = computed(() => ({
 
 const filteredOptions = computed(() => {
   const query = props.query.trim().toLowerCase();
-  const options = query ? props.options.filter((option) => [
-    option.type,
-    option.label,
-    ...(option.keywords ?? []),
-  ].some((value) => value.toLowerCase().includes(query))) : props.options;
+  const options = query
+    ? props.options.filter((option) =>
+        [option.type, option.label, ...(option.keywords ?? [])].some((value) =>
+          value.toLowerCase().includes(query)
+        )
+      )
+    : props.options;
 
   if (query) return options;
 
@@ -65,31 +60,37 @@ const filteredOptions = computed(() => {
     .map((command) => options.find((option) => optionCommandKey(option) === command))
     .filter((option): option is SlashMenuOption => Boolean(option))
     .map((option) => ({ ...option, group: '建议' }));
-  const otherOptions = options.filter((option) => !suggestedCommandSet.has(optionCommandKey(option)));
+  const otherOptions = options.filter(
+    (option) => !suggestedCommandSet.has(optionCommandKey(option))
+  );
   return [...suggestedOptions, ...otherOptions];
 });
 
-const groupedOptions = computed(() => filteredOptions.value.map((option, index) => ({
-  ...option,
-  index,
-  itemId: `knowledge-slash-menu-item-${index}`,
-  optionKey: option.id ?? `${option.type}-${index}`,
-  showGroup: index === 0 || option.group !== filteredOptions.value[index - 1]?.group,
-  groupLabel: option.group || '基础',
-})));
+const groupedOptions = computed(() =>
+  filteredOptions.value.map((option, index) => ({
+    ...option,
+    index,
+    itemId: `knowledge-slash-menu-item-${index}`,
+    optionKey: option.id ?? `${option.type}-${index}`,
+    showGroup: index === 0 || option.group !== filteredOptions.value[index - 1]?.group,
+    groupLabel: option.group || '基础',
+  }))
+);
 
-const activeDescendant = computed(() => filteredOptions.value.length
-  ? `knowledge-slash-menu-item-${activeIndex.value}`
-  : undefined);
+const activeDescendant = computed(() =>
+  filteredOptions.value.length ? `knowledge-slash-menu-item-${activeIndex.value}` : undefined
+);
 
 const displayPrefix = computed(() => props.prefix ?? '/');
-const displayQuery = computed(() => (props.query.trim() ? `${displayPrefix.value}${props.query.trim()}` : displayPrefix.value));
+const displayQuery = computed(() =>
+  props.query.trim() ? `${displayPrefix.value}${props.query.trim()}` : displayPrefix.value
+);
 
 watch(
   () => [props.open, props.query, filteredOptions.value.length] as const,
   () => {
     activeIndex.value = 0;
-  },
+  }
 );
 
 watch(
@@ -102,7 +103,7 @@ watch(
     }
     window.removeEventListener('keydown', handleGlobalKeydown, true);
     window.removeEventListener('pointerdown', handleGlobalPointerdown, true);
-  },
+  }
 );
 
 onBeforeUnmount(() => {
@@ -194,7 +195,9 @@ function handleGlobalPointerdown(event: PointerEvent) {
         <UiScrollbar :x="false" :y="true" :size="8">
           <div class="knowledge-slash-menu__list">
             <template v-for="option in groupedOptions" :key="option.optionKey">
-              <div v-if="option.showGroup" class="knowledge-slash-menu__section-label">{{ option.groupLabel }}</div>
+              <div v-if="option.showGroup" class="knowledge-slash-menu__section-label">
+                {{ option.groupLabel }}
+              </div>
               <button
                 :id="option.itemId"
                 class="knowledge-slash-menu__item"
@@ -211,7 +214,9 @@ function handleGlobalPointerdown(event: PointerEvent) {
                   <strong>{{ option.label }}</strong>
                   <small>{{ option.description || option.type }}</small>
                 </span>
-                <kbd v-if="option.shortcut" class="knowledge-slash-menu__shortcut">{{ option.shortcut }}</kbd>
+                <kbd v-if="option.shortcut" class="knowledge-slash-menu__shortcut">{{
+                  option.shortcut
+                }}</kbd>
               </button>
             </template>
             <div v-if="!filteredOptions.length" class="knowledge-slash-menu__empty">没有匹配块</div>

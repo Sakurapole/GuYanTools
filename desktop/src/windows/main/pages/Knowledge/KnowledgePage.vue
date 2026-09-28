@@ -19,7 +19,11 @@ import KnowledgeTreeNode from './components/KnowledgeTreeNode.vue';
 import { useContextMenu } from '@/windows/main/composables/useContextMenu';
 import { useConfirmDialog } from '@/windows/main/composables/useConfirmDialog';
 import { useTextPromptDialog } from '@/windows/main/composables/useTextPromptDialog';
-import { notifyError, notifySuccess, notifyWarning } from '@/windows/main/composables/useInAppNotification';
+import {
+  notifyError,
+  notifySuccess,
+  notifyWarning,
+} from '@/windows/main/composables/useInAppNotification';
 import {
   resolveThemeBackground,
   withThemeBackground,
@@ -50,7 +54,12 @@ type KnowledgeMarkdownEditorExpose = {
 };
 
 type KnowledgeDocumentPreviewKind = 'text' | 'pdf' | 'image' | 'slides' | 'sheets' | 'unsupported';
-type KnowledgeConversionMode = 'markdown-to-block' | 'markdown-to-canvas' | 'block-to-markdown' | 'block-to-canvas' | 'canvas-to-markdown';
+type KnowledgeConversionMode =
+  | 'markdown-to-block'
+  | 'markdown-to-canvas'
+  | 'block-to-markdown'
+  | 'block-to-canvas'
+  | 'canvas-to-markdown';
 type KnowledgePersonalizationRegion = 'page' | 'left' | 'editor' | 'right';
 type KnowledgeAiScope = 'page' | 'selection' | 'space' | 'library';
 
@@ -73,7 +82,8 @@ type KnowledgePersonalizationSettings = {
   activeAppearanceSchemeId: string;
 };
 
-type KnowledgeBlockSurfaceKey = 'base' | 'code' | 'table' | 'diagram' | 'callout' | 'quote' | 'inlineCode' | 'canvas';
+type KnowledgeBlockSurfaceKey =
+  'base' | 'code' | 'table' | 'diagram' | 'callout' | 'quote' | 'inlineCode' | 'canvas';
 
 type KnowledgeBlockSurfaceStyle = {
   backgroundColor: string;
@@ -193,7 +203,9 @@ const inspectorWidth = ref(knowledgeLayout.value.rightWidth);
 const draggedSpaceId = ref<string | null>(null);
 const rootDropSpaceId = ref<string | null>(null);
 const knowledgePersonalizationStorageKey = 'knowledge.personalization';
-const knowledgePersonalization = ref<KnowledgePersonalizationSettings>(loadKnowledgePersonalization());
+const knowledgePersonalization = ref<KnowledgePersonalizationSettings>(
+  loadKnowledgePersonalization()
+);
 const knowledgePersonalizationPanelOpen = ref(false);
 const knowledgePersonalizationActiveRegion = ref<KnowledgePersonalizationRegion>('page');
 const knowledgeBlockStylePanelOpen = ref(false);
@@ -233,13 +245,15 @@ const libraryOptions = computed(() =>
   store.libraries.map((library) => ({
     label: library.name,
     value: library.id,
-  })),
+  }))
 );
 
 const filteredNodes = computed(() => {
   const keyword = searchQuery.value.trim().toLowerCase();
   if (!keyword) return [];
-  return store.visibleNodes.filter((node) => node.title.toLowerCase().includes(keyword)).slice(0, 20);
+  return store.visibleNodes
+    .filter((node) => node.title.toLowerCase().includes(keyword))
+    .slice(0, 20);
 });
 const selectedKindLabel = computed(() => {
   if (!store.selectedNode) return '未选择';
@@ -253,7 +267,10 @@ const selectedKindLabel = computed(() => {
 });
 const conversionDialog = computed(() => {
   if (!conversionMode.value) return null;
-  const labels: Record<KnowledgeConversionMode, { title: string; warning: string; confirmLabel: string }> = {
+  const labels: Record<
+    KnowledgeConversionMode,
+    { title: string; warning: string; confirmLabel: string }
+  > = {
     'markdown-to-block': {
       title: '转换为块页面副本',
       warning: 'Markdown 转块页面可能有损，复杂 Markdown 会被转换为结构化块。',
@@ -286,13 +303,11 @@ const pageSuggestions = computed(() =>
   store.visibleNodes
     .filter((node) => node.nodeType === 'page' || node.nodeType === 'document')
     .map((node) => node.title)
-    .filter(Boolean),
+    .filter(Boolean)
 );
-const missingPageLinks = computed(() =>
-  store.pageLinks.filter((link) => link.linkType === 'wikilink' && link.targetType === 'missing_page' && link.targetUrl),
-);
+
 const linkedTodoLinks = computed(() =>
-  store.pageLinks.filter((link) => link.targetType === 'todo' && link.targetId),
+  store.pageLinks.filter((link) => link.targetType === 'todo' && link.targetId)
 );
 const tagColorOptions = ['#4A90D9', '#22c55e', '#f59e0b', '#ef4444', '#a855f7', '#06b6d4'];
 const knowledgeBlockSurfaceLabels: Record<KnowledgeBlockSurfaceKey, string> = {
@@ -305,7 +320,16 @@ const knowledgeBlockSurfaceLabels: Record<KnowledgeBlockSurfaceKey, string> = {
   inlineCode: '行内代码',
   canvas: '画布元素',
 };
-const knowledgeBlockSurfaceOrder: KnowledgeBlockSurfaceKey[] = ['base', 'code', 'table', 'diagram', 'callout', 'quote', 'inlineCode', 'canvas'];
+const knowledgeBlockSurfaceOrder: KnowledgeBlockSurfaceKey[] = [
+  'base',
+  'code',
+  'table',
+  'diagram',
+  'callout',
+  'quote',
+  'inlineCode',
+  'canvas',
+];
 const knowledgeBlockStyleColorOptions = [
   '#ffffff',
   '#f8fafc',
@@ -322,17 +346,23 @@ const selectedQuickNote = computed(() => {
 });
 const knowledgeAiMessages = computed(() =>
   knowledgeAiConversationId.value
-    ? aiChatStore.messagesByConversation[knowledgeAiConversationId.value] ?? []
-    : [],
+    ? (aiChatStore.messagesByConversation[knowledgeAiConversationId.value] ?? [])
+    : []
 );
 const knowledgeAiLatestAssistantMessage = computed(() =>
-  [...knowledgeAiMessages.value].reverse().find((message) => message.role === 'assistant' && message.content.trim()),
+  [...knowledgeAiMessages.value]
+    .reverse()
+    .find((message) => message.role === 'assistant' && message.content.trim())
 );
-const knowledgeAiScopeLabel = computed(() =>
-  knowledgeAiScopeOptions.find((option) => option.value === knowledgeAiScope.value)?.label ?? '当前知识库',
+const knowledgeAiScopeLabel = computed(
+  () =>
+    knowledgeAiScopeOptions.find((option) => option.value === knowledgeAiScope.value)?.label ??
+    '当前知识库'
 );
 const knowledgeAiCanAsk = computed(() =>
-  Boolean(knowledgeAiQuestion.value.trim() && aiConfigStore.defaultProvider && aiConfigStore.defaultModel),
+  Boolean(
+    knowledgeAiQuestion.value.trim() && aiConfigStore.defaultProvider && aiConfigStore.defaultModel
+  )
 );
 const selectedPageProperties = computed<KnowledgeDocumentExcerptProperties | null>(() => {
   if (!store.selectedPage?.page.propertiesJson) return null;
@@ -345,7 +375,9 @@ const selectedPageProperties = computed<KnowledgeDocumentExcerptProperties | nul
 });
 const selectedDocumentExcerptSource = computed(() => {
   const properties = selectedPageProperties.value;
-  return properties?.sourceType === 'document_excerpt' && properties.sourceDocumentId ? properties : null;
+  return properties?.sourceType === 'document_excerpt' && properties.sourceDocumentId
+    ? properties
+    : null;
 });
 const selectedAssetMetadata = computed<KnowledgeAssetMetadata | null>(() => {
   if (!store.selectedAsset?.metadataJson) return null;
@@ -362,15 +394,20 @@ const selectedExtractionError = computed(() => {
 });
 const selectedExtraction = computed(() => selectedAssetMetadata.value?.extraction ?? null);
 const selectedExtractor = computed(() => selectedExtraction.value?.extractor || '--');
-const selectedImportedAt = computed(() => selectedAssetMetadata.value?.importedAt || store.selectedAsset?.createdAt || '');
-const documentPreviewUrl = computed(() => store.selectedAsset ? toKnowledgeAssetUrl(store.selectedAsset) : '');
+const selectedImportedAt = computed(
+  () => selectedAssetMetadata.value?.importedAt || store.selectedAsset?.createdAt || ''
+);
+const documentPreviewUrl = computed(() =>
+  store.selectedAsset ? toKnowledgeAssetUrl(store.selectedAsset) : ''
+);
 const documentPreviewKind = computed<KnowledgeDocumentPreviewKind>(() => {
   const metadataKind = selectedExtraction.value?.previewKind;
   if (metadataKind) return metadataKind;
 
   const asset = store.selectedAsset;
   if (!asset) return 'unsupported';
-  if (asset.mimeType === 'application/pdf' || asset.extension.toLowerCase() === '.pdf') return 'pdf';
+  if (asset.mimeType === 'application/pdf' || asset.extension.toLowerCase() === '.pdf')
+    return 'pdf';
   if (asset.mimeType.startsWith('image/')) return 'image';
   if (asset.extension.toLowerCase() === '.pptx') return 'slides';
   if (asset.extension.toLowerCase() === '.xlsx') return 'sheets';
@@ -380,25 +417,33 @@ const documentSections = computed(() => selectedExtraction.value?.sections ?? []
 const documentSlides = computed(() => selectedExtraction.value?.slides ?? []);
 const documentSheets = computed(() => selectedExtraction.value?.sheets ?? []);
 const knowledgeBackgroundTheme = computed<BackgroundTheme>(() =>
-  appConfigStore.config.appearance.theme === 'dark' ? 'dark' : 'light',
+  appConfigStore.config.appearance.theme === 'dark' ? 'dark' : 'light'
 );
 const activeKnowledgePageBackground = computed(() => resolveKnowledgeBackground('page'));
-const hasKnowledgePageBackground = computed(() => hasKnowledgeBackground(activeKnowledgePageBackground.value));
+const hasKnowledgePageBackground = computed(() =>
+  hasKnowledgeBackground(activeKnowledgePageBackground.value)
+);
 const knowledgePersonalizationPageStyle = computed<CSSProperties>(() =>
-  createKnowledgeBackgroundStyle(activeKnowledgePageBackground.value),
+  createKnowledgeBackgroundStyle(activeKnowledgePageBackground.value)
 );
 const knowledgeBlockStyleVars = computed<CSSProperties>(() =>
-  createKnowledgeBlockStyleVars(knowledgePersonalization.value.blockStyle),
+  createKnowledgeBlockStyleVars(knowledgePersonalization.value.blockStyle)
 );
-const knowledgePersonalizationSidebarStyle = computed(() => knowledgePersonalizationRegionStyle('left'));
-const knowledgePersonalizationEditorStyle = computed(() => knowledgePersonalizationRegionStyle('editor'));
-const knowledgePersonalizationInspectorStyle = computed(() => knowledgePersonalizationRegionStyle('right'));
+const knowledgePersonalizationSidebarStyle = computed(() =>
+  knowledgePersonalizationRegionStyle('left')
+);
+const knowledgePersonalizationEditorStyle = computed(() =>
+  knowledgePersonalizationRegionStyle('editor')
+);
+const knowledgePersonalizationInspectorStyle = computed(() =>
+  knowledgePersonalizationRegionStyle('right')
+);
 const knowledgeLayoutStyle = computed<CSSProperties>(() => ({
   '--knowledge-left-expanded-width': `${leftSidebarWidth.value}px`,
   '--knowledge-right-expanded-width': `${inspectorWidth.value}px`,
 }));
 const activeKnowledgePersonalizationBackground = computed(() =>
-  resolveKnowledgeBackground(knowledgePersonalizationActiveRegion.value),
+  resolveKnowledgeBackground(knowledgePersonalizationActiveRegion.value)
 );
 const knowledgePersonalizationPreviewSize = computed(() => {
   if (knowledgePersonalizationActiveRegion.value === 'left') return { width: 280, height: 640 };
@@ -413,13 +458,13 @@ const appearanceSchemeOptions = computed(() => [
     value: scheme.id,
   })),
 ]);
-const activeAppearanceSchemeSelectValue = computed(() =>
-  knowledgePersonalization.value.activeAppearanceSchemeId || '__custom__',
+const activeAppearanceSchemeSelectValue = computed(
+  () => knowledgePersonalization.value.activeAppearanceSchemeId || '__custom__'
 );
 
 function routeQueryString(key: string) {
   const value = route.query[key];
-  return Array.isArray(value) ? value[0] ?? '' : typeof value === 'string' ? value : '';
+  return Array.isArray(value) ? (value[0] ?? '') : typeof value === 'string' ? value : '';
 }
 
 async function handleKnowledgeOpenRequestFromRoute() {
@@ -456,14 +501,10 @@ onMounted(() => {
 });
 
 watch(
-  [
-    () => route.name,
-    () => route.query.openKnowledgeRequestId,
-    () => route.query.nodeId,
-  ],
+  [() => route.name, () => route.query.openKnowledgeRequestId, () => route.query.nodeId],
   () => {
     void handleKnowledgeOpenRequestFromRoute();
-  },
+  }
 );
 
 onBeforeUnmount(() => {
@@ -483,7 +524,7 @@ watch(
   (title) => {
     draftTitle.value = title ?? '';
   },
-  { immediate: true },
+  { immediate: true }
 );
 
 watch(
@@ -491,14 +532,14 @@ watch(
   () => {
     selectedDocumentText.value = '';
     selectedDocumentContext.value = null;
-  },
+  }
 );
 
 watch(
   () => searchQuery.value,
   (value) => {
     scheduleSearch(value);
-  },
+  }
 );
 
 watch(
@@ -506,7 +547,7 @@ watch(
   (settings) => {
     persistKnowledgePersonalization(settings);
   },
-  { deep: true },
+  { deep: true }
 );
 
 watch(
@@ -531,7 +572,7 @@ watch(
     };
     knowledgeLayout.value = nextSettings;
     persistKnowledgeLayout(nextSettings);
-  },
+  }
 );
 
 function emptyKnowledgeAreaBackground(): KnowledgeAreaBackground {
@@ -559,18 +600,34 @@ function defaultKnowledgePersonalization(): KnowledgePersonalizationSettings {
     blockStyle,
     selectionBackgroundColor,
     appearanceSchemes: [
-      createKnowledgeAppearanceScheme('默认通透', pageBackground, leftBackground, editorBackground, rightBackground, blockStyle, selectionBackgroundColor),
-      createKnowledgeAppearanceScheme('柔和纸面', pageBackground, leftBackground, editorBackground, rightBackground, {
-        ...blockStyle,
-        base: { backgroundColor: '#f8fafc', opacity: 0.72 },
-        code: { backgroundColor: '#f1f5f9', opacity: 0.84 },
-        table: { backgroundColor: '#ffffff', opacity: 0.74 },
-        diagram: { backgroundColor: '#f8fafc', opacity: 0.78 },
-        callout: { backgroundColor: '#eef6ff', opacity: 0.82 },
-        quote: { backgroundColor: '#ffffff', opacity: 0.58 },
-        inlineCode: { backgroundColor: '#f1f5f9', opacity: 0.88 },
-        canvas: { backgroundColor: '#ffffff', opacity: 0.64 },
-      }, selectionBackgroundColor),
+      createKnowledgeAppearanceScheme(
+        '默认通透',
+        pageBackground,
+        leftBackground,
+        editorBackground,
+        rightBackground,
+        blockStyle,
+        selectionBackgroundColor
+      ),
+      createKnowledgeAppearanceScheme(
+        '柔和纸面',
+        pageBackground,
+        leftBackground,
+        editorBackground,
+        rightBackground,
+        {
+          ...blockStyle,
+          base: { backgroundColor: '#f8fafc', opacity: 0.72 },
+          code: { backgroundColor: '#f1f5f9', opacity: 0.84 },
+          table: { backgroundColor: '#ffffff', opacity: 0.74 },
+          diagram: { backgroundColor: '#f8fafc', opacity: 0.78 },
+          callout: { backgroundColor: '#eef6ff', opacity: 0.82 },
+          quote: { backgroundColor: '#ffffff', opacity: 0.58 },
+          inlineCode: { backgroundColor: '#f1f5f9', opacity: 0.88 },
+          canvas: { backgroundColor: '#ffffff', opacity: 0.64 },
+        },
+        selectionBackgroundColor
+      ),
     ],
     activeAppearanceSchemeId: '',
   };
@@ -600,7 +657,7 @@ function createKnowledgeAppearanceScheme(
   editorBackground: KnowledgeAreaBackground,
   rightBackground: KnowledgeAreaBackground,
   blockStyle: KnowledgeBlockStyleSettings,
-  selectionBackgroundColor: string,
+  selectionBackgroundColor: string
 ): KnowledgeAppearanceScheme {
   const now = new Date().toISOString();
   return {
@@ -622,21 +679,41 @@ function loadKnowledgePersonalization(): KnowledgePersonalizationSettings {
   try {
     const raw = window.localStorage.getItem(knowledgePersonalizationStorageKey);
     if (!raw) return defaultKnowledgePersonalization();
-    const parsed = JSON.parse(raw) as Partial<KnowledgePersonalizationSettings> & Record<string, unknown>;
+    const parsed = JSON.parse(raw) as Partial<KnowledgePersonalizationSettings> &
+      Record<string, unknown>;
     const defaults = defaultKnowledgePersonalization();
     return {
-      pageBackground: normalizeKnowledgeAreaBackground(parsed.pageBackground, defaults.pageBackground),
-      leftBackground: normalizeKnowledgeAreaBackground(parsed.leftBackground, defaults.leftBackground),
-      editorBackground: normalizeKnowledgeAreaBackground(parsed.editorBackground, defaults.editorBackground),
-      rightBackground: normalizeKnowledgeAreaBackground(parsed.rightBackground, defaults.rightBackground),
+      pageBackground: normalizeKnowledgeAreaBackground(
+        parsed.pageBackground,
+        defaults.pageBackground
+      ),
+      leftBackground: normalizeKnowledgeAreaBackground(
+        parsed.leftBackground,
+        defaults.leftBackground
+      ),
+      editorBackground: normalizeKnowledgeAreaBackground(
+        parsed.editorBackground,
+        defaults.editorBackground
+      ),
+      rightBackground: normalizeKnowledgeAreaBackground(
+        parsed.rightBackground,
+        defaults.rightBackground
+      ),
       blockStyle: normalizeKnowledgeBlockStyle(parsed.blockStyle, defaults.blockStyle),
-      selectionBackgroundColor: normalizeKnowledgeSelectionBackgroundColor(parsed.selectionBackgroundColor, defaults.selectionBackgroundColor),
-      appearanceSchemes: normalizeKnowledgeAppearanceSchemes(parsed.appearanceSchemes ?? parsed.blockStyleSchemes, defaults.appearanceSchemes),
-      activeAppearanceSchemeId: typeof parsed.activeAppearanceSchemeId === 'string'
-        ? parsed.activeAppearanceSchemeId
-        : typeof parsed.activeBlockStyleSchemeId === 'string'
-          ? parsed.activeBlockStyleSchemeId
-          : '',
+      selectionBackgroundColor: normalizeKnowledgeSelectionBackgroundColor(
+        parsed.selectionBackgroundColor,
+        defaults.selectionBackgroundColor
+      ),
+      appearanceSchemes: normalizeKnowledgeAppearanceSchemes(
+        parsed.appearanceSchemes ?? parsed.blockStyleSchemes,
+        defaults.appearanceSchemes
+      ),
+      activeAppearanceSchemeId:
+        typeof parsed.activeAppearanceSchemeId === 'string'
+          ? parsed.activeAppearanceSchemeId
+          : typeof parsed.activeBlockStyleSchemeId === 'string'
+            ? parsed.activeBlockStyleSchemeId
+            : '',
     };
   } catch {
     return defaultKnowledgePersonalization();
@@ -674,11 +751,24 @@ function loadKnowledgeLayout(): KnowledgeLayoutSettings {
     if (!raw) return defaults;
     const parsed = JSON.parse(raw) as Partial<KnowledgeLayoutSettings> & Record<string, unknown>;
     return {
-      leftCollapsed: typeof parsed.leftCollapsed === 'boolean' ? parsed.leftCollapsed : defaults.leftCollapsed,
-      rightCollapsed: typeof parsed.rightCollapsed === 'boolean' ? parsed.rightCollapsed : defaults.rightCollapsed,
-      quickNotesCollapsed: typeof parsed.quickNotesCollapsed === 'boolean' ? parsed.quickNotesCollapsed : defaults.quickNotesCollapsed,
-      recentCollapsed: typeof parsed.recentCollapsed === 'boolean' ? parsed.recentCollapsed : defaults.recentCollapsed,
-      favoritesCollapsed: typeof parsed.favoritesCollapsed === 'boolean' ? parsed.favoritesCollapsed : defaults.favoritesCollapsed,
+      leftCollapsed:
+        typeof parsed.leftCollapsed === 'boolean' ? parsed.leftCollapsed : defaults.leftCollapsed,
+      rightCollapsed:
+        typeof parsed.rightCollapsed === 'boolean'
+          ? parsed.rightCollapsed
+          : defaults.rightCollapsed,
+      quickNotesCollapsed:
+        typeof parsed.quickNotesCollapsed === 'boolean'
+          ? parsed.quickNotesCollapsed
+          : defaults.quickNotesCollapsed,
+      recentCollapsed:
+        typeof parsed.recentCollapsed === 'boolean'
+          ? parsed.recentCollapsed
+          : defaults.recentCollapsed,
+      favoritesCollapsed:
+        typeof parsed.favoritesCollapsed === 'boolean'
+          ? parsed.favoritesCollapsed
+          : defaults.favoritesCollapsed,
       leftWidth: normalizeKnowledgePanelWidth(parsed.leftWidth, defaults.leftWidth, 220, 420),
       rightWidth: normalizeKnowledgePanelWidth(parsed.rightWidth, defaults.rightWidth, 220, 420),
     };
@@ -693,7 +783,11 @@ function persistKnowledgeLayout(settings: KnowledgeLayoutSettings) {
 }
 
 function startKnowledgeSidebarResize(side: 'left' | 'right', event: MouseEvent) {
-  if ((side === 'left' && leftSidebarCollapsed.value) || (side === 'right' && inspectorCollapsed.value)) return;
+  if (
+    (side === 'left' && leftSidebarCollapsed.value) ||
+    (side === 'right' && inspectorCollapsed.value)
+  )
+    return;
   event.preventDefault();
   activeResize = {
     side,
@@ -707,10 +801,20 @@ function handleKnowledgeSidebarResizeMove(event: MouseEvent) {
   if (!activeResize) return;
   const delta = event.clientX - activeResize.startX;
   if (activeResize.side === 'left') {
-    leftSidebarWidth.value = normalizeKnowledgePanelWidth(activeResize.startWidth + delta, activeResize.startWidth, 220, 420);
+    leftSidebarWidth.value = normalizeKnowledgePanelWidth(
+      activeResize.startWidth + delta,
+      activeResize.startWidth,
+      220,
+      420
+    );
     return;
   }
-  inspectorWidth.value = normalizeKnowledgePanelWidth(activeResize.startWidth - delta, activeResize.startWidth, 220, 420);
+  inspectorWidth.value = normalizeKnowledgePanelWidth(
+    activeResize.startWidth - delta,
+    activeResize.startWidth,
+    220,
+    420
+  );
 }
 
 function stopKnowledgeSidebarResize() {
@@ -719,38 +823,55 @@ function stopKnowledgeSidebarResize() {
   document.body.classList.remove('knowledge-sidebar-resizing');
 }
 
-function normalizeKnowledgeAreaBackground(value: unknown, fallback: KnowledgeAreaBackground): KnowledgeAreaBackground {
+function normalizeKnowledgeAreaBackground(
+  value: unknown,
+  fallback: KnowledgeAreaBackground
+): KnowledgeAreaBackground {
   if (typeof value === 'string') {
     return { ...fallback, color: value };
   }
 
   if (!isRecord(value)) return fallback;
-  const type = value.type === 'image' || value.type === 'video' || value.type === 'color' ? value.type : fallback.type;
+  const type =
+    value.type === 'image' || value.type === 'video' || value.type === 'color'
+      ? value.type
+      : fallback.type;
   return {
     type,
     color: typeof value.color === 'string' ? value.color : '',
     image: typeof value.image === 'string' ? value.image : '',
     video: typeof value.video === 'string' ? value.video : '',
-    backgroundStyle: isRecord(value.backgroundStyle) ? value.backgroundStyle as BackgroundStyleConfig : { opacity: 1 },
+    backgroundStyle: isRecord(value.backgroundStyle)
+      ? (value.backgroundStyle as BackgroundStyleConfig)
+      : { opacity: 1 },
   };
 }
 
-function cloneKnowledgeAreaBackground(background: KnowledgeAreaBackground): KnowledgeAreaBackground {
+function cloneKnowledgeAreaBackground(
+  background: KnowledgeAreaBackground
+): KnowledgeAreaBackground {
   return JSON.parse(JSON.stringify(background)) as KnowledgeAreaBackground;
 }
 
-function normalizeKnowledgeBlockSurfaceStyle(value: unknown, fallback: KnowledgeBlockSurfaceStyle): KnowledgeBlockSurfaceStyle {
+function normalizeKnowledgeBlockSurfaceStyle(
+  value: unknown,
+  fallback: KnowledgeBlockSurfaceStyle
+): KnowledgeBlockSurfaceStyle {
   if (!isRecord(value)) return { ...fallback };
   const opacity = typeof value.opacity === 'number' ? value.opacity : Number(value.opacity);
   return {
-    backgroundColor: typeof value.backgroundColor === 'string' && value.backgroundColor.trim()
-      ? value.backgroundColor
-      : fallback.backgroundColor,
+    backgroundColor:
+      typeof value.backgroundColor === 'string' && value.backgroundColor.trim()
+        ? value.backgroundColor
+        : fallback.backgroundColor,
     opacity: Number.isFinite(opacity) ? Math.min(1, Math.max(0, opacity)) : fallback.opacity,
   };
 }
 
-function normalizeKnowledgeBlockStyle(value: unknown, fallback: KnowledgeBlockStyleSettings): KnowledgeBlockStyleSettings {
+function normalizeKnowledgeBlockStyle(
+  value: unknown,
+  fallback: KnowledgeBlockStyleSettings
+): KnowledgeBlockStyleSettings {
   const source = isRecord(value) ? value : {};
   return knowledgeBlockSurfaceOrder.reduce((style, key) => {
     style[key] = normalizeKnowledgeBlockSurfaceStyle(source[key], fallback[key]);
@@ -766,35 +887,53 @@ function normalizeKnowledgeSelectionBackgroundColor(value: unknown, fallback: st
   return typeof value === 'string' && value.trim() ? value.trim() : fallback;
 }
 
-function normalizeKnowledgeAppearanceSchemes(value: unknown, fallback: KnowledgeAppearanceScheme[]): KnowledgeAppearanceScheme[] {
+function normalizeKnowledgeAppearanceSchemes(
+  value: unknown,
+  fallback: KnowledgeAppearanceScheme[]
+): KnowledgeAppearanceScheme[] {
   if (!Array.isArray(value)) return fallback.map(cloneKnowledgeAppearanceScheme);
   const fallbackBlockStyle = defaultKnowledgeBlockStyle();
   const fallbackBackground = emptyKnowledgeAreaBackground();
   const fallbackSelectionBackgroundColor = defaultKnowledgeSelectionBackgroundColor();
-  const schemes = value
-    .filter(isRecord)
-    .map((item, index) => {
-      const pageBackground = normalizeKnowledgeAreaBackground(item.pageBackground, fallbackBackground);
-      const leftBackground = normalizeKnowledgeAreaBackground(item.leftBackground, fallbackBackground);
-      const editorBackground = normalizeKnowledgeAreaBackground(item.editorBackground, pageBackground);
-      const rightBackground = normalizeKnowledgeAreaBackground(item.rightBackground, fallbackBackground);
-      return {
-        id: typeof item.id === 'string' && item.id.trim() ? item.id : `legacy-${index}`,
-        name: typeof item.name === 'string' && item.name.trim() ? item.name : `方案 ${index + 1}`,
-        pageBackground,
-        leftBackground,
-        editorBackground,
-        rightBackground,
-        blockStyle: normalizeKnowledgeBlockStyle(item.blockStyle, fallbackBlockStyle),
-        selectionBackgroundColor: normalizeKnowledgeSelectionBackgroundColor(item.selectionBackgroundColor, fallbackSelectionBackgroundColor),
-        createdAt: typeof item.createdAt === 'string' ? item.createdAt : new Date().toISOString(),
-        updatedAt: typeof item.updatedAt === 'string' ? item.updatedAt : new Date().toISOString(),
-      };
-    });
+  const schemes = value.filter(isRecord).map((item, index) => {
+    const pageBackground = normalizeKnowledgeAreaBackground(
+      item.pageBackground,
+      fallbackBackground
+    );
+    const leftBackground = normalizeKnowledgeAreaBackground(
+      item.leftBackground,
+      fallbackBackground
+    );
+    const editorBackground = normalizeKnowledgeAreaBackground(
+      item.editorBackground,
+      pageBackground
+    );
+    const rightBackground = normalizeKnowledgeAreaBackground(
+      item.rightBackground,
+      fallbackBackground
+    );
+    return {
+      id: typeof item.id === 'string' && item.id.trim() ? item.id : `legacy-${index}`,
+      name: typeof item.name === 'string' && item.name.trim() ? item.name : `方案 ${index + 1}`,
+      pageBackground,
+      leftBackground,
+      editorBackground,
+      rightBackground,
+      blockStyle: normalizeKnowledgeBlockStyle(item.blockStyle, fallbackBlockStyle),
+      selectionBackgroundColor: normalizeKnowledgeSelectionBackgroundColor(
+        item.selectionBackgroundColor,
+        fallbackSelectionBackgroundColor
+      ),
+      createdAt: typeof item.createdAt === 'string' ? item.createdAt : new Date().toISOString(),
+      updatedAt: typeof item.updatedAt === 'string' ? item.updatedAt : new Date().toISOString(),
+    };
+  });
   return schemes.length ? schemes : fallback.map(cloneKnowledgeAppearanceScheme);
 }
 
-function cloneKnowledgeAppearanceScheme(scheme: KnowledgeAppearanceScheme): KnowledgeAppearanceScheme {
+function cloneKnowledgeAppearanceScheme(
+  scheme: KnowledgeAppearanceScheme
+): KnowledgeAppearanceScheme {
   return {
     ...scheme,
     pageBackground: cloneKnowledgeAreaBackground(scheme.pageBackground),
@@ -853,7 +992,8 @@ function createKnowledgeBackgroundStyle(background: KnowledgeAreaBackground): CS
 
   if (background.type === 'video') {
     return {
-      background: background.color || 'color-mix(in srgb, var(--ui-surface-panel) 32%, transparent)',
+      background:
+        background.color || 'color-mix(in srgb, var(--ui-surface-panel) 32%, transparent)',
     };
   }
 
@@ -862,8 +1002,12 @@ function createKnowledgeBackgroundStyle(background: KnowledgeAreaBackground): CS
   };
 }
 
-function knowledgePersonalizationRegionStyle(region: Exclude<KnowledgePersonalizationRegion, 'page'>) {
-  return hasKnowledgePageBackground.value ? {} : createKnowledgeBackgroundStyle(resolveKnowledgeBackground(region));
+function knowledgePersonalizationRegionStyle(
+  region: Exclude<KnowledgePersonalizationRegion, 'page'>
+) {
+  return hasKnowledgePageBackground.value
+    ? {}
+    : createKnowledgeBackgroundStyle(resolveKnowledgeBackground(region));
 }
 
 function knowledgeBackgroundForRegion(region: KnowledgePersonalizationRegion) {
@@ -873,14 +1017,19 @@ function knowledgeBackgroundForRegion(region: KnowledgePersonalizationRegion) {
   return knowledgePersonalization.value.rightBackground;
 }
 
-function resolveKnowledgeBackground(region: KnowledgePersonalizationRegion): KnowledgeAreaBackground {
+function resolveKnowledgeBackground(
+  region: KnowledgePersonalizationRegion
+): KnowledgeAreaBackground {
   return resolveThemeBackground(
     knowledgeBackgroundForRegion(region),
-    knowledgeBackgroundTheme.value,
+    knowledgeBackgroundTheme.value
   ) as KnowledgeAreaBackground;
 }
 
-function openKnowledgePersonalizationMenu(event: MouseEvent, region: KnowledgePersonalizationRegion) {
+function openKnowledgePersonalizationMenu(
+  event: MouseEvent,
+  region: KnowledgePersonalizationRegion
+) {
   openContextMenu(event.clientX, event.clientY, [
     {
       id: 'knowledge-personalization-page',
@@ -949,7 +1098,10 @@ function knowledgePersonalizationRegionLabel(region: KnowledgePersonalizationReg
   return '知识库背景';
 }
 
-function setKnowledgeBackgroundForRegion(region: KnowledgePersonalizationRegion, background: KnowledgeAreaBackground) {
+function setKnowledgeBackgroundForRegion(
+  region: KnowledgePersonalizationRegion,
+  background: KnowledgeAreaBackground
+) {
   if (region === 'page') knowledgePersonalization.value.pageBackground = background;
   if (region === 'left') knowledgePersonalization.value.leftBackground = background;
   if (region === 'editor') knowledgePersonalization.value.editorBackground = background;
@@ -971,7 +1123,7 @@ function handleKnowledgePersonalizationConfirm(payload: BackgroundConfirmPayload
       image: payload.image ?? '',
       video: payload.video ?? '',
       backgroundStyle: payload.backgroundStyle ?? { opacity: 1 },
-    },
+    }
   ) as KnowledgeAreaBackground;
   setKnowledgeBackgroundForRegion(region, nextBackground);
   markKnowledgeAppearanceCustom();
@@ -980,17 +1132,18 @@ function handleKnowledgePersonalizationConfirm(payload: BackgroundConfirmPayload
 function handleKnowledgePersonalizationReset() {
   const defaults = defaultKnowledgePersonalization();
   const region = knowledgePersonalizationActiveRegion.value;
-  const fallback = region === 'page'
-    ? defaults.pageBackground
-    : region === 'left'
-      ? defaults.leftBackground
-      : region === 'editor'
-        ? defaults.editorBackground
-        : defaults.rightBackground;
+  const fallback =
+    region === 'page'
+      ? defaults.pageBackground
+      : region === 'left'
+        ? defaults.leftBackground
+        : region === 'editor'
+          ? defaults.editorBackground
+          : defaults.rightBackground;
   const nextBackground = withThemeBackground(
     knowledgeBackgroundForRegion(region),
     knowledgeBackgroundTheme.value,
-    fallback,
+    fallback
   ) as KnowledgeAreaBackground;
   setKnowledgeBackgroundForRegion(region, nextBackground);
   markKnowledgeAppearanceCustom();
@@ -1004,7 +1157,10 @@ function updateKnowledgeBlockSurfaceColor(surface: KnowledgeBlockSurfaceKey, col
   markKnowledgeAppearanceCustom();
 }
 
-function updateKnowledgeBlockSurfaceOpacity(surface: KnowledgeBlockSurfaceKey, opacityPercent: number) {
+function updateKnowledgeBlockSurfaceOpacity(
+  surface: KnowledgeBlockSurfaceKey,
+  opacityPercent: number
+) {
   knowledgePersonalization.value.blockStyle[surface] = {
     ...knowledgePersonalization.value.blockStyle[surface],
     opacity: Math.min(1, Math.max(0, opacityPercent / 100)),
@@ -1018,7 +1174,8 @@ function resetKnowledgeBlockStyle() {
 }
 
 function updateKnowledgeSelectionBackgroundColor(color: string) {
-  knowledgePersonalization.value.selectionBackgroundColor = normalizeKnowledgeSelectionBackgroundColor(color, defaultKnowledgeSelectionBackgroundColor());
+  knowledgePersonalization.value.selectionBackgroundColor =
+    normalizeKnowledgeSelectionBackgroundColor(color, defaultKnowledgeSelectionBackgroundColor());
   markKnowledgeAppearanceCustom();
 }
 
@@ -1039,7 +1196,7 @@ async function saveCurrentKnowledgeAppearanceScheme() {
     knowledgeBackgroundForRegion('editor'),
     knowledgeBackgroundForRegion('right'),
     knowledgePersonalization.value.blockStyle,
-    knowledgePersonalization.value.selectionBackgroundColor,
+    knowledgePersonalization.value.selectionBackgroundColor
   );
   knowledgePersonalization.value.appearanceSchemes = [
     scheme,
@@ -1055,12 +1212,22 @@ function applyKnowledgeAppearanceScheme(value: string | number) {
     knowledgePersonalization.value.activeAppearanceSchemeId = '';
     return;
   }
-  const scheme = knowledgePersonalization.value.appearanceSchemes.find((item) => item.id === schemeId);
+  const scheme = knowledgePersonalization.value.appearanceSchemes.find(
+    (item) => item.id === schemeId
+  );
   if (!scheme) return;
-  knowledgePersonalization.value.pageBackground = cloneKnowledgeAreaBackground(scheme.pageBackground);
-  knowledgePersonalization.value.leftBackground = cloneKnowledgeAreaBackground(scheme.leftBackground);
-  knowledgePersonalization.value.editorBackground = cloneKnowledgeAreaBackground(scheme.editorBackground);
-  knowledgePersonalization.value.rightBackground = cloneKnowledgeAreaBackground(scheme.rightBackground);
+  knowledgePersonalization.value.pageBackground = cloneKnowledgeAreaBackground(
+    scheme.pageBackground
+  );
+  knowledgePersonalization.value.leftBackground = cloneKnowledgeAreaBackground(
+    scheme.leftBackground
+  );
+  knowledgePersonalization.value.editorBackground = cloneKnowledgeAreaBackground(
+    scheme.editorBackground
+  );
+  knowledgePersonalization.value.rightBackground = cloneKnowledgeAreaBackground(
+    scheme.rightBackground
+  );
   knowledgePersonalization.value.blockStyle = cloneKnowledgeBlockStyle(scheme.blockStyle);
   knowledgePersonalization.value.selectionBackgroundColor = scheme.selectionBackgroundColor;
   knowledgePersonalization.value.activeAppearanceSchemeId = scheme.id;
@@ -1069,8 +1236,8 @@ function applyKnowledgeAppearanceScheme(value: string | number) {
 function deleteActiveKnowledgeAppearanceScheme() {
   const schemeId = knowledgePersonalization.value.activeAppearanceSchemeId;
   if (!schemeId) return;
-  knowledgePersonalization.value.appearanceSchemes = knowledgePersonalization.value.appearanceSchemes
-    .filter((scheme) => scheme.id !== schemeId);
+  knowledgePersonalization.value.appearanceSchemes =
+    knowledgePersonalization.value.appearanceSchemes.filter((scheme) => scheme.id !== schemeId);
   knowledgePersonalization.value.activeAppearanceSchemeId = '';
 }
 
@@ -1166,14 +1333,19 @@ function loadCollapsedSpaceIds() {
   try {
     const raw = window.localStorage.getItem('knowledge.collapsedSpaceIds');
     const parsed = raw ? JSON.parse(raw) : [];
-    return Array.isArray(parsed) ? parsed.filter((item): item is string => typeof item === 'string') : [];
+    return Array.isArray(parsed)
+      ? parsed.filter((item): item is string => typeof item === 'string')
+      : [];
   } catch {
     return [];
   }
 }
 
 function persistCollapsedSpaceIds() {
-  window.localStorage.setItem('knowledge.collapsedSpaceIds', JSON.stringify([...collapsedSpaceIds.value]));
+  window.localStorage.setItem(
+    'knowledge.collapsedSpaceIds',
+    JSON.stringify([...collapsedSpaceIds.value])
+  );
 }
 
 function isSpaceCollapsed(spaceId: string) {
@@ -1213,9 +1385,11 @@ async function handleSpaceDrop(targetSpaceId: string) {
 }
 
 function readDraggedKnowledgeNodeId(event: DragEvent) {
-  return event.dataTransfer?.getData('application/x-guyantools-knowledge-node')
-    || event.dataTransfer?.getData('text/plain')
-    || '';
+  return (
+    event.dataTransfer?.getData('application/x-guyantools-knowledge-node') ||
+    event.dataTransfer?.getData('text/plain') ||
+    ''
+  );
 }
 
 function handleSpaceRootDragOver(spaceId: string, event: DragEvent) {
@@ -1420,10 +1594,9 @@ async function askKnowledgeAi() {
       throw new Error('请先在 AI 设置中配置可用的 Provider 和模型');
     }
 
-    const content = [
-      question,
-      selectedText ? `\n选中文本：\n${selectedText.slice(0, 6000)}` : '',
-    ].filter(Boolean).join('\n');
+    const content = [question, selectedText ? `\n选中文本：\n${selectedText.slice(0, 6000)}` : '']
+      .filter(Boolean)
+      .join('\n');
     await aiChatStore.sendMessage({
       conversationId: conversation.id,
       content,
@@ -1442,11 +1615,10 @@ async function askKnowledgeAi() {
 
 function setKnowledgeAiScope(value: string | number) {
   const normalized = String(value);
-  knowledgeAiScope.value = normalized === 'selection'
-    || normalized === 'space'
-    || normalized === 'library'
-    ? normalized
-    : 'page';
+  knowledgeAiScope.value =
+    normalized === 'selection' || normalized === 'space' || normalized === 'library'
+      ? normalized
+      : 'page';
 }
 
 async function ensureKnowledgeAiConversation() {
@@ -1454,7 +1626,9 @@ async function ensureKnowledgeAiConversation() {
   if (!aiChatStore.conversations.length) {
     await aiChatStore.refreshConversations();
   }
-  const existing = aiChatStore.conversations.find((conversation) => conversation.id === knowledgeAiConversationId.value);
+  const existing = aiChatStore.conversations.find(
+    (conversation) => conversation.id === knowledgeAiConversationId.value
+  );
   if (existing) {
     await aiChatStore.setActiveConversation(existing.id);
     return existing;
@@ -1488,9 +1662,10 @@ function buildKnowledgeAiGrounding() {
     webSearchMode: 'off' as const,
     knowledgeSearchMode: 'force' as const,
     libraryId: store.activeLibraryId || undefined,
-    spaceId: knowledgeAiScope.value === 'library'
-      ? undefined
-      : node?.spaceId || store.activeSpaceId || undefined,
+    spaceId:
+      knowledgeAiScope.value === 'library'
+        ? undefined
+        : node?.spaceId || store.activeSpaceId || undefined,
     nodeId: isNodeScope ? node?.id : undefined,
     assetId: isNodeScope && store.selectedAsset ? store.selectedAsset.id : undefined,
     sourceType: isNodeScope ? selectedKnowledgeAiSourceType() : undefined,
@@ -1552,7 +1727,9 @@ async function saveKnowledgeAiAnswerAsPage() {
         : '',
       '',
       answer,
-    ].filter(Boolean).join('\n'),
+    ]
+      .filter(Boolean)
+      .join('\n'),
     contentText: answer,
     propertiesJson: JSON.stringify({
       sourceType: 'ai_knowledge_answer',
@@ -1700,10 +1877,15 @@ async function confirmConversion() {
   }
 }
 
-async function handleBlockAssetFile(payload: { blockId: string; file: File; kind: 'image' | 'attachment' }) {
+async function handleBlockAssetFile(payload: {
+  blockId: string;
+  file: File;
+  kind: 'image' | 'attachment';
+}) {
   const data = await payload.file.arrayBuffer();
   const asset = await store.saveAsset({
-    originalName: payload.file.name || (payload.kind === 'image' ? 'block-image.png' : 'block-attachment'),
+    originalName:
+      payload.file.name || (payload.kind === 'image' ? 'block-image.png' : 'block-attachment'),
     mimeType: payload.file.type,
     data,
   });
@@ -1712,10 +1894,16 @@ async function handleBlockAssetFile(payload: { blockId: string; file: File; kind
   scheduleAutosave();
 }
 
-async function handleCanvasAssetFile(payload: { elementId?: string; file: File; kind: 'image' | 'file'; position?: { x: number; y: number } }) {
+async function handleCanvasAssetFile(payload: {
+  elementId?: string;
+  file: File;
+  kind: 'image' | 'file';
+  position?: { x: number; y: number };
+}) {
   const data = await payload.file.arrayBuffer();
   const asset = await store.saveAsset({
-    originalName: payload.file.name || (payload.kind === 'image' ? 'canvas-image.png' : 'canvas-file'),
+    originalName:
+      payload.file.name || (payload.kind === 'image' ? 'canvas-image.png' : 'canvas-file'),
     mimeType: payload.file.type,
     data,
   });
@@ -1826,9 +2014,10 @@ async function selectCanvasAsset(assetId: string) {
 async function openCanvasPageLink(pageRef: string) {
   const normalizedRef = pageRef.trim();
   if (!normalizedRef) return;
-  const target = store.visibleNodes.find((node) =>
-    (node.nodeType === 'page' || node.nodeType === 'document')
-    && (node.id === normalizedRef || node.title === normalizedRef),
+  const target = store.visibleNodes.find(
+    (node) =>
+      (node.nodeType === 'page' || node.nodeType === 'document') &&
+      (node.id === normalizedRef || node.title === normalizedRef)
   );
   if (!target) {
     notifyWarning(`未找到页面：${normalizedRef}`, '画布页面链接');
@@ -1902,7 +2091,8 @@ function normalizeAssetMetadata(value: Record<string, unknown>): KnowledgeAssetM
   return {
     originalPath: typeof value.originalPath === 'string' ? value.originalPath : undefined,
     importedAt: typeof value.importedAt === 'string' ? value.importedAt : undefined,
-    extractionStatus: typeof value.extractionStatus === 'string' ? value.extractionStatus : undefined,
+    extractionStatus:
+      typeof value.extractionStatus === 'string' ? value.extractionStatus : undefined,
     extractionError: value.extractionError,
     extraction: {
       extractor: typeof extraction.extractor === 'string' ? extraction.extractor : undefined,
@@ -1914,12 +2104,15 @@ function normalizeAssetMetadata(value: Record<string, unknown>): KnowledgeAssetM
   };
 }
 
-function normalizeExcerptProperties(value: Record<string, unknown>): KnowledgeDocumentExcerptProperties {
+function normalizeExcerptProperties(
+  value: Record<string, unknown>
+): KnowledgeDocumentExcerptProperties {
   const context = isRecord(value.sourceContext) ? value.sourceContext : null;
   return {
     sourceType: typeof value.sourceType === 'string' ? value.sourceType : undefined,
     sourceAssetId: typeof value.sourceAssetId === 'string' ? value.sourceAssetId : undefined,
-    sourceDocumentId: typeof value.sourceDocumentId === 'string' ? value.sourceDocumentId : undefined,
+    sourceDocumentId:
+      typeof value.sourceDocumentId === 'string' ? value.sourceDocumentId : undefined,
     sourceTitle: typeof value.sourceTitle === 'string' ? value.sourceTitle : undefined,
     sourceAssetName: typeof value.sourceAssetName === 'string' ? value.sourceAssetName : undefined,
     sourcePreviewKind: normalizePreviewKind(value.sourcePreviewKind),
@@ -1939,12 +2132,12 @@ function normalizeExcerptContext(value: Record<string, unknown>): KnowledgeDocum
 }
 
 function normalizePreviewKind(value: unknown): KnowledgeDocumentPreviewKind | undefined {
-  return value === 'text'
-    || value === 'pdf'
-    || value === 'image'
-    || value === 'slides'
-    || value === 'sheets'
-    || value === 'unsupported'
+  return value === 'text' ||
+    value === 'pdf' ||
+    value === 'image' ||
+    value === 'slides' ||
+    value === 'sheets' ||
+    value === 'unsupported'
     ? value
     : undefined;
 }
@@ -1967,7 +2160,8 @@ function normalizePreviewSlides(value: unknown): KnowledgeDocumentPreviewSlide[]
     .filter(isRecord)
     .map((item, index) => ({
       index: typeof item.index === 'number' ? item.index : index + 1,
-      title: typeof item.title === 'string' && item.title.trim() ? item.title : `Slide ${index + 1}`,
+      title:
+        typeof item.title === 'string' && item.title.trim() ? item.title : `Slide ${index + 1}`,
       text: typeof item.text === 'string' ? item.text : '',
     }))
     .filter((item) => item.text.trim());
@@ -2009,10 +2203,15 @@ function readCurrentDocumentSelection() {
   return selectedText;
 }
 
-function readExcerptContextFromTarget(target: EventTarget | null | undefined): KnowledgeDocumentExcerptContext | null {
-  const element = target instanceof Element
-    ? target.closest<HTMLElement>('[data-excerpt-section], [data-excerpt-slide], [data-excerpt-sheet], [data-excerpt-cell]')
-    : null;
+function readExcerptContextFromTarget(
+  target: EventTarget | null | undefined
+): KnowledgeDocumentExcerptContext | null {
+  const element =
+    target instanceof Element
+      ? target.closest<HTMLElement>(
+          '[data-excerpt-section], [data-excerpt-slide], [data-excerpt-sheet], [data-excerpt-cell]'
+        )
+      : null;
   if (!element) return null;
 
   const slide = numberFromDataset(element.dataset.excerptSlide);
@@ -2069,10 +2268,8 @@ async function handleEditorAssetFile(payload: { file: File; kind: 'image' | 'att
   if (!href) return;
 
   const fallbackName = payload.kind === 'image' ? 'pasted-image.png' : 'attachment';
-  const safeName = (payload.file.name || fallbackName).replace(/[\[\]\n\r]/g, ' ');
-  const link = payload.kind === 'image'
-    ? `![${safeName}](${href})`
-    : `[${safeName}](${href})`;
+  const safeName = (payload.file.name || fallbackName).replace(/[[\]\n\r]/g, ' ');
+  const link = payload.kind === 'image' ? `![${safeName}](${href})` : `[${safeName}](${href})`;
   markdownEditorRef.value?.insertTextAtSelection(`\n${link}\n`);
 }
 
@@ -2193,7 +2390,13 @@ function formatFileSize(value?: number) {
       </div>
 
       <label class="knowledge-toolbar__search" aria-label="搜索当前知识库">
-        <UiInput v-model="searchQuery" class="knowledge-toolbar__search-input" type="search" size="sm" placeholder="搜索当前库">
+        <UiInput
+          v-model="searchQuery"
+          class="knowledge-toolbar__search-input"
+          type="search"
+          size="sm"
+          placeholder="搜索当前库"
+        >
           <template #prefix>
             <IconRenderer icon="iconify:lucide:search" :size="16" />
           </template>
@@ -2208,7 +2411,14 @@ function formatFileSize(value?: number) {
           :active="!leftSidebarCollapsed"
           @click="leftSidebarCollapsed = !leftSidebarCollapsed"
         >
-          <IconRenderer :icon="leftSidebarCollapsed ? 'iconify:lucide:panel-left-open' : 'iconify:lucide:panel-left-close'" :size="15" />
+          <IconRenderer
+            :icon="
+              leftSidebarCollapsed
+                ? 'iconify:lucide:panel-left-open'
+                : 'iconify:lucide:panel-left-close'
+            "
+            :size="15"
+          />
         </UiIconButton>
         <UiIconButton
           type="button"
@@ -2217,9 +2427,21 @@ function formatFileSize(value?: number) {
           :active="!inspectorCollapsed"
           @click="inspectorCollapsed = !inspectorCollapsed"
         >
-          <IconRenderer :icon="inspectorCollapsed ? 'iconify:lucide:panel-right-open' : 'iconify:lucide:panel-right-close'" :size="15" />
+          <IconRenderer
+            :icon="
+              inspectorCollapsed
+                ? 'iconify:lucide:panel-right-open'
+                : 'iconify:lucide:panel-right-close'
+            "
+            :size="15"
+          />
         </UiIconButton>
-        <UiButton type="button" variant="secondary" size="sm" @click="openKnowledgePersonalizationPanel('page')">
+        <UiButton
+          type="button"
+          variant="secondary"
+          size="sm"
+          @click="openKnowledgePersonalizationPanel('page')"
+        >
           <template #prefix>
             <IconRenderer icon="iconify:lucide:palette" :size="15" />
           </template>
@@ -2237,7 +2459,12 @@ function formatFileSize(value?: number) {
             <IconRenderer icon="iconify:lucide:swatch-book" :size="14" />
           </template>
         </UiSelect>
-        <UiButton type="button" variant="secondary" size="sm" @click="knowledgeBlockStylePanelOpen = true">
+        <UiButton
+          type="button"
+          variant="secondary"
+          size="sm"
+          @click="knowledgeBlockStylePanelOpen = true"
+        >
           <template #prefix>
             <IconRenderer icon="iconify:lucide:sliders-horizontal" :size="15" />
           </template>
@@ -2249,13 +2476,25 @@ function formatFileSize(value?: number) {
           </template>
           速记
         </UiButton>
-        <UiButton type="button" variant="secondary" size="sm" :disabled="store.importing" @click="importFiles">
+        <UiButton
+          type="button"
+          variant="secondary"
+          size="sm"
+          :disabled="store.importing"
+          @click="importFiles"
+        >
           <template #prefix>
             <IconRenderer icon="iconify:lucide:upload" :size="15" />
           </template>
           导入
         </UiButton>
-        <UiButton type="button" variant="secondary" size="sm" :disabled="store.saving" @click="openKnowledgeCreateMenu">
+        <UiButton
+          type="button"
+          variant="secondary"
+          size="sm"
+          :disabled="store.saving"
+          @click="openKnowledgeCreateMenu"
+        >
           <template #prefix>
             <IconRenderer icon="iconify:lucide:more-horizontal" :size="15" />
           </template>
@@ -2280,16 +2519,33 @@ function formatFileSize(value?: number) {
         <div class="knowledge-sidebar__header">
           <span>资料树</span>
           <span class="knowledge-sidebar__header-actions">
-            <UiIconButton type="button" title="新建空间" size="sm" :disabled="store.saving" @click="createSpace">
+            <UiIconButton
+              type="button"
+              title="新建空间"
+              size="sm"
+              :disabled="store.saving"
+              @click="createSpace"
+            >
               <IconRenderer icon="iconify:lucide:plus" :size="15" />
             </UiIconButton>
-            <UiIconButton type="button" title="收起左侧栏" size="sm" @click="leftSidebarCollapsed = true">
+            <UiIconButton
+              type="button"
+              title="收起左侧栏"
+              size="sm"
+              @click="leftSidebarCollapsed = true"
+            >
               <IconRenderer icon="iconify:lucide:panel-left-close" :size="15" />
             </UiIconButton>
           </span>
         </div>
 
-        <UiScrollbar v-if="!leftSidebarCollapsed" class="knowledge-tree" :x="false" :y="true" :size="6">
+        <UiScrollbar
+          v-if="!leftSidebarCollapsed"
+          class="knowledge-tree"
+          :x="false"
+          :y="true"
+          :size="6"
+        >
           <section v-if="searchQuery.trim()" class="knowledge-tree__section">
             <h2>搜索</h2>
             <div class="knowledge-search-scope" aria-label="搜索范围">
@@ -2299,7 +2555,9 @@ function formatFileSize(value?: number) {
                 type="button"
                 variant="ghost"
                 size="sm"
-                :class="{ 'knowledge-search-scope__item--active': store.searchScope === scope.value }"
+                :class="{
+                  'knowledge-search-scope__item--active': store.searchScope === scope.value,
+                }"
                 :active="store.searchScope === scope.value"
                 :aria-pressed="store.searchScope === scope.value"
                 @click="store.setSearchScope(scope.value)"
@@ -2314,7 +2572,9 @@ function formatFileSize(value?: number) {
                 type="button"
                 variant="ghost"
                 size="sm"
-                :class="{ 'knowledge-search-filters__item--active': store.searchTypeFilter === filter.value }"
+                :class="{
+                  'knowledge-search-filters__item--active': store.searchTypeFilter === filter.value,
+                }"
                 :active="store.searchTypeFilter === filter.value"
                 :aria-pressed="store.searchTypeFilter === filter.value"
                 @click="store.setSearchTypeFilter(filter.value)"
@@ -2337,10 +2597,18 @@ function formatFileSize(value?: number) {
               </template>
               <span>
                 <strong>{{ result.title }}</strong>
-                <small>{{ searchResultTypeLabel(result.sourceType) }} · {{ result.snippet || '命中文档标题' }}</small>
+                <small
+                  >{{ searchResultTypeLabel(result.sourceType) }} ·
+                  {{ result.snippet || '命中文档标题' }}</small
+                >
               </span>
             </UiButton>
-            <div v-if="!store.searching && !store.searchResults.length" class="knowledge-empty-line">全文搜索暂无结果</div>
+            <div
+              v-if="!store.searching && !store.searchResults.length"
+              class="knowledge-empty-line"
+            >
+              全文搜索暂无结果
+            </div>
             <h2 class="knowledge-tree__subheading">标题匹配</h2>
             <UiButton
               v-for="node in filteredNodes"
@@ -2355,7 +2623,16 @@ function formatFileSize(value?: number) {
               @click="selectNode(node)"
             >
               <template #prefix>
-                <IconRenderer :icon="node.icon ? `iconify:lucide:${node.icon}` : (node.nodeType === 'folder' ? 'iconify:lucide:folder' : 'iconify:lucide:file-type')" :size="15" />
+                <IconRenderer
+                  :icon="
+                    node.icon
+                      ? `iconify:lucide:${node.icon}`
+                      : node.nodeType === 'folder'
+                        ? 'iconify:lucide:folder'
+                        : 'iconify:lucide:file-type'
+                  "
+                  :size="15"
+                />
               </template>
               <span>{{ node.title }}</span>
             </UiButton>
@@ -2396,9 +2673,21 @@ function formatFileSize(value?: number) {
                     size="sm"
                     @click="quickNotesCollapsed = !quickNotesCollapsed"
                   >
-                    <IconRenderer :icon="quickNotesCollapsed ? 'iconify:lucide:chevron-right' : 'iconify:lucide:chevron-down'" :size="14" />
+                    <IconRenderer
+                      :icon="
+                        quickNotesCollapsed
+                          ? 'iconify:lucide:chevron-right'
+                          : 'iconify:lucide:chevron-down'
+                      "
+                      :size="14"
+                    />
                   </UiIconButton>
-                  <UiIconButton type="button" title="打开速记窗口" size="sm" @click="openQuickNoteWindow">
+                  <UiIconButton
+                    type="button"
+                    title="打开速记窗口"
+                    size="sm"
+                    @click="openQuickNoteWindow"
+                  >
                     <IconRenderer icon="iconify:lucide:plus" :size="14" />
                   </UiIconButton>
                 </span>
@@ -2406,7 +2695,13 @@ function formatFileSize(value?: number) {
               <Transition name="knowledge-collapse">
                 <div v-if="!quickNotesCollapsed" class="knowledge-collapsible-body">
                   <label class="knowledge-quick-notes__search" aria-label="搜索速记">
-                    <UiInput v-model="store.quickNoteSearch" class="knowledge-quick-notes__search-input" type="search" size="sm" placeholder="搜索速记">
+                    <UiInput
+                      v-model="store.quickNoteSearch"
+                      class="knowledge-quick-notes__search-input"
+                      type="search"
+                      size="sm"
+                      placeholder="搜索速记"
+                    >
                       <template #prefix>
                         <IconRenderer icon="iconify:lucide:search" :size="13" />
                       </template>
@@ -2421,7 +2716,9 @@ function formatFileSize(value?: number) {
                     class="knowledge-quick-note"
                     :class="[
                       `knowledge-quick-note--${note.quickNote.color}`,
-                      { 'knowledge-quick-note--active': store.selectedNodeId === note.quickNote.id },
+                      {
+                        'knowledge-quick-note--active': store.selectedNodeId === note.quickNote.id,
+                      },
                     ]"
                     :active="store.selectedNodeId === note.quickNote.id"
                     :aria-pressed="store.selectedNodeId === note.quickNote.id"
@@ -2430,7 +2727,9 @@ function formatFileSize(value?: number) {
                     <strong>{{ note.quickNote.title }}</strong>
                     <span>{{ quickNotePreview(note) }}</span>
                   </UiButton>
-                  <div v-if="!store.visibleQuickNotes.length" class="knowledge-empty-line">暂无速记</div>
+                  <div v-if="!store.visibleQuickNotes.length" class="knowledge-empty-line">
+                    暂无速记
+                  </div>
                 </div>
               </Transition>
             </div>
@@ -2444,7 +2743,14 @@ function formatFileSize(value?: number) {
                   size="sm"
                   @click="recentCollapsed = !recentCollapsed"
                 >
-                  <IconRenderer :icon="recentCollapsed ? 'iconify:lucide:chevron-right' : 'iconify:lucide:chevron-down'" :size="13" />
+                  <IconRenderer
+                    :icon="
+                      recentCollapsed
+                        ? 'iconify:lucide:chevron-right'
+                        : 'iconify:lucide:chevron-down'
+                    "
+                    :size="13"
+                  />
                 </UiIconButton>
               </div>
               <Transition name="knowledge-collapse">
@@ -2455,7 +2761,9 @@ function formatFileSize(value?: number) {
                     type="button"
                     variant="ghost"
                     size="sm"
-                    :class="{ 'knowledge-mini-list__item--active': store.selectedNodeId === node.id }"
+                    :class="{
+                      'knowledge-mini-list__item--active': store.selectedNodeId === node.id,
+                    }"
                     class="knowledge-mini-list__item"
                     :active="store.selectedNodeId === node.id"
                     :aria-pressed="store.selectedNodeId === node.id"
@@ -2480,7 +2788,14 @@ function formatFileSize(value?: number) {
                   size="sm"
                   @click="favoritesCollapsed = !favoritesCollapsed"
                 >
-                  <IconRenderer :icon="favoritesCollapsed ? 'iconify:lucide:chevron-right' : 'iconify:lucide:chevron-down'" :size="13" />
+                  <IconRenderer
+                    :icon="
+                      favoritesCollapsed
+                        ? 'iconify:lucide:chevron-right'
+                        : 'iconify:lucide:chevron-down'
+                    "
+                    :size="13"
+                  />
                 </UiIconButton>
               </div>
               <Transition name="knowledge-collapse">
@@ -2491,7 +2806,9 @@ function formatFileSize(value?: number) {
                     type="button"
                     variant="ghost"
                     size="sm"
-                    :class="{ 'knowledge-mini-list__item--active': store.selectedNodeId === node.id }"
+                    :class="{
+                      'knowledge-mini-list__item--active': store.selectedNodeId === node.id,
+                    }"
                     class="knowledge-mini-list__item"
                     :active="store.selectedNodeId === node.id"
                     :aria-pressed="store.selectedNodeId === node.id"
@@ -2502,7 +2819,9 @@ function formatFileSize(value?: number) {
                       <time>{{ formatDateTime(node.updatedAt) }}</time>
                     </template>
                   </UiButton>
-                  <div v-if="!store.favoriteNodes.length" class="knowledge-empty-line">暂无收藏</div>
+                  <div v-if="!store.favoriteNodes.length" class="knowledge-empty-line">
+                    暂无收藏
+                  </div>
                 </div>
               </Transition>
             </div>
@@ -2510,7 +2829,9 @@ function formatFileSize(value?: number) {
 
           <section class="knowledge-tree__section">
             <h2>空间</h2>
-            <div v-if="!store.spaces.length && !store.loading" class="knowledge-empty-line">暂无空间</div>
+            <div v-if="!store.spaces.length && !store.loading" class="knowledge-empty-line">
+              暂无空间
+            </div>
             <article
               v-for="space in store.spaces"
               :key="space.id"
@@ -2541,7 +2862,11 @@ function formatFileSize(value?: number) {
                     @keydown.enter.stop.prevent="toggleSpaceCollapsed(space.id)"
                   >
                     <IconRenderer
-                      :icon="isSpaceCollapsed(space.id) ? 'iconify:lucide:chevron-right' : 'iconify:lucide:chevron-down'"
+                      :icon="
+                        isSpaceCollapsed(space.id)
+                          ? 'iconify:lucide:chevron-right'
+                          : 'iconify:lucide:chevron-down'
+                      "
                       :size="13"
                     />
                   </span>
@@ -2550,7 +2875,12 @@ function formatFileSize(value?: number) {
                 <span>{{ space.name }}</span>
                 <span class="knowledge-space__actions">
                   <strong>{{ store.nodesBySpace(space.id).length }}</strong>
-                  <UiIconButton type="button" title="重命名空间" size="sm" @click.stop="renameSpace(space.id, space.name)">
+                  <UiIconButton
+                    type="button"
+                    title="重命名空间"
+                    size="sm"
+                    @click.stop="renameSpace(space.id, space.name)"
+                  >
                     <IconRenderer icon="iconify:lucide:pencil" :size="13" />
                   </UiIconButton>
                   <UiIconButton
@@ -2578,7 +2908,9 @@ function formatFileSize(value?: number) {
                   :node="node"
                   :level="0"
                 />
-                <div v-if="!store.childrenFor(null, space.id).length" class="knowledge-empty-line">空空间</div>
+                <div v-if="!store.childrenFor(null, space.id).length" class="knowledge-empty-line">
+                  空空间
+                </div>
               </div>
             </article>
           </section>
@@ -2621,13 +2953,18 @@ function formatFileSize(value?: number) {
         <div v-else-if="store.selectedNode" class="knowledge-editor">
           <header
             class="knowledge-editor__header"
-            :class="{ 'knowledge-editor__header--block-page': store.selectedPage?.page.pageType === 'block' }"
+            :class="{
+              'knowledge-editor__header--block-page': store.selectedPage?.page.pageType === 'block',
+            }"
           >
             <div class="knowledge-editor__meta">
               <span>{{ selectedKindLabel }}</span>
               <time>更新于 {{ formatDateTime(store.selectedNode.updatedAt) }}</time>
             </div>
-            <label v-if="store.selectedPage?.page.pageType !== 'block'" class="knowledge-editor__title">
+            <label
+              v-if="store.selectedPage?.page.pageType !== 'block'"
+              class="knowledge-editor__title"
+            >
               <UiInput
                 v-model="draftTitle"
                 type="text"
@@ -2640,7 +2977,8 @@ function formatFileSize(value?: number) {
             <div v-if="selectedDocumentExcerptSource" class="knowledge-editor__source">
               <IconRenderer icon="iconify:lucide:quote" :size="16" />
               <span>
-                摘录自 <strong>{{ selectedDocumentExcerptSource.sourceTitle || '导入文档' }}</strong>
+                摘录自
+                <strong>{{ selectedDocumentExcerptSource.sourceTitle || '导入文档' }}</strong>
                 <small v-if="selectedDocumentExcerptSource.sourceAssetName">
                   {{ selectedDocumentExcerptSource.sourceAssetName }}
                 </small>
@@ -2727,7 +3065,7 @@ function formatFileSize(value?: number) {
               :kind-label="selectedKindLabel"
               :updated-at="formatDateTime(store.selectedNode.updatedAt)"
               :selection-background-color="knowledgePersonalization.selectionBackgroundColor"
-              @update:title="value => draftTitle = value"
+              @update:title="(value) => (draftTitle = value)"
               @save-title="saveTitle"
               @update:model-value="updateBlockDocument"
               @save="saveBlockDocument"
@@ -2748,7 +3086,9 @@ function formatFileSize(value?: number) {
               :dirty="store.canvasDirty"
               :saving="store.saving"
               :page-suggestions="pageSuggestions"
-              :style="{ '--knowledge-selection-bg': knowledgePersonalization.selectionBackgroundColor }"
+              :style="{
+                '--knowledge-selection-bg': knowledgePersonalization.selectionBackgroundColor,
+              }"
               @update:model-value="updateCanvasDocument"
               @save="saveCanvasDocument"
               @asset-file="handleCanvasAssetFile"
@@ -2850,21 +3190,30 @@ function formatFileSize(value?: number) {
                 <h3>文档预览</h3>
                 <span>{{ documentPreviewKind }}</span>
               </header>
-              <div v-if="documentPreviewKind === 'pdf' && documentPreviewUrl" class="knowledge-document-view__frame-wrap">
+              <div
+                v-if="documentPreviewKind === 'pdf' && documentPreviewUrl"
+                class="knowledge-document-view__frame-wrap"
+              >
                 <iframe
                   class="knowledge-document-view__frame"
                   :src="documentPreviewUrl"
                   title="PDF 预览"
                 />
               </div>
-              <div v-else-if="documentPreviewKind === 'image' && documentPreviewUrl" class="knowledge-document-view__image-wrap">
+              <div
+                v-else-if="documentPreviewKind === 'image' && documentPreviewUrl"
+                class="knowledge-document-view__image-wrap"
+              >
                 <img
                   class="knowledge-document-view__image"
                   :src="documentPreviewUrl"
                   :alt="store.selectedAsset?.originalName || '图片预览'"
                 />
               </div>
-              <div v-else-if="documentPreviewKind === 'slides' && documentSlides.length" class="knowledge-document-view__slides">
+              <div
+                v-else-if="documentPreviewKind === 'slides' && documentSlides.length"
+                class="knowledge-document-view__slides"
+              >
                 <article
                   v-for="slide in documentSlides"
                   :key="slide.index"
@@ -2876,7 +3225,10 @@ function formatFileSize(value?: number) {
                   <pre>{{ slide.text }}</pre>
                 </article>
               </div>
-              <div v-else-if="documentPreviewKind === 'sheets' && documentSheets.length" class="knowledge-document-view__sheets">
+              <div
+                v-else-if="documentPreviewKind === 'sheets' && documentSheets.length"
+                class="knowledge-document-view__sheets"
+              >
                 <article
                   v-for="sheet in documentSheets"
                   :key="sheet.index"
@@ -2887,7 +3239,10 @@ function formatFileSize(value?: number) {
                   <div v-if="sheet.rows.length" class="knowledge-document-view__table-wrap">
                     <table>
                       <tbody>
-                        <tr v-for="(row, rowIndex) in sheet.rows" :key="`${sheet.index}-${rowIndex}`">
+                        <tr
+                          v-for="(row, rowIndex) in sheet.rows"
+                          :key="`${sheet.index}-${rowIndex}`"
+                        >
                           <td
                             v-for="(cell, cellIndex) in row"
                             :key="`${sheet.index}-${rowIndex}-${cellIndex}`"
@@ -2926,7 +3281,13 @@ function formatFileSize(value?: number) {
             </section>
           </UiScrollbar>
 
-          <UiScrollbar v-else-if="selectedQuickNote" class="knowledge-quick-note-detail" :x="false" :y="true" :size="6">
+          <UiScrollbar
+            v-else-if="selectedQuickNote"
+            class="knowledge-quick-note-detail"
+            :x="false"
+            :y="true"
+            :size="6"
+          >
             <div
               class="knowledge-quick-note-detail__paper"
               :class="`knowledge-quick-note-detail__paper--${selectedQuickNote.quickNote.color}`"
@@ -2937,7 +3298,10 @@ function formatFileSize(value?: number) {
                 <time>{{ formatDateTime(selectedQuickNote.quickNote.updatedAt) }}</time>
               </div>
               <pre>{{ selectedQuickNote.quickNote.body }}</pre>
-              <div v-if="quickNoteTags(selectedQuickNote).length" class="knowledge-quick-note-detail__tags">
+              <div
+                v-if="quickNoteTags(selectedQuickNote).length"
+                class="knowledge-quick-note-detail__tags"
+              >
                 <span v-for="tag in quickNoteTags(selectedQuickNote)" :key="tag">#{{ tag }}</span>
               </div>
               <div class="knowledge-quick-note-detail__links">
@@ -2979,32 +3343,56 @@ function formatFileSize(value?: number) {
           <div v-else class="knowledge-folder-view">
             <div class="knowledge-folder-view__icon">
               <IconRenderer
-                :icon="store.selectedNode.nodeType === 'quick_note' ? 'iconify:lucide:sticky-note' : 'iconify:lucide:folder-open'"
+                :icon="
+                  store.selectedNode.nodeType === 'quick_note'
+                    ? 'iconify:lucide:sticky-note'
+                    : 'iconify:lucide:folder-open'
+                "
                 :size="36"
               />
             </div>
             <h2>{{ store.selectedNode.title }}</h2>
             <p>{{ store.childrenFor(store.selectedNode.id).length }} 个子节点</p>
             <div class="knowledge-folder-view__actions">
-              <UiButton type="button" variant="secondary" size="sm" @click="createChildPageFromSelection">
+              <UiButton
+                type="button"
+                variant="secondary"
+                size="sm"
+                @click="createChildPageFromSelection"
+              >
                 <template #prefix>
                   <IconRenderer icon="iconify:lucide:file-plus-2" :size="15" />
                 </template>
                 新建页面
               </UiButton>
-              <UiButton type="button" variant="secondary" size="sm" @click="createChildBlockPageFromSelection">
+              <UiButton
+                type="button"
+                variant="secondary"
+                size="sm"
+                @click="createChildBlockPageFromSelection"
+              >
                 <template #prefix>
                   <IconRenderer icon="iconify:lucide:layout-template" :size="15" />
                 </template>
                 新建块页
               </UiButton>
-              <UiButton type="button" variant="secondary" size="sm" @click="createChildCanvasPageFromSelection">
+              <UiButton
+                type="button"
+                variant="secondary"
+                size="sm"
+                @click="createChildCanvasPageFromSelection"
+              >
                 <template #prefix>
                   <IconRenderer icon="iconify:lucide:layout-dashboard" :size="15" />
                 </template>
                 新建画布
               </UiButton>
-              <UiButton type="button" variant="secondary" size="sm" @click="createChildFolderFromSelection">
+              <UiButton
+                type="button"
+                variant="secondary"
+                size="sm"
+                @click="createChildFolderFromSelection"
+              >
                 <template #prefix>
                   <IconRenderer icon="iconify:lucide:folder-plus" :size="15" />
                 </template>
@@ -3035,408 +3423,462 @@ function formatFileSize(value?: number) {
         @contextmenu.prevent="openKnowledgePersonalizationMenu($event, 'right')"
       >
         <template v-if="!inspectorCollapsed">
-        <div class="knowledge-inspector__tabs">
-          <UiIconButton type="button" title="收起右侧栏" variant="ghost" size="sm" @click="inspectorCollapsed = true">
-            <IconRenderer icon="iconify:lucide:panel-right-close" :size="15" />
-          </UiIconButton>
-          <UiIconButton
-            v-for="tab in inspectorTabs"
-            :key="tab.id"
-            type="button"
-            variant="ghost"
-            size="sm"
-            :class="{ 'knowledge-inspector__tab--active': activeInspectorTab === tab.id }"
-            :active="activeInspectorTab === tab.id"
-            :title="tab.label"
-            :aria-pressed="activeInspectorTab === tab.id"
-            @click="activeInspectorTab = tab.id"
-          >
-            <IconRenderer :icon="tab.icon" :size="15" />
-          </UiIconButton>
-        </div>
-        <UiScrollbar class="knowledge-inspector__content" :x="false" :y="true" :size="6">
-          <h2>{{ inspectorTabs.find((tab) => tab.id === activeInspectorTab)?.label }}</h2>
-          <dl>
-            <div>
-              <dt>当前节点</dt>
-              <dd>{{ store.selectedNode?.title || '未选择' }}</dd>
-            </div>
-            <div>
-              <dt>节点类型</dt>
-              <dd>{{ selectedKindLabel }}</dd>
-            </div>
-            <div>
-              <dt>所属空间</dt>
-              <dd>{{ store.activeSpace?.name || '--' }}</dd>
-            </div>
-          </dl>
-          <div v-if="activeInspectorTab === 'attachments' && store.selectedAsset" class="knowledge-attachment-inspector">
-            <h3>当前附件</h3>
+          <div class="knowledge-inspector__tabs">
+            <UiIconButton
+              type="button"
+              title="收起右侧栏"
+              variant="ghost"
+              size="sm"
+              @click="inspectorCollapsed = true"
+            >
+              <IconRenderer icon="iconify:lucide:panel-right-close" :size="15" />
+            </UiIconButton>
+            <UiIconButton
+              v-for="tab in inspectorTabs"
+              :key="tab.id"
+              type="button"
+              variant="ghost"
+              size="sm"
+              :class="{ 'knowledge-inspector__tab--active': activeInspectorTab === tab.id }"
+              :active="activeInspectorTab === tab.id"
+              :title="tab.label"
+              :aria-pressed="activeInspectorTab === tab.id"
+              @click="activeInspectorTab = tab.id"
+            >
+              <IconRenderer :icon="tab.icon" :size="15" />
+            </UiIconButton>
+          </div>
+          <UiScrollbar class="knowledge-inspector__content" :x="false" :y="true" :size="6">
+            <h2>{{ inspectorTabs.find((tab) => tab.id === activeInspectorTab)?.label }}</h2>
             <dl>
               <div>
-                <dt>文件名</dt>
-                <dd>{{ store.selectedAsset.originalName }}</dd>
+                <dt>当前节点</dt>
+                <dd>{{ store.selectedNode?.title || '未选择' }}</dd>
               </div>
               <div>
-                <dt>大小</dt>
-                <dd>{{ formatFileSize(store.selectedAsset.sizeBytes) }}</dd>
+                <dt>节点类型</dt>
+                <dd>{{ selectedKindLabel }}</dd>
               </div>
               <div>
-                <dt>Hash</dt>
-                <dd>{{ store.selectedAsset.hash }}</dd>
-              </div>
-              <div>
-                <dt>导入时间</dt>
-                <dd>{{ formatDateTime(selectedImportedAt) }}</dd>
-              </div>
-              <div>
-                <dt>索引状态</dt>
-                <dd>{{ store.selectedAsset.importStatus }}</dd>
-              </div>
-              <div>
-                <dt>预览类型</dt>
-                <dd>{{ documentPreviewKind }}</dd>
+                <dt>所属空间</dt>
+                <dd>{{ store.activeSpace?.name || '--' }}</dd>
               </div>
             </dl>
-            <div class="knowledge-attachment-inspector__actions">
-              <UiButton type="button" variant="secondary" size="sm" block @click="openSelectedAsset">
-                <template #prefix>
-                  <IconRenderer icon="iconify:lucide:external-link" :size="15" />
-                </template>
-                打开原文件
-              </UiButton>
-              <UiButton type="button" variant="secondary" size="sm" block @click="showSelectedAssetInFolder">
-                <template #prefix>
-                  <IconRenderer icon="iconify:lucide:folder-search" :size="15" />
-                </template>
-                在系统中显示
-              </UiButton>
-            </div>
-          </div>
-          <div v-if="activeInspectorTab === 'attachments' && store.indexJobs.length" class="knowledge-index-jobs">
-            <h3>最近索引任务</h3>
-            <article v-for="job in store.indexJobs.slice(0, 6)" :key="job.id">
-              <span :class="`knowledge-index-jobs__status knowledge-index-jobs__status--${job.status}`" />
-              <div>
-                <strong>{{ job.jobType }}</strong>
-                <small>{{ job.status }} · {{ formatDateTime(job.updatedAt) }}</small>
-                <small v-if="job.errorMessage">{{ job.errorMessage }}</small>
-              </div>
-              <div class="knowledge-index-jobs__actions">
+            <div
+              v-if="activeInspectorTab === 'attachments' && store.selectedAsset"
+              class="knowledge-attachment-inspector"
+            >
+              <h3>当前附件</h3>
+              <dl>
+                <div>
+                  <dt>文件名</dt>
+                  <dd>{{ store.selectedAsset.originalName }}</dd>
+                </div>
+                <div>
+                  <dt>大小</dt>
+                  <dd>{{ formatFileSize(store.selectedAsset.sizeBytes) }}</dd>
+                </div>
+                <div>
+                  <dt>Hash</dt>
+                  <dd>{{ store.selectedAsset.hash }}</dd>
+                </div>
+                <div>
+                  <dt>导入时间</dt>
+                  <dd>{{ formatDateTime(selectedImportedAt) }}</dd>
+                </div>
+                <div>
+                  <dt>索引状态</dt>
+                  <dd>{{ store.selectedAsset.importStatus }}</dd>
+                </div>
+                <div>
+                  <dt>预览类型</dt>
+                  <dd>{{ documentPreviewKind }}</dd>
+                </div>
+              </dl>
+              <div class="knowledge-attachment-inspector__actions">
                 <UiButton
-                  v-if="job.status === 'failed' || job.status === 'cancelled'"
                   type="button"
                   variant="secondary"
                   size="sm"
-                  :disabled="store.importing"
-                  @click="retryIndexJob(job)"
+                  block
+                  @click="openSelectedAsset"
                 >
-                  重试
+                  <template #prefix>
+                    <IconRenderer icon="iconify:lucide:external-link" :size="15" />
+                  </template>
+                  打开原文件
                 </UiButton>
                 <UiButton
-                  v-if="job.status === 'pending' || job.status === 'running'"
                   type="button"
-                  variant="danger"
+                  variant="secondary"
                   size="sm"
-                  @click="cancelIndexJob(job)"
+                  block
+                  @click="showSelectedAssetInFolder"
                 >
-                  取消
+                  <template #prefix>
+                    <IconRenderer icon="iconify:lucide:folder-search" :size="15" />
+                  </template>
+                  在系统中显示
                 </UiButton>
               </div>
-            </article>
-          </div>
-          <div v-if="activeInspectorTab === 'tags'" class="knowledge-relation-panel">
-            <h3>当前标签</h3>
-            <div class="knowledge-tag-list">
-              <UiButton
-                v-for="tag in store.selectedTags"
-                :key="tag.id"
-                type="button"
-                variant="ghost"
-                size="sm"
-                class="knowledge-tag-chip"
-                :style="{ '--tag-color': tag.color }"
-                :title="tag.name"
-                @click="store.unbindTagFromSelected(tag.id)"
-              >
-                {{ tag.name }}
-              </UiButton>
-              <span v-if="!store.selectedTags.length" class="knowledge-inspector__muted">当前节点暂无标签</span>
             </div>
-            <template v-if="store.selectedAsset">
-              <h3>当前附件标签</h3>
-              <p class="knowledge-inspector__muted">{{ store.selectedAsset.originalName }}</p>
+            <div
+              v-if="activeInspectorTab === 'attachments' && store.indexJobs.length"
+              class="knowledge-index-jobs"
+            >
+              <h3>最近索引任务</h3>
+              <article v-for="job in store.indexJobs.slice(0, 6)" :key="job.id">
+                <span
+                  :class="`knowledge-index-jobs__status knowledge-index-jobs__status--${job.status}`"
+                />
+                <div>
+                  <strong>{{ job.jobType }}</strong>
+                  <small>{{ job.status }} · {{ formatDateTime(job.updatedAt) }}</small>
+                  <small v-if="job.errorMessage">{{ job.errorMessage }}</small>
+                </div>
+                <div class="knowledge-index-jobs__actions">
+                  <UiButton
+                    v-if="job.status === 'failed' || job.status === 'cancelled'"
+                    type="button"
+                    variant="secondary"
+                    size="sm"
+                    :disabled="store.importing"
+                    @click="retryIndexJob(job)"
+                  >
+                    重试
+                  </UiButton>
+                  <UiButton
+                    v-if="job.status === 'pending' || job.status === 'running'"
+                    type="button"
+                    variant="danger"
+                    size="sm"
+                    @click="cancelIndexJob(job)"
+                  >
+                    取消
+                  </UiButton>
+                </div>
+              </article>
+            </div>
+            <div v-if="activeInspectorTab === 'tags'" class="knowledge-relation-panel">
+              <h3>当前标签</h3>
               <div class="knowledge-tag-list">
                 <UiButton
-                  v-for="tag in store.selectedAssetTags"
-                  :key="`asset-${tag.id}`"
+                  v-for="tag in store.selectedTags"
+                  :key="tag.id"
                   type="button"
                   variant="ghost"
                   size="sm"
                   class="knowledge-tag-chip"
                   :style="{ '--tag-color': tag.color }"
                   :title="tag.name"
-                  @click="store.unbindTagFromSelectedAsset(tag.id)"
+                  @click="store.unbindTagFromSelected(tag.id)"
                 >
                   {{ tag.name }}
                 </UiButton>
-                <span v-if="!store.selectedAssetTags.length" class="knowledge-inspector__muted">当前附件暂无标签</span>
+                <span v-if="!store.selectedTags.length" class="knowledge-inspector__muted"
+                  >当前节点暂无标签</span
+                >
               </div>
-              <UiButton type="button" variant="secondary" size="sm" block @click="createTagForCurrentAsset">
-                新建并绑定到附件
-              </UiButton>
-              <div v-if="store.tags.length" class="knowledge-tag-list">
+              <template v-if="store.selectedAsset">
+                <h3>当前附件标签</h3>
+                <p class="knowledge-inspector__muted">{{ store.selectedAsset.originalName }}</p>
+                <div class="knowledge-tag-list">
+                  <UiButton
+                    v-for="tag in store.selectedAssetTags"
+                    :key="`asset-${tag.id}`"
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    class="knowledge-tag-chip"
+                    :style="{ '--tag-color': tag.color }"
+                    :title="tag.name"
+                    @click="store.unbindTagFromSelectedAsset(tag.id)"
+                  >
+                    {{ tag.name }}
+                  </UiButton>
+                  <span v-if="!store.selectedAssetTags.length" class="knowledge-inspector__muted"
+                    >当前附件暂无标签</span
+                  >
+                </div>
                 <UiButton
-                  v-for="tag in store.tags"
-                  :key="`asset-bind-${tag.id}`"
                   type="button"
-                  variant="ghost"
+                  variant="secondary"
                   size="sm"
-                  class="knowledge-tag-chip"
-                  :style="{ '--tag-color': tag.color }"
-                  :title="tag.name"
-                  @click="bindExistingTagToAsset(tag)"
+                  block
+                  @click="createTagForCurrentAsset"
                 >
-                  {{ tag.name }}
+                  新建并绑定到附件
                 </UiButton>
-              </div>
-            </template>
-            <h3>标签库</h3>
-            <UiColorPicker
-              v-model="selectedTagColor"
-              class="knowledge-tag-color-picker"
-              :swatches="tagColorOptions"
-              label="标签颜色"
-              aria-label="选择标签颜色"
-              placeholder="#4A90D9"
-              :show-input="false"
-            />
-            <UiButton type="button" variant="secondary" size="sm" block @click="createTagForCurrentSelection">
-              新建并绑定标签
-            </UiButton>
-            <div class="knowledge-tag-list">
-              <UiButton
-                v-for="tag in store.tags"
-                :key="tag.id"
-                type="button"
-                variant="ghost"
-                size="sm"
-                class="knowledge-tag-chip"
-                :style="{ '--tag-color': tag.color }"
-                :title="tag.name"
-                @click="bindExistingTag(tag)"
-              >
-                {{ tag.name }}
-              </UiButton>
-            </div>
-            <div v-if="store.tags.length" class="knowledge-tag-targets">
-              <h3>标签过滤</h3>
-              <UiButton
-                v-for="tag in store.tags"
-                :key="`filter-${tag.id}`"
-                type="button"
-                variant="secondary"
-                size="sm"
-                :class="{ active: store.activeTagFilterId === tag.id }"
-                :active="store.activeTagFilterId === tag.id"
-                :aria-pressed="store.activeTagFilterId === tag.id"
-                @click="store.loadTagTargets(tag.id)"
-              >
-                {{ tag.name }}
-              </UiButton>
-              <UiButton v-if="store.activeTagFilterId" type="button" variant="secondary" size="sm" @click="store.clearTagFilter">
-                清除
-              </UiButton>
-              <UiButton
-                v-for="target in store.tagTargets"
-                :key="`${target.targetType}-${target.targetId}`"
-                type="button"
-                variant="ghost"
-                size="sm"
-                class="knowledge-relation-panel__item"
-                @click="selectTaggedTarget(target.nodeId, target.assetId)"
-              >
-                <strong>{{ target.title }}</strong>
-                <small>{{ target.targetType }} · {{ formatDateTime(target.updatedAt) }}</small>
-              </UiButton>
-            </div>
-          </div>
-          <div v-if="activeInspectorTab === 'backlinks'" class="knowledge-relation-panel">
-            <h3>反链</h3>
-            <UiButton
-              v-for="backlink in store.backlinks"
-              :key="backlink.id"
-              type="button"
-              variant="ghost"
-              size="sm"
-              class="knowledge-relation-panel__item"
-              @click="backlink.sourceNodeId && store.selectNode(backlink.sourceNodeId)"
-            >
-              <strong>{{ backlink.sourceTitle }}</strong>
-              <small>{{ backlink.sourceType }} · {{ backlink.linkType }}</small>
-            </UiButton>
-            <span v-if="!store.backlinks.length" class="knowledge-inspector__muted">暂无反链</span>
-            <h3>页面出链</h3>
-            <article v-for="link in store.pageLinks" :key="link.id">
-              <strong>{{ link.targetUrl || link.targetId || link.targetType }}</strong>
-              <small>{{ link.targetType }} · {{ link.linkType }}</small>
-              <UiButton
-                v-if="link.targetType === 'missing_page'"
-                type="button"
-                variant="secondary"
-                size="sm"
-                @click="createMissingLinkedPage(link)"
-              >
-                创建页面
-              </UiButton>
-            </article>
-          </div>
-          <div v-if="activeInspectorTab === 'todo'" class="knowledge-relation-panel">
-            <h3>关联 Todo</h3>
-            <UiButton
-              v-for="link in linkedTodoLinks"
-              :key="link.id"
-              type="button"
-              variant="ghost"
-              size="sm"
-              class="knowledge-relation-panel__item"
-              @click="openLinkedTodo(link.targetId)"
-            >
-              <strong>{{ link.targetId }}</strong>
-              <small>来源页面可跳转到 Todo 详情</small>
-            </UiButton>
-            <span v-if="!linkedTodoLinks.length" class="knowledge-inspector__muted">当前页面暂无关联 Todo</span>
-          </div>
-          <div v-if="activeInspectorTab === 'graph'" class="knowledge-relation-panel">
-            <h3>关系图</h3>
-            <div class="knowledge-graph-summary">
-              <span>{{ store.graph?.nodes.length || 0 }} 节点</span>
-              <span>{{ store.graph?.edges.length || 0 }} 关系</span>
-              <span v-if="store.graph?.truncated">已截断</span>
-            </div>
-            <article v-for="node in store.graph?.nodes || []" :key="node.id">
-              <strong>{{ node.title }}</strong>
-              <small>{{ node.group }} · {{ node.subtitle || node.targetId }}</small>
-            </article>
-          </div>
-          <div v-if="activeInspectorTab === 'orphans'" class="knowledge-relation-panel">
-            <h3>孤立页面</h3>
-            <UiButton
-              v-for="page in store.orphanPages"
-              :key="page.id"
-              type="button"
-              variant="ghost"
-              size="sm"
-              class="knowledge-relation-panel__item"
-              @click="store.selectNode(page.id)"
-            >
-              <strong>{{ page.title }}</strong>
-              <small>{{ formatDateTime(page.updatedAt) }}</small>
-            </UiButton>
-            <span v-if="!store.orphanPages.length" class="knowledge-inspector__muted">当前空间没有孤立页面</span>
-          </div>
-          <div
-            v-if="activeInspectorTab === 'ai'"
-            class="knowledge-ai-panel"
-          >
-            <div class="knowledge-ai-panel__controls">
-              <UiSelect
-                :model-value="knowledgeAiScope"
-                :options="knowledgeAiScopeOptions"
-                size="sm"
-                placeholder="选择范围"
-                @update:model-value="setKnowledgeAiScope"
+                <div v-if="store.tags.length" class="knowledge-tag-list">
+                  <UiButton
+                    v-for="tag in store.tags"
+                    :key="`asset-bind-${tag.id}`"
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    class="knowledge-tag-chip"
+                    :style="{ '--tag-color': tag.color }"
+                    :title="tag.name"
+                    @click="bindExistingTagToAsset(tag)"
+                  >
+                    {{ tag.name }}
+                  </UiButton>
+                </div>
+              </template>
+              <h3>标签库</h3>
+              <UiColorPicker
+                v-model="selectedTagColor"
+                class="knowledge-tag-color-picker"
+                :swatches="tagColorOptions"
+                label="标签颜色"
+                aria-label="选择标签颜色"
+                placeholder="#4A90D9"
+                :show-input="false"
               />
               <UiButton
                 type="button"
                 variant="secondary"
                 size="sm"
-                :disabled="!knowledgeAiConversationId"
-                @click="continueKnowledgeAiInWorkspace"
+                block
+                @click="createTagForCurrentSelection"
               >
-                继续到 AI
+                新建并绑定标签
               </UiButton>
+              <div class="knowledge-tag-list">
+                <UiButton
+                  v-for="tag in store.tags"
+                  :key="tag.id"
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  class="knowledge-tag-chip"
+                  :style="{ '--tag-color': tag.color }"
+                  :title="tag.name"
+                  @click="bindExistingTag(tag)"
+                >
+                  {{ tag.name }}
+                </UiButton>
+              </div>
+              <div v-if="store.tags.length" class="knowledge-tag-targets">
+                <h3>标签过滤</h3>
+                <UiButton
+                  v-for="tag in store.tags"
+                  :key="`filter-${tag.id}`"
+                  type="button"
+                  variant="secondary"
+                  size="sm"
+                  :class="{ active: store.activeTagFilterId === tag.id }"
+                  :active="store.activeTagFilterId === tag.id"
+                  :aria-pressed="store.activeTagFilterId === tag.id"
+                  @click="store.loadTagTargets(tag.id)"
+                >
+                  {{ tag.name }}
+                </UiButton>
+                <UiButton
+                  v-if="store.activeTagFilterId"
+                  type="button"
+                  variant="secondary"
+                  size="sm"
+                  @click="store.clearTagFilter"
+                >
+                  清除
+                </UiButton>
+                <UiButton
+                  v-for="target in store.tagTargets"
+                  :key="`${target.targetType}-${target.targetId}`"
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  class="knowledge-relation-panel__item"
+                  @click="selectTaggedTarget(target.nodeId, target.assetId)"
+                >
+                  <strong>{{ target.title }}</strong>
+                  <small>{{ target.targetType }} · {{ formatDateTime(target.updatedAt) }}</small>
+                </UiButton>
+              </div>
             </div>
-            <p class="knowledge-ai-panel__scope">
-              {{ knowledgeAiScopeLabel }} · {{ store.selectedNode?.title || store.activeLibrary?.name || '未选择节点' }}
-            </p>
-            <UiTextarea
-              v-model="knowledgeAiQuestion"
-              class="knowledge-ai-panel__input"
-              :rows="4"
-              resize="none"
-              placeholder="基于当前知识来源提问"
-              :disabled="aiChatStore.sending"
-              @keydown.enter.ctrl.prevent="askKnowledgeAi"
-            />
-            <div class="knowledge-ai-panel__actions">
+            <div v-if="activeInspectorTab === 'backlinks'" class="knowledge-relation-panel">
+              <h3>反链</h3>
               <UiButton
+                v-for="backlink in store.backlinks"
+                :key="backlink.id"
                 type="button"
-                variant="primary"
+                variant="ghost"
                 size="sm"
-                :disabled="!knowledgeAiCanAsk || aiChatStore.sending"
-                @click="askKnowledgeAi"
+                class="knowledge-relation-panel__item"
+                @click="backlink.sourceNodeId && store.selectNode(backlink.sourceNodeId)"
               >
-                <template #prefix>
-                  <IconRenderer icon="iconify:lucide:send" :size="14" />
-                </template>
-                提问
+                <strong>{{ backlink.sourceTitle }}</strong>
+                <small>{{ backlink.sourceType }} · {{ backlink.linkType }}</small>
               </UiButton>
-              <UiButton
-                type="button"
-                variant="secondary"
-                size="sm"
-                :disabled="!knowledgeAiLatestAssistantMessage"
-                @click="copyKnowledgeAiAnswer"
+              <span v-if="!store.backlinks.length" class="knowledge-inspector__muted"
+                >暂无反链</span
               >
-                复制答案
-              </UiButton>
-              <UiButton
-                type="button"
-                variant="secondary"
-                size="sm"
-                :disabled="!knowledgeAiLatestAssistantMessage || store.saving"
-                @click="saveKnowledgeAiAnswerAsPage"
-              >
-                保存为页面
-              </UiButton>
-            </div>
-            <p v-if="knowledgeAiError || aiChatStore.error" class="knowledge-ai-panel__error">
-              {{ knowledgeAiError || aiChatStore.error }}
-            </p>
-            <div v-if="knowledgeAiMessages.length" class="knowledge-ai-panel__messages">
-              <article
-                v-for="message in knowledgeAiMessages.slice(-6)"
-                :key="message.id"
-                class="knowledge-ai-panel__message"
-                :class="`knowledge-ai-panel__message--${message.role}`"
-              >
-                <strong>{{ message.role === 'assistant' ? 'AI' : '我' }}</strong>
-                <p>{{ message.content || (message.status === 'streaming' ? '生成中...' : '') }}</p>
-                <div v-if="message.citations?.length" class="knowledge-ai-panel__citations">
-                  <UiButton
-                    v-for="citation in message.citations"
-                    :key="citation.id"
-                    type="button"
-                    variant="ghost"
-                    size="sm"
-                    class="knowledge-ai-panel__citation"
-                    :title="citation.snippet"
-                    @click="openKnowledgeAiCitation(citation)"
-                  >
-                    <template #prefix>
-                      <IconRenderer icon="iconify:lucide:quote" :size="13" />
-                    </template>
-                    {{ citation.title }}
-                  </UiButton>
-                </div>
+              <h3>页面出链</h3>
+              <article v-for="link in store.pageLinks" :key="link.id">
+                <strong>{{ link.targetUrl || link.targetId || link.targetType }}</strong>
+                <small>{{ link.targetType }} · {{ link.linkType }}</small>
+                <UiButton
+                  v-if="link.targetType === 'missing_page'"
+                  type="button"
+                  variant="secondary"
+                  size="sm"
+                  @click="createMissingLinkedPage(link)"
+                >
+                  创建页面
+                </UiButton>
               </article>
             </div>
-            <p v-else class="knowledge-inspector__muted">
-              选择范围后提问；强制知识检索没有来源时会停止生成。
-            </p>
-          </div>
-        </UiScrollbar>
+            <div v-if="activeInspectorTab === 'todo'" class="knowledge-relation-panel">
+              <h3>关联 Todo</h3>
+              <UiButton
+                v-for="link in linkedTodoLinks"
+                :key="link.id"
+                type="button"
+                variant="ghost"
+                size="sm"
+                class="knowledge-relation-panel__item"
+                @click="openLinkedTodo(link.targetId)"
+              >
+                <strong>{{ link.targetId }}</strong>
+                <small>来源页面可跳转到 Todo 详情</small>
+              </UiButton>
+              <span v-if="!linkedTodoLinks.length" class="knowledge-inspector__muted"
+                >当前页面暂无关联 Todo</span
+              >
+            </div>
+            <div v-if="activeInspectorTab === 'graph'" class="knowledge-relation-panel">
+              <h3>关系图</h3>
+              <div class="knowledge-graph-summary">
+                <span>{{ store.graph?.nodes.length || 0 }} 节点</span>
+                <span>{{ store.graph?.edges.length || 0 }} 关系</span>
+                <span v-if="store.graph?.truncated">已截断</span>
+              </div>
+              <article v-for="node in store.graph?.nodes || []" :key="node.id">
+                <strong>{{ node.title }}</strong>
+                <small>{{ node.group }} · {{ node.subtitle || node.targetId }}</small>
+              </article>
+            </div>
+            <div v-if="activeInspectorTab === 'orphans'" class="knowledge-relation-panel">
+              <h3>孤立页面</h3>
+              <UiButton
+                v-for="page in store.orphanPages"
+                :key="page.id"
+                type="button"
+                variant="ghost"
+                size="sm"
+                class="knowledge-relation-panel__item"
+                @click="store.selectNode(page.id)"
+              >
+                <strong>{{ page.title }}</strong>
+                <small>{{ formatDateTime(page.updatedAt) }}</small>
+              </UiButton>
+              <span v-if="!store.orphanPages.length" class="knowledge-inspector__muted"
+                >当前空间没有孤立页面</span
+              >
+            </div>
+            <div v-if="activeInspectorTab === 'ai'" class="knowledge-ai-panel">
+              <div class="knowledge-ai-panel__controls">
+                <UiSelect
+                  :model-value="knowledgeAiScope"
+                  :options="knowledgeAiScopeOptions"
+                  size="sm"
+                  placeholder="选择范围"
+                  @update:model-value="setKnowledgeAiScope"
+                />
+                <UiButton
+                  type="button"
+                  variant="secondary"
+                  size="sm"
+                  :disabled="!knowledgeAiConversationId"
+                  @click="continueKnowledgeAiInWorkspace"
+                >
+                  继续到 AI
+                </UiButton>
+              </div>
+              <p class="knowledge-ai-panel__scope">
+                {{ knowledgeAiScopeLabel }} ·
+                {{ store.selectedNode?.title || store.activeLibrary?.name || '未选择节点' }}
+              </p>
+              <UiTextarea
+                v-model="knowledgeAiQuestion"
+                class="knowledge-ai-panel__input"
+                :rows="4"
+                resize="none"
+                placeholder="基于当前知识来源提问"
+                :disabled="aiChatStore.sending"
+                @keydown.enter.ctrl.prevent="askKnowledgeAi"
+              />
+              <div class="knowledge-ai-panel__actions">
+                <UiButton
+                  type="button"
+                  variant="primary"
+                  size="sm"
+                  :disabled="!knowledgeAiCanAsk || aiChatStore.sending"
+                  @click="askKnowledgeAi"
+                >
+                  <template #prefix>
+                    <IconRenderer icon="iconify:lucide:send" :size="14" />
+                  </template>
+                  提问
+                </UiButton>
+                <UiButton
+                  type="button"
+                  variant="secondary"
+                  size="sm"
+                  :disabled="!knowledgeAiLatestAssistantMessage"
+                  @click="copyKnowledgeAiAnswer"
+                >
+                  复制答案
+                </UiButton>
+                <UiButton
+                  type="button"
+                  variant="secondary"
+                  size="sm"
+                  :disabled="!knowledgeAiLatestAssistantMessage || store.saving"
+                  @click="saveKnowledgeAiAnswerAsPage"
+                >
+                  保存为页面
+                </UiButton>
+              </div>
+              <p v-if="knowledgeAiError || aiChatStore.error" class="knowledge-ai-panel__error">
+                {{ knowledgeAiError || aiChatStore.error }}
+              </p>
+              <div v-if="knowledgeAiMessages.length" class="knowledge-ai-panel__messages">
+                <article
+                  v-for="message in knowledgeAiMessages.slice(-6)"
+                  :key="message.id"
+                  class="knowledge-ai-panel__message"
+                  :class="`knowledge-ai-panel__message--${message.role}`"
+                >
+                  <strong>{{ message.role === 'assistant' ? 'AI' : '我' }}</strong>
+                  <p>
+                    {{ message.content || (message.status === 'streaming' ? '生成中...' : '') }}
+                  </p>
+                  <div v-if="message.citations?.length" class="knowledge-ai-panel__citations">
+                    <UiButton
+                      v-for="citation in message.citations"
+                      :key="citation.id"
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      class="knowledge-ai-panel__citation"
+                      :title="citation.snippet"
+                      @click="openKnowledgeAiCitation(citation)"
+                    >
+                      <template #prefix>
+                        <IconRenderer icon="iconify:lucide:quote" :size="13" />
+                      </template>
+                      {{ citation.title }}
+                    </UiButton>
+                  </div>
+                </article>
+              </div>
+              <p v-else class="knowledge-inspector__muted">
+                选择范围后提问；强制知识检索没有来源时会停止生成。
+              </p>
+            </div>
+          </UiScrollbar>
         </template>
         <UiButton
           v-else
@@ -3465,9 +3907,21 @@ function formatFileSize(value?: number) {
     <UiPersonalizationConfig
       :visible="knowledgePersonalizationPanelOpen"
       :title="knowledgePersonalizationRegionLabel(knowledgePersonalizationActiveRegion)"
-      :current-background="activeKnowledgePersonalizationBackground.type === 'color' ? activeKnowledgePersonalizationBackground.color : ''"
-      :current-background-image="activeKnowledgePersonalizationBackground.type === 'image' ? activeKnowledgePersonalizationBackground.image : ''"
-      :current-background-video="activeKnowledgePersonalizationBackground.type === 'video' ? activeKnowledgePersonalizationBackground.video : ''"
+      :current-background="
+        activeKnowledgePersonalizationBackground.type === 'color'
+          ? activeKnowledgePersonalizationBackground.color
+          : ''
+      "
+      :current-background-image="
+        activeKnowledgePersonalizationBackground.type === 'image'
+          ? activeKnowledgePersonalizationBackground.image
+          : ''
+      "
+      :current-background-video="
+        activeKnowledgePersonalizationBackground.type === 'video'
+          ? activeKnowledgePersonalizationBackground.video
+          : ''
+      "
       :current-background-style="activeKnowledgePersonalizationBackground.backgroundStyle"
       :enabled-features="['color', 'image', 'opacity', 'textColor']"
       show-reset
@@ -3493,13 +3947,23 @@ function formatFileSize(value?: number) {
               <h2>知识库外观方案</h2>
               <p>保存知识库背景、编辑区背景、块背景、框选颜色和透明度为一套方案。</p>
             </div>
-            <UiIconButton type="button" title="关闭" size="sm" @click="knowledgeBlockStylePanelOpen = false">
+            <UiIconButton
+              type="button"
+              title="关闭"
+              size="sm"
+              @click="knowledgeBlockStylePanelOpen = false"
+            >
               <IconRenderer icon="iconify:lucide:x" :size="16" />
             </UiIconButton>
           </header>
 
           <div class="knowledge-block-style-panel__actions">
-            <UiButton type="button" variant="primary" size="sm" @click="saveCurrentKnowledgeAppearanceScheme">
+            <UiButton
+              type="button"
+              variant="primary"
+              size="sm"
+              @click="saveCurrentKnowledgeAppearanceScheme"
+            >
               <template #prefix>
                 <IconRenderer icon="iconify:lucide:save" :size="14" />
               </template>
@@ -3525,7 +3989,10 @@ function formatFileSize(value?: number) {
             </UiButton>
           </div>
 
-          <div class="knowledge-block-style-panel__preview" :style="[knowledgePersonalizationPageStyle, knowledgeBlockStyleVars]">
+          <div
+            class="knowledge-block-style-panel__preview"
+            :style="[knowledgePersonalizationPageStyle, knowledgeBlockStyleVars]"
+          >
             <div class="knowledge-block-style-preview__code">
               <span>代码块</span>
               <code>const theme = 'transparent blocks'</code>
@@ -3538,7 +4005,12 @@ function formatFileSize(value?: number) {
             <div class="knowledge-block-style-preview__callout">标注区域</div>
           </div>
 
-          <UiScrollbar class="knowledge-block-style-panel__scrollbar" :x="false" :y="true" :size="8">
+          <UiScrollbar
+            class="knowledge-block-style-panel__scrollbar"
+            :x="false"
+            :y="true"
+            :size="8"
+          >
             <section class="knowledge-block-style-card knowledge-block-style-card--wide">
               <div class="knowledge-block-style-card__head">
                 <span>光标框选背景</span>
@@ -3546,7 +4018,14 @@ function formatFileSize(value?: number) {
               </div>
               <UiColorPicker
                 :model-value="knowledgePersonalization.selectionBackgroundColor"
-                :swatches="['color-mix(in srgb, var(--ui-primary-color) 18%, transparent)', 'color-mix(in srgb, var(--ui-primary-color) 30%, transparent)', '#bfdbfe', '#fde68a', '#bbf7d0', '#fecaca']"
+                :swatches="[
+                  'color-mix(in srgb, var(--ui-primary-color) 18%, transparent)',
+                  'color-mix(in srgb, var(--ui-primary-color) 30%, transparent)',
+                  '#bfdbfe',
+                  '#fde68a',
+                  '#bbf7d0',
+                  '#fecaca',
+                ]"
                 aria-label="光标框选背景颜色"
                 placeholder="color-mix(...) 或 #bfdbfe"
                 @update:model-value="updateKnowledgeSelectionBackgroundColor"
@@ -3560,7 +4039,11 @@ function formatFileSize(value?: number) {
               >
                 <div class="knowledge-block-style-card__head">
                   <span>{{ knowledgeBlockSurfaceLabels[surface] }}</span>
-                  <span>{{ Math.round(knowledgePersonalization.blockStyle[surface].opacity * 100) }}%</span>
+                  <span
+                    >{{
+                      Math.round(knowledgePersonalization.blockStyle[surface].opacity * 100)
+                    }}%</span
+                  >
                 </div>
                 <UiColorPicker
                   :model-value="knowledgePersonalization.blockStyle[surface].backgroundColor"
@@ -3568,17 +4051,21 @@ function formatFileSize(value?: number) {
                   allow-transparent
                   :aria-label="`${knowledgeBlockSurfaceLabels[surface]} 背景颜色`"
                   placeholder="#ffffff"
-                  @update:model-value="color => updateKnowledgeBlockSurfaceColor(surface, color)"
+                  @update:model-value="(color) => updateKnowledgeBlockSurfaceColor(surface, color)"
                 />
                 <UiSliderField
-                  :model-value="Math.round(knowledgePersonalization.blockStyle[surface].opacity * 100)"
+                  :model-value="
+                    Math.round(knowledgePersonalization.blockStyle[surface].opacity * 100)
+                  "
                   :min="0"
                   :max="100"
                   :step="1"
                   label="透明度"
                   unit="%"
                   :aria-label="`${knowledgeBlockSurfaceLabels[surface]} 透明度`"
-                  @update:model-value="value => updateKnowledgeBlockSurfaceOpacity(surface, value)"
+                  @update:model-value="
+                    (value) => updateKnowledgeBlockSurfaceOpacity(surface, value)
+                  "
                 />
               </section>
             </div>
@@ -3607,7 +4094,11 @@ function formatFileSize(value?: number) {
   --knowledge-left-width: var(--knowledge-left-expanded-width);
   --knowledge-right-width: var(--knowledge-right-expanded-width);
   --knowledge-panel-tint: color-mix(in srgb, var(--ui-surface-panel) 88%, transparent);
-  --knowledge-workspace-tint: color-mix(in srgb, var(--ui-surface-panel-muted) 84%, var(--ui-surface-base));
+  --knowledge-workspace-tint: color-mix(
+    in srgb,
+    var(--ui-surface-panel-muted) 84%,
+    var(--ui-surface-base)
+  );
   position: relative;
   display: grid;
   grid-template-rows: auto auto minmax(0, 1fr);
@@ -3636,12 +4127,11 @@ function formatFileSize(value?: number) {
 }
 
 .knowledge-page--custom-background::before {
-  background:
-    linear-gradient(
-      180deg,
-      color-mix(in srgb, var(--background-color) 10%, transparent),
-      color-mix(in srgb, var(--background-color) 14%, transparent)
-    );
+  background: linear-gradient(
+    180deg,
+    color-mix(in srgb, var(--background-color) 10%, transparent),
+    color-mix(in srgb, var(--background-color) 14%, transparent)
+  );
 }
 
 .knowledge-page--left-collapsed {
@@ -3683,7 +4173,10 @@ function formatFileSize(value?: number) {
 .knowledge-toolbar {
   grid-row: 1;
   display: grid;
-  grid-template-columns: minmax(170px, 0.65fr) minmax(190px, 230px) minmax(180px, 1fr) minmax(0, auto);
+  grid-template-columns: minmax(170px, 0.65fr) minmax(190px, 230px) minmax(180px, 1fr) minmax(
+      0,
+      auto
+    );
   gap: 10px;
   align-items: center;
   min-height: 66px;
@@ -4436,11 +4929,21 @@ function formatFileSize(value?: number) {
   text-align: left;
 }
 
-.knowledge-quick-note--blue { --quick-note-accent: #63a7dc; }
-.knowledge-quick-note--green { --quick-note-accent: #75bd68; }
-.knowledge-quick-note--pink { --quick-note-accent: #dc7aa2; }
-.knowledge-quick-note--purple { --quick-note-accent: #9b7bd9; }
-.knowledge-quick-note--gray { --quick-note-accent: #94a3b8; }
+.knowledge-quick-note--blue {
+  --quick-note-accent: #63a7dc;
+}
+.knowledge-quick-note--green {
+  --quick-note-accent: #75bd68;
+}
+.knowledge-quick-note--pink {
+  --quick-note-accent: #dc7aa2;
+}
+.knowledge-quick-note--purple {
+  --quick-note-accent: #9b7bd9;
+}
+.knowledge-quick-note--gray {
+  --quick-note-accent: #94a3b8;
+}
 
 .knowledge-quick-note:hover,
 .knowledge-quick-note--active {
@@ -5095,11 +5598,21 @@ function formatFileSize(value?: number) {
   box-shadow: var(--ui-panel-shadow);
 }
 
-.knowledge-quick-note-detail__paper--blue { --quick-note-accent: #63a7dc; }
-.knowledge-quick-note-detail__paper--green { --quick-note-accent: #75bd68; }
-.knowledge-quick-note-detail__paper--pink { --quick-note-accent: #dc7aa2; }
-.knowledge-quick-note-detail__paper--purple { --quick-note-accent: #9b7bd9; }
-.knowledge-quick-note-detail__paper--gray { --quick-note-accent: #94a3b8; }
+.knowledge-quick-note-detail__paper--blue {
+  --quick-note-accent: #63a7dc;
+}
+.knowledge-quick-note-detail__paper--green {
+  --quick-note-accent: #75bd68;
+}
+.knowledge-quick-note-detail__paper--pink {
+  --quick-note-accent: #dc7aa2;
+}
+.knowledge-quick-note-detail__paper--purple {
+  --quick-note-accent: #9b7bd9;
+}
+.knowledge-quick-note-detail__paper--gray {
+  --quick-note-accent: #94a3b8;
+}
 
 .knowledge-quick-note-detail__meta,
 .knowledge-quick-note-detail__tags,

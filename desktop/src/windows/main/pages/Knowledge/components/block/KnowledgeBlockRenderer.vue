@@ -6,7 +6,11 @@ import UiCheckbox from '@/windows/main/components/ui/UiCheckbox.vue';
 import UiInput from '@/windows/main/components/ui/UiInput.vue';
 import UiScrollbar from '@/windows/main/components/ui/UiScrollbar.vue';
 import UiTextarea from '@/windows/main/components/ui/UiTextarea.vue';
-import type { KnowledgeBlockV2, KnowledgeBlockV2Type, KnowledgeInlineMarkType } from '@/windows/main/utils/knowledge_blocks_v2';
+import type {
+  KnowledgeBlockV2,
+  KnowledgeBlockV2Type,
+  KnowledgeInlineMarkType,
+} from '@/windows/main/utils/knowledge_blocks_v2';
 import {
   editableHtmlToInlineContent,
   inlineContentToEditableHtml,
@@ -41,7 +45,10 @@ const emit = defineEmits<{
   (event: 'remove', blockId: string): void;
   (event: 'indent', blockId: string): void;
   (event: 'outdent', blockId: string): void;
-  (event: 'slash-open', payload: { blockId: string; query: string; prefix: '/' | '+'; rect: DOMRect | null }): void;
+  (
+    event: 'slash-open',
+    payload: { blockId: string; query: string; prefix: '/' | '+'; rect: DOMRect | null }
+  ): void;
   (event: 'block-menu', payload: { blockId: string; rect: DOMRect | null }): void;
   (event: 'focused', blockId: string): void;
   (event: 'select-block', blockId: string): void;
@@ -62,6 +69,7 @@ const editableRef = ref<HTMLElement | null>(null);
 const isComposing = ref(false);
 const inlineToolbar = ref({ visible: false, x: 0, y: 0 });
 
+// eslint-disable-next-line @typescript-eslint/no-unused-vars -- blockTypes retained for future block icon/label lookups
 const blockTypes: Array<{ type: KnowledgeBlockV2Type; icon: string; label: string }> = [
   { type: 'paragraph', icon: 'iconify:lucide:pilcrow', label: '正文' },
   { type: 'heading', icon: 'iconify:lucide:heading-2', label: '标题' },
@@ -85,10 +93,18 @@ const editableHtml = computed(() => inlineContentToEditableHtml(props.block.cont
 const assetId = computed(() => props.block.refs?.assetId ?? '');
 const todoId = computed(() => props.block.refs?.todoId ?? '');
 const pageId = computed(() => props.block.refs?.pageId ?? '');
-const toggleOpen = computed(() => props.block.type !== 'toggle' || props.block.attrs?.open !== false);
-const isDropBefore = computed(() => props.dropTargetBlockId === props.block.id && props.dropTargetPlacement === 'before');
-const isDropAfter = computed(() => props.dropTargetBlockId === props.block.id && props.dropTargetPlacement === 'after');
-const isSelected = computed(() => props.selectedBlockIds?.includes(props.block.id) || props.selectedBlockId === props.block.id);
+const toggleOpen = computed(
+  () => props.block.type !== 'toggle' || props.block.attrs?.open !== false
+);
+const isDropBefore = computed(
+  () => props.dropTargetBlockId === props.block.id && props.dropTargetPlacement === 'before'
+);
+const isDropAfter = computed(
+  () => props.dropTargetBlockId === props.block.id && props.dropTargetPlacement === 'after'
+);
+const isSelected = computed(
+  () => props.selectedBlockIds?.includes(props.block.id) || props.selectedBlockId === props.block.id
+);
 const blockStyle = computed(() => ({
   '--knowledge-block-depth': String(Math.min(props.depth ?? 0, 8)),
 }));
@@ -98,7 +114,9 @@ const headingLevel = computed(() => {
   if (value >= 4) return 4;
   return Math.round(value) === 3 ? 3 : 2;
 });
-const headingLevelClass = computed(() => `knowledge-block__editable--heading-${headingLevel.value}`);
+const headingLevelClass = computed(
+  () => `knowledge-block__editable--heading-${headingLevel.value}`
+);
 const codeLineCount = computed(() => Math.max(1, blockText.value.split(/\r\n|\r|\n/).length));
 const codeTextareaStyle = computed(() => ({
   '--knowledge-block-code-lines': String(codeLineCount.value),
@@ -111,7 +129,7 @@ watch(
   () => {
     void syncEditableFromBlock();
   },
-  { deep: true, immediate: true },
+  { deep: true, immediate: true }
 );
 
 watch(
@@ -121,19 +139,14 @@ watch(
       void focusPrimaryInput(props.focusCursorOffset);
     }
   },
-  { immediate: true },
+  { immediate: true }
 );
 
-function blockIcon(type: KnowledgeBlockV2Type) {
-  return blockTypes.find((item) => item.type === type)?.icon || 'iconify:lucide:square';
-}
 
-function blockLabel(type: KnowledgeBlockV2Type) {
-  return blockTypes.find((item) => item.type === type)?.label || type;
-}
 
 function editablePlaceholder() {
-  if (props.isFirst && props.block.type === 'paragraph' && blockText.value.length === 0) return '输入 / 选择命令，或直接开始书写';
+  if (props.isFirst && props.block.type === 'paragraph' && blockText.value.length === 0)
+    return '输入 / 选择命令，或直接开始书写';
   if (props.block.type === 'heading') return '标题';
   if (props.block.type === 'bullet_list' || props.block.type === 'ordered_list') return '列表项';
   if (props.block.type === 'task_list') return '待办事项';
@@ -146,11 +159,7 @@ function editablePlaceholder() {
 }
 
 function editableClass(extra?: string) {
-  return [
-    'knowledge-block__editable',
-    `knowledge-block__editable--${props.block.type}`,
-    extra,
-  ];
+  return ['knowledge-block__editable', `knowledge-block__editable--${props.block.type}`, extra];
 }
 
 async function syncEditableFromBlock(force = false) {
@@ -473,18 +482,21 @@ function removeTableColumn(columnIndex: number) {
   const next = cloneTableGrid(tableGrid.value);
   const columnCount = next[0]?.length ?? 0;
   if (columnCount <= 1) return;
-  updatePlainText(serializeTableGrid(next.map((row) => row.filter((_cell, index) => index !== columnIndex))));
+  updatePlainText(
+    serializeTableGrid(next.map((row) => row.filter((_cell, index) => index !== columnIndex)))
+  );
 }
 
 function applyInlineMark(mark: KnowledgeInlineMarkType) {
   emit('apply-inline-mark', { blockId: props.block.id, mark });
-  const command = mark === 'bold'
-    ? 'bold'
-    : mark === 'italic'
-      ? 'italic'
-      : mark === 'strike'
-        ? 'strikeThrough'
-        : '';
+  const command =
+    mark === 'bold'
+      ? 'bold'
+      : mark === 'italic'
+        ? 'italic'
+        : mark === 'strike'
+          ? 'strikeThrough'
+          : '';
 
   if (command) {
     document.execCommand(command, false);
@@ -598,12 +610,15 @@ function normalizeTableGrid(value: string, attrs: Record<string, unknown> | unde
   const rowCount = normalizeTableSize(attrs?.rows, 3, 1, 20);
   const columnCount = normalizeTableSize(attrs?.columns, 3, 1, 12);
   return Array.from({ length: rowCount }, (_row, rowIndex) =>
-    Array.from({ length: columnCount }, (_column, columnIndex) => (rowIndex === 0 ? `列 ${columnIndex + 1}` : '')),
+    Array.from({ length: columnCount }, (_column, columnIndex) =>
+      rowIndex === 0 ? `列 ${columnIndex + 1}` : ''
+    )
   );
 }
 
 function normalizeTableSize(value: unknown, fallback: number, min: number, max: number) {
-  const numeric = typeof value === 'number' && Number.isFinite(value) ? Math.round(value) : fallback;
+  const numeric =
+    typeof value === 'number' && Number.isFinite(value) ? Math.round(value) : fallback;
   return Math.min(Math.max(numeric, min), max);
 }
 
@@ -626,8 +641,14 @@ function parseMarkdownTable(value: string) {
 }
 
 function isMarkdownTableDivider(line: string) {
-  return /^:?-{3,}:?$/.test(line.replace(/^\||\|$/g, '').split('|')[0]?.trim() ?? '')
-    && line.includes('|');
+  return (
+    /^:?-{3,}:?$/.test(
+      line
+        .replace(/^\||\|$/g, '')
+        .split('|')[0]
+        ?.trim() ?? ''
+    ) && line.includes('|')
+  );
 }
 
 function splitMarkdownTableRow(line: string) {
@@ -662,10 +683,7 @@ function splitMarkdownTableRow(line: string) {
 
 function rectangularizeTable(rows: string[][]) {
   const columnCount = Math.max(1, ...rows.map((row) => row.length));
-  return rows.map((row) => [
-    ...row,
-    ...Array.from({ length: columnCount - row.length }, () => ''),
-  ]);
+  return rows.map((row) => [...row, ...Array.from({ length: columnCount - row.length }, () => '')]);
 }
 
 function cloneTableGrid(grid: string[][]) {
@@ -734,14 +752,25 @@ function countUnescapedPipes(line: string) {
       ]"
       :aria-selected="isSelected"
       :data-knowledge-block-id="block.id"
-      @dragover.prevent="event => emit('drag-over', { blockId: block.id, placement: resolveDropPlacement(event) })"
-      @dragleave="event => emit('drag-leave', { blockId: block.id, event })"
-      @drop.prevent="event => emit('drop-on-block', { blockId: block.id, placement: resolveDropPlacement(event) })"
+      @dragover.prevent="
+        (event) => emit('drag-over', { blockId: block.id, placement: resolveDropPlacement(event) })
+      "
+      @dragleave="(event) => emit('drag-leave', { blockId: block.id, event })"
+      @drop.prevent="
+        (event) =>
+          emit('drop-on-block', { blockId: block.id, placement: resolveDropPlacement(event) })
+      "
     >
       <KnowledgeBlockHandle
         @insert-after="emit('insert-after', block.id)"
-        @menu="event => emit('block-menu', { blockId: block.id, rect: (event.currentTarget as HTMLElement | null)?.getBoundingClientRect() ?? null })"
-        @dragstart="event => emit('drag-start', { blockId: block.id, event })"
+        @menu="
+          (event) =>
+            emit('block-menu', {
+              blockId: block.id,
+              rect: (event.currentTarget as HTMLElement | null)?.getBoundingClientRect() ?? null,
+            })
+        "
+        @dragstart="(event) => emit('drag-start', { blockId: block.id, event })"
       />
 
       <main class="knowledge-block__body">
@@ -770,7 +799,7 @@ function countUnescapedPipes(line: string) {
             <UiCheckbox
               size="sm"
               :checked="Boolean(block.attrs?.checked)"
-              @change="checked => updateAttrs({ checked })"
+              @change="(checked) => updateAttrs({ checked })"
             />
             <div
               ref="editableRef"
@@ -794,7 +823,9 @@ function countUnescapedPipes(line: string) {
 
         <template v-else-if="block.type === 'bullet_list' || block.type === 'ordered_list'">
           <div class="knowledge-block__list-row">
-            <span class="knowledge-block__list-marker">{{ block.type === 'ordered_list' ? '1.' : '•' }}</span>
+            <span class="knowledge-block__list-marker">{{
+              block.type === 'ordered_list' ? '1.' : '•'
+            }}</span>
             <div
               ref="editableRef"
               :class="editableClass()"
@@ -825,7 +856,9 @@ function countUnescapedPipes(line: string) {
                 type="text"
                 spellcheck="false"
                 aria-label="代码语言"
-                @input="event => updateAttrs({ language: (event.target as HTMLInputElement).value })"
+                @input="
+                  (event) => updateAttrs({ language: (event.target as HTMLInputElement).value })
+                "
               />
             </div>
             <UiTextarea
@@ -835,15 +868,23 @@ function countUnescapedPipes(line: string) {
               :style="codeTextareaStyle"
               spellcheck="false"
               resize="none"
-              @update:model-value="value => updatePlainText(value)"
+              @update:model-value="(value) => updatePlainText(value)"
             />
           </div>
         </template>
 
         <template v-else-if="block.type === 'toggle'">
           <div class="knowledge-block__toggle">
-            <button class="knowledge-block__toggle-button" type="button" :aria-expanded="toggleOpen" @click="updateAttrs({ open: !toggleOpen })">
-              <IconRenderer :icon="toggleOpen ? 'iconify:lucide:chevron-down' : 'iconify:lucide:chevron-right'" :size="14" />
+            <button
+              class="knowledge-block__toggle-button"
+              type="button"
+              :aria-expanded="toggleOpen"
+              @click="updateAttrs({ open: !toggleOpen })"
+            >
+              <IconRenderer
+                :icon="toggleOpen ? 'iconify:lucide:chevron-down' : 'iconify:lucide:chevron-right'"
+                :size="14"
+              />
             </button>
             <div
               ref="editableRef"
@@ -872,21 +913,41 @@ function countUnescapedPipes(line: string) {
                 <table class="knowledge-block__table">
                   <tbody>
                     <tr v-for="(row, rowIndex) in tableGrid" :key="`row-${rowIndex}`">
-                      <td v-for="(cell, columnIndex) in row" :key="`cell-${rowIndex}-${columnIndex}`">
+                      <td
+                        v-for="(cell, columnIndex) in row"
+                        :key="`cell-${rowIndex}-${columnIndex}`"
+                      >
                         <input
                           class="knowledge-block__table-cell"
                           :value="cell"
                           type="text"
                           spellcheck="false"
                           :aria-label="`表格 ${rowIndex + 1} 行 ${columnIndex + 1} 列`"
-                          @input="event => updateTableCell(rowIndex, columnIndex, (event.target as HTMLInputElement).value)"
+                          @input="
+                            (event) =>
+                              updateTableCell(
+                                rowIndex,
+                                columnIndex,
+                                (event.target as HTMLInputElement).value
+                              )
+                          "
                         />
                       </td>
                     </tr>
                   </tbody>
                 </table>
-                <div class="knowledge-block__table-edge-actions knowledge-block__table-edge-actions--column" aria-label="表格列操作">
-                  <UiButton class="knowledge-block__table-edge-button" type="button" variant="ghost" size="sm" aria-label="添加表格列" @click="addTableColumn">
+                <div
+                  class="knowledge-block__table-edge-actions knowledge-block__table-edge-actions--column"
+                  aria-label="表格列操作"
+                >
+                  <UiButton
+                    class="knowledge-block__table-edge-button"
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    aria-label="添加表格列"
+                    @click="addTableColumn"
+                  >
                     <template #prefix>
                       <IconRenderer icon="iconify:lucide:plus" :size="14" />
                     </template>
@@ -905,8 +966,18 @@ function countUnescapedPipes(line: string) {
                     </template>
                   </UiButton>
                 </div>
-                <div class="knowledge-block__table-edge-actions knowledge-block__table-edge-actions--row" aria-label="表格行操作">
-                  <UiButton class="knowledge-block__table-edge-button" type="button" variant="ghost" size="sm" aria-label="添加表格行" @click="addTableRow">
+                <div
+                  class="knowledge-block__table-edge-actions knowledge-block__table-edge-actions--row"
+                  aria-label="表格行操作"
+                >
+                  <UiButton
+                    class="knowledge-block__table-edge-button"
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    aria-label="添加表格行"
+                    @click="addTableRow"
+                  >
                     <template #prefix>
                       <IconRenderer icon="iconify:lucide:plus" :size="14" />
                     </template>
@@ -931,7 +1002,10 @@ function countUnescapedPipes(line: string) {
         </template>
 
         <template v-else-if="block.type === 'image' || block.type === 'attachment'">
-          <div class="knowledge-block__asset" :class="{ 'knowledge-block__asset--empty': !assetId }">
+          <div
+            class="knowledge-block__asset"
+            :class="{ 'knowledge-block__asset--empty': !assetId }"
+          >
             <div class="knowledge-block__asset-preview">
               <img
                 v-if="assetId && block.type === 'image' && block.attrs?.assetUrl"
@@ -945,28 +1019,71 @@ function countUnescapedPipes(line: string) {
               />
             </div>
             <div class="knowledge-block__asset-meta">
-              <strong>{{ assetId ? String(block.attrs?.assetName ?? '已入库资产') : (block.type === 'image' ? '添加图片' : '添加附件') }}</strong>
-              <span>{{ assetId ? String(block.attrs?.assetMimeType ?? (block.type === 'image' ? 'image' : 'attachment')) : '选择一个文件作为当前块内容' }}</span>
+              <strong>{{
+                assetId
+                  ? String(block.attrs?.assetName ?? '已入库资产')
+                  : block.type === 'image'
+                    ? '添加图片'
+                    : '添加附件'
+              }}</strong>
+              <span>{{
+                assetId
+                  ? String(
+                      block.attrs?.assetMimeType ??
+                        (block.type === 'image' ? 'image' : 'attachment')
+                    )
+                  : '选择一个文件作为当前块内容'
+              }}</span>
             </div>
             <div class="knowledge-block__asset-actions" aria-label="资产操作">
-              <UiButton v-if="assetId" type="button" variant="ghost" size="sm" aria-label="打开文件" @click="emitAssetAction('open-asset')">
+              <UiButton
+                v-if="assetId"
+                type="button"
+                variant="ghost"
+                size="sm"
+                aria-label="打开文件"
+                @click="emitAssetAction('open-asset')"
+              >
                 <template #prefix>
                   <IconRenderer icon="iconify:lucide:external-link" :size="14" />
                 </template>
               </UiButton>
-              <UiButton v-if="assetId" type="button" variant="ghost" size="sm" aria-label="在系统中显示" @click="emitAssetAction('show-asset')">
+              <UiButton
+                v-if="assetId"
+                type="button"
+                variant="ghost"
+                size="sm"
+                aria-label="在系统中显示"
+                @click="emitAssetAction('show-asset')"
+              >
                 <template #prefix>
                   <IconRenderer icon="iconify:lucide:folder-open" :size="14" />
                 </template>
               </UiButton>
-              <UiButton v-if="assetId" type="button" variant="ghost" size="sm" aria-label="标记文件" @click="emitAssetAction('select-asset')">
+              <UiButton
+                v-if="assetId"
+                type="button"
+                variant="ghost"
+                size="sm"
+                aria-label="标记文件"
+                @click="emitAssetAction('select-asset')"
+              >
                 <template #prefix>
                   <IconRenderer icon="iconify:lucide:tag" :size="14" />
                 </template>
               </UiButton>
-              <UiButton type="button" variant="ghost" size="sm" :aria-label="assetId ? '替换文件' : '选择文件'" @click="chooseAsset(block.type)">
+              <UiButton
+                type="button"
+                variant="ghost"
+                size="sm"
+                :aria-label="assetId ? '替换文件' : '选择文件'"
+                @click="chooseAsset(block.type)"
+              >
                 <template #prefix>
-                  <IconRenderer :icon="assetId ? 'iconify:lucide:replace' : 'iconify:lucide:plus'" :size="14" />
+                  <IconRenderer
+                    :icon="assetId ? 'iconify:lucide:replace' : 'iconify:lucide:plus'"
+                    :size="14"
+                  />
                 </template>
               </UiButton>
             </div>
@@ -999,7 +1116,7 @@ function countUnescapedPipes(line: string) {
                 :model-value="pageId"
                 placeholder="页面 ID 或标题快照"
                 size="sm"
-                @update:model-value="value => updateRefs({ pageId: value.trim() || undefined })"
+                @update:model-value="(value) => updateRefs({ pageId: value.trim() || undefined })"
               />
             </div>
           </div>
@@ -1031,7 +1148,7 @@ function countUnescapedPipes(line: string) {
                 :model-value="todoId"
                 placeholder="Todo ID"
                 size="sm"
-                @update:model-value="value => updateRefs({ todoId: value.trim() || undefined })"
+                @update:model-value="(value) => updateRefs({ todoId: value.trim() || undefined })"
               />
             </div>
           </div>
@@ -1154,31 +1271,31 @@ function countUnescapedPipes(line: string) {
         :drop-target-placement="dropTargetPlacement"
         :selected-block-id="selectedBlockId"
         :selected-block-ids="selectedBlockIds"
-        @update="payload => emit('update', payload)"
-        @choose-asset="payload => emit('choose-asset', payload)"
-        @open-asset="asset => emit('open-asset', asset)"
-        @show-asset="asset => emit('show-asset', asset)"
-        @select-asset="asset => emit('select-asset', asset)"
-        @convert-todo="blockId => emit('convert-todo', blockId)"
-        @insert-after="blockId => emit('insert-after', blockId)"
-        @duplicate="blockId => emit('duplicate', blockId)"
-        @remove="blockId => emit('remove', blockId)"
-        @indent="blockId => emit('indent', blockId)"
-        @outdent="blockId => emit('outdent', blockId)"
-        @slash-open="payload => emit('slash-open', payload)"
-        @block-menu="payload => emit('block-menu', payload)"
-        @focused="blockId => emit('focused', blockId)"
-        @select-block="blockId => emit('select-block', blockId)"
-        @split-block="payload => emit('split-block', payload)"
-        @merge-backward="payload => emit('merge-backward', payload)"
-        @paste-markdown="payload => emit('paste-markdown', payload)"
-        @focus-previous-block="payload => emit('focus-previous-block', payload)"
-        @focus-next-block="payload => emit('focus-next-block', payload)"
-        @apply-inline-mark="payload => emit('apply-inline-mark', payload)"
-        @drag-start="payload => emit('drag-start', payload)"
-        @drag-over="payload => emit('drag-over', payload)"
-        @drag-leave="payload => emit('drag-leave', payload)"
-        @drop-on-block="payload => emit('drop-on-block', payload)"
+        @update="(payload) => emit('update', payload)"
+        @choose-asset="(payload) => emit('choose-asset', payload)"
+        @open-asset="(asset) => emit('open-asset', asset)"
+        @show-asset="(asset) => emit('show-asset', asset)"
+        @select-asset="(asset) => emit('select-asset', asset)"
+        @convert-todo="(blockId) => emit('convert-todo', blockId)"
+        @insert-after="(blockId) => emit('insert-after', blockId)"
+        @duplicate="(blockId) => emit('duplicate', blockId)"
+        @remove="(blockId) => emit('remove', blockId)"
+        @indent="(blockId) => emit('indent', blockId)"
+        @outdent="(blockId) => emit('outdent', blockId)"
+        @slash-open="(payload) => emit('slash-open', payload)"
+        @block-menu="(payload) => emit('block-menu', payload)"
+        @focused="(blockId) => emit('focused', blockId)"
+        @select-block="(blockId) => emit('select-block', blockId)"
+        @split-block="(payload) => emit('split-block', payload)"
+        @merge-backward="(payload) => emit('merge-backward', payload)"
+        @paste-markdown="(payload) => emit('paste-markdown', payload)"
+        @focus-previous-block="(payload) => emit('focus-previous-block', payload)"
+        @focus-next-block="(payload) => emit('focus-next-block', payload)"
+        @apply-inline-mark="(payload) => emit('apply-inline-mark', payload)"
+        @drag-start="(payload) => emit('drag-start', payload)"
+        @drag-over="(payload) => emit('drag-over', payload)"
+        @drag-leave="(payload) => emit('drag-leave', payload)"
+        @drop-on-block="(payload) => emit('drop-on-block', payload)"
       />
     </div>
   </div>
@@ -1218,7 +1335,7 @@ function countUnescapedPipes(line: string) {
 
 .knowledge-block--drop-before::before,
 .knowledge-block--drop-after::after {
-  content: "";
+  content: '';
   position: absolute;
   z-index: 2;
   left: 4px;
@@ -1359,7 +1476,10 @@ function countUnescapedPipes(line: string) {
   overflow: hidden;
   border: 1px solid color-mix(in srgb, var(--ui-border-subtle) 62%, transparent);
   border-radius: 5px;
-  background: var(--knowledge-block-code-bg, color-mix(in srgb, var(--ui-surface-panel-muted) 38%, transparent));
+  background: var(
+    --knowledge-block-code-bg,
+    color-mix(in srgb, var(--ui-surface-panel-muted) 38%, transparent)
+  );
 }
 
 .knowledge-block__code-header {
@@ -1369,7 +1489,6 @@ function countUnescapedPipes(line: string) {
   min-height: 26px;
   padding: 3px 9px 0;
   color: var(--ui-text-muted);
-
 }
 
 .knowledge-block__code-language {
@@ -1436,7 +1555,9 @@ function countUnescapedPipes(line: string) {
   td {
     min-width: 120px;
     border: 1px solid color-mix(in srgb, var(--ui-border-subtle) 66%, transparent);
-    transition: background-color 140ms ease, border-color 140ms ease;
+    transition:
+      background-color 140ms ease,
+      border-color 140ms ease;
   }
 
   td:hover,
@@ -1444,7 +1565,6 @@ function countUnescapedPipes(line: string) {
     border-color: color-mix(in srgb, var(--ui-primary-color) 36%, var(--ui-border-subtle));
     background: color-mix(in srgb, var(--ui-primary-color) 5%, transparent);
   }
-
 }
 
 .knowledge-block__table-cell {
@@ -1467,7 +1587,9 @@ function countUnescapedPipes(line: string) {
   display: inline-flex;
   gap: 4px;
   opacity: 0;
-  transition: opacity 140ms ease, transform 140ms ease;
+  transition:
+    opacity 140ms ease,
+    transform 140ms ease;
 }
 
 .knowledge-block__table-frame:hover .knowledge-block__table-edge-actions,
@@ -1649,7 +1771,10 @@ function countUnescapedPipes(line: string) {
   align-items: start;
   padding: 7px 9px;
   border-radius: 5px;
-  background: var(--knowledge-block-callout-bg, color-mix(in srgb, var(--ui-surface-panel-muted) 44%, transparent));
+  background: var(
+    --knowledge-block-callout-bg,
+    color-mix(in srgb, var(--ui-surface-panel-muted) 44%, transparent)
+  );
   box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--ui-border-subtle) 58%, transparent);
 }
 

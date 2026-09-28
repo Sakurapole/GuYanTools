@@ -17,7 +17,12 @@ const emit = defineEmits<{
 </script>
 
 <template>
-  <UiDialog :model-value="open" max-width="420px" @update:model-value="value => !value && emit('close')" @close="emit('close')">
+  <UiDialog
+    :model-value="open"
+    max-width="420px"
+    @update:model-value="(value) => !value && emit('close')"
+    @close="emit('close')"
+  >
     <template #header>
       <div class="knowledge-conversion-dialog__header">
         <strong>{{ title }}</strong>
@@ -28,7 +33,9 @@ const emit = defineEmits<{
       <p>将创建一个新页面副本，原页面不会被覆盖。</p>
     </div>
     <template #footer>
-      <UiButton type="button" variant="secondary" :disabled="loading" @click="emit('close')">取消</UiButton>
+      <UiButton type="button" variant="secondary" :disabled="loading" @click="emit('close')"
+        >取消</UiButton
+      >
       <UiButton type="button" variant="primary" :disabled="loading" @click="emit('confirm')">
         {{ loading ? '转换中' : confirmLabel }}
       </UiButton>

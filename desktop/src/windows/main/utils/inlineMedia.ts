@@ -17,7 +17,10 @@ export function estimateDataUrlBytes(value: string): number | null {
   return Math.max(0, Math.floor((payload.length * 3) / 4) - padding);
 }
 
-export function isInlineVideoWithinLimit(value: string, maxBytes = MAX_INLINE_VIDEO_BYTES): boolean {
+export function isInlineVideoWithinLimit(
+  value: string,
+  maxBytes = MAX_INLINE_VIDEO_BYTES
+): boolean {
   if (!value.startsWith('data:video/')) {
     return true;
   }

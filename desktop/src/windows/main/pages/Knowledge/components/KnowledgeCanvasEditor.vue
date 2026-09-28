@@ -4,7 +4,6 @@ import UiButton from '@/windows/main/components/ui/UiButton.vue';
 import UiCheckbox from '@/windows/main/components/ui/UiCheckbox.vue';
 import UiColorPicker from '@/windows/main/components/ui/UiColorPicker.vue';
 import UiFileInput from '@/windows/main/components/ui/UiFileInput.vue';
-import UiIconButton from '@/windows/main/components/ui/UiIconButton.vue';
 import UiInput from '@/windows/main/components/ui/UiInput.vue';
 import UiTextarea from '@/windows/main/components/ui/UiTextarea.vue';
 import { useCanvasSelection } from '../composables/useCanvasSelection';
@@ -38,7 +37,15 @@ const props = defineProps<{
 const emit = defineEmits<{
   (event: 'update:modelValue', value: KnowledgeCanvasDocumentV2): void;
   (event: 'save'): void;
-  (event: 'asset-file', payload: { elementId?: string; file: File; kind: 'image' | 'file'; position?: { x: number; y: number } }): void;
+  (
+    event: 'asset-file',
+    payload: {
+      elementId?: string;
+      file: File;
+      kind: 'image' | 'file';
+      position?: { x: number; y: number };
+    }
+  ): void;
   (event: 'open-asset', assetId: string): void;
   (event: 'select-asset', assetId: string): void;
   (event: 'open-page-link', pageRef: string): void;
@@ -81,7 +88,9 @@ const selectedElement = computed(() => {
   const [id] = selection.selectedIdList.value;
   return id ? findCanvasElementV2(documentDraft.value.elements, id) : null;
 });
-const pageSuggestionOptions = computed(() => [...new Set(props.pageSuggestions ?? [])].slice(0, 30));
+const pageSuggestionOptions = computed(() =>
+  [...new Set(props.pageSuggestions ?? [])].slice(0, 30)
+);
 const selectedAssetId = computed(() => selectedElement.value?.refs?.assetId ?? '');
 const selectedPageId = computed(() => selectedElement.value?.refs?.pageId ?? '');
 const selectedTodoId = computed(() => selectedElement.value?.refs?.todoId ?? '');
@@ -90,19 +99,28 @@ const selectedEditableIds = computed(() =>
   selection.selectedIdList.value.filter((id) => {
     const element = findCanvasElementV2(documentDraft.value.elements, id);
     return Boolean(element && !element.locked);
-  }),
+  })
 );
-const inlineTextEditableElementTypes: KnowledgeCanvasElementV2Type[] = ['rich_text', 'rect', 'file', 'page_card', 'todo_card', 'group'];
+const inlineTextEditableElementTypes: KnowledgeCanvasElementV2Type[] = [
+  'rich_text',
+  'rect',
+  'file',
+  'page_card',
+  'todo_card',
+  'group',
+];
 
 watch(
   () => props.modelValue,
   (value) => {
     documentDraft.value = normalizeCanvasDocumentV2(value);
     viewportApi.setViewport(documentDraft.value.viewport);
-    const validIds = selection.selectedIdList.value.filter((id) => documentDraft.value.elements.some((element) => element.id === id));
+    const validIds = selection.selectedIdList.value.filter((id) =>
+      documentDraft.value.elements.some((element) => element.id === id)
+    );
     selection.replaceSelectionMany(validIds);
   },
-  { deep: true },
+  { deep: true }
 );
 
 function emitDraft(document: KnowledgeCanvasDocumentV2) {
@@ -123,7 +141,10 @@ function updateElement(elementId: string, patch: Partial<KnowledgeCanvasElementV
   emitDraft(updateCanvasElementV2(documentDraft.value, elementId, patch));
 }
 
-function addElement(type: Exclude<CanvasTool, 'select'>, input: Partial<KnowledgeCanvasElementV2> = {}) {
+function addElement(
+  type: Exclude<CanvasTool, 'select'>,
+  input: Partial<KnowledgeCanvasElementV2> = {}
+) {
   const elementType: KnowledgeCanvasElementV2Type = type === 'text' ? 'rich_text' : type;
   const element = createCanvasElementV2(elementType, {
     ...defaultCanvasElementInput(elementType),
@@ -135,7 +156,9 @@ function addElement(type: Exclude<CanvasTool, 'select'>, input: Partial<Knowledg
   return element;
 }
 
-function defaultCanvasElementInput(type: KnowledgeCanvasElementV2Type): Partial<KnowledgeCanvasElementV2> {
+function defaultCanvasElementInput(
+  type: KnowledgeCanvasElementV2Type
+): Partial<KnowledgeCanvasElementV2> {
   if (type === 'page_card') {
     return {
       title: '页面卡片',
@@ -178,18 +201,29 @@ function defaultCanvasElementInput(type: KnowledgeCanvasElementV2Type): Partial<
 function removeSelectedElements() {
   if (!selectedEditableIds.value.length) return;
   const removableIds = new Set(selectedEditableIds.value);
-  const nextElements = documentDraft.value.elements.filter((element) => !removableIds.has(element.id));
+  const nextElements = documentDraft.value.elements.filter(
+    (element) => !removableIds.has(element.id)
+  );
   updateDocument({
-    elements: nextElements.length ? nextElements : [createCanvasElementV2('rich_text', { text: '画布页面' })],
+    elements: nextElements.length
+      ? nextElements
+      : [createCanvasElementV2('rich_text', { text: '画布页面' })],
   });
-  selection.replaceSelectionMany(selection.selectedIdList.value.filter((id) => !removableIds.has(id)));
+  selection.replaceSelectionMany(
+    selection.selectedIdList.value.filter((id) => !removableIds.has(id))
+  );
 }
 
 function duplicateSelectedElements() {
   if (!selectedEditableIds.value.length) return;
-  const next = duplicateCanvasElementsV2(documentDraft.value.elements, new Set(selectedEditableIds.value));
+  const next = duplicateCanvasElementsV2(
+    documentDraft.value.elements,
+    new Set(selectedEditableIds.value)
+  );
   updateDocument({ elements: next });
-  selection.replaceSelectionMany(next.slice(documentDraft.value.elements.length).map((element) => element.id));
+  selection.replaceSelectionMany(
+    next.slice(documentDraft.value.elements.length).map((element) => element.id)
+  );
 }
 
 function bringSelectedToFront() {
@@ -197,7 +231,9 @@ function bringSelectedToFront() {
   const selectedIds = new Set(selectedEditableIds.value);
   const base = documentDraft.value.elements.filter((element) => !selectedIds.has(element.id));
   const selected = documentDraft.value.elements.filter((element) => selectedIds.has(element.id));
-  updateDocument({ elements: [...base, ...selected].map((element, index) => ({ ...element, zIndex: index })) });
+  updateDocument({
+    elements: [...base, ...selected].map((element, index) => ({ ...element, zIndex: index })),
+  });
 }
 
 function sendSelectedToBack() {
@@ -205,7 +241,9 @@ function sendSelectedToBack() {
   const selectedIds = new Set(selectedEditableIds.value);
   const base = documentDraft.value.elements.filter((element) => !selectedIds.has(element.id));
   const selected = documentDraft.value.elements.filter((element) => selectedIds.has(element.id));
-  updateDocument({ elements: [...selected, ...base].map((element, index) => ({ ...element, zIndex: index })) });
+  updateDocument({
+    elements: [...selected, ...base].map((element, index) => ({ ...element, zIndex: index })),
+  });
 }
 
 function elementRect(element: KnowledgeCanvasElementV2): CanvasRect {
@@ -254,13 +292,15 @@ function rectsFromDragOrigins(dx: number, dy: number): CanvasRect[] {
   return dragState.value.origins.flatMap((origin) => {
     const element = findCanvasElementV2(documentDraft.value.elements, origin.id);
     if (!element) return [];
-    return [{
-      id: element.id,
-      x: origin.x + dx,
-      y: origin.y + dy,
-      width: element.width,
-      height: element.height,
-    }];
+    return [
+      {
+        id: element.id,
+        x: origin.x + dx,
+        y: origin.y + dy,
+        width: element.width,
+        height: element.height,
+      },
+    ];
   });
 }
 
@@ -306,7 +346,7 @@ function alignSelectedElements(command: CanvasAlignCommand) {
 function distributeSelectedElements(command: CanvasDistributeCommand) {
   const elements = selectedEditableElements();
   if (elements.length < 3) return;
-  const sorted = [...elements].sort((a, b) => command === 'horizontal' ? a.x - b.x : a.y - b.y);
+  const sorted = [...elements].sort((a, b) => (command === 'horizontal' ? a.x - b.x : a.y - b.y));
   const first = sorted[0];
   const last = sorted[sorted.length - 1];
   const offsets = new Map<string, { x: number; y: number }>();
@@ -335,22 +375,22 @@ function distributeSelectedElements(command: CanvasDistributeCommand) {
 }
 
 function canvasElementMergeText(element: KnowledgeCanvasElementV2) {
-  return [element.title, element.text].filter((value) => typeof value === 'string' && value.trim()).join('\n');
+  return [element.title, element.text]
+    .filter((value) => typeof value === 'string' && value.trim())
+    .join('\n');
 }
 
 function mergeSelectedContainers() {
   const selectedIds = new Set(selectedEditableIds.value);
-  const containers = documentDraft.value.elements.filter((element) =>
-    selectedIds.has(element.id) && inlineTextEditableElementTypes.includes(element.type),
+  const containers = documentDraft.value.elements.filter(
+    (element) =>
+      selectedIds.has(element.id) && inlineTextEditableElementTypes.includes(element.type)
   );
   if (containers.length < 2) return;
   const bounds = boundsForRects(containers.map(elementRect));
   if (!bounds) return;
   const ordered = [...containers].sort((a, b) => a.y - b.y || a.x - b.x);
-  const mergedText = ordered
-    .map(canvasElementMergeText)
-    .filter(Boolean)
-    .join('\n\n');
+  const mergedText = ordered.map(canvasElementMergeText).filter(Boolean).join('\n\n');
   const merged = createCanvasElementV2('rich_text', {
     x: bounds.x,
     y: bounds.y,
@@ -374,14 +414,19 @@ function mergeSelectedContainers() {
 function mergeDraggedContainerIfOverlapping() {
   if (!dragState.value?.mergeOnDrop) return;
   const movingIds = new Set(dragState.value.origins.map((origin) => origin.id));
-  const movingContainers = documentDraft.value.elements.filter((element) =>
-    movingIds.has(element.id) && inlineTextEditableElementTypes.includes(element.type),
+  const movingContainers = documentDraft.value.elements.filter(
+    (element) => movingIds.has(element.id) && inlineTextEditableElementTypes.includes(element.type)
   );
   if (movingContainers.length !== 1) return;
   const moving = movingContainers[0];
   const movingRect = elementRect(moving);
   const target = documentDraft.value.elements
-    .filter((element) => !movingIds.has(element.id) && inlineTextEditableElementTypes.includes(element.type) && !element.locked)
+    .filter(
+      (element) =>
+        !movingIds.has(element.id) &&
+        inlineTextEditableElementTypes.includes(element.type) &&
+        !element.locked
+    )
     .find((element) => rectsOverlap(movingRect, elementRect(element)));
   if (!target) return;
   selection.replaceSelectionMany([moving.id, target.id]);
@@ -393,7 +438,8 @@ function rectsOverlap(a: CanvasRect, b: CanvasRect) {
 }
 
 function nudgeSelectedElements(event: KeyboardEvent) {
-  if (!event.key.startsWith('Arrow') || !selectedEditableIds.value.length || editingElementId.value) return false;
+  if (!event.key.startsWith('Arrow') || !selectedEditableIds.value.length || editingElementId.value)
+    return false;
   const step = event.shiftKey ? 10 : 1;
   const dx = event.key === 'ArrowLeft' ? -step : event.key === 'ArrowRight' ? step : 0;
   const dy = event.key === 'ArrowUp' ? -step : event.key === 'ArrowDown' ? step : 0;
@@ -421,7 +467,12 @@ function axisSnapPoints(rect: CanvasRect, axis: CanvasSnapAxis) {
   ];
 }
 
-function guideForSnap(axis: CanvasSnapAxis, position: number, moving: CanvasRect, target: CanvasRect): CanvasSnapGuide {
+function guideForSnap(
+  axis: CanvasSnapAxis,
+  position: number,
+  moving: CanvasRect,
+  target: CanvasRect
+): CanvasSnapGuide {
   if (axis === 'x') {
     return {
       axis,
@@ -438,7 +489,11 @@ function guideForSnap(axis: CanvasSnapAxis, position: number, moving: CanvasRect
   };
 }
 
-function resolveAxisSnap(movingRects: CanvasRect[], staticRects: CanvasRect[], axis: CanvasSnapAxis) {
+function resolveAxisSnap(
+  movingRects: CanvasRect[],
+  staticRects: CanvasRect[],
+  axis: CanvasSnapAxis
+) {
   let best: { offset: number; distance: number; guide: CanvasSnapGuide } | null = null;
   const movingBounds = boundsForRects(movingRects);
   const movingCandidates = movingBounds ? [movingBounds, ...movingRects] : movingRects;
@@ -471,7 +526,9 @@ function resolveCanvasSnap(movingRects: CanvasRect[], staticRects: CanvasRect[])
   return {
     dx: xSnap?.offset ?? 0,
     dy: ySnap?.offset ?? 0,
-    guides: [xSnap?.guide, ySnap?.guide].filter((guide): guide is CanvasSnapGuide => Boolean(guide)),
+    guides: [xSnap?.guide, ySnap?.guide].filter((guide): guide is CanvasSnapGuide =>
+      Boolean(guide)
+    ),
   };
 }
 
@@ -496,7 +553,11 @@ function applyCanvasSnap(dx: number, dy: number, event: PointerEvent) {
 function canvasPoint(event: PointerEvent | MouseEvent) {
   const svg = svgRef.value;
   if (!svg) return { x: 0, y: 0 };
-  const point = viewportApi.clientToCanvas(svg.getBoundingClientRect(), event.clientX, event.clientY);
+  const point = viewportApi.clientToCanvas(
+    svg.getBoundingClientRect(),
+    event.clientX,
+    event.clientY
+  );
   lastPointerCanvasPoint.value = point;
   return point;
 }
@@ -547,7 +608,10 @@ function startElementDrag(event: PointerEvent, element: KnowledgeCanvasElementV2
     startY: point.y,
     mergeOnDrop: event.shiftKey,
     origins: documentDraft.value.elements
-      .filter((item) => !item.locked && (selection.selectedIds.value.has(item.id) || item.id === element.id))
+      .filter(
+        (item) =>
+          !item.locked && (selection.selectedIds.value.has(item.id) || item.id === element.id)
+      )
       .map((item) => ({ id: item.id, x: item.x, y: item.y })),
   };
 }
@@ -568,7 +632,10 @@ function startElementResize(event: PointerEvent, element: KnowledgeCanvasElement
 
 function handlePointerMove(event: PointerEvent) {
   if (panState.value) {
-    viewportApi.panBy(event.clientX - panState.value.clientX, event.clientY - panState.value.clientY);
+    viewportApi.panBy(
+      event.clientX - panState.value.clientX,
+      event.clientY - panState.value.clientY
+    );
     panState.value = { clientX: event.clientX, clientY: event.clientY };
     persistViewport();
     return;
@@ -614,7 +681,9 @@ function handlePointerMove(event: PointerEvent) {
   updateDocument({
     elements: documentDraft.value.elements.map((element) => {
       const origin = dragState.value?.origins.find((item) => item.id === element.id);
-      return origin ? { ...element, x: origin.x + dx, y: origin.y + dy, updatedAt: new Date().toISOString() } : element;
+      return origin
+        ? { ...element, x: origin.x + dx, y: origin.y + dy, updatedAt: new Date().toISOString() }
+        : element;
     }),
   });
 }
@@ -667,7 +736,8 @@ function handleFileSelected(event: Event) {
   input.value = '';
   if (!file) return;
   emit('asset-file', {
-    elementId: selectedElement.value?.type === assetInputKind.value ? selectedElement.value.id : undefined,
+    elementId:
+      selectedElement.value?.type === assetInputKind.value ? selectedElement.value.id : undefined,
     file,
     kind: assetInputKind.value,
     position: lastPointerCanvasPoint.value ?? centerPoint(),
@@ -677,7 +747,9 @@ function handleFileSelected(event: Event) {
 }
 
 function handlePaste(event: ClipboardEvent) {
-  const image = Array.from(event.clipboardData?.files ?? []).find((file) => file.type.startsWith('image/'));
+  const image = Array.from(event.clipboardData?.files ?? []).find((file) =>
+    file.type.startsWith('image/')
+  );
   if (!image) return;
   event.preventDefault();
   emit('asset-file', {
@@ -748,8 +820,16 @@ function exportSvg() {
   clone.setAttribute('width', String(documentDraft.value.width));
   clone.setAttribute('height', String(documentDraft.value.height));
   clone.setAttribute('viewBox', `0 0 ${documentDraft.value.width} ${documentDraft.value.height}`);
-  clone.querySelectorAll('.knowledge-canvas-editor__selection,.knowledge-canvas-editor__marquee,.knowledge-canvas-editor__snap-guide').forEach((node) => node.remove());
-  downloadText('knowledge-canvas.svg', 'image/svg+xml;charset=utf-8', new XMLSerializer().serializeToString(clone));
+  clone
+    .querySelectorAll(
+      '.knowledge-canvas-editor__selection,.knowledge-canvas-editor__marquee,.knowledge-canvas-editor__snap-guide'
+    )
+    .forEach((node) => node.remove());
+  downloadText(
+    'knowledge-canvas.svg',
+    'image/svg+xml;charset=utf-8',
+    new XMLSerializer().serializeToString(clone)
+  );
   exportMessage.value = '已导出 SVG';
 }
 
@@ -761,8 +841,14 @@ function exportPng() {
   clone.setAttribute('width', String(documentDraft.value.width));
   clone.setAttribute('height', String(documentDraft.value.height));
   clone.setAttribute('viewBox', `0 0 ${documentDraft.value.width} ${documentDraft.value.height}`);
-  clone.querySelectorAll('.knowledge-canvas-editor__selection,.knowledge-canvas-editor__marquee,.knowledge-canvas-editor__snap-guide').forEach((node) => node.remove());
-  const blob = new Blob([new XMLSerializer().serializeToString(clone)], { type: 'image/svg+xml;charset=utf-8' });
+  clone
+    .querySelectorAll(
+      '.knowledge-canvas-editor__selection,.knowledge-canvas-editor__marquee,.knowledge-canvas-editor__snap-guide'
+    )
+    .forEach((node) => node.remove());
+  const blob = new Blob([new XMLSerializer().serializeToString(clone)], {
+    type: 'image/svg+xml;charset=utf-8',
+  });
   const url = URL.createObjectURL(blob);
   const image = new Image();
   image.onload = () => {
@@ -771,7 +857,8 @@ function exportPng() {
     canvas.height = documentDraft.value.height;
     const context = canvas.getContext('2d');
     if (!context) return;
-    context.fillStyle = getComputedStyle(document.documentElement).getPropertyValue('--ui-surface-base') || '#ffffff';
+    context.fillStyle =
+      getComputedStyle(document.documentElement).getPropertyValue('--ui-surface-base') || '#ffffff';
     context.fillRect(0, 0, canvas.width, canvas.height);
     context.drawImage(image, 0, 0);
     URL.revokeObjectURL(url);
@@ -810,7 +897,11 @@ function handleKeydown(event: KeyboardEvent) {
     event.preventDefault();
     return;
   }
-  if ((event.key === 'Delete' || event.key === 'Backspace') && selectedEditableIds.value.length && !editingElementId.value) {
+  if (
+    (event.key === 'Delete' || event.key === 'Backspace') &&
+    selectedEditableIds.value.length &&
+    !editingElementId.value
+  ) {
     event.preventDefault();
     removeSelectedElements();
   }
@@ -827,7 +918,9 @@ function handleKeyup(event: KeyboardEvent) {
 }
 
 function nextZIndex() {
-  return documentDraft.value.elements.reduce((max, element) => Math.max(max, element.zIndex), 0) + 1;
+  return (
+    documentDraft.value.elements.reduce((max, element) => Math.max(max, element.zIndex), 0) + 1
+  );
 }
 </script>
 
@@ -846,7 +939,7 @@ function nextZIndex() {
       :dirty="dirty"
       :saving="saving"
       :has-selection="selectedEditableIds.length > 0"
-      @tool="value => activeTool = value"
+      @tool="(value) => (activeTool = value)"
       @zoom="setZoom"
       @delete="removeSelectedElements"
       @duplicate="duplicateSelectedElements"
@@ -876,25 +969,48 @@ function nextZIndex() {
           @pointerleave="stopPointerAction"
         >
           <defs>
-            <marker id="knowledge-canvas-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+            <marker
+              id="knowledge-canvas-arrow"
+              viewBox="0 0 10 10"
+              refX="9"
+              refY="5"
+              markerWidth="7"
+              markerHeight="7"
+              orient="auto-start-reverse"
+            >
               <path d="M 0 0 L 10 5 L 0 10 z" fill="context-stroke" />
             </marker>
-            <pattern id="knowledge-canvas-grid" width="32" height="32" patternUnits="userSpaceOnUse">
-              <path d="M 32 0 L 0 0 0 32" fill="none" stroke="currentColor" stroke-width="0.7" opacity="0.16" />
+            <pattern
+              id="knowledge-canvas-grid"
+              width="32"
+              height="32"
+              patternUnits="userSpaceOnUse"
+            >
+              <path
+                d="M 32 0 L 0 0 0 32"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="0.7"
+                opacity="0.16"
+              />
             </pattern>
           </defs>
           <g :transform="viewportApi.transform.value">
-            <rect :width="documentDraft.width" :height="documentDraft.height" class="knowledge-canvas-editor__grid" />
+            <rect
+              :width="documentDraft.width"
+              :height="documentDraft.height"
+              class="knowledge-canvas-editor__grid"
+            />
             <KnowledgeCanvasElementRenderer
               v-for="element in documentDraft.elements"
               :key="element.id"
               :element="element"
               :selected="selection.isSelected(element.id)"
               :editing="editingElementId === element.id"
-              @pointerdown="event => startElementDrag(event, element)"
-              @resize-start="event => startElementResize(event, element)"
-              @double-click="elementId => editingElementId = elementId"
-              @commit-text="payload => updateElement(payload.elementId, { text: payload.text })"
+              @pointerdown="(event) => startElementDrag(event, element)"
+              @resize-start="(event) => startElementResize(event, element)"
+              @double-click="(elementId) => (editingElementId = elementId)"
+              @commit-text="(payload) => updateElement(payload.elementId, { text: payload.text })"
               @stop-editing="editingElementId = null"
             />
             <line
@@ -910,8 +1026,18 @@ function nextZIndex() {
             <rect
               v-if="selection.marquee.value"
               class="knowledge-canvas-editor__marquee"
-              :x="Math.min(selection.marquee.value.x, selection.marquee.value.x + selection.marquee.value.width)"
-              :y="Math.min(selection.marquee.value.y, selection.marquee.value.y + selection.marquee.value.height)"
+              :x="
+                Math.min(
+                  selection.marquee.value.x,
+                  selection.marquee.value.x + selection.marquee.value.width
+                )
+              "
+              :y="
+                Math.min(
+                  selection.marquee.value.y,
+                  selection.marquee.value.y + selection.marquee.value.height
+                )
+              "
               :width="Math.abs(selection.marquee.value.width)"
               :height="Math.abs(selection.marquee.value.height)"
             />
@@ -927,31 +1053,56 @@ function nextZIndex() {
           </div>
           <label v-if="isInlineTextEditableElement(selectedElement)">
             文本
-            <UiTextarea :model-value="selectedElement.text || ''" @update:model-value="updateSelectedText" />
+            <UiTextarea
+              :model-value="selectedElement.text || ''"
+              @update:model-value="updateSelectedText"
+            />
           </label>
           <div class="knowledge-canvas-editor__field-grid">
             <label>
               X
-              <UiInput :model-value="String(Math.round(selectedElement.x))" type="number" size="sm" @update:model-value="value => updateSelectedNumber('x', value)" />
+              <UiInput
+                :model-value="String(Math.round(selectedElement.x))"
+                type="number"
+                size="sm"
+                @update:model-value="(value) => updateSelectedNumber('x', value)"
+              />
             </label>
             <label>
               Y
-              <UiInput :model-value="String(Math.round(selectedElement.y))" type="number" size="sm" @update:model-value="value => updateSelectedNumber('y', value)" />
+              <UiInput
+                :model-value="String(Math.round(selectedElement.y))"
+                type="number"
+                size="sm"
+                @update:model-value="(value) => updateSelectedNumber('y', value)"
+              />
             </label>
             <label>
               宽
-              <UiInput :model-value="String(Math.round(selectedElement.width))" type="number" size="sm" :min="1" @update:model-value="value => updateSelectedNumber('width', value)" />
+              <UiInput
+                :model-value="String(Math.round(selectedElement.width))"
+                type="number"
+                size="sm"
+                :min="1"
+                @update:model-value="(value) => updateSelectedNumber('width', value)"
+              />
             </label>
             <label>
               高
-              <UiInput :model-value="String(Math.round(selectedElement.height))" type="number" size="sm" :min="1" @update:model-value="value => updateSelectedNumber('height', value)" />
+              <UiInput
+                :model-value="String(Math.round(selectedElement.height))"
+                type="number"
+                size="sm"
+                :min="1"
+                @update:model-value="(value) => updateSelectedNumber('height', value)"
+              />
             </label>
           </div>
           <label class="knowledge-canvas-editor__lock">
             <UiCheckbox
               size="sm"
               :checked="Boolean(selectedElement.locked)"
-              @change="checked => updateSelectedBoolean('locked', checked)"
+              @change="(checked) => updateSelectedBoolean('locked', checked)"
             />
             锁定元素
           </label>
@@ -962,35 +1113,75 @@ function nextZIndex() {
             label="描边颜色"
             aria-label="选择描边颜色"
             placeholder="#4A90D9"
-            @update:model-value="value => updateSelectedStyle('stroke', value)"
+            @update:model-value="(value) => updateSelectedStyle('stroke', value)"
           />
           <label>
             标题
-            <UiInput :model-value="selectedElement.title || ''" size="sm" @update:model-value="value => updateSelectedString('title', value)" />
+            <UiInput
+              :model-value="selectedElement.title || ''"
+              size="sm"
+              @update:model-value="(value) => updateSelectedString('title', value)"
+            />
           </label>
           <label>
             页面链接
-            <UiInput list="knowledge-canvas-page-suggestions" :model-value="selectedPageId" size="sm" @update:model-value="value => updateSelectedString('pageId', value)" />
+            <UiInput
+              list="knowledge-canvas-page-suggestions"
+              :model-value="selectedPageId"
+              size="sm"
+              @update:model-value="(value) => updateSelectedString('pageId', value)"
+            />
           </label>
           <datalist id="knowledge-canvas-page-suggestions">
             <option v-for="title in pageSuggestionOptions" :key="title" :value="title" />
           </datalist>
           <label>
             Todo ID
-            <UiInput :model-value="selectedTodoId" size="sm" @update:model-value="value => updateSelectedString('todoId', value)" />
+            <UiInput
+              :model-value="selectedTodoId"
+              size="sm"
+              @update:model-value="(value) => updateSelectedString('todoId', value)"
+            />
           </label>
-          <div v-if="selectedPageId || selectedTodoId" class="knowledge-canvas-editor__link-actions">
-            <UiButton v-if="selectedPageId" type="button" variant="secondary" size="sm" @click="emit('open-page-link', selectedPageId)">
+          <div
+            v-if="selectedPageId || selectedTodoId"
+            class="knowledge-canvas-editor__link-actions"
+          >
+            <UiButton
+              v-if="selectedPageId"
+              type="button"
+              variant="secondary"
+              size="sm"
+              @click="emit('open-page-link', selectedPageId)"
+            >
               打开页面
             </UiButton>
-            <UiButton v-if="selectedTodoId" type="button" variant="secondary" size="sm" @click="emit('open-todo-link', selectedTodoId)">
+            <UiButton
+              v-if="selectedTodoId"
+              type="button"
+              variant="secondary"
+              size="sm"
+              @click="emit('open-todo-link', selectedTodoId)"
+            >
               打开 Todo
             </UiButton>
           </div>
           <div v-if="selectedAssetId" class="knowledge-canvas-editor__asset">
             <span>{{ selectedElement.style?.assetName || selectedAssetId }}</span>
-            <UiButton type="button" variant="secondary" size="sm" @click="emit('open-asset', selectedAssetId)">打开</UiButton>
-            <UiButton type="button" variant="secondary" size="sm" @click="emit('select-asset', selectedAssetId)">标记</UiButton>
+            <UiButton
+              type="button"
+              variant="secondary"
+              size="sm"
+              @click="emit('open-asset', selectedAssetId)"
+              >打开</UiButton
+            >
+            <UiButton
+              type="button"
+              variant="secondary"
+              size="sm"
+              @click="emit('select-asset', selectedAssetId)"
+              >标记</UiButton
+            >
           </div>
           <UiButton
             v-if="selectedElement.type === 'file'"
@@ -1006,7 +1197,9 @@ function nextZIndex() {
         <div v-else class="knowledge-canvas-editor__empty">
           选择画布元素查看属性。可拖动画布框选，按住空格拖动画布，滚轮缩放。
         </div>
-        <p v-if="exportMessage" class="knowledge-canvas-editor__export-message">{{ exportMessage }}</p>
+        <p v-if="exportMessage" class="knowledge-canvas-editor__export-message">
+          {{ exportMessage }}
+        </p>
       </aside>
     </div>
     <UiFileInput ref="fileInputRef" :accept="fileInputAccept" @change="handleFileSelected" />

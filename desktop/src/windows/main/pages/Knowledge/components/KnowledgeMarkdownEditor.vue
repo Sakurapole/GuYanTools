@@ -206,8 +206,11 @@ function markdownFoldHoverExtension() {
         const targetAtRow = document
           .elementsFromPoint(gutterX, event.clientY)
           .find((element) => element.closest('.cm-foldGutter .cm-gutterElement'));
-        const gutterElement = targetAtRow?.closest<HTMLElement>('.cm-foldGutter .cm-gutterElement') ?? null;
-        this.setHoveredGutterElement(gutterElement?.querySelector('.cm-md-fold-marker') ? gutterElement : null);
+        const gutterElement =
+          targetAtRow?.closest<HTMLElement>('.cm-foldGutter .cm-gutterElement') ?? null;
+        this.setHoveredGutterElement(
+          gutterElement?.querySelector('.cm-md-fold-marker') ? gutterElement : null
+        );
       };
 
       private readonly clearHoveredGutterElement = () => {
@@ -220,7 +223,7 @@ function markdownFoldHoverExtension() {
         this.hoveredGutterElement = next;
         this.hoveredGutterElement?.classList.add(markdownFoldHoverClass);
       }
-    },
+    }
   );
 }
 
@@ -453,7 +456,9 @@ function openFrontmatterPanel() {
 function applyFrontmatter() {
   const raw = frontmatterDraft.value.trim();
   const current = frontmatter.value;
-  const next = raw ? `---\n${raw}\n---\n${current.body.replace(/^\n+/, '')}` : current.body.replace(/^\n+/, '');
+  const next = raw
+    ? `---\n${raw}\n---\n${current.body.replace(/^\n+/, '')}`
+    : current.body.replace(/^\n+/, '');
   replaceDocumentText(next);
   frontmatterOpen.value = false;
 }
@@ -469,7 +474,9 @@ function buildMarkdownTable(rows: number, columns: number) {
   const safeColumns = Math.max(1, Math.min(12, Math.round(columns)));
   const headers = Array.from({ length: safeColumns }, (_item, index) => `列 ${index + 1}`);
   const divider = Array.from({ length: safeColumns }, () => '---');
-  const body = Array.from({ length: safeRows }, () => Array.from({ length: safeColumns }, () => ' ').join(' | '));
+  const body = Array.from({ length: safeRows }, () =>
+    Array.from({ length: safeColumns }, () => ' ').join(' | ')
+  );
   return [
     `| ${headers.join(' | ')} |`,
     `| ${divider.join(' | ')} |`,
@@ -503,7 +510,10 @@ function insertWikiLink(title: string) {
 }
 
 function filenameBase() {
-  const title = headings.value[0]?.title || frontmatterProperties.value.find((item) => item.key === 'title')?.value || 'knowledge-page';
+  const title =
+    headings.value[0]?.title ||
+    frontmatterProperties.value.find((item) => item.key === 'title')?.value ||
+    'knowledge-page';
   return title.replace(/[<>:"/\\|?*\u0000-\u001f]/g, '_').slice(0, 80) || 'knowledge-page';
 }
 
@@ -544,14 +554,16 @@ function exportHtml() {
 function printPreviewAsPdf() {
   const printWindow = window.open('', '_blank', 'width=980,height=720');
   if (!printWindow) return;
-  printWindow.document.write([
-    '<!doctype html><html lang="zh-CN"><head><meta charset="utf-8" />',
-    `<title>${escapeHtml(filenameBase())}</title>`,
-    '<style>body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;line-height:1.7;margin:32px;color:#111827}pre{overflow:auto;padding:14px;border:1px solid #d1d5db;border-radius:8px;background:#f8fafc}table{width:100%;border-collapse:collapse}td,th{border:1px solid #d1d5db;padding:8px 10px}blockquote{border-left:3px solid #2563eb;padding-left:14px;color:#4b5563}.knowledge-md-callout{border:1px solid #bfdbfe;border-left:4px solid #2563eb;border-radius:8px;padding:10px 12px;background:#eff6ff}.knowledge-md-callout__title{font-weight:700;margin-bottom:6px}.knowledge-md-math,.knowledge-md-mermaid{border:1px solid #d1d5db;border-radius:8px;padding:10px;background:#f8fafc}.knowledge-md-mermaid{text-align:center}.knowledge-md-mermaid svg{display:block;max-width:100%;height:auto;margin:0 auto}.knowledge-md-mermaid pre{text-align:left}@media print{body{margin:0}}</style>',
-    '</head><body>',
-    previewHtml.value,
-    '</body></html>',
-  ].join(''));
+  printWindow.document.write(
+    [
+      '<!doctype html><html lang="zh-CN"><head><meta charset="utf-8" />',
+      `<title>${escapeHtml(filenameBase())}</title>`,
+      '<style>body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;line-height:1.7;margin:32px;color:#111827}pre{overflow:auto;padding:14px;border:1px solid #d1d5db;border-radius:8px;background:#f8fafc}table{width:100%;border-collapse:collapse}td,th{border:1px solid #d1d5db;padding:8px 10px}blockquote{border-left:3px solid #2563eb;padding-left:14px;color:#4b5563}.knowledge-md-callout{border:1px solid #bfdbfe;border-left:4px solid #2563eb;border-radius:8px;padding:10px 12px;background:#eff6ff}.knowledge-md-callout__title{font-weight:700;margin-bottom:6px}.knowledge-md-math,.knowledge-md-mermaid{border:1px solid #d1d5db;border-radius:8px;padding:10px;background:#f8fafc}.knowledge-md-mermaid{text-align:center}.knowledge-md-mermaid svg{display:block;max-width:100%;height:auto;margin:0 auto}.knowledge-md-mermaid pre{text-align:left}@media print{body{margin:0}}</style>',
+      '</head><body>',
+      previewHtml.value,
+      '</body></html>',
+    ].join('')
+  );
   printWindow.document.close();
   printWindow.focus();
   printWindow.setTimeout(() => printWindow.print(), 120);
@@ -613,7 +625,10 @@ function handlePreviewClick(event: MouseEvent) {
 function extractKnowledgeAssetId(href: string) {
   try {
     const url = new URL(href);
-    const parts = url.pathname.split('/').filter(Boolean).map((part) => decodeURIComponent(part));
+    const parts = url.pathname
+      .split('/')
+      .filter(Boolean)
+      .map((part) => decodeURIComponent(part));
     return parts[0] === 'id' ? parts[1] : '';
   } catch {
     return '';
@@ -667,7 +682,7 @@ function createEditor() {
             { key: 'Mod-b', run: () => replaceSelection('**', '**', '加粗文本') },
             { key: 'Mod-i', run: () => replaceSelection('*', '*', '斜体文本') },
             { key: 'Mod-k', run: insertLink },
-          ]),
+          ])
         ),
         EditorView.theme({
           '&': {
@@ -704,10 +719,11 @@ function createEditor() {
             minWidth: '24px',
             color: 'var(--ui-text-muted)',
           },
-          '.cm-lineNumbers .cm-gutterElement.cm-md-live-block-gutter, .cm-foldGutter .cm-gutterElement.cm-md-live-block-gutter': {
-            alignItems: 'flex-start',
-            paddingTop: '0',
-          },
+          '.cm-lineNumbers .cm-gutterElement.cm-md-live-block-gutter, .cm-foldGutter .cm-gutterElement.cm-md-live-block-gutter':
+            {
+              alignItems: 'flex-start',
+              paddingTop: '0',
+            },
           '.cm-md-fold-marker': {
             display: 'inline-flex',
             alignItems: 'center',
@@ -727,9 +743,10 @@ function createEditor() {
             height: '14px',
             flexShrink: '0',
           },
-          '.cm-foldGutter .cm-gutterElement:hover .cm-md-fold-marker, .cm-md-fold-gutterElement--hovered .cm-md-fold-marker': {
-            opacity: '1',
-          },
+          '.cm-foldGutter .cm-gutterElement:hover .cm-md-fold-marker, .cm-md-fold-gutterElement--hovered .cm-md-fold-marker':
+            {
+              opacity: '1',
+            },
           '.cm-md-fold-marker:hover': {
             color: 'var(--ui-text-primary)',
             backgroundColor: 'color-mix(in srgb, var(--ui-primary-color) 12%, transparent)',
@@ -738,7 +755,8 @@ function createEditor() {
             backgroundColor: 'color-mix(in srgb, var(--ui-primary-color) 10%, transparent)',
           },
           '.cm-selectionBackground, &.cm-focused .cm-selectionBackground': {
-            backgroundColor: 'var(--knowledge-selection-bg, color-mix(in srgb, var(--ui-primary-color) 30%, transparent))',
+            backgroundColor:
+              'var(--knowledge-selection-bg, color-mix(in srgb, var(--ui-primary-color) 30%, transparent))',
           },
           '&.cm-focused': {
             outline: 'none',
@@ -757,7 +775,7 @@ watch(
     view.dispatch({
       changes: { from: 0, to: view.state.doc.length, insert: value },
     });
-  },
+  }
 );
 
 watch(searchQuery, () => {
@@ -792,22 +810,50 @@ defineExpose({
   <div class="knowledge-markdown-editor" :class="editorClassNames">
     <header class="knowledge-markdown-editor__toolbar">
       <div class="knowledge-markdown-editor__segmented" aria-label="编辑器模式">
-        <UiIconButton size="sm" :active="mode === 'source'" :aria-pressed="mode === 'source'" title="Source mode" @click="mode = 'source'">
+        <UiIconButton
+          size="sm"
+          :active="mode === 'source'"
+          :aria-pressed="mode === 'source'"
+          title="Source mode"
+          @click="mode = 'source'"
+        >
           <IconRenderer icon="iconify:lucide:file-code-2" :size="15" />
         </UiIconButton>
-        <UiIconButton size="sm" :active="mode === 'livePreview'" :aria-pressed="mode === 'livePreview'" title="Live Preview" @click="mode = 'livePreview'">
+        <UiIconButton
+          size="sm"
+          :active="mode === 'livePreview'"
+          :aria-pressed="mode === 'livePreview'"
+          title="Live Preview"
+          @click="mode = 'livePreview'"
+        >
           <IconRenderer icon="iconify:lucide:eye" :size="15" />
         </UiIconButton>
-        <UiIconButton size="sm" :active="mode === 'split'" :aria-pressed="mode === 'split'" title="分屏" @click="mode = 'split'">
+        <UiIconButton
+          size="sm"
+          :active="mode === 'split'"
+          :aria-pressed="mode === 'split'"
+          title="分屏"
+          @click="mode = 'split'"
+        >
           <IconRenderer icon="iconify:lucide:columns-2" :size="15" />
         </UiIconButton>
-        <UiIconButton size="sm" :active="mode === 'reading'" :aria-pressed="mode === 'reading'" title="Reading view" @click="mode = 'reading'">
+        <UiIconButton
+          size="sm"
+          :active="mode === 'reading'"
+          :aria-pressed="mode === 'reading'"
+          title="Reading view"
+          @click="mode = 'reading'"
+        >
           <IconRenderer icon="iconify:lucide:book-open" :size="15" />
         </UiIconButton>
       </div>
 
       <div class="knowledge-markdown-editor__format" aria-label="格式工具">
-        <UiIconButton size="sm" title="加粗 Ctrl+B" @click="replaceSelection('**', '**', '加粗文本')">
+        <UiIconButton
+          size="sm"
+          title="加粗 Ctrl+B"
+          @click="replaceSelection('**', '**', '加粗文本')"
+        >
           <IconRenderer icon="iconify:lucide:bold" :size="15" />
         </UiIconButton>
         <UiIconButton size="sm" title="斜体 Ctrl+I" @click="replaceSelection('*', '*', '斜体文本')">
@@ -826,10 +872,19 @@ defineExpose({
           <IconRenderer icon="iconify:lucide:git-fork" :size="15" />
         </UiIconButton>
         <div class="knowledge-markdown-editor__table-tool">
-          <UiIconButton size="sm" :active="tableToolOpen" :aria-pressed="tableToolOpen" title="插入表格" @click="tableToolOpen = !tableToolOpen">
+          <UiIconButton
+            size="sm"
+            :active="tableToolOpen"
+            :aria-pressed="tableToolOpen"
+            title="插入表格"
+            @click="tableToolOpen = !tableToolOpen"
+          >
             <IconRenderer icon="iconify:lucide:table-2" :size="15" />
           </UiIconButton>
-          <div v-if="tableToolOpen" class="knowledge-markdown-editor__floating-panel knowledge-markdown-editor__floating-panel--table">
+          <div
+            v-if="tableToolOpen"
+            class="knowledge-markdown-editor__floating-panel knowledge-markdown-editor__floating-panel--table"
+          >
             <label>
               行
               <UiInput
@@ -838,7 +893,9 @@ defineExpose({
                 size="sm"
                 :min="1"
                 :max="20"
-                @update:model-value="value => tableRows = Math.max(1, Math.min(20, Number(value) || 1))"
+                @update:model-value="
+                  (value) => (tableRows = Math.max(1, Math.min(20, Number(value) || 1)))
+                "
               />
             </label>
             <label>
@@ -849,18 +906,31 @@ defineExpose({
                 size="sm"
                 :min="1"
                 :max="12"
-                @update:model-value="value => tableColumns = Math.max(1, Math.min(12, Number(value) || 1))"
+                @update:model-value="
+                  (value) => (tableColumns = Math.max(1, Math.min(12, Number(value) || 1)))
+                "
               />
             </label>
             <UiButton type="button" variant="primary" size="sm" @click="insertTable">插入</UiButton>
           </div>
         </div>
         <div class="knowledge-markdown-editor__wikilink">
-          <UiIconButton size="sm" :active="pageLinkOpen" :aria-pressed="pageLinkOpen" title="页面引用" @click="pageLinkOpen = !pageLinkOpen">
+          <UiIconButton
+            size="sm"
+            :active="pageLinkOpen"
+            :aria-pressed="pageLinkOpen"
+            title="页面引用"
+            @click="pageLinkOpen = !pageLinkOpen"
+          >
             <IconRenderer icon="iconify:lucide:brackets" :size="15" />
           </UiIconButton>
           <div v-if="pageLinkOpen" class="knowledge-markdown-editor__wikilink-menu">
-            <UiInput v-model="pageLinkQuery" type="search" size="sm" placeholder="搜索页面或输入新页面名" />
+            <UiInput
+              v-model="pageLinkQuery"
+              type="search"
+              size="sm"
+              placeholder="搜索页面或输入新页面名"
+            />
             <UiButton
               v-for="title in filteredPageSuggestions"
               :key="title"
@@ -885,43 +955,88 @@ defineExpose({
       </div>
 
       <div class="knowledge-markdown-editor__tools" aria-label="写作工具">
-        <UiIconButton size="sm" :active="focusMode" :aria-pressed="focusMode" title="Focus Mode" @click="focusMode = !focusMode">
+        <UiIconButton
+          size="sm"
+          :active="focusMode"
+          :aria-pressed="focusMode"
+          title="Focus Mode"
+          @click="focusMode = !focusMode"
+        >
           <IconRenderer icon="iconify:lucide:scan-line" :size="15" />
         </UiIconButton>
-        <UiIconButton size="sm" :active="typewriterMode" :aria-pressed="typewriterMode" title="Typewriter Mode" @click="typewriterMode = !typewriterMode">
+        <UiIconButton
+          size="sm"
+          :active="typewriterMode"
+          :aria-pressed="typewriterMode"
+          title="Typewriter Mode"
+          @click="typewriterMode = !typewriterMode"
+        >
           <IconRenderer icon="iconify:lucide:text-cursor-input" :size="15" />
         </UiIconButton>
-        <UiIconButton size="sm" :active="frontmatterOpen" :aria-pressed="frontmatterOpen" title="Frontmatter 属性" @click="openFrontmatterPanel">
+        <UiIconButton
+          size="sm"
+          :active="frontmatterOpen"
+          :aria-pressed="frontmatterOpen"
+          title="Frontmatter 属性"
+          @click="openFrontmatterPanel"
+        >
           <IconRenderer icon="iconify:lucide:list-checks" :size="15" />
         </UiIconButton>
-        <UiSelect
-          v-model="markdownTheme"
-          :options="markdownThemeOptions"
-          size="sm"
-        />
+        <UiSelect v-model="markdownTheme" :options="markdownThemeOptions" size="sm" />
         <div class="knowledge-markdown-editor__export">
-          <UiIconButton size="sm" :active="exportOpen" :aria-pressed="exportOpen" title="导出" @click="exportOpen = !exportOpen">
+          <UiIconButton
+            size="sm"
+            :active="exportOpen"
+            :aria-pressed="exportOpen"
+            title="导出"
+            @click="exportOpen = !exportOpen"
+          >
             <IconRenderer icon="iconify:lucide:download" :size="15" />
           </UiIconButton>
-          <div v-if="exportOpen" class="knowledge-markdown-editor__floating-panel knowledge-markdown-editor__floating-panel--export">
-            <UiButton type="button" variant="ghost" size="sm" @click="exportMarkdown">Markdown</UiButton>
+          <div
+            v-if="exportOpen"
+            class="knowledge-markdown-editor__floating-panel knowledge-markdown-editor__floating-panel--export"
+          >
+            <UiButton type="button" variant="ghost" size="sm" @click="exportMarkdown"
+              >Markdown</UiButton
+            >
             <UiButton type="button" variant="ghost" size="sm" @click="exportHtml">HTML</UiButton>
-            <UiButton type="button" variant="ghost" size="sm" @click="printPreviewAsPdf">打印/PDF</UiButton>
+            <UiButton type="button" variant="ghost" size="sm" @click="printPreviewAsPdf"
+              >打印/PDF</UiButton
+            >
           </div>
         </div>
       </div>
 
       <label class="knowledge-markdown-editor__search" aria-label="页面内搜索">
-        <UiInput v-model="searchQuery" class="knowledge-markdown-editor__search-input" type="search" size="sm" placeholder="搜索页面">
+        <UiInput
+          v-model="searchQuery"
+          class="knowledge-markdown-editor__search-input"
+          type="search"
+          size="sm"
+          placeholder="搜索页面"
+        >
           <template #prefix>
             <IconRenderer icon="iconify:lucide:search" :size="14" />
           </template>
         </UiInput>
-        <span>{{ searchMatches.length ? activeMatchIndex + 1 : 0 }}/{{ searchMatches.length }}</span>
-        <UiIconButton size="sm" title="上一个" :disabled="!searchMatches.length" @click.prevent="selectMatch(-1)">
+        <span
+          >{{ searchMatches.length ? activeMatchIndex + 1 : 0 }}/{{ searchMatches.length }}</span
+        >
+        <UiIconButton
+          size="sm"
+          title="上一个"
+          :disabled="!searchMatches.length"
+          @click.prevent="selectMatch(-1)"
+        >
           <IconRenderer icon="iconify:lucide:chevron-up" :size="14" />
         </UiIconButton>
-        <UiIconButton size="sm" title="下一个" :disabled="!searchMatches.length" @click.prevent="selectMatch(1)">
+        <UiIconButton
+          size="sm"
+          title="下一个"
+          :disabled="!searchMatches.length"
+          @click.prevent="selectMatch(1)"
+        >
           <IconRenderer icon="iconify:lucide:chevron-down" :size="14" />
         </UiIconButton>
       </label>
@@ -933,7 +1048,14 @@ defineExpose({
         <strong v-else>已保存</strong>
       </div>
 
-      <UiButton class="knowledge-markdown-editor__save" type="button" variant="primary" size="sm" :disabled="saving || !dirty" @click="emit('save')">
+      <UiButton
+        class="knowledge-markdown-editor__save"
+        type="button"
+        variant="primary"
+        size="sm"
+        :disabled="saving || !dirty"
+        @click="emit('save')"
+      >
         <template #prefix>
           <IconRenderer icon="iconify:lucide:save" :size="15" />
         </template>
@@ -947,19 +1069,41 @@ defineExpose({
         <span v-if="frontmatterProperties.length">{{ frontmatterProperties.length }} 个属性</span>
         <span v-else>当前页面还没有属性</span>
       </div>
-      <UiTextarea v-model="frontmatterDraft" spellcheck="false" placeholder="title:&#10;tags: []&#10;summary:" />
+      <UiTextarea
+        v-model="frontmatterDraft"
+        spellcheck="false"
+        placeholder="title:&#10;tags: []&#10;summary:"
+      />
       <div class="knowledge-markdown-editor__frontmatter-properties">
-        <span v-for="item in frontmatterProperties" :key="item.key">{{ item.key }}: {{ item.value }}</span>
+        <span v-for="item in frontmatterProperties" :key="item.key"
+          >{{ item.key }}: {{ item.value }}</span
+        >
       </div>
       <div class="knowledge-markdown-editor__frontmatter-actions">
-        <UiButton type="button" variant="primary" size="sm" @click="applyFrontmatter">应用</UiButton>
-        <UiButton type="button" variant="secondary" size="sm" @click="removeFrontmatter">移除</UiButton>
-        <UiButton type="button" variant="ghost" size="sm" @click="frontmatterOpen = false">关闭</UiButton>
+        <UiButton type="button" variant="primary" size="sm" @click="applyFrontmatter"
+          >应用</UiButton
+        >
+        <UiButton type="button" variant="secondary" size="sm" @click="removeFrontmatter"
+          >移除</UiButton
+        >
+        <UiButton type="button" variant="ghost" size="sm" @click="frontmatterOpen = false"
+          >关闭</UiButton
+        >
       </div>
     </section>
 
-    <div class="knowledge-markdown-editor__surface" :style="{ '--knowledge-selection-bg': props.selectionBackgroundColor || 'color-mix(in srgb, var(--ui-primary-color) 30%, transparent)' }">
-      <section v-show="mode !== 'reading'" class="knowledge-markdown-editor__pane knowledge-markdown-editor__pane--edit">
+    <div
+      class="knowledge-markdown-editor__surface"
+      :style="{
+        '--knowledge-selection-bg':
+          props.selectionBackgroundColor ||
+          'color-mix(in srgb, var(--ui-primary-color) 30%, transparent)',
+      }"
+    >
+      <section
+        v-show="mode !== 'reading'"
+        class="knowledge-markdown-editor__pane knowledge-markdown-editor__pane--edit"
+      >
         <div ref="editorHost" class="knowledge-markdown-editor__codemirror" />
       </section>
 
@@ -999,8 +1143,16 @@ defineExpose({
   --knowledge-markdown-editor-bg: transparent;
   --knowledge-markdown-preview-paper-bg: color-mix(in srgb, var(--ui-surface-base) 82%, white 18%);
   --knowledge-markdown-editor-paper-bg: color-mix(in srgb, var(--ui-surface-base) 92%, white 8%);
-  --knowledge-markdown-preview-focus-bg: color-mix(in srgb, var(--ui-surface-panel) 90%, var(--ui-primary-color) 10%);
-  --knowledge-markdown-editor-focus-bg: color-mix(in srgb, var(--ui-surface-base) 94%, var(--ui-primary-color) 6%);
+  --knowledge-markdown-preview-focus-bg: color-mix(
+    in srgb,
+    var(--ui-surface-panel) 90%,
+    var(--ui-primary-color) 10%
+  );
+  --knowledge-markdown-editor-focus-bg: color-mix(
+    in srgb,
+    var(--ui-surface-base) 94%,
+    var(--ui-primary-color) 6%
+  );
   display: grid;
   grid-template-rows: auto auto minmax(0, 1fr);
   height: 100%;
@@ -1352,7 +1504,9 @@ defineExpose({
   line-height: inherit;
   letter-spacing: 0;
   font-variant-ligatures: none;
-  font-feature-settings: "liga" 0, "calt" 0;
+  font-feature-settings:
+    'liga' 0,
+    'calt' 0;
 }
 
 .knowledge-markdown-editor :deep(.cm-md-live-heading-source *) {
@@ -1389,7 +1543,10 @@ defineExpose({
   border: 1px solid var(--ui-border-subtle);
   border-radius: 5px;
   color: var(--ui-text-primary);
-  background: var(--knowledge-md-inline-code-bg, color-mix(in srgb, var(--ui-surface-panel-muted) 86%, transparent));
+  background: var(
+    --knowledge-md-inline-code-bg,
+    color-mix(in srgb, var(--ui-surface-panel-muted) 86%, transparent)
+  );
   font-family: var(--font-mono, 'Cascadia Mono', Consolas, monospace);
 }
 
@@ -1454,7 +1611,10 @@ defineExpose({
   overflow: hidden;
   border: 1px solid var(--ui-border-subtle);
   border-radius: 8px;
-  background: var(--knowledge-md-block-bg, color-mix(in srgb, var(--ui-surface-panel) 24%, transparent));
+  background: var(
+    --knowledge-md-block-bg,
+    color-mix(in srgb, var(--ui-surface-panel) 24%, transparent)
+  );
 }
 
 .knowledge-markdown-editor :deep(.cm-md-live-block--selected) {
@@ -1469,7 +1629,10 @@ defineExpose({
   min-height: 30px;
   padding: 4px 8px;
   border-bottom: 1px solid var(--ui-border-subtle);
-  background: var(--knowledge-md-block-bg, color-mix(in srgb, var(--ui-surface-panel-muted) 18%, transparent));
+  background: var(
+    --knowledge-md-block-bg,
+    color-mix(in srgb, var(--ui-surface-panel-muted) 18%, transparent)
+  );
 }
 
 .knowledge-markdown-editor :deep(.cm-md-live-block__title) {
@@ -1508,7 +1671,10 @@ defineExpose({
   padding: 10px 12px 16px;
   resize: both;
   overflow: auto;
-  background: var(--knowledge-md-table-bg, color-mix(in srgb, var(--ui-surface-panel-muted) 34%, transparent));
+  background: var(
+    --knowledge-md-table-bg,
+    color-mix(in srgb, var(--ui-surface-panel-muted) 34%, transparent)
+  );
 }
 
 .knowledge-markdown-editor :deep(.cm-md-live-table) {
@@ -1525,7 +1691,10 @@ defineExpose({
   padding: 8px 10px;
   border: 1px solid var(--ui-border-subtle);
   color: var(--ui-text-primary);
-  background: var(--knowledge-md-table-bg, color-mix(in srgb, var(--ui-surface-panel) 34%, transparent));
+  background: var(
+    --knowledge-md-table-bg,
+    color-mix(in srgb, var(--ui-surface-panel) 34%, transparent)
+  );
   cursor: text;
   user-select: text;
   vertical-align: top;
@@ -1534,7 +1703,10 @@ defineExpose({
 }
 
 .knowledge-markdown-editor :deep(th.cm-md-live-table__cell) {
-  background: var(--knowledge-md-table-bg, color-mix(in srgb, var(--ui-primary-color) 10%, var(--ui-surface-panel-muted)));
+  background: var(
+    --knowledge-md-table-bg,
+    color-mix(in srgb, var(--ui-primary-color) 10%, var(--ui-surface-panel-muted))
+  );
   font-weight: 800;
 }
 
@@ -1560,7 +1732,10 @@ defineExpose({
 .knowledge-markdown-editor :deep(.cm-md-live-block--code_fence) {
   border: 0;
   border-radius: 6px;
-  background: var(--knowledge-md-code-bg, color-mix(in srgb, var(--ui-surface-panel-muted) 44%, transparent));
+  background: var(
+    --knowledge-md-code-bg,
+    color-mix(in srgb, var(--ui-surface-panel-muted) 44%, transparent)
+  );
 }
 
 .knowledge-markdown-editor :deep(.cm-md-live-block--mermaid) {
@@ -1605,7 +1780,10 @@ defineExpose({
   position: relative;
   min-height: 100%;
   border-radius: 6px;
-  background: var(--knowledge-md-code-bg, color-mix(in srgb, var(--ui-surface-panel-muted) 44%, transparent));
+  background: var(
+    --knowledge-md-code-bg,
+    color-mix(in srgb, var(--ui-surface-panel-muted) 44%, transparent)
+  );
   line-height: inherit;
 }
 
@@ -1691,7 +1869,10 @@ defineExpose({
 }
 
 .knowledge-markdown-editor :deep(.cm-md-live-source-block--code_fence) {
-  background: var(--knowledge-md-code-bg, color-mix(in srgb, var(--ui-surface-panel-muted) 44%, transparent));
+  background: var(
+    --knowledge-md-code-bg,
+    color-mix(in srgb, var(--ui-surface-panel-muted) 44%, transparent)
+  );
   box-shadow: none;
 }
 
@@ -1749,7 +1930,10 @@ defineExpose({
 .knowledge-markdown-editor :deep(.cm-md-live-callout__body) {
   padding: 12px 16px;
   color: var(--ui-text-secondary);
-  background: var(--knowledge-md-callout-bg, color-mix(in srgb, var(--ui-primary-color) 5%, transparent));
+  background: var(
+    --knowledge-md-callout-bg,
+    color-mix(in srgb, var(--ui-primary-color) 5%, transparent)
+  );
 }
 
 .knowledge-markdown-editor :deep(.cm-md-live-callout--danger) {
@@ -1780,7 +1964,10 @@ defineExpose({
   overflow-x: auto;
   border: 1px solid var(--ui-border-subtle);
   border-radius: 8px;
-  background: var(--knowledge-md-diagram-bg, color-mix(in srgb, var(--ui-surface-panel-muted) 24%, transparent));
+  background: var(
+    --knowledge-md-diagram-bg,
+    color-mix(in srgb, var(--ui-surface-panel-muted) 24%, transparent)
+  );
 }
 
 .knowledge-markdown-editor :deep(.knowledge-md-mermaid) {
@@ -1854,7 +2041,10 @@ defineExpose({
 }
 
 .markdown-body :deep(::selection) {
-  background: var(--knowledge-selection-bg, color-mix(in srgb, var(--ui-primary-color) 30%, transparent));
+  background: var(
+    --knowledge-selection-bg,
+    color-mix(in srgb, var(--ui-primary-color) 30%, transparent)
+  );
 }
 
 .markdown-body :deep(h1),
@@ -1880,7 +2070,10 @@ defineExpose({
 .markdown-body :deep(code) {
   padding: 0.12em 0.32em;
   border-radius: 4px;
-  background: var(--knowledge-md-inline-code-bg, color-mix(in srgb, var(--ui-surface-panel-muted) 82%, transparent));
+  background: var(
+    --knowledge-md-inline-code-bg,
+    color-mix(in srgb, var(--ui-surface-panel-muted) 82%, transparent)
+  );
   font-family: var(--font-mono, 'Cascadia Mono', Consolas, monospace);
 }
 
@@ -1893,7 +2086,10 @@ defineExpose({
   padding: 10px 12px;
   border: 1px solid var(--ui-border-subtle);
   border-radius: 7px;
-  background: var(--knowledge-md-code-bg, color-mix(in srgb, var(--ui-surface-panel-muted) 44%, transparent));
+  background: var(
+    --knowledge-md-code-bg,
+    color-mix(in srgb, var(--ui-surface-panel-muted) 44%, transparent)
+  );
   line-height: 1.55;
 }
 
@@ -1908,7 +2104,10 @@ defineExpose({
   border-left: 3px solid color-mix(in srgb, var(--ui-text-muted) 30%, transparent);
   border-radius: 7px;
   color: var(--ui-text-muted);
-  background: var(--knowledge-md-quote-bg, var(--knowledge-md-block-bg, color-mix(in srgb, var(--ui-surface-panel-muted) 72%, transparent)));
+  background: var(
+    --knowledge-md-quote-bg,
+    var(--knowledge-md-block-bg, color-mix(in srgb, var(--ui-surface-panel-muted) 72%, transparent))
+  );
 }
 
 .markdown-body :deep(.knowledge-md-callout) {
@@ -1918,7 +2117,10 @@ defineExpose({
   border-left: 3px solid color-mix(in srgb, var(--ui-text-muted) 30%, transparent);
   border-radius: 7px;
   color: var(--ui-text-primary);
-  background: var(--knowledge-md-callout-bg, var(--knowledge-md-block-bg, color-mix(in srgb, var(--ui-surface-panel-muted) 72%, transparent)));
+  background: var(
+    --knowledge-md-callout-bg,
+    var(--knowledge-md-block-bg, color-mix(in srgb, var(--ui-surface-panel-muted) 72%, transparent))
+  );
 }
 
 .markdown-body :deep(.knowledge-md-callout__title) {
@@ -1933,7 +2135,10 @@ defineExpose({
   border: 1px solid var(--ui-border-subtle);
   border-radius: 7px;
   color: var(--ui-text-primary);
-  background: var(--knowledge-md-diagram-bg, color-mix(in srgb, var(--ui-surface-panel-muted) 24%, transparent));
+  background: var(
+    --knowledge-md-diagram-bg,
+    color-mix(in srgb, var(--ui-surface-panel-muted) 24%, transparent)
+  );
   font-family: var(--font-mono, 'Cascadia Mono', Consolas, monospace);
 }
 
@@ -1960,7 +2165,10 @@ defineExpose({
   padding: 6px 8px;
   border: 1px solid var(--ui-border-subtle);
   border-radius: 7px;
-  background: var(--knowledge-md-diagram-bg, color-mix(in srgb, var(--ui-surface-panel-muted) 24%, transparent));
+  background: var(
+    --knowledge-md-diagram-bg,
+    color-mix(in srgb, var(--ui-surface-panel-muted) 24%, transparent)
+  );
   text-align: center;
 }
 

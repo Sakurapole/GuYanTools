@@ -3,7 +3,9 @@ import type { KnowledgeCanvasViewportV2 } from '@/windows/main/utils/knowledge_c
 
 export function useCanvasViewport(initial: KnowledgeCanvasViewportV2 = { x: 0, y: 0, zoom: 0.85 }) {
   const viewport = ref<KnowledgeCanvasViewportV2>({ ...initial });
-  const transform = computed(() => `translate(${viewport.value.x} ${viewport.value.y}) scale(${viewport.value.zoom})`);
+  const transform = computed(
+    () => `translate(${viewport.value.x} ${viewport.value.y}) scale(${viewport.value.zoom})`
+  );
 
   function setViewport(next: KnowledgeCanvasViewportV2) {
     viewport.value = {
@@ -47,7 +49,15 @@ export function useCanvasViewport(initial: KnowledgeCanvasViewportV2 = { x: 0, y
     return clientToCanvas(rect, rect.left + rect.width / 2, rect.top + rect.height / 2);
   }
 
-  return { viewport, transform, setViewport, zoomAt, panBy, clientToCanvas, viewportCenterToCanvas };
+  return {
+    viewport,
+    transform,
+    setViewport,
+    zoomAt,
+    panBy,
+    clientToCanvas,
+    viewportCenterToCanvas,
+  };
 }
 
 function clamp(value: number, min: number, max: number) {

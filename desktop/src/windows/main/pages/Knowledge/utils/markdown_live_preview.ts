@@ -3,37 +3,31 @@ type MarkdownLivePreviewInlineTokenBase = {
   syntaxTo?: number;
 };
 
-export type MarkdownLivePreviewInlineToken = MarkdownLivePreviewInlineTokenBase & (
-  | { kind: 'heading-marker'; from: number; to: number; level: number }
-  | { kind: 'task-marker'; from: number; to: number; checked: boolean }
-  | { kind: 'inline-code-marker'; from: number; to: number }
-  | { kind: 'inline-code'; from: number; to: number }
-  | { kind: 'strong-emphasis-marker'; from: number; to: number }
-  | { kind: 'strong-emphasis'; from: number; to: number }
-  | { kind: 'strong-marker'; from: number; to: number }
-  | { kind: 'strong'; from: number; to: number }
-  | { kind: 'emphasis-marker'; from: number; to: number }
-  | { kind: 'emphasis'; from: number; to: number }
-  | { kind: 'strikethrough-marker'; from: number; to: number }
-  | { kind: 'strikethrough'; from: number; to: number }
-  | { kind: 'highlight-marker'; from: number; to: number }
-  | { kind: 'highlight'; from: number; to: number }
-  | { kind: 'formula-inline'; from: number; to: number; body: string }
-  | { kind: 'link'; from: number; to: number; label: string; href: string }
-  | { kind: 'wiki-link'; from: number; to: number; target: string; label: string }
-  | { kind: 'asset-embed'; from: number; to: number; target: string }
-  | { kind: 'comment'; from: number; to: number }
-);
+export type MarkdownLivePreviewInlineToken = MarkdownLivePreviewInlineTokenBase &
+  (
+    | { kind: 'heading-marker'; from: number; to: number; level: number }
+    | { kind: 'task-marker'; from: number; to: number; checked: boolean }
+    | { kind: 'inline-code-marker'; from: number; to: number }
+    | { kind: 'inline-code'; from: number; to: number }
+    | { kind: 'strong-emphasis-marker'; from: number; to: number }
+    | { kind: 'strong-emphasis'; from: number; to: number }
+    | { kind: 'strong-marker'; from: number; to: number }
+    | { kind: 'strong'; from: number; to: number }
+    | { kind: 'emphasis-marker'; from: number; to: number }
+    | { kind: 'emphasis'; from: number; to: number }
+    | { kind: 'strikethrough-marker'; from: number; to: number }
+    | { kind: 'strikethrough'; from: number; to: number }
+    | { kind: 'highlight-marker'; from: number; to: number }
+    | { kind: 'highlight'; from: number; to: number }
+    | { kind: 'formula-inline'; from: number; to: number; body: string }
+    | { kind: 'link'; from: number; to: number; label: string; href: string }
+    | { kind: 'wiki-link'; from: number; to: number; target: string; label: string }
+    | { kind: 'asset-embed'; from: number; to: number; target: string }
+    | { kind: 'comment'; from: number; to: number }
+  );
 
 export type MarkdownLivePreviewBlockKind =
-  | 'frontmatter'
-  | 'callout'
-  | 'table'
-  | 'math'
-  | 'mermaid'
-  | 'code_fence'
-  | 'blockquote'
-  | 'list';
+  'frontmatter' | 'callout' | 'table' | 'math' | 'mermaid' | 'code_fence' | 'blockquote' | 'list';
 
 export type MarkdownLivePreviewRange = { from: number; to: number };
 
@@ -114,27 +108,48 @@ function pushDelimitedToken(
   kind: 'inline-code' | 'strong-emphasis' | 'strong' | 'emphasis' | 'strikethrough' | 'highlight',
   start: number,
   delimiterLength: number,
-  fullLength: number,
+  fullLength: number
 ) {
   const contentStart = start + delimiterLength;
   const contentEnd = start + fullLength - delimiterLength;
   if (contentStart >= contentEnd || overlapsRange(start, start + fullLength, occupied)) return;
 
   pushTokenRange(occupied, start, start + fullLength);
-  const markerKind = `${kind}-marker` as Extract<MarkdownLivePreviewInlineToken['kind'], `${string}-marker`>;
+  const markerKind = `${kind}-marker` as Extract<
+    MarkdownLivePreviewInlineToken['kind'],
+    `${string}-marker`
+  >;
   const syntaxFrom = start;
   const syntaxTo = start + fullLength;
   tokens.push(
-    { kind: markerKind, from: start, to: contentStart, syntaxFrom, syntaxTo } as MarkdownLivePreviewInlineToken,
-    { kind, from: contentStart, to: contentEnd, syntaxFrom, syntaxTo } as MarkdownLivePreviewInlineToken,
-    { kind: markerKind, from: contentEnd, to: start + fullLength, syntaxFrom, syntaxTo } as MarkdownLivePreviewInlineToken,
+    {
+      kind: markerKind,
+      from: start,
+      to: contentStart,
+      syntaxFrom,
+      syntaxTo,
+    } as MarkdownLivePreviewInlineToken,
+    {
+      kind,
+      from: contentStart,
+      to: contentEnd,
+      syntaxFrom,
+      syntaxTo,
+    } as MarkdownLivePreviewInlineToken,
+    {
+      kind: markerKind,
+      from: contentEnd,
+      to: start + fullLength,
+      syntaxFrom,
+      syntaxTo,
+    } as MarkdownLivePreviewInlineToken
   );
 }
 
 function collectDelimitedTokens(
   text: string,
   tokens: MarkdownLivePreviewInlineToken[],
-  occupied: MarkdownLivePreviewRange[],
+  occupied: MarkdownLivePreviewRange[]
 ) {
   const patterns: Array<{
     kind: 'inline-code' | 'strong-emphasis' | 'strong' | 'emphasis' | 'strikethrough' | 'highlight';
@@ -149,8 +164,18 @@ function collectDelimitedTokens(
     { kind: 'strong', pattern: /__([^_\n]+)__/g, delimiterLength: 2 },
     { kind: 'strikethrough', pattern: /~~([^~\n]+)~~/g, delimiterLength: 2 },
     { kind: 'highlight', pattern: /==([^=\n]+)==/g, delimiterLength: 2 },
-    { kind: 'emphasis', pattern: /(^|[^*])\*([^*\n]+)\*(?!\*)/g, delimiterLength: 1, prefixGroup: true },
-    { kind: 'emphasis', pattern: /(^|[^\w_])_([^_\n]+)_(?![\w_])/g, delimiterLength: 1, prefixGroup: true },
+    {
+      kind: 'emphasis',
+      pattern: /(^|[^*])\*([^*\n]+)\*(?!\*)/g,
+      delimiterLength: 1,
+      prefixGroup: true,
+    },
+    {
+      kind: 'emphasis',
+      pattern: /(^|[^\w_])_([^_\n]+)_(?![\w_])/g,
+      delimiterLength: 1,
+      prefixGroup: true,
+    },
   ];
 
   for (const item of patterns) {
@@ -167,7 +192,7 @@ function collectDelimitedTokens(
 function collectFormulaTokens(
   text: string,
   tokens: MarkdownLivePreviewInlineToken[],
-  occupied: MarkdownLivePreviewRange[],
+  occupied: MarkdownLivePreviewRange[]
 ) {
   const formulaPattern = /(^|[\s([>])\$([^$\n]+?)\$(?=[$\s,.;:!?)]|$)/g;
   for (const match of text.matchAll(formulaPattern)) {
@@ -186,7 +211,7 @@ function collectFormulaTokens(
 function collectLinkTokens(
   text: string,
   tokens: MarkdownLivePreviewInlineToken[],
-  occupied: MarkdownLivePreviewRange[],
+  occupied: MarkdownLivePreviewRange[]
 ) {
   const assetPattern = /!\[\[([^\]\n]+)\]\]/g;
   for (const match of text.matchAll(assetPattern)) {
@@ -222,7 +247,7 @@ function collectLinkTokens(
 function collectCommentTokens(
   text: string,
   tokens: MarkdownLivePreviewInlineToken[],
-  occupied: MarkdownLivePreviewRange[],
+  occupied: MarkdownLivePreviewRange[]
 ) {
   const commentPattern = /%%([^%\n]|%(?!%))*%%/g;
   for (const match of text.matchAll(commentPattern)) {
@@ -237,7 +262,7 @@ function collectCommentTokens(
 function normalizeMarkdownCalloutType(type: string): MarkdownCalloutType {
   const normalized = type.trim().toLowerCase();
   return supportedCalloutTypes.includes(normalized as MarkdownCalloutType)
-    ? normalized as MarkdownCalloutType
+    ? (normalized as MarkdownCalloutType)
     : 'note';
 }
 
@@ -247,7 +272,8 @@ export function parseMarkdownCalloutSource(source: string): ParsedMarkdownCallou
   const match = /^ {0,3}>\s*\\?\[!([A-Za-z]+)\]\s*(.*?)\s*$/.exec(firstLine);
   if (!match) return null;
 
-  const body = lines.slice(1)
+  const body = lines
+    .slice(1)
     .map((line) => line.replace(/^ {0,3}>\s?/, ''))
     .join('\n')
     .trim();
@@ -264,20 +290,24 @@ export function setMarkdownCalloutType(source: string, type: MarkdownCalloutType
   const lines = source.replace(/\r\n/g, '\n').split('\n');
   const firstLine = lines[0] ?? '';
   const nextType = type.toUpperCase();
-  const nextFirstLine = firstLine.replace(
-    /^( {0,3}>\s*)\\?\[![A-Za-z]+\]/,
-    `$1[!${nextType}]`,
-  );
+  const nextFirstLine = firstLine.replace(/^( {0,3}>\s*)\\?\[![A-Za-z]+\]/, `$1[!${nextType}]`);
   return [nextFirstLine, ...lines.slice(1)].join('\n');
 }
 
-export function collectMarkdownLivePreviewInlineTokens(text: string): MarkdownLivePreviewInlineToken[] {
+export function collectMarkdownLivePreviewInlineTokens(
+  text: string
+): MarkdownLivePreviewInlineToken[] {
   const tokens: MarkdownLivePreviewInlineToken[] = [];
   const occupied: MarkdownLivePreviewRange[] = [];
 
   const heading = headingPattern.exec(text);
   if (heading) {
-    tokens.push({ kind: 'heading-marker', from: 0, to: heading[0].length, level: heading[1].length });
+    tokens.push({
+      kind: 'heading-marker',
+      from: 0,
+      to: heading[0].length,
+      level: heading[1].length,
+    });
     pushTokenRange(occupied, 0, heading[0].length);
   }
 
@@ -299,27 +329,29 @@ export function collectMarkdownLivePreviewInlineTokens(text: string): MarkdownLi
 
 export function isMarkdownLivePreviewRangeActive(
   range: MarkdownLivePreviewRange,
-  activeRanges: MarkdownLivePreviewRange[],
+  activeRanges: MarkdownLivePreviewRange[]
 ) {
-  return activeRanges.some((activeRange) => (
+  return activeRanges.some((activeRange) =>
     activeRange.from === activeRange.to
       ? range.from <= activeRange.from && activeRange.from <= range.to
       : range.from < activeRange.to && range.to > activeRange.from
-  ));
+  );
 }
 
 export function isMarkdownLivePreviewLineActive(
   line: MarkdownLivePreviewRange,
-  activeRanges: MarkdownLivePreviewRange[],
+  activeRanges: MarkdownLivePreviewRange[]
 ) {
-  return activeRanges.some((activeRange) => (
+  return activeRanges.some((activeRange) =>
     activeRange.from === activeRange.to
       ? line.from <= activeRange.from && activeRange.from <= line.to
       : line.from < activeRange.to && line.to > activeRange.from
-  ));
+  );
 }
 
-export function collectMarkdownLivePreviewBlockTokens(source: string): MarkdownLivePreviewBlockToken[] {
+export function collectMarkdownLivePreviewBlockTokens(
+  source: string
+): MarkdownLivePreviewBlockToken[] {
   const lines = getLineEntries(source);
   const tokens: MarkdownLivePreviewBlockToken[] = [];
   let index = 0;
@@ -345,7 +377,11 @@ export function collectMarkdownLivePreviewBlockTokens(source: string): MarkdownL
       const kind = language.toLowerCase() === 'mermaid' ? 'mermaid' : 'code_fence';
       const token = createBlockToken(kind, lines, index, endIndex);
       token.language = language;
-      token.body = lines.slice(index + 1, endIndex).map((entry) => entry.text).join('\n').trim();
+      token.body = lines
+        .slice(index + 1, endIndex)
+        .map((entry) => entry.text)
+        .join('\n')
+        .trim();
       tokens.push(token);
       index = endIndex + 1;
       continue;
@@ -354,14 +390,20 @@ export function collectMarkdownLivePreviewBlockTokens(source: string): MarkdownL
     if (/^ {0,3}\$\$\s*$/.test(line)) {
       const endIndex = findMathBlockEnd(lines, index + 1);
       const token = createBlockToken('math', lines, index, endIndex);
-      token.body = lines.slice(index + 1, endIndex).map((entry) => entry.text).join('\n').trim();
+      token.body = lines
+        .slice(index + 1, endIndex)
+        .map((entry) => entry.text)
+        .join('\n')
+        .trim();
       tokens.push(token);
       index = endIndex + 1;
       continue;
     }
 
     if (calloutPattern.test(line)) {
-      const endIndex = findConsecutiveEnd(lines, index + 1, (entry) => blockquotePattern.test(entry.text));
+      const endIndex = findConsecutiveEnd(lines, index + 1, (entry) =>
+        blockquotePattern.test(entry.text)
+      );
       tokens.push(createBlockToken('callout', lines, index, endIndex));
       index = endIndex + 1;
       continue;
@@ -375,8 +417,11 @@ export function collectMarkdownLivePreviewBlockTokens(source: string): MarkdownL
     }
 
     if (listPattern.test(line)) {
-      const endIndex = findConsecutiveEnd(lines, index + 1, (entry) =>
-        listPattern.test(entry.text) || /^ {2,}\S/.test(entry.text) || entry.text.trim() === '',
+      const endIndex = findConsecutiveEnd(
+        lines,
+        index + 1,
+        (entry) =>
+          listPattern.test(entry.text) || /^ {2,}\S/.test(entry.text) || entry.text.trim() === ''
       );
       tokens.push(createBlockToken('list', lines, index, endIndex));
       index = endIndex + 1;
@@ -384,7 +429,9 @@ export function collectMarkdownLivePreviewBlockTokens(source: string): MarkdownL
     }
 
     if (blockquotePattern.test(line)) {
-      const endIndex = findConsecutiveEnd(lines, index + 1, (entry) => blockquotePattern.test(entry.text));
+      const endIndex = findConsecutiveEnd(lines, index + 1, (entry) =>
+        blockquotePattern.test(entry.text)
+      );
       tokens.push(createBlockToken('blockquote', lines, index, endIndex));
       index = endIndex + 1;
       continue;
@@ -400,19 +447,23 @@ export function insertMarkdownTableRow(source: string, rowIndex?: number) {
   const table = parseMarkdownTable(source);
   const width = Math.max(...table.rows.map((row) => row.length), table.alignments.length, 1);
   const nextRows = table.rows.map((row) => normalizeRow(row, width));
-  const insertAt = rowIndex === undefined
-    ? nextRows.length
-    : Math.max(1, Math.min(nextRows.length, rowIndex));
-  nextRows.splice(insertAt, 0, Array.from({ length: width }, () => ''));
-  return serializeMarkdownTable({ rows: nextRows, alignments: normalizeAlignments(table.alignments, width) });
+  const insertAt =
+    rowIndex === undefined ? nextRows.length : Math.max(1, Math.min(nextRows.length, rowIndex));
+  nextRows.splice(
+    insertAt,
+    0,
+    Array.from({ length: width }, () => '')
+  );
+  return serializeMarkdownTable({
+    rows: nextRows,
+    alignments: normalizeAlignments(table.alignments, width),
+  });
 }
 
 export function insertMarkdownTableColumn(source: string, columnIndex?: number) {
   const table = parseMarkdownTable(source);
   const width = Math.max(...table.rows.map((row) => row.length), table.alignments.length, 1);
-  const insertAt = columnIndex === undefined
-    ? width
-    : Math.max(0, Math.min(width, columnIndex));
+  const insertAt = columnIndex === undefined ? width : Math.max(0, Math.min(width, columnIndex));
   const nextRows = table.rows.map((row) => {
     const nextRow = normalizeRow(row, width);
     nextRow.splice(insertAt, 0, '');
@@ -426,10 +477,14 @@ export function insertMarkdownTableColumn(source: string, columnIndex?: number) 
 export function setMarkdownTableAlignment(
   source: string,
   columnIndex: number,
-  alignment: MarkdownTableAlignment,
+  alignment: MarkdownTableAlignment
 ) {
   const table = parseMarkdownTable(source);
-  const width = Math.max(...table.rows.map((row) => row.length), table.alignments.length, columnIndex + 1);
+  const width = Math.max(
+    ...table.rows.map((row) => row.length),
+    table.alignments.length,
+    columnIndex + 1
+  );
   const rows = table.rows.map((row) => normalizeRow(row, width));
   const alignments = normalizeAlignments(table.alignments, width);
   alignments[columnIndex] = alignment;
@@ -440,12 +495,19 @@ export function updateMarkdownTableCell(
   source: string,
   rowIndex: number,
   columnIndex: number,
-  value: string,
+  value: string
 ) {
   const table = parseMarkdownTable(source);
-  const width = Math.max(...table.rows.map((row) => row.length), table.alignments.length, columnIndex + 1, 1);
+  const width = Math.max(
+    ...table.rows.map((row) => row.length),
+    table.alignments.length,
+    columnIndex + 1,
+    1
+  );
   const height = Math.max(table.rows.length, rowIndex + 1, 1);
-  const rows = Array.from({ length: height }, (_item, index) => normalizeRow(table.rows[index] ?? [], width));
+  const rows = Array.from({ length: height }, (_item, index) =>
+    normalizeRow(table.rows[index] ?? [], width)
+  );
   rows[rowIndex][columnIndex] = escapeMarkdownTableCell(value);
   return serializeMarkdownTable({ rows, alignments: normalizeAlignments(table.alignments, width) });
 }
@@ -476,7 +538,7 @@ function createBlockToken(
   kind: MarkdownLivePreviewBlockKind,
   lines: LineEntry[],
   startIndex: number,
-  endIndex: number,
+  endIndex: number
 ): MarkdownLivePreviewBlockToken {
   return {
     kind,
@@ -484,7 +546,10 @@ function createBlockToken(
     to: lines[endIndex].endOffset,
     startLine: startIndex + 1,
     endLine: endIndex + 1,
-    source: lines.slice(startIndex, endIndex + 1).map((entry) => entry.text).join('\n'),
+    source: lines
+      .slice(startIndex, endIndex + 1)
+      .map((entry) => entry.text)
+      .join('\n'),
   };
 }
 
@@ -495,7 +560,12 @@ function findFrontmatterEnd(lines: LineEntry[]) {
   return -1;
 }
 
-function findClosingFence(lines: LineEntry[], startIndex: number, marker: '`' | '~', length: number) {
+function findClosingFence(
+  lines: LineEntry[],
+  startIndex: number,
+  marker: '`' | '~',
+  length: number
+) {
   const closingPattern = new RegExp(`^ {0,3}\\${marker}{${length},}\\s*$`);
   for (let index = startIndex; index < lines.length; index += 1) {
     if (closingPattern.test(lines[index].text)) return index;
@@ -513,7 +583,7 @@ function findMathBlockEnd(lines: LineEntry[], startIndex: number) {
 function findConsecutiveEnd(
   lines: LineEntry[],
   startIndex: number,
-  predicate: (entry: LineEntry) => boolean,
+  predicate: (entry: LineEntry) => boolean
 ) {
   let endIndex = startIndex - 1;
   for (let index = startIndex; index < lines.length; index += 1) {
@@ -524,7 +594,11 @@ function findConsecutiveEnd(
 }
 
 function isTableStart(lines: LineEntry[], index: number) {
-  return Boolean(lines[index + 1]) && isTableRow(lines[index].text) && tableDividerPattern.test(lines[index + 1].text);
+  return (
+    Boolean(lines[index + 1]) &&
+    isTableRow(lines[index].text) &&
+    tableDividerPattern.test(lines[index + 1].text)
+  );
 }
 
 function isTableRow(line: string) {
@@ -535,7 +609,13 @@ function findTableEnd(lines: LineEntry[], startIndex: number) {
   let endIndex = startIndex - 1;
   for (let index = startIndex; index < lines.length; index += 1) {
     const line = lines[index].text;
-    if (!isTableRow(line) || listPattern.test(line) || blockquotePattern.test(line) || fencePattern.test(line)) break;
+    if (
+      !isTableRow(line) ||
+      listPattern.test(line) ||
+      blockquotePattern.test(line) ||
+      fencePattern.test(line)
+    )
+      break;
     endIndex = index;
   }
   return endIndex;
@@ -554,7 +634,10 @@ function hasUnescapedPipe(line: string) {
 }
 
 export function parseMarkdownTable(source: string): ParsedMarkdownTable {
-  const lines = source.trim().split(/\r?\n/).filter((line) => line.trim());
+  const lines = source
+    .trim()
+    .split(/\r?\n/)
+    .filter((line) => line.trim());
   if (lines.length < 2) {
     return { rows: [['']], alignments: ['none'] };
   }

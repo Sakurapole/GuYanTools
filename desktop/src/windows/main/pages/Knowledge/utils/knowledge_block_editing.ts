@@ -1,4 +1,8 @@
-import type { KnowledgeInlineContent, KnowledgeInlineMark, KnowledgeInlineMarkType } from '@/windows/main/utils/knowledge_blocks_v2';
+import type {
+  KnowledgeInlineContent,
+  KnowledgeInlineMark,
+  KnowledgeInlineMarkType,
+} from '@/windows/main/utils/knowledge_blocks_v2';
 
 const markOrder: KnowledgeInlineMarkType[] = ['bold', 'italic', 'strike', 'code'];
 
@@ -6,16 +10,18 @@ export function inlineContentToEditableHtml(content: KnowledgeInlineContent[]): 
   const normalized = normalizeInlineTextNodes(content);
   if (!normalized.length) return '';
 
-  return normalized.map((item) => {
-    let html = escapeHtml(item.text).replace(/\r\n|\r|\n/g, '<br>');
-    const marks = normalizeMarkTypes(item.marks);
-    for (const mark of [...markOrder].reverse()) {
-      if (marks.includes(mark)) {
-        html = wrapMarkHtml(mark, html);
+  return normalized
+    .map((item) => {
+      let html = escapeHtml(item.text).replace(/\r\n|\r|\n/g, '<br>');
+      const marks = normalizeMarkTypes(item.marks);
+      for (const mark of [...markOrder].reverse()) {
+        if (marks.includes(mark)) {
+          html = wrapMarkHtml(mark, html);
+        }
       }
-    }
-    return html;
-  }).join('');
+      return html;
+    })
+    .join('');
 }
 
 export function editableHtmlToInlineContent(html: string): KnowledgeInlineContent[] {
@@ -59,7 +65,9 @@ export function inlineContentToPlainText(content: KnowledgeInlineContent[]): str
   return content.map((item) => item.text).join('');
 }
 
-export function normalizeInlineTextNodes(content: KnowledgeInlineContent[]): KnowledgeInlineContent[] {
+export function normalizeInlineTextNodes(
+  content: KnowledgeInlineContent[]
+): KnowledgeInlineContent[] {
   const normalized: KnowledgeInlineContent[] = [];
 
   for (const item of content) {
@@ -80,7 +88,11 @@ export function normalizeInlineTextNodes(content: KnowledgeInlineContent[]): Kno
   return normalized;
 }
 
-function pushText(content: KnowledgeInlineContent[], text: string, activeMarks: KnowledgeInlineMarkType[]) {
+function pushText(
+  content: KnowledgeInlineContent[],
+  text: string,
+  activeMarks: KnowledgeInlineMarkType[]
+) {
   if (!text) return;
   const marks = normalizeMarks(activeMarks.map((type) => ({ type })));
   content.push({
@@ -128,9 +140,11 @@ function parseTagName(token: string) {
 }
 
 function isLineBreakTag(tag: string, token: string) {
-  return tag === 'br'
-    || (tag === 'div' && token.startsWith('</'))
-    || (tag === 'p' && token.startsWith('</'));
+  return (
+    tag === 'br' ||
+    (tag === 'div' && token.startsWith('</')) ||
+    (tag === 'p' && token.startsWith('</'))
+  );
 }
 
 function escapeHtml(value: string) {

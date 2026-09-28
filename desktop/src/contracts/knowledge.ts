@@ -530,7 +530,10 @@ export interface UpdateKnowledgeNodePayload {
 export interface KnowledgeApi {
   listLibraries: () => Promise<KnowledgeLibrary[]>;
   createLibrary: (input: CreateKnowledgeLibraryPayload) => Promise<KnowledgeLibrary>;
-  updateLibrary: (libraryId: string, input: UpdateKnowledgeLibraryPayload) => Promise<KnowledgeLibrary>;
+  updateLibrary: (
+    libraryId: string,
+    input: UpdateKnowledgeLibraryPayload
+  ) => Promise<KnowledgeLibrary>;
   deleteLibrary: (libraryId: string) => Promise<void>;
   listSpaces: (libraryId?: string) => Promise<KnowledgeSpace[]>;
   createSpace: (input: CreateKnowledgeSpacePayload) => Promise<KnowledgeSpace>;
@@ -543,9 +546,15 @@ export interface KnowledgeApi {
   updatePage: (pageId: string, input: UpdateKnowledgePagePayload) => Promise<KnowledgePageDetail>;
   listQuickNotes: (input?: ListKnowledgeQuickNotesPayload) => Promise<KnowledgeQuickNoteDetail[]>;
   createQuickNote: (input: CreateKnowledgeQuickNotePayload) => Promise<KnowledgeQuickNoteDetail>;
-  updateQuickNote: (noteId: string, input: UpdateKnowledgeQuickNotePayload) => Promise<KnowledgeQuickNoteDetail>;
+  updateQuickNote: (
+    noteId: string,
+    input: UpdateKnowledgeQuickNotePayload
+  ) => Promise<KnowledgeQuickNoteDetail>;
   archiveQuickNote: (noteId: string) => Promise<KnowledgeQuickNoteDetail>;
-  convertQuickNoteToPage: (noteId: string, input?: ConvertKnowledgeQuickNoteToPagePayload) => Promise<KnowledgePageDetail>;
+  convertQuickNoteToPage: (
+    noteId: string,
+    input?: ConvertKnowledgeQuickNoteToPagePayload
+  ) => Promise<KnowledgePageDetail>;
   linkQuickNoteTodo: (noteId: string, todoId: string) => Promise<KnowledgeQuickNoteDetail>;
   saveAsset: (input: SaveKnowledgeAssetPayload) => Promise<KnowledgeAsset>;
   getAsset: (assetId: string) => Promise<KnowledgeAsset>;

@@ -264,7 +264,7 @@ class TaskCheckboxWidget extends WidgetType {
   constructor(
     private readonly checked: boolean,
     private readonly from: number,
-    private readonly to: number,
+    private readonly to: number
   ) {
     super();
   }
@@ -315,12 +315,22 @@ class InlinePreviewWidget extends WidgetType {
     }
 
     if (this.token.kind === 'link') {
-      return createLivePreviewAnchor('cm-md-live-link', this.token.href, this.token.label, this.token.href);
+      return createLivePreviewAnchor(
+        'cm-md-live-link',
+        this.token.href,
+        this.token.label,
+        this.token.href
+      );
     }
 
     if (this.token.kind === 'wiki-link') {
       const href = `app://knowledge-pages/title/${encodeURIComponent(this.token.target)}`;
-      return createLivePreviewAnchor('cm-md-live-wiki-link', href, this.token.label, this.token.target);
+      return createLivePreviewAnchor(
+        'cm-md-live-wiki-link',
+        href,
+        this.token.label,
+        this.token.target
+      );
     }
 
     if (this.token.kind === 'asset-embed') {
@@ -342,7 +352,12 @@ class InlinePreviewWidget extends WidgetType {
   }
 }
 
-function createLivePreviewAnchor(className: string, href: string, label: string, title: string): HTMLAnchorElement {
+function createLivePreviewAnchor(
+  className: string,
+  href: string,
+  label: string,
+  title: string
+): HTMLAnchorElement {
   const anchor = document.createElement('a');
   anchor.className = className;
   anchor.href = href;
@@ -387,7 +402,10 @@ function openLivePreviewHref(href: string): void {
 function extractKnowledgeAssetId(href: string): string {
   try {
     const url = new URL(href);
-    const parts = url.pathname.split('/').filter(Boolean).map((part) => decodeURIComponent(part));
+    const parts = url.pathname
+      .split('/')
+      .filter(Boolean)
+      .map((part) => decodeURIComponent(part));
     return parts[0] === 'id' ? parts[1] : '';
   } catch {
     return '';
@@ -400,10 +418,12 @@ class BlockPreviewWidget extends WidgetType {
   }
 
   eq(widget: BlockPreviewWidget) {
-    return widget.token.kind === this.token.kind &&
+    return (
+      widget.token.kind === this.token.kind &&
       widget.token.from === this.token.from &&
       widget.token.to === this.token.to &&
-      widget.token.source === this.token.source;
+      widget.token.source === this.token.source
+    );
   }
 
   toDOM(view: EditorView) {
@@ -412,12 +432,22 @@ class BlockPreviewWidget extends WidgetType {
     container.dataset.markdownLivePreviewBlock = this.token.kind;
     container.tabIndex = -1;
     container.addEventListener('mousedown', (event) => {
-      if ((event.target as HTMLElement | null)?.closest('.cm-md-live-block__action, .cm-md-live-callout__type, .cm-md-live-table__cell')) return;
+      if (
+        (event.target as HTMLElement | null)?.closest(
+          '.cm-md-live-block__action, .cm-md-live-callout__type, .cm-md-live-table__cell'
+        )
+      )
+        return;
       event.preventDefault();
       event.stopPropagation();
     });
     container.addEventListener('click', (event) => {
-      if ((event.target as HTMLElement | null)?.closest('.cm-md-live-block__action, .cm-md-live-callout__type, .cm-md-live-table__cell')) return;
+      if (
+        (event.target as HTMLElement | null)?.closest(
+          '.cm-md-live-block__action, .cm-md-live-callout__type, .cm-md-live-table__cell'
+        )
+      )
+        return;
       event.preventDefault();
       event.stopPropagation();
       if (this.token.kind === 'code_fence') {
@@ -522,23 +552,23 @@ class BlockPreviewLineNumberMarker extends GutterMarker {
   }
 }
 
-function blockPreviewGutterClass(
-  _view: EditorView,
-  widget: WidgetType,
-): GutterMarker | null {
+function blockPreviewGutterClass(_view: EditorView, widget: WidgetType): GutterMarker | null {
   return widget instanceof BlockPreviewWidget ? blockPreviewGutterClassMarker : null;
 }
 
 function blockPreviewLineNumber(
   view: EditorView,
   widget: WidgetType,
-  block: { from: number },
+  block: { from: number }
 ): GutterMarker | null {
   if (!(widget instanceof BlockPreviewWidget)) return null;
   return new BlockPreviewLineNumberMarker(String(view.state.doc.lineAt(block.from).number));
 }
 
-function createCodeFenceRenderedPreview(container: HTMLElement, token: MarkdownLivePreviewBlockToken) {
+function createCodeFenceRenderedPreview(
+  container: HTMLElement,
+  token: MarkdownLivePreviewBlockToken
+) {
   const preview = extractCodeFencePreview(token);
   const shell = document.createElement('div');
   shell.className = `cm-md-live-code-render-preview cm-md-live-code-render-preview--${normalizeCodeFenceLanguage(preview.language) || 'plain'}`;
@@ -550,7 +580,9 @@ function createCodeFenceRenderedPreview(container: HTMLElement, token: MarkdownL
   const body = document.createElement('div');
   body.className = 'cm-md-live-code-render-preview__body';
   preview.lines.forEach((line, lineNumber) => {
-    body.append(createCodeFencePreviewLine(line, preview.bodyStartLineNumber + lineNumber, preview.language));
+    body.append(
+      createCodeFencePreviewLine(line, preview.bodyStartLineNumber + lineNumber, preview.language)
+    );
   });
 
   const footer = createCodeFenceFenceRow(preview.closingLineNumber, preview.closingFence);
@@ -564,9 +596,11 @@ function extractCodeFencePreview(token: MarkdownLivePreviewBlockToken) {
   const sourceLines = token.source.replace(/\r\n/g, '\n').split('\n');
   const openingLine = sourceLines[0] ?? '';
   const parsedLanguage = /^ {0,3}(?:`{3,}|~{3,})\s*([^\s`]*)/.exec(openingLine)?.[1] ?? '';
-  const closingLineIndex = sourceLines.length > 1 && /^ {0,3}(?:`{3,}|~{3,})\s*$/.test(sourceLines[sourceLines.length - 1] ?? '')
-    ? sourceLines.length - 1
-    : sourceLines.length;
+  const closingLineIndex =
+    sourceLines.length > 1 &&
+    /^ {0,3}(?:`{3,}|~{3,})\s*$/.test(sourceLines[sourceLines.length - 1] ?? '')
+      ? sourceLines.length - 1
+      : sourceLines.length;
   const lines = sourceLines.slice(1, closingLineIndex);
   const closingLine = sourceLines[closingLineIndex] ?? '```';
 
@@ -590,7 +624,8 @@ function createCodeFenceFenceRow(lineNumber: number, source: string) {
   marker.textContent = String(lineNumber);
 
   const code = document.createElement('code');
-  code.className = 'cm-md-live-code-render-preview__code cm-md-live-code-render-preview__fence-source';
+  code.className =
+    'cm-md-live-code-render-preview__code cm-md-live-code-render-preview__fence-source';
   code.textContent = source;
 
   row.append(marker, code);
@@ -616,7 +651,8 @@ function createCodeFencePreviewLine(line: string, lineNumber: number, language: 
 function highlightCodeFenceLine(code: HTMLElement, line: string, language: string) {
   const normalizedLanguage = normalizeCodeFenceLanguage(language);
   const keywords = codeFenceKeywords[normalizedLanguage] ?? new Set<string>();
-  const tokenPattern = /("""[\s\S]*?"""|'''[\s\S]*?'''|`(?:\\.|[^`\\])*`|'(?:\\.|[^'\\])*'|"(?:\\.|[^"\\])*"|\/\/.*|#.*|--.*|\/\*.*?\*\/|<\/?[A-Za-z][\w:-]*\b|[{}[\]().,;:+*/%=&|!<>?-]|\b\d+(?:\.\d+)?\b|\b[A-Za-z_][\w-]*\b)/g;
+  const tokenPattern =
+    /("""[\s\S]*?"""|'''[\s\S]*?'''|`(?:\\.|[^`\\])*`|'(?:\\.|[^'\\])*'|"(?:\\.|[^"\\])*"|\/\/.*|#.*|--.*|\/\*.*?\*\/|<\/?[A-Za-z][\w:-]*\b|[{}[\]().,;:+*/%=&|!<>?-]|\b\d+(?:\.\d+)?\b|\b[A-Za-z_][\w-]*\b)/g;
   let cursor = 0;
   let match: RegExpExecArray | null;
 
@@ -633,7 +669,9 @@ function highlightCodeFenceLine(code: HTMLElement, line: string, language: strin
 
 function appendCodeToken(code: HTMLElement, text: string, tokenClass = '') {
   const span = document.createElement('span');
-  span.className = tokenClass ? `cm-md-live-code-token cm-md-live-code-token--${tokenClass}` : 'cm-md-live-code-token';
+  span.className = tokenClass
+    ? `cm-md-live-code-token cm-md-live-code-token--${tokenClass}`
+    : 'cm-md-live-code-token';
   span.textContent = text;
   code.append(span);
 }
@@ -662,7 +700,11 @@ function normalizeCodeFenceLanguage(language: string) {
   return normalized;
 }
 
-function createCalloutPreview(container: HTMLElement, view: EditorView, token: MarkdownLivePreviewBlockToken) {
+function createCalloutPreview(
+  container: HTMLElement,
+  view: EditorView,
+  token: MarkdownLivePreviewBlockToken
+) {
   const callout = parseMarkdownCalloutSource(token.source);
   if (!callout) {
     const fallback = document.createElement('div');
@@ -711,10 +753,16 @@ function createCalloutPreview(container: HTMLElement, view: EditorView, token: M
   container.append(header, body);
 }
 
-function createTablePreview(container: HTMLElement, view: EditorView, token: MarkdownLivePreviewBlockToken) {
+function createTablePreview(
+  container: HTMLElement,
+  view: EditorView,
+  token: MarkdownLivePreviewBlockToken
+) {
   const parsed = parseMarkdownTable(token.source);
   const width = Math.max(...parsed.rows.map((row) => row.length), parsed.alignments.length, 1);
-  const rows = parsed.rows.map((row) => Array.from({ length: width }, (_item, index) => row[index] ?? ''));
+  const rows = parsed.rows.map((row) =>
+    Array.from({ length: width }, (_item, index) => row[index] ?? '')
+  );
 
   const header = document.createElement('div');
   header.className = 'cm-md-live-block__header cm-md-live-table__header';
@@ -797,7 +845,7 @@ function createBlockButton(
   label: string,
   action: WidgetAction,
   view: EditorView,
-  token: MarkdownLivePreviewBlockToken,
+  token: MarkdownLivePreviewBlockToken
 ) {
   const button = document.createElement('button');
   button.type = 'button';
@@ -818,7 +866,7 @@ function createBlockButton(
 function dispatchBlockAction(
   view: EditorView,
   token: MarkdownLivePreviewBlockToken,
-  action: WidgetAction,
+  action: WidgetAction
 ) {
   if (action === 'edit') {
     view.dispatch({ selection: { anchor: token.from }, scrollIntoView: true });
@@ -828,11 +876,12 @@ function dispatchBlockAction(
 
   if (token.kind !== 'table') return;
 
-  const nextSource = action === 'table-row'
-    ? insertMarkdownTableRow(token.source)
-    : action === 'table-column'
-      ? insertMarkdownTableColumn(token.source)
-      : setMarkdownTableAlignment(token.source, 0, 'center');
+  const nextSource =
+    action === 'table-row'
+      ? insertMarkdownTableRow(token.source)
+      : action === 'table-column'
+        ? insertMarkdownTableColumn(token.source)
+        : setMarkdownTableAlignment(token.source, 0, 'center');
 
   view.dispatch({
     changes: { from: token.from, to: token.to, insert: nextSource },
@@ -866,7 +915,7 @@ function pushIfInactive(
   decoration: Range<Decoration>,
   activeRanges: MarkdownLivePreviewRange[],
   from: number,
-  to: number,
+  to: number
 ) {
   if (isMarkdownLivePreviewRangeActive({ from, to }, activeRanges)) return;
   decorations.push(decoration);
@@ -876,7 +925,7 @@ function pushIfLineInactive(
   decorations: Array<Range<Decoration>>,
   decoration: Range<Decoration>,
   activeRanges: MarkdownLivePreviewRange[],
-  lineRange: MarkdownLivePreviewRange,
+  lineRange: MarkdownLivePreviewRange
 ) {
   if (isMarkdownLivePreviewLineActive(lineRange, activeRanges)) return;
   decorations.push(decoration);
@@ -901,7 +950,7 @@ function addInlineTokenDecoration(
   lineFrom: number,
   lineRange: MarkdownLivePreviewRange,
   decorations: Array<Range<Decoration>>,
-  activeRanges: MarkdownLivePreviewRange[],
+  activeRanges: MarkdownLivePreviewRange[]
 ) {
   const range = tokenRange(lineFrom, token);
   const activeRange = tokenActiveRange(lineFrom, token);
@@ -914,7 +963,7 @@ function addInlineTokenDecoration(
         decorations.push(
           Decoration.line({
             class: `cm-md-live-heading cm-md-live-heading-${token.level}`,
-          }).range(lineFrom),
+          }).range(lineFrom)
         );
         decorations.push(Decoration.replace({ inclusive: false }).range(range.from, range.to));
       }
@@ -927,7 +976,7 @@ function addInlineTokenDecoration(
           inclusive: false,
         }).range(range.from, range.to),
         activeRanges,
-        lineRange,
+        lineRange
       );
       break;
     case 'inline-code-marker':
@@ -936,25 +985,67 @@ function addInlineTokenDecoration(
     case 'emphasis-marker':
     case 'strikethrough-marker':
     case 'highlight-marker':
-      pushIfInactive(decorations, Decoration.replace({ inclusive: false }).range(range.from, range.to), activeRanges, activeRange.from, activeRange.to);
+      pushIfInactive(
+        decorations,
+        Decoration.replace({ inclusive: false }).range(range.from, range.to),
+        activeRanges,
+        activeRange.from,
+        activeRange.to
+      );
       break;
     case 'inline-code':
-      pushIfInactive(decorations, Decoration.mark({ class: 'cm-md-live-inline-code' }).range(range.from, range.to), activeRanges, activeRange.from, activeRange.to);
+      pushIfInactive(
+        decorations,
+        Decoration.mark({ class: 'cm-md-live-inline-code' }).range(range.from, range.to),
+        activeRanges,
+        activeRange.from,
+        activeRange.to
+      );
       break;
     case 'strong-emphasis':
-      pushIfInactive(decorations, Decoration.mark({ class: 'cm-md-live-strong-emphasis' }).range(range.from, range.to), activeRanges, activeRange.from, activeRange.to);
+      pushIfInactive(
+        decorations,
+        Decoration.mark({ class: 'cm-md-live-strong-emphasis' }).range(range.from, range.to),
+        activeRanges,
+        activeRange.from,
+        activeRange.to
+      );
       break;
     case 'strong':
-      pushIfInactive(decorations, Decoration.mark({ class: 'cm-md-live-strong' }).range(range.from, range.to), activeRanges, activeRange.from, activeRange.to);
+      pushIfInactive(
+        decorations,
+        Decoration.mark({ class: 'cm-md-live-strong' }).range(range.from, range.to),
+        activeRanges,
+        activeRange.from,
+        activeRange.to
+      );
       break;
     case 'emphasis':
-      pushIfInactive(decorations, Decoration.mark({ class: 'cm-md-live-emphasis' }).range(range.from, range.to), activeRanges, activeRange.from, activeRange.to);
+      pushIfInactive(
+        decorations,
+        Decoration.mark({ class: 'cm-md-live-emphasis' }).range(range.from, range.to),
+        activeRanges,
+        activeRange.from,
+        activeRange.to
+      );
       break;
     case 'strikethrough':
-      pushIfInactive(decorations, Decoration.mark({ class: 'cm-md-live-strikethrough' }).range(range.from, range.to), activeRanges, activeRange.from, activeRange.to);
+      pushIfInactive(
+        decorations,
+        Decoration.mark({ class: 'cm-md-live-strikethrough' }).range(range.from, range.to),
+        activeRanges,
+        activeRange.from,
+        activeRange.to
+      );
       break;
     case 'highlight':
-      pushIfInactive(decorations, Decoration.mark({ class: 'cm-md-live-highlight' }).range(range.from, range.to), activeRanges, activeRange.from, activeRange.to);
+      pushIfInactive(
+        decorations,
+        Decoration.mark({ class: 'cm-md-live-highlight' }).range(range.from, range.to),
+        activeRanges,
+        activeRange.from,
+        activeRange.to
+      );
       break;
     case 'formula-inline':
     case 'link':
@@ -969,7 +1060,7 @@ function addInlineTokenDecoration(
         }).range(range.from, range.to),
         activeRanges,
         range.from,
-        range.to,
+        range.to
       );
       break;
   }
@@ -982,7 +1073,7 @@ function overlapsBlock(line: MarkdownLivePreviewRange, blocks: MarkdownLivePrevi
 function addActiveCodeFenceDecorations(
   state: EditorState,
   token: MarkdownLivePreviewBlockToken,
-  decorations: Array<Range<Decoration>>,
+  decorations: Array<Range<Decoration>>
 ) {
   for (let lineNumber = token.startLine; lineNumber <= token.endLine; lineNumber += 1) {
     const line = state.doc.line(lineNumber);
@@ -1004,7 +1095,7 @@ function buildDecorations(state: EditorState, enabled: boolean): DecorationSet {
   const source = state.doc.toString();
   const blockTokens = collectMarkdownLivePreviewBlockTokens(source);
   const replaceableBlocks = blockTokens.filter((token) =>
-    ['frontmatter', 'callout', 'table', 'math', 'mermaid', 'code_fence'].includes(token.kind),
+    ['frontmatter', 'callout', 'table', 'math', 'mermaid', 'code_fence'].includes(token.kind)
   );
 
   for (const token of replaceableBlocks) {
@@ -1018,7 +1109,7 @@ function buildDecorations(state: EditorState, enabled: boolean): DecorationSet {
         widget: new BlockPreviewWidget(token),
         block: true,
         inclusive: true,
-      }).range(token.from, token.to),
+      }).range(token.from, token.to)
     );
   }
 
@@ -1028,7 +1119,13 @@ function buildDecorations(state: EditorState, enabled: boolean): DecorationSet {
     if (overlapsBlock({ from: line.from, to: line.to }, replaceableBlocks)) continue;
 
     for (const token of collectMarkdownLivePreviewInlineTokens(line.text)) {
-      addInlineTokenDecoration(token, line.from, { from: line.from, to: line.to }, decorations, activeRanges);
+      addInlineTokenDecoration(
+        token,
+        line.from,
+        { from: line.from, to: line.to },
+        decorations,
+        activeRanges
+      );
     }
   }
 
@@ -1053,7 +1150,8 @@ export function markdownLivePreviewDecorations(enabled: () => boolean): Extensio
         },
         blur(event, view) {
           const relatedTarget = (event as FocusEvent).relatedTarget;
-          if (relatedTarget instanceof Element && relatedTarget.closest('.cm-md-live-block')) return;
+          if (relatedTarget instanceof Element && relatedTarget.closest('.cm-md-live-block'))
+            return;
           clearSelectedLivePreviewBlocks(view.dom);
         },
       }),

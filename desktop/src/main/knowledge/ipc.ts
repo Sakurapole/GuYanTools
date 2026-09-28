@@ -61,26 +61,47 @@ let previewCachePruneTask: Promise<void> | undefined;
 type KnowledgeDatabase = JsDatabase & {
   listKnowledgeLibraries: () => Promise<KnowledgeLibrary[]>;
   createKnowledgeLibrary: (input: CreateKnowledgeLibraryPayload) => Promise<KnowledgeLibrary>;
-  updateKnowledgeLibrary: (libraryId: string, input: UpdateKnowledgeLibraryPayload) => Promise<KnowledgeLibrary>;
+  updateKnowledgeLibrary: (
+    libraryId: string,
+    input: UpdateKnowledgeLibraryPayload
+  ) => Promise<KnowledgeLibrary>;
   deleteKnowledgeLibrary: (libraryId: string) => Promise<void>;
   listKnowledgeSpaces: (libraryId?: string) => Promise<KnowledgeSpace[]>;
   createKnowledgeSpace: (input: CreateKnowledgeSpacePayload) => Promise<KnowledgeSpace>;
-  updateKnowledgeSpace: (spaceId: string, input: UpdateKnowledgeSpacePayload) => Promise<KnowledgeSpace>;
+  updateKnowledgeSpace: (
+    spaceId: string,
+    input: UpdateKnowledgeSpacePayload
+  ) => Promise<KnowledgeSpace>;
   deleteKnowledgeSpace: (spaceId: string) => Promise<void>;
   listKnowledgeTree: (input?: ListKnowledgeTreePayload) => Promise<KnowledgeNode[]>;
   createKnowledgeFolder: (input: CreateKnowledgeFolderPayload) => Promise<KnowledgeNode>;
   createKnowledgePage: (input: CreateKnowledgePagePayload) => Promise<KnowledgePageDetail>;
   getKnowledgePage: (pageId: string) => Promise<KnowledgePageDetail>;
-  updateKnowledgePage: (pageId: string, input: UpdateKnowledgePagePayload) => Promise<KnowledgePageDetail>;
-  listKnowledgeQuickNotes: (input?: ListKnowledgeQuickNotesPayload) => Promise<KnowledgeQuickNoteDetail[]>;
-  createKnowledgeQuickNote: (input: CreateKnowledgeQuickNotePayload) => Promise<KnowledgeQuickNoteDetail>;
-  updateKnowledgeQuickNote: (noteId: string, input: UpdateKnowledgeQuickNotePayload) => Promise<KnowledgeQuickNoteDetail>;
+  updateKnowledgePage: (
+    pageId: string,
+    input: UpdateKnowledgePagePayload
+  ) => Promise<KnowledgePageDetail>;
+  listKnowledgeQuickNotes: (
+    input?: ListKnowledgeQuickNotesPayload
+  ) => Promise<KnowledgeQuickNoteDetail[]>;
+  createKnowledgeQuickNote: (
+    input: CreateKnowledgeQuickNotePayload
+  ) => Promise<KnowledgeQuickNoteDetail>;
+  updateKnowledgeQuickNote: (
+    noteId: string,
+    input: UpdateKnowledgeQuickNotePayload
+  ) => Promise<KnowledgeQuickNoteDetail>;
   archiveKnowledgeQuickNote: (noteId: string) => Promise<KnowledgeQuickNoteDetail>;
-  convertKnowledgeQuickNoteToPage: (noteId: string, input: ConvertKnowledgeQuickNoteToPagePayload) => Promise<KnowledgePageDetail>;
+  convertKnowledgeQuickNoteToPage: (
+    noteId: string,
+    input: ConvertKnowledgeQuickNoteToPagePayload
+  ) => Promise<KnowledgePageDetail>;
   linkKnowledgeQuickNoteTodo: (noteId: string, todoId: string) => Promise<KnowledgeQuickNoteDetail>;
   createKnowledgeAsset: (input: CreateKnowledgeAssetPayload) => Promise<KnowledgeAsset>;
   getKnowledgeAsset: (assetId: string) => Promise<KnowledgeAsset>;
-  importKnowledgeDocument: (input: ImportKnowledgeDocumentPayload) => Promise<ImportKnowledgeDocumentResult>;
+  importKnowledgeDocument: (
+    input: ImportKnowledgeDocumentPayload
+  ) => Promise<ImportKnowledgeDocumentResult>;
   listKnowledgeIndexJobs: (input?: ListKnowledgeIndexJobsPayload) => Promise<KnowledgeIndexJob[]>;
   getKnowledgeIndexJob: (jobId: string) => Promise<KnowledgeIndexJob>;
   cancelKnowledgeIndexJob: (jobId: string) => Promise<KnowledgeIndexJob>;
@@ -90,14 +111,19 @@ type KnowledgeDatabase = JsDatabase & {
   updateKnowledgeTag: (tagId: string, input: UpdateKnowledgeTagPayload) => Promise<KnowledgeTag>;
   bindKnowledgeTag: (input: BindKnowledgeTagPayload) => Promise<KnowledgeTag>;
   unbindKnowledgeTag: (input: UnbindKnowledgeTagPayload) => Promise<void>;
-  listKnowledgeTagTargets: (input: ListKnowledgeTagTargetsPayload) => Promise<KnowledgeTaggedTarget[]>;
+  listKnowledgeTagTargets: (
+    input: ListKnowledgeTagTargetsPayload
+  ) => Promise<KnowledgeTaggedTarget[]>;
   listKnowledgePageLinks: (pageId: string) => Promise<KnowledgeLink[]>;
   listKnowledgeBacklinks: (pageId: string) => Promise<KnowledgeBacklink[]>;
   linkKnowledgeTodoSource: (input: LinkKnowledgeTodoPayload) => Promise<void>;
   getKnowledgeGraph: (input: KnowledgeGraphPayload) => Promise<KnowledgeGraph>;
   listKnowledgeOrphanPages: (input?: ListKnowledgeOrphanPagesPayload) => Promise<KnowledgeNode[]>;
   moveKnowledgeNode: (nodeId: string, input: MoveKnowledgeNodePayload) => Promise<KnowledgeNode>;
-  updateKnowledgeNode: (nodeId: string, input: UpdateKnowledgeNodePayload) => Promise<KnowledgeNode>;
+  updateKnowledgeNode: (
+    nodeId: string,
+    input: UpdateKnowledgeNodePayload
+  ) => Promise<KnowledgeNode>;
   archiveKnowledgeNode: (nodeId: string) => Promise<KnowledgeNode>;
   toggleKnowledgeFavorite: (nodeId: string, favorite: boolean) => Promise<KnowledgeNode>;
   deleteKnowledgeNode: (nodeId: string) => Promise<void>;
@@ -144,9 +170,12 @@ const extensionMimeMap: Record<string, string> = {
 };
 
 function normalizeExtension(originalName: string, mimeType?: string) {
-  const fromName = path.extname(originalName).toLowerCase().replace(/[^a-z0-9.]/g, '');
+  const fromName = path
+    .extname(originalName)
+    .toLowerCase()
+    .replace(/[^a-z0-9.]/g, '');
   if (fromName) return fromName;
-  return mimeType ? mimeExtensionMap[mimeType] ?? '' : '';
+  return mimeType ? (mimeExtensionMap[mimeType] ?? '') : '';
 }
 
 function normalizeFileName(originalName: string, fallbackExtension: string) {
@@ -173,14 +202,15 @@ function importLimitBytes(maxImportFileSizeMb: number) {
 
 async function getAssetRoot(libraryId?: string) {
   const config = await getKnowledgeConfig();
-  const baseDir = config.assetStorageMode === 'custom' && config.customAssetDirectory
-    ? config.customAssetDirectory
-    : path.join(app.getPath('userData'), 'knowledge-assets');
+  const baseDir =
+    config.assetStorageMode === 'custom' && config.customAssetDirectory
+      ? config.customAssetDirectory
+      : path.join(app.getPath('userData'), 'knowledge-assets');
   return path.join(baseDir, normalizePathSegment(libraryId || config.defaultLibraryId));
 }
 
 async function getPreviewCacheRoots(config?: KnowledgeFeatureConfig) {
-  const resolvedConfig = config ?? await getKnowledgeConfig();
+  const resolvedConfig = config ?? (await getKnowledgeConfig());
   const roots = [path.join(app.getPath('userData'), 'knowledge-preview-cache')];
   if (resolvedConfig.assetStorageMode === 'custom' && resolvedConfig.customAssetDirectory) {
     roots.push(path.join(resolvedConfig.customAssetDirectory, '.preview-cache'));
@@ -233,7 +263,21 @@ async function chooseImportFiles() {
     filters: [
       {
         name: '知识库支持文件',
-        extensions: ['md', 'markdown', 'txt', 'pdf', 'docx', 'pptx', 'xlsx', 'png', 'jpg', 'jpeg', 'gif', 'webp', 'svg'],
+        extensions: [
+          'md',
+          'markdown',
+          'txt',
+          'pdf',
+          'docx',
+          'pptx',
+          'xlsx',
+          'png',
+          'jpg',
+          'jpeg',
+          'gif',
+          'webp',
+          'svg',
+        ],
       },
       { name: '全部文件', extensions: ['*'] },
     ],
@@ -257,7 +301,9 @@ async function hashFile(filePath: string) {
   return hash.digest('hex');
 }
 
-async function importKnowledgeFiles(input: ImportKnowledgeFilesPayload = {}): Promise<ImportKnowledgeFilesResult> {
+async function importKnowledgeFiles(
+  input: ImportKnowledgeFilesPayload = {}
+): Promise<ImportKnowledgeFilesResult> {
   const config = await getKnowledgeConfig();
   const libraryId = input.libraryId || config.defaultLibraryId || undefined;
   const sourcePaths = input.paths?.length ? input.paths : await chooseImportFiles();
@@ -299,7 +345,8 @@ async function importKnowledgeFiles(input: ImportKnowledgeFilesPayload = {}): Pr
         importedAt: new Date().toISOString(),
         extraction: extraction?.metadata ?? { extractor: 'disabled', previewKind: 'unsupported' },
         extractionStatus: extraction?.status ?? 'cancelled',
-        extractionError: extraction?.errorMessage ?? (config.indexingEnabled ? undefined : '知识库索引已关闭'),
+        extractionError:
+          extraction?.errorMessage ?? (config.indexingEnabled ? undefined : '知识库索引已关闭'),
       };
       const result = await db().importKnowledgeDocument({
         libraryId,
@@ -315,7 +362,8 @@ async function importKnowledgeFiles(input: ImportKnowledgeFilesPayload = {}): Pr
         extractedText: extraction?.text ?? '',
         metadataJson: JSON.stringify(metadata),
         extractionStatus: extraction?.status ?? 'cancelled',
-        extractionError: extraction?.errorMessage ?? (config.indexingEnabled ? undefined : '知识库索引已关闭'),
+        extractionError:
+          extraction?.errorMessage ?? (config.indexingEnabled ? undefined : '知识库索引已关闭'),
       });
       imported.push(result);
     } catch (error) {
@@ -352,7 +400,8 @@ async function retryKnowledgeIndexJob(jobId: string): Promise<ImportKnowledgeDoc
     retryOfJobId: jobId,
     extraction: extraction?.metadata ?? { extractor: 'disabled', previewKind: 'unsupported' },
     extractionStatus: extraction?.status ?? 'cancelled',
-    extractionError: extraction?.errorMessage ?? (config.indexingEnabled ? undefined : '知识库索引已关闭'),
+    extractionError:
+      extraction?.errorMessage ?? (config.indexingEnabled ? undefined : '知识库索引已关闭'),
   };
 
   return db().importKnowledgeDocument({
@@ -367,7 +416,8 @@ async function retryKnowledgeIndexJob(jobId: string): Promise<ImportKnowledgeDoc
     extractedText: extraction?.text ?? '',
     metadataJson: JSON.stringify(metadata),
     extractionStatus: extraction?.status ?? 'cancelled',
-    extractionError: extraction?.errorMessage ?? (config.indexingEnabled ? undefined : '知识库索引已关闭'),
+    extractionError:
+      extraction?.errorMessage ?? (config.indexingEnabled ? undefined : '知识库索引已关闭'),
   });
 }
 
@@ -396,7 +446,10 @@ async function removePathIfExists(targetPath: string): Promise<{ files: number; 
   }
 }
 
-async function pruneOldCachePath(targetPath: string, cutoffMs: number): Promise<{ files: number; bytes: number }> {
+async function pruneOldCachePath(
+  targetPath: string,
+  cutoffMs: number
+): Promise<{ files: number; bytes: number }> {
   try {
     const stat = await fs.stat(targetPath);
     if (stat.isDirectory()) {
@@ -511,91 +564,95 @@ export function registerKnowledgeIpcHandlers() {
   ipcMain.handle('knowledge:list-libraries', async () => db().listKnowledgeLibraries());
 
   ipcMain.handle('knowledge:create-library', async (_event, input: CreateKnowledgeLibraryPayload) =>
-    db().createKnowledgeLibrary(input),
+    db().createKnowledgeLibrary(input)
   );
 
-  ipcMain.handle('knowledge:update-library', async (
-    _event,
-    libraryId: string,
-    input: UpdateKnowledgeLibraryPayload,
-  ) => db().updateKnowledgeLibrary(libraryId, input));
+  ipcMain.handle(
+    'knowledge:update-library',
+    async (_event, libraryId: string, input: UpdateKnowledgeLibraryPayload) =>
+      db().updateKnowledgeLibrary(libraryId, input)
+  );
 
   ipcMain.handle('knowledge:delete-library', async (_event, libraryId: string) =>
-    db().deleteKnowledgeLibrary(libraryId),
+    db().deleteKnowledgeLibrary(libraryId)
   );
 
   ipcMain.handle('knowledge:list-spaces', async (_event, libraryId?: string) =>
-    db().listKnowledgeSpaces(libraryId),
+    db().listKnowledgeSpaces(libraryId)
   );
 
   ipcMain.handle('knowledge:create-space', async (_event, input: CreateKnowledgeSpacePayload) =>
-    db().createKnowledgeSpace(input),
+    db().createKnowledgeSpace(input)
   );
 
-  ipcMain.handle('knowledge:update-space', async (
-    _event,
-    spaceId: string,
-    input: UpdateKnowledgeSpacePayload,
-  ) => db().updateKnowledgeSpace(spaceId, input));
+  ipcMain.handle(
+    'knowledge:update-space',
+    async (_event, spaceId: string, input: UpdateKnowledgeSpacePayload) =>
+      db().updateKnowledgeSpace(spaceId, input)
+  );
 
   ipcMain.handle('knowledge:delete-space', async (_event, spaceId: string) =>
-    db().deleteKnowledgeSpace(spaceId),
+    db().deleteKnowledgeSpace(spaceId)
   );
 
   ipcMain.handle('knowledge:list-tree', async (_event, input?: ListKnowledgeTreePayload) =>
-    db().listKnowledgeTree(input),
+    db().listKnowledgeTree(input)
   );
 
   ipcMain.handle('knowledge:create-folder', async (_event, input: CreateKnowledgeFolderPayload) =>
-    db().createKnowledgeFolder(input),
+    db().createKnowledgeFolder(input)
   );
 
   ipcMain.handle('knowledge:create-page', async (_event, input: CreateKnowledgePagePayload) =>
-    db().createKnowledgePage(input),
+    db().createKnowledgePage(input)
   );
 
-  ipcMain.handle('knowledge:get-page', async (_event, pageId: string) => db().getKnowledgePage(pageId));
-
-  ipcMain.handle('knowledge:update-page', async (
-    _event,
-    pageId: string,
-    input: UpdateKnowledgePagePayload,
-  ) => db().updateKnowledgePage(pageId, input));
-
-  ipcMain.handle('knowledge:list-quick-notes', async (_event, input?: ListKnowledgeQuickNotesPayload) =>
-    db().listKnowledgeQuickNotes(input),
+  ipcMain.handle('knowledge:get-page', async (_event, pageId: string) =>
+    db().getKnowledgePage(pageId)
   );
 
-  ipcMain.handle('knowledge:create-quick-note', async (_event, input: CreateKnowledgeQuickNotePayload) =>
-    db().createKnowledgeQuickNote(input),
+  ipcMain.handle(
+    'knowledge:update-page',
+    async (_event, pageId: string, input: UpdateKnowledgePagePayload) =>
+      db().updateKnowledgePage(pageId, input)
   );
 
-  ipcMain.handle('knowledge:update-quick-note', async (
-    _event,
-    noteId: string,
-    input: UpdateKnowledgeQuickNotePayload,
-  ) => db().updateKnowledgeQuickNote(noteId, input));
+  ipcMain.handle(
+    'knowledge:list-quick-notes',
+    async (_event, input?: ListKnowledgeQuickNotesPayload) => db().listKnowledgeQuickNotes(input)
+  );
+
+  ipcMain.handle(
+    'knowledge:create-quick-note',
+    async (_event, input: CreateKnowledgeQuickNotePayload) => db().createKnowledgeQuickNote(input)
+  );
+
+  ipcMain.handle(
+    'knowledge:update-quick-note',
+    async (_event, noteId: string, input: UpdateKnowledgeQuickNotePayload) =>
+      db().updateKnowledgeQuickNote(noteId, input)
+  );
 
   ipcMain.handle('knowledge:archive-quick-note', async (_event, noteId: string) =>
-    db().archiveKnowledgeQuickNote(noteId),
+    db().archiveKnowledgeQuickNote(noteId)
   );
 
-  ipcMain.handle('knowledge:convert-quick-note-to-page', async (
-    _event,
-    noteId: string,
-    input?: ConvertKnowledgeQuickNoteToPagePayload,
-  ) => db().convertKnowledgeQuickNoteToPage(noteId, input ?? {}));
+  ipcMain.handle(
+    'knowledge:convert-quick-note-to-page',
+    async (_event, noteId: string, input?: ConvertKnowledgeQuickNoteToPagePayload) =>
+      db().convertKnowledgeQuickNoteToPage(noteId, input ?? {})
+  );
 
   ipcMain.handle('knowledge:link-quick-note-todo', async (_event, noteId: string, todoId: string) =>
-    db().linkKnowledgeQuickNoteTodo(noteId, todoId),
+    db().linkKnowledgeQuickNoteTodo(noteId, todoId)
   );
 
   ipcMain.handle('knowledge:save-asset', async (_event, input: SaveKnowledgeAssetPayload) =>
-    saveKnowledgeAsset(input),
+    saveKnowledgeAsset(input)
   );
 
   ipcMain.handle('knowledge:get-asset', async (_event, assetId: string) =>
-    db().getKnowledgeAsset(assetId),
+    db().getKnowledgeAsset(assetId)
   );
 
   ipcMain.handle('knowledge:open-asset', async (_event, assetId: string) => {
@@ -612,95 +669,98 @@ export function registerKnowledgeIpcHandlers() {
   });
 
   ipcMain.handle('knowledge:import-files', async (_event, input?: ImportKnowledgeFilesPayload) =>
-    importKnowledgeFiles(input),
+    importKnowledgeFiles(input)
   );
 
-  ipcMain.handle('knowledge:list-index-jobs', async (_event, input?: ListKnowledgeIndexJobsPayload) =>
-    db().listKnowledgeIndexJobs(input),
+  ipcMain.handle(
+    'knowledge:list-index-jobs',
+    async (_event, input?: ListKnowledgeIndexJobsPayload) => db().listKnowledgeIndexJobs(input)
   );
 
   ipcMain.handle('knowledge:retry-index-job', async (_event, jobId: string) =>
-    retryKnowledgeIndexJob(jobId),
+    retryKnowledgeIndexJob(jobId)
   );
 
   ipcMain.handle('knowledge:cancel-index-job', async (_event, jobId: string) =>
-    db().cancelKnowledgeIndexJob(jobId),
+    db().cancelKnowledgeIndexJob(jobId)
   );
 
-  ipcMain.handle('knowledge:clear-preview-cache', async () =>
-    clearKnowledgePreviewCache(),
-  );
+  ipcMain.handle('knowledge:clear-preview-cache', async () => clearKnowledgePreviewCache());
 
   ipcMain.handle('knowledge:search', async (_event, input: KnowledgeSearchPayload) =>
-    db().searchKnowledge(input),
+    db().searchKnowledge(input)
   );
 
   ipcMain.handle('knowledge:list-tags', async (_event, input?: ListKnowledgeTagsPayload) =>
-    db().listKnowledgeTags(input),
+    db().listKnowledgeTags(input)
   );
 
   ipcMain.handle('knowledge:create-tag', async (_event, input: CreateKnowledgeTagPayload) =>
-    db().createKnowledgeTag(input),
+    db().createKnowledgeTag(input)
   );
 
-  ipcMain.handle('knowledge:update-tag', async (_event, tagId: string, input: UpdateKnowledgeTagPayload) =>
-    db().updateKnowledgeTag(tagId, input),
+  ipcMain.handle(
+    'knowledge:update-tag',
+    async (_event, tagId: string, input: UpdateKnowledgeTagPayload) =>
+      db().updateKnowledgeTag(tagId, input)
   );
 
   ipcMain.handle('knowledge:bind-tag', async (_event, input: BindKnowledgeTagPayload) =>
-    db().bindKnowledgeTag(input),
+    db().bindKnowledgeTag(input)
   );
 
   ipcMain.handle('knowledge:unbind-tag', async (_event, input: UnbindKnowledgeTagPayload) =>
-    db().unbindKnowledgeTag(input),
+    db().unbindKnowledgeTag(input)
   );
 
-  ipcMain.handle('knowledge:list-tag-targets', async (_event, input: ListKnowledgeTagTargetsPayload) =>
-    db().listKnowledgeTagTargets(input),
+  ipcMain.handle(
+    'knowledge:list-tag-targets',
+    async (_event, input: ListKnowledgeTagTargetsPayload) => db().listKnowledgeTagTargets(input)
   );
 
   ipcMain.handle('knowledge:list-page-links', async (_event, pageId: string) =>
-    db().listKnowledgePageLinks(pageId),
+    db().listKnowledgePageLinks(pageId)
   );
 
   ipcMain.handle('knowledge:list-backlinks', async (_event, pageId: string) =>
-    db().listKnowledgeBacklinks(pageId),
+    db().listKnowledgeBacklinks(pageId)
   );
 
   ipcMain.handle('knowledge:link-todo-source', async (_event, input: LinkKnowledgeTodoPayload) =>
-    db().linkKnowledgeTodoSource(input),
+    db().linkKnowledgeTodoSource(input)
   );
 
   ipcMain.handle('knowledge:get-graph', async (_event, input: KnowledgeGraphPayload) =>
-    db().getKnowledgeGraph(input),
+    db().getKnowledgeGraph(input)
   );
 
-  ipcMain.handle('knowledge:list-orphan-pages', async (_event, input?: ListKnowledgeOrphanPagesPayload) =>
-    db().listKnowledgeOrphanPages(input),
+  ipcMain.handle(
+    'knowledge:list-orphan-pages',
+    async (_event, input?: ListKnowledgeOrphanPagesPayload) => db().listKnowledgeOrphanPages(input)
   );
 
-  ipcMain.handle('knowledge:move-node', async (
-    _event,
-    nodeId: string,
-    input: MoveKnowledgeNodePayload,
-  ) => db().moveKnowledgeNode(nodeId, input));
+  ipcMain.handle(
+    'knowledge:move-node',
+    async (_event, nodeId: string, input: MoveKnowledgeNodePayload) =>
+      db().moveKnowledgeNode(nodeId, input)
+  );
 
-  ipcMain.handle('knowledge:update-node', async (
-    _event,
-    nodeId: string,
-    input: UpdateKnowledgeNodePayload,
-  ) => db().updateKnowledgeNode(nodeId, input));
+  ipcMain.handle(
+    'knowledge:update-node',
+    async (_event, nodeId: string, input: UpdateKnowledgeNodePayload) =>
+      db().updateKnowledgeNode(nodeId, input)
+  );
 
   ipcMain.handle('knowledge:archive-node', async (_event, nodeId: string) =>
-    db().archiveKnowledgeNode(nodeId),
+    db().archiveKnowledgeNode(nodeId)
   );
 
   ipcMain.handle('knowledge:toggle-favorite', async (_event, nodeId: string, favorite: boolean) =>
-    db().toggleKnowledgeFavorite(nodeId, favorite),
+    db().toggleKnowledgeFavorite(nodeId, favorite)
   );
 
   ipcMain.handle('knowledge:delete-node', async (_event, nodeId: string) =>
-    db().deleteKnowledgeNode(nodeId),
+    db().deleteKnowledgeNode(nodeId)
   );
 
   registered = true;

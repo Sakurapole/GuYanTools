@@ -116,7 +116,7 @@ export function useMarkdownSegmentedPreview(source: Ref<string>) {
 
 function findFirstSegmentIndexAtOrAfterBottom(
   segments: MarkdownPreviewLayoutSegment[],
-  viewportStart: number,
+  viewportStart: number
 ): number {
   let low = 0;
   let high = segments.length - 1;
@@ -138,7 +138,7 @@ function findFirstSegmentIndexAtOrAfterBottom(
 
 function findLastSegmentIndexAtOrBeforeTop(
   segments: MarkdownPreviewLayoutSegment[],
-  viewportEnd: number,
+  viewportEnd: number
 ): number {
   let low = 0;
   let high = segments.length - 1;

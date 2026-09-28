@@ -131,58 +131,314 @@ const blockTypes: Array<{
   group?: string;
   attrs?: Record<string, unknown>;
 }> = [
-  { id: 'paragraph', type: 'paragraph', icon: 'iconify:lucide:type', label: '文本', description: '普通文本块', shortcut: 'text', keywords: ['paragraph', 'text'], group: '基本区块' },
-  { id: 'heading_1', type: 'heading', attrs: { level: 1 }, icon: 'iconify:lucide:heading-1', label: '标题 1', description: '大号章节标题', shortcut: '#', keywords: ['heading', 'h1', 'title'], group: '基本区块' },
-  { id: 'heading_2', type: 'heading', attrs: { level: 2 }, icon: 'iconify:lucide:heading-2', label: '标题 2', description: '中号章节标题', shortcut: '##', keywords: ['heading', 'h2', 'title'], group: '基本区块' },
-  { id: 'heading_3', type: 'heading', attrs: { level: 3 }, icon: 'iconify:lucide:heading-3', label: '标题 3', description: '小号章节标题', shortcut: '###', keywords: ['heading', 'h3', 'title'], group: '基本区块' },
-  { id: 'heading_4', type: 'heading', attrs: { level: 4 }, icon: 'iconify:lucide:heading-4', label: '标题 4', description: '更小的章节标题', shortcut: '####', keywords: ['heading', 'h4', 'title'], group: '基本区块' },
-  { id: 'bullet_list', type: 'bullet_list', icon: 'iconify:lucide:list', label: '项目符号列表', description: '用圆点组织条目', shortcut: '-', keywords: ['bullet', 'list'], group: '基本区块' },
-  { id: 'ordered_list', type: 'ordered_list', icon: 'iconify:lucide:list-ordered', label: '有序列表', description: '按顺序记录步骤', shortcut: '1.', keywords: ['ordered', 'number'], group: '基本区块' },
-  { id: 'task_list', type: 'task_list', icon: 'iconify:lucide:list-todo', label: '待办清单', description: '可勾选的任务项', shortcut: '[]', keywords: ['task', 'todo'], group: '基本区块' },
-  { id: 'toggle', type: 'toggle', icon: 'iconify:lucide:list-collapse', label: '折叠列表', description: '收起或展开一组内容', shortcut: '>', keywords: ['toggle', 'details'], group: '基本区块' },
-  { id: 'page_reference', type: 'page_reference', icon: 'iconify:lucide:file-text', label: '页面', description: '关联知识库页面', shortcut: '@page', keywords: ['page', 'reference', 'wiki'], group: '基本区块' },
-  { id: 'callout', type: 'callout', icon: 'iconify:lucide:square-parking', label: '标注', description: '强调提示、注意或备注', shortcut: 'callout', keywords: ['callout', 'note'], group: '基本区块' },
-  { id: 'code', type: 'code', icon: 'iconify:lucide:code-2', label: '代码', description: '带语言标记的代码块', shortcut: '```', keywords: ['code'], group: '结构' },
-  { id: 'quote', type: 'quote', icon: 'iconify:lucide:quote', label: '引用', description: '突出一段引用或摘要', shortcut: '"', keywords: ['quote'], group: '结构' },
-  { id: 'table', type: 'table', icon: 'iconify:lucide:table-2', label: '表格', description: '创建可编辑行列', shortcut: 'table', keywords: ['table', 'grid'], group: '结构' },
-  { id: 'divider', type: 'divider', icon: 'iconify:lucide:minus', label: '分割线', description: '分隔页面内容', shortcut: '---', keywords: ['divider', 'hr'], group: '结构' },
-  { id: 'image', type: 'image', icon: 'iconify:lucide:image-plus', label: '图片', description: '插入知识库图片资产', shortcut: 'image', keywords: ['image'], group: '媒体' },
-  { id: 'attachment', type: 'attachment', icon: 'iconify:lucide:paperclip', label: '附件', description: '插入文件附件', shortcut: 'file', keywords: ['file', 'attachment'], group: '媒体' },
-  { id: 'todo_reference', type: 'todo_reference', icon: 'iconify:lucide:list-checks', label: 'Todo 引用', description: '关联现有待办事项', shortcut: '@todo', keywords: ['todo', 'reference'], group: '引用' },
+  {
+    id: 'paragraph',
+    type: 'paragraph',
+    icon: 'iconify:lucide:type',
+    label: '文本',
+    description: '普通文本块',
+    shortcut: 'text',
+    keywords: ['paragraph', 'text'],
+    group: '基本区块',
+  },
+  {
+    id: 'heading_1',
+    type: 'heading',
+    attrs: { level: 1 },
+    icon: 'iconify:lucide:heading-1',
+    label: '标题 1',
+    description: '大号章节标题',
+    shortcut: '#',
+    keywords: ['heading', 'h1', 'title'],
+    group: '基本区块',
+  },
+  {
+    id: 'heading_2',
+    type: 'heading',
+    attrs: { level: 2 },
+    icon: 'iconify:lucide:heading-2',
+    label: '标题 2',
+    description: '中号章节标题',
+    shortcut: '##',
+    keywords: ['heading', 'h2', 'title'],
+    group: '基本区块',
+  },
+  {
+    id: 'heading_3',
+    type: 'heading',
+    attrs: { level: 3 },
+    icon: 'iconify:lucide:heading-3',
+    label: '标题 3',
+    description: '小号章节标题',
+    shortcut: '###',
+    keywords: ['heading', 'h3', 'title'],
+    group: '基本区块',
+  },
+  {
+    id: 'heading_4',
+    type: 'heading',
+    attrs: { level: 4 },
+    icon: 'iconify:lucide:heading-4',
+    label: '标题 4',
+    description: '更小的章节标题',
+    shortcut: '####',
+    keywords: ['heading', 'h4', 'title'],
+    group: '基本区块',
+  },
+  {
+    id: 'bullet_list',
+    type: 'bullet_list',
+    icon: 'iconify:lucide:list',
+    label: '项目符号列表',
+    description: '用圆点组织条目',
+    shortcut: '-',
+    keywords: ['bullet', 'list'],
+    group: '基本区块',
+  },
+  {
+    id: 'ordered_list',
+    type: 'ordered_list',
+    icon: 'iconify:lucide:list-ordered',
+    label: '有序列表',
+    description: '按顺序记录步骤',
+    shortcut: '1.',
+    keywords: ['ordered', 'number'],
+    group: '基本区块',
+  },
+  {
+    id: 'task_list',
+    type: 'task_list',
+    icon: 'iconify:lucide:list-todo',
+    label: '待办清单',
+    description: '可勾选的任务项',
+    shortcut: '[]',
+    keywords: ['task', 'todo'],
+    group: '基本区块',
+  },
+  {
+    id: 'toggle',
+    type: 'toggle',
+    icon: 'iconify:lucide:list-collapse',
+    label: '折叠列表',
+    description: '收起或展开一组内容',
+    shortcut: '>',
+    keywords: ['toggle', 'details'],
+    group: '基本区块',
+  },
+  {
+    id: 'page_reference',
+    type: 'page_reference',
+    icon: 'iconify:lucide:file-text',
+    label: '页面',
+    description: '关联知识库页面',
+    shortcut: '@page',
+    keywords: ['page', 'reference', 'wiki'],
+    group: '基本区块',
+  },
+  {
+    id: 'callout',
+    type: 'callout',
+    icon: 'iconify:lucide:square-parking',
+    label: '标注',
+    description: '强调提示、注意或备注',
+    shortcut: 'callout',
+    keywords: ['callout', 'note'],
+    group: '基本区块',
+  },
+  {
+    id: 'code',
+    type: 'code',
+    icon: 'iconify:lucide:code-2',
+    label: '代码',
+    description: '带语言标记的代码块',
+    shortcut: '```',
+    keywords: ['code'],
+    group: '结构',
+  },
+  {
+    id: 'quote',
+    type: 'quote',
+    icon: 'iconify:lucide:quote',
+    label: '引用',
+    description: '突出一段引用或摘要',
+    shortcut: '"',
+    keywords: ['quote'],
+    group: '结构',
+  },
+  {
+    id: 'table',
+    type: 'table',
+    icon: 'iconify:lucide:table-2',
+    label: '表格',
+    description: '创建可编辑行列',
+    shortcut: 'table',
+    keywords: ['table', 'grid'],
+    group: '结构',
+  },
+  {
+    id: 'divider',
+    type: 'divider',
+    icon: 'iconify:lucide:minus',
+    label: '分割线',
+    description: '分隔页面内容',
+    shortcut: '---',
+    keywords: ['divider', 'hr'],
+    group: '结构',
+  },
+  {
+    id: 'image',
+    type: 'image',
+    icon: 'iconify:lucide:image-plus',
+    label: '图片',
+    description: '插入知识库图片资产',
+    shortcut: 'image',
+    keywords: ['image'],
+    group: '媒体',
+  },
+  {
+    id: 'attachment',
+    type: 'attachment',
+    icon: 'iconify:lucide:paperclip',
+    label: '附件',
+    description: '插入文件附件',
+    shortcut: 'file',
+    keywords: ['file', 'attachment'],
+    group: '媒体',
+  },
+  {
+    id: 'todo_reference',
+    type: 'todo_reference',
+    icon: 'iconify:lucide:list-checks',
+    label: 'Todo 引用',
+    description: '关联现有待办事项',
+    shortcut: '@todo',
+    keywords: ['todo', 'reference'],
+    group: '引用',
+  },
 ];
 
 const blockMenuGroups: Array<{ id: string; items: BlockMenuItem[] }> = [
   {
     id: 'actions',
     items: [
-      { action: 'insert', icon: 'iconify:lucide:plus', label: '下方插入', keywords: ['insert', 'add', 'below'] },
-      { action: 'duplicate', icon: 'iconify:lucide:copy', label: '复制块', keywords: ['duplicate', 'copy'] },
-      { action: 'convert_todo', icon: 'iconify:lucide:clipboard-check', label: '转为 Todo', keywords: ['todo', 'task', 'convert'] },
-      { action: 'delete', icon: 'iconify:lucide:trash-2', label: '删除', keywords: ['delete', 'remove'] },
+      {
+        action: 'insert',
+        icon: 'iconify:lucide:plus',
+        label: '下方插入',
+        keywords: ['insert', 'add', 'below'],
+      },
+      {
+        action: 'duplicate',
+        icon: 'iconify:lucide:copy',
+        label: '复制块',
+        keywords: ['duplicate', 'copy'],
+      },
+      {
+        action: 'convert_todo',
+        icon: 'iconify:lucide:clipboard-check',
+        label: '转为 Todo',
+        keywords: ['todo', 'task', 'convert'],
+      },
+      {
+        action: 'delete',
+        icon: 'iconify:lucide:trash-2',
+        label: '删除',
+        keywords: ['delete', 'remove'],
+      },
     ],
   },
   {
     id: 'turn-into',
     items: [
-      { action: 'paragraph', icon: 'iconify:lucide:pilcrow', label: '转为正文', keywords: ['paragraph', 'text'] },
-      { action: 'heading', icon: 'iconify:lucide:heading-2', label: '转为标题', keywords: ['heading', 'h1', 'h2', 'title'] },
-      { action: 'heading_1', icon: 'iconify:lucide:heading-1', label: '标题 1', keywords: ['heading', 'h1', 'title'] },
-      { action: 'heading_2', icon: 'iconify:lucide:heading-2', label: '标题 2', keywords: ['heading', 'h2', 'title'] },
-      { action: 'heading_3', icon: 'iconify:lucide:heading-3', label: '标题 3', keywords: ['heading', 'h3', 'title'] },
-      { action: 'bullet_list', icon: 'iconify:lucide:list', label: '转为项目列表', keywords: ['bullet', 'list', 'ul'] },
-      { action: 'ordered_list', icon: 'iconify:lucide:list-ordered', label: '转为编号列表', keywords: ['ordered', 'number', 'ol'] },
-      { action: 'task_list', icon: 'iconify:lucide:square-check', label: '转为待办', keywords: ['task', 'todo', 'check'] },
-      { action: 'toggle', icon: 'iconify:lucide:list-collapse', label: '转为折叠列表', keywords: ['toggle', 'details', 'collapse'] },
-      { action: 'quote', icon: 'iconify:lucide:quote', label: '转为引用', keywords: ['quote', 'blockquote'] },
-      { action: 'callout', icon: 'iconify:lucide:badge-info', label: '转为提示', keywords: ['callout', 'note', 'tip'] },
-      { action: 'code', icon: 'iconify:lucide:code-2', label: '转为代码', keywords: ['code', 'pre'] },
+      {
+        action: 'paragraph',
+        icon: 'iconify:lucide:pilcrow',
+        label: '转为正文',
+        keywords: ['paragraph', 'text'],
+      },
+      {
+        action: 'heading',
+        icon: 'iconify:lucide:heading-2',
+        label: '转为标题',
+        keywords: ['heading', 'h1', 'h2', 'title'],
+      },
+      {
+        action: 'heading_1',
+        icon: 'iconify:lucide:heading-1',
+        label: '标题 1',
+        keywords: ['heading', 'h1', 'title'],
+      },
+      {
+        action: 'heading_2',
+        icon: 'iconify:lucide:heading-2',
+        label: '标题 2',
+        keywords: ['heading', 'h2', 'title'],
+      },
+      {
+        action: 'heading_3',
+        icon: 'iconify:lucide:heading-3',
+        label: '标题 3',
+        keywords: ['heading', 'h3', 'title'],
+      },
+      {
+        action: 'bullet_list',
+        icon: 'iconify:lucide:list',
+        label: '转为项目列表',
+        keywords: ['bullet', 'list', 'ul'],
+      },
+      {
+        action: 'ordered_list',
+        icon: 'iconify:lucide:list-ordered',
+        label: '转为编号列表',
+        keywords: ['ordered', 'number', 'ol'],
+      },
+      {
+        action: 'task_list',
+        icon: 'iconify:lucide:square-check',
+        label: '转为待办',
+        keywords: ['task', 'todo', 'check'],
+      },
+      {
+        action: 'toggle',
+        icon: 'iconify:lucide:list-collapse',
+        label: '转为折叠列表',
+        keywords: ['toggle', 'details', 'collapse'],
+      },
+      {
+        action: 'quote',
+        icon: 'iconify:lucide:quote',
+        label: '转为引用',
+        keywords: ['quote', 'blockquote'],
+      },
+      {
+        action: 'callout',
+        icon: 'iconify:lucide:badge-info',
+        label: '转为提示',
+        keywords: ['callout', 'note', 'tip'],
+      },
+      {
+        action: 'code',
+        icon: 'iconify:lucide:code-2',
+        label: '转为代码',
+        keywords: ['code', 'pre'],
+      },
     ],
   },
   {
     id: 'layout',
     items: [
-      { action: 'indent', icon: 'iconify:lucide:indent-increase', label: '缩进', keywords: ['indent', 'nest'] },
-      { action: 'outdent', icon: 'iconify:lucide:indent-decrease', label: '取消缩进', keywords: ['outdent', 'unnest'] },
+      {
+        action: 'indent',
+        icon: 'iconify:lucide:indent-increase',
+        label: '缩进',
+        keywords: ['indent', 'nest'],
+      },
+      {
+        action: 'outdent',
+        icon: 'iconify:lucide:indent-decrease',
+        label: '取消缩进',
+        keywords: ['outdent', 'unnest'],
+      },
     ],
   },
 ];
@@ -194,17 +450,21 @@ const filteredBlockMenuGroups = computed(() => {
     .map((group) => ({
       ...group,
       items: query
-        ? group.items.filter((item) => [
-          item.action,
-          item.label,
-          ...item.keywords,
-        ].some((value) => String(value).toLowerCase().includes(query)))
+        ? group.items.filter((item) =>
+            [item.action, item.label, ...item.keywords].some((value) =>
+              String(value).toLowerCase().includes(query)
+            )
+          )
         : group.items,
     }))
     .filter((group) => group.items.length > 0);
 });
-const blockMenuItems = computed(() => filteredBlockMenuGroups.value.flatMap((group) => group.items));
-const activeBlockMenuItem = computed(() => blockMenuItems.value[activeBlockMenuIndex.value] ?? null);
+const blockMenuItems = computed(() =>
+  filteredBlockMenuGroups.value.flatMap((group) => group.items)
+);
+const activeBlockMenuItem = computed(
+  () => blockMenuItems.value[activeBlockMenuIndex.value] ?? null
+);
 const selectedBlockIds = computed(() => {
   const cursorBlockId = selectedBlockId.value;
   if (!cursorBlockId) return [];
@@ -224,7 +484,7 @@ watch(
   (value) => {
     documentDraft.value = normalizeBlockDocumentV2(value);
   },
-  { deep: true },
+  { deep: true }
 );
 
 function updateDocument(blocks: KnowledgeBlockV2[]) {
@@ -257,7 +517,11 @@ function addBlock(type: KnowledgeBlockV2Type, afterBlockId?: string) {
 function updateBlock(blockId: string, patch: Partial<KnowledgeBlockV2>) {
   selectedBlockId.value = null;
   selectedBlockAnchorId.value = null;
-  if (slashMenu.value?.blockId === blockId && patch.content && !isBlockCommandText(inlineTextFromContent(patch.content))) {
+  if (
+    slashMenu.value?.blockId === blockId &&
+    patch.content &&
+    !isBlockCommandText(inlineTextFromContent(patch.content))
+  ) {
     slashMenu.value = null;
   }
   if (blockMenu.value?.blockId === blockId && patch.content) {
@@ -267,11 +531,19 @@ function updateBlock(blockId: string, patch: Partial<KnowledgeBlockV2>) {
   replaceDocument(next);
 }
 
-function convertBlock(blockId: string, type: KnowledgeBlockV2Type, attrsPatch: Record<string, unknown> = {}) {
+function convertBlock(
+  blockId: string,
+  type: KnowledgeBlockV2Type,
+  attrsPatch: Record<string, unknown> = {}
+) {
   convertBlocks([blockId], type, attrsPatch);
 }
 
-function convertBlocks(blockIds: string[], type: KnowledgeBlockV2Type, attrsPatch: Record<string, unknown> = {}) {
+function convertBlocks(
+  blockIds: string[],
+  type: KnowledgeBlockV2Type,
+  attrsPatch: Record<string, unknown> = {}
+) {
   if (!blockIds.length) return;
   let nextDocument = documentDraft.value;
 
@@ -348,7 +620,12 @@ function clampMenuAxis(preferred: number, size: number, viewportSize: number) {
   return Math.min(Math.max(preferred, MENU_VIEWPORT_MARGIN), max);
 }
 
-function openSlashMenu(payload: { blockId: string; query: string; prefix?: '/' | '+'; rect: DOMRect | null }) {
+function openSlashMenu(payload: {
+  blockId: string;
+  query: string;
+  prefix?: '/' | '+';
+  rect: DOMRect | null;
+}) {
   const rect = payload.rect;
   slashMenu.value = {
     blockId: payload.blockId,
@@ -375,9 +652,11 @@ function openBlockMenu(payload: { blockId: string; rect: DOMRect | null }) {
 function getSelectedBlockRect(blockId: string) {
   const blocks = editorCanvasRef.value?.querySelectorAll<HTMLElement>('[data-knowledge-block-id]');
   if (!blocks) return null;
-  return Array.from(blocks)
-    .find((element) => element.dataset.knowledgeBlockId === blockId)
-    ?.getBoundingClientRect() ?? null;
+  return (
+    Array.from(blocks)
+      .find((element) => element.dataset.knowledgeBlockId === blockId)
+      ?.getBoundingClientRect() ?? null
+  );
 }
 
 function openSelectedBlockMenu() {
@@ -402,12 +681,21 @@ function runBlockMenuAction(action: BlockMenuAction) {
   const lastTargetId = targetIds[targetIds.length - 1] ?? blockId;
 
   if (action === 'insert') addBlock('paragraph', lastTargetId);
-  else if (action === 'duplicate') targetIds.length > 1 ? duplicateSelectedBlocks() : duplicateBlock(blockId);
-  else if (action === 'convert_todo') targetIds.forEach((targetId) => emit('convert-todo', targetId));
-  else if (action === 'indent') targetIds.length > 1 ? indentSelectedBlocks('indent') : indentBlockDraft(blockId);
-  else if (action === 'outdent') targetIds.length > 1 ? indentSelectedBlocks('outdent') : outdentBlockDraft(blockId);
-  else if (action === 'delete') targetIds.length > 1 ? removeSelectedBlocks() : removeBlock(blockId);
-  else if (action === 'heading_1') convertBlocks(targetIds, 'heading', { level: 1 });
+  else if (action === 'duplicate') {
+    if (targetIds.length > 1) duplicateSelectedBlocks();
+    else duplicateBlock(blockId);
+  } else if (action === 'convert_todo')
+    targetIds.forEach((targetId) => emit('convert-todo', targetId));
+  else if (action === 'indent') {
+    if (targetIds.length > 1) indentSelectedBlocks('indent');
+    else indentBlockDraft(blockId);
+  } else if (action === 'outdent') {
+    if (targetIds.length > 1) indentSelectedBlocks('outdent');
+    else outdentBlockDraft(blockId);
+  } else if (action === 'delete') {
+    if (targetIds.length > 1) removeSelectedBlocks();
+    else removeBlock(blockId);
+  } else if (action === 'heading_1') convertBlocks(targetIds, 'heading', { level: 1 });
   else if (action === 'heading_2') convertBlocks(targetIds, 'heading', { level: 2 });
   else if (action === 'heading_3') convertBlocks(targetIds, 'heading', { level: 3 });
   else convertBlocks(targetIds, action);
@@ -485,7 +773,7 @@ watch(
   () => [blockMenuQuery.value, blockMenuItems.value.length] as const,
   () => {
     activeBlockMenuIndex.value = 0;
-  },
+  }
 );
 
 function selectSlashBlock(type: KnowledgeBlockV2Type, attrsPatch: Record<string, unknown> = {}) {
@@ -550,10 +838,7 @@ function focusNextBlock(payload: { blockId: string }) {
 }
 
 function flattenDocumentBlocks(blocks: KnowledgeBlockV2[]): KnowledgeBlockV2[] {
-  return blocks.flatMap((block) => [
-    block,
-    ...flattenDocumentBlocks(block.children ?? []),
-  ]);
+  return blocks.flatMap((block) => [block, ...flattenDocumentBlocks(block.children ?? [])]);
 }
 
 function handleBlockDragStart(payload: { blockId: string; event: DragEvent }) {
@@ -596,13 +881,13 @@ function handleBlockDrop(payload: { blockId: string; placement: DropPlacement })
 
   let nextDocument = documentDraft.value;
   let focusBlockId = sourceBlockId;
-  const orderedDraggingIds = payload.placement === 'before'
-    ? draggingIds
-    : [...draggingIds].reverse();
+  const orderedDraggingIds =
+    payload.placement === 'before' ? draggingIds : [...draggingIds].reverse();
   for (const blockId of orderedDraggingIds) {
-    const result = payload.placement === 'before'
-      ? moveBlockBefore(nextDocument, blockId, payload.blockId)
-      : moveBlockAfter(nextDocument, blockId, payload.blockId);
+    const result =
+      payload.placement === 'before'
+        ? moveBlockBefore(nextDocument, blockId, payload.blockId)
+        : moveBlockAfter(nextDocument, blockId, payload.blockId);
     nextDocument = result.document;
     focusBlockId = result.focusBlockId;
   }
@@ -752,9 +1037,10 @@ async function pasteBlockAfterSelection() {
   const pastedBlocks = await readBlocksFromClipboard();
   if (!pastedBlocks.length) return;
 
-  const result = pastedBlocks.length === 1
-    ? insertBlockAfterWithResult(documentDraft.value.blocks, blockId, pastedBlocks[0])
-    : insertBlocksAfterWithResult(documentDraft.value.blocks, blockId, pastedBlocks);
+  const result =
+    pastedBlocks.length === 1
+      ? insertBlockAfterWithResult(documentDraft.value.blocks, blockId, pastedBlocks[0])
+      : insertBlocksAfterWithResult(documentDraft.value.blocks, blockId, pastedBlocks);
   updateDocument(result.blocks);
   selectedBlockId.value = result.insertedBlockId;
   selectedBlockAnchorId.value = result.insertedBlockId;
@@ -774,10 +1060,15 @@ function duplicateSelectedBlocks() {
   }
 
   const duplicatedBlocks = blocks.map(cloneBlockV2ForPaste);
-  const result = insertBlocksAfterWithResult(documentDraft.value.blocks, anchorBlockId, duplicatedBlocks);
+  const result = insertBlocksAfterWithResult(
+    documentDraft.value.blocks,
+    anchorBlockId,
+    duplicatedBlocks
+  );
   updateDocument(result.blocks);
   selectedBlockAnchorId.value = duplicatedBlocks[0]?.id ?? result.insertedBlockId;
-  selectedBlockId.value = duplicatedBlocks[duplicatedBlocks.length - 1]?.id ?? result.insertedBlockId;
+  selectedBlockId.value =
+    duplicatedBlocks[duplicatedBlocks.length - 1]?.id ?? result.insertedBlockId;
   pendingFocusBlockId.value = null;
   pendingFocusCursorOffset.value = undefined;
   focusSelectedBlockShell();
@@ -786,17 +1077,17 @@ function duplicateSelectedBlocks() {
 function getSelectedBlocks() {
   const blockIds = new Set(selectedBlockIds.value);
   if (!blockIds.size) return [];
-  return flattenDocumentBlocks(documentDraft.value.blocks)
-    .filter((block) => blockIds.has(block.id));
+  return flattenDocumentBlocks(documentDraft.value.blocks).filter((block) =>
+    blockIds.has(block.id)
+  );
 }
 
 function indentSelectedBlocks(direction: 'indent' | 'outdent') {
   if (!selectedBlockIds.value.length) return;
   let nextBlocks = documentDraft.value.blocks;
   for (const blockId of selectedBlockIds.value) {
-    nextBlocks = direction === 'indent'
-      ? indentBlock(nextBlocks, blockId)
-      : outdentBlock(nextBlocks, blockId);
+    nextBlocks =
+      direction === 'indent' ? indentBlock(nextBlocks, blockId) : outdentBlock(nextBlocks, blockId);
   }
   updateDocument(nextBlocks);
   pendingFocusBlockId.value = null;
@@ -835,7 +1126,7 @@ function removeSelectedBlocks() {
   }
 }
 
-async function writeSelectedBlockToClipboard(block: KnowledgeBlockV2) {
+async function _writeSelectedBlockToClipboard(block: KnowledgeBlockV2) {
   await writeSelectedBlocksToClipboard([block]);
 }
 
@@ -847,15 +1138,17 @@ async function writeSelectedBlocksToClipboard(blocks: KnowledgeBlockV2[]) {
   try {
     if (typeof ClipboardItem !== 'undefined' && navigator.clipboard?.write) {
       const clipboardPayload: Record<string, Blob> = {
-        [KNOWLEDGE_BLOCKS_CLIPBOARD_MIME]: new Blob([json], { type: KNOWLEDGE_BLOCKS_CLIPBOARD_MIME }),
+        [KNOWLEDGE_BLOCKS_CLIPBOARD_MIME]: new Blob([json], {
+          type: KNOWLEDGE_BLOCKS_CLIPBOARD_MIME,
+        }),
         'text/plain': new Blob([markdown], { type: 'text/plain' }),
       };
       if (blocks.length === 1) {
-        clipboardPayload[KNOWLEDGE_BLOCK_CLIPBOARD_MIME] = new Blob([JSON.stringify(blocks[0])], { type: KNOWLEDGE_BLOCK_CLIPBOARD_MIME });
+        clipboardPayload[KNOWLEDGE_BLOCK_CLIPBOARD_MIME] = new Blob([JSON.stringify(blocks[0])], {
+          type: KNOWLEDGE_BLOCK_CLIPBOARD_MIME,
+        });
       }
-      await navigator.clipboard.write([
-        new ClipboardItem(clipboardPayload),
-      ]);
+      await navigator.clipboard.write([new ClipboardItem(clipboardPayload)]);
       return;
     }
   } catch {
@@ -876,7 +1169,7 @@ async function readBlocksFromClipboard(): Promise<KnowledgeBlockV2[]> {
   return markdownToBlockDocumentV2(text).blocks.map(cloneBlockV2ForPaste);
 }
 
-async function readSelectedBlockFromClipboard(): Promise<KnowledgeBlockV2 | null> {
+async function _readSelectedBlockFromClipboard(): Promise<KnowledgeBlockV2 | null> {
   const blocks = await readSelectedBlocksFromClipboard();
   return blocks?.[0] ?? null;
 }
@@ -922,7 +1215,7 @@ async function readTextFromClipboard() {
   }
 }
 
-function blockToClipboardMarkdown(block: KnowledgeBlockV2) {
+function _blockToClipboardMarkdown(block: KnowledgeBlockV2) {
   return blocksToClipboardMarkdown([block]);
 }
 
@@ -946,9 +1239,10 @@ function moveSelectedBlock(direction: -1 | 1) {
   const adjacentBlock = blocks[index + direction];
   if (!adjacentBlock) return;
 
-  const result = direction === -1
-    ? moveBlockBefore(documentDraft.value, blockId, adjacentBlock.id)
-    : moveBlockBefore(documentDraft.value, adjacentBlock.id, blockId);
+  const result =
+    direction === -1
+      ? moveBlockBefore(documentDraft.value, blockId, adjacentBlock.id)
+      : moveBlockBefore(documentDraft.value, adjacentBlock.id, blockId);
   replaceDocument(result.document);
   selectedBlockId.value = blockId;
   selectedBlockAnchorId.value = blockId;
@@ -967,8 +1261,8 @@ function moveSelectedBlocks(direction: -1 | 1) {
   const blocks = flattenDocumentBlocks(documentDraft.value.blocks);
   const firstIndex = blocks.findIndex((block) => selectedIds.has(block.id));
   const lastIndex = blocks.reduce(
-    (last, block, index) => selectedIds.has(block.id) ? index : last,
-    -1,
+    (last, block, index) => (selectedIds.has(block.id) ? index : last),
+    -1
   );
   if (firstIndex < 0 || lastIndex < 0) return;
 
@@ -981,7 +1275,11 @@ function moveSelectedBlocks(direction: -1 | 1) {
       nextDocument = moveBlockBefore(nextDocument, blockId, adjacentBlock.id).document;
     }
   } else {
-    nextDocument = moveBlockBefore(nextDocument, adjacentBlock.id, selectedBlockIds.value[0]).document;
+    nextDocument = moveBlockBefore(
+      nextDocument,
+      adjacentBlock.id,
+      selectedBlockIds.value[0]
+    ).document;
   }
 
   replaceDocument(nextDocument);
@@ -1057,12 +1355,19 @@ function copyMarkdown() {
 
 function defaultAttrsForType(
   type: KnowledgeBlockV2Type,
-  current: Record<string, unknown> = {},
+  current: Record<string, unknown> = {}
 ): Record<string, unknown> {
-  if (type === 'heading') return { ...current, level: typeof current.level === 'number' ? current.level : 2 };
-  if (type === 'task_list') return { ...current, checked: typeof current.checked === 'boolean' ? current.checked : false };
-  if (type === 'toggle') return { ...current, open: typeof current.open === 'boolean' ? current.open : true };
-  if (type === 'code') return { ...current, language: typeof current.language === 'string' ? current.language : 'text' };
+  if (type === 'heading')
+    return { ...current, level: typeof current.level === 'number' ? current.level : 2 };
+  if (type === 'task_list')
+    return { ...current, checked: typeof current.checked === 'boolean' ? current.checked : false };
+  if (type === 'toggle')
+    return { ...current, open: typeof current.open === 'boolean' ? current.open : true };
+  if (type === 'code')
+    return {
+      ...current,
+      language: typeof current.language === 'string' ? current.language : 'text',
+    };
   if (type === 'table') {
     return {
       ...current,
@@ -1082,10 +1387,15 @@ function isBlockCommandText(value: string) {
 }
 
 function isTextEntryBlock(block: KnowledgeBlockV2 | undefined): block is KnowledgeBlockV2 {
-  return Boolean(block && !['code', 'divider', 'table', 'image', 'attachment'].includes(block.type));
+  return Boolean(
+    block && !['code', 'divider', 'table', 'image', 'attachment'].includes(block.type)
+  );
 }
 
-function focusBlockForWriting(block: KnowledgeBlockV2, offset = inlineTextFromContent(block.content).length) {
+function focusBlockForWriting(
+  block: KnowledgeBlockV2,
+  offset = inlineTextFromContent(block.content).length
+) {
   selectedBlockId.value = null;
   selectedBlockAnchorId.value = null;
   pendingFocusBlockId.value = block.id;
@@ -1131,29 +1441,41 @@ function focusFirstContentBlockAfterTitle() {
   }
   addBlock('paragraph');
 }
-
 </script>
 
 <template>
   <section
     class="knowledge-block-editor"
     aria-label="块笔记编辑器"
-    :style="{ '--knowledge-selection-bg': props.selectionBackgroundColor || 'color-mix(in srgb, var(--ui-primary-color) 30%, transparent)' }"
+    :style="{
+      '--knowledge-selection-bg':
+        props.selectionBackgroundColor ||
+        'color-mix(in srgb, var(--ui-primary-color) 30%, transparent)',
+    }"
   >
     <UiFileInput ref="fileInputRef" @change="handleFileSelected" />
 
     <div v-if="markdownImportOpen" class="knowledge-block-editor__import">
-      <UiTextarea v-model="markdownImportText" placeholder="粘贴 Markdown，导入会转换为块结构，复杂格式可能有损。" />
+      <UiTextarea
+        v-model="markdownImportText"
+        placeholder="粘贴 Markdown，导入会转换为块结构，复杂格式可能有损。"
+      />
       <div>
-        <UiButton type="button" variant="primary" size="sm" @click="importMarkdown">导入为块</UiButton>
-        <UiButton type="button" variant="secondary" size="sm" @click="markdownImportOpen = false">取消</UiButton>
+        <UiButton type="button" variant="primary" size="sm" @click="importMarkdown"
+          >导入为块</UiButton
+        >
+        <UiButton type="button" variant="secondary" size="sm" @click="markdownImportOpen = false"
+          >取消</UiButton
+        >
       </div>
     </div>
 
     <div v-if="markdownExportOpen" class="knowledge-block-editor__import">
       <UiTextarea :model-value="markdownExport" readonly />
       <div>
-        <UiButton type="button" variant="secondary" size="sm" @click="markdownExportOpen = false">关闭</UiButton>
+        <UiButton type="button" variant="secondary" size="sm" @click="markdownExportOpen = false"
+          >关闭</UiButton
+        >
       </div>
     </div>
 
@@ -1176,10 +1498,19 @@ function focusFirstContentBlockAfterTitle() {
                 <time v-if="updatedAt">更新于 {{ updatedAt }}</time>
               </div>
               <div class="knowledge-block-editor__page-tools" aria-label="页面操作">
-                <span v-if="documentDraft.importedFromMarkdown" class="knowledge-block-editor__badge">
+                <span
+                  v-if="documentDraft.importedFromMarkdown"
+                  class="knowledge-block-editor__badge"
+                >
                   Markdown 有损导入
                 </span>
-                <UiButton type="button" variant="ghost" size="sm" :disabled="saving || !dirty" @click="emit('save')">
+                <UiButton
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  :disabled="saving || !dirty"
+                  @click="emit('save')"
+                >
                   <template #prefix>
                     <IconRenderer icon="iconify:lucide:save" :size="14" />
                   </template>
@@ -1191,7 +1522,12 @@ function focusFirstContentBlockAfterTitle() {
                   </template>
                   添加块
                 </UiButton>
-                <UiButton type="button" variant="ghost" size="sm" @click="markdownImportOpen = !markdownImportOpen">
+                <UiButton
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  @click="markdownImportOpen = !markdownImportOpen"
+                >
                   <template #prefix>
                     <IconRenderer icon="iconify:lucide:import" :size="14" />
                   </template>
@@ -1211,7 +1547,7 @@ function focusFirstContentBlockAfterTitle() {
               :value="title"
               spellcheck="false"
               placeholder="无标题"
-              @input="event => emit('update:title', (event.target as HTMLInputElement).value)"
+              @input="(event) => emit('update:title', (event.target as HTMLInputElement).value)"
               @blur="emit('save-title')"
               @keydown.enter.prevent="focusFirstContentBlockAfterTitle"
             />
@@ -1228,13 +1564,13 @@ function focusFirstContentBlockAfterTitle() {
               :drop-target-placement="dropTargetPlacement"
               :selected-block-id="selectedBlockId"
               :selected-block-ids="selectedBlockIds"
-              @update="payload => updateBlock(payload.blockId, payload.patch)"
-              @choose-asset="payload => chooseAsset(payload.blockId, payload.kind)"
-              @open-asset="assetId => emit('open-asset', assetId)"
-              @show-asset="assetId => emit('show-asset', assetId)"
-              @select-asset="assetId => emit('select-asset', assetId)"
-              @convert-todo="blockId => emit('convert-todo', blockId)"
-              @insert-after="blockId => addBlock('paragraph', blockId)"
+              @update="(payload) => updateBlock(payload.blockId, payload.patch)"
+              @choose-asset="(payload) => chooseAsset(payload.blockId, payload.kind)"
+              @open-asset="(assetId) => emit('open-asset', assetId)"
+              @show-asset="(assetId) => emit('show-asset', assetId)"
+              @select-asset="(assetId) => emit('select-asset', assetId)"
+              @convert-todo="(blockId) => emit('convert-todo', blockId)"
+              @insert-after="(blockId) => addBlock('paragraph', blockId)"
               @duplicate="duplicateBlock"
               @remove="removeBlock"
               @indent="indentBlockDraft"
@@ -1305,16 +1641,23 @@ function focusFirstContentBlockAfterTitle() {
                 :key="group.id"
                 class="knowledge-block-menu__group"
               >
-                <div class="knowledge-block-menu__section-label">{{ blockMenuGroupLabel(group.id) }}</div>
+                <div class="knowledge-block-menu__section-label">
+                  {{ blockMenuGroupLabel(group.id) }}
+                </div>
                 <button
                   v-for="(item, itemIndex) in group.items"
                   :id="`knowledge-block-menu-item-${blockMenuItemIndex(groupIndex, itemIndex)}`"
                   :key="item.action"
                   type="button"
                   class="knowledge-block-menu__item"
-                  :class="{ 'knowledge-block-menu__item--active': activeBlockMenuIndex === blockMenuItemIndex(groupIndex, itemIndex) }"
+                  :class="{
+                    'knowledge-block-menu__item--active':
+                      activeBlockMenuIndex === blockMenuItemIndex(groupIndex, itemIndex),
+                  }"
                   role="menuitem"
-                  :aria-selected="activeBlockMenuIndex === blockMenuItemIndex(groupIndex, itemIndex)"
+                  :aria-selected="
+                    activeBlockMenuIndex === blockMenuItemIndex(groupIndex, itemIndex)
+                  "
                   @mouseenter="activeBlockMenuIndex = blockMenuItemIndex(groupIndex, itemIndex)"
                   @click="runBlockMenuAction(item.action)"
                 >
@@ -1324,7 +1667,9 @@ function focusFirstContentBlockAfterTitle() {
                   <span class="knowledge-block-menu__item-label">{{ item.label }}</span>
                 </button>
               </div>
-              <div v-if="!blockMenuItems.length" class="knowledge-block-menu__empty">没有匹配操作</div>
+              <div v-if="!blockMenuItems.length" class="knowledge-block-menu__empty">
+                没有匹配操作
+              </div>
             </div>
           </UiScrollbar>
         </div>
@@ -1357,7 +1702,10 @@ function focusFirstContentBlockAfterTitle() {
 }
 
 .knowledge-block-editor :deep(::selection) {
-  background: var(--knowledge-selection-bg, color-mix(in srgb, var(--ui-primary-color) 30%, transparent));
+  background: var(
+    --knowledge-selection-bg,
+    color-mix(in srgb, var(--ui-primary-color) 30%, transparent)
+  );
 }
 
 .knowledge-block-editor__badge {
@@ -1441,7 +1789,9 @@ function focusFirstContentBlockAfterTitle() {
   color: var(--ui-text-muted);
   background: transparent;
   cursor: default;
-  transition: background-color 140ms ease, color 140ms ease;
+  transition:
+    background-color 140ms ease,
+    color 140ms ease;
 
   &:hover,
   &:focus-visible {
@@ -1467,7 +1817,9 @@ function focusFirstContentBlockAfterTitle() {
   min-height: 30px;
   opacity: 0;
   transform: translateY(-2px);
-  transition: opacity 140ms ease, transform 140ms ease;
+  transition:
+    opacity 140ms ease,
+    transform 140ms ease;
 
   :deep(.ui-button) {
     min-height: 26px;
@@ -1713,6 +2065,5 @@ function focusFirstContentBlockAfterTitle() {
   .knowledge-block-editor__page-title {
     font-size: 28px;
   }
-
 }
 </style>

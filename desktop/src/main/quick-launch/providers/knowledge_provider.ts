@@ -21,11 +21,14 @@ export const knowledgeProvider: QuickLaunchProvider = {
         dbManager.getDatabase().searchKnowledge({
           query: context.query,
           limit: context.limit,
-        }) as Promise<KnowledgeSearchResult[]>,
+        }) as Promise<KnowledgeSearchResult[]>
       );
     } catch (error) {
       if (isDatabaseBusyError(error) || isKnowledgeSearchTimeoutError(error)) {
-        console.debug('[quick-launch] Knowledge provider skipped while database is locked or slow:', error);
+        console.debug(
+          '[quick-launch] Knowledge provider skipped while database is locked or slow:',
+          error
+        );
         return lastSuccessfulKnowledgeResults
           .filter((item) => matchesCachedKnowledgeResult(item, context.query))
           .slice(0, context.limit);
@@ -34,20 +37,23 @@ export const knowledgeProvider: QuickLaunchProvider = {
     }
 
     const mappedResults = results
-      .map((item) => ({
-        id: `knowledge:${item.sourceType}:${item.sourceId}`,
-        providerId: 'knowledge',
-        title: item.title,
-        subtitle: compactSnippet(item.snippet || item.sourceType),
-        detail: item.updatedAt,
-        keywords: [item.sourceType, item.nodeId ?? '', item.assetId ?? ''],
-        score: 70 + Math.round(item.score * 10),
-        action: {
-          type: 'open-knowledge-result',
-          sourceId: item.sourceId,
-          nodeId: item.nodeId,
-        },
-      } satisfies QuickLaunchResult))
+      .map(
+        (item) =>
+          ({
+            id: `knowledge:${item.sourceType}:${item.sourceId}`,
+            providerId: 'knowledge',
+            title: item.title,
+            subtitle: compactSnippet(item.snippet || item.sourceType),
+            detail: item.updatedAt,
+            keywords: [item.sourceType, item.nodeId ?? '', item.assetId ?? ''],
+            score: 70 + Math.round(item.score * 10),
+            action: {
+              type: 'open-knowledge-result',
+              sourceId: item.sourceId,
+              nodeId: item.nodeId,
+            },
+          }) satisfies QuickLaunchResult
+      )
       .slice(0, context.limit);
     lastSuccessfulKnowledgeResults = mappedResults;
     return mappedResults;
@@ -56,7 +62,10 @@ export const knowledgeProvider: QuickLaunchProvider = {
 
 function withKnowledgeSearchTimeout<T>(promise: Promise<T>): Promise<T> {
   return new Promise((resolve, reject) => {
-    const timer = setTimeout(() => reject(new Error('knowledge search timeout')), KNOWLEDGE_SEARCH_TIMEOUT_MS);
+    const timer = setTimeout(
+      () => reject(new Error('knowledge search timeout')),
+      KNOWLEDGE_SEARCH_TIMEOUT_MS
+    );
     promise.then(
       (value) => {
         clearTimeout(timer);
@@ -65,7 +74,7 @@ function withKnowledgeSearchTimeout<T>(promise: Promise<T>): Promise<T> {
       (error) => {
         clearTimeout(timer);
         reject(error);
-      },
+      }
     );
   });
 }
@@ -76,19 +85,18 @@ function isKnowledgeSearchTimeoutError(error: unknown) {
 
 function isDatabaseBusyError(error: unknown) {
   const message = error instanceof Error ? error.message : String(error);
-  return message.includes('database is locked')
-    || message.includes('DatabaseBusy')
-    || message.includes('code: DatabaseBusy')
-    || message.includes('extended_code: 5');
+  return (
+    message.includes('database is locked') ||
+    message.includes('DatabaseBusy') ||
+    message.includes('code: DatabaseBusy') ||
+    message.includes('extended_code: 5')
+  );
 }
 
 function matchesCachedKnowledgeResult(result: QuickLaunchResult, query: string) {
   const normalizedQuery = query.trim().toLocaleLowerCase();
   if (!normalizedQuery) return true;
-  return [
-    result.title,
-    result.subtitle,
-    result.detail,
-    ...result.keywords,
-  ].some((value) => value.toLocaleLowerCase().includes(normalizedQuery));
+  return [result.title, result.subtitle, result.detail, ...result.keywords].some((value) =>
+    value.toLocaleLowerCase().includes(normalizedQuery)
+  );
 }

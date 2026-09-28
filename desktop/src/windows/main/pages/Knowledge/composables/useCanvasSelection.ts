@@ -40,12 +40,14 @@ export function useCanvasSelection() {
     return elements.map((element) =>
       selectedIds.value.has(element.id)
         ? { ...element, x: element.x + dx, y: element.y + dy, updatedAt: new Date().toISOString() }
-        : element,
+        : element
     );
   }
 
   function selectIntersecting(elements: KnowledgeCanvasElementV2[], rect: CanvasMarquee) {
-    replaceSelectionMany(elements.filter((element) => intersects(element, rect)).map((element) => element.id));
+    replaceSelectionMany(
+      elements.filter((element) => intersects(element, rect)).map((element) => element.id)
+    );
   }
 
   return {
@@ -67,8 +69,10 @@ function intersects(element: KnowledgeCanvasElementV2, rect: CanvasMarquee) {
   const right = Math.max(rect.x, rect.x + rect.width);
   const top = Math.min(rect.y, rect.y + rect.height);
   const bottom = Math.max(rect.y, rect.y + rect.height);
-  return element.x < right
-    && element.x + element.width > left
-    && element.y < bottom
-    && element.y + element.height > top;
+  return (
+    element.x < right &&
+    element.x + element.width > left &&
+    element.y < bottom &&
+    element.y + element.height > top
+  );
 }

@@ -11,7 +11,13 @@ const emit = defineEmits<{
 
 <template>
   <aside class="knowledge-block__actions" aria-label="块操作">
-    <UiIconButton class="knowledge-block__action-button" type="button" title="在下方添加块" size="sm" @click="emit('insert-after')">
+    <UiIconButton
+      class="knowledge-block__action-button"
+      type="button"
+      title="在下方添加块"
+      size="sm"
+      @click="emit('insert-after')"
+    >
       <IconRenderer icon="iconify:lucide:plus" :size="14" />
     </UiIconButton>
     <button
@@ -20,8 +26,8 @@ const emit = defineEmits<{
       title="拖拽移动块"
       draggable="true"
       aria-label="打开块菜单或拖拽移动块"
-      @click="event => emit('menu', event)"
-      @dragstart="event => emit('dragstart', event)"
+      @click="(event) => emit('menu', event)"
+      @dragstart="(event) => emit('dragstart', event)"
     >
       <IconRenderer icon="iconify:lucide:grip-vertical" :size="15" />
     </button>

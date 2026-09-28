@@ -1,5 +1,14 @@
-import type { KnowledgeAsset, KnowledgeBlock, KnowledgeBlockDocument, KnowledgeBlockType } from '@/contracts/knowledge';
-import { createKnowledgeBlock, markdownToBlockDocument, normalizeBlockDocument } from './knowledge_blocks';
+import type {
+  KnowledgeAsset,
+  KnowledgeBlock,
+  KnowledgeBlockDocument,
+  KnowledgeBlockType,
+} from '@/contracts/knowledge';
+import {
+  createKnowledgeBlock,
+  markdownToBlockDocument,
+  normalizeBlockDocument,
+} from './knowledge_blocks';
 
 export type KnowledgeInlineMarkType = 'bold' | 'italic' | 'code' | 'strike';
 
@@ -46,16 +55,14 @@ export function createDefaultBlockDocumentV2(title = '块笔记'): KnowledgeBloc
     type: 'guyantools.block-page',
     version: 2,
     updatedAt: new Date().toISOString(),
-    blocks: [
-      createBlockV2('paragraph', ''),
-    ],
+    blocks: [createBlockV2('paragraph', '')],
   });
 }
 
 export function createBlockV2(
   type: KnowledgeBlockV2Type,
   text = '',
-  attrs: Record<string, unknown> = {},
+  attrs: Record<string, unknown> = {}
 ): KnowledgeBlockV2 {
   const now = new Date().toISOString();
   return {
@@ -68,7 +75,10 @@ export function createBlockV2(
   };
 }
 
-export function parseKnowledgeBlockDocumentV2(value?: string | null, fallbackTitle?: string): KnowledgeBlockDocumentV2 {
+export function parseKnowledgeBlockDocumentV2(
+  value?: string | null,
+  fallbackTitle?: string
+): KnowledgeBlockDocumentV2 {
   if (!value) return createDefaultBlockDocumentV2(fallbackTitle);
   try {
     const parsed = JSON.parse(value) as unknown;
@@ -78,7 +88,9 @@ export function parseKnowledgeBlockDocumentV2(value?: string | null, fallbackTit
   }
 }
 
-export function migrateBlockDocumentToV2(document: KnowledgeBlockDocument): KnowledgeBlockDocumentV2 {
+export function migrateBlockDocumentToV2(
+  document: KnowledgeBlockDocument
+): KnowledgeBlockDocumentV2 {
   const normalized = normalizeBlockDocument(document);
   return normalizeBlockDocumentV2({
     type: 'guyantools.block-page',
@@ -89,11 +101,16 @@ export function migrateBlockDocumentToV2(document: KnowledgeBlockDocument): Know
   });
 }
 
-export function markdownToBlockDocumentV2(markdown: string, title = 'Markdown 导入'): KnowledgeBlockDocumentV2 {
+export function markdownToBlockDocumentV2(
+  markdown: string,
+  title = 'Markdown 导入'
+): KnowledgeBlockDocumentV2 {
   return migrateBlockDocumentToV2(markdownToBlockDocument(markdown, title));
 }
 
-export function blockDocumentV2ToV1Document(document: KnowledgeBlockDocumentV2): KnowledgeBlockDocument {
+export function blockDocumentV2ToV1Document(
+  document: KnowledgeBlockDocumentV2
+): KnowledgeBlockDocument {
   const normalized = normalizeBlockDocumentV2(document);
   return normalizeBlockDocument({
     type: 'guyantools.block-page',
@@ -104,14 +121,19 @@ export function blockDocumentV2ToV1Document(document: KnowledgeBlockDocumentV2):
   });
 }
 
-export function normalizeBlockDocumentV2(value: unknown, fallbackTitle?: string): KnowledgeBlockDocumentV2 {
+export function normalizeBlockDocumentV2(
+  value: unknown,
+  fallbackTitle?: string
+): KnowledgeBlockDocumentV2 {
   const source = isRecord(value) ? value : {};
   if (source.version !== 2) {
     return migrateBlockDocumentToV2(normalizeBlockDocument(value, fallbackTitle));
   }
 
   const blocks = Array.isArray(source.blocks)
-    ? source.blocks.map(normalizeBlockV2).filter((block): block is KnowledgeBlockV2 => Boolean(block))
+    ? source.blocks
+        .map(normalizeBlockV2)
+        .filter((block): block is KnowledgeBlockV2 => Boolean(block))
     : [];
 
   return {
@@ -138,8 +160,8 @@ export function blockDocumentV2ToPlainText(document: KnowledgeBlockDocumentV2): 
 }
 
 export function blockDocumentV2ToMarkdown(document: KnowledgeBlockDocumentV2): string {
-  return normalizeBlockDocumentV2(document).blocks
-    .map((block) => blockV2TreeToMarkdown(block))
+  return normalizeBlockDocumentV2(document)
+    .blocks.map((block) => blockV2TreeToMarkdown(block))
     .filter(Boolean)
     .join('\n\n');
 }
@@ -147,7 +169,7 @@ export function blockDocumentV2ToMarkdown(document: KnowledgeBlockDocumentV2): s
 export function insertBlockAfter(
   blocks: KnowledgeBlockV2[],
   blockId: string,
-  block: KnowledgeBlockV2,
+  block: KnowledgeBlockV2
 ): KnowledgeBlockV2[] {
   return insertBlockAfterWithResult(blocks, blockId, block).blocks;
 }
@@ -155,7 +177,7 @@ export function insertBlockAfter(
 export function insertBlockAfterWithResult(
   blocks: KnowledgeBlockV2[],
   blockId: string,
-  block: KnowledgeBlockV2,
+  block: KnowledgeBlockV2
 ): { blocks: KnowledgeBlockV2[]; insertedBlockId: string } {
   const inserted = insertBlocksAfterInLevel(blocks, blockId, [block]);
   return {
@@ -167,7 +189,7 @@ export function insertBlockAfterWithResult(
 export function insertBlocksAfterWithResult(
   blocks: KnowledgeBlockV2[],
   blockId: string,
-  insertedBlocks: KnowledgeBlockV2[],
+  insertedBlocks: KnowledgeBlockV2[]
 ): { blocks: KnowledgeBlockV2[]; insertedBlockId: string | null } {
   const safeBlocks = insertedBlocks.length ? insertedBlocks : [createBlockV2('paragraph')];
   const inserted = insertBlocksAfterInLevel(blocks, blockId, safeBlocks);
@@ -183,7 +205,7 @@ export function removeBlockById(blocks: KnowledgeBlockV2[], blockId: string): Kn
 
 export function removeBlockWithResult(
   blocks: KnowledgeBlockV2[],
-  blockId: string,
+  blockId: string
 ): { blocks: KnowledgeBlockV2[]; focusBlockId: string | null } {
   const result = removeBlockFromLevel(blocks, blockId);
   if (result.blocks.length) {
@@ -203,18 +225,21 @@ export function removeBlockWithResult(
 export function moveBlockById(
   blocks: KnowledgeBlockV2[],
   blockId: string,
-  direction: -1 | 1,
+  direction: -1 | 1
 ): KnowledgeBlockV2[] {
   return moveBlockInLevel(blocks, blockId, direction).blocks;
 }
 
-export function duplicateBlockById(blocks: KnowledgeBlockV2[], blockId: string): KnowledgeBlockV2[] {
+export function duplicateBlockById(
+  blocks: KnowledgeBlockV2[],
+  blockId: string
+): KnowledgeBlockV2[] {
   return duplicateBlockWithResult(blocks, blockId).blocks;
 }
 
 export function duplicateBlockWithResult(
   blocks: KnowledgeBlockV2[],
-  blockId: string,
+  blockId: string
 ): { blocks: KnowledgeBlockV2[]; duplicatedBlockId: string | null } {
   const result = duplicateBlockInLevel(blocks, blockId);
   return {
@@ -230,7 +255,7 @@ export function cloneBlockV2ForPaste(block: KnowledgeBlockV2): KnowledgeBlockV2 
 export function updateBlockDocumentV2(
   document: KnowledgeBlockDocumentV2,
   blockId: string,
-  patch: Partial<KnowledgeBlockV2>,
+  patch: Partial<KnowledgeBlockV2>
 ): KnowledgeBlockDocumentV2 {
   return normalizeBlockDocumentV2({
     ...document,
@@ -248,7 +273,7 @@ export function updateBlockDocumentV2(
 export function attachAssetToBlockV2(
   document: KnowledgeBlockDocumentV2,
   blockId: string,
-  asset: KnowledgeAsset,
+  asset: KnowledgeAsset
 ): KnowledgeBlockDocumentV2 {
   const block = findBlockV2(document.blocks, blockId);
   return updateBlockDocumentV2(document, blockId, {
@@ -289,7 +314,7 @@ export function outdentBlock(blocks: KnowledgeBlockV2[], blockId: string): Knowl
 export function splitBlockAtTextOffset(
   document: KnowledgeBlockDocumentV2,
   blockId: string,
-  offset: number,
+  offset: number
 ): { document: KnowledgeBlockDocumentV2; focusBlockId: string; cursorOffset: number } {
   const normalized = normalizeBlockDocumentV2(document);
   const result = splitBlockInLevel(normalized.blocks, blockId, Math.max(0, offset));
@@ -310,7 +335,7 @@ export function splitBlockAtTextOffset(
 
 export function mergeBlockBackward(
   document: KnowledgeBlockDocumentV2,
-  blockId: string,
+  blockId: string
 ): { document: KnowledgeBlockDocumentV2; focusBlockId: string; cursorOffset: number } {
   const normalized = normalizeBlockDocumentV2(document);
   const result = mergeBlockBackwardInLevel(normalized.blocks, blockId);
@@ -332,7 +357,7 @@ export function mergeBlockBackward(
 export function moveBlockBefore(
   document: KnowledgeBlockDocumentV2,
   draggedBlockId: string,
-  targetBlockId: string,
+  targetBlockId: string
 ): { document: KnowledgeBlockDocumentV2; focusBlockId: string } {
   const normalized = normalizeBlockDocumentV2(document);
   if (draggedBlockId === targetBlockId) {
@@ -362,7 +387,7 @@ export function moveBlockBefore(
 export function moveBlockAfter(
   document: KnowledgeBlockDocumentV2,
   draggedBlockId: string,
-  targetBlockId: string,
+  targetBlockId: string
 ): { document: KnowledgeBlockDocumentV2; focusBlockId: string } {
   const normalized = normalizeBlockDocumentV2(document);
   if (draggedBlockId === targetBlockId) {
@@ -425,13 +450,33 @@ function blockV2ToPlainText(block: KnowledgeBlockV2): string {
 
 function blockV2ToMarkdown(block: KnowledgeBlockV2): string {
   const text = inlineText(block.content);
-  if (block.type === 'heading') return `${'#'.repeat(normalizeHeadingLevel(block.attrs?.level))} ${text}`;
-  if (block.type === 'bullet_list') return text.split('\n').filter(Boolean).map((line) => `- ${line}`).join('\n');
-  if (block.type === 'ordered_list') return text.split('\n').filter(Boolean).map((line, index) => `${index + 1}. ${line}`).join('\n');
+  if (block.type === 'heading')
+    return `${'#'.repeat(normalizeHeadingLevel(block.attrs?.level))} ${text}`;
+  if (block.type === 'bullet_list')
+    return text
+      .split('\n')
+      .filter(Boolean)
+      .map((line) => `- ${line}`)
+      .join('\n');
+  if (block.type === 'ordered_list')
+    return text
+      .split('\n')
+      .filter(Boolean)
+      .map((line, index) => `${index + 1}. ${line}`)
+      .join('\n');
   if (block.type === 'task_list') return `- [${block.attrs?.checked ? 'x' : ' '}] ${text}`;
-  if (block.type === 'code') return `\`\`\`${String(block.attrs?.language ?? 'text')}\n${text}\n\`\`\``;
-  if (block.type === 'quote') return text.split('\n').map((line) => `> ${line}`).join('\n');
-  if (block.type === 'callout') return `> [!NOTE]\n${text.split('\n').map((line) => `> ${line}`).join('\n')}`;
+  if (block.type === 'code')
+    return `\`\`\`${String(block.attrs?.language ?? 'text')}\n${text}\n\`\`\``;
+  if (block.type === 'quote')
+    return text
+      .split('\n')
+      .map((line) => `> ${line}`)
+      .join('\n');
+  if (block.type === 'callout')
+    return `> [!NOTE]\n${text
+      .split('\n')
+      .map((line) => `> ${line}`)
+      .join('\n')}`;
   if (block.type === 'table') return tableBlockToMarkdown(block);
   if (block.type === 'toggle') return text;
   if (block.type === 'divider') return '---';
@@ -441,8 +486,10 @@ function blockV2ToMarkdown(block: KnowledgeBlockV2): string {
   if (block.type === 'attachment' && typeof block.attrs?.assetUrl === 'string') {
     return `[${String(block.attrs.assetName ?? 'attachment')}](${block.attrs.assetUrl})`;
   }
-  if (block.type === 'todo_reference') return block.refs?.todoId ? `- [ ] ${text || block.refs.todoId}` : text;
-  if (block.type === 'page_reference') return block.refs?.pageId ? `[[${text || block.refs.pageId}]]` : text;
+  if (block.type === 'todo_reference')
+    return block.refs?.todoId ? `- [ ] ${text || block.refs.todoId}` : text;
+  if (block.type === 'page_reference')
+    return block.refs?.pageId ? `[[${text || block.refs.pageId}]]` : text;
   return text;
 }
 
@@ -458,7 +505,9 @@ function blockV2TreeToMarkdown(block: KnowledgeBlockV2): string {
       `<summary>${summary}</summary>`,
       childMarkdown ? `\n${childMarkdown}` : '',
       '</details>',
-    ].filter((line) => line !== '').join('\n');
+    ]
+      .filter((line) => line !== '')
+      .join('\n');
   }
 
   const ownMarkdown = blockV2ToMarkdown(block);
@@ -478,18 +527,15 @@ function tableBlockToMarkdown(block: KnowledgeBlockV2): string {
   const header = Array.from({ length: columnCount }, (_item, index) => `列 ${index + 1}`);
   const divider = Array.from({ length: columnCount }, () => '---');
   const rows = Array.from({ length: Math.max(0, rowCount - 1) }, () =>
-    Array.from({ length: columnCount }, () => ''),
+    Array.from({ length: columnCount }, () => '')
   );
 
-  return [
-    formatTableRow(header),
-    formatTableRow(divider),
-    ...rows.map(formatTableRow),
-  ].join('\n');
+  return [formatTableRow(header), formatTableRow(divider), ...rows.map(formatTableRow)].join('\n');
 }
 
 function normalizeTableSize(value: unknown, fallback: number, min: number, max: number) {
-  const numeric = typeof value === 'number' && Number.isFinite(value) ? Math.round(value) : fallback;
+  const numeric =
+    typeof value === 'number' && Number.isFinite(value) ? Math.round(value) : fallback;
   return Math.min(Math.max(numeric, min), max);
 }
 
@@ -517,7 +563,8 @@ function blockV2ToV1(block: KnowledgeBlockV2): KnowledgeBlock {
     checked: typeof block.attrs?.checked === 'boolean' ? block.attrs.checked : undefined,
     assetId: block.refs?.assetId,
     assetName: typeof block.attrs?.assetName === 'string' ? block.attrs.assetName : undefined,
-    assetMimeType: typeof block.attrs?.assetMimeType === 'string' ? block.attrs.assetMimeType : undefined,
+    assetMimeType:
+      typeof block.attrs?.assetMimeType === 'string' ? block.attrs.assetMimeType : undefined,
     assetUrl: typeof block.attrs?.assetUrl === 'string' ? block.attrs.assetUrl : undefined,
     todoId: block.refs?.todoId,
     pageId: block.refs?.pageId,
@@ -528,13 +575,16 @@ function blockV2ToV1(block: KnowledgeBlockV2): KnowledgeBlock {
 }
 
 function normalizeBlockV2(value: unknown): KnowledgeBlockV2 | null {
-  if (!isRecord(value) || typeof value.id !== 'string' || typeof value.type !== 'string') return null;
+  if (!isRecord(value) || typeof value.id !== 'string' || typeof value.type !== 'string')
+    return null;
   return {
     id: value.id,
     type: normalizeBlockV2Type(value.type),
     content: normalizeInlineContent(value.content),
     children: Array.isArray(value.children)
-      ? value.children.map(normalizeBlockV2).filter((block): block is KnowledgeBlockV2 => Boolean(block))
+      ? value.children
+          .map(normalizeBlockV2)
+          .filter((block): block is KnowledgeBlockV2 => Boolean(block))
       : undefined,
     attrs: isRecord(value.attrs) ? value.attrs : undefined,
     refs: normalizeRefs(value.refs),
@@ -563,7 +613,12 @@ function normalizeInlineMarks(value: unknown): KnowledgeInlineMark[] | undefined
   const marks = value
     .map((item) => {
       if (!isRecord(item)) return null;
-      if (item.type === 'bold' || item.type === 'italic' || item.type === 'code' || item.type === 'strike') {
+      if (
+        item.type === 'bold' ||
+        item.type === 'italic' ||
+        item.type === 'code' ||
+        item.type === 'strike'
+      ) {
         return { type: item.type };
       }
       return null;
@@ -589,18 +644,18 @@ function normalizeBlockV2Type(value: string): KnowledgeBlockV2Type {
 
 function toV1CompatibleType(value: string): KnowledgeBlockType {
   if (
-    value === 'paragraph'
-    || value === 'heading'
-    || value === 'bullet_list'
-    || value === 'ordered_list'
-    || value === 'task_list'
-    || value === 'code'
-    || value === 'quote'
-    || value === 'callout'
-    || value === 'image'
-    || value === 'attachment'
-    || value === 'todo_reference'
-    || value === 'page_reference'
+    value === 'paragraph' ||
+    value === 'heading' ||
+    value === 'bullet_list' ||
+    value === 'ordered_list' ||
+    value === 'task_list' ||
+    value === 'code' ||
+    value === 'quote' ||
+    value === 'callout' ||
+    value === 'image' ||
+    value === 'attachment' ||
+    value === 'todo_reference' ||
+    value === 'page_reference'
   ) {
     return value;
   }
@@ -622,7 +677,7 @@ function inlineTextLength(content: KnowledgeInlineContent[]): number {
 
 function splitInlineContentAtOffset(
   content: KnowledgeInlineContent[],
-  offset: number,
+  offset: number
 ): { before: KnowledgeInlineContent[]; after: KnowledgeInlineContent[] } {
   const before: KnowledgeInlineContent[] = [];
   const after: KnowledgeInlineContent[] = [];
@@ -661,7 +716,7 @@ function flattenBlocks(blocks: KnowledgeBlockV2[]): KnowledgeBlockV2[] {
 function insertBlockAfterInLevel(
   blocks: KnowledgeBlockV2[],
   blockId: string,
-  block: KnowledgeBlockV2,
+  block: KnowledgeBlockV2
 ): { blocks: KnowledgeBlockV2[]; changed: boolean } {
   return insertBlocksAfterInLevel(blocks, blockId, [block]);
 }
@@ -669,7 +724,7 @@ function insertBlockAfterInLevel(
 function insertBlocksAfterInLevel(
   blocks: KnowledgeBlockV2[],
   blockId: string,
-  insertedBlocks: KnowledgeBlockV2[],
+  insertedBlocks: KnowledgeBlockV2[]
 ): { blocks: KnowledgeBlockV2[]; changed: boolean } {
   const index = blocks.findIndex((item) => item.id === blockId);
   if (index >= 0) {
@@ -701,7 +756,7 @@ function insertBlocksAfterInLevel(
 function insertBlockBeforeInLevel(
   blocks: KnowledgeBlockV2[],
   blockId: string,
-  block: KnowledgeBlockV2,
+  block: KnowledgeBlockV2
 ): { blocks: KnowledgeBlockV2[]; changed: boolean } {
   const index = blocks.findIndex((item) => item.id === blockId);
   if (index >= 0) {
@@ -731,7 +786,7 @@ function insertBlockBeforeInLevel(
 function splitBlockInLevel(
   blocks: KnowledgeBlockV2[],
   blockId: string,
-  offset: number,
+  offset: number
 ): { blocks: KnowledgeBlockV2[]; changed: boolean; focusBlockId?: string } {
   const index = blocks.findIndex((item) => item.id === blockId);
   if (index >= 0) {
@@ -791,7 +846,7 @@ function splitBlockInLevel(
 
 function splitNextBlockAttrs(
   block: KnowledgeBlockV2,
-  nextType: KnowledgeBlockV2Type,
+  nextType: KnowledgeBlockV2Type
 ): Record<string, unknown> | undefined {
   if (nextType !== block.type) return undefined;
   if (block.type === 'task_list') {
@@ -802,7 +857,7 @@ function splitNextBlockAttrs(
 
 function splitNextBlockRefs(
   block: KnowledgeBlockV2,
-  nextType: KnowledgeBlockV2Type,
+  nextType: KnowledgeBlockV2Type
 ): KnowledgeBlockV2['refs'] | undefined {
   if (nextType !== block.type) return undefined;
   if (block.type === 'task_list') return undefined;
@@ -812,7 +867,7 @@ function splitNextBlockRefs(
 function shouldExitBlockOnEmptyEnter(
   block: KnowledgeBlockV2,
   before: KnowledgeInlineContent[],
-  after: KnowledgeInlineContent[],
+  after: KnowledgeInlineContent[]
 ) {
   const exitTypes = new Set<KnowledgeBlockV2Type>([
     'bullet_list',
@@ -822,12 +877,14 @@ function shouldExitBlockOnEmptyEnter(
     'callout',
     'toggle',
   ]);
-  return exitTypes.has(block.type) && inlineTextLength(before) === 0 && inlineTextLength(after) === 0;
+  return (
+    exitTypes.has(block.type) && inlineTextLength(before) === 0 && inlineTextLength(after) === 0
+  );
 }
 
 function mergeBlockBackwardInLevel(
   blocks: KnowledgeBlockV2[],
-  blockId: string,
+  blockId: string
 ): { blocks: KnowledgeBlockV2[]; changed: boolean; focusBlockId?: string; cursorOffset: number } {
   const index = blocks.findIndex((item) => item.id === blockId);
   if (index > 0) {
@@ -887,7 +944,12 @@ function mergeBlockBackwardInLevel(
         children: result.blocks,
       };
       return result.changed
-        ? { blocks: next, changed: true, focusBlockId: result.focusBlockId, cursorOffset: result.cursorOffset }
+        ? {
+            blocks: next,
+            changed: true,
+            focusBlockId: result.focusBlockId,
+            cursorOffset: result.cursorOffset,
+          }
         : { blocks, changed: false, cursorOffset: 0 };
     }
   }
@@ -897,7 +959,7 @@ function mergeBlockBackwardInLevel(
 
 function extractBlockFromLevel(
   blocks: KnowledgeBlockV2[],
-  blockId: string,
+  blockId: string
 ): { blocks: KnowledgeBlockV2[]; block?: KnowledgeBlockV2 } {
   const index = blocks.findIndex((item) => item.id === blockId);
   if (index >= 0) {
@@ -926,7 +988,7 @@ function extractBlockFromLevel(
 
 function removeBlockFromLevel(
   blocks: KnowledgeBlockV2[],
-  blockId: string,
+  blockId: string
 ): { blocks: KnowledgeBlockV2[]; changed: boolean; focusBlockId?: string | null } {
   const index = blocks.findIndex((block) => block.id === blockId);
   if (index >= 0) {
@@ -961,7 +1023,7 @@ function removeBlockFromLevel(
 function moveBlockInLevel(
   blocks: KnowledgeBlockV2[],
   blockId: string,
-  direction: -1 | 1,
+  direction: -1 | 1
 ): { blocks: KnowledgeBlockV2[]; changed: boolean } {
   const index = blocks.findIndex((block) => block.id === blockId);
   const targetIndex = index + direction;
@@ -994,17 +1056,13 @@ function moveBlockInLevel(
 
 function duplicateBlockInLevel(
   blocks: KnowledgeBlockV2[],
-  blockId: string,
+  blockId: string
 ): { blocks: KnowledgeBlockV2[]; changed: boolean; duplicatedBlockId?: string } {
   const index = blocks.findIndex((block) => block.id === blockId);
   if (index >= 0) {
     const duplicate = cloneBlockWithNewIds(blocks[index]);
     return {
-      blocks: [
-        ...blocks.slice(0, index + 1),
-        duplicate,
-        ...blocks.slice(index + 1),
-      ],
+      blocks: [...blocks.slice(0, index + 1), duplicate, ...blocks.slice(index + 1)],
       changed: true,
       duplicatedBlockId: duplicate.id,
     };
@@ -1044,7 +1102,7 @@ function cloneBlockWithNewIds(block: KnowledgeBlockV2): KnowledgeBlockV2 {
 function updateBlockInTree(
   blocks: KnowledgeBlockV2[],
   blockId: string,
-  updater: (block: KnowledgeBlockV2) => KnowledgeBlockV2,
+  updater: (block: KnowledgeBlockV2) => KnowledgeBlockV2
 ): KnowledgeBlockV2[] {
   return blocks.map((block) => {
     if (block.id === blockId) return updater(block);
@@ -1058,7 +1116,7 @@ function updateBlockInTree(
 
 function indentBlockInLevel(
   blocks: KnowledgeBlockV2[],
-  blockId: string,
+  blockId: string
 ): { blocks: KnowledgeBlockV2[]; changed: boolean } {
   const index = blocks.findIndex((block) => block.id === blockId);
   if (index > 0) {
@@ -1099,7 +1157,7 @@ function indentBlockInLevel(
 
 function outdentFromLevel(
   blocks: KnowledgeBlockV2[],
-  blockId: string,
+  blockId: string
 ): { blocks: KnowledgeBlockV2[]; lifted: KnowledgeBlockV2 | null } {
   for (let index = 0; index < blocks.length; index += 1) {
     const block = blocks[index];
@@ -1109,19 +1167,11 @@ function outdentFromLevel(
       const child = block.children[childIndex];
       const nextParent = {
         ...block,
-        children: [
-          ...block.children.slice(0, childIndex),
-          ...block.children.slice(childIndex + 1),
-        ],
+        children: [...block.children.slice(0, childIndex), ...block.children.slice(childIndex + 1)],
         updatedAt: new Date().toISOString(),
       };
       return {
-        blocks: [
-          ...blocks.slice(0, index),
-          nextParent,
-          child,
-          ...blocks.slice(index + 1),
-        ],
+        blocks: [...blocks.slice(0, index), nextParent, child, ...blocks.slice(index + 1)],
         lifted: null,
       };
     }
@@ -1146,7 +1196,7 @@ function outdentFromLevel(
 
 function compactRecord<T extends Record<string, unknown>>(value: T): Partial<T> {
   return Object.fromEntries(
-    Object.entries(value).filter(([, entry]) => entry !== undefined),
+    Object.entries(value).filter(([, entry]) => entry !== undefined)
   ) as Partial<T>;
 }
 

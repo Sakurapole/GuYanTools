@@ -129,36 +129,44 @@ export const useKnowledgeStore = defineStore('knowledge', () => {
   const canvasDraft = ref<KnowledgeCanvasDocumentV2>(createDefaultCanvasDocumentV2());
   const canvasDirty = ref(false);
 
-  const activeLibrary = computed(() =>
-    libraries.value.find((library) => library.id === activeLibraryId.value) ?? libraries.value[0] ?? null,
+  const activeLibrary = computed(
+    () =>
+      libraries.value.find((library) => library.id === activeLibraryId.value) ??
+      libraries.value[0] ??
+      null
   );
-  const activeSpace = computed(() =>
-    spaces.value.find((space) => space.id === activeSpaceId.value) ?? spaces.value[0] ?? null,
+  const activeSpace = computed(
+    () => spaces.value.find((space) => space.id === activeSpaceId.value) ?? spaces.value[0] ?? null
   );
   const visibleNodes = computed(() =>
-    nodes.value.filter((node) => !node.isArchived && !node.deletedAt),
+    nodes.value.filter((node) => !node.isArchived && !node.deletedAt)
   );
-  const selectedNode = computed(() =>
-    visibleNodes.value.find((node) => node.id === selectedNodeId.value) ?? null,
+  const selectedNode = computed(
+    () => visibleNodes.value.find((node) => node.id === selectedNodeId.value) ?? null
   );
-  const inboxNode = computed(() =>
-    visibleNodes.value.find((node) => node.id === 'node-inbox' || node.title === '快速收集箱') ?? null,
+  const inboxNode = computed(
+    () =>
+      visibleNodes.value.find((node) => node.id === 'node-inbox' || node.title === '快速收集箱') ??
+      null
   );
-  const favoriteNodes = computed(() => latestFirst(visibleNodes.value.filter((node) => node.isFavorite)));
+  const favoriteNodes = computed(() =>
+    latestFirst(visibleNodes.value.filter((node) => node.isFavorite))
+  );
   const recentNodes = computed(() => latestFirst(visibleNodes.value).slice(0, 8));
   const visibleQuickNotes = computed(() => {
     const query = quickNoteSearch.value.trim().toLowerCase();
     if (!query) return quickNotes.value;
     return quickNotes.value.filter((item) => {
       const tags = safeQuickNoteTags(item).join(' ').toLowerCase();
-      return [
-        item.quickNote.title,
-        item.quickNote.body,
-        tags,
-      ].some((value) => value.toLowerCase().includes(query));
+      return [item.quickNote.title, item.quickNote.body, tags].some((value) =>
+        value.toLowerCase().includes(query)
+      );
     });
   });
-  const selectedTagTarget = computed<{ targetType: KnowledgeTagTargetType; targetId: string } | null>(() => {
+  const selectedTagTarget = computed<{
+    targetType: KnowledgeTagTargetType;
+    targetId: string;
+  } | null>(() => {
     if (!selectedNode.value) return null;
     if (selectedNode.value.nodeType === 'quick_note') {
       return { targetType: 'quick_note', targetId: selectedNode.value.id };
@@ -168,8 +176,11 @@ export const useKnowledgeStore = defineStore('knowledge', () => {
     }
     return null;
   });
-  const selectedAssetTagTarget = computed<{ targetType: KnowledgeTagTargetType; targetId: string } | null>(() =>
-    selectedAsset.value ? { targetType: 'asset', targetId: selectedAsset.value.id } : null,
+  const selectedAssetTagTarget = computed<{
+    targetType: KnowledgeTagTargetType;
+    targetId: string;
+  } | null>(() =>
+    selectedAsset.value ? { targetType: 'asset', targetId: selectedAsset.value.id } : null
   );
 
   function nodesBySpace(spaceId: string) {
@@ -182,7 +193,7 @@ export const useKnowledgeStore = defineStore('knowledge', () => {
         const sameParent = (node.parentId ?? null) === (parentId ?? null);
         const sameSpace = spaceId ? node.spaceId === spaceId : true;
         return sameParent && sameSpace;
-      }),
+      })
     );
   }
 
@@ -190,7 +201,12 @@ export const useKnowledgeStore = defineStore('knowledge', () => {
     nodes.value = await api().listTree({
       libraryId: activeLibraryId.value || undefined,
     });
-    if (selectedNodeId.value && !nodes.value.some((node) => node.id === selectedNodeId.value && !node.isArchived && !node.deletedAt)) {
+    if (
+      selectedNodeId.value &&
+      !nodes.value.some(
+        (node) => node.id === selectedNodeId.value && !node.isArchived && !node.deletedAt
+      )
+    ) {
       selectedNodeId.value = null;
       selectedPage.value = null;
       markdownDraft.value = '';
@@ -304,10 +320,10 @@ export const useKnowledgeStore = defineStore('knowledge', () => {
   async function loadActiveLibraryData() {
     spaces.value = await api().listSpaces(activeLibraryId.value || undefined);
     activeSpaceId.value =
-      spaces.value.find((space) => space.id === activeSpaceId.value)?.id
-      || spaces.value.find((space) => space.isDefault)?.id
-      || spaces.value[0]?.id
-      || '';
+      spaces.value.find((space) => space.id === activeSpaceId.value)?.id ||
+      spaces.value.find((space) => space.isDefault)?.id ||
+      spaces.value[0]?.id ||
+      '';
     await refreshTree();
     await refreshQuickNotes();
     await refreshIndexJobs();
@@ -338,16 +354,18 @@ export const useKnowledgeStore = defineStore('knowledge', () => {
   }
 
   function syncBlockDraft(page: KnowledgePageDetail | null) {
-    blockDraft.value = page?.page.pageType === 'block'
-      ? parseKnowledgeBlockDocumentV2(page.page.contentJson, page.node.title)
-      : createDefaultBlockDocumentV2();
+    blockDraft.value =
+      page?.page.pageType === 'block'
+        ? parseKnowledgeBlockDocumentV2(page.page.contentJson, page.node.title)
+        : createDefaultBlockDocumentV2();
     blockDirty.value = false;
   }
 
   function syncCanvasDraft(page: KnowledgePageDetail | null) {
-    canvasDraft.value = page?.page.pageType === 'canvas'
-      ? parseKnowledgeCanvasDocumentV2(page.page.contentJson, page.node.title)
-      : createDefaultCanvasDocumentV2();
+    canvasDraft.value =
+      page?.page.pageType === 'canvas'
+        ? parseKnowledgeCanvasDocumentV2(page.page.contentJson, page.node.title)
+        : createDefaultCanvasDocumentV2();
     canvasDirty.value = false;
   }
 
@@ -360,9 +378,15 @@ export const useKnowledgeStore = defineStore('knowledge', () => {
 
       libraries.value = await api().listLibraries();
       const configuredLibraryId = appConfigStore.config.features.knowledge.defaultLibraryId;
-      const configuredLibrary = libraries.value.find((library) => library.id === configuredLibraryId);
+      const configuredLibrary = libraries.value.find(
+        (library) => library.id === configuredLibraryId
+      );
       activeLibraryId.value =
-        activeLibraryId.value || configuredLibrary?.id || libraries.value.find((library) => library.isDefault)?.id || libraries.value[0]?.id || '';
+        activeLibraryId.value ||
+        configuredLibrary?.id ||
+        libraries.value.find((library) => library.isDefault)?.id ||
+        libraries.value[0]?.id ||
+        '';
       await loadActiveLibraryData();
     } catch (err) {
       error.value = err instanceof Error ? err.message : String(err);
@@ -443,7 +467,8 @@ export const useKnowledgeStore = defineStore('knowledge', () => {
     try {
       await api().deleteLibrary(libraryId);
       libraries.value = await api().listLibraries();
-      const fallback = libraries.value.find((library) => library.isDefault) ?? libraries.value[0] ?? null;
+      const fallback =
+        libraries.value.find((library) => library.isDefault) ?? libraries.value[0] ?? null;
       if (activeLibraryId.value === libraryId && fallback) {
         activeLibraryId.value = fallback.id;
         activeSpaceId.value = '';
@@ -506,10 +531,11 @@ export const useKnowledgeStore = defineStore('knowledge', () => {
     try {
       await api().deleteSpace(spaceId);
       spaces.value = await api().listSpaces(activeLibraryId.value || undefined);
-      activeSpaceId.value = spaces.value.find((space) => space.id === activeSpaceId.value)?.id
-        || spaces.value.find((space) => space.isDefault)?.id
-        || spaces.value[0]?.id
-        || '';
+      activeSpaceId.value =
+        spaces.value.find((space) => space.id === activeSpaceId.value)?.id ||
+        spaces.value.find((space) => space.isDefault)?.id ||
+        spaces.value[0]?.id ||
+        '';
       await refreshTree();
       await refreshGraph();
       await refreshOrphanPages();
@@ -536,7 +562,9 @@ export const useKnowledgeStore = defineStore('knowledge', () => {
     }
   }
 
-  async function createFolder(input: Pick<CreateKnowledgeFolderPayload, 'title' | 'parentId' | 'spaceId'>) {
+  async function createFolder(
+    input: Pick<CreateKnowledgeFolderPayload, 'title' | 'parentId' | 'spaceId'>
+  ) {
     const title = input.title.trim();
     if (!title) return null;
 
@@ -562,7 +590,9 @@ export const useKnowledgeStore = defineStore('knowledge', () => {
     }
   }
 
-  async function createMarkdownPage(input: Pick<CreateKnowledgePagePayload, 'title' | 'parentId' | 'spaceId'>) {
+  async function createMarkdownPage(
+    input: Pick<CreateKnowledgePagePayload, 'title' | 'parentId' | 'spaceId'>
+  ) {
     const title = input.title.trim();
     if (!title) return null;
 
@@ -595,7 +625,9 @@ export const useKnowledgeStore = defineStore('knowledge', () => {
     }
   }
 
-  async function createBlockPage(input: Pick<CreateKnowledgePagePayload, 'title' | 'parentId' | 'spaceId'>) {
+  async function createBlockPage(
+    input: Pick<CreateKnowledgePagePayload, 'title' | 'parentId' | 'spaceId'>
+  ) {
     const title = input.title.trim();
     if (!title) return null;
 
@@ -630,7 +662,9 @@ export const useKnowledgeStore = defineStore('knowledge', () => {
     }
   }
 
-  async function createCanvasPage(input: Pick<CreateKnowledgePagePayload, 'title' | 'parentId' | 'spaceId'>) {
+  async function createCanvasPage(
+    input: Pick<CreateKnowledgePagePayload, 'title' | 'parentId' | 'spaceId'>
+  ) {
     const title = input.title.trim();
     if (!title) return null;
 
@@ -734,28 +768,36 @@ export const useKnowledgeStore = defineStore('knowledge', () => {
 
   async function convertSelectedPageToBlockCopy() {
     if (!selectedPage.value || selectedPage.value.page.pageType !== 'markdown') return null;
-    return createConvertedPageCopy(createMarkdownToBlockConversion({
-      title: selectedPage.value.node.title,
-      markdown: markdownDirty.value ? markdownDraft.value : selectedPage.value.page.contentMarkdown,
-      sourcePageId: selectedPage.value.page.id,
-    }));
+    return createConvertedPageCopy(
+      createMarkdownToBlockConversion({
+        title: selectedPage.value.node.title,
+        markdown: markdownDirty.value
+          ? markdownDraft.value
+          : selectedPage.value.page.contentMarkdown,
+        sourcePageId: selectedPage.value.page.id,
+      })
+    );
   }
 
   async function convertSelectedPageToMarkdownCopy() {
     if (!selectedPage.value) return null;
     if (selectedPage.value.page.pageType === 'block') {
-      return createConvertedPageCopy(createBlockToMarkdownConversion({
-        title: selectedPage.value.node.title,
-        document: blockDraft.value,
-        sourcePageId: selectedPage.value.page.id,
-      }));
+      return createConvertedPageCopy(
+        createBlockToMarkdownConversion({
+          title: selectedPage.value.node.title,
+          document: blockDraft.value,
+          sourcePageId: selectedPage.value.page.id,
+        })
+      );
     }
     if (selectedPage.value.page.pageType === 'canvas') {
-      return createConvertedPageCopy(createCanvasToMarkdownConversion({
-        title: selectedPage.value.node.title,
-        document: canvasDraft.value,
-        sourcePageId: selectedPage.value.page.id,
-      }));
+      return createConvertedPageCopy(
+        createCanvasToMarkdownConversion({
+          title: selectedPage.value.node.title,
+          document: canvasDraft.value,
+          sourcePageId: selectedPage.value.page.id,
+        })
+      );
     }
     return null;
   }
@@ -763,18 +805,24 @@ export const useKnowledgeStore = defineStore('knowledge', () => {
   async function convertSelectedPageToCanvasCopy() {
     if (!selectedPage.value) return null;
     if (selectedPage.value.page.pageType === 'markdown') {
-      return createConvertedPageCopy(createMarkdownToCanvasConversion({
-        title: selectedPage.value.node.title,
-        markdown: markdownDirty.value ? markdownDraft.value : selectedPage.value.page.contentMarkdown,
-        sourcePageId: selectedPage.value.page.id,
-      }));
+      return createConvertedPageCopy(
+        createMarkdownToCanvasConversion({
+          title: selectedPage.value.node.title,
+          markdown: markdownDirty.value
+            ? markdownDraft.value
+            : selectedPage.value.page.contentMarkdown,
+          sourcePageId: selectedPage.value.page.id,
+        })
+      );
     }
     if (selectedPage.value.page.pageType === 'block') {
-      return createConvertedPageCopy(createBlockToCanvasConversion({
-        title: selectedPage.value.node.title,
-        document: blockDraft.value,
-        sourcePageId: selectedPage.value.page.id,
-      }));
+      return createConvertedPageCopy(
+        createBlockToCanvasConversion({
+          title: selectedPage.value.node.title,
+          document: blockDraft.value,
+          sourcePageId: selectedPage.value.page.id,
+        })
+      );
     }
     return null;
   }
@@ -1049,7 +1097,9 @@ export const useKnowledgeStore = defineStore('knowledge', () => {
 
   function updateMarkdownDraft(value: string) {
     markdownDraft.value = value;
-    markdownDirty.value = Boolean(selectedPage.value && value !== selectedPage.value.page.contentMarkdown);
+    markdownDirty.value = Boolean(
+      selectedPage.value && value !== selectedPage.value.page.contentMarkdown
+    );
   }
 
   async function saveMarkdownDraft() {
@@ -1059,7 +1109,7 @@ export const useKnowledgeStore = defineStore('knowledge', () => {
     try {
       const page = await api().updatePage(
         selectedPage.value.node.id,
-        createMarkdownSavePayload(markdownDraft.value),
+        createMarkdownSavePayload(markdownDraft.value)
       );
       selectedPage.value = page;
       syncMarkdownDraft(page);
@@ -1079,11 +1129,14 @@ export const useKnowledgeStore = defineStore('knowledge', () => {
   function updateBlockDraft(value: KnowledgeBlockDocumentV2) {
     blockDraft.value = value;
     blockDirty.value = Boolean(
-      selectedPage.value?.page.pageType === 'block'
-      && comparableBlockDocument(value) !== comparableBlockDocument(parseKnowledgeBlockDocumentV2(
-        selectedPage.value.page.contentJson,
-        selectedPage.value.node.title,
-      )),
+      selectedPage.value?.page.pageType === 'block' &&
+      comparableBlockDocument(value) !==
+        comparableBlockDocument(
+          parseKnowledgeBlockDocumentV2(
+            selectedPage.value.page.contentJson,
+            selectedPage.value.node.title
+          )
+        )
     );
   }
 
@@ -1108,7 +1161,8 @@ export const useKnowledgeStore = defineStore('knowledge', () => {
   }
 
   async function saveBlockDraft() {
-    if (!selectedPage.value || selectedPage.value.page.pageType !== 'block' || !blockDirty.value) return selectedPage.value;
+    if (!selectedPage.value || selectedPage.value.page.pageType !== 'block' || !blockDirty.value)
+      return selectedPage.value;
 
     saving.value = true;
     try {
@@ -1131,11 +1185,14 @@ export const useKnowledgeStore = defineStore('knowledge', () => {
   function updateCanvasDraft(value: KnowledgeCanvasDocumentV2) {
     canvasDraft.value = value;
     canvasDirty.value = Boolean(
-      selectedPage.value?.page.pageType === 'canvas'
-      && comparableCanvasDocument(value) !== comparableCanvasDocument(parseKnowledgeCanvasDocumentV2(
-        selectedPage.value.page.contentJson,
-        selectedPage.value.node.title,
-      )),
+      selectedPage.value?.page.pageType === 'canvas' &&
+      comparableCanvasDocument(value) !==
+        comparableCanvasDocument(
+          parseKnowledgeCanvasDocumentV2(
+            selectedPage.value.page.contentJson,
+            selectedPage.value.node.title
+          )
+        )
     );
   }
 
@@ -1152,7 +1209,8 @@ export const useKnowledgeStore = defineStore('knowledge', () => {
   }
 
   async function saveCanvasDraft() {
-    if (!selectedPage.value || selectedPage.value.page.pageType !== 'canvas' || !canvasDirty.value) return selectedPage.value;
+    if (!selectedPage.value || selectedPage.value.page.pageType !== 'canvas' || !canvasDirty.value)
+      return selectedPage.value;
 
     saving.value = true;
     try {
@@ -1279,7 +1337,9 @@ export const useKnowledgeStore = defineStore('knowledge', () => {
     }
   }
 
-  async function saveAsset(input: Omit<SaveKnowledgeAssetPayload, 'libraryId'>): Promise<KnowledgeAsset | null> {
+  async function saveAsset(
+    input: Omit<SaveKnowledgeAssetPayload, 'libraryId'>
+  ): Promise<KnowledgeAsset | null> {
     const libraryId = selectedPage.value?.node.libraryId || activeLibraryId.value || undefined;
     try {
       return await api().saveAsset({
@@ -1299,14 +1359,21 @@ export const useKnowledgeStore = defineStore('knowledge', () => {
   function attachAssetToCanvasDraft(
     elementId: string | null,
     asset: KnowledgeAsset,
-    position?: { x: number; y: number },
+    position?: { x: number; y: number }
   ) {
     updateCanvasDraft(attachAssetToCanvasElementV2(canvasDraft.value, elementId, asset, position));
   }
 
   async function convertBlockTaskToTodo(blockId: string) {
     const block = findBlockV2(blockDraft.value.blocks, blockId);
-    if (!block || block.type !== 'task_list' || block.refs?.todoId || !window.todoApi || !selectedPage.value) return null;
+    if (
+      !block ||
+      block.type !== 'task_list' ||
+      block.refs?.todoId ||
+      !window.todoApi ||
+      !selectedPage.value
+    )
+      return null;
 
     saving.value = true;
     try {
@@ -1379,7 +1446,8 @@ export const useKnowledgeStore = defineStore('knowledge', () => {
   async function importFiles(): Promise<ImportKnowledgeFilesResult | null> {
     importing.value = true;
     try {
-      const parentId = selectedNode.value?.nodeType === 'folder' ? selectedNode.value.id : undefined;
+      const parentId =
+        selectedNode.value?.nodeType === 'folder' ? selectedNode.value.id : undefined;
       const result = await api().importFiles({
         libraryId: activeLibraryId.value || undefined,
         spaceId: activeSpaceId.value || undefined,

@@ -60,9 +60,11 @@ function handleDragStart(event: DragEvent) {
 }
 
 function readDraggedNodeId(event: DragEvent) {
-  return event.dataTransfer?.getData('application/x-guyantools-knowledge-node')
-    || event.dataTransfer?.getData('text/plain')
-    || '';
+  return (
+    event.dataTransfer?.getData('application/x-guyantools-knowledge-node') ||
+    event.dataTransfer?.getData('text/plain') ||
+    ''
+  );
 }
 
 function handleDragOver(event: DragEvent) {
@@ -353,7 +355,9 @@ function handleContextMenu(event: MouseEvent) {
   white-space: normal;
   box-shadow: none;
   transform: none;
-  transition: background-color 0.18s ease, color 0.18s ease;
+  transition:
+    background-color 0.18s ease,
+    color 0.18s ease;
 }
 
 .knowledge-node__row :deep(.ui-button__label) {

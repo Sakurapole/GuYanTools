@@ -39,7 +39,7 @@ export function createMarkdownSavePayload(markdown: string): UpdateKnowledgePage
 
 export function createBlockSavePayload(
   document: KnowledgeBlockDocument | KnowledgeBlockDocumentV2,
-  existingPropertiesJson?: string,
+  existingPropertiesJson?: string
 ): UpdateKnowledgePagePayload {
   const normalized = normalizeBlockDocumentV2(document);
 
@@ -53,7 +53,7 @@ export function createBlockSavePayload(
 
 export function createCanvasSavePayload(
   document: KnowledgeCanvasDocument | KnowledgeCanvasDocumentV2,
-  existingPropertiesJson?: string,
+  existingPropertiesJson?: string
 ): UpdateKnowledgePagePayload {
   const normalized = normalizeCanvasDocumentV2(document);
   return {

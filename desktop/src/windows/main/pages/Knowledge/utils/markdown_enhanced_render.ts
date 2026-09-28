@@ -5,7 +5,7 @@ import { sanitizeKnowledgeMarkdownHtml } from './markdown_sanitize';
 const mermaidSourceAttribute = 'data-knowledge-mermaid-source';
 let mermaidInitialized = false;
 let mermaidRenderSerial = 0;
-let mermaidModulePromise: Promise<typeof import('mermaid')['default']> | null = null;
+let mermaidModulePromise: Promise<(typeof import('mermaid'))['default']> | null = null;
 
 async function loadMermaid() {
   mermaidModulePromise ??= import('mermaid').then((module) => module.default);
@@ -70,7 +70,10 @@ export function renderMarkdownMermaidElements(root: ParentNode): void {
   });
 }
 
-export async function renderMarkdownMermaidElement(element: HTMLElement, source: string): Promise<void> {
+export async function renderMarkdownMermaidElement(
+  element: HTMLElement,
+  source: string
+): Promise<void> {
   const diagram = source.trim();
   if (!diagram) {
     element.innerHTML = '<div class="knowledge-md-mermaid__empty">Empty Mermaid diagram</div>';
@@ -155,16 +158,16 @@ function renderEnhancedMarkdown(value: string) {
         '</div>',
         '',
       ].join('\n');
-    },
+    }
   );
   enhancedSource = renderTaskMarkersAndWikiLinks(enhancedSource);
   enhancedSource = enhancedSource.replace(
     /(^|\n)\$\$\s*\n?([\s\S]*?)\n?\$\$(?=\n|$)/g,
-    (_match, prefix: string, body: string) => `${prefix}${renderMarkdownFormulaToHtml(body, true)}`,
+    (_match, prefix: string, body: string) => `${prefix}${renderMarkdownFormulaToHtml(body, true)}`
   );
   enhancedSource = enhancedSource.replace(
     /(^|[\s([>])\$([^$\n]+?)\$(?=[$\s,.;:!?)]|$)/g,
-    (_match, prefix: string, body: string) => `${prefix}${renderMarkdownFormulaToHtml(body, false)}`,
+    (_match, prefix: string, body: string) => `${prefix}${renderMarkdownFormulaToHtml(body, false)}`
   );
   return enhancedSource;
 }
@@ -174,73 +177,73 @@ function renderTaskMarkersAndWikiLinks(source: string) {
   let inFence = false;
   let fenceMarker = '';
 
-  return lines.map((line, index) => {
-    const fence = /^ {0,3}(`{3,}|~{3,})/.exec(line);
-    if (fence) {
-      if (!inFence) {
-        inFence = true;
-        fenceMarker = fence[1][0];
-      } else if (fence[1][0] === fenceMarker) {
-        inFence = false;
-        fenceMarker = '';
+  return lines
+    .map((line, index) => {
+      const fence = /^ {0,3}(`{3,}|~{3,})/.exec(line);
+      if (fence) {
+        if (!inFence) {
+          inFence = true;
+          fenceMarker = fence[1][0];
+        } else if (fence[1][0] === fenceMarker) {
+          inFence = false;
+          fenceMarker = '';
+        }
+        return line;
       }
-      return line;
-    }
 
-    if (inFence) return line;
+      if (inFence) return line;
 
-    const taskLine = line.replace(
-      /^(\s*[-*+]\s+)\[([ xX])\]\s*/,
-      (_match, prefix: string, checked: string) => {
-        const isChecked = checked.toLowerCase() === 'x';
-        return [
-          prefix,
-          `<span class="knowledge-md-task-marker${isChecked ? ' knowledge-md-task-marker--checked' : ''}" `,
-          'role="checkbox" tabindex="0" ',
-          'data-knowledge-task-marker="true" ',
-          `data-knowledge-task-line="${index + 1}" `,
-          `data-knowledge-task-checked="${isChecked ? 'true' : 'false'}" `,
-          `aria-checked="${isChecked ? 'true' : 'false'}">`,
-          isChecked ? '✓' : '',
-          '</span> ',
-        ].join('');
-      },
-    );
+      const taskLine = line.replace(
+        /^(\s*[-*+]\s+)\[([ xX])\]\s*/,
+        (_match, prefix: string, checked: string) => {
+          const isChecked = checked.toLowerCase() === 'x';
+          return [
+            prefix,
+            `<span class="knowledge-md-task-marker${isChecked ? ' knowledge-md-task-marker--checked' : ''}" `,
+            'role="checkbox" tabindex="0" ',
+            'data-knowledge-task-marker="true" ',
+            `data-knowledge-task-line="${index + 1}" `,
+            `data-knowledge-task-checked="${isChecked ? 'true' : 'false'}" `,
+            `aria-checked="${isChecked ? 'true' : 'false'}">`,
+            isChecked ? '✓' : '',
+            '</span> ',
+          ].join('');
+        }
+      );
 
-    return taskLine.replace(
-      /\[\[([^\]\n|]+)(?:\|([^\]\n]+))?\]\]/g,
-      (_match, rawTitle: string, rawAlias?: string) => {
-        const title = rawTitle.trim();
-        const label = (rawAlias ?? rawTitle).trim();
-        if (!title || !label) return _match;
-        return [
-          `<a class="knowledge-md-wiki-link" href="app://knowledge-pages/title/${encodeURIComponent(title)}" `,
-          `data-knowledge-page-title="${escapeAttribute(title)}">`,
-          escapeHtml(label),
-          '</a>',
-        ].join('');
-      },
-    );
-  }).join('\n');
+      return taskLine.replace(
+        /\[\[([^\]\n|]+)(?:\|([^\]\n]+))?\]\]/g,
+        (_match, rawTitle: string, rawAlias?: string) => {
+          const title = rawTitle.trim();
+          const label = (rawAlias ?? rawTitle).trim();
+          if (!title || !label) return _match;
+          return [
+            `<a class="knowledge-md-wiki-link" href="app://knowledge-pages/title/${encodeURIComponent(title)}" `,
+            `data-knowledge-page-title="${escapeAttribute(title)}">`,
+            escapeHtml(label),
+            '</a>',
+          ].join('');
+        }
+      );
+    })
+    .join('\n');
 }
 
 function decorateKnowledgeAssetHtml(html: string) {
   return html
     .replace(
       /<a\b([^>]*\shref="app:\/\/knowledge-assets\/[^"]+"[^>]*)>/gi,
-      (match, attributes: string) => (
+      (match, attributes: string) =>
         /\sdata-knowledge-asset-action=/i.test(attributes)
           ? match
           : `<a${attributes} data-knowledge-asset-action="open">`
-      ),
     )
     .replace(
       /<img\b([^>]*\ssrc="app:\/\/knowledge-assets\/[^"]+"[^>]*)>/gi,
-      (match, attributes: string) => (
+      (match, attributes: string) =>
         /\sdata-knowledge-asset-action=/i.test(attributes)
           ? match
           : `<img${attributes} data-knowledge-asset-action="preview">`
-      ),
     );
 }
 

@@ -8,7 +8,8 @@ export interface ExtractKnowledgeTextResult {
   metadata: ExtractKnowledgeTextMetadata;
 }
 
-export type KnowledgeDocumentPreviewKind = 'text' | 'pdf' | 'image' | 'slides' | 'sheets' | 'unsupported';
+export type KnowledgeDocumentPreviewKind =
+  'text' | 'pdf' | 'image' | 'slides' | 'sheets' | 'unsupported';
 
 export interface ExtractKnowledgeTextMetadata {
   extractor: string;
@@ -82,7 +83,7 @@ const MAX_PREVIEW_COLUMNS = 24;
 export async function extractKnowledgeText(
   filePath: string,
   extension: string,
-  mimeType: string,
+  mimeType: string
 ): Promise<ExtractKnowledgeTextResult> {
   const normalizedExtension = extension.toLowerCase();
   try {
@@ -146,7 +147,7 @@ export async function extractKnowledgeText(
 function succeeded(
   text: string,
   extractor: string,
-  metadata: ExtractKnowledgeTextMetadataInput,
+  metadata: ExtractKnowledgeTextMetadataInput
 ): ExtractKnowledgeTextResult {
   return {
     text: normalizeWhitespace(text),
@@ -208,9 +209,9 @@ function decompressZipEntry(data: Buffer, method: number) {
 
 function extractDocx(entries: ZipEntry[]): DocxPreview {
   const targets = entries
-    .filter((entry) =>
-      entry.name === 'word/document.xml'
-      || /^word\/(header|footer)\d+\.xml$/u.test(entry.name),
+    .filter(
+      (entry) =>
+        entry.name === 'word/document.xml' || /^word\/(header|footer)\d+\.xml$/u.test(entry.name)
     )
     .sort((left, right) => left.name.localeCompare(right.name));
   const sections = targets
@@ -248,7 +249,9 @@ function extractPptx(entries: ZipEntry[]): PptxPreview {
 
 function extractXlsx(entries: ZipEntry[]): XlsxPreview {
   const sharedStrings = entries.find((entry) => entry.name === 'xl/sharedStrings.xml');
-  const sharedStringValues = sharedStrings ? extractSharedStrings(sharedStrings.data.toString('utf8')) : [];
+  const sharedStringValues = sharedStrings
+    ? extractSharedStrings(sharedStrings.data.toString('utf8'))
+    : [];
   const sheetNames = extractWorkbookSheetNames(entries);
   const sheets = entries
     .filter((entry) => /^xl\/worksheets\/sheet\d+\.xml$/u.test(entry.name))
@@ -327,17 +330,13 @@ function extractWorksheetCellValue(attributes: string, body: string, sharedStrin
   const rawValue = decodeXmlEntities(valueMatch[1]);
   if (type === 's') {
     const sharedIndex = Number.parseInt(rawValue, 10);
-    return Number.isFinite(sharedIndex) ? sharedStrings[sharedIndex] ?? '' : '';
+    return Number.isFinite(sharedIndex) ? (sharedStrings[sharedIndex] ?? '') : '';
   }
   return rawValue;
 }
 
 function extractXmlText(xml: string) {
-  return decodeXmlEntities(
-    xml
-      .replace(/<[^>]+>/gu, ' ')
-      .replace(/\s+/gu, ' '),
-  );
+  return decodeXmlEntities(xml.replace(/<[^>]+>/gu, ' ').replace(/\s+/gu, ' '));
 }
 
 function extractPdf(buffer: Buffer) {
@@ -395,11 +394,14 @@ function decodePdfLiteral(value: string) {
       };
       return map[escaped] ?? escaped;
     })
-    .replace(/\\([0-7]{1,3})/gu, (_match, octal: string) => String.fromCharCode(Number.parseInt(octal, 8)));
+    .replace(/\\([0-7]{1,3})/gu, (_match, octal: string) =>
+      String.fromCharCode(Number.parseInt(octal, 8))
+    );
 }
 
 function stripHtml(value: string) {
-  return value.replace(/<script[\s\S]*?<\/script>/giu, ' ')
+  return value
+    .replace(/<script[\s\S]*?<\/script>/giu, ' ')
     .replace(/<style[\s\S]*?<\/style>/giu, ' ')
     .replace(/<[^>]+>/gu, ' ');
 }
@@ -415,14 +417,21 @@ function decodeXmlEntities(value: string) {
 
 function normalizeWhitespace(value: string) {
   return value
-    .split(String.fromCharCode(0)).join('')
+    .split(String.fromCharCode(0))
+    .join('')
     .replace(/[ \t]+\n/gu, '\n')
     .replace(/\n{3,}/gu, '\n\n')
     .trim();
 }
 
 function firstPreviewLine(value: string) {
-  return value.split(/\r?\n/u).find((line) => line.trim())?.trim().slice(0, 80) ?? '';
+  return (
+    value
+      .split(/\r?\n/u)
+      .find((line) => line.trim())
+      ?.trim()
+      .slice(0, 80) ?? ''
+  );
 }
 
 function limitPreviewText(value: string) {

@@ -105,7 +105,7 @@ export async function createQuickNoteWindow(prefill?: QuickNotePrefillPayload) {
     await win.loadURL(url);
   } else {
     await win.loadFile(
-      path.join(__dirname, `../renderer/${MAIN_WINDOW_VITE_NAME}/quick_note.html`),
+      path.join(__dirname, `../renderer/${MAIN_WINDOW_VITE_NAME}/quick_note.html`)
     );
   }
 
@@ -330,12 +330,15 @@ function collapseQuickNoteWindow(state: QuickNoteWindowState) {
   state.collapsed = true;
   state.previewing = false;
   state.window.setMinimumSize(MIN_NORMAL_WIDTH, COLLAPSED_HEIGHT);
-  state.window.setBounds({
-    x: state.normalBounds.x,
-    y: state.normalBounds.y,
-    width: state.normalBounds.width,
-    height: COLLAPSED_HEIGHT,
-  }, false);
+  state.window.setBounds(
+    {
+      x: state.normalBounds.x,
+      y: state.normalBounds.y,
+      width: state.normalBounds.width,
+      height: COLLAPSED_HEIGHT,
+    },
+    false
+  );
   emitCollapsedState(state);
 }
 
@@ -359,12 +362,15 @@ function previewQuickNoteWindow(state: QuickNoteWindowState, expanded: boolean) 
 
   const height = expanded ? Math.min(PREVIEW_HEIGHT, state.normalBounds.height) : COLLAPSED_HEIGHT;
   state.previewing = expanded;
-  state.window.setBounds({
-    x: state.normalBounds.x,
-    y: state.normalBounds.y,
-    width: state.normalBounds.width,
-    height,
-  }, false);
+  state.window.setBounds(
+    {
+      x: state.normalBounds.x,
+      y: state.normalBounds.y,
+      width: state.normalBounds.width,
+      height,
+    },
+    false
+  );
   emitCollapsedState(state);
 }
 
@@ -381,13 +387,15 @@ function getQuickNoteWindowStatePath() {
 }
 
 function isValidBounds(value?: Partial<Electron.Rectangle>): value is Electron.Rectangle {
-  return Boolean(value) &&
+  return (
+    Boolean(value) &&
     Number.isFinite(value.x) &&
     Number.isFinite(value.y) &&
     Number.isFinite(value.width) &&
     Number.isFinite(value.height) &&
     Number(value.width) > 0 &&
-    Number(value.height) > 0;
+    Number(value.height) > 0
+  );
 }
 
 function getQuickNoteStateFromSender(sender: Electron.WebContents) {
@@ -396,7 +404,7 @@ function getQuickNoteStateFromSender(sender: Electron.WebContents) {
 }
 
 function getPrimaryWindowState() {
-  return primaryWindowId ? quickNoteWindows.get(primaryWindowId) ?? null : null;
+  return primaryWindowId ? (quickNoteWindows.get(primaryWindowId) ?? null) : null;
 }
 
 function getMostRecentWindowState() {

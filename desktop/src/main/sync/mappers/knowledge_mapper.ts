@@ -31,29 +31,85 @@ export function exportKnowledgeForSync(
   input: {
     ownerDeviceId: string;
     updatedAt?: number;
-  },
+  }
 ): KnowledgeSyncExport {
   const updatedAt = input.updatedAt ?? Date.now();
   return {
     objects: [
       ...(snapshot.libraries ?? []).map((library) =>
-        createEnvelope('knowledge.library', library.id, input.ownerDeviceId, sanitizeKnowledgeLibrary(library), updatedAt)),
+        createEnvelope(
+          'knowledge.library',
+          library.id,
+          input.ownerDeviceId,
+          sanitizeKnowledgeLibrary(library),
+          updatedAt
+        )
+      ),
       ...(snapshot.spaces ?? []).map((space) =>
-        createEnvelope('knowledge.space', space.id, input.ownerDeviceId, sanitizeKnowledgeSpace(space), updatedAt)),
+        createEnvelope(
+          'knowledge.space',
+          space.id,
+          input.ownerDeviceId,
+          sanitizeKnowledgeSpace(space),
+          updatedAt
+        )
+      ),
       ...(snapshot.nodes ?? [])
         .filter((node) => node.nodeType === 'folder')
         .map((folder) =>
-          createEnvelope('knowledge.folder', folder.id, input.ownerDeviceId, sanitizeKnowledgeFolder(folder), updatedAt)),
+          createEnvelope(
+            'knowledge.folder',
+            folder.id,
+            input.ownerDeviceId,
+            sanitizeKnowledgeFolder(folder),
+            updatedAt
+          )
+        ),
       ...(snapshot.pageDetails ?? []).map((detail) =>
-        createEnvelope('knowledge.page', detail.page.id, input.ownerDeviceId, sanitizeKnowledgePageDetail(detail), updatedAt)),
+        createEnvelope(
+          'knowledge.page',
+          detail.page.id,
+          input.ownerDeviceId,
+          sanitizeKnowledgePageDetail(detail),
+          updatedAt
+        )
+      ),
       ...(snapshot.pages ?? []).map((page) =>
-        createEnvelope('knowledge.page', page.id, input.ownerDeviceId, sanitizeKnowledgePage(page), updatedAt)),
+        createEnvelope(
+          'knowledge.page',
+          page.id,
+          input.ownerDeviceId,
+          sanitizeKnowledgePage(page),
+          updatedAt
+        )
+      ),
       ...(snapshot.assets ?? []).map((asset) =>
-        createEnvelope('knowledge.asset', asset.id, input.ownerDeviceId, sanitizeKnowledgeAsset(asset), updatedAt)),
+        createEnvelope(
+          'knowledge.asset',
+          asset.id,
+          input.ownerDeviceId,
+          sanitizeKnowledgeAsset(asset),
+          updatedAt
+        )
+      ),
       ...(snapshot.tags ?? []).map((tag) =>
-        createEnvelope('knowledge.tag', tag.id, input.ownerDeviceId, sanitizeKnowledgeTag(tag), updatedAt)),
+        createEnvelope(
+          'knowledge.tag',
+          tag.id,
+          input.ownerDeviceId,
+          sanitizeKnowledgeTag(tag),
+          updatedAt
+        )
+      ),
       ...(snapshot.links ?? []).map((link) =>
-        createEnvelope('knowledge.link', link.id, input.ownerDeviceId, sanitizeKnowledgeLink(link), updatedAt)),
+        createEnvelope(
+          'knowledge.link',
+          link.id,
+          input.ownerDeviceId,
+          sanitizeKnowledgeLink(link),
+          updatedAt
+        )
+      ),
     ],
   };
 }
@@ -63,7 +119,10 @@ export function getKnowledgeObjectTitle(object: SyncObjectEnvelope): string {
   const name = typeof payload.name === 'string' ? payload.name : '';
   const title = typeof payload.title === 'string' ? payload.title : '';
   const originalName = typeof payload.originalName === 'string' ? payload.originalName : '';
-  const node = typeof payload.node === 'object' && payload.node ? payload.node as Record<string, unknown> : null;
+  const node =
+    typeof payload.node === 'object' && payload.node
+      ? (payload.node as Record<string, unknown>)
+      : null;
   const nodeTitle = typeof node?.title === 'string' ? node.title : '';
   return nodeTitle || title || name || originalName || object.objectId;
 }
@@ -178,7 +237,7 @@ function createEnvelope<TPayload>(
   objectId: string,
   ownerDeviceId: string,
   payload: TPayload,
-  updatedAt: number,
+  updatedAt: number
 ): SyncObjectEnvelope<TPayload> {
   const body = JSON.stringify(payload);
   return {

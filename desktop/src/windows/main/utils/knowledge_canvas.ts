@@ -13,7 +13,7 @@ const DEFAULT_HEIGHT = 1200;
 
 export function createCanvasElement(
   type: KnowledgeCanvasElementType,
-  input: Partial<KnowledgeCanvasElement> = {},
+  input: Partial<KnowledgeCanvasElement> = {}
 ): KnowledgeCanvasElement {
   const now = new Date().toISOString();
   return normalizeCanvasElement({
@@ -60,7 +60,10 @@ export function createDefaultCanvasDocument(title?: string): KnowledgeCanvasDocu
   });
 }
 
-export function parseKnowledgeCanvasDocument(value?: string | null, fallbackTitle?: string): KnowledgeCanvasDocument {
+export function parseKnowledgeCanvasDocument(
+  value?: string | null,
+  fallbackTitle?: string
+): KnowledgeCanvasDocument {
   if (!value) return createDefaultCanvasDocument(fallbackTitle);
   try {
     return normalizeCanvasDocument(JSON.parse(value) as unknown, fallbackTitle);
@@ -69,12 +72,15 @@ export function parseKnowledgeCanvasDocument(value?: string | null, fallbackTitl
   }
 }
 
-export function normalizeCanvasDocument(value: unknown, fallbackTitle?: string): KnowledgeCanvasDocument {
+export function normalizeCanvasDocument(
+  value: unknown,
+  fallbackTitle?: string
+): KnowledgeCanvasDocument {
   const source = isRecord(value) ? value : {};
   const elements = Array.isArray(source.elements)
     ? source.elements
-      .map((element) => normalizeCanvasElement(element))
-      .filter((element): element is KnowledgeCanvasElement => Boolean(element))
+        .map((element) => normalizeCanvasElement(element))
+        .filter((element): element is KnowledgeCanvasElement => Boolean(element))
     : [];
 
   return {
@@ -95,15 +101,15 @@ export function serializeCanvasDocument(document: KnowledgeCanvasDocument) {
 }
 
 export function canvasDocumentToPlainText(document: KnowledgeCanvasDocument) {
-  return normalizeCanvasDocument(document).elements
-    .map((element) => canvasElementToPlainText(element))
+  return normalizeCanvasDocument(document)
+    .elements.map((element) => canvasElementToPlainText(element))
     .filter(Boolean)
     .join('\n');
 }
 
 export function canvasDocumentToMarkdown(document: KnowledgeCanvasDocument) {
-  return normalizeCanvasDocument(document).elements
-    .map((element) => canvasElementToMarkdown(element))
+  return normalizeCanvasDocument(document)
+    .elements.map((element) => canvasElementToMarkdown(element))
     .filter(Boolean)
     .join('\n\n');
 }
@@ -111,7 +117,7 @@ export function canvasDocumentToMarkdown(document: KnowledgeCanvasDocument) {
 export function updateCanvasElement(
   document: KnowledgeCanvasDocument,
   elementId: string,
-  patch: Partial<KnowledgeCanvasElement>,
+  patch: Partial<KnowledgeCanvasElement>
 ): KnowledgeCanvasDocument {
   return normalizeCanvasDocument({
     ...document,
@@ -119,7 +125,7 @@ export function updateCanvasElement(
     elements: document.elements.map((element) =>
       element.id === elementId
         ? { ...element, ...patch, updatedAt: new Date().toISOString() }
-        : element,
+        : element
     ),
   });
 }
@@ -127,7 +133,7 @@ export function updateCanvasElement(
 export function attachAssetToCanvasElement(
   document: KnowledgeCanvasDocument,
   elementId: string | null,
-  asset: KnowledgeAsset,
+  asset: KnowledgeAsset
 ): KnowledgeCanvasDocument {
   const assetPatch = {
     assetId: asset.id,
@@ -136,7 +142,10 @@ export function attachAssetToCanvasElement(
     assetUrl: `app://knowledge-assets/id/${encodeURIComponent(asset.id)}/${encodeURIComponent(asset.originalName)}`,
   };
 
-  if (elementId && document.elements.some((element) => element.id === elementId && element.type === 'image')) {
+  if (
+    elementId &&
+    document.elements.some((element) => element.id === elementId && element.type === 'image')
+  ) {
     return updateCanvasElement(document, elementId, assetPatch);
   }
 
@@ -187,7 +196,13 @@ function normalizeCanvasElement(value: unknown): KnowledgeCanvasElement | null {
 }
 
 function normalizeCanvasElementType(value: unknown): KnowledgeCanvasElementType | null {
-  if (value === 'text' || value === 'image' || value === 'rect' || value === 'arrow' || value === 'path') {
+  if (
+    value === 'text' ||
+    value === 'image' ||
+    value === 'rect' ||
+    value === 'arrow' ||
+    value === 'path'
+  ) {
     return value;
   }
   return null;
@@ -215,7 +230,10 @@ function canvasElementToPlainText(element: KnowledgeCanvasElement) {
     element.pageId ? `[页面] ${element.pageId}` : '',
     element.todoId ? `[Todo] ${element.todoId}` : '',
   ];
-  return parts.map((part) => part?.trim()).filter(Boolean).join(' ');
+  return parts
+    .map((part) => part?.trim())
+    .filter(Boolean)
+    .join(' ');
 }
 
 function canvasElementToMarkdown(element: KnowledgeCanvasElement) {

@@ -1,12 +1,5 @@
 export type MarkdownSegmentType =
-  | 'heading'
-  | 'paragraph'
-  | 'list'
-  | 'blockquote'
-  | 'code_fence'
-  | 'table'
-  | 'html'
-  | 'blank';
+  'heading' | 'paragraph' | 'list' | 'blockquote' | 'code_fence' | 'table' | 'html' | 'blank';
 
 export interface MarkdownSegment {
   id: string;
@@ -75,7 +68,7 @@ export function segmentMarkdown(source: string): MarkdownSegment[] {
 
     if (blockquotePattern.test(line)) {
       const endIndex = findConsecutiveEnd(lines, index + 1, (entry) =>
-        blockquotePattern.test(entry.text),
+        blockquotePattern.test(entry.text)
       );
       segments.push(createSegment('blockquote', lines, index, endIndex));
       index = endIndex + 1;
@@ -84,7 +77,7 @@ export function segmentMarkdown(source: string): MarkdownSegment[] {
 
     if (htmlPattern.test(line)) {
       const endIndex = findConsecutiveEnd(lines, index + 1, (entry) =>
-        htmlPattern.test(entry.text),
+        htmlPattern.test(entry.text)
       );
       segments.push(createSegment('html', lines, index, endIndex));
       index = endIndex + 1;
@@ -101,7 +94,7 @@ export function segmentMarkdown(source: string): MarkdownSegment[] {
 
 export function findSegmentByLine(
   segments: MarkdownSegment[],
-  line: number,
+  line: number
 ): MarkdownSegment | null {
   return segments.find((segment) => segment.startLine <= line && line <= segment.endLine) ?? null;
 }
@@ -154,7 +147,7 @@ function createSegment(
   type: MarkdownSegmentType,
   lines: LineEntry[],
   startIndex: number,
-  endIndex: number,
+  endIndex: number
 ): MarkdownSegment {
   const startOffset = lines[startIndex].startOffset;
   const endOffset = lines[endIndex].endOffset;
@@ -199,7 +192,7 @@ function getOpeningFence(line: string): { marker: '`' | '~'; length: number } | 
 function findClosingFence(
   lines: LineEntry[],
   startIndex: number,
-  openingFence: { marker: '`' | '~'; length: number },
+  openingFence: { marker: '`' | '~'; length: number }
 ): number {
   const pattern = new RegExp(`^ {0,3}\\${openingFence.marker}{${openingFence.length},}\\s*$`);
 
@@ -215,7 +208,9 @@ function findClosingFence(
 function isTableStart(lines: LineEntry[], index: number): boolean {
   const nextLine = lines[index + 1]?.text;
 
-  return isTableRow(lines[index].text) && nextLine !== undefined && tableDividerPattern.test(nextLine);
+  return (
+    isTableRow(lines[index].text) && nextLine !== undefined && tableDividerPattern.test(nextLine)
+  );
 }
 
 function isTableRow(line: string): boolean {
@@ -304,7 +299,7 @@ function findListEnd(lines: LineEntry[], startIndex: number): number {
 function findConsecutiveEnd(
   lines: LineEntry[],
   startIndex: number,
-  predicate: (entry: LineEntry) => boolean,
+  predicate: (entry: LineEntry) => boolean
 ): number {
   let endIndex = startIndex - 1;
 
