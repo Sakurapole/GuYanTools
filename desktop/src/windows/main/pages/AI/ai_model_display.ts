@@ -18,21 +18,25 @@ export type AiModelCapabilityBadge = {
   icon: string;
 };
 
-export function groupModelsByPrefix<T extends AiModelDisplayItem>(models: T[]): AiModelPrefixGroup<T>[] {
+export function groupModelsByPrefix<T extends AiModelDisplayItem>(
+  models: T[]
+): AiModelPrefixGroup<T>[] {
   const groups = new Map<string, T[]>();
   for (const model of models) {
     const prefix = getModelPrefix(model.providerModelId || model.id || model.displayName || '');
     groups.set(prefix, [...(groups.get(prefix) ?? []), model]);
   }
   return [...groups.entries()]
-    .sort(([left], [right]) => left.localeCompare(right, undefined, { numeric: true, sensitivity: 'base' }))
+    .sort(([left], [right]) =>
+      left.localeCompare(right, undefined, { numeric: true, sensitivity: 'base' })
+    )
     .map(([prefix, items]) => ({
       prefix,
       items: [...items].sort((left, right) =>
         (left.displayName || left.id).localeCompare(right.displayName || right.id, undefined, {
           numeric: true,
           sensitivity: 'base',
-        }),
+        })
       ),
     }));
 }
@@ -69,12 +73,17 @@ export function getModelPrefix(modelId: string) {
   return family;
 }
 
-export function inferModelCapabilities(modelId: string, providerKind?: AiProviderKind): Partial<AiModelCapabilities> {
+export function inferModelCapabilities(
+  modelId: string,
+  providerKind?: AiProviderKind
+): Partial<AiModelCapabilities> {
   const id = modelId.toLowerCase();
   const embedding = isEmbeddingModelId(id);
   const rerank = isRerankModelId(id);
-  const vision = /(^|[-_/])(vision|visual|vl|omni|image)([-_/]|$)|gpt-4o|gemini|claude-3|qwen-vl/.test(id);
-  const reasoning = /(^|[-_/])(reasoning|reasoner|thinking|think|r1|o1|o3|o4)([-_/]|$)|deepseek-r1|qwen3/.test(id);
+  const vision =
+    /(^|[-_/])(vision|visual|vl|omni|image)([-_/]|$)|gpt-4o|gemini|claude-3|qwen-vl/.test(id);
+  const reasoning =
+    /(^|[-_/])(reasoning|reasoner|thinking|think|r1|o1|o3|o4)([-_/]|$)|deepseek-r1|qwen3/.test(id);
   const nativeWebSearch = isWebSearchModelId(id);
   const toolCalling = providerKind !== 'ollama' && !embedding && !rerank;
   return {
@@ -88,7 +97,9 @@ export function inferModelCapabilities(modelId: string, providerKind?: AiProvide
   };
 }
 
-export function getModelCapabilityBadges(capabilities: Partial<AiModelCapabilities>): AiModelCapabilityBadge[] {
+export function getModelCapabilityBadges(
+  capabilities: Partial<AiModelCapabilities>
+): AiModelCapabilityBadge[] {
   const badges: AiModelCapabilityBadge[] = [];
   if (capabilities.vision) {
     badges.push({ key: 'vision', label: '视觉', icon: 'iconify:lucide:eye' });
@@ -112,7 +123,9 @@ export function getModelCapabilityBadges(capabilities: Partial<AiModelCapabiliti
 }
 
 export function isEmbeddingModelId(modelId: string) {
-  return /(^|[-_/])(embed|embedding|embeddings|bge|e5|gte)([-_/]|$)|text-embedding/.test(modelId.toLowerCase());
+  return /(^|[-_/])(embed|embedding|embeddings|bge|e5|gte)([-_/]|$)|text-embedding/.test(
+    modelId.toLowerCase()
+  );
 }
 
 export function isRerankModelId(modelId: string) {

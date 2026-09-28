@@ -24,24 +24,31 @@ import UiDrawer from '@/windows/main/components/ui/UiDrawer.vue';
 import UiInput from '@/windows/main/components/ui/UiInput.vue';
 import UiPanelHeader from '@/windows/main/components/ui/UiPanelHeader.vue';
 import UiSelect from '@/windows/main/components/ui/UiSelect.vue';
-import { createAiModelConfig, createAiProviderConfig, useAiConfigStore } from '@/windows/main/stores/ai_config_store';
+import {
+  createAiModelConfig,
+  createAiProviderConfig,
+  useAiConfigStore,
+} from '@/windows/main/stores/ai_config_store';
 
-const props = withDefaults(defineProps<{
-  modelValue: boolean;
-  providerId?: string;
-  teleported?: boolean;
-  teleportTo?: string;
-  fixed?: boolean;
-  overlay?: boolean;
-  closeOnMask?: boolean;
-}>(), {
-  providerId: '',
-  teleported: true,
-  teleportTo: 'body',
-  fixed: true,
-  overlay: true,
-  closeOnMask: true,
-});
+const props = withDefaults(
+  defineProps<{
+    modelValue: boolean;
+    providerId?: string;
+    teleported?: boolean;
+    teleportTo?: string;
+    fixed?: boolean;
+    overlay?: boolean;
+    closeOnMask?: boolean;
+  }>(),
+  {
+    providerId: '',
+    teleported: true,
+    teleportTo: 'body',
+    fixed: true,
+    overlay: true,
+    closeOnMask: true,
+  }
+);
 
 const emit = defineEmits<{
   'update:modelValue': [value: boolean];
@@ -61,7 +68,8 @@ type ProviderModelDraft = {
   nativeWebSearch: boolean;
 };
 
-type ModelFilterKey = 'all' | 'reasoning' | 'vision' | 'web' | 'free' | 'embedding' | 'rerank' | 'tool';
+type ModelFilterKey =
+  'all' | 'reasoning' | 'vision' | 'web' | 'free' | 'embedding' | 'rerank' | 'tool';
 
 const aiConfigStore = useAiConfigStore();
 const testMessage = ref('');
@@ -93,30 +101,36 @@ const providerForm = reactive({
 });
 
 const selectedProvider = computed(() =>
-  aiConfigStore.config.providers.find((provider) => provider.id === props.providerId),
+  aiConfigStore.config.providers.find((provider) => provider.id === props.providerId)
 );
 
 const validModelDrafts = computed(() => modelDrafts.value.filter((model) => model.id.trim()));
-const drawerTitle = computed(() => props.providerId ? '编辑 Provider' : '新建 Provider');
+const drawerTitle = computed(() => (props.providerId ? '编辑 Provider' : '新建 Provider'));
 const drawerSubtitle = computed(() =>
-  props.providerId ? '更新接入口、API Key 与模型列表' : '配置新的模型接入口，可一次添加多个模型',
+  props.providerId ? '更新接入口、API Key 与模型列表' : '配置新的模型接入口，可一次添加多个模型'
 );
-const modelPickerTitle = computed(() => `${providerForm.name.trim() || providerForm.id.trim() || 'Provider'} 模型`);
-const existingModelIds = computed(() =>
-  new Set(modelDrafts.value.map((model) => model.id.trim()).filter(Boolean)),
+const modelPickerTitle = computed(
+  () => `${providerForm.name.trim() || providerForm.id.trim() || 'Provider'} 模型`
+);
+const existingModelIds = computed(
+  () => new Set(modelDrafts.value.map((model) => model.id.trim()).filter(Boolean))
 );
 const groupedModelDrafts = computed(() => groupModelsByPrefix(modelDrafts.value));
-const filteredFetchedModels = computed(() => fetchedModelDrafts.value.filter((model) => {
-  const keyword = modelPickerSearch.value.trim().toLowerCase();
-  const modelId = model.id.trim();
-  if (keyword && !`${model.id} ${model.name}`.toLowerCase().includes(keyword)) {
-    return false;
-  }
-  return matchesModelFilter(model, modelPickerFilter.value);
-}));
+const filteredFetchedModels = computed(() =>
+  fetchedModelDrafts.value.filter((model) => {
+    const keyword = modelPickerSearch.value.trim().toLowerCase();
+    model.id.trim();
+    if (keyword && !`${model.id} ${model.name}`.toLowerCase().includes(keyword)) {
+      return false;
+    }
+    return matchesModelFilter(model, modelPickerFilter.value);
+  })
+);
 const groupedFetchedModels = computed(() => groupModelsByPrefix(filteredFetchedModels.value));
-const selectableFetchedCount = computed(() =>
-  filteredFetchedModels.value.filter((model) => !existingModelIds.value.has(model.id.trim())).length,
+const selectableFetchedCount = computed(
+  () =>
+    filteredFetchedModels.value.filter((model) => !existingModelIds.value.has(model.id.trim()))
+      .length
 );
 const testDiagnosticLines = computed(() => formatDiagnosticLines(testDiagnostic.value));
 
@@ -139,7 +153,7 @@ watch(
     }
     hydrateProviderForm(selectedProvider.value);
   },
-  { immediate: true },
+  { immediate: true }
 );
 
 watch(
@@ -153,7 +167,7 @@ watch(
       toolCalling: model.toolCalling && providerForm.kind !== 'ollama',
       structuredOutput: model.structuredOutput && providerForm.kind !== 'ollama',
     }));
-  },
+  }
 );
 
 function createModelDraft(input: Partial<ProviderModelDraft> = {}): ProviderModelDraft {
@@ -186,18 +200,20 @@ function hydrateProviderForm(provider?: AiSafeProviderConfig) {
   providerForm.baseUrl = provider.baseUrl ?? '';
   providerForm.apiKey = '';
   modelDrafts.value = provider.models.length
-    ? provider.models.map((model, index) => createModelDraft({
-      uid: `${provider.id}-${index}-${model.id}-${Date.now()}`,
-      id: model.providerModelId || model.id,
-      name: model.displayName || '',
-      embedding: model.capabilities.embedding,
-      reasoning: model.capabilities.reasoning,
-      vision: model.capabilities.vision,
-      toolCalling: model.capabilities.toolCalling,
-      structuredOutput: model.capabilities.structuredOutput,
-      streaming: model.capabilities.streaming,
-      nativeWebSearch: model.capabilities.nativeWebSearch,
-    }))
+    ? provider.models.map((model, index) =>
+        createModelDraft({
+          uid: `${provider.id}-${index}-${model.id}-${Date.now()}`,
+          id: model.providerModelId || model.id,
+          name: model.displayName || '',
+          embedding: model.capabilities.embedding,
+          reasoning: model.capabilities.reasoning,
+          vision: model.capabilities.vision,
+          toolCalling: model.capabilities.toolCalling,
+          structuredOutput: model.capabilities.structuredOutput,
+          streaming: model.capabilities.streaming,
+          nativeWebSearch: model.capabilities.nativeWebSearch,
+        })
+      )
     : [createModelDraft()];
 }
 
@@ -212,14 +228,16 @@ function resetProviderForm() {
 }
 
 function currentModelCapabilities(modelId: string): Partial<AiModelCapabilities> {
-  const currentModel = selectedProvider.value?.models.find((model) =>
-    model.id === modelId || model.providerModelId === modelId,
+  const currentModel = selectedProvider.value?.models.find(
+    (model) => model.id === modelId || model.providerModelId === modelId
   );
-  return currentModel?.capabilities ?? {
-    streaming: true,
-    toolCalling: providerForm.kind !== 'ollama',
-    structuredOutput: providerForm.kind !== 'ollama',
-  };
+  return (
+    currentModel?.capabilities ?? {
+      streaming: true,
+      toolCalling: providerForm.kind !== 'ollama',
+      structuredOutput: providerForm.kind !== 'ollama',
+    }
+  );
 }
 
 function buildProvider(): AiProviderConfig {
@@ -369,7 +387,9 @@ function formatDiagnosticLines(diagnostic?: AiProviderRequestDiagnostic) {
     return [];
   }
   const lines = [
-    diagnostic.providerKind ? `Provider: ${diagnostic.providerId || '-'} (${diagnostic.providerKind})` : undefined,
+    diagnostic.providerKind
+      ? `Provider: ${diagnostic.providerId || '-'} (${diagnostic.providerKind})`
+      : undefined,
     diagnostic.modelId ? `Model: ${diagnostic.modelId}` : undefined,
     diagnostic.baseUrl ? `Base URL: ${diagnostic.baseUrl}` : undefined,
     diagnostic.expectedEndpoint ? `Expected endpoint: ${diagnostic.expectedEndpoint}` : undefined,
@@ -380,7 +400,11 @@ function formatDiagnosticLines(diagnostic?: AiProviderRequestDiagnostic) {
     diagnostic.responseBodyPreview ? `Response: ${diagnostic.responseBodyPreview}` : undefined,
   ].filter(Boolean) as string[];
   if (diagnostic.responseHeaders && Object.keys(diagnostic.responseHeaders).length) {
-    lines.push(`Headers: ${Object.entries(diagnostic.responseHeaders).map(([key, value]) => `${key}=${value}`).join('; ')}`);
+    lines.push(
+      `Headers: ${Object.entries(diagnostic.responseHeaders)
+        .map(([key, value]) => `${key}=${value}`)
+        .join('; ')}`
+    );
   }
   return lines;
 }
@@ -464,7 +488,7 @@ async function fetchProviderModels() {
       .filter(Boolean)
       .map((id) => createFetchedModelDraft(id));
     expandedModelGroups.value = Object.fromEntries(
-      groupModelsByPrefix(fetchedModelDrafts.value).map((group) => [group.prefix, true]),
+      groupModelsByPrefix(fetchedModelDrafts.value).map((group) => [group.prefix, true])
     );
     modelPickerSearch.value = '';
     modelPickerFilter.value = 'all';
@@ -513,7 +537,12 @@ async function fetchProviderModels() {
             <p>同一个接入口可以配置多个聊天、推理或 Embedding 模型。</p>
           </div>
           <div class="ai-provider-drawer__model-actions">
-            <UiButton size="sm" variant="ghost" :disabled="fetchingModels" @click.prevent="fetchProviderModels">
+            <UiButton
+              size="sm"
+              variant="ghost"
+              :disabled="fetchingModels"
+              @click.prevent="fetchProviderModels"
+            >
               <template #prefix>
                 <IconRenderer icon="iconify:lucide:download-cloud" :size="14" />
               </template>
@@ -556,11 +585,17 @@ async function fetchProviderModels() {
                     <IconRenderer :icon="badge.icon" :size="12" />
                   </span>
                 </div>
-                <UiButton size="sm" variant="danger" @click.prevent="removeModel(model.uid)">移除</UiButton>
+                <UiButton size="sm" variant="danger" @click.prevent="removeModel(model.uid)"
+                  >移除</UiButton
+                >
               </div>
             </div>
             <div class="ai-provider-drawer__model-fields">
-              <UiInput v-model="model.id" size="sm" placeholder="模型 ID，例如 provider 原始模型名" />
+              <UiInput
+                v-model="model.id"
+                size="sm"
+                placeholder="模型 ID，例如 provider 原始模型名"
+              />
               <UiInput v-model="model.name" size="sm" placeholder="显示名，可留空" />
             </div>
             <div class="ai-provider-drawer__checks">
@@ -569,8 +604,18 @@ async function fetchProviderModels() {
               <UiCheckbox v-model="model.embedding" size="sm">Embedding</UiCheckbox>
               <UiCheckbox v-model="model.vision" size="sm">视觉</UiCheckbox>
               <UiCheckbox v-model="model.nativeWebSearch" size="sm">联网</UiCheckbox>
-              <UiCheckbox v-model="model.toolCalling" size="sm" :disabled="providerForm.kind === 'ollama'">工具调用</UiCheckbox>
-              <UiCheckbox v-model="model.structuredOutput" size="sm" :disabled="providerForm.kind === 'ollama'">结构化输出</UiCheckbox>
+              <UiCheckbox
+                v-model="model.toolCalling"
+                size="sm"
+                :disabled="providerForm.kind === 'ollama'"
+                >工具调用</UiCheckbox
+              >
+              <UiCheckbox
+                v-model="model.structuredOutput"
+                size="sm"
+                :disabled="providerForm.kind === 'ollama'"
+                >结构化输出</UiCheckbox
+              >
             </div>
           </article>
         </section>
@@ -585,17 +630,17 @@ async function fetchProviderModels() {
 
     <template #footer>
       <div class="ai-provider-drawer__footer">
-        <UiButton
-          v-if="providerId"
-          size="sm"
-          variant="danger"
-          @click="deleteProvider"
-        >
+        <UiButton v-if="providerId" size="sm" variant="danger" @click="deleteProvider">
           删除
         </UiButton>
         <div class="ai-provider-drawer__footer-spacer" />
         <UiButton size="sm" @click="emit('update:modelValue', false)">取消</UiButton>
-        <UiButton size="sm" :disabled="!canSaveProvider() || testing || fetchingModels" @click="testProvider">测试首个模型</UiButton>
+        <UiButton
+          size="sm"
+          :disabled="!canSaveProvider() || testing || fetchingModels"
+          @click="testProvider"
+          >测试首个模型</UiButton
+        >
         <UiButton
           size="sm"
           variant="primary"
@@ -617,8 +662,16 @@ async function fetchProviderModels() {
   >
     <template #header>
       <div class="ai-model-picker__header">
-        <UiPanelHeader :title="modelPickerTitle" subtitle="搜索并选择要添加到当前 Provider 的模型" />
-        <button type="button" class="ai-model-picker__icon-button" title="关闭" @click="modelPickerVisible = false">
+        <UiPanelHeader
+          :title="modelPickerTitle"
+          subtitle="搜索并选择要添加到当前 Provider 的模型"
+        />
+        <button
+          type="button"
+          class="ai-model-picker__icon-button"
+          title="关闭"
+          @click="modelPickerVisible = false"
+        >
           <IconRenderer icon="iconify:lucide:x" :size="18" />
         </button>
       </div>
@@ -670,7 +723,11 @@ async function fetchProviderModels() {
           <div class="ai-model-picker-group__head" @click="toggleModelGroup(group.prefix)">
             <div class="ai-model-picker-group__title">
               <IconRenderer
-                :icon="isModelGroupExpanded(group.prefix) ? 'iconify:lucide:chevron-down' : 'iconify:lucide:chevron-right'"
+                :icon="
+                  isModelGroupExpanded(group.prefix)
+                    ? 'iconify:lucide:chevron-down'
+                    : 'iconify:lucide:chevron-right'
+                "
                 :size="15"
               />
               <span class="ai-model-picker-group__name">{{ group.prefix }}</span>
@@ -695,7 +752,9 @@ async function fetchProviderModels() {
               <span class="ai-model-picker__avatar" aria-hidden="true">
                 {{ group.prefix.slice(0, 1).toUpperCase() }}
               </span>
-              <span class="ai-model-picker-row__name" :title="model.name || model.id">{{ model.name || model.id }}</span>
+              <span class="ai-model-picker-row__name" :title="model.name || model.id">{{
+                model.name || model.id
+              }}</span>
               <div class="ai-model-picker-row__caps ai-model-capabilities" aria-label="模型能力">
                 <span
                   v-for="badge in capabilityBadges(model)"
@@ -714,7 +773,10 @@ async function fetchProviderModels() {
                 :disabled="isModelAdded(model)"
                 @click="addFetchedModel(model)"
               >
-                <IconRenderer :icon="isModelAdded(model) ? 'iconify:lucide:check' : 'iconify:lucide:plus'" :size="18" />
+                <IconRenderer
+                  :icon="isModelAdded(model) ? 'iconify:lucide:check' : 'iconify:lucide:plus'"
+                  :size="18"
+                />
               </button>
             </div>
           </div>
@@ -725,7 +787,10 @@ async function fetchProviderModels() {
 
     <template #footer>
       <div class="ai-model-picker__footer">
-        <span>已拉取 {{ fetchedModelDrafts.length }} 个，可添加 {{ selectableFetchedCount }} 个，已配置 {{ validModelDrafts.length }} 个</span>
+        <span
+          >已拉取 {{ fetchedModelDrafts.length }} 个，可添加 {{ selectableFetchedCount }} 个，已配置
+          {{ validModelDrafts.length }} 个</span
+        >
         <UiButton size="sm" variant="primary" @click="modelPickerVisible = false">完成</UiButton>
       </div>
     </template>

@@ -48,7 +48,10 @@ import { aiMcpService } from './mcp_service';
 type AiDatabase = JsDatabase & {
   createAiConversation: (input: Record<string, unknown>) => Promise<Record<string, unknown>>;
   listAiConversations: () => Promise<Record<string, unknown>[]>;
-  updateAiConversation: (id: string, input: Record<string, unknown>) => Promise<Record<string, unknown>>;
+  updateAiConversation: (
+    id: string,
+    input: Record<string, unknown>
+  ) => Promise<Record<string, unknown>>;
   deleteAiConversation: (id: string) => Promise<void>;
   listAiProjects: () => Promise<Record<string, unknown>[]>;
   createAiProject: (input: Record<string, unknown>) => Promise<Record<string, unknown>>;
@@ -89,7 +92,9 @@ class AiChatService {
     const current = (await appConfigManager.getConfig()).features.aiAgent;
     const normalizedPatch: Partial<AiAgentFeatureConfig> = { ...patch };
     if (patch.providers) {
-      normalizedPatch.providers = patch.providers.map((provider) => mergeProviderSecret(current, provider));
+      normalizedPatch.providers = patch.providers.map((provider) =>
+        mergeProviderSecret(current, provider)
+      );
     }
     if (patch.research) {
       normalizedPatch.research = {
@@ -110,7 +115,8 @@ class AiChatService {
 
   async testProvider(input: TestAiProviderPayload): Promise<TestAiProviderResult> {
     const config = await this.resolveConfigWithOverride(input);
-    const providerId = input.provider?.id || input.providerId || config.defaultProviderId || config.providers[0]?.id;
+    const providerId =
+      input.provider?.id || input.providerId || config.defaultProviderId || config.providers[0]?.id;
     const provider = providerId ? findAiProvider(config, providerId) : undefined;
     const modelId = input.modelId || provider?.models[0]?.id;
 
@@ -137,7 +143,9 @@ class AiChatService {
     }
   }
 
-  async fetchProviderModels(input: FetchAiProviderModelsPayload): Promise<FetchAiProviderModelsResult> {
+  async fetchProviderModels(
+    input: FetchAiProviderModelsPayload
+  ): Promise<FetchAiProviderModelsResult> {
     const config = (await appConfigManager.getConfig()).features.aiAgent;
     const currentProvider = input.providerId
       ? config.providers.find((provider) => provider.id === input.providerId)
@@ -148,7 +156,8 @@ class AiChatService {
     }
 
     const baseUrl = normalizeProviderModelsBaseUrl(input.baseUrl || currentProvider?.baseUrl, kind);
-    const apiKey = (input.apiKey || currentProvider?.apiKey || '').trim().split('\n')[0] || undefined;
+    const apiKey =
+      (input.apiKey || currentProvider?.apiKey || '').trim().split('\n')[0] || undefined;
     try {
       const models = await fetchUpstreamProviderModels({ kind, baseUrl, apiKey });
       return { models };
@@ -185,7 +194,10 @@ class AiChatService {
     return mapConversation(row);
   }
 
-  async updateConversation(id: string, input: UpdateAiConversationPayload): Promise<AiConversation> {
+  async updateConversation(
+    id: string,
+    input: UpdateAiConversationPayload
+  ): Promise<AiConversation> {
     const row = await this.db().updateAiConversation(id, {
       assistantId: input.assistantId,
       title: input.title,
@@ -284,32 +296,44 @@ class AiChatService {
     const references = sanitizeChatReferences(input.references);
     assertAttachmentsSupported(config, providerId, modelId, attachments);
 
-    const userMessage = mapMessage(await this.db().insertAiMessage({
-      id: randomUUID(),
-      conversationId: conversation.id,
-      role: 'user',
-      content: input.content,
-      status: 'complete',
-      providerId,
-      modelId,
-      metadataJson: attachments.length || references.length ? JSON.stringify({ attachments, references }) : undefined,
-    }));
-    const assistantMessage = mapMessage(await this.db().insertAiMessage({
-      id: randomUUID(),
-      conversationId: conversation.id,
-      role: 'assistant',
-      content: '',
-      status: 'streaming',
-      parentMessageId: userMessage.id,
-      providerId,
-      modelId,
-    }));
+    const userMessage = mapMessage(
+      await this.db().insertAiMessage({
+        id: randomUUID(),
+        conversationId: conversation.id,
+        role: 'user',
+        content: input.content,
+        status: 'complete',
+        providerId,
+        modelId,
+        metadataJson:
+          attachments.length || references.length
+            ? JSON.stringify({ attachments, references })
+            : undefined,
+      })
+    );
+    const assistantMessage = mapMessage(
+      await this.db().insertAiMessage({
+        id: randomUUID(),
+        conversationId: conversation.id,
+        role: 'assistant',
+        content: '',
+        status: 'streaming',
+        parentMessageId: userMessage.id,
+        providerId,
+        modelId,
+      })
+    );
 
     const runId = randomUUID();
     const controller = new AbortController();
     this.runs.set(runId, controller);
 
-    this.emit({ type: 'run-start', runId, conversationId: conversation.id, messageId: assistantMessage.id });
+    this.emit({
+      type: 'run-start',
+      runId,
+      conversationId: conversation.id,
+      messageId: assistantMessage.id,
+    });
     void this.runStream({
       runId,
       conversation,
@@ -342,26 +366,38 @@ class AiChatService {
     const providerId = input.providerId || sourceUserMessage.providerId || conversation.providerId;
     const modelId = input.modelId || sourceUserMessage.modelId || conversation.modelId;
     this.assertModel(config, providerId, modelId);
-    assertAttachmentsSupported(config, providerId, modelId, getMessageAttachments(sourceUserMessage));
+    assertAttachmentsSupported(
+      config,
+      providerId,
+      modelId,
+      getMessageAttachments(sourceUserMessage)
+    );
 
     const sourceIndex = messages.findIndex((message) => message.id === sourceUserMessage.id);
     const historyOverride = sourceIndex >= 0 ? messages.slice(0, sourceIndex + 1) : messages;
-    const assistantMessage = mapMessage(await this.db().insertAiMessage({
-      id: randomUUID(),
-      conversationId: conversation.id,
-      role: 'assistant',
-      content: '',
-      status: 'streaming',
-      parentMessageId: sourceUserMessage.id,
-      providerId,
-      modelId,
-    }));
+    const assistantMessage = mapMessage(
+      await this.db().insertAiMessage({
+        id: randomUUID(),
+        conversationId: conversation.id,
+        role: 'assistant',
+        content: '',
+        status: 'streaming',
+        parentMessageId: sourceUserMessage.id,
+        providerId,
+        modelId,
+      })
+    );
 
     const runId = randomUUID();
     const controller = new AbortController();
     this.runs.set(runId, controller);
 
-    this.emit({ type: 'run-start', runId, conversationId: conversation.id, messageId: assistantMessage.id });
+    this.emit({
+      type: 'run-start',
+      runId,
+      conversationId: conversation.id,
+      messageId: assistantMessage.id,
+    });
     void this.runStream({
       runId,
       conversation,
@@ -399,8 +435,9 @@ class AiChatService {
     let groundingMetadata: Record<string, unknown> | undefined;
     let memoryMetadata: Record<string, unknown> | undefined;
     try {
-      const history = context.historyOverride ?? await this.listMessages(context.conversation.id);
-      const maxHistoryMessages = context.input.maxHistoryMessages ?? context.config.chat.maxHistoryMessages;
+      const history = context.historyOverride ?? (await this.listMessages(context.conversation.id));
+      const maxHistoryMessages =
+        context.input.maxHistoryMessages ?? context.config.chat.maxHistoryMessages;
       const modelMessages = buildModelMessages(history, maxHistoryMessages);
       const reasoning = resolveReasoningOptions(context.config, context.input.reasoning);
       const attachmentCitations = buildAttachmentCitations(context.userMessage);
@@ -416,9 +453,9 @@ class AiChatService {
         citations,
       };
       if (
-        context.input.grounding?.knowledgeSearchMode === 'force'
-        && grounding.metadata.knowledgeSearchEnabled
-        && !grounding.citations.some((citation) => citation.sourceType.startsWith('knowledge-'))
+        context.input.grounding?.knowledgeSearchMode === 'force' &&
+        grounding.metadata.knowledgeSearchEnabled &&
+        !grounding.citations.some((citation) => citation.sourceType.startsWith('knowledge-'))
       ) {
         throw new Error('知识库强制检索未返回可验证的知识库来源，本次回答已停止生成。');
       }
@@ -435,39 +472,50 @@ class AiChatService {
       }
 
       const canvasEnabled = Boolean(context.input.canvas?.enabled);
-      const baseSystemPrompt = context.input.systemPrompt?.trim()
-        || context.conversation.systemPrompt
-        || context.config.chat.defaultSystemPrompt
-        || '';
+      const baseSystemPrompt =
+        context.input.systemPrompt?.trim() ||
+        context.conversation.systemPrompt ||
+        context.config.chat.defaultSystemPrompt ||
+        '';
       const memoryContext = await this.resolveMemoryContext(context.input, context.conversation);
       memoryMetadata = memoryContext.metadata;
       const canvasSystemPrompt = canvasEnabled
         ? buildCanvasSystemInstruction({ activeWorkspaceId: context.input.canvas?.workspaceId })
         : '';
-      const systemPrompt = [baseSystemPrompt, memoryContext.context, grounding.context, canvasSystemPrompt].filter(Boolean).join('\n\n');
+      const systemPrompt = [
+        baseSystemPrompt,
+        memoryContext.context,
+        grounding.context,
+        canvasSystemPrompt,
+      ]
+        .filter(Boolean)
+        .join('\n\n');
       const toolCallMode = context.input.toolCallMode ?? 'auto';
-      const maxToolSteps = Number.isFinite(context.input.maxToolCalls) && Number(context.input.maxToolCalls) > 0
-        ? Math.max(1, Math.floor(Number(context.input.maxToolCalls)))
-        : 3;
-      const canvasTools = canvasEnabled && toolCallMode !== 'none'
-        ? createCanvasTools({
-          runId: context.runId,
-          conversationId: context.conversation.id,
-          messageId: context.assistantMessage.id,
-          activeWorkspaceId: context.input.canvas?.workspaceId,
-          emit: (event) => this.emit(event),
-        })
-        : undefined;
+      const maxToolSteps =
+        Number.isFinite(context.input.maxToolCalls) && Number(context.input.maxToolCalls) > 0
+          ? Math.max(1, Math.floor(Number(context.input.maxToolCalls)))
+          : 3;
+      const canvasTools =
+        canvasEnabled && toolCallMode !== 'none'
+          ? createCanvasTools({
+              runId: context.runId,
+              conversationId: context.conversation.id,
+              messageId: context.assistantMessage.id,
+              activeWorkspaceId: context.input.canvas?.workspaceId,
+              emit: (event) => this.emit(event),
+            })
+          : undefined;
       const mcpCitations: AiCitation[] = [];
-      const mcpTools = toolCallMode !== 'none' && context.input.mcpMode && context.input.mcpMode !== 'disabled'
-        ? createMcpReadTools({
-          runId: context.runId,
-          messageId: context.assistantMessage.id,
-          tools: await aiMcpService.listTools(),
-          citations: mcpCitations,
-          emit: (event) => this.emit(event),
-        })
-        : undefined;
+      const mcpTools =
+        toolCallMode !== 'none' && context.input.mcpMode && context.input.mcpMode !== 'disabled'
+          ? createMcpReadTools({
+              runId: context.runId,
+              messageId: context.assistantMessage.id,
+              tools: await aiMcpService.listTools(),
+              citations: mcpCitations,
+              emit: (event) => this.emit(event),
+            })
+          : undefined;
       const tools = {
         ...(canvasTools ?? {}),
         ...(mcpTools ?? {}),
@@ -475,7 +523,11 @@ class AiChatService {
       const activeTools = Object.keys(tools).length ? tools : undefined;
       const providerOptions = mergeProviderOptions(
         buildReasoningProviderOptions(context.config, context.providerId, reasoning),
-        buildCustomParameterProviderOptions(context.config, context.providerId, context.input.customParameters),
+        buildCustomParameterProviderOptions(
+          context.config,
+          context.providerId,
+          context.input.customParameters
+        )
       );
       const requestOptions = {
         model: resolveLanguageModel(context.config, context.providerId, context.modelId),
@@ -496,9 +548,16 @@ class AiChatService {
         const result = await generateText(requestOptions);
         content = result.text ?? '';
         if (content) {
-          this.emit({ type: 'text-delta', runId: context.runId, messageId: context.assistantMessage.id, delta: content });
+          this.emit({
+            type: 'text-delta',
+            runId: context.runId,
+            messageId: context.assistantMessage.id,
+            delta: content,
+          });
         }
-        usage = normalizeUsage((result as { totalUsage?: unknown; usage?: unknown }).totalUsage ?? result.usage);
+        usage = normalizeUsage(
+          (result as { totalUsage?: unknown; usage?: unknown }).totalUsage ?? result.usage
+        );
       } else {
         const result = streamText(requestOptions);
 
@@ -528,58 +587,75 @@ class AiChatService {
         content,
         status: 'complete',
         tokenUsageJson: usage ? JSON.stringify(usage) : undefined,
-        metadataJson: JSON.stringify(buildMessageMetadata(groundingMetadata, memoryMetadata, reasoning, reasoningContent)),
+        metadataJson: JSON.stringify(
+          buildMessageMetadata(groundingMetadata, memoryMetadata, reasoning, reasoningContent)
+        ),
       });
       if (usage) {
-        this.emit({ type: 'usage', runId: context.runId, messageId: context.assistantMessage.id, usage });
+        this.emit({
+          type: 'usage',
+          runId: context.runId,
+          messageId: context.assistantMessage.id,
+          usage,
+        });
       }
       this.emit({ type: 'run-finish', runId: context.runId, finishReason: 'stop' });
       await this.maybeTitleConversation(context, content);
     } catch (error) {
       const aborted = context.controller.signal.aborted;
       const provider = findAiProvider(context.config, context.providerId);
-      const diagnostic = provider ? buildProviderRequestDiagnostic(error, provider, context.modelId) : undefined;
-      const messageError = aborted || !diagnostic ? undefined : buildAiMessageError(error, diagnostic);
+      const diagnostic = provider
+        ? buildProviderRequestDiagnostic(error, provider, context.modelId)
+        : undefined;
+      const messageError =
+        aborted || !diagnostic ? undefined : buildAiMessageError(error, diagnostic);
       if (!aborted && diagnostic) {
         logAiProviderFailure('Chat request failed', diagnostic, error);
       }
       await this.db().updateAiMessage(context.assistantMessage.id, {
         content,
         status: aborted ? 'aborted' : 'error',
-        metadataJson: JSON.stringify(buildMessageMetadata(
-          groundingMetadata,
-          memoryMetadata,
-          undefined,
-          reasoningContent,
-          messageError,
-        )),
+        metadataJson: JSON.stringify(
+          buildMessageMetadata(
+            groundingMetadata,
+            memoryMetadata,
+            undefined,
+            reasoningContent,
+            messageError
+          )
+        ),
       });
-      this.emit(aborted
-        ? { type: 'run-aborted', runId: context.runId }
-        : {
-          type: 'run-error',
-          runId: context.runId,
-          messageId: context.assistantMessage.id,
-          message: messageError?.message || 'AI 请求失败，请检查 Provider 配置后重试。',
-          detail: messageError?.detail,
-          statusCode: messageError?.statusCode,
-          code: messageError?.code,
-          providerId: messageError?.providerId,
-          modelId: messageError?.modelId,
-          retryable: messageError?.retryable ?? true,
-        });
+      this.emit(
+        aborted
+          ? { type: 'run-aborted', runId: context.runId }
+          : {
+              type: 'run-error',
+              runId: context.runId,
+              messageId: context.assistantMessage.id,
+              message: messageError?.message || 'AI 请求失败，请检查 Provider 配置后重试。',
+              detail: messageError?.detail,
+              statusCode: messageError?.statusCode,
+              code: messageError?.code,
+              providerId: messageError?.providerId,
+              modelId: messageError?.modelId,
+              retryable: messageError?.retryable ?? true,
+            }
+      );
     } finally {
       this.runs.delete(context.runId);
     }
   }
 
-  private async maybeTitleConversation(context: {
-    conversation: AiConversation;
-    config: AiAgentFeatureConfig;
-    providerId: string;
-    modelId: string;
-    userMessage: AiChatMessage;
-  }, assistantContent: string) {
+  private async maybeTitleConversation(
+    context: {
+      conversation: AiConversation;
+      config: AiAgentFeatureConfig;
+      providerId: string;
+      modelId: string;
+      userMessage: AiChatMessage;
+    },
+    assistantContent: string
+  ) {
     if (context.conversation.title !== '新的对话') {
       return;
     }
@@ -588,7 +664,7 @@ class AiChatService {
       context.config,
       context.providerId,
       context.modelId,
-      `${context.userMessage.content}\n${assistantContent}`,
+      `${context.userMessage.content}\n${assistantContent}`
     );
     await this.updateConversation(context.conversation.id, { title });
   }
@@ -601,7 +677,9 @@ class AiChatService {
     }
   }
 
-  private async resolveConfigWithOverride(input: TestAiProviderPayload): Promise<AiAgentFeatureConfig> {
+  private async resolveConfigWithOverride(
+    input: TestAiProviderPayload
+  ): Promise<AiAgentFeatureConfig> {
     const config = (await appConfigManager.getConfig()).features.aiAgent;
     if (!input.provider) {
       return config;
@@ -676,30 +754,44 @@ class AiChatService {
       aiEmbeddingService.searchKnowledge(config, searchInput),
     ]);
     return filterKnowledgeResultsByScope(
-      mergeKnowledgeResults(textResults, embeddingResults, Math.max(requestedLimit, searchInput.limit ?? requestedLimit)),
-      input,
+      mergeKnowledgeResults(
+        textResults,
+        embeddingResults,
+        Math.max(requestedLimit, searchInput.limit ?? requestedLimit)
+      ),
+      input
     ).slice(0, Math.max(1, requestedLimit));
   }
 
   private async resolveMemoryContext(
     input: SendAiMessagePayload | RegenerateAiMessagePayload,
-    conversation: AiConversation,
+    conversation: AiConversation
   ) {
     if (!input.memory?.enabled) {
       return { context: '', metadata: undefined };
     }
 
     const projects = await this.listProjects();
-    const project = (input.memory.projectId || conversation.projectId)
-      ? projects.find((item) => item.id === (input.memory?.projectId || conversation.projectId))
-      : undefined;
+    const project =
+      input.memory.projectId || conversation.projectId
+        ? projects.find((item) => item.id === (input.memory?.projectId || conversation.projectId))
+        : undefined;
     const includeGlobal = input.memory.includeGlobal ?? project?.includeGlobalMemory ?? true;
     const limit = Math.max(1, Math.min(20, Math.floor(input.memory.limit ?? 8)));
     const memoryGroups = await Promise.all([
-      includeGlobal ? this.listMemories({ scope: 'global', enabled: true, limit }) : Promise.resolve([]),
-      project ? this.listMemories({ scope: 'project', scopeId: project.id, enabled: true, limit }) : Promise.resolve([]),
+      includeGlobal
+        ? this.listMemories({ scope: 'global', enabled: true, limit })
+        : Promise.resolve([]),
+      project
+        ? this.listMemories({ scope: 'project', scopeId: project.id, enabled: true, limit })
+        : Promise.resolve([]),
       input.memory.assistantId
-        ? this.listMemories({ scope: 'assistant', scopeId: input.memory.assistantId, enabled: true, limit })
+        ? this.listMemories({
+            scope: 'assistant',
+            scopeId: input.memory.assistantId,
+            enabled: true,
+            limit,
+          })
         : Promise.resolve([]),
     ]);
     const memories = dedupeMemories(memoryGroups.flat()).slice(0, limit);
@@ -731,31 +823,40 @@ class AiChatService {
   }
 
   private async persistCitations(messageId: string, citations: AiCitation[]) {
-    await Promise.all(citations.map((citation) => this.db().insertAiCitation({
-      id: citation.id,
-      messageId,
-      sourceType: citation.sourceType,
-      title: citation.title,
-      url: citation.url,
-      sourceId: citation.sourceId,
-      snippet: citation.snippet,
-      metadataJson: citation.metadata ? JSON.stringify(citation.metadata) : undefined,
-    })));
+    await Promise.all(
+      citations.map((citation) =>
+        this.db().insertAiCitation({
+          id: citation.id,
+          messageId,
+          sourceType: citation.sourceType,
+          title: citation.title,
+          url: citation.url,
+          sourceId: citation.sourceId,
+          snippet: citation.snippet,
+          metadataJson: citation.metadata ? JSON.stringify(citation.metadata) : undefined,
+        })
+      )
+    );
   }
 
   private async attachCitations(messages: AiChatMessage[]) {
-    await Promise.all(messages.map(async (message) => {
-      const rows = await this.db().listAiCitations(message.id);
-      if (rows.length) {
-        message.citations = rows.map(mapCitation);
-      }
-    }));
+    await Promise.all(
+      messages.map(async (message) => {
+        const rows = await this.db().listAiCitations(message.id);
+        if (rows.length) {
+          message.citations = rows.map(mapCitation);
+        }
+      })
+    );
   }
 }
 
 function buildModelMessages(messages: AiChatMessage[], maxHistoryMessages: number): ModelMessage[] {
   const eligibleMessages = messages
-    .filter((message) => message.role === 'user' || message.role === 'assistant' || message.role === 'system')
+    .filter(
+      (message) =>
+        message.role === 'user' || message.role === 'assistant' || message.role === 'system'
+    )
     .filter((message) => {
       if (message.role === 'assistant') {
         return message.status === 'complete' && message.content.trim().length > 0;
@@ -763,9 +864,10 @@ function buildModelMessages(messages: AiChatMessage[], maxHistoryMessages: numbe
 
       return message.content.trim().length > 0 || getMessageAttachments(message).length > 0;
     });
-  const limitedMessages = maxHistoryMessages > 0
-    ? eligibleMessages.slice(-Math.max(1, maxHistoryMessages))
-    : eligibleMessages;
+  const limitedMessages =
+    maxHistoryMessages > 0
+      ? eligibleMessages.slice(-Math.max(1, maxHistoryMessages))
+      : eligibleMessages;
   return limitedMessages.map((message) => {
     if (message.role === 'system') {
       return { role: 'system', content: message.content };
@@ -780,16 +882,24 @@ function buildModelMessages(messages: AiChatMessage[], maxHistoryMessages: numbe
 function buildUserMessageContent(message: AiChatMessage): UserModelContent {
   const attachments = getMessageAttachments(message);
   const references = getMessageReferences(message);
-  const textAttachments = attachments.filter((attachment) => attachment.kind === 'text' && attachment.textContent?.trim());
-  const imageAttachments = attachments.filter((attachment) => attachment.kind === 'image' && attachment.data);
+  const textAttachments = attachments.filter(
+    (attachment) => attachment.kind === 'text' && attachment.textContent?.trim()
+  );
+  const imageAttachments = attachments.filter(
+    (attachment) => attachment.kind === 'image' && attachment.data
+  );
   if (!textAttachments.length && !imageAttachments.length) {
     return buildPromptContent(message.content, references);
   }
 
   const textBlocks = [buildPromptContent(message.content, references)]
     .filter(Boolean)
-    .concat(textAttachments.map((attachment, index) =>
-      `附件 ${index + 1}: ${attachment.name}\n${attachment.textContent?.trim() ?? ''}`));
+    .concat(
+      textAttachments.map(
+        (attachment, index) =>
+          `附件 ${index + 1}: ${attachment.name}\n${attachment.textContent?.trim() ?? ''}`
+      )
+    );
   const parts: Exclude<UserModelContent, string> = [];
   if (textBlocks.length) {
     parts.push({ type: 'text', text: textBlocks.join('\n\n') });
@@ -850,9 +960,10 @@ function normalizeChatAttachment(value: unknown): AiChatAttachment | undefined {
 
   const source = normalizeAttachmentSource(record.source);
   const size = Number(record.size);
-  const metadata = record.metadata && typeof record.metadata === 'object'
-    ? record.metadata as Record<string, unknown>
-    : undefined;
+  const metadata =
+    record.metadata && typeof record.metadata === 'object'
+      ? (record.metadata as Record<string, unknown>)
+      : undefined;
   return {
     id,
     kind,
@@ -860,9 +971,13 @@ function normalizeChatAttachment(value: unknown): AiChatAttachment | undefined {
     name,
     mimeType,
     size: Number.isFinite(size) && size >= 0 ? size : 0,
-    textContent: kind === 'text' && typeof record.textContent === 'string' ? record.textContent : undefined,
+    textContent:
+      kind === 'text' && typeof record.textContent === 'string' ? record.textContent : undefined,
     data: kind === 'image' && typeof record.data === 'string' ? record.data : undefined,
-    assetId: typeof record.assetId === 'string' && record.assetId.trim() ? record.assetId.trim() : undefined,
+    assetId:
+      typeof record.assetId === 'string' && record.assetId.trim()
+        ? record.assetId.trim()
+        : undefined,
     metadata,
   };
 }
@@ -897,14 +1012,17 @@ function assertAttachmentsSupported(
   config: AiAgentFeatureConfig,
   providerId: string,
   modelId: string,
-  attachments: AiChatAttachment[],
+  attachments: AiChatAttachment[]
 ) {
   if (!attachments.length) {
     return;
   }
 
   const model = findAiModel(config, providerId, modelId);
-  if (attachments.some((attachment) => attachment.kind === 'image') && !model?.capabilities.vision) {
+  if (
+    attachments.some((attachment) => attachment.kind === 'image') &&
+    !model?.capabilities.vision
+  ) {
     throw new Error('当前模型未声明视觉能力，无法发送图片附件');
   }
 }
@@ -943,7 +1061,10 @@ function formatAttachmentSize(size: number) {
   return `${(size / 1_000_000).toFixed(1)} MB`;
 }
 
-function resolveRegenerationSource(messages: AiChatMessage[], assistantMessageId?: string): AiChatMessage | undefined {
+function resolveRegenerationSource(
+  messages: AiChatMessage[],
+  assistantMessageId?: string
+): AiChatMessage | undefined {
   const targetAssistant = assistantMessageId
     ? messages.find((message) => message.id === assistantMessageId && message.role === 'assistant')
     : [...messages].reverse().find((message) => message.role === 'assistant');
@@ -969,7 +1090,7 @@ function resolveRegenerationSource(messages: AiChatMessage[], assistantMessageId
 function mergeKnowledgeResults(
   textResults: KnowledgeSearchResult[],
   embeddingResults: KnowledgeSearchResult[],
-  limit: number,
+  limit: number
 ) {
   const merged = new Map<string, KnowledgeSearchResult>();
   for (const result of [...textResults, ...embeddingResults]) {
@@ -984,7 +1105,10 @@ function mergeKnowledgeResults(
     .slice(0, Math.max(1, limit));
 }
 
-function filterKnowledgeResultsByScope(results: KnowledgeSearchResult[], input: KnowledgeSearchPayload) {
+function filterKnowledgeResultsByScope(
+  results: KnowledgeSearchResult[],
+  input: KnowledgeSearchPayload
+) {
   return results.filter((result) => {
     if (input.nodeId && result.nodeId !== input.nodeId && result.sourceId !== input.nodeId) {
       return false;
@@ -1017,7 +1141,9 @@ function mapProject(row: Record<string, unknown>): AiProject {
     id: String(readField(row, 'id')),
     name: String(readField(row, 'name') ?? '项目'),
     instructions: optionalString(readField(row, 'instructions')),
-    knowledgeLibraryId: optionalString(readField(row, 'knowledgeLibraryId', 'knowledge_library_id')),
+    knowledgeLibraryId: optionalString(
+      readField(row, 'knowledgeLibraryId', 'knowledge_library_id')
+    ),
     knowledgeSpaceId: optionalString(readField(row, 'knowledgeSpaceId', 'knowledge_space_id')),
     includeGlobalMemory: Boolean(readField(row, 'includeGlobalMemory', 'include_global_memory')),
     archived: Boolean(readField(row, 'archived')),
@@ -1077,16 +1203,18 @@ function normalizeRole(value: unknown): AiChatMessage['role'] {
 }
 
 function normalizeStatus(value: unknown): AiChatMessage['status'] {
-  return value === 'pending' || value === 'streaming' || value === 'aborted' || value === 'error' ? value : 'complete';
+  return value === 'pending' || value === 'streaming' || value === 'aborted' || value === 'error'
+    ? value
+    : 'complete';
 }
 
 function normalizeCitationSourceType(value: unknown): AiCitation['sourceType'] {
   if (
-    value === 'web'
-    || value === 'knowledge-page'
-    || value === 'knowledge-block'
-    || value === 'knowledge-asset'
-    || value === 'chat-attachment'
+    value === 'web' ||
+    value === 'knowledge-page' ||
+    value === 'knowledge-block' ||
+    value === 'knowledge-asset' ||
+    value === 'chat-attachment'
   ) {
     return value;
   }
@@ -1131,19 +1259,25 @@ type ResolvedReasoningOptions = {
   budgetTokens?: number;
 };
 
-function resolveReasoningOptions(config: AiAgentFeatureConfig, input?: AiReasoningOptions): ResolvedReasoningOptions {
+function resolveReasoningOptions(
+  config: AiAgentFeatureConfig,
+  input?: AiReasoningOptions
+): ResolvedReasoningOptions {
   const rawBudget = input?.budgetTokens ?? config.chat.reasoningBudgetTokens;
   return {
     enabled: input?.enabled ?? config.chat.reasoningEnabled,
     effort: input?.effort ?? config.chat.reasoningEffort,
-    budgetTokens: Number.isFinite(rawBudget) && Number(rawBudget) > 0 ? Math.round(Number(rawBudget)) : undefined,
+    budgetTokens:
+      Number.isFinite(rawBudget) && Number(rawBudget) > 0
+        ? Math.round(Number(rawBudget))
+        : undefined,
   };
 }
 
 function buildReasoningProviderOptions(
   config: AiAgentFeatureConfig,
   providerId: string,
-  reasoning: ResolvedReasoningOptions,
+  reasoning: ResolvedReasoningOptions
 ): AiProviderOptions | undefined {
   if (!reasoning.enabled) {
     return undefined;
@@ -1190,7 +1324,7 @@ function buildReasoningProviderOptions(
 function buildCustomParameterProviderOptions(
   config: AiAgentFeatureConfig,
   providerId: string,
-  parameters?: AiAssistantCustomParameter[],
+  parameters?: AiAssistantCustomParameter[]
 ): AiProviderOptions | undefined {
   const entries = (parameters ?? [])
     .map((parameter) => ({
@@ -1213,7 +1347,9 @@ function buildCustomParameterProviderOptions(
   };
 }
 
-function mergeProviderOptions(...options: Array<AiProviderOptions | undefined>): AiProviderOptions | undefined {
+function mergeProviderOptions(
+  ...options: Array<AiProviderOptions | undefined>
+): AiProviderOptions | undefined {
   const merged: AiProviderOptions = {};
   for (const option of options) {
     if (!option) {
@@ -1259,20 +1395,20 @@ function buildMessageMetadata(
   memoryMetadata: Record<string, unknown> | undefined,
   reasoning: ResolvedReasoningOptions | undefined,
   reasoningContent: string,
-  error: AiChatMessageError | undefined = undefined,
+  error: AiChatMessageError | undefined = undefined
 ) {
   return {
     ...(groundingMetadata ?? {}),
     ...(memoryMetadata ?? {}),
     ...(reasoning || reasoningContent
       ? {
-        reasoning: {
-          enabled: reasoning?.enabled ?? Boolean(reasoningContent),
-          effort: reasoning?.effort,
-          budgetTokens: reasoning?.budgetTokens || undefined,
-          content: reasoningContent || undefined,
-        },
-      }
+          reasoning: {
+            enabled: reasoning?.enabled ?? Boolean(reasoningContent),
+            effort: reasoning?.effort,
+            budgetTokens: reasoning?.budgetTokens || undefined,
+            content: reasoningContent || undefined,
+          },
+        }
       : {}),
     ...(error ? { error } : {}),
   };
@@ -1354,7 +1490,9 @@ async function fetchOllamaModelIds(baseUrl: string, apiKey?: string) {
   const response = await fetch(`${ollamaRootUrl(baseUrl)}/api/tags`, { headers });
   const json = await readJsonResponse(response);
   const models = Array.isArray(json.models)
-    ? json.models.map((model: unknown) => model && typeof model === 'object' ? String((model as { name?: unknown }).name || '') : '')
+    ? json.models.map((model: unknown) =>
+        model && typeof model === 'object' ? String((model as { name?: unknown }).name || '') : ''
+      )
     : [];
   return uniqueModelIds(models);
 }
@@ -1372,15 +1510,19 @@ async function fetchGeminiModelIds(baseUrl: string, apiKey?: string) {
   const json = await readJsonResponse(response);
   const models = Array.isArray(json.models)
     ? json.models.map((model: unknown) => {
-      if (!model || typeof model !== 'object') return '';
-      const name = String((model as { name?: unknown }).name || '');
-      return name.replace(/^models\//, '');
-    })
+        if (!model || typeof model !== 'object') return '';
+        const name = String((model as { name?: unknown }).name || '');
+        return name.replace(/^models\//, '');
+      })
     : [];
   return uniqueModelIds(models);
 }
 
-async function fetchOpenAiModelIds(url: string, apiKey?: string, headers: Record<string, string> = {}) {
+async function fetchOpenAiModelIds(
+  url: string,
+  apiKey?: string,
+  headers: Record<string, string> = {}
+) {
   const requestHeaders: Record<string, string> = { ...headers };
   if (apiKey && !requestHeaders.Authorization && !requestHeaders['x-api-key']) {
     requestHeaders.Authorization = `Bearer ${apiKey}`;
@@ -1389,10 +1531,10 @@ async function fetchOpenAiModelIds(url: string, apiKey?: string, headers: Record
   const json = await readJsonResponse(response);
   const models = Array.isArray(json.data)
     ? json.data.map((model: unknown) => {
-      if (typeof model === 'string') return model;
-      if (!model || typeof model !== 'object') return '';
-      return String((model as { id?: unknown }).id || '');
-    })
+        if (typeof model === 'string') return model;
+        if (!model || typeof model !== 'object') return '';
+        return String((model as { id?: unknown }).id || '');
+      })
     : [];
   return uniqueModelIds(models);
 }
@@ -1400,26 +1542,38 @@ async function fetchOpenAiModelIds(url: string, apiKey?: string, headers: Record
 async function readJsonResponse(response: Response): Promise<Record<string, unknown>> {
   const text = await response.text();
   if (!response.ok) {
-    throw new Error(formatFetchJsonFailure(response, text, `获取模型列表失败：HTTP ${response.status}`));
+    throw new Error(
+      formatFetchJsonFailure(response, text, `获取模型列表失败：HTTP ${response.status}`)
+    );
   }
   try {
     return JSON.parse(text) as Record<string, unknown>;
   } catch {
-    throw new Error(formatFetchJsonFailure(response, text, '获取模型列表失败：上游返回不是有效 JSON'));
+    throw new Error(
+      formatFetchJsonFailure(response, text, '获取模型列表失败：上游返回不是有效 JSON')
+    );
   }
 }
 
 function buildProviderRequestDiagnostic(
   error: unknown,
   provider: AiAgentFeatureConfig['providers'][number],
-  modelId: string,
+  modelId: string
 ): AiProviderRequestDiagnostic {
   const record = toRecord(error);
   const cause = toRecord(record?.cause);
-  const statusCode = toFiniteNumber(record?.statusCode ?? record?.status ?? cause?.statusCode ?? cause?.status);
-  const requestUrl = toStringValue(record?.url ?? record?.requestUrl ?? cause?.url ?? cause?.requestUrl);
-  const responseBody = toStringValue(record?.responseBody ?? record?.body ?? cause?.responseBody ?? cause?.body);
-  const responseHeaders = sanitizeHeaders(record?.responseHeaders ?? record?.headers ?? cause?.responseHeaders ?? cause?.headers);
+  const statusCode = toFiniteNumber(
+    record?.statusCode ?? record?.status ?? cause?.statusCode ?? cause?.status
+  );
+  const requestUrl = toStringValue(
+    record?.url ?? record?.requestUrl ?? cause?.url ?? cause?.requestUrl
+  );
+  const responseBody = toStringValue(
+    record?.responseBody ?? record?.body ?? cause?.responseBody ?? cause?.body
+  );
+  const responseHeaders = sanitizeHeaders(
+    record?.responseHeaders ?? record?.headers ?? cause?.responseHeaders ?? cause?.headers
+  );
 
   return {
     providerId: provider.id,
@@ -1433,37 +1587,50 @@ function buildProviderRequestDiagnostic(
     errorMessage: error instanceof Error ? error.message : String(error),
     responseHeaders,
     responseBodyPreview: responseBody ? truncateForDiagnostic(responseBody) : undefined,
-    causeMessage: record?.cause instanceof Error ? record.cause.message : toStringValue(cause?.message),
+    causeMessage:
+      record?.cause instanceof Error ? record.cause.message : toStringValue(cause?.message),
   };
 }
 
-function buildAiMessageError(error: unknown, diagnostic: AiProviderRequestDiagnostic): AiChatMessageError {
+function buildAiMessageError(
+  error: unknown,
+  diagnostic: AiProviderRequestDiagnostic
+): AiChatMessageError {
   const record = toRecord(error);
   const cause = toRecord(record?.cause);
   const code = extractProviderErrorCode(record, diagnostic.responseBodyPreview);
-  const detail = sanitizeUserFacingError(extractProviderErrorMessage(record, diagnostic.responseBodyPreview)
-    || diagnostic.errorMessage
-    || '上游未返回具体错误原因');
+  const detail = sanitizeUserFacingError(
+    extractProviderErrorMessage(record, diagnostic.responseBodyPreview) ||
+      diagnostic.errorMessage ||
+      '上游未返回具体错误原因'
+  );
   const statusCode = diagnostic.statusCode;
-  const message = statusCode === 401 || statusCode === 403
-    ? 'API Key 无效或没有访问权限，请检查 Provider 配置。'
-    : statusCode === 404
-      ? 'Provider 或模型不可用，请检查 Base URL 和模型 ID。'
-      : statusCode === 408 || statusCode === 429
-        ? '请求超时或达到频率/额度限制，请稍后重试。'
-        : statusCode !== undefined && statusCode >= 500
-          ? 'Provider 服务暂时不可用，请稍后重试。'
-          : isNetworkFailure(record, diagnostic)
-            ? '无法连接 Provider，请检查网络和 Base URL。'
-            : 'AI 请求失败，请检查 Provider 配置后重试。';
-  const upstreamRetryable = typeof record?.isRetryable === 'boolean'
-    ? record.isRetryable
-    : typeof cause?.isRetryable === 'boolean'
-      ? cause.isRetryable
-      : undefined;
-  const retryable = upstreamRetryable !== undefined
-    ? upstreamRetryable
-    : statusCode === undefined || statusCode === 408 || statusCode === 429 || statusCode >= 500 || isNetworkFailure(record, diagnostic);
+  const message =
+    statusCode === 401 || statusCode === 403
+      ? 'API Key 无效或没有访问权限，请检查 Provider 配置。'
+      : statusCode === 404
+        ? 'Provider 或模型不可用，请检查 Base URL 和模型 ID。'
+        : statusCode === 408 || statusCode === 429
+          ? '请求超时或达到频率/额度限制，请稍后重试。'
+          : statusCode !== undefined && statusCode >= 500
+            ? 'Provider 服务暂时不可用，请稍后重试。'
+            : isNetworkFailure(record, diagnostic)
+              ? '无法连接 Provider，请检查网络和 Base URL。'
+              : 'AI 请求失败，请检查 Provider 配置后重试。';
+  const upstreamRetryable =
+    typeof record?.isRetryable === 'boolean'
+      ? record.isRetryable
+      : typeof cause?.isRetryable === 'boolean'
+        ? cause.isRetryable
+        : undefined;
+  const retryable =
+    upstreamRetryable !== undefined
+      ? upstreamRetryable
+      : statusCode === undefined ||
+        statusCode === 408 ||
+        statusCode === 429 ||
+        statusCode >= 500 ||
+        isNetworkFailure(record, diagnostic);
 
   return {
     message,
@@ -1476,7 +1643,10 @@ function buildAiMessageError(error: unknown, diagnostic: AiProviderRequestDiagno
   };
 }
 
-function extractProviderErrorCode(record: Record<string, unknown> | undefined, responseBody?: string) {
+function extractProviderErrorCode(
+  record: Record<string, unknown> | undefined,
+  responseBody?: string
+) {
   const directCode = toStringValue(record?.code);
   if (directCode) {
     return directCode;
@@ -1489,7 +1659,10 @@ function extractProviderErrorCode(record: Record<string, unknown> | undefined, r
   return toStringValue(toRecord(toRecord(parsed)?.error)?.code);
 }
 
-function extractProviderErrorMessage(record: Record<string, unknown> | undefined, responseBody?: string) {
+function extractProviderErrorMessage(
+  record: Record<string, unknown> | undefined,
+  responseBody?: string
+) {
   const dataMessage = toStringValue(toRecord(toRecord(record?.data)?.error)?.message);
   const parsed = parseProviderErrorBody(responseBody);
   const bodyMessage = toStringValue(toRecord(toRecord(parsed)?.error)?.message);
@@ -1508,17 +1681,33 @@ function parseProviderErrorBody(responseBody?: string) {
 }
 
 function sanitizeUserFacingError(value: string) {
-  return truncateForDiagnostic(value, 320)
-    .replace(/(api[ _-]?key|authorization|bearer)\s*[:=]\s*[^\s,;]+/gi, '$1: [已隐藏]');
+  return truncateForDiagnostic(value, 320).replace(
+    /(api[ _-]?key|authorization|bearer)\s*[:=]\s*[^\s,;]+/gi,
+    '$1: [已隐藏]'
+  );
 }
 
-function isNetworkFailure(record: Record<string, unknown> | undefined, diagnostic: AiProviderRequestDiagnostic) {
+function isNetworkFailure(
+  record: Record<string, unknown> | undefined,
+  diagnostic: AiProviderRequestDiagnostic
+) {
   const cause = toRecord(record?.cause);
   const code = toStringValue(record?.code ?? cause?.code)?.toUpperCase();
-  return !diagnostic.statusCode && Boolean(code && ['ECONNREFUSED', 'ECONNRESET', 'ENOTFOUND', 'ETIMEDOUT', 'EAI_AGAIN', 'ERR_NETWORK'].includes(code));
+  return (
+    !diagnostic.statusCode &&
+    Boolean(
+      code &&
+      ['ECONNREFUSED', 'ECONNRESET', 'ENOTFOUND', 'ETIMEDOUT', 'EAI_AGAIN', 'ERR_NETWORK'].includes(
+        code
+      )
+    )
+  );
 }
 
-function formatProviderRequestFailureMessage(error: unknown, diagnostic: AiProviderRequestDiagnostic) {
+function formatProviderRequestFailureMessage(
+  error: unknown,
+  diagnostic: AiProviderRequestDiagnostic
+) {
   const lines = [
     error instanceof Error ? error.message : String(error),
     diagnostic.requestUrl ? `URL: ${diagnostic.requestUrl}` : undefined,
@@ -1529,7 +1718,11 @@ function formatProviderRequestFailureMessage(error: unknown, diagnostic: AiProvi
   return lines.join('\n');
 }
 
-function logAiProviderFailure(label: string, diagnostic: AiProviderRequestDiagnostic, error: unknown) {
+function logAiProviderFailure(
+  label: string,
+  diagnostic: AiProviderRequestDiagnostic,
+  error: unknown
+) {
   console.error(`[AI] ${label}`, {
     providerId: diagnostic.providerId,
     providerKind: diagnostic.providerKind,
@@ -1600,9 +1793,7 @@ function defaultProviderBaseUrl(kind: AiProviderKind) {
 }
 
 function sanitizeHeaders(value: unknown) {
-  const source = value instanceof Headers
-    ? Object.fromEntries(value.entries())
-    : toRecord(value);
+  const source = value instanceof Headers ? Object.fromEntries(value.entries()) : toRecord(value);
   if (!source) {
     return undefined;
   }
@@ -1610,10 +1801,12 @@ function sanitizeHeaders(value: unknown) {
   const result: Record<string, string> = {};
   for (const [key, rawValue] of Object.entries(source)) {
     const normalizedKey = key.toLowerCase();
-    if (normalizedKey.includes('authorization')
-      || normalizedKey.includes('api-key')
-      || normalizedKey.includes('cookie')
-      || normalizedKey === 'set-cookie') {
+    if (
+      normalizedKey.includes('authorization') ||
+      normalizedKey.includes('api-key') ||
+      normalizedKey.includes('cookie') ||
+      normalizedKey === 'set-cookie'
+    ) {
       result[key] = '[redacted]';
       continue;
     }
@@ -1636,7 +1829,7 @@ function formatHeadersForDiagnostic(headers: Headers) {
 }
 
 function toRecord(value: unknown): Record<string, unknown> | undefined {
-  return value && typeof value === 'object' ? value as Record<string, unknown> : undefined;
+  return value && typeof value === 'object' ? (value as Record<string, unknown>) : undefined;
 }
 
 function toFiniteNumber(value: unknown) {
@@ -1682,7 +1875,10 @@ function uniqueModelIds(models: string[]) {
   return result;
 }
 
-function mergeProviderSecret(config: AiAgentFeatureConfig, provider: AiAgentFeatureConfig['providers'][number]) {
+function mergeProviderSecret(
+  config: AiAgentFeatureConfig,
+  provider: AiAgentFeatureConfig['providers'][number]
+) {
   const current = config.providers.find((item) => item.id === provider.id);
   return {
     ...provider,
@@ -1691,7 +1887,10 @@ function mergeProviderSecret(config: AiAgentFeatureConfig, provider: AiAgentFeat
   };
 }
 
-function mergeMcpSecrets(config: AiAgentFeatureConfig, patch: Partial<AiAgentFeatureConfig['mcp']>): AiAgentFeatureConfig['mcp'] {
+function mergeMcpSecrets(
+  config: AiAgentFeatureConfig,
+  patch: Partial<AiAgentFeatureConfig['mcp']>
+): AiAgentFeatureConfig['mcp'] {
   return {
     enabled: patch.enabled ?? config.mcp.enabled,
     modelscopeApiToken: patch.modelscopeApiToken || config.mcp.modelscopeApiToken,

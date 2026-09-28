@@ -3,7 +3,12 @@ import { computed, onBeforeUnmount, ref, watch } from 'vue';
 import { marked } from 'marked';
 import { cssLanguage } from '@codemirror/lang-css';
 import { htmlLanguage } from '@codemirror/lang-html';
-import { javascriptLanguage, jsxLanguage, tsxLanguage, typescriptLanguage } from '@codemirror/lang-javascript';
+import {
+  javascriptLanguage,
+  jsxLanguage,
+  tsxLanguage,
+  typescriptLanguage,
+} from '@codemirror/lang-javascript';
 import { jsonLanguage } from '@codemirror/lang-json';
 import { markdownLanguage } from '@codemirror/lang-markdown';
 import { pythonLanguage } from '@codemirror/lang-python';
@@ -76,7 +81,11 @@ const authorLabel = computed(() => {
 
 const messageError = computed<AiChatMessageError | undefined>(() => {
   const value = props.message.metadata?.error;
-  if (!value || typeof value !== 'object' || typeof (value as Record<string, unknown>).message !== 'string') {
+  if (
+    !value ||
+    typeof value !== 'object' ||
+    typeof (value as Record<string, unknown>).message !== 'string'
+  ) {
     return undefined;
   }
   return value as AiChatMessageError;
@@ -121,7 +130,9 @@ function decorateMarkdownHtml(html: string) {
   const doc = new DOMParser().parseFromString(html, 'text/html');
   doc.body.querySelectorAll('pre').forEach((pre) => {
     const code = pre.querySelector('code');
-    const languageClass = [...(code?.classList ?? [])].find((className) => className.startsWith('language-'));
+    const languageClass = [...(code?.classList ?? [])].find((className) =>
+      className.startsWith('language-')
+    );
     const language = languageClass?.slice('language-'.length).replace(/[-_]/g, ' ') || '代码';
     const parent = pre.parentNode;
     if (!parent) {
@@ -213,7 +224,7 @@ watch(
     clearMarkdownRenderTimer();
     renderMarkdown(content);
   },
-  { immediate: true },
+  { immediate: true }
 );
 
 onBeforeUnmount(clearMarkdownRenderTimer);
@@ -245,7 +256,9 @@ async function handleMarkdownClick(event: MouseEvent) {
     return;
   }
 
-  const code = copyButton.closest('.ai-markdown-code-block')?.querySelector('pre code')?.textContent;
+  const code = copyButton
+    .closest('.ai-markdown-code-block')
+    ?.querySelector('pre code')?.textContent;
   if (!code?.trim()) {
     return;
   }
@@ -276,7 +289,10 @@ async function writeClipboardText(content: string) {
 <template>
   <article
     class="ai-message-item"
-    :class="[`ai-message-item--${message.role}`, { 'ai-message-item--error': message.status === 'error' }]"
+    :class="[
+      `ai-message-item--${message.role}`,
+      { 'ai-message-item--error': message.status === 'error' },
+    ]"
     :data-message-id="message.id"
   >
     <div class="ai-message-item__avatar" :title="`${authorLabel}头像`" aria-hidden="true">
@@ -288,7 +304,9 @@ async function writeClipboardText(content: string) {
         class="ai-message-item__meta"
       >
         <span v-if="message.role !== 'user'">{{ authorLabel }}</span>
-        <span v-if="message.status !== 'complete'" class="ai-message-item__status">{{ statusLabel(message.status) }}</span>
+        <span v-if="message.status !== 'complete'" class="ai-message-item__status">{{
+          statusLabel(message.status)
+        }}</span>
         <span v-if="copied" class="ai-message-item__status">已复制</span>
       </div>
       <UiDisclosure
@@ -299,13 +317,27 @@ async function writeClipboardText(content: string) {
       >
         <p>{{ reasoningContent }}</p>
       </UiDisclosure>
-      <div v-if="message.role === 'assistant' && message.status === 'error'" class="ai-message-item__error" role="alert">
+      <div
+        v-if="message.role === 'assistant' && message.status === 'error'"
+        class="ai-message-item__error"
+        role="alert"
+      >
         <IconRenderer icon="iconify:lucide:circle-alert" :size="16" />
         <div class="ai-message-item__error-body">
           <strong>请求失败</strong>
           <p>{{ messageError?.message || message.content || 'AI 请求失败，请稍后重试。' }}</p>
-          <p v-if="messageError?.detail" class="ai-message-item__error-detail">{{ messageError.detail }}</p>
-          <div v-if="messageError?.statusCode || messageError?.code || messageError?.providerId || messageError?.modelId" class="ai-message-item__error-meta">
+          <p v-if="messageError?.detail" class="ai-message-item__error-detail">
+            {{ messageError.detail }}
+          </p>
+          <div
+            v-if="
+              messageError?.statusCode ||
+              messageError?.code ||
+              messageError?.providerId ||
+              messageError?.modelId
+            "
+            class="ai-message-item__error-meta"
+          >
             <span v-if="messageError?.statusCode">HTTP {{ messageError.statusCode }}</span>
             <span v-if="messageError?.code">错误码: {{ messageError.code }}</span>
             <span v-if="messageError?.providerId">Provider: {{ messageError.providerId }}</span>
@@ -319,7 +351,9 @@ async function writeClipboardText(content: string) {
             :disabled="message.status === 'streaming'"
             @click="emit('regenerate', message.id)"
           >
-            <template #prefix><IconRenderer icon="iconify:lucide:rotate-ccw" :size="14" /></template>
+            <template #prefix
+              ><IconRenderer icon="iconify:lucide:rotate-ccw" :size="14"
+            /></template>
             重新生成
           </UiButton>
         </div>
@@ -379,8 +413,12 @@ async function writeClipboardText(content: string) {
           <span class="ai-message-item__citation-index">[{{ index + 1 }}]</span>
           <span class="ai-message-item__citation-body">
             <span class="ai-message-item__citation-title">{{ citation.title }}</span>
-            <span v-if="citation.snippet" class="ai-message-item__citation-snippet">{{ citation.snippet }}</span>
-            <span v-else-if="citation.sourceId" class="ai-message-item__citation-snippet">{{ citation.sourceId }}</span>
+            <span v-if="citation.snippet" class="ai-message-item__citation-snippet">{{
+              citation.snippet
+            }}</span>
+            <span v-else-if="citation.sourceId" class="ai-message-item__citation-snippet">{{
+              citation.sourceId
+            }}</span>
           </span>
         </UiLink>
       </div>
@@ -606,7 +644,8 @@ async function writeClipboardText(content: string) {
 .markdown-body :deep(.ai-markdown-code-block) {
   margin: 0 0 10px;
   overflow: hidden;
-  border: var(--ui-border-width-thin) solid color-mix(in srgb, var(--primary-color) 26%, var(--ui-border-subtle));
+  border: var(--ui-border-width-thin) solid
+    color-mix(in srgb, var(--primary-color) 26%, var(--ui-border-subtle));
   border-radius: var(--ui-radius-sm);
   background: color-mix(in srgb, var(--primary-color) 4%, transparent);
 }
@@ -618,7 +657,8 @@ async function writeClipboardText(content: string) {
   justify-content: space-between;
   gap: 10px;
   padding: 0 8px 0 12px;
-  border-bottom: var(--ui-border-width-thin) solid color-mix(in srgb, var(--primary-color) 22%, var(--ui-border-subtle));
+  border-bottom: var(--ui-border-width-thin) solid
+    color-mix(in srgb, var(--primary-color) 22%, var(--ui-border-subtle));
   background: color-mix(in srgb, var(--primary-color) 8%, transparent);
   box-shadow: 0 2px 6px color-mix(in srgb, var(--primary-color) 10%, transparent);
 }

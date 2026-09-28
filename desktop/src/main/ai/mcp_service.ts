@@ -24,7 +24,9 @@ const MODELSCOPE_OPENAPI_BASE = 'https://modelscope.cn/openapi/v1';
 class AiMcpService {
   private readonly runtimes = new Map<string, RuntimeRecord>();
 
-  async listModelScopeServers(input: ListModelScopeMcpServersPayload): Promise<ListModelScopeMcpServersResult> {
+  async listModelScopeServers(
+    input: ListModelScopeMcpServersPayload
+  ): Promise<ListModelScopeMcpServersResult> {
     const config = (await appConfigManager.getConfig()).features.aiAgent;
     const payload = {
       page: Math.max(1, Math.round(input.page ?? 1)),
@@ -39,12 +41,16 @@ class AiMcpService {
     const data = readRecord(json.data);
     const list = Array.isArray(data.mcp_server_list) ? data.mcp_server_list : [];
     return {
-      servers: list.map(mapModelScopeSummary).filter((server): server is ModelScopeMcpServerSummary => Boolean(server)),
+      servers: list
+        .map(mapModelScopeSummary)
+        .filter((server): server is ModelScopeMcpServerSummary => Boolean(server)),
       total: toNumber(data.total_count) ?? list.length,
     };
   }
 
-  async getModelScopeServer(input: GetModelScopeMcpServerPayload): Promise<ModelScopeMcpServerDetail> {
+  async getModelScopeServer(
+    input: GetModelScopeMcpServerPayload
+  ): Promise<ModelScopeMcpServerDetail> {
     const config = (await appConfigManager.getConfig()).features.aiAgent;
     const json = await fetchModelScopeJson(`/mcp/servers/${encodeURIComponent(input.id)}`, {
       method: 'GET',
@@ -169,17 +175,22 @@ class AiMcpService {
       return [];
     }
 
-    const enabledServers = config.mcp.servers.filter((server) =>
-      server.enabled && server.transport === 'http' && Boolean(server.url));
-    const results = await Promise.allSettled(enabledServers.map(async (server) => {
-      const response = await callMcpJsonRpc(server, 'tools/list');
-      const tools = Array.isArray(readRecord(response.result).tools) ? readRecord(response.result).tools as unknown[] : [];
-      return tools
-        .map((tool) => mapMcpTool(server, tool))
-        .filter((tool): tool is AiMcpToolSummary => Boolean(tool))
-        .filter((tool) => isReadOnlyToolName(tool.name));
-    }));
-    return results.flatMap((result) => result.status === 'fulfilled' ? result.value : []);
+    const enabledServers = config.mcp.servers.filter(
+      (server) => server.enabled && server.transport === 'http' && Boolean(server.url)
+    );
+    const results = await Promise.allSettled(
+      enabledServers.map(async (server) => {
+        const response = await callMcpJsonRpc(server, 'tools/list');
+        const tools = Array.isArray(readRecord(response.result).tools)
+          ? (readRecord(response.result).tools as unknown[])
+          : [];
+        return tools
+          .map((tool) => mapMcpTool(server, tool))
+          .filter((tool): tool is AiMcpToolSummary => Boolean(tool))
+          .filter((tool) => isReadOnlyToolName(tool.name));
+      })
+    );
+    return results.flatMap((result) => (result.status === 'fulfilled' ? result.value : []));
   }
 
   async callReadTool(input: {
@@ -225,7 +236,11 @@ class AiMcpService {
   }
 }
 
-async function callMcpJsonRpc(server: AiMcpServerConfig, method: string, params?: Record<string, unknown>) {
+async function callMcpJsonRpc(
+  server: AiMcpServerConfig,
+  method: string,
+  params?: Record<string, unknown>
+) {
   if (!server.url) {
     throw new Error('MCP HTTP server missing url');
   }
@@ -247,7 +262,11 @@ async function callMcpJsonRpc(server: AiMcpServerConfig, method: string, params?
     throw new Error(text || `MCP HTTP ${response.status}`);
   }
   const jsonText = text.trim().startsWith('event:')
-    ? text.split('\n').find((line) => line.startsWith('data:'))?.slice(5).trim() ?? '{}'
+    ? (text
+        .split('\n')
+        .find((line) => line.startsWith('data:'))
+        ?.slice(5)
+        .trim() ?? '{}')
     : text;
   const json = JSON.parse(jsonText) as Record<string, unknown>;
   if (json.error) {
@@ -272,28 +291,35 @@ function mapMcpTool(server: AiMcpServerConfig, value: unknown): AiMcpToolSummary
 }
 
 function isReadOnlyToolName(name: string) {
-  return !/(write|delete|remove|create|update|edit|patch|insert|execute|run|shell|command|upload|move|rename|grant|revoke|send|post)/i
-    .test(name);
+  return !/(write|delete|remove|create|update|edit|patch|insert|execute|run|shell|command|upload|move|rename|grant|revoke|send|post)/i.test(
+    name
+  );
 }
 
 function stringifyMcpToolResult(result: unknown) {
   const record = readRecord(result);
   const content = Array.isArray(record.content) ? record.content : [];
-  const text = content.map((part) => {
-    const item = readRecord(part);
-    if (typeof item.text === 'string') {
-      return item.text;
-    }
-    return JSON.stringify(item);
-  }).filter(Boolean).join('\n\n');
+  const text = content
+    .map((part) => {
+      const item = readRecord(part);
+      if (typeof item.text === 'string') {
+        return item.text;
+      }
+      return JSON.stringify(item);
+    })
+    .filter(Boolean)
+    .join('\n\n');
   return text || JSON.stringify(result, null, 2);
 }
 
-async function fetchModelScopeJson(path: string, options: {
-  method: 'GET' | 'PUT';
-  apiToken?: string;
-  body?: Record<string, unknown>;
-}) {
+async function fetchModelScopeJson(
+  path: string,
+  options: {
+    method: 'GET' | 'PUT';
+    apiToken?: string;
+    body?: Record<string, unknown>;
+  }
+) {
   const headers: Record<string, string> = {
     'Content-Type': 'application/json',
   };
@@ -327,8 +353,17 @@ function mapModelScopeSummary(value: unknown): ModelScopeMcpServerSummary | null
   const en = readRecord(locales.en);
   return {
     id,
-    name: optionalString(zh.name) || optionalString(item.chinese_name) || optionalString(item.name) || optionalString(en.name) || id,
-    description: optionalString(zh.description) || optionalString(item.description) || optionalString(en.description) || '',
+    name:
+      optionalString(zh.name) ||
+      optionalString(item.chinese_name) ||
+      optionalString(item.name) ||
+      optionalString(en.name) ||
+      id,
+    description:
+      optionalString(zh.description) ||
+      optionalString(item.description) ||
+      optionalString(en.description) ||
+      '',
     categories: normalizeStringArray(item.categories),
     tags: normalizeStringArray(item.tags),
     logoUrl: optionalString(item.logo_url),
@@ -336,7 +371,10 @@ function mapModelScopeSummary(value: unknown): ModelScopeMcpServerSummary | null
   };
 }
 
-function parseModelScopeServerConfig(summary: ModelScopeMcpServerSummary, serverConfig: unknown): AiMcpServerConfig | undefined {
+function parseModelScopeServerConfig(
+  summary: ModelScopeMcpServerSummary,
+  serverConfig: unknown
+): AiMcpServerConfig | undefined {
   const configs = Array.isArray(serverConfig) ? serverConfig : [serverConfig];
   for (const config of configs) {
     const mcpServers = readRecord(readRecord(config).mcpServers);
@@ -394,7 +432,7 @@ function normalizeEnvConfig(value: unknown): AiMcpEnvironmentVariable[] {
 }
 
 function readRecord(value: unknown): Record<string, unknown> {
-  return value && typeof value === 'object' ? value as Record<string, unknown> : {};
+  return value && typeof value === 'object' ? (value as Record<string, unknown>) : {};
 }
 
 function optionalString(value: unknown) {

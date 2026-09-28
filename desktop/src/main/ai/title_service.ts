@@ -2,7 +2,12 @@ import { generateText } from 'ai';
 import { resolveLanguageModel } from './provider_registry';
 import type { AiAgentFeatureConfig } from '@/contracts/ai';
 
-export async function generateConversationTitle(config: AiAgentFeatureConfig, providerId: string, modelId: string, content: string) {
+export async function generateConversationTitle(
+  config: AiAgentFeatureConfig,
+  providerId: string,
+  modelId: string,
+  content: string
+) {
   const trimmed = content.trim();
   if (!trimmed) {
     return '新的对话';

@@ -32,26 +32,30 @@ const selectionMenuRef = ref<HTMLElement | null>(null);
 const selectionMenu = ref<{ content: string; left: number; top: number } | null>(null);
 const activeNavigatorMessageId = ref('');
 const hoveredNavigatorMessageId = ref('');
-const navigatorMessages = computed(() => props.messages.filter((message) => message.role === 'user'));
+const navigatorMessages = computed(() =>
+  props.messages.filter((message) => message.role === 'user')
+);
 let selectionFrame: number | null = null;
 
-const selectionMenuStyle = computed(() => selectionMenu.value
-  ? { left: `${selectionMenu.value.left}px`, top: `${selectionMenu.value.top}px` }
-  : undefined);
+const selectionMenuStyle = computed(() =>
+  selectionMenu.value
+    ? { left: `${selectionMenu.value.left}px`, top: `${selectionMenu.value.top}px` }
+    : undefined
+);
 
 watch(
   () => [props.messages.length, props.messages.at(-1)?.content],
   async () => {
     const element = listRef.value?.viewportRef;
-    const stickToBottom = !element
-      || element.scrollHeight - element.scrollTop - element.clientHeight <= 80;
+    const stickToBottom =
+      !element || element.scrollHeight - element.scrollTop - element.clientHeight <= 80;
     await nextTick();
     const nextElement = listRef.value?.viewportRef;
     if (stickToBottom && nextElement) {
       listRef.value?.scrollTo({ top: nextElement.scrollHeight, behavior: 'auto' });
       listRef.value?.refresh();
     }
-  },
+  }
 );
 
 function queueSelectionMenu() {
@@ -77,9 +81,10 @@ function updateSelectionMenu() {
   const menuWidth = 312;
   const menuHeight = 38;
   const left = Math.max(8, Math.min(window.innerWidth - menuWidth - 8, rect.left));
-  const top = rect.top > menuHeight + 12
-    ? rect.top - menuHeight - 8
-    : Math.min(window.innerHeight - menuHeight - 8, rect.bottom + 8);
+  const top =
+    rect.top > menuHeight + 12
+      ? rect.top - menuHeight - 8
+      : Math.min(window.innerHeight - menuHeight - 8, rect.bottom + 8);
 
   selectionMenu.value = { content, left, top };
 }
@@ -150,12 +155,18 @@ function navigatorPreview(message: AiChatMessage, index: number) {
 
 function scrollToMessage(messageId: string) {
   const viewport = listRef.value?.viewportRef;
-  const target = messageListRef.value?.querySelector<HTMLElement>(`[data-message-id="${CSS.escape(messageId)}"]`);
+  const target = messageListRef.value?.querySelector<HTMLElement>(
+    `[data-message-id="${CSS.escape(messageId)}"]`
+  );
   if (!viewport || !target) {
     return;
   }
 
-  const top = target.getBoundingClientRect().top - viewport.getBoundingClientRect().top + viewport.scrollTop - 14;
+  const top =
+    target.getBoundingClientRect().top -
+    viewport.getBoundingClientRect().top +
+    viewport.scrollTop -
+    14;
   listRef.value?.scrollTo({ top, behavior: 'smooth' });
   activeNavigatorMessageId.value = messageId;
 }
@@ -169,7 +180,9 @@ function updateActiveNavigator() {
   const viewportTop = viewport.getBoundingClientRect().top + 36;
   let activeId = navigatorMessages.value[0]?.id ?? '';
   for (const message of navigatorMessages.value) {
-    const element = messageListRef.value?.querySelector<HTMLElement>(`[data-message-id="${CSS.escape(message.id)}"]`);
+    const element = messageListRef.value?.querySelector<HTMLElement>(
+      `[data-message-id="${CSS.escape(message.id)}"]`
+    );
     if (element && element.getBoundingClientRect().top <= viewportTop) {
       activeId = message.id;
     }
@@ -194,8 +207,21 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-  <main ref="messageListRef" class="ai-message-list" aria-label="对话消息" @mouseup="queueSelectionMenu" @keyup="queueSelectionMenu">
-    <UiScrollbar ref="listRef" class="ai-message-list__scrollbar" :x="false" :y="true" :size="8" @scroll="updateActiveNavigator">
+  <main
+    ref="messageListRef"
+    class="ai-message-list"
+    aria-label="对话消息"
+    @mouseup="queueSelectionMenu"
+    @keyup="queueSelectionMenu"
+  >
+    <UiScrollbar
+      ref="listRef"
+      class="ai-message-list__scrollbar"
+      :x="false"
+      :y="true"
+      :size="8"
+      @scroll="updateActiveNavigator"
+    >
       <div class="ai-message-list__content">
         <UiEmptyState
           v-if="loading"
@@ -224,7 +250,11 @@ onBeforeUnmount(() => {
         </template>
       </div>
     </UiScrollbar>
-    <nav v-if="navigatorMessages.length > 1" class="ai-message-list__navigator" aria-label="问答定位">
+    <nav
+      v-if="navigatorMessages.length > 1"
+      class="ai-message-list__navigator"
+      aria-label="问答定位"
+    >
       <button
         v-for="(message, index) in navigatorMessages"
         :key="message.id"
@@ -260,13 +290,31 @@ onBeforeUnmount(() => {
       aria-label="选中文本操作"
       @mousedown.prevent
     >
-      <UiIconButton size="sm" variant="ghost" label="复制" title="复制选中文本" @click="copySelection">
+      <UiIconButton
+        size="sm"
+        variant="ghost"
+        label="复制"
+        title="复制选中文本"
+        @click="copySelection"
+      >
         <IconRenderer icon="iconify:lucide:copy" :size="14" />
       </UiIconButton>
-      <UiIconButton size="sm" variant="ghost" label="添加" title="添加到对话框" @click="insertSelection(false)">
+      <UiIconButton
+        size="sm"
+        variant="ghost"
+        label="添加"
+        title="添加到对话框"
+        @click="insertSelection(false)"
+      >
         <IconRenderer icon="iconify:lucide:message-square-plus" :size="14" />
       </UiIconButton>
-      <UiIconButton size="sm" variant="ghost" label="引用" title="引用到对话框" @click="insertSelection(true)">
+      <UiIconButton
+        size="sm"
+        variant="ghost"
+        label="引用"
+        title="引用到对话框"
+        @click="insertSelection(true)"
+      >
         <IconRenderer icon="iconify:lucide:quote" :size="14" />
       </UiIconButton>
     </div>
@@ -327,7 +375,9 @@ onBeforeUnmount(() => {
   background: color-mix(in srgb, var(--ui-text-muted) 28%, transparent);
   content: '';
   transform-origin: left center;
-  transition: background-color 160ms ease, transform 160ms ease;
+  transition:
+    background-color 160ms ease,
+    transform 160ms ease;
 }
 
 .ai-message-list__navigator-item:hover,
@@ -356,7 +406,8 @@ onBeforeUnmount(() => {
   flex-direction: column;
   gap: 4px;
   padding: 10px 12px;
-  border: var(--ui-border-width-thin) solid color-mix(in srgb, var(--primary-color) 18%, var(--ui-border-subtle));
+  border: var(--ui-border-width-thin) solid
+    color-mix(in srgb, var(--primary-color) 18%, var(--ui-border-subtle));
   border-radius: var(--ui-radius-md);
   background: color-mix(in srgb, var(--ui-surface-base) 84%, transparent);
   box-shadow: var(--ui-shadow-popover);
@@ -366,7 +417,10 @@ onBeforeUnmount(() => {
   pointer-events: none;
   transform: translateY(-50%) translateX(-4px) scale(0.98);
   transform-origin: left center;
-  transition: opacity 160ms ease, transform 160ms ease, visibility 160ms ease;
+  transition:
+    opacity 160ms ease,
+    transform 160ms ease,
+    visibility 160ms ease;
 }
 
 .ai-message-list__navigator-item:hover .ai-message-list__navigator-preview,
@@ -415,5 +469,4 @@ onBeforeUnmount(() => {
     transition: none;
   }
 }
-
 </style>

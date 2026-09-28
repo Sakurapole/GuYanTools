@@ -1,10 +1,5 @@
 export type AiProviderKind =
-  | 'openai'
-  | 'anthropic'
-  | 'google'
-  | 'openai-compatible'
-  | 'ollama'
-  | 'vercel-gateway';
+  'openai' | 'anthropic' | 'google' | 'openai-compatible' | 'ollama' | 'vercel-gateway';
 
 export type AiConversationStatus = 'active' | 'archived';
 export type AiMessageRole = 'system' | 'user' | 'assistant' | 'tool';
@@ -13,7 +8,8 @@ export type AiReasoningEffort = 'minimal' | 'low' | 'medium' | 'high' | 'xhigh';
 export type AiInteractionMode = 'chat' | 'general-agent' | 'code-agent';
 export type AiAgentMode = 'general-agent' | 'code-agent';
 export type AiCanvasMode = 'markdown' | 'html' | 'react';
-export type AiCanvasOperationType = 'create' | 'replace_file' | 'patch_file' | 'append_file' | 'delete_file';
+export type AiCanvasOperationType =
+  'create' | 'replace_file' | 'patch_file' | 'append_file' | 'delete_file';
 export type AiCanvasOperationStatus = 'pending' | 'applied' | 'rejected';
 export type AiMemoryScope = 'global' | 'project' | 'assistant';
 export type AiResearchJobStatus = 'queued' | 'running' | 'succeeded' | 'failed' | 'cancelled';
@@ -239,7 +235,10 @@ export interface AiAgentFeatureConfig {
   mcp: AiMcpSettings;
 }
 
-export interface AiSafeAgentFeatureConfig extends Omit<AiAgentFeatureConfig, 'providers' | 'research' | 'mcp'> {
+export interface AiSafeAgentFeatureConfig extends Omit<
+  AiAgentFeatureConfig,
+  'providers' | 'research' | 'mcp'
+> {
   providers: AiSafeProviderConfig[];
   research: AiSafeResearchSettings;
   mcp: AiSafeMcpSettings;
@@ -499,27 +498,44 @@ export type AiStreamEvent =
   | { type: 'run-start'; runId: string; conversationId: string; messageId: string }
   | { type: 'text-delta'; runId: string; messageId: string; delta: string }
   | { type: 'reasoning-delta'; runId: string; messageId: string; delta: string }
-  | { type: 'tool-call-start'; runId: string; toolCallId: string; toolName: string; inputPreview?: string }
+  | {
+      type: 'tool-call-start';
+      runId: string;
+      toolCallId: string;
+      toolName: string;
+      inputPreview?: string;
+    }
   | { type: 'tool-call-delta'; runId: string; toolCallId: string; delta: string }
-  | { type: 'tool-call-result'; runId: string; toolCallId: string; outputPreview: string; isError?: boolean }
-  | { type: 'canvas-workspace'; runId: string; conversationId: string; workspace: AiCanvasWorkspace }
+  | {
+      type: 'tool-call-result';
+      runId: string;
+      toolCallId: string;
+      outputPreview: string;
+      isError?: boolean;
+    }
+  | {
+      type: 'canvas-workspace';
+      runId: string;
+      conversationId: string;
+      workspace: AiCanvasWorkspace;
+    }
   | { type: 'canvas-file'; runId: string; workspaceId: string; file: AiCanvasFile }
   | { type: 'canvas-operation'; runId: string; workspaceId: string; operation: AiCanvasOperation }
   | { type: 'citation'; runId: string; messageId: string; citation: AiCitation }
   | { type: 'usage'; runId: string; messageId: string; usage: AiTokenUsage }
   | { type: 'run-aborted'; runId: string }
   | {
-    type: 'run-error';
-    runId: string;
-    messageId: string;
-    message: string;
-    detail?: string;
-    statusCode?: number;
-    code?: string;
-    providerId?: string;
-    modelId?: string;
-    retryable: boolean;
-  }
+      type: 'run-error';
+      runId: string;
+      messageId: string;
+      message: string;
+      detail?: string;
+      statusCode?: number;
+      code?: string;
+      providerId?: string;
+      modelId?: string;
+      retryable: boolean;
+    }
   | { type: 'run-finish'; runId: string; finishReason: string };
 
 export type AiResearchEvent =
@@ -798,18 +814,33 @@ export interface AiApi {
   getConfig: () => Promise<AiSafeAgentFeatureConfig>;
   updateConfig: (patch: Partial<AiAgentFeatureConfig>) => Promise<AiSafeAgentFeatureConfig>;
   testProvider: (input: TestAiProviderPayload) => Promise<TestAiProviderResult>;
-  fetchProviderModels: (input: FetchAiProviderModelsPayload) => Promise<FetchAiProviderModelsResult>;
-  listModelScopeMcpServers: (input: ListModelScopeMcpServersPayload) => Promise<ListModelScopeMcpServersResult>;
-  getModelScopeMcpServer: (input: GetModelScopeMcpServerPayload) => Promise<ModelScopeMcpServerDetail>;
+  fetchProviderModels: (
+    input: FetchAiProviderModelsPayload
+  ) => Promise<FetchAiProviderModelsResult>;
+  listModelScopeMcpServers: (
+    input: ListModelScopeMcpServersPayload
+  ) => Promise<ListModelScopeMcpServersResult>;
+  getModelScopeMcpServer: (
+    input: GetModelScopeMcpServerPayload
+  ) => Promise<ModelScopeMcpServerDetail>;
   getMcpServerStatuses: () => Promise<AiMcpRuntimeServerStatus[]>;
   startMcpServer: (serverId: string) => Promise<StartAiMcpServerResult>;
   stopMcpServer: (serverId: string) => Promise<AiMcpRuntimeServerStatus>;
   listMcpTools: () => Promise<AiMcpToolSummary[]>;
-  getKnowledgeEmbeddingStats: (input?: RebuildKnowledgeEmbeddingsPayload) => Promise<KnowledgeEmbeddingStats>;
-  rebuildKnowledgeEmbeddings: (input?: RebuildKnowledgeEmbeddingsPayload) => Promise<RebuildKnowledgeEmbeddingsResult>;
+  getKnowledgeEmbeddingStats: (
+    input?: RebuildKnowledgeEmbeddingsPayload
+  ) => Promise<KnowledgeEmbeddingStats>;
+  rebuildKnowledgeEmbeddings: (
+    input?: RebuildKnowledgeEmbeddingsPayload
+  ) => Promise<RebuildKnowledgeEmbeddingsResult>;
   listCanvasWorkspaces: (conversationId: string) => Promise<AiCanvasWorkspace[]>;
-  createCanvasWorkspace: (input: CreateAiCanvasWorkspacePayload) => Promise<{ workspace: AiCanvasWorkspace; files: AiCanvasFile[]; version?: AiCanvasVersion }>;
-  updateCanvasWorkspace: (id: string, input: UpdateAiCanvasWorkspacePayload) => Promise<AiCanvasWorkspace>;
+  createCanvasWorkspace: (
+    input: CreateAiCanvasWorkspacePayload
+  ) => Promise<{ workspace: AiCanvasWorkspace; files: AiCanvasFile[]; version?: AiCanvasVersion }>;
+  updateCanvasWorkspace: (
+    id: string,
+    input: UpdateAiCanvasWorkspacePayload
+  ) => Promise<AiCanvasWorkspace>;
   deleteCanvasWorkspace: (id: string) => Promise<void>;
   listCanvasFiles: (workspaceId: string) => Promise<AiCanvasFile[]>;
   upsertCanvasFile: (input: UpsertAiCanvasFilePayload) => Promise<AiCanvasFile>;
@@ -817,7 +848,10 @@ export interface AiApi {
   listCanvasVersions: (workspaceId: string) => Promise<AiCanvasVersion[]>;
   createCanvasVersion: (input: CreateAiCanvasVersionPayload) => Promise<AiCanvasVersion>;
   listCanvasOperations: (workspaceId: string) => Promise<AiCanvasOperation[]>;
-  updateCanvasOperation: (id: string, input: UpdateAiCanvasOperationPayload) => Promise<AiCanvasOperation>;
+  updateCanvasOperation: (
+    id: string,
+    input: UpdateAiCanvasOperationPayload
+  ) => Promise<AiCanvasOperation>;
   applyCanvasOperation: (id: string) => Promise<ApplyAiCanvasOperationResult>;
   rejectCanvasOperation: (id: string) => Promise<AiCanvasOperation>;
   openCanvasPreview: (input: AiCanvasPreviewPayload) => Promise<void>;

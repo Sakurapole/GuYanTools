@@ -9,22 +9,25 @@ import UiIconButton from '@/windows/main/components/ui/UiIconButton.vue';
 import UiInput from '@/windows/main/components/ui/UiInput.vue';
 import UiTabs, { type UiTabItem } from '@/windows/main/components/ui/UiTabs.vue';
 
-const props = withDefaults(defineProps<{
-  assistants: AiAssistantConfig[];
-  activeAssistantId: string;
-  conversations: AiConversation[];
-  activeConversationId: string;
-  providers: AiSafeProviderConfig[];
-  loading?: boolean;
-  collapsed?: boolean;
-  backgroundVideo?: string;
-  backgroundVideoStyle?: CSSProperties;
-}>(), {
-  loading: false,
-  collapsed: false,
-  backgroundVideo: '',
-  backgroundVideoStyle: () => ({}),
-});
+const props = withDefaults(
+  defineProps<{
+    assistants: AiAssistantConfig[];
+    activeAssistantId: string;
+    conversations: AiConversation[];
+    activeConversationId: string;
+    providers: AiSafeProviderConfig[];
+    loading?: boolean;
+    collapsed?: boolean;
+    backgroundVideo?: string;
+    backgroundVideoStyle?: CSSProperties;
+  }>(),
+  {
+    loading: false,
+    collapsed: false,
+    backgroundVideo: '',
+    backgroundVideoStyle: () => ({}),
+  }
+);
 
 const emit = defineEmits<{
   'update:collapsed': [value: boolean];
@@ -56,10 +59,10 @@ const filteredConversations = computed(() => {
   const conversations = props.conversations
     .filter((conversation) => conversation.assistantId === props.activeAssistantId)
     .sort((left, right) => {
-    if (left.pinned !== right.pinned) {
-      return left.pinned ? -1 : 1;
-    }
-    return Date.parse(right.updatedAt) - Date.parse(left.updatedAt);
+      if (left.pinned !== right.pinned) {
+        return left.pinned ? -1 : 1;
+      }
+      return Date.parse(right.updatedAt) - Date.parse(left.updatedAt);
     });
 
   if (!query) {
@@ -81,25 +84,33 @@ const filteredAssistants = computed(() => {
   }
 
   return props.assistants.filter((assistant) => {
-    const provider = assistant.providerId ? providerLabel(assistant.providerId).toLowerCase() : '跟随默认模型';
-    return assistant.name.toLowerCase().includes(query)
-      || assistant.emoji.toLowerCase().includes(query)
-      || provider.includes(query);
+    const provider = assistant.providerId
+      ? providerLabel(assistant.providerId).toLowerCase()
+      : '跟随默认模型';
+    return (
+      assistant.name.toLowerCase().includes(query) ||
+      assistant.emoji.toLowerCase().includes(query) ||
+      provider.includes(query)
+    );
   });
 });
 
 function providerLabel(providerId: string) {
-  return props.providers.find((provider) => provider.id === providerId)?.name || providerId || 'Provider';
+  return (
+    props.providers.find((provider) => provider.id === providerId)?.name || providerId || 'Provider'
+  );
 }
 
 function conversationModelLabel(conversation: AiConversation) {
   const provider = props.providers.find((item) => item.id === conversation.providerId);
-  const model = provider?.models.find((item) => item.id === conversation.modelId || item.providerModelId === conversation.modelId);
+  const model = provider?.models.find(
+    (item) => item.id === conversation.modelId || item.providerModelId === conversation.modelId
+  );
   const modelName = model?.displayName || conversation.modelId || 'Model';
   return `${provider?.name || conversation.providerId || 'Provider'} / ${modelName}`;
 }
 
-function formatTime(value: string) {
+function _formatTime(value: string) {
   const date = new Date(value);
   if (!Number.isFinite(date.getTime())) {
     return '';
@@ -174,7 +185,12 @@ function activateAssistant(assistantId: string) {
         <UiIconButton size="sm" variant="secondary" title="展开侧栏" @click="setCollapsed(false)">
           <IconRenderer icon="iconify:lucide:panel-left-open" :size="16" />
         </UiIconButton>
-        <UiIconButton size="sm" variant="primary" title="新建话题" @click="emit('createConversation')">
+        <UiIconButton
+          size="sm"
+          variant="primary"
+          title="新建话题"
+          @click="emit('createConversation')"
+        >
           <IconRenderer icon="iconify:lucide:plus" :size="15" />
         </UiIconButton>
       </div>
@@ -208,8 +224,14 @@ function activateAssistant(assistantId: string) {
           :title="`${conversation.title}\n${conversationModelLabel(conversation)}`"
           @click="emit('selectConversation', conversation.id)"
         >
-          <span class="ai-workspace-sidebar__mini-topic-initial">{{ topicInitial(conversation) }}</span>
-          <span v-if="conversation.pinned" class="ai-workspace-sidebar__mini-topic-pin" aria-hidden="true" />
+          <span class="ai-workspace-sidebar__mini-topic-initial">{{
+            topicInitial(conversation)
+          }}</span>
+          <span
+            v-if="conversation.pinned"
+            class="ai-workspace-sidebar__mini-topic-pin"
+            aria-hidden="true"
+          />
         </button>
       </div>
 
@@ -223,7 +245,9 @@ function activateAssistant(assistantId: string) {
           :title="assistant.name"
           @click="selectAssistantAndShowTopics(assistant.id)"
         >
-          <span class="ai-workspace-sidebar__mini-topic-initial">{{ assistant.emoji || assistant.name.charAt(0) || '助' }}</span>
+          <span class="ai-workspace-sidebar__mini-topic-initial">{{
+            assistant.emoji || assistant.name.charAt(0) || '助'
+          }}</span>
         </button>
       </div>
     </template>
@@ -240,18 +264,14 @@ function activateAssistant(assistantId: string) {
       </header>
 
       <div class="ai-workspace-sidebar__tabs">
-        <UiTabs
-          v-model="activeTab"
-          :items="tabs"
-          variant="segmented"
-          size="sm"
-          stretch
-        />
+        <UiTabs v-model="activeTab" :items="tabs" variant="segmented" size="sm" stretch />
       </div>
 
       <section v-if="activeTab === 'conversations'" class="ai-workspace-sidebar__pane">
         <div class="ai-workspace-sidebar__toolbar">
-          <UiButton size="sm" variant="primary" @click="emit('createConversation')">新话题</UiButton>
+          <UiButton size="sm" variant="primary" @click="emit('createConversation')"
+            >新话题</UiButton
+          >
           <UiInput v-model="searchQuery" size="sm" placeholder="搜索话题或模型" />
         </div>
 
@@ -300,10 +320,20 @@ function activateAssistant(assistantId: string) {
               >
                 <IconRenderer icon="iconify:lucide:pin" :size="14" />
               </UiIconButton>
-              <UiIconButton size="sm" variant="ghost" title="重命名" @click="startRename(conversation)">
+              <UiIconButton
+                size="sm"
+                variant="ghost"
+                title="重命名"
+                @click="startRename(conversation)"
+              >
                 <IconRenderer icon="iconify:lucide:pencil" :size="14" />
               </UiIconButton>
-              <UiIconButton size="sm" variant="danger" title="删除" @click="emit('deleteConversation', conversation.id)">
+              <UiIconButton
+                size="sm"
+                variant="danger"
+                title="删除"
+                @click="emit('deleteConversation', conversation.id)"
+              >
                 <IconRenderer icon="iconify:lucide:trash-2" :size="14" />
               </UiIconButton>
             </div>
@@ -341,9 +371,16 @@ function activateAssistant(assistantId: string) {
             <span class="ai-workspace-sidebar__assistant-emoji">{{ assistant.emoji || '助' }}</span>
             <div class="ai-workspace-sidebar__assistant-main">
               <h3>{{ assistant.name }}</h3>
-              <p>{{ assistant.providerId ? providerLabel(assistant.providerId) : '跟随默认模型' }}</p>
+              <p>
+                {{ assistant.providerId ? providerLabel(assistant.providerId) : '跟随默认模型' }}
+              </p>
             </div>
-            <UiIconButton size="sm" variant="ghost" title="设置角色" @click.stop="emit('configureAssistant', assistant.id)">
+            <UiIconButton
+              size="sm"
+              variant="ghost"
+              title="设置角色"
+              @click.stop="emit('configureAssistant', assistant.id)"
+            >
               <IconRenderer icon="iconify:lucide:settings" :size="14" />
             </UiIconButton>
           </article>
@@ -363,7 +400,8 @@ function activateAssistant(assistantId: string) {
   width: 100%;
   min-width: 0;
   height: 100%;
-  border-right: var(--ui-border-width-thin, 1px) solid var(--ui-border-subtle, rgba(15, 23, 42, 0.1));
+  border-right: var(--ui-border-width-thin, 1px) solid
+    var(--ui-border-subtle, rgba(15, 23, 42, 0.1));
   background: var(--ai-sidebar-background, var(--ui-surface-base, #f8fbfd));
   color: var(--ui-text-primary, #0f172a);
   font-family: var(--ui-font-family, inherit);
@@ -405,7 +443,8 @@ function activateAssistant(assistantId: string) {
   gap: 8px;
   min-height: 54px;
   padding: 10px 10px 8px 12px;
-  border-bottom: var(--ui-border-width-thin, 1px) solid var(--ui-border-subtle, rgba(15, 23, 42, 0.08));
+  border-bottom: var(--ui-border-width-thin, 1px) solid
+    var(--ui-border-subtle, rgba(15, 23, 42, 0.08));
 }
 
 .ai-workspace-sidebar__title {
@@ -434,7 +473,8 @@ function activateAssistant(assistantId: string) {
 
 .ai-workspace-sidebar__tabs {
   padding: 8px 10px 10px;
-  border-bottom: var(--ui-border-width-thin, 1px) solid var(--ui-border-subtle, rgba(15, 23, 42, 0.08));
+  border-bottom: var(--ui-border-width-thin, 1px) solid
+    var(--ui-border-subtle, rgba(15, 23, 42, 0.08));
 }
 
 .ai-workspace-sidebar__pane {
@@ -633,7 +673,8 @@ function activateAssistant(assistantId: string) {
 .ai-workspace-sidebar__collapsed-tabs {
   padding: 7px 0;
   border-top: var(--ui-border-width-thin, 1px) solid var(--ui-border-subtle, rgba(15, 23, 42, 0.1));
-  border-bottom: var(--ui-border-width-thin, 1px) solid var(--ui-border-subtle, rgba(15, 23, 42, 0.1));
+  border-bottom: var(--ui-border-width-thin, 1px) solid
+    var(--ui-border-subtle, rgba(15, 23, 42, 0.1));
 }
 
 .ai-workspace-sidebar__mini-list {

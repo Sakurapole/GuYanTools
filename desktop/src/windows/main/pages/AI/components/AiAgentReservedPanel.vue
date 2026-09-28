@@ -31,7 +31,7 @@ watch(
     codexWorkingDirectory.value = agent.codex.lastWorkingDirectory ?? '';
     codexConfigJson.value = agent.codex.cliConfigJson ?? '';
   },
-  { immediate: true },
+  { immediate: true }
 );
 
 async function updateAgent(patch: Partial<typeof agentConfig.value>) {
@@ -83,7 +83,10 @@ async function commitCodexReservedFields() {
 <template>
   <section class="ai-agent-panel">
     <header class="ai-agent-panel__header">
-      <UiPanelHeader title="Agent 工作区" subtitle="V2.0 先保留执行边界，真实 Code Agent / 通用 Agent 运行时后续接入。">
+      <UiPanelHeader
+        title="Agent 工作区"
+        subtitle="V2.0 先保留执行边界，真实 Code Agent / 通用 Agent 运行时后续接入。"
+      >
         <template #actions>
           <UiCheckbox
             :checked="aiConfigStore.config.enabled"
@@ -138,7 +141,12 @@ async function commitCodexReservedFields() {
     </div>
 
     <div class="ai-agent-panel__modes">
-      <UiCard class="ai-agent-mode" padding="sm" radius="sm" :class="{ 'ai-agent-mode--active': agentConfig.defaultAgentMode === 'general-agent' }">
+      <UiCard
+        class="ai-agent-mode"
+        padding="sm"
+        radius="sm"
+        :class="{ 'ai-agent-mode--active': agentConfig.defaultAgentMode === 'general-agent' }"
+      >
         <div class="ai-agent-mode__head">
           <div>
             <h4>通用 Agent</h4>
@@ -170,7 +178,12 @@ async function commitCodexReservedFields() {
         <UiButton size="sm" variant="secondary" disabled>等待执行层接入</UiButton>
       </UiCard>
 
-      <UiCard class="ai-agent-mode" padding="sm" radius="sm" :class="{ 'ai-agent-mode--active': agentConfig.defaultAgentMode === 'code-agent' }">
+      <UiCard
+        class="ai-agent-mode"
+        padding="sm"
+        radius="sm"
+        :class="{ 'ai-agent-mode--active': agentConfig.defaultAgentMode === 'code-agent' }"
+      >
         <div class="ai-agent-mode__head">
           <div>
             <h4>Code Agent</h4>
@@ -204,7 +217,10 @@ async function commitCodexReservedFields() {
           >
             允许跳过 Git 仓库检查
           </UiCheckbox>
-          <UiField class="ai-agent-panel__field ai-agent-panel__field--wide" label="Codex 配置 JSON">
+          <UiField
+            class="ai-agent-panel__field ai-agent-panel__field--wide"
+            label="Codex 配置 JSON"
+          >
             <UiTextarea
               v-model="codexConfigJson"
               :disabled="aiConfigStore.saving"

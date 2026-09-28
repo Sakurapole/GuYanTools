@@ -1,10 +1,17 @@
 import { randomUUID } from 'node:crypto';
 import { tool } from 'ai';
 import { z } from 'zod';
-import type { AiAgentFeatureConfig, AiCitation, AiGroundingOptions, AiSearchMode } from '@/contracts/ai';
+import type {
+  AiAgentFeatureConfig,
+  AiCitation,
+  AiGroundingOptions,
+  AiSearchMode,
+} from '@/contracts/ai';
 import type { KnowledgeSearchPayload, KnowledgeSearchResult } from '@/contracts/knowledge';
 
-export type KnowledgeSearchExecutor = (input: KnowledgeSearchPayload) => Promise<KnowledgeSearchResult[]>;
+export type KnowledgeSearchExecutor = (
+  input: KnowledgeSearchPayload
+) => Promise<KnowledgeSearchResult[]>;
 
 export interface GroundingResult {
   context: string;
@@ -23,9 +30,13 @@ export async function resolveGroundingContext(input: {
   searchKnowledge: KnowledgeSearchExecutor;
   abortSignal?: AbortSignal;
 }): Promise<GroundingResult> {
-  const webSearchEnabled = shouldSearch(input.grounding?.webSearchMode, input.config.research.enabled)
-    && Boolean(input.config.research.webSearchEndpoint);
-  const knowledgeSearchEnabled = shouldSearch(input.grounding?.knowledgeSearchMode, input.config.research.enabled);
+  const webSearchEnabled =
+    shouldSearch(input.grounding?.webSearchMode, input.config.research.enabled) &&
+    Boolean(input.config.research.webSearchEndpoint);
+  const knowledgeSearchEnabled = shouldSearch(
+    input.grounding?.knowledgeSearchMode,
+    input.config.research.enabled
+  );
   const citations: AiCitation[] = [];
 
   if (knowledgeSearchEnabled) {
@@ -42,7 +53,12 @@ export async function resolveGroundingContext(input: {
   }
 
   if (webSearchEnabled) {
-    const webResults = await searchWeb(input.config, input.query, Math.min(8, input.config.research.maxSources), input.abortSignal);
+    const webResults = await searchWeb(
+      input.config,
+      input.query,
+      Math.min(8, input.config.research.maxSources),
+      input.abortSignal
+    );
     citations.push(...webResults);
   }
 
@@ -71,12 +87,13 @@ export function createGroundingTools(input: {
         spaceId: z.string().optional(),
         limit: z.number().min(1).max(20).default(8),
       }),
-      execute: async (toolInput) => input.searchKnowledge({
-        query: toolInput.query,
-        libraryId: toolInput.libraryId || input.config.research.defaultKnowledgeLibraryId,
-        spaceId: toolInput.spaceId || input.config.research.defaultKnowledgeSpaceId,
-        limit: toolInput.limit,
-      }),
+      execute: async (toolInput) =>
+        input.searchKnowledge({
+          query: toolInput.query,
+          libraryId: toolInput.libraryId || input.config.research.defaultKnowledgeLibraryId,
+          spaceId: toolInput.spaceId || input.config.research.defaultKnowledgeSpaceId,
+          limit: toolInput.limit,
+        }),
     }),
     webSearch: tool({
       description: 'Search a configured web search endpoint and return cited snippets.',
@@ -117,7 +134,12 @@ function mapKnowledgeCitation(result: KnowledgeSearchResult): AiCitation {
   };
 }
 
-async function searchWeb(config: AiAgentFeatureConfig, query: string, limit: number, abortSignal?: AbortSignal): Promise<AiCitation[]> {
+async function searchWeb(
+  config: AiAgentFeatureConfig,
+  query: string,
+  limit: number,
+  abortSignal?: AbortSignal
+): Promise<AiCitation[]> {
   const endpoint = config.research.webSearchEndpoint;
   if (!endpoint) {
     return [];
@@ -127,7 +149,9 @@ async function searchWeb(config: AiAgentFeatureConfig, query: string, limit: num
     method: 'POST',
     headers: {
       'content-type': 'application/json',
-      ...(config.research.webSearchApiKey ? { authorization: `Bearer ${config.research.webSearchApiKey}` } : {}),
+      ...(config.research.webSearchApiKey
+        ? { authorization: `Bearer ${config.research.webSearchApiKey}` }
+        : {}),
     },
     signal: abortSignal,
     body: JSON.stringify({
@@ -142,7 +166,7 @@ async function searchWeb(config: AiAgentFeatureConfig, query: string, limit: num
     throw new Error(`Web search failed: ${response.status} ${response.statusText}`);
   }
 
-  const json = await response.json() as unknown;
+  const json = (await response.json()) as unknown;
   const results = Array.isArray(json)
     ? json
     : isRecord(json) && Array.isArray(json.results)
@@ -162,7 +186,10 @@ function normalizeWebResult(value: unknown): AiCitation | null {
 
   const title = stringField(value, 'title') || stringField(value, 'name');
   const url = stringField(value, 'url') || stringField(value, 'link');
-  const snippet = stringField(value, 'snippet') || stringField(value, 'content') || stringField(value, 'description');
+  const snippet =
+    stringField(value, 'snippet') ||
+    stringField(value, 'content') ||
+    stringField(value, 'description');
   if (!title && !url && !snippet) {
     return null;
   }

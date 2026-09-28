@@ -32,11 +32,15 @@ export function createMcpReadTools(context: McpToolContext) {
       inputSchema: z.object({
         serverId: z.string().min(1),
         toolName: z.string().min(1),
-        argumentsJson: z.string().default('{}').describe('JSON object string passed as MCP tool arguments.'),
+        argumentsJson: z
+          .string()
+          .default('{}')
+          .describe('JSON object string passed as MCP tool arguments.'),
       }),
       execute: async (input) => {
-        const selected = context.tools.find((item) =>
-          item.serverId === input.serverId && item.name === input.toolName);
+        const selected = context.tools.find(
+          (item) => item.serverId === input.serverId && item.name === input.toolName
+        );
         if (!selected) {
           throw new Error('MCP 工具不在当前允许列表中');
         }
@@ -76,7 +80,9 @@ export function createMcpReadTools(context: McpToolContext) {
 function parseArguments(value: string) {
   try {
     const parsed = JSON.parse(value);
-    return parsed && typeof parsed === 'object' && !Array.isArray(parsed) ? parsed as Record<string, unknown> : {};
+    return parsed && typeof parsed === 'object' && !Array.isArray(parsed)
+      ? (parsed as Record<string, unknown>)
+      : {};
   } catch {
     return {};
   }

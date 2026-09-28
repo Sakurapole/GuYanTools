@@ -29,7 +29,8 @@ const canvasFileSchema = z.object({
 export function createCanvasTools(context: CanvasToolContext) {
   return {
     canvasCreate: tool({
-      description: 'Create a Gemini-like Canvas workspace for editable documents, single HTML pages, or React single-file previews.',
+      description:
+        'Create a Gemini-like Canvas workspace for editable documents, single HTML pages, or React single-file previews.',
       inputSchema: z.object({
         title: z.string().min(1),
         mode: canvasModeSchema,
@@ -61,7 +62,8 @@ export function createCanvasTools(context: CanvasToolContext) {
       },
     }),
     canvasReplaceFile: tool({
-      description: 'Replace one file inside the current Canvas workspace. Use this for complete rewrites of HTML, Markdown, or React content.',
+      description:
+        'Replace one file inside the current Canvas workspace. Use this for complete rewrites of HTML, Markdown, or React content.',
       inputSchema: z.object({
         workspaceId: z.string().optional(),
         path: z.string().min(1),
@@ -95,7 +97,12 @@ export function createCanvasTools(context: CanvasToolContext) {
           workspaceId,
           sourceMessageId: context.messageId,
           operationType: 'append_file',
-          payload: { path: input.path, language: input.language, content: input.content, appendedLength: input.content.length },
+          payload: {
+            path: input.path,
+            language: input.language,
+            content: input.content,
+            appendedLength: input.content.length,
+          },
           status: 'pending',
         });
         emitOperation(context, operation);
@@ -118,13 +125,21 @@ export function createCanvasTools(context: CanvasToolContext) {
           status: 'pending',
         });
         emitOperation(context, operation);
-        return { workspaceId, proposedPath: input.path, operationId: operation.id, status: operation.status };
+        return {
+          workspaceId,
+          proposedPath: input.path,
+          operationId: operation.id,
+          status: operation.status,
+        };
       },
     }),
   };
 }
 
-export function buildCanvasSystemInstruction(input: { mode?: AiCanvasMode; activeWorkspaceId?: string }) {
+export function buildCanvasSystemInstruction(input: {
+  mode?: AiCanvasMode;
+  activeWorkspaceId?: string;
+}) {
   return [
     'Canvas 已启用。Canvas 是用户右侧可编辑、可预览的工作区，不是聊天中的附件列表。',
     '当用户要求创建网页、HTML、React 页面、长文档、可迭代草稿或修改 Canvas 内容时，必须使用 Canvas 工具写入工作区。',
@@ -134,7 +149,9 @@ export function buildCanvasSystemInstruction(input: { mode?: AiCanvasMode; activ
       ? `当前 Canvas workspaceId 是 ${input.activeWorkspaceId}。修改已有内容时优先使用这个 workspaceId。`
       : '如果需要 Canvas，请先调用 canvasCreate 创建工作区。',
     input.mode ? `用户当前偏好的 Canvas 模式是 ${input.mode}。` : '',
-  ].filter(Boolean).join('\n');
+  ]
+    .filter(Boolean)
+    .join('\n');
 }
 
 function resolveWorkspaceId(context: CanvasToolContext, workspaceId?: string) {
@@ -172,7 +189,11 @@ function emitOperation(context: CanvasToolContext, operation: AiCanvasOperation)
   });
 }
 
-function summarizeWorkspace(workspace: AiCanvasWorkspace, files: AiCanvasFile[], operation: AiCanvasOperation) {
+function summarizeWorkspace(
+  workspace: AiCanvasWorkspace,
+  files: AiCanvasFile[],
+  operation: AiCanvasOperation
+) {
   return {
     workspaceId: workspace.id,
     title: workspace.title,
@@ -197,7 +218,9 @@ function summarizeOperationProposal(operation: AiCanvasOperation, contentLength?
 function safeParsePayload(payloadJson: string): Record<string, unknown> {
   try {
     const parsed = JSON.parse(payloadJson);
-    return parsed && typeof parsed === 'object' && !Array.isArray(parsed) ? parsed as Record<string, unknown> : {};
+    return parsed && typeof parsed === 'object' && !Array.isArray(parsed)
+      ? (parsed as Record<string, unknown>)
+      : {};
   } catch {
     return {};
   }

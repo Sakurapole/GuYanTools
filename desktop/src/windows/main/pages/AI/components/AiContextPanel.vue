@@ -46,7 +46,7 @@ watch(
   (projectId) => {
     contextStore.activeProjectId = projectId ?? '';
   },
-  { immediate: true },
+  { immediate: true }
 );
 
 watch(
@@ -58,7 +58,7 @@ watch(
       memoryScope.value = 'global';
     }
   },
-  { immediate: true },
+  { immediate: true }
 );
 
 watch(
@@ -66,7 +66,7 @@ watch(
   (memories) => {
     memoryDrafts.value = Object.fromEntries(memories.map((memory) => [memory.id, memory.content]));
   },
-  { immediate: true },
+  { immediate: true }
 );
 
 async function createProject() {
@@ -110,11 +110,12 @@ async function createMemory() {
   const scope = memoryScope.value;
   await contextStore.createMemory({
     scope,
-    scopeId: scope === 'project'
-      ? contextStore.activeProject?.id
-      : scope === 'assistant'
-        ? props.activeAssistantId
-        : undefined,
+    scopeId:
+      scope === 'project'
+        ? contextStore.activeProject?.id
+        : scope === 'assistant'
+          ? props.activeAssistantId
+          : undefined,
     content,
   });
   memoryContent.value = '';
@@ -162,11 +163,23 @@ function memoryScopeLabel(memory: AiMemory) {
           @change="selectProject"
         />
         <UiInput v-model="newProjectName" size="sm" placeholder="项目名称" />
-        <UiButton size="sm" variant="primary" :disabled="contextStore.saving" @click="createProject">新建</UiButton>
+        <UiButton size="sm" variant="primary" :disabled="contextStore.saving" @click="createProject"
+          >新建</UiButton
+        >
       </div>
 
-      <UiCard v-if="contextStore.activeProject" class="ai-context-panel__card" padding="sm" radius="sm">
-        <UiInput v-model="projectNameDraft" size="sm" placeholder="项目名称" @change="saveProject" />
+      <UiCard
+        v-if="contextStore.activeProject"
+        class="ai-context-panel__card"
+        padding="sm"
+        radius="sm"
+      >
+        <UiInput
+          v-model="projectNameDraft"
+          size="sm"
+          placeholder="项目名称"
+          @change="saveProject"
+        />
         <UiTextarea
           v-model="projectInstructionsDraft"
           :rows="5"
@@ -188,8 +201,18 @@ function memoryScopeLabel(memory: AiMemory) {
     <section class="ai-context-panel__section ai-context-panel__section--fill">
       <div class="ai-context-panel__memory-create">
         <UiSelect v-model="memoryScope" size="sm" :options="memoryScopeOptions" />
-        <UiTextarea v-model="memoryContent" :rows="3" resize="vertical" placeholder="输入一条明确、可复用的记忆" />
-        <UiButton size="sm" variant="primary" :disabled="!memoryContent.trim() || contextStore.saving" @click="createMemory">
+        <UiTextarea
+          v-model="memoryContent"
+          :rows="3"
+          resize="vertical"
+          placeholder="输入一条明确、可复用的记忆"
+        />
+        <UiButton
+          size="sm"
+          variant="primary"
+          :disabled="!memoryContent.trim() || contextStore.saving"
+          @click="createMemory"
+        >
           记住
         </UiButton>
       </div>
@@ -218,7 +241,9 @@ function memoryScopeLabel(memory: AiMemory) {
           />
           <div class="ai-context-panel__memory-actions">
             <small>{{ memory.updatedAt }}</small>
-            <UiButton size="sm" variant="danger" @click="contextStore.deleteMemory(memory.id)">删除</UiButton>
+            <UiButton size="sm" variant="danger" @click="contextStore.deleteMemory(memory.id)"
+              >删除</UiButton
+            >
           </div>
         </UiCard>
       </div>

@@ -7,7 +7,10 @@ import type {
   AiReasoningEffort,
   ModelScopeMcpServerSummary,
 } from '@/contracts/ai';
-import { getModelCapabilityBadges, groupModelsByPrefix } from '@/windows/main/pages/AI/ai_model_display';
+import {
+  getModelCapabilityBadges,
+  groupModelsByPrefix,
+} from '@/windows/main/pages/AI/ai_model_display';
 import IconRenderer from '@/windows/main/components/ui/IconRenderer.vue';
 import UiButton from '@/windows/main/components/ui/UiButton.vue';
 import UiCheckbox from '@/windows/main/components/ui/UiCheckbox.vue';
@@ -75,7 +78,7 @@ const embeddingProviderOptions = computed(() => [
 ]);
 
 const selectedEmbeddingProvider = computed(() =>
-  aiConfigStore.config.providers.find((provider) => provider.id === form.embeddingProviderId),
+  aiConfigStore.config.providers.find((provider) => provider.id === form.embeddingProviderId)
 );
 
 const embeddingModelOptions = computed(() => [
@@ -95,7 +98,9 @@ watch(
     form.maxHistoryMessages = String(config.chat.maxHistoryMessages);
     form.reasoningEnabled = config.chat.reasoningEnabled;
     form.reasoningEffort = config.chat.reasoningEffort;
-    form.reasoningBudgetTokens = config.chat.reasoningBudgetTokens ? String(config.chat.reasoningBudgetTokens) : '';
+    form.reasoningBudgetTokens = config.chat.reasoningBudgetTokens
+      ? String(config.chat.reasoningBudgetTokens)
+      : '';
     form.researchEnabled = config.research.enabled;
     form.maxSources = String(config.research.maxSources);
     form.webSearchEndpoint = config.research.webSearchEndpoint ?? '';
@@ -107,10 +112,12 @@ watch(
     form.mcpEnabled = config.mcp.enabled;
     form.modelscopeApiToken = '';
   },
-  { immediate: true },
+  { immediate: true }
 );
 
-const mcpStatusById = computed(() => new Map(mcpStatuses.value.map((status) => [status.id, status])));
+const mcpStatusById = computed(
+  () => new Map(mcpStatuses.value.map((status) => [status.id, status]))
+);
 
 watch(
   () => form.embeddingProviderId,
@@ -118,11 +125,13 @@ watch(
     if (!form.embeddingModelId) {
       return;
     }
-    const hasModel = selectedEmbeddingProvider.value?.models.some((model) => model.id === form.embeddingModelId);
+    const hasModel = selectedEmbeddingProvider.value?.models.some(
+      (model) => model.id === form.embeddingModelId
+    );
     if (!hasModel) {
       form.embeddingModelId = '';
     }
-  },
+  }
 );
 
 async function saveChatSettings() {
@@ -262,7 +271,9 @@ async function importModelScopeMcp(serverId: string) {
       id: uniqueMcpServerId(detail.importableServer.id, fullMcpServers()),
     };
     const servers = [
-      ...fullMcpServers().filter((server) => server.sourceId !== nextServer.sourceId && server.id !== nextServer.id),
+      ...fullMcpServers().filter(
+        (server) => server.sourceId !== nextServer.sourceId && server.id !== nextServer.id
+      ),
       nextServer,
     ];
     form.mcpEnabled = true;
@@ -302,9 +313,7 @@ async function importMcpJson() {
 
 async function updateMcpServer(serverId: string, patch: Partial<AiMcpServerConfig>) {
   const servers = fullMcpServers().map((server) =>
-    server.id === serverId
-      ? { ...server, ...patch, updatedAt: Date.now() }
-      : server,
+    server.id === serverId ? { ...server, ...patch, updatedAt: Date.now() } : server
   );
   await saveMcpSettings(servers);
 }
@@ -353,12 +362,13 @@ function uniqueMcpServerId(baseId: string, servers: AiMcpServerConfig[]) {
 
 function parseMcpJsonConfig(value: string): AiMcpServerConfig[] {
   const parsed = JSON.parse(value) as { mcpServers?: Record<string, unknown> };
-  const mcpServers = parsed.mcpServers ?? parsed as Record<string, unknown>;
+  const mcpServers = parsed.mcpServers ?? (parsed as Record<string, unknown>);
   return Object.entries(mcpServers).map(([name, raw]) => {
-    const item = raw && typeof raw === 'object' ? raw as Record<string, unknown> : {};
+    const item = raw && typeof raw === 'object' ? (raw as Record<string, unknown>) : {};
     const timestamp = Date.now();
     const url = typeof item.url === 'string' && item.url.trim() ? item.url.trim() : undefined;
-    const command = typeof item.command === 'string' && item.command.trim() ? item.command.trim() : undefined;
+    const command =
+      typeof item.command === 'string' && item.command.trim() ? item.command.trim() : undefined;
     if (!url && !command) {
       throw new Error(`${name} 缺少 command 或 url`);
     }
@@ -407,7 +417,9 @@ function normalizeMcpEnv(value: unknown) {
         <div class="settings-row__control settings-row__control--wide">
           <div class="ai-provider-panel">
             <div class="ai-provider-panel__actions">
-              <UiButton size="sm" variant="primary" @click="openProviderDrawer()">新建 Provider</UiButton>
+              <UiButton size="sm" variant="primary" @click="openProviderDrawer()"
+                >新建 Provider</UiButton
+              >
             </div>
 
             <div v-if="aiConfigStore.config.providers.length" class="ai-provider-list">
@@ -456,10 +468,14 @@ function normalizeMcpEnv(value: unknown) {
                   </div>
                   <small v-else>未配置模型</small>
                 </div>
-                <UiButton size="sm" variant="ghost" @click="openProviderDrawer(provider.id)">编辑</UiButton>
+                <UiButton size="sm" variant="ghost" @click="openProviderDrawer(provider.id)"
+                  >编辑</UiButton
+                >
               </article>
             </div>
-            <p v-else class="ai-provider-panel__empty">暂无 Provider，添加后即可在 AI 问答区选择模型。</p>
+            <p v-else class="ai-provider-panel__empty">
+              暂无 Provider，添加后即可在 AI 问答区选择模型。
+            </p>
           </div>
         </div>
       </div>
@@ -476,7 +492,10 @@ function normalizeMcpEnv(value: unknown) {
           <UiCheckbox
             :model-value="form.mcpEnabled"
             size="sm"
-            @update:modelValue="form.mcpEnabled = $event; saveMcpSettings()"
+            @update:modelValue="
+              form.mcpEnabled = $event;
+              saveMcpSettings();
+            "
           />
         </div>
       </div>
@@ -498,8 +517,18 @@ function normalizeMcpEnv(value: unknown) {
               <UiButton size="sm" @click="saveMcpSettings()">保存 Token</UiButton>
             </div>
             <div class="ai-mcp-importer__search">
-              <UiInput v-model="mcpSearchQuery" size="sm" placeholder="搜索魔搭 MCP，例如 fetch、amap、filesystem" />
-              <UiButton size="sm" variant="primary" :disabled="mcpLoading" @click="searchModelScopeMcp">搜索</UiButton>
+              <UiInput
+                v-model="mcpSearchQuery"
+                size="sm"
+                placeholder="搜索魔搭 MCP，例如 fetch、amap、filesystem"
+              />
+              <UiButton
+                size="sm"
+                variant="primary"
+                :disabled="mcpLoading"
+                @click="searchModelScopeMcp"
+                >搜索</UiButton
+              >
             </div>
             <div v-if="mcpSearchResults.length" class="ai-mcp-search-list">
               <article
@@ -511,13 +540,19 @@ function normalizeMcpEnv(value: unknown) {
                   <strong>{{ server.name }}</strong>
                   <small>{{ server.description || server.id }}</small>
                   <div class="ai-mcp-search-item__tags">
-                    <span v-for="category in server.categories.slice(0, 3)" :key="category">{{ category }}</span>
+                    <span v-for="category in server.categories.slice(0, 3)" :key="category">{{
+                      category
+                    }}</span>
                     <span>{{ server.viewCount }} 次浏览</span>
                   </div>
                 </div>
-                <UiButton size="sm" :disabled="mcpLoading" @click="importModelScopeMcp(server.id)">导入</UiButton>
+                <UiButton size="sm" :disabled="mcpLoading" @click="importModelScopeMcp(server.id)"
+                  >导入</UiButton
+                >
               </article>
-              <p class="ai-mcp-panel__hint">共 {{ mcpSearchTotal }} 个匹配项，当前显示前 {{ mcpSearchResults.length }} 个。</p>
+              <p class="ai-mcp-panel__hint">
+                共 {{ mcpSearchTotal }} 个匹配项，当前显示前 {{ mcpSearchResults.length }} 个。
+              </p>
             </div>
           </div>
         </div>
@@ -536,7 +571,9 @@ function normalizeMcpEnv(value: unknown) {
               resize="vertical"
               placeholder='{"mcpServers":{"fetch":{"command":"uvx","args":["mcp-server-fetch"]}}}'
             />
-            <UiButton size="sm" :disabled="!mcpJsonText.trim()" @click="importMcpJson">导入 JSON</UiButton>
+            <UiButton size="sm" :disabled="!mcpJsonText.trim()" @click="importMcpJson"
+              >导入 JSON</UiButton
+            >
           </div>
         </div>
       </div>
@@ -558,7 +595,9 @@ function normalizeMcpEnv(value: unknown) {
                   <strong>{{ server.name }}</strong>
                   <span>{{ mcpStatusById.get(server.id)?.status || 'stopped' }}</span>
                 </div>
-                <small v-if="server.transport === 'stdio'">{{ server.command }} {{ server.args.join(' ') }}</small>
+                <small v-if="server.transport === 'stdio'"
+                  >{{ server.command }} {{ server.args.join(' ') }}</small
+                >
                 <small v-else>{{ server.url }}</small>
                 <div class="ai-mcp-server-item__meta">
                   <span>{{ server.source === 'modelscope' ? '魔搭社区' : '手动配置' }}</span>
@@ -594,11 +633,15 @@ function normalizeMcpEnv(value: unknown) {
                 >
                   启动
                 </UiButton>
-                <UiButton size="sm" variant="danger" @click="deleteMcpServer(server.id)">删除</UiButton>
+                <UiButton size="sm" variant="danger" @click="deleteMcpServer(server.id)"
+                  >删除</UiButton
+                >
               </div>
             </article>
           </div>
-          <p v-else class="ai-mcp-panel__empty">暂无 MCP 服务器，可以从魔搭社区搜索导入，或粘贴 mcpServers JSON。</p>
+          <p v-else class="ai-mcp-panel__empty">
+            暂无 MCP 服务器，可以从魔搭社区搜索导入，或粘贴 mcpServers JSON。
+          </p>
           <p v-if="mcpMessage" class="ai-mcp-panel__message">{{ mcpMessage }}</p>
         </div>
       </div>
@@ -613,7 +656,9 @@ function normalizeMcpEnv(value: unknown) {
         </div>
         <div class="settings-row__control settings-row__control--compact">
           <div class="ai-avatar-setting">
-            <span class="ai-avatar-setting__preview" aria-hidden="true">{{ form.userAvatar.trim() || '你' }}</span>
+            <span class="ai-avatar-setting__preview" aria-hidden="true">{{
+              form.userAvatar.trim() || '你'
+            }}</span>
             <UiInput
               v-model="form.userAvatar"
               size="sm"
@@ -630,7 +675,12 @@ function normalizeMcpEnv(value: unknown) {
           <small>新会话默认使用的系统提示词。</small>
         </div>
         <div class="settings-row__control settings-row__control--wide">
-          <UiTextarea v-model="form.systemPrompt" :rows="4" resize="vertical" placeholder="默认 System Prompt" />
+          <UiTextarea
+            v-model="form.systemPrompt"
+            :rows="4"
+            resize="vertical"
+            placeholder="默认 System Prompt"
+          />
         </div>
       </div>
       <div class="settings-row">
@@ -639,7 +689,14 @@ function normalizeMcpEnv(value: unknown) {
           <small>控制输出随机性，建议保持在 0 到 2 之间。</small>
         </div>
         <div class="settings-row__control settings-row__control--compact">
-          <UiInput v-model="form.temperature" size="sm" type="number" :min="0" :max="2" :step="0.1" />
+          <UiInput
+            v-model="form.temperature"
+            size="sm"
+            type="number"
+            :min="0"
+            :max="2"
+            :step="0.1"
+          />
         </div>
       </div>
       <div class="settings-row">
@@ -648,7 +705,14 @@ function normalizeMcpEnv(value: unknown) {
           <small>发送给模型的最大上下文消息数量。</small>
         </div>
         <div class="settings-row__control settings-row__control--compact">
-          <UiInput v-model="form.maxHistoryMessages" size="sm" type="number" :min="1" :max="200" :step="1" />
+          <UiInput
+            v-model="form.maxHistoryMessages"
+            size="sm"
+            type="number"
+            :min="1"
+            :max="200"
+            :step="1"
+          />
         </div>
       </div>
       <div class="settings-row">
@@ -675,7 +739,13 @@ function normalizeMcpEnv(value: unknown) {
           <small>可选，限制推理 token 预算。</small>
         </div>
         <div class="settings-row__control settings-row__control--compact">
-          <UiInput v-model="form.reasoningBudgetTokens" size="sm" type="number" :min="1" :step="512" />
+          <UiInput
+            v-model="form.reasoningBudgetTokens"
+            size="sm"
+            type="number"
+            :min="1"
+            :step="512"
+          />
         </div>
       </div>
       <div class="settings-row">
@@ -706,7 +776,14 @@ function normalizeMcpEnv(value: unknown) {
           <small>限制每次检索返回给模型的来源数量。</small>
         </div>
         <div class="settings-row__control settings-row__control--compact">
-          <UiInput v-model="form.maxSources" size="sm" type="number" :min="1" :max="200" :step="1" />
+          <UiInput
+            v-model="form.maxSources"
+            size="sm"
+            type="number"
+            :min="1"
+            :max="200"
+            :step="1"
+          />
         </div>
       </div>
       <div class="settings-row settings-row--wide">
@@ -715,7 +792,11 @@ function normalizeMcpEnv(value: unknown) {
           <small>POST JSON 的搜索服务地址，可留空。</small>
         </div>
         <div class="settings-row__control settings-row__control--wide">
-          <UiInput v-model="form.webSearchEndpoint" size="sm" placeholder="Web Search Endpoint（POST JSON）" />
+          <UiInput
+            v-model="form.webSearchEndpoint"
+            size="sm"
+            placeholder="Web Search Endpoint（POST JSON）"
+          />
         </div>
       </div>
       <div class="settings-row settings-row--wide">
@@ -724,7 +805,12 @@ function normalizeMcpEnv(value: unknown) {
           <small>留空表示不修改已保存的密钥。</small>
         </div>
         <div class="settings-row__control settings-row__control--wide">
-          <UiInput v-model="form.webSearchApiKey" size="sm" type="password" placeholder="留空不修改" />
+          <UiInput
+            v-model="form.webSearchApiKey"
+            size="sm"
+            type="password"
+            placeholder="留空不修改"
+          />
         </div>
       </div>
       <div class="settings-row settings-row--wide">
@@ -732,7 +818,9 @@ function normalizeMcpEnv(value: unknown) {
           <span>默认知识库</span>
           <small>可指定默认 Library ID 和 Space ID。</small>
         </div>
-        <div class="settings-row__control settings-row__control--wide ai-settings-panel__inline-controls">
+        <div
+          class="settings-row__control settings-row__control--wide ai-settings-panel__inline-controls"
+        >
           <UiInput v-model="form.defaultKnowledgeLibraryId" size="sm" placeholder="Library ID" />
           <UiInput v-model="form.defaultKnowledgeSpaceId" size="sm" placeholder="Space ID" />
         </div>
@@ -743,7 +831,11 @@ function normalizeMcpEnv(value: unknown) {
           <small>用于知识库向量化的接入口。</small>
         </div>
         <div class="settings-row__control">
-          <UiSelect v-model="form.embeddingProviderId" :options="embeddingProviderOptions" size="sm" />
+          <UiSelect
+            v-model="form.embeddingProviderId"
+            :options="embeddingProviderOptions"
+            size="sm"
+          />
         </div>
       </div>
       <div class="settings-row">
@@ -761,7 +853,14 @@ function normalizeMcpEnv(value: unknown) {
           <small>每批处理的 chunk 数量。</small>
         </div>
         <div class="settings-row__control settings-row__control--compact">
-          <UiInput v-model="form.embeddingBatchSize" size="sm" type="number" :min="1" :max="128" :step="1" />
+          <UiInput
+            v-model="form.embeddingBatchSize"
+            size="sm"
+            type="number"
+            :min="1"
+            :max="128"
+            :step="1"
+          />
         </div>
       </div>
       <div class="settings-row settings-row--wide">
@@ -771,8 +870,16 @@ function normalizeMcpEnv(value: unknown) {
         </div>
         <div class="settings-row__control settings-row__control--wide">
           <div class="ai-settings-panel__actions">
-            <UiButton size="sm" :disabled="embeddingLoading" @click="loadEmbeddingStats">统计</UiButton>
-            <UiButton size="sm" variant="primary" :disabled="embeddingLoading" @click="rebuildEmbeddings">重建 Embedding</UiButton>
+            <UiButton size="sm" :disabled="embeddingLoading" @click="loadEmbeddingStats"
+              >统计</UiButton
+            >
+            <UiButton
+              size="sm"
+              variant="primary"
+              :disabled="embeddingLoading"
+              @click="rebuildEmbeddings"
+              >重建 Embedding</UiButton
+            >
           </div>
           <p v-if="embeddingMessage" class="ai-settings-panel__message">{{ embeddingMessage }}</p>
         </div>

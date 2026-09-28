@@ -12,10 +12,11 @@ const runtimeError = ref('');
 
 const filePathList = computed(() => props.files.map((file) => file.path));
 const preferredPath = computed(() => preferredPathForMode(props.mode, filePathList.value));
-const activeFile = computed(() =>
-  props.files.find((file) => file.path === props.activePath)
-  ?? props.files.find((file) => file.path === preferredPath.value)
-  ?? props.files[0],
+const activeFile = computed(
+  () =>
+    props.files.find((file) => file.path === props.activePath) ??
+    props.files.find((file) => file.path === preferredPath.value) ??
+    props.files[0]
 );
 const srcdoc = computed(() => {
   if (props.mode === 'html') {
@@ -50,10 +51,14 @@ onBeforeUnmount(() => {
 
 function preferredPathForMode(mode: AiCanvasMode, paths: string[]) {
   if (mode === 'html') {
-    return paths.includes('index.html') ? 'index.html' : paths.find((path) => path.endsWith('.html'));
+    return paths.includes('index.html')
+      ? 'index.html'
+      : paths.find((path) => path.endsWith('.html'));
   }
   if (mode === 'react') {
-    return paths.includes('App.jsx') ? 'App.jsx' : paths.find((path) => path.endsWith('.jsx') || path.endsWith('.tsx'));
+    return paths.includes('App.jsx')
+      ? 'App.jsx'
+      : paths.find((path) => path.endsWith('.jsx') || path.endsWith('.tsx'));
   }
   return paths.includes('README.md') ? 'README.md' : paths.find((path) => path.endsWith('.md'));
 }

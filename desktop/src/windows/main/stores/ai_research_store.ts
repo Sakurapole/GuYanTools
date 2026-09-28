@@ -21,13 +21,15 @@ export const useAiResearchStore = defineStore('ai-research', () => {
   const error = ref('');
   let unsubscribe: (() => void) | null = null;
 
-  const activeJob = computed(() =>
-    jobs.value.find((job) => job.id === activeJobId.value) ?? jobs.value[0] ?? null,
+  const activeJob = computed(
+    () => jobs.value.find((job) => job.id === activeJobId.value) ?? jobs.value[0] ?? null
   );
   const activeSources = computed(() =>
-    activeJob.value ? sourcesByJob.value[activeJob.value.id] ?? activeJob.value.sources ?? [] : [],
+    activeJob.value ? (sourcesByJob.value[activeJob.value.id] ?? activeJob.value.sources ?? []) : []
   );
-  const runningJobs = computed(() => jobs.value.filter((job) => job.status === 'queued' || job.status === 'running'));
+  const runningJobs = computed(() =>
+    jobs.value.filter((job) => job.status === 'queued' || job.status === 'running')
+  );
 
   function ensureSubscription() {
     if (unsubscribe || !window.aiApi) {
@@ -46,9 +48,7 @@ export const useAiResearchStore = defineStore('ai-research', () => {
     try {
       const nextJobs = await window.aiApi.listResearchJobs({ limit: 50 });
       jobs.value = nextJobs;
-      sourcesByJob.value = Object.fromEntries(
-        nextJobs.map((job) => [job.id, job.sources ?? []]),
-      );
+      sourcesByJob.value = Object.fromEntries(nextJobs.map((job) => [job.id, job.sources ?? []]));
       if (!activeJobId.value && nextJobs[0]) {
         activeJobId.value = nextJobs[0].id;
       }
@@ -143,7 +143,9 @@ export const useAiResearchStore = defineStore('ai-research', () => {
 
   function upsertJob(job: AiResearchJob) {
     const current = jobs.value.filter((item) => item.id !== job.id);
-    jobs.value = [job, ...current].sort((left, right) => right.updatedAt.localeCompare(left.updatedAt));
+    jobs.value = [job, ...current].sort((left, right) =>
+      right.updatedAt.localeCompare(left.updatedAt)
+    );
     if (job.sources) {
       sourcesByJob.value = {
         ...sourcesByJob.value,

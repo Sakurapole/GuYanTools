@@ -33,11 +33,17 @@ export const useAiChatStore = defineStore('ai-chat', () => {
   let unsubscribeStream: (() => void) | null = null;
   let streamFlushFrame: number | null = null;
 
-  const activeConversation = computed(() =>
-    conversations.value.find((conversation) => conversation.id === activeConversationId.value) ?? null,
+  const activeConversation = computed(
+    () =>
+      conversations.value.find((conversation) => conversation.id === activeConversationId.value) ??
+      null
   );
-  const activeMessages = computed(() => messagesByConversation.value[activeConversationId.value] ?? []);
-  const activeRunId = computed(() => activeConversationId.value ? activeRuns.value[activeConversationId.value] : '');
+  const activeMessages = computed(
+    () => messagesByConversation.value[activeConversationId.value] ?? []
+  );
+  const activeRunId = computed(() =>
+    activeConversationId.value ? activeRuns.value[activeConversationId.value] : ''
+  );
   const isStreaming = computed(() => Boolean(activeRunId.value));
 
   function ensureStreamSubscription() {
@@ -72,7 +78,10 @@ export const useAiChatStore = defineStore('ai-chat', () => {
     }
 
     const conversation = await window.aiApi.createConversation(clone(input));
-    conversations.value = [conversation, ...conversations.value.filter((item) => item.id !== conversation.id)];
+    conversations.value = [
+      conversation,
+      ...conversations.value.filter((item) => item.id !== conversation.id),
+    ];
     activeConversationId.value = conversation.id;
     messagesByConversation.value[conversation.id] = [];
     return conversation;
@@ -84,7 +93,7 @@ export const useAiChatStore = defineStore('ai-chat', () => {
     }
 
     const conversation = await window.aiApi.updateConversation(id, clone(input));
-    conversations.value = conversations.value.map((item) => item.id === id ? conversation : item);
+    conversations.value = conversations.value.map((item) => (item.id === id ? conversation : item));
     return conversation;
   }
 
@@ -197,17 +206,18 @@ export const useAiChatStore = defineStore('ai-chat', () => {
       const index = merged.findIndex((item) => item.id === message.id);
       if (index >= 0) {
         const existing = merged[index];
-        merged[index] = message.role === 'assistant'
-          && message.status === 'streaming'
-          && !message.content
-          && existing.content
-          ? {
-            ...message,
-            content: existing.content,
-            status: existing.status,
-            metadata: existing.metadata ?? message.metadata,
-          }
-          : message;
+        merged[index] =
+          message.role === 'assistant' &&
+          message.status === 'streaming' &&
+          !message.content &&
+          existing.content
+            ? {
+                ...message,
+                content: existing.content,
+                status: existing.status,
+                metadata: existing.metadata ?? message.metadata,
+              }
+            : message;
       } else {
         merged.push(message);
       }

@@ -1,6 +1,12 @@
 <script lang="ts" setup>
 import { computed, reactive, ref, watch } from 'vue';
-import type { AiAssistantConfig, AiAssistantKnowledgeMode, AiAssistantMcpMode, AiAssistantToolCallMode, AiSafeProviderConfig } from '@/contracts/ai';
+import type {
+  AiAssistantConfig,
+  AiAssistantKnowledgeMode,
+  AiAssistantMcpMode,
+  AiAssistantToolCallMode,
+  AiSafeProviderConfig,
+} from '@/contracts/ai';
 import UiButton from '@/windows/main/components/ui/UiButton.vue';
 import UiCard from '@/windows/main/components/ui/UiCard.vue';
 import UiDialog from '@/windows/main/components/ui/UiDialog.vue';
@@ -51,8 +57,8 @@ const providerOptions = computed<UiSelectOption[]>(() => [
   })),
 ]);
 
-const selectedProvider = computed(() =>
-  props.providers.find((provider) => provider.id === form.providerId) ?? props.providers[0],
+const selectedProvider = computed(
+  () => props.providers.find((provider) => provider.id === form.providerId) ?? props.providers[0]
 );
 
 const modelOptions = computed<UiSelectOption[]>(() => [
@@ -82,8 +88,11 @@ const toolCallModeOptions: Array<{ label: string; value: AiAssistantToolCallMode
 ];
 
 const promptTokenEstimate = computed(() => Math.ceil(form.systemPrompt.length / 4));
-const assistantMemoryCount = computed(() =>
-  contextStore.memories.filter((memory) => memory.scope === 'assistant' && memory.scopeId === form.id).length,
+const assistantMemoryCount = computed(
+  () =>
+    contextStore.memories.filter(
+      (memory) => memory.scope === 'assistant' && memory.scopeId === form.id
+    ).length
 );
 
 watch(
@@ -96,7 +105,7 @@ watch(
     Object.assign(form, createAiAssistantConfig(assistant ? { ...assistant } : {}));
     phrasesText.value = form.commonPhrases.join('\n');
   },
-  { immediate: true },
+  { immediate: true }
 );
 
 watch(
@@ -108,7 +117,7 @@ watch(
     if (!selectedProvider.value?.models.some((model) => model.id === form.modelId)) {
       form.modelId = '';
     }
-  },
+  }
 );
 
 function addCustomParameter() {
@@ -243,7 +252,13 @@ function saveAssistant() {
           <UiSettingRow :value="form.contextMessages || '不限'">
             <template #label>上下文数 <small>?</small></template>
           </UiSettingRow>
-          <UiRange v-model="form.contextMessages" :min="0" :max="100" :step="1" aria-label="上下文数" />
+          <UiRange
+            v-model="form.contextMessages"
+            :min="0"
+            :max="100"
+            :step="1"
+            aria-label="上下文数"
+          />
           <div class="ai-assistant-settings__scale">
             <span>0</span><span>25</span><span>50</span><span>75</span><span>不限</span>
           </div>
@@ -293,17 +308,28 @@ function saveAssistant() {
               添加参数
             </UiButton>
           </UiSettingRow>
-          <div v-for="parameter in form.customParameters" :key="parameter.id" class="ai-assistant-settings__param">
+          <div
+            v-for="parameter in form.customParameters"
+            :key="parameter.id"
+            class="ai-assistant-settings__param"
+          >
             <UiInput v-model="parameter.key" size="sm" placeholder="参数名" />
             <UiInput v-model="parameter.value" size="sm" placeholder="参数值" />
-            <UiButton size="sm" variant="ghost" @click="removeCustomParameter(parameter.id)">删除</UiButton>
+            <UiButton size="sm" variant="ghost" @click="removeCustomParameter(parameter.id)"
+              >删除</UiButton
+            >
           </div>
         </section>
 
-        <section v-else-if="activeTab === 'prompt'" class="ai-assistant-settings__pane ai-assistant-settings__pane--fill">
+        <section
+          v-else-if="activeTab === 'prompt'"
+          class="ai-assistant-settings__pane ai-assistant-settings__pane--fill"
+        >
           <UiField label="头像与名称" hint="头像支持 1-2 个文字或 Emoji。">
             <div class="ai-assistant-settings__name-row">
-              <span class="ai-assistant-settings__avatar-preview" aria-hidden="true">{{ form.emoji.trim() || '助' }}</span>
+              <span class="ai-assistant-settings__avatar-preview" aria-hidden="true">{{
+                form.emoji.trim() || '助'
+              }}</span>
               <UiInput
                 v-model="form.emoji"
                 class="ai-assistant-settings__emoji"
@@ -317,7 +343,12 @@ function saveAssistant() {
           </UiField>
           <UiField class="ai-assistant-settings__prompt-field">
             <template #label>提示词 <small>?</small></template>
-            <UiTextarea v-model="form.systemPrompt" class="ai-assistant-settings__prompt" :rows="18" resize="vertical" />
+            <UiTextarea
+              v-model="form.systemPrompt"
+              class="ai-assistant-settings__prompt"
+              :rows="18"
+              resize="vertical"
+            />
           </UiField>
           <div class="ai-assistant-settings__footer-note">Tokens: {{ promptTokenEstimate }}</div>
         </section>
@@ -326,7 +357,11 @@ function saveAssistant() {
           <UiField label="知识库">
             <div class="ai-assistant-settings__grid">
               <UiInput v-model="form.knowledgeLibraryId" size="sm" placeholder="选择知识库" />
-              <UiInput v-model="form.knowledgeSpaceId" size="sm" placeholder="知识库 Space，可留空" />
+              <UiInput
+                v-model="form.knowledgeSpaceId"
+                size="sm"
+                placeholder="知识库 Space，可留空"
+              />
             </div>
           </UiField>
           <UiField label="调用知识库">
@@ -358,9 +393,17 @@ function saveAssistant() {
           </UiButton>
         </section>
 
-        <section v-else-if="activeTab === 'phrases'" class="ai-assistant-settings__pane ai-assistant-settings__pane--fill">
+        <section
+          v-else-if="activeTab === 'phrases'"
+          class="ai-assistant-settings__pane ai-assistant-settings__pane--fill"
+        >
           <UiField class="ai-assistant-settings__prompt-field" label="常用短语">
-            <UiTextarea v-model="phrasesText" :rows="18" resize="vertical" placeholder="每行一个短语" />
+            <UiTextarea
+              v-model="phrasesText"
+              :rows="18"
+              resize="vertical"
+              placeholder="每行一个短语"
+            />
           </UiField>
         </section>
 
@@ -369,7 +412,12 @@ function saveAssistant() {
             <template #label>全局记忆 <small>i</small></template>
             <UiSwitch v-model="form.memoryEnabled" aria-label="启用全局记忆" />
           </UiSettingRow>
-          <UiCard class="ai-assistant-settings__notice" padding="sm" radius="sm" :class="{ 'is-enabled': form.memoryEnabled }">
+          <UiCard
+            class="ai-assistant-settings__notice"
+            padding="sm"
+            radius="sm"
+            :class="{ 'is-enabled': form.memoryEnabled }"
+          >
             <strong>{{ form.memoryEnabled ? '全局记忆偏好已启用' : '全局记忆偏好已禁用' }}</strong>
             <span>启用后，聊天会注入全局、项目和当前助手的显式记忆。</span>
           </UiCard>
@@ -382,7 +430,9 @@ function saveAssistant() {
 
     <template #footer>
       <footer class="ai-assistant-settings__footer">
-        <UiButton v-if="assistant" size="sm" variant="danger" @click="emit('delete', assistant.id)">删除角色</UiButton>
+        <UiButton v-if="assistant" size="sm" variant="danger" @click="emit('delete', assistant.id)"
+          >删除角色</UiButton
+        >
         <div class="ai-assistant-settings__footer-spacer" />
         <UiButton size="sm" @click="emit('update:modelValue', false)">取消</UiButton>
         <UiButton size="sm" variant="primary" @click="saveAssistant">
@@ -581,7 +631,8 @@ function saveAssistant() {
   flex-direction: column;
   gap: 8px;
   padding: 20px;
-  border: var(--ui-border-width-thin) solid color-mix(in srgb, var(--ui-warning-color) 55%, var(--ui-border-subtle));
+  border: var(--ui-border-width-thin) solid
+    color-mix(in srgb, var(--ui-warning-color) 55%, var(--ui-border-subtle));
   border-radius: var(--ui-radius-sm);
   background: color-mix(in srgb, var(--ui-warning-color) 10%, transparent);
 

@@ -17,23 +17,45 @@ export function exportAiConfigForSync(
   input: {
     ownerDeviceId: string;
     updatedAt?: number;
-  },
+  }
 ): AiSyncExport {
   const updatedAt = input.updatedAt ?? Date.now();
   const providers = config.providers.map(sanitizeAiProviderForSync);
   return {
     objects: [
       ...config.assistants.map((assistant) =>
-        createEnvelope('ai.assistant', assistant.id, input.ownerDeviceId, sanitizeAiAssistantForSync(assistant), updatedAt)),
+        createEnvelope(
+          'ai.assistant',
+          assistant.id,
+          input.ownerDeviceId,
+          sanitizeAiAssistantForSync(assistant),
+          updatedAt
+        )
+      ),
       ...providers.map((provider) =>
-        createEnvelope('ai.provider', provider.id, input.ownerDeviceId, provider, updatedAt)),
+        createEnvelope('ai.provider', provider.id, input.ownerDeviceId, provider, updatedAt)
+      ),
       ...providers.flatMap((provider) =>
         provider.models.map((model) =>
-          createEnvelope('ai.model_config', `${provider.id}:${model.id}`, input.ownerDeviceId, {
-            ...sanitizeAiModelForSync(model),
-            providerId: provider.id,
-          }, updatedAt))),
-      createEnvelope('ai.model_config', 'research-settings', input.ownerDeviceId, sanitizeAiResearchForSync(config.research), updatedAt),
+          createEnvelope(
+            'ai.model_config',
+            `${provider.id}:${model.id}`,
+            input.ownerDeviceId,
+            {
+              ...sanitizeAiModelForSync(model),
+              providerId: provider.id,
+            },
+            updatedAt
+          )
+        )
+      ),
+      createEnvelope(
+        'ai.model_config',
+        'research-settings',
+        input.ownerDeviceId,
+        sanitizeAiResearchForSync(config.research),
+        updatedAt
+      ),
     ],
   };
 }
@@ -130,7 +152,7 @@ function createEnvelope<TPayload>(
   objectId: string,
   ownerDeviceId: string,
   payload: TPayload,
-  updatedAt: number,
+  updatedAt: number
 ): SyncObjectEnvelope<TPayload> {
   const body = JSON.stringify(payload);
   return {

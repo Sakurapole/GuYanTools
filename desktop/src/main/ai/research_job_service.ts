@@ -25,7 +25,10 @@ type AiResearchDatabase = JsDatabase & {
   createAiResearchJob: (input: Record<string, unknown>) => Promise<Record<string, unknown>>;
   getAiResearchJob: (id: string) => Promise<Record<string, unknown>>;
   listAiResearchJobs: (input?: Record<string, unknown>) => Promise<Record<string, unknown>[]>;
-  updateAiResearchJob: (id: string, input: Record<string, unknown>) => Promise<Record<string, unknown>>;
+  updateAiResearchJob: (
+    id: string,
+    input: Record<string, unknown>
+  ) => Promise<Record<string, unknown>>;
   insertAiResearchSource: (input: Record<string, unknown>) => Promise<Record<string, unknown>>;
   listAiResearchSources: (jobId: string) => Promise<Record<string, unknown>[]>;
   searchKnowledge: (input: KnowledgeSearchPayload) => Promise<KnowledgeSearchResult[]>;
@@ -50,9 +53,11 @@ class AiResearchJobService {
       limit: input?.limit,
     });
     const jobs = rows.map(mapResearchJob);
-    await Promise.all(jobs.map(async (job) => {
-      job.sources = await this.listSources(job.id);
-    }));
+    await Promise.all(
+      jobs.map(async (job) => {
+        job.sources = await this.listSources(job.id);
+      })
+    );
     return jobs;
   }
 
@@ -74,12 +79,16 @@ class AiResearchJobService {
     }
 
     const config = (await appConfigManager.getConfig()).features.aiAgent;
-    const providerId = input.options?.providerId || config.defaultProviderId || config.providers.find((item) => item.enabled)?.id;
+    const providerId =
+      input.options?.providerId ||
+      config.defaultProviderId ||
+      config.providers.find((item) => item.enabled)?.id;
     const provider = providerId ? findAiProvider(config, providerId) : undefined;
-    const modelId = input.options?.modelId
-      || config.defaultChatModelId
-      || provider?.models.find((model) => !model.capabilities.embedding)?.id
-      || provider?.models[0]?.id;
+    const modelId =
+      input.options?.modelId ||
+      config.defaultChatModelId ||
+      provider?.models.find((model) => !model.capabilities.embedding)?.id ||
+      provider?.models[0]?.id;
     if (!provider || !modelId || !findAiModel(config, provider.id, modelId)) {
       throw new Error('请先配置可用于 Deep Research 的 AI 模型');
     }
@@ -93,17 +102,19 @@ class AiResearchJobService {
       providerId: provider.id,
       modelId,
     };
-    const job = mapResearchJob(await this.db().createAiResearchJob({
-      id: randomUUID(),
-      title: input.title?.trim() || buildResearchTitle(query),
-      query,
-      status: 'queued',
-      stage: 'plan',
-      providerId: provider.id,
-      modelId,
-      progress: 0,
-      optionsJson: JSON.stringify(options),
-    }));
+    const job = mapResearchJob(
+      await this.db().createAiResearchJob({
+        id: randomUUID(),
+        title: input.title?.trim() || buildResearchTitle(query),
+        query,
+        status: 'queued',
+        stage: 'plan',
+        providerId: provider.id,
+        modelId,
+        progress: 0,
+        optionsJson: JSON.stringify(options),
+      })
+    );
     this.emit({ type: 'research-job', job });
     void this.runPipeline(job.id, config, options).catch((): undefined => undefined);
     return job;
@@ -130,12 +141,20 @@ class AiResearchJobService {
     return job;
   }
 
-  private async runPipeline(jobId: string, config: AiAgentFeatureConfig, options: AiResearchRunOptions) {
+  private async runPipeline(
+    jobId: string,
+    config: AiAgentFeatureConfig,
+    options: AiResearchRunOptions
+  ) {
     const controller = new AbortController();
     this.controllers.set(jobId, controller);
     try {
       let job = await this.updateJob(jobId, { status: 'running', stage: 'plan', progress: 5 });
-      const model = resolveLanguageModel(config, options.providerId || job.providerId || '', options.modelId || job.modelId || '');
+      const model = resolveLanguageModel(
+        config,
+        options.providerId || job.providerId || '',
+        options.modelId || job.modelId || ''
+      );
       const plan = await this.generatePlan(model, job.query, controller.signal);
       this.throwIfCancelled(controller);
 
@@ -153,11 +172,22 @@ class AiResearchJobService {
       this.throwIfCancelled(controller);
 
       await this.updateJob(jobId, { stage: 'read', progress: 45 });
-      const summarizedSources = await this.summarizeSources(model, job.query, sources, controller.signal);
+      const summarizedSources = await this.summarizeSources(
+        model,
+        job.query,
+        sources,
+        controller.signal
+      );
       this.throwIfCancelled(controller);
 
       await this.updateJob(jobId, { stage: 'synthesize', progress: 75 });
-      const report = await this.synthesizeReport(model, job.query, plan, summarizedSources, controller.signal);
+      const report = await this.synthesizeReport(
+        model,
+        job.query,
+        plan,
+        summarizedSources,
+        controller.signal
+      );
       this.throwIfCancelled(controller);
 
       await this.updateJob(jobId, { stage: 'citation_check', progress: 92 });
@@ -188,7 +218,11 @@ class AiResearchJobService {
     }
   }
 
-  private async generatePlan(model: Parameters<typeof generateText>[0]['model'], query: string, abortSignal: AbortSignal) {
+  private async generatePlan(
+    model: Parameters<typeof generateText>[0]['model'],
+    query: string,
+    abortSignal: AbortSignal
+  ) {
     const result = await generateText({
       model,
       system: '你是一个研究规划器。只规划 web 和本地知识库检索，不提出执行外部动作。',
@@ -204,10 +238,13 @@ class AiResearchJobService {
     config: AiAgentFeatureConfig,
     options: AiResearchRunOptions,
     queries: string[],
-    abortSignal: AbortSignal,
+    abortSignal: AbortSignal
   ): Promise<AiCitation[]> {
     const citations: AiCitation[] = [];
-    const maxSources = Math.max(3, Math.min(24, options.maxSources ?? DEFAULT_MAX_RESEARCH_SOURCES));
+    const maxSources = Math.max(
+      3,
+      Math.min(24, options.maxSources ?? DEFAULT_MAX_RESEARCH_SOURCES)
+    );
     for (const query of queries) {
       if (abortSignal.aborted) {
         throw new Error('Deep Research 已取消');
@@ -238,16 +275,18 @@ class AiResearchJobService {
   private async persistSources(jobId: string, citations: AiCitation[]) {
     const sources: AiResearchSource[] = [];
     for (const citation of citations) {
-      const source = mapResearchSource(await this.db().insertAiResearchSource({
-        id: randomUUID(),
-        jobId,
-        sourceType: normalizeResearchSourceType(citation.sourceType),
-        title: citation.title,
-        url: citation.url,
-        sourceId: citation.sourceId,
-        snippet: citation.snippet,
-        metadataJson: citation.metadata ? JSON.stringify(citation.metadata) : undefined,
-      }));
+      const source = mapResearchSource(
+        await this.db().insertAiResearchSource({
+          id: randomUUID(),
+          jobId,
+          sourceType: normalizeResearchSourceType(citation.sourceType),
+          title: citation.title,
+          url: citation.url,
+          sourceId: citation.sourceId,
+          snippet: citation.snippet,
+          metadataJson: citation.metadata ? JSON.stringify(citation.metadata) : undefined,
+        })
+      );
       sources.push(source);
       this.emit({ type: 'research-source', jobId, source });
     }
@@ -258,7 +297,7 @@ class AiResearchJobService {
     model: Parameters<typeof generateText>[0]['model'],
     query: string,
     sources: AiResearchSource[],
-    abortSignal: AbortSignal,
+    abortSignal: AbortSignal
   ) {
     const summarized: AiResearchSource[] = [];
     for (const [index, source] of sources.entries()) {
@@ -273,7 +312,9 @@ class AiResearchJobService {
           `片段：${source.snippet || '无片段'}`,
           '',
           '请用 2-4 条中文要点概括该来源对研究主题的贡献。',
-        ].filter(Boolean).join('\n'),
+        ]
+          .filter(Boolean)
+          .join('\n'),
         abortSignal,
         maxOutputTokens: 700,
         maxRetries: 1,
@@ -288,15 +329,20 @@ class AiResearchJobService {
     query: string,
     plan: string,
     sources: AiResearchSource[],
-    abortSignal: AbortSignal,
+    abortSignal: AbortSignal
   ) {
-    const sourceBlock = sources.map((source, index) => [
-      `[${index + 1}] ${source.title}${source.url ? ` (${source.url})` : ''}`,
-      source.summary || source.snippet || '',
-    ].join('\n')).join('\n\n');
+    const sourceBlock = sources
+      .map((source, index) =>
+        [
+          `[${index + 1}] ${source.title}${source.url ? ` (${source.url})` : ''}`,
+          source.summary || source.snippet || '',
+        ].join('\n')
+      )
+      .join('\n\n');
     const result = await generateText({
       model,
-      system: '你是 Deep Research 报告撰写器。必须基于来源写作，所有关键结论必须使用 [1] 这种编号引用。',
+      system:
+        '你是 Deep Research 报告撰写器。必须基于来源写作，所有关键结论必须使用 [1] 这种编号引用。',
       prompt: [
         `研究主题：${query}`,
         '',
@@ -325,16 +371,19 @@ class AiResearchJobService {
       .slice(0, input.limit ?? config.research.maxSources);
   }
 
-  private async updateJob(jobId: string, input: Partial<{
-    title: string;
-    status: AiResearchJobStatus;
-    stage: AiResearchStage;
-    progress: number;
-    reportMarkdown: string;
-    errorMessage: string;
-    optionsJson: string;
-    completedAt: string;
-  }>) {
+  private async updateJob(
+    jobId: string,
+    input: Partial<{
+      title: string;
+      status: AiResearchJobStatus;
+      stage: AiResearchStage;
+      progress: number;
+      reportMarkdown: string;
+      errorMessage: string;
+      optionsJson: string;
+      completedAt: string;
+    }>
+  ) {
     const job = mapResearchJob(await this.db().updateAiResearchJob(jobId, input));
     job.sources = await this.listSources(jobId);
     this.emit({ type: 'research-job', job });
@@ -436,7 +485,8 @@ function mapResearchJob(row: Record<string, unknown>): AiResearchJob {
     progress: Number(readField(row, 'progress') ?? 0),
     reportMarkdown: optionalString(readField(row, 'reportMarkdown', 'report_markdown')),
     errorMessage: optionalString(readField(row, 'errorMessage', 'error_message')),
-    options: parseJson(readField(row, 'optionsJson', 'options_json')) as AiResearchRunOptions | undefined,
+    options: parseJson(readField(row, 'optionsJson', 'options_json')) as
+      AiResearchRunOptions | undefined,
     createdAt: String(readField(row, 'createdAt', 'created_at')),
     updatedAt: String(readField(row, 'updatedAt', 'updated_at')),
     completedAt: optionalString(readField(row, 'completedAt', 'completed_at')),
@@ -447,7 +497,9 @@ function mapResearchSource(row: Record<string, unknown>): AiResearchSource {
   return {
     id: String(readField(row, 'id')),
     jobId: String(readField(row, 'jobId', 'job_id')),
-    sourceType: normalizeResearchSourceType(String(readField(row, 'sourceType', 'source_type') ?? 'knowledge-page')),
+    sourceType: normalizeResearchSourceType(
+      String(readField(row, 'sourceType', 'source_type') ?? 'knowledge-page')
+    ),
     title: String(readField(row, 'title') ?? '来源'),
     url: optionalString(readField(row, 'url')),
     sourceId: optionalString(readField(row, 'sourceId', 'source_id')),
@@ -459,14 +511,26 @@ function mapResearchSource(row: Record<string, unknown>): AiResearchSource {
 }
 
 function normalizeJobStatus(value: unknown): AiResearchJobStatus {
-  if (value === 'queued' || value === 'running' || value === 'succeeded' || value === 'failed' || value === 'cancelled') {
+  if (
+    value === 'queued' ||
+    value === 'running' ||
+    value === 'succeeded' ||
+    value === 'failed' ||
+    value === 'cancelled'
+  ) {
     return value;
   }
   return 'queued';
 }
 
 function normalizeStage(value: unknown): AiResearchStage {
-  if (value === 'search' || value === 'read' || value === 'synthesize' || value === 'citation_check' || value === 'done') {
+  if (
+    value === 'search' ||
+    value === 'read' ||
+    value === 'synthesize' ||
+    value === 'citation_check' ||
+    value === 'done'
+  ) {
     return value;
   }
   return 'plan';

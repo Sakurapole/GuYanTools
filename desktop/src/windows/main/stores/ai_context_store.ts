@@ -22,8 +22,8 @@ export const useAiContextStore = defineStore('ai-context', () => {
   const saving = ref(false);
   const error = ref('');
 
-  const activeProject = computed(() =>
-    projects.value.find((project) => project.id === activeProjectId.value) ?? null,
+  const activeProject = computed(
+    () => projects.value.find((project) => project.id === activeProjectId.value) ?? null
   );
   const enabledMemories = computed(() => memories.value.filter((memory) => memory.enabled));
 
@@ -40,7 +40,10 @@ export const useAiContextStore = defineStore('ai-context', () => {
       ]);
       projects.value = nextProjects;
       memories.value = nextMemories;
-      if (activeProjectId.value && !nextProjects.some((project) => project.id === activeProjectId.value)) {
+      if (
+        activeProjectId.value &&
+        !nextProjects.some((project) => project.id === activeProjectId.value)
+      ) {
         activeProjectId.value = '';
       }
     } catch (cause) {
@@ -137,13 +140,15 @@ export const useAiContextStore = defineStore('ai-context', () => {
   }
 
   function upsertProject(project: AiProject) {
-    projects.value = [project, ...projects.value.filter((item) => item.id !== project.id)]
-      .sort((left, right) => right.updatedAt.localeCompare(left.updatedAt));
+    projects.value = [project, ...projects.value.filter((item) => item.id !== project.id)].sort(
+      (left, right) => right.updatedAt.localeCompare(left.updatedAt)
+    );
   }
 
   function upsertMemory(memory: AiMemory) {
-    memories.value = [memory, ...memories.value.filter((item) => item.id !== memory.id)]
-      .sort((left, right) => right.updatedAt.localeCompare(left.updatedAt));
+    memories.value = [memory, ...memories.value.filter((item) => item.id !== memory.id)].sort(
+      (left, right) => right.updatedAt.localeCompare(left.updatedAt)
+    );
   }
 
   return {

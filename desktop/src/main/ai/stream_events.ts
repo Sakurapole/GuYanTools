@@ -1,6 +1,10 @@
 import type { AiStreamEvent, AiTokenUsage } from '@/contracts/ai';
 
-export function mapAiSdkPartToAiEvent(part: unknown, runId: string, messageId: string): AiStreamEvent | null {
+export function mapAiSdkPartToAiEvent(
+  part: unknown,
+  runId: string,
+  messageId: string
+): AiStreamEvent | null {
   if (!part || typeof part !== 'object') {
     return null;
   }
@@ -24,16 +28,34 @@ export function mapAiSdkPartToAiEvent(part: unknown, runId: string, messageId: s
     return delta ? { type: 'text-delta', runId, messageId, delta } : null;
   }
 
-  if ((typed.type === 'reasoning-delta' || typed.type === 'reasoning') && (typed.textDelta || typed.text || typed.delta)) {
-    return { type: 'reasoning-delta', runId, messageId, delta: typed.textDelta ?? typed.text ?? typed.delta ?? '' };
+  if (
+    (typed.type === 'reasoning-delta' || typed.type === 'reasoning') &&
+    (typed.textDelta || typed.text || typed.delta)
+  ) {
+    return {
+      type: 'reasoning-delta',
+      runId,
+      messageId,
+      delta: typed.textDelta ?? typed.text ?? typed.delta ?? '',
+    };
   }
 
   if (typed.type === 'tool-call-streaming-start' && typed.toolCallId && typed.toolName) {
-    return { type: 'tool-call-start', runId, toolCallId: typed.toolCallId, toolName: typed.toolName };
+    return {
+      type: 'tool-call-start',
+      runId,
+      toolCallId: typed.toolCallId,
+      toolName: typed.toolName,
+    };
   }
 
   if (typed.type === 'tool-call-delta' && typed.toolCallId) {
-    return { type: 'tool-call-delta', runId, toolCallId: typed.toolCallId, delta: typed.argsTextDelta ?? typed.delta ?? '' };
+    return {
+      type: 'tool-call-delta',
+      runId,
+      toolCallId: typed.toolCallId,
+      delta: typed.argsTextDelta ?? typed.delta ?? '',
+    };
   }
 
   if (typed.type === 'finish') {

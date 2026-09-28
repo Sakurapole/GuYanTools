@@ -35,19 +35,30 @@ const modeOptions: { label: string; value: AiCanvasMode }[] = [
   { label: 'HTML', value: 'html' },
   { label: 'React', value: 'react' },
 ];
-const workspaceOptions = computed(() => (canvasStore.workspacesByConversation[props.conversationId] ?? []).map((workspace) => ({
-  label: workspace.title,
-  value: workspace.id,
-})));
+const workspaceOptions = computed(() =>
+  (canvasStore.workspacesByConversation[props.conversationId] ?? []).map((workspace) => ({
+    label: workspace.title,
+    value: workspace.id,
+  }))
+);
 const activeWorkspace = computed(() => canvasStore.activeWorkspace);
 const activeFiles = computed(() => canvasStore.activeFiles);
-const selectedFile = computed(() =>
-  activeFiles.value.find((file) => file.path === selectedFilePath.value) ?? activeFiles.value[0] ?? null,
+const selectedFile = computed(
+  () =>
+    activeFiles.value.find((file) => file.path === selectedFilePath.value) ??
+    activeFiles.value[0] ??
+    null
 );
-const canSave = computed(() => Boolean(activeWorkspace.value && selectedFile.value && draftContent.value !== selectedFile.value.content));
+const canSave = computed(() =>
+  Boolean(
+    activeWorkspace.value && selectedFile.value && draftContent.value !== selectedFile.value.content
+  )
+);
 const canPreview = computed(() => Boolean(activeWorkspace.value && activeFiles.value.length));
 const operations = computed(() => canvasStore.activeOperations.slice(0, 8));
-const pendingOperations = computed(() => operations.value.filter((operation) => operation.status === 'pending'));
+const pendingOperations = computed(() =>
+  operations.value.filter((operation) => operation.status === 'pending')
+);
 const versions = computed(() => canvasStore.activeVersions.slice(0, 8));
 
 watch(
@@ -58,24 +69,24 @@ watch(
       syncSelectedFile();
     }
   },
-  { immediate: true },
+  { immediate: true }
 );
 
 watch(
   () => canvasStore.activeWorkspaceId,
-  () => syncSelectedFile(),
+  () => syncSelectedFile()
 );
 
 watch(
   () => activeFiles.value.map((file) => `${file.path}:${file.updatedAt}`).join('|'),
-  () => syncSelectedFile(),
+  () => syncSelectedFile()
 );
 
 watch(
   () => selectedFile.value?.id,
   () => {
     draftContent.value = selectedFile.value?.content ?? '';
-  },
+  }
 );
 
 async function createWorkspace() {
@@ -169,12 +180,18 @@ function syncSelectedFile() {
 
 function operationLabel(type: string) {
   switch (type) {
-    case 'create': return '创建';
-    case 'replace_file': return '替换';
-    case 'append_file': return '追加';
-    case 'delete_file': return '删除';
-    case 'patch_file': return '局部修改';
-    default: return type;
+    case 'create':
+      return '创建';
+    case 'replace_file':
+      return '替换';
+    case 'append_file':
+      return '追加';
+    case 'delete_file':
+      return '删除';
+    case 'patch_file':
+      return '局部修改';
+    default:
+      return type;
   }
 }
 
@@ -191,10 +208,14 @@ function operationPayload(payloadJson: string) {
 
 function operationStatusLabel(status: AiCanvasOperation['status']) {
   switch (status) {
-    case 'pending': return '待确认';
-    case 'applied': return '已应用';
-    case 'rejected': return '已拒绝';
-    default: return status;
+    case 'pending':
+      return '待确认';
+    case 'applied':
+      return '已应用';
+    case 'rejected':
+      return '已拒绝';
+    default:
+      return status;
   }
 }
 
@@ -220,7 +241,7 @@ function parseOperationPayload(payloadJson: string) {
   try {
     const payload = JSON.parse(payloadJson);
     return payload && typeof payload === 'object' && !Array.isArray(payload)
-      ? payload as Record<string, unknown>
+      ? (payload as Record<string, unknown>)
       : {};
   } catch {
     return {};
@@ -237,7 +258,11 @@ function previewText(value: string) {
     <header class="ai-canvas-panel__header">
       <UiPanelHeader
         title="Canvas"
-        :subtitle="activeWorkspace ? `${activeWorkspace.mode} / ${activeFiles.length} 文件` : '创建或等待 AI 生成工作区'"
+        :subtitle="
+          activeWorkspace
+            ? `${activeWorkspace.mode} / ${activeFiles.length} 文件`
+            : '创建或等待 AI 生成工作区'
+        "
       >
         <template #actions>
           <UiCheckbox
@@ -247,12 +272,7 @@ function previewText(value: string) {
           >
             启用
           </UiCheckbox>
-          <UiIconButton
-            size="sm"
-            variant="ghost"
-            title="关闭 Canvas"
-            @click="emit('close')"
-          >
+          <UiIconButton size="sm" variant="ghost" title="关闭 Canvas" @click="emit('close')">
             <IconRenderer icon="iconify:lucide:x" :size="15" />
           </UiIconButton>
         </template>
@@ -262,7 +282,12 @@ function previewText(value: string) {
     <section class="ai-canvas-panel__create">
       <UiInput v-model="newTitle" size="sm" placeholder="Canvas 名称" />
       <UiSelect v-model="newMode" size="sm" :options="modeOptions" />
-      <UiButton size="sm" variant="primary" :disabled="!conversationId || canvasStore.saving" @click="createWorkspace">
+      <UiButton
+        size="sm"
+        variant="primary"
+        :disabled="!conversationId || canvasStore.saving"
+        @click="createWorkspace"
+      >
         新建
       </UiButton>
     </section>
@@ -309,7 +334,12 @@ function previewText(value: string) {
               </template>
               预览
             </UiButton>
-            <UiButton size="sm" variant="secondary" :disabled="!canSave || canvasStore.saving" @click="saveFile">
+            <UiButton
+              size="sm"
+              variant="secondary"
+              :disabled="!canSave || canvasStore.saving"
+              @click="saveFile"
+            >
               保存
             </UiButton>
           </template>
@@ -334,24 +364,43 @@ function previewText(value: string) {
 
     <footer class="ai-canvas-panel__history">
       <UiCard class="ai-canvas-panel__history-block" padding="sm" radius="sm">
-        <h4>AI 操作 <small v-if="pendingOperations.length">{{ pendingOperations.length }} 待确认</small></h4>
+        <h4>
+          AI 操作
+          <small v-if="pendingOperations.length">{{ pendingOperations.length }} 待确认</small>
+        </h4>
         <p v-if="canvasStore.error" class="ai-canvas-panel__error">{{ canvasStore.error }}</p>
         <p v-if="operations.length === 0">暂无操作</p>
         <ul v-else>
           <li v-for="operation in operations" :key="operation.id">
             <div class="ai-canvas-panel__operation-head">
               <span>{{ operationLabel(operation.operationType) }}</span>
-              <small :class="`ai-canvas-panel__operation-status ai-canvas-panel__operation-status--${operation.status}`">
+              <small
+                :class="`ai-canvas-panel__operation-status ai-canvas-panel__operation-status--${operation.status}`"
+              >
                 {{ operationStatusLabel(operation.status) }}
               </small>
             </div>
-            <small class="ai-canvas-panel__operation-target">{{ operationPayload(operation.payloadJson) }}</small>
-            <pre v-if="operation.status === 'pending'" class="ai-canvas-panel__operation-preview">{{ operationPreview(operation) }}</pre>
+            <small class="ai-canvas-panel__operation-target">{{
+              operationPayload(operation.payloadJson)
+            }}</small>
+            <pre v-if="operation.status === 'pending'" class="ai-canvas-panel__operation-preview">{{
+              operationPreview(operation)
+            }}</pre>
             <div v-if="operation.status === 'pending'" class="ai-canvas-panel__operation-actions">
-              <UiButton size="sm" variant="secondary" :disabled="canvasStore.saving" @click="applyOperation(operation.id)">
+              <UiButton
+                size="sm"
+                variant="secondary"
+                :disabled="canvasStore.saving"
+                @click="applyOperation(operation.id)"
+              >
                 应用
               </UiButton>
-              <UiButton size="sm" variant="ghost" :disabled="canvasStore.saving" @click="rejectOperation(operation.id)">
+              <UiButton
+                size="sm"
+                variant="ghost"
+                :disabled="canvasStore.saving"
+                @click="rejectOperation(operation.id)"
+              >
                 拒绝
               </UiButton>
             </div>
@@ -397,7 +446,8 @@ function previewText(value: string) {
 .ai-canvas-panel__create,
 .ai-canvas-panel__workspace,
 .ai-canvas-panel__toolbar {
-  border-bottom: var(--ui-border-width-thin, 1px) solid var(--ui-border-subtle, rgba(15, 23, 42, 0.1));
+  border-bottom: var(--ui-border-width-thin, 1px) solid
+    var(--ui-border-subtle, rgba(15, 23, 42, 0.1));
 }
 
 .ai-canvas-panel__header {
@@ -435,7 +485,8 @@ function previewText(value: string) {
   min-height: 0;
   padding: 8px;
   overflow-y: auto;
-  border-right: var(--ui-border-width-thin, 1px) solid var(--ui-border-subtle, rgba(15, 23, 42, 0.1));
+  border-right: var(--ui-border-width-thin, 1px) solid
+    var(--ui-border-subtle, rgba(15, 23, 42, 0.1));
   background: var(--ui-surface-muted, #eef4f8);
 }
 
@@ -556,7 +607,8 @@ function previewText(value: string) {
     gap: 5px;
     min-width: 0;
     padding: 6px 0;
-    border-top: var(--ui-border-width-thin, 1px) solid var(--ui-border-subtle, rgba(15, 23, 42, 0.08));
+    border-top: var(--ui-border-width-thin, 1px) solid
+      var(--ui-border-subtle, rgba(15, 23, 42, 0.08));
 
     &:first-child {
       border-top: 0;

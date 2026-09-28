@@ -6,7 +6,10 @@ import { waitForDevServer } from '@/main/windows/wait_for_dev_server';
 let previewWindow: BrowserWindow | null = null;
 let lastPayload: AiCanvasPreviewPayload | null = null;
 
-export async function showAiCanvasPreviewWindow(payload: AiCanvasPreviewPayload, parent?: BrowserWindow | null) {
+export async function showAiCanvasPreviewWindow(
+  payload: AiCanvasPreviewPayload,
+  parent?: BrowserWindow | null
+) {
   lastPayload = payload;
 
   if (previewWindow && !previewWindow.isDestroyed()) {
@@ -48,7 +51,7 @@ export async function showAiCanvasPreviewWindow(payload: AiCanvasPreviewPayload,
     await previewWindow.loadURL(url);
   } else {
     await previewWindow.loadFile(
-      path.join(__dirname, `../renderer/${MAIN_WINDOW_VITE_NAME}/ai_canvas_preview.html`),
+      path.join(__dirname, `../renderer/${MAIN_WINDOW_VITE_NAME}/ai_canvas_preview.html`)
     );
   }
 

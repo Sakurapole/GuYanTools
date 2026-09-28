@@ -31,17 +31,25 @@ export const useAiCanvasStore = defineStore('ai-canvas', () => {
 
   const activeWorkspaceId = computed(() => {
     const conversationId = activeConversationId.value;
-    return conversationId ? activeWorkspaceIdByConversation.value[conversationId] ?? '' : '';
+    return conversationId ? (activeWorkspaceIdByConversation.value[conversationId] ?? '') : '';
   });
   const activeWorkspace = computed(() => {
     const conversationId = activeConversationId.value;
     const workspaceId = activeWorkspaceId.value;
-    return (workspacesByConversation.value[conversationId] ?? []).find((workspace) => workspace.id === workspaceId) ?? null;
+    return (
+      (workspacesByConversation.value[conversationId] ?? []).find(
+        (workspace) => workspace.id === workspaceId
+      ) ?? null
+    );
   });
-  const activeFiles = computed(() => activeWorkspaceId.value ? filesByWorkspace.value[activeWorkspaceId.value] ?? [] : []);
-  const activeVersions = computed(() => activeWorkspaceId.value ? versionsByWorkspace.value[activeWorkspaceId.value] ?? [] : []);
+  const activeFiles = computed(() =>
+    activeWorkspaceId.value ? (filesByWorkspace.value[activeWorkspaceId.value] ?? []) : []
+  );
+  const activeVersions = computed(() =>
+    activeWorkspaceId.value ? (versionsByWorkspace.value[activeWorkspaceId.value] ?? []) : []
+  );
   const activeOperations = computed(() =>
-    activeWorkspaceId.value ? operationsByWorkspace.value[activeWorkspaceId.value] ?? [] : [],
+    activeWorkspaceId.value ? (operationsByWorkspace.value[activeWorkspaceId.value] ?? []) : []
   );
 
   function ensureStreamSubscription() {
@@ -65,7 +73,8 @@ export const useAiCanvasStore = defineStore('ai-canvas', () => {
         ...workspacesByConversation.value,
         [conversationId]: workspaces,
       };
-      const activeWorkspaceId = activeWorkspaceIdByConversation.value[conversationId] || workspaces[0]?.id || '';
+      const activeWorkspaceId =
+        activeWorkspaceIdByConversation.value[conversationId] || workspaces[0]?.id || '';
       if (activeWorkspaceId) {
         activeWorkspaceIdByConversation.value = {
           ...activeWorkspaceIdByConversation.value,
@@ -118,7 +127,10 @@ export const useAiCanvasStore = defineStore('ai-canvas', () => {
       upsertWorkspace(result.workspace);
       filesByWorkspace.value = { ...filesByWorkspace.value, [result.workspace.id]: result.files };
       if (result.version) {
-        versionsByWorkspace.value = { ...versionsByWorkspace.value, [result.workspace.id]: [result.version] };
+        versionsByWorkspace.value = {
+          ...versionsByWorkspace.value,
+          [result.workspace.id]: [result.version],
+        };
       }
       activeConversationId.value = input.conversationId;
       activeWorkspaceIdByConversation.value = {
@@ -176,7 +188,10 @@ export const useAiCanvasStore = defineStore('ai-canvas', () => {
     try {
       const result = await window.aiApi.applyCanvasOperation(id);
       upsertOperationState(result.operation);
-      filesByWorkspace.value = { ...filesByWorkspace.value, [result.operation.workspaceId]: result.files };
+      filesByWorkspace.value = {
+        ...filesByWorkspace.value,
+        [result.operation.workspaceId]: result.files,
+      };
       await loadWorkspaceDetails(result.operation.workspaceId);
       return result;
     } catch (cause) {
@@ -211,7 +226,9 @@ export const useAiCanvasStore = defineStore('ai-canvas', () => {
       return;
     }
     await window.aiApi.deleteCanvasWorkspace(workspaceId);
-    const workspaces = (workspacesByConversation.value[conversationId] ?? []).filter((workspace) => workspace.id !== workspaceId);
+    const workspaces = (workspacesByConversation.value[conversationId] ?? []).filter(
+      (workspace) => workspace.id !== workspaceId
+    );
     workspacesByConversation.value = {
       ...workspacesByConversation.value,
       [conversationId]: workspaces,
@@ -233,8 +250,9 @@ export const useAiCanvasStore = defineStore('ai-canvas', () => {
 
   function upsertWorkspace(workspace: AiCanvasWorkspace) {
     const current = workspacesByConversation.value[workspace.conversationId] ?? [];
-    const next = [workspace, ...current.filter((item) => item.id !== workspace.id)]
-      .sort((left, right) => right.updatedAt.localeCompare(left.updatedAt));
+    const next = [workspace, ...current.filter((item) => item.id !== workspace.id)].sort(
+      (left, right) => right.updatedAt.localeCompare(left.updatedAt)
+    );
     workspacesByConversation.value = {
       ...workspacesByConversation.value,
       [workspace.conversationId]: next,
@@ -260,7 +278,10 @@ export const useAiCanvasStore = defineStore('ai-canvas', () => {
     const current = operationsByWorkspace.value[operation.workspaceId] ?? [];
     operationsByWorkspace.value = {
       ...operationsByWorkspace.value,
-      [operation.workspaceId]: [operation, ...current.filter((item) => item.id !== operation.id)].slice(0, 50),
+      [operation.workspaceId]: [
+        operation,
+        ...current.filter((item) => item.id !== operation.id),
+      ].slice(0, 50),
     };
   }
 

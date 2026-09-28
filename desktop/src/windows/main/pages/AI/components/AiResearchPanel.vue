@@ -44,10 +44,7 @@ const maxSourcesValue = computed(() => {
 
 onMounted(async () => {
   researchStore.ensureSubscription();
-  await Promise.all([
-    researchStore.refresh(),
-    aiConfigStore.refresh(),
-  ]);
+  await Promise.all([researchStore.refresh(), aiConfigStore.refresh()]);
 });
 
 onBeforeUnmount(() => {
@@ -142,7 +139,12 @@ function statusIcon(job: AiResearchJob) {
         <h2>Deep Research</h2>
         <p>固定流程检索 web 与知识库，生成可审计报告。</p>
       </div>
-      <UiButton size="sm" variant="secondary" :disabled="researchStore.loading" @click="researchStore.refresh">
+      <UiButton
+        size="sm"
+        variant="secondary"
+        :disabled="researchStore.loading"
+        @click="researchStore.refresh"
+      >
         <template #prefix>
           <IconRenderer icon="iconify:lucide:refresh-cw" :size="14" />
         </template>
@@ -160,8 +162,20 @@ function statusIcon(job: AiResearchJob) {
       />
       <div class="ai-research-panel__controls">
         <UiSelect v-model="webMode" size="sm" :options="sourceModeOptions" placeholder="Web" />
-        <UiSelect v-model="knowledgeMode" size="sm" :options="sourceModeOptions" placeholder="知识库" />
-        <UiInput v-model="maxSources" size="sm" type="number" :min="3" :max="24" placeholder="来源数" />
+        <UiSelect
+          v-model="knowledgeMode"
+          size="sm"
+          :options="sourceModeOptions"
+          placeholder="知识库"
+        />
+        <UiInput
+          v-model="maxSources"
+          size="sm"
+          type="number"
+          :min="3"
+          :max="24"
+          placeholder="来源数"
+        />
         <UiButton variant="primary" :disabled="!canStart" @click="startResearch">
           <template #prefix>
             <IconRenderer icon="iconify:lucide:search-check" :size="14" />
@@ -212,16 +226,29 @@ function statusIcon(job: AiResearchJob) {
             >
               重试
             </UiButton>
-            <UiButton size="sm" variant="secondary" :disabled="!selectedJob.reportMarkdown" @click="copyReport(selectedJob)">
+            <UiButton
+              size="sm"
+              variant="secondary"
+              :disabled="!selectedJob.reportMarkdown"
+              @click="copyReport(selectedJob)"
+            >
               复制
             </UiButton>
-            <UiButton size="sm" variant="secondary" :disabled="!selectedJob.reportMarkdown" @click="saveReportToKnowledge(selectedJob)">
+            <UiButton
+              size="sm"
+              variant="secondary"
+              :disabled="!selectedJob.reportMarkdown"
+              @click="saveReportToKnowledge(selectedJob)"
+            >
               保存到知识库
             </UiButton>
           </div>
         </header>
 
-        <div class="ai-research-panel__progress" :aria-label="`${Math.round(selectedJob.progress)}%`">
+        <div
+          class="ai-research-panel__progress"
+          :aria-label="`${Math.round(selectedJob.progress)}%`"
+        >
           <span :style="{ width: `${Math.max(2, Math.min(100, selectedJob.progress))}%` }" />
         </div>
 
@@ -237,8 +264,14 @@ function statusIcon(job: AiResearchJob) {
 
         <section class="ai-research-panel__report">
           <h4>报告</h4>
-          <div v-if="renderedReport" class="ai-research-panel__report-content markdown-body" v-html="renderedReport" />
-          <p v-else-if="selectedJob.errorMessage" class="ai-research-panel__error">{{ selectedJob.errorMessage }}</p>
+          <div
+            v-if="renderedReport"
+            class="ai-research-panel__report-content markdown-body"
+            v-html="renderedReport"
+          />
+          <p v-else-if="selectedJob.errorMessage" class="ai-research-panel__error">
+            {{ selectedJob.errorMessage }}
+          </p>
           <p v-else class="ai-research-panel__empty">{{ stageLabel(selectedJob) }}中</p>
         </section>
       </main>

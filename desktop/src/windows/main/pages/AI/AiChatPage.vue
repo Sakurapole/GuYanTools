@@ -79,7 +79,9 @@ const pageModeTabs: UiTabItem[] = [
   { key: 'agent', label: 'Agent' },
 ];
 
-const backgroundTheme = computed(() => appConfigStore.config.appearance.theme === 'dark' ? 'dark' : 'light');
+const backgroundTheme = computed(() =>
+  appConfigStore.config.appearance.theme === 'dark' ? 'dark' : 'light'
+);
 const sidebarBackground = computed(() => resolveAiBackground('sidebar'));
 const conversationBackground = computed(() => resolveAiBackground('conversation'));
 const headerBackground = computed(() => resolveAiBackground('header'));
@@ -95,33 +97,47 @@ const aiPageStyle = computed(() => ({
 }));
 const activeBackgroundPreviewSize = computed(() => {
   switch (activeBackgroundRegion.value) {
-    case 'sidebar': return { width: 292, height: 640 };
-    case 'header': return { width: 900, height: 80 };
-    case 'composer': return { width: 900, height: 240 };
-    default: return { width: 900, height: 560 };
+    case 'sidebar':
+      return { width: 292, height: 640 };
+    case 'header':
+      return { width: 900, height: 80 };
+    case 'composer':
+      return { width: 900, height: 240 };
+    default:
+      return { width: 900, height: 560 };
   }
 });
 
 const readyProvider = computed(() => aiConfigStore.defaultProvider);
 const readyModel = computed(() => aiConfigStore.defaultModel);
-const activeAssistant = computed(() =>
-  aiConfigStore.assistants.find((assistant) => assistant.id === activeAssistantId.value)
-  ?? aiConfigStore.defaultAssistant,
+const activeAssistant = computed(
+  () =>
+    aiConfigStore.assistants.find((assistant) => assistant.id === activeAssistantId.value) ??
+    aiConfigStore.defaultAssistant
 );
-const editingAssistant = computed(() =>
-  aiConfigStore.assistants.find((assistant) => assistant.id === editingAssistantId.value) ?? draftAssistant.value,
+const editingAssistant = computed(
+  () =>
+    aiConfigStore.assistants.find((assistant) => assistant.id === editingAssistantId.value) ??
+    draftAssistant.value
 );
-const providerOptions = computed<UiSelectOption[]>(() => aiConfigStore.enabledProviders.map((provider) => ({
-  label: provider.name,
-  value: provider.id,
-})));
-const selectedProvider = computed(() =>
-  aiConfigStore.enabledProviders.find((provider) => provider.id === selectedProviderId.value) ?? readyProvider.value,
+const providerOptions = computed<UiSelectOption[]>(() =>
+  aiConfigStore.enabledProviders.map((provider) => ({
+    label: provider.name,
+    value: provider.id,
+  }))
 );
-const modelOptions = computed<UiSelectOption[]>(() => selectedProvider.value?.models.map((model) => ({
-  label: model.displayName,
-  value: model.id,
-})) ?? []);
+const selectedProvider = computed(
+  () =>
+    aiConfigStore.enabledProviders.find((provider) => provider.id === selectedProviderId.value) ??
+    readyProvider.value
+);
+const modelOptions = computed<UiSelectOption[]>(
+  () =>
+    selectedProvider.value?.models.map((model) => ({
+      label: model.displayName,
+      value: model.id,
+    })) ?? []
+);
 const searchModeOptions: UiSelectOption[] = [
   { label: '关闭', value: 'off' },
   { label: '自动', value: 'auto' },
@@ -134,8 +150,10 @@ const reasoningEffortOptions: UiSelectOption[] = [
   { label: '最小', value: 'minimal' },
   { label: '极高', value: 'xhigh' },
 ];
-const selectedModel = computed(() =>
-  selectedProvider.value?.models.find((model) => model.id === selectedModelId.value) ?? selectedProvider.value?.models[0],
+const selectedModel = computed(
+  () =>
+    selectedProvider.value?.models.find((model) => model.id === selectedModelId.value) ??
+    selectedProvider.value?.models[0]
 );
 const canChat = computed(() => Boolean(selectedProvider.value && selectedModel.value));
 const pageError = computed(() => aiConfigStore.error || aiChatStore.error);
@@ -151,7 +169,8 @@ onMounted(async () => {
   aiCanvasStore.ensureStreamSubscription();
   aiResearchStore.ensureSubscription();
   await aiConfigStore.refresh();
-  activeAssistantId.value = aiConfigStore.config.defaultAssistantId || aiConfigStore.defaultAssistant?.id || '';
+  activeAssistantId.value =
+    aiConfigStore.config.defaultAssistantId || aiConfigStore.defaultAssistant?.id || '';
   await aiContextStore.refresh();
   await aiChatStore.refreshConversations();
   await selectConversationForAssistant(activeAssistantId.value);
@@ -175,14 +194,14 @@ watch(
       await aiCanvasStore.loadForConversation(conversationId);
       aiContextStore.activeProjectId = aiChatStore.activeConversation?.projectId ?? '';
     }
-  },
+  }
 );
 
 watch(
   () => activeAssistantId.value,
   () => {
     syncRuntimeOptions();
-  },
+  }
 );
 
 watch(
@@ -191,34 +210,46 @@ watch(
     if (!selectedProvider.value?.models.some((model) => model.id === selectedModelId.value)) {
       selectedModelId.value = selectedProvider.value?.models[0]?.id ?? '';
     }
-  },
+  }
 );
 
 function syncRuntimeOptions() {
   const conversation = aiChatStore.activeConversation;
   const assistant = activeAssistant.value;
-  selectedProviderId.value = assistant?.providerId || conversation?.providerId || readyProvider.value?.id || selectedProviderId.value;
-  selectedModelId.value = assistant?.modelId || conversation?.modelId || readyModel.value?.id || selectedModelId.value;
-  temperatureInput.value = String(assistant?.temperatureEnabled ? assistant.temperature : aiConfigStore.config.chat.temperature);
-  maxOutputTokensInput.value = assistant?.maxOutputTokensEnabled && assistant.maxOutputTokens
-    ? String(assistant.maxOutputTokens)
-    : aiConfigStore.config.chat.maxOutputTokens
-      ? String(aiConfigStore.config.chat.maxOutputTokens)
-      : '';
+  selectedProviderId.value =
+    assistant?.providerId ||
+    conversation?.providerId ||
+    readyProvider.value?.id ||
+    selectedProviderId.value;
+  selectedModelId.value =
+    assistant?.modelId || conversation?.modelId || readyModel.value?.id || selectedModelId.value;
+  temperatureInput.value = String(
+    assistant?.temperatureEnabled ? assistant.temperature : aiConfigStore.config.chat.temperature
+  );
+  maxOutputTokensInput.value =
+    assistant?.maxOutputTokensEnabled && assistant.maxOutputTokens
+      ? String(assistant.maxOutputTokens)
+      : aiConfigStore.config.chat.maxOutputTokens
+        ? String(aiConfigStore.config.chat.maxOutputTokens)
+        : '';
   reasoningEnabled.value = aiConfigStore.config.chat.reasoningEnabled;
   reasoningEffort.value = aiConfigStore.config.chat.reasoningEffort;
   reasoningBudgetTokensInput.value = aiConfigStore.config.chat.reasoningBudgetTokens
     ? String(aiConfigStore.config.chat.reasoningBudgetTokens)
     : '';
-  knowledgeSearchMode.value = assistant?.knowledgeMode === 'force'
-    ? 'force'
-    : assistant?.knowledgeMode === 'intent'
-      ? 'auto'
-      : 'off';
+  knowledgeSearchMode.value =
+    assistant?.knowledgeMode === 'force'
+      ? 'force'
+      : assistant?.knowledgeMode === 'intent'
+        ? 'auto'
+        : 'off';
 }
 
 function resolveAiBackground(region: keyof AiChatBackgroundSettings): BackgroundValueConfig {
-  return resolveThemeBackground(aiConfigStore.config.chat.backgrounds[region], backgroundTheme.value);
+  return resolveThemeBackground(
+    aiConfigStore.config.chat.backgrounds[region],
+    backgroundTheme.value
+  );
 }
 
 function createBackgroundStyle(background: BackgroundValueConfig): CSSProperties {
@@ -232,20 +263,30 @@ function createBackgroundStyle(background: BackgroundValueConfig): CSSProperties
   } else if (background.color) {
     result.background = background.color;
   }
-  Object.assign(result, buildBackgroundTextVars(style.textColor, {
-    aliases: {
-      primary: ['--ui-text-primary'],
-      secondary: ['--ui-text-secondary'],
-      muted: ['--ui-text-muted'],
-    },
-  }));
+  Object.assign(
+    result,
+    buildBackgroundTextVars(style.textColor, {
+      aliases: {
+        primary: ['--ui-text-primary'],
+        secondary: ['--ui-text-secondary'],
+        muted: ['--ui-text-muted'],
+      },
+    })
+  );
   return result as CSSProperties;
 }
 
 function createBackgroundVideoStyle(background: BackgroundValueConfig): CSSProperties {
   const style = background.backgroundStyle;
   return {
-    objectFit: style.backgroundSize === 'contain' ? 'contain' : style.backgroundSize === '100% 100%' ? 'fill' : style.backgroundSize === 'auto' ? 'none' : 'cover',
+    objectFit:
+      style.backgroundSize === 'contain'
+        ? 'contain'
+        : style.backgroundSize === '100% 100%'
+          ? 'fill'
+          : style.backgroundSize === 'auto'
+            ? 'none'
+            : 'cover',
     objectPosition: style.backgroundPosition || 'center',
     opacity: style.opacity ?? 1,
     filter: style.blur ? `blur(${style.blur}px)` : undefined,
@@ -259,15 +300,17 @@ function openBackgroundContextMenu(event: MouseEvent, region: keyof AiChatBackgr
     header: '顶栏',
     composer: '输入区域',
   };
-  const items: ContextMenuItem[] = [{
-    id: `ai-background-${region}`,
-    label: `设置${labels[region]}背景`,
-    icon: EditIcon,
-    action: () => {
-      activeBackgroundRegion.value = region;
-      backgroundConfigVisible.value = true;
+  const items: ContextMenuItem[] = [
+    {
+      id: `ai-background-${region}`,
+      label: `设置${labels[region]}背景`,
+      icon: EditIcon,
+      action: () => {
+        activeBackgroundRegion.value = region;
+        backgroundConfigVisible.value = true;
+      },
     },
-  }];
+  ];
   contextMenu.open(event.clientX, event.clientY, items);
 }
 
@@ -282,7 +325,7 @@ async function handleBackgroundConfirm(payload: BackgroundConfirmPayload) {
       image: payload.image ?? '',
       video: payload.video ?? '',
       backgroundStyle: payload.backgroundStyle ?? {},
-    },
+    }
   ) as AiChatBackgroundConfig;
   await aiConfigStore.updateConfig({
     chat: {
@@ -341,7 +384,11 @@ function runtimeReasoningBudgetTokens() {
 }
 
 function runtimeSystemPrompt() {
-  return activeAssistant.value?.systemPrompt || aiConfigStore.config.chat.defaultSystemPrompt || undefined;
+  return (
+    activeAssistant.value?.systemPrompt ||
+    aiConfigStore.config.chat.defaultSystemPrompt ||
+    undefined
+  );
 }
 
 function runtimeMaxToolCalls() {
@@ -368,7 +415,11 @@ async function createConversation() {
   });
 }
 
-async function send(content: string, attachments: AiChatAttachment[] = [], references: AiChatReference[] = []) {
+async function send(
+  content: string,
+  attachments: AiChatAttachment[] = [],
+  references: AiChatReference[] = []
+) {
   let conversation = aiChatStore.activeConversation;
   if (conversation?.assistantId !== activeAssistant.value?.id) {
     conversation = null;
@@ -407,8 +458,12 @@ async function send(content: string, attachments: AiChatAttachment[] = [], refer
     grounding: {
       webSearchMode: webSearchMode.value,
       knowledgeSearchMode: knowledgeSearchMode.value,
-      libraryId: activeAssistant.value?.knowledgeLibraryId || aiConfigStore.config.research.defaultKnowledgeLibraryId,
-      spaceId: activeAssistant.value?.knowledgeSpaceId || aiConfigStore.config.research.defaultKnowledgeSpaceId,
+      libraryId:
+        activeAssistant.value?.knowledgeLibraryId ||
+        aiConfigStore.config.research.defaultKnowledgeLibraryId,
+      spaceId:
+        activeAssistant.value?.knowledgeSpaceId ||
+        aiConfigStore.config.research.defaultKnowledgeSpaceId,
     },
     canvas: {
       enabled: canvasEnabled.value,
@@ -453,8 +508,12 @@ async function regenerate(messageId: string) {
     grounding: {
       webSearchMode: webSearchMode.value,
       knowledgeSearchMode: knowledgeSearchMode.value,
-      libraryId: activeAssistant.value?.knowledgeLibraryId || aiConfigStore.config.research.defaultKnowledgeLibraryId,
-      spaceId: activeAssistant.value?.knowledgeSpaceId || aiConfigStore.config.research.defaultKnowledgeSpaceId,
+      libraryId:
+        activeAssistant.value?.knowledgeLibraryId ||
+        aiConfigStore.config.research.defaultKnowledgeLibraryId,
+      spaceId:
+        activeAssistant.value?.knowledgeSpaceId ||
+        aiConfigStore.config.research.defaultKnowledgeSpaceId,
     },
     canvas: {
       enabled: canvasEnabled.value,
@@ -496,10 +555,19 @@ async function rememberMessage(messageId: string) {
   if (!message?.content.trim()) {
     return;
   }
-  const scope = aiContextStore.activeProjectId ? 'project' : activeAssistant.value?.id ? 'assistant' : 'global';
+  const scope = aiContextStore.activeProjectId
+    ? 'project'
+    : activeAssistant.value?.id
+      ? 'assistant'
+      : 'global';
   await aiContextStore.createMemory({
     scope,
-    scopeId: scope === 'project' ? aiContextStore.activeProjectId : scope === 'assistant' ? activeAssistant.value?.id : undefined,
+    scopeId:
+      scope === 'project'
+        ? aiContextStore.activeProjectId
+        : scope === 'assistant'
+          ? activeAssistant.value?.id
+          : undefined,
     content: message.content,
     sourceMessageId: message.id,
   });
@@ -557,7 +625,7 @@ function configureAssistant(assistantId: string) {
 async function saveAssistant(assistant: AiAssistantConfig) {
   const exists = aiConfigStore.assistants.some((item) => item.id === assistant.id);
   const assistants = exists
-    ? aiConfigStore.assistants.map((item) => item.id === assistant.id ? assistant : item)
+    ? aiConfigStore.assistants.map((item) => (item.id === assistant.id ? assistant : item))
     : [...aiConfigStore.assistants, assistant];
   activeAssistantId.value = assistant.id;
   await aiConfigStore.saveAssistants(assistants, assistant.id);
@@ -570,16 +638,19 @@ async function deleteAssistant(assistantId: string) {
   const wasActive = activeAssistantId.value === assistantId;
   const assistants = aiConfigStore.assistants.filter((assistant) => assistant.id !== assistantId);
   const nextAssistants = assistants.length ? assistants : [createAiAssistantConfig()];
-  const nextActiveId = activeAssistantId.value !== assistantId
-    && nextAssistants.some((assistant) => assistant.id === activeAssistantId.value)
-    ? activeAssistantId.value
-    : nextAssistants[0]?.id ?? '';
+  const nextActiveId =
+    activeAssistantId.value !== assistantId &&
+    nextAssistants.some((assistant) => assistant.id === activeAssistantId.value)
+      ? activeAssistantId.value
+      : (nextAssistants[0]?.id ?? '');
   const ownedConversations = aiChatStore.conversations.filter(
-    (conversation) => conversation.assistantId === assistantId,
+    (conversation) => conversation.assistantId === assistantId
   );
-  await Promise.all(ownedConversations.map((conversation) =>
-    aiChatStore.updateConversation(conversation.id, { assistantId: nextActiveId }),
-  ));
+  await Promise.all(
+    ownedConversations.map((conversation) =>
+      aiChatStore.updateConversation(conversation.id, { assistantId: nextActiveId })
+    )
+  );
   activeAssistantId.value = nextActiveId;
   await aiConfigStore.saveAssistants(nextAssistants, nextActiveId);
   if (wasActive) {
@@ -642,8 +713,24 @@ async function deleteAssistant(assistantId: string) {
             />
             <div class="ai-chat-workspace__title">
               <span class="ai-chat-workspace__eyebrow">工作记录</span>
-              <h2>{{ aiPageMode === 'chat' ? (aiChatStore.activeConversation?.title || '新的对话') : aiPageMode === 'research' ? 'Deep Research' : 'Agent 工作区' }}</h2>
-              <p>{{ aiPageMode === 'chat' ? runtimeSummary : aiPageMode === 'research' ? '可取消、可审计的来源研究流水线' : 'Code Agent / 通用 Agent 执行层预留' }}</p>
+              <h2>
+                {{
+                  aiPageMode === 'chat'
+                    ? aiChatStore.activeConversation?.title || '新的对话'
+                    : aiPageMode === 'research'
+                      ? 'Deep Research'
+                      : 'Agent 工作区'
+                }}
+              </h2>
+              <p>
+                {{
+                  aiPageMode === 'chat'
+                    ? runtimeSummary
+                    : aiPageMode === 'research'
+                      ? '可取消、可审计的来源研究流水线'
+                      : 'Code Agent / 通用 Agent 执行层预留'
+                }}
+              </p>
             </div>
 
             <div class="ai-chat-workspace__header-actions">
@@ -864,8 +951,10 @@ async function deleteAssistant(assistantId: string) {
   min-width: 0;
   min-height: 0;
   background: var(--ai-conversation-background, var(--ui-surface-bg));
-  border-top: var(--ui-border-width-thin) solid color-mix(in srgb, var(--ui-border-subtle) 76%, transparent);
-  border-left: var(--ui-border-width-thin) solid color-mix(in srgb, var(--ui-border-subtle) 76%, transparent);
+  border-top: var(--ui-border-width-thin) solid
+    color-mix(in srgb, var(--ui-border-subtle) 76%, transparent);
+  border-left: var(--ui-border-width-thin) solid
+    color-mix(in srgb, var(--ui-border-subtle) 76%, transparent);
   border-top-right-radius: var(--ui-radius-lg);
   box-shadow: -5px -5px 14px color-mix(in srgb, var(--ui-shadow-color, #0f172a) 7%, transparent);
   overflow: hidden;

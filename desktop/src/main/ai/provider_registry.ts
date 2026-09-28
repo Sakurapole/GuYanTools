@@ -37,7 +37,7 @@ export function createAiProviderRegistry(config: AiAgentFeatureConfig) {
   const providers = Object.fromEntries(
     config.providers
       .filter((provider) => provider.enabled)
-      .map((provider) => [provider.id, createProvider(provider)]),
+      .map((provider) => [provider.id, createProvider(provider)])
   );
 
   return createProviderRegistry(providers);
@@ -51,7 +51,11 @@ export function findAiModel(config: AiAgentFeatureConfig, providerId: string, mo
   return findAiProvider(config, providerId)?.models.find((model) => model.id === modelId);
 }
 
-export function resolveLanguageModel(config: AiAgentFeatureConfig, providerId: string, modelId: string): LanguageModel {
+export function resolveLanguageModel(
+  config: AiAgentFeatureConfig,
+  providerId: string,
+  modelId: string
+): LanguageModel {
   const provider = findAiProvider(config, providerId);
   const model = provider?.models.find((item) => item.id === modelId);
   if (!provider || !model) {
@@ -61,7 +65,11 @@ export function resolveLanguageModel(config: AiAgentFeatureConfig, providerId: s
   return createAiProviderRegistry(config).languageModel(`${providerId}:${model.providerModelId}`);
 }
 
-export function resolveEmbeddingModel(config: AiAgentFeatureConfig, providerId: string, modelId: string): EmbeddingModel {
+export function resolveEmbeddingModel(
+  config: AiAgentFeatureConfig,
+  providerId: string,
+  modelId: string
+): EmbeddingModel {
   const provider = findAiProvider(config, providerId);
   const model = provider?.models.find((item) => item.id === modelId);
   if (!provider || !model) {

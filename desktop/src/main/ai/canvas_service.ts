@@ -20,7 +20,10 @@ import type {
 type AiCanvasDatabase = JsDatabase & {
   listAiCanvasWorkspaces: (conversationId: string) => Promise<Record<string, unknown>[]>;
   createAiCanvasWorkspace: (input: Record<string, unknown>) => Promise<Record<string, unknown>>;
-  updateAiCanvasWorkspace: (id: string, input: Record<string, unknown>) => Promise<Record<string, unknown>>;
+  updateAiCanvasWorkspace: (
+    id: string,
+    input: Record<string, unknown>
+  ) => Promise<Record<string, unknown>>;
   deleteAiCanvasWorkspace: (id: string) => Promise<void>;
   listAiCanvasFiles: (workspaceId: string) => Promise<Record<string, unknown>[]>;
   upsertAiCanvasFile: (input: Record<string, unknown>) => Promise<Record<string, unknown>>;
@@ -30,7 +33,10 @@ type AiCanvasDatabase = JsDatabase & {
   listAiCanvasOperations: (workspaceId: string) => Promise<Record<string, unknown>[]>;
   getAiCanvasOperation: (id: string) => Promise<Record<string, unknown>>;
   createAiCanvasOperation: (input: Record<string, unknown>) => Promise<Record<string, unknown>>;
-  updateAiCanvasOperation: (id: string, input: Record<string, unknown>) => Promise<Record<string, unknown>>;
+  updateAiCanvasOperation: (
+    id: string,
+    input: Record<string, unknown>
+  ) => Promise<Record<string, unknown>>;
 };
 
 class AiCanvasService {
@@ -40,34 +46,48 @@ class AiCanvasService {
   }
 
   async createWorkspace(input: CreateAiCanvasWorkspacePayload) {
-    const workspace = mapWorkspace(await this.db().createAiCanvasWorkspace({
-      id: randomUUID(),
-      conversationId: input.conversationId,
-      title: input.title.trim() || 'Canvas',
-      mode: input.mode,
-    }));
+    const workspace = mapWorkspace(
+      await this.db().createAiCanvasWorkspace({
+        id: randomUUID(),
+        conversationId: input.conversationId,
+        title: input.title.trim() || 'Canvas',
+        mode: input.mode,
+      })
+    );
 
     const files: AiCanvasFile[] = [];
     for (const file of input.files?.length ? input.files : defaultFilesForMode(input.mode)) {
-      files.push(await this.upsertFile({
-        workspaceId: workspace.id,
-        path: file.path,
-        language: file.language,
-        content: file.content,
-      }, false));
+      files.push(
+        await this.upsertFile(
+          {
+            workspaceId: workspace.id,
+            path: file.path,
+            language: file.language,
+            content: file.content,
+          },
+          false
+        )
+      );
     }
 
     const version = await this.createVersion({ workspaceId: workspace.id });
-    const latestWorkspace = await this.updateWorkspace(workspace.id, { activeVersionId: version.id });
+    const latestWorkspace = await this.updateWorkspace(workspace.id, {
+      activeVersionId: version.id,
+    });
     return { workspace: latestWorkspace, files, version };
   }
 
-  async updateWorkspace(id: string, input: UpdateAiCanvasWorkspacePayload): Promise<AiCanvasWorkspace> {
-    return mapWorkspace(await this.db().updateAiCanvasWorkspace(id, {
-      title: input.title,
-      mode: input.mode,
-      activeVersionId: input.activeVersionId,
-    }));
+  async updateWorkspace(
+    id: string,
+    input: UpdateAiCanvasWorkspacePayload
+  ): Promise<AiCanvasWorkspace> {
+    return mapWorkspace(
+      await this.db().updateAiCanvasWorkspace(id, {
+        title: input.title,
+        mode: input.mode,
+        activeVersionId: input.activeVersionId,
+      })
+    );
   }
 
   async deleteWorkspace(id: string): Promise<void> {
@@ -80,13 +100,15 @@ class AiCanvasService {
   }
 
   async upsertFile(input: UpsertAiCanvasFilePayload, snapshot = true): Promise<AiCanvasFile> {
-    const file = mapFile(await this.db().upsertAiCanvasFile({
-      id: randomUUID(),
-      workspaceId: input.workspaceId,
-      path: normalizePath(input.path),
-      language: input.language || inferLanguage(input.path),
-      content: input.content,
-    }));
+    const file = mapFile(
+      await this.db().upsertAiCanvasFile({
+        id: randomUUID(),
+        workspaceId: input.workspaceId,
+        path: normalizePath(input.path),
+        language: input.language || inferLanguage(input.path),
+        content: input.content,
+      })
+    );
     if (snapshot) {
       const version = await this.createVersion({ workspaceId: input.workspaceId });
       await this.updateWorkspace(input.workspaceId, { activeVersionId: version.id });
@@ -113,19 +135,21 @@ class AiCanvasService {
       this.listVersions(input.workspaceId),
     ]);
     const maxVersionNo = versions.reduce((max, version) => Math.max(max, version.versionNo), 0);
-    return mapVersion(await this.db().createAiCanvasVersion({
-      id: randomUUID(),
-      workspaceId: input.workspaceId,
-      versionNo: maxVersionNo + 1,
-      snapshotJson: JSON.stringify({
-        files: files.map((file) => ({
-          path: file.path,
-          language: file.language,
-          content: file.content,
-        })),
-      }),
-      sourceMessageId: input.sourceMessageId,
-    }));
+    return mapVersion(
+      await this.db().createAiCanvasVersion({
+        id: randomUUID(),
+        workspaceId: input.workspaceId,
+        versionNo: maxVersionNo + 1,
+        snapshotJson: JSON.stringify({
+          files: files.map((file) => ({
+            path: file.path,
+            language: file.language,
+            content: file.content,
+          })),
+        }),
+        sourceMessageId: input.sourceMessageId,
+      })
+    );
   }
 
   async listOperations(workspaceId: string): Promise<AiCanvasOperation[]> {
@@ -138,21 +162,28 @@ class AiCanvasService {
   }
 
   async createOperation(input: CreateAiCanvasOperationPayload): Promise<AiCanvasOperation> {
-    return mapOperation(await this.db().createAiCanvasOperation({
-      id: randomUUID(),
-      workspaceId: input.workspaceId,
-      sourceMessageId: input.sourceMessageId,
-      operationType: input.operationType,
-      payloadJson: JSON.stringify(input.payload),
-      status: input.status ?? 'applied',
-    }));
+    return mapOperation(
+      await this.db().createAiCanvasOperation({
+        id: randomUUID(),
+        workspaceId: input.workspaceId,
+        sourceMessageId: input.sourceMessageId,
+        operationType: input.operationType,
+        payloadJson: JSON.stringify(input.payload),
+        status: input.status ?? 'applied',
+      })
+    );
   }
 
-  async updateOperation(id: string, input: UpdateAiCanvasOperationPayload): Promise<AiCanvasOperation> {
-    return mapOperation(await this.db().updateAiCanvasOperation(id, {
-      payloadJson: input.payload ? JSON.stringify(input.payload) : undefined,
-      status: input.status,
-    }));
+  async updateOperation(
+    id: string,
+    input: UpdateAiCanvasOperationPayload
+  ): Promise<AiCanvasOperation> {
+    return mapOperation(
+      await this.db().updateAiCanvasOperation(id, {
+        payloadJson: input.payload ? JSON.stringify(input.payload) : undefined,
+        status: input.status,
+      })
+    );
   }
 
   async applyOperation(id: string): Promise<ApplyAiCanvasOperationResult> {
@@ -170,12 +201,15 @@ class AiCanvasService {
     if (operation.operationType === 'replace_file' || operation.operationType === 'patch_file') {
       const path = requirePayloadString(payload, 'path');
       const content = requirePayloadString(payload, 'content');
-      await this.upsertFile({
-        workspaceId: operation.workspaceId,
-        path,
-        language: optionalPayloadString(payload, 'language') ?? inferLanguage(path),
-        content,
-      }, false);
+      await this.upsertFile(
+        {
+          workspaceId: operation.workspaceId,
+          path,
+          language: optionalPayloadString(payload, 'language') ?? inferLanguage(path),
+          content,
+        },
+        false
+      );
       version = await this.createVersion({
         workspaceId: operation.workspaceId,
         sourceMessageId: operation.sourceMessageId,
@@ -183,13 +217,19 @@ class AiCanvasService {
     } else if (operation.operationType === 'append_file') {
       const path = normalizePath(requirePayloadString(payload, 'path'));
       const content = requirePayloadString(payload, 'content');
-      const current = (await this.listFiles(operation.workspaceId)).find((file) => file.path === path);
-      await this.upsertFile({
-        workspaceId: operation.workspaceId,
-        path,
-        language: optionalPayloadString(payload, 'language') ?? current?.language ?? inferLanguage(path),
-        content: `${current?.content ?? ''}${content}`,
-      }, false);
+      const current = (await this.listFiles(operation.workspaceId)).find(
+        (file) => file.path === path
+      );
+      await this.upsertFile(
+        {
+          workspaceId: operation.workspaceId,
+          path,
+          language:
+            optionalPayloadString(payload, 'language') ?? current?.language ?? inferLanguage(path),
+          content: `${current?.content ?? ''}${content}`,
+        },
+        false
+      );
       version = await this.createVersion({
         workspaceId: operation.workspaceId,
         sourceMessageId: operation.sourceMessageId,
@@ -232,11 +272,11 @@ export function normalizeCanvasMode(value: unknown): AiCanvasMode {
 
 export function normalizeCanvasOperationType(value: unknown): AiCanvasOperationType {
   if (
-    value === 'create'
-    || value === 'replace_file'
-    || value === 'patch_file'
-    || value === 'append_file'
-    || value === 'delete_file'
+    value === 'create' ||
+    value === 'replace_file' ||
+    value === 'patch_file' ||
+    value === 'append_file' ||
+    value === 'delete_file'
   ) {
     return value;
   }
@@ -296,10 +336,22 @@ function mapOperation(row: Record<string, unknown>): AiCanvasOperation {
 
 function defaultFilesForMode(mode: AiCanvasMode) {
   if (mode === 'html') {
-    return [{ path: 'index.html', language: 'html', content: '<!doctype html>\n<html>\n<body>\n  <h1>Canvas</h1>\n</body>\n</html>' }];
+    return [
+      {
+        path: 'index.html',
+        language: 'html',
+        content: '<!doctype html>\n<html>\n<body>\n  <h1>Canvas</h1>\n</body>\n</html>',
+      },
+    ];
   }
   if (mode === 'react') {
-    return [{ path: 'App.jsx', language: 'javascript', content: 'export default function App() {\n  return <h1>Canvas</h1>;\n}\n' }];
+    return [
+      {
+        path: 'App.jsx',
+        language: 'javascript',
+        content: 'export default function App() {\n  return <h1>Canvas</h1>;\n}\n',
+      },
+    ];
   }
   return [{ path: 'README.md', language: 'markdown', content: '# Canvas\n' }];
 }
@@ -313,7 +365,13 @@ function inferLanguage(path: string) {
   if (path.endsWith('.html')) return 'html';
   if (path.endsWith('.css')) return 'css';
   if (path.endsWith('.json')) return 'json';
-  if (path.endsWith('.jsx') || path.endsWith('.tsx') || path.endsWith('.js') || path.endsWith('.ts')) return 'javascript';
+  if (
+    path.endsWith('.jsx') ||
+    path.endsWith('.tsx') ||
+    path.endsWith('.js') ||
+    path.endsWith('.ts')
+  )
+    return 'javascript';
   return 'markdown';
 }
 
@@ -328,7 +386,9 @@ function optionalString(value: unknown) {
 function parseOperationPayload(payloadJson: string): Record<string, unknown> {
   try {
     const parsed = JSON.parse(payloadJson);
-    return parsed && typeof parsed === 'object' && !Array.isArray(parsed) ? parsed as Record<string, unknown> : {};
+    return parsed && typeof parsed === 'object' && !Array.isArray(parsed)
+      ? (parsed as Record<string, unknown>)
+      : {};
   } catch {
     return {};
   }

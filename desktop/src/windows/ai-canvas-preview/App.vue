@@ -35,9 +35,7 @@ onBeforeUnmount(() => {
         :files="payload.files"
         :active-path="payload.activePath"
       />
-      <div v-else class="ai-canvas-preview-window__empty">
-        正在等待 Canvas 内容...
-      </div>
+      <div v-else class="ai-canvas-preview-window__empty">正在等待 Canvas 内容...</div>
     </section>
   </main>
 </template>

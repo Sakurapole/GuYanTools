@@ -1,6 +1,11 @@
 <script lang="ts" setup>
 import { computed, nextTick, ref, type CSSProperties } from 'vue';
-import type { AiChatAttachment, AiChatReference, AiReasoningEffort, AiSearchMode } from '@/contracts/ai';
+import type {
+  AiChatAttachment,
+  AiChatReference,
+  AiReasoningEffort,
+  AiSearchMode,
+} from '@/contracts/ai';
 import UiButton from '@/windows/main/components/ui/UiButton.vue';
 import UiCheckbox from '@/windows/main/components/ui/UiCheckbox.vue';
 import UiField from '@/windows/main/components/ui/UiField.vue';
@@ -10,32 +15,35 @@ import UiSelect, { type UiSelectOption } from '@/windows/main/components/ui/UiSe
 import UiTextarea from '@/windows/main/components/ui/UiTextarea.vue';
 import UiToolbar from '@/windows/main/components/ui/UiToolbar.vue';
 
-const props = withDefaults(defineProps<{
-  disabled?: boolean;
-  streaming?: boolean;
-  controlsDisabled?: boolean;
-  providerId: string;
-  modelId: string;
-  providerOptions: UiSelectOption[];
-  modelOptions: UiSelectOption[];
-  webSearchMode: AiSearchMode;
-  knowledgeSearchMode: AiSearchMode;
-  searchModeOptions: UiSelectOption[];
-  reasoningEnabled: boolean;
-  reasoningEffort: AiReasoningEffort;
-  reasoningEffortOptions: UiSelectOption[];
-  canvasEnabled: boolean;
-  commonPhrases?: string[];
-  backgroundVideo?: string;
-  backgroundVideoStyle?: CSSProperties;
-}>(), {
-  disabled: false,
-  streaming: false,
-  controlsDisabled: false,
-  commonPhrases: () => [],
-  backgroundVideo: '',
-  backgroundVideoStyle: () => ({}),
-});
+const props = withDefaults(
+  defineProps<{
+    disabled?: boolean;
+    streaming?: boolean;
+    controlsDisabled?: boolean;
+    providerId: string;
+    modelId: string;
+    providerOptions: UiSelectOption[];
+    modelOptions: UiSelectOption[];
+    webSearchMode: AiSearchMode;
+    knowledgeSearchMode: AiSearchMode;
+    searchModeOptions: UiSelectOption[];
+    reasoningEnabled: boolean;
+    reasoningEffort: AiReasoningEffort;
+    reasoningEffortOptions: UiSelectOption[];
+    canvasEnabled: boolean;
+    commonPhrases?: string[];
+    backgroundVideo?: string;
+    backgroundVideoStyle?: CSSProperties;
+  }>(),
+  {
+    disabled: false,
+    streaming: false,
+    controlsDisabled: false,
+    commonPhrases: () => [],
+    backgroundVideo: '',
+    backgroundVideoStyle: () => ({}),
+  }
+);
 
 const emit = defineEmits<{
   send: [content: string, attachments: AiChatAttachment[], references: AiChatReference[]];
@@ -57,9 +65,14 @@ const references = ref<AiChatReference[]>([]);
 const attachmentError = ref('');
 const stagingAttachment = ref(false);
 
-const canSubmit = computed(() =>
-  !props.disabled && (content.value.trim().length > 0 || attachments.value.length > 0 || references.value.length > 0));
-const referenceSummary = computed(() => references.value.map((reference) => reference.content).join('\n\n'));
+const canSubmit = computed(
+  () =>
+    !props.disabled &&
+    (content.value.trim().length > 0 || attachments.value.length > 0 || references.value.length > 0)
+);
+const referenceSummary = computed(() =>
+  references.value.map((reference) => reference.content).join('\n\n')
+);
 const optionControlsDisabled = computed(() => props.controlsDisabled || props.streaming);
 
 function submit() {
@@ -111,7 +124,12 @@ function appendText(value: string) {
 
 function addReference(value: string) {
   const content = value.trim();
-  if (!content || props.streaming || props.disabled || references.value.some((reference) => reference.content === content)) {
+  if (
+    !content ||
+    props.streaming ||
+    props.disabled ||
+    references.value.some((reference) => reference.content === content)
+  ) {
     return;
   }
 
@@ -298,11 +316,25 @@ defineExpose({
         >
           <IconRenderer icon="iconify:lucide:paperclip" :size="15" />
         </UiIconButton>
-        <UiIconButton size="sm" variant="ghost" title="清空输入" :disabled="(!content && !attachments.length) || streaming" @click="clearInput">
+        <UiIconButton
+          size="sm"
+          variant="ghost"
+          title="清空输入"
+          :disabled="(!content && !attachments.length) || streaming"
+          @click="clearInput"
+        >
           <IconRenderer icon="iconify:lucide:eraser" :size="15" />
         </UiIconButton>
-        <UiIconButton size="sm" variant="ghost" :title="expanded ? '收起输入区' : '展开输入区'" @click="expanded = !expanded">
-          <IconRenderer :icon="expanded ? 'iconify:lucide:minimize-2' : 'iconify:lucide:maximize-2'" :size="15" />
+        <UiIconButton
+          size="sm"
+          variant="ghost"
+          :title="expanded ? '收起输入区' : '展开输入区'"
+          @click="expanded = !expanded"
+        >
+          <IconRenderer
+            :icon="expanded ? 'iconify:lucide:minimize-2' : 'iconify:lucide:maximize-2'"
+            :size="15"
+          />
         </UiIconButton>
       </template>
     </UiToolbar>
@@ -325,20 +357,27 @@ defineExpose({
         <IconRenderer icon="iconify:lucide:message-square-quote" :size="14" />
         {{ references.length }} 条引用
       </span>
-      <UiIconButton size="xs" variant="ghost" title="清空引用" :disabled="streaming" @click="clearReferences">
+      <UiIconButton
+        size="xs"
+        variant="ghost"
+        title="清空引用"
+        :disabled="streaming"
+        @click="clearReferences"
+      >
         <IconRenderer icon="iconify:lucide:x" :size="13" />
       </UiIconButton>
     </div>
 
     <div v-if="attachments.length || attachmentError" class="ai-composer__attachments">
-      <div
-        v-for="attachment in attachments"
-        :key="attachment.id"
-        class="ai-composer__attachment"
-      >
-        <IconRenderer :icon="attachment.kind === 'image' ? 'iconify:lucide:image' : 'iconify:lucide:file-text'" :size="14" />
+      <div v-for="attachment in attachments" :key="attachment.id" class="ai-composer__attachment">
+        <IconRenderer
+          :icon="attachment.kind === 'image' ? 'iconify:lucide:image' : 'iconify:lucide:file-text'"
+          :size="14"
+        />
         <span class="ai-composer__attachment-name">{{ attachment.name }}</span>
-        <span class="ai-composer__attachment-meta">{{ formatAttachmentSize(attachment.size) }}</span>
+        <span class="ai-composer__attachment-meta">{{
+          formatAttachmentSize(attachment.size)
+        }}</span>
         <UiIconButton
           size="xs"
           variant="ghost"
@@ -486,7 +525,8 @@ defineExpose({
   gap: 2px;
   min-height: 28px;
   padding: 2px 4px 2px 8px;
-  border: var(--ui-border-width-thin) solid color-mix(in srgb, var(--primary-color) 26%, var(--ui-border-subtle));
+  border: var(--ui-border-width-thin) solid
+    color-mix(in srgb, var(--primary-color) 26%, var(--ui-border-subtle));
   border-radius: var(--ui-radius-sm);
   background: color-mix(in srgb, var(--primary-color) 9%, var(--ui-surface-overlay));
   color: var(--ui-text-secondary);

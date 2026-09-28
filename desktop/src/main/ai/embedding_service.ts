@@ -8,7 +8,11 @@ import type {
   RebuildKnowledgeEmbeddingsPayload,
   RebuildKnowledgeEmbeddingsResult,
 } from '@/contracts/ai';
-import type { KnowledgeSearchPayload, KnowledgeSearchResult, KnowledgeSearchSourceType } from '@/contracts/knowledge';
+import type {
+  KnowledgeSearchPayload,
+  KnowledgeSearchResult,
+  KnowledgeSearchSourceType,
+} from '@/contracts/knowledge';
 import { findAiProvider, resolveEmbeddingModel } from './provider_registry';
 
 type AiEmbeddingDatabase = JsDatabase & {
@@ -16,7 +20,9 @@ type AiEmbeddingDatabase = JsDatabase & {
   upsertKnowledgeEmbedding: (input: Record<string, unknown>) => Promise<void>;
   deleteKnowledgeEmbeddings: (provider: string, model: string) => Promise<number>;
   getKnowledgeEmbeddingStats: (provider: string, model: string) => Promise<Record<string, unknown>>;
-  listKnowledgeEmbeddingCandidates: (input: Record<string, unknown>) => Promise<Record<string, unknown>[]>;
+  listKnowledgeEmbeddingCandidates: (
+    input: Record<string, unknown>
+  ) => Promise<Record<string, unknown>[]>;
 };
 
 type KnowledgeAiChunk = {
@@ -38,25 +44,30 @@ type KnowledgeEmbeddingCandidate = {
 };
 
 class AiEmbeddingService {
-  async getKnowledgeEmbeddingStats(input: RebuildKnowledgeEmbeddingsPayload = {}): Promise<KnowledgeEmbeddingStats> {
+  async getKnowledgeEmbeddingStats(
+    input: RebuildKnowledgeEmbeddingsPayload = {}
+  ): Promise<KnowledgeEmbeddingStats> {
     const config = (await appConfigManager.getConfig()).features.aiAgent;
     const target = this.resolveEmbeddingTarget(config, input);
     return mapStats(await this.db().getKnowledgeEmbeddingStats(target.providerId, target.modelId));
   }
 
   async rebuildKnowledgeEmbeddings(
-    input: RebuildKnowledgeEmbeddingsPayload = {},
+    input: RebuildKnowledgeEmbeddingsPayload = {}
   ): Promise<RebuildKnowledgeEmbeddingsResult> {
     const config = (await appConfigManager.getConfig()).features.aiAgent;
     const target = this.resolveEmbeddingTarget(config, input);
     const batchSize = clampInteger(input.batchSize ?? 32, 1, 128);
-    const deletedEmbeddings = input.reset === false
-      ? 0
-      : await this.db().deleteKnowledgeEmbeddings(target.providerId, target.modelId);
-    const chunks = (await this.db().listKnowledgeAiChunks({
-      missingEmbeddingProvider: target.providerId,
-      missingEmbeddingModel: target.modelId,
-    })).map(mapChunk);
+    const deletedEmbeddings =
+      input.reset === false
+        ? 0
+        : await this.db().deleteKnowledgeEmbeddings(target.providerId, target.modelId);
+    const chunks = (
+      await this.db().listKnowledgeAiChunks({
+        missingEmbeddingProvider: target.providerId,
+        missingEmbeddingModel: target.modelId,
+      })
+    ).map(mapChunk);
 
     let embeddedChunks = 0;
     let failedChunks = 0;
@@ -72,22 +83,27 @@ class AiEmbeddingService {
           maxRetries: 1,
         });
 
-        await Promise.all(result.embeddings.map((embedding, embeddingIndex) =>
-          this.db().upsertKnowledgeEmbedding({
-            id: randomUUID(),
-            chunkId: batch[embeddingIndex].id,
-            provider: target.providerId,
-            model: target.modelId,
-            dimension: embedding.length,
-            vectorBlob: vectorToBuffer(embedding),
-          })));
+        await Promise.all(
+          result.embeddings.map((embedding, embeddingIndex) =>
+            this.db().upsertKnowledgeEmbedding({
+              id: randomUUID(),
+              chunkId: batch[embeddingIndex].id,
+              provider: target.providerId,
+              model: target.modelId,
+              dimension: embedding.length,
+              vectorBlob: vectorToBuffer(embedding),
+            })
+          )
+        );
         embeddedChunks += result.embeddings.length;
       } catch {
         failedChunks += batch.length;
       }
     }
 
-    const stats = mapStats(await this.db().getKnowledgeEmbeddingStats(target.providerId, target.modelId));
+    const stats = mapStats(
+      await this.db().getKnowledgeEmbeddingStats(target.providerId, target.modelId)
+    );
     return {
       ...stats,
       totalChunks: chunks.length,
@@ -99,7 +115,7 @@ class AiEmbeddingService {
 
   async searchKnowledge(
     config: AiAgentFeatureConfig,
-    input: KnowledgeSearchPayload,
+    input: KnowledgeSearchPayload
   ): Promise<KnowledgeSearchResult[]> {
     try {
       const target = this.resolveEmbeddingTarget(config, {});
@@ -114,14 +130,16 @@ class AiEmbeddingService {
         return [];
       }
 
-      const candidates = (await this.db().listKnowledgeEmbeddingCandidates({
-        provider: target.providerId,
-        model: target.modelId,
-        libraryId: input.libraryId,
-        spaceId: input.spaceId,
-        sourceType: input.sourceType,
-        limit: Math.max(100, Math.min(5000, (input.limit ?? 8) * 80)),
-      }))
+      const candidates = (
+        await this.db().listKnowledgeEmbeddingCandidates({
+          provider: target.providerId,
+          model: target.modelId,
+          libraryId: input.libraryId,
+          spaceId: input.spaceId,
+          sourceType: input.sourceType,
+          limit: Math.max(100, Math.min(5000, (input.limit ?? 8) * 80)),
+        })
+      )
         .map(mapCandidate)
         .filter((candidate) => candidate.vector.length === queryVector.length);
 
@@ -139,18 +157,25 @@ class AiEmbeddingService {
     }
   }
 
-  private resolveEmbeddingTarget(config: AiAgentFeatureConfig, input: RebuildKnowledgeEmbeddingsPayload) {
-    const providerId = input.providerId
-      || config.research.embeddingProviderId
-      || config.providers.find((provider) =>
-        provider.enabled && provider.models.some((model) => model.capabilities.embedding))?.id
-      || config.defaultProviderId
-      || config.providers.find((provider) => provider.enabled)?.id;
+  private resolveEmbeddingTarget(
+    config: AiAgentFeatureConfig,
+    input: RebuildKnowledgeEmbeddingsPayload
+  ) {
+    const providerId =
+      input.providerId ||
+      config.research.embeddingProviderId ||
+      config.providers.find(
+        (provider) =>
+          provider.enabled && provider.models.some((model) => model.capabilities.embedding)
+      )?.id ||
+      config.defaultProviderId ||
+      config.providers.find((provider) => provider.enabled)?.id;
     const provider = providerId ? findAiProvider(config, providerId) : undefined;
-    const modelId = input.modelId
-      || config.research.embeddingModelId
-      || provider?.models.find((model) => model.capabilities.embedding)?.id
-      || provider?.models[0]?.id;
+    const modelId =
+      input.modelId ||
+      config.research.embeddingModelId ||
+      provider?.models.find((model) => model.capabilities.embedding)?.id ||
+      provider?.models[0]?.id;
 
     if (!provider || !modelId) {
       throw new Error('请先配置支持 embedding 的 AI Provider 和模型');
@@ -200,7 +225,10 @@ function mapCandidate(row: Record<string, unknown>): KnowledgeEmbeddingCandidate
   };
 }
 
-function mapSearchResult(candidate: KnowledgeEmbeddingCandidate, score: number): KnowledgeSearchResult {
+function mapSearchResult(
+  candidate: KnowledgeEmbeddingCandidate,
+  score: number
+): KnowledgeSearchResult {
   return {
     sourceType: normalizeSearchSourceType(candidate.sourceType),
     sourceId: candidate.sourceId,
@@ -214,7 +242,9 @@ function mapSearchResult(candidate: KnowledgeEmbeddingCandidate, score: number):
 }
 
 function normalizeSearchSourceType(value: string): KnowledgeSearchSourceType {
-  return value === 'asset' || value === 'quick_note' || value === 'document' || value === 'page' ? value : 'page';
+  return value === 'asset' || value === 'quick_note' || value === 'document' || value === 'page'
+    ? value
+    : 'page';
 }
 
 function readString(row: Record<string, unknown>, key: string, fallbackKey?: string): string {
@@ -222,7 +252,11 @@ function readString(row: Record<string, unknown>, key: string, fallbackKey?: str
   return typeof value === 'string' ? value : '';
 }
 
-function readOptionalString(row: Record<string, unknown>, key: string, fallbackKey?: string): string | undefined {
+function readOptionalString(
+  row: Record<string, unknown>,
+  key: string,
+  fallbackKey?: string
+): string | undefined {
   const value = readString(row, key, fallbackKey);
   return value || undefined;
 }

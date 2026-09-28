@@ -143,19 +143,24 @@ export const useAiConfigStore = defineStore('ai-config', () => {
   const saving = ref(false);
   const error = ref('');
 
-  const enabledProviders = computed(() => config.value.providers.filter((provider) => provider.enabled));
-  const defaultProvider = computed(() =>
-    enabledProviders.value.find((provider) => provider.id === config.value.defaultProviderId)
-    ?? enabledProviders.value[0],
+  const enabledProviders = computed(() =>
+    config.value.providers.filter((provider) => provider.enabled)
   );
-  const defaultModel = computed(() =>
-    defaultProvider.value?.models.find((model) => model.id === config.value.defaultChatModelId)
-    ?? defaultProvider.value?.models[0],
+  const defaultProvider = computed(
+    () =>
+      enabledProviders.value.find((provider) => provider.id === config.value.defaultProviderId) ??
+      enabledProviders.value[0]
+  );
+  const defaultModel = computed(
+    () =>
+      defaultProvider.value?.models.find((model) => model.id === config.value.defaultChatModelId) ??
+      defaultProvider.value?.models[0]
   );
   const assistants = computed(() => config.value.assistants);
-  const defaultAssistant = computed(() =>
-    assistants.value.find((assistant) => assistant.id === config.value.defaultAssistantId)
-    ?? assistants.value[0],
+  const defaultAssistant = computed(
+    () =>
+      assistants.value.find((assistant) => assistant.id === config.value.defaultAssistantId) ??
+      assistants.value[0]
   );
 
   async function refresh() {
@@ -194,7 +199,10 @@ export const useAiConfigStore = defineStore('ai-config', () => {
     }
   }
 
-  async function saveProviders(providers: AiProviderConfig[], defaults?: { providerId?: string; modelId?: string }) {
+  async function saveProviders(
+    providers: AiProviderConfig[],
+    defaults?: { providerId?: string; modelId?: string }
+  ) {
     return updateConfig({
       enabled: providers.some((provider) => provider.enabled && provider.models.length > 0),
       defaultProviderId: defaults?.providerId,
@@ -206,7 +214,8 @@ export const useAiConfigStore = defineStore('ai-config', () => {
   async function saveAssistants(assistants: AiAssistantConfig[], defaultAssistantId?: string) {
     return updateConfig({
       assistants,
-      defaultAssistantId: defaultAssistantId ?? config.value.defaultAssistantId ?? assistants[0]?.id,
+      defaultAssistantId:
+        defaultAssistantId ?? config.value.defaultAssistantId ?? assistants[0]?.id,
     });
   }
 
@@ -227,15 +236,17 @@ export const useAiConfigStore = defineStore('ai-config', () => {
       mcp: {
         enabled: input.enabled ?? config.value.mcp.enabled,
         modelscopeApiToken: input.modelscopeApiToken,
-        servers: input.servers ?? config.value.mcp.servers.map((server) => ({
-          ...server,
-          env: server.env.map((env) => ({
-            id: env.id,
-            key: env.key,
-            value: env.value ?? '',
-            secret: env.secret,
+        servers:
+          input.servers ??
+          config.value.mcp.servers.map((server) => ({
+            ...server,
+            env: server.env.map((env) => ({
+              id: env.id,
+              key: env.key,
+              value: env.value ?? '',
+              secret: env.secret,
+            })),
           })),
-        })),
       },
     });
   }

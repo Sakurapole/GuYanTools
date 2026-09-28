@@ -91,7 +91,13 @@ class AiAttachmentService {
 
   private async stageTextFile(
     targetPath: string,
-    input: { name: string; mimeType: string; size: number; extension: string; source: AiChatAttachment['source'] },
+    input: {
+      name: string;
+      mimeType: string;
+      size: number;
+      extension: string;
+      source: AiChatAttachment['source'];
+    }
   ): Promise<AiChatAttachment> {
     if (input.size > MAX_TEXT_ATTACHMENT_BYTES) {
       throw new Error(`文本附件不能超过 ${formatBytes(MAX_TEXT_ATTACHMENT_BYTES)}`);
@@ -115,7 +121,13 @@ class AiAttachmentService {
 
   private async stageImageFile(
     targetPath: string,
-    input: { name: string; mimeType: string; size: number; extension: string; source: AiChatAttachment['source'] },
+    input: {
+      name: string;
+      mimeType: string;
+      size: number;
+      extension: string;
+      source: AiChatAttachment['source'];
+    }
   ): Promise<AiChatAttachment> {
     if (input.size > MAX_IMAGE_ATTACHMENT_BYTES) {
       throw new Error(`图片附件不能超过 ${formatBytes(MAX_IMAGE_ATTACHMENT_BYTES)}`);
