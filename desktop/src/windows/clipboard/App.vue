@@ -25,13 +25,24 @@ let lastEscapeAt = 0;
 let removeEventListener: (() => void) | undefined;
 let removeConfigListener: (() => void) | undefined;
 
-const trustedDeviceStatuses = computed(() => deviceStatuses.value.filter((device) =>
-  device.state === 'trustedOnline' || device.state === 'trustedOffline'));
-const availableDeviceStatuses = computed(() => deviceStatuses.value.filter((device) => device.state === 'available'));
-const onlineTrustedDeviceCount = computed(() => trustedDeviceStatuses.value.filter((device) => device.online).length);
-const offlineTrustedDeviceCount = computed(() => trustedDeviceStatuses.value.length - onlineTrustedDeviceCount.value);
-const devicePanelSummary = computed(() =>
-  `${onlineTrustedDeviceCount.value} 在线 · ${offlineTrustedDeviceCount.value} 离线 · ${availableDeviceStatuses.value.length} 可配对`);
+const trustedDeviceStatuses = computed(() =>
+  deviceStatuses.value.filter(
+    (device) => device.state === 'trustedOnline' || device.state === 'trustedOffline'
+  )
+);
+const availableDeviceStatuses = computed(() =>
+  deviceStatuses.value.filter((device) => device.state === 'available')
+);
+const onlineTrustedDeviceCount = computed(
+  () => trustedDeviceStatuses.value.filter((device) => device.online).length
+);
+const offlineTrustedDeviceCount = computed(
+  () => trustedDeviceStatuses.value.length - onlineTrustedDeviceCount.value
+);
+const devicePanelSummary = computed(
+  () =>
+    `${onlineTrustedDeviceCount.value} 在线 · ${offlineTrustedDeviceCount.value} 离线 · ${availableDeviceStatuses.value.length} 可配对`
+);
 
 async function refresh() {
   if (!api) return;
@@ -229,12 +240,18 @@ function isImageFileItem(item: MultiDeviceClipboardItem) {
 }
 
 function pairedDeviceMeta(device: MultiDeviceClipboardDeviceStatus) {
-  const endpoint = device.lastAddress ? `${device.lastAddress}${device.lastPort ? `:${device.lastPort}` : ''}` : '';
-  return [deviceStatusLabel(device), device.platform || 'unknown', endpoint, lastSeenLabel(device)].filter(Boolean).join(' · ');
+  const endpoint = device.lastAddress
+    ? `${device.lastAddress}${device.lastPort ? `:${device.lastPort}` : ''}`
+    : '';
+  return [deviceStatusLabel(device), device.platform || 'unknown', endpoint, lastSeenLabel(device)]
+    .filter(Boolean)
+    .join(' · ');
 }
 
 function availableDeviceMeta(device: MultiDeviceClipboardDeviceStatus) {
-  const endpoint = device.lastAddress ? `${device.lastAddress}${device.lastPort ? `:${device.lastPort}` : ''}` : '';
+  const endpoint = device.lastAddress
+    ? `${device.lastAddress}${device.lastPort ? `:${device.lastPort}` : ''}`
+    : '';
   return ['可配对', device.platform || 'unknown', endpoint].filter(Boolean).join(' · ');
 }
 
@@ -284,8 +301,14 @@ onBeforeUnmount(() => {
         <p>{{ onlineTrustedDeviceCount }} 在线 · {{ offlineTrustedDeviceCount }} 离线</p>
       </div>
       <div class="clipboard-header__actions">
-        <button v-if="isDevMode" type="button" class="icon-button devtools-button" title="打开 DevTools"
-          aria-label="打开 DevTools" @click="openDevTools">
+        <button
+          v-if="isDevMode"
+          type="button"
+          class="icon-button devtools-button"
+          title="打开 DevTools"
+          aria-label="打开 DevTools"
+          @click="openDevTools"
+        >
           <svg class="icon-button__svg" viewBox="0 0 24 24" aria-hidden="true">
             <path d="m8 9-4 3 4 3" />
             <path d="m16 9 4 3-4 3" />
@@ -303,15 +326,24 @@ onBeforeUnmount(() => {
           <span>配对码 {{ request.code }}</span>
         </div>
         <div class="pairing-card__actions">
-          <button type="button" class="icon-button icon-button--inline" :title="`允许 ${request.deviceName} 配对`"
-            :aria-label="`允许 ${request.deviceName} 配对`" @click="approvePairing(request)">
+          <button
+            type="button"
+            class="icon-button icon-button--inline"
+            :title="`允许 ${request.deviceName} 配对`"
+            :aria-label="`允许 ${request.deviceName} 配对`"
+            @click="approvePairing(request)"
+          >
             <svg class="icon-button__svg" viewBox="0 0 24 24" aria-hidden="true">
               <path d="M20 6 9 17l-5-5" />
             </svg>
           </button>
-          <button type="button" class="icon-button icon-button--inline device-row__action--danger"
-            :title="`拒绝 ${request.deviceName} 配对`" :aria-label="`拒绝 ${request.deviceName} 配对`"
-            @click="rejectPairing(request)">
+          <button
+            type="button"
+            class="icon-button icon-button--inline device-row__action--danger"
+            :title="`拒绝 ${request.deviceName} 配对`"
+            :aria-label="`拒绝 ${request.deviceName} 配对`"
+            @click="rejectPairing(request)"
+          >
             <svg class="icon-button__svg" viewBox="0 0 24 24" aria-hidden="true">
               <path d="M18 6 6 18" />
               <path d="m6 6 12 12" />
@@ -323,8 +355,13 @@ onBeforeUnmount(() => {
 
     <section class="device-panel" :class="{ 'device-panel--collapsed': !devicePanelExpanded }">
       <div class="device-panel__header">
-        <button type="button" class="device-panel__toggle" :aria-expanded="devicePanelExpanded"
-          aria-controls="clipboard-device-panel-body" @click="devicePanelExpanded = !devicePanelExpanded">
+        <button
+          type="button"
+          class="device-panel__toggle"
+          :aria-expanded="devicePanelExpanded"
+          aria-controls="clipboard-device-panel-body"
+          @click="devicePanelExpanded = !devicePanelExpanded"
+        >
           <span>
             <strong>设备</strong>
             <small>{{ devicePanelSummary }}</small>
@@ -333,10 +370,20 @@ onBeforeUnmount(() => {
             <path d="m6 9 6 6 6-6" />
           </svg>
         </button>
-        <button type="button" class="icon-button icon-button--inline device-panel__scan" :disabled="deviceScanBusy"
-          title="扫描已配对设备是否在线" aria-label="扫描已配对设备是否在线" @click="scanDevices">
-          <svg class="icon-button__svg" :class="{ 'icon-button__svg--spinning': deviceScanBusy }" viewBox="0 0 24 24"
-            aria-hidden="true">
+        <button
+          type="button"
+          class="icon-button icon-button--inline device-panel__scan"
+          :disabled="deviceScanBusy"
+          title="扫描已配对设备是否在线"
+          aria-label="扫描已配对设备是否在线"
+          @click="scanDevices"
+        >
+          <svg
+            class="icon-button__svg"
+            :class="{ 'icon-button__svg--spinning': deviceScanBusy }"
+            viewBox="0 0 24 24"
+            aria-hidden="true"
+          >
             <path d="M21 12a9 9 0 0 1-15.5 6.2L3 16" />
             <path d="M3 16v5h5" />
             <path d="M3 12a9 9 0 0 1 15.5-6.2L21 8" />
@@ -346,14 +393,23 @@ onBeforeUnmount(() => {
       </div>
 
       <Transition name="device-panel-collapse">
-        <div v-show="devicePanelExpanded" id="clipboard-device-panel-body" class="device-panel__body">
+        <div
+          v-show="devicePanelExpanded"
+          id="clipboard-device-panel-body"
+          class="device-panel__body"
+        >
           <div class="device-group">
             <div class="device-group__title">
               <span>已配对设备</span>
               <small>{{ trustedDeviceStatuses.length }}</small>
             </div>
             <div v-if="trustedDeviceStatuses.length" class="device-list" role="list">
-              <article v-for="device in trustedDeviceStatuses" :key="device.deviceId" class="device-row" role="listitem">
+              <article
+                v-for="device in trustedDeviceStatuses"
+                :key="device.deviceId"
+                class="device-row"
+                role="listitem"
+              >
                 <div class="device-row__identity">
                   <span
                     class="device-row__badge"
@@ -367,9 +423,14 @@ onBeforeUnmount(() => {
                     <small>{{ pairedDeviceMeta(device) || '等待同步连接' }}</small>
                   </div>
                 </div>
-                <button type="button" class="icon-button icon-button--inline device-row__action device-row__action--danger"
-                  :disabled="busy" :title="`解除配对 ${device.name}`" :aria-label="`解除配对 ${device.name}`"
-                  @click="forgetDevice(device)">
+                <button
+                  type="button"
+                  class="icon-button icon-button--inline device-row__action device-row__action--danger"
+                  :disabled="busy"
+                  :title="`解除配对 ${device.name}`"
+                  :aria-label="`解除配对 ${device.name}`"
+                  @click="forgetDevice(device)"
+                >
                   <svg class="icon-button__svg" viewBox="0 0 24 24" aria-hidden="true">
                     <path d="m18.5 5.5-13 13" />
                     <path d="M8.5 8.5 7 10a4 4 0 0 0 5.66 5.66L14 14.3" />
@@ -387,17 +448,29 @@ onBeforeUnmount(() => {
               <small>{{ availableDeviceStatuses.length }}</small>
             </div>
             <div v-if="availableDeviceStatuses.length" class="device-list" role="list">
-              <article v-for="device in availableDeviceStatuses" :key="device.deviceId" class="device-row" role="listitem">
+              <article
+                v-for="device in availableDeviceStatuses"
+                :key="device.deviceId"
+                class="device-row"
+                role="listitem"
+              >
                 <div class="device-row__identity">
-                  <span class="device-row__badge device-row__badge--available" aria-hidden="true">N</span>
+                  <span class="device-row__badge device-row__badge--available" aria-hidden="true"
+                    >N</span
+                  >
                   <div class="device-row__text">
                     <strong>{{ device.name }}</strong>
                     <small>{{ availableDeviceMeta(device) }}</small>
                   </div>
                 </div>
-                <button type="button" class="icon-button icon-button--inline device-row__action"
-                  :disabled="busy" :title="`配对 ${device.name}`" :aria-label="`配对 ${device.name}`"
-                  @click="startPairing(device)">
+                <button
+                  type="button"
+                  class="icon-button icon-button--inline device-row__action"
+                  :disabled="busy"
+                  :title="`配对 ${device.name}`"
+                  :aria-label="`配对 ${device.name}`"
+                  @click="startPairing(device)"
+                >
                   <svg class="icon-button__svg" viewBox="0 0 24 24" aria-hidden="true">
                     <path d="M10 13a5 5 0 0 0 7.54.54l2-2a5 5 0 0 0-7.07-7.07l-1.15 1.15" />
                     <path d="M14 11a5 5 0 0 0-7.54-.54l-2 2a5 5 0 0 0 7.07 7.07l1.15-1.15" />
@@ -410,7 +483,11 @@ onBeforeUnmount(() => {
             <p v-else class="device-group__empty">正在监听局域网设备</p>
 
             <form class="manual-pairing" @submit.prevent="startManualPairing">
-              <input v-model="manualEndpoint" type="text" placeholder="手动输入 IP，如 192.168.0.50" />
+              <input
+                v-model="manualEndpoint"
+                type="text"
+                placeholder="手动输入 IP，如 192.168.0.50"
+              />
               <button type="submit" :disabled="busy">配对</button>
               <span v-if="manualPairingError">{{ manualPairingError }}</span>
             </form>
@@ -419,17 +496,29 @@ onBeforeUnmount(() => {
       </Transition>
     </section>
 
-    <UiScrollbar class="clipboard-list" :x="false" :y="true" :size="6"
+    <UiScrollbar
+      class="clipboard-list"
+      :x="false"
+      :y="true"
+      :size="6"
       thumb-color="var(--clipboard-scrollbar-thumb)"
       thumb-hover-color="var(--clipboard-scrollbar-thumb-hover)"
-      track-color="var(--clipboard-scrollbar-track)">
-      <article v-for="item in items" :key="item.id" class="clipboard-item"
+      track-color="var(--clipboard-scrollbar-track)"
+    >
+      <article
+        v-for="item in items"
+        :key="item.id"
+        class="clipboard-item"
         :class="{
           'clipboard-item--selected': selectedItemId === item.id,
-        }" @click="applyItem(item)">
+        }"
+        @click="applyItem(item)"
+      >
         <div class="clipboard-item__media">
           <img v-if="itemPreviewSrc(item)" :src="itemPreviewSrc(item)" alt="" />
-          <span v-else>{{ item.contentType === 'text' ? 'T' : item.contentType === 'image' ? 'I' : 'F' }}</span>
+          <span v-else>{{
+            item.contentType === 'text' ? 'T' : item.contentType === 'image' ? 'I' : 'F'
+          }}</span>
         </div>
         <div class="clipboard-item__body">
           <div class="clipboard-item__topline">
@@ -437,8 +526,12 @@ onBeforeUnmount(() => {
             <time>{{ formatTime(item.createdAt) }}</time>
           </div>
           <p>{{ itemSummary(item) }}</p>
-          <button v-if="isExpandableText(item)" type="button" class="clipboard-item__preview"
-            @click.stop="showItemPreview(item)">
+          <button
+            v-if="isExpandableText(item)"
+            type="button"
+            class="clipboard-item__preview"
+            @click.stop="showItemPreview(item)"
+          >
             查看全文
           </button>
           <div class="clipboard-item__meta">
@@ -448,15 +541,27 @@ onBeforeUnmount(() => {
           </div>
         </div>
         <div class="clipboard-item__actions">
-          <button type="button" class="icon-button icon-button--inline" title="复制此项"
-            :aria-label="`复制 ${itemTitle(item)}`" @click.stop="copyItem(item)">
+          <button
+            type="button"
+            class="icon-button icon-button--inline"
+            title="复制此项"
+            :aria-label="`复制 ${itemTitle(item)}`"
+            @click.stop="copyItem(item)"
+          >
             <svg class="icon-button__svg" viewBox="0 0 24 24" aria-hidden="true">
               <rect x="8" y="8" width="12" height="12" rx="2" />
               <path d="M16 8V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h2" />
             </svg>
           </button>
-          <button type="button" class="icon-button icon-button--inline" title="删除"
-            :aria-label="`删除 ${itemTitle(item)}`" @click.stop="deleteItem(item)">×</button>
+          <button
+            type="button"
+            class="icon-button icon-button--inline"
+            title="删除"
+            :aria-label="`删除 ${itemTitle(item)}`"
+            @click.stop="deleteItem(item)"
+          >
+            ×
+          </button>
         </div>
       </article>
 
@@ -467,7 +572,13 @@ onBeforeUnmount(() => {
     </UiScrollbar>
 
     <footer class="clipboard-footer">
-      <button type="button" class="icon-button" title="刷新剪贴板" aria-label="刷新剪贴板" @click="refresh">
+      <button
+        type="button"
+        class="icon-button"
+        title="刷新剪贴板"
+        aria-label="刷新剪贴板"
+        @click="refresh"
+      >
         <svg class="icon-button__svg" viewBox="0 0 24 24" aria-hidden="true">
           <path d="M21 12a9 9 0 0 1-15.5 6.2L3 16" />
           <path d="M3 16v5h5" />
@@ -475,8 +586,14 @@ onBeforeUnmount(() => {
           <path d="M21 8V3h-5" />
         </svg>
       </button>
-      <button type="button" class="icon-button" :disabled="!items.length" title="清空剪贴板历史"
-        aria-label="清空剪贴板历史" @click="clearHistory">
+      <button
+        type="button"
+        class="icon-button"
+        :disabled="!items.length"
+        title="清空剪贴板历史"
+        aria-label="清空剪贴板历史"
+        @click="clearHistory"
+      >
         <svg class="icon-button__svg" viewBox="0 0 24 24" aria-hidden="true">
           <path d="M3 6h18" />
           <path d="M8 6V4h8v2" />
@@ -499,7 +616,7 @@ body,
   padding: 0;
   background: transparent;
   overflow: hidden;
-  font-family: "Geist Variable", "Microsoft YaHei", system-ui, sans-serif;
+  font-family: 'Geist Variable', 'Microsoft YaHei', system-ui, sans-serif;
 }
 
 * {
@@ -592,7 +709,7 @@ body,
 }
 
 .clipboard-shell::before {
-  content: "";
+  content: '';
   position: absolute;
   inset: 0;
   z-index: 0;
@@ -605,7 +722,7 @@ body,
   pointer-events: none;
 }
 
-.clipboard-shell> * {
+.clipboard-shell > * {
   position: relative;
   z-index: 1;
 }

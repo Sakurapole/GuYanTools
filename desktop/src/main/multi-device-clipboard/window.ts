@@ -2,7 +2,10 @@ import { waitForDevServer } from '@/main/windows/wait_for_dev_server';
 import type { MultiDeviceClipboardItem } from '@/contracts/multi_device_clipboard';
 import { BrowserWindow, ipcMain, screen } from 'electron';
 import path from 'node:path';
-import { clipboardWindowPlatformAdapter, type ClipboardAlwaysOnTopLevel } from './window_platform_adapter';
+import {
+  clipboardWindowPlatformAdapter,
+  type ClipboardAlwaysOnTopLevel,
+} from './window_platform_adapter';
 
 const WINDOW_WIDTH = 420;
 const WINDOW_HEIGHT = 560;
@@ -22,7 +25,9 @@ let anchorDisplayId: number | null = null;
 
 export async function showMultiDeviceClipboardWindow() {
   anchorDisplayId = screen.getDisplayNearestPoint(screen.getCursorScreenPoint()).id;
-  pasteTargetWindowToken = await clipboardWindowPlatformAdapter.getForegroundPasteTargetToken().catch((): null => null);
+  pasteTargetWindowToken = await clipboardWindowPlatformAdapter
+    .getForegroundPasteTargetToken()
+    .catch((): null => null);
 
   if (clipboardWindow && !clipboardWindow.isDestroyed()) {
     isHiding = false;
@@ -76,7 +81,7 @@ export async function showMultiDeviceClipboardWindow() {
     await clipboardWindow.loadURL(url);
   } else {
     await clipboardWindow.loadFile(
-      path.join(__dirname, `../renderer/${MAIN_WINDOW_VITE_NAME}/clipboard.html`),
+      path.join(__dirname, `../renderer/${MAIN_WINDOW_VITE_NAME}/clipboard.html`)
     );
   }
 
@@ -113,15 +118,22 @@ export async function showMultiDeviceClipboardTextPreviewWindow(item: MultiDevic
     textPreviewWindow.close();
   }
 
-  const targetBounds = clipboardWindow && !clipboardWindow.isDestroyed()
-    ? clipboardWindow.getBounds()
-    : getTargetBounds('expanded');
+  const targetBounds =
+    clipboardWindow && !clipboardWindow.isDestroyed()
+      ? clipboardWindow.getBounds()
+      : getTargetBounds('expanded');
   const display = screen.getDisplayMatching(targetBounds);
   const { workArea } = display;
   const width = Math.min(560, Math.max(420, workArea.width - MARGIN * 2));
   const height = Math.min(460, Math.max(320, workArea.height - MARGIN * 2));
-  const x = Math.max(workArea.x + MARGIN, Math.min(targetBounds.x - width - MARGIN, workArea.x + workArea.width - width - MARGIN));
-  const y = Math.max(workArea.y + MARGIN, Math.min(targetBounds.y, workArea.y + workArea.height - height - MARGIN));
+  const x = Math.max(
+    workArea.x + MARGIN,
+    Math.min(targetBounds.x - width - MARGIN, workArea.x + workArea.width - width - MARGIN)
+  );
+  const y = Math.max(
+    workArea.y + MARGIN,
+    Math.min(targetBounds.y, workArea.y + workArea.height - height - MARGIN)
+  );
 
   textPreviewWindow = new BrowserWindow({
     width,
@@ -158,7 +170,7 @@ export async function showMultiDeviceClipboardTextPreviewWindow(item: MultiDevic
     await textPreviewWindow.loadURL(url);
   } else {
     await textPreviewWindow.loadFile(
-      path.join(__dirname, `../renderer/${MAIN_WINDOW_VITE_NAME}/clipboard_text_preview.html`),
+      path.join(__dirname, `../renderer/${MAIN_WINDOW_VITE_NAME}/clipboard_text_preview.html`)
     );
   }
   textPreviewWindow.show();
@@ -210,10 +222,7 @@ export function expandMultiDeviceClipboardWindow(animated = true) {
   }
 }
 
-function positionWindow(
-  win: BrowserWindow,
-  mode: 'expanded' | 'offscreen' = 'expanded',
-) {
+function positionWindow(win: BrowserWindow, mode: 'expanded' | 'offscreen' = 'expanded') {
   win.setBounds(getTargetBounds(mode), false);
 }
 
@@ -258,8 +267,16 @@ function getTargetBounds(mode: 'expanded' | 'offscreen') {
   const anchorBottom = clamp(anchorBounds.y + anchorBounds.height, workArea.y + MARGIN, bottom);
 
   const expanded = {
-    x: clamp(anchorRight - WINDOW_WIDTH - MARGIN, workArea.x + MARGIN, right - WINDOW_WIDTH - MARGIN),
-    y: clamp(anchorBottom - WINDOW_HEIGHT - MARGIN, workArea.y + MARGIN, bottom - WINDOW_HEIGHT - MARGIN),
+    x: clamp(
+      anchorRight - WINDOW_WIDTH - MARGIN,
+      workArea.x + MARGIN,
+      right - WINDOW_WIDTH - MARGIN
+    ),
+    y: clamp(
+      anchorBottom - WINDOW_HEIGHT - MARGIN,
+      workArea.y + MARGIN,
+      bottom - WINDOW_HEIGHT - MARGIN
+    ),
     width: WINDOW_WIDTH,
     height: WINDOW_HEIGHT,
   };
@@ -281,9 +298,10 @@ function getAnchorBounds() {
 
 function getAnchorDisplay() {
   const displays = screen.getAllDisplays();
-  const matched = anchorDisplayId == null
-    ? undefined
-    : displays.find((display) => display.id === anchorDisplayId);
+  const matched =
+    anchorDisplayId == null
+      ? undefined
+      : displays.find((display) => display.id === anchorDisplayId);
   return matched ?? screen.getDisplayNearestPoint(screen.getCursorScreenPoint());
 }
 

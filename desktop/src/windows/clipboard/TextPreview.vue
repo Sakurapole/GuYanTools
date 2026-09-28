@@ -22,7 +22,10 @@ let removeDataListener: (() => void) | undefined;
 let removeConfigListener: (() => void) | undefined;
 
 const title = computed(() => {
-  const firstLine = item.value?.text?.split(/\r?\n/).find((line) => line.trim())?.trim();
+  const firstLine = item.value?.text
+    ?.split(/\r?\n/)
+    .find((line) => line.trim())
+    ?.trim();
   return firstLine?.slice(0, 80) || '文本内容';
 });
 
@@ -85,7 +88,7 @@ const textSegments = computed<TextSegment[]>(() => {
   return segments;
 });
 
-const matchCount = computed(() => textSegments.value.filter(segment => segment.matched).length);
+const matchCount = computed(() => textSegments.value.filter((segment) => segment.matched).length);
 
 const matchCounterLabel = computed(() => {
   if (!searchQuery.value) return '输入关键词';
@@ -125,7 +128,8 @@ function closeSearch() {
 
 function goToMatch(direction: 1 | -1) {
   if (!matchCount.value) return;
-  activeMatchIndex.value = (activeMatchIndex.value + direction + matchCount.value) % matchCount.value;
+  activeMatchIndex.value =
+    (activeMatchIndex.value + direction + matchCount.value) % matchCount.value;
 }
 
 function scrollActiveMatchIntoView() {
@@ -166,10 +170,13 @@ function handleWindowKeydown(event: KeyboardEvent) {
 }
 
 onMounted(() => {
-  removeDataListener = window.ipcRenderer?.on('multi-device-clipboard:text-preview-data', (payload: MultiDeviceClipboardItem) => {
-    item.value = payload;
-    document.title = title.value;
-  });
+  removeDataListener = window.ipcRenderer?.on(
+    'multi-device-clipboard:text-preview-data',
+    (payload: MultiDeviceClipboardItem) => {
+      item.value = payload;
+      document.title = title.value;
+    }
+  );
   removeConfigListener = window.appConfigApi?.onDidChange(applyTheme);
   void window.appConfigApi?.getConfig().then(applyTheme);
   window.ipcRenderer?.send('multi-device-clipboard:text-preview-ready');
@@ -219,15 +226,37 @@ watch(searchQuery, () => {
         </div>
       </div>
       <div class="text-preview__title-actions">
-        <UiIconButton class="text-preview__title-button" variant="ghost" size="sm" shape="square" title="搜索文本 Ctrl+F"
-          :active="searchVisible" @click="openSearch">
-          <svg class="text-preview__svg-icon text-preview__svg-icon--button" viewBox="0 0 24 24" aria-hidden="true">
+        <UiIconButton
+          class="text-preview__title-button"
+          variant="ghost"
+          size="sm"
+          shape="square"
+          title="搜索文本 Ctrl+F"
+          :active="searchVisible"
+          @click="openSearch"
+        >
+          <svg
+            class="text-preview__svg-icon text-preview__svg-icon--button"
+            viewBox="0 0 24 24"
+            aria-hidden="true"
+          >
             <circle cx="11" cy="11" r="8" />
             <path d="m21 21-4.35-4.35" />
           </svg>
         </UiIconButton>
-        <UiIconButton class="text-preview__title-button" variant="danger" size="sm" shape="square" title="关闭" @click="closeWindow">
-          <svg class="text-preview__svg-icon text-preview__svg-icon--close" viewBox="0 0 24 24" aria-hidden="true">
+        <UiIconButton
+          class="text-preview__title-button"
+          variant="danger"
+          size="sm"
+          shape="square"
+          title="关闭"
+          @click="closeWindow"
+        >
+          <svg
+            class="text-preview__svg-icon text-preview__svg-icon--close"
+            viewBox="0 0 24 24"
+            aria-hidden="true"
+          >
             <path d="M18 6 6 18" />
             <path d="m6 6 12 12" />
           </svg>
@@ -237,40 +266,88 @@ watch(searchQuery, () => {
 
     <section v-if="searchVisible" class="text-preview__searchbar">
       <div class="text-preview__search-field">
-        <svg class="text-preview__svg-icon text-preview__svg-icon--search" viewBox="0 0 24 24" aria-hidden="true">
+        <svg
+          class="text-preview__svg-icon text-preview__svg-icon--search"
+          viewBox="0 0 24 24"
+          aria-hidden="true"
+        >
           <circle cx="11" cy="11" r="8" />
           <path d="m21 21-4.35-4.35" />
         </svg>
-        <UiInput class="text-preview__search-input" v-model="searchQuery" size="sm" placeholder="搜索文本"
-          @keydown="handleSearchKeydown" />
+        <UiInput
+          class="text-preview__search-input"
+          v-model="searchQuery"
+          size="sm"
+          placeholder="搜索文本"
+          @keydown="handleSearchKeydown"
+        />
       </div>
       <span class="text-preview__search-count">{{ matchCounterLabel }}</span>
-      <UiIconButton class="text-preview__search-action" variant="ghost" size="sm" shape="square" title="上一个 Shift+Enter"
-        :disabled="!matchCount" @click="goToMatch(-1)">
-        <svg class="text-preview__svg-icon text-preview__svg-icon--button" viewBox="0 0 24 24" aria-hidden="true">
+      <UiIconButton
+        class="text-preview__search-action"
+        variant="ghost"
+        size="sm"
+        shape="square"
+        title="上一个 Shift+Enter"
+        :disabled="!matchCount"
+        @click="goToMatch(-1)"
+      >
+        <svg
+          class="text-preview__svg-icon text-preview__svg-icon--button"
+          viewBox="0 0 24 24"
+          aria-hidden="true"
+        >
           <path d="m18 15-6-6-6 6" />
         </svg>
       </UiIconButton>
-      <UiIconButton class="text-preview__search-action" variant="ghost" size="sm" shape="square" title="下一个 Enter"
-        :disabled="!matchCount" @click="goToMatch(1)">
-        <svg class="text-preview__svg-icon text-preview__svg-icon--button" viewBox="0 0 24 24" aria-hidden="true">
+      <UiIconButton
+        class="text-preview__search-action"
+        variant="ghost"
+        size="sm"
+        shape="square"
+        title="下一个 Enter"
+        :disabled="!matchCount"
+        @click="goToMatch(1)"
+      >
+        <svg
+          class="text-preview__svg-icon text-preview__svg-icon--button"
+          viewBox="0 0 24 24"
+          aria-hidden="true"
+        >
           <path d="m6 9 6 6 6-6" />
         </svg>
       </UiIconButton>
-      <UiIconButton class="text-preview__search-action" variant="ghost" size="sm" shape="square" title="关闭搜索 Esc"
-        @click="closeSearch">
-        <svg class="text-preview__svg-icon text-preview__svg-icon--button" viewBox="0 0 24 24" aria-hidden="true">
+      <UiIconButton
+        class="text-preview__search-action"
+        variant="ghost"
+        size="sm"
+        shape="square"
+        title="关闭搜索 Esc"
+        @click="closeSearch"
+      >
+        <svg
+          class="text-preview__svg-icon text-preview__svg-icon--button"
+          viewBox="0 0 24 24"
+          aria-hidden="true"
+        >
           <path d="M18 6 6 18" />
           <path d="m6 6 12 12" />
         </svg>
       </UiIconButton>
     </section>
 
-    <UiScrollbar class="text-preview__scroll" :x="false" :y="true" :size="6"
+    <UiScrollbar
+      class="text-preview__scroll"
+      :x="false"
+      :y="true"
+      :size="6"
       thumb-color="var(--preview-scrollbar-thumb)"
       thumb-hover-color="var(--preview-scrollbar-thumb-hover)"
-      track-color="var(--preview-scrollbar-track)">
-      <pre class="text-preview__content"><template v-for="segment in textSegments" :key="segment.id"><mark
+      track-color="var(--preview-scrollbar-track)"
+    >
+      <pre
+        class="text-preview__content"
+      ><template v-for="segment in textSegments" :key="segment.id"><mark
         v-if="segment.matched"
         class="text-preview__match"
         :class="{ 'text-preview__match--active': segment.matchIndex === activeMatchIndex }"
@@ -293,7 +370,7 @@ body,
   padding: 0;
   background: transparent;
   overflow: hidden;
-  font-family: "Geist Variable", "Microsoft YaHei", system-ui, sans-serif;
+  font-family: 'Geist Variable', 'Microsoft YaHei', system-ui, sans-serif;
 }
 
 * {
@@ -469,7 +546,12 @@ body,
   padding: 14px;
   white-space: pre-wrap;
   overflow-wrap: anywhere;
-  font: 13px/1.62 "Geist Mono", "Cascadia Mono", Consolas, "Microsoft YaHei", monospace;
+  font:
+    13px/1.62 'Geist Mono',
+    'Cascadia Mono',
+    Consolas,
+    'Microsoft YaHei',
+    monospace;
 }
 
 .text-preview__match {

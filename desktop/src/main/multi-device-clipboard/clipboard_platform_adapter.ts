@@ -35,7 +35,10 @@ class LinuxClipboardPlatformAdapter extends DefaultClipboardPlatformAdapter {
 
     clipboard.writeText(uriList);
     clipboard.writeBuffer('text/uri-list', Buffer.from(`${uriList}\n`, 'utf8'));
-    clipboard.writeBuffer('x-special/gnome-copied-files', Buffer.from(`copy\n${uriList}\n`, 'utf8'));
+    clipboard.writeBuffer(
+      'x-special/gnome-copied-files',
+      Buffer.from(`copy\n${uriList}\n`, 'utf8')
+    );
   }
 }
 
@@ -47,7 +50,10 @@ class WindowsClipboardPlatformAdapter implements ClipboardPlatformAdapter {
       ...readPathsFromWindowsDropFiles(),
       ...readPathsFromUriList(formats),
     ]);
-    if (paths.length || (!options?.forceFallback && !shouldTryWindowsFileDropListFallback(formats))) {
+    if (
+      paths.length ||
+      (!options?.forceFallback && !shouldTryWindowsFileDropListFallback(formats))
+    ) {
       return paths;
     }
 
@@ -66,11 +72,12 @@ class WindowsClipboardPlatformAdapter implements ClipboardPlatformAdapter {
   }
 }
 
-export const clipboardPlatformAdapter: ClipboardPlatformAdapter = process.platform === 'win32'
-  ? new WindowsClipboardPlatformAdapter()
-  : process.platform === 'linux'
-    ? new LinuxClipboardPlatformAdapter()
-    : new DefaultClipboardPlatformAdapter();
+export const clipboardPlatformAdapter: ClipboardPlatformAdapter =
+  process.platform === 'win32'
+    ? new WindowsClipboardPlatformAdapter()
+    : process.platform === 'linux'
+      ? new LinuxClipboardPlatformAdapter()
+      : new DefaultClipboardPlatformAdapter();
 
 function readPathsFromFileNameW(formats: string[]) {
   if (process.platform !== 'win32' && !hasClipboardFormat(formats, 'FileNameW')) return [];
@@ -104,7 +111,8 @@ function readPathsFromWindowsDropFiles() {
 function readPathsFromUriList(formats: string[]) {
   if (!hasClipboardFormat(formats, 'text/uri-list')) return [];
   try {
-    return clipboard.readBuffer('text/uri-list')
+    return clipboard
+      .readBuffer('text/uri-list')
       .toString('utf8')
       .split(/\r?\n/)
       .map((line) => line.trim())
@@ -118,13 +126,19 @@ function shouldTryWindowsFileDropListFallback(formats: string[]) {
   if (process.platform !== 'win32') {
     return false;
   }
-  if (formats.some((format) => /file|drop|shell|hdrop|preferred\s*dropeffect|dataobject/i.test(format))) {
+  if (
+    formats.some((format) =>
+      /file|drop|shell|hdrop|preferred\s*dropeffect|dataobject/i.test(format)
+    )
+  ) {
     return true;
   }
   if (!formats.length) {
     return true;
   }
-  return !formats.every((format) => isTextClipboardFormat(format) || isImageClipboardFormat(format));
+  return !formats.every(
+    (format) => isTextClipboardFormat(format) || isImageClipboardFormat(format)
+  );
 }
 
 async function readWindowsFileDropListFromClipboard() {
@@ -143,7 +157,7 @@ async function readWindowsFileDropListFromClipboard() {
         [
           '[Console]::OutputEncoding = [System.Text.Encoding]::UTF8',
           'Add-Type -AssemblyName System.Windows.Forms',
-          'Add-Type -TypeDefinition @\'',
+          "Add-Type -TypeDefinition @'",
           'using System;',
           'using System.Collections.Generic;',
           'using System.Runtime.InteropServices;',
@@ -173,7 +187,7 @@ async function readWindowsFileDropListFromClipboard() {
           '    }',
           '  }',
           '}',
-          '\'@',
+          "'@",
           '$items = New-Object System.Collections.Generic.List[string]',
           '$formats = @()',
           '$dataObject = $null',
@@ -200,7 +214,7 @@ async function readWindowsFileDropListFromClipboard() {
       {
         timeout: 5000,
         windowsHide: true,
-      },
+      }
     );
     const parsed = JSON.parse(stdout.trim() || '[]') as unknown;
     if (Array.isArray(parsed)) {
@@ -261,7 +275,7 @@ async function writeWindowsFileDropListToClipboard(paths: string[], imagePath?: 
     {
       timeout: 5000,
       windowsHide: true,
-    },
+    }
   );
 }
 
@@ -271,7 +285,7 @@ function getWindowsPowerShellPath() {
     'System32',
     'WindowsPowerShell',
     'v1.0',
-    'powershell.exe',
+    'powershell.exe'
   );
 }
 
@@ -290,12 +304,13 @@ function isImageClipboardFormat(format: string) {
 function isWindowsFileDropResult(value: unknown): value is { paths: string[]; formats: string[] } {
   if (!value || typeof value !== 'object') return false;
   const candidate = value as { paths?: unknown; formats?: unknown };
-  return Array.isArray(candidate.paths) &&
+  return (
+    Array.isArray(candidate.paths) &&
     candidate.paths.every((item) => typeof item === 'string') &&
-    (candidate.formats === undefined || (
-      Array.isArray(candidate.formats) &&
-      candidate.formats.every((item) => typeof item === 'string')
-    ));
+    (candidate.formats === undefined ||
+      (Array.isArray(candidate.formats) &&
+        candidate.formats.every((item) => typeof item === 'string')))
+  );
 }
 
 function readClipboardBufferPaths(format: string, encoding: BufferEncoding) {

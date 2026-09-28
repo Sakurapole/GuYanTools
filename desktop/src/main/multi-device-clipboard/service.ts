@@ -37,18 +37,22 @@ type NativeMultiDeviceClipboardHost = {
   listDiscoveredDevices(): MultiDeviceClipboardDiscoveredDevice[];
   listDevices(): Promise<MultiDeviceClipboardDevice[]>;
   listDeviceStatuses(onlineWindowSeconds: number): Promise<MultiDeviceClipboardDeviceStatus[]>;
-  upsertDevice(input: Partial<MultiDeviceClipboardDevice> & { id: string; name: string }): Promise<MultiDeviceClipboardDevice>;
+  upsertDevice(
+    input: Partial<MultiDeviceClipboardDevice> & { id: string; name: string }
+  ): Promise<MultiDeviceClipboardDevice>;
   setDeviceTrusted(id: string, trusted: boolean): Promise<MultiDeviceClipboardDevice>;
   forgetDevice(id: string): Promise<void>;
   listItems(limit: number): Promise<MultiDeviceClipboardItem[]>;
   getItem(id: string): Promise<MultiDeviceClipboardItem>;
-  upsertItem(input: Partial<MultiDeviceClipboardItem> & {
-    id: string;
-    sourceDeviceId: string;
-    sourceDeviceName: string;
-    contentType: string;
-    contentHash: string;
-  }): Promise<MultiDeviceClipboardItem>;
+  upsertItem(
+    input: Partial<MultiDeviceClipboardItem> & {
+      id: string;
+      sourceDeviceId: string;
+      sourceDeviceName: string;
+      contentType: string;
+      contentHash: string;
+    }
+  ): Promise<MultiDeviceClipboardItem>;
   deleteItem(id: string): Promise<void>;
   clearHistory(): Promise<void>;
   pruneHistory(limit: number): Promise<void>;
@@ -65,7 +69,9 @@ type CaptureResult = {
   assetBase64?: string;
 };
 
-const NativeMultiDeviceClipboardHostConstructor = JsMultiDeviceClipboardHost as unknown as new (db: unknown) => NativeMultiDeviceClipboardHost;
+const NativeMultiDeviceClipboardHostConstructor = JsMultiDeviceClipboardHost as unknown as new (
+  db: unknown
+) => NativeMultiDeviceClipboardHost;
 
 const POLL_INTERVAL_MS = 1000;
 const DEFAULT_HISTORY_LIMIT = 200;
@@ -177,7 +183,7 @@ class MultiDeviceClipboardService {
       {
         deviceId: localDevice.id,
         deviceName: localDevice.name,
-      },
+      }
     );
     return result;
   }
@@ -185,7 +191,11 @@ class MultiDeviceClipboardService {
   async startPairingByAddress(endpoint: string) {
     const { address, port } = parseManualPairingEndpoint(endpoint);
     const localDevice = await this.ensureLocalDevice();
-    const status = await this.getJson<{ device?: MultiDeviceClipboardDevice }>(address, port, '/status');
+    const status = await this.getJson<{ device?: MultiDeviceClipboardDevice }>(
+      address,
+      port,
+      '/status'
+    );
     if (!status.device?.id) {
       throw new Error('该地址不是有效的 GuYanTools 剪贴板服务');
     }
@@ -206,7 +216,7 @@ class MultiDeviceClipboardService {
       {
         deviceId: localDevice.id,
         deviceName: localDevice.name,
-      },
+      }
     );
     this.emit({ type: 'devices-changed' });
     return result;
@@ -273,7 +283,7 @@ class MultiDeviceClipboardService {
 
   private startDiscovery(
     localDevice: MultiDeviceClipboardDevice,
-    feature: AppConfig['features']['multiDeviceClipboard'],
+    feature: AppConfig['features']['multiDeviceClipboard']
   ) {
     this.requireHost().startDiscovery({
       deviceId: localDevice.id,
@@ -336,11 +346,13 @@ class MultiDeviceClipboardService {
         return;
       }
       this.captureInFlight = true;
-      void this.captureClipboard().catch((error) => {
-        console.warn('[multi-device-clipboard] Clipboard capture failed:', error);
-      }).finally(() => {
-        this.captureInFlight = false;
-      });
+      void this.captureClipboard()
+        .catch((error) => {
+          console.warn('[multi-device-clipboard] Clipboard capture failed:', error);
+        })
+        .finally(() => {
+          this.captureInFlight = false;
+        });
     }, POLL_INTERVAL_MS);
   }
 
@@ -364,7 +376,9 @@ class MultiDeviceClipboardService {
     }
 
     const item = await this.requireHost().upsertItem(capture.itemInput);
-    await this.requireHost().pruneHistory(this.config?.features.multiDeviceClipboard.historyLimit ?? DEFAULT_HISTORY_LIMIT);
+    await this.requireHost().pruneHistory(
+      this.config?.features.multiDeviceClipboard.historyLimit ?? DEFAULT_HISTORY_LIMIT
+    );
     this.lastContentHash = item.contentHash;
     this.emit({ type: 'items-changed', item });
     logClipboardSuccess('copy-success', item, { source: 'system-clipboard' });
@@ -376,15 +390,18 @@ class MultiDeviceClipboardService {
   private async readCurrentClipboard(): Promise<CaptureResult | null> {
     const localDevice = await this.ensureLocalDevice();
     const formats = clipboard.availableFormats();
-    const maxSyncBytes = this.config?.features.multiDeviceClipboard.maxSyncBytes ?? 100 * 1024 * 1024;
+    const maxSyncBytes =
+      this.config?.features.multiDeviceClipboard.maxSyncBytes ?? 100 * 1024 * 1024;
     const boundedMaxSyncBytes = Math.min(MAX_SYNC_BYTES, Math.max(1, maxSyncBytes));
 
     const paths = await clipboardPlatformAdapter.readFilePaths(formats);
     if (paths.length) {
-      const fileCapture = await this.captureFile(localDevice, paths, boundedMaxSyncBytes).catch((error: unknown): null => {
-        console.warn('[multi-device-clipboard] File clipboard capture failed:', error);
-        return null;
-      });
+      const fileCapture = await this.captureFile(localDevice, paths, boundedMaxSyncBytes).catch(
+        (error: unknown): null => {
+          console.warn('[multi-device-clipboard] File clipboard capture failed:', error);
+          return null;
+        }
+      );
       if (fileCapture) {
         return fileCapture;
       }
@@ -397,7 +414,11 @@ class MultiDeviceClipboardService {
         const hash = hashBufferParts(['image'], png);
         const imageFileDropPaths = await this.readWindowsFileDropListForImageHash(hash);
         if (imageFileDropPaths.length) {
-          const fileCapture = await this.captureFile(localDevice, imageFileDropPaths, boundedMaxSyncBytes).catch((error: unknown): null => {
+          const fileCapture = await this.captureFile(
+            localDevice,
+            imageFileDropPaths,
+            boundedMaxSyncBytes
+          ).catch((error: unknown): null => {
             console.warn('[multi-device-clipboard] Image file clipboard capture failed:', error);
             return null;
           });
@@ -449,7 +470,7 @@ class MultiDeviceClipboardService {
   private async captureFile(
     localDevice: MultiDeviceClipboardDevice,
     paths: string[],
-    maxSyncBytes: number,
+    maxSyncBytes: number
   ): Promise<CaptureResult | null> {
     const firstPath = paths.find((item) => existsSync(item));
     if (!firstPath) return null;
@@ -482,10 +503,12 @@ class MultiDeviceClipboardService {
       ]);
     }
     if (isImage && !hasMultiplePaths) {
-      previewPath = await this.createImagePreview(firstPath, fileHash).catch((error: unknown): undefined => {
-        console.warn('[multi-device-clipboard] Image file preview generation failed:', error);
-        return undefined;
-      });
+      previewPath = await this.createImagePreview(firstPath, fileHash).catch(
+        (error: unknown): undefined => {
+          console.warn('[multi-device-clipboard] Image file preview generation failed:', error);
+          return undefined;
+        }
+      );
     }
     const tags = ['file'];
     if (isDirectory) tags.push('folder');
@@ -514,13 +537,23 @@ class MultiDeviceClipboardService {
 
   private async broadcastItem(item: MultiDeviceClipboardItem, assetBase64?: string) {
     const devices = await this.requireHost().listDevices();
-    const trustedDevices = devices.filter((device) =>
-      device.trusted && !device.isSelf && device.lastAddress && device.lastPort);
-    const results = await Promise.allSettled(trustedDevices.map((device) =>
-      this.postJson(device.lastAddress!, device.lastPort!, '/sync/item', { item, assetBase64 } satisfies SyncPayload)));
+    const trustedDevices = devices.filter(
+      (device) => device.trusted && !device.isSelf && device.lastAddress && device.lastPort
+    );
+    const results = await Promise.allSettled(
+      trustedDevices.map((device) =>
+        this.postJson(device.lastAddress!, device.lastPort!, '/sync/item', {
+          item,
+          assetBase64,
+        } satisfies SyncPayload)
+      )
+    );
     const successCount = results.filter((result) => result.status === 'fulfilled').length;
     if (successCount > 0) {
-      logClipboardSuccess('sync-send-success', item, { successCount, targetCount: trustedDevices.length });
+      logClipboardSuccess('sync-send-success', item, {
+        successCount,
+        targetCount: trustedDevices.length,
+      });
     }
   }
 
@@ -545,7 +578,9 @@ class MultiDeviceClipboardService {
           createdAt: Date.now(),
         };
         if (!request.port) {
-          const discovered = this.requireHost().listDiscoveredDevices().find((item) => item.id === request.deviceId);
+          const discovered = this.requireHost()
+            .listDiscoveredDevices()
+            .find((item) => item.id === request.deviceId);
           request.port = discovered?.port ?? 0;
           request.address = discovered?.address ?? request.address;
         }
@@ -561,7 +596,9 @@ class MultiDeviceClipboardService {
 
       if (req.method === 'POST' && req.url === '/pair/approve') {
         const body = await this.readRequestJson<{ deviceId: string; deviceName: string }>(req);
-        const discovered = this.requireHost().listDiscoveredDevices().find((item) => item.id === body.deviceId);
+        const discovered = this.requireHost()
+          .listDiscoveredDevices()
+          .find((item) => item.id === body.deviceId);
         const requestPort = Number(req.headers['x-guyantools-port'] ?? 0) || undefined;
         await this.requireHost().upsertDevice({
           id: body.deviceId,
@@ -593,7 +630,9 @@ class MultiDeviceClipboardService {
 
   private async receiveRemoteItem(payload: SyncPayload) {
     const devices = await this.requireHost().listDevices();
-    const trusted = devices.some((device) => device.id === payload.item.sourceDeviceId && device.trusted);
+    const trusted = devices.some(
+      (device) => device.id === payload.item.sourceDeviceId && device.trusted
+    );
     if (!trusted) {
       throw new Error('设备尚未配对，拒绝同步内容');
     }
@@ -602,11 +641,16 @@ class MultiDeviceClipboardService {
     itemInput.previewPath = undefined;
     if (payload.assetBase64 && payload.item.fileName) {
       const bytes = Buffer.from(payload.assetBase64, 'base64');
-      itemInput.assetPath = await this.writeAsset(`${payload.item.contentHash}-${payload.item.fileName}`, bytes);
+      itemInput.assetPath = await this.writeAsset(
+        `${payload.item.contentHash}-${payload.item.fileName}`,
+        bytes
+      );
       itemInput.byteSize = bytes.length;
       if (payload.item.contentType === 'file' && isImageFile(payload.item.fileName)) {
-        itemInput.previewPath = await this.createImagePreview(itemInput.assetPath, payload.item.contentHash)
-          .catch((): undefined => undefined);
+        itemInput.previewPath = await this.createImagePreview(
+          itemInput.assetPath,
+          payload.item.contentHash
+        ).catch((): undefined => undefined);
       }
     }
 
@@ -630,7 +674,10 @@ class MultiDeviceClipboardService {
 
     if (item.contentType === 'file') {
       const paths = parseItemPaths(item);
-      await this.writeFilePathsToClipboard(paths, isImageFile(item.fileName ?? '') ? paths[0] : undefined);
+      await this.writeFilePathsToClipboard(
+        paths,
+        isImageFile(item.fileName ?? '') ? paths[0] : undefined
+      );
     }
   }
 
@@ -641,8 +688,9 @@ class MultiDeviceClipboardService {
       return;
     }
 
-    this.suppressNextHash = await this.computeFileCaptureHash(existingPaths)
-      .catch(() => this.suppressNextHash);
+    this.suppressNextHash = await this.computeFileCaptureHash(existingPaths).catch(
+      () => this.suppressNextHash
+    );
 
     await clipboardPlatformAdapter.writeFilePaths(existingPaths, { imagePath });
   }
@@ -658,7 +706,8 @@ class MultiDeviceClipboardService {
       return this.requireHost().computeContentHash(['file-ref', ...paths]);
     }
 
-    const maxSyncBytes = this.config?.features.multiDeviceClipboard.maxSyncBytes ?? 100 * 1024 * 1024;
+    const maxSyncBytes =
+      this.config?.features.multiDeviceClipboard.maxSyncBytes ?? 100 * 1024 * 1024;
     const boundedMaxSyncBytes = Math.min(MAX_SYNC_BYTES, Math.max(1, maxSyncBytes));
     const fileName = path.basename(firstPath);
     const isFile = stats.isFile();
@@ -681,19 +730,24 @@ class MultiDeviceClipboardService {
 
   private handleNativeEvent(payload: string) {
     try {
-      const event = JSON.parse(payload) as { type: string; device?: MultiDeviceClipboardDiscoveredDevice };
+      const event = JSON.parse(payload) as {
+        type: string;
+        device?: MultiDeviceClipboardDiscoveredDevice;
+      };
       if (event.type === 'deviceFound' && event.device) {
         const device = event.device;
-        void this.requireHost().upsertDevice({
-          id: device.id,
-          name: device.name,
-          platform: device.platform,
-          trusted: false,
-          isSelf: false,
-          lastAddress: device.address,
-          lastPort: device.port,
-          lastSeenAt: device.lastSeenAt,
-        }).catch(() => {});
+        void this.requireHost()
+          .upsertDevice({
+            id: device.id,
+            name: device.name,
+            platform: device.platform,
+            trusted: false,
+            isSelf: false,
+            lastAddress: device.address,
+            lastPort: device.port,
+            lastSeenAt: device.lastSeenAt,
+          })
+          .catch(() => {});
         void this.notifyDiscoveredDevice(device);
         this.emit({ type: 'discovered-devices-changed' });
       } else if (event.type === 'deviceLost') {
@@ -729,7 +783,9 @@ class MultiDeviceClipboardService {
 
   private async notifyDiscoveredDevice(device: MultiDeviceClipboardDiscoveredDevice) {
     if (!Notification.isSupported() || this.notifiedDiscoveredDeviceIds.has(device.id)) return;
-    const devices = await this.requireHost().listDevices().catch((): MultiDeviceClipboardDevice[] => []);
+    const devices = await this.requireHost()
+      .listDevices()
+      .catch((): MultiDeviceClipboardDevice[] => []);
     if (devices.some((item) => item.id === device.id && item.trusted)) return;
     this.notifiedDiscoveredDeviceIds.add(device.id);
     const notification = new Notification({
@@ -745,7 +801,12 @@ class MultiDeviceClipboardService {
     notification.show();
   }
 
-  private async postJson<T>(address: string, port: number, route: string, body: unknown): Promise<T> {
+  private async postJson<T>(
+    address: string,
+    port: number,
+    route: string,
+    body: unknown
+  ): Promise<T> {
     const response = await fetch(`http://${formatAddressForUrl(address)}:${port}${route}`, {
       method: 'POST',
       headers: {
@@ -769,7 +830,13 @@ class MultiDeviceClipboardService {
   }
 
   private async readRequestJson<T>(req: http.IncomingMessage): Promise<T> {
-    const limit = Math.min(MAX_SYNC_BYTES * 2, Math.max(1024 * 1024, (this.config?.features.multiDeviceClipboard.maxSyncBytes ?? 0) * 2 + 1024));
+    const limit = Math.min(
+      MAX_SYNC_BYTES * 2,
+      Math.max(
+        1024 * 1024,
+        (this.config?.features.multiDeviceClipboard.maxSyncBytes ?? 0) * 2 + 1024
+      )
+    );
     const chunks: Buffer[] = [];
     let total = 0;
     for await (const chunk of req) {
@@ -798,7 +865,9 @@ class MultiDeviceClipboardService {
     }
 
     this.lastWindowsImageFileDropHash = imageHash;
-    this.lastWindowsImageFileDropPaths = await clipboardPlatformAdapter.readFilePaths([], { forceFallback: true });
+    this.lastWindowsImageFileDropPaths = await clipboardPlatformAdapter.readFilePaths([], {
+      forceFallback: true,
+    });
     return this.lastWindowsImageFileDropPaths;
   }
 
@@ -918,7 +987,9 @@ function parseItemPaths(item: MultiDeviceClipboardItem) {
   try {
     const parsed = JSON.parse(item.text ?? '{}') as { paths?: string[] };
     const paths = Array.isArray(parsed.paths)
-      ? uniqueExistingPaths(parsed.paths.filter((value): value is string => typeof value === 'string'))
+      ? uniqueExistingPaths(
+          parsed.paths.filter((value): value is string => typeof value === 'string')
+        )
       : [];
     if (paths.length) return paths;
   } catch {
@@ -989,7 +1060,9 @@ function guessMimeType(fileName: string) {
 }
 
 function isImageFile(fileName: string) {
-  return ['.png', '.jpg', '.jpeg', '.gif', '.webp', '.bmp', '.avif'].includes(path.extname(fileName).toLowerCase());
+  return ['.png', '.jpg', '.jpeg', '.gif', '.webp', '.bmp', '.avif'].includes(
+    path.extname(fileName).toLowerCase()
+  );
 }
 
 function isVideoFile(fileName: string) {
@@ -999,7 +1072,7 @@ function isVideoFile(fileName: string) {
 function logClipboardSuccess(
   stage: 'copy-success' | 'sync-send-success' | 'sync-receive-success',
   item: MultiDeviceClipboardItem,
-  details: Record<string, number | string | boolean> = {},
+  details: Record<string, number | string | boolean> = {}
 ) {
   console.info(`[multi-device-clipboard] ${stage}:`, {
     contentType: item.contentType,
@@ -1060,7 +1133,8 @@ function selectPreferredNetworkAddress(priority: string[] = []) {
     const matched = interfaces.find((item) => item.key === key || item.address === key);
     if (matched) return matched.address;
   }
-  return interfaces.sort((a, b) => networkAddressRank(b.address) - networkAddressRank(a.address))[0]?.address;
+  return interfaces.sort((a, b) => networkAddressRank(b.address) - networkAddressRank(a.address))[0]
+    ?.address;
 }
 
 function listLocalIpv4Interfaces() {
@@ -1071,12 +1145,16 @@ function listLocalIpv4Interfaces() {
         key: `${name}|${item.address}`,
         name,
         address: item.address,
-      })));
+      }))
+  );
 }
 
 function parseIpv4Address(address: string) {
-  const parts = address.split('.').map(part => Number(part));
-  if (parts.length !== 4 || parts.some(part => !Number.isInteger(part) || part < 0 || part > 255)) {
+  const parts = address.split('.').map((part) => Number(part));
+  if (
+    parts.length !== 4 ||
+    parts.some((part) => !Number.isInteger(part) || part < 0 || part > 255)
+  ) {
     return null;
   }
   return parts as [number, number, number, number];

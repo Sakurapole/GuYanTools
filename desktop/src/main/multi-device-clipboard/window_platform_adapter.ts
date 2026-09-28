@@ -59,11 +59,12 @@ class LinuxClipboardWindowPlatformAdapter extends DefaultClipboardWindowPlatform
   }
 }
 
-export const clipboardWindowPlatformAdapter: ClipboardWindowPlatformAdapter = process.platform === 'win32'
-  ? new WindowsClipboardWindowPlatformAdapter()
-  : process.platform === 'linux'
-    ? new LinuxClipboardWindowPlatformAdapter()
-    : new DefaultClipboardWindowPlatformAdapter();
+export const clipboardWindowPlatformAdapter: ClipboardWindowPlatformAdapter =
+  process.platform === 'win32'
+    ? new WindowsClipboardWindowPlatformAdapter()
+    : process.platform === 'linux'
+      ? new LinuxClipboardWindowPlatformAdapter()
+      : new DefaultClipboardWindowPlatformAdapter();
 
 function readPasteTargetValue(token: string | null, platform: string) {
   const prefix = `${platform}:`;
@@ -100,7 +101,7 @@ async function getWindowsForegroundWindowHandle() {
     {
       timeout: 2500,
       windowsHide: true,
-    },
+    }
   );
   const handle = stdout.trim();
   return handle && handle !== '0' ? handle : null;
@@ -120,33 +121,34 @@ async function getLinuxX11ForegroundWindowHandle() {
 }
 
 async function sendWindowsPasteShortcut(targetWindowHandle: string | null) {
-  const targetScript = targetWindowHandle && /^\d+$/.test(targetWindowHandle)
-    ? [
-      `$target = [IntPtr]([Int64]${targetWindowHandle})`,
-      'if ($target -ne [IntPtr]::Zero) {',
-      '  $processId = 0',
-      '  [NativeMethods]::GetWindowThreadProcessId($target, [ref]$processId) | Out-Null',
-      '  $processName = ""',
-      '  $windowTitle = ""',
-      '  try {',
-      '    $process = [System.Diagnostics.Process]::GetProcessById($processId)',
-      '    $processName = $process.ProcessName',
-      '    $windowTitle = $process.MainWindowTitle',
-      '  } catch {}',
-      '  $remotePattern = "(?i)(todesk|anydesk|teamviewer|rustdesk|sunlogin|oray|mstsc|rdp|remote\\s*desktop)"',
-      '  if (($processName -match $remotePattern) -or ($windowTitle -match $remotePattern)) {',
-      '    exit 0',
-      '  }',
-      '  if ([NativeMethods]::IsIconic($target)) {',
-      '    [NativeMethods]::ShowWindowAsync($target, 9) | Out-Null',
-      '  }',
-      '  [NativeMethods]::BringWindowToTop($target) | Out-Null',
-      '  [NativeMethods]::SwitchToThisWindow($target, $true) | Out-Null',
-      '  [NativeMethods]::SetForegroundWindow($target) | Out-Null',
-      '  Start-Sleep -Milliseconds 120',
-      '}',
-    ].join('\n')
-    : '';
+  const targetScript =
+    targetWindowHandle && /^\d+$/.test(targetWindowHandle)
+      ? [
+          `$target = [IntPtr]([Int64]${targetWindowHandle})`,
+          'if ($target -ne [IntPtr]::Zero) {',
+          '  $processId = 0',
+          '  [NativeMethods]::GetWindowThreadProcessId($target, [ref]$processId) | Out-Null',
+          '  $processName = ""',
+          '  $windowTitle = ""',
+          '  try {',
+          '    $process = [System.Diagnostics.Process]::GetProcessById($processId)',
+          '    $processName = $process.ProcessName',
+          '    $windowTitle = $process.MainWindowTitle',
+          '  } catch {}',
+          '  $remotePattern = "(?i)(todesk|anydesk|teamviewer|rustdesk|sunlogin|oray|mstsc|rdp|remote\\s*desktop)"',
+          '  if (($processName -match $remotePattern) -or ($windowTitle -match $remotePattern)) {',
+          '    exit 0',
+          '  }',
+          '  if ([NativeMethods]::IsIconic($target)) {',
+          '    [NativeMethods]::ShowWindowAsync($target, 9) | Out-Null',
+          '  }',
+          '  [NativeMethods]::BringWindowToTop($target) | Out-Null',
+          '  [NativeMethods]::SwitchToThisWindow($target, $true) | Out-Null',
+          '  [NativeMethods]::SetForegroundWindow($target) | Out-Null',
+          '  Start-Sleep -Milliseconds 120',
+          '}',
+        ].join('\n')
+      : '';
 
   await execFileAsync(
     getWindowsPowerShellPath(),
@@ -175,12 +177,14 @@ async function sendWindowsPasteShortcut(targetWindowHandle: string | null) {
         '"@;',
         targetScript,
         "[System.Windows.Forms.SendKeys]::SendWait('^v')",
-      ].filter(Boolean).join('\n'),
+      ]
+        .filter(Boolean)
+        .join('\n'),
     ],
     {
       timeout: 2500,
       windowsHide: true,
-    },
+    }
   );
 }
 
@@ -241,6 +245,6 @@ function getWindowsPowerShellPath() {
     'System32',
     'WindowsPowerShell',
     'v1.0',
-    'powershell.exe',
+    'powershell.exe'
   );
 }

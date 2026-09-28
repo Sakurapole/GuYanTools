@@ -33,11 +33,7 @@ export interface MultiDeviceClipboardDevice {
 }
 
 export type MultiDeviceClipboardDeviceState =
-  | 'self'
-  | 'trustedOnline'
-  | 'trustedOffline'
-  | 'available'
-  | 'unknown';
+  'self' | 'trustedOnline' | 'trustedOffline' | 'available' | 'unknown';
 
 export interface MultiDeviceClipboardDeviceStatus {
   deviceId: string;
