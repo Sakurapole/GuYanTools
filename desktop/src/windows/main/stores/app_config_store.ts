@@ -1,5 +1,6 @@
 import { acceptHMRUpdate, defineStore } from 'pinia';
 import { ref } from 'vue';
+import { buildCodeFontFamilyValue } from '../utils/code_font';
 import type {
   AppAppearanceConfig,
   AppConfig,
@@ -30,6 +31,7 @@ function buildFontFamilyValue(fontFamily: string) {
 export const useAppConfigStore = defineStore('app-config', () => {
   const config = ref<AppConfig>(createDefaultAppConfig());
   const fontOptions = ref<LocalFontOption[]>([getSystemDefaultFontOption()]);
+  const fontOptionsLoaded = ref(false);
   let applyLanguage: ((language: AppLanguage) => void) | null = null;
 
   function setLanguageApplier(handler: (language: AppLanguage) => void) {
@@ -48,6 +50,10 @@ export const useAppConfigStore = defineStore('app-config', () => {
     root.style.setProperty(
       '--app-font-family',
       buildFontFamilyValue(nextConfig.appearance.fontFamily)
+    );
+    root.style.setProperty(
+      '--app-code-font-family',
+      buildCodeFontFamilyValue(nextConfig.appearance.codeFontFamily)
     );
     applyLanguage?.(nextConfig.appearance.language);
   }
@@ -104,17 +110,20 @@ export const useAppConfigStore = defineStore('app-config', () => {
   async function loadLocalFonts() {
     if (!window.appConfigApi) {
       fontOptions.value = [getSystemDefaultFontOption()];
+      fontOptionsLoaded.value = true;
       return fontOptions.value;
     }
 
     const loadedFonts = await window.appConfigApi.listLocalFonts();
     fontOptions.value = loadedFonts.length > 0 ? loadedFonts : [getSystemDefaultFontOption()];
+    fontOptionsLoaded.value = true;
     return fontOptions.value;
   }
 
   return {
     config,
     fontOptions,
+    fontOptionsLoaded,
     hydrate,
     refreshConfig,
     updateConfig,

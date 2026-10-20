@@ -47,7 +47,7 @@ export default defineConfig({
     preserveSymlinks: false
   },
   server: {
-    host: '127.0.0.1',
+    host: 'localhost',
     port: 22001,
     strictPort: true,
   },
@@ -66,6 +66,7 @@ export default defineConfig({
         clipboard: path.resolve(__dirname, 'clipboard.html'),
         clipboard_text_preview: path.resolve(__dirname, 'clipboard_text_preview.html'),
         quick_note: path.resolve(__dirname, 'quick_note.html'),
+        cheat_sheet: path.resolve(__dirname, 'cheat_sheet.html'),
         quick_launcher: path.resolve(__dirname, 'quick_launcher.html'),
         screenshot: path.resolve(__dirname, 'screenshot.html'),
         pin_image: path.resolve(__dirname, 'pin_image.html'),

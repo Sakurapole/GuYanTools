@@ -12,6 +12,19 @@ describe('Vue form adapters', () => {
     expect(typeof (wrapper.vm as unknown as { select: () => void }).select).toBe('function');
   });
 
+  it('only reserves input prefix and suffix slots when supplied', () => {
+    const plain = mount(UiInput, { props: { modelValue: 'new-folder' } });
+    expect(plain.find('[slot="prefix"]').exists()).toBe(false);
+    expect(plain.find('[slot="suffix"]').exists()).toBe(false);
+
+    const decorated = mount(UiInput, {
+      props: { modelValue: 'search' },
+      slots: { prefix: '<span>🔎</span>', suffix: '<button>×</button>' },
+    });
+    expect(decorated.find('[slot="prefix"]').text()).toBe('🔎');
+    expect(decorated.find('[slot="suffix"]').text()).toBe('×');
+  });
+
   it('maps selection controls and tabs to their Vue API', async () => {
     const items: UiTabItem[] = [{ key: 'overview', label: 'Overview' }];
     const checkbox = mount(UiCheckbox, { props: { modelValue: false } });

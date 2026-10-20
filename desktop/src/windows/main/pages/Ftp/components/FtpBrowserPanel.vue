@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, nextTick, onBeforeUnmount, reactive, ref, watch } from 'vue';
+import { computed, nextTick, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue';
 import UiButton from '@/windows/main/components/ui/UiButton.vue';
 import UiCheckbox from '@/windows/main/components/ui/UiCheckbox.vue';
 import UiDialog from '@/windows/main/components/ui/UiDialog.vue';
@@ -167,6 +167,15 @@ const emit = defineEmits<{
 const panelRootRef = ref<HTMLElement | null>(null);
 const entryListRef = ref<HTMLElement | null>(null);
 const floatingSearchRef = ref<HTMLElement | null>(null);
+
+function handleSearchOutsidePointerdown(event: PointerEvent) {
+  if (!props.searchExpanded) return;
+  const target = event.target;
+  if (!(target instanceof Node)) return;
+  if (floatingSearchRef.value?.contains(target)) return;
+  if (target instanceof Element && target.closest('[title="搜索当前目录"]')) return;
+  emit('toggle-search');
+}
 const panelClass = computed(() => [
   'ftp-inner-card',
   'ftp-panel',
@@ -383,6 +392,10 @@ watch(
   }
 );
 
+onMounted(() => {
+  document.addEventListener('pointerdown', handleSearchOutsidePointerdown, true);
+});
+
 function startBoundaryResize(
   event: MouseEvent,
   leftCol: ResizableCol,
@@ -593,6 +606,7 @@ function handleTableContentContextMenu(event: MouseEvent): void {
 }
 
 onBeforeUnmount(() => {
+  document.removeEventListener('pointerdown', handleSearchOutsidePointerdown, true);
   stopMarqueeSelection();
 });
 </script>
@@ -640,6 +654,7 @@ onBeforeUnmount(() => {
             :key="`${breadcrumb.path}:${index}`"
           >
             <span
+              class="ftp-panel__breadcrumb-trigger"
               v-tooltip="{
                 content: breadcrumb.collapsed ? pathInput : breadcrumb.label,
                 placement: 'bottom',

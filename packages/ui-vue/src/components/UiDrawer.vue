@@ -39,6 +39,7 @@ const emit = defineEmits<{
   'update:modelValue': [value: boolean];
   open: [];
   close: [];
+  afterClose: [];
 }>();
 
 const attrs = useAttrs();
@@ -74,6 +75,7 @@ function change(event: Event): void {
     :style="hostStyle"
     v-bind="forwardedAttrs"
     @gt-open-change="change"
+    @gt-after-close="emit('afterClose')"
   >
     <div v-if="$slots.header" slot="header"><slot name="header" /></div>
     <slot />

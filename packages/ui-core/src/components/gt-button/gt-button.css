@@ -47,6 +47,14 @@
   padding-inline: var(--ui-button-padding-x-lg, 18px);
 }
 
+:host(.icon-only) {
+  padding-inline: 0;
+}
+
+:host(.icon-only) button {
+  gap: 0;
+}
+
 button {
   appearance: none;
   display: flex;
@@ -93,9 +101,9 @@ button {
 }
 
 :host([variant='primary']) {
-  --gt-button-background: var(--ui-button-primary-bg, var(--gt-color-primary));
-  --gt-button-border-color: var(--ui-button-primary-border, var(--gt-color-primary));
-  --gt-button-color: var(--ui-button-primary-text, var(--gt-color-text-inverse));
+  --gt-button-background: var(--ui-button-primary-bg, var(--gt-color-primary-action));
+  --gt-button-border-color: var(--ui-button-primary-border, var(--gt-color-primary-action));
+  --gt-button-color: var(--ui-button-primary-text, var(--gt-color-primary-action-text));
   --gt-button-shadow: var(--ui-button-primary-shadow, none);
 }
 
@@ -118,7 +126,7 @@ button {
   box-shadow: var(--ui-focus-ring, var(--gt-focus-ring));
 }
 :host([variant='primary']:hover:not([disabled])) {
-  background: var(--ui-button-primary-hover-bg, var(--gt-color-primary-hover));
+  background: var(--ui-button-primary-hover-bg, var(--gt-color-primary-action-hover));
 }
 :host([variant='secondary']:hover:not([disabled])),
 :host([variant='secondary'][active]) {
@@ -160,6 +168,16 @@ button:disabled {
 .prefix[hidden],
 .suffix[hidden] {
   display: none;
+}
+.prefix,
+.suffix {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  line-height: 0;
 }
 .label {
   display: inline-flex;

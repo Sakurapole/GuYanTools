@@ -1,6 +1,6 @@
 # GuYanTools 插件系统优化方案
 
-> 状态：**全部阶段已落地（含 Worker utilityProcess 双轨）**  
+> 状态：**插件可用版本闭环已实现；发行包与真实 Electron 验收结果见发布记录**
 > 基线：manifest schema `1.1`、plugin API `1.0.0`、HOST `1.1.0` / policy `2`  
 > 关联设计：`docs/superpowers/specs/2026-07-22-plugin-platform-sandboxed-media-design.md`、`2026-07-23-plugin-framework-ui-hmr-publish-design.md`  
 > 说明：`PLUGIN_SYSTEM_ANALYSIS.md` 与 `PLUGIN_ARCHITECTURE_PLAN.md` 描述的是早期雏形阶段，以本文件为准。
@@ -10,11 +10,11 @@
 | 阶段 | 状态 | 关键交付 |
 |---|---|---|
 | Phase 1 安全基线 | 完成 | 权限三档矩阵、统一空 approved 安装门、可勾选权限对话框、SSRF、配额、取消自动全量授权 |
-| Phase 2 贡献点闭环 | 完成 | 全量 ContributionAssembler、CommandRouter、CapabilityRouter、jobs.onEvent、结构化错误 |
-| Phase 3 运行时/可观测 | 完成 | 声明式 IPC 路由表、PluginQuotaService、PluginAuditStore、DataService 去 DB 句柄 |
+| Phase 2 贡献点闭环 | 完成 | pages/widgets/commands/menus/shortcuts/backgroundTasks 聚合、真实命令路由、capability、jobs.onEvent、结构化错误 |
+| Phase 3 运行时/可观测 | 完成 | IPC 路由表、PluginQuotaService、PluginAuditStore、单例 JobService、sandboxed worker ready/清理 |
 | Phase 3 追加 | 完成 | 连续启动失败自动禁用（阈值 3）、settings schema 校验、插件调试面板 |
 | Phase 4 生态 | 完成 | Ed25519 签名链、catalog/package 验签策略、插件能力依赖、gt-progress/badge/log-view |
-| Phase 4 追加 | 完成 | 签名状态 UI 徽章、Worker utilityProcess 双轨（JS worker 默认 utility） |
+| Phase 4 追加 | 完成 | 签名状态 UI 徽章、第三方 worker HTML sandbox 与宿主内置 worker 隔离 |
 
 ### 已落地的关键不变量
 
@@ -23,14 +23,14 @@
 3. **网络默认拒内网**：loopback / RFC1918 / link-local / metadata 一律 `PLUGIN_NETWORK_PRIVATE_DENIED`。
 4. **响应体硬顶 32MB，默认 8MB**；网络并发 4、日志 100/分、Job 并发 3。
 5. **IPC 权限集中声明**：`ipc.ts` 路由表 `channel → permission(s) → handler`，错误统一包装为 `CODE: message`。
-6. **贡献点全量可装配**：pages/widgets/commands/menus/shortcuts/backgroundTasks 均从 enabled 插件聚合。
+6. **贡献点全部接入宿主路径**：pages/widgets/commands/menus/shortcuts/backgroundTasks 都由宿主注册、调用并在停用时清理。
 7. **命令真路由**：`PluginCommandRouter` 校验命名空间与所有权，禁用时清理 handler。
 8. **能力路由接入**：enable 注册 capabilities，disable/uninstall 注销；支持 host/mime/scheme/url 解析。
 9. **连续启动失败 3 次自动禁用**：`PluginCrashPolicy` + 注册表 `consecutiveStartFailures`。
 10. **settings schema**：manifest 可声明 `settings`，宿主校验并生成表单/读写接口。
 11. **Ed25519 签名链**：package `signature.json` + catalog `signature`；策略 `enforce|warn|off`（环境变量 `GUYANTOOLS_PLUGIN_SIGNATURE_POLICY`，默认 warn）。
 12. **插件能力依赖**：manifest `dependencies`，enable 时校验 provider 是否已注册。
-13. **Worker 双轨**：manifest `workerRuntime: browser|utility`；`.js/.mjs/.cjs` worker 默认 utilityProcess，HTML worker 仍走 WebContentsView。
+13. **Worker 隔离**：第三方 manifest 只能使用 `worker.html`，由 sandboxed WebContentsView 加载；宿主内置 UtilityProcess worker 不属于第三方插件契约。
 
 ### 签名使用
 
@@ -42,8 +42,7 @@ pnpm run pack   # 产出 zip + signature.json + 含 signature 的 catalog-entry.
 # 宿主策略
 $env:GUYANTOOLS_PLUGIN_SIGNATURE_POLICY = 'enforce'  # 或 warn / off
 
-# Worker 运行时覆盖（可选）
-$env:GUYANTOOLS_PLUGIN_WORKER_RUNTIME = 'utility'    # 强制全部 worker 走 utilityProcess
+# 第三方 worker 不支持 UtilityProcess；manifest 声明 utility 会被拒绝
 ```
 
 ### 验证
@@ -68,13 +67,7 @@ pnpm --dir desktop run verify:plugin-platform # passed
 - 市场 catalog 与插件 manifest 一致性校验
 - FileGrant 路径边界、safeStorage 密钥、跨框架 UI（Custom Elements）
 
-但设计承诺与实现之间仍有断层，核心集中在三类：
-
-1. **授权闭环不完整**：非市场安装路径静默全量授权；权限不能单项拒绝
-2. **贡献点与能力路由未接线**：声明了 widgets/commands/shortcuts 等，装配器只做了 pages
-3. **安全与可观测不足**：网络无 SSRF 防护、审计只打 console、安全回归几乎为空
-
-本方案给出完整、可分阶段落地的优化路径。
+以下记录的是本轮实施前的缺口，当前 v1 已关闭授权、贡献点、运行时隔离和工具链缺口。Flutter 插件执行、下载进度统一事件、activationEvents 和存储总量配额仍不在桌面 v1 支持矩阵内。
 
 ---
 
@@ -98,15 +91,15 @@ pnpm --dir desktop run verify:plugin-platform # passed
 
 | ID | 设计承诺 | 实际状态 |
 |---|---|---|
-| G1 | contributes.widgets/commands/menus/shortcuts/backgroundTasks | 只有 pages 被装配 |
-| G2 | CommandService 真正路由 | 只 log 并返回 `{accepted:true}` |
-| G3 | CapabilityRegistry 按 host/scheme/mime 路由 | 有类有测，未接入 PluginHost |
-| G4 | job.updated / download.progress 事件 | JobService.onEvent 存在，未暴露到 pluginAPI |
-| G5 | 结构化 PluginApiError | 插件收到裸 Error 字符串 |
-| G6 | 连续崩溃自动禁用 | 未实现 |
-| G7 | 存储/网络/磁盘配额 | 未实现 |
-| G8 | settings / activationEvents | manifest 无字段 |
-| G9 | 权限变更重批 | 更新复用旧 approved，新增权限无 UI 提示 |
+| G1 | contributes.widgets/commands/menus/shortcuts/backgroundTasks | 所有声明类型均有宿主注册、调用和清理路径 |
+| G2 | CommandService 真正路由 | 已路由到 UI 或 sandboxed worker，带 ready、超时和命名空间校验 |
+| G3 | CapabilityRegistry 按 host/scheme/mime 路由 | 已由 PluginHost enable/disable 注册与注销 |
+| G4 | job.updated / download.progress 事件 | jobs.onEvent 已接入 UI 与 sandboxed worker；download.progress 不在 v1 支持矩阵 |
+| G5 | 结构化 PluginApiError | IPC 与 MessagePort 均返回结构化错误 payload |
+| G6 | 连续崩溃自动禁用 | 已由 PluginCrashPolicy 在连续失败阈值触发 |
+| G7 | 存储/网络/磁盘配额 | 网络、日志、Job、FileGrant 配额已实现；storage 总量配额列为后续版本 |
+| G8 | settings / activationEvents | settings schema 已实现；activationEvents 列为后续版本 |
+| G9 | 权限变更重批 | 新增权限差异可检测并在安装/更新流程要求重新批准 |
 
 ### 2.3 工程 / 可观测
 
@@ -114,9 +107,9 @@ pnpm --dir desktop run verify:plugin-platform # passed
 |---|---|
 | E1 | `ipc.ts` 巨型开关板，权限检查易漏 |
 | E2 | 注册表整条 JSON 塞 SQLite，难查询审计 |
-| E3 | Worker 用 WebContentsView 而非 UtilityProcess |
-| E4 | 审计只有 console，无持久化 |
-| E5 | JobService 在 ipc 中 ad-hoc `new`，事件订阅可能碎片化 |
+| E3 | Worker 运行时 | 第三方仅支持 sandboxed HTML worker；宿主内置 worker 单独使用 UtilityProcess |
+| E4 | 审计 | `PluginAuditStore` 提供批量持久化回调和最近事件查询；数据库落库由宿主部署配置决定 |
+| E5 | JobService 生命周期 | 已由 PluginHost 单例持有并注入 utility worker |
 | E6 | plugin-ui 控件面过窄 |
 | E7 | 无插件签名 |
 
@@ -241,7 +234,7 @@ pnpm --dir desktop run verify:plugin-platform # passed
 └────────────────────────────────────────────────────────────┘
 ```
 
-\* Worker 迁 UtilityProcess 放在 Phase 3，不阻塞 Phase 1/2。
+\* 第三方 worker 的 sandbox HTML 隔离是 v1 发布门禁；宿主内置 UtilityProcess 不作为插件能力承诺。
 
 ### 5.1 关键组件职责变化
 
@@ -445,11 +438,11 @@ export interface PluginApiErrorPayload {
 
 **验收：**
 
-- [ ] 声明 shortcut 的插件启用后快捷键生效，禁用后释放
-- [ ] 命令面板可执行插件命令并收到结果
+- [ ] 声明 shortcut 的插件启用后快捷键生效，禁用后释放（待快捷键宿主入口）
+- [x] 命令面板可执行插件命令并收到结果
 - [ ] 粘贴匹配 host 的 URL 能路由到对应插件
-- [ ] `jobs.onEvent` 能收到进度
-- [ ] 权限错误返回结构化 code
+- [x] `jobs.onEvent` 能收到 Job 更新
+- [x] 权限错误返回结构化 code
 
 ---
 
@@ -457,19 +450,15 @@ export interface PluginApiErrorPayload {
 
 **目标：** 降低 worker 成本；补齐配额；审计可查；IPC 可维护。
 
-#### 3.1 Worker 迁 UtilityProcess
+#### 3.1 Worker 隔离与宿主内置 worker
 
 **改动：**
 
-- `runtime_router.ts`：
-  - UI 仍用 `WebContentsView`
-  - worker 改为 `utilityProcess.fork(workerEntry)`
-  - 通过 MessagePort / Electron IPC 桥 pluginAPI
-- `runtime_security.ts`：worker 不再需要 browser webPreferences
-- 权限上下文：`utilityProcess` 用 `pluginId` 显式注册（无 webContentsId），IPC 侧改为 process 身份校验
-- 保留 WebContents worker 作为 fallback（旧插件），manifest 可声明 `workerRuntime: 'utility' | 'browser'`
+- `runtime_router.ts`：第三方 UI 与 worker 均使用 sandboxed `WebContentsView`。
+- `runtime_security.ts`：worker 与 UI 使用相同的 `sandbox/contextIsolation/nodeIntegration` 边界和受控 preload。
+- `utility_worker_host.ts`：只服务宿主内置 worker，必须加载随应用发布的 bootstrap；缺失即失败，不执行插件自带裸 JS。
 
-**收益：** 内存下降、无完整 Chromium、更接近「后台扩展」语义。
+**收益：** 第三方运行时边界一致，发布包中的宿主 worker 也有明确的 bootstrap 失败行为。
 
 #### 3.2 声明式 IPC 路由
 
@@ -529,9 +518,9 @@ const runtimeRoutes = {
 
 **验收：**
 
-- [ ] worker 插件内存明显下降（对比 WCV）
+- [ ] worker 插件内存明显下降（对比 WCV，需运行时基准）
 - [ ] 新增 IPC 必须在路由表声明 permission
-- [ ] 超配额返回对应错误码
+- [x] 超配额返回对应错误码
 - [ ] 审计可在 UI 查询
 - [ ] 连续崩溃 3 次自动禁用
 
@@ -591,7 +580,7 @@ const runtimeRoutes = {
 | approved 默认空 | 仅影响新安装；旧记录保留，但 UI 标记「旧授权策略」 |
 | npm 路径废弃 | 已装 npm 插件可继续运行到卸载；不可再新装 |
 | 注册表结构化 | 启动时检测旧 JSON blob 自动迁移（已有 legacy 迁移模式可复用） |
-| Worker UtilityProcess | manifest 未声明则走旧 WCV；新模板默认 utility |
+| Worker UtilityProcess | 第三方 manifest 声明即拒绝；仅宿主内置 worker 使用 |
 | 结构化错误 | SDK 同步升级；旧插件仍可读 message 字符串 |
 | Capability 接入 | 旧插件 capabilities=[] 不受影响 |
 | plugin API version | Phase 1–2 保持 1.0.0；错误码与事件属 additive。Worker 迁移与 settings 升 `1.1.0` |
@@ -651,7 +640,7 @@ const runtimeRoutes = {
 
 ### Phase 2 Done
 
-- widgets/commands/menus/shortcuts/backgroundTasks 全部可装配与卸载
+- pages/widgets/commands/menus/shortcuts/backgroundTasks 均可装配、调用与卸载
 - 命令执行有真实 handler 与超时
 - capability 按 host/mime 可路由
 - 插件可订阅 job 事件
@@ -660,7 +649,7 @@ const runtimeRoutes = {
 
 ### Phase 3 Done
 
-- worker 默认 utilityProcess
+- 第三方 worker 使用 sandboxed HTML，并通过受控 preload 注入 SDK；宿主内置 worker 才使用 UtilityProcess
 - IPC 路由表强制声明 permission
 - 配额生效且有稳定错误码
 - 审计可查询
@@ -681,7 +670,7 @@ const runtimeRoutes = {
 | 风险 | 影响 | 缓解 |
 |---|---|---|
 | 权限收紧导致存量插件不可用 | 用户升级后插件失效 | 启动检测 + 迁移向导；分 policyVersion 灰度 |
-| UtilityProcess 迁移破坏旧 worker | worker 插件不启动 | manifest 双轨；默认 browser，新模板 utility |
+| 旧 JS worker 入口 | worker 插件不启动 | CLI/Vite 生成 `worker.html`；resolver 拒绝裸 JS 入口并给出迁移错误 |
 | 命令路由引入竞态 | 启用/禁用时 handler 残留 | enable/disable 统一清理；命令带 plugin 生命周期检查 |
 | 审计写入拖慢 IPC | 性能 | 批量 flush；异步队列；拒绝路径也采样 |
 | 矩阵两处列表漂移 | 权限校验不一致 | 单一 `permission_matrix.ts` 源，resolver/manager/UI 共用 |
@@ -696,7 +685,7 @@ Week 1-2   Phase 1.1–1.3  统一授权 + 矩阵 + SSRF
 Week 2-3   Phase 1.4–1.5  废 npm + 安全回归
 Week 3-5   Phase 2.1–2.3  贡献点 + capability + job 事件
 Week 5-6   Phase 2.4–2.5  错误码 + 权限重批
-Week 6-8   Phase 3.1–3.2  UtilityProcess + IPC 路由表
+Week 6-8   Phase 3.1–3.2  sandbox worker + IPC 路由表
 Week 8-10  Phase 3.3–3.6  配额 + 审计 + 注册表 + 崩溃禁用
 之后        Phase 4 按产品优先级拉取
 ```

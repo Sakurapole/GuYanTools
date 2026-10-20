@@ -50,23 +50,40 @@ export class GtSelect {
   private prefixSlot?: HTMLSlotElement;
   private suffixSlot?: HTMLSlotElement;
   private movedOptionNodes = new Map<number, { node: HTMLElement; slot: string }>();
+  private globalListenersBound = false;
+
+  connectedCallback(): void {
+    this.bindGlobalListeners();
+  }
 
   componentDidLoad(): void {
     this.syncSlots();
     this.bindTriggerKeydown();
-    document.addEventListener('mousedown', this.handleOutside, true);
-    document.addEventListener('pointerdown', this.handleOutside, true);
-    window.addEventListener('resize', this.repositionPortal);
-    window.addEventListener('scroll', this.repositionPortal, true);
+    this.bindGlobalListeners();
   }
 
   disconnectedCallback(): void {
     this.boundTriggerElement?.removeEventListener('keydown', this.handleTriggerKeydown);
+    this.unbindGlobalListeners();
+    this.close(false);
+  }
+
+  private bindGlobalListeners(): void {
+    if (this.globalListenersBound) return;
+    document.addEventListener('mousedown', this.handleOutside, true);
+    document.addEventListener('pointerdown', this.handleOutside, true);
+    window.addEventListener('resize', this.repositionPortal);
+    window.addEventListener('scroll', this.repositionPortal, true);
+    this.globalListenersBound = true;
+  }
+
+  private unbindGlobalListeners(): void {
+    if (!this.globalListenersBound) return;
     document.removeEventListener('mousedown', this.handleOutside, true);
     document.removeEventListener('pointerdown', this.handleOutside, true);
     window.removeEventListener('resize', this.repositionPortal);
     window.removeEventListener('scroll', this.repositionPortal, true);
-    this.close(false);
+    this.globalListenersBound = false;
   }
 
   componentDidRender(): void {

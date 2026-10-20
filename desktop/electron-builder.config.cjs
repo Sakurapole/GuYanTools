@@ -24,6 +24,10 @@ module.exports = {
       from: path.resolve(__dirname, 'src', 'main', 'android-tools', 'resources'),
       to: 'android-tools',
     },
+    {
+      from: path.resolve(__dirname, 'resources', 'model-plugins'),
+      to: 'model-plugins',
+    },
   ],
   asar: true,
   asarUnpack: [

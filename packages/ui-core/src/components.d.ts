@@ -578,6 +578,10 @@ export namespace Components {
          */
         "size": number;
         /**
+          * @default false
+         */
+        "smoothWheel": boolean;
+        /**
           * @default ''
          */
         "thumbColor": string;
@@ -993,6 +997,7 @@ declare global {
     };
     interface HTMLGtDrawerElementEventMap {
         "gt-open-change": GtOpenChangeDetail1;
+        "gt-after-close": void;
     }
     interface HTMLGtDrawerElement extends Components.GtDrawer, HTMLStencilElement {
         addEventListener<K extends keyof HTMLGtDrawerElementEventMap>(type: K, listener: (this: HTMLGtDrawerElement, ev: GtDrawerCustomEvent<HTMLGtDrawerElementEventMap[K]>) => any, options?: boolean | AddEventListenerOptions): void;
@@ -1530,6 +1535,7 @@ declare namespace LocalJSX {
           * @default true
          */
         "closeOnMask"?: boolean;
+        "onGt-after-close"?: (event: GtDrawerCustomEvent<void>) => void;
         "onGt-open-change"?: (event: GtDrawerCustomEvent<GtOpenChangeDetail1>) => void;
         /**
           * @default false
@@ -1866,6 +1872,10 @@ declare namespace LocalJSX {
           * @default 0
          */
         "size"?: number;
+        /**
+          * @default false
+         */
+        "smoothWheel"?: boolean;
         /**
           * @default ''
          */
@@ -2262,6 +2272,7 @@ declare namespace LocalJSX {
         "thumbHoverColor": string;
         "trackColor": string;
         "alwaysVisible": boolean;
+        "smoothWheel": boolean;
         "size": number;
     }
     interface GtSelectAttributes {

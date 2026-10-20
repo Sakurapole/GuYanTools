@@ -18,12 +18,14 @@ export class GtButton {
   @Prop({ reflect: true }) type: 'button' | 'submit' | 'reset' = 'button';
   @State() private hasPrefix = false;
   @State() private hasSuffix = false;
+  @State() private hasLabel = false;
 
   @Event({ eventName: 'gt-click', bubbles: true, composed: true })
   click!: EventEmitter<GtButtonClickDetail>;
 
   private prefixSlot?: HTMLSlotElement;
   private suffixSlot?: HTMLSlotElement;
+  private labelSlot?: HTMLSlotElement;
 
   componentDidLoad(): void {
     this.syncSlots();
@@ -32,6 +34,11 @@ export class GtButton {
   private syncSlots = (): void => {
     this.hasPrefix = Boolean(this.prefixSlot?.assignedElements().length);
     this.hasSuffix = Boolean(this.suffixSlot?.assignedElements().length);
+    this.hasLabel = Boolean(
+      this.labelSlot
+        ?.assignedNodes({ flatten: true })
+        .some((node) => node.nodeType !== 3 || Boolean(node.textContent?.trim()))
+    );
   };
 
   private handleClick = (): void => {
@@ -40,7 +47,7 @@ export class GtButton {
 
   render() {
     return (
-      <Host>
+      <Host class={{ 'icon-only': !this.hasLabel }}>
         <button part="base" disabled={this.disabled} type={this.type} onClick={this.handleClick}>
           <span part="icon" class="prefix" hidden={!this.hasPrefix}>
             <slot
@@ -51,8 +58,13 @@ export class GtButton {
               onSlotchange={this.syncSlots}
             />
           </span>
-          <span part="label" class="label">
-            <slot />
+          <span part="label" class="label" hidden={!this.hasLabel}>
+            <slot
+              ref={(element) => {
+                this.labelSlot = element;
+              }}
+              onSlotchange={this.syncSlots}
+            />
           </span>
           <span part="icon" class="suffix" hidden={!this.hasSuffix}>
             <slot

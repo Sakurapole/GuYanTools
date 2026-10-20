@@ -1,26 +1,22 @@
 <script setup lang="ts">
-import { computed, nextTick, onBeforeUnmount, onMounted, ref } from 'vue';
+import { nextTick, onBeforeUnmount, onMounted, ref } from 'vue';
 import { useRoute } from 'vue-router';
 import { notifyError } from '../../composables/useInAppNotification';
 import { resolvePluginPageIdentity } from './plugin_runtime_identity';
-import type { PluginDevSession } from '@/contracts/plugin_host';
 
 const route = useRoute();
 const hostRef = ref<HTMLElement | null>(null);
 
-const pluginIdentity = computed(() =>
-  resolvePluginPageIdentity({
-    meta: route.meta as Record<string, unknown>,
-    params: route.params as Record<string, unknown>,
-  })
-);
-const pluginId = computed(() => pluginIdentity.value.pluginId);
-const pageId = computed(() => pluginIdentity.value.pageId);
-const title = computed(() => String(route.meta.title ?? `${pluginId.value}/${pageId.value}`));
+const pluginIdentity = resolvePluginPageIdentity({
+  meta: route.meta as Record<string, unknown>,
+  params: route.params as Record<string, unknown>,
+});
+const pluginId = pluginIdentity.pluginId;
+const pageId = pluginIdentity.pageId;
 const errorMessage = ref('');
-const devSession = ref<PluginDevSession | null>(null);
 
 let resizeObserver: ResizeObserver | null = null;
+let boundsSyncTimers: number[] = [];
 
 function readBounds() {
   const element = hostRef.value;
@@ -49,16 +45,21 @@ async function syncPageMount() {
   }
 
   try {
-    devSession.value =
-      (await window.pluginHostApi.listDevSessions()).find(
-        (session) => session.pluginId === pluginId.value
-      ) ?? null;
-    await window.pluginHostApi.mountPage(pluginId.value, pageId.value, bounds);
+    await window.pluginHostApi.mountPage(pluginId, pageId, bounds);
     errorMessage.value = '';
   } catch (error) {
     errorMessage.value = error instanceof Error ? error.message : '插件页面挂载失败';
     notifyError(error, '插件页面挂载失败');
   }
+}
+
+function scheduleBoundsSync() {
+  boundsSyncTimers.forEach((timer) => window.clearTimeout(timer));
+  boundsSyncTimers = [0, 100, 300, 700].map((delay) =>
+    window.setTimeout(() => {
+      void updateBounds();
+    }, delay)
+  );
 }
 
 async function updateBounds() {
@@ -76,87 +77,60 @@ async function updateBounds() {
 
 onMounted(() => {
   resizeObserver = new ResizeObserver(() => {
-    void updateBounds();
+    scheduleBoundsSync();
   });
 
   if (hostRef.value) {
     resizeObserver.observe(hostRef.value);
   }
 
-  void nextTick(syncPageMount);
+  void nextTick(async () => {
+    // The route host can receive its final width after the main shell's
+    // sidebar and bottom bar finish their first layout pass. Mount once after
+    // two frames, then re-apply bounds during that settling window.
+    await new Promise<void>((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve())));
+    await syncPageMount();
+    scheduleBoundsSync();
+  });
   window.addEventListener('resize', updateBounds);
 });
 
 onBeforeUnmount(() => {
   resizeObserver?.disconnect();
   resizeObserver = null;
+  boundsSyncTimers.forEach((timer) => window.clearTimeout(timer));
+  boundsSyncTimers = [];
   window.removeEventListener('resize', updateBounds);
-  void window.pluginHostApi?.unmountPage(pluginId.value, pageId.value);
+  void window.pluginHostApi?.unmountPage(pluginId, pageId);
 });
 </script>
 
 <template>
-  <div class="plugin-runtime-page">
-    <header class="plugin-runtime-page__header">
-      <div>
-        <h1>{{ title }}</h1>
-        <p>{{ pluginId }} / {{ pageId }}</p>
-        <small v-if="devSession">本地开发 · 127.0.0.1:{{ devSession.port }}</small>
-      </div>
-    </header>
-
-    <div class="plugin-runtime-page__surface ui-glass-surface" ref="hostRef">
-      <div
-        v-if="errorMessage"
-        class="plugin-runtime-page__error ui-status-banner ui-status-banner--danger"
-      >
-        {{ errorMessage }}
-      </div>
-      <div v-else class="plugin-runtime-page__hint ui-status-hint">
-        插件页面已由主进程运行时接管并挂载到当前容器区域。
-      </div>
+  <div ref="hostRef" class="plugin-runtime-page">
+    <div
+      v-if="errorMessage"
+      class="plugin-runtime-page__error ui-status-banner ui-status-banner--danger"
+    >
+      {{ errorMessage }}
     </div>
   </div>
 </template>
 
 <style scoped lang="scss">
 .plugin-runtime-page {
-  display: grid;
-  grid-template-rows: auto minmax(0, 1fr);
-  height: 100%;
-  min-height: 0;
-  padding: 24px;
-  box-sizing: border-box;
-  background:
-    linear-gradient(135deg, rgba(93, 158, 237, 0.12), transparent 35%), var(--background-color);
-}
-
-.plugin-runtime-page__header h1,
-.plugin-runtime-page__header p {
-  margin: 0;
-}
-
-.plugin-runtime-page__header p {
-  margin-top: 8px;
-  color: var(--ui-text-muted);
-}
-
-.plugin-runtime-page__surface {
   position: relative;
+  width: 100%;
+  height: 100%;
+  min-width: 0;
   min-height: 0;
-  margin-top: 18px;
   overflow: hidden;
+  background: transparent;
 }
 
-.plugin-runtime-page__hint,
 .plugin-runtime-page__error {
   position: absolute;
-  left: 18px;
-  top: 18px;
   z-index: 1;
-}
-
-.plugin-runtime-page__hint {
-  max-width: calc(100% - 36px);
+  inset: 16px;
+  height: fit-content;
 }
 </style>

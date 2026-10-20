@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import PluginActionIcon from './PluginActionIcon.vue';
 import { computed, ref, watch } from 'vue';
 import type {
   PluginAuditEvent,
@@ -8,6 +9,10 @@ import type {
   InstalledPluginRecord,
 } from '@/contracts/plugin_host';
 import UiButton from '../../components/ui/UiButton.vue';
+import UiCheckbox from '../../components/ui/UiCheckbox.vue';
+import UiInput from '../../components/ui/UiInput.vue';
+import UiSelect, { type UiSelectOption } from '../../components/ui/UiSelect.vue';
+import UiScrollbar from '../../components/ui/UiScrollbar.vue';
 import { getPermissionCopy, getPermissionTier } from './permission_copy_client';
 
 export interface PluginDebugInfo {
@@ -50,6 +55,19 @@ const filteredAudit = computed(() => {
     : info.value.audit;
 });
 
+function settingValue(key: string, schema: PluginSettingSchema): string | number {
+  return schema.type === 'number'
+    ? Number(settings.value[key] ?? schema.default ?? 0)
+    : String(settings.value[key] ?? schema.default ?? '');
+}
+
+function settingOptions(schema: PluginSettingSchema): UiSelectOption[] {
+  return (schema.options ?? []).map((option) => ({
+    label: option.label,
+    value: option.value,
+  }));
+}
+
 async function load() {
   if (!window.pluginHostApi || !props.pluginId) return;
   errorMessage.value = '';
@@ -82,145 +100,146 @@ watch(
 
 <template>
   <div v-if="visible && info" class="plugin-debug" role="dialog" aria-modal="true">
-    <div class="plugin-debug__panel ui-glass-surface">
-      <div class="plugin-debug__header">
-        <div>
-          <h2>调试 · {{ info.record.manifest.displayName }}</h2>
-          <p class="plugin-debug__meta">
-            <span>{{ info.record.manifest.id }}</span>
-            <span>v{{ info.record.manifest.version }}</span>
-            <span>{{ info.record.status }}</span>
-            <span v-if="info.consecutiveStartFailures"
-              >连续失败 {{ info.consecutiveStartFailures }}</span
-            >
-            <span
-              :class="info.record.signatureVerified ? 'plugin-debug__ok' : 'plugin-debug__warn'"
-            >
-              {{
-                info.record.signatureVerified
-                  ? '签名已验证'
-                  : info.record.signatureWarning ||
-                    (info.record.packageSha256 ? '未签名' : '无签名信息')
-              }}
-            </span>
-            <span v-if="info.record.packageSha256"
-              >SHA-256 {{ info.record.packageSha256.slice(0, 12) }}…</span
-            >
-          </p>
-        </div>
-        <UiButton variant="ghost" @click="emit('close')">关闭</UiButton>
-      </div>
-
-      <p v-if="errorMessage" class="plugin-debug__error">{{ errorMessage }}</p>
-      <p v-if="info.record.error" class="plugin-debug__error">最近错误：{{ info.record.error }}</p>
-
-      <section class="plugin-debug__section">
-        <h3>权限</h3>
-        <ul class="plugin-debug__list">
-          <li v-for="permission in info.record.manifest.permissions" :key="permission">
-            <span class="plugin-debug__perm-title">{{ getPermissionCopy(permission).title }}</span>
-            <code>{{ permission }}</code>
-            <em
-              :class="{
-                'plugin-debug__badge--elevated': getPermissionTier(permission) === 'elevated',
-                'plugin-debug__badge--pending':
-                  !info.record.approvedPermissions.includes(permission),
-              }"
-            >
-              {{ getPermissionTier(permission) || 'default' }}
-              {{ info.record.approvedPermissions.includes(permission) ? '· 已批准' : '· 未批准' }}
-            </em>
-          </li>
-        </ul>
-        <p v-if="pendingPermissions.length" class="plugin-debug__hint">
-          {{ pendingPermissions.length }} 项权限尚未批准，对应 API 调用会被拒绝。
-        </p>
-      </section>
-
-      <section class="plugin-debug__section">
-        <h3>能力声明</h3>
-        <div v-if="info.capabilities.length === 0" class="plugin-debug__empty">未注册业务能力</div>
-        <ul v-else class="plugin-debug__list">
-          <li v-for="capability in info.capabilities" :key="capability.qualifiedId">
-            <strong>{{ capability.qualifiedId }}</strong>
-            <span>{{ capability.kind }} · {{ capability.operations.join(', ') }}</span>
-          </li>
-        </ul>
-      </section>
-
-      <section class="plugin-debug__section">
-        <h3>贡献点</h3>
-        <div class="plugin-debug__grid">
-          <span>页面 {{ info.contributions.pages.length }}</span>
-          <span>命令 {{ info.contributions.commands.length }}</span>
-          <span>组件 {{ info.contributions.widgets.length }}</span>
-          <span>菜单 {{ info.contributions.menus.length }}</span>
-          <span>快捷键 {{ info.contributions.shortcuts.length }}</span>
-          <span>后台任务 {{ info.contributions.backgroundTasks.length }}</span>
-        </div>
-      </section>
-
-      <section v-if="Object.keys(settingsSchema).length" class="plugin-debug__section">
-        <h3>设置</h3>
-        <div v-for="(schema, key) in settingsSchema" :key="key" class="plugin-debug__setting">
-          <label>
-            <span>{{ schema.title }}</span>
-            <small v-if="schema.description">{{ schema.description }}</small>
-          </label>
-          <select
-            v-if="schema.type === 'select'"
-            :value="String(settings[key] ?? schema.default ?? '')"
-            @change="saveSetting(key, ($event.target as HTMLSelectElement).value)"
+    <UiScrollbar class="plugin-debug__scroll" :x="false" :y="true" always-visible>
+      <div class="plugin-debug__panel ui-glass-surface">
+        <div class="plugin-debug__header">
+          <div>
+            <h2>调试 · {{ info.record.manifest.displayName }}</h2>
+            <p class="plugin-debug__meta">
+              <span>{{ info.record.manifest.id }}</span>
+              <span>v{{ info.record.manifest.version }}</span>
+              <span>{{ info.record.status }}</span>
+              <span v-if="info.consecutiveStartFailures"
+                >连续失败 {{ info.consecutiveStartFailures }}</span
+              >
+              <span
+                :class="info.record.signatureVerified ? 'plugin-debug__ok' : 'plugin-debug__warn'"
+              >
+                {{
+                  info.record.signatureVerified
+                    ? '签名已验证'
+                    : info.record.signatureWarning ||
+                      (info.record.packageSha256 ? '未签名' : '无签名信息')
+                }}
+              </span>
+              <span v-if="info.record.packageSha256"
+                >SHA-256 {{ info.record.packageSha256.slice(0, 12) }}…</span
+              >
+            </p>
+          </div>
+          <UiButton variant="ghost" @click="emit('close')"
+            ><template #prefix><PluginActionIcon name="close" /></template>关闭</UiButton
           >
-            <option
-              v-for="option in schema.options"
-              :key="String(option.value)"
-              :value="String(option.value)"
-            >
-              {{ option.label }}
-            </option>
-          </select>
-          <input
-            v-else-if="schema.type === 'boolean'"
-            type="checkbox"
-            :checked="Boolean(settings[key] ?? schema.default)"
-            @change="saveSetting(key, ($event.target as HTMLInputElement).checked)"
-          />
-          <input
-            v-else-if="schema.type === 'number'"
-            type="number"
-            :value="Number(settings[key] ?? schema.default ?? 0)"
-            @change="saveSetting(key, Number(($event.target as HTMLInputElement).value))"
-          />
-          <input
-            v-else
-            type="text"
-            :value="String(settings[key] ?? schema.default ?? '')"
-            @change="saveSetting(key, ($event.target as HTMLInputElement).value)"
-          />
         </div>
-      </section>
 
-      <section class="plugin-debug__section">
-        <div class="plugin-debug__section-head">
-          <h3>最近审计</h3>
-          <label class="plugin-debug__toggle">
-            <input v-model="showDeniedOnly" type="checkbox" /> 仅看拒绝
-          </label>
-        </div>
-        <div v-if="filteredAudit.length === 0" class="plugin-debug__empty">暂无审计事件</div>
-        <ul v-else class="plugin-debug__list plugin-debug__list--audit">
-          <li v-for="(event, index) in filteredAudit" :key="index">
-            <span :class="{ 'plugin-debug__denied': event.result === 'denied' }">{{
-              event.result
-            }}</span>
-            <code>{{ event.operation }}</code>
-            <span>{{ event.runtime }}</span>
-            <span>{{ event.at }}</span>
-          </li>
-        </ul>
-      </section>
-    </div>
+        <p v-if="errorMessage" class="plugin-debug__error">{{ errorMessage }}</p>
+        <p v-if="info.record.error" class="plugin-debug__error">
+          最近错误：{{ info.record.error }}
+        </p>
+
+        <section class="plugin-debug__section">
+          <h3>权限</h3>
+          <ul class="plugin-debug__list">
+            <li v-for="permission in info.record.manifest.permissions" :key="permission">
+              <span class="plugin-debug__perm-title">{{
+                getPermissionCopy(permission).title
+              }}</span>
+              <code>{{ permission }}</code>
+              <em
+                :class="{
+                  'plugin-debug__badge--elevated': getPermissionTier(permission) === 'elevated',
+                  'plugin-debug__badge--pending':
+                    !info.record.approvedPermissions.includes(permission),
+                }"
+              >
+                {{ getPermissionTier(permission) || 'default' }}
+                {{ info.record.approvedPermissions.includes(permission) ? '· 已批准' : '· 未批准' }}
+              </em>
+            </li>
+          </ul>
+          <p v-if="pendingPermissions.length" class="plugin-debug__hint">
+            {{ pendingPermissions.length }} 项权限尚未批准，对应 API 调用会被拒绝。
+          </p>
+        </section>
+
+        <section class="plugin-debug__section">
+          <h3>能力声明</h3>
+          <div v-if="info.capabilities.length === 0" class="plugin-debug__empty">
+            未注册业务能力
+          </div>
+          <ul v-else class="plugin-debug__list">
+            <li v-for="capability in info.capabilities" :key="capability.qualifiedId">
+              <strong>{{ capability.qualifiedId }}</strong>
+              <span>{{ capability.kind }} · {{ capability.operations.join(', ') }}</span>
+            </li>
+          </ul>
+        </section>
+
+        <section class="plugin-debug__section">
+          <h3>贡献点</h3>
+          <div class="plugin-debug__grid">
+            <span>页面 {{ info.contributions.pages.length }}</span>
+            <span>命令 {{ info.contributions.commands.length }}</span>
+            <span>组件 {{ info.contributions.widgets.length }}</span>
+            <span>菜单 {{ info.contributions.menus.length }}</span>
+            <span>快捷键 {{ info.contributions.shortcuts.length }}</span>
+            <span>后台任务 {{ info.contributions.backgroundTasks.length }}</span>
+          </div>
+        </section>
+
+        <section v-if="Object.keys(settingsSchema).length" class="plugin-debug__section">
+          <h3>设置</h3>
+          <div v-for="(schema, key) in settingsSchema" :key="key" class="plugin-debug__setting">
+            <label>
+              <span>{{ schema.title }}</span>
+              <small v-if="schema.description">{{ schema.description }}</small>
+            </label>
+            <UiSelect
+              v-if="schema.type === 'select'"
+              :model-value="String(settings[key] ?? schema.default ?? '')"
+              :options="settingOptions(schema)"
+              size="sm"
+              @update:model-value="saveSetting(key, $event)"
+            />
+            <UiCheckbox
+              v-else-if="schema.type === 'boolean'"
+              :model-value="Boolean(settings[key] ?? schema.default)"
+              :aria-label="schema.title"
+              @update:model-value="saveSetting(key, $event)"
+            />
+            <UiInput
+              v-else
+              :model-value="settingValue(key, schema)"
+              :type="schema.type === 'number' ? 'number' : 'text'"
+              size="sm"
+              @update:model-value="
+                saveSetting(key, schema.type === 'number' ? Number($event) : $event)
+              "
+            />
+          </div>
+        </section>
+
+        <section class="plugin-debug__section">
+          <div class="plugin-debug__section-head">
+            <h3>最近审计</h3>
+            <label class="plugin-debug__toggle">
+              <UiCheckbox v-model="showDeniedOnly" aria-label="仅看拒绝" /> 仅看拒绝
+            </label>
+          </div>
+          <div v-if="filteredAudit.length === 0" class="plugin-debug__empty">暂无审计事件</div>
+          <ul v-else class="plugin-debug__list plugin-debug__list--audit">
+            <li v-for="(event, index) in filteredAudit" :key="index">
+              <span :class="{ 'plugin-debug__denied': event.result === 'denied' }">{{
+                event.result
+              }}</span>
+              <code>{{ event.operation }}</code>
+              <span>{{ event.runtime }}</span>
+              <span>{{ event.at }}</span>
+            </li>
+          </ul>
+        </section>
+      </div>
+    </UiScrollbar>
   </div>
 </template>
 
@@ -228,16 +247,21 @@ watch(
 .plugin-debug {
   position: fixed;
   inset: 0;
-  z-index: 1100;
+  z-index: calc(var(--ui-z-secure-modal) + 1);
   display: grid;
   place-items: center;
   padding: 24px;
   background: rgb(0 0 0 / 40%);
 }
-.plugin-debug__panel {
+.plugin-debug__scroll {
   width: min(720px, 100%);
-  max-height: min(80vh, 760px);
-  overflow: auto;
+  height: min(80vh, 760px);
+  min-height: 0;
+}
+.plugin-debug__panel {
+  width: 100%;
+  min-height: 100%;
+  box-sizing: border-box;
   padding: 20px 22px;
 }
 .plugin-debug__header {
@@ -355,6 +379,5 @@ watch(
 }
 .plugin-debug__list--audit {
   max-height: 180px;
-  overflow: auto;
 }
 </style>

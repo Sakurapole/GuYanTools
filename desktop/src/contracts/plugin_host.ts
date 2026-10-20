@@ -38,6 +38,7 @@ export type PluginPermission =
   | 'media.tag'
   | 'secrets.self'
   | 'observability.logs'
+  | 'models.execute'
   | 'android.devices.read'
   | 'android.sessions.read'
   | 'android.sessions.control'
@@ -125,6 +126,18 @@ export interface PluginSettingSchema {
   maximum?: number;
 }
 
+export interface PluginModelRuntime {
+  pythonVersion: string;
+  entry: string;
+  dependencies: {
+    common: string[];
+    cpu: string[];
+    cuda: string[];
+    indexUrls?: { cpu?: string; cuda?: string };
+    profiles?: import('./plugin_model').ModelDependencyProfile[];
+  };
+}
+
 export interface PluginManifest {
   schemaVersion: '1.0' | '1.1';
   id: string;
@@ -150,11 +163,13 @@ export interface PluginManifest {
   ui?: {
     theme: 'guyantools';
     components: string;
+    showDevToolsButton?: boolean;
   };
   permissions: PluginPermission[];
   capabilities: PluginCapabilityDeclaration[];
   contributes: PluginContributes;
   settings?: Record<string, PluginSettingSchema>;
+  modelRuntime?: PluginModelRuntime;
   /** Capabilities this plugin expects other enabled plugins to provide. */
   dependencies?: PluginCapabilityDependency[];
 }
@@ -298,6 +313,7 @@ export interface PluginCapabilitySummary {
   jobs: string[];
   files: string[];
   media: string[];
+  models: string[];
   secrets: string[];
   android: string[];
 }
@@ -310,6 +326,7 @@ export interface PluginPageDescriptor {
   icon?: string;
   description?: string;
   trustLevel: PluginTrustLevel;
+  showDevToolsButton?: boolean;
 }
 
 export function getPluginPageRoutePath(pluginId: string, pageId: string): string {
@@ -360,6 +377,11 @@ export interface PluginHostApi {
   listPages: () => Promise<PluginPageDescriptor[]>;
   listContributions: () => Promise<PluginContributionsSummary>;
   listPluginJobs: (pluginId: string) => Promise<import('./plugin_media').JobRecord[]>;
+  executePluginCommand: (
+    pluginId: string,
+    commandId: string,
+    payload?: unknown
+  ) => Promise<{ accepted: boolean; result?: unknown }>;
   listAuditEvents: (pluginId?: string) => Promise<PluginAuditEvent[]>;
   getPermissionCopy: () => Promise<PluginPermissionCopy[]>;
   getPluginDebugInfo: (pluginId: string) => Promise<{
@@ -385,6 +407,7 @@ export interface PluginHostApi {
     inputPath: string,
     approvedPermissions?: PluginPermission[]
   ) => Promise<InstalledPluginRecord>;
+  pickLocalPluginPath: () => Promise<string | null>;
   approvePermissions: (
     pluginId: string,
     approvedPermissions: PluginPermission[]
@@ -394,6 +417,7 @@ export interface PluginHostApi {
   mountPage: (pluginId: string, pageId: string, bounds: PluginViewportBounds) => Promise<void>;
   updateMountedPageBounds: (bounds: PluginViewportBounds) => Promise<void>;
   unmountPage: (pluginId?: string, pageId?: string) => Promise<void>;
+  openDevTools: (pluginId: string, pageId: string) => Promise<void>;
   listMarketplaces: () => Promise<MarketplaceCacheRecord[]>;
   refreshMarketplace: (input: {
     id: string;
@@ -433,6 +457,8 @@ export interface PluginRuntimeStorageApi {
 
 export interface PluginRuntimeApi {
   getContext: () => Promise<PluginRuntimeContext>;
+  lifecycle: { ready: () => Promise<void> };
+  models: import('./plugin_model').ModelRuntimeApi;
   workspace: {
     getCurrent: () => Promise<{ workspaceKey: string; name: string }>;
   };
@@ -451,6 +477,7 @@ export interface PluginRuntimeApi {
   system: {
     getCapabilities: () => Promise<PluginCapabilitySummary['system']>;
     showNotification: (payload: import('./notification').NotificationPayload) => Promise<void>;
+    openExternal: (url: string) => Promise<void>;
   };
   logger: {
     info: (message: string, meta?: unknown) => Promise<void>;
@@ -487,6 +514,10 @@ export interface PluginRuntimeApi {
     onEvent: (listener: (job: import('./plugin_media').JobRecord) => void) => () => void;
   };
   capabilities: {
+    register: (
+      capabilityId: string,
+      handler: (operation: string, payload?: unknown) => unknown | Promise<unknown>
+    ) => Promise<void>;
     list: () => Promise<
       Array<{
         pluginId: string;

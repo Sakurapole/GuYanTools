@@ -22,6 +22,11 @@ const routes: RouteRecordRaw[] = [
     meta: { title: '插件平台' },
   },
   {
+    path: '/plugins/docs',
+    component: () => import('../pages/Plugins/PluginDevelopmentDocs.vue'),
+    meta: { title: '插件开发文档' },
+  },
+  {
     path: '/terminal',
     name: 'Terminal',
     component: () => import('../pages/Terminal/TerminalPage.vue'),
@@ -88,6 +93,8 @@ export function registerPluginRoutes(pluginPages: PluginPageDescriptor[]) {
   for (const page of pluginPages) {
     const routeName = `plugin:${page.pluginId}:${page.pageId}`;
     if (router.hasRoute(routeName)) {
+      const registered = router.getRoutes().find((item) => item.name === routeName);
+      if (registered) registered.meta.showDevToolsButton = page.showDevToolsButton === true;
       continue;
     }
 
@@ -100,6 +107,8 @@ export function registerPluginRoutes(pluginPages: PluginPageDescriptor[]) {
         title: page.title,
         pluginId: page.pluginId,
         pageId: page.pageId,
+        showDevToolsButton: page.showDevToolsButton === true,
+        icon: page.icon ?? 'plugins',
       },
     });
   }

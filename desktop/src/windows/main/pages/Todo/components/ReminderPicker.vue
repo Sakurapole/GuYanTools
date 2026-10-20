@@ -125,7 +125,12 @@ function onClickOutside(e: MouseEvent) {
   if (!isOpen.value) return;
   const target = e.target as Node;
   if (triggerRef.value?.contains(target) || panelRef.value?.contains(target)) return;
-  if (target instanceof Element && target.closest('.ui-datepicker__panel, .ui-timepicker__panel'))
+  if (
+    target instanceof Element &&
+    target.closest(
+      '[data-gt-overlay="date-picker"] [part="panel"], [data-gt-overlay="time-picker"] [part="panel"]'
+    )
+  )
     return;
   isOpen.value = false;
 }

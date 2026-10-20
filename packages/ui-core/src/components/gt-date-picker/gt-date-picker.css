@@ -193,8 +193,8 @@
   transform: translateX(-50%);
 }
 [data-gt-overlay='date-picker'] [part='day'][data-selected] {
-  background: var(--ui-button-primary-bg, var(--gt-color-primary));
-  color: var(--ui-button-primary-text, #fff);
+  background: var(--ui-button-primary-bg, var(--gt-color-primary-action));
+  color: var(--ui-button-primary-text, var(--gt-color-primary-action-text));
   font-weight: 600;
 }
 [data-gt-overlay='date-picker'] [part='day'][data-selected]::after {

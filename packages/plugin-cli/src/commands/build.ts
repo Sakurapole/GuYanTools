@@ -4,7 +4,7 @@ import { buildGuYanPlugin } from '@guyantools/plugin-vite';
 import { validatePlugin } from './validate.js';
 
 export async function buildPlugin(rootPath = process.cwd()) {
-  const manifest = await validatePlugin(rootPath);
+  const manifest = await validatePlugin(rootPath, { checkEntryFiles: false });
   const react = await exists(path.join(rootPath, 'src/ui/main.tsx'));
   return buildGuYanPlugin({
     framework: react ? 'react' : 'vue',

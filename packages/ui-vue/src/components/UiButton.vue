@@ -1,6 +1,8 @@
 <script setup lang="ts">
+import { useSlots } from 'vue';
 import { ensureGuYanElements } from '../register';
 ensureGuYanElements();
+const slots = useSlots();
 withDefaults(
   defineProps<{
     variant?: 'primary' | 'secondary' | 'ghost' | 'danger';
@@ -22,7 +24,9 @@ withDefaults(
     :active="active"
     :type.attr="type"
     v-bind="$attrs"
-    ><span slot="prefix"><slot name="prefix" /></span><slot /><span slot="suffix"
-      ><slot name="suffix" /></span
-  ></gt-button>
+  >
+    <span v-if="slots.prefix" slot="prefix"><slot name="prefix" /></span>
+    <slot />
+    <span v-if="slots.suffix" slot="suffix"><slot name="suffix" /></span>
+  </gt-button>
 </template>

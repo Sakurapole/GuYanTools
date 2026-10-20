@@ -29,7 +29,9 @@ export class CapabilityRouter {
     this.unregister(pluginId);
     const registered: ResolvedCapability[] = [];
     for (const declaration of declarations) {
-      const qualifiedId = `${pluginId}.${declaration.id}`;
+      const qualifiedId = declaration.id.startsWith(`${pluginId}.`)
+        ? declaration.id
+        : `${pluginId}.${declaration.id}`;
       if (this.providers.has(qualifiedId)) {
         throw new PluginApiError('INVALID_INPUT', `PLUGIN_CAPABILITY_CONFLICT: ${qualifiedId}`);
       }

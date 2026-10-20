@@ -3,6 +3,7 @@ import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 import { useRouter } from 'vue-router';
 import { registerPluginRoutes } from '../../routes/router';
 import { useGlobalStore } from '../../stores/global_store';
+import { bottombarHeight, topbarHeight } from '../../constants/layout';
 import type {
   InstalledPluginRecord,
   MarketplaceCacheRecord,
@@ -14,14 +15,33 @@ import type {
 } from '@/contracts/plugin_host';
 import type { JobRecord } from '@/contracts/plugin_media';
 import UiButton from '../../components/ui/UiButton.vue';
+import UiDrawer from '../../components/ui/UiDrawer.vue';
 import UiInput from '../../components/ui/UiInput.vue';
+import UiSelect from '../../components/ui/UiSelect.vue';
+import UiSwitch from '../../components/ui/UiSwitch.vue';
+import UiTabs from '../../components/ui/UiTabs.vue';
+import UiDisclosure from '../../components/ui/UiDisclosure.vue';
+import UiTagChip from '../../components/ui/UiTagChip.vue';
+import UiScrollbar from '../../components/ui/UiScrollbar.vue';
+import PluginPagination from './PluginPagination.vue';
+import PluginActionIcon from './PluginActionIcon.vue';
 import { notifyError } from '../../composables/useInAppNotification';
+import { useConfirmDialog } from '../../composables/useConfirmDialog';
 import PluginPermissionDialog from './PluginPermissionDialog.vue';
+import { getPluginPageDescriptors } from './plugin_page_links';
+import { useBarStore } from '../../stores/bar_store';
+import { syncRouteToBottomBar } from '../../route_tab_sync';
 import PluginJobPanel from './PluginJobPanel.vue';
 import PluginDebugPanel from './PluginDebugPanel.vue';
 import { serializeApprovedPermissions } from './plugin_install_serialization';
 
 type PluginTab = 'installed' | 'marketplace';
+type InstallMethod = 'npm' | 'local' | 'git';
+type PluginViewMode = 'cards' | 'list';
+type PluginStatusFilter = 'all' | 'enabled' | 'updatable' | 'disabled';
+type PluginCategory = 'all' | 'devops' | 'productivity' | 'ai' | 'network';
+type MarketplaceSort = 'catalog' | 'version' | 'name';
+type PluginDetailTab = 'overview' | 'permissions' | 'changelog' | 'settings';
 
 const DEFAULT_MARKETPLACE_ID = 'sakurapole';
 const DEFAULT_MARKETPLACE_URL =
@@ -30,8 +50,29 @@ const DEFAULT_MARKETPLACE_REF = 'main';
 
 const router = useRouter();
 const globalStore = useGlobalStore();
+const barStore = useBarStore();
+const { show: showConfirmDialog } = useConfirmDialog();
 
 const activeTab = ref<PluginTab>('installed');
+const viewMode = ref<PluginViewMode>('cards');
+const installedPage = ref(1);
+const installedPageSize = ref(12);
+const marketplacePage = ref(1);
+const marketplacePageSize = ref(12);
+const drawerOffsetStyle = {
+  '--gt-drawer-top-offset': `${topbarHeight}px`,
+  '--gt-drawer-bottom-offset': `${bottombarHeight}px`,
+};
+const statusFilter = ref<PluginStatusFilter>('all');
+const categoryFilter = ref<PluginCategory>('all');
+const marketplaceSort = ref<MarketplaceSort>('catalog');
+const pluginDirectory = ref('');
+const installedQuery = ref('');
+const installDrawerVisible = ref(false);
+const installMethod = ref<InstallMethod>('local');
+const selectedPluginId = ref<string | null>(null);
+const detailDrawerVisible = ref(false);
+const detailTab = ref<PluginDetailTab>('overview');
 const plugins = ref<InstalledPluginRecord[]>([]);
 const pages = ref<PluginPageDescriptor[]>([]);
 const marketplaces = ref<MarketplaceCacheRecord[]>([]);
@@ -67,6 +108,9 @@ const debugPluginId = ref<string | null>(null);
 let removeInstallProgressListener: (() => void) | undefined;
 
 const enabledCount = computed(() => plugins.value.filter((plugin) => plugin.enabled).length);
+const runningCount = computed(
+  () => plugins.value.filter((plugin) => plugin.status === 'enabled').length
+);
 const installProgressPercent = computed(() =>
   Math.round((installProgress.value?.progress ?? 0) * 100)
 );
@@ -76,6 +120,7 @@ const installProgressLabel = computed(() =>
 const marketplacePlugins = computed<MarketplacePluginSummary[]>(() => {
   const query = marketplaceQuery.value.trim().toLowerCase();
   return marketplaces.value
+    .filter((item) => item.marketplaceId === marketplaceId.value)
     .flatMap((item) => item.catalog.plugins)
     .filter(
       (plugin) =>
@@ -88,6 +133,198 @@ const marketplacePlugins = computed<MarketplacePluginSummary[]>(() => {
 const marketplaceStatus = computed(() =>
   marketplaces.value.find((item) => item.marketplaceId === marketplaceId.value)
 );
+const sortedMarketplacePlugins = computed(() => {
+  const result = [...marketplacePlugins.value];
+  if (marketplaceSort.value === 'version')
+    result.sort((a, b) => comparePluginVersions(b.version, a.version));
+  if (marketplaceSort.value === 'name') result.sort((a, b) => a.name.localeCompare(b.name));
+  return result;
+});
+const availableUpdates = computed(() => {
+  const versions = new Map(
+    (marketplaceStatus.value?.catalog.plugins ?? []).map((plugin) => [plugin.id, plugin.version])
+  );
+  return plugins.value.filter((plugin) => {
+    if (plugin.installSource.type !== 'marketplace') return false;
+    const latest = versions.get(plugin.manifest.id);
+    return latest && comparePluginVersions(latest, plugin.manifest.version) > 0;
+  });
+});
+const availableUpdateIds = computed(
+  () => new Set(availableUpdates.value.map((plugin) => plugin.manifest.id))
+);
+const filteredPlugins = computed(() => {
+  const query = installedQuery.value.trim().toLowerCase();
+  return plugins.value.filter(
+    (plugin) =>
+      (statusFilter.value === 'all' ||
+        (statusFilter.value === 'updatable'
+          ? availableUpdateIds.value.has(plugin.manifest.id)
+          : plugin.enabled === (statusFilter.value === 'enabled'))) &&
+      (categoryFilter.value === 'all' || getPluginCategory(plugin) === categoryFilter.value) &&
+      (!query ||
+        [plugin.manifest.id, plugin.manifest.displayName, plugin.manifest.description ?? ''].some(
+          (value) => value.toLowerCase().includes(query)
+        ))
+  );
+});
+const paginatedPlugins = computed(() =>
+  filteredPlugins.value.slice(
+    (installedPage.value - 1) * installedPageSize.value,
+    installedPage.value * installedPageSize.value
+  )
+);
+const marketplaceGridPlugins = computed(() => sortedMarketplacePlugins.value.slice(1));
+const paginatedMarketplacePlugins = computed(() =>
+  marketplaceGridPlugins.value.slice(
+    (marketplacePage.value - 1) * marketplacePageSize.value,
+    marketplacePage.value * marketplacePageSize.value
+  )
+);
+const mainTabs = computed(() => [
+  { key: 'installed', label: `已安装插件 ${plugins.value.length}` },
+  { key: 'marketplace', label: `插件市场浏览 ${marketplacePlugins.value.length}` },
+]);
+const categoryTabs = [
+  { key: 'all', label: '全部' },
+  { key: 'devops', label: '开发运维' },
+  { key: 'productivity', label: '效率工具' },
+  { key: 'ai', label: 'AI 增强' },
+  { key: 'network', label: '网络数据' },
+];
+const installMethodTabs = [
+  { key: 'local', label: '本地' },
+  { key: 'npm', label: 'NPM' },
+  { key: 'git', label: 'Git' },
+];
+const detailTabs = computed(() => [
+  { key: 'overview', label: '详情说明' },
+  {
+    key: 'permissions',
+    label: `沙盒权限 (${selectedPlugin.value?.manifest.permissions.length ?? 0})`,
+  },
+  { key: 'changelog', label: '更新日志' },
+  { key: 'settings', label: '参数 Schema' },
+]);
+const statusOptions = computed(() => [
+  { value: 'all', label: `全部状态 (${plugins.value.length})` },
+  { value: 'enabled', label: `已启用 (${enabledCount.value})` },
+  { value: 'updatable', label: `待更新 (${availableUpdates.value.length})` },
+  { value: 'disabled', label: `已停用 (${plugins.value.length - enabledCount.value})` },
+]);
+const gitRefOptions = [
+  { value: 'tag', label: 'tag' },
+  { value: 'branch', label: 'branch' },
+  { value: 'commit', label: 'commit' },
+];
+
+function installSourceLabel(plugin: InstalledPluginRecord): string {
+  switch (plugin.installSource.type) {
+    case 'local':
+      return '本地安装';
+    case 'npm':
+      return 'NPM 安装';
+    case 'git':
+      return 'Git 安装';
+    case 'marketplace':
+      return '市场安装';
+    case 'builtin':
+      return '内置插件';
+  }
+}
+
+function setActiveTab(value: string): void {
+  activeTab.value = value as PluginTab;
+}
+
+function setCategory(value: string): void {
+  categoryFilter.value = value as PluginCategory;
+}
+
+function setStatus(value: string | number): void {
+  statusFilter.value = value as PluginStatusFilter;
+}
+
+function setInstallMethod(value: string): void {
+  installMethod.value = value as InstallMethod;
+}
+
+function setDetailTab(value: string): void {
+  detailTab.value = value as PluginDetailTab;
+}
+
+function setGitRefType(value: string | number): void {
+  gitRefType.value = value as 'branch' | 'tag' | 'commit';
+}
+
+watch([installedQuery, statusFilter, categoryFilter], () => {
+  installedPage.value = 1;
+});
+watch([marketplaceQuery, marketplaceSort], () => {
+  marketplacePage.value = 1;
+});
+watch(filteredPlugins, () => {
+  installedPage.value = Math.min(
+    installedPage.value,
+    Math.max(1, Math.ceil(filteredPlugins.value.length / installedPageSize.value))
+  );
+});
+watch(marketplaceGridPlugins, () => {
+  marketplacePage.value = Math.min(
+    marketplacePage.value,
+    Math.max(1, Math.ceil(marketplaceGridPlugins.value.length / marketplacePageSize.value))
+  );
+});
+const selectedPlugin = computed(
+  () => plugins.value.find((plugin) => plugin.manifest.id === selectedPluginId.value) ?? null
+);
+
+function comparePluginVersions(left: string, right: string): number {
+  const parse = (version: string) =>
+    version.replace(/^v/, '').split(/[.-]/).slice(0, 3).map(Number);
+  const a = parse(left);
+  const b = parse(right);
+  for (let index = 0; index < 3; index += 1) {
+    const difference = (a[index] || 0) - (b[index] || 0);
+    if (difference) return difference;
+  }
+  return 0;
+}
+
+function getPluginCategory(plugin: InstalledPluginRecord): Exclude<PluginCategory, 'all'> {
+  const permissions = plugin.manifest.permissions;
+  if (permissions.some((permission) => permission.startsWith('models.'))) return 'ai';
+  if (permissions.some((permission) => /^(network|downloads|media)\./.test(permission)))
+    return 'network';
+  if (permissions.some((permission) => /^(system|tools|files)\./.test(permission))) return 'devops';
+  return 'productivity';
+}
+
+function categoryLabel(category: Exclude<PluginCategory, 'all'>): string {
+  return { devops: '开发运维', productivity: '效率工具', ai: 'AI 增强', network: '网络数据' }[
+    category
+  ];
+}
+
+function pagesForPlugin(pluginId: string): PluginPageDescriptor[] {
+  const plugin = plugins.value.find((item) => item.manifest.id === pluginId);
+  if (!plugin || !plugin.enabled || plugin.status !== 'enabled') return [];
+  return getPluginPageDescriptors(plugin, pages.value);
+}
+
+function availableVersion(pluginId: string): string | undefined {
+  return marketplaceStatus.value?.catalog.plugins.find((plugin) => plugin.id === pluginId)?.version;
+}
+
+async function openPluginDirectory() {
+  if (!pluginDirectory.value) return;
+  try {
+    const result = await window.shellApi.openPath(pluginDirectory.value);
+    if (result) throw new Error(result);
+  } catch (error) {
+    notifyError(error, '打开插件目录失败');
+  }
+}
 
 const installPhaseLabels: Record<PluginInstallPhase, string> = {
   'resolving-marketplace': '正在解析市场条目',
@@ -106,7 +343,10 @@ async function refresh() {
   }
 
   plugins.value = await window.pluginHostApi.listPlugins();
-  pages.value = await window.pluginHostApi.listPages();
+  const registeredPages = await window.pluginHostApi.listPages();
+  pages.value = plugins.value.flatMap((plugin) =>
+    getPluginPageDescriptors(plugin, registeredPages)
+  );
   marketplaces.value = await window.pluginHostApi.listMarketplaces();
   devSessions.value = await window.pluginHostApi.listDevSessions();
   const jobEntries = await Promise.all(
@@ -140,11 +380,24 @@ async function connectLocalDevSession() {
   });
 }
 
+async function pickLocalPluginPath(target: 'install' | 'dev') {
+  if (isBusy.value || !window.pluginHostApi) return;
+  try {
+    const selected = await window.pluginHostApi.pickLocalPluginPath();
+    if (!selected) return;
+    if (target === 'install') localPath.value = selected;
+    else localDevPath.value = selected;
+  } catch (error) {
+    errorMessage.value = error instanceof Error ? error.message : '打开文件选择器失败';
+    notifyError(error, '打开文件选择器失败');
+  }
+}
+
 async function reconnectLocalDevSession(plugin: InstalledPluginRecord) {
   if (!plugin.localPath || !window.pluginHostApi) return;
-  await runMutation(() =>
-    window.pluginHostApi!.connectDevSessionFromFile(plugin.localPath).then(() => undefined)
-  );
+  await runMutation(async () => {
+    await window.pluginHostApi!.connectDevSessionFromFile(plugin.localPath!);
+  });
 }
 
 async function runMutation(task: () => Promise<void>) {
@@ -172,7 +425,33 @@ async function runInstall(task: () => Promise<void>, pluginId?: string) {
 }
 
 function openPluginPage(page: PluginPageDescriptor) {
+  syncRouteToBottomBar(
+    {
+      fullPath: page.routePath,
+      meta: { pluginId: page.pluginId, pageId: page.pageId, title: page.title, icon: page.icon },
+    },
+    barStore
+  );
   void router.push(page.routePath);
+}
+
+function openInstallDrawer(method: InstallMethod = 'local') {
+  installMethod.value = method;
+  installDrawerVisible.value = true;
+}
+
+function openPluginDetails(plugin: InstalledPluginRecord) {
+  selectedPluginId.value = plugin.manifest.id;
+  detailDrawerVisible.value = true;
+  detailTab.value = 'overview';
+}
+
+function closePluginDetails() {
+  detailDrawerVisible.value = false;
+}
+
+function clearPluginDetails() {
+  if (!detailDrawerVisible.value) selectedPluginId.value = null;
 }
 
 async function handleInstallPackage() {
@@ -183,6 +462,7 @@ async function handleInstallPackage() {
     const record = await window.pluginHostApi!.installPluginFromPackage(value, []);
     packageName.value = '';
     pendingPermissionPlugin.value = record;
+    installDrawerVisible.value = false;
   });
 }
 
@@ -193,6 +473,7 @@ async function handleRegisterLocal() {
     const record = await window.pluginHostApi!.registerLocalPlugin(value, []);
     localPath.value = '';
     pendingPermissionPlugin.value = record;
+    installDrawerVisible.value = false;
   });
 }
 
@@ -208,6 +489,7 @@ async function handleInstallGit() {
     gitUrl.value = '';
     gitRef.value = '';
     pendingPermissionPlugin.value = record;
+    installDrawerVisible.value = false;
   });
 }
 
@@ -291,32 +573,43 @@ async function confirmMarketplaceInstall(
   if (!plugin || !window.pluginHostApi) return;
   pendingMarketplacePlugin.value = null;
   const safePermissions = serializeApprovedPermissions(approvedPermissions);
-  await runInstall(
-    () =>
-      window
-        .pluginHostApi!.installFromMarketplace(marketplaceId.value, plugin.id, safePermissions)
-        .then(() => undefined),
-    plugin.id
-  );
+  await runInstall(async () => {
+    await window.pluginHostApi!.installFromMarketplace(
+      marketplaceId.value,
+      plugin.id,
+      safePermissions
+    );
+  }, plugin.id);
 }
 
 async function updatePlugin(plugin: InstalledPluginRecord) {
   if (!window.pluginHostApi) return;
-  await runInstall(
-    () => window.pluginHostApi!.updatePlugin(plugin.manifest.id).then(() => undefined),
-    plugin.manifest.id
-  );
+  await runInstall(async () => {
+    await window.pluginHostApi!.updatePlugin(plugin.manifest.id);
+  }, plugin.manifest.id);
 }
 
 async function rollbackPlugin(plugin: InstalledPluginRecord) {
   if (!window.pluginHostApi) return;
-  await runMutation(() =>
-    window.pluginHostApi!.rollbackPlugin(plugin.manifest.id).then(() => undefined)
-  );
+  await runMutation(async () => {
+    await window.pluginHostApi!.rollbackPlugin(plugin.manifest.id);
+  });
 }
 
 async function uninstallPlugin(plugin: InstalledPluginRecord) {
   if (!window.pluginHostApi) return;
+  const reopenPluginId = selectedPluginId.value;
+  closePluginDetails();
+  const confirmed = await showConfirmDialog({
+    title: '卸载插件',
+    message: `确定卸载 ${plugin.manifest.displayName} 吗？`,
+    confirmText: '卸载',
+    danger: true,
+  });
+  if (!confirmed) {
+    selectedPluginId.value = reopenPluginId;
+    return;
+  }
   await runMutation(() => window.pluginHostApi!.uninstallPlugin(plugin.manifest.id));
 }
 
@@ -338,6 +631,14 @@ onMounted(() => {
     installProgress.value = progress;
   });
   void refresh();
+  void window.pluginHostApi
+    ?.getHostSummary()
+    .then((summary) => {
+      pluginDirectory.value = summary.pluginDirectory;
+    })
+    .catch(() => {
+      pluginDirectory.value = '';
+    });
 });
 
 onBeforeUnmount(() => removeInstallProgressListener?.());
@@ -345,17 +646,49 @@ onBeforeUnmount(() => removeInstallProgressListener?.());
 
 <template>
   <div class="plugins-page">
-    <header class="plugins-header">
-      <div>
-        <h1>插件</h1>
-        <p>安装、启用并发现适合你工作流的扩展。</p>
+    <header class="plugins-commandbar">
+      <UiTabs
+        :model-value="activeTab"
+        :items="mainTabs"
+        variant="segmented"
+        size="sm"
+        aria-label="插件视图"
+        @update:model-value="setActiveTab"
+      />
+      <div class="plugin-search-shell">
+        <UiInput
+          v-if="activeTab === 'installed'"
+          v-model="installedQuery"
+          class="plugin-search"
+          placeholder="搜索已安装插件、ID、指令、关键词…"
+          aria-label="搜索已安装插件"
+        />
+        <UiInput
+          v-else
+          v-model="marketplaceQuery"
+          class="plugin-search"
+          placeholder="搜索插件市场…"
+          aria-label="搜索插件市场"
+        />
       </div>
-      <div class="plugins-summary" aria-label="插件统计">
-        <span
-          ><strong>{{ plugins.length }}</strong> 个已安装</span
+      <div class="plugins-commandbar__actions">
+        <UiButton
+          variant="secondary"
+          size="sm"
+          :disabled="!pluginDirectory"
+          @click="openPluginDirectory"
+          ><template #prefix><PluginActionIcon name="folder" /></template>插件目录</UiButton
         >
-        <span
-          ><strong>{{ enabledCount }}</strong> 个运行中</span
+        <UiButton
+          variant="secondary"
+          size="sm"
+          :disabled="isMarketplaceRefreshing"
+          @click="handleRefreshMarketplace"
+          ><template #prefix><PluginActionIcon name="refresh" /></template
+          >{{ isMarketplaceRefreshing ? '检查中…' : '检查更新' }}</UiButton
+        >
+        <UiButton variant="primary" size="sm" @click="openInstallDrawer('local')"
+          ><template #prefix><PluginActionIcon name="download" /></template>安装本地插件</UiButton
         >
       </div>
     </header>
@@ -387,331 +720,778 @@ onBeforeUnmount(() => removeInstallProgressListener?.());
       </p>
     </section>
 
-    <nav class="plugin-tabs" role="tablist" aria-label="插件视图">
-      <button
-        class="plugin-tab"
-        :class="{ 'plugin-tab--active': activeTab === 'installed' }"
-        role="tab"
-        :aria-selected="activeTab === 'installed'"
-        type="button"
-        @click="activeTab = 'installed'"
-      >
-        已安装
-        <span class="plugin-tab__count">{{ plugins.length }}</span>
-      </button>
-      <button
-        class="plugin-tab"
-        :class="{ 'plugin-tab--active': activeTab === 'marketplace' }"
-        role="tab"
-        :aria-selected="activeTab === 'marketplace'"
-        type="button"
-        @click="activeTab = 'marketplace'"
-      >
-        插件市场
-        <span class="plugin-tab__count">{{ marketplacePlugins.length }}</span>
-      </button>
-    </nav>
+    <section class="plugins-filterbar" aria-label="插件筛选">
+      <div v-if="activeTab === 'installed'" class="plugin-categories-shell">
+        <UiScrollbar class="plugin-categories-scroll" :x="true" :y="false" aria-label="插件分类">
+          <div class="plugin-categories" role="group">
+            <UiButton
+              v-for="category in categoryTabs"
+              :key="category.key"
+              variant="ghost"
+              size="sm"
+              :active="categoryFilter === category.key"
+              :aria-pressed="categoryFilter === category.key"
+              @click="setCategory(category.key)"
+              ><template #prefix
+                ><PluginActionIcon
+                  :name="
+                    (
+                      {
+                        all: 'grid',
+                        devops: 'terminal',
+                        productivity: 'check',
+                        ai: 'sparkles',
+                        network: 'network',
+                      } as const
+                    )[category.key as PluginCategory]
+                  " /></template
+              >{{ category.label }}</UiButton
+            >
+          </div>
+        </UiScrollbar>
+      </div>
+      <div v-if="activeTab === 'installed'" class="plugins-filterbar__aside">
+        <label class="plugin-status-filter"
+          ><span>状态:</span
+          ><UiSelect
+            :model-value="statusFilter"
+            :options="statusOptions"
+            size="sm"
+            aria-label="筛选插件状态"
+            @update:model-value="setStatus"
+        /></label>
+        <div class="plugin-view-switch" role="group" aria-label="插件布局">
+          <UiButton
+            variant="ghost"
+            size="sm"
+            :active="viewMode === 'cards'"
+            :aria-pressed="viewMode === 'cards'"
+            aria-label="卡片布局"
+            @click="viewMode = 'cards'"
+            ><template #prefix><PluginActionIcon name="grid" /></template
+          ></UiButton>
+          <UiButton
+            variant="ghost"
+            size="sm"
+            :active="viewMode === 'list'"
+            :aria-pressed="viewMode === 'list'"
+            aria-label="列表布局"
+            @click="viewMode = 'list'"
+            ><template #prefix><PluginActionIcon name="list" /></template
+          ></UiButton>
+        </div>
+      </div>
+    </section>
 
     <main v-if="activeTab === 'installed'" class="plugin-view" role="tabpanel">
-      <section class="toolbar-panel ui-glass-surface">
-        <div class="section-heading">
+      <section class="plugin-metrics" aria-label="插件概览">
+        <div class="plugin-metric">
           <div>
-            <h2>添加插件</h2>
-            <p>支持 npm、本地目录和 Git 仓库。</p>
+            <span>运行中插件</span
+            ><strong
+              >{{ runningCount }} <small>/ {{ plugins.length }}</small></strong
+            >
           </div>
+          <span class="plugin-metric__icon" aria-hidden="true"
+            ><PluginActionIcon name="check"
+          /></span>
         </div>
-        <div class="install-grid">
-          <label class="field"
-            ><span>NPM 包名</span>
-            <div class="field-row">
-              <UiInput v-model="packageName" placeholder="例如：guyantools-plugin-demo" /><UiButton
-                variant="primary"
-                :disabled="isBusy || !packageName.trim()"
-                @click="handleInstallPackage"
-                >安装</UiButton
-              >
-            </div></label
-          >
-          <label class="field"
-            ><span>本地路径</span>
-            <div class="field-row">
-              <UiInput v-model="localPath" placeholder="插件目录或 plugin.json 路径" /><UiButton
-                variant="secondary"
-                :disabled="isBusy || !localPath.trim()"
-                @click="handleRegisterLocal"
-                >注册</UiButton
-              >
-            </div></label
-          >
-          <label class="field"
-            ><span>本地开发目录</span>
-            <div class="field-row">
-              <UiInput
-                v-model="localDevPath"
-                placeholder="含 .guyantools/plugin.dev.json 的目录"
-              /><UiButton
-                variant="secondary"
-                :disabled="isBusy || !localDevPath.trim()"
-                @click="connectLocalDevSession"
-                >连接</UiButton
-              >
-            </div></label
-          >
-          <label class="field field--wide"
-            ><span>Git 仓库</span>
-            <div class="field-row field-row--git">
-              <UiInput v-model="gitUrl" placeholder="https://github.com/owner/plugin" /><UiInput
-                v-model="gitRef"
-                placeholder="v1.0.0"
-              /><select v-model="gitRefType" class="plugin-select">
-                <option value="tag">tag</option>
-                <option value="branch">branch</option>
-                <option value="commit">commit</option></select
-              ><UiButton
-                variant="secondary"
-                :disabled="isBusy || !gitUrl.trim() || !gitRef.trim()"
-                @click="handleInstallGit"
-                >安装</UiButton
-              >
-            </div></label
-          >
+        <div class="plugin-metric">
+          <div>
+            <span>常驻内存消耗</span><strong>— <small>暂无采集</small></strong>
+          </div>
+          <span class="plugin-metric__icon" aria-hidden="true"
+            ><PluginActionIcon name="memory"
+          /></span>
+        </div>
+        <div class="plugin-metric">
+          <div>
+            <span>可用更新</span
+            ><strong>{{ availableUpdates.length }} <small>项升级</small></strong>
+          </div>
+          <span class="plugin-metric__icon" aria-hidden="true"
+            ><PluginActionIcon name="refresh"
+          /></span>
+        </div>
+        <div class="plugin-metric">
+          <div>
+            <span>沙盒安全指标</span><strong>— <small>暂无采集</small></strong>
+          </div>
+          <span class="plugin-metric__icon" aria-hidden="true"
+            ><PluginActionIcon name="shield"
+          /></span>
         </div>
       </section>
 
-      <section class="installed-section">
-        <div class="section-heading">
-          <div>
-            <h2>已安装插件</h2>
-            <p>管理插件状态、版本和运行记录。</p>
-          </div>
-        </div>
-        <div v-if="plugins.length === 0" class="empty-state ui-soft-surface">
-          还没有已安装插件，去插件市场看看吧。
-        </div>
-        <div v-else class="installed-list">
-          <article
-            v-for="plugin in plugins"
-            :key="plugin.manifest.id"
-            class="installed-row ui-soft-surface"
+      <UiScrollbar class="plugin-list-scroll" :x="true" :y="true" aria-label="已安装插件列表">
+        <section v-if="plugins.length === 0" class="empty-state">
+          <strong>本地还没有已安装插件</strong><span>可以从本地目录安装插件。</span
+          ><UiButton variant="primary" size="sm" @click="openInstallDrawer('local')"
+            ><template #prefix><PluginActionIcon name="download" /></template>安装本地插件</UiButton
           >
-            <div class="plugin-avatar" aria-hidden="true">
-              {{ plugin.manifest.displayName.slice(0, 1) }}
+        </section>
+        <section v-else-if="filteredPlugins.length === 0" class="empty-state">
+          <strong>没有匹配插件</strong><span>试试其他名称或插件 ID。</span>
+        </section>
+        <section
+          v-else-if="viewMode === 'cards'"
+          class="installed-cards"
+          aria-label="已安装插件卡片"
+        >
+          <article
+            v-for="plugin in paginatedPlugins"
+            :key="plugin.manifest.id"
+            class="installed-card"
+            :class="{ 'installed-card--disabled': !plugin.enabled }"
+          >
+            <div class="installed-card__top">
+              <div class="plugin-avatar" aria-hidden="true">
+                {{ plugin.manifest.displayName.slice(0, 1) }}
+              </div>
+              <div class="installed-card__identity">
+                <div>
+                  <h2>{{ plugin.manifest.displayName }}</h2>
+                  <span>v{{ plugin.manifest.version }}</span>
+                </div>
+                <small>{{ plugin.manifest.id }}</small>
+                <UiTagChip
+                  :label="installSourceLabel(plugin)"
+                  :color="plugin.installSource.type === 'marketplace' ? '#0284c7' : '#64748b'"
+                  subtle
+                />
+              </div>
+              <UiSwitch
+                :model-value="plugin.enabled"
+                :disabled="isBusy"
+                :aria-label="`${plugin.manifest.displayName}${plugin.enabled ? '停用' : '启用'}`"
+                @update:model-value="togglePlugin(plugin)"
+              />
             </div>
-            <div class="installed-row__main">
-              <div class="installed-row__title">
-                <h3>{{ plugin.manifest.displayName }}</h3>
-                <span class="status-dot" :class="{ 'status-dot--on': plugin.enabled }">{{
-                  plugin.enabled ? '运行中' : '已停用'
-                }}</span
-                ><span
+            <p class="installed-card__description">
+              {{ plugin.manifest.description || '暂无插件说明' }}
+            </p>
+            <div
+              v-if="pagesForPlugin(plugin.manifest.id).length"
+              class="plugin-page-links"
+              aria-label="插件页面"
+            >
+              <UiButton
+                v-for="page in pagesForPlugin(plugin.manifest.id)"
+                :key="page.pageId"
+                variant="secondary"
+                size="sm"
+                @click="openPluginPage(page)"
+                ><template #prefix><PluginActionIcon name="external" /></template>
+                {{ page.title }}
+              </UiButton>
+            </div>
+            <div class="installed-card__footer">
+              <div class="installed-card__signals">
+                <span
                   class="signature-badge"
                   :class="signatureBadgeClass(plugin)"
                   :title="signatureBadgeTitle(plugin)"
                   >{{ signatureBadgeText(plugin) }}</span
                 >
-              </div>
-              <p>{{ plugin.manifest.description || '暂无描述' }}</p>
-              <div class="plugin-meta">
-                <span>{{ plugin.manifest.id }}</span
-                ><span>v{{ plugin.manifest.version }}</span
-                ><span>{{ plugin.installSource.type }}</span
-                ><span>{{ plugin.status }}</span>
-              </div>
-              <div class="plugin-permission-summary">
-                <span>请求 {{ plugin.manifest.permissions.length }} 项权限</span
-                ><span>已批准 {{ plugin.approvedPermissions.length }} 项</span
-                ><span>{{ plugin.manifest.capabilities.length }} 项能力</span
-                ><span v-if="plugin.manifest.dependencies?.length"
-                  >{{ plugin.manifest.dependencies.length }} 项依赖</span
+                <span v-if="availableUpdateIds.has(plugin.manifest.id)" class="plugin-update-badge"
+                  >可更新至 v{{ availableVersion(plugin.manifest.id) }}</span
+                >
+                <span
+                  v-else
+                  class="plugin-state-badge"
+                  :class="{ 'plugin-state-badge--off': plugin.status !== 'enabled' }"
+                  >{{
+                    plugin.status === 'errored'
+                      ? '运行异常'
+                      : plugin.status === 'enabled'
+                        ? '运行中'
+                        : '已停用'
+                  }}</span
+                >
+                <span v-if="devSessionFor(plugin.manifest.id)"
+                  >本地开发 · {{ devSessionFor(plugin.manifest.id)?.port }}</span
                 >
               </div>
-            </div>
-            <div class="installed-row__actions">
-              <UiButton
-                variant="secondary"
-                size="sm"
-                :disabled="isBusy"
-                @click="togglePlugin(plugin)"
-                >{{ plugin.enabled ? '停用' : '启用' }}</UiButton
-              >
-              <UiButton
-                v-if="
-                  plugin.manifest.permissions.length > 0 &&
-                  plugin.approvedPermissions.length < plugin.manifest.permissions.length
-                "
-                variant="primary"
-                size="sm"
-                :disabled="isBusy"
-                @click="requestApprovePermissions(plugin)"
-                >确认权限</UiButton
-              >
-              <UiButton
-                v-if="
-                  plugin.installSource.type === 'git' || plugin.installSource.type === 'marketplace'
-                "
-                variant="ghost"
-                size="sm"
-                :disabled="isBusy"
-                @click="updatePlugin(plugin)"
-                >更新</UiButton
-              >
-              <UiButton
-                v-if="
-                  plugin.installSource.type === 'git' || plugin.installSource.type === 'marketplace'
-                "
-                variant="ghost"
-                size="sm"
-                :disabled="isBusy"
-                @click="rollbackPlugin(plugin)"
-                >回滚</UiButton
-              >
-              <UiButton
-                v-if="plugin.installSource.type === 'local' && devSessionFor(plugin.manifest.id)"
-                variant="ghost"
-                size="sm"
-                :disabled="isBusy"
-                @click="stopDevSession(plugin.manifest.id)"
-                >停止本地开发</UiButton
-              >
-              <UiButton
-                v-if="plugin.installSource.type === 'local' && !devSessionFor(plugin.manifest.id)"
-                variant="ghost"
-                size="sm"
-                :disabled="isBusy || !plugin.localPath"
-                @click="reconnectLocalDevSession(plugin)"
-                >重连本地开发</UiButton
-              >
               <UiButton
                 variant="ghost"
                 size="sm"
                 :disabled="isBusy"
-                @click="openDebugPanel(plugin.manifest.id)"
-                >调试</UiButton
-              >
-              <UiButton
-                variant="ghost"
-                size="sm"
-                :disabled="isBusy"
-                @click="uninstallPlugin(plugin)"
-                >卸载</UiButton
+                @click="openPluginDetails(plugin)"
+                ><template #prefix><PluginActionIcon name="info" /></template>详情</UiButton
               >
             </div>
-            <div
-              v-if="plugin.installSource.type === 'local' && devSessionFor(plugin.manifest.id)"
-              class="dev-session-status"
-            >
-              本地开发已连接 · {{ devSessionFor(plugin.manifest.id)?.port }}
-            </div>
-            <PluginJobPanel :jobs="jobsByPlugin[plugin.manifest.id] || []" />
           </article>
+        </section>
+        <div v-else class="installed-table-wrap" aria-label="已安装插件列表">
+          <table class="installed-table">
+            <thead>
+              <tr>
+                <th>状态</th>
+                <th>插件标识 / 名称</th>
+                <th>当前版本</th>
+                <th>分类</th>
+                <th>内存占用</th>
+                <th>作者</th>
+                <th>操作</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr v-for="plugin in paginatedPlugins" :key="plugin.manifest.id">
+                <td>
+                  <UiSwitch
+                    :model-value="plugin.enabled"
+                    :disabled="isBusy"
+                    :aria-label="`${plugin.manifest.displayName}${plugin.enabled ? '停用' : '启用'}`"
+                    @update:model-value="togglePlugin(plugin)"
+                  />
+                </td>
+                <td>
+                  <div class="installed-table__plugin">
+                    <div class="plugin-avatar" aria-hidden="true">
+                      {{ plugin.manifest.displayName.slice(0, 1) }}
+                    </div>
+                    <div>
+                      <strong>{{ plugin.manifest.displayName }}</strong
+                      ><small>{{ plugin.manifest.id }}</small>
+                      <UiTagChip
+                        :label="installSourceLabel(plugin)"
+                        :color="plugin.installSource.type === 'marketplace' ? '#0284c7' : '#64748b'"
+                        subtle
+                      />
+                      <div
+                        v-if="pagesForPlugin(plugin.manifest.id).length"
+                        class="plugin-page-links"
+                      >
+                        <UiButton
+                          v-for="page in pagesForPlugin(plugin.manifest.id)"
+                          :key="page.pageId"
+                          variant="secondary"
+                          size="sm"
+                          @click="openPluginPage(page)"
+                          ><template #prefix><PluginActionIcon name="external" /></template>
+                          {{ page.title }}
+                        </UiButton>
+                      </div>
+                    </div>
+                  </div>
+                </td>
+                <td>
+                  <span>v{{ plugin.manifest.version }}</span
+                  ><span
+                    v-if="availableUpdateIds.has(plugin.manifest.id)"
+                    class="plugin-update-badge"
+                    >↑ v{{ availableVersion(plugin.manifest.id) }}</span
+                  >
+                </td>
+                <td>
+                  <span class="plugin-category-label">{{
+                    categoryLabel(getPluginCategory(plugin))
+                  }}</span>
+                </td>
+                <td class="installed-table__muted">暂无采集</td>
+                <td class="installed-table__muted">未提供</td>
+                <td>
+                  <UiButton
+                    variant="ghost"
+                    size="sm"
+                    :disabled="isBusy"
+                    @click="openPluginDetails(plugin)"
+                    ><template #prefix><PluginActionIcon name="info" /></template>详情</UiButton
+                  >
+                </td>
+              </tr>
+            </tbody>
+          </table>
         </div>
-      </section>
-
-      <section class="contributions-section">
-        <div class="section-heading">
-          <div>
-            <h2>插件页面</h2>
-            <p>已启用插件提供的页面入口。</p>
-          </div>
-        </div>
-        <div v-if="pages.length === 0" class="empty-state ui-soft-surface">
-          当前没有已启用的插件页面。
-        </div>
-        <div v-else class="page-list">
-          <UiButton
-            v-for="page in pages"
-            :key="`${page.pluginId}:${page.pageId}`"
-            class="page-item ui-soft-surface"
-            variant="ghost"
-            type="button"
-            @click="openPluginPage(page)"
-          >
-            <strong>{{ page.title }}</strong
-            ><span>{{ page.routePath }}</span>
-          </UiButton>
-        </div>
-      </section>
+      </UiScrollbar>
+      <PluginPagination
+        v-if="filteredPlugins.length"
+        v-model:page="installedPage"
+        v-model:page-size="installedPageSize"
+        :total="filteredPlugins.length"
+      />
     </main>
 
-    <main v-else class="plugin-view" role="tabpanel">
-      <section class="marketplace-toolbar ui-glass-surface">
-        <div class="section-heading">
-          <div>
-            <h2>插件市场</h2>
-            <p>从公开仓库获取插件目录，选择后即可安装。</p>
-          </div>
+    <main v-else class="plugin-view plugin-view--market" role="tabpanel">
+      <div class="marketplace-heading">
+        <div class="marketplace-heading__identity">
+          <span aria-hidden="true">◉</span>
+          <h2>远端插件市场探索 (Marketplace)</h2>
+          <small>Registry: {{ marketplaceStatus?.catalog.name || marketplaceId }}</small>
+        </div>
+        <div class="marketplace-sorting" role="group" aria-label="市场排序">
+          <span>排序:</span>
           <UiButton
-            variant="secondary"
-            :disabled="isMarketplaceRefreshing || isBusy"
-            @click="handleRefreshMarketplace"
-            >{{ isMarketplaceRefreshing ? '拉取中…' : '刷新市场' }}</UiButton
+            variant="ghost"
+            size="sm"
+            :active="marketplaceSort === 'catalog'"
+            @click="marketplaceSort = 'catalog'"
+            ><template #prefix><PluginActionIcon name="order" /></template>目录顺序</UiButton
+          >
+          <UiButton
+            variant="ghost"
+            size="sm"
+            :active="marketplaceSort === 'version'"
+            @click="marketplaceSort = 'version'"
+            ><template #prefix><PluginActionIcon name="refresh" /></template>最新版本</UiButton
+          >
+          <UiButton
+            variant="ghost"
+            size="sm"
+            :active="marketplaceSort === 'name'"
+            @click="marketplaceSort = 'name'"
+            ><template #prefix><PluginActionIcon name="order" /></template>名称</UiButton
           >
         </div>
-        <div class="marketplace-controls">
-          <UiInput v-model="marketplaceQuery" placeholder="搜索插件名称或描述" />
-          <details class="marketplace-settings">
-            <summary>仓库设置</summary>
-            <div class="marketplace-settings__body">
-              <UiInput v-model="marketplaceId" placeholder="市场 ID" />
-              <UiInput v-model="marketplaceRef" placeholder="分支或标签" />
-              <UiInput v-model="marketplaceUrl" placeholder="catalog.json HTTPS URL" />
-            </div>
-          </details>
+      </div>
+      <UiDisclosure title="市场来源设置" class="marketplace-settings">
+        <div class="marketplace-settings__body">
+          <UiInput v-model="marketplaceId" placeholder="市场 ID" /><UiInput
+            v-model="marketplaceRef"
+            placeholder="分支或标签"
+          /><UiInput v-model="marketplaceUrl" placeholder="catalog.json HTTPS URL" />
         </div>
-        <div v-if="marketplaceStatus" class="marketplace-status">
-          <span>{{ marketplaceStatus.catalog.name }}</span
-          ><span>{{ marketplaceStatus.fromCache ? '使用缓存' : '已同步' }}</span
-          ><span>更新于 {{ marketplaceStatus.refreshedAt }}</span>
-        </div>
-      </section>
-
+      </UiDisclosure>
       <div
-        v-if="isMarketplaceRefreshing && marketplacePlugins.length === 0"
+        v-if="isMarketplaceRefreshing && sortedMarketplacePlugins.length === 0"
         class="marketplace-loading"
         aria-live="polite"
       >
-        正在拉取市场目录…
+        正在同步市场目录…
       </div>
-      <div v-else-if="marketplacePlugins.length === 0" class="empty-state ui-soft-surface">
-        暂无匹配插件，请刷新市场或调整搜索条件。
+      <div v-else-if="sortedMarketplacePlugins.length === 0" class="empty-state">
+        <strong>暂无市场插件</strong><span>检查市场来源或调整搜索条件。</span>
       </div>
-      <section v-else class="marketplace-grid" aria-label="市场插件列表">
-        <article
-          v-for="plugin in marketplacePlugins"
-          :key="plugin.id"
-          class="marketplace-card ui-soft-surface"
-        >
-          <div class="marketplace-card__top">
-            <div class="plugin-avatar plugin-avatar--market" aria-hidden="true">
-              {{ plugin.name.slice(0, 1) }}
+      <template v-else>
+        <article v-if="sortedMarketplacePlugins[0]" class="marketplace-feature">
+          <div class="marketplace-feature__content">
+            <span class="marketplace-feature__eyebrow"
+              >市场目录插件 · v{{ sortedMarketplacePlugins[0].version }}</span
+            >
+            <h3>{{ sortedMarketplacePlugins[0].name }}</h3>
+            <UiTagChip label="远端市场" color="#0284c7" subtle />
+            <p>{{ sortedMarketplacePlugins[0].description || sortedMarketplacePlugins[0].id }}</p>
+            <div class="marketplace-feature__meta">
+              <span>{{ sortedMarketplacePlugins[0].id }}</span
+              ><span
+                >运行时权限:
+                {{ sortedMarketplacePlugins[0].permissions?.length || 0 }} 项需确认</span
+              >
             </div>
-            <span class="version-badge">v{{ plugin.version }}</span>
           </div>
-          <h3>{{ plugin.name }}</h3>
-          <p>{{ plugin.description || plugin.id }}</p>
-          <div class="marketplace-card__meta">
-            <span>{{ plugin.id }}</span
-            ><span>{{ plugin.refType }} · {{ plugin.ref }}</span
-            ><span>{{ plugin.resolvedCommit.slice(0, 12) }}</span>
+          <div class="marketplace-feature__action">
+            <UiButton
+              variant="primary"
+              :disabled="isBusy"
+              @click="requestMarketplaceInstall(sortedMarketplacePlugins[0])"
+              ><template #prefix><PluginActionIcon name="download" /></template
+              >{{
+                isBusy && activeInstallPluginId === sortedMarketplacePlugins[0].id
+                  ? installProgressLabel || '准备安装'
+                  : '立即安装插件'
+              }}</UiButton
+            ><small
+              >{{ sortedMarketplacePlugins[0].refType }} ·
+              {{ sortedMarketplacePlugins[0].ref }}</small
+            >
           </div>
-          <div v-if="plugin.permissions?.length" class="permission-summary">
-            {{ plugin.permissions.length }} 项权限需确认
+        </article>
+        <UiScrollbar class="plugin-list-scroll" :x="false" :y="true" aria-label="市场插件列表">
+          <section class="marketplace-grid" aria-label="市场插件列表">
+            <article
+              v-for="plugin in paginatedMarketplacePlugins"
+              :key="plugin.id"
+              class="marketplace-card"
+            >
+              <div class="marketplace-card__top">
+                <div class="plugin-avatar plugin-avatar--market" aria-hidden="true">
+                  {{ plugin.name.slice(0, 1) }}
+                </div>
+                <span class="version-badge">v{{ plugin.version }}</span>
+              </div>
+              <h3>{{ plugin.name }}</h3>
+              <small>{{ plugin.id }} · v{{ plugin.version }}</small>
+              <UiTagChip label="远端市场" color="#0284c7" subtle />
+              <p>{{ plugin.description || plugin.id }}</p>
+              <div class="marketplace-card__footer">
+                <span>{{ plugin.permissions?.length || 0 }} 项权限</span
+                ><UiButton
+                  variant="secondary"
+                  size="sm"
+                  :disabled="isBusy"
+                  @click="requestMarketplaceInstall(plugin)"
+                  ><template #prefix><PluginActionIcon name="download" /></template
+                  >{{
+                    isBusy && activeInstallPluginId === plugin.id
+                      ? installProgressLabel || '准备安装'
+                      : '安装'
+                  }}</UiButton
+                >
+              </div>
+            </article>
+          </section>
+        </UiScrollbar>
+        <PluginPagination
+          v-if="marketplaceGridPlugins.length"
+          v-model:page="marketplacePage"
+          v-model:page-size="marketplacePageSize"
+          :total="marketplaceGridPlugins.length"
+        />
+      </template>
+    </main>
+
+    <UiDrawer
+      :model-value="installDrawerVisible"
+      width="min(480px, 100vw)"
+      :style="drawerOffsetStyle"
+      z-index="var(--ui-z-secure-modal)"
+      aria-label="添加插件"
+      @update:model-value="installDrawerVisible = $event"
+    >
+      <template #header>
+        <div class="drawer-header-row">
+          <div class="drawer-heading">
+            <span class="drawer-kicker">PLUGIN INSTALL</span>
+            <h2>添加插件</h2>
           </div>
           <UiButton
-            class="marketplace-card__action"
+            variant="ghost"
+            size="sm"
+            aria-label="关闭添加插件"
+            @click="installDrawerVisible = false"
+            ><template #prefix><PluginActionIcon name="close" /></template>关闭</UiButton
+          >
+        </div>
+      </template>
+      <div class="drawer-body">
+        <UiTabs
+          :model-value="installMethod"
+          :items="installMethodTabs"
+          variant="segmented"
+          size="sm"
+          stretch
+          aria-label="安装方式"
+          @update:model-value="setInstallMethod"
+        />
+        <div v-if="installMethod === 'local'" class="drawer-form">
+          <label class="field"
+            ><span>插件目录或清单</span>
+            <div class="field-row">
+              <UiInput v-model="localPath" placeholder="选择插件目录或 plugin.json" /><UiButton
+                variant="ghost"
+                :disabled="isBusy"
+                @click="pickLocalPluginPath('install')"
+                ><template #prefix><PluginActionIcon name="folder" /></template>选择</UiButton
+              >
+            </div></label
+          >
+          <UiButton
             variant="primary"
             block
-            :disabled="isBusy"
-            @click="requestMarketplaceInstall(plugin)"
-            >{{
-              isBusy && activeInstallPluginId === plugin.id
-                ? installProgressLabel || '正在准备安装'
-                : '安装插件'
-            }}</UiButton
+            :disabled="isBusy || !localPath.trim()"
+            @click="handleRegisterLocal"
+            ><template #prefix><PluginActionIcon name="plug" /></template>注册插件</UiButton
           >
-        </article>
-      </section>
-    </main>
+          <div class="drawer-subsection">
+            <div class="drawer-subsection__title">本地开发</div>
+            <label class="field"
+              ><span>开发目录</span>
+              <div class="field-row">
+                <UiInput v-model="localDevPath" placeholder="含 plugin.dev.json 的目录" /><UiButton
+                  variant="ghost"
+                  :disabled="isBusy"
+                  @click="pickLocalPluginPath('dev')"
+                  ><template #prefix><PluginActionIcon name="folder" /></template>选择</UiButton
+                >
+              </div></label
+            ><UiButton
+              variant="secondary"
+              block
+              :disabled="isBusy || !localDevPath.trim()"
+              @click="connectLocalDevSession"
+              ><template #prefix><PluginActionIcon name="plug" /></template>连接开发会话</UiButton
+            >
+          </div>
+        </div>
+        <div v-else-if="installMethod === 'npm'" class="drawer-form">
+          <label class="field"
+            ><span>NPM 包名</span
+            ><UiInput v-model="packageName" placeholder="例如：guyantools-plugin-demo" /></label
+          ><UiButton
+            variant="primary"
+            block
+            :disabled="isBusy || !packageName.trim()"
+            @click="handleInstallPackage"
+            ><template #prefix><PluginActionIcon name="download" /></template>安装插件</UiButton
+          >
+        </div>
+        <div v-else class="drawer-form">
+          <label class="field"
+            ><span>Git 仓库</span
+            ><UiInput v-model="gitUrl" placeholder="https://github.com/owner/plugin"
+          /></label>
+          <div class="field-row field-row--git">
+            <UiInput v-model="gitRef" placeholder="v1.0.0" /><UiSelect
+              :model-value="gitRefType"
+              :options="gitRefOptions"
+              size="sm"
+              aria-label="Git 引用类型"
+              @update:model-value="setGitRefType"
+            />
+          </div>
+          <UiButton
+            variant="primary"
+            block
+            :disabled="isBusy || !gitUrl.trim() || !gitRef.trim()"
+            @click="handleInstallGit"
+            ><template #prefix><PluginActionIcon name="download" /></template>安装插件</UiButton
+          >
+        </div>
+      </div>
+    </UiDrawer>
+
+    <UiDrawer
+      :model-value="detailDrawerVisible"
+      width="min(480px, 100vw)"
+      :style="drawerOffsetStyle"
+      z-index="var(--ui-z-secure-modal)"
+      aria-label="插件详情"
+      @update:model-value="detailDrawerVisible = $event"
+      @after-close="clearPluginDetails"
+    >
+      <template v-if="selectedPlugin" #header>
+        <div class="plugin-inspector">
+          <div class="plugin-inspector__path">
+            <span>PLUGIN INSPECTOR</span><span>/</span><code>{{ selectedPlugin.manifest.id }}</code
+            ><UiButton
+              variant="ghost"
+              size="sm"
+              aria-label="关闭插件详情"
+              @click="closePluginDetails"
+              ><template #prefix><PluginActionIcon name="close" /></template>关闭</UiButton
+            >
+          </div>
+          <div class="plugin-inspector__identity">
+            <div class="plugin-avatar" aria-hidden="true">
+              {{ selectedPlugin.manifest.displayName.slice(0, 1) }}
+            </div>
+            <div>
+              <h2>{{ selectedPlugin.manifest.displayName }}</h2>
+              <p>v{{ selectedPlugin.manifest.version }}</p>
+              <UiTagChip
+                :label="installSourceLabel(selectedPlugin)"
+                :color="selectedPlugin.installSource.type === 'marketplace' ? '#0284c7' : '#64748b'"
+                subtle
+              />
+            </div>
+            <span
+              class="plugin-state-badge"
+              :class="{ 'plugin-state-badge--off': selectedPlugin.status !== 'enabled' }"
+              >{{
+                selectedPlugin.status === 'errored'
+                  ? '运行异常'
+                  : selectedPlugin.status === 'enabled'
+                    ? '运行中'
+                    : '已停用'
+              }}</span
+            >
+          </div>
+          <div class="plugin-inspector__actions">
+            <UiButton
+              v-if="
+                selectedPlugin.installSource.type === 'git' ||
+                selectedPlugin.installSource.type === 'marketplace'
+              "
+              variant="primary"
+              size="sm"
+              :disabled="isBusy"
+              @click="updatePlugin(selectedPlugin)"
+              ><template #prefix><PluginActionIcon name="refresh" /></template>更新插件</UiButton
+            >
+            <UiButton
+              variant="secondary"
+              size="sm"
+              :disabled="isBusy"
+              @click="openDebugPanel(selectedPlugin.manifest.id)"
+              ><template #prefix><PluginActionIcon name="settings" /></template>配置 /
+              调试</UiButton
+            >
+            <UiButton
+              variant="danger"
+              size="sm"
+              :disabled="isBusy"
+              @click="uninstallPlugin(selectedPlugin)"
+              ><template #prefix><PluginActionIcon name="trash" /></template>卸载</UiButton
+            >
+          </div>
+          <UiTabs
+            :model-value="detailTab"
+            :items="detailTabs"
+            variant="segmented"
+            size="sm"
+            aria-label="插件详情内容"
+            @update:model-value="setDetailTab"
+          />
+        </div>
+      </template>
+      <div v-if="selectedPlugin" class="drawer-body plugin-details">
+        <template v-if="detailTab === 'overview'">
+          <div class="detail-status">
+            <span>插件状态</span
+            ><UiSwitch
+              :model-value="selectedPlugin.enabled"
+              :disabled="isBusy"
+              aria-label="启用插件"
+              @update:model-value="togglePlugin(selectedPlugin!)"
+            />
+          </div>
+          <p class="detail-description">
+            {{ selectedPlugin.manifest.description || '暂无描述' }}
+          </p>
+          <dl class="detail-facts">
+            <div>
+              <dt>来源</dt>
+              <dd>{{ selectedPlugin.installSource.type }}</dd>
+            </div>
+            <div>
+              <dt>来源值</dt>
+              <dd>
+                {{
+                  selectedPlugin.installSource.value ||
+                  selectedPlugin.installSource.url ||
+                  selectedPlugin.installSource.marketplaceId ||
+                  '内置'
+                }}
+              </dd>
+            </div>
+            <div>
+              <dt>状态</dt>
+              <dd>{{ selectedPlugin.status }}</dd>
+            </div>
+            <div>
+              <dt>权限</dt>
+              <dd>
+                {{ selectedPlugin.approvedPermissions.length }} /
+                {{ selectedPlugin.manifest.permissions.length }}
+              </dd>
+            </div>
+            <div>
+              <dt>能力</dt>
+              <dd>{{ selectedPlugin.manifest.capabilities.length }}</dd>
+            </div>
+            <div v-if="selectedPlugin.installSource.resolvedCommit">
+              <dt>解析提交</dt>
+              <dd>{{ selectedPlugin.installSource.resolvedCommit }}</dd>
+            </div>
+          </dl>
+          <div v-if="pagesForPlugin(selectedPlugin.manifest.id).length" class="detail-section">
+            <h3>插件页面</h3>
+            <div class="plugin-page-links">
+              <UiButton
+                v-for="page in pagesForPlugin(selectedPlugin.manifest.id)"
+                :key="page.pageId"
+                variant="secondary"
+                size="sm"
+                @click="openPluginPage(page)"
+                ><template #prefix><PluginActionIcon name="external" /></template>
+                {{ page.title }}
+              </UiButton>
+            </div>
+          </div>
+          <div
+            v-if="
+              devSessionFor(selectedPlugin.manifest.id) ||
+              selectedPlugin.installSource.type === 'local'
+            "
+            class="detail-section"
+          >
+            <h3>开发会话</h3>
+            <p v-if="devSessionFor(selectedPlugin.manifest.id)" class="detail-note">
+              已连接 · 127.0.0.1:{{ devSessionFor(selectedPlugin.manifest.id)?.port }}
+            </p>
+            <p v-else class="detail-note">当前未连接开发会话</p>
+            <UiButton
+              v-if="devSessionFor(selectedPlugin.manifest.id)"
+              variant="secondary"
+              size="sm"
+              :disabled="isBusy"
+              @click="stopDevSession(selectedPlugin.manifest.id)"
+              ><template #prefix><PluginActionIcon name="unplug" /></template>断开开发会话</UiButton
+            ><UiButton
+              v-else
+              variant="secondary"
+              size="sm"
+              :disabled="isBusy || !selectedPlugin.localPath"
+              @click="reconnectLocalDevSession(selectedPlugin)"
+              ><template #prefix><PluginActionIcon name="plug" /></template>重连开发会话</UiButton
+            >
+          </div>
+          <div v-if="jobsByPlugin[selectedPlugin.manifest.id]?.length" class="detail-section">
+            <h3>任务</h3>
+            <PluginJobPanel :jobs="jobsByPlugin[selectedPlugin.manifest.id] || []" />
+          </div>
+          <UiButton
+            v-if="
+              selectedPlugin.installSource.type === 'git' ||
+              selectedPlugin.installSource.type === 'marketplace'
+            "
+            variant="ghost"
+            size="sm"
+            :disabled="isBusy"
+            @click="rollbackPlugin(selectedPlugin)"
+            ><template #prefix><PluginActionIcon name="undo" /></template>回滚版本</UiButton
+          >
+        </template>
+        <div v-else-if="detailTab === 'permissions'" class="detail-section">
+          <p class="detail-note">
+            此插件已声明 {{ selectedPlugin.manifest.permissions.length }} 项权限，其中
+            {{ selectedPlugin.approvedPermissions.length }} 项已批准。
+          </p>
+          <div class="permission-list">
+            <span
+              v-for="permission in selectedPlugin.manifest.permissions"
+              :key="permission"
+              :class="{
+                'permission-list__pending':
+                  !selectedPlugin.approvedPermissions.includes(permission),
+              }"
+              >{{ permission }}</span
+            >
+          </div>
+          <UiButton
+            v-if="
+              selectedPlugin.approvedPermissions.length < selectedPlugin.manifest.permissions.length
+            "
+            variant="primary"
+            size="sm"
+            :disabled="isBusy"
+            @click="requestApprovePermissions(selectedPlugin)"
+            ><template #prefix><PluginActionIcon name="check" /></template>确认权限</UiButton
+          >
+        </div>
+        <div v-else-if="detailTab === 'changelog'" class="detail-section">
+          <h3>更新日志</h3>
+          <p class="detail-note">当前插件清单未提供更新日志。</p>
+        </div>
+        <div v-else class="detail-section">
+          <h3>参数 Schema</h3>
+          <div
+            v-if="Object.keys(selectedPlugin.manifest.settings ?? {}).length"
+            class="settings-schema"
+          >
+            <div
+              v-for="[key, schema] in Object.entries(selectedPlugin.manifest.settings ?? {})"
+              :key="key"
+            >
+              <strong>{{ schema.title }}</strong
+              ><small>{{ key }} · {{ schema.type }}</small>
+              <p>{{ schema.description || '暂无说明' }}</p>
+            </div>
+          </div>
+          <p v-else class="detail-note">当前插件没有声明可配置参数。</p>
+        </div>
+      </div>
+    </UiDrawer>
 
     <PluginPermissionDialog
       :plugin="pendingMarketplacePlugin"
@@ -735,503 +1515,4 @@ onBeforeUnmount(() => removeInstallProgressListener?.());
   </div>
 </template>
 
-<style scoped lang="scss">
-.plugins-page {
-  min-height: 100%;
-  padding: 28px;
-  color: var(--ui-text-primary);
-  background: var(--background-color);
-  overflow: auto;
-  box-sizing: border-box;
-}
-.plugins-header,
-.plugin-view,
-.plugin-tabs {
-  width: min(100%, 1240px);
-  margin: 0 auto;
-}
-.plugins-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: end;
-  gap: 24px;
-  margin-bottom: 22px;
-}
-.plugins-header h1,
-.section-heading h2,
-.installed-row h3,
-.marketplace-card h3 {
-  margin: 0;
-}
-.plugins-header h1 {
-  font-size: 1.875rem;
-  line-height: 1.2;
-}
-.plugins-header p,
-.section-heading p,
-.installed-row p,
-.marketplace-card p {
-  color: var(--ui-text-muted);
-  line-height: 1.55;
-}
-.plugins-header p {
-  margin: 8px 0 0;
-}
-.plugins-summary {
-  display: flex;
-  gap: 18px;
-  color: var(--ui-text-muted);
-  font-size: 0.84rem;
-  white-space: nowrap;
-}
-.plugins-summary strong {
-  color: var(--ui-text-primary);
-  font-size: 1.05rem;
-  margin-right: 4px;
-}
-.plugins-error {
-  width: min(100%, 1240px);
-  margin: 0 auto 18px;
-}
-.install-progress {
-  width: min(100%, 1240px);
-  margin: 0 auto 18px;
-  padding: 14px 16px;
-  border: var(--ui-border-width-thin) solid var(--ui-border-subtle);
-  border-radius: var(--ui-radius-sm);
-  background: var(--ui-surface-bg);
-}
-.install-progress__head {
-  display: flex;
-  justify-content: space-between;
-  gap: 16px;
-  font-size: 0.82rem;
-}
-.install-progress__head span {
-  color: var(--ui-text-muted);
-  font-variant-numeric: tabular-nums;
-}
-.install-progress__bar {
-  height: 6px;
-  margin-top: 10px;
-  overflow: hidden;
-  border-radius: var(--ui-radius-full);
-  background: var(--ui-surface-bg-muted);
-}
-.install-progress__bar-fill {
-  height: 100%;
-  background: var(--ui-primary-color);
-  transition: width 160ms ease-out;
-}
-.install-progress--failed {
-  border-color: var(--ui-state-danger);
-}
-.install-progress--failed .install-progress__bar-fill {
-  background: var(--ui-state-danger);
-}
-.install-progress__error {
-  margin: 8px 0 0;
-  color: var(--ui-state-danger);
-  font-size: 0.78rem;
-  overflow-wrap: anywhere;
-}
-.plugin-tabs {
-  display: flex;
-  gap: 4px;
-  border-bottom: 1px solid var(--ui-border-subtle);
-  margin-bottom: 22px;
-}
-.plugin-tab {
-  appearance: none;
-  position: relative;
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  min-height: 42px;
-  padding: 0 14px;
-  border: 0;
-  background: transparent;
-  color: var(--ui-text-muted);
-  font: inherit;
-  font-weight: 650;
-  cursor: pointer;
-}
-.plugin-tab::after {
-  content: '';
-  position: absolute;
-  right: 10px;
-  bottom: -1px;
-  left: 10px;
-  height: 2px;
-  background: transparent;
-}
-.plugin-tab:hover,
-.plugin-tab:focus-visible {
-  color: var(--ui-text-primary);
-}
-.plugin-tab:focus-visible {
-  outline: none;
-  box-shadow: var(--ui-focus-ring);
-  border-radius: var(--ui-radius-xs);
-}
-.plugin-tab--active {
-  color: var(--ui-primary-color);
-}
-.plugin-tab--active::after {
-  background: var(--ui-primary-color);
-}
-.plugin-tab__count {
-  min-width: 20px;
-  padding: 2px 6px;
-  border-radius: var(--ui-radius-full);
-  background: var(--ui-surface-bg-muted);
-  font-size: 0.72rem;
-  text-align: center;
-}
-.plugin-view {
-  display: grid;
-  gap: 26px;
-  padding-bottom: 32px;
-}
-.toolbar-panel,
-.marketplace-toolbar {
-  padding: 20px;
-}
-.section-heading {
-  display: flex;
-  justify-content: space-between;
-  align-items: start;
-  gap: 16px;
-}
-.section-heading h2 {
-  font-size: 1.08rem;
-}
-.section-heading p {
-  margin: 5px 0 0;
-  font-size: 0.84rem;
-}
-.install-grid {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 16px 20px;
-  margin-top: 16px;
-}
-.field {
-  display: grid;
-  gap: 7px;
-  min-width: 0;
-}
-.field--wide {
-  grid-column: 1 / -1;
-}
-.field > span {
-  color: var(--ui-text-muted);
-  font-size: 0.78rem;
-  font-weight: 650;
-}
-.field-row {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  gap: 8px;
-}
-.field-row--git {
-  grid-template-columns: minmax(0, 1.6fr) minmax(120px, 0.7fr) 100px auto;
-}
-.plugin-select {
-  min-height: var(--ui-control-height-md);
-  border: var(--ui-border-width-thin) solid var(--ui-input-border);
-  border-radius: var(--ui-radius-sm);
-  padding: 0 10px;
-  background: var(--ui-input-bg);
-  color: var(--ui-input-text);
-}
-.installed-section,
-.contributions-section {
-  display: grid;
-  gap: 14px;
-}
-.installed-list {
-  display: grid;
-  gap: 10px;
-}
-.installed-row {
-  display: grid;
-  grid-template-columns: auto minmax(0, 1fr) auto;
-  gap: 14px;
-  align-items: start;
-  padding: 16px;
-}
-.plugin-avatar {
-  display: grid;
-  place-items: center;
-  width: 42px;
-  height: 42px;
-  flex: 0 0 auto;
-  border-radius: var(--ui-radius-sm);
-  background: color-mix(in srgb, var(--ui-primary-color) 18%, var(--ui-surface-bg));
-  color: var(--ui-primary-color);
-  font-size: 1.05rem;
-  font-weight: 750;
-}
-.plugin-avatar--market {
-  width: 46px;
-  height: 46px;
-}
-.installed-row__title {
-  display: flex;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: 9px;
-}
-.installed-row h3,
-.marketplace-card h3 {
-  font-size: 0.98rem;
-}
-.installed-row p,
-.marketplace-card p {
-  margin: 4px 0 0;
-  font-size: 0.84rem;
-}
-.status-dot {
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-  color: var(--ui-text-muted);
-  font-size: 0.72rem;
-}
-.status-dot::before {
-  content: '';
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-  background: var(--ui-text-muted);
-}
-.status-dot--on {
-  color: var(--ui-state-success);
-}
-.status-dot--on::before {
-  background: var(--ui-state-success);
-}
-.signature-badge {
-  display: inline-flex;
-  align-items: center;
-  margin-left: 8px;
-  padding: 1px 7px;
-  border-radius: 999px;
-  font-size: 0.68rem;
-  font-weight: 700;
-  line-height: 1.4;
-}
-.signature-badge--verified {
-  background: color-mix(in srgb, var(--ui-state-success, #2f9e64) 16%, white);
-  color: var(--ui-state-success, #2f9e64);
-}
-.signature-badge--warning,
-.signature-badge--unsigned {
-  background: color-mix(in srgb, var(--ui-state-warning, #d18a00) 18%, white);
-  color: var(--ui-state-warning, #d18a00);
-}
-.signature-badge--na {
-  background: var(--ui-surface-bg-muted, #eef0f4);
-  color: var(--ui-text-muted, #667085);
-}
-.plugin-meta,
-.marketplace-card__meta,
-.marketplace-status {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px 14px;
-  color: var(--ui-text-muted);
-  font-size: 0.74rem;
-}
-.plugin-meta {
-  margin-top: 8px;
-}
-.plugin-permission-summary {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px 12px;
-  margin-top: 8px;
-  color: var(--ui-text-muted);
-  font-size: 0.72rem;
-}
-.plugin-meta span + span::before,
-.marketplace-card__meta span + span::before {
-  content: '·';
-  margin-right: 14px;
-  color: var(--ui-border-subtle);
-}
-.installed-row__actions {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: end;
-  gap: 4px;
-}
-.installed-row :deep(.job-panel) {
-  grid-column: 2 / -1;
-}
-.page-list {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-  gap: 8px;
-}
-.page-item.ui-button {
-  display: grid;
-  justify-content: start;
-  gap: 4px;
-  min-height: 60px;
-  padding: 12px 14px;
-  text-align: left;
-  white-space: normal;
-}
-.page-item :deep(.ui-button__label) {
-  display: grid;
-  gap: 4px;
-  justify-content: start;
-  width: 100%;
-  text-align: left;
-}
-.page-item span {
-  color: var(--ui-text-muted);
-  font-size: 0.76rem;
-}
-.marketplace-controls {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  gap: 10px;
-  margin-top: 16px;
-}
-.marketplace-settings {
-  position: relative;
-  min-width: 100px;
-}
-.marketplace-settings summary {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  height: var(--ui-control-height-md);
-  padding: 0 12px;
-  border: var(--ui-border-width-thin) solid var(--ui-border-subtle);
-  border-radius: var(--ui-radius-sm);
-  color: var(--ui-text-muted);
-  font-size: 0.82rem;
-  cursor: pointer;
-  list-style: none;
-}
-.marketplace-settings summary::-webkit-details-marker {
-  display: none;
-}
-.marketplace-settings[open] summary {
-  color: var(--ui-text-primary);
-  border-color: var(--ui-input-focus-border);
-}
-.marketplace-settings__body {
-  position: absolute;
-  z-index: 2;
-  top: calc(100% + 8px);
-  right: 0;
-  display: grid;
-  grid-template-columns: repeat(3, minmax(180px, 1fr));
-  gap: 8px;
-  width: min(680px, calc(100vw - 56px));
-  padding: 12px;
-  border: var(--ui-border-width-thin) solid var(--ui-border-subtle);
-  border-radius: var(--ui-radius-sm);
-  background: var(--ui-surface-bg);
-  box-shadow: var(--ui-shadow-popover);
-}
-.marketplace-status {
-  margin-top: 12px;
-}
-.marketplace-loading {
-  padding: 38px 0;
-  color: var(--ui-text-muted);
-  text-align: center;
-}
-.marketplace-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-  gap: 14px;
-}
-.marketplace-card {
-  display: flex;
-  flex-direction: column;
-  min-height: 228px;
-  padding: 16px;
-}
-.marketplace-card__top {
-  display: flex;
-  justify-content: space-between;
-  align-items: start;
-  margin-bottom: 15px;
-}
-.version-badge {
-  padding: 4px 7px;
-  border-radius: var(--ui-radius-xs);
-  background: var(--ui-surface-bg-muted);
-  color: var(--ui-text-muted);
-  font-size: 0.72rem;
-  font-family: var(--ui-font-mono, Consolas, 'SFMono-Regular', monospace);
-}
-.marketplace-card__meta {
-  margin-top: auto;
-  padding-top: 18px;
-}
-.permission-summary {
-  margin-top: 10px;
-  color: var(--ui-state-warning);
-  font-size: 0.74rem;
-}
-.marketplace-card__action {
-  margin-top: 14px;
-}
-.empty-state {
-  padding: 30px 18px;
-  color: var(--ui-text-muted);
-  text-align: center;
-}
-
-@media (max-width: 800px) {
-  .plugins-page {
-    padding: 20px 16px;
-  }
-  .plugins-header {
-    align-items: start;
-    flex-direction: column;
-    gap: 12px;
-  }
-  .install-grid {
-    grid-template-columns: 1fr;
-  }
-  .field--wide {
-    grid-column: auto;
-  }
-  .field-row--git {
-    grid-template-columns: 1fr 1fr;
-  }
-  .field-row--git :deep(.ui-input:first-child) {
-    grid-column: 1 / -1;
-  }
-  .installed-row {
-    grid-template-columns: auto minmax(0, 1fr);
-  }
-  .installed-row__actions {
-    grid-column: 2;
-    justify-content: start;
-  }
-  .installed-row :deep(.job-panel) {
-    grid-column: 1 / -1;
-  }
-  .marketplace-settings__body {
-    grid-template-columns: 1fr;
-  }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .plugin-tab,
-  .marketplace-card,
-  .installed-row {
-    transition: none;
-  }
-}
-</style>
+<style scoped lang="scss" src="./Plugins.stitch.scss"></style>

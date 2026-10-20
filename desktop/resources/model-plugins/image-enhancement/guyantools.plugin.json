@@ -1,0 +1,102 @@
+{
+  "schemaVersion": "1.1",
+  "id": "guyantools.image-enhancement",
+  "name": "guyantools-image-enhancement",
+  "displayName": "AI 图像处理工具",
+  "version": "0.1.0",
+  "description": "面向超分、修复和增强模型的统一图像处理工具，首期支持动漫图片超分。",
+  "pluginApiVersion": "1.0.0",
+  "uiApiVersion": "1.0.0",
+  "hostVersionRange": ">=1.1.0",
+  "trustLevel": "sandboxed",
+  "runtime": "ui",
+  "ui": {
+    "theme": "guyantools",
+    "components": "@guyantools/plugin-ui",
+    "showDevToolsButton": true
+  },
+  "entry": {
+    "ui": "dist/index.html"
+  },
+  "permissions": [
+    "ui.contribute",
+    "models.execute",
+    "jobs.manage",
+    "navigation.open",
+    "storage.self",
+    "system.notifications"
+  ],
+  "capabilities": [
+    {
+      "id": "image-enhancement-upscale",
+      "kind": "transformer",
+      "operations": ["upscale-image"],
+      "match": {
+        "mimeTypes": ["image/png", "image/jpeg", "image/webp", "image/bmp"]
+      }
+    }
+  ],
+  "contributes": {
+    "pages": [
+      {
+        "id": "main",
+        "title": "AI 图像处理工具",
+        "description": "本地模型库、任务配置与图像处理"
+      }
+    ]
+  },
+  "modelRuntime": {
+    "pythonVersion": "3.10",
+    "entry": "python/runner.py",
+    "dependencies": {
+      "common": ["numpy==1.26.4", "opencv-python-headless==4.10.0.84"],
+      "cpu": ["torch==2.5.1"],
+      "cuda": ["torch==2.5.1"],
+      "indexUrls": {
+        "cpu": "https://download.pytorch.org/whl/cpu",
+        "cuda": "https://download.pytorch.org/whl/cu121"
+      },
+      "profiles": [
+        {
+          "id": "cpu",
+          "label": "CPU / PyTorch 2.5.1",
+          "device": "cpu",
+          "packages": ["torch==2.5.1"],
+          "indexUrl": "https://download.pytorch.org/whl/cpu"
+        },
+        {
+          "id": "cu118",
+          "label": "CUDA 11.8 / PyTorch 2.5.1",
+          "device": "cuda",
+          "cudaVersion": "11.8",
+          "packages": ["torch==2.5.1"],
+          "indexUrl": "https://download.pytorch.org/whl/cu118"
+        },
+        {
+          "id": "cu121",
+          "label": "CUDA 12.1 / PyTorch 2.5.1",
+          "device": "cuda",
+          "cudaVersion": "12.1",
+          "packages": ["torch==2.5.1"],
+          "indexUrl": "https://download.pytorch.org/whl/cu121"
+        },
+        {
+          "id": "cu124",
+          "label": "CUDA 12.4 / PyTorch 2.5.1",
+          "device": "cuda",
+          "cudaVersion": "12.4",
+          "packages": ["torch==2.5.1"],
+          "indexUrl": "https://download.pytorch.org/whl/cu124"
+        },
+        {
+          "id": "cu128",
+          "label": "CUDA 12.8 / PyTorch 2.7.1",
+          "device": "cuda",
+          "cudaVersion": "12.8",
+          "packages": ["torch==2.7.1"],
+          "indexUrl": "https://download.pytorch.org/whl/cu128"
+        }
+      ]
+    }
+  }
+}

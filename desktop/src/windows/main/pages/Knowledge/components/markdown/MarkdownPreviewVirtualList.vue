@@ -225,6 +225,7 @@ onBeforeUnmount(() => {
   display: block;
   padding: 0;
   background: transparent;
+  font-family: var(--app-code-font-family, ui-monospace, Consolas, monospace);
   white-space: pre;
 }
 

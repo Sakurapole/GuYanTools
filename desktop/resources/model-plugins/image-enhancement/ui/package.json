@@ -1,0 +1,13 @@
+{
+  "name": "guyantools-image-enhancement-ui",
+  "private": true,
+  "type": "module",
+  "scripts": { "build": "vite build --config vite.config.mjs" },
+  "dependencies": {
+    "@guyantools/plugin-ui": "workspace:*",
+    "vue": "^3.5.13"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-vue": "^6.0.1"
+  }
+}

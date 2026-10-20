@@ -1,4 +1,5 @@
 import { type Component, reactive, ref, shallowRef } from 'vue';
+import { notifyError } from './useInAppNotification';
 
 /**
  * 右键菜单项定义
@@ -28,21 +29,56 @@ export interface ContextMenuItem {
 const visible = ref(false);
 const position = reactive({ x: 0, y: 0 });
 const items = shallowRef<ContextMenuItem[]>([]);
+let menuRevision = 0;
 
 /**
  * 打开右键菜单（自动关闭已打开的菜单）
  */
 function open(x: number, y: number, menuItems: ContextMenuItem[]) {
+  const revision = ++menuRevision;
   items.value = menuItems;
   position.x = x;
   position.y = y;
   visible.value = true;
+  const api = typeof window === 'undefined' ? undefined : window.pluginHostApi;
+  if (!api) return;
+  void api
+    .listContributions()
+    .then((summary) => {
+      if (!visible.value || revision !== menuRevision) return;
+      const pluginItems = summary.menus
+        .filter(({ contribution }) => contribution.target === 'context')
+        .map(({ pluginId, contribution }): ContextMenuItem => ({
+          id: `plugin-context:${pluginId}:${contribution.id}`,
+          label: contribution.title,
+          action: () => {
+            void api.executePluginCommand(pluginId, contribution.commandId).catch((error) => {
+              notifyError(error, `插件命令执行失败：${contribution.title}`);
+            });
+          },
+        }));
+      if (pluginItems.length) {
+        items.value = [
+          ...menuItems,
+          {
+            id: 'plugin-context-contributions',
+            label: '插件',
+            divided: menuItems.length > 0,
+            children: pluginItems,
+          },
+        ];
+      }
+    })
+    .catch((error) => {
+      console.warn('[ContextMenu] Failed to load plugin contributions:', error);
+    });
 }
 
 /**
  * 关闭右键菜单
  */
 function close() {
+  ++menuRevision;
   visible.value = false;
   items.value = [];
 }

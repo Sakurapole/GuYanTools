@@ -386,7 +386,7 @@ function clearSelectedCertificate() {
     @close="emit('close')"
   >
     <!-- Header -->
-    <div class="sp-dialog__header">
+    <div slot="header" class="sp-dialog__header">
       <h3 class="sp-dialog__title">{{ dialogTitle }}</h3>
       <UiIconButton
         class="sp-close-btn"
@@ -747,7 +747,7 @@ function clearSelectedCertificate() {
     </div>
 
     <!-- Footer -->
-    <div class="sp-dialog__footer">
+    <div slot="footer" class="sp-dialog__footer">
       <!-- Delete button (edit mode only) -->
       <UiButton v-if="isEdit" variant="danger" size="sm" :disabled="deleting" @click="handleDelete">
         {{ confirmDelete ? '确认删除' : '删除配置' }}
@@ -776,10 +776,14 @@ function clearSelectedCertificate() {
   z-index: var(--ui-z-popover);
 }
 
+[data-gt-overlay='popup'][data-variant='dialog'] .sp-dialog {
+  overflow: hidden;
+}
+
 .sp-dialog {
   width: 560px;
   max-width: calc(100vw - 32px);
-  height: calc(100vh - 64px);
+  height: min(720px, calc(100vh - 64px));
   max-height: calc(100vh - 64px);
   display: flex;
   flex-direction: column;
@@ -790,6 +794,18 @@ function clearSelectedCertificate() {
     0 24px 64px rgba(0, 0, 0, 0.4),
     0 4px 16px rgba(0, 0, 0, 0.2);
   overflow: hidden;
+
+  > [part='header'],
+  > [part='footer'] {
+    flex-shrink: 0;
+  }
+
+  > [part='body'] {
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+    overflow: hidden;
+  }
 
   &__header {
     display: flex;
@@ -808,6 +824,8 @@ function clearSelectedCertificate() {
   }
 
   &__body {
+    display: flex;
+    flex-direction: column;
     flex: 1;
     min-height: 0;
     overflow: hidden;
@@ -816,7 +834,9 @@ function clearSelectedCertificate() {
   }
 
   &__scroll {
-    height: 100%;
+    min-height: 0;
+    height: auto;
+    flex: 1 1 0;
   }
 
   &__content {

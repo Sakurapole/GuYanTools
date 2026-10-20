@@ -1,4 +1,4 @@
-import type { PluginRuntimeApi, PluginThemeDescriptor } from './contracts';
+import type { PluginCommandHandler, PluginRuntimeApi, PluginThemeDescriptor } from './contracts';
 
 export type PluginRuntimeInvoke = (channel: string, ...args: unknown[]) => Promise<unknown>;
 export type PluginRuntimeSubscribe = (
@@ -11,8 +11,86 @@ export function createPluginApi(
   subscribe?: PluginRuntimeSubscribe
 ): PluginRuntimeApi {
   const call = <T>(channel: string, ...args: unknown[]) => invoke(channel, ...args) as Promise<T>;
+  const commandHandlers = new Map<string, PluginCommandHandler>();
+  const capabilityHandlers = new Map<
+    string,
+    (operation: string, payload?: unknown) => unknown | Promise<unknown>
+  >();
+  subscribe?.('plugin-runtime:command:invoke', (payload) => {
+    const input = payload as { requestId?: string; commandId?: string; payload?: unknown };
+    if (!input?.requestId || !input.commandId) return;
+    const handler = commandHandlers.get(input.commandId);
+    if (!handler) return;
+    Promise.resolve()
+      .then(() => handler(input.payload))
+      .then((result) =>
+        call('plugin-runtime:commands:respond', input.requestId, { ok: true, result })
+      )
+      .catch((error: unknown) =>
+        call('plugin-runtime:commands:respond', input.requestId, {
+          ok: false,
+          error: {
+            code: 'INTERNAL',
+            message: error instanceof Error ? error.message : String(error),
+            retryable: false,
+          },
+        })
+      );
+  });
+  subscribe?.('plugin-runtime:capability:invoke', (payload) => {
+    const input = payload as {
+      requestId?: string;
+      capabilityId?: string;
+      operation?: string;
+      payload?: unknown;
+    };
+    if (!input?.requestId || !input.capabilityId || !input.operation) return;
+    const handler = capabilityHandlers.get(input.capabilityId);
+    if (!handler) return;
+    Promise.resolve()
+      .then(() => handler(input.operation!, input.payload))
+      .then((result) =>
+        call('plugin-runtime:capabilities:respond', input.requestId, { ok: true, result })
+      )
+      .catch((error: unknown) =>
+        call('plugin-runtime:capabilities:respond', input.requestId, {
+          ok: false,
+          error: {
+            code: 'INTERNAL',
+            message: error instanceof Error ? error.message : String(error),
+            retryable: false,
+          },
+        })
+      );
+  });
   return {
     getContext: () => call('plugin-runtime:get-context'),
+    lifecycle: { ready: () => call('plugin-runtime:worker:ready') },
+    models: {
+      listPython: () => call('plugin-runtime:models:list-python'),
+      installMiniforge: () => call('plugin-runtime:models:install-miniforge'),
+      createEnvironment: (baseId) => call('plugin-runtime:models:create-environment', baseId),
+      checkDependencies: (device) => call('plugin-runtime:models:check-dependencies', device),
+      installDependencies: (device, profileId) =>
+        profileId === undefined
+          ? call('plugin-runtime:models:install-dependencies', device)
+          : call('plugin-runtime:models:install-dependencies', device, profileId),
+      getEnvironmentSnapshot: () => call('plugin-runtime:models:environments:list'),
+      importEnvironment: () => call('plugin-runtime:models:environments:import'),
+      createManagedEnvironment: (input) => call('plugin-runtime:models:environments:create', input),
+      selectEnvironment: (id) => call('plugin-runtime:models:environments:select', id),
+      clearActiveEnvironment: () => call('plugin-runtime:models:environments:clear-active'),
+      removeEnvironment: (id) => call('plugin-runtime:models:environments:remove', id),
+      listPackages: (id, manager) => call('plugin-runtime:models:packages:list', id, manager),
+      changePackages: (input) => call('plugin-runtime:models:packages:change', input),
+      checkPackages: (id, manager) => call('plugin-runtime:models:packages:check', id, manager),
+      exportPackages: (id, manager) => call('plugin-runtime:models:packages:export', id, manager),
+      inspectRuntime: (id) => call('plugin-runtime:models:inspect', id),
+      getDependencyProfiles: () => call('plugin-runtime:models:profiles'),
+      pickFile: (kind) => call('plugin-runtime:models:pick-file', kind),
+      startInference: (input) => call('plugin-runtime:models:start-inference', input),
+      cancel: (jobId) => call('plugin-runtime:models:cancel', jobId),
+    },
     workspace: { getCurrent: () => call('plugin-runtime:workspace:get-current') },
     data: { getCapabilities: () => call('plugin-runtime:data:get-capabilities') },
     storage: {
@@ -22,8 +100,10 @@ export function createPluginApi(
     navigation: { openRoute: (route) => call('plugin-runtime:navigation:open-route', route) },
     commands: {
       execute: (commandId, payload) => call('plugin-runtime:commands:execute', commandId, payload),
-      register: (commandId) =>
-        call('plugin-runtime:commands:execute', commandId, { __register: true }),
+      register: async (commandId, handler) => {
+        if (handler) commandHandlers.set(commandId, handler);
+        await call('plugin-runtime:commands:register', commandId);
+      },
     },
     ui: {
       getPages: () => call('plugin-runtime:ui:get-pages'),
@@ -36,6 +116,7 @@ export function createPluginApi(
     system: {
       getCapabilities: () => call('plugin-runtime:system:get-capabilities'),
       showNotification: (payload) => call('plugin-runtime:system:show-notification', payload),
+      openExternal: (url) => call('plugin-runtime:system:open-external', url),
     },
     logger: {
       info: (message, meta) => call('plugin-runtime:logger:info', message, meta),
@@ -65,6 +146,15 @@ export function createPluginApi(
         ) ?? (() => undefined),
     },
     capabilities: {
+      register: async (capabilityId, handler) => {
+        capabilityHandlers.set(capabilityId, handler);
+        try {
+          await call('plugin-runtime:capabilities:register', capabilityId);
+        } catch (error) {
+          capabilityHandlers.delete(capabilityId);
+          throw error;
+        }
+      },
       list: () => call('plugin-runtime:capabilities:list'),
       resolveByUrl: (url) => call('plugin-runtime:capabilities:resolve-by-url', url),
       invoke: (input) => call('plugin-runtime:capabilities:invoke', input),

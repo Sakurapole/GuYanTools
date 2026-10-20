@@ -124,14 +124,20 @@ export const GtDisclosure: StencilReactComponent<GtDisclosureElement, GtDisclosu
     defineCustomElement: defineGtDisclosure
 });
 
-export type GtDrawerEvents = { onGtOpenChange: EventName<GtDrawerCustomEvent<GtOpenChangeDetail>> };
+export type GtDrawerEvents = {
+    onGtOpenChange: EventName<GtDrawerCustomEvent<GtOpenChangeDetail>>,
+    onGtAfterClose: EventName<GtDrawerCustomEvent<void>>
+};
 
 export const GtDrawer: StencilReactComponent<GtDrawerElement, GtDrawerEvents, Components.GtDrawer> = /*@__PURE__*/ createComponent<GtDrawerElement, GtDrawerEvents, Components.GtDrawer>({
     tagName: 'gt-drawer',
     elementClass: GtDrawerElement,
     // @ts-ignore - ignore potential React type mismatches between the Stencil Output Target and your project.
     react: React,
-    events: { onGtOpenChange: 'gt-open-change' } as GtDrawerEvents,
+    events: {
+        onGtOpenChange: 'gt-open-change',
+        onGtAfterClose: 'gt-after-close'
+    } as GtDrawerEvents,
     defineCustomElement: defineGtDrawer
 });
 

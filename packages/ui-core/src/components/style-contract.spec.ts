@@ -61,6 +61,20 @@ describe('Stencil style contract', () => {
     expect(inputCss).toContain('line-height: 1.4;');
   });
 
+  it('keeps menu item icons, labels, and suffixes on one vertical center line', () => {
+    const menuItemCss = readFileSync(
+      join(sourceRoot, 'components/gt-menu-item/gt-menu-item.css'),
+      'utf8'
+    );
+
+    expect(menuItemCss).toContain('line-height: 18px;');
+    expect(menuItemCss).toContain("[part='label']");
+    expect(menuItemCss).toContain('display: inline-flex;');
+    expect(menuItemCss).toContain('align-items: center;');
+    expect(menuItemCss).toContain("[part='icon']");
+    expect(menuItemCss).toContain('line-height: 0;');
+  });
+
   it('keeps fixed styles out of component behavior files', () => {
     const source = readFileSync(join(sourceRoot, 'components/gt-button/gt-button.tsx'), 'utf8');
 

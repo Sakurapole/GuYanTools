@@ -5,6 +5,7 @@
       `notification--${data.size}`,
       `notification--${data.type}`,
       `notification-theme--${theme}`,
+      `notification-tone--${data.tone ?? 'info'}`,
       { 'notification--visible': visible },
     ]"
   >
@@ -242,6 +243,27 @@ body {
     0 18px 42px var(--notification-shadow-hover),
     0 0 0 1px var(--notification-ring-hover),
     inset 0 1px 0 var(--notification-inner-glow-hover);
+}
+
+.notification-tone--error {
+  --notification-tone: #dc2626;
+}
+.notification-tone--warning {
+  --notification-tone: #d97706;
+}
+.notification-tone--success {
+  --notification-tone: #059669;
+}
+.notification-tone--info {
+  --notification-tone: #0284c7;
+}
+.notification-wrapper:has(.notification-rich__icon) .notification-rich__icon {
+  color: var(--notification-tone);
+  border-color: var(--notification-tone);
+}
+.notification-tone--error .notification-card,
+.notification-tone--warning .notification-card {
+  border-color: var(--notification-tone);
 }
 
 /* ─── Close ─── */

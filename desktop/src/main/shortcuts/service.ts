@@ -13,15 +13,28 @@ import type {
 } from '@/contracts/shortcuts';
 import { normalizeAccelerator } from '@/shared/shortcuts';
 import { appConfigManager } from '@/main/app-config/manager';
+import { pluginHost } from '@/main/plugin-host';
+import type { PluginContributionsSummary } from '@/contracts/plugin_host';
 import type { WorkspaceWindowKey } from '@/contracts/workspace_window';
+
+export interface PluginShortcutRegistrationResult {
+  pluginId: string;
+  shortcutId: string;
+  accelerator: string;
+  status: 'registered' | 'conflict' | 'invalid' | 'permission-denied' | 'unavailable';
+  message: string;
+}
 
 type WindowGetter = () => BrowserWindow | null;
 type ClipboardWindowToggle = () => void;
 type QuickNoteWindowToggle = () => void;
 type QuickNoteClipboardCapture = () => void;
 type QuickLaunchWindowToggle = () => void;
+type CheatSheetWindowToggle = () => void;
 type ScreenshotCaptureOpener = () => void;
 type WorkspaceDetachedWindowOpener = (key: WorkspaceWindowKey) => void;
+export interface FeatureShortcutBinding { id: string; accelerator: string; action: () => void }
+export interface FeatureShortcutResult { id: string; accelerator: string; status: 'registered' | 'conflict' | 'invalid' | 'empty'; message: string }
 type RegisteredShortcutField =
   | 'toggleVisibilityShortcut'
   | 'toggleClipboardShortcut'
@@ -30,6 +43,7 @@ type RegisteredShortcutField =
   | 'captureScreenshotRegionShortcut'
   | 'captureScreenshotAnnotateShortcut'
   | 'toggleQuickLaunchShortcut'
+  | 'toggleCheatSheetShortcut'
   | 'openDetachedTerminalShortcut'
   | 'openDetachedFtpShortcut'
   | 'openDetachedTodoShortcut'
@@ -68,6 +82,7 @@ const SYSTEM_SHORTCUT_ACTIONS: SystemShortcutActionDefinition[] = [
     label: '截图标注',
   },
   { key: 'toggleQuickLaunch', field: 'toggleQuickLaunchShortcut', label: '快速启动' },
+  { key: 'toggleCheatSheet', field: 'toggleCheatSheetShortcut', label: 'Windows 小抄' },
   { key: 'openDetachedTerminal', field: 'openDetachedTerminalShortcut', label: '独立窗口：终端' },
   { key: 'openDetachedFtp', field: 'openDetachedFtpShortcut', label: '独立窗口：传输' },
   { key: 'openDetachedTodo', field: 'openDetachedTodoShortcut', label: '独立窗口：待办' },
@@ -114,7 +129,7 @@ const COMMON_SHORTCUT_CANDIDATES: Record<string, CommonShortcutCandidate[]> = {
   ],
 };
 
-class ShortcutService {
+export class ShortcutService {
   private toggleVisibilityShortcut = '';
   private toggleClipboardShortcut = '';
   private toggleQuickNoteShortcut = '';
@@ -122,6 +137,7 @@ class ShortcutService {
   private captureScreenshotRegionShortcut = '';
   private captureScreenshotAnnotateShortcut = '';
   private toggleQuickLaunchShortcut = '';
+  private toggleCheatSheetShortcut = '';
   private openDetachedTerminalShortcut = '';
   private openDetachedFtpShortcut = '';
   private openDetachedTodoShortcut = '';
@@ -136,7 +152,12 @@ class ShortcutService {
   private captureScreenshotRegion?: ScreenshotCaptureOpener;
   private captureScreenshotAnnotate?: ScreenshotCaptureOpener;
   private toggleQuickLaunchWindow?: QuickLaunchWindowToggle;
+  private toggleCheatSheetWindow?: CheatSheetWindowToggle;
   private openWorkspaceDetachedWindow?: WorkspaceDetachedWindowOpener;
+  private readonly pluginShortcuts = new Map<string, string>();
+  private readonly featureShortcuts = new Map<string, Map<string, string>>();
+  private readonly featureShortcutRevisions = new Map<string, number>();
+  private pluginShortcutSyncRevision = 0;
 
   async initialize(
     getMainWindow: WindowGetter,
@@ -146,7 +167,8 @@ class ShortcutService {
     toggleQuickLaunchWindow?: QuickLaunchWindowToggle,
     captureScreenshotRegion?: ScreenshotCaptureOpener,
     captureScreenshotAnnotate?: ScreenshotCaptureOpener,
-    openWorkspaceDetachedWindow?: WorkspaceDetachedWindowOpener
+    openWorkspaceDetachedWindow?: WorkspaceDetachedWindowOpener,
+    toggleCheatSheetWindow?: CheatSheetWindowToggle
   ) {
     if (this.initialized) {
       return;
@@ -160,6 +182,7 @@ class ShortcutService {
     this.captureScreenshotAnnotate = captureScreenshotAnnotate;
     this.toggleQuickLaunchWindow = toggleQuickLaunchWindow;
     this.openWorkspaceDetachedWindow = openWorkspaceDetachedWindow;
+    this.toggleCheatSheetWindow = toggleCheatSheetWindow;
 
     await this.refresh(
       await appConfigManager.getConfig(),
@@ -170,13 +193,15 @@ class ShortcutService {
       toggleQuickLaunchWindow,
       captureScreenshotRegion,
       captureScreenshotAnnotate,
-      openWorkspaceDetachedWindow
+      openWorkspaceDetachedWindow,
+      toggleCheatSheetWindow
     );
     this.unsubscribeConfig = appConfigManager.subscribe((config, patch) => {
       if (!patch?.shortcuts) {
         return;
       }
 
+      this.clearPluginShortcuts();
       void this.refresh(
         config,
         getMainWindow,
@@ -186,15 +211,20 @@ class ShortcutService {
         toggleQuickLaunchWindow,
         captureScreenshotRegion,
         captureScreenshotAnnotate,
-        openWorkspaceDetachedWindow
-      ).catch((error) => {
-        console.warn('[ShortcutService] Failed to refresh shortcuts:', error);
-      });
+        openWorkspaceDetachedWindow,
+        toggleCheatSheetWindow
+      )
+        .then(() => this.syncPluginShortcuts(pluginHost.listContributions().shortcuts))
+        .catch((error) => {
+          console.warn('[ShortcutService] Failed to refresh shortcuts:', error);
+        });
     });
     this.initialized = true;
   }
 
   dispose() {
+    this.clearAllFeatureShortcuts();
+    this.clearPluginShortcuts();
     this.unsubscribeConfig?.();
     this.unsubscribeConfig = undefined;
     this.getMainWindow = undefined;
@@ -205,6 +235,7 @@ class ShortcutService {
     this.captureScreenshotAnnotate = undefined;
     this.toggleQuickLaunchWindow = undefined;
     this.openWorkspaceDetachedWindow = undefined;
+    this.toggleCheatSheetWindow = undefined;
 
     if (this.toggleVisibilityShortcut) {
       globalShortcut.unregister(this.toggleVisibilityShortcut);
@@ -241,6 +272,11 @@ class ShortcutService {
       this.toggleQuickLaunchShortcut = '';
     }
 
+    if (this.toggleCheatSheetShortcut) {
+      globalShortcut.unregister(this.toggleCheatSheetShortcut);
+      this.toggleCheatSheetShortcut = '';
+    }
+
     for (const field of [
       'openDetachedTerminalShortcut',
       'openDetachedFtpShortcut',
@@ -253,6 +289,130 @@ class ShortcutService {
         this[field] = '';
       }
     }
+  }
+
+  async syncFeatureShortcuts(owner: string, bindings: FeatureShortcutBinding[]): Promise<FeatureShortcutResult[]> {
+    this.clearFeatureShortcuts(owner);
+    const revision = (this.featureShortcutRevisions.get(owner) ?? 0) + 1;
+    this.featureShortcutRevisions.set(owner, revision);
+    const config = await appConfigManager.getConfig();
+    if (this.featureShortcutRevisions.get(owner) !== revision) return [];
+    const configured = new Set(Object.values(config.shortcuts?.system ?? {}).map((value) => normalizeAccelerator(value)));
+    const registered = new Map<string, string>();
+    const results = bindings.map((binding): FeatureShortcutResult => {
+      const accelerator = normalizeAccelerator(binding.accelerator);
+      if (!accelerator) return { id: binding.id, accelerator, status: binding.accelerator.trim() ? 'invalid' : 'empty', message: binding.accelerator.trim() ? '快捷键格式无效。' : '未设置。' };
+      if (configured.has(accelerator) || globalShortcut.isRegistered(accelerator)) return { id: binding.id, accelerator, status: 'conflict', message: '快捷键已被系统、应用或其他插件占用。' };
+      try {
+        if (!globalShortcut.register(accelerator, binding.action)) return { id: binding.id, accelerator, status: 'conflict', message: '快捷键注册失败。' };
+      } catch (error) {
+        return { id: binding.id, accelerator, status: 'invalid', message: error instanceof Error ? error.message : '快捷键格式无效。' };
+      }
+      registered.set(binding.id, accelerator);
+      return { id: binding.id, accelerator, status: 'registered', message: '已注册。' };
+    });
+    this.featureShortcuts.set(owner, registered);
+    return results;
+  }
+
+  clearFeatureShortcuts(owner: string) {
+    this.featureShortcutRevisions.set(owner, (this.featureShortcutRevisions.get(owner) ?? 0) + 1);
+    const owned = this.featureShortcuts.get(owner);
+    if (!owned) return;
+    for (const accelerator of owned.values()) globalShortcut.unregister(accelerator);
+    this.featureShortcuts.delete(owner);
+  }
+
+  private clearAllFeatureShortcuts() {
+    for (const owner of this.featureShortcuts.keys()) this.clearFeatureShortcuts(owner);
+  }
+
+  async syncPluginShortcuts(
+    contributions: PluginContributionsSummary['shortcuts']
+  ): Promise<PluginShortcutRegistrationResult[]> {
+    const revision = ++this.pluginShortcutSyncRevision;
+    const config = await appConfigManager.getConfig();
+    if (revision !== this.pluginShortcutSyncRevision) return [];
+
+    this.unregisterPluginShortcuts();
+    const records = new Map(pluginHost.listPlugins().map((record) => [record.manifest.id, record]));
+    const results: PluginShortcutRegistrationResult[] = [];
+
+    for (const { pluginId, contribution } of contributions) {
+      const accelerator = normalizeAccelerator(contribution.accelerator);
+      const result = (
+        status: PluginShortcutRegistrationResult['status'],
+        message: string
+      ): PluginShortcutRegistrationResult => ({
+        pluginId,
+        shortcutId: contribution.id,
+        accelerator,
+        status,
+        message,
+      });
+      const record = records.get(pluginId);
+      if (
+        !record?.enabled ||
+        record.status !== 'enabled' ||
+        !record.manifest.contributes.commands?.some(
+          (command) => command.id === contribution.commandId
+        )
+      ) {
+        results.push(result('unavailable', '插件或命令当前不可用。'));
+        continue;
+      }
+      if (!record.approvedPermissions.includes('system.shortcuts')) {
+        results.push(result('permission-denied', '尚未批准全局快捷键权限。'));
+        continue;
+      }
+      if (!accelerator) {
+        results.push(result('invalid', '快捷键格式无效。'));
+        continue;
+      }
+      if (
+        this.findConfiguredConflict(config.shortcuts.system, accelerator) ||
+        globalShortcut.isRegistered(accelerator)
+      ) {
+        results.push(result('conflict', '快捷键已被应用、系统或其他插件占用。'));
+        continue;
+      }
+
+      let registered = false;
+      try {
+        registered = globalShortcut.register(accelerator, () => {
+          void pluginHost.executePluginCommand(pluginId, contribution.commandId).catch((error) => {
+            console.warn(
+              `[ShortcutService] Plugin shortcut ${pluginId}:${contribution.id} failed:`,
+              error
+            );
+          });
+        });
+      } catch (error) {
+        results.push(
+          result('invalid', error instanceof Error ? error.message : '快捷键格式无效。')
+        );
+        continue;
+      }
+      if (!registered) {
+        results.push(result('conflict', '快捷键已被系统或其他应用占用。'));
+        continue;
+      }
+      this.pluginShortcuts.set(`${pluginId}:${contribution.id}`, accelerator);
+      results.push(result('registered', '已注册。'));
+    }
+    return results;
+  }
+
+  clearPluginShortcuts(): void {
+    ++this.pluginShortcutSyncRevision;
+    this.unregisterPluginShortcuts();
+  }
+
+  private unregisterPluginShortcuts(): void {
+    for (const accelerator of this.pluginShortcuts.values()) {
+      globalShortcut.unregister(accelerator);
+    }
+    this.pluginShortcuts.clear();
   }
 
   async inspectSystemShortcuts(): Promise<ShortcutInspectionResult> {
@@ -389,7 +549,8 @@ class ShortcutService {
     toggleQuickLaunchWindow?: QuickLaunchWindowToggle,
     captureScreenshotRegion?: ScreenshotCaptureOpener,
     captureScreenshotAnnotate?: ScreenshotCaptureOpener,
-    openWorkspaceDetachedWindow?: WorkspaceDetachedWindowOpener
+    openWorkspaceDetachedWindow?: WorkspaceDetachedWindowOpener,
+    toggleCheatSheetWindow?: CheatSheetWindowToggle
   ) {
     const accelerator = normalizeAccelerator(config.shortcuts.system.toggleAppVisibility);
     await this.registerToggleVisibilityShortcut(accelerator, getMainWindow);
@@ -438,6 +599,14 @@ class ShortcutService {
       toggleQuickLaunchWindow,
       'quick launch toggle'
     );
+    if (process.platform === 'win32') {
+      await this.registerSimpleShortcut(
+        'toggleCheatSheetShortcut',
+        normalizeAccelerator(config.shortcuts.system.toggleCheatSheet),
+        toggleCheatSheetWindow,
+        'Windows cheat sheet toggle'
+      );
+    }
     await this.registerDetachedWindowShortcut(
       'openDetachedTerminalShortcut',
       config.shortcuts.system.openDetachedTerminal,
@@ -515,6 +684,13 @@ class ShortcutService {
           accelerator,
           this.toggleQuickLaunchWindow,
           'quick launch toggle'
+        );
+      case 'toggleCheatSheet':
+        return this.registerSimpleShortcut(
+          'toggleCheatSheetShortcut',
+          accelerator,
+          this.toggleCheatSheetWindow,
+          'Windows cheat sheet toggle'
         );
       case 'openDetachedTerminal':
         return this.registerDetachedWindowShortcut(

@@ -139,9 +139,11 @@ export const GtDrawer: StencilVueComponent<JSX.GtDrawer> = /*@__PURE__*/ defineC
   'closeOnEsc',
   'persistent',
   'ariaLabel',
-  'gt-open-change'
+  'gt-open-change',
+  'gt-after-close'
 ], [
-  'gt-open-change'
+  'gt-open-change',
+  'gt-after-close'
 ]);
 
 
@@ -294,6 +296,7 @@ export const GtScrollbar: StencilVueComponent<JSX.GtScrollbar> = /*@__PURE__*/ d
   'thumbHoverColor',
   'trackColor',
   'alwaysVisible',
+  'smoothWheel',
   'size',
   'gt-scroll'
 ], [

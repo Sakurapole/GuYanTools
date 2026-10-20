@@ -748,6 +748,7 @@ async function writeClipboardText(content: string) {
   padding: 0;
   background: transparent;
   color: var(--ui-text-primary);
+  font-family: var(--app-code-font-family, ui-monospace, Consolas, monospace);
   font-size: 0.84rem;
   line-height: 1.6;
 }

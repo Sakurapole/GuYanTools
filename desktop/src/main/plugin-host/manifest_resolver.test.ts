@@ -32,6 +32,91 @@ function manifest(overrides: ManifestInput = {}): ManifestInput {
 }
 
 describe('plugin manifest validation', () => {
+  it('accepts an optional boolean DevTools button declaration', async () => {
+    const { validatePluginManifest } = await import('./manifest_resolver');
+    const ui = { theme: 'guyantools', components: '@guyantools/plugin-ui' };
+    for (const value of [undefined, false, true])
+      expect(() =>
+        validatePluginManifest(
+          manifest({ uiApiVersion: '1.0.0', ui: { ...ui, showDevToolsButton: value } })
+        )
+      ).not.toThrow();
+    expect(() =>
+      validatePluginManifest(
+        manifest({ uiApiVersion: '1.0.0', ui: { ...ui, showDevToolsButton: 'true' } })
+      )
+    ).toThrow('PLUGIN_UI_INVALID');
+  });
+  it('validates declared CUDA profiles and newer plugin Python requirements', async () => {
+    const { validatePluginManifest } = await import('./manifest_resolver');
+    const runtime = {
+      pythonVersion: '3.12',
+      entry: 'python/runner.py',
+      dependencies: {
+        common: [] as string[],
+        cpu: ['torch==2.7.1'],
+        cuda: ['torch==2.7.1'],
+        profiles: [
+          {
+            id: 'cu128',
+            label: 'CUDA 12.8',
+            device: 'cuda',
+            cudaVersion: '12.8',
+            packages: ['torch==2.7.1'],
+            indexUrl: 'https://download.pytorch.org/whl/cu128',
+          },
+        ],
+      },
+    };
+    expect(() =>
+      validatePluginManifest(manifest({ permissions: ['models.execute'], modelRuntime: runtime }))
+    ).not.toThrow();
+    for (const profiles of [
+      [null],
+      [{ ...runtime.dependencies.profiles[0], packages: ['--index-url'] }],
+      [{ ...runtime.dependencies.profiles[0], indexUrl: 'https://user:password@example.test' }],
+    ])
+      expect(() =>
+        validatePluginManifest(
+          manifest({
+            permissions: ['models.execute'],
+            modelRuntime: { ...runtime, dependencies: { ...runtime.dependencies, profiles } },
+          })
+        )
+      ).toThrow('PLUGIN_MODEL_RUNTIME_INVALID');
+  });
+  it('rejects unsafe model script paths and incomplete dependency groups', async () => {
+    const { validatePluginManifest } = await import('./manifest_resolver');
+    const modelRuntime = {
+      pythonVersion: '3.10',
+      entry: 'python/runner.py',
+      dependencies: { common: ['numpy==1.26.4'], cpu: ['torch==2.5.1'], cuda: ['torch==2.5.1'] },
+    };
+    expect(() =>
+      validatePluginManifest(
+        manifest({
+          permissions: ['models.execute'],
+          modelRuntime,
+        })
+      )
+    ).not.toThrow();
+    expect(() =>
+      validatePluginManifest(
+        manifest({
+          permissions: ['models.execute'],
+          modelRuntime: { ...modelRuntime, entry: '../runner.py' },
+        })
+      )
+    ).toThrow('PLUGIN_MODEL_RUNTIME_INVALID');
+    expect(() =>
+      validatePluginManifest(
+        manifest({
+          permissions: ['models.execute'],
+          modelRuntime: { ...modelRuntime, dependencies: { common: [] } },
+        })
+      )
+    ).toThrow('PLUGIN_MODEL_RUNTIME_INVALID');
+  });
   it('exports a validator for the v1 manifest contract', async () => {
     const resolver = await import('./manifest_resolver');
 
@@ -68,6 +153,67 @@ describe('plugin manifest validation', () => {
     expect(() => validatePluginManifest(manifest({ runtime: 'worker', entry: {} }))).toThrow(
       'PLUGIN_ENTRY_INVALID'
     );
+  });
+
+  it('rejects Node utility and bare JavaScript workers from third-party manifests', async () => {
+    const { validatePluginManifest } = await import('./manifest_resolver');
+    expect(() =>
+      validatePluginManifest(
+        manifest({
+          schemaVersion: '1.1',
+          runtime: 'worker',
+          workerRuntime: 'utility',
+          entry: { worker: 'dist/worker.html' },
+        })
+      )
+    ).toThrow('PLUGIN_RUNTIME_INVALID');
+    expect(() =>
+      validatePluginManifest(
+        manifest({
+          schemaVersion: '1.1',
+          runtime: 'worker',
+          entry: { worker: 'dist/worker.js' },
+        })
+      )
+    ).toThrow('PLUGIN_ENTRY_INVALID');
+  });
+
+  it('rejects undeclared or ambiguous contributed commands before installation', async () => {
+    const { validatePluginManifest } = await import('./manifest_resolver');
+    const command = { id: 'guyantools.example.run', title: 'Run' };
+    const base = { schemaVersion: '1.1', runtime: 'worker', entry: { worker: 'dist/worker.html' } };
+    expect(() =>
+      validatePluginManifest(
+        manifest({
+          ...base,
+          contributes: { commands: [command, command] },
+        })
+      )
+    ).toThrow('PLUGIN_CONTRIBUTION_INVALID');
+    expect(() =>
+      validatePluginManifest(
+        manifest({
+          ...base,
+          contributes: {
+            commands: [command],
+            menus: [{ id: 'menu', title: 'Menu', target: 'app', commandId: 'other.plugin.run' }],
+          },
+        })
+      )
+    ).toThrow('PLUGIN_CONTRIBUTION_INVALID');
+    expect(() =>
+      validatePluginManifest(
+        manifest({
+          ...base,
+          contributes: {
+            commands: [command],
+            backgroundTasks: [
+              { id: 'guyantools.example.missing', title: 'Missing', schedule: '*/5 * * * *' },
+            ],
+          },
+        })
+      )
+    ).toThrow('PLUGIN_CONTRIBUTION_INVALID');
   });
 
   it('accepts the UI contract fields introduced by manifest 1.1', async () => {
@@ -116,6 +262,25 @@ describe('plugin manifest validation', () => {
 
     await expect(new PluginManifestResolver().resolveFromDirectory(root)).rejects.toThrow(
       'Plugin entry must not be a symbolic link'
+    );
+  });
+
+  it('rejects an entry whose parent directory is a symlink outside the plugin', async () => {
+    const root = await fs.mkdtemp(path.join(os.tmpdir(), 'guyantools-plugin-parent-link-'));
+    const outside = path.join(root, '..', `${path.basename(root)}-outside`);
+    await fs.ensureDir(outside);
+    await fs.outputFile(path.join(outside, 'worker.html'), '<html></html>');
+    await fs.writeJSON(
+      path.join(root, 'guyantools.plugin.json'),
+      manifest({
+        schemaVersion: '1.1',
+        runtime: 'worker',
+        entry: { worker: 'dist/worker.html' },
+      })
+    );
+    await fs.ensureSymlink(outside, path.join(root, 'dist'), 'dir');
+    await expect(new PluginManifestResolver().resolveFromDirectory(root)).rejects.toThrow(
+      'PLUGIN_ENTRY_INVALID'
     );
   });
 

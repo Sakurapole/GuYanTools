@@ -1,0 +1,21 @@
+{
+  "schemaVersion": "1.1",
+  "id": "guyantools.hello-plugin",
+  "name": "guyantools-hello-plugin",
+  "displayName": "Hello Plugin",
+  "version": "0.1.0",
+  "description": "GuYanTools 插件开发示例：组件库页面、私有存储与后台命令。",
+  "pluginApiVersion": "1.0.0",
+  "uiApiVersion": "1.0.0",
+  "hostVersionRange": ">=1.0.0",
+  "trustLevel": "sandboxed",
+  "runtime": "hybrid",
+  "ui": { "theme": "guyantools", "components": "@guyantools/plugin-ui" },
+  "entry": { "ui": "dist/index.html", "worker": "dist/worker.html" },
+  "permissions": ["ui.contribute", "storage.self", "commands.execute"],
+  "capabilities": [],
+  "contributes": {
+    "pages": [{ "id": "main", "title": "Hello Plugin", "routePath": "/plugins/guyantools.hello-plugin/main" }],
+    "commands": [{ "id": "guyantools.hello-plugin.greet", "title": "生成问候语", "description": "由沙箱 worker 执行问候命令" }]
+  }
+}

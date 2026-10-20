@@ -74,3 +74,35 @@ export function assertPluginDependencies(
   }
   return result;
 }
+
+export function orderPluginActivations(records: InstalledPluginRecord[]): InstalledPluginRecord[] {
+  const byId = new Map(records.map((record) => [record.manifest.id, record]));
+  const ordered: InstalledPluginRecord[] = [];
+  const visiting = new Set<string>();
+  const visited = new Set<string>();
+  const visit = (record: InstalledPluginRecord) => {
+    const id = record.manifest.id;
+    if (visited.has(id)) return;
+    if (visiting.has(id)) throw new PluginApiError('INVALID_INPUT', `PLUGIN_DEPENDENCY_CYCLE: ${id}`);
+    visiting.add(id);
+    for (const dependency of record.manifest.dependencies ?? []) {
+      if (dependency.optional) continue;
+      const providers = records.filter((candidate) => candidate.manifest.id !== id &&
+        candidate.manifest.capabilities.some((capability) =>
+          dependency.capability === capability.id ||
+          dependency.capability === `${candidate.manifest.id}.${capability.id}` ||
+          dependency.capability.endsWith(`.${capability.id}`)
+        ));
+      if (providers.length > 1) {
+        throw new PluginApiError('INVALID_INPUT', `PLUGIN_DEPENDENCY_AMBIGUOUS: ${dependency.capability}`);
+      }
+      const provider = providers[0] && byId.get(providers[0].manifest.id);
+      if (provider) visit(provider);
+    }
+    visiting.delete(id);
+    visited.add(id);
+    ordered.push(record);
+  };
+  for (const record of [...records].sort((a, b) => a.manifest.id.localeCompare(b.manifest.id))) visit(record);
+  return ordered;
+}

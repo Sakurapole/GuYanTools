@@ -4,9 +4,10 @@ import type {
   NotificationImageSource,
   NotificationSize,
   NotificationType,
+  NotificationTone,
 } from '@/contracts/notification';
 
-export type InAppNotificationTone = 'info' | 'success' | 'warning' | 'error';
+export type InAppNotificationTone = NotificationTone;
 
 export interface InAppNotificationInput {
   tone?: InAppNotificationTone;

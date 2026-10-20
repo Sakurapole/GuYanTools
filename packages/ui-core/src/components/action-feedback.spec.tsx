@@ -34,6 +34,17 @@ describe('action and feedback components', () => {
     ).toContain('::slotted(svg) { fill: currentColor; }');
   });
 
+  it('hides the empty default label for prefix-only icon buttons', async () => {
+    const { root, waitForChanges } = await render(
+      <gt-button aria-label="卡片布局">
+        <span slot="prefix">+</span>
+      </gt-button>
+    );
+    await waitForChanges();
+    expect(root.shadowRoot?.querySelector('[part="label"]')?.hasAttribute('hidden')).toBe(true);
+    expect(root.shadowRoot?.querySelector('.suffix')?.hasAttribute('hidden')).toBe(true);
+  });
+
   it('matches desktop Button geometry without duplicating its visual surface', async () => {
     const { root: plainButton } = await render(<gt-button>Save</gt-button>);
     const { root: decoratedButton } = await render(

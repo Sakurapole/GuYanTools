@@ -38,10 +38,12 @@ button {
   transform: none;
 }
 
+:host([size='sm'][label='']),
 :host([size='sm']:not([label])) {
   width: var(--gt-icon-button-size, 28px);
   height: var(--gt-icon-button-size, 28px);
 }
+:host([size='lg'][label='']),
 :host([size='lg']:not([label])) {
   width: var(--gt-icon-button-size, 40px);
   height: var(--gt-icon-button-size, 40px);
@@ -49,7 +51,7 @@ button {
 :host([shape='circle']) {
   border-radius: var(--ui-radius-full, 999px);
 }
-:host([label]) {
+:host([label]:not([label=''])) {
   width: auto;
   height: auto;
   min-height: var(--ui-control-height-md, var(--gt-control-height-md));
@@ -60,17 +62,17 @@ button {
   white-space: nowrap;
   user-select: none;
 }
-:host([label]) button {
+:host([label]:not([label=''])) button {
   gap: 6px;
   width: 100%;
   min-height: 100%;
 }
-:host([label][size='sm']) {
+:host([label]:not([label='']))[size='sm'] {
   min-height: var(--ui-control-height-sm, var(--gt-control-height-sm));
   padding: 4px var(--ui-control-padding-x-sm, var(--gt-control-padding-x-sm));
   font-size: 0.82rem;
 }
-:host([label][size='lg']) {
+:host([label]:not([label='']))[size='lg'] {
   min-height: var(--ui-control-height-lg, var(--gt-control-height-lg));
   padding: 9px 18px;
   font-size: 0.96rem;
@@ -85,9 +87,9 @@ button {
   --gt-icon-button-color: var(--ui-icon-button-secondary-text, var(--gt-color-text));
 }
 :host([variant='primary']) {
-  --gt-icon-button-background: var(--ui-button-primary-bg, var(--gt-color-primary));
-  --gt-icon-button-border-color: var(--ui-button-primary-border, var(--gt-color-primary));
-  --gt-icon-button-color: var(--ui-button-primary-text, var(--gt-color-text-inverse));
+  --gt-icon-button-background: var(--ui-button-primary-bg, var(--gt-color-primary-action));
+  --gt-icon-button-border-color: var(--ui-button-primary-border, var(--gt-color-primary-action));
+  --gt-icon-button-color: var(--ui-button-primary-text, var(--gt-color-primary-action-text));
   --gt-icon-button-shadow: var(--ui-button-primary-shadow, none);
 }
 :host([variant='danger']) {
@@ -112,7 +114,7 @@ button {
   border-color: var(--ui-icon-button-secondary-hover-border, var(--gt-color-border));
 }
 :host([variant='primary']:hover:not([disabled])) {
-  background: var(--ui-button-primary-hover-bg, var(--gt-color-primary-hover));
+  background: var(--ui-button-primary-hover-bg, var(--gt-color-primary-action-hover));
 }
 :host([variant='danger']:hover:not([disabled])),
 :host([variant='danger'][active]) {
@@ -155,5 +157,8 @@ button:disabled {
   display: none;
 }
 ::slotted(svg) {
+  display: block;
+}
+::slotted(svg:not([fill])) {
   fill: currentColor;
 }

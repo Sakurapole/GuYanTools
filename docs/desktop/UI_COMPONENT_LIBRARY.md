@@ -72,3 +72,11 @@ pnpm --dir packages/ui-vue run build
 pnpm --dir packages/plugin-ui run build
 pnpm run verify:plugin-framework
 ```
+
+### 插件页交互约束
+
+- Drawer 入场和退场均为 220ms。关闭请求先同步 `gt-open-change`，退场完成后 core 发出 `gt-after-close`，Vue 包装转发为 `afterClose`。业务使用独立的显示状态，在 `afterClose` 后再清空详情数据，防止退场时内容闪空。快速重新打开会取消待执行的销毁；组件卸载立即释放 portal、事件与计时器。减少动效偏好下直接关闭。
+- 分段 Tabs 的底色和选中底色以 `#66CCFF` 混合主题面板色。内层圆角等于外层圆角减去 padding 和边框宽度，indicator 与 tab 共用该圆角。
+- `gt-input` 聚焦使用 1px 内描边，颜色变化默认过渡 180ms；减少动效偏好下取消过渡。
+- `gt-checkbox` 的隐藏原生 input 必须相对自身 label 定位，防止焦点自动滚动外层 `gt-scrollbar`，裁掉权限列表可视区。
+- 插件页操作按钮使用 `UiButton` 的 `prefix` 图标插槽并保留文字；本地图标复用 SVG 组件，不依赖运行时网络图标请求。

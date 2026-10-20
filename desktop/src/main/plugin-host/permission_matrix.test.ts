@@ -31,6 +31,7 @@ function manifest(overrides: Record<string, unknown> = {}) {
 
 describe('permission matrix', () => {
   it('classifies permissions into default/elevated/builtin tiers', () => {
+    expect(getPermissionTier('models.execute')).toBe('elevated');
     expect(getPermissionTier('workspace.read')).toBe('default');
     expect(getPermissionTier('network.fetch')).toBe('default');
     expect(getPermissionTier('files.write')).toBe('elevated');

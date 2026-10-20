@@ -132,6 +132,12 @@ export const PLUGIN_PERMISSION_META: readonly PluginPermissionMeta[] = [
     description: '允许插件在后台持续运行',
   },
   {
+    permission: 'models.execute',
+    tier: 'elevated',
+    title: '运行本机模型',
+    description: '安装 Python 依赖并在本机执行模型代码；目前仅内置插件可使用',
+  },
+  {
     permission: 'commands.execute',
     tier: 'elevated',
     title: '执行插件命令',

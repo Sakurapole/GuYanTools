@@ -141,6 +141,8 @@ const pluginHostApi: PluginHostApi = {
   setPluginSetting: (pluginId: string, key: string, value: unknown) =>
     ipcRenderer.invoke('plugin-host:set-plugin-setting', pluginId, key, value),
   listPluginJobs: (pluginId) => ipcRenderer.invoke('plugin-host:list-jobs', pluginId),
+  executePluginCommand: (pluginId, commandId, payload) =>
+    ipcRenderer.invoke('plugin-host:execute-command', pluginId, commandId, payload),
   installPluginFromPackage: (
     packageName: string,
     approvedPermissions?: import('@/contracts/plugin_host').PluginPermission[]
@@ -149,6 +151,7 @@ const pluginHostApi: PluginHostApi = {
     inputPath: string,
     approvedPermissions?: import('@/contracts/plugin_host').PluginPermission[]
   ) => ipcRenderer.invoke('plugin-host:register-local', inputPath, approvedPermissions),
+  pickLocalPluginPath: () => ipcRenderer.invoke('plugin-host:pick-local-path'),
   approvePermissions: (
     pluginId: string,
     approvedPermissions: import('@/contracts/plugin_host').PluginPermission[]
@@ -160,6 +163,7 @@ const pluginHostApi: PluginHostApi = {
   updateMountedPageBounds: (bounds) => ipcRenderer.invoke('plugin-host:update-page-bounds', bounds),
   unmountPage: (pluginId?: string, pageId?: string) =>
     ipcRenderer.invoke('plugin-host:unmount-page', pluginId, pageId),
+  openDevTools: (pluginId, pageId) => ipcRenderer.invoke('plugin-host:open-devtools', pluginId, pageId),
   listMarketplaces: () => ipcRenderer.invoke('plugin-host:marketplaces:list'),
   refreshMarketplace: (input) => ipcRenderer.invoke('plugin-host:marketplaces:refresh', input),
   searchMarketplace: (query) => ipcRenderer.invoke('plugin-host:marketplaces:search', query),
@@ -620,6 +624,24 @@ contextBridge.exposeInMainWorld('quickNoteWindowApi', {
     return () => ipcRenderer.removeListener('quick-note:collapsed-state', wrappedListener);
   },
 } satisfies import('@/contracts/knowledge').QuickNoteWindowApi);
+
+const cheatSheetApi: import('@/contracts/cheat_sheet').CheatSheetApi = {
+  open: () => ipcRenderer.invoke('cheat-sheet:open'),
+  getState: () => ipcRenderer.invoke('cheat-sheet:get-state'),
+  getQuestion: (id) => ipcRenderer.invoke('cheat-sheet:get-question', id),
+  saveQuestion: (input) => ipcRenderer.invoke('cheat-sheet:save-question', { ...input }),
+  deleteQuestion: (id) => ipcRenderer.invoke('cheat-sheet:delete-question', id),
+  importMarkdown: () => ipcRenderer.invoke('cheat-sheet:import-markdown'),
+  exportMarkdown: (id) => ipcRenderer.invoke('cheat-sheet:export-markdown', id),
+  updateSettings: (patch) => ipcRenderer.invoke('cheat-sheet:update-settings', patch),
+  command: (command) => ipcRenderer.invoke('cheat-sheet:command', command),
+  setDirty: (dirty) => ipcRenderer.invoke('cheat-sheet:set-dirty', dirty),
+  retryShortcuts: async () => [],
+  ready: () => ipcRenderer.invoke('cheat-sheet:ready'),
+  onCommand: (listener) => { const wrapped = (_event: Electron.IpcRendererEvent, command: import('@/contracts/cheat_sheet').CheatSheetCommand) => listener(command); ipcRenderer.on('cheat-sheet:command', wrapped); return () => ipcRenderer.removeListener('cheat-sheet:command', wrapped); },
+  onStateChanged: (listener) => { const wrapped = () => listener(); ipcRenderer.on('cheat-sheet:state-changed', wrapped); return () => ipcRenderer.removeListener('cheat-sheet:state-changed', wrapped); },
+};
+contextBridge.exposeInMainWorld('cheatSheetApi', cheatSheetApi);
 
 const homeWorkspaceApi: HomeWorkspaceApi = {
   getBackground: () => ipcRenderer.invoke('home-workspace:get-background'),

@@ -11,7 +11,7 @@ describe('local plugin fixtures', () => {
     const resolver = new PluginManifestResolver();
     const valid = await resolver.resolveFromDirectory(path.join(fixtures, 'valid'));
     expect(valid.manifest.id).toBe('guyantools.fixture');
-    expect(valid.resolvedEntryPaths.worker).toContain('worker.js');
+    expect(valid.resolvedEntryPaths.worker).toContain('worker.html');
     await expect(resolver.resolveFromDirectory(path.join(fixtures, 'invalid'))).rejects.toThrow(
       'PLUGIN_TRUST_UNSUPPORTED'
     );

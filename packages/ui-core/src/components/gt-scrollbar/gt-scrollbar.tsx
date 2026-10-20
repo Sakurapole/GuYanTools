@@ -10,25 +10,44 @@ export class GtScrollbar {
   @Prop({ attribute: 'thumb-hover-color' }) thumbHoverColor = '';
   @Prop({ attribute: 'track-color' }) trackColor = '';
   @Prop({ attribute: 'always-visible', reflect: true }) alwaysVisible = false;
+  @Prop({ attribute: 'smooth-wheel', reflect: true }) smoothWheel = false;
   @Prop({ reflect: true }) size = 0;
   @Event({ eventName: 'gt-scroll', bubbles: true, composed: true }) scroll!: EventEmitter<Event>;
   private resizeObserver?: ResizeObserver;
   private hideTimer?: number;
+  private wheelFrame?: number;
+  private wheelTarget = 0;
+
+  connectedCallback(): void {
+    this.observeSize();
+    queueMicrotask(() => {
+      if (this.host.isConnected) this.updateRails();
+    });
+  }
 
   componentDidLoad(): void {
-    const viewport = this.viewport();
-    if (viewport && typeof ResizeObserver !== 'undefined') {
-      this.resizeObserver = new ResizeObserver(() => this.updateRails());
-      this.resizeObserver.observe(viewport);
-      const content = this.host.shadowRoot?.querySelector('[part="content"]');
-      if (content) this.resizeObserver.observe(content);
-    }
+    this.observeSize();
     this.updateRails();
   }
 
   disconnectedCallback(): void {
     this.resizeObserver?.disconnect();
+    this.resizeObserver = undefined;
     if (this.hideTimer !== undefined) window.clearTimeout(this.hideTimer);
+    if (this.wheelFrame !== undefined) {
+      cancelAnimationFrame(this.wheelFrame);
+      this.wheelFrame = undefined;
+    }
+  }
+
+  private observeSize(): void {
+    if (this.resizeObserver || typeof ResizeObserver === 'undefined') return;
+    const viewport = this.viewport();
+    if (!viewport) return;
+    this.resizeObserver = new ResizeObserver(() => this.updateRails());
+    this.resizeObserver.observe(viewport);
+    const content = this.host.shadowRoot?.querySelector('[part="content"]');
+    if (content) this.resizeObserver.observe(content);
   }
 
   @Method() async refresh(): Promise<void> {
@@ -89,23 +108,75 @@ export class GtScrollbar {
     this.hideTimer = window.setTimeout(() => {
       this.host.classList.remove('is-scrolling');
       this.hideTimer = undefined;
-    }, 700);
+    }, 500);
     this.scroll.emit(event);
   };
 
-  render() {
-    const style = {
-      '--gt-scrollbar-size': this.size > 0 ? `${this.size}px` : undefined,
-      '--gt-scrollbar-thumb': this.thumbColor || undefined,
-      '--gt-scrollbar-thumb-hover': this.thumbHoverColor || undefined,
-      '--gt-scrollbar-track': this.trackColor || undefined,
+  private handleWheel = (event: WheelEvent): void => {
+    if (
+      !this.smoothWheel ||
+      !this.y ||
+      event.ctrlKey ||
+      Math.abs(event.deltaX) > Math.abs(event.deltaY)
+    )
+      return;
+    if (window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) return;
+
+    const viewport = this.viewport();
+    if (!viewport) return;
+    for (const node of event.composedPath()) {
+      if (node === viewport) break;
+      if (!(node instanceof HTMLElement)) continue;
+      const overflow = getComputedStyle(node).overflowY;
+      if (!['auto', 'scroll'].includes(overflow) || node.scrollHeight <= node.clientHeight + 1)
+        continue;
+      const canScroll =
+        event.deltaY > 0
+          ? node.scrollTop < node.scrollHeight - node.clientHeight - 1
+          : node.scrollTop > 1;
+      if (canScroll) return;
+    }
+
+    const delta =
+      event.deltaY *
+      (event.deltaMode === 1 ? 16 : event.deltaMode === 2 ? viewport.clientHeight : 1);
+    const maxScroll = viewport.scrollHeight - viewport.clientHeight;
+    const target = Math.max(
+      0,
+      Math.min(
+        maxScroll,
+        (this.wheelFrame === undefined ? viewport.scrollTop : this.wheelTarget) + delta
+      )
+    );
+    if (target === viewport.scrollTop && this.wheelFrame === undefined) return;
+    event.preventDefault();
+    if (this.wheelFrame !== undefined) cancelAnimationFrame(this.wheelFrame);
+
+    const from = viewport.scrollTop;
+    const start = performance.now();
+    this.wheelTarget = target;
+    const step = (now: number): void => {
+      const progress = Math.min(1, (now - start) / 180);
+      viewport.scrollTop = from + (target - from) * (1 - (1 - progress) ** 3);
+      if (progress < 1) this.wheelFrame = requestAnimationFrame(step);
+      else this.wheelFrame = undefined;
     };
+    this.wheelFrame = requestAnimationFrame(step);
+  };
+
+  render() {
+    const style: Record<string, string> = {};
+    if (this.size > 0) style['--gt-scrollbar-size'] = `${this.size}px`;
+    if (this.thumbColor) style['--gt-scrollbar-thumb'] = this.thumbColor;
+    if (this.thumbHoverColor) style['--gt-scrollbar-thumb-hover'] = this.thumbHoverColor;
+    if (this.trackColor) style['--gt-scrollbar-track'] = this.trackColor;
     return (
       <Host style={style}>
         <div
           part="viewport"
           class={{ viewport: true, 'axis-x': this.x, 'axis-y': this.y }}
           onScroll={this.handleScroll}
+          onWheel={this.handleWheel}
         >
           <div part="content">
             <slot />

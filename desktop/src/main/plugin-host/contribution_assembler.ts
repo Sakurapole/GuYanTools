@@ -35,6 +35,7 @@ export class PluginContributionAssembler {
           icon: page.icon,
           description: page.description,
           trustLevel: record.manifest.trustLevel,
+          showDevToolsButton: record.manifest.ui?.showDevToolsButton === true,
         });
       }
     }

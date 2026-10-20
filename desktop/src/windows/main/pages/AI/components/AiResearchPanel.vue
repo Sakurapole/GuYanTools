@@ -460,6 +460,10 @@ function statusIcon(job: AiResearchJob) {
   background: var(--ui-surface-muted);
 }
 
+.markdown-body :deep(pre code) {
+  font-family: var(--app-code-font-family, ui-monospace, Consolas, monospace);
+}
+
 .markdown-body :deep(table) {
   width: max-content;
   min-width: 100%;

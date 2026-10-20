@@ -29,6 +29,10 @@ describe('NetworkService SSRF and quotas', () => {
       'http://172.16.0.1',
       'http://169.254.169.254/latest/meta-data',
       'http://[::1]/',
+      'http://[fe90::1]/',
+      'http://[::ffff:127.0.0.1]/',
+      'http://224.0.0.1/',
+      'http://255.255.255.255/',
     ]) {
       await expect(service.fetch({ url })).rejects.toThrow('PLUGIN_NETWORK_PRIVATE_DENIED');
     }
@@ -101,5 +105,84 @@ describe('NetworkService SSRF and quotas', () => {
     );
     resolveFetch?.(new Response('ok'));
     await first;
+  });
+
+  it('rejects a redirect to a private address before sending the next request', async () => {
+    const fetcher = vi.fn(async () => new Response(null, {
+      status: 302,
+      headers: { location: 'http://127.0.0.1/admin' },
+    }));
+    const service = new NetworkService(async () => null, fetcher);
+
+    await expect(service.fetch({ url: 'https://example.com/start', followRedirects: true }))
+      .rejects.toThrow('PLUGIN_NETWORK_PRIVATE_DENIED');
+    expect(fetcher).toHaveBeenCalledTimes(1);
+  });
+
+  it('rejects a redirect that would forward a credential to another origin', async () => {
+    const fetcher = vi.fn(async () => new Response(null, {
+      status: 302,
+      headers: { location: 'https://other.example/path' },
+    }));
+    const service = new NetworkService(async () => 'token', fetcher);
+
+    await expect(service.fetch({
+      url: 'https://example.com/start',
+      followRedirects: true,
+      credential: { secretKey: 'session', allowedOrigins: ['https://example.com'] },
+    }, 'plugin.one')).rejects.toThrow('PLUGIN_NETWORK_CREDENTIAL_ORIGIN_DENIED');
+    expect(fetcher).toHaveBeenCalledTimes(1);
+  });
+
+  it('does not forward an authorization header across origins', async () => {
+    const fetcher = vi.fn(async (_input: RequestInfo | URL, _init?: RequestInit) => fetcher.mock.calls.length === 1
+      ? new Response(null, { status: 302, headers: { location: 'https://other.example/path' } })
+      : new Response('ok'));
+    const service = new NetworkService(async () => null, fetcher);
+
+    await service.fetch({
+      url: 'https://example.com/start',
+      followRedirects: true,
+      headers: { Authorization: 'Bearer secret' },
+    });
+
+    expect((fetcher.mock.calls[0]?.[1] as RequestInit).headers).toBeInstanceOf(Headers);
+    expect(new Headers((fetcher.mock.calls[1]?.[1] as RequestInit).headers).has('authorization')).toBe(false);
+  });
+
+  it('rejects a DNS answer containing a private address', async () => {
+    const fetcher = vi.fn(async () => new Response('ok'));
+    const resolveHost = vi.fn(async () => [{ address: '10.0.0.1', family: 4 as const }]);
+    const service = new NetworkService(async () => null, fetcher, undefined, resolveHost);
+
+    await expect(service.fetch({ url: 'https://rebind.example/' }))
+      .rejects.toThrow('PLUGIN_NETWORK_PRIVATE_DENIED');
+    expect(fetcher).not.toHaveBeenCalled();
+  });
+
+  it('pins the validated DNS address for the transport request', async () => {
+    const fetcher = vi.fn(async (_input: RequestInfo | URL, _init?: RequestInit, _pinned?: { address: string; family: 4 | 6 }) => new Response('ok'));
+    const resolveHost = vi.fn(async () => [{ address: '93.184.215.14', family: 4 as const }]);
+    const service = new NetworkService(async () => null, fetcher, undefined, resolveHost);
+
+    await service.fetch({ url: 'https://rebind.example/' });
+    expect(resolveHost).toHaveBeenCalledTimes(1);
+    expect(fetcher.mock.calls[0]?.[2]).toEqual({ address: '93.184.215.14', family: 4 });
+  });
+
+  it('cancels an oversized response while reading its stream', async () => {
+    const cancel = vi.fn();
+    const response = new Response(new ReadableStream({
+      start(controller) {
+        controller.enqueue(new Uint8Array([1, 2, 3]));
+        controller.enqueue(new Uint8Array([4, 5, 6]));
+      },
+      cancel,
+    }));
+    const service = new NetworkService(async () => null, async () => response);
+
+    await expect(service.fetch({ url: 'https://example.com/', maxBytes: 4 }))
+      .rejects.toThrow('PLUGIN_NETWORK_RESPONSE_TOO_LARGE');
+    expect(cancel).toHaveBeenCalled();
   });
 });

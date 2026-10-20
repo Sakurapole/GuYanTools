@@ -18,6 +18,11 @@ export class GtDrawer {
   @Event({ eventName: 'gt-open-change', bubbles: true, composed: true })
   openChange!: EventEmitter<GtOpenChangeDetail>;
 
+  @Event({ eventName: 'gt-after-close', bubbles: true, composed: true })
+  afterClose!: EventEmitter<void>;
+
+  private closeTimer?: number;
+  private closingPanel?: HTMLElement;
   private contentNodes: Node[] = [];
   private portal?: OverlayPortal;
   private trigger?: HTMLElement | null;
@@ -36,10 +41,14 @@ export class GtDrawer {
   syncPortal(): void {
     if (!this.host.isConnected) return;
     if (!this.open) {
-      this.removePortal();
+      this.beginClose();
       return;
     }
-    if (this.portal) return;
+    if (this.portal) {
+      this.cancelClose();
+      this.portal.element.removeAttribute('data-state');
+      return;
+    }
 
     this.trigger = document.activeElement instanceof HTMLElement ? document.activeElement : null;
     const content = document.createDocumentFragment();
@@ -103,7 +112,39 @@ export class GtDrawer {
     this.openChange.emit({ open: false, reason });
   }
 
+  private beginClose(): void {
+    if (!this.portal || this.portal.element.dataset.state === 'closing') return;
+    if (window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) {
+      this.finishClose();
+      return;
+    }
+    this.portal.element.dataset.state = 'closing';
+    this.closingPanel =
+      this.portal.element.querySelector<HTMLElement>('[part="panel"]') ?? undefined;
+    this.closingPanel?.addEventListener('animationend', this.handleExitEnd);
+    // A hidden window or a consumer disabling animation must still release the portal.
+    this.closeTimer = window.setTimeout(() => this.finishClose(), 260);
+  }
+
+  private handleExitEnd = (event: Event): void => {
+    if (event.target === this.closingPanel) this.finishClose();
+  };
+
+  private cancelClose(): void {
+    if (this.closeTimer !== undefined) window.clearTimeout(this.closeTimer);
+    this.closeTimer = undefined;
+    this.closingPanel?.removeEventListener('animationend', this.handleExitEnd);
+    this.closingPanel = undefined;
+  }
+
+  private finishClose(): void {
+    if (this.open || !this.portal) return;
+    this.removePortal();
+    this.afterClose.emit();
+  }
+
   private removePortal(): void {
+    this.cancelClose();
     if (!this.portal) return;
     this.portal.destroy();
     this.portal = undefined;

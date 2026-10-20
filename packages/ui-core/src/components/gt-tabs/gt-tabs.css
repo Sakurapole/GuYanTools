@@ -1,9 +1,20 @@
 :host {
+  --gt-tabs-segmented-radius: var(--ui-radius-md, var(--gt-radius-sm));
+  --gt-tabs-segmented-padding: 4px;
+  --gt-tabs-segmented-border-width: var(--ui-border-width-thin, 1px);
+  --gt-tabs-segmented-inner-radius: max(
+    0px,
+    calc(
+      var(--gt-tabs-segmented-radius) - var(--gt-tabs-segmented-padding) -
+        var(--gt-tabs-segmented-border-width)
+    )
+  );
   display: inline-flex;
   align-items: center;
   font-family: var(--ui-font-family, var(--gt-font-family));
 }
 [role='tablist'] {
+  box-sizing: border-box;
   position: relative;
   display: inline-flex;
   width: 100%;
@@ -21,10 +32,13 @@
     var(--ui-tabs-border, var(--gt-color-border));
 }
 :host([variant='segmented']) [role='tablist'] {
-  padding: 4px;
-  background: var(--ui-tabs-segmented-bg, var(--gt-color-surface-muted));
+  padding: var(--gt-tabs-segmented-padding);
+  background: var(
+    --ui-tabs-segmented-bg,
+    color-mix(in srgb, var(--gt-color-primary-action) 6%, var(--gt-color-surface))
+  );
   border: var(--ui-border-width-thin, 1px) solid var(--ui-tabs-border, var(--gt-color-border));
-  border-radius: var(--ui-radius-md, var(--gt-radius-sm));
+  border-radius: var(--gt-tabs-segmented-radius);
 }
 :host([stretch]) button {
   flex: 1 1 0;
@@ -72,7 +86,7 @@ button[aria-selected='true'] {
   background: var(--ui-tabs-active-bg, transparent);
 }
 :host([variant='segmented']) button {
-  border-radius: var(--ui-radius-xs, 4px);
+  border-radius: var(--gt-tabs-segmented-inner-radius);
 }
 button:focus-visible {
   outline: none;
@@ -99,9 +113,19 @@ button:disabled {
     opacity var(--gt-motion-normal) var(--gt-motion-ease);
 }
 :host([variant='segmented']) .indicator {
-  top: 4px;
-  bottom: 4px;
+  top: calc(var(--gt-tabs-segmented-padding) + var(--gt-tabs-segmented-border-width));
+  bottom: calc(var(--gt-tabs-segmented-padding) + var(--gt-tabs-segmented-border-width));
   height: auto;
-  border-radius: var(--ui-radius-xs, 4px);
-  background: var(--ui-tabs-active-bg, var(--gt-color-surface));
+  border-radius: var(--gt-tabs-segmented-inner-radius);
+  background: var(
+    --ui-tabs-active-bg,
+    color-mix(in srgb, var(--gt-color-primary-action) 22%, var(--gt-color-surface))
+  );
+}
+
+@media (prefers-reduced-motion: reduce) {
+  button,
+  .indicator {
+    transition: none;
+  }
 }

@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { h, render } from '@stencil/vitest';
 
@@ -10,6 +10,7 @@ import { computeOverlayPlacement } from '../utils/overlay-controller';
 describe('overlay components', () => {
   afterEach(() => {
     document.body.querySelectorAll('[data-gt-overlay]').forEach((element) => element.remove());
+    vi.unstubAllGlobals();
   });
 
   it('closes an open dialog on Escape and removes its portal', async () => {
@@ -23,6 +24,61 @@ describe('overlay components', () => {
     expect((root as unknown as { open: boolean }).open).toBe(false);
     expect(openChange).toHaveReceivedEventDetail({ open: false, reason: 'escape' });
     expect(document.body.querySelector('[data-gt-overlay="dialog"]')).toBeNull();
+  });
+
+  it('retains drawer content until its exit animation finishes', async () => {
+    const { root, waitForChanges, spyOnEvent } = await render(<gt-drawer open>Details</gt-drawer>);
+    const afterClose = spyOnEvent('gt-after-close');
+    (root as unknown as { open: boolean }).open = false;
+    await waitForChanges();
+    const portal = document.body.querySelector<HTMLElement>('[data-gt-overlay="drawer"]');
+    expect(portal?.dataset.state).toBe('closing');
+    expect(portal?.textContent).toContain('Details');
+    const panel = portal?.querySelector('[part="panel"]');
+    panel?.dispatchEvent(new Event('animationend', { bubbles: true }));
+    await waitForChanges();
+    expect(document.body.querySelector('[data-gt-overlay="drawer"]')).toBeNull();
+    expect(root.textContent).toContain('Details');
+    expect(afterClose).toHaveReceivedEvent();
+  });
+
+  it('cancels pending drawer removal when reopened during exit', async () => {
+    const { root, waitForChanges } = await render(<gt-drawer open>Details</gt-drawer>);
+    const drawer = root as unknown as { open: boolean };
+    drawer.open = false;
+    await waitForChanges();
+    const portal = document.body.querySelector<HTMLElement>('[data-gt-overlay="drawer"]');
+    expect(portal?.dataset.state).toBe('closing');
+    drawer.open = true;
+    await waitForChanges();
+    portal
+      ?.querySelector('[part="panel"]')
+      ?.dispatchEvent(new Event('animationend', { bubbles: true }));
+    await waitForChanges();
+    expect(document.body.querySelector('[data-gt-overlay="drawer"]')).toBe(portal);
+    expect(portal?.dataset.state).not.toBe('closing');
+    root.remove();
+    expect(document.body.querySelector('[data-gt-overlay="drawer"]')).toBeNull();
+  });
+
+  it('removes a drawer immediately when reduced motion is requested', async () => {
+    vi.stubGlobal('matchMedia', () => ({ matches: true }));
+    const { root, waitForChanges, spyOnEvent } = await render(<gt-drawer open>Details</gt-drawer>);
+    const afterClose = spyOnEvent('gt-after-close');
+    (root as unknown as { open: boolean }).open = false;
+    await waitForChanges();
+    expect(document.body.querySelector('[data-gt-overlay="drawer"]')).toBeNull();
+    expect(afterClose).toHaveReceivedEvent();
+  });
+
+  it('releases a closing drawer when no animationend event arrives', async () => {
+    const { root, waitForChanges } = await render(<gt-drawer open>Details</gt-drawer>);
+    (root as unknown as { open: boolean }).open = false;
+    await waitForChanges();
+    expect(document.body.querySelector('[data-gt-overlay="drawer"]')).not.toBeNull();
+    await new Promise((resolve) => window.setTimeout(resolve, 300));
+    expect(document.body.querySelector('[data-gt-overlay="drawer"]')).toBeNull();
+    expect(root.textContent).toContain('Details');
   });
 
   it('keeps persistent drawers open when their mask is pressed', async () => {

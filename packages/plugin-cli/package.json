@@ -1,12 +1,13 @@
 {
   "name": "@guyantools/plugin-cli",
   "version": "1.0.0",
-  "private": true,
   "type": "module",
   "bin": { "guyantools-plugin": "./dist/index.js" },
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
-  "scripts": { "build": "tsc --outDir dist", "typecheck": "tsc --noEmit", "test": "vitest run" },
-  "dependencies": { "@guyantools/plugin-vite": "workspace:*", "@guyantools/plugin-sdk": "workspace:*" },
-  "devDependencies": { "@types/node": "^24.1.0", "typescript": "^5.8.3", "vitest": "^4.1.10" }
+  "exports": { ".": { "types": "./dist/index.d.ts", "import": "./dist/index.js" } },
+  "files": ["dist"],
+  "scripts": { "build": "tsc --outDir dist && node -e \"require('node:fs').cpSync('src/templates','dist/templates',{recursive:true})\"", "prepack": "pnpm run build", "typecheck": "tsc --noEmit", "test": "vitest run" },
+  "dependencies": { "@guyantools/plugin-vite": "workspace:^" },
+  "devDependencies": { "@guyantools/plugin-sdk": "workspace:^", "@types/node": "^24.1.0", "typescript": "^5.8.3", "vitest": "^4.1.10" }
 }

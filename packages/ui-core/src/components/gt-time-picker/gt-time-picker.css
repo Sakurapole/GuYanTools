@@ -130,8 +130,8 @@
   background: var(--ui-icon-button-hover-bg, var(--gt-color-surface-muted));
 }
 [data-gt-overlay='time-picker'] [part='item'][data-selected] {
-  background: var(--ui-button-primary-bg, var(--gt-color-primary));
-  color: var(--ui-button-primary-text, #fff);
+  background: var(--ui-button-primary-bg, var(--gt-color-primary-action));
+  color: var(--ui-button-primary-text, var(--gt-color-primary-action-text));
   font-weight: 600;
 }
 [data-gt-overlay='time-picker'] [part='separator'] {
@@ -161,6 +161,6 @@
   color: var(--ui-text-muted, var(--gt-color-text-muted));
 }
 [data-gt-overlay='time-picker'] [part='confirm'] {
-  background: var(--ui-button-primary-bg, var(--gt-color-primary));
-  color: var(--ui-button-primary-text, #fff);
+  background: var(--ui-button-primary-bg, var(--gt-color-primary-action));
+  color: var(--ui-button-primary-text, var(--gt-color-primary-action-text));
 }

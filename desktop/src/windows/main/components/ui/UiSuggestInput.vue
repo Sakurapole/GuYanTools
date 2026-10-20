@@ -1,5 +1,5 @@
 <script lang="ts" setup>
-import { computed, ref } from 'vue';
+import { computed, onBeforeUnmount, onMounted, ref } from 'vue';
 import UiInput from './UiInput.vue';
 import UiScrollbar from './UiScrollbar.vue';
 
@@ -152,6 +152,29 @@ function handleBlur() {
     emit('blur');
   }, 120);
 }
+
+function handleDocumentPointerdown(event: PointerEvent) {
+  if (!open.value) return;
+
+  const path = typeof event.composedPath === 'function' ? event.composedPath() : [];
+  const isInside = path.length
+    ? path.includes(wrapperRef.value as EventTarget)
+    : wrapperRef.value?.contains(event.target as Node);
+
+  if (!isInside) {
+    clearBlurTimer();
+    closeSuggestions();
+  }
+}
+
+onMounted(() => {
+  document.addEventListener('pointerdown', handleDocumentPointerdown, true);
+});
+
+onBeforeUnmount(() => {
+  clearBlurTimer();
+  document.removeEventListener('pointerdown', handleDocumentPointerdown, true);
+});
 </script>
 
 <template>

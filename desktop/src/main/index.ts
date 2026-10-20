@@ -14,6 +14,7 @@ import { registerHomeLayoutIpcHandlers } from './home-layout/ipc';
 import { registerHomeProfileIpcHandlers } from './home-profile/ipc';
 import { registerHomeWorkspaceIpcHandlers } from './home-workspace/ipc';
 import { registerKnowledgeIpcHandlers } from './knowledge/ipc';
+import { cheatSheetWindow, registerCheatSheetIpcHandlers } from './cheat-sheet/ipc';
 import {
   captureClipboardToQuickNoteWindow,
   registerQuickNoteWindowHandlers,
@@ -109,6 +110,7 @@ class App {
     create: () => Promise<BrowserWindow>;
     close: () => void;
   };
+  private pluginQuitCleanupStarted = false;
   private systemPlugins: any;
   private readonly cliRelayResponsePath = hasFtpCliArgs(process.argv)
     ? createFtpCliRelayResponsePath()
@@ -135,6 +137,7 @@ class App {
     registerHomeLayoutIpcHandlers();
     registerHomeWorkspaceIpcHandlers();
     registerKnowledgeIpcHandlers();
+    registerCheatSheetIpcHandlers();
     registerQuickNoteWindowHandlers();
     registerMediaIpcHandlers();
     registerMultiDeviceClipboardIpcHandlers();
@@ -309,8 +312,22 @@ class App {
             void workspaceWindowManager.openDetached(key).catch((error) => {
               console.error(`[workspace-window] Failed to open detached ${key} window:`, error);
             });
+          },
+          () => {
+            const existing = cheatSheetWindow.getWindow();
+            if (existing && !existing.isDestroyed()) {
+              void cheatSheetWindow.execute('toggle');
+              return;
+            }
+            void cheatSheetWindow.open().catch((error) => {
+              console.warn('[cheat-sheet] Failed to toggle window:', error);
+            });
           }
         );
+        pluginHost.onContributionsChanged(() => {
+          void shortcutService.syncPluginShortcuts(pluginHost.listContributions().shortcuts);
+        });
+        await shortcutService.syncPluginShortcuts(pluginHost.listContributions().shortcuts);
         void preloadQuickLaunchWindow();
 
         // ─── 初始化共享 webview session ───
@@ -419,15 +436,25 @@ class App {
       // Windows/Linux: keep process alive (tray icon remains)
     });
 
-    app.on('will-quit', () => {
+    app.on('will-quit', (event) => {
+      if (this.pluginQuitCleanupStarted) return;
+      this.pluginQuitCleanupStarted = true;
+      event.preventDefault();
       stopTodoScheduler();
       ftpSchedulerService.dispose();
-      void multiDeviceClipboardService.dispose();
       shortcutService.dispose();
       destroyTray();
-      void disposeAndroidTools();
-      void disposeAndroidInput();
       syncWorkerClient.dispose();
+      void (async () => {
+        await Promise.allSettled([
+          pluginHost.dispose(),
+          cheatSheetWindow.close(),
+          multiDeviceClipboardService.dispose(),
+          disposeAndroidTools(),
+          disposeAndroidInput(),
+        ]);
+        app.quit();
+      })();
     });
   }
 

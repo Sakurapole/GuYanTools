@@ -3,6 +3,7 @@ import fs from 'node:fs/promises';
 import path from 'node:path';
 import { execFile } from 'node:child_process';
 import { buildPlugin } from './build.js';
+import { validatePlugin } from './validate.js';
 
 function signPackagePayload(
   pluginId: string,
@@ -17,115 +18,88 @@ function signPackagePayload(
 
 export async function packPlugin(rootPath = process.cwd()) {
   const root = path.resolve(rootPath);
-  const { manifest } = await buildPlugin(root);
+  await buildPlugin(root);
   const staging = await fs.mkdtemp(path.join(root, '.guyantools-pack-'));
   const copy = async (name: string) => {
     const source = path.join(root, name);
-    try {
-      await fs.cp(source, path.join(staging, name), {
-        recursive: true,
-        filter: (sourcePath) =>
-          !sourcePath.includes('node_modules') && !sourcePath.endsWith('.map'),
-      });
-    } catch {
-      /* optional README/LICENSE */
-    }
-  };
-  await copy('dist');
-  await copy('guyantools.plugin.json');
-  await copy('README.md');
-  await copy('LICENSE');
-
-  const privateKeyPem = process.env.GUYANTOOLS_PLUGIN_SIGNING_KEY;
-  let signaturePayload: Record<string, unknown> | undefined;
-  if (privateKeyPem) {
-    // Placeholder hash; final hash is computed after archive creation and rewritten.
-    const placeholder = crypto.createHash('sha256').update(JSON.stringify(manifest)).digest('hex');
-    const signature = signPackagePayload(manifest.id, manifest.version, placeholder, privateKeyPem);
-    const publicDer = crypto
-      .createPublicKey(privateKeyPem)
-      .export({ type: 'spki', format: 'pem' })
-      .toString();
-    signaturePayload = {
-      pluginId: manifest.id,
-      version: manifest.version,
-      packageSha256: placeholder,
-      algorithm: 'ed25519',
-      publicKey: publicDer,
-      signature,
-      signedAt: new Date().toISOString(),
-    };
-    await fs.writeFile(
-      path.join(staging, 'signature.json'),
-      `${JSON.stringify(signaturePayload, null, 2)}\n`
-    );
-  }
-
-  const archive = path.join(root, `${path.basename(root)}.zip`);
-  await runPowerShellArchive(staging, archive);
-  const hash = crypto
-    .createHash('sha256')
-    .update(await fs.readFile(archive))
-    .digest('hex');
-
-  if (privateKeyPem && signaturePayload) {
-    // Re-sign with the real archive hash so host verification matches package bytes.
-    const realSignature = signPackagePayload(manifest.id, manifest.version, hash, privateKeyPem);
-    signaturePayload = {
-      ...signaturePayload,
-      packageSha256: hash,
-      signature: realSignature,
-    };
-    await fs.writeFile(
-      path.join(staging, 'signature.json'),
-      `${JSON.stringify(signaturePayload, null, 2)}\n`
-    );
-    // Keep a sibling signature file next to the archive for catalog consumers.
-    await fs.writeFile(
-      path.join(root, 'signature.json'),
-      `${JSON.stringify(signaturePayload, null, 2)}\n`
-    );
-  }
-
-  await fs.writeFile(
-    path.join(root, 'catalog-entry.json'),
-    `${JSON.stringify(
-      {
-        id: manifest.id,
-        version: manifest.version,
-        permissions: manifest.permissions ?? [],
-        capabilities: manifest.capabilities ?? [],
-        dependencies: manifest.dependencies ?? [],
-        archive: path.basename(archive),
-        sha256: hash,
-        ...(signaturePayload
-          ? {
-              signature: {
-                algorithm: signaturePayload.algorithm,
-                publicKey: signaturePayload.publicKey,
-                signature: signaturePayload.signature,
-                signedAt: signaturePayload.signedAt,
-              },
-            }
-          : {}),
+    await fs.cp(source, path.join(staging, name), {
+      recursive: true,
+      filter: async (sourcePath) => {
+        if ((await fs.lstat(sourcePath)).isSymbolicLink())
+          throw new Error(`PLUGIN_PACK_SYMLINK: ${path.relative(root, sourcePath)}`);
+        return !sourcePath.split(path.sep).includes('node_modules') && !sourcePath.endsWith('.map');
       },
-      null,
-      2
-    )}\n`
-  );
-  await fs.rm(staging, { recursive: true, force: true });
-  return { archive, sha256: hash, signed: Boolean(signaturePayload) };
+    });
+  };
+  try {
+    await copy('dist');
+    await fs.copyFile(
+      path.join(staging, 'dist', 'guyantools.plugin.json'),
+      path.join(staging, 'guyantools.plugin.json')
+    );
+    const manifest = await validatePlugin(staging);
+    for (const optional of ['README.md', 'LICENSE']) {
+      try {
+        await fs.access(path.join(root, optional));
+      } catch {
+        continue;
+      }
+      await copy(optional);
+    }
+
+    const archive = path.join(root, `${path.basename(root)}.zip`);
+    await runPowerShellArchive(staging, archive);
+    const hash = crypto.createHash('sha256').update(await fs.readFile(archive)).digest('hex');
+    const privateKeyPem = process.env.GUYANTOOLS_PLUGIN_SIGNING_KEY;
+    const signaturePayload = privateKeyPem
+      ? {
+          pluginId: manifest.id,
+          version: manifest.version,
+          packageSha256: hash,
+          algorithm: 'ed25519',
+          publicKey: crypto.createPublicKey(privateKeyPem).export({ type: 'spki', format: 'pem' }).toString(),
+          signature: signPackagePayload(manifest.id, manifest.version, hash, privateKeyPem),
+          signedAt: new Date().toISOString(),
+        }
+      : undefined;
+    // The signature is detached: embedding an archive's hash in that archive is circular.
+    if (signaturePayload)
+      await fs.writeFile(path.join(root, 'signature.json'), `${JSON.stringify(signaturePayload, null, 2)}\n`);
+    else
+      await fs.rm(path.join(root, 'signature.json'), { force: true });
+    await fs.writeFile(path.join(root, 'catalog-entry.json'), `${JSON.stringify({
+      id: manifest.id,
+      version: manifest.version,
+      permissions: manifest.permissions ?? [],
+      capabilities: manifest.capabilities ?? [],
+      dependencies: manifest.dependencies ?? [],
+      archive: path.basename(archive),
+      sha256: hash,
+      ...(signaturePayload ? { signature: {
+        algorithm: signaturePayload.algorithm,
+        publicKey: signaturePayload.publicKey,
+        signature: signaturePayload.signature,
+        signedAt: signaturePayload.signedAt,
+      } } : {}),
+    }, null, 2)}\n`);
+    return { archive, sha256: hash, signed: Boolean(signaturePayload) };
+  } finally {
+    await fs.rm(staging, { recursive: true, force: true });
+  }
 }
 
 async function runPowerShellArchive(staging: string, archive: string) {
   await new Promise<void>((resolve, reject) => {
+    const quotedStaging = staging.replaceAll("'", "''");
+    const quotedArchive = archive.replaceAll("'", "''");
+    const script = `$ErrorActionPreference = 'Stop'; Set-Location -LiteralPath '${quotedStaging}'; Compress-Archive -Path '*' -DestinationPath '${quotedArchive}' -Force`;
     const child = execFile(
       'powershell.exe',
       [
         '-NoProfile',
         '-NonInteractive',
-        '-Command',
-        `Compress-Archive -Path '${staging}\\*' -DestinationPath '${archive}' -Force`,
+        '-EncodedCommand',
+        Buffer.from(script, 'utf16le').toString('base64'),
       ],
       { shell: false }
     );

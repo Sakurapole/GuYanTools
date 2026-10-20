@@ -59,6 +59,25 @@ describe('PluginContributionAssembler', () => {
     expect(all.pages).toHaveLength(0);
     expect(all.commands).toHaveLength(0);
   });
+  it('only exposes the DevTools button when the plugin explicitly opts in', () => {
+    const base = record();
+    expect(assembler.listPages([base])[0].showDevToolsButton).toBe(false);
+    expect(
+      assembler.listPages([
+        {
+          ...base,
+          manifest: {
+            ...base.manifest,
+            ui: {
+              theme: 'guyantools',
+              components: '@guyantools/plugin-ui',
+              showDevToolsButton: true,
+            },
+          },
+        },
+      ])[0].showDevToolsButton
+    ).toBe(true);
+  });
 
   it('namespaces contributions with pluginId', () => {
     const commands = assembler.listCommands([record()]);

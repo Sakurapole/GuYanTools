@@ -13,6 +13,7 @@ import { useAppConfigStore } from './stores/app_config_store';
 import { useBarStore } from './stores/bar_store';
 import { useGlobalStore } from './stores/global_store';
 import { useUpdaterStore } from './stores/updater_store';
+import { syncRouteToBottomBar } from './route_tab_sync';
 
 import en from './i18n/en';
 import zh from './i18n/zh';
@@ -64,11 +65,11 @@ async function bootstrap() {
     const globalStore = useGlobalStore(pinia);
     const title = typeof to.meta.title === 'string' ? to.meta.title : 'GuYanTools';
     globalStore.setCurrentPage(title);
-    barStore.activateTabByUrl(to.fullPath);
+    syncRouteToBottomBar(to, barStore);
   });
 
   await router.isReady();
-  barStore.activateTabByUrl(router.currentRoute.value.fullPath);
+  syncRouteToBottomBar(router.currentRoute.value, barStore);
   app.mount('#guyan-tools');
 
   // Font enumeration can be slow on Windows and is only needed by Settings.

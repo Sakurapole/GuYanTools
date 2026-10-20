@@ -58,6 +58,7 @@ const config: ForgeConfig = {
     extraResource: [
       path.resolve(__dirname, 'src', 'assets', 'icons'),
       path.resolve(__dirname, 'src', 'main', 'android-tools', 'resources'),
+      path.resolve(__dirname, 'resources', 'model-plugins'),
     ],
     afterCopy: [copyNativeCorePackage],
   },
@@ -115,6 +116,11 @@ const config: ForgeConfig = {
           config: 'vite.sync-worker.config.ts',
           // Forge's Vite plugin only supports main/preload targets. The
           // worker config uses SSR mode and keeps its own output filename.
+          target: 'main',
+        },
+        {
+          entry: 'src/main/plugin-host/utility_worker_entry.ts',
+          config: 'vite.plugin-worker.config.ts',
           target: 'main',
         },
         {

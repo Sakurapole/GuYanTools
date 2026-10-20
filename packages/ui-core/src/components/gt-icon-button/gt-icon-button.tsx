@@ -46,7 +46,11 @@ export class GtIconButton {
   };
 
   private syncIconSlot = (): void => {
-    this.hasIcon = Boolean(this.iconSlot?.assignedNodes({ flatten: true }).length);
+    this.hasIcon = Boolean(
+      this.iconSlot?.assignedNodes({ flatten: true }).some((node) =>
+        node.nodeType === 1 || (node.nodeType === 3 && Boolean(node.textContent?.trim()))
+      )
+    );
   };
 
   render() {
@@ -62,14 +66,17 @@ export class GtIconButton {
           type={this.type}
           onClick={this.handleClick}
         >
-          <span part="icon" class="icon" hidden={!this.hasIcon}>
-            <slot
-              ref={(element) => {
-                this.iconSlot = element;
-              }}
-              onSlotchange={this.syncIconSlot}
-            />
-          </span>
+          <slot
+            ref={(element) => {
+              this.iconSlot = element;
+              if (element) {
+                element.className = 'icon';
+                element.hidden = !this.hasIcon;
+                element.setAttribute('part', 'icon');
+              }
+            }}
+            onSlotchange={this.syncIconSlot}
+          />
           {this.label ? <span part="label">{this.label}</span> : null}
         </button>
       </Host>

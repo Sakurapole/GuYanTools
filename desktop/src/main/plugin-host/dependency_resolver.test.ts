@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { resolvePluginDependencies, assertPluginDependencies } from './dependency_resolver';
+import { resolvePluginDependencies, assertPluginDependencies, orderPluginActivations } from './dependency_resolver';
 import { CapabilityRouter } from './capability_router';
 import type { InstalledPluginRecord } from '@/contracts/plugin_host';
 
@@ -28,6 +28,18 @@ function record(
 }
 
 describe('PluginCapabilityDependency resolver', () => {
+  it('starts capability providers before their consumers and rejects cycles', () => {
+    const provider = record() as InstalledPluginRecord;
+    provider.manifest.id = 'guyantools.provider';
+    provider.manifest.capabilities = [{ id: 'source', kind: 'media-source', operations: ['resolve'] }];
+    const consumer = record([{ capability: 'guyantools.provider.source' }]) as InstalledPluginRecord;
+    expect(orderPluginActivations([consumer, provider]).map((item) => item.manifest.id)).toEqual([
+      'guyantools.provider', 'guyantools.consumer',
+    ]);
+    provider.manifest.dependencies = [{ capability: 'guyantools.consumer.output' }];
+    consumer.manifest.capabilities = [{ id: 'output', kind: 'transformer', operations: ['run'] }];
+    expect(() => orderPluginActivations([consumer, provider])).toThrow('PLUGIN_DEPENDENCY_CYCLE');
+  });
   it('satisfies dependencies when another plugin provides the capability', () => {
     const router = new CapabilityRouter();
     router.register('guyantools.provider', [

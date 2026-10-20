@@ -22,8 +22,10 @@ const props = withDefaults(
     :for="props['for']"
     :layout="props.layout"
     v-bind="$attrs"
-    ><span slot="label"><slot name="label" /></span><slot /><span slot="hint"
+    ><span v-if="$slots.label" slot="label"><slot name="label" /></span><slot /><span
+      v-if="$slots.hint"
+      slot="hint"
       ><slot name="hint" /></span
-    ><span slot="error"><slot name="error" /></span
+    ><span v-if="$slots.error" slot="error"><slot name="error" /></span
   ></gt-field>
 </template>

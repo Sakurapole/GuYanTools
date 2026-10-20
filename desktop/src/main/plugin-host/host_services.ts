@@ -85,12 +85,11 @@ class NavigationService {
   }
 }
 
-class CommandService {
+export class CommandService {
   constructor(private readonly router: PluginCommandRouter) {}
 
-  async executeHost(commandId: string, payload?: unknown) {
-    console.log('[host-command]', commandId, redactPluginLogMeta(payload));
-    return { accepted: true };
+  async executeHost(pluginId: string, commandId: string, payload?: unknown) {
+    return this.router.execute(pluginId, commandId, payload);
   }
 
   async execute(pluginId: string, commandId: string, payload?: unknown) {
@@ -124,6 +123,10 @@ class SystemService {
   }
 
   async openExternal(url: string) {
+    const parsed = new URL(url);
+    if (parsed.protocol !== 'https:' || parsed.username || parsed.password) {
+      throw new PluginApiError('INVALID_INPUT', 'PLUGIN_EXTERNAL_URL_INVALID');
+    }
     await shell.openExternal(url);
   }
 
@@ -188,6 +191,7 @@ export class HostServiceRegistry {
   }
 
   resetPluginQuota(pluginId: string) {
+    this.quota.releaseAllJobSlots(pluginId);
     this.quota.resetPlugin(pluginId);
     this.commandRouter.unregisterPlugin(pluginId);
     this.capabilities.unregister(pluginId);
@@ -272,6 +276,8 @@ export class HostServiceRegistry {
       jobs: ['jobs.create', 'jobs.list', 'jobs.update', 'jobs.onEvent'],
       files: ['files.createGrant', 'files.read', 'files.write', 'files.revoke'],
       media: ['media.probe', 'media.transcode', 'media.preview', 'media.writeTags'],
+      models: ['models.listPython', 'models.installMiniforge', 'models.createEnvironment',
+        'models.installDependencies', 'models.pickFile', 'models.startInference', 'models.cancel'],
       secrets: ['secrets.get', 'secrets.set', 'secrets.delete'],
       android: this.android.getCapabilities(),
     };

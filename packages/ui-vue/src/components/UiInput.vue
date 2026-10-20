@@ -66,7 +66,7 @@ defineExpose({ focus: () => element.value?.focus(), select: () => element.value?
     @focus="emit('focus', $event as FocusEvent)"
     @blur="emit('blur', $event as FocusEvent)"
     @keydown="emit('keydown', $event as KeyboardEvent)"
-    ><span slot="prefix"><slot name="prefix" /></span
-    ><span slot="suffix"><slot name="suffix" /></span
+    ><span v-if="$slots.prefix" slot="prefix"><slot name="prefix" /></span
+    ><span v-if="$slots.suffix" slot="suffix"><slot name="suffix" /></span
   ></gt-input>
 </template>

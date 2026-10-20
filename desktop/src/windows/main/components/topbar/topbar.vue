@@ -16,6 +16,7 @@ import TaskManagerPanel from '../TaskManagerPanel.vue';
 import UiButton from '../ui/UiButton.vue';
 import UiIconButton from '../ui/UiIconButton.vue';
 import UiInput from '../ui/UiInput.vue';
+import PluginAppMenu from './PluginAppMenu.vue';
 
 const { ipcRenderer } = window;
 const globalStore = useGlobalStore();
@@ -67,6 +68,16 @@ const showHomeProfileSwitcher = computed(() => route.path === '/home');
 const detachButtonTitle = computed(() =>
   props.detachedPageTitle ? `将${props.detachedPageTitle}分离为独立窗口` : '分离为独立窗口'
 );
+const showPluginDevTools = computed(() =>
+  Boolean(route.meta.pluginId && route.meta.pageId && route.meta.showDevToolsButton === true)
+);
+async function openPluginDevTools() {
+  try {
+    await window.pluginHostApi.openDevTools(String(route.meta.pluginId), String(route.meta.pageId));
+  } catch (error) {
+    notifyError(error, '插件 DevTools 打开失败');
+  }
+}
 
 function setProfilePanelError(error: unknown, title: string) {
   profilePanelError.value = getErrorMessage(error);
@@ -500,6 +511,26 @@ watch(
     </div>
     <div class="drag-area"></div>
     <div class="window-btn-group">
+      <PluginAppMenu />
+      <UiIconButton
+        v-if="showPluginDevTools"
+        variant="ghost"
+        size="lg"
+        shape="square"
+        title="打开当前插件 DevTools"
+        aria-label="打开当前插件 DevTools"
+        @click="openPluginDevTools"
+      >
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+          <path
+            d="m8 7-5 5 5 5m8-10 5 5-5 5m-3-12-2 14"
+            stroke="currentColor"
+            stroke-width="1.6"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          />
+        </svg>
+      </UiIconButton>
       <UiIconButton
         v-if="props.canDetachCurrentPage"
         class="workspace-detach-topbar-btn"

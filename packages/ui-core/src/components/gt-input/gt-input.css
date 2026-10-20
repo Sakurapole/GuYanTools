@@ -35,13 +35,11 @@
   color: inherit;
   box-shadow: inset 0 0 0 var(--ui-border-width-thin, 1px)
     var(--gt-input-border-color, var(--ui-input-border, var(--gt-color-border)));
-  transition: box-shadow var(--gt-motion-normal) var(--gt-motion-ease);
+  transition: box-shadow var(--gt-motion-normal, 180ms) var(--gt-motion-ease, ease-out);
 }
 .shell:focus-within {
-  box-shadow:
-    var(--gt-focus-ring),
-    inset 0 0 0 var(--ui-border-width-thin, 1px)
-      var(--ui-input-focus-border, var(--gt-color-primary));
+  box-shadow: inset 0 0 0 var(--ui-border-width-thin, 1px)
+    var(--ui-input-focus-border, var(--gt-color-primary-action));
 }
 .shell:has(input:disabled),
 .shell:has(input[readonly]) {
@@ -143,4 +141,10 @@ input[type='number']::-webkit-inner-spin-button,
 input[type='number']::-webkit-outer-spin-button {
   margin: 0;
   -webkit-appearance: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .shell {
+    transition: none;
+  }
 }

@@ -25,9 +25,19 @@ export class GtTabs {
   @State() private indicatorStyle = 'opacity: 0;';
   private resizeObserver?: ResizeObserver;
 
+  connectedCallback(): void {
+    queueMicrotask(() => {
+      if (this.host.isConnected) this.connectIndicator();
+    });
+  }
+
   componentDidLoad(): void {
+    this.connectIndicator();
+  }
+
+  private connectIndicator(): void {
     this.updateIndicator();
-    if (typeof ResizeObserver !== 'undefined') {
+    if (!this.resizeObserver && typeof ResizeObserver !== 'undefined') {
       this.resizeObserver = new ResizeObserver(this.updateIndicator);
       this.resizeObserver.observe(this.host);
     }
@@ -40,6 +50,7 @@ export class GtTabs {
 
   disconnectedCallback(): void {
     this.resizeObserver?.disconnect();
+    this.resizeObserver = undefined;
     window.removeEventListener('resize', this.updateIndicator);
   }
 

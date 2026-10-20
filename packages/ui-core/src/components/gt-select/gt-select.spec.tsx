@@ -3,6 +3,7 @@ import { readFileSync } from 'node:fs';
 import { h, render } from '@stencil/vitest';
 
 import './gt-select';
+import '../gt-dialog/gt-dialog';
 
 type SelectOption = { label: string; value: string | number; disabled?: boolean };
 
@@ -50,7 +51,6 @@ describe('gt-select', () => {
     );
     await waitForChanges();
     expect(document.body.querySelector('[data-gt-overlay="select"]')).not.toBeNull();
-
     const currentTrigger = root.shadowRoot?.querySelector<HTMLButtonElement>('[part="trigger"]');
     currentTrigger?.dispatchEvent(
       new KeyboardEvent('keydown', { key: 'ArrowDown', bubbles: true, composed: true })
@@ -136,6 +136,34 @@ describe('gt-select', () => {
     expect(document.body.querySelector('[data-gt-overlay="select"]')).toBeNull();
   });
 
+  it('closes when clicking empty space inside a dialog that owns the select', async () => {
+    const { root, waitForChanges } = await render(
+      <gt-dialog open>
+        <gt-select options={options} value="standard" />
+      </gt-dialog>
+    );
+    await waitForChanges();
+
+    const select = document.body.querySelector('gt-select');
+    const trigger = select?.shadowRoot?.querySelector<HTMLButtonElement>('[part="trigger"]');
+    trigger?.click();
+    await waitForChanges();
+    expect(document.body.querySelector('[data-gt-overlay="select"]')).not.toBeNull();
+
+    const dialogPanel = document.body.querySelector<HTMLElement>(
+      '[data-gt-overlay="dialog"] .panel'
+    );
+    expect(dialogPanel).not.toBeNull();
+    const emptySpace = document.createElement('div');
+    dialogPanel?.append(emptySpace);
+    emptySpace.dispatchEvent(new MouseEvent('mousedown', { bubbles: true, composed: true }));
+    emptySpace.dispatchEvent(new MouseEvent('pointerdown', { bubbles: true, composed: true }));
+    await waitForChanges();
+
+    expect(document.body.querySelector('[data-gt-overlay="select"]')).toBeNull();
+    root.remove();
+  });
+
   it('exposes stable parts, size attributes and a fixed overlay contract', async () => {
     const { root } = await render(<gt-select options={options} size="sm" />);
     const css = readFileSync(new URL('./gt-select.css', import.meta.url), 'utf8');
@@ -151,12 +179,12 @@ describe('gt-select', () => {
       true
     );
     expect(root.getAttribute('size')).toBe('sm');
-    expect(overlayCss).toContain('[data-gt-overlay="select"]');
+    expect(overlayCss).toContain("[data-gt-overlay='select']");
     expect(overlayCss).toContain('position: fixed;');
-    expect(overlayCss).toContain('[data-gt-overlay="select"][data-animation="fade"]');
-    expect(overlayCss).toContain('[data-gt-overlay="select"][data-animation="slide"]');
-    expect(overlayCss).toContain('[data-gt-overlay="select"][data-animation="scale"]');
-    expect(overlayCss).toContain('[data-gt-overlay="select"][data-animation="slideScale"]');
+    expect(overlayCss).toContain("[data-gt-overlay='select'][data-animation='fade']");
+    expect(overlayCss).toContain("[data-gt-overlay='select'][data-animation='slide']");
+    expect(overlayCss).toContain("[data-gt-overlay='select'][data-animation='scale']");
+    expect(overlayCss).toContain("[data-gt-overlay='select'][data-animation='slideScale']");
     expect(overlayCss).toContain('prefers-reduced-motion: reduce');
     expect(css).toContain('button {');
   });

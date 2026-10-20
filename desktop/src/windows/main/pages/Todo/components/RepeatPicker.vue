@@ -153,7 +153,8 @@ function onClickOutside(e: MouseEvent) {
   if (!isOpen.value) return;
   const target = e.target as Node;
   if (triggerRef.value?.contains(target) || panelRef.value?.contains(target)) return;
-  if (target instanceof Element && target.closest('.ui-select-dropdown')) return;
+  if (target instanceof Element && target.closest('[data-gt-overlay="select"] [part="panel"]'))
+    return;
   isOpen.value = false;
 }
 

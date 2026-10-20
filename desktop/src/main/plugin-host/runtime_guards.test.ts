@@ -56,6 +56,17 @@ describe('PluginCommandRouter', () => {
 });
 
 describe('CapabilityRouter', () => {
+  it('does not double-qualify an already namespaced capability id', async () => {
+    const router = new CapabilityRouter();
+    router.register('guyantools.demo', [
+      { id: 'guyantools.demo.source', kind: 'media-source', operations: ['resolve'] },
+    ]);
+    router.registerInvokeHandler('guyantools.demo', 'source', async () => 'ok');
+    expect(router.list()[0].qualifiedId).toBe('guyantools.demo.source');
+    await expect(router.invoke('guyantools.demo', {
+      capabilityId: 'guyantools.demo.source', operation: 'resolve',
+    })).resolves.toBe('ok');
+  });
   it('registers and resolves capabilities by host', () => {
     const router = new CapabilityRouter();
     router.register('guyantools.bilibili', [
@@ -139,6 +150,25 @@ describe('PluginQuotaService', () => {
     quota.releaseJobSlot('p');
     expect(quota.tryAcquireJobSlot('p')).toBe(true);
   });
+
+  it('tracks job slots by id and releases terminal jobs once', () => {
+    const quota = new PluginQuotaService({ jobConcurrency: 1 });
+    expect(quota.tryAcquireJobSlot('p')).toBe(true);
+    quota.trackJobSlot('p', 'job-1');
+    expect(quota.releaseJobSlotForJob('p', 'job-1')).toBe(true);
+    expect(quota.releaseJobSlotForJob('p', 'job-1')).toBe(false);
+    expect(quota.tryAcquireJobSlot('p')).toBe(true);
+  });
+
+  it('releases all tracked jobs when a plugin runtime is cleaned up', () => {
+    const quota = new PluginQuotaService({ jobConcurrency: 2 });
+    expect(quota.tryAcquireJobSlot('p')).toBe(true);
+    expect(quota.tryAcquireJobSlot('p')).toBe(true);
+    quota.trackJobSlot('p', 'job-1');
+    quota.trackJobSlot('p', 'job-2');
+    expect(quota.releaseAllJobSlots('p')).toBe(2);
+    expect(quota.tryAcquireJobSlot('p')).toBe(true);
+  });
 });
 
 describe('PluginApiError', () => {
@@ -155,6 +185,12 @@ describe('PluginApiError', () => {
     const payload = toPluginApiErrorPayload(new Error('QUOTA_EXCEEDED: storage'));
     expect(payload.code).toBe('QUOTA_EXCEEDED');
     expect(payload.retryable).toBe(true);
+  });
+
+  it('classifies model trust failures as permission errors', () => {
+    expect(normalizePluginError(new Error('MODEL_PLUGIN_NOT_TRUSTED')).code).toBe(
+      'PERMISSION_DENIED'
+    );
   });
 
   it('preserves PluginApiError instances', () => {

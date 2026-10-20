@@ -77,6 +77,9 @@ const frontmatterDraft = ref('');
 const tableToolOpen = ref(false);
 const tableRows = ref(3);
 const tableColumns = ref(3);
+const tableToolRef = ref<HTMLElement | null>(null);
+const pageLinkRef = ref<HTMLElement | null>(null);
+const exportRef = ref<HTMLElement | null>(null);
 
 const markdownThemeOptions = [
   { label: '系统', value: 'system' },
@@ -570,6 +573,21 @@ function printPreviewAsPdf() {
   exportOpen.value = false;
 }
 
+function handleDocumentPointerdown(event: PointerEvent) {
+  const target = event.target;
+  if (!(target instanceof Node)) return;
+
+  if (tableToolOpen.value && !tableToolRef.value?.contains(target)) {
+    tableToolOpen.value = false;
+  }
+  if (pageLinkOpen.value && !pageLinkRef.value?.contains(target)) {
+    pageLinkOpen.value = false;
+  }
+  if (exportOpen.value && !exportRef.value?.contains(target)) {
+    exportOpen.value = false;
+  }
+}
+
 function handlePaste(event: ClipboardEvent) {
   const files = Array.from(event.clipboardData?.files ?? []);
   const image = files.find((file) => file.type.startsWith('image/'));
@@ -795,8 +813,12 @@ watch(typewriterMode, (enabled) => {
 });
 
 onMounted(createEditor);
+onMounted(() => {
+  document.addEventListener('pointerdown', handleDocumentPointerdown, true);
+});
 
 onBeforeUnmount(() => {
+  document.removeEventListener('pointerdown', handleDocumentPointerdown, true);
   editorView.value?.destroy();
   editorView.value = null;
 });
@@ -871,7 +893,7 @@ defineExpose({
         <UiIconButton size="sm" title="Mermaid" @click="insertMermaidBlock">
           <IconRenderer icon="iconify:lucide:git-fork" :size="15" />
         </UiIconButton>
-        <div class="knowledge-markdown-editor__table-tool">
+        <div ref="tableToolRef" class="knowledge-markdown-editor__table-tool">
           <UiIconButton
             size="sm"
             :active="tableToolOpen"
@@ -914,7 +936,7 @@ defineExpose({
             <UiButton type="button" variant="primary" size="sm" @click="insertTable">插入</UiButton>
           </div>
         </div>
-        <div class="knowledge-markdown-editor__wikilink">
+        <div ref="pageLinkRef" class="knowledge-markdown-editor__wikilink">
           <UiIconButton
             size="sm"
             :active="pageLinkOpen"
@@ -983,7 +1005,7 @@ defineExpose({
           <IconRenderer icon="iconify:lucide:list-checks" :size="15" />
         </UiIconButton>
         <UiSelect v-model="markdownTheme" :options="markdownThemeOptions" size="sm" />
-        <div class="knowledge-markdown-editor__export">
+        <div ref="exportRef" class="knowledge-markdown-editor__export">
           <UiIconButton
             size="sm"
             :active="exportOpen"

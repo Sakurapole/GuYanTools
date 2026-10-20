@@ -1,6 +1,10 @@
 import { PluginApiError } from './plugin_api_error';
 
 export type PluginCommandHandler = (payload?: unknown) => Promise<unknown> | unknown;
+export type PluginRuntimeCommandHandler = (input: {
+  commandId: string;
+  payload?: unknown;
+}) => Promise<unknown>;
 
 export interface PluginCommandRoute {
   pluginId: string;
@@ -14,6 +18,10 @@ export interface PluginCommandRoute {
  */
 export class PluginCommandRouter {
   private readonly handlers = new Map<string, PluginCommandRoute>();
+  private readonly runtimeHandlers = new Map<
+    string,
+    { pluginId: string; handler: PluginRuntimeCommandHandler }
+  >();
 
   register(pluginId: string, commandId: string, handler: PluginCommandHandler) {
     if (!commandId.startsWith(`${pluginId}.`)) {
@@ -26,6 +34,31 @@ export class PluginCommandRouter {
     for (const [commandId, route] of this.handlers) {
       if (route.pluginId === pluginId) this.handlers.delete(commandId);
     }
+    for (const [runtimeId, runtime] of this.runtimeHandlers) {
+      if (runtime.pluginId === pluginId) this.runtimeHandlers.delete(runtimeId);
+    }
+  }
+
+  registerRuntime(pluginId: string, runtimeId: string, handler: PluginRuntimeCommandHandler) {
+    if (!runtimeId || !pluginId) {
+      throw new PluginApiError('INVALID_INPUT', 'PLUGIN_RUNTIME_INVALID');
+    }
+    this.runtimeHandlers.set(runtimeId, { pluginId, handler });
+  }
+
+  unregisterRuntime(runtimeId: string) {
+    this.runtimeHandlers.delete(runtimeId);
+  }
+
+  async invokeRuntime(pluginId: string, commandId: string, payload?: unknown) {
+    if (!commandId.startsWith(`${pluginId}.`)) {
+      throw new PluginApiError('PERMISSION_DENIED', 'PLUGIN_COMMAND_DENIED');
+    }
+    const runtime = [...this.runtimeHandlers.values()].find((candidate) => candidate.pluginId === pluginId);
+    if (!runtime) {
+      throw new PluginApiError('TOOL_UNAVAILABLE', 'PLUGIN_RUNTIME_UNAVAILABLE');
+    }
+    return runtime.handler({ commandId, payload });
   }
 
   list(pluginId?: string): PluginCommandRoute[] {

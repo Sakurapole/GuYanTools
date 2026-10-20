@@ -2,6 +2,7 @@ import fs from 'fs-extra';
 import path from 'path';
 import type {
   PluginManifest,
+  PluginBackgroundTaskContribution,
   PluginPermission,
   PluginRuntimeKind,
   PluginTrustLevel,
@@ -51,6 +52,7 @@ const VALID_PERMISSIONS = new Set<PluginPermission>([
   'media.tag',
   'secrets.self',
   'observability.logs',
+  'models.execute',
   'android.devices.read',
   'android.sessions.read',
   'android.sessions.control',
@@ -77,6 +79,81 @@ export function validatePluginManifest(input: unknown): asserts input is PluginM
   }
 
   const manifest = input as Partial<PluginManifest>;
+  const contributions = manifest.contributes;
+  if (contributions !== undefined) {
+    if (!contributions || typeof contributions !== 'object' || Array.isArray(contributions)) {
+      fail('PLUGIN_CONTRIBUTION_INVALID', 'contributes must be an object');
+    }
+    const allowed = new Set([
+      'pages',
+      'widgets',
+      'commands',
+      'menus',
+      'shortcuts',
+      'backgroundTasks',
+    ]);
+    for (const key of Object.keys(contributions)) {
+      if (!allowed.has(key))
+        fail('PLUGIN_CONTRIBUTION_INVALID', `contributes.${key} is unsupported`);
+    }
+    const commands = contributions.commands ?? [];
+    if (!Array.isArray(commands))
+      fail('PLUGIN_CONTRIBUTION_INVALID', 'contributes.commands must be an array');
+    const commandIds = new Set<string>();
+    for (const command of commands) {
+      if (
+        !command ||
+        typeof command.id !== 'string' ||
+        !command.id.startsWith(`${manifest.id}.`) ||
+        commandIds.has(command.id)
+      ) {
+        fail(
+          'PLUGIN_CONTRIBUTION_INVALID',
+          'contributes.commands contains an invalid or duplicate id'
+        );
+      }
+      commandIds.add(command.id);
+    }
+    for (const field of ['menus', 'shortcuts', 'backgroundTasks'] as const) {
+      const entries = contributions[field] ?? [];
+      if (!Array.isArray(entries))
+        fail('PLUGIN_CONTRIBUTION_INVALID', `contributes.${field} must be an array`);
+      const ids = new Set<string>();
+      for (const entry of entries) {
+        const id = entry?.id;
+        const commandId =
+          field === 'backgroundTasks'
+            ? id
+            : entry && 'commandId' in entry
+              ? entry.commandId
+              : undefined;
+        const backgroundTask =
+          field === 'backgroundTasks' ? (entry as PluginBackgroundTaskContribution) : undefined;
+        if (
+          typeof id !== 'string' ||
+          ids.has(id) ||
+          !commandIds.has(commandId ?? '') ||
+          (backgroundTask !== undefined &&
+            (typeof backgroundTask.schedule !== 'string' ||
+              !/^every:[1-9]\d*m$/.test(backgroundTask.schedule) ||
+              backgroundTask.event !== undefined))
+        ) {
+          fail('PLUGIN_CONTRIBUTION_INVALID', `contributes.${field} references an invalid command`);
+        }
+        ids.add(id);
+      }
+    }
+    if (
+      (contributions.backgroundTasks?.length ?? 0) > 0 &&
+      (!manifest.permissions?.includes('background.run') ||
+        !manifest.permissions?.includes('commands.execute'))
+    ) {
+      fail(
+        'PLUGIN_PERMISSION_INVALID',
+        'backgroundTasks require background.run and commands.execute'
+      );
+    }
+  }
   if (typeof manifest.id !== 'string' || !/^[a-z0-9][a-z0-9.-]*$/.test(manifest.id)) {
     fail('PLUGIN_MANIFEST_INVALID', 'id must contain lowercase letters, numbers, dots, or hyphens');
   }
@@ -103,7 +180,9 @@ export function validatePluginManifest(input: unknown): asserts input is PluginM
       !manifest.ui ||
       manifest.ui.theme !== 'guyantools' ||
       typeof manifest.ui.components !== 'string' ||
-      manifest.ui.components.length === 0
+      manifest.ui.components.length === 0 ||
+      (manifest.ui.showDevToolsButton !== undefined &&
+        typeof manifest.ui.showDevToolsButton !== 'boolean')
     ) {
       fail('PLUGIN_UI_INVALID', 'ui must declare the guyantools theme and components package');
     }
@@ -126,6 +205,80 @@ export function validatePluginManifest(input: unknown): asserts input is PluginM
       'PLUGIN_CAPABILITIES_REQUIRED',
       'capabilities must be declared separately from permissions'
     );
+  }
+
+  if (manifest.modelRuntime !== undefined) {
+    const model = manifest.modelRuntime;
+    const entryValid =
+      typeof model.entry === 'string' &&
+      model.entry.endsWith('.py') &&
+      !path.isAbsolute(model.entry) &&
+      !path.win32.isAbsolute(model.entry) &&
+      !model.entry.split(/[\\/]/).includes('..') &&
+      !/^[a-z][a-z\d+.-]*:/i.test(model.entry);
+    const groups = model.dependencies;
+    const dependenciesValid =
+      groups &&
+      (['common', 'cpu', 'cuda'] as const).every(
+        (group) =>
+          Array.isArray(groups[group]) &&
+          groups[group].every(
+            (item: string) =>
+              typeof item === 'string' &&
+              /^[a-zA-Z][a-zA-Z0-9_.-]*(?:[<>=!~]=?[a-zA-Z0-9.*+-]+)?$/.test(item)
+          )
+      );
+    const indexesValid =
+      !groups?.indexUrls ||
+      (typeof groups.indexUrls === 'object' &&
+        Object.values(groups.indexUrls).every(
+          (url) => typeof url === 'string' && /^https:\/\/[^\s]+$/.test(url)
+        ));
+    const profilesValid =
+      !groups?.profiles ||
+      (Array.isArray(groups.profiles) &&
+        groups.profiles.length > 0 &&
+        groups.profiles.length <= 20 &&
+        groups.profiles.every(
+          (item) =>
+            item &&
+            typeof item === 'object' &&
+            typeof item.id === 'string' &&
+            /^[a-z0-9][a-z0-9.-]*$/.test(item.id) &&
+            typeof item.label === 'string' &&
+            item.label.length <= 100 &&
+            ['cpu', 'cuda'].includes(item.device) &&
+            (item.device === 'cpu' ||
+              (typeof item.cudaVersion === 'string' && /^\d+\.\d+$/.test(item.cudaVersion))) &&
+            Array.isArray(item.packages) &&
+            item.packages.length > 0 &&
+            item.packages.every(
+              (packageName) =>
+                typeof packageName === 'string' &&
+                /^[a-zA-Z][a-zA-Z0-9_.-]*(?:==[a-zA-Z0-9.*+-]+)?$/.test(packageName)
+            ) &&
+            typeof item.indexUrl === 'string' &&
+            /^https:\/\/[^\s]+$/.test(item.indexUrl) &&
+            !new URL(item.indexUrl).username &&
+            !new URL(item.indexUrl).password
+        ) &&
+        new Set(groups.profiles.map((item) => item.id)).size === groups.profiles.length);
+    if (
+      typeof model.pythonVersion !== 'string' ||
+      !/^3\.(9|10|11|12|13|14)$/.test(model.pythonVersion) ||
+      !entryValid ||
+      !dependenciesValid ||
+      !indexesValid ||
+      !profilesValid ||
+      groups.cpu.length === 0 ||
+      groups.cuda.length === 0 ||
+      !manifest.permissions.includes('models.execute')
+    ) {
+      fail(
+        'PLUGIN_MODEL_RUNTIME_INVALID',
+        'model runtime requires a safe Python entry, dependency groups and models.execute'
+      );
+    }
   }
 
   const capabilityIds = new Set<string>();
@@ -212,6 +365,9 @@ export function validatePluginManifest(input: unknown): asserts input is PluginM
   if (!['ui', 'worker', 'hybrid'].includes(manifest.runtime ?? '')) {
     fail('PLUGIN_RUNTIME_INVALID', 'runtime must be ui, worker, or hybrid');
   }
+  if (typeof entry.worker === 'string' && !/\.html?$/i.test(entry.worker)) {
+    fail('PLUGIN_ENTRY_INVALID', 'entry.worker must be a sandboxed HTML document');
+  }
 
   if (manifest.settings !== undefined) {
     if (
@@ -243,11 +399,8 @@ export function validatePluginManifest(input: unknown): asserts input is PluginM
     }
   }
 
-  if (
-    manifest.workerRuntime !== undefined &&
-    !['browser', 'utility'].includes(manifest.workerRuntime)
-  ) {
-    fail('PLUGIN_RUNTIME_INVALID', 'workerRuntime must be browser or utility');
+  if (manifest.workerRuntime !== undefined && manifest.workerRuntime !== 'browser') {
+    fail('PLUGIN_RUNTIME_INVALID', 'third-party workerRuntime must be browser');
   }
 
   if (manifest.dependencies !== undefined) {
@@ -287,7 +440,7 @@ function toManifestShape(
   const entry = normalizeEntry(input, packageJson);
 
   return {
-    schemaVersion: '1.0',
+    schemaVersion: input.schemaVersion ?? '1.0',
     id: input.id ?? name,
     name,
     version: input.version ?? packageJson?.version ?? '0.0.0',
@@ -309,6 +462,7 @@ function toManifestShape(
     capabilities: ensureArray(input.capabilities),
     contributes: input.contributes ?? {},
     ...(input.settings ? { settings: input.settings } : {}),
+    ...(input.modelRuntime ? { modelRuntime: input.modelRuntime } : {}),
     ...(input.dependencies ? { dependencies: input.dependencies } : {}),
   };
 }
@@ -357,6 +511,7 @@ export class PluginManifestResolver {
     const resolvedEntryPaths: ResolvedPluginEntryPaths = {};
     const rootPath = path.resolve(directoryPath);
     const rootPrefix = `${rootPath}${path.sep}`;
+    const realRoot = await fs.realpath(rootPath);
     for (const [kind, relativeEntry] of Object.entries(manifest.entry)) {
       if (!relativeEntry) {
         continue;
@@ -374,6 +529,18 @@ export class PluginManifestResolver {
       }
       if (!entryStats.isFile()) {
         throw new Error(`Plugin entry is not a file: ${resolvedEntryPath}`);
+      }
+      const realEntry = await fs.realpath(resolvedEntryPath);
+      const realRelative = path.relative(realRoot, realEntry);
+      if (
+        realRelative === '..' ||
+        realRelative.startsWith(`..${path.sep}`) ||
+        path.isAbsolute(realRelative)
+      ) {
+        fail(
+          'PLUGIN_ENTRY_INVALID',
+          `entry.${kind} escapes the plugin directory through a symlink`
+        );
       }
       resolvedEntryPaths[kind as keyof typeof resolvedEntryPaths] = resolvedEntryPath;
     }

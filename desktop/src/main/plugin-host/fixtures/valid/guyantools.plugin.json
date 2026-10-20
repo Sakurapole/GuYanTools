@@ -1,5 +1,5 @@
 {
-  "schemaVersion": "1.0",
+  "schemaVersion": "1.1",
   "id": "guyantools.fixture",
   "name": "guyantools-fixture",
   "displayName": "GuYanTools Fixture",
@@ -9,7 +9,7 @@
   "hostVersionRange": ">=1.0.0",
   "trustLevel": "sandboxed",
   "runtime": "hybrid",
-  "entry": { "ui": "index.html", "worker": "worker.js" },
+  "entry": { "ui": "index.html", "worker": "worker.html" },
   "permissions": ["storage.self"],
   "capabilities": [],
   "contributes": {}

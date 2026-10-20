@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { h } from '@stencil/core';
 import { render } from '@stencil/vitest';
 import './gt-scrollbar';
@@ -47,5 +47,37 @@ describe('gt-scrollbar', () => {
       ['by', { top: 20 }],
       ['to', { left: 10 }],
     ]);
+  });
+
+  it('animates drawer wheel scrolling when smooth-wheel is enabled', async () => {
+    const { root } = await render(<gt-scrollbar x={false} y smoothWheel />);
+    const viewport = root.shadowRoot?.querySelector('[part="viewport"]') as HTMLElement;
+    Object.defineProperties(viewport, {
+      clientHeight: { configurable: true, value: 200 },
+      scrollHeight: { configurable: true, value: 800 },
+    });
+    viewport.scrollTop = 0;
+    let frame: FrameRequestCallback | undefined;
+    vi.stubGlobal('requestAnimationFrame', (callback: FrameRequestCallback) => {
+      frame = callback;
+      return 1;
+    });
+    vi.stubGlobal('cancelAnimationFrame', () => {});
+
+    try {
+      const wheel = new Event('wheel', { bubbles: true, cancelable: true, composed: true });
+      Object.defineProperties(wheel, {
+        deltaX: { value: 0 },
+        deltaY: { value: 120 },
+        deltaMode: { value: 0 },
+      });
+      viewport.dispatchEvent(wheel);
+      expect(wheel.defaultPrevented).toBe(true);
+      expect(viewport.scrollTop).toBe(0);
+      frame?.(performance.now() + 200);
+      expect(viewport.scrollTop).toBe(120);
+    } finally {
+      vi.unstubAllGlobals();
+    }
   });
 });

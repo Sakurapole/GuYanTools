@@ -6,6 +6,13 @@ import { appConfigManager } from '../app-config/manager';
 import { androidAdbService, androidScrcpyService } from '../android-tools';
 import type { AndroidDeviceEvent, AndroidSessionEvent } from '@/contracts/android-tools';
 import type { PluginPermission } from '@/contracts/plugin_host';
+import type {
+  ModelInferenceInput,
+  ModelFileHandle,
+  ModelEnvironmentCreateInput,
+  ModelPackageChangeInput,
+  ModelPackageManager,
+} from '@/contracts/plugin_model';
 import { toPluginApiErrorPayload, PluginApiError } from './plugin_api_error';
 
 let registered = false;
@@ -52,8 +59,154 @@ const runtimeRoutes: Record<
   string,
   { permission?: PluginPermission | PluginPermission[]; handler: RuntimeHandler }
 > = {
+  'plugin-runtime:models:list-python': {
+    permission: 'models.execute',
+    handler: (event) =>
+      pluginHost
+        .getModelRuntimeService()
+        .listPython(getSenderPluginContext(event.sender.id).pluginId),
+  },
+  'plugin-runtime:models:install-miniforge': {
+    permission: 'models.execute',
+    handler: (event) =>
+      pluginHost
+        .getModelRuntimeService()
+        .installMiniforge(getSenderPluginContext(event.sender.id).pluginId),
+  },
+  'plugin-runtime:models:create-environment': {
+    permission: 'models.execute',
+    handler: (event, baseId: string) =>
+      pluginHost
+        .getModelRuntimeService()
+        .createEnvironment(getSenderPluginContext(event.sender.id).pluginId, baseId),
+  },
+  'plugin-runtime:models:check-dependencies': {
+    permission: 'models.execute',
+    handler: (event, device: 'cpu' | 'cuda') =>
+      pluginHost
+        .getModelRuntimeService()
+        .checkDependencies(getSenderPluginContext(event.sender.id).pluginId, device),
+  },
+  'plugin-runtime:models:install-dependencies': {
+    permission: 'models.execute',
+    handler: (event, device: 'cpu' | 'cuda', profileId?: string) =>
+      pluginHost
+        .getModelRuntimeService()
+        .installDependencies(getSenderPluginContext(event.sender.id).pluginId, device, profileId),
+  },
+  'plugin-runtime:models:environments:list': {
+    permission: 'models.execute',
+    handler: (event) =>
+      pluginHost
+        .getModelRuntimeService()
+        .environments.getEnvironmentSnapshot(getSenderPluginContext(event.sender.id).pluginId),
+  },
+  'plugin-runtime:models:environments:import': {
+    permission: 'models.execute',
+    handler: (event) =>
+      pluginHost
+        .getModelRuntimeService()
+        .environments.importEnvironment(getSenderPluginContext(event.sender.id).pluginId),
+  },
+  'plugin-runtime:models:environments:create': {
+    permission: 'models.execute',
+    handler: (event, input: ModelEnvironmentCreateInput) =>
+      pluginHost
+        .getModelRuntimeService()
+        .environments.createManagedEnvironment(
+          getSenderPluginContext(event.sender.id).pluginId,
+          input
+        ),
+  },
+  'plugin-runtime:models:environments:select': {
+    permission: 'models.execute',
+    handler: (event, id: string) =>
+      pluginHost
+        .getModelRuntimeService()
+        .environments.selectEnvironment(getSenderPluginContext(event.sender.id).pluginId, id),
+  },
+  'plugin-runtime:models:environments:clear-active': {
+    permission: 'models.execute',
+    handler: (event) =>
+      pluginHost
+        .getModelRuntimeService()
+        .environments.clearActiveEnvironment(getSenderPluginContext(event.sender.id).pluginId),
+  },
+  'plugin-runtime:models:environments:remove': {
+    permission: 'models.execute',
+    handler: (event, id: string) =>
+      pluginHost
+        .getModelRuntimeService()
+        .environments.removeEnvironment(getSenderPluginContext(event.sender.id).pluginId, id),
+  },
+  'plugin-runtime:models:packages:list': {
+    permission: 'models.execute',
+    handler: (event, id: string, manager: ModelPackageManager) =>
+      pluginHost
+        .getModelRuntimeService()
+        .environments.listPackages(getSenderPluginContext(event.sender.id).pluginId, id, manager),
+  },
+  'plugin-runtime:models:packages:change': {
+    permission: 'models.execute',
+    handler: (event, input: ModelPackageChangeInput) =>
+      pluginHost
+        .getModelRuntimeService()
+        .environments.changePackages(getSenderPluginContext(event.sender.id).pluginId, input),
+  },
+  'plugin-runtime:models:packages:check': {
+    permission: 'models.execute',
+    handler: (event, id: string, manager: ModelPackageManager) =>
+      pluginHost
+        .getModelRuntimeService()
+        .environments.checkPackages(getSenderPluginContext(event.sender.id).pluginId, id, manager),
+  },
+  'plugin-runtime:models:packages:export': {
+    permission: 'models.execute',
+    handler: (event, id: string, manager: ModelPackageManager) =>
+      pluginHost
+        .getModelRuntimeService()
+        .environments.exportPackages(getSenderPluginContext(event.sender.id).pluginId, id, manager),
+  },
+  'plugin-runtime:models:inspect': {
+    permission: 'models.execute',
+    handler: (event, id?: string) =>
+      pluginHost
+        .getModelRuntimeService()
+        .environments.inspectRuntime(getSenderPluginContext(event.sender.id).pluginId, id),
+  },
+  'plugin-runtime:models:profiles': {
+    permission: 'models.execute',
+    handler: (event) =>
+      pluginHost
+        .getModelRuntimeService()
+        .environments.getDependencyProfiles(getSenderPluginContext(event.sender.id).pluginId),
+  },
+  'plugin-runtime:models:pick-file': {
+    permission: 'models.execute',
+    handler: (event, kind: ModelFileHandle['kind']) =>
+      pluginHost
+        .getModelRuntimeService()
+        .pickFile(getSenderPluginContext(event.sender.id).pluginId, kind),
+  },
+  'plugin-runtime:models:start-inference': {
+    permission: 'models.execute',
+    handler: (event, input: ModelInferenceInput) =>
+      pluginHost
+        .getModelRuntimeService()
+        .startInference(getSenderPluginContext(event.sender.id).pluginId, input),
+  },
+  'plugin-runtime:models:cancel': {
+    permission: 'models.execute',
+    handler: (event, jobId: string) =>
+      pluginHost
+        .getModelRuntimeService()
+        .cancel(getSenderPluginContext(event.sender.id).pluginId, jobId),
+  },
   'plugin-runtime:get-context': {
     handler: (event) => getSenderPluginContext(event.sender.id),
+  },
+  'plugin-runtime:worker:ready': {
+    handler: (event) => pluginHost.markPluginWorkerReady(event.sender.id),
   },
   'plugin-runtime:workspace:get-current': {
     permission: 'workspace.read',
@@ -91,6 +244,18 @@ const runtimeRoutes: Record<
       return pluginHost.getHostServices().commands.execute(context.pluginId, commandId, payload);
     },
   },
+  'plugin-runtime:commands:register': {
+    permission: 'commands.execute',
+    handler: (event, commandId: string) => {
+      pluginHost.registerPluginCommandRuntime(event.sender.id, commandId);
+    },
+  },
+  'plugin-runtime:commands:respond': {
+    permission: 'commands.execute',
+    handler: (event, requestId: string, result) => {
+      pluginHost.resolvePluginCommandResult(event.sender.id, { requestId, ...result });
+    },
+  },
   'plugin-runtime:ui:get-pages': {
     permission: 'ui.contribute',
     handler: () => pluginHost.listPages(),
@@ -110,6 +275,10 @@ const runtimeRoutes: Record<
     handler: async (event, payload) => {
       await pluginHost.getHostServices().system.showNotification(payload);
     },
+  },
+  'plugin-runtime:system:open-external': {
+    permission: 'navigation.open',
+    handler: (_event, url: string) => pluginHost.getHostServices().system.openExternal(url),
   },
   'plugin-runtime:logger:info': {
     permission: 'observability.logs',
@@ -189,16 +358,7 @@ const runtimeRoutes: Record<
     permission: 'jobs.manage',
     handler: (event, kind: string, input: unknown, parentJobId?: string) => {
       const context = getSenderPluginContext(event.sender.id);
-      if (!pluginHost.getQuotaService().tryAcquireJobSlot(context.pluginId)) {
-        throw new PluginApiError('QUOTA_EXCEEDED', 'PLUGIN_JOB_QUOTA');
-      }
-      return pluginHost
-        .getJobService()
-        .create(context.pluginId, kind, input, parentJobId)
-        .catch((error) => {
-          pluginHost.getQuotaService().releaseJobSlot(context.pluginId);
-          throw error;
-        });
+      return pluginHost.getJobService().create(context.pluginId, kind, input, parentJobId);
     },
   },
   'plugin-runtime:jobs:list': {
@@ -254,8 +414,16 @@ const runtimeRoutes: Record<
     permission: 'commands.execute',
     handler: (event, input: { capabilityId: string; operation: string; payload?: unknown }) => {
       const context = getSenderPluginContext(event.sender.id);
-      return pluginHost.getCapabilityRouter().invoke(context.pluginId, input);
+      return pluginHost.invokePluginCapability(context.pluginId, input);
     },
+  },
+  'plugin-runtime:capabilities:register': {
+    handler: (event, capabilityId: string) =>
+      pluginHost.registerPluginCapabilityRuntime(event.sender.id, capabilityId),
+  },
+  'plugin-runtime:capabilities:respond': {
+    handler: (event, requestId: string, result) =>
+      pluginHost.resolvePluginCapabilityResult(event.sender.id, { requestId, ...result }),
   },
   'plugin-runtime:media:probe': {
     permission: 'media.preview',
@@ -415,6 +583,11 @@ export function registerPluginHostIpcHandlers(getMainWindow: () => BrowserWindow
     pluginHost.listPluginJobs(pluginId)
   );
   ipcMain.handle(
+    'plugin-host:execute-command',
+    async (_event, pluginId: string, commandId: string, payload?: unknown) =>
+      pluginHost.executePluginCommand(pluginId, commandId, payload)
+  );
+  ipcMain.handle(
     'plugin-host:install-package',
     async (_event, packageName: string, approvedPermissions?: PluginPermission[]) =>
       pluginHost.installPluginFromPackage(packageName, approvedPermissions)
@@ -424,6 +597,7 @@ export function registerPluginHostIpcHandlers(getMainWindow: () => BrowserWindow
     async (_event, inputPath: string, approvedPermissions?: PluginPermission[]) =>
       pluginHost.registerLocalPlugin(inputPath, approvedPermissions)
   );
+  ipcMain.handle('plugin-host:pick-local-path', () => pluginHost.pickLocalPluginPath());
   ipcMain.handle(
     'plugin-host:approve-permissions',
     async (_event, pluginId: string, approvedPermissions: PluginPermission[]) =>
@@ -482,6 +656,12 @@ export function registerPluginHostIpcHandlers(getMainWindow: () => BrowserWindow
   ipcMain.handle('plugin-host:unmount-page', async (_event, pluginId?: string) =>
     pluginHost.unmountPage(pluginId)
   );
+  ipcMain.handle('plugin-host:open-devtools', (event, pluginId: string, pageId: string) => {
+    const mainWindow = getMainWindow();
+    if (!mainWindow || event.sender.id !== mainWindow.webContents.id)
+      throw new PluginApiError('PERMISSION_DENIED', 'PLUGIN_DEVTOOLS_HOST_ONLY');
+    return pluginHost.openDevTools(pluginId, pageId);
+  });
 
   for (const [channel, route] of Object.entries(runtimeRoutes)) {
     ipcMain.handle(channel, async (event, ...args) => {

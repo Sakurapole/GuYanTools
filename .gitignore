@@ -57,6 +57,7 @@ coverage/
 # Vite / Electron / Electron Forge
 desktop/.vite/
 desktop/dist/
+desktop/resources/model-plugins/real-cugan/dist/
 desktop/out/
 desktop/out-*/
 desktop/release/
@@ -133,6 +134,8 @@ pids/
 # Temporary files
 *.tmp
 *.temp
+**/__pycache__/
+*.pyc
 
 # Accidental Windows path-expansion junk
 desktop/%SystemDrive%/

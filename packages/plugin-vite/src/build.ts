@@ -17,9 +17,21 @@ export async function buildGuYanPlugin(
   const workerPath = options.workerEntry ? path.join(outDir, 'worker.js') : undefined;
   if (workerPath && !(await exists(workerPath)))
     throw new Error(`PLUGIN_BUILD_ENTRY_MISSING: ${workerPath}`);
+  if (workerPath) {
+    await fs.writeFile(
+      path.join(outDir, 'worker-bootstrap.js'),
+      "import './worker.js';\nawait window.pluginAPI.lifecycle.ready();\n",
+      'utf8'
+    );
+    await fs.writeFile(
+      path.join(outDir, 'worker.html'),
+      '<!doctype html><html><head><meta charset="utf-8"><meta http-equiv="Content-Security-Policy" content="default-src \'none\'; script-src \'self\'; style-src \'self\'; img-src \'self\' data:"></head><body><script type="module" src="./worker-bootstrap.js"></script></body></html>\n',
+      'utf8'
+    );
+  }
   await copyProductionManifest(options.manifestPath, outDir, {
     ui: 'dist/index.html',
-    worker: workerPath ? 'dist/worker.js' : undefined,
+    worker: workerPath ? 'dist/worker.html' : undefined,
   });
   return { exitCode: 0, outDir };
 }

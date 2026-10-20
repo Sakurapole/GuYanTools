@@ -1,6 +1,7 @@
 import { WebContents } from 'electron';
 import fs from 'fs-extra';
 import path from 'path';
+import { listWindowsFontFamilies } from './local_fonts';
 import { dbManager } from '@/core/database';
 import { APP_CONFIG_FILE } from '../constants/paths';
 import type {
@@ -432,6 +433,10 @@ function normalizeShortcuts(value: unknown): AppShortcutsConfig {
       toggleQuickLaunch: normalizeShortcutValue(
         system.toggleQuickLaunch,
         defaults.system.toggleQuickLaunch
+      ),
+      toggleCheatSheet: normalizeShortcutValue(
+        system.toggleCheatSheet,
+        defaults.system.toggleCheatSheet
       ),
       openDetachedTerminal: normalizeShortcutValue(
         system.openDetachedTerminal,
@@ -1487,6 +1492,7 @@ function normalizeAppearance(value: unknown): AppAppearanceConfig {
     theme: normalizeTheme(value.theme),
     language: normalizeLanguage(value.language),
     fontFamily: normalizeFontFamily(value.fontFamily),
+    codeFontFamily: normalizeFontFamily(value.codeFontFamily),
     baseFontSize: normalizeBaseFontSize(value.baseFontSize),
   };
 }
@@ -1814,7 +1820,8 @@ export class AppConfigManager {
   async listLocalFonts(webContents?: WebContents): Promise<LocalFontOption[]> {
     const fallback = [getSystemDefaultFontOption()];
     if (!webContents || webContents.isDestroyed()) {
-      return fallback;
+      const families = await listWindowsFontFamilies();
+      return [...fallback, ...families.map((family) => ({ label: family, value: family }))];
     }
 
     try {
@@ -1846,12 +1853,14 @@ export class AppConfigManager {
       );
 
       if (!Array.isArray(payload) || payload.length === 0) {
-        return fallback;
+        const families = await listWindowsFontFamilies();
+        return [...fallback, ...families.map((family) => ({ label: family, value: family }))];
       }
 
       return [getSystemDefaultFontOption(), ...payload];
     } catch {
-      return fallback;
+      const families = await listWindowsFontFamilies();
+      return [...fallback, ...families.map((family) => ({ label: family, value: family }))];
     }
   }
 

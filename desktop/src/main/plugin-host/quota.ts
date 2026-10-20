@@ -33,6 +33,7 @@ export class PluginQuotaService {
   private readonly networkWindows = new Map<string, WindowCounter>();
   private readonly logWindows = new Map<string, WindowCounter>();
   private readonly jobCounts = new Map<string, number>();
+  private readonly jobIds = new Map<string, Set<string>>();
 
   constructor(limits: Partial<PluginQuotaLimits> = {}) {
     this.limits = { ...DEFAULT_PLUGIN_QUOTA_LIMITS, ...limits };
@@ -88,6 +89,28 @@ export class PluginQuotaService {
     return true;
   }
 
+  trackJobSlot(pluginId: string, jobId: string) {
+    const jobs = this.jobIds.get(pluginId) ?? new Set<string>();
+    jobs.add(jobId);
+    this.jobIds.set(pluginId, jobs);
+  }
+
+  releaseJobSlotForJob(pluginId: string, jobId: string): boolean {
+    const jobs = this.jobIds.get(pluginId);
+    if (!jobs?.delete(jobId)) return false;
+    if (jobs.size === 0) this.jobIds.delete(pluginId);
+    this.releaseJobSlot(pluginId);
+    return true;
+  }
+
+  releaseAllJobSlots(pluginId: string): number {
+    const jobs = this.jobIds.get(pluginId);
+    const count = jobs?.size ?? 0;
+    this.jobIds.delete(pluginId);
+    for (let index = 0; index < count; index += 1) this.releaseJobSlot(pluginId);
+    return count;
+  }
+
   releaseJobSlot(pluginId: string) {
     const current = this.jobCounts.get(pluginId) ?? 0;
     if (current <= 1) this.jobCounts.delete(pluginId);
@@ -99,6 +122,7 @@ export class PluginQuotaService {
     this.networkWindows.delete(pluginId);
     this.logWindows.delete(pluginId);
     this.jobCounts.delete(pluginId);
+    this.jobIds.delete(pluginId);
   }
 
   private hitWindow(

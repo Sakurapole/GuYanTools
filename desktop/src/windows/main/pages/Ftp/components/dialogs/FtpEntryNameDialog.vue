@@ -43,8 +43,8 @@ const emit = defineEmits<{
     </div>
     <template #footer>
       <div class="ftp-dialog__footer">
-        <UiButton variant="ghost" @click="emit('cancel')">取消</UiButton>
-        <UiButton variant="primary" :disabled="!value.trim()" @click="emit('submit')">
+        <UiButton size="sm" variant="ghost" @click="emit('cancel')">取消</UiButton>
+        <UiButton size="sm" variant="primary" :disabled="!value.trim()" @click="emit('submit')">
           {{ confirmText }}
         </UiButton>
       </div>

@@ -11,6 +11,9 @@
   --gt-color-text-subtle: rgba(30, 70, 90, 0.48);
   --gt-color-primary: #5c9ded;
   --gt-color-primary-hover: #4f90e1;
+  --gt-color-primary-action: var(--primary-color);
+  --gt-color-primary-action-hover: #8ad9ff;
+  --gt-color-primary-action-text: #1e465a;
   --gt-color-border: rgba(15, 23, 42, 0.08);
   --gt-color-danger: #dc2626;
   --gt-color-overlay: rgba(15, 23, 42, 0.08);
@@ -65,11 +68,11 @@
   --ui-card-shadow: var(--ui-panel-shadow);
   --ui-card-shadow-hover: var(--ui-panel-shadow-hover);
 
-  --ui-button-primary-bg: var(--gt-color-primary);
-  --ui-button-primary-hover-bg: var(--gt-color-primary-hover);
-  --ui-button-primary-text: var(--ui-text-inverse);
-  --ui-button-primary-border: rgba(92, 157, 237, 0.48);
-  --ui-button-primary-shadow: 0 6px 14px rgba(92, 157, 237, 0.18);
+  --ui-button-primary-bg: var(--gt-color-primary-action);
+  --ui-button-primary-hover-bg: var(--gt-color-primary-action-hover);
+  --ui-button-primary-text: var(--gt-color-primary-action-text);
+  --ui-button-primary-border: rgba(102, 204, 255, 0.48);
+  --ui-button-primary-shadow: 0 6px 14px rgba(102, 204, 255, 0.18);
   --ui-button-secondary-bg: #f4f8fc;
   --ui-button-secondary-hover-bg: #edf4fb;
   --ui-button-secondary-text: var(--ui-text-primary);
@@ -142,9 +145,9 @@
   --ui-tabs-text: rgba(30, 70, 90, 0.64);
   --ui-tabs-hover-text: rgba(30, 70, 90, 0.9);
   --ui-tabs-active-text: rgba(30, 70, 90, 0.95);
-  --ui-tabs-active-bg: rgba(102, 204, 255, 0.15);
+  --ui-tabs-active-bg: color-mix(in srgb, #66ccff 22%, var(--ui-surface-panel));
   --ui-tabs-active-indicator: #66ccff;
-  --ui-tabs-segmented-bg: rgba(15, 23, 42, 0.04);
+  --ui-tabs-segmented-bg: color-mix(in srgb, #66ccff 6%, var(--ui-surface-panel));
 
   --ui-state-title: rgba(30, 70, 90, 0.95);
   --ui-state-muted: rgba(30, 70, 90, 0.6);
@@ -291,6 +294,9 @@
   --gt-color-text-subtle: rgba(220, 240, 255, 0.46);
   --gt-color-primary: #3f8fca;
   --gt-color-primary-hover: #4c9bd6;
+  --gt-color-primary-action: var(--primary-color);
+  --gt-color-primary-action-hover: #8ad9ff;
+  --gt-color-primary-action-text: #1e465a;
   --gt-color-border: rgba(255, 255, 255, 0.08);
   --gt-color-danger: #ff9c9c;
   --gt-color-overlay: rgba(0, 0, 0, 0.28);
@@ -345,9 +351,9 @@
   --ui-card-shadow: var(--ui-panel-shadow);
   --ui-card-shadow-hover: var(--ui-panel-shadow-hover);
 
-  --ui-button-primary-bg: var(--gt-color-primary);
-  --ui-button-primary-hover-bg: var(--gt-color-primary-hover);
-  --ui-button-primary-text: var(--ui-text-inverse);
+  --ui-button-primary-bg: var(--gt-color-primary-action);
+  --ui-button-primary-hover-bg: var(--gt-color-primary-action-hover);
+  --ui-button-primary-text: var(--gt-color-primary-action-text);
   --ui-button-primary-border: rgba(102, 204, 255, 0.28);
   --ui-button-primary-shadow: 0 6px 14px rgba(0, 0, 0, 0.2);
   --ui-button-secondary-bg: #1b2a36;
@@ -422,9 +428,9 @@
   --ui-tabs-text: rgba(220, 240, 255, 0.62);
   --ui-tabs-hover-text: rgba(220, 240, 255, 0.9);
   --ui-tabs-active-text: rgba(220, 240, 255, 0.96);
-  --ui-tabs-active-bg: rgba(102, 204, 255, 0.2);
+  --ui-tabs-active-bg: color-mix(in srgb, #66ccff 20%, var(--ui-surface-panel));
   --ui-tabs-active-indicator: #66ccff;
-  --ui-tabs-segmented-bg: rgba(255, 255, 255, 0.04);
+  --ui-tabs-segmented-bg: color-mix(in srgb, #66ccff 6%, var(--ui-surface-panel));
 
   --ui-state-title: rgba(220, 240, 255, 0.96);
   --ui-state-muted: rgba(220, 240, 255, 0.58);

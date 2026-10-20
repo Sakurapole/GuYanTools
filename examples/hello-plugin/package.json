@@ -1,0 +1,22 @@
+{
+  "name": "guyantools-hello-plugin",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "guyantools-plugin dev",
+    "validate": "guyantools-plugin validate",
+    "build": "guyantools-plugin build",
+    "pack": "guyantools-plugin pack"
+  },
+  "dependencies": {
+    "@guyantools/ui-core": "workspace:*",
+    "@guyantools/ui-vue": "workspace:*",
+    "vue": "^3.5.13"
+  },
+  "devDependencies": {
+    "@guyantools/plugin-cli": "workspace:*",
+    "@guyantools/plugin-sdk": "workspace:*",
+    "typescript": "^5.8.3"
+  }
+}

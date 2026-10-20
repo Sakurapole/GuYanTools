@@ -1,6 +1,6 @@
 import path from 'path';
 import fs from 'fs-extra';
-import { BrowserWindow, webContents } from 'electron';
+import { app, BrowserWindow, dialog, webContents } from 'electron';
 import { PLUGIN_INSTALL_DIR } from '../constants/paths';
 import PluginManager from '../../core/plugin_core/plugin_manager';
 import { appConfigManager } from '../app-config/manager';
@@ -23,6 +23,7 @@ import { PluginManifestResolver } from './manifest_resolver';
 import { PluginPermissionManager } from './permission_manager';
 import { PluginRegistry } from './plugin_registry';
 import { PluginRuntimeRouter } from './runtime_router';
+import { UtilityWorkerHost } from './utility_worker_host';
 import { MarketplaceResolver } from './marketplace_resolver';
 import { dbManager } from '../../core/database';
 import { JobService } from './services/job_service';
@@ -33,23 +34,64 @@ import { toPluginThemeDescriptor } from './theme_bridge';
 import { PLUGIN_PERMISSION_META, getDefaultApprovedSuggestions } from './permission_matrix';
 import { PluginAuditStore } from './audit_store';
 import { PluginCrashPolicy } from './crash_policy';
-import { assertPluginDependencies } from './dependency_resolver';
+import { assertPluginDependencies, orderPluginActivations } from './dependency_resolver';
 import { verifyCatalogSignature } from './plugin_signature';
+import { PluginBackgroundTaskScheduler } from './background_task_scheduler';
+import { isLegacyBuiltinModelSource, ModelRuntimeService } from './services/model_runtime_service';
 import type { JobRecord } from '@/contracts/plugin_media';
 
 const REGISTRY_FILE = path.join(PLUGIN_INSTALL_DIR, 'guyantools-plugin-registry.json');
+
+export function isBundledModelPluginRecord(
+  record: InstalledPluginRecord | undefined,
+  bundledRoot: string
+): boolean {
+  return Boolean(
+    record?.manifest.id === 'guyantools.image-enhancement' &&
+      isLegacyBuiltinModelSource(record, bundledRoot)
+  );
+}
 
 export class PluginHost {
   private readonly pluginManager = new PluginManager({ baseDir: PLUGIN_INSTALL_DIR });
   private readonly registry = new PluginRegistry(REGISTRY_FILE);
   private readonly hostServices = new HostServiceRegistry(path.join(PLUGIN_INSTALL_DIR, 'data'));
+  private readonly utilityWorkers = new UtilityWorkerHost(this.hostServices, () =>
+    this.getJobService()
+  );
   private readonly manifestResolver = new PluginManifestResolver();
   private readonly permissionManager = new PluginPermissionManager();
   private readonly contributionAssembler = new PluginContributionAssembler();
   private readonly devSessions = new PluginDevSessionManager();
   private readonly auditStore = new PluginAuditStore();
   private readonly crashPolicy = new PluginCrashPolicy();
+  private readonly backgroundTasks = new PluginBackgroundTaskScheduler(
+    (pluginId, commandId) => this.hostServices.commands.execute(pluginId, commandId),
+    (pluginId, commandId, error) =>
+      this.hostServices.observability.error(pluginId, `Background task failed: ${commandId}`, error)
+  );
   private jobService: JobService | null = null;
+  private readonly modelRuntime = new ModelRuntimeService(
+    path.join(PLUGIN_INSTALL_DIR, 'model-runtime'),
+    (pluginId) => this.registry.get(pluginId),
+    () => this.getJobService(),
+    async (kind) => {
+      const result = await dialog.showOpenDialog({
+        title:
+          kind === 'input' ? '选择输入图片' : kind === 'weights' ? '选择模型权重' : '选择输出目录',
+        properties: kind === 'output' ? ['openDirectory', 'createDirectory'] : ['openFile'],
+        ...(kind === 'input'
+          ? { filters: [{ name: '图片', extensions: ['png', 'jpg', 'jpeg', 'webp', 'bmp'] }] }
+          : {}),
+        ...(kind === 'weights' ? { filters: [{ name: 'PyTorch 权重', extensions: ['pth'] }] } : {}),
+      });
+      return result.canceled ? null : (result.filePaths[0] ?? null);
+    },
+    async () => {
+      const result = await dialog.showOpenDialog({ title: '导入已有 .venv / Conda / uv 环境（只读）', properties: ['openDirectory'] });
+      return result.canceled ? null : (result.filePaths[0] ?? null);
+    }
+  );
   private readonly lifecycleManager = new PluginLifecycleManager(
     this.registry,
     this.manifestResolver,
@@ -68,10 +110,9 @@ export class PluginHost {
     () => appConfigManager.getCachedConfig().plugins.unloadAfterMinutes,
     this.devSessions,
     (pluginId) => {
-      void this.hostServices.android.stopSessionsForOwner(pluginId);
-      this.hostServices.resetPluginQuota(pluginId);
-      this.jobService?.offPlugin(pluginId);
-    }
+      void this.handleUnexpectedWorkerExit(pluginId);
+    },
+    this.utilityWorkers
   );
   private readonly devChannel = new LocalPluginDevChannel((session) => {
     this.runtimeRouter.connectDevSession(session);
@@ -111,6 +152,25 @@ export class PluginHost {
   });
   private mainWindow: BrowserWindow | null = null;
   private initialized = false;
+  private readonly contributionListeners = new Set<() => void>();
+
+  onContributionsChanged(listener: () => void) {
+    this.contributionListeners.add(listener);
+    return () => this.contributionListeners.delete(listener);
+  }
+
+  private notifyContributionsChanged() {
+    for (const listener of this.contributionListeners) listener();
+    this.mainWindow?.webContents.send('plugin-host:contributions-changed');
+  }
+
+  async dispose() {
+    this.backgroundTasks.dispose();
+    for (const record of this.registry.list())
+      await this.modelRuntime.disposePlugin(record.manifest.id);
+    await this.runtimeRouter.stopAll();
+    this.devChannel.stop();
+  }
 
   async initialize() {
     if (this.initialized) {
@@ -118,10 +178,10 @@ export class PluginHost {
     }
 
     await this.registry.initialize();
+    await this.registerBuiltinModelPlugin();
     this.jobService = this.getJobService();
     for (const record of this.registry.list()) {
       await this.jobService.recoverRunning(record.manifest.id);
-      this.attachJobEventBridge(record.manifest.id);
     }
     if (typeof (dbManager.getDatabase() as any).listPluginMarketplaces === 'function') {
       const cached = await (dbManager.getDatabase() as any).listPluginMarketplaces();
@@ -144,6 +204,7 @@ export class PluginHost {
       });
       this.marketplaceResolver.hydrate(validCached);
     }
+    await this.restoreEnabledPlugins();
     this.initialized = true;
     await this.devChannel.start();
     appConfigManager.subscribe((config) =>
@@ -151,9 +212,48 @@ export class PluginHost {
     );
   }
 
+  private async registerBuiltinModelPlugin() {
+    const root = this.getBuiltinModelRoot();
+    const { manifest, resolvedEntryPaths } = await this.manifestResolver.resolveFromDirectory(root);
+    const legacyRoot = app.isPackaged
+      ? path.join(process.resourcesPath, 'model-plugins', 'real-cugan')
+      : path.join(app.getAppPath(), 'resources', 'model-plugins', 'real-cugan');
+    const legacy = this.registry.get('guyantools.real-cugan');
+    const legacyIsBuiltin =
+      legacy?.installSource.type === 'builtin' || isLegacyBuiltinModelSource(legacy, legacyRoot);
+    const migrated = legacy && legacyIsBuiltin ? { ...legacy, manifest } : undefined;
+    const previous = this.registry.get(manifest.id) ?? migrated;
+    const previousPointsToBuiltinRoot = isLegacyBuiltinModelSource(previous, root);
+    if (previous && previous.installSource.type !== 'builtin' && !previousPointsToBuiltinRoot)
+      throw new Error(`MODEL_BUILTIN_ID_CONFLICT: ${manifest.id}`);
+    const now = new Date().toISOString();
+    await this.registry.upsert({
+      manifest,
+      resolvedEntryPaths,
+      installSource: { type: 'builtin', value: root },
+      enabled: previous?.enabled ?? false,
+      status: previous?.status ?? 'resolved',
+      approvedPermissions:
+        previous?.approvedPermissions.filter((permission) =>
+          manifest.permissions.includes(permission)
+        ) ?? [],
+      installedAt: previous?.installedAt ?? now,
+      updatedAt: now,
+    });
+    if (legacy && legacyIsBuiltin && legacy.manifest.id !== manifest.id) {
+      await this.registry.remove(legacy.manifest.id);
+    }
+  }
+
+  private getBuiltinModelRoot() {
+    return app.isPackaged
+      ? path.join(process.resourcesPath, 'model-plugins', 'image-enhancement')
+      : path.join(app.getAppPath(), 'resources', 'model-plugins', 'image-enhancement');
+  }
+
   getJobService() {
     if (!this.jobService) {
-      this.jobService = new JobService(dbManager.getDatabase() as any);
+      this.jobService = new JobService(dbManager.getDatabase() as any, this.hostServices.quota);
     }
     return this.jobService;
   }
@@ -165,6 +265,106 @@ export class PluginHost {
     jobService.onEvent(pluginId, (job) => this.broadcastJobEvent(pluginId, job));
   }
 
+  private resetPluginRuntimeRegistrations(pluginId: string) {
+    this.hostServices.resetPluginQuota(pluginId);
+  }
+
+  private async cleanupPluginRuntime(pluginId: string) {
+    this.backgroundTasks.unregister(pluginId);
+    await this.modelRuntime.disposePlugin(pluginId);
+    await this.hostServices.android.stopSessionsForOwner(pluginId);
+    await this.runtimeRouter.stopWorker(pluginId).catch((): void => undefined);
+    if (this.mainWindow) {
+      await this.runtimeRouter.unmountUiPage(this.mainWindow, pluginId);
+    }
+    this.resetPluginRuntimeRegistrations(pluginId);
+    this.jobService?.offPlugin(pluginId);
+  }
+
+  private async handleUnexpectedWorkerExit(pluginId: string) {
+    const record = this.registry.get(pluginId);
+    await this.cleanupPluginRuntime(pluginId);
+    if (record?.enabled && record.status === 'enabled') {
+      const failure = this.crashPolicy.recordStartFailure(
+        pluginId,
+        new Error('PLUGIN_RUNTIME_EXITED')
+      );
+      await this.registry.updateStatus(pluginId, 'errored', false, failure.message);
+      await this.registry.updateStartFailures(
+        pluginId,
+        failure.consecutiveFailures,
+        failure.message
+      );
+    }
+  }
+
+  private async activateRuntime(record: InstalledPluginRecord) {
+    const pluginId = record.manifest.id;
+    assertPluginDependencies(record, this.hostServices.capabilities);
+    this.hostServices.capabilities.register(pluginId, record.manifest.capabilities ?? []);
+    for (const command of record.manifest.contributes.commands ?? []) {
+      this.hostServices.commandRouter.register(pluginId, command.id, (payload) =>
+        this.runtimeRouter.invokeCommand(pluginId, command.id, payload)
+      );
+    }
+    this.attachJobEventBridge(pluginId);
+    await this.runtimeRouter.startWorker(record);
+    this.backgroundTasks.register(
+      pluginId,
+      record.manifest.contributes,
+      record.approvedPermissions
+    );
+  }
+
+  private async restoreEnabledPlugins() {
+    const enabled = this.registry
+      .list()
+      .filter((record) => record.enabled && record.status === 'enabled');
+    let ordered = enabled;
+    try {
+      ordered = orderPluginActivations(enabled);
+    } catch (error) {
+      this.hostServices.observability.error('Plugin activation order failed', error);
+    }
+    const pending = new Map(ordered.map((record) => [record.manifest.id, record]));
+    let progressed = true;
+    while (pending.size > 0 && progressed) {
+      progressed = false;
+      for (const [pluginId, record] of pending) {
+        try {
+          assertPluginDependencies(record, this.hostServices.capabilities);
+        } catch {
+          continue;
+        }
+        pending.delete(pluginId);
+        progressed = true;
+        try {
+          this.permissionManager.validateManifest(record.manifest);
+          this.permissionManager.validateCompatibility(record.manifest);
+          this.permissionManager.validateApprovedPermissions(
+            record.manifest,
+            record.approvedPermissions
+          );
+          await this.activateRuntime(record);
+          this.crashPolicy.recordStartSuccess(pluginId);
+          await this.registry.updateStartFailures(pluginId, 0);
+        } catch (error) {
+          await this.cleanupPluginRuntime(pluginId);
+          await this.registry.updateStatus(pluginId, 'errored', false, String(error));
+        }
+      }
+    }
+    for (const [pluginId] of pending) {
+      await this.registry.updateStatus(
+        pluginId,
+        'errored',
+        false,
+        'PLUGIN_DEPENDENCY_MISSING_OR_CYCLE'
+      );
+    }
+    this.notifyContributionsChanged();
+  }
+
   getAuditStore() {
     return this.auditStore;
   }
@@ -173,8 +373,82 @@ export class PluginHost {
     return this.hostServices.capabilities;
   }
 
+  async invokePluginCapability(
+    requesterPluginId: string,
+    input: { capabilityId: string; operation: string; payload?: unknown }
+  ) {
+    const candidate = this.hostServices.capabilities
+      .list()
+      .find(
+        (item) =>
+          item.qualifiedId === input.capabilityId ||
+          (item.pluginId === requesterPluginId && item.id === input.capabilityId)
+      );
+    if (!candidate) throw new Error(`PLUGIN_CAPABILITY_NOT_FOUND: ${input.capabilityId}`);
+    if (candidate.pluginId !== requesterPluginId) {
+      const requester = this.registry.get(requesterPluginId);
+      const declared = requester?.manifest.dependencies?.some(
+        (dependency) =>
+          dependency.capability === candidate.qualifiedId || dependency.capability === candidate.id
+      );
+      if (!declared) throw new Error('PLUGIN_CAPABILITY_DEPENDENCY_NOT_DECLARED');
+    }
+    return this.hostServices.capabilities.invoke(candidate.pluginId, {
+      ...input,
+      capabilityId: candidate.qualifiedId,
+    });
+  }
+
   getCommandRouter() {
     return this.hostServices.commandRouter;
+  }
+
+  async executePluginCommand(pluginId: string, commandId: string, payload?: unknown) {
+    return this.hostServices.commands.executeHost(pluginId, commandId, payload);
+  }
+
+  registerPluginCommandRuntime(runtimeId: number, commandId: string) {
+    const context = this.runtimeRouter.getRuntimeContext(runtimeId);
+    const record = context && this.registry.get(context.pluginId);
+    if (!record?.manifest.contributes.commands?.some((command) => command.id === commandId)) {
+      throw new Error(`PLUGIN_COMMAND_NOT_DECLARED: ${commandId}`);
+    }
+    this.runtimeRouter.registerCommandRuntime(runtimeId, commandId);
+  }
+
+  registerPluginCapabilityRuntime(runtimeId: number, capabilityId: string) {
+    const context = this.runtimeRouter.getRuntimeContext(runtimeId);
+    const record = context && this.registry.get(context.pluginId);
+    if (!record?.manifest.capabilities.some((capability) => capability.id === capabilityId)) {
+      throw new Error(`PLUGIN_CAPABILITY_NOT_DECLARED: ${capabilityId}`);
+    }
+    this.runtimeRouter.registerCapabilityRuntime(runtimeId, capabilityId);
+    this.hostServices.capabilities.registerInvokeHandler(context.pluginId, capabilityId, (input) =>
+      this.runtimeRouter.invokeCapability(
+        context.pluginId,
+        capabilityId,
+        input.operation,
+        input.payload
+      )
+    );
+  }
+
+  resolvePluginCapabilityResult(
+    runtimeId: number,
+    result: Parameters<PluginRuntimeRouter['resolveCommandResult']>[1]
+  ) {
+    this.runtimeRouter.resolveCommandResult(runtimeId, result);
+  }
+
+  markPluginWorkerReady(runtimeId: number) {
+    this.runtimeRouter.markWorkerReady(runtimeId);
+  }
+
+  resolvePluginCommandResult(
+    runtimeId: number,
+    result: Parameters<PluginRuntimeRouter['resolveCommandResult']>[1]
+  ) {
+    this.runtimeRouter.resolveCommandResult(runtimeId, result);
   }
 
   getQuotaService() {
@@ -269,9 +543,21 @@ export class PluginHost {
   }
 
   async registerLocalPlugin(inputPath: string, approvedPermissions?: PluginPermission[]) {
-    return this.lifecycleManager.registerLocalPlugin(inputPath, {
+    const record = await this.lifecycleManager.registerLocalPlugin(inputPath, {
       approvedPermissions: approvedPermissions ?? [],
     });
+    // The bundled model can be selected through the local-plugin picker during
+    // development. Keep its execution trust equivalent to the startup builtin
+    // registration, while leaving arbitrary local model plugins untrusted.
+    const bundledRoot = this.getBuiltinModelRoot();
+    if (isBundledModelPluginRecord(record, bundledRoot)) {
+      return this.registry.upsert({
+        ...record,
+        installSource: { type: 'builtin', value: bundledRoot },
+        localPath: undefined,
+      });
+    }
+    return record;
   }
 
   async approvePermissions(pluginId: string, approvedPermissions: PluginPermission[]) {
@@ -360,8 +646,7 @@ export class PluginHost {
   }
 
   async uninstallPlugin(pluginId: string) {
-    await this.hostServices.android.stopSessionsForOwner(pluginId);
-    this.hostServices.resetPluginQuota(pluginId);
+    await this.cleanupPluginRuntime(pluginId);
     return this.lifecycleManager.uninstall(pluginId);
   }
 
@@ -392,40 +677,42 @@ export class PluginHost {
 
   async enablePlugin(pluginId: string) {
     try {
-      const record = await this.lifecycleManager.enable(pluginId);
-      // Capability deps are checked against currently registered providers.
-      assertPluginDependencies(record, this.hostServices.capabilities);
-      this.hostServices.capabilities.register(pluginId, record.manifest.capabilities ?? []);
-      this.attachJobEventBridge(pluginId);
-      await this.runtimeRouter.startWorker(record);
+      const record = this.registry.get(pluginId);
+      if (!record) throw new Error(`Plugin ${pluginId} is not registered`);
+      this.permissionManager.validateManifest(record.manifest);
+      this.permissionManager.validateCompatibility(record.manifest);
+      this.permissionManager.validateApprovedPermissions(
+        record.manifest,
+        record.approvedPermissions
+      );
+      await this.activateRuntime(record);
+      const enabled = await this.lifecycleManager.enable(pluginId);
+      this.notifyContributionsChanged();
       this.crashPolicy.recordStartSuccess(pluginId);
       await this.registry.updateStartFailures(pluginId, 0);
-      return this.registry.get(pluginId) ?? record;
+      return this.registry.get(pluginId) ?? enabled;
     } catch (error) {
       const tracker = this.crashPolicy.recordStartFailure(pluginId, error);
       const message = tracker.message;
+      await this.cleanupPluginRuntime(pluginId);
       if (tracker.shouldAutoDisable) {
-        this.hostServices.resetPluginQuota(pluginId);
-        await this.runtimeRouter.stopWorker(pluginId).catch(() => undefined as void);
         await this.registry.updateStatus(pluginId, 'errored', false, message);
         await this.registry.updateStartFailures(pluginId, tracker.consecutiveFailures, message);
         throw new Error(`PLUGIN_AUTO_DISABLED: ${message}`);
       }
+      await this.registry.updateStatus(pluginId, 'disabled', false, message);
       await this.registry.updateStartFailures(pluginId, tracker.consecutiveFailures, message);
       throw error;
     }
   }
 
   async disablePlugin(pluginId: string) {
-    await this.hostServices.android.stopSessionsForOwner(pluginId);
-    await this.runtimeRouter.stopWorker(pluginId);
-    if (this.mainWindow) {
-      await this.runtimeRouter.unmountUiPage(this.mainWindow, pluginId);
-    }
-    this.hostServices.resetPluginQuota(pluginId);
+    await this.cleanupPluginRuntime(pluginId);
     this.crashPolicy.reset(pluginId);
     await this.registry.updateStartFailures(pluginId, 0);
-    return this.lifecycleManager.disable(pluginId);
+    const result = await this.lifecycleManager.disable(pluginId);
+    this.notifyContributionsChanged();
+    return result;
   }
 
   getPluginDebugInfo(pluginId: string) {
@@ -497,6 +784,7 @@ export class PluginHost {
       if (!context || context.pluginId !== pluginId || target.isDestroyed()) continue;
       target.send('plugin-runtime:jobs:event', job);
     }
+    this.runtimeRouter.broadcastJobEvent(pluginId, job);
   }
 
   async mountPage(pluginId: string, pageId: string, bounds: PluginViewportBounds) {
@@ -522,6 +810,11 @@ export class PluginHost {
 
     await this.runtimeRouter.updateMountedBounds(this.mainWindow, bounds);
   }
+  openDevTools(pluginId: string, pageId: string) {
+    const record = this.registry.get(pluginId);
+    if (!this.mainWindow || !record?.enabled || record.manifest.ui?.showDevToolsButton !== true) throw new Error('PLUGIN_DEVTOOLS_DISABLED');
+    this.runtimeRouter.openMountedDevTools(this.mainWindow, pluginId, pageId);
+  }
 
   async unmountPage(pluginId?: string) {
     if (!this.mainWindow) {
@@ -541,6 +834,14 @@ export class PluginHost {
 
   getHostServices() {
     return this.hostServices;
+  }
+
+  pickLocalPluginPath() {
+    return this.hostServices.system.pickLocalPluginPath();
+  }
+
+  getModelRuntimeService() {
+    return this.modelRuntime;
   }
 }
 

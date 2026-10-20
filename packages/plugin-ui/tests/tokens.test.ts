@@ -10,4 +10,9 @@ describe('plugin UI tokens', () => {
     const tokens = fs.readFileSync(path.resolve(currentDirectory, '../src/tokens.css'), 'utf8');
     expect(tokens).toContain('@guyantools/ui-core/tokens.css');
   });
+
+  it('publishes the global overlay layer required by body-level menus', () => {
+    const tokens = fs.readFileSync(path.resolve(currentDirectory, '../src/tokens.css'), 'utf8');
+    expect(tokens).toContain('@guyantools/ui-core/overlay.css');
+  });
 });

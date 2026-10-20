@@ -24,7 +24,7 @@ async function buildFixture(
       schemaVersion: '1.1',
       id: `${framework}.fixture`,
       version: '1.0.0',
-      entry: { ui: 'index.html', worker: 'src/worker.ts' },
+      entry: { ui: 'dist/index.html', worker: 'dist/worker.html' },
       permissions: [],
       capabilities: [],
     })
@@ -48,10 +48,12 @@ describe('plugin vite preset', () => {
     expect(result.exitCode).toBe(0);
     expect(await fs.stat(path.join(result.outDir, 'index.html'))).toBeTruthy();
     expect(await fs.stat(path.join(result.outDir, 'worker.js'))).toBeTruthy();
+    expect(await fs.readFile(path.join(result.outDir, 'worker.html'), 'utf8')).toContain('worker-bootstrap.js');
+    expect(await fs.readFile(path.join(result.outDir, 'worker-bootstrap.js'), 'utf8')).toContain('lifecycle.ready()');
     const manifest = JSON.parse(
       await fs.readFile(path.join(result.outDir, 'guyantools.plugin.json'), 'utf8')
     );
     expect(manifest.entry.ui).toBe('dist/index.html');
-    expect(manifest.entry.worker).toBe('dist/worker.js');
+    expect(manifest.entry.worker).toBe('dist/worker.html');
   });
 });

@@ -35,22 +35,21 @@ function record(
 }
 
 describe('resolveWorkerRuntimeKind', () => {
-  it('prefers explicit manifest declaration', () => {
-    expect(resolveWorkerRuntimeKind(record('browser', 'worker.js'))).toBe('browser');
-    expect(resolveWorkerRuntimeKind(record('utility', 'index.html'))).toBe('utility');
+  it('uses only browser workers for third-party plugins', () => {
+    expect(resolveWorkerRuntimeKind(record('browser', 'worker.html'))).toBe('browser');
+    expect(() => resolveWorkerRuntimeKind(record('utility', 'worker.html'))).toThrow('PLUGIN_RUNTIME_INVALID');
   });
 
-  it('defaults JS workers to utility and HTML workers to browser', () => {
-    expect(resolveWorkerRuntimeKind(record(undefined, 'worker.js'))).toBe('utility');
-    expect(resolveWorkerRuntimeKind(record(undefined, 'worker.mjs'))).toBe('utility');
+  it('rejects bare JavaScript worker entries', () => {
+    expect(() => resolveWorkerRuntimeKind(record(undefined, 'worker.js'))).toThrow('PLUGIN_ENTRY_INVALID');
     expect(resolveWorkerRuntimeKind(record(undefined, 'worker.html'))).toBe('browser');
   });
 
-  it('honors the global env override', () => {
+  it('does not let environment override the sandbox boundary', () => {
     const previous = process.env.GUYANTOOLS_PLUGIN_WORKER_RUNTIME;
     process.env.GUYANTOOLS_PLUGIN_WORKER_RUNTIME = 'utility';
     try {
-      expect(resolveWorkerRuntimeKind(record(undefined, 'worker.html'))).toBe('utility');
+      expect(resolveWorkerRuntimeKind(record(undefined, 'worker.html'))).toBe('browser');
     } finally {
       if (previous === undefined) delete process.env.GUYANTOOLS_PLUGIN_WORKER_RUNTIME;
       else process.env.GUYANTOOLS_PLUGIN_WORKER_RUNTIME = previous;

@@ -11,6 +11,9 @@
   --gt-color-text-subtle: rgba(218, 234, 246, 0.48);
   --gt-color-primary: #3f8fca;
   --gt-color-primary-hover: #4c9bd6;
+  --gt-color-primary-action: #66ccff;
+  --gt-color-primary-action-hover: #8ad9ff;
+  --gt-color-primary-action-text: #1e465a;
   --gt-color-border: rgba(210, 231, 247, 0.14);
   --gt-color-danger: #ff9c9c;
   --gt-color-danger-soft: rgba(239, 68, 68, 0.2);

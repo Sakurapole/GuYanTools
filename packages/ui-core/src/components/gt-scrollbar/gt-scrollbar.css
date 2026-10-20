@@ -7,8 +7,10 @@
   --gt-scrollbar-size: 12px;
 }
 .viewport {
+  box-sizing: border-box;
   width: 100%;
   height: 100%;
+  scrollbar-gutter: auto;
   scrollbar-width: none;
 }
 .viewport::-webkit-scrollbar {
@@ -58,15 +60,14 @@
   width: 100%;
   height: 40%;
 }
-:host([show-on-hover]:not([always-visible])) .rail {
+:host(:not([always-visible='true']):not([show-on-hover='false'])) .rail {
   opacity: 0;
 }
-:host([show-on-hover]:not([always-visible]).is-scrolling) .rail,
-:host([show-on-hover]:not([always-visible]):focus-within) .rail {
+:host(:not([always-visible='true']):not([show-on-hover='false']).is-scrolling) .rail {
   opacity: 1;
 }
-:host(:not([show-on-hover])) .rail,
-:host([always-visible]) .rail {
+:host([show-on-hover='false']) .rail,
+:host([always-visible='true']) .rail {
   opacity: 1;
 }
 [hidden] {

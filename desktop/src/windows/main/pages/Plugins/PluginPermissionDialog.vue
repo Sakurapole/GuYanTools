@@ -1,7 +1,10 @@
 <script setup lang="ts">
+import PluginActionIcon from './PluginActionIcon.vue';
 import { computed, ref, watch } from 'vue';
 import type { PluginPermission } from '@/contracts/plugin_host';
 import UiButton from '../../components/ui/UiButton.vue';
+import UiCheckbox from '../../components/ui/UiCheckbox.vue';
+import UiScrollbar from '../../components/ui/UiScrollbar.vue';
 import {
   getPermissionCopy,
   getPermissionTier,
@@ -66,49 +69,57 @@ function confirm() {
     <div class="permission-dialog__panel ui-glass-surface">
       <div class="permission-dialog__header">
         <h2>{{ title }}</h2>
-        <UiButton variant="ghost" aria-label="取消" @click="emit('cancel')">关闭</UiButton>
+        <UiButton variant="ghost" aria-label="取消" @click="emit('cancel')"
+          ><template #prefix><PluginActionIcon name="close" /></template>关闭</UiButton
+        >
       </div>
       <p>
         以下权限会授予宿主原语；capability
         只描述插件业务能力，不会自动扩大权限。高风险权限默认不勾选。
       </p>
-      <ul class="permission-dialog__list">
-        <li
-          v-for="permission in declaredPermissions"
-          :key="permission"
-          class="permission-dialog__item"
-        >
-          <label class="permission-dialog__label">
-            <input
-              type="checkbox"
-              :checked="selected.has(permission)"
-              @change="toggle(permission, ($event.target as HTMLInputElement).checked)"
-            />
-            <span class="permission-dialog__text">
-              <span class="permission-dialog__title">
-                {{ getPermissionCopy(permission).title }}
-                <em
-                  v-if="getPermissionTier(permission) === 'elevated'"
-                  class="permission-dialog__badge"
-                  >需批准</em
-                >
-                <em
-                  v-else-if="getPermissionTier(permission) === 'builtin'"
-                  class="permission-dialog__badge permission-dialog__badge--builtin"
-                  >仅内置</em
-                >
+      <UiScrollbar class="permission-dialog__scroll" :x="false" :y="true" always-visible>
+        <ul class="permission-dialog__list">
+          <li
+            v-for="permission in declaredPermissions"
+            :key="permission"
+            class="permission-dialog__item"
+          >
+            <label class="permission-dialog__label">
+              <UiCheckbox
+                :model-value="selected.has(permission)"
+                :aria-label="`授权 ${permission}`"
+                @update:model-value="toggle(permission, $event)"
+              />
+              <span class="permission-dialog__text">
+                <span class="permission-dialog__title">
+                  {{ getPermissionCopy(permission).title }}
+                  <em
+                    v-if="getPermissionTier(permission) === 'elevated'"
+                    class="permission-dialog__badge"
+                    >需批准</em
+                  >
+                  <em
+                    v-else-if="getPermissionTier(permission) === 'builtin'"
+                    class="permission-dialog__badge permission-dialog__badge--builtin"
+                    >仅内置</em
+                  >
+                </span>
+                <code>{{ permission }}</code>
+                <span class="permission-dialog__desc">{{
+                  getPermissionCopy(permission).description
+                }}</span>
               </span>
-              <code>{{ permission }}</code>
-              <span class="permission-dialog__desc">{{
-                getPermissionCopy(permission).description
-              }}</span>
-            </span>
-          </label>
-        </li>
-      </ul>
+            </label>
+          </li>
+        </ul>
+      </UiScrollbar>
       <div class="permission-dialog__actions">
-        <UiButton variant="ghost" @click="emit('cancel')">取消</UiButton>
-        <UiButton variant="primary" @click="confirm">确认</UiButton>
+        <UiButton variant="ghost" @click="emit('cancel')"
+          ><template #prefix><PluginActionIcon name="close" /></template>取消</UiButton
+        >
+        <UiButton variant="primary" @click="confirm"
+          ><template #prefix><PluginActionIcon name="check" /></template>确认</UiButton
+        >
       </div>
     </div>
   </div>
@@ -118,7 +129,7 @@ function confirm() {
 .permission-dialog {
   position: fixed;
   inset: 0;
-  z-index: 1000;
+  z-index: calc(var(--ui-z-secure-modal) + 1);
   display: grid;
   place-items: center;
   padding: 24px;
@@ -140,11 +151,14 @@ function confirm() {
   margin-top: 18px;
 }
 .permission-dialog__list {
-  max-height: 280px;
-  overflow: auto;
   padding: 0;
   margin: 12px 0 0;
   list-style: none;
+}
+.permission-dialog__scroll {
+  display: block;
+  height: 280px;
+  min-height: 0;
 }
 .permission-dialog__item {
   padding: 8px 0;

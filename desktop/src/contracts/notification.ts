@@ -5,6 +5,7 @@ export type NotificationType = 'text' | 'image' | 'richText';
 export type NotificationSize = 'sm' | 'md' | 'lg';
 
 export type NotificationTheme = 'light' | 'dark';
+export type NotificationTone = 'info' | 'success' | 'warning' | 'error';
 
 /** 图片来源：系统通知会在主进程内归一化成本窗口可直接渲染的地址 */
 export type NotificationImageSource =
@@ -19,6 +20,8 @@ export interface NotificationPayload {
   type: NotificationType;
   size: NotificationSize;
   title?: string;
+  /** 操作消息级别；省略时使用 info */
+  tone?: NotificationTone;
   message?: string;
   /** 图片路径或 URL（image / richText 类型可用） */
   imageUrl?: string;

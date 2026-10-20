@@ -1,7 +1,6 @@
 {
   "name": "@guyantools/plugin-sdk",
   "version": "1.0.0",
-  "private": true,
   "type": "module",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
@@ -14,6 +13,7 @@
   "files": ["dist"],
   "scripts": {
     "build": "tsc --emitDeclarationOnly --outDir dist && vite build",
+    "prepack": "pnpm run build",
     "test": "vitest run"
   },
   "devDependencies": {

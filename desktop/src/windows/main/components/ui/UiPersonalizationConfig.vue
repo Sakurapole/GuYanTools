@@ -1,5 +1,5 @@
 <script lang="ts" setup>
-import { computed, nextTick, onBeforeUnmount, ref, watch } from 'vue';
+import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 import type { BackgroundConfirmPayload, BackgroundStyleConfig } from '../../types/grid';
 import type { CompressQuality } from '@/contracts/media';
 import { useAppConfigStore } from '../../stores/app_config_store';
@@ -187,6 +187,8 @@ const presetColors = [
 
 // ─── 自定义颜色 (画板 + 取色器 + 直接输入) ───
 const showCustomPicker = ref(false);
+const customPickerTriggerRef = ref<HTMLElement | null>(null);
+const customPickerPanelRef = ref<HTMLElement | null>(null);
 const satBrightCanvas = ref<HTMLCanvasElement | null>(null);
 const hueSlider = ref<HTMLCanvasElement | null>(null);
 const customHue = ref(0); // 0~360
@@ -527,7 +529,21 @@ function applyCustomColor() {
   selectedColor.value = getCustomColorCss();
 }
 
+function handleCustomPickerOutsidePointerdown(event: PointerEvent) {
+  if (!showCustomPicker.value) return;
+  const target = event.target;
+  if (!(target instanceof Node)) return;
+  if (customPickerTriggerRef.value?.contains(target)) return;
+  if (customPickerPanelRef.value?.contains(target)) return;
+  showCustomPicker.value = false;
+}
+
+onMounted(() => {
+  document.addEventListener('pointerdown', handleCustomPickerOutsidePointerdown, true);
+});
+
 onBeforeUnmount(() => {
+  document.removeEventListener('pointerdown', handleCustomPickerOutsidePointerdown, true);
   window.removeEventListener('mousemove', handleSBMouseMove);
   window.removeEventListener('mouseup', handleSBMouseUp);
   window.removeEventListener('mousemove', handleHueMouseMove);
@@ -969,7 +985,7 @@ watch(
           <div class="bg-picker__custom-section">
             <div class="bg-picker__custom-header">
               <div class="bg-picker__section-title">自定义颜色</div>
-              <div class="bg-picker__custom-actions">
+              <div ref="customPickerTriggerRef" class="bg-picker__custom-actions">
                 <button
                   v-if="eyeDropperSupported"
                   class="bg-picker__tool-btn"
@@ -1023,7 +1039,11 @@ watch(
             </div>
 
             <!-- 颜色画板 -->
-            <div v-if="showCustomPicker" class="bg-picker__palette-panel">
+            <div
+              v-if="showCustomPicker"
+              ref="customPickerPanelRef"
+              class="bg-picker__palette-panel"
+            >
               <div class="bg-picker__palette-row">
                 <!-- 饱和度/明度画板 -->
                 <div class="bg-picker__sb-wrapper">

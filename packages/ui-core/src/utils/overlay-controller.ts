@@ -85,14 +85,27 @@ export class OverlayPortal {
     footer.setAttribute('part', 'footer');
     panel.append(header, body, footer);
 
+    const drawerScrollbar = type === 'drawer' ? document.createElement('gt-scrollbar') : undefined;
+    if (drawerScrollbar) {
+      drawerScrollbar.setAttribute('x', 'false');
+      drawerScrollbar.setAttribute('y', 'true');
+      drawerScrollbar.setAttribute('size', '6');
+      drawerScrollbar.setAttribute('smooth-wheel', 'true');
+      drawerScrollbar.style.display = 'block';
+      drawerScrollbar.style.flex = '1 1 0';
+      drawerScrollbar.style.minHeight = '0';
+      drawerScrollbar.style.height = '100%';
+      body.append(drawerScrollbar);
+    }
+
     if (typeof content === 'string') {
-      body.textContent = content;
+      (drawerScrollbar ?? body).textContent = content;
     } else {
       for (const node of Array.from(content.childNodes)) {
         const slot = node instanceof HTMLElement ? node.getAttribute('slot') : null;
         if (slot === 'header') header.append(node);
         else if (slot === 'footer') footer.append(node);
-        else body.append(node);
+        else (drawerScrollbar ?? body).append(node);
       }
     }
 

@@ -8,6 +8,7 @@ import {
   type AppBottomBarTabId,
 } from '@/contracts/app_config';
 import { useAppConfigStore } from './app_config_store';
+import { choosePreviousTab } from '../tab_history';
 
 export type AppTabKind = 'internal' | 'pinned-webview' | 'runtime';
 
@@ -192,6 +193,9 @@ export const useBarStore = defineStore('bar', () => {
     );
 
   const tabPages = ref<AppTabDefinition[]>(orderTabs(getConfiguredTabs()));
+  const activationHistory = ref<string[]>(
+    tabPages.value.filter((tab) => tab.active).map((tab) => tab.id)
+  );
 
   const applyLocalBottomBarPatch = (patch: Partial<AppBottomBarConfig>) => {
     appConfigStore.config.bottomBar = {
@@ -244,6 +248,11 @@ export const useBarStore = defineStore('bar', () => {
 
   const ungroupedTabPages = computed(() => tabPages.value.filter((tab) => !tab.collectionId));
 
+  const recordActivation = (tabId: string) => {
+    activationHistory.value = activationHistory.value.filter((id) => id !== tabId);
+    activationHistory.value.push(tabId);
+  };
+
   const activateTabByUrl = (url: string) => {
     ensureFixedTabs();
 
@@ -255,6 +264,8 @@ export const useBarStore = defineStore('bar', () => {
         ...tab,
         active: tab.url === url,
       }));
+      const active = tabPages.value.find((tab) => tab.url === url);
+      if (active) recordActivation(active.id);
       return;
     }
 
@@ -278,6 +289,8 @@ export const useBarStore = defineStore('bar', () => {
         if (shouldActivate) activated = true;
         return { ...tab, active: shouldActivate };
       });
+      const active = tabPages.value.find((tab) => tab.active);
+      if (active) recordActivation(active.id);
       return;
     }
 
@@ -296,11 +309,18 @@ export const useBarStore = defineStore('bar', () => {
 
     const wasActive = target.active;
     tabPages.value = tabPages.value.filter((tab) => tab.id !== id);
+    activationHistory.value = activationHistory.value.filter((tabId) => tabId !== id);
     delete runtimeTabCollections.value[id];
     persistTabOrder(tabPages.value);
 
     if (wasActive) {
-      const fallback = tabPages.value.find((tab) => !tab.closable) ?? tabPages.value[0];
+      const survivingIds = new Set(tabPages.value.map((tab) => tab.id));
+      const previousId = choosePreviousTab(
+        tabPages.value.map((tab) => tab.id),
+        activationHistory.value,
+        survivingIds
+      );
+      const fallback = tabPages.value.find((tab) => tab.id === previousId) ?? tabPages.value[0];
       if (fallback) {
         activateTabByUrl(fallback.url);
         return fallback.url;

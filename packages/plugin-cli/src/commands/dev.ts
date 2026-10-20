@@ -32,7 +32,7 @@ export async function devPlugin(options: DevOptions = {}) {
   const session = {
     pluginId,
     uiUrl: `http://127.0.0.1:${actualPort}/index.html`,
-    workerUrl: `http://127.0.0.1:${actualPort}/worker.js`,
+    workerUrl: `http://127.0.0.1:${actualPort}/worker.html`,
     sessionToken: createSessionToken(),
   };
   const devSession: PluginDevSession = {

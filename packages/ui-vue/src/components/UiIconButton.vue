@@ -32,7 +32,7 @@ withDefaults(
     :disabled="disabled"
     :active="active"
     :title="title"
-    :label="label"
+    :label="label || undefined"
     :type.attr="type"
     v-bind="$attrs"
     ><slot

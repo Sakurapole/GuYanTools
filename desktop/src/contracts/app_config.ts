@@ -150,6 +150,7 @@ export interface AppAppearanceConfig {
   theme: AppTheme;
   language: AppLanguage;
   fontFamily: string;
+  codeFontFamily: string;
   baseFontSize: number;
 }
 
@@ -170,6 +171,7 @@ export interface AppSystemShortcutsConfig {
   captureScreenshotRegion: string;
   captureScreenshotAnnotate: string;
   toggleQuickLaunch: string;
+  toggleCheatSheet: string;
   openDetachedTerminal: string;
   openDetachedFtp: string;
   openDetachedTodo: string;
@@ -419,6 +421,7 @@ export function createDefaultAppConfig(): AppConfig {
       theme: 'light',
       language: 'zh',
       fontFamily: SYSTEM_FONT_OPTION_VALUE,
+      codeFontFamily: SYSTEM_FONT_OPTION_VALUE,
       baseFontSize: 16,
     },
     bottomBar: {
@@ -528,6 +531,7 @@ export function createDefaultAppConfig(): AppConfig {
         captureScreenshotRegion: 'CommandOrControl+Alt+Shift+S',
         captureScreenshotAnnotate: 'CommandOrControl+Alt+Shift+A',
         toggleQuickLaunch: 'Alt+Space',
+        toggleCheatSheet: 'CommandOrControl+Alt+Q',
         openDetachedTerminal: 'CommandOrControl+Shift+T',
         openDetachedFtp: '',
         openDetachedTodo: '',

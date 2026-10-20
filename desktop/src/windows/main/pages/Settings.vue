@@ -47,6 +47,7 @@ import UiButton from '../components/ui/UiButton.vue';
 import UiCheckbox from '../components/ui/UiCheckbox.vue';
 import UiDrawer from '../components/ui/UiDrawer.vue';
 import UiField from '../components/ui/UiField.vue';
+import UiFontPicker from '../components/ui/UiFontPicker.vue';
 import UiIconButton from '../components/ui/UiIconButton.vue';
 import UiInput from '../components/ui/UiInput.vue';
 import IconRenderer from '../components/ui/IconRenderer.vue';
@@ -649,6 +650,11 @@ const detachedWindowShortcutRows: Array<{
   description: string;
 }> = [
   {
+    key: 'toggleCheatSheet',
+    label: 'Windows 小抄',
+    description: '系统级快捷键，默认 Ctrl+Alt+Q 显示或隐藏受保护题库窗口。',
+  },
+  {
     key: 'openDetachedTerminal',
     label: '独立窗口：终端',
     description: '系统级快捷键，默认 Ctrl+Shift+T 打开终端页面独立窗口。',
@@ -1161,7 +1167,7 @@ function scheduleSettingsTabLoad(tab: SettingsTabKey, force = false) {
   runSettingsIdleTask(() => {
     switch (tab) {
       case 'general':
-        if (appConfigStore.fontOptions.length === 0) {
+        if (!appConfigStore.fontOptionsLoaded) {
           void appConfigStore.loadLocalFonts();
         }
         break;
@@ -1390,6 +1396,10 @@ async function handleFontChange(value: string) {
       fontFamily: value,
     },
   });
+}
+
+async function handleCodeFontChange(value: string) {
+  await appConfigStore.updateConfig({ appearance: { codeFontFamily: value } });
 }
 
 async function loadTerminalProfiles() {
@@ -3205,6 +3215,9 @@ function scriptTypeLabel(type: string) {
             </div>
 
             <div class="settings-form">
+              <div class="settings-row">
+                <div class="settings-row__label"><span>Windows 小抄</span><small>独立的 Markdown 题库窗口；全局快捷键默认 Ctrl+Alt+Q。</small></div>
+              </div>
               <section class="settings-group">
                 <h3>常规</h3>
                 <div class="settings-row">
@@ -3436,6 +3449,19 @@ function scriptTypeLabel(type: string) {
                       :model-value="appConfigStore.config.appearance.fontFamily"
                       :options="appConfigStore.fontOptions"
                       @update:modelValue="handleFontChange"
+                    />
+                  </div>
+                </div>
+                <div class="settings-row">
+                  <div class="settings-row__label">
+                    <span>代码块字体</span>
+                    <small>用于文档、知识库预览和 AI 消息中的代码块；从本机字体中搜索。</small>
+                  </div>
+                  <div class="settings-row__control">
+                    <UiFontPicker
+                      :model-value="appConfigStore.config.appearance.codeFontFamily"
+                      :options="appConfigStore.fontOptions"
+                      @update:modelValue="handleCodeFontChange"
                     />
                   </div>
                 </div>
@@ -5419,6 +5445,10 @@ function scriptTypeLabel(type: string) {
             </div>
 
             <div class="settings-form">
+              <div class="settings-row">
+                <div class="settings-row__label"><span>Windows 小抄</span><small>独立的 Markdown 题库窗口；全局快捷键默认 Ctrl+Alt+Q。</small></div>
+                <div class="settings-row__control"><UiButton type="button" variant="ghost" size="sm" @click="window.cheatSheetApi?.open()">打开 Windows 小抄</UiButton></div>
+              </div>
               <section class="settings-group">
                 <h3>终端</h3>
                 <div class="settings-row">

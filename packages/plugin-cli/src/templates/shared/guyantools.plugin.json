@@ -6,12 +6,10 @@
   "version": "0.1.0",
   "description": "A GuYanTools plugin.",
   "pluginApiVersion": "1.0.0",
-  "uiApiVersion": "1.0.0",
   "hostVersionRange": ">=1.0.0",
   "trustLevel": "sandboxed",
   "runtime": "hybrid",
-  "ui": { "theme": "guyantools", "components": "@guyantools/plugin-ui" },
-  "entry": { "ui": "dist/index.html", "worker": "dist/worker.js" },
+  "entry": { "ui": "dist/index.html", "worker": "dist/worker.html" },
   "permissions": ["ui.contribute", "observability.logs"],
   "capabilities": [],
   "contributes": { "pages": [{ "id": "main", "title": "Example Plugin", "routePath": "/" }] }

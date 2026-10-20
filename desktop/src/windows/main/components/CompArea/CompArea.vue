@@ -380,8 +380,11 @@ async function handleItemOpen(item: GridItem) {
       barStore.openTab(routePath, item.label || '插件页面', item.icon);
       await router.push(routePath);
     } else if (action.type === 'plugin_command' && action.pluginId && action.commandId) {
-      // 执行插件命令（预留）
-      console.log('执行插件命令:', action.pluginId, action.commandId);
+      await window.pluginHostApi?.executePluginCommand(
+        action.pluginId,
+        action.commandId,
+        action.payload
+      );
     } else if (action.type === 'open_webpage' && action.url) {
       if (action.openMode === 'new_window') {
         // 新窗口打开 → 独立 Electron 窗口
