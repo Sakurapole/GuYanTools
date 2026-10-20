@@ -1,7 +1,7 @@
 {
   "name": "guyantools",
   "productName": "GuYanTools",
-  "version": "0.0.5",
+  "version": "0.0.6",
   "description": "My Electron application description",
   "main": ".vite/build/index.js",
   "repository": "https://github.com/Sakurapole/GuYanTools",
@@ -140,6 +140,7 @@
     "mathjax": "^4.1.2",
     "mermaid": "^11.15.0",
     "pinia": "^2.3.1",
+    "semver": "~7.7.3",
     "three": "0.183.2",
     "vue": "^3.5.13",
     "vue-i18n": "^11.1.11",
