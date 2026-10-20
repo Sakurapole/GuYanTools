@@ -1,7 +1,7 @@
 {
   "name": "guyantools",
   "productName": "GuYanTools",
-  "version": "0.0.6",
+  "version": "0.0.5",
   "description": "My Electron application description",
   "main": ".vite/build/index.js",
   "repository": "https://github.com/Sakurapole/GuYanTools",
